@@ -112,6 +112,10 @@
       "value": "★ {0}"
     },
     {
+      "key": "menu.servers.list.sourceBadge",
+      "value": "{0} ({1})"
+    },
+    {
       "key": "menu.servers.list.share",
       "value": "Delen"
     },
@@ -146,6 +150,14 @@
     {
       "key": "menu.servers.usernamePrompt.body",
       "value": "Kies de naam die andere spelers zien en druk daarna op «Verbinden»."
+    },
+    {
+      "key": "menu.servers.passwordPrompt.title",
+      "value": "Deelnemen aan {0}"
+    },
+    {
+      "key": "menu.servers.passwordPrompt.body",
+      "value": "Het wachtwoord is geweigerd. Voer het serverwachtwoord in."
     },
     {
       "key": "menu.servers.search.byNameOrAddress",
@@ -274,6 +286,10 @@
     {
       "key": "menu.servers.hostThirdPersonDisabled",
       "value": "Derde persoon uitschakelen"
+    },
+    {
+      "key": "menu.servers.portInvalid",
+      "value": "Poort moet tussen 1 en 65535 liggen"
     }
   ]
 }

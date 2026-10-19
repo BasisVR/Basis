@@ -14,8 +14,8 @@ namespace UnityEngine.Rendering.Universal
 
     internal class DBufferRenderPass : ScriptableRenderPass
     {
-        internal static string[] s_DBufferNames = { "_DBufferTexture0", "_DBufferTexture1", "_DBufferTexture2", "_DBufferTexture3" };
-        internal static string s_DBufferDepthName = "DBufferDepth";
+        internal static readonly string[] s_DBufferNames = { "_DBufferTexture0", "_DBufferTexture1", "_DBufferTexture2", "_DBufferTexture3" };
+        internal static readonly string s_DBufferDepthName = "DBufferDepth";
         static readonly int s_SSAOTextureID = Shader.PropertyToID("_ScreenSpaceOcclusionTexture");
 
         private DecalDrawDBufferSystem m_DrawSystem;

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Unity.Scripting.LifecycleManagement;
+using System;
 using System.Collections.Generic;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
@@ -11,9 +12,10 @@ using UnityEngine;
 namespace HVR.Basis.Comms
 {
     /// The implementation has been split so that we may separate the "SDK" part from the implementation part if needed.
-    public class HVRBasisBuiltInAddresses
+    [AutoStaticsCleanup]
+    public partial class HVRBasisBuiltInAddresses
     {
-        private static readonly int[] _addressIds = new int[BasisOpenLipSyncContext.VisemeCount];
+        [NoAutoStaticsCleanup] private static readonly int[] _addressIds = new int[BasisOpenLipSyncContext.VisemeCount];
         private static int _addressMax;
         private static bool _addressIdsInitialized;
 

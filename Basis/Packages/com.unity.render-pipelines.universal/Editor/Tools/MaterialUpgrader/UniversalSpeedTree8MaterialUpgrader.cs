@@ -4,7 +4,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace UnityEditor.Rendering.Universal
 {
-    class UniversalSpeedTree8Upgrader : SpeedTree8MaterialUpgrader
+    class UniversalSpeedTree8Upgrader : SpeedTree8MaterialUpgrader, IBuiltInToURPMaterialUpgrader
     {
         internal UniversalSpeedTree8Upgrader(string oldShaderName)
             : base(oldShaderName, ShaderUtils.GetShaderPath(ShaderPathID.SpeedTree8), UniversalSpeedTree8MaterialFinalizer)

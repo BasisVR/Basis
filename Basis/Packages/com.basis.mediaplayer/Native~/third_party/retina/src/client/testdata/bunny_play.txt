@@ -1,0 +1,8 @@
+RTSP/1.0 200 OK
+RTP-Info: url=trackID=1;seq=1;rtptime=0,url=rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov/trackID=2;seq=1;rtptime=0
+CSeq: 3
+Server: Wowza Streaming Engine 4.8.10 build20210217143515
+Cache-Control: no-cache
+Range: npt=0.0-596.48
+Session: 551045787;timeout=60
+

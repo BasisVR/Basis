@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -10,7 +11,7 @@ using Basis.Scripts.Rendering;
 using Unity.Profiling;
 using Unity.Profiling.LowLevel.Unsafe;
 using UnityEngine;
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
 using Basis.Rendering.RTAO;
 #endif
 
@@ -22,7 +23,8 @@ namespace Basis.Scripts.Drivers
     /// one EMA-smoothed instant per segment for a live HUD, this records every sampled frame into a
     /// fixed-size buffer for the capture window and reports min/avg/median/p95/max/stddev.
     /// </summary>
-    public static class BasisRenderProfileHistory
+    [AutoStaticsCleanup]
+    public static partial class BasisRenderProfileHistory
     {
         public const int DefaultFrames = 300;
         private const double NsToMs = 1.0 / 1_000_000.0;
@@ -30,7 +32,7 @@ namespace Basis.Scripts.Drivers
             ProfilerRecorderOptions.WrapAroundWhenCapacityReached |
             ProfilerRecorderOptions.StartImmediately |
             ProfilerRecorderOptions.SumAllSamplesInFrame;
-        private static readonly string[] AlwaysIncludeMarkerPrefixes = { "BasisVisibility.", "BasisNamePlate." };
+        [NoAutoStaticsCleanup] private static readonly string[] AlwaysIncludeMarkerPrefixes = { "BasisVisibility.", "BasisNamePlate." };
         private const int MaxDiscoveredMarkers = 500;
         private const int TopMarkerReportCount = 25;
         // Found by inspecting real captures, not derivable from the API: these enumerate as
@@ -39,7 +41,7 @@ namespace Basis.Scripts.Drivers
         // the smaller ones (EngineJob ~9ms, WaitForTargetFPS ~3ms — both plausible-looking but still
         // not real per-frame cost). This list is necessarily incomplete; expect to extend it as new
         // ones turn up in future captures rather than treating it as exhaustive.
-        private static readonly string[] ExcludedMarkerNames =
+        [NoAutoStaticsCleanup] private static readonly string[] ExcludedMarkerNames =
         {
             "BeginJob", "EndJob", "ScheduleJob", "WaitForCompleted", "ScheduleAllocJob", "KickJobs",
             "Idle", "Semaphore.WaitForSignal", "EngineJob", "WaitForTargetFPS",
@@ -210,7 +212,7 @@ namespace Basis.Scripts.Drivers
             AddGpuSegment(BasisPerformanceGpuSegment.Opaque, "Opaque", capacity);
             AddGpuSegment(BasisPerformanceGpuSegment.Transparent, "Transparent", capacity);
             AddGpuSegment(BasisPerformanceGpuSegment.Other, "Other", capacity);
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             AddGpuSegment(BasisPerformanceGpuSegment.GlobalIllumination, "GlobalIllumination", capacity);
             gpuSeries.Add(new Series("GI RayPrepass", "GlobalIllumination", () => BasisGlobalIlluminationPass.GpuMsRayPrepass, capacity));
             gpuSeries.Add(new Series("GI RayTrace", "GlobalIllumination", () => BasisGlobalIlluminationPass.GpuMsRayTrace, capacity));
@@ -231,7 +233,7 @@ namespace Basis.Scripts.Drivers
             gpuSeries.Add(new Series("Reflections Upsample", "Reflections", () => BasisGlobalIlluminationPass.SpecularPass.GpuMsUpsample, capacity));
             gpuSeries.Add(new Series("Reflections Publish", "Reflections", () => BasisGlobalIlluminationPass.SpecularPass.GpuMsPublish, capacity));
 #endif
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
             AddGpuSegment(BasisPerformanceGpuSegment.Rtao, "Rtao", capacity);
             gpuSeries.Add(new Series("Rtao AfterOpaque", "Rtao", () => BasisRTAOAfterOpaquePass.GpuMs, capacity));
 #endif
@@ -262,10 +264,10 @@ namespace Basis.Scripts.Drivers
         private static void BuildInvocationSeries(int capacity)
         {
             invocationSeries = new List<Series>(3);
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
             invocationSeries.Add(new Series("Rtao", "Rtao", () => BasisRTAOPass.InvocationsThisFrame, capacity));
 #endif
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             invocationSeries.Add(new Series("GlobalIllumination", "GlobalIllumination", () => BasisGlobalIlluminationPass.InvocationsThisFrame, capacity));
             invocationSeries.Add(new Series("Reflections", "Reflections", () => BasisGlobalIlluminationPass.SpecularPass.InvocationsThisFrame, capacity));
 #endif
@@ -424,7 +426,7 @@ namespace Basis.Scripts.Drivers
             sb.Append("  \"qualityTier\": \"").Append(QualityTierName(BasisQualityTier.Current)).Append("\",\n");
             sb.Append("  \"performanceModeActive\": ").Append(BasisPerformanceMode.IsActive ? "true" : "false").Append(",\n");
             sb.Append("  \"performanceModeLevel\": \"").Append(BasisPerformanceMode.ActiveLevel).Append("\",\n");
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             sb.Append("  \"giQuality\": \"").Append(BasisGlobalIlluminationSettings.Current.quality).Append("\",\n");
 #endif
             sb.Append("  \"remoteAvatarCount\": ").Append(BasisNetworkPlayers.ReceiverCount).Append(",\n");

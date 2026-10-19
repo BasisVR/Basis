@@ -21,7 +21,7 @@ namespace UnityEditor.Rendering.Universal
 
         public override void DrawSurfaceInputs(Material material)
         {
-            DrawShaderGraphProperties(material, properties);
+            DrawShaderGraphProperties(properties);
         }
     }
 }

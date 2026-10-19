@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
@@ -13,7 +14,8 @@ using UnityEngine.Rendering;
 /// Rides the mesh LOD level <see cref="BasisDistanceJobParallel"/> already computes, so it adds no
 /// distance work of its own and only reacts when a remote crosses a LOD boundary.
 /// </summary>
-public static class BasisAvatarShadowLOD
+[AutoStaticsCleanup]
+public static partial class BasisAvatarShadowLOD
 {
     /// <summary>Master switch. When false every remote is restored to its authored modes.</summary>
     public static bool Enabled;
@@ -22,7 +24,7 @@ public static class BasisAvatarShadowLOD
     /// Whether a remote at this mesh LOD level still casts shadows (0 = closest, 3 = furthest).
     /// Shadows survive the two near levels, which on the Windows defaults is roughly the first 14 m.
     /// </summary>
-    private static readonly bool[] CastsByLod = { true, true, false, false };
+    [NoAutoStaticsCleanup] private static readonly bool[] CastsByLod = { true, true, false, false };
 
     /// <summary>Whether this LOD level should cast shadows. Clamps out-of-range levels.</summary>
     public static bool CastsAtLod(int lod) => CastsByLod[Mathf.Clamp(lod, 0, CastsByLod.Length - 1)];

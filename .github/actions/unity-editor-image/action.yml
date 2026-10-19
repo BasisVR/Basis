@@ -1,0 +1,41 @@
+name: Unity editor image
+description: Builds a local Docker image of the editor named in ProjectVersion.txt with the given modules, for unity-builder's customImage.
+
+inputs:
+  projectPath:
+    description: Unity project folder.
+    required: true
+  modules:
+    description: Space separated Unity Hub module ids.
+    required: false
+    default: ""
+
+outputs:
+  image:
+    description: Local image tag.
+    value: ${{ steps.build.outputs.image }}
+
+runs:
+  using: composite
+  steps:
+    - id: build
+      shell: bash
+      env:
+        PROJECT_PATH: ${{ inputs.projectPath }}
+        MODULES: ${{ inputs.modules }}
+      run: |
+        versionFile="$PROJECT_PATH/ProjectSettings/ProjectVersion.txt"
+        version=$(sed -n 's/^m_EditorVersionWithRevision: \([^ ]*\) .*/\1/p' "$versionFile")
+        changeset=$(sed -n 's/^m_EditorVersionWithRevision: [^ ]* (\([0-9a-f]*\)).*/\1/p' "$versionFile")
+        if [ -z "$version" ] || [ -z "$changeset" ]; then
+          echo "::error::Could not read the editor version and changeset from $versionFile"
+          exit 1
+        fi
+        image="basis-unity-editor:$version"
+        echo "Building $image (changeset $changeset) with modules: ${MODULES:-none}"
+        docker build --progress=plain --load --tag "$image" \
+          --build-arg version="$version" \
+          --build-arg changeSet="$changeset" \
+          --build-arg modules="$MODULES" \
+          "$GITHUB_ACTION_PATH"
+        echo "image=$image" >> "$GITHUB_OUTPUT"

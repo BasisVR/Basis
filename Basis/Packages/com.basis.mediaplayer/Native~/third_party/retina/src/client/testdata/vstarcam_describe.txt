@@ -1,0 +1,22 @@
+RTSP/1.0 200 OK
+Cseq: 2
+Date: Tue, Jul 27 2021 21:49:55 GMT
+Content-Type: application/sdp
+Content-Length: 403
+
+v=0
+o=VSTC 3836411392 3836411392 IN IP4 192.168.1.198
+s=streamed by the VSTARCAM RTSP server
+e=NONE
+c=IN IP4 0.0.0.0
+t=0 0
+m=video 0 RTP/AVP 96
+b=AS:1536
+a=control:track0
+a=rtpmap:96 H264/90000
+a=fmtp:96 packetization-mode=1;profile-level-id=4d002a;sprop-parameter-sets=Z00AKp2oHgCJ+WbgICAoAAADAAgAAAMAfCA=,aO48gA==
+m=audio 0 RTP/AVP 8	 
+b=AS:64
+a=control:track1
+a=rtpmap:8 PCMA/8000/1
+

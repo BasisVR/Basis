@@ -1,6 +1,8 @@
+using Unity.Scripting.LifecycleManagement;
 namespace Basis.Scripts.Drivers
 {
-    public static class BasisFrameClock
+    [AutoStaticsCleanup]
+    public static partial class BasisFrameClock
     {
         public static float SmoothedFramesPerSecond { get; private set; }
 

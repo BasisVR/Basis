@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -26,7 +27,8 @@ using UnityEngine;
 /// base64(stack)</c> — base64 keeps newlines/arbitrary characters from breaking the line
 /// format without pulling in a JSON dependency.
 /// </summary>
-public static class BasisCrashReportStore
+[AutoStaticsCleanup]
+public static partial class BasisCrashReportStore
 {
     private const int MaxReplayEntries = 50;
     private const long MaxFileBytes = 2L * 1024 * 1024;
@@ -41,7 +43,7 @@ public static class BasisCrashReportStore
     private const float ReplayIndicatorPercent = 80f;
     private const float ReplayIndicatorSeconds = 1.5f;
 
-    private static readonly object FileLock = new object();
+    [NoAutoStaticsCleanup] private static readonly object FileLock = new object();
     private static readonly List<Entry> _previous = new List<Entry>();
 
     private static string _markerPath;
@@ -115,6 +117,9 @@ public static class BasisCrashReportStore
             TryDelete(_pendingPath);
             TryDelete(_markerPath);
         }
+        Application.quitting -= OnQuit;
+        BasisNetworkModeration.OnCrashReportingStateChanged -= OnCrashReportingStateChanged;
+        _initialized = false;
     }
 
     private static void OnCrashReportingStateChanged(bool enabled)

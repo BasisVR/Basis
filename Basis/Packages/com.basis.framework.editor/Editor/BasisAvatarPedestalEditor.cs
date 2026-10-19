@@ -1,6 +1,7 @@
 using UnityEditor.UIElements;
 using UnityEditor;
 using UnityEngine.UIElements;
+using Basis.Editor.Localization;
 using Basis.Scripts.BasisSdk.Players;
 using UnityEngine;
 using System.Collections.Generic;
@@ -15,7 +16,7 @@ public class BasisAvatarPedestalEditor : Editor
     {
         var root = new VisualElement();
 
-        var titleLabel = new Label("Basis Avatar Pedestal");
+        var titleLabel = new Label(BasisEditorLocalization.Get("editor.pedestal.title"));
         titleLabel.name = "Basis";
         //   titleLabel.se = false;
         titleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -47,28 +48,28 @@ public class BasisAvatarPedestalEditor : Editor
         SerializedProperty LoadedImage = serializedObject.FindProperty("Renderer");
         SerializedProperty FallBackImage = serializedObject.FindProperty("FallBackImage");
 
-        var loadModeField = new PropertyField(loadModeProp) { label = "Load Mode" };
+        var loadModeField = new PropertyField(loadModeProp) { label = BasisEditorLocalization.Get("editor.pedestal.loadMode") };
         root.Add(loadModeField);
 
         CreateWarningPanel(root);
 
-        var avatarField = new PropertyField(avatarProp) { label = "Avatar" };
-        var bundleField = new PropertyField(bundleProp) { label = "Loadable Bundle" };
+        var avatarField = new PropertyField(avatarProp) { label = BasisEditorLocalization.Get("editor.pedestal.avatar") };
+        var bundleField = new PropertyField(bundleProp) { label = BasisEditorLocalization.Get("editor.pedestal.loadableBundle") };
 
         root.Add(bundleField);
         root.Add(avatarField);
 
-        var AvatarField = new PropertyField(showAvatarProp) { label = "Visually Show Avatar" };
+        var AvatarField = new PropertyField(showAvatarProp) { label = BasisEditorLocalization.Get("editor.pedestal.showAvatar") };
 
         root.Add(AvatarField);
 
-        root.Add(new PropertyField(progressReportProp) { label = "Progress Report" });
-        root.Add(new PropertyField(cancellationTokenProp) { label = "Cancellation Token" });
-        root.Add(new PropertyField(pedestalAnimatorProp) { label = "Pedestal Animator Controller" });
+        root.Add(new PropertyField(progressReportProp) { label = BasisEditorLocalization.Get("editor.pedestal.progressReport") });
+        root.Add(new PropertyField(cancellationTokenProp) { label = BasisEditorLocalization.Get("editor.pedestal.cancellationToken") });
+        root.Add(new PropertyField(pedestalAnimatorProp) { label = BasisEditorLocalization.Get("editor.pedestal.animatorController") });
 
        // root.Add(new PropertyField(LoadedImage) { label = "Loaded Image" });
-        root.Add(new PropertyField(FallBackImage) { label = "FallBack Image" });
-        root.Add(new PropertyField(LoadedImage) { label = "Renderer For Obtained Image" });
+        root.Add(new PropertyField(FallBackImage) { label = BasisEditorLocalization.Get("editor.pedestal.fallbackImage") });
+        root.Add(new PropertyField(LoadedImage) { label = BasisEditorLocalization.Get("editor.pedestal.imageRenderer") });
 
         void UpdateVisibility()
         {
@@ -78,7 +79,7 @@ public class BasisAvatarPedestalEditor : Editor
 
             if (loadMode == BasisLoadMode.ByGameobjectReference)
             {
-                ShowWarningPanel("When using Gameobject Reference Mode remote players will use fallback avatar.");
+                ShowWarningPanel(BasisEditorLocalization.Get("editor.pedestal.referenceModeWarning"));
             }
             else
             {
@@ -99,7 +100,7 @@ public class BasisAvatarPedestalEditor : Editor
             serializedObject.ApplyModifiedProperties();
         });
 
-        var InteractRangeField = new PropertyField(InteractRangeProp) { label = "Interact Range" };
+        var InteractRangeField = new PropertyField(InteractRangeProp) { label = BasisEditorLocalization.Get("editor.pedestal.interactRange") };
         root.Add(InteractRangeField);
 
         return root;
@@ -134,7 +135,7 @@ public class BasisAvatarPedestalEditor : Editor
         warningPanel.style.borderBottomWidth = 2;
         warningPanel.style.borderBottomColor = new StyleColor(Color.yellow);
 
-        warningMessageLabel = new Label("No Errors");
+        warningMessageLabel = new Label(BasisEditorLocalization.Get("editor.pedestal.noErrors"));
         warningMessageLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
         warningPanel.Add(warningMessageLabel);
 

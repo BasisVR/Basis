@@ -22,9 +22,8 @@ namespace UnityEngine.Rendering.Universal
         public DepthOfFieldBokehPostProcessPass(Shader shader)
         {
             this.renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing - 1;
-            this.profilingSampler = new ProfilingSampler("Blit Depth of Field (Bokeh)");
-
-            m_Material = PostProcessUtils.LoadShader(shader, passName);
+            this.profilingSampler = URPProfilingSamplers.BokehDepthOfField;
+            m_Material = PostProcessUtils.LoadShader(shader, passName, logLevel: LogType.Log);
             m_IsValid = m_Material != null;
         }
 
@@ -151,7 +150,7 @@ namespace UnityEngine.Rendering.Universal
                     RTHandle dst = data.destinationTexture;
 
                     // Setup
-                    using (new ProfilingScope(ProfilingSampler.Get(URPProfileId.RG_SetupDoF)))
+                    using (new ProfilingScope(URPProfilingSamplers.SetupDoF))
                     {
                         Vector4 sourceSize = PostProcessUtils.CalcShaderSourceSize(data.sourceTexture);
 
@@ -166,33 +165,33 @@ namespace UnityEngine.Rendering.Universal
                     }
 
                     // Compute CoC
-                    using (new ProfilingScope(ProfilingSampler.Get(URPProfileId.RG_DOFComputeCOC)))
+                    using (new ProfilingScope(URPProfilingSamplers.DOFComputeCOC))
                     {
                         dofMat.SetTexture(ShaderConstants._CameraDepthTextureID, data.depthTexture);
                         Blitter.BlitCameraTexture(cmd, sourceTextureHdl, data.fullCoCTexture, dofMat, ShaderPass.k_ComputeCoc);
                     }
 
                     // Downscale and Prefilter Color + CoC
-                    using (new ProfilingScope(ProfilingSampler.Get(URPProfileId.RG_DOFDownscalePrefilter)))
+                    using (new ProfilingScope(URPProfilingSamplers.DOFDownscalePrefilter))
                     {
                         dofMat.SetTexture(ShaderConstants._FullCoCTexture, data.fullCoCTexture);
                         Blitter.BlitCameraTexture(cmd, sourceTextureHdl, data.pingTexture, dofMat, ShaderPass.k_DownscalePrefilter);
                     }
 
                     // Blur
-                    using (new ProfilingScope(ProfilingSampler.Get(URPProfileId.RG_DOFBlurBokeh)))
+                    using (new ProfilingScope(URPProfilingSamplers.DOFBlurBokeh))
                     {
                         Blitter.BlitCameraTexture(cmd, data.pingTexture, data.pongTexture, dofMat, ShaderPass.k_Blur);
                     }
 
                     // Post Filtering
-                    using (new ProfilingScope(ProfilingSampler.Get(URPProfileId.RG_DOFPostFilter)))
+                    using (new ProfilingScope(URPProfilingSamplers.DOFPostFilter))
                     {
                         Blitter.BlitCameraTexture(cmd, data.pongTexture, data.pingTexture, dofMat, ShaderPass.k_PostFilter);
                     }
 
                     // Composite
-                    using (new ProfilingScope(ProfilingSampler.Get(URPProfileId.RG_DOFComposite)))
+                    using (new ProfilingScope(URPProfilingSamplers.DOFComposite))
                     {
                         dofMat.SetTexture(ShaderConstants._DofTexture, data.pingTexture);
                         Blitter.BlitCameraTexture(cmd, sourceTextureHdl, dst, dofMat, ShaderPass.k_Composite);

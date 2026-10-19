@@ -62,6 +62,35 @@ namespace Basis.Tests.Camera
         }
 
         [Test]
+        public void TheDecision_AnExtraWindow_DoesNotNeedVR()
+        {
+            Assert.IsTrue(BasisCameraDirectToScreen.ShouldPresent(true, false, true, true, 1, true), "Its own window works on desktop too.");
+            Assert.IsFalse(BasisCameraDirectToScreen.ShouldPresent(true, false, true, true, 0, true), "The main window on desktop is the operator's own view.");
+            Assert.IsFalse(BasisCameraDirectToScreen.ShouldPresent(true, true, true, true, 1, false), "No monitor, no window.");
+            Assert.That(BasisCameraDirectToScreen.SanitizeDisplay(-3), Is.EqualTo(0));
+            Assert.That(BasisCameraDirectToScreen.SanitizeDisplay(99), Is.EqualTo(BasisCameraDirectToScreen.MaxDisplays - 1));
+        }
+
+        [Test]
+        public void SwitchedOn_OnAnExtraDisplay_TargetsItOutsideVR()
+        {
+            Assume.That(BasisCameraDirectToScreen.IsSupported, "This test needs a platform with a desktop window.");
+            Assume.That(BasisCameraDirectToScreen.IsDisplayConnected(1), "This test needs a second display (the editor's Game View always has one).");
+            BasisCameraDirectToScreen.VRModeOverrideForTest = false;
+
+            _rig.Camera.SetDirectToScreenDisplay(1);
+            _rig.Camera.SetDirectToScreen(true);
+
+            Assert.IsTrue(_rig.Camera.IsDirectToScreenPresenting);
+            Assert.That(BasisCameraDirectToScreenOutput.Presenting.ScreenCamera.targetDisplay, Is.EqualTo(1));
+
+            _rig.Camera.SetDirectToScreenDisplay(0);
+
+            Assert.IsFalse(_rig.Camera.IsDirectToScreenPresenting, "Back on the main window, desktop mode hands it back.");
+            Assert.That(_rig.Camera.DirectToScreenState, Is.EqualTo(BasisCameraDirectToScreenState.WaitingForVR));
+        }
+
+        [Test]
         public void SwitchedOn_InVR_TakesTheWindow()
         {
             Assume.That(BasisCameraDirectToScreen.IsSupported, "This test needs a platform with a desktop window.");

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
 using UnityEngine.Serialization;
 using UnityEngine.Assertions;
@@ -330,30 +331,64 @@ namespace UnityEngine.Rendering.Universal
             layerMask = 1; // "Default"
             trigger = camera.transform;
 
-            if (cameraData != null)
+            // Special handling for SceneView camera - even though it now has UniversalAdditionalCameraData, it is not
+            // editable by users. Therefore we still try to mirror the main game camera's volumeLayerMask and volumeTrigger
+            // for the SceneView camera to keep scene view consistent in most cases.
+            if (camera.cameraType == CameraType.SceneView)
+            {
+                var mainCamera = Camera.main;
+                UniversalAdditionalCameraData sourceAdditionalCameraData = null;
+
+                if (mainCamera != null)
+                    mainCamera.TryGetComponent(out sourceAdditionalCameraData);
+
+                // UUM-139912: If no camera is tagged "MainCamera", Camera.main is null and the volume
+                // layer mask falls back to "Default", so volumes on other layers stop affecting the scene
+                // view. Best effort: fall back to the first enabled game camera. The buffer is cached
+                // to avoid per-frame allocations.
+                if (sourceAdditionalCameraData == null && cameraData != null)
+                {
+                    int cameraCount = Camera.allCamerasCount;
+                    if (cameraData.m_AllCamerasTemp == null || cameraData.m_AllCamerasTemp.Length < cameraCount)
+                        cameraData.m_AllCamerasTemp = new Camera[cameraCount];
+                    Camera.GetAllCameras(cameraData.m_AllCamerasTemp);
+
+                    for (int i = 0; i < cameraCount; i++)
+                    {
+                        var otherCamera = cameraData.m_AllCamerasTemp[i];
+                        if (otherCamera == null || !UniversalRenderPipeline.IsGameCamera(otherCamera))
+                            continue;
+
+                        if (otherCamera.TryGetComponent(out UniversalAdditionalCameraData otherAdditionalCameraData))
+                        {
+                            sourceAdditionalCameraData = otherAdditionalCameraData;
+                            break;
+                        }
+                    }
+
+                    // Don't keep camera references in the temp buffer
+                    Array.Clear(cameraData.m_AllCamerasTemp, 0, cameraCount);
+                }
+
+                if (sourceAdditionalCameraData != null)
+                {
+                    layerMask = sourceAdditionalCameraData.volumeLayerMask;
+                    if (sourceAdditionalCameraData.volumeTrigger != null)
+                        trigger = sourceAdditionalCameraData.volumeTrigger;
+                }
+            }
+            else if (cameraData != null)
             {
                 layerMask = cameraData.volumeLayerMask;
                 trigger = (cameraData.volumeTrigger != null) ? cameraData.volumeTrigger : trigger;
-            }
-            else if (camera.cameraType == CameraType.SceneView)
-            {
-                // Try to mirror the MainCamera volume layer mask for the scene view - do not mirror the target
-                var mainCamera = Camera.main;
-                UniversalAdditionalCameraData mainAdditionalCameraData = null;
-
-                if (mainCamera != null && mainCamera.TryGetComponent(out mainAdditionalCameraData))
-                {
-                    layerMask = mainAdditionalCameraData.volumeLayerMask;
-                }
-
-                trigger = (mainAdditionalCameraData != null && mainAdditionalCameraData.volumeTrigger != null) ? mainAdditionalCameraData.volumeTrigger : trigger;
             }
         }
     }
 
     static class CameraTypeUtility
     {
-        static string[] s_CameraTypeNames = Enum.GetNames(typeof(CameraRenderType)).ToArray();
+        [NoAutoStaticsCleanup] // Reflection data cache, no need to clear.
+        static readonly string[] s_CameraTypeNames = Enum.GetNames(typeof(CameraRenderType));
 
         public static string GetName(this CameraRenderType type)
         {
@@ -438,7 +473,7 @@ namespace UnityEngine.Rendering.Universal
     [DisallowMultipleComponent]
     [RequireComponent(typeof(Camera))]
     [ExecuteAlways] // NOTE: This is required to get calls to OnDestroy() always. Graphics resources are released in OnDestroy().
-    [URPHelpURL("universal-additional-camera-data")]
+    [URPHelpURL("urp/universal-additional-camera-data")]
     public partial class UniversalAdditionalCameraData : MonoBehaviour, ISerializationCallbackReceiver, IAdditionalData
     {
         const string k_GizmoPath = "Packages/com.unity.render-pipelines.universal/Editor/Gizmos/";
@@ -491,20 +526,11 @@ namespace UnityEngine.Rendering.Universal
         // The URP camera history texture manager. Persistent per camera textures.
         [NonSerialized] internal UniversalCameraHistory m_History = new UniversalCameraHistory();
 
+        // Reusable temp buffer to avoid per-frame allocations from using Camera.allCameras. Only used for CameraType.SceneView.
+        [NonSerialized] internal Camera[] m_AllCamerasTemp;
+
         [SerializeField] internal TemporalAA.Settings m_TaaSettings = TemporalAA.Settings.Create();
 
-        static UniversalAdditionalCameraData s_DefaultAdditionalCameraData = null;
-        internal static UniversalAdditionalCameraData defaultAdditionalCameraData
-        {
-            get
-            {
-                if (s_DefaultAdditionalCameraData == null)
-                    s_DefaultAdditionalCameraData = new UniversalAdditionalCameraData();
-
-                return s_DefaultAdditionalCameraData;
-            }
-        }
-        
         internal Camera camera
         {
             get
@@ -752,6 +778,15 @@ namespace UnityEngine.Rendering.Universal
         /// creating new ones every time a new camera is instantiated.
         /// </summary>
         private static List<VolumeStack> s_CachedVolumeStacks;
+
+#if UNITY_EDITOR
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
+        static void ResetStaticsOnLoad()
+        {
+            s_CachedVolumeStacks?.Clear();
+            s_CachedVolumeStacks = null;
+        }
+#endif
 
         /// <summary>
         /// Returns the current volume stack used by this camera.

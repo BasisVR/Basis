@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Globalization;
 using System.IO;
@@ -5,6 +6,7 @@ using System.Text;
 using Newtonsoft.Json;
 using UnityEngine;
 
+[NoAutoStaticsCleanup]
 public static class BasisSerialization
 {
     private static readonly JsonSerializer _reader = CreateReader();

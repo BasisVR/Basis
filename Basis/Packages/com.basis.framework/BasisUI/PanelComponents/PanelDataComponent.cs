@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using UnityEngine;
+using static SerializableBasis;
 
 namespace Basis.BasisUI
 {
@@ -59,6 +60,8 @@ namespace Basis.BasisUI
         public override bool HasResetDefault =>
             SupportsResetGesture && (SettingsBinding != null || _hasExplicitResetDefault);
 
+        public override bool HasPanelOptions => HasResetDefault || BasisContentShareSetting.CanOffer(this);
+
         public override string BoundSettingKey => SettingsBinding?.BindingKey;
 
         protected T ResetDefaultValue => SettingsBinding != null
@@ -74,7 +77,11 @@ namespace Basis.BasisUI
         /// </summary>
         public override void RequestReset()
         {
-            if (!HasResetDefault) return;
+            if (!HasResetDefault)
+            {
+                BasisContentShareSetting.OfferShare(this);
+                return;
+            }
 
             T target = ResetDefaultValue;
             string label = Descriptor && !string.IsNullOrEmpty(Descriptor.Title) ? Descriptor.Title : "this value";
@@ -101,7 +108,9 @@ namespace Basis.BasisUI
                     if (confirmed) ApplyReset(target);
                 });
 
-            if (menu.Dialogue != null) AddPanelOptions(menu.Dialogue);
+            if (menu.Dialogue == null) return;
+            AddPanelOptions(menu.Dialogue);
+            BasisContentShareSetting.AddShareOption(this, menu.Dialogue);
         }
 
         public override void ApplyResetToDefault()
@@ -139,6 +148,104 @@ namespace Basis.BasisUI
         /// are invoked, which is what a pointer does when it lets go.
         /// </summary>
         public void ApplyDrivenValue(T value) => ApplyReset(value);
+
+        public bool ExcludeFromShare { get; set; }
+
+        public override bool CanShareSetting => !ExcludeFromShare && SupportsResetGesture && (SettingsBinding != null || !string.IsNullOrEmpty(ShareTitleKey) || (Descriptor != null && !string.IsNullOrEmpty(Descriptor.Title)));
+
+        private T SharedValue => SettingsBinding != null ? SettingsBinding.RawValue : Value;
+
+        public override bool TryGetShareValue(out string type, out string value, out string display)
+        {
+            display = null;
+            if (!CanShareSetting || !TryWriteShareValue(SharedValue, out type, out value))
+            {
+                type = null;
+                value = null;
+                return false;
+            }
+            display = FormatSettingValue(SharedValue);
+            return true;
+        }
+
+        public override bool TryReadShareValue(string type, string value, out string shared, out string current, out bool unchanged)
+        {
+            shared = null;
+            current = null;
+            unchanged = false;
+            if (!CanShareSetting || !TryParseShareValue(type, value, out T parsed)) return false;
+            T now = SharedValue;
+            shared = FormatSettingValue(parsed);
+            current = FormatSettingValue(now);
+            unchanged = EqualityComparer<T>.Default.Equals(now, parsed);
+            return true;
+        }
+
+        public override bool TryApplyShareValue(string type, string value)
+        {
+            if (!CanShareSetting || !IsInteractable || !TryParseShareValue(type, value, out T parsed)) return false;
+            ApplyDrivenValue(parsed);
+            return true;
+        }
+
+        protected virtual bool TryConformShareValue(ref T value) => true;
+
+        private bool TryParseShareValue(string type, string value, out T parsed)
+        {
+            parsed = default;
+            if (!ContentShareSetting.IsValidValue(type, value)) return false;
+            object read;
+            if (typeof(T) == typeof(bool) && type == ContentShareSetting.BoolType)
+            {
+                read = value == ContentShareSetting.TrueText;
+            }
+            else if (typeof(T) == typeof(float) && type == ContentShareSetting.NumberType && ContentShareSetting.TryReadNumber(value, out double number) && Math.Abs(number) <= float.MaxValue)
+            {
+                read = (float)number;
+            }
+            else if (typeof(T) == typeof(int) && type == ContentShareSetting.NumberType && int.TryParse(value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out int whole))
+            {
+                read = whole;
+            }
+            else if (typeof(T) == typeof(string) && type == ContentShareSetting.TextType)
+            {
+                read = value;
+            }
+            else
+            {
+                return false;
+            }
+            parsed = (T)read;
+            return TryConformShareValue(ref parsed);
+        }
+
+        private static bool TryWriteShareValue(T value, out string type, out string text)
+        {
+            switch (value)
+            {
+                case bool flag:
+                    type = ContentShareSetting.BoolType;
+                    text = ContentShareSetting.WriteBool(flag);
+                    break;
+                case float number:
+                    type = ContentShareSetting.NumberType;
+                    text = ContentShareSetting.WriteNumber(number);
+                    break;
+                case int whole:
+                    type = ContentShareSetting.NumberType;
+                    text = ContentShareSetting.WriteNumber(whole);
+                    break;
+                case string entry:
+                    type = ContentShareSetting.TextType;
+                    text = entry;
+                    break;
+                default:
+                    type = null;
+                    text = null;
+                    return false;
+            }
+            return ContentShareSetting.IsValidValue(type, text);
+        }
 
         public override bool TryDescribeSettingChange(out string label, out string currentText, out string defaultText)
         {

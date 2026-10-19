@@ -330,4 +330,19 @@ namespace Basis.Tests.Interactions
             Assert.IsFalse(BasisJiggleGrabPicker.TryScoreGrasp(acrossTheRoom, Palm, FingerTip, Radius, out _));
         }
     }
+
+    public class BasisJiggleGrabTargetPolicyTests
+    {
+        [Test]
+        public void DesktopPointer_DoesNotTargetTheLocalAvatar()
+        {
+            Assert.IsFalse(BasisJiggleGrabDriver.CanGrabLocalAvatar(desktopInput: true));
+        }
+
+        [Test]
+        public void VrHand_CanStillTargetTheLocalAvatar()
+        {
+            Assert.IsTrue(BasisJiggleGrabDriver.CanGrabLocalAvatar(desktopInput: false));
+        }
+    }
 }

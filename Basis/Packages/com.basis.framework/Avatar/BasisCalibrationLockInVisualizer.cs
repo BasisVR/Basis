@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
@@ -6,7 +7,8 @@ using Basis.Scripts.TransformBinders.BoneControl;
 using UnityEngine;
 namespace Basis.Scripts.Avatar
 {
-    public static class BasisCalibrationLockInVisualizer
+    [AutoStaticsCleanup]
+    public static partial class BasisCalibrationLockInVisualizer
     {
         public static bool Enabled = true;
         // One slot after the bone-driver gizmos (250) so the bone transforms have settled.

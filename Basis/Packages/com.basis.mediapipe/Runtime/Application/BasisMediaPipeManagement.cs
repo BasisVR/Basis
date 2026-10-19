@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -12,12 +13,13 @@ using UnityEngine;
 
 namespace Basis.MediaPipe
 {
-    public class BasisMediaPipeManagement : BasisBaseTypeManagement
+    [AutoStaticsCleanup]
+    public partial class BasisMediaPipeManagement : BasisBaseTypeManagement
     {
         public const string SubSystem = "BasisMediaPipe";
         public const int LowLightFps = 15;
         public string CameraDeviceName = string.Empty;
-        public BasisMediaPipeConfig Config = BasisMediaPipeConfig.Default;
+        [NonSerialized] public BasisMediaPipeConfig Config = BasisMediaPipeConfig.Default;
         public static BasisMediaPipeManagement Instance;
         public event Action OnResult;
 
@@ -34,7 +36,7 @@ namespace Basis.MediaPipe
         private BasisMediaPipeResult _latest;
         private bool _hasLatest;
 
-        private Transform _hipsBone, _headBone, _leftUpperArm, _leftLowerArm, _leftHandBone, _rightUpperArm, _rightLowerArm, _rightHandBone;
+        private Transform _hipsBone, _headBone, _leftShoulder, _leftUpperArm, _leftLowerArm, _leftHandBone, _rightShoulder, _rightUpperArm, _rightLowerArm, _rightHandBone;
         private Transform _leftIndexProximal, _leftMiddleProximal, _leftLittleProximal;
         private Transform _rightIndexProximal, _rightMiddleProximal, _rightLittleProximal;
         private float _leftUpperLen, _leftForeLen, _rightUpperLen, _rightForeLen;
@@ -92,7 +94,6 @@ namespace Basis.MediaPipe
             Config.EnableHeadPosition = BasisMediaPipeSettings.EnableHeadPosition.RawValue;
             Config.EnableHeadRotation = BasisMediaPipeSettings.EnableHeadRotation.RawValue;
             Config.EnableHandTracking = BasisMediaPipeSettings.EnableHandTracking.RawValue;
-            Config.SwapHands = BasisMediaPipeSettings.SwapHands.RawValue;
             Config.MirrorHorizontally = BasisMediaPipeSettings.Mirror.RawValue;
             Config.CameraWidth = BasisMediaPipeSettings.ResolutionWidth.RawValue;
             Config.CameraHeight = BasisMediaPipeSettings.ResolutionHeight.RawValue;
@@ -114,19 +115,12 @@ namespace Basis.MediaPipe
             _faceConverter.InvertEyeX = BasisMediaPipeSettings.InvertHeadYaw.RawValue;
             _faceConverter.InvertEyeY = BasisMediaPipeSettings.InvertHeadPitch.RawValue;
             _faceConverter.GazeStrength = BasisMediaPipeSettings.GazeStrength.RawValue;
-            _headConverter.Smoothing = BasisMediaPipeSettings.HeadSmoothing.RawValue;
-            _faceConverter.Smoothing = BasisMediaPipeSettings.FaceSmoothing.RawValue;
             _faceConverter.TongueGain = BasisMediaPipeSettings.EnableTongue.RawValue
                 ? BasisMediaPipeSettings.TongueStrength.RawValue
                 : 0f;
-            _handConverter.PoseSmoothing = BasisMediaPipeSettings.HandSmoothing.RawValue;
-            _handConverter.FingerSmoothing = BasisMediaPipeSettings.FingerSmoothing.RawValue;
             _handConverter.UseRotation = BasisMediaPipeSettings.HandRotation.RawValue;
-            _armConverter.Smoothing = BasisMediaPipeSettings.HandSmoothing.RawValue;
             _armConverter.HeadAnchor = BasisMediaPipeSettings.ArmHeadAnchor.RawValue;
-            _armConverter.ElbowRestBias = BasisMediaPipeSettings.ElbowRestBias.RawValue;
             _bodyConverter.Strength = BasisMediaPipeSettings.ChestMotion.RawValue;
-            _bodyConverter.Smoothing = BasisMediaPipeSettings.HeadSmoothing.RawValue;
             _headConverter.PositionGain = BasisMediaPipeSettings.HeadPositionStrength.RawValue;
             _headConverter.HeightOffset = BasisMediaPipeSettings.HeadHeight.RawValue;
             _headConverter.YawGain = BasisMediaPipeSettings.HeadRotationStrength.RawValue;
@@ -256,6 +250,8 @@ namespace Basis.MediaPipe
 
             _hipsBone = anim.GetBoneTransform(HumanBodyBones.Hips);
             _headBone = anim.GetBoneTransform(HumanBodyBones.Head);
+            _leftShoulder = anim.GetBoneTransform(HumanBodyBones.LeftShoulder);
+            _rightShoulder = anim.GetBoneTransform(HumanBodyBones.RightShoulder);
             _leftUpperArm = anim.GetBoneTransform(HumanBodyBones.LeftUpperArm);
             _leftLowerArm = anim.GetBoneTransform(HumanBodyBones.LeftLowerArm);
             _leftHandBone = anim.GetBoneTransform(HumanBodyBones.LeftHand);
@@ -367,11 +363,9 @@ namespace Basis.MediaPipe
             return Config.CameraHeight > 0 ? (float)Config.CameraWidth / Config.CameraHeight : 1f;
         }
 
-        private bool TryViewAxes(out Vector3 right, out Vector3 up, out Vector3 forward)
+        private static bool TryViewYaw(out Quaternion yaw)
         {
-            right = Vector3.right;
-            up = Vector3.up;
-            forward = Vector3.forward;
+            yaw = Quaternion.identity;
             BasisLocalBoneControl eye = BasisLocalBoneDriver.EyeControl;
             if (eye == null) return false;
 
@@ -380,7 +374,18 @@ namespace Basis.MediaPipe
             if (!IsUsable(view) || yawSqr < 1e-12f) return false;
 
             float inv = 1f / Mathf.Sqrt(yawSqr);
-            Quaternion frame = new Quaternion(0f, view.y * inv, 0f, view.w * inv) * _torsoOffset;
+            yaw = new Quaternion(0f, view.y * inv, 0f, view.w * inv);
+            return true;
+        }
+
+        private bool TryViewAxes(out Vector3 right, out Vector3 up, out Vector3 forward)
+        {
+            right = Vector3.right;
+            up = Vector3.up;
+            forward = Vector3.forward;
+            if (!TryViewYaw(out Quaternion yaw)) return false;
+
+            Quaternion frame = yaw * _torsoOffset;
             right = frame * Vector3.right;
             up = frame * Vector3.up;
             forward = frame * Vector3.forward;
@@ -412,8 +417,8 @@ namespace Basis.MediaPipe
             if (_hipsBone == null || _leftUpperArm == null || _rightUpperArm == null) return false;
 
             Transform root = BasisLocalPlayer.Instance.transform;
-            Vector3 leftAnchor = root.InverseTransformPoint(_leftUpperArm.position);
-            Vector3 rightAnchor = root.InverseTransformPoint(_rightUpperArm.position);
+            Vector3 leftAnchor = root.InverseTransformPoint(RestShoulderAnchor(_leftShoulder, _leftUpperArm, HumanBodyBones.LeftShoulder, HumanBodyBones.LeftUpperArm));
+            Vector3 rightAnchor = root.InverseTransformPoint(RestShoulderAnchor(_rightShoulder, _rightUpperArm, HumanBodyBones.RightShoulder, HumanBodyBones.RightUpperArm));
 
             // Axes come from the VIEW yaw (the desktop eye), not from the chest bone control: on desktop the
             // virtual spine holds the torso inside a 45 degree yaw deadzone while the head turns, and a webcam
@@ -449,6 +454,20 @@ namespace Basis.MediaPipe
             return true;
         }
 
+        private static Vector3 RestShoulderAnchor(Transform clavicle, Transform upperArm, HumanBodyBones clavicleBone, HumanBodyBones upperArmBone)
+        {
+            Transform torso = clavicle != null ? clavicle.parent : null;
+            Basis.Scripts.Common.BasisTransformMapping mapping = BasisLocalAvatarDriver.Mapping;
+            if (torso == null || mapping == null || mapping.TposeLocal == null
+                || !mapping.TposeLocal.TryGetValue(clavicleBone, out Basis.Scripts.Common.BasisCalibratedCoords clavicleRest)
+                || !mapping.TposeLocal.TryGetValue(upperArmBone, out Basis.Scripts.Common.BasisCalibratedCoords upperArmRest)
+                || !IsUsable(clavicleRest.rotation) || upperArm.parent != clavicle)
+            {
+                return upperArm.position;
+            }
+            return torso.TransformPoint(clavicleRest.position + clavicleRest.rotation * Vector3.Scale(clavicle.localScale, upperArmRest.position));
+        }
+
         private void HandleBootModeChanged(string mode)
         {
             if (mode != BasisConstants.Desktop)
@@ -458,6 +477,14 @@ namespace Basis.MediaPipe
             else if (_backend == null && BasisMediaPipeSettings.Enable.RawValue)
             {
                 StartSDK();
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (_backend != null)
+            {
+                StopSDK();
             }
         }
 
@@ -511,7 +538,7 @@ namespace Basis.MediaPipe
             if (_hasLatest)
             {
                 UpdateAutoFps(dt);
-                ApplyResult(in _latest, new MediaPipeTiming(dt, _sampleDelta, isNewSample, MediaPipeExposure.Quality(_latest.LightBoost > 0f ? _latest.LightLevel : -1f)));
+                ApplyResult(in _latest, new MediaPipeTiming(dt, _sampleDelta, isNewSample));
             }
         }
 
@@ -597,16 +624,13 @@ namespace Basis.MediaPipe
                 {
                     BasisLocalBoneControl eye = BasisLocalBoneDriver.EyeControl;
                     BasisLocalBoneControl headControl = BasisLocalBoneDriver.HeadControl;
-                    float eyeToHeadY = headControl != null ? headControl.TposeLocalScaled.position.y - eye.TposeLocalScaled.position.y : 0f;
-
-                    Vector3 headPosition = eye.OutGoingData.position;
-                    headPosition.y += eyeToHeadY + headPositionOffset.y;
-                    if (Config.EnableHeadPosition)
-                    {
-                        headPosition.x += headPositionOffset.x;
-                        headPosition.z += headPositionOffset.z;
-                    }
                     Quaternion headRotation = Config.EnableHeadRotation ? eye.OutGoingData.rotation * headOffset : eye.OutGoingData.rotation;
+                    Vector3 eyeToHead = headControl != null ? (Vector3)headControl.ScaledOffset : Vector3.zero;
+                    if (eyeToHead.sqrMagnitude < 1e-8f && headControl != null) eyeToHead = headControl.TposeLocalScaled.position - eye.TposeLocalScaled.position;
+
+                    Vector3 lean = Config.EnableHeadPosition ? new Vector3(headPositionOffset.x, 0f, headPositionOffset.z) : Vector3.zero;
+                    if (TryViewYaw(out Quaternion viewYaw)) lean = viewYaw * lean;
+                    Vector3 headPosition = eye.OutGoingData.position + lean + Vector3.up * headPositionOffset.y + headRotation * eyeToHead;
                     WriteTracker(BasisBoneTrackedRole.Head, headPosition, headRotation);
                 }
                 else
@@ -628,6 +652,7 @@ namespace Basis.MediaPipe
                 {
                     _torsoOffset = torsoOffset;
                     _torsoShift = torsoShift;
+                    SetChestFollowsBody(true);
                     WriteTracker(BasisBoneTrackedRole.Chest, chestPosition, chestRotation);
                 }
                 else
@@ -673,15 +698,16 @@ namespace Basis.MediaPipe
             BasisLocalBoneControl chest = BasisLocalBoneDriver.ChestControl;
             if (hips == null || chest == null) return false;
 
-            Quaternion hipsRest = hips.TposeLocal.rotation;
-            Quaternion chestRest = chest.TposeLocal.rotation;
-            if (!IsUsable(hipsRest) || !IsUsable(chestRest)) return false;
-
             Basis.Scripts.Common.BasisCalibratedCoords hipsNow = hips.OutGoingData;
-            Quaternion body = hipsNow.rotation * Quaternion.Inverse(hipsRest);
+            if (!TryViewYaw(out Quaternion body))
+            {
+                body = hipsNow.rotation;
+                if (!IsUsable(body)) return false;
+                body.Normalize();
+            }
 
-            position = hipsNow.position + body * (chest.TposeLocal.position - hips.TposeLocal.position + torsoShift);
-            rotation = body * torsoOffset * chestRest;
+            position = hipsNow.position + body * (torsoOffset * (chest.TposeLocalScaled.position - hips.TposeLocalScaled.position) + torsoShift);
+            rotation = body * torsoOffset;
             return true;
         }
 
@@ -948,7 +974,7 @@ namespace Basis.MediaPipe
         {
             if (_backend == null)
             {
-                return "Not running.";
+                return Basis.BasisUI.BasisLocalization.Get("settings.mediapipe.diagnostics.notRunning");
             }
 
             string status = $"Backend: {_backend.BackendName}\nModels: {(_backend.IsReady ? "ready" : "loading")} (body model {Config.PoseModel})\nCamera: {_camera.State} at {_cameraFps} fps, {_camera.Restarts} restart(s)";
@@ -1000,6 +1026,12 @@ namespace Basis.MediaPipe
             {
                 input.UnAssignTracker();
             }
+            if (role == BasisBoneTrackedRole.Chest) SetChestFollowsBody(false);
+        }
+
+        private static void SetChestFollowsBody(bool value)
+        {
+            if (BasisLocalBoneDriver.ChestControl != null) BasisLocalBoneDriver.ChestControl.TrackerFollowsBody = value;
         }
 
         private BasisInputXRSimulate EnsureTracker(BasisBoneTrackedRole role)
@@ -1028,9 +1060,9 @@ namespace Basis.MediaPipe
 
             BasisInputXRSimulate input = go.AddComponent<BasisInputXRSimulate>();
             input.IsCameraTracked = true;
-            input.TrackingHardware = BasisTrackingHardware.Optical;
             input.FollowMovement = move;
             input.InitializeTracking(id, SubSystem, SubSystem, false, role);
+            input.TrackingHardware = BasisTrackingHardware.Simulated;
             input.AssignRoleAndTracker(role);
 
             BasisDeviceManagement.Instance.TryAdd(input);
@@ -1091,6 +1123,7 @@ namespace Basis.MediaPipe
             }
             _trackers.Clear();
             _activeTrackers.Clear();
+            SetChestFollowsBody(false);
             ReleaseHandIK(true);
             ReleaseHandIK(false);
         }

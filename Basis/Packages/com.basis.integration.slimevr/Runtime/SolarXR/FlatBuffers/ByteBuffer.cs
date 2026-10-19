@@ -36,6 +36,7 @@
 // dangerous. Do so at your own risk!
 //
 
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -122,7 +123,8 @@ namespace Google.FlatBuffers
     /// <summary>
     /// Class to mimic Java's ByteBuffer which is used heavily in Flatbuffers.
     /// </summary>
-    public class ByteBuffer
+    [AutoStaticsCleanup]
+    public partial class ByteBuffer
     {
         private ByteBufferAllocator _buffer;
         private int _pos;  // Must track start of the buffer.

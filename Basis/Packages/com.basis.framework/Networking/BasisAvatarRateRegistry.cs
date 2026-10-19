@@ -1,10 +1,12 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using System;
 using System.Collections.Concurrent;
 
 namespace Basis.Scripts.Networking
 {
-    public static class BasisAvatarRateRegistry
+    [AutoStaticsCleanup]
+    public static partial class BasisAvatarRateRegistry
     {
         private static readonly ConcurrentDictionary<ushort, int> _ratePerSender = new();
 

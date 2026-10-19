@@ -1,4 +1,6 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis;
+using Basis.BasisUI;
 using Basis.Network.Core;
 using Basis.Scripts.Networking;
 using System;
@@ -15,7 +17,8 @@ using static SerializableBasis;
 /// Handles downloading content without spawning, tracking readiness,
 /// and responding to server spawn signals.
 /// </summary>
-public static class BasisNetworkPreloadManager
+[AutoStaticsCleanup]
+public static partial class BasisNetworkPreloadManager
 {
     /// <summary>
     /// Timeout duration for synchronized loads. If a client hasn't finished
@@ -59,6 +62,8 @@ public static class BasisNetworkPreloadManager
 
         PreloadedResources[netId] = preloaded;
 
+        using CancellationTokenSource loadCancel = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+        BasisDownload download = null;
         try
         {
             BasisLoadableBundle loadBundle = new BasisLoadableBundle
@@ -77,7 +82,8 @@ public static class BasisNetworkPreloadManager
             };
 
             BasisProgressReport report = new BasisProgressReport();
-            CancellationToken cancel = _cts.Token;
+            download = BasisDownloadCenter.Begin(resource.Mode == 1 ? BasisDownloadKind.World : BasisDownloadKind.Prop, resource.CombinedURL, loadBundle, loadCancel, report);
+            CancellationToken cancel = loadCancel.Token;
 
             await BasisLoadHandler.EnsureInitializationComplete();
 
@@ -147,8 +153,19 @@ public static class BasisNetworkPreloadManager
         }
         catch (Exception ex)
         {
-            BasisDebug.LogError($"PreloadManager: Failed to preload {resource.CombinedURL} (NetID={netId}): {ex.Message}");
+            if (loadCancel.IsCancellationRequested)
+            {
+                BasisDebug.Log($"PreloadManager: Preload of {resource.CombinedURL} (NetID={netId}) was cancelled", BasisDebug.LogTag.Networking);
+            }
+            else
+            {
+                BasisDebug.LogError($"PreloadManager: Failed to preload {resource.CombinedURL} (NetID={netId}): {ex.Message}");
+            }
             preloaded.IsReady = false;
+        }
+        finally
+        {
+            BasisDownloadCenter.End(download);
         }
     }
 

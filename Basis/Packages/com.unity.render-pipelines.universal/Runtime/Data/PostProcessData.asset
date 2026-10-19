@@ -29,6 +29,7 @@ MonoBehaviour:
     easuPS: {fileID: 4800000, guid: 562b7ae4f629f144aa97780546fce7c6, type: 3}
     uberPostPS: {fileID: 4800000, guid: e7857e9d0c934dc4f83f270f8447b006, type: 3}
     finalPostPassPS: {fileID: 4800000, guid: c49e63ed1bbcb334780a3bd19dfed403, type: 3}
+    m_ShaderResourcesVersion: 0
   textures:
     blueNoise16LTex:
     - {fileID: 2800000, guid: 81200413a40918d4d8702e94db29911c, type: 3}
@@ -63,16 +64,7 @@ MonoBehaviour:
     - {fileID: 2800000, guid: fa042edbfc40fbd4bad0ab9d505b1223, type: 3}
     - {fileID: 2800000, guid: 896d9004736809c4fb5973b7c12eb8b9, type: 3}
     - {fileID: 2800000, guid: 179f794063d2a66478e6e726f84a65bc, type: 3}
-    filmGrainTex:
-    - {fileID: 2800000, guid: 654c582f7f8a5a14dbd7d119cbde215d, type: 3}
-    - {fileID: 2800000, guid: dd77ffd079630404e879388999033049, type: 3}
-    - {fileID: 2800000, guid: 1097e90e1306e26439701489f391a6c0, type: 3}
-    - {fileID: 2800000, guid: f0b67500f7fad3b4c9f2b13e8f41ba6e, type: 3}
-    - {fileID: 2800000, guid: 9930fb4528622b34687b00bbe6883de7, type: 3}
-    - {fileID: 2800000, guid: bd9e8c758250ef449a4b4bfaad7a2133, type: 3}
-    - {fileID: 2800000, guid: 510a2f57334933e4a8dbabe4c30204e4, type: 3}
-    - {fileID: 2800000, guid: b4db8180660810945bf8d55ab44352ad, type: 3}
-    - {fileID: 2800000, guid: fd2fd78b392986e42a12df2177d3b89c, type: 3}
-    - {fileID: 2800000, guid: 5cdee82a77d13994f83b8fdabed7c301, type: 3}
+    filmGrainTex: []
     smaaAreaTex: {fileID: 2800000, guid: d1f1048909d55cd4fa1126ab998f617e, type: 3}
     smaaSearchTex: {fileID: 2800000, guid: 51eee22c2a633ef4aada830eed57c3fd, type: 3}
+    m_TexturesResourcesVersion: 0

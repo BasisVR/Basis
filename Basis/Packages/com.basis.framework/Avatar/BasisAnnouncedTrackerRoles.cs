@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
@@ -22,7 +23,8 @@ namespace Basis.Scripts.Avatar
     /// calibration and bend hints, exactly like a menu-triggered calibration. Trackers announcing
     /// nothing keep going through the normal geometric classification in the same pass.
     /// </summary>
-    public static class BasisAnnouncedTrackerRoles
+    [AutoStaticsCleanup]
+    public static partial class BasisAnnouncedTrackerRoles
     {
         private const string ControllerTypePrefix = "vive_tracker_";
         private const float ScanIntervalSeconds = 2f;

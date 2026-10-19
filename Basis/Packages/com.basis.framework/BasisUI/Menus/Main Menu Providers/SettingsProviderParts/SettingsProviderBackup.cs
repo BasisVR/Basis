@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using System.IO;
 using Basis.BasisUI;
@@ -5,14 +6,15 @@ using Basis.Scripts.Networking;
 using UnityEngine;
 
 /// <summary>
-/// General-tab "Backup &amp; Restore" section. Creating an archive is offered everywhere; restoring
+/// Downloads &amp; URLs tab "Backup &amp; Restore" section. Creating an archive is offered everywhere; restoring
 /// is Windows/Linux only (<see cref="BasisUserDataBackup.RestoreSupported"/>) and lists the archives
 /// found in the backups folder, plus a field for a path copied in from elsewhere. Backup and Restore
 /// are each a lazy sub-section nested inside the outer Backup &amp; Restore toggle and start closed:
 /// nothing is built for a half the user leaves shut, and the archive list is scanned on a worker
 /// thread so opening Restore never stalls the menu on zip reads.
 /// </summary>
-public static class SettingsProviderBackup
+[AutoStaticsCleanup]
+public static partial class SettingsProviderBackup
 {
     private static bool _busy;
 

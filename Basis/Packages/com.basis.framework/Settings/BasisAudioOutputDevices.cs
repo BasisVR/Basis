@@ -1,9 +1,11 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
 
-public static class BasisAudioOutputDevices
+[AutoStaticsCleanup]
+public static partial class BasisAudioOutputDevices
 {
     public struct OutputDevice
     {

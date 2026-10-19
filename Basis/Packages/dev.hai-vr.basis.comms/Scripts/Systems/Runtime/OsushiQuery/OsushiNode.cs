@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Unity.Scripting.LifecycleManagement;
+using System.Collections.Generic;
 
 namespace HVR.Osushi
 {
@@ -12,6 +13,7 @@ namespace HVR.Osushi
         public Dictionary<string, OsushiNode> CONTENTS;
     }
 
+    [NoAutoStaticsCleanup]
     internal static class OsushiUtil
     {
         private static string[] paths = {

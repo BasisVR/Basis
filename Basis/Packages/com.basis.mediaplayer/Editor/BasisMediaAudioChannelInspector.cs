@@ -1,27 +1,43 @@
+using Basis.Editor.Localization;
+using System.IO;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine.UIElements;
 
+/// <summary>
+/// Inspector for <see cref="BasisMediaAudioChannel"/>: the channel selection,
+/// and the analysis-feed detail shown only once the feed is on.
+/// </summary>
 [CustomEditor(typeof(BasisMediaAudioChannel))]
 public class BasisMediaAudioChannelInspector : Editor
 {
-    private const string UxmlPath = "Packages/com.basis.mediaplayer/Editor/StyleSheets/MediaPlayerChannelSDK.uxml";
-    private const string UssPath = "Packages/com.basis.mediaplayer/Editor/StyleSheets/MediaPlayerSDK.uss";
-
     private VisualElement _root;
+
+    private static string PackagePath => UnityEditor.PackageManager.PackageInfo
+        .FindForAssembly(typeof(BasisMediaAudioChannelInspector).Assembly)?.assetPath;
 
     public override VisualElement CreateInspectorGUI()
     {
         _root = new VisualElement();
 
-        var tree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(UxmlPath);
-        var sheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(UssPath);
+        string package = PackagePath;
+        if (string.IsNullOrEmpty(package))
+        {
+            _root.Add(new HelpBox(BasisEditorLocalization.Get("editor.mediaPlayer.inspector.packagePathMissing"), HelpBoxMessageType.Error));
+            return _root;
+        }
+
+        var tree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
+            Path.Combine(package, "Editor/StyleSheets/MediaPlayerChannelSDK.uxml").Replace('\\', '/'));
+        var sheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(
+            Path.Combine(package, "Editor/StyleSheets/MediaPlayerSDK.uss").Replace('\\', '/'));
         if (tree == null)
         {
-            _root.Add(new HelpBox("MediaPlayerChannelSDK.uxml missing.", HelpBoxMessageType.Error));
+            _root.Add(new HelpBox(BasisEditorLocalization.Get("editor.mediaPlayer.inspector.uxmlMissing", "MediaPlayerChannelSDK.uxml"), HelpBoxMessageType.Error));
             return _root;
         }
         tree.CloneTree(_root);
+        BasisEditorLocalization.LocalizeTree(_root, "editor.mediaPlayer.uxml.channel.");
         if (sheet != null) _root.styleSheets.Add(sheet);
 
         BindByName("ChannelField", "Channel");

@@ -46,7 +46,7 @@ namespace Basis.BasisUI
         /// </summary>
         public static async Task<bool> PromptUserForUpdateCheck(BasisMenuPanel panel, BasisDataStoreItemKeys.ItemKey item, BasisBundleDescription description)
         {
-            string title = LibraryProviderStrUtil.TitleToCase(description?.AssetBundleName ?? item.Url);
+            string title = description?.AssetBundleName ?? item.Url;
 
             DialogBox<bool> checkingDialog = DialogBox<bool>.Create(panel, new Vector2(830, 150),
                 BasisLocalization.Get("library.dialog.checkForUpdate.title", title),
@@ -89,7 +89,7 @@ namespace Basis.BasisUI
                     return false;
                 }
 
-                return await ApplyRefresh(panel, item, title);
+                return await ApplyRefresh(panel, item, title, result.ObservedTag);
             }
 
             // First ever check on this entry: there was no recorded version, so "unchanged" is an
@@ -106,7 +106,7 @@ namespace Basis.BasisUI
                     return false;
                 }
 
-                return await ApplyRefresh(panel, item, title);
+                return await ApplyRefresh(panel, item, title, result.ObservedTag);
             }
 
             if (!result.HasUpdate)
@@ -126,7 +126,7 @@ namespace Basis.BasisUI
                 return false;
             }
 
-            return await ApplyRefresh(panel, item, title);
+            return await ApplyRefresh(panel, item, title, result.ObservedTag);
         }
 
         /// <summary>
@@ -134,7 +134,7 @@ namespace Basis.BasisUI
         /// avatar currently being worn it is re-equipped, which also rebroadcasts the new version to
         /// everyone else (OnAvatarSwitched drives SendOutAvatarChange) so their caches invalidate too.
         /// </summary>
-        private static async Task<bool> ApplyRefresh(BasisMenuPanel panel, BasisDataStoreItemKeys.ItemKey item, string title)
+        private static async Task<bool> ApplyRefresh(BasisMenuPanel panel, BasisDataStoreItemKeys.ItemKey item, string title, string checkedVersionTag)
         {
             bool wasWorn = IsCurrentlyWornAvatar(item);
 
@@ -157,6 +157,29 @@ namespace Basis.BasisUI
             try
             {
                 await CachedMetaData.PreloadMetaDataForItem(item);
+
+                // A host can expose Last-Modified on the HEAD used by the update check but omit it
+                // from the ranged GET used to download the connector. In that case the freshly
+                // rebuilt cache has no validator unless we carry forward the one the host reported
+                // moments ago. Prefer a tag observed by the download when it has one: the remote
+                // may have changed between the check and the download, so the downloaded bytes'
+                // own validator is the authoritative value.
+                string refreshedVersionTag = await BasisContentVersion.GetCachedTagAsync(item.Url);
+                if (string.IsNullOrWhiteSpace(refreshedVersionTag) && !string.IsNullOrWhiteSpace(checkedVersionTag))
+                {
+                    refreshedVersionTag = checkedVersionTag.Trim();
+                    await BasisContentVersion.MarkValidatedAsync(item.Url, refreshedVersionTag);
+                }
+
+                // PreloadMetaDataForItem creates its in-memory wrapper before the fallback above is
+                // persisted. Keep that wrapper in sync as well, otherwise wearing/sharing the item
+                // in this session would still advertise an empty version tag.
+                if (!string.IsNullOrWhiteSpace(refreshedVersionTag) &&
+                    CachedMetaData.TryGetMeta(item.Url, out CachedMetaData.CachedContent refreshedMeta) &&
+                    refreshedMeta?.BasisLoadableBundle?.BasisRemoteBundleEncrypted != null)
+                {
+                    refreshedMeta.BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteVersionTag = refreshedVersionTag;
+                }
 
                 if (wasWorn)
                 {

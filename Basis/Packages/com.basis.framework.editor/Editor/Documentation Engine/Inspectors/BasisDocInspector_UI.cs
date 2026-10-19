@@ -6,11 +6,13 @@
 // in-place; navigation is tracked via a breadcrumb stack so snippets and live
 // values follow the chain (e.g. BasisLocalPlayer.Instance.LocalAvatarDriver.X).
 
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -18,6 +20,7 @@ using UnityEngine.UIElements;
 
 [CanEditMultipleObjects]
 [CustomEditor(typeof(MonoBehaviour), true, isFallback = true)]
+[NoAutoStaticsCleanup]
 public class BasisDocInspector_UI : Editor
 {
     private const string DbAssetPath = "Packages/com.basis.framework.editor/Editor/Documentation Engine/BasisDocDB.asset";
@@ -153,7 +156,7 @@ public class BasisDocInspector_UI : Editor
 
         var apiFoldout = new Foldout
         {
-            text = "Basis API Reference",
+            text = BasisEditorLocalization.Get("editor.docInspector.apiReference"),
             value = false
         };
         StyleCardFoldout(apiFoldout);
@@ -265,7 +268,7 @@ public class BasisDocInspector_UI : Editor
         var filtersHeader = new Toolbar();
         filtersHeader.style.position = Position.Relative;
         StyleToolbar(filtersHeader);
-        filtersHeader.Add(new Label("Filter")
+        filtersHeader.Add(new Label(BasisEditorLocalization.Get("editor.docInspector.filter"))
         {
             style =
             {
@@ -281,12 +284,12 @@ public class BasisDocInspector_UI : Editor
         chips.style.flexDirection = FlexDirection.Column;
         chips.style.position = Position.Relative;
         StyleToolbar(chips);
-        _fltFields = Chip("Fields", true);
-        _fltProps = Chip("Properties", true);
-        _fltMethods = Chip("Methods", true);
-        _fltEvents = Chip("Events", true);
-        _fltInherited = Chip("Inherited", true);
-        _fltGroup = Chip("Group by Type", false);
+        _fltFields = Chip(BasisEditorLocalization.Get("editor.docInspector.filterFields"), true);
+        _fltProps = Chip(BasisEditorLocalization.Get("editor.docInspector.filterProperties"), true);
+        _fltMethods = Chip(BasisEditorLocalization.Get("editor.docInspector.filterMethods"), true);
+        _fltEvents = Chip(BasisEditorLocalization.Get("editor.docInspector.filterEvents"), true);
+        _fltInherited = Chip(BasisEditorLocalization.Get("editor.docInspector.filterInherited"), true);
+        _fltGroup = Chip(BasisEditorLocalization.Get("editor.docInspector.groupByType"), false);
         chips.Add(_fltFields);
         chips.Add(_fltProps);
         chips.Add(_fltMethods);
@@ -553,7 +556,7 @@ public class BasisDocInspector_UI : Editor
         if (mi is FieldInfo fi)
         {
             row.TypeName = NiceType(fi.FieldType);
-            row.Display = $"Field • {row.TypeName}  {row.Name}";
+            row.Display = BasisEditorLocalization.Get("editor.docInspector.rowField", row.TypeName, row.Name);
             ResolveDrillTarget(fi.FieldType, out row.DrillType, out row.DrillSuffix);
             row.IsDrillable = row.DrillType != null;
 
@@ -566,7 +569,7 @@ public class BasisDocInspector_UI : Editor
         else if (mi is PropertyInfo pi)
         {
             row.TypeName = NiceType(pi.PropertyType);
-            row.Display = $"Property • {row.TypeName}  {row.Name}";
+            row.Display = BasisEditorLocalization.Get("editor.docInspector.rowProperty", row.TypeName, row.Name);
             if (pi.CanRead)
             {
                 ResolveDrillTarget(pi.PropertyType, out row.DrillType, out row.DrillSuffix);
@@ -577,11 +580,11 @@ public class BasisDocInspector_UI : Editor
         {
             row.TypeName = NiceType(mm.ReturnType);
             row.Signature = BuildSignature(mm);
-            row.Display = $"Method • {row.Signature}";
+            row.Display = BasisEditorLocalization.Get("editor.docInspector.rowMethod", row.Signature);
         }
         else if (mi is EventInfo ei)
         {
-            row.Display = $"Event • {ei.EventHandlerType?.Name}  {row.Name}";
+            row.Display = BasisEditorLocalization.Get("editor.docInspector.rowEvent", ei.EventHandlerType?.Name, row.Name);
         }
 
         if (_db != null)
@@ -631,7 +634,7 @@ public class BasisDocInspector_UI : Editor
         }
 
         if (row.IsInherited(hostType))
-            row.Display += $"    (from {mi.DeclaringType?.Name})";
+            row.Display += "    " + BasisEditorLocalization.Get("editor.docInspector.rowFrom", mi.DeclaringType?.Name);
 
         return row;
     }
@@ -689,6 +692,15 @@ public class BasisDocInspector_UI : Editor
         else _detail?.Clear();
     }
 
+    private static string KindLabel(string kind) => kind switch
+    {
+        "Fields" => BasisEditorLocalization.Get("editor.docInspector.kindField"),
+        "Properties" => BasisEditorLocalization.Get("editor.docInspector.kindProperty"),
+        "Methods" => BasisEditorLocalization.Get("editor.docInspector.kindMethod"),
+        "Events" => BasisEditorLocalization.Get("editor.docInspector.kindEvent"),
+        _ => kind.TrimEnd('s')
+    };
+
     // ---------- Detail panel ----------
     private void ShowDetails(int index)
     {
@@ -702,7 +714,7 @@ public class BasisDocInspector_UI : Editor
         var titleRow = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, flexWrap = Wrap.Wrap } };
         titleRow.Add(Title(d.Name));
         titleRow.Add(Spacer(6));
-        titleRow.Add(ChipTag(d.Kind.TrimEnd('s'), ColAccent));
+        titleRow.Add(ChipTag(KindLabel(d.Kind), ColAccent));
 
         // Modifier chips
         if (d.Info != null)
@@ -722,13 +734,13 @@ public class BasisDocInspector_UI : Editor
         }
 
         if (d.IsInherited(Current.Type) && d.Info?.DeclaringType != null)
-            titleRow.Add(ChipTag($"from {d.Info.DeclaringType.Name}", PillNeutral));
+            titleRow.Add(ChipTag(BasisEditorLocalization.Get("editor.docInspector.chipFrom", d.Info.DeclaringType.Name), PillNeutral));
 
         if (!string.IsNullOrEmpty(d.ObsoleteMsg))
-            titleRow.Add(ChipTag("Obsolete", PillBad));
+            titleRow.Add(ChipTag(BasisEditorLocalization.Get("editor.docInspector.chipObsolete"), PillBad));
 
         if (!string.IsNullOrEmpty(d.Since))
-            titleRow.Add(ChipTag($"Since {d.Since}", PillGood));
+            titleRow.Add(ChipTag(BasisEditorLocalization.Get("editor.docInspector.chipSince", d.Since), PillGood));
 
         if (d.Platforms is { Length: > 0 })
             foreach (var p in d.Platforms) titleRow.Add(ChipTag(p));
@@ -736,51 +748,51 @@ public class BasisDocInspector_UI : Editor
         _detail.Add(titleRow);
 
         if (!string.IsNullOrEmpty(d.ConstValue))
-            _detail.Add(Subtle($"Const value: {d.ConstValue}"));
+            _detail.Add(Subtle(BasisEditorLocalization.Get("editor.docInspector.constValue", d.ConstValue)));
 
         if (d.Info is MethodInfo signatureOf)
-            _detail.Add(Subtle($"Signature: {BasisDocSnippet.Signature(signatureOf, includeDefaults: true)}"));
+            _detail.Add(Subtle(BasisEditorLocalization.Get("editor.docInspector.signature", BasisDocSnippet.Signature(signatureOf, includeDefaults: true))));
         else if (!string.IsNullOrEmpty(d.TypeName))
-            _detail.Add(Subtle($"Type: {d.TypeName}"));
+            _detail.Add(Subtle(BasisEditorLocalization.Get("editor.docInspector.typeLine", d.TypeName)));
 
         if (!string.IsNullOrEmpty(d.Summary))
-            _detail.Add(CardBlock("Summary", d.Summary));
+            _detail.Add(CardBlock(BasisEditorLocalization.Get("editor.docInspector.summary"), d.Summary));
 
         if (!string.IsNullOrEmpty(d.Remarks))
-            _detail.Add(CardBlock("Remarks", d.Remarks));
+            _detail.Add(CardBlock(BasisEditorLocalization.Get("editor.docInspector.remarks"), d.Remarks));
 
         if (d.Info is MethodInfo)
         {
             if (d.TypeParamNames.Length > 0)
-                _detail.Add(ListBlock("Type Parameters", d.TypeParamNames, d.TypeParamDocs));
+                _detail.Add(ListBlock(BasisEditorLocalization.Get("editor.docInspector.typeParameters"), d.TypeParamNames, d.TypeParamDocs));
 
             if (d.ParamNames.Length > 0)
-                _detail.Add(ListBlock("Parameters", d.ParamNames, d.ParamDocs));
+                _detail.Add(ListBlock(BasisEditorLocalization.Get("editor.docInspector.parameters"), d.ParamNames, d.ParamDocs));
 
             if (!string.IsNullOrEmpty(d.Returns) && d.TypeName != "void")
-                _detail.Add(CardBlock("Returns", d.Returns));
+                _detail.Add(CardBlock(BasisEditorLocalization.Get("editor.docInspector.returns"), d.Returns));
         }
         else if (d.Info is PropertyInfo && !string.IsNullOrEmpty(d.ValueDoc))
         {
-            _detail.Add(CardBlock("Value", d.ValueDoc));
+            _detail.Add(CardBlock(BasisEditorLocalization.Get("editor.common.value"), d.ValueDoc));
         }
 
         if (d.Exceptions.Length > 0)
-            _detail.Add(ExceptionBlock("Exceptions", d.Exceptions.Select(e => (e.cref, e.doc)).ToArray()));
+            _detail.Add(ExceptionBlock(BasisEditorLocalization.Get("editor.docInspector.exceptions"), d.Exceptions.Select(e => (e.cref, e.doc)).ToArray()));
 
         if (d.See.Length > 0 || d.SeeAlso.Length > 0)
         {
             var links = new List<string>();
             if (d.See.Length > 0) links.AddRange(d.See);
-            if (d.SeeAlso.Length > 0) links.AddRange(d.SeeAlso.Select(s => s + " (see also)"));
-            _detail.Add(BulletBlock("Related", links));
+            if (d.SeeAlso.Length > 0) links.AddRange(d.SeeAlso.Select(s => BasisEditorLocalization.Get("editor.docInspector.seeAlso", s)));
+            _detail.Add(BulletBlock(BasisEditorLocalization.Get("editor.docInspector.related"), links));
         }
 
         if (d.Examples.Count > 0)
         {
             for (int i = 0; i < d.Examples.Count; i++)
             {
-                var label = d.Examples.Count == 1 ? "Example" : $"Example {i + 1}";
+                var label = d.Examples.Count == 1 ? BasisEditorLocalization.Get("editor.docInspector.example") : BasisEditorLocalization.Get("editor.docInspector.exampleN", i + 1);
                 _detail.Add(ColorizedCodeBlock(label, d.Examples[i]));
             }
         }
@@ -789,16 +801,16 @@ public class BasisDocInspector_UI : Editor
 
         var snippet = BasisDocSnippet.Build(d.Info, context);
         if (!snippet.IsEmpty)
-            _detail.Add(ColorizedCodeBlock("How to call", snippet.Code, showCopyButton: true));
+            _detail.Add(ColorizedCodeBlock(BasisEditorLocalization.Get("editor.docInspector.howToCall"), snippet.Code, showCopyButton: true));
 
         AppendCilboxSection(d, context);
 
         // Inspect button — drill into this member's type (or collection element type)
         if (d.IsDrillable && d.DrillType != null)
         {
-            var label = string.IsNullOrEmpty(d.DrillSuffix)
-                ? $"▶  Inspect {NiceType(d.DrillType)}"
-                : $"▶  Inspect element ({NiceType(d.DrillType)}) via {d.Name}{d.DrillSuffix}";
+            var label = "▶  " + (string.IsNullOrEmpty(d.DrillSuffix)
+                ? BasisEditorLocalization.Get("editor.docInspector.inspectType", NiceType(d.DrillType))
+                : BasisEditorLocalization.Get("editor.docInspector.inspectElement", NiceType(d.DrillType), d.Name + d.DrillSuffix));
             _detail.Add(PrimaryButton(label, () => NavigatePush(d)));
         }
 
@@ -806,12 +818,12 @@ public class BasisDocInspector_UI : Editor
         if (d.Info is FieldInfo fi)
         {
             if (TryLive(() => GetMemberValue(fi, ResolveInstance(fi)), out var val))
-                _detail.Add(CardBlock("Current Value", val));
+                _detail.Add(CardBlock(BasisEditorLocalization.Get("editor.docInspector.currentValue"), val));
         }
         else if (d.Info is PropertyInfo pi && pi.CanRead)
         {
             if (TryLive(() => GetMemberValue(pi, ResolveInstance(pi)), out var val))
-                _detail.Add(CardBlock("Current Value", val));
+                _detail.Add(CardBlock(BasisEditorLocalization.Get("editor.docInspector.currentValue"), val));
         }
 
         // Invoke button (parameterless instance/static methods only). Requires a live instance for non-static.
@@ -820,8 +832,8 @@ public class BasisDocInspector_UI : Editor
             var inst = m.IsStatic ? null : ResolveInstance(m);
             var canInvoke = m.IsStatic || inst != null;
             var text = canInvoke
-                ? (Application.isPlaying ? "Invoke" : "Invoke (enter Play Mode)")
-                : "Invoke (instance unavailable)";
+                ? (Application.isPlaying ? BasisEditorLocalization.Get("editor.docInspector.invoke") : BasisEditorLocalization.Get("editor.docInspector.invokePlayMode"))
+                : BasisEditorLocalization.Get("editor.docInspector.invokeNoInstance");
             var btn = PrimaryButton(text, () =>
             {
                 try { m.Invoke(inst, null); }
@@ -867,7 +879,7 @@ public class BasisDocInspector_UI : Editor
         foreach (var note in advice.Notes) inner.Add(Body("• " + note));
 
         if (advice.Reveal != null)
-            inner.Add(SecondaryButton("Open in Cilbox Permissions", () => advice.Reveal()));
+            inner.Add(SecondaryButton(BasisEditorLocalization.Get("editor.docInspector.openCilboxPermissions"), () => advice.Reveal()));
 
         Card(inner);
 
@@ -875,14 +887,14 @@ public class BasisDocInspector_UI : Editor
         {
             var cilbox = BasisDocSnippet.BuildCilbox(d.Info, context);
             if (!cilbox.IsEmpty)
-                _detail.Add(ColorizedCodeBlock("How to call it from a Cilbox script", cilbox.Code, showCopyButton: true));
+                _detail.Add(ColorizedCodeBlock(BasisEditorLocalization.Get("editor.docInspector.howToCallCilbox"), cilbox.Code, showCopyButton: true));
         }
 
         if (!string.IsNullOrEmpty(advice.RelatedExample))
         {
             var title = string.IsNullOrEmpty(advice.RelatedTitle)
-                ? "Cilbox reference"
-                : $"Cilbox reference — {advice.RelatedTitle}";
+                ? BasisEditorLocalization.Get("editor.docInspector.cilboxReference")
+                : BasisEditorLocalization.Get("editor.docInspector.cilboxReferenceTitled", advice.RelatedTitle);
             _detail.Add(ColorizedCodeBlock(title, advice.RelatedExample, showCopyButton: true));
         }
     }
@@ -902,7 +914,7 @@ public class BasisDocInspector_UI : Editor
         if (t == null) return;
 
         var inner = new VisualElement();
-        var line1 = new Label($"Now viewing: {NiceType(t)}")
+        var line1 = new Label(BasisEditorLocalization.Get("editor.docInspector.nowViewing", NiceType(t)))
         {
             style = { unityFontStyleAndWeight = FontStyle.Bold, fontSize = 13, color = ColAccent }
         };
@@ -911,7 +923,7 @@ public class BasisDocInspector_UI : Editor
         // Source path — what got us here
         if (!string.IsNullOrEmpty(Current.AccessExpr))
         {
-            inner.Add(new Label($"Path: {Current.AccessExpr}")
+            inner.Add(new Label(BasisEditorLocalization.Get("editor.docInspector.path", Current.AccessExpr))
             {
                 style = { color = ColMuted, fontSize = 10, whiteSpace = WhiteSpace.Normal }
             });
@@ -924,7 +936,7 @@ public class BasisDocInspector_UI : Editor
             var altExpr = $"{t.Name}.{altName}";
             if (!string.Equals(altExpr, Current.AccessExpr, StringComparison.Ordinal))
             {
-                inner.Add(new Label($"Equivalent: {altExpr}")
+                inner.Add(new Label(BasisEditorLocalization.Get("editor.docInspector.equivalent", altExpr))
                 {
                     style = { color = ColMuted, fontSize = 10, whiteSpace = WhiteSpace.Normal }
                 });
@@ -944,9 +956,9 @@ public class BasisDocInspector_UI : Editor
         // Base + interfaces. Skip "framework noise" bases that don't help the reader.
         var bits = new List<string>();
         if (t.BaseType != null && !IsTrivialBaseType(t.BaseType))
-            bits.Add($"extends {NiceType(t.BaseType)}");
+            bits.Add(BasisEditorLocalization.Get("editor.docInspector.extends", NiceType(t.BaseType)));
         var ifaces = t.GetInterfaces().Where(i => IsOursType(i)).Select(NiceType).ToArray();
-        if (ifaces.Length > 0) bits.Add($"implements {string.Join(", ", ifaces)}");
+        if (ifaces.Length > 0) bits.Add(BasisEditorLocalization.Get("editor.docInspector.implements", string.Join(", ", ifaces)));
         if (bits.Count > 0)
             inner.Add(Subtle(string.Join("  •  ", bits)));
 
@@ -1310,7 +1322,7 @@ public class BasisDocInspector_UI : Editor
 
         wrap.Add(tf);
         if (showCopyButton)
-            wrap.Add(SecondaryButton("Copy code", () => EditorGUIUtility.systemCopyBuffer = code));
+            wrap.Add(SecondaryButton(BasisEditorLocalization.Get("editor.docInspector.copyCode"), () => EditorGUIUtility.systemCopyBuffer = code));
         Card(wrap);
         return wrap;
     }
@@ -1484,7 +1496,7 @@ public class BasisDocInspector_UI : Editor
     {
         var a = t.Assembly;
         yield return a;
-        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+        foreach (var asm in UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies())
         {
             if (asm == a) continue;
             var n = asm.GetName().Name ?? "";
@@ -1805,7 +1817,7 @@ public class BasisDocInspector_UI : Editor
         }
         catch (TargetInvocationException tex) when (tex.InnerException != null)
         {
-            text = $"<error: {tex.InnerException.GetType().Name}>";
+            text = BasisEditorLocalization.Get("editor.docInspector.liveError", tex.InnerException.GetType().Name);
             return true;
         }
         catch

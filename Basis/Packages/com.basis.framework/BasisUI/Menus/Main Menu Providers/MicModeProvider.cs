@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 #if !BASIS_DISABLE_MICROPHONE
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Networking;
@@ -6,7 +7,8 @@ using UnityEngine;
 
 namespace Basis.BasisUI
 {
-    public class MicModeProvider : BasisMenuActionProvider<BasisMainMenu>
+    [AutoStaticsCleanup]
+    public partial class MicModeProvider : BasisMenuActionProvider<BasisMainMenu>
     {
         static MicModeProvider _instance;
         static bool _added;
@@ -60,8 +62,8 @@ namespace Basis.BasisUI
         {
             UpdateButtonVisuals(button);
 
-            Vector2 size = button.rectTransform.sizeDelta;
-            if (size.x > 0f) button.SetSize(new Vector2(size.x * 0.5f, size.y));
+            float width = button.rectTransform.sizeDelta.x;
+            if (width > 0f) button.SetWidth(width * 0.5f);
         }
 
         private static readonly Color NormalColor = Color.white;

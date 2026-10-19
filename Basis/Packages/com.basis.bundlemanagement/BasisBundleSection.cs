@@ -33,6 +33,19 @@ public readonly struct BasisBundleSection
 
     public bool HasPayload => Length > 0 && (Bytes != null || !string.IsNullOrEmpty(FilePath));
 
+    public BasisBundleSection Slice(long relativeOffset, long length)
+    {
+        if (relativeOffset < 0 || length < 0 || relativeOffset > Length - length)
+            throw new ArgumentOutOfRangeException(nameof(relativeOffset), $"Section slice {relativeOffset}+{length} exceeds {Length} bytes.");
+
+        if (Bytes == null)
+            return FromFile(FilePath, Offset + relativeOffset, length);
+
+        byte[] slice = new byte[checked((int)length)];
+        Buffer.BlockCopy(Bytes, checked((int)relativeOffset), slice, 0, slice.Length);
+        return FromBytes(slice);
+    }
+
     public override string ToString()
     {
         return Bytes != null ? $"{Length} bytes in memory" : $"{Length} bytes at {Offset} of {FilePath}";

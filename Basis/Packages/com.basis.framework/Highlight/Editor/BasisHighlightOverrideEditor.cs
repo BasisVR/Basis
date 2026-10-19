@@ -1,3 +1,4 @@
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEngine;
 
@@ -22,14 +23,14 @@ namespace Basis.Scripts.BasisSdk.Highlight.Editor
 
             EditorGUI.BeginChangeCheck();
 
-            EditorGUILayout.PropertyField(overrideType);
+            EditorGUILayout.PropertyField(overrideType, new GUIContent(BasisEditorLocalization.Get("editor.highlight.overrideType")));
 
             // Only surface the mask material when the mode actually uses it.
             bool showMaterial = !overrideType.hasMultipleDifferentValues
                 && (BasisHighlightOverrideType)overrideType.enumValueIndex == BasisHighlightOverrideType.Material;
             if (showMaterial)
             {
-                EditorGUILayout.PropertyField(maskMaterial);
+                EditorGUILayout.PropertyField(maskMaterial, new GUIContent(BasisEditorLocalization.Get("editor.highlight.maskMaterial")));
             }
 
             if (EditorGUI.EndChangeCheck())

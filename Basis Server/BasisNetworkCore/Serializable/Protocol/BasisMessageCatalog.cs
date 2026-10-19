@@ -71,6 +71,7 @@ public static partial class SerializableBasis
             Add(BasisNetworkCommons.ContentShareChannel, "basis.core.contentshare");
             Add(BasisNetworkCommons.DeltaAvatarChannel, "basis.core.avatar.delta");
             Add(BasisNetworkCommons.ServerBoundChannel, "basis.core.serverbound");
+            Add(BasisNetworkCommons.StorageChannel, "basis.core.storage");
             Add(BasisNetworkCommons.AdminChannel, "basis.core.admin");
             Add(BasisNetworkCommons.ServerStatisticsChannel, "basis.core.statistics");
             Add(BasisNetworkCommons.CameraPIPStateChannel, "basis.core.camera.pip.state");

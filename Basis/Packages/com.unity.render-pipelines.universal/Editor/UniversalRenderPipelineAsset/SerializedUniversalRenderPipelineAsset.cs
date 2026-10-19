@@ -20,8 +20,8 @@ namespace UnityEditor.Rendering.Universal
         public SerializedProperty renderScale { get; }
         public SerializedProperty upscalingFilter { get; }
 #if ENABLE_UPSCALER_FRAMEWORK
-        public SerializedProperty selectedUpscalerName { get; }
-
+        public SerializedProperty scalingMode { get; }
+        public SerializedProperty upscalerPriority { get; }
         public SerializedProperty upscalerOptions { get; }
 #endif
         public SerializedProperty fsrOverrideSharpness { get; }
@@ -32,6 +32,7 @@ namespace UnityEditor.Rendering.Universal
         public SerializedProperty mainLightShadowmapResolutionProp { get; }
 
         public SerializedProperty shEvalModeProp { get; }
+        public SerializedProperty lightFalloffModeProp { get; }
 
         internal SerializedProperty lightProbeSystem;
         internal SerializedProperty probeVolumeTextureSize;
@@ -71,6 +72,7 @@ namespace UnityEditor.Rendering.Universal
         public SerializedProperty conservativeEnclosingSphereProp { get; }
 
         public SerializedProperty srpBatcher { get; }
+        // Deprecated: Retained for serialized data compatibility and will be removed in a future release.
         public SerializedProperty supportsDynamicBatching { get; }
         public SerializedProperty mixedLightingSupportedProp { get; }
         public SerializedProperty useRenderingLayers { get; }
@@ -88,6 +90,8 @@ namespace UnityEditor.Rendering.Universal
 
         public SerializedProperty gpuResidentDrawerMode { get; }
         public SerializedProperty smallMeshScreenPercentage { get; }
+
+        public SerializedProperty shadowSmallMeshScreenPercentages { get; }
         public SerializedProperty gpuResidentDrawerEnableOcclusionCullingInCameras { get; }
 
 #if ENABLE_ADAPTIVE_PERFORMANCE
@@ -118,13 +122,15 @@ namespace UnityEditor.Rendering.Universal
             renderScale = serializedObject.FindProperty("m_RenderScale");
             upscalingFilter = serializedObject.FindProperty("m_UpscalingFilter");
 #if ENABLE_UPSCALER_FRAMEWORK
-            selectedUpscalerName = serializedObject.FindProperty("m_SelectedUpscalerName");
+            scalingMode = serializedObject.FindProperty("m_ScalingMode");
+            upscalerPriority = serializedObject.FindProperty("m_UpscalerPriority");
             upscalerOptions = serializedObject.FindProperty("m_UpscalerOptions");
 #endif
             fsrOverrideSharpness = serializedObject.FindProperty("m_FsrOverrideSharpness");
             fsrSharpness = serializedObject.FindProperty("m_FsrSharpness");
 
             shEvalModeProp = serializedObject.FindProperty("m_ShEvalMode");
+            lightFalloffModeProp = serializedObject.FindProperty("m_LightFalloffMode");
 
             lightProbeSystem = serializedObject.FindProperty("m_LightProbeSystem");
             probeVolumeTextureSize = serializedObject.FindProperty("m_ProbeVolumeMemoryBudget");
@@ -189,23 +195,31 @@ namespace UnityEditor.Rendering.Universal
 
             gpuResidentDrawerMode = serializedObject.FindProperty("m_GPUResidentDrawerMode");
             smallMeshScreenPercentage = serializedObject.FindProperty("m_SmallMeshScreenPercentage");
+            shadowSmallMeshScreenPercentages = serializedObject.FindProperty("m_ShadowSmallMeshScreenPercentages");
             gpuResidentDrawerEnableOcclusionCullingInCameras = serializedObject.FindProperty("m_GPUResidentDrawerEnableOcclusionCullingInCameras");
 
 #if ENABLE_ADAPTIVE_PERFORMANCE
             useAdaptivePerformance = serializedObject.FindProperty("m_UseAdaptivePerformance");
 #endif
 #if ENABLE_UPSCALER_FRAMEWORK
-            bool referenceModified = UpscalerOptions.ValidateSerializedUpscalerOptionReferencesWithinRPAsset(asset, upscalerOptions);
-            if (referenceModified)
-            {
-                serializedObject.ApplyModifiedProperties();
-                EditorUtility.SetDirty(asset);
-            }
+            UpdateUpscalerOptions();
 #endif
 
             string Key = "Universal_Shadow_Setting_Unit:UI_State";
             state = new EditorPrefBoolFlags<EditorUtils.Unit>(Key);
         }
+
+
+#if ENABLE_UPSCALER_FRAMEWORK
+        internal void UpdateUpscalerOptions()
+        {
+            if (!UpscalerOptions.ValidateSerializedUpscalerOptionReferencesWithinRPAsset(asset, upscalerOptions, asset.GetUpscalerPriorityIds()))
+                return;
+
+            serializedObject.ApplyModifiedProperties();
+            EditorUtility.SetDirty(asset);
+        }
+#endif
 
         /// <summary>
         /// Refreshes the serialized object

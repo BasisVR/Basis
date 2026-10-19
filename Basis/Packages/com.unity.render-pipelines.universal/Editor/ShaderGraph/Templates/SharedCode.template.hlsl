@@ -66,6 +66,7 @@ SurfaceDescriptionInputs BuildSurfaceDescriptionInputs(Varyings input)
 
     $SurfaceDescriptionInputs.NDCPosition:                              output.NDCPosition = output.PixelPosition.xy / _ScaledScreenParams.xy;
     $SurfaceDescriptionInputs.NDCPosition:                              output.NDCPosition.y = 1.0f - output.NDCPosition.y;
+    $SurfaceDescriptionInputs.ClipPosition:                             output.ClipPosition = input.positionCS.xy;
 
     $SurfaceDescriptionInputs.uv0:                                      output.uv0 = input.texCoord0;
     $SurfaceDescriptionInputs.uv1:                                      output.uv1 = input.texCoord1;

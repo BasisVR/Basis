@@ -13,11 +13,15 @@ namespace UnityEngine.Rendering.Universal
         /// </summary>
         public CullingResults cullResults;
 
+        // True when cullResults was reused from a previous pass.
+        // Consumers should avoid mutating the culling state.
+        internal bool reuseCullingResult;
+
         /// <summary>
         /// True if the pipeline supports dynamic batching.
         /// This settings doesn't apply when drawing shadow casters. Dynamic batching is always disabled when drawing shadow casters.
         /// </summary>
-        [System.Obsolete("supportsDynamicBatching is deprecated and will be removed in a future release. #from(6000.5)", false)]
+        [System.Obsolete("supportsDynamicBatching is obsolete.", true)]
         public bool supportsDynamicBatching;
 
         /// <summary>
@@ -53,19 +57,24 @@ namespace UnityEngine.Rendering.Universal
         /// </summary>
         public bool stencilLodCrossFadeEnabled { get; internal set; }
 
+        /// <summary>
+        /// True if per-pixel smoothness should be written to the alpha channel of the CameraDepthNormals texture, if it exists.
+        /// Used for screen space reflections.
+        /// </summary>
+        public bool writesSmoothnessToDepthNormalsAlpha { get; internal set; }
+
         /// <inheritdoc/>
         public override void Reset()
         {
             cullResults = default;
-#pragma warning disable 618
-            supportsDynamicBatching = default;
-#pragma warning restore 618
+            reuseCullingResult = default;
             perObjectData = default;
             renderingMode = default;
             stencilLodCrossFadeEnabled = default;
             prepassLayerMask = -1;
             opaqueLayerMask = -1;
             transparentLayerMask = -1;
+            writesSmoothnessToDepthNormalsAlpha = false;
         }
     }
 }

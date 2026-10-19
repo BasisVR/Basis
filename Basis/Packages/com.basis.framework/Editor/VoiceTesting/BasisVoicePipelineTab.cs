@@ -1,6 +1,8 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Basis.Editor.Localization;
 using Basis.Scripts.Networking.Voice.Testing;
 using UnityEditor;
 using UnityEngine;
@@ -14,11 +16,12 @@ namespace Basis.Scripts.Networking.Voice.EditorTools
     /// rendered audio, and can export any single scenario's reference/output/baseline as
     /// WAVs for listening. Pure offline simulation — no play mode, no live server.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public sealed class BasisVoicePipelineTab : BasisEditorTabPage
     {
-        public override string Title => "Pipeline Matrix";
+        public override string Title => BasisEditorLocalization.Get("editor.voice.pipeline.title");
         public override string Subtitle =>
-            "The capture-encode-network-decode-playback path across every impairment combination.";
+            BasisEditorLocalization.Get("editor.voice.pipeline.subtitle");
 
         static readonly Color Green = new Color(0.45f, 0.9f, 0.45f);
         static readonly Color Red = new Color(0.95f, 0.5f, 0.5f);
@@ -65,13 +68,9 @@ namespace Basis.Scripts.Networking.Voice.EditorTools
 
         public override void Draw()
         {
-            Header("Voice Pipeline - End-to-End Offline Test");
+            Header(BasisEditorLocalization.Get("editor.voice.pipeline.header"));
             EditorGUILayout.HelpBox(
-                "Drives the REAL voice path: Opus encode (same CTLs as the live encoder) -> wire " +
-                "serialization -> server relay wrap -> seeded network impairments -> the real " +
-                "BasisAudioReceiver (jitter buffer, FEC/PLC, adaptive depth, fades, resampler). " +
-                "Output audio is scored for underrun notches ('bubbling'), SNR vs a codec-only " +
-                "baseline, dropped audio, and latency.",
+                BasisEditorLocalization.Get("editor.voice.pipeline.help"),
                 MessageType.Info);
 
             DrawMatrix();
@@ -82,17 +81,18 @@ namespace Basis.Scripts.Networking.Voice.EditorTools
 
         void DrawMatrix()
         {
-            Header("Matrix");
-            _scope = (Scope)EditorGUILayout.EnumPopup("Preset", _scope);
-            _seeds = EditorGUILayout.IntSlider(new GUIContent("Seeds (repeats)"), _seeds, 1, 5);
+            Header(BasisEditorLocalization.Get("editor.voice.pipeline.matrix"));
+            _scope = (Scope)EditorGUILayout.Popup(BasisEditorLocalization.Get("editor.voice.pipeline.preset"), (int)_scope,
+                new[] { BasisEditorLocalization.Get("editor.voice.pipeline.presetQuick"), BasisEditorLocalization.Get("editor.voice.pipeline.presetFull") });
+            _seeds = EditorGUILayout.IntSlider(new GUIContent(BasisEditorLocalization.Get("editor.voice.pipeline.seeds")), _seeds, 1, 5);
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                if (BasisEditorUI.PrimaryButton("Run Matrix", 26f))
+                if (BasisEditorUI.PrimaryButton(BasisEditorLocalization.Get("editor.voice.pipeline.runMatrix"), 26f))
                     RunMatrix();
                 using (new EditorGUI.DisabledScope(_results == null || _results.Count == 0))
                 {
-                    if (BasisEditorUI.PrimaryButton("Export CSV...", 26f))
+                    if (BasisEditorUI.PrimaryButton(BasisEditorLocalization.Get("editor.voice.pipeline.exportCsv"), 26f))
                         ExportCsv();
                 }
             }
@@ -105,7 +105,7 @@ namespace Basis.Scripts.Networking.Voice.EditorTools
 
             if (_results != null && _results.Count > 0)
             {
-                Header("Results");
+                Header(BasisEditorLocalization.Get("editor.voice.pipeline.results"));
                 _resultScroll = EditorGUILayout.BeginScrollView(_resultScroll, GUILayout.MinHeight(180), GUILayout.MaxHeight(320));
                 foreach (var r in _results)
                 {
@@ -127,7 +127,7 @@ namespace Basis.Scripts.Networking.Voice.EditorTools
                 for (int i = 0; i < scenarios.Count; i++)
                 {
                     var s = scenarios[i];
-                    if (EditorUtility.DisplayCancelableProgressBar("Voice Pipeline Test", $"{i + 1}/{scenarios.Count}  {s.Name}", (float)i / scenarios.Count))
+                    if (EditorUtility.DisplayCancelableProgressBar(BasisEditorLocalization.Get("editor.voice.pipeline.progressTitle"), $"{i + 1}/{scenarios.Count}  {s.Name}", (float)i / scenarios.Count))
                         break;
                     results.Add(BasisVoiceSim.Run(s));
                 }
@@ -144,13 +144,13 @@ namespace Basis.Scripts.Networking.Voice.EditorTools
                 if (r.Passed) pass++; else fail++;
                 if (!string.IsNullOrEmpty(r.Error)) errors++;
             }
-            _summary = $"{results.Count} scenarios: {pass} pass, {fail} fail, {errors} exceptions.";
+            _summary = BasisEditorLocalization.Get("editor.voice.pipeline.summary", results.Count, pass, fail, errors);
             Host.Repaint();
         }
 
         void ExportCsv()
         {
-            string path = EditorUtility.SaveFilePanel("Export Voice Test CSV", "", "voice_pipeline_results.csv", "csv");
+            string path = EditorUtility.SaveFilePanel(BasisEditorLocalization.Get("editor.voice.pipeline.exportCsvTitle"), "", "voice_pipeline_results.csv", "csv");
             if (string.IsNullOrEmpty(path)) return;
             File.WriteAllText(path, BasisVoiceSimMatrix.ToCsv(_results));
             EditorUtility.RevealInFinder(path);
@@ -158,23 +158,29 @@ namespace Basis.Scripts.Networking.Voice.EditorTools
 
         void DrawSingleRun()
         {
-            Header("Single Scenario (listenable WAV export)");
-            _singleSignal = (BasisVoiceSignal)EditorGUILayout.EnumPopup("Signal", _singleSignal);
-            _singleProfileIndex = EditorGUILayout.Popup("Network profile", _singleProfileIndex, ProfileNames);
-            _singleDuration = EditorGUILayout.Slider("Duration (s)", _singleDuration, 2f, 30f);
-            _singleBitrate = EditorGUILayout.IntSlider("Bitrate (bps)", _singleBitrate, 6000, 128000);
-            _singleFloor = EditorGUILayout.IntSlider("Jitter buffer floor", _singleFloor, 1, 10);
-            _single44100 = EditorGUILayout.Toggle("44.1 kHz output (resampler)", _single44100);
-            _single40ms = EditorGUILayout.Toggle("40 ms frames", _single40ms);
-            _singleHangMs = EditorGUILayout.Slider("Receiver hang (ms)", _singleHangMs, 0f, 2000f);
+            Header(BasisEditorLocalization.Get("editor.voice.pipeline.singleRun"));
+            _singleSignal = (BasisVoiceSignal)EditorGUILayout.Popup(BasisEditorLocalization.Get("editor.voice.pipeline.signal"), (int)_singleSignal, new[]
+            {
+                BasisEditorLocalization.Get("editor.voice.pipeline.signalSpeechLike"),
+                BasisEditorLocalization.Get("editor.voice.pipeline.signalSine"),
+                BasisEditorLocalization.Get("editor.voice.pipeline.signalSweep"),
+                BasisEditorLocalization.Get("editor.voice.pipeline.signalImpulseTrain"),
+            });
+            _singleProfileIndex = EditorGUILayout.Popup(BasisEditorLocalization.Get("editor.voice.pipeline.networkProfile"), _singleProfileIndex, ProfileNames);
+            _singleDuration = EditorGUILayout.Slider(BasisEditorLocalization.Get("editor.voice.pipeline.duration"), _singleDuration, 2f, 30f);
+            _singleBitrate = EditorGUILayout.IntSlider(BasisEditorLocalization.Get("editor.voice.pipeline.bitrate"), _singleBitrate, 6000, 128000);
+            _singleFloor = EditorGUILayout.IntSlider(BasisEditorLocalization.Get("editor.voice.pipeline.jitterFloor"), _singleFloor, 1, 10);
+            _single44100 = EditorGUILayout.Toggle(BasisEditorLocalization.Get("editor.voice.pipeline.output44100"), _single44100);
+            _single40ms = EditorGUILayout.Toggle(BasisEditorLocalization.Get("editor.voice.pipeline.frames40ms"), _single40ms);
+            _singleHangMs = EditorGUILayout.Slider(BasisEditorLocalization.Get("editor.voice.pipeline.receiverHang"), _singleHangMs, 0f, 2000f);
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                if (BasisEditorUI.PrimaryButton("Run", 24f))
+                if (BasisEditorUI.PrimaryButton(BasisEditorLocalization.Get("editor.common.run"), 24f))
                     RunSingle();
                 using (new EditorGUI.DisabledScope(_singleResult == null || _singleResult.OutputMono == null))
                 {
-                    if (BasisEditorUI.PrimaryButton("Export WAVs...", 24f))
+                    if (BasisEditorUI.PrimaryButton(BasisEditorLocalization.Get("editor.voice.pipeline.exportWavs"), 24f))
                         ExportSingleWavs();
                 }
             }
@@ -208,7 +214,7 @@ namespace Basis.Scripts.Networking.Voice.EditorTools
             };
             try
             {
-                EditorUtility.DisplayProgressBar("Voice Pipeline Test", s.Name, 0.5f);
+                EditorUtility.DisplayProgressBar(BasisEditorLocalization.Get("editor.voice.pipeline.progressTitle"), s.Name, 0.5f);
                 _singleResult = BasisVoiceSim.Run(s);
             }
             finally
@@ -220,7 +226,7 @@ namespace Basis.Scripts.Networking.Voice.EditorTools
 
         void ExportSingleWavs()
         {
-            string dir = EditorUtility.SaveFolderPanel("Export WAVs", "", "voice_test");
+            string dir = EditorUtility.SaveFolderPanel(BasisEditorLocalization.Get("editor.voice.pipeline.exportWavsTitle"), "", "voice_test");
             if (string.IsNullOrEmpty(dir)) return;
             var r = _singleResult;
             string baseName = r.ScenarioName.Replace('/', '_');

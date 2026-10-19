@@ -1,0 +1,46 @@
+[package]
+name = "media-whep"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+bytes = "1"
+media-clock.workspace = true
+media-demux.workspace = true
+media-diag.workspace = true
+media-io.workspace = true
+media-rtp.workspace = true
+media-rtsp.workspace = true
+retina = "0.4.19"
+tokio = { version = "1.53.1", features = ["rt", "time", "sync", "net"] }
+url = "2.5.8"
+
+# Trust anchors as in media-io: OS store where one exists,
+# webpki-roots bundled on Android (no readable CA store there).
+[target.'cfg(not(target_os = "android"))'.dependencies]
+reqwest = { version = "0.12", default-features = false, features = [
+    "rustls-tls-native-roots",
+] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+reqwest = { version = "0.12", default-features = false, features = [
+    "rustls-tls-webpki-roots",
+] }
+
+# str0m's DTLS/SRTP crypto backend per platform: wincrypto rides the
+# windows crate already in the workspace (no extra native builds); the
+# pure-Rust backend is not usable on MSVC because dimpl's certificate
+# feature (rcgen) hard-enables aws-lc-rs, which needs CMake + NASM there
+# (the toolchain cost media-io avoids by using ring).
+[target.'cfg(windows)'.dependencies]
+str0m = { version = "0.23", default-features = false, features = ["wincrypto"] }
+
+[target.'cfg(not(windows))'.dependencies]
+str0m = { version = "0.23", default-features = false, features = ["rust-crypto"] }
+
+[lints]
+workspace = true
+
+[dev-dependencies]

@@ -1,0 +1,23 @@
+[package]
+name = "decode-mf"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+media-decode = { path = ".." }
+media-diag = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62.2", features = ["Win32_Media_MediaFoundation", "Win32_Graphics_Direct3D11", "Win32_Graphics_Dxgi_Common", "Win32_System_Com", "Win32_Foundation", "Win32_Graphics_Direct3D"] }
+
+[dev-dependencies]
+media-clock = { workspace = true }
+media-demux = { workspace = true }
+
+[target.'cfg(windows)'.dev-dependencies]
+decode-sw = { path = "../decode-sw" }
+
+[lints]
+workspace = true

@@ -7,9 +7,10 @@
         "BasisNetworkCore",
         "BasisSDK",
         "Unity.InputSystem",
-        "LiteNetLib",
         "BasisCommon",
-        "BasisDebug"
+        "BasisDebug",
+        "Cilbox",
+        "BasisShims"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

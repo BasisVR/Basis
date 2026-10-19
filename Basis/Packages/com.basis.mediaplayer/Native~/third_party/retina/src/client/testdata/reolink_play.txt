@@ -1,0 +1,8 @@
+RTSP/1.0 200 OK
+Server: Rtsp Server/2.0
+CSeq: 6
+Date: Fri, Apr 30 2021 20:12:32 GMT
+Range: npt=0.000-
+Session: F8F8E425
+RTP-Info: url=trackID=1;seq=16852;rtptime=1070938629;ssrc=dcc4a0d8,url=trackID=2;seq=39409;rtptime=3075976528;ssrc=9fc9fff8
+

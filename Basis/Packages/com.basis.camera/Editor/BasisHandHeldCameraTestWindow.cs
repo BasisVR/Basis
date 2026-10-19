@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using Basis.BasisUI;
+using Basis.Editor.Localization;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
 using UnityEditor;
@@ -38,7 +39,7 @@ namespace Basis.HandHeldCamera.Editor
         [MenuItem("Basis/Debug/Hand-Held Camera", false, 625)]
         public static void Open()
         {
-            GetWindow<BasisHandHeldCameraTestWindow>("Hand-Held Camera").Show();
+            GetWindow<BasisHandHeldCameraTestWindow>(BasisEditorLocalization.Get("editor.camera.testWindow.title")).Show();
         }
 
         private void OnEnable()
@@ -72,7 +73,7 @@ namespace Basis.HandHeldCamera.Editor
             if (!Application.isPlaying)
             {
                 EditorGUILayout.Space();
-                EditorGUILayout.HelpBox("Enter Play Mode and bring a camera out in game (Props > Photo Camera) to test it here.", MessageType.Info);
+                EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.camera.testWindow.enterPlayMode"), MessageType.Info);
                 EditorGUILayout.EndScrollView();
                 return;
             }
@@ -93,36 +94,36 @@ namespace Basis.HandHeldCamera.Editor
 
         private static void DrawSetup()
         {
-            EditorGUILayout.LabelField("Setup", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.camera.testWindow.setup"), EditorStyles.boldLabel);
             using (new EditorGUI.IndentLevelScope())
             {
-                Status("Platform has a desktop window", BasisCameraDirectToScreen.IsSupported,
-                    "Direct To Screen is only offered on platforms with a monitor to draw on.");
+                Status(BasisEditorLocalization.Get("editor.camera.testWindow.platformDesktop"), BasisCameraDirectToScreen.IsSupported,
+                    BasisEditorLocalization.Get("editor.camera.testWindow.platformDesktop.tooltip"));
 
                 UniversalRenderPipelineAsset asset = UniversalRenderPipeline.asset;
                 if (asset == null)
                 {
-                    EditorGUILayout.HelpBox("No URP pipeline asset is active.", MessageType.Error);
+                    EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.camera.testWindow.noPipelineAsset"), MessageType.Error);
                     return;
                 }
 
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    EditorGUILayout.LabelField("Pipeline asset", asset.name);
-                    if (GUILayout.Button("Select", GUILayout.Width(60f))) Selection.activeObject = asset;
+                    EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.camera.testWindow.pipelineAsset"), asset.name);
+                    if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.select"), GUILayout.Width(60f))) Selection.activeObject = asset;
                 }
 
                 int index = BasisCameraDirectToScreenOutput.FindRendererWithFeature(asset);
                 if (index >= 0)
                 {
                     ScriptableRendererData data = asset.rendererDataList[index];
-                    Status($"Direct To Screen renderer: #{index} {data.name}", true,
-                        "The screen camera renders through this renderer, which carries BasisCameraDirectToScreenFeature.");
+                    Status(BasisEditorLocalization.Get("editor.camera.testWindow.d2sRenderer", index, data.name), true,
+                        BasisEditorLocalization.Get("editor.camera.testWindow.d2sRenderer.tooltip"));
                 }
                 else
                 {
-                    Status("Direct To Screen renderer: none on this pipeline", false,
-                        "No renderer carries BasisCameraDirectToScreenFeature. The pass is enqueued by hand on the default renderer instead; add DirectToScreenRenderer to the pipeline asset's renderer list for the intended path.");
+                    Status(BasisEditorLocalization.Get("editor.camera.testWindow.d2sRendererNone"), false,
+                        BasisEditorLocalization.Get("editor.camera.testWindow.d2sRendererNone.tooltip"));
                 }
             }
         }
@@ -132,21 +133,21 @@ namespace Basis.HandHeldCamera.Editor
         private static void DrawDevice()
         {
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Device", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.camera.testWindow.device"), EditorStyles.boldLabel);
             using (new EditorGUI.IndentLevelScope())
             {
                 string mode = BasisDeviceManagement.StaticCurrentMode;
                 bool inVR = BasisDeviceManagement.IsCurrentModeVR();
                 bool inDesktop = BasisDeviceManagement.IsUserInDesktop();
-                EditorGUILayout.LabelField("Mode", $"{mode}{(inVR ? " (VR)" : inDesktop ? " (desktop)" : string.Empty)}");
+                EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.common.mode"), inVR ? BasisEditorLocalization.Get("editor.camera.testWindow.modeVr", mode) : inDesktop ? BasisEditorLocalization.Get("editor.camera.testWindow.modeDesktop", mode) : $"{mode}");
 
                 BasisDeviceManagement manager = BasisDeviceManagement.Instance;
                 if (manager == null)
                 {
-                    EditorGUILayout.LabelField("No BasisDeviceManagement instance.");
+                    EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.camera.testWindow.noDeviceManagement"));
                     return;
                 }
-                if (manager.IsSoftSwapped) EditorGUILayout.LabelField("Soft-swapped from", manager.AutoSwapPreviousVRMode);
+                if (manager.IsSoftSwapped) EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.camera.testWindow.softSwappedFrom"), manager.AutoSwapPreviousVRMode);
 
                 // Desktop hands the monitor back; VR takes it over again. Both from here, so the
                 // round trip can be tested without leaving the editor.
@@ -154,7 +155,7 @@ namespace Basis.HandHeldCamera.Editor
                 {
                     using (new EditorGUI.DisabledScope(inDesktop))
                     {
-                        if (GUILayout.Button("Switch to Desktop")) SwitchMode(manager, BasisConstants.Desktop);
+                        if (GUILayout.Button(BasisEditorLocalization.Get("editor.camera.testWindow.switchToDesktop"))) SwitchMode(manager, BasisConstants.Desktop);
                     }
 
                     bool canReturnToVR = manager.IsSoftSwapped && !string.IsNullOrEmpty(manager.AutoSwapPreviousVRMode);
@@ -162,12 +163,12 @@ namespace Basis.HandHeldCamera.Editor
                     {
                         if (canReturnToVR)
                         {
-                            if (GUILayout.Button($"Back to {manager.AutoSwapPreviousVRMode}")) SwitchMode(manager, manager.AutoSwapPreviousVRMode);
+                            if (GUILayout.Button(BasisEditorLocalization.Get("editor.camera.testWindow.backTo", manager.AutoSwapPreviousVRMode))) SwitchMode(manager, manager.AutoSwapPreviousVRMode);
                         }
                         else
                         {
-                            if (GUILayout.Button("Switch to OpenXR")) SwitchMode(manager, BasisConstants.OpenXRLoader);
-                            if (GUILayout.Button("Switch to OpenVR")) SwitchMode(manager, BasisConstants.OpenVRLoader);
+                            if (GUILayout.Button(BasisEditorLocalization.Get("editor.camera.testWindow.switchToOpenXr"))) SwitchMode(manager, BasisConstants.OpenXRLoader);
+                            if (GUILayout.Button(BasisEditorLocalization.Get("editor.camera.testWindow.switchToOpenVr"))) SwitchMode(manager, BasisConstants.OpenVRLoader);
                         }
                     }
                 }
@@ -191,14 +192,14 @@ namespace Basis.HandHeldCamera.Editor
         private BasisHandHeldCamera DrawCameraSelector()
         {
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Cameras", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.camera.testWindow.cameras"), EditorStyles.boldLabel);
 
             IReadOnlyList<BasisHandHeldCamera> cameras = BasisHandHeldCameraRegistry.Cameras;
             if (cameras.Count == 0)
             {
                 using (new EditorGUI.IndentLevelScope())
                 {
-                    EditorGUILayout.HelpBox("No hand-held camera is out. Bring one out in game: Props > Photo Camera.", MessageType.Info);
+                    EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.camera.testWindow.noCameraOut"), MessageType.Info);
                 }
                 return null;
             }
@@ -208,14 +209,16 @@ namespace Basis.HandHeldCamera.Editor
             {
                 BasisHandHeldCamera entry = cameras[Index];
                 names[Index] = entry != null
-                    ? $"{Index + 1}. {entry.gameObject.name}{(entry.IsCameraHidden ? " (hidden)" : string.Empty)}"
-                    : $"{Index + 1}. (destroyed)";
+                    ? entry.IsCameraHidden
+                        ? BasisEditorLocalization.Get("editor.camera.testWindow.cameraEntryHidden", Index + 1, entry.gameObject.name)
+                        : $"{Index + 1}. {entry.gameObject.name}"
+                    : BasisEditorLocalization.Get("editor.camera.testWindow.cameraEntryDestroyed", Index + 1);
             }
 
             _selected = Mathf.Clamp(_selected, 0, cameras.Count - 1);
             using (new EditorGUI.IndentLevelScope())
             {
-                _selected = EditorGUILayout.Popup("Camera", _selected, names);
+                _selected = EditorGUILayout.Popup(BasisEditorLocalization.Get("editor.camera.testWindow.camera"), _selected, names);
             }
 
             BasisHandHeldCamera camera = cameras[_selected];
@@ -225,38 +228,42 @@ namespace Basis.HandHeldCamera.Editor
         private static void DrawCameraState(BasisHandHeldCamera camera)
         {
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Camera", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.camera.testWindow.camera"), EditorStyles.boldLabel);
             using (new EditorGUI.IndentLevelScope())
             {
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    if (GUILayout.Button("Select")) Selection.activeGameObject = camera.gameObject;
-                    if (GUILayout.Button("Take Photo")) camera.CapturePhoto();
-                    if (GUILayout.Button(camera.IsCameraHidden ? "Show Prop" : "Hide Prop")) camera.SetCameraHidden(!camera.IsCameraHidden);
+                    if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.select"))) Selection.activeGameObject = camera.gameObject;
+                    if (GUILayout.Button(BasisEditorLocalization.Get("editor.camera.testWindow.takePhoto"))) camera.CapturePhoto();
+                    if (GUILayout.Button(camera.IsCameraHidden ? BasisEditorLocalization.Get("editor.camera.testWindow.showProp") : BasisEditorLocalization.Get("editor.camera.testWindow.hideProp"))) camera.SetCameraHidden(!camera.IsCameraHidden);
                 }
 
-                EditorGUILayout.LabelField("Mode / body",
-                    $"{camera.CameraMode} / {camera.BodyTraits.Kind}{(camera.BodyAllowsLiveFeed ? string.Empty : " (no output socket)")}");
-                EditorGUILayout.LabelField("Capture size", $"{camera.captureWidth} x {camera.captureHeight}");
+                EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.camera.testWindow.modeBody"),
+                    camera.BodyAllowsLiveFeed
+                        ? $"{camera.CameraMode} / {camera.BodyTraits.Kind}"
+                        : BasisEditorLocalization.Get("editor.camera.testWindow.modeBodyNoSocket", camera.CameraMode, camera.BodyTraits.Kind));
+                EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.camera.testWindow.captureSize"), $"{camera.captureWidth} x {camera.captureHeight}");
 
                 UnityCamera capture = camera.captureCamera;
                 bool rendering = capture != null && capture.enabled;
-                Status(rendering ? "Capture camera rendering" : "Capture camera not rendering", rendering,
+                Status(rendering ? BasisEditorLocalization.Get("editor.camera.testWindow.captureRendering") : BasisEditorLocalization.Get("editor.camera.testWindow.captureNotRendering"), rendering,
                     capture == null
-                        ? "This camera has no capture camera."
+                        ? BasisEditorLocalization.Get("editor.camera.testWindow.captureMissing.tooltip")
                         : rendering
-                            ? "The capture camera is enabled for this frame."
-                            : "Gated off: nothing is showing the feed, or the render-rate cap skipped this frame.");
+                            ? BasisEditorLocalization.Get("editor.camera.testWindow.captureRendering.tooltip")
+                            : BasisEditorLocalization.Get("editor.camera.testWindow.captureNotRendering.tooltip"));
 
-                EditorGUILayout.LabelField("Feed consumers", DescribeConsumers(camera));
+                EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.camera.testWindow.feedConsumers"), DescribeConsumers(camera));
 
                 bool capped = BasisSettingsDefaults.LimitHandHeldCameraRate.RawValue;
-                EditorGUILayout.LabelField("Render-rate cap", capped
-                    ? $"{BasisSettingsDefaults.HandHeldCameraRenderHz.RawValue:0} Hz{(camera.IsDirectToScreenPresenting ? " (lifted while presenting)" : string.Empty)}"
-                    : "off");
+                EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.camera.testWindow.renderRateCap"), capped
+                    ? camera.IsDirectToScreenPresenting
+                        ? BasisEditorLocalization.Get("editor.camera.testWindow.renderRateCapLifted", BasisSettingsDefaults.HandHeldCameraRenderHz.RawValue)
+                        : $"{BasisSettingsDefaults.HandHeldCameraRenderHz.RawValue:0} Hz"
+                    : BasisEditorLocalization.Get("editor.camera.testWindow.off"));
 
                 RenderTexture feed = camera.PreviewTexture;
-                EditorGUILayout.LabelField("Feed texture", DescribeTexture(feed));
+                EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.camera.testWindow.feedTexture"), DescribeTexture(feed));
                 DrawFeedPreview(feed);
             }
         }
@@ -270,19 +277,21 @@ namespace Basis.HandHeldCamera.Editor
                 consumers.Append(name);
             }
 
-            if (camera.IsCameraHidden) Add("prop hidden but live");
-            if (camera.IsWebStreamActive) Add("web stream");
-            if (camera.IsVideoOutputActive) Add("video output");
-            if (camera.IsGifRecording) Add("GIF recording");
-            if (camera.IsVideoRecording) Add("video recording");
-            if (camera.IsDirectToScreenPresenting) Add("Direct To Screen");
-            return consumers.Length > 0 ? consumers.ToString() : "viewfinder only";
+            if (camera.IsCameraHidden) Add(BasisEditorLocalization.Get("editor.camera.testWindow.consumerHidden"));
+            if (camera.IsWebStreamActive) Add(BasisEditorLocalization.Get("editor.camera.testWindow.consumerWebStream"));
+            if (camera.IsVideoOutputActive) Add(BasisEditorLocalization.Get("editor.camera.testWindow.consumerVideoOutput"));
+            if (camera.IsGifRecording) Add(BasisEditorLocalization.Get("editor.camera.testWindow.consumerGif"));
+            if (camera.IsVideoRecording) Add(BasisEditorLocalization.Get("editor.camera.testWindow.consumerVideoRecording"));
+            if (camera.IsDirectToScreenPresenting) Add(BasisEditorLocalization.Get("editor.camera.testWindow.directToScreen"));
+            return consumers.Length > 0 ? consumers.ToString() : BasisEditorLocalization.Get("editor.camera.testWindow.consumerViewfinder");
         }
 
         private static string DescribeTexture(RenderTexture texture)
         {
-            if (texture == null) return "none";
-            return $"{texture.width} x {texture.height}, {texture.graphicsFormat}, {Mathf.Max(1, texture.antiAliasing)}x MSAA, depth {texture.depthStencilFormat}{(texture.IsCreated() ? string.Empty : " (not created)")}";
+            if (texture == null) return BasisEditorLocalization.Get("editor.camera.testWindow.textureNone");
+            return texture.IsCreated()
+                ? BasisEditorLocalization.Get("editor.camera.testWindow.textureInfo", texture.width, texture.height, texture.graphicsFormat, Mathf.Max(1, texture.antiAliasing), texture.depthStencilFormat)
+                : BasisEditorLocalization.Get("editor.camera.testWindow.textureInfoNotCreated", texture.width, texture.height, texture.graphicsFormat, Mathf.Max(1, texture.antiAliasing), texture.depthStencilFormat);
         }
 
         private static void DrawFeedPreview(Texture feed)
@@ -291,7 +300,7 @@ namespace Basis.HandHeldCamera.Editor
             EditorGUI.DrawRect(area, Color.black);
             if (feed == null)
             {
-                EditorGUI.LabelField(area, "no feed", EditorStyles.centeredGreyMiniLabel);
+                EditorGUI.LabelField(area, BasisEditorLocalization.Get("editor.camera.testWindow.noFeed"), EditorStyles.centeredGreyMiniLabel);
                 return;
             }
 
@@ -302,32 +311,43 @@ namespace Basis.HandHeldCamera.Editor
 
         // ---------- Direct To Screen ----------
 
+        private static string[] FitOptions => new[]
+        {
+            BasisEditorLocalization.Get("editor.camera.testWindow.fit"),
+            BasisEditorLocalization.Get("editor.camera.testWindow.fitFill"),
+            BasisEditorLocalization.Get("editor.camera.testWindow.fitStretch"),
+            BasisEditorLocalization.Get("editor.camera.testWindow.fitMatchWindow"),
+        };
+
         private void DrawDirectToScreen(BasisHandHeldCamera camera)
         {
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Direct To Screen", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.camera.testWindow.directToScreen"), EditorStyles.boldLabel);
             using (new EditorGUI.IndentLevelScope())
             {
-                bool enabled = EditorGUILayout.Toggle("Enabled", camera.DirectToScreen);
+                bool enabled = EditorGUILayout.Toggle(BasisEditorLocalization.Get("editor.common.enabled"), camera.DirectToScreen);
                 if (enabled != camera.DirectToScreen) camera.SetDirectToScreen(enabled);
 
-                BasisCameraDirectToScreenFit fit = (BasisCameraDirectToScreenFit)EditorGUILayout.EnumPopup("Fit", camera.DirectToScreenFit);
+                int display = EditorGUILayout.IntSlider(BasisLocalization.Get("camera.directToScreen.display"), camera.DirectToScreenDisplay + 1, 1, BasisCameraDirectToScreen.MaxDisplays) - 1;
+                if (display != camera.DirectToScreenDisplay) camera.SetDirectToScreenDisplay(display);
+
+                BasisCameraDirectToScreenFit fit = (BasisCameraDirectToScreenFit)EditorGUILayout.Popup(BasisEditorLocalization.Get("editor.camera.testWindow.fit"), (int)camera.DirectToScreenFit, FitOptions);
                 if (fit != camera.DirectToScreenFit) camera.SetDirectToScreenFit(fit);
                 using (new EditorGUI.DisabledScope(fit != BasisCameraDirectToScreenFit.Fit && fit != BasisCameraDirectToScreenFit.Fill))
                 {
                     Vector2 alignment = camera.DirectToScreenAlignment;
-                    float horizontal = EditorGUILayout.Slider("Horizontal", alignment.x, 0f, 1f);
-                    float vertical = EditorGUILayout.Slider("Vertical", alignment.y, 0f, 1f);
+                    float horizontal = EditorGUILayout.Slider(BasisEditorLocalization.Get("editor.camera.testWindow.horizontal"), alignment.x, 0f, 1f);
+                    float vertical = EditorGUILayout.Slider(BasisEditorLocalization.Get("editor.camera.testWindow.vertical"), alignment.y, 0f, 1f);
                     if (horizontal != alignment.x || vertical != alignment.y) camera.SetDirectToScreenAlignment(horizontal, vertical);
                 }
                 if (camera.DirectToScreenFeedFollowsWindow)
                 {
-                    EditorGUILayout.LabelField("Feed", $"following the window: {DescribeTexture(camera.PreviewTexture)}");
+                    EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.camera.testWindow.feed"), BasisEditorLocalization.Get("editor.camera.testWindow.feedFollowing", DescribeTexture(camera.PreviewTexture)));
                 }
 
                 BasisCameraDirectToScreenState state = camera.DirectToScreenState;
                 bool settled = state == BasisCameraDirectToScreenState.Off || state == BasisCameraDirectToScreenState.Presenting;
-                Status($"State: {state}", settled, DescribeState(state));
+                Status(BasisEditorLocalization.Get("editor.camera.testWindow.state", state), settled, DescribeState(state, camera.DirectToScreenDisplay));
 
                 BasisCameraDirectToScreenOutput output = BasisCameraDirectToScreenOutput.Presenting;
                 if (camera.IsDirectToScreenPresenting && output != null)
@@ -337,18 +357,18 @@ namespace Basis.HandHeldCamera.Editor
                 else if (output != null)
                 {
                     Transform holder = output.transform.parent;
-                    EditorGUILayout.LabelField("Window held by", holder != null ? holder.name : output.name);
+                    EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.camera.testWindow.windowHeldBy"), holder != null ? holder.name : output.name);
                 }
 
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    if (GUILayout.Button("Re-evaluate")) camera.RefreshDirectToScreen();
-                    _showMonitorPreview = GUILayout.Toggle(_showMonitorPreview, "Monitor preview", GUI.skin.button);
+                    if (GUILayout.Button(BasisEditorLocalization.Get("editor.camera.testWindow.reevaluate"))) camera.RefreshDirectToScreen();
+                    _showMonitorPreview = GUILayout.Toggle(_showMonitorPreview, BasisEditorLocalization.Get("editor.camera.testWindow.monitorPreview"), GUI.skin.button);
                 }
 
                 if (_showMonitorPreview)
                 {
-                    EditorGUILayout.LabelField("What the monitor shows while presenting, at the game window's aspect:", EditorStyles.miniLabel);
+                    EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.camera.testWindow.monitorPreviewNote"), EditorStyles.miniLabel);
                     DrawMonitorPreview(camera);
                 }
             }
@@ -359,19 +379,24 @@ namespace Basis.HandHeldCamera.Editor
             UnityCamera screen = output.ScreenCamera;
             if (screen == null)
             {
-                Status("Screen camera missing", false, "The output has no camera to draw through.");
+                Status(BasisEditorLocalization.Get("editor.camera.testWindow.screenCameraMissing"), false, BasisEditorLocalization.Get("editor.camera.testWindow.screenCameraMissing.tooltip"));
                 return;
             }
 
             UniversalAdditionalCameraData data = screen.GetUniversalAdditionalCameraData();
-            EditorGUILayout.LabelField("Screen camera",
-                $"{(screen.enabled ? "enabled" : "DISABLED")}, depth {screen.depth:0}, XR rendering {(data.allowXRRendering ? "on" : "off")}, HDR {(screen.allowHDR ? "on" : "off")}, HDR output {(data.allowHDROutput ? "allowed" : "off")}");
+            string on = BasisEditorLocalization.Get("editor.camera.testWindow.on");
+            string off = BasisEditorLocalization.Get("editor.camera.testWindow.off");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.camera.testWindow.screenCamera"),
+                BasisEditorLocalization.Get("editor.camera.testWindow.screenCameraInfo",
+                    screen.enabled ? BasisEditorLocalization.Get("editor.camera.testWindow.screenEnabled") : BasisEditorLocalization.Get("editor.camera.testWindow.screenDisabled"),
+                    screen.depth, data.allowXRRendering ? on : off, screen.allowHDR ? on : off,
+                    data.allowHDROutput ? BasisEditorLocalization.Get("editor.camera.testWindow.allowed") : off));
 
             UnityCamera player = BasisLocalCameraDriver.CameraInstance;
             if (player != null)
             {
-                Status($"Renders after the player camera (depth {player.depth:0})", screen.depth > player.depth,
-                    "URP draws the headset mirror at the end of the player camera's stack; the screen camera has to draw after it to cover it.");
+                Status(BasisEditorLocalization.Get("editor.camera.testWindow.rendersAfterPlayer", player.depth), screen.depth > player.depth,
+                    BasisEditorLocalization.Get("editor.camera.testWindow.rendersAfterPlayer.tooltip"));
             }
 
             // The final blit lands on the camera's pixel rect: a rect smaller than the window leaves
@@ -379,48 +404,50 @@ namespace Basis.HandHeldCamera.Editor
             // eyes does while XR runs.
             Rect rect = screen.pixelRect;
             bool covers = Mathf.Approximately(rect.width, Screen.width) && Mathf.Approximately(rect.height, Screen.height) && rect.x <= 0f && rect.y <= 0f;
-            Status($"Covers the window: camera rect {rect.width:0} x {rect.height:0} at ({rect.x:0}, {rect.y:0}), window {Screen.width} x {Screen.height}, target eye {screen.stereoTargetEye}", covers,
+            Status(BasisEditorLocalization.Get("editor.camera.testWindow.coversWindow", rect.width, rect.height, rect.x, rect.y, Screen.width, Screen.height, screen.stereoTargetEye), covers,
                 covers
-                    ? "The screen camera's pixel rect is the whole window, so the feed can reach every edge."
-                    : "The screen camera's pixel rect is not the whole window; whatever lies outside it keeps the headset mirror. Target eye must be None for the engine to size the camera to the window.");
+                    ? BasisEditorLocalization.Get("editor.camera.testWindow.coversWindow.tooltip")
+                    : BasisEditorLocalization.Get("editor.camera.testWindow.coversWindow.tooltipPartial"));
 
-            Status(output.IsUsingFallbackPass ? "Pass: enqueued by hand (fallback)" : "Pass: renderer feature", !output.IsUsingFallbackPass,
+            Status(output.IsUsingFallbackPass ? BasisEditorLocalization.Get("editor.camera.testWindow.passFallback") : BasisEditorLocalization.Get("editor.camera.testWindow.passFeature"), !output.IsUsingFallbackPass,
                 output.IsUsingFallbackPass
-                    ? "No renderer on the pipeline carries the feature, so the pass is enqueued directly on the default renderer. It works, but see Setup."
-                    : "The pass is added by BasisCameraDirectToScreenFeature on the Direct To Screen renderer.");
+                    ? BasisEditorLocalization.Get("editor.camera.testWindow.passFallback.tooltip")
+                    : BasisEditorLocalization.Get("editor.camera.testWindow.passFeature.tooltip"));
 
             BasisCameraDirectToScreenPassInfo last = BasisCameraDirectToScreenPass.LastRecorded;
             int age = Time.frameCount - last.Frame;
             bool drawing = last.Frame >= 0 && age <= 2;
             Status(drawing
-                    ? $"Drawing to the window (frame {last.Frame})"
-                    : last.Frame < 0 ? "Not drawing: the pass has never run" : $"Not drawing: the pass last ran {age} frames ago",
+                    ? BasisEditorLocalization.Get("editor.camera.testWindow.drawing", last.Frame)
+                    : last.Frame < 0 ? BasisEditorLocalization.Get("editor.camera.testWindow.notDrawingNever") : BasisEditorLocalization.Get("editor.camera.testWindow.notDrawingAge", age),
                 drawing,
                 drawing
-                    ? "The blit pass recorded on this frame or the one before."
-                    : "Presenting, but the blit pass is not recording. Check the Console for a render graph error and the Setup section above.");
+                    ? BasisEditorLocalization.Get("editor.camera.testWindow.drawing.tooltip")
+                    : BasisEditorLocalization.Get("editor.camera.testWindow.notDrawingHelp"));
 
             if (last.Frame < 0) return;
-            EditorGUILayout.LabelField("Source", $"{last.SourceWidth} x {last.SourceHeight}, {last.SourceFormat}, {last.SourceSamples}x MSAA");
-            EditorGUILayout.LabelField("Target", $"{last.TargetWidth} x {last.TargetHeight}, {last.TargetFormat}, {last.TargetSamples}x MSAA");
-            EditorGUILayout.LabelField("Viewport", $"{last.Viewport.width:0} x {last.Viewport.height:0} at ({last.Viewport.x:0}, {last.Viewport.y:0})");
-            EditorGUILayout.LabelField("Fit", $"{last.Fit}, feed window {last.ScaleBias.x:0.###} x {last.ScaleBias.y:0.###} from ({last.ScaleBias.z:0.###}, {last.ScaleBias.w:0.###})");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.common.source"), $"{last.SourceWidth} x {last.SourceHeight}, {last.SourceFormat}, {last.SourceSamples}x MSAA");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.common.target"), $"{last.TargetWidth} x {last.TargetHeight}, {last.TargetFormat}, {last.TargetSamples}x MSAA");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.camera.testWindow.viewport"), BasisEditorLocalization.Get("editor.camera.testWindow.viewportInfo", last.Viewport.width, last.Viewport.height, last.Viewport.x, last.Viewport.y));
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.camera.testWindow.fit"), BasisEditorLocalization.Get("editor.camera.testWindow.fitInfo", last.Fit, last.ScaleBias.x, last.ScaleBias.y, last.ScaleBias.z, last.ScaleBias.w));
         }
 
-        private static string DescribeState(BasisCameraDirectToScreenState state)
+        private static string DescribeState(BasisCameraDirectToScreenState state, int display)
         {
             switch (state)
             {
                 case BasisCameraDirectToScreenState.Presenting:
-                    return "The feed is being drawn over the game window in place of the headset mirror.";
+                    return BasisEditorLocalization.Get("editor.camera.testWindow.stateHelpPresenting");
                 case BasisCameraDirectToScreenState.WaitingForVR:
-                    return "Switched on, but in desktop mode the window is already the operator's own view. It takes the window over on the next switch into VR.";
+                    return BasisEditorLocalization.Get("editor.camera.testWindow.stateHelpWaitingForVr");
                 case BasisCameraDirectToScreenState.NoOutputSocket:
-                    return "Switched on, but the fitted body has no output socket. Fit a digital body on the Presets tab.";
+                    return BasisEditorLocalization.Get("editor.camera.testWindow.stateHelpNoOutputSocket");
                 case BasisCameraDirectToScreenState.Unsupported:
-                    return "This platform has no desktop window to draw to.";
+                    return BasisEditorLocalization.Get("editor.camera.testWindow.stateHelpUnsupported");
+                case BasisCameraDirectToScreenState.DisplayNotConnected:
+                    return BasisLocalization.Get("camera.directToScreen.displayNotConnected", display + 1);
                 default:
-                    return "The mode is switched off.";
+                    return BasisEditorLocalization.Get("editor.camera.testWindow.stateHelpOff");
             }
         }
 
@@ -440,7 +467,7 @@ namespace Basis.HandHeldCamera.Editor
             Texture feed = camera.PreviewTexture;
             if (feed == null)
             {
-                EditorGUI.LabelField(window, "no feed", EditorStyles.centeredGreyMiniLabel);
+                EditorGUI.LabelField(window, BasisEditorLocalization.Get("editor.camera.testWindow.noFeed"), EditorStyles.centeredGreyMiniLabel);
                 return;
             }
 

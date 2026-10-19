@@ -1,14 +1,24 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
+[AutoStaticsCleanup]
 [System.Serializable]
-public class BasisTrackedBundleWrapper
+public partial class BasisTrackedBundleWrapper
 {
     [SerializeField]
     public BasisLoadableBundle LoadableBundle;
     [SerializeField]
     public AssetBundle AssetBundle;
+    [System.NonSerialized]
+    public GraphicsStateCollection EmbeddedGraphicsStates;
+    [System.NonSerialized]
+    public BasisBundleSection EmbeddedGraphicsStatePayload;
+    [System.NonSerialized]
+    private Task<GraphicsStateCollection> embeddedGraphicsStateLoad;
     /// <summary>
     /// Generic (glTF) content loads produce a hidden template instance instead of an
     /// AssetBundle: an inactive DontDestroyOnLoad holder owning the imported avatar with its
@@ -29,6 +39,13 @@ public class BasisTrackedBundleWrapper
     /// </summary>
     [System.NonSerialized]
     public string ObservedVersionTag;
+    /// <summary>
+    /// Unity editor version stored in the native UnityFS AssetBundle header. Populated while the
+    /// decrypted bytes are available, before Unity takes ownership of the bundle load request.
+    /// Empty for generic glTF content and malformed/legacy bundle headers.
+    /// </summary>
+    [System.NonSerialized]
+    public string BuiltWithUnityVersion;
     public bool HasGltfTemplate => GltfTemplateAvatarRoot != null;
     #if UNITY_BUNDLEUNLOAD
     [SerializeField]
@@ -112,6 +129,29 @@ public class BasisTrackedBundleWrapper
         }
     }
 
+    public void UnloadEmbeddedGraphicsStates()
+    {
+        if (EmbeddedGraphicsStates != null)
+        {
+            UnityEngine.Object.Destroy(EmbeddedGraphicsStates);
+            EmbeddedGraphicsStates = null;
+        }
+        EmbeddedGraphicsStatePayload = default;
+        embeddedGraphicsStateLoad = null;
+    }
+
+    public async Task<GraphicsStateCollection> EnsureEmbeddedGraphicsStatesLoaded(BasisProgressReport progress = null)
+    {
+        if (EmbeddedGraphicsStates != null || !EmbeddedGraphicsStatePayload.HasPayload)
+            return EmbeddedGraphicsStates;
+
+        embeddedGraphicsStateLoad ??= BasisEncryptionToData.LoadEmbeddedGraphicsStates(
+            LoadableBundle.UnlockPassword, EmbeddedGraphicsStatePayload, progress);
+        EmbeddedGraphicsStates = await embeddedGraphicsStateLoad;
+        EmbeddedGraphicsStatePayload = default;
+        return EmbeddedGraphicsStates;
+    }
+
     // TODO: Bug in here
     // when loading in multiple same scenes and unloading one of them
     // it will remove other duplicate scenes?
@@ -131,7 +171,7 @@ public class BasisTrackedBundleWrapper
         #endif
         if (Volatile.Read(ref _requestedTimes) <= 0)
         {
-            await Task.Delay(TimeSpan);
+            await BasisTasks.Delay(TimeSpan);
             if (TryClaimUnload())
             {
                 if (isGltfContent)
@@ -165,6 +205,7 @@ public class BasisTrackedBundleWrapper
                     ReleaseUnloadClaim();
                     return false;
                 }
+                UnloadEmbeddedGraphicsStates();
                 #if UNITY_BUNDLEUNLOAD
                 AssetBundle = null;
                 IsBundleBackingStoreReleased = true;
@@ -243,6 +284,7 @@ public class BasisTrackedBundleWrapper
         BasisDebug.Log("Releasing bundle backing store " + AssetBundle.name);
         AssetBundle.Unload(false);
         AssetBundle = null;
+        UnloadEmbeddedGraphicsStates();
         IsBundleBackingStoreReleased = true;
         BasisDebug.Log("Bundle backing store released for headless scene bundle.");
 

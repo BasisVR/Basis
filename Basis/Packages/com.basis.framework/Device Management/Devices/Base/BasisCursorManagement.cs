@@ -1,10 +1,12 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using System.Collections.Generic;
 using System;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.UI;
 
-public static class BasisCursorManagement
+[AutoStaticsCleanup]
+public static partial class BasisCursorManagement
 {
     // A list of unique requests to unlock the cursor.
     private static List<string> cursorUnlockRequests = new List<string>();

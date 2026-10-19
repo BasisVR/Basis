@@ -1,8 +1,10 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using Basis.Scripts.BasisSdk.Players;
 using UnityEngine;
 
-public static class BasisAvatarRecorderDriver
+[AutoStaticsCleanup]
+public static partial class BasisAvatarRecorderDriver
 {
     public enum RecorderState
     {
@@ -24,7 +26,7 @@ public static class BasisAvatarRecorderDriver
     private static bool _autoStop;
     private static float _maxDurationSeconds;
 
-    private static HumanPoseHandler _poseHandler;
+    [NoAutoStaticsCleanup] private static HumanPoseHandler _poseHandler;
     private static Animator _boundAnimator;
     private static HumanPose _pose;
 
@@ -45,6 +47,8 @@ public static class BasisAvatarRecorderDriver
         _maxDurationSeconds = Mathf.Max(0f, maxDurationSeconds);
 
         EnsureTickRegistered();
+        Application.quitting -= OnQuitting;
+        Application.quitting += OnQuitting;
 
         if (countdownSeconds > 0f)
         {
@@ -57,6 +61,19 @@ public static class BasisAvatarRecorderDriver
         }
 
         OnChanged?.Invoke();
+    }
+
+    private static void OnQuitting()
+    {
+        Application.quitting -= OnQuitting;
+        try
+        {
+            RequestStop();
+        }
+        catch (Exception e)
+        {
+            BasisDebug.LogError($"BasisAvatarRecorderDriver: stop on quit failed: {e.Message}");
+        }
     }
 
     public static void RequestStop()

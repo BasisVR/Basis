@@ -24,18 +24,25 @@ namespace UnityEngine.Rendering.Universal.Internal
         private static readonly int s_CameraNormalsTextureID = Shader.PropertyToID(k_CameraNormalsTextureName);
         private static readonly int s_CameraRenderingLayersTextureID = Shader.PropertyToID("_CameraRenderingLayersTexture");
 
+        // Publishes a valid default as the normals global, for the frames where this pass isn't recorded
+        internal static void SetDefaultNormalsGlobalTexture(IBaseRenderGraphBuilder builder, TextureHandle defaultNormalsTexture)
+        {
+            builder.SetGlobalTextureAfterPass(defaultNormalsTexture, s_CameraNormalsTextureID);
+        }
+
         /// <summary>
         /// Creates a new <c>DepthNormalOnlyPass</c> instance.
         /// </summary>
         /// <param name="evt">The <c>RenderPassEvent</c> to use.</param>
         /// <param name="renderQueueRange">The <c>RenderQueueRange</c> to use for creating filtering settings that control what objects get rendered.</param>
         /// <param name="layerMask">The layer mask to use for creating filtering settings that control what objects get rendered.</param>
+        /// <param name="sampler">The ProfilingSampler to use in the profiler and frame debugger for this pass.</param>
         /// <seealso cref="RenderPassEvent"/>
         /// <seealso cref="RenderQueueRange"/>
         /// <seealso cref="LayerMask"/>
-        public DepthNormalOnlyPass(RenderPassEvent evt, RenderQueueRange renderQueueRange, LayerMask layerMask)
+        public DepthNormalOnlyPass(RenderPassEvent evt, RenderQueueRange renderQueueRange, LayerMask layerMask, ProfilingSampler sampler = null)
         {
-            profilingSampler = ProfilingSampler.Get(URPProfileId.DrawDepthNormalPrepass);
+            profilingSampler = sampler ?? URPProfilingSamplers.DrawDepthNormalPrepass;
             m_FilteringSettings = new FilteringSettings(renderQueueRange, layerMask);
             renderPassEvent = evt;
             shaderTagIds = k_DepthNormals;
@@ -83,6 +90,8 @@ namespace UnityEngine.Rendering.Universal.Internal
             // Enable Rendering Layers
             if (passData.enableRenderingLayers)
                 cmd.SetKeyword(ShaderGlobalKeywords.WriteRenderingLayers, true);
+            if (passData.outputSmoothness)
+                cmd.SetKeyword(ShaderGlobalKeywords.WriteSmoothness, true);
 
             // Draw
             cmd.DrawRendererList(rendererList);
@@ -90,6 +99,8 @@ namespace UnityEngine.Rendering.Universal.Internal
             // Clean up
             if (passData.enableRenderingLayers)
                 cmd.SetKeyword(ShaderGlobalKeywords.WriteRenderingLayers, false);
+            if (passData.outputSmoothness)
+                cmd.SetKeyword(ShaderGlobalKeywords.WriteSmoothness, false);
         }
 
         /// <inheritdoc/>
@@ -110,14 +121,14 @@ namespace UnityEngine.Rendering.Universal.Internal
         private class PassData
         {
             internal bool enableRenderingLayers;
+            internal bool outputSmoothness;
             internal RenderingLayerUtils.MaskSize maskSize;
             internal RendererListHandle rendererList;
         }
 
         private RendererListParams InitRendererListParams(UniversalRenderingData renderingData, UniversalCameraData cameraData, UniversalLightData lightData)
         {
-            var sortFlags = cameraData.defaultOpaqueSortFlags;
-            var drawSettings = RenderingUtils.CreateDrawingSettings(this.shaderTagIds, renderingData, cameraData, lightData, sortFlags);
+            var drawSettings = RenderingUtils.CreateDrawingSettings(this.shaderTagIds, renderingData, cameraData, lightData, GetSortingCriteria(cameraData));
             drawSettings.perObjectData = PerObjectData.None;
             return new RendererListParams(renderingData.cullResults, drawSettings, m_FilteringSettings);
         }
@@ -143,6 +154,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                 builder.SetRenderAttachmentDepth(depthTexture, AccessFlags.ReadWrite);
 
                 passData.enableRenderingLayers = enableRenderingLayers;
+                passData.outputSmoothness = renderingData.writesSmoothnessToDepthNormalsAlpha;
 
                 if (passData.enableRenderingLayers)
                 {
@@ -157,8 +169,8 @@ namespace UnityEngine.Rendering.Universal.Internal
                 if (cameraData.xr.enabled)
                 {
                     builder.EnableFoveatedRasterization(cameraData.xr.supportsFoveatedRendering && cameraData.xrUniversal.canFoveateIntermediatePasses);
-                    // Apply MultiviewRenderRegionsCompatible flag only to the peripheral view in Quad Views
-                    if (cameraData.xr.multipassId == 0)
+                    // Multiview render regions are incompatible with the inner (foveal) pass in Quad View
+                    if (!cameraData.xr.isQuadViewInnerPass)
                     {
                         builder.SetExtendedFeatureFlags(ExtendedFeatureFlags.MultiviewRenderRegionsCompatible);
                     }
@@ -191,8 +203,8 @@ namespace UnityEngine.Rendering.Universal.Internal
                 if (setGlobalDepth)
                     builder.SetGlobalTextureAfterPass(depthTexture, s_CameraDepthTextureID);
 
-                // Required here because of RenderingLayerUtils.SetupProperties
-                if (passData.enableRenderingLayers)
+                // Required here because of RenderingLayerUtils.SetupProperties, and for setting keywords in ExecutePass
+                if (passData.enableRenderingLayers || passData.outputSmoothness)
                     builder.AllowGlobalStateModification(true);
 
                 builder.SetRenderFunc(static (PassData data, RasterGraphContext context) =>
@@ -202,6 +214,16 @@ namespace UnityEngine.Rendering.Universal.Internal
                     ExecutePass(context.cmd, data, data.rendererList);
                 });
             }
+        }
+
+        /// <summary>
+        /// Gets the sorting criteria to use for a given camera. Override to customize behavior.
+        /// </summary>
+        /// <param name="cameraData">The UniversalCameraData of the camera to get sorting criteria for.</param>
+        /// <returns>The sorting criteria to use.</returns>
+        protected virtual SortingCriteria GetSortingCriteria(UniversalCameraData cameraData)
+        {
+            return cameraData.defaultOpaqueSortFlags;
         }
     }
 }

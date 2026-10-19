@@ -4,6 +4,7 @@
     "references": [
         "BasisMediaPlayer",
         "BasisDebug",
+        "Basis.Integration.YtDlp.Core",
         "YtDlp.Runtime"
     ],
     "includePlatforms": [],

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Players;
@@ -11,9 +12,9 @@ using K4os.Compression.LZ4;
 using System;
 using System.Buffers;
 using static SerializableBasis;
-public static class BasisNetworkEvents
+public static partial class BasisNetworkEvents
 {
-    private static bool _coreHandlersRegistered;
+    [NoAutoStaticsCleanup] private static bool _coreHandlersRegistered;
 
     static BasisNetworkEvents()
     {
@@ -784,8 +785,10 @@ public static class BasisNetworkEvents
                 Reader.Recycle();
             }
         });
+
+        BasisClientMessageRegistry.RegisterCore(BasisNetworkCommons.StorageChannel, BasisServerStorageClient.HandleReply);
     }
-    public static Action<BasisNetworkStatistics.Snapshot> Snapshotdata;
+    [AutoStaticsCleanup] public static Action<BasisNetworkStatistics.Snapshot> Snapshotdata;
     public static void IncomingData(NetPacketReader Reader)
     {
         BasisNetworkStatistics.Snapshot Snapshot = BasisNetworkStatistics.Snapshot.Decode(Reader.GetRemainingBytesSegment(), true);
@@ -796,7 +799,7 @@ public static class BasisNetworkEvents
     }
     // Reused across both stat-frame calls: RequestStatFrames fires on a 0.1s timer while the
     // stats view is open, so a fresh writer per call was garbage every tick for one bool.
-    private static readonly NetDataWriter StatFrameWriter = new NetDataWriter();
+    [NoAutoStaticsCleanup] private static readonly NetDataWriter StatFrameWriter = new NetDataWriter();
 
     public static void RequestStatFrames()
     {
@@ -827,7 +830,7 @@ public static class BasisNetworkEvents
             return;
         }
         BasisDebug.Log("Validated Size " + Reader.AvailableBytes);
-        if (BasisDIDAuthIdentityClient.IdentityMessage(peer, Reader, out NetDataWriter Writer))
+        if (BasisDIDAuthIdentityClient.IdentityMessage(BasisNetworkConnection.NetworkClient, Reader, out NetDataWriter Writer))
         {
             BasisDebug.Log("Sent Identity To Server!");
             BasisNetworkConnection.LocalPlayerPeer.Send(Writer, BasisNetworkCommons.AuthIdentityChannel, DeliveryMethod.ReliableOrdered);
@@ -851,7 +854,7 @@ public static class BasisNetworkEvents
     // decodes on it) — keeps the per-join NetDataReader allocation out of GC.
     // Library messages arrive sequentially on that one thread, so a single
     // instance is enough.
-    private static NetDataReader _libraryPayloadReader;
+    [AutoStaticsCleanup] private static NetDataReader _libraryPayloadReader;
 
     private static bool TryDecodeServerLibrary(NetPacketReader reader, out ServerLibraryMessage libraryMessage)
     {
@@ -1023,6 +1026,10 @@ public static class BasisNetworkEvents
                 {
                     case BasisNetworkCommons.RejectKind_VersionMismatch:
                     {
+                        if (BasisNetworkConnection.TryRetryWithLegacyLogin(aux0))
+                        {
+                            return;
+                        }
                         ushort localVersion = BasisNetworkVersion.ServerVersion;
                         if (aux0 > localVersion)
                         {
@@ -1040,6 +1047,22 @@ public static class BasisNetworkEvents
                         title = BasisLocalization.Get("menu.servers.reject.serverFull.title");
                         body = !string.IsNullOrEmpty(structuredMsg) ? structuredMsg : BasisLocalization.Get("menu.servers.reject.serverFull.body");
                         break;
+                    case BasisNetworkCommons.RejectKind_PasswordRejected:
+                    {
+#if UNITY_SERVER
+                        bool canPrompt = canShowMenu;
+#else
+                        bool canPrompt = true;
+#endif
+                        if (canPrompt && BasisConnectionService.TryRequestPassword())
+                        {
+                            BasisDebug.LogWarning("The server rejected the password; asking for it.", BasisDebug.LogTag.Networking);
+                            return;
+                        }
+                        title = BasisLocalization.Get("menu.servers.reject.title");
+                        body = !string.IsNullOrEmpty(structuredMsg) ? structuredMsg : BasisLocalization.Get("menu.servers.reject.body");
+                        break;
+                    }
                     default:
                         title = BasisLocalization.Get("menu.servers.reject.title");
                         body = !string.IsNullOrEmpty(structuredMsg) ? structuredMsg : BasisLocalization.Get("menu.servers.reject.body");

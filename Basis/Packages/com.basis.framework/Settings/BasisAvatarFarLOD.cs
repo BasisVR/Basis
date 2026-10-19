@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,7 +21,8 @@ using UnityEngine;
 /// avatar replaces the loading dummy. It also fronts the player while their real avatar
 /// downloads, has no build for this platform, or failed to load.
 /// </summary>
-public static class BasisAvatarFarLOD
+[AutoStaticsCleanup]
+public static partial class BasisAvatarFarLOD
 {
     /// <summary>Master switch. When false, players without a real avatar show the loading dummy.</summary>
     public static bool Enabled;
@@ -42,7 +44,7 @@ public static class BasisAvatarFarLOD
     // separate the budgeted swaps — the only work here that costs milliseconds — from the
     // per-player flag reconciliation, so a spike says which one it was.
 
-    private static readonly System.Diagnostics.Stopwatch sTransitionClock = new System.Diagnostics.Stopwatch();
+    [NoAutoStaticsCleanup] private static readonly System.Diagnostics.Stopwatch sTransitionClock = new System.Diagnostics.Stopwatch();
     private static long sTransitionBudgetTicks = long.MaxValue;
 
     /// <summary>
@@ -328,7 +330,7 @@ public static class BasisAvatarFarLOD
         }
     }
 
-    private static readonly SemaphoreSlim sConnectorFetchGate = new SemaphoreSlim(4);
+    [NoAutoStaticsCleanup] private static readonly SemaphoreSlim sConnectorFetchGate = new SemaphoreSlim(4);
 
     /// <summary>
     /// Fetches just the bee connector (two ranged requests, no bundle download) for a player

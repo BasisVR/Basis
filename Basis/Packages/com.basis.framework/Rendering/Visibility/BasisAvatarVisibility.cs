@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Scripts.BasisSdk.Players;
 using Unity.Mathematics;
@@ -5,7 +6,8 @@ using UnityEngine;
 
 namespace Basis.Scripts.Rendering
 {
-    public static class BasisAvatarVisibility
+    [AutoStaticsCleanup]
+    public static partial class BasisAvatarVisibility
     {
         public const float MinimumRadius = 0.6f;
         public const float RadiusPadding = 0.35f;

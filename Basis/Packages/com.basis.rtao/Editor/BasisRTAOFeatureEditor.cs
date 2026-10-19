@@ -1,3 +1,4 @@
+using Basis.Editor.Localization;
 using Basis.Rendering.RTAO;
 using UnityEditor;
 using UnityEngine;
@@ -27,30 +28,49 @@ namespace Basis.Rendering.RTAO.Editor
 
             DrawSupportBox();
 
-            EditorGUILayout.PropertyField(resources);
+            EditorGUILayout.PropertyField(resources, new GUIContent(BasisEditorLocalization.Get("editor.rtao.featureEditor.resources")));
             if (resources.objectReferenceValue == null)
             {
-                EditorGUILayout.HelpBox("Assign a BasisRTAOResources asset. The package ships one at Packages/com.basis.rtao/BasisRTAOResources.asset.", MessageType.Warning);
-                if (GUILayout.Button("Use Packaged Resources"))
+                EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.rtao.featureEditor.assignResources"), MessageType.Warning);
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.rtao.featureEditor.usePackagedResources")))
                     resources.objectReferenceValue = AssetDatabase.LoadAssetAtPath<BasisRTAOResources>("Packages/com.basis.rtao/BasisRTAOResources.asset");
             }
 
             EditorGUILayout.Space();
-            EditorGUILayout.PropertyField(overrideQualityPreset);
+            EditorGUILayout.PropertyField(overrideQualityPreset, new GUIContent(BasisEditorLocalization.Get("editor.rtao.featureEditor.overrideQualityPreset")));
             if (overrideQualityPreset.boolValue)
-                EditorGUILayout.PropertyField(settings, true);
+                DrawStruct(settings, BasisEditorLocalization.Get("editor.common.settings"), "editor.rtao.settings.");
             else
-                EditorGUILayout.PropertyField(quality);
+                EditorGUILayout.PropertyField(quality, new GUIContent(BasisEditorLocalization.Get("editor.rtao.featureEditor.quality")));
 
             EditorGUILayout.Space();
-            EditorGUILayout.PropertyField(sceneSettings, true);
+            DrawStruct(sceneSettings, BasisEditorLocalization.Get("editor.rtao.featureEditor.sceneSettings"), "editor.rtao.scene.");
 
             EditorGUILayout.Space();
-            EditorGUILayout.PropertyField(tracingMode);
-            DrawTracingModeHelp((BasisRTAOTracingMode)tracingMode.enumValueIndex);
-            EditorGUILayout.PropertyField(debugView);
+            EditorGUILayout.PropertyField(tracingMode, new GUIContent(BasisEditorLocalization.Get("editor.rtao.featureEditor.tracingMode")));
+            DrawTracingModeHelp((BasisRTAOTracingMode)tracingMode.intValue);
+            EditorGUILayout.PropertyField(debugView, new GUIContent(BasisEditorLocalization.Get("editor.rtao.featureEditor.debugView")));
 
             serializedObject.ApplyModifiedProperties();
+        }
+
+        private static void DrawStruct(SerializedProperty property, string label, string keyPrefix)
+        {
+            property.isExpanded = EditorGUILayout.Foldout(property.isExpanded, label, true);
+            if (!property.isExpanded)
+                return;
+
+            EditorGUI.indentLevel++;
+            SerializedProperty child = property.Copy();
+            SerializedProperty end = property.GetEndProperty();
+            bool enterChildren = true;
+            while (child.NextVisible(enterChildren) && !SerializedProperty.EqualContents(child, end))
+            {
+                enterChildren = false;
+                string childLabel = BasisEditorLocalization.TryGet(keyPrefix + child.name, out string text) ? text : child.displayName;
+                EditorGUILayout.PropertyField(child, new GUIContent(childLabel), true);
+            }
+            EditorGUI.indentLevel--;
         }
 
         private static void DrawSupportBox()
@@ -59,11 +79,11 @@ namespace Basis.Rendering.RTAO.Editor
             bool compute = BasisRTAOContext.ComputeSupported;
 
             if (hardware)
-                EditorGUILayout.HelpBox($"Hardware ray tracing is available on {SystemInfo.graphicsDeviceName} ({SystemInfo.graphicsDeviceType}).", MessageType.Info);
+                EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.rtao.featureEditor.hardwareAvailable", SystemInfo.graphicsDeviceName, SystemInfo.graphicsDeviceType), MessageType.Info);
             else if (compute)
-                EditorGUILayout.HelpBox($"{SystemInfo.graphicsDeviceName} ({SystemInfo.graphicsDeviceType}) has no hardware ray tracing, so Auto falls back to the screen space estimator. Direct3D11 has no ray tracing path at all; switch the Windows graphics API to Direct3D12 for the traced result.", MessageType.Warning);
+                EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.rtao.featureEditor.noHardware", SystemInfo.graphicsDeviceName, SystemInfo.graphicsDeviceType), MessageType.Warning);
             else
-                EditorGUILayout.HelpBox("This device supports neither ray tracing nor compute shaders. RTAO cannot run here.", MessageType.Error);
+                EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.rtao.featureEditor.unsupported"), MessageType.Error);
         }
 
         private static void DrawTracingModeHelp(BasisRTAOTracingMode mode)
@@ -71,13 +91,13 @@ namespace Basis.Rendering.RTAO.Editor
             switch (mode)
             {
                 case BasisRTAOTracingMode.RayTracedOnly:
-                    EditorGUILayout.HelpBox("Ray tracing or nothing. The feature turns itself off on a GPU without hardware ray tracing.", MessageType.None);
+                    EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.rtao.featureEditor.helpRayTracedOnly"), MessageType.None);
                     break;
                 case BasisRTAOTracingMode.ScreenSpace:
-                    EditorGUILayout.HelpBox("Always the screen space estimator. It only sees geometry the depth buffer holds, but it runs on Direct3D11 and on any compute capable GPU.", MessageType.None);
+                    EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.rtao.featureEditor.helpScreenSpace"), MessageType.None);
                     break;
                 case BasisRTAOTracingMode.ComputeBvh:
-                    EditorGUILayout.HelpBox("Traces the real scene through a software BVH. Correct everywhere, and far too slow for a VR frame budget. Authoring only.", MessageType.Warning);
+                    EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.rtao.featureEditor.helpComputeBvh"), MessageType.Warning);
                     break;
             }
         }

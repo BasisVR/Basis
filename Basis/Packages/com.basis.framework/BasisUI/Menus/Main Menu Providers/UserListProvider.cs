@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
@@ -17,7 +18,7 @@ namespace Basis.BasisUI
     /// Search matches against both display name and UUID.
     /// Clicking a remote player opens their IndividualPlayerProvider panel.
     /// </summary>
-    public class UserListProvider : BasisMenuActionProvider<BasisMainMenu>
+    public partial class UserListProvider : BasisMenuActionProvider<BasisMainMenu>
     {
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()
@@ -263,7 +264,8 @@ namespace Basis.BasisUI
         /// Player cards are the only children of <see cref="GridParent"/>, so
         /// reordering is a straight sibling-index pass.
         /// </summary>
-        private sealed class UserListController : MonoBehaviour
+        [AutoStaticsCleanup]
+        private sealed partial class UserListController : MonoBehaviour
         {
             public RectTransform GridParent;
             public PanelElementDescriptor HeaderGroup;

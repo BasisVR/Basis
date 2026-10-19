@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 #if !BASIS_DISABLE_MICROPHONE
 using Basis.BasisUI;
 using Basis.Scripts.Audio;
@@ -9,8 +10,9 @@ using Vector3 = UnityEngine.Vector3;
 
 namespace Basis.Scripts.Drivers
 {
+    [AutoStaticsCleanup]
     [System.Serializable]
-    public class BasisLocalMicrophoneIconDriver
+    public partial class BasisLocalMicrophoneIconDriver
     {
         public enum MicrophoneDisplayMode
         {
@@ -141,6 +143,10 @@ namespace Basis.Scripts.Drivers
         public void Initialize(BasisLocalCameraDriver CameraDriver)
         {
             this.CameraDriver = CameraDriver;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            if (MuteSound != null) MuteSound.LoadAudioData();
+            if (UnMuteSound != null) UnMuteSound.LoadAudioData();
+#endif
 
             halfDuration = duration / 2f;
             iconHalfRU = GetIconHalfSizeRUInCameraSpace(CameraDriver.Camera, CameraDriver.ParentOfUI);

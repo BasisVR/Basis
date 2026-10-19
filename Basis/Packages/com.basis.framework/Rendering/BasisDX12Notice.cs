@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using Basis.BasisUI;
 using Basis.Scripts.Drivers;
@@ -8,7 +9,8 @@ using UnityEngine.Rendering;
 
 namespace Basis.Scripts.Rendering
 {
-    public static class BasisDX12Notice
+    [AutoStaticsCleanup]
+    public static partial class BasisDX12Notice
     {
         public static float QuietSeconds = 2f, AutoConnectWaitSeconds = 10f;
 

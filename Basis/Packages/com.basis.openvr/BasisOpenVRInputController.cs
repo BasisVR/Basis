@@ -29,8 +29,8 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         private int nextWristAnchorPoll;
 
         // Device pose (controller) from compositor
-        public TrackedDevicePose_t devicePose = new TrackedDevicePose_t();
-        public TrackedDevicePose_t deviceGamePose = new TrackedDevicePose_t();
+        [System.NonSerialized] public TrackedDevicePose_t devicePose = new TrackedDevicePose_t();
+        [System.NonSerialized] public TrackedDevicePose_t deviceGamePose = new TrackedDevicePose_t();
         public EVRCompositorError result;
         public Vector3 LeftRaycastOffset = new Vector3(0, 0, 0.06f);
         public Vector3 RightRaycastOffset = new Vector3(0, 0, 0.06f);

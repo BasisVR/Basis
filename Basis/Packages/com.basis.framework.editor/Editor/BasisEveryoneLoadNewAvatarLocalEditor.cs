@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEngine;
+using Basis.Editor.Localization;
 using Basis.Scripts.Networking;
 
 public class AvatarLoaderEditorWindow : EditorWindow
@@ -11,18 +12,18 @@ public class AvatarLoaderEditorWindow : EditorWindow
     [MenuItem("Basis/Avatar/Force Load", false, 101)]
     public static void ShowWindow()
     {
-        GetWindow<AvatarLoaderEditorWindow>("Forced Avatar Loader");
+        GetWindow<AvatarLoaderEditorWindow>(BasisEditorLocalization.Get("editor.avatarLoader.windowTitle"));
     }
 
     private void OnGUI()
     {
-        GUILayout.Label("Load Settings", EditorStyles.boldLabel);
+        GUILayout.Label(BasisEditorLocalization.Get("editor.avatarLoader.header"), EditorStyles.boldLabel);
 
-        loadMode = (byte)EditorGUILayout.IntField("Load Mode (byte):", loadMode);
-        password = EditorGUILayout.TextField("Unlock Password:", password);
-        url = EditorGUILayout.TextField("Bundle URL:", url);
+        loadMode = (byte)EditorGUILayout.IntField(BasisEditorLocalization.Get("editor.avatarLoader.loadMode"), loadMode);
+        password = EditorGUILayout.TextField(BasisEditorLocalization.Get("editor.avatarLoader.password"), password);
+        url = EditorGUILayout.TextField(BasisEditorLocalization.Get("editor.avatarLoader.bundleUrl"), url);
 
-        if (GUILayout.Button("Force Load Avatars"))
+        if (GUILayout.Button(BasisEditorLocalization.Get("editor.avatarLoader.forceLoad")))
         {
             ForceLoadAvatars(loadMode, password, url);
         }

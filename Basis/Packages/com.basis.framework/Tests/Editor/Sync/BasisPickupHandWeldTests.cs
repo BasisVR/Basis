@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Reflection;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.Common;
@@ -13,6 +14,7 @@ namespace Basis.Tests.Sync
     /// (:1032-1034) drive it. WeldToHand makes the constraint source the post-IK wrist bone
     /// (IKWorldData) instead of the pre-IK hand target, so everything here is measured against that pose.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public class BasisPickupHandWeldTests
     {
         const BindingFlags NP = BindingFlags.NonPublic | BindingFlags.Instance;

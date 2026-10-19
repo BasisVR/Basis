@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -7,12 +8,13 @@ using UnityEngine;
 
 namespace Basis.BasisUI
 {
-    public static class BasisExceptionNotifier
+    [AutoStaticsCleanup]
+    public static partial class BasisExceptionNotifier
     {
         private static readonly HashSet<string> Seen = new();
-        private static readonly Regex ColorTags = new("</?color.*?>");
-        private static readonly Regex TagPrefix = new(@"^\s*\[(\w+)\]");
-        private static readonly Regex StackFrameType = new(@"([A-Za-z_][\w.]*)[.:][A-Za-z_]\w*\s*\(");
+        [NoAutoStaticsCleanup] private static readonly Regex ColorTags = new("</?color.*?>");
+        [NoAutoStaticsCleanup] private static readonly Regex TagPrefix = new(@"^\s*\[(\w+)\]");
+        [NoAutoStaticsCleanup] private static readonly Regex StackFrameType = new(@"([A-Za-z_][\w.]*)[.:][A-Za-z_]\w*\s*\(");
 
         private static bool _hooked;
         private static bool _presenting;
@@ -23,6 +25,15 @@ namespace Basis.BasisUI
             if (_hooked) return;
             _hooked = true;
             Application.logMessageReceivedThreaded += OnLogMessageReceived;
+            Application.quitting += OnQuitting;
+        }
+
+        private static void OnQuitting()
+        {
+            Application.quitting -= OnQuitting;
+            Application.logMessageReceivedThreaded -= OnLogMessageReceived;
+            _hooked = false;
+            _presenting = false;
         }
 
         private static void OnLogMessageReceived(string condition, string stackTrace, LogType type)
@@ -247,7 +258,7 @@ namespace Basis.BasisUI
             return sb.ToString();
         }
 
-        private static readonly char[] PathSeparators = { '/', '\\' };
+        [NoAutoStaticsCleanup] private static readonly char[] PathSeparators = { '/', '\\' };
 
         // Wrap arbitrary payload text so TMP doesn't read its angle brackets as tags.
         // The inner replace defuses any literal </noparse> the payload might contain.

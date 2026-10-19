@@ -75,7 +75,6 @@ namespace Basis.Scripts.Animator_Driver
             Animator = localPlayer.BasisAvatar.Animator;
             Animator.logWarnings = false;
             Animator.updateMode = AnimatorUpdateMode.Normal;
-            Animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
 
             basisAnimatorVariableApply.LoadCachedAnimatorHashes(Animator);
             if (!HasEvents)

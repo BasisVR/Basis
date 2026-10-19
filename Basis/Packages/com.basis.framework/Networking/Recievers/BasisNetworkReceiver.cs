@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core.Compression;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
@@ -19,15 +20,16 @@ namespace Basis.Scripts.Networking.Receivers
     /// Receives networked avatar state for a remote player, stages and interpolates frames,
     /// and applies a posed result to the avatar each frame. Also brokers remote audio.
     /// </summary>
+    [AutoStaticsCleanup]
     [DefaultExecutionOrder(15001)]
     [Serializable]
-    public class BasisNetworkReceiver : BasisNetworkPlayer
+    public partial class BasisNetworkReceiver : BasisNetworkPlayer
     {
         public const int BoneCount = BasisBoneRotationCompression.SyncBoneCount; // 51
 
         // Cached delegates — created once, avoids per-frame Action/Comparison heap allocations.
-        private static readonly Action<BasisAvatarBuffer> s_releaseBuffer = BasisAvatarBufferPool.Release;
-        private static readonly Comparison<BasisAvatarBuffer> s_sequenceCompare = static (a, b) => (sbyte)(a.Sequence - b.Sequence);
+        [NoAutoStaticsCleanup] private static readonly Action<BasisAvatarBuffer> s_releaseBuffer = BasisAvatarBufferPool.Release;
+        [NoAutoStaticsCleanup] private static readonly Comparison<BasisAvatarBuffer> s_sequenceCompare = static (a, b) => (sbyte)(a.Sequence - b.Sequence);
 
         private double _serverClockSeconds;
         private bool _serverClockSeeded;
@@ -167,16 +169,14 @@ namespace Basis.Scripts.Networking.Receivers
         // EMA time constant (s) for the applied playback rate, smooths rate steps.
         private const float RateSmoothingTau = 0.20f;
 
-        // Adaptive jitter buffer depth. Floors at MinJitterDepth = 1 (one packet of
-        // baseline cushion so the slowdown branch only fires on actual starvation, not
-        // routine jitter). Grows toward MaxJitterDepth on underruns, decays back when
-        // stable. Cold start begins at MinJitterDepth so a fresh remote join lerps at
-        // rate 1.0 immediately — the adaptive logic only adds headroom after observing
-        // real underruns. Driven by BasisSettingsDefaults.NetworkJitterBufferDepth via
-        // SettingsProviderNetworkTab — set ApplyTargetJitterDepth to retune all three.
-        public static int MinJitterDepth = 1;
-        public static int MaxJitterDepth = 4;
-        public static float InitialJitterDepth = 1f;
+        // Adaptive jitter buffer depth. Floors at MinJitterDepth = 2 packets of baseline
+        // cushion (~100ms at 50ms sync) so the slowdown branch only fires on actual
+        // starvation, not routine jitter. Grows toward MaxJitterDepth on underruns, decays
+        // back when stable. Cold start begins at the floor so a fresh remote join doesn't
+        // overshoot into the slowdown branch.
+        public const int MinJitterDepth = 2;
+        public const int MaxJitterDepth = 4;
+        private const float InitialJitterDepth = MinJitterDepth;
         private const float DepthBumpOnUnderrun = 0.5f;
         private const float DepthDecayPerSecond = 0.5f;
         // Hysteretic catch-up band: stay at rate 1.0 until backlog exceeds Enter, then
@@ -184,11 +184,6 @@ namespace Basis.Scripts.Networking.Receivers
         // green<->amber on routine +/-1-packet jitter.
         private const float CatchupEnterDeadband = 2.0f;
         private const float CatchupExitDeadband = 1.0f;
-        // When true, every receiver's _dynamicJitterDepth is hard-pinned to MinJitterDepth
-        // each frame: decay-toward-floor and bump-on-underrun are both skipped, so the
-        // depth never drifts. Lets the user pick a fixed cushion via the override setting
-        // and have it actually stay there.
-        public static bool JitterDepthLocked = false;
         private float _dynamicJitterDepth = InitialJitterDepth;
         private float _lastPlaybackRate = 1f;
         private bool _catchingUp;
@@ -206,36 +201,6 @@ namespace Basis.Scripts.Networking.Receivers
         private float _packetsPerSecond;
         private float _voiceBytesPerSecond;
         private float _voicePacketsPerSecond;
-
-        /// <summary>
-        /// Sets the adaptive jitter depth parameters from a single user-facing "target depth"
-        /// value. Initial matches target so cold starts don't overshoot into the slowdown
-        /// branch; Max caps the underrun growth at target+2 but never below 4 so we still
-        /// have room to react to unstable networks. Leaves the lock off, so depth still adapts.
-        /// </summary>
-        public static void ApplyTargetJitterDepth(int target)
-        {
-            target = math.clamp(target, 0, 6);
-            MinJitterDepth = target;
-            InitialJitterDepth = target;
-            MaxJitterDepth = math.max(target + 2, 4);
-            JitterDepthLocked = false;
-        }
-
-        /// <summary>
-        /// Pins the jitter depth at a fixed target — no decay, no underrun growth. All three
-        /// fields collapse to <paramref name="target"/>, and the per-frame hot path holds
-        /// _dynamicJitterDepth at MinJitterDepth so the rate formula's equilibrium stays
-        /// exactly where the user asked.
-        /// </summary>
-        public static void ApplyLockedJitterDepth(int target)
-        {
-            target = math.clamp(target, 0, 6);
-            MinJitterDepth = target;
-            InitialJitterDepth = target;
-            MaxJitterDepth = target;
-            JitterDepthLocked = true;
-        }
 
         public bool HasCurrentBuffer = false;
         public bool HasNextBuffer = false;
@@ -379,21 +344,21 @@ namespace Basis.Scripts.Networking.Receivers
             }
 
             // Audio decode is thread-safe (per-receiver decoder/buffers, no Unity API).
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
             UnityEngine.Profiling.Profiler.BeginSample("ComputeData.AudioDecode");
 #endif
             if (!AudioReceiverModule.IsAudioActive || AudioReceiverModule.VoiceBuffer.DecodedFrameCount == 0)
             {
                 AudioReceiverModule.DrainAndDecodeThreadSafe();
             }
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
             UnityEngine.Profiling.Profiler.EndSample();
 #endif
 
             if (!hasRequiredData) return;
 
             // 1) Pull network packets, drop stale, sort by sequence, then stage
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
             UnityEngine.Profiling.Profiler.BeginSample("ComputeData.PacketDrain");
 #endif
             if (System.Threading.Interlocked.Exchange(ref _pendingCount, 0) > 0)
@@ -471,12 +436,12 @@ namespace Basis.Scripts.Networking.Receivers
                 }
                 StagedCount = _stagedRing.Count;
             }
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
             UnityEngine.Profiling.Profiler.EndSample();
 #endif
 
             // 2) Ensure we have a valid interpolation window (Current -> Next)
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
             UnityEngine.Profiling.Profiler.BeginSample("ComputeData.BufferWindow");
 #endif
             if (!HasCurrentBuffer)
@@ -492,7 +457,7 @@ namespace Basis.Scripts.Networking.Receivers
             HasBufferHolds = HasCurrentBuffer && HasNextBuffer;
             if (!HasBufferHolds)
             {
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
                 UnityEngine.Profiling.Profiler.EndSample();
 #endif
                 return;
@@ -511,25 +476,18 @@ namespace Basis.Scripts.Networking.Receivers
                 }
             }
             StagedCount = _stagedRing.Count;
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
             UnityEngine.Profiling.Profiler.EndSample();
 #endif
 
             // 3) Advance time and slide the interpolation window forward as needed.
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
             UnityEngine.Profiling.Profiler.BeginSample("ComputeData.FrameInputs");
 #endif
             if (HasBufferHolds)
             {
-                if (JitterDepthLocked)
-                {
-                    _dynamicJitterDepth = MinJitterDepth;
-                }
-                else
-                {
-                    _dynamicJitterDepth = math.max((float)MinJitterDepth,
-                        _dynamicJitterDepth - DepthDecayPerSecond * (float)unscaledDeltaTime);
-                }
+                _dynamicJitterDepth = math.max((float)MinJitterDepth,
+                    _dynamicJitterDepth - DepthDecayPerSecond * (float)unscaledDeltaTime);
 
                 double windowDuration = Next.ServerTimeSeconds - Current.ServerTimeSeconds;
                 if (!(windowDuration > 1e-6 && windowDuration < 1e6))
@@ -589,12 +547,7 @@ namespace Basis.Scripts.Networking.Receivers
                     if (!HasBufferHolds)
                     {
                         // Window starved during advance — grow target so next time has headroom.
-                        // Skip the bump when the user has locked the depth; they explicitly
-                        // asked for a fixed cushion, so don't grow past it.
-                        if (!JitterDepthLocked)
-                        {
-                            _dynamicJitterDepth = math.min(_dynamicJitterDepth + DepthBumpOnUnderrun, (float)MaxJitterDepth);
-                        }
+                        _dynamicJitterDepth = math.min(_dynamicJitterDepth + DepthBumpOnUnderrun, (float)MaxJitterDepth);
                         break;
                     }
 
@@ -647,7 +600,7 @@ namespace Basis.Scripts.Networking.Receivers
                     SentLatest = false;
                 }
             }
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
             UnityEngine.Profiling.Profiler.EndSample();
 #endif
         }

@@ -55,6 +55,7 @@ namespace Basis.BasisUI
         protected override void Awake()
         {
             base.Awake();
+            if (_placeholderField && _placeholder == "Password") _placeholderField.text = BasisLocalization.Get("ui.passwordField.placeholder");
             _showToggle.onValueChanged.AddListener(SetValue);
             _inputField.onEndEdit.AddListener(_ => OnComponentUsed());
             _inputField.onSelect.AddListener(_ => OnFieldFocused());

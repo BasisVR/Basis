@@ -1,8 +1,10 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.XR;
-public static class BasisCameraRenderRate
+[AutoStaticsCleanup]
+public static partial class BasisCameraRenderRate
 {
     public const float MinHz = 1f, MaxHz = 120f;
     private static readonly List<XRDisplaySubsystem> displays = new List<XRDisplaySubsystem>();

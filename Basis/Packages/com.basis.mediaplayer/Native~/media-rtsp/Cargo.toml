@@ -1,0 +1,22 @@
+[package]
+name = "media-rtsp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+futures = "0.3.34"
+media-clock.workspace = true
+media-demux.workspace = true
+media-diag.workspace = true
+media-rtp.workspace = true
+retina = "0.4.19"
+tokio = { version = "1.53.1", features = ["rt", "time", "sync", "net", "macros"] }
+url = "2.5.8"
+
+[dev-dependencies]
+tokio = { version = "1.53.1", features = ["rt-multi-thread"] }
+
+[lints]
+workspace = true

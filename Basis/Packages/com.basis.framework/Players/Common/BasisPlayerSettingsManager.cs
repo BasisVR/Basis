@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Concurrent;
 using System.IO;
@@ -5,16 +6,16 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
-public static class BasisPlayerSettingsManager
+public static partial class BasisPlayerSettingsManager
 {
-    private static readonly string Dir = Path.Combine(Application.persistentDataPath, "PlayerSettings");
-    private static readonly char[] InvalidChars = Path.GetInvalidFileNameChars();
+    [NoAutoStaticsCleanup] private static readonly string Dir = Path.Combine(Application.persistentDataPath, "PlayerSettings");
+    [NoAutoStaticsCleanup] private static readonly char[] InvalidChars = Path.GetInvalidFileNameChars();
 
     // One lock per file
-    private static readonly ConcurrentDictionary<string, SemaphoreSlim> locks = new ConcurrentDictionary<string, SemaphoreSlim>();
+    [AutoStaticsCleanup] private static readonly ConcurrentDictionary<string, SemaphoreSlim> locks = new ConcurrentDictionary<string, SemaphoreSlim>();
 
     // In-memory cache so repeated requests for the same UUID don't hit disk.
-    private static readonly ConcurrentDictionary<string, BasisPlayerSettingsData> cache = new ConcurrentDictionary<string, BasisPlayerSettingsData>();
+    [AutoStaticsCleanup] private static readonly ConcurrentDictionary<string, BasisPlayerSettingsData> cache = new ConcurrentDictionary<string, BasisPlayerSettingsData>();
 
     static BasisPlayerSettingsManager()
     {
@@ -95,7 +96,7 @@ public static class BasisPlayerSettingsManager
             // Read off the main thread; only the (trivial) JSON parse resumes on it. A missing file
             // returns defaults WITHOUT writing — the record is created only when a setting actually
             // changes (SetPlayerSettings), so joining never touches the disk for write.
-            string json = await Task.Run(() => File.Exists(path) ? File.ReadAllText(path) : null);
+            string json = await BasisTasks.Run(() => File.Exists(path) ? File.ReadAllText(path) : null);
 
             BasisPlayerSettingsData data = default;
             bool valid = false;
@@ -163,7 +164,7 @@ public static class BasisPlayerSettingsManager
         {
             cache[key] = settings;
             string json = JsonUtility.ToJson(settings, false);
-            await Task.Run(() => File.WriteAllText(path, json));
+            await BasisTasks.Run(() => File.WriteAllText(path, json));
         }
         finally
         {

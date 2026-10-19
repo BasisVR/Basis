@@ -7,9 +7,12 @@ using UnityEngine;
 using UnityEngine.Assertions;
 
 namespace GatorDragonGames.JigglePhysics {
-public unsafe struct JiggleTreeJobData {
+public unsafe struct JiggleTreeJobData : IEquatable<JiggleTreeJobData> {
     public static bool operator ==(JiggleTreeJobData left, JiggleTreeJobData right) => left.Equals(right);
     public static bool operator !=(JiggleTreeJobData left, JiggleTreeJobData right) => !left.Equals(right);
+    public bool Equals(JiggleTreeJobData other) => rootID == other.rootID && pointCount == other.pointCount && transformIndexOffset == other.transformIndexOffset && colliderIndexOffset == other.colliderIndexOffset && colliderCount == other.colliderCount && points == other.points && parameters == other.parameters && childrenIndices == other.childrenIndices;
+    public override bool Equals(object obj) => obj is JiggleTreeJobData other && Equals(other);
+    public override int GetHashCode() => HashCode.Combine(rootID, pointCount, transformIndexOffset, colliderIndexOffset, colliderCount, (IntPtr)points, (IntPtr)parameters, (IntPtr)childrenIndices);
 
     public int rootID;
     public uint pointCount;

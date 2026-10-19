@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
@@ -24,8 +25,9 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
     /// <summary>
     /// the goal of this script is to be the glue of consistent data between remote and local
     /// </summary>
+    [AutoStaticsCleanup]
     [System.Serializable]
-    public abstract class BasisNetworkPlayer
+    public abstract partial class BasisNetworkPlayer
     {
         /// <summary>
         /// only changes when additional avatar data is in play!
@@ -246,7 +248,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         /// are main-thread and sequential, and Peer.Send copies the bytes out — a fresh writer per
         /// message paid its backing buffer every send.
         /// </summary>
-        private static readonly NetDataWriter sAvatarSendWriter = new NetDataWriter();
+        [NoAutoStaticsCleanup] private static readonly NetDataWriter sAvatarSendWriter = new NetDataWriter();
 
         public void OnAvatarNetworkMessageSend(byte MessageIndex, byte[] buffer = null, DeliveryMethod DeliveryMethod = DeliveryMethod.Sequenced, ushort[] Recipients = null)
         {

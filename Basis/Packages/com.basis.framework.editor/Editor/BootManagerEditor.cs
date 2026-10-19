@@ -1,16 +1,19 @@
+using Unity.Scripting.LifecycleManagement;
 namespace Basis.Scripts.Boot_Sequence
 {
 #if UNITY_EDITOR
     using UnityEditor;
     using UnityEngine;
+    using Basis.Editor.Localization;
 
     [DefaultExecutionOrder(-51)]
+    [NoAutoStaticsCleanup]
     public class BootManagerEditor : EditorWindow
     {
         private static bool isBootSequenceEnabled;
 
         [MenuItem("Basis/Debug/Toggle Boot Sequence", false, 643)]
-        public static void ShowWindow() => GetWindow<BootManagerEditor>("Boot Sequence Toggle");
+        public static void ShowWindow() => GetWindow<BootManagerEditor>(BasisEditorLocalization.Get("editor.bootManager.windowTitle"));
 
         private void OnEnable()
         {
@@ -19,10 +22,10 @@ namespace Basis.Scripts.Boot_Sequence
 
         private void OnGUI()
         {
-            GUILayout.Label("Boot Sequence Control", EditorStyles.boldLabel);
-            BasisEditorUI.Help("Enable or disable the Boot Sequence at runtime.", MessageType.Info);
+            GUILayout.Label(BasisEditorLocalization.Get("editor.bootManager.header"), EditorStyles.boldLabel);
+            BasisEditorUI.Help(BasisEditorLocalization.Get("editor.bootManager.help"), MessageType.Info);
 
-            bool newVal = EditorGUILayout.Toggle("Enable Booting", isBootSequenceEnabled);
+            bool newVal = EditorGUILayout.Toggle(BasisEditorLocalization.Get("editor.bootManager.enableBooting"), isBootSequenceEnabled);
             if (newVal != isBootSequenceEnabled)
             {
                 isBootSequenceEnabled = newVal;

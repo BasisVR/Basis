@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System;
@@ -18,7 +19,8 @@ namespace Basis.Scripts.Device_Management
         Pointer = 16,
         Device = 32,
     }
-    public static class BasisDeviceOverrides
+    [AutoStaticsCleanup]
+    public static partial class BasisDeviceOverrides
     {
         private const string FileName = "deviceOverrides.json";
         private static string filePath;

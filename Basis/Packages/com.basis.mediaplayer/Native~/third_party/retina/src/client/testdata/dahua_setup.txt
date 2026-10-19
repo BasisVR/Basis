@@ -1,0 +1,6 @@
+RTSP/1.0 200 OK
+CSeq: 4
+Session: 634214675641;timeout=60
+Transport: RTP/AVP/TCP;unicast;interleaved=0-1;ssrc=30A98EE7
+x-Dynamic-Rate: 1
+

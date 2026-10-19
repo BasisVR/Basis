@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -14,7 +15,8 @@ using UnityEngine.Rendering;
 /// bounds the TMP re-tessellation cost regardless of how many labels exist.
 /// <see cref="Render"/> must run once per frame; SMModuleDebugOptions.Simulate drives it.
 /// </summary>
-public static class BasisGizmoManager
+[AutoStaticsCleanup]
+public static partial class BasisGizmoManager
 {
     public static Action<bool> OnUseGizmosChanged; // Callback delegate.
     public static GameObject Parent;
@@ -1118,7 +1120,7 @@ public static class BasisGizmoManager
         public Vector2 SideWidth;
     }
 
-    internal static readonly VertexAttributeDescriptor[] LineVertexLayout =
+    [NoAutoStaticsCleanup] internal static readonly VertexAttributeDescriptor[] LineVertexLayout =
     {
         new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3),
         new VertexAttributeDescriptor(VertexAttribute.Color, VertexAttributeFormat.UNorm8, 4),
@@ -1189,7 +1191,7 @@ public static class BasisGizmoManager
     }
 
     private static readonly List<LabelDistance> _labelRanking = new List<LabelDistance>();
-    private static readonly Comparison<LabelDistance> LabelComparison = (a, b) => a.DistSq.CompareTo(b.DistSq);
+    [NoAutoStaticsCleanup] private static readonly Comparison<LabelDistance> LabelComparison = (a, b) => a.DistSq.CompareTo(b.DistSq);
 
     /// <summary>
     /// Submits every live gizmo for this frame's rendering and resolves which text

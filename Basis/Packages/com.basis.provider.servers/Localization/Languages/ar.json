@@ -112,6 +112,10 @@
       "value": "★ {0}"
     },
     {
+      "key": "menu.servers.list.sourceBadge",
+      "value": "{0} ({1})"
+    },
+    {
       "key": "menu.servers.list.share",
       "value": "مشاركة"
     },
@@ -146,6 +150,14 @@
     {
       "key": "menu.servers.usernamePrompt.body",
       "value": "اختر الاسم الذي سيراه اللاعبون الآخرون، ثم اضغط «اتصال»."
+    },
+    {
+      "key": "menu.servers.passwordPrompt.title",
+      "value": "انضم إلى {0}"
+    },
+    {
+      "key": "menu.servers.passwordPrompt.body",
+      "value": "تم رفض كلمة المرور. أدخل كلمة مرور الخادم."
     },
     {
       "key": "menu.servers.search.byNameOrAddress",
@@ -274,6 +286,10 @@
     {
       "key": "menu.servers.hostThirdPersonDisabled",
       "value": "تعطيل المنظور الثالث"
+    },
+    {
+      "key": "menu.servers.portInvalid",
+      "value": "يجب أن يكون المنفذ بين 1 و65535"
     }
   ]
 }

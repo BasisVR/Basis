@@ -1,0 +1,6 @@
+RTSP/1.0 200 OK
+CSeq: 2
+Session:        708345999;timeout=60
+Transport: RTP/AVP/TCP;unicast;interleaved=0-1;ssrc=4cacc3d1;mode="play"
+Date:  Wed, May 05 2021 21:51:17 GMT
+

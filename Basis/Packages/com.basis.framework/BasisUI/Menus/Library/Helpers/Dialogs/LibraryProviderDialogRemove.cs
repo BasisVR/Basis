@@ -54,8 +54,22 @@ namespace Basis.BasisUI
         public static async Task<bool> PromptUserForRemoval(BasisMenuPanel panel, BasisDataStoreItemKeys.ItemKey item, BasisBundleDescription description)
         {
             DialogBox<bool> contentRemovalDialog = DialogBox<bool>.Create(panel, new Vector2(650, 180),
-                Basis.BasisUI.BasisLocalization.Get("library.dialog.remove.title", LibraryProviderStrUtil.TitleToCase(description.AssetBundleName)),
+                Basis.BasisUI.BasisLocalization.Get("library.dialog.remove.title", description.AssetBundleName),
                 Basis.BasisUI.BasisLocalization.Get("library.dialog.remove.body", item.Mode),
+                AddressableAssets.Sprites.Information,
+                true
+            );
+
+            BuildDialogButtons(contentRemovalDialog);
+
+            return await contentRemovalDialog.WaitAsync();
+        }
+
+        public static async Task<bool> PromptUserForNotWorking(BasisMenuPanel panel, BasisDataStoreItemKeys.ItemKey item, string name)
+        {
+            DialogBox<bool> contentRemovalDialog = DialogBox<bool>.Create(panel, new Vector2(900, 240),
+                Basis.BasisUI.BasisLocalization.Get("library.dialog.notWorking.title", name),
+                Basis.BasisUI.BasisLocalization.Get("library.dialog.notWorking.body", item.Url),
                 AddressableAssets.Sprites.Information,
                 true
             );

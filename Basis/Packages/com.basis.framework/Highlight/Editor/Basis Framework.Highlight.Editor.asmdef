@@ -2,7 +2,8 @@
     "name": "Basis Framework Highlight Editor",
     "rootNamespace": "",
     "references": [
-        "Basis Framework"
+        "Basis Framework",
+        "BasisSDKEditor"
     ],
     "includePlatforms": [
         "Editor"

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Helpers;
 using Unity.Mathematics;
@@ -6,6 +7,7 @@ using UnityEngine;
 
 namespace Basis.Scripts.Editor
 {
+    [NoAutoStaticsCleanup]
     public static class BasisAutomaticSetupAvatarEditor
     {
         // Offset to estimate the mouth position relative to the head

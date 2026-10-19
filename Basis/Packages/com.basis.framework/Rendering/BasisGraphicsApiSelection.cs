@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Basis.BasisUI;
@@ -7,7 +8,8 @@ using UnityEngine.Rendering;
 
 namespace Basis.Scripts.Rendering
 {
-    public static class BasisGraphicsApiSelection
+    [AutoStaticsCleanup]
+    public static partial class BasisGraphicsApiSelection
     {
         public const string MarkerArgument = "--graphics-api=";
 

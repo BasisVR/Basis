@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.IO;
 using Unity.Burst;
@@ -47,12 +48,13 @@ namespace Basis.ImagePickup
         BasisBurstAnimationDecodeResult Complete();
     }
 
-    internal sealed class BasisNativeAnimationPayload : IDisposable
+    [AutoStaticsCleanup]
+    internal sealed partial class BasisNativeAnimationPayload : IDisposable
     {
         public const byte FormatNativeLz4 = 2;
         public const byte FormatGif = 3;
 
-        private static readonly object MemoryBudgetLock = new();
+        [NoAutoStaticsCleanup] private static readonly object MemoryBudgetLock = new();
         private static long _allocatedBytes;
         private static long _reservedBytes;
 

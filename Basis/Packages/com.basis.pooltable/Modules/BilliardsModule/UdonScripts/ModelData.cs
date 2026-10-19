@@ -4,6 +4,7 @@ using UnityEditor;
 using Basis;
 
 
+[Cilboxable]
 public class ModelData : MonoBehaviour
 {
         public string TABLENAME = "Pool Table";
@@ -161,7 +162,7 @@ public class ModelData : MonoBehaviour
         [System.NonSerialized] public Material[] tableMaterial;
         public void _Init()
         {
-                MeshRenderer[] tableMeshR = tableMesh.GetComponentsInChildren<MeshRenderer>();
+                MeshRenderer[] tableMeshR = tableMesh.transform.GetComponentsInChildren<MeshRenderer>();
                 for (int i = 0; i < tableMeshR.Length; i++)
                 {
                         tableMaterial = tableMeshR[i].materials; // create a new instance for this table

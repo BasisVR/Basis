@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 
 namespace Basis.Cinematics
@@ -142,6 +143,7 @@ namespace Basis.Cinematics
         }
     }
 
+    [NoAutoStaticsCleanup]
     public static class BasisCameraModifiers
     {
         public const string SubjectSlotKey = "camera.modifier.subject";

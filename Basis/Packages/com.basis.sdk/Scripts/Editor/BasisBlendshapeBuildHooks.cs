@@ -1,7 +1,9 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 
+[NoAutoStaticsCleanup]
 public static class BasisBlendshapeBuildHooks
 {
     /// <summary>

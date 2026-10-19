@@ -49,7 +49,13 @@ internal sealed class FakeNetPeer : NetPeer
 
     public List<(byte[] Data, byte Channel, DeliveryMethod Method)> Sent { get; } = new();
     public List<byte[]> DisconnectData { get; } = new();
-    public int DisconnectCalls { get; private set; }
+    private int _disconnectCalls;
+    public int DisconnectCalls => Volatile.Read(ref _disconnectCalls);
+
+    public bool HasSentOn(byte channel)
+    {
+        lock (Sent) return Sent.Exists(s => s.Channel == channel);
+    }
 
     public int Id { get; }
     public IPAddress Address { get; }
@@ -60,28 +66,42 @@ internal sealed class FakeNetPeer : NetPeer
     public int Mtu => 1200;
     public object Tag { get; set; } = new object();
 
-    public void Disconnect() => DisconnectCalls++;
+    public void Disconnect() => Interlocked.Increment(ref _disconnectCalls);
 
     public void Disconnect(byte[] b)
     {
-        DisconnectCalls++;
-        DisconnectData.Add(b);
+        lock (DisconnectData) DisconnectData.Add(b);
+        Interlocked.Increment(ref _disconnectCalls);
     }
 
-    public void DisconnectForce() => DisconnectCalls++;
+    public void DisconnectForce() => Interlocked.Increment(ref _disconnectCalls);
 
     public void Send(byte[] data, byte channelNumber, DeliveryMethod deliveryMethod)
-        => Sent.Add(((byte[])data.Clone(), channelNumber, deliveryMethod));
+    {
+        lock (Sent) Sent.Add(((byte[])data.Clone(), channelNumber, deliveryMethod));
+    }
 
     // Copy immediately: the server returns writers to a pool (Reset) right after TrySend.
     public void Send(NetDataWriter data, byte channelNumber, DeliveryMethod deliveryMethod)
-        => Sent.Add((data.AsReadOnlySpan().ToArray(), channelNumber, deliveryMethod));
+    {
+        lock (Sent) Sent.Add((data.AsReadOnlySpan().ToArray(), channelNumber, deliveryMethod));
+    }
 
     public void SendUnreliableRawMerge(byte[] data, int offset, int length, byte channelNumber, int patchOffset = -1, byte patchValue = 0)
     {
     }
 
     public int GetPacketsCountInQueue(byte channel, DeliveryMethod deliveryMethod) => 0;
+
+    public bool CanSeal { get; set; } = true;
+    public byte[]? InboundKey { get; private set; }
+
+    public bool RequireSealedInbound(byte[] key)
+    {
+        if (!CanSeal) return false;
+        InboundKey = key;
+        return true;
+    }
 }
 
 internal sealed class MapAuthIdentity : IAuthIdentity
@@ -199,6 +219,7 @@ public class PermissionManagerTests
         Assert.Equal("basis.ownership.get", PermNodes.OwnershipGet);
         Assert.Equal("basis.contentshare.delete", PermNodes.ContentShareDelete);
         Assert.Equal("basis.contentshare.create", PermNodes.ContentShareCreate);
+        Assert.Equal("basis.storage.use", PermNodes.StorageUse);
         Assert.Equal("basis.protection", PermNodes.protection);
         Assert.Equal("basis.configuration", PermNodes.ConfigurationEditor);
         Assert.Equal("basis.moderation", PermNodes.PlayerModeration);
@@ -357,6 +378,7 @@ public class PermissionManagerTests
             PermNodes.ResourceLoadWorld, PermNodes.ResourceUnloadWorld,
             PermNodes.OwnershipTransfer, PermNodes.OwnershipRemove, PermNodes.OwnershipGet,
             PermNodes.ContentShareDelete, PermNodes.ContentShareCreate,
+            PermNodes.StorageUse,
         }));
     }
 
@@ -480,7 +502,7 @@ public class PermissionManagerTests
         Assert.True(custom.Has(uuid, "custom.only.node"));
         Assert.True(custom.Has(uuid, PermNodes.help));
         Assert.True(custom.TryGetGroup("default", out var def));
-        Assert.Equal(13, def.Nodes.Count);
+        Assert.Equal(14, def.Nodes.Count);
     }
 
     [Fact]

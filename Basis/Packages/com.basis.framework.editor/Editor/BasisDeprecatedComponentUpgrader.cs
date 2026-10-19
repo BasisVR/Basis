@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -7,7 +8,9 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
+using Basis.Editor.Localization;
 
+[NoAutoStaticsCleanup]
 public static class BasisDeprecatedComponentUpgrader
 {
 #pragma warning disable 618
@@ -58,18 +61,18 @@ public static class BasisDeprecatedComponentUpgrader
         box.style.borderBottomLeftRadius = 5;
         box.style.borderBottomRightRadius = 5;
 
-        var title = new Label($"{from.Name} is deprecated");
+        var title = new Label(BasisEditorLocalization.Get("editor.deprecatedUpgrader.bannerTitle", from.Name));
         title.style.fontSize = 13;
         title.style.unityFontStyleAndWeight = FontStyle.Bold;
         title.style.color = BasisEditorUI.Value;
 
-        var body = new Label($"Use {to.Name}. Upgrade swaps the script in place, so every field, UnityEvent and prefab instance pointing at this component keeps working." + (targets.Length > 1 ? $" Applies to all {targets.Length} selected." : ""));
+        var body = new Label(targets.Length > 1 ? BasisEditorLocalization.Get("editor.deprecatedUpgrader.bannerBodyMulti", to.Name, targets.Length) : BasisEditorLocalization.Get("editor.deprecatedUpgrader.bannerBody", to.Name));
         body.style.whiteSpace = WhiteSpace.Normal;
         body.style.fontSize = 11;
         body.style.marginTop = 2;
         body.style.color = BasisEditorUI.Value;
 
-        var button = new Button(() => UpgradeTargets(targets)) { text = $"Upgrade to {to.Name}" };
+        var button = new Button(() => UpgradeTargets(targets)) { text = BasisEditorLocalization.Get("editor.deprecatedUpgrader.upgradeTo", to.Name) };
         button.style.marginTop = 6;
         button.style.height = 24;
         button.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -122,7 +125,7 @@ public static class BasisDeprecatedComponentUpgrader
             Debug.Log("No deprecated components found in any prefab or scene.");
             return;
         }
-        if (!EditorUtility.DisplayDialog("Upgrade Deprecated Components", $"{prefabs.Count} prefab(s) and {scenes.Count} scene(s) use deprecated components and will be rewritten on disk. This cannot be undone.\n\n{string.Join("\n", prefabs.Concat(scenes))}", "Upgrade", "Cancel")) return;
+        if (!EditorUtility.DisplayDialog(BasisEditorLocalization.Get("editor.deprecatedUpgrader.title"), BasisEditorLocalization.Get("editor.deprecatedUpgrader.projectConfirm", prefabs.Count, scenes.Count, string.Join("\n", prefabs.Concat(scenes))), BasisEditorLocalization.Get("editor.deprecatedUpgrader.upgrade"), BasisEditorLocalization.Get("editor.common.cancel"))) return;
         if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
 
         SceneSetup[] setup = EditorSceneManager.GetSceneManagerSetup().Where(s => !string.IsNullOrEmpty(s.path)).ToArray();
@@ -132,12 +135,12 @@ public static class BasisDeprecatedComponentUpgrader
         {
             for (int i = 0; i < prefabs.Count; i++)
             {
-                EditorUtility.DisplayProgressBar("Upgrade Deprecated Components", prefabs[i], (float)i / total);
+                EditorUtility.DisplayProgressBar(BasisEditorLocalization.Get("editor.deprecatedUpgrader.title"), prefabs[i], (float)i / total);
                 UpgradeAssets(new[] { prefabs[i] }, report);
             }
             for (int i = 0; i < scenes.Count; i++)
             {
-                EditorUtility.DisplayProgressBar("Upgrade Deprecated Components", scenes[i], (float)(prefabs.Count + i) / total);
+                EditorUtility.DisplayProgressBar(BasisEditorLocalization.Get("editor.deprecatedUpgrader.title"), scenes[i], (float)(prefabs.Count + i) / total);
                 Scene scene = EditorSceneManager.OpenScene(scenes[i], OpenSceneMode.Single);
                 int before = report.Swapped + report.Events;
                 Run(SceneComponents(scene).ToArray(), report);
@@ -176,7 +179,7 @@ public static class BasisDeprecatedComponentUpgrader
             Debug.Log("No deprecated components to upgrade.");
             return report;
         }
-        if (assets.Count > 0 && !EditorUtility.DisplayDialog("Upgrade Deprecated Components", $"This rewrites {assets.Count} prefab asset(s) on disk; their instances follow automatically:\n\n{string.Join("\n", assets)}\n\nScene changes can be undone, prefab asset changes cannot.", "Upgrade", "Cancel")) return report;
+        if (assets.Count > 0 && !EditorUtility.DisplayDialog(BasisEditorLocalization.Get("editor.deprecatedUpgrader.title"), BasisEditorLocalization.Get("editor.deprecatedUpgrader.assetsConfirm", assets.Count, string.Join("\n", assets)), BasisEditorLocalization.Get("editor.deprecatedUpgrader.upgrade"), BasisEditorLocalization.Get("editor.common.cancel"))) return report;
         Run(components, report);
         Log(report);
         return report;

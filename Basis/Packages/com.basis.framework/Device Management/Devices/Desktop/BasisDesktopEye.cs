@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
@@ -8,7 +9,8 @@ using UnityEngine;
 using Basis.IK;
 namespace Basis.Scripts.Device_Management.Devices.Desktop
 {
-    public class BasisDesktopEye : BasisInput
+    [AutoStaticsCleanup]
+    public partial class BasisDesktopEye : BasisInput
     {
         public Camera Camera;
 
@@ -32,6 +34,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         public float X;
 
+        public float Y;
+
         public float Z;
 
         [Header("Reticle")]
@@ -44,12 +48,12 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             if (BasisLocalPlayer.Instance.LocalAvatarDriver != null)
             {
                 BasisDebug.Log($"Using Configured Height {BasisHeightDriver.SelectedScaledPlayerHeight}", BasisDebug.LogTag.Input);
-                ScaledDeviceCoord.position = new Vector3(X, BasisHeightDriver.SelectedScaledPlayerHeight, Z);
+                ScaledDeviceCoord.position = new Vector3(X, BasisHeightDriver.SelectedScaledPlayerHeight + Y, Z);
             }
             else
             {
                 BasisDebug.Log($"Using Fallback Height {BasisHeightDriver.FallbackHeightInMeters}", BasisDebug.LogTag.Input);
-                ScaledDeviceCoord.position = new Vector3(X, BasisHeightDriver.FallbackHeightInMeters, Z);
+                ScaledDeviceCoord.position = new Vector3(X, BasisHeightDriver.FallbackHeightInMeters + Y, Z);
             }
 
             ScaledDeviceCoord.rotation = Quaternion.identity;
@@ -222,11 +226,17 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             Vector3 rotatedEyeOffset = targetRot * neutralEyeFromHead;
             Vector3 eyeWorld = tposeHeadWorld + rotatedEyeOffset;
 
-            // Pin the eye over the hips. This is what stops the eye's static forward offset ORBITING the neck
-            // every time you turn — yaw would otherwise sweep the camera sideways through an arc. The pin is
-            // right; what it also threw away was the pitch swing, which is put back immediately below.
+            // Pin the eye over the hips, then swing it around the neck with the yaw: looking left/right turns the head
+            // about the neck, so the eye's horizontal offset from the neck rotates with it and the head/neck stay put
+            // over the body. Facing forward the eye sits exactly at the pin. The pitch swing is added below.
             eyeWorld.x = X;
             eyeWorld.z = Z;
+            if (BasisLocalBoneDriver.NeckControl != null)
+            {
+                Vector3 eyeFromNeck = tposeEyeWorld - BasisLocalBoneDriver.NeckControl.TposeLocal.position;
+                eyeFromNeck.y = 0f;
+                eyeWorld += Quaternion.Euler(0f, rotationYaw, 0f) * eyeFromNeck - eyeFromNeck;
+            }
 
             // The head pitches about the BASE OF THE NECK, not about itself, so the eye rides a lever arm and is
             // carried FORWARD as the gaze tips down — look at your own feet and your eyes travel out over them.
@@ -245,7 +255,6 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 BasisHeadPitchSwingCore.Solve(rotationPitch, rotationYaw,
                     tposeEyeWorld - BasisLocalBoneDriver.NeckControl.TposeLocal.position,
                     Basis.BasisUI.BasisSettingsDefaults.DesktopHeadSwingStrength.RawValue,
-                    Basis.BasisUI.BasisSettingsDefaults.DesktopHeadSwingBackward.RawValue,
                     out Vector3 swingOffset, out _);
                 eyeWorld += swingOffset;
             }
@@ -257,6 +266,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             float deviceScale = BasisHeightDriver.AppliedUpScale;
             ScaledDeviceCoord.rotation = OffsetCoords.rotation * UnscaledDeviceCoord.rotation;
             ScaledDeviceCoord.position = OffsetCoords.position + (OffsetCoords.rotation * (UnscaledDeviceCoord.position * deviceScale));
+
+            // Apply vertical height offset
+            ScaledDeviceCoord.position += OffsetCoords.rotation * new Vector3(0f, Y * deviceScale, 0f);
 
             ControlOnlyAsDevice();
             if (IsComputingRaycast)

@@ -56,6 +56,7 @@
 #endif
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DistanceFog.hlsl"
 
 void MeshDecalsPositionZBias(inout Varyings input)
 {
@@ -73,29 +74,27 @@ void InitializeInputData(Varyings input, float3 positionWS, half3 normalWS, half
     inputData.positionWS = positionWS;
     inputData.normalWS = normalWS;
     inputData.viewDirectionWS = viewDirectionWS;
+    inputData.preExposureMultiplier = GetPreExposureMultiplier();
 
-#if defined(VARYINGS_NEED_SHADOW_COORD) && defined(REQUIRES_VERTEX_SHADOW_COORD_INTERPOLATOR)
-    inputData.shadowCoord = input.shadowCoord;
-#elif defined(MAIN_LIGHT_CALCULATE_SHADOWS)
-    inputData.shadowCoord = TransformWorldToShadowCoord(positionWS);
+#if defined(VARYINGS_NEED_SHADOW_COORD) && USE_VERTEX_SHADOW_COORD_INTERPOLATOR
+    inputData.shadowCoord = ShadowCoordInterpolatorAvailable() ? input.shadowCoord : TransformWorldToShadowCoord(positionWS);
 #else
-    inputData.shadowCoord = float4(0, 0, 0, 0);
+    inputData.shadowCoord = MainLightShadowsAvailable() ? TransformWorldToShadowCoord(positionWS) : float4(0, 0, 0, 0);
 #endif
 
 #ifdef VARYINGS_NEED_FOG_AND_VERTEX_LIGHT
-    inputData.fogCoord = InitializeInputDataFog(float4(positionWS, 1.0), input.fogFactorAndVertexLight.x);
     inputData.vertexLighting = input.fogFactorAndVertexLight.yzw;
 #endif
 
 #if defined(_SCREEN_SPACE_IRRADIANCE)
-    inputData.bakedGI = SAMPLE_GI(_ScreenSpaceIrradiance, input.positionCS.xy);
-#elif defined(VARYINGS_NEED_DYNAMIC_LIGHTMAP_UV) && defined(DYNAMICLIGHTMAP_ON)
+    inputData.bakedGI = SAMPLE_GI(_ScreenSpaceIrradiance, input.positionCS.xy, normalWS, GetInvPreExposureMultiplier());
+#elif defined(VARYINGS_NEED_DYNAMIC_LIGHTMAP_UV) && USE_DYNAMICLIGHTMAP_UV_INTERPOLATOR
     inputData.bakedGI = SAMPLE_GI(input.staticLightmapUV, input.dynamicLightmapUV.xy, half3(input.sh), normalWS);
     #if defined(VARYINGS_NEED_STATIC_LIGHTMAP_UV)
     inputData.shadowMask = SAMPLE_SHADOWMASK(input.staticLightmapUV);
     #endif
 #elif defined(VARYINGS_NEED_STATIC_LIGHTMAP_UV)
-#if !defined(LIGHTMAP_ON) && (defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2))
+#if !USE_LIGHTMAP_UV_INTERPOLATOR && (defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2))
     inputData.bakedGI = SAMPLE_GI(input.sh,
         GetAbsolutePositionWS(inputData.positionWS),
         inputData.normalWS,
@@ -112,10 +111,10 @@ void InitializeInputData(Varyings input, float3 positionWS, half3 normalWS, half
 #endif
 
     #if defined(DEBUG_DISPLAY)
-    #if defined(VARYINGS_NEED_DYNAMIC_LIGHTMAP_UV) && defined(DYNAMICLIGHTMAP_ON)
+    #if defined(VARYINGS_NEED_DYNAMIC_LIGHTMAP_UV) && USE_DYNAMICLIGHTMAP_UV_INTERPOLATOR
     inputData.dynamicLightmapUV = input.dynamicLightmapUV.xy;
     #endif
-    #if defined(VARYINGS_NEED_STATIC_LIGHTMAP_UV) && defined(LIGHTMAP_ON)
+    #if defined(VARYINGS_NEED_STATIC_LIGHTMAP_UV) && USE_LIGHTMAP_UV_INTERPOLATOR
     inputData.staticLightmapUV = input.staticLightmapUV;
     #elif defined(VARYINGS_NEED_SH)
     inputData.vertexSH = input.sh;
@@ -165,11 +164,11 @@ PackedVaryings Vert(Attributes inputMesh)
     OUTPUT_LIGHTMAP_UV(inputMesh.uv1, unity_LightmapST, output.staticLightmapUV);
 #endif
 
-#if defined(VARYINGS_NEED_DYNAMIC_LIGHTMAP_UV) && defined(DYNAMICLIGHTMAP_ON)
+#if defined(VARYINGS_NEED_DYNAMIC_LIGHTMAP_UV) && USE_DYNAMICLIGHTMAP_UV_INTERPOLATOR
     output.dynamicLightmapUV.xy = inputMesh.uv2.xy * unity_DynamicLightmapST.xy + unity_DynamicLightmapST.zw;
 #endif
 
-#if defined(VARYINGS_NEED_SH) && !defined(LIGHTMAP_ON)
+#if defined(VARYINGS_NEED_SH) && USE_VERTEX_SH_INTERPOLATOR
     output.sh = float3(SampleSHVertex(half3(output.normalWS)));
 #endif
 
@@ -341,9 +340,10 @@ void Frag(PackedVaryings packedInput,
     SurfaceData surface = (SurfaceData)0;
     GetSurface(surfaceData, surface);
 
-    half4 color = UniversalFragmentPBR(inputData, surface);
+    URP_LIGHT_ACCUM4 color = UniversalFragmentPBR(inputData, surface);
 
-    color.rgb = MixFog(color.rgb, inputData.fogCoord);
+    float linearEyeDepth = dot(GetViewForwardDir(), positionWS - GetCameraPositionWS());
+    color.rgb = ClampExposed(inputData.preExposureMultiplier * BlendDistanceFogFromEyeDepth(color.rgb, linearEyeDepth));
 
     outColor = color;
 #elif defined(DECAL_GBUFFER)
@@ -366,10 +366,10 @@ void Frag(PackedVaryings packedInput,
     // Skip GI if there is no abledo
 #ifdef _MATERIAL_AFFECTS_ALBEDO
     Light mainLight = GetMainLight(inputData.shadowCoord, inputData.positionWS, inputData.shadowMask);
-    MixRealtimeAndBakedGI(mainLight, surfaceData.normalWS.xyz, inputData.bakedGI, inputData.shadowMask);
-    half3 color = GlobalIllumination(brdfData, inputData.bakedGI, surface.occlusion, surfaceData.normalWS.xyz, inputData.viewDirectionWS);
+    MixRealtimeAndBakedGI(mainLight, surfaceData.normalWS.xyz, inputData.bakedGI);
+    URP_LIGHT_ACCUM3 color = GlobalIllumination(brdfData, inputData.bakedGI, surface.occlusion, surfaceData.normalWS.xyz, inputData.viewDirectionWS);
 #else
-    half3 color = 0;
+    URP_LIGHT_ACCUM3 color = 0;
 #endif
 
     // We can not use usual GBuffer functions (etc. BRDFDataToGbuffer) as we use alpha for blending
@@ -378,7 +378,7 @@ void Frag(PackedVaryings packedInput,
     fragmentOutput.gBuffer0 = half4(surfaceData.baseColor.rgb, surfaceData.baseColor.a);
     fragmentOutput.gBuffer1 = 0;
     fragmentOutput.gBuffer2 = half4(packedNormalWS, surfaceData.normalWS.a);
-    fragmentOutput.color = half4(surfaceData.emissive + color, surfaceData.baseColor.a);
+    fragmentOutput.color = half4(ClampExposed(inputData.preExposureMultiplier * (surfaceData.emissive + color)), surfaceData.baseColor.a);
 
 #if defined(GBUFFER_FEATURE_SHADOWMASK)
     fragmentOutput.shadowMask = inputData.shadowMask; // will have unity_ProbesOcclusion value if subtractive lighting is used (baked)
@@ -388,7 +388,7 @@ void Frag(PackedVaryings packedInput,
 
 #elif defined(DECAL_FORWARD_EMISSIVE)
     // Emissive need to be pre-exposed
-    outEmissive.rgb = surfaceData.emissive * GetCurrentExposureMultiplier();
+    outEmissive.rgb = ClampExposed(GetPreExposureMultiplier() * surfaceData.emissive);
     outEmissive.a = surfaceData.baseColor.a;
 #else
 #endif

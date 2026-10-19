@@ -1,19 +1,21 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Threading;
 using UnityEngine;
 
-public static class BasisAvatarRecorder
+[AutoStaticsCleanup]
+public static partial class BasisAvatarRecorder
 {
     private static bool _isRecording;
-    private static FileStream filestream;
+    [NoAutoStaticsCleanup] private static FileStream filestream;
     private static Thread writeThread;
-    private static AutoResetEvent writeSignal;
+    [NoAutoStaticsCleanup] private static AutoResetEvent writeSignal;
     private static volatile bool writeRunning;
     private static readonly ConcurrentQueue<byte[]> pendingFrames = new ConcurrentQueue<byte[]>();
     private static readonly ConcurrentQueue<byte[]> framePool = new ConcurrentQueue<byte[]>();
-    private static readonly float[] staging = new float[FloatsPerFrame];
+    [NoAutoStaticsCleanup] private static readonly float[] staging = new float[FloatsPerFrame];
 
     // Public so tools (like your editor window) can reason about the file format
     public const int MuscleCount = 95;

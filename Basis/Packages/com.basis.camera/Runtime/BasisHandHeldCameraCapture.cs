@@ -59,37 +59,43 @@ public partial class BasisHandHeldCamera
         bool headWasNormal = BasisLocalAvatarDriver.IsNormalHead;
         BasisLocalAvatarDriver.ScaleHeadToNormal();
         ToggleToneMapping(CaptureTonemapping);
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
         SMModuleGlobalIlluminationURP.BeginCapture(captureCamera, OverrideGlobalIllumination ? GlobalIlluminationOverride : (BasisGlobalIlluminationCaptureOverride?)null);
 #endif
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
         BasisRTAOIntegration.BeginCapture(captureCamera, OverrideRTAO ? RTAOOverride : (BasisRTAOCaptureOverride?)null);
 #endif
+        BeginPassCapture();
         try
         {
             captureCamera.Render();
         }
         finally
         {
-#if BASIS_HAS_GI && !UNITY_ANDROID
+            EndPassCapture();
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             SMModuleGlobalIlluminationURP.EndCapture();
 #endif
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
             BasisRTAOIntegration.EndCapture();
 #endif
             if (!headWasNormal) BasisLocalAvatarDriver.ScaleHeadToZero();
         }
 
         BasisHandHeldCameraPhotoMetadata.PhotoMetadata photoMetadata = BasisHandHeldCameraPhotoMetadata.CollectMetadata(captureCamera, transform);
-        bool resolved = BasisCameraCaptureFormats.NeedsSrgbResolve(textureFormat, renderTexture);
+        string stamp = BasisCameraPhotoFolder.Timestamp();
+        RenderTexture shot = CaptureOutputTexture;
+        bool picture = ReferenceEquals(shot, renderTexture);
+        bool resolved = BasisCameraCaptureFormats.NeedsSrgbResolve(textureFormat, shot);
         if (resolved)
         {
             BasisCameraRenderTargets.Release(ref srgbResolveTexture);
-            srgbResolveTexture = BasisCameraCaptureFormats.ResolveToSrgb(renderTexture);
+            srgbResolveTexture = BasisCameraCaptureFormats.ResolveToSrgb(shot);
         }
-        RenderTexture readbackSource = resolved ? srgbResolveTexture : renderTexture;
+        RenderTexture readbackSource = resolved ? srgbResolveTexture : shot;
 
         BasisCameraRenderTargets.EnsureReadback(ref pooledScreenshot, readbackSource.width, readbackSource.height, textureFormat);
+        SaveSeparatePasses(stamp, photoMetadata);
 
         AsyncGPUReadback.Request(readbackSource, 0, request =>
         {
@@ -105,16 +111,16 @@ public partial class BasisHandHeldCamera
             pooledScreenshot.LoadRawTextureData(request.GetData<byte>());
             pooledScreenshot.Apply(false);
 
-            Texture2D finished = FinishPicture(pooledScreenshot);
+            Texture2D finished = picture ? FinishPicture(pooledScreenshot) : pooledScreenshot;
 
             SetNormalAfterCapture();
-            SaveScreenshotAsync(finished, photoMetadata);
+            SaveScreenshotAsync(finished, photoMetadata, stamp);
         });
     }
-    public async void SaveScreenshotAsync(Texture2D screenshot, BasisHandHeldCameraPhotoMetadata.PhotoMetadata photoMetadata)
+    public async void SaveScreenshotAsync(Texture2D screenshot, BasisHandHeldCameraPhotoMetadata.PhotoMetadata photoMetadata, string stamp = null)
     {
         int savedWidth = screenshot != null ? screenshot.width : captureWidth, savedHeight = screenshot != null ? screenshot.height : captureHeight;
-        string path = BasisCameraPhotoFolder.PathFor($"Screenshot_{BasisCameraPhotoFolder.Timestamp()}_{savedWidth}x{savedHeight}.{BasisCameraCaptureFormats.Extension(captureFormat)}");
+        string path = BasisCameraPhotoFolder.PathFor($"Screenshot_{stamp ?? BasisCameraPhotoFolder.Timestamp()}_{savedWidth}x{savedHeight}.{BasisCameraCaptureFormats.Extension(captureFormat)}");
         BasisCameraPrintResize.PrintCopy printCopy = default;
 
         try
@@ -127,7 +133,7 @@ public partial class BasisHandHeldCamera
             byte[] pixels = new byte[raw.Length];
             Unity.Collections.NativeArray<byte>.Copy(raw, pixels, raw.Length);
 
-            (byte[] imageData, BasisCameraPrintResize.PrintCopy print) = await Task.Run(() =>
+            (byte[] imageData, BasisCameraPrintResize.PrintCopy print) = await BasisTasks.Run(() =>
             {
                 byte[] encoded = exr ? ImageConversion.EncodeArrayToEXR(pixels, pixelFormat, (uint)width, (uint)height, 0, Texture2D.EXRFlags.CompressZIP) : ImageConversion.EncodeArrayToPNG(pixels, pixelFormat, (uint)width, (uint)height, 0);
                 if (photoMetadata != null) encoded = BasisHandHeldCameraPhotoMetadata.Embed(encoded, format, photoMetadata, width, height);
@@ -135,7 +141,7 @@ public partial class BasisHandHeldCamera
             });
             printCopy = print;
 
-            await File.WriteAllBytesAsync(path, imageData);
+            await BasisFiles.WriteAllBytesAsync(path, imageData);
         }
         catch (Exception e)
         {
@@ -154,6 +160,7 @@ public partial class BasisHandHeldCamera
     }
     public void SetNormalAfterCapture()
     {
+        ReleaseCapturePasses();
         captureInFlight = false;
         ToggleToneMapping(PreviewTonemapping);
         ApplyPreviewResolution();

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
@@ -13,7 +14,8 @@ using UnityEngine.SceneManagement;
 
 namespace Basis
 {
-    public static class BasisRuntimeSpawnRegistry
+    [AutoStaticsCleanup]
+    public static partial class BasisRuntimeSpawnRegistry
     {
         public enum RegistryChangeType : byte
         {
@@ -240,6 +242,8 @@ namespace Basis
         public static async Task<bool> RemoveByLoadedNetId(string loadedNetId)
         {
             if (string.IsNullOrWhiteSpace(loadedNetId)) return false;
+
+            CancelPendingLoadsByNetId(loadedNetId);
 
             // Clients that never got this spawn loaded hold a failure row for it instead of a real
             // instance; the unload broadcast is what tells them it is gone, so clear that first.
@@ -562,7 +566,7 @@ namespace Basis
             public DateTime StartedUtc;
             public float Progress;
             public string Stage;
-            [NonSerialized] public CancellationTokenSource Cts; // set for cancellable (local/embedded) loads; null for network — those are cancelled via a server unload request instead
+            [NonSerialized] public CancellationTokenSource Cts;
         }
 
         public static event Action OnPendingLoadsChanged;
@@ -570,7 +574,7 @@ namespace Basis
 
         private static readonly Dictionary<string, PendingLoad> _pendingLoads = new();
         private static readonly ConcurrentQueue<(string PendingId, float Progress, string Stage)> _pendingProgressQueue = new();
-        private static readonly Action _drainPendingProgress = DrainPendingProgress;
+        [NoAutoStaticsCleanup] private static readonly Action _drainPendingProgress = DrainPendingProgress;
 
         public static IReadOnlyCollection<PendingLoad> GetPendingLoads() => _pendingLoads.Values;
 
@@ -606,10 +610,9 @@ namespace Basis
         }
 
         /// <summary>
-        /// Requests cancellation of an in-flight local/embedded load (the row's own load site observes
-        /// its Cts and unwinds via OperationCanceledException, which EndPendingLoad's finally clears —
-        /// the row disappears from that, not from this call). No-op for a network pending load: those
-        /// have no Cts, since only the server can authoritatively cancel a networked spawn.
+        /// Requests cancellation of an in-flight load (the row's own load site observes its Cts and
+        /// unwinds via OperationCanceledException, which EndPendingLoad's finally clears — the row
+        /// disappears from that, not from this call).
         /// </summary>
         public static bool RequestCancelPendingLoad(string pendingId)
         {
@@ -619,6 +622,31 @@ namespace Basis
             }
             pending.Cts.Cancel();
             return true;
+        }
+
+        private static void CancelPendingLoadsByNetId(string loadedNetId)
+        {
+            List<CancellationTokenSource> matches = null;
+            foreach (PendingLoad pending in _pendingLoads.Values)
+            {
+                if (pending != null && pending.Cts != null && pending.LoadedNetID == loadedNetId)
+                {
+                    matches ??= new List<CancellationTokenSource>();
+                    matches.Add(pending.Cts);
+                }
+            }
+            if (matches == null) return;
+
+            for (int Index = 0; Index < matches.Count; Index++)
+            {
+                try
+                {
+                    matches[Index].Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+            }
         }
 
         public static void ReportPendingLoadProgress(string pendingId, float progress, string stage)

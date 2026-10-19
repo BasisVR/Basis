@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.Common;
 using UnityEngine;
@@ -16,7 +17,8 @@ namespace Basis.Scripts.Rendering
     /// in the loaded scenes, which is why this applies once at boot while the scene is still the
     /// loading scene, and a change made later waits for a restart instead of paying that mid-session.
     /// </summary>
-    public static class BasisGpuOcclusionCulling
+    [AutoStaticsCleanup]
+    public static partial class BasisGpuOcclusionCulling
     {
         private static bool _applied;
         private static bool _appliedKnown;

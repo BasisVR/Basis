@@ -1,6 +1,7 @@
 using System;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
+using UnityEngine.Rendering.RenderGraphModule.Util;
 using System.Runtime.CompilerServices;  // AggressiveInlining
 
 namespace UnityEngine.Rendering.Universal
@@ -30,6 +31,7 @@ namespace UnityEngine.Rendering.Universal
         FinalPostProcessPass m_FinalPostProcessPass;
 
         PostProcessData m_Resources;
+        Texture2D[] m_FilmGrainTextures;
 
         int m_DitheringTextureIndex;    // 8-bit dithering
 
@@ -47,11 +49,17 @@ namespace UnityEngine.Rendering.Universal
             Assertions.Assert.IsNotNull(postProcessResourceAssetData, "PostProcessData and resources cannot be null.");
             m_Resources = postProcessResourceAssetData;
 
+            GraphicsSettings.TryGetRenderPipelineSettings<UpscalerReactiveMaskResources>(out var reactiveMaskResources);
+            var reactiveMaskPS = reactiveMaskResources?.reactiveMaskPS;
+
+            GraphicsSettings.TryGetRenderPipelineSettings<UniversalRenderPipelineFilmGrainResources>(out var filmGrainResources);
+            m_FilmGrainTextures = filmGrainResources?.textures;
+
             m_StopNanPostProcessPass   = new StopNanPostProcessPass(m_Resources.shaders.stopNanPS);
             m_SmaaPostProcessPass      = new SmaaPostProcessPass(m_Resources.shaders.subpixelMorphologicalAntialiasingPS, m_Resources.textures.smaaAreaTex, m_Resources.textures.smaaSearchTex);
             m_DepthOfFieldGaussianPass = new DepthOfFieldGaussianPostProcessPass(m_Resources.shaders.gaussianDepthOfFieldPS);
             m_DepthOfFieldBokehPass    = new DepthOfFieldBokehPostProcessPass(m_Resources.shaders.bokehDepthOfFieldPS);
-            m_UpscalerPostProcessPass  = new UpscalerPostProcessPass(m_Resources.textures.blueNoise16LTex);
+            m_UpscalerPostProcessPass  = new UpscalerPostProcessPass(reactiveMaskPS, m_Resources.textures.blueNoise16LTex);
 #if !ENABLE_UPSCALER_FRAMEWORK
             m_StpPostProcessPass       = new StpPostProcessPass(m_Resources.textures.blueNoise16LTex);
 #endif
@@ -61,12 +69,12 @@ namespace UnityEngine.Rendering.Universal
             m_BloomPass                = new BloomPostProcessPass(m_Resources.shaders.bloomPS);
             m_LensFlareScreenSpacePass = new LensFlareScreenSpacePostProcessPass(m_Resources.shaders.LensFlareScreenSpacePS);
             m_LensFlareDataDrivenPass  = new LensFlareDataDrivenPostProcessPass(m_Resources.shaders.LensFlareDataDrivenPS);
-            m_UberPass                 = new UberPostProcessPass(m_Resources.shaders.uberPostPS, m_Resources.textures.filmGrainTex);
+            m_UberPass                 = new UberPostProcessPass(m_Resources.shaders.uberPostPS, m_FilmGrainTextures);
 
             // Final post processing.
             m_ScalingSetupFinalPostProcessPass = new ScalingSetupPostProcessPass(m_Resources.shaders.scalingSetupPS);
             m_Fsr1UpscaleFinalPostProcessPass = new Fsr1UpscalePostProcessPass(m_Resources.shaders.easuPS);
-            m_FinalPostProcessPass             = new FinalPostProcessPass(m_Resources.shaders.finalPostPassPS, m_Resources.textures.filmGrainTex);
+            m_FinalPostProcessPass             = new FinalPostProcessPass(m_Resources.shaders.finalPostPassPS, m_FilmGrainTextures);
         }
 
         /// <summary>
@@ -143,6 +151,17 @@ namespace UnityEngine.Rendering.Universal
             // `resourceData.cameraColor` is the current post-process input for each pass.
             var colorSourceDesc = resourceData.cameraColor.GetDescriptor(renderGraph);
 
+#if ENABLE_UPSCALER_FRAMEWORK
+            UniversalPostProcessingData postProcessingData = frameData.Get<UniversalPostProcessingData>();
+            bool temporalUpscalerActive = postProcessingData.activeUpscaler != null && postProcessingData.activeUpscaler.isTemporal;
+
+            if (temporalUpscalerActive && UpscalerPostProcessPass.RequiresReactiveMaskPass(postProcessingData.activeUpscaler))
+            {
+                resourceData.cameraColorBeforePP = renderGraph.CreateTexture(colorSourceDesc);
+                renderGraph.AddCopyPass(resourceData.cameraColor, resourceData.cameraColorBeforePP, "Copy cameraColor for Upscalers");
+            }
+#endif
+
             // Optional NaN killer before post-processing kicks in
             // stopNaN may be null on Adreno 3xx. It doesn't support full shader level 3.5, but SystemInfo.graphicsShaderLevel is 35.
             m_StopNanPostProcessPass.RecordRenderGraph(renderGraph, frameData);
@@ -158,8 +177,6 @@ namespace UnityEngine.Rendering.Universal
 
             // Temporal Anti Aliasing / Upscaling
 #if ENABLE_UPSCALER_FRAMEWORK
-            UniversalPostProcessingData postProcessingData = frameData.Get<UniversalPostProcessingData>();
-            bool temporalUpscalerActive = postProcessingData.activeUpscaler != null && postProcessingData.activeUpscaler.isTemporal;
             if (temporalUpscalerActive)
                 m_UpscalerPostProcessPass.RecordRenderGraph(renderGraph, frameData);
 #else
@@ -275,7 +292,7 @@ namespace UnityEngine.Rendering.Universal
                 // TODO-Volkan: update the comment above w.r.t Upscaling framework support (upscalers with sharpening / avoiding double sharpen).
                 && !upscalerSupportsSharpening;
 #else
-                && !isFsr1Enabled 
+                && !isFsr1Enabled
                 && !cameraData.IsSTPEnabled();
 #endif
 

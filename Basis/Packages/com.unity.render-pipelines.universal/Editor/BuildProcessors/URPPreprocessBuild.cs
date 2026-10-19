@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Text;
 using UnityEditor.Build;
@@ -18,8 +17,7 @@ namespace UnityEditor.Rendering.Universal
         public void OnPreprocessBuild(BuildReport report)
         {
             m_BuildData?.Dispose();
-            bool isDevelopmentBuild = (report.summary.options & BuildOptions.Development) != 0;
-            m_BuildData = new URPBuildData(EditorUserBuildSettings.activeBuildTarget, isDevelopmentBuild);
+            m_BuildData = new URPBuildData(report.summary.platform);
 
             if (m_BuildData.buildingPlayerForUniversalRenderPipeline)
             {
@@ -54,7 +52,7 @@ namespace UnityEditor.Rendering.Universal
 
         internal static void LogIncludedAssets(List<UniversalRenderPipelineAsset> assetsList)
         {
-            using (GenericPool<StringBuilder>.Get(out var assetsIncluded))
+            using (UnityEngine.Pool.GenericPool<StringBuilder>.Get(out var assetsIncluded))
             {
                 assetsIncluded.Clear();
 

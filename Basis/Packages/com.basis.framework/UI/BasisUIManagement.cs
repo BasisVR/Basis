@@ -1,6 +1,8 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.UI.UI_Panels;
 using System.Collections.Generic;
-public static class BasisUIManagement
+[AutoStaticsCleanup]
+public static partial class BasisUIManagement
 {
     public static List<BasisUIBase> basisUIBases = new List<BasisUIBase>();
     public static void AddUI(BasisUIBase BasisUIBase)

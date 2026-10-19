@@ -1,4 +1,5 @@
-﻿using System;
+﻿#nullable enable annotations
+using System;
 using OpusSharp.Core.Interfaces;
 
 // ReSharper disable MemberCanBePrivate.Global

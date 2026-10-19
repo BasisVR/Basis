@@ -250,6 +250,9 @@ namespace Basis.Scripts.Drivers
         }
         public void Simulate(float DeltaTime)
         {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            if (!EligibleForOpenLipSync && WasSuccessful && BasisOpenLipSyncDriver.IsInitialized) EligibleForOpenLipSync = true;
+#endif
             if (FaceVisible == false || !InVisemeRange)
             {
                 // Player left viseme range — release the OpenLipSync context
@@ -411,6 +414,18 @@ namespace Basis.Scripts.Drivers
             if (UseOpenLipSync && openLipSyncContext != null)
             {
                 openLipSyncContext.ProcessAudioSamples(data, channels, Length);
+            }
+        }
+
+        public void ProcessSilence(int Length)
+        {
+            if (FaceVisible == false || !InVisemeRange || Muted || WasSuccessful == false)
+            {
+                return;
+            }
+            if (UseOpenLipSync && openLipSyncContext != null)
+            {
+                openLipSyncContext.ProcessSilence(Length);
             }
         }
 

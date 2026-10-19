@@ -1,0 +1,129 @@
+# On-demand release binaries for the Rust media engine — the same dll/.so that
+# ship committed in the package's Runtime/Plugins. Unlike the C player, this
+# engine needs no Unity headers, so runners can build the real shipping
+# binaries; a reviewer (or a release) can take these artifacts as the source of
+# record instead of trusting a dev-box build.
+#
+# All three build with the rist feature on, so rist:// works in the shipped
+# binaries; each job builds librist for its target first, the Android one
+# with tools/build-librist-android.sh as tools/stage-android-plugin.ps1 does
+# for the committed plugin.
+name: media-engine-release
+
+on:
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  NATIVE_DIR: Basis/Packages/com.basis.mediaplayer/Native~
+  CARGO_TERM_COLOR: always
+
+jobs:
+  windows-x64:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Allow long paths (deep package prefix)
+        run: git config --global core.longpaths true
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ env.NATIVE_DIR }}
+          key: release
+      - name: Install NASM (rav1d x86 assembly)
+        run: |
+          choco install nasm -y --no-progress
+          echo "C:\Program Files\NASM" >> "$GITHUB_PATH"
+      - name: Build librist (the rist feature links it statically)
+        working-directory: ${{ env.NATIVE_DIR }}
+        run: |
+          pip install meson ninja
+          pwsh -NoProfile -File tools/build-librist.ps1
+      - name: Build release dll
+        working-directory: ${{ env.NATIVE_DIR }}
+        run: cargo build --release -p media-ffi --features rist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bm-basis_media-win-x64
+          path: ${{ env.NATIVE_DIR }}/target/release/basis_media.dll
+
+  # No NASM step: the non-Windows graph drops rav1d's asm feature, because its
+  # NASM objects are not position-independent and the cdylib link fails with
+  # them. AV1 decodes through the pure-Rust path here.
+  linux-x64:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ env.NATIVE_DIR }}
+          key: release-linux
+      - name: Build librist (the rist feature links it statically)
+        working-directory: ${{ env.NATIVE_DIR }}
+        run: |
+          sudo apt-get update && sudo apt-get install -y meson ninja-build
+          bash tools/build-librist.sh
+      - name: Build + strip release .so
+        working-directory: ${{ env.NATIVE_DIR }}
+        run: |
+          cargo build --release -p media-ffi --features rist
+          strip --strip-all \
+            -o target/release/libbasis_media.stripped.so \
+            target/release/libbasis_media.so
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bm-basis_media-linux-x64
+          path: ${{ env.NATIVE_DIR }}/target/release/libbasis_media.stripped.so
+
+  android-arm64:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ env.NATIVE_DIR }}
+          key: release-android
+      - name: Install ninja (cmake build scripts)
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - name: Export the NDK toolchain (API 29, the android-env.ps1 contract)
+        run: |
+          NDK="$ANDROID_NDK_LATEST_HOME"
+          BIN="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          test -x "$BIN/aarch64-linux-android29-clang"
+          {
+            echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$BIN/aarch64-linux-android29-clang"
+            echo "CC_aarch64_linux_android=$BIN/aarch64-linux-android29-clang"
+            echo "CXX_aarch64_linux_android=$BIN/aarch64-linux-android29-clang++"
+            echo "AR_aarch64_linux_android=$BIN/llvm-ar"
+            echo "ANDROID_NDK=$NDK"
+            echo "ANDROID_NDK_HOME=$NDK"
+            echo "ANDROID_NDK_ROOT=$NDK"
+            echo "CMAKE_GENERATOR=Ninja"
+            echo "NDK_BIN=$BIN"
+          } >> "$GITHUB_ENV"
+      - name: Build librist (static, cross-compiled to android-arm64)
+        working-directory: ${{ env.NATIVE_DIR }}
+        run: |
+          sudo apt-get install -y meson
+          bash tools/build-librist-android.sh
+      - name: Build + strip release .so
+        working-directory: ${{ env.NATIVE_DIR }}
+        run: |
+          cargo build --target aarch64-linux-android -p media-ffi --release --features rist
+          "$NDK_BIN/llvm-strip" --strip-all \
+            -o target/aarch64-linux-android/release/libbasis_media.stripped.so \
+            target/aarch64-linux-android/release/libbasis_media.so
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bm-libbasis_media-android-arm64
+          path: ${{ env.NATIVE_DIR }}/target/aarch64-linux-android/release/libbasis_media.stripped.so

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Basis.Scripts.Common;
@@ -11,7 +12,8 @@ namespace Basis.BasisUI
     /// and resets when the application restarts (pending entries hold live callbacks,
     /// which cannot be serialised across sessions).
     /// </summary>
-    public static class BasisNotificationCenter
+    [AutoStaticsCleanup]
+    public static partial class BasisNotificationCenter
     {
         private static readonly List<BasisNotification> _all = new();
 

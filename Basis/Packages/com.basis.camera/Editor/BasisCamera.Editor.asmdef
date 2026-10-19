@@ -4,6 +4,7 @@
     "references": [
         "BasisCamera",
         "Basis Framework",
+        "BasisSDKEditor",
         "Unity.RenderPipelines.Core.Runtime",
         "Unity.RenderPipelines.Universal.Runtime"
     ],

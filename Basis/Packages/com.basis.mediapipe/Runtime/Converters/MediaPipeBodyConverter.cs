@@ -3,9 +3,9 @@ namespace Basis.MediaPipe
 {
     public sealed class MediaPipeBodyConverter
     {
-        public float Strength = 0.6f, MaxAngle = 35f, Smoothing = 0.7f, MaxShift = 0.35f, AssumedHorizontalFov = 65f;
+        public float Strength = 0.6f, MaxAngle = 35f, MaxShift = 0.35f, AssumedHorizontalFov = 65f;
         public bool InvertTwist = false, InvertLean = false, InvertRoll = false, RejectGlitches = true;
-        private const float CutoffResponsive = 6f, CutoffSmooth = 0.6f, Beta = 1.5f, HoldSeconds = 0.5f, FadeInHz = 6f, FadeOutHz = 3f;
+        private const float HoldSeconds = 0.5f, FadeInHz = 6f, FadeOutHz = 3f;
         private Quaternion neutralInverse = Quaternion.identity;
         private bool calibrated, shiftCalibrated;
         private MediaPipeRotationFilter filter;
@@ -14,7 +14,6 @@ namespace Basis.MediaPipe
         private Vector2 neutralCenter;
         private float neutralWidth, neutralDistance;
         public int RejectedSamples => filter.Rejected + translation.Rejected;
-        private float Cutoff => Mathf.Lerp(CutoffResponsive, CutoffSmooth, Mathf.Clamp01(Smoothing));
         public void Calibrate(in BasisMediaPipeResult result)
         {
             if (TryTorsoRotation(result, out Quaternion rot))
@@ -55,9 +54,8 @@ namespace Basis.MediaPipe
                     neutralInverse = Quaternion.Inverse(rot);
                     calibrated = true;
                 }
-                float cutoff = timing.Scaled(Cutoff);
-                relative = filter.Apply(neutralInverse * rot, in timing, cutoff, Beta, RejectGlitches ? MediaPipeFilterMath.MaxTurnDegPerSec : 0f);
-                moved = TryMeasureShift(in result, out Vector3 measured) ? translation.Apply(measured, in timing, cutoff, Beta, 1f, RejectGlitches ? MediaPipeFilterMath.MaxTorsoSpeed : 0f) : translation.Carry(in timing);
+                relative = filter.Apply(neutralInverse * rot, in timing, RejectGlitches ? MediaPipeFilterMath.MaxTurnDegPerSec : 0f);
+                moved = TryMeasureShift(in result, out Vector3 measured) ? translation.Apply(measured, in timing, RejectGlitches ? MediaPipeFilterMath.MaxTorsoSpeed : 0f) : translation.Carry(in timing);
             }
             else
             {

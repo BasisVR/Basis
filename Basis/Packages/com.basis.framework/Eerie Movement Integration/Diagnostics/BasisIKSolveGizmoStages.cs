@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.IK;
 using Basis.Scripts.Settings;
 using UnityEngine;
@@ -18,6 +19,7 @@ namespace Basis.Scripts.Debugging
             Binding = new BasisSettingsBinding<bool>("gizmoiksolve_" + id, new BasisPlatformDefault<bool>(defaultOn));
         }
     }
+    [NoAutoStaticsCleanup]
     public static class BasisIKSolveGizmoStages
     {
         public const int DrawCapacity = 12288;

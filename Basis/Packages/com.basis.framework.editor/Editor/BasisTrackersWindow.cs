@@ -1,3 +1,4 @@
+using Basis.Editor.Localization;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices.Simulation;
 using Basis.Scripts.TransformBinders.BoneControl;
@@ -24,7 +25,7 @@ public sealed class BasisTrackersWindow : EditorWindow
     public static void ShowWindow()
     {
         BasisTrackersWindow w = GetWindow<BasisTrackersWindow>();
-        w.titleContent = new GUIContent("Trackers");
+        w.titleContent = new GUIContent(BasisEditorLocalization.Get("editor.trackersWindow.windowTitle"));
         w.minSize = new Vector2(420, 460);
         w.Show();
     }
@@ -32,51 +33,51 @@ public sealed class BasisTrackersWindow : EditorWindow
     private void OnGUI()
     {
         _scroll = BasisEditorUI.BeginPage(_scroll);
-        BasisEditorUI.Header("Simulated Trackers",
-            "Spawn fake XR devices against the local player so full-body paths can be exercised without hardware.");
+        BasisEditorUI.Header(BasisEditorLocalization.Get("editor.trackersWindow.header"),
+            BasisEditorLocalization.Get("editor.trackersWindow.subtitle"));
 
         if (!Application.isPlaying)
         {
-            BasisEditorUI.Help("Enter Play mode — every action here drives the live local player.", MessageType.Warning);
+            BasisEditorUI.Help(BasisEditorLocalization.Get("editor.trackersWindow.enterPlayMode"), MessageType.Warning);
         }
 
         using (new EditorGUI.DisabledScope(!Application.isPlaying))
         {
-            using (BasisEditorUI.Card("Rig Presets"))
+            using (BasisEditorUI.Card(BasisEditorLocalization.Get("editor.trackersWindow.rigPresets")))
             {
-                BasisEditorUI.Note("Full Set / 3 Point / Max also T-pose the avatar, so run Full Body calibration afterwards.");
+                BasisEditorUI.Note(BasisEditorLocalization.Get("editor.trackersWindow.rigPresetsNote"));
                 GUILayout.Space(4f);
 
-                Preset("Full Set (hands + body pucks)", BasisMenuItemsEditor.CreateFullSet);
-                Preset("3 Point (head + hands)", BasisMenuItemsEditor.CreatePuck3Tracker);
-                Preset("Max (every supported role)", BasisMenuItemsEditor.CreateFullMaxTracker);
-                Preset("Max, Normal Positions", BasisMenuItemsEditor.CreateFullMaxTrackerUnModifedPos);
+                Preset(BasisEditorLocalization.Get("editor.trackersWindow.presetFullSet"), BasisMenuItemsEditor.CreateFullSet);
+                Preset(BasisEditorLocalization.Get("editor.trackersWindow.presetThreePoint"), BasisMenuItemsEditor.CreatePuck3Tracker);
+                Preset(BasisEditorLocalization.Get("editor.trackersWindow.presetMax"), BasisMenuItemsEditor.CreateFullMaxTracker);
+                Preset(BasisEditorLocalization.Get("editor.trackersWindow.presetMaxNormal"), BasisMenuItemsEditor.CreateFullMaxTrackerUnModifedPos);
             }
 
-            using (BasisEditorUI.Card("Single Devices"))
+            using (BasisEditorUI.Card(BasisEditorLocalization.Get("editor.trackersWindow.singleDevices")))
             {
-                Preset("Both Hands (Index controllers)", BasisMenuItemsEditor.CreateLRTracker);
-                Preset("Left Controller", BasisMenuItemsEditor.CreateViveLeftTracker);
-                Preset("Right Controller", BasisMenuItemsEditor.CreateViveRightTracker);
-                Preset("Vive Puck (unroled)", BasisMenuItemsEditor.CreatePuckTracker);
-                Preset("Unknown Device", BasisMenuItemsEditor.CreateUnknowonTracker);
+                Preset(BasisEditorLocalization.Get("editor.trackersWindow.presetBothHands"), BasisMenuItemsEditor.CreateLRTracker);
+                Preset(BasisEditorLocalization.Get("editor.trackersWindow.presetLeftController"), BasisMenuItemsEditor.CreateViveLeftTracker);
+                Preset(BasisEditorLocalization.Get("editor.trackersWindow.presetRightController"), BasisMenuItemsEditor.CreateViveRightTracker);
+                Preset(BasisEditorLocalization.Get("editor.trackersWindow.presetVivePuck"), BasisMenuItemsEditor.CreatePuckTracker);
+                Preset(BasisEditorLocalization.Get("editor.trackersWindow.presetUnknown"), BasisMenuItemsEditor.CreateUnknowonTracker);
             }
 
-            using (BasisEditorUI.Card("Custom Device"))
+            using (BasisEditorUI.Card(BasisEditorLocalization.Get("editor.trackersWindow.customDevice")))
             {
-                BasisEditorUI.Note("Spawn a device by its OpenVR/OpenXR model name — useful for reproducing a specific user's hardware.");
-                _physicalName = EditorGUILayout.TextField("Physical Name", _physicalName);
-                _uniqueName = EditorGUILayout.TextField("Unique ID", _uniqueName);
-                _hasRole = EditorGUILayout.Toggle("Has Default Role", _hasRole);
+                BasisEditorUI.Note(BasisEditorLocalization.Get("editor.trackersWindow.customDeviceNote"));
+                _physicalName = EditorGUILayout.TextField(BasisEditorLocalization.Get("editor.trackersWindow.physicalName"), _physicalName);
+                _uniqueName = EditorGUILayout.TextField(BasisEditorLocalization.Get("editor.trackersWindow.uniqueId"), _uniqueName);
+                _hasRole = EditorGUILayout.Toggle(BasisEditorLocalization.Get("editor.trackersWindow.hasDefaultRole"), _hasRole);
                 using (new EditorGUI.DisabledScope(!_hasRole))
                 {
-                    _role = (BasisBoneTrackedRole)EditorGUILayout.EnumPopup("Role", _role);
+                    _role = (BasisBoneTrackedRole)EditorGUILayout.EnumPopup(BasisEditorLocalization.Get("editor.trackersWindow.role"), _role);
                 }
 
                 GUILayout.Space(4f);
                 using (new EditorGUI.DisabledScope(string.IsNullOrWhiteSpace(_physicalName) || string.IsNullOrWhiteSpace(_uniqueName)))
                 {
-                    if (BasisEditorUI.PrimaryButton("Create Device"))
+                    if (BasisEditorUI.PrimaryButton(BasisEditorLocalization.Get("editor.trackersWindow.createDevice")))
                     {
                         BasisSimulateXR sim = BasisMenuItemsEditor.FindSimulate();
                         if (sim == null)
@@ -93,20 +94,20 @@ public sealed class BasisTrackersWindow : EditorWindow
                 }
             }
 
-            using (BasisEditorUI.Card("Visibility"))
+            using (BasisEditorUI.Card(BasisEditorLocalization.Get("editor.trackersWindow.visibility")))
             {
                 EditorGUILayout.BeginHorizontal();
-                if (BasisEditorUI.SecondaryButton("Show Trackers")) BasisMenuItemsEditor.ShowTrackersEditor();
-                if (BasisEditorUI.SecondaryButton("Hide Trackers")) BasisMenuItemsEditor.HideTrackersEditor();
+                if (BasisEditorUI.SecondaryButton(BasisEditorLocalization.Get("editor.trackersWindow.showTrackers"))) BasisMenuItemsEditor.ShowTrackersEditor();
+                if (BasisEditorUI.SecondaryButton(BasisEditorLocalization.Get("editor.trackersWindow.hideTrackers"))) BasisMenuItemsEditor.HideTrackersEditor();
                 EditorGUILayout.EndHorizontal();
             }
 
-            using (BasisEditorUI.Card("Teardown"))
+            using (BasisEditorUI.Card(BasisEditorLocalization.Get("editor.trackersWindow.teardown")))
             {
-                BasisEditorUI.Note("Destroy And Restore re-creates every previously connected device as a Vive puck — the quickest way back to a clean calibration.");
+                BasisEditorUI.Note(BasisEditorLocalization.Get("editor.trackersWindow.teardownNote"));
                 EditorGUILayout.BeginHorizontal();
-                if (BasisEditorUI.SecondaryButton("Destroy All")) BasisMenuItemsEditor.DestroyXRInput();
-                if (BasisEditorUI.SecondaryButton("Destroy And Restore")) BasisMenuItemsEditor.DestroyAndRebuildXRInput();
+                if (BasisEditorUI.SecondaryButton(BasisEditorLocalization.Get("editor.trackersWindow.destroyAll"))) BasisMenuItemsEditor.DestroyXRInput();
+                if (BasisEditorUI.SecondaryButton(BasisEditorLocalization.Get("editor.trackersWindow.destroyAndRestore"))) BasisMenuItemsEditor.DestroyAndRebuildXRInput();
                 EditorGUILayout.EndHorizontal();
             }
         }

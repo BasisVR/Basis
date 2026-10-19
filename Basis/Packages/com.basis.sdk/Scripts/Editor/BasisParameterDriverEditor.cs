@@ -121,7 +121,7 @@ public class BasisParameterDriverEditor : Editor
         string destLabel = string.IsNullOrEmpty(op.destination) ? BasisEditorLocalization.Get("sdk.parameterDriver.destination.placeholder") : op.destination;
         _foldouts[i] = EditorGUILayout.Foldout(_foldouts[i], $" [{i}]  {destLabel}", true);
 
-        GUILayout.Label(op.type.ToString().ToUpper(), EditorStyles.miniLabel, GUILayout.Width(58));
+        GUILayout.Label(OperationTypeName(op.type).ToUpper(), EditorStyles.miniLabel, GUILayout.Width(58));
 
         GUI.enabled = i > 0;
         if (GUILayout.Button("▲", GUILayout.Width(22), GUILayout.Height(18))) { swapA = i - 1; swapB = i; }
@@ -142,7 +142,7 @@ public class BasisParameterDriverEditor : Editor
 
             // Type
             EditorGUI.BeginChangeCheck();
-            var newType = (OperationType)EditorGUILayout.EnumPopup(BasisEditorLocalization.Get("sdk.parameterDriver.field.type"), op.type);
+            var newType = (OperationType)EditorGUILayout.Popup(BasisEditorLocalization.Get("sdk.parameterDriver.field.type"), (int)op.type, OperationTypeNames());
             if (EditorGUI.EndChangeCheck())
             {
                 Undo.RecordObject(driver, "Change Operation Type");
@@ -261,6 +261,34 @@ public class BasisParameterDriverEditor : Editor
 
         EditorGUILayout.EndVertical();
         GUILayout.Space(3);
+    }
+
+    private static string OperationTypeName(OperationType type)
+    {
+        switch (type)
+        {
+            case OperationType.Set:
+                return BasisEditorLocalization.Get("sdk.parameterDriver.type.set");
+            case OperationType.Add:
+                return BasisEditorLocalization.Get("sdk.parameterDriver.type.add");
+            case OperationType.Random:
+                return BasisEditorLocalization.Get("sdk.parameterDriver.type.random");
+            case OperationType.Copy:
+                return BasisEditorLocalization.Get("sdk.parameterDriver.type.copy");
+            default:
+                return type.ToString();
+        }
+    }
+
+    private static string[] OperationTypeNames()
+    {
+        OperationType[] values = (OperationType[])Enum.GetValues(typeof(OperationType));
+        string[] names = new string[values.Length];
+        for (int i = 0; i < values.Length; i++)
+        {
+            names[i] = OperationTypeName(values[i]);
+        }
+        return names;
     }
 
 }

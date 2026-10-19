@@ -1,0 +1,6 @@
+RTSP/1.0 200 OK
+Server: H264DVR 1.0
+Cseq: 6
+Range: npt=now-
+Session: 231970
+

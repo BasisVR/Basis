@@ -86,12 +86,66 @@ public class AuthIdentityRecycledIdTests
             FakeNetPeer recycled = LifecycleSupport.Peer(id);
             string uuid = LifecycleSupport.NewUuid();
             identity.AuthIdentity[id] = Entry(owner, uuid);
+            Assert.False(identity.NetIDToUUID(owner, out _));
+            Assert.True(identity.TryAdmit(id, new Did(uuid), int.MaxValue));
 
             Assert.True(identity.NetIDToUUID(owner, out string found));
             Assert.Equal(uuid, found);
 
             Assert.False(identity.NetIDToUUID(recycled, out string leaked));
             Assert.Equal(string.Empty, leaked);
+        }
+        finally
+        {
+            identity.DeInitialize();
+        }
+    }
+
+    [Fact]
+    public void UUIDToNetID_IgnoresALoginThatHasNotBeenVerified()
+    {
+        BasisDIDAuthIdentity identity = NewIdentity();
+        try
+        {
+            string uuid = LifecycleSupport.NewUuid();
+            int admittedId = LifecycleSupport.NextPeerId();
+            int pendingId = LifecycleSupport.NextPeerId();
+            identity.AuthIdentity[pendingId] = Entry(LifecycleSupport.Peer(pendingId), uuid);
+            Assert.False(identity.UUIDToNetID(uuid, out _));
+
+            identity.AuthIdentity[admittedId] = Entry(LifecycleSupport.Peer(admittedId), uuid);
+            Assert.True(identity.TryAdmit(admittedId, new Did(uuid), int.MaxValue));
+            Assert.True(identity.UUIDToNetID(uuid, out int found));
+            Assert.Equal(admittedId, found);
+        }
+        finally
+        {
+            identity.DeInitialize();
+        }
+    }
+
+    [Fact]
+    public void DuplicateCount_RisesOnAdmissionAndFallsWhenTheAdmittedConnectionLeaves()
+    {
+        BasisDIDAuthIdentity identity = NewIdentity();
+        try
+        {
+            Did did = new Did(LifecycleSupport.NewUuid());
+            int first = LifecycleSupport.NextPeerId();
+            int second = LifecycleSupport.NextPeerId();
+            identity.AuthIdentity[first] = Entry(LifecycleSupport.Peer(first), did.V);
+            identity.AuthIdentity[second] = Entry(LifecycleSupport.Peer(second), did.V);
+            Assert.Equal(0, identity.CheckForDuplicates(did));
+
+            Assert.True(identity.TryAdmit(first, did, 1));
+            Assert.Equal(1, identity.CheckForDuplicates(did));
+            Assert.False(identity.TryAdmit(second, did, 1));
+            Assert.False(identity.TryAdmit(first, did, int.MaxValue));
+
+            identity.RemoveConnection(second);
+            Assert.Equal(1, identity.CheckForDuplicates(did));
+            identity.RemoveConnection(first);
+            Assert.Equal(0, identity.CheckForDuplicates(did));
         }
         finally
         {

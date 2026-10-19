@@ -1,3 +1,4 @@
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -13,6 +14,7 @@ namespace Basis.BasisUI.Styling
             VisualElement root = new VisualElement();
             VisualTreeAsset uxml = Resources.Load<VisualTreeAsset>(nameof(UiStyleColorField));
             uxml.CloneTree(root);
+            BasisEditorLocalization.LocalizeTree(root, "sdk.uxml.uiStyleColorField.");
 
             Label label = root.Q<Label>();
             ColorField colorField = root.Q<ColorField>("ColorField");

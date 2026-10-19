@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
@@ -46,7 +47,8 @@ using UnityEngine;
 /// A steady sub-centimetre local reading is the rig working; a remote reading that grows as the
 /// player turns their head is not.
 /// </summary>
-public static class BasisMouthEyeGizmos
+[AutoStaticsCleanup]
+public static partial class BasisMouthEyeGizmos
 {
     // Mirrored from settings by SMModuleDebugOptions.
     public static bool Show;

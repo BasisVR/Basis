@@ -16,8 +16,10 @@ namespace Basis.IK
         private const float CounterbalanceFollowFrac = 0.25f;
         private const float CounterbalanceLateralFollowFrac = 0.8f;
         private const float FootPendulumLeanFrac = 0.20f;
-        private const float TorsoYawRelockSpeedDeg = 6f;
         private const float ReachUseCeiling = 0.97f;
+        // With no hips/chest tracker the hips hang below the head at the T-pose offset. This is how much of the head's
+        // pitch/roll tips that offset, pushing the hips out the other way. 0 = hips stay straight below, 1 = rigid with the head.
+        private const float HipsTiltWeight = 0.2f;
         public struct SpineSolveParams
         {
             public float Dt, Scale, TrackingLiftY;
@@ -47,6 +49,9 @@ namespace Basis.IK
             public float HipsCompressionStrength, HipsMaxDropMeters, HipsRestDropY;
             public float3 RestChordDir, ChestRestPerp, SpineRestPerp;
             public float ChestRestAlong, SpineRestAlong;
+            // Head-pinned hips (no hips/chest tracker): hips sit at the T-pose head-to-hips offset below the head bone
+            public byte HeadPinnedHips;
+            public float3 HipsFromHeadRest;
         }
         public struct SpineSolveState
         {
@@ -54,9 +59,7 @@ namespace Basis.IK
             public byte HeadBaselineInitialized;
             public float StandingHeadRefY;
             public byte TorsoYawInitialized;
-            public float TorsoYawAnchorDeg, PrevHeadYawDeg;
-            public byte TorsoYawBroken;
-            public float TorsoFollow;
+            public float TorsoYawDeg;
         }
         [BurstCompile]
         public struct BasisVirtualSpineSolveJob : IJob
@@ -103,76 +106,90 @@ namespace Basis.IK
                 bool isLocomoting = P.IsLocomoting != 0;
                 quaternion torsoYawTarget = ComputeTorsoYawTargetBurst(ref s, in headYawFromEye, P.TorsoYawDeadzoneDeg, P.TorsoYawBlendSpeed, isLocomoting, dt);
 
-                float3 tposeHips = P.TposeHips;
-                float biasScale = P.HipsForwardBias * P.Scale;
-
-                float3 headPosWorld = head.OutgoingPosition;
-
-                float3 eyePosDevice = P.EyePos;
-
-                float standingHeadLifted = P.StandingHeadLocalY + P.TrackingLiftY;
-                float headRestCandidate = math.min(headPosWorld.y, standingHeadLifted);
-                s.StandingHeadRefY = s.HeadBaselineInitialized == 0 ? headRestCandidate : math.max(s.StandingHeadRefY, headRestCandidate);
-                float stanceHeadDrop = math.max(0f, s.StandingHeadRefY - headPosWorld.y);
-
-                bool feetSupported = P.LeftFootTracked != 0 && P.RightFootTracked != 0;
-
-                float3 yawArm = feetSupported ? float3.zero : P.YawPivotFromEyeLocal * P.GazeSwingRemoval;
-
-                float3 leashEyePos = eyePosDevice + math.mul(headYawFromEye, yawArm);
-                if (P.GazeSwingRemoval > 0f)
+                float3 hipsPos;
+                quaternion hipsRot;
+                if (P.HeadPinnedHips != 0 && !freeze)
                 {
-                    float3 gazeFwd = math.mul(eyeRot, new float3(0f, 0f, 1f));
-                    float gazeHorizMag = math.sqrt(gazeFwd.x * gazeFwd.x + gazeFwd.z * gazeFwd.z);
-
-                    float gazePitchDeg = math.degrees(math.atan2(-gazeFwd.y, gazeHorizMag));
-                    YawDegrees(in headYawFromEye, out float gazeYawDeg);
-
-                    BasisHeadPitchSwingCore.Solve(gazePitchDeg, gazeYawDeg, P.GazeSwingLever, P.GazeSwingRemoval, 1f, out UnityEngine.Vector3 swingOffset, out _);
-
-                    leashEyePos -= (float3)swingOffset;
+                    // Hips hang below the head bone at the T-pose offset, so the torso follows the head positionally
+                    // and torso yaw swings the hips around the head rather than spinning them in place. Rotation is
+                    // the deadzoned yaw plus the same share of head tilt that moved them, unsmoothed, so it stays in
+                    // step with the position.
+                    ComputeHeadPinnedHips(in headPos, in eyeRot, in headYawFromEye, in torsoYawTarget, in P.HipsFromHeadRest, HipsTiltWeight, out hipsPos, out hipsRot);
                 }
-
-                float3 desiredHipsXZ = ComputeRealisticHipsXZBurst(ref s, leashEyePos, dt, P.StandingHeadLocalY, stanceHeadDrop, in torsoYawTarget, P.LeftFootPos, P.RightFootPos, P.LeftFootTracked != 0, P.RightFootTracked != 0, out float3 supportXZ);
-                float3 hipsArm = math.mul(torsoYawTarget, P.HipsAnchorOffsetLocal - yawArm);
-                desiredHipsXZ += new float3(hipsArm.x, 0f, hipsArm.z);
-
-                if (!feetSupported)
+                else
                 {
-                    float3 headRestArm = math.mul(torsoYawTarget, P.HeadRestFromEyeLocal - yawArm);
-                    supportXZ += new float3(headRestArm.x, 0f, headRestArm.z);
-                }
+                    float3 tposeHips = P.TposeHips;
+                    float biasScale = P.HipsForwardBias * P.Scale;
 
-                float3 neckForHips = neckPosWorld;
-                if (P.GazeSwingRemoval > 0f)
-                {
-                    float3 nodPivot = eyePosDevice - math.mul(eyeRot, P.GazeSwingLever);
-                    float stableNeckY = nodPivot.y + P.TposeNeckMinusEyeY + P.GazeSwingLever.y;
-                    neckForHips.y = math.lerp(neckPosWorld.y, stableNeckY, math.saturate(P.GazeSwingRemoval));
+                    float3 headPosWorld = head.OutgoingPosition;
 
-                    float reach = (P.LenTotal + math.distance(neckPosWorld, headPosWorld)) * ReachUseCeiling;
-                    float2 spanXZ = new float2(headPosWorld.x - desiredHipsXZ.x, headPosWorld.z - desiredHipsXZ.z);
-                    float horizSq = math.lengthsq(spanXZ);
-                    if (reach * reach > horizSq)
+                    float3 eyePosDevice = P.EyePos;
+
+                    float standingHeadLifted = P.StandingHeadLocalY + P.TrackingLiftY;
+                    float headRestCandidate = math.min(headPosWorld.y, standingHeadLifted);
+                    s.StandingHeadRefY = s.HeadBaselineInitialized == 0 ? headRestCandidate : math.max(s.StandingHeadRefY, headRestCandidate);
+                    float stanceHeadDrop = math.max(0f, s.StandingHeadRefY - headPosWorld.y);
+
+                    bool feetSupported = P.LeftFootTracked != 0 && P.RightFootTracked != 0;
+
+                    float3 yawArm = feetSupported ? float3.zero : P.YawPivotFromEyeLocal * P.GazeSwingRemoval;
+
+                    float3 leashEyePos = eyePosDevice + math.mul(headYawFromEye, yawArm);
+                    if (P.GazeSwingRemoval > 0f)
                     {
-                        float maxVertical = math.sqrt(reach * reach - horizSq);
-                        float reachLimitNeckY = headPosWorld.y - maxVertical + (P.HipsRestDropY > 0f ? P.HipsRestDropY : P.LenTotal);
-                        neckForHips.y = math.max(neckForHips.y, math.min(reachLimitNeckY, neckPosWorld.y));
+                        float3 gazeFwd = math.mul(eyeRot, new float3(0f, 0f, 1f));
+                        float gazeHorizMag = math.sqrt(gazeFwd.x * gazeFwd.x + gazeFwd.z * gazeFwd.z);
+
+                        float gazePitchDeg = math.degrees(math.atan2(-gazeFwd.y, gazeHorizMag));
+                        YawDegrees(in headYawFromEye, out float gazeYawDeg);
+
+                        BasisHeadPitchSwingCore.Solve(gazePitchDeg, gazeYawDeg, P.GazeSwingLever, P.GazeSwingRemoval, out UnityEngine.Vector3 swingOffset, out _);
+
+                        leashEyePos -= (float3)swingOffset;
                     }
+
+                    float3 desiredHipsXZ = ComputeRealisticHipsXZBurst(ref s, leashEyePos, dt, P.StandingHeadLocalY, stanceHeadDrop, in torsoYawTarget, P.LeftFootPos, P.RightFootPos, P.LeftFootTracked != 0, P.RightFootTracked != 0, out float3 supportXZ);
+                    float3 hipsArm = math.mul(torsoYawTarget, P.HipsAnchorOffsetLocal - yawArm);
+                    desiredHipsXZ += new float3(hipsArm.x, 0f, hipsArm.z);
+
+                    if (!feetSupported)
+                    {
+                        float3 headRestArm = math.mul(torsoYawTarget, P.HeadRestFromEyeLocal - yawArm);
+                        supportXZ += new float3(headRestArm.x, 0f, headRestArm.z);
+                    }
+
+                    float3 neckForHips = neckPosWorld;
+                    if (P.GazeSwingRemoval > 0f)
+                    {
+                        float3 nodPivot = eyePosDevice - math.mul(eyeRot, P.GazeSwingLever);
+                        float stableNeckY = nodPivot.y + P.TposeNeckMinusEyeY + P.GazeSwingLever.y;
+                        neckForHips.y = math.lerp(neckPosWorld.y, stableNeckY, math.saturate(P.GazeSwingRemoval));
+
+                        float reach = (P.LenTotal + math.distance(neckPosWorld, headPosWorld)) * ReachUseCeiling;
+                        float2 spanXZ = new float2(headPosWorld.x - desiredHipsXZ.x, headPosWorld.z - desiredHipsXZ.z);
+                        float horizSq = math.lengthsq(spanXZ);
+                        if (reach * reach > horizSq)
+                        {
+                            float maxVertical = math.sqrt(reach * reach - horizSq);
+                            float reachLimitNeckY = headPosWorld.y - maxVertical + (P.HipsRestDropY > 0f ? P.HipsRestDropY : P.LenTotal);
+                            neckForHips.y = math.max(neckForHips.y, math.min(reachLimitNeckY, neckPosWorld.y));
+                        }
+                    }
+
+                    ComputeHipsPosition( in neckForHips, in headPosWorld, in supportXZ, in solveUp, P.LenTotal, in torsoYawTarget, biasScale, in desiredHipsXZ, freeze, in tposeHips, P.StandingHipsLocalY, P.StandingHeadLocalY, P.TrackingLiftY, P.PostureModel != 0, P.HipsCompressionStrength, P.HipsMaxDropMeters, P.HipsRestDropY, out hipsPos);
+
+                    quaternion hipsRotTarget = freeze ? quaternion.identity : torsoYawTarget;
+                    quaternion hipsCurrent = hips.OutgoingRotation;
+                    SmoothSlerpBurst(in hipsCurrent, in hipsRotTarget, P.HipsRotationSpeed, dt, out quaternion hipsSmoothed);
+                    ExtractYawBurst(in hipsSmoothed, out hipsRot);
                 }
 
-                ComputeHipsPosition( in neckForHips, in headPosWorld, in supportXZ, in solveUp, P.LenTotal, in torsoYawTarget, biasScale, in desiredHipsXZ, freeze, in tposeHips, P.StandingHipsLocalY, P.StandingHeadLocalY, P.TrackingLiftY, P.PostureModel != 0, P.HipsCompressionStrength, P.HipsMaxDropMeters, P.HipsRestDropY, out float3 hipsPos);
-
-                quaternion hipsRotTarget = freeze ? quaternion.identity : torsoYawTarget;
-                quaternion hipsCurrent = hips.OutgoingRotation;
-                SmoothSlerpBurst(in hipsCurrent, in hipsRotTarget, P.HipsRotationSpeed, dt, out quaternion hipsSmoothed);
-                ExtractYawBurst(in hipsSmoothed, out quaternion hipsYaw);
-
-                hips.OutgoingRotation = hipsYaw;
+                hips.OutgoingRotation = hipsRot;
                 hips.OutgoingPosition = hipsPos;
                 ApplyWorldAndLastBurst(ref hips, in P.ParentMatrix, in P.ParentRotation);
 
                 ExtractYawBurst(in neckRot, out quaternion neckYaw);
+                ExtractYawBurst(in hipsRot, out quaternion hipsYaw);
 
                 float3 hipsPosReadback = hips.OutgoingPosition;
                 float3 neckPos = neck.OutgoingPosition;
@@ -284,38 +301,22 @@ namespace Basis.IK
 
             if (s.TorsoYawInitialized == 0)
             {
-                s.TorsoYawAnchorDeg = headYawDeg;
-                s.PrevHeadYawDeg = headYawDeg;
-                s.TorsoYawBroken = 0;
-                s.TorsoFollow = 0f;
+                s.TorsoYawDeg = headYawDeg;
                 s.TorsoYawInitialized = 1;
             }
 
-            float headSpeedDeg = math.abs(DeltaAngleDeg(s.PrevHeadYawDeg, headYawDeg)) / math.max(dt, 1e-5f);
-            s.PrevHeadYawDeg = headYawDeg;
-
+            // While locomoting, ease the torso back to face the head.
             if (moving)
             {
-                s.TorsoYawBroken = 1;
+                s.TorsoYawDeg += DeltaAngleDeg(s.TorsoYawDeg, headYawDeg) * BasisSmoothingProfiles.FramerateIndependentAlpha(blendSpeed, dt);
             }
 
-            if (s.TorsoYawBroken == 0 && math.abs(DeltaAngleDeg(s.TorsoYawAnchorDeg, headYawDeg)) > math.max(0f, deadzoneDeg))
-            {
-                s.TorsoYawBroken = 1;
-            }
+            // The head turns freely inside the deadzone. Past it, the head drags the torso along so it stays exactly deadzone behind.
+            float deadzone = math.max(0f, deadzoneDeg), delta = DeltaAngleDeg(s.TorsoYawDeg, headYawDeg);
+            if (delta > deadzone) s.TorsoYawDeg = headYawDeg - deadzone;
+            else if (delta < -deadzone) s.TorsoYawDeg = headYawDeg + deadzone;
 
-            float targetFollow = s.TorsoYawBroken != 0 ? 1f : 0f;
-
-            s.TorsoFollow = math.lerp(s.TorsoFollow, targetFollow, BasisSmoothingProfiles.FramerateIndependentAlpha(blendSpeed, dt));
-
-            if (s.TorsoYawBroken != 0 && s.TorsoFollow >= 0.999f && headSpeedDeg <= TorsoYawRelockSpeedDeg)
-            {
-                s.TorsoYawBroken = 0;
-                s.TorsoYawAnchorDeg = headYawDeg;
-            }
-
-            quaternion anchorYaw = quaternion.AxisAngle(new float3(0f, 1f, 0f), math.radians(s.TorsoYawAnchorDeg));
-            return math.slerp(anchorYaw, headYawOnly, s.TorsoFollow);
+            return quaternion.AxisAngle(new float3(0f, 1f, 0f), math.radians(s.TorsoYawDeg));
         }
         private static float3 ComputeRealisticHipsXZBurst(ref SpineSolveState s, float3 headPosWorld, float dt, float standingHeadY, float headDrop, in quaternion torsoYaw, float3 leftFootPos, float3 rightFootPos, bool leftFootTracked, bool rightFootTracked, out float3 supportXZ)
         {
@@ -401,6 +402,16 @@ namespace Basis.IK
         private static void ComposePosition(in float3 basePos, in quaternion rot, in float3 localOffset, out float3 result)
         {
             result = basePos + math.mul(rot, localOffset);
+        }
+        // Keeps the hips tied more to the original pose offset from the head. This helps position the hips in a more
+        // predictable way and makes sure that we don't get weird twists or behavior that breaks the spine.
+        [BurstCompile]
+        internal static void ComputeHeadPinnedHips(in float3 headPos, in quaternion eyeRot, in quaternion eyeYaw, in quaternion torsoYaw, in float3 hipsFromHeadRest, float tiltWeight, out float3 position, out quaternion rotation)
+        {
+            quaternion tilt = math.normalize(math.mul(eyeRot, math.inverse(eyeYaw)));
+            quaternion tiltPart = math.slerp(quaternion.identity, tilt, math.saturate(tiltWeight));
+            rotation = math.normalize(math.mul(tiltPart, torsoYaw));
+            position = headPos + math.mul(rotation, hipsFromHeadRest);
         }
         [BurstCompile]
         internal static void ComputeHipsPosition( in float3 neckPos, in float3 headPos, in float3 supportXZ, in float3 solveUp, float lenTotal, in quaternion headYaw, float biasScale, in float3 desiredHipsXZ, bool freezeToTpose, in float3 tposeHips, float standingHipsLocalY, float standingHeadLocalY, float trackingLiftY, bool usePostureModel, float compressionStrength, float maxDrop, out float3 result)

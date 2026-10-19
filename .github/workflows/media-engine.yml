@@ -1,0 +1,178 @@
+# CI for the Rust media engine (com.basis.mediaplayer). Every job mirrors the
+# package's own local gate — tools/ci.ps1 on Windows, tools/ci.sh on Linux — so
+# a green run here means the same thing as a green run on a dev box. The Android
+# job proves the aarch64 graph compiles and ships a strippable cdylib; the
+# fuzz-replay job replays the committed seed corpora under ASan so a
+# reintroduced parser bug fails the PR deterministically.
+#
+# Runners have no GPU: the DXVA probe reports no hardware decoders and every
+# session row takes the software rung by design; hardware conformance stays a
+# desk/device row (see the package's Native~/TESTING.md).
+#
+# The path filters name the package exactly, so a change anywhere else in the
+# repo does not trigger an engine build.
+name: media-engine
+
+on:
+  push:
+    paths:
+      - "Basis/Packages/com.basis.mediaplayer/**"
+      - ".github/workflows/media-engine.yml"
+  pull_request:
+    paths:
+      - "Basis/Packages/com.basis.mediaplayer/**"
+      - ".github/workflows/media-engine.yml"
+
+concurrency:
+  group: media-engine-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  NATIVE_DIR: Basis/Packages/com.basis.mediaplayer/Native~
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # The Windows gate, verbatim ci.ps1, with librist built first so the RIST
+  # steps run. The test suite also replays every pinned fuzz crash input,
+  # without sanitizers.
+  windows-x64:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - name: Allow long paths (deep package prefix)
+        run: git config --global core.longpaths true
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ env.NATIVE_DIR }}
+      - name: Install NASM (rav1d x86 assembly)
+        run: |
+          choco install nasm -y --no-progress
+          echo "C:\Program Files\NASM" >> "$GITHUB_PATH"
+      - name: Install ffmpeg (conformance oracle)
+        run: choco install ffmpeg -y --no-progress
+      - name: Install cargo-deny + cargo-vet
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny@0.20.2,cargo-vet@0.10.2
+      - name: Build librist (RIST steps)
+        working-directory: ${{ env.NATIVE_DIR }}
+        run: |
+          pip install meson ninja
+          pwsh -NoProfile -File tools/build-librist.ps1
+      - name: Run the gate (tools/ci.ps1)
+        working-directory: ${{ env.NATIVE_DIR }}
+        run: pwsh -NoProfile -File tools/ci.ps1
+
+  # The Linux gate, verbatim ci.sh: the Windows steps bar Android, which has
+  # its own job below. RIST skips here because no librist is built; impairment
+  # and split source skip because Linux has no H.264 or AAC decoder.
+  linux-x64:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ env.NATIVE_DIR }}
+      - name: Install ffmpeg (conformance oracle)
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install cargo-deny + cargo-vet
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny@0.20.2,cargo-vet@0.10.2
+      - name: Run the gate (tools/ci.sh)
+        working-directory: ${{ env.NATIVE_DIR }}
+        run: bash tools/ci.sh
+
+  # The aarch64 graph must keep compiling per commit (the dev-box gate runs
+  # this only when a Unity NDK is present). Also builds the real release
+  # cdylib and uploads the stripped .so, so a reviewer can diff provenance
+  # against the binary committed in the package.
+  android-arm64:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ env.NATIVE_DIR }}
+          key: android-arm64
+      - name: Install ninja (cmake build scripts)
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - name: Export the NDK toolchain (API 29, the android-env.ps1 contract)
+        run: |
+          NDK="$ANDROID_NDK_LATEST_HOME"
+          BIN="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          test -x "$BIN/aarch64-linux-android29-clang"
+          {
+            echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$BIN/aarch64-linux-android29-clang"
+            echo "CC_aarch64_linux_android=$BIN/aarch64-linux-android29-clang"
+            echo "CXX_aarch64_linux_android=$BIN/aarch64-linux-android29-clang++"
+            echo "AR_aarch64_linux_android=$BIN/llvm-ar"
+            echo "ANDROID_NDK=$NDK"
+            echo "ANDROID_NDK_HOME=$NDK"
+            echo "ANDROID_NDK_ROOT=$NDK"
+            echo "CMAKE_GENERATOR=Ninja"
+            echo "NDK_BIN=$BIN"
+          } >> "$GITHUB_ENV"
+      - name: Clippy (media-ffi + decode-mediacodec)
+        working-directory: ${{ env.NATIVE_DIR }}
+        run: cargo clippy --target aarch64-linux-android -p media-ffi -p decode-mediacodec -- -D warnings
+      - name: Build the release cdylib
+        working-directory: ${{ env.NATIVE_DIR }}
+        run: |
+          cargo build --target aarch64-linux-android -p media-ffi --release
+          "$NDK_BIN/llvm-strip" --strip-all \
+            -o target/aarch64-linux-android/release/libbasis_media.stripped.so \
+            target/aarch64-linux-android/release/libbasis_media.so
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bm-android-arm64
+          path: ${{ env.NATIVE_DIR }}/target/aarch64-linux-android/release/libbasis_media.stripped.so
+
+  # Deterministic fuzz gate: replay every seed corpus under ASan with -runs=0.
+  # Fast and stable by construction — no coverage growing here. The pinned
+  # crash inputs under the crates' tests/data are replayed by cargo test in the
+  # jobs above (those inputs exercise contained upstream panic paths that would
+  # abort under the fuzz build's panic=abort, so they stay out of the corpora —
+  # see Native~/fuzz/README.md).
+  fuzz-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ env.NATIVE_DIR }}/fuzz
+          key: fuzz-replay
+      - name: Replay seed corpora
+        working-directory: ${{ env.NATIVE_DIR }}
+        # --target: the prebuilt cargo-fuzz is musl-linked and defaults to its
+        # own build triple, which has no ASan-compatible std on the runner.
+        run: |
+          for t in adts_stream caption_scan flac_stream hls_playlist mkv_stream \
+                   mp3_stream mp4_stream ogg_stream rtp_session ts_stream wav_stream; do
+            echo "== $t"
+            cargo +nightly fuzz run --target x86_64-unknown-linux-gnu "$t" "fuzz/corpus/$t" -- -runs=0
+          done
+          echo "== whep_signal"
+          cargo +nightly fuzz run --target x86_64-unknown-linux-gnu --features whep whep_signal fuzz/corpus/whep_signal -- -runs=0

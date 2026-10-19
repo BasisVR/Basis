@@ -35,11 +35,13 @@ namespace Basis.Scripts.UI.NamePlate
         /// <summary>Slot in BasisRemoteNamePlateDriver's plates/jobStates arrays; -1 until registered.
         /// Maintained by ApplyPendingStructuralChanges, including swap-back moves.</summary>
         internal int RegistryIndex = -1;
+        internal int ChatRegistryIndex = -1;
 
         /// <summary>Cached gameObject-active state for the global merge gather, so it never calls the
         /// (managed→native) isActiveAndEnabled per plate per frame. Maintained by
         /// <see cref="Initialize"/> and <see cref="RefreshActiveState"/>.</summary>
         internal bool RenderActive;
+        internal bool NameHidden;
 
         public bool HasProgressBarVisible = false;
         public MeshRenderer Renderer;
@@ -55,7 +57,7 @@ namespace Basis.Scripts.UI.NamePlate
         internal bool HasGlobalParts;
 
         /// <summary>True when this plate is baked and active, so the global merge should include it.</summary>
-        internal bool IsGloballyRenderable => HasGlobalParts && Self != null && isActiveAndEnabled;
+        internal bool IsGloballyRenderable => HasGlobalParts && Self != null && !NameHidden && isActiveAndEnabled;
 
         private static readonly int ColorId = Shader.PropertyToID("_BaseColor"); // or "_Color" for Built-in RP
         private MaterialPropertyBlock mpb;
@@ -106,7 +108,7 @@ namespace Basis.Scripts.UI.NamePlate
         internal bool HasActiveChatOverlay => ChatText != null && HasBubbleText();
 
         /// <summary>True while the avatar-loading text + bar want to display.</summary>
-        internal bool HasActiveLoadingOverlay => HasProgressBarVisible;
+        internal bool HasActiveLoadingOverlay => HasProgressBarVisible && !NameHidden;
 
         internal void SetChatOverlayCulled(bool culled)
         {
@@ -136,7 +138,7 @@ namespace Basis.Scripts.UI.NamePlate
 
         private void ApplyLoadingOverlayActive()
         {
-            bool show = HasProgressBarVisible && !loadingOverlayCulled;
+            bool show = HasProgressBarVisible && !loadingOverlayCulled && !NameHidden;
             if (LoadingText != null && LoadingText.gameObject.activeSelf != show)
             {
                 LoadingText.gameObject.SetActive(show);
@@ -180,6 +182,7 @@ namespace Basis.Scripts.UI.NamePlate
 
             Self = this.transform;
             Self.localScale = Vector3.one * BasisRemoteNamePlateDriver.PlateWorldScale();
+            InteractRange = BasisRemoteNamePlateDriver.NamePlateSelectDistance;
 
             // Global path renders the name through the shared merged mesh; the per-plate
             // renderer stays off (the BoxCollider still drives interaction independently).
@@ -190,19 +193,14 @@ namespace Basis.Scripts.UI.NamePlate
 
             BasisRemoteNamePlateDriver.QueueTextBake(BasisRemotePlayer, this);
             LoadingText.enableVertexGradient = false;
+            BasisNamePlateDepthMaterials.Apply(LoadingText);
             mpb = new MaterialPropertyBlock();
             Renderer.GetPropertyBlock(mpb, 0);
             ApplyTalkModeColors();
             BasisRemoteNamePlateDriver.Register(this);
 
+            RefreshActiveState();
             SetTypingIndicatorVisible(BasisRemotePlayer.IsChatTyping);
-
-            RenderActive = BasisRemoteNamePlateDriver.ShouldPlateBeActive(this);
-            if (!RenderActive)
-            {
-                gameObject.SetActive(false);
-            }
-            PushPoseGate(RenderActive);
 
             _ = LoadBlockStateAsync();
         }
@@ -258,9 +256,44 @@ namespace Basis.Scripts.UI.NamePlate
             // The avatar's renderer-visibility callback can fire mid-teardown; bail if this
             // plate has already been destroyed rather than touching its gameObject.
             if (this == null) return;
+            bool wasActive = RenderActive;
+            bool wasNameHidden = NameHidden;
             RenderActive = BasisRemoteNamePlateDriver.ShouldPlateBeActive(this);
+            NameHidden = !(RenderActive && BasisRemoteNamePlateDriver.NamesVisible());
             gameObject.SetActive(RenderActive);
             PushPoseGate(RenderActive);
+
+            if (NameHidden != wasNameHidden)
+            {
+                Collider[] colliders = GetColliders();
+                for (int i = 0; i < colliders.Length; i++)
+                {
+                    if (colliders[i] != null) colliders[i].enabled = !NameHidden;
+                }
+                if (!BasisRemoteNamePlateDriver.UseGlobalNamePlateMesh && Renderer != null)
+                {
+                    Renderer.enabled = !NameHidden;
+                }
+                ApplyLoadingOverlayActive();
+            }
+
+            if (RenderActive && (!wasActive || NameHidden != wasNameHidden))
+            {
+                RefreshChatLayout();
+            }
+        }
+
+        private void RefreshChatPresence()
+        {
+            BasisRemoteNamePlateDriver.SetChatPlateRegistered(this, hasChatMessage || wantsTypingIndicator || ChatText != null);
+            if (BasisRemoteNamePlateDriver.ShouldPlateBeActive(this) != RenderActive)
+            {
+                RefreshActiveState();
+            }
+            else
+            {
+                RefreshChatLayout();
+            }
         }
 
         /// <summary>
@@ -355,7 +388,7 @@ namespace Basis.Scripts.UI.NamePlate
 
             if (BasisRemoteNamePlateDriver.SelectedNamePlateMaterial != null)
             {
-                ChatBubbleRenderer.sharedMaterial = BasisRemoteNamePlateDriver.SelectedNamePlateMaterial;
+                ChatBubbleRenderer.sharedMaterial = BasisNamePlateDepthMaterials.Surface(BasisRemoteNamePlateDriver.SelectedNamePlateMaterial);
                 ChatBubbleRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 ChatBubbleRenderer.receiveShadows = false;
                 ChatBubbleRenderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
@@ -387,6 +420,7 @@ namespace Basis.Scripts.UI.NamePlate
             {
                 ChatText.font = LoadingText.font;
             }
+            BasisNamePlateDepthMaterials.Apply(ChatText);
 
             // Size the rect to fit above nameplate
             if (ChatText.TryGetComponent(out RectTransform chatRect))
@@ -417,6 +451,7 @@ namespace Basis.Scripts.UI.NamePlate
             // new player. Replaces the per-plate Unity null check in GatherFromBoneSystem.
             RenderActive = false;
             PushPoseGate(false);
+            BasisRemoteNamePlateDriver.SetChatPlateRegistered(this, false);
             if (BasisRemotePlayer != null)
             {
                 // Unsubscribe all events we hooked up
@@ -546,7 +581,7 @@ namespace Basis.Scripts.UI.NamePlate
 
             BasisDeviceManagement.EnqueueOnMainThread(() =>
             {
-                if (this == null || !isActiveAndEnabled) return;
+                if (this == null || !isActiveAndEnabled || NameHidden) return;
 
                 // Re-check on the main thread: state may have changed during the
                 // enqueue + drain window, and this covers the volume check that
@@ -641,8 +676,7 @@ namespace Basis.Scripts.UI.NamePlate
                 {
                     typingAnimationFrame = -1;
                 }
-                UpdateChatTextVisual();
-                UpdateBubbleVisual();
+                RefreshChatPresence();
                 return;
             }
 
@@ -653,8 +687,7 @@ namespace Basis.Scripts.UI.NamePlate
             chatDisplayLastActiveTime = chatMessageSetTime;
             hasChatMessage = true;
             RefreshCachedChatTypingText();
-            UpdateChatTextVisual();
-            UpdateBubbleVisual();
+            RefreshChatPresence();
         }
 
         /// <summary>
@@ -690,6 +723,7 @@ namespace Basis.Scripts.UI.NamePlate
             ChatBubbleRenderer = null;
             visibleChatText = null;
             chatOverlayCulled = false;
+            BasisRemoteNamePlateDriver.SetChatPlateRegistered(this, hasChatMessage || wantsTypingIndicator);
         }
 
         public void SetTypingIndicatorVisible(bool visible)
@@ -712,8 +746,7 @@ namespace Basis.Scripts.UI.NamePlate
             }
 
             RefreshCachedChatTypingText();
-            UpdateTypingIndicatorVisual();
-            UpdateBubbleVisual();
+            RefreshChatPresence();
         }
 
         public bool UpdateTypingIndicatorAnimation() => UpdateTypingIndicatorAnimation(Time.timeAsDouble);
@@ -752,11 +785,6 @@ namespace Basis.Scripts.UI.NamePlate
             }
 
             return null;
-        }
-
-        private void UpdateTypingIndicatorVisual()
-        {
-            UpdateChatTextVisual();
         }
 
         private void UpdateChatTextVisual()
@@ -867,7 +895,7 @@ namespace Basis.Scripts.UI.NamePlate
         {
             BasisDeviceManagement.EnqueueOnMainThread(() =>
             {
-                if (this == null || !isActiveAndEnabled) return;
+                if (this == null) return;
                 if (BasisNamePlateOverlayCore.IsLoadingComplete(progress))
                 {
                     HasProgressBarVisible = false;
@@ -915,6 +943,14 @@ namespace Basis.Scripts.UI.NamePlate
         {
             BasisUIRaycast raycast = input.BasisUIRaycast;
             return raycast != null && (raycast.HadRaycastUITarget || raycast.HadUISurface);
+        }
+        public override float RayReach(float defaultReach)
+        {
+            return BasisPlayerInteract.AvatarScaledRange(InteractRange);
+        }
+        public override bool IsWithinRange(Vector3 source, float interactRange)
+        {
+            return base.IsWithinRange(source, BasisPlayerInteract.AvatarScaledRange(interactRange));
         }
         public override bool CanHover(BasisInput input)
         {

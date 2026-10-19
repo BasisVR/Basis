@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
@@ -11,7 +12,8 @@ using UnityEngine;
 namespace Basis.Scripts.Networking
 {
 
-    public static class BasisTalkModeManager
+    [AutoStaticsCleanup]
+    public static partial class BasisTalkModeManager
     {
         public static BasisTalkMode CurrentMode { get; private set; } = BasisTalkMode.Normal;
 
@@ -160,7 +162,7 @@ namespace Basis.Scripts.Networking
 
         public static bool TransmitBlockedLocally => CurrentMode == BasisTalkMode.NoOne || LocalOnlyHeld;
 
-        private static readonly BasisTalkMode[] CycleOrder =
+        [NoAutoStaticsCleanup] private static readonly BasisTalkMode[] CycleOrder =
         {
             BasisTalkMode.Normal,
             BasisTalkMode.Shout,

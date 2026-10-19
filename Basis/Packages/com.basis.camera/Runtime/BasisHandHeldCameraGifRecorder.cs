@@ -60,6 +60,6 @@ public partial class BasisHandHeldCamera
     {
         if (printPhotoEnabled) BasisImagePickupManager.SpawnFromFile(path);
     }
-    private void TickGifRecorder() => gifRecorder.Tick(renderTexture, BasisNetworkModeration.CameraCaptureBlockedLocally);
+    private void TickGifRecorder() => gifRecorder.Tick(OutputTexture, BasisNetworkModeration.CameraCaptureBlockedLocally);
     private void ShutdownGifRecorder() => gifRecorder.Shutdown();
 }

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -827,6 +828,7 @@ namespace Basis.Scripts.Common
         }
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class HumanBodyBonesComparer : IEqualityComparer<HumanBodyBones>
     {
         public static readonly HumanBodyBonesComparer Instance = new HumanBodyBonesComparer();

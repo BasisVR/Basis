@@ -112,6 +112,10 @@
       "value": "★ {0}"
     },
     {
+      "key": "menu.servers.list.sourceBadge",
+      "value": "{0} ({1})"
+    },
+    {
       "key": "menu.servers.list.share",
       "value": "分享"
     },
@@ -146,6 +150,14 @@
     {
       "key": "menu.servers.usernamePrompt.body",
       "value": "选择其他玩家会看到的名称，然后按「连接」。"
+    },
+    {
+      "key": "menu.servers.passwordPrompt.title",
+      "value": "加入 {0}"
+    },
+    {
+      "key": "menu.servers.passwordPrompt.body",
+      "value": "密码被拒绝。请输入服务器密码。"
     },
     {
       "key": "menu.servers.search.byNameOrAddress",
@@ -274,6 +286,10 @@
     {
       "key": "menu.servers.hostThirdPersonDisabled",
       "value": "禁用第三人称"
+    },
+    {
+      "key": "menu.servers.portInvalid",
+      "value": "端口必须在 1-65535 之间"
     }
   ]
 }

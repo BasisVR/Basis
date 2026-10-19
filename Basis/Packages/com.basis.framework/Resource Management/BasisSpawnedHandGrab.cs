@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
@@ -13,7 +14,8 @@ namespace Basis
     /// net id here and the spawn path redeems it once the bundle has finished loading. Every other
     /// client just sees the prop appear and be picked up.
     /// </summary>
-    public static class BasisSpawnedHandGrab
+    [AutoStaticsCleanup]
+    public static partial class BasisSpawnedHandGrab
     {
         private const float RequestLifetimeSeconds = 600f;
 

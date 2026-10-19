@@ -2,7 +2,6 @@
     "name": "BasisNetworkClient",
     "rootNamespace": "",
     "references": [
-        "LiteNetLib",
         "BasisNetworkCore",
         "Did",
         "Crypto"

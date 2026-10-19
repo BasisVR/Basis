@@ -98,12 +98,15 @@ namespace SteamAudio
 
         private void OnEnable()
         {
-            SteamAudioManager.Simulator.AddProbeBatch(mProbeBatch);
+            if (mProbeBatch != null && SteamAudioManager.Simulator != null)
+            {
+                SteamAudioManager.Simulator.AddProbeBatch(mProbeBatch);
+            }
         }
 
         private void OnDisable()
         {
-            if (SteamAudioManager.Simulator != null)
+            if (mProbeBatch != null && SteamAudioManager.Simulator != null)
             {
                 SteamAudioManager.Simulator.RemoveProbeBatch(mProbeBatch);
             }

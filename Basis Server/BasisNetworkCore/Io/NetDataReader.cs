@@ -10,7 +10,7 @@ using System.Text;
 using System.Threading;
 
 namespace Basis.Network.Core {
-    public class NetDataReader
+    public partial class NetDataReader
     {
         protected byte[] _data;
         protected int _position;
@@ -118,11 +118,6 @@ namespace Basis.Network.Core {
             _dataSize = maxSize;
         }
 
-        internal void SetSource(LiteNetLib.Utils.NetDataReader reader) {
-            SetSource(reader.RawData, reader.UserDataOffset, reader.RawDataSize);
-            _position = reader.Position;
-        }
-
         public NetDataReader()
         {
 
@@ -141,10 +136,6 @@ namespace Basis.Network.Core {
         public NetDataReader(byte[] source, int offset, int maxSize)
         {
             SetSource(source, offset, maxSize);
-        }
-
-        internal NetDataReader(LiteNetLib.Utils.NetDataReader reader) {
-            SetSource(reader);
         }
 
         #region GetMethods

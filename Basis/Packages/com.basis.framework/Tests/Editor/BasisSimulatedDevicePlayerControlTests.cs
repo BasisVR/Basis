@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
@@ -13,6 +14,7 @@ using UnityEngine;
 
 namespace Basis.Framework.Tests
 {
+    [NoAutoStaticsCleanup]
     public class BasisSimulatedDevicePlayerControlTests
     {
         private static readonly FieldInfo TrackedRoleField = typeof(BasisInput).GetField("trackedRole", BindingFlags.NonPublic | BindingFlags.Instance);

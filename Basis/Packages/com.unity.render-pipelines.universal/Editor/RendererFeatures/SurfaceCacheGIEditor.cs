@@ -1,144 +1,92 @@
-#if SURFACE_CACHE
-
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using UnityEditor.Inspector.GraphicsSettingsInspectors;
+using UnityEditor.Rendering;
 
 namespace UnityEditor.Rendering.Universal
 {
     [CustomEditor(typeof(SurfaceCacheGIRendererFeature))]
     internal class SurfaceCacheGIEditor : Editor
     {
-        private bool m_IsInitialized;
+        private const string k_UnsupportedRayTracingBackendMessage = "Surface Cache GI will not run on this device because it does not support hardware ray tracing or compute shaders.";
 
-        private SerializedProperty _estimationSampleCount;
-        private SerializedProperty _multiBounce;
-        private SerializedProperty _temporalSmoothing;
-        private SerializedProperty _spatialFilterEnabled;
-        private SerializedProperty _spatialFilterSampleCount;
-        private SerializedProperty _spatialFilterRadius;
-        private SerializedProperty _temporalPostFilterEnabled;
-        private SerializedProperty _lookupSampleCount;
-        private SerializedProperty _upsamplingKernelSize;
-        private SerializedProperty _upsamplingSampleCount;
-        private SerializedProperty _volumeSize;
-        private SerializedProperty _volumeResolution;
-        private SerializedProperty _volumeCascadeCount;
-        private SerializedProperty _volumeMovement;
-        private SerializedProperty _debugEnabled;
-        private SerializedProperty _debugViewMode;
-        private SerializedProperty _debugShowSamplePosition;
-        private SerializedProperty _defragCount;
-
-        private struct TextContent
+        static class Styles
         {
-            public static GUIContent EstimationSampleCount = EditorGUIUtility.TrTextContent("Sample Count", "");
-            public static GUIContent MultiBounce = EditorGUIUtility.TrTextContent("Multi Bounce", "");
-
-            public static GUIContent TemporalSmoothing = EditorGUIUtility.TrTextContent("Temporal Smoothing", "");
-            public static GUIContent SpatialFilterEnabled = EditorGUIUtility.TrTextContent("Spatial Filter Enabled", "");
-            public static GUIContent SpatialFilterSampleCount = EditorGUIUtility.TrTextContent("Spatial Sample Count", "");
-            public static GUIContent SpatialFilterRadius = EditorGUIUtility.TrTextContent("Spatial Radius", "");
-            public static GUIContent TemporalPostFilterEnabled = EditorGUIUtility.TrTextContent("Temporal Post Filter Enabled", "");
-
-            public static GUIContent LookupSampleCount = EditorGUIUtility.TrTextContent("Lookup Sample Count", "");
-            public static GUIContent UpsamplingKernelSize = EditorGUIUtility.TrTextContent("Upsampling Kernel Size", "");
-            public static GUIContent UpsamplingSampleCount = EditorGUIUtility.TrTextContent("Upsampling Sample Count", "");
-
-            public static GUIContent VolumeSize = EditorGUIUtility.TrTextContent("Size", "");
-            public static GUIContent VolumeResolution = EditorGUIUtility.TrTextContent("Resolution", "");
-            public static GUIContent VolumeCascadeCount = EditorGUIUtility.TrTextContent("Cascade Count", "");
-            public static GUIContent VolumeMovement = EditorGUIUtility.TrTextContent("Movement", "");
-
-            public static GUIContent DefragCount = EditorGUIUtility.TrTextContent("Defragmentation Count", "");
-
-            public static GUIContent DebugEnabled = EditorGUIUtility.TrTextContent("Debug Enabled", "");
-            public static GUIContent DebugViewMode = EditorGUIUtility.TrTextContent("Debug View Mode", "");
-            public static GUIContent DebugShowSamplePosition = EditorGUIUtility.TrTextContent("Debug Show Sample Position", "");
+            public static readonly GUIContent staticBatchingError = L10n.TextContentWithIcon(SurfaceCacheGIRendererFeature.k_StaticBatchingErrorMesssage, MessageType.Error, null);
+            public static readonly GUIContent staticBatchingWarning = L10n.TextContentWithIcon(SurfaceCacheGIRendererFeature.k_StaticBatchingErrorMesssage, MessageType.Warning, null);
+            public static readonly GUIContent openButton = L10n.TextContent("Open", null, null, null);
         }
 
-        private void Init()
+        private static GUIStyle s_FixMeBoxStyle;
+
+        private static void DrawFixMeBox(GUIContent message, GUIContent buttonLabel, System.Action action)
         {
-            SerializedProperty paramSets = serializedObject.FindProperty("_parameterSet");
+            if (s_FixMeBoxStyle == null)
+                s_FixMeBoxStyle = new GUIStyle(EditorStyles.helpBox);
 
-            SerializedProperty estimationParams = paramSets.FindPropertyRelative("EstimationParams");
-            SerializedProperty patchFilteringParams = paramSets.FindPropertyRelative("PatchFilteringParams");
-            SerializedProperty screenFilteringParams = paramSets.FindPropertyRelative("ScreenFilteringParams");
-            SerializedProperty volumeParams = paramSets.FindPropertyRelative("VolumeParams");
-            SerializedProperty advancedParams = paramSets.FindPropertyRelative("AdvancedParams");
+            float buttonWidth = Mathf.Max(60f, GUI.skin.button.CalcSize(buttonLabel).x);
+            s_FixMeBoxStyle.padding.right = EditorStyles.helpBox.padding.right + Mathf.CeilToInt(buttonWidth) + 4;
 
-            _multiBounce = paramSets.FindPropertyRelative("MultiBounce");
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.PrefixLabel(GUIContent.none, s_FixMeBoxStyle);
+            Rect rect = GUILayoutUtility.GetRect(message, s_FixMeBoxStyle);
+            if (Event.current.type == EventType.Repaint)
+                s_FixMeBoxStyle.Draw(rect, message, false, false, false, false);
+            EditorGUILayout.EndHorizontal();
 
-            _estimationSampleCount = estimationParams.FindPropertyRelative("SampleCount");
+            Rect buttonRect = new Rect(rect.xMax - buttonWidth - 4, rect.y + (rect.height - EditorGUIUtility.singleLineHeight) / 2, buttonWidth, EditorGUIUtility.singleLineHeight);
+            if (GUI.Button(buttonRect, buttonLabel))
+                action();
+        }
 
-            _temporalSmoothing = patchFilteringParams.FindPropertyRelative("TemporalSmoothing");
-            _spatialFilterEnabled = patchFilteringParams.FindPropertyRelative("SpatialFilterEnabled");
-            _spatialFilterSampleCount = patchFilteringParams.FindPropertyRelative("SpatialFilterSampleCount");
-            _spatialFilterRadius = patchFilteringParams.FindPropertyRelative("SpatialFilterRadius");
-            _temporalPostFilterEnabled = patchFilteringParams.FindPropertyRelative("TemporalPostFilterEnabled");
-
-            _lookupSampleCount = screenFilteringParams.FindPropertyRelative("LookupSampleCount");
-            _upsamplingKernelSize = screenFilteringParams.FindPropertyRelative("UpsamplingKernelSize");
-            _upsamplingSampleCount = screenFilteringParams.FindPropertyRelative("UpsamplingSampleCount");
-
-            _volumeSize = volumeParams.FindPropertyRelative("Size");
-            _volumeResolution = volumeParams.FindPropertyRelative("Resolution");
-            _volumeCascadeCount = volumeParams.FindPropertyRelative("CascadeCount");
-            _volumeMovement = volumeParams.FindPropertyRelative("Movement");
-
-            _debugEnabled = paramSets.FindPropertyRelative("DebugEnabled");
-            _debugViewMode = paramSets.FindPropertyRelative("DebugViewMode");
-            _debugShowSamplePosition = paramSets.FindPropertyRelative("DebugShowSamplePosition");
-
-            _defragCount = advancedParams.FindPropertyRelative("DefragCount");
+        private static bool SceneHasSurfaceCacheGIVolume()
+        {
+            Volume[] volumes = Object.FindObjectsByType<Volume>(FindObjectsInactive.Exclude);
+            for (int i = 0; i < volumes.Length; i++)
+            {
+                if (volumes[i].sharedProfile != null && volumes[i].sharedProfile.Has<SurfaceCacheGIVolumeOverride>())
+                    return true;
+            }
+            return false;
         }
 
         public override void OnInspectorGUI()
         {
-            if (!m_IsInitialized)
-                Init();
+            SurfaceCacheGIRendererFeature surfaceCacheGIRendererFeature = (SurfaceCacheGIRendererFeature)target;
+            var activeBuildTarget = EditorUserBuildSettings.activeBuildTarget;
+            if (!SurfaceCacheGISupport.IsSupportedByActiveBuildTarget(activeBuildTarget))
+            {
+                if (surfaceCacheGIRendererFeature.isActive)
+                    EditorGUILayout.HelpBox(SurfaceCacheGISupport.k_UnsupportedErrorMessage, MessageType.Error);
+                else
+                    EditorGUILayout.HelpBox(SurfaceCacheGISupport.k_UnsupportedWarningMessage, MessageType.Warning);
+            }
 
-            if (SceneView.lastActiveSceneView && !SceneView.lastActiveSceneView.sceneViewState.alwaysRefreshEnabled)
+            if (PlayerSettings.GetStaticBatchingForPlatform(activeBuildTarget))
+            {
+                DrawFixMeBox(surfaceCacheGIRendererFeature.isActive ? Styles.staticBatchingError : Styles.staticBatchingWarning, Styles.openButton, () =>
+                    PlayerSettingsInspectorUtility.OpenAndScrollTo(PlayerSettingsInspectorUtility.Section.OtherSettings, "Static Batching"));
+            }
+            else if (EditorGraphicsSettings.defaultMeshBufferTarget != DefaultMeshBufferTarget.Raw)
+            {
+                CoreEditorUtils.DrawFixMeBox(SurfaceCacheGIRendererFeature.k_MeshBufferTargetErrorMessage, surfaceCacheGIRendererFeature.isActive ? MessageType.Error : MessageType.Warning, "Open", () =>
+                    GraphicsSettingsInspectorUtility.OpenAndScrollToElement(nameof(DefaultMeshBufferTarget)));
+            }
+            else if (!SurfaceCacheGIRendererFeature.HasSupportedRayTracingBackend())
+            {
+                EditorGUILayout.HelpBox(k_UnsupportedRayTracingBackendMessage, MessageType.Warning);
+            }
+            else if (SceneView.lastActiveSceneView && !SceneView.lastActiveSceneView.sceneViewState.alwaysRefreshEnabled)
             {
                 EditorGUILayout.HelpBox("Enable \"Always Refresh\" in the Scene View to see realtime updates in the Scene View.", MessageType.Info);
             }
 
-            EditorGUILayout.LabelField("Sampling", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(_multiBounce, TextContent.MultiBounce);
-            EditorGUILayout.IntSlider(_estimationSampleCount, 1, 32, TextContent.EstimationSampleCount);
-
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Patch Filtering", EditorStyles.boldLabel);
-            EditorGUILayout.Slider(_temporalSmoothing, 0.0f, 1.0f, TextContent.TemporalSmoothing);
-            EditorGUILayout.PropertyField(_spatialFilterEnabled, TextContent.SpatialFilterEnabled);
-            EditorGUILayout.IntSlider(_spatialFilterSampleCount, 1, 8, TextContent.SpatialFilterSampleCount);
-            EditorGUILayout.Slider(_spatialFilterRadius, 0.1f, 4.0f, TextContent.SpatialFilterRadius);
-            EditorGUILayout.PropertyField(_temporalPostFilterEnabled, TextContent.TemporalPostFilterEnabled);
-
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Screen Filtering", EditorStyles.boldLabel);
-            EditorGUILayout.IntSlider(_lookupSampleCount, 0, 8, TextContent.LookupSampleCount);
-            EditorGUILayout.Slider(_upsamplingKernelSize, 0.0f, 8.0f, TextContent.UpsamplingKernelSize);
-            EditorGUILayout.IntSlider(_upsamplingSampleCount, 1, 16, TextContent.UpsamplingSampleCount);
-
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Volume", EditorStyles.boldLabel);
-            _volumeSize.floatValue = Mathf.Max(0.0f, EditorGUILayout.FloatField(TextContent.VolumeSize, _volumeSize.floatValue));
-            EditorGUILayout.IntSlider(_volumeResolution, 16, 128, TextContent.VolumeResolution);
-            EditorGUILayout.IntSlider(_volumeCascadeCount, 1, (int)SurfaceCache.CascadeMax, TextContent.VolumeCascadeCount);
-            EditorGUILayout.PropertyField(_volumeMovement, TextContent.VolumeMovement);
-
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Advanced", EditorStyles.boldLabel);
-            EditorGUILayout.IntSlider(_defragCount, 1, 32, TextContent.DefragCount);
-
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Debugging", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(_debugEnabled, TextContent.DebugEnabled);
-            EditorGUILayout.PropertyField(_debugViewMode, TextContent.DebugViewMode);
-            EditorGUILayout.PropertyField(_debugShowSamplePosition, TextContent.DebugShowSamplePosition);
+            // Info box explaining volume-based control — only shown when no volume in the scene has the override
+            if (!SceneHasSurfaceCacheGIVolume())
+            {
+                EditorGUILayout.HelpBox("Many Surface Cache settings are controlled via the Volume system. Add a 'Surface Cache Global Illumination' volume override to your scene to adjust these settings per-scene.", MessageType.Info);
+            }
         }
     }
 }
-
-#endif

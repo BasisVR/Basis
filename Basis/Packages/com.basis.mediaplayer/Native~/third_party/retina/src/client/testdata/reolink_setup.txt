@@ -1,0 +1,6 @@
+RTSP/1.0 200 OK
+CSeq: 4
+Date: Fri, Apr 30 2021 20:12:32 GMT
+Transport: RTP/AVP/TCP;unicast;destination=192.168.1.210;source=192.168.5.206;interleaved=0-1
+Session: F8F8E425
+

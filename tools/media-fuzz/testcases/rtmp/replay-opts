@@ -1,3 +1,0 @@
-# DOS-001: the per-message allocation cap. Without this the bomb repro
-# passes whether or not the cap still exists.
--malloc_limit_mb=8

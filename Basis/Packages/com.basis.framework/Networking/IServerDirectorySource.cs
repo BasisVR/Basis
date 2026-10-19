@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using System;
 using System.Collections.Generic;
@@ -17,6 +18,7 @@ namespace Basis.Scripts.Networking
         public ConnectionTarget Target;
         public bool CanEdit;
         public bool CanRemove;
+        public bool CanAutoConnect = true;
     }
 
     public interface IServerDirectorySource
@@ -29,10 +31,11 @@ namespace Basis.Scripts.Networking
         event Action SourceChanged;
     }
 
-    public static class BasisServerDirectoryRegistry
+    [AutoStaticsCleanup]
+    public static partial class BasisServerDirectoryRegistry
     {
         private static readonly List<IServerDirectorySource> _sources = new List<IServerDirectorySource>();
-        private static readonly object _lock = new object();
+        [NoAutoStaticsCleanup] private static readonly object _lock = new object();
 
         public static event Action SourcesChanged;
 

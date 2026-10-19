@@ -1,3 +1,4 @@
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEngine;
 
@@ -12,16 +13,16 @@ using UnityEngine;
 /// </summary>
 public sealed class BasisFrameTimingWindow : BasisTabbedEditorWindow
 {
-    protected override string HeaderTitle => "Frame Timing";
+    protected override string HeaderTitle => BasisEditorLocalization.Get("editor.frameTiming.title");
 
     protected override string HeaderSubtitle =>
-        "Where the frame goes — main thread, jobs and render, sampled live.";
+        BasisEditorLocalization.Get("editor.frameTiming.subtitle");
 
     [MenuItem("Basis/Debug/Frame Timing", false, 620)]
     public static void ShowWindow()
     {
         BasisFrameTimingWindow w = GetWindow<BasisFrameTimingWindow>();
-        w.titleContent = new GUIContent("Frame Timing");
+        w.titleContent = new GUIContent(BasisEditorLocalization.Get("editor.frameTiming.title"));
         w.minSize = new Vector2(560, 620);
         w.Show();
     }

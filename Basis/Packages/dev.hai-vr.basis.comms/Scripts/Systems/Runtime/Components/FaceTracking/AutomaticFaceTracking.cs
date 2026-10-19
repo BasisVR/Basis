@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,9 +11,10 @@ using UnityEngine.AddressableAssets;
 [assembly: InternalsVisibleTo("HVR.Basis.Comms.Editor")]
 namespace HVR.Basis.Comms
 {
+    [AutoStaticsCleanup]
     [AddComponentMenu("HVR.Basis/Automatic Face Tracking")]
     [HelpURL("https://docs.hai-vr.dev/docs/basis/avatar-customization/face-tracking")]
-    public class AutomaticFaceTracking : MonoBehaviour, IHVRInitializable
+    public partial class AutomaticFaceTracking : MonoBehaviour, IHVRInitializable
     {
         [SerializeField] internal bool useCustomMultiplier;
         [SerializeField] internal float eyeTrackingMultiplyX = 1f;

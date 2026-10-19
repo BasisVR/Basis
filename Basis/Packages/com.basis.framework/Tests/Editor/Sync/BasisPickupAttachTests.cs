@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Reflection;
 using System.Runtime.Serialization;
 using Basis.Scripts.BasisSdk;
@@ -14,6 +15,7 @@ namespace Basis.Tests.Sync
     /// receiver -> BasisSyncDriver -> ApplyInterpolated) in edit mode: held reconstruction, the
     /// post-remote-bones re-weld, release edges, unresolvable owners, and ownership churn.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public class BasisPickupAttachTests
     {
         const BindingFlags NP = BindingFlags.NonPublic | BindingFlags.Instance;

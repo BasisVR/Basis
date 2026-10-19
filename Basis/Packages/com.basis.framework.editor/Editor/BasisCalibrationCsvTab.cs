@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using Basis.Editor.Localization;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -16,9 +17,9 @@ using UnityEngine;
 /// </summary>
 public sealed class BasisCalibrationCsvTab : BasisEditorTabPage
 {
-        public override string Title => "Debug CSV";
+        public override string Title => BasisEditorLocalization.Get("editor.calibrationCsv.title");
         public override string Subtitle =>
-            "Record a calibration run to CSV so a bad bind can be read back frame by frame.";
+            BasisEditorLocalization.Get("editor.calibrationCsv.subtitle");
 
     private sealed class CsvFileInfo
     {
@@ -80,7 +81,7 @@ public sealed class BasisCalibrationCsvTab : BasisEditorTabPage
         if (_headers.Length == 0)
         {
             EditorGUILayout.HelpBox(
-                "No file loaded. Enable Settings → Developer → \"Dump Calibration CSV\", calibrate an avatar in Play mode, then Refresh.",
+                BasisEditorLocalization.Get("editor.calibrationCsv.noFileLoaded"),
                 MessageType.Info);
             return;
         }
@@ -99,17 +100,17 @@ public sealed class BasisCalibrationCsvTab : BasisEditorTabPage
         string dir = BasisCalibrationDebugRecorder.OutputDirectory;
         using (new EditorGUILayout.HorizontalScope(EditorStyles.helpBox))
         {
-            EditorGUILayout.LabelField("Folder", GUILayout.Width(44));
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.calibrationCsv.folder"), GUILayout.Width(44));
             EditorGUILayout.SelectableLabel(dir, EditorStyles.textField, GUILayout.Height(18));
             bool exists = Directory.Exists(dir);
             using (new EditorGUI.DisabledScope(!exists))
             {
-                if (GUILayout.Button("Reveal", GUILayout.Width(64)))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.calibrationCsv.reveal"), GUILayout.Width(64)))
                 {
                     EditorUtility.RevealInFinder(dir);
                 }
             }
-            if (GUILayout.Button("Refresh", GUILayout.Width(64)))
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.refresh"), GUILayout.Width(64)))
             {
                 RefreshFiles();
             }
@@ -122,10 +123,10 @@ public sealed class BasisCalibrationCsvTab : BasisEditorTabPage
     {
         using (new EditorGUILayout.HorizontalScope())
         {
-            EditorGUILayout.LabelField("File", GUILayout.Width(44));
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.calibrationCsv.file"), GUILayout.Width(44));
             if (_files.Count == 0)
             {
-                BasisEditorUI.Note("(no CSV files found)");
+                BasisEditorUI.Note(BasisEditorLocalization.Get("editor.calibrationCsv.noCsvFiles"));
                 return;
             }
             int newIndex = EditorGUILayout.Popup(_selectedFile, _fileLabels);
@@ -137,11 +138,11 @@ public sealed class BasisCalibrationCsvTab : BasisEditorTabPage
             CsvFileInfo info = (_selectedFile >= 0 && _selectedFile < _files.Count) ? _files[_selectedFile] : null;
             using (new EditorGUI.DisabledScope(info == null))
             {
-                if (GUILayout.Button("Open", GUILayout.Width(56)) && info != null)
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.open"), GUILayout.Width(56)) && info != null)
                 {
                     EditorUtility.OpenWithDefaultApp(info.Path);
                 }
-                if (GUILayout.Button("Reveal", GUILayout.Width(64)) && info != null)
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.calibrationCsv.reveal"), GUILayout.Width(64)) && info != null)
                 {
                     EditorUtility.RevealInFinder(info.Path);
                 }
@@ -152,9 +153,10 @@ public sealed class BasisCalibrationCsvTab : BasisEditorTabPage
         {
             CsvFileInfo info = _files[_selectedFile];
             string avatarName = FindMeta("avatarName");
-            string namePart = string.IsNullOrEmpty(avatarName) ? string.Empty : $"avatar: {avatarName} · ";
             EditorGUILayout.LabelField(
-                $"{namePart}{_rows.Count} rows · {FormatSize(info.Size)} · {info.Modified:yyyy-MM-dd HH:mm:ss}",
+                string.IsNullOrEmpty(avatarName)
+                    ? BasisEditorLocalization.Get("editor.calibrationCsv.fileSummary", _rows.Count, FormatSize(info.Size), info.Modified)
+                    : BasisEditorLocalization.Get("editor.calibrationCsv.fileSummaryAvatar", avatarName, _rows.Count, FormatSize(info.Size), info.Modified),
                 EditorStyles.miniLabel);
         }
     }
@@ -227,7 +229,7 @@ public sealed class BasisCalibrationCsvTab : BasisEditorTabPage
             string[] lines = File.ReadAllLines(_files[index].Path);
             if (lines.Length == 0)
             {
-                _loadError = "File is empty.";
+                _loadError = BasisEditorLocalization.Get("editor.calibrationCsv.fileEmpty");
                 return;
             }
             _headers = ParseLine(lines[0]);
@@ -240,7 +242,7 @@ public sealed class BasisCalibrationCsvTab : BasisEditorTabPage
         }
         catch (Exception e)
         {
-            _loadError = "Failed to read file: " + e.Message;
+            _loadError = BasisEditorLocalization.Get("editor.calibrationCsv.readFailed", e.Message);
         }
     }
 
@@ -273,10 +275,10 @@ public sealed class BasisCalibrationCsvTab : BasisEditorTabPage
 
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
-            BasisEditorUI.SectionTitle("Quick read — head offset frame");
-            if (rootEuler != null) EditorGUILayout.LabelField("AnimatorRoot (world euler):", rootEuler);
-            if (headOffset != null) EditorGUILayout.LabelField("CalibratedRotationHead (offset):", headOffset);
-            if (headTpose != null) EditorGUILayout.LabelField("head.ctrl.TposeLocal (root-relative):", headTpose);
+            BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.calibrationCsv.quickReadTitle"));
+            if (rootEuler != null) EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.calibrationCsv.rootEulerLabel"), rootEuler);
+            if (headOffset != null) EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.calibrationCsv.headOffsetLabel"), headOffset);
+            if (headTpose != null) EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.calibrationCsv.headTposeLabel"), headTpose);
 
             if (TryGetYaw(rootEuler, out float yaw))
             {
@@ -284,13 +286,13 @@ public sealed class BasisCalibrationCsvTab : BasisEditorTabPage
                 if (off > 10f)
                 {
                     EditorGUILayout.HelpBox(
-                        $"AnimatorRoot is rotated {off:F1}° in yaw at capture time. This spawn orientation is baked into the absolute head offset and is the likely source of the flipped/inverted head.",
+                        BasisEditorLocalization.Get("editor.calibrationCsv.rootYawWarning", off),
                         MessageType.Warning);
                 }
                 else
                 {
                     EditorGUILayout.HelpBox(
-                        "AnimatorRoot is near-upright at capture — this run should not exhibit the spawn-orientation head flip.",
+                        BasisEditorLocalization.Get("editor.calibrationCsv.rootUpright"),
                         MessageType.Info);
                 }
             }
@@ -301,15 +303,17 @@ public sealed class BasisCalibrationCsvTab : BasisEditorTabPage
 
     private void DrawFilters()
     {
+        _stageOptions[0] = BasisEditorLocalization.Get("editor.common.all");
+        _spaceOptions[0] = BasisEditorLocalization.Get("editor.common.all");
         using (new EditorGUILayout.HorizontalScope())
         {
-            EditorGUILayout.LabelField("Stage", GUILayout.Width(40));
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.calibrationCsv.filterStage"), GUILayout.Width(40));
             _stageFilter = EditorGUILayout.Popup(_stageFilter, _stageOptions, GUILayout.Width(120));
-            EditorGUILayout.LabelField("Space", GUILayout.Width(44));
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.calibrationCsv.filterSpace"), GUILayout.Width(44));
             _spaceFilter = EditorGUILayout.Popup(_spaceFilter, _spaceOptions, GUILayout.Width(100));
-            EditorGUILayout.LabelField("Label", GUILayout.Width(40));
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.calibrationCsv.filterLabel"), GUILayout.Width(40));
             _labelFilter = EditorGUILayout.TextField(_labelFilter);
-            _showQuaternions = GUILayout.Toggle(_showQuaternions, "Quats", EditorStyles.miniButton, GUILayout.Width(50));
+            _showQuaternions = GUILayout.Toggle(_showQuaternions, BasisEditorLocalization.Get("editor.calibrationCsv.quats"), EditorStyles.miniButton, GUILayout.Width(50));
         }
     }
 
@@ -370,7 +374,7 @@ public sealed class BasisCalibrationCsvTab : BasisEditorTabPage
         }
 
         EditorGUILayout.EndScrollView();
-        BasisEditorUI.Note($"{shown} / {_rows.Count} rows shown");
+        BasisEditorUI.Note(BasisEditorLocalization.Get("editor.calibrationCsv.rowsShown", shown, _rows.Count));
     }
 
     private bool ColumnVisible(int c)

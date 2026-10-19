@@ -4,6 +4,7 @@
     "references": [
         "BasisBundleManagement",
         "BasisSDK",
+        "BasisSDKEditor",
         "BasisDebug",
         "UnityEngine.TestRunner"
     ],

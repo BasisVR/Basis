@@ -143,6 +143,10 @@ public static class BasisVideoOutputMath
     }
 }
 
+/// <summary>Per-output colour adjustment. Serializable because both output sinks
+/// expose it as an inspector field and the SDK inspector binds a PropertyField to
+/// it; without the attribute Unity skips the field, the binding cannot resolve and
+/// the values are unreachable to a world author.</summary>
 [System.Serializable]
 public struct BasisVideoPicture
 {

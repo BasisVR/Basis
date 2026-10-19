@@ -26,14 +26,24 @@ public static class BasisCalibrationMath
     }
     public static void ReprojectInverseOffsetPosition( Vector3 calibUnscaledTrackerPos, Quaternion calibUnscaledTrackerRot, Vector3 calibUnscaledHeadPos, Quaternion calibUnscaledHeadRot, float deviceScale, Vector3 offsetPos, Quaternion offsetRot, Vector3 headTposeLocalScaled, Vector3 boneTposeLocalScaled, out Vector3 inverseOffsetPosition)
     {
+        ReprojectInverseOffsetPosition(calibUnscaledTrackerPos, calibUnscaledTrackerRot, calibUnscaledHeadPos, calibUnscaledHeadRot, deviceScale, offsetPos, offsetRot, headTposeLocalScaled, boneTposeLocalScaled, false, 0f, out inverseOffsetPosition);
+    }
+    public static void ReprojectInverseOffsetPosition( Vector3 calibUnscaledTrackerPos, Quaternion calibUnscaledTrackerRot, Vector3 calibUnscaledHeadPos, Quaternion calibUnscaledHeadRot, float deviceScale, Vector3 offsetPos, Quaternion offsetRot, Vector3 headTposeLocalScaled, Vector3 boneTposeLocalScaled, bool floorAnchored, float floorY, out Vector3 inverseOffsetPosition)
+    {
         ScaleDeviceCoord(calibUnscaledTrackerPos, calibUnscaledTrackerRot, deviceScale, offsetPos, offsetRot, out Vector3 trackerPos, out Quaternion trackerRot);
         ScaleDeviceCoord(calibUnscaledHeadPos, calibUnscaledHeadRot, deviceScale, offsetPos, offsetRot, out Vector3 headPos, out Quaternion headRot);
 
         ComputeTposeAnchor(headPos, headRot, headTposeLocalScaled, out Vector3 rootPos, out Quaternion rootRot);
 
         Vector3 reference = rootPos + rootRot * boneTposeLocalScaled;
+        if (floorAnchored)
+        {
+            reference.y = floorY;
+        }
         ComputeInverseOffset(trackerPos, trackerRot, reference, Quaternion.identity, out inverseOffsetPosition, out _);
     }
+    public static bool IsFloorAnchoredRole(Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole role) => role == Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole.LeftFoot || role == Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole.RightFoot || role == Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole.LeftToes || role == Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole.RightToes;
+    public static float FloorAnchorY(float verticalOffset, float deviceScale, Vector3 offsetPos, Quaternion offsetRot) => (offsetPos + offsetRot * new Vector3(0f, verticalOffset * deviceScale, 0f)).y;
     public static void ComputeTposeAnchor(Vector3 headPos, Quaternion headRot, Vector3 headTposeLocalScaled, out Vector3 anchorPos, out Quaternion anchorRot)
     {
         Vector3 flatFwd = headRot * Vector3.forward;
@@ -55,14 +65,26 @@ public static class BasisCalibrationMath
         }
         return avatarScaledMetric / denominator;
     }
-    public static float ArmSpanFloorGroundingLift(float avatarUnscaledEye, float appliedUpScale, float deviceScale, float playerMeasuredEye)
+    public static float ScaleAuthoredMetricByRootRatio(float authoredMetric, float currentRootScale, float authoredRootScale)
     {
-        if (deviceScale <= 1e-5f)
+        if (float.IsNaN(authoredMetric) || float.IsInfinity(authoredMetric) || authoredMetric <= 0f)
         {
             return 0f;
         }
-        float desiredUnscaledEye = (avatarUnscaledEye * appliedUpScale) / deviceScale;
-        return Mathf.Max(0f, desiredUnscaledEye - playerMeasuredEye);
+        bool currentValid = !float.IsNaN(currentRootScale) && !float.IsInfinity(currentRootScale) && currentRootScale > 1e-6f;
+        bool authoredValid = !float.IsNaN(authoredRootScale) && !float.IsInfinity(authoredRootScale) && authoredRootScale > 1e-6f;
+        float runtimeScale = currentValid && authoredValid ? currentRootScale / authoredRootScale : 1f;
+        float rendered = authoredMetric * runtimeScale;
+        return !float.IsNaN(rendered) && !float.IsInfinity(rendered) && rendered > 0f ? rendered : authoredMetric;
+    }
+    public static float HeightModeGroundingOffset(float avatarUnscaledEye, float appliedUpScale, float deviceScale, float playerTrueEye)
+    {
+        if (!(deviceScale > 1e-5f) || float.IsInfinity(deviceScale) || !(playerTrueEye > 0f) || float.IsInfinity(playerTrueEye))
+        {
+            return 0f;
+        }
+        float offset = (avatarUnscaledEye * appliedUpScale) / deviceScale - playerTrueEye;
+        return float.IsNaN(offset) || float.IsInfinity(offset) || Mathf.Abs(offset) < 1e-5f ? 0f : offset;
     }
     public const float ArmToHeightBlendMin = 0f;
     public const float ArmToHeightBlendMax = 1f;
@@ -71,7 +93,7 @@ public static class BasisCalibrationMath
         return Mathf.Lerp(eyeMetric, spanMetric, Mathf.Clamp(blend, ArmToHeightBlendMin, ArmToHeightBlendMax));
     }
     public const float EyeToHeightRatio = 0.93f;
-    public const float SpanToHeightRatio = 1.0f;
+    public const float SpanToHeightRatio = 0.86f;
     public const float AutoModeEyePreferenceBand = 1.08f;
     public static float ImpliedHeightFromEye(float playerEye) => playerEye / EyeToHeightRatio;
     public static float ImpliedHeightFromSpan(float playerSpan) => playerSpan / SpanToHeightRatio;
@@ -132,5 +154,17 @@ public static class BasisCalibrationMath
             return false;
         }
         return ImpliedHeightFromEye(playerEye) > ImpliedHeightFromSpan(playerSpan) * EyeOverSpanPersistBand;
+    }
+    public static float SizingEyeHeight(float measuredEye, float span, bool spanGenuine, float statedEye)
+    {
+        if (!EyeHeightLooksLiftPoisoned(measuredEye))
+        {
+            return measuredEye;
+        }
+        if (statedEye > 0f)
+        {
+            return statedEye;
+        }
+        return spanGenuine && ArmSpanLooksUnderMeasured(measuredEye, span) ? Mathf.Max(ImpliedHeightFromSpan(span) * EyeToHeightRatio, BasisHeightDriver.MinPlausibleBodyMeasure) : measuredEye;
     }
 }

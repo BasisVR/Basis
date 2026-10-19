@@ -57,7 +57,7 @@ namespace Basis.IK
     public static class BasisHeadPitchSwingCore
     {
         const float sqrEpsilon = 1e-10f;
-        public static void Solve(float pitchDeg, float yawDeg, Vector3 eyeFromNeck, float strength, float backwardScale, out Vector3 offset, out float forwardMeters)
+        public static void Solve(float pitchDeg, float yawDeg, Vector3 eyeFromNeck, float strength, out Vector3 offset, out float forwardMeters)
         {
             offset = Vector3.zero;
             forwardMeters = 0f;
@@ -71,8 +71,6 @@ namespace Basis.IK
 
             float p = pitchDeg * Mathf.Deg2Rad, swung = lever * Mathf.Sin(p) + forwardRest * Mathf.Cos(p);
             float forward = (swung - forwardRest) * strength;
-
-            if (forward < 0f) forward *= backwardScale;
 
             if (!(forward > -4f && forward < 4f)) return;
             forward = Mathf.Clamp(forward, -1f, 1f);

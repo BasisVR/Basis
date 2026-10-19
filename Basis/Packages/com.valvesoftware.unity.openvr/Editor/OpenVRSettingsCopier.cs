@@ -50,7 +50,7 @@ namespace Unity.XR.OpenVR.Editor
                 return;
 
             //make sure our loader is checked
-            bool hasLoader = generalSettings.Manager.loaders.Any(loader => loader is OpenVRLoader);
+            bool hasLoader = generalSettings.Manager.activeLoaders.Any(loader => loader is OpenVRLoader);
             if (hasLoader == false)
                 return;
 #endif

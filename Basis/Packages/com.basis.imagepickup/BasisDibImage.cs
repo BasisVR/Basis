@@ -112,7 +112,7 @@ namespace Basis.ImagePickup
             return true;
         }
 
-        public static BasisDibDecodeResult Decode(byte[] dib)
+        public static BasisDibDecodeResult Decode(byte[] dib, int maxAxis = MaxAxis, long maxPixels = (long)MaxAxis * MaxAxis)
         {
             var result = new BasisDibDecodeResult();
 
@@ -185,6 +185,10 @@ namespace Basis.ImagePickup
                 }
                 paletteBytes = entries * 4;
             }
+            else
+            {
+                paletteBytes = (long)paletteEntries * 4;
+            }
 
             long pixelOffset = headerSize + maskBytes + paletteBytes;
             long stride = ((long)width * bitCount + 31) / 32 * 4;
@@ -229,7 +233,7 @@ namespace Basis.ImagePickup
             }
 
             long rgbaBytes = (long)width * height * 4;
-            if (rgbaBytes > int.MaxValue)
+            if (rgbaBytes > int.MaxValue || width > maxAxis || height > maxAxis || (long)width * height > maxPixels)
             {
                 result.Error = "Clipboard bitmap is too large to decode";
                 return result;
@@ -469,6 +473,41 @@ namespace Basis.ImagePickup
                 // 0x1F shifted left by three lands on 248, which reads as a visibly dimmed image.
                 return (byte)(value * 255 / _maximum);
             }
+        }
+
+        public static byte[] Encode(byte[] rgba, int width, int height)
+        {
+            if (rgba == null || width <= 0 || height <= 0 || (long)width * height * 4 != rgba.Length) return null;
+            int stride = width * 4;
+            byte[] dib = new byte[BitmapInfoHeaderSize + rgba.Length];
+            WriteUInt32(dib, 0, BitmapInfoHeaderSize);
+            WriteUInt32(dib, 4, (uint)width);
+            WriteUInt32(dib, 8, (uint)height);
+            dib[12] = 1;
+            dib[14] = 32;
+            WriteUInt32(dib, 16, BI_RGB);
+            WriteUInt32(dib, 20, (uint)rgba.Length);
+            for (int y = 0; y < height; y++)
+            {
+                int source = y * stride;
+                int target = BitmapInfoHeaderSize + (height - 1 - y) * stride;
+                for (int x = 0; x < stride; x += 4)
+                {
+                    dib[target + x] = rgba[source + x + 2];
+                    dib[target + x + 1] = rgba[source + x + 1];
+                    dib[target + x + 2] = rgba[source + x];
+                    dib[target + x + 3] = rgba[source + x + 3];
+                }
+            }
+            return dib;
+        }
+
+        private static void WriteUInt32(byte[] data, int offset, uint value)
+        {
+            data[offset] = (byte)value;
+            data[offset + 1] = (byte)(value >> 8);
+            data[offset + 2] = (byte)(value >> 16);
+            data[offset + 3] = (byte)(value >> 24);
         }
 
         private static ushort ReadUInt16(byte[] data, int offset) =>

@@ -408,7 +408,7 @@ namespace HVR.Vixxy.Editor
                 if (useComponentDropdown && element.objectReferenceValue != null && element.objectReferenceValue.GetType() == typeof(Transform))
                 {
                     var t = (Transform)element.objectReferenceValue;
-                    var obj = EditorGUILayout.ObjectField(GUIContent.none, t.gameObject, typeof(GameObject));
+                    var obj = EditorGUILayout.ObjectField(GUIContent.none, t.gameObject, typeof(GameObject), true);
                     if (obj != t.gameObject && obj != t)
                     {
                         element.objectReferenceValue = obj;
@@ -472,7 +472,7 @@ namespace HVR.Vixxy.Editor
             {
                 EditorGUILayout.BeginHorizontal();
                 EditorGUILayout.LabelField(HVR_EditorHelpers.PlusSymbol, GUILayout.Width(15));
-                var newAddition = EditorGUILayout.ObjectField(GUIContent.none, null, arrayType);
+                var newAddition = EditorGUILayout.ObjectField(GUIContent.none, null, arrayType, true);
                 EditorGUILayout.LabelField(GUIContent.none, GUILayout.Width(25));
                 EditorGUILayout.EndHorizontal();
                 if (newAddition != null)
@@ -800,11 +800,11 @@ namespace HVR.Vixxy.Editor
             {
                 var didFindComp = targetObject.TryGetComponent(targetedType, out var foundComp);
                 componentNullable = didFindComp ? foundComp : null;
-                EditorGUILayout.ObjectField(foundComp, targetedType);
+                EditorGUILayout.ObjectField(foundComp, targetedType, true);
             }
             else if (targetedType == typeof(GameObject))
             {
-                EditorGUILayout.ObjectField(targetObject, typeof(GameObject));
+                EditorGUILayout.ObjectField(targetObject, typeof(GameObject), true);
             }
             else
             {

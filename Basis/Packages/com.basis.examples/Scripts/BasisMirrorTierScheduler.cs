@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.BasisUI;
 using Basis.Scripts.Drivers;
@@ -13,7 +14,8 @@ using UnityEngine;
 /// last image), 1 = every frame, 2/4 = every 2nd/4th frame. The half/quarter tiers engage only while
 /// <c>MirrorDistanceRateTiers</c> is on (mobile default); otherwise only the cull distance applies.
 /// </summary>
-public static class BasisMirrorTierScheduler
+[AutoStaticsCleanup]
+public static partial class BasisMirrorTierScheduler
 {
     private static readonly List<BasisSDKMirror> Mirrors = new List<BasisSDKMirror>();
     private static int[] rates = System.Array.Empty<int>();

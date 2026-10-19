@@ -60,6 +60,7 @@ namespace Basis.IK
     public struct BasisCrouchOffsetResult
     {
         public Vector3 HipsPos;
+        public Quaternion HipsRot;
         public bool Applied;
         public float SetbackMeters, LeanDeg;
     }

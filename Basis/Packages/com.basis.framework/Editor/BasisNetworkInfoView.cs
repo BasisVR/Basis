@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using System.Text;
+using Basis.Editor.Localization;
 using Unity.Mathematics;
 using UnityEditor;
 using UnityEngine;
@@ -28,7 +29,7 @@ public static class BasisNetworkInfoView
 
     public static VisualElement Build(UnityEngine.Object target)
     {
-        var foldout = new Foldout { text = "Network Information", value = false };
+        var foldout = new Foldout { text = BasisEditorLocalization.Get("editor.networkInfo.title"), value = false };
         foldout.style.marginTop = 6;
         foldout.style.marginBottom = 8;
         Label title = foldout.Q<Label>();
@@ -54,16 +55,16 @@ public static class BasisNetworkInfoView
 
             if (!Application.isPlaying)
             {
-                content.Add(Note("Live network state appears here in Play Mode."));
+                content.Add(Note(BasisEditorLocalization.Get("editor.networkInfo.playModeNote")));
                 return;
             }
             if (target == null)
             {
-                content.Add(Note("Object no longer exists."));
+                content.Add(Note(BasisEditorLocalization.Get("editor.networkInfo.targetGone")));
                 return;
             }
             BuildTypeGroups(content, () => target, target.GetType(), refreshers);
-            if (refreshers.Count == 0) content.Add(Note("No network metadata found."));
+            if (refreshers.Count == 0) content.Add(Note(BasisEditorLocalization.Get("editor.networkInfo.noMetadata")));
         }
 
         Rebuild();
@@ -125,7 +126,7 @@ public static class BasisNetworkInfoView
             {
                 bool isNull = getValue() == null;
                 sub.SetEnabled(!isNull);
-                if (hint != null) hint.text = isNull ? name + "  (null)" : name;
+                if (hint != null) hint.text = isNull ? BasisEditorLocalization.Get("editor.networkInfo.nullName", name) : name;
             });
             return;
         }
@@ -182,8 +183,8 @@ public static class BasisNetworkInfoView
         }
         if (t.IsEnum) return v.ToString();
         if (v is string s) return s.Length == 0 ? "\"\"" : s;
-        if (v is Delegate) return "(callback)";
-        if (v is UnityEngine.Object uo) return uo != null ? $"{uo.name} ({t.Name})" : "None";
+        if (v is Delegate) return BasisEditorLocalization.Get("editor.networkInfo.callback");
+        if (v is UnityEngine.Object uo) return uo != null ? $"{uo.name} ({t.Name})" : BasisEditorLocalization.Get("editor.common.none");
 
         if (v is float3 f3) return $"({Num(f3.x)}, {Num(f3.y)}, {Num(f3.z)})";
         if (v is quaternion qm) return $"({Num(qm.value.x)}, {Num(qm.value.y)}, {Num(qm.value.z)}, {Num(qm.value.w)})";

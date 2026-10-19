@@ -24,7 +24,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\BasisNetworkServer\BasisNetworkServer.csproj" />
 		<ProjectReference Include="..\BasisNetworkCore\BasisNetworkCore.csproj" />
-		<ProjectReference Include="..\LiteNetLib\LiteNetLib.csproj" />
+		<PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.13" />
 	</ItemGroup>
 
 	<!--

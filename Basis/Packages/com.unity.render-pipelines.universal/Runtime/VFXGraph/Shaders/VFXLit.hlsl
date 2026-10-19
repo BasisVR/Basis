@@ -37,17 +37,14 @@ InputData VFXGetInputData(const VFX_VARYING_PS_INPUTS i, const PositionInputs po
 #endif
 
 //When there is only one cascaded, this shadowCoord can be computed at vertex stage
-//#if defined(REQUIRES_VERTEX_SHADOW_COORD_INTERPOLATOR)
+//#if USE_VERTEX_SHADOW_COORD_INTERPOLATOR
 //    inputData.shadowCoord = inputData.shadowCoord;
-#if defined(MAIN_LIGHT_CALCULATE_SHADOWS)
-    inputData.shadowCoord = TransformWorldToShadowCoord(inputData.positionWS);
-#else
-    inputData.shadowCoord = float4(0, 0, 0, 0);
-#endif
+    if (MainLightShadowsAvailable())
+        inputData.shadowCoord = TransformWorldToShadowCoord(inputData.positionWS);
+    else
+        inputData.shadowCoord = float4(0, 0, 0, 0);
 
-    //This ComputeFogFactor can be moved to vertex and use interpolator instead
-    float fogFactor = ComputeFogFactor(i.VFX_VARYING_POSCS.z);
-    inputData.fogCoord = InitializeInputDataFog(float4(inputData.positionWS, 1.0), fogFactor);
+    inputData.preExposureMultiplier = GetPreExposureMultiplier();
 
     //SampleSH could partially be done on vertex using SampleSHVertex & SampleSHPixel
     //For now, use directly the simpler per pixel fallback

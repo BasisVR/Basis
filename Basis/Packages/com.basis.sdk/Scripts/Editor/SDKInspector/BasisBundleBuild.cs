@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -15,6 +16,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
+[NoAutoStaticsCleanup]
 public static class BasisBundleBuild
 {
     public static event Func<BasisContentBase, List<BuildTarget>, Task> PreBuildBundleEvents;
@@ -27,7 +29,7 @@ public static class BasisBundleBuild
         {
             if (CheckTarget(Targets[Index]) == false)
             {
-                return (false, "Please install build target for " + Targets[Index].ToString());
+                return (false, BasisEditorLocalization.Get("sdk.bundleBuild.installTarget", Targets[Index].ToString()));
             }
         }
 
@@ -170,8 +172,7 @@ public static class BasisBundleBuild
     }
     public static bool CheckTarget(BuildTarget target)
     {
-        bool isSupported = BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.Standalone, target) ||
-                           BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.Android, target);
+        bool isSupported = BuildPipeline.IsBuildTargetSupported(BuildPipeline.GetBuildTargetGroup(target), target);
 
         Debug.Log($"{target.ToString()} Build Target Installed: {isSupported}");
         return isSupported;
@@ -189,7 +190,7 @@ public static class BasisBundleBuild
         {
             if (CheckTarget(Targets[Index]) == false)
             {
-                return (false, "Please install build target for " + Targets[Index].ToString());
+                return (false, BasisEditorLocalization.Get("sdk.bundleBuild.installTarget", Targets[Index].ToString()));
             }
         }
 
@@ -525,6 +526,10 @@ public static class BasisBundleBuild
             {
                 return (false, error);
             }
+            if (useProvidedPassword && string.IsNullOrEmpty(OverriddenPassword))
+            {
+                return (false, BasisEditorLocalization.Get("sdk.bundleBuild.passwordEmpty"));
+            }
 
             AdjustBuildTargetOrder(targets);
 
@@ -559,7 +564,7 @@ public static class BasisBundleBuild
                 var (success, result) = await buildFunction(basisContentBase, assetBundleObject, Password, target, generatedID, Index == 0);
                 if (!success)
                 {
-                    return (false, $"Failure While Building for {target}");
+                    return (false, BasisEditorLocalization.Get("sdk.bundleBuild.failureFor", target));
                 }
 
                 if (!metaDataSet)
@@ -609,7 +614,7 @@ public static class BasisBundleBuild
 
             BasisBundleConnector basisBundleConnector = new BasisBundleConnector(
                 generatedID,
-                basisContentBase.BasisBundleDescription,
+                basisContentBase.BasisBundleDescription.WithAuthorFallback(BasisContentDefaults.LocalDidKey()),
                 bundles.ToArray(),
                 Images,
                 BasisBounds,
@@ -698,7 +703,7 @@ public static class BasisBundleBuild
             catch { /* ignore */ }
 
             EditorUtility.ClearProgressBar();
-            return (false, $"BuildBundle Exception: {ex.Message}");
+            return (false, BasisEditorLocalization.Get("sdk.bundleBuild.exception", ex.Message));
         }
     }
     /// <summary>
@@ -928,7 +933,7 @@ public static class BasisBundleBuild
 
         if (string.IsNullOrEmpty(BasisContentBase.BasisBundleDescription.AssetBundleName))
         {
-            Error = "Name was empty! Please provide a name in the field.";
+            Error = BasisEditorLocalization.Get("sdk.bundleBuild.nameEmpty");
             return false;
         }
 
@@ -939,7 +944,7 @@ public static class BasisBundleBuild
     {
         Debug.Log($"Generating {length} random bytes...");
         byte[] randomBytes = new byte[length];
-        using (var rng = new RNGCryptoServiceProvider())
+        using (var rng = RandomNumberGenerator.Create())
         {
             rng.GetBytes(randomBytes);
         }

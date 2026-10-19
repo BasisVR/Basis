@@ -17,6 +17,28 @@
     padding-right: 6px;
 }
 
+/* A boxed group inside a card: the per-platform URL toggle and the fields it
+   governs, drawn together so the toggle visibly owns them. */
+.bvp-subgroup {
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(255, 255, 255, 0.18);
+    border-right-color: rgba(255, 255, 255, 0.18);
+    border-top-color: rgba(255, 255, 255, 0.18);
+    border-bottom-color: rgba(255, 255, 255, 0.18);
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    padding-left: 5px;
+    padding-right: 5px;
+    margin-bottom: 6px;
+}
+
 .bvp-header-card {
     padding-top: 0;
     padding-bottom: 0;
@@ -44,6 +66,13 @@
     font-size: 14px;
     color: rgb(239, 40, 90);
     margin-bottom: 4px;
+}
+
+.bvp-subgroup-title {
+    -unity-font-style: bold;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.62);
+    margin-bottom: 3px;
 }
 
 .bvp-foldout {

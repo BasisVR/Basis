@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEngine;
 
@@ -7,9 +8,9 @@ using Basis.Scripts.Device_Management;
 
 public sealed class BasisHeightDriverTab : BasisEditorTabPage
 {
-        public override string Title => "Height Driver";
+        public override string Title => BasisEditorLocalization.Get("editor.heightDriver.title");
         public override string Subtitle =>
-            "Live eye height, avatar scale and the ratios derived from them.";
+            BasisEditorLocalization.Get("editor.heightDriver.subtitle");
 
     private const string Pref_RepaintWhilePlaying = "BasisHeightDriverWindow.RepaintWhilePlaying";
     private const string Pref_AutoRepaintInterval = "BasisHeightDriverWindow.AutoRepaintInterval";
@@ -72,15 +73,15 @@ public sealed class BasisHeightDriverTab : BasisEditorTabPage
     {
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
-            BasisEditorUI.SectionTitle("BasisHeightDriver Debug Panel");
+            BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.heightDriver.debugPanelTitle"));
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                _repaintWhilePlaying = EditorGUILayout.ToggleLeft("Repaint while playing", _repaintWhilePlaying, GUILayout.Width(170));
-                EditorGUILayout.LabelField("Interval (sec)", GUILayout.Width(80));
+                _repaintWhilePlaying = EditorGUILayout.ToggleLeft(BasisEditorLocalization.Get("editor.heightDriver.repaintWhilePlaying"), _repaintWhilePlaying, GUILayout.Width(170));
+                EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.heightDriver.interval"), GUILayout.Width(80));
                 _autoRepaintInterval = EditorGUILayout.Slider(_autoRepaintInterval, 0.02f, 1.0f);
 
-                if (GUILayout.Button("Repaint Now", GUILayout.Width(110)))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.heightDriver.repaintNow"), GUILayout.Width(110)))
                     Host.Repaint();
             }
         }
@@ -90,17 +91,17 @@ public sealed class BasisHeightDriverTab : BasisEditorTabPage
     {
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
-            BasisEditorUI.SectionTitle("Runtime Status");
+            BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.heightDriver.runtimeStatusSection"));
 
-            EditorGUILayout.LabelField("Play Mode", EditorApplication.isPlaying ? "Playing" : "Not Playing");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.heightDriver.playMode"), EditorApplication.isPlaying ? BasisEditorLocalization.Get("editor.heightDriver.playing") : BasisEditorLocalization.Get("editor.heightDriver.notPlaying"));
 
             var lp = BasisLocalPlayer.Instance;
-            EditorGUILayout.LabelField("BasisLocalPlayer.Instance", lp ? "Present" : "NULL");
+            EditorGUILayout.LabelField("BasisLocalPlayer.Instance", lp ? BasisEditorLocalization.Get("editor.heightDriver.present") : "NULL");
 
-            string device = "Unknown";
-            try { device = BasisDeviceManagement.IsUserInDesktop() ? "Desktop" : "VR/Other"; }
+            string device = BasisEditorLocalization.Get("editor.common.unknown");
+            try { device = BasisDeviceManagement.IsUserInDesktop() ? BasisEditorLocalization.Get("editor.heightDriver.desktop") : BasisEditorLocalization.Get("editor.heightDriver.vrOther"); }
             catch { /* ignore */ }
-            EditorGUILayout.LabelField("Device", device);
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.heightDriver.device"), device);
         }
     }
 
@@ -108,25 +109,25 @@ public sealed class BasisHeightDriverTab : BasisEditorTabPage
     {
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
-            BasisEditorUI.SectionTitle("Actions");
+            BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.heightDriver.actionsSection"));
 
             GUI.enabled = EditorApplication.isPlaying;
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                if (GUILayout.Button("Capture Player Height"))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.heightDriver.capturePlayerHeight")))
                     BasisHeightDriver.CapturePlayerHeight();
 
-                if (GUILayout.Button("Capture Avatar Height (T-Pose)"))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.heightDriver.captureAvatarHeight")))
                     BasisHeightDriver.CaptureAvatarHeightDuringTpose();
             }
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                if (GUILayout.Button("Apply Scale & Height"))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.heightDriver.applyScaleAndHeight")))
                     BasisHeightDriver.ApplyScaleAndHeight();
 
-                if (GUILayout.Button("On Avatar FB Calibration"))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.heightDriver.onAvatarFbCalibration")))
                     BasisHeightDriver.OnAvatarFBCalibration();
             }
 
@@ -137,10 +138,10 @@ public sealed class BasisHeightDriverTab : BasisEditorTabPage
                 if (newMode != mode)
                     SMModuleCalibration.HeightMode = newMode;
 
-                if (GUILayout.Button("Revaluate Unscaled", GUILayout.Width(150)))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.heightDriver.revaluateUnscaled"), GUILayout.Width(150)))
                     BasisHeightDriver.RevaluateUnscaledHeight(newMode);
 
-                if (GUILayout.Button("Choose Height", GUILayout.Width(120)))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.heightDriver.chooseHeight"), GUILayout.Width(120)))
                     BasisHeightDriver.ChooseHeightToUse(newMode);
             }
 
@@ -152,14 +153,13 @@ public sealed class BasisHeightDriverTab : BasisEditorTabPage
     {
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
-            BasisEditorUI.SectionTitle("Data");
+            BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.heightDriver.dataSection"));
             EditorGUILayout.HelpBox(
-                "These are live static values. Editing here mutates the driver immediately.\n" +
-                "Red tint = NaN/Inf/<=0 (suspicious for meters/ratios).",
+                BasisEditorLocalization.Get("editor.heightDriver.dataHelp"),
                 MessageType.Info
             );
 
-            DrawSection("Constants / Toggles", () =>
+            DrawSection(BasisEditorLocalization.Get("editor.heightDriver.sectionConstants"), () =>
             {
                 EditorGUILayout.LabelField("FallbackHeightInMeters", BasisHeightDriver.FallbackHeightInMeters.ToString("0.###"));
 
@@ -173,19 +173,19 @@ public sealed class BasisHeightDriverTab : BasisEditorTabPage
                     EditorGUILayout.FloatField("DeviceScale", BasisHeightDriver.DeviceScale);
             });
 
-            DrawSection("Player Metrics", () =>
+            DrawSection(BasisEditorLocalization.Get("editor.heightDriver.sectionPlayerMetrics"), () =>
             {
                 BasisHeightDriver.PlayerEyeHeight = FloatFieldWarn("PlayerEyeHeight", BasisHeightDriver.PlayerEyeHeight);
                 BasisHeightDriver.PlayerArmSpan = FloatFieldWarn("PlayerArmSpan", BasisHeightDriver.PlayerArmSpan);
             });
 
-            DrawSection("Avatar Metrics", () =>
+            DrawSection(BasisEditorLocalization.Get("editor.heightDriver.sectionAvatarMetrics"), () =>
             {
                 BasisHeightDriver.AvatarEyeHeight = FloatFieldWarn("AvatarEyeHeight", BasisHeightDriver.AvatarEyeHeight);
                 BasisHeightDriver.AvatarArmSpan = FloatFieldWarn("AvatarArmSpan", BasisHeightDriver.AvatarArmSpan);
             });
 
-            DrawSection("Selected Scaled", () =>
+            DrawSection(BasisEditorLocalization.Get("editor.heightDriver.sectionSelectedScaled"), () =>
             {
                 BasisHeightDriver.SelectedScaledPlayerHeight =
                     FloatFieldWarn("SelectedScaledPlayerHeight", BasisHeightDriver.SelectedScaledPlayerHeight);
@@ -194,7 +194,7 @@ public sealed class BasisHeightDriverTab : BasisEditorTabPage
                     FloatFieldWarn("SelectedScaledAvatarHeight", BasisHeightDriver.SelectedScaledAvatarHeight);
             });
 
-            DrawSection("Selected Unscaled", () =>
+            DrawSection(BasisEditorLocalization.Get("editor.heightDriver.sectionSelectedUnscaled"), () =>
             {
                 BasisHeightDriver.SelectedUnScaledPlayerHeight =
                     FloatFieldWarn("SelectedUnScaledPlayerHeight", BasisHeightDriver.SelectedUnScaledPlayerHeight);
@@ -203,7 +203,7 @@ public sealed class BasisHeightDriverTab : BasisEditorTabPage
                     FloatFieldWarn("SelectedUnScaledAvatarHeight", BasisHeightDriver.SelectedUnScaledAvatarHeight);
             });
 
-            DrawSection("Ratios", () =>
+            DrawSection(BasisEditorLocalization.Get("editor.heightDriver.sectionRatios"), () =>
             {
                 BasisHeightDriver.PlayerToAvatarRatioScaled =
                     FloatFieldWarn("PlayerToAvatarRatioScaled", BasisHeightDriver.PlayerToAvatarRatioScaled);
@@ -224,16 +224,16 @@ public sealed class BasisHeightDriverTab : BasisEditorTabPage
     {
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
-            BasisEditorUI.SectionTitle("Quick Tools");
+            BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.heightDriver.quickToolsSection"));
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                if (GUILayout.Button("Copy Snapshot to Clipboard"))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.heightDriver.copySnapshot")))
                 {
                     EditorGUIUtility.systemCopyBuffer = DumpSnapshot();
                 }
 
-                if (GUILayout.Button("Log Snapshot"))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.heightDriver.logSnapshot")))
                 {
                     Debug.Log(DumpSnapshot());
                 }

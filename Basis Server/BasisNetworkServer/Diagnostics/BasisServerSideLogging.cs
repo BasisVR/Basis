@@ -32,8 +32,11 @@ namespace Basis.Network
         {
             UseLogging = config.HasFileSupport;
             LogDirectory = logDirectory;
+            BNL.LogOutput -= Log;
             BNL.LogOutput += Log;
+            BNL.LogWarningOutput -= LogWarning;
             BNL.LogWarningOutput += LogWarning;
+            BNL.LogErrorOutput -= LogError;
             BNL.LogErrorOutput += LogError;
 
             if (UseLogging)

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -9,7 +10,8 @@ using UnityEngine;
 
 namespace Basis.TrackerObjects
 {
-    public static class BasisTrackerObjectManager
+    [AutoStaticsCleanup]
+    public static partial class BasisTrackerObjectManager
     {
         public const int RenderPriority = 99;
 
@@ -32,8 +34,8 @@ namespace Basis.TrackerObjects
         // Single shared deny predicates — each binding lives on a distinct
         // BasisPickupInteractable (enforced by the LoadedNetID dedup), so the same
         // delegate instance is added once per pickup list and removed once on unbind.
-        private static readonly Func<BasisInput, bool> _denyHover = static _ => false;
-        private static readonly Func<BasisInput, bool> _denyInteract = static _ => false;
+        [NoAutoStaticsCleanup] private static readonly Func<BasisInput, bool> _denyHover = static _ => false;
+        [NoAutoStaticsCleanup] private static readonly Func<BasisInput, bool> _denyInteract = static _ => false;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void Initialize()

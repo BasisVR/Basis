@@ -112,6 +112,10 @@
       "value": "★ {0}"
     },
     {
+      "key": "menu.servers.list.sourceBadge",
+      "value": "{0} ({1})"
+    },
+    {
       "key": "menu.servers.list.share",
       "value": "শেয়ার করুন"
     },
@@ -146,6 +150,14 @@
     {
       "key": "menu.servers.usernamePrompt.body",
       "value": "অন্য প্লেয়াররা যে নাম দেখবে সেটি বেছে নিন, তারপর «সংযোগ করুন» চাপুন।"
+    },
+    {
+      "key": "menu.servers.passwordPrompt.title",
+      "value": "{0}-এ যোগ দিন"
+    },
+    {
+      "key": "menu.servers.passwordPrompt.body",
+      "value": "পাসওয়ার্ড প্রত্যাখ্যাত হয়েছে। সার্ভারের পাসওয়ার্ড লিখুন।"
     },
     {
       "key": "menu.servers.search.byNameOrAddress",
@@ -274,6 +286,10 @@
     {
       "key": "menu.servers.hostThirdPersonDisabled",
       "value": "থার্ড পার্সন নিষ্ক্রিয় করুন"
+    },
+    {
+      "key": "menu.servers.portInvalid",
+      "value": "পোর্ট 1 থেকে 65535-এর মধ্যে হতে হবে"
     }
   ]
 }

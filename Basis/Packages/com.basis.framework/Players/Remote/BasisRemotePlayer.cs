@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Addressable_Driver.Resource;
 using Basis.Scripts.Avatar;
 using Basis.Scripts.Drivers;
@@ -25,7 +26,8 @@ namespace Basis.Scripts.BasisSdk.Players
     /// explicit: the disconnect path calls <see cref="OnDestroy"/> to release the nameplate and
     /// mouth (the avatar is unloaded separately by the avatar factory).
     /// </remarks>
-    public class BasisRemotePlayer : IBasisPlayer
+    [AutoStaticsCleanup]
+    public partial class BasisRemotePlayer : IBasisPlayer
     {
         #region IBasisPlayer shared state
 
@@ -227,6 +229,8 @@ namespace Basis.Scripts.BasisSdk.Players
         /// Fired to display a chat message for this player. Empty string clears the message.
         /// </summary>
         public Action<string> OnChatMessageReceived;
+
+        public readonly BasisChatHistory ChatHistory = new BasisChatHistory();
 
         /// <summary>
         /// Fired when this player's transient chat typing state changes.

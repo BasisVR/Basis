@@ -11,7 +11,11 @@ namespace OpusSharp.Core
 
         private static bool IsStaticallyLinkedPlatform()
         {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            return true;
+#else
             return RuntimeInformation.IsOSPlatform(OSPlatform.Create("IOS"));
+#endif
         }
     }
 }

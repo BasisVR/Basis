@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using Basis.Editor.Localization;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -30,7 +31,7 @@ public class BasisAvatarRecorderWindow : EditorWindow
     [MenuItem("Basis/Avatar/Recorder", false, 140)]
     public static void ShowWindow()
     {
-        var window = GetWindow<BasisAvatarRecorderWindow>("Avatar Recorder");
+        var window = GetWindow<BasisAvatarRecorderWindow>(BasisEditorLocalization.Get("editor.recorder.window.title"));
         window.minSize = new Vector2(450, 300);
         window.RefreshFileList();
     }
@@ -42,18 +43,18 @@ public class BasisAvatarRecorderWindow : EditorWindow
 
     private void OnGUI()
     {
-        BasisEditorUI.Header("Avatar Recorder",
-            "Record the local avatar's pose stream to a clip for offline comparison.");
+        BasisEditorUI.Header(BasisEditorLocalization.Get("editor.recorder.window.title"),
+            BasisEditorLocalization.Get("editor.recorder.window.subtitle"));
 
         DrawRecordingControls();
 
         EditorGUILayout.Space();
-        BasisEditorUI.SectionTitle("Recordings on Disk");
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.recorder.window.recordingsOnDisk"));
 
         using (new EditorGUILayout.HorizontalScope())
         {
             GUILayout.FlexibleSpace();
-            if (GUILayout.Button("Refresh", GUILayout.Width(80)))
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.refresh"), GUILayout.Width(80)))
             {
                 RefreshFileList();
             }
@@ -75,23 +76,23 @@ public class BasisAvatarRecorderWindow : EditorWindow
 
     private void DrawRecordingControls()
     {
-        GUILayout.Label("Avatar Recorder", EditorStyles.boldLabel);
+        GUILayout.Label(BasisEditorLocalization.Get("editor.recorder.window.title"), EditorStyles.boldLabel);
 
-        EditorGUILayout.LabelField("Status:", BasisAvatarRecorderDriver.State.ToString());
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.recorder.window.status"), BasisAvatarRecorderDriver.State.ToString());
 
         EditorGUILayout.Space(4);
 
         using (new EditorGUILayout.HorizontalScope())
         {
             GUI.enabled = !BasisAvatarRecorderDriver.IsBusy;
-            if (BasisEditorUI.PrimaryButton("Start Recording", 28f))
+            if (BasisEditorUI.PrimaryButton(BasisEditorLocalization.Get("editor.recorder.window.startRecording"), 28f))
             {
                 BasisAvatarRecorderDriver.RequestStart(0f, false, 0f);
                 RefreshFileList();
             }
 
             GUI.enabled = BasisAvatarRecorderDriver.IsBusy;
-            if (BasisEditorUI.PrimaryButton("Stop Recording", 28f))
+            if (BasisEditorUI.PrimaryButton(BasisEditorLocalization.Get("editor.recorder.window.stopRecording"), 28f))
             {
                 BasisAvatarRecorderDriver.RequestStop();
                 RefreshFileList();
@@ -103,17 +104,17 @@ public class BasisAvatarRecorderWindow : EditorWindow
         string dir = GetRecordingsDirectory();
 
         EditorGUILayout.HelpBox(
-            $"Files are written under:\n{dir}",
+            BasisEditorLocalization.Get("editor.recorder.window.filesWrittenUnder", dir),
             MessageType.Info);
 
         using (new EditorGUILayout.HorizontalScope())
         {
             GUILayout.FlexibleSpace();
-            if (GUILayout.Button("Load & Convert .dat…", GUILayout.Width(180)))
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.recorder.window.loadAndConvert"), GUILayout.Width(180)))
             {
                 LoadAndConvert();
             }
-            if (GUILayout.Button("Open Recordings Folder", GUILayout.Width(180)))
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.recorder.window.openRecordingsFolder"), GUILayout.Width(180)))
             {
                 EnsureDirectoryExists(dir);
                 EditorUtility.RevealInFinder(dir);
@@ -130,7 +131,7 @@ public class BasisAvatarRecorderWindow : EditorWindow
         if (_recordingFiles == null || _recordingFiles.Length == 0)
         {
             EditorGUILayout.HelpBox(
-                "No recordings found yet.\nRecord something and hit Refresh.",
+                BasisEditorLocalization.Get("editor.recorder.window.noRecordings"),
                 MessageType.Info);
             return;
         }
@@ -162,7 +163,7 @@ public class BasisAvatarRecorderWindow : EditorWindow
 
                 string name = fi.Name;
                 string sizeStr = EditorUtility.FormatBytes(bytes);
-                string info = $"{name}  |  {sizeStr}  |  {frames} frames";
+                string info = BasisEditorLocalization.Get("editor.recorder.window.fileInfo", name, sizeStr, frames);
 
                 EditorGUILayout.LabelField(info);
             }
@@ -184,10 +185,10 @@ public class BasisAvatarRecorderWindow : EditorWindow
         long bytes = 0;
         try { bytes = fi.Length; } catch { }
 
-        BasisEditorUI.SectionTitle("Selected Recording");
-        EditorGUILayout.LabelField("Path:", fi.FullName);
-        EditorGUILayout.LabelField("Size:", EditorUtility.FormatBytes(bytes));
-        EditorGUILayout.LabelField("Frames:", _frameCount.ToString());
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.recorder.window.selectedRecording"));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.recorder.window.pathLabel"), fi.FullName);
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.recorder.window.sizeLabel"), EditorUtility.FormatBytes(bytes));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.recorder.window.framesLabel"), _frameCount.ToString());
 
         // Total duration from intervals, if available
         float totalTime = 0f;
@@ -196,31 +197,31 @@ public class BasisAvatarRecorderWindow : EditorWindow
             for (int i = 0; i < _intervals.Length; i++)
                 totalTime += _intervals[i];
         }
-        EditorGUILayout.LabelField("Total Duration:", $"{totalTime:F3} seconds");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.recorder.window.totalDuration"), BasisEditorLocalization.Get("editor.recorder.window.durationSeconds", totalTime));
 
         using (new EditorGUILayout.HorizontalScope())
         {
-            if (GUILayout.Button("Reload Data", GUILayout.Width(100)))
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.recorder.window.reloadData"), GUILayout.Width(100)))
             {
                 LoadSelectedFileData(force: true);
             }
 
-            if (GUILayout.Button("Open Containing Folder", GUILayout.Width(170)))
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.recorder.window.openContainingFolder"), GUILayout.Width(170)))
             {
                 EditorUtility.RevealInFinder(fi.FullName);
             }
 
-            if (GUILayout.Button("Convert to AnimationClip", GUILayout.Width(200)))
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.recorder.window.convertToAnimationClip"), GUILayout.Width(200)))
             {
                 ConvertSelectedToAnimationClip();
             }
 
-            if (GUILayout.Button("Delete File", GUILayout.Width(100)))
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.recorder.window.deleteFile"), GUILayout.Width(100)))
             {
                 bool confirm = EditorUtility.DisplayDialog(
-                    "Delete Recording",
-                    $"Are you sure you want to delete:\n\n{fi.Name}",
-                    "Delete", "Cancel");
+                    BasisEditorLocalization.Get("editor.recorder.window.deleteRecording"),
+                    BasisEditorLocalization.Get("editor.recorder.window.deleteConfirm", fi.Name),
+                    BasisEditorLocalization.Get("editor.common.delete"), BasisEditorLocalization.Get("editor.common.cancel"));
 
                 if (confirm)
                 {
@@ -255,24 +256,24 @@ public class BasisAvatarRecorderWindow : EditorWindow
         }
 
         EditorGUILayout.Space();
-        BasisEditorUI.SectionTitle("Visualisation (by frame index)");
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.recorder.window.visualisation"));
 
         _graphScroll = EditorGUILayout.BeginScrollView(_graphScroll);
 
         // Position graph
-        DrawSectionHeader("Position (X / Y / Z)");
+        DrawSectionHeader(BasisEditorLocalization.Get("editor.recorder.window.graphPosition"));
         Rect posRect = GUILayoutUtility.GetRect(10, 80, GUILayout.ExpandWidth(true));
         DrawCurveBackground(posRect);
         DrawPositionCurves(posRect);
 
         // Rotation graph
-        DrawSectionHeader("Rotation Y (degrees from Quaternion)");
+        DrawSectionHeader(BasisEditorLocalization.Get("editor.recorder.window.graphRotation"));
         Rect rotRect = GUILayoutUtility.GetRect(10, 80, GUILayout.ExpandWidth(true));
         DrawCurveBackground(rotRect);
         DrawSingleCurve(rotRect, _rotY, Color.yellow);
 
         // Scale graph
-        DrawSectionHeader("Scale");
+        DrawSectionHeader(BasisEditorLocalization.Get("editor.recorder.window.graphScale"));
         Rect scaleRect = GUILayoutUtility.GetRect(10, 60, GUILayout.ExpandWidth(true));
         DrawCurveBackground(scaleRect);
         DrawSingleCurve(scaleRect, _scales, Color.cyan);
@@ -549,7 +550,7 @@ public class BasisAvatarRecorderWindow : EditorWindow
         string startDir = GetRecordingsDirectory();
         EnsureDirectoryExists(startDir);
 
-        string path = EditorUtility.OpenFilePanel("Select Avatar Recording (.dat)", startDir, "dat");
+        string path = EditorUtility.OpenFilePanel(BasisEditorLocalization.Get("editor.recorder.window.selectRecording"), startDir, "dat");
         if (!string.IsNullOrEmpty(path))
             ConvertFileToAnimationClip(path);
     }
@@ -558,7 +559,7 @@ public class BasisAvatarRecorderWindow : EditorWindow
     {
         if (!File.Exists(path))
         {
-            EditorUtility.DisplayDialog("Convert to AnimationClip", $"File not found:\n{path}", "OK");
+            EditorUtility.DisplayDialog(BasisEditorLocalization.Get("editor.recorder.window.convertToAnimationClip"), BasisEditorLocalization.Get("editor.recorder.window.fileNotFound", path), BasisEditorLocalization.Get("editor.common.ok"));
             return;
         }
 
@@ -569,7 +570,7 @@ public class BasisAvatarRecorderWindow : EditorWindow
         int frameCount = (int)(bytes / BasisAvatarRecorder.BytesPerFrame);
         if (frameCount <= 0)
         {
-            EditorUtility.DisplayDialog("Convert to AnimationClip", "No frames found in this recording.", "OK");
+            EditorUtility.DisplayDialog(BasisEditorLocalization.Get("editor.recorder.window.convertToAnimationClip"), BasisEditorLocalization.Get("editor.recorder.window.noFrames"), BasisEditorLocalization.Get("editor.common.ok"));
             return;
         }
 
@@ -622,10 +623,10 @@ public class BasisAvatarRecorderWindow : EditorWindow
 
         string defaultName = Path.GetFileNameWithoutExtension(path);
         string savePath = EditorUtility.SaveFilePanelInProject(
-            "Save Humanoid AnimationClip",
+            BasisEditorLocalization.Get("editor.recorder.window.saveClipTitle"),
             defaultName,
             "anim",
-            "Choose where to save the converted humanoid AnimationClip.");
+            BasisEditorLocalization.Get("editor.recorder.window.saveClipMessage"));
 
         if (string.IsNullOrEmpty(savePath))
             return;

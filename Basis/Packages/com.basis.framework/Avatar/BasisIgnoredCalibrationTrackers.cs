@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Device_Management.Devices;
 using System;
 using System.Collections.Generic;
@@ -15,7 +16,8 @@ namespace Basis.Scripts.Avatar
     /// here is a device name, so an unconditional list would silently stop a legitimately-named
     /// tracker from ever calibrating.
     /// </summary>
-    public static class BasisIgnoredCalibrationTrackers
+    [AutoStaticsCleanup]
+    public static partial class BasisIgnoredCalibrationTrackers
     {
         /// <summary>
         /// Identity strings of hand-tracking software that publishes SteamVR trackers. Matched

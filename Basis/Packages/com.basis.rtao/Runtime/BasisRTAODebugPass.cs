@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
@@ -10,6 +11,7 @@ namespace Basis.Rendering.RTAO
     /// in the final picture whichever stage produced it, so the only way to say where it comes from is to look
     /// at each stage in turn and find the first one that has it.
     /// </summary>
+    [NoAutoStaticsCleanup]
     internal sealed class BasisRTAODebugPass : ScriptableRenderPass
     {
         // Inserting the After Opaque pass shifted this; the debug view is the third pass on the shader.

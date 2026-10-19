@@ -1,0 +1,6 @@
+RTSP/1.0 200 OK
+CSeq: 3
+Session:        708345999
+RTP-Info: url=rtsp://192.168.5.106:554/Streaming/Channels/101/trackID=1?transportmode=unicast&profile=Profile_1;seq=24104;rtptime=1270711678
+Date:  Wed, May 05 2021 21:51:17 GMT
+

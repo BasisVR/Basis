@@ -1,239 +1,404 @@
 # Basis Media Player
 
-Live and on-demand video — and audio-only media — for Basis, decoded with the
-**operating-system hardware codecs** and presented **zero-copy** into a Unity texture. No transcode server, no
-bundled codec libraries, no `UnityEngine.Video.MediaPlayer`.
+A video and audio player for the Basis framework. It plays live streams (RTSP, WHEP,
+RIST, HLS and MPEG-TS over HTTPS) and on-demand files (MP4, WebM, Matroska,
+HLS and common audio formats), and keeps every client in a world watching the
+same thing. Video is decoded in hardware where the machine supports it and
+written straight into a Unity texture.
 
-- **Windows (PC / VR)** — Media Foundation H.264/H.265/VP9/AV1 + AAC/MP3, and Opus
-  through a runtime-loaded libopus, on a DXVA D3D11
-  device; NV12 → BGRA via the D3D11 video processor into a texture Unity samples.
-  (VP9 and AV1 need their Store extensions and a GPU with hardware decode —
-  `basis_media_probe_video_codec` answers for both legs.)
-  Works on **D3D11** (primary) and **D3D12** (shared-handle interop).
-- **Android (Quest)** — `AMediaCodec`/`AMediaExtractor`; decoded frames arrive as
-  `AHardwareBuffer`s imported into **Vulkan** as a `VkImage` Unity samples.
+## Requirements
 
-## Supported URLs (VRCDN and friends)
+Unity 6000.0 or later, with the Basis packages this one depends on
+(`com.basis.common`, `com.basis.eventdriver`, `com.basis.framework`,
+`com.basis.sdk`, `com.basis.settings`). The native plugin is committed; nothing
+needs building.
+
+| Platform | Graphics API | Video | Audio |
+| --- | --- | --- | --- |
+| Windows x64 | Direct3D 11 or 12 | H.264, HEVC, VP9 and AV1 in hardware where the GPU supports them; H.264, VP9 and AV1 also in software | AAC, MP3, FLAC, Opus, PCM |
+| Android arm64 (Quest) | Vulkan | H.264, HEVC, VP8, VP9 and AV1 where the device has a hardware decoder | AAC, MP3, FLAC, Opus, PCM |
+
+There is no plugin for Windows on ARM: an ARM64 player build has nothing to
+load, and the first engine call throws `DllNotFoundException`.
+
+On Windows, HEVC and VP9 need Microsoft's HEVC and VP9 Video Extensions from
+the Store, and hardware AV1 needs the AV1 Video Extension. Without them HEVC
+and VP9 are refused and AV1 decodes in software.
+
+Direct3D 12 also needs Unity 6000.3 or later, whose native plugin API includes
+`IUnityGraphicsD3D12v8`. On an earlier editor the player refuses Direct3D 12
+with a logged error; Direct3D 11 is unaffected.
+
+On other graphics APIs (Vulkan on Windows, OpenGL ES) the player logs
+`needs Direct3D 11 or 12` or `needs Vulkan` and does not play. It does not play
+on Linux.
+
+## Getting started
+
+`Basis > Tools > Media Player > Insert Player (existing scene)` adds a player
+to the open scene, in a **Stereo** or an eight-speaker **Multi-Channel**
+version (the prefabs `MediaPlayerStreaming` and
+`MediaPlayerMultiChannelStreaming` in `Prefabs/`). Enter a URL in **URL** and
+enter Play Mode.
+
+| Field | What it does |
+| --- | --- |
+| **URL** | A stream or file URL, or a page URL such as a YouTube link if a resolver is installed (see [Page URLs and resolvers](#page-urls-and-resolvers)) |
+| **Per-Platform URLs** | Shows **Android URL**, used instead of **URL** on Android builds. The editor always uses **URL** |
+| **Play On Start** | Opens the URL when the scene starts. On by default |
+| **Max Divergence (ms)** | Live sources: the furthest a viewer may fall behind the live edge. 0 uses the default |
+| **Advanced > Liveness** | Forces a source to be treated as live or on-demand. Leave on Auto |
+| **Advanced > Engine capture** | Writes the engine's diagnostics to a file |
+| **Advanced > Allow Local Addresses** | Allows sources on private and loopback addresses, for testing |
+| **Display Name** | What the Media Players menu calls this player. Empty uses the GameObject's name |
+| **Playback > Auto Play On Source Assigned** | Play as soon as a source opens. Off, the session opens and holds on its first frame until Play. On by default |
+| **Playback > Loop**, **Loop Restart Delay** | Start again from the beginning when an on-demand source ends, after the delay |
+| **Playback > Stop After** | Stop after this much playback, in seconds. Paused time does not count; 0 never stops |
+| **Playback > Stop On Disable** | Stop the session when the component is disabled. On by default; off keeps the session decoding, unpolled, until the component is enabled again |
+| **Playback > Volume**, **Mute** | Handed to the audio sink's own Volume Gain and Mute when they change; the sink's values are what the audio reads |
+| **Advanced > Verbose Logging** | Logs this player's own actions to the Console. Engine events are logged regardless |
+| **Advanced > Flip Screenshots Vertically** | Inverts `CaptureScreenshot` images relative to what the player works out for the graphics API. Only if they still come out upside down |
+
+From code:
+
+```csharp
+var player = gameObject.AddComponent<BasisMediaPlayer>();
+gameObject.AddComponent<BasisVideoMaterialOutput>().TargetRenderer = quadRenderer;
+player.LoadUrl("rtsp://stream.vrcdn.live/live/vrcdn");
+```
+
+This plays picture only; sound needs a `BasisMediaPlayerAudio` (see
+[Audio](#audio)).
+
+`Basis > Tools > Media Player > Run Smoke Test` plays a test file and reports
+pass or fail. `Test Scene` in the same menu builds a scene with one player or
+four, recording diagnostics.
+
+## Supported URLs
 
 | Scheme | Use | Example |
 |---|---|---|
-| `rtsp://`  | PC/VR low latency — UDP first, TCP-interleaved fallback | `rtsp://stream.vrcdn.live/live/vrcdn` |
-| `rtspt://` | PC/VR low latency, TCP-interleaved pinned (legacy; prefer `rtsp://` unless a host needs forced TCP) | `rtspt://stream.vrcdn.live/live/vrcdn` |
-| `rtmp://`  | RTMP pull | `rtmp://stream.vrcdn.live/live/vrcdn` |
-| `rist://`  | RIST live ingest (UDP, loss recovery + optional AES) | `rist://stream.example:5000?secret=KEY&aes-type=128` |
-| `https://…​.mp4` | MP4 over HTTPS — fragmented (live) or progressive VOD (faststart or trailing moov, seekable) | `https://stream.vrcdn.live/live/vrcdn.live.mp4` |
-| `https://…​.ts`  | MPEG-TS over HTTPS (Quest) | `https://stream.vrcdn.live/live/vrcdn.live.ts` |
-| `https://…​.m3u8` | HLS / Low-Latency HLS | `https://stream.example/live/index.m3u8` |
-| `https://….wav` | WAV audio (integer PCM, mono up to 7.1) | `https://stream.example/audio/track.wav` |
-| `https://….webm` | WebM VP9/AV1 video and/or Opus audio (YouTube's >1080p carriage; Cues-indexed files seek) | `https://stream.example/vod/clip.webm` |
-| `https://….opus` | Ogg Opus audio | `https://stream.example/audio/track.opus` |
-| `https://….mp3` | MP3 audio — standalone, or MP3-in-MP4 (`.m4a`) | `https://stream.example/audio/track.mp3` |
+| `rtsp://` | Low-latency live: UDP, falling back to TCP | `rtsp://stream.vrcdn.live/live/vrcdn` |
+| `rtspt://` | RTSP over TCP only | `rtspt://stream.vrcdn.live/live/vrcdn` |
+| `rist://` | RIST live (optional AES) | `rist://stream.example:5000?secret=KEY&aes-type=128` |
+| `whep://` / `wheps://` | WHEP (WebRTC), sub-second join | `whep://stream.example:8889/live/whep` |
+| `https://….mp4`, `.mov` | Fragmented live or on-demand MP4, or QuickTime | `https://stream.vrcdn.live/live/vrcdn.live.mp4` |
+| `https://….ts` | MPEG-TS | `https://stream.vrcdn.live/live/vrcdn.live.ts` |
+| `https://….m3u8` | HLS, on-demand or live, including Low-Latency HLS | `https://stream.example/live/index.m3u8` |
+| `https://….webm`, `.mkv` | WebM or Matroska: VP9 or AV1 video, Opus audio | `https://stream.example/vod/clip.webm` |
+| `https://….flac` `.mp3` `.aac` `.opus` `.wav` | Audio only | `https://stream.example/audio/track.flac` |
+| An absolute path | Local file (not a network share; `file://` URLs are refused) | `C:\media\clip.mp4` |
 
-The protocol/demux core (RTSP/RTP, RTMP/FLV, MPEG-TS, fMP4, WebM, RIFF/WAV) is portable C,
-picking demuxers by content sniff so extensionless CDN URLs (googlevideo and friends)
-route correctly. On Android, eligible http(s) URLs are first offered to the OS extractor
-(`AMediaExtractor`, which demuxes as well as decodes); anything it declines falls back to
-the portable demux path. Windows always demuxes portably and only decodes + presents
-natively.
+The format is read from the file's contents, but the extension decides the
+route. An `http(s)` URL ending in one of the extensions above (or `.m4v`,
+`.m4a`, `.m4s`, `.m2ts`, `.mts`) opens directly. Any other goes first to an
+installed page resolver such as yt-dlp, and opens directly only when none
+takes it. Private and loopback addresses (`localhost`, `192.168.…`, `10.…`) are refused
+unless **Allow Local Addresses** is ticked. The tick is cleared on avatars and props as
+they load, as **Play On Start** is: imported content cannot reach the viewer's own
+network, whatever its author set.
 
-### HLS / Low-Latency HLS
+A track nothing here can play is refused and the reason shown in the Media
+Players panel: HEVC inside MPEG-TS, VP8 on Windows, VP8 and VP9 where the
+platform has no decoder, and AV1 on Quest Pro. When the refused track has
+audio beside it, the audio plays; with nothing left to play, the player stops
+with an error. `BasisMediaPlayer.LastErrorMessage` carries the reason.
+`BasisMediaPlayer.EngineCapabilities` lists what the current machine can play,
+with each video codec's route and maximum resolution and frame rate.
 
-`.m3u8` URLs are handled by `protocol/basis_hls.c`, which is **not** a demuxer: it
-parses the playlist, selects one rendition, starts at the live edge, and stitches
-the segments — and, for LL-HLS, the partial segments (`EXT-X-PART`) — into one byte
-stream that the existing MPEG-TS / fMP4 demuxers consume. When the origin advertises
-`EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD` with parts, the client uses blocking
-`_HLS_msn`/`_HLS_part` playlist reloads and rides parts to target roughly
-`PART-HOLD-BACK` latency (~5 s). **The ~5 s target needs an LL-HLS origin** — against
-a plain HLS origin you get its segment-bound latency, not 5 s.
+### Asking before a URL opens
 
-Runs on **Windows** (WinHTTP fetch) and **Android/Quest** (`HttpsURLConnection`
-fetch via JNI), **clear streams**, **single rendition**.
+Before the player opens a URL on a host the user has not trusted, it shows
+them the URL and waits for an answer. This happens whichever route asked for
+the open, including **Play On Start**, world scripts, props and
+`BasisMediaPlayerStreaming`. The prompt can remember the answer for the URL,
+the host or the domain, in the same `BasisTrustedUrls` list the rest of the
+client keeps. If **Play** is pressed while the prompt is up, playback starts
+once the user accepts.
 
-### RIST
+No route skips the prompt. A URL typed into the Media Players panel is asked
+about over the panel, even with do-not-disturb on. A follower in shared playback
+is asked about each untrusted URL the owner shares; while it waits, its screen
+is stopped and it keeps the owner's state, so accepting later lands it at the
+owner's position. A follower that declines is not asked again about that URL
+while the room stays on it, and pressing **Play** or **Local Resync** asks
+again. A page URL prompts once, for the page; the stream a resolver extracts
+from it does not prompt again. Re-opening a URL already accepted on the same
+player (a resync, a source that ended, a player woken under the session cap)
+does not prompt.
 
-`rist://` ingests a RIST stream — MPEG-TS over UDP via librist, with
-packet-loss recovery and optional AES encryption. librist reads its connection
-options straight from the URL query: `?secret=<key>&aes-type=128` (or `256`)
-for encryption, and `?buffer=<ms>` to size the recovery buffer. The buffer can
-also be set from C# via `BasisMediaSource.Options["buffer"]`, folded into the
-URL automatically. The recovered transport stream feeds the same MPEG-TS
-demuxer as the HTTP/TS path.
+Cilbox props can open URLs through the prompting routes only, and can call only
+the player's public methods. `OpenResolved` and `SetSubtitleTracks` are not
+available to them, and avatar and prop content has **Play On Start** cleared on
+load.
 
-RIST is **opt-in at build time** — the default plugin links only OS frameworks.
-Build with `-DBASIS_WITH_RIST=ON` against prebuilt librist (see *Building the
-native plugin* below).
+## Video output
 
-### RTSP transport
+`BasisVideoMaterialOutput` sets the video on one or more renderers' materials
+(`TargetRenderer` and `AdditionalTargets`; `_BaseMap` on URP, `_MainTex`
+otherwise, or `TexturePropertyName`). `BasisVideoDisplay` sets it on a uGUI
+`RawImage` and can drive an `AspectRatioFitter`.
 
-`rtsp://` negotiates its transport: it attempts **UDP** (RTP/AVP) first and falls back to
-**RTP interleaved over the TCP** control channel on refusal, a socket error, or a no-data
-timer — and remembers a host that fails UDP so later loads go straight to TCP. `rtspt://`
-skips the probe and **pins TCP-interleaved**, for hosts or networks where UDP never works.
-The settled transport is logged once per load and exposed on
-`BasisMediaPlayer.CurrentTransport`.
+Aspect, stereo eye and flips are applied to texture coordinates; the mesh is
+not resized. `AspectMode`:
 
-## Live vs on-demand
-
-Every source is either **live** (presented at the live edge, lowest latency) or
-**on-demand** (VOD — paced to real time, so a file that arrives faster than it plays
-doesn't fast-forward). `BasisMediaSource.Delivery` selects which:
-
-| `Delivery` | Behaviour |
+| `AspectMode` | Behaviour |
 |---|---|
-| `Auto` (default) | Decided at open from the source — see below |
-| `Live` | Force the live-edge clock |
-| `OnDemand` | Force real-time pacing |
+| `Original` (default), `Stretch` | Untransformed; the mesh or `RectTransform` stretches it |
+| `FitInside` | Letterbox or pillarbox. Needs the bundled `Basis/Media Player Video` shader, which draws black outside the video |
+| `FitOutside` | Crop to fill |
+| `PixelPerfect` | Crop to fill on the opposite axis to `FitOutside` |
 
-`Auto` reads the source: a non-HTTP transport (`rtsp`/`rtmp`/`rist`) is live; an HTTP
-response with a known `Content-Length` and byte-range support, or an HLS playlist
-carrying `EXT-X-ENDLIST`, is on-demand; an open-ended HTTP response is live. On-demand
-throttles delivery and presents on a fixed 1× clock, with a compressed read-ahead
-buffer absorbing bursty CDN delivery.
+The surface's shape comes from `DisplayAspectOverride`, or at 0 from the mesh
+bounds or `RectTransform`. Mesh bounds ignore the transform's scale: set
+`DisplayAspectOverride` on any screen that is not uniformly scaled. The shape
+is re-read only when the video texture changes.
 
-`LoadUrl(url)` uses `Auto`. For explicit control, load a `BasisMediaSource`:
+`ProjectionMode` selects half of a stereo frame (`SideBySideLR`/`RL`,
+`OverUnderTB`/`BT`, with `StereoEye`). `Equirect360`, `VR180` and `Fisheye`
+set a `BASIS_PROJ_*` keyword that no bundled shader implements; they show
+flat. `FlipVertically` is only for a source encoded upside down.
 
-```csharp
-player.LoadSource(new BasisMediaSource { Uri = url, Delivery = BasisMediaDelivery.OnDemand });
-```
+A custom screen shader must apply the tiling and offset of the texture
+property in `TexturePropertyName` (`TRANSFORM_TEX(input.uv, _BaseMap)`), and
+for `FitInside` draw black outside `[0,1]`. `Picture` (brightness, contrast,
+saturation, gamma) arrives as `_BasisBrightness`, `_BasisContrast`,
+`_BasisSaturation` and `_BasisGamma`, which the bundled shader ignores.
 
-The live jitter buffer is tunable via `BasisMediaPlayer.BufferMilliseconds` /
-`BufferMode` (Fixed, or auto-tuning Dynamic — lower = less latency, higher = smoother).
-On-demand currently presents on a fixed internal buffer; `BufferMilliseconds` applies
-to the live path only.
+## Audio
+
+Sound plays through a `BasisMediaPlayerAudio` on the player's GameObject. Its
+`Outputs` list holds `AudioSource`s, each with a `BasisMediaAudioChannel`
+choosing one channel of the source or a stereo mix. One `Stereo` output gives
+ordinary stereo; one output per channel places a surround mix speaker by
+speaker. A surround source through one stereo output is mixed down with the
+ITU BS.775 coefficients.
+
+- Filters (Low Pass, Reverb and so on) must sit **below** the output's
+  `BasisMediaPlayerAudioTap`; above it they receive silence. The inspector
+  flags and fixes the order.
+- Each `AudioSource`'s `Volume` and `Mute` apply to that output;
+  `BasisMediaPlayerAudio`'s `VolumeGain` and `Mute` to the whole player. They
+  multiply with the viewer's main volume.
+- `Pitch` has no effect. Keep **Spatialize Post Effects** ticked and **Bypass
+  Effects** unticked, or the spatialiser receives silence.
+- AudioLink and other `GetOutputData` analysers read silence from a normal
+  output. Set `BasisMediaAudioChannel.AnalysisFeed` on the analyser's own
+  `AudioSource`; it adds a small delay.
+- FLAC and Opus carry up to 7.1, AAC up to 5.1.
+
+For files with several audio tracks (MP4 and Matroska), `AudioTracks` lists
+them with their language and name where the file has them, and
+`SelectAudioTrack(index)` switches, reopening at the current position. A file
+with one track returns an empty list. Label tracks by position as well; many
+have no metadata.
+
+## Captions and subtitles
+
+CEA-608 captions in the video are shown by `BasisMediaCaptionOverlay`. Whether
+they show, and their opacity, are viewer settings in the Media Players panel.
+`SetSubtitleTracks` supplies subtitle files (usually from a resolver) and
+`SelectSubtitleTrack(index)` picks one, hiding the in-video captions; -1 shows
+them again.
+
+## Shared playback
+
+With `BasisMediaPlayerNetworking` beside the player (both prefabs have it),
+one client, the owner, controls the player and the others follow. The owner
+sends the URL, play, pause, seek, stop and its position; a late joiner is sent
+the current state. A page URL is shared as the page URL and each client
+resolves it.
+
+| Field | Effect |
+| --- | --- |
+| `AdminOnly` | Only clients holding `basis.mediaplayer.control` or `*` may take control. Overrides the other two |
+| `AllowAnyoneToTakeControl` | Any client may take control. On by default |
+| `AnyoneCanControl` | Clients with no control permission also get the playback controls |
+| `PositionHeartbeatSeconds` | How often the owner sends its position (3 by default). 0 turns it off |
+
+On an on-demand source, a seek while paused shows everyone the new frame and
+leaves them paused, and each client reaches the end on its own. A follower
+compares the owner's position with its own:
+
+| Difference | What the follower does |
+| --- | --- |
+| Up to 150 ms | Nothing |
+| 150 ms to 2 s | Plays up to 2% faster or slower until within 150 ms; its sound shifts in pitch by up to a third of a semitone meanwhile |
+| More than 2 s | Jumps to the owner's position |
+
+A live source has no shared position: each viewer plays from the live edge,
+and two viewers can be a second or more apart. Live sources cannot be paused or
+seeked. **Max Divergence (ms)** caps how far behind a viewer falls; beyond it,
+playback stutters.
+
+A late joiner lands at the owner's position, or paused on the owner's frame,
+usually a fraction of a second behind, and catches up within about half a
+minute. A page URL takes a few seconds to resolve first.
+
+**Resync Everyone** (playback tab) takes control and reloads the source for
+every client at your position and play or pause state. **Local Resync** (My
+Settings) reloads only your playback at the owner's position, or at your own
+if nobody answers within three seconds.
+
+If the owner leaves or stalls, followers keep playing. Volume, captions, audio
+track, buffer depth and decode preference are per viewer.
+
+## Live and on-demand sources
+
+The player treats a source that states its length and serves byte ranges as
+on-demand, and anything else as live. RTSP, WHEP and RIST are always live, and
+HLS playlists state which they are. **Liveness** under **Advanced** overrides
+this, for a server that misreports: an on-demand file served without a length
+or byte ranges otherwise plays as live.
+
+Live playback starts with the sound; the picture joins at the next keyframe.
+Within a player the sound keeps real time and the picture adjusts to it.
 
 ## Seeking
-
-Sources that report a duration (`BasisMediaPlayer.Duration > 0` — a progressive MP4, a WAV, a
-finished TS-segment HLS VOD playlist) are seekable. A duration is necessary but not on its own
-a guarantee: a source whose transport can't reposition still refuses the seek. `Seek(TimeSpan
-position)` requests an **absolute** seek; the demuxer repositions at the next sample (or
-segment) boundary and resumes from the preceding keyframe, so playback lands **at or shortly
-before** the target — watch `Position`, and `OnSeekCompleted` fires once it settles. `TrySeekBack(TimeSpan)` is a relative rewind. Seeking a live or unindexed
-source throws `NotSupportedException`.
 
 ```csharp
 if (player.Duration > TimeSpan.Zero)
     player.Seek(TimeSpan.FromSeconds(30));
 ```
 
-## Split-stream (separate video + audio)
+Live sources cannot be seeked. A video seek shows the requested frame,
+decoding from the keyframe before it, unless that keyframe is more than 720
+frames back at the video's frame rate (or 12 seconds, if that is longer), when
+it shows the keyframe. MP4, Matroska and HLS seek by index.
+WAV lands on the exact sample and FLAC on a frame. MP3, Ogg Opus and raw AAC
+estimate their position.
 
-Adaptive sources often serve high-resolution video and audio as **separate** streams
-(H.264 video-only + AAC audio-only). Set `BasisMediaSource.AudioUri` alongside `Uri`
-and the engine runs a second demux thread feeding the same decoder, so both present in
-sync on one clock:
+## Viewer settings
+
+`Settings > Developer > Media Player` holds each viewer's defaults; the Media
+Players panel changes the selected player.
+
+- **Buffer depth**: how far ahead the player buffers. 0 (Auto) sizes it from
+  the viewer's connection. Changing it re-opens that player where it was.
+- **Session cap**: the most players open at once, 2 on Android and 3 elsewhere
+  by default, 0 for no limit. The furthest players beyond it go dormant: closed,
+  with their URL and position remembered for when they wake. Selecting a player
+  in the panel keeps it awake.
+- **Decode route**: hardware with software fallback (default), hardware only,
+  or software only.
+
+**Media Players** in the main menu lists the scene's players. For the selected
+one it shows the playback controls (to clients that may control it), **My
+Settings** (volume, captions, subtitle and audio track, **Local Resync**,
+buffer depth), an admin tab for clients holding `*`, and a state readout under
+Advanced.
+
+## Troubleshooting
+
+1. The Console. A failed player logs
+   `[BasisMedia] session error <code> (<category>): <reason> [<url>]`, and the
+   Media Players panel shows the reason. Common reasons: an unsupported codec,
+   a private address, a refusing server. When a server admin has locked media
+   players, nothing opens and the log says so. On a shared player the owner logs
+   `sharing '<url>'` and a follower logs `loading '<url>' from player <id>`. A
+   follower with no such line never received the URL. Logged URLs leave out the
+   query and any credentials.
+2. What the machine supports: `Settings > Developer > Media Player`, or
+   `BasisMediaPlayer.EngineCapabilities`.
+3. `Basis > Debug > Media Player`, which shows a player's pipeline stage by
+   stage while it runs.
+4. Captures. `BasisMediaPlayerDiagnostics` beside the player writes a
+   per-frame CSV to the persistent data folder, and **Engine capture** records
+   the engine's side. [`Native~/DIAGNOSTICS.md`](Native~/DIAGNOSTICS.md)
+   explains the columns.
+
+## Scripting
+
+Everything below is on `BasisMediaPlayer` unless it says otherwise. The
+companions are an output (`BasisVideoMaterialOutput` or `BasisVideoDisplay`),
+`BasisMediaPlayerAudio` for sound and `BasisMediaPlayerNetworking` for shared
+playback; the sections above cover each.
+
+### Open and control
+
+`LoadUrl(url)` opens a stream, file or page URL and plays it unless
+`AutoPlayOnSourceAssigned` is off. `LoadLocalPath(path)` opens a file and
+`LoadSource(BasisMediaSource)` a source described with its audio leg, start
+position, loop and volume. `Play`, `Pause`, `Resume`, `TogglePause`, `Stop`
+and `Reload` do what they say. `Seek(TimeSpan)` moves an on-demand source and
+is refused by a live one. `Loop`, `LoopRestartDelaySeconds`, `StopAfterSeconds`,
+`StopOnDisable`, `Volume` and `Mute` are fields a prefab or a prop can set.
 
 ```csharp
-player.LoadSource(new BasisMediaSource {
-    Uri = videoOnlyUrl, AudioUri = audioOnlyUrl, Delivery = BasisMediaDelivery.OnDemand,
-});
+player.LoadUrl("https://example.org/clip.mp4");
+player.OnReady += () => player.Seek(TimeSpan.FromSeconds(30));
+player.OnEnded += () => player.LoadUrl(nextUrl);
 ```
 
-A null `AudioUri` (the default) is an ordinary single muxed stream.
+### State and position
 
-## What's playing — metadata
+| Member | Meaning |
+| --- | --- |
+| `Status` | `NoMedia`, `Connecting`, `Buffering`, `Playing`, `Paused`, `Stopped`, `Ended` or `Error`. `Ready` is never reported |
+| `IsPrepared` | The load has reached playback at least once; position, duration and picture describe it |
+| `IsPlaying` | A session is open and meant to be playing. False while paused, as Unity's `VideoPlayer.isPlaying` is |
+| `IsPaused` | A session is open and paused |
+| `Position`, `Duration` | `TimeSpan`; `Duration` is zero for a live source |
+| `LastErrorMessage`, `ErrorCode` | Why the session failed, or why a track was refused while the rest plays |
+| `State`, `PlayWhenReady` | The engine's raw state and the viewer's play intent, for code that needs them apart |
 
-`BasisMediaPlayer.Metadata` describes the current media for display: `Title`,
-`FileName`, `SourceUrl`, and — when an integration supplies them — `Uploader`,
-`ThumbnailUrl` and `Duration`. `OnMetadataChanged` fires whenever it updates.
+### Events
 
-With no resolver installed, the player derives defaults from the URL alone:
-`https://host/videos/My%20Video.mp4` titles as "My Video" (`FileName`
-"My Video.mp4"); extensionless stream paths fall back to the last path segment
-(`rtsp://host/live/vrcdn` → "vrcdn"), then the host. A resolver can push the
-real page title (and the richer fields) by setting `BasisMediaSource.Metadata`
-before `LoadSource`; anyone can merge fields in later with
-`player.ApplyMetadata(...)`.
+`OnReady` once per load when it first reaches playback, `OnStarted` when
+playback starts and again after every pause, `OnFirstFrameReady` once per
+load when a frame has been presented, `OnPaused` on a pause,
+`OnSeekCompleted(TimeSpan)` when the engine has acted on a seek, `OnLooped`
+when `Loop` restarts the source, `OnEnded` at the end, and
+`OnError(Exception)` on a failure. `OnStarted` can arrive before
+`OnFirstFrameReady`; wait for the latter before reading the picture.
+`OnOutputTextureChanged` announces the texture (null when it is dropped),
+`OnMetadataChanged` what is known about the source, `OnAudioTrackChanged`
+and `OnSubtitleTrackChanged` a change of track, and `OnCaptionCueChanged`
+each caption. All run on the main thread. Unsubscribe in `OnDisable`.
 
-On networked players every client derives metadata from the same synced input
-URL, so titles agree across clients with no extra synced state.
+### Picture, audio and captions
 
-## Playlists
+`OutputTexture` (null until the first frame), `VideoSize` and
+`CaptureScreenshot`; `AudioTracks` and `SelectAudioTrack`; `CaptionsEnabled`,
+`CaptionTextOpacity`, `CaptionBackgroundOpacity`, `SubtitleTracks` and
+`SelectSubtitleTrack`. `Metadata` and `CurrentTransport` describe what is
+playing. The sections above have the detail.
 
-`BasisMediaPlayerPlaylist` (`Runtime/Examples`, beside
-`BasisMediaPlayerStreaming`) is an optional orchestration component that drives
-a player through an ordered list of entries (`Url` + optional `DisplayName`).
-With `PlayOnStart` (the default) the first entry loads on Start — when a
-playlist drives the player, disable `BasisMediaPlayerStreaming`'s
-`ConfigureOnStart` (or remove that component) so they don't both load a source.
+### Not for scripts
 
-```csharp
-playlist.Entries.Add(new BasisMediaPlaylistEntry { Url = url, DisplayName = "Opening set" });
-playlist.PlayAt(0);   // Next() / Previous() wrap; OnEntryChanged reports jumps
-```
+`ReadPcm`, `TryGetPcmFormat`, `PullRateOffsetPpm`, `AudioSampleRate`,
+`AudioChannels` and `AudioFramesPulled` are the audio sink's side of the
+player. `LoadGeneration`, `LoadCancellation`, `LoadPending`, `OpenResolved`
+and `ReportLoadError` are the resolver contract (below). `FramesDecoded`,
+`PresentedFrameCount`, `BankedMilliseconds`, `SyncRatePpm` and `AvOffsetUs` are
+diagnostics readouts.
 
-`Advance` selects what happens when an entry ends: `None`, `Sequential` (stop
-after the last entry) or `LoopAll`. Live entries never end, so they never
-auto-advance.
+## Extending the player
 
-Entries load through the player's normal routing — page URLs resolve per
-client and the security gates apply. On a networked player the playlist routes
-loads through `BasisMediaPlayerNetworking`, so entry changes reach remote
-clients via the existing URL sync; only the controlling client needs the
-playlist populated, and auto-advance runs on the owning client alone. The
-playlist itself is not networked: late joiners see the current entry, not the
-queue.
+### Page URLs and resolvers
 
-## Page URLs (optional resolver package)
-
-The player opens **stream** URLs (the schemes above) directly. It does **not** itself
-turn a **page** URL — a YouTube or Twitch watch page — into a stream. That resolution
-is provided by a **separate, optional resolver package** which registers itself on
-`BasisMediaUrlRouter`; the player core has no dependency on it and never references it.
-Basis ships a yt-dlp-based resolver as that package, but any
-[resolver](#writing-a-resolver) can fill the role.
-
-**With the resolver package installed**, a URL field such as
-`BasisMediaPlayerStreaming.StreamUrl` steers each URL automatically:
-
-- A **directly-playable** URL — a transport scheme, or an HTTP URL whose path ends in a
-  media extension (`.mp4`/`.m4v`/`.m4a`/`.m4s`/`.ts`/`.m2ts`/`.mts`/`.m3u8`/`.wav`/`.webm`/
-  `.opus`/`.mp3`) — loads directly. `.ogg` is deliberately absent: it's a generic container
-  the pipeline doesn't decode, so it routes to the resolver.
-- **Anything else** (an HTTP page URL with no media extension) is handed to the
-  resolver, which turns it into the playable stream endpoint(s) and loads them.
-
-**Without it**, the router is inert: every URL loads directly, so all the stream URLs
-above keep working — but page URLs are no longer resolved, so **YouTube, Twitch and
-similar links won't play**. Loading one degrades gracefully rather than failing silently:
-the player reports a short message — *"…needs a media URL resolver
-package, and none is installed."* — surfaced in the **Media Players** panel and logged
-as a warning on each such load (it never throws or tries to demux the HTML page). Removing the
-package is a supported choice: you lose common-site resolution and nothing else. (This
-only steers — it never blocks a URL; host trust is enforced separately.)
-
-> **Known gap.** The steering keys off the URL's form, so a **direct HTTP stream with
-> no file extension** (e.g. `https://host/live/feed` with no `.ts`/`.mp4`) can't be
-> told apart from a page URL: with the resolver installed it is sent to the resolver,
-> which finds no extractable stream and reports an error — so playback fails rather
-> than loading directly. Give direct HTTP streams a recognised
-> extension, or use a transport scheme (`rtsp`/`rtmp`), to avoid this.
-
-### Writing a resolver
-
-A resolver is any `IBasisVideoResolver` registered on `BasisMediaUrlRouter`. The player
-core never references it — register one at startup and the router consults it for every
-load, in `Priority` order, until one takes ownership. The bundled
-[yt-dlp integration](https://github.com/BasisVR/BasisYtDlpIntegration) is a complete worked
-example; the shape is:
+The player plays stream URLs. Page URLs (YouTube, Twitch) need a resolver
+package registered with `BasisMediaUrlRouter`. `LoadUrl(url)`, which
+**Play On Start** also uses, opens a playable URL directly and offers anything
+else to the resolvers in priority order.
 
 ```csharp
-using UnityEngine;
-
 internal sealed class MyResolver : IBasisVideoResolver
 {
-    public int Priority => 0; // higher runs first; equal priorities run in registration order
+    public int Priority => 0; // higher runs first; ties run in registration order
 
-    // Cheap, side-effect-free pre-filter. Decline directly-playable URLs so the player
-    // opens them itself — IsDirectlyPlayable is the shared steering check.
+    // Cheap and side-effect-free. Decline directly playable URLs.
     public bool CanResolve(string url) => !BasisMediaUrlRouter.IsDirectlyPlayable(url);
 
-    // Take ownership: turn the page URL into its stream(s) and load them (may be async).
-    // Return true once taken; false to fall through to the next resolver, then a direct load.
+    // Resolve, then open. May be async; return true once you have taken it.
+    // Capture player.LoadGeneration first and drop the result if it has
+    // moved: a later open or a stop supersedes this load. Pass
+    // player.LoadCancellation into the extraction so that work stops too.
+    // Then open through OpenResolved or call ReportLoadError: a claimed
+    // load that does neither stays pending.
     public bool TryResolve(BasisMediaPlayer player, string url)
     {
-        // … resolve, then player.LoadSource(resolvedSource) / player.LoadUrl(streamUrl) …
+        // … player.OpenResolved(new BasisResolvedMedia { … }) …
         return true;
     }
 }
@@ -245,292 +410,139 @@ internal static class MyResolverInstaller
 }
 ```
 
-- **Async resolves must guard against stale loads.** If `TryResolve` resolves
-  asynchronously, capture `player.LoadGeneration` before you start and skip your
-  `LoadSource` / `LoadUrl` when the async work completes if it no longer matches. The player
-  bumps `LoadGeneration` on every source replacement — `LoadUrl`, `LoadLocalPath`,
-  `LoadSource` and a direct `Source` assignment — so without this a slow resolve of an
-  earlier URL can overwrite a newer load. Return `true` as soon as you take ownership (kick
-  off the resolve), not when it finishes. When you complete the load, call
-  `player.LoadResolvedSource(source, capturedGeneration)` rather than `LoadSource` so the
-  URL-derived metadata the originating `LoadUrl` seeded is matched to your load and not to
-  an unrelated `LoadSource` that raced the resolve.
-- **Main thread only.** The resolver list is unsynchronised — `Register` / `Unregister`
-  and resolution all run on Unity's main thread. Registering from
-  `RuntimeInitializeOnLoadMethod` and resolving from the player's load path satisfies this.
-- **Routing only, never trust.** A resolver decides *how* a URL loads, not *whether* it's
-  allowed — host trust stays with `BasisMediaPlayerSecurity`.
+`BasisResolvedMedia` carries the stream URL, any separate audio URL, whether
+it is live, subtitle tracks and display details. Resolve on the main thread,
+and discard an async result if `player.LoadGeneration` has changed since you
+started. The address rules still apply to what a resolver opens.
 
-## Usage
+`player.Open(videoOnlyUrl, audioOnlyUrl)` plays separate video and audio
+streams together.
+
+### SEI user data
+
+`BasisMediaPlayer.OnUserDataReceived` delivers the SEI `user_data_unregistered`
+messages (payload type 5, H.264 and H.265) in a video stream, each when
+playback reaches its timestamp, as a UUID and payload:
 
 ```csharp
-var player = gameObject.AddComponent<BasisMediaPlayer>();
-gameObject.AddComponent<BasisVideoMaterialOutput>().TargetRenderer = quadRenderer;
-player.LoadUrl("rtsp://stream.vrcdn.live/live/vrcdn"); // auto-plays
+static readonly Guid Mine = Guid.Parse("b1f0a7d4-9c3e-4a52-8f61-2d7c5e0b93a8");
+
+player.OnUserDataReceived += (ptsUs, uuid, payload) =>
+{
+    if (uuid != Mine) return;      // x264 stamps its own build string this way
+    Decode(payload);               // borrowed for the call; copy what outlives it
+};
 ```
 
-Or drop the `Prefabs/MediaPlayerStreaming` prefab in a scene and set the URL on
-`BasisMediaPlayerStreaming` (it can auto-pick RTSP on PC / MPEG-TS on Quest).
-Add a `BasisMediaPlayerAudio` (+ `AudioSource`) for sound;
-`BasisMediaPlayerNetworking` syncs URL/state across the room.
+- It runs on the main thread, once per message, in timestamp order. Keep it
+  short.
+- `payload` is valid only during the call.
+- Every UUID arrives, the encoder's included; filter on yours. To build one from 16 bytes use
+  `BasisMediaPlayer.GuidFromRfc4122`; `new Guid(byte[])` reverses the first
+  three fields.
+- Unsubscribe in `OnDisable`, comparing the player with `ReferenceEquals`.
+- Validate the payload; the player passes it on unread.
+- Messages over 64 KiB are refused. Seeks and loops drop pending messages.
 
-The CPU `IBasisFrameSource` path (e.g. `BasisSyntheticTestSource`) is still
-available by assigning `player.Source` directly — useful for tests without a feed.
+SEI survives repackaging but not re-encoding.
 
-### Video output (screens and UI)
+## Migrating from the C player
 
-Frames reach the world through one of two sinks, both driven from the player's
-`OnOutputTextureChanged`:
+Scripts and props written against the previous player keep working: the
+members they used are the members here, with the same names and signatures.
+The ones that behave differently are listed first. A script that names a
+member from the last list does not compile, and a prefab value saved for one
+of those fields is dropped.
 
-- **`BasisVideoMaterialOutput`** — binds the frame to one or more `Renderer` material
-  properties (`_BaseMap` on URP, `_MainTex` on legacy BiRP, per `TexturePropertyName`).
-  `TargetRenderer` plus every entry in `AdditionalTargets` is driven from the same
-  texture, so one player can feed several screens at once.
-- **`BasisVideoDisplay`** — binds it to a uGUI `RawImage`, optionally driving an
-  `AspectRatioFitter` from the player's reported `VideoSize`.
+| Member | What is different |
+| --- | --- |
+| `IsPlaying` | False while paused. The previous player kept it true, so a script that used it to mean "a session is open" should read `Status` instead: anything but `NoMedia`, `Stopped`, `Ended` and `Error` |
+| `Status` | Never reports `Ready`: the engine has no state between buffering and playing |
+| `Reload` | Re-opens the current source from the start. A page URL goes back through the resolver, because the stream it produced may have expired |
+| `LoadSource` | Headers, options, open timeout and playback rate have no engine counterpart; setting them logs a warning once |
+| `CaptionsEnabled`, `CaptionTextOpacity`, `CaptionBackgroundOpacity` | Captions are a viewer setting here. Reading gives the value in force (the viewer's setting unless this player overrides it); writing sets this player's override |
+| `Metadata`, `ApplyMetadata`, `OnMetadataChanged` | Built from a resolver's answer or from the URL, with `ApplyMetadata` merged on top. Display data only |
+| `CurrentTransport` | Read from the stream's scheme: `http`, `hls`, `rtsp`, `rist`, `whep`, `file` |
+| `OnReady`, `OnStarted`, `OnPaused`, `OnFirstFrameReady`, `OnError` | Raised from the engine's state transitions. `OnError` carries an exception naming the code, category and reason; `State` is `Error` by then |
+| `OnSeekCompleted` | Raised when the demuxer lands the seek, with the position asked for; the picture follows a few frames later. A seek a live source refuses is not reported |
+| `OnCaptionCueChanged` | Sidecar cues carry their times from the file; an in-band caption carries the position it came due at, with an unknown end |
+| `OnAudioTrackChanged` | Not raised for a source with one track, whose `AudioTracks` is empty. `Codec`, `BitsPerSecond` and `IsDualMono` on the track are empty: the engine's track list does not carry them |
+| `Volume`, `Mute` | Handed to the audio sink's own `VolumeGain` and `Mute` when they change; the sink's values are what the audio reads, so the last side to move wins |
+| `StopOnDisable` | On by default; `OnDisable` stops the session |
+| `BasisMediaPlayerNetworking.SetUrl` | Returns `Task`; `TrySetUrlAsync` is the same call reporting whether the load went ahead |
+| `BasisMediaPlayerAudio.HasMediaTime`, `CurrentMediaTimeUs` | The player's own position |
+| `BasisMediaPlayerSecurity` | Forwards to the client's URL rules and the capture-path sandbox |
 
-Aspect, stereo-eye selection and flips are applied as a **UV scale/offset on the sampled
-texture**, composed once and written to the material's texture ST (or the `RawImage`'s
-`uvRect`). The `Equirect360`, `VR180` and `Fisheye` projections are the exception: they
-can't be expressed as a UV scale/offset, so they enable a shader keyword instead.
+Gone, with a stub that compiles, loads and warns (`[Obsolete]`, with the
+replacement in the message):
 
-On the material path nothing touches the mesh, so a screen placed at a known size in a
-world keeps that size whatever plays on it. On the UI path an `AspectRatioFitter` is the
-one thing that does resize its `RectTransform`, which is what makes it the right way to
-letterbox a `RawImage`.
+- `TrySeekBack`: no live buffer to step back into. A live source plays at its
+  edge; an on-demand source takes `Seek`.
+- `SelectBitrate`, `BitrateTracks`, `SelectedBitrateIndex`,
+  `OnBitrateTrackChanged`: no managed bitrate ladder. A resolver picks the
+  rung before the open and the engine picks an HLS variant for itself.
+- `LoadResolvedSource`: resolvers call `OpenResolved`, which carries the
+  stream, the liveness and the subtitle tracks a `BasisMediaSource` cannot.
+- `BasisMediaPlayerNetworking.SetDriftSeekThresholdSeconds`: the engine's
+  sync ladder decides when a follower seeks rather than slews.
 
-#### The screen shader
+Gone without a stub, because nothing here corresponds to it: `BufferMode`,
+`MaxQueueLength`, `OverflowPolicy`, `LateFrameSkipUs`, `PresentationOffsetUs`,
+`BufferMilliseconds`, `PlaybackRate` and the DVR settings (the engine owns
+pacing, the frame pool and the 40 ms presentation rule; a serialised
+per-player buffer depth is deliberately not offered, the client setting and
+the panel's override being the two routes); the frame-queue counters
+(`QueuedFrameCount`, the drop and skip counts, `HeadFramePtsUs`,
+`TailFramePtsUs`: the diagnostics component and the engine capture carry
+them); `Source`, `Renderer`, `Clock`, `NativeEngine`, `ActiveMediaSource`;
+`OnFramePresented`; and the types `BasisVideoBufferMode`,
+`QueueOverflowPolicy`, the playlist and the frame-source types. A prefab
+value saved for one of these fields is dropped when the prefab loads.
 
-`Basis/Media Player Video` is URP/Unlit with one change: **UVs outside `[0,1]` render
-opaque black** rather than being resolved by the sampler. That single branch is what
-makes letterboxing possible at all. `FitInside` fits the whole source inside the screen
-by scaling the *bar* axis above 1, which pushes the sampled UV outside the texture over
-the bar region — and a UV transform has no other way to produce a bar.
+Scripts written against the engine's own names in the first release of this
+package on `experimental-branch-major-changes` have these replacements:
+`Seek(TimeSpan)` for `Seek(double)`, `Position` and `Duration` for
+`PositionSeconds` and `DurationSeconds`, `OutputTexture` for `Texture`,
+`OnAudioTrackChanged` for `OnAudioTrackIndexChanged`, `CaptionsEnabled` and
+the two opacities for their `Effective` forms, and `OnCaptionsEnabledChanged`
+or `OnCaptionStyleChanged` for `OnCaptionPreferencesChanged`. `OnSeeked`
+reported a seek as it was issued; `OnSeekCompleted` reports it once the
+engine has acted on it. `SetSyncTarget` and `ClearSyncTarget` belong to
+shared playback and have no replacement.
 
-The frame texture is `Clamp`-wrapped, so on **any other material** that same region
-resolves to the outermost row or column of video pixels stretched flat across the bar:
-a streak of edge colour that shifts with the content, not a black bar. The video itself
-stays correctly proportioned either way, so it's the bars that give it away.
-
-`FitInside` therefore needs this shader (or your own equivalent, see below). Every other
-mode keeps the sampled UV inside `[0,1]` and looks identical on any material. One
-consequence of baking the fit into the texture ST: this shader can't tile — authored
-tiling on the material is composed into the fit and then blacked out.
-
-#### Aspect
-
-`AspectMode` compares the source's aspect against the **display aspect** — the shape of
-the surface you're drawing on, not the shape of the video:
-
-| `AspectMode` | Behaviour | Safe on any material? |
-|---|---|---|
-| `Original` (default) | Sample untransformed. The mesh or `RectTransform` stretches the frame to its own shape | yes |
-| `Stretch` | Same as `Original` | yes |
-| `FitInside` | Letterbox / pillarbox — whole source visible, bars on the remaining axis | **no** — needs the shader above |
-| `FitOutside` | Crop to fill — no bars, edges of the source lost | yes |
-| `PixelPerfect` | Crop to fill, insetting on the opposite axis to `FitOutside` (it does not map source texels to screen pixels — there's no display-resolution input on this path) | yes |
-
-`DisplayAspectOverride` supplies the display aspect directly. Left at 0, it's derived
-from the target: the renderer's **local** bounds on the material path, the
-`RectTransform`'s rect on the UI path.
-
-> **Known gap.** Local bounds are mesh-local and exclude transform scale, so a 1×1 quad
-> scaled to (16, 9, 1) still reports 1:1 and `FitInside` letterboxes the video into a
-> square in the middle of a wide screen. Set `DisplayAspectOverride` on any screen that
-> isn't uniformly scaled. The aspect is also recomputed only when the frame texture
-> changes, so a screen resized at runtime keeps the fit it was given.
-
-On the UI path, prefer `Original` plus an `AspectRatioFitter` — a `RawImage` draws through
-the UI material, which smears rather than blacking out, so `FitInside` isn't available
-there. `MediaPlayerStreaming` ships `FitInside` on a uniformly scaled screen.
-
-#### Projection
-
-`ProjectionMode` describes how the source frame is laid out. `SideBySideLR`/`RL` and
-`OverUnderTB`/`BT` select one half of a stereo frame via the same UV transform, with
-`StereoEye` picking which. `Equirect360`, `VR180` and `Fisheye` don't reshape the UV —
-they enable a `BASIS_PROJ_EQUIRECT` / `_VR180` / `_FISHEYE` keyword for a shader that
-implements the mapping. **No bundled shader implements those keywords**, so on the stock
-material those three modes render the source flat, as mono.
-
-#### Orientation
-
-Some backends publish the frame top-left origin, and whether they do can depend on the
-GPU rather than the content, so the player reports it as `OutputFrameIsTopLeftOrigin` and
-both sinks fold that correction in automatically. Leave `FlipVertically` **off** for
-normal content; it's there for a source that is genuinely encoded upside-down, which is
-consistent across every machine. `FlipHorizontally` is for a screen mesh whose UV winding
-presents the video mirrored.
-
-#### Picture
-
-`Picture` (Brightness, Contrast, Saturation, Gamma) is a per-output adjustment published
-as `_BasisBrightness` / `_BasisContrast` / `_BasisSaturation` / `_BasisGamma` — through a
-`MaterialPropertyBlock` on the material path, and onto `RawImage.material` on the UI path.
-A shader that doesn't declare them ignores them, which today includes
-`Basis/Media Player Video`, so on the stock setup only the UI path's Brightness has any
-effect (it's multiplied into `RawImage.color`). Wire the four properties into your own
-shader to use the rest.
-
-#### Using your own shader
-
-Anything bound as the screen material needs to:
-
-- expose the texture property named in `TexturePropertyName` (`_BaseMap` by default), and
-- transform the sampled UV by that property's ST — `TRANSFORM_TEX(input.uv, _BaseMap)` —
-  since that's where aspect, stereo-eye selection and flips arrive.
-
-That much is enough for every aspect mode except `FitInside`. For that, also **render UVs
-outside `[0,1]` as black** before sampling, the way the bundled forward pass does.
-
-`Equirect360`, `VR180` and `Fisheye` need more than the ST transform: implement the
-mapping for whichever of `BASIS_PROJ_EQUIRECT`, `BASIS_PROJ_VR180` and
-`BASIS_PROJ_FISHEYE` you support, keyed off the enabled keyword. A shader that handles
-only the ST transform renders those three flat.
-
-Declare the four `_Basis*` picture floats if you want those, and note that the bundled
-shader's black-out lives in its forward pass only — a deferred renderer's GBuffer pass
-would smear the bars instead.
-
-### Audio (stereo and multichannel)
-
-Audio routes through a `BasisMediaPlayerAudio` on the player GameObject. List the
-`AudioSource`s in `Outputs`, each carrying a `BasisMediaAudioChannel` that selects
-what it plays — a single decoded channel, or a stereo downmix of the whole stream.
-For stereo, use a single `Output` set to `Stereo` (the `Prefabs/MediaPlayerStreaming`
-prefab); for surround, one `Output` per channel so a 5.1 / 7.1 mix (up to 8
-channels) can be positioned speaker-by-speaker in the world (the
-`Prefabs/MediaPlayerMultiChannelStreaming` prefab).
-
-Each output `AudioSource` carries a `BasisMediaPlayerAudioTap`, which writes the
-decoded stream straight into that source's DSP block. Unity applies audio filters in
-component order, so a Low Pass / High Pass / Reverb filter has to sit **below** the
-tap on the same GameObject; anything above it is handed silence.
-
-An output carrying filters with no tap above them is flagged in the inspector, on the
-owning `BasisMediaPlayerAudio` and on the tap itself where there is one, with a button
-that fixes the order by raising the tap, or by lowering the filters past it where the
-tap can't move. An output with no filters isn't flagged: it gets its tap at runtime and
-there's no ordering to get wrong. Component order is fixed once play starts, so an
-output assembled in code that already carries filters can't be put right, and logs a
-warning naming the filter instead.
-
-Each source's own `Volume` and `Mute` are folded into that tap's gain, so they behave
-as they would for a clip and stay per-output — on a surround setup you can trim one
-speaker without touching the rest. `BasisMediaPlayerAudio`'s `VolumeGain` / `Mute` are
-the player-wide pair, and the client's main volume scales the lot; all three multiply.
-
-Two of the AudioSource's own controls behave differently from a clip. `Pitch` does
-nothing, since it belongs to clip playback, and pitching the stream would pull the
-audio off the video in any case. Spatialisation needs the spatialiser to run *after*
-the tap, so `Spatialize Post Effects` stays ticked and `Bypass Effects` unticked (both
-prefabs ship that way): with either the wrong way round, the spatialiser processes the
-silent keepalive clip and the tap overwrites the result, which sounds the same as
-dropping `Spatial Blend` to 2D.
-
-Per-source audio analysers — AudioLink and anything else built on
-`AudioSource.GetOutputData` / `GetSpectrumData` — can't see audio a script generates, so
-they read silence from a tap-driven output. `BasisMediaAudioChannel.AnalysisFeed` switches
-that output to a streaming `AudioClip` written once a frame instead, which those APIs can
-read back. It costs the output a small delay behind the others (`AnalysisFeedLatency`,
-50 ms by default, 20–500 ms), so set it on the analyser's own `AudioSource` rather than on
-a speaker you listen to.
-
-Channel ceiling depends on the source: **LPCM** — Blu-ray-style over MPEG-TS, or a
-**WAV** file — carries a full 7.1 (8 channels); **AAC on Windows** decodes up to 5.1
-(the Media Foundation decoder's limit — wider or PCE-signalled AAC layouts play muted
-rather than failing the stream; Android decodes what the device's codec supports).
-
-Audio-only sources — a WAV, an MP3, an Ogg Opus file, or an MP4/`.m4a` with no video
-track — play through the same outputs with no video output. If an audio-only source's format can't be decoded on
-the platform, the load reports an error rather than playing silence.
-
-## Networked sync
-
-`BasisMediaPlayerNetworking` keeps playback aligned across the room. It syncs the
-**input URL** — the page URL you entered, not the resolved stream — plus play / pause /
-stop. A page URL resolves to a per-client, expiring CDN URL that can't be shared, so each
-client resolves the shared page URL itself; direct stream URLs travel verbatim. To keep a
-shared load tight, the owner broadcasts a page URL up front so peers resolve it in parallel
-rather than only after the owner is playing, and re-loading a URL (even the same one)
-restarts every client together.
-
-> **On-demand clients drift-correct by seeking.** The owner broadcasts its playhead, and a
-> client whose position drifts more than `DriftSeekThresholdSeconds` (default 2 s) seeks to
-> catch up; set it to 0 to disable. Catch-up needs a **seekable** source — a client on a live
-> or unindexed stream can't be advanced, so those converge to the live edge instead. A late
-> joiner starts the shared source and is pulled into alignment on the next position broadcast;
-> an owner seek propagates to the room.
-
-Two resync entry points sit on either side of that. **`ResyncLocal()`** re-aligns the calling
-client and nothing else: it asks the room for the current state and reloads onto the answer,
-falling back to reloading what it already holds when nobody answers. It takes no ownership and
-needs no permission, so the menu offers it under **My Settings** to every client — including
-one that can't see the playback controls at all. **`ResyncEveryone()`** goes the other way:
-it takes control like any other playback command, then re-announces the load so every client
-reloads onto the caller's state and position, the caller included. It is on the **Playback**
-tab, behind the same control gate as play/pause/seek. A page URL is re-resolved by each client
-rather than reloaded from its expired stream, and the shared URL stays the page URL throughout.
-
-## Building the native plugin
-
-Source is under `Native~/`. By default it links **only OS frameworks** (no
-third-party libs). The optional RIST transport (`-DBASIS_WITH_RIST=ON`)
-statically links prebuilt librist (which vendors its own mbedTLS) from
-`Native~/third_party/`. Build that archive with `Native~/build-librist.ps1`
-(Windows) or `build-librist.sh` (Linux/Android), or download it from the
-**media-native** CI workflow's artifacts — see
-`Native~/third_party/README.md`. Then add `-DBASIS_WITH_RIST=ON` to the cmake
-configure step below. You also need Unity's PluginAPI headers — see
-`Native~/unity/README.md`.
-
-**Windows → `Plugins/Windows/x86_64/basis_media_native.dll`**
-```sh
-cmake -S Native~ -B Native~/build -A x64 -DUNITY_PLUGIN_API_DIR="<UnityEditor>/Editor/Data/PluginAPI"
-cmake --build Native~/build --config Release
-```
-
-**Android (arm64, Vulkan) → `Plugins/Android/arm64-v8a/libbasis_media_native.so`**
-```sh
-cmake -S Native~ -B Native~/build-android \
-  -DCMAKE_TOOLCHAIN_FILE=$NDK/build/cmake/android.toolchain.cmake \
-  -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-29 \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DUNITY_PLUGIN_API_DIR=<UnityEditor>/Editor/Data/PluginAPI
-cmake --build Native~/build-android --config Release
-```
-
-After building, set the plugin's platform/CPU in the Unity import settings and the
-`Texture2D.CreateExternalTexture` format follows `SystemInfo.graphicsDeviceType`
-(BGRA32 on D3D11/D3D12, RGBA32 on Vulkan) — handled in `BasisNativeVideoSource`.
+Props built against the previous player load. A prop may set `playOnStart`,
+`liveness`, `maxDivergenceMs`, `BufferDepthOverrideMs`, `DisplayName`,
+`AutoPlayOnSourceAssigned`, `Loop`, `LoopRestartDelaySeconds`,
+`StopAfterSeconds`, `Volume`, `Mute` and `VerboseLogging`; `OpenResolved`,
+`SetSubtitleTracks`, `LoadLocalPath`, `LoadSource` and `CaptureScreenshot` are
+blocked for it.
 
 ## Known limits
 
-- **RTMP** — handshake/AMF is minimal (simple handshake, no Digest auth, no rtmps).
-  `rtsp://` and MPEG-TS are the primary, more-complete paths, with `rtspt://` the
-  TCP-pinned option for hosts or networks where UDP never works.
-- **HEVC on Windows** needs the system HEVC decoder MFT (HEVC Video Extensions).
-- **VP9 on Windows** needs the Store "VP9 Video Extensions" **and** a GPU with
-  hardware VP9 (2016-era or newer). Without hardware decode the source errors
-  clearly rather than falling back to CPU decode. 8-bit SDR only — a 10-bit
-  (profile 2) file surfaces a decoder error, not tone-mapped HDR.
-- **AV1 on Windows** needs the Store "AV1 Video Extension" **and** a GPU with
-  hardware AV1 (e.g. RTX 30-series / RX 6000 / Arc or newer — examples, not an
-  exhaustive list; `basis_media_probe_video_codec` is the authoritative check).
-  On GPUs without it, the extension's internal software decoder is rejected, the
-  probe answers 0 and the resolver keeps serving VP9/avc1 instead. On Quest, AV1 is hardware on
-  Quest 3 (XR2 Gen 2); Quest 2 has no AV1 decoder and errors cleanly on a
-  direct `av01` URL. 8-bit Main profile SDR only, as with VP9. MP4/fMP4 and
-  WebM carriage only (no AV1-in-TS or RTSP/RTMP).
-- **WebM** — VP9/AV1 video and/or Opus audio (`A_OPUS`): muxed VP9/AV1+Opus, or
-  audio-only Opus (YouTube's audio legs). Other audio codecs (Vorbis, …) are
-  skipped, and a WebM whose video codec isn't supported refuses cleanly rather
-  than dropping to audio under a black screen. Seek needs a Cues index and a
-  range-capable host; cueless/streamed WebM plays forward-only with no duration.
-- **Ogg Opus** — a direct `.opus` URL plays through the same Opus decoder (Ogg
-  page framing); duration and granule-bisection seek need a range-capable host.
-- **WAV** — 16/24-bit integer PCM only (no float or 20-bit), 1–8 channels, 8–96 kHz.
-- **Video output** — the `Equirect360` / `VR180` / `Fisheye` projection modes set a
-  shader keyword that no bundled shader implements, so they render the source flat.
-  `Picture` needs a shader declaring the `_Basis*` floats, which
-  `Basis/Media Player Video` doesn't, so only the UI path's Brightness currently applies.
+- No RTMP.
+- WebM/Matroska without a Cues index seeks, but the picture holds until the
+  next keyframe.
+- An MPEG-TS file opened directly plays from the start with no duration and
+  no seeking. The same content served as HLS seeks.
+- HLS plays the highest-quality variant with no switching. Audio carried
+  as a separate rendition plays the variant's default choice, with no
+  language selection. Encrypted, byte-range and keyframe-only playlists
+  are refused.
+- WHEP never requests a keyframe; unrecovered loss lasts until the next one.
+- Shared playback is not enforced by the server, which relays its messages
+  without inspecting them and keeps no media state.
+- 360°, VR180 and fisheye video show flat, and `Picture` needs a custom
+  shader.
+- No playback on Linux, or on Vulkan under Windows.
+
+## Building the engine
+
+The engine is a Rust workspace in `Native~/`. After changing it, rebuild the
+committed binaries in `Runtime/Plugins/` as
+[`Native~/README.md`](Native~/README.md) describes (each platform needs
+librist staged first).
+[`Native~/TESTING.md`](Native~/TESTING.md) covers prerequisites and testing.
+[`TESTING.md`](TESTING.md) has the checks for the Unity side, and
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) the licences of what the
+package includes. After a change to `Native~/Cargo.lock`, update the licence
+files and bake the licence manifest as that file describes.

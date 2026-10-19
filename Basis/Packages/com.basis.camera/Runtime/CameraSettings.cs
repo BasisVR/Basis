@@ -597,6 +597,11 @@ public partial class BasisHandHeldCameraUI
         /// </summary>
         public float directToScreenAlignX = 0.5f;
         public float directToScreenAlignY = 0.5f;
+        public int directToScreenDisplay;
+        public int passOutput;
+        public float passDepthRange = BasisCameraPasses.DefaultDepthRange;
+        public bool separatePasses;
+        public bool separateDepth = true, separateNormals = true, separateMask = true, separateMotion;
 
         /// <summary>
         /// Whether each saved photo is also printed into the world as a shared image pickup,

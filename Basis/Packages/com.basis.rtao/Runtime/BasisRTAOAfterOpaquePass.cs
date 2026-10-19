@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
@@ -11,6 +12,7 @@ namespace Basis.Rendering.RTAO
     /// _ScreenSpaceOcclusionTexture, materials whose own occlusion map would otherwise clamp the result, and
     /// anything lit almost entirely by a direct light.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public sealed class BasisRTAOAfterOpaquePass : ScriptableRenderPass
     {
         public const int ShaderPass = 1;

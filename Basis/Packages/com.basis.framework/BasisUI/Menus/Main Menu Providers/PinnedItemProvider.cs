@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -5,20 +6,21 @@ using Basis.Scripts.UI.UI_Panels;
 
 namespace Basis.BasisUI
 {
-    public class PinnedItemProvider : BasisMenuActionProvider<BasisMainMenu>
+    [AutoStaticsCleanup]
+    public partial class PinnedItemProvider : BasisMenuActionProvider<BasisMainMenu>
     {
         private BasisDataStoreItemKeys.ItemKey _key;
-        private readonly string _title;
+        private readonly CachedMetaData.CachedContent _meta;
         private readonly string _iconAddress;
 
         public PinnedItemProvider(BasisDataStoreItemKeys.ItemKey item, CachedMetaData.CachedContent cachedItemData)
         {
             _key = item;
-            _title = LibraryProviderStrUtil.TitleToCase(cachedItemData.BasisBundleConnector.BasisBundleDescription.AssetBundleName);
+            _meta = cachedItemData;
             _iconAddress = (item.EmbeddedSettings.IsEmbedded && item.EmbeddedSettings.SourceType == BasisDataStoreItemKeys.EmbeddedSource.Addressable) ? EmbeddedItems.GetAddressableSpriteForEmbeddedItem(item) : AddressableAssets.Sprites.Items;
         }
 
-        public override string Title => _title; // or a nicer name
+        public override string Title => _meta.Name;
         public override string IconAddress => _iconAddress;
         public override int Order => 50; // after static items
         public override bool Hidden => false;

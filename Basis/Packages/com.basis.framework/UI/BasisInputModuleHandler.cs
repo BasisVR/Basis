@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
@@ -17,7 +18,8 @@ namespace Basis.Scripts.UI
     /// Custom input module that manages text input focus, virtual keyboard spawning, and navigation
     /// for TMP and legacy InputFields. Handles Tab/Enter flows and locks player movement while typing.
     /// </summary>
-    public class BasisInputModuleHandler : BaseInputModule
+    [AutoStaticsCleanup]
+    public partial class BasisInputModuleHandler : BaseInputModule
     {
         /// <summary>
         /// Reference to the active <see cref="UnityEngine.EventSystems.EventSystem"/>.

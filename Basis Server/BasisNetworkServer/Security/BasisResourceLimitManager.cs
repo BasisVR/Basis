@@ -16,13 +16,26 @@ namespace BasisNetworkServer.Security
 
         private const int AbsoluteMaxContentSpheresPerPlayer = 4096;
 
+        private const int DefaultContentSphereLeaveTimeoutSeconds = 60;
+
+        private const int AbsoluteMaxContentSphereTimerSeconds = 86400;
+
         private static int _maxContentSpheresPerPlayer = DefaultMaxContentSpheresPerPlayer;
 
+        private static int _contentSphereLeaveTimeoutSeconds = DefaultContentSphereLeaveTimeoutSeconds;
+
+        private static int _contentSphereDeletionTimerSeconds;
+
         public static int MaxContentSpheresPerPlayer => Interlocked.CompareExchange(ref _maxContentSpheresPerPlayer, 0, 0);
+
+        public static int ContentSphereLeaveTimeoutSeconds => Interlocked.CompareExchange(ref _contentSphereLeaveTimeoutSeconds, 0, 0);
+
+        public static int ContentSphereDeletionTimerSeconds => Interlocked.CompareExchange(ref _contentSphereDeletionTimerSeconds, 0, 0);
 
         public static void InitializeFromConfig(Configuration config)
         {
             SetLimits(config.MaxContentSpheresPerPlayer);
+            SetContentSphereTimers(config.ContentSphereLeaveTimeoutSeconds, config.ContentSphereDeletionTimerSeconds);
         }
 
         public static bool SetLimits(int maxContentSpheresPerPlayer)
@@ -30,6 +43,15 @@ namespace BasisNetworkServer.Security
             Sanitize(ref maxContentSpheresPerPlayer);
             int prevSpheres = Interlocked.Exchange(ref _maxContentSpheresPerPlayer, maxContentSpheresPerPlayer);
             return prevSpheres != maxContentSpheresPerPlayer;
+        }
+
+        public static bool SetContentSphereTimers(int leaveTimeoutSeconds, int deletionTimerSeconds)
+        {
+            SanitizeTimer(ref leaveTimeoutSeconds);
+            SanitizeTimer(ref deletionTimerSeconds);
+            int prevLeave = Interlocked.Exchange(ref _contentSphereLeaveTimeoutSeconds, leaveTimeoutSeconds);
+            int prevDeletion = Interlocked.Exchange(ref _contentSphereDeletionTimerSeconds, deletionTimerSeconds);
+            return prevLeave != leaveTimeoutSeconds || prevDeletion != deletionTimerSeconds;
         }
 
         public static void SendStateToPeer(NetPeer peer)
@@ -68,12 +90,20 @@ namespace BasisNetworkServer.Security
         {
             new AdminRequest().Serialize(writer, AdminRequestMode.GlobalGetResourceLimits);
             writer.Put(MaxContentSpheresPerPlayer);
+            writer.Put(ContentSphereLeaveTimeoutSeconds);
+            writer.Put(ContentSphereDeletionTimerSeconds);
         }
 
         private static void Sanitize(ref int spheres)
         {
             if (spheres < 1) spheres = DefaultMaxContentSpheresPerPlayer;
             if (spheres > AbsoluteMaxContentSpheresPerPlayer) spheres = AbsoluteMaxContentSpheresPerPlayer;
+        }
+
+        private static void SanitizeTimer(ref int seconds)
+        {
+            if (seconds < 0) seconds = 0;
+            if (seconds > AbsoluteMaxContentSphereTimerSeconds) seconds = AbsoluteMaxContentSphereTimerSeconds;
         }
     }
 }

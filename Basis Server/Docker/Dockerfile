@@ -2,7 +2,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
 WORKDIR /src
 
-# Copy the entire server project (including .props, Contrib, LiteNetLib, etc.)
+# Copy the entire server project (including .props, Contrib, Packages, etc.)
 COPY ["./", "Server/"]
 
 WORKDIR "/src/Server/BasisServerConsole"
@@ -40,6 +40,7 @@ ENV SetPort=4296 \
 
 # Expose UDP port for game traffic and TCP port for health checks
 EXPOSE ${SetPort}/udp
+EXPOSE ${SetPort}/tcp
 EXPOSE ${HealthCheckPort}/tcp
 EXPOSE ${PromethusPort}/tcp
 

@@ -10,8 +10,8 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
     {
         [SerializeField]
         public OpenVRDevice Device;
-        public TrackedDevicePose_t devicePose = new TrackedDevicePose_t();
-        public TrackedDevicePose_t deviceGamePose = new TrackedDevicePose_t();
+        [System.NonSerialized] public TrackedDevicePose_t devicePose = new TrackedDevicePose_t();
+        [System.NonSerialized] public TrackedDevicePose_t deviceGamePose = new TrackedDevicePose_t();
         public SteamVR_Utils.RigidTransform deviceTransform;
         public EVRCompositorError result;
         public bool HasInputSource = false;

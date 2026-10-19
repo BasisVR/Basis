@@ -3,7 +3,7 @@ namespace Basis.MediaPipe
 {
     public sealed class MediaPipeExposure
     {
-        public const float MaxGain = 4f, MinGamma = 0.55f, TargetHigh = 235f, TargetMean = 100f, BoostRamp = 40f, Rate = 0.15f, DarkLevel = 0.05f, BrightLevel = 0.3f;
+        public const float MaxGain = 4f, MinGamma = 0.55f, TargetHigh = 235f, TargetMean = 100f, BoostRamp = 40f, Rate = 0.15f;
         public readonly byte[] Lut = new byte[256];
         public float Gain = 1f, Gamma = 1f, Level = -1f, High = -1f;
         public bool Active;
@@ -72,6 +72,5 @@ namespace Basis.MediaPipe
         {
             for (int i = 0; i < 256; i++) lut[i] = (byte)Mathf.RoundToInt(255f * Mathf.Pow(Mathf.Min(1f, i * gain / 255f), gamma));
         }
-        public static float Quality(float level) => level < 0f ? 1f : Mathf.Clamp01((level - DarkLevel) / (BrightLevel - DarkLevel));
     }
 }

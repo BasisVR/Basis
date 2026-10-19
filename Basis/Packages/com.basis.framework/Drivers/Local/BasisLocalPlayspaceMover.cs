@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
@@ -28,7 +29,8 @@ namespace Basis.Scripts.Drivers
     /// mode uses for its height delta. That shifts the whole tracking space (view, hands, avatar) without
     /// moving the capsule or touching gravity, so it persists for free. Gated by the "Vertical" toggle.
     /// </summary>
-    public static class BasisLocalPlayspaceMover
+    [AutoStaticsCleanup]
+    public static partial class BasisLocalPlayspaceMover
     {
         public const string InputGrip = "Grip";
         public const string InputTrigger = "Trigger";
@@ -479,7 +481,7 @@ namespace Basis.Scripts.Drivers
                     _scriptScaleRestoreCustom = BasisSettingsDefaults.CustomScale.RawValue;
                     _scriptScaleRestore = _scriptScaleRestoreCustom
                         ? BasisSettingsDefaults.SelectedScale.RawValue
-                        : BasisHeightDriver.SelectedUnScaledAvatarHeight;
+                        : BasisHeightDriver.AvatarEyeHeight;
                     if (_scriptScaleRestore < 1e-3f) _scriptScaleRestore = BasisHeightDriver.FallbackHeightInMeters;
                 }
 
@@ -522,6 +524,10 @@ namespace Basis.Scripts.Drivers
             GizmoSample.SpanCurrent = curDist;
 
             float target = Mathf.Clamp(_grabBaseHeight * (curDist / grabDist), MinHeight, MaxHeight);
+            if (_scaleDirty && SMModuleCalibration.ApplyCustomScale && Mathf.Abs(target - _pendingScaleHeight) <= target * 0.002f)
+            {
+                return;
+            }
 
             // Drive the full height/scale recompute live (same path the avatar-scale slider uses) so
             // the avatar, camera eye height, and scaled controller positions all update immediately.
@@ -583,11 +589,12 @@ namespace Basis.Scripts.Drivers
 
         private static void CaptureScaleBaseline(Vector3 leftUnscaled, Vector3 rightUnscaled)
         {
+            BasisHeightDriver.ClearRuntimeOscEyeHeightOverride();
             _grabLeftUnscaled = leftUnscaled;
             _grabRightUnscaled = rightUnscaled;
             _grabBaseHeight = BasisSettingsDefaults.CustomScale.RawValue
                 ? BasisSettingsDefaults.SelectedScale.RawValue
-                : BasisHeightDriver.SelectedUnScaledAvatarHeight;
+                : BasisHeightDriver.AvatarEyeHeight;
             if (_grabBaseHeight < 1e-3f) _grabBaseHeight = BasisHeightDriver.FallbackHeightInMeters;
         }
 

@@ -12,7 +12,6 @@ namespace Basis.MediaPipe
         public bool EnableHeadRotation;
         public bool EnableHandTracking;
         public bool EnableArmElbowPole;
-        public bool SwapHands;
         public bool MirrorHorizontally;
         public bool LowLightBoost;
         public bool CameraFpsAuto;
@@ -33,7 +32,6 @@ namespace Basis.MediaPipe
             EnableHeadRotation = true,
             EnableHandTracking = false,
             EnableArmElbowPole = false,
-            SwapHands = false,
             MirrorHorizontally = true,
             LowLightBoost = true,
             CameraFpsAuto = true,

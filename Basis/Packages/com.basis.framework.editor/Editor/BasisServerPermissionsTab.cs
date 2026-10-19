@@ -3,14 +3,15 @@ using System;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using Basis.Editor.Localization;
 using BasisPermissions;
 using static BasisPermissions.PermissionManager;
 
 public sealed class BasisServerPermissionsTab : BasisEditorTabPage
 {
-    public override string Title => "Server Rules";
+    public override string Title => BasisEditorLocalization.Get("editor.serverPermissions.title");
     public override string Subtitle =>
-        "Users, groups and permission nodes loaded from the server's permissions.xml.";
+        BasisEditorLocalization.Get("editor.serverPermissions.subtitle");
 
     // -------- UI state --------
     private Vector2 _leftScroll;
@@ -75,14 +76,14 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
         {
             using (new EditorGUILayout.HorizontalScope())
             {
-                _xmlPath = EditorGUILayout.TextField("XML Path", _xmlPath);
+                _xmlPath = EditorGUILayout.TextField(BasisEditorLocalization.Get("editor.serverPermissions.xmlPath"), _xmlPath);
 
-                if (GUILayout.Button("Browse...", GUILayout.Width(90)))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.serverPermissions.browse"), GUILayout.Width(90)))
                 {
                     BrowseForXml();
                 }
 
-                if (GUILayout.Button("Set Path", GUILayout.Width(90)))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.serverPermissions.setPath"), GUILayout.Width(90)))
                 {
                     SafeCall(() =>
                     {
@@ -92,7 +93,7 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
                     });
                 }
 
-                if (GUILayout.Button("Load", GUILayout.Width(70)))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.load"), GUILayout.Width(70)))
                 {
                     SafeCall(() =>
                     {
@@ -104,7 +105,7 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
                     });
                 }
 
-                if (GUILayout.Button("Save", GUILayout.Width(70)))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.save"), GUILayout.Width(70)))
                 {
                     SafeCall(() =>
                     {
@@ -119,7 +120,7 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
                     });
                 }
 
-                if (GUILayout.Button("Save (Debounced)", GUILayout.Width(130)))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.serverPermissions.saveDebounced"), GUILayout.Width(130)))
                 {
                     SafeCall(() =>
                     {
@@ -132,7 +133,7 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
                     });
                 }
 
-                if (GUILayout.Button("Ensure Defaults", GUILayout.Width(120)))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.serverPermissions.ensureDefaults"), GUILayout.Width(120)))
                 {
                     SafeCall(() => PermissionIntegration.Manager.EnsureDefaults());
                 }
@@ -140,11 +141,11 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                _tab = (Tab)GUILayout.Toolbar((int)_tab, new[] { "Users", "Groups" }, GUILayout.Height(22));
+                _tab = (Tab)GUILayout.Toolbar((int)_tab, new[] { BasisEditorLocalization.Get("editor.serverPermissions.users"), BasisEditorLocalization.Get("editor.serverPermissions.groups") }, GUILayout.Height(22));
 
                 GUILayout.FlexibleSpace();
 
-                if (GUILayout.Button("Refresh", GUILayout.Width(90)))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.refresh"), GUILayout.Width(90)))
                 {
                     Host.Repaint();
                 }
@@ -183,13 +184,13 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
     {
         if (string.IsNullOrWhiteSpace(absolutePath))
         {
-            EditorUtility.DisplayDialog("Permissions", "No XML path set.", "OK");
+            EditorUtility.DisplayDialog(BasisEditorLocalization.Get("editor.permissionsWindow.title"), BasisEditorLocalization.Get("editor.serverPermissions.noXmlPath"), BasisEditorLocalization.Get("editor.common.ok"));
             return false;
         }
 
         if (!System.IO.File.Exists(absolutePath))
         {
-            EditorUtility.DisplayDialog("Permissions", $"XML file not found:\n{absolutePath}", "OK");
+            EditorUtility.DisplayDialog(BasisEditorLocalization.Get("editor.permissionsWindow.title"), BasisEditorLocalization.Get("editor.serverPermissions.xmlNotFound", absolutePath), BasisEditorLocalization.Get("editor.common.ok"));
             return false;
         }
 
@@ -212,13 +213,13 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
         }
         catch { /* ignore */ }
 
-        string chosen = EditorUtility.OpenFilePanel("Select permissions XML", startDir, "xml");
+        string chosen = EditorUtility.OpenFilePanel(BasisEditorLocalization.Get("editor.serverPermissions.selectXml"), startDir, "xml");
         if (string.IsNullOrEmpty(chosen))
             return;
 
         if (!chosen.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
         {
-            EditorUtility.DisplayDialog("Invalid file", "Please select a .xml file.", "OK");
+            EditorUtility.DisplayDialog(BasisEditorLocalization.Get("editor.serverPermissions.invalidFile"), BasisEditorLocalization.Get("editor.serverPermissions.selectXmlFile"), BasisEditorLocalization.Get("editor.common.ok"));
             return;
         }
 
@@ -271,16 +272,16 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
 
         using (new EditorGUILayout.HorizontalScope())
         {
-            GUILayout.Label("Users", EditorStyles.boldLabel);
+            GUILayout.Label(BasisEditorLocalization.Get("editor.serverPermissions.users"), EditorStyles.boldLabel);
             GUILayout.FlexibleSpace();
         }
 
-        _userFilter = EditorGUILayout.TextField("Filter", _userFilter);
+        _userFilter = EditorGUILayout.TextField(BasisEditorLocalization.Get("editor.serverPermissions.filter"), _userFilter);
 
         using (new EditorGUILayout.HorizontalScope())
         {
-            _newUserUuid = EditorGUILayout.TextField("New UUID", _newUserUuid);
-            if (GUILayout.Button("Create", GUILayout.Width(80)))
+            _newUserUuid = EditorGUILayout.TextField(BasisEditorLocalization.Get("editor.serverPermissions.newUuid"), _newUserUuid);
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.create"), GUILayout.Width(80)))
             {
                 var uuid = _newUserUuid?.Trim() ?? "";
                 if (!string.IsNullOrWhiteSpace(uuid))
@@ -324,16 +325,16 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
 
         using (new EditorGUILayout.HorizontalScope())
         {
-            GUILayout.Label("Groups", EditorStyles.boldLabel);
+            GUILayout.Label(BasisEditorLocalization.Get("editor.serverPermissions.groups"), EditorStyles.boldLabel);
             GUILayout.FlexibleSpace();
         }
 
-        _groupFilter = EditorGUILayout.TextField("Filter", _groupFilter);
+        _groupFilter = EditorGUILayout.TextField(BasisEditorLocalization.Get("editor.serverPermissions.filter"), _groupFilter);
 
         using (new EditorGUILayout.HorizontalScope())
         {
-            _newGroupName = EditorGUILayout.TextField("New Group", _newGroupName);
-            if (GUILayout.Button("Create", GUILayout.Width(80)))
+            _newGroupName = EditorGUILayout.TextField(BasisEditorLocalization.Get("editor.serverPermissions.newGroup"), _newGroupName);
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.create"), GUILayout.Width(80)))
             {
                 var name = _newGroupName?.Trim() ?? "";
                 if (!string.IsNullOrWhiteSpace(name))
@@ -385,19 +386,19 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
     {
         if (string.IsNullOrWhiteSpace(_selectedUserUuid))
         {
-            GUILayout.Label("Select a user on the left.", EditorStyles.boldLabel);
+            GUILayout.Label(BasisEditorLocalization.Get("editor.serverPermissions.selectUser"), EditorStyles.boldLabel);
             return;
         }
 
         if (!PermissionIntegration.Manager.TryGetUser(_selectedUserUuid, out var user))
         {
-            GUILayout.Label($"User not found: {_selectedUserUuid}", EditorStyles.boldLabel);
+            GUILayout.Label(BasisEditorLocalization.Get("editor.serverPermissions.userNotFound", _selectedUserUuid), EditorStyles.boldLabel);
             return;
         }
 
         using (new EditorGUILayout.HorizontalScope())
         {
-            GUILayout.Label("User", EditorStyles.boldLabel, GUILayout.Width(60));
+            GUILayout.Label(BasisEditorLocalization.Get("editor.serverPermissions.user"), EditorStyles.boldLabel, GUILayout.Width(60));
             EditorGUILayout.SelectableLabel(user.Uuid, EditorStyles.textField, GUILayout.Height(18));
         }
 
@@ -417,12 +418,12 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
 
     private void DrawUserGroups(PermissionUser user)
     {
-        GUILayout.Label("Groups", EditorStyles.boldLabel);
+        GUILayout.Label(BasisEditorLocalization.Get("editor.serverPermissions.groups"), EditorStyles.boldLabel);
 
         using (new EditorGUILayout.HorizontalScope())
         {
-            _newUserGroup = EditorGUILayout.TextField("Add to group", _newUserGroup);
-            if (GUILayout.Button("Add", GUILayout.Width(80)))
+            _newUserGroup = EditorGUILayout.TextField(BasisEditorLocalization.Get("editor.serverPermissions.addToGroup"), _newUserGroup);
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.add"), GUILayout.Width(80)))
             {
                 var g = _newUserGroup?.Trim() ?? "";
                 if (!string.IsNullOrWhiteSpace(g))
@@ -435,7 +436,7 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
 
         if (user.Groups.Count == 0)
         {
-            BasisEditorUI.Help("No groups assigned.", MessageType.Info);
+            BasisEditorUI.Help(BasisEditorLocalization.Get("editor.serverPermissions.noGroups"), MessageType.Info);
             return;
         }
 
@@ -444,7 +445,7 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
             using (new EditorGUILayout.HorizontalScope())
             {
                 EditorGUILayout.LabelField(g);
-                if (GUILayout.Button("Remove", GUILayout.Width(80)))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.remove"), GUILayout.Width(80)))
                 {
                     SafeCall(() => PermissionIntegration.Manager.RemoveUserFromGroup(user.Uuid, g));
                     GUI.FocusControl(null);
@@ -456,13 +457,13 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
 
     private void DrawUserNodes(PermissionUser user)
     {
-        GUILayout.Label("User Nodes", EditorStyles.boldLabel);
-        BasisEditorUI.Readout("Use '-node' to deny. Example: -basis.command.nuke");
+        GUILayout.Label(BasisEditorLocalization.Get("editor.serverPermissions.userNodes"), EditorStyles.boldLabel);
+        BasisEditorUI.Readout(BasisEditorLocalization.Get("editor.serverPermissions.denyHintUser"));
 
         using (new EditorGUILayout.HorizontalScope())
         {
-            _newUserNode = EditorGUILayout.TextField("Add node", _newUserNode);
-            if (GUILayout.Button("Add", GUILayout.Width(80)))
+            _newUserNode = EditorGUILayout.TextField(BasisEditorLocalization.Get("editor.serverPermissions.addNode"), _newUserNode);
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.add"), GUILayout.Width(80)))
             {
                 var n = _newUserNode?.Trim() ?? "";
                 if (!string.IsNullOrWhiteSpace(n))
@@ -475,7 +476,7 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
 
         if (user.Nodes.Count == 0)
         {
-            BasisEditorUI.Help("No user nodes.", MessageType.Info);
+            BasisEditorUI.Help(BasisEditorLocalization.Get("editor.serverPermissions.noUserNodes"), MessageType.Info);
             return;
         }
 
@@ -485,7 +486,7 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
             {
                 DrawNodePill(n);
                 GUILayout.FlexibleSpace();
-                if (GUILayout.Button("Remove", GUILayout.Width(80)))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.remove"), GUILayout.Width(80)))
                 {
                     SafeCall(() => PermissionIntegration.Manager.RemoveUserNode(user.Uuid, n));
                     GUI.FocusControl(null);
@@ -497,8 +498,8 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
 
     private void DrawEffectivePermissions(string uuid)
     {
-        GUILayout.Label("Effective Rules", EditorStyles.boldLabel);
-        _effectiveFilter = EditorGUILayout.TextField("Filter", _effectiveFilter);
+        GUILayout.Label(BasisEditorLocalization.Get("editor.serverPermissions.effectiveRules"), EditorStyles.boldLabel);
+        _effectiveFilter = EditorGUILayout.TextField(BasisEditorLocalization.Get("editor.serverPermissions.filter"), _effectiveFilter);
 
         var allowed = SafeCallRet(() => PermissionIntegration.Manager.GetAllAllowedRules(uuid)) ?? Array.Empty<string>();
         var denied = SafeCallRet(() => PermissionIntegration.Manager.GetAllDeniedRules(uuid)) ?? Array.Empty<string>();
@@ -507,7 +508,7 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
             string.IsNullOrWhiteSpace(_effectiveFilter) ||
             s.IndexOf(_effectiveFilter, StringComparison.OrdinalIgnoreCase) >= 0;
 
-        _showEffectiveAllowed = EditorGUILayout.Foldout(_showEffectiveAllowed, $"Allowed ({allowed.Count})", true);
+        _showEffectiveAllowed = EditorGUILayout.Foldout(_showEffectiveAllowed, BasisEditorLocalization.Get("editor.serverPermissions.allowed", allowed.Count), true);
         if (_showEffectiveAllowed)
         {
             foreach (var a in allowed.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).Where(Pass))
@@ -516,7 +517,7 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
 
         EditorGUILayout.Space(4);
 
-        _showEffectiveDenied = EditorGUILayout.Foldout(_showEffectiveDenied, $"Denied ({denied.Count})", true);
+        _showEffectiveDenied = EditorGUILayout.Foldout(_showEffectiveDenied, BasisEditorLocalization.Get("editor.serverPermissions.denied", denied.Count), true);
         if (_showEffectiveDenied)
         {
             foreach (var d in denied.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).Where(Pass))
@@ -527,11 +528,11 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
 
         using (new EditorGUILayout.HorizontalScope())
         {
-            GUILayout.Label("Check node", GUILayout.Width(80));
+            GUILayout.Label(BasisEditorLocalization.Get("editor.serverPermissions.checkNode"), GUILayout.Width(80));
             string test = EditorGUILayout.TextField("", _quickCheckNode);
             if (test != _quickCheckNode) _quickCheckNode = test;
 
-            if (GUILayout.Button("Has?", GUILayout.Width(60)))
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.serverPermissions.has"), GUILayout.Width(60)))
             {
                 _quickCheckResult = SafeCallRet(() => PermissionIntegration.Manager.Has(uuid, _quickCheckNode));
                 _quickCheckRan = true;
@@ -541,7 +542,7 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
         if (_quickCheckRan)
         {
             EditorGUILayout.HelpBox(
-                _quickCheckResult ? "ALLOW ✅" : "DENY ❌",
+                _quickCheckResult ? BasisEditorLocalization.Get("editor.serverPermissions.allowResult") : BasisEditorLocalization.Get("editor.serverPermissions.denyResult"),
                 _quickCheckResult ? MessageType.Info : MessageType.Warning);
         }
     }
@@ -550,19 +551,19 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
     {
         if (string.IsNullOrWhiteSpace(_selectedGroupName))
         {
-            GUILayout.Label("Select a group on the left.", EditorStyles.boldLabel);
+            GUILayout.Label(BasisEditorLocalization.Get("editor.serverPermissions.selectGroup"), EditorStyles.boldLabel);
             return;
         }
 
         if (!PermissionIntegration.Manager.TryGetGroup(_selectedGroupName, out var group))
         {
-            GUILayout.Label($"Group not found: {_selectedGroupName}", EditorStyles.boldLabel);
+            GUILayout.Label(BasisEditorLocalization.Get("editor.serverPermissions.groupNotFound", _selectedGroupName), EditorStyles.boldLabel);
             return;
         }
 
         using (new EditorGUILayout.HorizontalScope())
         {
-            GUILayout.Label("Group", EditorStyles.boldLabel, GUILayout.Width(60));
+            GUILayout.Label(BasisEditorLocalization.Get("editor.serverPermissions.group"), EditorStyles.boldLabel, GUILayout.Width(60));
             EditorGUILayout.SelectableLabel(group.Name, EditorStyles.textField, GUILayout.Height(18));
         }
 
@@ -580,12 +581,12 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
 
     private void DrawGroupParents(PermissionGroup group)
     {
-        GUILayout.Label("Parents (Inheritance)", EditorStyles.boldLabel);
+        GUILayout.Label(BasisEditorLocalization.Get("editor.serverPermissions.parents"), EditorStyles.boldLabel);
 
         using (new EditorGUILayout.HorizontalScope())
         {
-            _newGroupParent = EditorGUILayout.TextField("Add parent", _newGroupParent);
-            if (GUILayout.Button("Add", GUILayout.Width(80)))
+            _newGroupParent = EditorGUILayout.TextField(BasisEditorLocalization.Get("editor.serverPermissions.addParent"), _newGroupParent);
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.add"), GUILayout.Width(80)))
             {
                 var p = _newGroupParent?.Trim() ?? "";
                 if (!string.IsNullOrWhiteSpace(p))
@@ -598,7 +599,7 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
 
         if (group.Parents.Count == 0)
         {
-            BasisEditorUI.Help("No parents.", MessageType.Info);
+            BasisEditorUI.Help(BasisEditorLocalization.Get("editor.serverPermissions.noParents"), MessageType.Info);
             return;
         }
 
@@ -607,7 +608,7 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
             using (new EditorGUILayout.HorizontalScope())
             {
                 EditorGUILayout.LabelField(p);
-                if (GUILayout.Button("Remove", GUILayout.Width(80)))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.remove"), GUILayout.Width(80)))
                 {
                     SafeCall(() => PermissionIntegration.Manager.RemoveGroupParent(group.Name, p));
                     GUI.FocusControl(null);
@@ -619,13 +620,13 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
 
     private void DrawGroupNodes(PermissionGroup group)
     {
-        GUILayout.Label("Group Nodes", EditorStyles.boldLabel);
-        BasisEditorUI.Readout("Use '-node' to deny. Deny beats allow when the same rule exists.");
+        GUILayout.Label(BasisEditorLocalization.Get("editor.serverPermissions.groupNodes"), EditorStyles.boldLabel);
+        BasisEditorUI.Readout(BasisEditorLocalization.Get("editor.serverPermissions.denyHintGroup"));
 
         using (new EditorGUILayout.HorizontalScope())
         {
-            _newGroupNode = EditorGUILayout.TextField("Add node", _newGroupNode);
-            if (GUILayout.Button("Add", GUILayout.Width(80)))
+            _newGroupNode = EditorGUILayout.TextField(BasisEditorLocalization.Get("editor.serverPermissions.addNode"), _newGroupNode);
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.add"), GUILayout.Width(80)))
             {
                 var n = _newGroupNode?.Trim() ?? "";
                 if (!string.IsNullOrWhiteSpace(n))
@@ -638,7 +639,7 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
 
         if (group.Nodes.Count == 0)
         {
-            BasisEditorUI.Help("No group nodes.", MessageType.Info);
+            BasisEditorUI.Help(BasisEditorLocalization.Get("editor.serverPermissions.noGroupNodes"), MessageType.Info);
             return;
         }
 
@@ -648,7 +649,7 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
             {
                 DrawNodePill(n);
                 GUILayout.FlexibleSpace();
-                if (GUILayout.Button("Remove", GUILayout.Width(80)))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.remove"), GUILayout.Width(80)))
                 {
                     SafeCall(() => PermissionIntegration.Manager.RemoveGroupNode(group.Name, n));
                     GUI.FocusControl(null);
@@ -687,7 +688,7 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
         catch (Exception e)
         {
             Debug.LogError(e);
-            EditorUtility.DisplayDialog("Permissions Editor Error", e.Message, "OK");
+            EditorUtility.DisplayDialog(BasisEditorLocalization.Get("editor.serverPermissions.errorTitle"), e.Message, BasisEditorLocalization.Get("editor.common.ok"));
         }
     }
 
@@ -697,7 +698,7 @@ public sealed class BasisServerPermissionsTab : BasisEditorTabPage
         catch (Exception e)
         {
             Debug.LogError(e);
-            EditorUtility.DisplayDialog("Permissions Editor Error", e.Message, "OK");
+            EditorUtility.DisplayDialog(BasisEditorLocalization.Get("editor.serverPermissions.errorTitle"), e.Message, BasisEditorLocalization.Get("editor.common.ok"));
             return default;
         }
     }

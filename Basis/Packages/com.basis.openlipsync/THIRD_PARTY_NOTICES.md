@@ -34,6 +34,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## Emscripten runtime (web lip sync kernel)
+
+- Files: `Plugins/Web/BasisWebLipSyncKernel.jslib`, which embeds `Native~/openlipsync_net.c` compiled to WebAssembly by `Native~/build_web.py` with the Emscripten bundled in Unity's Web module
+- Includes: musl libc `erff` and `expf` (MIT; `erff` derives from FreeBSD msun, Copyright (C) 1993 Sun Microsystems, Inc., freely redistributable with this notice preserved; `expf` Copyright (c) 2017-2018 Arm Limited), dlmalloc (CC0 / public domain), Emscripten `sbrk` and stack helpers (MIT)
+- Source: https://github.com/emscripten-core/emscripten, https://musl.libc.org
+
 ## Newtonsoft.Json (Json.NET)
 
 - Referenced via: `Newtonsoft.Json.dll` (external dependency, not bundled)

@@ -36,8 +36,8 @@ namespace Basis.BasisUI
             UpdateButtonVisuals(button, BasisLocalMicrophoneDriver.isPaused);
 
             // Half the normal hotbar button width — a compact mute button (like Exit).
-            Vector2 size = button.rectTransform.sizeDelta;
-            if (size.x > 0f) button.SetSize(new Vector2(size.x * 0.5f, size.y));
+            float width = button.rectTransform.sizeDelta.x;
+            if (width > 0f) button.SetWidth(width * 0.5f);
         }
 
         private void OnMuteChanged(bool isMuted)

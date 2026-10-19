@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -151,6 +152,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
     ///   one buffer to two receivers, orphans the rest of the free list, and lets Deinitialize
     ///   Dispose() the persistent NativeArrays of a buffer a Burst job still reads.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public static class BasisAvatarBufferPool
     {
         // Intrusive stack head; only ever read or written under _gate.

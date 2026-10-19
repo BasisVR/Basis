@@ -67,8 +67,7 @@ public class JiggleRigDataPropertyDrawer : PropertyDrawer {
         if (!property.serializedObject.isEditingMultipleObjects && Application.isPlaying) {
             var rootBone = (Transform)rootProp.objectReferenceValue;
             var isRecursiveRig = false;
-            foreach (JiggleRig otherRig in Object.FindObjectsByType<JiggleRig>(FindObjectsInactive.Exclude,
-                         FindObjectsSortMode.None)) {
+            foreach (JiggleRig otherRig in Object.FindObjectsByType<JiggleRig>(FindObjectsInactive.Exclude)) {
                 var otherRoot = otherRig.GetJiggleRigData().rootBone;
                 if (rootBone && rootBone != otherRoot && rootBone.IsChildOf(otherRoot)) {
                     isRecursiveRig = true;

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using HVR.Vixxy;
@@ -10,6 +11,7 @@ namespace HVR.Basis.Comms
     /// BasisEventDriver, replacing one MonoBehaviour.Update() invocation per instance.
     /// Components register on enable and unregister on disable.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public static class HVRCommsUpdateDriver
     {
         private static readonly TickList<HVRVixxyOrchestrator> Orchestrators = new();

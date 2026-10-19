@@ -183,4 +183,27 @@ public class BasisSectionDecryptTests
         Assert.IsFalse(BasisBundleSection.FromFile("some.bee", 0, 0).HasPayload);
         Assert.IsTrue(BasisBundleSection.FromBytes(new byte[8]).HasPayload);
     }
+
+    [Test]
+    public void SectionSliceUsesRelativeOffsetsForMemoryAndFiles()
+    {
+        byte[] bytes = { 0, 1, 2, 3, 4, 5 };
+        BasisBundleSection memory = BasisBundleSection.FromBytes(bytes).Slice(2, 3);
+        CollectionAssert.AreEqual(new byte[] { 2, 3, 4 }, memory.Bytes);
+
+        BasisBundleSection file = BasisBundleSection.FromFile("some.bee", 100, 20).Slice(4, 8);
+        Assert.AreEqual(104, file.Offset);
+        Assert.AreEqual(8, file.Length);
+    }
+
+    [Test]
+    public void OldBundleMetadataStillUsesTheWholeSection()
+    {
+        BasisBundleGenerated legacy = new BasisBundleGenerated { AssetBundleEndByte = 0 };
+        BasisBundleSection section = BasisBundleSection.FromBytes(new byte[32]);
+        Assert.AreEqual(32, BasisEncryptionToData.AssetBundlePart(legacy, section).Length);
+
+        legacy.AssetBundleEndByte = 20;
+        Assert.AreEqual(20, BasisEncryptionToData.AssetBundlePart(legacy, section).Length);
+    }
 }

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.Audio;
 using Basis.Scripts.BasisSdk.Helpers;
@@ -16,8 +17,9 @@ namespace Basis.Scripts.Networking.Receivers
     /// Receives, decodes, buffers, and plays remote voice audio for a networked player.
     /// Uses a single <see cref="BasisVoiceBuffer"/> for packet reordering and PCM playback.
     /// </summary>
+    [AutoStaticsCleanup]
     [Serializable]
-    public class BasisAudioReceiver
+    public partial class BasisAudioReceiver
     {
         [SerializeReference] public BasisRemoteAudioDriver BasisRemoteVisemeAudioDriver = null;
         public AudioSource audioSource;
@@ -305,7 +307,7 @@ namespace Basis.Scripts.Networking.Receivers
 #if UNITY_SERVER
             return;
 #else
-            if (HasAudioSource)
+            if (HasAudioSource && decoder != null)
             {
                 // Pass MaxFrameSize (the buffer's true capacity) as available space so a
                 // 40 ms packet still decodes during in-flight transitions where this
@@ -336,7 +338,7 @@ namespace Basis.Scripts.Networking.Receivers
 #if UNITY_SERVER
             return;
 #else
-            if (!HasAudioSource) return;
+            if (!HasAudioSource || decoder == null) return;
             try
             {
                 pcmLength = decoder.Decode(data, length, pcmBuffer, RemoteOpusSettings.MaxFrameSize, false);
@@ -410,7 +412,7 @@ namespace Basis.Scripts.Networking.Receivers
 #if UNITY_SERVER
             return;
 #else
-            if (HasAudioSource)
+            if (HasAudioSource && decoder != null)
             {
                 try
                 {
@@ -437,7 +439,7 @@ namespace Basis.Scripts.Networking.Receivers
 #if UNITY_SERVER
             return;
 #else
-            if (!HasAudioSource) return;
+            if (!HasAudioSource || decoder == null) return;
             try
             {
                 pcmLength = decoder.Decode(data, length, pcmBuffer, RemoteOpusSettings.FrameSize, true);
@@ -882,31 +884,6 @@ namespace Basis.Scripts.Networking.Receivers
             }
         }
 
-        /// <summary>
-        /// Swap the AudioSource's clip for a freshly-pooled one, in-place. The
-        /// existing clip is destroyed (not pooled) so a stale-sized clip can't
-        /// re-enter circulation when the pool's <see cref="BasisAudioClipPool.ClipBufferScalar"/>
-        /// has just changed. AudioSource, transform, viseme driver, and Steam Audio
-        /// component are all preserved — only the underlying clip is replaced.
-        /// </summary>
-        public void ReloadClip()
-        {
-            if (audioSource == null || BasisNetworkReceiver == null) return;
-
-            audioSource.Stop();
-
-            AudioClip oldClip = audioSource.clip;
-            audioSource.clip = null;
-            if (oldClip != null) AudioClip.Destroy(oldClip);
-
-            audioSource.clip = BasisAudioClipPool.Get(BasisNetworkReceiver.playerId);
-            audioSource.loop = true;
-            audioSource.Play();
-            _audioPlaying = true;
-            _audioEnabled = audioSource.enabled;
-            visemeDriver.AudioSourceInactive = !_audioEnabled;
-        }
-
         public void UnloadAudioSource()
         {
             HasAudioSource = false;
@@ -969,7 +946,7 @@ namespace Basis.Scripts.Networking.Receivers
             BasisNetworkReceiver = networkedPlayer;
             LogOutputRateOnce();
 
-#if UNITY_IOS && !UNITY_EDITOR
+#if (UNITY_IOS || UNITY_WEBGL) && !UNITY_EDITOR
             // iOS requires statically linked Opus library
             decoder = new OpusSharp.Core.Static.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
 #else

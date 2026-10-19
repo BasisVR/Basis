@@ -50,7 +50,8 @@ internal static class BasisProjectSettingsUI
                 string usage = EditorGUILayout.TextField(
                     new GUIContent(
                         Tr("projectSetup.networking.usageDescription", "iOS prompt text"),
-                        "NSLocalNetworkUsageDescription — iOS 14+ shows this the first time the app reaches the local network."),
+                        Tr("projectSetup.networking.usageDescription.tooltip",
+                            "NSLocalNetworkUsageDescription — iOS 14+ shows this the first time the app reaches the local network.")),
                     settings.LocalNetworkUsageDescription);
                 if (EditorGUI.EndChangeCheck()) settings.SetLocalNetworkUsageDescription(usage);
             }
@@ -88,10 +89,10 @@ internal static class BasisProjectSettingsUI
                         EditorStyles.radioButton))
                     mode = BasisBuildScriptingBackendPreference.Mode.Ask;
 
-                if (GUILayout.Toggle(mode == BasisBuildScriptingBackendPreference.Mode.IL2CPP,
-                        Tr("projectSetup.buildModules.scriptingBackendIl2cpp", "Always IL2CPP"),
+                if (GUILayout.Toggle(mode == BasisBuildScriptingBackendPreference.Mode.CoreCLR,
+                        Tr("projectSetup.buildModules.scriptingBackendCoreClr", "Always CoreCLR"),
                         EditorStyles.radioButton))
-                    mode = BasisBuildScriptingBackendPreference.Mode.IL2CPP;
+                    mode = BasisBuildScriptingBackendPreference.Mode.CoreCLR;
 
                 if (GUILayout.Toggle(mode == BasisBuildScriptingBackendPreference.Mode.Mono,
                         Tr("projectSetup.buildModules.scriptingBackendMono", "Always Mono"),
@@ -104,8 +105,8 @@ internal static class BasisProjectSettingsUI
 
             EditorGUILayout.HelpBox(
                 Tr("projectSetup.buildModules.scriptingBackendHelp",
-                    "Remembers the IL2CPP/Mono answer for Windows and macOS builds so you’re not asked every time. " +
-                    "Forced platforms are unaffected: Android and iOS always use IL2CPP, Linux always uses Mono. " +
+                    "Remembers the CoreCLR/Mono answer for Windows and macOS builds so you’re not asked every time. " +
+                    "Forced platforms are unaffected: Android and iOS always use IL2CPP, Linux always uses CoreCLR (ARM64: IL2CPP). " +
                     "Choosing a backend in the build prompt also updates this setting."),
                 MessageType.None);
         }
@@ -132,7 +133,7 @@ internal static class BasisProjectSettingsUI
     {
         return new SettingsProvider("Project/Basis/Networking", SettingsScope.Project)
         {
-            label = "Networking",
+            label = Tr("editor.projectSettings.networking.label", "Networking"),
             guiHandler = _ =>
             {
                 EditorGUILayout.Space();
@@ -151,7 +152,7 @@ internal static class BasisProjectSettingsUI
     {
         return new SettingsProvider("Project/Basis/Project Wizard", SettingsScope.Project)
         {
-            label = "Project Wizard",
+            label = Tr("editor.projectSettings.projectWizard.label", "Project Wizard"),
             guiHandler = _ =>
             {
                 EditorGUILayout.Space();
@@ -172,7 +173,7 @@ internal static class BasisProjectSettingsUI
             },
             keywords = new HashSet<string>
             {
-                "basis", "wizard", "setup", "il2cpp", "mono", "scripting", "backend",
+                "basis", "wizard", "setup", "il2cpp", "mono", "coreclr", "scripting", "backend",
                 "leak", "detection", "diagnostics"
             }
         };

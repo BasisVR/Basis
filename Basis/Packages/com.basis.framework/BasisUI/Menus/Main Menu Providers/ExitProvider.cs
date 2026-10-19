@@ -29,8 +29,8 @@ namespace Basis.BasisUI
             button.ButtonStyling.SetStyle("Hotbar Button Danger");
 
             // Half the normal hotbar button width — a compact exit button.
-            Vector2 size = button.rectTransform.sizeDelta;
-            if (size.x > 0f) button.SetSize(new Vector2(size.x * 0.5f, size.y));
+            float width = button.rectTransform.sizeDelta.x;
+            if (width > 0f) button.SetWidth(width * 0.5f);
         }
 
         public override void RunAction()

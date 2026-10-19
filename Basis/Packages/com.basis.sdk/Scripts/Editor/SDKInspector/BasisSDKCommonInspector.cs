@@ -96,6 +96,12 @@ public static class BasisSDKCommonInspector
         return ResolveSectionContainer(uiElementsRoot, BasisSDKConstants.ContentTagsSection, BasisSDKConstants.ContentTagsFields);
     }
 
+    public static VisualElement ResolveDescriptionContainer(VisualElement uiElementsRoot)
+    {
+        if (uiElementsRoot == null) return null;
+        return uiElementsRoot.Q<VisualElement>(BasisSDKConstants.DescriptionSection) ?? uiElementsRoot;
+    }
+
     private static VisualElement ResolveSectionContainer(VisualElement uiElementsRoot, string sectionName, string fieldsName)
     {
         if (uiElementsRoot == null) return null;
@@ -333,7 +339,7 @@ public static class BasisSDKCommonInspector
         for (int i = 0; i < ContentTagPresets.Length; i++)
         {
             string preset = ContentTagPresets[i];
-            Toggle toggle = new Toggle(preset)
+            Toggle toggle = new Toggle(PresetLabel(preset))
             {
                 value = ContainsTag(content.BasisBundleDescription.Tags, preset),
             };
@@ -497,6 +503,45 @@ public static class BasisSDKCommonInspector
         foldout.Add(buttonRow);
     }
 
+    public static void CreateAuthorshipFoldout(VisualElement parent, SerializedObject serializedObject)
+    {
+        if (parent == null || serializedObject == null) return;
+        SerializedProperty authorship = serializedObject.FindProperty($"{nameof(BasisContentBase.BasisBundleDescription)}.{nameof(BasisBundleDescription.Authorship)}");
+        if (authorship == null) return;
+
+        Foldout foldout = new Foldout
+        {
+            text = BasisEditorLocalization.Get("sdk.commonInspector.authorship.foldout"),
+            value = false,
+            style = { unityFontStyleAndWeight = FontStyle.Bold },
+        };
+        parent.Add(foldout);
+
+        Label help = BodyLabel(BasisEditorLocalization.Get("sdk.commonInspector.authorship.help"));
+        help.style.marginBottom = 6;
+        help.style.opacity = 0.85f;
+        foldout.Add(help);
+
+        AddAuthorshipField(foldout, authorship.FindPropertyRelative(nameof(BasisBundleAuthorship.Author)), BasisEditorLocalization.Get("sdk.commonInspector.authorship.author"), BasisEditorLocalization.Get("sdk.commonInspector.authorship.author.tooltip"), false, BasisContentDefaults.LocalDidKey());
+        AddAuthorshipField(foldout, authorship.FindPropertyRelative(nameof(BasisBundleAuthorship.Contact)), BasisEditorLocalization.Get("sdk.commonInspector.authorship.contact"), BasisEditorLocalization.Get("sdk.commonInspector.authorship.contact.tooltip"), false);
+        AddAuthorshipField(foldout, authorship.FindPropertyRelative(nameof(BasisBundleAuthorship.License)), BasisEditorLocalization.Get("sdk.commonInspector.authorship.license"), BasisEditorLocalization.Get("sdk.commonInspector.authorship.license.tooltip"), false);
+        AddAuthorshipField(foldout, authorship.FindPropertyRelative(nameof(BasisBundleAuthorship.Credits)), BasisEditorLocalization.Get("sdk.commonInspector.authorship.credits"), BasisEditorLocalization.Get("sdk.commonInspector.authorship.credits.tooltip"), true);
+    }
+
+    private static void AddAuthorshipField(VisualElement parent, SerializedProperty property, string label, string tooltip, bool multiline, string placeholder = null)
+    {
+        if (property == null) return;
+        TextField field = new TextField(label)
+        {
+            tooltip = tooltip,
+            multiline = multiline,
+        };
+        if (multiline) field.style.whiteSpace = WhiteSpace.Normal;
+        if (!string.IsNullOrEmpty(placeholder)) field.textEdition.placeholder = placeholder;
+        field.BindProperty(property);
+        parent.Add(field);
+    }
+
     private static VisualElement BuildTagChip(string label, Action onRemove)
     {
         VisualElement chip = new VisualElement
@@ -589,6 +634,24 @@ public static class BasisSDKCommonInspector
         return next;
     }
 
+    private static string PresetLabel(string preset)
+    {
+        switch (preset)
+        {
+            case "18+": return BasisEditorLocalization.Get("sdk.commonInspector.contentTags.preset.adult");
+            case "Sexual Content": return BasisEditorLocalization.Get("sdk.commonInspector.contentTags.preset.sexualContent");
+            case "Nudity": return BasisEditorLocalization.Get("sdk.commonInspector.contentTags.preset.nudity");
+            case "Horror": return BasisEditorLocalization.Get("sdk.commonInspector.contentTags.preset.horror");
+            case "Gore": return BasisEditorLocalization.Get("sdk.commonInspector.contentTags.preset.gore");
+            case "Violence": return BasisEditorLocalization.Get("sdk.commonInspector.contentTags.preset.violence");
+            case "Drugs": return BasisEditorLocalization.Get("sdk.commonInspector.contentTags.preset.drugs");
+            case "Seizure Warning": return BasisEditorLocalization.Get("sdk.commonInspector.contentTags.preset.seizureWarning");
+            case "Loud Audio": return BasisEditorLocalization.Get("sdk.commonInspector.contentTags.preset.loudAudio");
+            case "Flashing Lights": return BasisEditorLocalization.Get("sdk.commonInspector.contentTags.preset.flashingLights");
+            default: return preset;
+        }
+    }
+
     private static bool IsPreset(string tag)
     {
         for (int i = 0; i < ContentTagPresets.Length; i++)
@@ -636,7 +699,7 @@ public static class BasisSDKCommonInspector
                 placementChoices.Add(value);
             }
         }
-        PopupField<BasisPropSpawnPlacement> placementField = new PopupField<BasisPropSpawnPlacement>(BasisEditorLocalization.Get("sdk.propInspector.spawn.placement"), placementChoices, prop.SpawnMetaData.Placement, value => ObjectNames.NicifyVariableName(value.ToString()), value => ObjectNames.NicifyVariableName(value.ToString()));
+        PopupField<BasisPropSpawnPlacement> placementField = new PopupField<BasisPropSpawnPlacement>(BasisEditorLocalization.Get("sdk.propInspector.spawn.placement"), placementChoices, prop.SpawnMetaData.Placement, SpawnPlacementName, SpawnPlacementName);
         foldout.Add(placementField);
 
         Label placementHelp = BodyLabel(string.Empty);
@@ -645,7 +708,8 @@ public static class BasisSDKCommonInspector
         placementHelp.style.opacity = 0.7f;
         foldout.Add(placementHelp);
 
-        EnumField handField = new EnumField(BasisEditorLocalization.Get("sdk.propInspector.spawn.hand"), prop.SpawnMetaData.Hand);
+        List<BasisPropSpawnHand> handChoices = new List<BasisPropSpawnHand>((BasisPropSpawnHand[])Enum.GetValues(typeof(BasisPropSpawnHand)));
+        PopupField<BasisPropSpawnHand> handField = new PopupField<BasisPropSpawnHand>(BasisEditorLocalization.Get("sdk.propInspector.spawn.hand"), handChoices, prop.SpawnMetaData.Hand, SpawnHandName, SpawnHandName);
         foldout.Add(handField);
 
         Toggle distanceToggle = new Toggle(BasisEditorLocalization.Get("sdk.propInspector.spawn.overrideDistance"))
@@ -774,6 +838,44 @@ public static class BasisSDKCommonInspector
         row.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
     }
 
+    private static string SpawnPlacementName(BasisPropSpawnPlacement placement)
+    {
+        switch (placement)
+        {
+            case BasisPropSpawnPlacement.Raycast:
+                return BasisEditorLocalization.Get("sdk.propInspector.spawn.placementName.raycast");
+            case BasisPropSpawnPlacement.InFrontOfPlayer:
+                return BasisEditorLocalization.Get("sdk.propInspector.spawn.placementName.inFront");
+            case BasisPropSpawnPlacement.AtPlayerOrigin:
+                return BasisEditorLocalization.Get("sdk.propInspector.spawn.placementName.playerOrigin");
+            case BasisPropSpawnPlacement.InAirAtDistance:
+                return BasisEditorLocalization.Get("sdk.propInspector.spawn.placementName.inAir");
+            case BasisPropSpawnPlacement.OnGround:
+                return BasisEditorLocalization.Get("sdk.propInspector.spawn.placementName.onGround");
+            case BasisPropSpawnPlacement.InHand:
+                return BasisEditorLocalization.Get("sdk.propInspector.spawn.placementName.inHand");
+            case BasisPropSpawnPlacement.AtAnchor:
+                return BasisEditorLocalization.Get("sdk.propInspector.spawn.placementName.atAnchor");
+            default:
+                return BasisEditorLocalization.Get("sdk.propInspector.spawn.placementName.unspecified");
+        }
+    }
+
+    private static string SpawnHandName(BasisPropSpawnHand hand)
+    {
+        switch (hand)
+        {
+            case BasisPropSpawnHand.NonDominant:
+                return BasisEditorLocalization.Get("sdk.propInspector.spawn.handName.nonDominant");
+            case BasisPropSpawnHand.Left:
+                return BasisEditorLocalization.Get("sdk.propInspector.spawn.handName.left");
+            case BasisPropSpawnHand.Right:
+                return BasisEditorLocalization.Get("sdk.propInspector.spawn.handName.right");
+            default:
+                return BasisEditorLocalization.Get("sdk.propInspector.spawn.handName.dominant");
+        }
+    }
+
     private static string SpawnPlacementHelp(BasisPropSpawnPlacement placement)
     {
         switch (placement)
@@ -797,7 +899,7 @@ public static class BasisSDKCommonInspector
         }
     }
 
-    public static void CreateBuildOptionsDropdown(VisualElement parent)
+    public static void CreateBuildOptionsDropdown(VisualElement parent, SerializedObject serializedObject)
     {
         BasisAssetBundleObject assetBundleObject =
             AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(
@@ -810,14 +912,17 @@ public static class BasisSDKCommonInspector
         };
         parent.Add(foldout);
 
+        SerializedProperty useCustomPassword = serializedObject.FindProperty(nameof(BasisContentBase.UseCustomPassword));
+        SerializedProperty userSelectedPassword = serializedObject.FindProperty(nameof(BasisContentBase.UserSelectedPassword));
+
         Toggle toggle = new Toggle(BasisEditorLocalization.Get("sdk.commonInspector.useCustomPassword"))
         {
-            value = assetBundleObject.UseCustomPassword
+            value = useCustomPassword.boolValue
         };
 
         TextField passwordField = new TextField(BasisEditorLocalization.Get("sdk.commonInspector.password"))
         {
-            value = assetBundleObject.UserSelectedPassword,
+            value = userSelectedPassword.stringValue,
             isPasswordField = true // masks input
         };
 
@@ -827,28 +932,21 @@ public static class BasisSDKCommonInspector
             ? DisplayStyle.Flex
             : DisplayStyle.None;
 
+        toggle.BindProperty(useCustomPassword);
+        passwordField.BindProperty(userSelectedPassword);
+
         toggle.RegisterValueChangedCallback(evt =>
         {
-            assetBundleObject.UseCustomPassword = evt.newValue;
-
             passwordField.SetEnabled(evt.newValue);
             passwordField.style.display = evt.newValue
                 ? DisplayStyle.Flex
                 : DisplayStyle.None;
 
-            if (!evt.newValue)
+            if (!evt.newValue && !string.IsNullOrEmpty(userSelectedPassword.stringValue))
             {
-                assetBundleObject.UserSelectedPassword = "";
-                passwordField.value = "";
+                userSelectedPassword.stringValue = "";
+                serializedObject.ApplyModifiedProperties();
             }
-
-            EditorUtility.SetDirty(assetBundleObject);
-        });
-
-        passwordField.RegisterValueChangedCallback(evt =>
-        {
-            assetBundleObject.UserSelectedPassword = evt.newValue;
-            EditorUtility.SetDirty(assetBundleObject);
         });
 
         foldout.Add(toggle);

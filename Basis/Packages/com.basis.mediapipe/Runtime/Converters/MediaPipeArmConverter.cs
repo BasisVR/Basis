@@ -1,22 +1,18 @@
-using Basis.Scripts.Drivers;
+using Basis.IK;
 using UnityEngine;
 namespace Basis.MediaPipe
 {
     public sealed class MediaPipeArmConverter
     {
-        public float Smoothing = 0.5f, HeadAnchor = 1f, MaxReach = 0.98f, HandReachGain = 1.1f, ElbowRestBias = 0.5f;
+        public float HeadAnchor = 1f, MaxReach = 0.98f, HandReachGain = 1.1f;
         public bool RejectGlitches = true;
-        private const float ElbowOutward = 0.3f;
-        // One-euro tuning, applied on the CAMERA clock. It only has to take the sensor noise off; the carry pass
-        // below is what bridges the gap between samples, so this stays light rather than stacking two heavy
-        // low-passes and burying the hands in latency. Beta matches the FBIK tracker default.
-        private const float CutoffResponsive = 10f, CutoffSmooth = 1.5f, DepthCutoffScale = 0.4f, Beta = 3.25f, LowVisibilityCutoffScale = 0.6f;
+        private const float ElbowOutward = 0.3f, BendTrustStart = 0.15f, BendTrustFull = 0.5f, MaxElbowTrust = 0.5f, ElbowTrustHz = 2f;
         // Asymmetric, because the measurement error is asymmetric — see TrackUserArm.
         private const float ArmLengthRiseHz = 3f;        // a straight side-on arm locks in within ~a third of a second
         private const float ArmLengthFallHz = 0.1f;      // ~10s to let go: only for a bad initial lock or a new user
         private const float ArmLengthMaxJump = 1.25f;    // an arm cannot grow 25% between samples; that is a blown landmark
         private MediaPipePositionFilter leftWrist, leftElbow, rightWrist, rightElbow;
-        private float leftUserArm, rightUserArm;
+        private float leftUserArm, rightUserArm, leftElbowTrust, rightElbowTrust;
         public struct AvatarArmRig
         {
             public Vector3 LeftAnchor, RightAnchor;
@@ -28,7 +24,6 @@ namespace Basis.MediaPipe
             public bool Valid;
         }
         public int RejectedSamples => leftWrist.Rejected + leftElbow.Rejected + rightWrist.Rejected + rightElbow.Rejected;
-        private float Cutoff => Mathf.Lerp(CutoffResponsive, CutoffSmooth, Mathf.Clamp01(Smoothing));
         private float MaxSpeed => RejectGlitches ? MediaPipeFilterMath.MaxHandSpeed : 0f;
         public bool TryGetArm(Vector3[] pose, float[] visibility, in AvatarArmRig rig, bool avatarLeft, in MediaPipeTiming timing, out Vector3 wristLocal, out Vector3 elbowLocal, out Quaternion wristRotation)
         {
@@ -55,9 +50,9 @@ namespace Basis.MediaPipe
             Quaternion toBody = Quaternion.Inverse(bodyFrame);
             Vector3 wristBody = toBody * (wrist - shoulder), elbowBody = toBody * (elbow - shoulder);
             Vector3 headBody = toBody * (pose[MediaPipeSpace.Nose] - shoulder);
-            float cutoff = timing.Scaled(Cutoff) * Confidence(visibility, avatarLeft), maxSpeed = MaxSpeed;
-            wristBody = avatarLeft ? leftWrist.Apply(wristBody, in timing, cutoff, Beta, DepthCutoffScale, maxSpeed) : rightWrist.Apply(wristBody, in timing, cutoff, Beta, DepthCutoffScale, maxSpeed);
-            elbowBody = avatarLeft ? leftElbow.Apply(elbowBody, in timing, cutoff, Beta, DepthCutoffScale, maxSpeed) : rightElbow.Apply(elbowBody, in timing, cutoff, Beta, DepthCutoffScale, maxSpeed);
+            float maxSpeed = MaxSpeed;
+            wristBody = avatarLeft ? leftWrist.Apply(wristBody, in timing, maxSpeed) : rightWrist.Apply(wristBody, in timing, maxSpeed);
+            elbowBody = avatarLeft ? leftElbow.Apply(elbowBody, in timing, maxSpeed) : rightElbow.Apply(elbowBody, in timing, maxSpeed);
 
             Vector3 anchor = avatarLeft ? rig.LeftAnchor : rig.RightAnchor;
             float reach = avatarArm / userArm;
@@ -72,7 +67,7 @@ namespace Basis.MediaPipe
             Vector3 measuredElbow = Place(anchor, elbowBody, reach, reach, in rig);
 
             wristLocal = wristTarget;
-            elbowLocal = SolveElbow(anchor, wristTarget, measuredElbow, upperLen, foreLen, in rig, avatarLeft);
+            elbowLocal = SolveElbow(anchor, wristTarget, measuredElbow, upperLen, foreLen, in rig, avatarLeft, SmoothElbowTrust(avatarLeft, ElbowTrust(visibility, avatarLeft, elbowBody, wristBody), timing.RenderDelta));
             wristRotation = LookFrom(wristLocal - elbowLocal, rig.Up);
             return true;
         }
@@ -87,8 +82,7 @@ namespace Basis.MediaPipe
             Vector3 anchor = avatarLeft ? rig.LeftAnchor : rig.RightAnchor;
             float avatarArm = avatarLeft ? rig.LeftUpperLen + rig.LeftForeLen : rig.RightUpperLen + rig.RightForeLen;
             Vector3 offset = new Vector3(h, v, 0f);
-            float cutoff = timing.Scaled(Cutoff), maxSpeed = MaxSpeed;
-            offset = avatarLeft ? leftWrist.Apply(offset, in timing, cutoff, Beta, DepthCutoffScale, maxSpeed) : rightWrist.Apply(offset, in timing, cutoff, Beta, DepthCutoffScale, maxSpeed);
+            offset = avatarLeft ? leftWrist.Apply(offset, in timing, MaxSpeed) : rightWrist.Apply(offset, in timing, MaxSpeed);
 
             wristLocal = ClampReach(anchor, rig.HeadLocal + offset.x * rig.Right + offset.y * rig.Up, avatarArm);
             wristRotation = LookFrom(wristLocal - anchor, rig.Up);
@@ -100,15 +94,26 @@ namespace Basis.MediaPipe
             leftElbow.Reset();
             rightWrist.Reset();
             rightElbow.Reset();
-            leftUserArm = rightUserArm = 0f;
+            leftUserArm = rightUserArm = leftElbowTrust = rightElbowTrust = 0f;
         }
-        private static float Confidence(float[] visibility, bool avatarLeft)
+        private float SmoothElbowTrust(bool avatarLeft, float target, float dt)
+        {
+            float trust = avatarLeft ? leftElbowTrust : rightElbowTrust;
+            trust = Mathf.Lerp(trust, target, 1f - Mathf.Exp(-ElbowTrustHz * Mathf.Max(dt, 1e-4f)));
+            if (avatarLeft) leftElbowTrust = trust;
+            else rightElbowTrust = trust;
+            return trust;
+        }
+        public static float ElbowTrust(float[] visibility, bool avatarLeft, Vector3 elbowBody, Vector3 wristBody)
         {
             float arm = MediaPipeSpace.ArmVisibility(visibility, avatarLeft), torso = MediaPipeSpace.TorsoVisibility(visibility);
-            if (arm < 0f || torso < 0f) return 1f;
-            return Mathf.Lerp(LowVisibilityCutoffScale, 1f, Mathf.Clamp01((Mathf.Min(arm, torso) - 0.5f) / 0.4f));
+            float seen = arm < 0f || torso < 0f ? 1f : Mathf.Clamp01((Mathf.Min(arm, torso) - 0.5f) / 0.4f);
+            Vector3 upper = elbowBody, fore = wristBody - elbowBody;
+            if (upper.sqrMagnitude < 1e-8f || fore.sqrMagnitude < 1e-8f) return 0f;
+            float bend = Vector3.Cross(upper.normalized, fore.normalized).magnitude;
+            return MaxElbowTrust * seen * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(BendTrustStart, BendTrustFull, bend));
         }
-        private Vector3 SolveElbow(Vector3 shoulder, Vector3 wrist, Vector3 measured, float upperLen, float foreLen, in AvatarArmRig rig, bool avatarLeft)
+        private static Vector3 SolveElbow(Vector3 shoulder, Vector3 wrist, Vector3 measured, float upperLen, float foreLen, in AvatarArmRig rig, bool avatarLeft, float trust)
         {
             Vector3 toWrist = wrist - shoulder;
             float span = toWrist.magnitude;
@@ -120,8 +125,10 @@ namespace Basis.MediaPipe
             float radiusSq = upperLen * upperLen - along * along;
             if (radiusSq <= 1e-8f) return center;
 
-            Vector3 outward = avatarLeft ? -rig.Right : rig.Right;
-            Vector3 rest = Vector3.ProjectOnPlane(-rig.Up + outward * ElbowOutward, axis);
+            Vector3 outward = avatarLeft ? -rig.Right : rig.Right, toHand = toWrist / Mathf.Max(upperLen + foreLen, 1e-4f);
+            Vector3 prior = BasisArmPriorModel.ElbowDir(new Vector3(Vector3.Dot(toHand, outward), Vector3.Dot(toHand, rig.Up), Vector3.Dot(toHand, rig.Forward)));
+            Vector3 rest = Vector3.ProjectOnPlane(outward * prior.x + rig.Up * prior.y + rig.Forward * prior.z, axis);
+            if (rest.sqrMagnitude < 1e-8f) rest = Vector3.ProjectOnPlane(-rig.Up + outward * ElbowOutward, axis);
             Vector3 swivel = Vector3.ProjectOnPlane(measured - center, axis);
             bool hasRest = rest.sqrMagnitude > 1e-8f, hasSwivel = swivel.sqrMagnitude > 1e-8f;
             if (!hasSwivel && !hasRest) return center;
@@ -132,7 +139,7 @@ namespace Basis.MediaPipe
             }
             else if (hasRest)
             {
-                swivel = Vector3.Slerp(swivel.normalized, rest.normalized, Mathf.Clamp01(ElbowRestBias));
+                swivel = Vector3.Slerp(rest.normalized, swivel.normalized, Mathf.Clamp01(trust));
             }
             if (swivel.sqrMagnitude < 1e-8f) return center;
 

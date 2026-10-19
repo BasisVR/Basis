@@ -56,6 +56,11 @@ namespace Basis.BasisUI
                     5f, 90f, true, 0, ValueDisplayMode.Degrees),
                 BasisSettingsDefaults.SpawnAnchorRotationSnapDegrees);
 
+            PanelElementDescriptor sectionBox = null;
+            void RebuildRows()
+            {
+                if (sectionBox != null) PanelElementDescriptor.RebuildLayoutChain(sectionBox.ContentParent, container);
+            }
             void ApplySnapVisibility()
             {
                 positionSnapSlider.Descriptor.SetActive(positionSnapToggle.Value);
@@ -65,12 +70,12 @@ namespace Basis.BasisUI
             positionSnapToggle.OnValueChanged += _ =>
             {
                 ApplySnapVisibility();
-                descriptor.ForceRebuild();
+                RebuildRows();
             };
             rotationSnapToggle.OnValueChanged += _ =>
             {
                 ApplySnapVisibility();
-                descriptor.ForceRebuild();
+                RebuildRows();
             };
 
             PanelTextField nameField = PanelTextField.CreateNewEntry(container);
@@ -178,7 +183,7 @@ namespace Basis.BasisUI
                 {
                     lastSelection = hasSelection;
                     lastScaleVisible = scaleVisible;
-                    descriptor.ForceRebuild();
+                    RebuildRows();
                 }
             }
 
@@ -244,14 +249,14 @@ namespace Basis.BasisUI
             Refresh(true);
             BasisSpawnAnchors.OnChanged += Refresh;
 
-            PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(section, container, start, false, visible =>
+            sectionBox = PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(section, container, start, false, visible =>
             {
                 if (visible)
                 {
                     ApplySnapVisibility();
                     Refresh(false);
                 }
-                descriptor.ForceRebuild();
+                RebuildRows();
             });
         }
 

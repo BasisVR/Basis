@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Rendering;
@@ -17,7 +18,8 @@ namespace Basis.Scripts.Device_Management.EyeTracking
     /// It only manages VR VRS in response to eye tracking it turned on — it never forces a user's
     /// manual VR/desktop VRS choice off on its own. Pumped from the central tick; no MonoBehaviour.
     /// </summary>
-    public static class BasisGazeFoveationAutoDriver
+    [AutoStaticsCleanup]
+    public static partial class BasisGazeFoveationAutoDriver
     {
         private static bool _wasPresent;
         private static string _currentDeviceId;

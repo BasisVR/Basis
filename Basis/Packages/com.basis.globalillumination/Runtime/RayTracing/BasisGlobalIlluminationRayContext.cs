@@ -16,8 +16,8 @@ public sealed class BasisGlobalIlluminationRayContext : IDisposable
 
     private GraphicsBuffer traceScratch, buildScratch;
 
-    public static bool HardwareSupported => RayTracingContext.IsBackendSupported(RayTracingBackend.Hardware);
-    public static bool ComputeSupported => RayTracingContext.IsBackendSupported(RayTracingBackend.Compute);
+    public static bool HardwareSupported => (RayTracingContext.GetCapabilities(RayTracingBackend.Hardware) & CapabilityMask.RayTracingShaders) != 0;
+    public static bool ComputeSupported => (RayTracingContext.GetCapabilities(RayTracingBackend.Compute) & CapabilityMask.RayTracingShaders) != 0;
     public static bool Supported => HardwareSupported || ComputeSupported;
 
     private BasisGlobalIlluminationRayContext(RayTracingContext context, IRayTracingShader shader)

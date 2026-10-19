@@ -238,6 +238,20 @@ namespace Basis.BasisUI
             _previousIndex = DropdownComponent.value;
         }
 
+        protected override bool TryConformShareValue(ref string value)
+        {
+            if (Entries == null) return false;
+            for (int Index = 0; Index < Entries.Count; Index++)
+            {
+                if (string.Equals(Entries[Index], value, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    value = Entries[Index];
+                    return true;
+                }
+            }
+            return false;
+        }
+
         /// <summary>
         /// Shows the option's display label rather than the raw stored value, since entries and
         /// their labels can differ (localized dropdowns store the entry, show the translation).

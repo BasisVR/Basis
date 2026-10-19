@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.UI.NamePlate;
 using NUnit.Framework;
 
@@ -20,6 +21,7 @@ namespace Basis.Tests.NamePlate
     /// against a corpus of body plans rather than a single rig, because a single rig is precisely
     /// what let the old constant look correct for years.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public sealed class BasisNamePlateAnchorTests
     {
         /// <summary>Plate world scale for a default viewer (0.02 × size 1 × viewer scale 1), and the

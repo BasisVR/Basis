@@ -2,13 +2,14 @@ using System.Net;
 
 namespace Basis.Network.Core
 {
+    public delegate void PeerIntroductionRequest(IPEndPoint localEndPoint, IPEndPoint remoteEndPoint, string token);
+
     public interface IPeerIntroducer
     {
-        bool Initialize(NetManager activeManager);
+        bool Initialize(PeerIntroductionRequest onRequest);
         void Introduce(IPEndPoint aInternal, IPEndPoint aExternal,
                        IPEndPoint bInternal, IPEndPoint bExternal,
-                       string token);
-        bool IsPairOffloaded(int peerIdA, int peerIdB);
+                       bool predictPorts, string token);
         void Shutdown();
     }
 }

@@ -4,8 +4,8 @@ using System.Text;
 using UnityEngine;
 
 // Parses YouTube timedtext json3 payloads into caption cues. json3 delivers
-// plain-text segments (no markup to strip — the caption overlay renders with
-// rich text off) inside a flat event list; auto-generated (ASR) tracks add
+// plain-text segments inside a flat event list, with no markup to strip (the
+// caption overlay renders with rich text off). Auto-generated (ASR) tracks add
 // roll-up presentation events that must be flattened for a single-active-cue
 // overlay: whitespace-only append events are dropped and each cue's end is
 // clamped to the next cue's start.

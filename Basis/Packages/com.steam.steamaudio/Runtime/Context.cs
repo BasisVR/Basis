@@ -22,13 +22,15 @@ namespace SteamAudio
 {
     public class Context
     {
+        static readonly LogCallback sLogCallback = LogMessage;
+
         IntPtr mContext = IntPtr.Zero;
 
         public Context()
         {
             var contextSettings = new ContextSettings { };
             contextSettings.version = Constants.kVersion;
-            contextSettings.logCallback = LogMessage;
+            contextSettings.logCallback = sLogCallback;
             contextSettings.simdLevel = SIMDLevel.AVX2;
 
             if (SteamAudioSettings.Singleton.EnableValidation)

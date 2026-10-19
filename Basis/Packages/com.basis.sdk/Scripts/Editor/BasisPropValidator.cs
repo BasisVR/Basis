@@ -113,8 +113,7 @@ public class BasisPropValidator : BasisValidationRunner
             bucket.Pass(BasisEditorLocalization.Get("sdk.propValidator.bundleDescription.set"));
         }
 
-        BasisAssetBundleObject assetBundleObject = BasisValidationAssetCache.AssetBundleObject;
-        if (assetBundleObject != null && assetBundleObject.UseCustomPassword && string.IsNullOrEmpty(assetBundleObject.UserSelectedPassword))
+        if (Prop.UseCustomPassword && string.IsNullOrEmpty(Prop.UserSelectedPassword))
         {
             bucket.Error(BasisEditorLocalization.Get("sdk.propValidator.password.empty"), ValidationCategory.Security);
         }

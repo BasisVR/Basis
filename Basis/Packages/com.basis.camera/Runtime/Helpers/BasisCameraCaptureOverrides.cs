@@ -2,7 +2,7 @@ using Basis.Scripts.Rendering;
 using UnityEngine;
 public static class BasisCameraCaptureOverrides
 {
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
     public static BasisGlobalIlluminationCaptureOverride DefaultGlobalIllumination() => new BasisGlobalIlluminationCaptureOverride
     {
         Mode = SMModuleGlobalIlluminationURP.ModeOptions[0],
@@ -32,7 +32,7 @@ public static class BasisCameraCaptureOverrides
     };
     public static string Option(string[] options, int index) => options[Mathf.Clamp(index, 0, options.Length - 1)];
 #endif
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
     public static BasisRTAOCaptureOverride DefaultRTAO() => new BasisRTAOCaptureOverride
     {
         Mode = BasisRTAOIntegration.ModeScreenSpace,

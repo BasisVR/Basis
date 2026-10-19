@@ -1,0 +1,27 @@
+RTSP/1.0 200 OK
+CSeq: 3
+x-Accept-Dynamic-Rate: 1
+Content-Base: rtsp://cam-driveway/cam/realmonitor?channel=1&subtype=2/
+Cache-Control: must-revalidate
+Content-Length: 531
+Content-Type: application/sdp
+
+v=0
+o=- 2253040596 2253040596 IN IP4 0.0.0.0
+s=Media Server
+c=IN IP4 0.0.0.0
+t=0 0
+a=control:*
+a=packetization-supported:DH
+a=rtppayload-supported:DH
+a=range:npt=now-
+m=video 0 RTP/AVP 98
+a=control:trackID=0
+a=framerate:12.000000
+a=rtpmap:98 H265/90000
+a=fmtp:98 profile-id=1;sprop-sps=QgEBAWAAAAMAsAAAAwAAAwBaoAWCAeFja5JFL83BQYFBAAADAAEAAAMADKE=;sprop-pps=RAHA8saNA7NA;sprop-vps=QAEMAf//AWAAAAMAsAAAAwAAAwBarAwAAAMABAAAAwAyqA==
+a=recvonly
+m=audio 0 RTP/AVP 8
+a=control:trackID=1
+a=rtpmap:8 PCMA/8000
+a=recvonly

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Basis.Scripts.Device_Management;
@@ -7,7 +8,8 @@ using UnityEngine.PlayerLoop;
 
 namespace Basis.Scripts.UI
 {
-    public static class BasisUINeedsVisibleTrackers
+    [AutoStaticsCleanup]
+    public static partial class BasisUINeedsVisibleTrackers
     {
         private static readonly HashSet<MonoBehaviour> requesters = new();
         private static bool wasVisible;

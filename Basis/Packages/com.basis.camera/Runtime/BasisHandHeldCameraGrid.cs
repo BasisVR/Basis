@@ -24,7 +24,7 @@ public partial class BasisHandHeldCamera
     public void SetViewfinderGridOpacity(float opacity) => viewfinderGridOpacity = Mathf.Clamp(opacity, BasisCameraGrid.MinOpacity, BasisCameraGrid.MaxOpacity);
     private void TickViewfinderGrid()
     {
-        if (!viewfinderGridEnabled || captureInFlight || renderTexture == null)
+        if (!viewfinderGridEnabled || captureInFlight || renderTexture == null || PassOutput == BasisCameraPassOutput.QuadView)
         {
             SetGridLive(false);
             return;

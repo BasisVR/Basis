@@ -5,7 +5,7 @@ namespace RNNoise.NET
 {
     public static class Native
     {
-#if UNITY_IOS && !UNITY_EDITOR
+#if (UNITY_IOS || UNITY_WEBGL) && !UNITY_EDITOR
         public const string LIBRARY_NAME = "__Internal";
 #else
         public const string LIBRARY_NAME = "rnnoise";

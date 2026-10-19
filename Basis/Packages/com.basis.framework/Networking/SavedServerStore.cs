@@ -112,6 +112,6 @@ namespace Basis.Scripts.Networking
         /// and the Server-typed content-share orb so they all parse identically.
         /// Returns false if the address segment ends up empty.
         /// </summary>
-        public static bool TryParseConnectionString(string raw, out string address, out ushort port, out bool portProvided, out string password) => LNLConnectionTargetParser.TryParseConnectionString(raw, out address, out port, out portProvided, out password);
+        public static bool TryParseConnectionString(string raw, out string address, out ushort port, out bool portProvided, out string password) => HostPortConnectionTargetParser.TryParseConnectionString(raw, out address, out port, out portProvided, out password);
     }
 }

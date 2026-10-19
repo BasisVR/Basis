@@ -85,7 +85,7 @@ namespace Basis.Scripts.Device_Management
         /// </summary>
         public void OnPlayersHeightChangedNextFrame(HeightModeChange Mode)
         {
-            this.transform.localScale = ScaleOfModel * BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
+            this.transform.localScale = ScaleOfModel * BasisHeightDriver.DeviceScale;
             this.transform.SetLocalPositionAndRotation(Vector3.zero, ModelRotationOffset);
         }
     }

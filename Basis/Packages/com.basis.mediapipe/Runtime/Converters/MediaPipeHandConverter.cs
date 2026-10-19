@@ -6,16 +6,13 @@ namespace Basis.MediaPipe
     public sealed class MediaPipeHandConverter
     {
         public float CurlGain = 1f, ThumbMaxAngle = 100f, FingerMaxAngle = 160f, MaxSplayDegrees = 20f, SplayGain = 1f;
-        public float FingerSmoothing = 0.5f, PoseSmoothing = 0.5f;
         public bool UseRotation = true, RejectGlitches = true;
-        private const float CutoffResponsive = 10f, CutoffSmooth = 1.5f, Beta = 3.25f, FingerBeta = 0.5f, HoldSeconds = 0.5f, RelaxHz = 3f, RelaxedCurl = 0.6f;
+        private const float HoldSeconds = 0.5f, RelaxHz = 3f, RelaxedCurl = 0.6f;
         private const int FingerChannels = 10;
         private MediaPipeRotationFilter leftRot, rightRot;
         private readonly MediaPipeScalarFilter[] leftFingers = new MediaPipeScalarFilter[FingerChannels], rightFingers = new MediaPipeScalarFilter[FingerChannels];
         private float leftLost, rightLost;
         public int RejectedSamples => leftRot.Rejected + rightRot.Rejected;
-        private float RotationCutoff => Mathf.Lerp(CutoffResponsive, CutoffSmooth, Mathf.Clamp01(PoseSmoothing));
-        private float FingerCutoff => Mathf.Lerp(CutoffResponsive, CutoffSmooth, Mathf.Clamp01(FingerSmoothing));
         public struct AvatarHandRig
         {
             public Quaternion Body, LeftCorrection, RightCorrection, LeftIkOffsetInverse, RightIkOffsetInverse;
@@ -62,8 +59,8 @@ namespace Basis.MediaPipe
             float ikSqrNorm = ikOffsetInverse.x * ikOffsetInverse.x + ikOffsetInverse.y * ikOffsetInverse.y + ikOffsetInverse.z * ikOffsetInverse.z + ikOffsetInverse.w * ikOffsetInverse.w;
             if (ikSqrNorm < 0.5f) ikOffsetInverse = Quaternion.identity;
 
-            float cutoff = timing.Scaled(RotationCutoff), maxTurn = RejectGlitches ? MediaPipeFilterMath.MaxTurnDegPerSec : 0f;
-            Quaternion smoothed = left ? leftRot.Apply(handInBody, in timing, cutoff, Beta, maxTurn) : rightRot.Apply(handInBody, in timing, cutoff, Beta, maxTurn);
+            float maxTurn = RejectGlitches ? MediaPipeFilterMath.MaxTurnDegPerSec : 0f;
+            Quaternion smoothed = left ? leftRot.Apply(handInBody, in timing, maxTurn) : rightRot.Apply(handInBody, in timing, maxTurn);
 
             // `rig.Body * smoothed * correction` is the finished HAND BONE rotation. The IK will multiply its own
             // palm->bone offset onto whatever we report, so pre-cancel it here (see AvatarHandRig).
@@ -73,12 +70,11 @@ namespace Basis.MediaPipe
         public void Apply(in BasisMediaPipeResult result, in MediaPipeTiming timing)
         {
             BasisLocalHandDriver driver = BasisLocalPlayer.Instance.LocalHandDriver;
-            float cutoff = timing.Scaled(FingerCutoff);
             Vector3[] left = Fingers(result.LeftHandWorldLandmarks, result.LeftHandLandmarks);
             if (result.HasLeftHand && left != null)
             {
                 leftLost = 0f;
-                ApplyHand(left, driver.LeftHand, true, leftFingers, cutoff, in timing);
+                ApplyHand(left, driver.LeftHand, true, leftFingers, in timing);
             }
             else leftLost = RelaxHand(driver.LeftHand, leftFingers, leftLost, in timing);
 
@@ -86,7 +82,7 @@ namespace Basis.MediaPipe
             if (result.HasRightHand && right != null)
             {
                 rightLost = 0f;
-                ApplyHand(right, driver.RightHand, false, rightFingers, cutoff, in timing);
+                ApplyHand(right, driver.RightHand, false, rightFingers, in timing);
             }
             else rightLost = RelaxHand(driver.RightHand, rightFingers, rightLost, in timing);
         }
@@ -95,13 +91,13 @@ namespace Basis.MediaPipe
             if (world != null && world.Length >= MediaPipeSpace.HandCount) return world;
             return image != null && image.Length >= MediaPipeSpace.HandCount ? image : null;
         }
-        private void ApplyHand(Vector3[] lm, BasisFingerPose pose, bool isLeft, MediaPipeScalarFilter[] filters, float cutoff, in MediaPipeTiming timing)
+        private void ApplyHand(Vector3[] lm, BasisFingerPose pose, bool isLeft, MediaPipeScalarFilter[] filters, in MediaPipeTiming timing)
         {
-            pose.ThumbPercentage = Finger(filters, 0, Curl(lm, 1, 2, 3, 4, ThumbMaxAngle), Splay(lm, 2, 3, 5, 6, isLeft), cutoff, in timing);
-            pose.IndexPercentage = Finger(filters, 2, Curl(lm, 5, 6, 7, 8, FingerMaxAngle), Splay(lm, 5, 6, 9, 10, isLeft), cutoff, in timing);
-            pose.MiddlePercentage = Finger(filters, 4, Curl(lm, 9, 10, 11, 12, FingerMaxAngle), 0f, cutoff, in timing);
-            pose.RingPercentage = Finger(filters, 6, Curl(lm, 13, 14, 15, 16, FingerMaxAngle), Splay(lm, 13, 14, 9, 10, isLeft), cutoff, in timing);
-            pose.LittlePercentage = Finger(filters, 8, Curl(lm, 17, 18, 19, 20, FingerMaxAngle), Splay(lm, 17, 18, 13, 14, isLeft), cutoff, in timing);
+            pose.ThumbPercentage = Finger(filters, 0, Curl(lm, 1, 2, 3, 4, ThumbMaxAngle), Splay(lm, 2, 3, 5, 6, isLeft), in timing);
+            pose.IndexPercentage = Finger(filters, 2, Curl(lm, 5, 6, 7, 8, FingerMaxAngle), Splay(lm, 5, 6, 9, 10, isLeft), in timing);
+            pose.MiddlePercentage = Finger(filters, 4, Curl(lm, 9, 10, 11, 12, FingerMaxAngle), 0f, in timing);
+            pose.RingPercentage = Finger(filters, 6, Curl(lm, 13, 14, 15, 16, FingerMaxAngle), Splay(lm, 13, 14, 9, 10, isLeft), in timing);
+            pose.LittlePercentage = Finger(filters, 8, Curl(lm, 17, 18, 19, 20, FingerMaxAngle), Splay(lm, 17, 18, 13, 14, isLeft), in timing);
         }
         // A hand that has left the frame holds briefly, then eases to a relaxed pose instead of freezing mid-gesture.
         private static float RelaxHand(BasisFingerPose pose, MediaPipeScalarFilter[] filters, float lost, in MediaPipeTiming timing)
@@ -125,7 +121,7 @@ namespace Basis.MediaPipe
             pose.LittlePercentage = new Vector2(filters[8].Relax(RelaxedCurl, alpha), filters[9].Relax(0f, alpha));
             return lost;
         }
-        private static Vector2 Finger(MediaPipeScalarFilter[] filters, int slot, float curl, float splay, float cutoff, in MediaPipeTiming timing) => new Vector2(filters[slot].Apply(curl, in timing, cutoff, FingerBeta), filters[slot + 1].Apply(splay, in timing, cutoff, FingerBeta));
+        private static Vector2 Finger(MediaPipeScalarFilter[] filters, int slot, float curl, float splay, in MediaPipeTiming timing) => new Vector2(filters[slot].Apply(curl, in timing), filters[slot + 1].Apply(splay, in timing));
         private float Curl(Vector3[] lm, int a, int b, int c, int d, float maxAngle)
         {
             Vector3 s1 = lm[b] - lm[a], s2 = lm[c] - lm[b], s3 = lm[d] - lm[c];

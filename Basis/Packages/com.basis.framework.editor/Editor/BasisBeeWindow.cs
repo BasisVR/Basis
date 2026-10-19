@@ -1,3 +1,4 @@
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEngine;
 
@@ -10,16 +11,16 @@ using UnityEngine;
 /// </summary>
 public sealed class BasisBeeWindow : BasisTabbedEditorWindow
 {
-    protected override string HeaderTitle => "BEE Bundles";
+    protected override string HeaderTitle => BasisEditorLocalization.Get("editor.beeWindow.title");
 
     protected override string HeaderSubtitle =>
-        "Inspect built Basis bundles and preview what a client loads from them.";
+        BasisEditorLocalization.Get("editor.beeWindow.subtitle");
 
     [MenuItem("Basis/Build/BEE Bundles", false, 302)]
     public static void ShowWindow()
     {
         BasisBeeWindow w = GetWindow<BasisBeeWindow>();
-        w.titleContent = new GUIContent("BEE Bundles");
+        w.titleContent = new GUIContent(BasisEditorLocalization.Get("editor.beeWindow.title"));
         w.minSize = new Vector2(720, 560);
         w.Show();
     }

@@ -27,6 +27,12 @@ MonoBehaviour:
     m_SerializedLabels:
     - language
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0318d7d7021c4857b9488ccf7cb60db5
+    m_Address: Languages/com.basis.imagepickup/bn
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 06d43e66a99d9c742851f25200052b1a
     m_Address: Languages/zh-Hans
     m_ReadOnly: 0
@@ -35,6 +41,12 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 0a2d3e23130738443974e235075c5667
     m_Address: Languages/com.basis.provider.servers/es
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0c65a8a5874e4303a53626998bf45173
+    m_Address: Languages/com.basis.imagepickup/nl
     m_ReadOnly: 0
     m_SerializedLabels:
     - language
@@ -57,8 +69,20 @@ MonoBehaviour:
     m_SerializedLabels:
     - language
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 134ee596cbd94517b0453d54b556c691
+    m_Address: Languages/com.basis.imagepickup/de
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 1aae7991268f9fa4da74df87ecf161f3
     m_Address: Languages/com.basis.developer.recorder/zh-Hans
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1ccaa2e3045349a6ad8fc495497a18e6
+    m_Address: Languages/com.basis.imagepickup/ur
     m_ReadOnly: 0
     m_SerializedLabels:
     - language
@@ -159,8 +183,20 @@ MonoBehaviour:
     m_SerializedLabels:
     - language
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 485c9e87e5b9406b871deb474578f424
+    m_Address: Languages/com.basis.imagepickup/es-MX
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 4bb3e761313d3044b93f2259fc04c3e2
     m_Address: Languages/com.basis.developer.exceptions/ja
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 502642913b3d44d0a23370f03eaf5461
+    m_Address: Languages/com.basis.imagepickup/es
     m_ReadOnly: 0
     m_SerializedLabels:
     - language
@@ -191,6 +227,12 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 578e3090f7f93b944a69c0eae8cbf111
     m_Address: Languages/dev.hai-vr.hvr.license-review/nl
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 59a4ed3bbdd349ad9e507e16f7fc7c7f
+    m_Address: Languages/com.basis.imagepickup/ar
     m_ReadOnly: 0
     m_SerializedLabels:
     - language
@@ -291,6 +333,12 @@ MonoBehaviour:
     m_SerializedLabels:
     - language
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8c05d31be7a24f6098b3e1d75c4a2609
+    m_Address: Languages/com.basis.mediaplayer/en
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 8f1158553a9346e4c9ee0ef9ba4778b2
     m_Address: Languages/com.basis.provider.servers/ja
     m_ReadOnly: 0
@@ -327,8 +375,26 @@ MonoBehaviour:
     m_SerializedLabels:
     - language
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9e7b564ad87147aba192d3cb42be0803
+    m_Address: Languages/com.basis.imagepickup/ru
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9fb5dcd490cf40528b36198cb5f1aa4c
+    m_Address: Languages/com.basis.imagepickup/pt
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: a145559a5ab3f1447a654913a51922ef
     m_Address: Languages/com.basis.provider.servers/bn
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a28e38f55dea4bc887a3f56c79ccbd8b
+    m_Address: Languages/com.basis.imagepickup/fr
     m_ReadOnly: 0
     m_SerializedLabels:
     - language
@@ -345,8 +411,20 @@ MonoBehaviour:
     m_SerializedLabels:
     - language
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a9fe21e0f77d4be7b4206540d93ecf34
+    m_Address: Languages/com.basis.imagepickup/en
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: aaf5746bf94cc834aa94013d89683e01
     m_Address: Languages/com.basis.developer.recorder/es-MX
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ad967af7840042a58e190846e2349745
+    m_Address: Languages/com.basis.imagepickup/zh-Hant
     m_ReadOnly: 0
     m_SerializedLabels:
     - language
@@ -365,6 +443,12 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: b87a2edfe6318e741ad49bfa3cad0993
     m_Address: Languages/com.basis.provider.servers/it
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b9058df935e047beae5489f05e5e3cce
+    m_Address: Languages/com.basis.imagepickup/hi
     m_ReadOnly: 0
     m_SerializedLabels:
     - language
@@ -459,6 +543,12 @@ MonoBehaviour:
     m_SerializedLabels:
     - language
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e98a8e894d8e4e11aad363c9e4198b22
+    m_Address: Languages/com.basis.imagepickup/it
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: eb06953740acd2a4394dcae4331c59a4
     m_Address: Languages/com.basis.developer.exceptions/zh-Hans
     m_ReadOnly: 0
@@ -467,6 +557,12 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ef04ab498901c5a44b5b1fc55fe46f04
     m_Address: Languages/com.basis.developer.recorder/en
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f2fb8fdf6de845e29d63f14ef5eeef76
+    m_Address: Languages/com.basis.imagepickup/ja
     m_ReadOnly: 0
     m_SerializedLabels:
     - language
@@ -483,6 +579,12 @@ MonoBehaviour:
     m_SerializedLabels:
     - language
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f8847dddd92e4b779ac8555b5ac4fdf7
+    m_Address: Languages/com.basis.imagepickup/zh-Hans
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: f96a6eff30bd564418d998536e336d1b
     m_Address: Languages/com.basis.provider.servers/ur
     m_ReadOnly: 0
@@ -495,105 +597,12 @@ MonoBehaviour:
     m_SerializedLabels:
     - language
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 0318d7d7021c4857b9488ccf7cb60db5
-    m_Address: Languages/com.basis.imagepickup/bn
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - language
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 0c65a8a5874e4303a53626998bf45173
-    m_Address: Languages/com.basis.imagepickup/nl
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - language
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 134ee596cbd94517b0453d54b556c691
-    m_Address: Languages/com.basis.imagepickup/de
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - language
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 1ccaa2e3045349a6ad8fc495497a18e6
-    m_Address: Languages/com.basis.imagepickup/ur
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - language
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 485c9e87e5b9406b871deb474578f424
-    m_Address: Languages/com.basis.imagepickup/es-MX
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - language
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 502642913b3d44d0a23370f03eaf5461
-    m_Address: Languages/com.basis.imagepickup/es
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - language
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 59a4ed3bbdd349ad9e507e16f7fc7c7f
-    m_Address: Languages/com.basis.imagepickup/ar
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - language
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 9e7b564ad87147aba192d3cb42be0803
-    m_Address: Languages/com.basis.imagepickup/ru
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - language
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 9fb5dcd490cf40528b36198cb5f1aa4c
-    m_Address: Languages/com.basis.imagepickup/pt
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - language
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: a28e38f55dea4bc887a3f56c79ccbd8b
-    m_Address: Languages/com.basis.imagepickup/fr
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - language
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: a9fe21e0f77d4be7b4206540d93ecf34
-    m_Address: Languages/com.basis.imagepickup/en
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - language
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: ad967af7840042a58e190846e2349745
-    m_Address: Languages/com.basis.imagepickup/zh-Hant
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - language
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: b9058df935e047beae5489f05e5e3cce
-    m_Address: Languages/com.basis.imagepickup/hi
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - language
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: e98a8e894d8e4e11aad363c9e4198b22
-    m_Address: Languages/com.basis.imagepickup/it
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - language
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: f2fb8fdf6de845e29d63f14ef5eeef76
-    m_Address: Languages/com.basis.imagepickup/ja
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - language
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: f8847dddd92e4b779ac8555b5ac4fdf7
-    m_Address: Languages/com.basis.imagepickup/zh-Hans
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - language
-    FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 8959b13be1add604380750c0f2e2f9f5, type: 2}
   m_SchemaSet:
     m_Schemas:
     - {fileID: 11400000, guid: d8902339bcc95ad43a6b70e1d538d2d1, type: 2}
     - {fileID: 11400000, guid: 91d4d092192cedb48b1a215ae39469de, type: 2}
+    m_SchemaDisplayOrder: []
+  m_IncludeInBuild: 1
+  m_IncludeInBuildMigrated: 1

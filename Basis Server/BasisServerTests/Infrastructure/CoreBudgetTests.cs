@@ -13,6 +13,7 @@ namespace BasisServerTests;
 /// The discovery tests run against the real clock because the probe windows are real durations.
 /// They are kept to the minimum number of windows that can distinguish the outcomes.
 /// </summary>
+[Collection("BasisCpuBudget")]
 public class CoreBudgetTests
 {
     /// <summary>
@@ -264,67 +265,6 @@ public class CoreBudgetTests
                         Assert.True(degree <= BasisCpuBudget.TotalCores,
                             $"degree {degree} exceeds {BasisCpuBudget.TotalCores} cores");
                     }
-                }
-            }
-
-            Assert.True(sawGrantUnderFloor,
-                $"the squeeze never drove the grant under the floor of {BasisCpuBudget.MinWorkersPerPool}, " +
-                "so this never exercised the case it exists for");
-        }
-        finally
-        {
-            foreach (var l in squeeze) BasisCpuBudget.Unregister(l);
-            for (int i = 0; i < 200; i++) BasisCpuBudget.Rebalance();
-        }
-    }
-
-    /// <summary>
-    /// The same squeeze against the transport's per-peer pool, which sizes itself the same way and
-    /// did not survive it: its floor went to Math.Clamp as a min under the grant as a max, and a
-    /// grant of 3 threw '4' cannot be greater than 3 out of the whole logic pass. That pass is
-    /// where reliable delivery, peer timeouts and NTP live, and the throw lands before the loop's
-    /// sleep — so the failure was not one dropped pass but a spin producing nothing but errors.
-    /// </summary>
-    [Fact]
-    public void PeerUpdateSizingSurvivesAGrantBelowItsFloor()
-    {
-        var squeeze = new BasisCoreLease[Math.Max(8, BasisCpuBudget.TotalCores * 2)];
-        for (int i = 0; i < squeeze.Length; i++)
-        {
-            squeeze[i] = BasisCpuBudget.Register("test-peer-squeeze-" + i, 1, () => 4096, 8.0);
-        }
-
-        var manager = new LiteNetLib.NetManager(new LiteNetLib.EventBasedNetListener());
-        var optionsFor = typeof(LiteNetLib.NetManager)
-            .GetMethod("GetPeerUpdateOptions", BindingFlags.NonPublic | BindingFlags.Instance);
-        Assert.NotNull(optionsFor);
-
-        try
-        {
-            foreach (var l in squeeze) l.ReportDemand(1.0);
-
-            bool sawGrantUnderFloor = false;
-            for (int step = 0; step < 200; step++)
-            {
-                BasisCpuBudget.Rebalance();
-
-                // What the host does every tick: the transport runs on whatever the split gave it.
-                manager.PeerUpdateWorkerCap = BasisCpuBudget.PeerUpdateCap;
-                if (BasisCpuBudget.PeerUpdateCap < BasisCpuBudget.MinWorkersPerPool)
-                {
-                    sawGrantUnderFloor = true;
-                }
-
-                foreach (int peers in new[] { 0, 1, 200, 4000 })
-                {
-                    var options = (ParallelOptions)optionsFor.Invoke(manager, new object[] { peers })!;
-
-                    Assert.True(options.MaxDegreeOfParallelism >= 1,
-                        $"{options.MaxDegreeOfParallelism} is not a legal MaxDegreeOfParallelism");
-                    Assert.True(options.MaxDegreeOfParallelism <= BasisCpuBudget.TotalCores,
-                        $"{options.MaxDegreeOfParallelism} workers exceeds {BasisCpuBudget.TotalCores} cores");
-                    Assert.True(options.MaxDegreeOfParallelism <= BasisCpuBudget.PeerUpdateCap,
-                        $"{options.MaxDegreeOfParallelism} workers exceeds the grant of {BasisCpuBudget.PeerUpdateCap}");
                 }
             }
 

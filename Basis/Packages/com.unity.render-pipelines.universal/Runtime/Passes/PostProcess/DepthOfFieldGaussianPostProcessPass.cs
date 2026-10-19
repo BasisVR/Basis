@@ -19,10 +19,10 @@ namespace UnityEngine.Rendering.Universal
         public DepthOfFieldGaussianPostProcessPass(Shader shader)
         {
             this.renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing - 1;
-            this.profilingSampler = new ProfilingSampler("Blit Depth of Field (Gaussian)");
+            this.profilingSampler = URPProfilingSamplers.GaussianDepthOfField;
 
-            m_Material = PostProcessUtils.LoadShader(shader, passName);
-            m_MaterialCoc = PostProcessUtils.LoadShader(shader, passName);
+            m_Material = PostProcessUtils.LoadShader(shader, passName, logLevel: LogType.Log);
+            m_MaterialCoc = PostProcessUtils.LoadShader(shader, passName, logLevel: LogType.Log);
             m_IsValid = m_Material != null && m_MaterialCoc != null;
 
             // Depth of Field
@@ -154,7 +154,7 @@ namespace UnityEngine.Rendering.Universal
                     RTHandle dstHdl = data.destination;
 
                     // Setup Materials
-                    using (new ProfilingScope(ProfilingSampler.Get(URPProfileId.RG_SetupDoF)))
+                    using (new ProfilingScope(URPProfilingSamplers.SetupDoF))
                     {
                         // Dof material
                         Vector4 sourceSize = PostProcessUtils.CalcShaderSourceSize(data.sourceTexture);
@@ -175,14 +175,14 @@ namespace UnityEngine.Rendering.Universal
                     }
 
                     // Compute CoC
-                    using (new ProfilingScope(ProfilingSampler.Get(URPProfileId.RG_DOFComputeCOC)))
+                    using (new ProfilingScope(URPProfilingSamplers.DOFComputeCOC))
                     {
                         dofMatCoC.SetTexture(ShaderConstants._CameraDepthTextureID, data.depthTexture);
                         Blitter.BlitCameraTexture(cmd, data.sourceTexture, data.fullCoCTexture, dofMatCoC, ShaderPass.k_ComputeCoc);
                     }
 
                     // Downscale & prefilter color + CoC
-                    using (new ProfilingScope(ProfilingSampler.Get(URPProfileId.RG_DOFDownscalePrefilter)))
+                    using (new ProfilingScope(URPProfilingSamplers.DOFDownscalePrefilter))
                     {
                         dofMat.SetTexture(ShaderConstants._FullCoCTexture, data.fullCoCTexture);
 
@@ -196,20 +196,20 @@ namespace UnityEngine.Rendering.Universal
                     }
 
                     // Blur H
-                    using (new ProfilingScope(ProfilingSampler.Get(URPProfileId.RG_DOFBlurH)))
+                    using (new ProfilingScope(URPProfilingSamplers.DOFBlurH))
                     {
                         dofMat.SetTexture(ShaderConstants._HalfCoCTexture, data.halfCoCTexture);
                         Blitter.BlitCameraTexture(cmd, data.pingTexture, data.pongTexture, dofMat, ShaderPass.k_BlurH);
                     }
 
                     // Blur V
-                    using (new ProfilingScope(ProfilingSampler.Get(URPProfileId.RG_DOFBlurV)))
+                    using (new ProfilingScope(URPProfilingSamplers.DOFBlurV))
                     {
                         Blitter.BlitCameraTexture(cmd, data.pongTexture, data.pingTexture, dofMat, ShaderPass.k_BlurV);
                     }
 
                     // Composite
-                    using (new ProfilingScope(ProfilingSampler.Get(URPProfileId.RG_DOFComposite)))
+                    using (new ProfilingScope(URPProfilingSamplers.DOFComposite))
                     {
                         dofMat.SetTexture(ShaderConstants._ColorTexture, data.pingTexture);
                         dofMat.SetTexture(ShaderConstants._FullCoCTexture, data.fullCoCTexture);

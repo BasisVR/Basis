@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management.Devices;
@@ -9,7 +10,8 @@ using UnityEngine.EventSystems;
 
 namespace Basis.Scripts.UI
 {
-    public class BasisPointRaycaster : BaseRaycaster
+    [AutoStaticsCleanup]
+    public partial class BasisPointRaycaster : BaseRaycaster
     {
         private const float MaxDistanceScaleThresholdMeters = 100f;
         public float MaxDistance = 120;
@@ -154,7 +156,7 @@ namespace Basis.Scripts.UI
 
         private void RefreshEffectiveMaxDistance()
         {
-            EffectiveMaxDistance = MaxDistance + Mathf.Max(0f, BasisHeightDriver.SelectedScaledAvatarHeight - MaxDistanceScaleThresholdMeters);
+            EffectiveMaxDistance = MaxDistance + Mathf.Max(0f, BasisHeightDriver.ScaledAvatarEyeHeight - MaxDistanceScaleThresholdMeters);
         }
 
         public void UpdateRay()

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
@@ -26,6 +27,7 @@ namespace Basis.Scripts.Profiler.EditorTools
     ///   ProfilerCaptures/frame_&lt;ts&gt;.md    – human-readable digest (clipboard too)
     ///   ProfilerCaptures/frame_&lt;ts&gt;.data  – native Profiler trace, loadable in Profiler window
     /// </summary>
+    [NoAutoStaticsCleanup]
     public static class BasisFrameCapture
     {
         private const string MenuPath = "Basis/Debug/Profiler/Capture Single Frame";

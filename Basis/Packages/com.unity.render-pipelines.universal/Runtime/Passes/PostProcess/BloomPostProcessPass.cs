@@ -1,4 +1,5 @@
 using System;
+using Unity.Profiling.LowLevel;
 using UnityEngine.Rendering.RenderGraphModule;
 using System.Runtime.CompilerServices; // AggressiveInlining
 
@@ -7,6 +8,11 @@ namespace UnityEngine.Rendering.Universal
     internal sealed class BloomPostProcessPass : PostProcessPass
     {
         public const int k_MaxPyramidSize = 16;
+
+        /// <summary>Generates bloom mipmap chain using iterative Kawase blur kernels for fast, high-quality bloom with fewer texture samples per pass.</summary>
+        static readonly ProfilingSampler k_ProfilingSamplerKawase = ProfilingSampler.Create("Blit Bloom Mipmaps (Kawase)", MarkerFlags.Default);
+        /// <summary>Generates bloom mipmap chain using dual filtering (downsample then upsample with tent filter) for efficient wide-radius bloom.</summary>
+        static readonly ProfilingSampler k_ProfilingSamplerDual = ProfilingSampler.Create("Blit Bloom Mipmaps (Dual)", MarkerFlags.Default);
 
         Material m_Material;
         Material[] m_MaterialPyramid;
@@ -22,23 +28,19 @@ namespace UnityEngine.Rendering.Universal
 
         const string k_PassNameKawase = "Blit Bloom Mipmaps (Kawase)";
         const string k_PassNameDual = "Blit Bloom Mipmaps (Dual)";
-        ProfilingSampler m_ProfilingSamplerKawase;
-        ProfilingSampler m_ProfilingSamplerDual;
 
         public BloomPostProcessPass(Shader shader)
         {
             this.renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing - 1;
-            this.profilingSampler = new ProfilingSampler("Blit Bloom Mipmaps");
-            m_ProfilingSamplerKawase = new ProfilingSampler(k_PassNameKawase);
-            m_ProfilingSamplerDual = new ProfilingSampler(k_PassNameDual);
+            this.profilingSampler = URPProfilingSamplers.Bloom;
 
-            m_Material = PostProcessUtils.LoadShader(shader, passName);
+            m_Material = PostProcessUtils.LoadShader(shader, passName, logLevel: LogType.Log);
 
             // Array for bloom pyramid materials.
             // Materials are references in the command buffer, so we need a separate material for each mip level.
             m_MaterialPyramid = new Material[k_MaxPyramidSize];
             for (uint i = 0; i < k_MaxPyramidSize; ++i)
-                m_MaterialPyramid[i] = PostProcessUtils.LoadShader(shader, passName);
+                m_MaterialPyramid[i] = PostProcessUtils.LoadShader(shader, passName, logLevel: LogType.Log);
 
             // Check if the pass init was successful.
             m_IsValid = m_Material != null;
@@ -84,7 +86,7 @@ namespace UnityEngine.Rendering.Universal
             // Materials are set up beforehand.
             // We rely on the fact that they're private and separate for each blit.
             // They should remain unchanged between graph build and execution.
-            using(new ProfilingScope(ProfilingSampler.Get(URPProfileId.RG_BloomSetup)))
+            using(new ProfilingScope(URPProfilingSamplers.BloomSetup))
             {
                 m_MipPyramid.Update(renderGraph, bloom, in sourceDesc);
                 int mipCount = m_MipPyramid.mipCount;
@@ -221,7 +223,7 @@ namespace UnityEngine.Rendering.Universal
                     var storeAction = RenderBufferStoreAction.Store; // Blit - always read by then next Blit
 
                     // Prefilter
-                    using (new ProfilingScope(cmd, ProfilingSampler.Get(URPProfileId.RG_BloomPrefilter)))
+                    using (new ProfilingScope(cmd, URPProfilingSamplers.BloomPrefilter))
                     {
                         Blitter.BlitCameraTexture(cmd, data.sourceTexture, mipDownTextures[0], loadAction,
                             storeAction, material, ShaderPass.k_Prefilter);
@@ -231,7 +233,7 @@ namespace UnityEngine.Rendering.Universal
                     // Classic two pass gaussian blur - use mipUp as a temporary target
                     //   First pass does 2x downsampling + 9-tap gaussian
                     //   Second pass does 9-tap gaussian using a 5-tap filter + bilinear filtering
-                    using (new ProfilingScope(cmd, ProfilingSampler.Get(URPProfileId.RG_BloomDownsample)))
+                    using (new ProfilingScope(cmd, URPProfilingSamplers.BloomDownsample))
                     {
                         TextureHandle lastDown = mipDownTextures[0];
                         for (int i = 1; i < mipCount; i++)
@@ -246,7 +248,7 @@ namespace UnityEngine.Rendering.Universal
                         }
                     }
 
-                    using (new ProfilingScope(cmd, ProfilingSampler.Get(URPProfileId.RG_BloomUpsample)))
+                    using (new ProfilingScope(cmd, URPProfilingSamplers.BloomUpsample))
                     {
                         // Upsample (bilinear by default, HQ filtering does bicubic instead
                         for (int i = mipCount - 2; i >= 0; i--)
@@ -276,7 +278,7 @@ namespace UnityEngine.Rendering.Universal
 
         TextureHandle BloomKawase(RenderGraph renderGraph, in TextureHandle source)
         {
-            using (var builder = renderGraph.AddUnsafePass<BloomPassData>(k_PassNameKawase, out var passData, m_ProfilingSamplerKawase))
+            using (var builder = renderGraph.AddUnsafePass<BloomPassData>(k_PassNameKawase, out var passData, k_ProfilingSamplerKawase))
             {
                 passData.sourceTexture = source;
                 passData.material = m_Material;
@@ -302,13 +304,13 @@ namespace UnityEngine.Rendering.Universal
                     var storeAction = RenderBufferStoreAction.Store;    // Blit - always read by then next Blit
 
                     // Prefilter
-                    using(new ProfilingScope(cmd, ProfilingSampler.Get(URPProfileId.RG_BloomPrefilter)))
+                    using(new ProfilingScope(cmd, URPProfilingSamplers.BloomPrefilter))
                     {
                         Blitter.BlitCameraTexture(cmd, data.sourceTexture, mipDownTextures[0], loadAction, storeAction, material, ShaderPass.k_Prefilter);
                     }
 
                     // Kawase blur passes
-                    using(new ProfilingScope(cmd, ProfilingSampler.Get(URPProfileId.RG_BloomDownsample)))
+                    using(new ProfilingScope(cmd, URPProfilingSamplers.BloomDownsample))
                     {
                         for (int i = 0; i < mipCount; i++)
                         {
@@ -330,7 +332,7 @@ namespace UnityEngine.Rendering.Universal
         //  Dual Filter, Bandwidth-Efficient Rendering, siggraph2015
         TextureHandle BloomDual(RenderGraph renderGraph, in TextureHandle source)
         {
-            using (var builder = renderGraph.AddUnsafePass<BloomPassData>(k_PassNameDual, out var passData, m_ProfilingSamplerDual))
+            using (var builder = renderGraph.AddUnsafePass<BloomPassData>(k_PassNameDual, out var passData, k_ProfilingSamplerDual))
             {
                 passData.sourceTexture = source;
                 passData.material = m_Material;
@@ -359,14 +361,14 @@ namespace UnityEngine.Rendering.Universal
                     var storeAction = RenderBufferStoreAction.Store;    // Blit - always read by then next Blit
 
                     // Prefilter
-                    using(new ProfilingScope(cmd, ProfilingSampler.Get(URPProfileId.RG_BloomPrefilter)))
+                    using(new ProfilingScope(cmd, URPProfilingSamplers.BloomPrefilter))
                     {
                         Blitter.BlitCameraTexture(cmd, data.sourceTexture, mipDownTextures[0], loadAction, storeAction, material, ShaderPass.k_Prefilter);
                     }
 
                     // ARM: Bandwidth-Efficient Rendering, siggraph2015
                     // Downsample - dual pyramid, fixed Kawase0 blur on shrinking targets.
-                    using(new ProfilingScope(cmd, ProfilingSampler.Get(URPProfileId.RG_BloomDownsample)))
+                    using(new ProfilingScope(cmd, URPProfilingSamplers.BloomDownsample))
                     {
                         TextureHandle lastDown = mipDownTextures[0];
                         for (int i = 1; i < mipCount; i++)
@@ -378,7 +380,7 @@ namespace UnityEngine.Rendering.Universal
                         }
                     }
 
-                    using (new ProfilingScope(cmd, ProfilingSampler.Get(URPProfileId.RG_BloomUpsample)))
+                    using (new ProfilingScope(cmd, URPProfilingSamplers.BloomUpsample))
                     {
                         for (int i = mipCount - 2; i >= 0; i--)
                         {

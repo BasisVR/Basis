@@ -13,8 +13,8 @@ namespace Basis.Tests.IK
     /// including the BasisDeviceManagement main-thread queue the reports marshal
     /// through (drained manually here since no event driver runs in edit mode).
     /// Pins show-on-first-report, bar sizing every report, quantized label rewrites,
-    /// hide-on-completion, the culled state tracking without object writes, and the
-    /// (pre-existing) inactive-plate guard.
+    /// hide-on-completion, the culled state tracking without object writes, and hidden
+    /// plates that keep tracking the load so a completion is never lost.
     /// </summary>
     public class BasisNamePlateLoadingDisplayTests
     {
@@ -161,14 +161,99 @@ namespace Basis.Tests.IK
         }
 
         [Test]
-        public void InactivePlate_SkipsReports()
+        public void CompletionWhileHidden_ClosesOverlayBeforePlateReturns()
         {
-            // Pre-existing guard: reports for a deactivated plate are dropped, not queued.
-            _root.SetActive(false);
+            bool namesWereEnabled = BasisRemoteNamePlateDriver.NamePlateEnabled;
+            try
+            {
+                Report(50f, "Downloading 50%");
+
+                BasisRemoteNamePlateDriver.NamePlateEnabled = false;
+                _plate.RefreshActiveState();
+                Assert.IsFalse(_root.activeSelf);
+
+                Report(100f, "Avatar ready");
+                Assert.IsFalse(_plate.HasProgressBarVisible);
+
+                BasisRemoteNamePlateDriver.NamePlateEnabled = true;
+                _plate.RefreshActiveState();
+                Assert.IsTrue(_root.activeSelf);
+                Assert.IsFalse(_plate.LoadingText.gameObject.activeSelf);
+                Assert.IsFalse(_plate.LoadingBar.gameObject.activeSelf);
+            }
+            finally
+            {
+                BasisRemoteNamePlateDriver.NamePlateEnabled = namesWereEnabled;
+            }
+        }
+
+        [Test]
+        public void ReportsWhileHidden_ShowLiveProgressWhenPlateReturns()
+        {
+            bool namesWereEnabled = BasisRemoteNamePlateDriver.NamePlateEnabled;
+            try
+            {
+                BasisRemoteNamePlateDriver.NamePlateEnabled = false;
+                _plate.RefreshActiveState();
+                Assert.IsFalse(_root.activeSelf);
+
+                Report(30f, "Downloading 30%");
+                Report(60f, "Downloading 60%");
+                Assert.IsTrue(_plate.HasProgressBarVisible);
+                Assert.IsFalse(_plate.LoadingBar.gameObject.activeSelf);
+
+                BasisRemoteNamePlateDriver.NamePlateEnabled = true;
+                _plate.RefreshActiveState();
+                Assert.IsTrue(_plate.LoadingText.gameObject.activeSelf);
+                Assert.IsTrue(_plate.LoadingBar.gameObject.activeSelf);
+                Assert.AreEqual("Downloading 60%", _plate.LoadingText.text);
+                Assert.AreEqual(30f, _plate.LoadingBar.size.x, 1e-3f);
+            }
+            finally
+            {
+                BasisRemoteNamePlateDriver.NamePlateEnabled = namesWereEnabled;
+            }
+        }
+
+        [Test]
+        public void NameHiddenPlate_TracksLoadWithoutShowingOverlay()
+        {
+            _plate.NameHidden = true;
             Report(50f, "Downloading 50%");
 
-            Assert.IsFalse(_plate.HasProgressBarVisible);
+            Assert.IsTrue(_plate.HasProgressBarVisible);
+            Assert.IsFalse(_plate.HasActiveLoadingOverlay);
             Assert.IsFalse(_plate.LoadingText.gameObject.activeSelf);
+            Assert.IsFalse(_plate.LoadingBar.gameObject.activeSelf);
+        }
+
+        [Test]
+        public void HiddenNames_DeactivatePlateWithoutChat_ThenRestoreColliderAndOverlay()
+        {
+            BoxCollider collider = _root.AddComponent<BoxCollider>();
+            bool namesWereEnabled = BasisRemoteNamePlateDriver.NamePlateEnabled;
+            try
+            {
+                Report(50f, "Downloading 50%");
+
+                BasisRemoteNamePlateDriver.NamePlateEnabled = false;
+                _plate.RefreshActiveState();
+                Assert.IsFalse(_root.activeSelf);
+                Assert.IsTrue(_plate.NameHidden);
+                Assert.IsFalse(collider.enabled);
+                Assert.IsFalse(_plate.LoadingBar.gameObject.activeSelf);
+
+                BasisRemoteNamePlateDriver.NamePlateEnabled = true;
+                _plate.RefreshActiveState();
+                Assert.IsTrue(_root.activeSelf);
+                Assert.IsFalse(_plate.NameHidden);
+                Assert.IsTrue(collider.enabled);
+                Assert.IsTrue(_plate.LoadingBar.gameObject.activeSelf);
+            }
+            finally
+            {
+                BasisRemoteNamePlateDriver.NamePlateEnabled = namesWereEnabled;
+            }
         }
     }
 }

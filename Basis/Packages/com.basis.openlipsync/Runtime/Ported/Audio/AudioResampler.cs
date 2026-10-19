@@ -1,10 +1,12 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Concurrent;
 using System.Numerics;
 
 namespace OpenLipSync.Inference.Audio
 {
-    public sealed class AudioResampler : IDisposable
+    [AutoStaticsCleanup]
+    public sealed partial class AudioResampler : IDisposable
     {
         private readonly int _inputSampleRate;
         private readonly int _outputSampleRate;

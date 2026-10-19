@@ -2,6 +2,7 @@
 using UnityEditor;
 using UnityEngine;
 using System.Collections.Generic;
+using Basis.Editor.Localization;
 using Basis.Scripts.Common; // BasisLocks
 
 public class BasisCursorEditorWindow : EditorWindow
@@ -20,7 +21,7 @@ public class BasisCursorEditorWindow : EditorWindow
     [MenuItem("Basis/Settings/Cursor", false, 401)]
     public static void Open()
     {
-        GetWindow<BasisCursorEditorWindow>("Basis Cursor");
+        GetWindow<BasisCursorEditorWindow>(BasisEditorLocalization.Get("editor.cursorEditor.windowTitle"));
     }
 
     private void OnEnable()
@@ -37,8 +38,8 @@ public class BasisCursorEditorWindow : EditorWindow
 
     private void OnGUI()
     {
-        BasisEditorUI.Header("Cursor",
-            "How the desktop cursor is locked, shown and warped while the client has focus.");
+        BasisEditorUI.Header(BasisEditorLocalization.Get("editor.cursorEditor.header"),
+            BasisEditorLocalization.Get("editor.cursorEditor.subtitle"));
 
         EditorGUILayout.Space();
 
@@ -58,15 +59,15 @@ public class BasisCursorEditorWindow : EditorWindow
     {
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
-            BasisEditorUI.SectionTitle("Runtime State");
+            BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.cursorEditor.runtimeState"));
 
-            EditorGUILayout.LabelField("Cursor Lock State",
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.cursorEditor.lockState"),
                 BasisCursorManagement.ActiveLockState().ToString());
 
-            EditorGUILayout.LabelField("Cursor Visible",
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.cursorEditor.visible"),
                 BasisCursorManagement.IsVisible().ToString());
 
-            EditorGUILayout.LabelField("Ignoring Requests (VR)",
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.cursorEditor.ignoringRequestsVr"),
                 Basis.Scripts.Device_Management.BasisDeviceManagement.IsCurrentModeVR().ToString());
         }
     }
@@ -75,13 +76,13 @@ public class BasisCursorEditorWindow : EditorWindow
     {
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
-            BasisEditorUI.SectionTitle("Active Cursor Unlock Requests");
+            BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.cursorEditor.unlockRequests"));
 
             IReadOnlyList<string> requests = BasisCursorManagement.CursorUnlockRequestsDebug;
 
             if (requests == null || requests.Count == 0)
             {
-                EditorGUILayout.LabelField("None");
+                EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.common.none"));
                 return;
             }
 
@@ -98,7 +99,7 @@ public class BasisCursorEditorWindow : EditorWindow
     {
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
-            BasisEditorUI.SectionTitle("Basis Locks");
+            BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.cursorEditor.locks"));
 
             locksScroll = EditorGUILayout.BeginScrollView(locksScroll, GUILayout.MaxHeight(260));
 
@@ -120,18 +121,18 @@ public class BasisCursorEditorWindow : EditorWindow
         {
             bool locked = ctx; // implicit bool operator uses Count > 0
             EditorGUILayout.LabelField(ctxName, EditorStyles.boldLabel);
-            EditorGUILayout.LabelField("Locked", locked.ToString());
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.cursorEditor.locked"), locked.ToString());
 
             var holders = ctx.ToList(); // snapshot (thread-safe because your LockContext locks internally)
 
             if (holders.Count == 0)
             {
-                EditorGUILayout.LabelField("Holders", "None");
+                EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.cursorEditor.holders"), BasisEditorLocalization.Get("editor.common.none"));
             }
             else
             {
                 // Show as a compact line
-                EditorGUILayout.LabelField("Holders", string.Join(", ", holders));
+                EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.cursorEditor.holders"), string.Join(", ", holders));
 
                 // Optional: show as bullets too (uncomment if you prefer)
                 // EditorGUILayout.Space(2);
@@ -145,9 +146,9 @@ public class BasisCursorEditorWindow : EditorWindow
     {
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
-            BasisEditorUI.SectionTitle("Editor Actions");
+            BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.cursorEditor.actions"));
 
-            if (GUILayout.Button("Force Unlock & Clear Cursor Requests"))
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.cursorEditor.forceUnlock")))
             {
                 BasisCursorManagement.OnReset();
             }
@@ -157,17 +158,17 @@ public class BasisCursorEditorWindow : EditorWindow
             // Optional: nuke common locks (careful—this is global!)
             using (new EditorGUI.DisabledScope(!Application.isPlaying))
             {
-                if (GUILayout.Button("Clear LookRotation Lock List"))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.cursorEditor.clearLookRotation")))
                 {
                     BasisLocks.GetContext(BasisLocks.LookRotation).Clear();
                 }
 
-                if (GUILayout.Button("Clear Movement Lock List"))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.cursorEditor.clearMovement")))
                 {
                     BasisLocks.GetContext(BasisLocks.Movement).Clear();
                 }
 
-                if (GUILayout.Button("Clear Crouching Lock List"))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.cursorEditor.clearCrouching")))
                 {
                     BasisLocks.GetContext(BasisLocks.Crouching).Clear();
                 }

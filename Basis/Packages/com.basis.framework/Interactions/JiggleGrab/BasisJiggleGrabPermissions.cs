@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
 using System.Collections.Generic;
@@ -12,7 +13,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
     /// The per-player values are read from the mirrors on <see cref="BasisRemotePlayer"/>,
     /// never from the async settings manager.
     /// </summary>
-    public static class BasisJiggleGrabPermissions
+    [AutoStaticsCleanup]
+    public static partial class BasisJiggleGrabPermissions
     {
         public static bool MasterEnabled = true;
 

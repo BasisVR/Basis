@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
@@ -22,23 +23,24 @@ using UnityEngine.Jobs;
 ///
 /// So the split is: <see cref="ScheduleBeforeRender"/> runs on Application.onBeforeRender at
 /// BeforeRenderOrder int.MaxValue — after Basis has run its IK on the default-order handler, before URP
-/// exists for the frame — and <see cref="Run"/> (beginFrameRendering) only joins and publishes. The poses
+/// exists for the frame — and <see cref="Run"/> (beginContextRendering) only joins and publishes. The poses
 /// are still one sample at one instant for every consumer; the sample just happens a hair earlier, at the
 /// last onBeforeRender slot instead of the first pipeline callback, with nothing writing bones in between.
 /// A destroyed bone is skipped by the transform job and keeps its last matrix until the next rebuild,
 /// exactly as the managed loop's null-skip did.
 /// </summary>
-public static class BasisAvatarProxyJobs
+[AutoStaticsCleanup]
+public static partial class BasisAvatarProxyJobs
 {
     private static Transform[] bones;
     private static float2[] shape;
     private static Matrix4x4[] matrices;
     private static int limbCount;
 
-    private static TransformAccessArray access;
-    private static NativeArray<Vector3> positions;
-    private static NativeArray<float2> shapeNative;
-    private static NativeArray<Matrix4x4> outMatrices;
+    [NoAutoStaticsCleanup] private static TransformAccessArray access;
+    [NoAutoStaticsCleanup] private static NativeArray<Vector3> positions;
+    [NoAutoStaticsCleanup] private static NativeArray<float2> shapeNative;
+    [NoAutoStaticsCleanup] private static NativeArray<Matrix4x4> outMatrices;
     private static JobHandle handle;
     private static bool scheduled;
     private static bool hooked;
@@ -133,6 +135,14 @@ public static class BasisAvatarProxyJobs
         if (hooked) { return; }
         hooked = true;
         Application.onBeforeRender += ScheduleBeforeRender;
+        Application.quitting += Unhook;
+    }
+
+    private static void Unhook()
+    {
+        Application.quitting -= Unhook;
+        Application.onBeforeRender -= ScheduleBeforeRender;
+        hooked = false;
     }
 
     [BeforeRenderOrder(int.MaxValue)]

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.Serialization;
@@ -28,6 +29,7 @@ namespace Basis.Tests.Sync
     /// The real transmit (<c>OnBeforeTransmit</c>) and the real receive path (driver schedule → complete →
     /// reweld) run; only the input stack and the transport are staged.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public abstract class BasisPickupWeldFixture
     {
         protected const BindingFlags NP = BindingFlags.NonPublic | BindingFlags.Instance;

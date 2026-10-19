@@ -435,5 +435,19 @@ namespace UnityEngine.Rendering.Universal
                 version = Version.RenderingLayerMask;
             }
         }
+
+#if UNITY_EDITOR
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStaticsOnLoad()
+        {
+            onDecalAdd = null;
+            onDecalRemove = null;
+            onDecalPropertyChange = null;
+            onAllDecalPropertyChange = null;
+            onDecalMaterialChange = null;
+
+            defaultMaterial = null;
+        }
+#endif
     }
 }

@@ -18,7 +18,7 @@ namespace Basis.Integration.AudioLink
 
         private static void OnBootModeChanged(string mode)
         {
-            global::AudioLink.AudioLink audioLink = Object.FindFirstObjectByType<global::AudioLink.AudioLink>();
+            global::AudioLink.AudioLink audioLink = Object.FindAnyObjectByType<global::AudioLink.AudioLink>();
             if (audioLink == null || !audioLink.AudioLinkEnabled)
             {
                 return;

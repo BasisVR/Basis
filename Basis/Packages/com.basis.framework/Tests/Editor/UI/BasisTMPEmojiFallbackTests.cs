@@ -1,4 +1,5 @@
 using System.IO;
+using Basis.BasisUI;
 using NUnit.Framework;
 using TMPro;
 using UnityEditor;
@@ -6,6 +7,35 @@ using UnityEngine;
 
 namespace Basis.Tests.UI
 {
+    [TestFixture]
+    public class BasisTMPCjkFallbackTests
+    {
+        [Test]
+        public void InvalidateTextMeshes_ReparsesLabelsWhoseUnicodeTextDidNotChange()
+        {
+            GameObject owner = new GameObject("CJK fallback invalidation test", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            TMP_Text label = owner.GetComponent<TMP_Text>();
+            try
+            {
+                // These are the shared-code-point strings from issue #1086. Their text can stay
+                // byte-for-byte identical while the correct Japanese/Chinese glyph shape changes.
+                label.text = "切替 言語";
+                label.ForceMeshUpdate();
+                label.havePropertiesChanged = false;
+
+                int invalidated = BasisTMPFontFallbacks.InvalidateTextMeshes(new[] { label });
+
+                Assert.That(invalidated, Is.EqualTo(1));
+                Assert.That(label.havePropertiesChanged, Is.True,
+                    "the label would retain the fallback font selected before the language change");
+            }
+            finally
+            {
+                Object.DestroyImmediate(owner);
+            }
+        }
+    }
+
     [TestFixture]
     public class BasisTMPEmojiFallbackTests
     {

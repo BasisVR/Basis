@@ -1,0 +1,5 @@
+# source: ts-clean.csv (phase-0 diagnostics capture, 2026-08-10)
+# impairment: HTTP-TS, no impairment (baseline)
+# analysed_duration_s: 171.547
+# baseline_buf_ms: 460
+start_s,gap_ms

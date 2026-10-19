@@ -1,3 +1,4 @@
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEngine;
 
@@ -11,16 +12,16 @@ using UnityEngine;
 /// </summary>
 public sealed class BasisCalibrationWindow : BasisTabbedEditorWindow
 {
-    protected override string HeaderTitle => "Calibration";
+    protected override string HeaderTitle => BasisEditorLocalization.Get("editor.calibrationWindow.title");
 
     protected override string HeaderSubtitle =>
-        "Tracker discovery, recorded runs, resulting height, and the smoothing filter.";
+        BasisEditorLocalization.Get("editor.calibrationWindow.subtitle");
 
     [MenuItem("Basis/Calibration/Calibration Tools", false, 180)]
     public static void ShowWindow()
     {
         BasisCalibrationWindow w = GetWindow<BasisCalibrationWindow>();
-        w.titleContent = new GUIContent("Calibration");
+        w.titleContent = new GUIContent(BasisEditorLocalization.Get("editor.calibrationWindow.title"));
         w.minSize = new Vector2(640, 560);
         w.Show();
     }

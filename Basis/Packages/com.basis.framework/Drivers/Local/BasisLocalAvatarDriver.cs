@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Helpers;
@@ -14,14 +15,19 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 namespace Basis.Scripts.Drivers
 {
+    [AutoStaticsCleanup]
     [Serializable]
-    public class BasisLocalAvatarDriver : BasisAvatarDriver
+    public partial class BasisLocalAvatarDriver : BasisAvatarDriver
     {
 
         public const string Locomotion = "Locomotion";
 
         public static readonly Dictionary<BasisBoneTrackedRole, BasisCalibratedCoords> TposeBoneSnapshot = new Dictionary<BasisBoneTrackedRole, BasisCalibratedCoords>();
         public static bool HasTposeBoneSnapshot;
+        public static Vector3 TposeTorsoTop;
+        public static bool HasTposeTorsoTop;
+        public static float TposeSoleHeight;
+        static BasisAvatar tposeSoleAvatar;
 
         public static Vector3 HeadScale = Vector3.one;
 
@@ -86,14 +92,13 @@ namespace Basis.Scripts.Drivers
 
             player.LocalRigDriver.Initialize(player, Mapping);
 
-            BasisAvatarIKStageCalibration.BasisBendNormalStore.Clear();
-            BasisAvatarIKStageCalibration.BasisLimbRollStore.Clear();
+            BasisAvatarIKStageCalibration.BasisLimbRollStore.TrackerToBone.Clear();
 
             player.LocalRigDriver.CleanupBeforeContinue();
-            GameObject AvatarAnimatorParent = player.BasisAvatar.Animator.gameObject;
-            ScaleAvatarModification.ReInitialize(player.BasisAvatar.Animator);
+            ScaleAvatarModification.ReInitialize(player.BasisAvatar.Animator, player.AvatarTransform);
 
             player.BasisAvatar.Animator.updateMode = AnimatorUpdateMode.Normal;
+            player.BasisAvatar.Animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
             player.BasisAvatar.Animator.logWarnings = false;
 
             if (player.BasisAvatar.Animator.runtimeAnimatorController == null)
@@ -113,6 +118,7 @@ namespace Basis.Scripts.Drivers
             // snapshot is captured further down, before SetBodySettings consumes it.
             TposeBoneSnapshot.Clear();
             HasTposeBoneSnapshot = false;
+            HasTposeTorsoTop = false;
 
             // Enter T-Pose for calibration
             PutAvatarIntoTPose();
@@ -157,7 +163,12 @@ namespace Basis.Scripts.Drivers
             BasisLocalEyeDriverData.PersonalityDirty = true;
             BasisDebug.Log($"Eye Personality - Liveliness: {BasisLocalEyeDriverData.Liveliness:F1} | Attentiveness: {BasisLocalEyeDriverData.Attentiveness:F1} | Max Look Angle: {(BasisLocalEyeDriverData.MaxLookAngleEnabled ? $"{BasisLocalEyeDriverData.MaxLookAngleDeg:F0} deg" : "default")}", BasisDebug.LogTag.Avatar);
             BasisLocalEyeDriver.Initialize();
-            LocalRenderMeshSettings(BasisLayerMapper.LocalAvatarLayer, SkinnedMeshRendererLength, SkinnedMeshRenderer, player.BasisAvatar.FaceVisemeMesh);
+            LocalRenderMeshSettings(
+                BasisLayerMapper.LocalAvatarLayer,
+                SkinnedMeshRendererLength,
+                SkinnedMeshRenderer,
+                player.BasisAvatar.FaceVisemeMesh,
+                Mapping.Hashead ? Mapping.head : null);
 
             if (Mapping.Hashead)
             {
@@ -176,6 +187,12 @@ namespace Basis.Scripts.Drivers
             // that rebuild the previous avatar's binds. Everything downstream (arm span, offset capture
             // references, offset reprojection) derives from this data instead of live bone reads.
             CaptureTposeBoneSnapshot();
+            // PutAvatarIntoTPose measured the avatar before this snapshot existed, so the segment
+            // calculator necessarily returned no leg/spine/shoulder data on a fresh avatar. Re-run
+            // the snapshot-backed measurements now, before BuildBuilder/RefreshBodyFit consumes them.
+            BasisLocalHeightCalculator.CalculateAvatarArmSpan();
+            BasisLocalHeightCalculator.CalculateAvatarBodySegments();
+            BasisLocalHeightCalculator.ValidateEyeToArmSizesAvatar();
 
             player.AvatarTransform.rotation = player.transform.rotation;
             CalculateTransformPositions(player, player.LocalBoneDriver);
@@ -187,10 +204,6 @@ namespace Basis.Scripts.Drivers
 
             player.LocalHandDriver.ReInitialize(player.BasisAvatar.Animator);
             player.LocalAnimatorDriver.Initialize(player);
-
-
-            // Exit T-Pose and restore animator
-            ResetAvatarAnimator();
 
             if (player.LocalBoneDriver.FindBone(out BasisLocalBoneControl Head, BasisBoneTrackedRole.Head))
             {
@@ -211,8 +224,14 @@ namespace Basis.Scripts.Drivers
             RecordCalibrationStage("PostZero", player);
             player.LocalRigDriver.BuildBuilder();
 
+            // Exit T-Pose and restore animator. Must come after BuildBuilder: swapping the controller back
+            // resets the bones to the prefab's default pose (often an A-pose), and BuildBuilder captures the
+            // IK rest skeleton that calibration uses as the fitted T-pose reference.
+            ResetAvatarAnimator();
+
             IsNormalHead = true;
             RemoveJiggleRigColliders();
+            ColliderScaleReference = ScaleAvatarModification.DuringCalibrationScale;
             if (player.IsConsideredFallBackAvatar == false)
             {
                 AddJiggleRigColliders(Mapping);
@@ -355,6 +374,12 @@ namespace Basis.Scripts.Drivers
             return true;
         }
 
+        float CurrentApplyScale()
+        {
+            float scale = ScaleAvatarModification != null ? ScaleAvatarModification.ApplyScale : 1f;
+            return float.IsNaN(scale) || float.IsInfinity(scale) || scale <= 1e-6f ? 1f : scale;
+        }
+        public float TposeSoleOffsetScaled() => TposeSoleHeight * CurrentApplyScale();
         public float ActiveAvatarEyeHeight()
         {
             var localPlayer = BasisLocalPlayer.Instance;
@@ -372,6 +397,9 @@ namespace Basis.Scripts.Drivers
         {
             var Avatar = LocalPlayer.BasisAvatar;
             FindSkinnedMeshRenders(LocalPlayer);
+            // AvatarTransform is the shared local/network coordinate root. The Animator may be nested
+            // below an import-scale node, but mapped positions must remain in the same rendered-metre
+            // frame used by avatar eye height, tracker offsets, and remote replication.
             BasisTransformMapping.AutoDetectReferences(LocalPlayer.BasisAvatar.Animator, Avatar.transform, ref Mapping, humanoidBones: Avatar.TransformStorage?.HumanoidBones);
             BasisAvatarModelCache.RecordPosesCached(Mapping, LocalPlayer.BasisAvatar.Animator);
             LocalPlayer.FaceIsVisible = false;
@@ -417,12 +445,19 @@ namespace Basis.Scripts.Drivers
             {
                 SavedruntimeAnimatorController = BasisLocalPlayer.Instance.BasisAvatar.Animator.runtimeAnimatorController;
             }
-            BasisLocalPlayer.Instance.BasisAvatar.Animator.runtimeAnimatorController = BasisPlayerFactory.TposeController;
-            ForceUpdateAnimator(BasisLocalPlayer.Instance.BasisAvatar.Animator);
+            Animator animator = BasisLocalPlayer.Instance.BasisAvatar.Animator;
+            animator.runtimeAnimatorController = BasisPlayerFactory.TposeController;
+            ForceUpdateAnimator(animator);
+            if (tposeSoleAvatar != BasisLocalPlayer.Instance.BasisAvatar)
+            {
+                tposeSoleAvatar = BasisLocalPlayer.Instance.BasisAvatar;
+                TposeSoleHeight = BasisAvatarSole.TryMeasure(BasisLocalPlayer.Instance.AvatarTransform, animator.GetBoneTransform(HumanBodyBones.LeftFoot), animator.GetBoneTransform(HumanBodyBones.RightFoot), CurrentApplyScale(), ActiveAvatarEyeHeight(), out float sole) ? sole : 0f;
+                BasisDebug.Log($"T-pose soles {TposeSoleHeight * 100f:F2} cm from the avatar root", BasisDebug.LogTag.Avatar);
+            }
             TposeStateChange?.Invoke();
 
             BasisLocalPlayer.Instance.LocalRigDriver.DisableAllTrackers();
-            //anytime a avatar goes into a tpose we can grab the avatar height information
+            //anytime a, avatar goes into a t-pose we can grab the avatar height information
             BasisHeightDriver.CaptureAvatarHeightDuringTpose();
         }
 
@@ -430,6 +465,7 @@ namespace Basis.Scripts.Drivers
         {
             TposeBoneSnapshot.Clear();
             HasTposeBoneSnapshot = false;
+            HasTposeTorsoTop = false;
             if (Mapping.HasAnimatorRoot == false || Mapping.AnimatorRoot == null)
             {
                 BasisDebug.LogError("CaptureTposeBoneSnapshot: no animator root; snapshot unavailable.", BasisDebug.LogTag.Avatar);
@@ -454,10 +490,16 @@ namespace Basis.Scripts.Drivers
                 }
                 bone.GetPositionAndRotation(out Vector3 bonePos, out Quaternion boneRot);
                 TposeBoneSnapshot[pair.Key] = new BasisCalibratedCoords(
-                    (invRoot * (bonePos - rootPos)) / scale,
+                    (invRoot * (bonePos - rootPos)) / scale - new Vector3(0f, TposeSoleHeight, 0f),
                     invRoot * boneRot);
             }
             HasTposeBoneSnapshot = TposeBoneSnapshot.Count > 0;
+            Transform torsoTop = Basis.IK.BasisBodyFitApply.TorsoTop(Mapping);
+            if (torsoTop != null)
+            {
+                TposeTorsoTop = (invRoot * (torsoTop.position - rootPos)) / scale - new Vector3(0f, TposeSoleHeight, 0f);
+                HasTposeTorsoTop = true;
+            }
         }
 
         public void ResetAvatarAnimator()
@@ -596,6 +638,7 @@ namespace Basis.Scripts.Drivers
         public void SetInitialData(Transform Transform, BasisLocalBoneControl bone, BasisBoneTrackedRole Role, Vector3 WorldTpose, Quaternion WorldTposeRotation)
         {
             Vector3 outgoingPosition = BasisLocalBoneDriver.ConvertToAvatarSpaceInitial(Transform, WorldTpose);
+            outgoingPosition.y -= TposeSoleOffsetScaled();
             Quaternion outgoingRotation = Quaternion.Inverse(Transform.rotation) * WorldTposeRotation;
 
             if (IsApartOfSpineVertical(Role))

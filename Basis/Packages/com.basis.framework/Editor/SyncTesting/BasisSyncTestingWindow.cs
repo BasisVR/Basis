@@ -1,3 +1,4 @@
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEngine;
 
@@ -13,16 +14,16 @@ namespace Basis.Scripts.Networking.Sync.EditorTools
     /// </summary>
     public sealed class BasisSyncTestingWindow : BasisTabbedEditorWindow
     {
-        protected override string HeaderTitle => "Sync Testing";
+        protected override string HeaderTitle => BasisEditorLocalization.Get("editor.syncTesting.window.title");
 
         protected override string HeaderSubtitle =>
-            "Offline simulation of the real sync codec and receiver — no play mode, no server.";
+            BasisEditorLocalization.Get("editor.syncTesting.window.subtitle");
 
         [MenuItem("Basis/Debug/Sync Testing", false, 601)]
         public static void ShowWindow()
         {
             BasisSyncTestingWindow w = GetWindow<BasisSyncTestingWindow>();
-            w.titleContent = new GUIContent("Sync Testing");
+            w.titleContent = new GUIContent(BasisEditorLocalization.Get("editor.syncTesting.window.title"));
             w.minSize = new Vector2(720, 520);
             w.Show();
         }

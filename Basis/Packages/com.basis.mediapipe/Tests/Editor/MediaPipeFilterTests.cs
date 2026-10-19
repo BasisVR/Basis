@@ -91,9 +91,14 @@ namespace Basis.MediaPipe.Tests
             for (int s = 0; s < 20 + samplesAfterStep; s++)
             {
                 float target = s < 20 ? 0f : 1f;
-                for (int r = 0; r < perSample; r++) value = filter.Apply(target, new MediaPipeTiming(1f / renderRate, Dt, r == 0), 3f, 1f);
+                for (int r = 0; r < perSample; r++) value = filter.Apply(target, new MediaPipeTiming(1f / renderRate, Dt, r == 0));
             }
             return value;
+        }
+        private static float Gaussian(System.Random random, float sigma)
+        {
+            double u1 = 1.0 - random.NextDouble(), u2 = random.NextDouble();
+            return (float)(System.Math.Sqrt(-2.0 * System.Math.Log(u1)) * System.Math.Cos(2.0 * System.Math.PI * u2)) * sigma;
         }
         [Test]
         public void ScalarFilter_SettlesTheSameAtAnyRenderRate()
@@ -103,25 +108,24 @@ namespace Basis.MediaPipe.Tests
             Assert.That(at240, Is.EqualTo(at60).Within(0.02f), "smoothing lives on the camera clock, so the render rate must not change where it settles");
         }
         [Test]
-        public void ScalarFilter_MovesAtTheSameSpeedAtAnyRenderRate()
+        public void ScalarFilter_ARealMoveOpensTheFilterAtOnce()
         {
-            float at60 = RunScalar(60f, 3), at240 = RunScalar(240f, 3);
-            Assert.Greater(at60, 0.2f);
-            Assert.Less(at60, 0.98f, "three camera samples in, the value should still be on its way");
-            Assert.That(at240, Is.EqualTo(at60).Within(0.1f), "a faster render loop must not make the response faster");
+            float at60 = RunScalar(60f, 2), at240 = RunScalar(240f, 2);
+            Assert.Greater(at60, 0.9f, "a move far outside the measured noise must not be smoothed like jitter");
+            Assert.That(at240, Is.EqualTo(at60).Within(0.05f), "a faster render loop must not change the response");
         }
         [Test]
         public void ScalarFilter_RelaxEasesTowardTheTargetAndCarriesOnFromThere()
         {
             MediaPipeScalarFilter filter = default;
             MediaPipeTiming sample = new MediaPipeTiming(1f / 60f, Dt, true);
-            for (int i = 0; i < 30; i++) filter.Apply(1f, sample, 3f, 1f);
+            for (int i = 0; i < 30; i++) filter.Apply(1f, sample);
             Assert.That(filter.Carried, Is.EqualTo(1f).Within(0.02f));
             float relaxed = filter.Relax(0f, 0.5f);
             Assert.That(relaxed, Is.EqualTo(0.5f).Within(0.02f));
             for (int i = 0; i < 20; i++) relaxed = filter.Relax(0f, 0.5f);
             Assert.Less(relaxed, 0.01f);
-            float next = filter.Apply(1f, sample, 3f, 1f);
+            float next = filter.Apply(1f, sample);
             Assert.Less(next, 0.9f, "a fresh sample continues from the relaxed value instead of snapping back to the old one");
             Assert.Greater(next, 0.05f);
         }
@@ -144,9 +148,89 @@ namespace Basis.MediaPipe.Tests
             MediaPipePositionFilter filter = default;
             Vector3 p = new Vector3(0.3f, -0.1f, 0.2f);
             Vector3 last = Vector3.zero;
-            for (int s = 0; s < 40; s++) for (int r = 0; r < 4; r++) last = filter.Apply(p, new MediaPipeTiming(1f / 60f, Dt, r == 0), 3f, 3.25f, 0.4f, MediaPipeFilterMath.MaxHandSpeed);
+            for (int s = 0; s < 40; s++) for (int r = 0; r < 4; r++) last = filter.Apply(p, new MediaPipeTiming(1f / 60f, Dt, r == 0), MediaPipeFilterMath.MaxHandSpeed);
             Assert.Less(Vector3.Distance(last, p), 1e-3f);
             Assert.AreEqual(0, filter.Rejected);
+        }
+        [Test]
+        public void PositionFilter_SmoothsJitterWhileStill()
+        {
+            System.Random random = new System.Random(7);
+            MediaPipePositionFilter filter = default;
+            Vector3 p = new Vector3(0.2f, 0.1f, 0.4f);
+            const float sigma = 0.005f;
+            double sum = 0.0;
+            int counted = 0;
+            for (int s = 0; s < 200; s++)
+            {
+                Vector3 noisy = p + new Vector3(Gaussian(random, sigma), Gaussian(random, sigma), Gaussian(random, sigma));
+                Vector3 output = Vector3.zero;
+                for (int r = 0; r < 4; r++) output = filter.Apply(noisy, new MediaPipeTiming(1f / 60f, Dt, r == 0), MediaPipeFilterMath.MaxHandSpeed);
+                if (s >= 100)
+                {
+                    sum += (output - p).sqrMagnitude / 3.0;
+                    counted++;
+                }
+            }
+            float residual = (float)System.Math.Sqrt(sum / counted);
+            Assert.Less(residual, sigma * 0.6f, $"held still, the filter should learn the jitter and average it away (left {residual * 1000f:F2} mm of {sigma * 1000f:F1} mm)");
+        }
+        [Test]
+        public void PositionFilter_FollowsSteadyMotionWithoutLagging()
+        {
+            System.Random random = new System.Random(11);
+            MediaPipePositionFilter filter = default;
+            const float speed = 0.5f, sigma = 0.002f;
+            Vector3 output = Vector3.zero, truth = Vector3.zero;
+            for (int s = 0; s < 80; s++)
+            {
+                truth = new Vector3(s < 30 ? 0f : (s - 30) * Dt * speed, 0f, 0f);
+                Vector3 noisy = truth + new Vector3(Gaussian(random, sigma), Gaussian(random, sigma), Gaussian(random, sigma));
+                for (int r = 0; r < 4; r++) output = filter.Apply(noisy, new MediaPipeTiming(1f / 60f, Dt, r == 0), MediaPipeFilterMath.MaxHandSpeed);
+            }
+            Assert.Less(Mathf.Abs(output.x - truth.x), 0.04f, $"a steady sweep should be tracked, not trailed (off by {output.x - truth.x:F3} m)");
+        }
+        [Test]
+        public void RotationFilter_FollowsASteadyTurn()
+        {
+            MediaPipeRotationFilter filter = default;
+            Quaternion output = Quaternion.identity, truth = Quaternion.identity;
+            for (int s = 0; s < 60; s++)
+            {
+                truth = Quaternion.AngleAxis(s * Dt * 90f, Vector3.up);
+                for (int r = 0; r < 4; r++) output = filter.Apply(truth, new MediaPipeTiming(1f / 60f, Dt, r == 0), MediaPipeFilterMath.MaxTurnDegPerSec);
+            }
+            Assert.Less(Quaternion.Angle(output, truth), 8f);
+        }
+        [Test]
+        public void RotationFilter_HoldsStillWhenTheSampleHoldsStill()
+        {
+            MediaPipeRotationFilter filter = default;
+            Quaternion q = Quaternion.Euler(10f, 40f, -5f), output = Quaternion.identity;
+            for (int s = 0; s < 40; s++) for (int r = 0; r < 4; r++) output = filter.Apply(q, new MediaPipeTiming(1f / 60f, Dt, r == 0), MediaPipeFilterMath.MaxTurnDegPerSec);
+            Assert.Less(Quaternion.Angle(output, q), 0.05f);
+        }
+        [Test]
+        public void AdaptiveAxis_LearnsTheMeasurementNoise()
+        {
+            System.Random random = new System.Random(3);
+            MediaPipeAdaptiveAxis axis = default;
+            const float sigma = 0.01f;
+            float last = 0f, previous = 0f;
+            for (int s = 0; s < 400; s++)
+            {
+                float z = Gaussian(random, sigma);
+                MediaPipeFilterMath.Step(ref axis, z, last, previous, s, Dt, MediaPipeFilterMath.ScalarProcess, MediaPipeFilterMath.ScalarNoiseMin, MediaPipeFilterMath.ScalarNoiseMax, MediaPipeFilterMath.ScalarOnsetRun);
+                previous = last;
+                last = z;
+            }
+            Assert.That(Mathf.Sqrt(axis.R), Is.EqualTo(sigma).Within(sigma * 0.5f));
+        }
+        [Test]
+        public void QuaternionLogExpRoundTrips()
+        {
+            Quaternion q = Quaternion.Euler(30f, -70f, 15f);
+            Assert.Less(Quaternion.Angle(MediaPipeFilterMath.Exp(MediaPipeFilterMath.Log(q)), q), 0.01f);
         }
         [Test]
         public void PresenceFade_SnapsInFirstThenHoldsThenFades()

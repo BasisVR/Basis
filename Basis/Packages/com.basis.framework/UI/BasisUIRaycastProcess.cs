@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.Device_Management;
@@ -11,7 +12,8 @@ using UnityEngine.EventSystems;
 
 namespace Basis.Scripts.UI
 {
-    public class BasisUIRaycastProcess
+    [AutoStaticsCleanup]
+    public partial class BasisUIRaycastProcess
     {
         public float ClickSpeed = 0.3f;
         public static bool HasTarget;
@@ -336,6 +338,7 @@ namespace Basis.Scripts.UI
                 EventSystem.current.SetSelectedGameObject(selectHandler, CurrentEventData);
             }
 
+            BasisUserActivation.Note(hit.graphic.gameObject);
             GameObject newPressed = ExecuteEvents.ExecuteHierarchy(hit.graphic.gameObject, CurrentEventData, ExecuteEvents.pointerDownHandler);
             if (newPressed == null)
             {
@@ -402,6 +405,7 @@ namespace Basis.Scripts.UI
                     BaseInput.PlayHaptic(0.1f, 0.1f, 0.5f);
                 }
                 // BaseInput.PlaySoundEffect("press", SMModuleAudio.ActiveMenusVolume / 80);
+                BasisUserActivation.Note(pressClickHandler);
                 ExecuteEvents.Execute(pressClickHandler, CurrentEventData, ExecuteEvents.pointerClickHandler);
             }
             else if (CurrentEventData.dragging && pointerDrag != null && releaseGameObject != null)

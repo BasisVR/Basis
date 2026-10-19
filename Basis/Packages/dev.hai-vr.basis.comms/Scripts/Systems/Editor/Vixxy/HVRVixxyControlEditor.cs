@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using Unity.Scripting.LifecycleManagement;
+using System.Linq;
 using HVR.Basis.Comms;
 using HVR.Basis.Comms.Editor;
 using UnityEditor;
@@ -7,6 +8,7 @@ using UnityEngine;
 namespace HVR.Vixxy.Editor
 {
     [CustomEditor(typeof(HVRVixxyControl))]
+    [NoAutoStaticsCleanup]
     public class HVRVixxyControlEditor : UnityEditor.Editor
     {
         internal static readonly Color PreviewColor = new Color(0.65f, 1f, 0.56f);

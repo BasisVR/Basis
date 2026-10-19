@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Networking.Receivers;
@@ -22,7 +23,8 @@ namespace Basis.Scripts.Networking
     /// Lifecycle (Initialize/Destroy) is driven by
     /// <see cref="Basis.Scripts.Device_Management.BasisDeviceManagement"/>.
     /// </summary>
-    public static class BasisNetworkManagement
+    [AutoStaticsCleanup]
+    public static partial class BasisNetworkManagement
     {
         #region Connection Settings
 
@@ -53,10 +55,17 @@ namespace Basis.Scripts.Networking
         /// to <see cref="Basis.Network.Core.BasisNetworkStackRegistry.DefaultId"/>.
         /// </summary>
         public static string NetworkStackId = string.Empty;
+        public static bool LegacyLogin = false;
 
         public static string HostServerName = "Basis Server";
 
         public static string HostServerMotd = string.Empty;
+
+        /// <summary>
+        /// Optional application-level identity for an embedded host. Leave empty to generate a
+        /// fresh server UUID; set it explicitly when the hosted server should use a known identity.
+        /// </summary>
+        public static string HostServerUUID = string.Empty;
 
         public static int HostPeerLimit = ushort.MaxValue;
 
@@ -104,7 +113,13 @@ namespace Basis.Scripts.Networking
         /// <summary>
         /// Metadata message received from the server at connect.
         /// </summary>
-        public static ServerMetaDataMessage ServerMetaDataMessage = new ServerMetaDataMessage();
+        [NoAutoStaticsCleanup] public static ServerMetaDataMessage ServerMetaDataMessage = new ServerMetaDataMessage();
+
+        /// <summary>
+        /// Application-level identity advertised by the currently connected server. Empty until
+        /// the join metadata arrives or when disconnected.
+        /// </summary>
+        public static string ServerUUID => ServerMetaDataMessage.ServerUUID ?? string.Empty;
 
         /// <summary>
         /// Local player's effective permissions decoded from the server metadata.
@@ -146,7 +161,7 @@ namespace Basis.Scripts.Networking
         /// <summary>
         /// Connects to the server using the configured <see cref="Ip"/>, <see cref="Port"/>, and <see cref="Password"/>.
         /// </summary>
-        public static void Connect() => BasisNetworkConnection.Connect(Port, Ip, Password, IsHostMode, NetworkStackId);
+        public static void Connect() => BasisNetworkConnection.Connect(Port, Ip, Password, IsHostMode, NetworkStackId, LegacyLogin);
 
         #endregion
 
@@ -157,7 +172,7 @@ namespace Basis.Scripts.Networking
         /// </summary>
         public static JobHandle BoneJobSystem;
 #if UNITY_EDITOR
-        private static readonly System.Diagnostics.Stopwatch _profilerStopwatch = new System.Diagnostics.Stopwatch();
+        [NoAutoStaticsCleanup] private static readonly System.Diagnostics.Stopwatch _profilerStopwatch = new System.Diagnostics.Stopwatch();
 #endif
         private static float _timer;
         public static bool HasRequested;
@@ -166,9 +181,9 @@ namespace Basis.Scripts.Networking
         // Written on main thread before Parallel.For, read by worker threads.
         static BasisNetworkReceiver[] s_parallelSnapshot;
         static double s_parallelDeltaTime;
-        static readonly Action<int> s_parallelComputeBody = ParallelComputeBody;
+        [NoAutoStaticsCleanup] static readonly Action<int> s_parallelComputeBody = ParallelComputeBody;
         // Leave headroom for Unity's job worker threads.
-        static readonly ParallelOptions s_parallelOptions = new ParallelOptions
+        [NoAutoStaticsCleanup] static readonly ParallelOptions s_parallelOptions = new ParallelOptions
         {
             MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount - 2)
         };
@@ -183,13 +198,19 @@ namespace Basis.Scripts.Networking
         static int s_parallelCount;
         static bool s_computePending;
         static Thread s_computeThread;
-        static readonly ManualResetEventSlim s_computeKick = new ManualResetEventSlim(false);
-        static readonly ManualResetEventSlim s_computeDone = new ManualResetEventSlim(true);
+        static volatile bool s_computeStop;
+        [NoAutoStaticsCleanup] static readonly ManualResetEventSlim s_computeKick = new ManualResetEventSlim(false);
+        [NoAutoStaticsCleanup] static readonly ManualResetEventSlim s_computeDone = new ManualResetEventSlim(true);
         static volatile bool s_computeInFlight;
         static volatile Exception s_computeException;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        static readonly bool ParallelComputeAvailable = false;
+#else
+        static readonly bool ParallelComputeAvailable = true;
+#endif
         static void RunParallelCompute()
         {
-            if (s_parallelCount <= 4)
+            if (s_parallelCount <= 4 || !ParallelComputeAvailable)
             {
                 for (int i = 0; i < s_parallelCount; i++)
                 {
@@ -209,6 +230,10 @@ namespace Basis.Scripts.Networking
             {
                 s_computeKick.Wait();
                 s_computeKick.Reset();
+                if (s_computeStop)
+                {
+                    return;
+                }
                 try
                 {
                     RunParallelCompute();
@@ -223,6 +248,18 @@ namespace Basis.Scripts.Networking
 
         static void KickParallelCompute()
         {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            s_computeInFlight = true;
+            try
+            {
+                RunParallelCompute();
+            }
+            catch (Exception ex)
+            {
+                s_computeException = ex;
+            }
+            s_computeDone.Set();
+#else
             if (s_computeThread == null)
             {
                 s_computeThread = new Thread(ComputeThreadLoop)
@@ -231,10 +268,32 @@ namespace Basis.Scripts.Networking
                     Name = "Basis Network Compute",
                 };
                 s_computeThread.Start();
+                Application.quitting -= StopComputeWorker;
+                Application.quitting += StopComputeWorker;
             }
             s_computeDone.Reset();
             s_computeInFlight = true;
             s_computeKick.Set();
+#endif
+        }
+
+        static void StopComputeWorker()
+        {
+            Application.quitting -= StopComputeWorker;
+            Thread thread = s_computeThread;
+            if (thread == null)
+            {
+                return;
+            }
+            JoinPendingCompute();
+            s_computeStop = true;
+            s_computeKick.Set();
+            if (thread.IsAlive)
+            {
+                thread.Join();
+            }
+            s_computeStop = false;
+            s_computeThread = null;
         }
 
         static void JoinComputeWorker()
@@ -331,6 +390,11 @@ namespace Basis.Scripts.Networking
             {
                 Basis.Scripts.Networking.Receivers.BasisAnnounceAudioDriver.ComputeAll();
             }
+        }
+
+        public static void TickTransports()
+        {
+            BasisNetworkStackRegistry.TickActive();
         }
 
         /// <summary>

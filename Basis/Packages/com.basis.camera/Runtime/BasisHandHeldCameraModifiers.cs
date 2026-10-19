@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Cinematics;
 using Basis.Scripts.BasisSdk.Players;
@@ -36,7 +37,7 @@ public abstract partial class BasisHandHeldCameraInteractable
     private BasisCameraSweepProbe sweepProbe;
 
     /// <summary>Layers that never block a shot: the players themselves, UI, and the camera's own props.</summary>
-    private static readonly string[] NonBlockingLayers =
+    [NoAutoStaticsCleanup] private static readonly string[] NonBlockingLayers =
     {
         "OverlayUI", "UI", "Ignore Raycast", "IgnoredByInteractable",
         "Player", "LocalPlayerAvatar", "RemotePlayerAvatar", "Interactable",

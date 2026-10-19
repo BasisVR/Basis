@@ -8,7 +8,7 @@ namespace UnityEngine.Rendering.Universal.Internal
     public static class NormalReconstruction
     {
         private static readonly int s_NormalReconstructionMatrixID = Shader.PropertyToID("_NormalReconstructionMatrix");
-        private static Matrix4x4[] s_NormalReconstructionMatrix = new Matrix4x4[2];
+        private static readonly Matrix4x4[] s_NormalReconstructionMatrix = new Matrix4x4[2];
 
         /// <summary>
         /// Setup properties needed for normal reconstruction from depth using shader functions in NormalReconstruction.hlsl
@@ -57,7 +57,6 @@ namespace UnityEngine.Rendering.Universal.Internal
             {
                 Matrix4x4 view = cameraData.GetViewMatrix(eyeIndex);
                 Matrix4x4 proj = cameraData.GetProjectionMatrix(eyeIndex);
-                s_NormalReconstructionMatrix[eyeIndex] = proj * view;
 
                 // camera view space without translation, used by SSAO.hlsl ReconstructViewPos() to calculate view vector.
                 Matrix4x4 cview = view;

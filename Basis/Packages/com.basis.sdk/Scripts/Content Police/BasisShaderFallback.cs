@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -15,12 +16,13 @@ public struct BasisTexTransform
     }
 }
 
-public static class BasisShaderFallback
+[AutoStaticsCleanup]
+public static partial class BasisShaderFallback
 {
     // User-configured blocklist: case-insensitive substrings matched against shader
     // names and material shader keywords. A match forces the fallback material.
     private static string[] BlockedPatterns = Array.Empty<string>();
-    private static readonly char[] BlocklistSeparators = { ',', ';', '\n', '\r' };
+    [NoAutoStaticsCleanup] private static readonly char[] BlocklistSeparators = { ',', ';', '\n', '\r' };
 
     public static bool HasBlocklist => BlockedPatterns.Length > 0;
 
@@ -87,7 +89,7 @@ public static class BasisShaderFallback
         return false;
     }
 
-    private static readonly string[] AlbedoProps =
+    [NoAutoStaticsCleanup] private static readonly string[] AlbedoProps =
     {
         "_MainTex",
         "_BaseMap",
@@ -98,19 +100,19 @@ public static class BasisShaderFallback
         "_Tex",
         "_Texture"
     };
-    private static readonly string[] NormalProps =
+    [NoAutoStaticsCleanup] private static readonly string[] NormalProps =
     {
         "_BumpMap", "_NormalMap", "_NormalTex", "_NormalTexture"
     };
-    private static readonly string[] MetallicProps =
+    [NoAutoStaticsCleanup] private static readonly string[] MetallicProps =
     {
         "_MetallicGlossMap", "_MetallicMap", "_MetalMap", "_MetallicTex"
     };
-    private static readonly string[] OcclusionProps =
+    [NoAutoStaticsCleanup] private static readonly string[] OcclusionProps =
     {
         "_OcclusionMap", "_Occlusion", "_AOMap", "_AmbientOcclusionMap"
     };
-    private static readonly string[] ColorProps =
+    [NoAutoStaticsCleanup] private static readonly string[] ColorProps =
     {
         "_BaseColor", "_Color", "_Tint", "_MainColor"
     };

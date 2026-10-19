@@ -1,0 +1,5 @@
+DESCRIBE rtsp://192.168.5.225/h264Preview_01_main RTSP/1.0
+Accept: application/sdp
+CSeq: 1
+User-Agent: Retina mp4 example
+

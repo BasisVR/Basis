@@ -28,6 +28,7 @@ namespace Basis.Network.Core
 
     public delegate Task<ServerProbeResult> StackProbeDelegate(ConnectionTarget target, int timeoutMs, CancellationToken ct);
     public delegate IPeerIntroducer PeerIntroducerFactory(NetManager activeManager);
+    public delegate IBasisP2PSocket P2PSocketFactory(EventBasedNetListener listener, BasisP2PIntroduced onIntroduced);
 
     public static class BasisNetworkStackRegistry
     {
@@ -56,6 +57,9 @@ namespace Basis.Network.Core
             public StackProbeDelegate Probe;
             public Action Tick;
             public PeerIntroducerFactory IntroducerFactory;
+            public P2PSocketFactory P2PSocketFactory;
+            public Func<string, bool> AddressMatcher;
+            public string IdentityProviderId;
         }
 
         private static readonly Dictionary<string, Slot> _slots
@@ -66,11 +70,55 @@ namespace Basis.Network.Core
 
         public static event Action<string> ActiveStackChanged;
 
-        static BasisNetworkStackRegistry()
+        private static Action[] _pumps = Array.Empty<Action>();
+
+        public static void RegisterPump(Action pump)
         {
-            Register(LiteNetLibId, "LiteNetLib", (listener, config) => new LNLNetManager(listener, config));
-            RegisterParser(LiteNetLibId, new LNLConnectionTargetParser());
-            BasisTransportConfigStore.RegisterType(LiteNetLibId, typeof(LNLTransportConfig));
+            if (pump == null) throw new ArgumentNullException(nameof(pump));
+            lock (_lock)
+            {
+                if (Array.IndexOf(_pumps, pump) >= 0) return;
+                Action[] next = new Action[_pumps.Length + 1];
+                Array.Copy(_pumps, next, _pumps.Length);
+                next[_pumps.Length] = pump;
+                _pumps = next;
+            }
+        }
+
+        public static List<string> ParseStackList(string ids)
+        {
+            List<string> result = new List<string>();
+            if (string.IsNullOrWhiteSpace(ids))
+            {
+                result.Add(DefaultId);
+                return result;
+            }
+            foreach (string part in ids.Split(new[] { ',', ';', ' ', '+' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                string id = part.Trim();
+                if (id.Length == 0) continue;
+                bool duplicate = false;
+                foreach (string existing in result)
+                {
+                    if (string.Equals(existing, id, StringComparison.OrdinalIgnoreCase))
+                    {
+                        duplicate = true;
+                        break;
+                    }
+                }
+                if (!duplicate) result.Add(id);
+            }
+            if (result.Count == 0) result.Add(DefaultId);
+            return result;
+        }
+
+        public static bool ContainsStack(string ids, string stackId)
+        {
+            foreach (string id in ParseStackList(ids))
+            {
+                if (string.Equals(id, stackId, StringComparison.OrdinalIgnoreCase)) return true;
+            }
+            return false;
         }
 
         public static void Register(string id, string displayName, NetManagerFactory factory)
@@ -146,7 +194,137 @@ namespace Basis.Network.Core
             }
         }
 
+        public static void RegisterP2PSocketFactory(string stackId, P2PSocketFactory factory)
+        {
+            if (string.IsNullOrEmpty(stackId)) throw new ArgumentException("Stack id is required", nameof(stackId));
+            if (factory == null) throw new ArgumentNullException(nameof(factory));
+            lock (_lock)
+            {
+                if (!_slots.TryGetValue(stackId, out Slot slot))
+                {
+                    BNL.LogWarning($"Cannot register a direct-connection socket for unknown stack '{stackId}'");
+                    return;
+                }
+                slot.P2PSocketFactory = factory;
+            }
+        }
+
+        public static void RegisterAddressMatcher(string stackId, Func<string, bool> matcher)
+        {
+            if (string.IsNullOrEmpty(stackId)) throw new ArgumentException("Stack id is required", nameof(stackId));
+            if (matcher == null) throw new ArgumentNullException(nameof(matcher));
+            lock (_lock)
+            {
+                if (!_slots.TryGetValue(stackId, out Slot slot))
+                {
+                    BNL.LogWarning($"Cannot register an address matcher for unknown stack '{stackId}'");
+                    return;
+                }
+                slot.AddressMatcher = matcher;
+            }
+        }
+
+        public static void RegisterIdentityProvider(string stackId, string providerId)
+        {
+            if (string.IsNullOrEmpty(stackId)) throw new ArgumentException("Stack id is required", nameof(stackId));
+            lock (_lock)
+            {
+                if (!_slots.TryGetValue(stackId, out Slot slot))
+                {
+                    BNL.LogWarning($"Cannot register an identity provider for unknown stack '{stackId}'");
+                    return;
+                }
+                slot.IdentityProviderId = providerId;
+            }
+        }
+
+        public static string IdentityProviderFor(string stackId)
+        {
+            if (string.IsNullOrEmpty(stackId)) return null;
+            lock (_lock)
+            {
+                return _slots.TryGetValue(stackId, out Slot slot) ? slot.IdentityProviderId : null;
+            }
+        }
+
+        public static bool TryMatchAddress(string address, out string stackId)
+        {
+            stackId = null;
+            if (string.IsNullOrWhiteSpace(address)) return false;
+            List<KeyValuePair<string, Func<string, bool>>> matchers = new List<KeyValuePair<string, Func<string, bool>>>();
+            lock (_lock)
+            {
+                foreach (StackInfo stack in _stacks)
+                {
+                    if (_slots.TryGetValue(stack.Id, out Slot slot) && slot.AddressMatcher != null)
+                    {
+                        matchers.Add(new KeyValuePair<string, Func<string, bool>>(stack.Id, slot.AddressMatcher));
+                    }
+                }
+            }
+            foreach (KeyValuePair<string, Func<string, bool>> matcher in matchers)
+            {
+                bool matched;
+                try { matched = matcher.Value(address); }
+                catch (Exception ex)
+                {
+                    BNL.LogError($"Address matcher for stack '{matcher.Key}' threw: {ex.Message}");
+                    continue;
+                }
+                if (matched)
+                {
+                    stackId = matcher.Key;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public static ConnectionTarget ParseTarget(string stackId, string raw)
+        {
+            string effective = string.IsNullOrEmpty(stackId) ? DefaultId : stackId;
+            ConnectionTarget target = new ConnectionTarget(effective, raw);
+            GetParser(effective)?.Parse(target);
+            return target;
+        }
+
+        public static ConnectionTarget ParseAddress(string raw)
+        {
+            return ParseTarget(TryMatchAddress(raw, out string stackId) ? stackId : DefaultId, raw);
+        }
+
         public static NetManager Create(string id, EventBasedNetListener listener, Configuration configuration)
+        {
+            List<string> requested = ParseStackList(id);
+            List<string> stacks = new List<string>(requested.Count);
+            lock (_lock)
+            {
+                foreach (string stackId in requested)
+                {
+                    if (_slots.ContainsKey(stackId))
+                    {
+                        stacks.Add(stackId);
+                    }
+                    else
+                    {
+                        BNL.LogWarning($"Network stack '{stackId}' is not registered and will not be started; the package that provides it is not installed");
+                    }
+                }
+            }
+            if (stacks.Count == 0)
+            {
+                if (!IsRegistered(DefaultId)) throw new InvalidOperationException(NoTransportMessage(id));
+                BNL.LogWarning($"No registered network stack in '{id}', falling back to '{DefaultId}'");
+                stacks.Add(DefaultId);
+            }
+            NetManager mgr = stacks.Count == 1
+                ? CreateSingle(stacks[0], listener, configuration)
+                : new BasisMultiTransportNetManager(stacks, listener, configuration, CreateSingle);
+            SetActiveStackId(string.Join(",", stacks));
+            return mgr;
+        }
+
+        public static NetManager CreateSingle(string id, EventBasedNetListener listener, Configuration configuration)
         {
             string effective = string.IsNullOrEmpty(id) ? DefaultId : id;
             Slot slot;
@@ -154,14 +332,29 @@ namespace Basis.Network.Core
             {
                 if (!_slots.TryGetValue(effective, out slot))
                 {
-                    BNL.LogWarning($"Network stack '{effective}' is not registered, falling back to '{DefaultId}'");
-                    slot = _slots[DefaultId];
-                    effective = DefaultId;
+                    if (!_slots.TryGetValue(DefaultId, out slot)) throw new InvalidOperationException(NoTransportMessage(effective));
+                    BNL.LogWarning($"Network stack '{effective}' is not registered (the package that provides it is not installed), falling back to '{DefaultId}'");
                 }
             }
-            NetManager mgr = slot.Factory(listener, configuration);
-            SetActiveStackId(effective);
-            return mgr;
+            return slot.Factory(listener, configuration);
+        }
+
+        private static string NoTransportMessage(string requested)
+        {
+            return $"Network stack '{requested}' is not registered and neither is the default '{DefaultId}'. Install a transport package, for example com.basis.transport.litenetlib.";
+        }
+
+        public static void ReplaceFactory(string id, NetManagerFactory factory)
+        {
+            if (string.IsNullOrEmpty(id)) throw new ArgumentException("Stack id is required", nameof(id));
+            if (factory == null) throw new ArgumentNullException(nameof(factory));
+            lock (_lock)
+            {
+                if (_slots.TryGetValue(id, out Slot slot))
+                {
+                    slot.Factory = factory;
+                }
+            }
         }
 
         public static string ActiveStackId
@@ -197,11 +390,13 @@ namespace Basis.Network.Core
                 if (!string.Equals(effective, DefaultId, StringComparison.OrdinalIgnoreCase))
                 {
                     BNL.LogWarning($"No connection-target parser registered for stack '{effective}', falling back to '{DefaultId}'");
-                    if (_slots.TryGetValue(DefaultId, out Slot fallback)) return fallback.Parser;
+                    if (_slots.TryGetValue(DefaultId, out Slot fallback) && fallback.Parser != null) return fallback.Parser;
                 }
             }
-            return null;
+            return HostPortParser;
         }
+
+        private static readonly IConnectionTargetParser HostPortParser = new HostPortConnectionTargetParser();
 
         public static Task<ServerProbeResult> ProbeAsync(ConnectionTarget target, int timeoutMs, CancellationToken ct)
         {
@@ -232,18 +427,49 @@ namespace Basis.Network.Core
 
         public static void TickActive()
         {
+            foreach (Action pump in _pumps)
+            {
+                try { pump(); }
+                catch (Exception ex) { BNL.LogError($"Stack pump threw: {ex.Message}"); }
+            }
             Action tick = null;
+            Action[] ticks = null;
             lock (_lock)
             {
-                if (!string.IsNullOrEmpty(_activeStackId)
-                    && _slots.TryGetValue(_activeStackId, out Slot slot))
+                if (!string.IsNullOrEmpty(_activeStackId))
                 {
-                    tick = slot.Tick;
+                    if (_slots.TryGetValue(_activeStackId, out Slot slot))
+                    {
+                        tick = slot.Tick;
+                    }
+                    else if (_activeStackId.IndexOf(',') >= 0)
+                    {
+                        List<Action> found = null;
+                        foreach (string id in _activeStackId.Split(','))
+                        {
+                            if (_slots.TryGetValue(id, out Slot part) && part.Tick != null)
+                            {
+                                if (found == null) found = new List<Action>();
+                                found.Add(part.Tick);
+                            }
+                        }
+                        ticks = found?.ToArray();
+                    }
                 }
             }
-            if (tick == null) return;
-            try { tick(); }
-            catch (Exception ex) { BNL.LogError($"Stack tick threw: {ex.Message}"); }
+            if (tick != null)
+            {
+                try { tick(); }
+                catch (Exception ex) { BNL.LogError($"Stack tick threw: {ex.Message}"); }
+            }
+            if (ticks != null)
+            {
+                foreach (Action each in ticks)
+                {
+                    try { each(); }
+                    catch (Exception ex) { BNL.LogError($"Stack tick threw: {ex.Message}"); }
+                }
+            }
         }
 
         public static IPeerIntroducer CreateIntroducer(string stackId, NetManager activeManager)
@@ -252,21 +478,22 @@ namespace Basis.Network.Core
             PeerIntroducerFactory factory;
             lock (_lock)
             {
-                if (!_slots.TryGetValue(effective, out Slot slot) || slot.IntroducerFactory == null)
-                {
-                    if (!string.Equals(effective, DefaultId, StringComparison.OrdinalIgnoreCase))
-                    {
-                        BNL.LogWarning($"No peer introducer registered for stack '{effective}', falling back to '{DefaultId}'");
-                    }
-                    if (!_slots.TryGetValue(DefaultId, out Slot fallback) || fallback.IntroducerFactory == null) return null;
-                    factory = fallback.IntroducerFactory;
-                }
-                else
-                {
-                    factory = slot.IntroducerFactory;
-                }
+                if (!_slots.TryGetValue(effective, out Slot slot) || slot.IntroducerFactory == null) return null;
+                factory = slot.IntroducerFactory;
             }
             return factory(activeManager);
+        }
+
+        public static IBasisP2PSocket CreateP2PSocket(string stackId, EventBasedNetListener listener, BasisP2PIntroduced onIntroduced)
+        {
+            string effective = string.IsNullOrEmpty(stackId) ? DefaultId : stackId;
+            P2PSocketFactory factory;
+            lock (_lock)
+            {
+                if (!_slots.TryGetValue(effective, out Slot slot) || slot.P2PSocketFactory == null) return null;
+                factory = slot.P2PSocketFactory;
+            }
+            return factory(listener, onIntroduced);
         }
 
         public static bool IsRegistered(string id)

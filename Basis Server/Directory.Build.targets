@@ -1,0 +1,165 @@
+<Project>
+  <PropertyGroup>
+    <BasisServerPackagesDir>$(MSBuildThisFileDirectory)Packages/</BasisServerPackagesDir>
+    <BasisServerPackagesGitProtocols Condition="'$(BasisServerPackagesGitProtocols)' == ''">https:http:git:ssh</BasisServerPackagesGitProtocols>
+  </PropertyGroup>
+
+  <Import Project="$(BasisServerPackagesDir)packages-local.props" Condition="Exists('$(BasisServerPackagesDir)packages-local.props')" />
+  <Import Project="$(BasisServerPackagesDir)packages-lock.props" Condition="Exists('$(BasisServerPackagesDir)packages-lock.props')" />
+
+  <UsingTask TaskName="BasisRestoreServerPackages" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Packages ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <GitProtocols ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Class" Language="cs"><![CDATA[
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading;
+using Microsoft.Build.Framework;
+using Microsoft.Build.Utilities;
+
+public class BasisRestoreServerPackages : Microsoft.Build.Utilities.Task
+{
+    [Required]
+    public ITaskItem[] Packages { get; set; }
+    [Required]
+    public string GitProtocols { get; set; }
+    public override bool Execute()
+    {
+        foreach (ITaskItem package in Packages)
+        {
+            string id = package.ItemSpec, url = package.GetMetadata("Url"), checkout = package.GetMetadata("Commit"), clone = package.GetMetadata("Clone");
+            if (checkout.Length == 0) checkout = package.GetMetadata("Ref");
+            if (url.Length == 0 || clone.Length == 0 || !IsSafe(url) || !IsSafe(checkout))
+            {
+                Log.LogError("The Basis server package " + id + " has an invalid source in packages-lock.props.");
+                continue;
+            }
+            clone = Path.GetFullPath(clone).TrimEnd('/', '\\');
+            using (Mutex mutex = new Mutex(false, "BasisServerPackage-" + Hash(clone)))
+            {
+                try { mutex.WaitOne(); }
+                catch (AbandonedMutexException) { }
+                try { Restore(id, url, checkout, clone); }
+                finally { mutex.ReleaseMutex(); }
+            }
+        }
+        return !Log.HasLoggedErrors;
+    }
+    private void Restore(string id, string url, string checkout, string clone)
+    {
+        if (Directory.Exists(clone))
+        {
+            Log.LogWarning("The Basis server package " + id + " has a folder at " + clone + " that does not contain it. Delete that folder and build again to restore the package.");
+            return;
+        }
+        string temp = clone + ".restore-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+        Log.LogMessage(MessageImportance.High, "Restoring Basis server package " + id + " from " + url + (checkout.Length > 0 ? " at " + checkout : ""));
+        string error;
+        if (!Git(null, "clone --quiet -- " + Quote(url) + " " + Quote(temp), out error) || (checkout.Length > 0 && !Git(temp, "-c advice.detachedHead=false checkout --quiet " + Quote(checkout) + " --", out error)))
+        {
+            TryDelete(temp);
+            Log.LogError("Could not restore the Basis server package " + id + " from " + url + ": " + error);
+            return;
+        }
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                Directory.Move(temp, clone);
+                return;
+            }
+            catch (Exception ex)
+            {
+                if (attempt >= 10 || !(ex is IOException || ex is UnauthorizedAccessException))
+                {
+                    TryDelete(temp);
+                    Log.LogError("Could not move the restored Basis server package " + id + " into " + clone + ": " + ex.Message);
+                    return;
+                }
+                Thread.Sleep(100 * attempt);
+            }
+        }
+    }
+    private bool Git(string workingDirectory, string arguments, out string error)
+    {
+        ProcessStartInfo info = new ProcessStartInfo("git", arguments) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
+        if (workingDirectory != null) info.WorkingDirectory = workingDirectory;
+        info.EnvironmentVariables["GIT_TERMINAL_PROMPT"] = "0";
+        info.EnvironmentVariables["GIT_ALLOW_PROTOCOL"] = GitProtocols;
+        StringBuilder output = new StringBuilder();
+        try
+        {
+            using (Process process = new Process { StartInfo = info })
+            {
+                process.OutputDataReceived += (sender, e) => { if (e.Data != null) lock (output) output.AppendLine(e.Data); };
+                process.ErrorDataReceived += (sender, e) => { if (e.Data != null) lock (output) output.AppendLine(e.Data); };
+                process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+                process.WaitForExit();
+                lock (output) error = output.ToString().Trim();
+                if (error.Length == 0) error = "git exited with code " + process.ExitCode;
+                return process.ExitCode == 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            error = "git could not be started (" + ex.Message + "). Install git, or clone the package into the Packages folder by hand.";
+            return false;
+        }
+    }
+    private static bool IsSafe(string value)
+    {
+        if (value.StartsWith("-")) return false;
+        foreach (char c in value) if (char.IsControl(c) || char.IsWhiteSpace(c) || c == '"') return false;
+        return true;
+    }
+    private static string Quote(string value)
+    {
+        return "\"" + (value.EndsWith("\\") ? value + "\\" : value) + "\"";
+    }
+    private static string Hash(string path)
+    {
+        using (SHA1 sha = SHA1.Create())
+        {
+            byte[] bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(path.ToLowerInvariant()));
+            StringBuilder text = new StringBuilder();
+            for (int i = 0; i < 8; i++) text.Append(bytes[i].ToString("x2"));
+            return text.ToString();
+        }
+    }
+    private static void TryDelete(string folder)
+    {
+        try
+        {
+            if (!Directory.Exists(folder)) return;
+            foreach (string file in Directory.GetFiles(folder, "*", SearchOption.AllDirectories)) File.SetAttributes(file, FileAttributes.Normal);
+            Directory.Delete(folder, true);
+        }
+        catch (Exception)
+        {
+        }
+    }
+}
+]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="BasisRestoreServerPackages" BeforeTargets="Restore;CollectPackageReferences" Condition="'@(BasisServerPackageMissing)' != ''">
+    <ItemGroup>
+      <BasisServerPackagePresent Include="@(BasisServerPackage)" Exclude="@(BasisServerPackageMissing)" />
+      <BasisServerPackageToRestore Include="@(BasisServerPackage)" Exclude="@(BasisServerPackagePresent)" Condition="'%(BasisServerPackage.Linked)' != 'true' And '%(BasisServerPackage.Url)' != '' And !Exists('%(BasisServerPackage.Root)package.json')" />
+    </ItemGroup>
+    <BasisRestoreServerPackages Packages="@(BasisServerPackageToRestore)" GitProtocols="$(BasisServerPackagesGitProtocols)" Condition="'@(BasisServerPackageToRestore)' != ''" />
+  </Target>
+
+  <Target Name="BasisVerifyServerPackages" BeforeTargets="CoreCompile" Condition="'@(BasisServerPackageMissing)' != ''">
+    <Error Text="The Basis server package %(BasisServerPackageMissing.Identity) was missing from %(BasisServerPackageMissing.Root) when this build started. Run dotnet restore (or server-restore in the Basis Package Manager), then build again." />
+  </Target>
+</Project>

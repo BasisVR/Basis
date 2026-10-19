@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -13,7 +14,8 @@ namespace Basis.Scripts.Drivers
     /// correct foot -- i.e. which target, when fed, makes finalFoot = the correct foot. Measure on foot-IK-ON
     /// frames (stand still). Stop+Dump writes a CSV + a PASS/FAIL summary naming the target to feed.
     /// </summary>
-    public static class BasisFootRotationDebug
+    [AutoStaticsCleanup]
+    public static partial class BasisFootRotationDebug
     {
         public static bool Enabled;
         const int MaxRows = 8000;
@@ -23,7 +25,7 @@ namespace Basis.Scripts.Drivers
 
         // target candidates: 0 OutGoingData(local), 1 OutgoingWorldData, 2 rOut, 3 procedural,
         //                     4 OutgoingWorldData*Inv(offset), 5 OutGoingData*Inv(offset)
-        static readonly string[] CandNames =
+        [NoAutoStaticsCleanup] static readonly string[] CandNames =
             { "OutGoingData(local)", "OutgoingWorldData", "rOut", "procedural(FootRotation)", "OutgoingWorldData*Inv(offset)", "OutGoingData*Inv(offset)" };
         static readonly double[] _refSum = new double[6];
         static int _refN;

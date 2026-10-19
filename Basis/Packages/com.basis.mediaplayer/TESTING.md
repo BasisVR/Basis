@@ -1,669 +1,201 @@
-# Testing the media player
+# Testing the player in Unity
 
-How to test changes to `com.basis.mediaplayer` without fooling yourself. The README describes
-what the player does; this describes how to prove it still does it after your change.
+Manual checks for the managed side: shared playback, the panel and the
+prefabs. None of the rows below has an automated test. The engine's tests are in
+[`Native~/TESTING.md`](Native~/TESTING.md), and
+[`Native~/DIAGNOSTICS.md`](Native~/DIAGNOSTICS.md) explains the captures.
 
-There is no automated test suite for playback — the player's job is realtime A/V against real
-networks and real hardware decoders, and regressions live exactly in the parts a mock can't
-reach. Testing is therefore structured manual verification: known-good streams, a repeatable
-matrix, and evidence capture.
-
-Playback is only half of it. The native plugin parses attacker-controlled container and
-protocol bytes in-process, so a change under `Native~/` carries a security exposure that a
-playback matrix does not cover. If you are touching the C core, read
-[Native plugin changes: the security boundary](#native-plugin-changes-the-security-boundary)
-first — it sets the threat model and the malformed-input and fuzz testing that a parser change
-needs, over and above "a good file still plays."
-
-## Rule zero: prove the feed before you blame the player
-
-Most "player bugs" found during development turn out to be feeder problems: a stalled stream,
-an under-provisioned link, a server that lied about ranges. A player symptom only earns
-player-side investigation once the feed is proven healthy — probe it with something that isn't
-the player first:
-
-```
-# Stream shape + first decodable frame (RTSP; works for any transport ffmpeg speaks)
-ffprobe -rtsp_transport tcp -show_entries stream=codec_type,codec_name,channels rtsp://host:8554/path
-
-# Wall-time to first video frame — long GOPs make mid-stream joins slow by nature
-ffmpeg -v error -rtsp_transport tcp -i <url> -map 0:v:0 -frames:v 1 -f null -
-```
-
-Things that regularly masquerade as player bugs:
-
-- **Link capacity.** A 28 Mbps stream over a 22 Mbps path cannot play live, and no player-side
-  change will fix it. Measure the actual path throughput before investigating stutter (on
-  Windows, `curl.exe` under-reads badly — use a timed `urllib` read from Python instead).
-- **Mid-GOP joins.** Joining a live stream between keyframes delivers audio immediately and no
-  video until the next IDR. With a 10-second GOP that is a 10-second "video hang" that is
-  entirely the source's fault. Know your test stream's GOP.
-- **Single-client feeders.** `ffmpeg -listen 1` serves one client, then lingers in a stale
-  state that trickles junk. If a second connection behaves strangely, restart the feeder.
-- **Wrong delivery detection.** `Delivery = Auto` probes `Range: bytes=0-` and needs a real
-  `206 Partial Content` to detect on-demand content. `python -m http.server` and
-  `ffmpeg -listen` answer `200` and get treated as **live**. Serve VOD files from nginx (or
-  anything with real range support).
-
-Script these probes over whatever endpoints you use before a test session — a stalled or
-mis-configured feed wastes far more time than the 30 seconds a probe takes.
-
-## Where test streams may live (the security gates)
-
-`BasisMediaPlayerSecurity` validates every URL before the engine opens it
-(`Runtime/Core/BasisMediaPlayerSecurity.cs`). The rules shape where your streams must run:
-
-| Rule | Effect on testing |
+| Your change affects | Run |
 | --- | --- |
-| Loopback: **Editor only, and only with the opt-in** | `localhost` works for fast in-editor iteration *if* `BASIS_MEDIA_ALLOW_LOCAL` is set for that Editor process (see the native re-check row below). Without it, or in a build, it is refused — and that refusal is correct, not a regression |
-| Every other non-global-unicast address: **always blocked** | RFC1918 (`192.168.*`, `10.*`, `172.16-31.*`), CGNAT, link-local, and the IANA special-use reserves (TEST-NET, benchmarking, 6to4 relay). No env var relaxes the C# gate for these, so LAN servers never work, Editor included — don't bother. Loopback is the one exception, and only as described in the row above |
-| Hostnames are DNS-validated, fail-closed | A name that resolves to any of the above (or doesn't resolve) is refused |
-| Scheme allowlist | `http`, `https`, `rtsp`, `rtspt`, `rtmp`, `rtmps`, `rist` — anything else (incl. `file://`) is refused. Passing the gate isn't the same as playable, though: `rtmps` (RTMP-over-TLS) is allowlisted but the player rejects it (use `rtmp://`, or an https fMP4/TS URL), and `rist` only works in the opt-in `-DBASIS_WITH_RIST=ON` build |
+| Shared playback, ownership or resync (`BasisMediaPlayerNetworking`) | [Shared playback](#shared-playback) |
+| The panel, transport, seeking or status (`BasisMediaPlayer`, `Runtime/UI/`) | [Media Players panel](#media-players-panel) |
+| The prefabs, outputs or audio components (`Runtime/Audio/`, `Runtime/Rendering/`) | [Prefabs and components](#prefabs-and-components) |
+| `OnUserDataReceived` | [SEI user data](#sei-user-data) |
+| Which routes open a URL, the prompt, or the resolvers (`Runtime/Resolver/`) | [URL consent](#url-consent) |
+| How engine events and log lines reach the Console | [Console diagnostics](#console-diagnostics) |
+| Texture handling or the native plugin | [Direct3D 11 and 12](#direct3d-11-and-12) |
+| The engine's dependencies or its licence files (`Native~/Cargo.lock`, `ThirdPartyLicenses~/`) | [Third-party licences](#third-party-licences) |
 
-Practical consequences:
+When the pull request is ready, report the rows as the engine guide's
+[Reporting in a pull request](Native~/TESTING.md#reporting-in-a-pull-request)
+describes. Where a row needs a stream, use the public endpoints in the engine
+guide's [Network sources](Native~/TESTING.md#network-sources) first.
 
-- **Editor iteration:** point at a public endpoint, or run your own server (RTSP/RTMP/HTTP) locally
-  and use `localhost` URLs. A local server needs `BASIS_MEDIA_ALLOW_LOCAL` set for the Editor
-  process before you launch it — on every transport, not just the native ones. Without it the
-  refusal is correct behaviour, and it reads exactly like a transport regression if you aren't
-  expecting it.
-- **Builds, Quest, multi-client tests:** the stream must come from a **publicly reachable host, or a
-  public IP literal** — a public endpoint below, or your own content on any cheap VPS. Where a
-  *hostname* is used it must resolve in real DNS (the gate is fail-closed on lookup). A bare public
-  IP literal is legitimate and is required by one of the redirect rows below, so don't read "real
-  DNS" as "a name is mandatory".
-- **Quest/Android:** the OS cleartext policy blocks plain `http://` on the JNI fetch path —
-  HTTP-TS and HLS lanes need `https://` with a certificate chain the device actually trusts
-  (serve the full chain; standalone headsets are missing more roots than desktop browsers).
-  `rtsp://` is unaffected.
-- **Native local-address re-check (every transport):** the C# gate above is the first line and is
-  **not** affected by the env var below — a top-level RFC1918 URL stays refused by C# regardless,
-  and a top-level `localhost` URL works only in the Editor (the C# rule). Behind it, the native
-  layer independently re-checks resolved addresses for everything it opens: RTSP/RTMP (via
-  `basis_io`), every HLS playlist/segment fetch (the SSRF re-check that stops a hostile playlist
-  steering a sub-resource URI at an internal host), plain HTTP(S) MP4/TS through the platform
-  stack, and **every redirect hop** on those HTTP(S) lanes. That native re-check has no Editor
-  concept, so it refuses `localhost` (and any private address it is handed directly, e.g. an HLS
-  segment URI the C# gate never saw) unless `BASIS_MEDIA_ALLOW_LOCAL` is set (any non-empty value).
-  Setting it relaxes **only** that native re-check, not the C# gate — so its practical use is
-  running your own server at `localhost` in the Editor, on any transport including plain HTTP(S).
-  **Scope it to the Editor session that needs it.** Any non-empty value turns the re-check off for
-  every transport and every redirect hop, and a process inherits it from whatever launched it — so
-  set it per-run, never machine-wide, and never for a player build or a CI job. Every negative test
-  in the security rows below must run with it **unset**, or it passes for the wrong reason: check
-  the environment first if a gate that should refuse lets something through.
-- The separate world-content trust allowlist (`BasisDefaultTrustedUrls`, https-only) gates the
-  sandboxed `VideoPlayer` shim path, not this package — but streams hosted on already-trusted
-  domains spare testers a consent prompt when worlds use the same URL.
+| What | How |
+| --- | --- |
+| Engine gate: format, lint, tests, audits, ffprobe conformance | `Native~/tools/ci.ps1` (Windows), `Native~/tools/ci.sh` (Linux); each step is described in [`Native~/TESTING.md`](Native~/TESTING.md#running-the-tests) |
+| Headless playback | `Native~/bm-probe` |
+| Graded playback in the editor | `Basis > Tools > Media Player > Run Smoke Test` |
+| The same in batch | `-executeMethod BasisMediaSmokeTest.RunBatch` (exit code 0 on a pass; steer it with `BASIS_SMOKE_URL`, `BASIS_SMOKE_SECONDS`, `BASIS_SMOKE_LIVE`, `BASIS_SMOKE_STRICT_HOLDS`) |
 
-## Public always-on endpoints (zero setup)
+## Shared playback
 
-These cover the common lanes without standing up anything. They are third-party services —
-fine for interactive test sessions, not for soak loops.
+Needs two clients in the same world. Build the scene with `Basis > Tools >
+Media Player > Test Scene > One Player (Stereo)`, then replace its source with a
+URL both clients can fetch. A local file loads on the owner and fails on the
+follower, which looks like a sync defect and is not one. The
+lettered clips in `Native~/fixtures/captest` suit it: four 60 s H.264 clips
+with a keyframe every second, each showing a letter, a colour and a running
+timecode for comparing the two screens. Their music is Kevin MacLeod
+(incompetech.com), CC BY 4.0, attributed in `THIRD_PARTY_NOTICES.md`.
 
-| URL | Exercises | Notes |
+For the second client, save the scene, add it to Build Settings, and run a
+standalone build alongside the editor. Drive the panel from the editor as
+owner, except for **Owner leaves**, where the build is the owner and is closed.
+Give the build its own capture filenames first; both write to the same
+`persistentDataPath`.
+
+| Row | Do | Expect |
 | --- | --- | --- |
-| `rtsp://stream.vrcdn.live/live/vrcdn` | RTSP live, H.264 720p + AAC 2.0 @ 48 kHz | VRCDN's own 24/7 channel; the primary PC low-latency lane; host is on the default trust list |
-| `https://stream.vrcdn.live/live/vrcdn.live.ts` | MPEG-TS over HTTPS, live | Same channel, the standalone-friendly lane (https, so Quest-safe) |
-| `https://www2.iis.fraunhofer.de/AAC/ChID-BLITS-EBU.mp4` | Progressive MP4 VOD, range/`206` | 800x600 (4:3), H.264 + AAC 5.1 @ 44.1 kHz, ~47 s. The seek/pause and delivery auto-detect lane. Doubles as the non-16:9 case — the aspect ratio must be preserved, not stretched to the quad — and as a non-48 kHz source, so it exercises the resample path |
-| `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8` | HLS VOD, multi-variant master | Exercises the panel's bitrate dropdown |
-| [Fraunhofer AAC multichannel page](https://www2.iis.fraunhofer.de/AAC/multichannel.html) | AAC 5.1/7.1 VOD fixtures | Includes adversarial layouts: PCE-signalled 7.1 must fail **gracefully** on Windows (muted audio or a clean error — never a crash) |
+| Load | One client sets a URL | The other plays it |
+| Transport | Play, pause and stop from the owner | Each reaches the follower |
+| Seek | Owner scrubs, playing and then paused | The follower lands within a frame or two. Paused, both show the new frame and stay paused |
+| Convergence | Watch the follower for half a minute after a seek or late join | It slews onto the owner without visible jumps |
+| Late join | A client joins mid-playback, on a clip that opens loud | It lands at the owner's position. Nothing from the start of the clip is shown or heard first, and the joiner never reads Playing at 0 |
+| Late join, owner paused | Owner paused; a client rejoins. Try a direct `.mp4`, a page URL, and the owner pausing (or resuming) while the client loads | It lands paused on the owner's frame, silently, without passing through Playing or showing the clip's first frame, and plays when the owner does. If the owner resumed during loading, it comes up playing at the owner's position |
+| Ownership | The second client takes control | The first becomes a follower; neither fights |
+| Late join, owner plays mid-load | Owner paused; a client joins, and the owner presses **Play** while the client is still loading | It comes up Buffering until its seek lands, then Playing at the owner's position. The status never reads Playing while the picture is still the pre-seek one |
+| Owner leaves | Close the owner mid-playback | The follower keeps playing |
+| Admin only | `AdminOnly` on, second client without permission | It cannot take control and has no playback tab |
+| Open to everyone | `AnyoneCanControl` on | The other client gains the controls without reopening the panel |
+| Live source | A live stream | No position sync; each client at its own live edge |
+| Stalled owner | Stall the owner's network | The follower holds position |
+| Resync everyone | Drift a follower, owner presses **Resync Everyone** | All clients land on the owner's position. No prompt |
+| Resync keeps the owner's place | **Resync Everyone** while playing, on a direct `.mp4` and a page URL | The owner carries on from where it was, not from zero |
+| Resync while stopped | **Resync Everyone** after stopping, URL still held | Nothing happens |
+| Resync a page URL | **Resync Everyone** well into a YouTube or Twitch source | All clients land together at the owner's position, not zero, with no seek before the reload. The shared URL stays the page URL |
+| Join mid-resync | Join during a resync reopen | Lands at the owner's position, not near zero |
+| Local resync | A follower presses **Local Resync** | Only that client reopens |
+| Inspector buttons | The same two presses from the networking component's inspector, in Play Mode | Same as from the panel |
+| Untrusted URL | The owner sets a URL on a host outside `BasisTrustedUrls` | The follower is asked before anything loads, and its screen stops while the prompt is up |
+| Untrusted URL, accepted late | Leave the follower's prompt up for a minute while the owner plays, pauses and seeks, then **Accept** | It lands at the owner's position, paused or playing as the owner is |
+| Untrusted URL, declined | **Decline** on the follower, then the owner pauses, seeks, presses **Play** and re-shares the same URL | The follower stays stopped and is not asked again. A different URL asks again, and the follower's own **Play** or **Local Resync** asks again |
+| Untrusted URL under do-not-disturb | Turn do-not-disturb on for the follower, then share an untrusted URL | The prompt goes to the notification list without opening the menu; accepting it from there lands at the owner's position |
+| Joiner while a follower decides | A third client joins while the follower's prompt is up, with the owner gone | The joiner is not told to stop by the undecided follower |
+| A video hours long | Owner seeks deep into a fragmented video of two hours or more, then a client joins. Try a direct URL (make one with `ffmpeg -stream_loop -1 -i <clip> -t 7200 -c copy -movflags +frag_keyframe+empty_moov+default_base_moof+global_sidx -frag_duration 2000000 out.mp4` and serve it with byte ranges) and `https://www.youtube.com/watch?v=aNS5o3VJ0-A` (11 h, H.264) | Opens as fast as a short video; the joiner lands beside the owner |
 
-> Live endpoints join mid-GOP like any live stream — audio-before-video on join is expected
-> behaviour, not a regression, unless the gap exceeds the stream's GOP length.
+No follower may snap to the start during any resync, even briefly. With the
+yt-dlp package installed, also check that page URLs reach other clients as page
+URLs, never as `googlevideo` or other CDN URLs.
 
-**Page URLs (YouTube, Twitch, …) are deliberately absent from this guide.** They only work
-through an optional resolver integration, so the base package can't assume they're testable.
-Everything in this document uses direct stream URLs; resolver-dependent testing lives in the
-integration package that provides it — e.g.
-[`com.basis.integration.ytdlp/TESTING.md`](../com.basis.integration.ytdlp/TESTING.md).
-The same split applies to any future integration: endpoints that need an integration package
-to function are tested in that package's own TESTING.md.
+## Media Players panel
 
-## Lanes without a public endpoint: bring your own
+One client, in a scene with more than one player.
 
-The public endpoints above cover the common lanes. The rest — the live transports (RTSP/RTMP/RIST),
-split-stream pairs, `localhost` iteration, and a couple of fixtures no public stream carries
-reliably (CEA-608 captions, LPCM 7.1 over M2TS) — you provide yourself. There is no bundled
-test-server stack to maintain; stand up whatever server you already use and point your own files at
-it.
-
-What the manual pass is actually for: the CI conformance gate (`tools/media-conformance`) already
-proves the **demuxers** parse every supported container/codec correctly — on synthetic fixtures, on
-every native change. What it cannot touch is real **decode + present** on actual hardware, A/V sync,
-and the live network transports. That is exactly what this matrix covers, and it needs real files
-and servers.
-
-Supported inputs to keep on hand (generate with `ffmpeg`, serve however you like):
-
-- **Containers:** MP4 / fragmented MP4 (`.mp4` `.m4v` `.m4a` `.m4s`), MPEG-TS (`.ts`) and
-  Blu-ray/AVCHD M2TS (`.m2ts` `.mts`), WebM/Matroska (`.webm`), Ogg (`.opus`), MP3 (`.mp3`),
-  WAV (`.wav`), HLS (`.m3u8`, TS- or fMP4-segmented).
-- **Video codecs:** H.264, H.265/HEVC (`hvc1`), VP9 (WebM and `vp09`-in-MP4), AV1 (progressive and
-  fragmented MP4, and `V_AV1` WebM).
-- **Audio codecs:** AAC (≤ 5.1 on Windows, discrete 5.1 on Android), Opus (WebM and Ogg), MP3 (bare,
-  and `esds` OTI `0x6B`/`0x69` in MP4), LPCM (WAV, and 7.1 over M2TS).
-- **Transports:** any RTSP/RTMP server (e.g. MediaMTX), an `ffmpeg`-served HTTP-TS feed, nginx (or
-  anything with real `Range`/`206` support) for VOD, an HLS packager, and — for the opt-in
-  `-DBASIS_WITH_RIST=ON` build — a RIST sender (ffmpeg/librist), plain and AES.
-
-Two feeder traps worth repeating: a VOD host must answer `206 Partial Content` or `Delivery=Auto`
-mis-detects it as live (`python -m http.server` and `ffmpeg -listen` answer `200` — use nginx); and
-for A/V-sync work use **real footage with visible lip-sync**, not synthetic patterns.
-
-## The regression matrix
-
-Run the rows your change plausibly touches; run everything before a release-bound merge.
-"Verify" always includes: plays within a sane time, A/V stays in sync, no console errors
-(`BasisDebug` tag `Video`), clean stop/unload.
-
-### Transports
-
-| Lane | Source | Verify additionally |
+| Row | Do | Expect |
 | --- | --- | --- |
-| RTSP live | VRCDN, or your own RTSP server (e.g. MediaMTX) | Join latency ≈ GOP-bound; pause/resume recovers cleanly. `rtsp://` negotiates UDP transport first and falls back to TCP-interleaved; the Console logs the settled choice once per load (`[NativeMedia] transport: RTSP over UDP`), and it's queryable via `BasisMediaPlayer.CurrentTransport` |
-| RTSP adversarial join | your own RTSP server fed a long-GOP source | Audio leads video by up to the GOP length on join, then locks — no permanent desync |
-| RTSP refusal fallback | your own RTSP server configured TCP-only (`rtspTransports: [tcp]` in MediaMTX) | UDP SETUP is refused (461); playback is indistinguishable from today, no error surfaced; Console logs `RTSP over TCP (UDP unavailable)` |
-| RTSP timer fallback | any network that silently drops the RTP UDP ports (`8000-8001/udp`) | First join stalls ~3 s, then restarts transparently over TCP with the same fallback log line; a reload of the same host skips the probe and goes straight to TCP |
-| RTSP forced TCP | `rtspt://` form of any RTSP URL | No UDP attempt at all (no UDP `SETUP` in the server log); Console logs `RTSP over TCP` |
-| HTTP-TS live | VRCDN `.live.ts`, or your own `ffmpeg`-served TS | Same checks over plain TS; on Quest use the https lane |
-| HLS VOD | Mux master, or your own HLS packaging | Variant switch via panel bitrate dropdown mid-play |
-| Progressive/fMP4 MP4 | Fraunhofer ChID-BLITS, or your own MP4 with *working* byte ranges — a `Range` request must answer `206` with a valid `Content-Range`, not merely advertise `Accept-Ranges: bytes` | `Delivery=Auto` detects OnDemand; seek slider works; 4:3 source keeps its aspect on the quad rather than stretching. Advertising alone still reads as on-demand for pacing but refuses to seek, so a host that advertises and then serves `200` looks like a player bug and isn't. Integrated fMP4 has its own `global_sidx` recipe under **Seek (integrated fMP4)** below |
-| RTMP | your own RTMP server (e.g. MediaMTX) | Minimal client — plain `rtmp://` pull only |
-| RIST plain + AES | your own RIST sender (ffmpeg/librist) | Requires RIST-enabled plugin build; loss recovery under induced packet loss |
-| WAV audio-only | your own WAV over HTTP | 16/24-bit, up to 8 ch; no video track is not an error |
-| Split-stream | your own video-only + audio-only pair | Windows-only today; `AudioUri` lane syncs to video |
+| Visibility | A scene with no players, then one | The menu entry appears with the first player |
+| Selection | Switch players | Status, URL and controls follow |
+| Scrubber | Drag the seek bar, playing and paused | One seek when the handle stops, no bounce back, and the frame at the dropped position (not the keyframe before it). Paused stays paused |
+| Chained scrub | On a WebM or Ogg Opus file, drag the seek bar, then drag it again before the first seek lands | The handle stays on the second position until that seek lands, never showing the first target or the old playhead. Playback lands on the second position |
+| Sparse keyframes | On a video whose keyframes are far apart (a low frame rate, or one keyframe for the whole clip), seek forwards and back between keyframes, both within 720 frames of the keyframe before the target (or 12 s, whichever is longer) and beyond it | Within it, playback goes on from the dropped position, not the keyframe before it, and the handle stays there. Beyond it, playback goes on from that keyframe and the handle moves there once the seek lands, not after a long hold on the dropped position |
+| Slow decoder | Start the player with `BASIS_MEDIA_SLOW_VIDEO_DECODE_MS=80` in its environment and play an on-demand source with sound, and one with captions or SEI data | Sound unbroken at real time. The picture moves, holds and rejoins, in step whenever it moves. Captions and user data stay on time. `LateVideoSkip` in the Console. Unset the variable afterwards |
+| Lip sync | Play an on-demand video with speech, then a live RTSP stream | Sound and picture land together; the sound does not trail the picture |
+| Before the first frame | Open a live RTSP stream and a fragmented AV1 MP4, watching the screen from the moment the panel reads Buffering | The screen keeps its placeholder until the first frame shows, never white or grey. The debug window's output texture pill reads NO until then |
+| Long pause | Pause a minute, then play, on a video and an audio-only file | Resumes with no error |
+| Live stream | Open one | The seek bar hides |
+| MPEG-TS file | Open an on-demand `.ts` or `.m2ts` over HTTPS, not through HLS | Plays from the start. The duration reads 0 and the seek bar hides |
+| WAV file | With the yt-dlp package installed, open a 7.1 `.wav` over HTTPS on the multi-channel prefab | Opens straight away with no yt-dlp lines in the Console, and all eight outputs carry sound |
+| Captions | Toggle captions, switch player | The setting applies to every player |
+| Subtitles | A source with subtitle files | The language row shows only with captions on |
+| Status | Watch a load, then open a URL that fails (a host that does not exist) | Connecting, Buffering, Playing, with the resolution. A failure shows its reason in red, not only a code |
+| Refused codec, nothing else | A VP8 WebM with no audio | Error within a second or two, the reason naming VP8 as unsupported |
+| Refused video, audio plays | HEVC in an MPEG-TS file with AAC | The sound plays, and an amber **Issue:** line says the video track announced no frame size |
+| Refused track in the file | An MP4 whose video is a codec the player does not take (an MPEG-4 Part 2 `mp4v` track, say), with AAC beside it | The sound plays, and the **Issue:** line names the codec |
+| Admin tab | With and without `*` | Shown only with it, on a networked player |
+| Markup injection | A title containing `</noparse>` and `<b>` | Shown literally |
 
-### Content and codecs
+## Prefabs and components
 
-No public host carries every codec in every container flavour, so generate these from a CC
-clip — any Blender open movie, from [Blender Studio's films](https://studio.blender.org/films/) — with
-the `ffmpeg` recipe in each row. `in.mp4` below is that source clip. For higher-res / 4K masters,
-[media.xiph.org](https://media.xiph.org/) mirrors the Blender films losslessly (e.g. Sintel 4K at
-`https://media.xiph.org/sintel/sintel-4k.y4m.xz`, and `sintel-4k-png/` frame sets) — grab one and
-cut a short segment (`ffmpeg -i sintel-4k.y4m -t 20 -c copy in4k.y4m`). (The demux side is already
-covered bit-for-bit by the CI conformance gate; these rows are the real decode + present pass.)
+After changing their components, check `MediaPlayerStreaming` and
+`MediaPlayerMultiChannelStreaming`: no missing scripts, outputs wired to their
+channels (all eight on the multi-channel one), the screen showing the picture,
+and the networking component's permission fields as intended.
 
-| Fixture | Verify |
-| --- | --- |
-| H.264 + AAC stereo | The baseline — everything else assumes this passes |
-| H.265/HEVC | **Video actually appears** (`ffmpeg -i in.mp4 -c:v libx265 -tag:v hvc1 -c:a aac hevc.mp4` — `hvc1` from stock libx265, what most HEVC in the wild is). Check for frames, not for the absence of an error: `hvc1` keeps its parameter sets only in the `hvcC` box, so anything that loses them on the way to the decoder gives a black screen with no error raised and nothing in the Console. Absence of the codec is the other half of the row — without the HEVC Video Extension installed it must degrade cleanly, and testing only that half will pass while playback is comprehensively broken |
-| VP9 in WebM (`ffmpeg -i in.mp4 -c:v libvpx-vp9 -b:v 0 -crf 32 -c:a libopus vp9.webm`; two-pass for superframes) | Plays on Windows (Store "VP9 Video Extensions" + a GPU with hardware VP9 — the probe gates both) and Quest (hardware everywhere). A two-pass encode carries superframes, so whole-superframe feeding is exercised by playing it |
-| VP9 in MP4 (`ffmpeg -i in.mp4 -c:v libvpx-vp9 -c:a aac vp9.mp4`; modern ffmpeg writes the `vp09` sample entry) | The `vp09` sample-entry lane; same decode path as WebM |
-| AV1 in progressive MP4 (`ffmpeg -i in.mp4 -c:v libaom-av1 -crf 30 -c:a aac av1.mp4`) | Plays with video on Windows (Store "AV1 Video Extension" + a GPU with hardware AV1 — RTX 30+/RX 6000+/Arc; the probe gates both) and Quest 3. AV1-in-MP4 historically misplayed as silent audio-only |
-| AV1 in fragmented MP4 (the AV1 MP4 recipe + `-movflags frag_keyframe+empty_moov`) | The `av1C`-in-`stsd` fMP4 walk with the configOBU first-AU prepend |
-| AV1 4K (a 2160p slice of Sintel 4K — see the intro above — through the AV1 MP4 recipe) | 2160p decode + ring memory on both platforms |
-| AV1 in WebM (the AV1 recipe with `av1.webm`) | The `V_AV1` CodecID lane (CodecPrivate = av1C record → configOBU extradata); duration + Cues seek work as for VP9 |
-| AV1 extension absent (Windows) | Uninstall/absent "AV1 Video Extension": a direct `av01` URL errors with the install hint, and the probe answers 0 so the resolver never offers AV1 |
-| AV1 on Quest 2 | No AV1 decoder on the device: a direct `av01` URL refuses cleanly, and YouTube resolution still succeeds via the VP9 lane (its probe passes there) |
-| Opus in muxed WebM (`ffmpeg -i in.mp4 -c:v libvpx-vp9 -c:a libopus vp9_opus.webm`) | VP9 video + Opus audio in one file: plays whole with audio on Windows and Quest. Exercises the two-track WebM demux (blocks routed to video vs audio by TrackNumber) |
-| Opus audio-only WebM (`ffmpeg -i in.mp4 -vn -c:a libopus opus.webm`) | An `A_OPUS`-only WebM (YouTube's audio itags 249/250/251): audio plays with no video, driven by the audio-only contract |
-| Opus decode on Windows | Native via the libopus that `com.avionblock.opussharp` ships, runtime-loaded (no Store extension, unlike VP9/AV1). Confirm audio plays in the Editor (the library resolves from the opussharp `Packages/…` path) and in a build (`opus.dll` flattened beside the plugin). If opussharp is absent the format is refused: muted audio, video unaffected, never a crash |
-| Opus on Quest | Native `audio/opus` MediaCodec with OpusHead + pre-skip/pre-roll csd; gapless start sane, audio-only path works |
-| Ogg Opus file (`.opus`) | A `.opus` URL routes as directly-playable (no resolver) and plays: the Ogg demuxer walks pages/lacing, verifies each page CRC, reads OpusHead, and feeds the same Opus decoder. A `.opus` with a damaged page resyncs on the next `OggS` rather than failing |
-| Ogg Opus seek (`.opus`) | On a range/`206` host, a `.opus` file reports its duration (a seek bar appears) and seeks — Ogg has no index, so seek is granule bisection over the byte range; it lands at page granularity near the target and resumes. A live/no-range source has no seek bar (duration 0), which is correct. Check the Editor (Windows) |
-| Unsupported video codec | VP8 (`ffmpeg -i in.mp4 -c:v libvpx vp8.webm`) and MPEG-4 Part 2 (`ffmpeg -i in.mp4 -c:v mpeg4 mp4v.mp4`) refuse with a clear "video codec 'x' is not supported" error naming the codec — never silent audio under a black screen |
-| VP9/AV1 software-fallback guard | On a GPU without hardware decode for the profile, a direct VP9/AV1 URL must produce the "video decoder produced software frames" error, not a black screen (the Store MFTs silently fall back to CPU — for AV1 that is the *majority* of pre-RTX-30 desktops; only reproducible on a no-hw box or with the extension's fallback forced) |
-| AAC decoder priming | Audio starts on the first real sample, not on the decoder's priming. AAC's encoder delay is one 1024-sample frame, which MP4 signals with an edit list (`elst media_time=1024` on anything `ffmpeg -c:a aac` produced); the samples ahead of that origin must not reach the output. **Do not try to hear this** — 21 ms of lag is below the lip-sync threshold, which is exactly why it went unnoticed for so long. Measure it: decode the file with `ffmpeg -i x.m4a -map a:0 -f f32le -acodec pcm_f32le ref.f32`, capture what the player served, and cross-correlate. Assert on the **peak's sample offset**, not a correlation value: aligned output peaks at offset 0, a stream still carrying its priming peaks at offset 1024 (the edit-list delay) — the actual defect, and reliable regardless of content, channels, or capture. (The absolute coefficient at offset 0 is content-dependent — a shifted stream reads roughly -0.07 on this fixture, but do not gate on that number.) An LPCM/WAV file is the control — no decoder, no priming, peaks at offset 0 |
-| AAC 5.1 | Windows MF decodes ≤ 5.1; correct channel mapping (use content with known channel placement, judge by ear per output speaker) |
-| AAC 5.1 in a progressive MP4 (Android) | Decodes to discrete 5.1, not silence. Generate a 5.1 AAC MP4 (`ffmpeg -i in.mp4 -c:a aac -ac 6 aac51.mp4`). The esds can carry an inert SBR sync extension the Android decoder otherwise rejects (`aacDecoder 0x1001` in logcat) — that extension is encoder-dependent, so use a clip that carries it when chasing that path |
-| MP3 bare stream (`.mp3`) | CBR and VBR play forward; a leading `ID3v2` tag is skipped and a Xing/Info/VBRI header frame is dropped (not heard as a click). Duration is reported from the header's frame count and the seek slider works. Windows uses the in-box Media Foundation MP3 decoder, Quest the `audio/mpeg` MediaCodec. Generate fixtures with `ffmpeg -i src.wav -c:a libmp3lame -b:a 192k cbr.mp3` and `-q:a 2 vbr.mp3` |
-| MP3 in MP4/M4A | An `mp4a` sample entry whose `esds` object-type-indication is `0x6B`/`0x69` plays as MP3, not misdetected as AAC (`ffmpeg -i cbr.mp3 -c copy out.m4a`) |
-| LPCM 7.1 M2TS | All 8 lanes audible and correctly placed — the only full-7.1 path on Windows |
-| PCE-signalled / >6-ch AAC | **Graceful refusal** on Windows (mute or clean error, never a crash) |
-| Trailing-moov progressive MP4 | Non-faststart file (`ffmpeg -i in.mp4 -c copy out.mp4` leaves `moov` after `mdat`): on a range/`206` server it plays with seek + duration; over a one-way stream (no ranges) it refuses cleanly with a faststart-remux hint |
-| CEA-608 captions | A caption-bearing TS you generate (no public stream carries captions reliably): cues appear on time, accented characters correct, clear-cue clears, CC toggle + opacity sliders live-apply |
-| 44.1 kHz audio | Resamples cleanly to the DSP rate (dominant path is 48 kHz — don't let 44.1k rot) |
-| Non-16-aligned coded height | No pad strip on the video edge (a thin top strip on Windows, a grey bottom strip on Android) and the RenderTexture matches the display aspect. 720p and other 16-aligned heights are clean, so test a padded height specifically — 1080p (→1088) on Windows, 640×360 (→368) on Android |
-| Mid-stream resolution change | The visible size changing part-way through a single elementary stream — ordinary content (a new SPS), and the only thing that makes the backend tear down and rebuild its shared output texture while playing. No public endpoint does it on demand, so build one: encode slices of the same clip at two sizes (`-vf scale=1280:534` and `-vf scale=640:268`) to MPEG-TS, each with `-output_ts_offset <start>` so timestamps stay continuous across the join, then concatenate the parts bytewise. Alternate every couple of seconds so one play-through covers a dozen switches. Video keeps playing across every switch and settles at each new size, with no black or stretched frame held, no frame torn between the two sizes, and no crash. Confirm the fixture really switches before trusting a pass — `ffprobe -v error -select_streams v:0 -show_frames -show_entries frame=width,height -of csv=p=0 <fixture.ts> \| sort -u` must report both sizes (`-show_entries` only selects fields; without `-show_frames` there are no frame sections to select from, so the command prints nothing and a broken fixture looks the same as a good one). Windows D3D11 and D3D12 (`-force-d3d12`) reach this through separate texture paths, so run both; Android takes a Unity-owned RenderTexture instead and re-sizes it from C# |
+On `BasisVideoMaterialOutput`, the Picture foldout shows four sliders at 1, and
+a moved slider keeps its value after Play Mode. `BasisVideoPicture` must stay
+`[System.Serializable]` or the foldout is empty.
 
-### Platforms and backends
+The first Play Mode after a script reload stalls for a few seconds; judge
+startup in a build or on the second load.
 
-| Target | Notes |
-| --- | --- |
-| Windows D3D11 | Default editor/player path |
-| Windows D3D12 | Launch with `-force-d3d12`; shared-handle texture path is separate code — video must appear, no `dxgi-fmt` errors in the log |
-| Android/Quest | Vulkan path, `AMediaCodec`; https for TS/HLS lanes; check `adb logcat` for codec errors; AAC 5.1 arrives in WAVE order. 5.1 AAC in a progressive MP4 decodes discretely (see the codec row); the coded-height pad is cropped off the present (grey bottom strip) |
-| Desktop ↔ VR swap | Toggle mode mid-playback — the external texture must survive the graphics-device swap |
-| Linux via Proton/Wine | The Windows build under a compatibility layer. No lane here can stand in for it: the plugin runs against Wine's reimplementations of WinHTTP, Media Foundation and D3D11, so behaviour can differ from native Windows even though the binary is identical. Loading the plugin at all is gated behind a one-off prompt (Media Foundation may be absent). Verify a VOD plays at 1x rather than racing through the content — delivery pacing depends on the seekability probe reading Content-Length, and a probe failure shows up as synchronised fast-forward at roughly the download-speed-over-bitrate ratio. Confirm the seek slider works and that a late joiner syncing to a mid-VOD playhead lands at the right position, since both need the same probe. Testing this needs a real Proton user; there is no rig for it here |
+## SEI user data
 
-### Behaviour checklists
+Against `Native~/fixtures/h264-sei-userdata-640x360-30fps.ts` over HTTP, with a
+script logging `OnUserDataReceived`:
 
-**Playback lifecycle** — load → play → pause → resume → stop → replay same URL → load a
-different URL mid-play. No stale frames, no orphaned audio, position resets correctly.
+| Row | Do | Expect |
+| --- | --- | --- |
+| Ordered delivery | Play | Frame indices 0 to 179 in order, each as playback reaches it, and x264's `dc45e9bd-…` once at the start |
+| Late subscriber | Subscribe a few seconds in | Starts with the message then due |
+| Subscriber one frame late | Subscribe from `Update` after `Open` | Receives the first message |
 
-**Seek (VOD)** — slider to arbitrary positions; rapid successive seeks (input is debounced);
-seek-then-pause shows the sought frame. The byte-source ranged refetch that backs a seek now
-runs on **Android** too (JNI `HttpsURLConnection`), not just Windows — run the same slider
-checks on a Quest against a range/`206` VOD host (`https://`), watching `adb logcat` for a clean
-reposition (no decoder error, playback resumes at the target). A container seek repositions to
-the sync point at or before the target and the run-up from there is decoded but never shown, so
-playback lands **at the requested position** — never visibly replaying from the keyframe, and
-never crawling the gap at 1x. The adversarial case is a **sparse-keyframe file** (tens of
-seconds per GOP, e.g. a low-motion screen capture): a mid-GOP seek there should recover after a
-short silent pause that scales with decode speed, not with the distance seeked.
+## URL consent
 
-**Seek (HLS-TS VOD)** — on the Mux master (`https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`),
-seek both directions and confirm playback resumes **paced at 1x from the target**: a forward
-seek must not freeze for the jump distance, and a backward seek must not fast-forward through
-the intervening segments back to the pre-seek position. The segment producer repositions at
-segment granularity but the landing is **target-exact**: the run-up from the segment boundary
-to the target is decoded and discarded, so playback must resume at the requested position, not
-the start of the containing segment. A mis-anchored pace clock (stall forward / flood backward)
-is the failure to watch for. Also seek **from the tail**: once the fetcher has downloaded every
-remaining segment (the last buffer's worth of the stream, so roughly the final ten seconds of a
-short VOD) it parks rather than exits, and a backward seek from there must still reposition —
-a bar that flashes the target and snaps forward means the parked-fetcher revival broke. Playing
-through to the end must present the tail before ENDED is raised: the position walks all the way
-to the true duration and the final content is actually shown and heard — ENDED firing early
-while banked audio or video is discarded is the failure. Shared clock, so check both the Editor
-(Windows) and Quest.
+A URL on a host outside `BasisTrustedUrls` prompts before it opens. Pick a host
+that is not on the built-in list (`BasisTrustedUrls.GetBuiltIn()`), and clear
+the user list (`ClearAll()`) between rows that remember. One client unless
+stated.
 
-**Seek (integrated fMP4)** — on a self-contained fragmented MP4 (moof/mdat fragments indexed by a
-top-level `sidx`) served from a range/`206` host. Produce one from a CC clip:
-`ffmpeg -i in.mp4 -c copy -movflags +frag_keyframe+empty_moov+global_sidx out.mp4` (the `global_sidx`
-box is what the byte-source seek indexes). Confirm
-`Delivery=Auto` detects OnDemand and seeks in both directions reposition cleanly and resume at the
-target with no decoder error. This is the `sidx`-driven byte-source reseek; it shares the
-byte-source seek path with progressive/trailing-moov MP4, so a regression here usually surfaces on
-those too. Distinct from fMP4 carried *in HLS*, which isn't seekable — a mid-fragment ring flush
-can't resynchronise the box parser. Check the Editor (Windows) and Quest.
+| Row | Do | Expect |
+| --- | --- | --- |
+| Authored URL | A scene player with an untrusted URL and **Play On Start**, enter Play Mode | The prompt shows; nothing opens until **Accept**. **Decline** leaves the player idle |
+| Panel URL | Type the same URL into the Media Players panel, with and without do-not-disturb | The prompt shows over the panel without rebuilding the menu; nothing opens until **Accept** |
+| Declined, then Play | **Decline** the authored prompt, then press the panel's **Play** | Prompts again |
+| Re-open | Let a source end, or **Local Resync** with no networking, then **Play** | Re-opens with no prompt |
+| Remember | Accept with Remember set to the URL, then the host, then the domain, re-entering Play Mode each time | The next entry does not prompt; `GetUserAdded()` shows the pattern |
+| Play while pending | Press the panel's **Play** while the prompt is up, then **Accept** | Plays as soon as the source is up |
+| Page URL | An untrusted YouTube page URL, with the yt-dlp package installed | One prompt; the extracted stream opens with no second one |
+| Split pair | A script calls `Open(video, audio)` with the audio leg on an untrusted host | Prompts for the audio URL as well; nothing opens until both are accepted |
+| World script sets the room's URL | A script calls `SetUrl` on the networking component with an untrusted URL, two clients | The owner is asked first; **Decline** sends nothing, and the follower loads only after **Accept** |
 
-> On-demand multiplayer sync **drift-corrects by seeking**: the owner broadcasts its playhead
-> and a client that drifts past `DriftSeekThresholdSeconds` seeks to catch up (set 0 to
-> disable). Catch-up needs a seekable source — TS-segment HLS VOD, progressive/trailing-moov
-> MP4, and integrated fMP4 qualify; a live source can't seek, so those clients converge
-> independently to the live edge rather than using playhead-seek correction.
+Closing the menu does not answer the prompt. It moves to the notification list,
+where it can be brought back up or dismissed; a dismissal is a decline.
 
-**Seek (WebM Cues)** — on your VP9 WebM fixture (the codec-row recipe; a `libvpx-vp9` encode
-carries Cues) served from a range/`206` host, seek both directions: playback lands at or just
-before the target (cue/cluster granularity, on a keyframe) and resumes paced at 1x — the same
-stall-forward / flood-backward failure shapes as the HLS row apply. Seek near the very end of the
-file as well (EOS race). A cueless variant (`-cues_to_front 0`, or strip the Cues) must show no
-seek bar at all. Your AV1 WebM fixture rides the same cue walk with the AV1 branch — one
-both-directions pass there covers it. Check the Editor (Windows) and Quest.
+## Console diagnostics
 
-**Seek (MP3)** — on a `.mp3` VOD over a range/`206` server, seek both directions and near the
-end. MP3 seek is inherently approximate (no per-frame timestamps): CBR lands within a frame via
-the bitrate mapping, VBR uses the Xing TOC, so the playhead may land a fraction of a second off
-the slider — that is expected, a permanent desync or a stall is not. A `.mp3` with no Xing/Info
-header reports no duration and shows no seek bar.
+Engine events appear as `[BasisMedia +12.412s] AudioTrim/AudioRing: …`, stamped
+with the session clock used in the captures. Free-text engine lines appear as
+`[BasisMedia process +N.NNNs] …`, timed from the plugin's first line. A code
+newer than the managed side prints as a number.
 
-**Networking** — two clients minimum: owner loads URL → both play; non-owner requests control
-→ ownership transfers; owner pause/stop propagates; late joiner receives current state; each
-client resolves the URL independently (per-client CDN/bitrate differences are fine, state
-divergence is not). End-of-stream is per-client: a late joiner runs behind the owner by its
-join latency and must play through to its own end of the content — the owner finishing first
-must not cut it off. Clients therefore finish at slightly different wall-clock times; a peer
-stopping short of the end is the failure, synchronised finishes are not expected.
-Pause the owner mid-video, then have another client leave and rejoin: it must land paused on
-the owner's frame and seek bar position, not playing and not on the opening frame. Run it with
-a direct `.mp4` and with a page URL, and once more with the owner pausing while the rejoining
-client is still loading.
+| Row | Do | Expect |
+| --- | --- | --- |
+| Named codes | Play any source | `Code/Stage` lines; `StateChange/Clock` within a second of opening |
+| Unknown code | Delete `AudioTrim = 15` from `BmEventCode`, play a source that trims | The line reads `15/AudioRing`. Restore |
+| Burst | Set `EventDrainBatch` to 4, open a source | The open's events arrive in one frame. Restore |
+| Full log | Set `SessionDiag::default`'s cap to 2, rebuild, play | `diagnostics log full: N event(s) refused, M this session`. Restore |
+| Cut detail | Open a very long bad URL | The `Error/Source` line ends in `…` |
+| Device events | Open a source, then exit Play Mode | A free-text line `unity device event: initialize, renderer 2` (18 on Direct3D 12) once at start-up, and a `shutdown` line on exit. On Quest, `device_event: type 0, renderer 21` in logcat |
+| Two sessions | With **Engine capture** on, open one source, then another, in one Play Mode entry | Both captures carry a numeric `av_offset_us` once sound and picture run, and neither stays on the sentinel |
+| Transport line | Play any RTSP stream (e.g. `rtsp://stream.vrcdn.live/live/vrcdn`) | `rtsp transport: …` within a second |
+| One copy | Three players, a stream on one | Each `process` line once |
+| Severity | Open a bad URL | `session error:` in red, with no crash report |
+| Overrun | Error in a loop with the editor paused, then resume | The oldest lines are dropped |
+| Frame budget | Set `EventDrainPerTick` to 8 and `DrainPerFrame` to 4, provoke a burst | Every line arrives, over several frames. Restore |
 
-**Resync** — two buttons, two blast radii, and the checks are mostly about the one that must
-*not* travel. **Local Resync** (My Settings tab) is available to every client, including one
-with no control permission and one that cannot see the Playback tab at all: press it on a peer
-and that peer alone reloads and lands back on the owner's playhead — the owner's playback must
-not stutter, pause or jump, and no other peer moves. Drift a peer deliberately first (pause it
-locally, or let a stalled decode fall behind) so there is something to correct, and check it
-returns to the room's position rather than to zero. On a page URL (YouTube/Twitch) the peer
-re-resolves, so expect the resolve delay before it lands — the position is aged by that delay,
-so it lands where the room is *now*, not where it was when the button was pressed. Press it on
-the owner too: the owner reloads in place and keeps its own playhead, and peers may re-align to
-it but must not reload. Press it with nobody else in the instance, and on a player with no
-`BasisMediaPlayerNetworking` at all — both must still reload rather than doing nothing.
-**Resync Everyone** (Playback tab, so it needs control) is the opposite: every client reloads,
-including the one that pressed it, and all land on the presser's state and position — paused
-stays paused, stopped stays stopped. Run it while a peer is mid-resolve of a page URL, and
-with a peer that has `AutoPlayOnSourceAssigned` unticked (it must still end up playing if the
-presser is playing). The failure to watch for on both is a URL swap: after any resync every
-client must still hold the *page* URL, not the presser's resolved CDN stream — check the URL
-field on a peer, and that a client joining afterwards still resolves the page URL for itself.
+## Direct3D 11 and 12
 
-**Networked audio-only** — the same two-client setup with an audio-only URL (`.wav`, `.mp3`,
-`.m4a`, `.opus`). These carry no video track, so anything that waits on a video frame or an
-output texture never fires for them, and a readiness regression here is invisible on the
-owner's own client — it plays locally either way. Load one while the peers are mid-playback of
-something else: they must switch to it, not carry on and then resume the old source when it
-ends. Check the peer starts near the beginning rather than at the outgoing video's playhead,
-and that a late joiner receives it too. Worth a pass on a peer with
-`AutoPlayOnSourceAssigned` unticked, which is the case that relies on the owner's advertised
-state rather than local autoplay.
+Start the Editor or a build once with `-force-d3d11` and once with
+`-force-d3d12`, and run each row on both. The log names the API in use: the
+project's `Logs/Editor.log` for the Editor, `Player.log` for a build, or the
+file given with `-logFile <path>`.
 
-**Audio source controls and filters** — `AudioSource.volume` and `.mute` are per output, not
-per player: with a stream playing, drag one output's `Volume` to zero and back and only that
-source's level moves, and `Mute` silences that source alone. The player-wide controls are
-`BasisMediaPlayerAudio`'s `VolumeGain` / `Mute` (what the panel slider drives), and the three
-multiply. The multichannel prefab is the row that matters here — set each of the eight outputs
-to a different level and confirm the balance holds, rather than one slider dragging the rest
-with it. Then add an `Audio Low Pass Filter` (or Reverb / Chorus) to one of the output
-GameObjects and confirm it colours that output. Unity applies filters in component order and
-the `BasisMediaPlayerAudioTap` is what generates the audio, so a filter moved **above** the tap
-is expected to do nothing; the check is that one added normally, below it, is heard. Drag a
-filter above the tap and both the tap's own inspector and the owning `BasisMediaPlayerAudio`
-should say so and offer to fix it, without either needing a reselect to notice. On a prefab
-instance the tap itself can't move, so the fix lowers the filters below it instead — with two
-filters stacked, check they keep their order relative to each other, since swapping them
-changes the chain. Only when neither move is allowed should the notice say to open the prefab.
-That notice is also what a hand-built output rig relies on, so add a bare AudioSource with a
-filter on it to `Outputs` and confirm it's flagged. A rig assembled in code can't be reordered
-at all once play starts, so build one that way (AudioSource plus a filter, added to `Outputs`
-from a script) and confirm the player logs a warning naming the filter rather than failing
-quietly. Two AudioSource controls are expected to
-misbehave and shouldn't be reported as regressions: `Pitch` does nothing, and ticking `Bypass
-Effects` or unticking `Spatialize Post Effects` drops spatialisation to flat 2D, because the
-spatialiser then runs ahead of the tap and its output is overwritten.
+| Row | Do | Expect |
+| --- | --- | --- |
+| Playback | Play a video with sound, seek forwards and back, pause, resume | Picture and sound throughout, seeks land on their target, the pause holds its frame, and no `consumer open failed` line |
+| Screenshot | From a script, call `CaptureScreenshot()` on a player showing a known frame, with **Flip Screenshots Vertically** off, then again with it on | Off: the PNG under `Screenshots/` in the persistent data folder is upright. On: inverted |
+| Render-thread cost | With `BasisMediaPlayerDiagnostics` recording, leave a minute of playback untouched, then a minute with the player idle | Mean frame time within 0.1 ms of the idle minute, and no more than three extra frames over 33 ms. If either misses, run both minutes again; a second miss is a regression |
 
-**Audio analysis feed** — Unity's per-source readback (`AudioSource.GetOutputData` and the
-spectrum calls behind it) only reflects clip playback, so an output the tap drives reads back as
-silence and anything sampling that AudioSource — AudioLink, VU meters, spectrum-driven world
-scripts — sees nothing. `Analysis Feed` on that output's `BasisMediaAudioChannel` swaps it to a clip the
-player writes, which Unity does read back. The row to run is AudioLink: add its `AudioLinkInput`
-AudioSource to `Outputs` with a `BasisMediaAudioChannel` set to `Stereo (downmix)` and
-`Analysis Feed` ticked, point AudioLink's `audioSource` at it, and confirm the AudioLink texture
-tracks the stream. Untick it and reactivity should stop, which is the control for the whole
-mechanism. Only that output changes: the speakers stay on the tap, so check A/V sync on them is
-no different with the feed on. The feed runs `Feed Delay` behind the tap-driven outputs, so
-reactivity trails the sound by that much — check it looks in time at the default and lower it
-until it breaks up to find the floor on the platform under test. It's written once a frame, so
-the floor moves with the frame rate; a rig that holds at 0.02s on desktop may need more on a
-headset. The filter-order notices don't apply to
-an analysis output, since it isn't generating into the DSP block, so confirm a filter added there
-is heard and isn't flagged. The analyser still won't hear that filter: the readback is taken from
-clip playback, upstream of the filter chain, so a low pass on an analysis output colours what you
-hear and nothing of what AudioLink sees. Worth one pass on Quest, where the DSP runs at a different rate to
-the stream and the clip path leans on Unity's own resampling rather than the tap's.
+## Third-party licences
 
-**Panel UI** ("Media Players" panel, `Runtime/UI/BasisMediaPlayerPanelProvider.cs`) — URL
-load, transport buttons, seek slider (VOD only), volume, bitrate dropdown (HLS multi-variant),
-audio-track dropdown (multi-audio content), captions toggle + opacity sliders, subtitles
-dropdown (only when the loaded media offers sidecar subtitle tracks — resolver-supplied, so
-the scenarios live in the resolver package's guide; with plain stream URLs the dropdown must
-be entirely absent). Controls that don't apply to the loaded media should be absent or inert,
-not broken.
+Update the files and bake as [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)
+describes.
 
-**Security gates** — negative tests matter: `http://192.168.1.10/x.ts` must refuse with a
-clear reason on every platform (that RFC1918 refusal is the C# gate and holds regardless of any
-env var); a plain HTTP(S) `localhost` MP4/TS URL must refuse **in a build**; `file:///` must
-refuse. `localhost` in the Editor is refused on every lane — HTTP(S) as well as HLS, RTSP and
-RTMP — unless `BASIS_MEDIA_ALLOW_LOCAL` relaxes the native re-check (see the security-gates
-section above); a refusal there without the opt-in is correct, not a regression.
-A regression that *opens* a gate is a security bug — flag it as such, not as a playback bug.
+| Row | Do | Expect |
+| --- | --- | --- |
+| Licence list | In Play Mode, open Settings, Third-party licences | A **Basis Media Player** entry and one **Basis Media Player engine: …** entry per file in `ThirdPartyLicenses~/`. Each expands to its whole text, the ISC and Apache-2.0 entries included |
 
-**HLS sub-resource SSRF** — the URL gate only sees the top-level playlist, so the native
-source re-checks each URI a playlist steers it to. Serve a media `.m3u8` from a public host
-whose segment (or `EXT-X-MAP`, or a nested variant) URI is an absolute
-`http://169.254.169.254/…` / `http://192.168.x.x/…` / `http://127.0.0.1:PORT/…`: playback must
-fail rather than issue that fetch (watch the target server's logs — the internal host must see no
-request). A playlist that reaches an internal host is a security regression, not a broken-stream
-bug. (Editor testing of the legitimate localhost lane needs `BASIS_MEDIA_ALLOW_LOCAL` — see the
-security-gates section above.)
+## Still needs a person
 
-**Redirect SSRF** — the C# gate only ever sees the entry URL, so the native source re-validates
-the target of every `3xx` hop. Serve a public URL that answers `302 Location:` pointing at an
-internal target: playback must fail and the internal listener must see **no connection at all**.
-That is a refusal you can only confirm by watching the target, since a followed-then-failed hop
-looks identical from the client — judge on the listener, never on the error message.
-
-Cover both address families, because they go through different branches of the guard and the
-platform URL parsers hand an IPv6 host back in brackets where an IPv4 one has none:
-
-| Redirect target | Catches |
-| --- | --- |
-| `https://127.0.0.1:PORT/…` | IPv4 loopback |
-| `http://192.168.x.x/…` | RFC1918 |
-| `http://169.254.169.254/…` | link-local / cloud metadata |
-| `https://[::1]:PORT/…` | IPv6 loopback |
-| `https://[fd00::1]/…` | IPv6 ULA |
-| `https://[fe80::1]/…` | IPv6 link-local — **confirmatory only, see below** |
-| a public hostname resolving to a private address | resolved-address checking, not string matching |
-| a hostname answering with **both** a public and a private address | any private answer must block the name outright |
-| `file:///C:/Windows/win.ini` as the `Location` | the scheme allow-list, which runs **after** the hop is resolved |
-| `ftp://ftp.example.com/x.ts` as the `Location` | the same, on a scheme that is neither local nor http |
-| an `https` entry URL answering `302 Location: http://public-host/…` | the transport downgrade — the body must not silently fall back to plaintext |
-
-The two scheme rows look redundant against a guard that only ever fetches over HTTP, and they are
-not: both platforms resolve a hop with the OS URL machinery (`UrlCombineW`, `java.net.URL`), and
-both will carry a foreign scheme straight through from a `Location` that supplies one. The
-allow-list therefore has to run after the resolve, and nothing else in this matrix exercises that
-ordering — a regression in it would pass every other row here.
-
-The downgrade row needs its own witness, because a plaintext target is an ordinary public host that
-the address policy is right to allow — nothing about the refusal is visible from the client. Point
-the `Location` at a plain-HTTP listener you control and watch it: a connection means the hop was
-followed and the media would have travelled in the clear. Note that an `http` *entry* URL is still
-allowed; it is only the https→http transition that must be refused.
-
-The two IPv6 link-local and ULA rows are **confirmatory, not discriminating**, and should be
-recorded as such. Neither address is routable from a test machine — `fe80::1` has no zone index, so
-it cannot be reached even by a client with no guard at all — which means a refusal proves the
-request stopped, not that the address policy is what stopped it. Adding an RFC 6874 zone
-(`https://[fe80::1%25<zone>]/…`) would make it routable and therefore discriminating, but the zone
-is host-specific and differs between Windows and Android, so there is no portable fixture. Check
-these against the guard directly instead: it refuses the bare, raw-zone (`fe80::1%1`) and
-percent-encoded (`fe80::1%251`) forms alike, which is the part a regression would break.
-
-The mixed-answer row needs a zone you can edit: give one name a working public `A` and a private
-`AAAA` at the same time. **Watch both addresses and require that neither is contacted.** Watching
-only the private one makes the result depend on connection order — an implementation that stops at
-the first usable answer could connect to the *public* address and the private listener would stay
-silent, which reads as a pass. It isn't: the rule is that any private answer blocks the whole name,
-so a correct client contacts neither. The public side is easy to watch if you own the host — its
-own access log is the witness. It is worth the setup, because it is the row a plausible-looking
-guard fails. If you can't set it up, say so rather than ticking it.
-
-The mirror case — a **public** IPv6 literal must still be allowed, since it fails closed if bracket
-handling regresses — is worth covering end-to-end where you can. `https://[2606:…]/` needs a host on
-a public IPv6 address serving over a certificate with an IP SAN. Let's Encrypt has issued those for
-both IPv4 and IPv6 since January 2026, under its short-lived (~6 day) profile, so the certificate is
-no longer the obstacle: an IPv6-reachable host is. Standing one up exercises bracket parsing, the
-address policy, TLS and the hop loop together, which nothing else in this matrix does. Where no such
-host is available, check that case against the guard directly and record that the stream lane was
-skipped — a guard check does not cover the TLS and parsing half.
-
-Legitimate redirects must still play, which is the half that catches an over-tight fix: check an
-absolute **same-host, same-scheme** `302`, a two-hop chain, and a relative `Location` (both `/path`
-and `../path`). Same-scheme is load-bearing in that sentence — "same host" alone would include the
-https→http case the row above requires to be refused. An `http`→`https` **upgrade** is allowed and
-is worth checking separately; only the downgrade is refused. A self-redirect must terminate rather
-than spin.
-
-**RIST host SSRF** (opt-in `-DBASIS_WITH_RIST=ON` build only) — librist opens and resolves its own
-UDP sockets, so the transport sits outside the `basis_io` connect-time guard the other lanes share.
-`basis_rist_open` closes that by resolving and vetting the host itself and pinning librist to the
-validated address literal. The subtlety when testing it: a `rist://` host is the **entry** URL, so
-the C# gate (`BasisMediaPlayerSecurity`) already refuses a literal private target or a hostname that
-resolves to a private address before native runs — a plain `rist://192.168.x.x` never reaches
-`basis_rist_open` at all, unlike the HLS/redirect lanes where the private target hides in a
-sub-resource the C# gate never sees. The native guard is therefore a rebind backstop, exercised only
-by a target that passes the C# check but is private by the time native resolves: a DNS-rebinding
-fixture whose name answers a public address first and a private one on the next lookup. Point librist
-at it and watch the private listener — it must see **no UDP at all**. `BASIS_MEDIA_ALLOW_LOCAL` is
-not a way in here: it does not relax the C# gate, so it cannot carry a private literal through to
-native. Where no rebind fixture is available, exercise `basis_io_resolve_checked` directly against
-the loopback/RFC1918/link-local set and record that the stream lane was skipped. This whole lane
-only applies to the RIST-enabled build: in the default build `rist://` still passes the scheme
-allowlist (it is listed there), reaches native, and is declined by the stub `basis_rist_open` with
-a clear "RIST is not built into this plugin — rebuild with `-DBASIS_WITH_RIST=ON`" error on the sink;
-playback fails and the SSRF guard above does not exist in that build.
-
-**The client-side extension gate shapes which redirect fixtures reach native.**
-`BasisMediaUrlRouter.IsDirectlyPlayable` requires the URL path to end in a media extension once the
-query is stripped, so an extensionless redirect fixture is rejected in C# and never reaches the
-native source at all — give the fixture a real media extension on its final path when exercising the
-redirect rows. On Android there is no OS-extractor leg: MP4/WebM demux through the same portable path
-as Windows, fed by the JNI HTTP source, so the extension you pick selects the container under test,
-not a separate code path, and the SSRF hop loop is shared across all of them.
-
-**Android progressive playback and seek** — MP4/WebM demux through the portable path fed by the JNI
-HTTP source, so any change to either wants a plain regression pass behind it: play a large
-progressive `.mp4` over https, seek forwards and backwards several times, and confirm the position
-tracks and audio stays in sync. Use a byte-range server (`206` + a valid `Content-Range`) for the
-seek path; the no-`Accept-Ranges` and trailing-moov cases carry their own expectations in the
-**Trailing-moov progressive MP4** row above.
-
-**A/V sync judgement** — use real footage with **visible speech**; synthetic patterns hide sync
-drift, and Big Buck Bunny has no dialogue at all. A CC-BY Blender open
-movie with clear lip-sync is a good source — Sintel and Spring both work; download from
-[Blender Studio films](https://studio.blender.org/films/) and re-encode/serve as needed. Watch a
-full minute at the live edge, not five seconds. For anything subtle, capture diagnostics (below)
-rather than trusting perception.
-
-Know what this row cannot do, and do not treat audibility as the pass bar. A fixed offset
-below roughly 45 ms is still a real A/V-sync regression — it is just below the threshold where
-watching harder will find it, so this perceptual row structurally cannot see it. Audibility
-only explains why manual observation is insufficient here; it is not an acceptance tolerance.
-Anything with a constant delay in it (decoder priming, buffer alignment, resampler latency)
-must be measured against a reference decode with an explicit tolerance, not signed off by ear.
-
-**Orientation** — a horizontal mirror is invisible on symmetric content. Verify left/right
-with on-screen text or a logo, every time video-path code changes.
-
-## Diagnostics and evidence
-
-- **`BasisMediaPlayerDiagnostics`** (`Runtime/BasisMediaPlayerDiagnostics.cs`): add the
-  component next to a `BasisMediaPlayer`, enable `AutoStart` (or call `StartLogging()`), and
-  it samples ~50 snapshots/s to `Application.persistentDataPath/BasisMediaPlayerDiag.csv`
-  (Windows: `%USERPROFILE%\AppData\LocalLow\<company>\<product>\`). Useful signals:
-  `eng_ttff_ms` (time to first frame), `engine_pos_us` step distribution (late presents show
-  as double-steps coinciding with wall-clock gaps), `eng_lag_ms`/`eng_buf_ms` (clock vs
-  buffer health), `audio_queue_depth`/`eng_audio_trims` (audio starvation/overrun),
-  `cpu_*_drops/skips` (CPU-path frame accounting),
-  `eng_rtp_video_gaps`/`eng_rtp_video_drops`/`eng_rtp_audio_gaps` (RTP loss on UDP
-  transports). Filter rows to `engine_state == Playing` before drawing conclusions.
-- **RTP loss counters**: on `rtsp://` where UDP wins the negotiation, packet loss costs whole
-  access units rather than delivery time — a sequence gap taints the AU under assembly and it
-  is discarded rather than handed to the decoder incomplete. Queue depths, the present clock
-  and `eng_lag_ms` can therefore all look healthy while frames are being dropped. A climbing
-  `eng_rtp_video_drops` against a steady `eng_lag_ms` is loss, not starvation, and buffering
-  does not address it. These stay at zero on TCP transports, which have no sequence gaps to
-  detect.
-
-  They also stay at zero on a native plugin built before the counters existed, because the
-  values come from the native side — so a stale binary reports absence of loss rather than
-  absence of instrumentation, which is the more dangerous of the two. If a UDP stream is
-  visibly dropping frames and all four columns read zero, check the plugin for that platform
-  is current before concluding the path is clean.
-- **`eng_reasm_video_drops`** counts the other reason an access unit is discarded: reassembly
-  failed locally, either an allocation failure or the depacketiser refusing a reassembly past
-  its per-AU ceiling. It is deliberately separate from the loss counters because the cause is
-  different in kind — it needs no packet loss and fires on any transport, so a run of it points
-  at a malformed or hostile source rather than at network conditions. Non-zero here on
-  `rtspt://`, which cannot lose packets, always means the source, never the path.
-- **Debug window**: `Basis → Debug → Media Player Debug` shows live engine state per player.
-- **Feedless harness**: `BasisSyntheticTestSource` (`Runtime/Sources/`) drives the player
-  without any network feed — isolates render-path changes from transport noise.
-- **Logs**: the package logs exclusively under the `Video` tag via `BasisDebug`. On Android,
-  `adb logcat -s Unity` plus the codec tags carry the native side.
-
-## Reporting a regression
-
-A report that can be acted on contains:
-
-1. The exact URL (or how to reproduce the source — server + asset recipe) — full URL, not a fragment
-2. Platform, graphics API, Editor-or-build, headset if relevant
-3. What was expected, what happened, and how reliably it reproduces
-4. Console output around the failure (the `Video`-tagged lines) and, for timing/sync issues,
-   the diagnostics CSV covering the incident
-5. Whether `ffprobe` of the same URL was green at the time
-
-## Acknowledgements
-
-The always-on live lanes above are [VRCDN](https://vrcdn.live/)'s own public channel, listed
-here with their permission — thanks to the VRCDN team for keeping a reliable 24/7 reference
-stream running and for letting this guide point testers at it. Be a good guest: use it for
-interactive test sessions, not automated soak loops, and stand up your own server for anything
-sustained.
-
-## Native plugin changes: the security boundary
-
-`Native~/` is where the player is most exposed, and a change there is not verified the same
-way a C# change is. The C core parses container and protocol bytes **by hand** — MP4 box
-walking (`esds`/`avcc`/`hvcC`), MPEG-TS section parsing, RTSP/RTMP, WebM — and it does so
-**in-process, with no sandbox**. The bytes are attacker-controlled: a media URL is opened
-from world content and, in multiplayer, broadcast by a peer so that every other client parses
-the same hostile stream at once. A parser that reads past a buffer, trusts a length field it
-never bounds-checked, or dereferences a pointer it never validated is therefore reachable
-remotely, on every client simultaneously.
-
-Two outcomes to test against, in priority order:
-
-- **Denial of service** — the common, proven case. A malformed stream crashes or hangs the
-  decode thread and takes the process (editor or client) down with it. This has happened from
-  an ordinary `ffmpeg`-produced file: an HEVC elementary stream that reaches the decoder with
-  no frame size made the Windows Store HEVC MFT dereference a null pointer on its own worker
-  thread. The parser must refuse a sizeless or otherwise under-specified track **before** it
-  hands bytes to the decoder, not let it fail somewhere downstream. DoS also covers *resource*
-  exhaustion, not just crashes: a size or length field the peer declares must be bounded before
-  it drives an allocation or a read loop. The RTMP chunk length, the RTMP per-session buffer
-  total, and the RTSP header block and Content-Length are all attacker-declared and now capped;
-  a hang counts too — an RTSP server that dribbles an endless header block used to wedge the
-  demux thread and, through it, `basis_media_close`. These are exercised by the `fuzz_rtmp` /
-  `fuzz_rtsp` targets, not by the playback matrix. **Exactly one of them is gated in CI: the
-  RTMP per-message length cap.** `testcases/rtmp/msg_len_alloc_bomb.bin` is replayed under
-  `-malloc_limit_mb=8`, and losing that cap turns the run red. **The per-session buffer total
-  is *not* gated by it, and the flag cannot gate it**: `-malloc_limit_mb` bounds a single
-  allocation, while the session total is only ever reached by accumulating many separate
-  `realloc` calls across the 64 chunk-stream slots, none of which need cross 8 MiB. Removing
-  `RTMP_MAX_TOTAL` therefore leaves CI green — re-check it by hand when touching the chunk
-  reassembler. The **endless-header hang is local-only** for a related reason — the fuzz stub
-  is finite and cannot reproduce a hang, which is why it was verified with a standalone server
-  harness. Re-run that by hand when touching the RTSP header reader; nothing in CI will catch
-  a regression there.
-- **Memory corruption** — the worst case, and the reason this is a security boundary and not
-  just a stability one. Hand-rolled parsers with untrusted lengths are exactly where
-  out-of-bounds reads and writes live. Treat *any* out-of-bounds access as a security bug,
-  including a read that "only" crashes — the same missing bound is often writable with a
-  different input.
-
-So "a good file still plays" does not verify a parser change. Proving a *hostile* file cannot
-crash, hang, or corrupt does.
-
-### What to test after a parser or protocol change
-
-- **Malformed and truncated input, expecting a clean refusal.** For every parser you touch:
-  truncate the file mid-box or mid-packet; corrupt a length or size field so it points past
-  the buffer; set a dimension, channel count, or entry count to zero or to `UINT32_MAX`; nest
-  boxes to absurd depth; point an offset back at itself. The bar is **errors cleanly, never
-  crashes or hangs** — a surfaced error string is a pass, a segfault or a spin is a failure.
-  Valid-file checks miss all of this by construction; the regressions live in the inputs the
-  author didn't picture.
-- **Fuzz the demux and parse entry points under sanitizers.** The harness for this lives at
-  [`tools/media-fuzz/`](../../../tools/media-fuzz/): coverage-guided libFuzzer targets that
-  drive the real `protocol/*.c` readers under AddressSanitizer + UndefinedBehaviorSanitizer,
-  no decoder or Unity needed (`./build.sh`, then run a target against a seed corpus). ASan
-  turns a silent out-of-bounds read into a named fault with a stack — it is both how you find
-  these and how you prove one is gone. An unsanitised "it didn't crash this time" is not proof.
-  Fuzzing corrupt input is the single highest-value test this code has; a parser change that
-  ships without a fuzz pass is under-tested. When you add a parser, add a `fuzz_<name>.c` target
-  beside the others. Targets exist for the container demuxers (TS/MP4/WebM/Ogg/MP3/WAV), the caption
-  scanner, the URL parser (`fuzz_url`), the HLS playlist source (`fuzz_hls`), and the RTSP/RTMP
-  parsers (`fuzz_rtsp`/`fuzz_rtmp` — their harness `#include`s the real `.c` and stubs `basis_io`,
-  byte-serving the read paths; `parse_sdp`/`depkt_*`/`amf_*`/FLV tag parsers are driven directly).
-  Deeper full-session coverage (a scripted handshake or an injected transport vtable) is a documented
-  follow-up. Still exercise all of these with the adversarial live-server rows above
-  (truncated/oversized headers, a server that never sets the RTP marker) — fuzzing complements the
-  matrix, it doesn't replace it.
-- **Keep every crash's repro as a permanent fixture.** When a malformed stream is found to
-  crash, the exact file that triggered it is pinned under `tools/media-fuzz/testcases/` and
-  replayed by the `fuzz-demux` CI job (`media-native.yml`) on every native change — a fixed
-  memory-safety bug that isn't pinned by a regression repro comes back the next time the
-  surrounding code moves.
-- **Regress the good path bit-for-bit, not by eye.** A protocol fix on one transport can shift
-  the packets another transport emits, because they share the AU path. After any demux change,
-  re-run the known-good fixtures and confirm the demuxer still produces the same packets and
-  the same decoded frames. `ffprobe -show_packets` alone only compares metadata, not payload, so
-  a byte regression with unchanged sizes/timestamps would slip through — the conformance gate
-  compares per-packet payload hashes (`-show_data_hash md5`) against ffprobe, and `ffmpeg` frame
-  hashes cover pixels. Those hashes are what make "the same" objective instead of "looked fine
-  to me."
-
-### Rebuilding and platform coverage
-
-Any change under `Native~/` needs the rebuilt binaries verified on **both** platforms it ships
-for (Windows x64 DLL, Android arm64 `.so`) — the shared C core means a protocol fix on one
-platform can regress the other, and the malformed-input and fuzz checks above apply to each
-backend's decode path (Media Foundation on Windows, `AMediaCodec` on Android) as well as the
-shared parsers. See the README's "Building the native plugin" section. Note the Windows DLL
-cannot be replaced while any Unity instance holds it loaded — close Unity, swap, reopen.
+Picture and sound quality in a headset on the live transports.

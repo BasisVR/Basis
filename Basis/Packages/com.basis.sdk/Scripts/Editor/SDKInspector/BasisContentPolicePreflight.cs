@@ -1,7 +1,9 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Basis.Editor.Localization;
 using Basis.Scripts.BasisSdk;
 using UnityEditor;
 using UnityEngine;
@@ -104,9 +106,8 @@ public static class BasisContentPolicePreflight
         if (removed.Length > 0)
         {
             container.Add(Box(
-                $"{removed.Length} component(s) will be REMOVED when this loads",
-                "These are not on the approved list for this content type. They are stripped before " +
-                "anything runs, so whatever depends on them will not work once uploaded.",
+                BasisEditorLocalization.Get("sdk.contentPolicePreflight.removed.title", removed.Length),
+                BasisEditorLocalization.Get("sdk.contentPolicePreflight.removed.body"),
                 removed,
                 HelpBoxMessageType.Error));
         }
@@ -114,11 +115,8 @@ public static class BasisContentPolicePreflight
         if (converted.Length > 0)
         {
             container.Add(Box(
-                $"{converted.Length} component(s) will be CONVERTED when this loads",
-                "Unity and Animation Rigging constraints are rewritten onto the Basis solver, and the " +
-                "rig that drove them is removed. They keep working, so no action is needed — but the " +
-                "originals will not be there afterwards, so anything referencing them by type needs " +
-                "to expect the Basis equivalent instead.",
+                BasisEditorLocalization.Get("sdk.contentPolicePreflight.converted.title", converted.Length),
+                BasisEditorLocalization.Get("sdk.contentPolicePreflight.converted.body"),
                 converted,
                 HelpBoxMessageType.Warning));
         }
@@ -133,7 +131,7 @@ public static class BasisContentPolicePreflight
         group.style.marginTop = 4;
         group.Add(new HelpBox($"{title}\n\n{body}", severity));
 
-        Foldout foldout = new Foldout { text = "Show affected objects", value = false };
+        Foldout foldout = new Foldout { text = BasisEditorLocalization.Get("sdk.contentPolicePreflight.showAffected"), value = false };
         foldout.style.marginLeft = 4;
         for (int Index = 0; Index < findings.Count; Index++)
         {
@@ -149,7 +147,7 @@ public static class BasisContentPolicePreflight
 
     static ContentPoliceSelector ResolveSelector(BundledContentHolder.Selector selector)
     {
-        BundledContentHolder holder = UnityEngine.Object.FindFirstObjectByType<BundledContentHolder>(
+        BundledContentHolder holder = UnityEngine.Object.FindAnyObjectByType<BundledContentHolder>(
             FindObjectsInactive.Include);
         if (holder == null || !holder.GetSelector(selector, out ContentPoliceSelector police))
         {
@@ -179,6 +177,7 @@ public static class BasisContentPolicePreflight
 /// The type names the load-time pass rewrites rather than removes. Kept as strings here so the
 /// editor check needs no reference to the Animation Rigging package to know what it is looking at.
 /// </summary>
+[NoAutoStaticsCleanup]
 public static class BasisConstraintConversionNames
 {
     static readonly HashSet<string> Converted = new HashSet<string>
@@ -216,6 +215,7 @@ public static class BasisConstraintConversionNames
 /// load-time pass and must not be reported against it. Resolved by name for the same reason the
 /// constraint list is: this assembly does not reference the cilbox package, which is optional.
 /// </summary>
+[NoAutoStaticsCleanup]
 public static class BasisCilboxTypeCheck
 {
     static readonly Dictionary<Type, bool> Cache = new Dictionary<Type, bool>();
@@ -264,8 +264,8 @@ public static class BasisCilboxTypeCheck
         AttributeType = Type.GetType("CilboxableAttribute, Cilbox");
         if (AttributeType == null)
         {
-            Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            for (int Index = 0; Index < assemblies.Length; Index++)
+            IReadOnlyList<Assembly> assemblies = UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies();
+            for (int Index = 0; Index < assemblies.Count; Index++)
             {
                 AttributeType = assemblies[Index].GetType("CilboxableAttribute", false);
                 if (AttributeType != null)

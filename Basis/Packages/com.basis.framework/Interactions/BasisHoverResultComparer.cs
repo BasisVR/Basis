@@ -1,9 +1,11 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 namespace Basis.Scripts.BasisSdk.Interactions
 {
     /// <summary>
     /// Efficient singleton comparer for sorting HoverResults by distance.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public class BasisHoverResultComparer : IComparer<BasisHoverResult>
     {
         public static readonly BasisHoverResultComparer Instance = new BasisHoverResultComparer();

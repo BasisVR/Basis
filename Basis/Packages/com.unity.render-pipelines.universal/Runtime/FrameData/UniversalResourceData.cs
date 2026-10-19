@@ -328,6 +328,39 @@ namespace UnityEngine.Rendering.Universal
         private TextureHandle _irradianceTexture;
 
         /// <summary>
+        /// Screen Space reflection texture.
+        /// </summary>
+        internal TextureHandle ssrTexture
+        {
+            get => CheckAndGetTextureHandle(ref _ssrTexture);
+            set => CheckAndSetTextureHandle(ref _ssrTexture, value);
+        }
+        private TextureHandle _ssrTexture;
+
+#if ENABLE_UPSCALER_FRAMEWORK
+        /// <summary>
+        /// Copy of camera color before post processing is executed.
+        /// </summary>
+        internal TextureHandle cameraColorBeforePP
+        {
+            get => CheckAndGetTextureHandle(ref _cameraColorBeforePP);
+            set => CheckAndSetTextureHandle(ref _cameraColorBeforePP, value);
+        }
+        private TextureHandle _cameraColorBeforePP;
+#endif
+
+        /// <summary>
+        /// Screen Space reflection ray travel distances, blurred into a mip chain. Only valid when contact hardening
+        /// is enabled.
+        /// </summary>
+        internal TextureHandle ssrRayDistanceTexture
+        {
+            get => CheckAndGetTextureHandle(ref _ssrRayDistanceTexture);
+            set => CheckAndSetTextureHandle(ref _ssrRayDistanceTexture, value);
+        }
+        private TextureHandle _ssrRayDistanceTexture;
+
+        /// <summary>
         /// STP debug visualization written to by the STP upscaler.
         /// </summary>
         internal TextureHandle stpDebugView
@@ -347,6 +380,14 @@ namespace UnityEngine.Rendering.Universal
             set => CheckAndSetTextureHandle(ref _destinationCameraColor, value);
         }
         private TextureHandle _destinationCameraColor;
+
+        // A 1x1 texture used to hold the exposure value.
+        internal TextureHandle exposureMultiplier
+        {
+            get => CheckAndGetTextureHandle(ref _exposureMultiplier);
+            set => CheckAndSetTextureHandle(ref _exposureMultiplier, value);
+        }
+        private TextureHandle _exposureMultiplier;
 
         /// <inheritdoc />
         public override void Reset()
@@ -370,8 +411,14 @@ namespace UnityEngine.Rendering.Universal
             _dBufferDepth = TextureHandle.nullHandle;
             _ssaoTexture = TextureHandle.nullHandle;
             _irradianceTexture = TextureHandle.nullHandle;
+            _ssrTexture = TextureHandle.nullHandle;
+            _ssrRayDistanceTexture = TextureHandle.nullHandle;
+#if ENABLE_UPSCALER_FRAMEWORK
+            _cameraColorBeforePP = TextureHandle.nullHandle;
+#endif
             _stpDebugView = TextureHandle.nullHandle;
             _destinationCameraColor = TextureHandle.nullHandle;
+            _exposureMultiplier = TextureHandle.nullHandle;
 
             for (int i = 0; i < _gBuffer.Length; i++)
                 _gBuffer[i] = TextureHandle.nullHandle;

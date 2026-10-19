@@ -30,6 +30,8 @@ namespace BasisNetworkServer.Security
         private static int _propGrabbingLocked;
         private static int _safeDisplayNamesForced;
         private static int _gifsLocked;
+        private static int _contentRemovalLocked;
+        private static int _externalLinksLocked;
         // 0 = feature on (default), 1 = admin-disabled. Inverted vs the locks above — this is a default-on feature.
         private static int _endEffectorIKDisabled;
 
@@ -51,6 +53,8 @@ namespace BasisNetworkServer.Security
         public static bool PropGrabbingLocked => Interlocked.CompareExchange(ref _propGrabbingLocked, 0, 0) == 1;
         public static bool SafeDisplayNamesForced => Interlocked.CompareExchange(ref _safeDisplayNamesForced, 0, 0) == 1;
         public static bool GifsLocked => Interlocked.CompareExchange(ref _gifsLocked, 0, 0) == 1;
+        public static bool ContentRemovalLocked => Interlocked.CompareExchange(ref _contentRemovalLocked, 0, 0) == 1;
+        public static bool ExternalLinksLocked => Interlocked.CompareExchange(ref _externalLinksLocked, 0, 0) == 1;
         public static bool EndEffectorIKDisabled => Interlocked.CompareExchange(ref _endEffectorIKDisabled, 0, 0) == 1;
 
         /// <summary>
@@ -77,6 +81,8 @@ namespace BasisNetworkServer.Security
             Interlocked.Exchange(ref _propGrabbingLocked, config.PropGrabbingLocked ? 1 : 0);
             Interlocked.Exchange(ref _safeDisplayNamesForced, config.SafeDisplayNamesForced ? 1 : 0);
             Interlocked.Exchange(ref _gifsLocked, config.GifsLocked ? 1 : 0);
+            Interlocked.Exchange(ref _contentRemovalLocked, config.ContentRemovalLocked ? 1 : 0);
+            Interlocked.Exchange(ref _externalLinksLocked, config.ExternalLinksLocked ? 1 : 0);
             Interlocked.Exchange(ref _endEffectorIKDisabled, config.EndEffectorIKDisabled ? 1 : 0);
         }
 
@@ -110,6 +116,8 @@ namespace BasisNetworkServer.Security
             config.PropGrabbingLocked = PropGrabbingLocked;
             config.SafeDisplayNamesForced = SafeDisplayNamesForced;
             config.GifsLocked = GifsLocked;
+            config.ContentRemovalLocked = ContentRemovalLocked;
+            config.ExternalLinksLocked = ExternalLinksLocked;
             config.EndEffectorIKDisabled = EndEffectorIKDisabled;
         }
 
@@ -208,6 +216,10 @@ namespace BasisNetworkServer.Security
 
         public static bool ToggleGifs() => Toggle(ref _gifsLocked);
 
+        public static bool ToggleContentRemoval() => Toggle(ref _contentRemovalLocked);
+
+        public static bool ToggleExternalLinks() => Toggle(ref _externalLinksLocked);
+
         /// <summary>
         /// Toggle the global remote end-effector IK disable. Returns the new state (true = disabled;
         /// clients fall back to pure-FK playback for remote hands/feet). Enforced client-side.
@@ -270,6 +282,8 @@ namespace BasisNetworkServer.Security
             // Appended after PropGrabbingLocked — older clients that stop reading earlier still parse.
             writer.Put(SafeDisplayNamesForced);
             writer.Put(GifsLocked);
+            writer.Put(ContentRemovalLocked);
+            writer.Put(ExternalLinksLocked);
             NetworkServer.TrySend(peer, writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
             NetworkServer.ReturnWriter(writer);
         }
@@ -312,6 +326,8 @@ namespace BasisNetworkServer.Security
             // Appended after PropGrabbingLocked — older clients that stop reading earlier still parse.
             writer.Put(SafeDisplayNamesForced);
             writer.Put(GifsLocked);
+            writer.Put(ContentRemovalLocked);
+            writer.Put(ExternalLinksLocked);
             NetworkServer.BroadcastMessageToClients(
                 writer,
                 BasisNetworkCommons.AdminChannel,

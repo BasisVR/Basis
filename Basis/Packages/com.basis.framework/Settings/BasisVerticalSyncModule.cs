@@ -1,8 +1,10 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.Device_Management;
 using UnityEngine;
 
-public class BasisVerticalSyncModule : BasisSettingsBase
+[AutoStaticsCleanup]
+public partial class BasisVerticalSyncModule : BasisSettingsBase
 {
     public static int CappedFrameRateSelected = 120;
 

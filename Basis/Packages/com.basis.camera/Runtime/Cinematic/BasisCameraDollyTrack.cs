@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -8,7 +9,8 @@ namespace Basis.Cinematics
     /// end of the queue; its slot can be changed afterwards, which reshapes the path without moving
     /// anything in the world.
     /// </summary>
-    public class BasisCameraDollyTrack
+    [AutoStaticsCleanup]
+    public partial class BasisCameraDollyTrack
     {
         private const int SamplesPerSegment = 12;
         private const float LineWidth = 0.012f;

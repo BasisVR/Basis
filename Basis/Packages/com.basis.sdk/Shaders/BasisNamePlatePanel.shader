@@ -7,6 +7,12 @@ Shader "Basis/NamePlate/Panel"
     Properties
     {
         _Sheen ("Top Sheen", Range(0,0.4)) = 0.08
+        _BaseColor ("Color", Color) = (1,1,1,1)
+        [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlend ("Src Blend", Float) = 5
+        [Enum(UnityEngine.Rendering.BlendMode)] _DstBlend ("Dst Blend", Float) = 10
+        [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlendAlpha ("Src Blend Alpha", Float) = 5
+        [Enum(UnityEngine.Rendering.BlendMode)] _DstBlendAlpha ("Dst Blend Alpha", Float) = 10
+        [ToggleUI] _ZWrite ("ZWrite", Float) = 0
     }
 
     SubShader
@@ -22,9 +28,9 @@ Shader "Basis/NamePlate/Panel"
         Cull Off
         Lighting Off
         Fog { Mode Off }
-        ZWrite Off
+        ZWrite [_ZWrite]
         ZTest LEqual
-        Blend SrcAlpha OneMinusSrcAlpha
+        Blend [_SrcBlend] [_DstBlend], [_SrcBlendAlpha] [_DstBlendAlpha]
 
         Pass
         {
@@ -33,7 +39,7 @@ Shader "Basis/NamePlate/Panel"
             #pragma fragment frag
             #pragma target 4.5
             #pragma multi_compile_instancing
-            #pragma multi_compile _ BASIS_NAMEPLATE_GPU
+            #pragma multi_compile _ BASIS_NAMEPLATE_GPU BASIS_NAMEPLATE_OBJECT
 
             #include "UnityCG.cginc"
 
@@ -55,6 +61,21 @@ Shader "Basis/NamePlate/Panel"
             };
 
             float _Sheen;
+            float4 _BaseColor;
+            float _BasisNamePlateDepthPull;
+
+            float4 PulledClipPos(float3 objectPos)
+            {
+                float3 worldPos = mul(unity_ObjectToWorld, float4(objectPos, 1.0)).xyz;
+                if (unity_OrthoParams.w < 0.5)
+                {
+                    float3 toPoint = worldPos - _WorldSpaceCameraPos;
+                    float dist = max(length(toPoint), 1e-5);
+                    float pulled = max(dist - _BasisNamePlateDepthPull, min(dist, max(dist * 0.5, _ProjectionParams.y * 2.0)));
+                    worldPos = _WorldSpaceCameraPos + toPoint * (pulled / dist);
+                }
+                return UnityWorldToClipPos(worldPos);
+            }
 
             #if defined(BASIS_NAMEPLATE_GPU)
                 // Per-plate billboard data indexed by the plate id in TEXCOORD1.x. Positions stay
@@ -78,10 +99,13 @@ Shader "Basis/NamePlate/Panel"
                           + _PlateMatrices[b + 1] * v.vertex.y
                           + _PlateMatrices[b + 2] * v.vertex.z
                           + _PlateMatrices[b + 3]).xyz;
-                o.pos = UnityObjectToClipPos(p);
+                o.pos = PulledClipPos(p);
                 float4 col = _PlateColors[id];
+            #elif defined(BASIS_NAMEPLATE_OBJECT)
+                o.pos = PulledClipPos(v.vertex);
+                float4 col = _BaseColor;
             #else
-                o.pos = UnityObjectToClipPos(v.vertex);
+                o.pos = PulledClipPos(v.vertex);
                 float4 col = v.color;
             #endif
 
@@ -90,7 +114,7 @@ Shader "Basis/NamePlate/Panel"
                 // _BaseColor, so convert here or the grey (and every mode color) renders ~2x too
                 // bright. Guarded so it's a no-op in gamma projects.
                 float3 c = col.rgb;
-                #ifndef UNITY_COLORSPACE_GAMMA
+                #if !defined(UNITY_COLORSPACE_GAMMA) && !defined(BASIS_NAMEPLATE_OBJECT)
                     c = GammaToLinearSpace(c);
                 #endif
                 o.color = fixed4(c, col.a);

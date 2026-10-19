@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -12,7 +13,8 @@ namespace Basis.BasisUI
     /// memory. Only non-default (non-Ask) policies are stored; everyone else falls back to
     /// <see cref="BasisRecordingConsentPolicy.Ask"/>.
     /// </summary>
-    public static class BasisRecordingConsent
+    [AutoStaticsCleanup]
+    public static partial class BasisRecordingConsent
     {
         private const string FileName = "recordingConsent.json";
         private static readonly string FilePath = Path.Combine(Application.persistentDataPath, FileName);

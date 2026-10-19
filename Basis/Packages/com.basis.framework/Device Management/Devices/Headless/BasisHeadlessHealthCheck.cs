@@ -26,9 +26,9 @@ public sealed class BasisHeadlessHealthCheck : IDisposable
 
     // HttpListener URL prefixes require bracket notation for IPv6 address literals.
     private static string FormatHost(string host) =>
-        IPAddress.TryParse(host, out IPAddress addr) && addr.AddressFamily == AddressFamily.InterNetworkV6
-            ? $"[{host}]"
-            : host;
+        !IPAddress.TryParse(host, out IPAddress addr) ? host
+            : addr.Equals(IPAddress.Any) || addr.Equals(IPAddress.IPv6Any) ? "+"
+            : addr.AddressFamily == AddressFamily.InterNetworkV6 ? $"[{host}]" : host;
 
     public static string NormalizePath(string path)
     {

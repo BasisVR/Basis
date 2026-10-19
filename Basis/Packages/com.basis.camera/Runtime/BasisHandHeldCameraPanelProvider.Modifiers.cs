@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Cinematics;
 using Basis.Scripts.Networking;
@@ -18,7 +19,7 @@ namespace Basis.BasisUI.HandHeldCamera
         // Option lists are localization keys, not text. PanelDropdown resolves a selection by
         // string-matching the entry, so translated text as the value makes the selection follow the
         // language — and the key doubles as the stem its per-option tooltip is looked up from.
-        private static readonly string[] DollyModeKeys =
+        [NoAutoStaticsCleanup] private static readonly string[] DollyModeKeys =
         {
             "camera.dollyMode.manual", "camera.dollyMode.followSubject", "camera.dollyMode.play",
         };
@@ -27,7 +28,7 @@ namespace Basis.BasisUI.HandHeldCamera
         /// One entry per <see cref="BasisCameraEase"/>, in enum order — both ease dropdowns read
         /// their selection back as an index into this.
         /// </summary>
-        private static readonly string[] DollyEaseKeys =
+        [NoAutoStaticsCleanup] private static readonly string[] DollyEaseKeys =
         {
             "camera.dollyEase.linear", "camera.dollyEase.sine", "camera.dollyEase.quad",
             "camera.dollyEase.cubic", "camera.dollyEase.quart", "camera.dollyEase.quint",
@@ -35,23 +36,23 @@ namespace Basis.BasisUI.HandHeldCamera
             "camera.dollyEase.elastic", "camera.dollyEase.bounce",
         };
 
-        private static readonly string[] DollySyncKeys =
+        [NoAutoStaticsCleanup] private static readonly string[] DollySyncKeys =
         {
             "camera.dollySync.local", "camera.dollySync.networked", "camera.dollySync.locked",
         };
 
-        private static readonly string[] BindingModeKeys =
+        [NoAutoStaticsCleanup] private static readonly string[] BindingModeKeys =
         {
             "camera.bindingMode.subjectYaw", "camera.bindingMode.worldSpace", "camera.bindingMode.simpleFollow",
         };
 
-        private static readonly string[] NoiseProfileKeys =
+        [NoAutoStaticsCleanup] private static readonly string[] NoiseProfileKeys =
         {
             "camera.noiseProfile.off", "camera.noiseProfile.handheld", "camera.noiseProfile.documentary",
             "camera.noiseProfile.drone", "camera.noiseProfile.shaky", "camera.noiseProfile.custom",
         };
 
-        private static readonly string[] BackgroundModeKeys =
+        [NoAutoStaticsCleanup] private static readonly string[] BackgroundModeKeys =
         {
             "camera.background.world", "camera.background.greenScreen", "camera.background.blueScreen",
             "camera.background.black", "camera.background.white", "camera.background.magenta",
@@ -203,10 +204,10 @@ namespace Basis.BasisUI.HandHeldCamera
         /// <summary>The stack the panel edits, or null while no camera is selected.</summary>
         private BasisCameraModifierStack Stack => _activeCamera?.Modifiers;
 
-        private static readonly string[] SubjectLabelKeys = BuildSubjectLabelKeys();
-        private static readonly string[] PositionLabelKeys = BuildPositionLabelKeys();
-        private static readonly string[] RotationLabelKeys = BuildRotationLabelKeys();
-        private static readonly string[] AimPointKeys = BuildAimPointKeys();
+        [NoAutoStaticsCleanup] private static readonly string[] SubjectLabelKeys = BuildSubjectLabelKeys();
+        [NoAutoStaticsCleanup] private static readonly string[] PositionLabelKeys = BuildPositionLabelKeys();
+        [NoAutoStaticsCleanup] private static readonly string[] RotationLabelKeys = BuildRotationLabelKeys();
+        [NoAutoStaticsCleanup] private static readonly string[] AimPointKeys = BuildAimPointKeys();
 
         private static string[] BuildSubjectLabelKeys()
         {

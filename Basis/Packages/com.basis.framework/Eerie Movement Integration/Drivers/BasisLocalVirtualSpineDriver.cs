@@ -15,7 +15,7 @@ namespace Basis.IK
         private bool initialized;
         private float lenNeckToChest, lenChestToSpine, lenSpineToHips, lenSpineTotal, chestTransform, spineTransform, restHipsLocalY;
         private float restHeadLocalY, hipsRestDropY;
-        private float3 hipsFromEyeTposeXZ, headFromEyeTposeXZ, yawPivotFromEyeTposeXZ, eyeFromHeadTpose;
+        private float3 hipsFromEyeTposeXZ, headFromEyeTposeXZ, yawPivotFromEyeTposeXZ, eyeFromHeadTpose, hipsFromHeadTpose;
         private float3 restChordDir, chestRestPerp, spineRestPerp;
         private float chestRestAlong, spineRestAlong;
         private float tposeNeckMinusEyeY;
@@ -126,7 +126,7 @@ namespace Basis.IK
 
             bool isVR = BasisDeviceManagement.IsCurrentModeVR();
 
-            float torsoYawDeadzoneDeg = isVR ? (Basis.BasisUI.BasisSettingsDefaults.VSpineTorsoYawPlayInVR.RawValue ? Basis.BasisUI.BasisSettingsDefaults.VSpineTorsoYawDeadzoneVRDeg.RawValue : 0f) : Basis.BasisUI.BasisSettingsDefaults.VSpineTorsoYawDeadzoneDeg.RawValue;
+            float torsoYawDeadzoneDeg = Basis.BasisUI.BasisSettingsDefaults.VSpineTorsoYawDeadzoneDeg.RawValue;
 
             if (BasisLocalPlayer.Instance.LocalCharacterDriver.IsProne)
             {
@@ -135,6 +135,9 @@ namespace Basis.IK
 
             var leftFoot = BasisLocalBoneDriver.LeftFootControl;
             var rightFoot = BasisLocalBoneDriver.RightFootControl;
+            // No hips/chest tracker (desktop, 3-point): pin the hips below the head bone. Without a hips tracker we assume
+            // no feet trackers either. Prone and seated keep their own paths.
+            bool headPinnedHips = TrackerOwned(hips) == 0 && (TrackerOwned(chest) == 0 || chest.TrackerFollowsBody) && !BasisLocalPlayer.Instance.LocalCharacterDriver.IsProne;
             bool leftFootTracked = leftFoot != null && leftFoot.HasTracked == BasisHasTracked.HasTracker;
             bool rightFootTracked = rightFoot != null && rightFoot.HasTracked == BasisHasTracked.HasTracker;
 
@@ -211,6 +214,8 @@ namespace Basis.IK
                 ChestRestPerp = chestRestPerp,
                 SpineRestAlong = spineRestAlong,
                 SpineRestPerp = spineRestPerp,
+                HeadPinnedHips = (byte)(headPinnedHips ? 1 : 0),
+                HipsFromHeadRest = hipsFromHeadTpose,
             };
 
             new BasisVirtualSpineCore.BasisVirtualSpineSolveJob
@@ -281,6 +286,7 @@ namespace Basis.IK
 
             float3 pEye = eye.TposeLocalScaled.position;
             eyeFromHeadTpose = pEye - pHead;
+            hipsFromHeadTpose = pHips - pHead;
             hipsFromEyeTposeXZ = new float3(pHips.x - pEye.x, 0f, pHips.z - pEye.z);
             headFromEyeTposeXZ = new float3(pHead.x - pEye.x, 0f, pHead.z - pEye.z);
             yawPivotFromEyeTposeXZ = new float3(pNeck.x - pEye.x, 0f, pNeck.z - pEye.z);

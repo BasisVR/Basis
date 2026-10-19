@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -13,6 +14,7 @@ using UnityEngine;
 /// wherever it is; <see cref="Active"/> excludes EditorOnly subtrees because nothing under one
 /// reaches the upload, so its meshes and textures are none of the validator's business.</para>
 /// </summary>
+[NoAutoStaticsCleanup]
 public sealed class BasisValidationHierarchyScan
 {
     public readonly List<Transform> All = new List<Transform>();

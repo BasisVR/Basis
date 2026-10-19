@@ -1,4 +1,5 @@
 using System;
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEngine;
 
@@ -114,7 +115,7 @@ public abstract class BasisTabbedEditorWindow : EditorWindow
     {
         if (_pages == null || _pages.Length == 0)
         {
-            BasisEditorUI.Help("This window has no tabs.", MessageType.Warning);
+            BasisEditorUI.Help(BasisEditorLocalization.Get("sdk.editorUi.noTabs"), MessageType.Warning);
             return;
         }
 
@@ -148,7 +149,7 @@ public abstract class BasisTabbedEditorWindow : EditorWindow
         }
         catch (Exception e)
         {
-            BasisEditorUI.Help($"'{page?.Title}' threw while drawing:\n{e}", MessageType.Error);
+            BasisEditorUI.Help(BasisEditorLocalization.Get("sdk.editorUi.drawFailed", page?.Title, e), MessageType.Error);
         }
 
         BasisEditorUI.EndPage();

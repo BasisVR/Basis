@@ -1,10 +1,12 @@
+using Unity.Scripting.LifecycleManagement;
 using System.IO;
 using System.Threading.Tasks;
 using UnityEngine;
 
 namespace Basis.Scripts.UI.UI_Panels
 {
-    public static class BasisDataStoreAvatarKeys
+    [AutoStaticsCleanup]
+    public static partial class BasisDataStoreAvatarKeys
     {
         [System.Serializable]
         public class AvatarKey
@@ -86,7 +88,7 @@ namespace Basis.Scripts.UI.UI_Panels
 
             try
             {
-                byte[] byteData = await File.ReadAllBytesAsync(FilePath);
+                byte[] byteData = await BasisFiles.ReadAllBytesAsync(FilePath);
 
                 // If you actually serialized AvatarKeys before, use this:
                 keys = BasisSerialization.DeserializeValue<AvatarKeys>(byteData);
@@ -115,7 +117,7 @@ namespace Basis.Scripts.UI.UI_Panels
             {
                 // Serialize the container (which contains an AvatarKey[]).
                 byte[] byteData = BasisSerialization.SerializeValue(keys);
-                await File.WriteAllBytesAsync(FilePath, byteData);
+                await BasisFiles.WriteAllBytesAsync(FilePath, byteData);
 
                 BasisDebug.Log($"Keys saved to file at: {FilePath}");
             }

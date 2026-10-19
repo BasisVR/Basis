@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,7 +8,8 @@ using Object = UnityEngine.Object;
 
 namespace HVR.Basis.Comms
 {
-    public static class HVRCommsUtil
+    [AutoStaticsCleanup]
+    public static partial class HVRCommsUtil
     {
         private static bool _applicationIsQuitting;
 

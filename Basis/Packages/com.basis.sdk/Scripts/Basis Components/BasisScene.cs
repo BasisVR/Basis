@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -8,7 +9,8 @@ namespace Basis.Scripts.BasisSdk
     /// Represents a scene within the Basis system, managing spawn points, respawn behavior,
     /// and lifecycle events for scene readiness and destruction.
     /// </summary>
-    public class BasisScene : BasisContentBase
+    [AutoStaticsCleanup]
+    public partial class BasisScene : BasisContentBase
     {
         /// <summary>
         /// Default spawn point for players or objects in the scene.

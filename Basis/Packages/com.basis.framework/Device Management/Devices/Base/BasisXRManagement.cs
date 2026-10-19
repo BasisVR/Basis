@@ -142,7 +142,23 @@ namespace Basis.Scripts.Device_Management.Devices
             try
             {
                 // Initialize the XR loader
-                yield return xRManagerSettings.InitializeLoader();
+                IEnumerator initialize = xRManagerSettings.InitializeLoader();
+                while (true)
+                {
+                    try
+                    {
+                        if (!initialize.MoveNext())
+                        {
+                            break;
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        BasisDebug.LogError($"XR loader failed to initialize for {requested}: {e.GetType().Name}: {e.Message}", BasisDebug.LogTag.Device);
+                        break;
+                    }
+                    yield return initialize.Current;
+                }
 
                 // Check the result
                 if (xRManagerSettings.activeLoader != null)

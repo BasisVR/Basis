@@ -23,7 +23,7 @@ Resolution and playback are different failure domains. Before blaming either:
 
 ```csharp
 // Inspect what resolution actually produced, without playing it:
-BasisMediaSource source = await BasisYtDlpResolver.ResolveSourceAsync(pageUrl);
+BasisResolvedMedia media = await BasisYtDlpResolver.ResolveMediaAsync(pageUrl);
 ```
 
 If the resolved `Url`/`AudioUri` look sane, load them **directly** in the player — if that
@@ -86,8 +86,8 @@ Japanese-language video (checks the CJK font fallbacks and per-character wrappin
 
 ## Security and networking
 
-- Resolved stream URLs pass `BasisMediaPlayerSecurity` like any other URL — a resolver change
-  must never become a way around the host gate. Negative-test with a page URL crafted to
+- Resolved stream URLs are vetted by the engine like any other URL — a resolver change
+  must never become a way around it. Negative-test with a page URL crafted to
   resolve somewhere refused (or verify the gate log lines fire on the resolved hosts). The
   same applies to subtitle track fetches: they run through the identical gate, with HTTP
   redirects refused outright.
@@ -100,5 +100,5 @@ Japanese-language video (checks the CJK font fallbacks and per-character wrappin
 ## Reporting
 
 Base-guide report contents apply, plus: the page URL, the yt-dlp runtime version, and —
-for resolution failures — whether `ResolveSourceAsync` fails too or only playback of the
+for resolution failures — whether `ResolveMediaAsync` fails too or only playback of the
 resolved result.

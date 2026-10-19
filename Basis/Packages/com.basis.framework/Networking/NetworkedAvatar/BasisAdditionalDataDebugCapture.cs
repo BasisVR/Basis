@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Concurrent;
 using System.Threading;
@@ -9,7 +10,8 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
     /// Basis/Debug/Additional Data editor window. Capture only runs while <see cref="Capture"/>
     /// is set (the window turns it on while open); otherwise each hook is one volatile bool check.
     /// </summary>
-    public static class BasisAdditionalDataDebugCapture
+    [AutoStaticsCleanup]
+    public static partial class BasisAdditionalDataDebugCapture
     {
         public static volatile bool Capture;
         public const int PayloadPreviewBytes = 48;
@@ -48,8 +50,8 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         public static long HvrWearerTicksWithValues;   // DoTick entries where _addressIdsWithNewValue was non-empty
         public static long HvrActivitySamples;         // FaceTrackingActivityRelay.NotifySourceSample calls
 
-        public static readonly Slot[] Sent = new Slot[256];
-        public static readonly Slot[] SentCh15 = new Slot[256];
+        [NoAutoStaticsCleanup] public static readonly Slot[] Sent = new Slot[256];
+        [NoAutoStaticsCleanup] public static readonly Slot[] SentCh15 = new Slot[256];
         public static readonly ConcurrentDictionary<ushort, PlayerCapture> Players = new ConcurrentDictionary<ushort, PlayerCapture>();
 
         public static double Now => System.Diagnostics.Stopwatch.GetTimestamp() / (double)System.Diagnostics.Stopwatch.Frequency;

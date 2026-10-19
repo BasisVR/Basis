@@ -198,9 +198,8 @@ namespace Unity.XR.OpenVR
             CreateSubsystem<XRInputSubsystemDescriptor, XRInputSubsystem>(s_InputSubsystemDescriptors, "OpenVR Input");
 
             OpenVREvents.Initialize();
-            TickCallbackDelegate callback = TickCallback;
-            RegisterTickCallback(callback);
-            callback(0);
+            RegisterTickCallback(s_TickCallback);
+            s_TickCallback(0);
 
             return displaySubsystem != null && inputSubsystem != null;
         }
@@ -438,10 +437,19 @@ namespace Unity.XR.OpenVR
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         delegate void TickCallbackDelegate(int value);
 
+        private static readonly TickCallbackDelegate s_TickCallback = TickCallback;
+
         [AOT.MonoPInvokeCallback(typeof(TickCallbackDelegate))]
         public static void TickCallback(int value)
         {
-            OpenVREvents.Update();
+            try
+            {
+                OpenVREvents.Update();
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+            }
         }
 
 #if UNITY_EDITOR

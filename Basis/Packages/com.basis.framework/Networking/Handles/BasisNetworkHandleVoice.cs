@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.Receivers;
@@ -8,9 +9,10 @@ using UnityEngine;
 using System.Collections.Concurrent;
 using static SerializableBasis;
 
-public static class BasisNetworkHandleVoice
+[AutoStaticsCleanup]
+public static partial class BasisNetworkHandleVoice
 {
-    private static readonly SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
+    [NoAutoStaticsCleanup] private static readonly SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
     private const int TimeoutMilliseconds = 1000;
     public static ConcurrentQueue<ServerAudioSegmentMessage> Message = new ConcurrentQueue<ServerAudioSegmentMessage>();
     public const int MaxStoredServerAudioSegmentMessage = 250;
@@ -90,7 +92,7 @@ public static class BasisNetworkHandleVoice
         }
     }
 
-    private static readonly SemaphoreSlim announceSemaphore = new SemaphoreSlim(1, 1);
+    [NoAutoStaticsCleanup] private static readonly SemaphoreSlim announceSemaphore = new SemaphoreSlim(1, 1);
     public static ConcurrentQueue<ServerAudioSegmentMessage> AnnounceMessage = new ConcurrentQueue<ServerAudioSegmentMessage>();
 
     /// <summary>

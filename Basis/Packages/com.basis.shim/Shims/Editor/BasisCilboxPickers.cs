@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
@@ -20,7 +21,8 @@ namespace Basis.Shims.Editor
     /// enumerating them costs a few hundred milliseconds and the whole point is that the field
     /// responds on every keystroke.
     /// </summary>
-    internal static class BasisCilboxTypeIndex
+    [AutoStaticsCleanup]
+    internal static partial class BasisCilboxTypeIndex
     {
         private static Type[] _types;
 
@@ -40,7 +42,7 @@ namespace Basis.Shims.Editor
             if (_types != null) return;
 
             var found = new List<Type>(1 << 14);
-            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (Assembly assembly in UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies())
             {
                 if (assembly.IsDynamic) continue;
 

@@ -185,8 +185,6 @@ public class JiggleMemoryBus {
     // per-call allocation that churned GC.
     private HashSet<Transform> pendingSceneColliderAddSet;
 
-    private bool hasWrittenData = false;
-
     private int preTransformCount;
 
     public int transformCount;

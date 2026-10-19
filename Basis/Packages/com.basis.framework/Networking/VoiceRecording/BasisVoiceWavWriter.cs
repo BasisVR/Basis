@@ -48,12 +48,14 @@ namespace Basis.Scripts.Networking.VoiceRecording
                 _writer.Write((byte)0);
             }
             _writer.Flush();
+#if !UNITY_WEBGL || UNITY_EDITOR
             _writeThread = new Thread(WriteThreadLoop)
             {
                 IsBackground = true,
                 Name = "Basis Voice Wav Writer",
             };
             _writeThread.Start();
+#endif
         }
 
         public void Write(float[] samples, int count)
@@ -77,8 +79,26 @@ namespace Basis.Scripts.Networking.VoiceRecording
                 buffer[bytes++] = (byte)(s >> 8);
             }
             _samplesWritten += count;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            try
+            {
+                _stream.Write(buffer, 0, bytes);
+            }
+            catch (Exception ex)
+            {
+                if (_writeException == null)
+                {
+                    _writeException = ex;
+                }
+            }
+            if (_bufferPool.Count < 8)
+            {
+                _bufferPool.Enqueue(buffer);
+            }
+#else
             _pendingWrites.Enqueue(new PendingWrite { Buffer = buffer, Bytes = bytes });
             _writeSignal.Set();
+#endif
         }
 
         private void WriteThreadLoop()

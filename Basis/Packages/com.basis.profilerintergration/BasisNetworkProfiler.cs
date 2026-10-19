@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Concurrent;
 using System.Threading;
@@ -6,7 +7,8 @@ using UnityEngine;
 
 namespace Basis.Scripts.Profiler
 {
-    public static class BasisNetworkProfiler
+    [AutoStaticsCleanup]
+    public static partial class BasisNetworkProfiler
     {
         public static readonly ProfilerCategory Category = ProfilerCategory.Network;
 
@@ -102,7 +104,7 @@ namespace Basis.Scripts.Profiler
         public static System.Func<int> ConnectedSessionsProvider;
 
         private const int CounterCount = 42;
-        private static readonly long[] counters = new long[CounterCount];
+        [NoAutoStaticsCleanup] private static readonly long[] counters = new long[CounterCount];
 
         public static void Update()
         {
@@ -179,7 +181,7 @@ namespace Basis.Scripts.Profiler
         private static readonly ConcurrentDictionary<int, CounterPair> OutPerIndex = new();
         // Resolve a friendly name for each index/key.
         // Replace with your own mapping if "index" is not a channelId.
-        public static Func<int, string> ResolveName = (index) => $"Index {index}";
+        [NoAutoStaticsCleanup] public static Func<int, string> ResolveName = (index) => $"Index {index}";
 
         public static CounterPair GetOrCreate(ConcurrentDictionary<int, CounterPair> dict, int index, string direction, string friendlyName)
         {

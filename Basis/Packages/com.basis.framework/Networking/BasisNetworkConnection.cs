@@ -1,4 +1,5 @@
-﻿using Basis.BasisUI;
+﻿using Unity.Scripting.LifecycleManagement;
+using Basis.BasisUI;
 using Basis.Network.Core;
 using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisCharacterController;
@@ -21,7 +22,8 @@ namespace Basis.Scripts.Networking
     /// <summary>
     /// Connection/session management, server runner, time utilities, and send helpers.
     /// </summary>
-    public static class BasisNetworkConnection
+    [AutoStaticsCleanup]
+    public static partial class BasisNetworkConnection
     {
         public static NetPeer LocalPlayerPeer { get; set; }
         public static NetworkClient NetworkClient { get; set; } = new NetworkClient();
@@ -41,7 +43,7 @@ namespace Basis.Scripts.Networking
             localId = (ushort)LocalPlayerPeer.RemoteId;
             return true;
         }
-        public static void Connect(ushort port, string ipString, string primitivePassword, bool isHostMode, string networkStackId = "")
+        public static void Connect(ushort port, string ipString, string primitivePassword, bool isHostMode, string networkStackId = "", bool legacyLogin = false)
         {
             BNL.LogOutput -= LogOutput;
             BNL.LogOutput += LogOutput;
@@ -50,11 +52,18 @@ namespace Basis.Scripts.Networking
             BNL.LogErrorOutput -= LogErrorOutput;
             BNL.LogErrorOutput += LogErrorOutput;
 
-            PlayerIdentity identity = BasisPlayerIdentityRegistry.ResolveActive();
+            string stackIdentityProvider = legacyLogin ? null : BasisNetworkStackRegistry.IdentityProviderFor(BasisNetworkStackRegistry.ParseStackList(networkStackId)[0]);
+            PlayerIdentity identity = (string.IsNullOrEmpty(stackIdentityProvider) ? null : BasisPlayerIdentityRegistry.Resolve(stackIdentityProvider)) ?? BasisPlayerIdentityRegistry.ResolveActive();
             string uuid = identity?.Uuid ?? string.Empty;
             string companyName = Application.companyName, productName = Application.productName;
 
-            BasisTransportConfigStore.Get<LNLTransportConfig>(BasisNetworkStackRegistry.LiteNetLibId).UseNativeSockets = false;
+            bool runsInBrowser = Application.platform == RuntimePlatform.WebGLPlayer;
+            if (isHostMode && runsInBrowser)
+            {
+                BasisDebug.LogError("A web build cannot host a server; connect to one instead.", BasisDebug.LogTag.Networking);
+                HandleDisconnection(null, new DisconnectInfo { Reason = DisconnectReason.ConnectionFailed });
+                return;
+            }
 
             if (isHostMode)
             {
@@ -72,6 +81,9 @@ namespace Basis.Scripts.Networking
                     NetworkStackId = networkStackId ?? string.Empty,
                     ServerName = string.IsNullOrWhiteSpace(BasisNetworkManagement.HostServerName) ? "Basis Server" : BasisNetworkManagement.HostServerName,
                     ServerMotd = BasisNetworkManagement.HostServerMotd ?? string.Empty,
+                    ServerUUID = string.IsNullOrWhiteSpace(BasisNetworkManagement.HostServerUUID)
+                        ? Guid.NewGuid().ToString("N")
+                        : BasisNetworkManagement.HostServerUUID,
                     CompanyName = companyName,
                     ProductName = productName,
                     PeerLimit = BasisNetworkManagement.HostPeerLimit <= 0 ? ushort.MaxValue : BasisNetworkManagement.HostPeerLimit,
@@ -121,7 +133,7 @@ namespace Basis.Scripts.Networking
 
             BasisDebug.Log("Network Starting Client");
 
-            _ = Task.Run(() =>
+            void StartClient()
             {
                 try
                 {
@@ -141,12 +153,12 @@ namespace Basis.Scripts.Networking
                         UseAuth = true,
                         Password = primitivePassword,
                         EnableStatistics = BasisSettingsDefaults.EnableStatistics.RawValue,
-                        NetworkStackId = networkStackId ?? string.Empty,
+                        NetworkStackId = BasisNetworkStackRegistry.ParseStackList(networkStackId)[0],
                     };
                     // Pass the token into anything that supports cancellation
                     LocalPlayerPeer = NetworkClient.StartClient(
                         ipString, port, readyMessage,
-                        Encoding.UTF8.GetBytes(primitivePassword), companyName, productName, serverConfig);
+                        Encoding.UTF8.GetBytes(primitivePassword), companyName, productName, serverConfig, legacyLogin: legacyLogin);
 
                     NetworkClient.listener.PeerConnectedEvent -= PeerConnectedEvent;
                     NetworkClient.listener.PeerConnectedEvent += PeerConnectedEvent;
@@ -177,7 +189,16 @@ namespace Basis.Scripts.Networking
                         Reason = DisconnectReason.UnknownHost
                     });
                 }
-            });
+            }
+
+            if (runsInBrowser)
+            {
+                StartClient();
+            }
+            else
+            {
+                _ = Task.Run(StartClient);
+            }
         }
         public static void OnDestroy()
         {
@@ -246,12 +267,50 @@ namespace Basis.Scripts.Networking
                     // check whether the rest of the server can actually fetch it. Has to run after
                     // LocalPlayerIsConnected, which is the flag the check gates on.
                     BasisLocalAvatarNetworkNotice.NotifyIfLocalOnly();
+                    NotifyIfLegacyServer();
                 }
                 catch (Exception ex)
                 {
                     BasisDebug.LogError($"Error setting up the local player: {ex.Message} {ex.StackTrace}");
                 }
             });
+        }
+        private static void NotifyIfLegacyServer()
+        {
+            if (NetworkClient == null || !NetworkClient.LegacyLogin)
+            {
+                return;
+            }
+            BasisDebug.LogWarning($"Joined a server on network protocol v{BasisNetworkVersion.LegacyLoginVersion} using its older login.", BasisDebug.LogTag.Networking);
+            if (!BasisNotificationCenter.RouteToNotifications && !BasisMainMenu.Instance)
+            {
+                BasisMainMenu.Open();
+            }
+            BasisMenuDialoguePanel.CreateNew(BasisLocalization.Get("network.legacyServer.title"), BasisLocalization.Get("network.legacyServer.body", BasisNetworkVersion.LegacyLoginVersion), BasisLocalization.Get("ui.ok"), (Action<bool>)null, true, BasisPanelSeverity.Caution);
+        }
+        public static bool TryRetryWithLegacyLogin(ushort serverVersion)
+        {
+            if (serverVersion != BasisNetworkVersion.LegacyLoginVersion || NetworkClient == null || NetworkClient.LegacyLogin || !BasisConnectionService.HasReconnectTarget)
+            {
+                return false;
+            }
+            BasisDebug.LogWarning($"Server is out of date (network protocol v{serverVersion}); reconnecting with its older login.", BasisDebug.LogTag.Networking);
+            _ = ReconnectWithLegacyLoginAsync(serverVersion);
+            return true;
+        }
+        private static async Task ReconnectWithLegacyLoginAsync(ushort serverVersion)
+        {
+            using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            try
+            {
+                await WaitForRebootCompleteAsync(cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                BasisConnectionService.ReportConnectionError(BasisLocalization.Get("menu.servers.reject.updateServer.body", serverVersion, BasisNetworkVersion.ServerVersion));
+                return;
+            }
+            await BasisConnectionService.ReconnectAsync(legacyLogin: true);
         }
         public static Action OnRebootComplete;
         public static void HandleDisconnection(NetPeer peer, DisconnectInfo disconnectInfo)

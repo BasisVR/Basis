@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using UnityEditor.Build.Reporting;
-using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 namespace UnityEditor.Rendering.Universal
@@ -22,24 +21,6 @@ namespace UnityEditor.Rendering.Universal
             }
         }
 
-        // This check iterates over all pipeline assets and enables the built-in DynamicBatching flag if at least one of them has dynamic batching enabled. We need to do this to ensure meshCompression is set correctly.
-        private static void ValidateDynamicBatchingSettings(List<UniversalRenderPipelineAsset> renderPipelineAssets)
-        {
-#pragma warning disable 618
-            bool supportsDynamicBatching = false;
-            foreach (var urpPipelineAsset in renderPipelineAssets)
-            {
-                if (urpPipelineAsset.supportsDynamicBatching)
-                {
-                    supportsDynamicBatching = true;
-                    break;
-                }
-            }
-
-            PlayerSettings.SetDynamicBatchingForPlatform(EditorUserBuildSettings.activeBuildTarget, supportsDynamicBatching);
-#pragma warning restore 618
-        }
-
         private static void ValidateRenderPipelineGlobalSettings(UniversalRenderPipelineGlobalSettings globalSettingsInstance, StringBuilder failures)
         {
             if (globalSettingsInstance == null)
@@ -54,15 +35,31 @@ namespace UnityEditor.Rendering.Universal
             }
         }
 
+        private static void ValidateSurfaceCacheSupportedOnTarget(BuildReport report, StringBuilder failures)
+        {
+            // GetAssemblies() only answers for the active target, so validate only that one.
+            var activeBuildTarget = EditorUserBuildSettings.activeBuildTarget;
+            if (report.summary.platform != activeBuildTarget)
+                return;
+            if (SurfaceCacheGISupport.IsSupportedByActiveBuildTarget(activeBuildTarget))
+                return;
+            if (!SurfaceCacheStripperUtility.IsSurfaceCacheEnabledForBuild())
+                return;
+
+            failures.AppendLine(
+                $"- Surface Cache GI is enabled in a Universal Renderer but is not supported on the active build target '{activeBuildTarget}'. " +
+                "Remove the Surface Cache GI renderer feature, or build with a Renderer that does not use it.");
+        }
+
         public static bool IsProjectValidForBuilding(BuildReport report, out string message)
         {
-            using (GenericPool<StringBuilder>.Get(out var failures))
+            using (UnityEngine.Pool.GenericPool<StringBuilder>.Get(out var failures))
             {
                 failures.Clear();
 
                 ValidateRenderPipelineAssetsAreAtLastVersion(URPBuildData.instance.renderPipelineAssets, failures);
                 ValidateRenderPipelineGlobalSettings(UniversalRenderPipelineGlobalSettings.Ensure(), failures);
-                ValidateDynamicBatchingSettings(URPBuildData.instance.renderPipelineAssets);
+                ValidateSurfaceCacheSupportedOnTarget(report, failures);
 
                 string allFailures = failures.ToString();
 

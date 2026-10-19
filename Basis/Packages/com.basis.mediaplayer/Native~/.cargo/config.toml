@@ -1,0 +1,5 @@
+[env]
+# audiopus_sys (libopus for decode-sw) vendors a CMakeLists that states a
+# pre-3.5 minimum version; CMake 4 refuses those outright unless given a
+# policy floor. Harmless for every other build.
+CMAKE_POLICY_VERSION_MINIMUM = "3.5"

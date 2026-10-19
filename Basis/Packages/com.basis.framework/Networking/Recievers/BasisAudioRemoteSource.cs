@@ -1,10 +1,12 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Drivers;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 namespace Basis.Scripts.Networking.Receivers
 {
-    public static class BasisAudioRemoteSource
+    [AutoStaticsCleanup]
+    public static partial class BasisAudioRemoteSource
     {
         public const string AudioSourcePath = "Packages/com.basis.sdk/Prefabs/Players/AudioSource.prefab";
         private static GameObject LoadableAudioSource;

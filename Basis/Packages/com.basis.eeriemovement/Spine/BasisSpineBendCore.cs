@@ -113,33 +113,31 @@ namespace Basis.IK
     public static class BasisCrouchOffsetCore
     {
         const float sqrEpsilon = 1e-8f, epsilon = 1e-5f;
-        public const float depthDeadzone = 0.03f, setbackSlope = 2.57f, setbackSat = 8.1f, maxLeanSin = 0.88f;
-        public const float verticalEngageFrac = 0.04f;
-        public static float EvaluateSetback(float crouchDepth, float standingHeadHeight, float factor, float fade, float restDist)
-        {
-            if (factor <= 0f || fade <= 0f || crouchDepth <= 0f || standingHeadHeight <= epsilon || restDist <= epsilon)
-            {
-                return 0f;
-            }
-            float x = crouchDepth / standingHeadHeight - depthDeadzone;
-            if (x <= 0f)
-            {
-                return 0f;
-            }
-            float setback = setbackSlope * x / (1f + setbackSat * x) * standingHeadHeight;
-            setback *= factor * Mathf.Clamp01(fade);
-            return BasisTrunkCounterbalanceCore.Saturate(setback, maxLeanSin * restDist);
-        }
+        // Head drop as a fraction of standing head height: the lean starts at StartDepth and is fully applied by FullDepth.
+        public const float StartDepth = 0.1f, FullDepth = 0.5f;
+        // Max horizontal hip setback as a fraction of the head-to-hips distance.
+        public const float MaxSetback = 0.6f;
+        // Fraction of MaxSetback where the soft cap starts easing in. Lower is a gentler approach to the limit.
+        public const float SoftCapKnee = 0.6f;
+        // How far the pelvis tips forward (degrees) at full crouch lean.
+        public const float HipTiltDeg = 15f;
         public static void Solve(in BasisCrouchOffsetInput i, out BasisCrouchOffsetResult r)
         {
             r = default;
             r.HipsPos = i.HipsPos;
-
-            float setback = EvaluateSetback(i.CrouchDepth, i.StandingHeadHeight, i.Factor, i.Fade, i.RestDist);
-            if (setback <= epsilon)
+            r.HipsRot = i.HipsRot;
+            if (i.Factor <= 0f || i.StandingHeadHeight <= epsilon || i.RestDist <= epsilon)
             {
                 return;
             }
+
+            // 0 above StartDepth, eases in to 1 at FullDepth.
+            float t = BasisArmSolveCore.Smoothstep(StartDepth, FullDepth, i.CrouchDepth / i.StandingHeadHeight) * Mathf.Clamp01(i.Fade);
+            if (t <= 0f)
+            {
+                return;
+            }
+            float setback = t * MaxSetback * i.RestDist * i.Factor;
 
             Vector3 up = i.PlayerUp.sqrMagnitude < sqrEpsilon ? Vector3.up : i.PlayerUp.normalized;
             Quaternion hipsAnat = i.HipsRot;
@@ -157,25 +155,27 @@ namespace Basis.IK
                 return;
             }
 
-            Vector3 horizontal = i.HipsPos - i.HeadTargetPos;
-            horizontal -= up * Vector3.Dot(horizontal, up);
-            horizontal -= forward.normalized * setback;
-            float horizMag = horizontal.magnitude, horizCap = maxLeanSin * i.RestDist;
-            if (horizMag > horizCap)
+            // Push the hips back, then keep them on the spine-length sphere under the head so the spine doesn't stretch.
+            Vector3 horizontal = Vector3.ProjectOnPlane(i.HipsPos - i.HeadTargetPos, up) - forward.normalized * setback;
+            // Soft cap: passes through below the knee, then eases into the max instead of stopping dead.
+            float horizMag = horizontal.magnitude, horizCap = MaxSetback * i.RestDist, knee = horizCap * SoftCapKnee;
+            if (horizMag > knee)
             {
-                horizontal *= horizCap / horizMag;
-                horizMag = horizCap;
+                float soft = horizCap - knee, capped = knee + soft * (1f - Mathf.Exp(-(horizMag - knee) / soft));
+                horizontal *= capped / horizMag;
+                horizMag = capped;
             }
-
             float sphereDrop = Mathf.Sqrt(Mathf.Max(i.RestDist * i.RestDist - horizMag * horizMag, 0f));
-            float currentDrop = Vector3.Dot(i.HeadTargetPos - i.HipsPos, up);
-            float w = Mathf.Clamp01(setback / (verticalEngageFrac * i.RestDist));
-            float drop = Mathf.Lerp(currentDrop, sphereDrop, w);
+            float drop = Mathf.Lerp(Vector3.Dot(i.HeadTargetPos - i.HipsPos, up), sphereDrop, t);
 
             r.Applied = true;
             r.SetbackMeters = setback;
             r.LeanDeg = Mathf.Atan2(horizMag, drop) * Mathf.Rad2Deg;
             r.HipsPos = i.HeadTargetPos + horizontal - up * drop;
+
+            // Tip the pelvis forward a little with the lean so the spine isn't doing all the bending.
+            Vector3 right = Vector3.Cross(up, forward.normalized);
+            r.HipsRot = Quaternion.AngleAxis(t * HipTiltDeg * i.Factor, right) * i.HipsRot;
         }
     }
 }

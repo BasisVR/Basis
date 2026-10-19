@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 // Renderer/material sink for BasisMediaPlayer. Subscribes to the player's
-// OnOutputTextureChanged and binds the current OutputTexture to one or more
-// target Renderer material properties. The primary TargetRenderer/MaterialIndex
+// OnOutputTextureChanged and binds the current Texture to one or more target
+// Renderer material properties. The primary TargetRenderer/MaterialIndex
 // plus every entry in AdditionalTargets are all driven from the same output, so
 // one player can feed several screens or materials at once.
 //
@@ -17,13 +17,14 @@ using UnityEngine;
 //
 // On disable, the original texture is restored on each target so editor scenes
 // don't end up with the runtime video texture baked into the material.
+[AddComponentMenu("Basis/Basis Video Material Output")]
 [DisallowMultipleComponent]
 public sealed class BasisVideoMaterialOutput : MonoBehaviour
 {
     [System.Serializable]
     public sealed class MaterialTarget
     {
-        [Tooltip("Renderer whose material receives the OutputTexture.")]
+        [Tooltip("Renderer whose material receives the video texture.")]
         public Renderer Renderer;
 
         [Tooltip("Index into Renderer.materials for multi-material renderers. 0 by default.")]
@@ -43,7 +44,11 @@ public sealed class BasisVideoMaterialOutput : MonoBehaviour
     [Tooltip("Player to subscribe to. If unassigned, GetComponentInParent<BasisMediaPlayer>() is used.")]
     public BasisMediaPlayer Player;
 
-    [Tooltip("Renderer whose material receives the OutputTexture.")]
+    // The player subscribed to on enable. The field can be reassigned while
+    // enabled, so the handlers and the unsubscribe use this, not the field.
+    private BasisMediaPlayer subscribed;
+
+    [Tooltip("Renderer whose material receives the video texture.")]
     public Renderer TargetRenderer;
 
     [Tooltip("Index into TargetRenderer.materials for multi-material renderers. 0 by default.")]
@@ -55,16 +60,16 @@ public sealed class BasisVideoMaterialOutput : MonoBehaviour
     [Tooltip("If true, the renderer's sharedMaterial is mutated — every renderer using that material will see the video. Otherwise a per-instance copy is created via Renderer.material.")]
     public bool UseSharedMaterial = false;
 
-    [Tooltip("Extra renderers/materials driven by the same OutputTexture. Each entry may override the Texture Property Name; leave it empty to inherit the one above. All entries share the projection/aspect/picture settings below.")]
+    [Tooltip("Extra renderers/materials driven by the same video texture. Each entry may override the Texture Property Name; leave it empty to inherit the one above. All entries share the projection/aspect/picture settings below.")]
     public List<MaterialTarget> AdditionalTargets = new List<MaterialTarget>();
 
-    [Tooltip("Optional fallback bound when the player has no output texture (before first frame, after Stop). Leave empty to leave the material's prior texture in place.")]
+    [Tooltip("Optional fallback bound when the player has no output texture (before first frame, after Close). Leave empty to leave the material's prior texture in place.")]
     public Texture PlaceholderTexture;
 
-    [Tooltip("If true, the placeholder is rebound whenever the player raises OnEnded.")]
+    [Tooltip("If true, the placeholder is rebound when the player reaches the end of the stream.")]
     public bool RestorePlaceholderOnEnded = true;
 
-    [Tooltip("Flip the video vertically. Per-GPU orientation differences are now corrected automatically (the backend reports its frame origin), so leave this OFF for normal content; enable it only if the source itself is encoded upside-down — which is consistent across all machines.")]
+    [Tooltip("Flip the video vertically. Per-platform orientation differences are corrected automatically (the player reports its frame origin), so leave this OFF for normal content; enable it only if the source itself is encoded upside-down — which is consistent across all machines.")]
     public bool FlipVertically = false;
 
     [Tooltip("Flip the video horizontally. Use when the screen mesh's UV winding presents the video mirrored to the viewer.")]
@@ -108,31 +113,33 @@ public sealed class BasisVideoMaterialOutput : MonoBehaviour
         if (Player == null) Player = GetComponentInParent<BasisMediaPlayer>();
         if (Player == null)
         {
-            BasisDebug.LogWarning("BasisVideoMaterialOutput: no BasisMediaPlayer found in parents and Player field is empty.", BasisDebug.LogTag.Video);
+            BasisDebug.LogWarning("[BasisMedia] BasisVideoMaterialOutput: no BasisMediaPlayer found in parents and Player field is empty.", BasisDebug.LogTag.Video);
             return;
         }
 
         RebuildActiveTargets();
         if (activeTargets.Count == 0)
         {
-            BasisDebug.LogWarning("BasisVideoMaterialOutput: no target renderers assigned; cannot bind output texture.", BasisDebug.LogTag.Video);
+            BasisDebug.LogWarning("[BasisMedia] BasisVideoMaterialOutput: no target renderers assigned; cannot bind the video texture.", BasisDebug.LogTag.Video);
             return;
         }
 
         for (int i = 0; i < activeTargets.Count; i++) CaptureOriginal(activeTargets[i]);
 
-        Player.OnOutputTextureChanged += HandleTextureChanged;
-        Player.OnEnded += HandleEnded;
+        subscribed = Player;
+        subscribed.OnOutputTextureChanged += HandleTextureChanged;
+        subscribed.OnEnded += HandleEnded;
 
-        HandleTextureChanged(Player.OutputTexture);
+        HandleTextureChanged(subscribed.Texture);
     }
 
     private void OnDisable()
     {
-        if (Player != null)
+        if (subscribed != null)
         {
-            Player.OnOutputTextureChanged -= HandleTextureChanged;
-            Player.OnEnded -= HandleEnded;
+            subscribed.OnOutputTextureChanged -= HandleTextureChanged;
+            subscribed.OnEnded -= HandleEnded;
+            subscribed = null;
         }
         for (int i = 0; i < activeTargets.Count; i++) RestoreOriginal(activeTargets[i]);
         activeTargets.Clear();
@@ -177,7 +184,9 @@ public sealed class BasisVideoMaterialOutput : MonoBehaviour
 
     private void HandleEnded()
     {
-        if (!RestorePlaceholderOnEnded) return;
+        // A looping player is about to start again on the same texture; the
+        // last frame holds until it does.
+        if (!RestorePlaceholderOnEnded || (subscribed != null && subscribed.Loop)) return;
         for (int i = 0; i < activeTargets.Count; i++) SetTexture(activeTargets[i], PlaceholderTexture);
     }
 
@@ -247,10 +256,9 @@ public sealed class BasisVideoMaterialOutput : MonoBehaviour
         offset.x = target.OriginalOffset.x + target.OriginalScale.x * offset.x;
         offset.y = target.OriginalOffset.y + target.OriginalScale.y * offset.y;
 
-        // The backend may publish the frame upside-down on GPUs that can't
-        // normalize orientation natively (the Windows video-processor mirror is
-        // driver-optional); fold that per-client correction into the authored flip
-        // so one serialized FlipVertically value is correct on every machine.
+        // The frame's row order depends on the platform present path, so fold
+        // that per-client correction into the authored flip and one serialized
+        // FlipVertically value stays correct on every machine.
         bool flipV = FlipVertically ^ (Player != null && Player.OutputFrameIsTopLeftOrigin);
         if (flipV && FlipHorizontally) BasisVideoOutputMath.ApplyBothFlip(ref scale, ref offset);
         else if (flipV) BasisVideoOutputMath.ApplyVerticalFlip(ref scale, ref offset);
@@ -308,7 +316,7 @@ public sealed class BasisVideoMaterialOutput : MonoBehaviour
     private void OnValidate()
     {
         if (Application.isPlaying && isActiveAndEnabled && Player != null)
-            HandleTextureChanged(Player.OutputTexture);
+            HandleTextureChanged(Player.Texture);
     }
 
     private Material GetMaterial(MaterialTarget target)
@@ -321,8 +329,9 @@ public sealed class BasisVideoMaterialOutput : MonoBehaviour
             if (target.MaterialIndex < 0 || target.MaterialIndex >= shared.Length) return null;
             return shared[target.MaterialIndex];
         }
-        // Access .materials once to take ownership of a cloned array, then
-        // index into it; accessing .materials repeatedly leaks instances.
+        // The first read of .materials instances the renderer's materials;
+        // later reads return the same instances in a fresh array. They live
+        // until the scene unloads, as for any Renderer.material user.
         var instances = renderer.materials;
         if (target.MaterialIndex < 0 || target.MaterialIndex >= instances.Length) return null;
         return instances[target.MaterialIndex];

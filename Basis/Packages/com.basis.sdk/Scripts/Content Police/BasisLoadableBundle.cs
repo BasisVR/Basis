@@ -13,6 +13,7 @@ public class BasisLoadableBundle
     /// <summary>
     /// only used to submit data.
     /// </summary>
+    [System.NonSerialized]
     public BasisLoadableGameobject LoadableGameobject = null;
     /// <summary>
     /// Registry key of the wrapper this bundle's load reservation was taken on. Stamped by

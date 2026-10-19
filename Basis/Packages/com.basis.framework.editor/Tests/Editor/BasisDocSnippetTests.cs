@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Reflection;
 using NUnit.Framework;
@@ -14,6 +15,7 @@ namespace Basis.Tests.DocEngine
     // Stand-ins for a Basis singleton component and its neighbours, so the tests do not depend on
     // any real API keeping its shape. Declared at namespace scope because a nested type is written
     // through its outer type, which would put the fixture's own name in every expectation.
+    [NoAutoStaticsCleanup]
     internal class Subject : MonoBehaviour
     {
         public static Subject Instance;

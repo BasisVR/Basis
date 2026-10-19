@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using System.Reflection;
 using Basis.Scripts.BasisSdk.Interactions;
@@ -15,6 +16,7 @@ namespace Basis.Tests.Interactions
     /// took the lock: another pickup starting mid-drag (a spawned prop, a spawn-anchor handle, a media
     /// player) must not be able to leave the look lock behind under an owner nothing will ever release.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public class BasisPickupHeadLockTests
     {
         private static readonly MethodInfo PollDesktopControl = typeof(BasisPickupInteractable).GetMethod("PollDesktopControl", BindingFlags.NonPublic | BindingFlags.Instance);

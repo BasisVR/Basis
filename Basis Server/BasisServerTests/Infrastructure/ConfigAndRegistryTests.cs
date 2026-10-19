@@ -2,7 +2,6 @@ using Basis.Network.Core;
 using BasisNetworkCore.Security;
 using System.Net;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Xml.Linq;
 using System.Xml.Serialization;
 using Xunit;
@@ -82,6 +81,7 @@ public class ServerConfigurationDefaultsTests
         Assert.Equal(4296, cfg.SetPort);
         Assert.Equal("Basis Server", cfg.ServerName);
         Assert.Equal("", cfg.ServerMotd);
+        Assert.True(Guid.TryParseExact(cfg.ServerUUID, "N", out _));
         Assert.True(cfg.EnableStatistics);
         Assert.True(cfg.HasFileSupport);
         Assert.Equal("localhost", cfg.HealthCheckHost);
@@ -167,6 +167,30 @@ public class ServerConfigurationDefaultsTests
         Assert.Equal("", cfg.ApiKey);
         Assert.True(cfg.CrashReportingEnabled);
         Assert.Equal(32, cfg.MaxContentSpheresPerPlayer);
+        Assert.Equal(60, cfg.ContentSphereLeaveTimeoutSeconds);
+        Assert.Equal(0, cfg.ContentSphereDeletionTimerSeconds);
+    }
+
+    [Fact]
+    public void Defaults_PlayerStorage()
+    {
+        var cfg = new Configuration();
+        Assert.True(cfg.StorageEnabled);
+        Assert.Equal("file", cfg.StorageBackend);
+        Assert.Equal(16384, cfg.StorageMaxBytesPerPlayer);
+        Assert.Equal(256, cfg.StorageMaxTotalMegabytes);
+        Assert.Equal("", cfg.StorageConnectionString);
+        Assert.Equal("basis_storage", cfg.StorageSqlTable);
+        Assert.Equal(4, cfg.StorageNewOwnersPerAddress);
+        Assert.Equal(60, cfg.StorageNewOwnerWindowMinutes);
+        Assert.Equal(60, cfg.StorageNewOwnersPerHour);
+        Assert.Equal(365, cfg.StorageExpiryDays);
+        Assert.False(Configuration.RequiresRestart(nameof(Configuration.StorageNewOwnersPerAddress)));
+        Assert.False(Configuration.RequiresRestart(nameof(Configuration.StorageExpiryDays)));
+        Assert.True(Configuration.IsSecretFieldName(nameof(Configuration.StorageConnectionString)));
+        Assert.True(Configuration.RequiresRestart(nameof(Configuration.StorageBackend)));
+        Assert.True(Configuration.RequiresRestart(nameof(Configuration.StorageConnectionString)));
+        Assert.False(Configuration.RequiresRestart(nameof(Configuration.StorageMaxBytesPerPlayer)));
     }
 
     [Fact]
@@ -183,10 +207,14 @@ public class ServerConfigurationDefaultsTests
         // 12: added BSRSendPhaseBudgetPercent, the send pass's share of the reduction tick.
         // 13: added LogConnectionHandshake; the per-connection auth chatter is now off by default.
         // 14: added CompanyName and ProductName, the client identity a connection must report.
-        Assert.Equal(14, Configuration.CurrentConfigVersion);
+        // 15: added the persistent application-level ServerUUID.
+        // 16: added the shared-orb leave timeout and deletion timer.
+        // 17: added player storage.
+        Assert.Equal(18, Configuration.CurrentConfigVersion);
         Assert.Equal(0, new Configuration().ConfigVersion);
         Assert.Equal("config", Configuration.ConfigFolderName);
         Assert.Equal("logs", Configuration.LogsFolderName);
+        Assert.Equal("storage", Configuration.StorageFolderName);
         string defaultPath = Configuration.GetDefaultPath();
         Assert.True(Path.IsPathRooted(defaultPath));
         Assert.EndsWith(Path.Combine(Configuration.ConfigFolderName, "config.xml"), defaultPath);
@@ -195,8 +223,8 @@ public class ServerConfigurationDefaultsTests
     [Fact]
     public void DefaultServerPort_MatchesParserDefaultPort()
     {
-        Assert.Equal(LNLConnectionTargetParser.DefaultPort, new Configuration().SetPort);
-        Assert.Equal(4296, LNLConnectionTargetParser.DefaultPort);
+        Assert.Equal(HostPortConnectionTargetParser.DefaultPort, new Configuration().SetPort);
+        Assert.Equal(4296, HostPortConnectionTargetParser.DefaultPort);
     }
 }
 
@@ -216,17 +244,28 @@ public class ConfigurationPersistenceTests
         Configuration loaded = Configuration.LoadFromXml(path);
 
         Assert.True(File.Exists(path));
-        ConfigTestSupport.AssertFieldsEqual(new Configuration(), loaded, nameof(Configuration.ConfigVersion));
+        ConfigTestSupport.AssertFieldsEqual(new Configuration(), loaded,
+            nameof(Configuration.ConfigVersion), nameof(Configuration.ServerUUID));
         Assert.Equal(Configuration.CurrentConfigVersion, loaded.ConfigVersion);
+        Assert.True(Guid.TryParseExact(loaded.ServerUUID, "N", out _));
 
         string xml = File.ReadAllText(path);
         Assert.Contains("<!--", xml);
         Assert.Contains("Basis dedicated-server configuration", xml);
         Assert.Contains("<PeerLimit>", xml);
+    }
 
-        string sidecar = Path.Combine(dir.Path, BasisTransportConfigStore.TransportsFolderName,
-            BasisNetworkStackRegistry.LiteNetLibId + ".xml");
-        Assert.True(File.Exists(sidecar));
+    [Fact]
+    public void LoadFromXml_GeneratedServerUuid_PersistsAcrossRestarts()
+    {
+        using var dir = new ConfigTestSupport.TempDir();
+        string path = dir.File("config.xml");
+
+        Configuration first = Configuration.LoadFromXml(path);
+        Configuration second = Configuration.LoadFromXml(path);
+
+        Assert.True(Guid.TryParseExact(first.ServerUUID, "N", out _));
+        Assert.Equal(first.ServerUUID, second.ServerUUID);
     }
 
     [Fact]
@@ -314,191 +353,6 @@ public class ConfigurationPersistenceTests
     }
 }
 
-/// <summary>Per-transport config sidecars ({configDir}/transports/{stackId}.xml) via the static store.</summary>
-[Collection("Basis config file statics")]
-public class TransportConfigStoreTests
-{
-    private static void EnsureLiteNetLibRegistered()
-        => RuntimeHelpers.RunClassConstructor(typeof(BasisNetworkStackRegistry).TypeHandle);
-
-    private static string SidecarPath(string configDir)
-        => Path.Combine(configDir, BasisTransportConfigStore.TransportsFolderName,
-            BasisNetworkStackRegistry.LiteNetLibId + ".xml");
-
-    [Fact]
-    public void LnlTransportConfig_Defaults()
-    {
-        var cfg = new LNLTransportConfig();
-        // 7: added MergeHoldMs, PeerUpdateParallelism, MaxUnreliableQueuePerPeer,
-        // PeerUpdatePeersPerWorker and MaxSendSockets, so existing files get rewritten with them.
-        // 8: MaxUnreliableQueuePerPeer and PacketPoolSizeMax became 0 = auto-scaled, and the old
-        // fixed values are actively migrated away because they were harmful at scale.
-        // 9: added CompactMerged, so existing files get rewritten with it.
-        // 10: added MaxPriorityUnreliableQueuePerPeer, which splits voice out of the bulk queue.
-        Assert.Equal(10, LNLTransportConfig.CurrentConfigVersion);
-        Assert.Equal(0, cfg.MaxPriorityUnreliableQueuePerPeer);   // 0 = auto from population + memory
-        Assert.True(cfg.CompactMerged);
-        Assert.Equal(0, cfg.MaxSendSockets);   // 0 = auto: half the cores, 4 to 64
-        Assert.Equal(0, cfg.PeerUpdatePeersPerWorker);
-        Assert.Equal(0, cfg.MaxUnreliableQueuePerPeer);   // 0 = auto from population + memory
-        Assert.Equal(0, cfg.ConfigVersion);
-        Assert.Equal(3f, cfg.MergeHoldMs);
-        Assert.Equal(0, cfg.PeerUpdateParallelism);
-        Assert.True(cfg.UseNativeSockets);
-        Assert.True(cfg.NatPunchEnabled);
-        Assert.Equal(32, cfg.NatPortPredictionRange);
-        Assert.Equal(1500, cfg.PingInterval);
-        Assert.Equal(30000, cfg.DisconnectTimeout);
-        Assert.False(cfg.SimulatePacketLoss);
-        Assert.False(cfg.SimulateLatency);
-        Assert.Equal(10, cfg.SimulationPacketLossChance);
-        Assert.Equal(50, cfg.SimulationMinLatency);
-        Assert.Equal(150, cfg.SimulationMaxLatency);
-        Assert.Equal(500, cfg.ReconnectDelay);
-        Assert.Equal(10, cfg.MaxConnectAttempts);
-        Assert.False(cfg.ReuseAddresss);
-        Assert.False(cfg.DontRoute);
-        Assert.True(cfg.IPv6Enabled);
-        Assert.Equal(0, cfg.MtuOverride);
-        Assert.True(cfg.MtuDiscovery);
-        Assert.False(cfg.DisconnectOnUnreachable);
-        Assert.True(cfg.AllowPeerAddressChange);
-        Assert.Equal(1, cfg.MultiSocketCount);
-        // Packet pool scales with peer count rather than sitting at a fixed ceiling; the floor
-        // stays PacketPoolSize, so small servers behave exactly as before.
-        Assert.Equal(48, cfg.PacketPoolSizePerPeer);
-        Assert.Equal(0, cfg.PacketPoolSizeMax);   // 0 = auto from population + memory
-    }
-
-    [Fact]
-    public void LoadAll_CreatesDefaultSidecarWithDocComments()
-    {
-        EnsureLiteNetLibRegistered();
-        using var dir = new ConfigTestSupport.TempDir();
-
-        BasisTransportConfigStore.LoadAll(dir.Path);
-
-        string sidecar = SidecarPath(dir.Path);
-        Assert.True(File.Exists(sidecar));
-        string xml = File.ReadAllText(sidecar);
-        Assert.Contains("<!--", xml);
-        Assert.Contains("LiteNetLib transport tuning", xml);
-        Assert.Contains("MultiSocketCount", xml);
-
-        var cfg = BasisTransportConfigStore.Get<LNLTransportConfig>(BasisNetworkStackRegistry.LiteNetLibId);
-        Assert.Equal(1500, cfg.PingInterval);
-        Assert.Equal(LNLTransportConfig.CurrentConfigVersion, cfg.ConfigVersion);
-    }
-
-    [Fact]
-    public void SaveAllThenLoadAll_RoundTripsEveryPublicField()
-    {
-        EnsureLiteNetLibRegistered();
-        using var dir = new ConfigTestSupport.TempDir();
-        BasisTransportConfigStore.LoadAll(dir.Path);
-
-        var expected = new LNLTransportConfig();
-        ConfigTestSupport.MutateAllFields(expected);
-        BasisTransportConfigStore.Set(BasisNetworkStackRegistry.LiteNetLibId, expected);
-        BasisTransportConfigStore.SaveAll(dir.Path);
-        BasisTransportConfigStore.LoadAll(dir.Path);
-
-        var loaded = BasisTransportConfigStore.Get<LNLTransportConfig>(BasisNetworkStackRegistry.LiteNetLibId);
-        Assert.NotSame(expected, loaded);
-        ConfigTestSupport.AssertFieldsEqual(expected, loaded, nameof(LNLTransportConfig.ConfigVersion));
-        Assert.Equal(LNLTransportConfig.CurrentConfigVersion, loaded.ConfigVersion);
-    }
-
-    [Fact]
-    public void LoadAll_PartialSidecar_KeepsValueAndHealsMissingFields()
-    {
-        EnsureLiteNetLibRegistered();
-        using var dir = new ConfigTestSupport.TempDir();
-        string sidecar = SidecarPath(dir.Path);
-        Directory.CreateDirectory(Path.GetDirectoryName(sidecar)!);
-        File.WriteAllText(sidecar, "<LNLTransportConfig><PingInterval>777</PingInterval></LNLTransportConfig>");
-
-        BasisTransportConfigStore.LoadAll(dir.Path);
-
-        var cfg = BasisTransportConfigStore.Get<LNLTransportConfig>(BasisNetworkStackRegistry.LiteNetLibId);
-        Assert.Equal(777, cfg.PingInterval);
-        Assert.True(cfg.UseNativeSockets);
-        Assert.Equal(32, cfg.NatPortPredictionRange);
-        Assert.Equal(LNLTransportConfig.CurrentConfigVersion, cfg.ConfigVersion);
-
-        string healed = File.ReadAllText(sidecar);
-        Assert.Contains("<PingInterval>777</PingInterval>", healed);
-        Assert.Contains("MultiSocketCount", healed);
-    }
-
-    [Fact]
-    public void LoadAll_CorruptSidecar_RecreatesDefaultsWithoutThrowing()
-    {
-        EnsureLiteNetLibRegistered();
-        using var dir = new ConfigTestSupport.TempDir();
-        string sidecar = SidecarPath(dir.Path);
-        Directory.CreateDirectory(Path.GetDirectoryName(sidecar)!);
-        File.WriteAllText(sidecar, "{ definitely not xml )");
-
-        BasisTransportConfigStore.LoadAll(dir.Path);
-
-        var cfg = BasisTransportConfigStore.Get<LNLTransportConfig>(BasisNetworkStackRegistry.LiteNetLibId);
-        Assert.Equal(1500, cfg.PingInterval);
-        Assert.Contains("UseNativeSockets", File.ReadAllText(sidecar));
-    }
-
-    [Fact]
-    public void Get_UnknownId_CreatesAndCachesOneInstance()
-    {
-        string uid = ConfigTestSupport.NewStackId();
-        var first = BasisTransportConfigStore.Get<LNLTransportConfig>(uid);
-        var second = BasisTransportConfigStore.Get<LNLTransportConfig>(uid);
-        Assert.Same(first, second);
-        Assert.Same(first, BasisTransportConfigStore.Get(uid));
-    }
-
-    [Fact]
-    public void Get_EmptyOrNullId_RoutesToDefaultStack()
-    {
-        EnsureLiteNetLibRegistered();
-        var direct = BasisTransportConfigStore.Get<LNLTransportConfig>(BasisNetworkStackRegistry.LiteNetLibId);
-        Assert.Same(direct, BasisTransportConfigStore.Get<LNLTransportConfig>(""));
-        Assert.Same(direct, BasisTransportConfigStore.Get<LNLTransportConfig>(null!));
-        Assert.Null(BasisTransportConfigStore.Get(""));
-        Assert.Null(BasisTransportConfigStore.Get(null!));
-    }
-
-    [Fact]
-    public void Set_StoresInstance_AndArgumentGuardsThrow()
-    {
-        string uid = ConfigTestSupport.NewStackId();
-        var mine = new LNLTransportConfig { PingInterval = 4242 };
-        BasisTransportConfigStore.Set(uid, mine);
-        Assert.Same(mine, BasisTransportConfigStore.Get<LNLTransportConfig>(uid));
-
-        Assert.Throws<ArgumentException>(() => BasisTransportConfigStore.Set("", new LNLTransportConfig()));
-        Assert.Throws<ArgumentNullException>(() => BasisTransportConfigStore.Set<LNLTransportConfig>(uid, null!));
-        Assert.Throws<ArgumentException>(() => BasisTransportConfigStore.RegisterType("", typeof(LNLTransportConfig)));
-        Assert.Throws<ArgumentNullException>(() => BasisTransportConfigStore.RegisterType(uid, null!));
-    }
-
-    [Fact]
-    public void RegisterType_ListsType_AndReRegistrationKeepsExistingConfig()
-    {
-        EnsureLiteNetLibRegistered();
-        Assert.Equal(typeof(LNLTransportConfig),
-            BasisTransportConfigStore.RegisteredTypes[BasisNetworkStackRegistry.LiteNetLibId]);
-
-        string uid = ConfigTestSupport.NewStackId();
-        BasisTransportConfigStore.RegisterType(uid, typeof(LNLTransportConfig));
-        Assert.True(BasisTransportConfigStore.RegisteredTypes.ContainsKey(uid));
-
-        var first = BasisTransportConfigStore.Get<LNLTransportConfig>(uid);
-        BasisTransportConfigStore.RegisterType(uid, typeof(LNLTransportConfig));
-        Assert.Same(first, BasisTransportConfigStore.Get<LNLTransportConfig>(uid));
-    }
-}
-
 /// <summary>ConnectionTarget property-bag semantics.</summary>
 public class ConnectionTargetTests
 {
@@ -555,7 +409,7 @@ public class ConnectionTargetTests
 }
 
 /// <summary>host:port / [IPv6]:port / #password connection-string parsing and formatting.</summary>
-public class LNLConnectionTargetParserTests
+public class HostPortConnectionTargetParserTests
 {
     [Theory]
     [InlineData("example.com:5000", "example.com", 5000, true, "")]
@@ -577,7 +431,7 @@ public class LNLConnectionTargetParserTests
     public void TryParse_HandlesHostsPortsIpv6AndPasswords(
         string raw, string expectedAddress, int expectedPort, bool expectedPortProvided, string expectedPassword)
     {
-        bool ok = LNLConnectionTargetParser.TryParseConnectionString(
+        bool ok = HostPortConnectionTargetParser.TryParseConnectionString(
             raw, out string address, out ushort port, out bool portProvided, out string password);
 
         Assert.True(ok);
@@ -593,19 +447,19 @@ public class LNLConnectionTargetParserTests
     [InlineData("#pw")]
     public void TryParse_RejectsInputWithoutAnAddress(string? raw)
     {
-        bool ok = LNLConnectionTargetParser.TryParseConnectionString(
+        bool ok = HostPortConnectionTargetParser.TryParseConnectionString(
             raw!, out string address, out ushort port, out bool portProvided, out _);
 
         Assert.False(ok);
         Assert.Equal("", address);
-        Assert.Equal(LNLConnectionTargetParser.DefaultPort, port);
+        Assert.Equal(HostPortConnectionTargetParser.DefaultPort, port);
         Assert.False(portProvided);
     }
 
     [Fact]
     public void Parse_PopulatesAddressPortAndPassword()
     {
-        var parser = new LNLConnectionTargetParser();
+        var parser = new HostPortConnectionTargetParser();
         var target = new ConnectionTarget(BasisNetworkStackRegistry.LiteNetLibId, "example.com:5000#pw");
         parser.Parse(target);
 
@@ -617,13 +471,13 @@ public class LNLConnectionTargetParserTests
     [Fact]
     public void Parse_NullTarget_DoesNotThrow()
     {
-        new LNLConnectionTargetParser().Parse(null!);
+        new HostPortConnectionTargetParser().Parse(null!);
     }
 
     [Fact]
     public void Parse_UnparseableRaw_LeavesPropertiesUnset()
     {
-        var parser = new LNLConnectionTargetParser();
+        var parser = new HostPortConnectionTargetParser();
         var target = new ConnectionTarget(BasisNetworkStackRegistry.LiteNetLibId, "");
         parser.Parse(target);
         Assert.Null(target.Get(ConnectionTarget.Keys.Address));
@@ -633,7 +487,7 @@ public class LNLConnectionTargetParserTests
     [Fact]
     public void Format_HostAndPassword()
     {
-        var parser = new LNLConnectionTargetParser();
+        var parser = new HostPortConnectionTargetParser();
         var target = new ConnectionTarget();
         target.Set(ConnectionTarget.Keys.Address, "example.com");
         target.Set(ConnectionTarget.Keys.Port, "5000");
@@ -646,7 +500,7 @@ public class LNLConnectionTargetParserTests
     [Fact]
     public void Format_BracketsIpv6Addresses()
     {
-        var parser = new LNLConnectionTargetParser();
+        var parser = new HostPortConnectionTargetParser();
         var target = new ConnectionTarget();
         target.Set(ConnectionTarget.Keys.Address, "::1");
         target.Set(ConnectionTarget.Keys.Port, "5001");
@@ -656,7 +510,7 @@ public class LNLConnectionTargetParserTests
     [Fact]
     public void Format_DefaultsPort_AndReturnsEmptyForNullTarget()
     {
-        var parser = new LNLConnectionTargetParser();
+        var parser = new HostPortConnectionTargetParser();
         var target = new ConnectionTarget();
         target.Set(ConnectionTarget.Keys.Address, "127.0.0.1");
         Assert.Equal("127.0.0.1:4296", parser.Format(target));
@@ -670,7 +524,7 @@ public class LNLConnectionTargetParserTests
     [InlineData("example.com")]
     public void ParseFormatParse_RoundTripsAddressPortAndPassword(string raw)
     {
-        var parser = new LNLConnectionTargetParser();
+        var parser = new HostPortConnectionTargetParser();
         var first = new ConnectionTarget(BasisNetworkStackRegistry.LiteNetLibId, raw);
         parser.Parse(first);
 
@@ -687,6 +541,7 @@ public class LNLConnectionTargetParserTests
 /// BasisNetworkStackRegistry register/lookup semantics. All mutations use unique test stack ids;
 /// the active stack id is restored after each test that changes it.
 /// </summary>
+[Collection("BasisServer shared network statics")]
 public class NetworkStackRegistryTests
 {
     private sealed class RecordingParser : IConnectionTargetParser
@@ -697,9 +552,8 @@ public class NetworkStackRegistryTests
 
     private sealed class StubIntroducer : IPeerIntroducer
     {
-        public bool Initialize(NetManager activeManager) => true;
-        public void Introduce(IPEndPoint aInternal, IPEndPoint aExternal, IPEndPoint bInternal, IPEndPoint bExternal, string token) { }
-        public bool IsPairOffloaded(int peerIdA, int peerIdB) => false;
+        public bool Initialize(PeerIntroductionRequest onRequest) => true;
+        public void Introduce(IPEndPoint aInternal, IPEndPoint aExternal, IPEndPoint bInternal, IPEndPoint bExternal, bool predictPorts, string token) { }
         public void Shutdown() { }
     }
 
@@ -708,16 +562,14 @@ public class NetworkStackRegistryTests
     {
         Assert.Equal("litenetlib", BasisNetworkStackRegistry.LiteNetLibId);
         Assert.Equal(BasisNetworkStackRegistry.LiteNetLibId, BasisNetworkStackRegistry.DefaultId);
-        Assert.True(BasisNetworkStackRegistry.IsRegistered(BasisNetworkStackRegistry.LiteNetLibId));
-        Assert.Equal("LiteNetLib", BasisNetworkStackRegistry.GetDisplayName(BasisNetworkStackRegistry.LiteNetLibId));
-        Assert.Equal(1, BasisNetworkStackRegistry.Stacks.Count(
-            s => string.Equals(s.Id, BasisNetworkStackRegistry.LiteNetLibId, StringComparison.OrdinalIgnoreCase)));
     }
 
     [Fact]
     public void IsRegistered_HandlesCaseNullEmptyAndUnknown()
     {
-        Assert.True(BasisNetworkStackRegistry.IsRegistered("LITENETLIB"));
+        string uid = ConfigTestSupport.NewStackId();
+        BasisNetworkStackRegistry.Register(uid, "Case Stack", (listener, configuration) => null!);
+        Assert.True(BasisNetworkStackRegistry.IsRegistered(uid.ToUpperInvariant()));
         Assert.False(BasisNetworkStackRegistry.IsRegistered(null!));
         Assert.False(BasisNetworkStackRegistry.IsRegistered(""));
         Assert.False(BasisNetworkStackRegistry.IsRegistered("unknown-" + Guid.NewGuid().ToString("N")));
@@ -727,19 +579,10 @@ public class NetworkStackRegistryTests
     public void GetParser_FallsBackToDefaultStackParser()
     {
         var byId = BasisNetworkStackRegistry.GetParser(BasisNetworkStackRegistry.LiteNetLibId);
-        Assert.IsType<LNLConnectionTargetParser>(byId);
+        Assert.IsType<HostPortConnectionTargetParser>(byId);
         Assert.Same(byId, BasisNetworkStackRegistry.GetParser(""));
         Assert.Same(byId, BasisNetworkStackRegistry.GetParser(null!));
         Assert.Same(byId, BasisNetworkStackRegistry.GetParser("unknown-" + Guid.NewGuid().ToString("N")));
-    }
-
-    [Fact]
-    public void Register_DuplicateId_IsIgnored()
-    {
-        BasisNetworkStackRegistry.Register(BasisNetworkStackRegistry.LiteNetLibId, "Imposter", (listener, configuration) => null!);
-        Assert.Equal("LiteNetLib", BasisNetworkStackRegistry.GetDisplayName(BasisNetworkStackRegistry.LiteNetLibId));
-        Assert.Equal(1, BasisNetworkStackRegistry.Stacks.Count(
-            s => string.Equals(s.Id, BasisNetworkStackRegistry.LiteNetLibId, StringComparison.OrdinalIgnoreCase)));
     }
 
     [Fact]
@@ -770,7 +613,7 @@ public class NetworkStackRegistryTests
 
         string unknown = "unknown-" + Guid.NewGuid().ToString("N");
         Assert.Equal(unknown, BasisNetworkStackRegistry.GetDisplayName(unknown));
-        Assert.Equal("LiteNetLib", BasisNetworkStackRegistry.GetDisplayName(null!));
+        Assert.Equal(BasisNetworkStackRegistry.GetDisplayName(BasisNetworkStackRegistry.DefaultId), BasisNetworkStackRegistry.GetDisplayName(null!));
     }
 
     [Fact]
@@ -997,14 +840,6 @@ public class ConfigXmlDocsTests
     }
 
     [Fact]
-    public void Serialize_InjectsLnlTransportDocComments()
-    {
-        string xml = SerializeWithDocs(typeof(LNLTransportConfig), new LNLTransportConfig());
-        Assert.Contains("LiteNetLib transport tuning", xml);
-        Assert.Contains("<MultiSocketCount>1</MultiSocketCount>", xml);
-    }
-
-    [Fact]
     public void Serialize_TypeWithoutRegisteredDocs_EmitsNoComments()
     {
         string xml = SerializeWithDocs(typeof(DocLessTestConfig), new DocLessTestConfig());
@@ -1018,10 +853,6 @@ public class ConfigXmlDocsTests
         var serverCfg = new Configuration();
         BasisConfigXmlDocs.StampVersion(serverCfg);
         Assert.Equal(Configuration.CurrentConfigVersion, serverCfg.ConfigVersion);
-
-        var lnlCfg = new LNLTransportConfig();
-        BasisConfigXmlDocs.StampVersion(lnlCfg);
-        Assert.Equal(LNLTransportConfig.CurrentConfigVersion, lnlCfg.ConfigVersion);
 
         BasisConfigXmlDocs.StampVersion(null!);
         BasisConfigXmlDocs.StampVersion(new DocLessTestConfig());

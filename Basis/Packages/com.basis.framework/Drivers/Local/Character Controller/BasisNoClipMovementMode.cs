@@ -58,8 +58,8 @@ namespace Basis.Scripts.BasisCharacterController
 
             // Same speed model you already use
             ctx.CurrentSpeed =
-                math.lerp(ctx.MinimumMovementSpeed, ctx.MaximumMovementSpeed, ctx.MovementSpeedScale)
-                + ctx.MinimumMovementSpeed * ctx.MovementSpeedBoost;
+                (math.lerp(ctx.MinimumMovementSpeed, ctx.MaximumMovementSpeed, ctx.MovementSpeedScale)
+                + ctx.MinimumMovementSpeed * ctx.MovementSpeedBoost) * BasisLocalCharacterDriver.LocomotionSpeedScale();
 
             // Planar input
             Vector3 planar = new Vector3(ctx.MovementVector.x, 0f, ctx.MovementVector.y).normalized;
@@ -70,6 +70,12 @@ namespace Basis.Scripts.BasisCharacterController
             ctx.HasJumpAction = false;
 
             if (ctx.MovementLock) move = Vector3.zero;
+
+            if (ctx.HasExternalVelocity)
+            {
+                move = BasisLocalCharacterDriver.CombineMotion(move, ctx.ExternalVelocity * dt);
+                ctx.DecayExternalVelocity(dt);
+            }
 
             // Ghost move: translate transform directly
             Vector3 ghostPosition = ctx.BasisLocalPlayerTransform.GetPosition() + move;

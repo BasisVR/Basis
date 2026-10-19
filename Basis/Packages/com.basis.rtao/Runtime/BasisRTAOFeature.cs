@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Unity.Scripting.LifecycleManagement;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -7,8 +8,9 @@ using UnityEngine.Rendering.Universal;
 
 namespace Basis.Rendering.RTAO
 {
+    [AutoStaticsCleanup]
     [DisallowMultipleRendererFeature("BasisRTAO")]
-    public sealed class BasisRTAOFeature : ScriptableRendererFeature
+    public sealed partial class BasisRTAOFeature : ScriptableRendererFeature
     {
         [SerializeField] private BasisRTAOResources resources;
         [SerializeField] private BasisRTAOQuality quality = BasisRTAOQuality.Medium;

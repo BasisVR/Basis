@@ -1,0 +1,11 @@
+# Pin the gate's toolchain. Without this the lint set floats with whatever
+# rustup last pulled, so `-D warnings` in tools/ci.ps1 turns every new clippy
+# lint into a build failure on Rust's release schedule rather than ours - and
+# a "green" claim stops meaning the same thing on two machines.
+#
+# Bumping is a deliberate commit: raise the version, run the gate, fix what
+# the new lints surface, and record the new baseline in TESTING.md.
+[toolchain]
+channel = "1.98.0"
+components = ["clippy", "rustfmt"]
+targets = ["aarch64-linux-android"]

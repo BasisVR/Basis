@@ -21,7 +21,7 @@ namespace Basis.BasisUI.HandHeldCamera
     /// </summary>
     public partial class BasisHandHeldCameraPanelProvider
     {
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
         private PanelSectionToggle _giSection;
         private PanelElementDescriptor _giGroup;
         private PanelToggle _giOverrideToggle;
@@ -252,7 +252,7 @@ namespace Basis.BasisUI.HandHeldCamera
         {
             if (_activeCamera == null) return;
 
-            bool giSupported = BasisSettingsDefaults.UseGlobalIllumination.RawValue;
+            bool giSupported = Basis.Scripts.Rendering.BasisLightingSolutions.BasisGlobalIllumination;
             _giOverrideToggle?.SetInteractable(giSupported, giSupported ? null : BasisLocalization.Get("camera.gi.override.disabled"));
             _giOverrideToggle?.SetValueWithoutNotify(_activeCamera.OverrideGlobalIllumination);
 

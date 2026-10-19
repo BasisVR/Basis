@@ -1,4 +1,4 @@
-#if BASIS_GLOBALILLUMINATION_EXISTS
+#if BASIS_GLOBALILLUMINATION_EXISTS && !UNITY_WEBGL
 using UnityEngine;
 
 namespace Basis.Integration.AudioLink

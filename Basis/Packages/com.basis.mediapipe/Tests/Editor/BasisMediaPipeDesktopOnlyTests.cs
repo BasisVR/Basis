@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Reflection;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
@@ -7,6 +8,7 @@ using UnityEngine;
 
 namespace Basis.MediaPipe.Tests
 {
+    [NoAutoStaticsCleanup]
     public class BasisMediaPipeDesktopOnlyTests
     {
         private const BindingFlags InstanceFlags = BindingFlags.NonPublic | BindingFlags.Instance, StaticFlags = BindingFlags.NonPublic | BindingFlags.Static;

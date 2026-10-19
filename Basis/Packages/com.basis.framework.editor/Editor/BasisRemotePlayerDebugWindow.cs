@@ -1,3 +1,4 @@
+using Basis.Editor.Localization;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
@@ -42,7 +43,7 @@ public class BasisRemotePlayerDebugWindow : EditorWindow
     [MenuItem("Basis/Debug/Remote Players", false, 604)]
     public static void ShowWindow()
     {
-        var w = GetWindow<BasisRemotePlayerDebugWindow>("Remote Players");
+        var w = GetWindow<BasisRemotePlayerDebugWindow>(BasisEditorLocalization.Get("editor.remotePlayerDebug.title"));
         w.minSize = new Vector2(420, 560);
     }
 
@@ -57,15 +58,15 @@ public class BasisRemotePlayerDebugWindow : EditorWindow
         var header = new VisualElement();
         header.AddToClassList("brp-card");
         header.AddToClassList("brp-header-card");
-        var title = new Label("Remote Players");
+        var title = new Label(BasisEditorLocalization.Get("editor.remotePlayerDebug.title"));
         title.AddToClassList("brp-header-title");
-        _subtitle = new Label("Not in Play Mode");
+        _subtitle = new Label(BasisEditorLocalization.Get("editor.remotePlayerDebug.notPlaying"));
         _subtitle.AddToClassList("brp-header-subtitle");
         header.Add(title);
         header.Add(_subtitle);
         root.Add(header);
 
-        _emptyState = new Label("Enter Play Mode to see connected remote players.");
+        _emptyState = new Label(BasisEditorLocalization.Get("editor.remotePlayerDebug.enterPlayMode"));
         _emptyState.AddToClassList("brp-help-info");
         root.Add(_emptyState);
 
@@ -87,7 +88,7 @@ public class BasisRemotePlayerDebugWindow : EditorWindow
         _controls = new VisualElement();
         _controls.AddToClassList("brp-card");
 
-        _search = new TextField("Find (name / UUID / id)");
+        _search = new TextField(BasisEditorLocalization.Get("editor.remotePlayerDebug.find"));
         _search.AddToClassList("brp-search");
         _search.RegisterValueChangedCallback(evt =>
         {
@@ -146,65 +147,65 @@ public class BasisRemotePlayerDebugWindow : EditorWindow
 
         VisualElement s;
 
-        s = Section(c, "Identity");
-        AddValue(s, "name", "Display Name");
-        AddValue(s, "uuid", "UUID");
-        AddValue(s, "platform", "Platform");
-        AddValue(s, "pid", "Player Id");
-        AddValue(s, "dindex", "Data Index");
-        AddPill(s, "destroyed", "Destroyed");
+        s = Section(c, BasisEditorLocalization.Get("editor.remotePlayerDebug.sectionIdentity"));
+        AddValue(s, "name", BasisEditorLocalization.Get("editor.remotePlayerDebug.displayName"));
+        AddValue(s, "uuid", BasisEditorLocalization.Get("editor.remotePlayerDebug.uuid"));
+        AddValue(s, "platform", BasisEditorLocalization.Get("sdk.buildReport.platform"));
+        AddValue(s, "pid", BasisEditorLocalization.Get("editor.remotePlayerDebug.playerId"));
+        AddValue(s, "dindex", BasisEditorLocalization.Get("editor.remotePlayerDebug.dataIndex"));
+        AddPill(s, "destroyed", BasisEditorLocalization.Get("editor.remotePlayerDebug.destroyed"));
 
-        s = Section(c, "Avatar");
-        AddPill(s, "hasavatar", "Has Avatar");
-        AddPill(s, "fallback", "Fallback Avatar");
-        AddPill(s, "loading", "Loading");
-        AddValue(s, "loadmode", "Load Mode");
-        AddPill(s, "inrange", "In Avatar Range");
-        AddValue(s, "lod", "LOD Level");
-        AddValue(s, "poseskip", "Pose Skip Counter");
-        AddPill(s, "perfblock", "Perf Blocked");
+        s = Section(c, BasisEditorLocalization.Get("editor.remotePlayerDebug.sectionAvatar"));
+        AddPill(s, "hasavatar", BasisEditorLocalization.Get("editor.remotePlayerDebug.hasAvatar"));
+        AddPill(s, "fallback", BasisEditorLocalization.Get("editor.remotePlayerDebug.fallbackAvatar"));
+        AddPill(s, "loading", BasisEditorLocalization.Get("editor.remotePlayerDebug.loading"));
+        AddValue(s, "loadmode", BasisEditorLocalization.Get("editor.remotePlayerDebug.loadMode"));
+        AddPill(s, "inrange", BasisEditorLocalization.Get("editor.remotePlayerDebug.inAvatarRange"));
+        AddValue(s, "lod", BasisEditorLocalization.Get("editor.remotePlayerDebug.lodLevel"));
+        AddValue(s, "poseskip", BasisEditorLocalization.Get("editor.remotePlayerDebug.poseSkipCounter"));
+        AddPill(s, "perfblock", BasisEditorLocalization.Get("editor.remotePlayerDebug.perfBlocked"));
         _perfReason = AddHelp(s, "brp-help-warn");
         _avatarError = AddHelp(s, "brp-help-error");
 
-        s = Section(c, "Network / Interpolation");
-        AddPill(s, "hasdata", "Has Required Data");
-        AddPill(s, "holds", "Buffer Holds");
-        AddPill(s, "cur", "Has Current Buffer");
-        AddPill(s, "next", "Has Next Buffer");
-        AddValue(s, "staged", "Staged Count");
-        AddValue(s, "interp", "Interpolation Time");
+        s = Section(c, BasisEditorLocalization.Get("editor.remotePlayerDebug.sectionNetwork"));
+        AddPill(s, "hasdata", BasisEditorLocalization.Get("editor.remotePlayerDebug.hasRequiredData"));
+        AddPill(s, "holds", BasisEditorLocalization.Get("editor.remotePlayerDebug.bufferHolds"));
+        AddPill(s, "cur", BasisEditorLocalization.Get("editor.remotePlayerDebug.hasCurrentBuffer"));
+        AddPill(s, "next", BasisEditorLocalization.Get("editor.remotePlayerDebug.hasNextBuffer"));
+        AddValue(s, "staged", BasisEditorLocalization.Get("editor.remotePlayerDebug.stagedCount"));
+        AddValue(s, "interp", BasisEditorLocalization.Get("editor.remotePlayerDebug.interpolationTime"));
         _interpBarFill = AddBar(s);
-        AddValue(s, "rate", "Playback Rate");
-        AddValue(s, "jitter", "Jitter Depth");
-        AddValue(s, "seq", "Highest Sequence");
-        AddValue(s, "seen", "Seen Packets");
-        AddValue(s, "scale", "Human Scale");
+        AddValue(s, "rate", BasisEditorLocalization.Get("editor.remotePlayerDebug.playbackRate"));
+        AddValue(s, "jitter", BasisEditorLocalization.Get("editor.remotePlayerDebug.jitterDepth"));
+        AddValue(s, "seq", BasisEditorLocalization.Get("editor.remotePlayerDebug.highestSequence"));
+        AddValue(s, "seen", BasisEditorLocalization.Get("editor.remotePlayerDebug.seenPackets"));
+        AddValue(s, "scale", BasisEditorLocalization.Get("editor.remotePlayerDebug.humanScale"));
 
-        s = Section(c, "Network Pose (hips)");
-        AddValue(s, "pos", "Position");
-        AddValue(s, "rot", "Rotation (euler)");
-        AddValue(s, "scl", "Scale");
+        s = Section(c, BasisEditorLocalization.Get("editor.remotePlayerDebug.sectionPose"));
+        AddValue(s, "pos", BasisEditorLocalization.Get("editor.remotePlayerDebug.position"));
+        AddValue(s, "rot", BasisEditorLocalization.Get("editor.remotePlayerDebug.rotationEuler"));
+        AddValue(s, "scl", BasisEditorLocalization.Get("editor.remotePlayerDebug.scale"));
 
-        s = Section(c, "Face / Eyes");
-        AddPill(s, "facevis", "Face Visible");
-        AddPill(s, "eyebones", "Has Eye Bones");
-        AddPill(s, "blink", "Blinking");
-        AddValue(s, "eyeL", "Eye L (h, v)");
-        AddValue(s, "eyeR", "Eye R (h, v)");
-        AddValue(s, "mouth", "Mouth (viseme)");
-        AddValue(s, "facegen", "Face Generation");
+        s = Section(c, BasisEditorLocalization.Get("editor.remotePlayerDebug.sectionFace"));
+        AddPill(s, "facevis", BasisEditorLocalization.Get("editor.remotePlayerDebug.faceVisible"));
+        AddPill(s, "eyebones", BasisEditorLocalization.Get("editor.remotePlayerDebug.hasEyeBones"));
+        AddPill(s, "blink", BasisEditorLocalization.Get("editor.remotePlayerDebug.blinking"));
+        AddValue(s, "eyeL", BasisEditorLocalization.Get("editor.remotePlayerDebug.eyeLeft"));
+        AddValue(s, "eyeR", BasisEditorLocalization.Get("editor.remotePlayerDebug.eyeRight"));
+        AddValue(s, "mouth", BasisEditorLocalization.Get("editor.remotePlayerDebug.mouthViseme"));
+        AddValue(s, "facegen", BasisEditorLocalization.Get("editor.remotePlayerDebug.faceGeneration"));
 
-        s = Section(c, "Voice");
-        AddValue(s, "talk", "Talk Mode");
-        AddPill(s, "selfmute", "Self Muted");
-        AddPill(s, "typing", "Chat Typing");
-        AddPill(s, "audiomod", "Audio Module");
+        s = Section(c, BasisEditorLocalization.Get("editor.remotePlayerDebug.sectionVoice"));
+        AddValue(s, "talk", BasisEditorLocalization.Get("editor.remotePlayerDebug.talkMode"));
+        AddPill(s, "selfmute", BasisEditorLocalization.Get("editor.remotePlayerDebug.selfMuted"));
+        AddPill(s, "typing", BasisEditorLocalization.Get("editor.remotePlayerDebug.chatTyping"));
+        AddPill(s, "audiomod", BasisEditorLocalization.Get("editor.remotePlayerDebug.audioModule"));
 
-        s = Section(c, "Visibility / Block");
-        AddPill(s, "blocked", "Blocked");
-        AddPill(s, "tempblock", "Temp Blocked");
-        AddPill(s, "effblock", "Effectively Blocked");
-        AddPill(s, "oor", "Out Of Range");
+        s = Section(c, BasisEditorLocalization.Get("editor.remotePlayerDebug.sectionVisibility"));
+        AddPill(s, "blocked", BasisEditorLocalization.Get("editor.remotePlayerDebug.blocked"));
+        AddPill(s, "tempblock", BasisEditorLocalization.Get("editor.remotePlayerDebug.tempBlocked"));
+        AddPill(s, "effblock", BasisEditorLocalization.Get("editor.remotePlayerDebug.effectivelyBlocked"));
+        AddPill(s, "oor", BasisEditorLocalization.Get("editor.remotePlayerDebug.outOfRange"));
 
         root.Add(scroll);
     }
@@ -224,8 +225,8 @@ public class BasisRemotePlayerDebugWindow : EditorWindow
         bool playing = Application.isPlaying;
         if (!playing)
         {
-            _subtitle.text = "Not in Play Mode";
-            ShowEmpty("Enter Play Mode to see connected remote players.");
+            _subtitle.text = BasisEditorLocalization.Get("editor.remotePlayerDebug.notPlaying");
+            ShowEmpty(BasisEditorLocalization.Get("editor.remotePlayerDebug.enterPlayMode"));
             return;
         }
 
@@ -237,11 +238,11 @@ public class BasisRemotePlayerDebugWindow : EditorWindow
         }
 
         int total = BasisNetworkPlayers.ReceiverCount;
-        _subtitle.text = total == 1 ? "1 remote player connected" : $"{total} remote players connected";
+        _subtitle.text = BasisEditorLocalization.Get("editor.remotePlayerDebug.connectedCount", total);
 
         if (total == 0)
         {
-            ShowEmpty("No remote players connected.");
+            ShowEmpty(BasisEditorLocalization.Get("editor.remotePlayerDebug.noPlayers"));
             return;
         }
 
@@ -253,9 +254,9 @@ public class BasisRemotePlayerDebugWindow : EditorWindow
         if (_filtered.Count == 0)
         {
             _detailScroll.style.display = DisplayStyle.None;
-            _noMatch.text = $"No players match \"{_query}\".";
+            _noMatch.text = BasisEditorLocalization.Get("editor.remotePlayerDebug.noMatch", _query);
             _noMatch.style.display = DisplayStyle.Flex;
-            _position.text = $"0 / 0  (of {total})";
+            _position.text = BasisEditorLocalization.Get("editor.remotePlayerDebug.positionNone", total);
             return;
         }
 
@@ -343,8 +344,8 @@ public class BasisRemotePlayerDebugWindow : EditorWindow
 
         bool filtering = !string.IsNullOrEmpty(_query);
         _position.text = filtering
-            ? $"Match {_cursor + 1} / {_filtered.Count}   (of {BasisNetworkPlayers.ReceiverCount})"
-            : $"Player {_cursor + 1} / {_filtered.Count}";
+            ? BasisEditorLocalization.Get("editor.remotePlayerDebug.positionMatch", _cursor + 1, _filtered.Count, BasisNetworkPlayers.ReceiverCount)
+            : BasisEditorLocalization.Get("editor.remotePlayerDebug.positionPlayer", _cursor + 1, _filtered.Count);
 
         UpdateDetail(receiver);
     }
@@ -416,7 +417,7 @@ public class BasisRemotePlayerDebugWindow : EditorWindow
 
         string name = rp != null && !string.IsNullOrEmpty(rp.DisplayName)
             ? rp.DisplayName
-            : (string.IsNullOrEmpty(receiver.displayName) ? "Unknown" : receiver.displayName);
+            : (string.IsNullOrEmpty(receiver.displayName) ? BasisEditorLocalization.Get("editor.common.unknown") : receiver.displayName);
         _currentName.text = $"[{receiver.playerId}] {name}";
         string uuid = rp != null && !string.IsNullOrEmpty(rp.UUID) ? rp.UUID : "-";
         string platform = rp != null && !string.IsNullOrEmpty(rp.PlayerPlatform) ? rp.PlayerPlatform : "-";
@@ -432,7 +433,7 @@ public class BasisRemotePlayerDebugWindow : EditorWindow
         PillGoodBad("hasavatar", rp != null && rp.BasisAvatar != null);
         PillNote("fallback", rp != null && rp.IsConsideredFallBackAvatar);
         PillNote("loading", rp != null && rp.IsLoadingAnAvatar);
-        SetValue("loadmode", rp == null ? "-" : (rp.AlwaysRequestedMode == 1 ? "Local (1)" : "Remote (0)"));
+        SetValue("loadmode", rp == null ? "-" : (rp.AlwaysRequestedMode == 1 ? BasisEditorLocalization.Get("editor.remotePlayerDebug.loadModeLocal") : BasisEditorLocalization.Get("editor.remotePlayerDebug.loadModeRemote")));
         PillGoodBad("inrange", rp != null && rp.InAvatarRange);
         SetValue("lod", rp != null ? rp.CurrentLodLevel.ToString() : "-");
         SetValue("poseskip", rp != null ? rp.PoseSkipCounter.ToString() : "-");
@@ -443,7 +444,7 @@ public class BasisRemotePlayerDebugWindow : EditorWindow
         bool hasErr = rp != null && (!string.IsNullOrEmpty(rp.AvatarLoadErrorMessage) || rp.HasFailedAvatarLoadGlobally);
         string errText = rp == null
             ? null
-            : (rp.HasFailedAvatarLoadGlobally ? "Avatar load failed (gave up). " : string.Empty) + rp.AvatarLoadErrorMessage;
+            : (rp.HasFailedAvatarLoadGlobally ? BasisEditorLocalization.Get("editor.remotePlayerDebug.avatarLoadFailed") + " " : string.Empty) + rp.AvatarLoadErrorMessage;
         SetHelp(_avatarError, hasErr, errText);
 
         PillGoodBad("hasdata", receiver.hasRequiredData);
@@ -474,8 +475,8 @@ public class BasisRemotePlayerDebugWindow : EditorWindow
         float[] ea = receiver.EyesAndMouth;
         if (ea != null && ea.Length >= 6)
         {
-            SetValue("eyeL", $"h {ea[1]:F2}   v {ea[0]:F2}");
-            SetValue("eyeR", $"h {ea[3]:F2}   v {ea[2]:F2}");
+            SetValue("eyeL", BasisEditorLocalization.Get("editor.remotePlayerDebug.eyeValue", ea[1], ea[0]));
+            SetValue("eyeR", BasisEditorLocalization.Get("editor.remotePlayerDebug.eyeValue", ea[3], ea[2]));
             SetValue("mouth", $"{ea[4]:F2}, {ea[5]:F2}");
         }
         SetValue("facegen", fd != null ? fd.FaceGeneration.ToString() : "-");
@@ -498,14 +499,16 @@ public class BasisRemotePlayerDebugWindow : EditorWindow
         if (_v.TryGetValue(key, out Label l)) l.text = text;
     }
 
+    private static string YesNo(bool on) => on ? BasisEditorLocalization.Get("sdk.cilbox.state.yes") : BasisEditorLocalization.Get("sdk.cilbox.state.no");
+
     private void PillGoodBad(string key, bool on) =>
-        SetPill(key, on ? "YES" : "NO", on ? "brp-pill-good" : "brp-pill-bad");
+        SetPill(key, YesNo(on), on ? "brp-pill-good" : "brp-pill-bad");
 
     private void PillAlert(string key, bool on) =>
-        SetPill(key, on ? "YES" : "NO", on ? "brp-pill-bad" : "brp-pill-neutral");
+        SetPill(key, YesNo(on), on ? "brp-pill-bad" : "brp-pill-neutral");
 
     private void PillNote(string key, bool on) =>
-        SetPill(key, on ? "YES" : "NO", on ? "brp-pill-warn" : "brp-pill-neutral");
+        SetPill(key, YesNo(on), on ? "brp-pill-warn" : "brp-pill-neutral");
 
     private void SetPill(string key, string text, string cssClass)
     {

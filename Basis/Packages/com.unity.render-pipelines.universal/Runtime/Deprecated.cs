@@ -2,6 +2,7 @@
 // way to being deprecated and removed in future releases
 using System;
 using System.ComponentModel;
+using Unity.Scripting.LifecycleManagement;
 
 namespace UnityEngine.Rendering.Universal
 {
@@ -24,14 +25,16 @@ namespace UnityEngine.Rendering.Universal
             /// The ID for the additional shadows buffer ID.
             /// This has been deprecated. Shadow slice matrix is now passed to the GPU using an entry in buffer m_AdditionalLightsWorldToShadow_SSBO.
             /// </summary>
-            [Obsolete("AdditionalLightsShadowCasterPass.m_AdditionalShadowsBufferId was deprecated. Shadow slice matrix is now passed to the GPU using an entry in buffer m_AdditionalLightsWorldToShadow_SSBO #from(2021.1) #breakingFrom(2023.1)", true)]
+            [Obsolete("AdditionalLightsShadowCasterPass.m_AdditionalShadowsBufferId was deprecated. Shadow slice matrix is now passed to the GPU using an entry in buffer m_AdditionalLightsWorldToShadow_SSBO. Fast Enter Playmode is not supported. #from(2021.1) #breakingFrom(2023.1)", true)]
+            [NoAutoStaticsCleanup] // Obsolete API not supported
             public static int m_AdditionalShadowsBufferId;
 
             /// <summary>
             /// The ID for the additional shadows buffer ID.
             /// This has been deprecated. hadow slice index is now passed to the GPU using last member of an entry in buffer m_AdditionalShadowParams_SSBO.
             /// </summary>
-            [Obsolete("AdditionalLightsShadowCasterPass.m_AdditionalShadowsIndicesId was deprecated. Shadow slice index is now passed to the GPU using last member of an entry in buffer m_AdditionalShadowParams_SSBO #from(2021.1) #breakingFrom(2023.1)", true)]
+            [Obsolete("AdditionalLightsShadowCasterPass.m_AdditionalShadowsIndicesId was deprecated. Shadow slice index is now passed to the GPU using last member of an entry in buffer m_AdditionalShadowParams_SSBO #from(2021.1). Fast Enter Playmode is not supported. #breakingFrom(2023.1)", true)]
+            [NoAutoStaticsCleanup] // Obsolete API not supported
             public static int m_AdditionalShadowsIndicesId;
         }
     }
@@ -189,7 +192,7 @@ namespace UnityEngine.Rendering.Universal
                 return m_Textures;
             }
         }
-        
+
         /// <summary>
         /// Controls when URP renders via an intermediate texture.
         /// </summary>
@@ -603,7 +606,7 @@ namespace UnityEngine.Rendering.Universal
         [Obsolete("Moved to UniversalRenderPipelineRuntimeShaders on GraphicsSettings. #from(2023.3)")]
         public Shader dataDrivenLensFlare;
     }
-  
+
     partial class UniversalRenderPipelineGlobalSettings
     {
 #pragma warning disable 0414

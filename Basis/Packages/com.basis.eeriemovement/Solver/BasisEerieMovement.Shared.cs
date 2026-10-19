@@ -15,7 +15,10 @@ namespace Basis.IK
                     continue;
                 }
                 BasisBoneHandle handle = SlotHandle(i);
-                poseStream.SetPosition(handle, slotPositions[i]);
+                if (poseStream.TranslationFree.IsCreated && poseStream.TranslationFree[handle.Index] != 0)
+                {
+                    poseStream.SetPosition(handle, slotPositions[i]);
+                }
                 poseStream.SetRotation(handle, slotRotations[i] * slotOffsets[i]);
             }
         }

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 
 /// <summary>
@@ -9,6 +10,7 @@ using System;
 /// heap allocation and GC pressure when a session holds many remote players.
 /// </remarks>
 [Serializable]
+[NoAutoStaticsCleanup]
 public struct BasisPlayerSettingsData
 {
     /// <summary>

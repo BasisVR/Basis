@@ -1,9 +1,11 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Common;
 using System;
 using UnityEngine.InputSystem;
 
 namespace Basis.Scripts.Vehicles.Main
 {
+    [NoAutoStaticsCleanup]
     public sealed class BasisVehiclePilotSeatInputActions : IDisposable
     {
         public static BasisVehiclePilotSeatInputActions Instance { get; } = new BasisVehiclePilotSeatInputActions();

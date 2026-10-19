@@ -15,11 +15,13 @@ using System;
 using Metaphira.Modules.CameraOverride;
 using TMPro;
 using Basis;
+using Basis.Shims;
+using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
-using Basis.Scripts.Networking;
 using Basis.Scripts.BasisSdk.Interactions;
 
 
+[Cilboxable]
 public class BilliardsModule : MonoBehaviour
 {
     [NonSerialized] public readonly string[] DEPENDENCIES = new string[] { nameof(CameraOverrideModule) };
@@ -242,7 +244,7 @@ public class BilliardsModule : MonoBehaviour
     [NonSerialized] public bool isLocalSimulationOurs = false;
     [NonSerialized] public int simulationOwnerID;
     private uint numBallsHitCushion = 0; // used to check if 9ball break was legal (4 balls must hit cushion)
-    private bool[] ballhasHitCushion;
+    private int[] ballhasHitCushion = new int[16];
     private bool ballBounced;//tracks if any ball has touched the cushion after initial ball collision
     private uint ballsPocketedOrig;
     private int firstHit = 0;
@@ -300,33 +302,48 @@ public class BilliardsModule : MonoBehaviour
         get => noLOD_;
     }
     */
-    bool checkingDistant;
+    private float nextDistanceCheck;
+    private float resetInfoClearAt;
     GameObject debugger;
     [NonSerialized] public CameraOverrideModule cameraOverrideModule;
+    private Transform[] ballTransforms;
     public string[] moderators = new string[0];
     [NonSerialized] public const float ballMeshDiameter = 0.06f;//the ball's size as modeled in the mesh file
-    private void OnEnable()
+    private void Start()
     {
         _LogInfo("initializing billiards module");
 
         Transform tablesParent = transform.Find("intl.table");
-        tableModels = GetComponentsInChildren<ModelData>(true);
+        int modelCount = 0;
+        for (int i = 0; i < tablesParent.childCount; i++)
+        {
+            if (tablesParent.GetChild(i).gameObject.GetComponent<ModelData>() != null) modelCount++;
+        }
+        tableModels = new ModelData[modelCount];
+        modelCount = 0;
+        for (int i = 0; i < tablesParent.childCount; i++)
+        {
+            ModelData model = tablesParent.GetChild(i).gameObject.GetComponent<ModelData>();
+            if (model != null) tableModels[modelCount++] = model;
+        }
         for (int i = 0; i < tableModels.Length; i++)
         {
             tableModels[i].gameObject.SetActive(false);
             tableModels[i]._Init();
         }
 
-        cameraOverrideModule = GameObject.FindAnyObjectByType<CameraOverrideModule>();
+        cameraOverrideModule = cameraModule;
 
         resetCachedData();
 
         currentPhysicsManager = PhysicsManagers[0];
 
+        ballTransforms = new Transform[balls.Length];
         for (int i = 0; i < balls.Length; i++)
         {
+            ballTransforms[i] = balls[i].transform;
             ballsP[i] = balls[i].transform.localPosition;
-            balls[i].GetComponentInChildren<Repositioner>(true)._Init(this, i);
+            findRepositioner(balls[i])._Init(this, i);
 
             Rigidbody ballRB = balls[i].GetComponent<Rigidbody>();
             ballRB.maxAngularVelocity = 999;
@@ -360,6 +377,7 @@ public class BilliardsModule : MonoBehaviour
 
         debugger = this.transform.Find("debugger").gameObject;
         debugger.SetActive(true);
+        debuggerShown = true;
 
         Transform gdisplay = guideline.transform.GetChild(0);
         if (gdisplay)
@@ -368,16 +386,20 @@ public class BilliardsModule : MonoBehaviour
         if (gdisplay2)
             gdisplay2.GetComponent<MeshRenderer>().material.SetMatrix("_BaseTransform", this.transform.worldToLocalMatrix);
 
-        if (LoDDistance > 0 && !checkingDistant)
-        {
-            checkingDistant = true;
-            networkingManager.SendCustomEventDelayedSeconds(checkDistanceLoop, UnityEngine.Random.Range(0, 1f));
-        }
+        nextDistanceCheck = Time.time + UnityEngine.Random.Range(0, 1f);
     }
 
-    private void OnDisable()
+    private Repositioner findRepositioner(GameObject ball)
     {
-        checkingDistant = false;
+        Repositioner repositioner = ball.GetComponent<Repositioner>();
+        if (repositioner != null) return repositioner;
+        Transform ballTransform = ball.transform;
+        for (int i = 0; i < ballTransform.childCount; i++)
+        {
+            repositioner = ballTransform.GetChild(i).gameObject.GetComponent<Repositioner>();
+            if (repositioner != null) return repositioner;
+        }
+        return null;
     }
 
     private void FixedUpdate()
@@ -387,6 +409,19 @@ public class BilliardsModule : MonoBehaviour
 
     private void Update()
     {
+        float now = Time.time;
+        if (LoDDistance > 0 && now >= nextDistanceCheck)
+        {
+            nextDistanceCheck = now + 1f;
+            CheckDistanceLoD();
+        }
+        if (resetInfoClearAt > 0 && now >= resetInfoClearAt)
+        {
+            resetInfoClearAt = 0;
+            infReset.text = string.Empty;
+        }
+        graphicsManager._TickDeferred(now);
+
         if (localPlayerDistant) { return; }
         desktopManager._Tick();
         // menuManager._Tick();
@@ -401,7 +436,17 @@ public class BilliardsModule : MonoBehaviour
         networkingManager._FlushBuffer();
         _EndPerf(PERF_MAIN);
 
-        if (perfCounters[PERF_MAIN] % 500 == 0) _RedrawDebugger();
+        debuggerFrame++;
+        if (debuggerFrame >= 500)
+        {
+            debuggerFrame = 0;
+            debuggerDirty = true;
+        }
+        if (debuggerDirty && debuggerShown)
+        {
+            debuggerDirty = false;
+            redrawDebugger();
+        }
     }
 
     #region Triggers
@@ -502,18 +547,18 @@ public class BilliardsModule : MonoBehaviour
         canHitCueBall = false;
 
 #if !HT_QUEST
-        guideline.gameObject.transform.Find("guide_display").GetComponent<MeshRenderer>().material.SetColor("_Colour", k_aimColour_aim);
+        guideline.transform.Find("guide_display").GetComponent<MeshRenderer>().material.SetColor("_Colour", k_aimColour_aim);
 #endif
     }
 
     public void _OnPickupCue()
     {
-        if (!BasisNetworkPlayer.LocalPlayer.IsUserInVR()) desktopManager._OnPickupCue();
+        if (BasisPlatformShim.IsDesktop) desktopManager._OnPickupCue();
     }
 
     public void _OnDropCue()
     {
-        if (!BasisNetworkPlayer.LocalPlayer.IsUserInVR()) desktopManager._OnDropCue();
+        if (BasisPlatformShim.IsDesktop) desktopManager._OnDropCue();
     }
 
     public void _TriggerOnPlayerPrepareShoot()
@@ -656,7 +701,7 @@ public class BilliardsModule : MonoBehaviour
         bool isAllowedPlayer = false;
         foreach (int allowedPlayer in allowedPlayers)
         {
-            if (allPlayersOffline && BasisUtilities.IsValid(BasisNetworkPlayer.GetPlayerById(allowedPlayer))) allPlayersOffline = false;
+            if (allPlayersOffline && _GetPlayer(allowedPlayer) != null) allPlayersOffline = false;
 
             if (allowedPlayer == self) isAllowedPlayer = true;
         }
@@ -664,8 +709,8 @@ public class BilliardsModule : MonoBehaviour
         float nearestPlayer = float.MaxValue;
         for (int i = 0; i < allowedPlayers.Length; i++)
         {
-            BasisNetworkPlayer player = BasisNetworkPlayer.GetPlayerById(allowedPlayers[i]);
-            if (!BasisUtilities.IsValid(player)) continue;
+            IBasisPlayer player = _GetPlayer(allowedPlayers[i]);
+            if (player == null) continue;
             float playerDist = Vector3.Distance(transform.position, player.GetPosition());
             if (playerDist < nearestPlayer)
                 nearestPlayer = playerDist;
@@ -692,7 +737,7 @@ public class BilliardsModule : MonoBehaviour
                 if (has) playerStr += "\n";
                 has = true;
 
-                playerStr += graphicsManager._FormatName(BasisNetworkPlayer.GetPlayerById(allowedPlayer));
+                playerStr += graphicsManager._FormatName(_GetPlayer(allowedPlayer));
             }
 
             infReset.text = "<size=60%>Only these players may reset:\n" + playerStr; ClearResetInfo();
@@ -700,18 +745,9 @@ public class BilliardsModule : MonoBehaviour
         lastResetTime = Time.time;
     }
 
-    int resetInfoCount = 0;
     private void ClearResetInfo()
     {
-        resetInfoCount++;
-        networkingManager.SendCustomEventDelayedSeconds(_ClearResetInfo, 3f);
-    }
-
-    public void _ClearResetInfo()
-    {
-        resetInfoCount--;
-        if (resetInfoCount != 0) return;
-        infReset.text = string.Empty;
+        resetInfoClearAt = Time.time + 3f;
     }
     #endregion
 
@@ -755,7 +791,7 @@ public class BilliardsModule : MonoBehaviour
         // finally, take a snapshot
         practiceManager._Record();
 
-        redrawDebugger();
+        debuggerDirty = true;
     }
 
     private void onRemoteGlobalSettingsUpdated(byte physicsSynced, byte tableModelSynced)
@@ -857,12 +893,13 @@ public class BilliardsModule : MonoBehaviour
         string[] playerDetails = new string[4];
         for (int i = 0; i < 4; i++)
         {
-            BasisNetworkPlayer plyr = BasisNetworkPlayer.GetPlayerById(playerIDsSynced[i]);
-            playerDetails[i] = (playerIDsSynced[i] == -1 || plyr == null) ? "none" : plyr.displayName;
+            IBasisPlayer plyr = _GetPlayer(playerIDsSynced[i]);
+            playerDetails[i] = (playerIDsSynced[i] == -1 || plyr == null) ? "none" : plyr.DisplayName;
         }
         _LogInfo($"onRemotePlayersChanged newPlayers={string.Join(",", playerDetails)}");
 
-        localPlayerId = Array.IndexOf(playerIDsLocal, BasisNetworkPlayer.LocalPlayer.playerId);
+        int selfId = _LocalPlayerId();
+        localPlayerId = selfId < 0 ? -1 : Array.IndexOf(playerIDsLocal, selfId);
         if (localPlayerId != -1) localTeamId = (uint)(localPlayerId & 0x1u);
         else localTeamId = uint.MaxValue;
         cueControllers[0]._SetAuthorizedOwners(new int[] { playerIDsLocal[0], playerIDsLocal[2] });
@@ -1014,12 +1051,12 @@ public class BilliardsModule : MonoBehaviour
         {
             string p1str = "No one";
             string p2str = "No one";
-            BasisNetworkPlayer winner1 = BasisNetworkPlayer.GetPlayerById(playerIDsCached[winningTeamLocal]);
-            if (BasisUtilities.IsValid(winner1))
-                p1str = winner1.displayName;
-            BasisNetworkPlayer winner2 = BasisNetworkPlayer.GetPlayerById(playerIDsCached[winningTeamLocal + 2]);
-            if (BasisUtilities.IsValid(winner2))
-                p2str = winner2.displayName;
+            IBasisPlayer winner1 = _GetPlayer(playerIDsCached[winningTeamLocal]);
+            if (winner1 != null)
+                p1str = winner1.DisplayName;
+            IBasisPlayer winner2 = _GetPlayer(playerIDsCached[winningTeamLocal + 2]);
+            if (winner2 != null)
+                p2str = winner2.DisplayName;
             // All players are kicked from the match when it's won, so use the previous turn's player names to show the winners (playerIDsCached)
             _LogWarn("game over, team " + winningTeamLocal + " won (" + p1str + " and " + p2str + ")");
             graphicsManager._SetWinners(/* isPracticeMode ? 0u :  */winningTeamLocal, playerIDsCached);
@@ -1211,9 +1248,8 @@ public class BilliardsModule : MonoBehaviour
 
     private void onRemoteTurnSimulate(Vector3 cueBallV, Vector3 cueBallW, bool fake = false)
     {
-        BasisNetworkPlayer owner = networkingManager.currentOwnedPlayer;
-        simulationOwnerID = BasisUtilities.IsValid(owner) ? owner.playerId : -1;
-        bool isOwner = owner == BasisNetworkPlayer.LocalPlayer || fake;
+        simulationOwnerID = networkingManager._GetOwnerId();
+        bool isOwner = (simulationOwnerID != -1 && simulationOwnerID == _LocalPlayerId()) || fake;
         _LogInfo($"onRemoteTurnSimulate cueBallV={cueBallV.ToString("F4")} cueBallW={cueBallW.ToString("F4")} owner={simulationOwnerID}");
 
         if (!fake)
@@ -1249,14 +1285,14 @@ public class BilliardsModule : MonoBehaviour
         fbMadeFoul = false;
         ballBounced = false;
         numBallsHitCushion = 0;
-        ballhasHitCushion = new bool[16];
+        Array.Clear(ballhasHitCushion, 0, ballhasHitCushion.Length);
         ballsPocketedOrig = ballsPocketedLocal;
         jumpShotFoul = false;
         fallOffFoul = false;
         currentPhysicsManager._ResetSimulationVariables();
         numBallsPocketedThisTurn = 0;
 
-        if (BasisNetworkPlayer.LocalPlayer.playerId == simulationOwnerID || fake)
+        if ((simulationOwnerID != -1 && _LocalPlayerId() == simulationOwnerID) || fake)
         {
             isLocalSimulationOurs = true;
         }
@@ -1312,10 +1348,10 @@ public class BilliardsModule : MonoBehaviour
     #region PhysicsEngineCallbacks
     public void _TriggerBounceCushion(int ball)
     {
-        if (!ballhasHitCushion[ball] && ball != 0)
+        if (ballhasHitCushion[ball] == 0 && ball != 0)
         {
             numBallsHitCushion++;
-            ballhasHitCushion[ball] = true;
+            ballhasHitCushion[ball] = 1;
         }
         if (firstHit != 0)
         { ballBounced = true; }
@@ -1392,13 +1428,13 @@ public class BilliardsModule : MonoBehaviour
     private int numBallsPocketedThisTurn;
     public void _TriggerPocketBall(int id, bool outOfBounds)
     {
-        uint total = 0U;
+        int total = 0;
 
         // Get total for X positioning
         int count_extent = is9Ball ? 10 : 16;
         for (int i = 1; i < count_extent; i++)
         {
-            total += (ballsPocketedLocal >> i) & 0x1U;
+            total += (int)((ballsPocketedLocal >> i) & 0x1U);
         }
 
         // place ball on the rack
@@ -1574,7 +1610,7 @@ public class BilliardsModule : MonoBehaviour
                 if (isScratch && colorTurnLocal)
                 {
                     nextTurnBlocked = true; // re-using snooker variable for reposition to kitchen
-                    ballsP[0].x = -k_TABLE_WIDTH / 2;
+                    ballsP[0] = new Vector3(-k_TABLE_WIDTH / 2, ballsP[0].y, ballsP[0].z);
                 }
 
                 deferLossCondition = is8Sink;
@@ -1929,25 +1965,17 @@ public class BilliardsModule : MonoBehaviour
     private void moveBallInDirUntilNotTouching(int Ball, Vector3 Dir)
     {
         //keep moving ball down the table until it's not touching any other balls
-        while (CheckIfBallTouchingBall(Ball) > -1)
+        int steps = 0;
+        while (CheckIfBallTouchingBall(Ball) > -1 && steps++ < 10000)
         {
-            ballsP[Ball] += Dir;
+            ballsP[Ball] = ballsP[Ball] + Dir;
         }
     }
     private int CheckIfBallTouchingBall(int Input)
     {
         float ballDiameter = k_BALL_RADIUS * 2f;
         float k_BALL_DSQR = ballDiameter * ballDiameter;
-        for (int i = 0; i < 16; i++)
-        {
-            if (i == Input) { continue; }
-            if (((ballsPocketedLocal >> i) & 0x1u) == 0x1u) { continue; }
-            if ((ballsP[Input] - ballsP[i]).sqrMagnitude < k_BALL_DSQR)
-            {
-                return i;
-            }
-        }
-        return -1;
+        return BasisSphereCastShim.FirstOverlap(ballsP[Input], ballsP, ballsPocketedLocal | (1u << Input), k_BALL_DSQR);
     }
     private void moveBallInDirUntilNotTouching_Transform(int id, Vector3 Dir)
     {
@@ -2193,12 +2221,12 @@ public class BilliardsModule : MonoBehaviour
         desktopManager._RefreshTable();
 
         //set height of guideline
-        Transform guideDisplay = guideline.gameObject.transform.Find("guide_display");
+        Transform guideDisplay = guideline.transform.Find("guide_display");
         Vector3 newpos = guideDisplay.localPosition; newpos.y = 0;
         newpos += Vector3.down * (k_BALL_RADIUS - 0.003f) / guideline.transform.localScale.y;// divide to convert back to worldspace distance
         guideDisplay.localPosition = newpos;
         guideDisplay.GetComponent<MeshRenderer>().material.SetVector("_Dims", new Vector4(k_vE.x, k_vE.z, 0, 0));
-        Transform guideDisplay2 = guideline2.gameObject.transform.Find("guide_display");
+        Transform guideDisplay2 = guideline2.transform.Find("guide_display");
         guideDisplay2.localPosition = newpos;
         guideDisplay2.GetComponent<MeshRenderer>().material.SetVector("_Dims", new Vector4(k_vE.x, k_vE.z, 0, 0));
         guideDisplay2.GetComponent<MeshRenderer>().material.SetVector("_Dims", new Vector4(k_vE.x, k_vE.z, 0, 0));
@@ -2754,40 +2782,6 @@ public class BilliardsModule : MonoBehaviour
         return 0;
     }
 
-#if UNITY_EDITOR
-    public void DBG_DrawBallMask(uint ballMask)
-    {
-        for (int i = 0; i < 16; i++)
-        {
-            if ((ballsPocketedLocal & (1 << i)) > 0) { continue; }
-            if ((ballMask & (1 << i)) == 0) { continue; }
-            Debug.DrawRay(balls[0].transform.parent.TransformPoint(ballsP[i]), Vector3.up * .3f, Color.white, 3f);
-        }
-    }
-
-    public void DBG_TestObjVisible()
-    {
-        uint redmask = 0;
-        for (int i = 0; i < 6; i++)
-        {
-            redmask += ((uint)1 << break_order_sixredsnooker[i]);
-        }
-        // DBG_DrawBallMask(redmask);
-        switch (objVisible(redmask))
-        {
-            case 0:
-                _LogInfo("A Red ball CAN be seen");
-                break;
-            case 1:
-                _LogInfo("A Red ball can be seen on ONE side");
-                break;
-            case 2:
-                _LogInfo("A Red ball can NOT be seen");
-                break;
-        }
-    }
-#endif
-
     int[] objVisible_blockingBalls = new int[32];
     int objVisible_blockingBalls_len;
     int objVisible(uint objMask)
@@ -2801,10 +2795,6 @@ public class BilliardsModule : MonoBehaviour
             if ((objMask & (1 << i)) > 0)
             {
                 int ballvis = ballBlocked(0, i, true);
-                // if (ballvis == 1)
-                // { Debug.DrawRay(balls[0].transform.parent.TransformPoint(ballsP[i]), Vector3.up * .3f, Color.red, 3f); }
-                // if (ballvis == 0)
-                // { Debug.DrawRay(balls[0].transform.parent.TransformPoint(ballsP[i]), Vector3.up * .3f, Color.white, 3f); }
                 if (mostVisible > ballvis)
                 {
                     mostVisible = ballvis;
@@ -2824,208 +2814,105 @@ public class BilliardsModule : MonoBehaviour
     int[] ballBlocked_blockingBalls = new int[2];
     int ballBlocked(int from, int to, bool ignoreReds)
     {
-        ballBlocked_blockingBalls = new int[2] { -1, -1 };
-        Vector3 center = (ballsP[from] + ballsP[to]) / 2;
-        float cenMag = (ballsP[from] - center).magnitude;
+        ballBlocked_blockingBalls[0] = -1;
+        ballBlocked_blockingBalls[1] = -1;
+        Vector3 fromPos = ballsP[from];
+        Vector3 toPos = ballsP[to];
+        Vector3 center = (fromPos + toPos) / 2;
+        float cenMag = (fromPos - center).magnitude;
 
-        Vector2 out1 = Vector3.zero, out2 = Vector3.zero, out3 = Vector3.zero, out4 = Vector3.zero,
-            circle1, circle2, center2;
-        circle1 = new Vector2(ballsP[from].x, ballsP[from].z);
-        circle2 = new Vector2(ballsP[to].x, ballsP[to].z);
-        // float Ball1Rad = k_BALL_RADIUS;
-        // float Ball2Rad = k_BALL_RADIUS;
-        center2 = new Vector2(center.x, center.z);
+        Vector2 center2 = new Vector2(center.x, center.z);
+        FindCircleCircleIntersections(center2, cenMag, new Vector2(fromPos.x, fromPos.z), k_BALL_DIAMETRE);
+        Vector2 out1 = circleIntersection1;
+        Vector2 out2 = circleIntersection2;
+        FindCircleCircleIntersections(center2, cenMag, new Vector2(toPos.x, toPos.z), k_BALL_DIAMETRE);
+        Vector2 out3 = circleIntersection1;
+        Vector2 out4 = circleIntersection2;
 
-        FindCircleCircleIntersections(center2, cenMag, circle1, k_BALL_DIAMETRE /* Ball1Rad + Ball2Rad */, out out1, out out2);
-        FindCircleCircleIntersections(center2, cenMag, circle2, k_BALL_DIAMETRE /* Ball1Rad + Ball2Rad */, out out3, out out4);
+        Vector3 ipoint1 = new Vector3(out1.x, fromPos.y, out1.y);
+        Vector3 ipoint2 = new Vector3(out2.x, fromPos.y, out2.y);
+        Vector3 ipoint3 = new Vector3(out3.x, fromPos.y, out3.y);
+        Vector3 ipoint4 = new Vector3(out4.x, fromPos.y, out4.y);
 
-        Vector3 ipoint1 = new Vector3(out1.x, ballsP[from].y, out1.y);
-        Vector3 ipoint2 = new Vector3(out2.x, ballsP[from].y, out2.y);
-        Vector3 ipoint3 = new Vector3(out3.x, ballsP[from].y, out3.y);
-        Vector3 ipoint4 = new Vector3(out4.x, ballsP[from].y, out4.y);
+        Vector3 innerTanPoint1 = fromPos + (ipoint1 - fromPos).normalized * k_BALL_RADIUS;
+        Vector3 innerTanPoint2 = fromPos + (ipoint2 - fromPos).normalized * k_BALL_RADIUS;
+        Vector3 innerTanPoint3 = toPos + (ipoint3 - toPos).normalized * k_BALL_RADIUS;
+        Vector3 innerTanPoint4 = toPos + (ipoint4 - toPos).normalized * k_BALL_RADIUS;
 
-        Vector3 innerTanPoint1 = ballsP[from] + (ipoint1 - ballsP[from]).normalized * k_BALL_RADIUS /* Ball1Rad */;
-        Vector3 innerTanPoint2 = ballsP[from] + (ipoint2 - ballsP[from]).normalized * k_BALL_RADIUS /* Ball1Rad */;
-        Vector3 innerTanPoint3 = ballsP[to] + (ipoint3 - ballsP[to]).normalized * k_BALL_RADIUS /* Ball2Rad */;
-        Vector3 innerTanPoint4 = ballsP[to] + (ipoint4 - ballsP[to]).normalized * k_BALL_RADIUS /* Ball2Rad */;
+        Vector3 innerTanPoint1_oposite = fromPos - (innerTanPoint1 - fromPos);
+        Vector3 innerTanPoint2_oposite = fromPos - (innerTanPoint2 - fromPos);
 
-        Vector3 innerTanPoint1_oposite = innerTanPoint1 - ballsP[from];
-        innerTanPoint1_oposite = ballsP[from] - innerTanPoint1_oposite;
-        Vector3 innerTanPoint2_oposite = innerTanPoint2 - ballsP[from];
-        innerTanPoint2_oposite = ballsP[from] - innerTanPoint2_oposite;
-
-        // Debug.DrawRay(balls[0].transform.parent.TransformPoint(innerTanPoint1), balls[0].transform.parent.TransformDirection(innerTanPoint3 - innerTanPoint1), Color.red, 10);
-        // Debug.DrawRay(balls[0].transform.parent.TransformPoint(innerTanPoint2), balls[0].transform.parent.TransformDirection(innerTanPoint4 - innerTanPoint2), Color.blue, 10);
-        // Debug.DrawRay(balls[0].transform.parent.TransformPoint(innerTanPoint2_oposite), balls[0].transform.parent.TransformDirection(innerTanPoint4 - innerTanPoint2), Color.blue, 10);
-        // Debug.DrawRay(balls[0].transform.parent.TransformPoint(innerTanPoint1_oposite), balls[0].transform.parent.TransformDirection(innerTanPoint3 - innerTanPoint1), Color.red, 10);
-
-        float NearestBlockL = float.MaxValue;
-        float NearestBlockR = float.MaxValue;
-
-        float distTo = (ballsP[from] - ballsP[to]).magnitude;
-        bool blockedLeft = false;
-        bool blockedRight = false;
-        // left
+        float distTo = (fromPos - toPos).magnitude;
+        uint skip = ballsPocketedLocal | (1u << from) | (1u << to);
         for (int i = 0; i < 16; i++)
         {
-            if (i == from) { continue; }
-            if (i == to) { continue; }
-            if ((0x1U << i & ballsPocketedLocal) != 0U) { continue; }
-            if (ignoreReds && sixredsnooker_ballpoints[i] == 1) { continue; }
-            float distToThis = (ballsP[from] - ballsP[i]).magnitude;
-            if (distToThis > distTo) { continue; }
-            if (_phy_ray_sphere(innerTanPoint1, innerTanPoint3 - innerTanPoint1, ballsP[i]))
+            if (((skip >> i) & 0x1u) != 0u) { continue; }
+            if ((ignoreReds && sixredsnooker_ballpoints[i] == 1) || (fromPos - ballsP[i]).magnitude > distTo)
             {
-                blockedLeft = true;
-                if (NearestBlockL > distToThis)
-                { NearestBlockL = distToThis; }
-                ballBlocked_blockingBalls[0] = i;
+                skip |= 1u << i;
             }
         }
-        // right
-        for (int i = 0; i < 16; i++)
-        {
-            if (i == from) { continue; }
-            if (i == to) { continue; }
-            if ((0x1U << i & ballsPocketedLocal) != 0U) { continue; }
-            if (ignoreReds && sixredsnooker_ballpoints[i] == 1) { continue; }
-            float distToThis = (ballsP[from] - ballsP[i]).magnitude;
-            if (distToThis > distTo) { continue; }
-            if (_phy_ray_sphere(innerTanPoint2, innerTanPoint4 - innerTanPoint2, ballsP[i]))
-            {
-                blockedRight = true;
-                if (NearestBlockR > distToThis)
-                { NearestBlockR = distToThis; }
-                ballBlocked_blockingBalls[1] = i;
-            }
-        }
+
+        float radiusSq = k_BALL_RADIUS * k_BALL_RADIUS;
+        uint left = BasisSphereCastShim.RaySpheresMask(innerTanPoint1, innerTanPoint3 - innerTanPoint1, ballsP, skip, radiusSq);
+        uint right = BasisSphereCastShim.RaySpheresMask(innerTanPoint2, innerTanPoint4 - innerTanPoint2, ballsP, skip, radiusSq);
         // right + ball width
-        if (!blockedRight)
-        {
-            for (int i = 0; i < 16; i++)
-            {
-                if (i == from) { continue; }
-                if (i == to) { continue; }
-                if ((0x1U << i & ballsPocketedLocal) != 0U) { continue; }
-                if (ignoreReds && sixredsnooker_ballpoints[i] == 1) { continue; }
-                float distToThis = (ballsP[from] - ballsP[i]).magnitude;
-                if (distToThis > distTo) { continue; }
-                if (_phy_ray_sphere(innerTanPoint2_oposite, innerTanPoint4 - innerTanPoint2, ballsP[i]))
-                {
-                    blockedRight = true;
-                    if (NearestBlockR > distToThis)
-                    { NearestBlockR = distToThis; }
-                    ballBlocked_blockingBalls[1] = i;
-                }
-            }
-        }
+        if (right == 0u) right = BasisSphereCastShim.RaySpheresMask(innerTanPoint2_oposite, innerTanPoint4 - innerTanPoint2, ballsP, skip, radiusSq);
         // left + ball width
-        if (!blockedLeft)
-        {
-            for (int i = 0; i < 16; i++)
-            {
-                if (i == from) { continue; }
-                if (i == to) { continue; }
-                if ((0x1U << i & ballsPocketedLocal) != 0U) { continue; }
-                if (ignoreReds && sixredsnooker_ballpoints[i] == 1) { continue; }
-                float distToThis = (ballsP[from] - ballsP[i]).magnitude;
-                if (distToThis > distTo) { continue; }
-                if (_phy_ray_sphere(innerTanPoint1_oposite, innerTanPoint3 - innerTanPoint1, ballsP[i]))
-                {
-                    blockedLeft = true;
-                    if (NearestBlockL > distToThis)
-                    { NearestBlockL = distToThis; }
-                    ballBlocked_blockingBalls[0] = i;
-                }
-            }
-        }
+        if (left == 0u) left = BasisSphereCastShim.RaySpheresMask(innerTanPoint1_oposite, innerTanPoint3 - innerTanPoint1, ballsP, skip, radiusSq);
+
+        ballBlocked_blockingBalls[0] = highestBallInMask(left);
+        ballBlocked_blockingBalls[1] = highestBallInMask(right);
         // 0 = fully visible, 1 = left OR right blocked, 2 = both blocked
-        int blockedLeft_i = blockedLeft ? 1 : 0;
-        int blockedRight_i = blockedRight ? 1 : 0;
-        return blockedLeft_i + blockedRight_i;
+        return (left != 0u ? 1 : 0) + (right != 0u ? 1 : 0);
     }
+
+    private int highestBallInMask(uint mask)
+    {
+        int highest = -1;
+        for (int i = 0; i < 16; i++)
+        {
+            if (((mask >> i) & 0x1u) != 0u) highest = i;
+        }
+        return highest;
+    }
+
+    private Vector2 circleIntersection1;
+    private Vector2 circleIntersection2;
 
     // Found on Unity Forums. Thanks to QuincyC.
     // Find the points where the two circles intersect.
-    private void FindCircleCircleIntersections(Vector2 c0, float r0, Vector2 c1, float r1, out Vector2 intersection1, out Vector2 intersection2)
+    private void FindCircleCircleIntersections(Vector2 c0, float r0, Vector2 c1, float r1)
     {
         // Find the distance between the centers.
         float dx = c0.x - c1.x;
         float dy = c0.y - c1.y;
         float dist = Mathf.Sqrt(dx * dx + dy * dy);
 
-        if (Mathf.Abs(dist - (r0 + r1)) < 0.00001)
-        {
-            intersection1 = Vector2.Lerp(c0, c1, r0 / (r0 + r1));
-            intersection2 = intersection1;
-        }
-
         // See how many solutions there are.
-        if (dist > r0 + r1)
+        if (dist > r0 + r1 || dist < Mathf.Abs(r0 - r1) || ((dist == 0) && (r0 == r1)))
         {
-            // No solutions, the circles are too far apart.
-            intersection1 = new Vector2(float.NaN, float.NaN);
-            intersection2 = new Vector2(float.NaN, float.NaN);
+            circleIntersection1 = new Vector2(float.NaN, float.NaN);
+            circleIntersection2 = new Vector2(float.NaN, float.NaN);
+            return;
         }
-        else if (dist < Mathf.Abs(r0 - r1))
-        {
-            // No solutions, one circle contains the other.
-            intersection1 = new Vector2(float.NaN, float.NaN);
-            intersection2 = new Vector2(float.NaN, float.NaN);
-        }
-        else if ((dist == 0) && (r0 == r1))
-        {
-            // No solutions, the circles coincide.
-            intersection1 = new Vector2(float.NaN, float.NaN);
-            intersection2 = new Vector2(float.NaN, float.NaN);
-        }
-        else
-        {
-            // Find a and h.
-            float a = (r0 * r0 -
-                        r1 * r1 + dist * dist) / (2 * dist);
-            float h = Mathf.Sqrt(r0 * r0 - a * a);
 
-            // Find P2.
-            float cx2 = c0.x + a * (c1.x - c0.x) / dist;
-            float cy2 = c0.y + a * (c1.y - c0.y) / dist;
+        // Find a and h.
+        float a = (r0 * r0 -
+                    r1 * r1 + dist * dist) / (2 * dist);
+        float h = Mathf.Sqrt(r0 * r0 - a * a);
 
-            // Get the points P3.
-            intersection1 = new Vector2(
-                (float)(cx2 + h * (c1.y - c0.y) / dist),
-                (float)(cy2 - h * (c1.x - c0.x) / dist));
-            intersection2 = new Vector2(
-                (float)(cx2 - h * (c1.y - c0.y) / dist),
-                (float)(cy2 + h * (c1.x - c0.x) / dist));
+        // Find P2.
+        float cx2 = c0.x + a * (c1.x - c0.x) / dist;
+        float cy2 = c0.y + a * (c1.y - c0.y) / dist;
 
-        }
-    }
-
-    //copy of method from StandardPhysicsManager
-    bool _phy_ray_sphere(Vector3 start, Vector3 dir, Vector3 sphere)
-    {
-        float k_BALL_RSQR = k_BALL_RADIUS * k_BALL_RADIUS;
-        Vector3 nrm = dir.normalized;
-        Vector3 h = sphere - start;
-        float lf = Vector3.Dot(nrm, h);
-        float s = k_BALL_RSQR - Vector3.Dot(h, h) + lf * lf;
-
-        if (s < 0.0f) return false;
-
-        s = Mathf.Sqrt(s);
-
-        if (lf < s)
-        {
-            if (lf + s >= 0)
-            {
-                s = -s;
-            }
-            else
-            {
-                return false;
-            }
-        }
-        return true;
+        // Get the points P3.
+        circleIntersection1 = new Vector2(
+            (float)(cx2 + h * (c1.y - c0.y) / dist),
+            (float)(cy2 - h * (c1.x - c0.x) / dist));
+        circleIntersection2 = new Vector2(
+            (float)(cx2 - h * (c1.y - c0.y) / dist),
+            (float)(cy2 + h * (c1.x - c0.x) / dist));
     }
 
     private void setBallPickupActive(int ballId, bool active)
@@ -3034,8 +2921,9 @@ public class BilliardsModule : MonoBehaviour
 
         pickup.gameObject.SetActive(active);
         pickup.GetComponent<SphereCollider>().enabled = active;
-        ((BasisPickupInteractable)pickup.GetComponent(typeof(BasisPickupInteractable))).InteractableEnabled = active;
-        if (!active) ((BasisPickupInteractable)pickup.GetComponent(typeof(BasisPickupInteractable))).Drop();
+        BasisPickupInteractable interactable = pickup.GetComponent<BasisPickupInteractable>();
+        interactable.InteractableEnabled = active;
+        if (!active) interactable.Drop();
     }
 
     private void refreshBallPickups()
@@ -3074,8 +2962,9 @@ public class BilliardsModule : MonoBehaviour
     {
         if (gameLive && timerRunning && canPlayLocal)
         {
-            float timeRemaining = timerLocal - (BasisNetworkManagement.GetServerTimeInMilliseconds() - timerStartLocal) / 1000.0f;
-            float timePercentage = timeRemaining >= 0.0f ? 1.0f - (timeRemaining / timerLocal) : 0.0f;
+            float timerSeconds = (int)timerLocal;
+            float timeRemaining = timerSeconds - (BasisNetworkTimeShim.ServerTimeMilliseconds - timerStartLocal) / 1000.0f;
+            float timePercentage = timeRemaining >= 0.0f ? 1.0f - (timeRemaining / timerSeconds) : 0.0f;
 
             if (!localPlayerDistant)
             {
@@ -3100,14 +2989,25 @@ public class BilliardsModule : MonoBehaviour
         {
             if (playerIDsLocal[i] == -1) continue;
 
-            BasisNetworkPlayer player = BasisNetworkPlayer.GetPlayerById(playerIDsLocal[i]);
-            if (BasisUtilities.IsValid(player))
+            if (_GetPlayer(playerIDsLocal[i]) != null)
             {
                 return false;
             }
         }
 
         return true;
+    }
+
+    public IBasisPlayer _GetPlayer(int playerId)
+    {
+        if (playerId < 0) return null;
+        return BasisPlayersShim.GetById((ushort)playerId);
+    }
+
+    public int _LocalPlayerId()
+    {
+        BasisNetworkPlayer localPlayer = BasisNetworkPlayer.LocalPlayer;
+        return localPlayer != null ? localPlayer.playerId : -1;
     }
 
     public BasisNetworkPlayer _GetPlayerByName(string name)
@@ -3207,7 +3107,7 @@ public class BilliardsModule : MonoBehaviour
     public bool _IsPlayer(BasisNetworkPlayer who)
     {
         if (who == null) return false;
-        if (who.IsLocal && localPlayerId >= 0) return true;
+        if (who.playerId == _LocalPlayerId() && localPlayerId >= 0) return true;
 
         for (int i = 0; i < 4; i++)
         {
@@ -3251,16 +3151,6 @@ public class BilliardsModule : MonoBehaviour
     }
     #endregion
 
-    public void checkDistanceLoop()
-    {
-        if (checkingDistant)
-            networkingManager.SendCustomEventDelayedSeconds(checkDistanceLoop, 1f);
-        else
-            return;
-
-        CheckDistanceLoD();
-    }
-
     public void CheckDistanceLoD()
     {
         bool isDistant = false;//Vector3.Distance(BasisNetworkPlayer.LocalPlayer.GetPosition(), transform.position) > LoDDistance
@@ -3294,6 +3184,7 @@ public class BilliardsModule : MonoBehaviour
         bool active = !localPlayerDistant;
         balls[0].transform.parent.gameObject.SetActive(active);
         debugger.SetActive(active);
+        debuggerShown = active;
         menuManager._RefreshLobby();
         graphicsManager._UpdateLOD();
         auto_pocketblockers.SetActive(is4Ball);
@@ -3352,9 +3243,10 @@ public void _RedrawDebugger() { }
 
     private void _log(string ln)
     {
-        Debug.Log("[<color=\"#B5438F\">BilliardsModule</color>] " + ln);
+        string line = "[<color=\"#B5438F\">BilliardsModule</color>] " + ln;
+        Debug.Log(line);
 
-        LOG_LINES[LOG_PTR++] = "[<color=\"#B5438F\">BilliardsModule</color>] " + ln + "\n";
+        LOG_LINES[LOG_PTR++] = line + "\n";
         LOG_LEN++;
 
         if (LOG_PTR >= LOG_MAX)
@@ -3367,49 +3259,57 @@ public void _RedrawDebugger() { }
             LOG_LEN = LOG_MAX;
         }
 
-        redrawDebugger();
+        debuggerDirty = true;
     }
+
+    private int debuggerFrame;
+    private bool debuggerDirty;
+    private bool debuggerShown;
+    private string[] debuggerParts = new string[7 + PERF_MAX + LOG_MAX];
 
     private void redrawDebugger()
     {
-        string output = "BilliardsModule ";
+        string[] parts = debuggerParts;
+        int n = 0;
+        parts[n++] = "BilliardsModule ";
 
         // Add information about game state:
-        output += networkingManager.IsLocalOwner() ?
+        parts[n++] = networkingManager.IsLocalOwner() ?
            "<color=\"#95a2b8\">net(</color> <color=\"#4287F5\">OWNER</color> <color=\"#95a2b8\">)</color> " :
            "<color=\"#95a2b8\">net(</color> <color=\"#678AC2\">RECVR</color> <color=\"#95a2b8\">)</color> ";
 
-        output += isLocalSimulationRunning ?
+        parts[n++] = isLocalSimulationRunning ?
            "<color=\"#95a2b8\">sim(</color> <color=\"#4287F5\">ACTIVE</color> <color=\"#95a2b8\">)</color> " :
            "<color=\"#95a2b8\">sim(</color> <color=\"#678AC2\">PAUSED</color> <color=\"#95a2b8\">)</color> ";
 
-        BasisNetworkPlayer currentOwner = networkingManager.currentOwnedPlayer;
-        output += "<color=\"#95a2b8\">owner(</color> <color=\"#4287F5\">" + (BasisUtilities.IsValid(currentOwner) ? currentOwner.displayName + ":" + currentOwner.playerId : "[null]") + "/" + teamIdLocal + "</color> <color=\"#95a2b8\">)</color> ";
+        int currentOwnerId = networkingManager._GetOwnerId();
+        IBasisPlayer currentOwner = _GetPlayer(currentOwnerId);
+        parts[n++] = "<color=\"#95a2b8\">owner(</color> <color=\"#4287F5\">" + (currentOwner != null ? currentOwner.DisplayName + ":" + currentOwnerId : "[null]") + "/" + teamIdLocal + "</color> <color=\"#95a2b8\">)</color> ";
 
         if (currentPhysicsManager != null)
         {
-            output += "Physics: " + (string)currentPhysicsManager.PHYSICSNAME;
+            parts[n++] = "Physics: " + (string)currentPhysicsManager.PHYSICSNAME;
         }
 
-        output += "\n---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n";
+        parts[n++] = "\n---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n";
 
         for (int i = 0; i < PERF_MAX; i++)
         {
-            output += "<color=\"#95a2b8\">" + perfNames[i] + "(</color> " + (perfCounters[i] > 0 ? perfTimings[i] * 1e6 / perfCounters[i] : 0).ToString("F2") + "µs <color=\"#95a2b8\">)</color> ";
+            parts[n++] = "<color=\"#95a2b8\">" + perfNames[i] + "(</color> " + (perfCounters[i] > 0 ? perfTimings[i] * 1e6 / perfCounters[i] : 0).ToString("F2") + "µs <color=\"#95a2b8\">)</color> ";
             // to not average them (see values from this frame)
             // requires changing _EndPerf() to be = instead of +=
-            // output += "<color=\"#95a2b8\">" + perfNames[i] + "(</color> " + (/*perfCounters[i] > 0 ? */ perfTimings[i] * 1e6 /* / perfCounters[i] : 0 */).ToString("F2") + "µs <color=\"#95a2b8\">)</color> ";
+            // parts[n++] = "<color=\"#95a2b8\">" + perfNames[i] + "(</color> " + (/*perfCounters[i] > 0 ? */ perfTimings[i] * 1e6 /* / perfCounters[i] : 0 */).ToString("F2") + "µs <color=\"#95a2b8\">)</color> ";
         }
 
-        output += "\n---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n";
+        parts[n++] = "\n---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n";
 
         // Update display 
         for (int i = 0; i < LOG_LEN; i++)
         {
-            output += LOG_LINES[(LOG_MAX + LOG_PTR - LOG_LEN + i) % LOG_MAX];
+            parts[n++] = LOG_LINES[(LOG_MAX + LOG_PTR - LOG_LEN + i) % LOG_MAX];
         }
 
-        ltext.text = output;
+        ltext.text = string.Join("", parts, 0, n);
     }
     #endregion
 }

@@ -33,13 +33,13 @@ namespace Basis.Editor.Localization
                         }
                     }
 
-                    int next = EditorGUILayout.Popup("Editor Language", selected, names);
+                    int next = EditorGUILayout.Popup(BasisEditorLocalization.Get("sdk.language.editorLanguage"), selected, names);
                     if (next != selected)
                     {
                         BasisEditorLocalization.SetLanguage(codes[next]);
                     }
 
-                    if (UnityEngine.GUILayout.Button("Reload Language Tables"))
+                    if (UnityEngine.GUILayout.Button(BasisEditorLocalization.Get("sdk.language.reloadTables")))
                     {
                         BasisEditorLocalization.ReloadTables();
                     }

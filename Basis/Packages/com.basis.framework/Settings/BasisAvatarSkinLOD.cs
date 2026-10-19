@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
@@ -13,7 +14,8 @@ using UnityEngine;
 /// This rides the mesh LOD level that <see cref="BasisDistanceJobParallel"/> already computes, so
 /// it costs no extra distance work — it only reacts when a remote crosses a LOD boundary.
 /// </summary>
-public static class BasisAvatarSkinLOD
+[AutoStaticsCleanup]
+public static partial class BasisAvatarSkinLOD
 {
     /// <summary>Master switch. When false every remote is restored to <see cref="SkinQuality.Auto"/>.</summary>
     public static bool Enabled;
@@ -22,7 +24,7 @@ public static class BasisAvatarSkinLOD
     /// Skin quality per mesh LOD level (0 = closest, 3 = furthest). LOD 0 stays on Auto so the
     /// avatars the local player is actually close to keep whatever the quality level asks for.
     /// </summary>
-    private static readonly SkinQuality[] QualityByLod =
+    [NoAutoStaticsCleanup] private static readonly SkinQuality[] QualityByLod =
     {
         SkinQuality.Auto,
         SkinQuality.Bone4,

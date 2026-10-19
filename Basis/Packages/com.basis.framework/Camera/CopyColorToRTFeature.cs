@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -5,7 +6,8 @@ using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.RenderGraphModule.Util;
 using UnityEngine.Experimental.Rendering;
 
-public class CopyCameraColorToStaticRTFeature : ScriptableRendererFeature
+[AutoStaticsCleanup]
+public partial class CopyCameraColorToStaticRTFeature : ScriptableRendererFeature
 {
     [System.Serializable]
     public class Settings
@@ -38,7 +40,8 @@ public class CopyCameraColorToStaticRTFeature : ScriptableRendererFeature
 
     public static RenderTexture OutputRT { get; private set; }
 
-    class Pass : ScriptableRenderPass
+    [AutoStaticsCleanup]
+    partial class Pass : ScriptableRenderPass
     {
         public Settings settings;
         static RTHandle s_OutputHandle;

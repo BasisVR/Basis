@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System;
 using System.Collections.Generic;
@@ -20,7 +21,8 @@ namespace Basis.Scripts.Avatar
     /// forced; the override applies to the merged virtual midpoint via either
     /// half's id).
     /// </summary>
-    public static class BasisTrackerRoleOverride
+    [AutoStaticsCleanup]
+    public static partial class BasisTrackerRoleOverride
     {
         private const string FileName = "trackerRoleOverrides.json";
 

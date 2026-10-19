@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -15,7 +16,8 @@ namespace Basis.Scripts.Player
     /// Call <see cref="Initialize"/> once at startup to load the local/remote player prefabs.
     /// When shutting down or changing scenes, call <see cref="DeInitialize"/> to release Addressables handles.
     /// </remarks>
-    public static class BasisPlayerFactory
+    [AutoStaticsCleanup]
+    public static partial class BasisPlayerFactory
     {
         /// <summary>
         /// Prefab asset for the local player, loaded via Addressables by <see cref="Initialize"/>.
@@ -66,8 +68,18 @@ namespace Basis.Scripts.Player
         /// </remarks>
         public static void DeInitialize()
         {
-            Addressables.Release(LocalHandle);
-            Addressables.Release(TposeController);
+            if (LocalHandle.IsValid())
+            {
+                Addressables.Release(LocalHandle);
+                LocalHandle = default;
+            }
+            if (TposeHandle.IsValid())
+            {
+                Addressables.Release(TposeHandle);
+                TposeHandle = default;
+            }
+            LocalPlayerReadyToSpawn = null;
+            TposeController = null;
         }
 
         /// <summary>

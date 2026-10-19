@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using TMPro;
@@ -16,7 +17,8 @@ namespace Basis.BasisUI
     /// Runs once before the first scene loads. Define
     /// <c>BASIS_DISABLE_TMP_FALLBACKS</c> to opt out.
     /// </summary>
-    public static class BasisTMPFontFallbacks
+    [AutoStaticsCleanup]
+    public static partial class BasisTMPFontFallbacks
     {
         private const int DefaultSamplingPointSize = 90;
         private const string JaJpLabel = "Basis Fallback - ja-JP";
@@ -27,7 +29,7 @@ namespace Basis.BasisUI
         private const string EmojiLabel = "Basis Fallback - Emoji";
         private const string ShippedEmojiFontAddress = "Packages/com.basis.sdk/Fonts/NotoEmoji-Regular.ttf";
 
-        private static readonly string[] CjkLabels = { JaJpLabel, KoKrLabel, ZhHansLabel, ZhHantLabel };
+        [NoAutoStaticsCleanup] private static readonly string[] CjkLabels = { JaJpLabel, KoKrLabel, ZhHansLabel, ZhHantLabel };
 
         private static bool _installed;
         private static TMP_FontAsset _shippedJapaneseFallback;
@@ -48,7 +50,7 @@ namespace Basis.BasisUI
         /// intentionally overlaps Windows / macOS / Linux / Android so a
         /// single array serves every platform.
         /// </summary>
-        private static readonly (string Label, string[] Candidates)[] FallbackGroups = new[]
+        [NoAutoStaticsCleanup] private static readonly (string Label, string[] Candidates)[] FallbackGroups = new[]
         {
             ("Basis Fallback - zh-Hant", new[]
             {
@@ -259,8 +261,9 @@ namespace Basis.BasisUI
 
 #if !BASIS_DISABLE_TMP_FALLBACKS
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        private static void AutoInstall()
+        private static async void AutoInstall()
         {
+            await Basis.Scripts.Platform.BasisWebAddressables.WhenReady();
             InstallFallbacks();
         }
 #endif
@@ -300,7 +303,7 @@ namespace Basis.BasisUI
                 }
 
                 TMP_FontAsset shipped = group.Label == JaJpLabel ? GetShippedJapaneseFallback() : group.Label == EmojiLabel ? GetShippedEmojiFallback() : null;
-                TMP_FontAsset tmpFont = shipped ?? TryCreateDynamicOSFallback(group.Label, group.Candidates);
+                TMP_FontAsset tmpFont = shipped ?? (Application.platform == RuntimePlatform.WebGLPlayer ? null : TryCreateDynamicOSFallback(group.Label, group.Candidates));
                 if (tmpFont != null)
                 {
                     fallbacks.Add(tmpFont);
@@ -310,7 +313,7 @@ namespace Basis.BasisUI
                     }
                     BasisDebug.Log($"[BasisTMPFontFallbacks] Installed {group.Label} using OS font family '{tmpFont.faceInfo.familyName}'.");
                 }
-                else
+                else if (Application.platform != RuntimePlatform.WebGLPlayer)
                 {
                     BasisDebug.LogError($"[BasisTMPFontFallbacks] None of the candidates for {group.Label} could be resolved on this OS. Candidates tried: {string.Join(", ", group.Candidates)}");
                 }
@@ -457,6 +460,41 @@ namespace Basis.BasisUI
             }
 
             ApplyCjkPriority(CjkLabelForLanguage(BasisLocalization.CurrentLanguage));
+            InvalidateLoadedTextMeshes();
+        }
+
+        /// <summary>
+        /// TextMeshPro keeps the fallback font chosen for an already-generated label in its
+        /// text info. Reordering the global CJK fallback list is therefore not enough when a
+        /// translation contains the same Unicode characters in both languages (for example
+        /// Japanese and Chinese labels containing 「切替」 or 「言語」). Mark every
+        /// loaded label dirty so its glyphs are resolved against the new fallback order.
+        /// </summary>
+        private static void InvalidateLoadedTextMeshes()
+        {
+            TMP_Text[] labels = UnityEngine.Object.FindObjectsByType<TMP_Text>(FindObjectsInactive.Include);
+            InvalidateTextMeshes(labels);
+        }
+
+        internal static int InvalidateTextMeshes(IEnumerable<TMP_Text> labels)
+        {
+            if (labels == null)
+            {
+                return 0;
+            }
+
+            int invalidated = 0;
+            foreach (TMP_Text label in labels)
+            {
+                if (label == null)
+                {
+                    continue;
+                }
+
+                label.havePropertiesChanged = true;
+                invalidated++;
+            }
+            return invalidated;
         }
 
         /// <summary>

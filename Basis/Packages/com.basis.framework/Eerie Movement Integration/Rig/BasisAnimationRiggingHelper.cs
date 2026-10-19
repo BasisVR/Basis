@@ -84,8 +84,6 @@ public static class BasisAnimationRiggingHelper
             RecordControlRest("leftFoot.ctrl", BasisLocalBoneDriver.LeftFootControl);
             RecordControlRest("rightFoot.ctrl", BasisLocalBoneDriver.RightFootControl);
         }
-
-        job.ikLockMode = SMModuleCalibration.CurrentIKLockMode;
     }
     private static void RecordControlRest(string label, Basis.Scripts.TransformBinders.BoneControl.BasisLocalBoneControl c)
     {

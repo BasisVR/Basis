@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -12,7 +13,8 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
     /// XR_FB_display_refresh_rate. Without this the runtime picks, which on a headset that
     /// enumerates a wide range means the rate is whatever SteamVR defaulted to.
     /// </summary>
-    public static class BasisOpenXRRefreshRate
+    [AutoStaticsCleanup]
+    public static partial class BasisOpenXRRefreshRate
     {
         public const string Auto = "Auto";
 

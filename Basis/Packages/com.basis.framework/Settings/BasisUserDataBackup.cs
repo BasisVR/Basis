@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -29,7 +30,8 @@ using CompressionLevel = System.IO.Compression.CompressionLevel;
 /// names, so settings files added later are covered without touching this class. Subfolders are
 /// allow-listed, because most of them under persistentDataPath are recordings or debug dumps.
 /// </summary>
-public static class BasisUserDataBackup
+[AutoStaticsCleanup]
+public static partial class BasisUserDataBackup
 {
     public const string ArchiveExtension = ".basisbackup";
     public const string BackupsFolderName = "Backups";
@@ -41,9 +43,9 @@ public static class BasisUserDataBackup
     private const string PrefsEntryName = "prefs.json";
     private const string DataPrefix = "data/";
 
-    private static readonly string[] IncludedExtensions = { ".json", ".bas", ".xml", ".txt" };
+    [NoAutoStaticsCleanup] private static readonly string[] IncludedExtensions = { ".json", ".bas", ".xml", ".txt" };
 
-    private static readonly string[] ExcludedSuffixes =
+    [NoAutoStaticsCleanup] private static readonly string[] ExcludedSuffixes =
     {
         ".log", ".csv", ".bak", ".tmp", ".filterstack", ".report.txt", ".corrupt_backup",
     };
@@ -54,7 +56,7 @@ public static class BasisUserDataBackup
         ".migrated-from-basis-unity",
     };
 
-    private static readonly string[] IncludedFolders = { "PlayerSettings", "BasisActions" };
+    [NoAutoStaticsCleanup] private static readonly string[] IncludedFolders = { "PlayerSettings", "BasisActions" };
 
     /// <summary>
     /// Restoring is offered on Windows and Linux only — the desktop targets where the user can drop
@@ -160,7 +162,7 @@ public static class BasisUserDataBackup
             return new BackupResult { Success = false, Error = e.Message };
         }
 
-        return await Task.Run(() => WriteArchive(root, destination, prefsJson, manifest, includeCachedContent));
+        return await BasisTasks.Run(() => WriteArchive(root, destination, prefsJson, manifest, includeCachedContent));
     }
 
     private static BackupResult WriteArchive(
@@ -307,7 +309,7 @@ public static class BasisUserDataBackup
         string folder = ResolveBackupsFolder();
         if (folder == null) return new List<ArchiveInfo>();
 
-        (List<ArchiveInfo> Archives, List<string> Manifests) scanned = await Task.Run(() =>
+        (List<ArchiveInfo> Archives, List<string> Manifests) scanned = await BasisTasks.Run(() =>
         {
             List<ArchiveInfo> archives = ListArchives(folder);
             List<string> manifests = new(archives.Count);
@@ -444,7 +446,7 @@ public static class BasisUserDataBackup
         (RestoreResult Result, List<PrefEntry> Prefs) extracted;
         try
         {
-            extracted = await Task.Run(() => Extract(root, archivePath));
+            extracted = await BasisTasks.Run(() => Extract(root, archivePath));
         }
         catch (Exception e)
         {
@@ -573,9 +575,9 @@ public static class BasisUserDataBackup
     /// also keeps the export auditable — the identity key pair is the one genuinely sensitive value
     /// in a backup and only leaves the machine when the caller asks for it.
     /// </summary>
-    private static readonly string[] IdentityKeys = { "PrivateKeyDID", "PublicKeyDID", "DIDID" };
+    [NoAutoStaticsCleanup] private static readonly string[] IdentityKeys = { "PrivateKeyDID", "PublicKeyDID", "DIDID" };
 
-    private static readonly string[] MicrophoneModes =
+    [NoAutoStaticsCleanup] private static readonly string[] MicrophoneModes =
     {
         BasisConstants.Desktop,
         BasisConstants.OpenVRLoader,
@@ -583,7 +585,7 @@ public static class BasisUserDataBackup
         BasisConstants.SimulateXR,
     };
 
-    private static readonly (string Name, PrefKind Kind)[] MicrophoneKeys =
+    [NoAutoStaticsCleanup] private static readonly (string Name, PrefKind Kind)[] MicrophoneKeys =
     {
         ("Microphone", PrefKind.String),
         ("Volume01", PrefKind.Float),
@@ -604,7 +606,7 @@ public static class BasisUserDataBackup
         ("TalkMode", PrefKind.Int),
     };
 
-    private static readonly (string Key, PrefKind Kind)[] GeneralKeys =
+    [NoAutoStaticsCleanup] private static readonly (string Key, PrefKind Kind)[] GeneralKeys =
     {
         ("InputBindingOverrides", PrefKind.String),
         ("MicrophoneState", PrefKind.Int),

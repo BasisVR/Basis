@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Text.RegularExpressions;
 using UnityEditor;
@@ -11,15 +12,31 @@ using UnityEngine.UIElements;
 public static class BasisContentDefaults
 {
     private static readonly Regex DuplicateSuffix = new Regex(@"\s*\((?:Clone|\d+)\)\s*$", RegexOptions.IgnoreCase);
-    private static readonly Regex Separators = new Regex(@"[_\-\.]+");
-    private static readonly Regex CamelBoundary = new Regex(@"(?<=[a-z0-9])(?=[A-Z])");
-    private static readonly Regex AcronymBoundary = new Regex(@"(?<=[A-Z])(?=[A-Z][a-z])");
     private static readonly Regex Whitespace = new Regex(@"\s+");
+    private const string LocalDidPreference = "DIDID";
+    private const string DidKeyPrefix = "did:key:z";
+
+    public static string LocalDidKey()
+    {
+        string did = PlayerPrefs.GetString(LocalDidPreference, string.Empty);
+        return IsDidKey(did) ? did : string.Empty;
+    }
+
+    public static bool IsDidKey(string value)
+    {
+        if (value == null || value.Length <= DidKeyPrefix.Length || value.Length > 128 || !value.StartsWith(DidKeyPrefix, StringComparison.Ordinal)) return false;
+        for (int Index = DidKeyPrefix.Length; Index < value.Length; Index++)
+        {
+            char c = value[Index];
+            if (c > 127 || !char.IsLetterOrDigit(c)) return false;
+        }
+        return true;
+    }
 
     /// <summary>
-    /// Produces a readable display name for a piece of content. Prefers the prefab asset's name over
-    /// the scene instance's, since the instance is the one that picks up duplicate suffixes, then
-    /// turns separator- or camel-cased identifiers into spaced words.
+    /// Produces a display name for a piece of content. Prefers the prefab asset's name over the scene
+    /// instance's, since the instance is the one that picks up duplicate suffixes, and otherwise keeps
+    /// the name spelled exactly as the author wrote it.
     /// </summary>
     /// <param name="source">The content's GameObject.</param>
     /// <param name="fallback">Returned when nothing usable survives cleaning.</param>
@@ -58,24 +75,7 @@ public static class BasisContentDefaults
             name = name.Replace(invalid, ' ');
         }
 
-        name = Separators.Replace(name, " ");
-        name = CamelBoundary.Replace(name, " ");
-        name = AcronymBoundary.Replace(name, " ");
-        name = Whitespace.Replace(name, " ").Trim();
-
-        if (name.Length == 0) return string.Empty;
-
-        // Capitalise words the author left lowercase, but leave anything they cased themselves
-        // (acronyms, brand names) exactly as written.
-        string[] words = name.Split(' ');
-        for (int Index = 0; Index < words.Length; Index++)
-        {
-            if (words[Index].Length > 0 && char.IsLower(words[Index][0]))
-            {
-                words[Index] = char.ToUpperInvariant(words[Index][0]) + words[Index].Substring(1);
-            }
-        }
-        return string.Join(" ", words);
+        return Whitespace.Replace(name, " ").Trim();
     }
 
     /// <summary>

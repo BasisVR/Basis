@@ -55,6 +55,28 @@ namespace Basis.BasisUI
 
         public virtual string BoundSettingKey => null;
 
+        public string ShareTitleKey { get; set; }
+
+        public virtual bool CanShareSetting => false;
+
+        public virtual bool TryGetShareValue(out string type, out string value, out string display)
+        {
+            type = null;
+            value = null;
+            display = null;
+            return false;
+        }
+
+        public virtual bool TryReadShareValue(string type, string value, out string shared, out string current, out bool unchanged)
+        {
+            shared = null;
+            current = null;
+            unchanged = false;
+            return false;
+        }
+
+        public virtual bool TryApplyShareValue(string type, string value) => false;
+
         /// <summary>Asks to reset this control to its default. No-op unless the control supports it.</summary>
         public virtual void RequestReset()
         {

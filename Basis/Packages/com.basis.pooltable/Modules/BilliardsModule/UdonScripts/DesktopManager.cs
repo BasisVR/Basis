@@ -1,9 +1,13 @@
 using Basis;
+using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.NetworkedAvatar;
+using Basis.Shims;
 using Metaphira.Modules.CameraOverride;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+[Cilboxable]
 public class DesktopManager : MonoBehaviour
 {
     private const int CAMERA_RENDER_MODE_DISABLED = CameraOverrideModule.RENDER_MODE_DISABLED;
@@ -52,14 +56,14 @@ public class DesktopManager : MonoBehaviour
         cursorClampX = table.k_TABLE_WIDTH + .3f;
         cursorClampZ = table.k_TABLE_HEIGHT + .3f;
         rootStartScale = root.transform.localScale;
-        cameraStartScale = root.GetComponentInChildren<Camera>().orthographicSize;
+        cameraStartScale = root.transform.GetComponentInChildren<Camera>().orthographicSize;
         _RefreshTable();
         _RefreshPhysics();
     }
 
     public void _OnGameStarted()
     {
-        isDesktopUser = !BasisNetworkPlayer.LocalPlayer.IsUserInVR();
+        isDesktopUser = BasisPlatformShim.IsDesktop;
     }
 
     public void _OnPickupCue()
@@ -80,7 +84,7 @@ public class DesktopManager : MonoBehaviour
 
     public void _RefreshTable()
     {
-        Camera desktopCamera = root.GetComponentInChildren<Camera>();
+        Camera desktopCamera = root.transform.GetComponentInChildren<Camera>();
         Vector3 campos = desktopCamera.transform.position;
         float SF = table.tableModels[table.tableModelLocal].DesktopUIScaleFactor;
         desktopCamera.orthographicSize = cameraStartScale * SF;
@@ -93,11 +97,15 @@ public class DesktopManager : MonoBehaviour
         if (!isDesktopUser) return;
         if (BasisNetworkPlayer.LocalPlayer == null) return;
 
-        BasisNetworkPlayer.LocalPlayer.GetTrackingData(Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole.Head, out var hmd);
-        Vector3 basePosition = hmd.position + hmd.rotation * Vector3.forward;
-        pressE.transform.position = basePosition;
+        Camera headCamera = BasisLocalCameraDriver.CameraInstance;
+        if (headCamera != null)
+        {
+            Transform head = headCamera.transform;
+            Vector3 basePosition = head.position + head.rotation * Vector3.forward;
+            pressE.transform.position = basePosition;
+        }
 
-        Vector3 playerPos = table.transform.InverseTransformPoint(BasisNetworkPlayer.LocalPlayer.GetPosition());
+        Vector3 playerPos = table.transform.InverseTransformPoint(BasisPlayersShim.Local.GetPosition());
         bool canUseUI = (Mathf.Abs(playerPos.x) < 3.5f) && (Mathf.Abs(playerPos.z) < 2.5f);
 
         pressE.SetActive(holdingCue && canUseUI);
@@ -125,12 +133,14 @@ public class DesktopManager : MonoBehaviour
 
     private void tickUI()
     {
-        bool clickNow = Mouse.current.leftButton.wasPressedThisFrame;
-        bool click = Mouse.current.leftButton.isPressed;
+        bool clickNow = BasisDesktopInputShim.GetMouseButtonDown(0);
+        bool click = BasisDesktopInputShim.GetMouseButton(0);
+        Vector2 mouseDelta = BasisDesktopInputShim.MouseDelta;
 
-        cursor.x = Mathf.Clamp(cursor.x + Mouse.current.delta.x.ReadValue() * CURSOR_SPEED * Time.deltaTime, -cursorClampX, cursorClampX);
-        cursor.y = 2.0f;
-        cursor.z = Mathf.Clamp(cursor.z + Mouse.current.delta.y.ReadValue() * CURSOR_SPEED * Time.deltaTime, -cursorClampZ, cursorClampZ);
+        cursor = new Vector3(
+            Mathf.Clamp(cursor.x + mouseDelta.x * CURSOR_SPEED * Time.deltaTime, -cursorClampX, cursorClampX),
+            2.0f,
+            Mathf.Clamp(cursor.z + mouseDelta.y * CURSOR_SPEED * Time.deltaTime, -cursorClampZ, cursorClampZ));
 
         if (Keyboard.current.qKey.wasPressedThisFrame)
         {
@@ -148,8 +158,7 @@ public class DesktopManager : MonoBehaviour
 
         if (canShoot)
         {
-            Vector3 flatCursor = cursor;
-            flatCursor.y = 0.0f;
+            Vector3 flatCursor = new Vector3(cursor.x, 0.0f, cursor.z);
             Vector3 shotDirection = flatCursor - table.ballsP[0];
 
             if (repositionMode)
@@ -317,9 +326,9 @@ public class DesktopManager : MonoBehaviour
         inUI = true;
         repositionMode = false;
         root.SetActive(true);
-        BasisNetworkPlayer.LocalPlayer.Immobilize(true);
+        if (BasisLocalPlayer.Instance != null) BasisLocalPlayer.Instance.Immobilize(true);
 
-        Camera desktopCamera = root.GetComponentInChildren<Camera>();
+        Camera desktopCamera = root.transform.GetComponentInChildren<Camera>();
         table.cameraOverrideModule.shouldMaintainAspectRatio = true;
         table.cameraOverrideModule.aspectRatio = new Vector2(1920, 1080);
         table.cameraOverrideModule._SetTargetCamera(desktopCamera);
@@ -342,7 +351,7 @@ public class DesktopManager : MonoBehaviour
         inUI = false;
         root.SetActive(false);
         table.cameraOverrideModule._SetRenderMode(CAMERA_RENDER_MODE_DISABLED);
-        BasisNetworkPlayer.LocalPlayer.Immobilize(false);
+        if (BasisLocalPlayer.Instance != null) BasisLocalPlayer.Instance.Immobilize(false);
     }
 
     private void stopShooting()

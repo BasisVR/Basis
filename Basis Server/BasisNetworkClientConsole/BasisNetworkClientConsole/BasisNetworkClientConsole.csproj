@@ -15,7 +15,6 @@
 	  <ProjectReference Include="..\..\BasisNetworkCore\BasisNetworkCore.csproj" />
 	  <ProjectReference Include="..\..\Contrib\Auth\Did\Did.csproj" />
 	  <ProjectReference Include="..\..\Contrib\Crypto\Crypto.csproj" />
-	  <ProjectReference Include="..\..\LiteNetLib\LiteNetLib.csproj" />
 	</ItemGroup>
 	<ItemGroup>
 	  <!-- Same version as BasisNetworkServer — the face observer decodes channel-52 avatar bundles. -->

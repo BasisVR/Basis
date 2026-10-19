@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
@@ -13,7 +14,8 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
     /// Generates gentle movement/look input with mode-based behavior and periodic respawns.
     /// Includes controls to stop and resume movement at runtime.
     /// </summary>
-    public class BasisHeadlessInput : BasisInput
+    [AutoStaticsCleanup]
+    public partial class BasisHeadlessInput : BasisInput
     {
         public Camera Camera;
         public BasisLocalAvatarDriver AvatarDriver;

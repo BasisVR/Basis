@@ -7,36 +7,10 @@ namespace Basis.BasisUI
 {
     public static class SettingsProviderNetworkTab
     {
-        // Steady-state cushion applied when the user hasn't enabled the manual override.
-        // This is the stock target depth; toggling the override off restores it rather
-        // than whatever the slider last held.
-        private const int DefaultJitterDepth = 2;
-
-        [RuntimeInitializeOnLoadMethod]
-        static void Init()
-        {
-            ApplyJitterDepthFromSettings();
-            BasisSettingsDefaults.NetworkJitterBufferOverride.OnChanged += _ => ApplyJitterDepthFromSettings();
-            BasisSettingsDefaults.NetworkJitterBufferDepth.OnChanged += _ => ApplyJitterDepthFromSettings();
-        }
-
-        private static void ApplyJitterDepthFromSettings()
-        {
-            if (BasisSettingsDefaults.NetworkJitterBufferOverride.RawValue)
-            {
-                BasisNetworkReceiver.ApplyLockedJitterDepth(Mathf.RoundToInt(BasisSettingsDefaults.NetworkJitterBufferDepth.RawValue));
-            }
-            else
-            {
-                BasisNetworkReceiver.ApplyTargetJitterDepth(DefaultJitterDepth);
-            }
-        }
-
         public static void BuildNetworkStatsGroup(RectTransform container, out NetworkStatsPanelUpdater updater)
         {
             var netGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             netGroup.SetBackgroundVisible(false);
-            netGroup.SetTitle(BasisLocalization.Get("settings.developer.netStats"));
 
             // Connection status
             var connectionField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, netGroup.ContentParent);

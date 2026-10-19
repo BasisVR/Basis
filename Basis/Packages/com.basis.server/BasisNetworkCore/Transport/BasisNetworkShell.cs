@@ -68,6 +68,11 @@ namespace Basis.Network.Core
         {
             NetworkReceiveUnconnectedEvent?.Invoke(remoteEndPoint, reader);
         }
+
+        public void RaiseNetworkError(IPEndPoint endPoint, SocketError socketError)
+        {
+            NetworkErrorEvent?.Invoke(endPoint, socketError);
+        }
     }
 
     public interface ConnectionRequest
@@ -76,6 +81,8 @@ namespace Basis.Network.Core
         public NetPeer Accept();
         public NetDataReader Data { get; }
         public IPEndPoint RemoteEndPoint { get; }
+        public NetPeer AcceptAwaitingSeal() => null;
+        public string VerifiedIdentity => null;
     }
 
     public interface NetPeer
@@ -100,6 +107,27 @@ namespace Basis.Network.Core
         public int Mtu { get; }
 
         public object Tag { get; set; }
+
+        public string StackId => BasisNetworkStackRegistry.LiteNetLibId;
+
+        public bool SupportsDirectConnect => true;
+
+        /// <summary>
+        /// Seals everything sent to this peer with <paramref name="key"/> from now on.
+        /// False when the transport cannot, in which case nothing changed.
+        /// </summary>
+        public bool SealOutbound(byte[] key) => false;
+
+        /// <summary>
+        /// Drops user data from this peer that is not sealed with <paramref name="key"/>, from now on,
+        /// and once a sealed message has arrived, anything unsealed at all.
+        /// False when the transport cannot, in which case nothing changed.
+        /// </summary>
+        public bool RequireSealedInbound(byte[] key) => false;
+
+        public void ExpectSealedOutbound()
+        {
+        }
 
         // public readonly NetStatistics Statistics;
     }
@@ -137,6 +165,16 @@ namespace Basis.Network.Core
 
         public int ConnectedPeersCount { get; }
 
+        public bool IsRunning => true;
+
+        public string StackId => BasisNetworkStackRegistry.LiteNetLibId;
+
+        public string ListenDescription => null;
+
+        public void Flush()
+        {
+        }
+
         /// <summary>
         /// Unreliable packets dropped because a peer's send queue was over budget — i.e. the server
         /// could not drain what it was producing and shed the oldest position updates instead of
@@ -172,7 +210,7 @@ namespace Basis.Network.Core
         Action RecycleInternal;
         bool recycled;
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
 		internal byte channel;
 		internal DeliveryMethod method;
 #endif
@@ -198,7 +236,7 @@ namespace Basis.Network.Core
                 return;
             }
             recycled = true;
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
 			if (IsOkTOHaveEmptyData == false)
 			{
 				if (!EndOfData && AvailableBytes > 0)

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Reflection;
 using System.Runtime.Serialization;
 using Basis.Scripts.BasisSdk;
@@ -20,6 +21,7 @@ namespace Basis.Tests.Sync
     /// OnBeforeTransmit measurement on an owner rig and decode on a SEPARATE observer rig - the way two
     /// clients actually work - to find which link puts a held prop out of the hand on remotes.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public class BasisPickupWristFrameTests
     {
         const BindingFlags NP = BindingFlags.NonPublic | BindingFlags.Instance;

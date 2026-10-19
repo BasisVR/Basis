@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Players;
@@ -28,6 +29,7 @@ using static Basis.Scripts.Device_Management.BasisDeviceManagement;
 using static SerializableBasis;
 
 
+[NoAutoStaticsCleanup]
 public static class BasisMenuItemsEditor
 {
     [MenuItem("Basis/Avatar/Reload", false, 100)]
@@ -334,6 +336,7 @@ public static class BasisMenuItemsEditor
     // Group 1: Authentication and Player Metadata
     [Serializable]
     [ProfilerModuleMetadata("Authentication and Player Metadata Profiler")]
+    [NoAutoStaticsCleanup]
     public class AuthenticationAndPlayerMetadataProfilerModule : ProfilerModule
     {
         static readonly ProfilerCounterDescriptor[] k_Counters = new ProfilerCounterDescriptor[]
@@ -355,6 +358,7 @@ public static class BasisMenuItemsEditor
     // Group 2: Avatar Profiler
     [Serializable]
     [ProfilerModuleMetadata("Avatar Profiler")]
+    [NoAutoStaticsCleanup]
     public class AvatarProfilerModule : ProfilerModule
     {
         static readonly ProfilerCounterDescriptor[] k_Counters = new ProfilerCounterDescriptor[]
@@ -377,6 +381,7 @@ public static class BasisMenuItemsEditor
     // Group 3: Ownership Profiler
     [Serializable]
     [ProfilerModuleMetadata("Ownership Profiler")]
+    [NoAutoStaticsCleanup]
     public class OwnershipProfilerModule : ProfilerModule
     {
         static readonly ProfilerCounterDescriptor[] k_Counters = new ProfilerCounterDescriptor[]
@@ -397,6 +402,7 @@ public static class BasisMenuItemsEditor
     // Group 4: Audio and Communication
     [Serializable]
     [ProfilerModuleMetadata("Audio and Communication Profiler")]
+    [NoAutoStaticsCleanup]
     public class AudioAndCommunicationProfilerModule : ProfilerModule
     {
         static readonly ProfilerCounterDescriptor[] k_Counters = new ProfilerCounterDescriptor[]
@@ -418,6 +424,7 @@ public static class BasisMenuItemsEditor
     // Group 5: Scene and Synchronization
     [Serializable]
     [ProfilerModuleMetadata("Scene and Synchronization Profiler")]
+    [NoAutoStaticsCleanup]
     public class SceneAndSynchronizationProfilerModule : ProfilerModule
     {
         static readonly ProfilerCounterDescriptor[] k_Counters = new ProfilerCounterDescriptor[]

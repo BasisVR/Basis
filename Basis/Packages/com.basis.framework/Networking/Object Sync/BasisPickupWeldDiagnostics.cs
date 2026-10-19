@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -67,7 +68,8 @@ namespace Basis.Scripts.Networking.Sync
     /// on, so the hold path pays nothing in a normal session; the reader clears it each frame, and the cap
     /// keeps a reader that stops running from growing it without bound.
     /// </summary>
-    public static class BasisPickupWeldDiagnostics
+    [AutoStaticsCleanup]
+    public static partial class BasisPickupWeldDiagnostics
     {
         /// <summary>Set by whichever debug view is consuming the reports; that view must also Clear each frame.</summary>
         public static bool Enabled;

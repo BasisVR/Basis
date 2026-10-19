@@ -5,12 +5,14 @@ using UnityEditor.ProjectWindowCallback;
 using System.IO;
 using ShaderKeywordFilter = UnityEditor.ShaderKeywordFilter;
 #endif
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Numerics;
 using UnityEngine.Serialization;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Assertions;
-using System.Collections.Generic;
+using Unity.Mathematics;
 
 namespace UnityEngine.Rendering.Universal
 {
@@ -321,10 +323,19 @@ namespace UnityEngine.Rendering.Universal
         UsePipelineSettings = 2,
     }
 
+#if ENABLE_UPSCALER_FRAMEWORK
+    // Which type of resolution scaling in UI order.
+    internal enum ScalingMode
+    {
+        None,
+        Upscaling,
+        Supersampling,
+    }
+#endif
+
     /// <summary>
     /// Defines the upscaling filter selected by the user the universal render pipeline asset.
     /// </summary>
-    /// 
 #if ENABLE_UPSCALER_FRAMEWORK
     [Obsolete("UpscalingFilterSelection is obsolete. #from(6000.3)", false)]
 #endif
@@ -391,6 +402,19 @@ namespace UnityEngine.Rendering.Universal
     }
 
     /// <summary>
+    /// The distance attenuation formula used by URP lights.
+    /// </summary>
+    public enum LightFalloffMode
+    {
+        /// <summary>Physically-based inverse squared falloff. URP default.</summary>
+        [InspectorName("Inverse Squared")]
+        InverseSquared = 0,
+        /// <summary>Falloff matching the Built-in Render Pipeline. Use for Built-in to URP migration.</summary>
+        [InspectorName("Quadratic")]
+        Quadratic = 1,
+    }
+
+    /// <summary>
     /// The type of Spherical Harmonics lighting evaluation in a shader.
     /// </summary>
     public enum ShEvalMode
@@ -412,9 +436,10 @@ namespace UnityEngine.Rendering.Universal
     /// <see cref="RenderPipelineAsset"/>
     /// <see cref="UniversalRenderPipeline"/>
     [ExcludeFromPreset]
-    [URPHelpURL("universalrp-asset")]
+    [URPHelpURL("urp/universalrp-asset")]
     [Icon("UnityEngine/Rendering/RenderPipelineAsset Icon")]
 #if UNITY_EDITOR
+    [DocumentationInfo.Source(DocumentationInfo.Location.Manual)]
     [ShaderKeywordFilter.ApplyRulesIfTagsEqual("RenderPipeline", "UniversalPipeline")]
 #endif
     public partial class UniversalRenderPipelineAsset : RenderPipelineAsset<UniversalRenderPipeline>, ISerializationCallbackReceiver, IProbeVolumeEnabledRenderPipeline, IGPUResidentRenderPipeline, IRenderGraphEnabledRenderPipeline, ISTPEnabledRenderPipeline
@@ -423,9 +448,9 @@ namespace UnityEngine.Rendering.Universal
 
         internal bool IsAtLastVersion() => k_LastVersion == k_AssetVersion;
 
-        private const int k_LastVersion = 13;
+        private const int k_LastVersion = 14;
         // Default values set when a new UniversalRenderPipeline asset is created
-        [SerializeField] int k_AssetVersion = k_LastVersion;
+        [SerializeField] internal int k_AssetVersion = k_LastVersion;
         [SerializeField] int k_AssetPreviousVersion = k_LastVersion;
 
         // Deprecated settings for upgrading sakes
@@ -456,7 +481,29 @@ namespace UnityEngine.Rendering.Universal
         // The upscaler name is null if the upscaling filter is coming from a built-in upscaler. It will be non-null if
         // the upscaling filter is coming from an IUpscaler, which can be a separate package, or part of Unity code.
 #if ENABLE_UPSCALER_FRAMEWORK
-        [SerializeField] string m_SelectedUpscalerName = "Bilinear";
+        // Which type of resolution scaling.
+        [SerializeField] ScalingMode m_ScalingMode = ScalingMode.None;
+
+        // Superseded by m_UpscalerPriority, kept only so assets authored before the list can be upgraded. Empty by
+        // default so an absent field is distinguishable from a deliberate choice.
+        [Obsolete("m_SelectedUpscalerName is replaced by m_UpscalerPriority #from(6000.7)")]
+        [SerializeField] string m_SelectedUpscalerName = "";
+
+        [Serializable]
+        internal struct UpscalerPriorityEntry
+        {
+            public string upscalerId;
+            public string upscalerName;
+
+            public UpscalerPriorityEntry(string upscalerId, string upscalerName)
+            {
+                this.upscalerId = upscalerId;
+                this.upscalerName = upscalerName;
+            }
+        }
+
+        // The upscalers the user picked, ordered from highest to lowest priority.
+        [SerializeField] List<UpscalerPriorityEntry> m_UpscalerPriority = new List<UpscalerPriorityEntry>();
 
         [SerializeField]
         [SerializeReference]
@@ -479,6 +526,12 @@ namespace UnityEngine.Rendering.Universal
         [ShaderKeywordFilter.SelectIf(ShEvalMode.PerVertex, keywordNames: new [] { ShaderKeywordStrings.EVALUATE_SH_VERTEX })]
 #endif
         [SerializeField] ShEvalMode m_ShEvalMode = ShEvalMode.Auto;
+
+#if UNITY_EDITOR // multi_compile _ _LIGHT_FALLOFF_QUADRATIC
+        [ShaderKeywordFilter.RemoveIf(LightFalloffMode.InverseSquared, keywordNames: ShaderKeywordStrings.LightFalloffQuadratic)]
+        [ShaderKeywordFilter.SelectIf(LightFalloffMode.Quadratic,      keywordNames: ShaderKeywordStrings.LightFalloffQuadratic)]
+#endif
+        [SerializeField] LightFalloffMode m_LightFalloffMode = LightFalloffMode.InverseSquared;
 
         // Probe volume settings
 #if UNITY_EDITOR
@@ -551,6 +604,7 @@ namespace UnityEngine.Rendering.Universal
 
         // Advanced settings
         [SerializeField] bool m_UseSRPBatcher = true;
+        // Deprecated: Retained for serialized data compatibility and will be removed in a future release.
         [SerializeField] bool m_SupportsDynamicBatching = false;
 #if UNITY_EDITOR
         // multi_compile _ LIGHTMAP_SHADOW_MIXING
@@ -593,6 +647,8 @@ namespace UnityEngine.Rendering.Universal
         private GPUResidentDrawerMode m_GPUResidentDrawerMode = GPUResidentDrawerMode.Disabled;
         [SerializeField] float m_SmallMeshScreenPercentage = 0.0f;
 
+        [SerializeField] private Vector4 m_ShadowSmallMeshScreenPercentages = Vector4.zero;
+
         [SerializeField] bool m_GPUResidentDrawerEnableOcclusionCullingInCameras;
 
         GPUResidentDrawerSettings IGPUResidentRenderPipeline.gpuResidentDrawerSettings => new()
@@ -602,6 +658,7 @@ namespace UnityEngine.Rendering.Universal
             supportDitheringCrossFade = m_EnableLODCrossFade,
             allowInEditMode = true,
             smallMeshScreenPercentage = m_SmallMeshScreenPercentage,
+            shadowSmallMeshScreenPercentages = m_ShadowSmallMeshScreenPercentages,
 #if UNITY_EDITOR
             pickingShader = Shader.Find("Hidden/Universal Render Pipeline/BRGPicking"),
 #endif
@@ -693,6 +750,14 @@ namespace UnityEngine.Rendering.Universal
 
             // Only enable for new URP assets by default
             instance.m_ConservativeEnclosingSphere = true;
+
+#if ENABLE_UPSCALER_FRAMEWORK
+            instance.m_UpscalerPriority = new List<UpscalerPriorityEntry>
+            {
+                new UpscalerPriorityEntry(STPIUpscaler.registeredId, STPIUpscaler.registeredName),
+                new UpscalerPriorityEntry(UniversalRenderPipeline.k_UpscalerId_Auto, UniversalRenderPipeline.k_UpscalerName_Auto)
+            };
+#endif
 
             ResourceReloader.ReloadAllNullIn(instance, packagePath);
 
@@ -952,7 +1017,7 @@ namespace UnityEngine.Rendering.Universal
 
                 index = m_DefaultRendererIndex; //out of range index fallback on default
             }
-            
+
             result = m_RendererDataList[index];
             return result != null;
         }
@@ -981,7 +1046,7 @@ namespace UnityEngine.Rendering.Universal
         }
 
 #endif
-        private static GraphicsFormat[][] s_LightCookieFormatList = new GraphicsFormat[][]
+        private static readonly GraphicsFormat[][] k_LightCookieFormatList = new GraphicsFormat[][]
         {
             /* Grayscale Low */ new GraphicsFormat[] {GraphicsFormat.R8_UNorm},
             /* Grayscale High*/ new GraphicsFormat[] {GraphicsFormat.R16_UNorm},
@@ -995,7 +1060,7 @@ namespace UnityEngine.Rendering.Universal
             get
             {
                 GraphicsFormat result = GraphicsFormat.None;
-                foreach (var format in s_LightCookieFormatList[(int)m_AdditionalLightsCookieFormat])
+                foreach (var format in k_LightCookieFormatList[(int)m_AdditionalLightsCookieFormat])
                 {
                     if (SystemInfo.IsFormatSupported(format, GraphicsFormatUsage.Render))
                     {
@@ -1138,19 +1203,56 @@ namespace UnityEngine.Rendering.Universal
 
 
         /// <summary>
-        /// Returns the name of the selected upscaling filter.
+        /// Returns the name of the upscaler this asset is configured to prefer, or an empty string if there is none.
         /// </summary>
+        [Obsolete("upscalerName is replaced by the upscaler priority list. #from(6000.7)", false)]
         public string upscalerName
         {
 #if ENABLE_UPSCALER_FRAMEWORK
-            get => m_SelectedUpscalerName;
-            set => m_SelectedUpscalerName = value;
+            get => m_UpscalerPriority.Count > 0 ? m_UpscalerPriority[0].upscalerName : string.Empty;
 #else
             get => string.Empty;
 #endif
         }
 
 #if ENABLE_UPSCALER_FRAMEWORK
+        /// <summary>
+        /// Controls whether upscaling is enabled.
+        /// </summary>
+        internal ScalingMode scalingMode
+        {
+            get => m_ScalingMode;
+            set => m_ScalingMode = value;
+        }
+
+        /// <summary>
+        /// Returns the selected upscalers, ordered from highest to lowest priority.
+        /// </summary>
+        internal IReadOnlyList<UpscalerPriorityEntry> upscalerPriority => m_UpscalerPriority;
+
+        // The upscaling system resolves by ID, and the priority list is the only place those are stored.
+        internal string[] GetUpscalerPriorityIds()
+        {
+            var upscalerIds = new string[m_UpscalerPriority.Count];
+            for (int i = 0; i < m_UpscalerPriority.Count; ++i)
+                upscalerIds[i] = m_UpscalerPriority[i].upscalerId;
+
+            return upscalerIds;
+        }
+
+        // Any listed upscaler can end up active, depending on what the device supports, so an upscaler counts as used
+        // wherever it appears in the list. Stripping content based on priority alone would break that fallback.
+        internal bool IsUpscalerUsed(string upscalerId)
+        {
+            foreach (var upscalerPriorityEntry in m_UpscalerPriority)
+            {
+                if (upscalerPriorityEntry.upscalerId == upscalerId)
+                    return true;
+            }
+
+            return false;
+        }
+
         /// <summary>
         /// Gets the list of configuration options for all registered upscalers.
         /// These are typically auto-populated as sub-assets within the Render Pipeline Asset.
@@ -1161,17 +1263,21 @@ namespace UnityEngine.Rendering.Universal
         }
 
         /// <summary>
-        /// Retrieves the specific configuration options for an upscaler by its unique name.
+        /// Retrieves the specific configuration options for an upscaler by its ID.
         /// </summary>
-        /// <param name="upscalerName">The unique ID or name of the upscaler (e.g., "DLSS", "FSR2").</param>
+        /// <param name="upscalerId">The ID of the upscaler (e.g., "unity.stp").</param>
         /// <returns>The matching <see cref="UpscalerOptions"/> asset if found; otherwise, null.</returns>
-        public UpscalerOptions GetUpscalerOptions(string UpscalerName)
+        public UpscalerOptions GetUpscalerOptions(string upscalerId)
         {
+            // Matched by options type rather than by the ID stored on the options, which is only there for diagnostics.
+            if (!UpscalerRegistry.s_RegisteredUpscalers.TryGetValue(upscalerId, out var registered) || registered.OptionsType == null)
+                return null;
+
             foreach(UpscalerOptions option in m_UpscalerOptions)
             {
                 if (option == null)
                     continue;
-                if (option.upscalerName == UpscalerName)
+                if (option.GetType() == registered.OptionsType)
                     return option;
             }
             return null;
@@ -1207,6 +1313,15 @@ namespace UnityEngine.Rendering.Universal
         {
             get => m_ShEvalMode;
             internal set => m_ShEvalMode = value;
+        }
+
+        /// <summary>
+        /// Defines the light attenuation formula used by URP lights.
+        /// </summary>
+        public LightFalloffMode lightFalloffMode
+        {
+            get => m_LightFalloffMode;
+            internal set => m_LightFalloffMode = value;
         }
 
         /// <summary>
@@ -1563,7 +1678,7 @@ namespace UnityEngine.Rendering.Universal
         /// Specifies if this <c>UniversalRenderPipelineAsset</c> should use dynamic batching.
         /// </summary>
         /// <see href="https://docs.unity3d.com/Manual/DrawCallBatching.html"/>
-        [Obsolete("supportsDynamicBatching is deprecated and will be removed in a future release. #from(6000.5)", false)]
+        [Obsolete("supportsDynamicBatching is obsolete.", true)]
         public bool supportsDynamicBatching
         {
             get => m_SupportsDynamicBatching;
@@ -1590,7 +1705,11 @@ namespace UnityEngine.Rendering.Universal
         /// <summary>
         /// Returns true if the Render Pipeline Asset supports rendering layers for lights, false otherwise.
         /// </summary>
-        public bool useRenderingLayers => m_SupportsLightLayers;
+        public bool useRenderingLayers
+        {
+            get => m_SupportsLightLayers;
+            internal set => m_SupportsLightLayers = value;
+        }
 
         /// <summary>
         /// Returns the selected update mode for volumes.
@@ -1793,6 +1912,22 @@ namespace UnityEngine.Rendering.Universal
         }
 
         /// <summary>
+        /// Default per-cascade minimum screen percentage (0-50%) gpu-driven Renderers can cover before getting shadows in cascades are culled.
+        /// </summary>
+        public Vector4 shadowSmallMeshScreenPercentages
+        {
+            get => m_ShadowSmallMeshScreenPercentages;
+            set
+            {
+                if ((value - m_ShadowSmallMeshScreenPercentages).sqrMagnitude < float.Epsilon * float.Epsilon)
+                    return;
+
+                m_ShadowSmallMeshScreenPercentages = math.clamp(value, 0.0f, 50.0f);
+                OnValidate();
+            }
+        }
+
+        /// <summary>
         /// Unity raises a callback to this method before it serializes the asset.
         /// </summary>
         public void OnBeforeSerialize()
@@ -1907,6 +2042,15 @@ namespace UnityEngine.Rendering.Universal
                 k_AssetVersion = 13;
             }
 
+            if (k_AssetVersion < 14)
+            {
+#if ENABLE_UPSCALER_FRAMEWORK
+                UpgradeToUpscalerPriority();
+#endif
+                k_AssetPreviousVersion = k_AssetVersion;
+                k_AssetVersion = 14;
+            }
+
 #if UNITY_EDITOR
             if (k_AssetPreviousVersion != k_AssetVersion)
             {
@@ -1914,6 +2058,88 @@ namespace UnityEngine.Rendering.Universal
             }
 #endif
         }
+
+#if ENABLE_UPSCALER_FRAMEWORK
+#pragma warning disable 618 // Obsolete warning
+        // Populates the priority list with the single upscaler this asset selected from a previous asset version.
+        void UpgradeToUpscalerPriority()
+        {
+            // Already using m_UpscalerPriority
+            if (m_UpscalerPriority.Count > 0)
+                return;
+
+            const string k_LegacyAutoUpscalerName = "Automatic";  // Legacy display name for renamed upscaler
+            string foundUpscalerId = string.Empty;
+
+            if (!string.IsNullOrEmpty(m_SelectedUpscalerName))
+            {
+                // Upgrade from m_SelectedUpscalerName
+                if (m_SelectedUpscalerName == k_LegacyAutoUpscalerName)
+                {
+                    m_UpscalerPriority.Add(new UpscalerPriorityEntry(UniversalRenderPipeline.k_UpscalerId_Auto, UniversalRenderPipeline.k_UpscalerName_Auto));
+                    foundUpscalerId = UniversalRenderPipeline.k_UpscalerId_Auto;
+                }
+                else
+                {
+                    foreach (var registered in UpscalerRegistry.s_RegisteredUpscalers)
+                    {
+                        if (registered.Value.DisplayName != m_SelectedUpscalerName)
+                            continue;
+
+                        m_UpscalerPriority.Add(new UpscalerPriorityEntry(registered.Key, registered.Value.DisplayName));
+                        foundUpscalerId = registered.Key;
+
+                        break;
+                    }
+                }
+
+                m_SelectedUpscalerName = string.Empty;
+            }
+            else
+            {
+                // Upgrade from m_UpscalingFilter, which defaults to automatic.
+                string upscalerId = UniversalRenderPipeline.k_UpscalerId_Auto;
+                string upscalerName = UniversalRenderPipeline.k_UpscalerName_Auto;
+
+                switch (m_UpscalingFilter)
+                {
+                    case UpscalingFilterSelection.Linear:
+                        upscalerId = UniversalRenderPipeline.k_UpscalerId_Linear;
+                        upscalerName = UniversalRenderPipeline.k_UpscalerName_Linear;
+                        break;
+                    case UpscalingFilterSelection.Point:
+                        upscalerId = UniversalRenderPipeline.k_UpscalerId_Point;
+                        upscalerName = UniversalRenderPipeline.k_UpscalerName_Point;
+                        break;
+                    case UpscalingFilterSelection.FSR:
+                        upscalerId = UniversalRenderPipeline.k_UpscalerId_FSR1;
+                        upscalerName = UniversalRenderPipeline.k_UpscalerName_FSR1;
+                        break;
+                    case UpscalingFilterSelection.STP:
+                        upscalerId = STPIUpscaler.registeredId;
+                        upscalerName = STPIUpscaler.registeredName;
+                        break;
+                }
+
+                m_UpscalerPriority.Add(new UpscalerPriorityEntry(upscalerId, upscalerName));
+                foundUpscalerId = upscalerId;
+            }
+
+            // Scaling Mode
+            if (m_RenderScale > 1.0f)
+                m_ScalingMode = ScalingMode.Supersampling;
+            else if (m_RenderScale < 1.0f)
+                m_ScalingMode = ScalingMode.Upscaling;
+            else if (foundUpscalerId == UniversalRenderPipeline.k_UpscalerId_Auto ||
+                foundUpscalerId == UniversalRenderPipeline.k_UpscalerId_Point ||
+                foundUpscalerId == UniversalRenderPipeline.k_UpscalerId_Linear)
+                m_ScalingMode = ScalingMode.None; // RenderScale of 1.0
+            else
+                m_ScalingMode = ScalingMode.Upscaling; // STP, FSR and DLSS can have a valid RenderScale of 1.0
+        }
+
+#pragma warning restore 618 // Obsolete warning
+#endif
 
 #if UNITY_EDITOR
         static void UpgradeAsset(EntityId assetInstanceID)
@@ -1974,6 +2200,11 @@ namespace UnityEngine.Rendering.Universal
             if (asset.k_AssetPreviousVersion < 13)
             {
                 asset.k_AssetPreviousVersion = 13;
+            }
+
+            if (asset.k_AssetPreviousVersion < 14)
+            {
+                asset.k_AssetPreviousVersion = 14;
             }
 
             ResourceReloader.ReloadAllNullIn(asset, packagePath);
@@ -2059,7 +2290,7 @@ namespace UnityEngine.Rendering.Universal
             get
             {
 #if ENABLE_UPSCALER_FRAMEWORK
-                return m_SelectedUpscalerName == STPIUpscaler.upscalerName;
+                return IsUpscalerUsed(STPIUpscaler.registeredId);
 #else
                 return m_UpscalingFilter == UpscalingFilterSelection.STP;
 #endif

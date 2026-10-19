@@ -13,18 +13,15 @@ namespace UnityEditor.Rendering
             if (GraphicsSettings.TryGetRenderPipelineSettings<URPShaderStrippingSetting>(out var urpShaderStrippingSettings) && !urpShaderStrippingSettings.stripUnusedVariants)
                 return false;
             
-            foreach (var urpAssetForBuild in URPBuildData.instance.renderPipelineAssets)
+            foreach (var rendererData in URPBuildData.instance.rendererDataList)
             {
-                foreach (var rendererData in urpAssetForBuild.m_RendererDataList)
+                if (rendererData is not UniversalRendererData)
+                    continue;
+
+                foreach (var rendererFeature in rendererData.rendererFeatures)
                 {
-                    if (rendererData is not UniversalRendererData) 
-                        continue;
-                    
-                    foreach (var rendererFeature in rendererData.rendererFeatures)
-                    {
-                        if (rendererFeature is OnTilePostProcessFeature { isActive: true })
-                            return false;
-                    }
+                    if (rendererFeature is OnTilePostProcessFeature { isActive: true })
+                        return false;
                 }
             }
 

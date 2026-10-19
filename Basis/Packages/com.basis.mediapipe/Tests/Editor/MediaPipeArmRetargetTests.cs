@@ -109,7 +109,7 @@ namespace Basis.MediaPipe.Tests
         private static readonly MediaPipeTiming Timing = new MediaPipeTiming(1f / 60f, 1f / 15f, true);
 
         private static MediaPipeArmConverter Converter(float headAnchor = 1f) =>
-            new MediaPipeArmConverter { Smoothing = 0f, HeadAnchor = headAnchor };
+            new MediaPipeArmConverter { HeadAnchor = headAnchor };
 
         private static Vector3 Retarget(Vector3[] pose, float headAnchor = 1f)
         {
@@ -361,20 +361,35 @@ namespace Basis.MediaPipe.Tests
         }
 
         [Test]
-        public void ElbowRestBias_LowersTheElbow()
+        public void ElbowTrust_StraightArmHandsTheSwivelToThePrior()
+        {
+            Assert.AreEqual(0f, MediaPipeArmConverter.ElbowTrust(null, false, new Vector3(0f, -0.3f, 0f), new Vector3(0f, -0.6f, 0f)), 1e-4f,
+                "a straight arm has no measurable swivel, so the IK prior must decide it");
+        }
+
+        [Test]
+        public void ElbowTrust_BentVisibleArmTrustsTheCamera()
+        {
+            Assert.AreEqual(0.5f, MediaPipeArmConverter.ElbowTrust(null, false, new Vector3(0f, -0.3f, 0f), new Vector3(0f, -0.3f, 0.3f)), 1e-4f,
+                "even a clearly seen elbow only gets half the say: monocular elbow depth is the weakest landmark");
+        }
+
+        [Test]
+        public void ElbowTrust_PoorlySeenArmFallsBackToThePrior()
+        {
+            float[] visibility = new float[MediaPipeSpace.PoseCount];
+            for (int i = 0; i < visibility.Length; i++) visibility[i] = 0.3f;
+            Assert.AreEqual(0f, MediaPipeArmConverter.ElbowTrust(visibility, false, new Vector3(0f, -0.3f, 0f), new Vector3(0f, -0.3f, 0.3f)), 1e-4f);
+        }
+
+        [Test]
+        public void PriorElbowStaysOnTheReachableCircle()
         {
             MediaPipeArmConverter.AvatarArmRig rig = Rig();
-
-            MediaPipeArmConverter trusting = new MediaPipeArmConverter { Smoothing = 0f, ElbowRestBias = 0f };
-            Assert.IsTrue(trusting.TryGetArm(HandAtFace(), null, in rig, false, in Timing, out _, out Vector3 fromCamera, out _));
-
-            MediaPipeArmConverter resting = new MediaPipeArmConverter { Smoothing = 0f, ElbowRestBias = 1f };
-            Assert.IsTrue(resting.TryGetArm(HandAtFace(), null, in rig, false, in Timing, out _, out Vector3 fromRest, out _));
-
-            Assert.Less(fromRest.y, fromCamera.y,
-                "raising the rest bias must pull the elbow down — that is the entire purpose of the knob");
-            Assert.That(Vector3.Distance(rig.RightAnchor, fromRest), Is.EqualTo(AvatarUpperLen).Within(1e-3f),
-                "and it must stay on the reachable circle, not just slide down");
+            Vector3[] pose = HandAtFace();
+            pose[MediaPipeSpace.RightElbow] = (pose[MediaPipeSpace.RightShoulder] + pose[MediaPipeSpace.RightWrist]) * 0.5f;
+            Assert.IsTrue(Converter().TryGetArm(pose, null, in rig, false, in Timing, out _, out Vector3 elbow, out _));
+            Assert.That(Vector3.Distance(rig.RightAnchor, elbow), Is.EqualTo(AvatarUpperLen).Within(1e-3f));
         }
 
         [Test]

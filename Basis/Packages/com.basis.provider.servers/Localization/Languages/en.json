@@ -167,6 +167,10 @@
       "value": "★ {0}"
     },
     {
+      "key": "menu.servers.list.sourceBadge",
+      "value": "{0} ({1})"
+    },
+    {
       "key": "menu.servers.list.share",
       "value": "Share"
     },
@@ -201,6 +205,14 @@
     {
       "key": "menu.servers.usernamePrompt.body",
       "value": "Choose the name other players will see, then hit Connect."
+    },
+    {
+      "key": "menu.servers.passwordPrompt.title",
+      "value": "Join {0}"
+    },
+    {
+      "key": "menu.servers.passwordPrompt.body",
+      "value": "The password was rejected. Enter the server password."
     },
     {
       "key": "menu.servers.search.byNameOrAddress",
@@ -277,6 +289,10 @@
     {
       "key": "menu.servers.list.remove.protected",
       "value": "This server can't be removed."
+    },
+    {
+      "key": "menu.servers.portInvalid",
+      "value": "Port must be 1-65535"
     }
   ]
 }

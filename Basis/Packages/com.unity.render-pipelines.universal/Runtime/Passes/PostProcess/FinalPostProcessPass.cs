@@ -1,4 +1,5 @@
 using System;
+using Unity.Profiling.LowLevel;
 using UnityEngine.Rendering.RenderGraphModule;
 using System.Runtime.CompilerServices; // AggressiveInlining
 
@@ -6,6 +7,9 @@ namespace UnityEngine.Rendering.Universal
 {
     internal sealed class FinalPostProcessPass : PostProcessPass
     {
+        /// <summary>Blits the final post-processed image to the camera target, applying FXAA, upscaling, or format conversion as the last rendering step.</summary>
+        static readonly ProfilingSampler k_ProfilingSampler = ProfilingSampler.Create("Blit Final Post Processing", MarkerFlags.Default);
+
         Material m_Material;
         Texture2D[] m_FilmGrainTextures;
         bool m_IsValid;
@@ -28,7 +32,7 @@ namespace UnityEngine.Rendering.Universal
         public FinalPostProcessPass(Shader shader, Texture2D[] filmGrainTextures)
         {
             this.renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing - 1;
-            this.profilingSampler = new ProfilingSampler("Blit Final Post Processing");
+            this.profilingSampler = k_ProfilingSampler;
 
             m_Material = PostProcessUtils.LoadShader(shader, passName);
             m_IsValid = m_Material != null;
@@ -121,11 +125,11 @@ namespace UnityEngine.Rendering.Universal
                 if (cameraData.xr.enabled)
                 {
                     // This is a screen-space pass, make sure foveated rendering is disabled for non-uniform renders
-                    bool passSupportsFoveation = !Experimental.Rendering.XRSystem.foveatedRenderingCaps.HasFlag(FoveatedRenderingCaps.NonUniformRaster);
+                    bool passSupportsFoveation = (Experimental.Rendering.XRSystem.foveatedRenderingCaps & FoveatedRenderingCaps.NonUniformRaster) == 0;
                     builder.EnableFoveatedRasterization(cameraData.xr.supportsFoveatedRendering && passSupportsFoveation);
 
-                    // Apply MultiviewRenderRegionsCompatible flag only to the peripheral view in Quad Views
-                    if (cameraData.xr.multipassId == 0)
+                    // Multiview render regions are incompatible with the inner (foveal) pass in Quad View
+                    if (!cameraData.xr.isQuadViewInnerPass)
                     {
                         builder.SetExtendedFeatureFlags(ExtendedFeatureFlags.MultiviewRenderRegionsCompatible);
                     }
@@ -141,7 +145,7 @@ namespace UnityEngine.Rendering.Universal
                     var requireHDROutput = PostProcessUtils.RequireHDROutput(cameraData);
                     var isAlphaOutputEnabled = cameraData.isAlphaOutputEnabled;
                     var applyFxaa = data.applyFxaa;
-                    var hdrColorEncoding = data.hdrOperations.HasFlag(HDROutputUtils.Operation.ColorEncoding);
+                    var hdrColorEncoding = (data.hdrOperations & HDROutputUtils.Operation.ColorEncoding) != 0;
                     var applySrgbEncoding = data.applySrgbEncoding;
                     RTHandle sourceTextureHdl = data.sourceTexture;
 

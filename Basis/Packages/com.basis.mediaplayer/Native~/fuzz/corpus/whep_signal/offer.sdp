@@ -1,0 +1,116 @@
+v=0
+o=str0m-0.23.0 412234090493705938 2 IN IP4 0.0.0.0
+s=-
+t=0 0
+a=group:BUNDLE mdh GvE
+a=extmap-allow-mixed
+a=msid-semantic: WMS 9RJUoghyqDCuLXolfpGY dpTFG5v9gCDTNCVzg48u
+m=audio 9 UDP/TLS/RTP/SAVPF 111
+c=IN IP4 0.0.0.0
+a=candidate:fffeff7eb71031545b436958 1 udp 2130706175 192.0.2.1 5000 typ host ufrag PyiLHur39lv7rmRU
+a=ice-ufrag:PyiLHur39lv7rmRU
+a=ice-pwd:gqgBUsJ1ffMrZVjmpCCG2R
+a=ice-options:trickle
+a=fingerprint:sha-256 1B:7C:8A:68:99:72:86:3E:5F:6C:CA:7E:CC:25:FA:E8:97:60:C7:BC:74:CB:BC:9A:83:FA:30:20:09:BA:39:5F
+a=setup:actpass
+a=mid:mdh
+a=extmap:1 urn:ietf:params:rtp-hdrext:ssrc-audio-level
+a=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time
+a=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01
+a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid
+a=extmap:10 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id
+a=extmap:11 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id
+a=recvonly
+a=msid:9RJUoghyqDCuLXolfpGY 4M1YdGluQd8unQ8jm13N
+a=rtcp-mux
+a=rtpmap:111 opus/48000/2
+a=rtcp-fb:111 transport-cc
+a=fmtp:111 minptime=10;useinbandfec=1
+a=ssrc:3129027464 cname:4M1YdGluQd8unQ8jm13N
+a=ssrc:3129027464 msid:9RJUoghyqDCuLXolfpGY 4M1YdGluQd8unQ8jm13N
+m=video 9 UDP/TLS/RTP/SAVPF 127 121 125 107 108 109 124 120 123 119 35 36 114 115
+c=IN IP4 0.0.0.0
+a=ice-ufrag:PyiLHur39lv7rmRU
+a=ice-pwd:gqgBUsJ1ffMrZVjmpCCG2R
+a=ice-options:trickle
+a=fingerprint:sha-256 1B:7C:8A:68:99:72:86:3E:5F:6C:CA:7E:CC:25:FA:E8:97:60:C7:BC:74:CB:BC:9A:83:FA:30:20:09:BA:39:5F
+a=setup:actpass
+a=mid:GvE
+a=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time
+a=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01
+a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid
+a=extmap:10 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id
+a=extmap:11 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id
+a=extmap:13 urn:3gpp:video-orientation
+a=recvonly
+a=msid:dpTFG5v9gCDTNCVzg48u HXk17ofjSDBE6pQhuNsl
+a=rtcp-mux
+a=rtpmap:127 H264/90000
+a=rtcp-fb:127 transport-cc
+a=rtcp-fb:127 goog-remb
+a=rtcp-fb:127 ccm fir
+a=rtcp-fb:127 nack
+a=rtcp-fb:127 nack pli
+a=fmtp:127 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f
+a=rtpmap:121 rtx/90000
+a=fmtp:121 apt=127
+a=rtpmap:125 H264/90000
+a=rtcp-fb:125 transport-cc
+a=rtcp-fb:125 goog-remb
+a=rtcp-fb:125 ccm fir
+a=rtcp-fb:125 nack
+a=rtcp-fb:125 nack pli
+a=fmtp:125 level-asymmetry-allowed=1;packetization-mode=0;profile-level-id=42001f
+a=rtpmap:107 rtx/90000
+a=fmtp:107 apt=125
+a=rtpmap:108 H264/90000
+a=rtcp-fb:108 transport-cc
+a=rtcp-fb:108 goog-remb
+a=rtcp-fb:108 ccm fir
+a=rtcp-fb:108 nack
+a=rtcp-fb:108 nack pli
+a=fmtp:108 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f
+a=rtpmap:109 rtx/90000
+a=fmtp:109 apt=108
+a=rtpmap:124 H264/90000
+a=rtcp-fb:124 transport-cc
+a=rtcp-fb:124 goog-remb
+a=rtcp-fb:124 ccm fir
+a=rtcp-fb:124 nack
+a=rtcp-fb:124 nack pli
+a=fmtp:124 level-asymmetry-allowed=1;packetization-mode=0;profile-level-id=42e01f
+a=rtpmap:120 rtx/90000
+a=fmtp:120 apt=124
+a=rtpmap:123 H264/90000
+a=rtcp-fb:123 transport-cc
+a=rtcp-fb:123 goog-remb
+a=rtcp-fb:123 ccm fir
+a=rtcp-fb:123 nack
+a=rtcp-fb:123 nack pli
+a=fmtp:123 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=4d001f
+a=rtpmap:119 rtx/90000
+a=fmtp:119 apt=123
+a=rtpmap:35 H264/90000
+a=rtcp-fb:35 transport-cc
+a=rtcp-fb:35 goog-remb
+a=rtcp-fb:35 ccm fir
+a=rtcp-fb:35 nack
+a=rtcp-fb:35 nack pli
+a=fmtp:35 level-asymmetry-allowed=1;packetization-mode=0;profile-level-id=4d001f
+a=rtpmap:36 rtx/90000
+a=fmtp:36 apt=35
+a=rtpmap:114 H264/90000
+a=rtcp-fb:114 transport-cc
+a=rtcp-fb:114 goog-remb
+a=rtcp-fb:114 ccm fir
+a=rtcp-fb:114 nack
+a=rtcp-fb:114 nack pli
+a=fmtp:114 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=64001f
+a=rtpmap:115 rtx/90000
+a=fmtp:115 apt=114
+a=ssrc:2006786405 cname:HXk17ofjSDBE6pQhuNsl
+a=ssrc:2006786405 msid:dpTFG5v9gCDTNCVzg48u HXk17ofjSDBE6pQhuNsl
+a=ssrc:2638712396 cname:HXk17ofjSDBE6pQhuNsl
+a=ssrc:2638712396 msid:dpTFG5v9gCDTNCVzg48u HXk17ofjSDBE6pQhuNsl
+a=ssrc-group:FID 2006786405 2638712396
+

@@ -39,7 +39,7 @@ namespace Basis.BasisUI
             if (string.IsNullOrWhiteSpace(name)) name = BasisLocalization.Get("library.notAvailable");
 
             DialogBox<bool> dialog = DialogBox<bool>.Create(panel, new Vector2(1200, 900),
-                LibraryProviderStrUtil.TitleToCase(name),
+                name,
                 BasisLocalization.Get("library.dialog.details.body"),
                 AddressableAssets.Sprites.Information);
 
@@ -71,6 +71,7 @@ namespace Basis.BasisUI
             }
             else
             {
+                BuildAuthorshipSection(content, connector);
                 BuildMetricsSection(content, connector);
                 BuildBoundsSection(content, connector);
                 BuildComponentsSection(content, connector);
@@ -106,6 +107,22 @@ namespace Basis.BasisUI
             Row(section, BasisLocalization.Get("library.dialog.details.contentGroup"), OrNone(description?.ContentGroupId));
             Row(section, BasisLocalization.Get("library.creationDate"), FormatCreationDate(connector?.DateOfCreation));
             Row(section, BasisLocalization.Get("library.dialog.details.uniqueVersion"), OrNone(connector?.UniqueVersion));
+        }
+
+        private static void BuildAuthorshipSection(RectTransform parent, BasisBundleConnector connector)
+        {
+            BasisBundleAuthorship authorship = connector.BasisBundleDescription != null ? connector.BasisBundleDescription.Authorship : default;
+            if (!BasisBundleConnector.HasAuthorship(authorship)) return;
+
+            PanelElementDescriptor section = Section(parent,
+                BasisLocalization.Get("library.dialog.details.section.authorship"),
+                AddressableAssets.Sprites.People,
+                BasisLocalization.Get("library.dialog.details.section.authorship.description"));
+
+            CreatorRow(section, BasisLocalization.Get("library.dialog.details.author"), authorship.Author);
+            CreatorRow(section, BasisLocalization.Get("library.dialog.details.contact"), authorship.Contact);
+            CreatorRow(section, BasisLocalization.Get("library.dialog.details.license"), authorship.License);
+            CreatorRow(section, BasisLocalization.Get("library.dialog.details.credits"), authorship.Credits);
         }
 
         private static void BuildMetricsSection(RectTransform parent, BasisBundleConnector connector)
@@ -271,6 +288,15 @@ namespace Basis.BasisUI
         private static void Row(PanelElementDescriptor section, string label, string value)
         {
             PanelElementDescriptor row = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Entry, section.ContentParent);
+            row.SetTitle(label);
+            row.SetDescription(value);
+        }
+
+        private static void CreatorRow(PanelElementDescriptor section, string label, string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return;
+            PanelElementDescriptor row = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Entry, section.ContentParent);
+            row.DisableRichText();
             row.SetTitle(label);
             row.SetDescription(value);
         }

@@ -1,6 +1,8 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
-public class BasisPersonalMirror : MonoBehaviour
+[AutoStaticsCleanup]
+public partial class BasisPersonalMirror : MonoBehaviour
 {
     public static BasisPersonalMirror Instance;
     public void OnEnable()

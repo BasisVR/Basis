@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
@@ -20,7 +21,8 @@ namespace Basis.Scripts.Networking.Receivers
     /// Each announcing player gets one non-spatialized (2D) AudioSource parented
     /// to BasisDeviceManagement.Instance so it persists across scene loads.
     /// </summary>
-    public static class BasisAnnounceAudioDriver
+    [AutoStaticsCleanup]
+    public static partial class BasisAnnounceAudioDriver
     {
         /// <summary>
         /// Per-player announce audio state.
@@ -73,7 +75,7 @@ namespace Basis.Scripts.Networking.Receivers
             BasisAudioReceiver.outputSampleRate = AudioSettings.outputSampleRate;
             BasisAudioReceiver.silentData ??= new float[RemoteOpusSettings.MaxFrameSize];
 
-#if UNITY_IOS && !UNITY_EDITOR
+#if (UNITY_IOS || UNITY_WEBGL) && !UNITY_EDITOR
             entry.Receiver.decoder = new OpusSharp.Core.Static.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
 #else
             entry.Receiver.decoder = new OpusSharp.Core.Dynamic.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);

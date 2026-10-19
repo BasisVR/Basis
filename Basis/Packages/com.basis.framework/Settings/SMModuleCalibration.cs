@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
@@ -7,10 +8,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using Basis.IK;
 
-public class SMModuleCalibration : BasisSettingsBase
+[AutoStaticsCleanup]
+public partial class SMModuleCalibration : BasisSettingsBase
 {
     public static BasisSelectedHeightMode HeightMode = BasisSelectedHeightMode.Auto;
-    public static BasisIKLockMode CurrentIKLockMode = BasisIKLockMode.LockHead;
     public static bool ApplyCustomScale = false;
     public static float SelectedScale = 1.6f;
     public static float SelectedEyeHeight = 1.61f;
@@ -34,7 +35,6 @@ public class SMModuleCalibration : BasisSettingsBase
 
     // --- Canonical setting keys (from defaults) ---
     private static string K_IK_MODE => BasisSettingsDefaults.IKMode.BindingKey;                    // "ikmode"
-    private static string K_IK_LOCK_MODE => BasisSettingsDefaults.IKLockMode.BindingKey;          // "iklockmode"
     private static string K_SELECTED_HEIGHT => BasisSettingsDefaults.SelectedHeight.BindingKey;    // "selectedheight"
     private static string K_CUSTOM_SCALE => BasisSettingsDefaults.CustomScale.BindingKey;         // "custom scale"
     private static string K_SELECTED_SCALE => BasisSettingsDefaults.SelectedScale.BindingKey;     // "selected scale"
@@ -152,11 +152,8 @@ public class SMModuleCalibration : BasisSettingsBase
     private static string K_FBIK_HAND_SKIN => BasisSettingsDefaults.FBIKHandSkin.BindingKey;
     private static string K_FBIK_SHOULDER_SOLVE => BasisSettingsDefaults.FBIKShoulderSolveEnabled.BindingKey;
     private static string K_FBIK_SHOULDER_SHRUG => BasisSettingsDefaults.FBIKShoulderShrug.BindingKey;
-    private static string K_FBIK_SHOULDER_RETRACTION => BasisSettingsDefaults.FBIKShoulderRetraction.BindingKey;
     private static string K_FBIK_SHOULDER_ELEVATION => BasisSettingsDefaults.FBIKShoulderElevation.BindingKey;
     private static string K_FBIK_SHOULDER_PROTRACTION => BasisSettingsDefaults.FBIKShoulderProtraction.BindingKey;
-    private static string K_FBIK_MAX_BEND_DEG => BasisSettingsDefaults.FBIKMaxBendDeg.BindingKey;
-    private static string K_FBIK_MAX_CHEST_DELTA => BasisSettingsDefaults.FBIKMaxChestDelta.BindingKey;
 
     // Calibration sphere scale keys
     private static string K_CALIB_HIPS => BasisSettingsDefaults.CalibSphereScaleHips.BindingKey;
@@ -228,26 +225,6 @@ public class SMModuleCalibration : BasisSettingsBase
                     if (HeightMode != old) _dirty = true;
                     break;
                 }
-
-            case var s when s == K_IK_LOCK_MODE:
-                {
-                    switch (optionValue)
-                    {
-                        case "lock hips":
-                            CurrentIKLockMode = BasisIKLockMode.LockHips;
-                            break;
-                        case "lock head":
-                            CurrentIKLockMode = BasisIKLockMode.LockHead;
-                            break;
-                        case "lock both":
-                            CurrentIKLockMode = BasisIKLockMode.LockBoth;
-                            break;
-                    }
-                    ApplyIKLockMode();
-                    BasisDebug.Log($"IK Lock Mode Set To {CurrentIKLockMode}");
-                    break;
-                }
-
             case var s when s == K_SELECTED_HEIGHT:
                 // (Your original code intentionally did nothing here)
                 break;
@@ -313,7 +290,7 @@ public class SMModuleCalibration : BasisSettingsBase
 
             case var s when s == K_FBIK_BODY_FIT:
             case var s2 when s2 == K_FBIK_BODY_FIT_MAX_DEVIATION:
-                BasisLocalPlayer.Instance?.LocalRigDriver?.RefreshBodyFit();
+                BasisHeightDriver.ApplyScaleAndHeight();
                 break;
 
             // ---------- GLOBAL ONE EURO PARAMS ----------
@@ -338,7 +315,7 @@ public class SMModuleCalibration : BasisSettingsBase
                 break;
 
             case var s when s == K_FBIK_SMOOTHING_STRENGTH:
-                if (SliderReadOption(optionValue, out var f5)) BasisLocalRigDriver.SmoothingStrength = Mathf.Max(1f, f5);
+                if (SliderReadOption(optionValue, out var f5)) BasisLocalRigDriver.SmoothingStrength = Mathf.Max(0f, f5);
                 break;
 
             // ---------- HIPS ----------
@@ -633,24 +610,12 @@ public class SMModuleCalibration : BasisSettingsBase
                 if (bool.TryParse(optionValue, out var shrugVal)) ApplyIKDataBool((ref BasisEerieMovement d) => d.shoulderShrugEnabled = shrugVal);
                 break;
 
-            case var s when s == K_FBIK_SHOULDER_RETRACTION:
-             //   if (bool.TryParse(optionValue, out var retractVal)) ApplyIKDataBool((ref BasisEerieMovement d) => d.shoulderRetractionEnabled = retractVal);
-                break;
-
             case var s when s == K_FBIK_SHOULDER_ELEVATION:
                 if (SliderReadOption(optionValue, out var seVal)) ApplyIKDataFloat((ref BasisEerieMovement d) => d.shoulderElevationFactor = seVal);
                 break;
 
             case var s when s == K_FBIK_SHOULDER_PROTRACTION:
                 if (SliderReadOption(optionValue, out var spVal)) ApplyIKDataFloat((ref BasisEerieMovement d) => d.shoulderProtractionFactor = spVal);
-                break;
-
-            case var s when s == K_FBIK_MAX_BEND_DEG:
-                if (SliderReadOption(optionValue, out var mbVal)) ApplyIKDataFloat((ref BasisEerieMovement d) => d.maxBendDeg = mbVal);
-                break;
-
-            case var s when s == K_FBIK_MAX_CHEST_DELTA:
-                if (SliderReadOption(optionValue, out var mcdVal)) ApplyIKDataFloat((ref BasisEerieMovement d) => d.maxChestDeltaDeg = mcdVal);
                 break;
 
             // ---------- CALIBRATION SPHERE SCALE ----------
@@ -684,7 +649,8 @@ public class SMModuleCalibration : BasisSettingsBase
             return;
         }
 
-        if (ApplyCustomScale || (!ApplyCustomScale && _lastApplyCustomScale == true))
+        bool modeChanged = _hasApplied && _lastHeightMode != HeightMode;
+        if ((ApplyCustomScale || _lastApplyCustomScale || modeChanged) && BasisLocalPlayer.Instance != null && BasisLocalPlayer.PlayerReady)
         {
             BasisHeightDriver.ApplyScaleAndHeight();
         }
@@ -700,18 +666,6 @@ public class SMModuleCalibration : BasisSettingsBase
             $"Applied height settings. HeightMode {HeightMode} " +
             $"SelectedScale {SelectedScale}, ApplyCustomScale {ApplyCustomScale}"
         );
-    }
-
-    private static void ApplyIKLockMode()
-    {
-        if (BasisLocalPlayer.Instance == null || BasisLocalPlayer.Instance.LocalRigDriver == null)
-            return;
-
-        var rig = BasisLocalPlayer.Instance.LocalRigDriver;
-        if (!rig.IKDataReady)
-            return;
-
-        rig.IKJob.ikLockMode = CurrentIKLockMode;
     }
 
     private delegate void IKDataAction(ref BasisEerieMovement data);

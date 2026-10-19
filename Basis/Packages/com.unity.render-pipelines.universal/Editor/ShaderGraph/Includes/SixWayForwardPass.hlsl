@@ -1,3 +1,7 @@
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DistanceFog.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/LODCrossFade.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/Includes/VolumetricFogBlendMode.hlsl"
+
 void InitializeInputData(Varyings input, bool frontFace, out InputData inputData)
 {
     inputData = (InputData)0;
@@ -14,24 +18,21 @@ void InitializeInputData(Varyings input, bool frontFace, out InputData inputData
 
     inputData.viewDirectionWS = GetWorldSpaceNormalizeViewDir(input.positionWS);
 
-    #if defined(REQUIRES_VERTEX_SHADOW_COORD_INTERPOLATOR)
-        inputData.shadowCoord = input.shadowCoord;
-    #elif defined(MAIN_LIGHT_CALCULATE_SHADOWS)
-        inputData.shadowCoord = TransformWorldToShadowCoord(inputData.positionWS);
+    #if USE_VERTEX_SHADOW_COORD_INTERPOLATOR
+        inputData.shadowCoord = ShadowCoordInterpolatorAvailable() ? input.shadowCoord : TransformWorldToShadowCoord(inputData.positionWS);
     #else
-        inputData.shadowCoord = float4(0, 0, 0, 0);
+        inputData.shadowCoord = MainLightShadowsAvailable() ? TransformWorldToShadowCoord(inputData.positionWS) : float4(0, 0, 0, 0);
     #endif
 
-    inputData.fogCoord = InitializeInputDataFog(float4(input.positionWS, 1.0), input.fogFactorAndVertexLight.x);
     inputData.vertexLighting = input.fogFactorAndVertexLight.yzw;
     inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
     inputData.shadowMask = SAMPLE_SHADOWMASK(input.staticLightmapUV);
 
     #if defined(DEBUG_DISPLAY)
-    #if defined(DYNAMICLIGHTMAP_ON)
+    #if USE_DYNAMICLIGHTMAP_UV_INTERPOLATOR
     inputData.dynamicLightmapUV = input.dynamicLightmapUV.xy;
     #endif
-    #if defined(LIGHTMAP_ON)
+    #if USE_LIGHTMAP_UV_INTERPOLATOR
     inputData.staticLightmapUV = input.staticLightmapUV;
     #else
     inputData.vertexSH = input.sh;
@@ -41,6 +42,8 @@ void InitializeInputData(Varyings input, bool frontFace, out InputData inputData
     #endif
     inputData.positionCS = input.positionCS;
     #endif
+
+    inputData.preExposureMultiplier = GetPreExposureMultiplier();
 }
 
 PackedVaryings vert(Attributes input)
@@ -68,9 +71,9 @@ void frag(
     SurfaceDescription surfaceDescription = BuildSurfaceDescription(unpacked);
 
 #if defined(_SURFACE_TYPE_TRANSPARENT)
-    bool isTransparent = true;
+    bool isSurfaceTypeTransparent = true;
 #else
-    bool isTransparent = false;
+    bool isSurfaceTypeTransparent = false;
 #endif
 
 #if defined(_ALPHATEST_ON)
@@ -81,9 +84,7 @@ void frag(
     half alpha = half(1.0);
 #endif
 
-    #if defined(LOD_FADE_CROSSFADE) && USE_UNITY_CROSSFADE
-        LODFadeCrossFade(unpacked.positionCS);
-    #endif
+    LODFadeCrossFade(unpacked.positionCS);
 
     InputData inputData;
     InitializeInputData(unpacked, frontFace, inputData);
@@ -110,11 +111,13 @@ void frag(
     surfaceData.absorptionRange = INV_PI + saturate(surfaceDescription.AbsorptionStrength) * (1 - INV_PI);
 #endif
 
+    URP_LIGHT_ACCUM4 color = UniversalFragmentSixWay(inputData, surfaceData);
+    color.rgb = ClampExposed(inputData.preExposureMultiplier * BlendDistanceFog(color.rgb, unpacked.positionCS));
+#if defined(_SURFACE_TYPE_TRANSPARENT) && defined(_TRANSPARENT_RECEIVE_FOG)
+    color.rgb = MixVolumetricFog(color.rgb, color.a, VolumetricFogBlendModeFromDefines(), false, unpacked.positionCS);
+#endif
 
-    half4 color = UniversalFragmentSixWay(inputData, surfaceData);
-    color.rgb = MixFog(color.rgb, inputData.fogCoord);
-
-    color.a = OutputAlpha(color.a, isTransparent);
+    color.a = OutputAlpha(color.a, isSurfaceTypeTransparent);
 
     outColor = color;
 

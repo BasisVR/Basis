@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -14,7 +15,8 @@ namespace Basis.BasisUI
     /// this class handles cached metadata for items in the library, such as the name, thumbnail, and other info that can be retrieved from the BEE file without fully loading the content. 
     /// This allows for faster filtering and sorting in the library UI without needing to load each item first.
     /// </summary>
-    public static class CachedMetaData
+    [AutoStaticsCleanup]
+    public static partial class CachedMetaData
     {
         // Represents a cached metadata entry for an item
         public class CachedContent
@@ -33,6 +35,8 @@ namespace Basis.BasisUI
         }
 
         private static readonly Dictionary<string, CachedContent> _metaCache = new();
+        private static readonly Dictionary<string, string> _notWorking = new();
+        private static bool _languageHooked;
 
         public static bool TryGetMeta(string url, out CachedContent meta)
         {
@@ -43,6 +47,70 @@ namespace Basis.BasisUI
         {
             if (string.IsNullOrEmpty(url) || meta == null) return;
             _metaCache[url] = meta;
+            _notWorking.Remove(url);
+            EnsureLanguageHook();
+        }
+        public static bool IsNotWorking(string url)
+        {
+            return _notWorking.ContainsKey(url ?? string.Empty);
+        }
+        private static void MarkNotWorking(string url, string reason)
+        {
+            _notWorking[url ?? string.Empty] = reason;
+            BasisDebug.LogWarning($"Item '{url}' is not working ({reason}). Kept in the library until the user chooses to remove it.");
+        }
+        public static string DisplayNameFor(BasisDataStoreItemKeys.ItemKey item)
+        {
+            string url = item?.Url ?? string.Empty;
+            if (TryGetMeta(url, out CachedContent meta) && !string.IsNullOrEmpty(meta?.Name))
+            {
+                return meta.Name;
+            }
+            string name = Uri.TryCreate(url, UriKind.Absolute, out Uri uri) ? NameFromPath(uri.AbsolutePath) : string.Empty;
+            return string.IsNullOrEmpty(name) ? url : name;
+        }
+
+        private static string NameFromPath(string path)
+        {
+            try
+            {
+                path = Uri.UnescapeDataString(path);
+            }
+            catch (Exception)
+            {
+                return string.Empty;
+            }
+            string file = path.Substring(path.LastIndexOf('/') + 1);
+            int dot = file.LastIndexOf('.');
+            return dot < 0 ? file : file.Substring(0, dot);
+        }
+
+        private static void EnsureLanguageHook()
+        {
+            if (_languageHooked) return;
+            _languageHooked = true;
+            BasisLocalization.OnLanguageChanged += RelocalizeEmbeddedItems;
+        }
+
+        private static void RelocalizeEmbeddedItems()
+        {
+            foreach (BasisDataStoreItemKeys.ItemKey item in EmbeddedItems.HardcodedKeys)
+            {
+                if (_metaCache.TryGetValue(item.Url, out CachedContent meta) && meta?.BasisBundleConnector?.BasisBundleDescription != null)
+                {
+                    LocalizeEmbeddedItem(item, meta);
+                }
+            }
+        }
+
+        private static void LocalizeEmbeddedItem(BasisDataStoreItemKeys.ItemKey item, CachedContent meta)
+        {
+            string displayName = EmbeddedItems.GetDisplayNameForEmbeddedItem(item);
+            string description = BasisLocalization.Get("library.embeddedItem");
+            meta.Name = displayName;
+            meta.AssetBundleDescription = description;
+            meta.BasisBundleConnector.BasisBundleDescription.AssetBundleName = displayName;
+            meta.BasisBundleConnector.BasisBundleDescription.AssetBundleDescription = description;
         }
 
         public static bool ContainsMetaData(string url)
@@ -177,8 +245,8 @@ namespace Basis.BasisUI
             BasisMetaLoadResult metaResult = await BasisBeeManagement.HandleMetaOnlyLoad(newWrapper.basisTrackedBundleWrapper, Report, CancellationSource.Token);
 
             // On transient (network/SSL/cancel) failure, do NOT fall through to LoadWrapperFromDisc —
-            // that path auto-removes the key when IsMetaDataOnDisc returns false, which would delete
-            // the user's cached item just because the remote is unreachable right now.
+            // that path reports the item as not working when IsMetaDataOnDisc returns false, which
+            // would flag the user's cached item just because the remote is unreachable right now.
             if (!metaResult.Loaded && metaResult.IsTransient)
             {
                 return new MetaOnlyLoadOutcome(null, true);
@@ -186,7 +254,7 @@ namespace Basis.BasisUI
 
             // Local BEE files are read straight from disk and never written to the on-disc meta cache,
             // so the LoadWrapperFromDisc lookup below would treat the missing cache entry as a corrupt
-            // item and remove it. The connector is already populated by the meta-only load above.
+            // item. The connector is already populated by the meta-only load above.
             if (BasisIOManagement.TryResolveLocalBeePath(item.Url, out _))
             {
                 return new MetaOnlyLoadOutcome(metaResult.Loaded ? newWrapper : null, false);
@@ -257,8 +325,7 @@ namespace Basis.BasisUI
 
             if (!item.EmbeddedSettings.IsEmbedded && string.IsNullOrEmpty(item.Pass))
             {
-                BasisDebug.LogError($"Item '{urlKey}' has no unlock password so it can never load. Removing from library.");
-                await BasisDataStoreItemKeys.RemoveKey(item);
+                MarkNotWorking(urlKey, "no unlock password");
                 return;
             }
 
@@ -273,24 +340,18 @@ namespace Basis.BasisUI
                     {
                         case BundledContentHolder.Mode.Avatar:
                         case BundledContentHolder.Mode.Prop:
-                            string displayName = EmbeddedItems.GetDisplayNameForEmbeddedItem(item);
                             cached = new CachedContent
                             {
-                                Name = displayName,
-                                AssetBundleDescription = "Embedded Item",
                                 CachedSprite = EmbeddedItems.GetSpriteForEmbeddedItem(item),
                                 DateOfCreation = string.Empty,
                                 UniqueVersion = string.Empty,
                                 BasisBundleConnector = new BasisBundleConnector()
                                 {
                                     BasisBundleDescription = new BasisBundleDescription()
-                                    {
-                                        AssetBundleName = displayName,
-                                        AssetBundleDescription = "Embedded Item"
-                                    }
                                 },
                                 BasisLoadableBundle = null,
                             };
+                            LocalizeEmbeddedItem(item, cached);
                             break;
                         case BundledContentHolder.Mode.World:
                             BasisDebug.LogWarning($"CachedMetaData cannot determine {item.Url} with item.Mode = {item.Mode}");
@@ -316,9 +377,7 @@ namespace Basis.BasisUI
 
                 if (cached == null || cached.BasisBundleConnector == null)
                 {
-                    BasisDebug.LogError($"Item '{urlKey}' has corrupt or invalid data. Removing from library.");
-                    BasisStorageManagement.DeleteStoredFile(urlKey);
-                    await BasisDataStoreItemKeys.RemoveKey(item);
+                    MarkNotWorking(urlKey, "corrupt or invalid data");
                     return;
                 }
 
@@ -327,22 +386,13 @@ namespace Basis.BasisUI
             catch (Exception ex)
             {
                 string exMessage = ex.Message + " " + (ex.InnerException?.Message ?? string.Empty);
-                if (BasisMetaLoadResult.LooksLikeTransientError(exMessage))
+                if (BasisMetaLoadResult.LooksLikeTransientError(exMessage) || string.IsNullOrEmpty(BasisIOManagement.PersistentDataPath))
                 {
                     BasisDebug.LogWarning($"Deferred meta preload for '{item?.Url}' — transient error: {ex.Message}");
                     return;
                 }
 
-                BasisDebug.LogError($"Failed to load metadata for '{item?.Url}'. Removing from library. Error: {ex.Message}");
-                try
-                {
-                    BasisStorageManagement.DeleteStoredFile(item?.Url);
-                    await BasisDataStoreItemKeys.RemoveKey(item);
-                }
-                catch (Exception cleanupEx)
-                {
-                    BasisDebug.LogError(cleanupEx);
-                }
+                MarkNotWorking(item?.Url, ex.Message);
             }
         }
         [HideInCallstack]
@@ -350,7 +400,7 @@ namespace Basis.BasisUI
         {
             BasisDebug.LogError(ex);
         }
-        private static readonly SemaphoreSlim _preloadGate = new SemaphoreSlim(4);
+        [NoAutoStaticsCleanup] private static readonly SemaphoreSlim _preloadGate = new SemaphoreSlim(4);
 
         public static async Task PreloadMetaForItems(IEnumerable<BasisDataStoreItemKeys.ItemKey> items)
         {

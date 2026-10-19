@@ -2,6 +2,7 @@
 using UnityEditor;
 using UnityEngine;
 using Basis.BasisUI.Styling;
+using Basis.Editor.Localization;
 using System;
 
 public class BasisUIStyleEditorWindow : EditorWindow
@@ -22,7 +23,7 @@ public class BasisUIStyleEditorWindow : EditorWindow
     [MenuItem("Basis/Settings/UI Style Editor", false, 402)]
     public static void Open()
     {
-        GetWindow<BasisUIStyleEditorWindow>("UI Style Editor");
+        GetWindow<BasisUIStyleEditorWindow>(BasisEditorLocalization.Get("editor.uiStyle.windowTitle"));
     }
 
     private void OnEnable()
@@ -40,23 +41,22 @@ public class BasisUIStyleEditorWindow : EditorWindow
 
     private void OnGUI()
     {
-        BasisEditorUI.Header("UI Style",
-            "The runtime palette and style library every in-world panel is drawn from.");
+        BasisEditorUI.Header(BasisEditorLocalization.Get("editor.uiStyle.header"),
+            BasisEditorLocalization.Get("editor.uiStyle.subtitle"));
 
         if (palette == null || library == null)
         {
-            BasisEditorUI.Help("Could not load StylePalette or StyleLibrary asset.", MessageType.Error);
-            if (GUILayout.Button("Retry"))
+            BasisEditorUI.Help(BasisEditorLocalization.Get("editor.uiStyle.loadFailed"), MessageType.Error);
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.retry")))
                 LoadAssets();
             return;
         }
 
         scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
 
-        BasisEditorUI.SectionTitle("Style Palette");
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.uiStyle.palette.title"));
         EditorGUILayout.HelpBox(
-            "Changes here modify the asset defaults directly. " +
-            "Use the in-game UI Style tab for runtime-only overrides.",
+            BasisEditorLocalization.Get("editor.uiStyle.palette.help"),
             MessageType.Info);
 
         EditorGUILayout.Space();
@@ -66,7 +66,7 @@ public class BasisUIStyleEditorWindow : EditorWindow
         DrawPaletteSection();
 
         EditorGUILayout.Space(10);
-        BasisEditorUI.SectionTitle("Style Library");
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.uiStyle.library.title"));
         EditorGUILayout.Space();
 
         Undo.RecordObject(library, "UI Style Library Change");
@@ -77,7 +77,7 @@ public class BasisUIStyleEditorWindow : EditorWindow
 
         using (new EditorGUILayout.HorizontalScope())
         {
-            if (GUILayout.Button("Apply & Refresh All"))
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.uiStyle.applyRefreshAll")))
             {
                 EditorUtility.SetDirty(palette);
                 EditorUtility.SetDirty(library);
@@ -89,7 +89,7 @@ public class BasisUIStyleEditorWindow : EditorWindow
                 }
             }
 
-            if (GUILayout.Button("Revert"))
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.uiStyle.revert")))
             {
                 LoadAssets();
                 Repaint();
@@ -114,55 +114,55 @@ public class BasisUIStyleEditorWindow : EditorWindow
 
     private void DrawPaletteSection()
     {
-        showBackgrounds = EditorGUILayout.Foldout(showBackgrounds, "Background Colors", true);
+        showBackgrounds = EditorGUILayout.Foldout(showBackgrounds, BasisEditorLocalization.Get("editor.uiStyle.palette.backgroundColors"), true);
         if (showBackgrounds)
         {
             EditorGUI.indentLevel++;
-            palette.BackgroundColor1 = EditorGUILayout.ColorField("Background 1", palette.BackgroundColor1);
-            palette.BackgroundColor2 = EditorGUILayout.ColorField("Background 2", palette.BackgroundColor2);
-            palette.BackgroundColor3 = EditorGUILayout.ColorField("Background 3", palette.BackgroundColor3);
-            palette.LayerColor = EditorGUILayout.ColorField("Layer", palette.LayerColor);
+            palette.BackgroundColor1 = EditorGUILayout.ColorField(BasisEditorLocalization.Get("editor.uiStyle.palette.background1"), palette.BackgroundColor1);
+            palette.BackgroundColor2 = EditorGUILayout.ColorField(BasisEditorLocalization.Get("editor.uiStyle.palette.background2"), palette.BackgroundColor2);
+            palette.BackgroundColor3 = EditorGUILayout.ColorField(BasisEditorLocalization.Get("editor.uiStyle.palette.background3"), palette.BackgroundColor3);
+            palette.LayerColor = EditorGUILayout.ColorField(BasisEditorLocalization.Get("editor.uiStyle.palette.layer"), palette.LayerColor);
             EditorGUI.indentLevel--;
         }
 
-        showUI = EditorGUILayout.Foldout(showUI, "UI Colors", true);
+        showUI = EditorGUILayout.Foldout(showUI, BasisEditorLocalization.Get("editor.uiStyle.palette.uiColors"), true);
         if (showUI)
         {
             EditorGUI.indentLevel++;
-            palette.AccentColor = EditorGUILayout.ColorField("Accent", palette.AccentColor);
-            palette.ButtonColor = EditorGUILayout.ColorField("Button", palette.ButtonColor);
-            palette.InputFieldColor = EditorGUILayout.ColorField("Input Field", palette.InputFieldColor);
-            palette.Scrollbar = EditorGUILayout.ColorField("Scrollbar", palette.Scrollbar);
+            palette.AccentColor = EditorGUILayout.ColorField(BasisEditorLocalization.Get("editor.uiStyle.palette.accent"), palette.AccentColor);
+            palette.ButtonColor = EditorGUILayout.ColorField(BasisEditorLocalization.Get("editor.uiStyle.palette.button"), palette.ButtonColor);
+            palette.InputFieldColor = EditorGUILayout.ColorField(BasisEditorLocalization.Get("editor.uiStyle.palette.inputField"), palette.InputFieldColor);
+            palette.Scrollbar = EditorGUILayout.ColorField(BasisEditorLocalization.Get("editor.uiStyle.palette.scrollbar"), palette.Scrollbar);
             EditorGUI.indentLevel--;
         }
 
-        showFonts = EditorGUILayout.Foldout(showFonts, "Font Colors", true);
+        showFonts = EditorGUILayout.Foldout(showFonts, BasisEditorLocalization.Get("editor.uiStyle.palette.fontColors"), true);
         if (showFonts)
         {
             EditorGUI.indentLevel++;
-            palette.FontColor1 = EditorGUILayout.ColorField("Primary", palette.FontColor1);
-            palette.FontColor2 = EditorGUILayout.ColorField("Secondary", palette.FontColor2);
-            palette.FontColor3 = EditorGUILayout.ColorField("Tertiary", palette.FontColor3);
+            palette.FontColor1 = EditorGUILayout.ColorField(BasisEditorLocalization.Get("editor.uiStyle.palette.primary"), palette.FontColor1);
+            palette.FontColor2 = EditorGUILayout.ColorField(BasisEditorLocalization.Get("editor.uiStyle.palette.secondary"), palette.FontColor2);
+            palette.FontColor3 = EditorGUILayout.ColorField(BasisEditorLocalization.Get("editor.uiStyle.palette.tertiary"), palette.FontColor3);
             EditorGUI.indentLevel--;
         }
 
-        showStatus = EditorGUILayout.Foldout(showStatus, "Status Colors", true);
+        showStatus = EditorGUILayout.Foldout(showStatus, BasisEditorLocalization.Get("editor.uiStyle.palette.statusColors"), true);
         if (showStatus)
         {
             EditorGUI.indentLevel++;
-            palette.SuccessColor = EditorGUILayout.ColorField("Success", palette.SuccessColor);
-            palette.CautionColor = EditorGUILayout.ColorField("Caution", palette.CautionColor);
-            palette.DangerColor = EditorGUILayout.ColorField("Danger", palette.DangerColor);
+            palette.SuccessColor = EditorGUILayout.ColorField(BasisEditorLocalization.Get("editor.common.success"), palette.SuccessColor);
+            palette.CautionColor = EditorGUILayout.ColorField(BasisEditorLocalization.Get("editor.uiStyle.palette.caution"), palette.CautionColor);
+            palette.DangerColor = EditorGUILayout.ColorField(BasisEditorLocalization.Get("editor.uiStyle.palette.danger"), palette.DangerColor);
             EditorGUI.indentLevel--;
         }
 
-        showOther = EditorGUILayout.Foldout(showOther, "Other Colors", true);
+        showOther = EditorGUILayout.Foldout(showOther, BasisEditorLocalization.Get("editor.uiStyle.palette.otherColors"), true);
         if (showOther)
         {
             EditorGUI.indentLevel++;
-            palette.WhiteColor = EditorGUILayout.ColorField("White", palette.WhiteColor);
-            palette.BlackColor = EditorGUILayout.ColorField("Black", palette.BlackColor);
-            palette.ClearColor = EditorGUILayout.ColorField("Clear", palette.ClearColor);
+            palette.WhiteColor = EditorGUILayout.ColorField(BasisEditorLocalization.Get("editor.uiStyle.palette.white"), palette.WhiteColor);
+            palette.BlackColor = EditorGUILayout.ColorField(BasisEditorLocalization.Get("editor.uiStyle.palette.black"), palette.BlackColor);
+            palette.ClearColor = EditorGUILayout.ColorField(BasisEditorLocalization.Get("editor.uiStyle.palette.clear"), palette.ClearColor);
             EditorGUI.indentLevel--;
         }
     }
@@ -171,7 +171,7 @@ public class BasisUIStyleEditorWindow : EditorWindow
 
     private void DrawLibrarySection()
     {
-        showImageStyles = EditorGUILayout.Foldout(showImageStyles, $"Image Styles ({library.ImageStyles.Styles?.Count ?? 0})", true);
+        showImageStyles = EditorGUILayout.Foldout(showImageStyles, BasisEditorLocalization.Get("editor.uiStyle.library.imageStyles", library.ImageStyles.Styles?.Count ?? 0), true);
         if (showImageStyles && library.ImageStyles.Styles != null)
         {
             EditorGUI.indentLevel++;
@@ -182,7 +182,7 @@ public class BasisUIStyleEditorWindow : EditorWindow
             EditorGUI.indentLevel--;
         }
 
-        showLabelStyles = EditorGUILayout.Foldout(showLabelStyles, $"Label Styles ({library.LabelStyles.Styles?.Count ?? 0})", true);
+        showLabelStyles = EditorGUILayout.Foldout(showLabelStyles, BasisEditorLocalization.Get("editor.uiStyle.library.labelStyles", library.LabelStyles.Styles?.Count ?? 0), true);
         if (showLabelStyles && library.LabelStyles.Styles != null)
         {
             EditorGUI.indentLevel++;
@@ -193,7 +193,7 @@ public class BasisUIStyleEditorWindow : EditorWindow
             EditorGUI.indentLevel--;
         }
 
-        showSelectableStyles = EditorGUILayout.Foldout(showSelectableStyles, $"Selectable Styles ({library.SelectableStyles.Styles?.Count ?? 0})", true);
+        showSelectableStyles = EditorGUILayout.Foldout(showSelectableStyles, BasisEditorLocalization.Get("editor.uiStyle.library.selectableStyles", library.SelectableStyles.Styles?.Count ?? 0), true);
         if (showSelectableStyles && library.SelectableStyles.Styles != null)
         {
             EditorGUI.indentLevel++;
@@ -210,10 +210,10 @@ public class BasisUIStyleEditorWindow : EditorWindow
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
             EditorGUILayout.LabelField(style.Title, EditorStyles.boldLabel);
-            DrawUiStyleColor("Color", style.Color, out UiStyleColor updated);
+            DrawUiStyleColor(BasisEditorLocalization.Get("editor.uiStyle.style.color"), style.Color, out UiStyleColor updated);
             style.Color = updated;
-            style.Sprite = (Sprite)EditorGUILayout.ObjectField("Sprite", style.Sprite, typeof(Sprite), false);
-            style.PixelsPerUnitMultiplier = EditorGUILayout.FloatField("Pixels Per Unit", style.PixelsPerUnitMultiplier);
+            style.Sprite = (Sprite)EditorGUILayout.ObjectField(BasisEditorLocalization.Get("editor.uiStyle.style.sprite"), style.Sprite, typeof(Sprite), false);
+            style.PixelsPerUnitMultiplier = EditorGUILayout.FloatField(BasisEditorLocalization.Get("editor.uiStyle.style.pixelsPerUnit"), style.PixelsPerUnitMultiplier);
         }
     }
 
@@ -222,9 +222,9 @@ public class BasisUIStyleEditorWindow : EditorWindow
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
             EditorGUILayout.LabelField(style.Title, EditorStyles.boldLabel);
-            DrawUiStyleColor("Color", style.Color, out UiStyleColor updated);
+            DrawUiStyleColor(BasisEditorLocalization.Get("editor.uiStyle.style.color"), style.Color, out UiStyleColor updated);
             style.Color = updated;
-            style.FontSize = EditorGUILayout.FloatField("Font Size", style.FontSize);
+            style.FontSize = EditorGUILayout.FloatField(BasisEditorLocalization.Get("editor.uiStyle.style.fontSize"), style.FontSize);
         }
     }
 
@@ -233,15 +233,15 @@ public class BasisUIStyleEditorWindow : EditorWindow
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
             EditorGUILayout.LabelField(style.Title, EditorStyles.boldLabel);
-            DrawUiStyleColor("Normal", style.NormalColor, out UiStyleColor normal);
+            DrawUiStyleColor(BasisEditorLocalization.Get("editor.uiStyle.style.normal"), style.NormalColor, out UiStyleColor normal);
             style.NormalColor = normal;
-            DrawUiStyleColor("Highlighted", style.HighlightedColor, out UiStyleColor highlighted);
+            DrawUiStyleColor(BasisEditorLocalization.Get("editor.uiStyle.style.highlighted"), style.HighlightedColor, out UiStyleColor highlighted);
             style.HighlightedColor = highlighted;
-            DrawUiStyleColor("Pressed", style.PressedColor, out UiStyleColor pressed);
+            DrawUiStyleColor(BasisEditorLocalization.Get("editor.uiStyle.style.pressed"), style.PressedColor, out UiStyleColor pressed);
             style.PressedColor = pressed;
-            DrawUiStyleColor("Selected", style.SelectedColor, out UiStyleColor selected);
+            DrawUiStyleColor(BasisEditorLocalization.Get("editor.uiStyle.style.selected"), style.SelectedColor, out UiStyleColor selected);
             style.SelectedColor = selected;
-            DrawUiStyleColor("Disabled", style.DisabledColor, out UiStyleColor disabled);
+            DrawUiStyleColor(BasisEditorLocalization.Get("editor.common.disabled"), style.DisabledColor, out UiStyleColor disabled);
             style.DisabledColor = disabled;
         }
     }
@@ -254,11 +254,11 @@ public class BasisUIStyleEditorWindow : EditorWindow
         {
             EditorGUILayout.PrefixLabel(label);
 
-            result.Type = (UiStyleColorType)EditorGUILayout.EnumPopup(result.Type, GUILayout.Width(70));
+            result.Type = LocalizedEnumPopup(result.Type, ColorTypeLabel, GUILayout.Width(70));
 
             if (result.Type == UiStyleColorType.Palette)
             {
-                result.PaletteStyle = (UiPaletteStyle)EditorGUILayout.EnumPopup(result.PaletteStyle);
+                result.PaletteStyle = LocalizedEnumPopup(result.PaletteStyle, PaletteStyleLabel);
 
                 // Show preview of the resolved palette color
                 Color resolved = palette != null ? palette.GetColor(result.PaletteStyle) : Color.white;
@@ -268,6 +268,56 @@ public class BasisUIStyleEditorWindow : EditorWindow
             {
                 result.Color = EditorGUILayout.ColorField(result.Color);
             }
+        }
+    }
+
+    private static T LocalizedEnumPopup<T>(T current, Func<T, string> label, params GUILayoutOption[] options) where T : Enum
+    {
+        T[] values = (T[])Enum.GetValues(typeof(T));
+        string[] names = new string[values.Length];
+        int selected = -1;
+        for (int i = 0; i < values.Length; i++)
+        {
+            names[i] = label(values[i]);
+            if (values[i].Equals(current)) selected = i;
+        }
+        int next = EditorGUILayout.Popup(selected, names, options);
+        return next >= 0 && next < values.Length ? values[next] : current;
+    }
+
+    private static string ColorTypeLabel(UiStyleColorType type)
+    {
+        switch (type)
+        {
+            case UiStyleColorType.Palette: return BasisEditorLocalization.Get("editor.uiStyle.colorType.palette");
+            case UiStyleColorType.Custom: return BasisEditorLocalization.Get("editor.common.custom");
+            default: return ObjectNames.NicifyVariableName(type.ToString());
+        }
+    }
+
+    private static string PaletteStyleLabel(UiPaletteStyle style)
+    {
+        switch (style)
+        {
+            case UiPaletteStyle.BackgroundColor1: return BasisEditorLocalization.Get("editor.uiStyle.paletteStyle.backgroundColor1");
+            case UiPaletteStyle.BackgroundColor2: return BasisEditorLocalization.Get("editor.uiStyle.paletteStyle.backgroundColor2");
+            case UiPaletteStyle.BackgroundColor3: return BasisEditorLocalization.Get("editor.uiStyle.paletteStyle.backgroundColor3");
+            case UiPaletteStyle.LayerColor: return BasisEditorLocalization.Get("editor.uiStyle.paletteStyle.layerColor");
+            case UiPaletteStyle.AccentColor: return BasisEditorLocalization.Get("editor.uiStyle.paletteStyle.accentColor");
+            case UiPaletteStyle.FontColor1: return BasisEditorLocalization.Get("editor.uiStyle.paletteStyle.fontColor1");
+            case UiPaletteStyle.FontColor2: return BasisEditorLocalization.Get("editor.uiStyle.paletteStyle.fontColor2");
+            case UiPaletteStyle.FontColor3: return BasisEditorLocalization.Get("editor.uiStyle.paletteStyle.fontColor3");
+            case UiPaletteStyle.InputFieldColor: return BasisEditorLocalization.Get("editor.uiStyle.paletteStyle.inputFieldColor");
+            case UiPaletteStyle.ButtonColor: return BasisEditorLocalization.Get("editor.uiStyle.paletteStyle.buttonColor");
+            case UiPaletteStyle.WhiteColor: return BasisEditorLocalization.Get("editor.uiStyle.paletteStyle.whiteColor");
+            case UiPaletteStyle.ClearColor: return BasisEditorLocalization.Get("editor.uiStyle.paletteStyle.clearColor");
+            case UiPaletteStyle.BlackColor: return BasisEditorLocalization.Get("editor.uiStyle.paletteStyle.blackColor");
+            case UiPaletteStyle.SuccessColor: return BasisEditorLocalization.Get("editor.uiStyle.paletteStyle.successColor");
+            case UiPaletteStyle.CautionColor: return BasisEditorLocalization.Get("editor.uiStyle.paletteStyle.cautionColor");
+            case UiPaletteStyle.DangerColor: return BasisEditorLocalization.Get("editor.uiStyle.paletteStyle.dangerColor");
+            case UiPaletteStyle.Scrollbar: return BasisEditorLocalization.Get("editor.uiStyle.paletteStyle.scrollbar");
+            case UiPaletteStyle.EdgeColor: return BasisEditorLocalization.Get("editor.uiStyle.paletteStyle.edgeColor");
+            default: return ObjectNames.NicifyVariableName(style.ToString());
         }
     }
 }

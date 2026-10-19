@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using Basis.Network.Core.Compression;
 using Basis.Scripts.Networking.NetworkedAvatar;
@@ -9,9 +10,10 @@ using static SerializableBasis;
 
 namespace Basis.Scripts.Networking.Transmitters
 {
+    [AutoStaticsCleanup]
     [DefaultExecutionOrder(15001)]
     [System.Serializable]
-    public class BasisNetworkTransmitter : BasisNetworkPlayer
+    public partial class BasisNetworkTransmitter : BasisNetworkPlayer
     {
         public bool HasEvents = false;
 
@@ -76,7 +78,7 @@ namespace Basis.Scripts.Networking.Transmitters
         }
 
         public static NetDataWriter AvatarChangeWriter = new NetDataWriter();
-        private static readonly object AvatarChangeWriterLock = new object();
+        [NoAutoStaticsCleanup] private static readonly object AvatarChangeWriterLock = new object();
 
         public void SendOutAvatarChange()
         {

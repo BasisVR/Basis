@@ -1,0 +1,21 @@
+{
+    "name": "Basis.Constraints",
+    "rootNamespace": "Basis.Scripts.Constraints",
+    "references": [
+        "BasisSDK",
+        "BasisCommon",
+        "BasisDebug",
+        "Unity.Mathematics",
+        "Unity.Burst",
+        "Unity.Collections"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

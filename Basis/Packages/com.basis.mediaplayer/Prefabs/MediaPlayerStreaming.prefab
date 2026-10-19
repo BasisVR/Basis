@@ -509,6 +509,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: BasisMediaPlayer::BasisMediaAudioChannel
   Channel: 100
+  AnalysisFeed: 0
+  AnalysisFeedLatency: 0.05
 --- !u!1 &8238937759899344198
 GameObject:
   m_ObjectHideFlags: 0
@@ -521,10 +523,9 @@ GameObject:
   - component: {fileID: 4059703950178073882}
   - component: {fileID: 2175069498620534285}
   - component: {fileID: 6120556251235419922}
-  - component: {fileID: 2005237590012059063}
   - component: {fileID: 1325980082505240853}
   - component: {fileID: 2859578426207650292}
-  - component: {fileID: 5505517674190816405}
+  - component: {fileID: 1902355041766531870}
   - component: {fileID: 4061480472500249022}
   - component: {fileID: 3404733239259574964}
   - component: {fileID: 2558915426334022879}
@@ -623,56 +624,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6c0487c8e6fbc9043bae759defbb9b06, type: 3}
   m_Name: 
   m_EditorClassIdentifier: BasisMediaPlayer::BasisMediaPlayer
-  DisplayName: Main Media Player
-  MaxQueueLength: 64
-  OverflowPolicy: 0
-  LateFrameSkipUs: 0
-  BufferMode: 0
-  BufferMilliseconds: 240
-  AutoPlayOnSourceAssigned: 1
-  StopOnDisable: 1
-  Loop: 0
-  LoopRestartDelaySeconds: 0
-  PresentationOffsetUs: 0
-  Volume: 1
-  Mute: 0
-  PlaybackRate: 1
-  captionsEnabled: 0
-  captionTextOpacity: 1
-  captionBackgroundOpacity: 0.5
-  StopAfterSeconds: 0
-  FlipVerticallyForScreenshot: 0
-  DvrEnabled: 0
-  DvrWindowSeconds: 10
-  VerboseLogging: 0
-  runtimeIsPlaying: 0
-  runtimeIsPaused: 0
-  runtimeIsPrepared: 0
-  runtimeQueuedFrames: 0
-  runtimeCurrentMediaTimeUs: 0
-  runtimePresentedFrameCount: 0
-  runtimeOverflowDrops: 0
-  runtimeCatchUpSkips: 0
-  runtimeLateSkips: 0
-  runtimeFormatErrors: 0
-  runtimeVideoSize: {x: 0, y: 0}
---- !u!114 &2005237590012059063
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8238937759899344198}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9b44864d73d66054f8bf1d87375c121a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: BasisMediaPlayer::BasisMediaPlayerStreaming
-  StreamUrl: 
-  AutoSelectPerPlatform: 1
-  PcUrl: 
-  QuestUrl: 
-  ConfigureOnStart: 1
+  url: 
+  perPlatformUrls: 0
+  androidUrl: 
+  playOnStart: 1
+  bufferDepthMs: 0
+  liveness: 0
+  audioLeadingStart: 0
+  maxDivergenceMs: 0
+  allowLocalAddresses: 0
+  engineCapture: 0
+  engineCaptureFileName: 
 --- !u!114 &1325980082505240853
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -723,7 +685,7 @@ MonoBehaviour:
   StereoEye: 0
   AspectMode: 2
   DisplayAspectOverride: 0
---- !u!114 &5505517674190816405
+--- !u!114 &1902355041766531870
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -742,8 +704,7 @@ MonoBehaviour:
   AdminOnly: 0
   AllowAnyoneToTakeControl: 1
   AnyoneCanControl: 0
-  DriftSeekThresholdSeconds: 0
-  PositionHeartbeatSeconds: 5
+  PositionHeartbeatSeconds: 3
   VerboseLogging: 0
 --- !u!114 &4061480472500249022
 MonoBehaviour:
@@ -763,6 +724,16 @@ MonoBehaviour:
     AssetBundleIcon: {fileID: 0}
     Tags:
     - MediaPlayer
+    ContentGroupId: 
+  SpawnMetaData:
+    Placement: 0
+    Hand: 0
+    HasCustomDistance: 0
+    Distance: 1.5
+    HasCustomScale: 0
+    UniformScale: 1
+    AlignToSurface: 1
+    FaceThePlayer: 0
 --- !u!114 &3404733239259574964
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -803,6 +774,7 @@ MonoBehaviour:
   CanSelfSteal: 1
   LerpToHandOnPickup: 1
   WeldToHand: 1
+  GripPoint: {fileID: 0}
   ShowHighlightOnHover: 1
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
@@ -813,6 +785,8 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 0
   minAngularVelocity: 0
   interactEndAngularVelocityMultiplier: 0
+  throwWindowSeconds: 0.05
+  throwLookbackSeconds: 0.15
   RigidRef: {fileID: 7733138127675236971}
   InputConstraint:
     rid: 8257204327381467259

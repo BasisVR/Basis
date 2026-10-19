@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using NUnit.Framework;
 using UnityEditor.Rendering.Converter;
 using UnityEngine;
 using UnityEngine.Categorization;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using static UnityEditor.Rendering.AnimationClipUpgrader;
 using ClipPath = UnityEditor.Rendering.AnimationClipUpgrader.ClipPath;
@@ -38,7 +38,7 @@ namespace UnityEditor.Rendering.Universal
     /// ensuring animations continue to work after material conversion.
     /// </summary>
     [Serializable]
-    [URPHelpURL("features/rp-converter")]
+    [URPHelpURL("urp/features/rp-converter")]
     [PipelineConverter("Built-in", "Universal Render Pipeline (Universal Renderer)")]
     [BatchModeConverterClassInfo("BuiltInToURP", "AnimationClip")]
     [ElementInfo(Name = "Animation Clip",
@@ -46,6 +46,18 @@ namespace UnityEditor.Rendering.Universal
                  Description = "Updates animation clips that reference material properties to work with URP shaders.\nEnsures material animations continue working after converting Materials from Built-in RP to URP.")]
     internal sealed class AnimationClipConverter : IRenderPipelineConverter
     {
+        public bool isEnabled
+        {
+            get
+            {
+                if (GraphicsSettings.currentRenderPipeline is not UniversalRenderPipelineAsset urpAsset)
+                    return false;
+
+                return urpAsset.scriptableRenderer is UniversalRenderer;
+            }
+        }
+        public string isDisabledMessage => "Converter requires URP with an Universal Renderer. Convert your project to URP to use this converter.";
+
         [SerializeField]
         internal List<AnimationClipConverterItem> assets = new();
 

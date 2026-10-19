@@ -1,10 +1,12 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using HVR.Basis.Comms.OSC;
 using UnityEngine;
 
 namespace HVR.Basis.Comms
 {
-    public static class BasisOscAvatarScaling
+    [AutoStaticsCleanup]
+    public static partial class BasisOscAvatarScaling
     {
         private static bool _initialized;
 
@@ -108,14 +110,14 @@ namespace HVR.Basis.Comms
         public static void PublishCurrentState()
         {
             BasisOscService.PublishValue(EyeHeightAddress, OscData.Float32(GetCurrentEyeHeightMeters()));
-            BasisOscService.PublishValue(EyeHeightMinAddress, OscData.Float32(UserSelectableMinimumEyeHeightMeters));
-            BasisOscService.PublishValue(EyeHeightMaxAddress, OscData.Float32(UserSelectableMaximumEyeHeightMeters));
+            BasisOscService.PublishValue(EyeHeightMinAddress, OscData.Float32(BasisHeightDriver.ClampToAdminEyeHeight(UserSelectableMinimumEyeHeightMeters)));
+            BasisOscService.PublishValue(EyeHeightMaxAddress, OscData.Float32(BasisHeightDriver.ClampToAdminEyeHeight(UserSelectableMaximumEyeHeightMeters)));
             BasisOscService.PublishValue(EyeHeightScalingAllowedAddress, OscData.Boolean(EyeHeightScalingAllowed));
         }
 
         private static float GetCurrentEyeHeightMeters()
         {
-            float selected = BasisHeightDriver.SelectedScaledAvatarHeight;
+            float selected = BasisHeightDriver.ScaledAvatarEyeHeight;
             if (!float.IsNaN(selected) && !float.IsInfinity(selected) && selected > 0f)
             {
                 return selected;

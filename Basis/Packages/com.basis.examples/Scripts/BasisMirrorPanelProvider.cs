@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.BasisUI;
 using UnityEngine;
@@ -5,14 +6,15 @@ using UnityEngine.UI;
 
 namespace Basis.BasisUI.Mirrors
 {
-    public class BasisMirrorPanelProvider : BasisMenuActionProvider<BasisMainMenu>
+    [AutoStaticsCleanup]
+    public partial class BasisMirrorPanelProvider : BasisMenuActionProvider<BasisMainMenu>
     {
         public const string StaticTitleKey = "menu.provider.mirror";
         public static string StaticTitle => BasisLocalization.Get(StaticTitleKey);
 
-        private static readonly int[] ResolutionPresets = { 256, 512, 1024, 2048, 4096, 8192 };
-        private static readonly int[] MsaaSampleCounts = { 1, 2, 4, 8 };
-        private static readonly int[] DepthBitOptions = { 16, 24 };
+        [NoAutoStaticsCleanup] private static readonly int[] ResolutionPresets = { 256, 512, 1024, 2048, 4096, 8192 };
+        [NoAutoStaticsCleanup] private static readonly int[] MsaaSampleCounts = { 1, 2, 4, 8 };
+        [NoAutoStaticsCleanup] private static readonly int[] DepthBitOptions = { 16, 24 };
 
         private static BasisMirrorPanelProvider _instance;
         private static bool _quitting;
@@ -125,6 +127,7 @@ namespace Basis.BasisUI.Mirrors
             _pageContents.Clear();
 
             _selector = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.EntryNoLabel, PickerColumn);
+            _selector.ShareTitleKey = "mirror.selector";
             _selector.Descriptor.SetSize(new Vector2(60, 80));
             _selector.transform.SetSiblingIndex(0);
             FitToNavColumn(_selector.Descriptor, releaseControlSlot: false);
@@ -464,7 +467,7 @@ namespace Basis.BasisUI.Mirrors
 
                 int captured = Layer;
                 PanelToggle toggle = PanelToggle.CreateNewEntry(content);
-                toggle.Descriptor.SetTitle(layerName);
+                toggle.Descriptor.SetTitle(BasisLocalization.GetLayerName(Layer));
                 toggle.OnValueChanged = v =>
                 {
                     if (_activeMirror == null) return;

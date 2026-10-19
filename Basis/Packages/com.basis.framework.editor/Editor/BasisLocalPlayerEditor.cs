@@ -1,6 +1,8 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Basis.Editor.Localization;
 using Basis.Scripts.BasisSdk.Players;
 using UnityEditor;
 using UnityEngine;
@@ -17,6 +19,7 @@ using UnityEngine.UIElements;
 /// most.</para>
 /// </summary>
 [CustomEditor(typeof(BasisLocalPlayer))]
+[NoAutoStaticsCleanup]
 public class BasisLocalPlayerEditor : BasisDocInspector_UI
 {
     private const BindingFlags MemberFlags = BindingFlags.Instance | BindingFlags.Public;
@@ -60,12 +63,11 @@ public class BasisLocalPlayerEditor : BasisDocInspector_UI
     {
         var player = (BasisLocalPlayer)target;
 
-        _show = EditorGUILayout.Foldout(_show, "Player Properties (runtime, not serialized)", true);
+        _show = EditorGUILayout.Foldout(_show, BasisEditorLocalization.Get("editor.localPlayerEditor.propertiesFoldout"), true);
         if (_show)
         {
             EditorGUILayout.HelpBox(
-                "These are IBasisPlayer get/set properties that replaced the old serialized fields. " +
-                "Values are read live from the instance; edits apply to the running instance only.",
+                BasisEditorLocalization.Get("editor.localPlayerEditor.propertiesHelp"),
                 MessageType.None);
 
             using (new EditorGUI.IndentLevelScope())

@@ -1,4 +1,5 @@
 using System;
+using Basis.Editor.Localization;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
 using OpenLipSync.Inference.OVRCompat;
@@ -9,7 +10,7 @@ public sealed class BasisOpenLipSyncTab : BasisEditorTabPage
 {
     public override string Title => "OpenLipSync";
     public override string Subtitle =>
-        "Live viseme analysis driving the avatar's mouth.";
+        BasisEditorLocalization.Get("editor.openLipSync.subtitle");
 
     private bool _showBackend = true;
     private bool _showMicrophone = true;
@@ -43,23 +44,23 @@ public sealed class BasisOpenLipSyncTab : BasisEditorTabPage
         DrawHeader();
         EditorGUILayout.Space(4);
 
-        _showBackend = DrawSection("1. OpenLipSync Backend", _showBackend, DrawBackendSection);
-        _showMicrophone = DrawSection("2. Microphone Input", _showMicrophone, DrawMicrophoneSection);
-        _showDriver = DrawSection("3. Audio & Viseme Driver", _showDriver, DrawDriverSection);
-        _showBuffers = DrawSection("4. Inference Pipeline", _showBuffers, DrawBufferSection);
-        _showVisemes = DrawSection("5. Viseme Output", _showVisemes, DrawVisemeSection);
+        _showBackend = DrawSection(BasisEditorLocalization.Get("editor.openLipSync.section.backend"), _showBackend, DrawBackendSection);
+        _showMicrophone = DrawSection(BasisEditorLocalization.Get("editor.openLipSync.section.microphone"), _showMicrophone, DrawMicrophoneSection);
+        _showDriver = DrawSection(BasisEditorLocalization.Get("editor.openLipSync.section.driver"), _showDriver, DrawDriverSection);
+        _showBuffers = DrawSection(BasisEditorLocalization.Get("editor.openLipSync.section.pipeline"), _showBuffers, DrawBufferSection);
+        _showVisemes = DrawSection(BasisEditorLocalization.Get("editor.openLipSync.section.visemes"), _showVisemes, DrawVisemeSection);
 
     }
 
     private void DrawHeader()
     {
-        BasisEditorUI.SectionTitle("OpenLipSync Debug Pipeline");
-        EditorGUILayout.LabelField("Mic -> Buffer -> Task.Run -> ONNX -> Visemes -> Blendshapes",
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.openLipSync.header"));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.flow"),
             EditorStyles.miniLabel);
 
         if (!Application.isPlaying)
         {
-            BasisEditorUI.Help("Enter Play Mode to see live data.", MessageType.Info);
+            BasisEditorUI.Help(BasisEditorLocalization.Get("editor.openLipSync.playModeOnly"), MessageType.Info);
         }
     }
 
@@ -80,64 +81,49 @@ public sealed class BasisOpenLipSyncTab : BasisEditorTabPage
     private void DrawBackendSection()
     {
         bool init = BasisOpenLipSyncDriver.IsInitialized;
-        StatusLabel("Initialized", init);
-        EditorGUILayout.LabelField("Active Slots",
+        StatusLabel(BasisEditorLocalization.Get("editor.openLipSync.initialized"), init);
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.activeSlots"),
             $"{BasisOpenLipSyncDriver.ActiveSlotCount} / {BasisOpenLipSyncDriver.MaxSlots}");
 
         float fill = BasisOpenLipSyncDriver.MaxSlots > 0
             ? (float)BasisOpenLipSyncDriver.ActiveSlotCount / BasisOpenLipSyncDriver.MaxSlots
             : 0f;
         Rect barRect = GUILayoutUtility.GetRect(0, 16, GUILayout.ExpandWidth(true));
-        DrawBar(barRect, fill, "Slot Usage");
+        DrawBar(barRect, fill, BasisEditorLocalization.Get("editor.openLipSync.slotUsage"));
 
         if (!init)
         {
-            EditorGUILayout.HelpBox(
-                "Backend not initialized. Check:\n" +
-                "- model.onnx.bytes and config.json are Addressable\n" +
-                "- Microsoft.ML.OnnxRuntime.dll is in Plugins/Managed/\n" +
-                "- onnxruntime.dll native is in Plugins/win-x64/native/\n" +
-                "- Check Console for [OpenLipSync] errors",
-                MessageType.Warning);
+            EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.openLipSync.backendNotInitializedHelp"), MessageType.Warning);
         }
 
         if (Application.isPlaying)
         {
             EditorGUILayout.Space(4);
-            BasisEditorUI.SectionTitle("Deep Pipeline Status");
-            EditorGUILayout.LabelField("Mel Frames Total", BasisOpenLipSyncDriver.DebugMelFramesProduced.ToString());
-            EditorGUILayout.LabelField("Inference Runs Total", BasisOpenLipSyncDriver.DebugInferenceRuns.ToString());
-            EditorGUILayout.LabelField("Last Inference Max", $"{BasisOpenLipSyncDriver.DebugLastInferenceMax:F6}");
-            EditorGUILayout.LabelField("Pipeline", BasisOpenLipSyncDriver.DebugPipelineStatus ?? "-");
+            BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.openLipSync.deepStatus"));
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.melFramesTotal"), BasisOpenLipSyncDriver.DebugMelFramesProduced.ToString());
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.inferenceRunsTotal"), BasisOpenLipSyncDriver.DebugInferenceRuns.ToString());
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.lastInferenceMax"), $"{BasisOpenLipSyncDriver.DebugLastInferenceMax:F6}");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.pipeline"), BasisOpenLipSyncDriver.DebugPipelineStatus ?? "-");
 
             var inferDetail = BasisOpenLipSyncDriver.DebugInferenceDetail;
             if (!string.IsNullOrEmpty(inferDetail))
             {
-                EditorGUILayout.LabelField("Inference", inferDetail);
+                EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.inference"), inferDetail);
             }
 
             if (BasisOpenLipSyncDriver.DebugMelFramesProduced == 0 && BasisOpenLipSyncDriver.DebugInferenceRuns == 0)
             {
-                EditorGUILayout.HelpBox(
-                    "Zero mel frames = audio never reaches mel spectrogram.\n" +
-                    "Likely causes:\n" +
-                    "- Resampler not producing output (48kHz->16kHz)\n" +
-                    "- Ring buffer not accumulating enough for hop (160 samples at 16kHz)\n" +
-                    "- Audio chunks too small after resampling",
-                    MessageType.Error);
+                EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.openLipSync.zeroMelHelp"), MessageType.Error);
             }
             else if (BasisOpenLipSyncDriver.DebugLastInferenceMax < 0.001f)
             {
-                EditorGUILayout.HelpBox(
-                    "Inference runs but output is ~0. Model may predict silence.\n" +
-                    "The dev-clean trained model needs real speech input.",
-                    MessageType.Warning);
+                EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.openLipSync.inferenceSilentHelp"), MessageType.Warning);
             }
 
             var err = BasisOpenLipSyncDriver.DebugBackendError;
             if (!string.IsNullOrEmpty(err))
             {
-                BasisEditorUI.Help($"Backend error: {err}", MessageType.Error);
+                BasisEditorUI.Help(BasisEditorLocalization.Get("editor.openLipSync.backendError", err), MessageType.Error);
             }
         }
     }
@@ -146,34 +132,34 @@ public sealed class BasisOpenLipSyncTab : BasisEditorTabPage
     {
         if (!Application.isPlaying)
         {
-            EditorGUILayout.LabelField("(Play Mode only)");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.playModeOnlyShort"));
             return;
         }
 
 #if !BASIS_DISABLE_MICROPHONE
-        StatusLabel("Initialized", BasisLocalMicrophoneDriver.IsInitialize);
-        EditorGUILayout.LabelField("Paused", BasisLocalMicrophoneDriver.isPaused.ToString());
-        EditorGUILayout.LabelField("Device", BasisLocalMicrophoneDriver.MicrophoneDevice ?? "(none)");
-        EditorGUILayout.LabelField("Sample Rate", $"{LocalOpusSettings.MicrophoneSampleRate} Hz");
-        EditorGUILayout.LabelField("Frame Length", $"{BasisLocalMicrophoneDriver.ProcessFrameLength} samples");
-        EditorGUILayout.LabelField("Volume", $"{BasisLocalMicrophoneDriver.Volume:F3}");
+        StatusLabel(BasisEditorLocalization.Get("editor.openLipSync.initialized"), BasisLocalMicrophoneDriver.IsInitialize);
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.paused"), BasisLocalMicrophoneDriver.isPaused.ToString());
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.device"), BasisLocalMicrophoneDriver.MicrophoneDevice ?? BasisEditorLocalization.Get("editor.openLipSync.deviceNone"));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.sampleRate"), $"{LocalOpusSettings.MicrophoneSampleRate} Hz");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.frameLength"), BasisEditorLocalization.Get("editor.openLipSync.samplesValue", BasisLocalMicrophoneDriver.ProcessFrameLength));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.volume"), $"{BasisLocalMicrophoneDriver.Volume:F3}");
 
         float rms = BasisLocalMicrophoneDriver.averageRms;
-        EditorGUILayout.LabelField("Average RMS", $"{rms:F6}");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.averageRms"), $"{rms:F6}");
         Rect rmsRect = GUILayoutUtility.GetRect(0, 14, GUILayout.ExpandWidth(true));
         float rmsNorm = Mathf.Clamp01(rms * 50f);
-        DrawBar(rmsRect, rmsNorm, "Audio Level");
+        DrawBar(rmsRect, rmsNorm, BasisEditorLocalization.Get("editor.openLipSync.audioLevel"));
 
         var buf = BasisLocalMicrophoneDriver.processBufferArray;
         if (buf != null)
         {
-            EditorGUILayout.LabelField("Process Buffer", $"{buf.Length} samples");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.processBuffer"), BasisEditorLocalization.Get("editor.openLipSync.samplesValue", buf.Length));
 
             Rect waveRect = GUILayoutUtility.GetRect(0, 40, GUILayout.ExpandWidth(true));
             DrawMiniWaveform(waveRect, buf);
         }
 #else
-        EditorGUILayout.LabelField("Microphone disabled (BASIS_DISABLE_MICROPHONE)");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.microphoneDisabled"));
 #endif
     }
 
@@ -181,40 +167,40 @@ public sealed class BasisOpenLipSyncTab : BasisEditorTabPage
     {
         if (!Application.isPlaying || !BasisLocalPlayer.PlayerReady)
         {
-            EditorGUILayout.LabelField("(Waiting for local player...)");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.waitingForPlayer"));
             return;
         }
 
         var driver = BasisLocalPlayer.Instance.LocalVisemeDriver;
-        StatusLabel("Successful Init", driver.WasSuccessful);
-        StatusLabel("Use OpenLipSync", driver.UseOpenLipSync);
-        StatusLabel("Enabled (face visible)", driver.FaceVisible);
+        StatusLabel(BasisEditorLocalization.Get("editor.openLipSync.successfulInit"), driver.WasSuccessful);
+        StatusLabel(BasisEditorLocalization.Get("editor.openLipSync.useOpenLipSync"), driver.UseOpenLipSync);
+        StatusLabel(BasisEditorLocalization.Get("editor.openLipSync.faceVisibleEnabled"), driver.FaceVisible);
 
         if (driver.Avatar != null)
         {
-            EditorGUILayout.LabelField("Avatar", driver.Avatar.name);
-            EditorGUILayout.LabelField("Blendshape Count", driver.BlendShapeCount.ToString());
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.avatar"), driver.Avatar.name);
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.blendshapeCount"), driver.BlendShapeCount.ToString());
         }
 
         if (driver.UseOpenLipSync && driver.openLipSyncContext != null)
         {
-            EditorGUILayout.LabelField("Backend", "OpenLipSync (ONNX Neural, Threaded)");
-            StatusLabel("Context Initialized", driver.openLipSyncContext.IsInitialized);
-            EditorGUILayout.LabelField("Context Handle",
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.backend"), BasisEditorLocalization.Get("editor.openLipSync.backendValue"));
+            StatusLabel(BasisEditorLocalization.Get("editor.openLipSync.contextInitialized"), driver.openLipSyncContext.IsInitialized);
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.contextHandle"),
                 $"#{driver.openLipSyncContext.DebugContextHandle}");
-            StatusLabel("Face Visible", driver.openLipSyncContext.DebugFaceVisible);
-            StatusLabel("Background Task Running", driver.openLipSyncContext.DebugTaskRunning);
+            StatusLabel(BasisEditorLocalization.Get("editor.openLipSync.faceVisible"), driver.openLipSyncContext.DebugFaceVisible);
+            StatusLabel(BasisEditorLocalization.Get("editor.openLipSync.backgroundTaskRunning"), driver.openLipSyncContext.DebugTaskRunning);
         }
         else
         {
-            EditorGUILayout.LabelField("Backend", "(no slot)");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.backend"), BasisEditorLocalization.Get("editor.openLipSync.backendNoSlot"));
 
             string reason = !BasisOpenLipSyncDriver.IsInitialized
-                ? "Manager not initialized (model missing?)"
+                ? BasisEditorLocalization.Get("editor.openLipSync.reason.notInitialized")
                 : BasisOpenLipSyncDriver.ActiveSlotCount >= BasisOpenLipSyncDriver.MaxSlots
-                    ? "All slots occupied"
-                    : "Slot acquisition failed";
-            BasisEditorUI.Help($"No context: {reason}", MessageType.Info);
+                    ? BasisEditorLocalization.Get("editor.openLipSync.reason.slotsOccupied")
+                    : BasisEditorLocalization.Get("editor.openLipSync.reason.acquisitionFailed");
+            BasisEditorUI.Help(BasisEditorLocalization.Get("editor.openLipSync.noContext", reason), MessageType.Info);
         }
     }
 
@@ -222,40 +208,40 @@ public sealed class BasisOpenLipSyncTab : BasisEditorTabPage
     {
         if (!Application.isPlaying || !BasisLocalPlayer.PlayerReady)
         {
-            EditorGUILayout.LabelField("(Waiting for local player...)");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.waitingForPlayer"));
             return;
         }
 
         var driver = BasisLocalPlayer.Instance.LocalVisemeDriver;
         if (!driver.UseOpenLipSync || driver.openLipSyncContext == null)
         {
-            EditorGUILayout.LabelField("(OpenLipSync not active - no buffer data)");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.noBufferData"));
             return;
         }
 
         var ctx = driver.openLipSyncContext;
 
-        BasisEditorUI.SectionTitle("Audio Buffers");
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.openLipSync.audioBuffers"));
         int activeBuffer = ctx.DebugActiveBuffer;
         int writeA = ctx.DebugWriteIndexA;
         int writeB = ctx.DebugWriteIndexB;
 
-        EditorGUILayout.LabelField("Active Write Buffer", activeBuffer == 0 ? "A" : "B");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.activeWriteBuffer"), activeBuffer == 0 ? "A" : "B");
 
         Rect barA = GUILayoutUtility.GetRect(0, 12, GUILayout.ExpandWidth(true));
-        DrawBar(barA, writeA / 48000f, $"Buf A: {writeA} {(activeBuffer == 0 ? "(WRITING)" : "(FROZEN)")}");
+        DrawBar(barA, writeA / 48000f, BasisEditorLocalization.Get(activeBuffer == 0 ? "editor.openLipSync.bufAWriting" : "editor.openLipSync.bufAFrozen", writeA));
 
         Rect barB = GUILayoutUtility.GetRect(0, 12, GUILayout.ExpandWidth(true));
-        DrawBar(barB, writeB / 48000f, $"Buf B: {writeB} {(activeBuffer == 1 ? "(WRITING)" : "(FROZEN)")}");
+        DrawBar(barB, writeB / 48000f, BasisEditorLocalization.Get(activeBuffer == 1 ? "editor.openLipSync.bufBWriting" : "editor.openLipSync.bufBFrozen", writeB));
 
         EditorGUILayout.Space(4);
 
-        BasisEditorUI.SectionTitle("Threading");
-        StatusLabel("Background Task Active", ctx.DebugTaskRunning);
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.openLipSync.threading"));
+        StatusLabel(BasisEditorLocalization.Get("editor.openLipSync.backgroundTaskActive"), ctx.DebugTaskRunning);
 
         EditorGUILayout.Space(4);
 
-        BasisEditorUI.SectionTitle("Viseme -> Blendshape Map");
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.openLipSync.visemeMap"));
         var hasV = ctx.DebugHasViseme;
         var mapV = ctx.DebugVisemeToBlendShape;
         if (hasV != null && mapV != null)
@@ -273,11 +259,11 @@ public sealed class BasisOpenLipSyncTab : BasisEditorTabPage
                 {
                     var p2 = GUI.color;
                     GUI.color = WarnColor;
-                    EditorGUILayout.LabelField($"  [{i}] {label}", "(unmapped)");
+                    EditorGUILayout.LabelField($"  [{i}] {label}", BasisEditorLocalization.Get("editor.openLipSync.unmapped"));
                     GUI.color = p2;
                 }
             }
-            EditorGUILayout.LabelField($"  {mapped}/15 visemes mapped");
+            EditorGUILayout.LabelField("  " + BasisEditorLocalization.Get("editor.openLipSync.visemesMapped", mapped));
         }
     }
 
@@ -285,14 +271,14 @@ public sealed class BasisOpenLipSyncTab : BasisEditorTabPage
     {
         if (!Application.isPlaying || !BasisLocalPlayer.PlayerReady)
         {
-            EditorGUILayout.LabelField("(Waiting for local player...)");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.waitingForPlayer"));
             return;
         }
 
         var driver = BasisLocalPlayer.Instance.LocalVisemeDriver;
         if (!driver.UseOpenLipSync || driver.openLipSyncContext == null)
         {
-            EditorGUILayout.LabelField("(OpenLipSync not active)");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.notActive"));
             return;
         }
 
@@ -311,16 +297,16 @@ public sealed class BasisOpenLipSyncTab : BasisEditorTabPage
             }
         }
 
-        BasisEditorUI.SectionTitle("Cached Weights");
-        EditorGUILayout.LabelField($"  Sum: {cachedSum:F4}  Max: {cachedMax:F4} ({SafeLabel(cachedPeak)})  All zero: {cachedSum < 0.0001f}");
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.openLipSync.cachedWeights"));
+        EditorGUILayout.LabelField("  " + BasisEditorLocalization.Get("editor.openLipSync.cachedSummary", cachedSum, cachedMax, SafeLabel(cachedPeak), cachedSum < 0.0001f));
 
         EditorGUILayout.Space(4);
 
         EditorGUILayout.BeginHorizontal();
         EditorGUILayout.LabelField("", GUILayout.Width(30));
-        BasisEditorUI.Note("Bar");
-        EditorGUILayout.LabelField("Weight", EditorStyles.miniLabel, GUILayout.Width(50));
-        EditorGUILayout.LabelField("Applied", EditorStyles.miniLabel, GUILayout.Width(50));
+        BasisEditorUI.Note(BasisEditorLocalization.Get("editor.openLipSync.bar"));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.weight"), EditorStyles.miniLabel, GUILayout.Width(50));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.openLipSync.applied"), EditorStyles.miniLabel, GUILayout.Width(50));
         EditorGUILayout.EndHorizontal();
 
         for (int i = 0; i < 15; i++)
@@ -357,7 +343,7 @@ public sealed class BasisOpenLipSyncTab : BasisEditorTabPage
         EditorGUILayout.LabelField(label, GUILayout.Width(EditorGUIUtility.labelWidth));
         var prev = GUI.color;
         GUI.color = value ? GoodColor : ErrorColor;
-        EditorGUILayout.LabelField(value ? "YES" : "NO", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get(value ? "sdk.cilbox.state.yes" : "sdk.cilbox.state.no"), EditorStyles.boldLabel);
         GUI.color = prev;
         EditorGUILayout.EndHorizontal();
     }

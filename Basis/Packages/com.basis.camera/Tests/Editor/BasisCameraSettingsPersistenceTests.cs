@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
@@ -19,6 +20,7 @@ namespace Basis.Tests.Camera
     /// day it is added rather than the day somebody remembers to extend a test.
     /// </para>
     /// </summary>
+    [NoAutoStaticsCleanup]
     public class BasisCameraSettingsPersistenceTests
     {
         private BasisCameraSettingsRig _rig;

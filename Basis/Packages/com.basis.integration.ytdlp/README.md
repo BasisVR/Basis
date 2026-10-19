@@ -43,7 +43,7 @@ the player syncs on one clock.
 ## Usage
 
 Drop a YouTube/Twitch link into the `StreamUrl` field of a `BasisMediaPlayerStreaming`
-component — or call `player.LoadUrl(pageUrl)` directly, which routes the same way.
+component — or call `player.OpenUserUrl(pageUrl)` directly, which routes the same way.
 That's it; resolution and loading are automatic.
 
 Programmatic, if you need the resolver directly:
@@ -53,7 +53,7 @@ Programmatic, if you need the resolver directly:
 BasisYtDlpResolver.ResolveAndPlay(player, "https://www.youtube.com/watch?v=…");
 
 // Or resolve without loading (e.g. to inspect / cache the result):
-BasisMediaSource source = await BasisYtDlpResolver.ResolveSourceAsync(pageUrl);
+BasisResolvedMedia media = await BasisYtDlpResolver.ResolveMediaAsync(pageUrl);
 ```
 
 ## Requirements
@@ -79,9 +79,12 @@ that the resolver is needed, rather than failing silently. Nothing else changes.
 
 ## Trust
 
-Resolved stream URLs pass the player's host trust gate (`BasisMediaPlayerSecurity`)
-like any other URL. Interactive consent for the page URL itself is a UI-layer concern
-and is not driven from here.
+The engine vets every media URL it opens — scheme, address class, DNS pinning,
+redirect re-validation — whether it came from a resolver or was typed in, so a
+resolver is not a way around it. Subtitle tracks a resolver supplies are fetched
+by the player over `UnityWebRequest` and checked against the client's URL
+security first. Interactive consent for the page URL itself is a UI-layer
+concern and is not driven from here.
 
 ## Known gap
 

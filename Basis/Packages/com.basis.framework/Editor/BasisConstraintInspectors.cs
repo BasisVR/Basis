@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Basis.Editor.Localization;
 using Basis.Scripts.BasisSdk.Constraints;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -45,7 +46,7 @@ namespace Basis.Editor.Constraints
                 if (Constraint.sourceCount == 0 && RequiresSources)
                 {
                     issues.Add(BasisSyncIssue.Warning(
-                        "No sources assigned — this constraint will not drive anything."));
+                        BasisEditorLocalization.Get("editor.constraint.base.noSources")));
                 }
                 Validate(issues);
                 return issues;
@@ -85,11 +86,10 @@ namespace Basis.Editor.Constraints
                 Constraint.constraintActive = true;
                 EditorUtility.SetDirty(Constraint);
             })
-            { text = "Activate" };
+            { text = BasisEditorLocalization.Get("editor.constraint.base.activate") };
             activate.style.flexGrow = 1;
             BasisSyncInspectorUI.Described(activate,
-                "Freeze the current pose as the neutral one and switch the constraint on. Do this " +
-                "with the rig arranged the way it should sit at rest.");
+                BasisEditorLocalization.Get("editor.constraint.base.activate.tooltip"));
 
             Button zero = new Button(() =>
             {
@@ -97,11 +97,10 @@ namespace Basis.Editor.Constraints
                 ZeroNeutral();
                 EditorUtility.SetDirty(Constraint);
             })
-            { text = "Zero" };
+            { text = BasisEditorLocalization.Get("editor.constraint.base.zero") };
             zero.style.flexGrow = 1;
             BasisSyncInspectorUI.Described(zero,
-                "Clear the captured neutral pose back to identity, for authoring offsets from " +
-                "scratch instead of from where things currently sit.");
+                BasisEditorLocalization.Get("editor.constraint.base.zero.tooltip"));
 
             row.Add(activate);
             row.Add(zero);
@@ -113,25 +112,23 @@ namespace Basis.Editor.Constraints
 
         VisualElement BuildCommon(SerializedObject so)
         {
-            VisualElement card = BasisSyncInspectorUI.Card("Constraint");
+            VisualElement card = BasisSyncInspectorUI.Card(BasisEditorLocalization.Get("editor.constraint.base.card"));
             card.Add(BasisSyncInspectorUI.Described(
-                new PropertyField(so.FindProperty("constraintActive"), "Active"),
-                "Cleared, the transform is left entirely alone."));
+                new PropertyField(so.FindProperty("constraintActive"), BasisEditorLocalization.Get("editor.constraint.base.active")),
+                BasisEditorLocalization.Get("editor.constraint.base.active.tooltip")));
             card.Add(BasisSyncInspectorUI.Described(
-                new PropertyField(so.FindProperty("weight"), "Weight"),
-                "Blend between the at-rest pose (0) and the fully constrained pose (1)."));
+                new PropertyField(so.FindProperty("weight"), BasisEditorLocalization.Get("editor.constraint.base.weight")),
+                BasisEditorLocalization.Get("editor.constraint.base.weight.tooltip")));
             card.Add(BasisSyncInspectorUI.Described(
-                new PropertyField(so.FindProperty("locked"), "Locked"),
-                "Locked keeps the axes this constraint does not drive at their live pose. Unlocked " +
-                "returns them to the captured rest pose."));
+                new PropertyField(so.FindProperty("locked"), BasisEditorLocalization.Get("editor.constraint.base.locked")),
+                BasisEditorLocalization.Get("editor.constraint.base.locked.tooltip")));
 
             if (RequiresSources)
             {
-                VisualElement sources = BasisSyncInspectorUI.Card("Sources");
+                VisualElement sources = BasisSyncInspectorUI.Card(BasisEditorLocalization.Get("editor.constraint.base.sourcesCard"));
                 sources.Add(BasisSyncInspectorUI.Described(
-                    new PropertyField(so.FindProperty("sources"), "Sources"),
-                    "Transforms driving this constraint. Weights are relative, not normalised — two " +
-                    "sources at 1 each blend 50/50, exactly as Unity's constraints do."));
+                    new PropertyField(so.FindProperty("sources"), BasisEditorLocalization.Get("editor.constraint.base.sources")),
+                    BasisEditorLocalization.Get("editor.constraint.base.sources.tooltip")));
                 card.Add(sources);
             }
             return card;
@@ -159,8 +156,8 @@ namespace Basis.Editor.Constraints
     [CustomEditor(typeof(BasisPositionConstraint))]
     public class BasisPositionConstraintInspector : BasisConstraintInspectorBase
     {
-        protected override string Title => "Position Constraint";
-        protected override string Subtitle => "Follows the blended position of its sources.";
+        protected override string Title => BasisEditorLocalization.Get("editor.constraint.position.title");
+        protected override string Subtitle => BasisEditorLocalization.Get("editor.constraint.position.subtitle");
 
         protected override void ZeroNeutral()
         {
@@ -171,18 +168,18 @@ namespace Basis.Editor.Constraints
 
         protected override void BuildSpecific(VisualElement root, SerializedObject so)
         {
-            root.Add(Fields(so, "Position",
-                ("translationAtRest", "At Rest", "Local position used when Weight is 0."),
-                ("translationOffset", "Offset", "Local-space offset added to the blended source position."),
-                ("translationAxis", "Freeze Axes", "Axes this constraint may drive. Excluded axes keep their current value.")));
+            root.Add(Fields(so, BasisEditorLocalization.Get("editor.constraint.common.position"),
+                ("translationAtRest", BasisEditorLocalization.Get("editor.constraint.common.atRest"), BasisEditorLocalization.Get("editor.constraint.common.positionAtRest.tooltip")),
+                ("translationOffset", BasisEditorLocalization.Get("editor.constraint.common.offset"), BasisEditorLocalization.Get("editor.constraint.position.offset.tooltip")),
+                ("translationAxis", BasisEditorLocalization.Get("editor.constraint.common.freezeAxes"), BasisEditorLocalization.Get("editor.constraint.position.freezeAxes.tooltip"))));
         }
     }
 
     [CustomEditor(typeof(BasisRotationConstraint))]
     public class BasisRotationConstraintInspector : BasisConstraintInspectorBase
     {
-        protected override string Title => "Rotation Constraint";
-        protected override string Subtitle => "Follows the blended rotation of its sources.";
+        protected override string Title => BasisEditorLocalization.Get("editor.constraint.rotation.title");
+        protected override string Subtitle => BasisEditorLocalization.Get("editor.constraint.rotation.subtitle");
 
         protected override void ZeroNeutral()
         {
@@ -193,18 +190,18 @@ namespace Basis.Editor.Constraints
 
         protected override void BuildSpecific(VisualElement root, SerializedObject so)
         {
-            root.Add(Fields(so, "Rotation",
-                ("rotationAtRest", "At Rest", "Local rotation in degrees used when Weight is 0."),
-                ("rotationOffset", "Offset", "Local-space rotation offset added after blending."),
-                ("rotationAxis", "Freeze Axes", "Axes this constraint may drive.")));
+            root.Add(Fields(so, BasisEditorLocalization.Get("editor.constraint.common.rotation"),
+                ("rotationAtRest", BasisEditorLocalization.Get("editor.constraint.common.atRest"), BasisEditorLocalization.Get("editor.constraint.common.rotationAtRest.tooltip")),
+                ("rotationOffset", BasisEditorLocalization.Get("editor.constraint.common.offset"), BasisEditorLocalization.Get("editor.constraint.rotation.offset.tooltip")),
+                ("rotationAxis", BasisEditorLocalization.Get("editor.constraint.common.freezeAxes"), BasisEditorLocalization.Get("editor.constraint.common.freezeAxes.tooltip"))));
         }
     }
 
     [CustomEditor(typeof(BasisScaleConstraint))]
     public class BasisScaleConstraintInspector : BasisConstraintInspectorBase
     {
-        protected override string Title => "Scale Constraint";
-        protected override string Subtitle => "Follows the blended scale of its sources.";
+        protected override string Title => BasisEditorLocalization.Get("editor.constraint.scale.title");
+        protected override string Subtitle => BasisEditorLocalization.Get("editor.constraint.scale.subtitle");
 
         protected override void ZeroNeutral()
         {
@@ -215,18 +212,18 @@ namespace Basis.Editor.Constraints
 
         protected override void BuildSpecific(VisualElement root, SerializedObject so)
         {
-            root.Add(Fields(so, "Scale",
-                ("scaleAtRest", "At Rest", "Local scale used when Weight is 0."),
-                ("scaleOffset", "Offset", "Multiplied onto the blended source scale."),
-                ("scalingAxis", "Freeze Axes", "Axes this constraint may drive.")));
+            root.Add(Fields(so, BasisEditorLocalization.Get("editor.constraint.common.scale"),
+                ("scaleAtRest", BasisEditorLocalization.Get("editor.constraint.common.atRest"), BasisEditorLocalization.Get("editor.constraint.common.scaleAtRest.tooltip")),
+                ("scaleOffset", BasisEditorLocalization.Get("editor.constraint.common.offset"), BasisEditorLocalization.Get("editor.constraint.scale.offset.tooltip")),
+                ("scalingAxis", BasisEditorLocalization.Get("editor.constraint.common.freezeAxes"), BasisEditorLocalization.Get("editor.constraint.common.freezeAxes.tooltip"))));
         }
     }
 
     [CustomEditor(typeof(BasisParentConstraint))]
     public class BasisParentConstraintInspector : BasisConstraintInspectorBase
     {
-        protected override string Title => "Parent Constraint";
-        protected override string Subtitle => "Follows its sources in position and rotation together.";
+        protected override string Title => BasisEditorLocalization.Get("editor.constraint.parent.title");
+        protected override string Subtitle => BasisEditorLocalization.Get("editor.constraint.parent.subtitle");
 
         protected override void ZeroNeutral()
         {
@@ -245,19 +242,19 @@ namespace Basis.Editor.Constraints
 
         protected override void BuildSpecific(VisualElement root, SerializedObject so)
         {
-            root.Add(Fields(so, "Parent",
-                ("translationAtRest", "Position At Rest", "Local position used when Weight is 0."),
-                ("rotationAtRest", "Rotation At Rest", "Local rotation in degrees used when Weight is 0."),
-                ("translationAxis", "Freeze Position Axes", "Position axes this constraint may drive."),
-                ("rotationAxis", "Freeze Rotation Axes", "Rotation axes this constraint may drive.")));
+            root.Add(Fields(so, BasisEditorLocalization.Get("editor.constraint.parent.card"),
+                ("translationAtRest", BasisEditorLocalization.Get("editor.constraint.parent.positionAtRest"), BasisEditorLocalization.Get("editor.constraint.common.positionAtRest.tooltip")),
+                ("rotationAtRest", BasisEditorLocalization.Get("editor.constraint.parent.rotationAtRest"), BasisEditorLocalization.Get("editor.constraint.common.rotationAtRest.tooltip")),
+                ("translationAxis", BasisEditorLocalization.Get("editor.constraint.common.freezePositionAxes"), BasisEditorLocalization.Get("editor.constraint.common.freezePositionAxes.tooltip")),
+                ("rotationAxis", BasisEditorLocalization.Get("editor.constraint.common.freezeRotationAxes"), BasisEditorLocalization.Get("editor.constraint.common.freezeRotationAxes.tooltip"))));
 
-            VisualElement offsets = BasisSyncInspectorUI.Card("Per-Source Offsets", false);
+            VisualElement offsets = BasisSyncInspectorUI.Card(BasisEditorLocalization.Get("editor.constraint.parent.offsetsCard"), false);
             offsets.Add(BasisSyncInspectorUI.Described(
-                new PropertyField(so.FindProperty("translationOffsets"), "Position Offsets"),
-                "One entry per source, in source order. Activate bakes these from the current pose."));
+                new PropertyField(so.FindProperty("translationOffsets"), BasisEditorLocalization.Get("editor.constraint.parent.positionOffsets")),
+                BasisEditorLocalization.Get("editor.constraint.parent.positionOffsets.tooltip")));
             offsets.Add(BasisSyncInspectorUI.Described(
-                new PropertyField(so.FindProperty("rotationOffsets"), "Rotation Offsets"),
-                "One entry per source, in source order."));
+                new PropertyField(so.FindProperty("rotationOffsets"), BasisEditorLocalization.Get("editor.constraint.parent.rotationOffsets")),
+                BasisEditorLocalization.Get("editor.constraint.parent.rotationOffsets.tooltip")));
             root.Add(offsets);
         }
 
@@ -267,8 +264,7 @@ namespace Basis.Editor.Constraints
             if (constraint.sourceCount > 0 && constraint.translationOffsets.Length != constraint.sourceCount)
             {
                 issues.Add(BasisSyncIssue.Warning(
-                    "Offset count does not match the source count. Press Activate to rebake them, " +
-                    "or offsets will be read against the wrong sources."));
+                    BasisEditorLocalization.Get("editor.constraint.parent.offsetMismatch")));
             }
         }
     }
@@ -276,8 +272,8 @@ namespace Basis.Editor.Constraints
     [CustomEditor(typeof(BasisAimConstraint))]
     public class BasisAimConstraintInspector : BasisConstraintInspectorBase
     {
-        protected override string Title => "Aim Constraint";
-        protected override string Subtitle => "Points a chosen axis at the blended source position.";
+        protected override string Title => BasisEditorLocalization.Get("editor.constraint.aim.title");
+        protected override string Subtitle => BasisEditorLocalization.Get("editor.constraint.aim.subtitle");
 
         protected override void ZeroNeutral()
         {
@@ -288,17 +284,17 @@ namespace Basis.Editor.Constraints
 
         protected override void BuildSpecific(VisualElement root, SerializedObject so)
         {
-            root.Add(Fields(so, "Aim",
-                ("aimVector", "Aim Vector", "The local axis pointed at the sources."),
-                ("upVector", "Up Vector", "The local axis rolled toward world up."),
-                ("rotationAtRest", "At Rest", "Local rotation in degrees used when Weight is 0."),
-                ("rotationOffset", "Offset", "Rotation offset applied after aiming."),
-                ("rotationAxis", "Freeze Axes", "Axes this constraint may drive.")));
+            root.Add(Fields(so, BasisEditorLocalization.Get("editor.constraint.aim.card"),
+                ("aimVector", BasisEditorLocalization.Get("editor.constraint.aim.aimVector"), BasisEditorLocalization.Get("editor.constraint.aim.aimVector.tooltip")),
+                ("upVector", BasisEditorLocalization.Get("editor.constraint.common.upVector"), BasisEditorLocalization.Get("editor.constraint.aim.upVector.tooltip")),
+                ("rotationAtRest", BasisEditorLocalization.Get("editor.constraint.common.atRest"), BasisEditorLocalization.Get("editor.constraint.common.rotationAtRest.tooltip")),
+                ("rotationOffset", BasisEditorLocalization.Get("editor.constraint.common.offset"), BasisEditorLocalization.Get("editor.constraint.common.aimOffset.tooltip")),
+                ("rotationAxis", BasisEditorLocalization.Get("editor.constraint.common.freezeAxes"), BasisEditorLocalization.Get("editor.constraint.common.freezeAxes.tooltip"))));
 
-            root.Add(Fields(so, "World Up",
-                ("worldUpType", "Mode", "How the up reference is resolved."),
-                ("worldUpObject", "Up Object", "Used by the Object Up and Object Rotation Up modes."),
-                ("worldUpVector", "Up Vector", "Used by the Vector and Object Rotation Up modes.")));
+            root.Add(Fields(so, BasisEditorLocalization.Get("editor.constraint.aim.worldUpCard"),
+                ("worldUpType", BasisEditorLocalization.Get("editor.common.mode"), BasisEditorLocalization.Get("editor.constraint.aim.worldUpMode.tooltip")),
+                ("worldUpObject", BasisEditorLocalization.Get("editor.constraint.common.upObject"), BasisEditorLocalization.Get("editor.constraint.aim.worldUpObject.tooltip")),
+                ("worldUpVector", BasisEditorLocalization.Get("editor.constraint.common.upVector"), BasisEditorLocalization.Get("editor.constraint.aim.worldUpVector.tooltip"))));
         }
 
         protected override void Validate(List<BasisSyncIssue> issues)
@@ -306,14 +302,14 @@ namespace Basis.Editor.Constraints
             BasisAimConstraint constraint = (BasisAimConstraint)target;
             if (constraint.aimVector == Vector3.zero)
             {
-                issues.Add(BasisSyncIssue.Error("Aim Vector is zero — there is no axis to point."));
+                issues.Add(BasisSyncIssue.Error(BasisEditorLocalization.Get("editor.constraint.aim.zeroVector")));
             }
             bool needsObject = constraint.worldUpType == BasisConstraintWorldUp.ObjectUp
                 || constraint.worldUpType == BasisConstraintWorldUp.ObjectRotationUp;
             if (needsObject && constraint.worldUpObject == null)
             {
                 issues.Add(BasisSyncIssue.Warning(
-                    "This World Up mode needs an Up Object; without one it falls back to scene up."));
+                    BasisEditorLocalization.Get("editor.constraint.aim.needsUpObject")));
             }
         }
     }
@@ -321,8 +317,8 @@ namespace Basis.Editor.Constraints
     [CustomEditor(typeof(BasisLookAtConstraint))]
     public class BasisLookAtConstraintInspector : BasisConstraintInspectorBase
     {
-        protected override string Title => "Look At Constraint";
-        protected override string Subtitle => "Points local forward at the blended source position.";
+        protected override string Title => BasisEditorLocalization.Get("editor.constraint.lookAt.title");
+        protected override string Subtitle => BasisEditorLocalization.Get("editor.constraint.lookAt.subtitle");
 
         protected override void ZeroNeutral()
         {
@@ -333,30 +329,30 @@ namespace Basis.Editor.Constraints
 
         protected override void BuildSpecific(VisualElement root, SerializedObject so)
         {
-            root.Add(Fields(so, "Look At",
-                ("roll", "Roll", "Spin about the aim axis, in degrees."),
-                ("rotationAtRest", "At Rest", "Local rotation in degrees used when Weight is 0."),
-                ("rotationOffset", "Offset", "Rotation offset applied after aiming."),
-                ("useUpObject", "Use Up Object", "Roll against an object instead of scene up."),
-                ("worldUpObject", "Up Object", "The object rolled against when Use Up Object is set.")));
+            root.Add(Fields(so, BasisEditorLocalization.Get("editor.constraint.lookAt.card"),
+                ("roll", BasisEditorLocalization.Get("editor.constraint.lookAt.roll"), BasisEditorLocalization.Get("editor.constraint.lookAt.roll.tooltip")),
+                ("rotationAtRest", BasisEditorLocalization.Get("editor.constraint.common.atRest"), BasisEditorLocalization.Get("editor.constraint.common.rotationAtRest.tooltip")),
+                ("rotationOffset", BasisEditorLocalization.Get("editor.constraint.common.offset"), BasisEditorLocalization.Get("editor.constraint.common.aimOffset.tooltip")),
+                ("useUpObject", BasisEditorLocalization.Get("editor.constraint.lookAt.useUpObject"), BasisEditorLocalization.Get("editor.constraint.lookAt.useUpObject.tooltip")),
+                ("worldUpObject", BasisEditorLocalization.Get("editor.constraint.common.upObject"), BasisEditorLocalization.Get("editor.constraint.lookAt.upObject.tooltip"))));
         }
     }
 
     [CustomEditor(typeof(BasisBlendConstraint))]
     public class BasisBlendConstraintInspector : BasisConstraintInspectorBase
     {
-        protected override string Title => "Blend Constraint";
-        protected override string Subtitle => "Blends between exactly two sources.";
+        protected override string Title => BasisEditorLocalization.Get("editor.constraint.blend.title");
+        protected override string Subtitle => BasisEditorLocalization.Get("editor.constraint.blend.subtitle");
 
         protected override void BuildSpecific(VisualElement root, SerializedObject so)
         {
-            root.Add(Fields(so, "Blend",
-                ("blendPosition", "Blend Position", "Blend the position between the two sources."),
-                ("positionWeight", "Position", "0 is the first source, 1 is the second."),
-                ("blendRotation", "Blend Rotation", "Blend the rotation between the two sources."),
-                ("rotationWeight", "Rotation", "0 is the first source, 1 is the second."),
-                ("translationAxis", "Freeze Position Axes", "Position axes this constraint may drive."),
-                ("rotationAxis", "Freeze Rotation Axes", "Rotation axes this constraint may drive.")));
+            root.Add(Fields(so, BasisEditorLocalization.Get("editor.constraint.blend.card"),
+                ("blendPosition", BasisEditorLocalization.Get("editor.constraint.blend.blendPosition"), BasisEditorLocalization.Get("editor.constraint.blend.blendPosition.tooltip")),
+                ("positionWeight", BasisEditorLocalization.Get("editor.constraint.common.position"), BasisEditorLocalization.Get("editor.constraint.blend.weight.tooltip")),
+                ("blendRotation", BasisEditorLocalization.Get("editor.constraint.blend.blendRotation"), BasisEditorLocalization.Get("editor.constraint.blend.blendRotation.tooltip")),
+                ("rotationWeight", BasisEditorLocalization.Get("editor.constraint.common.rotation"), BasisEditorLocalization.Get("editor.constraint.blend.weight.tooltip")),
+                ("translationAxis", BasisEditorLocalization.Get("editor.constraint.common.freezePositionAxes"), BasisEditorLocalization.Get("editor.constraint.common.freezePositionAxes.tooltip")),
+                ("rotationAxis", BasisEditorLocalization.Get("editor.constraint.common.freezeRotationAxes"), BasisEditorLocalization.Get("editor.constraint.common.freezeRotationAxes.tooltip"))));
         }
 
         protected override void Validate(List<BasisSyncIssue> issues)
@@ -364,7 +360,7 @@ namespace Basis.Editor.Constraints
             if (((BasisBlendConstraint)target).sourceCount < 2)
             {
                 issues.Add(BasisSyncIssue.Error(
-                    "A blend needs two sources — the first is the 0 end, the second is the 1 end."));
+                    BasisEditorLocalization.Get("editor.constraint.blend.needsTwoSources")));
             }
         }
     }
@@ -372,21 +368,21 @@ namespace Basis.Editor.Constraints
     [CustomEditor(typeof(BasisOverrideTransform))]
     public class BasisOverrideTransformInspector : BasisConstraintInspectorBase
     {
-        protected override string Title => "Override Transform";
-        protected override string Subtitle => "Replaces the pose, from explicit values or a source's movement.";
+        protected override string Title => BasisEditorLocalization.Get("editor.constraint.override.title");
+        protected override string Subtitle => BasisEditorLocalization.Get("editor.constraint.override.subtitle");
         protected override bool RequiresSources => false;
 
         protected override void BuildSpecific(VisualElement root, SerializedObject so)
         {
-            root.Add(Fields(so, "Override",
-                ("space", "Space", "How the override pose is interpreted."),
-                ("useSource", "Use Source", "Drive from the first source's movement since bind instead of the values below."),
-                ("position", "Position", "Override position, used when Use Source is off."),
-                ("rotation", "Rotation", "Override rotation in degrees, used when Use Source is off."),
-                ("positionWeight", "Position Weight", "How far the position travels toward the override."),
-                ("rotationWeight", "Rotation Weight", "How far the rotation travels toward the override."),
-                ("translationAxis", "Freeze Position Axes", "Position axes this constraint may drive."),
-                ("rotationAxis", "Freeze Rotation Axes", "Rotation axes this constraint may drive.")));
+            root.Add(Fields(so, BasisEditorLocalization.Get("editor.constraint.override.card"),
+                ("space", BasisEditorLocalization.Get("editor.constraint.override.space"), BasisEditorLocalization.Get("editor.constraint.override.space.tooltip")),
+                ("useSource", BasisEditorLocalization.Get("editor.constraint.override.useSource"), BasisEditorLocalization.Get("editor.constraint.override.useSource.tooltip")),
+                ("position", BasisEditorLocalization.Get("editor.constraint.common.position"), BasisEditorLocalization.Get("editor.constraint.override.position.tooltip")),
+                ("rotation", BasisEditorLocalization.Get("editor.constraint.common.rotation"), BasisEditorLocalization.Get("editor.constraint.override.rotation.tooltip")),
+                ("positionWeight", BasisEditorLocalization.Get("editor.constraint.common.positionWeight"), BasisEditorLocalization.Get("editor.constraint.override.positionWeight.tooltip")),
+                ("rotationWeight", BasisEditorLocalization.Get("editor.constraint.common.rotationWeight"), BasisEditorLocalization.Get("editor.constraint.override.rotationWeight.tooltip")),
+                ("translationAxis", BasisEditorLocalization.Get("editor.constraint.common.freezePositionAxes"), BasisEditorLocalization.Get("editor.constraint.common.freezePositionAxes.tooltip")),
+                ("rotationAxis", BasisEditorLocalization.Get("editor.constraint.common.freezeRotationAxes"), BasisEditorLocalization.Get("editor.constraint.common.freezeRotationAxes.tooltip"))));
         }
 
         protected override void Validate(List<BasisSyncIssue> issues)
@@ -395,7 +391,7 @@ namespace Basis.Editor.Constraints
             if (constraint.useSource && constraint.sourceCount == 0)
             {
                 issues.Add(BasisSyncIssue.Error(
-                    "Use Source is set but no source is assigned, so there is no movement to apply."));
+                    BasisEditorLocalization.Get("editor.constraint.override.useSourceNoSource")));
             }
         }
     }
@@ -403,43 +399,43 @@ namespace Basis.Editor.Constraints
     [CustomEditor(typeof(BasisDampedTransform))]
     public class BasisDampedTransformInspector : BasisConstraintInspectorBase
     {
-        protected override string Title => "Damped Transform";
-        protected override string Subtitle => "Lags behind its source, for floppy secondary motion.";
+        protected override string Title => BasisEditorLocalization.Get("editor.constraint.damped.title");
+        protected override string Subtitle => BasisEditorLocalization.Get("editor.constraint.damped.subtitle");
 
         protected override void BuildSpecific(VisualElement root, SerializedObject so)
         {
-            root.Add(Fields(so, "Damping",
-                ("dampPosition", "Damp Position", "Resistance, not weight: 0 snaps to the source, 1 never moves."),
-                ("dampRotation", "Damp Rotation", "Resistance, not weight: 0 snaps to the source, 1 never moves."),
-                ("maintainAim", "Maintain Aim", "Keep pointing at the source while lagging behind it.")));
+            root.Add(Fields(so, BasisEditorLocalization.Get("editor.constraint.damped.card"),
+                ("dampPosition", BasisEditorLocalization.Get("editor.constraint.damped.dampPosition"), BasisEditorLocalization.Get("editor.constraint.damped.damp.tooltip")),
+                ("dampRotation", BasisEditorLocalization.Get("editor.constraint.damped.dampRotation"), BasisEditorLocalization.Get("editor.constraint.damped.damp.tooltip")),
+                ("maintainAim", BasisEditorLocalization.Get("editor.constraint.damped.maintainAim"), BasisEditorLocalization.Get("editor.constraint.damped.maintainAim.tooltip"))));
         }
     }
 
     [CustomEditor(typeof(BasisTwistCorrection))]
     public class BasisTwistCorrectionInspector : BasisConstraintInspectorBase
     {
-        protected override string Title => "Twist Correction";
-        protected override string Subtitle => "Takes a share of the source's roll about one axis.";
+        protected override string Title => BasisEditorLocalization.Get("editor.constraint.twistCorrection.title");
+        protected override string Subtitle => BasisEditorLocalization.Get("editor.constraint.twistCorrection.subtitle");
 
         protected override void BuildSpecific(VisualElement root, SerializedObject so)
         {
-            root.Add(Fields(so, "Twist",
-                ("twistAxis", "Twist Axis", "The axis of the source the twist is read from."),
-                ("twistWeight", "Share", "How much of the source's twist this transform takes. Negative counters it.")));
+            root.Add(Fields(so, BasisEditorLocalization.Get("editor.constraint.twistCorrection.card"),
+                ("twistAxis", BasisEditorLocalization.Get("editor.constraint.twistCorrection.axis"), BasisEditorLocalization.Get("editor.constraint.twistCorrection.axis.tooltip")),
+                ("twistWeight", BasisEditorLocalization.Get("editor.constraint.twistCorrection.share"), BasisEditorLocalization.Get("editor.constraint.twistCorrection.share.tooltip"))));
         }
     }
 
     [CustomEditor(typeof(BasisTwistChain))]
     public class BasisTwistChainInspector : BasisConstraintInspectorBase
     {
-        protected override string Title => "Twist Chain";
-        protected override string Subtitle => "Holds one bone's share of the twist between two ends.";
+        protected override string Title => BasisEditorLocalization.Get("editor.constraint.twistChain.title");
+        protected override string Subtitle => BasisEditorLocalization.Get("editor.constraint.twistChain.subtitle");
 
         protected override void BuildSpecific(VisualElement root, SerializedObject so)
         {
-            root.Add(Fields(so, "Twist Chain",
-                ("blend", "Blend", "Where between the root end (0) and the tip end (1) this bone sits."),
-                ("rotationAtRest", "At Rest", "Local rotation in degrees used when Weight is 0.")));
+            root.Add(Fields(so, BasisEditorLocalization.Get("editor.constraint.twistChain.title"),
+                ("blend", BasisEditorLocalization.Get("editor.constraint.twistChain.blend"), BasisEditorLocalization.Get("editor.constraint.twistChain.blend.tooltip")),
+                ("rotationAtRest", BasisEditorLocalization.Get("editor.constraint.common.atRest"), BasisEditorLocalization.Get("editor.constraint.common.rotationAtRest.tooltip"))));
         }
 
         protected override void Validate(List<BasisSyncIssue> issues)
@@ -447,7 +443,7 @@ namespace Basis.Editor.Constraints
             if (((BasisTwistChain)target).sourceCount < 2)
             {
                 issues.Add(BasisSyncIssue.Error(
-                    "Needs two sources: the root end first, then the tip end."));
+                    BasisEditorLocalization.Get("editor.constraint.twistChain.needsTwoSources")));
             }
         }
     }
@@ -455,20 +451,20 @@ namespace Basis.Editor.Constraints
     [CustomEditor(typeof(BasisTwoBoneIK))]
     public class BasisTwoBoneIKInspector : BasisConstraintInspectorBase
     {
-        protected override string Title => "Two Bone IK";
-        protected override string Subtitle => "Analytic arm and leg IK. Lives on the tip bone.";
+        protected override string Title => BasisEditorLocalization.Get("editor.constraint.twoBone.title");
+        protected override string Subtitle => BasisEditorLocalization.Get("editor.constraint.twoBone.subtitle");
 
         protected override void BuildSpecific(VisualElement root, SerializedObject so)
         {
-            root.Add(Fields(so, "Chain",
-                ("mid", "Mid Bone", "Elbow or knee. Defaults to this transform's parent."),
-                ("root", "Root Bone", "Shoulder or hip. Defaults to the mid bone's parent.")));
+            root.Add(Fields(so, BasisEditorLocalization.Get("sdk.authoredMotion.field.chain.label"),
+                ("mid", BasisEditorLocalization.Get("editor.constraint.twoBone.mid"), BasisEditorLocalization.Get("editor.constraint.twoBone.mid.tooltip")),
+                ("root", BasisEditorLocalization.Get("editor.constraint.common.rootBone"), BasisEditorLocalization.Get("editor.constraint.twoBone.root.tooltip"))));
 
-            root.Add(Fields(so, "Target",
-                ("targetPositionWeight", "Position Weight", "How strongly the tip is pulled onto the target."),
-                ("targetRotationWeight", "Rotation Weight", "How strongly the tip takes the target's rotation."),
-                ("hintWeight", "Hint Weight", "How strongly the hint steers which way the limb bends."),
-                ("maintainTargetOffset", "Maintain Offset", "Hold the offset the tip had from the target when captured.")));
+            root.Add(Fields(so, BasisEditorLocalization.Get("editor.common.target"),
+                ("targetPositionWeight", BasisEditorLocalization.Get("editor.constraint.common.positionWeight"), BasisEditorLocalization.Get("editor.constraint.twoBone.positionWeight.tooltip")),
+                ("targetRotationWeight", BasisEditorLocalization.Get("editor.constraint.common.rotationWeight"), BasisEditorLocalization.Get("editor.constraint.common.tipRotation.tooltip")),
+                ("hintWeight", BasisEditorLocalization.Get("editor.constraint.twoBone.hintWeight"), BasisEditorLocalization.Get("editor.constraint.twoBone.hintWeight.tooltip")),
+                ("maintainTargetOffset", BasisEditorLocalization.Get("editor.constraint.twoBone.maintainOffset"), BasisEditorLocalization.Get("editor.constraint.twoBone.maintainOffset.tooltip"))));
         }
 
         protected override void Validate(List<BasisSyncIssue> issues)
@@ -477,12 +473,11 @@ namespace Basis.Editor.Constraints
             if (constraint.ResolveMid() == null || constraint.ResolveRoot() == null)
             {
                 issues.Add(BasisSyncIssue.Error(
-                    "Needs two bones above this one. Set Mid and Root explicitly, or place this on a " +
-                    "bone with a grandparent."));
+                    BasisEditorLocalization.Get("editor.constraint.twoBone.needsBones")));
             }
             if (constraint.sourceCount == 0)
             {
-                issues.Add(BasisSyncIssue.Error("The first source is the IK target and is required."));
+                issues.Add(BasisSyncIssue.Error(BasisEditorLocalization.Get("editor.constraint.common.noIkTarget")));
             }
         }
     }
@@ -490,19 +485,19 @@ namespace Basis.Editor.Constraints
     [CustomEditor(typeof(BasisChainIK))]
     public class BasisChainIKInspector : BasisConstraintInspectorBase
     {
-        protected override string Title => "Chain IK";
-        protected override string Subtitle => "Reaches a chain of any length at a target. Lives on the tip.";
+        protected override string Title => BasisEditorLocalization.Get("editor.constraint.chainIk.title");
+        protected override string Subtitle => BasisEditorLocalization.Get("editor.constraint.chainIk.subtitle");
 
         protected override void BuildSpecific(VisualElement root, SerializedObject so)
         {
-            root.Add(Fields(so, "Chain",
-                ("root", "Root Bone", "First bone of the chain. Must be an ancestor of this one.")));
+            root.Add(Fields(so, BasisEditorLocalization.Get("sdk.authoredMotion.field.chain.label"),
+                ("root", BasisEditorLocalization.Get("editor.constraint.common.rootBone"), BasisEditorLocalization.Get("editor.constraint.chainIk.root.tooltip"))));
 
-            root.Add(Fields(so, "Solve",
-                ("chainRotationWeight", "Chain Weight", "How strongly the chain bends toward the target."),
-                ("tipRotationWeight", "Tip Weight", "How strongly the tip takes the target's rotation."),
-                ("tolerance", "Tolerance", "How close the tip must get before the solve stops early."),
-                ("maxIterations", "Max Iterations", "Iteration budget per frame. Longer chains need more.")));
+            root.Add(Fields(so, BasisEditorLocalization.Get("editor.constraint.chainIk.solveCard"),
+                ("chainRotationWeight", BasisEditorLocalization.Get("editor.constraint.chainIk.chainWeight"), BasisEditorLocalization.Get("editor.constraint.chainIk.chainWeight.tooltip")),
+                ("tipRotationWeight", BasisEditorLocalization.Get("editor.constraint.chainIk.tipWeight"), BasisEditorLocalization.Get("editor.constraint.common.tipRotation.tooltip")),
+                ("tolerance", BasisEditorLocalization.Get("editor.constraint.chainIk.tolerance"), BasisEditorLocalization.Get("editor.constraint.chainIk.tolerance.tooltip")),
+                ("maxIterations", BasisEditorLocalization.Get("editor.constraint.chainIk.maxIterations"), BasisEditorLocalization.Get("editor.constraint.chainIk.maxIterations.tooltip"))));
         }
 
         protected override void Validate(List<BasisSyncIssue> issues)
@@ -510,16 +505,16 @@ namespace Basis.Editor.Constraints
             BasisChainIK constraint = (BasisChainIK)target;
             if (constraint.root == null)
             {
-                issues.Add(BasisSyncIssue.Error("Root Bone is required."));
+                issues.Add(BasisSyncIssue.Error(BasisEditorLocalization.Get("editor.constraint.chainIk.rootRequired")));
             }
             else if (!IsAncestorOf(constraint.root, constraint.transform))
             {
                 issues.Add(BasisSyncIssue.Error(
-                    "Root Bone is not an ancestor of this transform, so there is no chain between them."));
+                    BasisEditorLocalization.Get("editor.constraint.chainIk.rootNotAncestor")));
             }
             if (constraint.sourceCount == 0)
             {
-                issues.Add(BasisSyncIssue.Error("The first source is the IK target and is required."));
+                issues.Add(BasisSyncIssue.Error(BasisEditorLocalization.Get("editor.constraint.common.noIkTarget")));
             }
         }
 
@@ -541,15 +536,15 @@ namespace Basis.Editor.Constraints
     [CustomEditor(typeof(BasisMultiReferential))]
     public class BasisMultiReferentialInspector : BasisConstraintInspectorBase
     {
-        protected override string Title => "Multi Referential";
-        protected override string Subtitle => "Holds a set of transforms in a fixed arrangement.";
+        protected override string Title => BasisEditorLocalization.Get("editor.constraint.multiRef.title");
+        protected override string Subtitle => BasisEditorLocalization.Get("editor.constraint.multiRef.subtitle");
         protected override bool RequiresSources => false;
 
         protected override void BuildSpecific(VisualElement root, SerializedObject so)
         {
-            root.Add(Fields(so, "Members",
-                ("members", "Members", "The transforms held together. Order matters only in that Driver indexes into it."),
-                ("driver", "Driver", "Which member leads. Safe to change at runtime.")));
+            root.Add(Fields(so, BasisEditorLocalization.Get("editor.constraint.multiRef.card"),
+                ("members", BasisEditorLocalization.Get("editor.constraint.multiRef.members"), BasisEditorLocalization.Get("editor.constraint.multiRef.members.tooltip")),
+                ("driver", BasisEditorLocalization.Get("editor.constraint.multiRef.driver"), BasisEditorLocalization.Get("editor.constraint.multiRef.driver.tooltip"))));
         }
 
         protected override void Validate(List<BasisSyncIssue> issues)
@@ -557,7 +552,7 @@ namespace Basis.Editor.Constraints
             BasisMultiReferential constraint = (BasisMultiReferential)target;
             if (constraint.members.Count < 2)
             {
-                issues.Add(BasisSyncIssue.Error("Needs at least two members to hold an arrangement."));
+                issues.Add(BasisSyncIssue.Error(BasisEditorLocalization.Get("editor.constraint.multiRef.needsTwoMembers")));
                 return;
             }
             for (int Index = 0; Index < constraint.members.Count; Index++)
@@ -565,19 +560,19 @@ namespace Basis.Editor.Constraints
                 if (constraint.members[Index] == null)
                 {
                     issues.Add(BasisSyncIssue.Error(
-                        $"Member {Index} is empty. Every member must be assigned or the set is skipped."));
+                        BasisEditorLocalization.Get("editor.constraint.multiRef.emptyMember", Index)));
                     return;
                 }
             }
             if (constraint.BindPositions.Length != constraint.members.Count)
             {
                 issues.Add(BasisSyncIssue.Warning(
-                    "The arrangement has not been captured for the current members. Press Activate."));
+                    BasisEditorLocalization.Get("editor.constraint.multiRef.notCaptured")));
             }
             if (constraint.driver < 0 || constraint.driver >= constraint.members.Count)
             {
                 issues.Add(BasisSyncIssue.Warning(
-                    "Driver is outside the member list and will be clamped."));
+                    BasisEditorLocalization.Get("editor.constraint.multiRef.driverOutOfRange")));
             }
         }
     }

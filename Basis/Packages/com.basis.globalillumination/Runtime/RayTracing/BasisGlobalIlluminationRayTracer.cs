@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -7,7 +8,8 @@ using UnityEngine.Rendering;
 /// the whole application. Every camera that renders the effect in a frame refreshes it at most once, so a
 /// mirror, a photo camera and the player's eye all trace the same structure instead of building one each.
 /// </summary>
-public sealed class BasisGlobalIlluminationRayTracer : IDisposable
+[AutoStaticsCleanup]
+public sealed partial class BasisGlobalIlluminationRayTracer : IDisposable
 {
     public readonly struct SkyBinding
     {
@@ -27,7 +29,7 @@ public sealed class BasisGlobalIlluminationRayTracer : IDisposable
         public bool IsValid => Cube != null && Intensity > 0f;
     }
 
-    private static BasisGlobalIlluminationRayTracer instance;
+    [NoAutoStaticsCleanup] private static BasisGlobalIlluminationRayTracer instance;
     private static string failure;
     private static int failedSignature;
 
@@ -124,7 +126,8 @@ public sealed class BasisGlobalIlluminationRayTracer : IDisposable
     public static SkyBinding ResolveSky(BasisGlobalIlluminationFallback fallback, float intensity)
     {
         // The cubemap is resolved even when the fallback is off so the kernel always has something bound,
-        // and only the intensity decides whether a miss reads it.
+        // and only the intensity decides whether a miss reads it. Ray tracing dispatches reject an
+        // unbound declared texture even when the branch that samples it is disabled.
         float resolved = fallback == BasisGlobalIlluminationFallback.None ? 0f : Mathf.Max(0f, intensity);
 
         Texture custom = RenderSettings.customReflectionTexture;
@@ -137,10 +140,10 @@ public sealed class BasisGlobalIlluminationRayTracer : IDisposable
         // the two are identical: a black cube contributes nothing either way.)
         if (!useCustom && RenderSettings.defaultReflectionMode == DefaultReflectionMode.Custom)
         {
-            return new SkyBinding(null, Vector4.zero, 0f, 0f);
+            return new SkyBinding(CoreUtils.blackCubeTexture, Vector4.zero, 0f, 0f);
         }
         Texture cube = useCustom ? custom : ReflectionProbe.defaultTexture;
-        if (cube == null) { return new SkyBinding(null, Vector4.zero, 0f, 0f); }
+        if (cube == null) { return new SkyBinding(CoreUtils.blackCubeTexture, Vector4.zero, 0f, 0f); }
 
         Vector4 decode = useCustom ? new Vector4(1f, 1f, 0f, 0f) : ReflectionProbe.defaultTextureHDRDecodeValues;
         return new SkyBinding(cube, decode, MipFor(fallback, cube), resolved);

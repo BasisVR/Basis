@@ -14,7 +14,7 @@ namespace UnityEngine.Rendering.Universal
         public StopNanPostProcessPass(Shader shader)
         {
             this.renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing - 1;
-            this.profilingSampler = new ProfilingSampler("Stop NaNs");
+            this.profilingSampler = URPProfilingSamplers.StopNaNs;
 
             m_Material = PostProcessUtils.LoadShader(shader, passName);
             m_IsValid = m_Material != null;

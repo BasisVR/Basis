@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Common;
 using UnityEngine;
 
@@ -7,7 +8,8 @@ namespace Basis.ImagePickup
     /// Tunable limits and persistent runtime options for the image pickup feature.
     /// Caps are enforced on both the sending and receiving side.
     /// </summary>
-    public static class BasisImagePickupSettings
+    [AutoStaticsCleanup]
+    public static partial class BasisImagePickupSettings
     {
         internal readonly struct AnimationMemoryLimits
         {

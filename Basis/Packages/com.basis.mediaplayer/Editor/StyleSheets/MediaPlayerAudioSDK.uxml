@@ -10,8 +10,8 @@
         </engine:Foldout>
 
         <engine:Foldout text="Format" name="FormatFoldout" value="false" class="bvp-foldout">
-            <engine:IntegerField label="Sample Rate" name="SampleRateField" enabled="false" tooltip="Read-only; auto-updated from the decoder."/>
-            <engine:SliderInt label="Channel Count" name="ChannelCountField" low-value="1" high-value="8" show-input-field="true" enabled="false" tooltip="Read-only; auto-updated from the decoder."/>
+            <engine:IntegerField label="Sample Rate" name="SampleRateField" enabled="false" tooltip="Read-only; auto-updated from the engine."/>
+            <engine:SliderInt label="Channel Count" name="ChannelCountField" low-value="1" high-value="8" show-input-field="true" enabled="false" tooltip="Read-only; auto-updated from the engine."/>
         </engine:Foldout>
 
         <engine:Foldout text="Buffering" name="BufferingFoldout" value="false" class="bvp-foldout">

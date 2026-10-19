@@ -1,11 +1,13 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using System.Collections.Generic;
 using System;
 
 namespace Cilbox
 {
+	[AutoStaticsCleanup]
 	[CilboxTarget]
-	public class CilboxAvatarBasis : CilboxBasisCommon
+	public partial class CilboxAvatarBasis : CilboxBasisCommon
 	{
 
 		static readonly HashSet<string> extraWhiteListType = new HashSet<string>(){
@@ -20,6 +22,7 @@ namespace Cilbox
 			"Basis.Shims.BasisPermissionEventShim", // Restrictive, see method whitelist.
 			"Basis.Shims.BasisGraphicsSettingsEventShim", // Restrictive, see method whitelist.
 			"Basis.Shims.BasisPlatformEventShim", // Restrictive, see method whitelist.
+			"Basis.Shims.BasisLanguageEventShim", // Restrictive, see method whitelist.
 			"Basis.Shims.BasisDebugPropsShim",
 			"Basis.Shims.BasisPlayspaceInputShim", // Restrictive, see method whitelist.
 			"Basis.Shims.BasisPlayerInputBlend",
@@ -30,6 +33,23 @@ namespace Cilbox
 			// SkinnedMeshRenderer it holds — only the per-call reflection overhead changes.
 			"Basis.Shims.BasisTransformSyncShim",
 			"Basis.Shims.BasisBlendShapeSyncShim",
+			"Basis.Shims.BasisTransformBatchShim",
+			"Basis.Shims.BasisVectorArrayShim",
+			"Basis.Shims.BasisSphereCastShim",
+			"Basis.Shims.BasisBinaryShim",
+			"Basis.Shims.BasisCompressionShim",
+			"Basis.Shims.BasisSaveShim",
+			"Basis.Shims.BasisServerStorageShim",
+			"Basis.Shims.BasisServerStorageResult",
+			"Basis.Shims.BasisHapticsShim", // Only buzzes the player wearing the avatar.
+			"Basis.Shims.BasisHapticHand",
+			"Basis.Shims.BasisSharedRandomShim",
+			"Basis.Shims.BasisComputeShim",
+			"Basis.Shims.BasisAudioRoutingShim", // Only routes the avatar's own sources, to the Avatars group.
+			"Basis.Shims.BasisStatsShim",
+			"Basis.Shims.BasisMenuShim",
+			"Basis.Shims.BasisMenuPage",
+			"Basis.Shims.BasisMenuItem",
 
 			// HVR Vixxy
 			"HVR.Vixxy.HVRVixxyMenuItem", // Restrictive, see method whitelist.
@@ -74,6 +94,9 @@ namespace Cilbox
 				} },
 			{ typeof(Basis.Shims.BasisPlatformEventShim), new HashSet<string>{
 				nameof(Basis.Shims.BasisPlatformEventShim.Rebind),
+				} },
+			{ typeof(Basis.Shims.BasisLanguageEventShim), new HashSet<string>{
+				nameof(Basis.Shims.BasisLanguageEventShim.Rebind),
 				} },
 			{ typeof(UnityEngine.GameObject), new HashSet<string>{
 				typeof(GameObject).GetProperty(nameof(GameObject.transform)).GetGetMethod().Name,
@@ -125,7 +148,7 @@ namespace Cilbox
 		protected override HashSet<string> ExtraWhiteListFields => extraWhiteListFields;
 		protected override Dictionary<Type, HashSet<string>> ExtraMethodWhitelist => extraMethodWhitelist;
 
-		static readonly HashSet<string> mergedWhiteListType = MergeTypes(extraWhiteListType);
+		[NoAutoStaticsCleanup] static readonly HashSet<string> mergedWhiteListType = MergeTypes(extraWhiteListType);
 		public static HashSet<string> GetWhiteListTypes() => mergedWhiteListType;
 
 		protected override bool ExtraGetTypeOverride(string sType, out Type t)

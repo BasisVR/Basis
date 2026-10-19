@@ -1,8 +1,10 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using System;
 using UnityEngine;
 
-public class SMModuleDistanceBasedReductions : BasisSettingsBase
+[AutoStaticsCleanup]
+public partial class SMModuleDistanceBasedReductions : BasisSettingsBase
 {
     private static float _microphoneRange = 25f * 25f;
     private static float _hearingRange = 25f * 25f;
@@ -19,13 +21,13 @@ public class SMModuleDistanceBasedReductions : BasisSettingsBase
     /// Per-LOD base skip rates. Multiplied by PoseLODBias to produce the actual skip counts.
     /// Index = LOD level (0-3). LOD 0 always updates every frame.
     /// </summary>
-    private static readonly float[] PoseSkipBase = { 0f, 0.25f, 0.75f, 1f };
+    [NoAutoStaticsCleanup] private static readonly float[] PoseSkipBase = { 0f, 0.25f, 0.75f, 1f };
 
     /// <summary>
     /// Computed skip rates. Updated when PoseLODBias changes.
     /// Index = LOD level (0-3). Value = frames to skip between pose updates.
     /// </summary>
-    public static readonly byte[] PoseSkipByLod = { 0, 0, 0, 0 };
+    [NoAutoStaticsCleanup] public static readonly byte[] PoseSkipByLod = { 0, 0, 0, 0 };
 
     private static float _poseLODBias = 0f;
 

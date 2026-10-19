@@ -8,7 +8,7 @@ public partial class BasisHandHeldCamera
     private Material focusPeakingMaterial;
     private bool focusPeakingLive, focusPeakingShaderMissing;
     public bool IsFocusPeaking => focusPeakingLive;
-    private RenderTexture PeakedTexture => focusPeakingLive && focusPeakingTexture != null ? focusPeakingTexture : renderTexture;
+    private RenderTexture PeakedTexture => focusPeakingLive && focusPeakingTexture != null ? focusPeakingTexture : OutputTexture;
     public void SetFocusPeakingEnabled(bool enabled)
     {
         if (focusPeakingEnabled == enabled) return;
@@ -25,7 +25,7 @@ public partial class BasisHandHeldCamera
     public void SetFocusPeakingGreyPicture(bool grey) => focusPeakingGreyPicture = grey;
     private void TickFocusPeaking()
     {
-        if (!focusPeakingEnabled || captureInFlight || renderTexture == null)
+        if (!focusPeakingEnabled || captureInFlight || renderTexture == null || PassOutput != BasisCameraPassOutput.Picture)
         {
             SetFocusPeakingLive(false);
             return;

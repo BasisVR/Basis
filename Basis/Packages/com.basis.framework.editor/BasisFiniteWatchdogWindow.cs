@@ -1,3 +1,4 @@
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEngine;
 
@@ -13,62 +14,55 @@ public class BasisFiniteWatchdogWindow : EditorWindow
     [MenuItem("Basis/Debug/Finite Watchdog", false, 623)]
     static void Open()
     {
-        var window = GetWindow<BasisFiniteWatchdogWindow>("Finite Watchdog");
+        var window = GetWindow<BasisFiniteWatchdogWindow>(BasisEditorLocalization.Get("editor.finiteWatchdog.title"));
         window.minSize = new Vector2(420f, 220f);
     }
 
     void OnGUI()
     {
-        BasisEditorUI.Header("Finite Watchdog",
-            "Hunts the first non-finite value behind Invalid AABB / IsFinite spam.");
+        BasisEditorUI.Header(BasisEditorLocalization.Get("editor.finiteWatchdog.title"),
+            BasisEditorLocalization.Get("editor.finiteWatchdog.subtitle"));
 
-        EditorGUILayout.HelpBox(
-            "Hunts the first NaN behind 'Invalid AABB' / 'IsFinite(distanceForSort)' spam. " +
-            "While armed: every stage in the frame that writes transforms is bracketed by a " +
-            "local-space scan (local player + remote players), cameras + local avatar root are " +
-            "checked every frame, and every renderer's bounds on the sweep cadence. The first hit " +
-            "logs one [FiniteWatchdog] error naming the object, the stage that wrote it and its " +
-            "ancestor chain, then the watchdog disarms.",
-            MessageType.Info);
+        EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.finiteWatchdog.help"), MessageType.Info);
 
-        BasisFiniteWatchdog.Enabled = EditorGUILayout.ToggleLeft("Enabled (scans while in play mode)", BasisFiniteWatchdog.Enabled);
+        BasisFiniteWatchdog.Enabled = EditorGUILayout.ToggleLeft(BasisEditorLocalization.Get("editor.finiteWatchdog.enabled"), BasisFiniteWatchdog.Enabled);
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
         BasisFiniteWatchdog.FullSweepIntervalSeconds = EditorGUILayout.Slider(
-            new GUIContent("Renderer sweep interval (s)", "How often the all-renderers bounds sweep runs. The per-frame camera/root checks are free."),
+            new GUIContent(BasisEditorLocalization.Get("editor.finiteWatchdog.sweepInterval"), BasisEditorLocalization.Get("editor.finiteWatchdog.sweepInterval.tooltip")),
             BasisFiniteWatchdog.FullSweepIntervalSeconds, 0.25f, 10f);
 
         BasisFiniteWatchdog.ScanRemotePlayers = EditorGUILayout.ToggleLeft(
-            new GUIContent("Scan remote players", "Include remote avatars, mouth markers and nameplates in the stage checkpoints. Remote and local avatars share slot-indexed job state, so a corrupt remote is usually how corruption reaches the local one."),
+            new GUIContent(BasisEditorLocalization.Get("editor.finiteWatchdog.scanRemote"), BasisEditorLocalization.Get("editor.finiteWatchdog.scanRemote.tooltip")),
             BasisFiniteWatchdog.ScanRemotePlayers);
 
         using (new EditorGUI.DisabledScope(!BasisFiniteWatchdog.ScanRemotePlayers))
         {
             BasisFiniteWatchdog.RemotePlayersPerCheckpoint = EditorGUILayout.IntSlider(
-                new GUIContent("Remote players / checkpoint", "Remote avatars visited per remote checkpoint. The cursor carries across calls, so the whole lobby is still covered — just spread over frames. 0 scans everyone every time."),
+                new GUIContent(BasisEditorLocalization.Get("editor.finiteWatchdog.remotePerCheckpoint"), BasisEditorLocalization.Get("editor.finiteWatchdog.remotePerCheckpoint.tooltip")),
                 BasisFiniteWatchdog.RemotePlayersPerCheckpoint, 0, 32);
         }
 
         BasisFiniteWatchdog.IgnorePreexisting = EditorGUILayout.ToggleLeft(
-            new GUIContent("Ignore pre-existing damage", "Arming an already-exploded avatar otherwise re-reports the same dead bone at the first checkpoint every time, which names a victim rather than a writer. With this on, everything already bad during the prime window is recorded and skipped, so the next report is a value that was finite and just became bad."),
+            new GUIContent(BasisEditorLocalization.Get("editor.finiteWatchdog.ignorePreexisting"), BasisEditorLocalization.Get("editor.finiteWatchdog.ignorePreexisting.tooltip")),
             BasisFiniteWatchdog.IgnorePreexisting);
 
         using (new EditorGUI.DisabledScope(!BasisFiniteWatchdog.IgnorePreexisting))
         {
             BasisFiniteWatchdog.PrimeFrames = EditorGUILayout.IntSlider(
-                new GUIContent("Prime frames", "How long after arming to record bad values instead of reporting them. Must outlast a full remote round-robin sweep."),
+                new GUIContent(BasisEditorLocalization.Get("editor.finiteWatchdog.primeFrames"), BasisEditorLocalization.Get("editor.finiteWatchdog.primeFrames.tooltip")),
                 BasisFiniteWatchdog.PrimeFrames, 1, 240);
         }
 
         using (new EditorGUILayout.HorizontalScope())
         {
-            string state = !BasisFiniteWatchdog.Enabled ? "Off"
-                : BasisFiniteWatchdog.Disarmed ? "TRIPPED — report below"
-                : !Application.isPlaying ? "Armed, waiting for play mode"
-                : BasisFiniteWatchdog.Priming ? $"Priming — {BasisFiniteWatchdog.PrimeFramesRemaining} frames left"
-                : "Armed, scanning";
-            EditorGUILayout.LabelField("State", state);
-            if (GUILayout.Button("Re-arm", GUILayout.Width(80f)))
+            string state = !BasisFiniteWatchdog.Enabled ? BasisEditorLocalization.Get("editor.common.off")
+                : BasisFiniteWatchdog.Disarmed ? BasisEditorLocalization.Get("editor.finiteWatchdog.stateTripped")
+                : !Application.isPlaying ? BasisEditorLocalization.Get("editor.finiteWatchdog.stateWaiting")
+                : BasisFiniteWatchdog.Priming ? BasisEditorLocalization.Get("editor.finiteWatchdog.statePriming", BasisFiniteWatchdog.PrimeFramesRemaining)
+                : BasisEditorLocalization.Get("editor.finiteWatchdog.stateScanning");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.finiteWatchdog.state"), state);
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.finiteWatchdog.rearm"), GUILayout.Width(80f)))
             {
                 BasisFiniteWatchdog.Rearm();
             }
@@ -76,21 +70,21 @@ public class BasisFiniteWatchdogWindow : EditorWindow
 
         if (BasisFiniteWatchdog.IgnoredCount > 0)
         {
-            EditorGUILayout.LabelField("Skipping (already bad)", $"{BasisFiniteWatchdog.IgnoredCount} value(s) recorded during priming");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.finiteWatchdog.skipping"), BasisEditorLocalization.Get("editor.finiteWatchdog.skippingValue", BasisFiniteWatchdog.IgnoredCount));
         }
 
-        EditorGUILayout.LabelField("Coverage last frame",
-            $"{BasisFiniteWatchdog.CheckpointsLastFrame} checkpoints, {BasisFiniteWatchdog.TransformsScannedLastFrame} transforms read");
-        EditorGUILayout.LabelField("Last clean stage",
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.finiteWatchdog.coverage"),
+            BasisEditorLocalization.Get("editor.finiteWatchdog.coverageValue", BasisFiniteWatchdog.CheckpointsLastFrame, BasisFiniteWatchdog.TransformsScannedLastFrame));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.finiteWatchdog.lastCleanStage"),
             string.IsNullOrEmpty(BasisFiniteWatchdog.LastCleanStage) ? "—" : BasisFiniteWatchdog.LastCleanStage);
 
         if (!string.IsNullOrEmpty(BasisFiniteWatchdog.LastReport))
         {
-            BasisEditorUI.SectionTitle("Last report");
+            BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.finiteWatchdog.lastReport"));
             _scroll = EditorGUILayout.BeginScrollView(_scroll);
             EditorGUILayout.TextArea(BasisFiniteWatchdog.LastReport, GUILayout.ExpandHeight(true));
             EditorGUILayout.EndScrollView();
-            if (GUILayout.Button("Copy report to clipboard"))
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.finiteWatchdog.copyReport")))
             {
                 EditorGUIUtility.systemCopyBuffer = BasisFiniteWatchdog.LastReport;
             }

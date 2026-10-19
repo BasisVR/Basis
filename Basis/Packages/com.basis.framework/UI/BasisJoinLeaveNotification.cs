@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
@@ -18,7 +19,8 @@ namespace Basis.Scripts.UI
     /// Object pool pre-allocates MaxMessages slots, reuses GameObjects.
     /// Mesh cache avoids regenerating identical rounded quads.
     /// </summary>
-    public static class BasisJoinLeaveNotification
+    [AutoStaticsCleanup]
+    public static partial class BasisJoinLeaveNotification
     {
         public static float MessageDuration = 5f;
         public static int MaxMessages = 5;
@@ -45,7 +47,12 @@ namespace Basis.Scripts.UI
         private static bool initialized;
         private static MaterialPropertyBlock mpb;
         private static Material cachedMaterial;
+        private static bool ownsMaterial;
+        private static int hudLayer;
+        private const string OverlayShaderName = "Basis/UI/Main";
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int OverlayColorId = Shader.PropertyToID("_Color");
+        private static int backgroundColorId = BaseColorId;
 
         private class NotificationSlot
         {
@@ -66,7 +73,9 @@ namespace Basis.Scripts.UI
                 return;
             }
 
+            hudLayer = Mathf.Max(0, LayerMask.NameToLayer("OverlayUI"));
             GameObject go = new GameObject("BasisJoinLeaveNotification");
+            go.layer = hudLayer;
             Object.DontDestroyOnLoad(go);
             root = go.transform;
             mpb = new MaterialPropertyBlock();
@@ -110,7 +119,12 @@ namespace Basis.Scripts.UI
                 root = null;
             }
 
+            if (ownsMaterial && cachedMaterial != null)
+            {
+                Object.Destroy(cachedMaterial);
+            }
             cachedMaterial = null;
+            ownsMaterial = false;
             mpb = null;
             initialized = false;
         }
@@ -153,7 +167,7 @@ namespace Basis.Scripts.UI
                     Color bg = BackgroundColor;
                     bg.a = alpha;
                     slot.BgRenderer.GetPropertyBlock(mpb, 0);
-                    mpb.SetColor(BaseColorId, bg);
+                    mpb.SetColor(backgroundColorId, bg);
                     slot.BgRenderer.SetPropertyBlock(mpb, 0);
                 }
             }
@@ -182,7 +196,19 @@ namespace Basis.Scripts.UI
             {
                 return;
             }
-            cachedMaterial = BasisRemoteNamePlateDriver.SelectedNamePlateMaterial;
+            Shader overlay = Shader.Find(OverlayShaderName);
+            if (overlay != null)
+            {
+                cachedMaterial = new Material(overlay) { name = "JoinLeaveNotification (runtime)" };
+                ownsMaterial = true;
+                backgroundColorId = OverlayColorId;
+            }
+            else
+            {
+                cachedMaterial = BasisRemoteNamePlateDriver.SelectedNamePlateMaterial;
+                ownsMaterial = false;
+                backgroundColorId = BaseColorId;
+            }
         }
 
         private static void PrewarmPool()
@@ -198,9 +224,11 @@ namespace Basis.Scripts.UI
             NotificationSlot slot = new NotificationSlot();
 
             slot.Root = new GameObject("Notification");
+            slot.Root.layer = hudLayer;
             slot.Root.transform.SetParent(root, false);
 
             slot.BgObj = new GameObject("Background");
+            slot.BgObj.layer = hudLayer;
             slot.BgObj.transform.SetParent(slot.Root.transform, false);
             slot.BgObj.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.Euler(0, 180, 0));
             slot.BgObj.transform.localScale = Vector3.one;
@@ -212,6 +240,7 @@ namespace Basis.Scripts.UI
             slot.BgRenderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
 
             slot.TextObj = new GameObject("Text");
+            slot.TextObj.layer = hudLayer;
             slot.TextObj.transform.SetParent(slot.Root.transform, false);
             slot.TextObj.transform.SetLocalPositionAndRotation(new Vector3(0f, 0f, -0.5f), Quaternion.identity);
             slot.TextObj.transform.localScale = Vector3.one;
@@ -248,7 +277,7 @@ namespace Basis.Scripts.UI
         {
             slot.Root.SetActive(false);
             slot.BgRenderer.GetPropertyBlock(mpb, 0);
-            mpb.SetColor(BaseColorId, BackgroundColor);
+            mpb.SetColor(backgroundColorId, BackgroundColor);
             slot.BgRenderer.SetPropertyBlock(mpb, 0);
             pool.Push(slot);
         }
@@ -318,7 +347,7 @@ namespace Basis.Scripts.UI
 
             slot.BgFilter.sharedMesh = GetOrCreateMesh(halfWidth, halfHeight);
             slot.BgRenderer.GetPropertyBlock(mpb, 0);
-            mpb.SetColor(BaseColorId, BackgroundColor);
+            mpb.SetColor(backgroundColorId, BackgroundColor);
             slot.BgRenderer.SetPropertyBlock(mpb, 0);
             slot.Root.SetActive(true);
 
@@ -353,7 +382,12 @@ namespace Basis.Scripts.UI
             Vector3[] v = new Vector3[vertexCount];
             Vector3[] n = new Vector3[vertexCount];
             Vector2[] uv = new Vector2[vertexCount];
+            Color32[] c = new Color32[vertexCount];
             int[] t = new int[ringVertexCount * 3];
+            for (int i = 0; i < vertexCount; i++)
+            {
+                c[i] = new Color32(255, 255, 255, 255);
+            }
 
             float width = halfWidth * 2f;
             float height = halfHeight * 2f;
@@ -411,6 +445,7 @@ namespace Basis.Scripts.UI
                 vertices = v,
                 normals = n,
                 uv = uv,
+                colors32 = c,
                 triangles = t
             };
         }

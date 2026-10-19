@@ -58,6 +58,9 @@ namespace UnityEngine.Rendering.Universal
     {
         const int k_FinalBlitPassQueueOffset = 1;
         const int k_AfterFinalBlitPassQueueOffset = k_FinalBlitPassQueueOffset + 1;
+#if ENABLE_VR && ENABLE_XR_MODULE
+        const int k_AfterXRCopyDepthQueueOffset = k_AfterFinalBlitPassQueueOffset + 1;
+#endif
 
         /// <inheritdoc/>
         public override int SupportedCameraStackingTypes()
@@ -92,10 +95,22 @@ namespace UnityEngine.Rendering.Universal
         // Rendering mode setup from UI. The final rendering mode used can be different. See renderingModeActual.
         internal RenderingMode renderingModeRequested => m_RenderingMode;
 
+        // Returns current backbuffer MSAA. Under XR the backbuffer MSAA is the XR display MSAA.
+        internal int CurrentBackbufferMSAASamples()
+        {
+            if (frameData.Contains<UniversalCameraData>() && frameData.Get<UniversalCameraData>().xrRendering)
+                return (int)XRSystem.GetDisplayMSAASamples();
+            return Screen.currentBackbufferMSAASamples;
+        }
+
+        // Whether shadowmap textures should be allocated with stencil bits.
+        internal bool shadowmapStencil => m_ShadowmapStencil;
+
         bool deferredModeUnsupported => GL.wireframe ||
                                               (DebugHandler != null && DebugHandler.IsActiveModeUnsupportedForDeferred) ||
                                               m_DeferredLights == null ||
-                                              !m_DeferredLights.IsRuntimeSupportedThisFrame();
+                                              !m_DeferredLights.IsRuntimeSupportedThisFrame() ||
+                                              (useTileOnlyMode && CurrentBackbufferMSAASamples() > 1);
 
         // Actual rendering mode, which may be different (ex: wireframe rendering, hardware not capable of deferred rendering).
         internal RenderingMode renderingModeActual  {
@@ -132,8 +147,7 @@ namespace UnityEngine.Rendering.Universal
         DepthOnlyPass m_DepthPrepass;
         DepthNormalOnlyPass m_DepthNormalPrepass;
         MotionVectorRenderPass m_MotionVectorPass;
-        MainLightShadowCasterPass m_MainLightShadowCasterPass;
-        AdditionalLightsShadowCasterPass m_AdditionalLightsShadowCasterPass;
+        ShadowPassGroup m_ShadowPassGroup;
         GBufferPass m_GBufferPass;
         DeferredPass m_DeferredPass;
         DrawObjectsPass m_RenderOpaqueForwardOnlyPass;
@@ -142,7 +156,6 @@ namespace UnityEngine.Rendering.Universal
         DrawSkyboxPass m_DrawSkyboxPass;
         CopyDepthPass m_CopyDepthPass;
         CopyColorPass m_CopyColorPass;
-        TransparentSettingsPass m_TransparentSettingsPass;
         DrawObjectsPass m_RenderTransparentForwardPass;
         InvokeOnRenderObjectCallbackPass m_OnRenderObjectCallbackPass;
         FinalBlitPass m_FinalBlitPass;
@@ -152,6 +165,7 @@ namespace UnityEngine.Rendering.Universal
         XROcclusionMeshPass m_XROcclusionMeshPass;
         CopyDepthPass m_XRCopyDepthPass;
         XRDepthMotionPass m_XRDepthMotionPass;
+        XRQuadViewPrepass m_XRQuadViewPrepass;
 #endif
 #if UNITY_EDITOR
         CopyDepthPass m_FinalDepthCopyPass;
@@ -161,7 +175,10 @@ namespace UnityEngine.Rendering.Universal
         DrawScreenSpaceUIPass m_DrawOverlayUIPass;
 
         CopyColorPass m_HistoryRawColorCopyPass;
+        CopyColorPass m_HistoryBeforeTransparentsColorCopyPass;
         CopyDepthPass m_HistoryRawDepthCopyPass;
+
+        ExposurePass m_ExposurePass;
 
         StencilCrossFadeRenderPass m_StencilCrossFadeRenderPass;
 
@@ -175,6 +192,7 @@ namespace UnityEngine.Rendering.Universal
         CopyDepthMode m_CopyDepthMode;
         DepthFormat m_CameraDepthAttachmentFormat;
         DepthFormat m_CameraDepthTextureFormat;
+        bool m_ShadowmapStencil;
         StencilState m_DefaultStencilState;
         LightCookieManager m_LightCookieManager;
         IntermediateTextureMode m_IntermediateTextureMode;
@@ -184,19 +202,24 @@ namespace UnityEngine.Rendering.Universal
         Material m_BlitHDRMaterial = null;
         Material m_SamplingMaterial = null;
         Material m_BlitOffscreenUICoverMaterial = null;
+        Material m_BackdropFilterCompositeMaterial = null;
         Material m_StencilDeferredMaterial = null;
         Material m_ClusterDeferredMaterial = null;
         Material m_CameraMotionVecMaterial = null;
+        Material m_QuadViewInsetOccluderMaterial = null;
 
         // Is the internal post processing of the renderer enabled.
         // This does not include post processing in extensions.
         // If post processing is enabled on the camera, and on the renderer, then
         // the internal post processing passes will be added.
         // Validation can still turn this off so it's not a direct view on the
-        // serialized renderer data. 
+        // serialized renderer data.
         internal bool postProcessEnabled { get; set; }
 
         internal DeferredLights deferredLights { get => m_DeferredLights; }
+#if VOLUMETRIC_FOG
+        internal ForwardLights forwardLights { get => m_ForwardLights; }
+#endif
         internal LayerMask prepassLayerMask { get; set; }
         internal LayerMask opaqueLayerMask { get; set; }
         internal LayerMask transparentLayerMask { get; set; }
@@ -224,7 +247,13 @@ namespace UnityEngine.Rendering.Universal
             if (GraphicsSettings.TryGetRenderPipelineSettings<UniversalRenderPipelineRuntimeXRResources>(out var xrResources))
             {
                 Experimental.Rendering.XRSystem.Initialize(XRPassUniversal.Create, xrResources.xrOcclusionMeshPS, xrResources.xrMirrorViewPS);
-                m_XRDepthMotionPass = new XRDepthMotionPass(RenderPassEvent.BeforeRenderingPrePasses, xrResources.xrMotionVector, data.transparentLayerMask);
+                m_XRDepthMotionPass = new XRDepthMotionPass(RenderPassEvent.AfterRendering + k_AfterXRCopyDepthQueueOffset, xrResources.xrMotionVector, data.transparentLayerMask);
+
+                if (xrResources.xrQuadViewInsetOccluderPS != null)
+                    m_QuadViewInsetOccluderMaterial = CoreUtils.CreateEngineMaterial(xrResources.xrQuadViewInsetOccluderPS);
+
+                if (data.renderingMode == RenderingMode.Deferred || data.renderingMode == RenderingMode.DeferredPlus)
+                    m_XRQuadViewPrepass = new XRQuadViewPrepass(m_QuadViewInsetOccluderMaterial);
             }
 #endif
             if (GraphicsSettings.TryGetRenderPipelineSettings<UniversalRenderPipelineRuntimeShaders>(
@@ -235,6 +264,7 @@ namespace UnityEngine.Rendering.Universal
                 m_SamplingMaterial = CoreUtils.CreateEngineMaterial(shadersResources.samplingPS);
                 // Share viewport for all the cameras.
                 m_BlitOffscreenUICoverMaterial = CoreUtils.CreateEngineMaterial(shadersResources.blitHDROverlay);
+                m_BackdropFilterCompositeMaterial = CoreUtils.CreateEngineMaterial(shadersResources.uiBackdropFilterCompositePS);
             }
 
             Shader copyDephPS = null;
@@ -256,6 +286,8 @@ namespace UnityEngine.Rendering.Universal
             m_DefaultStencilState.SetPassOperation(stencilData.passOperation);
             m_DefaultStencilState.SetFailOperation(stencilData.failOperation);
             m_DefaultStencilState.SetZFailOperation(stencilData.zFailOperation);
+            m_DefaultStencilState.readMask = (byte)stencilData.stencilReadMask;
+            m_DefaultStencilState.writeMask = (byte)stencilData.stencilWriteMask;
 
             m_IntermediateTextureMode = data.intermediateTextureMode;
             prepassLayerMask = data.prepassLayerMask;
@@ -265,8 +297,15 @@ namespace UnityEngine.Rendering.Universal
 
             useTileOnlyMode = data.tileOnlyMode;
 
-            // The On-Tile Renderer does not support WebGL. 
+            // The On-Tile Renderer does not support WebGL.
             if (useTileOnlyMode && IsWebGL())
+            {
+                useTileOnlyMode = false;
+            }
+
+            // Tile-Only can't do the linear->sRGB present conversion on-tile: a non-sRGB
+            // backbuffer forces a sampling final blit, which the on-tile path forbids.
+            if (useTileOnlyMode && Display.main.requiresSrgbBlitToBackbuffer)
             {
                 useTileOnlyMode = false;
             }
@@ -305,6 +344,7 @@ namespace UnityEngine.Rendering.Universal
             this.m_CopyDepthMode = data.copyDepthMode;
             this.m_CameraDepthAttachmentFormat = data.depthAttachmentFormat;
             this.m_CameraDepthTextureFormat = data.depthTextureFormat;
+            this.m_ShadowmapStencil = data.shadowmapStencil;
             this.postProcessEnabled = data.postProcessData != null;
             this.name = data.name;
 
@@ -314,7 +354,7 @@ namespace UnityEngine.Rendering.Universal
             // incompatible settings. The reason is that this automatic fixing has downsides for the users: if they toggle the Tile-Only
             // setting, they get a different mix of settings with different visual results. Also the URP asset can have incompabitle settings.
             // However, because these can be shared between different renderers, we can't log warnings. We also have warnings in the
-            // Inspector UI but these can easily be missed by the user. 
+            // Inspector UI but these can easily be missed by the user.
             if (useTileOnlyMode)
             {
                 if (postProcessEnabled)
@@ -326,18 +366,10 @@ namespace UnityEngine.Rendering.Universal
                     // renderer because this is not on-tile compatible currently.
                     postProcessEnabled = false;
                 }
-
-                if (renderingModeRequested == RenderingMode.Deferred || renderingModeRequested == RenderingMode.DeferredPlus)
-                {
-                    Debug.LogWarning($"Rendering path Deferred on the URP Renderer '{data.name}' is not compatible with the enabled Tile-Only Mode setting. Change this to Forward(+) on the renderer asset.");
-                }                
             }
 
-            // Note: Since all custom render passes inject first and we have stable sort,
-            // we inject the builtin passes in the before events.
-            m_MainLightShadowCasterPass = new MainLightShadowCasterPass(RenderPassEvent.BeforeRenderingShadows);
-            m_AdditionalLightsShadowCasterPass = new AdditionalLightsShadowCasterPass(RenderPassEvent.BeforeRenderingShadows);
-
+            m_ExposurePass = new ExposurePass();
+            m_ShadowPassGroup = new ShadowPassGroup();
 #if ENABLE_VR && ENABLE_XR_MODULE
             m_XROcclusionMeshPass = new XROcclusionMeshPass(RenderPassEvent.BeforeRenderingOpaques);
             // Schedule XR copydepth right after m_FinalBlitPass
@@ -377,8 +409,8 @@ namespace UnityEngine.Rendering.Universal
             }
 
             // Always create this pass even in deferred because we use it for wireframe rendering in the Editor or offscreen depth texture rendering.
-            m_RenderOpaqueForwardPass = new DrawObjectsPass(URPProfileId.DrawOpaqueObjects, true, RenderPassEvent.BeforeRenderingOpaques, RenderQueueRange.opaque, data.opaqueLayerMask, m_DefaultStencilState, stencilData.stencilReference);
-            m_RenderOpaqueForwardWithRenderingLayersPass = new DrawObjectsWithRenderingLayersPass(URPProfileId.DrawOpaqueObjects, true, RenderPassEvent.BeforeRenderingOpaques, RenderQueueRange.opaque, data.opaqueLayerMask, m_DefaultStencilState, stencilData.stencilReference);
+            m_RenderOpaqueForwardPass = new DrawObjectsPass(URPProfilingSamplers.DrawOpaqueObjects, true, RenderPassEvent.BeforeRenderingOpaques, RenderQueueRange.opaque, data.opaqueLayerMask, m_DefaultStencilState, stencilData.stencilReference);
+            m_RenderOpaqueForwardWithRenderingLayersPass = new DrawObjectsWithRenderingLayersPass(URPProfilingSamplers.DrawOpaqueObjects, true, RenderPassEvent.BeforeRenderingOpaques, RenderQueueRange.opaque, data.opaqueLayerMask, m_DefaultStencilState, stencilData.stencilReference);
 
             //This is calculated later for RG, so dummy value.
             RenderPassEvent copyDepthEvent = RenderPassEvent.AfterRenderingSkybox;
@@ -397,19 +429,19 @@ namespace UnityEngine.Rendering.Universal
             if (needTransparencyPass)
 #endif
             {
-                m_TransparentSettingsPass = new TransparentSettingsPass(RenderPassEvent.BeforeRenderingTransparents, data.shadowTransparentReceive);
-                m_RenderTransparentForwardPass = new DrawObjectsPass(URPProfileId.DrawTransparentObjects, false, RenderPassEvent.BeforeRenderingTransparents, RenderQueueRange.transparent, data.transparentLayerMask, m_DefaultStencilState, stencilData.stencilReference);
+                m_RenderTransparentForwardPass = new DrawObjectsPass(URPProfilingSamplers.DrawTransparentObjects, false, RenderPassEvent.BeforeRenderingTransparents, RenderQueueRange.transparent, data.transparentLayerMask, m_DefaultStencilState, stencilData.stencilReference);
             }
             m_OnRenderObjectCallbackPass = new InvokeOnRenderObjectCallbackPass(RenderPassEvent.BeforeRenderingPostProcessing);
 
             // History generation passes for "raw color/depth". These execute only if explicitly requested by users.
             // VFX system particles uses these. See RawColorHistory.cs.
             m_HistoryRawColorCopyPass = new CopyColorPass(RenderPassEvent.BeforeRenderingPostProcessing, m_SamplingMaterial, m_BlitMaterial, customPassName: "Copy Color Raw History");
+            m_HistoryBeforeTransparentsColorCopyPass = new CopyColorPass(RenderPassEvent.BeforeRenderingTransparents, m_SamplingMaterial, m_BlitMaterial, customPassName: "Copy Color History Before Transparents");
             m_HistoryRawDepthCopyPass = new CopyDepthPass(RenderPassEvent.BeforeRenderingPostProcessing, copyDephPS, false, customPassName: "Copy Depth Raw History");
 
             m_DrawOffscreenUIPass = new DrawScreenSpaceUIPass(RenderPassEvent.BeforeRenderingPostProcessing);
-            m_DrawOverlayUIPass = new DrawScreenSpaceUIPass(RenderPassEvent.AfterRendering + k_AfterFinalBlitPassQueueOffset); // after m_FinalBlitPass
-                        
+            m_DrawOverlayUIPass = new DrawScreenSpaceUIPass(RenderPassEvent.AfterRendering + k_AfterFinalBlitPassQueueOffset, m_BackdropFilterCompositeMaterial, m_BlitMaterial); // after m_FinalBlitPass
+
             if (postProcessEnabled)
             {
                 Debug.Assert(data.postProcessData != null);
@@ -434,8 +466,10 @@ namespace UnityEngine.Rendering.Universal
 
         internal override void UpdateSupportedRenderingFeatures()
         {
+            supportedRenderingFeatures.deferredLighting = renderingModeRequested is RenderingMode.Deferred or RenderingMode.DeferredPlus;
+
             if (useTileOnlyMode)
-            {                
+            {
                 supportedRenderingFeatures.supportsHDR = false;         // We need a blit pass to support hdr.
                 supportedRenderingFeatures.postProcessing = false;      // Internal pp does not support on-tile.
                 supportedRenderingFeatures.cameraOpaqueTexture = false;
@@ -443,28 +477,18 @@ namespace UnityEngine.Rendering.Universal
                 supportedRenderingFeatures.upscaling = PlatformAutoDetect.isXRMobile;
                 supportedRenderingFeatures.antiAliasing = false;
                 supportedRenderingFeatures.gpuOcclusionCulling = false;
-                supportedRenderingFeatures.deferredLighting = false;
                 supportedRenderingFeatures.overlayCamera = false;
-
-                // If a device requires explicit msaa resolve, that means that the backbuffer
-                // can't have msaa. In regular rendering, we can render to msaa intermediate
-                // textures and blit the resolved textures. However, in on-tile mode, this
-                // would break the render pass so we need to ensure the intermediate textures
-                // have the same msaa count as the backbuffer (ie 1).
-                supportedRenderingFeatures.msaa = !UniversalRenderer.PlatformRequiresExplicitMsaaResolve() && SystemInfo.supportsMultisampledBackBuffer && !supportedRenderingFeatures.deferredLighting;
             }
             else
             {
-                supportedRenderingFeatures.supportsHDR = true; 
+                supportedRenderingFeatures.supportsHDR = true;
                 supportedRenderingFeatures.postProcessing = postProcessEnabled;
                 supportedRenderingFeatures.cameraOpaqueTexture = true;
                 supportedRenderingFeatures.cameraDepthTexture = true;
                 supportedRenderingFeatures.upscaling = true;
                 supportedRenderingFeatures.antiAliasing = true;
                 supportedRenderingFeatures.gpuOcclusionCulling = true;
-                supportedRenderingFeatures.deferredLighting = renderingModeRequested is RenderingMode.Deferred or RenderingMode.DeferredPlus;
                 supportedRenderingFeatures.overlayCamera = !supportedRenderingFeatures.deferredLighting;
-                supportedRenderingFeatures.msaa = !supportedRenderingFeatures.deferredLighting;
             }
 
             foreach (var feature in rendererFeatures)
@@ -476,21 +500,23 @@ namespace UnityEngine.Rendering.Universal
                     supportedRenderingFeatures.postProcessing   |= feature.supportedRenderingFeatures.postProcessing;
                 }
             }
+            supportedRenderingFeatures.msaa = !supportedRenderingFeatures.deferredLighting;
 
-            // Setting the engine wide feature flags here as well. We can likely phase these out. 
+            // Setting the engine wide feature flags here as well. We can likely phase these out.
             SupportedRenderingFeatures.active.supportsHDR = supportedRenderingFeatures.supportsHDR;
-        }        
+        }
 
         /// <inheritdoc />
         protected override void Dispose(bool disposing)
         {
             m_ForwardLights.Cleanup();
+            m_GlobalShaderVariablesUploader?.Release();
 
             m_FinalBlitPass?.Dispose();
             m_OffscreenUICoverPrepass?.Dispose();
             m_DrawOffscreenUIPass?.Dispose();
             m_DrawOverlayUIPass?.Dispose();
-
+            m_ShadowPassGroup.Dispose();
             m_CopyDepthPass?.Dispose();
 #if UNITY_EDITOR
             m_FinalDepthCopyPass?.Dispose();
@@ -517,9 +543,11 @@ namespace UnityEngine.Rendering.Universal
             CoreUtils.Destroy(m_BlitHDRMaterial);
             CoreUtils.Destroy(m_BlitOffscreenUICoverMaterial);
             CoreUtils.Destroy(m_SamplingMaterial);
+            CoreUtils.Destroy(m_BackdropFilterCompositeMaterial);
             CoreUtils.Destroy(m_StencilDeferredMaterial);
             CoreUtils.Destroy(m_ClusterDeferredMaterial);
             CoreUtils.Destroy(m_CameraMotionVecMaterial);
+            CoreUtils.Destroy(m_QuadViewInsetOccluderMaterial);
 
             CleanupRenderGraphResources();
 
@@ -532,8 +560,7 @@ namespace UnityEngine.Rendering.Universal
 
         internal override void ReleaseRenderTargets()
         {
-            m_MainLightShadowCasterPass?.Dispose();
-            m_AdditionalLightsShadowCasterPass?.Dispose();
+            m_ShadowPassGroup.ReleaseRenderTargets();
         }
 
         /// <summary>
@@ -603,7 +630,7 @@ namespace UnityEngine.Rendering.Universal
             if (cameraData != null && cameraData.historyManager != null)
             {
                 var vfxBufferNeeded = VFX.VFXManager.IsCameraBufferNeeded(cameraData.camera);
-                if (vfxBufferNeeded.HasFlag(VFX.VFXCameraBufferTypes.Color))
+                if ((vfxBufferNeeded & VFX.VFXCameraBufferTypes.Color) != 0)
                 {
                     cameraData.historyManager.RequestAccess<RawColorHistory>();
 
@@ -612,7 +639,7 @@ namespace UnityEngine.Rendering.Universal
                         (int)(cameraData.pixelWidth * cameraData.renderScale), (int)(cameraData.pixelHeight * cameraData.renderScale));
                 }
 
-                if (vfxBufferNeeded.HasFlag(VFX.VFXCameraBufferTypes.Depth))
+                if ((vfxBufferNeeded & VFX.VFXCameraBufferTypes.Depth) != 0)
                 {
                     cameraData.historyManager.RequestAccess<RawDepthHistory>();
 
@@ -646,12 +673,15 @@ namespace UnityEngine.Rendering.Universal
                 cullingParameters.cullingOptions &= ~CullingOptions.ShadowCasters;
             }
 
+            cullingParameters.cullingOptions |= CullingOptions.SkipTexturelessReflectionProbes;
+
             if (usesClusterLightLoop)
             {
                 // We don't add one to the maximum light because mainlight is treated as any other light.
                 cullingParameters.maximumVisibleLights = UniversalRenderPipeline.maxVisibleAdditionalLights;
-                // Do not sort reflection probe from engine it will come in reverse order from what we need.
-                cullingParameters.reflectionProbeSortingCriteria = ReflectionProbeSortingCriteria.None;
+                // Sort probes so the most important, smallest probes come first,
+                // matching the shader's ascending iteration order (firstbitlow).
+                cullingParameters.reflectionProbeSortingCriteria = ReflectionProbeSortingCriteria.ImportanceThenSizeInverse;
             }
             else if (renderingModeActual == RenderingMode.Deferred)
             {
@@ -678,6 +708,28 @@ namespace UnityEngine.Rendering.Universal
         {
         }
 
+        // Together, RenderStages and RenderPassInputSummary form the configuration of the render pipeline for a frame.
+        // They bake down raw settings and per-pass requirements into high-level decisions that drive recording.
+        // This is a step toward a more functional architecture: methods that consume these structs can eventually
+        // become static, reducing side effects and making the pipeline easier to reason about and test in isolation.
+        // Over time, more settings should be folded into these structs so that the recording methods are fully
+        // decoupled from scattered state.
+
+        // Aggregates decisions regarding which rendering stages will actually execute this frame. Derived from
+        // camera settings, culling masks, shadow distance, and technique requirements (e.g. depth priming).
+        struct RenderStages
+        {
+            internal bool drawShadowPasses;
+            internal bool drawPrepass;
+            internal bool drawOpaquePass;
+            internal bool drawTransparentPass;
+            internal bool drawDeferredLightingPass;
+        }
+
+        // Aggregates texture and resource requirements declared by ScriptableRenderPasses and internal features.
+        // It exists to resolve the dependencies of injected passes before recording; the internal passes declare
+        // their resource use to RenderGraph directly. As such it is essentially an optimization: RenderGraph could
+        // derive the same information on its own, but only after recording and culling the passes.
         struct RenderPassInputSummary
         {
             internal bool requiresDepthTexture;
@@ -717,7 +769,7 @@ namespace UnityEngine.Rendering.Universal
         }
 
         void AddRequirementsOfInternalFeatures(ref RenderPassInputSummary inputSummary, UniversalCameraData cameraData, bool postProcessingEnabled, bool renderingLayerProvidesByDepthNormalPass, MotionVectorRenderPass motionVectorPass, CopyDepthMode copyDepthMode)
-        {          
+        {
             if(cameraData.requiresDepthTexture)
             {
                 inputSummary.requiresDepthTexture = true;
@@ -737,12 +789,18 @@ namespace UnityEngine.Rendering.Universal
 
             inputSummary.requiresColorTexture |= cameraData.requiresOpaqueTexture;
 
-            // Object motion blur requires motion vectors.
+            // CameraAndObjects needs the motion vector textures; CameraOnly reads no textures but still consumes the camera history,
+            // so it must arm the engine's motion vector frame index.
             if (postProcessingEnabled)
             {
                 var motionBlur = VolumeManager.instance.stack.GetComponent<MotionBlur>();
-                if (motionBlur != null && motionBlur.IsActive() && motionBlur.mode.value == MotionBlurMode.CameraAndObjects)
-                    inputSummary.requiresMotionVectors = true;
+                if (motionBlur != null && motionBlur.IsActive())
+                {
+                    if (motionBlur.mode.value == MotionBlurMode.CameraAndObjects)
+                        inputSummary.requiresMotionVectors = true;
+                    else
+                        cameraData.camera.depthTextureMode |= DepthTextureMode.MotionVectors | DepthTextureMode.Depth;
+                }
 
                 if (cameraData.postProcessingRequiresDepthTexture)
                 {
@@ -753,8 +811,16 @@ namespace UnityEngine.Rendering.Universal
                 // TAA in postprocess requires it to function.
                 if (cameraData.IsTemporalAAEnabled())
                     inputSummary.requiresMotionVectors = true;
-
             }
+
+#if UNITY_EDITOR
+            if (!inputSummary.requiresMotionVectors &&
+                DebugHandler != null && DebugHandler.TryGetFullscreenDebugMode(out var fullScreenDebugMode, out _))
+            {
+                if (fullScreenDebugMode == DebugFullScreenMode.MotionVector)
+                    inputSummary.requiresMotionVectors = true;
+            }
+#endif
 
             // Motion vectors imply depth
             if (inputSummary.requiresMotionVectors)
@@ -772,18 +838,23 @@ namespace UnityEngine.Rendering.Universal
                 inputSummary.requiresNormalsTexture = true;
         }
 
+        // Returns true when URP must render MSAA into an intermediate texture and resolve it into the
+        // back buffer, instead of rendering MSAA directly to the back buffer in a render pass. This is
+        // required when the render pass can't resolve a multisampled back buffer: with no auto-resolve and
+        // an emulated native render pass (e.g. Intel/AMD Macs), the emulation layer can't handle an MSAA
+        // back buffer attachment. The Built-in Render Pipeline is unaffected because it renders MSAA
+        // directly to the back buffer without going through a render pass.
+        // Note: supportsMultisampleAutoResolve is the usable signal here because every platform that allows
+        // a multisampled back buffer also couples it to native render pass support; the strictly-correct
+        // test would also account for native render pass, which isn't exposed to script.
+        // Always true in editor: Game View RT is forced to samples=1.
         internal static bool PlatformRequiresExplicitMsaaResolve()
         {
 #if UNITY_EDITOR
-            // In the editor play-mode we use a Game View Render Texture, with
-            // samples count forced to 1 so we always need to do an explicit MSAA resolve.
             return true;
 #else
-            // On Metal/iOS the MSAA resolve is done implicitly as part of the renderpass, so we do not need an extra intermediate pass for the explicit autoresolve.
-            // Note: On Vulkan Standalone, despite SystemInfo.supportsMultisampleAutoResolve being true, the backbuffer has only 1 sample, so we still require
-            // the explicit resolve on non-mobile platforms with supportsMultisampleAutoResolve.
-            return !(SystemInfo.supportsMultisampleAutoResolve && Application.isMobilePlatform)
-                && SystemInfo.graphicsDeviceType != GraphicsDeviceType.Metal;
+            return !SystemInfo.supportsMultisampleAutoResolve
+                || !SystemInfo.supportsMultisampledBackBuffer;
 #endif
         }
 
@@ -800,13 +871,15 @@ namespace UnityEngine.Rendering.Universal
             if (cameraData.renderType == CameraRenderType.Base && !cameraData.resolveFinalTarget)
                 return true;
 
+            var universalRenderer = cameraData.renderer as UniversalRenderer;
+
             // Always force rendering into intermediate color texture if deferred rendering mode is selected.
             // Reason: without intermediate color texture, the target camera texture is y-flipped.
             // However, the target camera texture is bound during gbuffer pass and deferred pass.
             // Gbuffer pass will not be y-flipped because it is MRT (see ScriptableRenderContext implementation),
             // while deferred pass will be y-flipped, which breaks rendering.
             // This incurs an extra blit into at the end of rendering.
-            if (usesDeferredLighting)
+            if (usesDeferredLighting && universalRenderer != null && !universalRenderer.useTileOnlyMode)
                 return true;
 
             bool isSceneViewCamera = cameraData.isSceneViewCamera;

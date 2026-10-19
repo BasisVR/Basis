@@ -858,8 +858,27 @@ namespace SteamAudio
             return v;
         }
 
+        static bool sDistanceCurveFailureReported;
+
         [MonoPInvokeCallback(typeof(DistanceAttenuationCallback))]
         public static float EvaluateDistanceCurve(float distance, IntPtr userData)
+        {
+            try
+            {
+                return EvaluateRolloff(distance, userData);
+            }
+            catch (Exception e)
+            {
+                if (!sDistanceCurveFailureReported)
+                {
+                    sDistanceCurveFailureReported = true;
+                    Debug.LogException(e);
+                }
+                return 0.0f;
+            }
+        }
+
+        static float EvaluateRolloff(float distance, IntPtr userData)
         {
             var target = (SteamAudioSource)GCHandle.FromIntPtr(userData).Target;
 

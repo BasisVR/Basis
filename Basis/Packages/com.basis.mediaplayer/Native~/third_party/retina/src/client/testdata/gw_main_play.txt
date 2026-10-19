@@ -1,0 +1,6 @@
+RTSP/1.0 200 OK
+CSeq: 4
+Range: npt=0.000-
+Session: 9a90de54; timeout=120
+RTP-Info: url=rtsp://192.168.1.110:5050/H264/video;seq=271;rtptime=1621990950
+

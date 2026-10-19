@@ -305,6 +305,17 @@
         <type fullname="UnityEngine.Graphics" preserve="all"/>
         <type fullname="UnityEngine.Rendering.AsyncGPUReadback" preserve="all"/>
         <type fullname="UnityEngine.Rendering.AsyncGPUReadbackRequest" preserve="all"/>
+        <type fullname="UnityEngine.ComputeShader" preserve="all"/>
+        <type fullname="UnityEngine.ComputeBuffer" preserve="all"/>
+        <type fullname="UnityEngine.ComputeBufferType" preserve="all"/>
+        <type fullname="UnityEngine.ComputeBufferMode" preserve="all"/>
+        <type fullname="UnityEngine.GraphicsBuffer" preserve="all"/>
+        <type fullname="UnityEngine.GraphicsBuffer+Target" preserve="all"/>
+        <type fullname="UnityEngine.GraphicsBuffer+UsageFlags" preserve="all"/>
+        <type fullname="UnityEngine.Rendering.LocalKeyword" preserve="all"/>
+        <type fullname="UnityEngine.Rendering.LocalKeywordSpace" preserve="all"/>
+        <type fullname="UnityEngine.Rendering.ShaderKeywordType" preserve="all"/>
+        <type fullname="UnityEngine.Rendering.RenderTextureSubElement" preserve="all"/>
         <type fullname="UnityEngine.LightShadowCasterMode" preserve="all"/>
         <type fullname="UnityEngine.LightShadows" preserve="all"/>
         <type fullname="UnityEngine.LightType" preserve="all"/>
@@ -485,6 +496,8 @@
         <type fullname="Basis.Shims.BasisPlayspaceInputShim" preserve="all"/>
         <type fullname="Basis.Shims.BasisPlayerInputBlend" preserve="all"/>
         <type fullname="Basis.Shims.BasisVixxyShim" preserve="all"/>
+        <type fullname="Basis.Shims.BasisExternalLinkShim" preserve="all"/>
+        <type fullname="Basis.Shims.BasisExternalLinkResult" preserve="all"/>
         <type fullname="Basis.BasisStringDownloader" preserve="all"/>
         <type fullname="Basis.IBasisStringDownload" preserve="all"/>
     </assembly>
@@ -539,6 +552,27 @@
         <type fullname="BasisContent" preserve="all"/>
         <type fullname="BasisNetworkContentBase+BasisContentInformation" preserve="all"/>
         <type fullname="Basis.Scripts.BasisSdk.BasisAvatar" preserve="all"/>
+        <type fullname="Basis.Scripts.BasisSdk.Constraints.BasisConstraintBase" preserve="all"/>
+        <type fullname="Basis.Scripts.BasisSdk.Constraints.BasisConstraintSourceEntry" preserve="all"/>
+        <type fullname="Basis.Scripts.BasisSdk.Constraints.BasisConstraintAxes" preserve="all"/>
+        <type fullname="Basis.Scripts.BasisSdk.Constraints.BasisConstraintWorldUp" preserve="all"/>
+        <type fullname="Basis.Scripts.BasisSdk.Constraints.BasisConstraintType" preserve="all"/>
+        <type fullname="Basis.Scripts.BasisSdk.Constraints.BasisPositionConstraint" preserve="all"/>
+        <type fullname="Basis.Scripts.BasisSdk.Constraints.BasisRotationConstraint" preserve="all"/>
+        <type fullname="Basis.Scripts.BasisSdk.Constraints.BasisScaleConstraint" preserve="all"/>
+        <type fullname="Basis.Scripts.BasisSdk.Constraints.BasisParentConstraint" preserve="all"/>
+        <type fullname="Basis.Scripts.BasisSdk.Constraints.BasisAimConstraint" preserve="all"/>
+        <type fullname="Basis.Scripts.BasisSdk.Constraints.BasisLookAtConstraint" preserve="all"/>
+        <type fullname="Basis.Scripts.BasisSdk.Constraints.BasisBlendConstraint" preserve="all"/>
+        <type fullname="Basis.Scripts.BasisSdk.Constraints.BasisOverrideTransform" preserve="all"/>
+        <type fullname="Basis.Scripts.BasisSdk.Constraints.BasisOverrideTransform+Space" preserve="all"/>
+        <type fullname="Basis.Scripts.BasisSdk.Constraints.BasisDampedTransform" preserve="all"/>
+        <type fullname="Basis.Scripts.BasisSdk.Constraints.BasisTwistCorrection" preserve="all"/>
+        <type fullname="Basis.Scripts.BasisSdk.Constraints.BasisTwistCorrection+TwistAxis" preserve="all"/>
+        <type fullname="Basis.Scripts.BasisSdk.Constraints.BasisTwoBoneIK" preserve="all"/>
+        <type fullname="Basis.Scripts.BasisSdk.Constraints.BasisChainIK" preserve="all"/>
+        <type fullname="Basis.Scripts.BasisSdk.Constraints.BasisTwistChain" preserve="all"/>
+        <type fullname="Basis.Scripts.BasisSdk.Constraints.BasisMultiReferential" preserve="all"/>
     </assembly>
     <assembly fullname="Unity.InputSystem">
         <type fullname="UnityEngine.InputSystem.Keyboard" preserve="all"/>

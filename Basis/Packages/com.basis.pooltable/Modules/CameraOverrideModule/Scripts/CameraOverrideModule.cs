@@ -1,6 +1,5 @@
 
 using Basis;
-using Basis.Scripts.Networking.NetworkedAvatar;
 using System;
 
 using UnityEngine;
@@ -9,7 +8,7 @@ using UnityEngine;
 
 namespace Metaphira.Modules.CameraOverride
 {
-    
+    [Cilboxable]
     public class CameraOverrideModule : MonoBehaviour
     {
         [NonSerialized] public const int RENDER_MODE_DISABLED = 0;
@@ -53,7 +52,6 @@ namespace Metaphira.Modules.CameraOverride
                 GameObject overlay = bound.transform.GetChild(0).gameObject;
                 overlay.GetComponent<MeshRenderer>().material.SetVector("_ActivationRange", new Vector4(boundPosition.x, boundPosition.y, boundPosition.z, minScale / 2));
             }
-            BasisNetworkPlayer.OnPlayerJoined += OnPlayerJoined;
         }
 
         private void Update()
@@ -65,18 +63,6 @@ namespace Metaphira.Modules.CameraOverride
 
                 updateCamera();
             }
-        }
-
-        private void OnDestroy()
-        {
-            BasisNetworkPlayer.OnPlayerJoined -= OnPlayerJoined;
-        }
-
-        public void OnPlayerJoined(BasisNetworkPlayer player)
-        {
-            if (!player.IsLocal) return;
-
-            setBoundsActive(player.IsUserInVR());
         }
 
         private void setBoundsActive(bool active)
@@ -136,15 +122,8 @@ namespace Metaphira.Modules.CameraOverride
             {
                 if (targetCamera == null) return;
 
-                targetCamera.enabled = true;
+                targetCamera.enabled = false;
                 referenceCamera.enabled = false;
-                targetCamera.targetTexture = internalTexture;
-
-                if (shouldMaintainAspectRatio)
-                {
-                    internalTexture.width = (int)aspectRatio.x;
-                    internalTexture.height = (int)aspectRatio.y;
-                }
 
                 foreach (GameObject bound in bounds)
                 {
@@ -156,7 +135,6 @@ namespace Metaphira.Modules.CameraOverride
             {
                 if (targetCamera == null) return;
 
-                targetCamera.targetTexture = null;
                // targetCamera.stereoTargetEye = StereoTargetEyeMask.None;
                 targetCamera.depth = 52;
                 targetCamera.enabled = true;

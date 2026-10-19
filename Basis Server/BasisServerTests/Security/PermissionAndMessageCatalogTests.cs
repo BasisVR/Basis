@@ -635,6 +635,7 @@ public class MessageCatalogTests
         (29, "basis.core.contentshare"),
         (30, "basis.core.avatar.delta"),
         (31, "basis.core.serverbound"),
+        (32, "basis.core.storage"),
         (34, "basis.core.admin"),
         (35, "basis.core.statistics"),
         (36, "basis.core.camera.pip.state"),
@@ -668,7 +669,7 @@ public class MessageCatalogTests
     public void Core_CoversChannels0Through60_ExceptFreed()
     {
         SerializableBasis.BasisMessageDescriptor[] core = SerializableBasis.BasisMessageCatalog.BuildCore();
-        Assert.Equal(59, core.Length);
+        Assert.Equal(60, core.Length);
 
         HashSet<byte> channels = new();
         foreach (SerializableBasis.BasisMessageDescriptor descriptor in core)
@@ -677,10 +678,9 @@ public class MessageCatalogTests
         }
         for (byte channel = 0; channel <= 60; channel++)
         {
-            if (channel == 32 || channel == 33) continue; // freed by the database removal
+            if (channel == 33) continue;
             Assert.Contains(channel, channels);
         }
-        Assert.DoesNotContain((byte)32, channels);
         Assert.DoesNotContain((byte)33, channels);
     }
 
@@ -961,7 +961,7 @@ public class MessageManifestSerializationTests
 
 /// <summary>
 /// Pins the channel constant layout in BasisNetworkCommons: every named channel keeps its
-/// wire value, all are distinct and below TotalChannels (32 and 33 are free), and the
+/// wire value, all are distinct and below TotalChannels (33 is free), and the
 /// helper mappings agree.
 /// </summary>
 public class NetworkChannelConstantTests
@@ -1000,6 +1000,7 @@ public class NetworkChannelConstantTests
         (nameof(BasisNetworkCommons.ContentShareChannel), BasisNetworkCommons.ContentShareChannel, 29),
         (nameof(BasisNetworkCommons.DeltaAvatarChannel), BasisNetworkCommons.DeltaAvatarChannel, 30),
         (nameof(BasisNetworkCommons.ServerBoundChannel), BasisNetworkCommons.ServerBoundChannel, 31),
+        (nameof(BasisNetworkCommons.StorageChannel), BasisNetworkCommons.StorageChannel, 32),
         (nameof(BasisNetworkCommons.AdminChannel), BasisNetworkCommons.AdminChannel, 34),
         (nameof(BasisNetworkCommons.ServerStatisticsChannel), BasisNetworkCommons.ServerStatisticsChannel, 35),
         (nameof(BasisNetworkCommons.CameraPIPStateChannel), BasisNetworkCommons.CameraPIPStateChannel, 36),
@@ -1056,9 +1057,7 @@ public class NetworkChannelConstantTests
             Assert.True(seen.Add(actual), $"{name} duplicates channel value {actual}");
             Assert.True(actual < BasisNetworkCommons.TotalChannels, $"{name} = {actual} exceeds TotalChannels");
         }
-        // 32 & 33 are free (held the removed server-side database).
-        Assert.Equal(BasisNetworkCommons.TotalChannels - 2, (byte)seen.Count);
-        Assert.DoesNotContain((byte)32, seen);
+        Assert.Equal(BasisNetworkCommons.TotalChannels - 1, (byte)seen.Count);
         Assert.DoesNotContain((byte)33, seen);
     }
 
@@ -1176,6 +1175,7 @@ public class NetworkChannelConstantTests
         Assert.Equal(0xBA515CE1u, BasisNetworkCommons.RejectMagic);
         Assert.Equal(1, BasisNetworkCommons.RejectKind_VersionMismatch);
         Assert.Equal(2, BasisNetworkCommons.RejectKind_ServerFull);
+        Assert.Equal(3, BasisNetworkCommons.RejectKind_PasswordRejected);
     }
 }
 

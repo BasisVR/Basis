@@ -52,6 +52,7 @@ namespace UnityEditor.Experimental.Rendering.Universal
             public static GUIContent overrideDepth = new GUIContent("Depth", "Select this option to specify how this Renderer Feature affects or uses the values in the Depth buffer.");
             public static GUIContent writeDepth = new GUIContent("Write Depth", "Choose to write depth to the screen.");
             public static GUIContent depthState = new GUIContent("Depth Test", "Choose a new depth test function.");
+            public static GUIContent depthInputAttachment = new GUIContent("Set As Input Attachment", "Enable depth input attachment for efficient tile-based depth reading (DX12/Vulkan only). Depth will be read-only.");
 
             //Camera Settings
             public static GUIContent overrideCamera = new GUIContent("Camera", "Override camera matrices. Toggling this setting will make camera use perspective projection.");
@@ -86,6 +87,7 @@ namespace UnityEditor.Experimental.Rendering.Universal
         private SerializedProperty m_OverrideDepth;
         private SerializedProperty m_WriteDepth;
         private SerializedProperty m_DepthState;
+        private SerializedProperty m_DepthInputAttachment;
         //Stencil props
         private SerializedProperty m_StencilSettings;
         //Caemra props
@@ -140,6 +142,7 @@ namespace UnityEditor.Experimental.Rendering.Universal
             m_OverrideDepth = property.FindPropertyRelative("overrideDepthState");
             m_WriteDepth = property.FindPropertyRelative("enableWrite");
             m_DepthState = property.FindPropertyRelative("depthCompareFunction");
+            m_DepthInputAttachment = property.FindPropertyRelative("depthInputAttachment");
 
             //Stencil
             m_StencilSettings = property.FindPropertyRelative("stencilSettings");
@@ -179,6 +182,20 @@ namespace UnityEditor.Experimental.Rendering.Universal
                 m_Callback.intValue = selectedValue;
             rect.y += Styles.defaultLineSpace;
 
+            // Validate Event is compatible with Depth Input Attachment
+            // Depth is only available after opaque rendering
+            if (m_OverrideDepth.boolValue && m_DepthInputAttachment.boolValue)
+            {
+                // AfterRenderingOpaques = 250
+                if (m_Callback.intValue < (int)RenderPassEvent.AfterRenderingOpaques)
+                {
+                    Rect helpBoxRect = rect;
+                    helpBoxRect.height = EditorGUIUtility.singleLineHeight * 2;
+                    EditorGUI.HelpBox(helpBoxRect, "Depth Input Attachment requires Event to be set to 'AfterRenderingOpaques' or later. Depth is only available after the opaque pass.", MessageType.Error);
+                    rect.y += helpBoxRect.height + EditorGUIUtility.standardVerticalSpacing;
+                }
+            }
+
             DoFilters(ref rect);
 
             m_RenderFoldout.value = EditorGUI.Foldout(rect, m_RenderFoldout.value, Styles.renderHeader, true);
@@ -194,8 +211,12 @@ namespace UnityEditor.Experimental.Rendering.Universal
                 DoDepthOverride(ref rect);
                 rect.y += Styles.defaultLineSpace;
                 //Override stencil
-                EditorGUI.PropertyField(rect, m_StencilSettings);
-                rect.y += EditorGUI.GetPropertyHeight(m_StencilSettings);
+                //Hide override stencil checkbox when depth input attachment is enabled.
+                if (!m_DepthInputAttachment.boolValue)
+                {
+                    EditorGUI.PropertyField(rect, m_StencilSettings);
+                    rect.y += EditorGUI.GetPropertyHeight(m_StencilSettings);
+                }
                 //Override camera
                 DoCameraOverride(ref rect);
                 rect.y += Styles.defaultLineSpace;
@@ -276,10 +297,27 @@ namespace UnityEditor.Experimental.Rendering.Universal
             {
                 rect.y += Styles.defaultLineSpace;
                 EditorGUI.indentLevel++;
-                //Write depth
-                EditorGUI.PropertyField(rect, m_WriteDepth, Styles.writeDepth);
+
+                // Add depth input attachment checkbox first (nested under Override Depth)
+                EditorGUI.PropertyField(rect, m_DepthInputAttachment, Styles.depthInputAttachment);
                 rect.y += Styles.defaultLineSpace;
-                //Depth testing options
+
+                // Show help box when enabled
+                if (m_DepthInputAttachment.boolValue)
+                {
+                    Rect helpBoxRect = EditorGUI.IndentedRect(rect);
+                    helpBoxRect.height = EditorGUIUtility.singleLineHeight * 2;
+                    EditorGUI.HelpBox(helpBoxRect, "Depth Input Attachment will ignore Depth and Stencil overrides.", MessageType.Info);
+                    rect.y += helpBoxRect.height + EditorGUIUtility.standardVerticalSpacing;
+                }
+
+                // Hide write depth checkbox when depth input attachment is enabled.
+                if (!m_DepthInputAttachment.boolValue)
+                {
+                    EditorGUI.PropertyField(rect, m_WriteDepth, Styles.writeDepth);
+                    rect.y += Styles.defaultLineSpace;
+                }
+
                 EditorGUI.PropertyField(rect, m_DepthState, Styles.depthState);
                 EditorGUI.indentLevel--;
             }
@@ -318,12 +356,37 @@ namespace UnityEditor.Experimental.Rendering.Universal
             height += Styles.defaultLineSpace * (m_FiltersFoldout.value ? m_FilterLines : 1);
             height += m_FiltersFoldout.value ? EditorGUI.GetPropertyHeight(m_ShaderPasses) : 0;
 
-            height += Styles.defaultLineSpace; // add line for overrides dropdown
+            height += Styles.defaultLineSpace; // add line for Event dropdown
+
+            // Add height for Event validation error when Input Attachment is enabled with incompatible Event
+            if (m_OverrideDepth.boolValue && m_DepthInputAttachment.boolValue)
+            {
+                if (m_Callback.intValue < (int)RenderPassEvent.AfterRenderingOpaques)
+                {
+                    height += (EditorGUIUtility.singleLineHeight * 2) + EditorGUIUtility.standardVerticalSpacing;
+                }
+            }
+
             if (m_RenderFoldout.value)
             {
                 height += Styles.defaultLineSpace * m_MaterialLines;
-                height += Styles.defaultLineSpace * (m_OverrideDepth.boolValue ? m_DepthLines : 1);
-                height += EditorGUI.GetPropertyHeight(m_StencilSettings);
+
+                int depthLines = 1; 
+                if (m_OverrideDepth.boolValue)
+                {
+                    depthLines = m_DepthLines;
+                    if (m_DepthInputAttachment.boolValue)
+                    {
+                        // Add help box height (2 line + spacing)
+                        height += (EditorGUIUtility.singleLineHeight) * 2 + EditorGUIUtility.standardVerticalSpacing;
+                        // Write depth is hidden
+                        depthLines = depthLines - 1;
+                    }
+                }
+                height += Styles.defaultLineSpace * (m_OverrideDepth.boolValue ? depthLines : 1);
+                if (!m_DepthInputAttachment.boolValue)
+                    height += EditorGUI.GetPropertyHeight(m_StencilSettings);
+
                 height += Styles.defaultLineSpace * (m_OverrideCamera.boolValue ? m_CameraLines : 1);
             }
 

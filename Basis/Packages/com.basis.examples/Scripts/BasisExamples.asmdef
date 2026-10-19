@@ -12,7 +12,6 @@
         "Unity.RenderPipelines.Core.Runtime",
         "Unity.RenderPipelines.Universal.Runtime",
         "BasisSerializer.OdinSerializer",
-        "LiteNetLib",
         "BasisDebug",
         "Unity.Mathematics",
         "BasisNetworkCore",

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using NUnit.Framework;
 using Unity.Collections;
@@ -19,6 +20,7 @@ namespace Basis.Tests.Sync
     ///   - and, through the REAL bone codec, cubic tracks a moving joint markedly better
     ///     than the old linear path.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public class BasisRemoteInterpolationTests
     {
         const float InvSqrt2 = 0.70710678118f;

@@ -85,7 +85,7 @@ public static class BasisGlobalIlluminationDiagnostic
 
     private static void DescribeCameras(StringBuilder report)
     {
-        Camera[] cameras = Object.FindObjectsByType<Camera>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        Camera[] cameras = Object.FindObjectsByType<Camera>(FindObjectsInactive.Exclude);
         for (int index = 0; index < cameras.Length; index++)
         {
             Camera camera = cameras[index];

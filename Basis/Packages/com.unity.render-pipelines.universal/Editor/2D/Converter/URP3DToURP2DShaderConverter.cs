@@ -15,6 +15,20 @@ namespace UnityEditor.Rendering.Universal
                  Description = "Converts references to URP Lit and Simple Lit shaders to Mesh 2D Lit shader.")]
     internal sealed class URP3DToURP2DShaderConverter : RenderPipelineConverterMaterialUpgrader
     {
+
+        public override bool isEnabled
+        {
+            get
+            {
+                if (GraphicsSettings.currentRenderPipeline is not UniversalRenderPipelineAsset urpAsset)
+                    return false;
+
+                return urpAsset.scriptableRenderer is Renderer2D;
+            }
+        }
+
+        public override string isDisabledMessage => "Converter requires URP with a 2D Renderer. Convert your project to URP to use this converter.";
+
         protected override List<MaterialUpgrader> upgraders
         {
             get

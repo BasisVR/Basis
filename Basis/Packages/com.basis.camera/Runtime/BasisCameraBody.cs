@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 /// <summary>
@@ -174,6 +175,7 @@ public sealed class BasisCameraBodyTraits
 }
 
 /// <summary>The body table, and the one lookup everything goes through.</summary>
+[NoAutoStaticsCleanup]
 public static class BasisCameraBodies
 {
     /// <summary>A frame count that never goes down. Tape and disk, as opposed to film.</summary>

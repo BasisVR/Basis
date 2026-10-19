@@ -1,18 +1,36 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
-public sealed class BasisGlobalIlluminationHistory
+[AutoStaticsCleanup]
+public sealed partial class BasisGlobalIlluminationHistory
 {
-    private static readonly Dictionary<int, BasisGlobalIlluminationHistory> stores = new Dictionary<int, BasisGlobalIlluminationHistory>();
-    private static readonly List<int> pruneScratch = new List<int>();
-    private static readonly string[] indirectNames = { "_BasisGIHistoryIndirect0", "_BasisGIHistoryIndirect1" };
-    private static readonly string[] statsNames = { "_BasisGIHistoryStats0", "_BasisGIHistoryStats1" };
-    private static readonly string[] specularNames = { "_BasisGIHistorySpecular0", "_BasisGIHistorySpecular1" };
-    private static readonly string[] specularStatsNames = { "_BasisGIHistorySpecularStats0", "_BasisGIHistorySpecularStats1" };
-    public static IReadOnlyDictionary<int, BasisGlobalIlluminationHistory> Stores => stores;
+    public readonly struct Key : System.IEquatable<Key>
+    {
+        public readonly EntityId Camera;
+        public readonly int MultipassEye;
+
+        public Key(EntityId camera, int multipassEye)
+        {
+            Camera = camera;
+            MultipassEye = multipassEye;
+        }
+
+        public bool Equals(Key other) => Camera.Equals(other.Camera) && MultipassEye == other.MultipassEye;
+        public override bool Equals(object obj) => obj is Key other && Equals(other);
+        public override int GetHashCode() => unchecked((Camera.GetHashCode() * 397) ^ MultipassEye);
+    }
+
+    private static readonly Dictionary<Key, BasisGlobalIlluminationHistory> stores = new Dictionary<Key, BasisGlobalIlluminationHistory>();
+    private static readonly List<Key> pruneScratch = new List<Key>();
+    [NoAutoStaticsCleanup] private static readonly string[] indirectNames = { "_BasisGIHistoryIndirect0", "_BasisGIHistoryIndirect1" };
+    [NoAutoStaticsCleanup] private static readonly string[] statsNames = { "_BasisGIHistoryStats0", "_BasisGIHistoryStats1" };
+    [NoAutoStaticsCleanup] private static readonly string[] specularNames = { "_BasisGIHistorySpecular0", "_BasisGIHistorySpecular1" };
+    [NoAutoStaticsCleanup] private static readonly string[] specularStatsNames = { "_BasisGIHistorySpecularStats0", "_BasisGIHistorySpecularStats1" };
+    public static IReadOnlyDictionary<Key, BasisGlobalIlluminationHistory> Stores => stores;
 
     public RTHandle[] Indirect = new RTHandle[2];
     public RTHandle[] Stats = new RTHandle[2];
@@ -146,19 +164,18 @@ public sealed class BasisGlobalIlluminationHistory
         return reallocated;
     }
 
-    public static int ComputeHash(Camera camera, XRPass xr)
+    public static Key ComputeKey(Camera camera, XRPass xr)
     {
-        int hash = camera.GetHashCode();
-        if (xr != null && xr.enabled && !xr.singlePassEnabled) { hash = unchecked(hash * 397) ^ (xr.multipassId + 1); }
-        return hash;
+        int eye = xr != null && xr.enabled && !xr.singlePassEnabled ? xr.multipassId + 1 : 0;
+        return new Key(camera != null ? camera.GetEntityId() : default, eye);
     }
 
-    public static BasisGlobalIlluminationHistory Get(int hash)
+    public static BasisGlobalIlluminationHistory Get(Key key)
     {
-        if (!stores.TryGetValue(hash, out BasisGlobalIlluminationHistory store))
+        if (!stores.TryGetValue(key, out BasisGlobalIlluminationHistory store))
         {
             store = new BasisGlobalIlluminationHistory();
-            stores.Add(hash, store);
+            stores.Add(key, store);
         }
         return store;
     }
@@ -166,7 +183,7 @@ public sealed class BasisGlobalIlluminationHistory
     public static void PruneStale(int frame, int maxAge)
     {
         pruneScratch.Clear();
-        foreach (KeyValuePair<int, BasisGlobalIlluminationHistory> entry in stores)
+        foreach (KeyValuePair<Key, BasisGlobalIlluminationHistory> entry in stores)
         {
             // Whichever of the two passes touched this camera most recently keeps it alive. A camera running
             // reflections with the diffuse gather switched off never moves LastFrame, and pruning it would
@@ -201,7 +218,7 @@ public sealed class BasisGlobalIlluminationHistory
 
     public static void ReleaseAll()
     {
-        foreach (KeyValuePair<int, BasisGlobalIlluminationHistory> entry in stores) { entry.Value.Release(); }
+        foreach (KeyValuePair<Key, BasisGlobalIlluminationHistory> entry in stores) { entry.Value.Release(); }
         stores.Clear();
     }
 

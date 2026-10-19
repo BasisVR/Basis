@@ -49,7 +49,7 @@ public class BasisVoiceBuffer
     private const int DecayIntervalMs = 5000; // ~5 s half-life
 
     // ── Adaptive jitter depth (per stream) ──
-    // RemoteOpusSettings.JitterBufferSize is the user-set FLOOR. We grow the effective
+    // RemoteOpusSettings.JitterBufferSize is the FLOOR. We grow the effective
     // depth for THIS stream when packets are seen arriving too late for the current
     // depth, and relax back toward the floor when the stream is clean. Lateness is
     // measured clock-free (a packet whose playback slot already passed, counted in

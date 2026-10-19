@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Editor.Localization;
 using UnityEditor;
@@ -5,6 +6,7 @@ using UnityEngine;
 
 [CreateAssetMenu(fileName = "NewBasisAssetBundleObject", menuName = "Basis/ScriptableObjects/BasisAssetBundleObject", order = 1)]
 [System.Serializable]
+[NoAutoStaticsCleanup]
 public class BasisAssetBundleObject : ScriptableObject
 {
     public static string AssetBundleObject = "Packages/com.basis.sdk/Settings/AssetBundleBuildSettings.asset";
@@ -17,8 +19,6 @@ public class BasisAssetBundleObject : ScriptableObject
     public string BasisMetaEncryptedExtension = ".BEM";
     public string BasisEncryptedExtension = ".BEE";
     public string ProtectedPasswordFileName = "dontuploadmepassword";
-    public string UserSelectedPassword = "";
-    public bool UseCustomPassword = false;
     public bool useCompression = true;
     public bool GenerateImage = true;
     public bool OpenFolderOnDisc = true;
@@ -76,7 +76,7 @@ public class BasisAssetBundleObjectEditor : Editor
         assetBundleObject.AssetBundleDirectory = "./AssetBundles";
         assetBundleObject.ProtectedPasswordFileName = "dontuploadmepassword";
         assetBundleObject.BasisEncryptedExtension = ".BEE";
-        assetBundleObject.selectedTargets = new List<BuildTarget>(BasisSDKConstants.allowedTargets);
+        assetBundleObject.selectedTargets = new List<BuildTarget>(BasisSDKConstants.defaultTargets);
         assetBundleObject.RebakeOcclusionCullingInThese = new List<BuildTarget>(BasisSDKConstants.OcclusionCullingTargets);
         assetBundleObject.RebakeOcclusionCulling = true;
         assetBundleObject.GenerateGenericGLTF = true;

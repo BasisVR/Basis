@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Unity.Scripting.LifecycleManagement;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,7 +11,8 @@ namespace Basis.Scripts.UI.UI_Panels
     /// Separate keystore for ITEMS (so items don't collide with avatar keys).
     /// Writes to: Application.persistentDataPath/ItemKeyStore.json
     /// </summary>
-    public static class BasisDataStoreItemKeys
+    [AutoStaticsCleanup]
+    public static partial class BasisDataStoreItemKeys
     {
         [System.Serializable]
         public struct PinnedSettings
@@ -110,7 +112,7 @@ namespace Basis.Scripts.UI.UI_Panels
 
         // FIX: SemaphoreSlim(1,1) prevents concurrent async mutations from corrupting
         // the shared keys array or causing lost updates between read and SaveKeysToFile.
-        private static readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
+        [NoAutoStaticsCleanup] private static readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
 
         public static async Task AddNewKey(ItemKey newKey)
         {
@@ -130,6 +132,36 @@ namespace Basis.Scripts.UI.UI_Panels
                     await SaveKeysToFile();
                     BasisDebug.Log($"Item key added: {newKey.Url}");
                 }
+            }
+            finally
+            {
+                _lock.Release();
+            }
+        }
+
+        public static async Task<int> AddNewKeys(IReadOnlyList<ItemKey> newKeys)
+        {
+            await EnsureLoaded();
+
+            await _lock.WaitAsync();
+            try
+            {
+                int added = 0;
+                for (int i = 0; i < newKeys.Count; i++)
+                {
+                    ItemKey newKey = newKeys[i];
+                    if (newKey == null || ContainsKey(newKey)) continue;
+                    int oldLen = keys.Data.Length;
+                    System.Array.Resize(ref keys.Data, oldLen + 1);
+                    keys.Data[oldLen] = newKey;
+                    added++;
+                }
+                if (added > 0)
+                {
+                    await SaveKeysToFile();
+                    BasisDebug.Log($"Item keys added: {added}");
+                }
+                return added;
             }
             finally
             {
@@ -262,7 +294,7 @@ namespace Basis.Scripts.UI.UI_Panels
             byte[] byteData;
             try
             {
-                byteData = await File.ReadAllBytesAsync(FilePath);
+                byteData = await BasisFiles.ReadAllBytesAsync(FilePath);
             }
             catch (System.Exception e)
             {
@@ -355,7 +387,7 @@ namespace Basis.Scripts.UI.UI_Panels
 
             try
             {
-                byte[] backupData = await File.ReadAllBytesAsync(backupPath);
+                byte[] backupData = await BasisFiles.ReadAllBytesAsync(backupPath);
                 if (backupData == null || backupData.Length == 0)
                     return false;
 
@@ -420,7 +452,7 @@ namespace Basis.Scripts.UI.UI_Panels
             // File.Move on a non-existent tmp file, causing a FileNotFoundException.
             try
             {
-                await File.WriteAllBytesAsync(tempPath, byteData);
+                await BasisFiles.WriteAllBytesAsync(tempPath, byteData);
             }
             catch (System.Exception e)
             {
@@ -466,7 +498,7 @@ namespace Basis.Scripts.UI.UI_Panels
 
         // FIX: EnsureLoaded guarantees disk state is in memory before any mutation.
         // Uses double-check pattern: fast path avoids lock overhead after first load.
-        private static async Task EnsureLoaded()
+        public static async Task EnsureLoaded()
         {
             if (_loaded) return;
 

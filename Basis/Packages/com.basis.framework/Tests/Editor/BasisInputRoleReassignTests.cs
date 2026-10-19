@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.Serialization;
@@ -12,6 +13,7 @@ using UnityEngine;
 
 namespace Basis.Framework.Tests
 {
+    [NoAutoStaticsCleanup]
     public class BasisInputRoleReassignTests
     {
         private static readonly PropertyInfo LocalPlayerInstance = typeof(BasisLocalPlayer).GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);

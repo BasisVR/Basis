@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Drivers;
@@ -19,8 +20,9 @@ using UnityEngine.Jobs;
 ///
 /// NOTE: We jobify the math/state. Transform reads/writes stay on main thread (LateUpdate).
 /// </summary>
+[AutoStaticsCleanup]
 [System.Serializable]
-public class BasisLocalEyeDriver
+public partial class BasisLocalEyeDriver
 {
 
     public static float MaxAngleDeg => BasisLocalEyeDriverData.MaxLookAngleDeg;
@@ -37,8 +39,8 @@ public class BasisLocalEyeDriver
     public static Transform rightEyeTransform;
     public static BasisEyeCalibration calLeft;
     public static BasisEyeCalibration calRight;
-    private static NativeArray<BasisEyeState> _state;
-    private static TransformAccessArray _eyeTransforms;
+    [NoAutoStaticsCleanup] private static NativeArray<BasisEyeState> _state;
+    [NoAutoStaticsCleanup] private static TransformAccessArray _eyeTransforms;
     public static bool Override = false;
     public static bool IsEnabled = false;
     public static JobHandle handle;
@@ -126,15 +128,15 @@ public class BasisLocalEyeDriver
     // Remote players are read straight out of the bone system's SoA by the job (slot →
     // player ID via the reverse key map, visibility via the native mirror), so the
     // gather no longer scales with player count.
-    private static NativeArray<float3> _jobTargetFocus;
-    private static NativeArray<float> _jobTargetPriority;
-    private static NativeArray<byte> _jobTargetIsCurrent;
-    private static NativeArray<GazeJobResult> _jobResult;
+    [NoAutoStaticsCleanup] private static NativeArray<float3> _jobTargetFocus;
+    [NoAutoStaticsCleanup] private static NativeArray<float> _jobTargetPriority;
+    [NoAutoStaticsCleanup] private static NativeArray<byte> _jobTargetIsCurrent;
+    [NoAutoStaticsCleanup] private static NativeArray<GazeJobResult> _jobResult;
     // Used when RemoteBoneJobSystem hasn't initialized yet so the IJob's [ReadOnly]
     // arrays still pass safety validation. The job loop never reads from them because
     // playerSlots stays 0 in that state.
-    private static NativeArray<RemoteFrameOutput> _jobFramesPlaceholder;
-    private static NativeArray<int> _jobKeysPlaceholder;
+    [NoAutoStaticsCleanup] private static NativeArray<RemoteFrameOutput> _jobFramesPlaceholder;
+    [NoAutoStaticsCleanup] private static NativeArray<int> _jobKeysPlaceholder;
     private static BasisGazeTarget[] _jobTargetManagedRefs;
     private static int _jobTargetCapacity;
 
@@ -193,7 +195,10 @@ public class BasisLocalEyeDriver
         _prevGazeTarget = null;
         _prevHasGazeTarget = false;
         _gazeTargetChanged = false;
-        _prevHeadRot = BasisLocalCameraDriver.HeadRotation;
+        // The first avatar can finish loading before the camera driver has run once.
+        // HeadRotation is the default zero quaternion until that first camera tick;
+        // inverting it below would poison the persistent eye state with NaNs.
+        _prevHeadRot = SanitizeHeadRotation(BasisLocalCameraDriver.HeadRotation, quaternion.identity);
         _headDeltaYP = float2.zero;
         _winnerEyeRot = quaternion.identity;
         _selectAccumulator = SelectIntervalSeconds;
@@ -374,7 +379,7 @@ public class BasisLocalEyeDriver
     private static void SelectGazeTarget(float dt)
     {
         float3 localHeadPos = BasisLocalCameraDriver.HeadPosition;
-        quaternion localHeadRot = BasisLocalCameraDriver.HeadRotation;
+        quaternion localHeadRot = SanitizeHeadRotation(BasisLocalCameraDriver.HeadRotation, _prevHeadRot);
         quaternion invLocalHeadRot = math.inverse(localHeadRot);
 
         // The job uses how much the head rotated to compensate the eye target.
@@ -391,7 +396,7 @@ public class BasisLocalEyeDriver
         if (_selectAccumulator >= SelectIntervalSeconds)
         {
             _selectAccumulator = 0f;
-            RescoreGazeTarget(localHeadPos, BasisLocalCameraDriver.HeadForward());
+            RescoreGazeTarget(localHeadPos, math.mul(localHeadRot, new float3(0f, 0f, 1f)));
         }
 
         ReprojectGaze(localHeadPos, invLocalHeadRot);
@@ -739,6 +744,27 @@ public class BasisLocalEyeDriver
             math.atan2(dirHead.x, dirHead.z),
             math.asin(math.clamp(dirHead.y, -1f, 1f))
         );
+    }
+
+    /// <summary>
+    /// Returns a normalized head rotation safe to invert. During boot the camera pose statics
+    /// have not necessarily received their first sample and therefore contain a zero quaternion.
+    /// </summary>
+    internal static quaternion SanitizeHeadRotation(quaternion rotation, quaternion fallback)
+    {
+        float lengthSq = math.lengthsq(rotation.value);
+        if (math.all(math.isfinite(rotation.value)) && lengthSq > 1e-8f)
+        {
+            return new quaternion(rotation.value * math.rsqrt(lengthSq));
+        }
+
+        float fallbackLengthSq = math.lengthsq(fallback.value);
+        if (math.all(math.isfinite(fallback.value)) && fallbackLengthSq > 1e-8f)
+        {
+            return new quaternion(fallback.value * math.rsqrt(fallbackLengthSq));
+        }
+
+        return quaternion.identity;
     }
 
     internal static void FacingFrame(BasisTransformMapping refs, out Vector3 forward, out Vector3 up)

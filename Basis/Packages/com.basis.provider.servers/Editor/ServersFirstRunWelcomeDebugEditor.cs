@@ -1,4 +1,5 @@
 using Basis.BasisUI;
+using Basis.Editor.Localization;
 using Basis.Scripts.Settings;
 using System.IO;
 using UnityEditor;
@@ -55,9 +56,9 @@ namespace Basis.BasisUI.EditorTools
                 return;
             }
 
-            if (!EditorUtility.DisplayDialog("Simulate Fresh Install",
-                $"Move {BasisSettingsSystem.SettingsJson} to a backup so the next Play behaves like a brand-new install?\n\nRestore it afterwards via Basis/Servers/First-Run Welcome/Restore Settings Backup.",
-                "Backup & Remove", "Cancel"))
+            if (!EditorUtility.DisplayDialog(BasisEditorLocalization.Get("editor.servers.welcomeDebug.simulateTitle"),
+                BasisEditorLocalization.Get("editor.servers.welcomeDebug.simulateBody", BasisSettingsSystem.SettingsJson),
+                BasisEditorLocalization.Get("editor.servers.welcomeDebug.backupRemove"), BasisEditorLocalization.Get("editor.common.cancel")))
             {
                 return;
             }

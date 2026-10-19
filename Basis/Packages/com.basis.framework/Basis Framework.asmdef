@@ -21,7 +21,6 @@
         "Unity.XR.Management",
         "Unity.Addressables",
         "BasisGizmos",
-        "LiteNetLib",
         "BasisNetworkCore",
         "BasisNetworkServer",
         "BasisNetworkClient",
@@ -34,9 +33,9 @@
         "BasisGlobalIllumination",
         "OpusSharp",
         "Basis.OpenLipSync.Runtime",
-        "Klak.Spout.Runtime",
-        "Klak.Syphon.Runtime",
         "Basis.Eerie.Movement",
+        "Basis.Constraints",
+        "Basis.AuthoredMotion",
         "Unity.UnifiedRayTracing.Runtime",
         "Basis.RTAO"
     ],
@@ -63,21 +62,6 @@
             "define": "BASIS_HAS_OPENXR"
         },
         {
-            "name": "com.basis.mediapipe",
-            "expression": "",
-            "define": "BASIS_HAS_MEDIAPIPE"
-        },
-        {
-            "name": "jp.keijiro.klak.spout",
-            "expression": "",
-            "define": "BASIS_HAS_SPOUT"
-        },
-        {
-            "name": "jp.keijiro.klak.syphon",
-            "expression": "",
-            "define": "BASIS_HAS_SYPHON"
-        },
-        {
             "name": "com.basis.globalillumination",
             "expression": "",
             "define": "BASIS_HAS_GI"
@@ -86,6 +70,16 @@
             "name": "com.basis.rtao",
             "expression": "",
             "define": "BASIS_HAS_RTAO"
+        },
+        {
+            "name": "com.unity.modules.nvidia",
+            "expression": "",
+            "define": "BASIS_HAS_NVIDIA"
+        },
+        {
+            "name": "com.unity.modules.amd",
+            "expression": "",
+            "define": "BASIS_HAS_AMD"
         }
     ],
     "noEngineReferences": false

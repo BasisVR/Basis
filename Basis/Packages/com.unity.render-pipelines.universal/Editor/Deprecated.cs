@@ -133,7 +133,7 @@ namespace UnityEditor.Rendering.Universal
         /// Use this for 3D URP material conversion
         /// </summary>
         [BatchModeConverterInfo(ConverterContainerId.UpgradeURP2DAssets,
-            typeof(BuiltInAndURP3DTo2DMaterialUpgrader))]
+            typeof(URP3DToURP2DReadonlyMaterialConverter))]
         URPToReadonlyMaterial2D,
 
 #if PPV2_EXISTS

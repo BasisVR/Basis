@@ -29,6 +29,18 @@ public class BasisBulkBuildWindowEditor : EditorWindow
 
     private enum ContentType { Avatar, Prop }
 
+    private static string[] TypeFilterNames => new[]
+    {
+        BasisEditorLocalization.Get("editor.common.all"),
+        BasisEditorLocalization.Get("sdk.bulkBuild.filter.avatars"),
+        BasisEditorLocalization.Get("sdk.bulkBuild.filter.props"),
+    };
+
+    private static string TypeName(ContentType type)
+    {
+        return BasisEditorLocalization.Get(type == ContentType.Avatar ? "sdk.bulkBuild.contentType.avatar" : "sdk.bulkBuild.contentType.prop");
+    }
+
     private DefaultAsset searchFolder;
     private ContentTypeFilter typeFilter = ContentTypeFilter.All;
     private Vector2 scroll;
@@ -47,8 +59,8 @@ public class BasisBulkBuildWindowEditor : EditorWindow
 
     private void OnGUI()
     {
-        BasisEditorUI.Header("Bulk Build",
-            "Build every selected avatar, prop and scene bundle in one pass.");
+        BasisEditorUI.Header(BasisEditorLocalization.Get("sdk.bulkBuild.header.title"),
+            BasisEditorLocalization.Get("sdk.bulkBuild.header.subtitle"));
 
         using (new EditorGUI.DisabledScope(isBuilding))
         {
@@ -77,7 +89,7 @@ public class BasisBulkBuildWindowEditor : EditorWindow
                 typeof(DefaultAsset),
                 false);
 
-            typeFilter = (ContentTypeFilter)EditorGUILayout.EnumPopup(new GUIContent(BasisEditorLocalization.Get("sdk.bulkBuild.type.label")), typeFilter);
+            typeFilter = (ContentTypeFilter)EditorGUILayout.Popup(BasisEditorLocalization.Get("sdk.bulkBuild.type.label"), (int)typeFilter, TypeFilterNames);
         }
 
         using (new EditorGUILayout.HorizontalScope())
@@ -132,7 +144,7 @@ public class BasisBulkBuildWindowEditor : EditorWindow
                     using (new EditorGUILayout.VerticalScope())
                     {
                         EditorGUILayout.LabelField(e.displayName, EditorStyles.boldLabel);
-                        EditorGUILayout.LabelField(BasisEditorLocalization.Get("sdk.bulkBuild.entry.subline", e.type, e.assetPath), EditorStyles.miniLabel);
+                        EditorGUILayout.LabelField(BasisEditorLocalization.Get("sdk.bulkBuild.entry.subline", TypeName(e.type), e.assetPath), EditorStyles.miniLabel);
                     }
 
                     if (GUILayout.Button(BasisEditorLocalization.Get("sdk.bulkBuild.ping"), GUILayout.Width(60), GUILayout.Height(24)))
@@ -285,7 +297,7 @@ public class BasisBulkBuildWindowEditor : EditorWindow
 
                 EditorUtility.DisplayProgressBar(
                     BasisEditorLocalization.Get("sdk.bulkBuild.progress.title"),
-                    BasisEditorLocalization.Get("sdk.bulkBuild.progress.body", i + 1, toBuild.Count, e.type, e.displayName),
+                    BasisEditorLocalization.Get("sdk.bulkBuild.progress.body", i + 1, toBuild.Count, TypeName(e.type), e.displayName),
                     (float)i / toBuild.Count);
 
                 var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(e.assetPath);
@@ -321,8 +333,8 @@ public class BasisBulkBuildWindowEditor : EditorWindow
 
                                 var (ok, msg) = await BasisBundleBuild.GameObjectBundleBuild(
                                     imageBytes, avatar, targets,
-                                    assetBundleObject.UseCustomPassword,
-                                    assetBundleObject.UserSelectedPassword);
+                                    avatar.UseCustomPassword,
+                                    avatar.UserSelectedPassword);
 
                                 LogResult(ok, msg, e);
                                 break;
@@ -335,8 +347,8 @@ public class BasisBulkBuildWindowEditor : EditorWindow
 
                                 var (ok, msg) = await BasisBundleBuild.GameObjectBundleBuild(
                                     imageBytes, prop, targets,
-                                    assetBundleObject.UseCustomPassword,
-                                    assetBundleObject.UserSelectedPassword);
+                                    prop.UseCustomPassword,
+                                    prop.UserSelectedPassword);
 
                                 LogResult(ok, msg, e);
                                 break;

@@ -46,7 +46,7 @@ namespace Basis.BasisUI
         public static async Task<bool> PromptUserForShare(BasisMenuPanel panel, BasisDataStoreItemKeys.ItemKey item, BasisBundleDescription description)
         {
             DialogBox<bool> shareDialog = DialogBox<bool>.Create(panel, new Vector2(650, 180),
-                Basis.BasisUI.BasisLocalization.Get("library.dialog.share.title", LibraryProviderStrUtil.TitleToCase(description.AssetBundleName)),
+                Basis.BasisUI.BasisLocalization.Get("library.dialog.share.title", description.AssetBundleName),
                 Basis.BasisUI.BasisLocalization.Get("library.dialog.share.body", item.Mode),
                 AddressableAssets.Sprites.Information,
                 true

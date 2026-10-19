@@ -415,5 +415,35 @@ namespace Basis.Tests.Calibration
                 }
             }
         }
+
+        [Test]
+        public void FloorAnchoredReprojection_KeepsTrackedFeetOnTheFloorWhenTheLiftChanges()
+        {
+            Vector3 headTposeUnit = new Vector3(0f, 1.58f, 0.02f), footBoneTposeUnit = new Vector3(-0.11f, 0.09f, 0.01f);
+            Vector3 footRaw = new Vector3(-0.15f, 0.08f, 0.05f), hmdRaw = new Vector3(0.02f, TrueEyeHeight, -0.01f);
+            Quaternion footRot = Quaternion.Euler(25f, 10f, -80f), hmdRot = Quaternion.Euler(5f, 30f, 0f);
+            const float calibrationLift = 0.04f;
+            foreach (float scale in new[] { 0.92f, 1.35f })
+            {
+                foreach (float liftNow in new[] { -0.02f, 0.04f, 0.11f })
+                {
+                    foreach (float verticalOffset in new[] { 0f, 0.3f })
+                    {
+                        float floorY = BasisCalibrationMath.FloorAnchorY(verticalOffset, scale, Vector3.zero, Quaternion.identity) + footBoneTposeUnit.y * scale;
+                        Vector3 stored = footRaw + Vector3.up * calibrationLift;
+                        BasisCalibrationMath.ReprojectInverseOffsetPosition(
+                            stored + Vector3.up * (liftNow - calibrationLift), footRot,
+                            hmdRaw + Vector3.up * calibrationLift, hmdRot,
+                            scale, Vector3.zero, Quaternion.identity,
+                            headTposeUnit * scale, footBoneTposeUnit * scale, true, floorY,
+                            out Vector3 inverseOffset);
+                        BasisCalibrationMath.ScaleDeviceCoord(footRaw + Vector3.up * liftNow, footRot, scale, Vector3.zero, Quaternion.identity, out Vector3 live, out Quaternion liveRot);
+                        BasisCalibrationMath.ApplyInverseOffset(live, liveRot, inverseOffset, Quaternion.identity, out Vector3 foot, out _);
+                        Assert.That(foot.y, Is.EqualTo(floorY).Within(1e-4f),
+                            $"calibrated under a {calibrationLift:0.00} m lift, now {liftNow:0.00} m (drag {verticalOffset:0.0}, scale {scale:0.00}): the tracked foot left the floor anchor");
+                    }
+                }
+            }
+        }
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using Microsoft.ML.OnnxRuntime;
 
 namespace OpenLipSync.Inference
@@ -137,6 +138,15 @@ namespace OpenLipSync.Inference
                 float inv = sum > 0f ? 1f / sum : 0f;
                 for (int i = 0; i < _nVisemes; i++) probabilities[i] *= inv;
             }
+        }
+
+        public bool StateUnchanged()
+        {
+            for (int i = 0; i < _nCaches; i++)
+            {
+                if (!MemoryMarshal.Cast<float, int>(new ReadOnlySpan<float>(_cacheBuffers[0][i])).SequenceEqual(MemoryMarshal.Cast<float, int>(new ReadOnlySpan<float>(_cacheBuffers[1][i])))) return false;
+            }
+            return true;
         }
 
         /// <summary>Clear all conv history. Call when a player's audio stream restarts.</summary>

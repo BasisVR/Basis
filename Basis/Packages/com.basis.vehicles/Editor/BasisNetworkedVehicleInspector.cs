@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Basis.Editor.Localization;
 using Basis.Network.Vehicles;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -13,29 +14,29 @@ public class BasisNetworkedVehicleInspector : BasisDocInspector_UI
         var root = new VisualElement();
 
         root.Add(BasisSyncInspectorUI.Header(
-            "Basis Networked Vehicle",
-            "Drivable vehicle built on BasisSyncedTransform. The pilot takes ownership on sit and streams the body transform plus per-wheel spin, steer angle and engine revs; every other client interpolates. 'Static' locks it for everyone."));
+            BasisEditorLocalization.Get("editor.vehicles.inspector.title"),
+            BasisEditorLocalization.Get("editor.vehicles.inspector.description")));
 
         root.Add(BasisSyncInspectorUI.ValidationContainer(Validate));
 
-        VisualElement core = BasisSyncInspectorUI.Card("Vehicle");
-        core.Add(new PropertyField(serializedObject.FindProperty("BasisVehicleBody")));
-        core.Add(new PropertyField(serializedObject.FindProperty("Seat")));
-        core.Add(new PropertyField(serializedObject.FindProperty("SeatSync")));
-        core.Add(new PropertyField(serializedObject.FindProperty("Rigidbody")));
-        core.Add(new PropertyField(serializedObject.FindProperty("EngineAudio")));
-        core.Add(new PropertyField(serializedObject.FindProperty("SteeringWheel")));
+        VisualElement core = BasisSyncInspectorUI.Card(BasisEditorLocalization.Get("editor.vehicles.inspector.vehicleCard"));
+        core.Add(new PropertyField(serializedObject.FindProperty("BasisVehicleBody"), BasisEditorLocalization.Get("editor.vehicles.inspector.vehicleBody")));
+        core.Add(new PropertyField(serializedObject.FindProperty("Seat"), BasisEditorLocalization.Get("editor.sync.seat.seatField")));
+        core.Add(new PropertyField(serializedObject.FindProperty("SeatSync"), BasisEditorLocalization.Get("editor.vehicles.inspector.seatSync")));
+        core.Add(new PropertyField(serializedObject.FindProperty("Rigidbody"), BasisEditorLocalization.Get("editor.vehicles.inspector.rigidbody")));
+        core.Add(new PropertyField(serializedObject.FindProperty("EngineAudio"), BasisEditorLocalization.Get("editor.vehicles.inspector.engineAudio")));
+        core.Add(new PropertyField(serializedObject.FindProperty("SteeringWheel"), BasisEditorLocalization.Get("editor.vehicles.inspector.steeringWheel")));
         root.Add(core);
 
-        VisualElement wheels = BasisSyncInspectorUI.Card("Wheels & Visuals");
-        wheels.Add(new PropertyField(serializedObject.FindProperty("Colliders")));
-        wheels.Add(new PropertyField(serializedObject.FindProperty("Wheels")));
-        wheels.Add(new PropertyField(serializedObject.FindProperty("SpinVisuals")));
-        wheels.Add(new PropertyField(serializedObject.FindProperty("SteerVisuals")));
-        wheels.Add(new PropertyField(serializedObject.FindProperty("SpinAxisLocal")));
-        wheels.Add(new PropertyField(serializedObject.FindProperty("SteerAxisLocal")));
-        wheels.Add(new PropertyField(serializedObject.FindProperty("SteerRangeDeg")));
-        wheels.Add(new PropertyField(serializedObject.FindProperty("HalfPrecisionWheels")));
+        VisualElement wheels = BasisSyncInspectorUI.Card(BasisEditorLocalization.Get("editor.vehicles.inspector.wheelsCard"));
+        wheels.Add(new PropertyField(serializedObject.FindProperty("Colliders"), BasisEditorLocalization.Get("editor.vehicles.inspector.colliders")));
+        wheels.Add(new PropertyField(serializedObject.FindProperty("Wheels"), BasisEditorLocalization.Get("editor.vehicles.inspector.wheels")));
+        wheels.Add(new PropertyField(serializedObject.FindProperty("SpinVisuals"), BasisEditorLocalization.Get("editor.vehicles.inspector.spinVisuals")));
+        wheels.Add(new PropertyField(serializedObject.FindProperty("SteerVisuals"), BasisEditorLocalization.Get("editor.vehicles.inspector.steerVisuals")));
+        wheels.Add(new PropertyField(serializedObject.FindProperty("SpinAxisLocal"), BasisEditorLocalization.Get("editor.vehicles.inspector.spinAxisLocal")));
+        wheels.Add(new PropertyField(serializedObject.FindProperty("SteerAxisLocal"), BasisEditorLocalization.Get("editor.vehicles.inspector.steerAxisLocal")));
+        wheels.Add(new PropertyField(serializedObject.FindProperty("SteerRangeDeg"), BasisEditorLocalization.Get("editor.vehicles.inspector.steerRangeDeg")));
+        wheels.Add(new PropertyField(serializedObject.FindProperty("HalfPrecisionWheels"), BasisEditorLocalization.Get("editor.vehicles.inspector.halfPrecisionWheels")));
         root.Add(wheels);
 
         root.Add(BasisSyncInspectorUI.NetworkingCard(serializedObject));
@@ -55,17 +56,17 @@ public class BasisNetworkedVehicleInspector : BasisDocInspector_UI
         if (v == null) return issues;
 
         if (v.BasisVehicleBody == null)
-            issues.Add(BasisSyncIssue.Error("No BasisVehicleBody assigned — physics and the static / lock state won't drive."));
+            issues.Add(BasisSyncIssue.Error(BasisEditorLocalization.Get("editor.vehicles.inspector.noBody")));
         if (v.Seat == null)
-            issues.Add(BasisSyncIssue.Error("No pilot Seat assigned — nobody can take ownership and drive."));
+            issues.Add(BasisSyncIssue.Error(BasisEditorLocalization.Get("editor.vehicles.inspector.noSeat")));
         if (v.Rigidbody == null)
-            issues.Add(BasisSyncIssue.Warning("No Rigidbody assigned."));
+            issues.Add(BasisSyncIssue.Warning(BasisEditorLocalization.Get("editor.vehicles.inspector.noRigidbody")));
         if (v.SeatSync == null)
-            issues.Add(BasisSyncIssue.Warning("No BasisSeatSync assigned — ownership won't follow the pilot into the seat."));
+            issues.Add(BasisSyncIssue.Warning(BasisEditorLocalization.Get("editor.vehicles.inspector.noSeatSync")));
         if (v.Wheels == null || v.Wheels.Length == 0)
-            issues.Add(BasisSyncIssue.Warning("No Wheels assigned."));
+            issues.Add(BasisSyncIssue.Warning(BasisEditorLocalization.Get("editor.vehicles.inspector.noWheels")));
         if (v.SpinVisuals == null || v.SpinVisuals.Length == 0)
-            issues.Add(BasisSyncIssue.Warning("No SpinVisuals assigned — remote clients won't see the wheels spin."));
+            issues.Add(BasisSyncIssue.Warning(BasisEditorLocalization.Get("editor.vehicles.inspector.noSpinVisuals")));
         return issues;
     }
 }

@@ -24,14 +24,14 @@ namespace Unity.XR.OpenVR
             Type foundType = null;
             if (fullname)
             {
-                foundType = (from assembly in AppDomain.CurrentDomain.GetAssemblies()
+                foundType = (from assembly in UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies()
                              from type in assembly.GetTypes()
                              where type.FullName == className
                              select type).FirstOrDefault();
             }
             else
             {
-                foundType = (from assembly in AppDomain.CurrentDomain.GetAssemblies()
+                foundType = (from assembly in UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies()
                              from type in assembly.GetTypes()
                              where type.Name == className
                              select type).FirstOrDefault();

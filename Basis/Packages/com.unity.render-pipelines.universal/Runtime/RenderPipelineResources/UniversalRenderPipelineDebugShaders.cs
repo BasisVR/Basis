@@ -8,7 +8,7 @@ namespace UnityEngine.Rendering.Universal
     /// <remarks>
     /// You cannot edit these resources through the editor's UI; use the API for advanced changes.
     /// Changing this through the API is only allowed in the Editor. In the Player, this raises an error.
-    /// 
+    ///
     /// This container is removed for non-development build.
     /// </remarks>
     /// <seealso cref="IRenderPipelineResources"/>
@@ -17,7 +17,7 @@ namespace UnityEngine.Rendering.Universal
     /// <code>
     /// using UnityEngine.Rendering;
     /// using UnityEngine.Rendering.Universal;
-    /// 
+    ///
     /// public static class URPUniversalRendererDebugShadersHelper
     /// {
     ///     public static Shader replacementPS
@@ -43,12 +43,7 @@ namespace UnityEngine.Rendering.Universal
         /// </summary>
         public int version => 0;
 
-        bool IRenderPipelineGraphicsSettings.isAvailableInPlayerBuild =>
-#if DEVELOPMENT_BUILD || UNITY_EDITOR
-            true;
-#else
-            false;
-#endif
+        bool IRenderPipelineGraphicsSettings.isAvailableInPlayerBuild => true;
 
         [SerializeField]
         [ResourcePath("Shaders/Debug/DebugReplacement.shader")]
@@ -87,6 +82,19 @@ namespace UnityEngine.Rendering.Universal
         {
             get => m_ProbeVolumeSamplingDebugComputeShader;
             set => this.SetValueAndNotify(ref m_ProbeVolumeSamplingDebugComputeShader, value, nameof(m_ProbeVolumeSamplingDebugComputeShader));
+        }
+
+        [SerializeField]
+        [ResourcePath("Shaders/Debug/BatchingTypeDebug.shader")]
+        Shader m_BatchingTypeDebugPS;
+
+        /// <summary>
+        /// Debug shader used to render color of each batch type.
+        /// </summary>
+        public Shader batchingTypeDebugPS
+        {
+            get => m_BatchingTypeDebugPS;
+            set => this.SetValueAndNotify(ref m_BatchingTypeDebugPS, value, nameof(m_BatchingTypeDebugPS));
         }
     }
 }

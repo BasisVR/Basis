@@ -9,6 +9,7 @@ public class BasisFrameRateVisualization : MonoBehaviour
 {
     public TextMeshProUGUI fpsText;
     public string Title;
+    public string TimeLabel = "Time:";
 
     private int cachedHour, cachedMinute, cachedSecond;
     private float nextTimeUpdate;
@@ -116,7 +117,8 @@ public class BasisFrameRateVisualization : MonoBehaviour
             buffer[idx++] = Title[i];
 
         // Scale down stats relative to title
-        idx = Append(buffer, "     <size=70%>Time:", idx);
+        idx = Append(buffer, "     <size=70%>", idx);
+        idx = Append(buffer, TimeLabel, idx);
         idx = AppendTwoDigit(cachedHour, idx);
         buffer[idx++] = ':';
         idx = AppendTwoDigit(cachedMinute, idx);

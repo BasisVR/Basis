@@ -1,0 +1,75 @@
+[workspace]
+resolver = "3"
+exclude = ["fuzz"]
+members = [
+    "media-clock",
+    "media-bank",
+    "media-bitstream",
+    "media-demux",
+    "media-hls",
+    "media-rtsp",
+    "media-whep",
+    "media-rtp",
+    "media-rist",
+    "media-io",
+    "media-decode",
+    "media-decode/decode-mf",
+    "media-decode/decode-mediacodec",
+    "media-decode/decode-sw",
+    "media-diag",
+    "media-testkit",
+    "media-engine",
+    "media-present",
+    "media-ffi",
+    "bm-probe",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.92"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+media-clock = { path = "media-clock" }
+media-bank = { path = "media-bank" }
+media-bitstream = { path = "media-bitstream" }
+media-demux = { path = "media-demux" }
+media-hls = { path = "media-hls" }
+media-rtsp = { path = "media-rtsp" }
+media-whep = { path = "media-whep" }
+media-rtp = { path = "media-rtp" }
+media-rist = { path = "media-rist" }
+media-io = { path = "media-io" }
+media-decode = { path = "media-decode" }
+decode-mf = { path = "media-decode/decode-mf" }
+decode-mediacodec = { path = "media-decode/decode-mediacodec" }
+decode-sw = { path = "media-decode/decode-sw" }
+media-diag = { path = "media-diag" }
+media-testkit = { path = "media-testkit" }
+media-engine = { path = "media-engine" }
+media-present = { path = "media-present" }
+proptest = "1"
+clap = { version = "4", features = ["derive"] }
+re_mp4 = "0.5.1"
+windows = "0.62.2"
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+rust_2018_idioms = { level = "warn", priority = -1 }
+[workspace.lints.clippy]
+undocumented_unsafe_blocks = "deny"
+
+# Size levers for the plugin-size budget: fat LTO + one codegen unit.
+# debug stays on: MSVC debuginfo lives in the .pdb, and the Android lane
+# strips at staging, so the target/ artefact keeps symbolication info.
+# panic stays "unwind": the ABI's catch_unwind fences depend on it.
+[profile.release]
+debug = true
+lto = "fat"
+codegen-units = 1
+
+[patch.crates-io]
+retina = { path = "third_party/retina" }
+matroska-demuxer = { path = "third_party/matroska-demuxer" }
+re_mp4 = { path = "third_party/re_mp4" }

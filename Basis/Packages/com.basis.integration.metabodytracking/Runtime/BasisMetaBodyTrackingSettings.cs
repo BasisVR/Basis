@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 #if BASIS_FRAMEWORK_EXISTS
 using Basis.Scripts.Settings;
 
@@ -9,6 +10,7 @@ namespace Basis.Integration.MetaBodyTracking
     /// has read the settings file — so the post-load registration below re-loads them once the store
     /// is populated (otherwise saved values never restore).
     /// </summary>
+    [NoAutoStaticsCleanup]
     public static class BasisMetaBodyTrackingSettings
     {
         static BasisMetaBodyTrackingSettings()

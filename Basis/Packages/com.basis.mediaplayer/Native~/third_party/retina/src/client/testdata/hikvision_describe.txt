@@ -1,0 +1,29 @@
+RTSP/1.0 200 OK
+CSeq: 1
+Content-Type: application/sdp
+Content-Base: rtsp://192.168.5.106:554/Streaming/Channels/101/
+Content-Length: 902
+
+v=0
+o=- 1620251477190769 1620251477190769 IN IP4 192.168.5.106
+s=Media Presentation
+e=NONE
+b=AS:5050
+t=0 0
+a=control:rtsp://192.168.5.106:554/Streaming/Channels/101/?transportmode=unicast&profile=Profile_1
+m=video 0 RTP/AVP 96
+c=IN IP4 0.0.0.0
+b=AS:5000
+a=recvonly
+a=x-dimensions:1920,1080
+a=control:rtsp://192.168.5.106:554/Streaming/Channels/101/trackID=1?transportmode=unicast&profile=Profile_1
+a=rtpmap:96 H264/90000
+a=fmtp:96 profile-level-id=420029; packetization-mode=1; sprop-parameter-sets=Z00AKZpkA8ARPyzUBAQFAAADA+gAAOpgBA==,aO48gA==
+m=application 0 RTP/AVP 107
+c=IN IP4 0.0.0.0
+b=AS:50
+a=recvonly
+a=control:rtsp://192.168.5.106:554/Streaming/Channels/101/trackID=3?transportmode=unicast&profile=Profile_1
+a=rtpmap:107 vnd.onvif.metadata/90000
+a=Media_header:MEDIAINFO=494D4B48010100000400010000000000000000000000000000000000000000000000000000000000;
+a=appversion:1.0

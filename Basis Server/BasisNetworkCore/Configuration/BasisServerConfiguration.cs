@@ -13,6 +13,7 @@ public class Configuration
     public const string LogsFolderName = "logs";
     public const string InitialResourcesFolderName = "initialresources";
     public const string DefaultLibraryFolderName = "defaultlibrary";
+    public const string StorageFolderName = "storage";
 
     /// <summary>
     /// Bump when config changes should force existing files to be rewritten (e.g. to refresh
@@ -34,7 +35,10 @@ public class Configuration
     //     a constant fitted on one machine. Bumped so existing files gain it with its doc comment.
     // 13: LogConnectionHandshake added - the per-connection auth chatter is now off by default.
     // 14: CompanyName and ProductName added - the client company and product name a connection must report.
-    public const int CurrentConfigVersion = 14;
+    // 15: ServerUUID added - the stable application-level identity sent to clients when they join.
+    // 16: ContentSphereLeaveTimeoutSeconds and ContentSphereDeletionTimerSeconds added - how long shared orbs outlive their sharer, and an optional lifetime.
+    // 17: player storage (StorageEnabled, StorageBackend, StorageMaxBytesPerPlayer, StorageMaxTotalMegabytes, StorageConnectionString, StorageSqlTable) added.
+    public const int CurrentConfigVersion = 18;
     /// <summary>Schema version stamped into config.xml; 0 = a pre-versioning file that is upgraded on load.</summary>
     public int ConfigVersion = 0;
 
@@ -44,6 +48,12 @@ public class Configuration
     public string ServerName = "Basis Server";
     /// <summary>Short MOTD returned alongside the server name in the info query response. Two short lines render cleanly in the list UI.</summary>
     public string ServerMotd = "";
+    /// <summary>
+    /// Stable application-level identity for this server. It is deliberately independent of bind
+    /// addresses and transport details, and may be set explicitly (for example by an embedded host).
+    /// A new value is generated once when a new or upgraded config file is written.
+    /// </summary>
+    public string ServerUUID = Guid.NewGuid().ToString("N");
     public string CompanyName = BasisNetworkApplication.DefaultCompanyName;
     public string ProductName = BasisNetworkApplication.DefaultProductName;
     public bool EnableStatistics = true;
@@ -347,6 +357,8 @@ public class Configuration
     /// <summary>Movement mode the policy pins players to when its bit is set: 0 Walk, 1 Fly, 2 NoClip.</summary>
     public byte LocomotionPolicyMode = 0;
     public int MaxContentSpheresPerPlayer = 32;
+    public int ContentSphereLeaveTimeoutSeconds = 60;
+    public int ContentSphereDeletionTimerSeconds = 0;
     /// <summary>
     /// Most distinct network ids one player may register in a session. Every synced object (prop,
     /// synced transform, image manager) claims one from a shared 65,536-wide space that is only
@@ -441,6 +453,18 @@ public class Configuration
     /// </summary>
     public bool SafeDisplayNamesForced = false;
     public bool GifsLocked = false;
+    public bool ContentRemovalLocked = false;
+    public bool ExternalLinksLocked = false;
+    public bool StorageEnabled = true;
+    public string StorageBackend = "file";
+    public int StorageMaxBytesPerPlayer = 16384;
+    public int StorageMaxTotalMegabytes = 256;
+    public string StorageConnectionString = "";
+    public string StorageSqlTable = "basis_storage";
+    public int StorageNewOwnersPerAddress = 4;
+    public int StorageNewOwnerWindowMinutes = 60;
+    public int StorageNewOwnersPerHour = 60;
+    public int StorageExpiryDays = 365;
 
     // ── REST API ──────────────────────────────────────────────────────────────
     /// <summary>Set to true to enable the REST management API.</summary>
@@ -554,6 +578,7 @@ public class Configuration
         nameof(IPv6Address),
         nameof(OverrideAutoDiscoveryOfIpv),
         nameof(NetworkStackId),
+        nameof(ServerUUID),
         nameof(HasFileSupport),
         nameof(EnableStatistics),
         nameof(EnableConsole),
@@ -564,6 +589,10 @@ public class Configuration
         nameof(ApiHost),
         nameof(ApiPort),
         nameof(ApiKey),
+        nameof(StorageEnabled),
+        nameof(StorageBackend),
+        nameof(StorageConnectionString),
+        nameof(StorageSqlTable),
     };
 
     /// <summary>Whether a field only takes effect after a restart. See <see cref="RestartOnlyFields"/>.</summary>
@@ -584,7 +613,8 @@ public class Configuration
         return fieldName.IndexOf("password", StringComparison.OrdinalIgnoreCase) >= 0
             || fieldName.IndexOf("apikey", StringComparison.OrdinalIgnoreCase) >= 0
             || fieldName.IndexOf("secret", StringComparison.OrdinalIgnoreCase) >= 0
-            || fieldName.IndexOf("token", StringComparison.OrdinalIgnoreCase) >= 0;
+            || fieldName.IndexOf("token", StringComparison.OrdinalIgnoreCase) >= 0
+            || fieldName.IndexOf("connectionstring", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     private static void ApplyEnvironmentalOverridesTo(object target)

@@ -1,10 +1,14 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using UnityEngine;
 
-public class SMModuleSitStand : BasisSettingsBase
+[AutoStaticsCleanup]
+public partial class SMModuleSitStand : BasisSettingsBase
 {
     public static bool IsSteatedMode = false;
     public static float MissingHeightDelta = 0;
+    public static float SeatedMeasuredEyeHeight = 0;
+    public static float SeatedTargetEyeHeight => BasisHeightDriver.HasGenuinePlayerEyeHeight ? BasisHeightDriver.SizingEyeHeight : BasisStatedHeight.IsSet ? BasisStatedHeight.ImpliedEyeHeight : BasisHeightDriver.FallbackHeightInMeters;
 
     /// <summary>
     /// The persisted seatedmode setting must be re-applied once the local player actually exists:
@@ -91,8 +95,9 @@ public class SMModuleSitStand : BasisSettingsBase
 
     private static void ApplySeated()
     {
-        BasisHeightDriver.CapturePlayerHeight();
-        MissingHeightDelta = BasisHeightDriver.FallbackHeightInMeters - BasisHeightDriver.PlayerEyeHeight;
+        float target = SeatedTargetEyeHeight;
+        SeatedMeasuredEyeHeight = BasisLocalHeightCalculator.TryMeasureLiveEyeHeight(out float liveEye) ? liveEye : target;
+        MissingHeightDelta = target - SeatedMeasuredEyeHeight;
         IsSteatedMode = true;
         BasisDebug.Log($"Mode Set To Seated Mode {MissingHeightDelta}");
         if (Basis.Scripts.BasisSdk.Players.BasisLocalPlayer.Instance != null)
@@ -101,10 +106,20 @@ public class SMModuleSitStand : BasisSettingsBase
             // eye (the seated capture above measured the real seated eye only to size the
             // lift). Re-resolve so DeviceScale matches the lifted space, and fire the
             // height-changed callback — without it the menu stayed at the pre-lift height.
-            BasisHeightDriver.CapturePlayerHeight();
+            BasisHeightDriver.CapturePlayerHeight(recaptureEyeHeight: false);
             BasisHeightDriver.ApplyScaleAndHeight();
             BasisHeightDriver.ScheduleHeightChangeCallback(BasisHeightDriver.HeightModeChange.OnSitStandChanged);
         }
+    }
+
+    public static void RefreshSeatedLift()
+    {
+        if (!IsSteatedMode)
+        {
+            return;
+        }
+        MissingHeightDelta = SeatedTargetEyeHeight - SeatedMeasuredEyeHeight;
+        BasisDebug.Log($"Seated lift refreshed {MissingHeightDelta}");
     }
 
     public override void ChangedSettings()

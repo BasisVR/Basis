@@ -170,7 +170,7 @@ namespace Basis.BasisUI
             {
                 _reportGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
                 _reportGroup.SetTitle(BasisLocalization.Get("calibration.report.title"));
-                _reportGroup.SetDescription(BasisCalibrationQualityReport.HasReport ? BasisCalibrationQualityReport.Summary : BasisLocalization.Get("calibration.report.empty"));
+                _reportGroup.SetDescription(BasisCalibrationQualityReport.HasReport ? BasisCalibrationQualityReport.BuildSummary() : BasisLocalization.Get("calibration.report.empty"));
             }
 
             // The single most reliable measurement available, and the only one a permanently-seated
@@ -210,27 +210,18 @@ namespace Basis.BasisUI
                     false, 2, ValueDisplayMode.percentageFromZero),
                 BasisSettingsDefaults.ArmToHeightBlend);
 
-            var spineLockModeDropdown = PanelDropdown.CreateNewEntry(container);
-            spineLockModeDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.spineLockMode"));
-            spineLockModeDropdown.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.spineLockMode.tooltip"));
-            spineLockModeDropdown.AssignLocalizedEntries(
-                new List<string> { "Lock Hips", "Lock Head", "Lock Both" },
-                new List<string> { "settings.bodyTracking.spineLock.hips", "settings.bodyTracking.spineLock.head", "settings.bodyTracking.spineLock.both" });
-            spineLockModeDropdown.AssignBinding(BasisSettingsDefaults.IKLockMode);
-
             // Slim calibration panel: inset each dropdown control's left edge so its label isn't squished.
             NarrowDropdownForPanel(scalingModeDropdown);
-            NarrowDropdownForPanel(spineLockModeDropdown);
 
             // Avatar Scaling Mode is moot in seated mode (a fixed height is used) and while the
             // Arm To Height Ratio blend replaces it, so disable it there.
             void UpdateScalingModeInteractable()
             {
-                bool isSeated = seatedModeDropdown.DropdownComponent.options[seatedModeDropdown.DropdownComponent.value].text == SettingsProviderIK.SeatedMode_Seated;
+                bool isSeated = seatedModeDropdown.Value == SettingsProviderIK.SeatedMode_Seated;
                 bool blendActive = BasisSettingsDefaults.EnableArmToHeightBlend.RawValue;
                 scalingModeDropdown.SetInteractable(!isSeated && !blendActive,
                     isSeated ? BasisLocalization.Get("settings.bodyTracking.ikMode.disabledSeated")
-                    : blendActive ? "Disabled while Arm To Height Ratio is enabled." : null);
+                    : blendActive ? BasisLocalization.Get("settings.bodyTracking.ikMode.disabledArmToHeight") : null);
             }
             seatedModeDropdown.OnValueChanged += _ => UpdateScalingModeInteractable();
             UpdateScalingModeInteractable();
@@ -335,6 +326,7 @@ namespace Basis.BasisUI
         {
             BasisHeightDriver.HasGenuinePlayerEyeHeight = false;
             BasisHeightDriver.CapturePlayerHeight(recaptureEyeHeight: false);
+            SMModuleSitStand.RefreshSeatedLift();
             BasisHeightDriver.ApplyScaleAndHeight();
         }
 
@@ -505,8 +497,8 @@ namespace Basis.BasisUI
             BasisCalibrationQualityReport.Capture();
             if (_reportGroup != null)
             {
-                _reportGroup.SetTitle(BasisCalibrationQualityReport.HasReport ? $"Calibration Report  —  {BasisCalibrationQualityReport.Grade}" : "Calibration Report");
-                _reportGroup.SetDescription(BasisCalibrationQualityReport.HasReport ? BasisCalibrationQualityReport.Summary : "Calibration report unavailable.");
+                _reportGroup.SetTitle(BasisCalibrationQualityReport.HasReport ? $"{BasisLocalization.Get("calibration.report.title")}  —  {BasisCalibrationQualityReport.Grade}" : BasisLocalization.Get("calibration.report.title"));
+                _reportGroup.SetDescription(BasisCalibrationQualityReport.HasReport ? BasisCalibrationQualityReport.BuildSummary() : BasisLocalization.Get("calibration.report.unavailable"));
             }
         }
 

@@ -6,6 +6,7 @@
 // editor load and the reference asks it per member. Nothing here decides what is allowed — the
 // provider calls the sandboxes' own check methods, so the reference cannot drift from the rules.
 
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -60,6 +61,7 @@ public sealed class BasisDocCilboxAdvice
 /// The registration point. <see cref="Provider"/> is set by com.basis.shim; when it is null the
 /// reference simply shows no Cilbox section.
 /// </summary>
+[NoAutoStaticsCleanup]
 public static class BasisDocCilbox
 {
     /// <summary>Answers for one member, or null when the member is outside the sandbox's world.</summary>

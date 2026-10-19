@@ -12,6 +12,7 @@
     <assembly fullname="Basis.Integration.MetaBodyTracking" preserve="all" />
     <assembly fullname="Basis.Integration.SlimeVR" preserve="all" />
     <assembly fullname="Basis.Integration.TrackerObjects" preserve="all" />
+    <assembly fullname="Basis.Integration.YtDlp.Core" preserve="all" />
     <assembly fullname="Basis.OpenLipSync.Runtime" preserve="all" />
     <assembly fullname="Basis.RTAO" preserve="all" />
     <assembly fullname="Basis.Shims.Samples" preserve="all" />
@@ -52,15 +53,14 @@
     <assembly fullname="GPUUtilities" preserve="all" />
     <assembly fullname="Generator.Equals" preserve="all" />
     <assembly fullname="Generator.Equals.Runtime" preserve="all" />
-    <assembly fullname="Google.Protobuf" preserve="all" />
     <assembly fullname="HVR.Basis.Comms" preserve="all" />
     <assembly fullname="HVR.Basis.Comms.HVRUtility" preserve="all" />
     <assembly fullname="HVR.LicenseReview" preserve="all" />
     <assembly fullname="K4os.Compression.LZ4" preserve="all" />
     <assembly fullname="Klak.Spout.Runtime" preserve="all" />
     <assembly fullname="Klak.Syphon.Runtime" preserve="all" />
-    <assembly fullname="LiteNetLib" preserve="all" />
     <assembly fullname="MeaMod.DNS" preserve="all" />
+    <assembly fullname="Mediapipe.Google.Protobuf" preserve="all" />
     <assembly fullname="Mediapipe.Runtime" preserve="all" />
     <assembly fullname="Microsoft.ML.OnnxRuntime" preserve="all" />
     <assembly fullname="Newtonsoft.Json" preserve="all" />
@@ -79,7 +79,6 @@
     <assembly fullname="UdonSharp.Runtime" preserve="all" />
     <assembly fullname="Unity.Addressables" preserve="all" />
     <assembly fullname="Unity.Animation.Rigging" preserve="all" />
-    <assembly fullname="Unity.Animation.Rigging.DocCodeExamples" preserve="all" />
     <assembly fullname="Unity.Burst" preserve="all" />
     <assembly fullname="Unity.Burst.Cecil" preserve="all" />
     <assembly fullname="Unity.Collections" preserve="all" />
@@ -87,6 +86,7 @@
     <assembly fullname="Unity.InputSystem" preserve="all" />
     <assembly fullname="Unity.InputSystem.ForUI" preserve="all" />
     <assembly fullname="Unity.InternalAPIEngineBridge.004" preserve="all" />
+    <assembly fullname="Unity.InternalAPIEngineBridge.ObjectDispatcher.Runtime" preserve="all" />
     <assembly fullname="Unity.InternalAPIEngineBridge.RenderPipelines.Core.Runtime.Shared" preserve="all" />
     <assembly fullname="Unity.Mathematics" preserve="all" />
     <assembly fullname="Unity.MemoryProfiler" preserve="all" />
@@ -129,6 +129,7 @@
     <assembly fullname="Unity.XR.OpenVR" preserve="all" />
     <assembly fullname="Unity.XR.OpenXR" preserve="all" />
     <assembly fullname="Unity.XR.OpenXR.Features.ConformanceAutomation" preserve="all" />
+    <assembly fullname="Unity.XR.OpenXR.Features.MetaHandMeshData" preserve="all" />
     <assembly fullname="Unity.XR.OpenXR.Features.MetaQuestSupport" preserve="all" />
     <assembly fullname="Unity.XR.OpenXR.Features.MockRuntime" preserve="all" />
     <assembly fullname="Unity.XR.OpenXR.Features.OculusQuestSupport" preserve="all" />

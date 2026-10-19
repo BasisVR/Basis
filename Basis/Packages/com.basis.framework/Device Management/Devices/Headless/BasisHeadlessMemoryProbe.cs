@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Diagnostics;
 using Basis.Scripts.Networking;
@@ -10,7 +11,8 @@ using UnityEngine.Profiling;
 /// so every number is sampled here during Update and published to
 /// <see cref="BasisHeadlessRuntimeStatus"/> for the listener to read from cache.
 /// </summary>
-public static class BasisHeadlessMemoryProbe
+[AutoStaticsCleanup]
+public static partial class BasisHeadlessMemoryProbe
 {
     /// <summary>Seconds between cheap counter samples (Profiler totals, GC heap, working set).</summary>
     public static float CounterIntervalSeconds = 2f;
@@ -28,7 +30,7 @@ public static class BasisHeadlessMemoryProbe
 
     private static float nextCounterSampleTime;
     private static float nextAssetSweepTime;
-    private static Process currentProcess;
+    [NoAutoStaticsCleanup] private static Process currentProcess;
 
     /// <summary>Forces the next <see cref="Tick"/> to sample both counters and assets.</summary>
     public static void RequestImmediateSample()

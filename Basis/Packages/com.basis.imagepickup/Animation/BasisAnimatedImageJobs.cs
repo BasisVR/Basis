@@ -338,7 +338,7 @@ namespace Basis.ImagePickup
             // File.ReadAllBytes is intentionally run on a worker task for every platform here.
             try
             {
-                _readTask = Task.Run(() => ReadGifBytes(_path));
+                _readTask = BasisTasks.Run(() => ReadGifBytes(_path));
                 _state = State.Reading;
             }
             catch (Exception exception)
@@ -416,7 +416,7 @@ namespace Basis.ImagePickup
             _decodeResult.PosterPixels.Dispose();
             _decodeResult.PosterPixels = default;
             _posterPixels = posterPixels;
-            _posterEncodeTask = Task.Run(() => EncodePosterPng(posterPixels, width, height));
+            _posterEncodeTask = BasisTasks.Run(() => EncodePosterPng(posterPixels, width, height));
         }
 
         private static byte[] EncodePosterPng(Color32[] pixels, int width, int height)

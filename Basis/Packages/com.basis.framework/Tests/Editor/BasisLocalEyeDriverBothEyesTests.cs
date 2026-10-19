@@ -27,6 +27,8 @@ namespace Basis.Tests.Local
             RemoteBoneJobSystem.Dispose();
             BasisLocalAvatarDriver.Mapping = new BasisTransformMapping();
             BasisLocalEyeDriverData.SetMaxLookAngle(false, BasisAvatar.DefaultEyeMaxLookAngle);
+            BasisLocalCameraDriver.HeadPosition = Vector3.zero;
+            BasisLocalCameraDriver.HeadRotation = Quaternion.identity;
             if (root != null) Object.DestroyImmediate(root);
         }
 
@@ -198,6 +200,52 @@ namespace Basis.Tests.Local
             Assert.That(maxDiff, Is.LessThan(1.5f), $"eyes diverged by {maxDiff} deg");
             Assert.That(maxL, Is.LessThanOrEqualTo(25.5f), "left eye exceeded the max look angle");
             Assert.That(maxR, Is.LessThanOrEqualTo(25.5f), "right eye exceeded the max look angle");
+        }
+
+        [Test]
+        public void DriverPipelineSurvivesCameraPoseBeforeFirstSample()
+        {
+            Build(Rig.Aligned);
+            BasisLocalCameraDriver.HeadPosition = Vector3.zero;
+            BasisLocalCameraDriver.HeadRotation = new Quaternion(0f, 0f, 0f, 0f);
+            BasisLocalAvatarDriver.Mapping = new BasisTransformMapping
+            {
+                AnimatorRoot = root.transform,
+                HasAnimatorRoot = true,
+                head = head,
+                Hashead = true,
+                LeftEye = left,
+                HasLeftEye = true,
+                RightEye = right,
+                HasRightEye = true
+            };
+
+            BasisLocalEyeDriver.Initialize();
+            BasisLocalEyeDriver driver = new BasisLocalEyeDriver();
+
+            // The startup frame from issue #1065: the eye stage runs before the camera
+            // stage has published a rotation. It must not poison persistent state.
+            driver.Simulate(1f / 90f);
+            driver.Apply();
+            Assert.IsTrue(math.all(math.isfinite(BasisLocalEyeDriver.LastKnownState.leftOffset.value)));
+            Assert.IsTrue(math.all(math.isfinite(BasisLocalEyeDriver.LastKnownState.rightOffset.value)));
+
+            // Once the camera publishes a real pose, animation must keep advancing without
+            // requiring an avatar change to reinitialize the eye state.
+            BasisLocalCameraDriver.HeadPosition = head.position;
+            BasisLocalCameraDriver.HeadRotation = Quaternion.identity;
+            float maxMovement = 0f;
+            for (int i = 0; i < 900; i++)
+            {
+                driver.Simulate(1f / 90f);
+                driver.Apply();
+                float2 l = YawPitchDeg(left, leftView);
+                float2 r = YawPitchDeg(right, rightView);
+                Assert.IsTrue(math.all(math.isfinite(l)) && math.all(math.isfinite(r)), $"non-finite eye pose at step {i} left={l} right={r}");
+                maxMovement = math.max(maxMovement, math.max(math.length(l), math.length(r)));
+            }
+
+            Assert.That(maxMovement, Is.GreaterThan(1f), "eyes stayed frozen after the first valid camera pose");
         }
 
         [TestCase(true, 10f, 10f)]

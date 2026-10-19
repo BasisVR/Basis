@@ -1,0 +1,32 @@
+{
+    "name": "Basis.Shims.Tests",
+    "rootNamespace": "",
+    "references": [
+        "Basis Framework",
+        "BasisCommon",
+        "BasisSettings",
+        "BasisNetworkCore",
+        "Unity.Collections",
+        "Unity.Mathematics",
+        "UnityEngine.TestRunner",
+        "BasisSDK",
+        "BasisShims",
+        "Cilbox",
+        "BasisSDKEditor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

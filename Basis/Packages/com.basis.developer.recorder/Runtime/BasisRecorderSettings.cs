@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Settings;
 
 namespace Basis.Developer.Recorder
@@ -7,6 +8,7 @@ namespace Basis.Developer.Recorder
     /// BasisSettingsDefaults. The binding keys are unchanged so existing saved values
     /// continue to load.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public static class BasisRecorderSettings
     {
         static BasisRecorderSettings()

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -26,7 +27,8 @@ namespace Basis.Scripts.Platform
     /// no-op, but the queue still works — the editor scene-view bridge feeds it through
     /// <see cref="SubmitDroppedFiles"/> so play-mode drops behave the same as shipped ones.
     /// </summary>
-    public static class BasisDesktopFileDrop
+    [AutoStaticsCleanup]
+    public static partial class BasisDesktopFileDrop
     {
         private const BasisDebug.LogTag LogTag = BasisDebug.LogTag.System;
 
@@ -138,10 +140,10 @@ namespace Basis.Scripts.Platform
         [DllImport("shell32.dll", CharSet = CharSet.Auto)] private static extern uint DragQueryFile(IntPtr hDrop, uint file, StringBuilder buffer, uint length);
         [DllImport("shell32.dll")] private static extern void DragFinish(IntPtr hDrop);
 
-        private static readonly WndProcDelegate _wndProcDelegate = HookedWndProc;
-        private static IntPtr _foundWindow;
-        private static IntPtr _windowHandle = IntPtr.Zero;
-        private static IntPtr _previousWndProc = IntPtr.Zero;
+        [NoAutoStaticsCleanup] private static readonly WndProcDelegate _wndProcDelegate = HookedWndProc;
+        [NoAutoStaticsCleanup] private static IntPtr _foundWindow;
+        [NoAutoStaticsCleanup] private static IntPtr _windowHandle = IntPtr.Zero;
+        [NoAutoStaticsCleanup] private static IntPtr _previousWndProc = IntPtr.Zero;
         private static bool _installed;
 #endif
 

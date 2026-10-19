@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Unity.Scripting.LifecycleManagement;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -23,6 +24,7 @@ namespace HVR.Vixxy
     /// This component listens to a value in an address, which toggles and applies user-defined values in the properties of some objects accordingly.<br/>
     /// If there are material properties to be changed, those changes are staged into the HVROrchestrator component, which then applies a material property block
     /// to the renderer once after all changes have been received for that frame.<br/>
+    [AutoStaticsCleanup]
     public partial class HVRVixxyControl : MonoBehaviour, IHVRVixxyActuator, IHVRInitializable
     {
         // Licensing notes:

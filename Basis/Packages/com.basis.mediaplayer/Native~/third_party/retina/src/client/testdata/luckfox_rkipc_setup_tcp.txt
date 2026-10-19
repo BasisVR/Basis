@@ -1,0 +1,6 @@
+RTSP/1.0 200 OK
+CSeq: 2
+Transport: RTP/AVP/TCP;ssrc=22345684;interleaved=0-1
+Session: 12345678
+x-notes: Transport header from <https://github.com/scottlamb/retina/issues/120>
+

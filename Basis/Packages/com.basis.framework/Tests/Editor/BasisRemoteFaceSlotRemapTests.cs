@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.Receivers;
@@ -10,6 +11,7 @@ using Unity.Mathematics;
 /// state in arrays indexed by that position, so before the driver-keyed remap a mass join/leave handed
 /// every re-ordered remote somebody else's eye pose — a hard eye snap per membership change.
 /// </summary>
+[NoAutoStaticsCleanup]
 public class BasisRemoteFaceSlotRemapTests
 {
     BasisNetworkReceiver[] savedSnapshot;

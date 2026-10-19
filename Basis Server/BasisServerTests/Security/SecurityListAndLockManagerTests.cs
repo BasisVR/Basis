@@ -505,6 +505,8 @@ public class BasisGlobalLockManagerTests
         PropGrabbingLocked = false,
         SafeDisplayNamesForced = false,
         GifsLocked = false,
+        ContentRemovalLocked = false,
+        ExternalLinksLocked = false,
     };
 
     private static Configuration AllLocked() => new()
@@ -528,6 +530,8 @@ public class BasisGlobalLockManagerTests
         PropGrabbingLocked = true,
         SafeDisplayNamesForced = true,
         GifsLocked = true,
+        ContentRemovalLocked = true,
+        ExternalLinksLocked = true,
     };
 
     private static void AssertAllFlags(bool expected)
@@ -550,6 +554,8 @@ public class BasisGlobalLockManagerTests
         Assert.Equal(expected, BasisGlobalLockManager.PropGrabbingLocked);
         Assert.Equal(expected, BasisGlobalLockManager.SafeDisplayNamesForced);
         Assert.Equal(expected, BasisGlobalLockManager.GifsLocked);
+        Assert.Equal(expected, BasisGlobalLockManager.ContentRemovalLocked);
+        Assert.Equal(expected, BasisGlobalLockManager.ExternalLinksLocked);
     }
 
     /// <summary>
@@ -635,6 +641,8 @@ public class BasisGlobalLockManagerTests
             Assert.False(BasisGlobalLockManager.CameraCaptureLocked);
             Assert.False(BasisGlobalLockManager.PropGrabbingLocked);
             Assert.False(BasisGlobalLockManager.GifsLocked);
+            Assert.False(BasisGlobalLockManager.ContentRemovalLocked);
+            Assert.False(BasisGlobalLockManager.ExternalLinksLocked);
             Assert.Equal(0, BasisGlobalLockManager.CameraMetadataDisallowMask);
         }
         finally
@@ -667,6 +675,8 @@ public class BasisGlobalLockManagerTests
             (BasisGlobalLockManager.TogglePropGrabbing, () => BasisGlobalLockManager.PropGrabbingLocked),
             (BasisGlobalLockManager.ToggleSafeDisplayNames, () => BasisGlobalLockManager.SafeDisplayNamesForced),
             (BasisGlobalLockManager.ToggleGifs, () => BasisGlobalLockManager.GifsLocked),
+            (BasisGlobalLockManager.ToggleContentRemoval, () => BasisGlobalLockManager.ContentRemovalLocked),
+            (BasisGlobalLockManager.ToggleExternalLinks, () => BasisGlobalLockManager.ExternalLinksLocked),
         };
 
         foreach ((Func<bool> toggle, Func<bool> state) in toggles)
@@ -745,6 +755,8 @@ public class BasisGlobalLockManagerTests
                 PropGrabbingLocked = true,
                 SafeDisplayNamesForced = true,
                 GifsLocked = true,
+                ContentRemovalLocked = false,
+                ExternalLinksLocked = true,
             });
 
             var peer = new SecurityTestPeer(1);
@@ -766,6 +778,8 @@ public class BasisGlobalLockManagerTests
                 1,                                        // text chat locked
                 0, 1, 0, 1,                               // voice, media player, camera capture, prop grabbing
                 1,                                        // safe display names forced
+                1,
+                0,
                 1,
             }, payload);
 
@@ -845,9 +859,14 @@ public class BasisGlobalLockManagerTests
 /// Content-share DoS caps: sanitization to defaults and absolute maxima,
 /// change reporting, and the GlobalGetResourceLimits payload.
 /// </summary>
+[Collection("BasisServer shared network statics")]
 public class BasisResourceLimitManagerTests
 {
-    private static void RestoreDefaults() => BasisResourceLimitManager.SetLimits(32);
+    private static void RestoreDefaults()
+    {
+        BasisResourceLimitManager.SetLimits(32);
+        BasisResourceLimitManager.SetContentSphereTimers(60, 0);
+    }
 
     [Theory]
     [InlineData(40, 40)]
@@ -888,8 +907,32 @@ public class BasisResourceLimitManagerTests
             BasisResourceLimitManager.InitializeFromConfig(new Configuration
             {
                 MaxContentSpheresPerPlayer = 64,
+                ContentSphereLeaveTimeoutSeconds = 30,
+                ContentSphereDeletionTimerSeconds = 600,
             });
             Assert.Equal(64, BasisResourceLimitManager.MaxContentSpheresPerPlayer);
+            Assert.Equal(30, BasisResourceLimitManager.ContentSphereLeaveTimeoutSeconds);
+            Assert.Equal(600, BasisResourceLimitManager.ContentSphereDeletionTimerSeconds);
+        }
+        finally
+        {
+            RestoreDefaults();
+        }
+    }
+
+    [Theory]
+    [InlineData(90, 90)]
+    [InlineData(0, 0)]
+    [InlineData(-5, 0)]
+    [InlineData(86400, 86400)]
+    [InlineData(int.MaxValue, 86400)]
+    public void SetContentSphereTimers_ClampsBothTimers(int seconds, int expected)
+    {
+        try
+        {
+            BasisResourceLimitManager.SetContentSphereTimers(seconds, seconds);
+            Assert.Equal(expected, BasisResourceLimitManager.ContentSphereLeaveTimeoutSeconds);
+            Assert.Equal(expected, BasisResourceLimitManager.ContentSphereDeletionTimerSeconds);
         }
         finally
         {
@@ -898,17 +941,32 @@ public class BasisResourceLimitManagerTests
     }
 
     [Fact]
-    public void SendStateToPeer_WritesModeByteThenTheCap()
+    public void SetContentSphereTimers_ReportsWhetherEitherTimerChanged()
+    {
+        RestoreDefaults();
+        Assert.False(BasisResourceLimitManager.SetContentSphereTimers(60, 0));
+        Assert.False(BasisResourceLimitManager.SetContentSphereTimers(60, -1));
+        Assert.True(BasisResourceLimitManager.SetContentSphereTimers(61, 0));
+        Assert.True(BasisResourceLimitManager.SetContentSphereTimers(61, 300));
+        Assert.False(BasisResourceLimitManager.SetContentSphereTimers(61, 300));
+        RestoreDefaults();
+    }
+
+    [Fact]
+    public void SendStateToPeer_WritesModeByteThenTheCapThenTheOrbTimers()
     {
         try
         {
             BasisResourceLimitManager.SetLimits(44);
+            BasisResourceLimitManager.SetContentSphereTimers(45, 900);
             var peer = new SecurityTestPeer(2);
             BasisResourceLimitManager.SendStateToPeer(peer);
 
             var reader = new NetDataReader(Assert.Single(peer.Sent));
             Assert.Equal((byte)AdminRequestMode.GlobalGetResourceLimits, reader.GetByte());
             Assert.Equal(44, reader.GetInt());
+            Assert.Equal(45, reader.GetInt());
+            Assert.Equal(900, reader.GetInt());
             Assert.Equal(0, reader.AvailableBytes);
             Assert.Equal(BasisNetworkCommons.AdminChannel, peer.LastChannel);
 

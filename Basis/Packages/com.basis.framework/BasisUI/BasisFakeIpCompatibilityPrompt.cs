@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Threading;
 using Basis.Scripts.Common;
@@ -17,7 +18,8 @@ namespace Basis.BasisUI
     /// happens it offers the setting. The offer is the whole point: the gate is opened by the
     /// player answering a dialog, never by anything detected here.</para>
     /// </summary>
-    public static class BasisFakeIpCompatibilityPrompt
+    [AutoStaticsCleanup]
+    public static partial class BasisFakeIpCompatibilityPrompt
     {
         // Offer at most once per app run. A refused world load fires this for every file it was
         // going to fetch, and the answer is the same for all of them.

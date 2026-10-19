@@ -22,7 +22,7 @@ public partial class BasisHandHeldCamera
         if (CameraData == null) CameraData = captureCamera.GetUniversalAdditionalCameraData();
 
         CameraData.renderPostProcessing = true;
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
         SMModuleGlobalIlluminationURP.RegisterCamera(captureCamera);
 #endif
 

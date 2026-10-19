@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
@@ -17,7 +18,8 @@ using System.Threading.Tasks;
 /// (never written to B's settings file) so A unblocking reliably restores visibility
 /// and B's settings aren't polluted by other users' choices.
 /// </summary>
-public static class BasisNetworkHandleTempBlock
+[AutoStaticsCleanup]
+public static partial class BasisNetworkHandleTempBlock
 {
     private static bool initialized;
 

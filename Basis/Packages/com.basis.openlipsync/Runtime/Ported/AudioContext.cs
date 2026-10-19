@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using OpenLipSync.Inference.Audio;
 using OpenLipSync.Inference.OVRCompat;
 
@@ -31,6 +32,18 @@ namespace OpenLipSync.Inference
         // --- streaming path ---
         private readonly StreamingSession _streaming;   // null => legacy
         private readonly bool _multiLabel;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        private readonly WebStreamingSession _web;
+#endif
+#if UNITY_ANDROID && !UNITY_EDITOR
+        private readonly NativeStreamingSession _native;
+        private readonly int _settledRun;
+#endif
+#if !UNITY_WEBGL || UNITY_EDITOR
+        private readonly float[] _lastMel;
+        private int _identicalRun;
+        private bool _settled;
+#endif
 
         // --- legacy windowed path ---
         private readonly int _maxMelFrames;
@@ -39,8 +52,48 @@ namespace OpenLipSync.Inference
         private int _melFrameCount;
 
         public int MelBands => _melBands;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        public bool IsStreaming => _streaming != null || _web != null;
+#elif UNITY_ANDROID && !UNITY_EDITOR
+        public bool IsStreaming => _streaming != null || _native != null;
+        public bool IsNative => _native != null;
+        public NativeStreamingSession Native => _native;
+#else
         public bool IsStreaming => _streaming != null;
+#endif
         public int AccumulatedMelFrames => _melFrameCount;
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        public AudioContext(int inputSampleRate, AudioProcessingConfig audioConfig, int modelVisemeCount, WebStreamingSession web, bool multiLabel)
+        {
+            _ringBuffer = new AudioRingBuffer(audioConfig.SampleRate * 3);
+            _melProcessor = new MelSpectrogramProcessor(audioConfig);
+            _resampler = inputSampleRate != audioConfig.SampleRate ? new AudioResampler(inputSampleRate, audioConfig.SampleRate) : null;
+            int visemeCount = modelVisemeCount > 0 ? modelVisemeCount : Frame.VisemeCount;
+            _smoother = new VisemeSmoother(visemeCount, 0.3f);
+            _probabilityBuffer = new float[visemeCount];
+            _melBands = audioConfig.NMels;
+            _web = web;
+            _multiLabel = multiLabel;
+        }
+#endif
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        public AudioContext(int inputSampleRate, AudioProcessingConfig audioConfig, int modelVisemeCount, NativeStreamingSession native, bool multiLabel)
+        {
+            _ringBuffer = new AudioRingBuffer(audioConfig.SampleRate * 3);
+            _melProcessor = new MelSpectrogramProcessor(audioConfig);
+            _resampler = inputSampleRate != audioConfig.SampleRate ? new AudioResampler(inputSampleRate, audioConfig.SampleRate) : null;
+            int visemeCount = modelVisemeCount > 0 ? modelVisemeCount : Frame.VisemeCount;
+            _smoother = new VisemeSmoother(visemeCount, 0.3f);
+            _probabilityBuffer = new float[visemeCount];
+            _melBands = audioConfig.NMels;
+            _native = native;
+            _multiLabel = multiLabel;
+            _lastMel = new float[_melBands];
+            _settledRun = BasisNativeLipSync.ReceptiveField;
+        }
+#endif
 
         public AudioContext(int inputSampleRate, AudioProcessingConfig audioConfig, int modelVisemeCount,
                             StreamingSession streaming, bool multiLabel)
@@ -64,6 +117,9 @@ namespace OpenLipSync.Inference
             _melBands = audioConfig.NMels;
             _streaming = streaming;
             _multiLabel = multiLabel;
+#if !UNITY_WEBGL || UNITY_EDITOR
+            _lastMel = new float[_melBands];
+#endif
 
             if (_streaming == null)
             {
@@ -87,12 +143,76 @@ namespace OpenLipSync.Inference
         /// Streaming: one mel frame in, one set of viseme probabilities out.
         /// The mel frame is RAW dB -- the model applies CMVN internally. Do not normalize here.
         /// </summary>
-        public void StepStreaming(float[] melFrame)
+        public bool StepStreaming(float[] melFrame)
         {
-            if (_disposed || _streaming == null) return;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            if (_disposed || _web == null) return false;
+            _web.Submit(melFrame);
+            return true;
+#else
+            if (_disposed) return false;
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (_native != null)
+            {
+                bool settled = Repeats(melFrame) && _identicalRun > _settledRun;
+                _native.Submit(melFrame, settled);
+                return !settled;
+            }
+#endif
+            if (_streaming == null) return false;
+            bool repeat = Repeats(melFrame);
+            if (repeat && _settled)
+            {
+                Smooth(_probabilityBuffer);
+                return false;
+            }
             _streaming.Step(melFrame, _probabilityBuffer, _multiLabel);
+            if (repeat) _settled = _streaming.StateUnchanged();
             Smooth(_probabilityBuffer);
+            return true;
+#endif
         }
+
+#if !UNITY_WEBGL || UNITY_EDITOR
+        private bool Repeats(float[] melFrame)
+        {
+            ReadOnlySpan<float> current = melFrame.AsSpan(0, _melBands);
+            if (_identicalRun > 0 && MemoryMarshal.Cast<float, int>(current).SequenceEqual(MemoryMarshal.Cast<float, int>(new ReadOnlySpan<float>(_lastMel))))
+            {
+                if (_identicalRun < int.MaxValue) _identicalRun++;
+                return true;
+            }
+            current.CopyTo(_lastMel);
+            _identicalRun = 1;
+            _settled = false;
+            return false;
+        }
+#endif
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        public void ApplyNative(float[] logits, ref int offset, Frame target)
+        {
+            NativeStreamingSession native = _native;
+            int submitted = native.Submitted, row = offset;
+            offset += submitted * BasisNativeLipSync.Visemes;
+            if (_disposed || submitted != native.Computed)
+            {
+                native.Clear();
+                return;
+            }
+            for (int f = 0; f < native.Frames; f++)
+            {
+                if (!native.Settled[f])
+                {
+                    NativeStreamingSession.Activate(logits, row, _probabilityBuffer, _multiLabel);
+                    row += BasisNativeLipSync.Visemes;
+                }
+                Smooth(_probabilityBuffer);
+            }
+            native.Clear();
+            UpdateFrame(ref target);
+        }
+#endif
 
         /// <summary>
         /// The model is trained to emit calibrated per-viseme weights, so all that is left
@@ -141,6 +261,9 @@ namespace OpenLipSync.Inference
         public void UpdateFrame(ref Frame frame)
         {
             if (_disposed) return;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            while (_web != null && _web.TryTake(_probabilityBuffer, _multiLabel)) Smooth(_probabilityBuffer);
+#endif
 
             frame.frameNumber = ++_frameNumber;
             frame.frameDelay = 0;
@@ -180,8 +303,18 @@ namespace OpenLipSync.Inference
             _ringBuffer.Clear();
             _smoother.Reset();
             _frameNumber = 0;
+#if !UNITY_WEBGL || UNITY_EDITOR
+            _identicalRun = 0;
+            _settled = false;
+#endif
 
             _streaming?.Reset();
+#if UNITY_WEBGL && !UNITY_EDITOR
+            _web?.Reset();
+#endif
+#if UNITY_ANDROID && !UNITY_EDITOR
+            _native?.Reset();
+#endif
 
             if (_melSequence != null)
             {
@@ -197,6 +330,12 @@ namespace OpenLipSync.Inference
             _ringBuffer.Dispose();
             _melProcessor.Dispose();
             _streaming?.Dispose();
+#if UNITY_WEBGL && !UNITY_EDITOR
+            _web?.Dispose();
+#endif
+#if UNITY_ANDROID && !UNITY_EDITOR
+            _native?.Dispose();
+#endif
         }
     }
 }

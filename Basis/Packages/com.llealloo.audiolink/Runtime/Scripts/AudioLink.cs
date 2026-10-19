@@ -152,7 +152,9 @@ namespace AudioLink
 
         private double _fpsTime = 0;
         private int _fpsCount = 0;
+#if UNITY_EDITOR
         private int _lastUpdatedFrame = -1;
+#endif
 
         // Fix for AVPro mono game output bug (if running the game with a mono output source like a headset)
         private int _rightChannelTestDelay = 300;
@@ -400,7 +402,7 @@ namespace AudioLink
         void OnDestroy()
         {
             // makes sure that playmode doesn't permanently modify the update mode
-            audioRenderTexture.updateMode = initialUpdateMode;
+            if (audioRenderTexture != null) { audioRenderTexture.updateMode = initialUpdateMode; }
         }
 
         // TODO(3): try to port this to standalone
@@ -501,7 +503,7 @@ namespace AudioLink
                 return;
             }
 
-            if (audioDataToggle)
+            if (audioDataToggle && audioRenderTexture != null)
             {
 #if UDONSHARP
                 VRCAsyncGPUReadback.Request(audioRenderTexture, 0, TextureFormat.RGBAFloat, (VRC.Udon.Common.Interfaces.IUdonEventReceiver)(Component)this);
@@ -671,7 +673,9 @@ namespace AudioLink
 
         private void CacheAudioTarget()
         {
-#if UNITY_2022_3_OR_NEWER
+#if UNITY_6000_5_OR_NEWER
+            var listeners = FindObjectsByType<AudioListener>(FindObjectsInactive.Exclude);
+#elif UNITY_2022_3_OR_NEWER
             var listeners = FindObjectsByType<AudioListener>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
 #else
             var listeners = FindObjectsOfType<AudioListener>(true);
@@ -919,10 +923,10 @@ namespace AudioLink
 #if UNITY_EDITOR
             // When running in editor, the monobehaviour should control the render texture update cycle.
             // This mitigates the HYPERSPEED behaviour of the CRT updating multiple times per frame when more than one view camera (scene/view/whatever) is visible.
-            audioRenderTexture.updateMode = CustomRenderTextureUpdateMode.OnDemand;
+            if (audioRenderTexture != null) { audioRenderTexture.updateMode = CustomRenderTextureUpdateMode.OnDemand; }
 #else
             // In-game it will just update itself in realtime as expected.
-            audioRenderTexture.updateMode = CustomRenderTextureUpdateMode.Realtime;
+            if (audioRenderTexture != null) { audioRenderTexture.updateMode = CustomRenderTextureUpdateMode.Realtime; }
 #endif
             SetGlobalTextureWrapper(_AudioTexture, audioRenderTexture, UnityEngine.Rendering.RenderTextureSubElement.Default);
 

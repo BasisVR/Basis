@@ -342,7 +342,7 @@ MonoBehaviour:
   _useDefaultIconForNull: 0
   <DefaultIcon>k__BackingField: {fileID: 21300000, guid: b3e9a844ba8886842907b6b1c9bf175d, type: 3}
   <DefaultTexture>k__BackingField: {fileID: 0}
-  <DefaultTitle>k__BackingField: Close
+  <DefaultTitle>k__BackingField: ui.close
   <DefaultDescription>k__BackingField: 
   <IconImage>k__BackingField: {fileID: 1804049008967050139}
   <TextureImage>k__BackingField: {fileID: 0}

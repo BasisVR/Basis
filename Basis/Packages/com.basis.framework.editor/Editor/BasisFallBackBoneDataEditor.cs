@@ -1,3 +1,4 @@
+using Basis.Editor.Localization;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
@@ -20,7 +21,7 @@ public class BasisFallBackBoneDataEditor : Editor
         BoneInformation = (GameObject)EditorGUILayout.ObjectField(BoneInformation, typeof(GameObject), true);
 
         // Add a button to do custom functionality
-        if (GUILayout.Button("Load FallBack Bone Data"))
+        if (GUILayout.Button(BasisEditorLocalization.Get("editor.fallbackBone.load")))
         {
             fallBackBoneData.FallBackPercentage.Clear();
             fallBackBoneData.BoneTrackedRoles.Clear();

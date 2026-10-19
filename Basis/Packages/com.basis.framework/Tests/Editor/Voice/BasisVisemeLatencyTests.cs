@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.Drivers;
 using NUnit.Framework;
@@ -18,6 +19,7 @@ using UnityEngine;
 /// Both are measured rather than asserted-by-eye — the numbers are written to
 /// <c>Temp/viseme_latency.txt</c> so a change here can be compared against a previous run.
 /// </summary>
+[NoAutoStaticsCleanup]
 public class BasisVisemeLatencyTests
 {
     private const int VisemeCount = BasisVisemeDriveConfig.VisemeCount;

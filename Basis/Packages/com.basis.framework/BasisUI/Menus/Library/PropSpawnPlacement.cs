@@ -122,7 +122,7 @@ namespace Basis.BasisUI
             Vector3 flatForward = Vector3.ProjectOnPlane(forward, Vector3.up);
             flatForward = flatForward.sqrMagnitude <= Mathf.Epsilon ? Vector3.forward : flatForward.normalized;
 
-            float distance = meta.ResolvedDistance * BasisHeightDriver.ScaledToMatchValue;
+            float distance = meta.ResolvedDistance * BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
 
             switch (meta.Placement)
             {

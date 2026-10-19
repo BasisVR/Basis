@@ -105,7 +105,7 @@ namespace UnityEngine.Rendering.Universal
     /// Class containing resources needed for the <c>UniversalRenderer</c>.
     /// </summary>
     [Serializable, ReloadGroup, ExcludeFromPreset]
-    [URPHelpURL("urp-universal-renderer")]
+    [URPHelpURL("urp/urp-universal-renderer")]
     public partial class UniversalRendererData : ScriptableRendererData, ISerializationCallbackReceiver
     {
 #if UNITY_EDITOR
@@ -145,6 +145,7 @@ namespace UnityEngine.Rendering.Universal
         [SerializeField] CopyDepthMode m_CopyDepthMode = CopyDepthMode.AfterTransparents;
         [SerializeField] DepthFormat m_DepthAttachmentFormat = DepthFormat.Default;
         [SerializeField] DepthFormat m_DepthTextureFormat = DepthFormat.Default;
+        [SerializeField] bool m_ShadowmapStencil = false;
 #if UNITY_EDITOR
         // Do not strip accurateGbufferNormals on Mobile Vulkan as some GPUs do not support R8G8B8A8_SNorm, which then force us to use accurateGbufferNormals
         [ShaderKeywordFilter.ApplyRulesIfNotGraphicsAPI(GraphicsDeviceType.Vulkan)]
@@ -153,7 +154,7 @@ namespace UnityEngine.Rendering.Universal
         [SerializeField]
         bool m_AccurateGbufferNormals = false;
 
-        [SerializeField] IntermediateTextureMode m_IntermediateTextureMode = IntermediateTextureMode.Always;
+        [SerializeField] IntermediateTextureMode m_IntermediateTextureMode = IntermediateTextureMode.Auto;
         [SerializeField] bool m_TileOnlyMode = false;
 
         /// <inheritdoc/>
@@ -317,6 +318,22 @@ namespace UnityEngine.Rendering.Universal
             {
                 SetDirty();
                 m_DepthTextureFormat = value;
+            }
+        }
+
+        /// <summary>
+        /// Whether to allocate stencil bits when creating shadowmap textures. When enabled, the shadow caster pass will also respect material render queue order.
+        /// </summary>
+        public bool shadowmapStencil
+        {
+            get
+            {
+                return m_ShadowmapStencil;
+            }
+            set
+            {
+                SetDirty();
+                m_ShadowmapStencil = value;
             }
         }
 

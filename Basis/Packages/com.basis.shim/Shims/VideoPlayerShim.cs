@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using Cilbox;
 using UnityEngine.Video;
@@ -7,7 +8,8 @@ using System.Collections;
 
 namespace Basis.Shims
 {
-    public class VideoPlayerShim : CilboxShim
+    [AutoStaticsCleanup]
+    public partial class VideoPlayerShim : CilboxShim
     {
         private const float PendingUrlTimeoutSeconds = 20f;
 

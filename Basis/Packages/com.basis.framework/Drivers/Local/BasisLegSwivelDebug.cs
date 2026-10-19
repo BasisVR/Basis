@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -5,7 +6,8 @@ using UnityEngine;
 
 namespace Basis.Scripts.Drivers
 {
-    public static class BasisLegSwivelDebug
+    [AutoStaticsCleanup]
+    public static partial class BasisLegSwivelDebug
     {
         public static bool Enabled;
         const int MaxRows = 16000;

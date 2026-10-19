@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Unity.Collections;
@@ -12,30 +13,31 @@ namespace Basis.Scripts.Rendering
         public Renderer[] Renderers;
     }
 
-    public static class BasisVisibilityDatabase
+    [AutoStaticsCleanup]
+    public static partial class BasisVisibilityDatabase
     {
         public const int InvalidHandle = -1;
         private const int InitialCapacity = 256;
 
-        public static NativeArray<float3> Centers;
+        [NoAutoStaticsCleanup] public static NativeArray<float3> Centers;
 
         /// <summary>Unscaled extents as registered. The bounds job scales these into <see cref="Extents"/>.</summary>
-        public static NativeArray<float3> BaseExtents;
+        [NoAutoStaticsCleanup] public static NativeArray<float3> BaseExtents;
 
         /// <summary>World extents the cull actually tests against.</summary>
-        public static NativeArray<float3> Extents;
-        public static NativeArray<uint> Flags;
-        public static NativeArray<uint> VisibleMask;
-        public static NativeArray<byte> AppliedVisible;
+        [NoAutoStaticsCleanup] public static NativeArray<float3> Extents;
+        [NoAutoStaticsCleanup] public static NativeArray<uint> Flags;
+        [NoAutoStaticsCleanup] public static NativeArray<uint> VisibleMask;
+        [NoAutoStaticsCleanup] public static NativeArray<byte> AppliedVisible;
 
         /// <summary>
         /// Roots of every entry that has one, packed dense for <c>IJobParallelForTransform</c>.
         /// <see cref="DenseToSlot"/> maps a row here back to its database slot; <see cref="SlotToDense"/>
         /// is the inverse so removal is O(1) instead of a scan.
         /// </summary>
-        public static TransformAccessArray Roots;
-        public static NativeList<int> DenseToSlot;
-        public static NativeArray<int> SlotToDense;
+        [NoAutoStaticsCleanup] public static TransformAccessArray Roots;
+        [NoAutoStaticsCleanup] public static NativeList<int> DenseToSlot;
+        [NoAutoStaticsCleanup] public static NativeArray<int> SlotToDense;
 
         public static BasisVisibilityBinding[] Bindings = Array.Empty<BasisVisibilityBinding>();
 

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.IK;
 using Basis.Scripts.Avatar;
 using Unity.Collections;
@@ -6,7 +7,8 @@ using Unity.Mathematics;
 using UnityEngine;
 namespace Basis.Scripts.Drivers
 {
-    public sealed class BasisLocomotionPoseSystem
+    [AutoStaticsCleanup]
+    public sealed partial class BasisLocomotionPoseSystem
     {
         public static bool JobDrivenLocomotionPose => Basis.BasisUI.BasisSettingsDefaults.FBIKJobLocomotion.RawValue;
         public static readonly bool FreezeAnimatorInFullFBT = true;

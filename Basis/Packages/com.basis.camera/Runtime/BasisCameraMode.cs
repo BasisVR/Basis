@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 /// <summary>
 /// A named bundle of camera settings for one job. The handheld camera carries far more controls
 /// than any single use needs, so a mode writes the settings that job wants. Nothing is ever locked —
@@ -57,6 +58,7 @@ public sealed class BasisCameraModeDescriptor
 /// it without a camera in hand. The values each mode <em>writes</em> live next to the code that
 /// writes them, in the camera's own mode partial.
 /// </summary>
+[NoAutoStaticsCleanup]
 public static class BasisCameraModes
 {
     /// <summary>Presentation order, and the order of the panel's mode dropdown.</summary>

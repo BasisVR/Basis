@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Basis.Editor.Localization;
 using Basis.Scripts.BasisSdk;
 using UnityEditor;
 using UnityEngine;
@@ -28,7 +29,7 @@ public class BasisFarLodTesterWindow : EditorWindow
     [MenuItem("Basis/Avatar/Far Avatar Tester", false, 141)]
     public static void Open()
     {
-        BasisFarLodTesterWindow window = GetWindow<BasisFarLodTesterWindow>("Far Avatar Tester");
+        BasisFarLodTesterWindow window = GetWindow<BasisFarLodTesterWindow>(BasisEditorLocalization.Get("sdk.farLod.tester.title"));
         window.minSize = new Vector2(390f, 580f);
     }
 
@@ -47,7 +48,12 @@ public class BasisFarLodTesterWindow : EditorWindow
     private int _payloadBytes;
     private int _base64Bytes;
     private string _lastError;
-    private static readonly string[] TabNames = { "3D View", "Atlas", "Info" };
+    private static string[] TabNames => new[]
+    {
+        BasisEditorLocalization.Get("sdk.farLod.tester.tab.view"),
+        BasisEditorLocalization.Get("sdk.farLod.tester.tab.atlas"),
+        BasisEditorLocalization.Get("editor.common.info"),
+    };
 
     private GameObject _previewRoot;
     private Transform[] _previewBones;
@@ -110,8 +116,8 @@ public class BasisFarLodTesterWindow : EditorWindow
 
     private void OnGUI()
     {
-        BasisEditorUI.Header("Far Avatar Tester",
-            "Preview what a distant player collapses to at each far-LOD level.");
+        BasisEditorUI.Header(BasisEditorLocalization.Get("sdk.farLod.tester.title"),
+            BasisEditorLocalization.Get("sdk.farLod.tester.subtitle"));
 
         _scroll = EditorGUILayout.BeginScrollView(_scroll);
 
@@ -138,33 +144,33 @@ public class BasisFarLodTesterWindow : EditorWindow
 
     private void DrawSourceSection()
     {
-        BasisEditorUI.SectionTitle("Source");
-        _avatar = (BasisAvatar)EditorGUILayout.ObjectField("Avatar (scene)", _avatar, typeof(BasisAvatar), true);
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.common.source"));
+        _avatar = (BasisAvatar)EditorGUILayout.ObjectField(BasisEditorLocalization.Get("sdk.farLod.tester.avatar"), _avatar, typeof(BasisAvatar), true);
         if (_avatar == null && Selection.activeGameObject != null && Selection.activeGameObject.TryGetComponent(out BasisAvatar selected))
         {
-            if (GUILayout.Button($"Use selected: {selected.name}"))
+            if (GUILayout.Button(BasisEditorLocalization.Get("sdk.farLod.tester.useSelected", selected.name)))
             {
                 _avatar = selected;
             }
         }
 
-        BasisFarLodGenerator.TargetTriangleCount = EditorGUILayout.IntSlider("Target Triangles", BasisFarLodGenerator.TargetTriangleCount, 500, 12000);
-        BasisFarLodGenerator.AtlasSize = EditorGUILayout.IntPopup("Atlas Size", BasisFarLodGenerator.AtlasSize,
+        BasisFarLodGenerator.TargetTriangleCount = EditorGUILayout.IntSlider(BasisEditorLocalization.Get("sdk.farLod.tester.targetTriangles"), BasisFarLodGenerator.TargetTriangleCount, 500, 12000);
+        BasisFarLodGenerator.AtlasSize = EditorGUILayout.IntPopup(BasisEditorLocalization.Get("sdk.farLod.tester.atlasSize"), BasisFarLodGenerator.AtlasSize,
             new[] { "128", "256", "512", "1024", "2048" }, new[] { 128, 256, 512, 1024, 2048 });
         if (BasisFarLodGenerator.AtlasSize > 1024)
         {
-            BasisEditorUI.Help($"{BasisFarLodGenerator.AtlasSize}px atlas: expect a noticeably slower bake, higher transient memory, and a payload of several MB riding every connector download.", MessageType.Info);
+            BasisEditorUI.Help(BasisEditorLocalization.Get("sdk.farLod.tester.atlasWarning", BasisFarLodGenerator.AtlasSize), MessageType.Info);
         }
 
         bool persistent = _avatar != null && EditorUtility.IsPersistent(_avatar);
         if (persistent)
         {
-            BasisEditorUI.Help("Drop a scene instance of the avatar (drag the prefab into a scene first) — generation renders it with its real materials.", MessageType.Info);
+            BasisEditorUI.Help(BasisEditorLocalization.Get("sdk.farLod.tester.persistentAvatar"), MessageType.Info);
         }
 
         using (new EditorGUI.DisabledScope(_avatar == null || persistent))
         {
-            if (BasisEditorUI.PrimaryButton("Generate", 30f))
+            if (BasisEditorUI.PrimaryButton(BasisEditorLocalization.Get("editor.common.generate"), 30f))
             {
                 Generate();
                 GUIUtility.ExitGUI();
@@ -183,7 +189,7 @@ public class BasisFarLodTesterWindow : EditorWindow
         {
             return;
         }
-        _showStages = EditorGUILayout.Foldout(_showStages, $"Generation Log — {_report.TotalSeconds:0.00}s total", true);
+        _showStages = EditorGUILayout.Foldout(_showStages, BasisEditorLocalization.Get("sdk.farLod.tester.logHeader", _report.TotalSeconds), true);
         if (!_showStages)
         {
             return;
@@ -217,7 +223,7 @@ public class BasisFarLodTesterWindow : EditorWindow
         catch (System.Exception e)
         {
             Debug.LogException(e);
-            _lastError = $"Generation threw {e.GetType().Name}: {e.Message}\nFull stack is in the Console.";
+            _lastError = BasisEditorLocalization.Get("sdk.farLod.tester.error.generationThrew", e.GetType().Name, e.Message);
             return;
         }
         finally
@@ -228,7 +234,7 @@ public class BasisFarLodTesterWindow : EditorWindow
         }
         if (generated == null)
         {
-            _lastError = "Generation returned nothing — the Console has the warning that stopped it.";
+            _lastError = BasisEditorLocalization.Get("sdk.farLod.tester.error.noResult");
             return;
         }
 
@@ -242,7 +248,7 @@ public class BasisFarLodTesterWindow : EditorWindow
             _payload = BasisFarLodPayload.TryParse(bytes);
             if (_payload == null)
             {
-                _lastError = "Serialize → parse round-trip failed — codec bug, see Console.";
+                _lastError = BasisEditorLocalization.Get("sdk.farLod.tester.error.roundTrip");
                 return;
             }
 
@@ -258,7 +264,7 @@ public class BasisFarLodTesterWindow : EditorWindow
         catch (System.Exception e)
         {
             Debug.LogException(e);
-            _lastError = $"Preview build threw {e.GetType().Name}: {e.Message}\nFull stack is in the Console.";
+            _lastError = BasisEditorLocalization.Get("sdk.farLod.tester.error.previewThrew", e.GetType().Name, e.Message);
             DestroyPreview();
         }
     }
@@ -269,7 +275,7 @@ public class BasisFarLodTesterWindow : EditorWindow
     {
         if (_previewMesh == null || _previewMaterial == null)
         {
-            BasisEditorUI.Help("No preview mesh built.", MessageType.Warning);
+            BasisEditorUI.Help(BasisEditorLocalization.Get("sdk.farLod.tester.noMesh"), MessageType.Warning);
             return;
         }
 
@@ -306,7 +312,7 @@ public class BasisFarLodTesterWindow : EditorWindow
             GUI.DrawTexture(rect, result, ScaleMode.StretchToFill, false);
         }
 
-        BasisEditorUI.Note("Drag to orbit, scroll to zoom. Rest pose — use the scene copy below for posed/mirrored viewing.");
+        BasisEditorUI.Note(BasisEditorLocalization.Get("sdk.farLod.tester.orbitHelp"));
     }
 
     private PreviewRenderUtility CreatePreviewRender()
@@ -342,36 +348,36 @@ public class BasisFarLodTesterWindow : EditorWindow
     {
         if (_previewTexture == null)
         {
-            BasisEditorUI.Help("No atlas texture decoded.", MessageType.Warning);
+            BasisEditorUI.Help(BasisEditorLocalization.Get("sdk.farLod.tester.noAtlas"), MessageType.Warning);
             return;
         }
         float side = Mathf.Clamp(position.width - 24f, 200f, 460f);
         Rect rect = GUILayoutUtility.GetRect(side, side, GUILayout.ExpandWidth(false));
         EditorGUI.DrawPreviewTexture(rect, _previewTexture);
-        BasisEditorUI.Note($"Decoded as {_previewTexture.format}, {_previewTexture.width}x{_previewTexture.height}, {_previewTexture.mipmapCount} mips");
+        BasisEditorUI.Note(BasisEditorLocalization.Get("sdk.farLod.tester.atlasDecoded", _previewTexture.format, _previewTexture.width, _previewTexture.height, _previewTexture.mipmapCount));
         for (int i = 0; i < _payload.Textures.Length; i++)
         {
             var texture = _payload.Textures[i];
-            BasisEditorUI.Note($"Payload [{texture.Format}] {texture.Width}x{texture.Height}, {texture.MipCount} mips — {texture.Data.Length / 1024f:0.0} KB");
+            BasisEditorUI.Note(BasisEditorLocalization.Get("sdk.farLod.tester.atlasPayload", texture.Format, texture.Width, texture.Height, texture.MipCount, texture.Data.Length / 1024f));
         }
     }
 
     private void DrawInfoTab()
     {
-        BasisEditorUI.SectionTitle("Payload");
-        EditorGUILayout.LabelField("Triangles", _payload.TriangleCount.ToString());
-        EditorGUILayout.LabelField("Vertices", _payload.VertexCount.ToString());
-        EditorGUILayout.LabelField("Bones", _payload.BoneCount.ToString());
-        EditorGUILayout.LabelField("Raw size", $"{_payloadBytes / 1024f:0.0} KB");
-        EditorGUILayout.LabelField("In connector (base64)", $"{_base64Bytes / 1024f:0.0} KB");
-        EditorGUILayout.LabelField("Authored scale", _payload.AuthoredRootScale.ToString("0.###"));
-        EditorGUILayout.LabelField("Lighting response", $"min {_payload.MinBrightness:0.###}, max {(_payload.MaxBrightness >= 4f ? "uncapped" : _payload.MaxBrightness.ToString("0.##"))}");
-        EditorGUILayout.LabelField("Eye height / fwd", _payload.AvatarEyePosition.ToString("0.###"));
-        EditorGUILayout.LabelField("Mouth height / fwd", _payload.AvatarMouthPosition.ToString("0.###"));
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("sdk.farLod.tester.payload"));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("sdk.farLod.tester.triangles"), _payload.TriangleCount.ToString());
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("sdk.farLod.tester.vertices"), _payload.VertexCount.ToString());
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("sdk.farLod.tester.bones"), _payload.BoneCount.ToString());
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("sdk.farLod.tester.rawSize"), $"{_payloadBytes / 1024f:0.0} KB");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("sdk.farLod.tester.inConnector"), $"{_base64Bytes / 1024f:0.0} KB");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("sdk.farLod.tester.authoredScale"), _payload.AuthoredRootScale.ToString("0.###"));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("sdk.farLod.tester.lightingResponse"), BasisEditorLocalization.Get("sdk.farLod.tester.lightingValue", _payload.MinBrightness.ToString("0.###"), _payload.MaxBrightness >= 4f ? BasisEditorLocalization.Get("sdk.farLod.tester.uncapped") : _payload.MaxBrightness.ToString("0.##")));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("sdk.farLod.tester.eyeHeight"), _payload.AvatarEyePosition.ToString("0.###"));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("sdk.farLod.tester.mouthHeight"), _payload.AvatarMouthPosition.ToString("0.###"));
         Vector3 size = _payload.PositionBoundsMax - _payload.PositionBoundsMin;
-        EditorGUILayout.LabelField("Bounds (root space)", size.ToString("0.###"));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("sdk.farLod.tester.bounds"), size.ToString("0.###"));
 
-        _showBones = EditorGUILayout.Foldout(_showBones, "Skeleton", true);
+        _showBones = EditorGUILayout.Foldout(_showBones, BasisEditorLocalization.Get("sdk.farLod.tester.skeleton"), true);
         if (_showBones)
         {
             using (new EditorGUI.IndentLevelScope())
@@ -380,7 +386,7 @@ public class BasisFarLodTesterWindow : EditorWindow
                 {
                     HumanBodyBones bone = (HumanBodyBones)_payload.BoneHumanBodyBone[i];
                     byte parent = _payload.BoneParentIndex[i];
-                    string parentName = parent == 0xFF ? "(root)" : ((HumanBodyBones)_payload.BoneHumanBodyBone[parent]).ToString();
+                    string parentName = parent == 0xFF ? BasisEditorLocalization.Get("sdk.farLod.tester.rootBone") : ((HumanBodyBones)_payload.BoneHumanBodyBone[parent]).ToString();
                     BasisEditorUI.Note($"{bone} ← {parentName}");
                 }
             }
@@ -396,7 +402,7 @@ public class BasisFarLodTesterWindow : EditorWindow
         _previewTexture = _payload.CreateTexture();
         if (_previewMesh == null || _previewTexture == null)
         {
-            _lastError = "Decoded payload did not build a mesh/texture — see Console.";
+            _lastError = BasisEditorLocalization.Get("sdk.farLod.tester.error.decode");
             DestroyPreview();
             return;
         }
@@ -498,30 +504,30 @@ public class BasisFarLodTesterWindow : EditorWindow
     private void DrawScenePreviewSection()
     {
         EditorGUILayout.Space(6);
-        BasisEditorUI.SectionTitle("Scene Copy");
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("sdk.farLod.tester.sceneCopy"));
         if (_previewRoot == null)
         {
-            if (_avatar != null && _previewMesh != null && GUILayout.Button("Spawn Scene Copy"))
+            if (_avatar != null && _previewMesh != null && GUILayout.Button(BasisEditorLocalization.Get("sdk.farLod.tester.spawnCopy")))
             {
                 BuildSceneCopy();
             }
             else
             {
-                BasisEditorUI.Note("Not spawned.");
+                BasisEditorUI.Note(BasisEditorLocalization.Get("sdk.farLod.tester.notSpawned"));
             }
             return;
         }
-        _mirrorPose = EditorGUILayout.Toggle("Mirror Source Pose", _mirrorPose);
-        _previewOffset = EditorGUILayout.FloatField("Offset (0 = auto)", _previewOffset);
-        BasisEditorUI.Note("Mirroring pauses while a copy transform is selected, so you can pose the copy by hand.");
+        _mirrorPose = EditorGUILayout.Toggle(BasisEditorLocalization.Get("sdk.farLod.tester.mirrorPose"), _mirrorPose);
+        _previewOffset = EditorGUILayout.FloatField(BasisEditorLocalization.Get("sdk.farLod.tester.offset"), _previewOffset);
+        BasisEditorUI.Note(BasisEditorLocalization.Get("sdk.farLod.tester.mirrorPaused"));
         DrawPoseAudit();
         EditorGUILayout.BeginHorizontal();
-        if (GUILayout.Button("Select In Scene"))
+        if (GUILayout.Button(BasisEditorLocalization.Get("sdk.farLod.tester.selectInScene")))
         {
             EditorGUIUtility.PingObject(_previewRoot);
             Selection.activeGameObject = _previewRoot;
         }
-        if (GUILayout.Button("Destroy Copy"))
+        if (GUILayout.Button(BasisEditorLocalization.Get("sdk.farLod.tester.destroyCopy")))
         {
             DestroyScenePreviewOnly();
         }
@@ -543,7 +549,7 @@ public class BasisFarLodTesterWindow : EditorWindow
         float worst = 0f;
         string worstBone = null;
         int shown = 0;
-        BasisEditorUI.SectionTitle("Pose Audit (world-rotation error vs source)");
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("sdk.farLod.tester.auditHeader"));
         for (int i = 0; i < _previewBones.Length; i++)
         {
             Transform source = _sourceBones[i];
@@ -565,8 +571,8 @@ public class BasisFarLodTesterWindow : EditorWindow
             }
         }
         EditorGUILayout.LabelField(worst <= 1f
-            ? $"All bones within 1° (worst {worst:0.00}° on {worstBone ?? "n/a"})."
-            : $"Worst: {worst:0.0}° on {worstBone}.",
+            ? BasisEditorLocalization.Get("sdk.farLod.tester.auditClean", worst, worstBone ?? BasisEditorLocalization.Get("sdk.farLod.tester.notAvailable"))
+            : BasisEditorLocalization.Get("sdk.farLod.tester.auditWorst", worst, worstBone),
             worst <= 1f ? EditorStyles.miniLabel : EditorStyles.boldLabel);
         Repaint();
     }

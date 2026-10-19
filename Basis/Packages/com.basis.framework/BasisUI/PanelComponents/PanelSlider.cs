@@ -200,6 +200,14 @@ namespace Basis.BasisUI
         protected override void AddPanelOptions(BasisMenuDialoguePanel dialogue) =>
             BasisPanelJoystickBind.AddDialogueOption(this, dialogue);
 
+        protected override bool TryConformShareValue(ref float value)
+        {
+            if (SliderComponent == null) return false;
+            value = Mathf.Clamp(value, SliderComponent.minValue, SliderComponent.maxValue);
+            if (SliderComponent.wholeNumbers) value = Mathf.Round(value);
+            return true;
+        }
+
         public void OnPointerDown(PointerEventData eventData)
         {
             if (!Application.isPlaying) return;

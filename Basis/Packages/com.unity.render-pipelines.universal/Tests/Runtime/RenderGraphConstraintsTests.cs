@@ -61,10 +61,10 @@ namespace UnityEngine.Rendering.Universal.Tests
                 UnityEditor.EditorWindow.GetWindow<UnityEditor.Rendering.RenderGraphViewer>().Close();
 #endif
 
-            m_PreviousSessionType = RenderGraphDebugSession.currentDebugSession?.GetType();
+            m_PreviousSessionType = RenderGraphDebugSessionManager.currentDebugSession?.GetType();
             m_PreviousQualityRenderPipelineAsset = QualitySettings.renderPipeline;
 
-            RenderGraphDebugSession.Create<TestRenderGraphDebugSession>();
+            RenderGraphDebugSessionManager.BeginSession<TestRenderGraphDebugSession>();
 
             // Create new URP asset
             m_UniversalRenderPipelineAsset = Create();
@@ -92,7 +92,7 @@ namespace UnityEngine.Rendering.Universal.Tests
 
             yield return null;
 
-            if (!RenderGraphDebugSession.GetRegisteredGraphs().Contains("URPRenderGraph"))
+            if (!RenderGraphDebugSessionManager.GetRegisteredGraphs().Contains("URPRenderGraph"))
                 Assert.Ignore("Ignore this test as we couldn't setup debug session for URPRenderGraph.");
         }
 
@@ -139,9 +139,9 @@ namespace UnityEngine.Rendering.Universal.Tests
         public void OneTimeTearDown()
         {
             if (m_PreviousSessionType != null)
-                RenderGraphDebugSession.Create(m_PreviousSessionType);
+                RenderGraphDebugSessionManager.BeginSession(m_PreviousSessionType);
             else
-                RenderGraphDebugSession.EndSession();
+                RenderGraphDebugSessionManager.EndSession();
 
             QualitySettings.renderPipeline = m_PreviousQualityRenderPipelineAsset;
 
@@ -240,6 +240,11 @@ namespace UnityEngine.Rendering.Universal.Tests
         [TestCaseSource(nameof(s_OnTileValidationCases))]
         public IEnumerator URPSettingsShouldNotCauseNonMemorylessTargets(OnTileValidationConfiguration config)
         {
+            // Skip corner case testing
+            bool isOnTileDeferred = config.renderingMode == RenderingMode.Deferred || config.renderingMode == RenderingMode.DeferredPlus;
+            if (isOnTileDeferred && SystemInfo.graphicsDeviceType == GraphicsDeviceType.PlayStation5)
+                Assert.Ignore("PS5 GNMP backend has limitation that backbuffer cannot be used as GBuffer.");
+
             // Arrange
             LogAssert.ignoreFailingMessages = true;
             config.ApplyToAssetAndRenderer(m_UniversalRenderPipelineAsset, m_UniversalRendererData);
@@ -249,7 +254,11 @@ namespace UnityEngine.Rendering.Universal.Tests
 
             yield return null;
 
-            Assert.That(OnlyBackbufferOrMemoryless(outputNonMemoryless: true), Is.True, "Non-memoryless intermediate targets were produced.");
+            // No need to go further if we don't support memoryless textures
+            if (SystemInfo.supportsMemorylessTextures)    
+            {
+                Assert.That(OnlyBackbufferOrMemoryless(outputNonMemoryless: true), Is.True, "Non-memoryless intermediate targets were produced.");
+            }
             LogAssert.ignoreFailingMessages = false;
         }
 
@@ -257,6 +266,9 @@ namespace UnityEngine.Rendering.Universal.Tests
         [UnityTest]
         public IEnumerator CameraStackingProduceWarning()
         {
+            if (Display.main.requiresSrgbBlitToBackbuffer)
+                Assert.Ignore("Tile-Only Mode falls back to normal rendering when the display requires an sRGB present blit; the overlay-unsupported warning won't be produced.");
+
             // Arrange
             var gameObject = new GameObject();
             var camera = gameObject.AddComponent<Camera>();
@@ -285,11 +297,71 @@ namespace UnityEngine.Rendering.Universal.Tests
             s_AdditionalCameraData.UpdateCameraStack();
         }
 
+        [UnityPlatform(exclude = new RuntimePlatform[] { RuntimePlatform.WebGLPlayer })]
+        [UnityTest]
+        public IEnumerator RenderTextureCameraDoesNotTriggerOnTileValidation()
+        {
+            var renderTexture = new RenderTexture(256, 256, 24) { antiAliasing = 4 };
+            var gameObject = new GameObject();
+            var camera = gameObject.AddComponent<Camera>();
+            gameObject.AddComponent<UniversalAdditionalCameraData>().SetRenderer(0);
+            camera.targetTexture = renderTexture;
+
+            // Act
+            // Built-in post processing is incompatible with Tile-Only Mode and would log a warning.
+            m_UniversalRendererData.postProcessData = null;
+            m_UniversalRendererData.tileOnlyMode = true;
+
+            yield return null;
+            yield return null;
+
+            LogAssert.NoUnexpectedReceived();
+
+            m_UniversalRendererData.tileOnlyMode = false;
+            camera.targetTexture = null;
+            Object.DestroyImmediate(gameObject);
+            renderTexture.Release();
+            Object.DestroyImmediate(renderTexture);
+        }
+
+        [UnityPlatform(exclude = new RuntimePlatform[] { RuntimePlatform.WebGLPlayer })]
+        [UnityTest]
+        public IEnumerator PreviewCameraDoesNotTriggerOnTileValidation()
+        {
+            var renderTexture = new RenderTexture(256, 256, 24);
+            var gameObject = new GameObject();
+            var camera = gameObject.AddComponent<Camera>();
+            gameObject.AddComponent<UniversalAdditionalCameraData>().SetRenderer(0);
+            camera.cameraType = CameraType.Preview;
+            camera.enabled = false;
+            // A non-default viewport forces rendering via intermediate textures and a final blit.
+            camera.rect = new Rect(0f, 0f, 0.5f, 0.5f);
+
+            // Built-in post processing is incompatible with Tile-Only Mode and would log a warning.
+            m_UniversalRendererData.postProcessData = null;
+            m_UniversalRendererData.tileOnlyMode = true;
+
+            yield return null;
+
+            var request = new RenderPipeline.StandardRequest { destination = renderTexture };
+            if (RenderPipeline.SupportsRenderRequest(camera, request))
+                RenderPipeline.SubmitRenderRequest(camera, request);
+
+            yield return null;
+
+            LogAssert.NoUnexpectedReceived();
+
+            m_UniversalRendererData.tileOnlyMode = false;
+            Object.DestroyImmediate(gameObject);
+            renderTexture.Release();
+            Object.DestroyImmediate(renderTexture);
+        }
+
 
         bool OnlyBackbufferOrMemoryless(bool outputNonMemoryless = false)
         {
             var onlyMemoryless = true;
-            var debugData = RenderGraphDebugSession.GetDebugData("URPRenderGraph", m_CameraEntityId);
+            var debugData = RenderGraphDebugSessionManager.GetDebugData("URPRenderGraph", m_CameraEntityId);
             var textureList = debugData.resourceLists[(int)RenderGraphResourceType.Texture];
             for (int i = 0; i < textureList.Count; i++)
             {
@@ -315,7 +387,7 @@ namespace UnityEngine.Rendering.Universal.Tests
             return m_ResourceTestNames.Contains(name);
         }
 
-        class TestRenderGraphDebugSession : RenderGraphDebugSession
+        class TestRenderGraphDebugSession : LiveRenderGraphDebugSession
         {
             public override bool isActive => true;
 
@@ -325,6 +397,7 @@ namespace UnityEngine.Rendering.Universal.Tests
             }
         }
 
+        [HideInInspector]
         class TestScriptableRendererFeature : ScriptableRendererFeature
         {
             TestScriptableRendererPass m_TestScriptableRendererPass;

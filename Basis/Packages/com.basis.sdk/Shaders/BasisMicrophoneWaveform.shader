@@ -1,12 +1,9 @@
 Shader "Basis/UI/MicrophoneWaveform"
 {
-    // Blit-only shader for the live microphone waveform. Each time column arrives as one element
-    // of a float4 ring (xy = left trough/peak, zw = right trough/peak) via SetVectorArray, the same
-    // "push the samples into the material and let the GPU draw them" path AudioLink uses, so the
-    // CPU neither rasterizes nor copies. _Oldest unwraps the ring so a new column costs one write.
     Properties
     {
         _MainTex ("Texture", 2D) = "white" {}
+        _Data ("Data", 2D) = "black" {}
     }
 
     SubShader
@@ -26,132 +23,169 @@ Shader "Basis/UI/MicrophoneWaveform"
         Pass
         {
             HLSLPROGRAM
-            #pragma vertex vert
+            #pragma vertex vert_img
             #pragma fragment frag
             #pragma target 3.0
 
             #include "UnityCG.cginc"
 
-            #define BASIS_WAVEFORM_COLUMNS 192
+            #define SCOPE_COLUMNS 256.0
+            #define SCOPE_ROWS 3.0
 
-            struct appdata
-            {
-                float4 vertex : POSITION;
-                float2 uv     : TEXCOORD0;
-            };
-
-            struct v2f
-            {
-                float4 pos : SV_POSITION;
-                float2 uv  : TEXCOORD0;
-            };
-
-            float4 _Columns[BASIS_WAVEFORM_COLUMNS];
+            sampler2D _Data;
 
             float4 _Background;
-            float4 _Left;
-            float4 _Right;
-            float4 _Hot;
-            float4 _CentreLine;
-            float4 _GateLine;
-            float4 _MutedColour;
+            float4 _Guide;
+            float4 _Sent;
+            float4 _Denoiser;
+            float4 _Gate;
+            float4 _Agc;
+            float4 _Limiter;
+            float4 _Focus;
+            float4 _Boost;
+            float4 _Pixel;
 
             float _Oldest;
-            float _Stereo;
-            float _Scale;
-            float _CentreHalf;
-            float _LineHalf;
-            float _MinimumBar;
+            float _Pad;
+            float _GainSpan;
+            float _GateMode;
             float _GateLevel;
-            float _WarnLevel;
-            float _Muted;
-            float _Glow;
+            float _AgcOn;
+            float _AgcTarget;
+            float _LimitLevel;
 
-            v2f vert (appdata v)
+            struct Column
             {
-                v2f o;
-                o.pos = UnityObjectToClipPos(v.vertex);
-                o.uv = v.uv;
-                return o;
+                float input;
+                float denoised;
+                float body;
+                float peak;
+                float preLimit;
+                float gateLine;
+                float gateShown;
+                float gateCut;
+                float denoiser;
+                float sent;
+            };
+
+            float4 Fetch(float column, float row)
+            {
+                float ring = column + _Oldest;
+                ring = ring >= SCOPE_COLUMNS ? ring - SCOPE_COLUMNS : ring;
+                return tex2Dlod(_Data, float4((ring + 0.5) / SCOPE_COLUMNS, (row + 0.5) / SCOPE_ROWS, 0.0, 0.0));
             }
 
-            float4 SampleColumn(float position)
+            float Bit(float flags, float bit)
             {
-                int index = (int)position;
-                index = clamp(index, 0, BASIS_WAVEFORM_COLUMNS - 1);
-                int ring = index + (int)_Oldest;
-                ring = ring >= BASIS_WAVEFORM_COLUMNS ? ring - BASIS_WAVEFORM_COLUMNS : ring;
-                return _Columns[ring];
+                return fmod(floor(floor(flags + 0.5) / bit), 2.0);
             }
 
-            // Coverage of a band [low, high] at signed level v, softened by the pixel footprint so
-            // the envelope reads as a curve instead of a stack of hard boxes.
-            float BandCoverage(float v, float low, float high, float softness)
+            float Shift(float level, float gain)
             {
-                float rises = smoothstep(low - softness, low + softness, v);
-                float falls = 1.0 - smoothstep(high - softness, high + softness, v);
-                return saturate(rises * falls);
+                return level > 0.0005 ? saturate(level + gain) : 0.0;
             }
 
-            float4 frag (v2f i) : SV_Target
+            Column Read(float index)
             {
-                // Interpolate between neighbouring columns rather than snapping to one, so the
-                // envelope is continuous across the width instead of 192 visible steps.
-                float position = i.uv.x * (BASIS_WAVEFORM_COLUMNS - 1);
-                float blend = frac(position);
-                blend = blend * blend * (3.0 - 2.0 * blend);
+                float4 levels = Fetch(index, 0.0);
+                float4 stages = Fetch(index, 1.0);
+                float4 meta = Fetch(index, 2.0);
+                float gain = meta.x * _GainSpan;
+                float automatic = step(1.5, _GateMode);
+                float gated = Bit(meta.y, 8.0) * meta.w;
 
-                float4 near = SampleColumn(floor(position));
-                float4 far = SampleColumn(floor(position) + 1.0);
-                float4 column = lerp(near, far, blend);
+                Column c;
+                c.input = Shift(levels.y, gain);
+                c.denoised = Shift(stages.x, gain);
+                c.body = levels.w;
+                c.peak = levels.z;
+                c.preLimit = stages.y;
+                c.gateLine = lerp(Shift(_GateLevel, gain), Shift(stages.z, gain), automatic);
+                c.gateShown = lerp(step(0.5, _GateMode) * meta.w, gated, automatic);
+                c.gateCut = gated * saturate((1.0 - meta.z) * 20.0);
+                c.denoiser = Bit(meta.y, 4.0) * meta.w;
+                c.sent = Bit(meta.y, 1.0);
+                return c;
+            }
 
-                float centred = (i.uv.y - 0.5) * 2.0;
-                float v = centred / max(_Scale, 0.0001);
-                float softness = max(fwidth(v) * 0.85, 0.0015);
+            Column Blend(Column a, Column b, float t)
+            {
+                Column c;
+                c.input = lerp(a.input, b.input, t);
+                c.denoised = lerp(a.denoised, b.denoised, t);
+                c.body = lerp(a.body, b.body, t);
+                c.peak = lerp(a.peak, b.peak, t);
+                c.preLimit = lerp(a.preLimit, b.preLimit, t);
+                c.gateLine = lerp(a.gateLine, b.gateLine, t);
+                c.gateShown = lerp(a.gateShown, b.gateShown, t);
+                c.gateCut = lerp(a.gateCut, b.gateCut, t);
+                c.denoiser = lerp(a.denoiser, b.denoiser, t);
+                c.sent = lerp(a.sent, b.sent, t);
+                return c;
+            }
 
-                float2 left = clamp(column.xy, -1.0, 1.0);
-                float2 right = clamp(column.zw, -1.0, 1.0);
+            float Fill(float level, float v, float pixel)
+            {
+                return saturate((level - v) / pixel + 0.5) * step(0.0005, level);
+            }
 
-                float leftCoverage = BandCoverage(v, min(left.x, -_MinimumBar), max(left.y, _MinimumBar), softness);
-                float rightCoverage = _Stereo > 0.5 ? BandCoverage(v, min(right.x, -_MinimumBar), max(right.y, _MinimumBar), softness) : 0.0;
+            float Band(float low, float high, float v, float pixel)
+            {
+                return Fill(high, v, pixel) * saturate((v - low) / pixel + 0.5) * step(low + 0.002, high);
+            }
 
-                float amplitude = max(max(-left.x, left.y), max(-right.x, right.y));
-                float hot = saturate((amplitude - _WarnLevel) / max(1.0 - _WarnLevel, 0.0001));
+            float Stroke(float level, float v, float pixel, float halfWidth, float slope)
+            {
+                float distance = abs(v - level) / pixel / sqrt(1.0 + slope * slope);
+                return saturate(halfWidth + 0.5 - distance);
+            }
 
-                float3 leftColour = lerp(_Left.rgb, _Hot.rgb, hot);
-                float3 rightColour = lerp(_Right.rgb, _Hot.rgb, hot);
+            float Dash(float x, float period, float duty)
+            {
+                return step(frac(x / period), duty);
+            }
 
+            fixed4 frag(v2f_img i) : SV_Target
+            {
+                float span = max(1.0 - _Pad, 0.0001);
+                float v = abs(i.uv.y - 0.5) * 2.0 / span;
+                float pixel = 2.0 * _Pixel.y / span;
+                float x = i.uv.x * _Pixel.z;
+                float y = i.uv.y * _Pixel.w;
+                float columnPixels = max(_Pixel.z / SCOPE_COLUMNS, 0.0001);
+
+                float position = i.uv.x * SCOPE_COLUMNS - 0.5;
+                float first = clamp(floor(position), 0.0, SCOPE_COLUMNS - 1.0);
+                float second = min(first + 1.0, SCOPE_COLUMNS - 1.0);
+                float blend = saturate(position - first);
+
+                Column a = Read(first);
+                Column b = Read(second);
+                Column c = Blend(a, b, blend);
+
+                float stripes = Dash(x + y, 8.0, 0.5);
                 float3 colour = _Background.rgb;
+                colour = lerp(colour, _Guide.rgb, saturate(1.0 - abs(i.uv.y - 0.5) * _Pixel.w) * 0.25);
 
-                if (_GateLevel > 0.0)
-                {
-                    float gate = smoothstep(_LineHalf, 0.0, abs(abs(v) - _GateLevel));
-                    colour = lerp(colour, _GateLine.rgb, gate);
-                }
+                float gateSlope = (b.gateLine - a.gateLine) / pixel / columnPixels;
+                colour = lerp(colour, _Gate.rgb, Stroke(c.gateLine, v, pixel, 1.0 + 0.6 * _Boost.y, gateSlope) * c.gateShown * _Focus.y);
 
-                float centreLine = smoothstep(_CentreHalf, 0.0, abs(centred));
-                colour = lerp(colour, _CentreLine.rgb, centreLine);
+                float body = Fill(c.body, v, pixel);
+                float halo = Band(c.body, c.peak, v, pixel);
+                float held = lerp(0.18, 0.6, stripes);
+                colour = lerp(colour, _Sent.rgb, body * 0.9 * c.sent);
+                colour = lerp(colour, _Sent.rgb, halo * 0.35 * c.sent);
+                colour = lerp(colour, _Guide.rgb, body * held * (1.0 - c.sent));
+                colour = lerp(colour, _Guide.rgb, halo * held * 0.45 * (1.0 - c.sent));
 
-                // A soft bloom just outside the envelope stops the fill ending on a flat cut.
-                float glowCoverage = BandCoverage(v, min(left.x, -_MinimumBar) - _Glow, max(left.y, _MinimumBar) + _Glow, softness + _Glow);
-                float glowRight = _Stereo > 0.5 ? BandCoverage(v, min(right.x, -_MinimumBar) - _Glow, max(right.y, _MinimumBar) + _Glow, softness + _Glow) : 0.0;
-                float3 glowColour = leftColour * glowCoverage + rightColour * glowRight;
-                float glowAmount = saturate(glowCoverage + glowRight);
-                colour = lerp(colour, glowColour / max(glowAmount, 0.0001), glowAmount * 0.22);
+                colour = lerp(colour, _Limiter.rgb, Band(c.peak, c.preLimit, v, pixel) * 0.95 * _Focus.w);
+                colour = lerp(colour, _Gate.rgb, Band(c.body, c.denoised, v, pixel) * c.gateCut * lerp(0.12, 0.62, stripes) * _Focus.y);
+                colour = lerp(colour, _Denoiser.rgb, Band(c.denoised, c.input, v, pixel) * c.denoiser * lerp(0.1, 0.5, stripes) * _Focus.x);
 
-                // Additive between the channels so an in-phase stereo signal reads as the blend of
-                // both rather than whichever happened to be drawn last.
-                float3 wave = leftColour * leftCoverage + rightColour * rightCoverage;
-                float coverage = saturate(leftCoverage + rightCoverage);
-                wave = saturate(wave / max(coverage, 0.0001));
+                colour = lerp(colour, _Agc.rgb, Stroke(_AgcTarget, v, pixel, 0.6 + 0.6 * _Boost.z, 0.0) * _AgcOn * 0.85 * _Focus.z);
+                colour = lerp(colour, _Limiter.rgb, Stroke(_LimitLevel, v, pixel, 0.6 + 0.6 * _Boost.w, 0.0) * _Focus.w);
 
-                // Lift the middle of the fill slightly so a tall column has some shape to it.
-                float shape = lerp(0.82, 1.12, saturate(1.0 - abs(v) / max(amplitude, 0.0001)));
-                colour = lerp(colour, saturate(wave * shape), coverage);
-
-                colour = lerp(colour, _MutedColour.rgb, _Muted * saturate(coverage + glowAmount * 0.22));
-
-                return float4(colour, 1.0);
+                return fixed4(colour, 1.0);
             }
             ENDHLSL
         }

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -13,6 +14,7 @@ using UnityEngine.TestTools;
 /// stack, but everything below the factory — AcquireShared, BuildPrototype, BuildAvatar,
 /// ReleaseShared — is reachable here, and it is where a mesh can be destroyed under a live wearer.
 /// </summary>
+[NoAutoStaticsCleanup]
 public class BasisFarAvatarSharedLifetimeTests
 {
     private const BindingFlags Hidden = BindingFlags.NonPublic | BindingFlags.Static;

@@ -170,30 +170,4 @@ public class PopulationScaleTests : IDisposable
         Assert.True(detected > 0);
         Assert.NotEqual(4L * Gb, detected);
     }
-
-    [Fact]
-    public void Migration_RetiresTheOldDefaultsButKeepsDeliberateValues()
-    {
-        var legacy = new LNLTransportConfig { MaxUnreliableQueuePerPeer = 256, PacketPoolSizeMax = 262144 };
-        legacy.MigrateFrom(7);
-        Assert.Equal(0, legacy.MaxUnreliableQueuePerPeer);
-        Assert.Equal(0, legacy.PacketPoolSizeMax);
-
-        // Someone who pinned a value meant it. Only the exact shipped defaults are retired,
-        // because those are the ones nobody chose.
-        var deliberate = new LNLTransportConfig { MaxUnreliableQueuePerPeer = 1024, PacketPoolSizeMax = 100000 };
-        deliberate.MigrateFrom(7);
-        Assert.Equal(1024, deliberate.MaxUnreliableQueuePerPeer);
-        Assert.Equal(100000, deliberate.PacketPoolSizeMax);
-    }
-
-    [Fact]
-    public void Migration_DoesNotReRunOnCurrentFiles()
-    {
-        // A file already at version 8 that says 256 means 256 — by then it can only have got there
-        // by someone typing it.
-        var current = new LNLTransportConfig { MaxUnreliableQueuePerPeer = 256 };
-        current.MigrateFrom(LNLTransportConfig.CurrentConfigVersion);
-        Assert.Equal(256, current.MaxUnreliableQueuePerPeer);
-    }
 }

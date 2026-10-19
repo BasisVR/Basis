@@ -208,6 +208,18 @@ namespace Basis.BasisUI
             _resetProbeFrame = -1;
         }
 
+        public void UnregisterContentContainer(Component contentContainer)
+        {
+            if (contentContainer == null || !contentContainer.TryGetComponent(out PanelSectionContentMarker marker) || marker.Owner != this)
+            {
+                return;
+            }
+
+            marker.Owner = null;
+            UnregisterContentMarker(marker);
+            _resetProbeFrame = -1;
+        }
+
         /// <summary>
         /// Fills <paramref name="results"/> with the containers registered as this section's content.
         /// Containers destroyed since they were registered — a lazy section's box after it collapsed —
@@ -408,9 +420,9 @@ namespace Basis.BasisUI
         /// </summary>
         public static PanelSectionToggle GetOwningSection(Transform node)
         {
-            for (Transform parent = node != null ? node.parent : null; parent != null; parent = parent.parent)
+            for (Transform current = node; current != null; current = current.parent)
             {
-                if (parent.TryGetComponent(out PanelSectionContentMarker marker) && marker.Owner != null)
+                if (current.TryGetComponent(out PanelSectionContentMarker marker) && marker.Owner != null)
                 {
                     return marker.Owner;
                 }

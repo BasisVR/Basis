@@ -127,6 +127,61 @@ namespace Basis.IK
             Stream.InvalidateWorldCache();
         }
         public BasisBoneHandle Bind(Transform bone) => BasisBoneHandle.FromIndex(Array.IndexOf(Nodes, bone));
+        /// <summary>
+        /// Reconstructs a bone's fitted rest position in <paramref name="root"/> local space without
+        /// reading or disturbing the live animated pose. The root's own transform is intentionally
+        /// excluded so callers can apply the avatar's current runtime scale separately.
+        /// </summary>
+        public bool TryGetRestPositionRelativeTo(Transform bone, Transform root, out Vector3 position)
+        {
+            position = Vector3.zero;
+            if (!IsCreated || bone == null || root == null)
+            {
+                return false;
+            }
+
+            int boneIndex = Array.IndexOf(Nodes, bone);
+            int rootIndex = Array.IndexOf(Nodes, root);
+            if (boneIndex < 0 || rootIndex < 0)
+            {
+                return false;
+            }
+            if (boneIndex == rootIndex)
+            {
+                return true;
+            }
+
+            int[] chain = new int[BasisPoseStream.MaxDepth];
+            int depth = 0;
+            int walk = boneIndex;
+            while (walk >= 0 && walk != rootIndex && depth < chain.Length)
+            {
+                chain[depth++] = walk;
+                walk = Stream.Parent[walk];
+            }
+            if (walk != rootIndex)
+            {
+                return false;
+            }
+
+            float3 restPosition = float3.zero;
+            quaternion restRotation = quaternion.identity;
+            float3 restScale = new float3(1f);
+            for (int i = depth - 1; i >= 0; i--)
+            {
+                int index = chain[i];
+                restPosition += math.mul(restRotation, Stream.RestLocalPosition[index] * restScale);
+                restRotation = math.mul(restRotation, Stream.RestLocalRotation[index]);
+                restScale *= Stream.RestLocalScale[index];
+            }
+
+            if (!math.all(math.isfinite(restPosition)))
+            {
+                return false;
+            }
+            position = restPosition;
+            return true;
+        }
         public void SetTranslationFree(Transform bone)
         {
             int index = Array.IndexOf(Nodes, bone);

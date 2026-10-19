@@ -4,11 +4,39 @@ uid: urp-changelog
 
 # Changelog
 
-
 ## [Unreleased]
+
+### Added
+- Surface Cache Global Illumination is now publicly available in URP through the Surface Cache Global Illumination Renderer Feature and the Surface Cache Global Illumination Volume Override.
+- Added a project-wide Depth Bias Mode option under Project Settings > Graphics > URP (`URPShadowBiasSettings.depthBiasMode`). In the new Slope-Scale Depth Bias mode, shadow rendering applies a per-light slope-scaled depth bias driven by the bias value, reinterpreted as a normalized [0..1] multiplier; the Depth Bias (Legacy) mode keeps the previous behavior. New projects default to Slope-Scale Depth Bias; pre-existing projects keep Depth Bias (Legacy).
+- Added `ShadowUtils.GetSlopeScaleDepthBias` and `ShadowUtils.RenderShadowSlice` overloads taking a slope-scale depth bias, so custom shadow passes can respect the Depth Bias Mode.
+
+### Deprecated
+- Deprecated the `ShadowUtils.RenderShadowSlice` overloads without a slopeScaleDepthBias parameter; they apply the legacy fixed slope-scale depth bias regardless of the Depth Bias Mode.
+
+### Fixed
+- Fixed a Render Graph execution error ("Adding the final blit pass when Tile-Only Mode is on") when Tile-Only Mode was enabled on displays with a non-sRGB backbuffer (for example OpenGL ES in Linear color space); Tile-Only Mode now falls back to regular rendering on those displays.
+- Fixed Surface Cache Global Illumination silently falling back to baked lighting when disabled through its Volume Override; opaque surfaces now correctly receive no indirect lighting from it.
 
 Version Updated
 The version number for this package has increased due to a version update of a related graphics package.
+
+## [17.6.0] - 2026-06-26
+
+This version is compatible with Unity 6000.7.0a2.
+For the release notes, refer to the [Unity download archive](https://unity.com/releases/editor/archive).
+
+Version Updated
+The version number for this package has increased due to a version update of a related graphics package.
+
+### Added
+- Screen Space Reflections (SSR) is now publicly available in URP through the Screen Space Reflection Renderer Feature and the Screen Space Reflection volume override.
+
+## [17.5.0] - 2026-02-18
+
+This version is compatible with Unity 6000.6.0a7.
+
+For the release notes, refer to the [Unity download archive](https://unity.com/releases/editor/archive).
 
 ## [17.4.0] - 2025-10-22
 

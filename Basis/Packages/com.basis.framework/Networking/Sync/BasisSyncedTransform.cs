@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
@@ -46,7 +47,8 @@ namespace Basis.Scripts.Networking.Sync
     /// For custom values use the code API on <see cref="BasisSyncedObject"/> directly
     /// (RegisterFloat / RegisterColor / RegisterUShort / ... then LocalSet / RemoteGet).
     /// </summary>
-    public class BasisSyncedTransform : BasisSyncedObject
+    [AutoStaticsCleanup]
+    public partial class BasisSyncedTransform : BasisSyncedObject
     {
         public Transform Target;
 

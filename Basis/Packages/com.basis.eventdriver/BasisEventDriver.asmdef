@@ -2,8 +2,9 @@
     "name": "BasisEventDriver",
     "rootNamespace": "",
     "references": [
-        "BasisConsoleDisplay",
         "Basis Framework",
+        "Basis.Constraints",
+        "Basis.AuthoredMotion",
         "Unity.InputSystem",
         "com.gator-dragon-games.jigglephysics",
         "SteamAudioUnity",

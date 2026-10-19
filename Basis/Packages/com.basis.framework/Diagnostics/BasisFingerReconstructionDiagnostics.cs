@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Drivers;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -28,7 +29,8 @@ using Unity.Mathematics;
 /// that exists but is not driven carries a real bind/animator rotation the grid never produced,
 /// and a grid-only format would overwrite it.
 /// </summary>
-public static class BasisFingerReconstructionDiagnostics
+[AutoStaticsCleanup]
+public static partial class BasisFingerReconstructionDiagnostics
 {
     public static bool Enabled;
 

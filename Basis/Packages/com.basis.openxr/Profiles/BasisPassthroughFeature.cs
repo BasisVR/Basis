@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Runtime.InteropServices;
 using AOT;
@@ -18,6 +19,7 @@ namespace Basis.OpenXR
     /// transparent pixels reveal the headset's real-world camera feed. Standalone VR (Quest) only.
     /// </summary>
 #if UNITY_EDITOR
+    [AutoStaticsCleanup]
     [OpenXRFeature(UiName = "Basis Passthrough",
         BuildTargetGroups = new[] { BuildTargetGroup.Android },
         Company = "Basis",
@@ -26,7 +28,7 @@ namespace Basis.OpenXR
         Version = "1.0.0",
         FeatureId = FeatureIdString)]
 #endif
-    public class BasisPassthroughFeature : OpenXRFeature
+    public partial class BasisPassthroughFeature : OpenXRFeature
     {
         public const string FeatureIdString = "com.basis.openxr.feature.passthrough";
         public const string ExtensionString = "XR_FB_passthrough";
@@ -52,6 +54,7 @@ namespace Basis.OpenXR
         const long XR_PASSTHROUGH_STATE_CHANGED_RESTORED_ERROR_BIT_FB = 0x00000008;
         const int EVENT_FLAGS_OFFSET = 16;
         const int RETIRE_TICKS = 3;
+        const int XR_ERROR_RUNTIME_FAILURE = -2;
 
         static ulong s_Session;
         static ulong s_Passthrough;
@@ -68,9 +71,9 @@ namespace Basis.OpenXR
         static ulong s_RetiredLayer;
         static int s_RetireTicks;
 
-        static IntPtr s_UnderlayPtr;
-        static IntPtr s_FrameEndInfoPtr;
-        static IntPtr s_LayersPtr;
+        [NoAutoStaticsCleanup] static IntPtr s_UnderlayPtr;
+        [NoAutoStaticsCleanup] static IntPtr s_FrameEndInfoPtr;
+        [NoAutoStaticsCleanup] static IntPtr s_LayersPtr;
         static int s_LayersCapacity;
 
         [StructLayout(LayoutKind.Sequential)]
@@ -125,7 +128,7 @@ namespace Basis.OpenXR
         delegate int Type_xrPollEvent(ulong instance, IntPtr eventData);
 
         static Type_xrGetInstanceProcAddr d_getProc;
-        static Type_xrGetInstanceProcAddr d_originalGetProc;
+        [NoAutoStaticsCleanup] static Type_xrGetInstanceProcAddr d_originalGetProc;
         static Type_xrCreatePassthroughFB d_createPassthrough;
         static Type_xrDestroyPassthroughFB d_destroyPassthrough;
         static Type_xrPassthroughStartFB d_startPassthrough;
@@ -134,12 +137,12 @@ namespace Basis.OpenXR
         static Type_xrDestroyPassthroughLayerFB d_destroyLayer;
         static Type_xrPassthroughLayerResumeFB d_resumeLayer;
         static Type_xrPassthroughLayerPauseFB d_pauseLayer;
-        static Type_xrEndFrame d_originalEndFrame;
-        static Type_xrPollEvent d_originalPollEvent;
+        [NoAutoStaticsCleanup] static Type_xrEndFrame d_originalEndFrame;
+        [NoAutoStaticsCleanup] static Type_xrPollEvent d_originalPollEvent;
 
-        static readonly Type_xrGetInstanceProcAddr s_getProcHook = HookGetProc;
-        static readonly Type_xrEndFrame s_endFrameHook = HookEndFrame;
-        static readonly Type_xrPollEvent s_pollEventHook = HookPollEvent;
+        [NoAutoStaticsCleanup] static readonly Type_xrGetInstanceProcAddr s_getProcHook = HookGetProc;
+        [NoAutoStaticsCleanup] static readonly Type_xrEndFrame s_endFrameHook = HookEndFrame;
+        [NoAutoStaticsCleanup] static readonly Type_xrPollEvent s_pollEventHook = HookPollEvent;
         static readonly int UNDERLAY_LAYER_HANDLE_OFFSET = (int)Marshal.OffsetOf<XrCompositionLayerPassthroughFB>(nameof(XrCompositionLayerPassthroughFB.layerHandle));
 
         protected override IntPtr HookGetInstanceProcAddr(IntPtr func)
@@ -151,62 +154,78 @@ namespace Basis.OpenXR
         [MonoPInvokeCallback(typeof(Type_xrGetInstanceProcAddr))]
         static int HookGetProc(ulong instance, string name, out IntPtr function)
         {
-            if (name == "xrEndFrame")
+            function = IntPtr.Zero;
+            int r = XR_ERROR_RUNTIME_FAILURE;
+            try
             {
-                int r = d_originalGetProc.Invoke(instance, "xrEndFrame", out IntPtr real);
-                if (r == 0 && real != IntPtr.Zero)
+                r = d_originalGetProc.Invoke(instance, name, out function);
+                bool endFrame = name == "xrEndFrame";
+                if (!endFrame && name != "xrPollEvent")
                 {
-                    d_originalEndFrame = Marshal.GetDelegateForFunctionPointer<Type_xrEndFrame>(real);
+                    return r;
+                }
+                if (r != 0 || function == IntPtr.Zero)
+                {
+                    function = IntPtr.Zero;
+                    return r;
+                }
+                if (endFrame)
+                {
+                    d_originalEndFrame = Marshal.GetDelegateForFunctionPointer<Type_xrEndFrame>(function);
                     function = Marshal.GetFunctionPointerForDelegate(s_endFrameHook);
                     BasisDebug.Log($"{Tag} Installed xrEndFrame interception hook.", BasisDebug.LogTag.Device);
-                    return 0;
                 }
-                function = IntPtr.Zero;
-                return r;
-            }
-            if (name == "xrPollEvent")
-            {
-                int r = d_originalGetProc.Invoke(instance, "xrPollEvent", out IntPtr real);
-                if (r == 0 && real != IntPtr.Zero)
+                else
                 {
-                    d_originalPollEvent = Marshal.GetDelegateForFunctionPointer<Type_xrPollEvent>(real);
+                    d_originalPollEvent = Marshal.GetDelegateForFunctionPointer<Type_xrPollEvent>(function);
                     function = Marshal.GetFunctionPointerForDelegate(s_pollEventHook);
                     BasisDebug.Log($"{Tag} Installed xrPollEvent interception hook.", BasisDebug.LogTag.Device);
-                    return 0;
                 }
-                function = IntPtr.Zero;
+                return 0;
+            }
+            catch (Exception e)
+            {
+                BasisDebug.LogError($"{Tag} xrGetInstanceProcAddr hook failed for {name}: {e}", BasisDebug.LogTag.Device);
                 return r;
             }
-            return d_originalGetProc.Invoke(instance, name, out function);
         }
 
         [MonoPInvokeCallback(typeof(Type_xrPollEvent))]
         static int HookPollEvent(ulong instance, IntPtr eventData)
         {
-            int r = d_originalPollEvent.Invoke(instance, eventData);
-            if (r != 0 || eventData == IntPtr.Zero || !IsSupported)
+            int r = XR_ERROR_RUNTIME_FAILURE;
+            try
             {
+                r = d_originalPollEvent.Invoke(instance, eventData);
+                if (r != 0 || eventData == IntPtr.Zero || !IsSupported)
+                {
+                    return r;
+                }
+                if ((uint)Marshal.ReadInt32(eventData, 0) != XR_TYPE_EVENT_DATA_PASSTHROUGH_STATE_CHANGED_FB)
+                {
+                    return r;
+                }
+                long flags = Marshal.ReadInt64(eventData, EVENT_FLAGS_OFFSET);
+                BasisDebug.Log($"{Tag} Passthrough state changed, flags=0x{flags:X}.", BasisDebug.LogTag.Device);
+                if ((flags & XR_PASSTHROUGH_STATE_CHANGED_REINIT_REQUIRED_BIT_FB) != 0)
+                {
+                    s_ReinitRequested = true;
+                }
+                else if ((flags & XR_PASSTHROUGH_STATE_CHANGED_RESTORED_ERROR_BIT_FB) != 0)
+                {
+                    s_RestoredNotify = true;
+                }
+                if ((flags & XR_PASSTHROUGH_STATE_CHANGED_NON_RECOVERABLE_ERROR_BIT_FB) != 0)
+                {
+                    BasisDebug.LogError($"{Tag} Runtime reported a non-recoverable passthrough error.", BasisDebug.LogTag.Device);
+                }
                 return r;
             }
-            if ((uint)Marshal.ReadInt32(eventData, 0) != XR_TYPE_EVENT_DATA_PASSTHROUGH_STATE_CHANGED_FB)
+            catch (Exception e)
             {
+                BasisDebug.LogError($"{Tag} xrPollEvent hook failed: {e}", BasisDebug.LogTag.Device);
                 return r;
             }
-            long flags = Marshal.ReadInt64(eventData, EVENT_FLAGS_OFFSET);
-            BasisDebug.Log($"{Tag} Passthrough state changed, flags=0x{flags:X}.", BasisDebug.LogTag.Device);
-            if ((flags & XR_PASSTHROUGH_STATE_CHANGED_REINIT_REQUIRED_BIT_FB) != 0)
-            {
-                s_ReinitRequested = true;
-            }
-            else if ((flags & XR_PASSTHROUGH_STATE_CHANGED_RESTORED_ERROR_BIT_FB) != 0)
-            {
-                s_RestoredNotify = true;
-            }
-            if ((flags & XR_PASSTHROUGH_STATE_CHANGED_NON_RECOVERABLE_ERROR_BIT_FB) != 0)
-            {
-                BasisDebug.LogError($"{Tag} Runtime reported a non-recoverable passthrough error.", BasisDebug.LogTag.Device);
-            }
-            return r;
         }
 
         protected override bool OnInstanceCreate(ulong instance)
@@ -461,41 +480,63 @@ namespace Basis.OpenXR
         [MonoPInvokeCallback(typeof(Type_xrEndFrame))]
         static int HookEndFrame(ulong session, IntPtr frameEndInfo)
         {
-            if (!s_LoggedFirstFrame)
+            try
             {
-                s_LoggedFirstFrame = true;
-                BasisDebug.Log($"{Tag} xrEndFrame hook is being called by the runtime.", BasisDebug.LogTag.Device);
+                return d_originalEndFrame != null ? d_originalEndFrame.Invoke(session, InjectUnderlay(frameEndInfo)) : 0;
             }
-            if (!s_Inject || !s_LayerCreated || frameEndInfo == IntPtr.Zero || d_originalEndFrame == null)
+            catch (Exception e)
             {
-                return d_originalEndFrame != null ? d_originalEndFrame.Invoke(session, frameEndInfo) : 0;
+                BasisDebug.LogError($"{Tag} xrEndFrame hook failed: {e}", BasisDebug.LogTag.Device);
+                return XR_ERROR_RUNTIME_FAILURE;
             }
+        }
 
-            XrFrameEndInfo info = Marshal.PtrToStructure<XrFrameEndInfo>(frameEndInfo);
-            uint count = info.layerCount;
-            EnsureLayersCapacity((int)count + 1);
-
-            Marshal.WriteIntPtr(s_LayersPtr, 0, s_UnderlayPtr);
-            for (int i = 0; i < count; i++)
+        static IntPtr InjectUnderlay(IntPtr frameEndInfo)
+        {
+            try
             {
-                IntPtr layerPtr = info.layers != IntPtr.Zero ? Marshal.ReadIntPtr(info.layers, i * IntPtr.Size) : IntPtr.Zero;
-                if (layerPtr != IntPtr.Zero && (uint)Marshal.ReadInt32(layerPtr, 0) == XR_TYPE_COMPOSITION_LAYER_PROJECTION)
+                if (!s_LoggedFirstFrame)
                 {
-                    long flags = Marshal.ReadInt64(layerPtr, LAYER_FLAGS_OFFSET);
-                    Marshal.WriteInt64(layerPtr, LAYER_FLAGS_OFFSET, flags | PROJECTION_ALPHA_FLAGS);
+                    s_LoggedFirstFrame = true;
+                    BasisDebug.Log($"{Tag} xrEndFrame hook is being called by the runtime.", BasisDebug.LogTag.Device);
                 }
-                Marshal.WriteIntPtr(s_LayersPtr, (i + 1) * IntPtr.Size, layerPtr);
-            }
+                if (!s_Inject || !s_LayerCreated || frameEndInfo == IntPtr.Zero)
+                {
+                    return frameEndInfo;
+                }
 
-            if ((s_FrameLog++ % 300) == 0)
+                XrFrameEndInfo info = Marshal.PtrToStructure<XrFrameEndInfo>(frameEndInfo);
+                uint count = info.layerCount;
+                EnsureLayersCapacity((int)count + 1);
+
+                Marshal.WriteIntPtr(s_LayersPtr, 0, s_UnderlayPtr);
+                for (int i = 0; i < count; i++)
+                {
+                    IntPtr layerPtr = info.layers != IntPtr.Zero ? Marshal.ReadIntPtr(info.layers, i * IntPtr.Size) : IntPtr.Zero;
+                    if (layerPtr != IntPtr.Zero && (uint)Marshal.ReadInt32(layerPtr, 0) == XR_TYPE_COMPOSITION_LAYER_PROJECTION)
+                    {
+                        long flags = Marshal.ReadInt64(layerPtr, LAYER_FLAGS_OFFSET);
+                        Marshal.WriteInt64(layerPtr, LAYER_FLAGS_OFFSET, flags | PROJECTION_ALPHA_FLAGS);
+                    }
+                    Marshal.WriteIntPtr(s_LayersPtr, (i + 1) * IntPtr.Size, layerPtr);
+                }
+
+                if ((s_FrameLog++ % 300) == 0)
+                {
+                    BasisDebug.Log($"{Tag} EndFrame inject: {count} app layers -> submitting {count + 1} (passthrough underlay at index 0).", BasisDebug.LogTag.Device);
+                }
+
+                info.layerCount = count + 1;
+                info.layers = s_LayersPtr;
+                Marshal.StructureToPtr(info, s_FrameEndInfoPtr, false);
+                return s_FrameEndInfoPtr;
+            }
+            catch (Exception e)
             {
-                BasisDebug.Log($"{Tag} EndFrame inject: {count} app layers -> submitting {count + 1} (passthrough underlay at index 0).", BasisDebug.LogTag.Device);
+                s_Inject = false;
+                BasisDebug.LogError($"{Tag} Underlay injection failed, submitting the frame without passthrough: {e}", BasisDebug.LogTag.Device);
+                return frameEndInfo;
             }
-
-            info.layerCount = count + 1;
-            info.layers = s_LayersPtr;
-            Marshal.StructureToPtr(info, s_FrameEndInfoPtr, false);
-            return d_originalEndFrame.Invoke(session, s_FrameEndInfoPtr);
         }
 
         protected override void OnSessionDestroy(ulong session)

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -9,7 +10,8 @@ using UnityEngine;
 
 namespace Basis.Scripts.Device_Management
 {
-    public static class BasisDeviceOffsetEditor
+    [AutoStaticsCleanup]
+    public static partial class BasisDeviceOffsetEditor
     {
         public const int TickPriority = 200;
         public const float GrabRadius = 0.15f;
@@ -26,18 +28,18 @@ namespace Basis.Scripts.Device_Management
         private static readonly Color HeldColor = new Color(0.4f, 1f, 0.55f, 1f);
         private static readonly Color OriginalColor = new Color(0.2f, 0.45f, 1f, 1f);
         private static readonly Color OriginalLineColor = new Color(0.2f, 0.45f, 1f, 0.6f);
-        private static readonly Color[] AxisColors = { new Color(1f, 0.35f, 0.35f, 1f), new Color(0.45f, 1f, 0.45f, 1f), new Color(0.45f, 0.6f, 1f, 1f) };
-        private static readonly Vector3[] AxisVectors = { Vector3.right, Vector3.up, Vector3.forward };
-        private static readonly BasisDeviceOffsetAxes[] PositionAxisFlags = { BasisDeviceOffsetAxes.PositionX, BasisDeviceOffsetAxes.PositionY, BasisDeviceOffsetAxes.PositionZ };
+        [NoAutoStaticsCleanup] private static readonly Color[] AxisColors = { new Color(1f, 0.35f, 0.35f, 1f), new Color(0.45f, 1f, 0.45f, 1f), new Color(0.45f, 0.6f, 1f, 1f) };
+        [NoAutoStaticsCleanup] private static readonly Vector3[] AxisVectors = { Vector3.right, Vector3.up, Vector3.forward };
+        [NoAutoStaticsCleanup] private static readonly BasisDeviceOffsetAxes[] PositionAxisFlags = { BasisDeviceOffsetAxes.PositionX, BasisDeviceOffsetAxes.PositionY, BasisDeviceOffsetAxes.PositionZ };
         private static readonly BasisGizmoSet gizmos = new BasisGizmoSet("DeviceOffsetHandles");
         private static readonly BasisGizmoSet rings = new BasisGizmoSet("DeviceOffsetRings");
-        private static readonly Vector3[] ringPoints = new Vector3[RingSegments];
+        [NoAutoStaticsCleanup] private static readonly Vector3[] ringPoints = new Vector3[RingSegments];
         private static readonly List<BasisInput> targets = new List<BasisInput>();
         private static readonly List<BasisInput> hands = new List<BasisInput>();
         private static readonly List<BasisInput> staleHands = new List<BasisInput>();
         private static readonly Dictionary<BasisInput, bool> gripLatch = new Dictionary<BasisInput, bool>();
         private static readonly Dictionary<BasisInput, BasisInput> hoverByHand = new Dictionary<BasisInput, BasisInput>();
-        private static readonly BasisInput[] grabbers = new BasisInput[2];
+        [NoAutoStaticsCleanup] private static readonly BasisInput[] grabbers = new BasisInput[2];
         private static string[] roleLabels;
         private static int grabberCount;
         private static int anchorMode;

@@ -25,9 +25,9 @@ namespace UnityEditor.Rendering.Universal
 
         private static class Styles
         {
-            public static GUIContent sortingLayerAll = EditorGUIUtility.TrTextContent("Everything");
-            public static GUIContent sortingLayerNone = EditorGUIUtility.TrTextContent("Nothing");
-            public static GUIContent sortingLayerMixed = EditorGUIUtility.TrTextContent("Mixed...");
+            public static GUIContent sortingLayerAll = L10n.TextContent("Everything", null, null, null);
+            public static GUIContent sortingLayerNone = L10n.TextContent("Nothing", null, null, null);
+            public static GUIContent sortingLayerMixed = L10n.TextContent("Mixed...", null, null, null);
         }
 
         SortingLayer[] m_AllSortingLayers;
@@ -70,10 +70,7 @@ namespace UnityEditor.Rendering.Universal
             }
 
             if (EditorWindow.HasOpenInstances<LightBatchingDebugger>())
-            {
-                var debugger = EditorWindow.GetWindow<LightBatchingDebugger>();
-                debugger?.QueueRefresh();
-            }
+                LightBatchingDebugger.QueueRefresh();
         }
 
         void OnNoSortingLayerSelected(object selectionData)

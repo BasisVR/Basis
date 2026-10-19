@@ -46,11 +46,15 @@ public partial class BasisHandHeldCamera
     }
     private void OnBeginCameraRendering(ScriptableRenderContext context, Camera renderingCamera)
     {
-        if (ReferenceEquals(renderingCamera, captureCamera)) BasisLocalAvatarDriver.ScaleHeadToNormal();
+        if (!ReferenceEquals(renderingCamera, captureCamera)) return;
+        BasisLocalAvatarDriver.ScaleHeadToNormal();
+        EnqueueRenderPasses();
     }
     private void OnEndCameraRendering(ScriptableRenderContext context, Camera renderingCamera)
     {
-        if (ReferenceEquals(renderingCamera, captureCamera)) MarkStreamFrameFresh();
+        if (!ReferenceEquals(renderingCamera, captureCamera)) return;
+        MarkStreamFrameFresh();
+        MarkRenderPassesRendered();
     }
     private void VisibilityFlag(bool isVisible)
     {

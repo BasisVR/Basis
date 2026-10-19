@@ -120,7 +120,7 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
                 BasisMidpointFusionTunables.FromSettings(), Time.deltaTime,
                 out Vector3 mid, out Quaternion midRot, out float wA, out float wB, out float blendT);
 
-            ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, mid);
+            UnscaledDeviceCoord.position = mid;
             UnscaledDeviceCoord.rotation = midRot;
             ConvertToScaledDeviceCoord();
             ControlOnlyAsDevice();

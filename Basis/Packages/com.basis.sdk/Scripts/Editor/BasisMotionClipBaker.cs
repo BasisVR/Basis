@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEngine;
 
@@ -16,22 +17,19 @@ public class BasisMotionClipBaker : EditorWindow
     [SerializeField] private float _frameRate = 60f;
 
     [MenuItem("Basis/Build/Bake Authored Motion Clip", false, 320)]
-    private static void Open() => GetWindow<BasisMotionClipBaker>(true, "Bake Authored Motion Clip");
+    private static void Open() => GetWindow<BasisMotionClipBaker>(true, BasisEditorLocalization.Get("sdk.motionClipBaker.title"));
 
     private void OnGUI()
     {
-        EditorGUILayout.HelpBox(
-            "Samples an AnimationClip's rotation curves into a BasisMotionClip. Paths are baked relative " +
-            "to Root (the avatar the clip was authored on) — set the same Root on the Sequence movement.",
-            MessageType.Info);
+        EditorGUILayout.HelpBox(BasisEditorLocalization.Get("sdk.motionClipBaker.help"), MessageType.Info);
 
-        _clip = (AnimationClip)EditorGUILayout.ObjectField("Animation Clip", _clip, typeof(AnimationClip), false);
-        _root = (GameObject)EditorGUILayout.ObjectField("Root (in scene)", _root, typeof(GameObject), true);
-        _frameRate = EditorGUILayout.FloatField("Frame Rate", _frameRate);
+        _clip = (AnimationClip)EditorGUILayout.ObjectField(BasisEditorLocalization.Get("sdk.motionClipBaker.animationClip"), _clip, typeof(AnimationClip), false);
+        _root = (GameObject)EditorGUILayout.ObjectField(BasisEditorLocalization.Get("sdk.motionClipBaker.root"), _root, typeof(GameObject), true);
+        _frameRate = EditorGUILayout.FloatField(BasisEditorLocalization.Get("sdk.motionClipBaker.frameRate"), _frameRate);
 
         using (new EditorGUI.DisabledScope(_clip == null || _root == null || _frameRate <= 0f))
         {
-            if (BasisEditorUI.PrimaryButton("Bake", 28f)) Bake();
+            if (BasisEditorUI.PrimaryButton(BasisEditorLocalization.Get("sdk.motionClipBaker.bake"), 28f)) Bake();
         }
     }
 
@@ -48,7 +46,7 @@ public class BasisMotionClipBaker : EditorWindow
         }
         if (paths.Count == 0)
         {
-            EditorUtility.DisplayDialog("Bake Authored Motion Clip", "The clip animates no transform rotations.", "OK");
+            EditorUtility.DisplayDialog(BasisEditorLocalization.Get("sdk.motionClipBaker.title"), BasisEditorLocalization.Get("sdk.motionClipBaker.noRotations"), BasisEditorLocalization.Get("editor.common.ok"));
             return;
         }
 
@@ -64,8 +62,8 @@ public class BasisMotionClipBaker : EditorWindow
         }
         if (keepTransforms.Count == 0)
         {
-            EditorUtility.DisplayDialog("Bake Authored Motion Clip",
-                "No animated paths resolved under Root. Is Root the avatar the clip was authored on?", "OK");
+            EditorUtility.DisplayDialog(BasisEditorLocalization.Get("sdk.motionClipBaker.title"),
+                BasisEditorLocalization.Get("sdk.motionClipBaker.noPaths"), BasisEditorLocalization.Get("editor.common.ok"));
             return;
         }
 
@@ -96,7 +94,7 @@ public class BasisMotionClipBaker : EditorWindow
         }
 
         string assetPath = EditorUtility.SaveFilePanelInProject(
-            "Save Motion Clip", _clip.name + " Motion", "asset", "Choose where to save the baked BasisMotionClip.");
+            BasisEditorLocalization.Get("sdk.motionClipBaker.saveTitle"), _clip.name + " Motion", "asset", BasisEditorLocalization.Get("sdk.motionClipBaker.saveMessage"));
         if (string.IsNullOrEmpty(assetPath)) return;
 
         var motion = CreateInstance<BasisMotionClip>();

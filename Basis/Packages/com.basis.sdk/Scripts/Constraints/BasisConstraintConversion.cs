@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -24,7 +25,8 @@ namespace Basis.Scripts.BasisSdk.Constraints
     /// converts hundreds of these at a time, and the exception notifier fans errors out to disk and
     /// the network.
     /// </summary>
-    public static class BasisConstraintConversion
+    [AutoStaticsCleanup]
+    public static partial class BasisConstraintConversion
     {
         /// <summary>What a single conversion pass did, for the caller to log once in summary.</summary>
         public struct Report

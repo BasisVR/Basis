@@ -26,6 +26,7 @@ namespace Basis
             ErrorHandlers.AttachGlobalHandlers();
             ConfigManager.LoadOrCreateConfigXml("ClientSimConfig.xml");
             NetDebug.Logger = new BasisClientLogger();
+            BasisNetworkPackages.Initialize(typeof(BasisNetworkPackages).Assembly, typeof(NetworkClient).Assembly);
 
             // Face-data test mode: BASIS_EMIT_FACE=1 attaches a synthetic AdditionalAvatarData to
             // every avatar send and logs when other clients' additional data arrives — an
@@ -115,10 +116,8 @@ namespace Basis
             // drop — exercises the keyframe-NACK/re-key recovery paths under realistic conditions.
             if (int.TryParse(Environment.GetEnvironmentVariable("BASIS_PACKET_LOSS"), out int lossPct) && lossPct > 0)
             {
-                var lnl = Basis.Network.Core.BasisTransportConfigStore.Get<Basis.Network.Core.LNLTransportConfig>(
-                    Basis.Network.Core.BasisNetworkStackRegistry.LiteNetLibId);
-                lnl.SimulatePacketLoss = true;
-                lnl.SimulationPacketLossChance = Math.Min(lossPct, 100);
+                ClientManager.SetTransportOption(Basis.Network.Core.BasisNetworkStackRegistry.LiteNetLibId, "SimulatePacketLoss", true);
+                ClientManager.SetTransportOption(Basis.Network.Core.BasisNetworkStackRegistry.LiteNetLibId, "SimulationPacketLossChance", Math.Min(lossPct, 100));
                 BNL.Log($"[FaceObserver] Simulating {lossPct}% packet loss on every client.");
             }
 

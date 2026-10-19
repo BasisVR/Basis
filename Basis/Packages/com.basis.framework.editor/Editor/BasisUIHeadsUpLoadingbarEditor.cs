@@ -1,3 +1,4 @@
+using Basis.Editor.Localization;
 using Basis.Scripts.UI.UI_Panels;
 using UnityEditor;
 using UnityEngine;
@@ -10,20 +11,20 @@ public class BasisUIHeadsUpLoadingbarEditor : EditorWindow
     [MenuItem("Basis/Debug/Loading Bar Test", false, 644)]
     public static void ShowWindow()
     {
-        GetWindow<BasisUIHeadsUpLoadingbarEditor>("Custom Editor Window");
+        GetWindow<BasisUIHeadsUpLoadingbarEditor>(BasisEditorLocalization.Get("editor.loadingBarTest.windowTitle"));
     }
     public bool IsRunning = false;
     private void OnGUI()
     {
-        GUILayout.Label("Execute Task from Editor", EditorStyles.boldLabel);
+        GUILayout.Label(BasisEditorLocalization.Get("editor.loadingBarTest.header"), EditorStyles.boldLabel);
 
         // Display a button
-        if (GUILayout.Button("Start Testing"))
+        if (GUILayout.Button(BasisEditorLocalization.Get("editor.loadingBarTest.start")))
         {
             CallFunction();
             IsRunning = true;
         }
-        if (IsRunning && GUILayout.Button("Stop Testing"))
+        if (IsRunning && GUILayout.Button(BasisEditorLocalization.Get("editor.loadingBarTest.stop")))
         {
             IsRunning = false;
             BasisUILoadingBar.ProgressReport(UniqueId, 100, "Test Message");

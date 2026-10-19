@@ -1,8 +1,8 @@
 # Basis Exception Reporting
 
 Captures exceptions and errors, stores crash reports across sessions and replays them on
-reconnect, uploads them to the server, and hosts the in-app bug-report form. Split out of
-the Basis framework into its own package.
+reconnect, and uploads them to the server. Split out of the Basis framework into its own
+package.
 
 This package was extracted from the Basis monorepo so it can be versioned and installed on
 its own. It is an **optional developer tool** — install it only in projects that use it.

@@ -92,7 +92,7 @@ namespace Basis.Rendering.RTAO.Tests
         }
 
         [Test]
-        public void TheDebugViewLivesOnTheDeveloperTab()
+        public void TheDebugViewIsADeveloperSetting()
         {
             Dictionary<string, string> english = EnglishKeys();
 
@@ -105,9 +105,9 @@ namespace Basis.Rendering.RTAO.Tests
                 Assert.Ignore($"{SettingsProviderPath} is not present.");
 
             string source = File.ReadAllText(SettingsProviderPath);
-            Assert.IsTrue(source.Contains("settings.developer.rtaoDebug"), "The developer tab does not render the toggle.");
+            Assert.IsTrue(source.Contains("settings.developer.rtaoDebug"), "The settings menu does not render the toggle.");
             Assert.IsTrue(english.ContainsKey("settings.developer.rtaoSkinnedBudget"),
-                "The avatar re-pose budget is a tuning knob, so it lives on the developer tab and needs its string there.");
+                "The avatar re-pose budget is a tuning knob, so it is a developer setting and needs its string there.");
             Assert.IsFalse(source.Contains("settings.graphics.rtao.debugView"), "The graphics tab still renders the toggle.");
         }
 

@@ -1,5 +1,7 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
+using Basis.Editor.Localization;
 using Basis.Scripts.BasisSdk;
 using UnityEditor;
 using UnityEngine;
@@ -17,6 +19,7 @@ using UnityEngine;
 /// (Animated TPose.controller), which is what keeps the networked per-bone deltas
 /// bit-compatible between the real avatar and the far avatar.
 /// </summary>
+[NoAutoStaticsCleanup]
 public static class BasisFarLodGenerator
 {
     public static int TargetTriangleCount = 8000;
@@ -51,7 +54,7 @@ public static class BasisFarLodGenerator
     {
         double now = EditorApplication.timeSinceStartup;
         CloseStage(now);
-        EditorUtility.DisplayProgressBar("Far Avatar Generation", label, progress);
+        EditorUtility.DisplayProgressBar(BasisEditorLocalization.Get("sdk.farLod.stage.title"), label, progress);
         ActiveReport?.Entries.Add(new GenerationReport.Entry { Label = label });
         if (VerboseLogging)
         {
@@ -230,7 +233,7 @@ public static class BasisFarLodGenerator
             // Park the clone on an isolated island so multi-view captures see nothing else.
             root.position = new Vector3(4096f, 4096f, 4096f);
 
-            Stage("T-pose", 0.05f);
+            Stage(BasisEditorLocalization.Get("sdk.farLod.stage.tpose"), 0.05f);
             ApplyTPose(animator);
 
             FarLodSkeleton skeleton = CaptureSkeleton(animator, root);
@@ -241,9 +244,9 @@ public static class BasisFarLodGenerator
                 return null;
             }
 
-            Stage("Snapshot geometry", 0.15f);
+            Stage(BasisEditorLocalization.Get("sdk.farLod.stage.snapshot"), 0.15f);
             SnapshotSoup soup = SnapshotGeometry(animator, root, skeleton);
-            StageDetail($"{soup.Positions.Count} verts, {soup.Indices.Count / 3} tris across the avatar, {skeleton.Count} bones kept");
+            StageDetail(BasisEditorLocalization.Get("sdk.farLod.stage.snapshot.detail", soup.Positions.Count, soup.Indices.Count / 3, skeleton.Count));
             if (soup.Indices.Count < 3)
             {
                 LastFailureReason = "no triangle geometry found";
@@ -253,11 +256,11 @@ public static class BasisFarLodGenerator
 
             // Exterior-visibility cull before decimation: budget spent on skin under clothing,
             // linings and inner mouths is budget stolen from the silhouette.
-            Stage("Visibility cull", 0.24f);
+            Stage(BasisEditorLocalization.Get("sdk.farLod.stage.cull"), 0.24f);
             int hiddenRemoved = BasisFarLodVisibilityCuller.RemoveHiddenTriangles(soup.Positions, soup.Indices, root, TargetTriangleCount, out byte[] vertexHiddenFlags);
             StageDetail(hiddenRemoved > 0
-                ? $"{hiddenRemoved} exterior-invisible tris removed, {soup.Indices.Count / 3} remain"
-                : "nothing removed");
+                ? BasisEditorLocalization.Get("sdk.farLod.stage.cull.detail", hiddenRemoved, soup.Indices.Count / 3)
+                : BasisEditorLocalization.Get("sdk.farLod.stage.cull.none"));
             List<byte> hiddenFlags = new List<byte>(soup.Positions.Count);
             if (vertexHiddenFlags != null)
             {
@@ -276,10 +279,10 @@ public static class BasisFarLodGenerator
             // unchanged — the mask pass just renders cheaper.
             BasisFarLodAtlasBaker.BakeMask bakeMask = BuildBakeMask(skeleton, soup);
 
-            Stage("Simplify", 0.3f);
+            Stage(BasisEditorLocalization.Get("sdk.farLod.stage.simplify"), 0.3f);
             int soupTriangles = soup.Indices.Count / 3;
             BasisFarLodMeshSimplifier.Simplify(soup.Positions, soup.BoneA, soup.BoneB, soup.WeightA, hiddenFlags, soup.Indices, TargetTriangleCount);
-            StageDetail($"{soupTriangles} → {soup.Indices.Count / 3} tris ({soup.Positions.Count} verts)");
+            StageDetail(BasisEditorLocalization.Get("sdk.farLod.stage.simplify.detail", soupTriangles, soup.Indices.Count / 3, soup.Positions.Count));
             if (soup.Positions.Count == 0 || soup.Indices.Count < 3)
             {
                 LastFailureReason = $"simplification left no geometry ({soup.Positions.Count} verts, {soup.Indices.Count / 3} tris)";
@@ -287,7 +290,7 @@ public static class BasisFarLodGenerator
                 return null;
             }
 
-            Stage("Unwrap", 0.5f);
+            Stage(BasisEditorLocalization.Get("sdk.farLod.stage.unwrap"), 0.5f);
             Mesh unwrapped = BuildUnwrappedMesh(soup, hiddenFlags, out byte[] boneA, out byte[] boneB, out byte[] weightA, out byte[] texelHidden);
             RepackChartsByImportance(unwrapped, boneA, texelHidden, skeleton);
             try
@@ -303,7 +306,7 @@ public static class BasisFarLodGenerator
                     return null;
                 }
 
-                Stage("Bake atlas", 0.65f);
+                Stage(BasisEditorLocalization.Get("sdk.farLod.stage.bakeAtlas"), 0.65f);
                 BasisFarLodAtlasBaker.RegionOfInterest[] regions = BuildCaptureRegions(skeleton, positions, boneA, boneB, weightA);
                 bakeMask.TexelVertexGroup = new byte[boneA.Length];
                 for (int i = 0; i < boneA.Length; i++)
@@ -324,9 +327,9 @@ public static class BasisFarLodGenerator
                     Debug.LogWarning("Far avatar generation skipped: atlas bake failed.");
                     return null;
                 }
-                StageDetail($"{AtlasSize}px atlas, {textures.Length} compressed payload(s)");
+                StageDetail(BasisEditorLocalization.Get("sdk.farLod.stage.bakeAtlas.detail", AtlasSize, textures.Length));
 
-                Stage("Serialize", 0.95f);
+                Stage(BasisEditorLocalization.Get("sdk.farLod.stage.serialize"), 0.95f);
                 BasisFarLodPayload payload = AssemblePayload(avatar, root, skeleton, positions, normals, uv, indices, boneA, boneB, weightA, textures);
                 double elapsed = EditorApplication.timeSinceStartup - startTime;
                 Debug.Log($"Far avatar generated: {indices.Length / 3} triangles, {positions.Length} vertices, {skeleton.Count} bones, {AtlasSize}px atlas, {elapsed:0.00}s.");

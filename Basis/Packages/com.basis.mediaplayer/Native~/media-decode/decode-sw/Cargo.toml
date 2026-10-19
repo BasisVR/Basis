@@ -1,0 +1,34 @@
+[package]
+name = "decode-sw"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+media-decode = { workspace = true }
+claxon = "0.4.3"
+audiopus_sys = "0.2.2"
+
+# The AV1 software decoder sits out the Android graph: the published rav1d
+# crate is missing src/arm/asm-offsets.h, so its arm64 asm cannot build,
+# and Android's present path has no CPU-frame upload.
+[target.'cfg(windows)'.dependencies]
+rav1d = "1.1.0"
+
+# Non-Windows hosts drop rav1d's asm feature: its NASM objects are not
+# position-independent, and the `basis_media` cdylib link on Linux
+# requires PIC throughout. The pure-Rust paths carry the headless
+# software-decode lane fine.
+[target.'cfg(not(any(windows, target_os = "android")))'.dependencies]
+rav1d = { version = "1.1.0", default-features = false, features = ["bitdepth_8", "bitdepth_16"] }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+libc = "0.2.189"
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+media-clock = { path = "../../media-clock" }
+media-demux = { path = "../../media-demux" }

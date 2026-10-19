@@ -1,6 +1,8 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 
-public class SMModuleControllerSettings : BasisSettingsBase
+[AutoStaticsCleanup]
+public partial class SMModuleControllerSettings : BasisSettingsBase
 {
     public static float JoyStickDeadZone = 0.01f;
     public static float SnapTurnAngle = 45;

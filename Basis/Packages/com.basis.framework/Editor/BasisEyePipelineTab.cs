@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Basis.BasisUI;
+using Basis.Editor.Localization;
 using Basis.Scripts.Device_Management.EyeTracking;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Rendering;
@@ -17,9 +18,9 @@ namespace Basis.Scripts.Device_Management.EyeTracking.Editor
     /// </summary>
     public sealed class BasisEyePipelineTab : BasisEditorTabPage
     {
-        public override string Title => "Pipeline";
+        public override string Title => BasisEditorLocalization.Get("editor.eyePipeline.title");
         public override string Subtitle =>
-            "What each device feeds in, how arbitration merges it, and who is consuming the result.";
+            BasisEditorLocalization.Get("editor.eyePipeline.subtitle");
 
         private static readonly Color Green = new Color(0.45f, 0.9f, 0.45f);
         private static readonly Color Red = new Color(0.95f, 0.5f, 0.5f);
@@ -42,7 +43,7 @@ namespace Basis.Scripts.Device_Management.EyeTracking.Editor
         {
             if (!EditorApplication.isPlaying)
             {
-                BasisEditorUI.Help("Enter Play Mode to see live eye-tracking data.", MessageType.Info);
+                BasisEditorUI.Help(BasisEditorLocalization.Get("editor.eyePipeline.playModeOnly"), MessageType.Info);
                 return;
             }
 
@@ -61,13 +62,13 @@ namespace Basis.Scripts.Device_Management.EyeTracking.Editor
 
         private void DrawIncoming(List<string> blockers)
         {
-            Header("Incoming — Devices");
+            Header(BasisEditorLocalization.Get("editor.eyePipeline.incoming"));
 
             IReadOnlyList<IBasisEyeTrackingProvider> providers = BasisEyeTrackingManager.Providers;
             if (providers == null || providers.Count == 0)
             {
-                BasisEditorUI.Note("No providers registered.");
-                blockers.Add("No eye providers registered — no headset eye tracking is running and no OSC face-tracking component is on the local avatar.");
+                BasisEditorUI.Note(BasisEditorLocalization.Get("editor.eyePipeline.noProviders"));
+                blockers.Add(BasisEditorLocalization.Get("editor.eyePipeline.blocker.noProviders"));
                 return;
             }
 
@@ -95,27 +96,27 @@ namespace Basis.Scripts.Device_Management.EyeTracking.Editor
                     {
                         if (d.HasWorldRay)
                         {
-                            Field("World ray", $"o {Fmt(d.GazeOrigin)}  dir {Fmt(d.GazeDirection)}");
+                            Field(BasisEditorLocalization.Get("editor.eyePipeline.worldRay"), $"o {Fmt(d.GazeOrigin)}  dir {Fmt(d.GazeDirection)}");
                         }
                         if (d.HasPerEyeAngles)
                         {
-                            Field("Per-eye angles", $"L {Ang(d.LeftAngles)}   R {Ang(d.RightAngles)}");
+                            Field(BasisEditorLocalization.Get("editor.eyePipeline.perEyeAngles"), $"L {Ang(d.LeftAngles)}   R {Ang(d.RightAngles)}");
                         }
                         if (d.HasOpenness)
                         {
-                            Field("Openness", $"L {d.LeftOpenness:F2}  R {d.RightOpenness:F2}");
+                            Field(BasisEditorLocalization.Get("editor.eyePipeline.openness"), $"L {d.LeftOpenness:F2}  R {d.RightOpenness:F2}");
                         }
                         if (!d.HasWorldRay && !d.HasPerEyeAngles && !d.HasOpenness)
                         {
-                            Field("", "active but produced no data this frame");
+                            Field("", BasisEditorLocalization.Get("editor.eyePipeline.noDataThisFrame"));
                         }
                     }
                 }
                 else
                 {
                     string reason = provider.Source == BasisEyeSource.Hmd
-                        ? "no valid eye-gaze pose (headset not reporting eye tracking this frame)"
-                        : "inactive — no recent OSC eye params / EyeTrackingActive = 0";
+                        ? BasisEditorLocalization.Get("editor.eyePipeline.reason.hmdInvalid")
+                        : BasisEditorLocalization.Get("editor.eyePipeline.reason.oscInactive");
                     EditorGUILayout.LabelField(reason, EditorStyles.miniLabel);
                 }
                 EditorGUILayout.EndVertical();
@@ -123,125 +124,125 @@ namespace Basis.Scripts.Device_Management.EyeTracking.Editor
 
             if (hmdPresent && !hmdActive)
             {
-                blockers.Add("HMD eye source present but not tracking — the headset may not support eye tracking, or the gaze pose is invalid this frame.");
+                blockers.Add(BasisEditorLocalization.Get("editor.eyePipeline.blocker.hmdNotTracking"));
             }
             if (oscPresent && !oscActive)
             {
-                blockers.Add("OSC face tracking present but inactive — no recent eye parameters were received (EyeTrackingActive = 0).");
+                blockers.Add(BasisEditorLocalization.Get("editor.eyePipeline.blocker.oscInactive"));
             }
         }
 
         private void DrawArbitration()
         {
-            Header("Arbitration");
+            Header(BasisEditorLocalization.Get("editor.eyePipeline.arbitration"));
 
             BasisEyeTrackingManager.BasisEyeArbitration a = BasisEyeTrackingManager.Arbitration;
 
-            EditorGUILayout.LabelField("Preferred source", a.PreferOsc ? "OSC (face tracking)" : "HMD (eye gaze)");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyePipeline.preferredSource"), BasisEditorLocalization.Get(a.PreferOsc ? "editor.eyePipeline.sourceOsc" : "editor.eyePipeline.sourceHmd"));
 
-            string gazeWinner = a.GazeFromOsc ? "OSC" : a.GazeFromHmd ? "HMD" : "none";
-            Dot($"Gaze from: {gazeWinner}", a.GazeFromOsc || a.GazeFromHmd);
+            string gazeLabel = BasisEditorLocalization.Get(a.GazeFromOsc ? "editor.eyePipeline.gazeFromOsc" : a.GazeFromHmd ? "editor.eyePipeline.gazeFromHmd" : "editor.eyePipeline.gazeFromNone");
+            Dot(gazeLabel, a.GazeFromOsc || a.GazeFromHmd);
 
             if (a.OscHasGaze && a.HmdHasGaze && !a.GazeFromOsc)
             {
-                BasisEditorUI.Note("OSC has gaze but HMD is preferred — OSC direction suppressed.");
+                BasisEditorUI.Note(BasisEditorLocalization.Get("editor.eyePipeline.oscSuppressed"));
             }
             if (a.GazeFromOsc && a.HmdHasGaze)
             {
-                BasisEditorUI.Note("HMD has gaze but OSC is preferred — HMD direction suppressed.");
+                BasisEditorUI.Note(BasisEditorLocalization.Get("editor.eyePipeline.hmdSuppressed"));
             }
 
-            Dot($"Openness from: {(a.OpennessFromOsc ? "OSC" : "none")}", a.OpennessFromOsc);
+            Dot(BasisEditorLocalization.Get(a.OpennessFromOsc ? "editor.eyePipeline.opennessFromOsc" : "editor.eyePipeline.opennessFromNone"), a.OpennessFromOsc);
         }
 
         private void DrawOutput()
         {
-            Header("Output — Combined (Current)");
+            Header(BasisEditorLocalization.Get("editor.eyePipeline.output"));
 
             BasisEyeTrackingData c = BasisEyeTrackingManager.Current;
-            Dot("World ray", c.HasWorldRay);
+            Dot(BasisEditorLocalization.Get("editor.eyePipeline.worldRay"), c.HasWorldRay);
             if (c.HasWorldRay)
             {
                 Field("", $"o {Fmt(c.GazeOrigin)}  dir {Fmt(c.GazeDirection)}");
             }
-            Dot("Per-eye angles", c.HasPerEyeAngles);
+            Dot(BasisEditorLocalization.Get("editor.eyePipeline.perEyeAngles"), c.HasPerEyeAngles);
             if (c.HasPerEyeAngles)
             {
                 Field("", $"L {Ang(c.LeftAngles)}   R {Ang(c.RightAngles)}");
             }
-            Dot("Openness", c.HasOpenness);
+            Dot(BasisEditorLocalization.Get("editor.eyePipeline.openness"), c.HasOpenness);
         }
 
         private void DrawConsumers(List<string> blockers)
         {
-            Header("Consumers");
+            Header(BasisEditorLocalization.Get("editor.eyePipeline.consumers"));
 
             bool hasEyeGaze = BasisLocalCameraDriver.HasEyeGaze;
-            Dot("VRS / foveation (BasisLocalCameraDriver.HasEyeGaze)", hasEyeGaze);
+            Dot(BasisEditorLocalization.Get("editor.eyePipeline.consumerVrs"), hasEyeGaze);
             if (!hasEyeGaze)
             {
-                BasisEditorUI.Note("VRS foveal center falls back to screen center.");
+                BasisEditorUI.Note(BasisEditorLocalization.Get("editor.eyePipeline.vrsCenterFallback"));
             }
 
-            Dot("Eye-tracking headset present (auto-foveation trigger)", BasisEyeTrackingManager.HmdEyeTrackingPresent);
-            Dot("VR VRS enabled (DevVariableRateShading)", BasisSettingsDefaults.DevVariableRateShading.RawValue);
+            Dot(BasisEditorLocalization.Get("editor.eyePipeline.headsetPresent"), BasisEyeTrackingManager.HmdEyeTrackingPresent);
+            Dot(BasisEditorLocalization.Get("editor.eyePipeline.vrVrsEnabled"), BasisSettingsDefaults.DevVariableRateShading.RawValue);
 
             bool eyeEnabled = BasisLocalEyeDriver.IsEnabled;
             bool overrideOn = BasisLocalEyeDriver.Override;
-            Dot("Eye bones via HAI — driver enabled", eyeEnabled);
-            Dot("Eye bones via HAI — override applied", overrideOn);
+            Dot(BasisEditorLocalization.Get("editor.eyePipeline.haiDriverEnabled"), eyeEnabled);
+            Dot(BasisEditorLocalization.Get("editor.eyePipeline.haiOverrideApplied"), overrideOn);
 
             BasisEyeTrackingData c = BasisEyeTrackingManager.Current;
             if (c.HasPerEyeAngles)
             {
                 if (!eyeEnabled)
                 {
-                    blockers.Add("Gaze is available but the eye driver is disabled — the avatar has no eye bones, so eyes won't move (VRS still works).");
+                    blockers.Add(BasisEditorLocalization.Get("editor.eyePipeline.blocker.driverDisabled"));
                 }
                 else if (!overrideOn)
                 {
-                    blockers.Add("Gaze is available and the eye driver is enabled, but Override is OFF — nothing is applying it to the eye bones. Is the HAI EyeTrackingBoneActuation component present on the local avatar?");
+                    blockers.Add(BasisEditorLocalization.Get("editor.eyePipeline.blocker.overrideOff"));
                 }
             }
         }
 
         private void DrawFoveation(List<string> blockers)
         {
-            Header("Foveated Rendering (VRS)");
+            Header(BasisEditorLocalization.Get("editor.eyePipeline.foveation"));
 
             bool api = BasisVariableRateShadingFeature.IsSupported;
-            Dot("Graphics API supports image VRS (Direct3D 12)", api);
+            Dot(BasisEditorLocalization.Get("editor.eyePipeline.apiSupportsVrs"), api);
             if (!api)
             {
-                BasisEditorUI.Note("On every other graphics API the VRS feature is fully inactive.");
+                BasisEditorUI.Note(BasisEditorLocalization.Get("editor.eyePipeline.vrsInactiveOtherApis"));
                 return;
             }
 
             bool perTile = ShadingRateInfo.supportsPerImageTile;
-            Dot("GPU/driver reports per-tile shading rate", perTile);
-            Field("Hardware rates", RateListLabel());
+            Dot(BasisEditorLocalization.Get("editor.eyePipeline.perTileRate"), perTile);
+            Field(BasisEditorLocalization.Get("editor.eyePipeline.hardwareRates"), RateListLabel());
 
             bool vrsOn = BasisSettingsDefaults.DevVariableRateShading.RawValue || BasisSettingsDefaults.DevVariableRateShadingDesktop.RawValue;
-            Dot("Enabled (VR or Desktop toggle)", vrsOn);
+            Dot(BasisEditorLocalization.Get("editor.eyePipeline.vrsEnabled"), vrsOn);
 
             bool live = BasisVariableRateShadingFeature.LastDispatchFrame > 0
                 && Time.frameCount - BasisVariableRateShadingFeature.LastDispatchFrame <= 2;
-            Dot("Build pass dispatching", live);
+            Dot(BasisEditorLocalization.Get("editor.eyePipeline.buildPassDispatching"), live);
             if (live)
             {
                 Vector2Int tiles = BasisVariableRateShadingFeature.LastTiles;
-                Field("Tiles", $"{tiles.x} x {tiles.y}");
-                Field("Gaze weight", $"{BasisVariableRateShadingFeature.LastGazeWeight:F2}  (1 = tracked, 0 = optical-axis fallback)");
-                Field("Build GPU cost", $"{BasisVariableRateShadingFeature.GpuMilliseconds:F3} ms");
+                Field(BasisEditorLocalization.Get("editor.eyePipeline.tiles"), $"{tiles.x} x {tiles.y}");
+                Field(BasisEditorLocalization.Get("editor.eyePipeline.gazeWeight"), BasisEditorLocalization.Get("editor.eyePipeline.gazeWeightValue", BasisVariableRateShadingFeature.LastGazeWeight));
+                Field(BasisEditorLocalization.Get("editor.eyePipeline.buildGpuCost"), $"{BasisVariableRateShadingFeature.GpuMilliseconds:F3} ms");
             }
 
             if (vrsOn && !perTile)
             {
-                blockers.Add("VRS is enabled but this GPU/driver does not expose per-tile shading rate — foveation cannot run.");
+                blockers.Add(BasisEditorLocalization.Get("editor.eyePipeline.blocker.noPerTile"));
             }
             else if (vrsOn && !live)
             {
-                blockers.Add("VRS is enabled but the build pass has not dispatched recently — is the local player camera rendering, and does the renderer feature have its build shader assigned?");
+                blockers.Add(BasisEditorLocalization.Get("editor.eyePipeline.blocker.notDispatching"));
             }
         }
 
@@ -250,7 +251,7 @@ namespace Basis.Scripts.Device_Management.EyeTracking.Editor
             ShadingRateFragmentSize[] sizes = ShadingRateInfo.availableFragmentSizes;
             if (sizes == null || sizes.Length == 0)
             {
-                return "none reported";
+                return BasisEditorLocalization.Get("editor.eyePipeline.rateNone");
             }
             string label = "";
             for (int i = 0; i < sizes.Length; i++)
@@ -263,11 +264,11 @@ namespace Basis.Scripts.Device_Management.EyeTracking.Editor
 
         private void DrawBlockers(List<string> blockers)
         {
-            Header("Blockers");
+            Header(BasisEditorLocalization.Get("editor.eyePipeline.blockers"));
             if (blockers.Count == 0)
             {
                 GUI.color = Green;
-                EditorGUILayout.LabelField("● Pipeline healthy — no blockers.");
+                EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyePipeline.healthy"));
                 GUI.color = Color.white;
                 return;
             }
@@ -304,15 +305,15 @@ namespace Basis.Scripts.Device_Management.EyeTracking.Editor
         private static string DeviceLabel(IBasisEyeTrackingProvider provider)
         {
             string type = provider.GetType().Name;
-            if (type.Contains("OpenXR")) return "OpenXR (HMD eye gaze)";
-            if (type.Contains("OpenVR")) return "OpenVR (HMD eye gaze)";
-            if (type.Contains("Osc")) return "OSC (face tracking)";
+            if (type.Contains("OpenXR")) return BasisEditorLocalization.Get("editor.eyePipeline.deviceOpenXr");
+            if (type.Contains("OpenVR")) return BasisEditorLocalization.Get("editor.eyePipeline.deviceOpenVr");
+            if (type.Contains("Osc")) return BasisEditorLocalization.Get("editor.eyePipeline.sourceOsc");
             return $"{type} ({provider.Source})";
         }
 
         private static string Fmt(float3 v) => $"({v.x:F2}, {v.y:F2}, {v.z:F2})";
 
         private static string Ang(float2 yawPitch) =>
-            $"yaw {math.degrees(yawPitch.x):F1}°, pitch {math.degrees(yawPitch.y):F1}°";
+            BasisEditorLocalization.Get("editor.eyePipeline.angles", math.degrees(yawPitch.x), math.degrees(yawPitch.y));
     }
 }

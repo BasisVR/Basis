@@ -1,0 +1,40 @@
+[package]
+name = "media-io"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+media-demux = { workspace = true }
+media-diag = { workspace = true }
+media-hls = { workspace = true }
+bytes = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "net", "time", "sync", "macros"] }
+url = "2"
+
+# TLS provider: rustls on ring rather than aws-lc-rs. aws-lc-sys needs
+# CMake + NASM on MSVC hosts, a toolchain cost on every contributor; ring
+# is already vetted in-tree, its licence has no OpenSSL-advertising clause
+# (so no THIRD_PARTY_NOTICES entry), and the cargo-deny advisory feed
+# watches it. Revisit if ring gains an unfixed RUSTSEC entry or rustls
+# drops the provider.
+#
+# Trust anchors: the OS store where one exists. Android exposes no CA
+# store rustls-native-certs can read (https fails at connect on device),
+# so Android bundles the webpki-roots CCADB set.
+[target.'cfg(not(target_os = "android"))'.dependencies]
+reqwest = { version = "0.12", default-features = false, features = [
+    "rustls-tls-native-roots",
+] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+reqwest = { version = "0.12", default-features = false, features = [
+    "rustls-tls-webpki-roots",
+] }
+
+[dev-dependencies]
+media-clock = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,3 +1,5 @@
+using Basis.Scripts.Platform;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Basis.BasisUI
@@ -34,5 +36,9 @@ namespace Basis.BasisUI
             if (!descriptor) return;
             descriptor.FlashTitle(BasisLocalization.Get("ui.copied"), ConfirmSeconds);
         }
+
+        public static bool CanCopyImages => BasisDesktopClipboard.CanCopyImages;
+
+        public static bool CopyImage(IReadOnlyList<BasisClipboardImage> formats) => BasisDesktopClipboard.CopyImage(formats);
     }
 }

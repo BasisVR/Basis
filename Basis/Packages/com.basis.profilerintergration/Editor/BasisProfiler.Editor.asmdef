@@ -3,8 +3,7 @@
     "rootNamespace": "",
     "references": [
         "BasisProfiler",
-        "Unity.Profiling.Core",
-        "Basis Framework"
+        "Unity.Profiling.Core"
     ],
     "includePlatforms": [
         "Editor"

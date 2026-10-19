@@ -14,7 +14,9 @@ namespace Valve.VR
     public class SteamVR_Input_BindingFile
     {
         public string app_key;
+#pragma warning disable UAC1015
         public Dictionary<string, SteamVR_Input_BindingFile_ActionList> bindings = new Dictionary<string, SteamVR_Input_BindingFile_ActionList>();
+#pragma warning restore UAC1015
         public string controller_type;
         public string description;
         public string name;
@@ -34,7 +36,9 @@ namespace Valve.VR
     public class SteamVR_Input_BindingFile_Chord
     {
         public string output;
+#pragma warning disable UAC1009
         public List<List<string>> inputs = new List<List<string>>();
+#pragma warning restore UAC1009
 
         public override bool Equals(object obj)
         {

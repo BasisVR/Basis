@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Basis.BasisUI;
@@ -9,8 +10,9 @@ using UnityEngine;
 
 namespace HVR.Basis.Comms
 {
+    [AutoStaticsCleanup]
     [AddComponentMenu("HVR.Basis/Comms/Internal/OSC Acquisition Server")]
-    public class OSCAcquisitionServer : MonoBehaviour
+    public partial class OSCAcquisitionServer : MonoBehaviour
     {
         public static OSCAcquisitionServer SceneInstance => HVRCommsUtil.GetOrCreateSceneInstance(ref _sceneInstance);
         private static OSCAcquisitionServer _sceneInstance;
@@ -22,6 +24,9 @@ namespace HVR.Basis.Comms
         // Access levels for OSC query nodes. These are arbitrary values that the server uses to indicate the meaning of nodes to clients.
         private const int SubscriptionAccess = 2;
         private const int PublishAccess = 3;
+        private const int MaxLoopbackDepth = 8;
+        private static int _loopbackDepth;
+        private static bool _loopbackLimitWarned;
 
         private bool _settingSubscribed;
         private bool _running;
@@ -216,12 +221,30 @@ namespace HVR.Basis.Comms
                 }
             }
 
-            BasisOscService.DispatchToSubscribers(OscMessage.FromRaw(new SimpleOSC.OSCMessage
+            if (_loopbackDepth >= MaxLoopbackDepth)
             {
-                path = normalizedAddress,
-                typeTag = typeTag,
-                arguments = oscArguments,
-            }));
+                if (!_loopbackLimitWarned)
+                {
+                    _loopbackLimitWarned = true;
+                    BasisDebug.LogWarning($"OSC value for {normalizedAddress} was published from inside its own handlers {MaxLoopbackDepth} levels deep; it was not echoed to local subscribers again.", BasisDebug.LogTag.LocalNetwork);
+                }
+                return;
+            }
+
+            _loopbackDepth++;
+            try
+            {
+                BasisOscService.DispatchToSubscribers(OscMessage.FromRaw(new SimpleOSC.OSCMessage
+                {
+                    path = normalizedAddress,
+                    typeTag = typeTag,
+                    arguments = oscArguments,
+                }));
+            }
+            finally
+            {
+                _loopbackDepth--;
+            }
         }
 
         public void UpdateSubscriptions(EntityId ownerId, IEnumerable<string> subscribedAddresses, IEnumerable<string> subscribedPrefixes)

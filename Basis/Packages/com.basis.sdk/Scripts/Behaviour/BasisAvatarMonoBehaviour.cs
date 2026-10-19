@@ -1,8 +1,10 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk;
 using UnityEngine;
 namespace Basis.Scripts.Behaviour
 {
-    public abstract class BasisAvatarMonoBehaviour : MonoBehaviour
+    [AutoStaticsCleanup]
+    public abstract partial class BasisAvatarMonoBehaviour : MonoBehaviour
     {
         // [HideInInspector]
         public bool IsInitialized = false;

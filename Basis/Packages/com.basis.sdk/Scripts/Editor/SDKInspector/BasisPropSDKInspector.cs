@@ -12,11 +12,11 @@ public class BasisPropSDKInspector : Editor
 {
     public VisualTreeAsset visualTree;
     public BasisProp BasisProp;
-    public VisualElement rootElement;
-    public VisualElement uiElementsRoot;
+    [System.NonSerialized] public VisualElement rootElement;
+    [System.NonSerialized] public VisualElement uiElementsRoot;
     private Label resultLabel;
     public BasisAssetBundleObject assetBundleObject;
-    public BasisPropValidator BasisPropValidator;
+    [System.NonSerialized] public BasisPropValidator BasisPropValidator;
 
     public void OnEnable()
     {
@@ -40,6 +40,7 @@ public class BasisPropSDKInspector : Editor
         if (visualTree != null)
         {
             uiElementsRoot = visualTree.CloneTree();
+            BasisEditorLocalization.LocalizeTree(uiElementsRoot, "sdk.uxml.prop.");
             rootElement.Add(uiElementsRoot);
 
             BasisPropValidator = new BasisPropValidator(BasisProp, rootElement);
@@ -81,6 +82,7 @@ public class BasisPropSDKInspector : Editor
                 BasisEditorLocalization.Get("sdk.prop.icon.generate"),
                 BasisEditorLocalization.Get("sdk.prop.icon.generate.tooltip"),
                 () => BasisIconCapture.CaptureGameObject(BasisProp.gameObject, BasisIconCapture.PropYaw, BasisIconCapture.PropPitch));
+            BasisSDKCommonInspector.CreateAuthorshipFoldout(BasisSDKCommonInspector.ResolveDescriptionContainer(uiElementsRoot), serializedObject);
 
             // Parented into the UXML blocks so they pick up that styling rather than trailing off
             // the end of the inspector: what the prop is goes under Settings, how it is published
@@ -89,7 +91,7 @@ public class BasisPropSDKInspector : Editor
             BasisSDKCommonInspector.CreatePropSpawnFoldout(settingsContainer, BasisProp);
 
             BasisSDKCommonInspector.CreateBuildTargetOptions(BasisSDKCommonInspector.ResolveBuildTargetsContainer(uiElementsRoot));
-            BasisSDKCommonInspector.CreateBuildOptionsDropdown(BasisSDKCommonInspector.ResolveBuildContainer(uiElementsRoot));
+            BasisSDKCommonInspector.CreateBuildOptionsDropdown(BasisSDKCommonInspector.ResolveBuildContainer(uiElementsRoot), serializedObject);
 
             BasisSDKCommonInspector.CreateContentTagsFoldout(BasisSDKCommonInspector.ResolveContentTagsContainer(uiElementsRoot), BasisProp);
             BasisSDKCommonInspector.CreateContentGroupIdFoldout(BasisSDKCommonInspector.ResolveContentTagsContainer(uiElementsRoot), BasisProp);
@@ -144,8 +146,7 @@ public class BasisPropSDKInspector : Editor
                 ImageBytes = BasisTextureCompression.ToPngBytes(Image);
             }
             Debug.Log($"Building Prop Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
-            BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
-            (bool success, string message) = await BasisBundleBuild.GameObjectBundleBuild(ImageBytes, BasisProp, targets, assetBundleObject.UseCustomPassword, assetBundleObject.UserSelectedPassword);
+            (bool success, string message) = await BasisBundleBuild.GameObjectBundleBuild(ImageBytes, BasisProp, targets, BasisProp.UseCustomPassword, BasisProp.UserSelectedPassword);
             EditorUtility.ClearProgressBar();
             ClearResultLabel();
 

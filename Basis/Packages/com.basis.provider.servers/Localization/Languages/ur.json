@@ -112,6 +112,10 @@
       "value": "★ {0}"
     },
     {
+      "key": "menu.servers.list.sourceBadge",
+      "value": "{0} ({1})"
+    },
+    {
       "key": "menu.servers.list.share",
       "value": "شیئر کریں"
     },
@@ -146,6 +150,14 @@
     {
       "key": "menu.servers.usernamePrompt.body",
       "value": "وہ نام منتخب کریں جو دوسرے کھلاڑی دیکھیں گے، پھر «کنیکٹ کریں» دبائیں۔"
+    },
+    {
+      "key": "menu.servers.passwordPrompt.title",
+      "value": "{0} میں شامل ہوں"
+    },
+    {
+      "key": "menu.servers.passwordPrompt.body",
+      "value": "پاس ورڈ مسترد کر دیا گیا۔ سرور کا پاس ورڈ درج کریں۔"
     },
     {
       "key": "menu.servers.search.byNameOrAddress",
@@ -274,6 +286,10 @@
     {
       "key": "menu.servers.hostThirdPersonDisabled",
       "value": "تھرڈ پرسن غیر فعال کریں"
+    },
+    {
+      "key": "menu.servers.portInvalid",
+      "value": "پورٹ 1 سے 65535 کے درمیان ہونا چاہیے"
     }
   ]
 }

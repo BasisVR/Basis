@@ -1,8 +1,9 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
 using UnityEngine;
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
 using Basis.Rendering.RTAO;
 #endif
 
@@ -21,7 +22,8 @@ namespace Basis.Scripts.Drivers
     /// Always self-terminates (Application.Quit) once the capture is written, so it never idles
     /// connected to a real server.
     /// </summary>
-    public static class BasisRenderCaptureAutomation
+    [AutoStaticsCleanup]
+    public static partial class BasisRenderCaptureAutomation
     {
         private const float PostConnectSettleSeconds = 18f;
         private const float PostCaptureQuitDelaySeconds = 2f;
@@ -184,7 +186,7 @@ namespace Basis.Scripts.Drivers
             {
                 return;
             }
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             if (Enum.TryParse(giQualityOverride, true, out BasisGlobalIlluminationQuality quality))
             {
                 BasisGlobalIlluminationSettings.Current.quality = quality;
@@ -205,7 +207,7 @@ namespace Basis.Scripts.Drivers
             {
                 return;
             }
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
             if (Enum.TryParse(rtaoQualityOverride, true, out BasisRTAOQuality quality))
             {
                 BasisRTAOFeature.HasQualityOverride = true;

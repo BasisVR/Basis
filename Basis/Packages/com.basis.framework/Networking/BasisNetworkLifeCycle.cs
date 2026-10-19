@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Networking;
@@ -10,7 +11,8 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.ResourceManagement.ResourceProviders;
 using static SerializableBasis;
-public static class BasisNetworkLifeCycle
+[AutoStaticsCleanup]
+public static partial class BasisNetworkLifeCycle
 {
     /// <summary>
     /// boots up the network management
@@ -119,6 +121,7 @@ public static class BasisNetworkLifeCycle
     {
         BasisDebug.Log($"Shutting Down Network Connection", BasisDebug.LogTag.Networking);
         BasisNetworkConnectionWatchdog.Reset();
+        BasisP2PManager.Shutdown();
         if (BasisNetworkConnection.LocalPlayerPeer != null && BasisNetworkPlayers.Players.TryGetValue((ushort)BasisNetworkConnection.LocalPlayerPeer.RemoteId, out var networkedPlayer))
         {
             if (networkedPlayer?.Player is BasisLocalPlayer local)

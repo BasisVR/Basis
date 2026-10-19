@@ -1,4 +1,5 @@
-﻿#if UNITY_EDITOR // (AUDIT) This utility class is irrelevant in builds.
+﻿using Unity.Scripting.LifecycleManagement;
+#if UNITY_EDITOR // (AUDIT) This utility class is irrelevant in builds.
 using System;
 using System.IO;
 using UnityEditor;
@@ -101,6 +102,7 @@ SOFTWARE.
         }
     }
 
+    [NoAutoStaticsCleanup]
     internal static class HaiEFExternals_LilGUI
     {
 /*

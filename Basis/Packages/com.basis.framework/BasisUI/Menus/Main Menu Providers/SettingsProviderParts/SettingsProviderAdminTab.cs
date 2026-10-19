@@ -1,4 +1,5 @@
-﻿using Basis.Scripts.BasisCharacterController;
+﻿using Unity.Scripting.LifecycleManagement;
+using Basis.Scripts.BasisCharacterController;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
 using BasisNetworkCore.Security;
@@ -15,7 +16,8 @@ namespace Basis.BasisUI
     /// Admin tab — server-level configuration that persists to disk.
     /// Per-user moderation lives in <see cref="SettingsProviderModeratorTab"/>.
     /// </summary>
-    public static class SettingsProviderAdminTab
+    [AutoStaticsCleanup]
+    public static partial class SettingsProviderAdminTab
     {
         /// <summary>Fired when a player is selected in the moderator player list. Carries the UUID.</summary>
         public static event Action<string> OnPlayerUuidSelected;
@@ -193,6 +195,18 @@ namespace Basis.BasisUI
             propGrabbingLock.SetValueWithoutNotify(BasisNetworkModeration.GlobalPropGrabbingLocked);
             propGrabbingLock.OnValueChanged += _ => SendLockRequest(propGrabbingLock, BasisNetworkModeration.GlobalTogglePropGrabbing, () => BasisNetworkModeration.GlobalPropGrabbingLocked);
 
+            PanelToggle contentRemovalLock = PanelToggle.CreateNewEntry(container);
+            contentRemovalLock.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.lockContentRemoval"));
+            contentRemovalLock.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.lockContentRemoval.tooltip"));
+            contentRemovalLock.SetValueWithoutNotify(BasisNetworkModeration.GlobalContentRemovalLocked);
+            contentRemovalLock.OnValueChanged += _ => SendLockRequest(contentRemovalLock, BasisNetworkModeration.GlobalToggleContentRemoval, () => BasisNetworkModeration.GlobalContentRemovalLocked);
+
+            PanelToggle externalLinksLock = PanelToggle.CreateNewEntry(container);
+            externalLinksLock.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.lockExternalLinks"));
+            externalLinksLock.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.lockExternalLinks.tooltip"));
+            externalLinksLock.SetValueWithoutNotify(BasisNetworkModeration.GlobalExternalLinksLocked);
+            externalLinksLock.OnValueChanged += _ => SendLockRequest(externalLinksLock, BasisNetworkModeration.GlobalToggleExternalLinks, () => BasisNetworkModeration.GlobalExternalLinksLocked);
+
             PanelToggle safeDisplayNamesToggle = PanelToggle.CreateNewEntry(container);
             safeDisplayNamesToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.safeDisplayNames"));
             safeDisplayNamesToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.safeDisplayNames.tooltip"));
@@ -225,6 +239,8 @@ namespace Basis.BasisUI
             controller.MediaPlayerLockToggle = mediaPlayerLock;
             controller.CameraCaptureLockToggle = cameraCaptureLock;
             controller.PropGrabbingLockToggle = propGrabbingLock;
+            controller.ContentRemovalLockToggle = contentRemovalLock;
+            controller.ExternalLinksLockToggle = externalLinksLock;
             controller.SafeDisplayNamesToggle = safeDisplayNamesToggle;
             controller.EndEffectorIKToggle = endEffectorIKToggle;
 
@@ -253,10 +269,14 @@ namespace Basis.BasisUI
             opusBitrateSlider.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.opusBitrate.tooltip"));
             opusBitrateSlider.SetValueWithoutNotify(BasisNetworkModeration.GlobalOpusBitrate > 0 ? BasisNetworkModeration.GlobalOpusBitrate : DefaultOpusBitrate);
             opusBitrateSlider.Descriptor.SetActive(BasisNetworkModeration.GlobalOpusBitrate > 0);
+            void RebuildAudioLimitRows()
+            {
+                PanelElementDescriptor.RebuildLayoutChain(opusBitrateSlider.transform.parent as RectTransform, container);
+            }
             opusBitrateOverrideToggle.OnValueChanged += on =>
             {
                 opusBitrateSlider.Descriptor.SetActive(on);
-                descriptor.ForceRebuild();
+                RebuildAudioLimitRows();
             };
 
             // Only 20 and 40 ms are valid on the wire; a dropdown makes that explicit where a
@@ -300,7 +320,7 @@ namespace Basis.BasisUI
                     {
                         opusBitrateSlider.Descriptor.SetActive(opusBitrateOverrideToggle.Value);
                     }
-                    descriptor.ForceRebuild();
+                    RebuildAudioLimitRows();
                 });
 
             audioDirty.Attach(audioToggle, audioBox);
@@ -422,11 +442,15 @@ namespace Basis.BasisUI
                 policyGravitySlider.Descriptor.SetActive(policyGravityToggle.Value);
             }
 
+            void RebuildLocomotionRows()
+            {
+                PanelElementDescriptor.RebuildLayoutChain(policyJumpSlider.transform.parent as RectTransform, container);
+            }
             ApplyPolicySliderVisibility();
-            policyJumpToggle.OnValueChanged += _ => { ApplyPolicySliderVisibility(); descriptor.ForceRebuild(); };
-            policyWalkToggle.OnValueChanged += _ => { ApplyPolicySliderVisibility(); descriptor.ForceRebuild(); };
-            policyRunToggle.OnValueChanged += _ => { ApplyPolicySliderVisibility(); descriptor.ForceRebuild(); };
-            policyGravityToggle.OnValueChanged += _ => { ApplyPolicySliderVisibility(); descriptor.ForceRebuild(); };
+            policyJumpToggle.OnValueChanged += _ => { ApplyPolicySliderVisibility(); RebuildLocomotionRows(); };
+            policyWalkToggle.OnValueChanged += _ => { ApplyPolicySliderVisibility(); RebuildLocomotionRows(); };
+            policyRunToggle.OnValueChanged += _ => { ApplyPolicySliderVisibility(); RebuildLocomotionRows(); };
+            policyGravityToggle.OnValueChanged += _ => { ApplyPolicySliderVisibility(); RebuildLocomotionRows(); };
 
             void ApplyLocomotionPolicy()
             {
@@ -448,7 +472,7 @@ namespace Basis.BasisUI
                     // Expanding re-activates every hidden child, so the per-field visibility has to
                     // be re-applied or a cleared field comes back with its slider showing.
                     if (visible) ApplyPolicySliderVisibility();
-                    descriptor.ForceRebuild();
+                    RebuildLocomotionRows();
                 });
 
             locomotionDirty.Attach(locomotionToggle, locomotionBox);
@@ -496,13 +520,27 @@ namespace Basis.BasisUI
             maxContentSpheresField.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.maxContentSpheresPerPlayer.description"));
             maxContentSpheresField.SetValueWithoutNotify(BasisNetworkModeration.ServerMaxContentSpheresPerPlayer.ToString());
 
+            PanelTextField sphereLeaveTimeoutField = PanelTextField.CreateNewEntry(container);
+            sphereLeaveTimeoutField.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.contentSphereLeaveTimeout"));
+            sphereLeaveTimeoutField.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.contentSphereLeaveTimeout.description"));
+            sphereLeaveTimeoutField.SetValueWithoutNotify(BasisNetworkModeration.ServerContentSphereLeaveTimeoutSeconds.ToString());
+
+            PanelTextField sphereDeletionTimerField = PanelTextField.CreateNewEntry(container);
+            sphereDeletionTimerField.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.contentSphereDeletionTimer"));
+            sphereDeletionTimerField.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.contentSphereDeletionTimer.description"));
+            sphereDeletionTimerField.SetValueWithoutNotify(BasisNetworkModeration.ServerContentSphereDeletionTimerSeconds.ToString());
+
             void ApplyResourceLimits()
             {
                 if (!int.TryParse(maxContentSpheresField.Value, out int spheres)) spheres = BasisNetworkModeration.ServerMaxContentSpheresPerPlayer;
-                BasisNetworkModeration.SetGlobalResourceLimits(spheres);
+                if (!int.TryParse(sphereLeaveTimeoutField.Value, out int leaveTimeout)) leaveTimeout = BasisNetworkModeration.ServerContentSphereLeaveTimeoutSeconds;
+                if (!int.TryParse(sphereDeletionTimerField.Value, out int deletionTimer)) deletionTimer = BasisNetworkModeration.ServerContentSphereDeletionTimerSeconds;
+                BasisNetworkModeration.SetGlobalResourceLimits(spheres, leaveTimeout, deletionTimer);
             }
 
             controller.MaxContentSpheresField = maxContentSpheresField;
+            controller.ContentSphereLeaveTimeoutField = sphereLeaveTimeoutField;
+            controller.ContentSphereDeletionTimerField = sphereDeletionTimerField;
 
             PanelButton resourceApply = MakeApplyButton(container, resourceDirty);
             resourceApply.OnClicked += ApplyResourceLimits;
@@ -512,6 +550,8 @@ namespace Basis.BasisUI
 
             resourceDirty.Attach(resourceLimitsToggle, resourceBox);
             resourceDirty.WatchNumericText(maxContentSpheresField, () => BasisNetworkModeration.ServerMaxContentSpheresPerPlayer);
+            resourceDirty.WatchNumericText(sphereLeaveTimeoutField, () => BasisNetworkModeration.ServerContentSphereLeaveTimeoutSeconds);
+            resourceDirty.WatchNumericText(sphereDeletionTimerField, () => BasisNetworkModeration.ServerContentSphereDeletionTimerSeconds);
             controller.DirtySections.Add(resourceDirty);
 
             // --- Avatar reduction (BSR) tuning; persisted to config.xml, re-applied live ---
@@ -893,9 +933,9 @@ namespace Basis.BasisUI
             resetLogsButton.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.resetAllLogs.tooltip"));
             resetLogsButton.OnClicked += () => WithConfirm(
                 BasisLocalization.Get("settings.admin.title.resetAllLogs"),
-                "Permanently delete the server's logs and crash reports? This cannot be undone.",
-                "Delete",
-                "Cancel",
+                BasisLocalization.Get("settings.admin.confirm.resetAllLogs.body"),
+                BasisLocalization.Get("library.delete"),
+                BasisLocalization.Get("ui.cancel"),
                 () => BasisNetworkModeration.DeleteAllLogs());
 
             PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(logsToggle, container, logsStart, false, _ => descriptor.ForceRebuild());
@@ -914,15 +954,15 @@ namespace Basis.BasisUI
         private const int DefaultOpusBitrate = 32000;
 
         // Only 20 and 40 ms are accepted on the wire — see SetGlobalOpusFrameDuration.
-        private static readonly string[] OpusFrameDurationNames = { "20 ms", "40 ms" };
+        [NoAutoStaticsCleanup] private static readonly string[] OpusFrameDurationNames = { "20 ms", "40 ms" };
 
         private static string FrameDurationToName(int ms) => ms == 40 ? OpusFrameDurationNames[1] : OpusFrameDurationNames[0];
 
         private static int NameToFrameDuration(string name) => name == OpusFrameDurationNames[1] ? 40 : 20;
 
         // Stable wire-order names for BasisUserRestrictionMode plus the keys their labels come from.
-        private static readonly string[] RestrictionModeNames = { "Normal", "AllowList", "RejoinOnly" };
-        private static readonly string[] RestrictionModeLocalizationKeys =
+        [NoAutoStaticsCleanup] private static readonly string[] RestrictionModeNames = { "Normal", "AllowList", "RejoinOnly" };
+        [NoAutoStaticsCleanup] private static readonly string[] RestrictionModeLocalizationKeys =
         {
             "settings.admin.joinRestriction.normal",
             "settings.admin.joinRestriction.allowList",
@@ -1022,7 +1062,7 @@ namespace Basis.BasisUI
         }
 
         // Modes mirror BundledContentHolder.Mode (Avatar=0, World=1, Prop=2).
-        private static readonly string[] DefaultLibraryModeNames = { "Avatar", "World", "Prop" };
+        [NoAutoStaticsCleanup] private static readonly string[] DefaultLibraryModeNames = { "Avatar", "World", "Prop" };
 
         private static void BuildDefaultLibrarySection(RectTransform container, PanelElementDescriptor tabDescriptor = null)
         {
@@ -1184,6 +1224,8 @@ namespace Basis.BasisUI
             public PanelToggle MediaPlayerLockToggle;
             public PanelToggle CameraCaptureLockToggle;
             public PanelToggle PropGrabbingLockToggle;
+            public PanelToggle ContentRemovalLockToggle;
+            public PanelToggle ExternalLinksLockToggle;
             public PanelToggle SafeDisplayNamesToggle;
             public PanelToggle EndEffectorIKToggle;
             public PanelSlider MinAvatarHeightSlider;
@@ -1200,6 +1242,8 @@ namespace Basis.BasisUI
             public List<string> PolicyModeEntries;
             public Action ApplyPolicySliderVisibility;
             public PanelTextField MaxContentSpheresField;
+            public PanelTextField ContentSphereLeaveTimeoutField;
+            public PanelTextField ContentSphereDeletionTimerField;
             public PanelTextField ReductionIntervalField;
             public PanelTextField ReductionBaseMultiplierField;
             public PanelTextField ReductionIncreaseRateField;
@@ -1284,7 +1328,11 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalCameraCaptureLockedChanged -= OnGlobalCameraCaptureLockedChanged;
                 BasisNetworkModeration.OnGlobalCameraCaptureLockedChanged += OnGlobalCameraCaptureLockedChanged;
                 BasisNetworkModeration.OnGlobalPropGrabbingLockedChanged -= OnGlobalPropGrabbingLockedChanged;
+                BasisNetworkModeration.OnGlobalContentRemovalLockedChanged -= OnGlobalContentRemovalLockedChanged;
                 BasisNetworkModeration.OnGlobalPropGrabbingLockedChanged += OnGlobalPropGrabbingLockedChanged;
+                BasisNetworkModeration.OnGlobalContentRemovalLockedChanged += OnGlobalContentRemovalLockedChanged;
+                BasisNetworkModeration.OnGlobalExternalLinksLockedChanged -= OnGlobalExternalLinksLockedChanged;
+                BasisNetworkModeration.OnGlobalExternalLinksLockedChanged += OnGlobalExternalLinksLockedChanged;
                 BasisNetworkModeration.OnGlobalSafeDisplayNamesForcedChanged -= OnGlobalSafeDisplayNamesForcedChanged;
                 BasisNetworkModeration.OnGlobalSafeDisplayNamesForcedChanged += OnGlobalSafeDisplayNamesForcedChanged;
                 BasisNetworkModeration.OnGlobalEndEffectorIKDisabledChanged -= OnGlobalEndEffectorIKDisabledChanged;
@@ -1329,6 +1377,8 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalMediaPlayerLockedChanged -= OnGlobalMediaPlayerLockedChanged;
                 BasisNetworkModeration.OnGlobalCameraCaptureLockedChanged -= OnGlobalCameraCaptureLockedChanged;
                 BasisNetworkModeration.OnGlobalPropGrabbingLockedChanged -= OnGlobalPropGrabbingLockedChanged;
+                BasisNetworkModeration.OnGlobalContentRemovalLockedChanged -= OnGlobalContentRemovalLockedChanged;
+                BasisNetworkModeration.OnGlobalExternalLinksLockedChanged -= OnGlobalExternalLinksLockedChanged;
                 BasisNetworkModeration.OnGlobalSafeDisplayNamesForcedChanged -= OnGlobalSafeDisplayNamesForcedChanged;
                 BasisNetworkModeration.OnGlobalEndEffectorIKDisabledChanged -= OnGlobalEndEffectorIKDisabledChanged;
                 BasisNetworkModeration.OnAvatarScaleLimitsChanged -= OnAvatarScaleLimitsChanged;
@@ -1363,6 +1413,8 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalMediaPlayerLockedChanged -= OnGlobalMediaPlayerLockedChanged;
                 BasisNetworkModeration.OnGlobalCameraCaptureLockedChanged -= OnGlobalCameraCaptureLockedChanged;
                 BasisNetworkModeration.OnGlobalPropGrabbingLockedChanged -= OnGlobalPropGrabbingLockedChanged;
+                BasisNetworkModeration.OnGlobalContentRemovalLockedChanged -= OnGlobalContentRemovalLockedChanged;
+                BasisNetworkModeration.OnGlobalExternalLinksLockedChanged -= OnGlobalExternalLinksLockedChanged;
                 BasisNetworkModeration.OnGlobalSafeDisplayNamesForcedChanged -= OnGlobalSafeDisplayNamesForcedChanged;
                 BasisNetworkModeration.OnGlobalEndEffectorIKDisabledChanged -= OnGlobalEndEffectorIKDisabledChanged;
                 BasisNetworkModeration.OnAvatarScaleLimitsChanged -= OnAvatarScaleLimitsChanged;
@@ -1503,6 +1555,16 @@ namespace Basis.BasisUI
                 if (PropGrabbingLockToggle != null) PropGrabbingLockToggle.SetValueWithoutNotify(locked);
             }
 
+            private void OnGlobalContentRemovalLockedChanged(bool locked)
+            {
+                if (ContentRemovalLockToggle != null) ContentRemovalLockToggle.SetValueWithoutNotify(locked);
+            }
+
+            private void OnGlobalExternalLinksLockedChanged(bool locked)
+            {
+                if (ExternalLinksLockToggle != null) ExternalLinksLockToggle.SetValueWithoutNotify(locked);
+            }
+
             private void OnGlobalEndEffectorIKDisabledChanged(bool disabled)
             {
                 if (EndEffectorIKToggle != null) EndEffectorIKToggle.SetValueWithoutNotify(!disabled);
@@ -1539,6 +1601,8 @@ namespace Basis.BasisUI
             private void OnResourceLimitsChanged(int spheres)
             {
                 if (MaxContentSpheresField != null) MaxContentSpheresField.SetValueWithoutNotify(spheres.ToString());
+                if (ContentSphereLeaveTimeoutField != null) ContentSphereLeaveTimeoutField.SetValueWithoutNotify(BasisNetworkModeration.ServerContentSphereLeaveTimeoutSeconds.ToString());
+                if (ContentSphereDeletionTimerField != null) ContentSphereDeletionTimerField.SetValueWithoutNotify(BasisNetworkModeration.ServerContentSphereDeletionTimerSeconds.ToString());
                 ReevaluateDirty();
             }
 

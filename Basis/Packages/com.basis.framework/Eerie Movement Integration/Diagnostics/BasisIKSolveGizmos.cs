@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.IK;
 using Basis.Scripts.Drivers;
@@ -5,7 +6,8 @@ using Unity.Collections;
 using UnityEngine;
 namespace Basis.Scripts.Debugging
 {
-    public static class BasisIKSolveGizmos
+    [AutoStaticsCleanup]
+    public static partial class BasisIKSolveGizmos
     {
         const float LineWidthBase = 0.003f;
         const float PointSizeBase = 0.014f;

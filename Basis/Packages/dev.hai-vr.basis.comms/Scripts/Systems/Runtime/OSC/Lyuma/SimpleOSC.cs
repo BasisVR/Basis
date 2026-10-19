@@ -23,6 +23,7 @@ SOFTWARE. */
 #define UNITY
 #endif
 
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -33,7 +34,8 @@ using System.Threading;
 namespace HVR.Basis.Comms.OSC.Lyuma
 {
 
-public class SimpleOSC
+[AutoStaticsCleanup]
+public partial class SimpleOSC
 {
 	public enum Impulse {IMPULSE}
 	public struct TimeTag {

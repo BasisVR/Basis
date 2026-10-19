@@ -3,9 +3,9 @@ namespace Basis.MediaPipe
 {
     public sealed class MediaPipeHeadConverter
     {
-        public float YawGain = 1f, PitchGain = 1f, RollGain = 1f, PositionGain = 1f, HeightOffset = 0f, Smoothing = 0.5f;
+        public float YawGain = 1f, PitchGain = 1f, RollGain = 1f, PositionGain = 1f, HeightOffset = 0f;
         public bool InvertYaw = false, InvertPitch = true, InvertRoll = false, RejectGlitches = true;
-        private const float CutoffResponsive = 8f, CutoffSmooth = 1f, Beta = 1.5f, DepthCutoffScale = 0.4f, HoldSeconds = 0.5f, FadeInHz = 6f, FadeOutHz = 4f;
+        private const float HoldSeconds = 0.5f, FadeInHz = 6f, FadeOutHz = 4f;
         private Quaternion neutralInverse = Quaternion.identity;
         private Vector3 neutralPosition;
         private bool calibrated;
@@ -16,7 +16,6 @@ namespace Basis.MediaPipe
         public bool Calibrated => calibrated;
         public Quaternion NeutralRotation => Quaternion.Inverse(neutralInverse);
         public Vector3 NeutralPosition => neutralPosition;
-        private float Cutoff => Mathf.Lerp(CutoffResponsive, CutoffSmooth, Mathf.Clamp01(Smoothing));
         public void SetNeutral(Quaternion rotation, Vector3 position)
         {
             float sqr = rotation.x * rotation.x + rotation.y * rotation.y + rotation.z * rotation.z + rotation.w * rotation.w;
@@ -57,9 +56,8 @@ namespace Basis.MediaPipe
                 Quaternion headRot = result.FaceTransform.rotation;
                 Vector3 translation = result.FaceTransform.GetColumn(3);
                 Vector3 delta = calibrated ? translation - neutralPosition : Vector3.zero;
-                float cutoff = timing.Scaled(Cutoff);
-                relative = rotationFilter.Apply(calibrated ? neutralInverse * headRot : headRot, in timing, cutoff, Beta, RejectGlitches ? MediaPipeFilterMath.MaxTurnDegPerSec : 0f);
-                shift = positionFilter.Apply(new Vector3(-delta.x, 0f, -delta.z) * 0.01f, in timing, cutoff, Beta, DepthCutoffScale, RejectGlitches ? MediaPipeFilterMath.MaxHeadSpeed : 0f);
+                relative = rotationFilter.Apply(calibrated ? neutralInverse * headRot : headRot, in timing, RejectGlitches ? MediaPipeFilterMath.MaxTurnDegPerSec : 0f);
+                shift = positionFilter.Apply(new Vector3(-delta.x, 0f, -delta.z) * 0.01f, in timing, RejectGlitches ? MediaPipeFilterMath.MaxHeadSpeed : 0f);
             }
             else
             {

@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using UnityEditor;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
@@ -75,6 +74,7 @@ namespace UnityEngine.Rendering.Universal
 
         readonly Material m_ReplacementMaterial;
         readonly Material m_HDRDebugViewMaterial;
+        readonly Material m_BatchingTypeDebugMaterial;
 
         HDRDebugViewPass m_HDRDebugViewPass;
         RTHandle m_DebugScreenColorHandle;
@@ -89,8 +89,6 @@ namespace UnityEngine.Rendering.Universal
         RTHandle m_DebugRenderTarget;
 
         RTHandle m_DebugFontTexture;
-
-        private GraphicsBuffer m_debugDisplayConstant;
 
         readonly UniversalRenderPipelineDebugDisplaySettings m_DebugDisplaySettings;
 
@@ -111,13 +109,15 @@ namespace UnityEngine.Rendering.Universal
 
         // These modes would require putting custom data into gbuffer, so instead we just disable deferred mode.
         internal bool IsActiveModeUnsupportedForDeferred =>
+            AreAnySettingsActive && (
             m_DebugDisplaySettings.lightingSettings.lightingDebugMode != DebugLightingMode.None ||
             m_DebugDisplaySettings.lightingSettings.lightingFeatureFlags != DebugLightingFeatureFlags.None ||
             m_DebugDisplaySettings.renderingSettings.sceneOverrideMode != DebugSceneOverrideMode.None ||
             m_DebugDisplaySettings.materialSettings.materialDebugMode != DebugMaterialMode.None ||
             m_DebugDisplaySettings.materialSettings.vertexAttributeDebugMode != DebugVertexAttributeMode.None ||
             m_DebugDisplaySettings.materialSettings.materialValidationMode != DebugMaterialValidationMode.None ||
-            m_DebugDisplaySettings.renderingSettings.mipInfoMode != DebugMipInfoMode.None;
+            m_DebugDisplaySettings.renderingSettings.mipInfoMode != DebugMipInfoMode.None ||
+            m_DebugDisplaySettings.renderingSettings.batchingTypeViewEnabled);
 
         /// <inheritdoc/>
         public bool TryGetScreenClearColor(ref Color color)
@@ -128,6 +128,7 @@ namespace UnityEngine.Rendering.Universal
         #endregion
 
         internal Material ReplacementMaterial => m_ReplacementMaterial;
+        internal Material BatchingTypeDebugMaterial => m_BatchingTypeDebugMaterial;
         internal UniversalRenderPipelineDebugDisplaySettings DebugDisplaySettings => m_DebugDisplaySettings;
         internal ref RTHandle DebugScreenColorHandle => ref m_DebugScreenColorHandle;
         internal ref RTHandle DebugScreenDepthHandle => ref m_DebugScreenDepthHandle;
@@ -136,7 +137,7 @@ namespace UnityEngine.Rendering.Universal
         internal bool HDRDebugViewIsActive(bool resolveFinalTarget)
         {
             // HDR debug views should only apply to the last camera in the stack
-            return DebugDisplaySettings.lightingSettings.hdrDebugMode != HDRDebugMode.None && resolveFinalTarget;
+            return m_HDRDebugViewMaterial != null && DebugDisplaySettings.lightingSettings.hdrDebugMode != HDRDebugMode.None && resolveFinalTarget;
         }
 
         internal bool WriteToDebugScreenTexture(bool resolveFinalTarget)
@@ -162,9 +163,11 @@ namespace UnityEngine.Rendering.Universal
             }
         }
 
-        internal bool IsDepthPrimingCompatible => RenderingSettings.sceneOverrideMode != DebugSceneOverrideMode.Wireframe;
+        internal bool IsDepthPrimingCompatible => !AreAnySettingsActive || RenderingSettings.sceneOverrideMode != DebugSceneOverrideMode.Wireframe;
 
         internal int stpDebugViewIndex { get { return RenderingSettings.stpDebugViewIndex; } }
+
+        internal bool IsBatchingTypeViewActive => m_DebugDisplaySettings.renderingSettings.batchingTypeViewEnabled;
 
         internal DebugHandler()
         {
@@ -174,6 +177,7 @@ namespace UnityEngine.Rendering.Universal
             {
                 m_ReplacementMaterial = (shaders.debugReplacementPS != null) ? CoreUtils.CreateEngineMaterial(shaders.debugReplacementPS) : null;
                 m_HDRDebugViewMaterial = (shaders.hdrDebugViewPS != null) ? CoreUtils.CreateEngineMaterial(shaders.hdrDebugViewPS) : null;
+                m_BatchingTypeDebugMaterial = (shaders.batchingTypeDebugPS != null) ? CoreUtils.CreateEngineMaterial(shaders.batchingTypeDebugPS) : null;
             }
 
             m_HDRDebugViewPass = new HDRDebugViewPass(m_HDRDebugViewMaterial);
@@ -183,8 +187,6 @@ namespace UnityEngine.Rendering.Universal
             {
                 m_DebugFontTexture = RTHandles.Alloc(m_RuntimeTextures.debugFontTexture);
             }
-
-            m_debugDisplayConstant = new GraphicsBuffer(GraphicsBuffer.Target.Constant, 32, Marshal.SizeOf(typeof(Vector4)));
         }
 
         public void Dispose()
@@ -193,9 +195,9 @@ namespace UnityEngine.Rendering.Universal
             m_DebugScreenColorHandle?.Release();
             m_DebugScreenDepthHandle?.Release();
             m_DebugFontTexture?.Release();
-            m_debugDisplayConstant.Dispose();
             CoreUtils.Destroy(m_HDRDebugViewMaterial);
             CoreUtils.Destroy(m_ReplacementMaterial);
+            CoreUtils.Destroy(m_BatchingTypeDebugMaterial);
         }
 
         internal bool IsActiveForCamera(bool isPreviewCamera)
@@ -240,7 +242,7 @@ namespace UnityEngine.Rendering.Universal
             descriptor.graphicsFormat = GraphicsFormat.None;
         }
 
-        [Conditional("DEVELOPMENT_BUILD"), Conditional("UNITY_EDITOR")]
+        [Conditional("UNITY_ENABLE_CHECKS")]
         internal void SetupShaderProperties(RasterCommandBuffer cmd, int passIndex = 0)
         {
             if (LightingSettings.lightingDebugMode == DebugLightingMode.ShadowCascades)
@@ -253,9 +255,7 @@ namespace UnityEngine.Rendering.Universal
                 cmd.DisableShaderKeyword("_DEBUG_ENVIRONMENTREFLECTIONS_OFF");
             }
 
-            m_debugDisplayConstant.SetData(MaterialSettings.debugRenderingLayersColors, 0, 0, 32);
-
-            cmd.SetGlobalConstantBuffer(m_debugDisplayConstant, "_DebugDisplayConstant", 0, m_debugDisplayConstant.count * m_debugDisplayConstant.stride);
+            cmd.SetGlobalVectorArray("_DebugRenderingLayerMaskColors", MaterialSettings.debugRenderingLayersColors);
 
             if (MaterialSettings.renderingLayersSelectedLight)
                 cmd.SetGlobalInt("_DebugRenderingLayerMask", (int)MaterialSettings.GetDebugLightLayersMask());
@@ -420,7 +420,7 @@ namespace UnityEngine.Rendering.Universal
             }
         }
 
-        [Conditional("DEVELOPMENT_BUILD"), Conditional("UNITY_EDITOR")]
+        [Conditional("UNITY_ENABLE_CHECKS")]
         internal void UpdateShaderGlobalPropertiesForFinalValidationPass(CommandBuffer cmd, UniversalCameraData cameraData, bool isFinalPass)
         {
             UpdateShaderGlobalPropertiesForFinalValidationPass(CommandBufferHelpers.GetRasterCommandBuffer(cmd), InitDebugFinalValidationPassData(s_DebugFinalValidationPassData, cameraData, isFinalPass));
@@ -432,7 +432,7 @@ namespace UnityEngine.Rendering.Universal
             }
         }
 
-        [Conditional("DEVELOPMENT_BUILD"), Conditional("UNITY_EDITOR")]
+        [Conditional("UNITY_ENABLE_CHECKS")]
         internal void UpdateShaderGlobalPropertiesForFinalValidationPass(RenderGraph renderGraph, UniversalCameraData cameraData, bool isFinalPass)
         {
             using (var builder = renderGraph.AddRasterRenderPass<DebugFinalValidationPassData>(nameof(UpdateShaderGlobalPropertiesForFinalValidationPass), out var passData, s_DebugFinalValidationSampler))
@@ -487,7 +487,7 @@ namespace UnityEngine.Rendering.Universal
             return passData;
         }
 
-        [Conditional("DEVELOPMENT_BUILD"), Conditional("UNITY_EDITOR")]
+        [Conditional("UNITY_ENABLE_CHECKS")]
         static void Setup(RasterCommandBuffer cmd, DebugSetupPassData passData)
         {
             if (passData.isActiveForCamera)
@@ -532,13 +532,13 @@ namespace UnityEngine.Rendering.Universal
             }
         }
 
-        [Conditional("DEVELOPMENT_BUILD"), Conditional("UNITY_EDITOR")]
+        [Conditional("UNITY_ENABLE_CHECKS")]
         internal void Setup(CommandBuffer cmd, bool isPreviewCamera)
         {
             Setup(CommandBufferHelpers.GetRasterCommandBuffer(cmd), InitDebugSetupPassData(s_DebugSetupPassData, isPreviewCamera));
         }
 
-        [Conditional("DEVELOPMENT_BUILD"), Conditional("UNITY_EDITOR")]
+        [Conditional("UNITY_ENABLE_CHECKS")]
         internal void Setup(RenderGraph renderGraph, bool isPreviewCamera)
         {
             using (var builder = renderGraph.AddRasterRenderPass<DebugSetupPassData>(s_DebugSetupSampler.name, out var passData, s_DebugSetupSampler))
@@ -552,7 +552,7 @@ namespace UnityEngine.Rendering.Universal
             }
         }
 
-        [Conditional("DEVELOPMENT_BUILD"), Conditional("UNITY_EDITOR")]
+        [Conditional("UNITY_ENABLE_CHECKS")]
         internal void Render(RenderGraph renderGraph, UniversalCameraData cameraData, in TextureHandle srcColor, in TextureHandle overlayTexture, in TextureHandle dstColor)
         {
             if (IsActiveForCamera(cameraData.isPreviewCamera) && HDRDebugViewIsActive(cameraData.resolveFinalTarget))

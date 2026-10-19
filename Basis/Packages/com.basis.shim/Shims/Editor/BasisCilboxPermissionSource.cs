@@ -681,26 +681,26 @@ namespace Basis.Shims.Editor
 
             if (list == null)
             {
-                error = "The list was not parsed.";
+                error = BasisCilboxLoc.Get("sdk.cilbox.error.listNotParsed");
                 return false;
             }
 
             if (!list.RoundTrips)
             {
-                error = "This list uses formatting the editor will not rewrite. Edit the file by hand.";
+                error = BasisCilboxLoc.Get("sdk.cilbox.error.formattingNotRewritten");
                 return false;
             }
 
             string text = ReadFile(filePath, out bool wasCrlf);
             if (text == null)
             {
-                error = "Could not read " + filePath;
+                error = BasisCilboxLoc.Get("sdk.cilbox.error.fileUnreadable", filePath);
                 return false;
             }
 
             if (list.BodyEnd > text.Length || list.BodyStart > list.BodyEnd)
             {
-                error = "The file changed on disk. Reload the window and try again.";
+                error = BasisCilboxLoc.Get("sdk.cilbox.error.changedOnDiskReload");
                 return false;
             }
 
@@ -717,7 +717,7 @@ namespace Basis.Shims.Editor
 
             if (Render(verifier) != current)
             {
-                error = "The file changed on disk since it was read. Reload the window and try again.";
+                error = BasisCilboxLoc.Get("sdk.cilbox.error.changedSinceRead");
                 return false;
             }
 
@@ -731,7 +731,7 @@ namespace Basis.Shims.Editor
             error = null;
             if (entry?.Methods == null)
             {
-                error = "This entry has no editable method set.";
+                error = BasisCilboxLoc.Get("sdk.cilbox.error.noMethodSet");
                 return false;
             }
             return TryWrite(filePath, entry.Methods, originalEntries, out error);

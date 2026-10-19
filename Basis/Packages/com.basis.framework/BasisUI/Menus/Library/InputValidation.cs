@@ -1,4 +1,5 @@
 
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.IO;
 using System.Text;
@@ -11,6 +12,7 @@ namespace Basis.BasisUI
     /// <summary>
     /// This static class provides utility methods for validating user input in the library provider, such as validating URLs and applying platform-specific conversions to shared links.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public static class InputValidation
     {
 

@@ -1,8 +1,12 @@
 using Basis.Network.Core;
 using Basis.Network.Server.Generic;
 using BasisPermissions;
+using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using static BasisPermissions.PermissionManager;
 using static SerializableBasis;
 
@@ -12,12 +16,31 @@ using static SerializableBasis;
 /// </summary>
 public static class BasisNetworkContentShare
 {
+    public sealed class ActiveSphere
+    {
+        public readonly ServerContentShareMessage Message;
+        public readonly long DroppedAt, SharerLeftAt;
+        public readonly bool SharerLeft;
+        public ActiveSphere(ServerContentShareMessage message, long droppedAt, bool sharerLeft = false, long sharerLeftAt = 0)
+        {
+            Message = message;
+            DroppedAt = droppedAt;
+            SharerLeft = sharerLeft;
+            SharerLeftAt = sharerLeftAt;
+        }
+        public ushort SharerId => Message.playerIdMessage.playerID;
+    }
+
     /// <summary>
     /// All active content share spheres keyed by SphereNetID.
-    /// Value is the full message including creator player ID.
+    /// Value is the full message including creator player ID, plus when it was dropped and when its sharer left.
     /// </summary>
-    public static ConcurrentDictionary<string, ServerContentShareMessage> ActiveSpheres =
-        new ConcurrentDictionary<string, ServerContentShareMessage>();
+    public static ConcurrentDictionary<string, ActiveSphere> ActiveSpheres =
+        new ConcurrentDictionary<string, ActiveSphere>();
+
+    private const int ExpiryIntervalMs = 1000;
+    private static Timer expiryTimer;
+    private static int expiring;
 
     /// <summary>
     /// Handles a content share drop from a client.
@@ -33,6 +56,11 @@ public static class BasisNetworkContentShare
         {
             return;
         }
+        if (string.IsNullOrEmpty(msg.SphereNetID) || msg.SphereNetID.Length > ContentSharePayload.MaxSphereIdLength || (msg.UnlockPassword?.Length ?? 0) > ContentSharePayload.MaxPasswordLength)
+        {
+            BNL.LogError($"Content share from peer {peer.Id} has a {msg.SphereNetID?.Length ?? 0} character sphere id and a {msg.UnlockPassword?.Length ?? 0} character password; the ceilings are {ContentSharePayload.MaxSphereIdLength} and {ContentSharePayload.MaxPasswordLength}.");
+            return;
+        }
 
         // Global lock check based on content type: blocked when the content's
         // lock is on AND the peer lacks the matching lockbypass permission.
@@ -41,19 +69,9 @@ public static class BasisNetworkContentShare
         switch (msg.ContentType)
         {
             case ContentShareType.Avatar:
-                blocked = BasisNetworkServer.Security.BasisGlobalLockManager.AvatarsLocked &&
-                    !PermissionIntegration.HasValidRequirement(peer, PermNodes.ResourceLockBypassAvatar);
-                contentName = "Avatar";
-                break;
             case ContentShareType.Prop:
-                blocked = BasisNetworkServer.Security.BasisGlobalLockManager.PropsLocked &&
-                    !PermissionIntegration.HasValidRequirement(peer, PermNodes.ResourceLockBypassProp);
-                contentName = "Prop";
-                break;
             case ContentShareType.World:
-                blocked = BasisNetworkServer.Security.BasisGlobalLockManager.WorldsLocked &&
-                    !PermissionIntegration.HasValidRequirement(peer, PermNodes.ResourceLockBypassWorld);
-                contentName = "World";
+                blocked = IsItemTypeLocked(msg.ContentType, peer, out contentName);
                 break;
             case ContentShareType.Server:
                 // ContentURL carries the connection string (address[:port][#password]).
@@ -69,15 +87,58 @@ public static class BasisNetworkContentShare
                 // whole of what limits it.
                 contentName = "Dolly track";
                 break;
+            case ContentShareType.Link:
+                contentName = "Link";
+                break;
+            case ContentShareType.Text:
+                contentName = "Text";
+                break;
+            case ContentShareType.Folder:
+                contentName = "Folder";
+                break;
+            case ContentShareType.Setting:
+                contentName = "Setting";
+                break;
             default:
                 BNL.LogError($"Unknown content share type {(byte)msg.ContentType} from peer {peer.Id}");
                 return;
         }
-        if (ContentSharePayload.IsPayloadType(msg.ContentType)
-            && (msg.ContentURL == null || msg.ContentURL.Length > ContentSharePayload.MaxLength))
+        if ((ContentSharePayload.IsPayloadType(msg.ContentType) && msg.ContentURL == null)
+            || (msg.ContentURL?.Length ?? 0) > ContentSharePayload.MaxLengthFor(msg.ContentType))
         {
-            BNL.LogError($"Content share payload from peer {peer.Id} is {msg.ContentURL?.Length ?? -1} characters; the ceiling is {ContentSharePayload.MaxLength}.");
+            BNL.LogError($"Content share payload from peer {peer.Id} is {msg.ContentURL?.Length ?? -1} characters; the ceiling is {ContentSharePayload.MaxLengthFor(msg.ContentType)}.");
             return;
+        }
+        if (msg.ContentType == ContentShareType.Link && !ContentSharePayload.TryParseLink(msg.ContentURL, out _))
+        {
+            BNL.LogError($"Link share from peer {peer.Id} is not an http or https address.");
+            return;
+        }
+        if (msg.ContentType == ContentShareType.Text && string.IsNullOrWhiteSpace(msg.ContentURL))
+        {
+            BNL.LogError($"Text share from peer {peer.Id} is empty.");
+            return;
+        }
+        if (msg.ContentType == ContentShareType.Setting && !ContentShareSetting.TryRead(msg.ContentURL, out _))
+        {
+            BNL.LogError($"Setting share from peer {peer.Id} could not be read.");
+            return;
+        }
+        if (msg.ContentType == ContentShareType.Folder)
+        {
+            if (!ContentShareFolder.TryRead(msg.ContentURL, out ContentShareFolder.Contents folder))
+            {
+                BNL.LogError($"Folder share from peer {peer.Id} could not be read.");
+                return;
+            }
+            for (int i = 0; i < folder.Items.Count && !blocked; i++)
+            {
+                if (IsItemTypeLocked(folder.Items[i].Type, peer, out string lockedName))
+                {
+                    blocked = true;
+                    contentName = lockedName;
+                }
+            }
         }
 
         if (blocked)
@@ -87,7 +148,7 @@ public static class BasisNetworkContentShare
             return;
         }
 
-        if (ActiveSpheres.Count(kvp => kvp.Value.playerIdMessage.playerID == (ushort)peer.Id) >= BasisNetworkServer.Security.BasisResourceLimitManager.MaxContentSpheresPerPlayer)
+        if (ActiveSpheres.Count(kvp => !kvp.Value.SharerLeft && kvp.Value.SharerId == (ushort)peer.Id) >= BasisNetworkServer.Security.BasisResourceLimitManager.MaxContentSpheresPerPlayer)
         {
             BNL.LogError($"Peer {peer.Id} reached content sphere limit.");
             return;
@@ -100,6 +161,7 @@ public static class BasisNetworkContentShare
             sharerUUID = sharerMeta.playerUUID ?? string.Empty;
             sharerDisplayName = sharerMeta.playerDisplayName ?? string.Empty;
         }
+        bool sharerProtected = NetworkServer.AuthIdentity.NetIDToUUID(peer, out string sharerAuthUuid) && PermissionIntegration.HasValidRequirement(sharerAuthUuid, PermNodes.protection);
 
         ServerContentShareMessage serverMsg = new ServerContentShareMessage
         {
@@ -109,10 +171,11 @@ public static class BasisNetworkContentShare
             },
             SharerUUID = sharerUUID,
             SharerDisplayName = sharerDisplayName,
-            contentShareMessage = msg
+            contentShareMessage = msg,
+            SharerProtected = sharerProtected
         };
 
-        if (ActiveSpheres.TryAdd(msg.SphereNetID, serverMsg))
+        if (ActiveSpheres.TryAdd(msg.SphereNetID, new ActiveSphere(serverMsg, Stopwatch.GetTimestamp())))
         {
             BNL.Log($"Content sphere dropped: {msg.SphereNetID} type={msg.ContentType}");
 
@@ -135,6 +198,25 @@ public static class BasisNetworkContentShare
         }
     }
 
+    private static bool IsItemTypeLocked(ContentShareType type, NetPeer peer, out string contentName)
+    {
+        switch (type)
+        {
+            case ContentShareType.Avatar:
+                contentName = "Avatar";
+                return BasisNetworkServer.Security.BasisGlobalLockManager.AvatarsLocked && !PermissionIntegration.HasValidRequirement(peer, PermNodes.ResourceLockBypassAvatar);
+            case ContentShareType.Prop:
+                contentName = "Prop";
+                return BasisNetworkServer.Security.BasisGlobalLockManager.PropsLocked && !PermissionIntegration.HasValidRequirement(peer, PermNodes.ResourceLockBypassProp);
+            case ContentShareType.World:
+                contentName = "World";
+                return BasisNetworkServer.Security.BasisGlobalLockManager.WorldsLocked && !PermissionIntegration.HasValidRequirement(peer, PermNodes.ResourceLockBypassWorld);
+            default:
+                contentName = string.Empty;
+                return false;
+        }
+    }
+
     /// <summary>
     /// Handles a content share cleanup from a client.
     /// Removes the sphere and broadcasts removal to all clients.
@@ -146,9 +228,9 @@ public static class BasisNetworkContentShare
         reader.Recycle();
 
         ushort requesterId = (ushort)peer.Id;
-        if (!ActiveSpheres.TryGetValue(msg.SphereNetID, out ServerContentShareMessage existing))
+        if (!ActiveSpheres.TryGetValue(msg.SphereNetID, out ActiveSphere existing))
         {
-            BNL.LogError($"Trying to remove content sphere that does not exist: {msg.SphereNetID}");
+            BNL.LogWarning($"Peer {peer.Id} tried to remove content sphere {msg.SphereNetID}, which no longer exists.");
             SendCleanup(peer, msg.SphereNetID, requesterId);
             return;
         }
@@ -157,14 +239,21 @@ public static class BasisNetworkContentShare
             BasisNetworkServer.Security.BasisPlayerModeration.SendBackMessage(peer, "You do not have permission to remove shared content.");
             return;
         }
-        // ContentShareDelete is default-granted, so the sharer check is what stops one player
-        // deleting everyone else's orbs.
-        if (existing.playerIdMessage.playerID != requesterId
-            && !(NetworkServer.AuthIdentity.NetIDToUUID(peer, out string requesterUuid) && PermissionIntegration.HasValidRequirement(requesterUuid, PermNodes.protection)))
+        bool isSharer = !existing.SharerLeft && existing.SharerId == requesterId;
+        if (!isSharer && !(NetworkServer.AuthIdentity.NetIDToUUID(peer, out string requesterUuid) && PermissionIntegration.HasValidRequirement(requesterUuid, PermNodes.protection)))
         {
-            BNL.LogWarning($"Peer {peer.Id} tried to remove content sphere {msg.SphereNetID} they did not share.");
-            BasisNetworkServer.Security.BasisPlayerModeration.SendBackMessage(peer, "Only the player who shared this content can remove it.");
-            return;
+            if (existing.Message.SharerProtected)
+            {
+                BNL.LogWarning($"Peer {peer.Id} tried to remove content sphere {msg.SphereNetID} shared by a protected player.");
+                BasisNetworkServer.Security.BasisPlayerModeration.SendBackMessage(peer, "This was shared by a protected player, so only they or a moderator can remove it.");
+                return;
+            }
+            if (BasisNetworkServer.Security.BasisGlobalLockManager.ContentRemovalLocked)
+            {
+                BNL.LogWarning($"Peer {peer.Id} tried to remove content sphere {msg.SphereNetID} they did not share while content removal is locked.");
+                BasisNetworkServer.Security.BasisPlayerModeration.SendBackMessage(peer, "An admin has locked removing other players' content, so only the player who shared this can remove it.");
+                return;
+            }
         }
         if (ActiveSpheres.TryRemove(msg.SphereNetID, out _))
         {
@@ -210,7 +299,7 @@ public static class BasisNetworkContentShare
     /// </summary>
     public static void SendAllSpheresToPeer(NetPeer newConnection)
     {
-        ServerContentShareMessage[] spheres = ActiveSpheres.Values.ToArray();
+        ActiveSphere[] spheres = ActiveSpheres.Values.ToArray();
         if (spheres.Length == 0) return;
 
         NetDataWriter writer = NetworkServer.RentWriter();
@@ -218,7 +307,7 @@ public static class BasisNetworkContentShare
         {
             writer.Reset();
             writer.Put(BasisNetworkCommons.ContentShareSub_Drop);
-            spheres[i].Serialize(writer);
+            spheres[i].Message.Serialize(writer);
             NetworkServer.TrySend(
                 newConnection,
                 writer,
@@ -230,22 +319,78 @@ public static class BasisNetworkContentShare
     }
 
     /// <summary>
-    /// Removes all spheres created by a disconnecting player.
+    /// Starts the leave timeout on every sphere a disconnecting player shared, or removes them
+    /// straight away when the timeout is 0.
     /// </summary>
     public static void RemovePlayerSpheres(int peerId)
     {
         ushort playerId = (ushort)peerId;
-        var toRemove = ActiveSpheres.Where(kvp => kvp.Value.playerIdMessage.playerID == playerId)
-                                    .Select(kvp => kvp.Key)
-                                    .ToArray();
+        int leaveTimeoutSeconds = BasisNetworkServer.Security.BasisResourceLimitManager.ContentSphereLeaveTimeoutSeconds;
+        long now = Stopwatch.GetTimestamp();
+        var shared = ActiveSpheres.Where(kvp => !kvp.Value.SharerLeft && kvp.Value.SharerId == playerId)
+                                  .ToArray();
 
-        foreach (string sphereId in toRemove)
+        foreach (KeyValuePair<string, ActiveSphere> kvp in shared)
         {
-            if (ActiveSpheres.TryRemove(sphereId, out _))
+            if (leaveTimeoutSeconds > 0)
             {
-                BroadcastCleanup(sphereId, playerId);
+                if (ActiveSpheres.TryUpdate(kvp.Key, new ActiveSphere(kvp.Value.Message, kvp.Value.DroppedAt, true, now), kvp.Value))
+                {
+                    BNL.Log($"Content sphere {kvp.Key} stays {leaveTimeoutSeconds}s after its sharer {playerId} left.");
+                }
+            }
+            else if (ActiveSpheres.TryRemove(kvp.Key, out _))
+            {
+                BroadcastCleanup(kvp.Key, playerId);
             }
         }
+    }
+
+    public static void StartExpiry()
+    {
+        Timer timer = new Timer(_ => ExpireTick(), null, ExpiryIntervalMs, ExpiryIntervalMs);
+        Interlocked.Exchange(ref expiryTimer, timer)?.Dispose();
+    }
+
+    public static void StopExpiry()
+    {
+        Interlocked.Exchange(ref expiryTimer, null)?.Dispose();
+    }
+
+    private static void ExpireTick()
+    {
+        if (Interlocked.Exchange(ref expiring, 1) == 1) return;
+        try
+        {
+            ExpireSpheres(Stopwatch.GetTimestamp());
+        }
+        catch (Exception e)
+        {
+            BNL.LogError($"Content sphere expiry failed: {e.Message} {e.StackTrace}");
+        }
+        finally
+        {
+            Volatile.Write(ref expiring, 0);
+        }
+    }
+
+    internal static int ExpireSpheres(long now)
+    {
+        long leaveTimeout = BasisNetworkServer.Security.BasisResourceLimitManager.ContentSphereLeaveTimeoutSeconds * Stopwatch.Frequency;
+        long deletionTimer = BasisNetworkServer.Security.BasisResourceLimitManager.ContentSphereDeletionTimerSeconds * Stopwatch.Frequency;
+        int expired = 0;
+        foreach (KeyValuePair<string, ActiveSphere> kvp in ActiveSpheres)
+        {
+            ActiveSphere sphere = kvp.Value;
+            bool due = (sphere.SharerLeft && now - sphere.SharerLeftAt >= leaveTimeout) || (deletionTimer > 0 && now - sphere.DroppedAt >= deletionTimer);
+            if (due && ((ICollection<KeyValuePair<string, ActiveSphere>>)ActiveSpheres).Remove(kvp))
+            {
+                BNL.Log($"Content sphere expired: {kvp.Key}");
+                BroadcastCleanup(kvp.Key, sphere.SharerId);
+                expired++;
+            }
+        }
+        return expired;
     }
 
     /// <summary>

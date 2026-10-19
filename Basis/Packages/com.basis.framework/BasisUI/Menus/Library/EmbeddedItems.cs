@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Basis.Scripts.UI.UI_Panels;
@@ -11,12 +12,13 @@ using UnityEditor;
 
 namespace Basis.BasisUI
 {
-    public static class EmbeddedItems
+    [AutoStaticsCleanup]
+    public static partial class EmbeddedItems
     {
         private const string CatalogAssetPath = "Packages/com.basis.sdk/Settings/EmbeddedItemsCatalog.asset";
         private const string CatalogAddress = "EmbeddedItemsCatalog";
 
-        private static readonly ItemKey[] EmptyKeys = Array.Empty<ItemKey>();
+        [NoAutoStaticsCleanup] private static readonly ItemKey[] EmptyKeys = Array.Empty<ItemKey>();
         private static readonly BasisBounds DefaultBounds = new BasisBounds(Vector3.one, Vector3.zero);
 
         private static readonly Dictionary<string, EmbeddedItemDefinition> DefinitionByUrl = new Dictionary<string, EmbeddedItemDefinition>(StringComparer.Ordinal);

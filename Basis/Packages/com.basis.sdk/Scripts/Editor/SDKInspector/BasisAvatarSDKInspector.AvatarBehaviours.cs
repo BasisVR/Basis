@@ -59,7 +59,7 @@ public partial class BasisAvatarSDKInspector
 
         // ---- Discover all concrete subclasses that are visible in the menu ----
         var availableTypes = new List<Type>();
-        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+        foreach (var assembly in UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies())
         {
             Type[] types;
             try { types = assembly.GetTypes(); }

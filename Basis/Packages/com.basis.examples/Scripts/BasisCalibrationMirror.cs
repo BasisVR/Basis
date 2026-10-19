@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
@@ -19,7 +20,8 @@ using static Basis.Scripts.UI.UI_Panels.BasisDataStoreItemKeys;
 /// Registered into <see cref="BasisCalibrationMirrorService"/> so the calibration panel (framework
 /// assembly, which cannot reference this one) can drive it.
 /// </summary>
-public static class BasisCalibrationMirror
+[AutoStaticsCleanup]
+public static partial class BasisCalibrationMirror
 {
     // Big enough to frame a full body right away.
     private const float MirrorScale = 3f;

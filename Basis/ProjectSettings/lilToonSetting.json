@@ -39,7 +39,6 @@
     "LIL_FEATURE_IDMASK": true,
     "LIL_FEATURE_UDIMDISCARD": true,
     "LIL_FEATURE_DITHER": true,
-    "LIL_FEATURE_ENCRYPTION": false,
     "LIL_FEATURE_ANIMATE_OUTLINE_UV": true,
     "LIL_FEATURE_OUTLINE_TONE_CORRECTION": true,
     "LIL_FEATURE_OUTLINE_RECEIVE_SHADOW": true,
@@ -105,6 +104,7 @@
     "LIL_OPTIMIZE_USE_FORWARDADD_SHADOW": false,
     "LIL_OPTIMIZE_USE_VERTEXLIGHT": true,
     "LIL_OPTIMIZE_USE_LIGHTMAP": false,
+    "LIL_OPTIMIZE_USE_VRCLIGHTVOLUMES": true,
     "LIL_OPTIMIZE_DEFFERED": false,
     "isLocked": false,
     "isDebugOptimize": false,
@@ -136,5 +136,5 @@
     "presetCloth": {
         "instanceID": 0
     },
-    "previousVersion": 44
+    "previousVersion": 45
 }

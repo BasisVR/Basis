@@ -1,9 +1,11 @@
-#pragma only_renderers d3d11 playstation xboxone xboxseries vulkan metal glcore ps5
+#pragma only_renderers d3d11 playstation xboxone xboxseries vulkan metal glcore ps5 switch2
 
-#pragma kernel Visualize
+#pragma kernel VisualizeMono DISABLE_TEXTURE2D_X_ARRAY
+#pragma kernel VisualizeSinglePassStereoInstancing
 
-#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/GBufferCommon.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/TextureXR.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/PackNormalsTexture.hlsl"
 #include "Packages/com.unity.render-pipelines.core/Runtime/Sampling/Common.hlsl"
 #include "Packages/com.unity.render-pipelines.core/Runtime/Sampling/Hashes.hlsl"
 #include "Packages/com.unity.render-pipelines.core/Runtime/Lighting/SurfaceCache/PatchUtil.hlsl"
@@ -15,22 +17,23 @@ StructuredBuffer<uint> _PatchCellIndices;
 StructuredBuffer<PatchUtil::PatchGeometry> _PatchGeometries;
 RWStructuredBuffer<PatchUtil::PatchStatisticsSet> _PatchStatistics;
 StructuredBuffer<uint> _CellPatchIndices;
-StructuredBuffer<int3> _CascadeOffsets;
+StructuredBuffer<int3> _VolumeCascadeOffsets;
 
-RWTexture2D<float4> _Result;
-Texture2D<float> _ScreenDepths;
-Texture2D<float3> _ScreenShadedNormals;
-Texture2D<float3> _ScreenFlatNormals;
+RW_TEXTURE2D_X(float4, _Result);
+TYPED_TEXTURE2D_X(float, _ScreenDepths);
+TYPED_TEXTURE2D_X(float3, _ScreenShadedNormals);
+TYPED_TEXTURE2D_X(float3, _ScreenFlatNormals);
 
 uint _RingConfigOffset;
 uint _VolumeSpatialResolution;
-uint _CascadeCount;
-uint _ViewMode;
+uint _VolumeCascadeCount;
+uint _ViewMode; // Match the C# debug view-mode enum; 0 (None) is never dispatched.
 uint _ShowSamplePosition;
-float4x4 _ClipToWorldTransform;
+float4x4 _ClipToWorldTransforms[2];
 uint _FrameIdx;
 float _VolumeVoxelMinSize;
 float3 _VolumeTargetPos;
+int _PatchWarping;
 
 uint _DummyBlackbox; // By using a uniform we force the compiler to not make any assumptions.
 float3 IsActuallyNan(float3 val) {
@@ -41,29 +44,45 @@ float3 IsActuallyInf(float3 val) {
     return isinf(asfloat(_DummyBlackbox ^ asuint(val)));
 }
 
-[numthreads(8,8,1)]
-void Visualize(uint2 threadIdx : SV_DispatchThreadID)
+void Visualize(uint2 threadIdx)
 {
+    const float3 green = float3(0, 1, 0);
+    const float3 red = float3(1, 0, 0);
+    const float3 pink = float3(1, 0, 1);
+    const float3 white = float3(1, 1, 1);
+    const float3 yellow = float3(1, 1, 0);
+
     uint2 screenSize;
-    _ScreenDepths.GetDimensions(screenSize.x, screenSize.y);
+    GET_TEXTURE2D_X_SIZE(_ScreenDepths, screenSize.x, screenSize.y);
 
-    float3 output;
+    float3 output = 0.0f;
 
-    const float statusBarHeight = 0.05f;
-    if (float(threadIdx.y) / screenSize.y < statusBarHeight)
+    const float pixelPosYPercentage = float(threadIdx.y) / screenSize.y;
+    const float statusBarHeightPercentage = 0.05f;
+    if (pixelPosYPercentage < statusBarHeightPercentage)
     {
         const RingBuffer::Config ringConfig = RingBuffer::LoadConfig(_RingConfigBuffer, _RingConfigOffset);
         const uint patchIdx = float(threadIdx.x) / screenSize.x * patchCapacity;
         if (RingBuffer::IsPositionInUse(ringConfig, patchIdx))
         {
             if (_PatchCellIndices[patchIdx] == PatchUtil::invalidCellIndex)
-                output = float3(1.0f, 0.0f, 0.0f);
+            {
+                output = red;
+            }
             else
-                output = float3(0.0f, 1.0f, 0.0f);
+            {
+                output = PatchUtil::GetRank(_PatchStatistics[patchIdx].requestState) == 0 ? green : yellow;
+                if (pixelPosYPercentage < statusBarHeightPercentage * 0.5f)
+                {
+                    PatchUtil::PatchStatisticsSet stats = _PatchStatistics[patchIdx];
+                    const uint framesSinceHeartbeat = PatchUtil::GetFramesSinceHeartbeat(_FrameIdx, PatchUtil::GetHeartbeat(stats.requestState));
+                    output *= 1.0f - float(framesSinceHeartbeat) / float(PatchUtil::evictionThreshold);
+                }
+            }
         }
         else
         {
-            output = float3(1.0f, 1.0f, 1.0f);
+            output = white;
         }
     }
     else
@@ -72,21 +91,25 @@ void Visualize(uint2 threadIdx : SV_DispatchThreadID)
         if (ndcDepth == invalidNdcDepth)
             return;
 
-        const float3 green = float3(0, 1, 0);
-        const float3 red = float3(1, 0, 0);
-        const float3 pink = float3(1, 0, 1);
-
         const float2 uv = (float2(threadIdx.xy) + 0.5f) / float2(screenSize);
-        const float3 worldPos = ComputeWorldSpacePosition(uv, ndcDepth, _ClipToWorldTransform);
-        const float3 worldShadedNormal = UnpackGBufferNormal(_ScreenShadedNormals[threadIdx.xy]);
-        const float3 worldFlatNormal = _ScreenFlatNormals[threadIdx.xy];
+        const float3 worldPos = ComputeWorldSpacePosition(uv, ndcDepth, _ClipToWorldTransforms[unity_StereoEyeIndex]);
+        const float3 worldShadedNormal = UnpackNormalWSFromTexture(_ScreenShadedNormals[COORD_TEXTURE2D_X(threadIdx.xy)]);
+        const float3 worldFlatNormal = _ScreenFlatNormals[COORD_TEXTURE2D_X(threadIdx.xy)];
 
-        PatchUtil::VolumePositionResolution posResolution = PatchUtil::ResolveVolumePosition(worldPos, _VolumeTargetPos, _VolumeSpatialResolution, _CascadeOffsets, _CascadeCount, _VolumeVoxelMinSize);
+        PatchUtil::VolumeParamSet volumeParams;
+        volumeParams.targetPos = _VolumeTargetPos;
+        volumeParams.spatialResolution = _VolumeSpatialResolution;
+        volumeParams.voxelMinSize = _VolumeVoxelMinSize;
+        volumeParams.cascadeOffsets = _VolumeCascadeOffsets;
+        volumeParams.cascadeCount = _VolumeCascadeCount;
+        volumeParams.patchWarping = _PatchWarping != 0;
+
+        PatchUtil::VolumePositionResolution posResolution = PatchUtil::ResolveVolumePosition(worldPos, volumeParams);
         output = float3(1.0f, 0.0f, 1.0f);
         if (posResolution.isValid())
         {
             const uint directionIdx = PatchUtil::GetDirectionIndex(worldFlatNormal, PatchUtil::volumeAngularResolution);
-            const uint3 positionStorageSpace = PatchUtil::ConvertVolumeSpaceToStorageSpace(posResolution.positionVolumeSpace, _VolumeSpatialResolution, _CascadeOffsets[posResolution.cascadeIdx]);
+            const uint3 positionStorageSpace = PatchUtil::ConvertVolumeSpaceToStorageSpace(posResolution.positionVolumeSpace, _VolumeSpatialResolution, _VolumeCascadeOffsets[posResolution.cascadeIdx]);
             const uint cellIdx = PatchUtil::GetCellIndex(posResolution.cascadeIdx, positionStorageSpace, directionIdx, _VolumeSpatialResolution, PatchUtil::volumeAngularResolution);
             const uint patchIdx = _CellPatchIndices[cellIdx];
             const bool hasPatch = (patchIdx != PatchUtil::invalidPatchIndex);
@@ -97,21 +120,21 @@ void Visualize(uint2 threadIdx : SV_DispatchThreadID)
             {
                 patchIrradiance = _PatchIrradiances[patchIdx];
                 patchPos = _PatchGeometries[patchIdx].position;
-                PatchUtil::WriteLastFrameAccess(_PatchStatistics, patchIdx, _FrameIdx);
+                PatchUtil::UpdateHeartbeat(_PatchStatistics, patchIdx, _FrameIdx);
             }
 
-            if (_ShowSamplePosition == 1 && hasPatch && length(worldPos - patchPos) < 0.12f)
+            if (_ShowSamplePosition == 1 && hasPatch && length(worldPos - patchPos) < 0.1f * PatchUtil::GetVoxelSize(_VolumeVoxelMinSize, posResolution.cascadeIdx))
             {
                 output = 30.0f;
             }
-            else if (_ViewMode == 0)
+            else if (_ViewMode == 1)
             {
                 output = float3(
                     UintToFloat01(LowBiasHash32(cellIdx, 0)),
                     UintToFloat01(LowBiasHash32(cellIdx, 1)),
                     UintToFloat01(LowBiasHash32(cellIdx, 2)));
             }
-            else if (_ViewMode == 1)
+            else if (_ViewMode == 2)
             {
                 if (hasPatch)
                 {
@@ -124,14 +147,14 @@ void Visualize(uint2 threadIdx : SV_DispatchThreadID)
                         output = max(0, shEval);
                 }
             }
-            else if (_ViewMode == 2) // fast irradiance
+            else if (_ViewMode == 3) // fast irradiance
             {
                 if (hasPatch)
                 {
                     output = _PatchStatistics[patchIdx].mean * SphericalHarmonics::y0;
                 }
             }
-            else if (_ViewMode == 3) // coefficient of variation
+            else if (_ViewMode == 4) // coefficient of variation
             {
                 if (hasPatch)
                 {
@@ -139,7 +162,7 @@ void Visualize(uint2 threadIdx : SV_DispatchThreadID)
                     output = sqrt(stats.variance) / max(0.01f, stats.mean) / 20.0f;
                 }
             }
-            else if (_ViewMode == 4)
+            else if (_ViewMode == 5)
             {
                 if (hasPatch)
                 {
@@ -150,7 +173,7 @@ void Visualize(uint2 threadIdx : SV_DispatchThreadID)
                     output = drift * 0.25f;
                 }
             }
-            else if (_ViewMode == 5)
+            else if (_ViewMode == 6)
             {
                 if (hasPatch)
                 {
@@ -163,24 +186,36 @@ void Visualize(uint2 threadIdx : SV_DispatchThreadID)
                         output = sqrt(variance) * 0.1f;
                 }
             }
-            else if (_ViewMode == 6)
+            else if (_ViewMode == 7)
             {
                 if (hasPatch)
                 {
-                    const PatchUtil::PatchCounterSet counterSet = _PatchStatistics[patchIdx].patchCounters;
-                    const uint updateCount = PatchUtil::GetUpdateCount(counterSet);
+                    const uint updateCount = PatchUtil::GetUpdateCount(_PatchStatistics[patchIdx].irradianceState);
                     const float s = float(updateCount) / PatchUtil::updateMax;
                     const float3 redGreenMix = lerp(red, green, s);
                     const float3 checker = UintToFloat01(LowBiasHash32(cellIdx, 0)); // To make cells visible.
                     output = lerp(redGreenMix, checker, 0.25f);
                 }
             }
-            else if (_ViewMode == 7)
+            else if (_ViewMode == 8)
             {
                 output = worldFlatNormal * 0.5f + 0.5f;
             }
         }
     }
 
-    _Result[threadIdx.xy] = float4(output, 1.0f);
+    _Result[COORD_TEXTURE2D_X(threadIdx.xy)] = float4(output, 1.0f);
+}
+
+[numthreads(8,8,1)]
+void VisualizeMono(uint2 threadIdx : SV_DispatchThreadID)
+{
+    Visualize(threadIdx);
+}
+
+[numthreads(8,8,1)]
+void VisualizeSinglePassStereoInstancing(uint3 threadIdx : SV_DispatchThreadID)
+{
+    UNITY_XR_ASSIGN_VIEW_INDEX(threadIdx.z);
+    Visualize(threadIdx.xy);
 }

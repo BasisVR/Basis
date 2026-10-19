@@ -1,10 +1,30 @@
 using System;
+using UnityEngine.Serialization;
 #if UNITY_EDITOR
 using ShaderKeywordFilter = UnityEditor.ShaderKeywordFilter;
 #endif
 
 namespace UnityEngine.Rendering.Universal
 {
+    /// <summary>
+    /// Shader keyword constants for Screen Space Ambient Occlusion.
+    /// </summary>
+    internal static class ScreenSpaceAmbientOcclusionKeywords
+    {
+        internal const string k_GTAOModeKeyword = "_GTAO_MODE";
+        internal const string k_AOInterleavedGradientKeyword = "_INTERLEAVED_GRADIENT";
+        internal const string k_AOBlueNoiseKeyword = "_BLUE_NOISE";
+        internal const string k_OrthographicCameraKeyword = "_ORTHOGRAPHIC";
+        internal const string k_SourceDepthLowKeyword = "_SOURCE_DEPTH_LOW";
+        internal const string k_SourceDepthMediumKeyword = "_SOURCE_DEPTH_MEDIUM";
+        internal const string k_SourceDepthHighKeyword = "_SOURCE_DEPTH_HIGH";
+        internal const string k_SourceDepthNormalsKeyword = "_SOURCE_DEPTH_NORMALS";
+        internal const string k_SampleCountLowKeyword = "_SAMPLE_COUNT_LOW";
+        internal const string k_SampleCountMediumKeyword = "_SAMPLE_COUNT_MEDIUM";
+        internal const string k_SampleCountHighKeyword = "_SAMPLE_COUNT_HIGH";
+        internal const string k_TemporalFilteringKeyword = "_TEMPORAL_FILTERING";
+    }
+
     [Serializable]
     internal class ScreenSpaceAmbientOcclusionSettings
     {
@@ -14,15 +34,30 @@ namespace UnityEngine.Rendering.Universal
         [SerializeField] internal bool AfterOpaque = false;
         [SerializeField] internal DepthSource Source = DepthSource.DepthNormals;
         [SerializeField] internal NormalQuality NormalSamples = NormalQuality.Medium;
-        [SerializeField] internal float Intensity = 3.0f;
+        [SerializeField][Min(0f)] internal float Intensity = 3.0f;
         [SerializeField] internal float DirectLightingStrength = 0.25f;
-        [SerializeField] internal float Radius = 0.035f;
+        [SerializeField][Min(0f)] internal float Radius = 0.035f;
         [SerializeField] internal AOSampleOption Samples = AOSampleOption.Medium;
         [SerializeField] internal BlurQualityOptions BlurQuality = BlurQualityOptions.High;
-        [SerializeField] internal float Falloff = 100f;
+        [SerializeField][Min(0f)] internal float Falloff = 100f;
 
         // Legacy. Kept to migrate users over to use Samples instead.
         [SerializeField] internal int SampleCount = -1;
+
+        [SerializeField] internal ScreenSpaceAmbientOcclusionMode Mode = ScreenSpaceAmbientOcclusionMode.SSAO;
+
+        // GTAO Mode Parameters
+        [SerializeField] internal int GTAOMinimumRadiusInPixels = 40;
+        [SerializeField] internal bool UseComputeShader = false;
+        [SerializeField] internal bool GTAOTemporalFilterEnabled = false;
+        [SerializeField] internal float GTAOGhostingMitigation = 0.5f;
+        [SerializeField] internal float GTAOHistoryLength = 0.9f;
+        [SerializeField] internal int GTAODirectionCount = 2;
+        [SerializeField] internal int GTAOStepCount = 4;
+        [SerializeField] internal ScreenSpaceAmbientOcclusionSpatialFilter GTAOSpatialFilter = ScreenSpaceAmbientOcclusionSpatialFilter.Bilateral;
+
+        internal bool NeedsComputeShader => Mode == ScreenSpaceAmbientOcclusionMode.GTAO && UseComputeShader;
+        internal bool IsTemporalFilterActive => NeedsComputeShader && GTAOTemporalFilterEnabled;
 
         // Enums
         internal enum DepthSource
@@ -60,19 +95,30 @@ namespace UnityEngine.Rendering.Universal
     }
 
     [Serializable]
+    [Scripting.APIUpdating.MovedFrom(false, sourceClassName: "ScreenSpaceAmbientOcclusionPersistentResources")]
     [SupportedOnRenderPipeline(typeof(UniversalRenderPipelineAsset))]
     [Categorization.CategoryInfo(Name = "R: SSAO Shader", Order = 1000)]
     [Categorization.ElementInfo(Order = 0), HideInInspector]
-    class ScreenSpaceAmbientOcclusionPersistentResources : IRenderPipelineResources
+    class ScreenSpaceAmbientOcclusionCoreResources : IRenderPipelineResources
     {
         [SerializeField]
-        [ResourcePath("Shaders/Utils/ScreenSpaceAmbientOcclusion.shader")]
-        Shader m_Shader;
+        [ResourcePath("Shaders/Utils/ScreenSpaceAmbientOcclusion.shader"), FormerlySerializedAs("m_Shader")]
+        Shader m_RasterizationShader;
 
-        public Shader Shader
+        public Shader RasterizationShader
         {
-            get => m_Shader;
-            set => this.SetValueAndNotify(ref m_Shader, value);
+            get => m_RasterizationShader;
+            set => this.SetValueAndNotify(ref m_RasterizationShader, value);
+        }
+
+        [SerializeField]
+        [ResourcePath("Shaders/Utils/GTAO.compute")]
+        ComputeShader m_GTAOComputeShader;
+
+        public ComputeShader GTAOComputeShader
+        {
+            get => m_GTAOComputeShader;
+            set => this.SetValueAndNotify(ref m_GTAOComputeShader, value);
         }
 
         public bool isAvailableInPlayerBuild => true;
@@ -84,10 +130,11 @@ namespace UnityEngine.Rendering.Universal
     }
 
     [Serializable]
+    [Scripting.APIUpdating.MovedFrom(false, sourceClassName: "ScreenSpaceAmbientOcclusionDynamicResources")]
     [SupportedOnRenderPipeline(typeof(UniversalRenderPipelineAsset))]
     [Categorization.CategoryInfo(Name = "R: SSAO Noise Textures", Order = 1000)]
     [Categorization.ElementInfo(Order = 0), HideInInspector]
-    class ScreenSpaceAmbientOcclusionDynamicResources : IRenderPipelineResources
+    class ScreenSpaceAmbientOcclusionBlueNoiseResources : IRenderPipelineResources
     {
         [SerializeField]
         [ResourceFormattedPaths("Textures/BlueNoise256/LDR_LLL1_{0}.png", 0, 7)]
@@ -114,37 +161,38 @@ namespace UnityEngine.Rendering.Universal
     [SupportedOnRenderer(typeof(UniversalRendererData))]
     [DisallowMultipleRendererFeature("Screen Space Ambient Occlusion")]
     [Tooltip("The Ambient Occlusion effect darkens creases, holes, intersections and surfaces that are close to each other.")]
-    [URPHelpURL("post-processing-ssao")]
+    [URPHelpURL("urp/post-processing-ssao")]
     public class ScreenSpaceAmbientOcclusion : ScriptableRendererFeature
     {
         // Serialized Fields
         [SerializeField] private ScreenSpaceAmbientOcclusionSettings m_Settings = new ScreenSpaceAmbientOcclusionSettings();
 
         // Private Fields
-        private Material m_Material;
-        private ScreenSpaceAmbientOcclusionPass m_SSAOPass = null;
-        private Shader m_Shader;
+        private AAOPass m_AAOPass = null;
+        private GTAOPass m_GTAOPass = null;
+        private Shader m_RasterizationShader;
         private Texture2D[] m_BlueNoise256Textures;
 
-        // Internal / Constants
+        // Internal
+        [Obsolete("Configuring SSAO via the renderer feature settings is deprecated. Use the ScreenSpaceAmbientOcclusionVolumeOverride volume component instead.", false)]
         internal ref ScreenSpaceAmbientOcclusionSettings settings => ref m_Settings;
-        internal const string k_AOInterleavedGradientKeyword = "_INTERLEAVED_GRADIENT";
-        internal const string k_AOBlueNoiseKeyword = "_BLUE_NOISE";
-        internal const string k_OrthographicCameraKeyword = "_ORTHOGRAPHIC";
-        internal const string k_SourceDepthLowKeyword = "_SOURCE_DEPTH_LOW";
-        internal const string k_SourceDepthMediumKeyword = "_SOURCE_DEPTH_MEDIUM";
-        internal const string k_SourceDepthHighKeyword = "_SOURCE_DEPTH_HIGH";
-        internal const string k_SourceDepthNormalsKeyword = "_SOURCE_DEPTH_NORMALS";
-        internal const string k_SampleCountLowKeyword = "_SAMPLE_COUNT_LOW";
-        internal const string k_SampleCountMediumKeyword = "_SAMPLE_COUNT_MEDIUM";
-        internal const string k_SampleCountHighKeyword = "_SAMPLE_COUNT_HIGH";
+
+        private struct FeatureSettings
+        {
+            public bool afterOpaque;
+            public bool isDepthNormalsSource;
+            public RenderPassEvent passEvent;
+            public ScriptableRenderPassInput requirements;
+        }
 
         /// <inheritdoc/>
         public override void Create()
         {
-            // Create the pass...
-            if (m_SSAOPass == null)
-                m_SSAOPass = new ScreenSpaceAmbientOcclusionPass();
+            if (TryPrepareResources())
+            {
+                m_AAOPass = new AAOPass(m_RasterizationShader, m_BlueNoise256Textures);
+                m_GTAOPass = new GTAOPass(m_RasterizationShader, m_BlueNoise256Textures);
+            }
 
             // Check for previous version of SSAO
             if (m_Settings.SampleCount > 0)
@@ -168,26 +216,35 @@ namespace UnityEngine.Rendering.Universal
             if (UniversalRenderer.IsOffscreenDepthTexture(ref renderingData.cameraData))
                 return;
 
-            if (!TryPrepareResources())
+            if (m_AAOPass == null)
                 return;
 
             bool usesDeferred = renderer is UniversalRenderer { usesDeferredLighting: true };
-            ScriptableRenderPassInput requirements;
-            RenderPassEvent passEvent;
-            if (usesDeferred)
+            bool shouldAdd;
+            FeatureSettings resolvedSettings;
+            ScriptableRenderPass activePass;
+
+            // SSAO is driven exclusively by the volume stack; the feature settings are an inert data reference.
+            var ssaoVolume = VolumeManager.instance.stack.GetComponent<ScreenSpaceAmbientOcclusionVolumeOverride>();
+            resolvedSettings = ResolveFeatureSettings(ssaoVolume, usesDeferred);
+
+            if (!ssaoVolume.IsSSAOMode())
             {
-                passEvent = m_Settings.AfterOpaque ? RenderPassEvent.AfterRenderingOpaques : RenderPassEvent.AfterRenderingPrePasses;
-                requirements = ScriptableRenderPassInput.Depth | ScriptableRenderPassInput.Normal;
+                shouldAdd = m_GTAOPass.Setup(ssaoVolume);
+                activePass = m_GTAOPass;
             }
             else
             {
-                passEvent = m_Settings.AfterOpaque ? RenderPassEvent.BeforeRenderingTransparents : RenderPassEvent.AfterRenderingPrePasses + 1;
-                requirements = m_Settings.Source == ScreenSpaceAmbientOcclusionSettings.DepthSource.Depth ? ScriptableRenderPassInput.Depth : ScriptableRenderPassInput.Depth | ScriptableRenderPassInput.Normal;
+                shouldAdd = m_AAOPass.Setup(ssaoVolume, usesDeferred);
+                activePass = m_AAOPass;
             }
+
+            if (!shouldAdd)
+                return;
 
             if (renderer is UniversalRenderer universalRenderer && universalRenderer.useTileOnlyMode)
             {
-                if (!RenderingUtils.IsCompatibleWithTileOnlyMode(requirements, passEvent))
+                if (!RenderingUtils.IsCompatibleWithTileOnlyMode(resolvedSettings.requirements, resolvedSettings.passEvent))
                 {
                     Debug.LogErrorFormat(
                         "Screen Space Ambient Occlusion \"{0}\": the current settings are not compatible with Tile-Only Mode. Open the Universal Renderer \"{1}\" in the Inspector for more information.",
@@ -202,7 +259,7 @@ namespace UnityEngine.Rendering.Universal
                 // Backbuffer depth with uv origin X does not match with texture attachment _SSAO_OcclusionTexture0
                 // with uv origin Y". Pass merging is currently too aggressive here, so disallow After Opaque with
                 // Depth Normals in Tile-Only Mode.
-                if (m_Settings.AfterOpaque && m_Settings.Source == ScreenSpaceAmbientOcclusionSettings.DepthSource.DepthNormals)
+                if (resolvedSettings.afterOpaque && resolvedSettings.isDepthNormalsSource)
                 {
                     Debug.LogErrorFormat(
                         "Screen Space Ambient Occlusion \"{0}\": the current settings are not compatible with Tile-Only Mode. Open the Universal Renderer \"{1}\" in the Inspector for more information.",
@@ -211,58 +268,68 @@ namespace UnityEngine.Rendering.Universal
                 }
             }
 
-            m_SSAOPass.renderPassEvent = passEvent;
-            m_SSAOPass.ConfigureInput(requirements);
-            var effectiveDepthSource = usesDeferred ? ScreenSpaceAmbientOcclusionSettings.DepthSource.DepthNormals : m_Settings.Source;
-            bool shouldAdd = m_SSAOPass.Setup(m_Settings, effectiveDepthSource, m_Material, m_BlueNoise256Textures);
-            if (shouldAdd)
-                renderer.EnqueuePass(m_SSAOPass);
+            activePass.renderPassEvent = resolvedSettings.passEvent;
+            activePass.ConfigureInput(resolvedSettings.requirements);
+            renderer.EnqueuePass(activePass);
+        }
+
+        private static FeatureSettings ResolveFeatureSettings(ScreenSpaceAmbientOcclusionVolumeOverride volume, bool usesDeferred)
+        {
+            var featureSettings = new FeatureSettings();
+
+            if (!volume.IsActive())
+                return featureSettings;
+
+            featureSettings.afterOpaque = volume.afterOpaque;
+            featureSettings.passEvent = usesDeferred
+                ? (featureSettings.afterOpaque ? RenderPassEvent.AfterRenderingOpaques : RenderPassEvent.AfterRenderingPrePasses)
+                : (featureSettings.afterOpaque ? RenderPassEvent.AfterRenderingOpaques : RenderPassEvent.AfterRenderingPrePasses + 1);
+
+            featureSettings.requirements = ScriptableRenderPassInput.Depth;
+            bool isGTAO = !volume.IsSSAOMode();
+            featureSettings.isDepthNormalsSource = isGTAO || usesDeferred || volume.depthSource == ScreenSpaceAmbientOcclusionDepthSource.DepthNormals;
+            if (featureSettings.isDepthNormalsSource)
+                featureSettings.requirements |= ScriptableRenderPassInput.Normal;
+            if (isGTAO && volume.useComputeShader && volume.temporalFilter)
+                featureSettings.requirements |= ScriptableRenderPassInput.Motion;
+
+            return featureSettings;
         }
 
         /// <inheritdoc/>
         protected override void Dispose(bool disposing)
         {
-            m_SSAOPass?.Dispose();
-            m_SSAOPass = null;
-            CoreUtils.Destroy(m_Material);
+            m_AAOPass?.Dispose();
+            m_AAOPass = null;
+            m_GTAOPass?.Dispose();
+            m_GTAOPass = null;
         }
 
         bool TryPrepareResources()
         {
-            if (m_Shader == null)
+            if (m_RasterizationShader == null)
             {
-                if (!GraphicsSettings.TryGetRenderPipelineSettings<ScreenSpaceAmbientOcclusionPersistentResources>(out var ssaoPersistentResources))
+                // Create() runs even for disabled features, whose resources are stripped from the build; bail
+                // out rather than dereferencing them, and only flag missing resources on an active feature.
+                if (!GraphicsSettings.TryGetRenderPipelineSettings<ScreenSpaceAmbientOcclusionCoreResources>(out var ssaoCoreResources))
                 {
-                    Debug.LogErrorFormat(
-                        $"Couldn't find the required resources for the {nameof(ScreenSpaceAmbientOcclusion)} render feature. If this exception appears in the Player, make sure at least one {nameof(ScreenSpaceAmbientOcclusion)} render feature is enabled or adjust your stripping settings.");
+                    if (isActive)
+                        Debug.LogErrorFormat(
+                            $"Couldn't find the required resources for the {nameof(ScreenSpaceAmbientOcclusion)} render feature. If this exception appears in the Player, make sure at least one {nameof(ScreenSpaceAmbientOcclusion)} render feature is enabled or adjust your stripping settings.");
+
                     return false;
                 }
 
-                m_Shader = ssaoPersistentResources.Shader;
+                m_RasterizationShader = ssaoCoreResources.RasterizationShader;
             }
 
-            if (m_Settings.AOMethod == ScreenSpaceAmbientOcclusionSettings.AOMethodOptions.BlueNoise && (m_BlueNoise256Textures == null || m_BlueNoise256Textures.Length == 0))
+            if (m_BlueNoise256Textures == null || m_BlueNoise256Textures.Length == 0)
             {
-                if (!GraphicsSettings.TryGetRenderPipelineSettings<ScreenSpaceAmbientOcclusionDynamicResources>(out var ssaoDynamicResources))
-                {
-                    Debug.LogErrorFormat($"Couldn't load {nameof(ScreenSpaceAmbientOcclusionDynamicResources.BlueNoise256Textures)}. If this exception appears in the Player, please check the SSAO options for {nameof(ScreenSpaceAmbientOcclusion)} or adjust your stripping settings");
-                    return false;
-                }
-
-                m_BlueNoise256Textures = ssaoDynamicResources.BlueNoise256Textures;
+                if (GraphicsSettings.TryGetRenderPipelineSettings<ScreenSpaceAmbientOcclusionBlueNoiseResources>(out var ssaoBlueNoiseResources))
+                    m_BlueNoise256Textures = ssaoBlueNoiseResources.BlueNoise256Textures;
             }
 
-            if (m_Material == null && m_Shader != null)
-                m_Material = CoreUtils.CreateEngineMaterial(m_Shader);
-
-            if (m_Material == null)
-            {
-                Debug.LogError($"{GetType().Name}.AddRenderPasses(): Missing material. {name} render pass will not be added.");
-                return false;
-            }
-
-            return true;
-
+            return m_RasterizationShader != null;
         }
     }
 }

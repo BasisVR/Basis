@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using Basis.Network.Core.Compression;
 using Basis.Scripts.Networking;
@@ -18,7 +19,8 @@ using static SerializableBasis;
 ///   [header:1][playerId:1|2][interval:1][sequence:1][baseSeq:1][delta body][additional?]
 /// header bits: quality(2) | hasAdditional&lt;&lt;2 | largeId&lt;&lt;3 | control&lt;&lt;7.
 /// </summary>
-public static class BasisNetworkHandleAvatarDelta
+[AutoStaticsCleanup]
+public static partial class BasisNetworkHandleAvatarDelta
 {
     [ThreadStatic] private static byte[] _reconstruct;
     [ThreadStatic] private static ServerSideSyncPlayerMessage _ssm;

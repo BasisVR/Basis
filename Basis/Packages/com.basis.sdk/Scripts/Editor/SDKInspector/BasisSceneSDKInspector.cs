@@ -13,10 +13,10 @@ public class BasisSceneSDKInspector : Editor
 {
     public VisualTreeAsset visualTree;
     public BasisScene BasisScene;
-    public VisualElement rootElement;
-    public VisualElement uiElementsRoot;
+    [System.NonSerialized] public VisualElement rootElement;
+    [System.NonSerialized] public VisualElement uiElementsRoot;
     private Label resultLabel;
-    public BasisSceneValidator BasisSceneValidator;
+    [System.NonSerialized] public BasisSceneValidator BasisSceneValidator;
     public bool SpawnPointGizmoState = false;
 
     public void OnEnable()
@@ -41,6 +41,7 @@ public class BasisSceneSDKInspector : Editor
         if (visualTree != null)
         {
             uiElementsRoot = visualTree.CloneTree();
+            BasisEditorLocalization.LocalizeTree(uiElementsRoot, "sdk.uxml.scene.");
             rootElement.Add(uiElementsRoot);
 
             BasisSceneValidator = new BasisSceneValidator(BasisScene, rootElement);
@@ -79,6 +80,7 @@ public class BasisSceneSDKInspector : Editor
                 BasisEditorLocalization.Get("sdk.scene.icon.generate"),
                 BasisEditorLocalization.Get("sdk.scene.icon.generate.tooltip"),
                 CaptureSceneIcon);
+            BasisSDKCommonInspector.CreateAuthorshipFoldout(BasisSDKCommonInspector.ResolveDescriptionContainer(uiElementsRoot), serializedObject);
 
             // Spawn point field
             ObjectField SpawnPointField = uiElementsRoot.Q<ObjectField>(BasisSDKConstants.SpawnPointField);
@@ -118,7 +120,7 @@ public class BasisSceneSDKInspector : Editor
             // the end of the inspector: what the scene is goes under Settings, how it is published
             // goes in the build blocks above the build button, each its own collapsible section.
             BasisSDKCommonInspector.CreateBuildTargetOptions(BasisSDKCommonInspector.ResolveBuildTargetsContainer(uiElementsRoot));
-            BasisSDKCommonInspector.CreateBuildOptionsDropdown(BasisSDKCommonInspector.ResolveBuildContainer(uiElementsRoot));
+            BasisSDKCommonInspector.CreateBuildOptionsDropdown(BasisSDKCommonInspector.ResolveBuildContainer(uiElementsRoot), serializedObject);
 
             BasisSDKCommonInspector.CreateContentTagsFoldout(BasisSDKCommonInspector.ResolveContentTagsContainer(uiElementsRoot), BasisScene);
             BasisSDKCommonInspector.CreateContentGroupIdFoldout(BasisSDKCommonInspector.ResolveContentTagsContainer(uiElementsRoot), BasisScene);
@@ -240,8 +242,7 @@ public class BasisSceneSDKInspector : Editor
             {
                 ImageBytes = BasisTextureCompression.ToPngBytes(Image);
             }
-            BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
-            (bool success, string message) = await BasisBundleBuild.SceneBundleBuild(ImageBytes, BasisScene, targets, assetBundleObject.UseCustomPassword, assetBundleObject.UserSelectedPassword);
+            (bool success, string message) = await BasisBundleBuild.SceneBundleBuild(ImageBytes, BasisScene, targets, BasisScene.UseCustomPassword, BasisScene.UserSelectedPassword);
             EditorUtility.ClearProgressBar();
             ClearResultLabel();
 

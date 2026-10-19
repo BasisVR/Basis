@@ -1,5 +1,7 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEngine;
 
@@ -12,6 +14,7 @@ using UnityEngine;
 /// rewritten in UI Toolkit — wrap the body in <see cref="BeginPage"/>/<see cref="EndPage"/>, put
 /// each block in a <see cref="Card"/> and use the row/pill/bar helpers instead of raw LabelFields.
 /// </summary>
+[NoAutoStaticsCleanup]
 public static class BasisEditorUI
 {
     /// <summary>
@@ -407,7 +410,7 @@ public static class BasisEditorUI
     {
         Init();
         EditorGUILayout.BeginHorizontal();
-        Pill(pass ? "PASS" : "FAIL", pass ? State.Good : State.Bad);
+        Pill(BasisEditorLocalization.Get(pass ? "sdk.editorUi.pass" : "sdk.editorUi.fail"), pass ? State.Good : State.Bad);
         GUILayout.Space(6f);
         if (_reasonPass == null)
         {

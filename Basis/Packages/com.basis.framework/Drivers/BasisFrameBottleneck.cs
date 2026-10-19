@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.XR;
@@ -18,7 +19,8 @@ namespace Basis.Scripts.Drivers
         public BasisFrameBottleneckKind Kind;
     }
 
-    public static class BasisFrameBottleneck
+    [AutoStaticsCleanup]
+    public static partial class BasisFrameBottleneck
     {
         public const double DominanceRatio = 1.15;
         public const double DominanceReleaseRatio = 1.03;

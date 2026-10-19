@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
@@ -19,7 +20,8 @@ namespace Basis.Scripts.Avatar
     /// ends already ship the asset. That is why only <see cref="BasisLoadMode.Download"/> is
     /// considered here.</para>
     /// </summary>
-    public static class BasisLocalAvatarNetworkNotice
+    [AutoStaticsCleanup]
+    public static partial class BasisLocalAvatarNetworkNotice
     {
         /// <summary>
         /// Avatar address the player has already been warned about, so re-equipping the same avatar

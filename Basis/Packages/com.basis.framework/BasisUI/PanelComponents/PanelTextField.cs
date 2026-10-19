@@ -125,6 +125,7 @@ namespace Basis.BasisUI
         protected override void Awake()
         {
             base.Awake();
+            if (_placeholderLabel && _placeholderText == "Type Here...") _placeholderLabel.text = BasisLocalization.Get("ui.textField.placeholder");
             _inputField.onEndEdit.AddListener(_ => OnComponentUsed());
             _inputField.onValueChanged.AddListener(_ =>
             {

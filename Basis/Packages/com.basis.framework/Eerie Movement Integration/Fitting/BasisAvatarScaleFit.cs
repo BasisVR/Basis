@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
@@ -6,7 +7,8 @@ using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System.Collections.Generic;
 using UnityEngine;
-public static class BasisAutoScaleEstimator
+[AutoStaticsCleanup]
+public static partial class BasisAutoScaleEstimator
 {
     const float MinEyeHeight = 1.10f;
     const float MaxEyeHeight = 2.10f;
@@ -16,6 +18,9 @@ public static class BasisAutoScaleEstimator
     public static float EstimatedEyeHeight = BasisHeightDriver.FallbackHeightInMeters;
     public static float EstimatedArmSpan = BasisHeightDriver.FallbackHeightInMeters;
     static float maxArmSpan;
+    static Vector3 HandSpanPoint(BasisInput input) => input is BasisInputController controller
+        ? controller.UnscaledHandTarget
+        : input.UnscaledDeviceCoord.position;
     public static void Reset()
     {
         HasEstimate = false;
@@ -66,8 +71,10 @@ public static class BasisAutoScaleEstimator
         var dm = BasisDeviceManagement.Instance;
         if (dm != null && dm.FindDevice(out BasisInput left, BasisBoneTrackedRole.LeftHand) && dm.FindDevice(out BasisInput right, BasisBoneTrackedRole.RightHand))
         {
-            Vector3 l = left.UnscaledDeviceCoord.position;
-            Vector3 r = right.UnscaledDeviceCoord.position;
+            // Measure the anatomical wrist target, not a backend-specific grip/controller origin.
+            // Otherwise OpenXR and OpenVR estimate different arm spans for the same person.
+            Vector3 l = HandSpanPoint(left);
+            Vector3 r = HandSpanPoint(right);
             float span = Vector3.Distance(new Vector3(l.x, 0f, l.z), new Vector3(r.x, 0f, r.z));
             maxArmSpan = Mathf.Max(maxArmSpan, span);
         }
@@ -75,7 +82,8 @@ public static class BasisAutoScaleEstimator
         return maxArmSpan > 0f ? Mathf.Clamp(maxArmSpan, lo, hi) : eyeHeight;
     }
 }
-public static class BasisCalibrationRefitGate
+[AutoStaticsCleanup]
+public static partial class BasisCalibrationRefitGate
 {
     static readonly HashSet<BasisInteractableObject> sheld = new();
     public static void MarkInteracting(BasisInteractableObject interactable)

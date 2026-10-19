@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -32,7 +33,8 @@ namespace Basis.Scripts.Drivers
     /// The calibration is mandatory because the same device stream against a different calibration is a
     /// different input. A recording without it would replay, look plausible, and mean nothing.
     /// </summary>
-    public static class BasisDeviceStreamRecorder
+    [AutoStaticsCleanup]
+    public static partial class BasisDeviceStreamRecorder
     {
         /// <summary>
         /// Developer gate. FALSE BY DEFAULT and must stay that way — this writes megabytes per minute.

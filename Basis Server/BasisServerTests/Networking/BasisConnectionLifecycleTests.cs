@@ -48,8 +48,11 @@ internal sealed class RecordingConnectionRequest : ConnectionRequest
     public required NetDataReader Data { get; init; }
     public required IPEndPoint RemoteEndPoint { get; init; }
     public NetPeer PeerToReturn { get; init; } = null!;
+    public string? VerifiedIdentity { get; init; }
+    public bool CanAwaitSeal { get; init; } = true;
 
     public bool WasAccepted { get; private set; }
+    public bool AcceptedAwaitingSeal { get; private set; }
     public bool WasRejected { get; private set; }
     public byte[] RejectPayload { get; private set; } = System.Array.Empty<byte>();
 
@@ -57,6 +60,13 @@ internal sealed class RecordingConnectionRequest : ConnectionRequest
     {
         WasAccepted = true;
         return PeerToReturn;
+    }
+
+    public NetPeer AcceptAwaitingSeal()
+    {
+        if (!CanAwaitSeal) return null!;
+        AcceptedAwaitingSeal = true;
+        return Accept();
     }
 
     public void Reject(NetDataWriter w)
@@ -143,8 +153,8 @@ internal static class LifecycleSupport
         };
     }
 
-    /// <summary>The exact wire order the real client writes: [version][company][product][BytesMessage auth][ReadyMessage].</summary>
-    public static byte[] ConnectPayload(ushort version, byte[]? auth, ReadyMessage? ready, string companyName = BasisNetworkApplication.DefaultCompanyName, string productName = BasisNetworkApplication.DefaultProductName)
+    /// <summary>The exact wire order the real client writes: [version][company][product][BytesMessage auth][BytesMessage connection key][ReadyMessage].</summary>
+    public static byte[] ConnectPayload(ushort version, byte[]? auth, ReadyMessage? ready, string companyName = BasisNetworkApplication.DefaultCompanyName, string productName = BasisNetworkApplication.DefaultProductName, byte[]? connectionKey = null)
     {
         NetDataWriter w = new NetDataWriter(true, 64);
         w.Put(version);
@@ -155,6 +165,11 @@ internal static class LifecycleSupport
         }
         if (ready.HasValue)
         {
+            if (connectionKey == null)
+            {
+                BasisCryptoHandshake.GenerateKeyPair(out _, out connectionKey);
+            }
+            new BytesMessage().Serialize(w, connectionKey);
             ready.Value.Serialize(w);
         }
         return w.CopyData();
@@ -425,7 +440,10 @@ public class BasisConnectionRequestGateTests
 
         Assert.True(req.WasRejected);
         Assert.False(req.WasAccepted);
-        Assert.Equal("Authentication failed, Auth rejected", LifecycleSupport.RejectReason(req.RejectPayload));
+        var reject = LifecycleSupport.RejectStructured(req.RejectPayload);
+        Assert.Equal(BasisNetworkCommons.RejectMagic, reject.Magic);
+        Assert.Equal(BasisNetworkCommons.RejectKind_PasswordRejected, reject.Kind);
+        Assert.Equal(BasisNetworkCommons.PasswordRejectedReason, reject.Message);
     }
 
     [Fact]

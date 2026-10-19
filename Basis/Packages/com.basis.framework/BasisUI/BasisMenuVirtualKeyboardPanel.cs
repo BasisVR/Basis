@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Basis.BTween;
@@ -21,7 +22,8 @@ namespace Basis.BasisUI
     /// Layout: live input mirror row, alphabetic rows from the keyboard data,
     /// and a function row (caps, space, delete, copy, paste, enter, close).
     /// </summary>
-    public class BasisMenuVirtualKeyboardPanel : BasisMenuPanel
+    [AutoStaticsCleanup]
+    public partial class BasisMenuVirtualKeyboardPanel : BasisMenuPanel
     {
         public static class KeyboardStyles
         {

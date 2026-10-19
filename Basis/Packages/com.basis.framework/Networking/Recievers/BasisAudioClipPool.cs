@@ -1,9 +1,11 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Device_Management;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-public static class BasisAudioClipPool
+[AutoStaticsCleanup]
+public static partial class BasisAudioClipPool
 {
     // Kept in step with BasisAudioRemoteSource.MaxPoolSize — a returned voice object and its clip
     // come back together, so a smaller clip pool just means the paired Get() destroys and

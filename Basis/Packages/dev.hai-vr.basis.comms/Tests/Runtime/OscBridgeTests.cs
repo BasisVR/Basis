@@ -683,6 +683,44 @@ namespace HVR.Basis.Comms.Tests
         }
 
         [Test]
+        public void BasisOsc_RepublishingFromInsideTheHandler_StopsInsteadOfRecursingForever()
+        {
+            DestroySceneInstance();
+            GameObject avatarObject = new GameObject("OscReentrantAvatar");
+            GameObject publisherObject = new GameObject("OscReentrantPublisher");
+            GameObject subscriberObject = new GameObject("OscReentrantSubscriber");
+
+            try
+            {
+                BasisAvatar avatar = avatarObject.AddComponent<BasisAvatar>();
+                avatar.IsOwnedLocally = true;
+                publisherObject.transform.SetParent(avatarObject.transform, false);
+                subscriberObject.transform.SetParent(avatarObject.transform, false);
+
+                BasisOsc publisher = publisherObject.AddComponent<BasisOsc>();
+                BasisOsc subscriber = subscriberObject.AddComponent<BasisOsc>();
+                const string address = "/avatar/public/ReentrantProbe";
+                int callbackCount = 0;
+
+                subscriber.Subscribe(address, (message, arguments) =>
+                {
+                    callbackCount++;
+                    publisher.PublishValue(address, OscData.Float32(callbackCount));
+                });
+
+                publisher.PublishValue(address, OscData.Float32(0f));
+
+                Assert.That(callbackCount, Is.GreaterThan(1), "The handler should still see its own republish a few levels deep.");
+                Assert.That(callbackCount, Is.LessThan(100), "Republishing from inside the handler should be cut off, not recurse until the stack overflows.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(avatarObject);
+                DestroySceneInstance();
+            }
+        }
+
+        [Test]
         public void BasisOsc_LocalAvatarPublishesIntoAvatarNamespace()
         {
             DestroySceneInstance();

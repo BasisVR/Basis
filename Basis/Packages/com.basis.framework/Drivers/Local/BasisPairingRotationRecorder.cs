@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -18,7 +19,8 @@ namespace Basis.Scripts.Drivers
     // A correct pair tracks 1:1, so ang_fused ~= ang_a ~= ang_b and ang_bone ~= ang_a. The failure shows as a
     // SLOPE: ang_fused ~= 2*ang_a means the fusion doubles; ang_fused ~= ang_a but ang_bone ~= 2*ang_a means a
     // downstream (offset/calibration) double; a step in ang_fused while wA/wB/t jump = a confidence-blend snap.
-    public static class BasisPairingRotationRecorder
+    [AutoStaticsCleanup]
+    public static partial class BasisPairingRotationRecorder
     {
         public static bool Active { get; private set; }
         static readonly List<string> _rows = new List<string>(8192);

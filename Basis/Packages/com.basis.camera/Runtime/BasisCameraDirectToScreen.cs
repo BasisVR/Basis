@@ -1,3 +1,5 @@
+using Unity.Scripting.LifecycleManagement;
+using Basis.BasisUI;
 using Basis.Scripts.Device_Management;
 using UnityEngine;
 public enum BasisCameraDirectToScreenState
@@ -7,6 +9,7 @@ public enum BasisCameraDirectToScreenState
     WaitingForVR = 2,
     NoOutputSocket = 3,
     Unsupported = 4,
+    DisplayNotConnected = 5,
 }
 public enum BasisCameraDirectToScreenFit
 {
@@ -15,11 +18,13 @@ public enum BasisCameraDirectToScreenFit
     Stretch = 2,
     MatchWindow = 3,
 }
-public static class BasisCameraDirectToScreen
+[AutoStaticsCleanup]
+public static partial class BasisCameraDirectToScreen
 {
     public const int MaxMatchWindowFeedDimension = 4096;
+    public const int MaxDisplays = 8;
     public static readonly Vector2 DefaultAlignment = new Vector2(0.5f, 0.5f);
-    public static readonly string[] FitKeys = { "camera.directToScreen.fit.fit", "camera.directToScreen.fit.fill", "camera.directToScreen.fit.stretch", "camera.directToScreen.fit.matchWindow" };
+    [NoAutoStaticsCleanup] public static readonly string[] FitKeys = { "camera.directToScreen.fit.fit", "camera.directToScreen.fit.fill", "camera.directToScreen.fit.stretch", "camera.directToScreen.fit.matchWindow" };
 #if UNITY_INCLUDE_TESTS
     public static bool? VRModeOverrideForTest;
 #endif
@@ -51,8 +56,28 @@ public static class BasisCameraDirectToScreen
             return BasisDeviceManagement.IsCurrentModeVR();
         }
     }
+    public static int DisplayCount => Application.isEditor ? MaxDisplays : Mathf.Clamp(Display.displays.Length, 1, MaxDisplays);
     public static BasisCameraDirectToScreenFit SanitizeFit(int fit) => fit >= 0 && fit < FitKeys.Length ? (BasisCameraDirectToScreenFit)fit : BasisCameraDirectToScreenFit.Fit;
-    public static bool ShouldPresent(bool enabled, bool inVR, bool bodyAllowsLiveFeed, bool supported) => enabled && inVR && bodyAllowsLiveFeed && supported;
+    public static int SanitizeDisplay(int display) => Mathf.Clamp(display, 0, MaxDisplays - 1);
+    public static string DisplayLabel(int display) => display == 0 ? BasisLocalization.Get("camera.directToScreen.display.main") : BasisLocalization.Get("camera.directToScreen.display.window", display + 1);
+    public static bool IsDisplayConnected(int display) => display == 0 || (display > 0 && display < DisplayCount);
+    public static bool ShouldPresent(bool enabled, bool inVR, bool bodyAllowsLiveFeed, bool supported) => ShouldPresent(enabled, inVR, bodyAllowsLiveFeed, supported, 0, true);
+    public static bool ShouldPresent(bool enabled, bool inVR, bool bodyAllowsLiveFeed, bool supported, int display, bool displayConnected) => enabled && (inVR || display > 0) && displayConnected && bodyAllowsLiveFeed && supported;
+    public static void ActivateDisplay(int display)
+    {
+        if (display <= 0 || Application.isEditor || display >= Display.displays.Length) return;
+        Display target = Display.displays[display];
+        if (!target.active) target.Activate();
+    }
+    public static bool TryGetDisplaySize(int display, out int width, out int height)
+    {
+        width = height = 0;
+        if (display < 0 || display >= Display.displays.Length) return false;
+        Display target = Display.displays[display];
+        width = target.renderingWidth;
+        height = target.renderingHeight;
+        return width > 0 && height > 0;
+    }
     public static void MatchWindowFeedSize(int previewWidth, int previewHeight, int windowWidth, int windowHeight, out int width, out int height)
     {
         width = previewWidth;

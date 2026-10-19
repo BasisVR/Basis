@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
@@ -12,7 +13,8 @@ public struct BasisCameraSubjectHit
     public bool FromSkeleton;
 }
 
-public static class BasisCameraSubjectPicker
+[AutoStaticsCleanup]
+public static partial class BasisCameraSubjectPicker
 {
     /// <summary>
     /// Nearest a body may be and still be what the click meant. At five centimetres the operator's

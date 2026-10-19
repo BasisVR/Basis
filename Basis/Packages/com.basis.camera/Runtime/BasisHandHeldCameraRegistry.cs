@@ -1,9 +1,11 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Basis.BasisUI;
 using UnityEngine;
 
-public static class BasisHandHeldCameraRegistry
+[AutoStaticsCleanup]
+public static partial class BasisHandHeldCameraRegistry
 {
     /// <summary>
     /// Catalog Url of the camera prop, as it appears in EmbeddedItemsCatalog. Spawning goes

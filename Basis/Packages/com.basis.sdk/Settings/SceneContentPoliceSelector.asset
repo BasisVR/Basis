@@ -390,3 +390,4 @@ MonoBehaviour:
   - Basis.Shims.BasisPermissionEventShim
   - BasisPlatformSwitch
   - Basis.Shims.BasisPlatformEventShim
+  - Basis.Scripts.BasisSdk.Interactions.BasisExternalLinkInteractable

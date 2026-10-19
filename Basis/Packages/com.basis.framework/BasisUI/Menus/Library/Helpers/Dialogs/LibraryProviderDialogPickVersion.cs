@@ -35,7 +35,7 @@ namespace Basis.BasisUI
         {
             BasisDataStoreItemKeys.ItemKey face = stack[0];
             CachedMetaData.TryGetMeta(face.Url ?? string.Empty, out CachedMetaData.CachedContent faceMeta);
-            string displayName = LibraryProviderStrUtil.TitleToCase(!string.IsNullOrEmpty(faceMeta?.Name) ? faceMeta.Name : face.Url);
+            string displayName = !string.IsNullOrEmpty(faceMeta?.Name) ? faceMeta.Name : face.Url;
 
             DialogBox<BasisDataStoreItemKeys.ItemKey> dialog = DialogBox<BasisDataStoreItemKeys.ItemKey>.Create(panel, new Vector2(1200, 900),
                 displayName,
@@ -77,7 +77,7 @@ namespace Basis.BasisUI
                 // available", leaving the raw url as the only way to tell the versions apart.
                 string versionName = string.IsNullOrWhiteSpace(meta?.Name)
                     ? null
-                    : LibraryProviderStrUtil.TitleToCase(meta.Name);
+                    : meta.Name;
 
                 string label = versionName ?? dateText ?? BasisLocalization.Get("library.notAvailable");
 

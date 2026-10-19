@@ -112,6 +112,10 @@
       "value": "★ {0}"
     },
     {
+      "key": "menu.servers.list.sourceBadge",
+      "value": "{0} ({1})"
+    },
+    {
       "key": "menu.servers.list.share",
       "value": "共有"
     },
@@ -146,6 +150,14 @@
     {
       "key": "menu.servers.usernamePrompt.body",
       "value": "他のプレイヤーに表示される名前を決めて、「接続」を押してください。"
+    },
+    {
+      "key": "menu.servers.passwordPrompt.title",
+      "value": "{0}に参加"
+    },
+    {
+      "key": "menu.servers.passwordPrompt.body",
+      "value": "パスワードが拒否されました。サーバーのパスワードを入力してください。"
     },
     {
       "key": "menu.servers.search.byNameOrAddress",
@@ -274,6 +286,10 @@
     {
       "key": "menu.servers.hostThirdPersonDisabled",
       "value": "三人称視点を無効化"
+    },
+    {
+      "key": "menu.servers.portInvalid",
+      "value": "ポートは 1～65535 の範囲で指定してください"
     }
   ]
 }

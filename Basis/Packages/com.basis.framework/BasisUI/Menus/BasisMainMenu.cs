@@ -431,22 +431,41 @@ namespace Basis.BasisUI
             SetMicrophoneIconHudVisible(false);
             BasisMenuStateMemory.WasOpen = true;
         }
-        public static void OpenWithProvider(string ProviderTitle)
+        public static void OpenWithProvider(string ProviderTitle) => OpenWithProvider(FindProvider(ProviderTitle));
+
+        public static void OpenWithProvider(BasisMenuActionProvider<BasisMainMenu> provider)
         {
             Open();
             // Landing on a named provider is deliberate navigation, not a prompt displacing a
             // page, so there is nothing to put back. Dropping the snapshot Open just took stops
             // the next in-menu confirmation from being restored onto the page we came from.
             BasisMenuPromptRestore.Clear();
-            int count = BasisMainMenu.Providers.Count;
+            provider?.RunAction();
+        }
+
+        public static BasisMenuActionProvider<BasisMainMenu> FindProvider(string title)
+        {
+            int count = Providers.Count;
             for (int Index = 0; Index < count; Index++)
             {
-                BasisMenuActionProvider<BasisMainMenu> provider = BasisMainMenu.Providers[Index];
-                if (provider.Title == ProviderTitle)
+                BasisMenuActionProvider<BasisMainMenu> provider = Providers[Index];
+                if (provider != null && provider.Title == title)
                 {
-                    provider.RunAction();
-                    return;
+                    return provider;
                 }
+            }
+            return null;
+        }
+
+        public static BasisMenuActionProvider<BasisMainMenu> ActivePanelProvider
+        {
+            get
+            {
+                if (!Instance || !Instance.ActiveMenu)
+                {
+                    return null;
+                }
+                return Instance.ActiveProvider ?? FindProvider(Instance.ActiveMenu.Data.Title);
             }
         }
 
@@ -535,22 +554,8 @@ namespace Basis.BasisUI
         /// </summary>
         private static string ResolvePanelOffsetKey(string title, BasisMenuActionProvider<BasisMainMenu> provider)
         {
-            if (provider != null)
-            {
-                return provider.GetType().Name;
-            }
-
-            int count = Providers.Count;
-            for (int Index = 0; Index < count; Index++)
-            {
-                BasisMenuActionProvider<BasisMainMenu> candidate = Providers[Index];
-                if (candidate != null && candidate.Title == title)
-                {
-                    return candidate.GetType().Name;
-                }
-            }
-
-            return title;
+            provider ??= FindProvider(title);
+            return provider != null ? provider.GetType().Name : title;
         }
 
         public static void CloseActivePanel()

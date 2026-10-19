@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using UnityEditor;
@@ -15,6 +16,7 @@ namespace Basis.Editor
     /// so it is referenced once instead of copied into each bundle. Editor-only and script
     /// assets are ignored. Idempotent; run the Dependency Report afterwards to verify.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public static class BasisAddressableOrganizer
     {
         private const string FontsGroup = "Basis Fonts";

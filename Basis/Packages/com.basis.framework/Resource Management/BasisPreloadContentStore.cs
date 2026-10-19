@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Unity.Scripting.LifecycleManagement;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -14,7 +15,8 @@ using UnityEngine;
 /// on startup by <see cref="BasisBootContentLoader"/>. Built on System.Xml.Linq so it stays
 /// IL2CPP-safe (no runtime serializer codegen).
 /// </summary>
-public static class BasisPreloadContentStore
+[AutoStaticsCleanup]
+public static partial class BasisPreloadContentStore
 {
     [Serializable]
     public struct PreloadEntry
@@ -45,7 +47,7 @@ public static class BasisPreloadContentStore
     }
 
     private static readonly List<PreloadEntry> _entries = new List<PreloadEntry>();
-    private static readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
+    [NoAutoStaticsCleanup] private static readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
     private static bool _loaded;
 
     public static async Task<IReadOnlyList<PreloadEntry>> GetAllAsync()
@@ -158,7 +160,7 @@ public static class BasisPreloadContentStore
         string text;
         try
         {
-            text = await File.ReadAllTextAsync(FilePath);
+            text = await BasisFiles.ReadAllTextAsync(FilePath);
         }
         catch (Exception e)
         {
@@ -241,7 +243,7 @@ public static class BasisPreloadContentStore
         string tempPath = FilePath + ".tmp";
         try
         {
-            await File.WriteAllTextAsync(tempPath, doc.ToString());
+            await BasisFiles.WriteAllTextAsync(tempPath, doc.ToString());
         }
         catch (Exception e)
         {

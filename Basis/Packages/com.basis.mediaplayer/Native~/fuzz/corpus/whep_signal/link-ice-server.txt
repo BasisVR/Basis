@@ -1,0 +1,1 @@
+<stun:stun.example.net:3478>; rel="ice-server", <turn:turn.example.net?transport=udp>; rel=ice-server; username="user"; credential="pass"

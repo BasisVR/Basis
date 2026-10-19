@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Rendering;
@@ -6,6 +7,7 @@ using UnityEngine;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.XR;
 
+[NoAutoStaticsCleanup]
 public class SMModuleRenderResolutionURP : BasisSettingsBase
 {
     public float RenderScale = 1;
@@ -41,12 +43,19 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
     {
         BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
         BasisDeviceManagement.OnXRSessionResumed += OnXRSessionResumed;
+        SMModuleAntialiasingURP.TemporalUpscalerChanged += OnTemporalUpscalerChanged;
     }
 
     private void OnDisable()
     {
         BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
         BasisDeviceManagement.OnXRSessionResumed -= OnXRSessionResumed;
+        SMModuleAntialiasingURP.TemporalUpscalerChanged -= OnTemporalUpscalerChanged;
+    }
+
+    private void OnTemporalUpscalerChanged()
+    {
+        HandleRenderResolution(BasisSettingsDefaults.RenderResolution.RawValue);
     }
 
     private void OnBootModeChanged(string mode)
@@ -147,10 +156,11 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
         {
             XRSettings.eyeTextureResolutionScale = 1f;
         }
-        if (asset != null && !Mathf.Approximately(asset.renderScale, option))
+        float desktopScale = SMModuleAntialiasingURP.TemporalUpscalerActive ? Mathf.Min(option, 1f) : option;
+        if (asset != null && !Mathf.Approximately(asset.renderScale, desktopScale))
         {
-            asset.renderScale = option;
-            BasisDebug.Log($"Render scale set to {option:F3}", BasisDebug.LogTag.Video);
+            asset.renderScale = desktopScale;
+            BasisDebug.Log($"Render scale set to {desktopScale:F3}", BasisDebug.LogTag.Video);
         }
     }
 

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
@@ -8,7 +9,8 @@ using static SerializableBasis;
 
 namespace Basis.IK
 {
-    public static class BasisBodyFitNetworking
+    [AutoStaticsCleanup]
+    public static partial class BasisBodyFitNetworking
     {
         // A recalibration that moves a segment by less than this is not worth a packet. 0.1% of a ~0.3 m
         // forearm is ~0.3 mm — well under what is visible on a remote at conversational distance.

@@ -2,7 +2,7 @@
     <engine:VisualElement class="bvp-root">
         <engine:VisualElement name="HeaderCard" class="bvp-card bvp-header-card">
             <engine:Label text="Basis Video Material Output" name="HeaderTitle" selectable="false" class="bvp-header-title"/>
-            <engine:Label text="Binds the player's OutputTexture to one or more Renderer material properties" name="HeaderSubtitle" selectable="false" class="bvp-header-subtitle"/>
+            <engine:Label text="Binds the player's video texture to one or more Renderer material properties" name="HeaderSubtitle" selectable="false" class="bvp-header-subtitle"/>
         </engine:VisualElement>
 
         <engine:Foldout text="Binding" name="BindingFoldout" value="true" class="bvp-foldout">
@@ -17,7 +17,7 @@
         <engine:Foldout text="Behavior" name="BehaviorFoldout" value="true" class="bvp-foldout">
             <editor:ObjectField label="Placeholder Texture" name="PlaceholderField" type="UnityEngine.Texture, UnityEngine.CoreModule" allow-scene-objects="true"/>
             <engine:Toggle label="Restore Placeholder On Ended" name="RestoreOnEndedField"/>
-            <engine:Toggle label="Flip Vertically" name="FlipVerticallyField" tooltip="Native GPU textures (D3D11/D3D12) come in top-left origin; ON by default."/>
+            <engine:Toggle label="Flip Vertically" name="FlipVerticallyField" tooltip="Platform frame-origin differences are corrected automatically; only turn this on for content encoded upside-down at source."/>
             <engine:Toggle label="Flip Horizontally" name="FlipHorizontallyField" tooltip="Mirror the video left-right. Use when the screen mesh winding presents the video reversed."/>
         </engine:Foldout>
 
@@ -32,7 +32,7 @@
         </engine:Foldout>
 
         <engine:Foldout text="Picture" name="PictureFoldout" value="false" class="bvp-foldout">
-            <engine:Label text="Bound to MaterialPropertyBlock as _BasisBrightness/Contrast/Saturation/Gamma." class="bvp-help-info"/>
+            <engine:Label text="Bound to MaterialPropertyBlock as _BasisBrightness/Contrast/Saturation/Gamma." name="PictureHelp" class="bvp-help-info"/>
             <editor:PropertyField name="PictureField" label="Picture"/>
         </engine:Foldout>
 

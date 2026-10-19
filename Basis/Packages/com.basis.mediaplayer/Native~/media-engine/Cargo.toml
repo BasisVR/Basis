@@ -1,0 +1,39 @@
+[package]
+name = "media-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[features]
+# Real RIST receive (librist linked). Off by default: rist:// URLs then fail
+# with a typed "not built" refusal from the media-rist stub.
+rist = ["media-rist/librist"]
+
+[dependencies]
+media-bank = { workspace = true }
+media-bitstream = { workspace = true }
+media-clock = { workspace = true }
+media-demux = { workspace = true }
+media-hls = { workspace = true }
+media-rtsp = { workspace = true }
+media-whep = { workspace = true }
+media-rist = { workspace = true }
+media-decode = { workspace = true }
+media-diag = { workspace = true }
+media-io = { workspace = true }
+decode-sw = { workspace = true }
+media-present = { workspace = true }
+rtrb = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+url = "2.5.8"
+
+[target.'cfg(windows)'.dependencies]
+decode-mf = { workspace = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+decode-mediacodec = { workspace = true }
+
+[lints]
+workspace = true

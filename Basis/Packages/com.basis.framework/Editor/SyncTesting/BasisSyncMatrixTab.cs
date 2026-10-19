@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using Basis.Editor.Localization;
 using Basis.Scripts.Networking.Sync.Testing;
 using UnityEditor;
 using UnityEngine;
@@ -16,9 +17,9 @@ namespace Basis.Scripts.Networking.Sync.EditorTools
     /// </summary>
     public sealed class BasisSyncMatrixTab : BasisEditorTabPage
     {
-        public override string Title => "Correctness Matrix";
+        public override string Title => BasisEditorLocalization.Get("editor.syncTesting.matrix.title");
         public override string Subtitle =>
-            "Every combination of field types, features, motion and network impairment, pass-fail.";
+            BasisEditorLocalization.Get("editor.syncTesting.matrix.subtitle");
 
         static readonly Color Green = new Color(0.45f, 0.9f, 0.45f);
         static readonly Color Red = new Color(0.95f, 0.5f, 0.5f);
@@ -47,11 +48,9 @@ namespace Basis.Scripts.Networking.Sync.EditorTools
 
         public override void Draw()
         {
-            Header("Generic Value Sync - Combinatorial Test Matrix");
+            Header(BasisEditorLocalization.Get("editor.syncTesting.matrix.header"));
             EditorGUILayout.HelpBox(
-                "Drives the real BasisSyncCodec + BasisSyncReceiver through serialize -> wire -> deserialize -> " +
-                "interpolate, with no live network. Every field type, quantize/interpolate/extrapolate/teleport " +
-                "feature, motion pattern, and network impairment is run and scored for convergence.",
+                BasisEditorLocalization.Get("editor.syncTesting.matrix.help"),
                 MessageType.Info);
 
             DrawSettings();
@@ -63,35 +62,36 @@ namespace Basis.Scripts.Networking.Sync.EditorTools
 
         void DrawSettings()
         {
-            Header("Scope");
+            Header(BasisEditorLocalization.Get("editor.syncTesting.matrix.scope"));
             EditorGUI.BeginChangeCheck();
 
-            _scope = (Scope)EditorGUILayout.EnumPopup("Preset", _scope);
-            _seeds = EditorGUILayout.IntSlider(new GUIContent("Seeds (repeats)", "Independent seeded reruns per scenario."), _seeds, 1, 5);
+            _scope = (Scope)EditorGUILayout.Popup(BasisEditorLocalization.Get("editor.syncTesting.matrix.preset"), (int)_scope,
+                new[] { BasisEditorLocalization.Get("editor.syncTesting.matrix.presetQuick"), BasisEditorLocalization.Get("editor.syncTesting.matrix.presetFull") });
+            _seeds = EditorGUILayout.IntSlider(new GUIContent(BasisEditorLocalization.Get("editor.syncTesting.matrix.seeds"), BasisEditorLocalization.Get("editor.syncTesting.matrix.seeds.tooltip")), _seeds, 1, 5);
 
             using (new EditorGUI.IndentLevelScope())
             {
-                _composites = EditorGUILayout.Toggle("Composite configs", _composites);
-                _interpOff = EditorGUILayout.Toggle("Interpolate-off variants", _interpOff);
-                _extrap = EditorGUILayout.Toggle("Extrapolation variants", _extrap);
-                _teleThresh = EditorGUILayout.Toggle("Teleport-threshold variants", _teleThresh);
-                _checksumOff = EditorGUILayout.Toggle(new GUIContent("Checksum-off variants", "Adds checksum-OFF runs on corrupting profiles. Undetectable corruption is reported as WARN (labelled 'no checksum'), not FAIL."), _checksumOff);
+                _composites = EditorGUILayout.Toggle(BasisEditorLocalization.Get("editor.syncTesting.matrix.composites"), _composites);
+                _interpOff = EditorGUILayout.Toggle(BasisEditorLocalization.Get("editor.syncTesting.matrix.interpOff"), _interpOff);
+                _extrap = EditorGUILayout.Toggle(BasisEditorLocalization.Get("editor.syncTesting.matrix.extrap"), _extrap);
+                _teleThresh = EditorGUILayout.Toggle(BasisEditorLocalization.Get("editor.syncTesting.matrix.teleThresh"), _teleThresh);
+                _checksumOff = EditorGUILayout.Toggle(new GUIContent(BasisEditorLocalization.Get("editor.syncTesting.matrix.checksumOff"), BasisEditorLocalization.Get("editor.syncTesting.matrix.checksumOff.tooltip")), _checksumOff);
             }
 
-            Header("Multi-object scenes");
-            _multiObject = EditorGUILayout.Toggle(new GUIContent("Enable scenes", "Several objects share one wire: batch coalesce/demux, real Burst interp over a multi-slot SoA, and a late-joiner. One scene yields one result row per object."), _multiObject);
+            Header(BasisEditorLocalization.Get("editor.syncTesting.matrix.multiObjectHeader"));
+            _multiObject = EditorGUILayout.Toggle(new GUIContent(BasisEditorLocalization.Get("editor.syncTesting.matrix.multiObject"), BasisEditorLocalization.Get("editor.syncTesting.matrix.multiObject.tooltip")), _multiObject);
             using (new EditorGUI.IndentLevelScope())
             using (new EditorGUI.DisabledScope(!_multiObject))
             {
-                _batched = EditorGUILayout.Toggle(new GUIContent("Batched transport", "Coalesce each frame through the real BatchWriter and demux via BatchReader (shared-fate loss). Off = one datagram per object."), _batched);
-                _realJob = EditorGUILayout.Toggle(new GUIContent("Real Burst interp", "Sample the far side with the real InterpolateSyncObjectsJob over the multi-slot SoA. Off = managed mirror."), _realJob);
-                _lateJoin = EditorGUILayout.Toggle(new GUIContent("Late-join variant", "Adds a receiver that attaches mid-stream and recovers only via the keyframe-on-join."), _lateJoin);
+                _batched = EditorGUILayout.Toggle(new GUIContent(BasisEditorLocalization.Get("editor.syncTesting.matrix.batched"), BasisEditorLocalization.Get("editor.syncTesting.matrix.batched.tooltip")), _batched);
+                _realJob = EditorGUILayout.Toggle(new GUIContent(BasisEditorLocalization.Get("editor.syncTesting.matrix.realJob"), BasisEditorLocalization.Get("editor.syncTesting.matrix.realJob.tooltip")), _realJob);
+                _lateJoin = EditorGUILayout.Toggle(new GUIContent(BasisEditorLocalization.Get("editor.syncTesting.matrix.lateJoin"), BasisEditorLocalization.Get("editor.syncTesting.matrix.lateJoin.tooltip")), _lateJoin);
             }
 
             if (EditorGUI.EndChangeCheck() || _scenarioCount < 0)
                 _scenarioCount = BasisSyncSimMatrix.CountScenarios(MatrixOptionsBuilder());
 
-            EditorGUILayout.LabelField("Scenarios to run", _scenarioCount.ToString("N0"));
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.syncTesting.matrix.scenarioCount"), _scenarioCount.ToString("N0"));
         }
 
         void DrawRun()
@@ -99,13 +99,13 @@ namespace Basis.Scripts.Networking.Sync.EditorTools
             EditorGUILayout.Space();
             using (new EditorGUI.DisabledScope(EditorApplication.isCompiling))
             {
-                if (BasisEditorUI.PrimaryButton("Run Matrix", 30f))
+                if (BasisEditorUI.PrimaryButton(BasisEditorLocalization.Get("editor.syncTesting.matrix.run"), 30f))
                     RunMatrix();
             }
 
             using (new EditorGUI.DisabledScope(_results == null || _results.Count == 0))
             {
-                if (GUILayout.Button("Export CSV..."))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.syncTesting.exportCsv")))
                     ExportCsv();
             }
         }
@@ -114,7 +114,7 @@ namespace Basis.Scripts.Networking.Sync.EditorTools
         {
             if (_results == null) return;
 
-            Header("Results");
+            Header(BasisEditorLocalization.Get("editor.syncTesting.matrix.results"));
             int pass = 0, warn = 0, fail = 0;
             for (int i = 0; i < _results.Count; i++)
             {
@@ -125,10 +125,10 @@ namespace Basis.Scripts.Networking.Sync.EditorTools
             }
 
             EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
-            Colored($"PASS {pass}", fail == 0 && warn == 0 ? Green : Grey);
-            Colored($"WARN {warn}", warn > 0 ? Yellow : Grey);
-            Colored($"FAIL {fail}", fail > 0 ? Red : Grey);
-            EditorGUILayout.LabelField($"of {_results.Count}", GUILayout.Width(70));
+            Colored(BasisEditorLocalization.Get("editor.syncTesting.matrix.pass", pass), fail == 0 && warn == 0 ? Green : Grey);
+            Colored(BasisEditorLocalization.Get("editor.syncTesting.matrix.warn", warn), warn > 0 ? Yellow : Grey);
+            Colored(BasisEditorLocalization.Get("editor.syncTesting.matrix.fail", fail), fail > 0 ? Red : Grey);
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.syncTesting.matrix.ofTotal", _results.Count), GUILayout.Width(70));
             EditorGUILayout.EndHorizontal();
 
             if (!string.IsNullOrEmpty(_summary))
@@ -136,7 +136,7 @@ namespace Basis.Scripts.Networking.Sync.EditorTools
 
             if (fail > 0)
             {
-                Header("Failures (hard)");
+                Header(BasisEditorLocalization.Get("editor.syncTesting.matrix.failures"));
                 _failScroll = EditorGUILayout.BeginScrollView(_failScroll, GUILayout.MaxHeight(220));
                 int shown = 0;
                 for (int i = 0; i < _results.Count && shown < 200; i++)
@@ -183,7 +183,7 @@ namespace Basis.Scripts.Networking.Sync.EditorTools
                     {
                         if (done % 16 == 0 || done == total)
                         {
-                            if (EditorUtility.DisplayCancelableProgressBar("Sync Test Matrix",
+                            if (EditorUtility.DisplayCancelableProgressBar(BasisEditorLocalization.Get("editor.syncTesting.matrix.progressTitle"),
                                 $"{done}/{total}  -  {(r != null ? r.ScenarioName : "")}", total > 0 ? (float)done / total : 0f))
                                 _cancel = true;
                         }
@@ -224,26 +224,26 @@ namespace Basis.Scripts.Networking.Sync.EditorTools
             }
 
             var sb = new StringBuilder();
-            sb.AppendLine($"{_results.Count} scenarios in {elapsedMs} ms   |   PASS {pass}   WARN {warn}   FAIL {fail}   (soft {soft})");
+            sb.AppendLine(BasisEditorLocalization.Get("editor.syncTesting.matrix.summaryTotals", _results.Count, elapsedMs, pass, warn, fail, soft));
             sb.AppendLine();
-            sb.AppendLine("By network profile:");
+            sb.AppendLine(BasisEditorLocalization.Get("editor.syncTesting.matrix.summaryByProfile"));
             foreach (var kv in byProfile)
-                sb.AppendLine($"  {kv.Key,-14} pass {kv.Value[0],4}   fail {kv.Value[1],4}");
+                sb.AppendLine("  " + BasisEditorLocalization.Get("editor.syncTesting.matrix.summaryRow", kv.Key, kv.Value[0], kv.Value[1]));
             sb.AppendLine();
-            sb.AppendLine("By transport:");
+            sb.AppendLine(BasisEditorLocalization.Get("editor.syncTesting.matrix.summaryByTransport"));
             foreach (var kv in byTransport)
-                sb.AppendLine($"  {kv.Key,-14} pass {kv.Value[0],4}   fail {kv.Value[1],4}");
-            sb.AppendLine($"  scene demux: {demuxEntries} sub-payloads routed, {demuxErrors} unroutable");
+                sb.AppendLine("  " + BasisEditorLocalization.Get("editor.syncTesting.matrix.summaryRow", kv.Key, kv.Value[0], kv.Value[1]));
+            sb.AppendLine("  " + BasisEditorLocalization.Get("editor.syncTesting.matrix.summaryDemux", demuxEntries, demuxErrors));
             sb.AppendLine();
-            sb.AppendLine("Field configs with failures:");
+            sb.AppendLine(BasisEditorLocalization.Get("editor.syncTesting.matrix.summaryConfigFailures"));
             bool anyCfgFail = false;
             foreach (var kv in byConfig)
             {
                 if (kv.Value[1] == 0) continue;
                 anyCfgFail = true;
-                sb.AppendLine($"  {kv.Key,-22} pass {kv.Value[0],4}   fail {kv.Value[1],4}");
+                sb.AppendLine("  " + BasisEditorLocalization.Get("editor.syncTesting.matrix.summaryConfigRow", kv.Key, kv.Value[0], kv.Value[1]));
             }
-            if (!anyCfgFail) sb.AppendLine("  (none)");
+            if (!anyCfgFail) sb.AppendLine("  " + BasisEditorLocalization.Get("editor.syncTesting.matrix.summaryNone"));
 
             _summary = sb.ToString();
             Debug.Log("[BasisSyncSim] " + _summary);
@@ -257,7 +257,7 @@ namespace Basis.Scripts.Networking.Sync.EditorTools
 
         void ExportCsv()
         {
-            string path = EditorUtility.SaveFilePanel("Export Sync Test Results", "", "BasisSyncTestResults.csv", "csv");
+            string path = EditorUtility.SaveFilePanel(BasisEditorLocalization.Get("editor.syncTesting.matrix.exportTitle"), "", "BasisSyncTestResults.csv", "csv");
             if (string.IsNullOrEmpty(path)) return;
             File.WriteAllText(path, BasisSyncSimMatrix.ToCsv(_results), new UTF8Encoding(false));
             Debug.Log($"[BasisSyncSim] wrote {_results.Count} rows to {path}");

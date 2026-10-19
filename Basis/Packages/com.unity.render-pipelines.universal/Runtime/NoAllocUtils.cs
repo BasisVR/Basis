@@ -10,8 +10,8 @@ namespace UnityEngine.Rendering.Universal
     {
         // Add profling samplers to sorts as they often are a bottleneck when scaling things up.
         // By default avoid sampling recursion, but these can be used externally as well.
-        static public ProfilingSampler s_QuickSortSampler = new ProfilingSampler("QuickSort");
-        static public ProfilingSampler s_InsertionSortSampler = new ProfilingSampler("InsertionSort");
+        static public readonly ProfilingSampler s_QuickSortSampler = new ProfilingSampler("QuickSort");
+        static public readonly ProfilingSampler s_InsertionSortSampler = new ProfilingSampler("InsertionSort");
 
         public static void QuickSort<T>(T[] data, Func<T, T, int> compare)
         {

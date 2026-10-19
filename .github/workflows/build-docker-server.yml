@@ -90,8 +90,9 @@ jobs:
 
   headless-build:
     name: Build headless for ${{ matrix.targetPlatform }}${{ matrix.linuxArchitecture && format(' - {0}', matrix.linuxArchitecture) || '' }}
-    timeout-minutes: 150
-    runs-on: ${{ matrix.buildPlatform }}
+    timeout-minutes: 300
+    # Windows CoreCLR and Linux players all build in a Linux Unity editor image.
+    runs-on: ubuntu-latest
     permissions:
       actions: write # to allow us to manage cache
     env:
@@ -101,7 +102,6 @@ jobs:
       matrix:
         include:
           - targetPlatform: StandaloneLinux64
-            buildPlatform: ubuntu-latest
             buildName: HeadlessLinuxServer
             buildOutput: LinuxServerAmd64
             artifactName: LinuxHeadlessAmd64
@@ -109,8 +109,9 @@ jobs:
             linuxArchitecture: X64
             customParameters: -standaloneBuildSubtarget Server -linuxArchitecture X64
             buildMethod: BasisHeadlessBuild.BuildLinuxServer
+            unityModules: linux-server-coreclr
+            buildTimeout: 70
           - targetPlatform: StandaloneLinux64
-            buildPlatform: ubuntu-latest
             buildName: HeadlessLinuxServer
             buildOutput: LinuxServerArm64
             artifactName: LinuxHeadlessArm64
@@ -118,20 +119,22 @@ jobs:
             linuxArchitecture: ARM64
             customParameters: -standaloneBuildSubtarget Server -linuxArchitecture ARM64
             buildMethod: BasisHeadlessBuild.BuildLinuxServer
+            unityModules: linux-server
+            buildTimeout: 120
           - targetPlatform: StandaloneWindows64
-            buildPlatform: ubuntu-latest
             buildName: HeadlessWindowsServer
             buildOutput: WindowsServer
             artifactName: WindowsHeadless
             headlessFolderName: HeadlessWindows64
             customParameters: -standaloneBuildSubtarget Server
             buildMethod: BasisHeadlessBuild.BuildWindowsServer
+            unityModules: windows-server-coreclr
+            buildTimeout: 70
     needs: [check-secret]
     if: needs.check-secret.outputs.secret-is-set == 'true'
     steps:
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@main
-        if: matrix.buildPlatform == 'ubuntu-latest'
         with:
           tool-cache: true
           android: true
@@ -188,9 +191,16 @@ jobs:
         shell: pwsh
         run: |
           python .github/scripts/sanitize_headless_ci.py "${env:projectPath}"
+      - name: "Build Unity editor image"
+        id: unity-image
+        timeout-minutes: 40
+        uses: ./.github/actions/unity-editor-image
+        with:
+          projectPath: ${{ env.projectPath }}
+          modules: ${{ matrix.unityModules }}
       - name: "Build Unity project"
         id: unity-build
-        timeout-minutes: 70
+        timeout-minutes: ${{ matrix.buildTimeout }}
         continue-on-error: true
         uses: BasisVR/unity-builder@main
         env:
@@ -198,6 +208,8 @@ jobs:
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
+          customImage: ${{ steps.unity-image.outputs.image }}
+          dockerShmSize: 2g
           buildName: ${{ matrix.buildName }}
           buildMethod: ${{ matrix.buildMethod }}
           customParameters: ${{ matrix.customParameters }}
@@ -206,15 +218,23 @@ jobs:
           versioning: None
           buildsPath: build/${{ matrix.buildOutput }}
           linux64RemoveExecutableExtension: false
+      - name: "Clear Library for a cold retry"
+        if: steps.unity-build.outcome == 'failure'
+        shell: bash
+        run: |
+          sudo dmesg -T | grep -i -E 'invoked oom-killer|oom-kill:|killed process|memory: usage|swap: usage|out of memory' || echo "No OOM kill in the kernel log"
+          sudo rm -rf "${projectPath}/Library" "build/${{ matrix.buildOutput }}"
       - name: "Build Unity project (retry)"
         if: steps.unity-build.outcome == 'failure'
-        timeout-minutes: 70
+        timeout-minutes: 150
         uses: BasisVR/unity-builder@main
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
+          customImage: ${{ steps.unity-image.outputs.image }}
+          dockerShmSize: 2g
           buildName: ${{ matrix.buildName }}
           buildMethod: ${{ matrix.buildMethod }}
           customParameters: ${{ matrix.customParameters }}

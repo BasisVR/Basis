@@ -33,7 +33,7 @@ namespace Basis.MediaPipe.Homuler
         public bool IsReady => _activeModels > 0;
         public string BackendName => "homuler MediaPipe Unity Plugin";
 
-        private volatile bool _mirror, _lowLight, _swapHands;
+        private volatile bool _mirror, _lowLight;
         private readonly LoadState[] _loadState = new LoadState[ModelCount];
         private readonly int[] _loadToken = new int[ModelCount];
         private string _requestedPoseModel = string.Empty;
@@ -121,7 +121,6 @@ namespace Basis.MediaPipe.Homuler
             if (!_running) return;
             _mirror = config.MirrorHorizontally;
             _lowLight = config.LowLightBoost;
-            _swapHands = config.SwapHands;
 
             Sync(Model.Face, config.EnableFace, FaceModelAddress);
             Sync(Model.Hand, config.EnableHands, HandModelAddress);
@@ -713,7 +712,7 @@ namespace Basis.MediaPipe.Homuler
                     isLeft = categories[0].categoryName == "Left";
                 }
             }
-            return _swapHands ? !isLeft : isLeft;
+            return isLeft;
         }
 
         private void ParsePose(PoseLandmarkerResult result, MediaPipeResultSlot slot, bool mirror)

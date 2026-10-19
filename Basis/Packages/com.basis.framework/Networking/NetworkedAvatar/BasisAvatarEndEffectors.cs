@@ -13,8 +13,8 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
     ///     [tip rotation : 2 + 3×10 bits] smallest-three world orientation (~0.08°)
     ///
     /// A per-effector 8-bit swivel (elbow/knee pole angle) used to follow the rotation. It was dropped
-    /// because the receiver stopped reading it: the pole is taken from the FK joint position instead,
-    /// which is stable and has no reference-axis degeneracy (see BasisRemoteNetworkDriver's solve).
+    /// because the receiver stopped reading it: the swivel is taken from the synced FK limb instead,
+    /// which is stable and has no reference-axis degeneracy (see BasisRemoteLimbIK).
     ///
     /// The block is fixed-size regardless of the mask so reads stay fixed-offset; unanchored slots are
     /// simply ignored by the receiver. Positions are hips-local so they inherit the hips' precision and

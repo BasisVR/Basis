@@ -2,7 +2,8 @@ param (
     [switch]$DryRun
 )
 
-# Mirrors the Basis Server solution into the Unity package at Basis/Packages/com.basis.server.
+# Mirrors the Basis Server solution into the Unity package at Basis/Packages/com.basis.server, and the
+# default transport package Basis Server/Packages/com.basis.transport.litenetlib into Basis/Packages.
 # The package only ships what Unity compiles (the asmdef'd assemblies) plus Docker and the licence
 # files, so test projects, the dev consoles and the benchmark/compute projects stay out of it.
 
@@ -41,7 +42,7 @@ if (-Not (Test-Path -Path $destination)) {
 # Top-level entries the package mirrors. Anything absent here is deliberately not shipped:
 # BasisServerTests, BasisRestApi.Tests, BasisBenchAgent, BasisServerBenchmark, BasisNetworkCompute,
 # BasisServerConsole, BasisNetworkClientConsole, benchmark-results, the .sln and every .csproj.
-$includeDirs = @("BasisNetworkClient", "BasisNetworkCore", "BasisNetworkServer", "Contrib", "LiteNetLib", "Docker")
+$includeDirs = @("BasisNetworkClient", "BasisNetworkCore", "BasisNetworkServer", "Contrib", "Docker")
 $includeFiles = @("package.json", "profile-run.sh")
 
 # Package-side .meta, .asmdef, .gitignore, .gitattributes, LICENSE and THIRD_PARTY_NOTICES.md are
@@ -113,6 +114,51 @@ foreach ($entry in $includeFiles) {
         if (-not $DryRun) { Copy-Item -Path $sourceFile -Destination $destinationFile -Force }
         Write-Host "SYNC $entry"
         $copied++
+    }
+}
+
+$transportSource = Join-Path $source "Packages\com.basis.transport.litenetlib"
+$transportDestination = Join-Path (Split-Path -Parent $destination) "com.basis.transport.litenetlib"
+$transportExcludeFragments = @("\Server~\", "\obj\", "\bin\", "\.git\")
+
+function Test-TransportExcluded {
+    param (
+        [string]$fullName
+    )
+    foreach ($fragment in $transportExcludeFragments) {
+        if ($fullName -like "*$fragment*") { return $true }
+    }
+    return $false
+}
+
+if (Test-Path -Path $transportSource) {
+    if (Test-Path -Path $transportDestination) {
+        Get-ChildItem -Path $transportDestination -Recurse -File | Where-Object { -not (Test-TransportExcluded $_.FullName) } | ForEach-Object {
+            $relativePath = $_.FullName.Substring($transportDestination.Length)
+            if (-not (Test-Path -LiteralPath (Join-Path $transportSource $relativePath))) {
+                if (-not $DryRun) { Remove-Item -LiteralPath $_.FullName -Force }
+                Write-Host "DEL  com.basis.transport.litenetlib$relativePath"
+                $removed++
+            }
+        }
+    }
+
+    Get-ChildItem -Path $transportSource -Recurse -File | Where-Object { -not (Test-TransportExcluded $_.FullName) } | ForEach-Object {
+        $relativePath = $_.FullName.Substring($transportSource.Length)
+        $destinationPath = Join-Path $transportDestination $relativePath
+        $destinationFolder = Split-Path -Parent $destinationPath
+        if ((-not $DryRun) -and (-not (Test-Path -Path $destinationFolder))) { New-Item -ItemType Directory -Path $destinationFolder -Force | Out-Null }
+
+        if (-not (Test-Path -LiteralPath $destinationPath)) {
+            if (-not $DryRun) { Copy-Item -LiteralPath $_.FullName -Destination $destinationPath -Force }
+            Write-Host "ADD  com.basis.transport.litenetlib$relativePath"
+            $added++
+        }
+        elseif ((Get-FileHash -LiteralPath $_.FullName).Hash -ne (Get-FileHash -LiteralPath $destinationPath).Hash) {
+            if (-not $DryRun) { Copy-Item -LiteralPath $_.FullName -Destination $destinationPath -Force }
+            Write-Host "SYNC com.basis.transport.litenetlib$relativePath"
+            $copied++
+        }
     }
 }
 

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Basis.BasisUI
@@ -12,8 +13,9 @@ namespace Basis.BasisUI
     /// press is not queued: the pointer has to be released and pressed again deliberately.
     /// </para>
     /// </summary>
+    [AutoStaticsCleanup]
     [DisallowMultipleComponent]
-    public sealed class BasisPanelInputDelay : MonoBehaviour
+    public sealed partial class BasisPanelInputDelay : MonoBehaviour
     {
         /// <summary>
         /// Seconds a freshly opened panel ignores presses, matched to the panel entrance

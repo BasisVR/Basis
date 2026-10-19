@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using Basis.Editor.Localization;
 using Basis.Scripts.BasisSdk.Players;
 using Unity.Mathematics;
 using UnityEditor;
@@ -6,9 +7,9 @@ using UnityEngine;
 
 public sealed class BasisEyeDriverTab : BasisEditorTabPage
 {
-    public override string Title => "Driver";
+    public override string Title => BasisEditorLocalization.Get("editor.eyeDriver.title");
     public override string Subtitle =>
-        "Calibrate, simulate yaw/pitch, and apply the offset onto the animated pose.";
+        BasisEditorLocalization.Get("editor.eyeDriver.subtitle");
 
     private bool _showStatus = true;
     private bool _showState = true;
@@ -40,20 +41,20 @@ public sealed class BasisEyeDriverTab : BasisEditorTabPage
 
     public override void Draw()
     {
-        BasisEditorUI.SectionTitle("Eye Driver Debug");
-        EditorGUILayout.LabelField("Calibrate -> Simulate (yaw/pitch) -> Apply offset onto animated pose",
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.eyeDriver.header"));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.flow"),
             EditorStyles.miniLabel);
 
         if (!Application.isPlaying)
         {
-            BasisEditorUI.Help("Enter Play Mode to see live data.", MessageType.Info);
+            BasisEditorUI.Help(BasisEditorLocalization.Get("editor.eyeDriver.playModeOnly"), MessageType.Info);
             EditorGUILayout.EndScrollView();
             return;
         }
 
         if (!BasisLocalPlayer.PlayerReady)
         {
-            BasisEditorUI.Help("Waiting for local player...", MessageType.Info);
+            BasisEditorUI.Help(BasisEditorLocalization.Get("editor.eyeDriver.waitingForPlayer"), MessageType.Info);
             EditorGUILayout.EndScrollView();
             return;
         }
@@ -61,11 +62,11 @@ public sealed class BasisEyeDriverTab : BasisEditorTabPage
         var driver = BasisLocalPlayer.Instance.LocalEyeDriver;
 
         EditorGUILayout.Space(4);
-        _showStatus = DrawSection("Status", _showStatus, () => DrawStatusSection());
-        _showState = DrawSection("Eye State", _showState, DrawStateSection);
-        _showVisual = DrawSection("Eye Position Visual", _showVisual, () => DrawVisualSection(driver));
-        _showConfig = DrawSection("Configuration / Personality", _showConfig, () => DrawConfigSection(driver));
-        _showCalibration = DrawSection("Calibration Data", _showCalibration, DrawCalibrationSection);
+        _showStatus = DrawSection(BasisEditorLocalization.Get("editor.common.status"), _showStatus, () => DrawStatusSection());
+        _showState = DrawSection(BasisEditorLocalization.Get("editor.eyeDriver.section.state"), _showState, DrawStateSection);
+        _showVisual = DrawSection(BasisEditorLocalization.Get("editor.eyeDriver.section.visual"), _showVisual, () => DrawVisualSection(driver));
+        _showConfig = DrawSection(BasisEditorLocalization.Get("editor.eyeDriver.section.config"), _showConfig, () => DrawConfigSection(driver));
+        _showCalibration = DrawSection(BasisEditorLocalization.Get("editor.eyeDriver.section.calibration"), _showCalibration, DrawCalibrationSection);
 
     }
 
@@ -92,36 +93,28 @@ public sealed class BasisEyeDriverTab : BasisEditorTabPage
     private void DrawStatusSection()
     {
         StatusLabel("IsEnabled", BasisLocalEyeDriver.IsEnabled);
-        StatusLabel("Override (external control)", BasisLocalEyeDriver.Override);
+        StatusLabel(BasisEditorLocalization.Get("editor.eyeDriver.status.override"), BasisLocalEyeDriver.Override);
         StatusLabel("HasEyeSchedule", BasisLocalEyeDriver.HasEyeSchedule);
 
         EditorGUILayout.Space(2);
 
         bool leftOk = BasisLocalEyeDriver.leftEyeTransform != null;
         bool rightOk = BasisLocalEyeDriver.rightEyeTransform != null;
-        StatusLabel("Left Eye Transform", leftOk);
+        StatusLabel(BasisEditorLocalization.Get("editor.eyeDriver.status.leftEyeTransform"), leftOk);
         if (leftOk)
             EditorGUILayout.LabelField("  ", BasisLocalEyeDriver.leftEyeTransform.name);
-        StatusLabel("Right Eye Transform", rightOk);
+        StatusLabel(BasisEditorLocalization.Get("editor.eyeDriver.status.rightEyeTransform"), rightOk);
         if (rightOk)
             EditorGUILayout.LabelField("  ", BasisLocalEyeDriver.rightEyeTransform.name);
 
         if (!BasisLocalEyeDriver.IsEnabled)
         {
-            EditorGUILayout.HelpBox(
-                "Eye driver is DISABLED. Possible causes:\n" +
-                "- Avatar has no Humanoid LeftEye/RightEye bone mapping\n" +
-                "- BasisTransformMapping.HasLeftEye or HasRightEye is false\n" +
-                "- Initialize() was never called (check BasisLocalAvatarDriver calibration)",
-                MessageType.Warning);
+            EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.eyeDriver.status.disabledHelp"), MessageType.Warning);
         }
 
         if (BasisLocalEyeDriver.Override)
         {
-            EditorGUILayout.HelpBox(
-                "Override is TRUE - an external system (e.g. EyeTrackingBoneActuation) is controlling eyes.\n" +
-                "The procedural eye simulation will not run while Override is active.",
-                MessageType.Info);
+            EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.eyeDriver.status.overrideHelp"), MessageType.Info);
         }
     }
 
@@ -133,7 +126,7 @@ public sealed class BasisEyeDriverTab : BasisEditorTabPage
     {
         if (!BasisLocalEyeDriver.IsEnabled)
         {
-            EditorGUILayout.LabelField("(Eye driver not enabled)");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.notEnabled"));
             return;
         }
         BasisEyeState state =  BasisLocalEyeDriver.LastKnownState;
@@ -143,23 +136,23 @@ public sealed class BasisEyeDriverTab : BasisEditorTabPage
         string mode;
         Color modeColor;
         if (BasisLocalEyeDriver.Override)
-            { mode = "OVERRIDE (external)"; modeColor = WarnColor; }
+            { mode = BasisEditorLocalization.Get("editor.eyeDriver.mode.override"); modeColor = WarnColor; }
         else if (state.gazeBlend > 0.5f)
-            { mode = "GAZE TRACKING"; modeColor = GazeColor; }
+            { mode = BasisEditorLocalization.Get("editor.eyeDriver.mode.gaze"); modeColor = GazeColor; }
         else
-            { mode = "IDLE SACCADES"; modeColor = HoldColor; }
+            { mode = BasisEditorLocalization.Get("editor.eyeDriver.mode.idle"); modeColor = HoldColor; }
 
-        ColoredLabel("Mode", mode, modeColor);
+        ColoredLabel(BasisEditorLocalization.Get("editor.common.mode"), mode, modeColor);
         EditorGUILayout.Space(2);
 
         // Phase
-        string phaseName = state.phase == 0 ? "HOLD" : "SACCADE";
+        string phaseName = BasisEditorLocalization.Get(state.phase == 0 ? "editor.eyeDriver.phase.hold" : "editor.eyeDriver.phase.saccade");
         Color phaseColor = state.phase == 0 ? HoldColor : SaccadeColor;
-        ColoredLabel("Phase", phaseName, phaseColor);
+        ColoredLabel(BasisEditorLocalization.Get("editor.eyeDriver.phase"), phaseName, phaseColor);
 
         // Phase timer (text only, ticks every frame)
         float phaseProgress = state.phaseDur > 0 ? state.phaseT / state.phaseDur : 0f;
-        EditorGUILayout.LabelField("Phase Timer",
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.phaseTimer"),
             $"{state.phaseT:F2}s / {state.phaseDur:F2}s  ({phaseProgress * 100f:F0}%)");
 
         EditorGUILayout.Space(4);
@@ -169,14 +162,14 @@ public sealed class BasisEyeDriverTab : BasisEditorTabPage
         float2 targetDeg = math.degrees(state.targetYawPitch);
         float2 startDeg = math.degrees(state.startYawPitch);
 
-        EditorGUILayout.LabelField("Current Yaw/Pitch", $"{currentDeg.x:F2} / {currentDeg.y:F2} deg");
-        EditorGUILayout.LabelField("Target Yaw/Pitch", $"{targetDeg.x:F2} / {targetDeg.y:F2} deg");
-        EditorGUILayout.LabelField("Start Yaw/Pitch", $"{startDeg.x:F2} / {startDeg.y:F2} deg");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.currentYawPitch"), $"{currentDeg.x:F2} / {currentDeg.y:F2} deg");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.targetYawPitch"), $"{targetDeg.x:F2} / {targetDeg.y:F2} deg");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.startYawPitch"), $"{startDeg.x:F2} / {startDeg.y:F2} deg");
 
         EditorGUILayout.Space(4);
 
         // Gaze targeting
-        EditorGUILayout.LabelField("Gaze Blend", $"{state.gazeBlend:F2}");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.gazeBlend"), $"{state.gazeBlend:F2}");
         Rect gazeBar = GUILayoutUtility.GetRect(0, 14, GUILayout.ExpandWidth(true));
         DrawBar(gazeBar, state.gazeBlend, $"{state.gazeBlend * 100f:F0}%", GazeColor);
 
@@ -184,80 +177,80 @@ public sealed class BasisEyeDriverTab : BasisEditorTabPage
         if (snap.hasGazeTarget)
         {
             string targetName = snap.currentTargetId >= 0
-                ? $"Player {snap.currentTargetId}"
+                ? BasisEditorLocalization.Get("editor.eyeDriver.targetPlayer", snap.currentTargetId)
                 : snap.currentGazeTarget != null
                     ? snap.currentGazeTarget.gameObject.name
                     : "?";
-            EditorGUILayout.LabelField("Target", $"{targetName}  ({snap.bestDist:F2}m, score {snap.bestScore:F2})");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.common.target"), BasisEditorLocalization.Get("editor.eyeDriver.targetInfo", targetName, snap.bestDist, snap.bestScore));
         }
         else
         {
-            EditorGUILayout.LabelField("Target", "(none)");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.common.target"), BasisEditorLocalization.Get("editor.eyeDriver.targetNone"));
         }
 
         // Social triangle (N/A if no avatar targets)
         bool hasSocial = snap.hasGazeTarget && snap.currentTargetId >= 0;
         if (hasSocial)
         {
-            string[] socialNames = { "Left Eye", "Right Eye", "Mouth" };
+            string[] socialNames = { BasisEditorLocalization.Get("editor.eyeDriver.social.leftEye"), BasisEditorLocalization.Get("editor.eyeDriver.social.rightEye"), BasisEditorLocalization.Get("editor.eyeDriver.social.mouth") };
             string socialName = state.socialPhase < socialNames.Length ? socialNames[state.socialPhase] : "?";
 
             string subState;
             Color subColor;
-            if (state.socialSaccadeT < 0f) { subState = "Reaction Delay"; subColor = WarnColor; }
-            else if (state.socialSaccadeT < 1f) { subState = "Saccading"; subColor = SaccadeColor; }
-            else { subState = "Pursuit"; subColor = PursuitColor; }
+            if (state.socialSaccadeT < 0f) { subState = BasisEditorLocalization.Get("editor.eyeDriver.reactionDelay"); subColor = WarnColor; }
+            else if (state.socialSaccadeT < 1f) { subState = BasisEditorLocalization.Get("editor.eyeDriver.social.saccading"); subColor = SaccadeColor; }
+            else { subState = BasisEditorLocalization.Get("editor.eyeDriver.social.pursuit"); subColor = PursuitColor; }
 
-            ColoredLabel("Social", $"{socialName}  -  {subState}", subColor);
+            ColoredLabel(BasisEditorLocalization.Get("editor.eyeDriver.social"), $"{socialName}  -  {subState}", subColor);
 
-            EditorGUILayout.LabelField("Social Hold Timer",
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.socialHoldTimer"),
                 $"{state.socialTimer:F2}s / {state.socialDur:F2}s");
 
             if (state.socialSaccadeT < 0f)
-                EditorGUILayout.LabelField("Saccade Progress",
-                    $"Reaction: {-state.socialSaccadeT * state.socialSaccadeDur:F2}s remaining");
+                EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.saccadeProgress"),
+                    BasisEditorLocalization.Get("editor.eyeDriver.saccadeReaction", -state.socialSaccadeT * state.socialSaccadeDur));
             else if (state.socialSaccadeT < 1f)
-                EditorGUILayout.LabelField("Saccade Progress",
-                    $"{state.socialSaccadeT:F2} ({state.socialSaccadeDur:F2}s total)");
+                EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.saccadeProgress"),
+                    BasisEditorLocalization.Get("editor.eyeDriver.saccadeTotal", state.socialSaccadeT, state.socialSaccadeDur));
             else
-                EditorGUILayout.LabelField("Saccade Progress", "Complete (pursuit)");
+                EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.saccadeProgress"), BasisEditorLocalization.Get("editor.eyeDriver.saccadeComplete"));
 
-            EditorGUILayout.LabelField("Mouth Glance Chance", $"{snap.gazeMouthScale:F2}");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.mouthGlanceChance"), $"{snap.gazeMouthScale:F2}");
         }
         else
         {
-            EditorGUILayout.LabelField("Social", "N/A");
-            EditorGUILayout.LabelField("Social Hold Timer", "N/A");
-            EditorGUILayout.LabelField("Saccade Progress", "N/A");
-            EditorGUILayout.LabelField("Mouth Glance Chance", "N/A");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.social"), BasisEditorLocalization.Get("editor.eyeDriver.notApplicable"));
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.socialHoldTimer"), BasisEditorLocalization.Get("editor.eyeDriver.notApplicable"));
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.saccadeProgress"), BasisEditorLocalization.Get("editor.eyeDriver.notApplicable"));
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.mouthGlanceChance"), BasisEditorLocalization.Get("editor.eyeDriver.notApplicable"));
         }
-        EditorGUILayout.LabelField("Jitter Scale", $"{state.jitterScale:F2}x");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.jitterScale"), $"{state.jitterScale:F2}x");
 
         // Gaze disengagement break state
         if (state.isAverting == 1)
-            ColoredLabel("Gaze Break", $"AVERTING ({state.avertedTimer:F2}s remaining)", WarnColor);
+            ColoredLabel(BasisEditorLocalization.Get("editor.eyeDriver.gazeBreak"), BasisEditorLocalization.Get("editor.eyeDriver.gazeBreakAverting", state.avertedTimer), WarnColor);
         else if (state.gazeBreakTimer > 0f)
-            EditorGUILayout.LabelField("Gaze Break", $"Next break in {state.gazeBreakTimer:F1}s");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.gazeBreak"), BasisEditorLocalization.Get("editor.eyeDriver.gazeBreakNext", state.gazeBreakTimer));
         else
-            EditorGUILayout.LabelField("Gaze Break", "Idle");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.gazeBreak"), BasisEditorLocalization.Get("editor.eyeDriver.gazeBreakIdle"));
 
         EditorGUILayout.Space(4);
 
         // Crowd
         if (snap.avatarsInRange > 0)
         {
-            EditorGUILayout.LabelField("Avatars In Range", $"{snap.avatarsInRange}");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.avatarsInRange"), $"{snap.avatarsInRange}");
         }
 
         // Offset angles
         float leftAngle = math.degrees(2f * math.acos(math.clamp(math.abs(state.leftOffset.value.w), 0f, 1f)));
         float rightAngle = math.degrees(2f * math.acos(math.clamp(math.abs(state.rightOffset.value.w), 0f, 1f)));
-        EditorGUILayout.LabelField("Offset Angles", $"L {leftAngle:F2} / R {rightAngle:F2} deg");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.offsetAngles"), $"L {leftAngle:F2} / R {rightAngle:F2} deg");
 
         // Per-eye vergence offset
         float2 eyeVarDeg = math.degrees(state.eyeVar);
-        EditorGUILayout.LabelField("Vergence Offset",
-            $"({eyeVarDeg.x:F2}, {eyeVarDeg.y:F2}) deg  (scaled: x{BasisEyeState.VergenceScale:F1})");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.vergenceOffset"),
+            BasisEditorLocalization.Get("editor.eyeDriver.vergenceValue", eyeVarDeg.x, eyeVarDeg.y, BasisEyeState.VergenceScale));
     }
 
     #endregion
@@ -268,7 +261,7 @@ public sealed class BasisEyeDriverTab : BasisEditorTabPage
     {
         if (!BasisLocalEyeDriver.IsEnabled)
         {
-            EditorGUILayout.LabelField("(Eye driver not enabled)");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.notEnabled"));
             return;
         }
         BasisEyeState state = BasisLocalEyeDriver.LastKnownState;
@@ -347,14 +340,14 @@ public sealed class BasisEyeDriverTab : BasisEditorTabPage
         // Legend
         EditorGUILayout.BeginHorizontal();
         GUILayout.FlexibleSpace();
-        LegendItem("Hold", HoldColor);
-        LegendItem("Saccade", SaccadeColor);
-        LegendItem("Target", new Color(1f, 1f, 0.3f));
-        LegendItem("Gaze", GazeColor);
+        LegendItem(BasisEditorLocalization.Get("editor.eyeDriver.legend.hold"), HoldColor);
+        LegendItem(BasisEditorLocalization.Get("editor.eyeDriver.legend.saccade"), SaccadeColor);
+        LegendItem(BasisEditorLocalization.Get("editor.common.target"), new Color(1f, 1f, 0.3f));
+        LegendItem(BasisEditorLocalization.Get("editor.eyeDriver.legend.gaze"), GazeColor);
         GUILayout.FlexibleSpace();
         EditorGUILayout.EndHorizontal();
 
-        EditorGUILayout.LabelField($"Range: +/- {maxDeg:F0} deg", EditorStyles.centeredGreyMiniLabel);
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.range", maxDeg), EditorStyles.centeredGreyMiniLabel);
     }
 
     #endregion
@@ -363,34 +356,34 @@ public sealed class BasisEyeDriverTab : BasisEditorTabPage
 
     private void DrawConfigSection(BasisLocalEyeDriver driver)
     {
-        EditorGUILayout.LabelField("Max Look Angle (avatar)", $"{BasisLocalEyeDriver.MaxAngleDeg:F1} deg");
-        EditorGUILayout.LabelField("Saccade Time Range", $"{driver.saccadeTimeRange.x:F2}s - {driver.saccadeTimeRange.y:F2}s");
-        EditorGUILayout.LabelField("Per-Eye Variance", $"{driver.perEyeVarianceDeg:F2} deg");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.maxLookAngle"), $"{BasisLocalEyeDriver.MaxAngleDeg:F1} deg");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.saccadeTimeRange"), $"{driver.saccadeTimeRange.x:F2}s - {driver.saccadeTimeRange.y:F2}s");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.perEyeVariance"), $"{driver.perEyeVarianceDeg:F2} deg");
 
         EditorGUILayout.Space(4);
 
-        BasisEditorUI.SectionTitle("Personality");
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.eyeDriver.personality"));
         EditorGUI.indentLevel++;
-        EditorGUILayout.LabelField("Liveliness", $"{BasisLocalEyeDriverData.Liveliness:F2}");
-        EditorGUILayout.LabelField("Attentiveness", $"{BasisLocalEyeDriverData.Attentiveness:F2}");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.liveliness"), $"{BasisLocalEyeDriverData.Liveliness:F2}");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.attentiveness"), $"{BasisLocalEyeDriverData.Attentiveness:F2}");
         EditorGUI.indentLevel--;
 
         EditorGUILayout.Space(4);
 
         // Derived parameters from eye personality settings
-        BasisEditorUI.SectionTitle("Derived");
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.eyeDriver.derived"));
         var p = BasisLocalEyeDriver.DebugSnapshot.personality;
         EditorGUI.indentLevel++;
-        EditorGUILayout.LabelField("Hold Range", $"{p.holdMin:F2}s - {p.holdMax:F2}s");
-        EditorGUILayout.LabelField("Center Bias", $"{p.centerBias:F2}");
-        EditorGUILayout.LabelField("Center Return", $"{p.centerReturnChance * 100f:F0}%");
-        EditorGUILayout.LabelField("Max Jitter", $"{math.degrees(p.maxFocusedJitterRad):F2} deg");
-        EditorGUILayout.LabelField("Hold Scale (gaze)", $"{p.holdScaleAtFullGaze:F2}x");
-        EditorGUILayout.LabelField("Blend In/Out", $"{p.gazeBlendInSpeed:F2} / {p.gazeBlendOutSpeed:F2} /s");
-        EditorGUILayout.LabelField("Social Hold Scale", $"{p.socialHoldScale:F2}x");
-        EditorGUILayout.LabelField("Gaze Break Range", $"{p.gazeBreakMin:F1}s - {p.gazeBreakMax:F1}s");
-        EditorGUILayout.LabelField("Averted Range", $"{p.avertedMin:F2}s - {p.avertedMax:F2}s");
-        EditorGUILayout.LabelField("Reaction Delay", $"{p.reactionMin:F2}s - {p.reactionMax:F2}s");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.holdRange"), $"{p.holdMin:F2}s - {p.holdMax:F2}s");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.centerBias"), $"{p.centerBias:F2}");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.centerReturn"), $"{p.centerReturnChance * 100f:F0}%");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.maxJitter"), $"{math.degrees(p.maxFocusedJitterRad):F2} deg");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.holdScaleGaze"), $"{p.holdScaleAtFullGaze:F2}x");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.blendInOut"), $"{p.gazeBlendInSpeed:F2} / {p.gazeBlendOutSpeed:F2} /s");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.socialHoldScale"), $"{p.socialHoldScale:F2}x");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.gazeBreakRange"), $"{p.gazeBreakMin:F1}s - {p.gazeBreakMax:F1}s");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.avertedRange"), $"{p.avertedMin:F2}s - {p.avertedMax:F2}s");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.reactionDelay"), $"{p.reactionMin:F2}s - {p.reactionMax:F2}s");
         EditorGUI.indentLevel--;
     }
 
@@ -402,26 +395,26 @@ public sealed class BasisEyeDriverTab : BasisEditorTabPage
     {
         if (!BasisLocalEyeDriver.IsEnabled)
         {
-            EditorGUILayout.LabelField("(Eye driver not enabled - no calibration data)");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.eyeDriver.noCalibration"));
             return;
         }
 
-        DrawCalibrationEye("Left", BasisLocalEyeDriver.calLeft);
+        DrawCalibrationEye(BasisEditorLocalization.Get("editor.eyeDriver.leftEyeCalibration"), BasisLocalEyeDriver.calLeft);
         EditorGUILayout.Space(2);
-        DrawCalibrationEye("Right", BasisLocalEyeDriver.calRight);
+        DrawCalibrationEye(BasisEditorLocalization.Get("editor.eyeDriver.rightEyeCalibration"), BasisLocalEyeDriver.calRight);
 
         if (BasisLocalEyeDriver.leftEyeTransform != null)
         {
             EditorGUILayout.Space(4);
-            BasisEditorUI.Note("Detected Axes (world-space, from calibration basis)");
-            DrawDetectedAxes("Left", BasisLocalEyeDriver.calLeft);
-            DrawDetectedAxes("Right", BasisLocalEyeDriver.calRight);
+            BasisEditorUI.Note(BasisEditorLocalization.Get("editor.eyeDriver.detectedAxes"));
+            DrawDetectedAxes(BasisEditorLocalization.Get("editor.eyeDriver.leftForward"), BasisEditorLocalization.Get("editor.eyeDriver.leftUp"), BasisLocalEyeDriver.calLeft);
+            DrawDetectedAxes(BasisEditorLocalization.Get("editor.eyeDriver.rightForward"), BasisEditorLocalization.Get("editor.eyeDriver.rightUp"), BasisLocalEyeDriver.calRight);
         }
     }
 
-    private void DrawCalibrationEye(string label, BasisEyeCalibration cal)
+    private void DrawCalibrationEye(string title, BasisEyeCalibration cal)
     {
-        BasisEditorUI.SectionTitle($"{label} Eye Calibration");
+        BasisEditorUI.SectionTitle(title);
         EditorGUI.indentLevel++;
         EditorGUILayout.LabelField("Basis", QuatToString(cal.basis));
         EditorGUILayout.LabelField("InvBasis", QuatToString(cal.invBasis));
@@ -429,13 +422,13 @@ public sealed class BasisEyeDriverTab : BasisEditorTabPage
         EditorGUI.indentLevel--;
     }
 
-    private void DrawDetectedAxes(string label, BasisEyeCalibration cal)
+    private void DrawDetectedAxes(string forwardLabel, string upLabel, BasisEyeCalibration cal)
     {
         float3 fwd = math.mul(cal.basis, new float3(0, 0, 1));
         float3 up = math.mul(cal.basis, new float3(0, 1, 0));
         EditorGUI.indentLevel++;
-        EditorGUILayout.LabelField($"{label} Forward", $"({fwd.x:F3}, {fwd.y:F3}, {fwd.z:F3})");
-        EditorGUILayout.LabelField($"{label} Up", $"({up.x:F3}, {up.y:F3}, {up.z:F3})");
+        EditorGUILayout.LabelField(forwardLabel, $"({fwd.x:F3}, {fwd.y:F3}, {fwd.z:F3})");
+        EditorGUILayout.LabelField(upLabel, $"({up.x:F3}, {up.y:F3}, {up.z:F3})");
         EditorGUI.indentLevel--;
     }
 
@@ -461,7 +454,7 @@ public sealed class BasisEyeDriverTab : BasisEditorTabPage
 
     private void StatusLabel(string label, bool value)
     {
-        ColoredLabel(label, value ? "YES" : "NO", value ? GoodColor : ErrorColor);
+        ColoredLabel(label, BasisEditorLocalization.Get(value ? "sdk.cilbox.state.yes" : "sdk.cilbox.state.no"), value ? GoodColor : ErrorColor);
     }
 
     private void LegendItem(string label, Color color)

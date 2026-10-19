@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Unity.Scripting.LifecycleManagement;
+using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -36,7 +37,8 @@ namespace Basis.ImagePickup
     /// Image transfer work runs on the update tick; animation scheduling runs on the late-update tick, after
     /// camera and transform writes have settled and before the render.
     /// </summary>
-    public static class BasisImagePickupManager
+    [AutoStaticsCleanup]
+    public static partial class BasisImagePickupManager
     {
         private const string FixedNetworkIdentifier = "BasisImagePickupManager";
         private const int MaxIgnoredOwnerNameBytes = 1024;
@@ -49,7 +51,7 @@ namespace Basis.ImagePickup
         private const BasisDebug.LogTag LogTag = BasisDebug.LogTag.Pickups;
         private const BasisDebug.LogTag RenderLogTag = BasisDebug.LogTag.Rendering;
         internal const int MaxOwnerNameUtf8Bytes = 256;
-        private static readonly UTF8Encoding StrictUtf8 = new(false, true);
+        [NoAutoStaticsCleanup] private static readonly UTF8Encoding StrictUtf8 = new(false, true);
 
         private const byte OpSpawn = 1;
         private const byte OpChunk = 2;
@@ -353,8 +355,8 @@ namespace Basis.ImagePickup
 
         private static readonly ushort[] _selfRecipient = new ushort[1];
         private static Guid[] _offerRangeIds = Array.Empty<Guid>();
-        private static NativeArray<Vector3> _offerRangePositions;
-        private static NativeArray<byte> _offerRangeResults;
+        [NoAutoStaticsCleanup] private static NativeArray<Vector3> _offerRangePositions;
+        [NoAutoStaticsCleanup] private static NativeArray<byte> _offerRangeResults;
         private static JobHandle _offerRangeHandle;
         private static int _offerRangeCount;
         private static bool _offerRangeScheduled;
@@ -400,8 +402,8 @@ namespace Basis.ImagePickup
         private static readonly List<int> _visibilityCameraCullingMasks = new(8);
         private static readonly List<Camera> _registeredCameraScratch = new(8);
         private static readonly List<Plane[]> _visibilityFrustums = new(8);
-        private static readonly RaycastHit[] _raycastHits = new RaycastHit[RaycastHitBufferSize];
-        private static CommandBuffer _commands;
+        [NoAutoStaticsCleanup] private static readonly RaycastHit[] _raycastHits = new RaycastHit[RaycastHitBufferSize];
+        [NoAutoStaticsCleanup] private static CommandBuffer _commands;
         private static Material _compositorMaterial;
         private static BasisAnimatedImagePlayer _compositorPriorityCandidate;
         private static int _localVisibilityCameraIndex = -1;

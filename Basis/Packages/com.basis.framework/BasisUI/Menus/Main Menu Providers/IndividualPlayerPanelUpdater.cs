@@ -30,6 +30,7 @@ namespace Basis.BasisUI
         /// </summary>
         public PanelElementDescriptor AvatarStatusField;
         [System.NonSerialized] public BasisPanelTint.Handle AvatarStatusTint;
+        internal IndividualPlayerProvider.ChatHistoryView ChatHistoryView;
 
         /// <summary>
         /// Direct-link round trip at which the ping card warns, then reads hot. Same thresholds the
@@ -144,6 +145,7 @@ namespace Basis.BasisUI
             // Same reasoning, and it also has an answer for a null player, so it runs before the
             // guards rather than after them.
             IndividualPlayerProvider.PaintAvatarStatus(RemotePlayer, AvatarStatusField, AvatarStatusTint, true);
+            IndividualPlayerProvider.PaintChatHistory(RemotePlayer, ChatHistoryView);
 
             if (RemotePlayer == null)
             {

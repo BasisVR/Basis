@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -8,10 +9,11 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace Basis.BasisUI
 {
-    public static class BasisTrustedUrls
+    [AutoStaticsCleanup]
+    public static partial class BasisTrustedUrls
     {
         private const string DefaultsAddress = "BasisDefaultTrustedUrls";
-        private static readonly string[] BuiltInSchemes = { "https://", "rtsp://", "rtspt://", "rtmp://" };
+        [NoAutoStaticsCleanup] private static readonly string[] BuiltInSchemes = { "https://", "rtsp://", "rtspt://", "rtmp://" };
 
         private const string FileName = "trustedUrls.json";
         private const string LegacyFileName = "trustedVideoUrls.json";

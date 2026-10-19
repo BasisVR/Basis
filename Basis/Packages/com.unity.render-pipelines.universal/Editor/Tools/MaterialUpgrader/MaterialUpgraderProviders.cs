@@ -115,10 +115,12 @@ namespace UnityEditor.Rendering.Universal
     {
         public IEnumerable<MaterialUpgrader> GetUpgraders()
         {
+            yield return new TerrainUpgrader("Nature/Terrain/Diffuse");
             yield return new TerrainUpgrader("Nature/Terrain/Standard");
             yield return new SpeedTreeUpgrader("Nature/SpeedTree");
             yield return new SpeedTreeBillboardUpgrader("Nature/SpeedTree Billboard");
             yield return new UniversalSpeedTree8Upgrader("Nature/SpeedTree8");
+            yield return new UniversalSpeedTree9Upgrader("Nature/SpeedTree9");
         }
     }
 

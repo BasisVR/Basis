@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Basis.Scripts.Avatar;
@@ -18,7 +19,8 @@ using UnityEngine.Rendering;
 /// Mesh, texture, material and humanoid rig are shared per avatar version across every
 /// player wearing it; only the ~20-transform skeleton is per player.
 /// </summary>
-public static class BasisFarAvatarBuilder
+[AutoStaticsCleanup]
+public static partial class BasisFarAvatarBuilder
 {
     public sealed class SharedAssets
     {
@@ -247,7 +249,7 @@ public static class BasisFarAvatarBuilder
             }
         }
 
-        parse = Task.Run(() =>
+        parse = BasisTasks.Run(() =>
         {
             BasisFarLodPayload payload = BasisFarLodPayload.TryParseBase64(payloadBase64);
             payload?.PrepareDecodedMeshData();

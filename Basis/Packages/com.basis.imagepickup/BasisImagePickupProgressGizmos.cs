@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -16,7 +17,8 @@ namespace Basis.ImagePickup
     /// regardless — so a player watching an image arrive sees the progress without turning anything on. The
     /// toggle going off still destroys every gizmo, hence the master hook.
     /// </summary>
-    internal static class BasisImagePickupProgressGizmos
+    [AutoStaticsCleanup]
+    internal static partial class BasisImagePickupProgressGizmos
     {
         private const float LabelBaseScale = 0.02f;
         private static readonly Color InboundColor = new Color(0.55f, 0.80f, 1f, 1f);

@@ -1,10 +1,12 @@
-﻿using HVR.Basis.Comms.Editor;
+﻿using Unity.Scripting.LifecycleManagement;
+using HVR.Basis.Comms.Editor;
 using UnityEditor;
 using UnityEngine;
 
 namespace HVR.Vixxy.Editor
 {
     [CustomEditor(typeof(HVRVixxyMenuItem))]
+    [NoAutoStaticsCleanup]
     public class HVRVixxyMenuItemEditor : UnityEditor.Editor
     {
         private VMenuItem _menuItem;

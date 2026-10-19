@@ -1,14 +1,17 @@
 using UnityEngine;
 
-// Declares which decoded channel(s) one AudioSource plays inside a
-// BasisMediaPlayerAudio output set. Sits on the same GameObject as the
-// AudioSource. Channel selections take a single decoded channel; Stereo plays a
-// stereo downmix of the whole stream as a 2-channel clip.
-//
-// What each channel carries depends on the stream's layout — e.g. a 5.1 stream
-// decodes in WAVE order (1 Front Left, 2 Front Right, 3 Front Centre, 4 LFE,
-// 5 Back Left, 6 Back Right), while a custom mix can use them as arbitrary
-// content lanes.
+/// <summary>
+/// Declares which decoded channel(s) one AudioSource plays inside a
+/// <see cref="BasisMediaPlayerAudio"/> output set. Sits on the same
+/// GameObject as the AudioSource. Channel selections take a single decoded
+/// channel; Stereo plays a stereo downmix of the whole stream.
+///
+/// What each channel carries depends on the stream's layout. A 5.1
+/// stream decodes in WAVE order (1 Front Left, 2 Front Right, 3 Front
+/// Centre, 4 LFE, 5 Back Left, 6 Back Right), while a custom mix can use
+/// them as arbitrary content lanes.
+/// </summary>
+[AddComponentMenu("Basis/Basis Media Audio Channel")]
 [RequireComponent(typeof(AudioSource))]
 public sealed class BasisMediaAudioChannel : MonoBehaviour
 {
@@ -22,8 +25,8 @@ public sealed class BasisMediaAudioChannel : MonoBehaviour
         [InspectorName("Channel 6")] Channel6 = 5,
         [InspectorName("Channel 7")] Channel7 = 6,
         [InspectorName("Channel 8")] Channel8 = 7,
-        // Values 0-63 are direct decoded channel indices; 100+ are reserved for
-        // mixed/virtual output modes so future channels don't collide.
+        // Values 0-63 are direct decoded channel indices; 100+ are reserved
+        // for mixed/virtual output modes so future channels don't collide.
         [InspectorName("Stereo (downmix)")] Stereo = 100,
     }
 
@@ -41,6 +44,7 @@ public sealed class BasisMediaAudioChannel : MonoBehaviour
 
     public bool IsStereo => Channel == Selection.Stereo;
 
-    // Decoded-stream channel index a mono selection draws from (0-based).
+    /// <summary>Decoded-stream channel index a mono selection draws from
+    /// (0-based).</summary>
     public int PrimaryChannel => Channel == Selection.Stereo ? 0 : (int)Channel;
 }

@@ -1,85 +1,174 @@
-using System.Runtime.CompilerServices;
-using Unity.Mathematics;
-
-/// <summary>
-/// Pure analytic two-bone IK for remote-avatar end-effector anchoring.
-///
-/// The remote skeleton is posed by forward kinematics off the interpolated hips, so a hand/foot at
-/// the end of a chain accumulates every joint's error and drifts. When the sender marks an effector
-/// "anchored" (a held controller/tracker or a planted foot) it ships the tip's WORLD target; the
-/// receiver then bends that one limb so the tip lands exactly on the target, taking its pole hint from
-/// the FK joint rather than a networked swivel angle.
-///
-/// The solve AIMS the current FK bones with minimal rotations (no avatar-specific bind-pose axes
-/// needed): rotate the upper bone so the joint reaches the analytic elbow/knee position, then rotate
-/// the lower bone so the tip reaches the target. Result is exact (tip == target, joint == the
-/// law-of-cosines point on the swivel circle). Burst-friendly, no Unity refs beyond Unity.Mathematics.
-/// </summary>
+using Basis.IK;
+using UnityEngine;
+public struct BasisRemoteLimbPose
+{
+    public Vector3 Root, Joint, Tip;
+    public Quaternion RootWorld, JointWorld, TipWorld, RootLocal, JointLocal, TipLocal, RootRest, JointRest, TipRest;
+}
 public static class BasisRemoteLimbIK
 {
-    /// <summary>Robust minimal rotation taking <paramref name="from"/> onto <paramref name="to"/>.</summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static quaternion FromToSafe(float3 from, float3 to)
+    public const float ElbowFromJointStart = 0.1f, ElbowFromJointFull = 0.3f, ArmReachHoldStart = 0.975f, ArmReachHoldFull = 0.995f, ArmReachHoldSlack = 0.01f;
+    const float epsilon = 1e-5f, sqrEpsilon = 1e-8f;
+    public static bool SolveArm(in BasisRemoteLimbPose limb, bool isLeft, Vector3 target, Quaternion targetRotation, in BasisSwivelFrame frame, out Quaternion upperLocal, out Quaternion lowerLocal, out Quaternion handLocal)
     {
-        float3 f = math.normalizesafe(from, new float3(0, 0, 1));
-        float3 t = math.normalizesafe(to, new float3(0, 0, 1));
-        float d = math.dot(f, t);
-        if (d > 0.999999f) return quaternion.identity;
-        if (d < -0.999999f) return quaternion.AxisAngle(PerpAny(f), math.PI);   // antiparallel
-        float3 c = math.cross(f, t);
-        return math.normalize(new quaternion(c.x, c.y, c.z, 1f + d));            // half-angle form
+        upperLocal = limb.RootLocal;
+        lowerLocal = limb.JointLocal;
+        handLocal = limb.TipLocal;
+        if (!frame.Valid)
+        {
+            return false;
+        }
+        Rest(limb, out Quaternion parent, out Quaternion upperToLower, out Quaternion lowerToHand, out Quaternion restUpper, out Quaternion restLower, out Quaternion restHand, out Vector3 restElbow, out Vector3 restHandPos);
+        target = HoldReach(limb, target, Vector3.Distance(limb.Root, restElbow) + Vector3.Distance(restElbow, restHandPos));
+        BasisArmSolveInput input = default;
+        input.Shoulder = limb.Root;
+        input.RestElbow = restElbow;
+        input.RestHand = restHandPos;
+        input.RestHandRotation = restHand;
+        input.TargetPosition = target;
+        input.TargetRotation = targetRotation;
+        input.TorsoUp = frame.Up;
+        input.TorsoForward = frame.Forward;
+        input.TorsoOut = isLeft ? -frame.Right : frame.Right;
+        input.IsLeft = isLeft;
+        input.HasTrackerHint = true;
+        input.HintPosition = ElbowHint(limb, input, restUpper, restElbow);
+        BasisArmState state = default;
+        BasisArmSolveCore.Solve(input, ref state, out BasisArmSolveResult result);
+        if (!result.Valid)
+        {
+            return false;
+        }
+        BasisArmSolveCore.Pose(input, result, restUpper, restLower, out Quaternion upper, out Quaternion lower, out float forearmRollDeg);
+        Vector3 forearm = result.Hand - result.Elbow;
+        if (forearm.sqrMagnitude > sqrEpsilon && (forearmRollDeg > 0.001f || forearmRollDeg < -0.001f))
+        {
+            lower = Quaternion.AngleAxis(forearmRollDeg, forearm.normalized) * lower;
+        }
+        Locals(parent, upperToLower, lowerToHand, upper, lower, targetRotation, out upperLocal, out lowerLocal, out handLocal);
+        return true;
     }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static float3 PerpAny(float3 dir)
+    public static bool SolveLeg(in BasisRemoteLimbPose limb, Vector3 target, Quaternion targetRotation, Vector3 bendNormal, out Quaternion upperLocal, out Quaternion lowerLocal, out Quaternion footLocal)
     {
-        float3 c = math.abs(dir.y) < 0.9f ? math.cross(dir, new float3(0, 1, 0)) : math.cross(dir, new float3(1, 0, 0));
-        return math.normalizesafe(c, new float3(1, 0, 0));
+        upperLocal = limb.RootLocal;
+        lowerLocal = limb.JointLocal;
+        footLocal = limb.TipLocal;
+        if (bendNormal.sqrMagnitude < sqrEpsilon)
+        {
+            return false;
+        }
+        Rest(limb, out Quaternion parent, out Quaternion upperToLower, out Quaternion lowerToFoot, out Quaternion restUpper, out Quaternion restLower, out _, out Vector3 restKnee, out Vector3 restFoot);
+        BasisLegSolveInput input = default;
+        input.Root = limb.Root;
+        input.Mid = restKnee;
+        input.Tip = restFoot;
+        input.RootRotation = restUpper;
+        input.MidRotation = restLower;
+        input.TargetPosition = target;
+        input.TargetRotation = targetRotation;
+        input.TargetOffset = Quaternion.identity;
+        input.HintPosition = KneeHint(limb, target);
+        input.HintWeight = 1f;
+        input.BendNormal = bendNormal;
+        input.AnteriorNormal = bendNormal;
+        BasisLegSolveCore.Solve(input, out BasisLegSolveResult result);
+        if (!(result.UpperLength > epsilon) || !(result.LowerLength > epsilon))
+        {
+            return false;
+        }
+        Locals(parent, upperToLower, lowerToFoot, result.RootRotationSolved, result.MidRotationSolved, targetRotation, out upperLocal, out lowerLocal, out footLocal);
+        return true;
     }
-
-    /// <summary>
-    /// Joint (elbow/knee) world position: the law-of-cosines point at <paramref name="upperLen"/> from
-    /// <paramref name="root"/> and <paramref name="lowerLen"/> from the (reach-clamped) target, placed
-    /// on the swivel circle toward <paramref name="poleHint"/>.
-    /// </summary>
-    public static float3 SolveJoint(float3 root, float3 target, float upperLen, float lowerLen, float3 poleHint)
+    public static float LegReachRatio(in BasisRemoteLimbPose limb, Vector3 target)
     {
-        float3 toT = target - root;
-        float d = math.length(toT);
-        float dClamped = math.clamp(d, math.abs(upperLen - lowerLen) + 1e-4f, upperLen + lowerLen - 1e-4f);
-        float3 dir = math.normalizesafe(toT, new float3(0, 0, 1));
-        float a = (upperLen * upperLen - lowerLen * lowerLen + dClamped * dClamped) / (2f * dClamped);
-        float h = math.sqrt(math.max(0f, upperLen * upperLen - a * a));
-        float3 poleVec = poleHint - root;
-        float3 perp = poleVec - dir * math.dot(poleVec, dir);      // pole component perpendicular to the axis
-        perp = math.normalizesafe(perp, PerpAny(dir));
-        return root + dir * a + perp * h;
+        float chain = Vector3.Distance(limb.Root, limb.Joint) + Vector3.Distance(limb.Joint, limb.Tip);
+        return Vector3.Distance(limb.Root, target) / Mathf.Max(chain, 1e-4f);
     }
-
-
-    /// <summary>
-    /// Two-bone solve. Given the current FK world positions/rotations of the upper (root..joint) and
-    /// lower (joint..tip) bones plus a tip target and pole hint, outputs the new WORLD rotations for the
-    /// upper and lower bones that place the tip exactly on the target with the joint on the swivel circle.
-    /// The tip's own orientation is applied separately by the caller from the sent tip rotation.
-    /// </summary>
-    public static void Solve(
-        float3 root, float3 joint, float3 tip,
-        quaternion upperRot, quaternion lowerRot,
-        float3 target, float3 poleHint,
-        out quaternion newUpperRot, out quaternion newLowerRot, out float3 newJoint)
+    static Vector3 HoldReach(in BasisRemoteLimbPose limb, Vector3 target, float chain)
     {
-        float upperLen = math.distance(root, joint);
-        float lowerLen = math.distance(joint, tip);
-        newJoint = SolveJoint(root, target, upperLen, lowerLen, poleHint);
-
-        // Aim the upper bone: root->joint onto root->newJoint (rigid about root; upper & lower lengths preserved).
-        quaternion a1 = FromToSafe(joint - root, newJoint - root);
-        newUpperRot = math.mul(a1, upperRot);
-
-        // Where the tip lands after a1, then aim the lower bone: newJoint->tip onto newJoint->target.
-        float3 tipA1 = root + math.mul(a1, tip - root);
-        quaternion a2 = FromToSafe(tipA1 - newJoint, target - newJoint);
-        newLowerRot = math.mul(a2, math.mul(a1, lowerRot));
+        Vector3 aim = target - limb.Root;
+        float reach = aim.magnitude;
+        if (reach < epsilon || chain < epsilon)
+        {
+            return target;
+        }
+        float fkReach = Vector3.Distance(limb.Root, limb.Tip), slack = ArmReachHoldSlack * chain;
+        float held = reach + Mathf.Clamp(fkReach - reach, -slack, slack) * Smoothstep(ArmReachHoldStart, ArmReachHoldFull, fkReach / chain);
+        return limb.Root + aim * (held / reach);
+    }
+    static Vector3 ElbowHint(in BasisRemoteLimbPose limb, in BasisArmSolveInput input, Quaternion restUpper, Vector3 restElbow)
+    {
+        Vector3 axis = input.TargetPosition - limb.Root;
+        float axisLength = axis.magnitude;
+        if (axisLength < epsilon)
+        {
+            return limb.Joint;
+        }
+        axis /= axisLength;
+        Vector3 upper = limb.Joint - limb.Root, reach = limb.Tip - limb.Root, u0 = restElbow - limb.Root;
+        float upperLength = upper.magnitude, reachSqr = reach.sqrMagnitude;
+        if (upperLength < epsilon || u0.sqrMagnitude < sqrEpsilon)
+        {
+            return limb.Joint;
+        }
+        u0.Normalize();
+        Vector3 h0 = BasisQuaternionExt.FromToRotation(input.TorsoOut, u0) * input.TorsoUp;
+        h0 -= u0 * Vector3.Dot(h0, u0);
+        if (h0.sqrMagnitude < sqrEpsilon) h0 = input.TorsoUp;
+        Vector3 hinge = limb.RootWorld * (Quaternion.Inverse(restUpper) * h0.normalized);
+        Vector3 fromHinge = Vector3.Cross(axis, hinge) * (input.IsLeft ? 1f : -1f), fromJoint = upper - axis * Vector3.Dot(upper, axis);
+        Vector3 bent = reachSqr > sqrEpsilon ? upper - reach * (Vector3.Dot(upper, reach) / reachSqr) : Vector3.zero;
+        float w = Smoothstep(ElbowFromJointStart, ElbowFromJointFull, bent.magnitude / upperLength);
+        Vector3 dir = Unit(fromHinge) * (1f - w) + Unit(fromJoint) * w;
+        if (dir.sqrMagnitude < sqrEpsilon) dir = w >= 0.5f ? fromJoint : fromHinge;
+        dir -= axis * Vector3.Dot(dir, axis);
+        if (dir.sqrMagnitude < sqrEpsilon)
+        {
+            return limb.Joint;
+        }
+        return input.TargetPosition + dir.normalized * upperLength;
+    }
+    static Vector3 KneeHint(in BasisRemoteLimbPose limb, Vector3 target)
+    {
+        Vector3 axis = target - limb.Root;
+        float axisSqr = axis.sqrMagnitude;
+        if (axisSqr < sqrEpsilon)
+        {
+            return limb.Joint;
+        }
+        Vector3 thigh = limb.Joint - limb.Root, side = thigh - axis * (Vector3.Dot(thigh, axis) / axisSqr);
+        if (side.sqrMagnitude < sqrEpsilon)
+        {
+            return limb.Joint;
+        }
+        return limb.Root + side.normalized * Mathf.Max(thigh.magnitude, 1e-3f);
+    }
+    static void Rest(in BasisRemoteLimbPose limb, out Quaternion parent, out Quaternion upperToLower, out Quaternion lowerToTip, out Quaternion restUpper, out Quaternion restLower, out Quaternion restTip, out Vector3 restJoint, out Vector3 restTipPos)
+    {
+        Quaternion rootInv = Quaternion.Inverse(limb.RootWorld), jointInv = Quaternion.Inverse(limb.JointWorld);
+        parent = limb.RootWorld * Quaternion.Inverse(limb.RootLocal);
+        upperToLower = rootInv * (limb.JointWorld * Quaternion.Inverse(limb.JointLocal));
+        lowerToTip = jointInv * (limb.TipWorld * Quaternion.Inverse(limb.TipLocal));
+        restUpper = parent * limb.RootRest;
+        restLower = restUpper * upperToLower * limb.JointRest;
+        restTip = restLower * lowerToTip * limb.TipRest;
+        restJoint = limb.Root + restUpper * (rootInv * (limb.Joint - limb.Root));
+        restTipPos = restJoint + restLower * (jointInv * (limb.Tip - limb.Joint));
+    }
+    static void Locals(Quaternion parent, Quaternion upperToLower, Quaternion lowerToTip, Quaternion upper, Quaternion lower, Quaternion tip, out Quaternion upperLocal, out Quaternion lowerLocal, out Quaternion tipLocal)
+    {
+        upperLocal = BasisQuaternionExt.NormalizeSafe(Quaternion.Inverse(parent) * upper);
+        lowerLocal = BasisQuaternionExt.NormalizeSafe(Quaternion.Inverse(upper * upperToLower) * lower);
+        tipLocal = BasisQuaternionExt.NormalizeSafe(Quaternion.Inverse(lower * lowerToTip) * tip);
+    }
+    static Vector3 Unit(Vector3 v)
+    {
+        float sqr = v.sqrMagnitude;
+        return sqr > sqrEpsilon ? v / Mathf.Sqrt(sqr) : Vector3.zero;
+    }
+    static float Smoothstep(float a, float b, float v)
+    {
+        float t = Mathf.Clamp01((v - a) / (b - a));
+        return t * t * (3f - 2f * t);
     }
 }

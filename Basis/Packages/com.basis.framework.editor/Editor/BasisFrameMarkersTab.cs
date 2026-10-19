@@ -1,3 +1,5 @@
+using Basis.Editor.Localization;
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -15,6 +17,7 @@ using UnityProfiler = UnityEngine.Profiling.Profiler;
 /// paste-friendly table (avg / last / peak / calls over the recorded window); Copy CSV produces the
 /// full per-frame history for offline diffing.
 /// </summary>
+[NoAutoStaticsCleanup]
 public sealed class BasisFrameMarkersTab : BasisEditorTabPage
 {
     const int k_History = 600;                    // ~10s at 60fps editor pumping
@@ -84,11 +87,11 @@ public sealed class BasisFrameMarkersTab : BasisEditorTabPage
     static readonly GUILayoutOption[] k_NumCol = { GUILayout.Width(70f) };
     static readonly GUILayoutOption[] k_CallsCol = { GUILayout.Width(50f) };
 
-    static readonly GUIContent k_HeadMarker = new GUIContent("Marker");
-    static readonly GUIContent k_HeadAvg = new GUIContent("Avg");
-    static readonly GUIContent k_HeadLast = new GUIContent("Last");
-    static readonly GUIContent k_HeadPeak = new GUIContent("Peak");
-    static readonly GUIContent k_HeadCalls = new GUIContent("Calls");
+    static GUIContent k_HeadMarker => new GUIContent(BasisEditorLocalization.Get("editor.frameMarkers.colMarker"));
+    static GUIContent k_HeadAvg => new GUIContent(BasisEditorLocalization.Get("editor.frameMarkers.colAvg"));
+    static GUIContent k_HeadLast => new GUIContent(BasisEditorLocalization.Get("editor.frameMarkers.colLast"));
+    static GUIContent k_HeadPeak => new GUIContent(BasisEditorLocalization.Get("editor.frameMarkers.colPeak"));
+    static GUIContent k_HeadCalls => new GUIContent(BasisEditorLocalization.Get("editor.frameMarkers.colCalls"));
 
     static readonly Comparison<Row> k_ByAvgDescending = (a, b) => b.AvgMs.CompareTo(a.AvgMs);
 
@@ -121,10 +124,10 @@ public sealed class BasisFrameMarkersTab : BasisEditorTabPage
     bool _forcedProfiler;
     bool _profilerWasEnabled;
 
-    public override string Title => "Markers";
+    public override string Title => BasisEditorLocalization.Get("editor.frameMarkers.title");
 
     public override string Subtitle =>
-        "Every instrumented marker, sampled live — avg / last / peak per frame.";
+        BasisEditorLocalization.Get("editor.frameMarkers.subtitle");
 
     public override void OnEnable()
     {
@@ -362,7 +365,7 @@ public sealed class BasisFrameMarkersTab : BasisEditorTabPage
             DrawControls();
         }
         DrawStatus();
-        using (BasisEditorUI.Card("Markers"))
+        using (BasisEditorUI.Card(BasisEditorLocalization.Get("editor.frameMarkers.title")))
         {
             DrawTable();
         }
@@ -372,18 +375,18 @@ public sealed class BasisFrameMarkersTab : BasisEditorTabPage
     {
         EditorGUILayout.BeginHorizontal();
 
-        bool record = GUILayout.Toggle(_record, "Record", EditorStyles.miniButton, GUILayout.Width(64f));
+        bool record = GUILayout.Toggle(_record, BasisEditorLocalization.Get("editor.frameMarkers.record"), EditorStyles.miniButton, GUILayout.Width(64f));
         if (record != _record)
         {
             _record = record;
             if (!_record) ReleaseProfiler();
         }
 
-        if (BasisEditorUI.SecondaryButton("Clear", 20f, GUILayout.Width(56f))) ClearHistory();
-        if (BasisEditorUI.SecondaryButton("Rescan", 20f, GUILayout.Width(64f))) Rescan();
+        if (BasisEditorUI.SecondaryButton(BasisEditorLocalization.Get("editor.common.clear"), 20f, GUILayout.Width(56f))) ClearHistory();
+        if (BasisEditorUI.SecondaryButton(BasisEditorLocalization.Get("editor.frameMarkers.rescan"), 20f, GUILayout.Width(64f))) Rescan();
 
         GUILayout.Space(6f);
-        GUILayout.Label("Filter", EditorStyles.miniLabel, GUILayout.Width(34f));
+        GUILayout.Label(BasisEditorLocalization.Get("editor.frameMarkers.filter"), EditorStyles.miniLabel, GUILayout.Width(34f));
         string newFilter = EditorGUILayout.TextField(_filter, GUILayout.Width(130f));
         if (newFilter != _filter)
         {
@@ -394,19 +397,19 @@ public sealed class BasisFrameMarkersTab : BasisEditorTabPage
         }
 
         GUILayout.FlexibleSpace();
-        GUILayout.Label("Top", EditorStyles.miniLabel, GUILayout.Width(26f));
+        GUILayout.Label(BasisEditorLocalization.Get("editor.frameMarkers.top"), EditorStyles.miniLabel, GUILayout.Width(26f));
         _rowsDrawn = Mathf.Clamp(EditorGUILayout.IntField(_rowsDrawn, GUILayout.Width(44f)), k_MinRowsDrawn, k_History);
-        _hideIdle = GUILayout.Toggle(_hideIdle, "Hide idle", EditorStyles.miniButton, GUILayout.Width(70f));
+        _hideIdle = GUILayout.Toggle(_hideIdle, BasisEditorLocalization.Get("editor.frameMarkers.hideIdle"), EditorStyles.miniButton, GUILayout.Width(70f));
 
-        if (BasisEditorUI.SecondaryButton("Copy Summary", 20f, GUILayout.Width(104f)))
+        if (BasisEditorUI.SecondaryButton(BasisEditorLocalization.Get("editor.frameMarkers.copySummary"), 20f, GUILayout.Width(104f)))
         {
             EditorGUIUtility.systemCopyBuffer = BuildSummary();
-            Host?.ShowNotification(new GUIContent("Summary copied"));
+            Host?.ShowNotification(new GUIContent(BasisEditorLocalization.Get("editor.frameMarkers.summaryCopied")));
         }
-        if (BasisEditorUI.SecondaryButton("Copy Frames CSV", 20f, GUILayout.Width(120f)))
+        if (BasisEditorUI.SecondaryButton(BasisEditorLocalization.Get("editor.frameMarkers.copyFramesCsv"), 20f, GUILayout.Width(120f)))
         {
             EditorGUIUtility.systemCopyBuffer = BuildCsv();
-            Host?.ShowNotification(new GUIContent("CSV copied"));
+            Host?.ShowNotification(new GUIContent(BasisEditorLocalization.Get("editor.frameMarkers.csvCopied")));
         }
 
         EditorGUILayout.EndHorizontal();
@@ -417,39 +420,36 @@ public sealed class BasisFrameMarkersTab : BasisEditorTabPage
         double avgFrame = _frameAvgMs;
         int withData = RowsWithData();
 
-        using (BasisEditorUI.Card("Capture"))
+        using (BasisEditorUI.Card(BasisEditorLocalization.Get("editor.frameMarkers.capture")))
         {
-            BasisEditorUI.Row("Markers tracked",
-                $"{withData} live / {_rows.Count} matched  ({_handlesSeen} handles enumerated)");
-            BasisEditorUI.Row("Frames captured", $"{_captured} of {k_History}");
-            BasisEditorUI.Row("Avg frame", avgFrame > 0
+            BasisEditorUI.Row(BasisEditorLocalization.Get("editor.frameMarkers.markersTracked"),
+                BasisEditorLocalization.Get("editor.frameMarkers.markersTrackedValue", withData, _rows.Count, _handlesSeen));
+            BasisEditorUI.Row(BasisEditorLocalization.Get("editor.frameMarkers.framesCaptured"), BasisEditorLocalization.Get("editor.frameMarkers.framesCapturedValue", _captured, k_History));
+            BasisEditorUI.Row(BasisEditorLocalization.Get("editor.frameMarkers.avgFrame"), avgFrame > 0
                 ? $"{avgFrame.ToString("F2", CultureInfo.InvariantCulture)} ms ({(1000.0 / avgFrame).ToString("F0", CultureInfo.InvariantCulture)} fps)"
-                    + (_frameFromDelta ? "  player-loop delta, includes vsync wait" : "  main thread")
+                    + "  " + BasisEditorLocalization.Get(_frameFromDelta ? "editor.frameMarkers.avgFrameDelta" : "editor.frameMarkers.avgFrameMainThread")
                 : "—");
-            BasisEditorUI.PillRow("Profiler backend",
-                _forcedProfiler ? "FORCED ON" : (UnityProfiler.enabled ? "ON" : "OFF"),
+            BasisEditorUI.PillRow(BasisEditorLocalization.Get("editor.frameMarkers.profilerBackend"),
+                _forcedProfiler ? BasisEditorLocalization.Get("editor.frameMarkers.forcedOn") : (UnityProfiler.enabled ? BasisEditorLocalization.Get("editor.frameMarkers.on") : BasisEditorLocalization.Get("editor.frameMarkers.off")),
                 UnityProfiler.enabled ? BasisEditorUI.State.Good : BasisEditorUI.State.Warn);
 
             if (!EditorApplication.isPlaying)
             {
-                BasisEditorUI.Note("Enter play mode to record — markers only exist once the code that emits them runs.");
+                BasisEditorUI.Note(BasisEditorLocalization.Get("editor.frameMarkers.enterPlayMode"));
             }
             else if (!_record)
             {
-                BasisEditorUI.Note("Recording is off; the profiler backend has been handed back to whatever had it.");
+                BasisEditorUI.Note(BasisEditorLocalization.Get("editor.frameMarkers.recordingOff"));
             }
             else if (_rows.Count == 0)
             {
                 BasisEditorUI.Help(
-                    $"Nothing matched \"{_filter}\". Marker names only become enumerable after the marker is first hit, "
-                    + "so give it a few frames or press Rescan.", MessageType.Info);
+                    BasisEditorLocalization.Get("editor.frameMarkers.noMatch", _filter), MessageType.Info);
             }
             else if (_captured > 0 && withData == 0)
             {
                 BasisEditorUI.Help(
-                    "Every marker read zero. The recorders are running and the profiler backend is on, so the "
-                    + "matched markers were not hit in the captured frames — widen the filter or check the "
-                    + "subsystem is actually ticking.", MessageType.Warning);
+                    BasisEditorLocalization.Get("editor.frameMarkers.allZero"), MessageType.Warning);
             }
         }
     }
@@ -497,13 +497,13 @@ public sealed class BasisFrameMarkersTab : BasisEditorTabPage
 
         if (drawn == 0)
         {
-            BasisEditorUI.Note(_rows.Count == 0
-                ? "No markers matched the filter yet."
-                : "Every matched marker is idle — untick Hide idle to list them anyway.");
+            BasisEditorUI.Note(BasisEditorLocalization.Get(_rows.Count == 0
+                ? "editor.frameMarkers.noMarkersYet"
+                : "editor.frameMarkers.allIdle"));
         }
         else if (_rowsHidden > 0)
         {
-            BasisEditorUI.Note($"{_rowsHidden} cheaper markers not drawn — raise Top, or Copy Summary for all of them.");
+            BasisEditorUI.Note(BasisEditorLocalization.Get("editor.frameMarkers.rowsHidden", _rowsHidden));
         }
     }
 

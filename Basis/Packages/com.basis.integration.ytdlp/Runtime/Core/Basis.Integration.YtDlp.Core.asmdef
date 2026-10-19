@@ -1,0 +1,29 @@
+{
+    "name": "Basis.Integration.YtDlp.Core",
+    "rootNamespace": "Basis.Integration.YtDlp.Core",
+    "references": [
+        "YtDlp.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "YTDLP_EXISTS"
+    ],
+    "versionDefines": [
+        {
+            "name": "town.mr.ytdlp",
+            "expression": "",
+            "define": "YTDLP_EXISTS"
+        },
+        {
+            "name": "com.yewnyx.ytdlp",
+            "expression": "",
+            "define": "YTDLP_EXISTS"
+        }
+    ],
+    "noEngineReferences": false
+}

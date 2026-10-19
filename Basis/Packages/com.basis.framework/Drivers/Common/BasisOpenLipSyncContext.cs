@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -7,8 +8,9 @@ using UnityEngine;
 
 namespace Basis.Scripts.Drivers
 {
+    [AutoStaticsCleanup]
     [Serializable]
-    public class BasisOpenLipSyncContext : IDisposable
+    public partial class BasisOpenLipSyncContext : IDisposable
     {
         public const int VisemeCount = Frame.VisemeCount; // 15
 
@@ -25,6 +27,7 @@ namespace Basis.Scripts.Drivers
         private readonly Frame[] _resultFrames = { new Frame(), new Frame() };
         private volatile int _publishedGeneration;
         private int _consumedGeneration;
+        private int _pendingGeneration;
 
         // Viseme-to-blendshape mapping
         private int[] _visemeToBlendShape;
@@ -66,6 +69,9 @@ namespace Basis.Scripts.Drivers
         private volatile int _writeIndexA;
         private volatile int _writeIndexB;
         private volatile int _hasNewAudio;
+        private float _feedEnvelope = 1f;
+        private float _lastFed;
+        private const float FeedRampPerSample = 1f / 96f;
 
         // Cached viseme weights for Apply()
         private float[] _cachedVisemeWeights = new float[VisemeCount];
@@ -205,6 +211,8 @@ namespace Basis.Scripts.Drivers
             _writeIndexA = 0;
             _writeIndexB = 0;
             _hasNewAudio = 0;
+            _feedEnvelope = 1f;
+            _lastFed = 0f;
 
             Array.Clear(_cachedVisemeWeights, 0, _cachedVisemeWeights.Length);
             Array.Clear(_lastApplied, 0, _lastApplied.Length);
@@ -380,10 +388,7 @@ namespace Basis.Scripts.Drivers
             int room = AudioBufferSize - w;
             if (frames > room) frames = room;
 
-            for (int i = 0, s = 0; i < frames; i++, s += ch)
-            {
-                dstArr[w + i] = data[s];
-            }
+            FeedSamples(data, ch, frames, dstArr, w, ref _feedEnvelope, ref _lastFed);
             w += frames;
 
             if (buf == 0) Volatile.Write(ref _writeIndexA, w);
@@ -391,6 +396,66 @@ namespace Basis.Scripts.Drivers
 #pragma warning restore CS0420
 
             Interlocked.Exchange(ref _hasNewAudio, 1);
+        }
+
+        public void ProcessSilence(int length)
+        {
+            if (!_initialized || _disposed || !_faceVisible || length <= 0) return;
+
+#pragma warning disable CS0420
+            int buf = Volatile.Read(ref _activeBuffer);
+            float[] dstArr = (buf == 0) ? _audioBufferA : _audioBufferB;
+            if (dstArr == null) return;
+            int w = (buf == 0) ? Volatile.Read(ref _writeIndexA) : Volatile.Read(ref _writeIndexB);
+            int frames = Math.Min(length, AudioBufferSize - w);
+
+            FeedSilence(frames, dstArr, w, ref _feedEnvelope, ref _lastFed);
+            w += frames;
+
+            if (buf == 0) Volatile.Write(ref _writeIndexA, w);
+            else Volatile.Write(ref _writeIndexB, w);
+#pragma warning restore CS0420
+
+            Interlocked.Exchange(ref _hasNewAudio, 1);
+        }
+
+        private static void FeedSamples(float[] src, int ch, int frames, float[] dst, int at, ref float envelope, ref float last)
+        {
+            if (frames <= 0) return;
+            float env = envelope;
+            if (env >= 1f)
+            {
+                for (int i = 0, s = 0; i < frames; i++, s += ch) dst[at + i] = src[s];
+            }
+            else
+            {
+                for (int i = 0, s = 0; i < frames; i++, s += ch)
+                {
+                    if (env < 1f)
+                    {
+                        env += FeedRampPerSample;
+                        if (env > 1f) env = 1f;
+                    }
+                    dst[at + i] = src[s] * env;
+                }
+                envelope = env;
+            }
+            last = dst[at + frames - 1];
+        }
+
+        private static void FeedSilence(int frames, float[] dst, int at, ref float envelope, ref float last)
+        {
+            if (frames <= 0) return;
+            float env = envelope, from = last;
+            int i = 0;
+            for (; i < frames && env > 0f; i++)
+            {
+                env -= FeedRampPerSample;
+                dst[at + i] = env > 0f ? from * env : 0f;
+            }
+            if (i < frames) Array.Clear(dst, at + i, frames - i);
+            envelope = env > 0f ? env : 0f;
+            if (envelope <= 0f) last = 0f;
         }
 
         /// <summary>
@@ -461,6 +526,9 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         public static void ProcessAllPending()
         {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            ProcessPendingOnMainThread();
+#else
             lock (_pendingInference)
             {
                 if (_pendingInference.Count == 0 || _workerBusy) return;
@@ -475,6 +543,7 @@ namespace Basis.Scripts.Drivers
                 worker.Thread.Start(worker);
             }
             worker.Wake.Set();
+#endif
         }
 
         public static void StopWorker()
@@ -540,6 +609,11 @@ namespace Basis.Scripts.Drivers
                 }
 
                 BasisOpenLipSyncContext[] batch = worker.Batch;
+                if (BasisOpenLipSyncDriver.DefersResults)
+                {
+                    RunDeferredBatch(batch, batchLen);
+                    continue;
+                }
                 for (int i = 0; i < batchLen; i++)
                 {
                     var ctx = batch[i];
@@ -579,6 +653,48 @@ namespace Basis.Scripts.Drivers
                     {
                         ctx._readyForInference = false;
                     }
+                }
+            }
+        }
+
+        private static void RunDeferredBatch(BasisOpenLipSyncContext[] batch, int batchLen)
+        {
+            bool flushed = false;
+            BasisOpenLipSyncDriver.EnterInference();
+            try
+            {
+                for (int i = 0; i < batchLen; i++)
+                {
+                    var ctx = batch[i];
+                    if (ctx == null) continue;
+                    ctx._pendingGeneration = 0;
+                    if (ctx._disposed) continue;
+                    try
+                    {
+                        int generation = ctx._publishedGeneration + 1;
+                        if (BasisOpenLipSyncDriver.ProcessFrame(ctx._contextHandle, ctx._audioChunk, ctx._frozenSampleCount, ctx._resultFrames[generation & 1]) == Result.Success) ctx._pendingGeneration = generation;
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogWarning($"[OpenLipSync] Batch inference error for context {ctx._contextHandle}: {ex.Message}");
+                    }
+                }
+                flushed = BasisOpenLipSyncDriver.Flush();
+            }
+            finally
+            {
+                BasisOpenLipSyncDriver.ExitInference();
+                for (int i = 0; i < batchLen; i++)
+                {
+                    var ctx = batch[i];
+                    batch[i] = null;
+                    if (ctx == null) continue;
+                    if (flushed && ctx._pendingGeneration != 0) ctx._publishedGeneration = ctx._pendingGeneration;
+                    ctx._pendingGeneration = 0;
+                    ctx._readyForInference = false;
                 }
             }
         }

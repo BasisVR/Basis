@@ -1,0 +1,129 @@
+[package]
+name = "basis-media-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+media-bitstream = { path = "../media-bitstream" }
+media-clock = { path = "../media-clock" }
+media-demux = { path = "../media-demux" }
+media-hls = { path = "../media-hls" }
+media-rtp = { path = "../media-rtp" }
+
+[[bin]]
+name = "mp4_stream"
+path = "fuzz_targets/mp4_stream.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "ts_stream"
+path = "fuzz_targets/ts_stream.rs"
+test = false
+doc = false
+bench = false
+
+# Kept out of the main workspace: fuzzing builds on nightly with sanitizer
+# flags that must not leak into the normal build graph.
+[workspace]
+members = ["."]
+
+# A separate workspace does not inherit the root [patch.crates-io];
+# without these the fuzz build compiles the crates.io releases instead
+# of the vendored (patched) trees the shipped build uses.
+[patch.crates-io]
+retina = { path = "../third_party/retina" }
+matroska-demuxer = { path = "../third_party/matroska-demuxer" }
+
+[[bin]]
+name = "hls_playlist"
+path = "fuzz_targets/hls_playlist.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "mkv_stream"
+path = "fuzz_targets/mkv_stream.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "flac_stream"
+path = "fuzz_targets/flac_stream.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "wav_stream"
+path = "fuzz_targets/wav_stream.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "mp3_stream"
+path = "fuzz_targets/mp3_stream.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "adts_stream"
+path = "fuzz_targets/adts_stream.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "ogg_stream"
+path = "fuzz_targets/ogg_stream.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rtp_session"
+path = "fuzz_targets/rtp_session.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "caption_scan"
+path = "fuzz_targets/caption_scan.rs"
+test = false
+doc = false
+bench = false
+
+# The WHEP target is feature-gated: media-whep pulls str0m, whose Linux
+# crypto backend compiles aws-lc-sys (needs cmake). Opt in with
+# `cargo +nightly fuzz run whep_signal --features whep` so the other
+# campaigns never depend on that toolchain being present.
+[features]
+whep = ["dep:media-whep", "dep:str0m"]
+
+[dependencies.media-whep]
+path = "../media-whep"
+optional = true
+
+[dependencies.str0m]
+version = "0.23"
+default-features = false
+optional = true
+
+[[bin]]
+name = "whep_signal"
+path = "fuzz_targets/whep_signal.rs"
+test = false
+doc = false
+bench = false
+required-features = ["whep"]

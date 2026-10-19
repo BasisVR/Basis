@@ -1,3 +1,5 @@
+using Unity.Scripting.LifecycleManagement;
+using Basis.BasisUI;
 using Basis.Scripts.Addressable_Driver.Resource;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
@@ -21,7 +23,8 @@ namespace Basis.Scripts.Avatar
     /// Provides methods for local and remote avatar loading, fallback handling,
     /// initialization, and cleanup.
     /// </summary>
-    public static class BasisAvatarFactory
+    [AutoStaticsCleanup]
+    public static partial class BasisAvatarFactory
     {
         // The main-thread half of every avatar swap — load, reload, far LOD, range re-entry. It
         // reported nothing at all before, so a load-in spike could only be attributed to whatever
@@ -152,21 +155,22 @@ namespace Basis.Scripts.Avatar
         /// <param name="BasisLoadableBundle">The bundle containing avatar metadata.</param>
         /// <param name="Position">Spawn position for the avatar.</param>
         /// <param name="Rotation">Spawn rotation for the avatar.</param>
-        public static async Task LoadAvatarLocal(BasisLocalPlayer Player, byte Mode, BasisLoadableBundle BasisLoadableBundle, Vector3 Position, Quaternion Rotation)
+        public static async Task<bool> LoadAvatarLocal(BasisLocalPlayer Player, byte Mode, BasisLoadableBundle BasisLoadableBundle, Vector3 Position, Quaternion Rotation)
         {
             if (Player == null)
             {
-                return;
+                return true;
             }
 
-            var token = ReplacePlayerLoadToken(Player);
+            var playerToken = ReplacePlayerLoadToken(Player);
+            CancellationToken token = playerToken;
 
             if (string.IsNullOrEmpty(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation))
             {
                 BasisDebug.LogError("Avatar Address was empty or null! Falling back to loading avatar.");
                 LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
-                ClearPlayerLoadToken(Player, token);
-                return;
+                ClearPlayerLoadToken(Player, playerToken);
+                return true;
             }
 
             // The loading dummy only fronts a player wearing nothing at all — an avatar
@@ -175,9 +179,16 @@ namespace Basis.Scripts.Avatar
             {
                 RemoveOldAvatarAndLoadFallback(Player, Position, Rotation);
             }
+            using CancellationTokenSource downloadCancel = Mode == 0 && !IsLoadingAvatar(BasisLoadableBundle) ? CancellationTokenSource.CreateLinkedTokenSource(playerToken) : null;
+            BasisDownload download = null;
+            if (downloadCancel != null)
+            {
+                download = BasisDownloadCenter.Begin(BasisDownloadKind.Avatar, BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, BasisLoadableBundle, downloadCancel, Player.ProgressReportAvatarLoad, Player.DisplayName);
+                token = downloadCancel.Token;
+            }
+            GameObject Output = null;
             try
             {
-                GameObject Output = null;
                 // Local-only: harvested by ContentPolice during the load walk and consumed by
                 // the local avatar driver during calibration. Keeping it on the stack means
                 // it's GC'd as soon as the load returns; nothing persists on BasisAvatar.
@@ -201,7 +212,7 @@ namespace Basis.Scripts.Avatar
                         // ResolveGate picks between download / disc-load / addressable so
                         // slow network downloads can't starve fast cached or in-memory loads.
                         SemaphoreSlim gate = await ResolveGate(Mode, BasisLoadableBundle);
-                        await gate.WaitAsync(token);
+                        await (BasisTasks.ThreadsAvailable ? gate.WaitAsync(token) : gate.WaitAsync());
                         try
                         {
                             token.ThrowIfCancellationRequested();
@@ -244,18 +255,25 @@ namespace Basis.Scripts.Avatar
             catch (OperationCanceledException)
             {
                 // Replaced by a newer request: do NOT load fallback; the newer request will handle visuals.
+                if (Output != null && Mode == 0)
+                {
+                    GameObject.Destroy(Output);
+                    _ = BasisLoadHandler.RequestDeIncrementOfBundle(BasisLoadableBundle);
+                }
             }
             catch (Exception e)
             {
                 BasisDebug.LogError($"Loading avatar failed: {e}");
                 // Only fallback if this request is still the current one.
-                if (!token.IsCancellationRequested)
+                if (!playerToken.IsCancellationRequested)
                     LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
             }
             finally
             {
-                ClearPlayerLoadToken(Player, token);
+                BasisDownloadCenter.End(download);
+                ClearPlayerLoadToken(Player, playerToken);
             }
+            return download == null || !download.CancelRequested || playerToken.IsCancellationRequested;
         }
 
 
@@ -272,7 +290,8 @@ namespace Basis.Scripts.Avatar
                 return;
             }
 
-            var token = ReplacePlayerLoadToken(Player);
+            var playerToken = ReplacePlayerLoadToken(Player);
+            CancellationToken token = playerToken;
 
             if (string.IsNullOrEmpty(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation))
             {
@@ -280,7 +299,7 @@ namespace Basis.Scripts.Avatar
                 BasisDebug.LogError("Avatar Address was empty or null! Falling back to loading avatar.");
                 MarkRemoteLoadFailed(Player);
                 LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
-                ClearPlayerLoadToken(Player, token);
+                ClearPlayerLoadToken(Player, playerToken);
                 return;
             }
 
@@ -289,6 +308,13 @@ namespace Basis.Scripts.Avatar
             if (Player.BasisAvatar == null)
             {
                 RemoveOldAvatarAndLoadFallback(Player, Position, Rotation);
+            }
+            using CancellationTokenSource downloadCancel = Mode == 0 && !IsLoadingAvatar(BasisLoadableBundle) ? CancellationTokenSource.CreateLinkedTokenSource(playerToken) : null;
+            BasisDownload download = null;
+            if (downloadCancel != null)
+            {
+                download = BasisDownloadCenter.Begin(BasisDownloadKind.Avatar, BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, BasisLoadableBundle, downloadCancel, Player.ProgressReportAvatarLoad, Player.DisplayName);
+                token = downloadCancel.Token;
             }
             GameObject Output = null;
             try
@@ -310,7 +336,7 @@ namespace Basis.Scripts.Avatar
                     case 1:
                     default:
                         SemaphoreSlim gate = await ResolveGate(Mode, BasisLoadableBundle);
-                        await gate.WaitAsync(token);
+                        await (BasisTasks.ThreadsAvailable ? gate.WaitAsync(token) : gate.WaitAsync());
                         try
                         {
                             token.ThrowIfCancellationRequested();
@@ -378,37 +404,52 @@ namespace Basis.Scripts.Avatar
                 if (Output != null)
                 {
                     GameObject.Destroy(Output);
+                    if (Mode == 0)
+                    {
+                        _ = BasisLoadHandler.RequestDeIncrementOfBundle(BasisLoadableBundle);
+                    }
+                }
+                if (download != null && download.CancelRequested && !playerToken.IsCancellationRequested && !Player.IsDestroyed)
+                {
+                    Player.AvatarLoadErrorMessage = "Download cancelled from Notifications";
+                    FallBackAfterFailedRemoteLoad(Player, BasisLoadableBundle, Position, Rotation);
                 }
             }
             catch (Exception e)
             {
                 Player.AvatarLoadErrorMessage = $"Loading avatar failed: {e.Message}";
                 BasisDebug.LogError($"Loading avatar failed: {e}");
-                if (!token.IsCancellationRequested)
+                if (!playerToken.IsCancellationRequested)
                 {
-                    MarkRemoteLoadFailed(Player);
-                    // The connector is platform-independent and usually already parsed even when
-                    // the load failed (e.g. the bee has no section for this platform). If it
-                    // carries a far LOD, the player renders as their real silhouette instead of
-                    // as the loading avatar. No install happens HERE — this catch runs on an
-                    // IO/task continuation; the transmit tick swaps at its safe point, so keep
-                    // whatever is worn as the host and only fall to the dummy when the player
-                    // wears nothing or has no far payload.
-                    BasisAvatarFarLOD.CaptureFarLodFallback(Player, BasisLoadableBundle);
-                    bool farPending = BasisAvatarFarLOD.Enabled && Player.HasFarLodPayload && Player.BasisAvatar != null;
-                    if (farPending)
-                    {
-                        BasisFarAvatarBuilder.PrewarmParse(Player);
-                    }
-                    else if (!Player.IsDestroyed)
-                    {
-                        LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
-                    }
+                    FallBackAfterFailedRemoteLoad(Player, BasisLoadableBundle, Position, Rotation);
                 }
             }
             finally
             {
-                ClearPlayerLoadToken(Player, token);
+                BasisDownloadCenter.End(download);
+                ClearPlayerLoadToken(Player, playerToken);
+            }
+        }
+
+        private static void FallBackAfterFailedRemoteLoad(BasisRemotePlayer Player, BasisLoadableBundle BasisLoadableBundle, Vector3 Position, Quaternion Rotation)
+        {
+            MarkRemoteLoadFailed(Player);
+            // The connector is platform-independent and usually already parsed even when
+            // the load failed (e.g. the bee has no section for this platform). If it
+            // carries a far LOD, the player renders as their real silhouette instead of
+            // as the loading avatar. No install happens HERE — this catch runs on an
+            // IO/task continuation; the transmit tick swaps at its safe point, so keep
+            // whatever is worn as the host and only fall to the dummy when the player
+            // wears nothing or has no far payload.
+            BasisAvatarFarLOD.CaptureFarLodFallback(Player, BasisLoadableBundle);
+            bool farPending = BasisAvatarFarLOD.Enabled && Player.HasFarLodPayload && Player.BasisAvatar != null;
+            if (farPending)
+            {
+                BasisFarAvatarBuilder.PrewarmParse(Player);
+            }
+            else if (!Player.IsDestroyed)
+            {
+                LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
             }
         }
 
@@ -688,11 +729,10 @@ namespace Basis.Scripts.Avatar
                     break;
             }
 
-            // No-op call preserved for a future safe redesign; BasisAvatarPsoReveal used to hide
-            // renderers and reveal them a few per frame to spread DX12/Vulkan/Metal's first-draw
-            // PSO-creation cost, but that let a real body sit fully visible before its clothing
-            // renderers caught up. See the safety note on BasisAvatarPsoReveal.
-            Basis.Scripts.Rendering.BasisAvatarPsoReveal.BeginStagedReveal(Player.BasisAvatar.Renders);
+            // The content loader atomically suppressed rendering while this avatar waited for its
+            // setup slot. Release only after calibration, at the tail of LateUpdate, so the first
+            // visible frame contains a solved pose. All geometry is released together.
+            Basis.Scripts.Rendering.BasisAvatarPsoReveal.BeginStagedReveal(Player.BasisAvatar);
         }
 
         /// <summary>

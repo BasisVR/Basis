@@ -1,0 +1,9 @@
+RTSP/1.0 200 OK
+CSeq: 2
+Server: Wowza Streaming Engine 4.8.10 build20210217143515
+Cache-Control: no-cache
+Expires: Sat, 8 May 2021 04:35:51 UTC
+Transport: RTP/AVP/TCP;unicast;interleaved=0-1
+Date: Sat, 8 May 2021 04:35:51 UTC
+Session: 1642021126;timeout=60
+

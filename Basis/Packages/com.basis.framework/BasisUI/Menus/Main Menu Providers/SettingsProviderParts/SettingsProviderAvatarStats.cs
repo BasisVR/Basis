@@ -8,11 +8,9 @@ using UnityEngine.UI;
 namespace Basis.BasisUI
 {
     /// <summary>
-    /// Helpers for populating avatar diagnostics. The diagnostic content
-    /// (texture stats, tracker list, face/eye tracking) lives on the Developer
-    /// tab's Avatar Debug section; this class still hosts the "My Avatar" tab
-    /// itself (currently empty — kept as a placeholder so the tab name and
-    /// position are reserved) and the helpers Developer calls into.
+    /// Hosts the Avatar Customization tab and its avatar diagnostics helpers. The
+    /// System Info &amp; Statistics section (texture/VRAM) sits at the
+    /// bottom of the tab and is only built while Show Developer Tab is on.
     /// </summary>
     public static class SettingsProviderAvatarStats
     {
@@ -34,6 +32,19 @@ namespace Basis.BasisUI
                 emptyGroup.SetTitle(BasisLocalization.Get("settings.myAvatar.noCustomization"));
                 emptyGroup.SetDescription(BasisLocalization.Get("settings.myAvatar.noCustomization.description"));
                 descriptor.ForceRebuild();
+            }
+
+            // ---- System Info & Statistics (texture/VRAM), developer mode only ----
+            if (BasisSettingsDefaults.ShowDeveloperTab.RawValue)
+            {
+                PanelSectionToggle systemInfoSection = null;
+                systemInfoSection = PanelSectionToggleHelpers.CreateLazyFlatSection(content,
+                    BasisLocalization.Get("settings.developer.group.systemInfo"), () =>
+                    {
+                        PanelElementDescriptor textureGroup = SettingsProvider.CreateDiagnosticSubGroup(content,
+                            BasisLocalization.Get("settings.developer.textureStats"));
+                        PopulateStatsInto(textureGroup.ContentParent);
+                    }, false, _ => PanelSectionToggleHelpers.RebuildSectionLayout(systemInfoSection, content));
             }
 
             return tab;
@@ -58,7 +69,7 @@ namespace Basis.BasisUI
                 {
                     string deviceLabel = !string.IsNullOrEmpty(device.CommonDeviceIdentifier)
                         ? device.CommonDeviceIdentifier
-                        : (!string.IsNullOrEmpty(device.ClassName) ? device.ClassName : "Unknown Device");
+                        : (!string.IsNullOrEmpty(device.ClassName) ? device.ClassName : BasisLocalization.Get("settings.avatarStats.unknownDevice"));
                     value = !string.IsNullOrEmpty(device.UniqueDeviceIdentifier)
                         ? $"{deviceLabel}  ({device.UniqueDeviceIdentifier})"
                         : deviceLabel;
@@ -66,16 +77,16 @@ namespace Basis.BasisUI
                 }
                 else
                 {
-                    value = "Unassigned";
+                    value = BasisLocalization.Get("settings.avatarStats.unassigned");
                 }
 
                 PanelElementDescriptor row = PanelElementDescriptor.CreateNew(
                     PanelElementDescriptor.ElementStyles.Group, group.ContentParent);
-                row.SetTitle(role.ToString());
+                row.SetTitle(SettingsProviderControllerConfig.BodyRoleLabel(role));
                 row.SetDescription(value);
             }
 
-            group.SetDescription($"{assignedCount} of {System.Enum.GetValues(typeof(BasisBoneTrackedRole)).Length} roles currently bound.");
+            group.SetDescription(BasisLocalization.Get("settings.avatarStats.rolesBound", assignedCount, System.Enum.GetValues(typeof(BasisBoneTrackedRole)).Length));
         }
 
         /// <summary>
@@ -121,31 +132,31 @@ namespace Basis.BasisUI
 
             if (downloadBytes > 0)
             {
-                AddInfoField(overviewGroup, "Download Size", BasisAvatarTextureStats.FormatBytes(downloadBytes));
+                AddInfoField(overviewGroup, BasisLocalization.Get("settings.myAvatar.stat.downloadSize"), BasisAvatarTextureStats.FormatBytes(downloadBytes));
             }
 
-            string avatarName = "Unknown";
+            string avatarName = BasisLocalization.Get("settings.myAvatar.stat.unknown");
             if (localPlayer.AvatarMetaData?.BasisBundleConnector?.BasisBundleDescription != null)
             {
                 string name = localPlayer.AvatarMetaData.BasisBundleConnector.BasisBundleDescription.AssetBundleName;
                 if (!string.IsNullOrEmpty(name))
                     avatarName = name;
             }
-            AddInfoField(overviewGroup, "Avatar", avatarName);
+            AddInfoField(overviewGroup, BasisLocalization.Get("settings.myAvatar.stat.avatar"), avatarName);
 
             bool isFallback = localPlayer.IsConsideredFallBackAvatar;
-            AddInfoField(overviewGroup, "Type", isFallback ? "Fallback" : "Custom");
+            AddInfoField(overviewGroup, BasisLocalization.Get("settings.myAvatar.stat.type"), BasisLocalization.Get(isFallback ? "settings.myAvatar.stat.type.fallback" : "settings.myAvatar.stat.type.custom"));
 
             // Bundle metadata stats
             if (localPlayer.AvatarMetaData?.BasisBundleConnector != null)
             {
                 var meta = localPlayer.AvatarMetaData.BasisBundleConnector.MetaData;
                 if (meta.TrianglesCount > 0)
-                    AddInfoField(overviewGroup, "Triangles", meta.TrianglesCount.ToString("N0"));
+                    AddInfoField(overviewGroup, BasisLocalization.Get("settings.myAvatar.stat.triangles"), meta.TrianglesCount.ToString("N0"));
                 if (meta.MaterialCount > 0)
-                    AddInfoField(overviewGroup, "Materials", meta.MaterialCount.ToString("N0"));
+                    AddInfoField(overviewGroup, BasisLocalization.Get("settings.myAvatar.stat.materials"), meta.MaterialCount.ToString("N0"));
                 if (meta.BonesCount > 0)
-                    AddInfoField(overviewGroup, "Bones", meta.BonesCount.ToString("N0"));
+                    AddInfoField(overviewGroup, BasisLocalization.Get("settings.myAvatar.stat.bones"), meta.BonesCount.ToString("N0"));
             }
 
             // --- VRAM group ---
@@ -154,12 +165,12 @@ namespace Basis.BasisUI
             vramGroup.SetTitle(BasisLocalization.Get("settings.myAvatar.vramUsage"));
             vramGroup.SetDescription(BasisLocalization.Get("settings.myAvatar.vramUsage.description"));
 
-            AddInfoField(vramGroup, "Total Texture VRAM", BasisAvatarTextureStats.FormatBytes(stats.TotalVRAMBytes));
-            AddInfoField(vramGroup, "Non-Streaming VRAM", BasisAvatarTextureStats.FormatBytes(stats.NonStreamingVRAMBytes));
+            AddInfoField(vramGroup, BasisLocalization.Get("settings.myAvatar.stat.totalTextureVram"), BasisAvatarTextureStats.FormatBytes(stats.TotalVRAMBytes));
+            AddInfoField(vramGroup, BasisLocalization.Get("settings.myAvatar.stat.nonStreamingVram"), BasisAvatarTextureStats.FormatBytes(stats.NonStreamingVRAMBytes));
 
             if (stats.EstimatedSavingsBytes > 0)
             {
-                AddInfoField(vramGroup, "Potential VRAM Savings", BasisAvatarTextureStats.FormatBytes(stats.EstimatedSavingsBytes));
+                AddInfoField(vramGroup, BasisLocalization.Get("settings.myAvatar.stat.potentialVramSavings"), BasisAvatarTextureStats.FormatBytes(stats.EstimatedSavingsBytes));
             }
 
             // --- Mipmap streaming group ---
@@ -168,10 +179,10 @@ namespace Basis.BasisUI
             streamGroup.SetTitle(BasisLocalization.Get("settings.myAvatar.mipmapStreaming"));
             streamGroup.SetDescription(BasisLocalization.Get("settings.myAvatar.mipmapStreaming.description"));
 
-            AddInfoField(streamGroup, "Total Textures", stats.TotalTextureCount.ToString());
-            AddInfoField(streamGroup, "Streaming", $"{stats.StreamingTextureCount} ({stats.StreamingPercentage:F0}%)");
-            AddInfoField(streamGroup, "Not Streaming", stats.NonStreamingTextureCount.ToString());
-            AddInfoField(streamGroup, "Rating", stats.GetStreamingRating());
+            AddInfoField(streamGroup, BasisLocalization.Get("settings.myAvatar.stat.totalTextures"), stats.TotalTextureCount.ToString());
+            AddInfoField(streamGroup, BasisLocalization.Get("settings.myAvatar.stat.streaming"), $"{stats.StreamingTextureCount} ({stats.StreamingPercentage:F0}%)");
+            AddInfoField(streamGroup, BasisLocalization.Get("settings.myAvatar.stat.notStreaming"), stats.NonStreamingTextureCount.ToString());
+            AddInfoField(streamGroup, BasisLocalization.Get("settings.myAvatar.stat.rating"), stats.GetStreamingRating());
 
             BasisPanelTint.Apply(BasisPanelTint.Capture(streamGroup), StreamingSeverity(stats), false);
 
@@ -181,11 +192,11 @@ namespace Basis.BasisUI
             perfGroup.SetTitle(BasisLocalization.Get("settings.myAvatar.perfImpact"));
             perfGroup.SetDescription(BasisLocalization.Get("settings.myAvatar.perfImpact.description"));
 
-            AddInfoField(perfGroup, "Impact", stats.GetPerformanceImpact());
+            AddInfoField(perfGroup, BasisLocalization.Get("settings.myAvatar.stat.impact"), stats.GetPerformanceImpact());
 
             // Combined "cost to others" summary
             string costSummary = BuildCostSummary(stats, downloadBytes);
-            AddInfoField(perfGroup, "Cost To Others", costSummary);
+            AddInfoField(perfGroup, BasisLocalization.Get("settings.myAvatar.stat.costToOthers"), costSummary);
 
             BasisPanelTint.Apply(BasisPanelTint.Capture(perfGroup), ImpactSeverity(stats), false);
 
@@ -195,14 +206,14 @@ namespace Basis.BasisUI
                 PanelElementDescriptor texGroup =
                     PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
                 texGroup.SetTitle(BasisLocalization.Get("settings.myAvatar.textureDetails"));
-                texGroup.SetDescription($"{stats.Textures.Count} unique textures found.");
+                texGroup.SetDescription(BasisLocalization.Get("settings.myAvatar.uniqueTextures", stats.Textures.Count));
 
                 for (int i = 0; i < stats.Textures.Count; i++)
                 {
                     var tex = stats.Textures[i];
-                    string streamTag = tex.IsStreamingMipmaps ? "[STREAMING]" : "[NOT STREAMING]";
-                    string name = string.IsNullOrEmpty(tex.Name) ? $"Texture {i}" : tex.Name;
-                    string detail = $"{tex.Width}x{tex.Height} {tex.Format} | {tex.MipCount} mips | {BasisAvatarTextureStats.FormatBytes(tex.EstimatedVRAMBytes)} | {streamTag}";
+                    string streamTag = BasisLocalization.Get(tex.IsStreamingMipmaps ? "settings.myAvatar.tag.streaming" : "settings.myAvatar.tag.notStreaming");
+                    string name = string.IsNullOrEmpty(tex.Name) ? BasisLocalization.Get("settings.myAvatar.textureFallbackName", i) : tex.Name;
+                    string detail = $"{tex.Width}x{tex.Height} {tex.Format} | {BasisLocalization.Get("settings.myAvatar.mips", tex.MipCount)} | {BasisAvatarTextureStats.FormatBytes(tex.EstimatedVRAMBytes)} | {streamTag}";
 
                     PanelPasswordField field = PanelPasswordField.CreateNew(texGroup.ContentParent);
                     field.Descriptor.SetTitle(name);
@@ -243,12 +254,12 @@ namespace Basis.BasisUI
             var parts = new System.Collections.Generic.List<string>();
 
             if (downloadBytes > 0)
-                parts.Add($"{BasisAvatarTextureStats.FormatBytes(downloadBytes)} download per player who sees you");
+                parts.Add(BasisLocalization.Get("settings.myAvatar.cost.download", BasisAvatarTextureStats.FormatBytes(downloadBytes)));
 
-            parts.Add($"{BasisAvatarTextureStats.FormatBytes(stats.TotalVRAMBytes)} GPU memory per instance");
+            parts.Add(BasisLocalization.Get("settings.myAvatar.cost.gpuMemory", BasisAvatarTextureStats.FormatBytes(stats.TotalVRAMBytes)));
 
             if (stats.EstimatedSavingsBytes > 0)
-                parts.Add($"~{BasisAvatarTextureStats.FormatBytes(stats.EstimatedSavingsBytes)} wasted VRAM from missing streaming mipmaps");
+                parts.Add(BasisLocalization.Get("settings.myAvatar.cost.wastedVram", BasisAvatarTextureStats.FormatBytes(stats.EstimatedSavingsBytes)));
 
             return string.Join(". ", parts) + ".";
         }

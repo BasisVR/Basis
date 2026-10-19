@@ -13,6 +13,7 @@ Shader "Basis/UI/MicrophoneLevelRing"
         // Never sampled — the ring is procedural — but the sprite pipeline binds it per renderer.
         [PerRendererData] _MainTex ("Sprite Texture", 2D)         = "white" {}
         _Color      ("Tint",                  Color)              = (1, 1, 1, 1)
+        [HideInInspector] _RendererColor ("Renderer Color", Color) = (1, 1, 1, 1)
         _Level      ("Voice Level",           Range(0, 1))        = 0
         _RadiusQuiet("Radius At Silence",     Range(0, 1))        = 0.05
         _RadiusLoud ("Radius At Full Scale",  Range(0, 1))        = 0.88
@@ -50,7 +51,9 @@ Shader "Basis/UI/MicrophoneLevelRing"
             #pragma target 3.0
             #pragma multi_compile_instancing
 
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            // Core2D supplies unity_SpriteColor for both the regular and instanced SpriteRenderer
+            // paths. SpriteRenderer.color is no longer guaranteed to be baked into COLOR0.
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/2D/Include/Core2D.hlsl"
 
             struct Attributes
             {
@@ -86,11 +89,13 @@ Shader "Basis/UI/MicrophoneLevelRing"
             {
                 Varyings OUT;
                 UNITY_SETUP_INSTANCE_ID(IN);
+                SetUpSpriteInstanceProperties();
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(OUT);
                 OUT.positionHCS = TransformObjectToHClip(IN.positionOS.xyz);
-                // SpriteRenderer.color arrives as vertex colour, the same route Basis/UI/Main takes,
-                // so the driver's existing mute / talk-mode tint keeps working untouched.
-                OUT.color = IN.color * _Color;
+                // Unity supplies the renderer tint separately from the mesh vertex colour. Include
+                // both so mute red and the other talk-mode colours survive dynamic batching and
+                // GPU instancing as well as the ordinary SpriteRenderer path.
+                OUT.color = IN.color * _Color * unity_SpriteColor;
                 OUT.uv = IN.uv;
                 return OUT;
             }

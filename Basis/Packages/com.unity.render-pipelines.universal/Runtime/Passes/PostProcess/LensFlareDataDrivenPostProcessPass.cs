@@ -10,13 +10,11 @@ namespace UnityEngine.Rendering.Universal
         bool m_IsValid;
 
         const string k_passNameOcclusion = "Blit Lens Flare Occlusion";
-        ProfilingSampler m_ProfilingSamplerOcclusion;
 
         public LensFlareDataDrivenPostProcessPass(Shader shader)
         {
             this.renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing - 1;
-            this.profilingSampler = new ProfilingSampler("Blit Lens Flares (Data Driven)");
-            m_ProfilingSamplerOcclusion = new ProfilingSampler(k_passNameOcclusion);
+            this.profilingSampler = URPProfilingSamplers.LensFlareDataDriven;
 
             m_Material = PostProcessUtils.LoadShader(shader, passName);
             m_IsValid = m_Material != null;
@@ -71,7 +69,7 @@ namespace UnityEngine.Rendering.Universal
 
         void LensFlareDataDrivenComputeOcclusion(RenderGraph renderGraph, UniversalResourceData resourceData, UniversalCameraData cameraData, in TextureDesc dstDesc, PaniniProjection paniniProjection)
         {
-            using (var builder = renderGraph.AddUnsafePass<LensFlarePassData>(k_passNameOcclusion, out var passData, m_ProfilingSamplerOcclusion))
+            using (var builder = renderGraph.AddUnsafePass<LensFlarePassData>(k_passNameOcclusion, out var passData, URPProfilingSamplers.LensFlareDataDrivenComputeOcclusion))
             {
                 TextureHandle occlusionHandle = renderGraph.ImportTexture(LensFlareCommonSRP.occlusionRT);
                 passData.destinationTexture = occlusionHandle;
@@ -200,6 +198,11 @@ namespace UnityEngine.Rendering.Universal
                 else
                 {
                     builder.UseTexture(resourceData.cameraDepthTexture, AccessFlags.Read);
+                }
+
+                if (resourceData.exposureMultiplier.IsValid())
+                {
+                    builder.UseTexture(resourceData.exposureMultiplier, AccessFlags.Read);
                 }
 
                 builder.SetRenderFunc(static (LensFlarePassData data, UnsafeGraphContext ctx) =>

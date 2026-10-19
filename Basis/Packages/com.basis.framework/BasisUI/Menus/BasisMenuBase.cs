@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -7,8 +8,9 @@ namespace Basis.BasisUI
     /// <summary>
     /// This is the backing data that supports and manages the MenuInstance in the scene.
     /// </summary>
+    [AutoStaticsCleanup]
     [Serializable]
-    public abstract class BasisMenuBase<TMenu> where TMenu : BasisMenuBase<TMenu>
+    public abstract partial class BasisMenuBase<TMenu> where TMenu : BasisMenuBase<TMenu>
     {
 
         public static implicit operator bool(BasisMenuBase<TMenu> menu) => menu != null;
@@ -163,7 +165,7 @@ namespace Basis.BasisUI
             BasisNotificationCategory category = BasisNotificationCategory.System)
         {
             bool route = divertible && BasisNotificationCenter.RouteToNotifications;
-            if (!route && Dialogue)
+            if (!route && Dialogue && !Dialogue.IsReleased)
             {
                 BasisDebug.LogWarning("An existing Dialogue window is already active.");
                 return;
@@ -190,7 +192,7 @@ namespace Basis.BasisUI
             BasisNotificationCategory category = BasisNotificationCategory.System)
         {
             bool route = divertible && BasisNotificationCenter.RouteToNotifications;
-            if (!route && Dialogue)
+            if (!route && Dialogue && !Dialogue.IsReleased)
             {
                 BasisDebug.LogWarning("An existing Dialogue window is already active.");
                 return;

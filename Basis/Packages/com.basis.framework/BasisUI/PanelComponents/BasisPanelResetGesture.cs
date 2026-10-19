@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Drivers;
@@ -31,7 +32,8 @@ namespace Basis.BasisUI
     /// Only one element can be hovered at a time, so the poll lives here as a single frame-clock
     /// subscription held for the duration of that hover, instead of an Update on every control.
     /// </summary>
-    public static class BasisPanelResetGesture
+    [AutoStaticsCleanup]
+    public static partial class BasisPanelResetGesture
     {
         /// <summary>
         /// Longest a press can be held and still read as a click. Past this the stick is being

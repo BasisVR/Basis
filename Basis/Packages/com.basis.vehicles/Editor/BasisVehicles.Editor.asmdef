@@ -10,7 +10,8 @@
         "BasisVehicles",
         "BasisVehiclesNetwork",
         "Basis Framework Editor",
-        "BasisEditor"
+        "BasisEditor",
+        "BasisSDKEditor"
     ],
     "includePlatforms": [
         "Editor"

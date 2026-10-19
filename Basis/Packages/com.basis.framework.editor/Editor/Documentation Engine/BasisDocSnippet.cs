@@ -7,6 +7,7 @@
 // chain is captured into a named variable so the null guard means something, and the using
 // directives the snippet depends on are listed with it.
 
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -47,6 +48,7 @@ public sealed class BasisDocSnippetResult
 /// the same builder serves the inspector's plain snippet and the cilboxed-script variant, and can
 /// be exercised from tests.
 /// </summary>
+[NoAutoStaticsCleanup]
 public static class BasisDocSnippet
 {
     /// <summary>Class name used for the cilboxed wrapper. Only a placeholder — readers rename it.</summary>
@@ -737,6 +739,7 @@ public static class BasisDocSnippet
     }
 
     /// <summary>Sorts System first, then alphabetically — the order the editor's own files use.</summary>
+    [NoAutoStaticsCleanup]
     private sealed class NamespaceOrder : IComparer<string>
     {
         public static readonly NamespaceOrder Instance = new();

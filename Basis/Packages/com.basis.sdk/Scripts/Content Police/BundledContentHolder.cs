@@ -1,9 +1,11 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 /// <summary>
 /// Holds references to bundled content (avatars, systems, props, scenes) and their selectors.
 /// Provides accessors for content validation and enforces singleton access via <see cref="Instance"/>.
 /// </summary>
+[AutoStaticsCleanup]
 public partial class BundledContentHolder : MonoBehaviour
 {
     /// <summary>

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections;
 using Basis.BTween;
 using UnityEngine;
@@ -9,7 +10,8 @@ namespace Basis.BasisUI
     /// lands is easy to miss — the menu has just switched tab, opened sections and re-laid itself out
     /// under the user — so the row goes on asking for attention, and stops the moment it has it.
     /// </summary>
-    public sealed class PanelSearchBounce : MonoBehaviour
+    [AutoStaticsCleanup]
+    public sealed partial class PanelSearchBounce : MonoBehaviour
     {
         /// <summary>Quiet time between nudges. Long enough to read as a heartbeat rather than a wobble.</summary>
         private const float Interval = 1.1f;

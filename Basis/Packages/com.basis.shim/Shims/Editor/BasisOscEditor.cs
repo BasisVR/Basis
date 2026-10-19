@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using Basis.Editor.Localization;
 using Basis.Scripts.BasisSdk;
 using UnityEditor;
 using UnityEngine;
@@ -25,7 +26,7 @@ namespace Basis.Shims.Editor
             BasisOsc.InspectorState state = _cachedState;
             if (state == null)
             {
-                EditorGUILayout.HelpBox("Inspector state is unavailable.", MessageType.Warning);
+                EditorGUILayout.HelpBox(BasisEditorLocalization.Get("sdk.osc.inspector.stateUnavailable"), MessageType.Warning);
                 DrawScriptField(osc);
                 return;
             }
@@ -33,71 +34,69 @@ namespace Basis.Shims.Editor
             DrawScriptField(osc);
             EditorGUILayout.Space();
 
-            EditorGUILayout.LabelField("OSC State", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("sdk.osc.inspector.stateTitle"), EditorStyles.boldLabel);
             using (new EditorGUI.DisabledScope(true))
             {
-                EditorGUILayout.Toggle("Active And Enabled", state.IsActiveAndEnabled);
-                EditorGUILayout.Toggle("Receive All", state.ReceiveAll);
-                EditorGUILayout.Toggle("Can Publish", state.CanPublish);
-                EditorGUILayout.TextField("Entity Id", state.EntityId ?? string.Empty);
-                EditorGUILayout.TextField("Scope", state.ScopeName ?? "None");
-                EditorGUILayout.TextField("Publish Prefix", state.PublishPrefix ?? "Unavailable");
-                EditorGUILayout.TextField("Default Subscribe Prefix", state.DefaultSubscriptionPrefix ?? string.Empty);
-                EditorGUILayout.IntField("OnMessage Listeners", state.OnMessageListenerCount);
+                EditorGUILayout.Toggle(BasisEditorLocalization.Get("sdk.osc.inspector.activeAndEnabled"), state.IsActiveAndEnabled);
+                EditorGUILayout.Toggle(BasisEditorLocalization.Get("sdk.osc.inspector.receiveAll"), state.ReceiveAll);
+                EditorGUILayout.Toggle(BasisEditorLocalization.Get("sdk.osc.inspector.canPublish"), state.CanPublish);
+                EditorGUILayout.TextField(BasisEditorLocalization.Get("sdk.osc.inspector.entityId"), state.EntityId ?? string.Empty);
+                EditorGUILayout.TextField(BasisEditorLocalization.Get("sdk.osc.inspector.scope"), state.ScopeName ?? BasisEditorLocalization.Get("editor.common.none"));
+                EditorGUILayout.TextField(BasisEditorLocalization.Get("sdk.osc.inspector.publishPrefix"), state.PublishPrefix ?? BasisEditorLocalization.Get("sdk.osc.inspector.publishPrefixUnavailable"));
+                EditorGUILayout.TextField(BasisEditorLocalization.Get("sdk.osc.inspector.defaultSubscribePrefix"), state.DefaultSubscriptionPrefix ?? string.Empty);
+                EditorGUILayout.IntField(BasisEditorLocalization.Get("sdk.osc.inspector.onMessageListeners"), state.OnMessageListenerCount);
             }
 
             if (!state.HasScope)
             {
-                EditorGUILayout.HelpBox(
-                    "No OSC scope was resolved from a BasisAvatar, BasisProp, or BasisScene ancestor. Relative addresses will default to /avatar/parameters until the object is under a recognized scope.",
-                    MessageType.Info);
+                EditorGUILayout.HelpBox(BasisEditorLocalization.Get("sdk.osc.inspector.noScope"), MessageType.Info);
             }
 
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Subscription Counts", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("sdk.osc.inspector.subscriptionCounts"), EditorStyles.boldLabel);
             using (new EditorGUI.DisabledScope(true))
             {
-                EditorGUILayout.IntField("Exact Total", state.ExactSubscriptions.Length);
-                EditorGUILayout.IntField("Exact Message Callback Addresses", state.ExactCallbackCount);
-                EditorGUILayout.IntField("Exact Value Callback Addresses", state.ExactValueCallbackCount);
-                EditorGUILayout.IntField("Prefix Total", state.PrefixSubscriptions.Length);
-                EditorGUILayout.IntField("Prefix Message Callback Addresses", state.PrefixCallbackCount);
-                EditorGUILayout.IntField("Prefix Value Callback Addresses", state.PrefixValueCallbackCount);
+                EditorGUILayout.IntField(BasisEditorLocalization.Get("sdk.osc.inspector.exactTotal"), state.ExactSubscriptions.Length);
+                EditorGUILayout.IntField(BasisEditorLocalization.Get("sdk.osc.inspector.exactMessageCallbacks"), state.ExactCallbackCount);
+                EditorGUILayout.IntField(BasisEditorLocalization.Get("sdk.osc.inspector.exactValueCallbacks"), state.ExactValueCallbackCount);
+                EditorGUILayout.IntField(BasisEditorLocalization.Get("sdk.osc.inspector.prefixTotal"), state.PrefixSubscriptions.Length);
+                EditorGUILayout.IntField(BasisEditorLocalization.Get("sdk.osc.inspector.prefixMessageCallbacks"), state.PrefixCallbackCount);
+                EditorGUILayout.IntField(BasisEditorLocalization.Get("sdk.osc.inspector.prefixValueCallbacks"), state.PrefixValueCallbackCount);
             }
 
             EditorGUILayout.Space();
-            _showExactSubscriptions = EditorGUILayout.BeginFoldoutHeaderGroup(_showExactSubscriptions, $"Exact Subscriptions ({state.ExactSubscriptions.Length})");
+            _showExactSubscriptions = EditorGUILayout.BeginFoldoutHeaderGroup(_showExactSubscriptions, BasisEditorLocalization.Get("sdk.osc.inspector.exactSubscriptions", state.ExactSubscriptions.Length));
             if (_showExactSubscriptions)
             {
-                DrawStringList(state.ExactSubscriptions, "No exact subscriptions registered.");
+                DrawStringList(state.ExactSubscriptions, BasisEditorLocalization.Get("sdk.osc.inspector.exactSubscriptionsEmpty"));
             }
             EditorGUILayout.EndFoldoutHeaderGroup();
 
-            _showExactRegistrations = EditorGUILayout.BeginFoldoutHeaderGroup(_showExactRegistrations, $"Exact Registration Sources ({state.ExactRegistrationLines.Length})");
+            _showExactRegistrations = EditorGUILayout.BeginFoldoutHeaderGroup(_showExactRegistrations, BasisEditorLocalization.Get("sdk.osc.inspector.exactSources", state.ExactRegistrationLines.Length));
             if (_showExactRegistrations)
             {
-                DrawStringList(state.ExactRegistrationLines, "No exact registration sources tracked.");
+                DrawStringList(state.ExactRegistrationLines, BasisEditorLocalization.Get("sdk.osc.inspector.exactSourcesEmpty"));
             }
             EditorGUILayout.EndFoldoutHeaderGroup();
 
-            _showPrefixSubscriptions = EditorGUILayout.BeginFoldoutHeaderGroup(_showPrefixSubscriptions, $"Prefix Subscriptions ({state.PrefixSubscriptions.Length})");
+            _showPrefixSubscriptions = EditorGUILayout.BeginFoldoutHeaderGroup(_showPrefixSubscriptions, BasisEditorLocalization.Get("sdk.osc.inspector.prefixSubscriptions", state.PrefixSubscriptions.Length));
             if (_showPrefixSubscriptions)
             {
-                DrawStringList(state.PrefixSubscriptions, "No prefix subscriptions registered.");
+                DrawStringList(state.PrefixSubscriptions, BasisEditorLocalization.Get("sdk.osc.inspector.prefixSubscriptionsEmpty"));
             }
             EditorGUILayout.EndFoldoutHeaderGroup();
 
-            _showPrefixRegistrations = EditorGUILayout.BeginFoldoutHeaderGroup(_showPrefixRegistrations, $"Prefix Registration Sources ({state.PrefixRegistrationLines.Length})");
+            _showPrefixRegistrations = EditorGUILayout.BeginFoldoutHeaderGroup(_showPrefixRegistrations, BasisEditorLocalization.Get("sdk.osc.inspector.prefixSources", state.PrefixRegistrationLines.Length));
             if (_showPrefixRegistrations)
             {
-                DrawStringList(state.PrefixRegistrationLines, "No prefix registration sources tracked.");
+                DrawStringList(state.PrefixRegistrationLines, BasisEditorLocalization.Get("sdk.osc.inspector.prefixSourcesEmpty"));
             }
             EditorGUILayout.EndFoldoutHeaderGroup();
 
             if (!Application.isPlaying)
             {
                 EditorGUILayout.Space();
-                EditorGUILayout.HelpBox("Subscription lists are most useful in play mode after runtime subscriptions have been registered.", MessageType.None);
+                EditorGUILayout.HelpBox(BasisEditorLocalization.Get("sdk.osc.inspector.playModeHint"), MessageType.None);
             }
         }
 
@@ -135,7 +134,7 @@ namespace Basis.Shims.Editor
             using (new EditorGUI.DisabledScope(true))
             {
                 MonoScript script = MonoScript.FromMonoBehaviour(osc);
-                EditorGUILayout.ObjectField("Script", script, typeof(MonoScript), false);
+                EditorGUILayout.ObjectField(BasisEditorLocalization.Get("sdk.cilbox.scan.card.script"), script, typeof(MonoScript), false);
             }
         }
 

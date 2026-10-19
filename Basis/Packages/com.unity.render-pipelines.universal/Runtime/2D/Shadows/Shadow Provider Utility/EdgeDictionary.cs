@@ -9,6 +9,14 @@ namespace UnityEngine.Rendering.Universal
     {
         static private Dictionary<ShadowEdge, int> m_EdgeDictionary = new Dictionary<ShadowEdge, int>(new EdgeComparer());  // This is done so we don't create garbage allocating and deallocating a dictionary object
 
+#if UNITY_EDITOR
+        [RuntimeInitializeOnLoadMethod]
+        static void ResetStaticsOnLoad()
+        {
+            m_EdgeDictionary.Clear();
+        }
+#endif
+
         private class EdgeComparer : IEqualityComparer<ShadowEdge>
         {
             public bool Equals(ShadowEdge edge0, ShadowEdge edge1)

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using Basis.Editor.Localization;
 using Basis.Scripts.Networking.Sync.Testing;
 using UnityEditor;
 using UnityEngine;
@@ -15,9 +16,9 @@ namespace Basis.Scripts.Networking.Sync.EditorTools
     /// </summary>
     public sealed class BasisSyncLatencyTab : BasisEditorTabPage
     {
-        public override string Title => "Latency";
+        public override string Title => BasisEditorLocalization.Get("editor.syncTesting.latency.title");
         public override string Subtitle =>
-            "Owner-set to remote-render latency across send-rate, distance and jitter sweeps.";
+            BasisEditorLocalization.Get("editor.syncTesting.latency.subtitle");
 
         static readonly Color Hot = new Color(0.95f, 0.5f, 0.5f);
         static readonly Color Warm = new Color(0.95f, 0.85f, 0.35f);
@@ -29,30 +30,28 @@ namespace Basis.Scripts.Networking.Sync.EditorTools
         public override void Draw()
         {
             EditorGUILayout.Space(6);
-            BasisEditorUI.SectionTitle("Generic Value Sync - End-to-End Latency");
+            BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.syncTesting.latency.header"));
             EditorGUILayout.HelpBox(
-                "Drives the real BasisSyncReceiver over a linear ramp and measures owner-set -> remote-render " +
-                "latency every frame. 'meanBufferMs' is the jitter buffer's share; 'effSendIntervalMs' shows " +
-                "what distance reduction does to the owner's send rate. Higher numbers = more felt lag.",
+                BasisEditorLocalization.Get("editor.syncTesting.latency.help"),
                 MessageType.Info);
 
             EditorGUILayout.Space(4);
-            BasisEditorUI.SectionTitle("Sweeps");
-            _options.SendRate = EditorGUILayout.Toggle(new GUIContent("Send rate (20/30/60 Hz)"), _options.SendRate);
-            _options.Distance = EditorGUILayout.Toggle(new GUIContent("Distance reduction sweep", "20 Hz, reduction ON, nearest-viewer distance 0..30 m."), _options.Distance);
-            _options.NoReductionControl = EditorGUILayout.Toggle(new GUIContent("No-reduction control", "Same distances with reduction OFF (flat baseline)."), _options.NoReductionControl);
-            _options.Jitter = EditorGUILayout.Toggle(new GUIContent("Network jitter"), _options.Jitter);
-            _options.Extrapolate = EditorGUILayout.Toggle(new GUIContent("Extrapolation on/off"), _options.Extrapolate);
-            _options.Fixes = EditorGUILayout.Toggle(new GUIContent("Fix A/B (buffer depth, full-rate-while-held)", "Before/after for the two latency fixes."), _options.Fixes);
-            _options.RenderHz = EditorGUILayout.Slider(new GUIContent("Render Hz"), (float)_options.RenderHz, 30f, 144f);
+            BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.syncTesting.latency.sweeps"));
+            _options.SendRate = EditorGUILayout.Toggle(new GUIContent(BasisEditorLocalization.Get("editor.syncTesting.latency.sendRate")), _options.SendRate);
+            _options.Distance = EditorGUILayout.Toggle(new GUIContent(BasisEditorLocalization.Get("editor.syncTesting.latency.distance"), BasisEditorLocalization.Get("editor.syncTesting.latency.distance.tooltip")), _options.Distance);
+            _options.NoReductionControl = EditorGUILayout.Toggle(new GUIContent(BasisEditorLocalization.Get("editor.syncTesting.latency.noReduction"), BasisEditorLocalization.Get("editor.syncTesting.latency.noReduction.tooltip")), _options.NoReductionControl);
+            _options.Jitter = EditorGUILayout.Toggle(new GUIContent(BasisEditorLocalization.Get("editor.syncTesting.latency.jitter")), _options.Jitter);
+            _options.Extrapolate = EditorGUILayout.Toggle(new GUIContent(BasisEditorLocalization.Get("editor.syncTesting.latency.extrapolate")), _options.Extrapolate);
+            _options.Fixes = EditorGUILayout.Toggle(new GUIContent(BasisEditorLocalization.Get("editor.syncTesting.latency.fixes"), BasisEditorLocalization.Get("editor.syncTesting.latency.fixes.tooltip")), _options.Fixes);
+            _options.RenderHz = EditorGUILayout.Slider(new GUIContent(BasisEditorLocalization.Get("editor.syncTesting.latency.renderHz")), (float)_options.RenderHz, 30f, 144f);
 
             EditorGUILayout.Space(6);
             using (new EditorGUI.DisabledScope(EditorApplication.isCompiling))
-                if (BasisEditorUI.PrimaryButton("Run Latency Sweep", 30f))
+                if (BasisEditorUI.PrimaryButton(BasisEditorLocalization.Get("editor.syncTesting.latency.run"), 30f))
                     _results = BasisSyncLatencyMatrix.RunAll(_options);
 
             using (new EditorGUI.DisabledScope(_results == null || _results.Count == 0))
-                if (GUILayout.Button("Export CSV..."))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.syncTesting.exportCsv")))
                     ExportCsv();
 
             DrawResults();
@@ -64,7 +63,7 @@ namespace Basis.Scripts.Networking.Sync.EditorTools
             if (_results == null || _results.Count == 0) return;
 
             EditorGUILayout.Space(6);
-            BasisEditorUI.SectionTitle("Results (ms)");
+            BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.syncTesting.latency.results"));
 
             EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
             Cell("scenario", 130, true);
@@ -114,7 +113,7 @@ namespace Basis.Scripts.Networking.Sync.EditorTools
 
         void ExportCsv()
         {
-            string path = EditorUtility.SaveFilePanel("Export Sync Latency Results", "", "BasisSyncLatency.csv", "csv");
+            string path = EditorUtility.SaveFilePanel(BasisEditorLocalization.Get("editor.syncTesting.latency.exportTitle"), "", "BasisSyncLatency.csv", "csv");
             if (string.IsNullOrEmpty(path)) return;
             File.WriteAllText(path, BasisSyncLatencyMatrix.ToCsv(_results), new UTF8Encoding(false));
             Debug.Log($"[BasisSyncLatency] wrote {_results.Count} rows to {path}");

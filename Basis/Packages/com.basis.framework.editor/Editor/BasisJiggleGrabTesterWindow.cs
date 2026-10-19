@@ -1,3 +1,4 @@
+using Basis.Editor.Localization;
 using Basis.Scripts.BasisSdk.Interactions;
 using UnityEditor;
 using UnityEngine;
@@ -15,7 +16,7 @@ public sealed class BasisJiggleGrabTesterWindow : EditorWindow
     public static void ShowWindow()
     {
         BasisJiggleGrabTesterWindow window = GetWindow<BasisJiggleGrabTesterWindow>();
-        window.titleContent = new GUIContent("Jiggle Grab");
+        window.titleContent = new GUIContent(BasisEditorLocalization.Get("editor.jiggleGrab.windowTitle"));
         window.minSize = new Vector2(360, 320);
         window.Show();
     }
@@ -40,33 +41,27 @@ public sealed class BasisJiggleGrabTesterWindow : EditorWindow
 
     private void OnGUI()
     {
-        EditorGUILayout.LabelField("Scene View Drag", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.jiggleGrab.sceneViewDrag"), EditorStyles.boldLabel);
 
         if (!Application.isPlaying)
         {
-            EditorGUILayout.HelpBox(
-                "Enter play mode to drag — JiggleRig has no ExecuteAlways and the simulation is pumped " +
-                "by the event driver, so nothing jiggles in edit mode.",
-                MessageType.Info);
+            EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.jiggleGrab.enterPlayMode"), MessageType.Info);
         }
 
         BasisJiggleGrabSceneDrag.Enabled =
-            EditorGUILayout.ToggleLeft("Enable scene drag (takes over left click)", BasisJiggleGrabSceneDrag.Enabled);
+            EditorGUILayout.ToggleLeft(BasisEditorLocalization.Get("editor.jiggleGrab.enableSceneDrag"), BasisJiggleGrabSceneDrag.Enabled);
 
-        EditorGUILayout.HelpBox(
-            "While enabled, left click and drag in the Scene view to pull a jiggle chain. Left click no " +
-            "longer selects objects; alt-orbit still works. Local only — nothing is networked.",
-            MessageType.None);
+        EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.jiggleGrab.sceneDragHelp"), MessageType.None);
 
-        BasisJiggleGrabSceneDrag.PickRadius = EditorGUILayout.Slider("Pick Radius (m)",
+        BasisJiggleGrabSceneDrag.PickRadius = EditorGUILayout.Slider(BasisEditorLocalization.Get("editor.jiggleGrab.pickRadius"),
             BasisJiggleGrabSceneDrag.PickRadius, BasisJiggleGrabSceneDrag.MinRadius, BasisJiggleGrabSceneDrag.MaxRadius);
-        BasisJiggleGrabSceneDrag.RayLength = EditorGUILayout.Slider("Ray Length (m)",
+        BasisJiggleGrabSceneDrag.RayLength = EditorGUILayout.Slider(BasisEditorLocalization.Get("editor.jiggleGrab.rayLength"),
             BasisJiggleGrabSceneDrag.RayLength, 1f, 100f);
 
         EditorGUILayout.Space();
-        EditorGUILayout.LabelField("Runtime", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.jiggleGrab.runtime"), EditorStyles.boldLabel);
 
-        bool master = EditorGUILayout.ToggleLeft("Grabbing enabled (global setting mirror)", BasisJiggleGrabPermissions.MasterEnabled);
+        bool master = EditorGUILayout.ToggleLeft(BasisEditorLocalization.Get("editor.jiggleGrab.grabbingEnabled"), BasisJiggleGrabPermissions.MasterEnabled);
         if (master != BasisJiggleGrabPermissions.MasterEnabled)
         {
             BasisJiggleGrabPermissions.MasterEnabled = master;
@@ -74,37 +69,29 @@ public sealed class BasisJiggleGrabTesterWindow : EditorWindow
 
         using (new EditorGUI.DisabledScope(true))
         {
-            EditorGUILayout.IntField("Announced grabs", BasisJiggleGrabDriver.AnnouncedGrabCount);
-            EditorGUILayout.IntField("Applied grabs", BasisJiggleGrabDriver.AppliedGrabCount);
-            EditorGUILayout.IntField("Constraints pushed", BasisJiggleGrabDriver.PushedConstraintCount);
-            EditorGUILayout.Toggle("Dragging now", BasisJiggleGrabDriver.HasEditorGrab);
+            EditorGUILayout.IntField(BasisEditorLocalization.Get("editor.jiggleGrab.announcedGrabs"), BasisJiggleGrabDriver.AnnouncedGrabCount);
+            EditorGUILayout.IntField(BasisEditorLocalization.Get("editor.jiggleGrab.appliedGrabs"), BasisJiggleGrabDriver.AppliedGrabCount);
+            EditorGUILayout.IntField(BasisEditorLocalization.Get("editor.jiggleGrab.constraintsPushed"), BasisJiggleGrabDriver.PushedConstraintCount);
+            EditorGUILayout.Toggle(BasisEditorLocalization.Get("editor.jiggleGrab.draggingNow"), BasisJiggleGrabDriver.HasEditorGrab);
         }
 
         EditorGUILayout.Space();
-        EditorGUILayout.LabelField("Last Grab Press", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.jiggleGrab.lastGrabPress"), EditorStyles.boldLabel);
         string attempt = BasisJiggleGrabDriver.LastAttemptResult;
         float age = Application.isPlaying ? Time.unscaledTime - BasisJiggleGrabDriver.LastAttemptTime : 0f;
         EditorGUILayout.HelpBox(
-            BasisJiggleGrabDriver.LastAttemptTime > 0f ? $"{attempt}   ({age:0.0}s ago)" : attempt,
+            BasisJiggleGrabDriver.LastAttemptTime > 0f ? BasisEditorLocalization.Get("editor.jiggleGrab.attemptAge", attempt, age) : attempt,
             attempt.StartsWith("grabbed") ? MessageType.Info : MessageType.Warning);
-        EditorGUILayout.LabelField("Written only when a grab button is freshly pressed — squeeze grip in " +
-            "VR, then read this.", EditorStyles.miniLabel);
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.jiggleGrab.lastGrabNote"), EditorStyles.miniLabel);
 
         EditorGUILayout.Space();
-        if (GUILayout.Button("Release Drag"))
+        if (GUILayout.Button(BasisEditorLocalization.Get("editor.jiggleGrab.releaseDrag")))
         {
             BasisJiggleGrabDriver.EndEditorGrab();
         }
 
         EditorGUILayout.Space();
-        EditorGUILayout.LabelField("In-game controls", EditorStyles.boldLabel);
-        EditorGUILayout.HelpBox(
-            "Desktop: aim at a jiggle bone with nothing else under the cursor and hold left mouse.\n" +
-            "VR: put a hand on the chain and squeeze grip.\n" +
-            "The chain follows the grabbing hand bone, so on desktop it tracks your avatar's hand, " +
-            "not the mouse.\n\n" +
-            "How far a chain can be pulled is set per rig by Max Grab Stretch, as a multiple of a " +
-            "bone's distance from the chain root.",
-            MessageType.None);
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.jiggleGrab.inGameControls"), EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.jiggleGrab.controlsHelp"), MessageType.None);
     }
 }

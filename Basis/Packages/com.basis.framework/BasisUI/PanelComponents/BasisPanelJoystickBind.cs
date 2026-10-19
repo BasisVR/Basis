@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
@@ -26,7 +27,8 @@ namespace Basis.BasisUI
     /// comes back to centre. See <see cref="ApplyLive"/> and <see cref="Commit"/>.
     /// </para>
     /// </summary>
-    public static class BasisPanelJoystickBind
+    [AutoStaticsCleanup]
+    public static partial class BasisPanelJoystickBind
     {
         /// <summary>
         /// Deflection below this reads as a stick at rest. Deliberately well past the pointer

@@ -170,6 +170,10 @@ namespace Basis
                 Task[] tasks = new Task[] { IDResolverAsync, output };
 
                 await Task.WhenAll(tasks);
+                if (this == null)
+                {
+                    return;
+                }
 
                 //convert GUID into Ushort for network transport.
                 BasisIdResolutionResult IDResolverResult = await IDResolverAsync;

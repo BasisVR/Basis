@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine;
@@ -9,7 +10,8 @@ using UnityEngine;
 /// For dynamic focus points (e.g., mirror reflections), set <see cref="UseTransformPosition"/>
 /// to false and update <see cref="FocusPoint"/> from your own script each frame.
 /// </summary>
-public class BasisGazeTarget : MonoBehaviour
+[AutoStaticsCleanup]
+public partial class BasisGazeTarget : MonoBehaviour
 {
     [Tooltip("Higher priority targets win when competing at similar scores. Players default to 1.")]
     public float Priority = 1f;

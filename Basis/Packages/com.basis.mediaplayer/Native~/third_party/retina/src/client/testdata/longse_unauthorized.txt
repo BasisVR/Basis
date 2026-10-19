@@ -1,0 +1,5 @@
+RTSP/1.0 401 Unauthorized
+CSeq: 1 
+Server: Rtsp Server 1920*1080*20*2048
+WWW-Authenticate: Digest realm="Surveillance Server", nonce="98481030"
+

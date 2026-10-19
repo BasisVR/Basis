@@ -1,8 +1,10 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Settings;
 
 namespace Basis.MediaPipe
 {
     /// <summary>Persistent settings for webcam tracking, surfaced in the Settings "Webcam Tracking" tab.</summary>
+    [NoAutoStaticsCleanup]
     public static class BasisMediaPipeSettings
     {
         // First touch can precede BasisSettingsSystem reading the settings file (static init via
@@ -40,17 +42,11 @@ namespace Basis.MediaPipe
         public static readonly BasisSettingsBinding<bool> EnableBody =
             new BasisSettingsBinding<bool>("mediapipe_body", new BasisPlatformDefault<bool>(false));
 
-        public static readonly BasisSettingsBinding<bool> SwapHands =
-            new BasisSettingsBinding<bool>("mediapipe_swaphands", new BasisPlatformDefault<bool>(false));
-
         public static readonly BasisSettingsBinding<float> ArmHeadAnchor =
             new BasisSettingsBinding<float>("mediapipe_armheadanchor", new BasisPlatformDefault<float>(1f));
 
         public static readonly BasisSettingsBinding<bool> EnableArmElbowPole =
             new BasisSettingsBinding<bool>("mediapipe_armelbowpole", new BasisPlatformDefault<bool>(false));
-
-        public static readonly BasisSettingsBinding<float> ElbowRestBias =
-            new BasisSettingsBinding<float>("mediapipe_elbowrestbias", new BasisPlatformDefault<float>(0.5f));
 
         public static readonly BasisSettingsBinding<float> ChestMotion =
             new BasisSettingsBinding<float>("mediapipe_chestmotion", new BasisPlatformDefault<float>(0.6f));
@@ -68,18 +64,6 @@ namespace Basis.MediaPipe
 
         public static readonly BasisSettingsBinding<bool> InvertHeadRoll =
             new BasisSettingsBinding<bool>("mediapipe_invertheadroll", new BasisPlatformDefault<bool>(false));
-
-        public static readonly BasisSettingsBinding<float> HeadSmoothing =
-            new BasisSettingsBinding<float>("mediapipe_headsmoothing_v2", new BasisPlatformDefault<float>(0.8f));
-
-        public static readonly BasisSettingsBinding<float> FaceSmoothing =
-            new BasisSettingsBinding<float>("mediapipe_facesmoothing_v2", new BasisPlatformDefault<float>(0.8f));
-
-        public static readonly BasisSettingsBinding<float> HandSmoothing =
-            new BasisSettingsBinding<float>("mediapipe_handsmoothing_v2", new BasisPlatformDefault<float>(0.8f));
-
-        public static readonly BasisSettingsBinding<float> FingerSmoothing =
-            new BasisSettingsBinding<float>("mediapipe_fingersmoothing_v2", new BasisPlatformDefault<float>(0.8f));
 
         public static readonly BasisSettingsBinding<bool> HandRotation =
             new BasisSettingsBinding<bool>("mediapipe_handrotation", new BasisPlatformDefault<bool>(true));
@@ -144,20 +128,14 @@ namespace Basis.MediaPipe
             EnableHeadRotation.LoadBindingValue();
             EnableHandTracking.LoadBindingValue();
             EnableBody.LoadBindingValue();
-            SwapHands.LoadBindingValue();
             ArmHeadAnchor.LoadBindingValue();
             EnableArmElbowPole.LoadBindingValue();
-            ElbowRestBias.LoadBindingValue();
             ChestMotion.LoadBindingValue();
             Mirror.LoadBindingValue();
             InvertBlink.LoadBindingValue();
             InvertHeadYaw.LoadBindingValue();
             InvertHeadPitch.LoadBindingValue();
             InvertHeadRoll.LoadBindingValue();
-            HeadSmoothing.LoadBindingValue();
-            FaceSmoothing.LoadBindingValue();
-            HandSmoothing.LoadBindingValue();
-            FingerSmoothing.LoadBindingValue();
             HandRotation.LoadBindingValue();
             LowLightBoost.LoadBindingValue();
             RejectGlitches.LoadBindingValue();

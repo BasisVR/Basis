@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -6,9 +7,12 @@ using System.Threading.Tasks;
 using Basis.Editor.Localization;
 using Basis.Scripts.BasisSdk;
 using UnityEditor;
+using UnityEditor.Build;
+using UnityEditor.Build.Reporting;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
+[NoAutoStaticsCleanup]
 public static class BasisAssetBundlePipeline
 {
     // Define static delegates
@@ -71,6 +75,7 @@ public static class BasisAssetBundlePipeline
         BasisSceneBuildName sceneBuildName = null;
         string farLodBase64 = null;
         BasisBundleContentKind contentKind = ResolveContentKind(isScene, asset);
+        BasisBundleGraphicsStateBuilder.BuildInputs graphicsStateInputs = null;
 
         try
         {
@@ -79,6 +84,7 @@ public static class BasisAssetBundlePipeline
             {
                 if (settings.RebakeOcclusionCulling)
                 {
+#pragma warning disable 618
                     if (settings.RebakeOcclusionCullingInThese.Contains(Target))
                     {
                         StaticOcclusionCulling.Compute();
@@ -87,10 +93,12 @@ public static class BasisAssetBundlePipeline
                     {
                         StaticOcclusionCulling.Clear();
                     }
+#pragma warning restore 618
                 }
 
                 OnBeforeBuildScene?.Invoke(scene, settings);
                 meta = BasisBundleBuild.GenerateSceneMetaData(scene);
+                graphicsStateInputs = BasisBundleGraphicsStateBuilder.CollectInputs(scene);
                 sceneBuildName = BasisSceneBuildName.Assign(scene);
                 if (sceneBuildName == null)
                 {
@@ -106,6 +114,7 @@ public static class BasisAssetBundlePipeline
                 OnBeforeBuildPrefab?.Invoke(prefab, settings);
                 PostProcessAvatar(prefab);
                 meta = BasisBundleBuild.GenerateMetaData(prefab);
+                graphicsStateInputs = BasisBundleGraphicsStateBuilder.CollectInputs(prefab);
                 if (bakeFarLod && contentKind == BasisBundleContentKind.Avatar)
                 {
                     farLodBase64 = BasisBundleBuild.GenerateFarLod(prefab);
@@ -136,7 +145,9 @@ public static class BasisAssetBundlePipeline
                     isScene ? BasisBundleConnector.SceneAssetMode : BasisBundleConnector.GameObjectAssetMode,
                     Password,
                     Target,
-                    contentKind);
+                    contentKind,
+                    true,
+                    graphicsStateInputs);
 
             TemporaryStorageHandler.ClearTemporaryStorage(settings.TemporaryStorage);
             AssetDatabase.Refresh();
@@ -148,9 +159,9 @@ public static class BasisAssetBundlePipeline
             BuildTarget buildTarget = EditorUserBuildSettings.activeBuildTarget;
             BuildTargetGroup targetGroup = BuildPipeline.GetBuildTargetGroup(buildTarget);
             var namedBuildTarget = UnityEditor.Build.NamedBuildTarget.FromBuildTargetGroup(targetGroup);
-            if (ScriptingImplementation.Mono2x != PlayerSettings.GetScriptingBackend(namedBuildTarget))
+            if (targetGroup == BuildTargetGroup.Standalone && ScriptingImplementation.CoreCLR != PlayerSettings.GetScriptingBackend(namedBuildTarget))
             {
-                PlayerSettings.SetScriptingBackend(namedBuildTarget, ScriptingImplementation.Mono2x);
+                PlayerSettings.SetScriptingBackend(namedBuildTarget, ScriptingImplementation.CoreCLR);
             }
 
             return new(true, new BasisBundleBuild.BasisBundleBuildResult(value.Item1, value.Item2, meta, farLodBase64));
@@ -175,9 +186,9 @@ public static class BasisAssetBundlePipeline
             BuildTarget buildTarget = EditorUserBuildSettings.activeBuildTarget;
             BuildTargetGroup targetGroup = BuildPipeline.GetBuildTargetGroup(buildTarget);
             var namedBuildTarget = UnityEditor.Build.NamedBuildTarget.FromBuildTargetGroup(targetGroup);
-            if (ScriptingImplementation.Mono2x != PlayerSettings.GetScriptingBackend(namedBuildTarget))
+            if (targetGroup == BuildTargetGroup.Standalone && ScriptingImplementation.CoreCLR != PlayerSettings.GetScriptingBackend(namedBuildTarget))
             {
-                PlayerSettings.SetScriptingBackend(namedBuildTarget, ScriptingImplementation.Mono2x);
+                PlayerSettings.SetScriptingBackend(namedBuildTarget, ScriptingImplementation.CoreCLR);
             }
 
             return new(false, new BasisBundleBuild.BasisBundleBuildResult(null, new AssetBundleBuilder.InformationHash(), default));
@@ -190,6 +201,7 @@ public static class BasisAssetBundlePipeline
 
     public static void PostProcessAvatar(GameObject prefab)
     {
+        StripContentPasswords(prefab);
         if (prefab.TryGetComponent<BasisAvatar>(out BasisAvatar avatar))
         {
             var processing = avatar.ProcessingAvatarOptions;
@@ -208,6 +220,16 @@ public static class BasisAssetBundlePipeline
             {
                 avatar.TransformStorage = BasisAvatarTransformStorage.CaptureFrom(animator);
             }
+        }
+    }
+
+    public static void StripContentPasswords(GameObject root)
+    {
+        BasisContentBase[] contents = root.GetComponentsInChildren<BasisContentBase>(true);
+        for (int Index = 0; Index < contents.Length; Index++)
+        {
+            contents[Index].UseCustomPassword = false;
+            contents[Index].UserSelectedPassword = string.Empty;
         }
     }
 
@@ -299,6 +321,18 @@ public static class BasisAssetBundlePipeline
             {
                 DestroyIfEditorOnlyRecursive(child.gameObject);
             }
+        }
+    }
+}
+public class BasisContentPasswordSceneStripper : IProcessSceneWithReport
+{
+    public int callbackOrder => 0;
+    public void OnProcessScene(Scene scene, BuildReport report)
+    {
+        GameObject[] roots = scene.GetRootGameObjects();
+        for (int Index = 0; Index < roots.Length; Index++)
+        {
+            BasisAssetBundlePipeline.StripContentPasswords(roots[Index]);
         }
     }
 }

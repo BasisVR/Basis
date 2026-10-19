@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Reflection;
 using System.Runtime.Serialization;
 using Basis.Scripts.BasisSdk;
@@ -24,6 +25,7 @@ namespace Basis.Tests.Sync
     /// frame exists for: an observer drawing a fallback or substitute avatar must still get the prop into
     /// the hand it is drawing.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public class BasisPickupGripFrameTests
     {
         const BindingFlags NP = BindingFlags.NonPublic | BindingFlags.Instance;

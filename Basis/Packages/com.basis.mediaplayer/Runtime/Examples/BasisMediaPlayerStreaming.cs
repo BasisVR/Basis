@@ -1,24 +1,23 @@
 using UnityEngine;
 
-// End-to-end wiring for live OS-codec playback. Point a BasisMediaPlayer at a
-// VRCDN (or any OS-decodable) live URL; the native engine decodes it with the
-// platform hardware decoder straight into the player's zero-copy OutputTexture.
-//
-// Attach a BasisVideoMaterialOutput (renderer material) or BasisVideoDisplay
-// (uGUI RawImage) on the same GameObject to display OutputTexture. For audio,
-// add a BasisMediaPlayerAudio (with an AudioSource) on the same GameObject; the
-// player feeds it PCM decoded natively.
-//
-// Per-platform protocol guidance (from https://panel.vrcdn.live/preview/<name>):
-//   PC / VR (low latency) : rtsp://stream.vrcdn.live/live/<name>
-//   Quest (Android)       : https://stream.vrcdn.live/live/<name>.live.ts   (MPEG-TS)
-//   Alternatives          : rtmp://stream.vrcdn.live/live/<name>
-//                           https://stream.vrcdn.live/live/<name>.live.mp4  (fMP4)
+/// <summary>
+/// Points a <see cref="BasisMediaPlayer"/> at a URL, optionally
+/// choosing between a desktop and an Android URL by build target.
+///
+/// A player with a URL already set needs none of this. It is useful
+/// when the right URL differs by platform: RTSP is lowest latency on
+/// desktop, and Quest wants MPEG-TS over HTTPS from the same source.
+///
+/// Per-platform guidance from a VRCDN panel (https://panel.vrcdn.live/preview/&lt;name&gt;):
+///   PC / VR (low latency) : rtsp://stream.vrcdn.live/live/&lt;name&gt;
+///   Quest (Android)       : https://stream.vrcdn.live/live/&lt;name&gt;.live.ts
+/// </summary>
+[AddComponentMenu("Basis/Basis Media Player Streaming")]
 [RequireComponent(typeof(BasisMediaPlayer))]
 public sealed class BasisMediaPlayerStreaming : MonoBehaviour
 {
     [Header("Stream")]
-    [Tooltip("Live URL to play when AutoSelectPerPlatform is off. RTSP/RTMP/HTTPS-fMP4/HTTPS-TS are all accepted.")]
+    [Tooltip("URL to play when AutoSelectPerPlatform is off.")]
     public string StreamUrl = "rtsp://stream.vrcdn.live/live/vrcdn";
 
     [Tooltip("If true, pick PcUrl or QuestUrl automatically by build target instead of using StreamUrl. RTSP is lowest latency on PC/VR; Quest pulls MPEG-TS over HTTPS.")]
@@ -31,32 +30,38 @@ public sealed class BasisMediaPlayerStreaming : MonoBehaviour
     public string QuestUrl = "https://stream.vrcdn.live/live/vrcdn.live.ts";
 
     [Header("Lifecycle")]
-    [Tooltip("If true, the stream is loaded into the player on Start. Disable to call Configure() yourself.")]
+    [Tooltip("If true, the resolved URL is written to the player before it starts. Disable to call Configure() yourself.")]
     public bool ConfigureOnStart = true;
 
-    private void Start()
+    // Awake, not Start: every Awake runs before any Start, so the player
+    // finds its URL in place and opens it through its own playOnStart.
+    // Doing this in Start would race the player's and could open twice.
+    private void Awake()
     {
-        if (ConfigureOnStart) Configure();
+        if (!ConfigureOnStart) return;
+        if (!TryGetComponent(out BasisMediaPlayer player)) return;
+        string url = ResolveUrl();
+        if (!string.IsNullOrEmpty(url)) player.url = url;
     }
 
-    // Loads the resolved URL into the BasisMediaPlayer on this GameObject. The
-    // player auto-plays if AutoPlayOnSourceAssigned is set (the default).
+    /// <summary>Resolves the URL for this platform and opens it now,
+    /// through the router so an authored page URL resolves rather than
+    /// failing to open.</summary>
     public void Configure()
     {
         if (!TryGetComponent(out BasisMediaPlayer player))
         {
-            BasisDebug.LogError("BasisMediaPlayerStreaming requires a BasisMediaPlayer on the same GameObject.", BasisDebug.LogTag.Video);
+            BasisDebug.LogError("[BasisMedia] BasisMediaPlayerStreaming needs a BasisMediaPlayer on the same GameObject.", BasisDebug.LogTag.Video);
             return;
         }
 
         string url = ResolveUrl();
         if (string.IsNullOrEmpty(url))
         {
-            BasisDebug.LogWarning("BasisMediaPlayerStreaming has no URL to load.", BasisDebug.LogTag.Video);
+            BasisDebug.LogWarning("[BasisMedia] BasisMediaPlayerStreaming has no URL to load.", BasisDebug.LogTag.Video);
             return;
         }
-        // LoadUrl steers page URLs (YouTube/Twitch/…) through the resolver and loads
-        // direct streams straight through, so this just hands the URL over.
+
         player.LoadUrl(url);
     }
 

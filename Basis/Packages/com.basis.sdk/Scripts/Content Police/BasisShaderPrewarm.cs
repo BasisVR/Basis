@@ -129,7 +129,7 @@ public static class BasisShaderPrewarm
                 svc.Add(variant);
                 added = true;
             }
-            catch (ArgumentException ex)
+            catch (ArgumentException)
             {
                 stats.variantsRejected++;
                 //// if (stats.firstRejectionSample == null)

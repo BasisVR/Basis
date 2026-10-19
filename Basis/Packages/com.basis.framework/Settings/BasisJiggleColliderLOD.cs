@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.Networking;
 using UnityEngine;
@@ -10,7 +11,8 @@ using UnityEngine;
 /// staying invisible to the local player (finger-level jiggle collisions can't be seen past a few
 /// metres). The thresholds are user-tunable in Settings &gt; Performance Limits.
 /// </summary>
-public static class BasisJiggleColliderLOD
+[AutoStaticsCleanup]
+public static partial class BasisJiggleColliderLOD
 {
     /// <summary>Master switch. When false, every avatar keeps its full collider set.</summary>
     public static bool Enabled;
@@ -26,10 +28,10 @@ public static class BasisJiggleColliderLOD
     internal const float HysteresisSqr = 1.1f * 1.1f;
 
     // [feet, arms, hands, fingers] active per tier. Static so tier lookups never allocate.
-    private static readonly bool[] FullCats = { true, true, true, true };
-    private static readonly bool[] NoFingersCats = { true, true, true, false };
-    private static readonly bool[] HandsOnlyCats = { false, false, true, false };
-    private static readonly bool[] NoneCats = { false, false, false, false };
+    [NoAutoStaticsCleanup] private static readonly bool[] FullCats = { true, true, true, true };
+    [NoAutoStaticsCleanup] private static readonly bool[] NoFingersCats = { true, true, true, false };
+    [NoAutoStaticsCleanup] private static readonly bool[] HandsOnlyCats = { false, false, true, false };
+    [NoAutoStaticsCleanup] private static readonly bool[] NoneCats = { false, false, false, false };
 
     /// <summary>Which collider categories are active for a tier: [feet, arms, hands, fingers].</summary>
     public static bool[] ActiveCategories(BasisJiggleColliderTier tier) => tier switch

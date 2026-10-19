@@ -2,68 +2,108 @@
     <engine:VisualElement class="bvp-root">
         <engine:VisualElement name="HeaderCard" class="bvp-card bvp-header-card">
             <engine:Label text="Basis Media Player" name="HeaderTitle" selectable="false" class="bvp-header-title"/>
-            <engine:Label text="OS-codec live streaming" name="HeaderSubtitle" selectable="false" class="bvp-header-subtitle"/>
         </engine:VisualElement>
 
-        <engine:VisualElement name="IdentityCard" class="bvp-card">
-            <engine:Label text="Identity" class="bvp-section-title"/>
-            <engine:TextField label="Display Name" name="DisplayNameField" tooltip="Friendly name shown in the Media Players menu and diagnostics. Defaults to the GameObject name when empty."/>
+        <engine:VisualElement name="SourceCard" class="bvp-card">
+            <engine:Label text="Source" name="SourceSectionTitle" class="bvp-section-title"/>
+            <engine:VisualElement name="UrlGroup" class="bvp-subgroup">
+                <engine:Toggle label="Per-Platform URLs" name="PerPlatformUrlsField" tooltip="Publish this source differently per platform — RTSP on desktop, MPEG-TS over HTTPS on Quest — rather than using one URL everywhere. Unticking clears the Android URL, so nothing is left behind to take effect silently."/>
+                <engine:TextField label="URL" name="UrlField" tooltip="http(s) URL or absolute file path. A page URL (YouTube, Twitch) needs a resolver package installed."/>
+                <engine:TextField label="Android URL" name="AndroidUrlField" tooltip="Used on Android builds instead of the URL above. Empty means the URL above is used there too. The editor always uses the URL above, whatever the build target is set to."/>
+            </engine:VisualElement>
+            <engine:Toggle label="Play On Start" name="PlayOnStartField" tooltip="Opens the URL through the resolver on Start, so an authored page URL resolves rather than failing to open."/>
+            <engine:TextField label="Display Name" name="DisplayNameField" tooltip="What the Media Players menu calls this player. Empty uses the GameObject's name."/>
         </engine:VisualElement>
+
+        <engine:Foldout text="Playback" name="PlaybackFoldout" value="false" class="bvp-foldout">
+            <engine:Toggle label="Auto Play On Source Assigned" name="AutoPlayField" tooltip="Play as soon as a source opens. Off, the session opens and holds on its first frame until Play."/>
+            <engine:Toggle label="Loop" name="LoopField" tooltip="Start again from the beginning when an on-demand source ends."/>
+            <engine:FloatField label="Loop Restart Delay (s)" name="LoopRestartDelayField" tooltip="Seconds to hold on the last frame before looping."/>
+            <engine:FloatField label="Stop After (s)" name="StopAfterField" tooltip="Stop after this much playback; 0 never stops. Paused time does not count."/>
+            <engine:Toggle label="Stop On Disable" name="StopOnDisableField" tooltip="Stop the session when this component is disabled. Off, it keeps decoding, unpolled, until it is enabled again or stopped."/>
+            <engine:Slider label="Volume" name="VolumeField" low-value="0" high-value="1" show-input-field="true" tooltip="Gain for the audio sink beside this player. A change here is handed to the sink's own Volume Gain; the sink's value is what the audio reads."/>
+            <engine:Toggle label="Mute" name="MuteField" tooltip="Silence the audio sink beside this player without stopping it."/>
+        </engine:Foldout>
 
         <engine:VisualElement name="NowPlayingCard" class="bvp-card">
-            <engine:Label text="Now Playing" class="bvp-section-title"/>
+            <engine:Label text="Now Playing" name="NowPlayingSectionTitle" class="bvp-section-title"/>
             <engine:VisualElement name="NowPlayingTitleRow" class="bvp-status-row">
-                <engine:Label text="Title" selectable="false" class="bvp-status-label"/>
+                <engine:Label text="Title" name="NowPlayingTitleLabel" selectable="false" class="bvp-status-label"/>
                 <engine:Label text="" name="NowPlayingTitle" selectable="false" class="bvp-status-value bvp-status-value-wrap"/>
             </engine:VisualElement>
             <engine:VisualElement name="NowPlayingUploaderRow" class="bvp-status-row">
-                <engine:Label text="Uploader" selectable="false" class="bvp-status-label"/>
+                <engine:Label text="Uploader" name="NowPlayingUploaderLabel" selectable="false" class="bvp-status-label"/>
                 <engine:Label text="" name="NowPlayingUploader" selectable="false" class="bvp-status-value"/>
             </engine:VisualElement>
-            <engine:VisualElement name="NowPlayingFileRow" class="bvp-status-row">
-                <engine:Label text="File" selectable="false" class="bvp-status-label"/>
-                <engine:Label text="" name="NowPlayingFile" selectable="false" class="bvp-status-value"/>
+            <engine:VisualElement name="NowPlayingSourceRow" class="bvp-status-row">
+                <engine:Label text="Source" name="NowPlayingSourceLabel" selectable="false" class="bvp-status-label"/>
+                <engine:Label text="" name="NowPlayingSource" selectable="false" class="bvp-status-value bvp-status-value-wrap"/>
             </engine:VisualElement>
             <engine:VisualElement name="NowPlayingDurationRow" class="bvp-status-row">
-                <engine:Label text="Duration" selectable="false" class="bvp-status-label"/>
+                <engine:Label text="Duration" name="NowPlayingDurationLabel" selectable="false" class="bvp-status-label"/>
                 <engine:Label text="" name="NowPlayingDuration" selectable="false" class="bvp-status-value"/>
             </engine:VisualElement>
+            <engine:Label text="Populated by a resolver. A direct stream URL has no metadata to report." name="NowPlayingHint" class="bvp-help-info"/>
         </engine:VisualElement>
 
-        <engine:Foldout text="Buffering" name="BufferingFoldout" value="true" class="bvp-foldout">
-            <engine:IntegerField label="Max Queue Length" name="MaxQueueLengthField" tooltip="Maximum queued frames before the overflow policy kicks in. ~1s at 30 fps by default."/>
-            <engine:EnumField label="Overflow Policy" name="OverflowPolicyField" tooltip="DropOldest keeps fresh frames; DropNewest keeps the buffered history."/>
-            <engine:LongField label="Late Frame Skip (us)" name="LateFrameSkipField" tooltip="CPU source path only. Frames older than this are skipped without presenting. 0 = always present most recent."/>
-            <engine:EnumField label="Buffer Mode" name="BufferModeField" tooltip="OS-codec live path. Dynamic auto-tunes the jitter buffer; Fixed holds BufferMilliseconds exactly."/>
-            <engine:IntegerField label="Buffer Milliseconds" name="BufferMillisecondsField" tooltip="OS-codec live path. Jitter buffer length. Starting value in Dynamic mode."/>
+        <engine:Foldout text="Output" name="OutputFoldout" value="true" class="bvp-foldout">
+            <engine:Label text="This component decodes; it draws and sounds nothing on its own. Add a Basis Video Material Output (a renderer) or a Basis Video Display (a uGUI RawImage) for picture, and a Basis Media Audio for sound." name="OutputHelp" class="bvp-help-info"/>
         </engine:Foldout>
 
-        <engine:Foldout text="Playback" name="PlaybackFoldout" value="true" class="bvp-foldout">
-            <engine:Toggle label="Auto Play On Source Assigned" name="AutoPlayField"/>
-            <engine:Toggle label="Stop On Disable" name="StopOnDisableField"/>
-            <engine:Toggle label="Loop" name="LoopField"/>
-            <engine:FloatField label="Loop Restart Delay (s)" name="LoopRestartDelayField"/>
-            <engine:LongField label="Presentation Offset (us)" name="PresentationOffsetField" tooltip="Positive = present frames earlier (audio ahead); negative = delay."/>
+        <engine:Foldout text="Buffering" name="BufferingFoldout" value="false" class="bvp-foldout">
+            <engine:IntegerField label="Max Divergence (ms)" name="MaxDivergenceField" tooltip="Shared playback on live sources: the furthest behind the live edge this player is allowed to fall while converging."/>
         </engine:Foldout>
 
-        <engine:Foldout text="Audio" name="AudioFoldout" value="true" class="bvp-foldout">
-            <engine:Slider label="Volume" name="VolumeField" low-value="0" high-value="1" show-input-field="true"/>
-            <engine:Toggle label="Mute" name="MuteField"/>
-            <engine:Slider label="Playback Rate" name="PlaybackRateField" low-value="0.25" high-value="4" show-input-field="true"/>
+        <engine:Foldout text="Advanced" name="AdvancedFoldout" value="false" class="bvp-foldout">
+            <engine:VisualElement name="LivenessGroup" class="bvp-subgroup">
+                <engine:Label text="Source kind" name="LivenessGroupTitle" class="bvp-subgroup-title"/>
+                <engine:EnumField label="Liveness" name="LivenessField" tooltip="Override what the player works out for itself. Auto reads it from the source and is almost always right; set Live or Vod only to overrule a server whose headers mislead. RTSP, WHEP and RIST are always live, and an HLS playlist decides for itself, whatever this says."/>
+                <engine:Label text="Worked out from the source. Set this only if a badly configured server has it wrong." name="LivenessHint" class="bvp-help-info"/>
+            </engine:VisualElement>
+
+            <engine:VisualElement name="EngineCaptureGroup" class="bvp-subgroup">
+                <engine:Label text="Engine capture" name="EngineCaptureGroupTitle" class="bvp-subgroup-title"/>
+                <engine:Toggle label="Enabled" name="EngineCaptureField" tooltip="Have the engine capture its own side of the session — bank depth, decode and present counts, clock, sampled every 100 ms on its own thread. Held in memory and written as one file when the session ends, so it appears on stop rather than during play. Not the Basis Media Player Diagnostics component, which records the other side of the boundary: render cadence, frame hold times and audio pull, none of which the engine can observe. Run both to see a session from each side."/>
+                <engine:TextField label="File" name="EngineCaptureFileField" tooltip="Filename under the same folder the frame capture uses. Empty means BasisMediaEngine.csv."/>
+                <engine:Toggle label="Append Sessions" name="EngineCaptureAppendField" tooltip="Append each session to that file instead of replacing it, so a player that opens and closes repeatedly keeps every run. The header is written once, when the file is created."/>
+                <engine:Label text="—" name="EngineCapturePath" class="bvp-counters"/>
+                <engine:Label text="Written when the session ends, not while it plays." name="EngineCaptureHint" class="bvp-help-info"/>
+            </engine:VisualElement>
+
+            <engine:VisualElement name="LoggingGroup" class="bvp-subgroup">
+                <engine:Label text="Logging and screenshots" name="LoggingGroupTitle" class="bvp-subgroup-title"/>
+                <engine:Toggle label="Verbose Logging" name="VerboseLoggingField" tooltip="Log this player's own actions to the Console: state changes, seeks, loops, the sleep timer. Engine events are logged regardless."/>
+                <engine:Toggle label="Flip Screenshots Vertically" name="FlipScreenshotField" tooltip="Invert the rows of a CaptureScreenshot image relative to what the player works out for this graphics API. Set it only if screenshots still come out upside down."/>
+            </engine:VisualElement>
+
+            <engine:VisualElement name="NetworkGroup" class="bvp-subgroup">
+                <engine:Label text="Network" name="NetworkGroupTitle" class="bvp-subgroup-title"/>
+                <engine:Toggle label="Allow Local Addresses" name="AllowLocalField" tooltip="Permit sources on private or loopback addresses. For local test rigs only — it opts out of the engine's address gate. A local file path is not an address and never needs this."/>
+            </engine:VisualElement>
         </engine:Foldout>
 
-        <engine:Foldout text="Capture" name="CaptureFoldout" value="false" class="bvp-foldout">
-            <engine:Toggle label="Flip Screenshots Vertically" name="FlipScreenshotField" tooltip="CaptureScreenshot flips rows before PNG encode (D3D11/12 readbacks are top-left)."/>
+        <engine:Foldout text="Session" name="SessionFoldout" value="true" class="bvp-foldout">
+            <engine:VisualElement class="bvp-status-grid">
+                <engine:VisualElement class="bvp-status-row"><engine:Label text="State" name="StatusStateLabel" class="bvp-status-label"/><engine:Label text="—" name="StatusState" class="bvp-status-pill bvp-pill-neutral"/></engine:VisualElement>
+                <engine:VisualElement class="bvp-status-row"><engine:Label text="Position" name="StatusPositionLabel" class="bvp-status-label"/><engine:Label text="—" name="StatusPosition" class="bvp-status-value"/></engine:VisualElement>
+                <engine:VisualElement class="bvp-status-row"><engine:Label text="Banked" name="StatusBankedLabel" class="bvp-status-label"/><engine:Label text="—" name="StatusBanked" class="bvp-status-value"/></engine:VisualElement>
+                <engine:VisualElement class="bvp-status-row"><engine:Label text="Video" name="StatusVideoLabel" class="bvp-status-label"/><engine:Label text="—" name="StatusVideo" class="bvp-status-value"/></engine:VisualElement>
+                <engine:VisualElement class="bvp-status-row"><engine:Label text="Frames" name="StatusFramesLabel" class="bvp-status-label"/><engine:Label text="—" name="StatusFrames" class="bvp-status-value"/></engine:VisualElement>
+                <engine:VisualElement class="bvp-status-row"><engine:Label text="Audio Pulled" name="StatusAudioLabel" class="bvp-status-label"/><engine:Label text="—" name="StatusAudio" class="bvp-status-value"/></engine:VisualElement>
+                <engine:VisualElement class="bvp-status-row" name="SyncRow"><engine:Label text="Sync Trim" name="StatusSyncLabel" class="bvp-status-label"/><engine:Label text="—" name="StatusSync" class="bvp-status-value"/></engine:VisualElement>
+            </engine:VisualElement>
+            <engine:Label text="—" name="StatusError" class="bvp-help-error"/>
+            <engine:Label text="Enter Play Mode for live counters and transport controls." name="StatusEditModeHint" class="bvp-help-info"/>
         </engine:Foldout>
 
-        <engine:Foldout text="DVR" name="DvrFoldout" value="false" class="bvp-foldout">
-            <engine:Toggle label="DVR Enabled" name="DvrEnabledField" tooltip="Forces a rolling rewind buffer on live sources by raising BufferMilliseconds. Seekable sources ignore this (regular Seek already works)."/>
-            <engine:Slider label="DVR Window (s)" name="DvrWindowField" low-value="0" high-value="60" show-input-field="true"/>
-        </engine:Foldout>
-
-        <engine:Foldout text="Logging" name="LoggingFoldout" value="false" class="bvp-foldout">
-            <engine:Toggle label="Verbose Logging" name="VerboseLoggingField"/>
-        </engine:Foldout>
+        <engine:VisualElement name="TransportCard" class="bvp-card bvp-actions-card">
+            <engine:Button text="Open" name="ActOpenButton" class="bvp-primary-button"/>
+            <engine:Button text="Play" name="ActPlayButton" class="bvp-secondary-button"/>
+            <engine:Button text="Pause" name="ActPauseButton" class="bvp-secondary-button"/>
+            <engine:Button text="-10s" name="ActBackButton" class="bvp-secondary-button"/>
+            <engine:Button text="+10s" name="ActForwardButton" class="bvp-secondary-button"/>
+            <engine:Button text="Close" name="ActCloseButton" class="bvp-secondary-button"/>
+        </engine:VisualElement>
 
         <engine:VisualElement name="ActionsCard" class="bvp-card bvp-actions-card">
             <engine:Button text="Open Debug Window" name="OpenDebugWindowButton" class="bvp-primary-button"/>

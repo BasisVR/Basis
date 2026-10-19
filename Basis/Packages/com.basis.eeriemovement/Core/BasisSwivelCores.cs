@@ -31,18 +31,7 @@ namespace Basis.IK
     [BurstCompile]
     public static class BasisSwivelHintCore
     {
-        const float sqrEpsilon = 1e-10f, epsilon = 1e-5f;
-        public const float LegTrustLo = 0.30f, LegTrustHi = 0.70f, LegDomainReachLo = 0.45f, LegDomainReachHi = 0.60f;
-        public static float LegDomainTrust(float reach)
-        {
-            float t = Mathf.Clamp01((reach - LegDomainReachLo) / (LegDomainReachHi - LegDomainReachLo));
-            return t * t * (3f - 2f * t);
-        }
-        public static float LegModelTrust(float confidence)
-        {
-            float t = Mathf.Clamp01((confidence - LegTrustLo) / (LegTrustHi - LegTrustLo));
-            return t * t * (3f - 2f * t);
-        }
+        const float sqrEpsilon = 1e-10f;
         public static BasisSwivelFrame BuildFrame(Vector3 leftAnchor, Vector3 rightAnchor, Vector3 upFrom, Vector3 upTo)
         {
             BasisSwivelFrame f = default;
@@ -70,50 +59,6 @@ namespace Basis.IK
             f.Valid = true;
             return f;
         }
-        public static void Features(in BasisSwivelFrame frameNow, Vector3 rootPos, Vector3 tipPos, float limbLen, bool isLeft, out float3 tipLocal)
-        {
-            Vector3 bOut = isLeft ? -frameNow.Right : frameNow.Right, r2t = tipPos - rootPos;
-            float inv = 1f / Mathf.Max(limbLen, epsilon);
-            tipLocal = new float3(Vector3.Dot(r2t, bOut) * inv, Vector3.Dot(r2t, frameNow.Up) * inv, Vector3.Dot(r2t, frameNow.Forward) * inv);
-        }
-        public static bool LegHint(in BasisSwivelFrame frameNow, Vector3 hip, Vector3 footPos, float legLen, bool isLeft, out Vector3 hintPos, out float confidence, bool useNeural = false)
-        {
-            hintPos = default;
-            confidence = 0f;
-
-            if (!frameNow.Valid || !(legLen > epsilon))
-            {
-                return false;
-            }
-
-            Features(frameNow, hip, footPos, legLen, isLeft, out float3 tipLocal);
-
-            if (!IsFinite(tipLocal))
-            {
-                return false;
-            }
-
-            float swivel = useNeural ? BasisLegSwivelNeuralModel.SwivelRad(tipLocal, out confidence) : BasisLegSwivelModel.SwivelRad(tipLocal, out confidence);
-
-            confidence *= LegDomainTrust(math.length(tipLocal));
-
-            if (isLeft)
-            {
-                swivel = -swivel;
-            }
-
-            Vector3 gOut = isLeft ? -frameNow.Right : frameNow.Right, h2f = footPos - hip;
-            float3 bend = BasisLegSwivelModel.BendDirection( new float3(h2f.x, h2f.y, h2f.z), new float3(gOut.x, gOut.y, gOut.z), swivel);
-
-            if (!IsFinite(bend))
-            {
-                return false;
-            }
-
-            hintPos = hip + 0.5f * legLen * new Vector3(bend.x, bend.y, bend.z);
-            return true;
-        }
-        static bool IsFinite(in float3 v) => math.all(math.isfinite(v));
     }
     public static class BasisSwivelSmootherCore
     {

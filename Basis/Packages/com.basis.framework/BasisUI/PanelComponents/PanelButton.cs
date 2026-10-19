@@ -159,8 +159,19 @@ namespace Basis.BasisUI
             Layout.preferredHeight = size.y;
         }
 
-        public void SetHeight(float height) => SetSize(new Vector2(rectTransform.sizeDelta.x, height));
-        public void SetWidth(float width) => SetSize(new Vector2(width, rectTransform.sizeDelta.y));
+        public void SetHeight(float height)
+        {
+            rectTransform.sizeDelta = new Vector2(rectTransform.sizeDelta.x, height);
+            Layout.minHeight = height;
+            Layout.preferredHeight = height;
+        }
+
+        public void SetWidth(float width)
+        {
+            rectTransform.sizeDelta = new Vector2(width, rectTransform.sizeDelta.y);
+            Layout.minWidth = width;
+            Layout.preferredWidth = width;
+        }
 
     }
 }

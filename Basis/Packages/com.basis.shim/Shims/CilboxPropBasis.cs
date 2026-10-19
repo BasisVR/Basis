@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using System.Collections.Generic;
 using System;
@@ -5,8 +6,9 @@ using System.Reflection;
 
 namespace Cilbox
 {
+	[AutoStaticsCleanup]
 	[CilboxTarget]
-	public class CilboxPropBasis : CilboxBasisCommon
+	public partial class CilboxPropBasis : CilboxBasisCommon
 	{
 		static readonly HashSet<string> extraWhiteListType = new HashSet<string>(){
 			// Prop-specific Basis types
@@ -14,12 +16,12 @@ namespace Cilbox
 			"Basis.BasisImageDownloader",
 			"Basis.IBasisImageDownload",
 			"Basis.BasisStringDownloader",
-			// Basis media-player components. BasisMediaPlayer keeps its native API; LoadUrl
-			// enforces URL approval internally, while unsafe lower-level entry points are blocked below.
+			// Basis media-player components. Playback control, status and events are open to a
+			// prop; every route that opens a URL is blocked in CheckMethodAllowed until the player
+			// itself asks the user before opening one.
 			"BasisMediaPlayer",
-			"BasisMediaPlayer+QueueOverflowPolicy",
-			"BasisMediaPlayerStatus",
-			"BasisVideoBufferMode",
+			"BmState",
+			"BmLiveness",
 			"BasisMediaPlayerAudio",
 			"BasisMediaPlayerStreaming",
 			"BasisVideoMaterialOutput",
@@ -135,9 +137,24 @@ namespace Cilbox
 			// Read-only local head scale (Vector3) so cloned mirror heads match the local player.
 			"Basis.Scripts.Drivers.BasisLocalAvatarDriver.HeadScale",
 			"Basis.Scripts.Drivers.BasisLocalCameraDriver.CameraInstance",
-			// Media-player configuration is safe to read/write from a prop. Network/file
-			// entry points are methods and are gated separately in CheckMethodAllowed.
-			"BasisMediaPlayer.*",
+			// Playback tuning is safe to read/write from a prop. The URL fields are withheld
+			// because the session governor and the networking component reopen and share
+			// whatever they hold; allowLocalAddresses, the engine capture fields and the static
+			// engine defaults are withheld because they reach the local network, the disk, or
+			// every player in the scene; StopOnDisable is withheld because off lets a hidden
+			// prop keep decoding.
+			"BasisMediaPlayer.playOnStart",
+			"BasisMediaPlayer.liveness",
+			"BasisMediaPlayer.maxDivergenceMs",
+			"BasisMediaPlayer.BufferDepthOverrideMs",
+			"BasisMediaPlayer.DisplayName",
+			"BasisMediaPlayer.AutoPlayOnSourceAssigned",
+			"BasisMediaPlayer.Loop",
+			"BasisMediaPlayer.LoopRestartDelaySeconds",
+			"BasisMediaPlayer.StopAfterSeconds",
+			"BasisMediaPlayer.Volume",
+			"BasisMediaPlayer.Mute",
+			"BasisMediaPlayer.VerboseLogging",
 			"BasisMediaPlayerAudio.*",
 			// Streaming URLs/platform selection are script-configurable, but ConfigureOnStart
 			// is intentionally withheld so Cilbox cannot re-enable content auto-start.
@@ -161,6 +178,11 @@ namespace Cilbox
 			// block every method to keep prop scripts out of the local player's locomotion.
 			{ typeof(Basis.Shims.BasisPlayspaceInputShim), new HashSet<string>() },
 			{ typeof(Basis.Shims.BasisVixxyShim), new HashSet<string>() },
+			{ typeof(Basis.Shims.BasisDesktopInputShim), new HashSet<string>() },
+			{ typeof(Basis.Shims.BasisControllerInputShim), new HashSet<string>() },
+			// Props may ask whether the local player sits; the seat itself is a world object.
+			{ typeof(Basis.Shims.BasisSeatShim), new HashSet<string>{ $"get_{nameof(Basis.Shims.BasisSeatShim.IsSeated)}" } },
+			{ typeof(Basis.Shims.BasisVelocityShim), new HashSet<string>{ $"get_{nameof(Basis.Shims.BasisVelocityShim.Velocity)}" } },
 			// Jiggle grab/touch events, so a prop with jiggle can answer being handled the same way
 			// an avatar or a world object can.
 			{ typeof(Basis.Shims.BasisJiggleEventShim), new HashSet<string>{
@@ -183,6 +205,13 @@ namespace Cilbox
 				} },
 			{ typeof(Basis.Shims.BasisPlatformEventShim), new HashSet<string>{
 				nameof(Basis.Shims.BasisPlatformEventShim.Rebind),
+				} },
+			{ typeof(Basis.Shims.BasisLanguageEventShim), new HashSet<string>{
+				nameof(Basis.Shims.BasisLanguageEventShim.Rebind),
+				} },
+			{ typeof(Basis.Shims.BasisExternalLinkShim), new HashSet<string>{
+				nameof(Basis.Shims.BasisExternalLinkShim.Open),
+				nameof(Basis.Shims.BasisExternalLinkShim.IsValidUrl),
 				} },
 			{ typeof(UnityEngine.Rendering.AsyncGPUReadback), new HashSet<string>{ "Request" } },
 			{ typeof(BitConverter), new HashSet<string>{
@@ -240,13 +269,6 @@ namespace Cilbox
 				"get_queriesHitBackfaces", "get_queriesHitTriggers",
 				"get_sleepThreshold", "get_defaultContactOffset",
 				} },
-			{
-				typeof(Basis.Scripts.Networking.BasisNetworkConnection),
-				new HashSet<string>
-				{
-					"get_LocalPlayerIsConnected",
-				}
-			},
 			{
 				typeof(BasisNetworkContentBase),
 				new HashSet<string>
@@ -338,15 +360,26 @@ namespace Cilbox
 		{
 			if (declaringType == typeof(global::BasisMediaPlayer))
 			{
-				// Do not let a prop bypass URL consent through source/file APIs or write
-				// screenshots to disk. Normal playback controls, status, and events remain
-				// available on the real BasisMediaPlayer component.
-				if (name == nameof(global::BasisMediaPlayer.LoadLocalPath) ||
+				// A prop opens URLs only through routes that ask the user first (Open,
+				// LoadUrl, and Configure on BasisMediaPlayerStreaming). OpenResolved
+				// takes what a resolver produced on trust, so a prop could hand it a forged
+				// result and skip the prompt; sidecar subtitles are fetched from a URL the
+				// caller picks with no prompt at all. LoadLocalPath and LoadSource can reach
+				// the viewer's own files, which a prop has no business opening even with
+				// consent. CaptureScreenshot writes to the viewer's disk. Play, pause,
+				// seek, stop, track selection, status and events stay available.
+				if ((name == nameof(global::BasisMediaPlayer.OpenResolved) ||
+					name == nameof(global::BasisMediaPlayer.SetSubtitleTracks) ||
+					name == nameof(global::BasisMediaPlayer.LoadLocalPath) ||
 					name == nameof(global::BasisMediaPlayer.LoadSource) ||
-					name == nameof(global::BasisMediaPlayer.LoadResolvedSource) ||
-					name == nameof(global::BasisMediaPlayer.CaptureScreenshot) ||
-					name == "set_Source" ||
-					name == "set_Renderer")
+					name == nameof(global::BasisMediaPlayer.CaptureScreenshot)) &&
+					!Beyond(MethodItem(declaringType, name), false))
+				{
+					mi = null;
+					return false;
+				}
+				if (!IsPublicMethod(declaringType, name, parametersIn, genericArgumentsIn, fullSignature) &&
+					!Beyond(MethodItem(declaringType, name), true))
 				{
 					mi = null;
 					return false;
@@ -356,7 +389,7 @@ namespace Cilbox
 			return base.CheckMethodAllowed(out mi, declaringType, name, parametersIn, genericArgumentsIn, fullSignature);
 		}
 
-		static readonly HashSet<string> mergedWhiteListType = MergeTypes(extraWhiteListType);
+		[NoAutoStaticsCleanup] static readonly HashSet<string> mergedWhiteListType = MergeTypes(extraWhiteListType);
 		public static HashSet<string> GetWhiteListTypes() => mergedWhiteListType;
 	}
 }

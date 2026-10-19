@@ -1,9 +1,11 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis;
 using Basis.BasisUI;
 using Basis.Scripts.Avatar;
 using UnityEngine;
 using UnityEngine.UI;
-public static class SettingsProviderPerformanceLimits
+[AutoStaticsCleanup]
+public static partial class SettingsProviderPerformanceLimits
 {
     private static RectTransform _layoutRoot;
 
@@ -89,7 +91,7 @@ public static class SettingsProviderPerformanceLimits
             toggleTooltip: BasisLocalization.Get("settings.perf.bones.toggle.tooltip"),
             sliderTooltip: BasisLocalization.Get("settings.perf.bones.slider.tooltip"));
 
-        PanelSectionToggleHelpers.FinalizeCollapsibleGroup(geometryToggle, geometry, false, _ => ForceLayout());
+        PanelSectionToggleHelpers.FinalizeCollapsibleGroup(geometryToggle, geometry, false, _ => ForceLayout(geometry.ContentParent));
 
         PanelSectionToggle meshesToggle = PanelSectionToggle.CreateNewEntry(contentParent);
         PanelElementDescriptor meshes = PanelSectionToggleHelpers.CreateCollapsibleContentGroup(
@@ -133,7 +135,7 @@ public static class SettingsProviderPerformanceLimits
             toggleTooltip: BasisLocalization.Get("settings.perf.textureMemory.toggle.tooltip"),
             sliderTooltip: BasisLocalization.Get("settings.perf.textureMemory.slider.tooltip"));
 
-        PanelSectionToggleHelpers.FinalizeCollapsibleGroup(meshesToggle, meshes, false, _ => ForceLayout());
+        PanelSectionToggleHelpers.FinalizeCollapsibleGroup(meshesToggle, meshes, false, _ => ForceLayout(meshes.ContentParent));
 
         PanelSectionToggle physicsToggle = PanelSectionToggle.CreateNewEntry(contentParent);
         PanelElementDescriptor physics = PanelSectionToggleHelpers.CreateCollapsibleContentGroup(
@@ -222,7 +224,9 @@ public static class SettingsProviderPerformanceLimits
             toggleTooltip: BasisLocalization.Get("settings.perf.jiggleSimulationLod.toggle.tooltip"),
             sliderTooltip: BasisLocalization.Get("settings.perf.jiggleSimulationLod.slider.tooltip"));
 
-        PanelSectionToggleHelpers.FinalizeCollapsibleGroup(physicsToggle, physics, false, _ => ForceLayout());
+        SettingsProvider.AddDeveloperGizmoToggle(physics.ContentParent, "settings.developer.jiggleVisuals", BasisSettingsDefaults.GizmoJiggleVisuals);
+
+        PanelSectionToggleHelpers.FinalizeCollapsibleGroup(physicsToggle, physics, false, _ => ForceLayout(physics.ContentParent));
 
         PanelSectionToggle effectsToggle = PanelSectionToggle.CreateNewEntry(contentParent);
         PanelElementDescriptor effects = PanelSectionToggleHelpers.CreateCollapsibleContentGroup(
@@ -257,7 +261,7 @@ public static class SettingsProviderPerformanceLimits
             toggleTooltip: BasisLocalization.Get("settings.perf.lineRenderers.toggle.tooltip"),
             sliderTooltip: BasisLocalization.Get("settings.perf.lineRenderers.slider.tooltip"));
 
-        PanelSectionToggleHelpers.FinalizeCollapsibleGroup(effectsToggle, effects, false, _ => ForceLayout());
+        PanelSectionToggleHelpers.FinalizeCollapsibleGroup(effectsToggle, effects, false, _ => ForceLayout(effects.ContentParent));
 
         PanelSectionToggle runtimeToggle = PanelSectionToggle.CreateNewEntry(contentParent);
         PanelElementDescriptor runtime = PanelSectionToggleHelpers.CreateCollapsibleContentGroup(
@@ -283,21 +287,23 @@ public static class SettingsProviderPerformanceLimits
             toggleTooltip: BasisLocalization.Get("settings.perf.cilboxBehaviours.toggle.tooltip"),
             sliderTooltip: BasisLocalization.Get("settings.perf.cilboxBehaviours.slider.tooltip"));
 
-        PanelSectionToggleHelpers.FinalizeCollapsibleGroup(runtimeToggle, runtime, false, _ => ForceLayout());
+        PanelSectionToggleHelpers.FinalizeCollapsibleGroup(runtimeToggle, runtime, false, _ => ForceLayout(runtime.ContentParent));
 
         SettingsProviderContentTags.BuildContentTagsContent(container);
 
         if (performanceToggle != null)
         {
-            PanelSectionToggleHelpers.FinalizeCollapsibleGroup(performanceToggle, performanceGroup, false, _ => ForceLayout());
+            PanelSectionToggleHelpers.FinalizeCollapsibleGroup(performanceToggle, performanceGroup, false, _ => ForceLayout(performanceGroup.ContentParent));
         }
     }
 
-    private static void ForceLayout()
+    // Walks out from the card that changed to the page, so each nested group (limits sit two
+    // cards deep inside Avatar Performance Limits) resizes before its parent measures it.
+    private static void ForceLayout(Component from)
     {
-        if (_layoutRoot != null)
+        if (_layoutRoot != null && from != null)
         {
-            LayoutRebuilder.ForceRebuildLayoutImmediate(_layoutRoot);
+            PanelElementDescriptor.RebuildLayoutChain(from.transform as RectTransform, _layoutRoot);
         }
     }
 
@@ -332,7 +338,7 @@ public static class SettingsProviderPerformanceLimits
             {
                 if (slider == null) return;
                 slider.gameObject.SetActive(on);
-                ForceLayout();
+                ForceLayout(parent);
             }
 
             useBinding.OnChanged += Sync;
@@ -368,7 +374,7 @@ public static class SettingsProviderPerformanceLimits
             if (near != null) near.gameObject.SetActive(on);
             if (mid != null) mid.gameObject.SetActive(on);
             if (far != null) far.gameObject.SetActive(on);
-            ForceLayout();
+            ForceLayout(parent);
         }
 
         Sync(BasisSettingsDefaults.UseJiggleColliderDistanceLod.RawValue);
@@ -406,6 +412,7 @@ public static class SettingsProviderPerformanceLimits
         BasisSettingsDefaults.JiggleColliderLodFarDistance.ResetToDefault();
         BasisSettingsDefaults.UseJiggleSimulationDistanceLod.ResetToDefault();
         BasisSettingsDefaults.JiggleSimulationLodDistance.ResetToDefault();
+        BasisSettingsDefaults.GizmoJiggleVisuals.ResetToDefault();
         BasisSettingsDefaults.UsePerfLimitAnimators.ResetToDefault();
         BasisSettingsDefaults.MaxPerfAnimators.ResetToDefault();
         BasisSettingsDefaults.UsePerfLimitBones.ResetToDefault();

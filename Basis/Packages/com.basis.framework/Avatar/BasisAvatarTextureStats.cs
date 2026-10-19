@@ -279,12 +279,12 @@ public struct BasisAvatarTextureStats
     /// </summary>
     public string GetStreamingRating()
     {
-        if (TotalTextureCount == 0) return "No Textures";
+        if (TotalTextureCount == 0) return Basis.BasisUI.BasisLocalization.Get("settings.myAvatar.rating.noTextures");
         float pct = StreamingPercentage;
-        if (pct >= 100f) return "Excellent - All textures streaming";
-        if (pct >= 75f) return "Good - Most textures streaming";
-        if (pct >= 25f) return "Poor - Many textures not streaming";
-        return "Bad - Few or no textures streaming";
+        if (pct >= 100f) return Basis.BasisUI.BasisLocalization.Get("settings.myAvatar.rating.excellent");
+        if (pct >= 75f) return Basis.BasisUI.BasisLocalization.Get("settings.myAvatar.rating.good");
+        if (pct >= 25f) return Basis.BasisUI.BasisLocalization.Get("settings.myAvatar.rating.poor");
+        return Basis.BasisUI.BasisLocalization.Get("settings.myAvatar.rating.bad");
     }
 
     /// <summary>
@@ -293,23 +293,20 @@ public struct BasisAvatarTextureStats
     public string GetPerformanceImpact()
     {
         if (NonStreamingTextureCount == 0)
-            return "No impact - all textures use streaming mipmaps.";
+            return Basis.BasisUI.BasisLocalization.Get("settings.myAvatar.impact.none");
 
         string wastedVRAM = FormatBytes(EstimatedSavingsBytes);
         string nonStreamVRAM = FormatBytes(NonStreamingVRAMBytes);
 
         if (EstimatedSavingsBytes > 256L * 1024 * 1024)
-            return $"Severe - {NonStreamingTextureCount} textures without streaming waste ~{wastedVRAM} VRAM. " +
-                   "This causes excessive GPU memory pressure, stalls, and frame drops especially in crowded instances.";
+            return Basis.BasisUI.BasisLocalization.Get("settings.myAvatar.impact.severe", NonStreamingTextureCount, wastedVRAM);
 
         if (EstimatedSavingsBytes > 64L * 1024 * 1024)
-            return $"High - {NonStreamingTextureCount} textures without streaming waste ~{wastedVRAM} VRAM. " +
-                   "Other players may experience hitches when your avatar loads.";
+            return Basis.BasisUI.BasisLocalization.Get("settings.myAvatar.impact.high", NonStreamingTextureCount, wastedVRAM);
 
         if (EstimatedSavingsBytes > 16L * 1024 * 1024)
-            return $"Moderate - {NonStreamingTextureCount} textures without streaming waste ~{wastedVRAM} VRAM. " +
-                   "Noticeable on lower-end hardware.";
+            return Basis.BasisUI.BasisLocalization.Get("settings.myAvatar.impact.moderate", NonStreamingTextureCount, wastedVRAM);
 
-        return $"Low - {NonStreamingTextureCount} textures without streaming use {nonStreamVRAM} total. Minimal impact.";
+        return Basis.BasisUI.BasisLocalization.Get("settings.myAvatar.impact.low", NonStreamingTextureCount, nonStreamVRAM);
     }
 }

@@ -2,19 +2,21 @@
   "name": "com.basis.mediaplayer",
   "displayName": "Basis Media Player",
   "version": "0.0.1",
-  "description": "Permissively-licensed live video for Basis. Decodes RTSP/RTMP/MPEG-TS/fMP4 with the OS hardware codecs (Media Foundation on Windows, MediaCodec on Android) straight into a zero-copy GPU texture — no transcode server, no UnityEngine.Video.MediaPlayer.",
+  "description": "Live and on-demand video and audio for Basis. A Rust engine decodes with the platform's hardware decoders where it can and writes each frame into a Unity texture on the GPU; the managed components handle output surfaces, per-speaker audio, captions and subtitles.",
+  "unity": "6000.0",
   "author": {
     "name": "BasisVR",
     "url": "https://github.com/BasisVR"
   },
-  "license": "MIT",
+  "license": "MIT OR Apache-2.0",
   "dependencies": {
-    "com.unity.addressables": "2.9.1",
     "com.unity.ugui": "2.0.0"
   },
   "vpmDependencies": {
-    "com.basis.sdk": "0.0.1",
+    "com.basis.common": "0.0.1",
+    "com.basis.eventdriver": "0.0.1",
     "com.basis.framework": "0.0.1",
-    "com.basis.server": "1.0.0"
+    "com.basis.sdk": "0.0.1",
+    "com.basis.settings": "1.0.0"
   }
 }

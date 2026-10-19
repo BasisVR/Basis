@@ -1,6 +1,8 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Drivers;
 using UnityEngine;
-public static class BasisHandHeldCameraAudioListener
+[AutoStaticsCleanup]
+public static partial class BasisHandHeldCameraAudioListener
 {
     public static BasisHandHeldCamera Owner { get; private set; }
     public static bool IsHeldBy(BasisHandHeldCamera camera) => !ReferenceEquals(camera, null) && Owner == camera;

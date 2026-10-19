@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -33,7 +34,8 @@ using UnityEngine.Rendering;
 /// soft patch of light either way, and a silhouette in roughly the right place every frame beats an
 /// exact one several frames late.
 /// </summary>
-public static class BasisAvatarProxy
+[AutoStaticsCleanup]
+public static partial class BasisAvatarProxy
 {
     /// <summary>One limb: the bone it starts at, the bone it reaches to, and how thick it is.</summary>
     public readonly struct Limb
@@ -57,7 +59,7 @@ public static class BasisAvatarProxy
     /// ends of the forearm and shin capsules rather than capsules of their own, because a separate instance
     /// per extremity doubles the count to move light by less than the denoiser's own blur radius.
     /// </summary>
-    public static readonly Limb[] Body =
+    [NoAutoStaticsCleanup] public static readonly Limb[] Body =
     {
         new Limb(HumanBodyBones.Hips, HumanBodyBones.Spine, 0.115f),
         new Limb(HumanBodyBones.Spine, HumanBodyBones.Chest, 0.105f),
@@ -500,11 +502,19 @@ public static class BasisAvatarProxy
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Install()
     {
-        RenderPipelineManager.beginFrameRendering -= OnBeginFrameRendering;
-        RenderPipelineManager.beginFrameRendering += OnBeginFrameRendering;
+        RenderPipelineManager.beginContextRendering -= OnBeginContextRendering;
+        RenderPipelineManager.beginContextRendering += OnBeginContextRendering;
+        Application.quitting -= Uninstall;
+        Application.quitting += Uninstall;
     }
 
-    private static void OnBeginFrameRendering(ScriptableRenderContext context, Camera[] cameras)
+    private static void Uninstall()
+    {
+        Application.quitting -= Uninstall;
+        RenderPipelineManager.beginContextRendering -= OnBeginContextRendering;
+    }
+
+    private static void OnBeginContextRendering(ScriptableRenderContext context, List<Camera> cameras)
     {
         // The last point at which every pose write for the frame has landed and nothing has started
         // drawing yet - after Basis has run its IK on onBeforeRender, before the first camera is culled.

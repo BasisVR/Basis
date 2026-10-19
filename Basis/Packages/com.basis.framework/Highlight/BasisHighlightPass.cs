@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
@@ -21,7 +22,8 @@ namespace Basis.Scripts.BasisSdk.Highlight
     ///   4. Composite — combine raw, dilated, and glow into a ring + halo and
     ///                 alpha-blend over camera color.
     /// </summary>
-    internal class BasisHighlightPass : ScriptableRenderPass
+    [AutoStaticsCleanup]
+    internal partial class BasisHighlightPass : ScriptableRenderPass
     {
         private static readonly int PropMask = Shader.PropertyToID("_BasisHighlightMask");
         private static readonly int PropDilated = Shader.PropertyToID("_BasisHighlightDilated");
@@ -41,7 +43,7 @@ namespace Basis.Scripts.BasisSdk.Highlight
 
         internal static readonly List<BasisHighlightPass> Live = new();
 
-        private static readonly ProfilingSampler samplerHighlight = new ProfilingSampler("BasisHighlight");
+        [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerHighlight = new ProfilingSampler("BasisHighlight");
         public static float GpuMs => samplerHighlight.gpuElapsedTime;
         public static void SetProfilingEnabled(bool enabled) => samplerHighlight.enableRecording = enabled;
 

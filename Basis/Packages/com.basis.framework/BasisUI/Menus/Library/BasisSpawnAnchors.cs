@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -12,7 +13,8 @@ using UnityEngine;
 
 namespace Basis.BasisUI
 {
-    public static class BasisSpawnAnchors
+    [AutoStaticsCleanup]
+    public static partial class BasisSpawnAnchors
     {
         [Serializable]
         public class SpawnAnchor
@@ -536,7 +538,7 @@ namespace Basis.BasisUI
         private static void Tick()
         {
             Vector3 camPos = BasisLocalCameraDriver.Position;
-            float scale = BasisHeightDriver.ScaledToMatchValue;
+            float scale = BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
             if (scale <= 0f)
             {
                 scale = 1f;

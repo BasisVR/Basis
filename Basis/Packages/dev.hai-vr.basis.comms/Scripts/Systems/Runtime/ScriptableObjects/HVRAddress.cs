@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,6 +8,7 @@ using UnityEngine;
 namespace HVR.Basis.Comms
 {
     [CreateAssetMenu(menuName = "HVR.Basis/Comms", fileName = "HVRAddress")]
+    [NoAutoStaticsCleanup]
     public class HVRAddress : ScriptableObject
     {
         [NonSerialized] public const string SystemAddressPrefix = "@System/";
@@ -24,12 +26,14 @@ namespace HVR.Basis.Comms
 
             // ReSharper disable InconsistentNaming
             /// System addresses tied specifically to the representation of one given user.
+            [NoAutoStaticsCleanup]
             public static class User
             {
                 [NonSerialized] public const string UserAddressPrefix = SystemAddressPrefix + "User/";
 
                 [NonSerialized] public static readonly HVRSystemAddress VoiceGain = new() { address = UserAddressPrefix + nameof(VoiceGain), localizationName = "address.system.user.voicegain", min = 0f, max = 1f };
 
+                [NoAutoStaticsCleanup]
                 public static class Viseme
                 {
                     [NonSerialized] public const string VisemeAddressPrefix = UserAddressPrefix + "Viseme/";

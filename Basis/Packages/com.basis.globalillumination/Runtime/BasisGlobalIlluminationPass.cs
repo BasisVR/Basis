@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
@@ -9,6 +10,7 @@ using UnityEngine.Rendering.Universal;
 // Partial so the reflection pass can live in its own file and still reach the shader id table, the stage
 // enum and the Execute switch this one owns. See BasisGlobalIlluminationSpecularPass.cs for why reflections
 // need a second pass rather than another stage of this one.
+[AutoStaticsCleanup]
 public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
 {
     public const int PassTrace = 0, PassTemporal = 1, PassBlur = 2, PassComposite = 3, PassDebug = 4, PassCopyColor = 5;
@@ -167,16 +169,16 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     private static readonly int idRtTraceMask = Shader.PropertyToID("_BasisGIRtTraceMask");
     private const string RtAccelName = "_BasisGIRtAccel";
 
-    private static readonly ProfilingSampler samplerRayPrepass = new ProfilingSampler("Basis GI Ray Prepass");
-    private static readonly ProfilingSampler samplerRayTrace = new ProfilingSampler("Basis GI Ray Trace");
-    private static readonly ProfilingSampler samplerRayResolve = new ProfilingSampler("Basis GI Ray Resolve");
-    private static readonly ProfilingSampler samplerCopy = new ProfilingSampler("Basis GI Copy Color");
-    private static readonly ProfilingSampler samplerLightmapMask = new ProfilingSampler("Basis GI Lightmap Mask");
-    private static readonly ProfilingSampler samplerCoarse = new ProfilingSampler("Basis GI Coarse Depth");
-    private static readonly ProfilingSampler samplerTrace = new ProfilingSampler("Basis GI Trace");
-    private static readonly ProfilingSampler samplerTemporal = new ProfilingSampler("Basis GI Temporal");
-    private static readonly ProfilingSampler samplerBlur = new ProfilingSampler("Basis GI Blur");
-    private static readonly ProfilingSampler samplerComposite = new ProfilingSampler("Basis GI Composite");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerRayPrepass = new ProfilingSampler("Basis GI Ray Prepass");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerRayTrace = new ProfilingSampler("Basis GI Ray Trace");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerRayResolve = new ProfilingSampler("Basis GI Ray Resolve");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerCopy = new ProfilingSampler("Basis GI Copy Color");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerLightmapMask = new ProfilingSampler("Basis GI Lightmap Mask");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerCoarse = new ProfilingSampler("Basis GI Coarse Depth");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerTrace = new ProfilingSampler("Basis GI Trace");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerTemporal = new ProfilingSampler("Basis GI Temporal");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerBlur = new ProfilingSampler("Basis GI Blur");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerComposite = new ProfilingSampler("Basis GI Composite");
 
     public static float GpuMs =>
         samplerCopy.gpuElapsedTime + samplerLightmapMask.gpuElapsedTime + samplerCoarse.gpuElapsedTime + samplerTrace.gpuElapsedTime +
@@ -210,8 +212,8 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     private static int invocationFrame = -1, invocationCount;
     public static int InvocationsThisFrame => invocationCount;
 
-    private static readonly Vector4[] emitterSpheres = new Vector4[MaxEmitters];
-    private static readonly Vector4[] emitterRadiance = new Vector4[MaxEmitters];
+    [NoAutoStaticsCleanup] private static readonly Vector4[] emitterSpheres = new Vector4[MaxEmitters];
+    [NoAutoStaticsCleanup] private static readonly Vector4[] emitterRadiance = new Vector4[MaxEmitters];
     private static readonly List<BasisGlobalIlluminationEmitter> emitterScratch = new List<BasisGlobalIlluminationEmitter>();
     private readonly Matrix4x4[] previousViewProjection = new Matrix4x4[2];
     private readonly Vector4[] constants = new Vector4[4];
@@ -316,9 +318,10 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         int tracedHeight = Mathf.Max(1, descriptor.height / divisor);
 
         int frame = Time.renderedFrameCount;
-        int hash = BasisGlobalIlluminationHistory.ComputeHash(camera, cameraData.xr);
-        BasisGlobalIlluminationHistory history = BasisGlobalIlluminationHistory.Get(hash);
-        bool contiguous = history.Contiguous(frame);
+        BasisGlobalIlluminationHistory.Key historyKey = BasisGlobalIlluminationHistory.ComputeKey(camera, cameraData.xr);
+        BasisGlobalIlluminationHistory history = BasisGlobalIlluminationHistory.Get(historyKey);
+        bool resetHistory = camera != null && camera.TryGetComponent(out UniversalAdditionalCameraData additionalCameraData) && additionalCameraData.resetHistory;
+        bool contiguous = history.Contiguous(frame) && !resetHistory;
         history.EnsureAllocated(descriptor, tracedWidth, tracedHeight);
         bool historyValid = settings.temporalFilter && history.Valid && contiguous;
 
@@ -358,6 +361,9 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         // bilateral blur and the composite downstream read the same traced texture either way. A GPU or a
         // scene that cannot serve the trace falls back to the screen space gather rather than to nothing.
         bool rayTraced = settings.IsRayTraced() && PrepareRayTracing(settings, camera, CameraPosition, frame);
+        float obscuranceIntensity = BasisGlobalIlluminationFeature.ExternalAmbientOcclusionActive?.Invoke(camera) == true
+            ? 0f
+            : settings.obscuranceIntensity;
 
         // Both modes share the composite, so both get the lightmap receive mask - it only exists at all in
         // a scene that actually baked something. The keyword is set after the pass is recorded, from the
@@ -400,12 +406,12 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         // command buffer or the last camera to record will decide the sky for every camera that renders.
         if (sky.Cube != null) { Shader.SetGlobalTexture(idSkyCube, sky.Cube); }
 
-        FillConstants(settings, frame, rayTraced, rayCount);
+        FillConstants(settings, frame, rayTraced, rayCount, obscuranceIntensity);
         int emitterCount = settings.emitters ? GatherEmitters(camera, settings.ResolvedMaxEmitters()) : 0;
 
         if (rayTraced)
         {
-            RecordRayTraced(renderGraph, resourceData, cameraData, settings, traced, tracedWidth, tracedHeight, descriptor, frame, emitterCount, rayCount, bounces, lightSamples, sky);
+            RecordRayTraced(renderGraph, resourceData, cameraData, settings, traced, tracedWidth, tracedHeight, descriptor, frame, emitterCount, rayCount, bounces, lightSamples, sky, obscuranceIntensity);
         }
         else
         {
@@ -606,7 +612,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     private void RecordRayTraced(RenderGraph renderGraph, UniversalResourceData resourceData, UniversalCameraData cameraData,
         BasisGlobalIlluminationSettings settings, TextureHandle traced, int tracedWidth, int tracedHeight,
         in RenderTextureDescriptor descriptor, int frame, int emitterCount, int rayCount, int bounces, int lightSamples,
-        BasisGlobalIlluminationRayTracer.SkyBinding sky)
+        BasisGlobalIlluminationRayTracer.SkyBinding sky, float obscuranceIntensity)
     {
         BasisGlobalIlluminationRayTracer tracer = BasisGlobalIlluminationRayTracer.Instance;
 
@@ -650,7 +656,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
             data.skyCube = sky.Cube;
             data.reference = reference;
             data.size = new Vector4(tracedWidth, tracedHeight, 1f / tracedWidth, 1f / tracedHeight);
-            data.trace = new Vector4(settings.maxRayLength, settings.obscuranceRadius, settings.obscuranceIntensity, settings.fadeDistance);
+            data.trace = new Vector4(settings.maxRayLength, settings.obscuranceRadius, obscuranceIntensity, settings.fadeDistance);
             data.bias = new Vector4(settings.rayTracedNormalBias, settings.rayDistanceBias, settings.emitterIntensity, settings.rayTracedLightIntensity);
             data.options = new Vector4(settings.fireflyClamp, settings.rayBounceThreshold, settings.rayTracedShadows ? 1f : 0f, 0f);
             data.sky = new Vector4(sky.Mip, sky.IsValid ? sky.Intensity : 0f, 0f, 0f);
@@ -721,7 +727,9 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         // half is off still gets the other half's target bound to it. The enables are what stop the write.
         shader.SetTextureParam(cmd, idRtResultTex, data.diffuseEnabled ? data.result : data.specular);
         shader.SetTextureParam(cmd, idRtSpecularTex, data.specularEnabled ? data.specular : data.result);
-        if (data.skyCube != null) { shader.SetTextureParam(cmd, idRtSkyCube, data.skyCube); }
+        // A declared ray tracing resource must be bound even when its sampling branch is disabled. ResolveSky
+        // supplies CoreUtils.blackCubeTexture when the scene has no environment reflection.
+        shader.SetTextureParam(cmd, idRtSkyCube, data.skyCube);
 
         shader.SetBufferParam(cmd, idRtInstances, scene.InstanceBuffer);
         shader.SetBufferParam(cmd, idRtIndices, scene.IndexBuffer);
@@ -1001,9 +1009,9 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         CoreUtils.SetKeyword(material, "_BASISGI_BILATERAL_UPSAMPLE", settings.bilateralUpsample && settings.ResolvedResolutionDivisor() > 1);
     }
 
-    private void FillConstants(BasisGlobalIlluminationSettings settings, int frame, bool rayTraced, int rayCount)
+    private void FillConstants(BasisGlobalIlluminationSettings settings, int frame, bool rayTraced, int rayCount, float obscuranceIntensity)
     {
-        constants[0] = new Vector4(settings.intensity, settings.saturation, settings.obscuranceIntensity, settings.obscuranceRadius);
+        constants[0] = new Vector4(settings.intensity, settings.saturation, obscuranceIntensity, settings.obscuranceRadius);
         constants[1] = new Vector4(settings.maxRayLength, settings.thickness, settings.jitter, settings.fadeDistance);
         // The fallback's intensity rides with the sky binding rather than here, because that is where the
         // cubemap it applies to comes from.

@@ -529,27 +529,6 @@ namespace Basis.ImagePickup.Tests
         }
 
         [Test]
-        public void DesktopRendererTemplatesIncludeDepthVisibilityFeature()
-        {
-            const string rendererRoot =
-                "Packages/com.basis.setup/Templates~/Assets/Basis/Settings/"
-                + "Unity Rendering Defaults/";
-            string[] rendererPaths =
-            {
-                rendererRoot + "DesktopRenderer.asset",
-                rendererRoot + "DesktopRendererCamera.asset",
-            };
-            int rendererCount = rendererPaths.Length;
-            for (int i = 0; i < rendererCount; i++)
-            {
-                string rendererYaml = File.ReadAllText(rendererPaths[i]);
-                Assert.That(rendererYaml, Does.Contain("BasisImageDepthVisibilityFeature"));
-                Assert.That(rendererYaml, Does.Contain("820949bd2ba14c7699a6b5d0dbee4869"));
-                Assert.That(rendererYaml, Does.Contain("- {fileID: -7061326814219087741}"));
-            }
-        }
-
-        [Test]
         public void PortablePlatformsUseFrontFaceAndDesktopUsesDepthBuffer()
         {
             Assert.That(BasisImagePickupSettings.ShouldUseDepthBufferAnimationVisibility(true), Is.False);

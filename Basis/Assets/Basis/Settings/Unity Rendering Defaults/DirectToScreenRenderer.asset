@@ -225,8 +225,11 @@ MonoBehaviour:
   - {fileID: -7061326814219087741}
   - {fileID: 85290076443942754}
   - {fileID: -8171408655374796905}
+  - {fileID: 9042876895410905765}
   - {fileID: -7797154978089096958}
-  m_RendererFeatureMap: 55b0addaf1e53e732c1a306845c91e69b11515bbd932d0aa9378a8b27ba967e783d087cbac20019e629f4e65df022f019737d5351f53998e02a954c8dbf0ca93
+  - {fileID: 3992671391266676634}
+  - {fileID: 271724883520197682}
+  m_RendererFeatureMap: 55b0addaf1e53e732c1a306845c91e69b11515bbd932d0aa9378a8b27ba967e783d087cbac20019e629f4e65df022f019737d5351f53998ea5e28d0aa0c07e7d02a954c8dbf0ca939a9f50ed79d168373214db86575cc503
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
   m_AssetVersion: 3
@@ -268,6 +271,19 @@ MonoBehaviour:
   m_Name: BasisCameraDirectToScreenFeature
   m_EditorClassIdentifier: 
   m_Active: 1
+--- !u!114 &271724883520197682
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f62c9c65cf3354c93be831c8bc075510, type: 3}
+  m_Name: ScreenSpaceAmbientOcclusion
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.ScreenSpaceAmbientOcclusion
+  m_Active: 0
 --- !u!114 &1677690431011315535
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -293,6 +309,19 @@ MonoBehaviour:
   bakeUseAsyncCompute: 0
   froxelComputeShader: {fileID: 7200000, guid: e00244de118fd544e9d0c7dff913e49b, type: 3}
   froxelColumnComputeShader: {fileID: 7200000, guid: 1688d4f4b3ab4787b0581e351d96b57b, type: 3}
+--- !u!114 &3992671391266676634
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 68c5b0bb5cc94267987904004b80f818, type: 3}
+  m_Name: BasisUnityLightingFeature
+  m_EditorClassIdentifier: Basis Framework::Basis.Scripts.Rendering.BasisUnityLightingFeature
+  m_Active: 1
 --- !u!114 &7574712923221662252
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -385,3 +414,25 @@ MonoBehaviour:
   bakeUseAsyncCompute: 0
   froxelComputeShader: {fileID: 7200000, guid: e00244de118fd544e9d0c7dff913e49b, type: 3}
   froxelColumnComputeShader: {fileID: 7200000, guid: 1688d4f4b3ab4787b0581e351d96b57b, type: 3}
+--- !u!114 &9042876895410905765
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d79137e6a9d4f54acf7d139ad4f2639, type: 3}
+  m_Name: BasisReflectionFeature
+  m_EditorClassIdentifier: BasisGlobalIllumination::BasisReflectionFeature
+  m_Active: 1
+  m_Shader: {fileID: 4800000, guid: 03edcf40bafe4c3d8424f23fcf1d3ff1, type: 3}
+  m_RayStagesShader: {fileID: 4800000, guid: d844523f25c598748831a41b5572ff82, type: 3}
+  m_RayTraceShader: {fileID: 4807578003741378534, guid: 4d1b09960d174e54eb42461cb8005e17, type: 3}
+  m_RayTraceCompute: {fileID: 7200000, guid: 3324c9bab86b6b44db2a1d4f0479c2ed, type: 3}
+  m_RayTracingComputeFallback: 0
+  m_ReflectionProbes: 0
+  m_Mirrors: 1
+  m_RenderingDebugger: 0
+  m_NormalsPrepass: 0

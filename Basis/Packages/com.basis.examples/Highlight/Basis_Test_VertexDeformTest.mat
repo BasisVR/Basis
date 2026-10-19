@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Basis_Test_VertexDeformTest
-  m_Shader: {fileID: 4800000, guid: d3e4f5a6b7c8d9e0f11a2b3c4d5e6f63, type: 3}
+  m_Shader: {fileID: 4800000, guid: 943f81edf535de2eade3e50ce49989c5, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []

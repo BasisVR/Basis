@@ -1,5 +1,8 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Networking.Receivers;
+#if STEAMAUDIO_ENABLED && !UNITY_WEBGL
 using SteamAudio;
+#endif
 using System;
 using UnityEngine;
 
@@ -10,7 +13,8 @@ namespace Basis.Scripts.Drivers
     /// For each audio frame, mixes network voice via <see cref="BasisAudioReceiver"/>,
     /// runs viseme analysis, and exposes a tap for any listeners via <see cref="AudioData"/>.
     /// </summary>
-    public class BasisRemoteAudioDriver : MonoBehaviour
+    [AutoStaticsCleanup]
+    public partial class BasisRemoteAudioDriver : MonoBehaviour
     {
         /// <summary>
         /// Viseme (lip-sync) analysis driver processing audio samples each frame.

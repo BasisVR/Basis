@@ -1,0 +1,27 @@
+[package]
+name = "media-present"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+media-decode = { path = "../media-decode" }
+media-diag = { path = "../media-diag" }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_Graphics_Direct3D", "Win32_Graphics_Direct3D_Fxc", "Win32_Graphics_Direct3D11", "Win32_Graphics_Direct3D12", "Win32_Graphics_Dxgi", "Win32_Graphics_Dxgi_Common", "Win32_Security", "Win32_System_Threading"] }
+
+# ash for its types and function-pointer tables only: functions are loaded
+# through Unity's vkGetInstanceProcAddr, with no loader.
+[target.'cfg(target_os = "android")'.dependencies]
+ash = { version = "0.38", default-features = false, features = ["debug"] }
+
+[target.'cfg(windows)'.dev-dependencies]
+windows = { version = "0.62.2", features = ["Win32_System_Threading"] }
+media-demux = { path = "../media-demux" }
+media-clock = { path = "../media-clock" }
+decode-mf = { path = "../media-decode/decode-mf" }
+
+[lints]
+workspace = true

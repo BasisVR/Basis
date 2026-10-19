@@ -112,6 +112,10 @@
       "value": "★ {0}"
     },
     {
+      "key": "menu.servers.list.sourceBadge",
+      "value": "{0} ({1})"
+    },
+    {
       "key": "menu.servers.list.share",
       "value": "Compartilhar"
     },
@@ -146,6 +150,14 @@
     {
       "key": "menu.servers.usernamePrompt.body",
       "value": "Escolha o nome que os outros jogadores verão e aperte «Conectar»."
+    },
+    {
+      "key": "menu.servers.passwordPrompt.title",
+      "value": "Entrar em {0}"
+    },
+    {
+      "key": "menu.servers.passwordPrompt.body",
+      "value": "A senha foi rejeitada. Digite a senha do servidor."
     },
     {
       "key": "menu.servers.search.byNameOrAddress",
@@ -274,6 +286,10 @@
     {
       "key": "menu.servers.hostThirdPersonDisabled",
       "value": "Desativar terceira pessoa"
+    },
+    {
+      "key": "menu.servers.portInvalid",
+      "value": "A porta deve estar entre 1 e 65535"
     }
   ]
 }

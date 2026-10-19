@@ -43,7 +43,7 @@ namespace Basis.BasisUI
         }
 
         /// <summary>
-        /// Whether the direct-connection button should refuse outright. A lock applied after the
+        /// Whether the direct-connection toggle should refuse outright. A lock applied after the
         /// fact doesn't tear down a session that is already up, so a live link still reports
         /// itself and can still be cancelled.
         /// </summary>
@@ -57,8 +57,16 @@ namespace Basis.BasisUI
                 (BasisNetworkModeration.GlobalDirectConnectLocked && !BasisNetworkModeration.LocalPlayerHasGlobalLockBypass());
         }
 
+        private static bool DirectConnectionLive(P2PState state) => state != P2PState.Idle && state != P2PState.Failed;
+
+        private static void SetDirectConnection(BasisRemotePlayer player, bool on)
+        {
+            if (player == null || !BasisNetworkPlayers.PlayerToNetworkedPlayer(player, out BasisNetworkPlayer net)) return;
+            if (DirectConnectionLive(BasisP2PManager.GetSessionState(net.playerId)) != on) ToggleDirectConnection(player);
+        }
+
         /// <summary>
-        /// Runs the direct-connection button's decision tree: cancel an in-flight or live session,
+        /// Runs the direct-connection toggle's decision tree: cancel an in-flight or live session,
         /// refuse with an explanation when the feature is locked locally or server-side, and
         /// otherwise confirm before handing both sides each other's IP address. Shared so the
         /// Actions tab and the Network tab cannot drift apart on the gating.
@@ -160,6 +168,75 @@ namespace Basis.BasisUI
             }
 
             return settings;
+        }
+
+        private static async System.Threading.Tasks.Task<BasisPlayerSettingsData> SetAvatarVisible(BasisRemotePlayer player, bool visible)
+        {
+            var settings = await BasisPlayerSettingsManager.RequestPlayerSettings(player.UUID);
+            return settings.AvatarVisible == visible ? settings : await ToggleAvatarVisible(player);
+        }
+
+        private static async System.Threading.Tasks.Task<BasisPlayerSettingsData> SetBlocked(BasisRemotePlayer player, bool blocked)
+        {
+            var settings = await BasisPlayerSettingsManager.RequestPlayerSettings(player.UUID);
+            if (settings.IsBlocked == blocked) return settings;
+            await ToggleBlockWithConfirmation(player);
+            return await BasisPlayerSettingsManager.RequestPlayerSettings(player.UUID);
+        }
+
+        private static async System.Threading.Tasks.Task<BasisPlayerSettingsData> SetMuted(BasisRemotePlayer player, bool muted)
+        {
+            var settings = await BasisPlayerSettingsManager.RequestPlayerSettings(player.UUID);
+            if ((settings.VolumeLevel <= 0f) == muted) return settings;
+            await ToggleMute(player);
+            return await BasisPlayerSettingsManager.RequestPlayerSettings(player.UUID);
+        }
+
+        private static void SetPinned(string uuid, bool pinned)
+        {
+            if (PinnedPlayers.IsPinned(uuid) != pinned) PinnedPlayers.Toggle(uuid);
+        }
+
+        private static void SetHighlighted(BasisRemotePlayer player, bool highlighted)
+        {
+            if (IsHighlighted(player) == highlighted) return;
+            if (!highlighted) ClearHighlight();
+            else if (BasisNetworkPlayers.PlayerToNetworkedPlayer(player, out BasisNetworkPlayer net)) SetHighlight(net);
+        }
+
+        private static void SetPrivateMember(ushort playerId, bool member)
+        {
+            if (BasisTalkModeManager.IsPrivateMember(playerId) != member) BasisTalkModeManager.TogglePrivateMember(playerId);
+        }
+
+        private static void SetTalkingOnlyTo(ushort playerId, bool only)
+        {
+            if (BasisTalkModeManager.IsTalkingOnlyTo(playerId) == only) return;
+            if (only) BasisTalkModeManager.SetThisPersonTarget(playerId);
+            else BasisTalkModeManager.StopThisPerson();
+        }
+
+        private static void SetAnnounceMode(ushort playerId, bool on)
+        {
+            if (BasisAnnounceAudioDriver.IsInAnnounceMode(playerId) == on) return;
+            if (on) BasisNetworkModeration.EnableAnnounceMode(playerId);
+            else BasisNetworkModeration.DisableAnnounceMode(playerId);
+        }
+
+        private static void SetShoutMode(ushort playerId, bool on)
+        {
+            if (BasisNetworkModeration.IsInShoutMode(playerId) == on) return;
+            if (on) BasisNetworkModeration.EnableShoutMode(playerId);
+            else BasisNetworkModeration.DisableShoutMode(playerId);
+        }
+
+        private static PanelToggle CreatePlayerToggle(RectTransform parent, string titleKey, string tooltipKey)
+        {
+            PanelToggle toggle = PanelToggle.CreateNewEntry(parent);
+            toggle.Descriptor.SetTitle(BasisLocalization.Get(titleKey));
+            toggle.Descriptor.SetDescription(string.Empty);
+            toggle.Descriptor.SetTooltip(BasisLocalization.Get(tooltipKey));
+            return toggle;
         }
 
         /// <summary>

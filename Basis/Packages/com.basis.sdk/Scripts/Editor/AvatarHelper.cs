@@ -1,6 +1,9 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
+using Basis.Editor.Localization;
 using UnityEngine;
 
+[NoAutoStaticsCleanup]
 public static class AvatarHelper
 {
     public static Dictionary<string, int> SearchForVisemeIndex = new Dictionary<string, int>
@@ -73,11 +76,11 @@ public static class AvatarHelper
     {
         if (State)
         {
-            return "Active";
+            return BasisEditorLocalization.Get("sdk.avatar.gizmo.active");
         }
         else
         {
-            return "Disabled";
+            return BasisEditorLocalization.Get("editor.common.disabled");
         }
     }
 

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Basis.BasisUI.Styling;
@@ -9,47 +10,48 @@ using UnityEngine.UI;
 
 namespace Basis.BasisUI.HandHeldCamera
 {
+    [AutoStaticsCleanup]
     public partial class BasisHandHeldCameraPanelProvider : BasisMenuActionProvider<BasisMainMenu>
     {
         public const string StaticTitleKey = "menu.provider.cameraSettings";
         public static string StaticTitle => BasisLocalization.Get(StaticTitleKey);
 
-        private static readonly int[] VideoResolutionWidths = { 1280, 1920, 2560, 3840 };
-        private static readonly int[] VideoResolutionHeights = { 720, 1080, 1440, 2160 };
-        private static readonly int[] MsaaSampleCounts = { 1, 2, 4, 8 };
+        [NoAutoStaticsCleanup] private static readonly int[] VideoResolutionWidths = { 1280, 1920, 2560, 3840 };
+        [NoAutoStaticsCleanup] private static readonly int[] VideoResolutionHeights = { 720, 1080, 1440, 2160 };
+        [NoAutoStaticsCleanup] private static readonly int[] MsaaSampleCounts = { 1, 2, 4, 8 };
 
         // Index 0 follows the subject's depth automatically; index 1 uses the Focus Distance slider.
-        private static readonly string[] FocusModeKeys = { "camera.focusAuto", "camera.focusManual" };
-        private static readonly string[] DoFModeValues = { "Off", "Gaussian", "Bokeh" };
-        private static readonly string[] DoFModeKeys = { "ui.option.off", "camera.mode.gaussian", "camera.mode.bokeh" };
+        [NoAutoStaticsCleanup] private static readonly string[] FocusModeKeys = { "camera.focusAuto", "camera.focusManual" };
+        [NoAutoStaticsCleanup] private static readonly string[] DoFModeValues = { "Off", "Gaussian", "Bokeh" };
+        [NoAutoStaticsCleanup] private static readonly string[] DoFModeKeys = { "ui.option.off", "camera.mode.gaussian", "camera.mode.bokeh" };
 
         // Ordered to match BasisCameraDetachedMarker (Off / Puck / Wireframe).
-        private static readonly string[] DetachedMarkerKeys =
+        [NoAutoStaticsCleanup] private static readonly string[] DetachedMarkerKeys =
         {
             "camera.detachedMarker.off", "camera.detachedMarker.puck", "camera.detachedMarker.wireframe",
         };
 
         // Ordered to match URP's MotionBlurQuality and MotionBlurMode, which the UI stores as their
         // index — a label reordered here silently picks a different enum entry.
-        private static readonly string[] MotionBlurQualityLabels = { "Low", "Medium", "High" };
-        private static readonly string[] MotionBlurQualityKeys =
+        [NoAutoStaticsCleanup] private static readonly string[] MotionBlurQualityLabels = { "Low", "Medium", "High" };
+        [NoAutoStaticsCleanup] private static readonly string[] MotionBlurQualityKeys =
         {
             "camera.motionBlurQuality.low", "camera.motionBlurQuality.medium", "camera.motionBlurQuality.high"
         };
-        private static readonly string[] MotionBlurModeLabels = { "Camera Only", "Camera And Objects" };
-        private static readonly string[] MotionBlurModeKeys =
+        [NoAutoStaticsCleanup] private static readonly string[] MotionBlurModeLabels = { "Camera Only", "Camera And Objects" };
+        [NoAutoStaticsCleanup] private static readonly string[] MotionBlurModeKeys =
         {
             "camera.motionBlurMode.cameraOnly", "camera.motionBlurMode.cameraAndObjects"
         };
 
         // In URP's TonemappingMode order, which is what the setting stores.
-        private static readonly string[] TonemappingKeys =
+        [NoAutoStaticsCleanup] private static readonly string[] TonemappingKeys =
         {
             "camera.tonemapping.none", "camera.tonemapping.neutral", "camera.tonemapping.aces",
         };
 
         // Ordered to match the PhotoTagging_* values the binding stores.
-        private static readonly string[] PhotoTaggingKeys =
+        [NoAutoStaticsCleanup] private static readonly string[] PhotoTaggingKeys =
         {
             "settings.chat.camera.photoMetadata.noOne",
             "settings.chat.camera.photoMetadata.everyone",
@@ -58,6 +60,7 @@ namespace Basis.BasisUI.HandHeldCamera
 
         /// <summary>Preview height used until the row has a laid-out width to derive one from.</summary>
         private const float PreviewFallbackHeight = 320f;
+        private const float PreviewMinAspect = 9f / 16f, PreviewMaxAspect = 21f / 9f;
 
         private static BasisHandHeldCameraPanelProvider _instance;
 
@@ -143,10 +146,11 @@ namespace Basis.BasisUI.HandHeldCamera
         private PanelButton _resetTopButton;
         private PanelButton _timerButton;
         private int _lastCountdownShown = -1;
-        private const string TimerIdleLabel = "Timer";
+        private static string TimerIdleLabel => BasisLocalization.Get("camera.timer");
         private readonly List<PanelButton> _topButtons = new List<PanelButton>();
         private RectTransform _topActionRow;
         private RawImage _previewImage;
+        private AspectRatioFitter _previewFitter;
         private GameObject _expandedOverlay;
         private RawImage _expandedImage;
         private AspectRatioFitter _expandedFitter;
@@ -178,7 +182,7 @@ namespace Basis.BasisUI.HandHeldCamera
         /// Metering modes in <see cref="BasisCameraMeteringMode"/> order — the dropdown hands its
         /// row number straight to the enum, so a table out of step picks a different meter.
         /// </summary>
-        private static readonly string[] MeteringKeys =
+        [NoAutoStaticsCleanup] private static readonly string[] MeteringKeys =
         {
             "camera.metering.average",
             "camera.metering.centre",
@@ -309,6 +313,10 @@ namespace Basis.BasisUI.HandHeldCamera
         private bool? _lastDirectToScreen;
         private string _lastDirectToScreenDescription;
         private PanelDropdown _directToScreenFitDropdown;
+        private PanelDropdown _directToScreenDisplayDropdown;
+        private int _directToScreenDisplayEntryCount;
+        private int? _lastDirectToScreenDisplay;
+        private bool? _lastDirectToScreenDisplayShown;
         private PanelSlider _directToScreenHorizontalSlider;
         private PanelSlider _directToScreenVerticalSlider;
         private string _lastDirectToScreenFitKey;
@@ -492,11 +500,14 @@ namespace Basis.BasisUI.HandHeldCamera
                 BuildBackgroundGroup(content);
                 PanelSectionToggleHelpers.FinalizeCollapsibleGroup(_backgroundSection, _backgroundGroup, false, OnSectionExpanded);
 
-#if BASIS_HAS_GI && !UNITY_ANDROID
+                BuildRenderPassesGroup(content);
+                PanelSectionToggleHelpers.FinalizeCollapsibleGroup(_passesSection, _passesGroup, false, OnSectionExpanded);
+
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
                 BuildGlobalIlluminationGroup(content);
                 PanelSectionToggleHelpers.FinalizeCollapsibleGroup(_giSection, _giGroup, false, OnSectionExpanded);
 #endif
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
                 BuildRTAOGroup(content);
                 PanelSectionToggleHelpers.FinalizeCollapsibleGroup(_rtaoSection, _rtaoGroup, false, OnSectionExpanded);
 #endif
@@ -578,6 +589,7 @@ namespace Basis.BasisUI.HandHeldCamera
             // which does not fit the navigation column at all. The no-title variant drops that
             // reservation — the same one the Library panel uses in this container.
             _selector = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.EntryNoLabel, parent);
+            _selector.ShareTitleKey = "camera.selector";
             _selector.Descriptor.SetSize(new Vector2(60, 80));
             FitToNavColumn(_selector.Descriptor, releaseControlSlot: false);
             _selector.OnValueChanged = _ => OnSelectionChanged();
@@ -840,7 +852,7 @@ namespace Basis.BasisUI.HandHeldCamera
 #if Basis_VOLUMETRIC_SUPPORTED
             _fogSlider?.SetResetDefault(defaults.VolumetricFogVolumedensity);
 #endif
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             _giIntensitySlider?.SetResetDefault(defaults.giIntensity);
             _giSaturationSlider?.SetResetDefault(defaults.giSaturation);
             _giObscuranceSlider?.SetResetDefault(defaults.giObscurance);
@@ -854,7 +866,7 @@ namespace Basis.BasisUI.HandHeldCamera
             _giBounceThresholdSlider?.SetResetDefault(defaults.giBounceThreshold);
             _giFireflyClampSlider?.SetResetDefault(defaults.giFireflyClamp);
 #endif
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
             _rtaoIntensitySlider?.SetResetDefault(defaults.rtaoIntensity);
             _rtaoRadiusSlider?.SetResetDefault(defaults.rtaoRadius);
             _rtaoDirectStrengthSlider?.SetResetDefault(defaults.rtaoDirectStrength);
@@ -944,6 +956,7 @@ namespace Basis.BasisUI.HandHeldCamera
             ClearVideoReferences();
             ClearPhotogrammetryReferences();
             ClearPhotogrammetryPathReferences();
+            ClearRenderPassReferences();
             _panel = null;
             _tabGroup = null;
             _navColumn = null;
@@ -977,6 +990,7 @@ namespace Basis.BasisUI.HandHeldCamera
             _streamGroup = null;
             _actionGroup = null;
             _previewImage = null;
+            _previewFitter = null;
             _expandedOverlay = null;
             _expandedImage = null;
             _expandedFitter = null;
@@ -1037,7 +1051,7 @@ namespace Basis.BasisUI.HandHeldCamera
             _fogOverrideToggle = null;
             _fogSlider = null;
 #endif
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             _giOverrideToggle = null;
             _giModeDropdown = null;
             _giLayersDropdown = null;
@@ -1064,7 +1078,7 @@ namespace Basis.BasisUI.HandHeldCamera
             _giReflectionProbesToggle = null;
             _giMirrorsToggle = null;
 #endif
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
             _rtaoOverrideToggle = null;
             _rtaoModeDropdown = null;
             _rtaoIntensitySlider = null;
@@ -1103,11 +1117,11 @@ namespace Basis.BasisUI.HandHeldCamera
 #if Basis_VOLUMETRIC_SUPPORTED
             _fogSection = null;
 #endif
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             _giSection = null;
             _giGroup = null;
 #endif
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
             _rtaoSection = null;
             _rtaoGroup = null;
 #endif
@@ -1246,6 +1260,9 @@ namespace Basis.BasisUI.HandHeldCamera
             _lastDirectToScreenDescription = null;
             _lastDirectToScreenFitKey = null;
             _lastDirectToScreenFitShown = null;
+            _directToScreenDisplayEntryCount = 0;
+            _lastDirectToScreenDisplay = null;
+            _lastDirectToScreenDisplayShown = null;
             _lastDirectToScreenAlignmentShown = null;
             _lastDirectToScreenAlignment = null;
             _lastCameraHidden = null;
@@ -1286,9 +1303,20 @@ namespace Basis.BasisUI.HandHeldCamera
                 UnityEngine.Object.DestroyImmediate(baseGraphic);
             }
 
-            _previewImage = card.gameObject.AddComponent<RawImage>();
+            GameObject feedGo = new GameObject("Feed", typeof(RectTransform));
+            RectTransform feedRect = (RectTransform)feedGo.transform;
+            feedRect.SetParent(card, false);
+            feedRect.anchorMin = Vector2.zero;
+            feedRect.anchorMax = Vector2.one;
+            feedRect.offsetMin = Vector2.zero;
+            feedRect.offsetMax = Vector2.zero;
+            feedGo.AddComponent<LayoutElement>().ignoreLayout = true;
+            _previewImage = feedGo.AddComponent<RawImage>();
             _previewImage.raycastTarget = true;
             if (cardMaterial != null) _previewImage.material = cardMaterial;
+            _previewFitter = feedGo.AddComponent<AspectRatioFitter>();
+            _previewFitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            _previewFitter.aspectRatio = 16f / 9f;
 
             UnityEngine.UI.Button expand = card.gameObject.AddComponent<UnityEngine.UI.Button>();
             expand.transition = Selectable.Transition.None;
@@ -1302,6 +1330,7 @@ namespace Basis.BasisUI.HandHeldCamera
             // published as a layout preference as well as written to the rect.
             if (!card.TryGetComponent(out _previewLayout)) _previewLayout = card.gameObject.AddComponent<LayoutElement>();
             _previewLayout.preferredHeight = PreviewFallbackHeight;
+            _previewLayout.minHeight = 0f;
             card.sizeDelta = new Vector2(card.sizeDelta.x, PreviewFallbackHeight);
         }
 
@@ -1903,7 +1932,7 @@ namespace Basis.BasisUI.HandHeldCamera
             var labels = new List<string>(MsaaSampleCounts.Length);
             for (int Index = 0; Index < MsaaSampleCounts.Length; Index++)
             {
-                labels.Add(MsaaSampleCounts[Index] <= 1 ? "Off" : $"{MsaaSampleCounts[Index]}x");
+                labels.Add(MsaaSampleCounts[Index] <= 1 ? BasisLocalization.Get("ui.option.off") : $"{MsaaSampleCounts[Index]}x");
             }
             return labels;
         }
@@ -2006,6 +2035,20 @@ namespace Basis.BasisUI.HandHeldCamera
                     _lastDirectToScreen = v;
                     // The line under the toggle depends on the device mode and the body, not just
                     // the click — and the click may have taken the window off another camera.
+                    RefreshDirectToScreenState();
+                };
+
+                _directToScreenDisplayDropdown = PanelDropdown.CreateNewEntry(parent);
+                _directToScreenDisplayDropdown.Descriptor.SetTitle(BasisLocalization.Get("camera.directToScreen.display"));
+                _directToScreenDisplayDropdown.Descriptor.SetTooltip(BasisLocalization.Get("camera.directToScreen.display.description"));
+                _directToScreenDisplayEntryCount = 0;
+                _directToScreenDisplayDropdown.OnValueChanged = _ =>
+                {
+                    if (_activeCamera == null || _directToScreenDisplayDropdown == null) return;
+                    int index = _directToScreenDisplayDropdown.Index;
+                    if (index < 0) return;
+                    _activeCamera.SetDirectToScreenDisplay(index);
+                    _lastDirectToScreenDisplay = null;
                     RefreshDirectToScreenState();
                 };
 
@@ -2850,7 +2893,7 @@ namespace Basis.BasisUI.HandHeldCamera
 
                 int captured = Layer;
                 PanelToggle toggle = PanelToggle.CreateNewEntry(content);
-                toggle.Descriptor.SetTitle(LayerMask.LayerToName(captured));
+                toggle.Descriptor.SetTitle(BasisLocalization.GetLayerName(captured));
                 toggle.OnValueChanged = v => _activeCamera?.SetCaptureLayerEnabled(captured, v);
                 _layerToggles.Add(captured, toggle);
             }
@@ -2915,18 +2958,18 @@ namespace Basis.BasisUI.HandHeldCamera
             tagging.AssignLocalizedEntries(
                 new List<string>
                 {
-                    BasisSettingsDefaults.PhotoTagging_NoOne,
-                    BasisSettingsDefaults.PhotoTagging_EveryoneInPhoto,
-                    BasisSettingsDefaults.PhotoTagging_JustMe,
+                    BasisPhotoMetadataSettings.PhotoTagging_NoOne,
+                    BasisPhotoMetadataSettings.PhotoTagging_EveryoneInPhoto,
+                    BasisPhotoMetadataSettings.PhotoTagging_JustMe,
                 },
                 new List<string>(PhotoTaggingKeys));
-            tagging.AssignBinding(BasisSettingsDefaults.PhotoMetadataTagging);
+            tagging.AssignBinding(BasisPhotoMetadataSettings.PhotoMetadataTagging);
 
-            AddPhotoMetadataToggle(content, "settings.chat.camera.personDetails", BasisSettingsDefaults.PhotoEmbedPersonDetails);
-            AddPhotoMetadataToggle(content, "settings.chat.camera.cameraSettings", BasisSettingsDefaults.PhotoEmbedCameraSettings);
-            AddPhotoMetadataToggle(content, "settings.chat.camera.captureInfo", BasisSettingsDefaults.PhotoEmbedCaptureInfo);
-            AddPhotoMetadataToggle(content, "settings.chat.camera.photographer", BasisSettingsDefaults.PhotoEmbedPhotographer);
-            AddPhotoMetadataToggle(content, "settings.chat.camera.world", BasisSettingsDefaults.PhotoEmbedWorld);
+            AddPhotoMetadataToggle(content, "settings.chat.camera.personDetails", BasisPhotoMetadataSettings.PhotoEmbedPersonDetails);
+            AddPhotoMetadataToggle(content, "settings.chat.camera.cameraSettings", BasisPhotoMetadataSettings.PhotoEmbedCameraSettings);
+            AddPhotoMetadataToggle(content, "settings.chat.camera.captureInfo", BasisPhotoMetadataSettings.PhotoEmbedCaptureInfo);
+            AddPhotoMetadataToggle(content, "settings.chat.camera.photographer", BasisPhotoMetadataSettings.PhotoEmbedPhotographer);
+            AddPhotoMetadataToggle(content, "settings.chat.camera.world", BasisPhotoMetadataSettings.PhotoEmbedWorld);
         }
 
         private static void AddPhotoMetadataToggle(RectTransform content, string key, BasisSettingsBinding<bool> binding)
@@ -2947,27 +2990,18 @@ namespace Basis.BasisUI.HandHeldCamera
 
             _gizmoToggles.Clear();
 
-            AddGizmoToggle(content, BasisCameraGizmoLayers.Frustum, "Frustum",
-                "The capture frustum from the real projection: near and far planes, the optical axis, and a world-level guide line to read roll against.");
-
-            AddGizmoToggle(content, BasisCameraGizmoLayers.DepthOfField, "Focus Planes",
-                "The plane of sharp focus, and in Bokeh mode the near and far limits of acceptable sharpness derived from aperture, focal length and sensor size.");
-
-            AddGizmoToggle(content, BasisCameraGizmoLayers.Follow, "Follow Rig",
-                "How auto follow places the shot: the subject anchor, the offset broken into its X, Y and Z legs in yaw space, the aim line, and the snap radius. Shown as a preview when follow is off.");
-
-            AddGizmoToggle(content, BasisCameraGizmoLayers.PinState, "Pin & Modes",
-                "What the camera is pinned to and which modes are live, with the link back to the pin source and a plumb line to the floor.");
-
-            AddGizmoToggle(content, BasisCameraGizmoLayers.Readouts, "Readouts",
-                "Floating numbers for each layer above — angles, distances and the derived optics. Off draws the geometry alone.");
+            AddGizmoToggle(content, BasisCameraGizmoLayers.Frustum, "camera.debugGizmos.frustum");
+            AddGizmoToggle(content, BasisCameraGizmoLayers.DepthOfField, "camera.debugGizmos.focusPlanes");
+            AddGizmoToggle(content, BasisCameraGizmoLayers.Follow, "camera.debugGizmos.followRig");
+            AddGizmoToggle(content, BasisCameraGizmoLayers.PinState, "camera.debugGizmos.pinModes");
+            AddGizmoToggle(content, BasisCameraGizmoLayers.Readouts, "camera.debugGizmos.readouts");
         }
 
-        private void AddGizmoToggle(RectTransform parent, BasisCameraGizmoLayers layer, string title, string description)
+        private void AddGizmoToggle(RectTransform parent, BasisCameraGizmoLayers layer, string key)
         {
             PanelToggle toggle = PanelToggle.CreateNewEntry(parent);
-            toggle.Descriptor.SetTitle(title);
-            toggle.Descriptor.SetTooltip(description);
+            toggle.Descriptor.SetTitle(BasisLocalization.Get(key));
+            toggle.Descriptor.SetTooltip(BasisLocalization.Get(key + ".description"));
             toggle.OnValueChanged = v => _activeCamera?.DebugGizmos.SetLayerEnabled(layer, v);
             _gizmoToggles.Add(layer, toggle);
         }
@@ -3058,6 +3092,7 @@ namespace Basis.BasisUI.HandHeldCamera
             photoButton.Descriptor.SetTitle(BasisLocalization.Get("camera.takePhoto"));
             photoButton.OnClicked += () => _activeCamera?.CapturePhoto();
             _topButtons.Add(photoButton);
+            HoldHeight(photoButton);
 
             _topActionRow = PanelElementDescriptor.BuildActionRow(parent, "CameraTimerResetRow");
 
@@ -3071,11 +3106,19 @@ namespace Basis.BasisUI.HandHeldCamera
                 RefreshTimerLabel();
             };
             _topButtons.Add(_timerButton);
+            HoldHeight(_timerButton);
 
             _resetTopButton = PanelButton.CreateNew(_topActionRow);
             _resetTopButton.Descriptor.SetTitle(BasisLocalization.Get("ui.reset"));
             _resetTopButton.OnClicked += PromptResetSettings;
             _topButtons.Add(_resetTopButton);
+            HoldHeight(_resetTopButton);
+        }
+
+        private static void HoldHeight(PanelButton button)
+        {
+            LayoutElement layout = button.Layout;
+            if (layout != null && layout.preferredHeight > 0f) layout.minHeight = layout.preferredHeight;
         }
 
         /// <summary>
@@ -3195,15 +3238,16 @@ namespace Basis.BasisUI.HandHeldCamera
             // The dolly track block is not listed: it is a card inside the position group and goes
             // with it, and RefreshModifierVisibility owns whether the fitted slot wants it at all.
             SetSectionActive(_backgroundSection, _backgroundGroup, active);
+            SetSectionActive(_passesSection, _passesGroup, active);
             SetSectionActive(_actionSection, _actionGroup, active);
             SetSectionActive(_handlingSection, _handlingGroup, active);
             SetSectionActive(_layersSection, _layersGroup, active);
             SetSectionActive(_performanceSection, _performanceGroup, active);
             SetSectionActive(_gizmoSection, _gizmoGroup, active);
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             SetSectionActive(_giSection, _giGroup, active);
 #endif
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
             SetSectionActive(_rtaoSection, _rtaoGroup, active);
 #endif
 
@@ -3236,6 +3280,7 @@ namespace Basis.BasisUI.HandHeldCamera
             SeedVideoControls();
             SeedPhotogrammetryControls();
             SeedPhotogrammetryPathControls();
+            SeedRenderPassControls();
 
             // The bound camera changed, so the cached labels describe someone else's last shot.
             _lastPhotoStatusText = null;
@@ -3361,10 +3406,10 @@ namespace Basis.BasisUI.HandHeldCamera
             RefreshVolumetricFogVisibility();
 #endif
 
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             SeedGlobalIlluminationControls();
 #endif
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
             SeedRTAOControls();
 #endif
 
@@ -3574,11 +3619,11 @@ namespace Basis.BasisUI.HandHeldCamera
             // A refusal springs the toggle back on its own, so without this the only thing the
             // operator is told is that the control does not work.
             _videoOutputToggle.Descriptor.SetTooltip(
-                $"Publish this camera as a live video source. {BasisCameraVideoPlatform.TransportRequirement(_activeCamera.VideoTransport)}");
+                BasisLocalization.Get("camera.videoOutput.tooltip", BasisCameraVideoPlatform.TransportRequirement(_activeCamera.VideoTransport)));
             string description = !string.IsNullOrEmpty(_activeCamera.LiveOutputFailure)
                 ? _activeCamera.LiveOutputFailure
                 : _activeCamera.IsWebStreamActive
-                    ? $"Serving at {_activeCamera.WebStreamUrl} — add that as a Browser source in OBS, or open it in a browser."
+                    ? BasisLocalization.Get("camera.videoOutput.serving", _activeCamera.WebStreamUrl)
                     : string.Empty;
             if (_lastWebStreamDescription == description) return;
 
@@ -3629,6 +3674,7 @@ namespace Basis.BasisUI.HandHeldCamera
                 RefreshSearch();
                 ForceLayoutRebuild(null);
             }
+            RefreshDirectToScreenDisplay(on);
 
             string key = BasisCameraDirectToScreen.FitKeys[(int)fit];
             bool expanded = _directToScreenFitDropdown.DropdownComponent != null && _directToScreenFitDropdown.DropdownComponent.IsExpanded;
@@ -3647,12 +3693,53 @@ namespace Basis.BasisUI.HandHeldCamera
             }
         }
 
+        private void RefreshDirectToScreenDisplay(bool on)
+        {
+            if (_directToScreenDisplayDropdown == null) return;
+
+            int display = _activeCamera.DirectToScreenDisplay;
+            int count = Mathf.Max(BasisCameraDirectToScreen.DisplayCount, display + 1);
+            bool shown = on && count > 1;
+            if (_lastDirectToScreenDisplayShown != shown)
+            {
+                _lastDirectToScreenDisplayShown = shown;
+                _directToScreenDisplayDropdown.gameObject.SetActive(shown);
+                RefreshSearch();
+                ForceLayoutRebuild(null);
+            }
+            if (!shown) return;
+
+            bool expanded = _directToScreenDisplayDropdown.DropdownComponent != null && _directToScreenDisplayDropdown.DropdownComponent.IsExpanded;
+            if (expanded) return;
+            if (_directToScreenDisplayEntryCount != count)
+            {
+                _directToScreenDisplayEntryCount = count;
+                List<string> entries = new List<string>(count), labels = new List<string>(count);
+                for (int Index = 0; Index < count; Index++)
+                {
+                    entries.Add(Index.ToString());
+                    labels.Add(BasisCameraDirectToScreen.DisplayLabel(Index));
+                }
+                _directToScreenDisplayDropdown.AssignEntries(entries, labels);
+                _lastDirectToScreenDisplay = null;
+            }
+            if (_lastDirectToScreenDisplay != display)
+            {
+                _lastDirectToScreenDisplay = display;
+                _directToScreenDisplayDropdown.SetValueWithoutNotify(display.ToString());
+            }
+        }
+
         private static string DescribeDirectToScreen(BasisHandHeldCamera camera)
         {
             switch (camera.DirectToScreenState)
             {
                 case BasisCameraDirectToScreenState.Presenting:
-                    return BasisLocalization.Get("camera.directToScreen.presenting");
+                    return camera.DirectToScreenDisplay > 0
+                        ? BasisLocalization.Get("camera.directToScreen.presentingWindow", camera.DirectToScreenDisplay + 1)
+                        : BasisLocalization.Get("camera.directToScreen.presenting");
+                case BasisCameraDirectToScreenState.DisplayNotConnected:
+                    return BasisLocalization.Get("camera.directToScreen.displayNotConnected", camera.DirectToScreenDisplay + 1);
                 case BasisCameraDirectToScreenState.WaitingForVR:
                     return BasisLocalization.Get("camera.directToScreen.waitingForVR");
                 case BasisCameraDirectToScreenState.NoOutputSocket:
@@ -3728,12 +3815,17 @@ namespace Basis.BasisUI.HandHeldCamera
         /// </summary>
         private void ApplyPreviewAspect(Texture feed)
         {
-            RectTransform rect = _previewImage.rectTransform;
+            RectTransform rect = _previewGroup != null ? (RectTransform)_previewGroup.transform : _previewImage.rectTransform;
             float width = rect.rect.width;
             // Width is still zero on the frame the row is built, before the first layout pass.
             if (width <= 1f) return;
 
-            float aspect = (feed != null && feed.height > 0) ? (float)feed.width / feed.height : 16f / 9f;
+            float feedAspect = (feed != null && feed.height > 0) ? (float)feed.width / feed.height : 16f / 9f;
+            float aspect = Mathf.Clamp(feedAspect, PreviewMinAspect, PreviewMaxAspect);
+            float cropX = Mathf.Min(1f, aspect / feedAspect), cropY = Mathf.Min(1f, feedAspect / aspect);
+            Rect uv = new Rect((1f - cropX) * 0.5f, (1f - cropY) * 0.5f, cropX, cropY);
+            if (_previewImage.uvRect != uv) _previewImage.uvRect = uv;
+            if (_previewFitter != null && Mathf.Abs(_previewFitter.aspectRatio - aspect) > 0.001f) _previewFitter.aspectRatio = aspect;
             float height = width / aspect;
             if (_previewLayout != null)
             {
@@ -3790,6 +3882,7 @@ namespace Basis.BasisUI.HandHeldCamera
             TickVideoSection();
             TickPhotogrammetrySection();
             TickPhotogrammetryPathSection();
+            TickRenderPassSection();
             TickRenderRateLock();
             TickPhotoStatus();
             TickBodySection();
@@ -3947,7 +4040,7 @@ namespace Basis.BasisUI.HandHeldCamera
             // would both resolve to the first match and follow the wrong player. "Me" is keyed
             // "local" rather than "0" because 0 is the net id of the first player to join.
             var keys = new List<string> { "local" };
-            var labels = new List<string> { "Me" };
+            var labels = new List<string> { BasisLocalization.Get("camera.anchorTarget.local") };
 
             foreach (var pair in remotes)
             {
@@ -3966,7 +4059,7 @@ namespace Basis.BasisUI.HandHeldCamera
                 keys.Add(id.ToString());
                 labels.Add(remotes.TryGetValue(id, out var remote) && !string.IsNullOrEmpty(remote.SafeDisplayName)
                     ? remote.SafeDisplayName
-                    : $"Player {id}");
+                    : BasisLocalization.Get("camera.anchorTarget.player", id));
             }
 
             _followTargetDropdown.AssignEntries(keys, labels);
@@ -4014,7 +4107,7 @@ namespace Basis.BasisUI.HandHeldCamera
 
             // Stays interactable while counting — pressing it cancels — so the label reads
             // "Cancel (n)" rather than a disabled countdown.
-            _timerButton.Descriptor.SetTitle(remaining > 0 ? $"Cancel ({remaining})" : TimerIdleLabel);
+            _timerButton.Descriptor.SetTitle(remaining > 0 ? BasisLocalization.Get("camera.timer.cancel", remaining) : TimerIdleLabel);
             _timerButton.SetInteractable(true);
         }
 
@@ -4260,6 +4353,7 @@ namespace Basis.BasisUI.HandHeldCamera
                 all.AddRange(BasisCameraFocusPeaking.ColourKeys);
                 all.AddRange(BasisCameraGrid.PatternKeys);
                 all.AddRange(BasisCameraDirectToScreen.FitKeys);
+                all.AddRange(BasisCameraPasses.OutputKeys);
                 all.AddRange(MeteringKeys);
                 all.AddRange(GrainTypeKeys);
                 all.AddRange(BasisCameraStreamPresets.OptionKeys);

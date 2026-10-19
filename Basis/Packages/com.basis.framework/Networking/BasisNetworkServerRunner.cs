@@ -1,4 +1,5 @@
 using Basis.Network;
+using Basis.Network.Server.Generic;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -37,6 +38,11 @@ public class BasisNetworkServerRunner
     public void Stop()
     {
         cancellationTokenSource?.Cancel();
+        foreach (int id in NetworkServer.AuthenticatedPeers.Keys)
+        {
+            BasisSavedState.RemovePlayer(id);
+        }
         NetworkServer.StopServer();
+        BasisNetworkResourceManagement.UshortNetworkDatabase.Clear();
     }
 }

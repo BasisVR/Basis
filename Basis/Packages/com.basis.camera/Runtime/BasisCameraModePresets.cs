@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Cinematics;
 using System;
 using UnityEngine;
@@ -105,6 +106,7 @@ internal readonly struct BasisCameraModePreset
         return true;
     }
 }
+[NoAutoStaticsCleanup]
 internal static class BasisCameraModePresets
 {
     private const int FineGrain = (int)FilmGrainLookup.Medium3, MediumGrain = (int)FilmGrainLookup.Medium1, LargeGrain = (int)FilmGrainLookup.Large01;

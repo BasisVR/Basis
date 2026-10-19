@@ -1,9 +1,11 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using System;
 using System.Collections.Generic;
 
 namespace Basis.BTween
 {
+    [NoAutoStaticsCleanup]
     public static class BasisTweenManager
     {
         private const int MAX_GROUP_COUNT = 16;

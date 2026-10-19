@@ -1,0 +1,20 @@
+[package]
+name = "media-rtp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "RTP reorder, jitter accounting and RTCP receiver reports — the shared substrate under RTSP-UDP and WHEP"
+
+[dependencies]
+media-clock = { workspace = true }
+bytes = "1"
+rtp = "0.17"
+rtcp = "0.17"
+webrtc-util = { version = "0.17", default-features = false, features = ["marshal"] }
+
+[dev-dependencies]
+proptest = { workspace = true }
+
+[lints]
+workspace = true

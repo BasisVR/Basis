@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
@@ -13,7 +14,8 @@ namespace Basis.OpenXR
     /// re-captures them on each scene load. Only takes effect on standalone VR hardware whose
     /// runtime supports passthrough.
     /// </summary>
-    public static class BasisPassthroughController
+    [AutoStaticsCleanup]
+    public static partial class BasisPassthroughController
     {
         const string Tag = "[BasisPassthrough]";
 

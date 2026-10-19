@@ -1,24 +1,28 @@
-#if PPV2_EXISTS
 using System;
 using System.Collections.Generic;
+using System.Text;
+using UnityEditor.Rendering.Converter;
+using UnityEngine.Categorization;
+using UnityEngine.Rendering.Universal;
+
+#pragma warning disable CS0618 // Type or member is obsolete
+
+#if PPV2_EXISTS
+using UnityEngine;
+using UnityEngine.Rendering;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text;
 using UnityEditor.SceneManagement;
-using UnityEngine.Categorization;
-using UnityEditor.Rendering.Converter;
-using UnityEngine;
-using UnityEngine.Rendering;
-using UnityEngine.Rendering.Universal;
-using UnityEngine.SceneManagement;
 using BIRPRendering = UnityEngine.Rendering.PostProcessing;
+using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 using URPRendering = UnityEngine.Rendering.Universal;
+#endif
 
 namespace UnityEditor.Rendering.Universal
 {
-    [URPHelpURL("features/rp-converter")]
+    [URPHelpURL("urp/features/rp-converter")]
     [Serializable]
     [PipelineConverter("Built-in", "Universal Render Pipeline (Universal Renderer)")]
     [BatchModeConverterClassInfo("BuiltInToURP", "PPv2")]
@@ -28,6 +32,7 @@ namespace UnityEditor.Rendering.Universal
 
     internal class PPv2Converter : AssetsConverter
     {
+#if PPV2_EXISTS
         public override bool isEnabled => s_PostProcessTypesToSearch?.Count() > 0;
         public override string isDisabledMessage => "Missing types to search";
 
@@ -484,6 +489,14 @@ namespace UnityEditor.Rendering.Universal
 
             return derivedTypes;
         }
+#else
+        public override bool isEnabled => false;
+        public override string isDisabledMessage => "Post Processing package is not installed. Please install the Post Processing package to enable this converter.";
+        protected override List<(string query, string description)> contextSearchQueriesAndIds
+            => null;
+        protected override Status ConvertObject(UnityEngine.Object obj, StringBuilder message) { return Status.Error; }
+#endif
     }
 }
-#endif
+
+#pragma warning restore CS0618 // Type or member is obsolete

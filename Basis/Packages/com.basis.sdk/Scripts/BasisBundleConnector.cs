@@ -1,10 +1,12 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
+[AutoStaticsCleanup]
 [System.Serializable]
-public class BasisBundleConnector
+public partial class BasisBundleConnector
 {
     public string UniqueVersion;
     [SerializeField]
@@ -127,6 +129,10 @@ public class BasisBundleConnector
     {
         return connector != null && string.Equals(connector.MetaData.ContentKind, contentKind, StringComparison.OrdinalIgnoreCase);
     }
+    public static bool HasAuthorship(BasisBundleAuthorship authorship)
+    {
+        return !string.IsNullOrWhiteSpace(authorship.Author) || !string.IsNullOrWhiteSpace(authorship.Contact) || !string.IsNullOrWhiteSpace(authorship.License) || !string.IsNullOrWhiteSpace(authorship.Credits);
+    }
 
     public bool GetPlatform(out BasisBundleGenerated platformBundle)
     {
@@ -178,7 +184,8 @@ public class BasisBundleConnector
         { Enum.GetName(typeof(BuildTarget), BuildTarget.StandaloneOSX), new HashSet<RuntimePlatform> { RuntimePlatform.OSXPlayer, RuntimePlatform.OSXEditor } },
         { Enum.GetName(typeof(BuildTarget), BuildTarget.Android), new HashSet<RuntimePlatform> { RuntimePlatform.Android } },
         { Enum.GetName(typeof(BuildTarget), BuildTarget.StandaloneLinux64), new HashSet<RuntimePlatform> { RuntimePlatform.LinuxEditor, RuntimePlatform.LinuxPlayer, RuntimePlatform.LinuxServer } },
-        { Enum.GetName(typeof(BuildTarget), BuildTarget.iOS), new HashSet<RuntimePlatform> { RuntimePlatform.IPhonePlayer } }
+        { Enum.GetName(typeof(BuildTarget), BuildTarget.iOS), new HashSet<RuntimePlatform> { RuntimePlatform.IPhonePlayer } },
+        { Enum.GetName(typeof(BuildTarget), BuildTarget.WebGL), new HashSet<RuntimePlatform> { RuntimePlatform.WebGLPlayer } }
     };
     public static string DebugOfPlatforms(BasisBundleConnector connector = null)
     {
@@ -253,6 +260,7 @@ public class BasisBundleDescription
     // Older bundles built before this field existed deserialize with null — clients treat
     // null/empty as "no group" and show the entry standalone.
     public string ContentGroupId;
+    public BasisBundleAuthorship Authorship;
     public BasisBundleDescription()
     {
 
@@ -263,6 +271,21 @@ public class BasisBundleDescription
         AssetBundleDescription = assetBundleDescription ?? throw new ArgumentNullException(nameof(assetBundleDescription));
         AssetBundleIcon = assetBundleIcon;
     }
+    public BasisBundleDescription WithAuthorFallback(string author)
+    {
+        if (!string.IsNullOrWhiteSpace(Authorship.Author) || string.IsNullOrWhiteSpace(author)) return this;
+        BasisBundleDescription copy = (BasisBundleDescription)MemberwiseClone();
+        copy.Authorship.Author = author;
+        return copy;
+    }
+}
+[System.Serializable]
+public struct BasisBundleAuthorship
+{
+    public string Author;
+    public string Contact;
+    public string License;
+    public string Credits;
 }
 [System.Serializable]
 public class BasisBundleGenerated
@@ -275,6 +298,14 @@ public class BasisBundleGenerated
     public string Password;//this unlocks the bundle
     public string Platform;//Deployed Platform
     public long EndByte;
+    // Length of the encrypted Unity AssetBundle at the start of this section. When zero, the
+    // whole section is the AssetBundle (the layout used by every BEE produced before PSO
+    // sidecars). New sections may append independently encrypted graphics-state files after it.
+    public long AssetBundleEndByte;
+    // Optional content-scoped GraphicsStateCollection captures. These are shader/graphics-state
+    // descriptions, not driver binaries: the receiving GPU still creates its own PSOs locally.
+    // Entries are generated from the content's mesh/material pairs during BEE construction.
+    public BasisGraphicsStatePayload[] GraphicsStatePayloads;
     // Graphics APIs this section's shaders were compiled against, in PlayerSettings
     // priority order (e.g. ["Direct3D11", "Direct3D12", "Vulkan"] for Windows64,
     // ["Vulkan", "OpenGLES3"] for Android). Verbatim GraphicsDeviceType.ToString()
@@ -302,4 +333,17 @@ public class BasisBundleGenerated
         EndByte = endbyte;
         GraphicsAPIs = graphicsAPIs;
     }
+}
+
+[System.Serializable]
+public class BasisGraphicsStatePayload
+{
+    public string GraphicsAPI;
+    public string RuntimePlatform;
+    public string QualityLevelName;
+    // Byte range relative to the beginning of this platform section. The payload is encrypted
+    // independently with the BEE password so the AssetBundle and sidecar can be decrypted alone.
+    public long Offset;
+    public long Length;
+    public int VariantCount;
 }

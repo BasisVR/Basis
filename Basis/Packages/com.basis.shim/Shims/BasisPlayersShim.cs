@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -25,7 +26,8 @@ namespace Basis.Shims
 	///         Spawn( p.GetBonePosition( HumanBodyBones.Head ) );
 	/// </code>
 	/// </summary>
-	public static class BasisPlayersShim
+	[AutoStaticsCleanup]
+	public static partial class BasisPlayersShim
 	{
 		private static IBasisPlayer[] cached = Array.Empty<IBasisPlayer>();
 		private static ushort[] cachedIds = Array.Empty<ushort>();
@@ -39,7 +41,7 @@ namespace Basis.Shims
 		/// <summary>Every player in the instance. Rebuilt only when someone joins or leaves.</summary>
 		public static IBasisPlayer[] All
 		{
-			get { Rebuild(); return cached; }
+			get { Rebuild(); return (IBasisPlayer[])cached.Clone(); }
 		}
 
 		/// <summary>The local player, or null before the local player has joined.</summary>
@@ -49,7 +51,7 @@ namespace Basis.Shims
 			{
 				Rebuild();
 				for( int i = 0; i < cached.Length; i++ )
-					if( cached[i].IsLocal ) return cached[i];
+					if( cached[i] != null && cached[i].IsLocal ) return cached[i];
 				return null;
 			}
 		}
@@ -57,13 +59,13 @@ namespace Basis.Shims
 		/// <summary>Display names, index-matched with <see cref="All"/>.</summary>
 		public static string[] DisplayNames
 		{
-			get { Rebuild(); return cachedNames; }
+			get { Rebuild(); return (string[])cachedNames.Clone(); }
 		}
 
 		/// <summary>Reported platforms, index-matched with <see cref="All"/>.</summary>
 		public static string[] Platforms
 		{
-			get { Rebuild(); return cachedPlatforms; }
+			get { Rebuild(); return (string[])cachedPlatforms.Clone(); }
 		}
 
 		/// <summary>Look a player up by network id. Returns null when that id is not present.</summary>
@@ -82,6 +84,16 @@ namespace Basis.Shims
 			Rebuild();
 			for( int i = 0; i < cached.Length; i++ )
 				if( cachedNames[i] == displayName ) return cached[i];
+			return null;
+		}
+
+		/// <summary>The player with this UUID, or null. UUIDs stay the same across visits and servers.</summary>
+		public static IBasisPlayer GetByUUID( string uuid )
+		{
+			if( string.IsNullOrEmpty( uuid ) ) return null;
+			Rebuild();
+			for( int i = 0; i < cached.Length; i++ )
+				if( cached[i] != null && string.Equals( cached[i].UUID, uuid, StringComparison.Ordinal ) ) return cached[i];
 			return null;
 		}
 

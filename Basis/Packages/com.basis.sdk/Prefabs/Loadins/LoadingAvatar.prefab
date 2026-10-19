@@ -130,6 +130,13 @@ MonoBehaviour:
     AssetBundleIcon: {fileID: 0}
     Tags: []
     ContentGroupId: 
+    Authorship:
+      Author: 
+      Contact: 
+      License: 
+      Credits: 
+  UseCustomPassword: 0
+  UserSelectedPassword: 
   Animator: {fileID: 7103285763428802826}
   FaceVisemeMesh: {fileID: 8839165641088738499}
   FaceBlinkMesh: {fileID: 8839165641088738499}
@@ -137,8 +144,115 @@ MonoBehaviour:
   AvatarMouthPosition: {x: 1.4667249, y: 0.12704468}
   EyeLiveliness: 0.5
   EyeAttentiveness: 0.5
-  FaceVisemeMovement: ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-  FaceVisemeProfiles: []
+  EyeMaxLookAngleEnabled: 0
+  EyeMaxLookAngle: 25
+  FaceVisemeMovement: ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffi
+  FaceVisemeProfiles:
+  - Gain: 1
+    Threshold: 0
+    OutMin: 0
+    OutMax: 100
+    AttackSeconds: 0
+    ReleaseSeconds: 0
+    Binary: 0
+  - Gain: 1
+    Threshold: 0
+    OutMin: 0
+    OutMax: 100
+    AttackSeconds: 0
+    ReleaseSeconds: 0
+    Binary: 0
+  - Gain: 1
+    Threshold: 0
+    OutMin: 0
+    OutMax: 100
+    AttackSeconds: 0
+    ReleaseSeconds: 0
+    Binary: 0
+  - Gain: 1
+    Threshold: 0
+    OutMin: 0
+    OutMax: 100
+    AttackSeconds: 0
+    ReleaseSeconds: 0
+    Binary: 0
+  - Gain: 1
+    Threshold: 0
+    OutMin: 0
+    OutMax: 100
+    AttackSeconds: 0
+    ReleaseSeconds: 0
+    Binary: 0
+  - Gain: 1
+    Threshold: 0
+    OutMin: 0
+    OutMax: 100
+    AttackSeconds: 0
+    ReleaseSeconds: 0
+    Binary: 0
+  - Gain: 1
+    Threshold: 0
+    OutMin: 0
+    OutMax: 100
+    AttackSeconds: 0
+    ReleaseSeconds: 0
+    Binary: 0
+  - Gain: 1
+    Threshold: 0
+    OutMin: 0
+    OutMax: 100
+    AttackSeconds: 0
+    ReleaseSeconds: 0
+    Binary: 0
+  - Gain: 1
+    Threshold: 0
+    OutMin: 0
+    OutMax: 100
+    AttackSeconds: 0
+    ReleaseSeconds: 0
+    Binary: 0
+  - Gain: 1
+    Threshold: 0
+    OutMin: 0
+    OutMax: 100
+    AttackSeconds: 0
+    ReleaseSeconds: 0
+    Binary: 0
+  - Gain: 1
+    Threshold: 0
+    OutMin: 0
+    OutMax: 100
+    AttackSeconds: 0
+    ReleaseSeconds: 0
+    Binary: 0
+  - Gain: 1
+    Threshold: 0
+    OutMin: 0
+    OutMax: 100
+    AttackSeconds: 0
+    ReleaseSeconds: 0
+    Binary: 0
+  - Gain: 1
+    Threshold: 0
+    OutMin: 0
+    OutMax: 100
+    AttackSeconds: 0
+    ReleaseSeconds: 0
+    Binary: 0
+  - Gain: 1
+    Threshold: 0
+    OutMin: 0
+    OutMax: 100
+    AttackSeconds: 0
+    ReleaseSeconds: 0
+    Binary: 0
+  - Gain: 1
+    Threshold: 0
+    OutMin: 0
+    OutMax: 100
+    AttackSeconds: 0
+    ReleaseSeconds: 0
+    Binary: 0
   FaceVisemeDrive:
     Mode: 0
     WinnerMargin: 0.05
@@ -146,9 +260,9 @@ MonoBehaviour:
     SilenceFloor: 0.15
     SilIsRest: 1
     BackendSmoothing: 70
-  BlinkViseme: ffffffff
+  BlinkViseme: ffffffffi
   laughterBlendTarget: -1
-  AnimatorHumanScale: {x: 1, y: 1, z: 1}
+  AnimatorHumanScale: {x: 0.9921644, y: 0.9921644, z: 0.9921644}
   Renders:
   - {fileID: 8839165641088738499}
   TransformStorage:

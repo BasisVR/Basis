@@ -1,7 +1,9 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Basis.Shims
 {
+    [NoAutoStaticsCleanup]
     public class BasisDebugPropsShim : UnityEngine.Debug
     {
         public static BasisDebug.LogTag LogTag = BasisDebug.LogTag.Props;

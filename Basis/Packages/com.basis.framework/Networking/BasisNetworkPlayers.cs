@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -12,7 +13,8 @@ namespace Basis.Scripts.Networking
     /// <summary>
     /// Thread-safe registry for players/receivers, plus avatar/player conversion helpers.
     /// </summary>
-    public static class BasisNetworkPlayers
+    [AutoStaticsCleanup]
+    public static partial class BasisNetworkPlayers
     {
         // --- Collections (thread-safe) -------------------------------------
         public static readonly ConcurrentDictionary<ushort, BasisNetworkPlayer> Players = new();

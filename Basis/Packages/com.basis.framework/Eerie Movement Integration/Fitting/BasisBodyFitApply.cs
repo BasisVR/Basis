@@ -1,7 +1,9 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Common;
 using UnityEngine;
 namespace Basis.IK
 {
+    [NoAutoStaticsCleanup]
     public static class BasisBodyFitApply
     {
         public const int BoneCount = 17;
@@ -26,12 +28,29 @@ namespace Basis.IK
             bones[10] = mapping.RightLowerLeg;
             bones[11] = mapping.rightFoot;
 
-            bones[12] = mapping.spine;
-            bones[13] = mapping.chest;
-            bones[14] = mapping.Upperchest;
+            Transform torsoTop = TorsoTop(mapping);
+            bones[12] = Below(mapping.spine, torsoTop);
+            bones[13] = Below(mapping.chest, torsoTop);
+            bones[14] = Below(mapping.Upperchest, torsoTop);
             bones[15] = mapping.neck;
             bones[16] = mapping.head;
         }
+        public static Transform TorsoTop(BasisTransformMapping mapping)
+        {
+            if (mapping == null)
+            {
+                return null;
+            }
+            Transform shoulder = mapping.leftShoulder != null ? mapping.leftShoulder : mapping.RightShoulder;
+            Transform upperArm = mapping.leftUpperArm != null ? mapping.leftUpperArm : mapping.RightUpperArm;
+            Transform hanger = shoulder != null ? shoulder.parent : upperArm != null ? upperArm.parent : null;
+            if (hanger != null && (hanger == mapping.Upperchest || hanger == mapping.chest || hanger == mapping.spine))
+            {
+                return hanger;
+            }
+            return mapping.Upperchest != null ? mapping.Upperchest : mapping.chest != null ? mapping.chest : mapping.spine;
+        }
+        static Transform Below(Transform bone, Transform torsoTop) => bone != null && torsoTop != null && torsoTop.IsChildOf(bone) ? bone : null;
         public static void CollectScales(in BasisBodyFitResult fit, float[] scales)
         {
             if (scales == null || scales.Length < BoneCount)
@@ -52,10 +71,12 @@ namespace Basis.IK
             }
 
             float torso = fit.HasBodyFit ? fit.TorsoScale : 1f;
-            for (int i = 12; i < BoneCount; i++)
+            for (int i = 12; i < 15; i++)
             {
                 scales[i] = torso;
             }
+            scales[15] = 1f;
+            scales[16] = 1f;
         }
         static readonly Transform[] sbones = new Transform[BoneCount];
         static readonly float[] sscales = new float[BoneCount];

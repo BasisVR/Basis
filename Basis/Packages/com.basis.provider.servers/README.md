@@ -36,6 +36,16 @@ https://github.com/BasisVR/BasisServersProvider.git
 "com.basis.provider.servers": "https://github.com/BasisVR/BasisServersProvider.git"
 ```
 
+## Extending the panel
+
+- **Server lists:** register an `IServerDirectorySource` with `BasisServerDirectoryRegistry`. Its
+  entries are listed with the source's `DisplayName` as a badge, entries that appear later are
+  probed as they appear, and entries with `CanAutoConnect = false` are never picked for auto connect.
+- **Host settings:** add an `Action<RectTransform>` to `ServersProvider.HostSettingsBuilders` from a
+  `[RuntimeInitializeOnLoadMethod]`; it runs at the end of the host settings dialog.
+- **Passwords:** when a server rejects the password (`BasisConnectionService.PasswordRequired`),
+  the panel asks for it and connects again. A saved server keeps the password that was typed.
+
 ## Localization
 
 Ships UI strings in 18 languages under `Localization/Languages/`. Basis auto-registers a

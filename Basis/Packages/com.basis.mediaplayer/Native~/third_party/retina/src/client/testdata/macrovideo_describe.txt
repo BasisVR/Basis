@@ -1,0 +1,18 @@
+RTSP/1.0 200 OK
+CSeq: 1
+x-notes: SDP taken from <https://github.com/scottlamb/moonfire-nvr/issues/187>. Boilerplate headers added.
+Content-Type: application/sdp
+Content-Length: 350
+
+v=0
+s=streamed by the macro-video rtsp server
+t=0 0
+a=control:*
+a=range:npt=0-
+a=x-qt-text-nam:streamed by the macro-video rtsp server
+c=IN IP4 0.0.0.0
+m=video 0 RTP/AVP 96
+b=AS:500
+a=rtpmap:96 H264/90000
+a=fmtp:96 profile-level-id=TeAo;packetization-mode=1;sprop-parameter-sets=J03gKI1oBQBboQAAAwABAAADACgPFCKg,KO4BNJI=
+a=control:track1

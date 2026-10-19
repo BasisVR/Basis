@@ -4,39 +4,87 @@
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/EntityLighting.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/ImageBasedLighting.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RealtimeLights.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lightmaps.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/SampleScreenSpaceReflection.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareExposureTexture.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/BRDFData.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/GlobalIllumination.deprecated.hlsl"
 
-#define AMBIENT_PROBE_BUFFER 0
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/AmbientProbe.hlsl"
 
 #if defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2)
 #include "Packages/com.unity.render-pipelines.core/Runtime/Lighting/ProbeVolume/ProbeVolume.hlsl"
 #endif
-#if USE_CLUSTER_LIGHT_LOOP
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl"
-#endif
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Macros.hlsl"
 
 #if defined(_SCREEN_SPACE_IRRADIANCE)
 TEXTURE2D_X(_ScreenSpaceIrradiance);
 
-half3 SampleScreenSpaceGI(float2 pos)
+URP_LIGHT_ACCUM3 SampleScreenSpaceGI(float2 pos, float invPreExposureMultiplier)
 {
-    return LOAD_TEXTURE2D_X(_ScreenSpaceIrradiance, pos).rgb;
+    // The irradiance texture is stored pre-exposed so its fp32 values fit fp16. Undo that here, as lighting inputs are un-exposed.
+    URP_LIGHT_ACCUM3 irradiance = LOAD_TEXTURE2D_X(_ScreenSpaceIrradiance, pos).rgb * invPreExposureMultiplier;
+#ifdef UNITY_COLORSPACE_GAMMA
+    irradiance = LinearToSRGB(irradiance);
+#endif
+    return irradiance;
 }
 #endif
 
 // If lightmap is not defined than we evaluate GI (ambient + probes) from SH
 
-// Renamed -> LIGHTMAP_SHADOW_MIXING
-#if !defined(_MIXED_LIGHTING_SUBTRACTIVE) && defined(LIGHTMAP_SHADOW_MIXING) && !defined(SHADOWS_SHADOWMASK)
-    #define _MIXED_LIGHTING_SUBTRACTIVE
+// Legacy: _MIXED_LIGHTING_SUBTRACTIVE was an alias for (LIGHTMAP_SHADOW_MIXING && !SHADOWS_SHADOWMASK).
+// Derived here so shaders that still read it keep working; the reverse derive lives in Shadows.hlsl.
+#if !defined(LIGHTMAP_SHADOW_MIXING_KEYWORD_DECLARED) && !defined(SHADOWS_SHADOWMASK_KEYWORD_DECLARED)
+    #if !defined(_MIXED_LIGHTING_SUBTRACTIVE) && !defined(SHADOWS_SHADOWMASK) && DEFINED_NONZERO(LIGHTMAP_SHADOW_MIXING)
+        #define _MIXED_LIGHTING_SUBTRACTIVE 1
+    #endif
 #endif
 
-#if !defined(_REFLECTION_PROBE_BLENDING_KEYWORD_DECLARED) && !defined(_REFLECTION_PROBE_BLENDING)
-    #define _REFLECTION_PROBE_BLENDING 0
+#if !defined(_REFLECTION_PROBE_BLENDING_KEYWORD_DECLARED)
+    #if !defined(_REFLECTION_PROBE_BLENDING)
+        static const bool _REFLECTION_PROBE_BLENDING = 0;
+    #elif DEFINED_NONZERO(_REFLECTION_PROBE_BLENDING)
+        #undef _REFLECTION_PROBE_BLENDING
+        #define _REFLECTION_PROBE_BLENDING 1
+    #endif
 #endif
 
-#if !defined(_REFLECTION_PROBE_BOX_PROJECTION_KEYWORD_DECLARED) && !defined(_REFLECTION_PROBE_BOX_PROJECTION)
-    #define _REFLECTION_PROBE_BOX_PROJECTION 0
+#if !defined(_REFLECTION_PROBE_BOX_PROJECTION_KEYWORD_DECLARED)
+    #if !defined(_REFLECTION_PROBE_BOX_PROJECTION)
+        static const bool _REFLECTION_PROBE_BOX_PROJECTION = 0;
+    #elif DEFINED_NONZERO(_REFLECTION_PROBE_BOX_PROJECTION)
+        #undef _REFLECTION_PROBE_BOX_PROJECTION
+        #define _REFLECTION_PROBE_BOX_PROJECTION 1
+    #endif
+#endif
+
+#if !defined(EVALUATE_SH_VERTEX_KEYWORD_DECLARED)
+    #if !defined(EVALUATE_SH_VERTEX)
+        static const bool EVALUATE_SH_VERTEX = 0;
+    #elif DEFINED_NONZERO(EVALUATE_SH_VERTEX)
+        #undef EVALUATE_SH_VERTEX
+        #define EVALUATE_SH_VERTEX 1
+    #endif
+#endif
+
+#if !defined(EVALUATE_SH_MIXED_KEYWORD_DECLARED)
+    #if !defined(EVALUATE_SH_MIXED)
+        static const bool EVALUATE_SH_MIXED = 0;
+    #elif DEFINED_NONZERO(EVALUATE_SH_MIXED)
+        #undef EVALUATE_SH_MIXED
+        #define EVALUATE_SH_MIXED 1
+    #endif
+#endif
+
+#if !defined(REFLECTION_PROBE_ROTATION_KEYWORD_DECLARED)
+    #if !defined(REFLECTION_PROBE_ROTATION)
+        static const bool REFLECTION_PROBE_ROTATION = 0;
+    #elif DEFINED_NONZERO(REFLECTION_PROBE_ROTATION)
+        #undef REFLECTION_PROBE_ROTATION
+        #define REFLECTION_PROBE_ROTATION 1
+    #endif
 #endif
 
 // SH Vertex Evaluation. Depending on target SH sampling might be
@@ -44,48 +92,104 @@ half3 SampleScreenSpaceGI(float2 pos)
 // per pixel. See SampleSHPixel
 half3 SampleSHVertex(half3 normalWS)
 {
-#if defined(EVALUATE_SH_VERTEX)
-    return EvaluateAmbientProbeSRGB(normalWS);
-#elif defined(EVALUATE_SH_MIXED)
-    // no max since this is only L2 contribution
-    return SHEvalLinearL2(normalWS, unity_SHBr, unity_SHBg, unity_SHBb, unity_SHC);
-#endif
+    // Fully per-pixel: nothing to compute.
+    half3 result = half3(0.0, 0.0, 0.0);
 
-    // Fully per-pixel. Nothing to compute.
-    return half3(0.0, 0.0, 0.0);
+    if (EVALUATE_SH_VERTEX)
+        result = EvaluateAmbientProbeSRGB(normalWS);
+    else if (EVALUATE_SH_MIXED) // no max since this is only L2 contribution
+        result = SHEvalLinearL2(normalWS, unity_SHBr, unity_SHBg, unity_SHBb, unity_SHC);
+
+    return result;
 }
 
 // SH Pixel Evaluation. Depending on target SH sampling might be done
 // mixed or fully in pixel. See SampleSHVertex
 half3 SampleSHPixel(half3 L2Term, half3 normalWS)
 {
-#if defined(EVALUATE_SH_VERTEX)
-    return L2Term;
-#elif defined(EVALUATE_SH_MIXED)
-    half3 res = L2Term + SHEvalLinearL0L1(normalWS, unity_SHAr, unity_SHAg, unity_SHAb);
-#ifdef UNITY_COLORSPACE_GAMMA
-    res = LinearToSRGB(res);
-#endif
-    return max(half3(0, 0, 0), res);
-#endif
-
-    // Default: Evaluate SH fully per-pixel
-    return EvaluateAmbientProbeSRGB(normalWS);
+    half3 result = half3(0.0, 0.0, 0.0);
+    if (EVALUATE_SH_VERTEX)
+    {
+        result = L2Term;
+    }
+    else if (EVALUATE_SH_MIXED)
+    {
+        half3 res = L2Term + SHEvalLinearL0L1(normalWS, unity_SHAr, unity_SHAg, unity_SHAb);
+        #ifdef UNITY_COLORSPACE_GAMMA
+        res = LinearToSRGB(res);
+        #endif
+        result = max(half3(0, 0, 0), res);
+    }
+    else
+    {
+        // Default: Evaluate SH fully per-pixel
+        result = EvaluateAmbientProbeSRGB(normalWS);
+    }
+    return result;
 }
 
 // APV Prove volume
 // Vertex and Mixed both use Vertex sampling
 
-#if (defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2))
+// APV reads its data from StructuredBuffers (SSBOs). On GLES, vertex-stage SSBO support is device-dependent
+// (GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS may be 0), so sampling APV in the vertex shader can fail to link.
+// Where unsupported, APV is evaluated per-pixel instead (see SampleProbeVolumePixel).
+#if defined(SHADER_API_GLES3)
+    #define APV_VERTEX_SAMPLING_SUPPORTED 0
+#else
+    #define APV_VERTEX_SAMPLING_SUPPORTED 1
+#endif
+
 half3 SampleProbeVolumeVertex(in float3 absolutePositionWS, in float3 normalWS, in float3 viewDir, out float4 probeOcclusion)
 {
     probeOcclusion = 1.0;
+    half3 result = half3(0, 0, 0);
 
-#if defined(EVALUATE_SH_VERTEX) || defined(EVALUATE_SH_MIXED)
-    half3 bakedGI;
-    if (_EnableProbeVolumes)
+#if (defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2)) && APV_VERTEX_SAMPLING_SUPPORTED
+
+    if (EVALUATE_SH_VERTEX || EVALUATE_SH_MIXED)
     {
-        EvaluateAdaptiveProbeVolume(absolutePositionWS, normalWS, viewDir, GetMeshRenderingLayer(), bakedGI, probeOcclusion);
+        half3 bakedGI;
+
+        if (_EnableProbeVolumes && IsLightProbeSamplingEnabled())
+        {
+            EvaluateAdaptiveProbeVolume(absolutePositionWS, normalWS, viewDir, GetMeshRenderingLayer(), bakedGI, probeOcclusion);
+        }
+        else
+        {
+            bakedGI = EvaluateAmbientProbe(normalWS);
+        }
+
+        #ifdef UNITY_COLORSPACE_GAMMA
+        bakedGI = LinearToSRGB(bakedGI);
+        #endif
+
+        result = bakedGI;
+    }
+
+#endif
+
+    return result;
+}
+
+half3 SampleProbeVolumePixel(in half3 vertexValue, in float3 absolutePositionWS, in float3 normalWS, in float3 viewDir, in float2 positionSS, in float4 vertexProbeOcclusion, out float4 probeOcclusion)
+{
+    probeOcclusion = 1.0;
+
+#if APV_VERTEX_SAMPLING_SUPPORTED
+    if (EVALUATE_SH_VERTEX || EVALUATE_SH_MIXED)
+    {
+        probeOcclusion = vertexProbeOcclusion;
+        return vertexValue;
+    }
+#endif
+
+#if defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2)
+    half3 bakedGI;
+    // APV per-renderer. When MeshRenderer.lightProbeUsage == Off, fall back to the ambient sky probe (matches LightProbeGroup behavior).
+    if (_EnableProbeVolumes && IsLightProbeSamplingEnabled())
+    {
+        EvaluateAdaptiveProbeVolume(absolutePositionWS, normalWS, viewDir, positionSS, GetMeshRenderingLayer(), bakedGI, probeOcclusion);
     }
     else
     {
@@ -100,38 +204,11 @@ half3 SampleProbeVolumeVertex(in float3 absolutePositionWS, in float3 normalWS, 
 #endif
 }
 
-half3 SampleProbeVolumePixel(in half3 vertexValue, in float3 absolutePositionWS, in float3 normalWS, in float3 viewDir, in float2 positionSS, in float4 vertexProbeOcclusion, out float4 probeOcclusion)
-{
-    probeOcclusion = 1.0;
-
-#if defined(EVALUATE_SH_VERTEX) || defined(EVALUATE_SH_MIXED)
-    probeOcclusion = vertexProbeOcclusion;
-    return vertexValue;
-#elif defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2)
-    half3 bakedGI;
-    if (_EnableProbeVolumes)
-    {
-        EvaluateAdaptiveProbeVolume(absolutePositionWS, normalWS, viewDir, positionSS, GetMeshRenderingLayer(), bakedGI, probeOcclusion);
-    }
-    else
-    {
-        bakedGI = EvaluateAmbientProbe(normalWS);
-    }
-#ifdef UNITY_COLORSPACE_GAMMA
-        bakedGI = LinearToSRGB(bakedGI);
-#endif
-    return bakedGI;
-#else
-    return half3(0, 0, 0);
-#endif
-}
-
 half3 SampleProbeVolumePixel(in half3 vertexValue, in float3 absolutePositionWS, in float3 normalWS, in float3 viewDir, in float2 positionSS)
 {
     float4 unusedProbeOcclusion = 0;
     return SampleProbeVolumePixel(vertexValue, absolutePositionWS, normalWS, viewDir, positionSS, unusedProbeOcclusion, unusedProbeOcclusion);
 }
-#endif
 
 half3 SampleProbeSHVertex(in float3 absolutePositionWS, in float3 normalWS, in float3 viewDir, out float4 probeOcclusion)
 {
@@ -150,79 +227,105 @@ half3 SampleProbeSHVertex(in float3 absolutePositionWS, in float3 normalWS, in f
     return SampleProbeSHVertex(absolutePositionWS, normalWS, viewDir, unusedProbeOcclusion);
 }
 
-#if defined(UNITY_DOTS_INSTANCING_ENABLED) && !defined(USE_LEGACY_LIGHTMAPS)
-// ^ GPU-driven rendering is enabled, and we haven't opted-out from lightmap
-// texture arrays. This minimizes batch breakages, but texture arrays aren't
-// supported in a performant way on all GPUs.
-#define LIGHTMAP_NAME unity_Lightmaps
-#define LIGHTMAP_INDIRECTION_NAME unity_LightmapsInd
-#define LIGHTMAP_SAMPLER_NAME samplerunity_Lightmaps
-#define LIGHTMAP_SAMPLE_EXTRA_ARGS staticLightmapUV, unity_LightmapIndex.x
-#else
-// ^ Lightmaps are not bound as texture arrays, but as individual textures. The
-// batch is broken every time lightmaps are changed, but this is well-supported
-// on all GPUs.
-#define LIGHTMAP_NAME unity_Lightmap
-#define LIGHTMAP_INDIRECTION_NAME unity_LightmapInd
-#define LIGHTMAP_SAMPLER_NAME samplerunity_Lightmap
-#define LIGHTMAP_SAMPLE_EXTRA_ARGS staticLightmapUV
-#endif
-
-// Sample baked and/or realtime lightmap. Non-Direction and Directional if available.
-half3 SampleLightmap(float2 staticLightmapUV, float2 dynamicLightmapUV, half3 normalWS)
+half3 SampleLightmapOrSH(float2 staticLightmapUV, float2 dynamicLightmapUV, half3 vertexSH, half3 normalWS)
 {
-    // The shader library sample lightmap functions transform the lightmap uv coords to apply bias and scale.
-    // However, universal pipeline already transformed those coords in vertex. We pass half4(1, 1, 0, 0) and
-    // the compiler will optimize the transform away.
-    half4 transformCoords = half4(1, 1, 0, 0);
-
-    float3 diffuseLighting = 0;
-
-#if defined(LIGHTMAP_ON) && defined(DIRLIGHTMAP_COMBINED)
-    diffuseLighting = SampleDirectionalLightmap(TEXTURE2D_LIGHTMAP_ARGS(LIGHTMAP_NAME, LIGHTMAP_SAMPLER_NAME),
-        TEXTURE2D_LIGHTMAP_ARGS(LIGHTMAP_INDIRECTION_NAME, LIGHTMAP_SAMPLER_NAME),
-        LIGHTMAP_SAMPLE_EXTRA_ARGS, transformCoords, normalWS, true);
-#elif defined(LIGHTMAP_ON)
-    diffuseLighting = SampleSingleLightmap(TEXTURE2D_LIGHTMAP_ARGS(LIGHTMAP_NAME, LIGHTMAP_SAMPLER_NAME), LIGHTMAP_SAMPLE_EXTRA_ARGS, transformCoords, true);
-#endif
-
-#if defined(DYNAMICLIGHTMAP_ON) && defined(DIRLIGHTMAP_COMBINED)
-    diffuseLighting += SampleDirectionalLightmap(TEXTURE2D_ARGS(unity_DynamicLightmap, samplerunity_DynamicLightmap),
-        TEXTURE2D_ARGS(unity_DynamicDirectionality, samplerunity_DynamicLightmap),
-         dynamicLightmapUV, transformCoords, normalWS, false);
-#elif defined(DYNAMICLIGHTMAP_ON)
-    diffuseLighting += SampleSingleLightmap(TEXTURE2D_ARGS(unity_DynamicLightmap, samplerunity_DynamicLightmap),
-         dynamicLightmapUV, transformCoords, false);
-#endif
-
-    return diffuseLighting;
+    if (LightmapAvailable() || DynamicLightmapAvailable())
+        return SampleLightmap(staticLightmapUV, dynamicLightmapUV, normalWS);
+    return SampleSHPixel(vertexSH, normalWS);
 }
 
-// Legacy version of SampleLightmap where Realtime GI is not supported.
-half3 SampleLightmap(float2 staticLightmapUV, half3 normalWS)
-{
-    float2 dummyDynamicLightmapUV = float2(0,0);
-    half3 result = SampleLightmap(staticLightmapUV, dummyDynamicLightmapUV, normalWS);
-    return result;
-}
-
+// SAMPLE_GI exists for backward compatibility with custom shaders and ShaderGraph;
+// pipeline passes call InitializeBakedGI instead.
+// The shName argument may reference a struct field that only exists when the SH interpolator is
+// live, so the lightmap arms may only expand it under USE_VERTEX_SH_INTERPOLATOR. That is exactly
+// the runtime-branching case, where the SH fallback is needed because lightmap availability is a
+// runtime property; specialized variants keep the direct SampleLightmap expansion.
 #if defined(_SCREEN_SPACE_IRRADIANCE)
-#define SAMPLE_GI(irradianceTex, pos) SampleScreenSpaceGI(pos)
-#elif defined(LIGHTMAP_ON) && defined(DYNAMICLIGHTMAP_ON)
-#define SAMPLE_GI(staticLmName, dynamicLmName, shName, normalWSName) SampleLightmap(staticLmName, dynamicLmName, normalWSName)
-#elif defined(DYNAMICLIGHTMAP_ON)
-#define SAMPLE_GI(staticLmName, dynamicLmName, shName, normalWSName) SampleLightmap(0, dynamicLmName, normalWSName)
-#elif defined(LIGHTMAP_ON)
-#define SAMPLE_GI(staticLmName, shName, normalWSName) SampleLightmap(staticLmName, 0, normalWSName)
+    // Transparent surfaces are not in the surface cache; they fall back to the ambient probe.
+    #define SAMPLE_GI(irradianceTex, pos, normal, invPreExposureMultiplier) (IsSurfaceTypeTransparent() ? URP_LIGHT_ACCUM3(EvaluateAmbientProbe(normal)) : SampleScreenSpaceGI(pos, invPreExposureMultiplier))
+#elif USE_LIGHTMAP_UV_INTERPOLATOR && USE_DYNAMICLIGHTMAP_UV_INTERPOLATOR
+    #if USE_VERTEX_SH_INTERPOLATOR
+        #define SAMPLE_GI(staticLmName, dynamicLmName, shName, normalWSName) SampleLightmapOrSH(staticLmName, dynamicLmName, shName, normalWSName)
+    #else
+        #define SAMPLE_GI(staticLmName, dynamicLmName, shName, normalWSName) SampleLightmap(staticLmName, dynamicLmName, normalWSName)
+    #endif
+#elif USE_DYNAMICLIGHTMAP_UV_INTERPOLATOR
+    #if USE_VERTEX_SH_INTERPOLATOR
+        #define SAMPLE_GI(staticLmName, dynamicLmName, shName, normalWSName) SampleLightmapOrSH(0, dynamicLmName, shName, normalWSName)
+    #else
+        #define SAMPLE_GI(staticLmName, dynamicLmName, shName, normalWSName) SampleLightmap(0, dynamicLmName, normalWSName)
+    #endif
+#elif USE_LIGHTMAP_UV_INTERPOLATOR
+    #if USE_VERTEX_SH_INTERPOLATOR
+        #define SAMPLE_GI(staticLmName, shName, normalWSName) SampleLightmapOrSH(staticLmName, 0, shName, normalWSName)
+    #else
+        #define SAMPLE_GI(staticLmName, shName, normalWSName) SampleLightmap(staticLmName, 0, normalWSName)
+    #endif
 #elif defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2)
-#ifdef USE_APV_PROBE_OCCLUSION
-    #define SAMPLE_GI(shName, absolutePositionWS, normalWS, viewDir, positionSS, vertexProbeOcclusion, probeOcclusion) SampleProbeVolumePixel(shName, absolutePositionWS, normalWS, viewDir, positionSS, vertexProbeOcclusion, probeOcclusion)
-#else
-    #define SAMPLE_GI(shName, absolutePositionWS, normalWS, viewDir, positionSS, vertexProbeOcclusion, probeOcclusion) SampleProbeVolumePixel(shName, absolutePositionWS, normalWS, viewDir, positionSS)
-#endif
+    #ifdef USE_APV_PROBE_OCCLUSION
+        #define SAMPLE_GI(shName, absolutePositionWS, normalWS, viewDir, positionSS, vertexProbeOcclusion, probeOcclusion) SampleProbeVolumePixel(shName, absolutePositionWS, normalWS, viewDir, positionSS, vertexProbeOcclusion, probeOcclusion)
+    #else
+        #define SAMPLE_GI(shName, absolutePositionWS, normalWS, viewDir, positionSS, vertexProbeOcclusion, probeOcclusion) SampleProbeVolumePixel(shName, absolutePositionWS, normalWS, viewDir, positionSS)
+    #endif
 #else
 #define SAMPLE_GI(staticLmName, shName, normalWSName) SampleSHPixel(shName, normalWSName)
 #endif
+
+// Inputs for InitializeBakedGI. Zero-initialize with (GIParams)0 and fill the fields the pass
+// has data for; fields left zero select the corresponding neutral behavior.
+struct GIParams
+{
+    float2 staticLightmapUV;
+    float2 dynamicLightmapUV;
+    half3 vertexSH;
+    float3 positionWS;
+    half3 normalWS;
+    float3 viewDirWS;
+    float2 positionSS;
+    float4 vertexProbeOcclusion;
+    bool isSurfaceTypeTransparent;
+};
+
+// Samples baked GI (lightmaps, probe volumes, SH, or screen-space irradiance, depending on the
+// active configuration) and the shadow mask for a surface point.
+void InitializeBakedGI(GIParams giParams, out URP_LIGHT_ACCUM3 bakedGI, out half4 shadowMask)
+{
+    bakedGI = 0.0;
+    shadowMask = half4(1, 1, 1, 1);
+
+#if defined(_SCREEN_SPACE_IRRADIANCE)
+    if (!giParams.isSurfaceTypeTransparent)
+    {
+        bakedGI = SampleScreenSpaceGI(giParams.positionSS, GetInvPreExposureMultiplier());
+    }
+    else
+    {
+        bakedGI = EvaluateAmbientProbe(giParams.normalWS);
+    }
+#else
+    if (LightmapAvailable() || DynamicLightmapAvailable())
+    {
+        bakedGI = SampleLightmap(giParams.staticLightmapUV, giParams.dynamicLightmapUV, giParams.normalWS);
+        shadowMask = SampleShadowMask(giParams.staticLightmapUV);
+    }
+    #if defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2)
+    else
+    {
+        #ifdef USE_APV_PROBE_OCCLUSION
+        bakedGI = SampleProbeVolumePixel(giParams.vertexSH, GetAbsolutePositionWS(giParams.positionWS), giParams.normalWS, giParams.viewDirWS, giParams.positionSS, giParams.vertexProbeOcclusion, shadowMask);
+        #else
+        bakedGI = SampleProbeVolumePixel(giParams.vertexSH, GetAbsolutePositionWS(giParams.positionWS), giParams.normalWS, giParams.viewDirWS, giParams.positionSS);
+        #endif
+    }
+    #else
+    else
+    {
+        bakedGI = SampleSHPixel(giParams.vertexSH, giParams.normalWS);
+        shadowMask = SampleShadowMask(giParams.staticLightmapUV);
+    }
+    #endif
+#endif
+}
 
 float3 GetReflectionProbeCenter(float4 boxMin, float4 boxMax)
 {
@@ -240,7 +343,7 @@ half3 BoxProjectedCubemapDirection(half3 reflectionWS, float3 positionWS, float4
     if (cubemapPositionWS.w > 0.0f)
     {
         float3 boxMinMax = (reflectionWS > 0.0f) ? boxMax.xyz : boxMin.xyz;
-        half3 rbMinMax = half3(boxMinMax - positionWS) / reflectionWS;
+        half3 rbMinMax = (reflectionWS != 0.0f) ? half3(boxMinMax - positionWS) / reflectionWS : HALF_MAX;
 
         half fa = half(min(min(rbMinMax.x, rbMinMax.y), rbMinMax.z));
 
@@ -286,36 +389,43 @@ half3 CalculateIrradianceFromReflectionProbes(half3 reflectVector, float3 positi
 {
     half3 irradiance = half3(0.0h, 0.0h, 0.0h);
     half mip = PerceptualRoughnessToMipmapLevel(perceptualRoughness);
+
 #if USE_CLUSTER_LIGHT_LOOP && CLUSTER_HAS_REFLECTION_PROBES
+
     float totalWeight = 0.0f;
     uint probeIndex;
+    float3 rotPosWS = positionWS;
     ClusterIterator it = ClusterInit(normalizedScreenSpaceUV, positionWS, 1);
     [loop] while (ClusterNext(it, probeIndex) && totalWeight < 0.99f)
     {
         probeIndex -= URP_FP_PROBES_BEGIN;
 
-#if defined(REFLECTION_PROBE_ROTATION)
-        // We need to rotated positionWS such that we can assume the influence volumes to be axis aligned
-        // when calculating the weight and box projection.
-        float3 probeCenterPosWS = GetReflectionProbeCenter(urp_ReflProbes_BoxMin[probeIndex], urp_ReflProbes_BoxMax[probeIndex]);
-        float3 rotPosWS = GetRotatedPoint(probeCenterPosWS, urp_ReflProbes_Rotation[probeIndex], positionWS);
-#else
-        float3 rotPosWS = positionWS;
-#endif
-        float weight = CalculateProbeWeight(rotPosWS, urp_ReflProbes_BoxMin[probeIndex], urp_ReflProbes_BoxMax[probeIndex]);
+        float4 probeRotation = urp_ReflProbes_Rotation[probeIndex];
+        float4 probePosition = urp_ReflProbes_ProbePosition[probeIndex];
+        float4 probeBoxMin = urp_ReflProbes_BoxMin[probeIndex];
+        float4 probeBoxMax = urp_ReflProbes_BoxMax[probeIndex];
+
+        if (REFLECTION_PROBE_ROTATION)
+        {
+            // We need to rotate positionWS such that we can assume the influence volumes to be axis aligned
+            // when calculating the weight and box projection.
+            float3 probeCenterPosWS = GetReflectionProbeCenter(probeBoxMin, probeBoxMax);
+            rotPosWS = GetRotatedPoint(probeCenterPosWS, probeRotation, positionWS);
+        }
+
+        float weight = CalculateProbeWeight(rotPosWS, probeBoxMin, probeBoxMax);
         weight = min(weight, 1.0f - totalWeight);
 
         half3 sampleVector = reflectVector;
         if (_REFLECTION_PROBE_BOX_PROJECTION)
         {
-            #if defined(REFLECTION_PROBE_ROTATION)
-            sampleVector = BoxProjectedCubemapDirection(urp_ReflProbes_Rotation[probeIndex], reflectVector, rotPosWS, urp_ReflProbes_ProbePosition[probeIndex], urp_ReflProbes_BoxMin[probeIndex], urp_ReflProbes_BoxMax[probeIndex]);
-            #else
-            sampleVector = BoxProjectedCubemapDirection(reflectVector, rotPosWS, urp_ReflProbes_ProbePosition[probeIndex], urp_ReflProbes_BoxMin[probeIndex], urp_ReflProbes_BoxMax[probeIndex]);
-            #endif
+            if (REFLECTION_PROBE_ROTATION)
+                sampleVector = BoxProjectedCubemapDirection(probeRotation, reflectVector, rotPosWS, probePosition, probeBoxMin, probeBoxMax);
+            else
+                sampleVector = BoxProjectedCubemapDirection(reflectVector, rotPosWS, probePosition, probeBoxMin, probeBoxMax);
         }
 
-        uint maxMip = (uint)abs(urp_ReflProbes_ProbePosition[probeIndex].w) - 1;
+        uint maxMip = (uint)abs(probePosition.w) - 1;
         half probeMip = min(mip, maxMip);
         float2 uv = saturate(PackNormalOctQuadEncode(sampleVector) * 0.5 + 0.5);
 
@@ -325,37 +435,46 @@ half3 CalculateIrradianceFromReflectionProbes(half3 reflectVector, float3 positi
         float4 scaleOffset0 = urp_ReflProbes_MipScaleOffset[probeIndex * 7 + (uint)mip0];
         float4 scaleOffset1 = urp_ReflProbes_MipScaleOffset[probeIndex * 7 + (uint)mip1];
 
+        float preExposure = urp_ReflProbes_ExposureMultipliers[probeIndex].x;
         half3 irradiance0 = half4(SAMPLE_TEXTURE2D_LOD(urp_ReflProbes_Atlas, sampler_LinearClamp, uv * scaleOffset0.xy + scaleOffset0.zw, 0.0)).rgb;
         half3 irradiance1 = half4(SAMPLE_TEXTURE2D_LOD(urp_ReflProbes_Atlas, sampler_LinearClamp, uv * scaleOffset1.xy + scaleOffset1.zw, 0.0)).rgb;
-        irradiance += weight * lerp(irradiance0, irradiance1, mipBlend);
+        irradiance += preExposure * weight * lerp(irradiance0, irradiance1, mipBlend);
         totalWeight += weight;
     }
+
 #else
-#if defined(REFLECTION_PROBE_ROTATION)
-    // We need to rotated positionWS such that we can assume the influence volumes to be axis aligned
-    // when calculating the weight and box projection.
-    float3 probeCenterPosWS0 = GetReflectionProbeCenter(unity_SpecCube0_BoxMin, unity_SpecCube0_BoxMax);
-    float3 rotPosWS0 = GetRotatedPoint(probeCenterPosWS0, unity_SpecCube0_Rotation, positionWS);
-    float3 probeCenterPosWS1 = GetReflectionProbeCenter(unity_SpecCube1_BoxMin, unity_SpecCube1_BoxMax);
-    float3 rotPosWS1 = GetRotatedPoint(probeCenterPosWS1, unity_SpecCube1_Rotation, positionWS);
-#else
+
+    float4 boxMin0 = unity_SpecCube0_BoxMin;
+    float4 boxMax0 = unity_SpecCube0_BoxMax;
+    float4 boxMin1 = unity_SpecCube1_BoxMin;
+    float4 boxMax1 = unity_SpecCube1_BoxMax;
+
     float3 rotPosWS0 = positionWS;
     float3 rotPosWS1 = positionWS;
-#endif
 
-    half probe0Volume = CalculateProbeVolumeSqrMagnitude(unity_SpecCube0_BoxMin, unity_SpecCube0_BoxMax);
-    half probe1Volume = CalculateProbeVolumeSqrMagnitude(unity_SpecCube1_BoxMin, unity_SpecCube1_BoxMax);
+    if (REFLECTION_PROBE_ROTATION)
+    {
+        // We need to rotate positionWS such that we can assume the influence volumes to be axis aligned
+        // when calculating the weight and box projection.
+        float3 probeCenterPosWS0 = GetReflectionProbeCenter(boxMin0, boxMax0);
+        rotPosWS0 = GetRotatedPoint(probeCenterPosWS0, unity_SpecCube0_Rotation, positionWS);
+        float3 probeCenterPosWS1 = GetReflectionProbeCenter(boxMin1, boxMax1);
+        rotPosWS1 = GetRotatedPoint(probeCenterPosWS1, unity_SpecCube1_Rotation, positionWS);
+    }
+
+    half probe0Volume = CalculateProbeVolumeSqrMagnitude(boxMin0, boxMax0);
+    half probe1Volume = CalculateProbeVolumeSqrMagnitude(boxMin1, boxMax1);
 
     half volumeDiff = probe0Volume - probe1Volume;
-    float importanceSign = unity_SpecCube1_BoxMin.w;
+    float importanceSign = boxMin1.w;
 
     // A probe is dominant if its importance is higher
     // Or have equal importance but smaller volume
     bool probe0Dominant = importanceSign > 0.0f || (importanceSign == 0.0f && volumeDiff < -0.0001h);
     bool probe1Dominant = importanceSign < 0.0f || (importanceSign == 0.0f && volumeDiff > 0.0001h);
 
-    float desiredWeightProbe0 = CalculateProbeWeight(rotPosWS0, unity_SpecCube0_BoxMin, unity_SpecCube0_BoxMax);
-    float desiredWeightProbe1 = CalculateProbeWeight(rotPosWS1, unity_SpecCube1_BoxMin, unity_SpecCube1_BoxMax);
+    float desiredWeightProbe0 = CalculateProbeWeight(rotPosWS0, boxMin0, boxMax0);
+    float desiredWeightProbe1 = CalculateProbeWeight(rotPosWS1, boxMin1, boxMax1);
 
     // Subject the probes weight if the other probe is dominant
     float weightProbe0 = probe1Dominant ? min(desiredWeightProbe0, 1.0f - desiredWeightProbe1) : desiredWeightProbe0;
@@ -372,18 +491,17 @@ half3 CalculateIrradianceFromReflectionProbes(half3 reflectVector, float3 positi
     if (weightProbe0 > 0.01f)
     {
         half3 reflectVector0 = reflectVector;
-        if (_REFLECTION_PROBE_BOX_PROJECTION) 
+        if (_REFLECTION_PROBE_BOX_PROJECTION)
         {
-            #if defined(REFLECTION_PROBE_ROTATION)
-            reflectVector0 = BoxProjectedCubemapDirection(unity_SpecCube0_Rotation, reflectVector, rotPosWS0, unity_SpecCube0_ProbePosition, unity_SpecCube0_BoxMin, unity_SpecCube0_BoxMax);
-            #else
-            reflectVector0 = BoxProjectedCubemapDirection(reflectVector, rotPosWS0, unity_SpecCube0_ProbePosition, unity_SpecCube0_BoxMin, unity_SpecCube0_BoxMax);
-             #endif
-         }
+            if (REFLECTION_PROBE_ROTATION)
+                reflectVector0 = BoxProjectedCubemapDirection(unity_SpecCube0_Rotation, reflectVector, rotPosWS0, unity_SpecCube0_ProbePosition, boxMin0, boxMax0);
+            else
+                reflectVector0 = BoxProjectedCubemapDirection(reflectVector, rotPosWS0, unity_SpecCube0_ProbePosition, boxMin0, boxMax0);
+        }
 
         half4 encodedIrradiance = half4(SAMPLE_TEXTURECUBE_LOD(unity_SpecCube0, samplerunity_SpecCube0, reflectVector0, mip));
 
-        irradiance += weightProbe0 * DecodeHDREnvironment(encodedIrradiance, unity_SpecCube0_HDR);
+        irradiance += weightProbe0 * SelectProbeExposureMultiplier(unity_SpecCube0_Exposure.x) * DecodeHDREnvironment(encodedIrradiance, unity_SpecCube0_HDR);
     }
 
     // Sample the second reflection probe
@@ -392,15 +510,14 @@ half3 CalculateIrradianceFromReflectionProbes(half3 reflectVector, float3 positi
         half3 reflectVector1 = reflectVector;
         if (_REFLECTION_PROBE_BOX_PROJECTION)
         {
-            #if defined(REFLECTION_PROBE_ROTATION)
-            reflectVector1 = BoxProjectedCubemapDirection(unity_SpecCube1_Rotation, reflectVector, rotPosWS1, unity_SpecCube1_ProbePosition, unity_SpecCube1_BoxMin, unity_SpecCube1_BoxMax);
-            #else
-            reflectVector1 = BoxProjectedCubemapDirection(reflectVector, rotPosWS1, unity_SpecCube1_ProbePosition, unity_SpecCube1_BoxMin, unity_SpecCube1_BoxMax);
-            #endif
+            if (REFLECTION_PROBE_ROTATION)
+                reflectVector1 = BoxProjectedCubemapDirection(unity_SpecCube1_Rotation, reflectVector, rotPosWS1, unity_SpecCube1_ProbePosition, boxMin1, boxMax1);
+            else
+                reflectVector1 = BoxProjectedCubemapDirection(reflectVector, rotPosWS1, unity_SpecCube1_ProbePosition, boxMin1, boxMax1);
         }
         half4 encodedIrradiance = half4(SAMPLE_TEXTURECUBE_LOD(unity_SpecCube1, samplerunity_SpecCube1, reflectVector1, mip));
 
-        irradiance += weightProbe1 * DecodeHDREnvironment(encodedIrradiance, unity_SpecCube1_HDR);
+        irradiance += weightProbe1 * SelectProbeExposureMultiplier(unity_SpecCube1_Exposure.x) * DecodeHDREnvironment(encodedIrradiance, unity_SpecCube1_HDR);
     }
 #endif
 
@@ -415,67 +532,86 @@ half3 CalculateIrradianceFromReflectionProbes(half3 reflectVector, float3 positi
     return irradiance;
 }
 
-half3 GlossyEnvironmentReflection(half3 reflectVector, float3 positionWS, half perceptualRoughness, half occlusion, float2 normalizedScreenSpaceUV)
+half3 GlossyEnvironmentReflection(half3 reflectVector, float3 positionWS, half perceptualRoughness, half occlusion, float2 normalizedScreenSpaceUV, bool useEnvironmentReflections)
 {
-    half3 irradiance;
+    half3 irradiance = half3(0, 0, 0);
 
-#if !defined(_ENVIRONMENTREFLECTIONS_OFF)
-    if (_REFLECTION_PROBE_BLENDING)
+    #if defined(_SCREENSPACEREFLECTIONS_OFF)
+    half4 ssrColor = 0;
+    #else
+    half4 ssrColor = GetScreenSpaceReflection(normalizedScreenSpaceUV, positionWS, perceptualRoughness);
+    // The SSR texture is resolved from the pre-exposed camera color; undo that, as lighting inputs are un-exposed.
+    ssrColor.rgb *= GetInvPreExposureMultiplier();
+    #endif
+
+// Skip the reflection-probe work when SSR fully covers the pixel (the lerp below discards it).
+#if !defined(STEREO_INSTANCING_ON) || defined(UNITY_COMPILER_DXC)
+    if (ssrColor.a < 1.0)
+#endif
     {
-        irradiance = CalculateIrradianceFromReflectionProbes(reflectVector, positionWS, perceptualRoughness, normalizedScreenSpaceUV);
-    }
-    else
-    {
-        if (_REFLECTION_PROBE_BOX_PROJECTION)
+        if (!useEnvironmentReflections)
         {
-            #if defined(REFLECTION_PROBE_ROTATION)
-            float3 probeCenterPosWS0 = unity_SpecCube0_BoxMin.xyz + (unity_SpecCube0_BoxMax.xyz - unity_SpecCube0_BoxMin.xyz) / 2;
-            float3 rotPosWS0 = RotateVectorByQuat(unity_SpecCube0_Rotation, positionWS - probeCenterPosWS0) + probeCenterPosWS0;
-            half3 rotReflectVector0 = RotateVectorByQuat(unity_SpecCube0_Rotation, reflectVector);
-            float4 inverseRotation0 = -unity_SpecCube0_Rotation;
-            inverseRotation0.w = -inverseRotation0.w;
-            reflectVector = BoxProjectedCubemapDirection(rotReflectVector0, rotPosWS0, unity_SpecCube0_ProbePosition, unity_SpecCube0_BoxMin, unity_SpecCube0_BoxMax);
-            reflectVector = RotateVectorByQuat(inverseRotation0, reflectVector);
-            #else
-            reflectVector = BoxProjectedCubemapDirection(reflectVector, positionWS, unity_SpecCube0_ProbePosition, unity_SpecCube0_BoxMin, unity_SpecCube0_BoxMax);
-            #endif
+            irradiance = _GlossyEnvironmentColor.rgb;
         }
-        half mip = PerceptualRoughnessToMipmapLevel(perceptualRoughness);
-        half4 encodedIrradiance = half4(SAMPLE_TEXTURECUBE_LOD(unity_SpecCube0, samplerunity_SpecCube0, reflectVector, mip));
+        else if (_REFLECTION_PROBE_BLENDING)
+        {
+            irradiance = CalculateIrradianceFromReflectionProbes(reflectVector, positionWS, perceptualRoughness, normalizedScreenSpaceUV);
+        }
+        else
+        {
+            if (_REFLECTION_PROBE_BOX_PROJECTION)
+            {
+                if (REFLECTION_PROBE_ROTATION)
+                {
+                    float3 probeCenterPosWS0 = unity_SpecCube0_BoxMin.xyz + (unity_SpecCube0_BoxMax.xyz - unity_SpecCube0_BoxMin.xyz) / 2;
+                    float3 rotPosWS0 = RotateVectorByQuat(unity_SpecCube0_Rotation, positionWS - probeCenterPosWS0) + probeCenterPosWS0;
+                    half3 rotReflectVector0 = RotateVectorByQuat(unity_SpecCube0_Rotation, reflectVector);
+                    float4 inverseRotation0 = -unity_SpecCube0_Rotation;
+                    inverseRotation0.w = -inverseRotation0.w;
+                    reflectVector = BoxProjectedCubemapDirection(rotReflectVector0, rotPosWS0, unity_SpecCube0_ProbePosition, unity_SpecCube0_BoxMin, unity_SpecCube0_BoxMax);
+                    reflectVector = RotateVectorByQuat(inverseRotation0, reflectVector);
+                }
+                else
+                {
+                    reflectVector = BoxProjectedCubemapDirection(reflectVector, positionWS, unity_SpecCube0_ProbePosition, unity_SpecCube0_BoxMin, unity_SpecCube0_BoxMax);
+                }
+            }
 
-        irradiance = DecodeHDREnvironment(encodedIrradiance, unity_SpecCube0_HDR);
+            half mip = PerceptualRoughnessToMipmapLevel(perceptualRoughness);
+            half4 encodedIrradiance = half4(SAMPLE_TEXTURECUBE_LOD(unity_SpecCube0, samplerunity_SpecCube0, reflectVector, mip));
+
+            irradiance = SelectProbeExposureMultiplier(unity_SpecCube0_Exposure.x) * DecodeHDREnvironment(encodedIrradiance, unity_SpecCube0_HDR);
+        }
     }
-#else // _ENVIRONMENTREFLECTIONS_OFF
-    irradiance = _GlossyEnvironmentColor.rgb;
-#endif // !_ENVIRONMENTREFLECTIONS_OFF
+
+    irradiance = lerp(irradiance.rgb, ssrColor.rgb, ssrColor.a);
 
     return irradiance * occlusion;
 }
 
 #if !USE_CLUSTER_LIGHT_LOOP
-half3 GlossyEnvironmentReflection(half3 reflectVector, float3 positionWS, half perceptualRoughness, half occlusion)
+half3 GlossyEnvironmentReflection(half3 reflectVector, float3 positionWS, half perceptualRoughness, half occlusion, bool useEnvironmentReflections)
 {
-    return GlossyEnvironmentReflection(reflectVector, positionWS, perceptualRoughness, occlusion, float2(0.0f, 0.0f));
+    return GlossyEnvironmentReflection(reflectVector, positionWS, perceptualRoughness, occlusion, float2(0.0f, 0.0f), useEnvironmentReflections);
 }
 #endif
 
-half3 GlossyEnvironmentReflection(half3 reflectVector, half perceptualRoughness, half occlusion)
+half3 GlossyEnvironmentReflection(half3 reflectVector, half perceptualRoughness, half occlusion, bool useEnvironmentReflections)
 {
-#if !defined(_ENVIRONMENTREFLECTIONS_OFF)
-    half3 irradiance;
-    half mip = PerceptualRoughnessToMipmapLevel(perceptualRoughness);
-    half4 encodedIrradiance = half4(SAMPLE_TEXTURECUBE_LOD(unity_SpecCube0, samplerunity_SpecCube0, reflectVector, mip));
+    half3 irradiance = _GlossyEnvironmentColor.rgb;
 
-    irradiance = DecodeHDREnvironment(encodedIrradiance, unity_SpecCube0_HDR);
+    if (useEnvironmentReflections)
+    {
+        half mip = PerceptualRoughnessToMipmapLevel(perceptualRoughness);
+        half4 encodedIrradiance = half4(SAMPLE_TEXTURECUBE_LOD(unity_SpecCube0, samplerunity_SpecCube0, reflectVector, mip));
+
+        irradiance = SelectProbeExposureMultiplier(unity_SpecCube0_Exposure.x) * DecodeHDREnvironment(encodedIrradiance, unity_SpecCube0_HDR);
+    }
 
     return irradiance * occlusion;
-#else
-
-    return _GlossyEnvironmentColor.rgb * occlusion;
-#endif // _ENVIRONMENTREFLECTIONS_OFF
 }
 
-half3 SubtractDirectMainLightFromLightmap(Light mainLight, half3 normalWS, half3 bakedGI)
+URP_LIGHT_ACCUM3 SubtractDirectMainLightFromLightmap(Light mainLight, half3 normalWS, URP_LIGHT_ACCUM3 bakedGI)
 {
     // Let's try to make realtime shadows work on a surface, which already contains
     // baked lighting and shadowing from the main sun light.
@@ -493,10 +629,10 @@ half3 SubtractDirectMainLightFromLightmap(Light mainLight, half3 normalWS, half3
     half contributionTerm = saturate(dot(mainLight.direction, normalWS));
     half3 lambert = mainLight.color * contributionTerm;
     half3 estimatedLightContributionMaskedByInverseOfShadow = lambert * (1.0 - mainLight.shadowAttenuation);
-    half3 subtractedLightmap = bakedGI - estimatedLightContributionMaskedByInverseOfShadow;
+    URP_LIGHT_ACCUM3 subtractedLightmap = bakedGI - estimatedLightContributionMaskedByInverseOfShadow;
 
     // 2) Allows user to define overall ambient of the scene and control situation when realtime shadow becomes too dark.
-    half3 realtimeShadow = max(subtractedLightmap, _SubtractiveShadowColor.xyz);
+    URP_LIGHT_ACCUM3 realtimeShadow = max(subtractedLightmap, _SubtractiveShadowColor.xyz);
     realtimeShadow = lerp(bakedGI, realtimeShadow, shadowStrength);
 
     // 3) Pick darkest color
@@ -509,11 +645,15 @@ half3 SubtractDirectMainLightFromLightmap(Light mainLight, half3 normalWS, half3
 // multi_compile on every lit target. See BasisGlobalIlluminationSpecularPass.SpecularPass and
 // BasisRTAOPass.RecordGlobal.
 TEXTURE2D_X(_BasisGISpecularTexture);
+TEXTURE2D_X(_BasisGISpecHitDistance);
 // x: 1 while global illumination is publishing a reflection for this camera this frame, else 0 - the
 // pass writes zero from OnCameraCleanup so a camera that stops rendering it does not keep the last frame's
 // texture bound forever. y: reciprocal of BasisGlobalIlluminationSettings.specularMaxRoughness, so the
 // roughness blend below is a multiply rather than a per-pixel divide.
 half4 _BasisGISpecularParams;
+// x: contact hardening scale, y: hit-distance bias. Mip count and hit-distance validity live in zw of
+// _BasisGISpecularParams so the hot sampling path stays at two constant loads.
+half4 _BasisGISpecularFilterParams;
 
 // Lagarde's Frostbite approximation (== HDRP's GetSpecularOcclusionFromAmbientOcclusion). Exact at two
 // ends: at roughness >= ~0.35 it returns ao unchanged (a rough lobe samples close to the whole hemisphere,
@@ -530,138 +670,134 @@ half GetSpecularOcclusion(half NoV, half ao, half roughness)
 // ordinarily), weighted by how much of this surface's roughness the trace is still a fair stand-in for.
 // The trace itself carries no roughness - see BasisGlobalIlluminationSpecularPass for why there is no
 // GBuffer here to have read one from - so the lit shader, which does know its own, is what decides.
-half3 BasisSampleTracedReflection(half3 probeIrradiance, half perceptualRoughness, float2 normalizedScreenSpaceUV)
+half3 BasisSampleTracedReflection(half3 probeIrradiance, half perceptualRoughness, float3 positionWS, float2 normalizedScreenSpaceUV)
 {
-#if defined(_SURFACE_TYPE_TRANSPARENT)
-    // The buffer was built from the opaque depth and is not behind a transparent surface at all.
+    // The reflection buffer contains opaque depth only, including when the material keyword is dynamic.
+#if defined(_SURFACE_TYPE_TRANSPARENT_KEYWORD_DECLARED)
+    if (_SURFACE_TYPE_TRANSPARENT) return probeIrradiance;
+#elif DEFINED_NONZERO(_SURFACE_TYPE_TRANSPARENT)
     return probeIrradiance;
-#else
+#endif
     UNITY_BRANCH
     if (_BasisGISpecularParams.x <= 0.0h) { return probeIrradiance; }
 
-    half4 traced = SAMPLE_TEXTURE2D_X(_BasisGISpecularTexture, sampler_LinearClamp, UnityStereoTransformScreenSpaceTex(normalizedScreenSpaceUV));
+    float2 reflectionUV = UnityStereoTransformScreenSpaceTex(normalizedScreenSpaceUV);
+    half roughnessFraction = saturate(perceptualRoughness * _BasisGISpecularParams.y);
+    half mipFraction = roughnessFraction;
+    if (_BasisGISpecularParams.w > 0.5h)
+    {
+        float hitDistance = SAMPLE_TEXTURE2D_X_LOD(_BasisGISpecHitDistance, sampler_PointClamp, reflectionUV, 0).r;
+        float distanceToReflector = distance(positionWS, _WorldSpaceCameraPos);
+        half contactFactor = saturate((hitDistance + _BasisGISpecularFilterParams.y) /
+            max(distanceToReflector * _BasisGISpecularFilterParams.x, 0.01));
+        mipFraction *= contactFactor;
+    }
+    half reflectionMip = sqrt(mipFraction) * _BasisGISpecularParams.z;
+    half4 traced = SAMPLE_TEXTURE2D_X_LOD(_BasisGISpecularTexture, sampler_TrilinearClamp, reflectionUV, reflectionMip);
     // traced.a is the trace's own confidence (0 on a miss with no sky bound to answer with instead), so a
     // pixel the trace could not answer keeps the probe regardless of how smooth the surface is.
     half weight = saturate(1.0h - perceptualRoughness * _BasisGISpecularParams.y) * traced.a;
     return lerp(probeIrradiance, traced.rgb, weight);
-#endif
 }
 
-half3 GlobalIllumination(BRDFData brdfData, BRDFData brdfDataClearCoat, float clearCoatMask,
-    half3 bakedGI, half occlusion, float3 positionWS,
-    half3 normalWS, half3 viewDirectionWS, float2 normalizedScreenSpaceUV)
+URP_LIGHT_ACCUM3 GlobalIllumination(BRDFData brdfData, BRDFData brdfDataClearCoat, float clearCoatMask,
+    URP_LIGHT_ACCUM3 bakedGI, half occlusion, float3 positionWS,
+    half3 normalWS, half3 viewDirectionWS, float2 normalizedScreenSpaceUV, bool useClearCoat, bool useEnvironmentReflections)
 {
+// Prevent calling 'reflect' from causing NdotV to be computed twice on Adreno GPUs
+#if (UNITY_PLATFORM_META_QUEST) // This is platform specific change targeting performance only
+    half NdotV = dot(normalWS, viewDirectionWS);
+    half NdotV2 = NdotV + NdotV;    // 2.0h * normalWS * NdotV was resulting in promotion to 32 bit precision
+    half3 reflectVector = normalWS * NdotV2 - viewDirectionWS;    // reflect(i,n) = i - 2 * n * dot(i n)
+                                                                  // reflect(-viewDirection, normalWS) = -viewDirection - 2 * normalWS * dot(-viewDirection, normalWS)
+                                                                  //                                   = -viewDirection + 2 * normalWS * dot(viewDirection, normalWS)
+                                                                  //                                   = 2 * normalWS * dot(viewDirection, normalWS) - viewDirection
+    half NoV = saturate(NdotV);
+#else
     half3 reflectVector = reflect(-viewDirectionWS, normalWS);
     half NoV = saturate(dot(normalWS, viewDirectionWS));
+#endif
     half fresnelTerm = Pow4(1.0 - NoV);
 
-    // _AmbientOcclusionParam.y interpolates between this (1: the physically-motivated answer) and the old
-    // behaviour of occluding a reflection by the full hemispherical term (0: "reflections untouched" -
-    // see BasisRTAOSettings.specularOcclusionRelief). Defaults to 1 whether or not RTAO is even running:
-    // ScriptableRenderer's "no AO feature" reset writes y=1 too, and GetSpecularOcclusion(NoV, 1, r) == 1
-    // for any roughness, so an unoccluded surface is unaffected either way.
     half specularOcclusion = lerp(half(1.0), GetSpecularOcclusion(NoV, occlusion, brdfData.perceptualRoughness), _AmbientOcclusionParam.y);
+    URP_LIGHT_ACCUM3 indirectDiffuse = bakedGI * occlusion;
+    half3 indirectSpecular = GlossyEnvironmentReflection(reflectVector, positionWS, brdfData.perceptualRoughness, specularOcclusion, normalizedScreenSpaceUV, useEnvironmentReflections);
+    if (useEnvironmentReflections)
+        indirectSpecular = BasisSampleTracedReflection(indirectSpecular, brdfData.perceptualRoughness, positionWS, normalizedScreenSpaceUV);
 
-    half3 indirectDiffuse = bakedGI * occlusion;
-    half3 indirectSpecular = GlossyEnvironmentReflection(reflectVector, positionWS, brdfData.perceptualRoughness, specularOcclusion, normalizedScreenSpaceUV);
-    indirectSpecular = BasisSampleTracedReflection(indirectSpecular, brdfData.perceptualRoughness, normalizedScreenSpaceUV);
-
-    half3 color = EnvironmentBRDF(brdfData, indirectDiffuse, indirectSpecular, fresnelTerm);
+    URP_LIGHT_ACCUM3 color = EnvironmentBRDF(brdfData, indirectDiffuse, indirectSpecular, fresnelTerm);
 
     if (IsOnlyAOLightingFeatureEnabled())
     {
-        // Returned here, before the coat blend below, so the AO debug view is not polluted by a coat
-        // reflection: it is meant to read as white times occlusion and nothing else.
-        return half3(1, 1, 1) * occlusion;
+        return half3(1,1,1) * occlusion; // Keep coat reflections out of the AO debug view.
     }
 
-#if defined(_CLEARCOAT) || defined(_CLEARCOATMAP)
-    half coatSpecularOcclusion = lerp(half(1.0), GetSpecularOcclusion(NoV, occlusion, brdfDataClearCoat.perceptualRoughness), _AmbientOcclusionParam.y);
-    half3 coatIndirectSpecular = GlossyEnvironmentReflection(reflectVector, positionWS, brdfDataClearCoat.perceptualRoughness, coatSpecularOcclusion, normalizedScreenSpaceUV);
-    coatIndirectSpecular = BasisSampleTracedReflection(coatIndirectSpecular, brdfDataClearCoat.perceptualRoughness, normalizedScreenSpaceUV);
-    // TODO: "grazing term" causes problems on full roughness
-    half3 coatColor = EnvironmentBRDFClearCoat(brdfDataClearCoat, clearCoatMask, coatIndirectSpecular, fresnelTerm);
+    if (useClearCoat)
+    {
+        half coatSpecularOcclusion = lerp(half(1.0), GetSpecularOcclusion(NoV, occlusion, brdfDataClearCoat.perceptualRoughness), _AmbientOcclusionParam.y);
+        half3 coatIndirectSpecular = GlossyEnvironmentReflection(reflectVector, positionWS, brdfDataClearCoat.perceptualRoughness, coatSpecularOcclusion, normalizedScreenSpaceUV, useEnvironmentReflections);
+        if (useEnvironmentReflections)
+            coatIndirectSpecular = BasisSampleTracedReflection(coatIndirectSpecular, brdfDataClearCoat.perceptualRoughness, positionWS, normalizedScreenSpaceUV);
+        // TODO: "grazing term" causes problems on full roughness
+        half3 coatColor = EnvironmentBRDFClearCoat(brdfDataClearCoat, clearCoatMask, coatIndirectSpecular, fresnelTerm);
 
-    // Blend with base layer using khronos glTF recommended way using NoV
-    // Smooth surface & "ambiguous" lighting
-    // NOTE: fresnelTerm (above) is pow4 instead of pow5, but should be ok as blend weight.
-    half coatFresnel = kDielectricSpec.x + kDielectricSpec.a * fresnelTerm;
-    return color * (1.0 - coatFresnel * clearCoatMask) + coatColor;
-#else
+        // Blend with base layer using khronos glTF recommended way using NoV
+        // Smooth surface & "ambiguous" lighting
+        // NOTE: fresnelTerm (above) is pow4 instead of pow5, but should be ok as blend weight.
+        half coatFresnel = kDielectricSpec.x + kDielectricSpec.a * fresnelTerm;
+        color = color * (1.0 - coatFresnel * clearCoatMask) + coatColor;
+    }
     return color;
-#endif
 }
 
-#if !USE_CLUSTER_LIGHT_LOOP
-half3 GlobalIllumination(BRDFData brdfData, BRDFData brdfDataClearCoat, float clearCoatMask,
-    half3 bakedGI, half occlusion, float3 positionWS,
-    half3 normalWS, half3 viewDirectionWS)
+URP_LIGHT_ACCUM3 GlobalIllumination(BRDFData brdfData, BRDFData brdfDataClearCoat, float clearCoatMask,
+    URP_LIGHT_ACCUM3 bakedGI, half occlusion,
+    half3 normalWS, half3 viewDirectionWS, bool useClearCoat, bool useEnvironmentReflections)
 {
-    return GlobalIllumination(brdfData, brdfDataClearCoat, clearCoatMask, bakedGI, occlusion, positionWS, normalWS, viewDirectionWS, float2(0.0f, 0.0f));
-}
-#endif
-
-// Backwards compatiblity
-half3 GlobalIllumination(BRDFData brdfData, half3 bakedGI, half occlusion, float3 positionWS, half3 normalWS, half3 viewDirectionWS)
-{
-    const BRDFData noClearCoat = (BRDFData)0;
-    return GlobalIllumination(brdfData, noClearCoat, 0.0, bakedGI, occlusion, positionWS, normalWS, viewDirectionWS, 0);
-}
-
-half3 GlobalIllumination(BRDFData brdfData, BRDFData brdfDataClearCoat, float clearCoatMask,
-    half3 bakedGI, half occlusion,
-    half3 normalWS, half3 viewDirectionWS)
-{
+// Prevent calling 'reflect' from causing NdotV to be computed twice on Adreno GPUs
+#if (UNITY_PLATFORM_META_QUEST) // This is platform specific change targeting performance only
+    half NdotV = dot(normalWS, viewDirectionWS);
+    half NdotV2 = NdotV + NdotV;    // 2.0h * normalWS * NdotV was resulting in promotion to 32 bit precision
+    half3 reflectVector = normalWS * NdotV2 - viewDirectionWS;    // reflect(i,n) = i - 2 * n * dot(i n)
+                                                                  // reflect(-viewDirection, normalWS) = -viewDirection - 2 * normalWS * dot(-viewDirection, normalWS)
+                                                                  //                                   = -viewDirection + 2 * normalWS * dot(viewDirection, normalWS)
+                                                                  //                                   = 2 * normalWS * dot(viewDirection, normalWS) - viewDirection
+    half NoV = saturate(NdotV);
+#else
     half3 reflectVector = reflect(-viewDirectionWS, normalWS);
     half NoV = saturate(dot(normalWS, viewDirectionWS));
+#endif
     half fresnelTerm = Pow4(1.0 - NoV);
 
-    // No screen UV reaches this overload, so there is nowhere to sample a traced reflection from - only
-    // the specular occlusion half of the fix applies here. See the primary overload above.
     half specularOcclusion = lerp(half(1.0), GetSpecularOcclusion(NoV, occlusion, brdfData.perceptualRoughness), _AmbientOcclusionParam.y);
+    URP_LIGHT_ACCUM3 indirectDiffuse = bakedGI * occlusion;
+    half3 indirectSpecular = GlossyEnvironmentReflection(reflectVector, brdfData.perceptualRoughness, specularOcclusion, useEnvironmentReflections);
 
-    half3 indirectDiffuse = bakedGI * occlusion;
-    half3 indirectSpecular = GlossyEnvironmentReflection(reflectVector, brdfData.perceptualRoughness, specularOcclusion);
+    URP_LIGHT_ACCUM3 color = EnvironmentBRDF(brdfData, indirectDiffuse, indirectSpecular, fresnelTerm);
 
-    half3 color = EnvironmentBRDF(brdfData, indirectDiffuse, indirectSpecular, fresnelTerm);
+    if (useClearCoat)
+    {
+        half coatSpecularOcclusion = lerp(half(1.0), GetSpecularOcclusion(NoV, occlusion, brdfDataClearCoat.perceptualRoughness), _AmbientOcclusionParam.y);
+        half3 coatIndirectSpecular = GlossyEnvironmentReflection(reflectVector, brdfDataClearCoat.perceptualRoughness, coatSpecularOcclusion, useEnvironmentReflections);
+        // TODO: "grazing term" causes problems on full roughness
+        half3 coatColor = EnvironmentBRDFClearCoat(brdfDataClearCoat, clearCoatMask, coatIndirectSpecular, fresnelTerm);
 
-#if defined(_CLEARCOAT) || defined(_CLEARCOATMAP)
-    half coatSpecularOcclusion = lerp(half(1.0), GetSpecularOcclusion(NoV, occlusion, brdfDataClearCoat.perceptualRoughness), _AmbientOcclusionParam.y);
-    half3 coatIndirectSpecular = GlossyEnvironmentReflection(reflectVector, brdfDataClearCoat.perceptualRoughness, coatSpecularOcclusion);
-    // TODO: "grazing term" causes problems on full roughness
-    half3 coatColor = EnvironmentBRDFClearCoat(brdfDataClearCoat, clearCoatMask, coatIndirectSpecular, fresnelTerm);
-
-    // Blend with base layer using khronos glTF recommended way using NoV
-    // Smooth surface & "ambiguous" lighting
-    // NOTE: fresnelTerm (above) is pow4 instead of pow5, but should be ok as blend weight.
-    half coatFresnel = kDielectricSpec.x + kDielectricSpec.a * fresnelTerm;
-    return color * (1.0 - coatFresnel * clearCoatMask) + coatColor;
-#else
+        // Blend with base layer using khronos glTF recommended way using NoV
+        // Smooth surface & "ambiguous" lighting
+        // NOTE: fresnelTerm (above) is pow4 instead of pow5, but should be ok as blend weight.
+        half coatFresnel = kDielectricSpec.x + kDielectricSpec.a * fresnelTerm;
+        color = color * (1.0 - coatFresnel * clearCoatMask) + coatColor;
+    }
     return color;
-#endif
 }
 
-
-half3 GlobalIllumination(BRDFData brdfData, half3 bakedGI, half occlusion, half3 normalWS, half3 viewDirectionWS)
+void MixRealtimeAndBakedGI(inout Light light, half3 normalWS, inout URP_LIGHT_ACCUM3 bakedGI)
 {
-    const BRDFData noClearCoat = (BRDFData)0;
-    return GlobalIllumination(brdfData, noClearCoat, 0.0, bakedGI, occlusion, normalWS, viewDirectionWS);
+    if (LightmapAvailable() && MixedLightingSubtractive())
+        bakedGI = SubtractDirectMainLightFromLightmap(light, normalWS, bakedGI);
 }
 
-void MixRealtimeAndBakedGI(inout Light light, half3 normalWS, inout half3 bakedGI)
-{
-#if defined(LIGHTMAP_ON) && defined(_MIXED_LIGHTING_SUBTRACTIVE)
-    bakedGI = SubtractDirectMainLightFromLightmap(light, normalWS, bakedGI);
-#endif
-}
-
-// Backwards compatibility
-void MixRealtimeAndBakedGI(inout Light light, half3 normalWS, inout half3 bakedGI, half4 shadowMask)
-{
-    MixRealtimeAndBakedGI(light, normalWS, bakedGI);
-}
-
-void MixRealtimeAndBakedGI(inout Light light, half3 normalWS, inout half3 bakedGI, AmbientOcclusionFactor aoFactor)
+void MixRealtimeAndBakedGI(inout Light light, half3 normalWS, inout URP_LIGHT_ACCUM3 bakedGI, AmbientOcclusionFactor aoFactor)
 {
     if (IsLightingFeatureEnabled(DEBUGLIGHTINGFEATUREFLAGS_AMBIENT_OCCLUSION))
     {

@@ -1,6 +1,9 @@
-﻿using Basis.Scripts.Networking;
+﻿using Unity.Scripting.LifecycleManagement;
+using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.Receivers;
+#if STEAMAUDIO_ENABLED && !UNITY_WEBGL
 using SteamAudio;
+#endif
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -13,73 +16,16 @@ namespace Basis.BasisUI
     /// Settings tab for remote player audio configuration.
     /// Exposes AudioSource and Steam Audio settings that apply to all remote players.
     /// </summary>
-    public static class SettingsProviderRemoteAudio
+    [AutoStaticsCleanup]
+    public static partial class SettingsProviderRemoteAudio
     {
         [RuntimeInitializeOnLoadMethod]
         static void Init()
         {
-            ApplyJitterBufferDepth();
-            ApplyClipBufferScalar();
+            BasisSettingsSystem.OnSettingsFinishedChanges -= ApplyRemoteAudioToAll;
             BasisSettingsSystem.OnSettingsFinishedChanges += ApplyRemoteAudioToAll;
-            BasisSettingsSystem.OnSettingsFinishedChanges += ApplyJitterBufferDepth;
-            BasisSettingsSystem.OnSettingsFinishedChanges += ApplyClipBufferScalar;
+            BasisSettingsSystem.OnSettingsFinishedChanges -= ApplyHrtfProfile;
             BasisSettingsSystem.OnSettingsFinishedChanges += ApplyHrtfProfile;
-        }
-
-        // Last applied jitter depth, so we only force a (disruptive) buffer reset
-        // on live receivers when the value actually changed. Initialized to the
-        // default so the first call from Init() is treated as a no-op change.
-        private static int _lastAppliedJitterDepth = -1;
-
-        /// <summary>
-        /// Pushes the user-chosen jitter buffer depth into <see cref="RemoteOpusSettings.JitterBufferSize"/>.
-        /// The encoded-packet release gate (<c>_receivedSinceStart &lt; InitialBufferDepth</c>)
-        /// is only consulted during the initial fill, so a mid-stream change wouldn't be
-        /// audible until the next mute→unmute cycle. To make the slider act NOW we also
-        /// <see cref="BasisVoiceBuffer.Reset"/> every live receiver, which costs a brief
-        /// (~100 ms) audio gap as the buffer refills at the new depth.
-        /// Clamped to 1 so we never disable the gate entirely.
-        /// </summary>
-        private static void ApplyJitterBufferDepth()
-        {
-            int depth = Mathf.Max(1, Mathf.RoundToInt(BasisSettingsDefaults.RAJitterBufferDepth.RawValue));
-            RemoteOpusSettings.JitterBufferSize = depth;
-
-            if (_lastAppliedJitterDepth == depth) return;
-            bool firstApply = _lastAppliedJitterDepth < 0;
-            _lastAppliedJitterDepth = depth;
-            if (firstApply) return; // startup — no live receivers to poke
-
-            foreach (var kvp in BasisNetworkPlayers.RemotePlayerReceivers)
-            {
-                BasisNetworkReceiver receiver = kvp.Value;
-                if (receiver?.AudioReceiverModule?.VoiceBuffer != null)
-                {
-                    receiver.AudioReceiverModule.VoiceBuffer.Reset();
-                }
-            }
-        }
-
-        /// <summary>
-        /// Pushes the user-chosen clip-buffer scalar into <see cref="BasisAudioClipPool.ClipBufferScalar"/>,
-        /// clears the pool so newly-allocated clips pick up the new size, and swaps
-        /// the clip on every live receiver in place via <see cref="BasisAudioReceiver.ReloadClip"/>.
-        /// </summary>
-        private static void ApplyClipBufferScalar()
-        {
-            int scalar = Mathf.Max(1, Mathf.RoundToInt(BasisSettingsDefaults.RAClipBufferScalar.RawValue));
-            if (BasisAudioClipPool.ClipBufferScalar == scalar) return;
-            BasisAudioClipPool.ClipBufferScalar = scalar;
-            BasisAudioClipPool.Clear();
-
-            foreach (var kvp in BasisNetworkPlayers.RemotePlayerReceivers)
-            {
-                BasisNetworkReceiver receiver = kvp.Value;
-                if (receiver?.AudioReceiverModule != null && receiver.AudioReceiverModule.HasAudioSource)
-                {
-                    receiver.AudioReceiverModule.ReloadClip();
-                }
-            }
         }
 
         public static void BuildRemoteAudioUI(RectTransform container)
@@ -132,6 +78,10 @@ namespace Basis.BasisUI
                 RebuildLayout();
             };
 
+            SettingsProvider.AddDeveloperGizmoToggle(listenerDampenGroup, "settings.developer.audioRanges", BasisSettingsDefaults.GizmoAudioRanges);
+            SettingsProvider.AddDeveloperGizmoToggle(listenerDampenGroup, "settings.developer.audioListenerCone", BasisSettingsDefaults.GizmoAudioListenerCone);
+            SettingsProvider.AddDeveloperGizmoToggle(listenerDampenGroup, "settings.developer.audioLevels", BasisSettingsDefaults.GizmoAudioLevels);
+
             PanelSectionToggleHelpers.FinalizeCollapsibleGroup(remotePlayersToggle, listenerDampenGroup, true,
                 _ => RebuildLayout());
 
@@ -179,30 +129,6 @@ namespace Basis.BasisUI
                 toggleSoundCamera.AssignBinding(BasisSettingsDefaults.SoundCamera);
                 toggleSoundCamera.Descriptor.SetTitle(BasisLocalization.Get("settings.audio.sounds.camera"));
                 toggleSoundCamera.Descriptor.SetTooltip(BasisLocalization.Get("settings.audio.sounds.camera.tooltip"));
-            }, false, _ => RebuildLayout());
-
-            // ─────────────── VOICE BUFFER (advanced) ───────────────
-            // Frames-of-audio buffered ahead of playback. Lower = less latency,
-            // higher = more resilience to packet jitter / loss before underrun.
-            // Buffer is 20 ms per frame, so 1 ≈ 20 ms.
-            PanelSectionToggleHelpers.CreateCollapsibleBoxedSection(container,
-                BasisLocalization.Get("settings.ra.title.voiceBuffer"), () =>
-            {
-                PanelSlider sliderJitterDepth = PanelSlider.CreateEntryAndBind(
-                    container,
-                    PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.remoteAudio.bufferedFrames"), 1f, 15f, true, 0, ValueDisplayMode.Raw),
-                    BasisSettingsDefaults.RAJitterBufferDepth);
-                sliderJitterDepth.Descriptor.SetTooltip(BasisLocalization.Get("settings.remoteAudio.bufferedFrames.tooltip"));
-                sliderJitterDepth.Descriptor.SetDescription(
-                    BasisLocalization.Get("settings.remoteAudio.bufferedFrames.description"));
-
-                PanelSlider sliderClipBufferScalar = PanelSlider.CreateEntryAndBind(
-                    container,
-                    PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.remoteAudio.clipBuffer"), 2f, 8f, true, 0, ValueDisplayMode.Raw),
-                    BasisSettingsDefaults.RAClipBufferScalar);
-                sliderClipBufferScalar.Descriptor.SetTooltip(BasisLocalization.Get("settings.remoteAudio.clipBuffer.tooltip"));
-                sliderClipBufferScalar.Descriptor.SetDescription(
-                    BasisLocalization.Get("settings.remoteAudio.clipBuffer.description"));
             }, false, _ => RebuildLayout());
 
             // ─────────────── AUDIO SOURCE (advanced) ───────────────
@@ -364,7 +290,11 @@ namespace Basis.BasisUI
                 dropdownHrtfProfile = PanelDropdown.CreateNewEntry(container);
                 dropdownHrtfProfile.Descriptor.SetTitle(BasisLocalization.Get("settings.remoteAudio.hrtfProfile"));
                 dropdownHrtfProfile.Descriptor.SetTooltip(BasisLocalization.Get("settings.remoteAudio.hrtfProfile.tooltip"));
-                dropdownHrtfProfile.AssignEntries(GetHrtfProfileEntries());
+                List<string> hrtfProfiles = GetHrtfProfileEntries();
+                List<string> hrtfLabels = new List<string>(hrtfProfiles.Count);
+                foreach (string profile in hrtfProfiles)
+                    hrtfLabels.Add(profile == "Default" ? BasisLocalization.Get("settings.remoteAudio.hrtfProfile.default") : profile);
+                dropdownHrtfProfile.AssignEntries(hrtfProfiles, hrtfLabels);
                 dropdownHrtfProfile.AssignBinding(BasisSettingsDefaults.RAHrtfProfile);
 
                 // HRTF sub-settings only visible when Direct Binaural is enabled
@@ -687,50 +617,12 @@ namespace Basis.BasisUI
             };
             */
 
-            // ─────────────── LIP SYNC (advanced) ───────────────
-            PanelSlider sliderLipSyncSlots = null;
-            PanelSectionToggleHelpers.CreateCollapsibleBoxedSection(container,
-                BasisLocalization.Get("settings.remoteAudio.lipSync"), () =>
-            {
-                PanelToggle toggleLimitLipSync = PanelToggle.CreateNewEntry(container);
-                toggleLimitLipSync.AssignBinding(BasisSettingsDefaults.UseOpenLipSyncLimit);
-                toggleLimitLipSync.Descriptor.SetTitle(BasisLocalization.Get("settings.remoteAudio.limitLipSync"));
-                toggleLimitLipSync.Descriptor.SetTooltip(BasisLocalization.Get("settings.remoteAudio.limitLipSync.tooltip"));
-
-                sliderLipSyncSlots = PanelSlider.CreateEntryAndBind(
-                    container,
-                    PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.remoteAudio.lipSyncSlots"), 0, 250, true, 0, ValueDisplayMode.Raw),
-                    BasisSettingsDefaults.OpenLipSyncMaxSlots);
-                sliderLipSyncSlots.Descriptor.SetTooltip(BasisLocalization.Get("settings.remoteAudio.lipSyncSlots.tooltip"));
-                sliderLipSyncSlots.Descriptor.SetDescription(
-                    BasisLocalization.Get("settings.remoteAudio.lipSyncSlots.description"));
-
-                // Only show the slider when the limit toggle is enabled
-                sliderLipSyncSlots.Descriptor.SetActive(toggleLimitLipSync.Value);
-                toggleLimitLipSync.OnValueChanged += (val) =>
-                {
-                    sliderLipSyncSlots.Descriptor.SetActive(val);
-                    RebuildLayout();
-                };
-            }, false, visible =>
-            {
-                if (visible && sliderLipSyncSlots != null)
-                {
-                    sliderLipSyncSlots.Descriptor.SetActive(BasisSettingsDefaults.UseOpenLipSyncLimit.RawValue);
-                }
-                RebuildLayout();
-            });
-
             PanelSectionToggleHelpers.FinalizeCollapsibleGroup(advancedToggle, advancedGroup, false,
                 _ => RebuildLayout());
         }
 
         public static void ResetRemoteAudioToDefaults()
         {
-            // Voice Buffer
-            BasisSettingsDefaults.RAJitterBufferDepth.ResetToDefault();
-            BasisSettingsDefaults.RAClipBufferScalar.ResetToDefault();
-
             // AudioSource
             BasisSettingsDefaults.RAMinDistance.ResetToDefault();
             BasisSettingsDefaults.RAVoiceToneShaping.ResetToDefault();
@@ -788,8 +680,6 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.RAApplyHRTFToReflections.ResetToDefault();
 
             ApplyRemoteAudioToAll();
-            ApplyJitterBufferDepth();
-            ApplyClipBufferScalar();
         }
 
         /// <summary>
@@ -859,7 +749,7 @@ namespace Basis.BasisUI
             source.spatialize = true;
             source.spatializePostEffects = true;
 
-#if STEAMAUDIO_ENABLED
+#if STEAMAUDIO_ENABLED && !UNITY_WEBGL
             // Steam Audio settings
             if (source.TryGetComponent<SteamAudioSource>(out var sa))
             {
@@ -933,7 +823,7 @@ namespace Basis.BasisUI
         /// manager singleton exists — <c>SetActiveHRTF</c> returns false — is retried rather
         /// than swallowed. Null until the first successful apply.
         /// </summary>
-#if STEAMAUDIO_ENABLED
+#if STEAMAUDIO_ENABLED && !UNITY_WEBGL
         private static string _appliedHrtfProfile;
 #endif
 
@@ -944,7 +834,7 @@ namespace Basis.BasisUI
         /// </summary>
         public static void ApplyHrtfProfile()
         {
-#if STEAMAUDIO_ENABLED
+#if STEAMAUDIO_ENABLED && !UNITY_WEBGL
             string requested = BasisSettingsDefaults.RAHrtfProfile.RawValue;
             if (_appliedHrtfProfile != null && string.Equals(_appliedHrtfProfile, requested, StringComparison.Ordinal))
             {
@@ -967,7 +857,7 @@ namespace Basis.BasisUI
 
         private static List<string> GetHrtfProfileEntries()
         {
-#if STEAMAUDIO_ENABLED
+#if STEAMAUDIO_ENABLED && !UNITY_WEBGL
             string[] names = (SteamAudioManager.Singleton != null) ? SteamAudioManager.Singleton.hrtfNames : null;
             if (names != null && names.Length > 0)
             {
@@ -997,6 +887,7 @@ namespace Basis.BasisUI
             return AudioRolloffMode.Custom;
         }
 
+#if STEAMAUDIO_ENABLED && !UNITY_WEBGL
         private static HRTFInterpolation ParseInterpolation(string value)
         {
             if (string.Equals(value, "bilinear", StringComparison.OrdinalIgnoreCase))
@@ -1031,6 +922,7 @@ namespace Basis.BasisUI
                 return TransmissionType.FrequencyDependent;
             return TransmissionType.FrequencyIndependent;
         }
+#endif
 
         /// <summary>
         /// Returns a custom rolloff AnimationCurve for the given preset name.

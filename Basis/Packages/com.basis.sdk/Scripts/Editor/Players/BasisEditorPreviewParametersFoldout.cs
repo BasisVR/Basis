@@ -1,4 +1,5 @@
 #if !BASIS_FRAMEWORK_EXISTS
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -36,9 +37,9 @@ namespace Basis.Scripts.BasisSdk.Players.Editor
                 return;
 
             EditorGUILayout.Space(6);
-            BasisEditorUI.SectionTitle("Preview Parameters");
+            BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("sdk.previewParameters.title"));
 
-            if (GUILayout.Button("Stop Preview"))
+            if (GUILayout.Button(BasisEditorLocalization.Get("sdk.previewParameters.stop")))
             {
                 BasisEditorPreviewLocalPlayer.DisposeActive();
                 return;

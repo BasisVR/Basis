@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Basis.Editor.Localization;
 using Basis.Scripts.Networking.Sync;
 
 /// <summary>One validation message for a synced-component inspector.</summary>
@@ -169,24 +170,24 @@ public static class BasisSyncInspectorUI
 
     public static VisualElement NetworkingCard(SerializedObject so)
     {
-        VisualElement card = Card("Networking", false);
+        VisualElement card = Card(BasisEditorLocalization.Get("sdk.cilbox.group.networking"), false);
         card.Add(RateSlider(so));
         card.Add(KeyframeSlider(so));
-        card.Add(Described(new PropertyField(so.FindProperty("Delivery"), "Delta Delivery"),
-            "Channel for the frequent delta packets. Unreliable is normal — dropped deltas are corrected by the next keyframe."));
-        card.Add(Described(new PropertyField(so.FindProperty("KeyframeDelivery")),
-            "Channel for the periodic full keyframe. Reliable Ordered guarantees the resync arrives."));
-        card.Add(Described(new PropertyField(so.FindProperty("UseChecksum"), "Integrity Checksum"),
-            "Append a checksum so corrupted packets are dropped instead of applied. Costs a few bytes per send."));
+        card.Add(Described(new PropertyField(so.FindProperty("Delivery"), BasisEditorLocalization.Get("editor.sync.networking.delivery")),
+            BasisEditorLocalization.Get("editor.sync.networking.delivery.tooltip")));
+        card.Add(Described(new PropertyField(so.FindProperty("KeyframeDelivery"), BasisEditorLocalization.Get("editor.sync.networking.keyframeDelivery")),
+            BasisEditorLocalization.Get("editor.sync.networking.keyframeDelivery.tooltip")));
+        card.Add(Described(new PropertyField(so.FindProperty("UseChecksum"), BasisEditorLocalization.Get("editor.sync.networking.checksum")),
+            BasisEditorLocalization.Get("editor.sync.networking.checksum.tooltip")));
 
-        var p2p = new Toggle("Use Direct P2P If Able") { bindingPath = "UseDirectP2P", tooltip = "Send straight to peers over the direct peer-to-peer link when one exists, falling back to the server relay otherwise. Lower latency." };
-        var forceP2P = Described(new PropertyField(so.FindProperty("ForceP2POnly"), "Force P2P Only (No Server Fallback)"),
-            "Only deliver over direct P2P links — never use the server relay. Peers with no direct connection won't receive updates.");
-        var overrideP2P = new Toggle("Override P2P Rate") { bindingPath = "OverrideP2PRate", tooltip = "Use a separate (usually faster) send and keyframe rate while a direct P2P session is active." };
-        var p2pRate = RateSlider(so, "P2PSendIntervalSeconds", "P2P Send Rate (Hz)", 120f);
-        p2pRate.tooltip = "Delta send rate used while a direct P2P session is active (only when Override P2P Rate is on).";
-        var p2pKey = KeyframeSlider(so, "P2PKeyframeIntervalSeconds", "P2P Keyframe Interval (s)");
-        p2pKey.tooltip = "Keyframe interval used while a direct P2P session is active (only when Override P2P Rate is on).";
+        var p2p = new Toggle(BasisEditorLocalization.Get("editor.sync.networking.directP2P")) { bindingPath = "UseDirectP2P", tooltip = BasisEditorLocalization.Get("editor.sync.networking.directP2P.tooltip") };
+        var forceP2P = Described(new PropertyField(so.FindProperty("ForceP2POnly"), BasisEditorLocalization.Get("editor.sync.networking.forceP2P")),
+            BasisEditorLocalization.Get("editor.sync.networking.forceP2P.tooltip"));
+        var overrideP2P = new Toggle(BasisEditorLocalization.Get("editor.sync.networking.overrideP2PRate")) { bindingPath = "OverrideP2PRate", tooltip = BasisEditorLocalization.Get("editor.sync.networking.overrideP2PRate.tooltip") };
+        var p2pRate = RateSlider(so, "P2PSendIntervalSeconds", BasisEditorLocalization.Get("editor.sync.networking.p2pSendRate"), 120f);
+        p2pRate.tooltip = BasisEditorLocalization.Get("editor.sync.networking.p2pSendRate.tooltip");
+        var p2pKey = KeyframeSlider(so, "P2PKeyframeIntervalSeconds", BasisEditorLocalization.Get("editor.sync.networking.p2pKeyframeInterval"));
+        p2pKey.tooltip = BasisEditorLocalization.Get("editor.sync.networking.p2pKeyframeInterval.tooltip");
 
         bool useP2P0 = so.FindProperty("UseDirectP2P").boolValue;
         bool ovr0 = so.FindProperty("OverrideP2PRate").boolValue;
@@ -214,30 +215,30 @@ public static class BasisSyncInspectorUI
         card.Add(p2pRate);
         card.Add(p2pKey);
 
-        card.Add(Described(new PropertyField(so.FindProperty("ContinuousEpsilon"), "Position/Scale Dead-band"),
-            "Smallest position/scale change that is worth re-sending. Larger = fewer packets but coarser motion."));
-        card.Add(Described(new PropertyField(so.FindProperty("RotationSendThresholdDegrees"), "Rotation Dead-band (°)"),
-            "Smallest rotation change (degrees) worth re-sending. Larger = fewer packets but coarser turning."));
-        card.Add(Described(new PropertyField(so.FindProperty("DistanceReduction")),
-            "Automatically slow the send rate to far-away viewers to save bandwidth (uses the server's distance multipliers)."));
-        card.Add(Described(new PropertyField(so.FindProperty("RelevanceCulling")),
-            "Stop sending entirely to viewers outside the relevance radius."));
-        card.Add(Described(new PropertyField(so.FindProperty("RelevanceRadius")),
-            "Radius (meters) within which viewers still receive updates when Relevance Culling is on."));
+        card.Add(Described(new PropertyField(so.FindProperty("ContinuousEpsilon"), BasisEditorLocalization.Get("editor.sync.networking.positionDeadband")),
+            BasisEditorLocalization.Get("editor.sync.networking.positionDeadband.tooltip")));
+        card.Add(Described(new PropertyField(so.FindProperty("RotationSendThresholdDegrees"), BasisEditorLocalization.Get("editor.sync.networking.rotationDeadband")),
+            BasisEditorLocalization.Get("editor.sync.networking.rotationDeadband.tooltip")));
+        card.Add(Described(new PropertyField(so.FindProperty("DistanceReduction"), BasisEditorLocalization.Get("editor.sync.networking.distanceReduction")),
+            BasisEditorLocalization.Get("editor.sync.networking.distanceReduction.tooltip")));
+        card.Add(Described(new PropertyField(so.FindProperty("RelevanceCulling"), BasisEditorLocalization.Get("editor.sync.networking.relevanceCulling")),
+            BasisEditorLocalization.Get("editor.sync.networking.relevanceCulling.tooltip")));
+        card.Add(Described(new PropertyField(so.FindProperty("RelevanceRadius"), BasisEditorLocalization.Get("editor.sync.networking.relevanceRadius")),
+            BasisEditorLocalization.Get("editor.sync.networking.relevanceRadius.tooltip")));
         return card;
     }
 
     public static VisualElement SmoothingCard(SerializedObject so)
     {
-        VisualElement card = Card("Smoothing", false);
-        card.Add(Described(new PropertyField(so.FindProperty("Extrapolate")),
-            "When updates arrive late, keep predicting motion past the last frame instead of freezing. Hides brief hitches but can overshoot on sudden stops."));
-        card.Add(Described(new PropertyField(so.FindProperty("MaxExtrapolationSeconds")),
-            "Maximum time to keep predicting ahead while extrapolating before holding the last pose."));
-        card.Add(Described(new PropertyField(so.FindProperty("UseTeleportThreshold")),
-            "Snap instead of interpolating when position jumps more than the threshold, so teleports don't slide across the world."));
-        card.Add(Described(new PropertyField(so.FindProperty("TeleportThreshold")),
-            "Distance (meters) a single update must jump to be treated as a teleport (snap, no interpolation)."));
+        VisualElement card = Card(BasisEditorLocalization.Get("sdk.visemes.backendSmoothing"), false);
+        card.Add(Described(new PropertyField(so.FindProperty("Extrapolate"), BasisEditorLocalization.Get("editor.sync.smoothing.extrapolate")),
+            BasisEditorLocalization.Get("editor.sync.smoothing.extrapolate.tooltip")));
+        card.Add(Described(new PropertyField(so.FindProperty("MaxExtrapolationSeconds"), BasisEditorLocalization.Get("editor.sync.smoothing.maxExtrapolation")),
+            BasisEditorLocalization.Get("editor.sync.smoothing.maxExtrapolation.tooltip")));
+        card.Add(Described(new PropertyField(so.FindProperty("UseTeleportThreshold"), BasisEditorLocalization.Get("editor.sync.smoothing.useTeleportThreshold")),
+            BasisEditorLocalization.Get("editor.sync.smoothing.useTeleportThreshold.tooltip")));
+        card.Add(Described(new PropertyField(so.FindProperty("TeleportThreshold"), BasisEditorLocalization.Get("editor.sync.smoothing.teleportThreshold")),
+            BasisEditorLocalization.Get("editor.sync.smoothing.teleportThreshold.tooltip")));
         return card;
     }
 
@@ -251,9 +252,9 @@ public static class BasisSyncInspectorUI
     /// <summary>Live wire-size readout. The component supplies its section breakdown via <paramref name="compute"/> each refresh.</summary>
     public static VisualElement WireSizeCard(Action<BasisWireSizeModel> compute)
     {
-        VisualElement card = Card("Wire Size", false);
+        VisualElement card = Card(BasisEditorLocalization.Get("editor.sync.wire.card"), false);
 
-        var note = new Label("Bytes per send for the current settings. Per-axis payloads are bit-packed into one contiguous stream, so only the totals round up to whole bytes.");
+        var note = new Label(BasisEditorLocalization.Get("editor.sync.wire.note"));
         note.style.whiteSpace = WhiteSpace.Normal;
         note.style.fontSize = 10;
         note.style.opacity = 0.8f;
@@ -270,10 +271,10 @@ public static class BasisSyncInspectorUI
         divider.style.marginBottom = 4;
         card.Add(divider);
 
-        Label overhead = WireRow(card, "Overhead", false);
-        Label keyframe = WireRow(card, "Keyframe total", true);
-        Label delta = WireRow(card, "Delta total (all fields)", true);
-        Label bandwidth = WireRow(card, "Bandwidth", true);
+        Label overhead = WireRow(card, BasisEditorLocalization.Get("editor.sync.wire.overhead"), false);
+        Label keyframe = WireRow(card, BasisEditorLocalization.Get("editor.sync.wire.keyframeTotal"), true);
+        Label delta = WireRow(card, BasisEditorLocalization.Get("editor.sync.wire.deltaTotal"), true);
+        Label bandwidth = WireRow(card, BasisEditorLocalization.Get("editor.sync.wire.bandwidth"), true);
 
         // A packet past the single-datagram budget cannot go out on an unfragmentable delivery
         // method — at runtime BasisSyncedObject escalates it to ReliableUnordered and logs an error.
@@ -304,17 +305,17 @@ public static class BasisSyncInspectorUI
                 fields += sec.Fields;
                 payloadBits += sec.Bits;
                 Label v = WireRow(sectionsBox, sec.Name, false);
-                v.text = sec.Fields == 0 ? "off" : $"{sec.Bits} b  •  {(sec.Bits / 8f):0.##} B   ({sec.Detail})";
+                v.text = sec.Fields == 0 ? BasisEditorLocalization.Get("editor.sync.wire.off") : $"{sec.Bits} b  •  {(sec.Bits / 8f):0.##} B   ({sec.Detail})";
             }
 
             BasisSyncCodec.WireBytes(payloadBits, fields, model.Checksum, out int payloadBytes, out int maskBytes, out int keyframeBytes, out int deltaBytes);
             int checksum = model.Checksum ? BasisSyncCodec.ChecksumSize : 0;
 
             overhead.text = checksum > 0
-                ? $"header {BasisSyncCodec.HeaderSize} B  +  mask {maskBytes} B  +  checksum {checksum} B"
-                : $"header {BasisSyncCodec.HeaderSize} B  +  mask {maskBytes} B";
+                ? BasisEditorLocalization.Get("editor.sync.wire.overheadValueChecksum", BasisSyncCodec.HeaderSize, maskBytes, checksum)
+                : BasisEditorLocalization.Get("editor.sync.wire.overheadValue", BasisSyncCodec.HeaderSize, maskBytes);
 
-            keyframe.text = $"{keyframeBytes} B   ({payloadBits} b payload → {payloadBytes} B)";
+            keyframe.text = BasisEditorLocalization.Get("editor.sync.wire.keyframeValue", keyframeBytes, payloadBits, payloadBytes);
             delta.text = $"{deltaBytes} B";
 
             float sendHz = model.SendIntervalSeconds > 0f ? 1f / model.SendIntervalSeconds : 0f;
@@ -329,9 +330,7 @@ public static class BasisSyncInspectorUI
             oversize.style.display = over ? DisplayStyle.Flex : DisplayStyle.None;
             if (over)
             {
-                oversize.text = $"{worst} B exceeds the {budget} B single-datagram budget. Unreliable and Sequenced deliveries " +
-                                $"cannot be fragmented, so packets this size are forced onto ReliableUnordered at runtime. " +
-                                $"Quantize fields (Half or Ranged) to bring the payload under.";
+                oversize.text = BasisEditorLocalization.Get("editor.sync.wire.oversize", worst, budget);
             }
         }
 
@@ -397,7 +396,7 @@ public static class BasisSyncInspectorUI
 
         var modeField = new PropertyField(modeProp, "");
         modeField.style.flexGrow = 1;
-        modeField.tooltip = "How this axis is packed on the wire. Inherit/Raw = exact 32-bit; Half = 16-bit (half the size); Ranged = quantized into a Min..Max window at a chosen bit depth (smallest).";
+        modeField.tooltip = BasisEditorLocalization.Get("editor.sync.compression.mode.tooltip");
 
         header.Add(label);
         header.Add(modeField);
@@ -407,26 +406,26 @@ public static class BasisSyncInspectorUI
         ranged.style.marginLeft = 26;
         var minmax = new VisualElement();
         minmax.style.flexDirection = FlexDirection.Row;
-        var minField = new PropertyField(minProp, "Min");
+        var minField = new PropertyField(minProp, BasisEditorLocalization.Get("editor.sync.compression.min"));
         minField.style.flexGrow = 1;
         minField.style.marginRight = 6;
-        minField.tooltip = "Lowest value the Ranged window covers. Values below this are clamped.";
-        var maxField = new PropertyField(maxProp, "Max");
+        minField.tooltip = BasisEditorLocalization.Get("editor.sync.compression.min.tooltip");
+        var maxField = new PropertyField(maxProp, BasisEditorLocalization.Get("editor.sync.compression.max"));
         maxField.style.flexGrow = 1;
-        maxField.tooltip = "Highest value the Ranged window covers. Values above this are clamped.";
+        maxField.tooltip = BasisEditorLocalization.Get("editor.sync.compression.max.tooltip");
         minmax.Add(minField);
         minmax.Add(maxField);
-        var bitsField = new SliderInt("Bits", 1, 31) { showInputField = true, bindingPath = bitsProp.propertyPath, tooltip = "Bits per value in Ranged mode. More bits = finer steps but larger packets." };
+        var bitsField = new SliderInt(BasisEditorLocalization.Get("editor.sync.compression.bits"), 1, 31) { showInputField = true, bindingPath = bitsProp.propertyPath, tooltip = BasisEditorLocalization.Get("editor.sync.compression.bits.tooltip") };
         ranged.Add(minmax);
         ranged.Add(bitsField);
 
         var fitRow = new VisualElement();
         fitRow.style.flexDirection = FlexDirection.Row;
         fitRow.style.alignItems = Align.Center;
-        var stepField = new FloatField("Fit step") { value = 0.001f };
+        var stepField = new FloatField(BasisEditorLocalization.Get("editor.sync.compression.fitStep")) { value = 0.001f };
         stepField.style.flexGrow = 1;
         stepField.style.marginRight = 6;
-        stepField.tooltip = "Smallest step you care about. Press → bits to pick the fewest bits that achieve it across Min..Max.";
+        stepField.tooltip = BasisEditorLocalization.Get("editor.sync.compression.fitStep.tooltip");
         var fitBtn = new Button(() =>
         {
             so.Update();
@@ -437,7 +436,7 @@ public static class BasisSyncInspectorUI
                 bitsProp.intValue = Mathf.Clamp(Mathf.CeilToInt(Mathf.Log(span / step + 1f, 2f)), 1, 31);
                 so.ApplyModifiedProperties();
             }
-        }) { text = "→ bits", tooltip = "Compute the minimum Bits that reach the Fit step across the Min..Max range." };
+        }) { text = BasisEditorLocalization.Get("editor.sync.compression.fitBits"), tooltip = BasisEditorLocalization.Get("editor.sync.compression.fitBits.tooltip") };
         fitRow.Add(stepField);
         fitRow.Add(fitBtn);
         ranged.Add(fitRow);
@@ -467,13 +466,13 @@ public static class BasisSyncInspectorUI
                 float range = max - min;
                 if (range <= 0f)
                 {
-                    info.text = "! Min must be less than Max — values collapse to a single step.";
+                    info.text = BasisEditorLocalization.Get("editor.sync.compression.minMaxError");
                     info.style.color = new StyleColor(BasisEditorUI.Bad);
                 }
                 else
                 {
                     double step = (double)range / ((1L << bits) - 1L);
-                    info.text = $"step ≈ {step:0.######} over {range:0.###}  •  {bits} bit{(bits == 1 ? "" : "s")}  •  {(bits / 8f):0.##} B/axis";
+                    info.text = BasisEditorLocalization.Get("editor.sync.compression.stepInfo", step, range, bits, bits / 8f);
                     info.style.color = new StyleColor(bits <= 4 ? BasisEditorUI.Warn : Subtle);
                 }
             }
@@ -481,9 +480,9 @@ public static class BasisSyncInspectorUI
             {
                 switch (modeName)
                 {
-                    case "Half": info.text = "16-bit half float  •  2 B/axis"; break;
-                    case "Raw": info.text = "32-bit float  •  4 B/axis (exact)"; break;
-                    case "Inherit": info.text = "default = Raw  •  32-bit float, 4 B/axis (exact)"; break;
+                    case "Half": info.text = BasisEditorLocalization.Get("editor.sync.compression.halfInfo"); break;
+                    case "Raw": info.text = BasisEditorLocalization.Get("editor.sync.compression.rawInfo"); break;
+                    case "Inherit": info.text = BasisEditorLocalization.Get("editor.sync.compression.inheritInfo"); break;
                     default: info.text = ""; break;
                 }
                 info.style.color = new StyleColor(Subtle);
@@ -502,7 +501,7 @@ public static class BasisSyncInspectorUI
         return (idx >= 0 && idx < names.Length) ? names[idx] : "";
     }
 
-    public static VisualElement RateSlider(SerializedObject so) => RateSlider(so, "SendIntervalSeconds", "Send Rate (Hz)", 60f);
+    public static VisualElement RateSlider(SerializedObject so) => RateSlider(so, "SendIntervalSeconds", BasisEditorLocalization.Get("editor.sync.networking.sendRate"), 60f);
 
     public static VisualElement RateSlider(SerializedObject so, string propName, string label, float maxHz)
     {
@@ -510,7 +509,7 @@ public static class BasisSyncInspectorUI
         float hz = prop.floatValue > 0f ? 1f / prop.floatValue : 20f;
 
         var slider = new Slider(label, 1f, maxHz) { value = hz, showInputField = true };
-        slider.tooltip = "How many delta packets per second the owner sends while the value is changing. Higher = smoother fast motion, more bandwidth.";
+        slider.tooltip = BasisEditorLocalization.Get("editor.sync.networking.sendRate.tooltip");
         slider.RegisterValueChangedCallback(evt =>
         {
             float h = Mathf.Clamp(evt.newValue, 1f, maxHz);
@@ -521,14 +520,14 @@ public static class BasisSyncInspectorUI
         return slider;
     }
 
-    public static VisualElement KeyframeSlider(SerializedObject so) => KeyframeSlider(so, "KeyframeIntervalSeconds", "Keyframe Interval (s)");
+    public static VisualElement KeyframeSlider(SerializedObject so) => KeyframeSlider(so, "KeyframeIntervalSeconds", BasisEditorLocalization.Get("editor.sync.networking.keyframeInterval"));
 
     public static VisualElement KeyframeSlider(SerializedObject so, string propName, string label)
     {
         SerializedProperty prop = so.FindProperty(propName);
 
         var slider = new Slider(label, 0.1f, 5f) { value = prop.floatValue, showInputField = true };
-        slider.tooltip = "How often a full keyframe (all fields, reliable) is sent so late joiners and clients that dropped a delta resync. Lower = faster recovery, more bandwidth.";
+        slider.tooltip = BasisEditorLocalization.Get("editor.sync.networking.keyframeInterval.tooltip");
         slider.RegisterValueChangedCallback(evt =>
         {
             so.Update();

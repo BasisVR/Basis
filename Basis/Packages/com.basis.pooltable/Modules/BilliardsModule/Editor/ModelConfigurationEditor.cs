@@ -1,7 +1,9 @@
-﻿using UnityEngine;
+﻿using Unity.Scripting.LifecycleManagement;
+using UnityEngine;
 using UnityEditor;
 
 [CustomEditor(typeof(ModelConfiguration))]
+[NoAutoStaticsCleanup]
 public class ModelConfigurationEditor : Editor
 {
     bool bShowCollisionModel = true;

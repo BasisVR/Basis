@@ -72,6 +72,14 @@ namespace Basis.Scripts.BasisCharacterController
                 move.z = 0;
             }
 
+            bool pushed = ctx.HasExternalVelocity;
+            if (pushed)
+            {
+                Vector3 planar = BasisLocalCharacterDriver.CombineMotion(new Vector3(move.x, 0f, move.z), ctx.ExternalVelocity * dt);
+                move.x = planar.x;
+                move.z = planar.z;
+            }
+
             using (BasisLocalPlayerMarkers.MovePhysics.Auto())
             {
                 ctx.Flags = ctx.characterController.Move(move);
@@ -79,6 +87,23 @@ namespace Basis.Scripts.BasisCharacterController
             // PhysX writes the root transform directly; the pose cache cannot observe it.
             BasisLocalPose.InvalidateAll();
             ctx.BasisLocalPlayerTransform.GetPose(out ctx.CurrentPosition, out ctx.CurrentRotation);
+
+            if ((ctx.Flags & CollisionFlags.Above) != 0 && ctx.currentVerticalSpeed > 0f)
+            {
+                ctx.currentVerticalSpeed = 0f;
+            }
+            if (pushed)
+            {
+                if ((ctx.Flags & CollisionFlags.Sides) != 0)
+                {
+                    Vector3 moved = ctx.CurrentPosition - ctx.MoveStartPosition;
+                    ctx.ClipExternalVelocity(new Vector3(move.x, 0f, move.z), new Vector3(moved.x, 0f, moved.z), dt);
+                }
+                if (ctx.groundedPlayer && ctx.currentVerticalSpeed <= 0f)
+                {
+                    ctx.DecayExternalVelocity(dt);
+                }
+            }
         }
     }
 }

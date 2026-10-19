@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using static SerializableBasis;
 
@@ -17,7 +18,8 @@ namespace Basis.Cinematics
     /// laying out right now so people can watch and help. That one lives only as long as the
     /// session; this one is a thing the receiver keeps.</para>
     /// </summary>
-    public static class BasisCameraDollyShare
+    [AutoStaticsCleanup]
+    public static partial class BasisCameraDollyShare
     {
         /// <summary>The orb colour: the dolly marker's own blue, so a track share reads as camera work.</summary>
         private static readonly Color OrbColor = new Color(0.35f, 0.75f, 1f, 1f);
@@ -33,6 +35,7 @@ namespace Basis.Cinematics
             {
                 Type = ContentShareType.DollyTrack,
                 Name = "Dolly Track",
+                NameKey = "camera.modifier.dollyTrack",
                 Color = OrbColor,
                 ShareableKind = BasisShareableKind.DollyTrack,
                 Describe = Describe,

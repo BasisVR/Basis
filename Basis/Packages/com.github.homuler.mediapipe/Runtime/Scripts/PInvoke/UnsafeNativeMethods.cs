@@ -26,10 +26,12 @@ namespace Mediapipe
 
     static UnsafeNativeMethods()
     {
-      mp_api__SetFreeHGlobal(FreeHGlobal);
+      mp_api__SetFreeHGlobal(_FreeHGlobalCallback);
     }
 
     private delegate void FreeHGlobalDelegate(IntPtr hglobal);
+
+    private static readonly FreeHGlobalDelegate _FreeHGlobalCallback = FreeHGlobal;
 
     [AOT.MonoPInvokeCallback(typeof(FreeHGlobalDelegate))]
     private static void FreeHGlobal(IntPtr hglobal)

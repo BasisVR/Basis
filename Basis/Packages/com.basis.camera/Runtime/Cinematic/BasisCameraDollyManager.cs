@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
@@ -24,7 +25,8 @@ namespace Basis.Cinematics
     /// the single answer to "where are the points" and two people reaching for the same one cannot
     /// leave the instance disagreeing.</para>
     /// </summary>
-    public static class BasisCameraDollyManager
+    [AutoStaticsCleanup]
+    public static partial class BasisCameraDollyManager
     {
         private const string FixedNetworkIdentifier = "BasisCameraDollyManager";
         private const BasisDebug.LogTag LogTag = BasisDebug.LogTag.Networking;
@@ -50,12 +52,12 @@ namespace Basis.Cinematics
         private static bool _initialized;
 
         /// <summary>The local track being shared, or null while nothing is.</summary>
-        private static BasisCameraDollyTrack _local;
+        [NoAutoStaticsCleanup] private static BasisCameraDollyTrack _local;
 
         /// <summary>Everyone else's tracks, by the player who authored each one.</summary>
         private static readonly Dictionary<ushort, BasisCameraDollyMirror> _mirrors = new();
 
-        private static readonly BasisCameraDollyPacket.Point[] _scratch =
+        [NoAutoStaticsCleanup] private static readonly BasisCameraDollyPacket.Point[] _scratch =
             new BasisCameraDollyPacket.Point[BasisCameraDollyPacket.MaxPoints];
 
         private static byte[] _sendBuffer = new byte[BasisCameraDollyPacket.RosterSize(BasisCameraDollyPacket.MaxPoints)];

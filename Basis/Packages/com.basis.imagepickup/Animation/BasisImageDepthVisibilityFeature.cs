@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using Basis.Scripts.Drivers;
 using UnityEngine;
@@ -103,6 +104,7 @@ namespace Basis.ImagePickup
             _pass = null;
         }
 
+        [NoAutoStaticsCleanup]
         private sealed class DepthVisibilityPass : ScriptableRenderPass
         {
             private static readonly int DepthTextureId = Shader.PropertyToID("_BasisImageDepthTexture");

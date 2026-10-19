@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using UnityEditor;
 using static Basis.Scripts.Virtual_keyboard.KeyboardLayoutData;
+using Basis.Editor.Localization;
 using Basis.Scripts.Virtual_keyboard;
 using static Basis.Scripts.Virtual_keyboard.Editor.KeyboardLayoutDataEditor;
 
@@ -18,8 +19,8 @@ public partial class KeyboardLayoutDataEditor : Editor
     {
         serializedObject.Update();
 
-        EditorGUILayout.PropertyField(languagesAndStylesProp, true);
-        if (GUILayout.Button("Set Colors To match Grey Black Theme"))
+        EditorGUILayout.PropertyField(languagesAndStylesProp, new GUIContent(BasisEditorLocalization.Get("editor.virtualKeyboard.languagesAndStyles")), true);
+        if (GUILayout.Button(BasisEditorLocalization.Get("editor.virtualKeyboard.setColors")))
         {
             KeyboardLayoutData keyboardLayoutData = (KeyboardLayoutData)target;
             for (int LanguageIndex = 0; LanguageIndex < keyboardLayoutData.languagesAndStyles.Count; LanguageIndex++)
@@ -44,9 +45,9 @@ public partial class KeyboardLayoutDataEditor : Editor
             EditorUtility.SetDirty(keyboardLayoutData);
             AssetDatabase.Refresh();
         }
-        if (GUILayout.Button("Reset Languages And Styles"))
+        if (GUILayout.Button(BasisEditorLocalization.Get("editor.virtualKeyboard.reset")))
         {
-            if (EditorUtility.DisplayDialog("Reset Confirmation", "Are you sure you want to reset the languages and styles list?", "Yes", "No"))
+            if (EditorUtility.DisplayDialog(BasisEditorLocalization.Get("editor.virtualKeyboard.resetTitle"), BasisEditorLocalization.Get("editor.virtualKeyboard.resetMessage"), BasisEditorLocalization.Get("editor.common.yes"), BasisEditorLocalization.Get("editor.common.no")))
             {
                 ResetLanguagesAndStyles();
             }

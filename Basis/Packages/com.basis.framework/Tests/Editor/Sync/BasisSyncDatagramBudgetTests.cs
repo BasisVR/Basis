@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using Basis.Scripts.Networking.Sync;
 using NUnit.Framework;
@@ -15,6 +16,7 @@ namespace Basis.Tests.Sync
     /// isn't: driving TransmitIfDue through a send lands in BasisNetworkGenericMessages and needs a
     /// live transport. What IS covered is every pure input that decision is made from.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public class BasisSyncDatagramBudgetTests
     {
         [Test]

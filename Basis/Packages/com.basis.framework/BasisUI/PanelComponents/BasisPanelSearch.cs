@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -50,7 +51,8 @@ namespace Basis.BasisUI
     /// its own reasons — one that applies to a single mode, say — keeps it hidden, and a control the
     /// page reveals mid-search is filtered like any other on the next <see cref="Refresh"/>.</para>
     /// </summary>
-    public sealed class BasisPanelSearch
+    [AutoStaticsCleanup]
+    public sealed partial class BasisPanelSearch
     {
         /// <summary>
         /// Quiet time after the last keystroke before the page is re-filtered. Long enough that a run
@@ -64,6 +66,7 @@ namespace Basis.BasisUI
         private static readonly List<PanelSectionToggle> _sectionBuffer = new();
         private static readonly List<PanelSectionToggle> _chainBuffer = new();
         private static readonly List<PanelElementDescriptor> _descriptorBuffer = new();
+        private static readonly List<PanelComponent> _controlBuffer = new();
         private static readonly List<Transform> _contentBuffer = new();
         private static readonly List<int> _indexBuffer = new();
         private static readonly Dictionary<Transform, int> _lookup = new();
@@ -670,9 +673,9 @@ namespace Basis.BasisUI
 
         /// <summary>
         /// The containers holding a section's rows. Sections built through the helpers register them;
-        /// a flat lazy section registers nothing, so its rows are read off the siblings between this
-        /// header and the next — valid only while it is open, since collapsed those rows are gone and
-        /// the siblings belong to whatever section follows.
+        /// a section that registers nothing has its rows read off the siblings between this header
+        /// and the next — valid only while it is open, since collapsed those rows are gone and the
+        /// siblings belong to whatever section follows.
         /// </summary>
         private static void GetSectionContents(PanelSectionToggle section, List<Transform> results)
         {
@@ -911,6 +914,77 @@ namespace Basis.BasisUI
             _chainBuffer.Clear();
         }
 
+        public static PanelComponent RevealControl(RectTransform page, Predicate<PanelComponent> match)
+        {
+            if (page == null || match == null) return null;
+
+            PanelComponent found = FindControl(page, match);
+            if (found == null) found = OpenLazySectionsUntil(page, match);
+            if (found != null) RevealSection(PanelSectionToggle.GetOwningSection(found.transform));
+            return found;
+        }
+
+        private static PanelComponent FindControl(RectTransform page, Predicate<PanelComponent> match)
+        {
+            page.GetComponentsInChildren(true, _controlBuffer);
+            PanelComponent found = null;
+            for (int i = 0; i < _controlBuffer.Count; i++)
+            {
+                PanelComponent control = _controlBuffer[i];
+                if (control != null && match(control))
+                {
+                    found = control;
+                    break;
+                }
+            }
+            _controlBuffer.Clear();
+            return found;
+        }
+
+        private static PanelComponent OpenLazySectionsUntil(RectTransform page, Predicate<PanelComponent> match)
+        {
+            List<PanelSectionToggle> opened = new List<PanelSectionToggle>();
+            PanelComponent found = null;
+            bool suppressed = BasisMenuStateMemory.SuppressSectionWrites;
+            BasisMenuStateMemory.SuppressSectionWrites = true;
+            try
+            {
+                for (int pass = 0; pass < MaxExpandPasses && found == null; pass++)
+                {
+                    page.GetComponentsInChildren(true, _sectionBuffer);
+                    bool openedAny = false;
+                    for (int i = 0; i < _sectionBuffer.Count && found == null; i++)
+                    {
+                        PanelSectionToggle section = _sectionBuffer[i];
+                        if (section == null || section.Expanded) continue;
+                        GetSectionContents(section, _contentBuffer);
+                        if (_contentBuffer.Count > 0) continue;
+
+                        section.SetExpanded(true);
+                        opened.Add(section);
+                        openedAny = true;
+                        found = FindControl(page, match);
+                    }
+                    if (!openedAny) break;
+                }
+
+                PanelSectionToggle.GetSectionChain(found != null ? PanelSectionToggle.GetOwningSection(found.transform) : null, _chainBuffer);
+                for (int i = opened.Count - 1; i >= 0; i--)
+                {
+                    PanelSectionToggle section = opened[i];
+                    if (section != null && section.Expanded && !_chainBuffer.Contains(section)) section.SetExpanded(false);
+                }
+            }
+            finally
+            {
+                BasisMenuStateMemory.SuppressSectionWrites = suppressed;
+                _sectionBuffer.Clear();
+                _contentBuffer.Clear();
+                _chainBuffer.Clear();
+            }
+            return found;
+        }
+
         /// <summary>
         /// Brings a row into view and gives it a nudge so the eye lands on it. Matched by title rather
         /// than by reference: a lazy section rebuilds its rows when it reopens, so the descriptor a
@@ -955,10 +1029,14 @@ namespace Basis.BasisUI
 
         private void ScrollToNow(string title)
         {
-            RectTransform row = FindRow(title);
-            if (row == null || !row.gameObject.activeInHierarchy) return;
+            ScrollToRow(_page, FindRow(title), 0.5f);
+        }
 
-            ScrollRect scroll = _page.GetComponentInParent<ScrollRect>();
+        public static void ScrollToRow(RectTransform page, RectTransform row, float viewFraction)
+        {
+            if (page == null || row == null || !row.gameObject.activeInHierarchy) return;
+
+            ScrollRect scroll = page.GetComponentInParent<ScrollRect>();
             if (scroll != null && scroll.content != null && scroll.viewport != null)
             {
                 Canvas.ForceUpdateCanvases();
@@ -972,7 +1050,7 @@ namespace Basis.BasisUI
                     // whatever pivot and anchoring the scroll-view prefab happens to use.
                     Vector3 centre = scroll.content.InverseTransformPoint(row.TransformPoint(row.rect.center));
                     float fromTop = scroll.content.rect.yMax - centre.y;
-                    float offset = Mathf.Clamp(fromTop - viewHeight * 0.5f, 0f, scrollable);
+                    float offset = Mathf.Clamp(fromTop - viewHeight * viewFraction, 0f, scrollable);
                     scroll.verticalNormalizedPosition = 1f - (offset / scrollable);
                 }
 

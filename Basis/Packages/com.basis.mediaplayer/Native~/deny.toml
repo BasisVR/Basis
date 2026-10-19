@@ -1,0 +1,44 @@
+# cargo-deny: the licence bar as an executable gate. Permissive licences
+# only; MPL and any copyleft are left off the list on purpose, so a
+# dependency that picks one up fails the build and has to be dealt with
+# deliberately.
+
+[graph]
+all-features = true
+
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    # Public-domain dedication, within the permissive bar. Pulled in by
+    # rav1d's to_method.
+    "CC0-1.0",
+    # Data-only permissive licence (no copyleft on code): webpki-roots'
+    # CCADB trust-anchor bundle, the Android https root store.
+    "CDLA-Permissive-2.0",
+]
+
+[advisories]
+yanked = "deny"
+ignore = [
+    # audiopus_sys builds and statically links the libopus 1.3.1 it
+    # vendors, for the Opus decoder. The wrapper is unmaintained. Revisit
+    # if a maintained -sys crate appears or the pure-Rust decoder matures.
+    "RUSTSEC-2026-0150",
+    # paste is a proc-macro used at build time by rav1d; unmaintained but
+    # inert at runtime. Follows rav1d's own tree; drop when upstream does.
+    "RUSTSEC-2024-0436",
+]
+
+[bans]
+multiple-versions = "warn"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

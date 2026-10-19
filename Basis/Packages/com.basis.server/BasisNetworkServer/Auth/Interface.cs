@@ -15,6 +15,7 @@ namespace Basis.Network.Server.Auth
         /// class we use to get the users identity
         /// the UUID of a player will become this.
         public void ProcessConnection(Configuration Configuration, ConnectionRequest ConnectionRequest, NetPeer NetPeer);
+        public void ProcessVerifiedConnection(Configuration Configuration, ConnectionRequest ConnectionRequest, NetPeer NetPeer, string VerifiedIdentity) => ProcessConnection(Configuration, ConnectionRequest, NetPeer);
         public void DeInitialize();
         public void RemoveConnection(int NetPeer);
         public bool RemoveConnection(int NetPeer, NetPeer Expected);

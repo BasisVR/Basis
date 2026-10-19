@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Basis.Editor.Localization;
 using Basis.Scripts.Networking.Voice.Testing;
 using UnityEditor;
 using UnityEngine;
@@ -15,9 +16,9 @@ namespace Basis.Scripts.Networking.Voice.EditorTools
     /// </summary>
     public sealed class BasisVoiceCaptureTab : BasisEditorTabPage
     {
-        public override string Title => "Capture Analyzer";
+        public override string Title => BasisEditorLocalization.Get("editor.voice.capture.title");
         public override string Subtitle =>
-            "Measure a recorded or live capture: level, noise floor, clipping and gate behaviour.";
+            BasisEditorLocalization.Get("editor.voice.capture.subtitle");
 
         string _referencePath = "";
         string _capturePath = "";
@@ -26,17 +27,15 @@ namespace Basis.Scripts.Networking.Voice.EditorTools
         public override void Draw()
         {
             EditorGUILayout.HelpBox(
-                "Compare what a remote client HEARD against what was SENT. Reference = the WAV " +
-                "played into the voice channel; Capture = the remote client's voice recording of " +
-                "that speaker. Both mono/stereo, 16-bit or float WAV.",
+                BasisEditorLocalization.Get("editor.voice.capture.help"),
                 MessageType.Info);
 
-            DrawFileRow("Reference WAV (sent)", ref _referencePath);
-            DrawFileRow("Captured WAV (heard)", ref _capturePath);
+            DrawFileRow(BasisEditorLocalization.Get("editor.voice.capture.referenceWav"), ref _referencePath);
+            DrawFileRow(BasisEditorLocalization.Get("editor.voice.capture.capturedWav"), ref _capturePath);
 
             using (new EditorGUI.DisabledScope(!File.Exists(_referencePath) || !File.Exists(_capturePath)))
             {
-                if (BasisEditorUI.PrimaryButton("Analyze", 26f))
+                if (BasisEditorUI.PrimaryButton(BasisEditorLocalization.Get("editor.voice.capture.analyze"), 26f))
                     Analyze();
             }
 
@@ -83,26 +82,26 @@ namespace Basis.Scripts.Networking.Voice.EditorTools
                 }
 
                 var sb = new System.Text.StringBuilder();
-                sb.AppendLine($"Reference: {reference.Length / (double)refRate:F2}s @ {refRate} Hz");
-                sb.AppendLine($"Capture:   {capture.Length / (double)capRate:F2}s @ {capRate} Hz");
-                sb.AppendLine($"End-to-end latency (envelope xcorr): {(lagMs < 0 ? "n/a (no energy)" : lagMs.ToString("F0") + " ms")}");
-                sb.AppendLine($"Underrun notches ('bubbles'): {notches.Count}  ({notchMs:F1} ms total)");
+                sb.AppendLine(BasisEditorLocalization.Get("editor.voice.capture.reportReference", reference.Length / (double)refRate, refRate));
+                sb.AppendLine(BasisEditorLocalization.Get("editor.voice.capture.reportCapture", capture.Length / (double)capRate, capRate));
+                sb.AppendLine(BasisEditorLocalization.Get("editor.voice.capture.reportLatency", lagMs < 0 ? BasisEditorLocalization.Get("editor.voice.capture.noEnergy") : lagMs.ToString("F0") + " ms"));
+                sb.AppendLine(BasisEditorLocalization.Get("editor.voice.capture.reportNotches", notches.Count, notchMs));
                 if (notches.Count > 0)
                 {
-                    sb.AppendLine("  first 10:");
+                    sb.AppendLine("  " + BasisEditorLocalization.Get("editor.voice.capture.reportFirst"));
                     for (int i = 0; i < Math.Min(10, notches.Count); i++)
                         sb.AppendLine($"    @{notches[i].StartMs / 1000.0:F2}s  {notches[i].DurationMs:F1} ms");
                 }
                 sb.AppendLine(refRate == capRate
-                    ? $"Median segmental SNR vs reference: {snr:F1} dB (codec-only is typically 8-20 dB; compare against a clean local capture)"
-                    : "Segmental SNR skipped: sample rates differ (resample one side to match).");
+                    ? BasisEditorLocalization.Get("editor.voice.capture.reportSnr", snr)
+                    : BasisEditorLocalization.Get("editor.voice.capture.reportSnrSkipped"));
                 if (refRate == capRate)
-                    sb.AppendLine($"Dropped audio (reference loud, capture silent): {droppedMs:F0} ms");
+                    sb.AppendLine(BasisEditorLocalization.Get("editor.voice.capture.reportDropped", droppedMs));
                 _report = sb.ToString();
             }
             catch (Exception ex)
             {
-                _report = $"Analysis failed: {ex.Message}";
+                _report = BasisEditorLocalization.Get("editor.voice.capture.reportFailed", ex.Message);
             }
         }
     }

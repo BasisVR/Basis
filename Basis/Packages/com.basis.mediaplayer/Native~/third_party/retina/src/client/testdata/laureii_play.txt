@@ -1,0 +1,6 @@
+RTSP/1.0 200 OK
+CSeq: 5
+Session: 1234567890
+Range: npt=0.000-
+RTP-Info: url=rtsp://192.168.1.19:554/0/main/trackID=0;seq=0;rtptime=0;
+

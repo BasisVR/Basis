@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Device_Management.Devices.Pairing;
@@ -13,7 +14,8 @@ namespace Basis.Scripts.Avatar
     /// instances so that exactly one virtual exists per pair whose both partners
     /// are currently connected.
     /// </summary>
-    public static class BasisTrackerPairingService
+    [AutoStaticsCleanup]
+    public static partial class BasisTrackerPairingService
     {
         // Key: ordinal-sorted "idA|idB". Value: the live virtual driving that pair.
         private static readonly Dictionary<string, BasisVirtualMidpointInput> _virtuals = new();

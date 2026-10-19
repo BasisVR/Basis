@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -6,7 +7,8 @@ using UnityEngine;
 
 namespace HVR.Basis.Comms
 {
-    public static class HVRVixxyPersistentStore
+    [AutoStaticsCleanup]
+    public static partial class HVRVixxyPersistentStore
     {
         private const string FileName = "VixxyAvatarCustomization.BAS";
         private const float FlushDebounceSeconds = 1f;

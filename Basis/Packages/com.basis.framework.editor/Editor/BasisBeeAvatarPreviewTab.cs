@@ -1,3 +1,4 @@
+using Basis.Editor.Localization;
 using System;
 using System.IO;
 using System.Linq;
@@ -22,9 +23,9 @@ using UObject = UnityEngine.Object;
 /// </summary>
 public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
 {
-    public override string Title => "Avatar Preview";
+    public override string Title => BasisEditorLocalization.Get("editor.beePreview.title");
     public override string Subtitle =>
-        "Load a built avatar bundle and inspect what the client will actually get.";
+        BasisEditorLocalization.Get("editor.beePreview.subtitle");
 
     private const string ScenePreviewPrefix = "Generic Avatar Preview (";
 
@@ -37,7 +38,7 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
     [SerializeField] private float orbitZoom = 1f;
     [SerializeField] private bool showFarAvatarAtlas;
 
-    private static readonly string[] TabNames = { "Far Avatar", "Generic Avatar", "Info" };
+    private static string[] TabNames => new[] { BasisEditorLocalization.Get("editor.beePreview.farAvatar"), BasisEditorLocalization.Get("editor.beePreview.genericAvatar"), BasisEditorLocalization.Get("editor.common.info") };
 
     private bool isLoading;
     private bool hasLoaded;
@@ -61,6 +62,7 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
     private BasisGenericBlendshapeSidecar genericSidecar;
     private string genericSectionInfo = "";
     private string humanoidTestResult = "";
+    private bool humanoidTestPassed;
     private PreviewRenderUtility genericPreview;
     private Bounds genericBounds;
     private bool genericBoundsValid;
@@ -99,15 +101,15 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
 
     private void DrawFileSection()
     {
-        BasisEditorUI.SectionTitle("BEE Avatar Preview");
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.beePreview.sectionTitle"));
         EditorGUILayout.Space(4);
 
         EditorGUILayout.BeginHorizontal();
-        EditorGUILayout.LabelField("BEE File:", GUILayout.Width(70));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.beeWindow.beeFile"), GUILayout.Width(70));
         EditorGUILayout.SelectableLabel(beeFilePath, EditorStyles.textField, GUILayout.Height(18));
-        if (GUILayout.Button("Browse", GUILayout.Width(70)))
+        if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.browse"), GUILayout.Width(70)))
         {
-            string selected = EditorUtility.OpenFilePanel("Select BEE File", "", "bee");
+            string selected = EditorUtility.OpenFilePanel(BasisEditorLocalization.Get("editor.beeWindow.selectBeeFile"), "", "bee");
             if (!string.IsNullOrEmpty(selected))
             {
                 beeFilePath = selected;
@@ -118,15 +120,15 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
         EditorGUILayout.EndHorizontal();
 
         EditorGUILayout.BeginHorizontal();
-        EditorGUILayout.LabelField("Password:", GUILayout.Width(70));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.beeWindow.password"), GUILayout.Width(70));
         password = showPassword ? EditorGUILayout.TextField(password) : EditorGUILayout.PasswordField(password);
-        showPassword = GUILayout.Toggle(showPassword, "Show", GUILayout.Width(50));
+        showPassword = GUILayout.Toggle(showPassword, BasisEditorLocalization.Get("editor.beeWindow.showPassword"), GUILayout.Width(50));
         EditorGUILayout.EndHorizontal();
 
         EditorGUILayout.Space(4);
         using (new EditorGUI.DisabledScope(isLoading || string.IsNullOrEmpty(beeFilePath) || string.IsNullOrEmpty(password)))
         {
-            if (GUILayout.Button(isLoading ? "Loading..." : hasLoaded ? "Reload" : "Load BEE", GUILayout.Height(28)))
+            if (GUILayout.Button(isLoading ? BasisEditorLocalization.Get("editor.common.loading") : hasLoaded ? BasisEditorLocalization.Get("editor.beePreview.reload") : BasisEditorLocalization.Get("editor.beePreview.loadBee"), GUILayout.Height(28)))
             {
                 _ = LoadBeeAsync();
             }
@@ -153,7 +155,7 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
                 if (!string.IsNullOrEmpty(content))
                 {
                     password = content;
-                    statusMessage = "Password auto-filled from dontuploadmepassword.txt";
+                    statusMessage = BasisEditorLocalization.Get("editor.beeWindow.passwordAutoFilled", Path.GetFileName(passwordFile));
                 }
             }
         }
@@ -167,7 +169,7 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
     {
         ReleaseLoaded();
         isLoading = true;
-        statusMessage = "Reading bee...";
+        statusMessage = BasisEditorLocalization.Get("editor.beePreview.readingBee");
         Host.Repaint();
 
         try
@@ -188,7 +190,7 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
                 BeeResult<BasisIOManagement.BeeReadResult> diskResult = await BasisIOManagement.ReadBEEFileEx(beeFilePath, password, report, CancellationToken.None);
                 if (!diskResult.IsSuccess || diskResult.Value?.Connector == null)
                 {
-                    statusMessage = "Could not read the bee in either layout. Check the password. " + (diskResult.Error ?? "");
+                    statusMessage = BasisEditorLocalization.Get("editor.beePreview.readFailed", diskResult.Error ?? "");
                     return;
                 }
                 connector = diskResult.Value.Connector;
@@ -198,7 +200,7 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
             }
 
             hasLoaded = true;
-            statusMessage = "Connector loaded: " + (connector.BasisBundleDescription?.AssetBundleName ?? connector.UniqueVersion);
+            statusMessage = BasisEditorLocalization.Get("editor.beePreview.connectorLoaded", connector.BasisBundleDescription?.AssetBundleName ?? connector.UniqueVersion);
 
             BuildFarAvatarAssets();
             await BuildGenericAvatarAsync(encryptedGenericSection, report);
@@ -206,7 +208,7 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
         catch (Exception ex)
         {
             Debug.LogException(ex);
-            statusMessage = "Load failed: " + ex.Message;
+            statusMessage = BasisEditorLocalization.Get("editor.beePreview.loadFailed", ex.Message);
         }
         finally
         {
@@ -333,7 +335,7 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
     {
         if (farLodPayload == null)
         {
-            BasisEditorUI.Help("This bee carries no far avatar (or it failed to decode — see Console). Avatars built before the far avatar feature have none.", MessageType.Info);
+            BasisEditorUI.Help(BasisEditorLocalization.Get("editor.beePreview.noFarAvatar"), MessageType.Info);
             return;
         }
 
@@ -355,13 +357,13 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
         }
 
         EditorGUILayout.LabelField(
-            $"{farLodPayload.TriangleCount:N0} tris, {farLodPayload.VertexCount:N0} verts, {farLodPayload.BoneCount} bones, atlas {farLodTexture.width}x{farLodTexture.height} ({farLodTexture.format})",
+            BasisEditorLocalization.Get("editor.beePreview.farAvatarStats", farLodPayload.TriangleCount, farLodPayload.VertexCount, farLodPayload.BoneCount, farLodTexture.width, farLodTexture.height, farLodTexture.format),
             EditorStyles.miniLabel);
-        BasisEditorUI.Note("Drag to orbit, scroll to zoom. Rest pose.");
+        BasisEditorUI.Note(BasisEditorLocalization.Get("editor.beePreview.farAvatarHint"));
 
         // A flat single-color atlas means the bake captured nothing — showing it makes that
         // failure obvious at a glance instead of reading as a lighting issue in the viewport.
-        showFarAvatarAtlas = EditorGUILayout.Foldout(showFarAvatarAtlas, "Atlas", true);
+        showFarAvatarAtlas = EditorGUILayout.Foldout(showFarAvatarAtlas, BasisEditorLocalization.Get("editor.beePreview.atlas"), true);
         if (showFarAvatarAtlas)
         {
             float atlasSide = Mathf.Clamp(Host.position.width - 48f, 128f, 320f);
@@ -381,12 +383,12 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
 
         if (genericEntry == null)
         {
-            genericSectionInfo = "This bee carries no Generic (glTF) section — it predates the feature or was built with GenerateGenericGLTF off.";
+            genericSectionInfo = BasisEditorLocalization.Get("editor.beePreview.noGenericSection");
             return;
         }
         if (encryptedSection == null || encryptedSection.Length == 0)
         {
-            genericSectionInfo = "Generic section entry exists but its bytes are not in this file (connector-only bee, or a disk cache holding a platform bundle instead).";
+            genericSectionInfo = BasisEditorLocalization.Get("editor.beePreview.genericBytesMissing");
             return;
         }
 
@@ -395,7 +397,7 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
         var decrypted = await BasisEncryptionWrapper.DecryptFromBytesAsync(uniqueId, basisPassword, encryptedSection, report);
         if (!decrypted.Success || decrypted.Data == null || decrypted.Data.Length < 4)
         {
-            genericSectionInfo = $"Generic section decrypt failed: {decrypted.Error} {decrypted.Message}";
+            genericSectionInfo = BasisEditorLocalization.Get("editor.beePreview.genericDecryptFailed", decrypted.Error, decrypted.Message);
             return;
         }
 
@@ -406,7 +408,7 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
         int glbLength = BasisGenericBlendshapeSidecar.GetGlbLength(sectionBytes);
         if (glbLength <= 0)
         {
-            genericSectionInfo = "Decrypted section is not a GLB (this disk cache holds the platform AssetBundle, not the generic section).";
+            genericSectionInfo = BasisEditorLocalization.Get("editor.beePreview.notGlb");
             return;
         }
         genericSidecar = null;
@@ -432,7 +434,7 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
         bool loaded = await gltfImport.Load(genericGlbBytes, null, importSettings);
         if (!loaded)
         {
-            genericSectionInfo = "glTFast failed to parse the GLB — see Console.";
+            genericSectionInfo = BasisEditorLocalization.Get("editor.beePreview.gltfParseFailed");
             gltfImport.Dispose();
             gltfImport = null;
             return;
@@ -446,7 +448,7 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
         bool instantiated = await gltfImport.InstantiateMainSceneAsync(genericTemplate.transform);
         if (!instantiated)
         {
-            genericSectionInfo = "glTFast scene instantiation failed — see Console.";
+            genericSectionInfo = BasisEditorLocalization.Get("editor.beePreview.gltfInstantiateFailed");
             UObject.DestroyImmediate(genericTemplate);
             genericTemplate = null;
             gltfImport.Dispose();
@@ -476,7 +478,7 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
                 sidecarShapes += sidecarMesh.Shapes.Count;
             }
         }
-        genericSectionInfo = $"GLB {genericGlbBytes.LongLength / 1024f:0.0} KB, encrypted {genericEntry.EndByte / 1024f:0.0} KB, {sidecarShapes} sidecar blendshapes.";
+        genericSectionInfo = BasisEditorLocalization.Get("editor.beePreview.genericSectionInfo", genericGlbBytes.LongLength / 1024f, genericEntry.EndByte / 1024f, sidecarShapes);
         genericBoundsValid = false;
         Host.Repaint();
     }
@@ -485,7 +487,7 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
     {
         if (genericTemplate == null)
         {
-            BasisEditorUI.Help(string.IsNullOrEmpty(genericSectionInfo) ? "No generic avatar loaded." : genericSectionInfo, MessageType.Info);
+            BasisEditorUI.Help(string.IsNullOrEmpty(genericSectionInfo) ? BasisEditorLocalization.Get("editor.beePreview.noGenericLoaded") : genericSectionInfo, MessageType.Info);
             return;
         }
 
@@ -511,15 +513,15 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
         }
 
         Renderer[] renderers = genericTemplate.GetComponentsInChildren<Renderer>(true);
-        BasisEditorUI.Note($"{renderers.Length} renderers. {genericSectionInfo}");
-        BasisEditorUI.Note("Drag to orbit, scroll to zoom. Rest pose, glTF PBR materials.");
+        BasisEditorUI.Note(BasisEditorLocalization.Get("editor.beePreview.rendererCount", renderers.Length, genericSectionInfo));
+        BasisEditorUI.Note(BasisEditorLocalization.Get("editor.beePreview.genericHint"));
 
         EditorGUILayout.BeginHorizontal();
-        if (GUILayout.Button("Spawn In Scene"))
+        if (GUILayout.Button(BasisEditorLocalization.Get("editor.beePreview.spawnInScene")))
         {
             SpawnGenericInScene();
         }
-        if (GUILayout.Button("Save .glb..."))
+        if (GUILayout.Button(BasisEditorLocalization.Get("editor.beePreview.saveGlb")))
         {
             SaveGlb();
         }
@@ -553,11 +555,11 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
     private void SaveGlb()
     {
         string suggested = (connector.BasisBundleDescription?.AssetBundleName ?? "avatar") + ".glb";
-        string target = EditorUtility.SaveFilePanel("Save Generic Avatar GLB", "", suggested, "glb");
+        string target = EditorUtility.SaveFilePanel(BasisEditorLocalization.Get("editor.beePreview.saveGlbTitle"), "", suggested, "glb");
         if (!string.IsNullOrEmpty(target))
         {
             File.WriteAllBytes(target, genericGlbBytes);
-            statusMessage = "Saved " + target;
+            statusMessage = BasisEditorLocalization.Get("editor.beePreview.saved", target);
         }
     }
 
@@ -565,59 +567,58 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
 
     private void DrawInfoTab()
     {
-        BasisEditorUI.SectionTitle("Connector");
-        EditorGUILayout.LabelField("Name", connector.BasisBundleDescription?.AssetBundleName ?? "(none)");
-        EditorGUILayout.LabelField("Version", connector.UniqueVersion ?? "(none)");
-        EditorGUILayout.LabelField("Created", connector.DateOfCreation ?? "(none)");
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.beePreview.connector"));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.common.name"), connector.BasisBundleDescription?.AssetBundleName ?? BasisEditorLocalization.Get("editor.beeWindow.none"));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.beeWindow.version"), connector.UniqueVersion ?? BasisEditorLocalization.Get("editor.beeWindow.none"));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.beeWindow.created"), connector.DateOfCreation ?? BasisEditorLocalization.Get("editor.beeWindow.none"));
         if (connector.BasisBundleGenerated != null)
         {
-            EditorGUILayout.LabelField("Sections", string.Join(", ", connector.BasisBundleGenerated.Where(b => b != null).Select(b => b.Platform)));
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.beePreview.sections"), string.Join(", ", connector.BasisBundleGenerated.Where(b => b != null).Select(b => b.Platform)));
         }
 
         EditorGUILayout.Space(4);
-        BasisEditorUI.SectionTitle("Far Avatar");
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.beePreview.farAvatar"));
         if (farLodPayload != null)
         {
-            EditorGUILayout.LabelField("Payload", $"{connector.FarLodBase64.Length / 1024f:0.0} KB base64, {farLodPayload.TriangleCount:N0} tris, {farLodPayload.BoneCount} bones");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.beePreview.payload"), BasisEditorLocalization.Get("editor.beePreview.payloadSummary", connector.FarLodBase64.Length / 1024f, farLodPayload.TriangleCount, farLodPayload.BoneCount));
         }
         else
         {
-            EditorGUILayout.LabelField("(none)");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.beeWindow.none"));
         }
 
         EditorGUILayout.Space(4);
-        BasisEditorUI.SectionTitle("Generic (glTF) Avatar");
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.beePreview.genericGltfAvatar"));
         if (genericTemplate == null)
         {
-            EditorGUILayout.LabelField(string.IsNullOrEmpty(genericSectionInfo) ? "(none)" : genericSectionInfo, EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.LabelField(string.IsNullOrEmpty(genericSectionInfo) ? BasisEditorLocalization.Get("editor.beeWindow.none") : genericSectionInfo, EditorStyles.wordWrappedMiniLabel);
             return;
         }
         EditorGUILayout.LabelField(genericSectionInfo, EditorStyles.wordWrappedMiniLabel);
 
         if (genericData == null)
         {
-            BasisEditorUI.Help("Section has no BasisGenericAvatarData — a client cannot rebuild a humanoid from it.", MessageType.Warning);
+            BasisEditorUI.Help(BasisEditorLocalization.Get("editor.beePreview.noGenericAvatarData"), MessageType.Warning);
             return;
         }
 
-        EditorGUILayout.LabelField("Human bones", (genericData.HumanBones?.Length ?? 0).ToString());
-        EditorGUILayout.LabelField("Skeleton bones", (genericData.SkeletonBones?.Length ?? 0).ToString());
-        EditorGUILayout.LabelField("Eye height / fwd", genericData.AvatarEyePosition.ToString("0.###"));
-        EditorGUILayout.LabelField("Mouth height / fwd", genericData.AvatarMouthPosition.ToString("0.###"));
-        EditorGUILayout.LabelField("Viseme mesh", DescribeMeshPath(genericData.FaceVisemeMeshPath));
-        EditorGUILayout.LabelField("Blink mesh", DescribeMeshPath(genericData.FaceBlinkMeshPath));
-        EditorGUILayout.LabelField("Hidden nodes", (genericData.InactiveNodePaths?.Length ?? 0).ToString());
-        EditorGUILayout.LabelField("Replicated components", string.IsNullOrEmpty(genericData.ComponentsJson) ? "(none)" : $"{genericData.ComponentsJson.Length / 1024f:0.0} KB json");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.beePreview.humanBones"), (genericData.HumanBones?.Length ?? 0).ToString());
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.beePreview.skeletonBones"), (genericData.SkeletonBones?.Length ?? 0).ToString());
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.beePreview.eyeHeightFwd"), genericData.AvatarEyePosition.ToString("0.###"));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.beePreview.mouthHeightFwd"), genericData.AvatarMouthPosition.ToString("0.###"));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.beePreview.visemeMesh"), DescribeMeshPath(genericData.FaceVisemeMeshPath));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.beePreview.blinkMesh"), DescribeMeshPath(genericData.FaceBlinkMeshPath));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.beePreview.hiddenNodes"), (genericData.InactiveNodePaths?.Length ?? 0).ToString());
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.beePreview.replicatedComponents"), string.IsNullOrEmpty(genericData.ComponentsJson) ? BasisEditorLocalization.Get("editor.beeWindow.none") : $"{genericData.ComponentsJson.Length / 1024f:0.0} KB json");
 
         EditorGUILayout.Space(4);
-        if (GUILayout.Button("Test Humanoid Rebuild"))
+        if (GUILayout.Button(BasisEditorLocalization.Get("editor.beePreview.testHumanoidRebuild")))
         {
             humanoidTestResult = RunHumanoidRebuildTest();
         }
         if (!string.IsNullOrEmpty(humanoidTestResult))
         {
-            bool passed = humanoidTestResult.StartsWith("PASS");
-            BasisEditorUI.Help(humanoidTestResult, passed ? MessageType.Info : MessageType.Error);
+            BasisEditorUI.Help(humanoidTestResult, humanoidTestPassed ? MessageType.Info : MessageType.Error);
         }
     }
 
@@ -627,6 +628,7 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
     /// </summary>
     private string RunHumanoidRebuildTest()
     {
+        humanoidTestPassed = false;
         GameObject testClone = null;
         Avatar built = null;
         try
@@ -639,20 +641,21 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
             Transform rigRoot = FindByNameRecursive(testClone.transform, genericData.RootNodeName);
             if (rigRoot == null)
             {
-                return $"FAIL: root node '{genericData.RootNodeName}' not found in imported hierarchy.";
+                return BasisEditorLocalization.Get("editor.beePreview.humanoidRootMissing", genericData.RootNodeName);
             }
             rigRoot.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
 
             built = AvatarBuilder.BuildHumanAvatar(rigRoot.gameObject, genericData.ToHumanDescription());
             if (built == null || !built.isValid || !built.isHuman)
             {
-                return "FAIL: AvatarBuilder produced an invalid humanoid — check Console for bone errors.";
+                return BasisEditorLocalization.Get("editor.beePreview.humanoidInvalid");
             }
-            return $"PASS: humanoid rebuilt ({genericData.HumanBones?.Length ?? 0} mapped bones). This is what clients do at runtime.";
+            humanoidTestPassed = true;
+            return BasisEditorLocalization.Get("editor.beePreview.humanoidPass", genericData.HumanBones?.Length ?? 0);
         }
         catch (Exception ex)
         {
-            return "FAIL: " + ex.Message;
+            return BasisEditorLocalization.Get("editor.beePreview.humanoidFail", ex.Message);
         }
         finally
         {
@@ -670,7 +673,7 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
     private static string DescribeMeshPath(string path)
     {
         // null = the source avatar had no such mesh; empty = the mesh sits on the root node.
-        return path == null ? "(none)" : path.Length == 0 ? "(root)" : path;
+        return path == null ? BasisEditorLocalization.Get("editor.beeWindow.none") : path.Length == 0 ? BasisEditorLocalization.Get("editor.beePreview.rootMesh") : path;
     }
 
     /// <summary>

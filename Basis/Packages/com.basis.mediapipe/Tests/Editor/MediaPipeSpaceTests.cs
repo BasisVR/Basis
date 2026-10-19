@@ -103,7 +103,7 @@ namespace Basis.MediaPipe.Tests
             new BasisMediaPipeResult { HasPose = true, PoseWorldLandmarks = pose };
 
         private static MediaPipeBodyConverter Converter(float strength = 1f) =>
-            new MediaPipeBodyConverter { Smoothing = 0f, Strength = strength };
+            new MediaPipeBodyConverter { Strength = strength };
 
         private static Vector3[] Turned(Quaternion by)
         {
@@ -268,7 +268,7 @@ namespace Basis.MediaPipe.Tests
                 RightHandWorldLandmarks = Hand(UserBodyFrame() * handInBody),
             };
 
-            MediaPipeHandConverter converter = new MediaPipeHandConverter { UseRotation = true, PoseSmoothing = 0f };
+            MediaPipeHandConverter converter = new MediaPipeHandConverter { UseRotation = true };
             MediaPipeHandConverter.AvatarHandRig rig = Rig();
 
             Assert.IsTrue(converter.TryGetHandRotation(in result, in rig, false, new MediaPipeTiming(1f / 60f, 1f / 15f, true), out Quaternion rotation));

@@ -23,9 +23,10 @@ namespace UnityEditor.Rendering.Universal
 
         private bool m_IsInitialized = false;
         private HeaderBool m_ShowQualitySettings;
+        private HeaderBool m_ShowDeprecatedSettings;
         private bool m_ShowAfterOpaqueTileOnlyError;
 
-        private static readonly string k_AfterOpaqueIncompatibleWithTileOnlyMode = L10n.Tr("'After Opaque' is incompatible with the enabled 'Tile-Only Mode'. Disable After Opaque.");
+        private static readonly string k_AfterOpaqueIncompatibleWithTileOnlyMode = L10n.Tr("'After Opaque' is incompatible with the enabled 'Tile-Only Mode'. Disable After Opaque.", null);
 
         /// <summary>
         /// The renderer data that owns the feature when the inspector is drawn.
@@ -58,24 +59,25 @@ namespace UnityEditor.Rendering.Universal
         // Structs
         private struct Styles
         {
-            public static GUIContent AOMethod = EditorGUIUtility.TrTextContent("Method", "The noise method to use when calculating the Ambient Occlusion value.");
-            public static GUIContent Intensity = EditorGUIUtility.TrTextContent("Intensity", "The degree of darkness that Ambient Occlusion adds.");
-            public static GUIContent Radius = EditorGUIUtility.TrTextContent("Radius", "The radius around a given point, where Unity calculates and applies the effect.");
-            public static GUIContent Falloff = EditorGUIUtility.TrTextContent("Falloff Distance", "The distance from the camera where Ambient Occlusion should be visible.");
-            public static GUIContent DirectLightingStrength = EditorGUIUtility.TrTextContent("Direct Lighting Strength", "Controls how much the ambient occlusion affects direct lighting.");
+            public static GUIContent AOMethod = L10n.TextContent("Method", "The noise method to use when calculating the Ambient Occlusion value.", null, null);
+            public static GUIContent Intensity = L10n.TextContent("Intensity", "The degree of darkness that Ambient Occlusion adds.", null, null);
+            public static GUIContent Radius = L10n.TextContent("Radius", "The radius around a given point, where Unity calculates and applies the effect.", null, null);
+            public static GUIContent Falloff = L10n.TextContent("Falloff Distance", "The distance from the camera where Ambient Occlusion should be visible.", null, null);
+            public static GUIContent DirectLightingStrength = L10n.TextContent("Direct Lighting Strength", "Controls how much the ambient occlusion affects direct lighting.", null, null);
 
-            public static GUIContent Quality = EditorGUIUtility.TrTextContent("Quality", "");
-            public static GUIContent Source = EditorGUIUtility.TrTextContent("Source", "The source of the normal vector values.\nDepth Normals: the feature uses the values generated in the Depth Normal prepass.\nDepth: the feature reconstructs the normal values using the depth buffer.\nIn the Deferred rendering path, the feature uses the G-buffer normals texture.");
+            public static GUIContent Quality = L10n.TextContent("Quality", "", null, null);
+            public static GUIContent Source = L10n.TextContent("Source", "The source of the normal vector values.\nDepth Normals: the feature uses the values generated in the Depth Normal prepass.\nDepth: the feature reconstructs the normal values using the depth buffer.\nIn the Deferred rendering path, the feature uses the G-buffer normals texture.", null, null);
             public static GUIContent NormalQuality = new GUIContent("Normal Quality", "The number of depth texture samples that Unity takes when computing the normals. Low:1 sample, Medium: 5 samples, High: 9 samples.");
-            public static GUIContent Downsample = EditorGUIUtility.TrTextContent("Downsample", "With this option enabled, Unity downsamples the SSAO effect texture to improve performance. Each dimension of the texture is reduced by a factor of 2.");
-            public static GUIContent AfterOpaque = EditorGUIUtility.TrTextContent("After Opaque", "With this option enabled, Unity calculates and apply SSAO after the opaque pass to improve performance on mobile platforms with tiled-based GPU architectures. This is not physically correct.");
-            public static GUIContent BlurQuality = EditorGUIUtility.TrTextContent("Blur Quality", "High: Bilateral, Medium: Gaussian. Low: Kawase (Single Pass).");
-            public static GUIContent Samples = EditorGUIUtility.TrTextContent("Samples", "The number of samples that Unity takes when calculating the obscurance value. Low:4 samples, Medium: 8 samples, High: 12 samples.");
+            public static GUIContent Downsample = L10n.TextContent("Downsample", "With this option enabled, Unity downsamples the SSAO effect texture to improve performance. Each dimension of the texture is reduced by a factor of 2.", null, null);
+            public static GUIContent AfterOpaque = L10n.TextContent("After Opaque", "With this option enabled, Unity calculates and apply SSAO after the opaque pass to improve performance on mobile platforms with tiled-based GPU architectures. This is not physically correct.", null, null);
+            public static GUIContent BlurQuality = L10n.TextContent("Blur Quality", "High: Bilateral, Medium: Gaussian. Low: Kawase (Single Pass).", null, null);
+            public static GUIContent Samples = L10n.TextContent("Samples", "The number of samples that Unity takes when calculating the obscurance value. Low:4 samples, Medium: 8 samples, High: 12 samples.", null, null);
         }
 
         private void Init()
         {
             m_ShowQualitySettings = new HeaderBool($"SSAO.QualityFoldout", false);
+            m_ShowDeprecatedSettings = new HeaderBool("SSAO.DeprecatedFoldout", false);
 
             SerializedProperty settings = serializedObject.FindProperty("m_Settings");
 
@@ -100,17 +102,32 @@ namespace UnityEditor.Rendering.Universal
             if (!m_IsInitialized)
                 Init();
 
-            EditorGUILayout.PropertyField(m_AOMethod, Styles.AOMethod);
-            EditorGUILayout.PropertyField(m_Intensity, Styles.Intensity);
-            EditorGUILayout.PropertyField(m_Radius, Styles.Radius);
-            EditorGUILayout.PropertyField(m_Falloff, Styles.Falloff);
-            m_DirectLightingStrength.floatValue = EditorGUILayout.Slider(Styles.DirectLightingStrength, m_DirectLightingStrength.floatValue, 0f, 1f);
+            EditorGUILayout.HelpBox(
+                "Screen Space Ambient Occlusion is controlled exclusively by the Screen Space Ambient Occlusion Volume Override. The fields below are inactive and shown only to aid in migrating to the volume system. You may copy these values into your Volume Override manually.",
+                MessageType.Info);
 
-            // Make sure these fields are never below 0.0...
-            m_Intensity.floatValue = Mathf.Max(m_Intensity.floatValue, 0f);
-            m_Radius.floatValue = Mathf.Max(m_Radius.floatValue, 0f);
-            m_Falloff.floatValue = Mathf.Max(m_Falloff.floatValue, 0f);
+            EditorGUILayout.Space(5);
+            m_ShowDeprecatedSettings.SetValue(EditorGUILayout.Foldout(m_ShowDeprecatedSettings.value, "Settings (Reference Only)"));
+            if (m_ShowDeprecatedSettings.value)
+            {
+                EditorGUI.indentLevel++;
+                DrawSsaoSettingsGUI(true);
+                EditorGUI.indentLevel--;
+            }
+        }
 
+        void DrawSsaoSettingsGUI(bool readOnly)
+        {
+            using (new EditorGUI.DisabledScope(readOnly))
+            {
+                EditorGUILayout.PropertyField(m_AOMethod, Styles.AOMethod);
+                EditorGUILayout.PropertyField(m_Intensity, Styles.Intensity);
+                EditorGUILayout.PropertyField(m_Radius, Styles.Radius);
+                EditorGUILayout.PropertyField(m_Falloff, Styles.Falloff);
+                m_DirectLightingStrength.floatValue = EditorGUILayout.Slider(Styles.DirectLightingStrength, m_DirectLightingStrength.floatValue, 0f, 1f);
+            }
+
+            // Foldout stays interactive in read-only mode so all values can be browsed.
             m_ShowQualitySettings.SetValue(EditorGUILayout.Foldout(m_ShowQualitySettings.value, Styles.Quality));
             if (m_ShowQualitySettings.value)
             {
@@ -119,18 +136,22 @@ namespace UnityEditor.Rendering.Universal
                 EditorGUI.indentLevel++;
 
                 // Selecting source is not available for Deferred Rendering...
-                GUI.enabled = !isDeferredRenderingMode;
-                EditorGUILayout.PropertyField(m_Source, Styles.Source);
+                using (new EditorGUI.DisabledScope(readOnly || isDeferredRenderingMode))
+                    EditorGUILayout.PropertyField(m_Source, Styles.Source);
 
                 // We only enable this field when depth source is selected...
-                GUI.enabled = !isDeferredRenderingMode && m_Source.enumValueIndex == (int)ScreenSpaceAmbientOcclusionSettings.DepthSource.Depth;
-                EditorGUI.indentLevel++;
-                EditorGUILayout.PropertyField(m_NormalQuality, Styles.NormalQuality);
-                EditorGUI.indentLevel--;
-                GUI.enabled = true;
+                using (new EditorGUI.DisabledScope(readOnly || isDeferredRenderingMode || m_Source.enumValueIndex != (int)ScreenSpaceAmbientOcclusionSettings.DepthSource.Depth))
+                {
+                    EditorGUI.indentLevel++;
+                    EditorGUILayout.PropertyField(m_NormalQuality, Styles.NormalQuality);
+                    EditorGUI.indentLevel--;
+                }
 
-                EditorGUILayout.PropertyField(m_Downsample, Styles.Downsample);
-                EditorGUILayout.PropertyField(m_AfterOpaque, Styles.AfterOpaque);
+                using (new EditorGUI.DisabledScope(readOnly))
+                {
+                    EditorGUILayout.PropertyField(m_Downsample, Styles.Downsample);
+                    EditorGUILayout.PropertyField(m_AfterOpaque, Styles.AfterOpaque);
+                }
 
                 if (Event.current.type == EventType.Layout)
                 {
@@ -139,11 +160,16 @@ namespace UnityEditor.Rendering.Universal
                     bool afterOpaque = m_AfterOpaque.boolValue;
                     m_ShowAfterOpaqueTileOnlyError = tileOnlyMode && afterOpaque;
                 }
-                if (m_ShowAfterOpaqueTileOnlyError)
+
+                // Irrelevant in read-only mode where the fields no longer drive rendering.
+                if (!readOnly && m_ShowAfterOpaqueTileOnlyError)
                     EditorGUILayout.HelpBox(k_AfterOpaqueIncompatibleWithTileOnlyMode, MessageType.Error, true);
 
-                EditorGUILayout.PropertyField(m_BlurQuality, Styles.BlurQuality);
-                EditorGUILayout.PropertyField(m_Samples, Styles.Samples);
+                using (new EditorGUI.DisabledScope(readOnly))
+                {
+                    EditorGUILayout.PropertyField(m_BlurQuality, Styles.BlurQuality);
+                    EditorGUILayout.PropertyField(m_Samples, Styles.Samples);
+                }
 
                 EditorGUI.indentLevel--;
             }

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisCharacterController;
 using UnityEngine;
@@ -14,7 +15,8 @@ namespace Basis.Scripts.Drivers
     /// <see cref="FreshnessFrames"/> frames so a script that stops writing releases control instead of
     /// latching it.
     /// </summary>
-    public static class BasisScriptedPlayerInput
+    [AutoStaticsCleanup]
+    public static partial class BasisScriptedPlayerInput
     {
         private const int FreshnessFrames = 1;
 

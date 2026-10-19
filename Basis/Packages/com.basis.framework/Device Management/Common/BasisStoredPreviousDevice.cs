@@ -26,8 +26,11 @@ namespace Basis.Scripts.Device_Management
         public bool HasCalibratedOffsetSnapshot;
         public Vector3 CalibratedUnscaledPosition;
         public Quaternion CalibratedUnscaledRotation = Quaternion.identity;
+        public float CalibratedUnscaledLift;
         public Vector3 CalibratedUnscaledHeadPosition;
         public Quaternion CalibratedUnscaledHeadRotation = Quaternion.identity;
+        public bool HasCalibratedHeadFromEye;
+        public Vector3 CalibratedUnscaledHeadFromEye;
 
         /// <summary>
         /// The tracked role (e.g., Head, LeftHand) that this device was assigned to.

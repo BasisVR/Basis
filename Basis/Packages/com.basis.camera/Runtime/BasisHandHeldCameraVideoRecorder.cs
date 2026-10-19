@@ -83,7 +83,7 @@ public partial class BasisHandHeldCamera
     }
     private void TickVideoRecorder()
     {
-        videoRecorder.Tick(renderTexture, BasisNetworkModeration.CameraCaptureBlockedLocally);
+        videoRecorder.Tick(OutputTexture, BasisNetworkModeration.CameraCaptureBlockedLocally);
         SyncRenderRatePin(videoRecorder.IsRecording);
         if (videoAudioTap != null && videoRecorder.State == BasisCameraRecordingState.Idle) BasisVideoAudioTap.Detach(ref videoAudioTap);
     }

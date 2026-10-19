@@ -1,7 +1,9 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 
-public static class BasisMirrorRegistry
+[AutoStaticsCleanup]
+public static partial class BasisMirrorRegistry
 {
     public const string SpawnUrl = "Personal Mirror";
 

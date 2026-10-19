@@ -36,7 +36,7 @@ namespace AudioLink.Editor.Shaders
                 {
                     // Get the URP Editor assembly
                     Assembly urpEditorAssembly = null;
-                    Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
+                    var assemblies = UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies();
                     foreach (var assembly in assemblies)
                     {
                         if (assembly.GetName().Name == "Unity.RenderPipelines.Universal.Editor")

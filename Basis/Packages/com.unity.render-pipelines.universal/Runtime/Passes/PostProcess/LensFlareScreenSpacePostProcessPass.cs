@@ -17,7 +17,7 @@ namespace UnityEngine.Rendering.Universal
         public LensFlareScreenSpacePostProcessPass(Shader shader)
         {
             this.renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing - 1;
-            this.profilingSampler = new ProfilingSampler("Blit Lens Flares (Screen Space)");
+            this.profilingSampler = URPProfilingSamplers.LensFlareScreenSpace;
 
             m_Material = PostProcessUtils.LoadShader(shader, passName);
             m_IsValid = m_Material != null;
@@ -148,7 +148,7 @@ namespace UnityEngine.Rendering.Universal
                         new Vector4(
                             lensFlareScreenSpace.samples.value,
                             lensFlareScreenSpace.sampleDimmer.value,
-                            lensFlareScreenSpace.chromaticAbberationIntensity.value,
+                            lensFlareScreenSpace.chromaticAberrationIntensity.value,
                             0), // No need to pass a chromatic aberration sample count, hardcoded at 3 in shader
                         new Vector4(
                             lensFlareScreenSpace.streaksIntensity.value,

@@ -1,27 +1,32 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-// uGUI sink for BasisMediaPlayer. Binds the player's OutputTexture to a target
+// uGUI sink for BasisMediaPlayer. Binds the player's video texture to a target
 // RawImage and optionally tracks the source aspect ratio via a RectTransform
 // AspectRatioFitter (or manual mode where the RawImage size is left alone).
 //
 // Wire up:
 //   * Add to any GameObject that has (or is parented to) a BasisMediaPlayer.
 //   * Assign TargetRawImage.
-//   * Optionally assign AspectFitter to follow OnVideoSizeChanged.
+//   * Optionally assign AspectFitter to follow the player's frame size.
+[AddComponentMenu("Basis/Basis Video Display")]
 [DisallowMultipleComponent]
-public sealed class BasisVideoDisplay : MonoBehaviour
+public sealed class BasisVideoDisplay : MonoBehaviour, IBasisMediaTickConsumer
 {
     [Tooltip("Player to subscribe to. If unassigned, GetComponentInParent<BasisMediaPlayer>() is used.")]
     public BasisMediaPlayer Player;
 
-    [Tooltip("RawImage that displays the player's OutputTexture.")]
+    // The player subscribed to on enable. The field can be reassigned while
+    // enabled, so the handlers and the unsubscribe use this, not the field.
+    private BasisMediaPlayer subscribed;
+
+    [Tooltip("RawImage that displays the player's video texture.")]
     public RawImage TargetRawImage;
 
     [Tooltip("Optional AspectRatioFitter updated whenever the player reports a new VideoSize.")]
     public AspectRatioFitter AspectFitter;
 
-    [Tooltip("If true, the RawImage is cleared back to PlaceholderTexture when the player has no output (before first frame, after Stop).")]
+    [Tooltip("If true, the RawImage is cleared back to PlaceholderTexture when the player has no output (before first frame, after Close).")]
     public bool RestorePlaceholderOnDetach = true;
 
     [Tooltip("Texture shown while the player is not producing frames. Leave empty to clear the RawImage texture to null.")]
@@ -62,24 +67,28 @@ public sealed class BasisVideoDisplay : MonoBehaviour
         if (Player == null) Player = GetComponentInParent<BasisMediaPlayer>();
         if (Player == null)
         {
-            BasisDebug.LogWarning("BasisVideoDisplay: no BasisMediaPlayer found in parents and Player field is empty.", BasisDebug.LogTag.Video);
+            BasisDebug.LogWarning("[BasisMedia] BasisVideoDisplay: no BasisMediaPlayer found in parents and Player field is empty.", BasisDebug.LogTag.Video);
             return;
         }
 
-        Player.OnOutputTextureChanged += HandleTextureChanged;
-        Player.OnEnded += HandleEnded;
+        subscribed = Player;
+        subscribed.OnOutputTextureChanged += HandleTextureChanged;
+        subscribed.OnEnded += HandleEnded;
+        subscribed.AddTickConsumer(this);
 
         // Apply current state immediately so attaching mid-playback works.
-        HandleTextureChanged(Player.OutputTexture);
-        if (Player.VideoSize != Vector2Int.zero) ApplyAspect(Player.VideoSize.x, Player.VideoSize.y);
+        HandleTextureChanged(subscribed.Texture);
+        if (subscribed.VideoSize != Vector2Int.zero) ApplyAspect(subscribed.VideoSize.x, subscribed.VideoSize.y);
     }
 
     private void OnDisable()
     {
-        if (Player != null)
+        if (subscribed != null)
         {
-            Player.OnOutputTextureChanged -= HandleTextureChanged;
-            Player.OnEnded -= HandleEnded;
+            subscribed.RemoveTickConsumer(this);
+            subscribed.OnOutputTextureChanged -= HandleTextureChanged;
+            subscribed.OnEnded -= HandleEnded;
+            subscribed = null;
         }
         if (RestorePlaceholderOnDetach && TargetRawImage != null)
         {
@@ -87,7 +96,9 @@ public sealed class BasisVideoDisplay : MonoBehaviour
         }
     }
 
-    private void Update()
+    BasisMediaTickStage IBasisMediaTickConsumer.TickStage => BasisMediaTickStage.Output;
+
+    void IBasisMediaTickConsumer.MediaTick()
     {
         if (Player == null) return;
         var size = Player.VideoSize;
@@ -135,10 +146,9 @@ public sealed class BasisVideoDisplay : MonoBehaviour
         BasisVideoOutputMath.Compose(projScale, projOffset, aspScale, aspOffset,
             out Vector2 scale, out Vector2 offset);
 
-        // Correct backends that publish the frame upside-down (e.g. a Windows GPU
-        // whose video processor can't mirror) so the RawImage matches the
-        // material-output path on every client. RawImage honors a negative-height
-        // uvRect as a vertical flip.
+        // Match the material-output path on platforms whose present writes a
+        // top-left-origin frame. RawImage honors a negative-height uvRect as a
+        // vertical flip.
         if (Player != null && Player.OutputFrameIsTopLeftOrigin)
             BasisVideoOutputMath.ApplyVerticalFlip(ref scale, ref offset);
 
@@ -166,7 +176,9 @@ public sealed class BasisVideoDisplay : MonoBehaviour
 
     private void HandleEnded()
     {
-        if (!RestorePlaceholderOnDetach || TargetRawImage == null) return;
+        // A looping player is about to start again on the same texture; the
+        // last frame holds until it does.
+        if (!RestorePlaceholderOnDetach || TargetRawImage == null || (subscribed != null && subscribed.Loop)) return;
         TargetRawImage.texture = PlaceholderTexture;
         lastBoundTexture = PlaceholderTexture;
         ApplyUvRect(PlaceholderTexture);

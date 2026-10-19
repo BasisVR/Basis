@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,6 +12,7 @@ using Object = UnityEngine.Object;
 namespace HVR.Basis.Comms.Editor
 {
     [CustomEditor(typeof(HVRAvatarComms))]
+    [NoAutoStaticsCleanup]
     public class HVRAvatarCommsEditor : UnityEditor.Editor
     {
         private const string HVRNetworkingPrefabGuid = "630d3429b35a4c844b56751eb1d77d90";

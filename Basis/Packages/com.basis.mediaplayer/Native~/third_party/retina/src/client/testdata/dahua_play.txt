@@ -1,0 +1,6 @@
+RTSP/1.0 200 OK
+CSeq: 7
+Session: 634214684047
+Range: npt=0.000000-
+RTP-Info: url=trackID=0;seq=47121;rtptime=3475222385,url=trackID=1;seq=45186;rtptime=2234446919,url=trackID=4;seq=36583;rtptime=816418535
+

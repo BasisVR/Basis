@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using UnityEditor;
 using UnityEngine;
+using Basis.Editor.Localization;
 
 /// <summary>
 /// Permissions, in one window.
@@ -12,16 +13,16 @@ using UnityEngine;
 /// </summary>
 public sealed class BasisPermissionsWindow : BasisTabbedEditorWindow
 {
-    protected override string HeaderTitle => "Permissions";
+    protected override string HeaderTitle => BasisEditorLocalization.Get("editor.permissionsWindow.title");
 
     protected override string HeaderSubtitle =>
-        "Authored server rules, and what the connected client was actually granted.";
+        BasisEditorLocalization.Get("editor.permissionsWindow.subtitle");
 
     [MenuItem("Basis/Settings/Permissions", false, 400)]
     public static void Open()
     {
         BasisPermissionsWindow w = GetWindow<BasisPermissionsWindow>();
-        w.titleContent = new GUIContent("Permissions");
+        w.titleContent = new GUIContent(BasisEditorLocalization.Get("editor.permissionsWindow.title"));
         w.minSize = new Vector2(920, 520);
         w.Show();
     }

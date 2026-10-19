@@ -9,7 +9,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
     public static class BasisNetworkAvatarDecompressor
     {
         /// <summary>Structural bounds for a wire scale; the server owns the policy limits.</summary>
-        public const float MinNetworkScale = 0.01f;
+        public const float MinNetworkScale = 0.0001f;
         public const float MaxNetworkScale = 1000f;
 
 

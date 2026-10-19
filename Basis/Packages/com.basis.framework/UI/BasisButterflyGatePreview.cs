@@ -1,7 +1,9 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.UI;
 
-public static class BasisButterflyGatePreview
+[AutoStaticsCleanup]
+public static partial class BasisButterflyGatePreview
 {
     // Match the same deadzone math you use for inputs.
     private static float ApplyDeadzone(float v, float dz)

@@ -253,7 +253,7 @@ namespace Basis.Scripts.Vehicles.Main
             RaycastCommand.ScheduleBatch(_hoverCommands, _hoverHits, 1).Complete();
             for (int i = 0; i < count; i++)
             {
-                if (_hoverHits[i].colliderEntityId != 0)
+                if (_hoverHits[i].colliderEntityId.IsValid())
                 {
                     _hoverThrusters[i].ApplyHoverForce(_hoverHits[i].distance);
                 }

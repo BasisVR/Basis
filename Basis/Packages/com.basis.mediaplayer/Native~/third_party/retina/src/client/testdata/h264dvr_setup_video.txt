@@ -1,0 +1,8 @@
+RTSP/1.0 200 OK
+Server: H264DVR 1.0
+Cseq: 4
+Session: 231970;timeout=60
+Transport: RTP/AVP;unicast;mode=PLAY;source=127.0.0.1;client_port=18714-18715;server_port=40004-40005;ssrc=0
+Cache-Control: private
+x-Dynamic-Rate: 1
+

@@ -5,7 +5,7 @@ using Basis.Scripts.Settings;
 namespace Basis.BasisUI
 {
     /// <summary>
-    /// Settings tab for remote nameplate appearance.
+    /// Settings section for remote nameplate appearance.
     /// Exposes an enable toggle plus size and transparency controls.
     /// </summary>
     public static class SettingsProviderNamePlate
@@ -13,6 +13,7 @@ namespace Basis.BasisUI
         [RuntimeInitializeOnLoadMethod]
         static void Init()
         {
+            BasisSettingsSystem.OnSettingsFinishedChanges -= ApplyNamePlateSettings;
             BasisSettingsSystem.OnSettingsFinishedChanges += ApplyNamePlateSettings;
         }
 
@@ -36,12 +37,13 @@ namespace Basis.BasisUI
         /// <summary>
         /// Builds the nameplate group + controls into <paramref name="container"/>
         /// without adding a reset button. Used by the standalone tab and by the
-        /// merged Chat tab so both share one source of truth.
+        /// Chat &amp; UI tab so both share one source of truth.
         /// </summary>
         public static void BuildNamePlateContent(RectTransform container, PanelElementDescriptor tabDescriptor = null)
         {
             PanelToggle toggleMenuOnly = null;
             PanelToggle toggleHoverMenuOnly = null;
+            PanelSlider sliderSelectDistance = null;
             PanelSlider sliderSize = null;
             PanelSlider sliderTransparency = null;
 
@@ -49,6 +51,7 @@ namespace Basis.BasisUI
             {
                 toggleMenuOnly.Descriptor.SetActive(enabled);
                 toggleHoverMenuOnly.Descriptor.SetActive(enabled);
+                sliderSelectDistance.Descriptor.SetActive(enabled);
                 sliderSize.Descriptor.SetActive(enabled);
                 sliderTransparency.Descriptor.SetActive(enabled);
             }
@@ -80,6 +83,12 @@ namespace Basis.BasisUI
                 toggleHoverMenuOnly.Descriptor.SetTitle(BasisLocalization.Get("settings.nameplates.hoverMenuOnly"));
                 toggleHoverMenuOnly.Descriptor.SetTooltip(BasisLocalization.Get("settings.nameplates.hoverMenuOnly.tooltip"));
                 toggleHoverMenuOnly.AssignBinding(BasisSettingsDefaults.NPHoverMenuOnly);
+
+                sliderSelectDistance = PanelSlider.CreateEntryAndBind(
+                    container,
+                    PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.nameplates.selectDistance"), 1f, 100f, true, 0, ValueDisplayMode.Meters),
+                    BasisSettingsDefaults.NPSelectDistance);
+                sliderSelectDistance.Descriptor.SetTooltip(BasisLocalization.Get("settings.nameplates.selectDistance.tooltip"));
 
                 sliderSize = PanelSlider.CreateEntryAndBind(
                     container,
@@ -117,6 +126,7 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.NPEnabled.ResetToDefault();
             BasisSettingsDefaults.NPMenuOnly.ResetToDefault();
             BasisSettingsDefaults.NPHoverMenuOnly.ResetToDefault();
+            BasisSettingsDefaults.NPSelectDistance.ResetToDefault();
             BasisSettingsDefaults.NPSize.ResetToDefault();
             BasisSettingsDefaults.NPTransparency.ResetToDefault();
             ApplyNamePlateSettings();

@@ -1,5 +1,6 @@
 using System;
 using Unity.Collections;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine.Rendering.RenderGraphModule;
 
 namespace UnityEngine.Rendering.Universal.Internal
@@ -20,8 +21,16 @@ namespace UnityEngine.Rendering.Universal.Internal
 
         DeferredLights m_DeferredLights;
 
-        static ShaderTagId[] s_ShaderTagValues;
-        static RenderStateBlock[] s_RenderStateBlocks;
+        static readonly ShaderTagId[] s_ShaderTagValues = {
+            s_ShaderTagLit,
+            s_ShaderTagSimpleLit,
+            s_ShaderTagUnlit,
+            s_ShaderTagComplexLit,
+            s_ShaderTagBakedLit,
+            new ShaderTagId() // Special catch all case for materials where UniversalMaterialType is not defined or the tag value doesn't match anything we know.
+        };
+
+        RenderStateBlock[] m_RenderStateBlocks;
 
         FilteringSettings m_FilteringSettings;
         RenderStateBlock m_RenderStateBlock;
@@ -39,17 +48,7 @@ namespace UnityEngine.Rendering.Universal.Internal
             m_RenderStateBlock.stencilReference = stencilReference;
             m_RenderStateBlock.mask = RenderStateMask.Stencil;
 
-            s_ShaderTagValues ??= new ShaderTagId[]
-            {
-                s_ShaderTagLit,
-                s_ShaderTagSimpleLit,
-                s_ShaderTagUnlit,
-                s_ShaderTagComplexLit,
-                s_ShaderTagBakedLit,
-                new ShaderTagId() // Special catch all case for materials where UniversalMaterialType is not defined or the tag value doesn't match anything we know.
-            };
-
-            s_RenderStateBlocks ??= new RenderStateBlock[]
+            m_RenderStateBlocks = new RenderStateBlock[]
             {
                 DeferredLights.OverwriteStencil(m_RenderStateBlock, (int)StencilUsage.MaterialMask, (int)StencilUsage.MaterialLit),
                 DeferredLights.OverwriteStencil(m_RenderStateBlock, (int)StencilUsage.MaterialMask, (int)StencilUsage.MaterialSimpleLit),
@@ -73,6 +72,16 @@ namespace UnityEngine.Rendering.Universal.Internal
                 cmd.SetGlobalTexture(ShaderPropertyId.screenSpaceIrradiance, data.screenSpaceIrradianceHdl);
             }
 
+            bool useSSR = data.screenSpaceReflectionHdl.IsValid();
+            cmd.SetKeyword(ShaderGlobalKeywords.ScreenSpaceReflection, useSSR);
+            if (useSSR)
+            {
+                cmd.SetGlobalTexture(ShaderPropertyId.screenSpaceReflection, data.screenSpaceReflectionHdl);
+
+                if (data.screenSpaceReflectionRayDistanceHdl.IsValid())
+                    cmd.SetGlobalTexture(ShaderPropertyId.screenSpaceReflectionRayDistance, data.screenSpaceReflectionRayDistanceHdl);
+            }
+
             cmd.DrawRendererList(rendererList);
 
             // Render objects that did not match any shader pass with error shader
@@ -93,6 +102,8 @@ namespace UnityEngine.Rendering.Universal.Internal
             internal RendererListHandle objectsWithErrorRendererListHdl;
 
             internal TextureHandle screenSpaceIrradianceHdl;
+            internal TextureHandle screenSpaceReflectionHdl;
+            internal TextureHandle screenSpaceReflectionRayDistanceHdl;
         }
 
         private void InitRendererLists( ref PassData passData, ScriptableRenderContext context, RenderGraph renderGraph, UniversalRenderingData renderingData, UniversalCameraData cameraData, UniversalLightData lightData, uint batchLayerMask = uint.MaxValue)
@@ -111,7 +122,7 @@ namespace UnityEngine.Rendering.Universal.Internal
 #endif
 
             NativeArray<ShaderTagId> tagValues = new NativeArray<ShaderTagId>(s_ShaderTagValues, Allocator.Temp);
-            NativeArray<RenderStateBlock> stateBlocks = new NativeArray<RenderStateBlock>(s_RenderStateBlocks, Allocator.Temp);
+            NativeArray<RenderStateBlock> stateBlocks = new NativeArray<RenderStateBlock>(m_RenderStateBlocks, Allocator.Temp);
             var param = new RendererListParams(renderingData.cullResults, drawingSettings, filterSettings)
             {
                 tagValues = tagValues,
@@ -151,6 +162,32 @@ namespace UnityEngine.Rendering.Universal.Internal
                 passData.screenSpaceIrradianceHdl = irradianceTexture;
                 builder.UseTexture(irradianceTexture, AccessFlags.Read);
             }
+            if (resourceData.exposureMultiplier.IsValid())
+            {
+                builder.UseTexture(resourceData.exposureMultiplier, AccessFlags.Read);
+            }
+
+            TextureHandle ssrTexture = resourceData.ssrTexture;
+            if (ssrTexture.IsValid())
+            {
+                passData.screenSpaceReflectionHdl = ssrTexture;
+                builder.UseTexture(ssrTexture, AccessFlags.Read);
+            }
+            else
+            {
+                passData.screenSpaceReflectionHdl = TextureHandle.nullHandle;
+            }
+
+            TextureHandle ssrRayDistanceTexture = resourceData.ssrRayDistanceTexture;
+            if (ssrRayDistanceTexture.IsValid())
+            {
+                passData.screenSpaceReflectionRayDistanceHdl = ssrRayDistanceTexture;
+                builder.UseTexture(ssrRayDistanceTexture, AccessFlags.Read);
+            }
+            else
+            {
+                passData.screenSpaceReflectionRayDistanceHdl = TextureHandle.nullHandle;
+            }
 
             RenderGraphUtils.UseDBufferIfValid(builder, resourceData);
 
@@ -168,6 +205,15 @@ namespace UnityEngine.Rendering.Universal.Internal
                 if (useCameraRenderingLayersTexture)
                     builder.SetGlobalTextureAfterPass(resourceData.renderingLayersTexture, s_CameraRenderingLayersTextureID);
             }
+
+#if ENABLE_VR && ENABLE_XR_MODULE
+            if (cameraData.xr.enabled)
+            {
+                bool passSupportsFoveation = cameraData.xrUniversal.canFoveateIntermediatePasses || resourceData.isActiveTargetBackBuffer;
+                builder.EnableFoveatedRasterization(
+                    cameraData.xr.supportsFoveatedRendering && passSupportsFoveation);
+            }
+#endif
 
             builder.AllowGlobalStateModification(true);
 

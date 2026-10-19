@@ -11,15 +11,21 @@ namespace UnityEditor.Rendering.Universal
         // Instance can be null when building AssetBundles, otherwise the lifetime will be given by URPPreprocessBuild
         static URPBuildData m_Instance = null;
 
-        public static URPBuildData instance => m_Instance ??= new(EditorUserBuildSettings.activeBuildTarget, Debug.isDebugBuild);
+        public static URPBuildData instance => m_Instance ??= new(EditorUserBuildSettings.activeBuildTarget);
 
         public bool buildingPlayerForUniversalRenderPipeline { get; private set; }
 
+        public BuildTarget buildTarget { get; private set; }
+
         public List<UniversalRenderPipelineAsset> renderPipelineAssets { get; private set; } = new List<UniversalRenderPipelineAsset>();
 
-        public URPBuildData(BuildTarget buildTarget, bool isDevelopmentBuild)
+        public List<ScriptableRendererData> rendererDataList { get; private set; } = new List<ScriptableRendererData>();
+
+        public URPBuildData(BuildTarget buildTarget)
         {
             m_Instance = this;
+
+            this.buildTarget = buildTarget;
 
             buildingPlayerForUniversalRenderPipeline = CoreBuildData.instance.buildingPlayerForRenderPipeline &&
                                                        CoreBuildData.instance.currentRenderPipelineAssetType == typeof(UniversalRenderPipelineAsset);
@@ -31,12 +37,22 @@ namespace UnityEditor.Rendering.Universal
                     Assert.IsTrue(asset is UniversalRenderPipelineAsset);
                     renderPipelineAssets.Add(asset as UniversalRenderPipelineAsset);
                 }
+
+                foreach (var asset in renderPipelineAssets)
+                {
+                    foreach (var rendererData in asset.m_RendererDataList)
+                    {
+                        if (rendererData != null)
+                            rendererDataList.Add(rendererData);
+                    }
+                }
             }
         }
 
         public void Dispose()
         {
             renderPipelineAssets?.Clear();
+            rendererDataList?.Clear();
 
             buildingPlayerForUniversalRenderPipeline = false;
 

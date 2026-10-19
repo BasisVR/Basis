@@ -1,7 +1,4 @@
-using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
-
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -17,10 +14,13 @@ namespace UnityEngine.Rendering.Universal
 
         public static List<ShadowCasterGroup2D> shadowCasterGroups { get { return s_ShadowCasterGroups; } }
 
-
 #if UNITY_EDITOR
-        static ShadowCasterGroup2DManager()
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStaticsOnLoad()
         {
+            s_ShadowCasterGroups = null;
+
+            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;   // Probably not needed, but added just in case this might get registered again
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
         }
 
@@ -29,7 +29,6 @@ namespace UnityEngine.Rendering.Universal
             if (s_ShadowCasterGroups != null && (state == PlayModeStateChange.ExitingEditMode || state == PlayModeStateChange.ExitingPlayMode))
                 s_ShadowCasterGroups.Clear();
         }
-
 #endif
 
         public static void CacheValues()
@@ -80,7 +79,6 @@ namespace UnityEngine.Rendering.Universal
 
             return retGroup;
         }
-
 
         public static int GetRendereringPriority(ShadowCaster2D shadowCaster)
         {

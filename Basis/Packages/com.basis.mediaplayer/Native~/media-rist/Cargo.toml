@@ -1,0 +1,24 @@
+[package]
+name = "media-rist"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+build = "build.rs"
+
+[features]
+# Links the staged librist static (third_party/librist/, built from source by
+# tools/build-librist.ps1) and enables the real receiver. Off by default: the
+# crate then compiles to a graceful "not built" stub with no native deps.
+librist = []
+
+[dependencies]
+media-demux.workspace = true
+media-diag.workspace = true
+url = "2.5.8"
+
+[build-dependencies]
+cc = "1"
+
+[lints]
+workspace = true

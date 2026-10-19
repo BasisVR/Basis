@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Unity.Scripting.LifecycleManagement;
+using System.Collections.Generic;
 using Basis.BasisUI;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
@@ -27,7 +28,8 @@ using UnityEngine;
 ///                 cone, and global main volume — so you can read off what makes someone
 ///                 quiet.
 /// </summary>
-public static class BasisAudioGizmos
+[AutoStaticsCleanup]
+public static partial class BasisAudioGizmos
 {
     // Mirrored from settings by SMModuleDebugOptions.
     public static bool ShowRanges;
@@ -90,8 +92,8 @@ public static class BasisAudioGizmos
     private static Vector3 _camPos;
 
     // Reused so per-frame ring/star rebuilds don't allocate.
-    private static readonly Vector3[] _ringScratch = new Vector3[RingSegments];
-    private static readonly Vector3[] _dirScratch = new Vector3[DirectivitySegments];
+    [NoAutoStaticsCleanup] private static readonly Vector3[] _ringScratch = new Vector3[RingSegments];
+    [NoAutoStaticsCleanup] private static readonly Vector3[] _dirScratch = new Vector3[DirectivitySegments];
 
     // Reused for the (throttled) breakdown label so a rebuild doesn't allocate a builder.
     private static readonly System.Text.StringBuilder _levelText = new System.Text.StringBuilder(160);
@@ -381,7 +383,7 @@ public static class BasisAudioGizmos
         float main = Mathf.Clamp01(SMModuleAudio.ActiveMainVolume);
         float dist = DistanceAttenuation(audio.audioSource);
         float dir = 1f, occ = 1f;
-#if STEAMAUDIO_ENABLED
+#if STEAMAUDIO_ENABLED && !UNITY_WEBGL
         if (audio.audioSource != null && audio.audioSource.TryGetComponent<SteamAudio.SteamAudioSource>(out var sa))
         {
             dir = Mathf.Clamp01(sa.directivityValue);
@@ -499,7 +501,7 @@ public static class BasisAudioGizmos
                   .Append("%  Net ").Append(Mathf.RoundToInt(net * 100f)).Append("%\n");
         AppendFactor("Slider", slider);
         AppendFactor("Dist", dist);
-#if STEAMAUDIO_ENABLED
+#if STEAMAUDIO_ENABLED && !UNITY_WEBGL
         AppendFactor("Facing", dir);
         AppendFactor("Occlude", occ);
 #endif

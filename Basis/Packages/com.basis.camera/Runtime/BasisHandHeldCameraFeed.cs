@@ -6,7 +6,7 @@ public partial class BasisHandHeldCamera
     private Material actualMaterial, lastAssignedMaterial;
     private RenderTexture renderTexture, lastAssignedRenderTexture;
     private bool captureInFlight;
-    public RenderTexture PreviewTexture => renderTexture;
+    public RenderTexture PreviewTexture => OutputTexture;
     public void SetMsaaSamples(int samples)
     {
         msaaSamples = BasisCameraRenderTargets.SanitizeMsaa(samples);

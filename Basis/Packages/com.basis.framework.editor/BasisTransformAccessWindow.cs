@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEngine;
 
@@ -18,7 +19,7 @@ public class BasisTransformAccessWindow : EditorWindow
     [MenuItem("Basis/Debug/Transform Access", false, 624)]
     static void Open()
     {
-        var window = GetWindow<BasisTransformAccessWindow>("Transform Access");
+        var window = GetWindow<BasisTransformAccessWindow>(BasisEditorLocalization.Get("editor.transformAccess.title"));
         window.minSize = new Vector2(560f, 300f);
     }
 
@@ -26,36 +27,28 @@ public class BasisTransformAccessWindow : EditorWindow
 
     void OnGUI()
     {
-        BasisEditorUI.Header("Transform Access",
-            "Every main-thread Transform get/set on the local player's per-frame path, by call site.");
+        BasisEditorUI.Header(BasisEditorLocalization.Get("editor.transformAccess.title"),
+            BasisEditorLocalization.Get("editor.transformAccess.subtitle"));
 
-        EditorGUILayout.HelpBox(
-            "Counts operations routed through BasisTransformAccess / BasisLocalPose. A main-thread " +
-            "Transform read blocks until every in-flight transform job lands — ScheduleReadOnly does " +
-            "not exempt it — so each of these is a potential sync point. Recording costs a dictionary " +
-            "lookup per operation, far more than the reads it measures: arm it to hunt, then disarm.",
-            MessageType.Info);
+        EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.transformAccess.help"), MessageType.Info);
 
         BasisTransformAudit.Enabled = EditorGUILayout.ToggleLeft(
-            new GUIContent("Record (play mode)", "Count every funnelled operation by call site."),
+            new GUIContent(BasisEditorLocalization.Get("editor.transformAccess.record"), BasisEditorLocalization.Get("editor.transformAccess.record.tooltip")),
             BasisTransformAudit.Enabled);
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
         BasisLocalPose.ValidateHits = EditorGUILayout.ToggleLeft(
-            new GUIContent("Validate cache hits",
-                "Re-read the real Transform on every BasisLocalPose cache hit and compare. A mismatch means " +
-                "something moved a cached transform without calling BasisLocalPose.InvalidateAll() — it is " +
-                "logged as an error naming the reading call site. Run this after touching any writer."),
+            new GUIContent(BasisEditorLocalization.Get("editor.transformAccess.validateHits"), BasisEditorLocalization.Get("editor.transformAccess.validateHits.tooltip")),
             BasisLocalPose.ValidateHits);
 
         EditorGUILayout.Space();
 
         using (new EditorGUILayout.HorizontalScope())
         {
-            EditorGUILayout.LabelField($"Ops last frame: {BasisTransformAudit.CallsLastFrame}", GUILayout.Width(150f));
-            EditorGUILayout.LabelField($"Peak: {BasisTransformAudit.PeakCallsPerFrame}", GUILayout.Width(90f));
-            EditorGUILayout.LabelField($"Sites: {BasisTransformAudit.SiteCount}", GUILayout.Width(80f));
-            EditorGUILayout.LabelField($"Frames: {BasisTransformAudit.FramesObserved}");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.transformAccess.opsLastFrame", BasisTransformAudit.CallsLastFrame), GUILayout.Width(150f));
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.transformAccess.peak", BasisTransformAudit.PeakCallsPerFrame), GUILayout.Width(90f));
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.transformAccess.sites", BasisTransformAudit.SiteCount), GUILayout.Width(80f));
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.transformAccess.frames", BasisTransformAudit.FramesObserved));
         }
 
         int hits = BasisLocalPose.Hits;
@@ -64,25 +57,22 @@ public class BasisTransformAccessWindow : EditorWindow
         float ratio = total > 0 ? hits * 100f / total : 0f;
         using (new EditorGUILayout.HorizontalScope())
         {
-            EditorGUILayout.LabelField($"Cache: {hits} hit / {misses} miss ({ratio:F1}%)", GUILayout.Width(240f));
-            EditorGUILayout.LabelField($"Slots bound: {BasisLocalPose.BoundCount}/{(int)BasisPoseSlot.Count}");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.transformAccess.cache", hits, misses, ratio), GUILayout.Width(240f));
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.transformAccess.slotsBound", BasisLocalPose.BoundCount, (int)BasisPoseSlot.Count));
         }
 
         if (BasisLocalPose.StaleHits > 0)
         {
-            EditorGUILayout.HelpBox(
-                $"{BasisLocalPose.StaleHits} STALE cache hit(s). Last: {BasisLocalPose.LastStaleSite}\n" +
-                "A cached transform was moved without BasisLocalPose.InvalidateAll(). Find that writer and add one.",
-                MessageType.Error);
+            EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.transformAccess.staleHits", BasisLocalPose.StaleHits, BasisLocalPose.LastStaleSite), MessageType.Error);
         }
 
         EditorGUILayout.Space();
         using (new EditorGUILayout.HorizontalScope())
         {
             _sortByPeak = EditorGUILayout.ToggleLeft(
-                new GUIContent("Sort by peak frame", "Sort by the worst single frame rather than the last one — catches sites that spike instead of sitting high."),
+                new GUIContent(BasisEditorLocalization.Get("editor.transformAccess.sortByPeak"), BasisEditorLocalization.Get("editor.transformAccess.sortByPeak.tooltip")),
                 _sortByPeak, GUILayout.Width(160f));
-            if (GUILayout.Button("Reset counts", GUILayout.Width(110f))) BasisTransformAudit.Reset();
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.transformAccess.resetCounts"), GUILayout.Width(110f))) BasisTransformAudit.Reset();
         }
 
         var sites = new List<BasisTransformAudit.Site>(BasisTransformAudit.Sites);
@@ -91,11 +81,11 @@ public class BasisTransformAccessWindow : EditorWindow
         EditorGUILayout.Space();
         using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
         {
-            EditorGUILayout.LabelField("Call site", EditorStyles.miniBoldLabel);
-            EditorGUILayout.LabelField("Last", EditorStyles.miniBoldLabel, GUILayout.Width(50f));
-            EditorGUILayout.LabelField("Peak", EditorStyles.miniBoldLabel, GUILayout.Width(50f));
-            EditorGUILayout.LabelField("Total", EditorStyles.miniBoldLabel, GUILayout.Width(70f));
-            EditorGUILayout.LabelField("Ops", EditorStyles.miniBoldLabel, GUILayout.Width(220f));
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.transformAccess.colCallSite"), EditorStyles.miniBoldLabel);
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.transformAccess.colLast"), EditorStyles.miniBoldLabel, GUILayout.Width(50f));
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.transformAccess.colPeak"), EditorStyles.miniBoldLabel, GUILayout.Width(50f));
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.transformAccess.colTotal"), EditorStyles.miniBoldLabel, GUILayout.Width(70f));
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.transformAccess.colOps"), EditorStyles.miniBoldLabel, GUILayout.Width(220f));
         }
 
         using (var scope = new EditorGUILayout.ScrollViewScope(_scroll))
@@ -104,8 +94,8 @@ public class BasisTransformAccessWindow : EditorWindow
             if (sites.Count == 0)
             {
                 EditorGUILayout.LabelField(BasisTransformAudit.Enabled
-                    ? "Nothing recorded yet — enter play mode."
-                    : "Not recording.", EditorStyles.miniLabel);
+                    ? BasisEditorLocalization.Get("editor.transformAccess.nothingRecorded")
+                    : BasisEditorLocalization.Get("editor.transformAccess.notRecording"), EditorStyles.miniLabel);
             }
 
             for (int i = 0; i < sites.Count; i++)
@@ -122,7 +112,7 @@ public class BasisTransformAccessWindow : EditorWindow
             }
 
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("By operation (last frame)", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.transformAccess.byOperation"), EditorStyles.boldLabel);
             IReadOnlyList<int> ops = BasisTransformAudit.OpsLastFrame;
             for (int i = 0; i < ops.Count; i++)
             {
@@ -131,11 +121,11 @@ public class BasisTransformAccessWindow : EditorWindow
             }
         }
 #else
-        EditorGUILayout.HelpBox("Recording is compiled out of this build.", MessageType.Warning);
+        EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.transformAccess.compiledOut"), MessageType.Warning);
 #endif
     }
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
+#if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
     /// <summary>Compact "GetPosition x3, GetPose x1" summary of what a site actually does.</summary>
     static string DescribeOps(BasisTransformAudit.Site s)
     {

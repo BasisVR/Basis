@@ -28,6 +28,8 @@ namespace BasisDidLink
         public ConcurrentDictionary<int, OnAuth> AuthIdentity = new ConcurrentDictionary<int, OnAuth>();
         private readonly ConcurrentDictionary<int, CancellationTokenSource> _timeouts = new ConcurrentDictionary<int, CancellationTokenSource>();
         private readonly ConcurrentDictionary<string, int> _didCounts = new ConcurrentDictionary<string, int>();
+        private readonly ConcurrentDictionary<int, string> _admitted = new ConcurrentDictionary<int, string>();
+        private readonly object _admitLock = new object();
         public ConcurrentDictionary<string, byte> Admins = new ConcurrentDictionary<string, byte>();
         public static readonly string FilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, Configuration.ConfigFolderName, "admins.xml");
         public BasisDIDAuthIdentity()
@@ -68,8 +70,12 @@ namespace BasisDidLink
         {
             public ReadyMessage ReadyMessage;
             public Challenge Challenge;
+            // What the client has to sign: the nonce bound to this server, this connection's keys and its connect payload.
+            public byte[] Transcript;
             public Did Did;
             public NetPeer Peer;
+            public byte[] ClientKey;
+            public byte[] PayloadHash;
 
             public bool Equals(OnAuth other) => object.Equals(Peer, other.Peer);
             public override bool Equals(object obj) => obj is OnAuth other && Equals(other);
@@ -112,79 +118,51 @@ namespace BasisDidLink
             try
             {
                 if (Configuration.LogConnectionHandshake) BNL.Log($"Processing connection from peer {newPeer.Id}.");
-                ReadyMessage readyMessage = new ReadyMessage();
-                readyMessage.Deserialize(ConnectionRequest.Data);
-
-                if (readyMessage.WasDeserializedCorrectly())
+                NetDataReader Data = ConnectionRequest.Data;
+                byte[] PayloadHash = BasisDidLoginTranscript.HashConnectionPayload(Data.RawData, Data.Position, Data.AvailableBytes);
+                BytesMessage ClientKeyMessage = new BytesMessage();
+                if (!ClientKeyMessage.Deserialize(Data, out byte[] ClientEphemeralPublic) ||
+                    ClientEphemeralPublic.Length != BasisCryptoHandshake.PublicKeySize)
                 {
-                    if (BasisServerHandleEvents.IsHeadlessDisallowed(readyMessage.playerMetaDataMessage, out string reason))
-                    {
-                        BasisServerHandleEvents.RejectWithReason(newPeer, reason);
-                        return;
-                    }
-
-                    string UUID = readyMessage.playerMetaDataMessage.playerUUID;
-                    Did playerDid = new Did(UUID);
-                    if (BasisPlayerModeration.IsBanned(UUID))
-                    {
-                        if (BasisPlayerModeration.GetBannedReason(UUID, out string Reason))
-                        {
-                            BasisServerHandleEvents.RejectWithReason(newPeer, "Banned User!  Reason " + Reason);
-
-                        }
-                        else
-                        {
-                            BasisServerHandleEvents.RejectWithReason(newPeer, " Banned User!");
-                        }
-                        return;
-                    }
-                    if (AuthIdentity.TryGetValue(newPeer.Id, out OnAuth Stale) && !Equals(Stale.Peer, newPeer))
-                    {
-                        BNL.Log($"Auth slot {newPeer.Id} still held by a stale connection; releasing it for the incoming peer.");
-                        RemoveConnection(newPeer.Id, Stale.Peer);
-                    }
-
-                    if (Configuration.HowManyDuplicateAuthCanExist <= CheckForDuplicates(playerDid))
-                    {
-                        BasisServerHandleEvents.RejectWithReason(newPeer, "To Many Auths From this DID!");
-                        return;
-                    }
-
-                    OnAuth OnAuth = new OnAuth
-                    {
-                        Did = playerDid,
-                        Challenge = MakeChallenge(playerDid),
-                        ReadyMessage = readyMessage,
-                        Peer = newPeer
-                    };
-
-                    if (AuthIdentity.TryAdd(newPeer.Id, OnAuth))
-                    {
-                        RetainDid(playerDid);
-                        NetDataWriter Writer = NetworkServer.RentWriter();
-                        BytesMessage NetworkMessage = new BytesMessage();
-                        NetworkMessage.Serialize(Writer, OnAuth.Challenge.Nonce.V);
-                        if (Configuration.LogConnectionHandshake) BNL.Log("Sending out Writer with size : " + Writer.Length);
-                        NetworkServer.TrySend(newPeer, Writer, BasisNetworkCommons.AuthIdentityChannel, DeliveryMethod.ReliableOrdered);
-                        NetworkServer.ReturnWriter(Writer);
-
-                        CancellationTokenSource cts = new CancellationTokenSource();
-                        _timeouts[newPeer.Id] = cts;
-                        Task.Run(async () =>
-                        {
-                            await TimeOut(newPeer, UUID, cts);
-                        });
-                        //   BasisServerHandleEvents.OnNetworkAccepted(newPeer, readyMessage, playerDid.V);
-                    }
-                    else
-                    {
-                        BasisServerHandleEvents.RejectWithReason(newPeer, "Payload Provided was invalid! potential Duplication");
-                    }
+                    BasisServerHandleEvents.RejectWithReason(newPeer, "Invalid connection key.");
+                    return;
                 }
-                else
+                if (!TryReadReadyMessage(Data, newPeer, out ReadyMessage readyMessage))
                 {
-                    BasisServerHandleEvents.RejectWithReason(newPeer, "Invalid ReadyMessage received.");
+                    return;
                 }
+                string UUID = readyMessage.playerMetaDataMessage.playerUUID;
+                Did playerDid = new Did(UUID);
+                if (RejectIfBanned(newPeer, UUID))
+                {
+                    return;
+                }
+                ReleaseStaleSlot(newPeer);
+                if (Configuration.HowManyDuplicateAuthCanExist <= CheckForDuplicates(playerDid))
+                {
+                    BasisServerHandleEvents.RejectWithReason(newPeer, "To Many Auths From this DID!");
+                    return;
+                }
+                OnAuth OnAuth = new OnAuth
+                {
+                    Did = playerDid,
+                    ReadyMessage = readyMessage,
+                    Peer = newPeer,
+                    ClientKey = ClientEphemeralPublic,
+                    PayloadHash = PayloadHash,
+                };
+                if (!AuthIdentity.TryAdd(newPeer.Id, OnAuth))
+                {
+                    BasisServerHandleEvents.RejectWithReason(newPeer, "Payload Provided was invalid! potential Duplication");
+                    return;
+                }
+                CancellationTokenSource cts = new CancellationTokenSource();
+                _timeouts[newPeer.Id] = cts;
+                Task.Run(async () =>
+                {
+                    await TimeOut(newPeer, UUID, cts);
+                });
+                Task.Run(() => IssueChallenge(Configuration, newPeer));
             }
             catch (Exception e)
             {
@@ -192,6 +170,148 @@ namespace BasisDidLink
                 BasisServerHandleEvents.RejectWithReason(newPeer, "Connection could not be processed.");
             }
         }
+        private void IssueChallenge(Configuration Configuration, NetPeer newPeer)
+        {
+            try
+            {
+                if (!AuthIdentity.TryGetValue(newPeer.Id, out OnAuth Entry) || !Equals(Entry.Peer, newPeer))
+                {
+                    return;
+                }
+                BasisCryptoHandshake.GenerateKeyPair(out byte[] ServerEphemeralPrivate, out byte[] ServerEphemeralPublic);
+                if (!BasisCryptoHandshake.DeriveServerKey(ServerEphemeralPrivate, Entry.ClientKey, ServerEphemeralPublic, out byte[] ClientToServerKey))
+                {
+                    RefuseLogin(newPeer, "Invalid connection key.");
+                    return;
+                }
+                if (!newPeer.RequireSealedInbound(ClientToServerKey))
+                {
+                    RefuseLogin(newPeer, "Transport cannot protect the login.");
+                    return;
+                }
+                Challenge Challenge = MakeChallenge(Entry.Did);
+                string ServerUUID = Configuration.ServerUUID ?? string.Empty;
+                OnAuth Issued = Entry;
+                Issued.Challenge = Challenge;
+                Issued.Transcript = BasisDidLoginTranscript.Build(Entry.Did.V, ServerUUID, Challenge.Nonce.V, Entry.ClientKey, ServerEphemeralPublic, Entry.PayloadHash);
+                if (!AuthIdentity.TryUpdate(newPeer.Id, Issued, Entry))
+                {
+                    return;
+                }
+                NetDataWriter Writer = NetworkServer.RentWriter();
+                BytesMessage NetworkMessage = new BytesMessage();
+                NetworkMessage.Serialize(Writer, Challenge.Nonce.V);
+                NetworkMessage.Serialize(Writer, ServerEphemeralPublic);
+                NetworkMessage.Serialize(Writer, Encoding.UTF8.GetBytes(ServerUUID));
+                if (Configuration.LogConnectionHandshake) BNL.Log("Sending out Writer with size : " + Writer.Length);
+                NetworkServer.TrySend(newPeer, Writer, BasisNetworkCommons.AuthIdentityChannel, DeliveryMethod.ReliableOrdered);
+                NetworkServer.ReturnWriter(Writer);
+            }
+            catch (Exception e)
+            {
+                BNL.Log($"Error issuing the login challenge: {e.Message} {e.StackTrace}");
+                RefuseLogin(newPeer, "Connection could not be processed.");
+            }
+        }
+
+        public void ProcessVerifiedConnection(Configuration Configuration, ConnectionRequest ConnectionRequest, NetPeer newPeer, string VerifiedIdentity)
+        {
+            try
+            {
+                NetDataReader Data = ConnectionRequest.Data;
+                BytesMessage ClientKeyMessage = new BytesMessage();
+                if (!ClientKeyMessage.Deserialize(Data, out _))
+                {
+                    BasisServerHandleEvents.RejectWithReason(newPeer, "Invalid connection key.");
+                    return;
+                }
+                if (!TryReadReadyMessage(Data, newPeer, out ReadyMessage readyMessage) || RejectIfBanned(newPeer, VerifiedIdentity))
+                {
+                    return;
+                }
+                ReleaseStaleSlot(newPeer);
+                Did Identity = new Did(VerifiedIdentity);
+                if (!AuthIdentity.TryAdd(newPeer.Id, new OnAuth { Did = Identity, ReadyMessage = readyMessage, Peer = newPeer }))
+                {
+                    BasisServerHandleEvents.RejectWithReason(newPeer, "Payload Provided was invalid! potential Duplication");
+                    return;
+                }
+                if (!TryAdmit(newPeer.Id, Identity, Configuration.HowManyDuplicateAuthCanExist, newPeer))
+                {
+                    if (OwnsPendingEntry(newPeer)) RefuseLogin(newPeer, "To Many Auths From this DID!");
+                    return;
+                }
+                if (Configuration.LogConnectionHandshake) BNL.Log($"Peer {newPeer.Id} logged in as {VerifiedIdentity}, verified by its transport.");
+                BasisServerHandleEvents.OnNetworkAccepted(newPeer, readyMessage, VerifiedIdentity);
+            }
+            catch (Exception e)
+            {
+                BNL.Log($"Error processing verified connection: {e.Message} {e.StackTrace}");
+                BasisServerHandleEvents.RejectWithReason(newPeer, "Connection could not be processed.");
+            }
+        }
+
+        private static bool TryReadReadyMessage(NetDataReader Data, NetPeer newPeer, out ReadyMessage readyMessage)
+        {
+            readyMessage = new ReadyMessage();
+            readyMessage.Deserialize(Data);
+            if (!readyMessage.WasDeserializedCorrectly())
+            {
+                BasisServerHandleEvents.RejectWithReason(newPeer, "Invalid ReadyMessage received.");
+                return false;
+            }
+            if (BasisServerHandleEvents.IsHeadlessDisallowed(readyMessage.playerMetaDataMessage, out string reason))
+            {
+                BasisServerHandleEvents.RejectWithReason(newPeer, reason);
+                return false;
+            }
+            return true;
+        }
+
+        private static bool RejectIfBanned(NetPeer newPeer, string UUID)
+        {
+            if (!BasisPlayerModeration.IsBanned(UUID))
+            {
+                return false;
+            }
+            BasisServerHandleEvents.RejectWithReason(newPeer, BasisPlayerModeration.GetBannedReason(UUID, out string Reason) ? "Banned User!  Reason " + Reason : " Banned User!");
+            return true;
+        }
+
+        private void ReleaseStaleSlot(NetPeer newPeer)
+        {
+            if (AuthIdentity.TryGetValue(newPeer.Id, out OnAuth Stale) && !Equals(Stale.Peer, newPeer))
+            {
+                BNL.Log($"Auth slot {newPeer.Id} still held by a stale connection; releasing it for the incoming peer.");
+                RemoveConnection(newPeer.Id, Stale.Peer);
+            }
+        }
+
+        internal bool TryAdmit(int PeerId, Did Did, int Limit, NetPeer Expected = null)
+        {
+            lock (_admitLock)
+            {
+                if (!AuthIdentity.TryGetValue(PeerId, out OnAuth Entry) || (Expected != null && !Equals(Entry.Peer, Expected)) || _admitted.ContainsKey(PeerId) || CheckForDuplicates(Did) >= Limit)
+                {
+                    return false;
+                }
+                RetainDid(Did);
+                _admitted[PeerId] = Did.V;
+                return true;
+            }
+        }
+
+        private bool OwnsPendingEntry(NetPeer Peer)
+        {
+            return AuthIdentity.TryGetValue(Peer.Id, out OnAuth Entry) && Equals(Entry.Peer, Peer);
+        }
+
+        private void RefuseLogin(NetPeer newPeer, string reason)
+        {
+            RemoveConnection(newPeer.Id, newPeer);
+            BasisServerHandleEvents.RejectWithReason(newPeer, reason);
+        }
+
         // The handshake round trip degrades with how many peers are already on the server: measured
         // on a 32-core box it runs under 50 ms into a near-empty instance and 7.7 s at ~2,400 peers,
         // while verification itself stays at 0.16 ms. A flat window therefore stops being a
@@ -264,11 +384,20 @@ namespace BasisDidLink
 
                 if (AuthIdentity.TryGetValue(newPeer.Id, out OnAuth authIdentity))
                 {
+                    if (_admitted.ContainsKey(newPeer.Id))
+                    {
+                        return;
+                    }
                     Challenge challenge = authIdentity.Challenge;
-                    bool isAuthenticated = await RecvChallengeResponse(response, challenge);
+                    bool isAuthenticated = await RecvChallengeResponse(response, challenge, authIdentity.Transcript);
 
                     if (isAuthenticated)
                     {
+                        if (!TryAdmit(newPeer.Id, authIdentity.Did, NetworkServer.Configuration.HowManyDuplicateAuthCanExist, newPeer))
+                        {
+                            if (OwnsPendingEntry(newPeer)) RefuseLogin(newPeer, "To Many Auths From this DID!");
+                            return;
+                        }
                         BasisServerHandleEvents.OnNetworkAccepted(newPeer, authIdentity.ReadyMessage, authIdentity.Did.V);
                     }
                     else
@@ -289,14 +418,14 @@ namespace BasisDidLink
             return DidAuth.MakeChallenge(ChallengingDID ?? throw new Exception("call RecvDid first"));
         }
 
-        public async Task<bool> RecvChallengeResponse(Response response, Challenge Challenge)
+        public async Task<bool> RecvChallengeResponse(Response response, Challenge Challenge, byte[] Transcript)
         {
             if (!response.DidUrlFragment.V.Equals(string.Empty))
             {
                 throw new Exception("multiple pubkeys not yet supported");
             }
             var challenge = Challenge ?? throw new Exception("call SendChallenge first");
-            var result = await DidAuth.VerifyResponse(response, challenge);
+            var result = await DidAuth.VerifyResponse(response, challenge, new Payload(Transcript ?? throw new Exception("call SendChallenge first")));
             return result.IsOk;
         }
 
@@ -309,16 +438,23 @@ namespace BasisDidLink
         {
             bool Removed;
             OnAuth Entry;
-            if (Expected == null)
+            lock (_admitLock)
             {
-                Removed = AuthIdentity.TryRemove(Id, out Entry);
-            }
-            else
-            {
-                Removed = AuthIdentity.TryGetValue(Id, out Entry)
-                       && Equals(Entry.Peer, Expected)
-                       && ((ICollection<KeyValuePair<int, OnAuth>>)AuthIdentity)
-                              .Remove(new KeyValuePair<int, OnAuth>(Id, Entry));
+                if (Expected == null)
+                {
+                    Removed = AuthIdentity.TryRemove(Id, out Entry);
+                }
+                else
+                {
+                    Removed = AuthIdentity.TryGetValue(Id, out Entry)
+                           && Equals(Entry.Peer, Expected)
+                           && ((ICollection<KeyValuePair<int, OnAuth>>)AuthIdentity)
+                                  .Remove(new KeyValuePair<int, OnAuth>(Id, Entry));
+                }
+                if (Removed && _admitted.TryRemove(Id, out _))
+                {
+                    ReleaseDid(Entry.Did);
+                }
             }
 
             if (!Removed)
@@ -326,7 +462,6 @@ namespace BasisDidLink
                 return false;
             }
 
-            ReleaseDid(Entry.Did);
             if (_timeouts.TryRemove(Id, out var cts))
             {
                 try { cts.Cancel(); } catch { }
@@ -420,7 +555,7 @@ namespace BasisDidLink
 
         public bool NetIDToUUID(NetPeer Peer, out string UUID)
         {
-            if (Peer != null && AuthIdentity.TryGetValue(Peer.Id, out OnAuth OnAuth) && Equals(OnAuth.Peer, Peer))
+            if (Peer != null && _admitted.ContainsKey(Peer.Id) && AuthIdentity.TryGetValue(Peer.Id, out OnAuth OnAuth) && Equals(OnAuth.Peer, Peer))
             {
                 UUID = OnAuth.Did.V;
                 return true;
@@ -431,9 +566,9 @@ namespace BasisDidLink
 
         public bool UUIDToNetID(string UUID, out int Peer)
         {
-            foreach (KeyValuePair<int, OnAuth> Pair in AuthIdentity)
+            foreach (KeyValuePair<int, string> Pair in _admitted)
             {
-                if (Pair.Value.Did.V == UUID)
+                if (Pair.Value == UUID)
                 {
                     Peer = Pair.Key;
                     return true;

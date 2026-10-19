@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Unity.Scripting.LifecycleManagement;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -10,6 +11,7 @@ using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 namespace HVR.LicenseReview.Editor
 {
     [CustomEditor(typeof(LicenseManifest))]
+    [NoAutoStaticsCleanup]
     public class LicenseManifestEditor : UnityEditor.Editor
     {
         private const string ChangeLicenseTrackingStatusLabel = "Change license tracking status";

@@ -1,4 +1,5 @@
-﻿using Basis.BasisUI.Styling;
+﻿using Unity.Scripting.LifecycleManagement;
+using Basis.BasisUI.Styling;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
@@ -8,6 +9,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
@@ -21,17 +24,20 @@ using static SerializableBasis;
 
 namespace Basis.BasisUI
 {
-    public partial class LibraryProvider : BasisMenuActionProvider<BasisMainMenu>
+    [AutoStaticsCleanup]
+    public partial class LibraryProvider : BasisMenuActionProvider<BasisMainMenu>, IBasisMenuSharePlace
     {
         #region Provider Setup
         [RuntimeInitializeOnLoadMethod]
         public static async void AddToMenu()
         {
             BasisMenuBase<BasisMainMenu>.AddProvider(new LibraryProvider());
+            await Basis.Scripts.Platform.BasisWebAddressables.WhenReady();
 
             // begin meta data caching here
             // load all the keys
             await BasisDataStoreItemKeys.LoadKeys();
+            await BasisDataStoreItemFolders.EnsureLoaded();
 
             // cache all items into the meta data
             // build data to be used
@@ -80,6 +86,7 @@ namespace Basis.BasisUI
             BasisRuntimeSpawnRegistry.OnPendingLoadsChanged -= OnPendingLoadsChanged;
             BasisRuntimeSpawnRegistry.OnPendingLoadProgress -= OnPendingLoadProgress;
             BasisRuntimeSpawnRegistry.OnFailedLoadsChanged -= OnFailedLoadsChanged;
+            BasisShareableRegistry.OnChanged -= OnShareablesRegistryChanged;
             BasisNetworkManagement.OnlocalPermissionsChanged -= ProtectionValidation;
         }
 
@@ -120,7 +127,8 @@ namespace Basis.BasisUI
             Prop = 0,
             World = 1,
             Avatar = 2,
-            Instantiated = 3
+            Folders = 3,
+            Instantiated = 4
         }
         private static Page _currentPage = Page.Avatar;
         private static Dictionary<Page, PanelTabPage> tabMap;
@@ -162,7 +170,7 @@ namespace Basis.BasisUI
             var propsTab = PropsTab(tabGroup);
             var worldsTab = WorldsTab(tabGroup);
             var avatarsTab = AvatarsTab(tabGroup);
-            var instantiatedTab = InstantiatedTab(tabGroup);
+            var foldersTab = FoldersTab(tabGroup);
 
             // map of the pages to enums
             tabMap = new Dictionary<Page, PanelTabPage>
@@ -170,14 +178,15 @@ namespace Basis.BasisUI
                 [Page.Avatar] = avatarsTab,
                 [Page.World] = worldsTab,
                 [Page.Prop] = propsTab,
-                [Page.Instantiated] = instantiatedTab
+                [Page.Folders] = foldersTab
             };
 
             // Attach per-tab refresh callbacks that only fetch and rebuild the associated tab when selected
             tabGroup.AddTab(BasisLocalization.Get("library.tab.props"), AddressableAssets.Sprites.Items, async () => await RefreshTabAsync(Page.Prop, true), propsTab);
             tabGroup.AddTab(BasisLocalization.Get("library.tab.worlds"), AddressableAssets.Sprites.World, async () => await RefreshTabAsync(Page.World, true), worldsTab);
             tabGroup.AddTab(BasisLocalization.Get("library.tab.avatars"), AddressableAssets.Sprites.Avatars, async () => await RefreshTabAsync(Page.Avatar, true), avatarsTab);
-            tabGroup.AddTab(BasisLocalization.Get("library.tab.instantiated"), AddressableAssets.Sprites.List, async () => await RefreshTabAsync(Page.Instantiated, true), instantiatedTab);
+            tabGroup.AddTab(BasisLocalization.Get("library.tab.folders"), AddressableAssets.Sprites.FileTray, async () => await RefreshTabAsync(Page.Folders, true), foldersTab);
+            tabGroup.AddTab(BasisLocalization.Get("library.tab.instantiated"), AddressableAssets.Sprites.List, async () => await RefreshTabAsync(Page.Instantiated, true), null);
 
             // create a search text field in the tab group extras area
             searchField = PanelTextField.CreateNew(TextFieldStyles.EntryWithNoTitle, tabGroup.ExtrasContainer);
@@ -193,6 +202,7 @@ namespace Basis.BasisUI
 
             // create a sorting dropdown in the tab group extras area
             dateSorting = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.EntryNoLabel, tabGroup.ExtrasContainer);
+            dateSorting.ShareTitleKey = "library.sortMode";
             string[] dateSortNames = Enum.GetNames(typeof(LibraryDateSortMode));
 
             dateSorting.Descriptor.SetSize(new Vector2(60, 80));
@@ -213,6 +223,7 @@ namespace Basis.BasisUI
 
             // create a sorting dropdown in the tab group extras area
             itemTypeSorting = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.EntryNoLabel, tabGroup.ExtrasContainer);
+            itemTypeSorting.ShareTitleKey = "library.filterMode";
             string[] itemTypeNames = Enum.GetNames(typeof(LibraryItemTypeFilter));
 
             itemTypeSorting.Descriptor.SetSize(new Vector2(60, 80));
@@ -253,6 +264,9 @@ namespace Basis.BasisUI
 
             // add our extra menu button items, this is the buttons below the panel content
             addNewContentButton = tabGroup.AddExtraAction(BasisLocalization.Get("library.addNewContent"), async () => await LibraryProviderDialogAdd.PromptUserForNewContent(panel), new Vector2(70, 80));
+            newFolderButton = tabGroup.AddExtraAction(BasisLocalization.Get("library.folder.new"), async () => await PromptCreateFolder(), new Vector2(70, 80));
+
+            if (!SyncFoldersTab() && _currentPage == Page.Folders) _currentPage = Page.Avatar;
 
             // set the current tab to the current page
             tabGroup.SetValue((int)_currentPage); // this will trigger the tab selection and associated content loading
@@ -355,7 +369,7 @@ namespace Basis.BasisUI
                 return wrapper;
             }
 
-            // If the metadata is missing on disk, remove the key and DO NOT attempt to create a bundle from it.
+            // If the metadata is missing on disk, DO NOT attempt to create a bundle from it.
             var (onDisc, info) = await BasisLoadHandler.IsMetaDataOnDiscAsync(item.Url);
             if (onDisc)
             {
@@ -377,8 +391,7 @@ namespace Basis.BasisUI
             }
             else
             {
-                BasisDebug.LogError($"Attempted to BuildWrapper({item.Url}) but IsMetaDataOnDisc returned false, removing item {item.Url}");
-                await BasisDataStoreItemKeys.RemoveKey(item);
+                BasisDebug.LogError($"Attempted to BuildWrapper({item.Url}) but IsMetaDataOnDisc returned false");
                 return null;
             }
         }
@@ -518,6 +531,17 @@ namespace Basis.BasisUI
             return tab;
         }
 
+        private static PanelTabPage EnsureInstantiatedTab()
+        {
+            PanelTabPage tab = GetTabFromPage(Page.Instantiated);
+            if (tab != null || !PanelAlive) return tab;
+            tab = InstantiatedTab(tabGroup);
+            tabMap[Page.Instantiated] = tab;
+            tabGroup.Pages[(int)Page.Instantiated] = tab;
+            tab.ShowPage(tabGroup.Value == (int)Page.Instantiated);
+            return tab;
+        }
+
         private static void BuildItemsList(List<List<BasisDataStoreItemKeys.ItemKey>> stacks, PanelTabPage tab)
         {
             RectTransform container = tab.Descriptor.ContentParent;
@@ -633,7 +657,7 @@ namespace Basis.BasisUI
             return DateTime.MinValue;
         }
 
-        private static void ClearTabContent(RectTransform container)
+        internal static void ClearTabContent(RectTransform container)
         {
             if (container == null) return;
             // Destroy all child gameobjects under the content parent
@@ -667,13 +691,23 @@ namespace Basis.BasisUI
 
         public static async Task RefreshTabAsync(Page page, bool clearSearch = false)
         {
-            PanelTabPage tab = GetTabFromPage(page);
+            PanelTabPage tab = page == Page.Instantiated ? EnsureInstantiatedTab() : GetTabFromPage(page);
             //BasisDebug.Log($"RefreshTabAsync() was invoked -> for page = {page}, tab = {tab} _currentTab = {_currentTab}, ");
             if (tab == null) return;
 
             // Ensure keys are loaded
             await BasisDataStoreItemKeys.LoadKeys();
             if (!PanelAlive) return;
+
+            await BasisDataStoreItemFolders.EnsureLoaded();
+            if (!PanelAlive) return;
+            if (!SyncFoldersTab() && page == Page.Folders)
+            {
+                page = Page.Avatar;
+                tab = GetTabFromPage(page);
+                if (tab == null) return;
+                tabGroup.SetValue((int)page);
+            }
 
             if(clearSearch)
             {
@@ -701,6 +735,7 @@ namespace Basis.BasisUI
                     BasisRuntimeSpawnRegistry.OnPendingLoadsChanged -= OnPendingLoadsChanged;
                     BasisRuntimeSpawnRegistry.OnPendingLoadProgress -= OnPendingLoadProgress;
                     BasisRuntimeSpawnRegistry.OnFailedLoadsChanged -= OnFailedLoadsChanged;
+                    BasisShareableRegistry.OnChanged -= OnShareablesRegistryChanged;
                 }
             }
 
@@ -708,9 +743,16 @@ namespace Basis.BasisUI
             _currentPage = page;
             _currentTab = tab;
 
-            addNewContentButton.Descriptor.SetActive(_currentPage != Page.Instantiated); // if we are on the Instantiated hide the add new content button
+            addNewContentButton.Descriptor.SetActive(_currentPage != Page.Instantiated && _currentPage != Page.Folders); // if we are on the Instantiated hide the add new content button
+            newFolderButton.Descriptor.SetActive(_currentPage == Page.Folders);
             //networkSorting.Descriptor.SetActive(_currentPage == Page.Instantiated); // show network sorting on the Instantiated page.
             itemTypeSorting.Descriptor.SetActive(_currentPage == Page.Instantiated); // show item type sorting for the Instantiated page.
+
+            if (page == Page.Folders)
+            {
+                await RefreshFoldersTab(tab);
+                return;
+            }
 
             // try convert the mode and page we are on to match
             if (TryConvert(page, out BundledContentHolder.Mode mode))
@@ -751,7 +793,7 @@ namespace Basis.BasisUI
                             var url = k.Url ?? string.Empty;
                             if (k.EmbeddedSettings.IsEmbedded && k.EmbeddedSettings.SourceType == BasisDataStoreItemKeys.EmbeddedSource.Addressable)
                             {
-                                if (!string.IsNullOrEmpty(url) && url.IndexOf(_currentSearchQuery, StringComparison.InvariantCultureIgnoreCase) >= 0)
+                                if (!string.IsNullOrEmpty(url) && (url.IndexOf(_currentSearchQuery, StringComparison.InvariantCultureIgnoreCase) >= 0 || EmbeddedItems.GetDisplayNameForEmbeddedItem(k).IndexOf(_currentSearchQuery, StringComparison.InvariantCultureIgnoreCase) >= 0))
                                 {
                                     return true;
                                 }
@@ -909,7 +951,7 @@ namespace Basis.BasisUI
         /// The item card displayed all around the library menu. A stack with more than one entry
         /// renders as a single card (newest upload in front) that opens a version picker on click.
         /// </summary>
-        private static void CreateItemCard(List<BasisDataStoreItemKeys.ItemKey> stack, RectTransform container)
+        private static PanelButton CreateItemCard(List<BasisDataStoreItemKeys.ItemKey> stack, RectTransform container, Action onOverlayClosed = null)
         {
             BasisDataStoreItemKeys.ItemKey item = stack[0];
             PanelButton buttonPanel = PanelButton.CreateNew(ButtonStyles.Prop, container);
@@ -987,7 +1029,7 @@ namespace Basis.BasisUI
             if (item.EmbeddedSettings.IsEmbedded && item.EmbeddedSettings.SourceType == BasisDataStoreItemKeys.EmbeddedSource.Addressable)
             {
 
-                desc.SetTitle(urlKey);
+                desc.SetTitle(EmbeddedItems.GetDisplayNameForEmbeddedItem(item));
                 desc.SetDescription(urlKey);
                 desc.ForceRebuild();
 
@@ -1013,6 +1055,12 @@ namespace Basis.BasisUI
                         desc.ForceRebuild();
                     }
                 }
+                else if (CachedMetaData.IsNotWorking(urlKey))
+                {
+                    desc.SetTitle(BasisLocalization.Get("library.notWorking"));
+                    desc.SetDescription(urlKey);
+                    desc.ForceRebuild();
+                }
                 else
                 {
                     desc.SetTitle(BasisLocalization.Get("library.loading"));
@@ -1034,14 +1082,15 @@ namespace Basis.BasisUI
 
                 try
                 {
-                    ShowItemOverlay(chosen);
+                    ShowItemOverlay(chosen, onOverlayClosed);
                 }
                 catch (Exception ex)
                 {
-                    BasisDebug.LogError($"Item '{chosen?.Url}' failed to open and will be removed: {ex.Message}");
+                    BasisDebug.LogError($"Item '{chosen?.Url}' failed to open: {ex.Message}");
                     _ = HandleBadItem(chosen);
                 }
             };
+            return buttonPanel;
         }
 
         /// <summary>
@@ -1146,6 +1195,44 @@ namespace Basis.BasisUI
         }
 
         private static BasisDataStoreItemKeys.ItemKey _activeItem;
+        private static PanelElementDescriptor _itemOverlay;
+        private static string _itemOverlayPlace;
+        private static string _itemOverlayLabel;
+
+        public string DescribeSharePlace(PanelComponent control, out string label)
+        {
+            label = null;
+            if (_itemOverlay == null || control == null || !control.transform.IsChildOf(_itemOverlay.transform)) return null;
+            label = _itemOverlayLabel;
+            return _itemOverlayPlace;
+        }
+
+        public bool OpenSharePlace(string place)
+        {
+            List<BasisDataStoreItemKeys.ItemKey> items = LibraryItemsForFolders();
+            for (int Index = 0; Index < items.Count; Index++)
+            {
+                if (items[Index] == null || SharePlaceOf(items[Index]) != place) continue;
+                BasisMainMenu.OpenWithProvider(this);
+                if (!PanelAlive) return false;
+                ShowItemOverlay(items[Index]);
+                return true;
+            }
+            return false;
+        }
+
+        public RectTransform SharePlaceRoot(string place) => _itemOverlay != null && _itemOverlayPlace == place ? _itemOverlay.ContentParent : null;
+
+        private static string SharePlaceOf(BasisDataStoreItemKeys.ItemKey item)
+        {
+            using (SHA256 sha = SHA256.Create())
+            {
+                byte[] hash = sha.ComputeHash(Encoding.UTF8.GetBytes(item.Url ?? string.Empty));
+                StringBuilder text = new StringBuilder(32);
+                for (int Index = 0; Index < 16; Index++) text.Append(hash[Index].ToString("x2", CultureInfo.InvariantCulture));
+                return text.ToString();
+            }
+        }
 
         private static string ConvertItemKeyToAddressableSprite(BasisDataStoreItemKeys.ItemKey item)
         {
@@ -1168,14 +1255,39 @@ namespace Basis.BasisUI
             return item.PinnedSettings.IsPinned ? BasisLocalization.Get("library.pinned") : BasisLocalization.Get("library.pin");
         }
 
+        private static async Task RetryOrPromptNotWorking(BasisDataStoreItemKeys.ItemKey item)
+        {
+            if (!CachedMetaData.IsNotWorking(item.Url))
+            {
+                await CachedMetaData.PreloadMetaDataForItem(item);
+                if (CachedMetaData.TryGetMeta(item.Url, out CachedMetaData.CachedContent meta) && meta?.BasisBundleConnector?.BasisBundleDescription != null)
+                {
+                    if (PanelAlive)
+                    {
+                        ShowItemOverlay(item);
+                    }
+                    return;
+                }
+            }
+            await HandleBadItem(item);
+        }
+
         private static async Task HandleBadItem(BasisDataStoreItemKeys.ItemKey item)
         {
+            if (!PanelAlive || item.EmbeddedSettings.IsEmbedded || BasisServerProvidedItems.IsServerProvided(item))
+            {
+                return;
+            }
+            if (!await LibraryProviderDialogRemove.PromptUserForNotWorking(panel, item, CachedMetaData.DisplayNameFor(item)))
+            {
+                return;
+            }
             BasisStorageManagement.DeleteStoredFile(item.Url);
             await BasisDataStoreItemKeys.RemoveKey(item);
             await RefreshCurrentTab();
         }
 
-        public static void ShowItemOverlay(BasisDataStoreItemKeys.ItemKey item)
+        public static void ShowItemOverlay(BasisDataStoreItemKeys.ItemKey item, Action onClosed = null)
         {
             #region ITEM OVERLAY SETUP
 
@@ -1217,9 +1329,9 @@ namespace Basis.BasisUI
             }
             else if (!hasMeta || metadata?.BasisBundleConnector == null || metadata.BasisBundleConnector.BasisBundleDescription == null)
             {
-                // Bad or missing file - show error, remove from disk, and refresh
-                BasisDebug.LogError($"Item '{item.Url}' has invalid or missing metadata. Removing from library.");
-                _ = HandleBadItem(item);
+                // Bad or missing file - retry the load, then ask the user whether to remove it
+                BasisDebug.LogWarning($"Item '{item.Url}' has invalid or missing metadata.");
+                _ = RetryOrPromptNotWorking(item);
                 return;
             }
             else
@@ -1235,9 +1347,13 @@ namespace Basis.BasisUI
 
             // Build overlay using DialogBox helper
             DialogBox<BasisDataStoreItemKeys.ItemKey> existingItemDialog = DialogBox<BasisDataStoreItemKeys.ItemKey>.Create(panel, overlaySize,
-                $"{LibraryProviderStrUtil.TitleToCase(description.AssetBundleName)}{(spawnItemCount > 0 ? $" {BasisLocalization.Get("library.spawnedCount", spawnItemCount)}" : "" )}",
+                $"{description.AssetBundleName}{(spawnItemCount > 0 ? $" {BasisLocalization.Get("library.spawnedCount", spawnItemCount)}" : "" )}",
                 $"{(description.AssetBundleDescription.Length > 0 ? description.AssetBundleDescription : BasisLocalization.Get("library.noDescription"))}",
                 ConvertItemKeyToAddressableSprite(item));
+            if (onClosed != null) NotifyWhenClosed(existingItemDialog, onClosed);
+            _itemOverlay = existingItemDialog.Descriptor;
+            _itemOverlayPlace = SharePlaceOf(item);
+            _itemOverlayLabel = description.AssetBundleName;
 
             // only items can be pinned as props
             // this has to be here to ensure correct placement
@@ -1655,10 +1771,11 @@ namespace Basis.BasisUI
 
             actionsPanel.Descriptor.SetHeight(60);
             //actionsPanel.Descriptor.SetWidth(900);
+            if (actionsPanel.TabButtonParent.TryGetComponent(out HorizontalLayoutGroup actionsLayout)) actionsLayout.spacing = 30;
 
             PanelButton deletePanelButton = PanelButton.CreateNew(ButtonStyles.CancelButton, actionsPanel.TabButtonParent); //ButtonStyles.Cancel
             deletePanelButton.Descriptor.SetTitle(BasisLocalization.Get("library.delete"));
-            deletePanelButton.Descriptor.SetWidth(200);
+            deletePanelButton.Descriptor.SetWidth(170);
             deletePanelButton.Descriptor.SetHeight(60);
 
             // Embedded items can never be deleted. Server-provided items CAN — the
@@ -1751,6 +1868,28 @@ namespace Basis.BasisUI
                 }
             };
 
+            PanelButton folderPanelButton = PanelButton.CreateNew(ButtonStyles.StandardButton, actionsPanel.TabButtonParent);
+            ApplyFolderMembership(folderPanelButton, item);
+            folderPanelButton.Descriptor.SetWidth(200);
+            folderPanelButton.Descriptor.SetHeight(60);
+            folderPanelButton.OnClicked += async () =>
+            {
+                if (existingItemDialog.IsBusy) return;
+                existingItemDialog.IsBusy = true;
+                try
+                {
+                    if (await LibraryProviderDialogItemFolders.PromptUserToFileItem(panel, item))
+                    {
+                        ApplyFolderMembership(folderPanelButton, item);
+                        await RefreshCurrentTab();
+                    }
+                }
+                finally
+                {
+                    existingItemDialog.IsBusy = false;
+                }
+            };
+
             // Share button - only enabled when connected to a server
             PanelButton sharePanelButton = PanelButton.CreateNew(ButtonStyles.StandardButton, actionsPanel.TabButtonParent);
             sharePanelButton.Descriptor.SetTitle(BasisLocalization.Get("library.share"));
@@ -1819,7 +1958,7 @@ namespace Basis.BasisUI
                     break;
             }
 
-            loadPanelButton.Descriptor.SetWidth(450);
+            loadPanelButton.Descriptor.SetWidth(340);
             loadPanelButton.Descriptor.SetHeight(60);
             // on load of a item we do these actions
             loadPanelButton.OnClicked += async () =>
@@ -1864,7 +2003,7 @@ namespace Basis.BasisUI
         private static async void ApplyMetaDataToButton(PanelButton buttonPanel, CachedMetaData.CachedContent cachedMeta, string urlKey)
         {
             var desc = buttonPanel.Descriptor;
-            desc.SetTitle(LibraryProviderStrUtil.TitleToCase(!string.IsNullOrEmpty(cachedMeta.Name) ? cachedMeta.Name : urlKey));
+            desc.SetTitle(!string.IsNullOrEmpty(cachedMeta.Name) ? cachedMeta.Name : urlKey);
             desc.SetDescription(urlKey);
             desc.ForceRebuild();
 
@@ -2099,6 +2238,10 @@ namespace Basis.BasisUI
                         break;
                 }
             }
+            catch (OperationCanceledException)
+            {
+                BasisDebug.Log($"Load of {item.Url} was cancelled.");
+            }
             catch (Exception ex)
             {
                 BasisDebug.LogError(ex);
@@ -2186,7 +2329,7 @@ namespace Basis.BasisUI
         {
             bool hasMetaData = k.bundleConnector != null;
             return hasMetaData
-                ? LibraryProviderStrUtil.TitleToCase(k.bundleConnector.BasisBundleDescription.AssetBundleName)
+                ? k.bundleConnector.BasisBundleDescription.AssetBundleName
                 : EmbeddedItems.GetDisplayNameForUrl(k.Url);
         }
 
@@ -2453,7 +2596,7 @@ namespace Basis.BasisUI
         {
             if (CachedMetaData.TryGetMeta(pending.Url, out var meta) && !string.IsNullOrEmpty(meta.Name))
             {
-                return LibraryProviderStrUtil.TitleToCase(meta.Name);
+                return meta.Name;
             }
             return pending.Url;
         }
@@ -2473,6 +2616,15 @@ namespace Basis.BasisUI
         /// <see cref="BasisRuntimeSpawnRegistry.SpawnInstance"/> behind it — pending and failed
         /// loads. Kept in one place so the two can never drift from each other.
         /// </summary>
+        private static bool CanRemoveSpawn(BasisRuntimeSpawnRegistry.SpawnMethod method, bool isProtected, string creatorUUID)
+        {
+            if (method != BasisRuntimeSpawnRegistry.SpawnMethod.Network || IsProtected) return true;
+            if (isProtected) return false;
+            return !BasisNetworkModeration.GlobalContentRemovalLocked || (BasisLocalPlayer.Instance != null && creatorUUID == BasisLocalPlayer.Instance.UUID);
+        }
+
+        private static string RemoveDisabledReason(bool isProtected) => BasisLocalization.Get(isProtected ? "library.disabled.protected" : "library.disabled.removalLocked");
+
         private static bool RowPassesFilters(BasisRuntimeSpawnRegistry.SpawnMode mode, BasisRuntimeSpawnRegistry.SpawnMethod method, string creatorUUID, bool isProtected, bool persistent, string title)
         {
             if (!string.IsNullOrWhiteSpace(_currentSearchQuery))
@@ -2590,7 +2742,7 @@ namespace Basis.BasisUI
             _pendingLoadRowInfo[pending.PendingId] = itemTextInfo.Descriptor;
 
             // Same rule the spawned/failed rows use: a protected networked item is an admin's to remove.
-            bool canRemove = pending.SpawnMethod != BasisRuntimeSpawnRegistry.SpawnMethod.Network || !pending.isProtected || IsProtected;
+            bool canRemove = CanRemoveSpawn(pending.SpawnMethod, pending.isProtected, pending.UUIDOfCreator);
 
             BuildEntryActionButton(itemListPanel.TabButtonParent, new EntryActionButton
             {
@@ -2598,7 +2750,7 @@ namespace Basis.BasisUI
                 Icon = AddressableAssets.Sprites.Trash,
                 Tooltip = BasisLocalization.Get("library.instantiated.pending.cancel.tooltip"),
                 Disabled = !canRemove,
-                DisabledReason = canRemove ? null : BasisLocalization.Get("library.disabled.protected"),
+                DisabledReason = canRemove ? null : RemoveDisabledReason(pending.isProtected),
                 OnClick = async () =>
                 {
                     BasisDebug.Log($"CreatePendingListEntry() -> requested cancel of pending load = {pending.Url} of PendingId = {pending.PendingId} of SpawnMethod = {pending.SpawnMethod} and SpawnMode = {pending.SpawnMode}");
@@ -2641,7 +2793,7 @@ namespace Basis.BasisUI
         {
             if (CachedMetaData.TryGetMeta(failed.Url, out var meta) && !string.IsNullOrEmpty(meta.Name))
             {
-                return LibraryProviderStrUtil.TitleToCase(meta.Name);
+                return meta.Name;
             }
             return failed.Url;
         }
@@ -2735,7 +2887,7 @@ namespace Basis.BasisUI
             itemTextInfo.Descriptor.SetWidth(400);
 
             // Same rule the spawned rows use: a protected networked item is an admin's to remove.
-            bool canRemove = failed.SpawnMethod != BasisRuntimeSpawnRegistry.SpawnMethod.Network || !failed.isProtected || IsProtected;
+            bool canRemove = CanRemoveSpawn(failed.SpawnMethod, failed.isProtected, failed.UUIDOfCreator);
 
             BuildEntryActionButton(itemListPanel.TabButtonParent, new EntryActionButton
             {
@@ -2743,7 +2895,7 @@ namespace Basis.BasisUI
                 Icon = AddressableAssets.Sprites.Trash,
                 Tooltip = BasisLocalization.Get("library.instantiated.failed.remove.tooltip"),
                 Disabled = !canRemove,
-                DisabledReason = canRemove ? null : BasisLocalization.Get("library.disabled.protected"),
+                DisabledReason = canRemove ? null : RemoveDisabledReason(failed.isProtected),
                 OnClick = async () =>
                 {
                     BasisDebug.Log($"CreateFailedListEntry() -> requested removal of failed item = {failed.Url} of LoadedNetID = {failed.LoadedNetID} of SpawnMethod = {failed.SpawnMethod} and SpawnMode = {failed.SpawnMode}");
@@ -2812,6 +2964,14 @@ namespace Basis.BasisUI
             itemListPanel.Descriptor.SetWidth(1400);
             itemListPanel.Descriptor.SetHeight(95);
 
+            if (entry.Protected)
+            {
+                PanelImage protectedPanelImage = PanelImage.CreateNew(PanelImage.ImageStyles.SimpleSquare, itemListPanel.TabButtonParent);
+                protectedPanelImage.SetSize(new Vector2(80, 80));
+                protectedPanelImage.SetIcon(AddressableAssets.Sprites.Admin);
+                protectedPanelImage.Descriptor.SetTooltip(BasisLocalization.Get("library.instantiated.icon.admin.tooltip"));
+            }
+
             PanelImage typePanelImage = PanelImage.CreateNew(PanelImage.ImageStyles.SimpleSquare, itemListPanel.TabButtonParent);
             typePanelImage.SetSize(new Vector2(80, 80));
             typePanelImage.SetIcon(ShareableIcon(entry.Kind));
@@ -2820,9 +2980,10 @@ namespace Basis.BasisUI
             PanelTextField itemTextInfo = PanelTextField.CreateNew(TextFieldStyles.Entry, itemListPanel.TabButtonParent);
             itemTextInfo._inputField.gameObject.SetActive(false);
             itemTextInfo.Descriptor.SetTitle(ShareableDisplayName(entry));
-            if (!string.IsNullOrEmpty(entry.SharerName))
+            string sharerName = BasisRemotePlayer.BuildSafeDisplayName(entry.SharerName);
+            if (!string.IsNullOrEmpty(sharerName))
             {
-                itemTextInfo.Descriptor.SetDescription(BasisLocalization.Get("library.shareable.sharedBy", LibraryProviderStrUtil.TitleToCase(entry.SharerName)));
+                itemTextInfo.Descriptor.SetDescription(BasisLocalization.Get("library.shareable.sharedBy", sharerName));
             }
             itemTextInfo.Descriptor.SetHeight(50);
             itemTextInfo.Descriptor.SetWidth(400);
@@ -2939,6 +3100,10 @@ namespace Basis.BasisUI
                 case BasisShareableKind.World: return AddressableAssets.Sprites.World;
                 case BasisShareableKind.Server: return AddressableAssets.Sprites.Network;
                 case BasisShareableKind.DollyTrack: return AddressableAssets.Sprites.Camera;
+                case BasisShareableKind.Link: return AddressableAssets.Sprites.Link;
+                case BasisShareableKind.Text: return AddressableAssets.Sprites.List;
+                case BasisShareableKind.Folder: return AddressableAssets.Sprites.FileTray;
+                case BasisShareableKind.Setting: return AddressableAssets.Sprites.Settings;
                 default: return AddressableAssets.Sprites.Items;
             }
         }
@@ -2953,6 +3118,10 @@ namespace Basis.BasisUI
                 case BasisShareableKind.Server: return BasisLocalization.Get("library.shareable.server");
                 case BasisShareableKind.Image: return BasisLocalization.Get("library.shareable.image");
                 case BasisShareableKind.DollyTrack: return BasisLocalization.Get("library.shareable.dollyTrack");
+                case BasisShareableKind.Link: return BasisLocalization.Get("library.shareable.link");
+                case BasisShareableKind.Text: return BasisLocalization.Get("library.shareable.text");
+                case BasisShareableKind.Folder: return BasisLocalization.Get("library.shareable.folder");
+                case BasisShareableKind.Setting: return BasisLocalization.Get("library.shareable.setting");
                 default: return BasisLocalization.Get("library.shareable.other");
             }
         }
@@ -2969,7 +3138,7 @@ namespace Basis.BasisUI
         {
             bool hasMetaData = itemKey.bundleConnector != null;
             string title = hasMetaData
-                ? LibraryProviderStrUtil.TitleToCase(itemKey.bundleConnector.BasisBundleDescription.AssetBundleName)
+                ? itemKey.bundleConnector.BasisBundleDescription.AssetBundleName
                 : EmbeddedItems.GetDisplayNameForUrl(itemKey.Url);
             //string description = hasMetaData ? (itemKey.bundleConnector.BasisBundleDescription.AssetBundleDescription.Length > 0 ? itemKey.bundleConnector.BasisBundleDescription.AssetBundleDescription : "No description was provided.") : (itemKey.SpawnMethod == BasisRuntimeSpawnRegistry.SpawnMethod.Embedded ? "Embedded Item" : "N/A");
 
@@ -3245,7 +3414,7 @@ namespace Basis.BasisUI
             }
 
             // Network items can be protected; only an admin may remove those. Non-network items always removable.
-            bool canRemove = itemKey.SpawnMethod != BasisRuntimeSpawnRegistry.SpawnMethod.Network || !itemKey.isProtected || IsProtected;
+            bool canRemove = CanRemoveSpawn(itemKey.SpawnMethod, itemKey.isProtected, itemKey.UUIDOfCreator);
 
             BuildEntryActionButton(itemListPanel.TabButtonParent, new EntryActionButton
             {
@@ -3253,7 +3422,7 @@ namespace Basis.BasisUI
                 Icon = AddressableAssets.Sprites.Trash,
                 Tooltip = BasisLocalization.Get("library.instantiated.remove.tooltip"),
                 Disabled = !canRemove,
-                DisabledReason = canRemove ? null : BasisLocalization.Get("library.disabled.protected"),
+                DisabledReason = canRemove ? null : RemoveDisabledReason(itemKey.isProtected),
                 OnClick = async () =>
                 {
                     BasisDebug.Log($"CreateListEntry() -> requested removal of item = {itemKey.Url} of instanceID = {instanceID} of SpawnMethod = {itemKey.SpawnMethod} and SpawnMode = {itemKey.SpawnMode}");

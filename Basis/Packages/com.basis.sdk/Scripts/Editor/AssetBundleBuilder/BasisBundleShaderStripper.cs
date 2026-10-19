@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -10,6 +11,7 @@ using UnityEngine.Rendering;
 
 public enum BasisBundleContentKind { None, Avatar, Prop, Scene }
 
+[NoAutoStaticsCleanup]
 public static class BasisBundleShaderStripScope
 {
     public static BasisBundleContentKind Kind = BasisBundleContentKind.None;
@@ -104,6 +106,7 @@ public static class BasisBundleShaderStripScope
     }
 }
 
+[NoAutoStaticsCleanup]
 public class BasisBundleShaderStripper : IPreprocessShaders
 {
     public int callbackOrder => 90;

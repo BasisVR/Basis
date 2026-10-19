@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using Basis.BasisUI.Styling;
 using UnityEngine;
@@ -6,8 +7,9 @@ using UnityEngine.UI;
 
 namespace Basis.BasisUI
 {
+    [AutoStaticsCleanup]
     [RequireComponent(typeof(CanvasRenderer))]
-    public class BasisWaveformGraphic : MaskableGraphic
+    public partial class BasisWaveformGraphic : MaskableGraphic
     {
         public const float DefaultHeight = 96f;
 

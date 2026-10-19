@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Reflection;
 using System.Runtime.Serialization;
 using Basis.BasisUI;
@@ -20,6 +21,7 @@ namespace Basis.Tests.UI
     /// the alternative is standing up a local player, a device and a live panel to assert one
     /// axis. Both are restored in teardown so the statics do not leak into other fixtures.</para>
     /// </summary>
+    [NoAutoStaticsCleanup]
     public class BasisJoystickBindLocomotionTests
     {
         private const BindingFlags Private = BindingFlags.NonPublic | BindingFlags.Static;

@@ -53,7 +53,7 @@ public class AvatarSDKVisemes
             // Get the list of blend shape names from the Avatar
             List<string> MouthNames = AvatarHelper.FindAllNames(basisAvatarSDKInspector.Avatar.FaceVisemeMesh);
             // Add "None" to the list of names to represent the -1 case
-            MouthNames.Insert(0, "None");
+            MouthNames.Insert(0, BasisEditorLocalization.Get("editor.common.none"));
 
             for (int index = 0; index < VisibleKeysMouth.Count; index++)
             {
@@ -115,7 +115,7 @@ public class AvatarSDKVisemes
             // Get the list of blend shape names from the Avatar
             List<string> BlinkNames = AvatarHelper.FindAllNames(basisAvatarSDKInspector.Avatar.FaceBlinkMesh);
             // Add "None" to the list of names to represent the -1 case
-            BlinkNames.Insert(0, "None");
+            BlinkNames.Insert(0, BasisEditorLocalization.Get("editor.common.none"));
 
             for (int index = 0; index < VisibleKeysBlink.Count; index++)
             {
@@ -251,7 +251,12 @@ public class AvatarSDKVisemes
 
         VisualElement winnerFields = new VisualElement();
 
-        EnumField modeField = new EnumField(BasisEditorLocalization.Get("sdk.visemes.mode"), avatar.FaceVisemeDrive.Mode);
+        PopupField<BasisVisemeDriveMode> modeField = new PopupField<BasisVisemeDriveMode>(
+            BasisEditorLocalization.Get("sdk.visemes.mode"),
+            new List<BasisVisemeDriveMode>((BasisVisemeDriveMode[])System.Enum.GetValues(typeof(BasisVisemeDriveMode))),
+            avatar.FaceVisemeDrive.Mode,
+            DriveModeName,
+            DriveModeName);
         modeField.tooltip = BasisEditorLocalization.Get("sdk.visemes.mode.tooltip");
 
         Slider smoothing = new Slider(BasisEditorLocalization.Get("sdk.visemes.backendSmoothing"), 0f, 100f)
@@ -458,6 +463,19 @@ public class AvatarSDKVisemes
         foldout.Add(binary);
         foldout.Add(copyToAll);
         return foldout;
+    }
+
+    private static string DriveModeName(BasisVisemeDriveMode mode)
+    {
+        switch (mode)
+        {
+            case BasisVisemeDriveMode.Continuous:
+                return BasisEditorLocalization.Get("sdk.visemes.mode.continuous");
+            case BasisVisemeDriveMode.WinnerTakeAll:
+                return BasisEditorLocalization.Get("sdk.visemes.mode.winnerTakeAll");
+            default:
+                return mode.ToString();
+        }
     }
 
     private static void MarkDirty(BasisAvatar avatar)

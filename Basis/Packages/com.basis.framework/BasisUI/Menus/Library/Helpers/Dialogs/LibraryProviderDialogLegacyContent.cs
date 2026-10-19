@@ -50,7 +50,7 @@ namespace Basis.BasisUI
             contentTypeDropDown.Descriptor.SetTitle(Basis.BasisUI.BasisLocalization.Get("library.dialog.legacy.contentType"));
             contentTypeDropDown.Descriptor.SetIcon(AddressableAssets.Sprites.FileTray);
             contentTypeDropDown.Descriptor.SetDescription(Basis.BasisUI.BasisLocalization.Get("library.dialog.legacy.contentType.description"));
-            contentTypeDropDown.AssignEntries(modeNames.ToList());
+            contentTypeDropDown.AssignLocalizedEntries(modeNames.ToList(), modeNames.Select(name => "library.dialog.legacy.contentType." + char.ToLowerInvariant(name[0]) + name.Substring(1)).ToList());
 
             // derive the default selected mode from the currently active tab, so if the user is browsing avatars and clicks "Add New CachedContent"
             contentTypeDropDown.SetValueWithoutNotify(modeNames[0]);

@@ -93,13 +93,16 @@ SubShader {
 
 		#pragma multi_compile __ UNITY_UI_CLIP_RECT
 		#pragma multi_compile __ UNITY_UI_ALPHACLIP
+		#pragma multi_compile __ BASIS_NAMEPLATE_OBJECT
 
 		#include "UnityCG.cginc"
 		#include "UnityUI.cginc"
 		#include "Packages/com.basis.textmeshpro/Shaders/TMPro_Properties.cginc"
 
+		#if !defined(BASIS_NAMEPLATE_OBJECT)
 		// 4 columns (float4) per plate, matching Unity's column-major Matrix4x4 memory.
 		StructuredBuffer<float4> _PlateMatrices;
+		#endif
 
 		struct vertex_t {
 			UNITY_VERTEX_INPUT_INSTANCE_ID
@@ -108,7 +111,9 @@ SubShader {
 			fixed4	color			: COLOR;
 			float4	texcoord0		: TEXCOORD0;
 			float2	texcoord1		: TEXCOORD1;
+			#if !defined(BASIS_NAMEPLATE_OBJECT)
 			float2	plate			: TEXCOORD2;
+			#endif
 		};
 
 		struct pixel_t {
@@ -130,6 +135,21 @@ SubShader {
         float _UIMaskSoftnessY;
         int _UIVertexColorAlwaysGammaSpace;
 
+		float _BasisNamePlateDepthPull;
+
+		float4 PulledClipPos(float3 objectPos)
+		{
+			float3 worldPos = mul(unity_ObjectToWorld, float4(objectPos, 1.0)).xyz;
+			if (unity_OrthoParams.w < 0.5)
+			{
+				float3 toPoint = worldPos - _WorldSpaceCameraPos;
+				float dist = max(length(toPoint), 1e-5);
+				float pulled = max(dist - _BasisNamePlateDepthPull, min(dist, max(dist * 0.5, _ProjectionParams.y * 2.0)));
+				worldPos = _WorldSpaceCameraPos + toPoint * (pulled / dist);
+			}
+			return UnityWorldToClipPos(worldPos);
+		}
+
 		pixel_t VertShader(vertex_t input)
 		{
 			pixel_t output;
@@ -145,6 +165,7 @@ SubShader {
 			vert.x += _VertexOffsetX;
 			vert.y += _VertexOffsetY;
 
+			#if !defined(BASIS_NAMEPLATE_OBJECT)
 			// Per-plate GPU billboard: plate-local glyph -> the merge's local space.
 			int b = ((int)(input.plate.x + 0.5)) * 4;
 			float3 bp = (_PlateMatrices[b]     * vert.x
@@ -152,6 +173,7 @@ SubShader {
 			           + _PlateMatrices[b + 2] * vert.z
 			           + _PlateMatrices[b + 3]).xyz;
 			vert = float4(bp, 1.0);
+			#endif
 
 			float4 vPosition = UnityObjectToClipPos(vert);
 
@@ -202,7 +224,7 @@ SubShader {
 			float2 maskUV = (vert.xy - clampedRect.xy) / (clampedRect.zw - clampedRect.xy);
 
 			// Populate structure for pixel shader
-			output.vertex = vPosition;
+			output.vertex = PulledClipPos(vert.xyz);
 			output.faceColor = faceColor;
 			output.outlineColor = outlineColor;
 			output.texcoord0 = float4(input.texcoord0.x, input.texcoord0.y, maskUV.x, maskUV.y);

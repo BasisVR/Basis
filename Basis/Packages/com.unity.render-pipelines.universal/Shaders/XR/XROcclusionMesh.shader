@@ -6,7 +6,7 @@ Shader "Hidden/Universal Render Pipeline/XR/XROcclusionMesh"
         #pragma multi_compile _ XR_OCCLUSION_MESH_COMBINED
 
         // Not all platforms properly support SV_RenderTargetArrayIndex
-        #if defined(SHADER_API_D3D11) || defined(SHADER_API_VULKAN) || defined(SHADER_API_GLCORE) || defined(SHADER_API_GLES3) || defined(SHADER_API_PSSL)
+        #if defined(SHADER_API_DX11) || defined(SHADER_API_DX12) || defined(SHADER_API_VULKAN) || defined(SHADER_API_GLCORE) || defined(SHADER_API_GLES3) || defined(SHADER_API_PSSL)
             #if defined (UNITY_STEREO_MULTIVIEW_ENABLED)
                 #define USE_XR_OCCLUSION_MESH_COMBINED_MULTIVIEW XR_OCCLUSION_MESH_COMBINED
             #else

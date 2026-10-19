@@ -15,7 +15,7 @@ namespace UnityEngine.Rendering.Universal
     /// </summary>
     public static class RenderingUtils
     {
-        static List<ShaderTagId> m_LegacyShaderPassNames = new List<ShaderTagId>
+        static readonly ShaderTagId[] s_LegacyShaderPassNames =
         {
             new ShaderTagId("Always"),
             new ShaderTagId("ForwardBase"),
@@ -25,7 +25,7 @@ namespace UnityEngine.Rendering.Universal
             new ShaderTagId("VertexLM"),
         };
 
-        static AttachmentDescriptor s_EmptyAttachment = new AttachmentDescriptor(GraphicsFormat.None);
+        static readonly AttachmentDescriptor s_EmptyAttachment = new AttachmentDescriptor(GraphicsFormat.None);
         internal static AttachmentDescriptor emptyAttachment
         {
             get
@@ -33,6 +33,17 @@ namespace UnityEngine.Rendering.Universal
                 return s_EmptyAttachment;
             }
         }
+
+#if UNITY_EDITOR
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
+        static void ResetStaticsOnLoad()
+        {
+            CoreUtils.Destroy(s_FullscreenMesh);
+            s_FullscreenMesh = null;
+            CoreUtils.Destroy(s_ErrorMaterial);
+            s_ErrorMaterial = null;
+        }
+#endif
 
         static Mesh s_FullscreenMesh = null;
 
@@ -73,21 +84,27 @@ namespace UnityEngine.Rendering.Universal
             }
         }
 
+        // Must be kept in sync with API_PREFERS_UBO_OVER_SSBO in the platform API shader includes
         internal static bool useStructuredBuffer
         {
-            // There are some performance issues with StructuredBuffers in some platforms.
-            // We fallback to UBO in those cases.
             get
             {
-                // TODO: For now disabling SSBO until figure out Vulkan binding issues.
-                // When enabling this also enable USE_STRUCTURED_BUFFER_FOR_LIGHT_DATA in shader side in Input.hlsl
-                return false;
+                // - On WebGL and GL older than 4.3, SSBOs are not supported
+                // - On GLES3 and Switch, SSBOs can be slower than UBOs/ConstantBuffers even when the data access is non-uniform across the warps
+                var type = SystemInfo.graphicsDeviceType;
+                return type != GraphicsDeviceType.OpenGLES3 && type != GraphicsDeviceType.OpenGLCore && type != GraphicsDeviceType.Switch;
+            }
+        }
 
-                // We don't use SSBO in D3D because we can't figure out without adding shader variants if platforms is D3D10.
-                //GraphicsDeviceType deviceType = SystemInfo.graphicsDeviceType;
-                //return !Application.isMobilePlatform &&
-                //    (deviceType == GraphicsDeviceType.Metal || deviceType == GraphicsDeviceType.Vulkan ||
-                //     deviceType == GraphicsDeviceType.PlayStation4 || deviceType == GraphicsDeviceType.PlayStation5 || deviceType == GraphicsDeviceType.XboxOne);
+        // Persistent CBUFFERs exist on C# side as Graphics/ComputeBuffer and are filled with SetData(), unlike transient CBUFFERs that have no real existence on C# side
+        internal static bool usePersistentConstantBuffer
+        {
+            get
+            {
+                // - On GLES3 non-WebGL, CBs are disabled (not even transient, see LIGHT_SHADOWS_NO_CBUFFER) due to Adreno perf issues with large CBs
+                // - On WebGL, CBs remains temporarily transient due to a graphics buffer bug
+                // - Everywhere else we use the persistent CB path for optimal performance at shader setup on native engine side.
+                return SystemInfo.graphicsDeviceType != GraphicsDeviceType.OpenGLES3;
             }
         }
 
@@ -210,25 +227,25 @@ namespace UnityEngine.Rendering.Universal
 
         // This is used to render materials that contain built-in shader passes not compatible with URP.
         // It will render those legacy passes with error/pink shader.
-        [Conditional("DEVELOPMENT_BUILD"), Conditional("UNITY_EDITOR")]
+        [Conditional("UNITY_ENABLE_CHECKS")]
         internal static void CreateRendererParamsObjectsWithError(ref CullingResults cullResults, Camera camera, FilteringSettings filterSettings, SortingCriteria sortFlags, ref RendererListParams param)
         {
             SortingSettings sortingSettings = new SortingSettings(camera) { criteria = sortFlags };
-            DrawingSettings errorSettings = new DrawingSettings(m_LegacyShaderPassNames[0], sortingSettings)
+            DrawingSettings errorSettings = new DrawingSettings(s_LegacyShaderPassNames[0], sortingSettings)
             {
                 perObjectData = PerObjectData.None,
                 overrideMaterial = errorMaterial,
                 overrideMaterialPassIndex = 0
             };
-            for (int i = 1; i < m_LegacyShaderPassNames.Count; ++i)
-                errorSettings.SetShaderPassName(i, m_LegacyShaderPassNames[i]);
-
+            for (int i = 1; i < s_LegacyShaderPassNames.Length; ++i)
+                errorSettings.SetShaderPassName(i, s_LegacyShaderPassNames[i]);
+            
             param = new RendererListParams(cullResults, errorSettings, filterSettings);
         }
 
         // This is used to render materials that contain built-in shader passes not compatible with URP.
         // It will render those legacy passes with error/pink shader.
-        [Conditional("DEVELOPMENT_BUILD"), Conditional("UNITY_EDITOR")]
+        [Conditional("UNITY_ENABLE_CHECKS")]
         internal static void CreateRendererListObjectsWithError(RenderGraph renderGraph, ref CullingResults cullResults, Camera camera, FilteringSettings filterSettings, SortingCriteria sortFlags, ref RendererListHandle rl)
         {
             // TODO: When importing project, AssetPreviewUpdater::CreatePreviewForAsset will be called multiple times.
@@ -245,14 +262,14 @@ namespace UnityEngine.Rendering.Universal
             rl = renderGraph.CreateRendererList(param);
         }
 
-        [Conditional("DEVELOPMENT_BUILD"), Conditional("UNITY_EDITOR")]
+        [Conditional("UNITY_ENABLE_CHECKS")]
         internal static void DrawRendererListObjectsWithError(RasterCommandBuffer cmd, ref RendererList rl)
         {
             cmd.DrawRendererList(rl);
         }
 
-        static ShaderTagId[] s_ShaderTagValues = new ShaderTagId[1];
-        static RenderStateBlock[] s_RenderStateBlocks = new RenderStateBlock[1];
+        static readonly ShaderTagId[] s_ShaderTagValues = new ShaderTagId[1];
+        static readonly RenderStateBlock[] s_RenderStateBlocks = new RenderStateBlock[1];
         // Create a RendererList using a RenderStateBlock override is quite common so we have this optimized utility function for it
         internal static void CreateRendererListWithRenderStateBlock(RenderGraph renderGraph, ref CullingResults cullResults, DrawingSettings ds, FilteringSettings fs, RenderStateBlock rsb, ref RendererListHandle rl)
         {
@@ -270,11 +287,11 @@ namespace UnityEngine.Rendering.Universal
         }
 
         // Caches render texture format support. SystemInfo.SupportsRenderTextureFormat allocates memory due to boxing.
-        static Dictionary<RenderTextureFormat, bool> m_RenderTextureFormatSupport = new Dictionary<RenderTextureFormat, bool>();
+        static readonly Dictionary<RenderTextureFormat, bool> s_RenderTextureFormatSupport = new Dictionary<RenderTextureFormat, bool>();
 
         internal static void ClearSystemInfoCache()
         {
-            m_RenderTextureFormatSupport.Clear();
+            s_RenderTextureFormatSupport.Clear();
         }
 
         /// <summary>
@@ -285,10 +302,10 @@ namespace UnityEngine.Rendering.Universal
         /// <returns>Returns true if the graphics card supports the given <c>RenderTextureFormat</c></returns>
         public static bool SupportsRenderTextureFormat(RenderTextureFormat format)
         {
-            if (!m_RenderTextureFormatSupport.TryGetValue(format, out var support))
+            if (!s_RenderTextureFormatSupport.TryGetValue(format, out var support))
             {
                 support = SystemInfo.SupportsRenderTextureFormat(format);
-                m_RenderTextureFormatSupport.Add(format, support);
+                s_RenderTextureFormatSupport.Add(format, support);
             }
 
             return support;
@@ -746,19 +763,23 @@ namespace UnityEngine.Rendering.Universal
             UniversalCameraData cameraData, UniversalLightData lightData, SortingCriteria sortingCriteria)
         {
             Camera camera = cameraData.camera;
+            CullingSplitMask mask = CullingSplitMask.DrawAll;
+
+            if (cameraData.xr.enabled)
+                mask = cameraData.xr.isQuadViewInnerPass ? CullingSplitMask.DrawSplitOnly : CullingSplitMask.DrawCullingOnly;
+
             SortingSettings sortingSettings = new SortingSettings(camera) { criteria = sortingCriteria };
             DrawingSettings settings = new DrawingSettings(shaderTagId, sortingSettings)
             {
                 perObjectData = renderingData.perObjectData,
                 mainLightIndex = lightData.mainLightIndex,
-#pragma warning disable 618
-                enableDynamicBatching = renderingData.supportsDynamicBatching,
-#pragma warning restore 618
 
                 // Disable instancing for preview cameras. This is consistent with the built-in forward renderer. Also fixes case 1127324.
                 enableInstancing = camera.cameraType != CameraType.Preview,
                 // stencil-based LOD doesn't support native render pass for now.
                 lodCrossFadeStencilMask = renderingData.stencilLodCrossFadeEnabled ? (int)UniversalRendererStencilRef.CrossFadeStencilRef_All : 0,
+
+                splitMask = mask
             };
             return settings;
         }
@@ -923,12 +944,13 @@ namespace UnityEngine.Rendering.Universal
         /// </summary>
         /// <param name="textureUVOrigin">The UV origin of the texture (typically from GetTextureUVOrigin)</param>
         /// <param name="cameraData">Camera data containing view and projection matrices</param>
+        /// <param name="eyeIndex">Eye index used in XR rendering</param>
         /// <returns>The inverse view-projection matrix matching the texture orientation</returns>
-        internal static Matrix4x4 ComputeInverseViewProjectionMatrix(TextureUVOrigin textureUVOrigin, UniversalCameraData cameraData)
+        internal static Matrix4x4 ComputeInverseViewProjectionMatrix(TextureUVOrigin textureUVOrigin, UniversalCameraData cameraData, int eyeIndex = 0)
         {
             bool isFlipped = (textureUVOrigin == TextureUVOrigin.BottomLeft);
-            Matrix4x4 projection = cameraData.GetGPUProjectionMatrix(isFlipped);
-            Matrix4x4 view = cameraData.GetViewMatrix();
+            Matrix4x4 projection = cameraData.GetGPUProjectionMatrix(isFlipped, eyeIndex);
+            Matrix4x4 view = cameraData.GetViewMatrix(eyeIndex);
             Matrix4x4 viewProj = CoreMatrixUtils.MultiplyProjectionMatrix(projection, view, cameraData.camera.orthographic);
             return Matrix4x4.Inverse(viewProj);
         }

@@ -112,6 +112,10 @@
       "value": "★ {0}"
     },
     {
+      "key": "menu.servers.list.sourceBadge",
+      "value": "{0} ({1})"
+    },
+    {
       "key": "menu.servers.list.share",
       "value": "साझा करें"
     },
@@ -146,6 +150,14 @@
     {
       "key": "menu.servers.usernamePrompt.body",
       "value": "वह नाम चुनें जो अन्य खिलाड़ी देखेंगे, फिर «कनेक्ट करें» दबाएँ।"
+    },
+    {
+      "key": "menu.servers.passwordPrompt.title",
+      "value": "{0} से जुड़ें"
+    },
+    {
+      "key": "menu.servers.passwordPrompt.body",
+      "value": "पासवर्ड अस्वीकार कर दिया गया। सर्वर का पासवर्ड दर्ज करें।"
     },
     {
       "key": "menu.servers.search.byNameOrAddress",
@@ -274,6 +286,10 @@
     {
       "key": "menu.servers.hostThirdPersonDisabled",
       "value": "थर्ड पर्सन अक्षम करें"
+    },
+    {
+      "key": "menu.servers.portInvalid",
+      "value": "पोर्ट 1 से 65535 के बीच होना चाहिए"
     }
   ]
 }

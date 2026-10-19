@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace UnityEditor.Rendering.Universal.ShaderGUI
 {
@@ -59,6 +60,17 @@ namespace UnityEditor.Rendering.Universal.ShaderGUI
                 materialEditor.ShaderProperty(litProperties.highlights, LitGUI.Styles.highlightsText);
                 materialEditor.ShaderProperty(litProperties.reflections, LitGUI.Styles.reflectionsText);
             }
+
+            bool isTransparent = material.renderQueue >= (int)RenderQueue.Transparent;
+
+            if (litProperties.screenSpaceReflections != null)
+            {
+                using (new EditorGUI.DisabledScope(BaseShaderGUI.ShouldForceReceiveSsrOff(material)))
+                    materialEditor.ShaderProperty(litProperties.screenSpaceReflections, LitGUI.Styles.screenSpaceReflectionsText);
+            }
+
+            if (litProperties.screenSpaceReflectionsContributeTransparent != null && isTransparent)
+                materialEditor.ShaderProperty(litProperties.screenSpaceReflectionsContributeTransparent, LitGUI.Styles.screenSpaceReflectionsContributeTransparentText);
 
             base.DrawAdvancedOptions(material);
         }

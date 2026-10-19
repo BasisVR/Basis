@@ -8,13 +8,19 @@ public class NetworkClient
     public EventBasedNetListener listener;
     private NetPeer peer;
     private bool IsInUse;
+    // This connection's X25519 key. DID login signs over the public half, and what the client sends
+    // after login is sealed with the key derived from it, so the login cannot be used by a relay.
+    private byte[] ConnectionPrivateKey;
+    public byte[] ConnectionPublicKey;
+    public byte[] ConnectionPayloadHash;
+    public bool LegacyLogin;
     /// <summary>
     /// initial data is typically the 
     /// </summary> 
     /// <param name="IP"></param>
     /// <param name="port"></param>
     /// <param name="ReadyMessage"></param>
-    public NetPeer StartClient(string IP, int port, ReadyMessage ReadyMessage, byte[] AuthenticationMessage, string CompanyName, string ProductName, Configuration Configuration, bool manualMode = false)
+    public NetPeer StartClient(string IP, int port, ReadyMessage ReadyMessage, byte[] AuthenticationMessage, string CompanyName, string ProductName, Configuration Configuration, bool manualMode = false, bool legacyLogin = false)
     {
         if (IsInUse == false)
         {
@@ -26,12 +32,33 @@ public class NetworkClient
                 client.Start();
             NetDataWriter Writer = new NetDataWriter(true,12);
             //this is the only time we dont put key!
-            Writer.Put(BasisNetworkVersion.ServerVersion);
+            LegacyLogin = legacyLogin;
+            Writer.Put(legacyLogin ? BasisNetworkVersion.LegacyLoginVersion : BasisNetworkVersion.ServerVersion);
             BasisNetworkApplication.Write(Writer, CompanyName, ProductName);
             BytesMessage AuthBytes = new BytesMessage();
             AuthBytes.Serialize(Writer, AuthenticationMessage);
+            int PayloadStart = Writer.Length;
+            ConnectionPayloadHash = null;
+            if (legacyLogin)
+            {
+                ConnectionPrivateKey = null;
+                ConnectionPublicKey = null;
+            }
+            else
+            {
+                BasisCryptoHandshake.GenerateKeyPair(out ConnectionPrivateKey, out ConnectionPublicKey);
+                AuthBytes.Serialize(Writer, ConnectionPublicKey);
+            }
             ReadyMessage.Serialize(Writer);
+            if (!legacyLogin)
+            {
+                ConnectionPayloadHash = BasisDidLoginTranscript.HashConnectionPayload(Writer.Data, PayloadStart, Writer.Length - PayloadStart);
+            }
             peer = client.Connect(IP, port, Writer);
+            if (!legacyLogin)
+            {
+                peer?.ExpectSealedOutbound();
+            }
             IsInUse = true;
             return peer;
         }
@@ -40,6 +67,24 @@ public class NetworkClient
             BNL.LogError("Call Shutdown First!");
             return null;
         }
+    }
+    /// <summary>
+    /// Derives the client-to-server key from the server's X25519 key and seals everything sent
+    /// to the server with it from now on. Call once per connection, after signing the login.
+    /// </summary>
+    public bool TrySealToServer(byte[] ServerEphemeralPublic)
+    {
+        byte[] PrivateKey = ConnectionPrivateKey;
+        ConnectionPrivateKey = null;
+        if (peer == null || PrivateKey == null)
+        {
+            return false;
+        }
+        if (!BasisCryptoHandshake.DeriveClientKey(PrivateKey, ConnectionPublicKey, ServerEphemeralPublic, out byte[] Key))
+        {
+            return false;
+        }
+        return peer.SealOutbound(Key);
     }
     public void Poll()
     {

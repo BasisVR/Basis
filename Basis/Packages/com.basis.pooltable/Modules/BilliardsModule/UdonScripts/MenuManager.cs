@@ -1,13 +1,15 @@
 using System;
 
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.UI;
 
 using TMPro;
 using Basis;
-using Basis.Scripts.Networking.NetworkedAvatar;
+using Basis.Scripts.BasisSdk.Players;
 
 
+[Cilboxable]
 public class MenuManager : MonoBehaviour
 {
     [SerializeField] private byte[] timerValues = new byte[] { 0, 60, 45, 30, 15, 10, 5 };
@@ -52,6 +54,7 @@ public class MenuManager : MonoBehaviour
                 joinMenuRotation = menuJoin.localRotation;
                 joinMenuScale = menuJoin.localScale;
             }
+            wireUI();
         }
 
         _RefreshTimer();
@@ -88,7 +91,7 @@ public class MenuManager : MonoBehaviour
                 lobbyNames[i].text = string.Empty;
                 continue;
             }
-            BasisNetworkPlayer player = BasisNetworkPlayer.GetPlayerById(table.playerIDsLocal[i]);
+            IBasisPlayer player = table._GetPlayer(table.playerIDsLocal[i]);
             if (player == null)
             {
                 lobbyNames[i].text = "Free slot";
@@ -414,116 +417,61 @@ public class MenuManager : MonoBehaviour
         cueSizeText.text = newScale.ToString("F1");
     }
 
-    [NonSerialized] public UIButton inButton;
-    public void _OnButtonPressed() { onButtonPressed(inButton); }
-    private void onButtonPressed(UIButton button)
+    private void wireUI()
     {
-        if (button.name == "StartButton")
-        {
-            table._TriggerLobbyOpen();
-        }
-        else if (button.name == "JoinOrange")
-        {
-            table._TriggerJoinTeam(0);
-        }
-        else if (button.name == "JoinBlue")
-        {
-            table._TriggerJoinTeam(1);
-        }
-        else if (button.name == "LeaveButton")
-        {
-            table._TriggerLeaveLobby();
-        }
-        else if (table.localPlayerId > -1)
-        {
-            if (button.name == "PlayButton")
-            {
-                table._TriggerGameStart();
-            }
-            else if (button.name == "8Ball")
-            {
-                table._TriggerGameModeChanged(0);
-            }
-            else if (button.name == "9Ball")
-            {
-                table._TriggerGameModeChanged(1);
-            }
-            else if (button.name == "4Ball" || button.name == "4BallJP")
-            {
-                table._TriggerGameModeChanged(2);
-            }
-            else if (button.name == "4BallKR")
-            {
-                table._TriggerGameModeChanged(3);
-            }
-            else if (button.name == "Snooker6Red")
-            {
-                table._TriggerGameModeChanged(4);
-            }
-            else if (button.name == "TeamsToggle")
-            {
-                table._TriggerTeamsChanged(button.toggleState);
-            }
-            else if (button.name == "GuidelineToggle")
-            {
-                table._TriggerNoGuidelineChanged(!button.toggleState);
-            }
-            else if (button.name == "LockingToggle")
-            {
-                table._TriggerNoLockingChanged(!button.toggleState);
-            }
-            else if (button.name == "TimeRight")
-            {
-                if (selectedTimer > 0)
-                {
-                    selectedTimer--;
-
-                    table._TriggerTimerChanged(timerValues[selectedTimer]);
-                }
-            }
-            else if (button.name == "TimeLeft")
-            {
-                if (selectedTimer < timerValues.Length - 1)
-                {
-                    selectedTimer++;
-
-                    table._TriggerTimerChanged(timerValues[selectedTimer]);
-                }
-            }
-            else if (button.name == "TableRight")
-            {
-                if (selectedTable == table.tableModels.Length - 1) { return; }
-                selectedTable++;
-
-                table._TriggerTableModelChanged(selectedTable);
-            }
-            else if (button.name == "TableLeft")
-            {
-                if (selectedTable == 0) { return; }
-                selectedTable--;
-
-                table._TriggerTableModelChanged(selectedTable);
-            }
-            else if (button.name == "PhysicsRight")
-            {
-                if (selectedPhysics == table.PhysicsManagers.Length - 1) { return; }
-                {
-                    selectedPhysics++;
-
-                    table._TriggerPhysicsChanged(selectedPhysics);
-                }
-            }
-            else if (button.name == "PhysicsLeft")
-            {
-                if (selectedPhysics == 0) { return; }
-                {
-                    selectedPhysics--;
-
-                    table._TriggerPhysicsChanged(selectedPhysics);
-                }
-            }
-        }
+        Transform root = table.transform;
+        wireButton(root, "StartMenu/StartButton", StartButton);
+        wireButton(root, "JoinMenu/JoinOrange", JoinOrange);
+        wireButton(root, "JoinMenu/JoinBlue", JoinBlue);
+        wireButton(root, "JoinMenu/LeaveButton", LeaveButton);
+        wireButton(root, "LobbyMenu/PlayButton", PlayButton);
+        wireButton(root, "LobbyMenu/GameMode/Buttons/Mode8Ball", Mode8Ball);
+        wireButton(root, "LobbyMenu/GameMode/Buttons/Mode9Ball", Mode9Ball);
+        wireButton(root, "LobbyMenu/GameMode/Buttons/Mode4ballJP", Mode4Ball);
+        wireButton(root, "LobbyMenu/GameMode/Buttons/Mode4BallKR", Mode4BallKR);
+        wireButton(root, "LobbyMenu/GameMode/Buttons/ModeSnooker6Red", ModeSnooker6Red);
+        wireButton(root, "LobbyMenu/Switches/ShotTime/TimeLeft", TimeLeft);
+        wireButton(root, "LobbyMenu/Switches/ShotTime/TimeRIght", TimeRight);
+        wireButton(root, "LobbyMenu/Switches/Table/TableLeft", TableLeft);
+        wireButton(root, "LobbyMenu/Switches/Table/TableRight", TableRight);
+        wireButton(root, "LobbyMenu/Switches/Physics/PhysicsLeft", PhysicsLeft);
+        wireButton(root, "LobbyMenu/Switches/Physics/PhysicsRight", PhysicsRight);
+        wireButton(root, "OtherMenu/UndoMenu/Undo", table.practiceManager._Undo);
+        wireButton(root, "OtherMenu/UndoMenu/Redo", table.practiceManager._Redo);
+        wireButton(root, "OtherMenu/UndoMenu/SkipTurn", table._SkipTurn);
+        wireButton(root, "OtherMenu/ResetButton", table._TriggerGameReset);
+        wireButton(root, "intl.scorecardinfo/SnookerInstructions/Re-Take", table.practiceManager._SnookerUndo);
+        if (TeamsToggle_button != null && !hasPersistentTarget(TeamsToggle_button.onValueChanged)) TeamsToggle_button.onValueChanged.AddListener(onTeamsToggleChanged);
+        if (GuidelineToggle_button != null && !hasPersistentTarget(GuidelineToggle_button.onValueChanged)) GuidelineToggle_button.onValueChanged.AddListener(onGuidelineToggleChanged);
+        if (LockingToggle_button != null && !hasPersistentTarget(LockingToggle_button.onValueChanged)) LockingToggle_button.onValueChanged.AddListener(onLockingToggleChanged);
+        if (cueSmoothingSlider != null && !hasPersistentTarget(cueSmoothingSlider.onValueChanged)) cueSmoothingSlider.onValueChanged.AddListener(onCueSmoothingChanged);
+        if (cueSizeSlider != null && !hasPersistentTarget(cueSizeSlider.onValueChanged)) cueSizeSlider.onValueChanged.AddListener(onCueSizeChanged);
     }
+
+    private void wireButton(Transform root, string path, UnityAction action)
+    {
+        Transform target = root.Find(path);
+        if (target == null) return;
+        Button button = target.GetComponent<Button>();
+        if (button == null || hasPersistentTarget(button.onClick)) return;
+        button.onClick.AddListener(action);
+    }
+
+    private bool hasPersistentTarget(UnityEventBase unityEvent)
+    {
+        int count = unityEvent.GetPersistentEventCount();
+        for (int i = 0; i < count; i++)
+        {
+            if (unityEvent.GetPersistentTarget(i) != null) return true;
+        }
+        return false;
+    }
+
+    private void onTeamsToggleChanged(bool value) { TeamsToggle(); }
+    private void onGuidelineToggleChanged(bool value) { GuidelineToggle(); }
+    private void onLockingToggleChanged(bool value) { LockingToggle(); }
+    private void onCueSmoothingChanged(float value) { setCueSmoothing(); }
+    private void onCueSizeChanged(float value) { setCueSize(); }
 
     private void joinTeam(int id)
     {

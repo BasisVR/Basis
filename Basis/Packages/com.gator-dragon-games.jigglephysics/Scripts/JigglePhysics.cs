@@ -37,7 +37,6 @@ public static class JigglePhysics {
     private static JiggleJobs jobs;
     private static bool hasRunThisFrame;
     
-    private static double accumulator;
     private static double lastFixedCurrentTime = 0f;
 
     private const int MaxCullingCameras = 16;
@@ -179,7 +178,6 @@ public static class JigglePhysics {
     private static void Initialize() {
         JiggleSettings.ResetBootLatch();
         lastFixedCurrentTime = 0f;
-        accumulator = 0;
         parametersCache = new();
         rootJiggleTreeSegments = new List<JiggleTreeSegment>();
         jiggleRootLookup = new Dictionary<Transform, JiggleTreeSegment>();

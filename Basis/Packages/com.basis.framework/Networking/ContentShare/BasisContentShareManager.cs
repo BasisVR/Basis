@@ -1,5 +1,7 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Network.Core;
+using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Drivers;
@@ -19,7 +21,8 @@ using static SerializableBasis;
 /// Handles sending/receiving content share messages and managing sphere GameObjects.
 /// Handles sending/receiving content share messages and managing sphere GameObjects.
 /// </summary>
-public static class BasisContentShareManager
+[AutoStaticsCleanup]
+public static partial class BasisContentShareManager
 {
     /// <summary>
     /// All active content share spheres keyed by SphereNetID.
@@ -109,9 +112,9 @@ public static class BasisContentShareManager
             BasisDebug.LogError($"No handler is registered for content share type {contentType}.", BasisDebug.LogTag.Networking);
             return;
         }
-        if (string.IsNullOrEmpty(payload) || payload.Length > ContentSharePayload.MaxLength)
+        if (string.IsNullOrEmpty(payload) || payload.Length > ContentSharePayload.MaxLengthFor(contentType))
         {
-            BasisDebug.LogError($"Content share payload is {payload?.Length ?? -1} characters; the ceiling is {ContentSharePayload.MaxLength}.", BasisDebug.LogTag.Networking);
+            BasisDebug.LogError($"Content share payload is {payload?.Length ?? -1} characters; the ceiling is {ContentSharePayload.MaxLengthFor(contentType)}.", BasisDebug.LogTag.Networking);
             return;
         }
 
@@ -308,7 +311,8 @@ public static class BasisContentShareManager
                 msg.ContentType,
                 serverMsg.playerIdMessage.playerID,
                 serverMsg.SharerUUID,
-                serverMsg.SharerDisplayName
+                serverMsg.SharerDisplayName,
+                serverMsg.SharerProtected
             );
             if (ActiveSpheres.TryAdd(msg.SphereNetID, Sphere))
             {
@@ -326,24 +330,50 @@ public static class BasisContentShareManager
                 {
                     shareDetail = BasisContentSharePayloadRegistry.Describe(msg.ContentType, msg.ContentURL) ?? string.Empty;
                 }
-                bool canRemove = (BasisNetworkConnection.TryGetLocalPlayerID(out ushort localId) && localId == serverMsg.playerIdMessage.playerID)
-                    || BasisNetworkModeration.LocalPlayerHasNode(BasisPermissions.PermNodes.protection);
                 BasisShareableRegistry.Register(new BasisShareableEntry
                 {
                     Id = sphereId,
                     Kind = ToShareableKind(msg.ContentType),
-                    Title = shareDetail,
-                    SharerName = serverMsg.SharerDisplayName,
-                    Actions = canRemove ? new List<BasisShareableAction>
-                    {
-                        new BasisShareableAction
-                        {
-                            Style = BasisShareableActionStyle.Destructive,
-                            Invoke = () => RequestRemoveSphere(sphereId),
-                        },
-                    } : new List<BasisShareableAction>(),
+                    // From the sharer's client; the Library renders it as rich text.
+                    Title = BasisContentShareText.Plain(shareDetail),
+                    SharerName = Sphere.CreatorSafeDisplayName,
+                    Protected = serverMsg.SharerProtected,
+                    Actions = RemoveActions(sphereId, Sphere),
                 });
+                BasisNetworkModeration.OnGlobalContentRemovalLockedChanged -= RefreshRemoveActions;
+                BasisNetworkModeration.OnGlobalContentRemovalLockedChanged += RefreshRemoveActions;
             }
+        }
+    }
+
+    public static bool CanLocalPlayerRemove(ushort sharerId, bool sharerProtected)
+    {
+        if (BasisNetworkModeration.LocalPlayerHasNode(BasisPermissions.PermNodes.protection)) return true;
+        if (BasisNetworkConnection.TryGetLocalPlayerID(out ushort localId) && localId == sharerId) return true;
+        return !sharerProtected && !BasisNetworkModeration.GlobalContentRemovalLocked;
+    }
+
+    public static bool IsLocalSharer(ushort localId, string localUuid, ushort sharerId, string sharerUuid) => localId == sharerId && string.Equals(localUuid, sharerUuid, StringComparison.Ordinal);
+
+    private static List<BasisShareableAction> RemoveActions(string sphereId, BasisContentSphere sphere)
+    {
+        List<BasisShareableAction> actions = new List<BasisShareableAction>();
+        if (sphere != null && sphere.CanLocalPlayerRemove)
+        {
+            actions.Add(new BasisShareableAction
+            {
+                Style = BasisShareableActionStyle.Destructive,
+                Invoke = () => RequestRemoveSphere(sphereId),
+            });
+        }
+        return actions;
+    }
+
+    private static void RefreshRemoveActions(bool locked)
+    {
+        foreach (KeyValuePair<string, BasisContentSphere> kvp in ActiveSpheres)
+        {
+            BasisShareableRegistry.SetActions(kvp.Key, RemoveActions(kvp.Key, kvp.Value));
         }
     }
 

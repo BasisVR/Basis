@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,6 +15,7 @@ using UnityEngine;
 
 namespace Basis.Framework.Tests
 {
+    [NoAutoStaticsCleanup]
     public class BasisDeviceOverridesTests
     {
         private static readonly PropertyInfo LocalPlayerInstance = typeof(BasisLocalPlayer).GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);

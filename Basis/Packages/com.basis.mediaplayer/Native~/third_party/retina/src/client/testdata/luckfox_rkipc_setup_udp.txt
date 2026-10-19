@@ -1,0 +1,6 @@
+RTSP/1.0 200 OK
+CSeq: 2
+Transport: RTP/AVP;ssrc=22345685;unicast;client_port=54060-54061;server_port=49152-49153
+Session: 12345678
+x-notes: Transport header from <https://github.com/scottlamb/retina/issues/120>
+

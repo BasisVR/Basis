@@ -54,6 +54,8 @@ namespace Basis.BasisUI
             _controller.Panel = panel;
             _controller.TabDescriptor = tab.Descriptor;
             _controller.BuildActionTiles(root);
+            _controller.DownloadsHeader = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);
+            _controller.DownloadsGrid = BuildCardGrid(root, "DownloadsGrid");
             _controller.PendingHeader = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);
             _controller.PendingGrid = BuildCardGrid(root, "PendingGrid");
             _controller.HistoryHeader = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);
@@ -80,6 +82,21 @@ namespace Basis.BasisUI
         private static readonly Color AcceptedTint = new Color(0.13f, 0.77f, 0.37f, 1f);
         private static readonly Color DeniedTint = new Color(0.94f, 0.27f, 0.27f, 1f);
         private static readonly Color DismissedTint = new Color(0.61f, 0.64f, 0.69f, 1f);
+        private static readonly Color ProgressTrackTint = new Color(0f, 0f, 0f, 0.6f);
+
+        private static readonly string[] PercentLabels = BuildPercentLabels();
+        private static readonly char[] UrlQueryChars = { '?', '#' };
+        private static readonly char[] UrlSlashChars = { '/', '\\' };
+
+        private static string[] BuildPercentLabels()
+        {
+            string[] labels = new string[101];
+            for (int i = 0; i < labels.Length; i++)
+            {
+                labels[i] = i.ToString(CultureInfo.InvariantCulture) + "%";
+            }
+            return labels;
+        }
 
         private static List<string> FilterEntries()
         {
@@ -205,6 +222,75 @@ namespace Basis.BasisUI
         private static string TitleFor(BasisNotification n) =>
             string.IsNullOrEmpty(n.Title) ? BasisLocalization.Get("notifications.dialog.generic") : n.Title;
 
+        private static string KindLabel(BasisDownloadKind kind)
+        {
+            switch (kind)
+            {
+                case BasisDownloadKind.World:
+                    return BasisLocalization.Get("notifications.downloads.kind.world");
+                case BasisDownloadKind.Avatar:
+                    return BasisLocalization.Get("notifications.downloads.kind.avatar");
+                default:
+                    return BasisLocalization.Get("notifications.downloads.kind.prop");
+            }
+        }
+
+        private static string KindIcon(BasisDownloadKind kind)
+        {
+            switch (kind)
+            {
+                case BasisDownloadKind.World:
+                    return AddressableAssets.Sprites.World;
+                case BasisDownloadKind.Avatar:
+                    return AddressableAssets.Sprites.Avatars;
+                default:
+                    return AddressableAssets.Sprites.Items;
+            }
+        }
+
+        private static string DownloadTitle(BasisDownload d)
+        {
+            if (d.Kind == BasisDownloadKind.Avatar && !string.IsNullOrWhiteSpace(d.Owner)) return d.Owner;
+            return d.ContentName ?? UrlLeaf(d.Url) ?? KindLabel(d.Kind);
+        }
+
+        private static string DownloadSummary(BasisDownload d)
+        {
+            string summary = KindLabel(d.Kind);
+            string name = d.ContentName;
+            if (name != null && !string.Equals(name, DownloadTitle(d), StringComparison.Ordinal))
+            {
+                summary += "  •  " + name;
+            }
+            return summary + "  •  " + FormatTime(d.StartedUtc);
+        }
+
+        private static string DownloadStage(BasisDownload d)
+        {
+            if (d.CancelRequested) return BasisLocalization.Get("notifications.downloads.cancelling");
+            string stage = d.Stage;
+            return string.IsNullOrEmpty(stage) ? BasisLocalization.Get("notifications.downloads.waiting") : stage;
+        }
+
+        private static int DownloadPercent(BasisDownload d) => Mathf.Clamp(Mathf.FloorToInt(d.Progress), 0, 100);
+
+        private static string UrlLeaf(string url)
+        {
+            if (string.IsNullOrWhiteSpace(url)) return null;
+
+            string path = url;
+            int query = path.IndexOfAny(UrlQueryChars);
+            if (query >= 0) path = path.Substring(0, query);
+            path = path.TrimEnd(UrlSlashChars);
+
+            int slash = path.LastIndexOfAny(UrlSlashChars);
+            string leaf = slash >= 0 ? path.Substring(slash + 1) : path;
+            int dot = leaf.LastIndexOf('.');
+            if (dot > 0) leaf = leaf.Substring(0, dot);
+            leaf = Uri.UnescapeDataString(leaf).Trim();
+            return leaf.Length == 0 ? null : leaf;
+        }
+
         private static RectTransform BuildCardGrid(RectTransform parent, string name)
         {
             GameObject gridGO = new GameObject(name, typeof(RectTransform));
@@ -291,6 +377,57 @@ namespace Basis.BasisUI
             return icon;
         }
 
+        private static Image AddProgressStrip(PanelButton buttonPanel)
+        {
+            PanelElementDescriptor desc = buttonPanel.Descriptor;
+
+            GameObject trackGo = new GameObject("Progress", typeof(RectTransform));
+            trackGo.layer = desc.gameObject.layer;
+            RectTransform track = (RectTransform)trackGo.transform;
+            track.SetParent(desc.rectTransform, false);
+            track.anchorMin = Vector2.zero;
+            track.anchorMax = new Vector2(1f, 0f);
+            track.pivot = new Vector2(0.5f, 0f);
+            track.offsetMin = new Vector2(CardIconStripWidth, 10f);
+            track.offsetMax = new Vector2(-16f, 16f);
+
+            Image trackImage = trackGo.AddComponent<Image>();
+            trackImage.color = ProgressTrackTint;
+            trackImage.raycastTarget = false;
+
+            LayoutElement layoutElement = trackGo.AddComponent<LayoutElement>();
+            layoutElement.ignoreLayout = true;
+
+            GameObject fillGo = new GameObject("Fill", typeof(RectTransform));
+            fillGo.layer = trackGo.layer;
+            RectTransform fill = (RectTransform)fillGo.transform;
+            fill.SetParent(track, false);
+            fill.anchorMin = Vector2.zero;
+            fill.anchorMax = new Vector2(0f, 1f);
+            fill.offsetMin = Vector2.zero;
+            fill.offsetMax = Vector2.zero;
+
+            Image fillImage = fillGo.AddComponent<Image>();
+            fillImage.color = PendingTint;
+            fillImage.raycastTarget = false;
+            return fillImage;
+        }
+
+        private static PanelButton CreateCardButton(RectTransform grid)
+        {
+            PanelButton button = PanelButton.CreateNew(grid);
+            if (button == null) return null;
+
+            button.Descriptor.DisableRichText();
+            if (button.Descriptor.TitleLabel != null)
+            {
+                button.Descriptor.TitleLabel.margin = new Vector4(CardIconStripWidth, 0f, CardInfoStripWidth, 0f);
+                button.Descriptor.TitleLabel.alignment = TextAlignmentOptions.Left;
+                button.Descriptor.TitleLabel.overflowMode = TextOverflowModes.Ellipsis;
+            }
+            return button;
+        }
+
         private static void ClampScrollViewport(RectTransform content)
         {
             if (content == null) return;
@@ -373,12 +510,27 @@ namespace Basis.BasisUI
             public bool Visible;
         }
 
+        private sealed class DownloadCard
+        {
+            public BasisDownload Download;
+            public PanelButton Button;
+            public TextMeshProUGUI ChipLabel;
+            public Image ProgressFill;
+            public PanelImage Icon;
+            public string IconAddress;
+            public string Name;
+            public int Percent = -1;
+            public bool Cancelling;
+        }
+
         private sealed class NotificationPanelController : MonoBehaviour
         {
             public BasisMenuPanel Panel;
             public PanelElementDescriptor TabDescriptor;
+            public PanelElementDescriptor DownloadsHeader;
             public PanelElementDescriptor PendingHeader;
             public PanelElementDescriptor HistoryHeader;
+            public RectTransform DownloadsGrid;
             public RectTransform PendingGrid;
             public RectTransform HistoryGrid;
 
@@ -388,6 +540,21 @@ namespace Basis.BasisUI
             private DialogBox<bool> _searchDialog;
             private DialogBox<bool> _detailDialog;
             private DialogBox<bool> _clearDialog;
+            private DialogBox<bool> _downloadDialog;
+            private BasisDownload _downloadDialogTarget;
+            private PanelElementDescriptor _downloadDialogStatus;
+            private int _downloadDialogPercent = -1;
+            private string _downloadDialogStage;
+
+            private readonly Dictionary<Guid, DownloadCard> _downloadCards = new();
+            private readonly HashSet<Guid> _liveDownloadIds = new();
+            private readonly List<BasisDownload> _downloads = new();
+            private readonly List<DownloadCard> _downloadCardPool = new();
+            private const float DownloadRefreshInterval = 0.2f;
+            private int _downloadsVersion = -1;
+            private int _downloadCount;
+            private int _lastDownloadAddFrame = -1;
+            private float _nextDownloadRefresh;
 
             private readonly Dictionary<Guid, NotificationCard> _cards = new();
             private readonly HashSet<Guid> _liveIds = new();
@@ -430,20 +597,27 @@ namespace Basis.BasisUI
 
             private void MarkDirty() => _dirty = true;
 
-            private void LateUpdate() => Flush();
+            private void LateUpdate()
+            {
+                if (BasisDownloadCenter.Version != _downloadsVersion) _dirty = true;
+                Flush();
+                RefreshDownloads();
+            }
 
             private void Flush()
             {
-                if (!_dirty || !PendingGrid || !HistoryGrid) return;
+                if (!_dirty || !DownloadsGrid || !PendingGrid || !HistoryGrid) return;
                 _dirty = false;
 
+                bool downloadsChanged = ReconcileDownloads();
                 bool changed = Reconcile();
                 bool orderChanged = changed && ApplySiblingOrder();
                 bool filterChanged = ApplyFilter();
                 UpdateHeaders();
 
-                if (changed || orderChanged || filterChanged)
+                if (downloadsChanged || changed || orderChanged || filterChanged)
                 {
+                    LayoutRebuilder.ForceRebuildLayoutImmediate(DownloadsGrid);
                     LayoutRebuilder.ForceRebuildLayoutImmediate(PendingGrid);
                     PanelElementDescriptor.RebuildLayoutChain(
                         HistoryGrid, TabDescriptor != null ? TabDescriptor.ContentParent : null);
@@ -603,16 +777,8 @@ namespace Basis.BasisUI
 
             private NotificationCard CreateCard()
             {
-                PanelButton button = PanelButton.CreateNew(PendingGrid);
+                PanelButton button = CreateCardButton(PendingGrid);
                 if (button == null) return null;
-
-                button.Descriptor.DisableRichText();
-                if (button.Descriptor.TitleLabel != null)
-                {
-                    button.Descriptor.TitleLabel.margin = new Vector4(CardIconStripWidth, 0f, CardInfoStripWidth, 0f);
-                    button.Descriptor.TitleLabel.alignment = TextAlignmentOptions.Left;
-                    button.Descriptor.TitleLabel.overflowMode = TextOverflowModes.Ellipsis;
-                }
 
                 NotificationCard card = new NotificationCard { Button = button, Grid = PendingGrid, ChipLabel = AddInfoChip(button) };
                 button.OnClicked = () => OnCardClicked(card.Notification);
@@ -721,6 +887,18 @@ namespace Basis.BasisUI
                     DestroyCard(_cardPool[i]);
                 }
                 _cardPool.Clear();
+
+                foreach (var kvp in _downloadCards)
+                {
+                    DestroyDownloadCard(kvp.Value);
+                }
+                _downloadCards.Clear();
+
+                for (int i = 0; i < _downloadCardPool.Count; i++)
+                {
+                    DestroyDownloadCard(_downloadCardPool[i]);
+                }
+                _downloadCardPool.Clear();
             }
 
             private bool ApplySiblingOrder()
@@ -766,8 +944,206 @@ namespace Basis.BasisUI
                 return changed;
             }
 
+            private bool ReconcileDownloads()
+            {
+                _downloadsVersion = BasisDownloadCenter.Version;
+                BasisDownloadCenter.CopyActive(_downloads);
+                _downloadCount = _downloads.Count;
+
+                bool changed = false;
+                _liveDownloadIds.Clear();
+                for (int i = 0; i < _downloads.Count; i++)
+                {
+                    _liveDownloadIds.Add(_downloads[i].Id);
+                }
+
+                _removeBuffer.Clear();
+                foreach (var kvp in _downloadCards)
+                {
+                    if (!_liveDownloadIds.Contains(kvp.Key)) _removeBuffer.Add(kvp.Key);
+                }
+                for (int i = 0; i < _removeBuffer.Count; i++)
+                {
+                    ReleaseDownloadCard(_removeBuffer[i]);
+                    changed = true;
+                }
+
+                if (_downloadDialog != null && _downloadDialogTarget != null && !_liveDownloadIds.Contains(_downloadDialogTarget.Id))
+                {
+                    _downloadDialog.Cancel(false);
+                }
+
+                int budget = _lastDownloadAddFrame == Time.frameCount
+                    ? 0
+                    : _downloadCards.Count == 0 ? FirstFrameCards : CardsPerFrame;
+
+                bool complete = true;
+                for (int i = _downloads.Count - 1; i >= 0; i--)
+                {
+                    BasisDownload download = _downloads[i];
+                    if (_downloadCards.ContainsKey(download.Id)) continue;
+
+                    if (budget <= 0)
+                    {
+                        complete = false;
+                        continue;
+                    }
+
+                    DownloadCard card = AcquireDownloadCard();
+                    if (card == null) continue;
+
+                    BindDownloadCard(card, download);
+                    _downloadCards[download.Id] = card;
+                    _lastDownloadAddFrame = Time.frameCount;
+                    budget--;
+                    changed = true;
+                }
+
+                if (!complete) _dirty = true;
+                if (changed) ApplyDownloadOrder();
+                return changed;
+            }
+
+            private DownloadCard AcquireDownloadCard()
+            {
+                while (_downloadCardPool.Count > 0)
+                {
+                    int last = _downloadCardPool.Count - 1;
+                    DownloadCard pooled = _downloadCardPool[last];
+                    _downloadCardPool.RemoveAt(last);
+                    if (pooled.Button != null) return pooled;
+                }
+
+                PanelButton button = CreateCardButton(DownloadsGrid);
+                if (button == null) return null;
+
+                DownloadCard card = new DownloadCard { Button = button, ChipLabel = AddInfoChip(button), ProgressFill = AddProgressStrip(button) };
+                button.OnClicked = () => OnDownloadCardClicked(card.Download);
+                button.TooltipProvider = () => BuildDownloadTooltip(card);
+                return card;
+            }
+
+            private static void BindDownloadCard(DownloadCard card, BasisDownload download)
+            {
+                card.Download = download;
+                card.Name = download.ContentName;
+                card.Percent = -1;
+                card.Cancelling = false;
+                card.Button.Descriptor.SetTitle(DownloadTitle(download));
+
+                string icon = KindIcon(download.Kind);
+                if (!string.Equals(card.IconAddress, icon, StringComparison.Ordinal))
+                {
+                    card.IconAddress = icon;
+                    if (card.Icon == null)
+                    {
+                        card.Icon = AddCardIcon(card.Button, icon);
+                    }
+                    else
+                    {
+                        card.Icon.SetIcon(AddressableAssets.GetSprite(icon), true);
+                    }
+                }
+
+                RefreshDownloadCard(card);
+                card.Button.gameObject.SetActive(true);
+            }
+
+            private static void RefreshDownloadCard(DownloadCard card)
+            {
+                BasisDownload download = card.Download;
+                if (download == null || card.Button == null) return;
+
+                string name = download.ContentName;
+                if (!ReferenceEquals(name, card.Name))
+                {
+                    card.Name = name;
+                    card.Button.Descriptor.SetTitle(DownloadTitle(download));
+                }
+
+                int percent = DownloadPercent(download);
+                bool cancelling = download.CancelRequested;
+                if (percent == card.Percent && cancelling == card.Cancelling) return;
+                card.Percent = percent;
+                card.Cancelling = cancelling;
+
+                Color tint = cancelling ? DismissedTint : PendingTint;
+                card.ChipLabel.color = tint;
+                card.ChipLabel.SetText(cancelling ? BasisLocalization.Get("notifications.downloads.cancelling") : PercentLabels[percent]);
+                card.ProgressFill.color = tint;
+                card.ProgressFill.rectTransform.anchorMax = new Vector2(percent / 100f, 1f);
+            }
+
+            private static string BuildDownloadTooltip(DownloadCard card)
+            {
+                BasisDownload download = card.Download;
+                if (download == null) return string.Empty;
+                return PercentLabels[DownloadPercent(download)] + "  •  " + DownloadStage(download) + "  •  " + DownloadSummary(download);
+            }
+
+            private void ApplyDownloadOrder()
+            {
+                int index = 0;
+                for (int i = _downloads.Count - 1; i >= 0; i--)
+                {
+                    if (_downloadCards.TryGetValue(_downloads[i].Id, out DownloadCard card) && card.Button != null)
+                    {
+                        card.Button.transform.SetSiblingIndex(index++);
+                    }
+                }
+            }
+
+            private void ReleaseDownloadCard(Guid id)
+            {
+                if (!_downloadCards.TryGetValue(id, out DownloadCard card)) return;
+                _downloadCards.Remove(id);
+
+                card.Download = null;
+                if (card.Button == null) return;
+
+                if (_downloadCardPool.Count < CardPoolCap)
+                {
+                    card.Button.gameObject.SetActive(false);
+                    card.Button.transform.SetAsLastSibling();
+                    _downloadCardPool.Add(card);
+                    return;
+                }
+
+                DestroyDownloadCard(card);
+            }
+
+            private static void DestroyDownloadCard(DownloadCard card)
+            {
+                if (card.Button == null) return;
+                card.Button.OnClicked = null;
+                card.Button.TooltipProvider = null;
+                card.Button.ReleaseInstance();
+                card.Button = null;
+            }
+
+            private void RefreshDownloads()
+            {
+                if (_downloadCards.Count == 0 && _downloadDialog == null) return;
+                if (Time.unscaledTime < _nextDownloadRefresh) return;
+                _nextDownloadRefresh = Time.unscaledTime + DownloadRefreshInterval;
+
+                foreach (var kvp in _downloadCards)
+                {
+                    RefreshDownloadCard(kvp.Value);
+                }
+                RefreshDownloadDialog();
+            }
+
             private void UpdateHeaders()
             {
+                if (DownloadsHeader != null)
+                {
+                    DownloadsHeader.SetTitle(BasisLocalization.Get("notifications.downloads.count", _downloadCount));
+                    DownloadsHeader.SetDescription(BasisLocalization.Get(_downloadCount == 0
+                        ? "notifications.downloads.empty"
+                        : "notifications.downloads.description"));
+                }
+
                 if (PendingHeader != null)
                 {
                     PendingHeader.SetTitle(BasisLocalization.Get("notifications.pending.count", _pendingCount));
@@ -801,13 +1177,17 @@ namespace Basis.BasisUI
 
             private void CancelDialogs()
             {
-                DialogBox<bool> search = _searchDialog, detail = _detailDialog, clear = _clearDialog;
+                DialogBox<bool> search = _searchDialog, detail = _detailDialog, clear = _clearDialog, download = _downloadDialog;
                 _searchDialog = null;
                 _detailDialog = null;
                 _clearDialog = null;
+                _downloadDialog = null;
+                _downloadDialogTarget = null;
+                _downloadDialogStatus = null;
                 search?.Cancel(false);
                 detail?.Cancel(false);
                 clear?.Cancel(false);
+                download?.Cancel(false);
             }
 
             private static PanelButton AddExitButton(DialogBox<bool> dialog)
@@ -819,11 +1199,11 @@ namespace Basis.BasisUI
                 return exitButton;
             }
 
-            private static PanelButton ActionButton(PanelTabGroup row, string style, string labelKey)
+            private static PanelButton ActionButton(PanelTabGroup row, string style, string labelKey, float width = 200)
             {
                 PanelButton button = PanelButton.CreateNew(style, row.TabButtonParent);
                 button.Descriptor.SetTitle(BasisLocalization.Get(labelKey));
-                button.Descriptor.SetWidth(200);
+                button.Descriptor.SetWidth(width);
                 button.Descriptor.SetHeight(60);
                 return button;
             }
@@ -893,6 +1273,88 @@ namespace Basis.BasisUI
 
                 await dialog.WaitAsync();
                 if (_detailDialog == dialog) _detailDialog = null;
+            }
+
+            private void OnDownloadCardClicked(BasisDownload download)
+            {
+                if (download == null) return;
+                _ = ShowDownloadDialogAsync(download);
+            }
+
+            private async Task ShowDownloadDialogAsync(BasisDownload download)
+            {
+                BasisMenuPanel panel = ResolvePanel();
+                if (panel == null || _downloadDialog != null) return;
+
+                DialogBox<bool> dialog = DialogBox<bool>.Create(panel, new Vector2(1000, 480), DownloadTitle(download), null, KindIcon(download.Kind));
+                if (dialog.Descriptor == null) return;
+                _downloadDialog = dialog;
+                _downloadDialogTarget = download;
+                dialog.Descriptor.DisableRichText();
+
+                AddExitButton(dialog);
+
+                PanelTabPage page = PanelTabPage.CreateVertical(dialog.Descriptor.ContentParent);
+                page.Descriptor.SetHeight(380f);
+                ClampScrollViewport(page.Descriptor.ContentParent);
+                RectTransform content = page.Descriptor.ContentParent;
+
+                PanelElementDescriptor status = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Entry, content);
+                status.DisableRichText();
+                status.SetDescription(DownloadSummary(download));
+                _downloadDialogStatus = status;
+                _downloadDialogPercent = -1;
+                _downloadDialogStage = null;
+                RefreshDownloadDialog();
+
+                if (!string.IsNullOrEmpty(download.Url))
+                {
+                    PanelElementDescriptor body = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Entry, content);
+                    body.DisableRichText();
+                    body.SetTitle(string.Empty);
+                    body.SetDescription(download.Url);
+                }
+
+                PanelTabGroup actions = PanelTabGroup.CreateNew(content, LayoutDirection.HorizontalNoBackground);
+                actions.Descriptor.SetHeight(60);
+                ActionButton(actions, PanelButton.ButtonStyles.AcceptButton, "ui.ok").OnClicked += () => dialog.Cancel(false);
+                if (download.CanCancel && !download.CancelRequested)
+                {
+                    ActionButton(actions, PanelButton.ButtonStyles.CancelButton, "notifications.downloads.cancel", 300).OnClicked += () =>
+                    {
+                        dialog.CloseWithResult(true);
+                        BasisDownloadCenter.Cancel(download);
+                        _nextDownloadRefresh = 0f;
+                    };
+                }
+
+                dialog.Descriptor.ForceRebuild();
+
+                await dialog.WaitAsync();
+                if (_downloadDialog == dialog)
+                {
+                    _downloadDialog = null;
+                    _downloadDialogTarget = null;
+                    _downloadDialogStatus = null;
+                }
+            }
+
+            private void RefreshDownloadDialog()
+            {
+                BasisDownload download = _downloadDialogTarget;
+                if (download == null || _downloadDialogStatus == null) return;
+
+                int percent = DownloadPercent(download);
+                string stage = DownloadStage(download);
+                if (percent == _downloadDialogPercent && ReferenceEquals(stage, _downloadDialogStage)) return;
+                _downloadDialogPercent = percent;
+                _downloadDialogStage = stage;
+
+                _downloadDialogStatus.SetTitle(download.CancelRequested ? stage : PercentLabels[percent] + "  •  " + stage);
+                if (_downloadDialogStatus.TitleLabel != null)
+                {
+                    _downloadDialogStatus.TitleLabel.color = download.CancelRequested ? DismissedTint : PendingTint;
+                }
             }
 
             private async Task ShowSearchDialogAsync()

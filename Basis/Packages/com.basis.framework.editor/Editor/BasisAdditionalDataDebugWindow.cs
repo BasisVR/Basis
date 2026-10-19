@@ -1,3 +1,4 @@
+using Basis.Editor.Localization;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.Behaviour;
 using Basis.Scripts.Networking.NetworkedAvatar;
@@ -39,7 +40,7 @@ public class BasisAdditionalDataDebugWindow : EditorWindow
     [MenuItem("Basis/Debug/Face Tracking Data", false, 605)]
     public static void ShowWindow()
     {
-        var w = GetWindow<BasisAdditionalDataDebugWindow>("Additional Data");
+        var w = GetWindow<BasisAdditionalDataDebugWindow>(BasisEditorLocalization.Get("editor.additionalData.windowTitle"));
         w.minSize = new Vector2(560, 420);
     }
 
@@ -83,8 +84,8 @@ public class BasisAdditionalDataDebugWindow : EditorWindow
 
     private void OnGUI()
     {
-        BasisEditorUI.Header("Face Tracking Data",
-            "The additional-data channel per player: what arrives, what is dispatched, and where it stalls.");
+        BasisEditorUI.Header(BasisEditorLocalization.Get("editor.additionalData.title"),
+            BasisEditorLocalization.Get("editor.additionalData.subtitle"));
 
         double now = BasisAdditionalDataDebugCapture.Now;
         _sampleThisFrame = now - _lastSample >= 0.5;
@@ -93,34 +94,34 @@ public class BasisAdditionalDataDebugWindow : EditorWindow
 
         _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);
 
-        BasisEditorUI.SectionTitle("AdditionalAvatarData Pipeline (face tracking, avatar behaviour params)");
-        BasisEditorUI.Note("Behaviour submit -> Transmitter -> Compress -> wire -> Decompress -> LinkedAvatarIndex gate -> Behaviour dispatch");
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.additionalData.pipelineTitle"));
+        BasisEditorUI.Note(BasisEditorLocalization.Get("editor.additionalData.pipelineFlow"));
 
         EditorGUILayout.BeginHorizontal();
         if (_csv == null)
         {
             using (new EditorGUI.DisabledScope(!Application.isPlaying))
             {
-                if (GUILayout.Button("Record CSV", GUILayout.Width(110))) StartCsv();
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.additionalData.recordCsv"), GUILayout.Width(110))) StartCsv();
             }
         }
         else
         {
             var prev = GUI.color;
             GUI.color = ErrorColor;
-            if (GUILayout.Button($"■ Stop ({now - _csvStart:F0}s)", GUILayout.Width(110))) StopCsv();
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.additionalData.stopRecording", now - _csvStart), GUILayout.Width(110))) StopCsv();
             GUI.color = prev;
         }
         if (!string.IsNullOrEmpty(_csvPath))
         {
-            if (GUILayout.Button("Open Folder", GUILayout.Width(90)))
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.additionalData.openFolder"), GUILayout.Width(90)))
             {
                 EditorUtility.RevealInFinder(_csvPath);
             }
             EditorGUILayout.LabelField(_csvPath, EditorStyles.miniLabel);
         }
         GUILayout.FlexibleSpace();
-        if (GUILayout.Button("Clear Counters", GUILayout.Width(110)))
+        if (GUILayout.Button(BasisEditorLocalization.Get("editor.additionalData.clearCounters"), GUILayout.Width(110)))
         {
             BasisAdditionalDataDebugCapture.Clear();
             _prevCounts.Clear();
@@ -131,18 +132,18 @@ public class BasisAdditionalDataDebugWindow : EditorWindow
 
         if (!Application.isPlaying)
         {
-            BasisEditorUI.Help("Enter Play Mode to see live data.", MessageType.Info);
+            BasisEditorUI.Help(BasisEditorLocalization.Get("editor.additionalData.enterPlayMode"), MessageType.Info);
             EditorGUILayout.EndScrollView();
             return;
         }
 
         EditorGUILayout.Space(4);
-        _showOutgoing = EditorGUILayout.BeginFoldoutHeaderGroup(_showOutgoing, "Outgoing — Local Player");
+        _showOutgoing = EditorGUILayout.BeginFoldoutHeaderGroup(_showOutgoing, BasisEditorLocalization.Get("editor.additionalData.outgoing"));
         if (_showOutgoing) DrawOutgoing(now, dt);
         EditorGUILayout.EndFoldoutHeaderGroup();
 
         EditorGUILayout.Space(4);
-        _showIncoming = EditorGUILayout.BeginFoldoutHeaderGroup(_showIncoming, "Incoming — Remote Players");
+        _showIncoming = EditorGUILayout.BeginFoldoutHeaderGroup(_showIncoming, BasisEditorLocalization.Get("editor.additionalData.incoming"));
         if (_showIncoming) DrawIncoming(now, dt);
         EditorGUILayout.EndFoldoutHeaderGroup();
 
@@ -155,10 +156,10 @@ public class BasisAdditionalDataDebugWindow : EditorWindow
         float attachedRate = Rate(2L << 60, System.Threading.Interlocked.Read(ref BasisAdditionalDataDiagnostics.SenderFramesWithAdditional), dt);
 
         float avatarChRate = Rate(5L << 60, System.Threading.Interlocked.Read(ref BasisAdditionalDataDiagnostics.SenderAvatarChannelSent), dt);
-        EditorGUILayout.LabelField($"submitted/s: {submittedRate:F1}    frames-with-section/s: {attachedRate:F1}    avatarCh-sent/s: {avatarChRate:F1}    " +
-            $"keyframes: {System.Threading.Interlocked.Read(ref BasisAdditionalDataDiagnostics.SenderFramesKeyframe)}    " +
-            $"deltas: {System.Threading.Interlocked.Read(ref BasisAdditionalDataDiagnostics.SenderFramesDelta)}    " +
-            $"noTransmitter: {System.Threading.Interlocked.Read(ref BasisAdditionalDataDiagnostics.SenderSubmitFailedNoTransmitter)}");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.additionalData.senderStats", submittedRate, attachedRate, avatarChRate,
+            System.Threading.Interlocked.Read(ref BasisAdditionalDataDiagnostics.SenderFramesKeyframe),
+            System.Threading.Interlocked.Read(ref BasisAdditionalDataDiagnostics.SenderFramesDelta),
+            System.Threading.Interlocked.Read(ref BasisAdditionalDataDiagnostics.SenderSubmitFailedNoTransmitter)));
 
         float storeSubmitRate = Rate(6L << 60, System.Threading.Interlocked.Read(ref BasisAdditionalDataDebugCapture.HvrStoreSubmits), dt);
         float noListenerRate = Rate(7L << 60, System.Threading.Interlocked.Read(ref BasisAdditionalDataDebugCapture.HvrStoreSubmitsNoListener), dt);
@@ -167,37 +168,33 @@ public class BasisAdditionalDataDebugWindow : EditorWindow
         float tickRate = Rate(10L << 60, System.Threading.Interlocked.Read(ref BasisAdditionalDataDebugCapture.HvrWearerTicks), dt);
         float tickWithValuesRate = Rate(11L << 60, System.Threading.Interlocked.Read(ref BasisAdditionalDataDebugCapture.HvrWearerTicksWithValues), dt);
         float activityRate = Rate(12L << 60, System.Threading.Interlocked.Read(ref BasisAdditionalDataDebugCapture.HvrActivitySamples), dt);
-        EditorGUILayout.LabelField($"HVR wearer: storeSubmits/s: {storeSubmitRate:F1} (noListener/s: {noListenerRate:F1})    " +
-            $"netAddrUpdates/s: {addrUpdateRate:F1}    newValues/s: {newValueRate:F1}    " +
-            $"ticks/s: {tickRate:F1} (withValues/s: {tickWithValuesRate:F1})    ftSamples/s: {activityRate:F1}");
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.additionalData.wearerStats", storeSubmitRate, noListenerRate, addrUpdateRate, newValueRate, tickRate, tickWithValuesRate, activityRate));
 
         if (storeSubmitRate <= 0f && noListenerRate <= 0f && activityRate <= 0f)
         {
-            DrawStatus("NO STORE TRAFFIC: nothing (face tracker, eye source) is submitting into the HVR variable store — " +
-                "local movement is coming from a path that bypasses the store, so there is nothing to network.", ErrorColor);
+            DrawStatus(BasisEditorLocalization.Get("editor.additionalData.noStoreTraffic"), ErrorColor);
         }
         else if (storeSubmitRate > 0f && addrUpdateRate <= 0f)
         {
-            DrawStatus("STORE↛NETWORK: values are submitted into a store the wearer networking is NOT listening on " +
-                "(listener registered on a different store instance, or RequireVariable never ran).", ErrorColor);
+            DrawStatus(BasisEditorLocalization.Get("editor.additionalData.storeNotNetworked"), ErrorColor);
         }
         else if (addrUpdateRate > 0f && newValueRate <= 0f)
         {
-            DrawStatus("VALUES FROZEN: networking sees the updates but every value equals the last one (Mathf.Approximately) — nothing queues for send.", WarnColor);
+            DrawStatus(BasisEditorLocalization.Get("editor.additionalData.valuesFrozen"), WarnColor);
         }
         else if (newValueRate > 0f && tickRate <= 0f)
         {
-            DrawStatus("TICK DEAD: values queue but HVRVariableNetworking.DoTick never runs (HVRCommsUpdateDriver not pumping this instance).", ErrorColor);
+            DrawStatus(BasisEditorLocalization.Get("editor.additionalData.tickDead"), ErrorColor);
         }
 
         if (submittedRate > 0f && attachedRate <= 0f)
         {
-            DrawStatus("SENDER BROKEN: behaviours are submitting but Compress never attaches a section to outgoing frames.", ErrorColor);
+            DrawStatus(BasisEditorLocalization.Get("editor.additionalData.senderBroken"), ErrorColor);
         }
 
         var localBehaviours = BasisNetworkPlayer.LocalPlayer?.NetworkBehaviours;
         bool any = false;
-        EditorGUILayout.LabelField("Reduction system (high-frequency face stream)", EditorStyles.miniBoldLabel);
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.additionalData.reductionSystemOutgoing"), EditorStyles.miniBoldLabel);
         DrawSlotHeader();
         var sent = BasisAdditionalDataDebugCapture.Sent;
         for (int Index = 0; Index < sent.Length; Index++)
@@ -209,12 +206,11 @@ public class BasisAdditionalDataDebugWindow : EditorWindow
         }
         if (!any)
         {
-            DrawStatus("NOTHING SUBMITTED: no avatar behaviour has handed data to the transmitter since capture started. " +
-                "Face tracking output is dying before it ever reaches the network layer.", WarnColor);
+            DrawStatus(BasisEditorLocalization.Get("editor.additionalData.nothingSubmitted"), WarnColor);
         }
 
         EditorGUILayout.Space(2);
-        EditorGUILayout.LabelField("Avatar channel ch15 (HVR handshake, variable updates, upgrades)", EditorStyles.miniBoldLabel);
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.additionalData.avatarChannelOutgoing"), EditorStyles.miniBoldLabel);
         bool anyCh15 = false;
         DrawSlotHeader();
         var sentCh15 = BasisAdditionalDataDebugCapture.SentCh15;
@@ -227,7 +223,7 @@ public class BasisAdditionalDataDebugWindow : EditorWindow
         }
         if (!anyCh15)
         {
-            DrawStatus("No avatar-channel sends: HVR comms never initialized on the local avatar (handshake/variable packets absent).", WarnColor);
+            DrawStatus(BasisEditorLocalization.Get("editor.additionalData.noChannelSends"), WarnColor);
         }
     }
 
@@ -236,7 +232,7 @@ public class BasisAdditionalDataDebugWindow : EditorWindow
         var players = BasisAdditionalDataDebugCapture.Players;
         if (players.IsEmpty)
         {
-            BasisEditorUI.Help("No remote player has delivered an AdditionalAvatarData section since capture started.", MessageType.Info);
+            BasisEditorUI.Help(BasisEditorLocalization.Get("editor.additionalData.noRemoteData"), MessageType.Info);
             return;
         }
 
@@ -254,7 +250,7 @@ public class BasisAdditionalDataDebugWindow : EditorWindow
                 if (snapshot[Index] != null && snapshot[Index].playerId == playerId) { receiver = snapshot[Index]; break; }
             }
 
-            string title = receiver != null ? $"Player {playerId} — {receiver.displayName}" : $"Player {playerId} (no receiver — left?)";
+            string title = receiver != null ? BasisEditorLocalization.Get("editor.additionalData.playerTitle", playerId, receiver.displayName) : BasisEditorLocalization.Get("editor.additionalData.playerNoReceiver", playerId);
             if (!_playerFoldouts.TryGetValue(playerId, out bool open)) open = true;
             _playerFoldouts[playerId] = EditorGUILayout.Foldout(open, title, true);
             if (!_playerFoldouts[playerId]) continue;
@@ -265,26 +261,26 @@ public class BasisAdditionalDataDebugWindow : EditorWindow
             float dispatchRate = Rate(keyBase | 2, System.Threading.Interlocked.Read(ref pc.EntriesDispatched), dt);
             float gateRate = Rate(keyBase | 3, System.Threading.Interlocked.Read(ref pc.DroppedLinkedIndex), dt);
 
-            EditorGUILayout.LabelField($"frames-with-section/s: {frameRate:F1}    entries-dispatched/s: {dispatchRate:F1}    " +
-                $"gateDrops: {System.Threading.Interlocked.Read(ref pc.DroppedLinkedIndex)}    " +
-                $"skippedEmpty: {System.Threading.Interlocked.Read(ref pc.SkippedEmpty)}    " +
-                $"skippedIndex: {System.Threading.Interlocked.Read(ref pc.SkippedIndex)}");
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.additionalData.playerStats", frameRate, dispatchRate,
+                System.Threading.Interlocked.Read(ref pc.DroppedLinkedIndex),
+                System.Threading.Interlocked.Read(ref pc.SkippedEmpty),
+                System.Threading.Interlocked.Read(ref pc.SkippedIndex)));
 
             if (frameRate > 0f && dispatchRate <= 0f)
             {
-                string why = gateRate > 0f
-                    ? "the LinkedAvatarIndex gate is rejecting every frame (avatar index mismatch between sender and receiver)."
-                    : "entries are being skipped before any behaviour runs (see skippedEmpty / skippedIndex).";
-                DrawStatus("RECEIVER BROKEN: sections arrive for this player but nothing is dispatched — " + why, ErrorColor);
+                string message = gateRate > 0f
+                    ? BasisEditorLocalization.Get("editor.additionalData.receiverBrokenGate")
+                    : BasisEditorLocalization.Get("editor.additionalData.receiverBrokenSkipped");
+                DrawStatus(message, ErrorColor);
             }
             else if (frameRate <= 0f && now - pc.LastFrameTime > 3.0)
             {
-                DrawStatus($"No sections from this player for {now - pc.LastFrameTime:F0}s — their client is not sending (or the server strips it).", WarnColor);
+                DrawStatus(BasisEditorLocalization.Get("editor.additionalData.noSectionsFromPlayer", now - pc.LastFrameTime), WarnColor);
             }
 
             bool anySlot = false;
             var behaviours = receiver?.NetworkBehaviours;
-            EditorGUILayout.LabelField("Reduction system", EditorStyles.miniBoldLabel);
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.additionalData.reductionSystemIncoming"), EditorStyles.miniBoldLabel);
             DrawSlotHeader();
             for (int Index = 0; Index < pc.Slots.Length; Index++)
             {
@@ -293,9 +289,9 @@ public class BasisAdditionalDataDebugWindow : EditorWindow
                 anySlot = true;
                 DrawSlotRow((byte)Index, slot, keyBase | (0x100L << 16) | (long)Index, now, dt, BehaviourName(behaviours, Index));
             }
-            if (!anySlot) BasisEditorUI.Note("(no entries dispatched yet)");
+            if (!anySlot) BasisEditorUI.Note(BasisEditorLocalization.Get("editor.additionalData.noEntriesYet"));
 
-            EditorGUILayout.LabelField("Avatar channel ch15", EditorStyles.miniBoldLabel);
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.additionalData.avatarChannelIncoming"), EditorStyles.miniBoldLabel);
             bool anyCh15Slot = false;
             DrawSlotHeader();
             for (int Index = 0; Index < pc.SlotsCh15.Length; Index++)
@@ -305,7 +301,7 @@ public class BasisAdditionalDataDebugWindow : EditorWindow
                 anyCh15Slot = true;
                 DrawSlotRow((byte)Index, slot, keyBase | (0x200L << 16) | (long)Index, now, dt, BehaviourName(behaviours, Index));
             }
-            if (!anyCh15Slot) BasisEditorUI.Note("(no ch15 messages dispatched yet)");
+            if (!anyCh15Slot) BasisEditorUI.Note(BasisEditorLocalization.Get("editor.additionalData.noCh15Yet"));
             EditorGUI.indentLevel--;
             EditorGUILayout.Space(2);
         }
@@ -314,13 +310,13 @@ public class BasisAdditionalDataDebugWindow : EditorWindow
     private static void DrawSlotHeader()
     {
         EditorGUILayout.BeginHorizontal();
-        EditorGUILayout.LabelField("idx", EditorStyles.miniBoldLabel, GUILayout.Width(30));
-        EditorGUILayout.LabelField("behaviour", EditorStyles.miniBoldLabel, GUILayout.Width(180));
-        EditorGUILayout.LabelField("rate/s", EditorStyles.miniBoldLabel, GUILayout.Width(50));
-        EditorGUILayout.LabelField("chg/s", EditorStyles.miniBoldLabel, GUILayout.Width(50));
-        EditorGUILayout.LabelField("size", EditorStyles.miniBoldLabel, GUILayout.Width(40));
-        EditorGUILayout.LabelField("age", EditorStyles.miniBoldLabel, GUILayout.Width(40));
-        EditorGUILayout.LabelField("payload (hex, first bytes)", EditorStyles.miniBoldLabel);
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.additionalData.colIdx"), EditorStyles.miniBoldLabel, GUILayout.Width(30));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.additionalData.colBehaviour"), EditorStyles.miniBoldLabel, GUILayout.Width(180));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.additionalData.colRate"), EditorStyles.miniBoldLabel, GUILayout.Width(50));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.additionalData.colChanged"), EditorStyles.miniBoldLabel, GUILayout.Width(50));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.additionalData.colSize"), EditorStyles.miniBoldLabel, GUILayout.Width(40));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.additionalData.colAge"), EditorStyles.miniBoldLabel, GUILayout.Width(40));
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.additionalData.colPayload"), EditorStyles.miniBoldLabel);
         EditorGUILayout.EndHorizontal();
     }
 
@@ -359,7 +355,7 @@ public class BasisAdditionalDataDebugWindow : EditorWindow
 
         if (rate > 0f && changedRate <= 0f)
         {
-            DrawStatus("Payload is flowing but its bytes never change — the data conversion upstream of this hop is frozen.", WarnColor);
+            DrawStatus(BasisEditorLocalization.Get("editor.additionalData.payloadFrozen"), WarnColor);
         }
     }
 

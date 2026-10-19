@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -7,7 +8,8 @@ namespace Basis.Scripts.UI
     /// One UI Toolkit pointer. Each Basis pointer source — every ray device and every poking
     /// fingertip — owns an instance, so they hover, press and capture independently.
     /// </summary>
-    public class BasisUIToolkitPointer
+    [AutoStaticsCleanup]
+    public partial class BasisUIToolkitPointer
     {
         // Far outside any panel: dispatched on leave so the panel picks nothing and emits its
         // own PointerLeave. Without it the last hovered element stays highlighted forever.

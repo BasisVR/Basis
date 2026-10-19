@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -9,7 +10,8 @@ using UnityEngine;
 
 namespace Basis.BasisUI
 {
-    public static class SettingsProviderConsoleTab
+    [AutoStaticsCleanup]
+    public static partial class SettingsProviderConsoleTab
     {
         private static bool _showCollapsedLogs = true;
         private static bool _showAllLogsInOrder = true;

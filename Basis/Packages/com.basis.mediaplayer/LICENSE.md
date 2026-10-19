@@ -1,12 +1,25 @@
 # License
 
-The source code in this package — all C#, the native C wrapper, and the Go test
-server — is released under the MIT License:
+This package — the C# components and the Rust engine under `Native~/` — is
+licensed under either of
+
+- Apache License, Version 2.0 ([`Native~/LICENSE-APACHE`](Native~/LICENSE-APACHE),
+  or <http://www.apache.org/licenses/LICENSE-2.0>)
+- MIT License ([`Native~/LICENSE-MIT`](Native~/LICENSE-MIT), reproduced below)
+
+at your option.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in this package, as defined in the Apache-2.0 licence, shall be
+dual licensed as above, without any additional terms or conditions.
+
+Dependencies bundled into the shipped native binaries have their own licences,
+all permissive. See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 ```
 MIT License
 
-Copyright (c) 2026 BasisVR
+Copyright (c) 2026 basis-media contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -26,8 +39,3 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
-
-This package ships compiled binaries that statically link third-party
-libraries with their own (permissive) licenses. Those licenses are reproduced
-verbatim in `THIRD_PARTY_NOTICES.md` alongside this file, as their terms
-require.

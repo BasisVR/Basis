@@ -1,0 +1,161 @@
+{
+  "device": "Oculus Quest Pro",
+  "os": "Android OS 14 / API-34 (UP1A.231005.007.A1/51483620032400340)",
+  "codecs": [
+    {"name": "c2.dolby.eac3.decoder", "canonical": "c2.dolby.eac3.decoder", "encoder": false, "hwAccelerated": false, "softwareOnly": false, "vendor": true,
+     "types": [
+       {"mime": "audio/ac3", "maxInstances": 32, "profileLevels": []},
+       {"mime": "audio/eac3", "maxInstances": 32, "profileLevels": []},
+       {"mime": "audio/eac3-joc", "maxInstances": 32, "profileLevels": []}]},
+    {"name": "c2.android.aac.decoder", "canonical": "c2.android.aac.decoder", "encoder": false, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "audio/mp4a-latm", "maxInstances": 32, "profileLevels": [{"profile": 2, "level": 0},{"profile": 5, "level": 0},{"profile": 29, "level": 0},{"profile": 23, "level": 0},{"profile": 39, "level": 0},{"profile": 20, "level": 0},{"profile": 42, "level": 0}]}]},
+    {"name": "OMX.google.aac.decoder", "canonical": "c2.android.aac.decoder", "encoder": false, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "audio/mp4a-latm", "maxInstances": 32, "profileLevels": [{"profile": 2, "level": 0},{"profile": 5, "level": 0},{"profile": 29, "level": 0},{"profile": 23, "level": 0},{"profile": 39, "level": 0},{"profile": 20, "level": 0},{"profile": 42, "level": 0}]}]},
+    {"name": "c2.android.aac.encoder", "canonical": "c2.android.aac.encoder", "encoder": true, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "audio/mp4a-latm", "maxInstances": 32, "profileLevels": [{"profile": 2, "level": 0},{"profile": 5, "level": 0},{"profile": 29, "level": 0},{"profile": 23, "level": 0},{"profile": 39, "level": 0}]}]},
+    {"name": "OMX.google.aac.encoder", "canonical": "c2.android.aac.encoder", "encoder": true, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "audio/mp4a-latm", "maxInstances": 32, "profileLevels": [{"profile": 2, "level": 0},{"profile": 5, "level": 0},{"profile": 29, "level": 0},{"profile": 23, "level": 0},{"profile": 39, "level": 0}]}]},
+    {"name": "c2.android.amrwb.decoder", "canonical": "c2.android.amrwb.decoder", "encoder": false, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "audio/amr-wb", "maxInstances": 32, "profileLevels": []}]},
+    {"name": "OMX.google.amrwb.decoder", "canonical": "c2.android.amrwb.decoder", "encoder": false, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "audio/amr-wb", "maxInstances": 32, "profileLevels": []}]},
+    {"name": "c2.android.amrwb.encoder", "canonical": "c2.android.amrwb.encoder", "encoder": true, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "audio/amr-wb", "maxInstances": 32, "profileLevels": []}]},
+    {"name": "OMX.google.amrwb.encoder", "canonical": "c2.android.amrwb.encoder", "encoder": true, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "audio/amr-wb", "maxInstances": 32, "profileLevels": []}]},
+    {"name": "c2.android.flac.decoder", "canonical": "c2.android.flac.decoder", "encoder": false, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "audio/flac", "maxInstances": 32, "profileLevels": []}]},
+    {"name": "OMX.google.flac.decoder", "canonical": "c2.android.flac.decoder", "encoder": false, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "audio/flac", "maxInstances": 32, "profileLevels": []}]},
+    {"name": "c2.android.flac.encoder", "canonical": "c2.android.flac.encoder", "encoder": true, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "audio/flac", "maxInstances": 32, "profileLevels": []}]},
+    {"name": "OMX.google.flac.encoder", "canonical": "c2.android.flac.encoder", "encoder": true, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "audio/flac", "maxInstances": 32, "profileLevels": []}]},
+    {"name": "c2.android.mp3.decoder", "canonical": "c2.android.mp3.decoder", "encoder": false, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "audio/mpeg", "maxInstances": 32, "profileLevels": []}]},
+    {"name": "OMX.google.mp3.decoder", "canonical": "c2.android.mp3.decoder", "encoder": false, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "audio/mpeg", "maxInstances": 32, "profileLevels": []}]},
+    {"name": "c2.android.opus.decoder", "canonical": "c2.android.opus.decoder", "encoder": false, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "audio/opus", "maxInstances": 32, "profileLevels": []}]},
+    {"name": "OMX.google.opus.decoder", "canonical": "c2.android.opus.decoder", "encoder": false, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "audio/opus", "maxInstances": 32, "profileLevels": []}]},
+    {"name": "c2.android.opus.encoder", "canonical": "c2.android.opus.encoder", "encoder": true, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "audio/opus", "maxInstances": 32, "profileLevels": []}]},
+    {"name": "c2.android.raw.decoder", "canonical": "c2.android.raw.decoder", "encoder": false, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "audio/raw", "maxInstances": 32, "profileLevels": []}]},
+    {"name": "OMX.google.raw.decoder", "canonical": "c2.android.raw.decoder", "encoder": false, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "audio/raw", "maxInstances": 32, "profileLevels": []}]},
+    {"name": "c2.android.vorbis.decoder", "canonical": "c2.android.vorbis.decoder", "encoder": false, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "audio/vorbis", "maxInstances": 32, "profileLevels": []}]},
+    {"name": "OMX.google.vorbis.decoder", "canonical": "c2.android.vorbis.decoder", "encoder": false, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "audio/vorbis", "maxInstances": 32, "profileLevels": []}]},
+    {"name": "OMX.qcom.video.decoder.avc", "canonical": "OMX.qcom.video.decoder.avc", "encoder": false, "hwAccelerated": true, "softwareOnly": false, "vendor": true,
+     "types": [
+       {"mime": "video/avc", "maxInstances": 16, "profileLevels": [{"profile": 65536, "level": 262144},{"profile": 1, "level": 262144},{"profile": 2, "level": 262144},{"profile": 524288, "level": 262144},{"profile": 8, "level": 262144}], "widths": "[128, 8192]", "heights": "[128, 8192]", "frameRates": "[1, 960]", "bitrates": "[1, 220000000]", "performancePoints": ["PerformancePoint(8192x4320@48)","PerformancePoint(7680x4320@60)","PerformancePoint(4096x2160@120)","PerformancePoint(3840x2160@240)","PerformancePoint(1920x1088@480)","PerformancePoint(1280x720@960)"]}]},
+    {"name": "OMX.qcom.video.decoder.hevc", "canonical": "OMX.qcom.video.decoder.hevc", "encoder": false, "hwAccelerated": true, "softwareOnly": false, "vendor": true,
+     "types": [
+       {"mime": "video/hevc", "maxInstances": 16, "profileLevels": [{"profile": 1, "level": 8388608},{"profile": 2, "level": 8388608},{"profile": 4, "level": 8388608},{"profile": 4096, "level": 8388608},{"profile": 8192, "level": 8388608}], "widths": "[128, 8192]", "heights": "[128, 8192]", "frameRates": "[1, 960]", "bitrates": "[1, 160000000]", "performancePoints": ["PerformancePoint(8192x4320@48)","PerformancePoint(7680x4320@60)","PerformancePoint(4096x2160@120)","PerformancePoint(3840x2160@240)","PerformancePoint(1920x1088@480)","PerformancePoint(1280x720@960)"]}]},
+    {"name": "OMX.qcom.video.decoder.mpeg2", "canonical": "OMX.qcom.video.decoder.mpeg2", "encoder": false, "hwAccelerated": true, "softwareOnly": false, "vendor": true,
+     "types": [
+       {"mime": "video/mpeg2", "maxInstances": 16, "profileLevels": [{"profile": 0, "level": 3},{"profile": 1, "level": 3}], "widths": "[128, 1920]", "heights": "[128, 1088]", "frameRates": "[12, 30]", "bitrates": "[1, 40000000]", "performancePoints": ["PerformancePoint(1920x1088@30)"]}]},
+    {"name": "OMX.qti.video.decoder.mpeg4sw", "canonical": "OMX.qti.video.decoder.mpeg4sw", "encoder": false, "hwAccelerated": true, "softwareOnly": false, "vendor": true,
+     "types": [
+       {"mime": "video/mp4v-es", "maxInstances": 4, "profileLevels": [{"profile": 1, "level": 256},{"profile": 32768, "level": 128}], "widths": "[96, 1344]", "heights": "[96, 1344]", "frameRates": "[12, 30]", "bitrates": "[1, 12000000]", "performancePoints": ["PerformancePoint(1920x1088@30)"]}]},
+    {"name": "OMX.qcom.video.decoder.vp8", "canonical": "OMX.qcom.video.decoder.vp8", "encoder": false, "hwAccelerated": true, "softwareOnly": false, "vendor": true,
+     "types": [
+       {"mime": "video/x-vnd.on2.vp8", "maxInstances": 16, "profileLevels": [{"profile": 1, "level": 8}], "widths": "[128, 4096]", "heights": "[128, 4096]", "frameRates": "[1, 120]", "bitrates": "[1, 100000000]", "performancePoints": ["PerformancePoint(4096x2160@30)","PerformancePoint(3840x2160@30)","PerformancePoint(1920x1088@120)"]}]},
+    {"name": "OMX.qcom.video.decoder.vp9", "canonical": "OMX.qcom.video.decoder.vp9", "encoder": false, "hwAccelerated": true, "softwareOnly": false, "vendor": true,
+     "types": [
+       {"mime": "video/x-vnd.on2.vp9", "maxInstances": 6, "profileLevels": [{"profile": 1, "level": 4096},{"profile": 4, "level": 4096},{"profile": 4096, "level": 4096},{"profile": 16384, "level": 4096}], "widths": "[128, 8192]", "heights": "[128, 8192]", "frameRates": "[1, 960]", "bitrates": "[1, 100000000]", "performancePoints": ["PerformancePoint(8192x4320@48)","PerformancePoint(7680x4320@60)","PerformancePoint(4096x2160@120)","PerformancePoint(3840x2160@240)","PerformancePoint(1920x1088@480)","PerformancePoint(1280x720@960)"]}]},
+    {"name": "OMX.qcom.video.encoder.avc", "canonical": "OMX.qcom.video.encoder.avc", "encoder": true, "hwAccelerated": true, "softwareOnly": false, "vendor": true,
+     "types": [
+       {"mime": "video/avc", "maxInstances": 16, "profileLevels": [{"profile": 65536, "level": 131072},{"profile": 1, "level": 131072},{"profile": 2, "level": 131072},{"profile": 524288, "level": 131072},{"profile": 8, "level": 131072}], "widths": "[128, 8192]", "heights": "[128, 8192]", "frameRates": "[1, 960]", "bitrates": "[1, 220000000]", "performancePoints": ["PerformancePoint(7680x4320@30)","PerformancePoint(3840x2160@120)","PerformancePoint(1920x1088@240)","PerformancePoint(1280x720@960)"]}]},
+    {"name": "OMX.qcom.video.encoder.hevc", "canonical": "OMX.qcom.video.encoder.hevc", "encoder": true, "hwAccelerated": true, "softwareOnly": false, "vendor": true,
+     "types": [
+       {"mime": "video/hevc", "maxInstances": 16, "profileLevels": [{"profile": 1, "level": 2097152},{"profile": 2, "level": 2097152},{"profile": 4, "level": 2097152},{"profile": 4096, "level": 2097152},{"profile": 8192, "level": 2097152}], "widths": "[128, 8192]", "heights": "[128, 8192]", "frameRates": "[1, 960]", "bitrates": "[1, 160000000]", "performancePoints": ["PerformancePoint(7680x4320@30)","PerformancePoint(3840x2160@120)","PerformancePoint(1920x1088@240)","PerformancePoint(1280x720@960)"]}]},
+    {"name": "OMX.qcom.video.encoder.vp8", "canonical": "OMX.qcom.video.encoder.vp8", "encoder": true, "hwAccelerated": true, "softwareOnly": false, "vendor": true,
+     "types": [
+       {"mime": "video/x-vnd.on2.vp8", "maxInstances": 16, "profileLevels": [{"profile": 1, "level": 8}], "widths": "[128, 4096]", "heights": "[128, 4096]", "frameRates": "[1, 60]", "bitrates": "[1, 70000000]", "performancePoints": ["PerformancePoint(4096x2160@60)","PerformancePoint(3840x2160@60)"]}]},
+    {"name": "c2.qti.avc.decoder", "canonical": "c2.qti.avc.decoder", "encoder": false, "hwAccelerated": true, "softwareOnly": false, "vendor": true,
+     "types": [
+       {"mime": "video/avc", "maxInstances": 16, "profileLevels": [{"profile": 1, "level": 262144},{"profile": 65536, "level": 262144},{"profile": 2, "level": 262144},{"profile": 8, "level": 262144},{"profile": 524288, "level": 262144}], "widths": "[128, 4096]", "heights": "[128, 2304]", "frameRates": "[1, 480]", "bitrates": "[1, 120000000]", "performancePoints": ["PerformancePoint(4096x2304@30)","PerformancePoint(3840x2160@60)","PerformancePoint(1920x1088@240)","PerformancePoint(1280x720@480)"]}]},
+    {"name": "c2.qti.hevc.decoder", "canonical": "c2.qti.hevc.decoder", "encoder": false, "hwAccelerated": true, "softwareOnly": false, "vendor": true,
+     "types": [
+       {"mime": "video/hevc", "maxInstances": 16, "profileLevels": [{"profile": 1, "level": 8388608},{"profile": 4, "level": 8388608},{"profile": 2, "level": 8388608},{"profile": 4096, "level": 8388608},{"profile": 8192, "level": 8388608}], "widths": "[128, 4096]", "heights": "[128, 2304]", "frameRates": "[1, 480]", "bitrates": "[1, 120000000]", "performancePoints": ["PerformancePoint(4096x2304@30)","PerformancePoint(3840x2160@60)","PerformancePoint(1920x1088@240)","PerformancePoint(1280x720@480)"]}]},
+    {"name": "c2.qti.vp8.decoder", "canonical": "c2.qti.vp8.decoder", "encoder": false, "hwAccelerated": true, "softwareOnly": false, "vendor": true,
+     "types": [
+       {"mime": "video/x-vnd.on2.vp8", "maxInstances": 16, "profileLevels": [{"profile": 1879048704, "level": 1879048707}], "widths": "[128, 4096]", "heights": "[128, 2304]", "frameRates": "[1, 240]", "bitrates": "[1, 100000000]", "performancePoints": ["PerformancePoint(4096x2304@24)","PerformancePoint(3840x2160@30)","PerformancePoint(1920x1088@120)","PerformancePoint(1280x720@240)"]}]},
+    {"name": "c2.qti.vp9.decoder", "canonical": "c2.qti.vp9.decoder", "encoder": false, "hwAccelerated": true, "softwareOnly": false, "vendor": true,
+     "types": [
+       {"mime": "video/x-vnd.on2.vp9", "maxInstances": 6, "profileLevels": [{"profile": 1, "level": 4096},{"profile": 2, "level": 4096},{"profile": 4, "level": 4096},{"profile": 4096, "level": 4096},{"profile": 16384, "level": 4096}], "widths": "[128, 4096]", "heights": "[128, 2304]", "frameRates": "[1, 480]", "bitrates": "[1, 120000000]", "performancePoints": ["PerformancePoint(4096x2304@30)","PerformancePoint(3840x2160@60)","PerformancePoint(1920x1088@240)","PerformancePoint(1280x720@480)"]}]},
+    {"name": "c2.qti.mpeg2.decoder", "canonical": "c2.qti.mpeg2.decoder", "encoder": false, "hwAccelerated": true, "softwareOnly": false, "vendor": true,
+     "types": [
+       {"mime": "video/mpeg2", "maxInstances": 16, "profileLevels": [{"profile": 0, "level": 3},{"profile": 1, "level": 3}], "widths": "[128, 1920]", "heights": "[128, 1088]", "frameRates": "[12, 30]", "bitrates": "[1, 40000000]", "performancePoints": ["PerformancePoint(1920x1088@30)"]}]},
+    {"name": "c2.qti.avc.encoder", "canonical": "c2.qti.avc.encoder", "encoder": true, "hwAccelerated": true, "softwareOnly": false, "vendor": true,
+     "types": [
+       {"mime": "video/avc", "maxInstances": 16, "profileLevels": [{"profile": 1, "level": 131072},{"profile": 65536, "level": 131072},{"profile": 2, "level": 131072},{"profile": 8, "level": 131072},{"profile": 524288, "level": 131072}], "widths": "[128, 4096]", "heights": "[128, 2304]", "frameRates": "[1, 480]", "bitrates": "[1, 120000000]", "performancePoints": ["PerformancePoint(4096x2304@30)","PerformancePoint(3840x2160@60)","PerformancePoint(1920x1088@240)","PerformancePoint(1280x720@480)"]}]},
+    {"name": "c2.qti.hevc.encoder", "canonical": "c2.qti.hevc.encoder", "encoder": true, "hwAccelerated": true, "softwareOnly": false, "vendor": true,
+     "types": [
+       {"mime": "video/hevc", "maxInstances": 16, "profileLevels": [{"profile": 1, "level": 2097152},{"profile": 4, "level": 2097152},{"profile": 2, "level": 2097152},{"profile": 4096, "level": 2097152},{"profile": 8192, "level": 2097152}], "widths": "[128, 4096]", "heights": "[128, 2304]", "frameRates": "[1, 480]", "bitrates": "[1, 120000000]", "performancePoints": ["PerformancePoint(4096x2304@30)","PerformancePoint(3840x2160@60)","PerformancePoint(1920x1088@240)","PerformancePoint(1280x720@480)"]}]},
+    {"name": "c2.qti.hevc.encoder.cq", "canonical": "c2.qti.hevc.encoder.cq", "encoder": true, "hwAccelerated": true, "softwareOnly": false, "vendor": true,
+     "types": [
+       {"mime": "video/hevc", "maxInstances": 10, "profileLevels": [{"profile": 1, "level": 2097152},{"profile": 4, "level": 2097152},{"profile": 2, "level": 2097152},{"profile": 4096, "level": 2097152},{"profile": 8192, "level": 2097152}], "widths": "[128, 512]", "heights": "[128, 512]", "frameRates": "[1, 20]", "bitrates": "[1, 240000000]", "performancePoints": ["PerformancePoint(512x512@3825)"]}]},
+    {"name": "OMX.qcom.video.encoder.hevc.cq", "canonical": "c2.qti.hevc.encoder.cq", "encoder": true, "hwAccelerated": true, "softwareOnly": false, "vendor": true,
+     "types": [
+       {"mime": "video/hevc", "maxInstances": 10, "profileLevels": [{"profile": 1, "level": 2097152},{"profile": 4, "level": 2097152},{"profile": 2, "level": 2097152},{"profile": 4096, "level": 2097152},{"profile": 8192, "level": 2097152}], "widths": "[128, 512]", "heights": "[128, 512]", "frameRates": "[1, 20]", "bitrates": "[1, 240000000]", "performancePoints": ["PerformancePoint(512x512@3825)"]}]},
+    {"name": "c2.qti.heic.encoder", "canonical": "c2.qti.heic.encoder", "encoder": true, "hwAccelerated": true, "softwareOnly": false, "vendor": true,
+     "types": [
+       {"mime": "image/vnd.android.heic", "maxInstances": 6, "profileLevels": [{"profile": 24576, "level": 24837},{"profile": 24578, "level": 24837},{"profile": 24577, "level": 24837}], "widths": "[512, 8192]", "heights": "[512, 8192]", "frameRates": "[1, 20]", "bitrates": "[1, 64000]", "performancePoints": ["PerformancePoint(8192x4320@3)","PerformancePoint(1920x1088@6)"]}]},
+    {"name": "OMX.qcom.video.encoder.heic", "canonical": "c2.qti.heic.encoder", "encoder": true, "hwAccelerated": true, "softwareOnly": false, "vendor": true,
+     "types": [
+       {"mime": "image/vnd.android.heic", "maxInstances": 6, "profileLevels": [{"profile": 24576, "level": 24837},{"profile": 24578, "level": 24837},{"profile": 24577, "level": 24837}], "widths": "[512, 8192]", "heights": "[512, 8192]", "frameRates": "[1, 20]", "bitrates": "[1, 64000]", "performancePoints": ["PerformancePoint(8192x4320@3)","PerformancePoint(1920x1088@6)"]}]},
+    {"name": "c2.qti.vp8.encoder", "canonical": "c2.qti.vp8.encoder", "encoder": true, "hwAccelerated": true, "softwareOnly": false, "vendor": true,
+     "types": [
+       {"mime": "video/x-vnd.on2.vp8", "maxInstances": 16, "profileLevels": [{"profile": 1879048704, "level": 1879048707}], "widths": "[128, 4096]", "heights": "[128, 2304]", "frameRates": "[1, 480]", "bitrates": "[1, 70000000]", "performancePoints": ["PerformancePoint(4096x2304@24)","PerformancePoint(3840x2160@30)","PerformancePoint(1920x1088@120)","PerformancePoint(1280x720@240)"]}]},
+    {"name": "c2.android.mpeg4.decoder", "canonical": "c2.android.mpeg4.decoder", "encoder": false, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "video/mp4v-es", "maxInstances": 32, "profileLevels": [{"profile": 1, "level": 256}], "widths": "[2, 1344]", "heights": "[2, 1344]", "frameRates": "[12, 60]", "bitrates": "[1, 12000000]", "performancePoints": []}]},
+    {"name": "OMX.google.mpeg4.decoder", "canonical": "c2.android.mpeg4.decoder", "encoder": false, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "video/mp4v-es", "maxInstances": 32, "profileLevels": [{"profile": 1, "level": 256}], "widths": "[2, 1344]", "heights": "[2, 1344]", "frameRates": "[12, 60]", "bitrates": "[1, 12000000]", "performancePoints": []}]},
+    {"name": "c2.android.mpeg4.encoder", "canonical": "c2.android.mpeg4.encoder", "encoder": true, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "video/mp4v-es", "maxInstances": 32, "profileLevels": [{"profile": 1, "level": 8}], "widths": "[16, 176]", "heights": "[16, 144]", "frameRates": "[12, 60]", "bitrates": "[1, 64000]", "performancePoints": []}]},
+    {"name": "OMX.google.mpeg4.encoder", "canonical": "c2.android.mpeg4.encoder", "encoder": true, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "video/mp4v-es", "maxInstances": 32, "profileLevels": [{"profile": 1, "level": 8}], "widths": "[16, 176]", "heights": "[16, 144]", "frameRates": "[12, 60]", "bitrates": "[1, 64000]", "performancePoints": []}]},
+    {"name": "c2.android.vp8.decoder", "canonical": "c2.android.vp8.decoder", "encoder": false, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "video/x-vnd.on2.vp8", "maxInstances": 32, "profileLevels": [{"profile": 1, "level": 1}], "widths": "[2, 2048]", "heights": "[2, 2048]", "frameRates": "[0, 960]", "bitrates": "[1, 40000000]", "performancePoints": []}]},
+    {"name": "OMX.google.vp8.decoder", "canonical": "c2.android.vp8.decoder", "encoder": false, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "video/x-vnd.on2.vp8", "maxInstances": 32, "profileLevels": [{"profile": 1, "level": 1}], "widths": "[2, 2048]", "heights": "[2, 2048]", "frameRates": "[0, 960]", "bitrates": "[1, 40000000]", "performancePoints": []}]},
+    {"name": "c2.android.vp8.encoder", "canonical": "c2.android.vp8.encoder", "encoder": true, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "video/x-vnd.on2.vp8", "maxInstances": 32, "profileLevels": [{"profile": 1, "level": 1}], "widths": "[2, 2048]", "heights": "[2, 2048]", "frameRates": "[0, 960]", "bitrates": "[1, 40000000]", "performancePoints": []}]},
+    {"name": "OMX.google.vp8.encoder", "canonical": "c2.android.vp8.encoder", "encoder": true, "hwAccelerated": false, "softwareOnly": true, "vendor": false,
+     "types": [
+       {"mime": "video/x-vnd.on2.vp8", "maxInstances": 32, "profileLevels": [{"profile": 1, "level": 1}], "widths": "[2, 2048]", "heights": "[2, 2048]", "frameRates": "[0, 960]", "bitrates": "[1, 40000000]", "performancePoints": []}]}
+  ]
+}

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management.Devices;
@@ -11,7 +12,8 @@ using UnityEngine;
 
 namespace Basis.Scripts.BasisSdk.Interactions
 {
-    public static class BasisJiggleGrabDriver
+    [AutoStaticsCleanup]
+    public static partial class BasisJiggleGrabDriver
     {
         public const int MaxAnnouncedGrabs = 2048;
         public const int MaxAppliedGrabs = JiggleGrabConstraint.MaxTotalGrabs;
@@ -68,7 +70,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         private static readonly List<GrabState> applied = new List<GrabState>();
         private static readonly List<GrabState> removalScratch = new List<GrabState>();
         private static readonly List<GrabState> demotionScratch = new List<GrabState>();
-        private static readonly JiggleGrabConstraint[] constraintScratch = new JiggleGrabConstraint[MaxAppliedGrabs];
+        [NoAutoStaticsCleanup] private static readonly JiggleGrabConstraint[] constraintScratch = new JiggleGrabConstraint[MaxAppliedGrabs];
         private static int lastPushedCount;
         private static int promotionCursor;
         private static bool initialized;
@@ -177,12 +179,13 @@ namespace Basis.Scripts.BasisSdk.Interactions
             Vector3 bestPointPosition = default;
             float bestScore = float.MaxValue;
             bool pointed = desktop;
+            bool includeLocalAvatar = CanGrabLocalAvatar(desktop);
 
             float radius = BasisPlayerInteract.AvatarScaledRange(GrabSearchRadius);
             GrabQuery grasp = default;
             if (desktop)
             {
-                SearchRigs(localId, GrabQuery.Pointing(input.RaycastCoord.position,
+                SearchRigs(localId, includeLocalAvatar, GrabQuery.Pointing(input.RaycastCoord.position,
                         input.RaycastCoord.rotation * Vector3.forward,
                         BasisPlayerInteract.AvatarScaledRange(BasisPlayerInteract.raycastDistance), radius),
                     ref bestRig, ref bestTarget, ref bestRigIndex, ref bestPointIndex, ref bestPointPosition, ref bestScore);
@@ -191,7 +194,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             {
                 GetHandGrasp(input, hand, out Vector3 palm, out Vector3 fingerTip);
                 grasp = GrabQuery.Grasp(palm, fingerTip, radius);
-                SearchRigs(localId, grasp,
+                SearchRigs(localId, includeLocalAvatar, grasp,
                     ref bestRig, ref bestTarget, ref bestRigIndex, ref bestPointIndex, ref bestPointPosition, ref bestScore);
 
                 // Missed the tight volume, but a chain is still against the hand — take that one.
@@ -200,7 +203,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 // read as the grab being broken.
                 if (bestPointIndex < 0)
                 {
-                    SearchRigs(localId, grasp.WithRadius(radius * ReachIntentRadiusMultiplier),
+                    SearchRigs(localId, includeLocalAvatar, grasp.WithRadius(radius * ReachIntentRadiusMultiplier),
                         ref bestRig, ref bestTarget, ref bestRigIndex, ref bestPointIndex, ref bestPointPosition, ref bestScore);
                 }
 
@@ -208,7 +211,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 if (bestPointIndex < 0)
                 {
                     pointed = true;
-                    SearchRigs(localId, GrabQuery.Pointing(input.RaycastCoord.position,
+                    SearchRigs(localId, includeLocalAvatar, GrabQuery.Pointing(input.RaycastCoord.position,
                             input.RaycastCoord.rotation * Vector3.forward,
                             BasisPlayerInteract.AvatarScaledRange(GrabRayLength), radius),
                         ref bestRig, ref bestTarget, ref bestRigIndex, ref bestPointIndex, ref bestPointPosition, ref bestScore);
@@ -339,7 +342,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             int probePointIndex = -1;
             Vector3 probePosition = default;
             float probeScore = float.MaxValue;
-            SearchRigs(0, grasp.WithRadius(2f),
+            SearchRigs(0, true, grasp.WithRadius(2f),
                 ref probeRig, ref probeTarget, ref probeRigIndex, ref probePointIndex, ref probePosition, ref probeScore);
 
             if (probePointIndex < 0)
@@ -350,7 +353,12 @@ namespace Basis.Scripts.BasisSdk.Interactions
             RecordAttempt($"nearest chain was {probeScore:0.00}m from your grip, needs {grasp.Radius * ReachIntentRadiusMultiplier:0.00}m");
         }
 
-        private static void SearchRigs(ushort localId, GrabQuery query,
+        internal static bool CanGrabLocalAvatar(bool desktopInput)
+        {
+            return !desktopInput;
+        }
+
+        private static void SearchRigs(ushort localId, bool includeLocalAvatar, GrabQuery query,
             ref JiggleRig bestRig, ref BasisRemotePlayer bestTarget, ref byte bestRigIndex, ref int bestPointIndex,
             ref Vector3 bestPointPosition, ref float bestScore)
         {
@@ -377,7 +385,10 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     ref bestRig, ref bestTarget, ref bestRigIndex, ref bestPointIndex, ref bestPointPosition, ref bestScore);
             }
 
-            if (bestPointIndex < 0)
+            // A desktop pointer originates at the face. Falling back to the local rigs makes an
+            // ordinary click or click-and-drag catch hair and collar chains surrounding that ray.
+            // Hands can deliberately touch their own avatar in VR, so keep self-grabbing there.
+            if (includeLocalAvatar && bestPointIndex < 0)
             {
                 ScoreRigArray(BasisLocalAvatarDriver.JiggleRigs, null, query,
                     ref bestRig, ref bestTarget, ref bestRigIndex, ref bestPointIndex, ref bestPointPosition, ref bestScore);
@@ -1285,7 +1296,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 Vector3 bestPointPosition = default;
                 float bestScore = float.MaxValue;
                 TryGetLocalPlayerId(out ushort localId);
-                SearchRigs(localId, GrabQuery.Grasp(position, position, radius),
+                SearchRigs(localId, true, GrabQuery.Grasp(position, position, radius),
                     ref bestRig, ref bestTarget, ref bestRigIndex, ref bestPointIndex, ref bestPointPosition, ref bestScore);
                 if (bestPointIndex >= 0)
                 {

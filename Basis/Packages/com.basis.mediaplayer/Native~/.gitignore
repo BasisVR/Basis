@@ -1,0 +1,5 @@
+/target
+# Built from source by tools/build-librist.ps1; the pinned headers ARE committed.
+third_party/librist/win-x64/
+third_party/librist/linux-x64/
+third_party/librist/android-arm64/

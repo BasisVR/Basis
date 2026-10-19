@@ -1,3 +1,4 @@
+using Basis.Editor.Localization;
 using System;
 using UnityEditor;
 using UnityEngine;
@@ -40,7 +41,7 @@ public sealed class BasisEventDriverProfilerTab : BasisEditorTabPage
     public override string Title => "EventDriver";
 
     public override string Subtitle =>
-        "Per-callback cost of the central tick, so an expensive subscriber is obvious.";
+        BasisEditorLocalization.Get("editor.eventDriverProfiler.subtitle");
 
     public override void OnEnable() => BasisEventDriverProfilerData.Enabled = true;
 
@@ -50,41 +51,41 @@ public sealed class BasisEventDriverProfilerTab : BasisEditorTabPage
     {
         if (!Application.isPlaying)
         {
-            BasisEditorUI.Help("Enter Play Mode to see live data.", MessageType.Info);
+            BasisEditorUI.Help(BasisEditorLocalization.Get("editor.eventDriverProfiler.enterPlayMode"), MessageType.Info);
             return;
         }
 
         using (BasisEditorUI.Card())
         {
-            BasisEditorUI.Row("Frame", BasisEventDriverProfilerData.FrameCount.ToString());
-            _budgetMs = EditorGUILayout.Slider("Budget (ms)", _budgetMs, 2f, 33.3f);
+            BasisEditorUI.Row(BasisEditorLocalization.Get("editor.eventDriverProfiler.frame"), BasisEventDriverProfilerData.FrameCount.ToString());
+            _budgetMs = EditorGUILayout.Slider(BasisEditorLocalization.Get("editor.eventDriverProfiler.budgetMs"), _budgetMs, 2f, 33.3f);
         }
 
-        Section(ref _showLateUpdate, "LateUpdate Overview", DrawLateUpdate);
-        Section(ref _showNetworkDeep, "Network Apply Breakdown", DrawNetworkDeep);
+        Section(ref _showLateUpdate, BasisEditorLocalization.Get("editor.eventDriverProfiler.sectionLateUpdate"), DrawLateUpdate);
+        Section(ref _showNetworkDeep, BasisEditorLocalization.Get("editor.eventDriverProfiler.sectionNetworkApply"), DrawNetworkDeep);
         Section(ref _showTransmitSim, "TransmissionResults.Simulate()", DrawTransmitSim);
-        Section(ref _showPoseLod, "Pose LOD Diagnostics", DrawPoseLod);
-        Section(ref _showRemoteAudio, "Remote Audio", DrawRemoteAudio);
-        Section(ref _showRemoteFace, "Remote Face", DrawRemoteFace);
-        Section(ref _showLocal, "Local Player", DrawLocal);
+        Section(ref _showPoseLod, BasisEditorLocalization.Get("editor.eventDriverProfiler.sectionPoseLod"), DrawPoseLod);
+        Section(ref _showRemoteAudio, BasisEditorLocalization.Get("editor.eventDriverProfiler.sectionRemoteAudio"), DrawRemoteAudio);
+        Section(ref _showRemoteFace, BasisEditorLocalization.Get("editor.eventDriverProfiler.sectionRemoteFace"), DrawRemoteFace);
+        Section(ref _showLocal, BasisEditorLocalization.Get("editor.eventDriverProfiler.localPlayer"), DrawLocal);
         Section(ref _showPhysics, "JigglePhysics", DrawPhysics);
-        Section(ref _showMisc, "Misc", DrawMisc);
-        Section(ref _showThreading, "Job Completion Status", DrawThreading);
-        Section(ref _showGraph, "Frame History", DrawGraph);
+        Section(ref _showMisc, BasisEditorLocalization.Get("editor.eventDriverProfiler.sectionMisc"), DrawMisc);
+        Section(ref _showThreading, BasisEditorLocalization.Get("editor.eventDriverProfiler.sectionJobStatus"), DrawThreading);
+        Section(ref _showGraph, BasisEditorLocalization.Get("editor.eventDriverProfiler.sectionFrameHistory"), DrawGraph);
     }
 
     // ── sections ────────────────────────────────────────────────────────────
 
     private void DrawLateUpdate()
     {
-        TimingRow("LateUpdate Total", BasisEventDriverProfilerData.LateUpdateTotalMs, _budgetMs);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.lateUpdateTotal"), BasisEventDriverProfilerData.LateUpdateTotalMs, _budgetMs);
         TimingRow("OnBeforeRender", BasisEventDriverProfilerData.OnBeforeRenderMs, _budgetMs * 0.2f);
-        TimingRow("Network Apply (group)", BasisEventDriverProfilerData.NetworkApplyMs, 3f);
-        TimingRow("Network Transmit", BasisEventDriverProfilerData.NetworkTransmitMs, 1f);
-        TimingRow("Remote Audio (sim+apply)", BasisEventDriverProfilerData.RemoteAudioSimulateMs + BasisEventDriverProfilerData.RemoteAudioApplyMs, 2f);
-        TimingRow("Remote Face (sim+apply)", BasisEventDriverProfilerData.RemoteFaceSimulateMs + BasisEventDriverProfilerData.RemoteFaceApplyMs, 2f);
-        TimingRow("Local Player", BasisEventDriverProfilerData.LocalPlayerMs, 2f);
-        TimingRow("JigglePhysics (all)", BasisEventDriverProfilerData.JiggleScheduleMs + BasisEventDriverProfilerData.JigglePoseMs + BasisEventDriverProfilerData.JiggleCompletePoseMs, 3f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.networkApplyGroup"), BasisEventDriverProfilerData.NetworkApplyMs, 3f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.networkTransmit"), BasisEventDriverProfilerData.NetworkTransmitMs, 1f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.remoteAudioSimApply"), BasisEventDriverProfilerData.RemoteAudioSimulateMs + BasisEventDriverProfilerData.RemoteAudioApplyMs, 2f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.remoteFaceSimApply"), BasisEventDriverProfilerData.RemoteFaceSimulateMs + BasisEventDriverProfilerData.RemoteFaceApplyMs, 2f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.localPlayer"), BasisEventDriverProfilerData.LocalPlayerMs, 2f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.jiggleAll"), BasisEventDriverProfilerData.JiggleScheduleMs + BasisEventDriverProfilerData.JigglePoseMs + BasisEventDriverProfilerData.JiggleCompletePoseMs, 3f);
     }
 
     private void DrawNetworkDeep()
@@ -95,21 +96,21 @@ public sealed class BasisEventDriverProfilerTab : BasisEditorTabPage
         TimingRow("CompleteScheduledRemoteLerp", BasisEventDriverProfilerData.Net_CompleteRemoteLerpMs, 1f);
 
         EditorGUILayout.Space(4);
-        BasisEditorUI.SectionTitle("Inside SimulateNetworkApply");
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.eventDriverProfiler.insideSimulateNetworkApply"));
 
-        TimingRow("Interpolation Complete (stall)", BasisEventDriverProfilerData.Net_RemoteDriverApplyMs, 1f);
-        JobStatusRow("Interpolation Job (from Update)", BasisEventDriverProfilerData.Net_InterpolationJobWasIncomplete);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.interpolationComplete"), BasisEventDriverProfilerData.Net_RemoteDriverApplyMs, 1f);
+        JobStatusRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.interpolationJobFromUpdate"), BasisEventDriverProfilerData.Net_InterpolationJobWasIncomplete);
 
-        BasisEditorUI.Row("Receiver Count", BasisEventDriverProfilerData.Net_ReceiverCount.ToString());
-        TimingRow("Receiver Apply Loop", BasisEventDriverProfilerData.Net_ReceiverApplyLoopMs, 2f);
+        BasisEditorUI.Row(BasisEditorLocalization.Get("editor.eventDriverProfiler.receiverCount"), BasisEventDriverProfilerData.Net_ReceiverCount.ToString());
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.receiverApplyLoop"), BasisEventDriverProfilerData.Net_ReceiverApplyLoopMs, 2f);
         if (BasisEventDriverProfilerData.Net_ReceiverCount > 0)
         {
             double perReceiver = BasisEventDriverProfilerData.Net_ReceiverApplyLoopMs / BasisEventDriverProfilerData.Net_ReceiverCount;
-            BasisEditorUI.Row("Per-Receiver Avg", $"{perReceiver:F4} ms");
+            BasisEditorUI.Row(BasisEditorLocalization.Get("editor.eventDriverProfiler.perReceiverAvg"), $"{perReceiver:F4} ms");
         }
 
-        TimingRow("BoneJob Schedule", BasisEventDriverProfilerData.Net_BoneJobScheduleMs, 0.5f);
-        TimingRow("BoneJob Complete (stall)", BasisEventDriverProfilerData.Net_BoneJobCompleteMs, 1f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.boneJobSchedule"), BasisEventDriverProfilerData.Net_BoneJobScheduleMs, 0.5f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.boneJobComplete"), BasisEventDriverProfilerData.Net_BoneJobCompleteMs, 1f);
         JobStatusRow("BoneJob", BasisEventDriverProfilerData.Net_BoneJobWasIncomplete);
 
         // How much of ApplySkeletonRotationsJob the write-skip is actually eliding. A low skip
@@ -120,28 +121,28 @@ public sealed class BasisEventDriverProfilerTab : BasisEditorTabPage
         {
             int boneSkipped = boneTotal - BasisEventDriverProfilerData.BoneWrite_Written;
             float skipPct = 100f * boneSkipped / boneTotal;
-            BasisEditorUI.Row("Bone Writes Skipped", $"{boneSkipped} / {boneTotal}  ({skipPct:F0}%)");
+            BasisEditorUI.Row(BasisEditorLocalization.Get("editor.eventDriverProfiler.boneWritesSkipped"), $"{boneSkipped} / {boneTotal}  ({skipPct:F0}%)");
         }
 
         EditorGUILayout.Space(2);
         double totalStall = BasisEventDriverProfilerData.Net_RemoteDriverApplyMs + BasisEventDriverProfilerData.Net_BoneJobCompleteMs;
-        BasisEditorUI.Row("Total Job Stall Time", $"{totalStall:F3} ms");
-        BasisEditorUI.Row("Total Main Thread Work", $"{BasisEventDriverProfilerData.Net_ReceiverApplyLoopMs:F3} ms");
+        BasisEditorUI.Row(BasisEditorLocalization.Get("editor.eventDriverProfiler.totalJobStallTime"), $"{totalStall:F3} ms");
+        BasisEditorUI.Row(BasisEditorLocalization.Get("editor.eventDriverProfiler.totalMainThreadWork"), $"{BasisEventDriverProfilerData.Net_ReceiverApplyLoopMs:F3} ms");
     }
 
     private void DrawTransmitSim()
     {
-        BasisEditorUI.PillRow("Ran This Tick",
-            BasisEventDriverProfilerData.Net_TransmitSimRanThisTick ? "YES" : "NO",
+        BasisEditorUI.PillRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.ranThisTick"),
+            BasisEventDriverProfilerData.Net_TransmitSimRanThisTick ? BasisEditorLocalization.Get("editor.eventDriverProfiler.yes") : BasisEditorLocalization.Get("editor.eventDriverProfiler.no"),
             BasisEditorUI.OnOff(BasisEventDriverProfilerData.Net_TransmitSimRanThisTick));
         if (!BasisEventDriverProfilerData.Net_TransmitSimRanThisTick) return;
 
-        TimingRow("Fill Positions", BasisEventDriverProfilerData.Net_TransmitSim_FillPositionsMs, 0.5f);
-        TimingRow("Job Schedule", BasisEventDriverProfilerData.Net_TransmitSim_JobScheduleMs, 0.2f);
-        TimingRow("Avatar Compress", BasisEventDriverProfilerData.Net_TransmitSim_CompressMs, 1f);
-        TimingRow("Job Complete (stall)", BasisEventDriverProfilerData.Net_TransmitSim_JobCompleteMs, 1f);
-        TimingRow("Post-Process Loop", BasisEventDriverProfilerData.Net_TransmitSim_PostProcessMs, 1f);
-        TimingRow("Talking Points", BasisEventDriverProfilerData.Net_TransmitSim_TalkingPointsMs, 0.2f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.fillPositions"), BasisEventDriverProfilerData.Net_TransmitSim_FillPositionsMs, 0.5f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.jobSchedule"), BasisEventDriverProfilerData.Net_TransmitSim_JobScheduleMs, 0.2f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.avatarCompress"), BasisEventDriverProfilerData.Net_TransmitSim_CompressMs, 1f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.jobCompleteStall"), BasisEventDriverProfilerData.Net_TransmitSim_JobCompleteMs, 1f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.postProcessLoop"), BasisEventDriverProfilerData.Net_TransmitSim_PostProcessMs, 1f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.talkingPoints"), BasisEventDriverProfilerData.Net_TransmitSim_TalkingPointsMs, 0.2f);
     }
 
     private void DrawPoseLod()
@@ -151,101 +152,99 @@ public sealed class BasisEventDriverProfilerTab : BasisEditorTabPage
         int skipped = BasisEventDriverProfilerData.PoseLod_Skipped;
         int total = applied + skipped;
 
-        BasisEditorUI.Row("Bias (setting)", $"{bias:F1}");
-        BasisEditorUI.PillRow("Active", bias > 0f ? "YES" : "NO", BasisEditorUI.OnOff(bias > 0f));
+        BasisEditorUI.Row(BasisEditorLocalization.Get("editor.eventDriverProfiler.biasSetting"), $"{bias:F1}");
+        BasisEditorUI.PillRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.active"), bias > 0f ? BasisEditorLocalization.Get("editor.eventDriverProfiler.yes") : BasisEditorLocalization.Get("editor.eventDriverProfiler.no"), BasisEditorUI.OnOff(bias > 0f));
 
         var skipByLod = SMModuleDistanceBasedReductions.PoseSkipByLod;
-        BasisEditorUI.Row("Skip Rates [L0,L1,L2,L3]", $"[{skipByLod[0]}, {skipByLod[1]}, {skipByLod[2]}, {skipByLod[3]}]");
+        BasisEditorUI.Row(BasisEditorLocalization.Get("editor.eventDriverProfiler.skipRates"), $"[{skipByLod[0]}, {skipByLod[1]}, {skipByLod[2]}, {skipByLod[3]}]");
 
         EditorGUILayout.Space(4);
-        BasisEditorUI.Row("LOD 0 (closest)", BasisEventDriverProfilerData.PoseLod_Lod0.ToString());
-        BasisEditorUI.Row("LOD 1", BasisEventDriverProfilerData.PoseLod_Lod1.ToString());
-        BasisEditorUI.Row("LOD 2", BasisEventDriverProfilerData.PoseLod_Lod2.ToString());
-        BasisEditorUI.Row("LOD 3 (furthest)", BasisEventDriverProfilerData.PoseLod_Lod3.ToString());
+        BasisEditorUI.Row(BasisEditorLocalization.Get("editor.eventDriverProfiler.lod0"), BasisEventDriverProfilerData.PoseLod_Lod0.ToString());
+        BasisEditorUI.Row(BasisEditorLocalization.Get("editor.eventDriverProfiler.lod1"), BasisEventDriverProfilerData.PoseLod_Lod1.ToString());
+        BasisEditorUI.Row(BasisEditorLocalization.Get("editor.eventDriverProfiler.lod2"), BasisEventDriverProfilerData.PoseLod_Lod2.ToString());
+        BasisEditorUI.Row(BasisEditorLocalization.Get("editor.eventDriverProfiler.lod3"), BasisEventDriverProfilerData.PoseLod_Lod3.ToString());
 
         EditorGUILayout.Space(4);
-        BasisEditorUI.SectionTitle("This Frame");
-        BasisEditorUI.Row("SetHumanPose Applied", applied.ToString());
-        BasisEditorUI.Row("SetHumanPose Skipped", skipped.ToString());
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.eventDriverProfiler.thisFrame"));
+        BasisEditorUI.Row(BasisEditorLocalization.Get("editor.eventDriverProfiler.setHumanPoseApplied"), applied.ToString());
+        BasisEditorUI.Row(BasisEditorLocalization.Get("editor.eventDriverProfiler.setHumanPoseSkipped"), skipped.ToString());
         if (total > 0)
         {
             float pct = (skipped / (float)total) * 100f;
-            BasisEditorUI.Bar(null, skipped / (float)total, $"{pct:F0}% skipped",
+            BasisEditorUI.Bar(null, skipped / (float)total, BasisEditorLocalization.Get("editor.eventDriverProfiler.percentSkipped", pct),
                 pct > 50 ? BasisEditorUI.Good : (pct > 10 ? BasisEditorUI.Warn : BarColor));
         }
 
         if (bias > 0f && skipped == 0 && total > 0)
         {
             BasisEditorUI.Help(
-                "Bias is set but nothing is being skipped.\n" +
-                "Check that CurrentLodLevel is being set on remote players.\n" +
-                "If all players are LOD 0, nothing will be skipped.",
+                BasisEditorLocalization.Get("editor.eventDriverProfiler.biasNotSkipping"),
                 MessageType.Warning);
         }
     }
 
     private void DrawRemoteAudio()
     {
-        BasisEditorUI.Row("Driver Count", BasisEventDriverProfilerData.RemoteAudioDriverCount.ToString());
-        TimingRow("Simulate (viseme decode)", BasisEventDriverProfilerData.RemoteAudioSimulateMs, 1f);
-        TimingRow("Apply (viseme write)", BasisEventDriverProfilerData.RemoteAudioApplyMs, 1f);
+        BasisEditorUI.Row(BasisEditorLocalization.Get("editor.eventDriverProfiler.driverCount"), BasisEventDriverProfilerData.RemoteAudioDriverCount.ToString());
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.simulateViseme"), BasisEventDriverProfilerData.RemoteAudioSimulateMs, 1f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.applyViseme"), BasisEventDriverProfilerData.RemoteAudioApplyMs, 1f);
         if (BasisEventDriverProfilerData.RemoteAudioDriverCount > 0)
         {
             double perDriver = (BasisEventDriverProfilerData.RemoteAudioSimulateMs + BasisEventDriverProfilerData.RemoteAudioApplyMs) / BasisEventDriverProfilerData.RemoteAudioDriverCount;
-            BasisEditorUI.Row("Per-Driver Avg", $"{perDriver:F4} ms");
+            BasisEditorUI.Row(BasisEditorLocalization.Get("editor.eventDriverProfiler.perDriverAvg"), $"{perDriver:F4} ms");
         }
     }
 
     private void DrawRemoteFace()
     {
-        BasisEditorUI.Row("Remote Count", BasisEventDriverProfilerData.RemoteFace_Count.ToString());
-        TimingRow("Simulate (job schedule)", BasisEventDriverProfilerData.RemoteFaceSimulateMs, 0.5f);
-        TimingRow("Apply Total", BasisEventDriverProfilerData.RemoteFaceApplyMs, 2f);
+        BasisEditorUI.Row(BasisEditorLocalization.Get("editor.eventDriverProfiler.remoteCount"), BasisEventDriverProfilerData.RemoteFace_Count.ToString());
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.simulateJobSchedule"), BasisEventDriverProfilerData.RemoteFaceSimulateMs, 0.5f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.applyTotal"), BasisEventDriverProfilerData.RemoteFaceApplyMs, 2f);
 
         EditorGUILayout.Space(2);
-        BasisEditorUI.SectionTitle("Inside Apply");
-        TimingRow("Job Complete (stall)", BasisEventDriverProfilerData.RemoteFace_JobCompleteMs, 1f);
-        TimingRow("Eye+Blink Write Loop", BasisEventDriverProfilerData.RemoteFace_EyeWriteMs, 1f);
-        BasisEditorUI.Row("Blink Mesh Writes", BasisEventDriverProfilerData.RemoteFace_BlinkWriteCount.ToString());
+        BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.eventDriverProfiler.insideApply"));
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.jobCompleteStall"), BasisEventDriverProfilerData.RemoteFace_JobCompleteMs, 1f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.eyeBlinkWriteLoop"), BasisEventDriverProfilerData.RemoteFace_EyeWriteMs, 1f);
+        BasisEditorUI.Row(BasisEditorLocalization.Get("editor.eventDriverProfiler.blinkMeshWrites"), BasisEventDriverProfilerData.RemoteFace_BlinkWriteCount.ToString());
         if (BasisEventDriverProfilerData.RemoteFace_Count > 0)
         {
             double perRemote = BasisEventDriverProfilerData.RemoteFace_EyeWriteMs / BasisEventDriverProfilerData.RemoteFace_Count;
-            BasisEditorUI.Row("Per-Remote Avg", $"{perRemote:F4} ms");
+            BasisEditorUI.Row(BasisEditorLocalization.Get("editor.eventDriverProfiler.perRemoteAvg"), $"{perRemote:F4} ms");
         }
-        JobStatusRow("Face Job", BasisEventDriverProfilerData.RemoteFaceJobWasIncomplete);
+        JobStatusRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.faceJob"), BasisEventDriverProfilerData.RemoteFaceJobWasIncomplete);
     }
 
     private void DrawLocal()
     {
-        TimingRow("Local Player Total", BasisEventDriverProfilerData.LocalPlayerMs, 2f);
-        TimingRow("Microphone", BasisEventDriverProfilerData.MicrophoneMs, 1f);
-        TimingRow("Device Management", BasisEventDriverProfilerData.DeviceManagementMs, 1f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.localPlayerTotal"), BasisEventDriverProfilerData.LocalPlayerMs, 2f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.microphone"), BasisEventDriverProfilerData.MicrophoneMs, 1f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.deviceManagement"), BasisEventDriverProfilerData.DeviceManagementMs, 1f);
     }
 
     private void DrawPhysics()
     {
-        TimingRow("Schedule", BasisEventDriverProfilerData.JiggleScheduleMs, 2f);
-        TimingRow("Pose", BasisEventDriverProfilerData.JigglePoseMs, 1f);
-        TimingRow("Complete Pose (stall)", BasisEventDriverProfilerData.JiggleCompletePoseMs, 2f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.schedule"), BasisEventDriverProfilerData.JiggleScheduleMs, 2f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.pose"), BasisEventDriverProfilerData.JigglePoseMs, 1f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.completePoseStall"), BasisEventDriverProfilerData.JiggleCompletePoseMs, 2f);
     }
 
     private void DrawMisc()
     {
-        TimingRow("NamePlate Schedule", BasisEventDriverProfilerData.NamePlateScheduleMs, 0.5f);
-        TimingRow("NamePlate Complete", BasisEventDriverProfilerData.NamePlateCompleteMs, 0.5f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.namePlateSchedule"), BasisEventDriverProfilerData.NamePlateScheduleMs, 0.5f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.namePlateComplete"), BasisEventDriverProfilerData.NamePlateCompleteMs, 0.5f);
         TimingRow("BTween", BasisEventDriverProfilerData.BTweenMs, 0.5f);
-        TimingRow("Shadow Clone BS", BasisEventDriverProfilerData.ShadowCloneMs, 0.5f);
+        TimingRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.shadowCloneBs"), BasisEventDriverProfilerData.ShadowCloneMs, 0.5f);
     }
 
     private void DrawThreading()
     {
-        JobStatusRow("Interpolation Job", BasisEventDriverProfilerData.Net_InterpolationJobWasIncomplete);
+        JobStatusRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.interpolationJob"), BasisEventDriverProfilerData.Net_InterpolationJobWasIncomplete);
         JobStatusRow("BoneJob", BasisEventDriverProfilerData.Net_BoneJobWasIncomplete);
-        JobStatusRow("Remote Face Job", BasisEventDriverProfilerData.RemoteFaceJobWasIncomplete);
-        JobStatusRow("NamePlate Job", BasisEventDriverProfilerData.NamePlateJobWasIncomplete);
+        JobStatusRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.remoteFaceJob"), BasisEventDriverProfilerData.RemoteFaceJobWasIncomplete);
+        JobStatusRow(BasisEditorLocalization.Get("editor.eventDriverProfiler.namePlateJob"), BasisEventDriverProfilerData.NamePlateJobWasIncomplete);
         EditorGUILayout.Space(2);
-        BasisEditorUI.Note("STALLED = main thread waited for job to finish.");
-        BasisEditorUI.Note("Ideally all jobs complete before their Apply call.");
+        BasisEditorUI.Note(BasisEditorLocalization.Get("editor.eventDriverProfiler.stalledNote"));
+        BasisEditorUI.Note(BasisEditorLocalization.Get("editor.eventDriverProfiler.idealNote"));
     }
 
     // ── widgets ─────────────────────────────────────────────────────────────
@@ -268,7 +267,7 @@ public sealed class BasisEventDriverProfilerTab : BasisEditorTabPage
     }
 
     private void JobStatusRow(string label, bool wasIncomplete) =>
-        BasisEditorUI.PillRow(label, wasIncomplete ? "STALLED" : "OK",
+        BasisEditorUI.PillRow(label, wasIncomplete ? BasisEditorLocalization.Get("editor.eventDriverProfiler.stalled") : BasisEditorLocalization.Get("editor.common.ok"),
             wasIncomplete ? BasisEditorUI.State.Warn : BasisEditorUI.State.Good);
 
     private void DrawGraph()
@@ -276,12 +275,12 @@ public sealed class BasisEventDriverProfilerTab : BasisEditorTabPage
         EditorGUILayout.Space(4);
 
         EditorGUILayout.BeginHorizontal();
-        DrawLegendSwatch(ColTotal, "Total");
-        DrawLegendSwatch(ColNetwork, "Network");
-        DrawLegendSwatch(ColLocal, "Local");
-        DrawLegendSwatch(ColRemoteAudio, "Audio");
-        DrawLegendSwatch(ColRemoteFace, "Face");
-        DrawLegendSwatch(ColJiggle, "Jiggle");
+        DrawLegendSwatch(ColTotal, BasisEditorLocalization.Get("editor.eventDriverProfiler.legendTotal"));
+        DrawLegendSwatch(ColNetwork, BasisEditorLocalization.Get("editor.eventDriverProfiler.legendNetwork"));
+        DrawLegendSwatch(ColLocal, BasisEditorLocalization.Get("editor.eventDriverProfiler.legendLocal"));
+        DrawLegendSwatch(ColRemoteAudio, BasisEditorLocalization.Get("editor.eventDriverProfiler.legendAudio"));
+        DrawLegendSwatch(ColRemoteFace, BasisEditorLocalization.Get("editor.eventDriverProfiler.legendFace"));
+        DrawLegendSwatch(ColJiggle, BasisEditorLocalization.Get("editor.eventDriverProfiler.legendJiggle"));
         EditorGUILayout.EndHorizontal();
 
         Rect graphRect = GUILayoutUtility.GetRect(0, 140, GUILayout.ExpandWidth(true));
@@ -310,7 +309,7 @@ public sealed class BasisEventDriverProfilerTab : BasisEditorTabPage
         Handles.EndGUI();
 
         EditorGUI.LabelField(new Rect(graphRect.x + 2, graphRect.y, 100, 16), $"{maxMs:F0} ms", EditorStyles.miniLabel);
-        EditorGUI.LabelField(new Rect(graphRect.x + 2, budgetY - 14, 100, 16), $"budget {_budgetMs:F1} ms", EditorStyles.miniLabel);
+        EditorGUI.LabelField(new Rect(graphRect.x + 2, budgetY - 14, 100, 16), BasisEditorLocalization.Get("editor.eventDriverProfiler.budgetLabel", _budgetMs), EditorStyles.miniLabel);
     }
 
     private void DrawGraphLayer(Rect rect, double[] history, int histLen, int current, int drawCount, float maxMs, Color color)

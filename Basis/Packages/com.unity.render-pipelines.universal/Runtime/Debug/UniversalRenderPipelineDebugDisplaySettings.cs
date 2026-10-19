@@ -32,12 +32,21 @@ namespace UnityEngine.Rendering.Universal
         /// <summary>
         /// Display stats.
         /// </summary>
-        internal DebugDisplaySettingsStats<URPProfileId> displayStats { get; private set; }
+        internal DebugDisplaySettingsStats displayStats { get; private set; }
 
         /// <summary>
         /// GPU Resident Drawer Rendering Debugger settings and statistics.
         /// </summary>
         internal DebugDisplayGPUResidentDrawer gpuResidentDrawerSettings { get; private set; }
+
+#if SURFACE_CACHE_SUPPORTED || UNITY_EDITOR
+        /// <summary>
+        /// Surface Cache Global Illumination related rendering debugger settings.
+        /// </summary>
+        internal DebugDisplaySettingsSurfaceCache surfaceCacheSettings { get; private set; }
+#endif
+
+        internal bool isSceneOverrideActive => AreAnySettingsActive && renderingSettings.sceneOverrideMode != DebugSceneOverrideMode.None;
 
         #region IDebugDisplaySettingsQuery
 
@@ -48,6 +57,9 @@ namespace UnityEngine.Rendering.Universal
         {
             get
             {
+                if (areDebugOverlaysHidden)
+                    return true;
+
                 DebugPostProcessingMode debugPostProcessingMode = renderingSettings.postProcessingDebugMode;
 
                 switch (debugPostProcessingMode)
@@ -92,13 +104,16 @@ namespace UnityEngine.Rendering.Universal
         {
             base.Reset();
 
-            displayStats = Add(new DebugDisplaySettingsStats<URPProfileId>(new UniversalRenderPipelineDebugDisplayStats()));
+            displayStats = Add(new DebugDisplaySettingsStats(new UniversalRenderPipelineDebugDisplayStats()));
             materialSettings = Add(DebugDisplaySerializer.GetOrCreate<DebugDisplaySettingsMaterial>());
             lightingSettings = Add(DebugDisplaySerializer.GetOrCreate<DebugDisplaySettingsLighting>());
             renderingSettings = Add(DebugDisplaySerializer.GetOrCreate<DebugDisplaySettingsRendering>());
             volumeSettings = Add(DebugDisplaySerializer.GetOrCreate<DebugDisplaySettingsVolume>());
             commonSettings = Add(DebugDisplaySerializer.GetOrCreate<DebugDisplaySettingsCommon>());
             gpuResidentDrawerSettings = Add(DebugDisplaySerializer.GetOrCreate<DebugDisplayGPUResidentDrawer>());
+#if SURFACE_CACHE_SUPPORTED || UNITY_EDITOR
+            surfaceCacheSettings = Add(DebugDisplaySerializer.GetOrCreate<DebugDisplaySettingsSurfaceCache>());
+#endif
 
             // This is not a debug property owned by any `IDebugDisplaySettingsData`, it is a static property on `Texture`.
             // When the user hits reset, we want to make sure texture mip caching is enabled again (regardless of whether the

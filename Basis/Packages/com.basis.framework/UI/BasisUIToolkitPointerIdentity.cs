@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Reflection;
 using UnityEngine.UIElements;
@@ -27,6 +28,7 @@ namespace Basis.Scripts.UI
             Probe<T>.SetPointerType?.Invoke(pointerEvent, PointerType.tracked);
         }
 
+        [NoAutoStaticsCleanup]
         private static class Probe<T> where T : PointerEventBase<T>, new()
         {
             internal static readonly Action<T, int> SetPointerId = CreateSetter<T, int>("pointerId");

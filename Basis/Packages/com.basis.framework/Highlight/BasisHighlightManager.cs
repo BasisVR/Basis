@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -17,7 +18,8 @@ namespace Basis.Scripts.BasisSdk.Highlight
     /// implementing application can replace <see cref="Instance"/> with a subclass during
     /// bootstrap to override highlight behavior without touching the static call sites.
     /// </summary>
-    public class BasisHighlightManager
+    [AutoStaticsCleanup]
+    public partial class BasisHighlightManager
     {
         protected readonly struct OverrideEntry
         {

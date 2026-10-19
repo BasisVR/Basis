@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Basis.Editor.Localization;
 using Basis.Network.Core;
 using Basis.Scripts.Networking;
 using UnityEditor;
@@ -10,9 +11,9 @@ using static SerializableBasis;
 
 public sealed class BasisLocalPermissionsTab : BasisEditorTabPage
 {
-    public override string Title => "Live (Local Player)";
+    public override string Title => BasisEditorLocalization.Get("editor.localPermissions.title");
     public override string Subtitle =>
-        "What the connected server actually granted this client, live in play mode.";
+        BasisEditorLocalization.Get("editor.localPermissions.subtitle");
 
     private Vector2 _scroll;
     private string _filter = "";
@@ -48,7 +49,7 @@ public sealed class BasisLocalPermissionsTab : BasisEditorTabPage
     {
         if (!EditorApplication.isPlaying)
         {
-            BasisEditorUI.Help("Enter Play Mode and connect to a server to see local permissions.", MessageType.Info);
+            BasisEditorUI.Help(BasisEditorLocalization.Get("editor.localPermissions.enterPlayMode"), MessageType.Info);
             return;
         }
 
@@ -71,18 +72,18 @@ public sealed class BasisLocalPermissionsTab : BasisEditorTabPage
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                GUILayout.Label($"Permissions: {total}", EditorStyles.boldLabel);
+                GUILayout.Label(BasisEditorLocalization.Get("editor.localPermissions.total", total), EditorStyles.boldLabel);
                 GUILayout.FlexibleSpace();
                 if (isAdmin)
                 {
                     var old = GUI.color;
                     GUI.color = new Color(1f, 0.9f, 0.5f);
-                    GUILayout.Label("ADMIN (*)", EditorStyles.boldLabel);
+                    GUILayout.Label(BasisEditorLocalization.Get("editor.localPermissions.admin"), EditorStyles.boldLabel);
                     GUI.color = old;
                 }
             }
 
-            _filter = EditorGUILayout.TextField("Filter", _filter);
+            _filter = EditorGUILayout.TextField(BasisEditorLocalization.Get("editor.localPermissions.filter"), _filter);
         }
     }
 
@@ -90,12 +91,12 @@ public sealed class BasisLocalPermissionsTab : BasisEditorTabPage
     {
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
-            GUILayout.Label("Permission Check", EditorStyles.boldLabel);
+            GUILayout.Label(BasisEditorLocalization.Get("editor.localPermissions.permissionCheck"), EditorStyles.boldLabel);
 
             using (new EditorGUILayout.HorizontalScope())
             {
                 _checkNode = EditorGUILayout.TextField(_checkNode);
-                if (GUILayout.Button("Check", GUILayout.Width(60)))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.localPermissions.check"), GUILayout.Width(60)))
                 {
                     _checkRan = true;
                     _checkResult = HasPermission(perms, _checkNode);
@@ -105,7 +106,7 @@ public sealed class BasisLocalPermissionsTab : BasisEditorTabPage
             if (_checkRan)
             {
                 EditorGUILayout.HelpBox(
-                    _checkResult ? "ALLOWED" : "DENIED",
+                    _checkResult ? BasisEditorLocalization.Get("editor.localPermissions.allowed") : BasisEditorLocalization.Get("editor.localPermissions.denied"),
                     _checkResult ? MessageType.Info : MessageType.Warning);
             }
         }
@@ -136,7 +137,7 @@ public sealed class BasisLocalPermissionsTab : BasisEditorTabPage
         {
             int bitsetCount = bitsetPerms.Count;
             _showBitsetSection = EditorGUILayout.Foldout(_showBitsetSection,
-                $"Known Permissions ({bitsetCount}) - {smdm.PermissionsBitset.Length} bytes on wire", true);
+                BasisEditorLocalization.Get("editor.localPermissions.knownPermissions", bitsetCount, smdm.PermissionsBitset.Length), true);
 
             if (_showBitsetSection)
             {
@@ -153,7 +154,7 @@ public sealed class BasisLocalPermissionsTab : BasisEditorTabPage
         if (hasExtras)
         {
             _showExtrasSection = EditorGUILayout.Foldout(_showExtrasSection,
-                $"Extra Permissions ({extraPerms.Count})", true);
+                BasisEditorLocalization.Get("editor.localPermissions.extraPermissions", extraPerms.Count), true);
 
             if (_showExtrasSection)
             {
@@ -172,7 +173,7 @@ public sealed class BasisLocalPermissionsTab : BasisEditorTabPage
             // Flat list fallback
             if (perms == null || perms.Count == 0)
             {
-                BasisEditorUI.Help("No permissions received from server.", MessageType.Info);
+                BasisEditorUI.Help(BasisEditorLocalization.Get("editor.localPermissions.noneReceived"), MessageType.Info);
             }
             else
             {

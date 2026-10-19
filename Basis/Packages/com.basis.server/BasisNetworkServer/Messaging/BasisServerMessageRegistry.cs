@@ -304,6 +304,9 @@ public static class BasisServerMessageRegistry
         RegisterCore(BasisNetworkCommons.AdminChannel, (peer, reader, channel, dm) =>
             BasisPlayerModeration.OnAdminMessage(peer, reader)); // recycles inside
 
+        RegisterCore(BasisNetworkCommons.StorageChannel, (peer, reader, channel, dm) =>
+            BasisNetworkServer.Storage.BasisServerStorage.HandleRequest(reader, peer));
+
         RegisterCore(BasisNetworkCommons.ContentShareChannel, (peer, reader, channel, dm) =>
         {
             // Multiplexed: first byte selects drop vs cleanup. Handlers recycle the reader.

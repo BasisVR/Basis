@@ -1,4 +1,6 @@
-public static class BasisBeeConstants
+using Unity.Scripting.LifecycleManagement;
+[AutoStaticsCleanup]
+public static partial class BasisBeeConstants
 {
     public static readonly string BasisMetaExtension = ".BME";
     public static readonly string BasisEncryptedExtension = ".BEE";

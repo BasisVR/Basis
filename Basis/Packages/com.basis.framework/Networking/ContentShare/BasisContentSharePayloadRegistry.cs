@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -14,6 +15,7 @@ public sealed class BasisContentSharePayloadKind
 
     /// <summary>Shown on the orb and in the dialogue title, e.g. "Dolly Track".</summary>
     public string Name;
+    public string NameKey;
 
     public Color Color;
     public BasisShareableKind ShareableKind;
@@ -37,7 +39,8 @@ public sealed class BasisContentSharePayloadKind
 /// that own these payloads sit above the framework, so they register here on load rather than being
 /// referenced: the same inversion <see cref="BasisShareableRegistry"/> uses for the Library.
 /// </summary>
-public static class BasisContentSharePayloadRegistry
+[AutoStaticsCleanup]
+public static partial class BasisContentSharePayloadRegistry
 {
     private static readonly Dictionary<ContentShareType, BasisContentSharePayloadKind> Kinds =
         new Dictionary<ContentShareType, BasisContentSharePayloadKind>();

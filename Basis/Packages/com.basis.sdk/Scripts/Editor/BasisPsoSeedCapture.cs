@@ -1,4 +1,5 @@
 using System.IO;
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -9,20 +10,20 @@ public static class BasisPsoSeedCapture
     public static void Capture()
     {
         string traced = Path.Combine(Application.persistentDataPath, "GraphicsState");
-        string picked = EditorUtility.OpenFilePanel("Select traced PSO cache (.gpsc)", Directory.Exists(traced) ? traced : Application.persistentDataPath, "gpsc");
+        string picked = EditorUtility.OpenFilePanel(BasisEditorLocalization.Get("sdk.psoSeed.openTitle"), Directory.Exists(traced) ? traced : Application.persistentDataPath, "gpsc");
         if (string.IsNullOrEmpty(picked))
         {
             return;
         }
         if (!TryResolveApi(picked, out GraphicsDeviceType api))
         {
-            EditorUtility.DisplayDialog("Capture PSO Seed", $"Could not read a GraphicsDeviceType out of '{Path.GetFileName(picked)}'. Expected basis_pso.<Api>.<UnityVersion>.gpsc", "OK");
+            EditorUtility.DisplayDialog(BasisEditorLocalization.Get("sdk.psoSeed.title"), BasisEditorLocalization.Get("sdk.psoSeed.unknownApi", Path.GetFileName(picked)), BasisEditorLocalization.Get("editor.common.ok"));
             return;
         }
         int variants = CountVariants(picked);
         if (variants == 0)
         {
-            EditorUtility.DisplayDialog("Capture PSO Seed", $"'{Path.GetFileName(picked)}' loaded zero variants, so there is nothing to ship.", "OK");
+            EditorUtility.DisplayDialog(BasisEditorLocalization.Get("sdk.psoSeed.title"), BasisEditorLocalization.Get("sdk.psoSeed.noVariants", Path.GetFileName(picked)), BasisEditorLocalization.Get("editor.common.ok"));
             return;
         }
         string destination = $"Assets/Resources/{BasisGraphicsStatePrewarm.SeedResourceNameFor(api)}.bytes";
@@ -37,7 +38,11 @@ public static class BasisPsoSeedCapture
     {
         api = default;
         string[] parts = Path.GetFileName(path).Split('.');
-        return parts.Length > 1 && System.Enum.TryParse(parts[1], false, out api);
+        for (int i = 0; i < parts.Length; i++)
+        {
+            if (System.Enum.TryParse(parts[i], false, out api)) return true;
+        }
+        return false;
     }
 
     private static int CountVariants(string path)

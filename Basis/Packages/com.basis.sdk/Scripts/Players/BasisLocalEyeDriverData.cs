@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 namespace Basis.Scripts.BasisSdk.Players
 {
     // SDK-side eye personality data. Framework's BasisLocalEyeDriver reads
@@ -5,7 +6,8 @@ namespace Basis.Scripts.BasisSdk.Players
     // Attentiveness write so the driver recomputes its cached
     // BasisEyePersonality. In normal runtime nothing changes after avatar
     // load, so the dirty check stays a single bool read per frame.
-    public static class BasisLocalEyeDriverData
+    [AutoStaticsCleanup]
+    public static partial class BasisLocalEyeDriverData
     {
         public static float Liveliness = 0.5f;
         public static float Attentiveness = 0.5f;

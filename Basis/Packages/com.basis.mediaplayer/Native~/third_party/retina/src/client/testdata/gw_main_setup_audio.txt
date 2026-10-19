@@ -1,0 +1,5 @@
+RTSP/1.0 200 OK
+CSeq: 3
+Transport: RTP/AVP/TCP;unicast;destination=192.168.1.210;source=192.168.1.110;interleaved=2-3
+Session: 9a90de54; timeout=60
+

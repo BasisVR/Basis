@@ -46,6 +46,7 @@ public partial class BasisHandHeldCamera
     public void StopLiveOutput()
     {
         LiveOutputFailure = string.Empty;
+        ClearPassOutputFailures();
         StopWebStream();
         StopVideoOutput();
     }
@@ -153,6 +154,7 @@ public partial class BasisHandHeldCamera
             webSink = null;
         }
         BasisCameraRenderTargets.Release(ref webStreamTexture);
+        StopPassWebSinks();
         if (wasActive) UpdateRenderGate();
     }
     public bool StartVideoOutput()
@@ -212,6 +214,7 @@ public partial class BasisHandHeldCamera
         }
         BasisCameraRenderTargets.Release(ref videoStreamTexture);
         ReleaseTransparentVideoOutputResources();
+        StopPassVideoSinks();
         if (wasActive) UpdateRenderGate();
     }
     public void SetVideoOutputResolution(int width, int height)
@@ -243,7 +246,7 @@ public partial class BasisHandHeldCamera
             StopVideoOutput();
             return;
         }
-        Texture source = renderTexture;
+        Texture source = OutputTexture;
         if (source == null || !videoPacing.AllowThisFrame(Time.unscaledDeltaTime, VideoOutputSettings.FrameRate, true)) return;
 
         BasisCameraRenderTargets.GetBlitCrop(source, videoStreamTexture, out Vector2 scale, out Vector2 offset);
@@ -254,7 +257,7 @@ public partial class BasisHandHeldCamera
         }
 
         bool outputHasAlpha = false;
-        if (backgroundMode == BasisCameraBackgroundMode.Transparent && videoSink.SupportsAlpha)
+        if (backgroundMode == BasisCameraBackgroundMode.Transparent && videoSink.SupportsAlpha && PassOutput == BasisCameraPassOutput.Picture)
         {
             try
             {
@@ -270,6 +273,7 @@ public partial class BasisHandHeldCamera
 
         if (!outputHasAlpha) Graphics.Blit(source, videoStreamTexture, scale, offset);
         videoSink.PushFrame(videoStreamTexture, outputHasAlpha);
+        PushPassVideoFrames();
     }
     private void TickWebStream()
     {
@@ -286,7 +290,7 @@ public partial class BasisHandHeldCamera
             return;
         }
 
-        Texture source = renderTexture;
+        Texture source = OutputTexture;
         if (!webStreamPacer.AllowThisFrame(Time.unscaledDeltaTime, VideoOutputSettings.FrameRate, streamFrameIsFresh, source != null && webSink.CanAcceptFrame)) return;
         streamFrameIsFresh = false;
 

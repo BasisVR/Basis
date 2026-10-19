@@ -34,11 +34,11 @@ Shader "Hidden/Universal Render Pipeline/ScreenSpaceAmbientOcclusion"
                 #pragma vertex Vert
                 #pragma fragment SSAO
                 #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
+                #pragma multi_compile_local_fragment _ _GTAO_MODE
                 #pragma multi_compile_local_fragment _INTERLEAVED_GRADIENT _BLUE_NOISE
                 #pragma multi_compile_local_fragment _SOURCE_DEPTH_LOW _SOURCE_DEPTH_MEDIUM _SOURCE_DEPTH_HIGH _SOURCE_DEPTH_NORMALS
                 #pragma multi_compile_local_fragment _ _ORTHOGRAPHIC
                 #pragma multi_compile_local_fragment _SAMPLE_COUNT_LOW _SAMPLE_COUNT_MEDIUM _SAMPLE_COUNT_HIGH
-
                 #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
                 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/SSAO.hlsl"
             ENDHLSL
@@ -214,5 +214,35 @@ Shader "Hidden/Universal Render Pipeline/ScreenSpaceAmbientOcclusion"
 
             ENDHLSL
         }
+
+        // 10 - Box After Opaque
+        Pass
+        {
+            Name "SSAO_Box_AfterOpaque"
+
+            ZTest Off
+            ZWrite Off
+            Cull Off
+            Blend One SrcAlpha, Zero One
+            BlendOp Add, Add
+
+            HLSLPROGRAM
+                #pragma vertex Vert
+                #pragma fragment FragBoxAfterOpaque
+
+                #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+                #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/SSAO.hlsl"
+
+                half4 FragBoxAfterOpaque(Varyings input) : SV_Target
+                {
+                    UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+
+                    half ao = HALF_ONE - SSAO_COMMON_SAMPLE_BASEMAP_R(input.texcoord);
+                    return half4(0.0, 0.0, 0.0, ao);
+                }
+
+            ENDHLSL
+        }
+
     }
 }

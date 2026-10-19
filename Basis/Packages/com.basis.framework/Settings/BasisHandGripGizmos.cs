@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
@@ -34,7 +35,8 @@ using UnityEngine;
 /// the label on the observer's screen disagree about the id, the hand length, or whether the frame is
 /// canonical, that disagreement IS the misplacement.
 /// </summary>
-public static class BasisHandGripGizmos
+[AutoStaticsCleanup]
+public static partial class BasisHandGripGizmos
 {
     // Mirrored from settings by SMModuleDebugOptions.
     public static bool Show;

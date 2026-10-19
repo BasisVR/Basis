@@ -25,6 +25,9 @@ com.basis.mediaplayer
 com.basis.pooltable
 com.basis.provider.servers
 com.basis.eeriemovement
+com.basis.constraints
+com.basis.authoredmotion
+com.basis.developer.streamingmeta
 
 # Re-distributed (sometimes tweaked) MIT/Apache/BSD
 # deps used by sdk, server, openlipsync, framework, hvr-comms.

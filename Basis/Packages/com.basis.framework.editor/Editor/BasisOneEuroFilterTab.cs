@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using Basis.Editor.Localization;
 using System;
 using System.Linq;
 using System.Reflection;
@@ -7,9 +8,9 @@ using UnityEngine;
 
 public sealed class BasisOneEuroFilterTab : BasisEditorTabPage
 {
-        public override string Title => "One Euro Filter";
+        public override string Title => BasisEditorLocalization.Get("editor.oneEuro.title");
         public override string Subtitle =>
-            "Tune the shared jitter filter and watch the latency/smoothness tradeoff.";
+            BasisEditorLocalization.Get("editor.oneEuro.subtitle");
 
     // --- UI state ---
     private float _minCutoff = 1.0f;
@@ -21,7 +22,7 @@ public sealed class BasisOneEuroFilterTab : BasisEditorTabPage
     private float? _runtimeBeta;
     private float? _runtimeDerivativeCutoff;
 
-    private string _status = "Looking for UpdateOneEuroParameters(float,float,float,bool)...";
+    private string _status = BasisEditorLocalization.Get("editor.oneEuro.statusLooking");
     private MessageType _statusType = MessageType.Info;
 
     // --- Reflection state ---
@@ -63,21 +64,21 @@ public sealed class BasisOneEuroFilterTab : BasisEditorTabPage
         // Discovery / fallback controls
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
-            BasisEditorUI.SectionTitle("Runtime Class Discovery");
+            BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.oneEuro.discoverySection"));
 
             using (new EditorGUI.DisabledScope(true))
             {
-                EditorGUILayout.TextField("Detected Type", _runtimeType != null ? _runtimeType.FullName : "(not found)");
+                EditorGUILayout.TextField(BasisEditorLocalization.Get("editor.oneEuro.detectedType"), _runtimeType != null ? _runtimeType.FullName : BasisEditorLocalization.Get("editor.oneEuro.notFound"));
             }
 
             _fallbackQualifiedTypeName = EditorGUILayout.TextField(
-                new GUIContent("Or search by name",
-                    "Fully qualified type name if auto-discovery fails. Example: MyGame.Runtime.SharedNetwork"),
+                new GUIContent(BasisEditorLocalization.Get("editor.oneEuro.searchByName"),
+                    BasisEditorLocalization.Get("editor.oneEuro.searchByName.tooltip")),
                 _fallbackQualifiedTypeName);
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                if (GUILayout.Button("Re-scan Assemblies"))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.oneEuro.rescanAssemblies")))
                 {
                     TryDiscoverRuntimeType();
                     PullRuntimeValuesIntoUI();
@@ -85,7 +86,7 @@ public sealed class BasisOneEuroFilterTab : BasisEditorTabPage
 
                 using (new EditorGUI.DisabledScope(string.IsNullOrWhiteSpace(_fallbackQualifiedTypeName)))
                 {
-                    if (GUILayout.Button("Find By Name"))
+                    if (GUILayout.Button(BasisEditorLocalization.Get("editor.oneEuro.findByName")))
                     {
                         TryFindByQualifiedName(_fallbackQualifiedTypeName.Trim());
                         PullRuntimeValuesIntoUI();
@@ -99,7 +100,7 @@ public sealed class BasisOneEuroFilterTab : BasisEditorTabPage
         // Show current runtime values (if fields discovered)
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
-            BasisEditorUI.SectionTitle("Current Runtime Values");
+            BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.oneEuro.currentValuesSection"));
 
             using (new EditorGUI.DisabledScope(true))
             {
@@ -108,7 +109,7 @@ public sealed class BasisOneEuroFilterTab : BasisEditorTabPage
                 EditorGUILayout.FloatField("DerivativeCutoff (Hz)", _runtimeDerivativeCutoff ?? float.NaN);
             }
 
-            if (GUILayout.Button("Reload From Runtime"))
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.oneEuro.reloadFromRuntime")))
             {
                 PullRuntimeValuesIntoUI();
             }
@@ -119,15 +120,15 @@ public sealed class BasisOneEuroFilterTab : BasisEditorTabPage
         // Editable values to push
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
-            BasisEditorUI.SectionTitle("New Parameters");
+            BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.oneEuro.newParametersSection"));
 
-            _minCutoff = EditorGUILayout.FloatField(new GUIContent("MinCutoff (Hz)", "New MinCutoff (Hz)."), _minCutoff);
-            _beta = EditorGUILayout.FloatField(new GUIContent("Beta", "New Beta (cutoff slope vs speed)."), _beta);
-            _derivativeCutoff = EditorGUILayout.FloatField(new GUIContent("DerivativeCutoff (Hz)", "New DerivativeCutoff (Hz)."), _derivativeCutoff);
+            _minCutoff = EditorGUILayout.FloatField(new GUIContent("MinCutoff (Hz)", BasisEditorLocalization.Get("editor.oneEuro.minCutoff.tooltip")), _minCutoff);
+            _beta = EditorGUILayout.FloatField(new GUIContent("Beta", BasisEditorLocalization.Get("editor.oneEuro.beta.tooltip")), _beta);
+            _derivativeCutoff = EditorGUILayout.FloatField(new GUIContent("DerivativeCutoff (Hz)", BasisEditorLocalization.Get("editor.oneEuro.derivativeCutoff.tooltip")), _derivativeCutoff);
 
             _resetState = EditorGUILayout.Toggle(
-                new GUIContent("Reset State",
-                    "If true, clears PositionFilters, DerivativeFilters, and euroValuesOutput so the filter re-converges."),
+                new GUIContent(BasisEditorLocalization.Get("editor.oneEuro.resetState"),
+                    BasisEditorLocalization.Get("editor.oneEuro.resetState.tooltip")),
                 _resetState);
 
             GUILayout.Space(4);
@@ -136,18 +137,18 @@ public sealed class BasisOneEuroFilterTab : BasisEditorTabPage
             {
                 using (new EditorGUI.DisabledScope(_miUpdateParams == null))
                 {
-                    if (GUILayout.Button(new GUIContent("Apply", "Call UpdateOneEuroParameters(minCutoff, beta, derivativeCutoff, resetState)")))
+                    if (GUILayout.Button(new GUIContent(BasisEditorLocalization.Get("editor.common.apply"), BasisEditorLocalization.Get("editor.oneEuro.apply.tooltip"))))
                     {
                         ApplyParameters(_minCutoff, _beta, _derivativeCutoff, _resetState);
                     }
 
-                    if (GUILayout.Button(new GUIContent("Apply (No Reset)", "Apply with resetState = false")))
+                    if (GUILayout.Button(new GUIContent(BasisEditorLocalization.Get("editor.oneEuro.applyNoReset"), BasisEditorLocalization.Get("editor.oneEuro.applyNoReset.tooltip"))))
                     {
                         ApplyParameters(_minCutoff, _beta, _derivativeCutoff, false);
                     }
                 }
 
-                if (GUILayout.Button(new GUIContent("Copy From Current", "Copy currently detected runtime values into the editable fields")))
+                if (GUILayout.Button(new GUIContent(BasisEditorLocalization.Get("editor.oneEuro.copyFromCurrent"), BasisEditorLocalization.Get("editor.oneEuro.copyFromCurrent.tooltip"))))
                 {
                     if (_runtimeMinCutoff.HasValue) _minCutoff = _runtimeMinCutoff.Value;
                     if (_runtimeBeta.HasValue) _beta = _runtimeBeta.Value;
@@ -159,7 +160,7 @@ public sealed class BasisOneEuroFilterTab : BasisEditorTabPage
         GUILayout.FlexibleSpace();
 
         // Footer
-        EditorGUILayout.LabelField("Tip: Keep this window open during Play Mode to live-tune smoothing.", EditorStyles.centeredGreyMiniLabel);
+        EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.oneEuro.tip"), EditorStyles.centeredGreyMiniLabel);
     }
 
     // ------------------------------------------------------------
@@ -178,7 +179,7 @@ public sealed class BasisOneEuroFilterTab : BasisEditorTabPage
         {
             // Heuristic 1: Find a type that exposes the exact static method:
             // public static void UpdateOneEuroParameters(float, float, float, bool)
-            var all = AppDomain.CurrentDomain.GetAssemblies()
+            var all = UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies()
                 // Exclude dynamic or editor-only system assemblies to speed up
                 .Where(a =>
                 {
@@ -214,17 +215,17 @@ public sealed class BasisOneEuroFilterTab : BasisEditorTabPage
                         _fiBeta = FindFloatField(t, "Beta");
                         _fiDerivativeCutoff = FindFloatField(t, "DerivativeCutoff");
 
-                        SetStatus($"Found {_runtimeType.FullName}", MessageType.Info);
+                        SetStatus(BasisEditorLocalization.Get("editor.oneEuro.statusFound", _runtimeType.FullName), MessageType.Info);
                         return;
                     }
                 }
             }
 
-            SetStatus("Could not auto-discover the runtime class. Enter its full type name and click 'Find By Name'.", MessageType.Warning);
+            SetStatus(BasisEditorLocalization.Get("editor.oneEuro.statusNotDiscovered"), MessageType.Warning);
         }
         catch (Exception ex)
         {
-            SetStatus("Discovery error: " + ex.Message, MessageType.Error);
+            SetStatus(BasisEditorLocalization.Get("editor.oneEuro.statusDiscoveryError", ex.Message), MessageType.Error);
         }
     }
 
@@ -243,7 +244,7 @@ public sealed class BasisOneEuroFilterTab : BasisEditorTabPage
             if (_runtimeType == null)
             {
                 // Scan all assemblies for short names
-                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                foreach (var asm in UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies())
                 {
                     var t = asm.GetType(qualifiedTypeName, throwOnError: false);
                     if (t != null) { _runtimeType = t; break; }
@@ -252,7 +253,7 @@ public sealed class BasisOneEuroFilterTab : BasisEditorTabPage
 
             if (_runtimeType == null)
             {
-                SetStatus($"Type '{qualifiedTypeName}' not found.", MessageType.Error);
+                SetStatus(BasisEditorLocalization.Get("editor.oneEuro.statusTypeNotFound", qualifiedTypeName), MessageType.Error);
                 return;
             }
 
@@ -264,7 +265,7 @@ public sealed class BasisOneEuroFilterTab : BasisEditorTabPage
 
             if (_miUpdateParams == null)
             {
-                SetStatus($"Type found ({_runtimeType.FullName}) but it does not contain the expected static method signature.", MessageType.Error);
+                SetStatus(BasisEditorLocalization.Get("editor.oneEuro.statusMissingMethod", _runtimeType.FullName), MessageType.Error);
                 return;
             }
 
@@ -272,11 +273,11 @@ public sealed class BasisOneEuroFilterTab : BasisEditorTabPage
             _fiBeta = FindFloatField(_runtimeType, "Beta");
             _fiDerivativeCutoff = FindFloatField(_runtimeType, "DerivativeCutoff");
 
-            SetStatus($"Bound to {_runtimeType.FullName}", MessageType.Info);
+            SetStatus(BasisEditorLocalization.Get("editor.oneEuro.statusBound", _runtimeType.FullName), MessageType.Info);
         }
         catch (Exception ex)
         {
-            SetStatus("Find-by-name error: " + ex.Message, MessageType.Error);
+            SetStatus(BasisEditorLocalization.Get("editor.oneEuro.statusFindByNameError", ex.Message), MessageType.Error);
         }
     }
 
@@ -321,7 +322,7 @@ public sealed class BasisOneEuroFilterTab : BasisEditorTabPage
         }
         catch (Exception ex)
         {
-            SetStatus("Failed to pull current values: " + ex.Message, MessageType.Warning);
+            SetStatus(BasisEditorLocalization.Get("editor.oneEuro.statusPullFailed", ex.Message), MessageType.Warning);
         }
     }
 
@@ -329,7 +330,7 @@ public sealed class BasisOneEuroFilterTab : BasisEditorTabPage
     {
         if (_miUpdateParams == null)
         {
-            SetStatus("Cannot apply: method not found.", MessageType.Error);
+            SetStatus(BasisEditorLocalization.Get("editor.oneEuro.statusCannotApply"), MessageType.Error);
             return;
         }
 
@@ -338,18 +339,18 @@ public sealed class BasisOneEuroFilterTab : BasisEditorTabPage
             // Call: UpdateOneEuroParameters(float minCutoff, float beta, float derivativeCutoff, bool resetState)
             _miUpdateParams.Invoke(null, new object[] { minCutoff, beta, derivativeCutoff, resetState });
 
-            SetStatus($"Applied MinCutoff={minCutoff}, Beta={beta}, DerivativeCutoff={derivativeCutoff}, Reset={resetState}", MessageType.Info);
+            SetStatus(BasisEditorLocalization.Get("editor.oneEuro.statusApplied", minCutoff, beta, derivativeCutoff, resetState), MessageType.Info);
 
             // Refresh view of current values
             PullRuntimeValuesIntoUI();
         }
         catch (TargetInvocationException tie)
         {
-            SetStatus("Runtime threw: " + (tie.InnerException != null ? tie.InnerException.Message : tie.Message), MessageType.Error);
+            SetStatus(BasisEditorLocalization.Get("editor.oneEuro.statusRuntimeThrew", tie.InnerException != null ? tie.InnerException.Message : tie.Message), MessageType.Error);
         }
         catch (Exception ex)
         {
-            SetStatus("Failed to apply parameters: " + ex.Message, MessageType.Error);
+            SetStatus(BasisEditorLocalization.Get("editor.oneEuro.statusApplyFailed", ex.Message), MessageType.Error);
         }
     }
 

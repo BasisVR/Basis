@@ -145,7 +145,7 @@ public class BuildReportViewerWindow : EditorWindow
             summaryBox.Add(line);
         }
 
-        AddLine(BasisEditorLocalization.Get("sdk.buildReport.summary.result"), report.summary.result.ToString(), statusColor);
+        AddLine(BasisEditorLocalization.Get("sdk.buildReport.summary.result"), ResultName(report.summary.result), statusColor);
         AddLine(BasisEditorLocalization.Get("sdk.buildReport.summary.totalSize"), FormatSize(report.summary.totalSize));
         AddLine(BasisEditorLocalization.Get("sdk.buildReport.summary.totalTime"), report.summary.totalTime.ToString("g"));
         AddLine(BasisEditorLocalization.Get("sdk.buildReport.summary.totalErrors"), report.summary.totalErrors.ToString());
@@ -296,12 +296,27 @@ public class BuildReportViewerWindow : EditorWindow
 
     private Type GetTypeFromAllAssemblies(string typeName)
     {
-        foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+        foreach (Assembly assembly in UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies())
         {
             Type type = assembly.GetType(typeName);
             if (type != null) return type;
         }
         return null;
+    }
+
+    private static string ResultName(BuildResult result)
+    {
+        switch (result)
+        {
+            case BuildResult.Succeeded:
+                return BasisEditorLocalization.Get("sdk.buildReport.result.succeeded");
+            case BuildResult.Failed:
+                return BasisEditorLocalization.Get("editor.common.failed");
+            case BuildResult.Cancelled:
+                return BasisEditorLocalization.Get("sdk.buildReport.result.cancelled");
+            default:
+                return BasisEditorLocalization.Get("editor.common.unknown");
+        }
     }
 
     private static string FormatSize(ulong bytes)

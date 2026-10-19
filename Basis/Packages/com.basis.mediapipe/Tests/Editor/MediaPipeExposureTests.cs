@@ -89,14 +89,5 @@ namespace Basis.MediaPipe.Tests
             exposure.Update(true);
             Assert.IsFalse(exposure.Active);
         }
-        [Test]
-        public void Quality_MapsDarkToLowAndLitToFull()
-        {
-            Assert.AreEqual(1f, MediaPipeExposure.Quality(-1f));
-            Assert.AreEqual(0f, MediaPipeExposure.Quality(0.02f));
-            Assert.AreEqual(1f, MediaPipeExposure.Quality(0.5f));
-            Assert.Greater(MediaPipeExposure.Quality(0.2f), 0.3f);
-            Assert.Less(MediaPipeExposure.Quality(0.2f), 0.9f);
-        }
     }
 }

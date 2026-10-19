@@ -1,10 +1,12 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace Basis.BasisUI
 {
-    public static class PanelSectionToggleHelpers
+    [AutoStaticsCleanup]
+    public static partial class PanelSectionToggleHelpers
     {
         /// <summary>
         /// Creates a titled content group for a section toggle and registers it for divider ownership.
@@ -190,6 +192,57 @@ namespace Basis.BasisUI
         }
 
         /// <summary>
+        /// Settles a section after it expands, collapses or changes rows: rebuilds its open box, or for
+        /// a flat section each row card under the header, innermost first, then every ancestor out to
+        /// <paramref name="stopAt"/> (pass the tab page's content). Rebuilding the tab root instead is a
+        /// no-op, and one pass on the page measures a card before the card has resized.
+        /// </summary>
+        public static void RebuildSectionLayout(PanelSectionToggle header, RectTransform stopAt)
+        {
+            if (header == null || !(header.transform.parent is RectTransform host))
+            {
+                return;
+            }
+
+            List<Transform> boxes = new List<Transform>(1);
+            header.GetContentContainers(boxes);
+            if (boxes.Count == 1 && boxes[0].gameObject.activeInHierarchy && boxes[0].TryGetComponent(out PanelElementDescriptor box))
+            {
+                PanelElementDescriptor.RebuildLayoutChain(box.ContentParent, stopAt);
+                return;
+            }
+
+            if (boxes.Count > 1)
+            {
+                for (int i = 0; i < boxes.Count; i++)
+                {
+                    if (boxes[i].gameObject.activeInHierarchy && boxes[i].TryGetComponent(out PanelElementDescriptor rowDesc))
+                    {
+                        PanelElementDescriptor.RebuildLayoutChain(rowDesc.ContentParent, rowDesc.rectTransform);
+                    }
+                }
+            }
+            else
+            {
+                for (int i = header.transform.GetSiblingIndex() + 1; i < host.childCount; i++)
+                {
+                    Transform row = host.GetChild(i);
+                    if (row.GetComponent<PanelSectionToggle>() != null)
+                    {
+                        break;
+                    }
+
+                    if (row.gameObject.activeInHierarchy && row.TryGetComponent(out PanelElementDescriptor rowDesc))
+                    {
+                        PanelElementDescriptor.RebuildLayoutChain(rowDesc.ContentParent, rowDesc.rectTransform);
+                    }
+                }
+            }
+
+            PanelElementDescriptor.RebuildLayoutChain(host, stopAt);
+        }
+
+        /// <summary>
         /// Appends a headerless group box to <paramref name="container"/>, moves every child from
         /// <paramref name="startIndex"/> onward into it, and drops the box back into their place.
         /// </summary>
@@ -324,7 +377,13 @@ namespace Basis.BasisUI
                 // sit under this section's header rather than below every later section.
                 for (int i = 0; i < content.Count; i++)
                 {
-                    MoveBesideHeader(sectionToggle, content[i].transform, i);
+                    GameObject row = content[i];
+                    MoveBesideHeader(sectionToggle, row.transform, i);
+                    bool owned = row.TryGetComponent(out PanelSectionContentMarker marker) && marker.Owner != null;
+                    if (!owned && !row.TryGetComponent(out PanelSectionBreaklineMarker _))
+                    {
+                        sectionToggle.RegisterContentContainer(row.transform);
+                    }
                 }
             }
 
@@ -337,6 +396,8 @@ namespace Basis.BasisUI
                     {
                         continue;
                     }
+
+                    sectionToggle.UnregisterContentContainer(row.transform);
 
                     // Destroy is deferred to end of frame; deactivate first so the dying rows
                     // drop out of the layout pass that this collapse triggers.
@@ -453,10 +514,12 @@ namespace Basis.BasisUI
         /// </summary>
         private static void SetContentActive(Component content, bool active)
         {
+            if (content == null)
+            {
+                return;
+            }
             switch (content)
             {
-                case null:
-                    return;
                 case PanelComponent panelComponent:
                     panelComponent.Descriptor.SetActive(active);
                     return;

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Scripts.Drivers;
 using Unity.Mathematics;
@@ -11,7 +12,8 @@ namespace Basis.Scripts.Device_Management.EyeTracking
     /// Developer source-order preference, and the legacy BasisLocalCameraDriver gaze
     /// statics are kept in sync for VRS. Pumped from BasisEventDriver's central tick.
     /// </summary>
-    public static class BasisEyeTrackingManager
+    [AutoStaticsCleanup]
+    public static partial class BasisEyeTrackingManager
     {
         private const float GazeConvergenceDistance = 10f;
 

@@ -1,0 +1,28 @@
+[package]
+name = "bm-probe"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[features]
+rist = ["media-engine/rist"]
+
+[dependencies]
+clap = { workspace = true }
+md-5 = "0.10"
+media-clock = { workspace = true }
+media-demux = { workspace = true }
+media-diag = { workspace = true }
+media-engine = { workspace = true }
+media-io = { workspace = true }
+media-testkit = { workspace = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[target.'cfg(windows)'.dependencies]
+media-decode = { workspace = true }
+decode-mf = { workspace = true }
+
+[lints]
+workspace = true

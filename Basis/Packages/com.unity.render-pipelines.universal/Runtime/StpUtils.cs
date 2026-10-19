@@ -113,7 +113,7 @@ namespace UnityEngine.Rendering.Universal
             config.perViewConfigs = STP.perViewConfigs;
         }
 
-        static internal void Execute(RenderGraph renderGraph, UniversalResourceData resourceData, UniversalCameraData cameraData, in TextureHandle inputColor, in TextureHandle inputDepth, in TextureHandle inputMotion, in TextureHandle destination, Texture2D noiseTexture)
+        internal static void Execute(RenderGraph renderGraph, UniversalResourceData resourceData, UniversalCameraData cameraData, in TextureHandle inputColor, in TextureHandle inputDepth, in TextureHandle inputMotion, in TextureHandle destination, Texture2D noiseTexture)
         {
             var debugView = TextureHandle.nullHandle;
             int debugViewIndex = 0;
@@ -141,5 +141,13 @@ namespace UnityEngine.Rendering.Universal
             PopulateStpConfig(cameraData, inputColor, inputDepth, inputMotion, debugViewIndex, debugView, destination, noiseTexture, out var config);
             STP.Execute(renderGraph, ref config);
         }
+
+#if UNITY_EDITOR
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStaticsOnLoad()
+        {
+            s_JitterFunc = CalculateJitter;
+        }
+#endif
     }
 }

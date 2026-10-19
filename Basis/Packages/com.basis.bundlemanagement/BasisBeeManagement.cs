@@ -293,6 +293,7 @@ public static class BasisBeeManagement
                     wrapper.IsBundleBackingStoreReleased = false;
                     #endif
                     BasisDebug.Log($"we already have this AssetToLoadName in our loaded bundles using that instead! {AssetToLoadName}");
+                    PrepareEmbeddedGraphicsStates(wrapper, output.Item1, output.Item2);
                     await SaveMetaIfNeeded(wrapper, shouldUseOnDiskMeta, didForceRedownload, output.Item1.Platform);
                     return;
                 }
@@ -301,9 +302,16 @@ public static class BasisBeeManagement
         BasisDebug.Log("Calling Load Request", BasisDebug.LogTag.System);
         try
         {
-            AssetBundleCreateRequest bundleRequest = await BasisEncryptionToData.GenerateBundleFromFile(wrapper.LoadableBundle.UnlockPassword, output.Item2, output.Item1.AssetBundleCRC, BuildStage());
+            AssetBundleCreateRequest bundleRequest = await BasisEncryptionToData.GenerateBundleFromFile(wrapper.LoadableBundle.UnlockPassword, BasisEncryptionToData.AssetBundlePart(output.Item1, output.Item2), output.Item1.AssetBundleCRC, BuildStage(), version => wrapper.BuiltWithUnityVersion = version);
             if (bundleRequest == null || bundleRequest.assetBundle == null)
             {
+                if (TryAdoptLoadedBundle(wrapper, output.Item1.AssetToLoadName))
+                {
+                    BasisDebug.Log($"Another load of {output.Item1.AssetToLoadName} finished first; using that bundle instead.", BasisDebug.LogTag.Event);
+                    PrepareEmbeddedGraphicsStates(wrapper, output.Item1, output.Item2);
+                    await SaveMetaIfNeeded(wrapper, shouldUseOnDiskMeta, didForceRedownload, output.Item1.Platform);
+                    return;
+                }
                 if (shouldUseOnDiskMeta && !didForceRedownload)
                 {
                     BasisDebug.Log("Cached bundle bytes failed to load; forcing re-download.", BasisDebug.LogTag.Event);
@@ -315,7 +323,7 @@ public static class BasisBeeManagement
                         throw new Exception($"Unable to reload bundle after cache mismatch. {output.Item3}");
                     }
 
-                    bundleRequest = await BasisEncryptionToData.GenerateBundleFromFile(wrapper.LoadableBundle.UnlockPassword, output.Item2, output.Item1.AssetBundleCRC, BuildStage());
+                    bundleRequest = await BasisEncryptionToData.GenerateBundleFromFile(wrapper.LoadableBundle.UnlockPassword, BasisEncryptionToData.AssetBundlePart(output.Item1, output.Item2), output.Item1.AssetBundleCRC, BuildStage(), version => wrapper.BuiltWithUnityVersion = version);
                 }
 
                 if (bundleRequest == null || bundleRequest.assetBundle == null)
@@ -328,6 +336,8 @@ public static class BasisBeeManagement
             #if UNITY_BUNDLEUNLOAD
             wrapper.IsBundleBackingStoreReleased = false;
             #endif
+
+            PrepareEmbeddedGraphicsStates(wrapper, output.Item1, output.Item2);
 
             await SaveMetaIfNeeded(wrapper, shouldUseOnDiskMeta, didForceRedownload, output.Item1.Platform);
         }
@@ -381,11 +391,12 @@ public static class BasisBeeManagement
                 wrapper.IsBundleBackingStoreReleased = false;
                 #endif
                 BasisDebug.Log($"Reusing already-loaded AssetBundle for {assetToLoadName}");
+                PrepareEmbeddedGraphicsStates(wrapper, output.Item1, output.Item2);
                 return;
             }
         }
 
-        AssetBundleCreateRequest bundleRequest = await BasisEncryptionToData.GenerateBundleFromFile(wrapper.LoadableBundle.UnlockPassword, output.Item2, output.Item1.AssetBundleCRC, report.Stage(key, 5, 100));
+        AssetBundleCreateRequest bundleRequest = await BasisEncryptionToData.GenerateBundleFromFile(wrapper.LoadableBundle.UnlockPassword, BasisEncryptionToData.AssetBundlePart(output.Item1, output.Item2), output.Item1.AssetBundleCRC, report.Stage(key, 5, 100), version => wrapper.BuiltWithUnityVersion = version);
         if (bundleRequest == null || bundleRequest.assetBundle == null)
         {
             throw new Exception($"AssetBundle creation failed for local bee file {localBeePath}.");
@@ -395,6 +406,37 @@ public static class BasisBeeManagement
         #if UNITY_BUNDLEUNLOAD
         wrapper.IsBundleBackingStoreReleased = false;
         #endif
+        PrepareEmbeddedGraphicsStates(wrapper, output.Item1, output.Item2);
+    }
+
+    private static bool TryAdoptLoadedBundle(BasisTrackedBundleWrapper wrapper, string assetToLoadName)
+    {
+        if (string.IsNullOrEmpty(assetToLoadName))
+        {
+            return false;
+        }
+        foreach (AssetBundle assetBundle in AssetBundle.GetAllLoadedAssetBundles())
+        {
+            if (assetBundle != null && assetBundle.Contains(assetToLoadName))
+            {
+                wrapper.AssetBundle = assetBundle;
+                #if UNITY_BUNDLEUNLOAD
+                wrapper.IsBundleBackingStoreReleased = false;
+                #endif
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void PrepareEmbeddedGraphicsStates(
+        BasisTrackedBundleWrapper wrapper,
+        BasisBundleGenerated generated,
+        BasisBundleSection section)
+    {
+        if (wrapper.EmbeddedGraphicsStates != null || wrapper.EmbeddedGraphicsStatePayload.HasPayload) return;
+        if (BasisEncryptionToData.TryGetEmbeddedGraphicsStatePart(generated, section, out BasisBundleSection payload))
+            wrapper.EmbeddedGraphicsStatePayload = payload;
     }
     /// <summary>
     /// Saves or updates on-disc metadata when it is missing or was refreshed by a forced re-download.

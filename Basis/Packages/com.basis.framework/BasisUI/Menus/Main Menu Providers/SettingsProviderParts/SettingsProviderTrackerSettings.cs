@@ -21,10 +21,12 @@ namespace Basis.BasisUI
     /// BasisAvatarIKStageCalibration consumes both: pairings via BasisTrackerPairing,
     /// forced roles via BasisTrackerRoleOverride.
     ///
-    /// Layout: a static intro + tuning section at the top (built once when the tab
-    /// is created and bound to settings so values persist), then a dynamic list of
-    /// per-tracker entries below — each entry has a "linked with" dropdown and a
-    /// "force role" dropdown.
+    /// Layout, top to bottom: General (role trust, hand-tracking exclusion, calibration
+    /// tolerance), Trackers &amp; Devices (collapsible parts: the dynamic per-tracker list,
+    /// where each entry has a "linked with" and a "force role" dropdown, then Device
+    /// Overrides and Device Offsets), Eye &amp; Face, Advanced
+    /// (pairing fusion sliders), then the developer-only Calibration Debug and Tracking
+    /// Diagnostics, then sections contributed by feature packages.
     ///
     /// Pairing/override-graph updates only refresh the *selected value* of each
     /// existing dropdown — they do NOT tear the dropdowns down. Tearing down a
@@ -38,7 +40,7 @@ namespace Basis.BasisUI
         private const string UnlinkedLabel = "(unlinked)";
         // Localization key — kept as the historical "trackerlinking" so existing
         // translations and any saved last-tab pointers still resolve.
-        private const string TabKey = "settings.tab.trackerlinking";
+        public const string TabKey = "settings.tab.trackerlinking";
 
         // Roles we let the user force a tracker into. Mirrors the FB-tracker priors
         // in BasisAvatarIKStageCalibration.BuildPriors so anything you can pick here
@@ -104,11 +106,8 @@ namespace Basis.BasisUI
             // the descriptor whose own layout needs to settle when the row
             // count changes.
             public PanelElementDescriptor TrackersGroup;
-            // Tab page's root descriptor — rebuilt alongside TrackersGroup
-            // because Unity's layout cascade doesn't always propagate up
-            // through nested LayoutGroups on its own. Same two-step rebuild
-            // pattern as the visibility toggles in SettingsProviderIK
-            // (advancedToggle / debugToggle handlers).
+            // Tab page's root descriptor; its ContentParent is where the row-count
+            // layout rebuild chain stops.
             public PanelElementDescriptor TabDescriptor;
             public readonly bool[] SuppressDropdownEvents = { false };
             // True after the first build pass has run. Lets the diff logic force
@@ -127,53 +126,25 @@ namespace Basis.BasisUI
 
             RectTransform tabRoot = tabDesc.ContentParent;
 
-            // Announced-role trust switch, consumed every scan by
-            // BasisAnnouncedTrackerRoles. Opt-in because most setups leave the
-            // SteamVR-assigned roles unset or stale. (Vendor conventions like
-            // SlimeVR's serials ship their own toggle in their own package.)
-            PanelToggle trustSteamVRToggle = PanelToggle.CreateNewEntry(tabRoot);
-            trustSteamVRToggle.Descriptor.SetTitle(BasisLocalization.Get("trackerLinking.trustSteamVRRoles"));
-            trustSteamVRToggle.Descriptor.SetTooltip(BasisLocalization.Get("trackerLinking.trustSteamVRRoles.tooltip"));
-            trustSteamVRToggle.AssignBinding(BasisSettingsDefaults.TrustSteamVRRoles);
+            BuildGeneralSection(tabRoot);
 
-            // Hand-tracking exclusion, consumed by BasisIgnoredCalibrationTrackers on every
-            // calibration pass and announced-role scan. Opt-in because the match is on device
-            // name only: it can't tell a hand-tracking bridge's tracker from a real one that
-            // happens to report the same name.
-            PanelToggle ignoreHandTrackingToggle = PanelToggle.CreateNewEntry(tabRoot);
-            ignoreHandTrackingToggle.Descriptor.SetTitle(BasisLocalization.Get("trackerLinking.ignoreHandTracking"));
-            ignoreHandTrackingToggle.Descriptor.SetTooltip(BasisLocalization.Get("trackerLinking.ignoreHandTracking.tooltip"));
-            ignoreHandTrackingToggle.AssignBinding(BasisSettingsDefaults.IgnoreHandTrackingDevices);
+            // Trackers & Devices: one card holding the per-tracker list, the per-device
+            // overrides and the per-device offsets, each its own collapsible part.
+            PanelSectionToggle devicesSection = PanelSectionToggle.CreateNewEntry(tabRoot);
+            devicesSection.SetTitle(BasisLocalization.Get("trackerLinking.group.trackersDevices"));
+            int devicesStart = tabRoot.childCount;
 
-            // Connector trackers toggle — hides the per-tracker list (linking +
-            // role override dropdowns) so a configured player doesn't have to
-            // scroll past every device on every visit. Same opt-in pattern as
-            // the advanced toggle below; user touches it once to set things up.
-            PanelSectionToggle connectorToggle = PanelSectionToggle.CreateNewEntry(tabRoot);
-            connectorToggle.SetTitle(BasisLocalization.Get("trackerLinking.connectorTrackers"));
-            connectorToggle.Descriptor.SetTooltip(BasisLocalization.Get("trackerLinking.connectorTrackers.tooltip"));
-            connectorToggle.BindToToggle(BasisSettingsDefaults.TrackerLinkingConnectorVisible);
+            // Per-tracker list (link + role override dropdowns). Its open state is a saved
+            // setting so a configured player doesn't scroll past every device on every visit.
+            PanelSectionToggle trackersToggle = PanelSectionToggle.CreateNewEntry(tabRoot);
+            trackersToggle.SetTitle(BasisLocalization.Get("trackerLinking.trackers.title"));
+            trackersToggle.Descriptor.SetTooltip(BasisLocalization.Get("trackerLinking.connectorTrackers.tooltip"));
+            trackersToggle.BindToToggle(BasisSettingsDefaults.TrackerLinkingConnectorVisible);
 
-            // Advanced toggle — hides the tuning sliders behind an opt-in so
-            // the page stays approachable for users who only want to link
-            // trackers. Same pattern as SettingsProviderIK's advancedToggle.
-            PanelSectionToggle advancedToggle = PanelSectionToggle.CreateNewEntry(tabRoot);
-            advancedToggle.SetTitle(BasisLocalization.Get("trackerLinking.advanced"));
-            advancedToggle.Descriptor.SetTooltip(BasisLocalization.Get("trackerLinking.advanced.tooltip"));
-            advancedToggle.BindToToggle(BasisSettingsDefaults.TrackerLinkingAdvancedVisible);
-
-            // Static tuning group — bound to BasisSettingsDefaults bindings, so values
-            // persist across menu reopens and across sessions. Built once.
-            PanelElementDescriptor tuningGroup = PanelElementDescriptor.CreateNew(
-                PanelElementDescriptor.ElementStyles.Group, tabRoot);
-            tuningGroup.SetTitle(BasisLocalization.Get("trackerLinking.tuning.title"));
-            BuildTuningSliders(tuningGroup.ContentParent);
-
-            // Dynamic per-tracker section — updates on device/pair/override changes.
-            // Lives in its own container so the tuning sliders above aren't touched.
+            // Dynamic per-tracker rows, updated on device/pair/override changes.
             PanelElementDescriptor trackersGroup = PanelElementDescriptor.CreateNew(
                 PanelElementDescriptor.ElementStyles.Group, tabRoot);
-            trackersGroup.SetTitle(BasisLocalization.Get("trackerLinking.trackers.title"));
+            trackersGroup.Header.gameObject.SetActive(false);
 
             TabState state = new TabState
             {
@@ -221,39 +192,31 @@ namespace Basis.BasisUI
                 state.Entries.Clear();
             };
 
+            PanelSectionToggleHelpers.FinalizeCollapsibleContents(
+                trackersToggle,
+                BasisSettingsDefaults.TrackerLinkingConnectorVisible.RawValue,
+                _ => PanelElementDescriptor.RebuildLayoutChain(trackersGroup.ContentParent, tabRoot),
+                trackersGroup);
+
             SettingsProviderDeviceOverrides.Build(tabRoot);
             SettingsProviderDeviceOffsets.Build(tabRoot);
+
+            PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(devicesSection, tabRoot, devicesStart, true,
+                _ => PanelSectionToggleHelpers.RebuildSectionLayout(devicesSection, tabRoot));
+
+            BuildEyeFaceSection(tabRoot);
+            BuildAdvancedSection(tabRoot);
+            if (BasisSettingsDefaults.ShowDeveloperTab.RawValue)
+            {
+                BuildCalibrationDebugSection(tabRoot);
+                BuildTrackingDiagnosticsSection(tabRoot);
+            }
 
             // Webcam / external tracking sections injected by feature packages
             // (e.g. MediaPipe). Built above the page reset so the reset stays last.
             SettingsProvider.TrackerSettingsExtraBuilder?.Invoke(tabRoot);
 
-            // Page-level reset stays on tabRoot (not inside tuningGroup) so it
-            // remains reachable when the advanced toggle hides the sliders.
             SettingsProvider.RegisterPageReset(TabKey, ResetTrackerSettingsDefaults);
-
-            // Initial visibility + OnValueChanged gating. Two-step rebuild
-            // (inner group, then tab descriptor) matches the existing pattern
-            // in HandleChange so nested LayoutGroups settle correctly.
-            PanelSectionToggleHelpers.FinalizeCollapsibleContents(
-                advancedToggle,
-                BasisSettingsDefaults.TrackerLinkingAdvancedVisible.RawValue,
-                _ =>
-            {
-                tuningGroup.ForceRebuild();
-                tabDesc.ForceRebuild();
-            },
-                tuningGroup);
-
-            PanelSectionToggleHelpers.FinalizeCollapsibleContents(
-                connectorToggle,
-                BasisSettingsDefaults.TrackerLinkingConnectorVisible.RawValue,
-                _ =>
-            {
-                trackersGroup.ForceRebuild();
-                tabDesc.ForceRebuild();
-            },
-                trackersGroup);
 
             handleChange();
             tabDesc.ForceRebuild();
@@ -288,20 +251,12 @@ namespace Basis.BasisUI
             {
                 FullRebuild(state, rows);
                 state.HasBuilt = true;
-                // Two-step layout rebuild, matching the toggle-show/hide pattern
-                // in SettingsProviderIK (advancedToggle / debugToggle handlers).
-                // Force the inner group's layout first so its ContentSizeFitter
-                // re-measures with the new row count, then the outer tab so the
-                // scroll view's content height picks up that new size. Skipping
-                // either step leaves the rows in the hierarchy but invisible
-                // (or stacked) because some parent kept its old measured height.
-                if (state.TrackersGroup != null && !state.TrackersGroup.IsReleased)
+                // Innermost first, out to the tab content, so every card resizes around the
+                // new row count before its parent measures it.
+                if (state.TrackersGroup != null && !state.TrackersGroup.IsReleased
+                    && state.TabDescriptor != null && !state.TabDescriptor.IsReleased)
                 {
-                    state.TrackersGroup.ForceRebuild();
-                }
-                if (state.TabDescriptor != null && !state.TabDescriptor.IsReleased)
-                {
-                    state.TabDescriptor.ForceRebuild();
+                    PanelElementDescriptor.RebuildLayoutChain(state.TrackersGroup.ContentParent, state.TabDescriptor.ContentParent);
                 }
                 return;
             }
@@ -518,6 +473,7 @@ namespace Basis.BasisUI
             }
 
             PanelDropdown roleDropdown = PanelDropdown.CreateNewEntry(group.ContentParent);
+            roleDropdown.ExcludeFromShare = true;
             roleDropdown.Descriptor.SetTitle(BasisLocalization.Get("trackerLinking.roleOverrideLabel"));
             roleDropdown.Descriptor.SetTooltip(BasisLocalization.Get(row.IsPair
                 ? "trackerLinking.roleOverridePair.tooltip"
@@ -580,6 +536,7 @@ namespace Basis.BasisUI
         private static PanelDropdown BuildLinkDropdown(PanelElementDescriptor group, TrackerRow row, List<TrackerRow> rows, bool[] suppressFlag)
         {
             PanelDropdown linkDropdown = PanelDropdown.CreateNewEntry(group.ContentParent);
+            linkDropdown.ExcludeFromShare = true;
             linkDropdown.Descriptor.SetTitle(BasisLocalization.Get("trackerLinking.linkLabel"));
             linkDropdown.Descriptor.SetTooltip(BasisLocalization.Get("trackerLinking.linkLabel.tooltip"));
 
@@ -794,14 +751,14 @@ namespace Basis.BasisUI
 
         internal static string BuildTrackerLabel(BasisInput input)
         {
-            if (input == null) return "Tracker";
+            if (input == null) return BasisLocalization.Get("trackerLinking.trackerFallback");
 
             string name = input.CommonDeviceIdentifier;
             if (string.IsNullOrEmpty(name)) name = input.ClassName;
             if (string.IsNullOrEmpty(name) && input.gameObject != null) name = input.gameObject.name;
 
             string id = input.UniqueDeviceIdentifier;
-            if (string.IsNullOrEmpty(name)) name = string.IsNullOrEmpty(id) ? "Tracker" : id;
+            if (string.IsNullOrEmpty(name)) name = string.IsNullOrEmpty(id) ? BasisLocalization.Get("trackerLinking.trackerFallback") : id;
 
             if (!string.IsNullOrEmpty(id) && !string.Equals(name, id))
             {
@@ -825,21 +782,71 @@ namespace Basis.BasisUI
             return false;
         }
 
+        private static void BuildGeneralSection(RectTransform container)
+        {
+            PanelSectionToggle section = null;
+            section = PanelSectionToggleHelpers.CreateCollapsibleBoxedSection(container,
+                BasisLocalization.Get("settings.controls.general.title"), () =>
+            {
+                // Announced-role trust switch, consumed every scan by
+                // BasisAnnouncedTrackerRoles. Opt-in because most setups leave the
+                // SteamVR-assigned roles unset or stale. (Vendor conventions like
+                // SlimeVR's serials ship their own toggle in their own package.)
+                PanelToggle trustSteamVRToggle = PanelToggle.CreateNewEntry(container);
+                trustSteamVRToggle.Descriptor.SetTitle(BasisLocalization.Get("trackerLinking.trustSteamVRRoles"));
+                trustSteamVRToggle.Descriptor.SetTooltip(BasisLocalization.Get("trackerLinking.trustSteamVRRoles.tooltip"));
+                trustSteamVRToggle.AssignBinding(BasisSettingsDefaults.TrustSteamVRRoles);
+
+                // Hand-tracking exclusion, consumed by BasisIgnoredCalibrationTrackers on every
+                // calibration pass and announced-role scan. Opt-in because the match is on device
+                // name only: it can't tell a hand-tracking bridge's tracker from a real one that
+                // happens to report the same name.
+                PanelToggle ignoreHandTrackingToggle = PanelToggle.CreateNewEntry(container);
+                ignoreHandTrackingToggle.Descriptor.SetTitle(BasisLocalization.Get("trackerLinking.ignoreHandTracking"));
+                ignoreHandTrackingToggle.Descriptor.SetTooltip(BasisLocalization.Get("trackerLinking.ignoreHandTracking.tooltip"));
+                ignoreHandTrackingToggle.AssignBinding(BasisSettingsDefaults.IgnoreHandTrackingDevices);
+
+                // Calibration tolerance: widens every constellation accept region at once. The
+                // one knob most users will reach for: bump it if a tracker refuses to bind
+                // during full-body calibration (atypical proportions, high-mounted trackers, a
+                // wide stance, or an imperfect T-pose).
+                PanelSlider calibrationTolerance = PanelSlider.CreateAndBind(container,
+                    PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("trackerLinking.tuning.calibrationTolerance"),
+                        1f, 3f, false, 2, ValueDisplayMode.Raw),
+                    BasisSettingsDefaults.CalibrationTolerance);
+                if (calibrationTolerance != null)
+                {
+                    calibrationTolerance.Descriptor.SetTooltip(BasisLocalization.Get("trackerLinking.tuning.calibrationTolerance.tooltip"));
+                }
+
+                SettingsProvider.AddDeveloperGizmoToggle(container, "settings.developer.trackerGizmos", BasisSettingsDefaults.TrackerGizmos);
+                SettingsProvider.AddDeveloperGizmoToggle(container, "settings.developer.linkedTrackerLines", BasisSettingsDefaults.LinkedTrackerLines);
+            }, true, _ => PanelSectionToggleHelpers.RebuildSectionLayout(section, container));
+        }
+
+        // Pairing fusion sliders, kept behind an opt-in so the page stays approachable for
+        // users who only want to link trackers. The open state is a saved setting.
+        private static void BuildAdvancedSection(RectTransform container)
+        {
+            PanelSectionToggle advancedToggle = PanelSectionToggle.CreateNewEntry(container);
+            advancedToggle.SetTitle(BasisLocalization.Get("trackerLinking.advanced"));
+            advancedToggle.Descriptor.SetTooltip(BasisLocalization.Get("trackerLinking.advanced.tooltip"));
+            advancedToggle.BindToToggle(BasisSettingsDefaults.TrackerLinkingAdvancedVisible);
+
+            PanelElementDescriptor tuningGroup = PanelElementDescriptor.CreateNew(
+                PanelElementDescriptor.ElementStyles.Group, container);
+            tuningGroup.Header.gameObject.SetActive(false);
+            BuildTuningSliders(tuningGroup.ContentParent);
+
+            PanelSectionToggleHelpers.FinalizeCollapsibleContents(
+                advancedToggle,
+                BasisSettingsDefaults.TrackerLinkingAdvancedVisible.RawValue,
+                _ => PanelElementDescriptor.RebuildLayoutChain(tuningGroup.ContentParent, container),
+                tuningGroup);
+        }
+
         private static void BuildTuningSliders(RectTransform parent)
         {
-            // Calibration tolerance: widens every constellation accept region at once. The
-            // one knob most users will reach for — bump it if a tracker refuses to bind
-            // during full-body calibration (atypical proportions, high-mounted trackers, a
-            // wide stance, or an imperfect T-pose).
-            PanelSlider calibrationTolerance = PanelSlider.CreateAndBind(parent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("trackerLinking.tuning.calibrationTolerance"),
-                    1f, 3f, false, 2, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.CalibrationTolerance);
-            if (calibrationTolerance != null)
-            {
-                calibrationTolerance.Descriptor.SetTooltip(BasisLocalization.Get("trackerLinking.tuning.calibrationTolerance.tooltip"));
-            }
-
             // Surprise penalty: how aggressively a glitching half loses authority.
             PanelSlider penalty = PanelSlider.CreateAndBind(parent,
                 PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("trackerLinking.tuning.surprisePenalty"),
@@ -944,12 +951,108 @@ namespace Basis.BasisUI
             }
         }
 
+        private static void BuildEyeFaceSection(RectTransform container)
+        {
+            PanelSectionToggle section = PanelSectionToggle.CreateNewEntry(container);
+            section.SetTitle(BasisLocalization.Get("trackerLinking.eyeFace"));
+            int start = container.childCount;
+
+            PanelToggle togglePreferOscEye = PanelToggle.CreateNewEntry(container);
+            togglePreferOscEye.Descriptor.SetTitle(BasisLocalization.Get("trackerLinking.eyeTracking.preferOsc"));
+            togglePreferOscEye.Descriptor.SetTooltip(BasisLocalization.Get("trackerLinking.eyeTracking.preferOsc.tooltip"));
+            togglePreferOscEye.AssignBinding(BasisSettingsDefaults.EyeTrackingPreferOsc);
+
+            PanelToggle toggleAutoFoveation = PanelToggle.CreateNewEntry(container);
+            toggleAutoFoveation.Descriptor.SetTitle(BasisLocalization.Get("trackerLinking.eyeTracking.autoFoveation"));
+            toggleAutoFoveation.Descriptor.SetTooltip(BasisLocalization.Get("trackerLinking.eyeTracking.autoFoveation.tooltip"));
+            toggleAutoFoveation.AssignBinding(BasisSettingsDefaults.EyeFoveationAutoManage);
+
+            PanelToggle toggleFaceTrackLipSync = PanelToggle.CreateNewEntry(container);
+            toggleFaceTrackLipSync.Descriptor.SetTitle(BasisLocalization.Get("settings.main.title.disableLipSyncForFaceTrackedPlayers"));
+            toggleFaceTrackLipSync.Descriptor.SetTooltip(BasisLocalization.Get("settings.main.title.disableLipSyncForFaceTrackedPlayers.tooltip"));
+            toggleFaceTrackLipSync.Descriptor.SetDescription(BasisLocalization.Get("settings.main.title.disableLipSyncForFaceTrackedPlayers.description"));
+            toggleFaceTrackLipSync.AssignBinding(BasisSettingsDefaults.DisableLipSyncForFaceTracking);
+
+            PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(section, container, start, false,
+                _ => PanelSectionToggleHelpers.RebuildSectionLayout(section, container));
+        }
+
+        // Developer only: calibration overlays and the CSV dump.
+        private static void BuildCalibrationDebugSection(RectTransform container)
+        {
+            PanelSectionToggle section = PanelSectionToggle.CreateNewEntry(container);
+            section.SetTitle(BasisLocalization.Get("trackerLinking.group.calibrationDebug"));
+            int start = container.childCount;
+
+            PanelToggle toggleAlwaysShowCalibration = PanelToggle.CreateNewEntry(container);
+            toggleAlwaysShowCalibration.Descriptor.SetTitle(BasisLocalization.Get("trackerLinking.alwaysShowCalibration"));
+            toggleAlwaysShowCalibration.Descriptor.SetTooltip(BasisLocalization.Get("trackerLinking.alwaysShowCalibration.tooltip"));
+            toggleAlwaysShowCalibration.AssignBinding(BasisSettingsDefaults.DevAlwaysShowCalibration);
+
+            PanelToggle toggleCalibrationCsv = PanelToggle.CreateNewEntry(container);
+            toggleCalibrationCsv.Descriptor.SetTitle(BasisLocalization.Get("trackerLinking.calibrationCsv"));
+            toggleCalibrationCsv.Descriptor.SetTooltip(BasisLocalization.Get("trackerLinking.calibrationCsv.tooltip"));
+            toggleCalibrationCsv.AssignBinding(BasisSettingsDefaults.DumpCalibrationCsv);
+
+            PanelToggle toggleCalibrationDebug = PanelToggle.CreateNewEntry(container);
+            toggleCalibrationDebug.Descriptor.SetTitle(BasisLocalization.Get("trackerLinking.calibrationDebug"));
+            toggleCalibrationDebug.Descriptor.SetTooltip(BasisLocalization.Get("trackerLinking.calibrationDebug.tooltip"));
+            toggleCalibrationDebug.AssignBinding(BasisSettingsDefaults.DevShowCalibrationDebug);
+
+            // Auto-estimate scale before calibrating: guess standing height from the live HMD so an uncalibrated
+            // VR session is roughly the right size. Superseded the moment you calibrate. (Developer-only.)
+            // PanelToggle toggleAutoScale = PanelToggle.CreateNewEntry(container);
+            // toggleAutoScale.Descriptor.SetTitle("Auto-estimate scale (uncalibrated)");
+            // toggleAutoScale.Descriptor.SetTooltip("Before you calibrate, guess your height from the headset so the avatar isn't wildly mis-scaled. A real calibration overrides it.");
+            // toggleAutoScale.AssignBinding(BasisSettingsDefaults.AutoScaleEstimateEnabled);
+
+            PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(section, container, start, false,
+                _ => PanelSectionToggleHelpers.RebuildSectionLayout(section, container));
+        }
+
+        // Face / eye builders are owned by the comms package (HVR types the framework can't see).
+        private static void BuildTrackingDiagnosticsSection(RectTransform container)
+        {
+            PanelSectionToggle section = null;
+            section = PanelSectionToggleHelpers.CreateLazyBoxedSection(container,
+                BasisLocalization.Get("settings.developer.group.trackingDiagnostics"), () =>
+                {
+                    PanelElementDescriptor faceGroup = SettingsProvider.CreateDiagnosticSubGroup(container,
+                        BasisLocalization.Get("settings.developer.debugFaceTracking"));
+                    if (SettingsProvider.FaceTrackingDebugBuilder == null)
+                    {
+                        faceGroup.SetDescription(BasisLocalization.Get("settings.developer.debugFaceTracking.unavailable"));
+                    }
+                    else
+                    {
+                        SettingsProvider.FaceTrackingDebugBuilder(faceGroup.ContentParent);
+                    }
+
+                    PanelElementDescriptor eyeGroup = SettingsProvider.CreateDiagnosticSubGroup(container,
+                        BasisLocalization.Get("settings.developer.debugEyeTracking"));
+                    if (SettingsProvider.EyeTrackingDebugBuilder == null)
+                    {
+                        eyeGroup.SetDescription(BasisLocalization.Get("settings.developer.debugEyeTracking.unavailable"));
+                    }
+                    else
+                    {
+                        SettingsProvider.EyeTrackingDebugBuilder(eyeGroup.ContentParent);
+                    }
+
+                    PanelElementDescriptor trackerRoles = SettingsProvider.CreateDiagnosticSubGroup(container,
+                        BasisLocalization.Get("settings.developer.assignedTrackers"));
+                    SettingsProviderAvatarStats.PopulateTrackerRoles(trackerRoles);
+                }, false, _ => PanelSectionToggleHelpers.RebuildSectionLayout(section, container));
+        }
+
         private static void ResetTrackerSettingsDefaults()
         {
             BasisSettingsDefaults.TrackerLinkingAdvancedVisible.ResetToDefault();
             BasisSettingsDefaults.TrackerLinkingConnectorVisible.ResetToDefault();
             BasisSettingsDefaults.TrustSteamVRRoles.ResetToDefault();
             BasisSettingsDefaults.IgnoreHandTrackingDevices.ResetToDefault();
+            BasisSettingsDefaults.TrackerGizmos.ResetToDefault();
+            BasisSettingsDefaults.LinkedTrackerLines.ResetToDefault();
             BasisSettingsDefaults.PairingSurprisePenalty.ResetToDefault();
             BasisSettingsDefaults.PairingSurpriseClamp.ResetToDefault();
             BasisSettingsDefaults.PairingEmaFloor.ResetToDefault();
@@ -961,6 +1064,13 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.PairingWeightSmoothing.ResetToDefault();
             BasisSettingsDefaults.PairingRotationHalfLife.ResetToDefault();
             BasisSettingsDefaults.CalibrationTolerance.ResetToDefault();
+            BasisSettingsDefaults.EyeTrackingPreferOsc.ResetToDefault();
+            BasisSettingsDefaults.EyeFoveationAutoManage.ResetToDefault();
+            BasisSettingsDefaults.DisableLipSyncForFaceTracking.ResetToDefault();
+            BasisSettingsDefaults.DevAlwaysShowCalibration.ResetToDefault();
+            BasisSettingsDefaults.DumpCalibrationCsv.ResetToDefault();
+            BasisSettingsDefaults.DevShowCalibrationDebug.ResetToDefault();
+            BasisSettingsDefaults.AutoScaleEstimateEnabled.ResetToDefault();
             BasisTrackerRoleOverride.ClearAll();
             BasisTrackerPairing.ClearAll();
             BasisTrackerIdentifyGizmos.ClearAll();

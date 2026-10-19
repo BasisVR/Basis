@@ -1,11 +1,16 @@
+using Unity.Scripting.LifecycleManagement;
+using Basis.Editor.Localization;
 using LinkerGenerator;
+using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 
+[NoAutoStaticsCleanup]
 public class BasisBuildDialogAndSettings : IPreprocessBuildWithReport
 {
     public int callbackOrder => 0;
@@ -24,19 +29,21 @@ public class BasisBuildDialogAndSettings : IPreprocessBuildWithReport
         BuildTarget.iOS,
         BuildTarget.tvOS,
         BuildTarget.WebGL,
-#if UNITY_2019_1_OR_NEWER
         BuildTarget.PS4,
         BuildTarget.XboxOne,
         BuildTarget.Switch,
-#endif
     };
 
-    // Platforms you want to force Mono (example: your Linux choice).
-    private static readonly HashSet<BuildTarget> MonoOnlyTargets = new HashSet<BuildTarget>
+    // Platforms you want to force CoreCLR (example: your Linux choice).
+    private static readonly HashSet<BuildTarget> CoreClrOnlyTargets = new HashSet<BuildTarget>
     {
         BuildTarget.StandaloneLinux64,
         BuildTarget.LinuxHeadlessSimulation,
     };
+
+    internal static PropertyInfo LinuxArchitectureProperty => Type.GetType("UnityEditor.LinuxStandalone.UserBuildSettings, UnityEditor.LinuxStandalone.Extensions")?.GetProperty("architecture", BindingFlags.Public | BindingFlags.Static);
+
+    private static bool IsLinuxArm64(BuildTarget target) => target == BuildTarget.StandaloneLinux64 && LinuxArchitectureProperty?.GetValue(null) is OSArchitecture architecture && architecture == OSArchitecture.ARM64;
 
     public void OnPreprocessBuild(BuildReport report)
     {
@@ -47,7 +54,9 @@ public class BasisBuildDialogAndSettings : IPreprocessBuildWithReport
         BumpVersionsIfNeeded(report.summary.platform);
 
         var namedBuildTarget =
-            UnityEditor.Build.NamedBuildTarget.FromBuildTargetGroup(report.summary.platformGroup);
+            report.summary.platformGroup == BuildTargetGroup.Standalone && report.summary.GetSubtarget<StandaloneBuildSubtarget>() == StandaloneBuildSubtarget.Server
+                ? UnityEditor.Build.NamedBuildTarget.Server
+                : UnityEditor.Build.NamedBuildTarget.FromBuildTargetGroup(report.summary.platformGroup);
 
         var currentBackend = PlayerSettings.GetScriptingBackend(namedBuildTarget);
         var target = report.summary.platform;
@@ -59,48 +68,45 @@ public class BasisBuildDialogAndSettings : IPreprocessBuildWithReport
             return;
         }
 
-        // 2) Force Mono-only targets
-        if (MonoOnlyTargets.Contains(target))
+        // 2) Force CoreCLR-only targets
+        if (CoreClrOnlyTargets.Contains(target))
         {
-            SetBackendIfNeeded(namedBuildTarget, currentBackend, ScriptingImplementation.Mono2x);
+            SetBackendIfNeeded(namedBuildTarget, currentBackend, IsLinuxArm64(target) ? ScriptingImplementation.IL2CPP : ScriptingImplementation.CoreCLR);
             return;
         }
 
         // 3) Use the remembered backend; prompt only when set to Ask
-        bool useIl2Cpp;
+        ScriptingImplementation desired;
         var backendPref = BasisBuildScriptingBackendPreference.Current;
-        if (backendPref == BasisBuildScriptingBackendPreference.Mode.IL2CPP)
+        if (backendPref == BasisBuildScriptingBackendPreference.Mode.Mono)
         {
-            useIl2Cpp = true;
+            desired = ScriptingImplementation.Mono2x;
         }
-        else if (backendPref == BasisBuildScriptingBackendPreference.Mode.Mono)
+        else if (backendPref == BasisBuildScriptingBackendPreference.Mode.CoreCLR)
         {
-            useIl2Cpp = false;
+            desired = ScriptingImplementation.CoreCLR;
         }
         else if (Application.isBatchMode)
         {
-            // Safe default for CI: keep current backend (or change to true to default IL2CPP)
-            useIl2Cpp = (currentBackend == ScriptingImplementation.IL2CPP);
+            // Safe default for CI: CoreCLR
+            desired = ScriptingImplementation.CoreCLR;
+        }
+        else if (EditorUtility.DisplayDialog(
+            BasisEditorLocalization.Get("editor.buildDialog.title"),
+            BasisEditorLocalization.Get("editor.buildDialog.message", target),
+            "CoreCLR",
+            "Mono"))
+        {
+            desired = ScriptingImplementation.CoreCLR;
+            BasisBuildScriptingBackendPreference.Current = BasisBuildScriptingBackendPreference.Mode.CoreCLR;
         }
         else
         {
-            useIl2Cpp = EditorUtility.DisplayDialog(
-                "Scripting Backend",
-                $"Build target: {target}\n\nUse IL2CPP for this build?\n\nYour choice is remembered for next time. Change it under Basis ▸ Project Setup ▸ Build & Modules.",
-                "Yes (IL2CPP)",
-                "No (Mono)"
-            );
-
-            BasisBuildScriptingBackendPreference.Current = useIl2Cpp
-                ? BasisBuildScriptingBackendPreference.Mode.IL2CPP
-                : BasisBuildScriptingBackendPreference.Mode.Mono;
+            desired = ScriptingImplementation.Mono2x;
+            BasisBuildScriptingBackendPreference.Current = BasisBuildScriptingBackendPreference.Mode.Mono;
         }
 
-        SetBackendIfNeeded(
-            namedBuildTarget,
-            currentBackend,
-            useIl2Cpp ? ScriptingImplementation.IL2CPP : ScriptingImplementation.Mono2x
-        );
+        SetBackendIfNeeded(namedBuildTarget, currentBackend, desired);
     }
 
     private static void BumpVersionsIfNeeded(BuildTarget target)

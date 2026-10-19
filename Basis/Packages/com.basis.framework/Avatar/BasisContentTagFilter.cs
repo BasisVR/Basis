@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using Basis;
 using UnityEngine;
@@ -16,7 +17,8 @@ namespace Basis.Scripts.Avatar
     /// on demand and cache the result so the hot <see cref="IsBlocked"/> path on
     /// every avatar/scene/prop load doesn't re-parse.
     /// </summary>
-    public static class BasisContentTagFilter
+    [AutoStaticsCleanup]
+    public static partial class BasisContentTagFilter
     {
         /// <summary>
         /// The setting key persisted via <see cref="BasisSettingsSystem"/>. Public so
@@ -32,7 +34,7 @@ namespace Basis.Scripts.Avatar
         /// out-of-box opt-out beats a permissive default for first impressions.
         /// Users can clear or extend the list from the settings panel.
         /// </summary>
-        private static readonly BasisSettingsBinding<string> _binding =
+        [NoAutoStaticsCleanup] private static readonly BasisSettingsBinding<string> _binding =
             new BasisSettingsBinding<string>(SettingKey, new BasisPlatformDefault<string>("{\"Tags\":[\"18+\",\"Horror\",\"Gore\"]}"));
 
         /// <summary>

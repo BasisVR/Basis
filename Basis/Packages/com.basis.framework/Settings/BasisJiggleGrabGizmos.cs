@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.Device_Management;
@@ -22,7 +23,8 @@ using UnityEngine;
 /// searches — which is the fastest way to see why a reach missed, and scales with the avatar the
 /// same way the real search does.
 /// </summary>
-public static class BasisJiggleGrabGizmos
+[AutoStaticsCleanup]
+public static partial class BasisJiggleGrabGizmos
 {
     // Mirrored from settings by SMModuleDebugOptions.
     public static bool Show;
@@ -55,7 +57,7 @@ public static class BasisJiggleGrabGizmos
     private static readonly List<GrabVisual> _visuals = new List<GrabVisual>();
     // Three line gizmos per hand — the rings of the wire sphere, kept flat in one list.
     private static readonly List<int> _reachSpheres = new List<int>();
-    private static readonly Vector3[] _ringPoints = new Vector3[LimitRingSegments + 1];
+    [NoAutoStaticsCleanup] private static readonly Vector3[] _ringPoints = new Vector3[LimitRingSegments + 1];
     private static readonly System.Text.StringBuilder _text = new System.Text.StringBuilder(64);
 
     /// <summary>Per-frame entry point. <paramref name="scale"/> is the local avatar scale.</summary>

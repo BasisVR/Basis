@@ -4,8 +4,7 @@ namespace Basis.IK
 {
     public struct BasisBodyFitMeasurements
     {
-        public float PlayerEyeHeight, PlayerArmSpan, PlayerHipHeight, AvatarEyeHeight, AvatarArmSpan, AvatarHipHeight;
-        public float AvatarLegSpan, AvatarSpineSpan, AvatarShoulderWidth, UniformScale;
+        public float PlayerEyeHeight, PlayerArmSpan, AvatarEyeHeight, AvatarArmSpan, AvatarShoulderWidth, UniformScale;
     }
     public struct BasisBodyFitResult
     {

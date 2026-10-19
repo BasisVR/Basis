@@ -154,6 +154,12 @@ namespace Basis.BasisUI
         public void OnAvatarHeightChange()
         {
             BasisDebug.Log("OnAvatarHeightChange Menu Updating", BasisDebug.LogTag.Core);
+            if (InUse == PanelGroupRootMode.PlaySpaceStable && _stableHasAnchor)
+            {
+                _stableHasAnchor = false;
+                ApplyScaleOnly();
+                return;
+            }
             SetRootMode(GetFindCurrentMode());
         }
 

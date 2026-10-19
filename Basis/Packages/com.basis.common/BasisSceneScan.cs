@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -23,13 +24,15 @@ using Object = UnityEngine.Object;
 /// are cached, so an entry may be a destroyed object by the time it is read: every consumer already null
 /// checks, because that was equally true of a freshly taken array the moment anything was destroyed.
 /// </summary>
-public static class BasisSceneScan
+[AutoStaticsCleanup]
+public static partial class BasisSceneScan
 {
     /// <summary>
     /// Per-type storage. A closed generic type gets its own statics, which is the whole trick: one field
     /// per type asked for, without a dictionary lookup or a boxed key on the read path.
     /// </summary>
-    private static class Slot<T> where T : Object
+    [AutoStaticsCleanup]
+    private static partial class Slot<T> where T : Object
     {
         public static T[] Items = Array.Empty<T>();
         public static float TakenAt = float.NegativeInfinity;
@@ -56,7 +59,7 @@ public static class BasisSceneScan
         float now = Time.unscaledTime;
         // NegativeInfinity as the initial stamp makes the first call scan without needing a separate
         // "never taken" flag, and makes an empty scene cache its emptiness rather than re-walking for it.
-        if (Slot<T>.Generation != generation || now - Slot<T>.TakenAt > Mathf.Max(0f, maxAge))
+        if (!Application.isPlaying || Slot<T>.Generation != generation || now - Slot<T>.TakenAt > Mathf.Max(0f, maxAge))
         {
             Slot<T>.Items = Object.FindObjectsByType<T>(FindObjectsInactive.Exclude);
             Slot<T>.TakenAt = now;

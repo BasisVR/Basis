@@ -432,41 +432,68 @@ namespace Basis.Tests.Constraints
         // ── Bindings that name a constraint by type ───────────────────────────────────────────────
 
         /// <summary>
+        /// Vixxy lives in HVR.Basis.Comms, a package that itself depends on the framework, so these
+        /// tests look its types up by name instead of referencing the assembly (a reference here
+        /// would make the framework package depend on it). They skip when the package isn't there.
+        /// </summary>
+        static System.Type VixxyType(string name)
+        {
+            foreach (System.Reflection.Assembly assembly in System.AppDomain.CurrentDomain.GetAssemblies())
+            {
+                if (assembly.GetName().Name == "HVR.Basis.Comms")
+                {
+                    System.Type type = assembly.GetType("HVR.Vixxy." + name);
+                    Assert.IsNotNull(type, "HVR.Basis.Comms is loaded but has no HVR.Vixxy." + name);
+                    return type;
+                }
+            }
+            Assert.Ignore("HVR.Basis.Comms (Vixxy) is not installed");
+            return null;
+        }
+
+        /// <summary>
         /// Builds a real Vixxy control driving a constraint. The subjects array is internal, so the
         /// test sets it the same way the remap reads it — the point is that the walk finds the binding
         /// through Vixxy's actual nested structure, not a stand-in shaped like it.
         /// </summary>
-        static HVR.Vixxy.HVRVixxyControl NewVixxyControlDriving(
+        static Component NewVixxyControlDriving(
             GameObject host, GameObject targetObject, string fullClassName, string propertyName)
         {
-            HVR.Vixxy.HVRVixxyControl control = host.AddComponent<HVR.Vixxy.HVRVixxyControl>();
+            System.Type controlType = VixxyType("HVRVixxyControl");
+            Component control = host.AddComponent(controlType);
 
-            HVR.Vixxy.HVRVixxyPropertyFloat property = new HVR.Vixxy.HVRVixxyPropertyFloat
-            {
-                fullClassName = fullClassName,
-                propertyName = propertyName,
-            };
-            HVR.Vixxy.HVRVixxySubject subject = new HVR.Vixxy.HVRVixxySubject
-            {
-                targets = new[] { targetObject },
-                properties = new List<HVR.Vixxy.HVRVixxyPropertyBase> { property },
-            };
+            System.Type propertyType = VixxyType("HVRVixxyPropertyFloat");
+            object property = System.Activator.CreateInstance(propertyType);
+            propertyType.GetField("fullClassName").SetValue(property, fullClassName);
+            propertyType.GetField("propertyName").SetValue(property, propertyName);
 
-            typeof(HVR.Vixxy.HVRVixxyControl)
+            System.Type subjectType = VixxyType("HVRVixxySubject");
+            object subject = System.Activator.CreateInstance(subjectType);
+            subjectType.GetField("targets").SetValue(subject, new[] { targetObject });
+            System.Collections.IList properties = (System.Collections.IList)System.Activator.CreateInstance(
+                typeof(List<>).MakeGenericType(VixxyType("HVRVixxyPropertyBase")));
+            properties.Add(property);
+            subjectType.GetField("properties").SetValue(subject, properties);
+
+            System.Array subjects = System.Array.CreateInstance(subjectType, 1);
+            subjects.SetValue(subject, 0);
+            controlType
                 .GetField("subjects", System.Reflection.BindingFlags.Instance
                                       | System.Reflection.BindingFlags.NonPublic)
-                .SetValue(control, new[] { subject });
+                .SetValue(control, subjects);
             return control;
         }
 
-        static string FirstBoundClassName(HVR.Vixxy.HVRVixxyControl control)
+        static string FirstBoundClassName(Component control)
         {
-            object subjects = typeof(HVR.Vixxy.HVRVixxyControl)
+            System.Array subjects = (System.Array)control.GetType()
                 .GetField("subjects", System.Reflection.BindingFlags.Instance
                                       | System.Reflection.BindingFlags.NonPublic)
                 .GetValue(control);
-            HVR.Vixxy.HVRVixxySubject[] typed = (HVR.Vixxy.HVRVixxySubject[])subjects;
-            return typed[0].properties[0].fullClassName;
+            object subject = subjects.GetValue(0);
+            System.Collections.IList properties = (System.Collections.IList)subject.GetType().GetField("properties").GetValue(subject);
+            object property = properties[0];
+            return (string)property.GetType().GetField("fullClassName").GetValue(property);
         }
 
         [Test]
@@ -480,7 +507,7 @@ namespace Basis.Tests.Constraints
 
             GameObject host = New("VixxyHost", Vector3.zero);
             target.transform.SetParent(host.transform, true);
-            HVR.Vixxy.HVRVixxyControl control = NewVixxyControlDriving(
+            Component control = NewVixxyControlDriving(
                 host, target, "UnityEngine.Animations.PositionConstraint", "weight");
 
             BasisConstraintConversion.Report report = BasisConstraintConversion.ConvertHierarchy(host);
@@ -501,7 +528,7 @@ namespace Basis.Tests.Constraints
 
             GameObject host = New("VixxyHost", Vector3.zero);
             target.transform.SetParent(host.transform, true);
-            HVR.Vixxy.HVRVixxyControl control = NewVixxyControlDriving(
+            Component control = NewVixxyControlDriving(
                 host, target, "UnityEngine.MeshRenderer", "enabled");
 
             BasisConstraintConversion.Report report = BasisConstraintConversion.ConvertHierarchy(host);
@@ -516,7 +543,7 @@ namespace Basis.Tests.Constraints
         {
             GameObject host = New("VixxyHost", Vector3.zero);
             GameObject target = New("Target", Vector3.zero, host.transform);
-            HVR.Vixxy.HVRVixxyControl control = NewVixxyControlDriving(
+            Component control = NewVixxyControlDriving(
                 host, target, "UnityEngine.Animations.Rigging.TwoBoneIKConstraint", "weight");
 
             BasisConstraintConversion.ConvertHierarchy(host);

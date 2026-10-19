@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -20,7 +21,8 @@ namespace Basis.BasisUI
     /// <summary>
     /// Used by the LibraryProvider.cs to specifically load a type of content with a given BasisDataStoreItemKeys.ItemKey
     /// </summary>
-    public static class ContentLoader
+    [AutoStaticsCleanup]
+    public static partial class ContentLoader
     {
         /// <summary>
         /// A reachability warning from the last avatar load attempt, if any.
@@ -33,7 +35,7 @@ namespace Basis.BasisUI
         /// Static progress report forwarded during library content loading.
         /// Subscribe to OnProgressReport to receive loading progress updates.
         /// </summary>
-        public static readonly BasisProgressReport LibraryLoadProgress = new BasisProgressReport();
+        [NoAutoStaticsCleanup] public static readonly BasisProgressReport LibraryLoadProgress = new BasisProgressReport();
 
         private static void ForwardProgress(string uniqueID, float progress, string eventDescription)
         {
@@ -132,6 +134,7 @@ namespace Basis.BasisUI
             void ForwardPendingProgress(string uniqueId, float progress, string info) =>
                 BasisRuntimeSpawnRegistry.ReportPendingLoadProgress(pending.PendingId, progress, info);
             report.OnProgressReport += ForwardPendingProgress;
+            BasisDownload download = BasisDownloadCenter.Begin(item.Mode == BundledContentHolder.Mode.Avatar ? BasisDownloadKind.Avatar : BasisDownloadKind.Prop, item.Url, bundle, cts, report);
             CancellationToken cancel = cts.Token;
 
             var selector = item.Mode switch
@@ -145,6 +148,15 @@ namespace Basis.BasisUI
             try
             {
                 GameObject createdObject = await BasisLoadHandler.LoadGameObjectBundle(BasisDeviceManagement.Instance.CreationGameobject, bundle, true, report, cancel, finalPos, finalRot, finalScale, modifyScale, selector, parentTarget ,false, ChangeColidersToCorrectLayer);
+
+                if (cancel.IsCancellationRequested)
+                {
+                    if (createdObject != null)
+                    {
+                        GameObject.Destroy(createdObject);
+                    }
+                    throw new OperationCanceledException(cancel);
+                }
 
                 if (createdObject != null)
                 {
@@ -184,6 +196,7 @@ namespace Basis.BasisUI
             }
             finally
             {
+                BasisDownloadCenter.End(download);
                 report.OnProgressReport -= ForwardPendingProgress;
                 report.OnProgressReport -= ForwardProgress;
                 report.OnProgressReport -= BasisUILoadingBar.ProgressReport;
@@ -607,6 +620,7 @@ namespace Basis.BasisUI
                             void ForwardPendingProgress(string uniqueId, float progress, string info) =>
                                 BasisRuntimeSpawnRegistry.ReportPendingLoadProgress(pending.PendingId, progress, info);
                             report.OnProgressReport += ForwardPendingProgress;
+                            BasisDownload download = BasisDownloadCenter.Begin(BasisDownloadKind.World, item.Url, bundle, cts, report);
                             CancellationToken cancel = cts.Token;
 
                             try
@@ -617,7 +631,7 @@ namespace Basis.BasisUI
                                     report,
                                     cancel
                                 );
-
+                                await BasisLoadHandler.ThrowIfSceneLoadCancelled(scene, cancel);
 
                                 if (scene.IsValid())
                                 {
@@ -654,6 +668,7 @@ namespace Basis.BasisUI
                             }
                             finally
                             {
+                                BasisDownloadCenter.End(download);
                                 report.OnProgressReport -= ForwardPendingProgress;
                                 report.OnProgressReport -= ForwardProgress;
                                 report.OnProgressReport -= BasisUILoadingBar.ProgressReport;

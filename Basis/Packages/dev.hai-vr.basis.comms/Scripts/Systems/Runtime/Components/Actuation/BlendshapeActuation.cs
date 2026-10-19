@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,8 +9,9 @@ using UnityEngine;
 
 namespace HVR.Basis.Comms
 {
+    [AutoStaticsCleanup]
     [AddComponentMenu("HVR.Basis/Comms/Blendshape Actuation")]
-    public class BlendshapeActuation : MonoBehaviour, IHVRInitializable
+    public partial class BlendshapeActuation : MonoBehaviour, IHVRInitializable
     {
         // This is a class originally created in September 2024, which as of 2026 sets the value of blendshapes based on addresses.
         // Originally, this class also took care of networking the addresses, but it is no longer the case since the addition of HVRVariableNetworking in April 2026 which now takes that responsibility.

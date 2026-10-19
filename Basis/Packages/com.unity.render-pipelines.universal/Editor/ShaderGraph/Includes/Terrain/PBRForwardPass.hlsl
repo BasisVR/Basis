@@ -8,34 +8,44 @@ void InitializeInputData(Varyings input, SurfaceDescription surfaceDescription, 
     inputData = (InputData)0;
 
     inputData.positionWS = input.positionWS;
+    inputData.preExposureMultiplier = GetPreExposureMultiplier();
 
-    half3 SH = 0.0h;
     CalculateTerrainNormalWS(input, surfaceDescription, inputData);
 
-    #if defined(REQUIRES_VERTEX_SHADOW_COORD_INTERPOLATOR)
-        inputData.shadowCoord = input.shadowCoord;
-    #elif defined(MAIN_LIGHT_CALCULATE_SHADOWS)
-        inputData.shadowCoord = TransformWorldToShadowCoord(inputData.positionWS);
+    #if USE_VERTEX_SHADOW_COORD_INTERPOLATOR
+        inputData.shadowCoord = ShadowCoordInterpolatorAvailable() ? input.shadowCoord : TransformWorldToShadowCoord(inputData.positionWS);
     #else
-        inputData.shadowCoord = float4(0, 0, 0, 0);
+        inputData.shadowCoord = MainLightShadowsAvailable() ? TransformWorldToShadowCoord(inputData.positionWS) : float4(0, 0, 0, 0);
     #endif
 
-    inputData.fogCoord = InitializeInputDataFog(float4(input.positionWS, 1.0), input.fogFactorAndVertexLight.x);
     inputData.vertexLighting = input.fogFactorAndVertexLight.yzw;
 
-#if defined(DYNAMICLIGHTMAP_ON)
-    inputData.bakedGI = SAMPLE_GI(input.staticLightmapUV, input.dynamicLightmapUV.xy, SH, inputData.normalWS);
-#else
-    inputData.bakedGI = SAMPLE_GI(input.staticLightmapUV, SH, inputData.normalWS);
-#endif
+    GIParams giParams = (GIParams)0;
+
+    #if USE_LIGHTMAP_UV_INTERPOLATOR
+    giParams.staticLightmapUV = input.staticLightmapUV;
+    #endif
+    #if USE_VERTEX_SH_INTERPOLATOR
+    giParams.vertexSH = input.sh;
+    #endif
+    #if USE_DYNAMICLIGHTMAP_UV_INTERPOLATOR
+    giParams.dynamicLightmapUV = input.dynamicLightmapUV.xy;
+    #endif
+
+    giParams.positionWS = inputData.positionWS;
+    giParams.normalWS = inputData.normalWS;
+    giParams.viewDirWS = inputData.viewDirectionWS;
+    giParams.positionSS = input.positionCS.xy;
+
+    InitializeBakedGI(giParams, inputData.bakedGI, inputData.shadowMask);
+
     inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
-    inputData.shadowMask = SAMPLE_SHADOWMASK(input.staticLightmapUV);
 
     #if defined(DEBUG_DISPLAY)
-    #if defined(DYNAMICLIGHTMAP_ON)
+    #if USE_DYNAMICLIGHTMAP_UV_INTERPOLATOR
     inputData.dynamicLightmapUV = input.dynamicLightmapUV.xy;
     #endif
-    #if defined(LIGHTMAP_ON)
+    #if USE_LIGHTMAP_UV_INTERPOLATOR
     inputData.staticLightmapUV = input.staticLightmapUV;
     #else
     inputData.vertexSH = input.sh;
@@ -97,17 +107,17 @@ void frag(PackedVaryings packedInput,
 
     surface.albedo = AlphaModulate(surface.albedo, surface.alpha);
 
-#ifdef _DBUFFER
+#if defined(_DBUFFER) && !defined(_SURFACE_TYPE_TRANSPARENT)
     ApplyDecalToSurfaceData(unpacked.positionCS, surface, inputData);
 #endif
 
-    color = UniversalFragmentPBR(inputData, surface);
-    SplatmapFinalColor(color, inputData.fogCoord);
+    URP_LIGHT_ACCUM4 finalColor = UniversalFragmentPBR(inputData, surface);
+    SplatmapFinalColor(finalColor, unpacked.positionCS);
 
 #ifdef _WRITE_RENDERING_LAYERS
     outRenderingLayers = EncodeMeshRenderingLayer();
 #endif
-    color = half4(color.rgb, 1.0h);
+    color = half4(ClampExposed(inputData.preExposureMultiplier * finalColor.rgb), 1.0h);
 }
 
 #endif

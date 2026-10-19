@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using Unity.Profiling;
@@ -7,7 +8,7 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.Rendering.Universal.Internal;
 using UnityProfiler = UnityEngine.Profiling.Profiler;
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
 using Basis.Rendering.RTAO;
 #endif
 
@@ -16,7 +17,8 @@ namespace Basis.Scripts.Drivers
     public enum BasisPerformanceGpuSegment { Shadows, Opaque, GlobalIllumination, Reflections, Rtao, Transparent, Other }
     public enum BasisPerformanceCpuSegment { EventDriver, Ik, Movement, AvatarLoad, Networking, Jiggle, Voice, RenderDispatch, Other }
 
-    public static class BasisPerformanceBarData
+    [AutoStaticsCleanup]
+    public static partial class BasisPerformanceBarData
     {
         public const int GpuSegmentCount = 7;
         public const int CpuSegmentCount = 9;
@@ -38,8 +40,8 @@ namespace Basis.Scripts.Drivers
             public float SmoothedMs;
         }
 
-        private static readonly float[] gpuMs = new float[GpuSegmentCount];
-        private static readonly float[] cpuMs = new float[CpuSegmentCount];
+        [NoAutoStaticsCleanup] private static readonly float[] gpuMs = new float[GpuSegmentCount];
+        [NoAutoStaticsCleanup] private static readonly float[] cpuMs = new float[CpuSegmentCount];
         private static readonly List<MarkerRow> cpuRows = new List<MarkerRow>();
         private static readonly HashSet<string> knownMarkers = new HashSet<string>();
         private static readonly List<ProfilerRecorderHandle> handleScratch = new List<ProfilerRecorderHandle>(1024);
@@ -51,7 +53,7 @@ namespace Basis.Scripts.Drivers
 
         public static float[] GpuMs => gpuMs;
         public static float[] CpuMs => cpuMs;
-        // Per-marker detail behind the 9 coarse buckets above — the "Detailed" performance-bar
+        // Per-marker detail behind the 9 coarse buckets above â€” the "Detailed" performance-bar
         // toggle reads this to show what is actually eating a segment's time instead of just the
         // segment total. Exposed read-only; RescanCpuMarkers/DisposeCpuRecorders own the list.
         public static IReadOnlyList<MarkerRow> CpuRows => cpuRows;
@@ -100,21 +102,20 @@ namespace Basis.Scripts.Drivers
         {
             MainLightShadowCasterPass.SetProfilingEnabled(enabled);
             AdditionalLightsShadowCasterPass.SetProfilingEnabled(enabled);
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             BasisGlobalIlluminationPass.SetProfilingEnabled(enabled);
             BasisGlobalIlluminationPass.SpecularPass.SetProfilingEnabled(enabled);
 #endif
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
             BasisRTAOPass.SetProfilingEnabled(enabled);
 #endif
-            SetSamplerRecording(URPProfileId.DrawOpaqueObjects, enabled);
-            SetSamplerRecording(URPProfileId.DrawTransparentObjects, enabled);
-            SetSamplerRecording(URPProfileId.RecordRenderGraph, enabled);
+            SetSamplerRecording(URPProfilingSamplers.DrawOpaqueObjects, enabled);
+            SetSamplerRecording(URPProfilingSamplers.DrawTransparentObjects, enabled);
+            SetSamplerRecording(URPProfilingSamplers.RecordRenderGraph, enabled);
         }
 
-        private static void SetSamplerRecording(URPProfileId id, bool enabled)
+        private static void SetSamplerRecording(ProfilingSampler sampler, bool enabled)
         {
-            ProfilingSampler sampler = ProfilingSampler.Get(id);
             if (sampler != null) sampler.enableRecording = enabled;
         }
 
@@ -145,14 +146,14 @@ namespace Basis.Scripts.Drivers
         private static void SampleGpu(BasisFrameBottleneckReading reading)
         {
             float shadows = MainLightShadowCasterPass.GpuMs + AdditionalLightsShadowCasterPass.GpuMs;
-            float opaque = SamplerGpuMs(URPProfileId.DrawOpaqueObjects);
-            float transparent = SamplerGpuMs(URPProfileId.DrawTransparentObjects);
+            float opaque = SamplerGpuMs(URPProfilingSamplers.DrawOpaqueObjects);
+            float transparent = SamplerGpuMs(URPProfilingSamplers.DrawTransparentObjects);
             float gi = 0f, reflections = 0f, rtao = 0f;
-#if BASIS_HAS_GI && !UNITY_ANDROID
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             gi = BasisGlobalIlluminationPass.GpuMs;
             reflections = BasisGlobalIlluminationPass.SpecularPass.GpuMs;
 #endif
-#if BASIS_HAS_RTAO && !UNITY_ANDROID
+#if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
             rtao = BasisRTAOPass.GpuMs;
 #endif
             float named = shadows + opaque + gi + reflections + rtao + transparent;
@@ -191,7 +192,7 @@ namespace Basis.Scripts.Drivers
                     case BasisPerformanceCpuSegment.Voice: voice += ms; break;
                 }
             }
-            float renderDispatch = SamplerCpuMs(URPProfileId.RecordRenderGraph);
+            float renderDispatch = SamplerCpuMs(URPProfilingSamplers.RecordRenderGraph);
             float named = eventDriver + ik + movement + avatarLoad + networking + jiggle + voice + renderDispatch;
             float other = Mathf.Max(0f, (float)reading.CpuBusyMs - named);
 
@@ -206,15 +207,13 @@ namespace Basis.Scripts.Drivers
             Accumulate(cpuMs, (int)BasisPerformanceCpuSegment.Other, other);
         }
 
-        private static float SamplerGpuMs(URPProfileId id)
+        private static float SamplerGpuMs(ProfilingSampler sampler)
         {
-            ProfilingSampler sampler = ProfilingSampler.Get(id);
             return sampler != null ? sampler.gpuElapsedTime : 0f;
         }
 
-        private static float SamplerCpuMs(URPProfileId id)
+        private static float SamplerCpuMs(ProfilingSampler sampler)
         {
-            ProfilingSampler sampler = ProfilingSampler.Get(id);
             return sampler != null ? sampler.cpuElapsedTime : 0f;
         }
 
@@ -226,7 +225,7 @@ namespace Basis.Scripts.Drivers
             target[index] = smoothed <= 0f && value <= 0f ? 0f : smoothed + (value - smoothed) * (float)Smoothing;
         }
 
-        // Same smoothing, per individual marker — feeds the detailed (per-marker) legend view.
+        // Same smoothing, per individual marker â€” feeds the detailed (per-marker) legend view.
         private static void Accumulate(MarkerRow row, float value)
         {
             float smoothed = row.SmoothedMs;
@@ -261,42 +260,42 @@ namespace Basis.Scripts.Drivers
         //
         // ProfilerRecorder time is INCLUSIVE of everything nested inside a marker's Begin/End span, so any
         // marker that itself wraps other already-bucketed markers must be excluded here rather than
-        // classified — adding it too sums the same frame time twice. This turned out to be systemic across
+        // classified â€” adding it too sums the same frame time twice. This turned out to be systemic across
         // every registry whose group prefix reaches this function at all (BasisDriver.* and BasisEerie.*):
         // whoever added a per-region marker plus a family of debug sub-stage markers under it never
         // realized this classifier would sum both. Every entry below was confirmed against the actual call
-        // site, not inferred from name shape — see project_basis_perfbar_segment_doublecount for the full
+        // site, not inferred from name shape â€” see project_basis_perfbar_segment_doublecount for the full
         // trail:
-        //   Update / FixedUpdate / LateUpdate / OnBeforeRender — entire per-phase body (every other
+        //   Update / FixedUpdate / LateUpdate / OnBeforeRender â€” entire per-phase body (every other
         //                                                         segment's contribution combined).
-        //   LocalPlayer (bare)             — LocalPlayer.Simulate only.
-        //   LocalPlayer.Simulate           — LocoPoseSchedule/Movement/PlayspaceMover/VirtualData/
+        //   LocalPlayer (bare)             â€” LocalPlayer.Simulate only.
+        //   LocalPlayer.Simulate           â€” LocoPoseSchedule/Movement/PlayspaceMover/VirtualData/
         //                                     LateSimulateBones/VirtualSpine/BoneDriver/IKDestinations/
         //                                     HandDriver/Animator (BasisLocalPlayer.Simulate()).
-        //   LocalPlayer.FinishSimulate     — LocalPlayer.AfterSimulateOnLate.
-        //   LocalPlayer.Movement           — Move.Size/Mode/Turn/Physics.
-        //   LocalPlayer.IKDestinations     — the 13 IKDest.* sub-stage markers.
-        //   LocalPlayer.LocoPoseSchedule   — LocoPose.Gate/GraphStep/Dispatch (BasisLocomotionPoseSystem.Schedule()).
-        //   LocalPlayer.PlayspaceMover     — Move.Physics (BasisLocalPlayspaceMover.Simulate() -> Apply(), the
-        //                                     third of the three MovePhysics call sites — walk mode and fly
+        //   LocalPlayer.FinishSimulate     â€” LocalPlayer.AfterSimulateOnLate.
+        //   LocalPlayer.Movement           â€” Move.Size/Mode/Turn/Physics.
+        //   LocalPlayer.IKDestinations     â€” the 13 IKDest.* sub-stage markers.
+        //   LocalPlayer.LocoPoseSchedule   â€” LocoPose.Gate/GraphStep/Dispatch (BasisLocomotionPoseSystem.Schedule()).
+        //   LocalPlayer.PlayspaceMover     â€” Move.Physics (BasisLocalPlayspaceMover.Simulate() -> Apply(), the
+        //                                     third of the three MovePhysics call sites â€” walk mode and fly
         //                                     mode are the other two, both already inside LocalPlayer.Movement).
-        //   DeviceManagement.Simulate      — DeviceManagement.Loop + .BaseTypes.
-        //   DeviceManagement.BaseTypes     — loops BaseTypes[i].Simulate() over every registered device-type
+        //   DeviceManagement.Simulate      â€” DeviceManagement.Loop + .BaseTypes.
+        //   DeviceManagement.BaseTypes     â€” loops BaseTypes[i].Simulate() over every registered device-type
         //                                     handler; the OpenVR one (BasisOpenVRManagment.Simulate()) fires
         //                                     DeviceManagement.HMDPresence from inside that loop (JoinInput now
         //                                     fires from SimulateJoin at the top of LateUpdate, ahead of the eye block).
-        //   Avatar.Install                 — Install.UnregisterOld/DeleteLast/Harvest/PerfTrim (BasisAvatarFactory).
-        //   Avatar.Calibrate               — Calibrate.Tpose/DetectReferences/BoneData/BodyFit/Face/Renderers/
+        //   Avatar.Install                 â€” Install.UnregisterOld/DeleteLast/Harvest/PerfTrim (BasisAvatarFactory).
+        //   Avatar.Calibrate               â€” Calibrate.Tpose/DetectReferences/BoneData/BodyFit/Face/Renderers/
         //                                     Jiggle/BoneJobRegister (BasisRemoteAvatarDriver.RemoteCalibration).
-        //   Avatar.Calibrate.BoneJobRegister — its own .SlotSeed/.Add children.
-        //   Network.AfterAvatarChanges     — the Network.Transmit*/TransmitFarLod* family — this is the
+        //   Avatar.Calibrate.BoneJobRegister â€” its own .SlotSeed/.Add children.
+        //   Network.AfterAvatarChanges     â€” the Network.Transmit*/TransmitFarLod* family â€” this is the
         //                                     AfterAvatarChanges subscriber that actually sends the outgoing
         //                                     avatar packet (BasisNetworkTransmitter.cs: "AfterAvatarChanges
         //                                     += TransmissionResults.CompleteTick").
-        //   BasisEerie.Spine (Ik bucket, not a BasisDriver.* name) — Spine.HipsPlacement/ChainPrep/
+        //   BasisEerie.Spine (Ik bucket, not a BasisDriver.* name) â€” Spine.HipsPlacement/ChainPrep/
         //                                     SequentialIK/Lordosis (BasisEerieMovement.SolveSpinePass).
         // Every one of the 8 marker registries in the codebase (EventDriver/LocalPlayer/System/Avatar/Network/
-        // Eerie/ImagePickup/OpenVR — the complete post-consolidation set per project_basis_profiler_marker_registries)
+        // Eerie/ImagePickup/OpenVR â€” the complete post-consolidation set per project_basis_profiler_marker_registries)
         // was checked; ImagePickup's group isn't BasisDriver-prefixed so it can't reach this function at all.
         // Two smaller same-bucket cases were traced but NOT excluded, left as a known residual rather than
         // chased further: LocalPlayer.Move.Mode likely wraps the walk-mode Move.Physics instance (both already
@@ -315,7 +314,7 @@ namespace Basis.Scripts.Drivers
         };
 
         // internal (not private): BasisPerformanceCpuClassifyTests exercises this directly, same
-        // pattern as BasisFrameBottleneck.Classify — a regression test for the container-marker
+        // pattern as BasisFrameBottleneck.Classify â€” a regression test for the container-marker
         // exclusion list is worth more than the extra encapsulation.
         internal static BasisPerformanceCpuSegment? ClassifyCpuMarker(string name)
         {

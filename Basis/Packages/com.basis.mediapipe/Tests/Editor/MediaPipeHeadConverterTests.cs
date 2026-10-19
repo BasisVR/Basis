@@ -6,7 +6,7 @@ namespace Basis.MediaPipe.Tests
     {
         private const float Render = 1f / 60f, Sample = 1f / 15f;
         private static BasisMediaPipeResult Face(Quaternion rotation, Vector3 translationCm) => new BasisMediaPipeResult { HasFace = true, FaceTransform = Matrix4x4.TRS(translationCm, rotation, Vector3.one) };
-        private static MediaPipeHeadConverter Converter() => new MediaPipeHeadConverter { Smoothing = 0f, InvertPitch = false, InvertYaw = false, InvertRoll = false };
+        private static MediaPipeHeadConverter Converter() => new MediaPipeHeadConverter { InvertPitch = false, InvertYaw = false, InvertRoll = false };
         private static bool Run(MediaPipeHeadConverter converter, in BasisMediaPipeResult result, int samples, out Quaternion rotation, out Vector3 position)
         {
             rotation = Quaternion.identity;

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using System.Linq;
 using Basis.BasisUI;
@@ -10,7 +11,8 @@ namespace Basis.MediaPipe
     /// as a section inside the framework's Tracker Settings tab via
     /// SettingsProvider.TrackerSettingsExtraBuilder.
     /// </summary>
-    public static class SettingsProviderMediaPipe
+    [AutoStaticsCleanup]
+    public static partial class SettingsProviderMediaPipe
     {
         private static readonly List<string> PoseModelIds = new List<string> { BasisMediaPipeConfig.PoseModelLite, BasisMediaPipeConfig.PoseModelFull, BasisMediaPipeConfig.PoseModelHeavy };
 
@@ -18,62 +20,82 @@ namespace Basis.MediaPipe
         private static void Register()
         {
             SettingsProvider.TrackerSettingsExtraBuilder = BuildSection;
+            SettingsProvider.AddPageResetAction(SettingsProviderTrackerSettings.TabKey, ResetDefaults);
+        }
+
+        private static void ResetDefaults()
+        {
+            bool wasEnabled = BasisMediaPipeSettings.Enable.RawValue;
+            BasisMediaPipeSettings.Enable.ResetToDefault();
+            BasisMediaPipeSettings.EnableFace.ResetToDefault();
+            BasisMediaPipeSettings.EnableHands.ResetToDefault();
+            BasisMediaPipeSettings.EnableHeadRotation.ResetToDefault();
+            BasisMediaPipeSettings.EnableHeadPosition.ResetToDefault();
+            BasisMediaPipeSettings.EnableHandTracking.ResetToDefault();
+            BasisMediaPipeSettings.EnableBody.ResetToDefault();
+            BasisMediaPipeSettings.ShowPreview.ResetToDefault();
+            BasisMediaPipeSettings.ResolutionWidth.ResetToDefault();
+            BasisMediaPipeSettings.ResolutionHeight.ResetToDefault();
+            BasisMediaPipeSettings.CameraFps.ResetToDefault();
+            BasisMediaPipeSettings.CameraFpsAuto.ResetToDefault();
+            BasisMediaPipeSettings.LowLightBoost.ResetToDefault();
+            BasisMediaPipeSettings.Mirror.ResetToDefault();
+            BasisMediaPipeSettings.RejectGlitches.ResetToDefault();
+            BasisMediaPipeSettings.PoseModel.ResetToDefault();
+            BasisMediaPipeSettings.HeadRotationStrength.ResetToDefault();
+            BasisMediaPipeSettings.HeadPositionStrength.ResetToDefault();
+            BasisMediaPipeSettings.HeadHeight.ResetToDefault();
+            BasisMediaPipeSettings.InvertHeadYaw.ResetToDefault();
+            BasisMediaPipeSettings.InvertHeadPitch.ResetToDefault();
+            BasisMediaPipeSettings.InvertHeadRoll.ResetToDefault();
+            BasisMediaPipeSettings.GazeStrength.ResetToDefault();
+            BasisMediaPipeSettings.InvertBlink.ResetToDefault();
+            BasisMediaPipeSettings.EnableTongue.ResetToDefault();
+            BasisMediaPipeSettings.TongueStrength.ResetToDefault();
+            BasisMediaPipeSettings.EnableArmElbowPole.ResetToDefault();
+            BasisMediaPipeSettings.HandRotation.ResetToDefault();
+            BasisMediaPipeSettings.ArmHeadAnchor.ResetToDefault();
+            BasisMediaPipeSettings.ChestMotion.ResetToDefault();
+
+            BasisMediaPipeManagement manager = BasisMediaPipeManagement.Instance;
+            if (manager == null) return;
+            if (wasEnabled != BasisMediaPipeSettings.Enable.RawValue) manager.SetEnabled(BasisMediaPipeSettings.Enable.RawValue);
+            manager.ApplySettings();
         }
 
         private static void BuildSection(RectTransform parent)
         {
-            PanelElementDescriptor tabDescriptor = parent.GetComponentInParent<PanelElementDescriptor>(true);
+            void RebuildFrom(RectTransform changed) => PanelElementDescriptor.RebuildLayoutChain(changed, parent);
 
-            // Whole webcam section collapses under one bar.
             PanelSectionToggle webcamToggle = PanelSectionToggle.CreateNewEntry(parent);
-            webcamToggle.SetTitle(BasisLocalization.Get("settings.mediapipe.webcamTracking"));
-            int webcamStart = parent.childCount;
+            PanelElementDescriptor webcamGroup = PanelSectionToggleHelpers.CreateCollapsibleContentGroup(
+                webcamToggle, parent, BasisLocalization.Get("settings.mediapipe.webcamTracking"), showGroupTitle: false);
+            webcamToggle.Descriptor?.SetTooltip(BasisLocalization.Get("settings.mediapipe.webcamTracking.description"));
+            RectTransform webcamContent = webcamGroup.ContentParent;
 
-            PanelElementDescriptor group = PanelElementDescriptor.CreateNew(
-                PanelElementDescriptor.ElementStyles.Group, parent);
-            group.SetDescription(BasisLocalization.Get("settings.mediapipe.webcamTracking.description"));
-            var content = group.ContentParent;
-
-            PanelToggle enableToggle = PanelToggle.CreateNewEntry(content);
+            PanelToggle enableToggle = PanelToggle.CreateNewEntry(webcamContent);
             enableToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.mediapipe.enableWebcamTracking"));
-            enableToggle.Descriptor.SetDescription(BasisLocalization.Get("settings.mediapipe.enableWebcamTracking.description"));
-            enableToggle.SetValueWithoutNotify(BasisMediaPipeSettings.Enable.RawValue);
-            enableToggle.OnValueChanged += value =>
-            {
-                BasisMediaPipeSettings.Enable.SetValue(value);
-                BasisMediaPipeManagement.Instance.SetEnabled(value);
-            };
+            enableToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.mediapipe.enableWebcamTracking.description"));
+            enableToggle.AssignBinding(BasisMediaPipeSettings.Enable);
+            enableToggle.OnValueChanged += value => BasisMediaPipeManagement.Instance.SetEnabled(value);
 
-            PanelElementDescriptor settingsGroup = PanelElementDescriptor.CreateNew(
-                PanelElementDescriptor.ElementStyles.Group, parent);
-            settingsGroup.SetTitle(string.Empty);
-            content = settingsGroup.ContentParent;
+            PanelElementDescriptor enabledGroup = PanelElementDescriptor.CreateNew(
+                PanelElementDescriptor.ElementStyles.Group, webcamContent);
+            if (enabledGroup.Header != null) enabledGroup.Header.gameObject.SetActive(false);
+            enabledGroup.SetBackgroundVisible(false);
+            RectTransform content = enabledGroup.ContentParent;
 
-            // Live camera feed with the landmarks drawn over it, plus a plain-language camera state. The view
-            // only costs anything while this page is open (it drives itself off the frame clock in OnEnable).
             MediaPipePreviewView preview = MediaPipePreviewView.Create(content);
+            preview.gameObject.SetActive(BasisMediaPipeSettings.ShowPreview.RawValue);
             PanelElementDescriptor cameraState = PanelElementDescriptor.CreateNew(
                 PanelElementDescriptor.ElementStyles.Group, content);
             cameraState.SetBackgroundVisible(false);
             cameraState.SetTitle(BasisLocalization.Get("settings.mediapipe.status"));
             cameraState.SetDescription(BasisLocalization.Get(BasisMediaPipeManagement.Instance != null ? BasisMediaPipeManagement.Instance.StatusKey : "settings.mediapipe.status.off"));
 
-            PanelToggle previewToggle = PanelToggle.CreateNewEntry(content);
-            previewToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.mediapipe.preview"));
-            previewToggle.Descriptor.SetDescription(BasisLocalization.Get("settings.mediapipe.preview.description"));
-            previewToggle.SetValueWithoutNotify(BasisMediaPipeSettings.ShowPreview.RawValue);
-            preview.gameObject.SetActive(BasisMediaPipeSettings.ShowPreview.RawValue);
-            previewToggle.OnValueChanged += value =>
-            {
-                BasisMediaPipeSettings.ShowPreview.SetValue(value);
-                preview.gameObject.SetActive(value);
-                settingsGroup.ForceRebuild();
-                tabDescriptor?.ForceRebuild();
-            };
-
             PanelDropdown cameraDropdown = PanelDropdown.CreateNewEntry(content);
             cameraDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.mediapipe.camera"));
-            cameraDropdown.Descriptor.SetDescription(BasisLocalization.Get("settings.mediapipe.camera.description"));
+            cameraDropdown.Descriptor.SetTooltip(BasisLocalization.Get("settings.mediapipe.camera.description"));
             List<string> deviceNames = BasisMediaPipeCamera.EnumerateDevices().Select(d => d.name).ToList();
             if (deviceNames.Count == 0) deviceNames.Add("(no cameras found)");
             cameraDropdown.AssignEntries(deviceNames);
@@ -88,168 +110,175 @@ namespace Basis.MediaPipe
                 BasisMediaPipeManagement.Instance.ApplySettings();
             };
 
-            List<string> resolutions = new List<string> { "320 x 240", "640 x 480", "960 x 540", "1280 x 720" };
-            PanelDropdown resolutionDropdown = PanelDropdown.CreateNewEntry(content);
-            resolutionDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.mediapipe.cameraResolution"));
-            resolutionDropdown.Descriptor.SetDescription(BasisLocalization.Get("settings.mediapipe.cameraResolution.description"));
-            resolutionDropdown.AssignEntries(resolutions);
-            string currentResolution = $"{BasisMediaPipeSettings.ResolutionWidth.RawValue} x {BasisMediaPipeSettings.ResolutionHeight.RawValue}";
-            if (resolutions.Contains(currentResolution)) resolutionDropdown.SetValueWithoutNotify(currentResolution);
-            resolutionDropdown.OnValueChanged += choice =>
+            void AddToggle(RectTransform target, string key, BasisSettingsBinding<bool> binding)
             {
-                string[] parts = choice.Split('x');
-                if (parts.Length == 2 && int.TryParse(parts[0].Trim(), out int rw) && int.TryParse(parts[1].Trim(), out int rh))
-                {
-                    BasisMediaPipeSettings.ResolutionWidth.SetValue(rw);
-                    BasisMediaPipeSettings.ResolutionHeight.SetValue(rh);
-                    BasisMediaPipeManagement.Instance.ApplySettings();
-                }
-            };
-
-            List<string> frameRates = new List<string> { "15", "30", "60" };
-            PanelDropdown fpsDropdown = PanelDropdown.CreateNewEntry(content);
-            fpsDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.mediapipe.cameraFrameRate"));
-            fpsDropdown.Descriptor.SetDescription(BasisLocalization.Get("settings.mediapipe.cameraFrameRate.description"));
-            fpsDropdown.AssignEntries(frameRates);
-            string currentFrameRate = BasisMediaPipeSettings.CameraFps.RawValue.ToString();
-            if (frameRates.Contains(currentFrameRate)) fpsDropdown.SetValueWithoutNotify(currentFrameRate);
-            fpsDropdown.OnValueChanged += choice =>
-            {
-                if (int.TryParse(choice, out int fps))
-                {
-                    BasisMediaPipeSettings.CameraFps.SetValue(fps);
-                    BasisMediaPipeManagement.Instance.ApplySettings();
-                }
-            };
-
-            PanelDropdown poseModelDropdown = PanelDropdown.CreateNewEntry(content);
-            poseModelDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.mediapipe.poseModel"));
-            poseModelDropdown.Descriptor.SetDescription(BasisLocalization.Get("settings.mediapipe.poseModel.description"));
-            poseModelDropdown.AssignEntries(PoseModelIds, PoseModelIds.Select(id => BasisLocalization.Get("settings.mediapipe.poseModel." + id)).ToList());
-            poseModelDropdown.SetValueWithoutNotify(BasisMediaPipeConfig.NormalizePoseModel(BasisMediaPipeSettings.PoseModel.RawValue));
-            poseModelDropdown.OnValueChanged += choice =>
-            {
-                BasisMediaPipeSettings.PoseModel.SetValue(BasisMediaPipeConfig.NormalizePoseModel(choice));
-                BasisMediaPipeManagement.Instance.ApplySettings();
-            };
-
-            // Toggles reach the running pipeline through ApplySettings, which now reconfigures in place: the
-            // camera keeps running and the models swap on their own threads.
-            void AddToggle(string title, string description, BasisSettingsBinding<bool> binding)
-            {
-                PanelToggle toggle = PanelToggle.CreateNewEntry(content);
-                toggle.Descriptor.SetTitle(title);
-                toggle.Descriptor.SetDescription(description);
-                toggle.SetValueWithoutNotify(binding.RawValue);
-                toggle.OnValueChanged += value =>
-                {
-                    binding.SetValue(value);
-                    BasisMediaPipeManagement.Instance.ApplySettings();
-                };
+                PanelToggle toggle = PanelToggle.CreateNewEntry(target);
+                toggle.Descriptor.SetTitle(BasisLocalization.Get(key));
+                toggle.Descriptor.SetTooltip(BasisLocalization.Get(key + ".description"));
+                toggle.AssignBinding(binding);
+                toggle.OnValueChanged += _ => BasisMediaPipeManagement.Instance.ApplySettings();
             }
 
-            AddToggle("Face & Eyes", "Track facial expressions, blink and gaze.", BasisMediaPipeSettings.EnableFace);
-            AddToggle("Hands & Fingers", "Track finger curl and splay.", BasisMediaPipeSettings.EnableHands);
-            AddToggle("Head Rotation", "Your avatar's head turns, nods and tilts to follow your real head. The camera stays on the mouse.", BasisMediaPipeSettings.EnableHeadRotation);
-            AddToggle("Head Position", "Your avatar's head shifts to follow your real head movement.", BasisMediaPipeSettings.EnableHeadPosition);
-            AddToggle("Arm Tracking (experimental)", "Move your avatar's arms to match your real arms, retargeted from the pose skeleton (turns on the pose model; extra CPU).", BasisMediaPipeSettings.EnableHandTracking);
-            AddToggle(BasisLocalization.Get("settings.mediapipe.armElbowPoleExperimental"), BasisLocalization.Get("settings.mediapipe.armElbowPoleExperimental.description"), BasisMediaPipeSettings.EnableArmElbowPole);
-            AddToggle(BasisLocalization.Get("settings.mediapipe.handRotation"), BasisLocalization.Get("settings.mediapipe.handRotation.description"), BasisMediaPipeSettings.HandRotation);
-            AddToggle(BasisLocalization.Get("settings.mediapipe.rejectGlitches"), BasisLocalization.Get("settings.mediapipe.rejectGlitches.description"), BasisMediaPipeSettings.RejectGlitches);
-            AddToggle("Body Lean/Twist", "Your avatar's chest leans, twists, sways and shifts with your torso. Uses the pose model (extra CPU). Set the amount with Chest Motion below.", BasisMediaPipeSettings.EnableBody);
-            AddToggle("Mirror Camera", "Flip the camera horizontally (selfie view).", BasisMediaPipeSettings.Mirror);
-            AddToggle(BasisLocalization.Get("settings.mediapipe.lowLightBoost"), BasisLocalization.Get("settings.mediapipe.lowLightBoost.description"), BasisMediaPipeSettings.LowLightBoost);
-            AddToggle(BasisLocalization.Get("settings.mediapipe.cameraFpsAuto"), BasisLocalization.Get("settings.mediapipe.cameraFpsAuto.description"), BasisMediaPipeSettings.CameraFpsAuto);
-
-            AddToggle("Swap Hands", "Fix left/right hands if they are reversed.", BasisMediaPipeSettings.SwapHands);
-            AddToggle(BasisLocalization.Get("settings.mediapipe.invertBlink"), BasisLocalization.Get("settings.mediapipe.invertBlink.description"), BasisMediaPipeSettings.InvertBlink);
-            AddToggle(BasisLocalization.Get("settings.mediapipe.invertHeadYaw"), BasisLocalization.Get("settings.mediapipe.invertHeadYaw.description"), BasisMediaPipeSettings.InvertHeadYaw);
-            AddToggle(BasisLocalization.Get("settings.mediapipe.invertHeadPitch"), BasisLocalization.Get("settings.mediapipe.invertHeadPitch.description"), BasisMediaPipeSettings.InvertHeadPitch);
-            AddToggle(BasisLocalization.Get("settings.mediapipe.invertHeadRoll"), BasisLocalization.Get("settings.mediapipe.invertHeadRoll.description"), BasisMediaPipeSettings.InvertHeadRoll);
-
-            // Sliders only touch converter tuning, so they apply on the spot without going near the camera.
-            void AddSlider(string title, string description, BasisSettingsBinding<float> binding, float min, float max, ValueDisplayMode mode = ValueDisplayMode.Percentage)
+            void AddSlider(RectTransform target, string key, BasisSettingsBinding<float> binding, float min, float max, ValueDisplayMode mode = ValueDisplayMode.Percentage)
             {
-                PanelSlider slider = PanelSlider.CreateNew(content);
+                PanelSlider slider = PanelSlider.CreateNew(target);
                 slider.SetSliderSettings(new PanelSlider.SliderSettings { SliderMin = min, SliderMax = max, DecimalPlaces = 2, DisplayMode = mode });
-                slider.Descriptor.SetTitle(title);
-                slider.Descriptor.SetDescription(description);
-                slider.SetValueWithoutNotify(binding.RawValue);
-                slider.OnValueChanged += value =>
-                {
-                    binding.SetValue(value);
-                    BasisMediaPipeManagement.Instance.ApplyTuning();
-                };
+                slider.Descriptor.SetTitle(BasisLocalization.Get(key));
+                slider.Descriptor.SetTooltip(BasisLocalization.Get(key + ".description"));
+                slider.AssignBinding(binding);
+                slider.OnValueChanged += _ => BasisMediaPipeManagement.Instance.ApplyTuning();
             }
 
-            string smoothing = BasisLocalization.Get("settings.mediapipe.smoothing.description");
-            AddSlider(BasisLocalization.Get("settings.mediapipe.headSmoothing"), smoothing, BasisMediaPipeSettings.HeadSmoothing, 0f, 1f);
-            AddSlider(BasisLocalization.Get("settings.mediapipe.faceSmoothing"), smoothing, BasisMediaPipeSettings.FaceSmoothing, 0f, 1f);
-            AddSlider(BasisLocalization.Get("settings.mediapipe.handSmoothing"), smoothing, BasisMediaPipeSettings.HandSmoothing, 0f, 1f);
-            AddSlider(BasisLocalization.Get("settings.mediapipe.fingerSmoothing"), smoothing, BasisMediaPipeSettings.FingerSmoothing, 0f, 1f);
-            AddSlider(BasisLocalization.Get("settings.mediapipe.gazeStrength"), BasisLocalization.Get("settings.mediapipe.gazeStrength.description"), BasisMediaPipeSettings.GazeStrength, 0.25f, 3f);
-            AddSlider(BasisLocalization.Get("settings.mediapipe.chestMotion"), BasisLocalization.Get("settings.mediapipe.chestMotion.description"), BasisMediaPipeSettings.ChestMotion, 0f, 1.5f);
-            AddSlider(BasisLocalization.Get("settings.mediapipe.elbowRestBias"), BasisLocalization.Get("settings.mediapipe.elbowRestBias.description"), BasisMediaPipeSettings.ElbowRestBias, 0f, 1f);
-            AddSlider(BasisLocalization.Get("settings.mediapipe.armHeadAnchor"), BasisLocalization.Get("settings.mediapipe.armHeadAnchor.description"), BasisMediaPipeSettings.ArmHeadAnchor, 0f, 1f);
-            AddSlider(BasisLocalization.Get("settings.mediapipe.headPositionStrength"), BasisLocalization.Get("settings.mediapipe.headPositionStrength.description"), BasisMediaPipeSettings.HeadPositionStrength, 0f, 3f);
-            AddSlider(BasisLocalization.Get("settings.mediapipe.headRotationStrength"), BasisLocalization.Get("settings.mediapipe.headRotationStrength.description"), BasisMediaPipeSettings.HeadRotationStrength, 0f, 3f);
-            AddSlider(BasisLocalization.Get("settings.mediapipe.headHeightTrim"), BasisLocalization.Get("settings.mediapipe.headHeightTrim.description"), BasisMediaPipeSettings.HeadHeight, -0.25f, 0.25f, ValueDisplayMode.Meters);
+            void AddDropdown(RectTransform target, string key, List<string> entries, string current, string resetDefault, System.Action<string> onChanged)
+            {
+                PanelDropdown dropdown = PanelDropdown.CreateNewEntry(target);
+                dropdown.Descriptor.SetTitle(BasisLocalization.Get(key));
+                dropdown.Descriptor.SetTooltip(BasisLocalization.Get(key + ".description"));
+                dropdown.AssignEntries(entries);
+                if (entries.Contains(current)) dropdown.SetValueWithoutNotify(current);
+                dropdown.SetResetDefault(resetDefault);
+                dropdown.OnValueChanged += onChanged;
+            }
 
-            AddToggle(BasisLocalization.Get("settings.mediapipe.tongueExperimental"), BasisLocalization.Get("settings.mediapipe.tongueExperimental.description"), BasisMediaPipeSettings.EnableTongue);
-            AddSlider(BasisLocalization.Get("settings.mediapipe.tongueStrength"), BasisLocalization.Get("settings.mediapipe.tongueStrength.description"), BasisMediaPipeSettings.TongueStrength, 0f, 3f);
+            AddToggle(content, "settings.mediapipe.faceEyes", BasisMediaPipeSettings.EnableFace);
+            AddToggle(content, "settings.mediapipe.handsFingers", BasisMediaPipeSettings.EnableHands);
+            AddToggle(content, "settings.mediapipe.headRotation", BasisMediaPipeSettings.EnableHeadRotation);
+            AddToggle(content, "settings.mediapipe.headPosition", BasisMediaPipeSettings.EnableHeadPosition);
+            AddToggle(content, "settings.mediapipe.armTracking", BasisMediaPipeSettings.EnableHandTracking);
+            AddToggle(content, "settings.mediapipe.bodyLeanTwist", BasisMediaPipeSettings.EnableBody);
 
             PanelButton calibrate = PanelButton.CreateNew(content);
             calibrate.Descriptor.SetTitle(BasisLocalization.Get("settings.mediapipe.calibrateHeadLookForward"));
-            calibrate.Descriptor.SetDescription(BasisLocalization.Get("settings.mediapipe.calibrateHeadLookForward.description"));
+            calibrate.Descriptor.SetTooltip(BasisLocalization.Get("settings.mediapipe.calibrateHeadLookForward.description"));
             calibrate.OnClicked += () => BasisMediaPipeManagement.Instance.CalibrateHead();
 
-            PanelElementDescriptor diagnostics = PanelElementDescriptor.CreateNew(
-                PanelElementDescriptor.ElementStyles.Group, content);
-            diagnostics.SetBackgroundVisible(false);
-            diagnostics.SetTitle(BasisLocalization.Get("settings.mediapipe.diagnostics"));
-            diagnostics.SetDescription(BasisLocalization.Get("settings.mediapipe.diagnostics.description"));
+            PanelSectionToggle advancedToggle = PanelSectionToggle.CreateNewEntry(content);
+            PanelElementDescriptor advancedGroup = PanelSectionToggleHelpers.CreateCollapsibleContentGroup(
+                advancedToggle, content, BasisLocalization.Get("ui.advanced"), showGroupTitle: false);
+            RectTransform advanced = advancedGroup.ContentParent;
 
-            PanelElementDescriptor statusField = PanelElementDescriptor.CreateNew(
-                PanelElementDescriptor.ElementStyles.Group, diagnostics.ContentParent);
-            statusField.SetTitle(BasisLocalization.Get("settings.mediapipe.status"));
-            statusField.SetDescription(BasisLocalization.Get("settings.mediapipe.status.description"));
+            PanelSectionToggle cameraSection = null, headFaceSection = null, armsBodySection = null, diagnosticsSection = null;
+            cameraSection = PanelSectionToggleHelpers.CreateCollapsibleBoxedSection(advanced, BasisLocalization.Get("settings.mediapipe.camera"), () =>
+            {
+                PanelToggle previewToggle = PanelToggle.CreateNewEntry(advanced);
+                previewToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.mediapipe.preview"));
+                previewToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.mediapipe.preview.description"));
+                previewToggle.AssignBinding(BasisMediaPipeSettings.ShowPreview);
+                previewToggle.OnValueChanged += value =>
+                {
+                    preview.gameObject.SetActive(value);
+                    RebuildFrom(content);
+                };
 
-            PanelButton refresh = PanelButton.CreateNew(diagnostics.ContentParent);
-            refresh.Descriptor.SetTitle(BasisLocalization.Get("settings.mediapipe.refresh"));
-            refresh.Descriptor.SetDescription(BasisLocalization.Get("settings.mediapipe.refresh.description"));
+                AddDropdown(advanced, "settings.mediapipe.cameraResolution", new List<string> { "320 x 240", "640 x 480", "960 x 540", "1280 x 720" },
+                    $"{BasisMediaPipeSettings.ResolutionWidth.RawValue} x {BasisMediaPipeSettings.ResolutionHeight.RawValue}",
+                    $"{BasisMediaPipeSettings.ResolutionWidth.DefaultValue.GetDefault()} x {BasisMediaPipeSettings.ResolutionHeight.DefaultValue.GetDefault()}", choice =>
+                {
+                    string[] parts = choice.Split('x');
+                    if (parts.Length == 2 && int.TryParse(parts[0].Trim(), out int rw) && int.TryParse(parts[1].Trim(), out int rh))
+                    {
+                        BasisMediaPipeSettings.ResolutionWidth.SetValue(rw);
+                        BasisMediaPipeSettings.ResolutionHeight.SetValue(rh);
+                        BasisMediaPipeManagement.Instance.ApplySettings();
+                    }
+                });
+                AddDropdown(advanced, "settings.mediapipe.cameraFrameRate", new List<string> { "15", "30", "60" }, BasisMediaPipeSettings.CameraFps.RawValue.ToString(), BasisMediaPipeSettings.CameraFps.DefaultValue.GetDefault().ToString(), choice =>
+                {
+                    if (int.TryParse(choice, out int fps))
+                    {
+                        BasisMediaPipeSettings.CameraFps.SetValue(fps);
+                        BasisMediaPipeManagement.Instance.ApplySettings();
+                    }
+                });
+                AddToggle(advanced, "settings.mediapipe.cameraFpsAuto", BasisMediaPipeSettings.CameraFpsAuto);
+                AddToggle(advanced, "settings.mediapipe.lowLightBoost", BasisMediaPipeSettings.LowLightBoost);
+                AddToggle(advanced, "settings.mediapipe.mirrorCamera", BasisMediaPipeSettings.Mirror);
+                AddToggle(advanced, "settings.mediapipe.rejectGlitches", BasisMediaPipeSettings.RejectGlitches);
 
+                PanelDropdown poseModelDropdown = PanelDropdown.CreateNewEntry(advanced);
+                poseModelDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.mediapipe.poseModel"));
+                poseModelDropdown.Descriptor.SetTooltip(BasisLocalization.Get("settings.mediapipe.poseModel.description"));
+                poseModelDropdown.AssignEntries(PoseModelIds, PoseModelIds.Select(id => BasisLocalization.Get("settings.mediapipe.poseModel." + id)).ToList());
+                poseModelDropdown.AssignBinding(BasisMediaPipeSettings.PoseModel);
+                poseModelDropdown.SetValueWithoutNotify(BasisMediaPipeConfig.NormalizePoseModel(BasisMediaPipeSettings.PoseModel.RawValue));
+                poseModelDropdown.OnValueChanged += choice =>
+                {
+                    BasisMediaPipeManagement.Instance.ApplySettings();
+                };
+            }, false, _ => PanelSectionToggleHelpers.RebuildSectionLayout(cameraSection, parent));
+
+            headFaceSection = PanelSectionToggleHelpers.CreateCollapsibleBoxedSection(advanced, BasisLocalization.Get("settings.mediapipe.section.headFace"), () =>
+            {
+                AddSlider(advanced, "settings.mediapipe.headRotationStrength", BasisMediaPipeSettings.HeadRotationStrength, 0f, 3f);
+                AddSlider(advanced, "settings.mediapipe.headPositionStrength", BasisMediaPipeSettings.HeadPositionStrength, 0f, 3f);
+                AddSlider(advanced, "settings.mediapipe.headHeightTrim", BasisMediaPipeSettings.HeadHeight, -0.25f, 0.25f, ValueDisplayMode.Meters);
+                AddToggle(advanced, "settings.mediapipe.invertHeadYaw", BasisMediaPipeSettings.InvertHeadYaw);
+                AddToggle(advanced, "settings.mediapipe.invertHeadPitch", BasisMediaPipeSettings.InvertHeadPitch);
+                AddToggle(advanced, "settings.mediapipe.invertHeadRoll", BasisMediaPipeSettings.InvertHeadRoll);
+                AddSlider(advanced, "settings.mediapipe.gazeStrength", BasisMediaPipeSettings.GazeStrength, 0.25f, 3f);
+                AddToggle(advanced, "settings.mediapipe.invertBlink", BasisMediaPipeSettings.InvertBlink);
+                AddToggle(advanced, "settings.mediapipe.tongueExperimental", BasisMediaPipeSettings.EnableTongue);
+                AddSlider(advanced, "settings.mediapipe.tongueStrength", BasisMediaPipeSettings.TongueStrength, 0f, 3f);
+            }, false, _ => PanelSectionToggleHelpers.RebuildSectionLayout(headFaceSection, parent));
+
+            armsBodySection = PanelSectionToggleHelpers.CreateCollapsibleBoxedSection(advanced, BasisLocalization.Get("settings.mediapipe.section.armsBody"), () =>
+            {
+                AddToggle(advanced, "settings.mediapipe.armElbowPole", BasisMediaPipeSettings.EnableArmElbowPole);
+                AddToggle(advanced, "settings.mediapipe.handRotation", BasisMediaPipeSettings.HandRotation);
+                AddSlider(advanced, "settings.mediapipe.armHeadAnchor", BasisMediaPipeSettings.ArmHeadAnchor, 0f, 1f);
+                AddSlider(advanced, "settings.mediapipe.chestMotion", BasisMediaPipeSettings.ChestMotion, 0f, 1.5f);
+            }, false, _ => PanelSectionToggleHelpers.RebuildSectionLayout(armsBodySection, parent));
+
+            PanelElementDescriptor statusField = null;
             void RefreshStatus()
             {
+                if (statusField == null) return;
                 BasisMediaPipeManagement manager = BasisMediaPipeManagement.Instance;
-                statusField.SetDescription(manager != null ? manager.DiagnosticsText() : "Not started.");
+                statusField.SetDescription(manager != null ? manager.DiagnosticsText() : BasisLocalization.Get("settings.mediapipe.diagnostics.notStarted"));
+                if (statusField.gameObject.activeInHierarchy) RebuildFrom(statusField.rectTransform);
             }
+            diagnosticsSection = PanelSectionToggleHelpers.CreateCollapsibleBoxedSection(advanced, BasisLocalization.Get("settings.mediapipe.diagnostics"), () =>
+            {
+                statusField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, advanced);
+                statusField.SetBackgroundVisible(false);
+                statusField.SetTitle(BasisLocalization.Get("settings.mediapipe.status"));
+                statusField.SetDescription(BasisLocalization.Get("settings.mediapipe.status.description"));
 
-            refresh.OnClicked += RefreshStatus;
+                PanelButton refresh = PanelButton.CreateNew(advanced);
+                refresh.Descriptor.SetTitle(BasisLocalization.Get("settings.mediapipe.refresh"));
+                refresh.Descriptor.SetTooltip(BasisLocalization.Get("settings.mediapipe.diagnostics.description") + "\n" + BasisLocalization.Get("settings.mediapipe.refresh.description"));
+                refresh.OnClicked += RefreshStatus;
+            }, false, _ => PanelSectionToggleHelpers.RebuildSectionLayout(diagnosticsSection, parent));
+
+            PanelSectionToggleHelpers.FinalizeCollapsibleGroup(advancedToggle, advancedGroup, false, visible => RebuildFrom(visible ? advanced : content));
+
             RefreshStatus();
             preview.StatusChanged += key =>
             {
                 cameraState.SetDescription(BasisLocalization.Get(key));
+                if (cameraState.gameObject.activeInHierarchy) RebuildFrom(cameraState.rectTransform);
                 RefreshStatus();
             };
 
             void RefreshWebcamSettingsVisibility(bool on)
             {
-                settingsGroup.SetActive(on);
-                settingsGroup.ForceRebuild();
-                tabDescriptor?.ForceRebuild();
+                enabledGroup.SetActive(on);
+                RebuildFrom(on ? content : webcamContent);
             }
             RefreshWebcamSettingsVisibility(BasisMediaPipeSettings.Enable.RawValue);
             enableToggle.OnValueChanged += RefreshWebcamSettingsVisibility;
 
-            PanelSectionToggleHelpers.FinalizeFlatSectionFromIndex(webcamToggle, parent, webcamStart, false, visible =>
+            PanelSectionToggleHelpers.FinalizeCollapsibleGroup(webcamToggle, webcamGroup, false, visible =>
             {
-                // Expanding re-shows both rows; re-apply the enable gate over the settings.
                 if (visible)
                 {
-                    RefreshWebcamSettingsVisibility(BasisMediaPipeSettings.Enable.RawValue);
                     preview.gameObject.SetActive(BasisMediaPipeSettings.ShowPreview.RawValue);
+                    RefreshWebcamSettingsVisibility(BasisMediaPipeSettings.Enable.RawValue);
                 }
-                tabDescriptor?.ForceRebuild();
+                else
+                {
+                    RebuildFrom(parent);
+                }
             });
         }
     }

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -22,14 +23,16 @@ using UnityEngine.Rendering.Universal;
 /// an output taking it over stops whichever had it.
 /// </para>
 /// </summary>
+[AutoStaticsCleanup]
 [DisallowMultipleComponent]
-public sealed class BasisCameraDirectToScreenOutput : MonoBehaviour
+public sealed partial class BasisCameraDirectToScreenOutput : MonoBehaviour
 {
     /// <summary>
     /// After every camera that can draw to the window. URP renders the VR camera's mirror at the
     /// end of that camera's own stack, so whatever draws to the window after it is what stays.
     /// </summary>
     public const float ScreenCameraDepth = 100f;
+    public const int MinWindowDimension = 64;
 
     /// <summary>The output currently drawing to the window, or null while no camera is presenting.</summary>
     public static BasisCameraDirectToScreenOutput Presenting { get; private set; }
@@ -64,6 +67,11 @@ public sealed class BasisCameraDirectToScreenOutput : MonoBehaviour
     /// </summary>
     public bool IsUsingFallbackPass => fallbackHooked;
 
+    public int TargetDisplay => screenCamera != null ? screenCamera.targetDisplay : 0;
+
+    public static bool AllowsHDROutput(int display) => AllowsHDROutput(display, Application.isEditor, HDROutputSettings.displays);
+    public static bool AllowsHDROutput(int display, bool editor, HDROutputSettings[] displays) => display <= 0 || editor || (displays != null && display < displays.Length && displays[display] != null && displays[display].available && displays[display].active);
+
     public static BasisCameraDirectToScreenOutput Create(BasisHandHeldCamera owner)
     {
         GameObject go = new GameObject("Direct To Screen Output");
@@ -92,7 +100,9 @@ public sealed class BasisCameraDirectToScreenOutput : MonoBehaviour
         screenCamera.targetDisplay = 0;
         screenCamera.targetTexture = null;
         screenCamera.allowDynamicResolution = false;
+#pragma warning disable 618
         screenCamera.useOcclusionCulling = false;
+#pragma warning restore 618
         screenCamera.orthographic = true;
         screenCamera.orthographicSize = 1f;
         screenCamera.nearClipPlane = 0.01f;
@@ -128,21 +138,33 @@ public sealed class BasisCameraDirectToScreenOutput : MonoBehaviour
     /// </summary>
     public bool TryGetWindowSize(out int width, out int height)
     {
-        if (screenCamera != null && screenCamera.pixelWidth > 0 && screenCamera.pixelHeight > 0)
+        if (screenCamera != null && screenCamera.pixelWidth >= MinWindowDimension && screenCamera.pixelHeight >= MinWindowDimension)
         {
             width = screenCamera.pixelWidth;
             height = screenCamera.pixelHeight;
             return true;
         }
+        if (TargetDisplay > 0) return BasisCameraDirectToScreen.TryGetDisplaySize(TargetDisplay, out width, out height) && width >= MinWindowDimension && height >= MinWindowDimension;
         width = Screen.width;
         height = Screen.height;
-        return width > 0 && height > 0;
+        return width >= MinWindowDimension && height >= MinWindowDimension;
     }
 
     /// <summary>Starts, or keeps, drawing <paramref name="feed"/> to the window, taking the window from any other output.</summary>
-    public void Present(RenderTexture feed)
+    public void Present(RenderTexture feed) => Present(feed, 0);
+
+    public void Present(RenderTexture feed, int display)
     {
         SetFeed(feed);
+        if (screenCamera != null && screenCamera.targetDisplay != display)
+        {
+            screenCamera.enabled = false;
+            SetBlank(screenCamera.targetDisplay, true);
+            screenCamera.targetDisplay = display;
+        }
+        BasisCameraDirectToScreen.ActivateDisplay(display);
+        if (screenCameraData != null) screenCameraData.allowHDROutput = AllowsHDROutput(display);
+        SetBlank(display, false);
         if (!IsPresenting)
         {
             if (Presenting != null) Presenting.Stop();
@@ -156,8 +178,54 @@ public sealed class BasisCameraDirectToScreenOutput : MonoBehaviour
     public void Stop()
     {
         if (IsPresenting) Presenting = null;
-        if (screenCamera != null) screenCamera.enabled = false;
+        if (screenCamera != null)
+        {
+            screenCamera.enabled = false;
+            SetBlank(screenCamera.targetDisplay, true);
+        }
         UnhookFallback();
+    }
+
+    private static Camera[] blankCameras;
+
+    private static void SetBlank(int display, bool on)
+    {
+        if (display <= 0 || display >= BasisCameraDirectToScreen.MaxDisplays) return;
+        if (on && blankCameras != null && blankCameras[display] != null) blankCameras[display].enabled = true;
+        else if (!on)
+        {
+            Camera blank = EnsureBlank(display);
+            if (blank != null) blank.enabled = false;
+        }
+    }
+
+    private static Camera EnsureBlank(int display)
+    {
+        blankCameras ??= new Camera[BasisCameraDirectToScreen.MaxDisplays];
+        if (blankCameras[display] != null || !Application.isPlaying) return blankCameras[display];
+
+        GameObject go = new GameObject("Direct To Screen Blank " + (display + 1));
+        DontDestroyOnLoad(go);
+        Camera blank = go.AddComponent<Camera>();
+        blank.enabled = false;
+        blank.clearFlags = CameraClearFlags.SolidColor;
+        blank.backgroundColor = Color.black;
+        blank.cullingMask = 0;
+        blank.depth = ScreenCameraDepth;
+        blank.stereoTargetEye = StereoTargetEyeMask.None;
+        blank.targetDisplay = display;
+        blank.orthographic = true;
+        blank.allowHDR = false;
+        blank.allowMSAA = false;
+        UniversalAdditionalCameraData data = blank.GetUniversalAdditionalCameraData();
+        data.renderPostProcessing = false;
+        data.renderShadows = false;
+        data.requiresColorOption = CameraOverrideOption.Off;
+        data.requiresDepthOption = CameraOverrideOption.Off;
+        data.allowXRRendering = false;
+        data.volumeLayerMask = 0;
+        blankCameras[display] = blank;
+        return blank;
     }
 
     /// <summary>

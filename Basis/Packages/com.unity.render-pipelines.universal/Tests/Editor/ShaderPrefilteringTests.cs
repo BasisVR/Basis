@@ -14,7 +14,7 @@ namespace ShaderStrippingAndPrefiltering
         class TestHelper
         {
             internal bool isAssetUsingforward = true;
-            internal bool everyRendererHasSSAO = false;
+            internal bool everyRendererHasSSR = false;
             internal bool stripXRKeywords = true;
             internal bool stripHDRKeywords = true;
             internal bool stripDebugDisplay = true;
@@ -22,6 +22,7 @@ namespace ShaderStrippingAndPrefiltering
             internal bool stripReflectionProbeRotation = true;
             internal bool stripScreenSpaceIrradiance = true;
             internal bool stripScreenCoordOverride = true;
+            internal bool stripExposure = true;
             internal bool stripUnusedVariants = true;
             internal List<ScreenSpaceAmbientOcclusionSettings> ssaoRendererFeatures = new List<ScreenSpaceAmbientOcclusionSettings>();
             internal ShaderPrefilteringData defaultPrefilteringData;
@@ -33,12 +34,7 @@ namespace ShaderStrippingAndPrefiltering
 
             internal ShaderPrefilteringData CreatePrefilteringSettings(ShaderFeatures shaderFeatures)
             {
-#if SURFACE_CACHE
-                return ShaderBuildPreprocessor.CreatePrefilteringSettings(ref shaderFeatures, isAssetUsingforward, everyRendererHasSSAO, stripXRKeywords, stripHDRKeywords, stripDebugDisplay, stripScreenCoordOverride, stripBicubicLightmapSampling, stripReflectionProbeRotation, stripScreenSpaceIrradiance, stripUnusedVariants, ref ssaoRendererFeatures);
-#else
-                return ShaderBuildPreprocessor.CreatePrefilteringSettings(ref shaderFeatures, isAssetUsingforward, everyRendererHasSSAO, stripXRKeywords, stripHDRKeywords, stripDebugDisplay, stripScreenCoordOverride, stripBicubicLightmapSampling, stripReflectionProbeRotation, stripUnusedVariants, ref ssaoRendererFeatures);
-#endif
-
+                return ShaderBuildPreprocessor.CreatePrefilteringSettings(ref shaderFeatures, isAssetUsingforward, everyRendererHasSSR, stripXRKeywords, stripHDRKeywords, stripDebugDisplay, stripScreenCoordOverride, stripBicubicLightmapSampling, stripReflectionProbeRotation, stripExposure, stripScreenSpaceIrradiance, stripUnusedVariants, ref ssaoRendererFeatures);
             }
 
             internal void AssertPrefilteringData(ShaderPrefilteringData expected, ShaderPrefilteringData actual)
@@ -49,6 +45,7 @@ namespace ShaderStrippingAndPrefiltering
                 Assert.AreEqual(expected.additionalLightsPrefilteringMode, actual.additionalLightsPrefilteringMode, "additionalLightsPrefilteringMode mismatch");
                 Assert.AreEqual(expected.additionalLightsShadowsPrefilteringMode, actual.additionalLightsShadowsPrefilteringMode, "additionalLightsShadowsPrefilteringMode mismatch");
                 Assert.AreEqual(expected.screenSpaceOcclusionPrefilteringMode, actual.screenSpaceOcclusionPrefilteringMode, "screenSpaceOcclusionPrefilteringMode mismatch");
+                Assert.AreEqual(expected.screenSpaceReflectionPrefilteringMode, actual.screenSpaceReflectionPrefilteringMode, "screenSpaceReflectionPrefilteringMode mismatch");
 
                 Assert.AreEqual(expected.stripXRKeywords, actual.stripXRKeywords, "stripXRKeywords mismatch");
                 Assert.AreEqual(expected.stripHDRKeywords, actual.stripHDRKeywords, "stripHDRKeywords mismatch");
@@ -60,15 +57,9 @@ namespace ShaderStrippingAndPrefiltering
                 Assert.AreEqual(expected.stripDBufferMRT3, actual.stripDBufferMRT3, "stripDBufferMRT2 mismatch");
                 Assert.AreEqual(expected.stripNativeRenderPass, actual.stripNativeRenderPass, "stripNativeRenderPass mismatch");
 
-                Assert.AreEqual(expected.stripSSAOBlueNoise, actual.stripSSAOBlueNoise, "stripSSAOBlueNoise mismatch");
-                Assert.AreEqual(expected.stripSSAOInterleaved, actual.stripSSAOInterleaved, "stripSSAOInterleaved mismatch");
-                Assert.AreEqual(expected.stripSSAODepthNormals, actual.stripSSAODepthNormals, "stripSSAODepthNormals mismatch");
-                Assert.AreEqual(expected.stripSSAOSourceDepthLow, actual.stripSSAOSourceDepthLow, "stripSSAOSourceDepthLow mismatch");
-                Assert.AreEqual(expected.stripSSAOSourceDepthMedium, actual.stripSSAOSourceDepthMedium, "stripSSAOSourceDepthMedium mismatch");
-                Assert.AreEqual(expected.stripSSAOSourceDepthHigh, actual.stripSSAOSourceDepthHigh, "stripSSAOSourceDepthHigh mismatch");
-                Assert.AreEqual(expected.stripSSAOSampleCountLow, actual.stripSSAOSampleCountLow, "stripSSAOSampleCountLow mismatch");
-                Assert.AreEqual(expected.stripSSAOSampleCountMedium, actual.stripSSAOSampleCountMedium, "stripNativeRenderPass mismatch");
-                Assert.AreEqual(expected.stripSSAOSampleCountHigh, actual.stripSSAOSampleCountHigh, "stripNativeRenderPass mismatch");
+                Assert.AreEqual(expected.stripSSAOKeywords, actual.stripSSAOKeywords, "stripSSAOKeywords mismatch");
+
+                Assert.AreEqual(expected.stripWriteSmoothness, actual.stripWriteSmoothness, "stripWriteSmoothness mismatch");
 
                 Assert.AreEqual(expected, actual, "Some mismatch between the Prefiltering Data that is not covered in the previous tests.");
             }
@@ -272,6 +263,18 @@ namespace ShaderStrippingAndPrefiltering
             actual = helper.CreatePrefilteringSettings(ShaderFeatures.None);
             helper.AssertPrefilteringData(expected, actual);
 
+            // Exposure
+            helper.stripExposure = false;
+            expected = helper.defaultPrefilteringData;
+            expected.stripExposure = false;
+            actual = helper.CreatePrefilteringSettings(ShaderFeatures.None);
+            helper.AssertPrefilteringData(expected, actual);
+
+            helper.stripExposure = true;
+            expected = helper.defaultPrefilteringData;
+            actual = helper.CreatePrefilteringSettings(ShaderFeatures.None);
+            helper.AssertPrefilteringData(expected, actual);
+
             // Screen Coord Override
             helper.stripScreenCoordOverride = false;
             expected = helper.defaultPrefilteringData;
@@ -285,7 +288,6 @@ namespace ShaderStrippingAndPrefiltering
             helper.AssertPrefilteringData(expected, actual);
 
             // Screen Space Irradiance
-#if SURFACE_CACHE
             helper.stripScreenSpaceIrradiance = false;
             expected = helper.defaultPrefilteringData;
             expected.stripScreenSpaceIrradiance = false;
@@ -296,13 +298,6 @@ namespace ShaderStrippingAndPrefiltering
             expected = helper.defaultPrefilteringData;
             actual = helper.CreatePrefilteringSettings(ShaderFeatures.None);
             helper.AssertPrefilteringData(expected, actual);
-#else
-            helper.stripScreenSpaceIrradiance = false;
-            expected = helper.defaultPrefilteringData;
-            expected.stripScreenSpaceIrradiance = true;
-            actual = helper.CreatePrefilteringSettings(ShaderFeatures.None);
-            helper.AssertPrefilteringData(expected, actual);
-#endif
         }
 
         [Test]
@@ -403,14 +398,7 @@ namespace ShaderStrippingAndPrefiltering
             actual = helper.CreatePrefilteringSettings(ShaderFeatures.ScreenSpaceOcclusion);
             helper.AssertPrefilteringData(expected, actual);
 
-            // Every Renderer has SSAO with & without strip unused variants
-            helper.everyRendererHasSSAO = true;
-            helper.stripUnusedVariants = true;
-            expected = helper.defaultPrefilteringData;
-            expected.screenSpaceOcclusionPrefilteringMode = PrefilteringMode.SelectOnly;
-            actual = helper.CreatePrefilteringSettings(ShaderFeatures.ScreenSpaceOcclusion);
-            helper.AssertPrefilteringData(expected, actual);
-
+            // The volume can disable SSAO at runtime, so the OFF variant is kept even when stripping unused variants
             helper.stripUnusedVariants = false;
             expected = helper.defaultPrefilteringData;
             expected.screenSpaceOcclusionPrefilteringMode = PrefilteringMode.Select;
@@ -418,8 +406,6 @@ namespace ShaderStrippingAndPrefiltering
             helper.AssertPrefilteringData(expected, actual);
 
             helper.stripUnusedVariants = true;
-            helper.everyRendererHasSSAO = false;
-
 
             // SSAO shader
 
@@ -440,9 +426,7 @@ namespace ShaderStrippingAndPrefiltering
             });
             expected = helper.defaultPrefilteringData;
             expected.screenSpaceOcclusionPrefilteringMode = PrefilteringMode.Select;
-            expected.stripSSAOBlueNoise = false;
-            expected.stripSSAODepthNormals = false;
-            expected.stripSSAOSampleCountMedium = false;
+            expected.stripSSAOKeywords = false;
             actual = helper.CreatePrefilteringSettings(ShaderFeatures.ScreenSpaceOcclusion);
             helper.AssertPrefilteringData(expected, actual);
 
@@ -463,32 +447,63 @@ namespace ShaderStrippingAndPrefiltering
             });
             expected = helper.defaultPrefilteringData;
             expected.screenSpaceOcclusionPrefilteringMode = PrefilteringMode.Select;
-            expected.stripSSAOBlueNoise = false;
-            expected.stripSSAOInterleaved = false;
-            expected.stripSSAODepthNormals = false;
-            expected.stripSSAOSourceDepthMedium = false;
-            expected.stripSSAOSampleCountMedium = false;
-            expected.stripSSAOSampleCountHigh = false;
+            expected.stripSSAOKeywords = false;
             actual = helper.CreatePrefilteringSettings(ShaderFeatures.ScreenSpaceOcclusion);
             helper.AssertPrefilteringData(expected, actual);
 
 
-            // Two SSAO features - Both set to After Opaque with Interleaved
+            // Two SSAO features - the renderer feature settings no longer affect prefiltering
             helper.ssaoRendererFeatures[0].AfterOpaque = true;
             helper.ssaoRendererFeatures[0].AOMethod = ScreenSpaceAmbientOcclusionSettings.AOMethodOptions.InterleavedGradient;
             helper.ssaoRendererFeatures[1].AfterOpaque = true;
             helper.ssaoRendererFeatures[1].AOMethod = ScreenSpaceAmbientOcclusionSettings.AOMethodOptions.InterleavedGradient;
 
             expected = helper.defaultPrefilteringData;
-            expected.screenSpaceOcclusionPrefilteringMode = PrefilteringMode.Remove;
-            expected.stripSSAOBlueNoise = true;
-            expected.stripSSAOInterleaved = false;
-            expected.stripSSAODepthNormals = false;
-            expected.stripSSAOSourceDepthMedium = false;
-            expected.stripSSAOSampleCountMedium = false;
-            expected.stripSSAOSampleCountHigh = false;
+            expected.screenSpaceOcclusionPrefilteringMode = PrefilteringMode.Select;
+            expected.stripSSAOKeywords = false;
+            actual = helper.CreatePrefilteringSettings(ShaderFeatures.ScreenSpaceOcclusion | ShaderFeatures.ScreenSpaceOcclusionAfterOpaque);
+            helper.AssertPrefilteringData(expected, actual);
+        }
+
+        [Test]
+        public void TestCreatePrefilteringSettings_ScreenSpaceReflection()
+        {
+            ShaderPrefilteringData actual;
+            ShaderPrefilteringData expected;
+            TestHelper helper = new();
+
+            // SSR disabled
+            expected = helper.defaultPrefilteringData;
+            expected.screenSpaceReflectionPrefilteringMode = PrefilteringMode.Remove;
+            expected.stripWriteSmoothness = true;
             actual = helper.CreatePrefilteringSettings(ShaderFeatures.None);
             helper.AssertPrefilteringData(expected, actual);
+
+            // SSR enabled
+            expected = helper.defaultPrefilteringData;
+            expected.screenSpaceReflectionPrefilteringMode = PrefilteringMode.Select;
+            expected.stripWriteSmoothness = false;
+            actual = helper.CreatePrefilteringSettings(ShaderFeatures.ScreenSpaceReflection);
+            helper.AssertPrefilteringData(expected, actual);
+
+            // Every Renderer has SSR with & without strip unused variants
+            helper.everyRendererHasSSR = true;
+            helper.stripUnusedVariants = true;
+            expected = helper.defaultPrefilteringData;
+            expected.screenSpaceReflectionPrefilteringMode = PrefilteringMode.SelectOnly;
+            expected.stripWriteSmoothness = false;
+            actual = helper.CreatePrefilteringSettings(ShaderFeatures.ScreenSpaceReflection);
+            helper.AssertPrefilteringData(expected, actual);
+
+            helper.stripUnusedVariants = false;
+            expected = helper.defaultPrefilteringData;
+            expected.screenSpaceReflectionPrefilteringMode = PrefilteringMode.Select;
+            expected.stripWriteSmoothness = false;
+            actual = helper.CreatePrefilteringSettings(ShaderFeatures.ScreenSpaceReflection);
+            helper.AssertPrefilteringData(expected, actual);
+
+            helper.stripUnusedVariants = true;
+            helper.everyRendererHasSSR = false;
         }
     }
 }

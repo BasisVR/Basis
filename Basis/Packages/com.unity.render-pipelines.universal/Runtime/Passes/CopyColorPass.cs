@@ -30,7 +30,7 @@ namespace UnityEngine.Rendering.Universal.Internal
         /// <seealso cref="Downsampling"/>
         public CopyColorPass(RenderPassEvent evt, Material samplingMaterial, Material copyColorMaterial = null, string customPassName = null)
         {
-            profilingSampler = customPassName != null ? new ProfilingSampler(customPassName) : ProfilingSampler.Get(URPProfileId.CopyColor);
+            profilingSampler = customPassName != null ? new ProfilingSampler(customPassName) : URPProfilingSamplers.CopyColor;
 
 
             m_SamplingMaterial = samplingMaterial;

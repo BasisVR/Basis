@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using Basis.Editor.Localization;
 using System.Collections.Generic;
 using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Players;
@@ -13,9 +14,9 @@ using UnityEngine;
 /// </summary>
 public sealed class BasisConstellationTab : BasisEditorTabPage
 {
-        public override string Title => "Constellation";
+        public override string Title => BasisEditorLocalization.Get("editor.constellation.title");
         public override string Subtitle =>
-            "What the discovery classifier makes of the trackers it can see, live.";
+            BasisEditorLocalization.Get("editor.constellation.subtitle");
 
     private const float RepaintInterval = 0.2f;
     private const float PanelMinX = -0.9f;
@@ -85,11 +86,11 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
     {
         using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
         {
-            if (GUILayout.Button("Refresh", EditorStyles.toolbarButton, GUILayout.Width(70))) Host.Repaint();
+            if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.refresh"), EditorStyles.toolbarButton, GUILayout.Width(70))) Host.Repaint();
 
             using (new EditorGUI.DisabledScope(!EditorApplication.isPlaying || BasisLocalPlayer.Instance == null))
             {
-                if (GUILayout.Button("Run Calibration", EditorStyles.toolbarButton, GUILayout.Width(120)))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.constellation.runCalibration"), EditorStyles.toolbarButton, GUILayout.Width(120)))
                 {
                     BasisAvatarIKStageCalibration.FullBodyCalibration();
                     Host.Repaint();
@@ -97,11 +98,11 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
             }
 
             GUILayout.Space(8);
-            _autoRefresh = GUILayout.Toggle(_autoRefresh, "Auto", EditorStyles.toolbarButton, GUILayout.Width(50));
-            _mirrorFront = GUILayout.Toggle(_mirrorFront, "Mirror Front", EditorStyles.toolbarButton, GUILayout.Width(110));
-            _showSilhouette = GUILayout.Toggle(_showSilhouette, "Silhouette", EditorStyles.toolbarButton, GUILayout.Width(80));
-            _showGrid = GUILayout.Toggle(_showGrid, "Grid", EditorStyles.toolbarButton, GUILayout.Width(50));
-            _showAltLines = GUILayout.Toggle(_showAltLines, "Alt Links", EditorStyles.toolbarButton, GUILayout.Width(80));
+            _autoRefresh = GUILayout.Toggle(_autoRefresh, BasisEditorLocalization.Get("editor.common.auto"), EditorStyles.toolbarButton, GUILayout.Width(50));
+            _mirrorFront = GUILayout.Toggle(_mirrorFront, BasisEditorLocalization.Get("editor.constellation.mirrorFront"), EditorStyles.toolbarButton, GUILayout.Width(110));
+            _showSilhouette = GUILayout.Toggle(_showSilhouette, BasisEditorLocalization.Get("editor.constellation.silhouette"), EditorStyles.toolbarButton, GUILayout.Width(80));
+            _showGrid = GUILayout.Toggle(_showGrid, BasisEditorLocalization.Get("editor.constellation.grid"), EditorStyles.toolbarButton, GUILayout.Width(50));
+            _showAltLines = GUILayout.Toggle(_showAltLines, BasisEditorLocalization.Get("editor.constellation.altLinks"), EditorStyles.toolbarButton, GUILayout.Width(80));
 
             GUILayout.FlexibleSpace();
             GUILayout.Label(BasisAvatarIKStageCalibration.ConstellationDebug.Status, EditorStyles.miniLabel);
@@ -124,17 +125,17 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
                 if (BasisAvatarIKStageCalibration.ConstellationDebug.Priors[i].AssignedSampleIndex >= 0) rolesBound++;
             }
 
-            GUILayout.Label(BasisAvatarIKStageCalibration.ConstellationDebug.HasSnapshot ? "Snapshot" : "No Snapshot", EditorStyles.boldLabel, GUILayout.Width(110));
-            GUILayout.Label($"Eye {BasisAvatarIKStageCalibration.ConstellationDebug.EyeHeight:F2}m", GUILayout.Width(80));
-            GUILayout.Label($"Arm reach {BasisAvatarIKStageCalibration.ConstellationDebug.ArmReach:F2}", GUILayout.Width(110));
-            GUILayout.Label($"Trackers {assigned}/{total}", GUILayout.Width(110));
-            GUILayout.Label($"Roles {rolesBound}/{rolesEnabled}", GUILayout.Width(110));
-            GUILayout.Label($"Threshold σ={Mathf.Sqrt(-BasisAvatarIKStageCalibration.ConstellationDebug.AcceptThreshold):F1}", GUILayout.Width(100));
+            GUILayout.Label(BasisAvatarIKStageCalibration.ConstellationDebug.HasSnapshot ? BasisEditorLocalization.Get("editor.constellation.snapshot") : BasisEditorLocalization.Get("editor.constellation.noSnapshot"), EditorStyles.boldLabel, GUILayout.Width(110));
+            GUILayout.Label(BasisEditorLocalization.Get("editor.constellation.headerEye", BasisAvatarIKStageCalibration.ConstellationDebug.EyeHeight), GUILayout.Width(80));
+            GUILayout.Label(BasisEditorLocalization.Get("editor.constellation.headerArmReach", BasisAvatarIKStageCalibration.ConstellationDebug.ArmReach), GUILayout.Width(110));
+            GUILayout.Label(BasisEditorLocalization.Get("editor.constellation.headerTrackers", assigned, total), GUILayout.Width(110));
+            GUILayout.Label(BasisEditorLocalization.Get("editor.constellation.headerRoles", rolesBound, rolesEnabled), GUILayout.Width(110));
+            GUILayout.Label(BasisEditorLocalization.Get("editor.constellation.headerThreshold", Mathf.Sqrt(-BasisAvatarIKStageCalibration.ConstellationDebug.AcceptThreshold)), GUILayout.Width(100));
             GUILayout.FlexibleSpace();
             if (!EditorApplication.isPlaying)
             {
                 GUI.color = new Color(1f, 0.8f, 0.3f);
-                GUILayout.Label("Enter Play Mode and run FBIK calibration", EditorStyles.miniBoldLabel);
+                GUILayout.Label(BasisEditorLocalization.Get("editor.constellation.enterPlayMode"), EditorStyles.miniBoldLabel);
                 GUI.color = Color.white;
             }
         }
@@ -147,7 +148,7 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
             if (BasisAvatarIKStageCalibration.ConstellationDebug.Samples[i].NearOrigin) stale++;
         if (stale == 0) return;
         EditorGUILayout.HelpBox(
-            $"{stale} tracker(s) returned a world-origin pose at calibration time. Their device's LateDoPollData isn't writing to UnscaledDeviceCoord — fix the device driver, not the calibration. See the Console for per-device errors.",
+            BasisEditorLocalization.Get("editor.constellation.staleBanner", stale),
             MessageType.Error);
     }
 
@@ -198,12 +199,12 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
         };
 
         EditorGUI.DrawRect(rect, PanelBgColor);
-        DrawPanelTitle(rect, "FRONT VIEW  —  lateral × height (eye-height ratios)");
+        DrawPanelTitle(rect, BasisEditorLocalization.Get("editor.constellation.frontViewTitle"));
 
         Handles.BeginGUI();
         try
         {
-            DrawAxes(map, _mirrorFront ? "User L" : "Body L (-x)", _mirrorFront ? "User R" : "Body R (+x)");
+            DrawAxes(map, _mirrorFront ? BasisEditorLocalization.Get("editor.constellation.axisUserLeft") : BasisEditorLocalization.Get("editor.constellation.axisBodyLeft"), _mirrorFront ? BasisEditorLocalization.Get("editor.constellation.axisUserRight") : BasisEditorLocalization.Get("editor.constellation.axisBodyRight"));
             if (_showSilhouette) DrawFrontSilhouette(map);
 
             DrawPriorsFront(map);
@@ -214,7 +215,7 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
             Handles.EndGUI();
         }
 
-        DrawPanelFooter(rect, map, "Lateral");
+        DrawPanelFooter(rect, map, BasisEditorLocalization.Get("editor.constellation.axisLateral"));
     }
 
     private void DrawSidePanel(Rect rect)
@@ -230,12 +231,12 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
         };
 
         EditorGUI.DrawRect(rect, PanelBgColor);
-        DrawPanelTitle(rect, "SIDE VIEW  —  depth × height (priors live at z=0)");
+        DrawPanelTitle(rect, BasisEditorLocalization.Get("editor.constellation.sideViewTitle"));
 
         Handles.BeginGUI();
         try
         {
-            DrawAxes(map, "Behind (-z)", "Forward (+z)");
+            DrawAxes(map, BasisEditorLocalization.Get("editor.constellation.axisBehind"), BasisEditorLocalization.Get("editor.constellation.axisForward"));
             if (_showSilhouette) DrawSideSilhouette(map);
 
             DrawPriorsSide(map);
@@ -246,7 +247,7 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
             Handles.EndGUI();
         }
 
-        DrawPanelFooter(rect, map, "Depth");
+        DrawPanelFooter(rect, map, BasisEditorLocalization.Get("editor.constellation.axisDepth"));
     }
 
     // ─────────── Panel chrome ───────────
@@ -312,13 +313,13 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
         var ys = new GUIStyle(EditorStyles.miniLabel);
         ys.normal.textColor = new Color(0.65f, 0.7f, 0.8f);
         Vector2 floorPos = map.ToPanel(map.MinX, 0f);
-        GUI.Label(new Rect(floorPos.x - 36, floorPos.y - 7, 36, 14), "floor", ys);
+        GUI.Label(new Rect(floorPos.x - 36, floorPos.y - 7, 36, 14), BasisEditorLocalization.Get("editor.constellation.labelFloor"), ys);
         Vector2 hipsPos = map.ToPanel(map.MinX, 0.55f);
-        GUI.Label(new Rect(hipsPos.x - 36, hipsPos.y - 7, 36, 14), "hips", ys);
+        GUI.Label(new Rect(hipsPos.x - 36, hipsPos.y - 7, 36, 14), BasisEditorLocalization.Get("editor.constellation.labelHips"), ys);
         Vector2 chestPos = map.ToPanel(map.MinX, 0.78f);
-        GUI.Label(new Rect(chestPos.x - 36, chestPos.y - 7, 36, 14), "chest", ys);
+        GUI.Label(new Rect(chestPos.x - 36, chestPos.y - 7, 36, 14), BasisEditorLocalization.Get("editor.constellation.labelChest"), ys);
         Vector2 eyePos = map.ToPanel(map.MinX, 1.0f);
-        GUI.Label(new Rect(eyePos.x - 36, eyePos.y - 7, 36, 14), "eye", ys);
+        GUI.Label(new Rect(eyePos.x - 36, eyePos.y - 7, 36, 14), BasisEditorLocalization.Get("editor.constellation.labelEye"), ys);
 
         // X edge labels
         var xs = new GUIStyle(EditorStyles.miniLabel);
@@ -408,7 +409,7 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
             DrawEllipse(ctr, rx1 * 3f, ry1 * 3f, FadeColor(c, 0.55f), 32, 1.2f);
             DrawCross(ctr, 5f, c, p.Enabled ? 2.2f : 1.2f);
 
-            string label = ShortRoleName(p.Role) + (p.Enabled ? "" : "·off");
+            string label = ShortRoleName(p.Role) + (p.Enabled ? "" : BasisEditorLocalization.Get("editor.constellation.priorOff"));
             DrawTextWithShadow(new Vector2(ctr.x + 7f, ctr.y - 9f), label, c);
         }
     }
@@ -484,7 +485,7 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
             }
 
             // Short label
-            string lbl = (s.NearOrigin ? "⚠ STALE  " : "") + ShortDeviceId(s.DeviceId);
+            string lbl = s.NearOrigin ? BasisEditorLocalization.Get("editor.constellation.staleDevice", ShortDeviceId(s.DeviceId)) : ShortDeviceId(s.DeviceId);
             DrawTextWithShadow(new Vector2(sp.x + dotR + 2, sp.y + 2), lbl, FadeColor(c, 0.9f));
         }
     }
@@ -522,7 +523,7 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
             }
 
             string lbl = s.NearOrigin
-                ? "⚠ STALE poll"
+                ? BasisEditorLocalization.Get("editor.constellation.stalePoll")
                 : $"z={s.BodyLocal.z:+0.00;-0.00;0.00}m";
             DrawTextWithShadow(new Vector2(sp.x + dotR + 2, sp.y + 2), lbl, FadeColor(c, 0.85f));
         }
@@ -540,15 +541,15 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
     {
         using (new EditorGUILayout.HorizontalScope(EditorStyles.helpBox))
         {
-            DrawLegendDot(GoodColor, "good (<1σ)");
-            DrawLegendDot(OkayColor, "okay (1–2σ)");
-            DrawLegendDot(MarginalColor, "marginal (2–3σ)");
-            DrawLegendDot(BadColor, "rejected / unassigned");
-            DrawLegendDot(StaleColor, "⚠ stale poll (≈origin)");
-            DrawLegendDot(PriorIdleColor, "prior, no tracker");
-            DrawLegendDot(DisabledColor, "prior disabled");
+            DrawLegendDot(GoodColor, BasisEditorLocalization.Get("editor.constellation.legendGood"));
+            DrawLegendDot(OkayColor, BasisEditorLocalization.Get("editor.constellation.legendOkay"));
+            DrawLegendDot(MarginalColor, BasisEditorLocalization.Get("editor.constellation.legendMarginal"));
+            DrawLegendDot(BadColor, BasisEditorLocalization.Get("editor.constellation.legendRejected"));
+            DrawLegendDot(StaleColor, BasisEditorLocalization.Get("editor.constellation.legendStale"));
+            DrawLegendDot(PriorIdleColor, BasisEditorLocalization.Get("editor.constellation.legendPriorIdle"));
+            DrawLegendDot(DisabledColor, BasisEditorLocalization.Get("editor.constellation.legendPriorDisabled"));
             GUILayout.FlexibleSpace();
-            GUILayout.Label("Solid line = assignment. Dotted line = best-fit alt or depth offset.", EditorStyles.miniLabel);
+            GUILayout.Label(BasisEditorLocalization.Get("editor.constellation.legendLines"), EditorStyles.miniLabel);
         }
     }
 
@@ -566,10 +567,10 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
 
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
-            BasisEditorUI.SectionTitle("Diagnostics");
+            BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.constellation.diagnostics"));
             if (issues.Count == 0)
             {
-                BasisEditorUI.Note("  ✓ no issues detected");
+                BasisEditorUI.Note("  " + BasisEditorLocalization.Get("editor.constellation.noIssues"));
             }
             else
             {
@@ -589,7 +590,7 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
             var s = BasisAvatarIKStageCalibration.ConstellationDebug.Samples[i];
             if (s.NearOrigin)
             {
-                issues.Add($"⚠ '{ShortDeviceId(s.DeviceId)}' polled at world origin ({s.RawUnscaled.x:F3},{s.RawUnscaled.y:F3},{s.RawUnscaled.z:F3}). The device's LateDoPollData is not writing to UnscaledDeviceCoord — fix the device driver, not the tracker placement. (Sim devices historically forget this; OpenVR/OpenXR call ComputeUnscaledDeviceCoord.)");
+                issues.Add(BasisEditorLocalization.Get("editor.constellation.issuePolledAtOrigin", ShortDeviceId(s.DeviceId), s.RawUnscaled.x, s.RawUnscaled.y, s.RawUnscaled.z));
             }
         }
 
@@ -600,12 +601,12 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
             if (!s.Assigned)
             {
                 float sd = s.BestAnyScore <= 0f ? Mathf.Sqrt(-s.BestAnyScore) : 0f;
-                issues.Add($"'{ShortDeviceId(s.DeviceId)}' was NOT assigned — closest prior {s.BestAnyRole} at {sd:F2}σ (threshold 3σ). Try moving the tracker closer to its target body part during T-pose.");
+                issues.Add(BasisEditorLocalization.Get("editor.constellation.issueNotAssigned", ShortDeviceId(s.DeviceId), s.BestAnyRole, sd));
             }
             else if (Mathf.Sqrt(Mathf.Max(0f, -s.AssignedScore)) > 2f)
             {
                 float sd = Mathf.Sqrt(-s.AssignedScore);
-                issues.Add($"'{ShortDeviceId(s.DeviceId)}' fits {s.AssignedRole} at {sd:F2}σ (borderline). Adjust tracker placement or check the player's T-pose.");
+                issues.Add(BasisEditorLocalization.Get("editor.constellation.issueBorderline", ShortDeviceId(s.DeviceId), s.AssignedRole, sd));
             }
         }
 
@@ -613,13 +614,13 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
         {
             var p = BasisAvatarIKStageCalibration.ConstellationDebug.Priors[i];
             if (p.Enabled && p.AssignedSampleIndex < 0)
-                issues.Add($"Role {p.Role} is enabled for calibration but no tracker reached it (expected H={p.ExpectedHeight:F2}, L={p.ExpectedLateral:F2}).");
+                issues.Add(BasisEditorLocalization.Get("editor.constellation.issueRoleUnbound", p.Role, p.ExpectedHeight, p.ExpectedLateral));
         }
 
-        SideAsymmetry(BasisBoneTrackedRole.LeftFoot, BasisBoneTrackedRole.RightFoot, "feet", issues);
-        SideAsymmetry(BasisBoneTrackedRole.LeftLowerLeg, BasisBoneTrackedRole.RightLowerLeg, "knees", issues);
-        SideAsymmetry(BasisBoneTrackedRole.LeftLowerArm, BasisBoneTrackedRole.RightLowerArm, "elbows", issues);
-        SideAsymmetry(BasisBoneTrackedRole.LeftShoulder, BasisBoneTrackedRole.RightShoulder, "shoulders", issues);
+        SideAsymmetry(BasisBoneTrackedRole.LeftFoot, BasisBoneTrackedRole.RightFoot, BasisEditorLocalization.Get("editor.constellation.sideFeet"), issues);
+        SideAsymmetry(BasisBoneTrackedRole.LeftLowerLeg, BasisBoneTrackedRole.RightLowerLeg, BasisEditorLocalization.Get("editor.constellation.sideKnees"), issues);
+        SideAsymmetry(BasisBoneTrackedRole.LeftLowerArm, BasisBoneTrackedRole.RightLowerArm, BasisEditorLocalization.Get("editor.constellation.sideElbows"), issues);
+        SideAsymmetry(BasisBoneTrackedRole.LeftShoulder, BasisBoneTrackedRole.RightShoulder, BasisEditorLocalization.Get("editor.constellation.sideShoulders"), issues);
 
         float eye = Mathf.Max(BasisAvatarIKStageCalibration.ConstellationDebug.EyeHeight, 0.5f);
         for (int i = 0; i < BasisAvatarIKStageCalibration.ConstellationDebug.Samples.Count; i++)
@@ -628,7 +629,7 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
             if (!s.Assigned) continue;
             float zRatio = Mathf.Abs(s.BodyLocal.z / eye);
             if (zRatio > 0.25f)
-                issues.Add($"'{ShortDeviceId(s.DeviceId)}' ({s.AssignedRole}) is {(s.BodyLocal.z >= 0 ? "in front of" : "behind")} the body by {Mathf.Abs(s.BodyLocal.z) * 100f:F0}cm at calibration. Side drift like this isn't penalised by the classifier — it can still skew runtime IK.");
+                issues.Add(BasisEditorLocalization.Get(s.BodyLocal.z >= 0 ? "editor.constellation.issueDriftFront" : "editor.constellation.issueDriftBehind", ShortDeviceId(s.DeviceId), s.AssignedRole, Mathf.Abs(s.BodyLocal.z) * 100f));
         }
 
         return issues;
@@ -642,25 +643,25 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
         float dh = Mathf.Abs(l.HeightRatio - r.HeightRatio);
         float dl = Mathf.Abs(Mathf.Abs(l.LateralRatio) - Mathf.Abs(r.LateralRatio));
         if (dh > 0.05f)
-            issues.Add($"{label}: left/right height differ by {dh:F2} (>{0.05f:F2}); was the player slouched / leaning during T-pose?");
+            issues.Add(BasisEditorLocalization.Get("editor.constellation.issueAsymHeight", label, dh, 0.05f));
         if (dl > 0.07f)
-            issues.Add($"{label}: left/right lateral spread differs by {dl:F2}; tracker might be on the wrong side or pitch-calibration is off.");
+            issues.Add(BasisEditorLocalization.Get("editor.constellation.issueAsymLateral", label, dl));
     }
 
     private void DrawTrackerTable()
     {
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
-            BasisEditorUI.SectionTitle("Trackers");
+            BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.constellation.trackers"));
             using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
             {
-                Hdr("Device", 220);
-                Hdr("Assigned", 150);
-                Hdr("Score / σ", 100);
-                Hdr("H ratio", 70);
-                Hdr("L ratio", 70);
-                Hdr("Z (m)", 70);
-                Hdr("Best alt", 150);
+                Hdr(BasisEditorLocalization.Get("editor.constellation.colDevice"), 220);
+                Hdr(BasisEditorLocalization.Get("editor.constellation.colAssigned"), 150);
+                Hdr(BasisEditorLocalization.Get("editor.constellation.colScore"), 100);
+                Hdr(BasisEditorLocalization.Get("editor.constellation.colHeightRatio"), 70);
+                Hdr(BasisEditorLocalization.Get("editor.constellation.colLateralRatio"), 70);
+                Hdr(BasisEditorLocalization.Get("editor.constellation.colZ"), 70);
+                Hdr(BasisEditorLocalization.Get("editor.constellation.colBestAlt"), 150);
             }
 
             for (int i = 0; i < BasisAvatarIKStageCalibration.ConstellationDebug.Samples.Count; i++)
@@ -679,7 +680,7 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
                 GUI.contentColor = SampleColor(s);
                 if (s.NearOrigin)
                 {
-                    GUILayout.Label("⚠ STALE POLL", GUILayout.Width(150));
+                    GUILayout.Label(BasisEditorLocalization.Get("editor.constellation.staleCell"), GUILayout.Width(150));
                     GUILayout.Label("—", GUILayout.Width(100));
                 }
                 else if (s.Assigned)
@@ -690,7 +691,7 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
                 }
                 else
                 {
-                    GUILayout.Label("UNASSIGNED", GUILayout.Width(150));
+                    GUILayout.Label(BasisEditorLocalization.Get("editor.constellation.unassigned"), GUILayout.Width(150));
                     GUILayout.Label("—", GUILayout.Width(100));
                 }
                 GUI.contentColor = prevCol;
@@ -706,7 +707,7 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
             }
 
             if (BasisAvatarIKStageCalibration.ConstellationDebug.Samples.Count == 0)
-                BasisEditorUI.Note("  (no samples)");
+                BasisEditorUI.Note("  " + BasisEditorLocalization.Get("editor.constellation.noSamples"));
         }
     }
 
@@ -714,15 +715,15 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
     {
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
-            BasisEditorUI.SectionTitle("Role Bindings");
+            BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.constellation.roleBindings"));
             using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
             {
-                Hdr("Role", 160);
-                Hdr("Enabled", 70);
-                Hdr("Bound", 220);
-                Hdr("Expect H", 80);
-                Hdr("Expect L", 80);
-                Hdr("σ H / σ L", 90);
+                Hdr(BasisEditorLocalization.Get("editor.constellation.colRole"), 160);
+                Hdr(BasisEditorLocalization.Get("editor.common.enabled"), 70);
+                Hdr(BasisEditorLocalization.Get("editor.constellation.colBound"), 220);
+                Hdr(BasisEditorLocalization.Get("editor.constellation.colExpectHeight"), 80);
+                Hdr(BasisEditorLocalization.Get("editor.constellation.colExpectLateral"), 80);
+                Hdr(BasisEditorLocalization.Get("editor.constellation.colSigma"), 90);
             }
             for (int i = 0; i < BasisAvatarIKStageCalibration.ConstellationDebug.Priors.Count; i++)
             {
@@ -732,7 +733,7 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
                     GUILayout.Label(p.Role.ToString(), GUILayout.Width(160));
                     var prev = GUI.contentColor;
                     GUI.contentColor = p.Enabled ? GoodColor : DisabledColor;
-                    GUILayout.Label(p.Enabled ? "yes" : "no", GUILayout.Width(70));
+                    GUILayout.Label(p.Enabled ? BasisEditorLocalization.Get("editor.constellation.yes") : BasisEditorLocalization.Get("editor.constellation.no"), GUILayout.Width(70));
                     GUI.contentColor = prev;
                     if (p.AssignedSampleIndex >= 0)
                     {
@@ -743,7 +744,7 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
                     else
                     {
                         GUI.contentColor = p.Enabled ? BadColor : DisabledColor;
-                        GUILayout.Label(p.Enabled ? "—" : "(skipped)", GUILayout.Width(220));
+                        GUILayout.Label(p.Enabled ? "—" : BasisEditorLocalization.Get("editor.constellation.skipped"), GUILayout.Width(220));
                         GUI.contentColor = prev;
                     }
                     GUILayout.Label(p.ExpectedHeight.ToString("F2"), GUILayout.Width(80));
@@ -752,7 +753,7 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
                 }
             }
             if (BasisAvatarIKStageCalibration.ConstellationDebug.Priors.Count == 0)
-                BasisEditorUI.Note("  (no priors)");
+                BasisEditorUI.Note("  " + BasisEditorLocalization.Get("editor.constellation.noPriors"));
         }
     }
 
@@ -782,21 +783,21 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
     {
         switch (role)
         {
-            case BasisBoneTrackedRole.LeftLowerArm: return "L Elbow";
-            case BasisBoneTrackedRole.RightLowerArm: return "R Elbow";
-            case BasisBoneTrackedRole.LeftLowerLeg: return "L Knee";
-            case BasisBoneTrackedRole.RightLowerLeg: return "R Knee";
-            case BasisBoneTrackedRole.LeftShoulder: return "L Shoulder";
-            case BasisBoneTrackedRole.RightShoulder: return "R Shoulder";
-            case BasisBoneTrackedRole.LeftFoot: return "L Foot";
-            case BasisBoneTrackedRole.RightFoot: return "R Foot";
+            case BasisBoneTrackedRole.LeftLowerArm: return BasisEditorLocalization.Get("editor.constellation.roleLeftElbow");
+            case BasisBoneTrackedRole.RightLowerArm: return BasisEditorLocalization.Get("editor.constellation.roleRightElbow");
+            case BasisBoneTrackedRole.LeftLowerLeg: return BasisEditorLocalization.Get("editor.constellation.roleLeftKnee");
+            case BasisBoneTrackedRole.RightLowerLeg: return BasisEditorLocalization.Get("editor.constellation.roleRightKnee");
+            case BasisBoneTrackedRole.LeftShoulder: return BasisEditorLocalization.Get("editor.constellation.roleLeftShoulder");
+            case BasisBoneTrackedRole.RightShoulder: return BasisEditorLocalization.Get("editor.constellation.roleRightShoulder");
+            case BasisBoneTrackedRole.LeftFoot: return BasisEditorLocalization.Get("editor.constellation.roleLeftFoot");
+            case BasisBoneTrackedRole.RightFoot: return BasisEditorLocalization.Get("editor.constellation.roleRightFoot");
             default: return role.ToString();
         }
     }
 
     private static string ShortDeviceId(string id)
     {
-        if (string.IsNullOrEmpty(id)) return "(unknown)";
+        if (string.IsNullOrEmpty(id)) return BasisEditorLocalization.Get("editor.constellation.unknownDevice");
         if (id.Length <= 14) return id;
         return "…" + id.Substring(id.Length - 13);
     }

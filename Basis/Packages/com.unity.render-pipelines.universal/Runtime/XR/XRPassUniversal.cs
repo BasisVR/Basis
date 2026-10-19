@@ -6,7 +6,7 @@ namespace UnityEngine.Rendering.Universal
     {
         public static XRPass Create(XRPassCreateInfo createInfo)
         {
-            XRPassUniversal pass = GenericPool<XRPassUniversal>.Get();
+            XRPassUniversal pass = UnityEngine.Pool.GenericPool<XRPassUniversal>.Get();
             pass.InitBase(createInfo);
 
             // Initialize fields specific to Universal
@@ -14,13 +14,14 @@ namespace UnityEngine.Rendering.Universal
             pass.canMarkLateLatch = false;
             pass.hasMarkedLateLatch = false;
             pass.canFoveateIntermediatePasses = true;
+            pass.cullingResults = default;
 
             return pass;
         }
 
         override public void Release()
         {
-            GenericPool<XRPassUniversal>.Release(this);
+            UnityEngine.Pool.GenericPool<XRPassUniversal>.Release(this);
         }
 
         /// If true, late latching mechanism is available for the frame.
@@ -34,5 +35,8 @@ namespace UnityEngine.Rendering.Universal
 
         /// If false, foveated rendering should not be applied to intermediate render passes that are not the final pass.
         internal bool canFoveateIntermediatePasses { get; set; }
+
+        /// Cached culling results from the first camera pass, shared with subsequent passes in the same XR layout.
+        internal CullingResults cullingResults;
     }
 }

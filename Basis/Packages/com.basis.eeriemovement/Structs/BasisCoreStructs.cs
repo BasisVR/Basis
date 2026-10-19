@@ -7,16 +7,6 @@ using UnityEngine;
 using UnityEngine.Jobs;
 namespace Basis.IK
 {
-    public struct BasisButterflyKneeInput
-    {
-        public Vector3 HipPosition, FootPosition, FootInstepDir, OutwardDir, DefaultBendDir, PlayerUp, TorsoFacingDir;
-        public float UpperLength, LowerLength, MaxOpenDeg, Strength, SupineFloor;
-    }
-    public struct BasisButterflyKneeResult
-    {
-        public Vector3 KneeHint;
-        public float HintWeight, OpenAngleDeg, Supine01, FootTilt01, PullIn01;
-    }
     public struct BasisCervicalInput
     {
         public float BaseDeg, NeckShare, MaxHeadPitchDeg, ExtremeStartDeg, ExtremeFullDeg, ExtremeRollForwardMaxDeg;

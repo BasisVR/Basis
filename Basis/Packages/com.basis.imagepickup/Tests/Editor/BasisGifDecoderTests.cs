@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text;
 using System.Threading;
 using NUnit.Framework;
 using Unity.Collections;
@@ -806,6 +807,205 @@ namespace Basis.ImagePickup.Tests
             Assert.That(result.Error, Does.Contain(expectedError));
         }
 
+        [Test]
+        public void SavedGifDecodesToTheSameAnimationAsItsSource()
+        {
+            var random = new System.Random(1070);
+            var builder = new GifBuilder(200, 150);
+            builder.AddFrame(0, 0, 200, 150, RandomPalette(random, 256), 8, RandomIndices(random, 200 * 150, 256), 4);
+            builder.AddFrame(10, 20, 97, 61, RandomPalette(random, 16), 4, RunIndices(random, 97 * 61, 16), 4, interlaced: true);
+            builder.AddFrame(150, 100, 33, 17, RandomPalette(random, 2), 2, RandomIndices(random, 33 * 17, 2), 4, transparentIndex: 1, disposal: 2);
+            builder.AddFrame(5, 5, 180, 140, RandomPalette(random, 16), 4, RandomIndices(random, 180 * 140, 16), 4, disposal: 3);
+
+            AssertSavedGifMatchesSource(builder.Finish());
+        }
+
+        [TestCase(AnimatedGif)]
+        [TestCase(InterlacedPreviousGif)]
+        public void SavedSampleGifDecodesToTheSameAnimationAsItsSource(string encoded)
+        {
+            AssertSavedGifMatchesSource(Convert.FromBase64String(encoded));
+        }
+
+        [Test]
+        public void ClipboardCopyOffersTheSanitizedGifAheadOfThePoster()
+        {
+            byte[] source = Convert.FromBase64String(AnimatedGif);
+            Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            byte[] poster;
+            try
+            {
+                poster = texture.EncodeToPNG();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(texture);
+            }
+
+            var formats = BasisImagePickupObject.BuildClipboardFormats(poster, source);
+
+            Assert.That(formats.Count, Is.EqualTo(3));
+            Assert.That(formats[0].Format, Is.EqualTo(Basis.Scripts.Platform.BasisClipboardImageFormat.Gif));
+            Assert.That(formats[0].Data, Is.EqualTo(SaveGif(source)));
+            Assert.That(formats[1].Format, Is.EqualTo(Basis.Scripts.Platform.BasisClipboardImageFormat.Png));
+            Assert.That(formats[2].Format, Is.EqualTo(Basis.Scripts.Platform.BasisClipboardImageFormat.Bitmap));
+        }
+
+        [Test]
+        public void SavedGifDropsEverythingTheDecoderSkips()
+        {
+            byte[] marker = Encoding.ASCII.GetBytes("BASIS-SAVE-MARKER");
+            var random = new System.Random(7);
+            var builder = new GifBuilder(16, 8);
+            builder.AddFrame(0, 0, 16, 8, RandomPalette(random, 4), 2, RandomIndices(random, 16 * 8, 4), 4, dataAfterEnd: marker);
+            byte[] source = builder.Finish();
+            int graphicControl = FindGraphicControlExtension(source, 0);
+            Assert.That(graphicControl, Is.GreaterThanOrEqualTo(0));
+            source = InsertBytes(source, graphicControl, Extension(0xFE, marker));
+            source = InsertBytes(source, graphicControl, ApplicationExtension("XMP DataXMP", marker));
+            source = InsertBytes(source, source.Length, marker);
+
+            byte[] saved = AssertSavedGifMatchesSource(source);
+            Assert.That(IndexOf(saved, marker), Is.EqualTo(-1));
+            Assert.That(saved.Length, Is.LessThan(source.Length));
+        }
+
+        [Test]
+        public void SavedGifDropsAGraphicControlThatPlainTextConsumed()
+        {
+            byte[] source = Convert.FromBase64String(AnimatedGif);
+            int graphicControl = FindGraphicControlExtension(source, 0);
+            Assert.That(graphicControl, Is.GreaterThanOrEqualTo(0));
+            source = InsertBytes(source, graphicControl + 8, Extension(0x01, new byte[] { 0, 0, 0, 0, 1, 0, 1, 0, 8, 8, 1, 0 }));
+
+            byte[] saved = AssertSavedGifMatchesSource(source);
+            int savedControl = FindGraphicControlExtension(saved, 0);
+            Assert.That(savedControl, Is.GreaterThanOrEqualTo(0));
+            Assert.That(FindGraphicControlExtension(saved, savedControl + 1), Is.EqualTo(-1));
+        }
+
+        [Test]
+        public void SavedGifKeepsAFiniteLoopCount()
+        {
+            byte[] source = Convert.FromBase64String(AnimatedGif);
+            int identifier = IndexOf(source, Encoding.ASCII.GetBytes("NETSCAPE2.0"));
+            Assert.That(identifier, Is.GreaterThan(0));
+            source[identifier + 13] = 3;
+
+            byte[] saved = AssertSavedGifMatchesSource(source);
+            using BasisAnimatedImageData animation = DecodeGif(Convert.ToBase64String(saved));
+            Assert.That(animation.TotalPlayCount, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void SavingRejectsAGifTheDecoderRejects()
+        {
+            var builder = new GifBuilder(4, 1);
+            builder.AddFrame(0, 0, 4, 1, new byte[] { 0, 0, 0, 255, 255, 255 }, 2, new byte[] { 0, 1, 3, 1 }, 4);
+            AssertSaveRejected(builder.Finish());
+
+            var random = new System.Random(7);
+            builder = new GifBuilder(16, 8);
+            builder.AddFrame(0, 0, 16, 8, RandomPalette(random, 4), 2, RandomIndices(random, 16 * 8 + 1, 4), 4);
+            AssertSaveRejected(builder.Finish());
+
+            byte[] sample = Convert.FromBase64String(AnimatedGif);
+            Array.Resize(ref sample, sample.Length / 2);
+            AssertSaveRejected(sample);
+            AssertSaveRejected(Array.Empty<byte>());
+        }
+
+        private static byte[] SaveGif(byte[] source)
+        {
+            using var stream = new MemoryStream();
+            Assert.That(BasisGifSanitizer.TryWrite(source, stream, out string error), Is.True, error);
+            return stream.ToArray();
+        }
+
+        private static void AssertSaveRejected(byte[] source)
+        {
+            using var stream = new MemoryStream();
+            Assert.That(BasisGifSanitizer.TryWrite(source, stream, out string error), Is.False);
+            Assert.That(error, Is.Not.Null.And.Not.Empty);
+        }
+
+        private static byte[] AssertSavedGifMatchesSource(byte[] source)
+        {
+            byte[] saved = SaveGif(source);
+            Assert.That(saved, Is.EqualTo(SaveGif(saved)), "saving a saved GIF must reproduce it");
+
+            using BasisBurstGifDecodeRequest sourceRequest = BasisBurstGifDecoder.Schedule(source);
+            using BasisBurstGifDecodeResult expected = sourceRequest.Complete();
+            using BasisBurstGifDecodeRequest savedRequest = BasisBurstGifDecoder.Schedule(saved);
+            using BasisBurstGifDecodeResult actual = savedRequest.Complete();
+            Assert.That(expected.Ok, Is.True, expected.Error);
+            Assert.That(actual.Ok, Is.True, actual.Error);
+
+            BasisAnimatedImageData expectedAnimation = expected.Animation;
+            BasisAnimatedImageData actualAnimation = actual.Animation;
+            Assert.That(actualAnimation.CanvasWidth, Is.EqualTo(expectedAnimation.CanvasWidth));
+            Assert.That(actualAnimation.CanvasHeight, Is.EqualTo(expectedAnimation.CanvasHeight));
+            Assert.That(actualAnimation.TotalPlayCount, Is.EqualTo(expectedAnimation.TotalPlayCount));
+            Assert.That(actualAnimation.TotalDurationMicroseconds, Is.EqualTo(expectedAnimation.TotalDurationMicroseconds));
+            Assert.That(actualAnimation.BackgroundColor, Is.EqualTo(expectedAnimation.BackgroundColor));
+            Assert.That(actualAnimation.HasAnyAlpha, Is.EqualTo(expectedAnimation.HasAnyAlpha));
+            Assert.That(actualAnimation.RequiresPreviousCanvas, Is.EqualTo(expectedAnimation.RequiresPreviousCanvas));
+            Assert.That(actualAnimation.FrameCount, Is.EqualTo(expectedAnimation.FrameCount));
+            for (int frame = 0; frame < expectedAnimation.FrameCount; frame++)
+            {
+                BasisAnimatedImageFrame expectedFrame = expectedAnimation.GetFrame(frame);
+                BasisAnimatedImageFrame actualFrame = actualAnimation.GetFrame(frame);
+                Assert.That(
+                    (actualFrame.X, actualFrame.Y, actualFrame.Width, actualFrame.Height, actualFrame.DurationMicroseconds, actualFrame.Blend, actualFrame.Disposal),
+                    Is.EqualTo((expectedFrame.X, expectedFrame.Y, expectedFrame.Width, expectedFrame.Height, expectedFrame.DurationMicroseconds, expectedFrame.Blend, expectedFrame.Disposal)),
+                    $"frame {frame}"
+                );
+                Assert.That(
+                    actualAnimation.CopyFramePixelsToManaged(frame),
+                    Is.EqualTo(expectedAnimation.CopyFramePixelsToManaged(frame)),
+                    $"frame {frame} pixels"
+                );
+            }
+            Assert.That(actual.PosterPixels.ToArray(), Is.EqualTo(expected.PosterPixels.ToArray()));
+            return saved;
+        }
+
+        private static byte[] Extension(byte label, byte[] data)
+        {
+            var extension = new byte[data.Length + 4];
+            extension[0] = 0x21;
+            extension[1] = label;
+            extension[2] = (byte)data.Length;
+            Buffer.BlockCopy(data, 0, extension, 3, data.Length);
+            return extension;
+        }
+
+        private static byte[] ApplicationExtension(string identifier, byte[] data)
+        {
+            byte[] name = Encoding.ASCII.GetBytes(identifier);
+            var extension = new byte[name.Length + data.Length + 5];
+            extension[0] = 0x21;
+            extension[1] = 0xFF;
+            extension[2] = (byte)name.Length;
+            Buffer.BlockCopy(name, 0, extension, 3, name.Length);
+            extension[3 + name.Length] = (byte)data.Length;
+            Buffer.BlockCopy(data, 0, extension, 4 + name.Length, data.Length);
+            return extension;
+        }
+
+        private static int IndexOf(byte[] source, byte[] value)
+        {
+            for (int i = 0; i + value.Length <= source.Length; i++)
+            {
+                int matched = 0;
+                while (matched < value.Length && source[i + matched] == value[matched])
+                    matched++;
+                if (matched == value.Length)
+                    return i;
+            }
+            return -1;
+        }
+
         private static byte[] RandomPalette(System.Random random, int colors)
         {
             var palette = new byte[colors * 3];
@@ -887,7 +1087,8 @@ namespace Basis.ImagePickup.Tests
                 int delay,
                 bool interlaced = false,
                 int transparentIndex = -1,
-                int disposal = 1
+                int disposal = 1,
+                byte[] dataAfterEnd = null
             )
             {
                 Frames.Add(new GifFrame
@@ -923,6 +1124,8 @@ namespace Basis.ImagePickup.Tests
 
                 _stream.WriteByte((byte)minimumCodeSize);
                 byte[] data = EncodeLzw(interlaced ? Interlace(indices, width, height) : indices, minimumCodeSize);
+                if (dataAfterEnd != null)
+                    data = InsertBytes(data, data.Length, dataAfterEnd);
                 for (int offset = 0; offset < data.Length; offset += 255)
                 {
                     int count = Math.Min(255, data.Length - offset);

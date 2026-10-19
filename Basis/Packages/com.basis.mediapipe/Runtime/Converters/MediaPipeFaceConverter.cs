@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.Drivers;
@@ -12,6 +13,7 @@ namespace Basis.MediaPipe
     /// scene AcquisitionService and notify the avatar's activity relay. The avatar's
     /// AutomaticFaceTracking applies them to the mesh/eye bones and networks them to remotes.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public sealed class MediaPipeFaceConverter
     {
         public float EyeGainX = 1f;
@@ -20,10 +22,9 @@ namespace Basis.MediaPipe
         public bool InvertEyeX = false;
         public bool InvertEyeY = false;
         public bool EyeLidIsOpenness = true;
-        public float Smoothing = 0.5f;
         public float TongueGain = 1f;
 
-        private const float CutoffResponsive = 10f, CutoffSmooth = 1.5f, Beta = 1f, IrisGainX = 1.5f, IrisGainY = 2f, HoldSeconds = 0.5f, RelaxHz = 3f;
+        private const float IrisGainX = 1.5f, IrisGainY = 2f, HoldSeconds = 0.5f, RelaxHz = 3f;
         private const int LeftGazeX = 0, LeftGazeY = 1, RightGazeX = 2, RightGazeY = 3;
         private MediaPipeScalarFilter[] _shapes;
         private readonly MediaPipeScalarFilter[] _gaze = new MediaPipeScalarFilter[4];
@@ -145,7 +146,6 @@ namespace Basis.MediaPipe
                 _shapes = new MediaPipeScalarFilter[count];
                 _smoothed = new float[count];
             }
-            float cutoff = timing.Scaled(Mathf.Lerp(CutoffResponsive, CutoffSmooth, Mathf.Clamp01(Smoothing)));
 
             if (present)
             {
@@ -153,10 +153,10 @@ namespace Basis.MediaPipe
                 _lostFor = 0f;
                 for (int i = 0; i < count; i++)
                 {
-                    _smoothed[i] = _shapes[i].Apply(raw[i], in timing, cutoff, Beta);
+                    _smoothed[i] = _shapes[i].Apply(raw[i], in timing);
                 }
-                _tongueValue = _tongue.Apply(Mathf.Clamp01(result.TongueOut * TongueGain), in timing, cutoff, Beta);
-                UpdateGaze(in result, in timing, cutoff);
+                _tongueValue = _tongue.Apply(Mathf.Clamp01(result.TongueOut * TongueGain), in timing);
+                UpdateGaze(in result, in timing);
             }
             else
             {
@@ -183,12 +183,12 @@ namespace Basis.MediaPipe
         }
 
         // Iris landmarks give the gaze; a closed eye reports no gaze and simply holds the last value.
-        private void UpdateGaze(in BasisMediaPipeResult result, in MediaPipeTiming timing, float cutoff)
+        private void UpdateGaze(in BasisMediaPipeResult result, in MediaPipeTiming timing)
         {
             if (result.HasLeftGaze)
             {
-                _gaze[LeftGazeX].Apply(result.LeftEyeGaze.x, in timing, cutoff, Beta);
-                _gaze[LeftGazeY].Apply(result.LeftEyeGaze.y, in timing, cutoff, Beta);
+                _gaze[LeftGazeX].Apply(result.LeftEyeGaze.x, in timing);
+                _gaze[LeftGazeY].Apply(result.LeftEyeGaze.y, in timing);
                 _irisSeen = true;
             }
             else
@@ -198,8 +198,8 @@ namespace Basis.MediaPipe
             }
             if (result.HasRightGaze)
             {
-                _gaze[RightGazeX].Apply(result.RightEyeGaze.x, in timing, cutoff, Beta);
-                _gaze[RightGazeY].Apply(result.RightEyeGaze.y, in timing, cutoff, Beta);
+                _gaze[RightGazeX].Apply(result.RightEyeGaze.x, in timing);
+                _gaze[RightGazeY].Apply(result.RightEyeGaze.y, in timing);
                 _irisSeen = true;
             }
             else

@@ -515,6 +515,7 @@ public class ControlAndResourceMessageRoundTripTests
             UplinkDeltaEnabled = true,
             ImageShareEgressMegabitsPerSecond = 321,
             ImagePickupRangeMeters = 72.5f,
+            ServerUUID = "server-uuid-Ω-123",
         };
         msg.SetPermissions(new[] { "basis.moderation", "basis.moderation.kick", "custom.perm.alpha", "custom.perm.beta" });
 
@@ -534,10 +535,44 @@ public class ControlAndResourceMessageRoundTripTests
         Assert.True(back.UplinkDeltaEnabled);
         Assert.Equal(321, back.ImageShareEgressMegabitsPerSecond);
         Assert.Equal(72.5f, back.ImagePickupRangeMeters);
+        Assert.Equal("server-uuid-Ω-123", back.ServerUUID);
         Assert.Equal(msg.PermissionsBitset, back.PermissionsBitset);
         Assert.Equal(new[] { "custom.perm.alpha", "custom.perm.beta" }, back.ExtraPermissions);
         Assert.True(back.GetPermissions().SetEquals(
             new[] { "basis.moderation", "basis.moderation.kick", "custom.perm.alpha", "custom.perm.beta" }));
+    }
+
+    [Fact]
+    public void ServerMetaDataMessage_Protocol55PayloadWithoutServerUuid_RemainsReadable()
+    {
+        var client = new ClientMetaDataMessage
+        {
+            playerUUID = "legacy-client",
+            playerDisplayName = "Protocol 55",
+            playerPlatform = "Desktop",
+        };
+        var writer = new NetDataWriter();
+        client.Serialize(writer);
+        writer.Put(50);
+        writer.Put(1);
+        writer.Put(0.005f);
+        writer.Put(2.55f);
+        writer.Put(32);
+        writer.PutBytesWithLength(Array.Empty<byte>());
+        writer.Put((ushort)0);
+        writer.Put((byte)1);
+        writer.Put(200);
+        writer.Put(64f);
+
+        var back = new ServerMetaDataMessage();
+        back.Deserialize(ReaderFor(writer));
+
+        Assert.Equal("legacy-client", back.ClientMetaDataMessage.playerUUID);
+        Assert.Equal(32, back.PeerLimit);
+        Assert.True(back.UplinkDeltaEnabled);
+        Assert.Equal(200, back.ImageShareEgressMegabitsPerSecond);
+        Assert.Equal(64f, back.ImagePickupRangeMeters);
+        Assert.Equal(string.Empty, back.ServerUUID);
     }
 
     [Fact]
@@ -1505,6 +1540,9 @@ public class ControlAndResourceMessageRoundTripTests
     [InlineData(ContentShareType.Prop)]
     [InlineData(ContentShareType.World)]
     [InlineData(ContentShareType.Server)]
+    [InlineData(ContentShareType.DollyTrack)]
+    [InlineData(ContentShareType.Link)]
+    [InlineData(ContentShareType.Text)]
     public void ContentShareMessage_RoundTripsAllFields(ContentShareType type)
     {
         var msg = new ContentShareMessage
@@ -1616,6 +1654,36 @@ public class ControlAndResourceMessageRoundTripTests
         Assert.Equal(string.Empty, back.SharerUUID);
         Assert.Equal(string.Empty, back.SharerDisplayName);
         Assert.Equal(ContentShareType.Prop, back.contentShareMessage.ContentType);
+    }
+
+    [Fact]
+    public void ServerContentShareMessage_CarriesSharerProtection_AndReadsOlderPayloadsAsUnprotected()
+    {
+        var msg = new ServerContentShareMessage
+        {
+            playerIdMessage = new PlayerIdMessage { playerID = 9 },
+            SharerUUID = "uuid",
+            SharerDisplayName = "name",
+            contentShareMessage = new ContentShareMessage { SphereNetID = "s", ContentURL = "hello", UnlockPassword = string.Empty, ContentType = ContentShareType.Text },
+            SharerProtected = true,
+        };
+        var writer = new NetDataWriter();
+        msg.Serialize(writer);
+        var back = new ServerContentShareMessage();
+        back.Deserialize(ReaderFor(writer));
+        Assert.True(back.SharerProtected);
+        Assert.Equal("hello", back.contentShareMessage.ContentURL);
+
+        var older = new NetDataWriter();
+        msg.playerIdMessage.Serialize(older);
+        older.Put(msg.SharerUUID);
+        older.Put(msg.SharerDisplayName);
+        msg.contentShareMessage.Serialize(older);
+        var fromOlderServer = new ServerContentShareMessage();
+        fromOlderServer.Deserialize(ReaderFor(older));
+        Assert.False(fromOlderServer.SharerProtected);
+        Assert.Equal("s", fromOlderServer.contentShareMessage.SphereNetID);
+        Assert.Equal(ContentShareType.Text, fromOlderServer.contentShareMessage.ContentType);
     }
 
     [Fact]

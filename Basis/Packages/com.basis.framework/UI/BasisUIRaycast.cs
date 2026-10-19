@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
@@ -15,7 +16,8 @@ using static BasisHeightDriver;
 
 namespace Basis.Scripts.UI
 {
-    public class BasisUIRaycast
+    [AutoStaticsCleanup]
+    public partial class BasisUIRaycast
     {
         public BasisPointRaycaster BasisPointRaycaster;
         static LayerMask OverlayUI;
@@ -879,6 +881,7 @@ namespace Basis.Scripts.UI
         /// IComparer because this sort runs every frame the ray is over UI — a capturing
         /// lambda here cost a delegate plus Sort's comparer wrapper per call.
         /// </summary>
+        [NoAutoStaticsCleanup]
         private sealed class CanvasPriorityComparer : IComparer<Canvas>
         {
             public static readonly CanvasPriorityComparer Instance = new CanvasPriorityComparer();

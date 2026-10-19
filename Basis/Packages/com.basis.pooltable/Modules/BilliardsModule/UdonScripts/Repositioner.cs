@@ -7,6 +7,7 @@ using UnityEngine;
 
 
 
+[Cilboxable]
 public class Repositioner : MonoBehaviour
 {
     [NonSerialized] public int idx;
@@ -19,7 +20,7 @@ public class Repositioner : MonoBehaviour
         table = table_;
         idx = idx_;
 
-        pickup = (BasisPickupInteractable)GetComponent(typeof(BasisPickupInteractable));
+        pickup = GetComponent<BasisPickupInteractable>();
         pickup.OnPickupUse.AddListener(OnPickupUse);
         pickup.OnInteractStartEvent.AddListener(OnPickup);
         pickup.OnInteractEndEvent.AddListener(OnDrop);

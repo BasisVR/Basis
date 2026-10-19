@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
@@ -13,7 +14,8 @@ using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
-public static class BasisSceneFactory
+[AutoStaticsCleanup]
+public static partial class BasisSceneFactory
 {
     public const string BasisLoadingSceneKey = "BasisLoadingScene";
 
@@ -23,7 +25,7 @@ public static class BasisSceneFactory
     public static float RespawnHeight = -100f;
     public static BasisLocalPlayer BasisLocalPlayer;
     private static bool _isLoadingLoadingScene = false;
-    private static AsyncOperationHandle<SceneInstance>? _loadingSceneHandle = null;
+    [NoAutoStaticsCleanup] private static AsyncOperationHandle<SceneInstance>? _loadingSceneHandle = null;
 
     public static void Initialize()
     {
@@ -32,6 +34,12 @@ public static class BasisSceneFactory
         SceneManager.sceneUnloaded -= OnSceneUnloaded;
         SceneManager.sceneUnloaded += OnSceneUnloaded;
 
+    }
+    public static void DeInitialize()
+    {
+        BasisScene.Ready -= Initialize;
+        BasisScene.Destroyed -= BasisSceneDestroyed;
+        SceneManager.sceneUnloaded -= OnSceneUnloaded;
     }
     private static void OnSceneUnloaded(Scene unloadedScene)
     {
@@ -250,7 +258,9 @@ public static class BasisSceneFactory
         BNL.Log("Loading Camera Properties From Camera "+ Camera.gameObject.name);
         // Configure the local player's camera mostly based on the scene's placeholder camera.
         Camera RealCamera = BasisLocalCameraDriver.Instance.Camera;
+#pragma warning disable 618
         RealCamera.useOcclusionCulling = Camera.useOcclusionCulling;
+#pragma warning restore 618
         RealCamera.backgroundColor = Camera.backgroundColor;
         RealCamera.clearFlags = Camera.clearFlags;
         RealCamera.barrelClipping = Camera.barrelClipping;

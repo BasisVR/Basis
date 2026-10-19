@@ -3,6 +3,7 @@
     "rootNamespace": "Basis.Rendering.RTAO.Editor",
     "references": [
         "Basis.RTAO",
+        "BasisSDKEditor",
         "Unity.RenderPipelines.Core.Runtime",
         "Unity.RenderPipelines.Core.Editor",
         "Unity.RenderPipelines.Universal.Runtime",

@@ -1,9 +1,11 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using UnityEngine;
 using UnityEngine.Audio;
 using Basis.BasisUI;
 
-public class SMModuleAudio : BasisSettingsBase
+[AutoStaticsCleanup]
+public partial class SMModuleAudio : BasisSettingsBase
 {
     public AudioMixer Mixer;
     public AudioMixerGroup WorldDefaultMixer;

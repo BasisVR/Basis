@@ -1,0 +1,17 @@
+[package]
+name = "media-demux"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+matroska-demuxer = "0.8.1"
+media-bitstream.workspace = true
+media-clock.workspace = true
+ogg = "0.9"
+re_mp4.workspace = true
+
+[lints]
+workspace = true
+

@@ -1,4 +1,6 @@
+using Unity.Scripting.LifecycleManagement;
 using Basis;
+using Basis.BasisUI;
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
@@ -16,7 +18,8 @@ using UnityEngine.SceneManagement;
 using static BasisNetworkContentBase;
 using static BundledContentHolder;
 using static SerializableBasis;
-public static class BasisNetworkSpawnItem
+[AutoStaticsCleanup]
+public static partial class BasisNetworkSpawnItem
 {
     private static CancellationTokenSource _loadCts = new CancellationTokenSource();
     public static bool RequestSceneLoad(string UnlockPassword, string CombinedURL, bool Persist, bool Admin, out LocalLoadResource localLoadResource, byte loadStrategy = 0)
@@ -159,7 +162,8 @@ public static class BasisNetworkSpawnItem
 
     public static async Task<Scene> SpawnScene(LocalLoadResource localLoadResource)
     {
-        _loadCts.Token.ThrowIfCancellationRequested();
+        CancellationToken sessionToken = _loadCts.Token;
+        sessionToken.ThrowIfCancellationRequested();
         BasisDebug.Log($"Spawning scene with NetID: {localLoadResource.LoadedNetID}", BasisDebug.LogTag.Networking);
 
         BasisLoadableBundle loadBundle = new BasisLoadableBundle
@@ -172,6 +176,9 @@ public static class BasisNetworkSpawnItem
             UnlockPassword = localLoadResource.UnlockPassword,
         };
 
+        using CancellationTokenSource loadCancel = CancellationTokenSource.CreateLinkedTokenSource(sessionToken);
+        BasisProgressReport report = new BasisProgressReport();
+        report.OnProgressReport += BasisSceneLoad.progressCallback.ReportProgress;
         BasisRuntimeSpawnRegistry.PendingLoad pending = BasisRuntimeSpawnRegistry.BeginPendingLoad(
             localLoadResource.CombinedURL,
             BasisRuntimeSpawnRegistry.SpawnMode.Scene,
@@ -179,14 +186,16 @@ public static class BasisNetworkSpawnItem
             localLoadResource.UUIDOfCreator,
             localLoadResource.IsAdminLocked,
             localLoadResource.Persist,
-            localLoadResource.LoadedNetID);
+            localLoadResource.LoadedNetID,
+            loadCancel);
         void ForwardPendingProgress(string uniqueId, float progress, string info) =>
             BasisRuntimeSpawnRegistry.ReportPendingLoadProgress(pending.PendingId, progress, info);
-        BasisSceneLoad.progressCallback.OnProgressReport += ForwardPendingProgress;
+        report.OnProgressReport += ForwardPendingProgress;
+        BasisDownload download = BasisDownloadCenter.Begin(BasisDownloadKind.World, localLoadResource.CombinedURL, loadBundle, loadCancel, report);
         try
         {
-            Scene scene = await BasisSceneLoad.LoadSceneAssetBundle(loadBundle);
-            _loadCts.Token.ThrowIfCancellationRequested();
+            Scene scene = await BasisSceneLoad.LoadSceneAssetBundle(loadBundle, report, loadCancel.Token);
+            await BasisLoadHandler.ThrowIfSceneLoadCancelled(scene, loadCancel.Token);
 
             if (!scene.IsValid())
             {
@@ -215,8 +224,8 @@ public static class BasisNetworkSpawnItem
         }
         catch (OperationCanceledException)
         {
-            // Disconnect/reset cancelled the load — the server session it belonged to is gone, so
-            // there is nothing left to list or remove.
+            // Cancelled by a disconnect, a server unload or the user: nothing was spawned, so there
+            // is nothing left to list or remove.
             throw;
         }
         catch (Exception e)
@@ -226,7 +235,9 @@ public static class BasisNetworkSpawnItem
         }
         finally
         {
-            BasisSceneLoad.progressCallback.OnProgressReport -= ForwardPendingProgress;
+            BasisDownloadCenter.End(download);
+            report.OnProgressReport -= ForwardPendingProgress;
+            report.OnProgressReport -= BasisSceneLoad.progressCallback.ReportProgress;
             BasisRuntimeSpawnRegistry.EndPendingLoad(pending.PendingId);
         }
     }
@@ -273,6 +284,7 @@ public static class BasisNetworkSpawnItem
     }
     public static async Task<GameObject> SpawnGameObject(LocalLoadResource localLoadResource, Selector Selector)
     {
+        CancellationToken sessionToken = _loadCts.Token;
         BasisDebug.Log($"Spawning GameObject with NetID: {localLoadResource.LoadedNetID}", BasisDebug.LogTag.Networking);
 
         BasisLoadableBundle loadBundle = new BasisLoadableBundle
@@ -285,6 +297,7 @@ public static class BasisNetworkSpawnItem
             UnlockPassword = localLoadResource.UnlockPassword,
 
         };
+        using CancellationTokenSource loadCancel = CancellationTokenSource.CreateLinkedTokenSource(sessionToken);
         BasisProgressReport BasisProgressReport = new BasisProgressReport();
         BasisProgressReport.OnProgressReport += BasisUILoadingBar.ProgressReport;
         BasisRuntimeSpawnRegistry.PendingLoad pending = BasisRuntimeSpawnRegistry.BeginPendingLoad(
@@ -294,20 +307,31 @@ public static class BasisNetworkSpawnItem
             localLoadResource.UUIDOfCreator,
             localLoadResource.IsAdminLocked,
             localLoadResource.Persist,
-            localLoadResource.LoadedNetID);
+            localLoadResource.LoadedNetID,
+            loadCancel);
         void ForwardPendingProgress(string uniqueId, float progress, string info) =>
             BasisRuntimeSpawnRegistry.ReportPendingLoadProgress(pending.PendingId, progress, info);
         BasisProgressReport.OnProgressReport += ForwardPendingProgress;
+        BasisDownload download = BasisDownloadCenter.Begin(Selector == Selector.Avatar ? BasisDownloadKind.Avatar : BasisDownloadKind.Prop, localLoadResource.CombinedURL, loadBundle, loadCancel, BasisProgressReport);
         var position = new Vector3(localLoadResource.PositionX, localLoadResource.PositionY, localLoadResource.PositionZ);
         var rotation = new Quaternion(localLoadResource.QuaternionX, localLoadResource.QuaternionY, localLoadResource.QuaternionZ, localLoadResource.QuaternionW);
         var scale = new Vector3(localLoadResource.ScaleX, localLoadResource.ScaleY, localLoadResource.ScaleZ);
         try
         {
-            GameObject reference = await BasisLoadHandler.LoadGameObjectBundle(BasisDeviceManagement.Instance.CreationGameobject, loadBundle, true, BasisProgressReport, _loadCts.Token,
+            GameObject reference = await BasisLoadHandler.LoadGameObjectBundle(BasisDeviceManagement.Instance.CreationGameobject, loadBundle, true, BasisProgressReport, loadCancel.Token,
                 position,
                 rotation,
                 scale,
                 localLoadResource.ModifyScale, Selector, BasisDeviceManagement.Instance.transform);
+
+            if (loadCancel.IsCancellationRequested)
+            {
+                if (reference != null)
+                {
+                    GameObject.Destroy(reference);
+                }
+                throw new OperationCanceledException(loadCancel.Token);
+            }
 
             if (reference == null)
             {
@@ -356,8 +380,8 @@ public static class BasisNetworkSpawnItem
         }
         catch (OperationCanceledException)
         {
-            // Disconnect/reset cancelled the load — the server session it belonged to is gone, so
-            // there is nothing left to list or remove.
+            // Cancelled by a disconnect, a server unload or the user: nothing was spawned, so there
+            // is nothing left to list or remove.
             throw;
         }
         catch (Exception e)
@@ -367,6 +391,7 @@ public static class BasisNetworkSpawnItem
         }
         finally
         {
+            BasisDownloadCenter.End(download);
             BasisProgressReport.OnProgressReport -= ForwardPendingProgress;
             BasisProgressReport.OnProgressReport -= BasisUILoadingBar.ProgressReport;
             BasisRuntimeSpawnRegistry.EndPendingLoad(pending.PendingId);

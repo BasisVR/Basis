@@ -1,3 +1,4 @@
+using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -12,6 +13,10 @@ public class BasisMediaPlayerNetworkingInspector : Editor
     private BasisMediaPlayerNetworking _target;
     private VisualElement _root;
     private Label _canControl, _hasPlayer, _editHint;
+    // The two cards that only do anything in Play Mode. Left visible they
+    // read as authored settings, the URL box especially, since it sits a
+    // component away from the player's own URL field.
+    private VisualElement _urlCard, _actionsCard;
 
     public override VisualElement CreateInspectorGUI()
     {
@@ -22,22 +27,25 @@ public class BasisMediaPlayerNetworkingInspector : Editor
         var sheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(UssPath);
         if (tree == null)
         {
-            _root.Add(new HelpBox("MediaPlayerNetworkingSDK.uxml missing.", HelpBoxMessageType.Error));
+            _root.Add(new HelpBox(BasisEditorLocalization.Get("editor.mediaPlayer.inspector.uxmlMissing", "MediaPlayerNetworkingSDK.uxml"), HelpBoxMessageType.Error));
             return _root;
         }
         tree.CloneTree(_root);
+        BasisEditorLocalization.LocalizeTree(_root, "editor.mediaPlayer.uxml.networking.");
         if (sheet != null) _root.styleSheets.Add(sheet);
 
         BindByName("AdminOnlyField", "AdminOnly");
         BindByName("AllowAnyoneField", "AllowAnyoneToTakeControl");
         BindByName("AnyoneCanControlField", "AnyoneCanControl");
-        BindByName("DriftThresholdField", "DriftSeekThresholdSeconds");
+        BindByName("HeartbeatField", "PositionHeartbeatSeconds");
         BindByName("VerboseLoggingField", "VerboseLogging");
         _root.Bind(serializedObject);
 
         _canControl = _root.Q<Label>("StatusCanControl");
         _hasPlayer = _root.Q<Label>("StatusHasPlayer");
         _editHint = _root.Q<Label>("StatusEditModeHint");
+        _urlCard = _root.Q<VisualElement>("UrlCard");
+        _actionsCard = _root.Q<VisualElement>("ActionsCard");
 
         var playBtn = _root.Q<Button>("ActPlayButton");
         if (playBtn != null) playBtn.clicked += () => { if (PlayModeOnly()) _ = _target.Play(); };
@@ -49,8 +57,8 @@ public class BasisMediaPlayerNetworkingInspector : Editor
         if (stopBtn != null) stopBtn.clicked += () => { if (PlayModeOnly()) _ = _target.Stop(); };
         var resyncLocalBtn = _root.Q<Button>("ActResyncLocalButton");
         if (resyncLocalBtn != null) resyncLocalBtn.clicked += () => { if (PlayModeOnly()) _target.ResyncLocal(); };
-        var resyncAllBtn = _root.Q<Button>("ActResyncEveryoneButton");
-        if (resyncAllBtn != null) resyncAllBtn.clicked += () => { if (PlayModeOnly()) _ = _target.ResyncEveryone(); };
+        var resyncEveryoneBtn = _root.Q<Button>("ActResyncEveryoneButton");
+        if (resyncEveryoneBtn != null) resyncEveryoneBtn.clicked += () => { if (PlayModeOnly()) _ = _target.ResyncEveryone(); };
 
         var urlField = _root.Q<TextField>("UrlField");
         var loadBtn = _root.Q<Button>("ActLoadUrlButton");
@@ -66,6 +74,9 @@ public class BasisMediaPlayerNetworkingInspector : Editor
         }
 
         _root.schedule.Execute(RefreshStatus).Every(250);
+        // Once up front as well, or the Play Mode cards are drawn visible
+        // and only hide a quarter of a second later.
+        RefreshStatus();
         return _root;
     }
 
@@ -82,10 +93,19 @@ public class BasisMediaPlayerNetworkingInspector : Editor
         if (_target == null) return;
 
         bool live = Application.isPlaying;
-        if (_editHint != null) _editHint.style.display = live ? DisplayStyle.None : DisplayStyle.Flex;
+        Show(_editHint, !live);
+        // Every control on these two needs a running session and
+        // ownership, and warns to the console if clicked without them.
+        Show(_urlCard, live);
+        Show(_actionsCard, live);
 
         SetPill(_canControl, _target.CanLocallyControl, live);
         SetPill(_hasPlayer, _target.MediaPlayer != null, live);
+    }
+
+    private static void Show(VisualElement element, bool show)
+    {
+        if (element != null) element.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
     }
 
     private static void SetPill(Label l, bool value, bool live)
@@ -95,7 +115,7 @@ public class BasisMediaPlayerNetworkingInspector : Editor
         l.RemoveFromClassList("bvp-pill-good");
         l.RemoveFromClassList("bvp-pill-bad");
         if (!live) { l.text = "—"; l.AddToClassList("bvp-pill-neutral"); return; }
-        l.text = value ? "YES" : "NO";
+        l.text = BasisEditorLocalization.Get(value ? "sdk.cilbox.state.yes" : "sdk.cilbox.state.no");
         l.AddToClassList(value ? "bvp-pill-good" : "bvp-pill-bad");
     }
 

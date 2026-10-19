@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 #if UNITY_EDITOR
 using System;
 using Unity.Profiling;
@@ -7,6 +8,7 @@ namespace Basis.Scripts.Profiler.EditorTools
 {
     [Serializable]
     [ProfilerModuleMetadata("Basis Direct Connection")]
+    [NoAutoStaticsCleanup]
     public class BasisDirectConnectionProfilerModule : ProfilerModule
     {
         private static readonly ProfilerCounterDescriptor[] k_Counters = new[]

@@ -12,7 +12,7 @@ namespace OpusSharp.Core
     /// </summary>
     public static partial class StaticNativeOpus
     {
-#if UNITY_IOS && !UNITY_EDITOR
+#if (UNITY_IOS || UNITY_WEBGL) && !UNITY_EDITOR
         private const string DllName = "__Internal";
 #elif UNITY_ANDROID && !UNITY_EDITOR
         private const string DllName = "libopus.so";

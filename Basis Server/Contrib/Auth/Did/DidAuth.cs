@@ -116,9 +116,23 @@ namespace Basis.Contrib.Auth.DecentralizedIds
 		///
 		/// It is the caller's responsibility to keep track of which challenges
 		/// should be held for which responses.
-		public async Task<Result<Empty, IDidVerifyErr>> VerifyResponse(
+		public Task<Result<Empty, IDidVerifyErr>> VerifyResponse(
 			Response response,
 			Challenge challenge
+		)
+		{
+			return VerifyResponse(response, challenge, new Payload(challenge.Nonce.V));
+		}
+
+		/// Same as <see cref="VerifyResponse(Response, Challenge)"/>, but the signature is
+		/// checked over <paramref name="signedPayload"/> instead of the bare nonce. The
+		/// caller builds the payload from the nonce plus whatever the signature must be
+		/// bound to (who is asking, which connection), so a signature obtained for one
+		/// verifier cannot be presented to another.
+		public async Task<Result<Empty, IDidVerifyErr>> VerifyResponse(
+			Response response,
+			Challenge challenge,
+			Payload signedPayload
 		)
 		{
 			var resolveResult = await ResolveDid(challenge.Identity);
@@ -137,7 +151,7 @@ namespace Basis.Contrib.Auth.DecentralizedIds
 
 			var sigResult = VerifySignature(
 				pubkey,
-				challenge.Nonce,
+				signedPayload,
 				response.Signature
 			);
 			if (sigResult.IsErr)
@@ -149,7 +163,7 @@ namespace Basis.Contrib.Auth.DecentralizedIds
 
 		private Result<Empty, DidSignatureErr> VerifySignature(
 			JsonWebKey pubkey,
-			Nonce nonce,
+			Payload payload,
 			Signature signature
 		)
 		{
@@ -160,7 +174,7 @@ namespace Basis.Contrib.Auth.DecentralizedIds
 						Ed25519.Verify(
 							pubkey: pubkey.DecodePubkey(),
 							sig: signature,
-							payload: new Payload(nonce.V)
+							payload: payload
 						)
 					)
 					{
@@ -224,6 +238,10 @@ namespace Basis.Contrib.Auth.DecentralizedIds
 	/// that is signed by the user's private key. Generating a random nonce
 	/// for every authentication attempt ensures that an attacker cannot
 	/// perform a [replay attack](https://en.wikipedia.org/wiki/Replay_attack).
+	/// A bare nonce does not stop a relay, where a party the user is talking
+	/// to forwards another verifier's nonce and passes the signature on; bind
+	/// the signature to its context with the payload overload of
+	/// <see cref="DidAuthentication.VerifyResponse(Response, Challenge, Payload)"/>.
 	///
 	/// Challenges also track the identity of the party that the challenge was
 	/// sent to, so that later the signature's public key can be compared to
