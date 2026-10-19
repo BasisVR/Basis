@@ -7,6 +7,8 @@ namespace Basis.IK
     public partial struct BasisEerieMovement
     {
         public const int armLeft = 0, armRight = 1, armCount = 2;
+        // Twist bone strength: 1 = each twist bone takes a share equal to its position along the bone (even roll gradient).
+        const float armTwistBoneStrength = 1f;
         BasisSwivelFrame BuildArmFrame()
         {
             if (plan.hasBodyRight && plan.torsoTo.IsBound)
@@ -87,7 +89,6 @@ namespace Basis.IK
             input.ShrugEnabled = shoulderShrugEnabled;
             input.ElevationFactor = shoulderElevationFactor;
             input.ProtractionFactor = shoulderProtractionFactor;
-            input.MaxDeg = shoulderMaxDeg;
             BasisShoulderSolveCore.Solve(input, out BasisShoulderSolveResult result);
             solved = result.Delta * poseStream.GetRotation(shoulder);
             return result.Apply;
@@ -155,10 +156,10 @@ namespace Basis.IK
             // reachable hand away from its controller before the final override.
             poseStream.SetRotation(root, upperRot);
             poseStream.SetRotation(mid, lowerRot);
-            if (arm.upperTwist) ApplyArmTwist(isLeft ? handleLeftUpperArmTwist : handleRightUpperArmTwist, root, mid, upperArmTwistFraction, isLeft ? tposeLeftUpperArmChildBind : tposeRightUpperArmChildBind, isLeft ? tposeLeftUpperArmTwistBind : tposeRightUpperArmTwistBind);
+            if (arm.upperTwist) ApplyArmTwist(isLeft ? handleLeftUpperArmTwist : handleRightUpperArmTwist, root, mid, armTwistBoneStrength, isLeft ? tposeLeftUpperArmChildBind : tposeRightUpperArmChildBind, isLeft ? tposeLeftUpperArmTwistBind : tposeRightUpperArmTwistBind);
             ApplyForearmRoll(mid, tip, forearmRollDeg);
             poseStream.SetRotation(tip, input.TargetRotation);
-            if (arm.lowerTwist) ApplyArmTwist(isLeft ? handleLeftLowerArmTwist : handleRightLowerArmTwist, mid, tip, lowerArmTwistFraction, isLeft ? tposeLeftLowerArmChildBind : tposeRightLowerArmChildBind, isLeft ? tposeLeftLowerArmTwistBind : tposeRightLowerArmTwistBind);
+            if (arm.lowerTwist) ApplyArmTwist(isLeft ? handleLeftLowerArmTwist : handleRightLowerArmTwist, mid, tip, armTwistBoneStrength, isLeft ? tposeLeftLowerArmChildBind : tposeRightLowerArmChildBind, isLeft ? tposeLeftLowerArmTwistBind : tposeRightLowerArmTwistBind);
         }
         void ApplyArmTwist(BasisBoneHandle twist, BasisBoneHandle parent, BasisBoneHandle child, float fraction, Quaternion childBind, Quaternion twistBind)
         {

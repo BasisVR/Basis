@@ -358,39 +358,6 @@ public static partial class SettingsProviderIK
             {
                 shoulderTrackerBlendSlider.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.shoulderTrackerBlend.title.tooltip"));
             }
-
-            var shoulderMaxSlider = PanelSlider.CreateAndBind(
-                shoulderParent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.shoulderMaxDeg.title"), 0f, 60f, false, 0, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.FBIKShoulderMaxDeg);
-            if (shoulderMaxSlider != null)
-            {
-                shoulderMaxSlider.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.shoulderMaxDeg.title.tooltip"));
-            }
-        });
-
-        // ============== Arm Twist ==============
-        CreateCollapsibleSection(tabDesc, colliderGroup,
-            BasisLocalization.Get("settings.bodyTracking.section.armTwist.title"),
-            BasisLocalization.Get("settings.bodyTracking.section.armTwist.description"), false, twistParent =>
-        {
-            var lowerArmTwist = PanelSlider.CreateAndBind(
-                twistParent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.lowerArmTwist.title"), 0f, 1f, false, 2, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.FBIKLowerArmTwistFraction);
-            if (lowerArmTwist != null)
-            {
-                lowerArmTwist.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.lowerArmTwist.title.tooltip"));
-            }
-
-            var upperArmTwist = PanelSlider.CreateAndBind(
-                twistParent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.upperArmTwist.title"), 0f, 1f, false, 2, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.FBIKUpperArmTwistFraction);
-            if (upperArmTwist != null)
-            {
-                upperArmTwist.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.upperArmTwist.title.tooltip"));
-            }
         });
 
         // ============== Arm Solver ==============
@@ -1157,7 +1124,6 @@ public static partial class SettingsProviderIK
         BasisSettingsDefaults.FBIKShoulderShrug.ResetToDefault();
         BasisSettingsDefaults.FBIKShoulderElevation.ResetToDefault();
         BasisSettingsDefaults.FBIKShoulderProtraction.ResetToDefault();
-        BasisSettingsDefaults.FBIKShoulderMaxDeg.ResetToDefault();
         BasisSettingsDefaults.FBIKShoulderTrackerBlend.ResetToDefault();
         BasisSettingsDefaults.FBIKArmSwivelSmoothTime.ResetToDefault();
         BasisSettingsDefaults.FBIKArmSwivelMaxRate.ResetToDefault();
@@ -1182,8 +1148,6 @@ public static partial class SettingsProviderIK
         BasisSettingsDefaults.FBIKNeckFlexionDamp.ResetToDefault();
         BasisSettingsDefaults.VSpineNodPivotEstimate.ResetToDefault();
         BasisSettingsDefaults.VSpineGazeSwingRemoval.ResetToDefault();
-        BasisSettingsDefaults.FBIKLowerArmTwistFraction.ResetToDefault();
-        BasisSettingsDefaults.FBIKUpperArmTwistFraction.ResetToDefault();
         BasisSettingsDefaults.FBIKSpineAnatomicalRom.ResetToDefault();
         BasisSettingsDefaults.FBIKTrackerBendNormal.ResetToDefault();
         BasisSettingsDefaults.FBIKBodyFit.ResetToDefault();

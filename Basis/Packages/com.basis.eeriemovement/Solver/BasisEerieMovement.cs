@@ -62,7 +62,7 @@ namespace Basis.IK
         // spine solver uses with trackers (head pitch bows the chest out several cm), 0 = the spine only bends to reach the head.
         public const float SpineHeadFollow = 0.3f;
         public bool shoulderSolveEnabled, shoulderShrugEnabled;
-        public float shoulderElevationFactor, shoulderProtractionFactor, shoulderMaxDeg, shoulderTrackerBlendTime, lowerArmTwistFraction, upperArmTwistFraction;
+        public float shoulderElevationFactor, shoulderProtractionFactor, shoulderTrackerBlendTime;
         public bool protectElbow, collideTrackedElbow;
         public float armSwivelSmoothTime, armSwivelMaxRateDeg;
         public bool collisionsEnabled;

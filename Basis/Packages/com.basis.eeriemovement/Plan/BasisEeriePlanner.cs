@@ -124,8 +124,8 @@ namespace Basis.IK
             arm.solve = weight > 0f && arm.has;
             arm.trackerHint = elbowTracked;
             arm.hintRoll = elbowTracked && roll;
-            arm.upperTwist = arm.hasUpperTwist && job.upperArmTwistFraction > 0f;
-            arm.lowerTwist = arm.hasLowerTwist && job.lowerArmTwistFraction > 0f;
+            arm.upperTwist = arm.hasUpperTwist;
+            arm.lowerTwist = arm.hasLowerTwist;
             arm.elbowProtect = job.collisionsEnabled && job.protectElbow && job.plan.hasChest && job.plan.hasNeck && (!elbowTracked || job.collideTrackedElbow);
         }
         static void Leg(ref BasisEerieLegPlan leg, ref BasisEerieMovement job, in BasisEerieFrameFacts facts, bool isLeft)

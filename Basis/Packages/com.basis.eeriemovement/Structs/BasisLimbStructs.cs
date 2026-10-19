@@ -81,7 +81,7 @@ namespace Basis.IK
     public struct BasisShoulderSolveInput
     {
         public Vector3 ShoulderPos, UpperArmPos, HandTargetPos, TorsoUp, TorsoForward, TorsoOut;
-        public float ArmLength, ElevationFactor, ProtractionFactor, MaxDeg;
+        public float ArmLength, ElevationFactor, ProtractionFactor;
         public bool ShrugEnabled;
     }
     public struct BasisShoulderSolveResult

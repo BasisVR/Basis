@@ -1824,8 +1824,6 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<bool> FBIKShoulderShrug = new("fbikshouldershrug", new BasisPlatformDefault<bool>(true));
         public static BasisSettingsBinding<float> FBIKShoulderElevation = new("fbikshoulderelevation_v2", new BasisPlatformDefault<float>(1f));
         public static BasisSettingsBinding<float> FBIKShoulderProtraction = new("fbikshoulderprotraction_v2", new BasisPlatformDefault<float>(1f));
-        // Clamp on the scapulohumeral girdle swing.
-        public static BasisSettingsBinding<float> FBIKShoulderMaxDeg = new("fbikshouldermaxdeg_v2", new BasisPlatformDefault<float>(30f));
         public static BasisSettingsBinding<float> FBIKShoulderTrackerBlend = new("fbikshouldertrackerblend", new BasisPlatformDefault<float>(0.25f));
         public static BasisSettingsBinding<float> FBIKArmSwivelSmoothTime = new("fbikarmswivelsmoothtime", new BasisPlatformDefault<float>(0.08f));
         public static BasisSettingsBinding<float> FBIKArmSwivelMaxRate = new("fbikarmswivelmaxrate", new BasisPlatformDefault<float>(720f));
@@ -1842,11 +1840,6 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<float> FBIKNeckFlexionDamp = new("fbikneckflexiondamp", new BasisPlatformDefault<float>(0.5f));
         // Spine relax: crouch counterweight (hips shift back as the head drops)
         public static BasisSettingsBinding<float> FBIKMoveBodyBackWhenCrouching = new("fbikmovebodybackwhencrouching", new BasisPlatformDefault<float>(1f));
-        // Arm twist DISTRIBUTION STRENGTH (1 = fully even: each twist bone takes a share equal to its position
-        // along the bone -> linear roll gradient; 0 = no twist bone, roll piles up at the wrist). Key bumped to
-        // _v2 because the meaning changed from a raw roll fraction (old 0.5/0.3) to a position-scaled strength.
-        public static BasisSettingsBinding<float> FBIKLowerArmTwistFraction = new("fbiklowerarmtwistfraction_v3", new BasisPlatformDefault<float>(1f));
-        public static BasisSettingsBinding<float> FBIKUpperArmTwistFraction = new("fbikupperarmtwistfraction_v3", new BasisPlatformDefault<float>(1f));
 
         // The anatomical range-of-motion envelope on every solved vertebra (BasisSpineAnatomy). ON by
         // default: the lumbar spine, the upper chest and the neck previously had NO per-joint limit at all
@@ -2835,7 +2828,6 @@ namespace Basis.BasisUI
             FBIKShoulderShrug.LoadBindingValue();
             FBIKShoulderElevation.LoadBindingValue();
             FBIKShoulderProtraction.LoadBindingValue();
-            FBIKShoulderMaxDeg.LoadBindingValue();
             FBIKShoulderTrackerBlend.LoadBindingValue();
             FBIKArmSwivelSmoothTime.LoadBindingValue();
             FBIKArmSwivelMaxRate.LoadBindingValue();
@@ -2846,8 +2838,6 @@ namespace Basis.BasisUI
             FBIKNeckExtensionDamp.LoadBindingValue();
             FBIKNeckFlexionDamp.LoadBindingValue();
             FBIKMoveBodyBackWhenCrouching.LoadBindingValue();
-            FBIKLowerArmTwistFraction.LoadBindingValue();
-            FBIKUpperArmTwistFraction.LoadBindingValue();
             FBIKArmHeightRatioEnabled.LoadBindingValue();
             FBIKArmHeightRatio.LoadBindingValue();
             DesktopHeadSwingEnabled.LoadBindingValue();
@@ -2999,11 +2989,8 @@ namespace Basis.BasisUI
             {
                 return;
             }
-            AdoptKnownDefault(FBIKLowerArmTwistFraction, 0.5f);
-            AdoptKnownDefault(FBIKUpperArmTwistFraction, 0.5f, 0.3f);
             AdoptKnownDefault(FBIKShoulderElevation, 0.4f);
             AdoptKnownDefault(FBIKShoulderProtraction, 0.3f);
-            AdoptKnownDefault(FBIKShoulderMaxDeg, 25f);
             BasisSettingsSystem.SaveBool(ArmDefaultsAdoptedKey, true);
         }
         static void AdoptKnownDefault(BasisSettingsBinding<float> binding, params float[] superseded)
