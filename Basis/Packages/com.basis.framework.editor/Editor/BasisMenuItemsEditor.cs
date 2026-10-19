@@ -69,6 +69,15 @@ public static class BasisMenuItemsEditor
             Value.CreatePhysicalTrackedDevice(device.UniqueDeviceIdentifier, "{htc}vr_tracker_vive_3_0");
         }
     }
+    // Presets T-pose the avatar only to place trackers on the bones. Leave the T-pose up when an
+    // editor calibration is holding it, otherwise drop it and restore the FBIK tracker weights
+    // that PutAvatarIntoTPose disabled.
+    static void EndPresetTPose()
+    {
+        if (BasisEditorCalibrationSession.Active) return;
+        BasisLocalPlayer.Instance.LocalAvatarDriver.ResetAvatarAnimator();
+        BasisLocalPlayer.Instance.LocalRigDriver.RestoreAllTrackers();
+    }
     public static BasisSimulateXR FindSimulate()
     {
         if (BasisDeviceManagement.Instance.TryFindBasisBaseTypeManagement("SimulateXR", out List<BasisBaseTypeManagement> Matched, true))
@@ -87,10 +96,7 @@ public static class BasisMenuItemsEditor
         var Value = FindSimulate();
         Value.CreatePhysicalTrackedDevice("{htc}vr_tracker_vive_3_0" + UnityEngine.Random.Range(-9999999999999, 999999999999), "{htc}vr_tracker_vive_3_0");
         BasisDeviceManagement.VisibleTrackers(true);
-        BasisLocalPlayer.Instance.LocalAvatarDriver.ResetAvatarAnimator();
-        // PutAvatarIntoTPose disabled the FBIK tracker weights; restore them so existing
-        // controllers / the avatar pose don't stay broken until the next calibrate.
-        BasisLocalPlayer.Instance.LocalRigDriver.RestoreAllTrackers();
+        EndPresetTPose();
     }
     public static void CreateViveRightTracker()
     {
@@ -156,9 +162,7 @@ public static class BasisMenuItemsEditor
             dev.FollowMovement.SetPositionAndRotation(ModifyVector(bone.position), UnityEngine.Random.rotation);
         }
 
-        BasisLocalPlayer.Instance.LocalAvatarDriver.ResetAvatarAnimator();
-        // PutAvatarIntoTPose disabled the FBIK tracker weights; restore them.
-        BasisLocalPlayer.Instance.LocalRigDriver.RestoreAllTrackers();
+        EndPresetTPose();
         BasisDeviceManagement.VisibleTrackers(true);
     }
     public static void CreatePuck3Tracker()
@@ -184,10 +188,7 @@ public static class BasisMenuItemsEditor
         BasisHips.FollowMovement.rotation = UnityEngine.Random.rotation;
         BasisLeftFoot.FollowMovement.rotation = UnityEngine.Random.rotation;
         BasisRightFoot.FollowMovement.rotation = UnityEngine.Random.rotation;
-        BasisLocalPlayer.Instance.LocalAvatarDriver.ResetAvatarAnimator();
-        // PutAvatarIntoTPose disabled the FBIK tracker weights; restore them so existing
-        // controllers / the avatar pose don't stay broken until the next calibrate.
-        BasisLocalPlayer.Instance.LocalRigDriver.RestoreAllTrackers();
+        EndPresetTPose();
         // Show the trackers
         BasisDeviceManagement.VisibleTrackers(true);
     }
@@ -277,12 +278,20 @@ public static class BasisMenuItemsEditor
         float randomZ = UnityEngine.Random.Range(-randomRange, randomRange);
         return new Vector3(original.x + randomX, original.y + randomY, original.z + randomZ);
     }
-    [MenuItem("Basis/Calibration/Run Full Body", false, 200)]
-    public static void CalibrateEditor()
-    {
-        BasisAvatarIKStageCalibration.FullBodyCalibration();
-    }
-    [MenuItem("Basis/Calibration/Run 3 Point (random data)", false, 201)]
+    // Same flow as the in-game Calibrate button: T-pose and hold, then Confirm binds the trackers.
+    [MenuItem("Basis/Calibration/Start Full Body (T-Pose)", false, 200)]
+    public static void CalibrateEditor() => BasisEditorCalibrationSession.Start();
+    [MenuItem("Basis/Calibration/Start Full Body (T-Pose)", true)]
+    static bool CalibrateEditorValidate() => BasisEditorCalibrationSession.CanStart && !BasisEditorCalibrationSession.Active;
+    [MenuItem("Basis/Calibration/Confirm Calibration", false, 201)]
+    public static void ConfirmCalibrationEditor() => BasisEditorCalibrationSession.Confirm();
+    [MenuItem("Basis/Calibration/Confirm Calibration", true)]
+    static bool ConfirmCalibrationEditorValidate() => BasisEditorCalibrationSession.Active;
+    [MenuItem("Basis/Calibration/Cancel Calibration", false, 202)]
+    public static void CancelCalibrationEditor() => BasisEditorCalibrationSession.Cancel();
+    [MenuItem("Basis/Calibration/Cancel Calibration", true)]
+    static bool CancelCalibrationEditorValidate() => BasisEditorCalibrationSession.Active;
+    [MenuItem("Basis/Calibration/Run 3 Point (random data)", false, 203)]
     public static void ProvideRandomData()
     {
         Vector3 RotationVector = UnityEngine.Random.rotation.eulerAngles;

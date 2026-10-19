@@ -54,6 +54,26 @@ public sealed class BasisTrackersWindow : EditorWindow
                 Preset(BasisEditorLocalization.Get("editor.trackersWindow.presetMaxNormal"), BasisMenuItemsEditor.CreateFullMaxTrackerUnModifedPos);
             }
 
+            using (BasisEditorUI.Card(BasisEditorLocalization.Get("editor.calibration.card")))
+            {
+                if (BasisEditorCalibrationSession.Active)
+                {
+                    BasisEditorUI.Help(BasisEditorLocalization.Get("editor.calibration.holding"), MessageType.Info);
+                    EditorGUILayout.BeginHorizontal();
+                    if (BasisEditorUI.PrimaryButton(BasisEditorLocalization.Get("editor.calibration.confirm"))) BasisEditorCalibrationSession.Confirm();
+                    if (BasisEditorUI.SecondaryButton(BasisEditorLocalization.Get("editor.calibration.cancel"))) BasisEditorCalibrationSession.Cancel();
+                    EditorGUILayout.EndHorizontal();
+                }
+                else
+                {
+                    BasisEditorUI.Note(BasisEditorLocalization.Get("editor.calibration.startNote"));
+                    using (new EditorGUI.DisabledScope(!BasisEditorCalibrationSession.CanStart))
+                    {
+                        if (BasisEditorUI.PrimaryButton(BasisEditorLocalization.Get("editor.constellation.runCalibration"))) BasisEditorCalibrationSession.Start();
+                    }
+                }
+            }
+
             using (BasisEditorUI.Card(BasisEditorLocalization.Get("editor.trackersWindow.singleDevices")))
             {
                 Preset(BasisEditorLocalization.Get("editor.trackersWindow.presetBothHands"), BasisMenuItemsEditor.CreateLRTracker);
@@ -113,6 +133,12 @@ public sealed class BasisTrackersWindow : EditorWindow
         }
 
         BasisEditorUI.EndPage();
+    }
+
+    // Keep the calibration card in sync when the hold starts or ends from somewhere else.
+    private void OnInspectorUpdate()
+    {
+        if (Application.isPlaying) Repaint();
     }
 
     private static void Preset(string label, System.Action action)

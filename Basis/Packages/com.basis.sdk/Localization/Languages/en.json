@@ -2891,7 +2891,12 @@
 
     { "key": "editor.constellation.title", "value": "Constellation" },
     { "key": "editor.constellation.subtitle", "value": "What the discovery classifier makes of the trackers it can see, live." },
-    { "key": "editor.constellation.runCalibration", "value": "Run Calibration" },
+    { "key": "editor.constellation.runCalibration", "value": "Start Calibration" },
+    { "key": "editor.calibration.card", "value": "Calibration" },
+    { "key": "editor.calibration.confirm", "value": "Confirm Calibration" },
+    { "key": "editor.calibration.cancel", "value": "Cancel" },
+    { "key": "editor.calibration.startNote", "value": "Same as the in-game Calibrate button: the avatar T-poses and holds there until you confirm. Move the simulated trackers while it holds to see which bone each one locks onto." },
+    { "key": "editor.calibration.holding", "value": "Holding T-pose. Move the simulated trackers in the Scene view: the lines and balls show which bone each one will bind to (green = locked on). Confirm to calibrate from this pose, or Cancel." },
     { "key": "editor.constellation.mirrorFront", "value": "Mirror Front" },
     { "key": "editor.constellation.silhouette", "value": "Silhouette" },
     { "key": "editor.constellation.grid", "value": "Grid" },
