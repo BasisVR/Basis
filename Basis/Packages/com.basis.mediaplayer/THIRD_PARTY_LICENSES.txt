@@ -93,7 +93,7 @@ Used by:
   ring 0.17.14 (Apache-2.0 AND ISC), rtcp 0.17.2 (MIT OR Apache-2.0),
   rtp 0.17.2 (MIT OR Apache-2.0), rtrb 0.3.5 (MIT OR Apache-2.0),
   rustc-hash 2.1.3 (Apache-2.0 OR MIT),
-  rustls 0.23.45 (Apache-2.0 OR ISC OR MIT),
+  rustls 0.23.46 (Apache-2.0 OR ISC OR MIT),
   rustls-native-certs 0.8.4 (Apache-2.0 OR ISC OR MIT),
   rustls-pki-types 1.15.1 (MIT OR Apache-2.0),
   rustversion 1.0.23 (MIT OR Apache-2.0), ryu 1.0.23 (Apache-2.0 OR BSL-1.0),
@@ -1185,7 +1185,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ------------------------------------------------------------------------------
 Community Data License Agreement Permissive 2.0
 Used by:
-  webpki-roots 1.0.9
+  webpki-roots 1.0.10
 ------------------------------------------------------------------------------
 
 # Community Data License Agreement - Permissive - Version 2.0
@@ -2439,7 +2439,7 @@ typedef struct {
 ------------------------------------------------------------------------------
 ISC License
 Used by:
-  rustls-webpki 0.103.14
+  rustls-webpki 0.103.16
 ------------------------------------------------------------------------------
 
 Except as otherwise noted, this project is licensed under the following
