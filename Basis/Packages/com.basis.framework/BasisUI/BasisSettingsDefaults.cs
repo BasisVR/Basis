@@ -1844,7 +1844,6 @@ namespace Basis.BasisUI
         // default: the lumbar spine, the upper chest and the neck previously had NO per-joint limit at all
         // once the spine CCD ran, and nothing anywhere limited axial rotation. That is not a safe fallback
         // to keep, it is a measured defect.
-        public static BasisSettingsBinding<bool> FBIKTrackerBendNormal = new("fbiktrackerbendnormal", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKBodyFit = new("fbikbodyfit", new BasisPlatformDefault<bool>(true));
 
@@ -2835,7 +2834,6 @@ namespace Basis.BasisUI
             FBIKArmHeightRatio.LoadBindingValue();
             DesktopHeadSwingEnabled.LoadBindingValue();
             DesktopHeadSwingStrength.LoadBindingValue();
-            FBIKTrackerBendNormal.LoadBindingValue();
             VSpineChestPitchFrac.LoadBindingValue();
             VSpineChestRollFrac.LoadBindingValue();
             VSpineSpinePitchFrac.LoadBindingValue();

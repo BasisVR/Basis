@@ -2,11 +2,10 @@ namespace Basis.IK
 {
     public struct BasisEerieFrameFacts
     {
-        public bool hipsTracked, chestTracked, chestFollowsBody, prone, seated, upright, moving, footIKSetting, trackerBendNormal, footSimReady;
+        public bool hipsTracked, chestTracked, chestFollowsBody, prone, seated, upright, moving, footIKSetting, footSimReady;
         public bool leftLegTracked, rightLegTracked, leftFootTracked, rightFootTracked, leftKneeTracked, rightKneeTracked;
         public bool leftElbowTracked, rightElbowTracked, leftShoulderTracked, rightShoulderTracked, leftToeTracked, rightToeTracked;
         public bool leftSimFootRotation, rightSimFootRotation, leftToeBend, rightToeBend, leftElbowRoll, rightElbowRoll, leftKneeRoll, rightKneeRoll;
-        public bool leftKneeBendNormal, rightKneeBendNormal;
         public float deltaTime, leftHandWeight, rightHandWeight, leftShoulderWeight, rightShoulderWeight, leftFootSim, rightFootSim;
     }
     public struct BasisEerieArmPlan
@@ -16,7 +15,7 @@ namespace Basis.IK
     }
     public struct BasisEerieLegPlan
     {
-        public bool has, solve, tracked, kneeTracked, preserveTip, hintRoll, trackerBendNormal;
+        public bool has, solve, tracked, kneeTracked, preserveTip, hintRoll;
         public float weight;
         public BasisEerieSource target;
     }

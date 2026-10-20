@@ -830,7 +830,6 @@
     { "key": "settings.bodyTracking.minCutoff.title.tooltip", "value": "আপনি স্থির থাকাকালীন বেস স্মুথিং স্তর।" },
     { "key": "settings.bodyTracking.beta.title.tooltip", "value": "আপনি দ্রুত নড়ার সাথে স্মুথিং কতটা কমে যায়।" },
     { "key": "settings.bodyTracking.derivativeCutoff.title.tooltip", "value": "ফিল্টার স্থির রাখতে গতির গতিতে প্রয়োগ করা স্মুথিং।" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title.tooltip", "value": "আপনার লেগ ট্র্যাকার প্রকৃতপক্ষে যেদিকে মুখ করে আছে সেভাবে হাঁটু বাঁকান।" },
     { "key": "settings.bodyTracking.debugInfo.tooltip", "value": "সমস্যা সমাধানের জন্য লাইভ শরীর ট্র্যাকিং পরিমাপ দেখান।" },
     { "key": "settings.bodyTracking.refreshDebug.tooltip", "value": "প্রদর্শিত ট্র্যাকিং পরিমাপ সর্বশেষ মান দিয়ে আপডেট করুন।" },
     { "key": "settings.ik.title.bone.tooltip", "value": "নিচে কোন হাড়ের স্মুথিং ও ক্যালিব্রেশন সেটিংস সম্পাদনা করবেন তা বেছে নিন।" },
@@ -3404,10 +3403,6 @@
     { "key": "settings.bodyTracking.upperArmTwist.title", "value": "উপরের বাহু টুইস্ট বণ্টন" },
     { "key": "settings.bodyTracking.upperArmTwist.description", "value": "উপরের বাহুর টুইস্ট হাড় কনুইয়ের রোল হাড় বরাবর কতটা সমানভাবে ছড়িয়ে দেয়। 1 = সমান গ্রেডিয়েন্ট; 0 = বন্ধ। ডিফল্ট: 1.0" },
 
-    { "key": "settings.bodyTracking.section.anatomy.title", "value": "অ্যানাটমি" },
-    { "key": "settings.bodyTracking.section.anatomy.description", "value": "প্রকৃত বায়োমেকানিক্সের উপর ভিত্তি করে IK পরিমার্জন।" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title", "value": "ট্র্যাকার বেন্ড দিক" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.description", "value": "একটি নির্দিষ্ট শরীর-সাপেক্ষ অনুমানের বদলে আপনার লোয়ার-লেগ ট্র্যাকার প্রকৃতপক্ষে যে সমতলে মুখ করে আছে সেই সমতলে হাঁটু বাঁকায়, যাতে হাঁটু পেছনের দিকে স্ন্যাপ করা বন্ধ করে এবং আপনি পা ঘোরালে তা অনুসরণ করে। এটি বুকের উপর একটি পুরোনো ঊর্ধ্বমুখী নাজও বাদ দেয় যাতে স্পাইন আপনার প্রকৃত বুকের অবস্থান অনুসরণ করে। বন্ধ করলে আগের ফরওয়ার্ড-পোল আচরণ ফিরে আসে।" },
 
 
     { "key": "settings.bodyTracking.fbt.description", "value": "হিপ / বুক / পা / হাঁটু ট্র্যাকারের জন্য মাস্টার সুইচ। এটি বন্ধ করা অবিলম্বে মাথা + হাত + পা IK তে ফিরে যায়। ট্র্যাকার আবার ব্যবহার করতে পুনরায় সক্ষম এবং পুনরায় ক্যালিব্রেট করুন।" },

@@ -830,7 +830,6 @@
     { "key": "settings.bodyTracking.minCutoff.title.tooltip", "value": "जब आप स्थिर रहते हैं तो आधार स्मूथिंग स्तर।" },
     { "key": "settings.bodyTracking.beta.title.tooltip", "value": "जैसे-जैसे आप तेज़ी से चलते हैं स्मूथिंग कितना कम होती जाती है।" },
     { "key": "settings.bodyTracking.derivativeCutoff.title.tooltip", "value": "फ़िल्टर को स्थिर रखने के लिए गति की रफ़्तार पर लागू स्मूथिंग।" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title.tooltip", "value": "घुटने को उस दिशा में मोड़ें जिस ओर आपका लेग ट्रैकर वास्तव में मुख किए है।" },
     { "key": "settings.bodyTracking.debugInfo.tooltip", "value": "समस्या निवारण के लिए लाइव बॉडी ट्रैकिंग मापन दिखाएँ।" },
     { "key": "settings.bodyTracking.refreshDebug.tooltip", "value": "प्रदर्शित ट्रैकिंग मापन को नवीनतम मानों के साथ अद्यतन करें।" },
     { "key": "settings.ik.title.bone.tooltip", "value": "नीचे संपादित करने के लिए किस हड्डी की स्मूथिंग और कैलिब्रेशन सेटिंग्स चुनें।" },
@@ -3404,10 +3403,6 @@
     { "key": "settings.bodyTracking.upperArmTwist.title", "value": "ऊपरी बाँह मरोड़ वितरण" },
     { "key": "settings.bodyTracking.upperArmTwist.description", "value": "ऊपरी बाँह ट्विस्ट हड्डी कोहनी के रोल को हड्डी के साथ कितने समान रूप से फैलाती है। 1 = समान ग्रेडिएंट; 0 = बंद। डिफ़ॉल्ट: 1.0" },
 
-    { "key": "settings.bodyTracking.section.anatomy.title", "value": "शरीर रचना" },
-    { "key": "settings.bodyTracking.section.anatomy.description", "value": "वास्तविक बायोमैकेनिक्स पर आधारित IK सुधार।" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title", "value": "ट्रैकर मोड़ दिशा" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.description", "value": "घुटने को एक निश्चित शरीर-सापेक्ष अनुमान के बजाय उस तल में मोड़ता है जिस ओर आपका निचला-पैर ट्रैकर वास्तव में मुख किए है, ताकि घुटना पीछे की ओर झटकना बंद कर दे और जब आप इसे घुमाएँ तो आपके पैर का अनुसरण करे। छाती पर एक पुराने ऊपर की ओर समायोजन को भी हटा देता है ताकि रीढ़ आपकी वास्तविक छाती स्थिति का अनुसरण करे। बंद होने पर पिछला फ़ॉरवर्ड-पोल व्यवहार पुनर्स्थापित हो जाता है।" },
 
 
     { "key": "settings.bodyTracking.fbt.description", "value": "कूल्हा / छाती / पैर / घुटना ट्रैकर्स के लिए मास्टर स्विच। इसे बंद करना तुरंत सिर + हाथ + पैर IK पर वापस गिरा देता है। ट्रैकर्स का पुनः उपयोग करने के लिए पुनः सक्षम करें और पुनः कैलिब्रेट करें।" },

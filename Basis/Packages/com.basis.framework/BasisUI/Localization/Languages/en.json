@@ -3243,10 +3243,6 @@
       "value": "Smoothing applied to motion speed to steady the filter."
     },
     {
-      "key": "settings.bodyTracking.anat.trackerBendNormal.title.tooltip",
-      "value": "Bend the knee the way your leg tracker is actually facing."
-    },
-    {
       "key": "settings.bodyTracking.debugInfo.tooltip",
       "value": "Show live body tracking measurements for troubleshooting."
     },
@@ -10997,22 +10993,6 @@
     {
       "key": "settings.bodyTracking.upperArmTwist.description",
       "value": "How evenly the upper arm twist bone spreads the elbow's roll along the bone. 1 = even gradient; 0 = off. Default: 1.0"
-    },
-    {
-      "key": "settings.bodyTracking.section.anatomy.title",
-      "value": "Anatomy"
-    },
-    {
-      "key": "settings.bodyTracking.section.anatomy.description",
-      "value": "IK refinements modeled on real biomechanics."
-    },
-    {
-      "key": "settings.bodyTracking.anat.trackerBendNormal.title",
-      "value": "Tracker Bend Direction"
-    },
-    {
-      "key": "settings.bodyTracking.anat.trackerBendNormal.description",
-      "value": "Bends the knee in the plane your lower-leg tracker is actually facing instead of a fixed body-relative guess, so the knee stops snapping backward and follows your leg as you turn it. Also drops an old upward nudge on the chest so the spine follows your real chest position. Off restores the previous forward-pole behavior."
     },
     {
       "key": "settings.bodyTracking.fbt.description",

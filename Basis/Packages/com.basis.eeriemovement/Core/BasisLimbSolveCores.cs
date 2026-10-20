@@ -55,29 +55,6 @@ namespace Basis.IK
             return Mathf.Acos(c);
         }
     }
-    public static class BasisTrackerBendNormalCore
-    {
-        const float sqrEpsilon = 1e-8f;
-        public static Vector3 CaptureLocalAxis(Quaternion trackerRotCalib, Vector3 worldNormalCalib)
-        {
-            if (worldNormalCalib.sqrMagnitude < sqrEpsilon)
-            {
-                return Vector3.zero;
-            }
-
-            return Quaternion.Inverse(trackerRotCalib) * worldNormalCalib.normalized;
-        }
-        public static Vector3 ResolveWorldNormal(Quaternion trackerRotLive, Vector3 localAxis, Vector3 fallbackWorldNormal)
-        {
-            if (localAxis.sqrMagnitude < sqrEpsilon)
-            {
-                return fallbackWorldNormal;
-            }
-
-            Vector3 world = trackerRotLive * localAxis;
-            return world.sqrMagnitude < sqrEpsilon ? fallbackWorldNormal : world.normalized;
-        }
-    }
     public static class BasisTwistSolveCore
     {
         const float sqrEpsilon = 1e-8f;

@@ -3,11 +3,12 @@ namespace Basis.IK
 {
     public static class BasisLegSolveCore
     {
-        const float epsilon = 1e-5f, sqrEpsilon = 1e-8f, poleColinearSin = 0.5f, restBendAgreeCos = 0.94f;
+        const float epsilon = 1e-5f, sqrEpsilon = 1e-8f, restBendAgreeCos = 0.94f;
         public const float MinKneeInteriorDeg = 20f, MaxKneeInteriorDeg = 176f, KneeAnteriorSoftDeg = 85f;
         public const float KneeAnteriorHardDeg = 89.5f, KneeAnteriorTaperStartDeg = 160f, TrackerShinRollMaxDeg = 45f;
         public const float KneeHintForward = 0.5f;
         public const float KneeHintFootFlatTrust = 0.3f;
+        public const float KneeTrackerHintBias = 0.06f;
         public static float ClampKneeSwivelDeg(float swivelDeg, float softDeg, float hardDeg)
         {
             float wrapped = swivelDeg - 360f * Mathf.Floor((swivelDeg + 180f) / 360f);
@@ -73,6 +74,14 @@ namespace Basis.IK
                 // Start halfway between the hip and the foot target, then push it out in front of the knee.
                 hintPosition = (aPosition + tPosition) * 0.5f + pushDir * (maxReach * KneeHintForward);
                 hintWeight = 1f;
+            }
+
+            // Near full extension a tracked knee sits on the hip/foot line, so the direction of its offset is mostly noise and the leg twists around.
+            // Push the hint a fixed distance along the bend the tracker's rotation implies: the offset then never shrinks below the push, so small
+            // noise can't flip it, and once the knee bends the real offset outgrows the push and takes over on its own. Same as a tracked elbow.
+            if (i.HintIsTracker && hintWeight > 0f && TrackerBendDir(i, tPosition - aPosition, out Vector3 trackerBendDir))
+            {
+                hintPosition += trackerBendDir * (KneeTrackerHintBias * maxReach);
             }
 
             bool hasHint = hintWeight > 0f;
@@ -175,21 +184,9 @@ namespace Basis.IK
                 if (hasHint)
                 {
                     Vector3 ah = hintPosition - aPosition, ahProj = ah - acNorm * Vector3.Dot(ah, acNorm);
-                    float ahLen = ah.magnitude;
-
                     if (ahProj.sqrMagnitude > sqrEpsilon)
                     {
                         pole = ahProj;
-                    }
-
-                    pole = GuardPoleAnterior(pole, anteriorPole, acNorm, hasAnteriorPole, ref axisSource);
-
-                    float poleSin = ahLen > epsilon ? ahProj.magnitude / ahLen : 0f;
-                    if (poleSin < poleColinearSin && hasBendPole && pole.sqrMagnitude > sqrEpsilon)
-                    {
-                        float blend = 1f - poleSin / poleColinearSin;
-                        pole = Vector3.Slerp(pole.normalized, bendPole.normalized, blend);
-                        axisSource = 4;
                     }
                 }
 
@@ -252,6 +249,28 @@ namespace Basis.IK
             r.KneeAngleDeg = BasisIKMath.AngleDeg(aPosition - bPosition, cPosition - bPosition);
             r.AxisSource = axisSource;
             r.FootError = (cPosition - tPosition).magnitude;
+        }
+        // Knee direction (perpendicular to the hip/foot axis) implied by the knee tracker's rotation, else by the hips.
+        // HintRotation is the tracker mapped onto the lower leg bone, so carrying the rest-pose hinge (BendNormal, hips-right) through it gives the live hinge.
+        static bool TrackerBendDir(in BasisLegSolveInput i, Vector3 axis, out Vector3 dir)
+        {
+            dir = default;
+            float axisSqr = axis.sqrMagnitude;
+            if (axisSqr < sqrEpsilon)
+            {
+                return false;
+            }
+            axis /= Mathf.Sqrt(axisSqr);
+            Vector3 hinge = i.HasHintRotation ? i.HintRotation * (Quaternion.Inverse(i.MidRotation) * i.BendNormal) : i.BendNormal;
+            dir = Vector3.Cross(axis, hinge);
+            dir -= axis * Vector3.Dot(dir, axis);
+            float dirSqr = dir.sqrMagnitude;
+            if (dirSqr < sqrEpsilon)
+            {
+                return false;
+            }
+            dir /= Mathf.Sqrt(dirSqr);
+            return true;
         }
         static Vector3 GuardPoleAnterior(Vector3 pole, Vector3 anteriorPole, Vector3 acNorm, bool hasAnteriorPole, ref byte axisSource)
         {

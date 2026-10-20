@@ -830,7 +830,6 @@
     { "key": "settings.bodyTracking.minCutoff.title.tooltip", "value": "جب آپ ساکن رہتے ہیں تو بنیادی ہمواری کی سطح۔" },
     { "key": "settings.bodyTracking.beta.title.tooltip", "value": "جیسے جیسے آپ تیز حرکت کرتے ہیں ہمواری کتنی کم ہوتی ہے۔" },
     { "key": "settings.bodyTracking.derivativeCutoff.title.tooltip", "value": "فلٹر کو مستحکم کرنے کے لیے حرکت کی رفتار پر لاگو ہمواری۔" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title.tooltip", "value": "گھٹنے کو اس طرح موڑیں جس طرف آپ کا لیگ ٹریکر دراصل رخ کیے ہوئے ہے۔" },
     { "key": "settings.bodyTracking.debugInfo.tooltip", "value": "خرابیوں کی تلاش کے لیے براہ راست باڈی ٹریکنگ پیمائشیں دکھائیں۔" },
     { "key": "settings.bodyTracking.refreshDebug.tooltip", "value": "دکھائی گئی ٹریکنگ پیمائشوں کو تازہ ترین اقدار سے اپڈیٹ کریں۔" },
     { "key": "settings.ik.title.bone.tooltip", "value": "منتخب کریں کہ نیچے کس ہڈی کی ہمواری اور کیلیبریشن ترتیبات میں ترمیم کرنی ہے۔" },
@@ -3404,10 +3403,6 @@
     { "key": "settings.bodyTracking.upperArmTwist.title", "value": "اوپری بازو ٹوئسٹ کی تقسیم" },
     { "key": "settings.bodyTracking.upperArmTwist.description", "value": "اوپری بازو کی ٹوئسٹ ہڈی کہنی کے رول کو ہڈی کے ساتھ کتنی یکساں طور پر تقسیم کرتی ہے۔ 1 = یکساں گریڈینٹ؛ 0 = بند۔ ڈیفالٹ: 1.0" },
 
-    { "key": "settings.bodyTracking.section.anatomy.title", "value": "اناٹومی" },
-    { "key": "settings.bodyTracking.section.anatomy.description", "value": "حقیقی بایو میکینکس پر مبنی IK تطہیریں۔" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title", "value": "ٹریکر موڑ سمت" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.description", "value": "گھٹنے کو ایک مقررہ جسم-نسبتی اندازے کے بجائے اس تختے میں موڑتا ہے جس کی طرف آپ کا نچلی-ٹانگ ٹریکر دراصل رخ کیے ہوئے ہے، تاکہ گھٹنا پیچھے کی طرف سنیپ کرنا بند کر دے اور جب آپ اسے موڑیں تو آپ کی ٹانگ کی پیروی کرے۔ سینے پر ایک پرانا اوپر کی طرف نج بھی ہٹا دیتا ہے تاکہ ریڑھ کی ہڈی آپ کے حقیقی سینے کی پوزیشن کی پیروی کرے۔ بند کرنے سے پچھلا فارورڈ-پول رویہ بحال ہو جاتا ہے۔" },
 
 
     { "key": "settings.bodyTracking.fbt.description", "value": "کولہے / سینے / پاؤں / گھٹنے ٹریکرز کے لیے ماسٹر سوئچ۔ اسے بند کرنا فوری طور پر سر + ہاتھ + پاؤں IK پر واپس چلا جاتا ہے۔ ٹریکرز دوبارہ استعمال کرنے کے لیے دوبارہ فعال کریں اور دوبارہ کیلیبریٹ کریں۔" },

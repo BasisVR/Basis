@@ -830,7 +830,6 @@
     { "key": "settings.bodyTracking.minCutoff.title.tooltip", "value": "Nivel base de suavizado cuando te mantienes quieto." },
     { "key": "settings.bodyTracking.beta.title.tooltip", "value": "Cuánto se relaja el suavizado a medida que te mueves más rápido." },
     { "key": "settings.bodyTracking.derivativeCutoff.title.tooltip", "value": "Suavizado aplicado a la velocidad de movimiento para estabilizar el filtro." },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title.tooltip", "value": "Flexiona la rodilla en la dirección hacia la que realmente apunta tu tracker de pierna." },
     { "key": "settings.bodyTracking.debugInfo.tooltip", "value": "Muestra mediciones de rastreo corporal en vivo para solución de problemas." },
     { "key": "settings.bodyTracking.refreshDebug.tooltip", "value": "Actualiza las mediciones de rastreo mostradas con los valores más recientes." },
     { "key": "settings.ik.title.bone.tooltip", "value": "Elige los ajustes de suavizado y calibración de qué hueso editar abajo." },
@@ -3404,10 +3403,6 @@
     { "key": "settings.bodyTracking.upperArmTwist.title", "value": "Distribución de la torsión del brazo" },
     { "key": "settings.bodyTracking.upperArmTwist.description", "value": "Qué tan uniformemente el hueso de torsión del brazo reparte la rotación del codo a lo largo del hueso. 1 = degradado uniforme; 0 = desactivado. Por defecto: 1.0" },
 
-    { "key": "settings.bodyTracking.section.anatomy.title", "value": "Anatomía" },
-    { "key": "settings.bodyTracking.section.anatomy.description", "value": "Refinamientos de IK basados en biomecánica real." },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title", "value": "Dirección de flexión del tracker" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.description", "value": "Flexiona la rodilla en el plano hacia el que realmente apunta tu tracker de la parte baja de la pierna en lugar de una estimación fija relativa al cuerpo, de modo que la rodilla deja de doblarse hacia atrás y sigue tu pierna al girarla. También elimina un antiguo empuje hacia arriba en el pecho para que la columna siga la posición real de tu pecho. Desactivado restaura el comportamiento anterior de polo hacia delante." },
 
 
     { "key": "settings.bodyTracking.fbt.description", "value": "Interruptor principal para los trackers de cadera / pecho / pies / rodillas. Al desactivarlo, vuelve inmediatamente a IK de cabeza + manos + pies. Reactívalo y recalibra para usar trackers de nuevo." },

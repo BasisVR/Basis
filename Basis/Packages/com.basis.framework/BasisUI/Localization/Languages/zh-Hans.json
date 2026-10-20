@@ -830,7 +830,6 @@
     { "key": "settings.bodyTracking.minCutoff.title.tooltip", "value": "你保持静止时的基础平滑级别。" },
     { "key": "settings.bodyTracking.beta.title.tooltip", "value": "你移动越快时平滑减弱的幅度。" },
     { "key": "settings.bodyTracking.derivativeCutoff.title.tooltip", "value": "对运动速度施加的平滑，用于稳定滤波器。" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title.tooltip", "value": "按你腿部追踪器实际朝向的方向弯曲膝盖。" },
     { "key": "settings.bodyTracking.debugInfo.tooltip", "value": "显示用于排障的实时身体追踪测量值。" },
     { "key": "settings.bodyTracking.refreshDebug.tooltip", "value": "用最新数值更新所显示的追踪测量值。" },
     { "key": "settings.ik.title.bone.tooltip", "value": "选择下方要编辑哪根骨骼的平滑和校准设置。" },
@@ -3404,10 +3403,6 @@
     { "key": "settings.bodyTracking.upperArmTwist.title", "value": "上臂扭转分布" },
     { "key": "settings.bodyTracking.upperArmTwist.description", "value": "上臂扭转骨骼沿骨骼分摊肘部滚转的均匀程度。1 = 均匀渐变；0 = 关闭。默认：1.0" },
 
-    { "key": "settings.bodyTracking.section.anatomy.title", "value": "解剖学" },
-    { "key": "settings.bodyTracking.section.anatomy.description", "value": "基于真实生物力学的 IK 优化。" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title", "value": "追踪器弯曲方向" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.description", "value": "在你小腿追踪器实际朝向的平面内弯曲膝盖，而不是采用固定的相对身体的估计，使膝盖不再向后弹跳，并在你转动腿部时跟随。同时取消对胸部旧有的向上微调，使脊柱跟随你真实的胸部位置。关闭则恢复之前的前向极点行为。" },
 
 
     { "key": "settings.bodyTracking.fbt.description", "value": "髋/胸/脚/膝追踪器的总开关。关闭后立即回退到头部 + 双手 + 脚部 IK。重新启用并重新校准才能再次使用追踪器。" },

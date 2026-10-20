@@ -830,7 +830,6 @@
     { "key": "settings.bodyTracking.minCutoff.title.tooltip", "value": "静止しているときの基本スムージングレベル。" },
     { "key": "settings.bodyTracking.beta.title.tooltip", "value": "速く動くにつれてスムージングがどれだけ弱まるか。" },
     { "key": "settings.bodyTracking.derivativeCutoff.title.tooltip", "value": "フィルターを安定させるために動作速度に適用されるスムージング。" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title.tooltip", "value": "脚トラッカーが実際に向いている方向に膝を曲げます。" },
     { "key": "settings.bodyTracking.debugInfo.tooltip", "value": "トラブルシューティング用にリアルタイムのボディトラッキング測定値を表示します。" },
     { "key": "settings.bodyTracking.refreshDebug.tooltip", "value": "表示されているトラッキング測定値を最新の値に更新します。" },
     { "key": "settings.ik.title.bone.tooltip", "value": "以下で編集するスムージングとキャリブレーション設定の対象ボーンを選択します。" },
@@ -3404,10 +3403,6 @@
     { "key": "settings.bodyTracking.upperArmTwist.title", "value": "上腕ツイストの分配" },
     { "key": "settings.bodyTracking.upperArmTwist.description", "value": "上腕のツイストボーンが肘のロールをボーンに沿ってどれだけ均等に分散させるか。1 = 均等なグラデーション、0 = オフ。デフォルト: 1.0" },
 
-    { "key": "settings.bodyTracking.section.anatomy.title", "value": "解剖学" },
-    { "key": "settings.bodyTracking.section.anatomy.description", "value": "実際の生体力学に基づくIK調整。" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title", "value": "トラッカー曲げ方向" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.description", "value": "固定された体基準の推測ではなく、下腿トラッカーが実際に向いている面で膝を曲げるため、膝が後ろに跳ねなくなり、脚を回すと追従します。また、胸への古い上方向の微調整を廃止し、背骨が実際の胸の位置に追従するようにします。オフにすると以前の前方ポール動作に戻ります。" },
 
 
     { "key": "settings.bodyTracking.fbt.description", "value": "腰／胸／足／膝トラッカーのマスタースイッチ。これをオフにすると、即座に頭＋手＋足IKに戻ります。トラッカーを再使用するには再度有効化して再キャリブレーションしてください。" },

@@ -403,16 +403,6 @@ public static partial class SettingsProviderIK
             }
         });
 
-        // ============== Anatomy ==============
-        CreateCollapsibleSection(tabDesc, colliderGroup,
-            BasisLocalization.Get("settings.bodyTracking.section.anatomy.title"),
-            BasisLocalization.Get("settings.bodyTracking.section.anatomy.description"), false, anatomyParent =>
-        {
-            AddAnatomyToggle(anatomyParent, BasisSettingsDefaults.FBIKTrackerBendNormal,
-                "settings.bodyTracking.anat.trackerBendNormal.title",
-                "settings.bodyTracking.anat.trackerBendNormal.description");
-        });
-
         // ============== Desktop head carry ==============
         // Desktop only: in VR the headset already rides the lever arm this reproduces.
         CreateCollapsibleSection(tabDesc, colliderGroup,
@@ -1139,7 +1129,6 @@ public static partial class SettingsProviderIK
         BasisSettingsDefaults.FBIKNeckFlexionDamp.ResetToDefault();
         BasisSettingsDefaults.VSpineNodPivotEstimate.ResetToDefault();
         BasisSettingsDefaults.VSpineGazeSwingRemoval.ResetToDefault();
-        BasisSettingsDefaults.FBIKTrackerBendNormal.ResetToDefault();
         BasisSettingsDefaults.FBIKBodyFit.ResetToDefault();
         BasisSettingsDefaults.FBIKBodyFitMaxDeviation.ResetToDefault();
         BasisSettingsDefaults.DesktopHeadSwingEnabled.ResetToDefault();

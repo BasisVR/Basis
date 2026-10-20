@@ -778,7 +778,7 @@ namespace Basis.Scripts.Drivers
         bool frameFootSimScheduled, frameFootReengage, trackersDisabled;
         BasisEerieFrameFacts frameFacts;
         Quaternion frameHipsRotation, frameLeftSimFootRotation, frameRightSimFootRotation, frameLeftElbowToBone, frameRightElbowToBone, frameLeftKneeToBone, frameRightKneeToBone;
-        Vector3 framePlayerUpDirection, frameLeftKneeBendAxis, frameRightKneeBendAxis;
+        Vector3 framePlayerUpDirection;
         float framePlayerUpScale;
         public void ScheduleLocomotionPose(BasisLocalPlayer player, float deltaTime)
         {
@@ -834,7 +834,6 @@ namespace Basis.Scripts.Drivers
             facts.deltaTime = deltaTime;
             facts.footSimReady = footDriver.IsInitialized;
             facts.footIKSetting = Basis.BasisUI.BasisSettingsDefaults.FootIKEnabled.RawValue;
-            facts.trackerBendNormal = Basis.BasisUI.BasisSettingsDefaults.FBIKTrackerBendNormal.RawValue;
             facts.moving = localPlayer.LocalCharacterDriver.IsLocomoting;
             facts.prone = localPlayer.LocalCharacterDriver.IsProne;
             facts.seated = localPlayer.LocalSeatDriver.IsSeated;
@@ -981,8 +980,6 @@ namespace Basis.Scripts.Drivers
             facts.rightElbowRoll = BasisLimbRollStore.TryGet(BasisBoneTrackedRole.RightLowerArm, out frameRightElbowToBone);
             facts.leftKneeRoll = BasisLimbRollStore.TryGet(BasisBoneTrackedRole.LeftLowerLeg, out frameLeftKneeToBone);
             facts.rightKneeRoll = BasisLimbRollStore.TryGet(BasisBoneTrackedRole.RightLowerLeg, out frameRightKneeToBone);
-            facts.leftKneeBendNormal = BasisBendNormalStore.TryGet(BasisBoneTrackedRole.LeftLowerLeg, out frameLeftKneeBendAxis);
-            facts.rightKneeBendNormal = BasisBendNormalStore.TryGet(BasisBoneTrackedRole.RightLowerLeg, out frameRightKneeBendAxis);
             unsafe
             {
                 float3* pOut = (float3*)posOutputs.GetUnsafeReadOnlyPtr();
@@ -1154,8 +1151,8 @@ namespace Basis.Scripts.Drivers
             data.hintRotationRightLowerLeg = frameFacts.rightKneeRoll ? rightLowerLeg * frameRightKneeToBone : Quaternion.identity;
             Vector3 hipsRight = frameHipsRotation * Vector3.right;
             data.kneeAnteriorRef = hipsRight;
-            data.kneeBendPrefLeft = data.plan.leftLeg.trackerBendNormal ? BasisTrackerBendNormalCore.ResolveWorldNormal(leftLowerLeg, frameLeftKneeBendAxis, hipsRight) : hipsRight;
-            data.kneeBendPrefRight = data.plan.rightLeg.trackerBendNormal ? BasisTrackerBendNormalCore.ResolveWorldNormal(rightLowerLeg, frameRightKneeBendAxis, hipsRight) : hipsRight;
+            data.kneeBendPrefLeft = hipsRight;
+            data.kneeBendPrefRight = hipsRight;
             BasisLocalPlayerMarkers.IKDestBuildIKTargets.End();
         }
         void Step14FillArmTargets()

@@ -830,7 +830,6 @@
     { "key": "settings.bodyTracking.minCutoff.title.tooltip", "value": "مستوى التنعيم الأساسي عندما تبقى ساكناً." },
     { "key": "settings.bodyTracking.beta.title.tooltip", "value": "مقدار تراجع التنعيم كلما تحركت أسرع." },
     { "key": "settings.bodyTracking.derivativeCutoff.title.tooltip", "value": "التنعيم المطبّق على سرعة الحركة لتثبيت المرشّح." },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title.tooltip", "value": "اثنِ الركبة بالاتجاه الذي يواجهه فعليًا متتبع ساقك." },
     { "key": "settings.bodyTracking.debugInfo.tooltip", "value": "أظهر قياسات تتبع الجسم الحية لاستكشاف الأخطاء." },
     { "key": "settings.bodyTracking.refreshDebug.tooltip", "value": "حدّث قياسات التتبع المعروضة بأحدث القيم." },
     { "key": "settings.ik.title.bone.tooltip", "value": "اختر إعدادات تنعيم ومعايرة أي عظمة لتحريرها أدناه." },
@@ -3404,10 +3403,6 @@
     { "key": "settings.bodyTracking.upperArmTwist.title", "value": "توزيع التواء الذراع العليا" },
     { "key": "settings.bodyTracking.upperArmTwist.description", "value": "مدى تساوي توزيع عظمة التواء الذراع العليا للفّة المرفق على طول العظمة. 1 = تدرج متساوٍ؛ 0 = إيقاف. الافتراضي: 1.0" },
 
-    { "key": "settings.bodyTracking.section.anatomy.title", "value": "التشريح" },
-    { "key": "settings.bodyTracking.section.anatomy.description", "value": "تحسينات IK مبنية على الميكانيكا الحيوية الحقيقية." },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title", "value": "اتجاه ثني المتتبع" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.description", "value": "يثني الركبة في المستوى الذي يواجهه فعليًا متتبع أسفل ساقك بدلًا من تخمين ثابت نسبةً إلى الجسم، فتتوقف الركبة عن الارتداد للخلف وتتبع ساقك عند تدويرها. كما يُلغي دفعة قديمة للأعلى على الصدر ليتبع العمود الفقري موضع صدرك الحقيقي. الإيقاف يستعيد سلوك القطب الأمامي السابق." },
 
 
     { "key": "settings.bodyTracking.fbt.description", "value": "مفتاح رئيسي لمتتبعات الورك/الصدر/القدم/الركبة. إيقاف هذا يعود فوراً إلى IK للرأس واليدين والقدم. أعد التفعيل وأعد المعايرة لاستخدام المتتبعات مرة أخرى." },

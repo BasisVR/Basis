@@ -830,7 +830,6 @@
     { "key": "settings.bodyTracking.minCutoff.title.tooltip", "value": "Livello di smoothing di base quando stai fermo." },
     { "key": "settings.bodyTracking.beta.title.tooltip", "value": "Quanto lo smoothing si riduce man mano che ti muovi più velocemente." },
     { "key": "settings.bodyTracking.derivativeCutoff.title.tooltip", "value": "Smoothing applicato alla velocità del movimento per stabilizzare il filtro." },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title.tooltip", "value": "Piega il ginocchio nella direzione in cui è effettivamente rivolto il tracker della gamba." },
     { "key": "settings.bodyTracking.debugInfo.tooltip", "value": "Mostra misurazioni di tracciamento corporeo in tempo reale per la risoluzione dei problemi." },
     { "key": "settings.bodyTracking.refreshDebug.tooltip", "value": "Aggiorna le misurazioni di tracciamento visualizzate con i valori più recenti." },
     { "key": "settings.ik.title.bone.tooltip", "value": "Scegli di quale osso modificare qui sotto le impostazioni di smoothing e calibrazione." },
@@ -3404,10 +3403,6 @@
     { "key": "settings.bodyTracking.upperArmTwist.title", "value": "Distribuzione torsione braccio superiore" },
     { "key": "settings.bodyTracking.upperArmTwist.description", "value": "Quanto uniformemente l'osso di torsione del braccio superiore distribuisce la rotazione del gomito lungo l'osso. 1 = gradiente uniforme; 0 = disattivato. Predefinito: 1.0" },
 
-    { "key": "settings.bodyTracking.section.anatomy.title", "value": "Anatomia" },
-    { "key": "settings.bodyTracking.section.anatomy.description", "value": "Raffinamenti IK modellati sulla biomeccanica reale." },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title", "value": "Direzione di piega tracker" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.description", "value": "Piega il ginocchio nel piano in cui è effettivamente rivolto il tracker della parte bassa della gamba invece di una stima fissa relativa al corpo, così il ginocchio smette di scattare all'indietro e segue la gamba mentre la ruoti. Rimuove anche una vecchia spinta verso l'alto sul torace così la colonna segue la posizione reale del tuo torace. Disattivato ripristina il precedente comportamento del polo in avanti." },
 
 
     { "key": "settings.bodyTracking.fbt.description", "value": "Interruttore principale per tracker anche/torace/piedi/ginocchia. Disattivandolo si torna immediatamente all'IK testa + mani + piedi. Riabilita e ricalibra per usare di nuovo i tracker." },

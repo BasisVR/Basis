@@ -830,7 +830,6 @@
     { "key": "settings.bodyTracking.minCutoff.title.tooltip", "value": "Grundlegende Glättungsstärke, wenn du stillhältst." },
     { "key": "settings.bodyTracking.beta.title.tooltip", "value": "Wie stark die Glättung nachlässt, je schneller du dich bewegst." },
     { "key": "settings.bodyTracking.derivativeCutoff.title.tooltip", "value": "Glättung, die auf die Bewegungsgeschwindigkeit angewendet wird, um den Filter zu stabilisieren." },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title.tooltip", "value": "Beugt das Knie in die Richtung, in die dein Bein-Tracker tatsächlich zeigt." },
     { "key": "settings.bodyTracking.debugInfo.tooltip", "value": "Zeigt Live-Body-Tracking-Messwerte zur Fehlersuche an." },
     { "key": "settings.bodyTracking.refreshDebug.tooltip", "value": "Aktualisiert die angezeigten Tracking-Messwerte mit den neuesten Werten." },
     { "key": "settings.ik.title.bone.tooltip", "value": "Wähle aus, dessen Knochens Glättungs- und Kalibrierungseinstellungen du unten bearbeiten möchtest." },
@@ -3404,10 +3403,6 @@
     { "key": "settings.bodyTracking.upperArmTwist.title", "value": "Oberarm-Twist-Verteilung" },
     { "key": "settings.bodyTracking.upperArmTwist.description", "value": "Wie gleichmäßig der Oberarm-Twist-Knochen das Rollen des Ellenbogens entlang des Knochens verteilt. 1 = gleichmäßiger Verlauf; 0 = aus. Standard: 1,0" },
 
-    { "key": "settings.bodyTracking.section.anatomy.title", "value": "Anatomie" },
-    { "key": "settings.bodyTracking.section.anatomy.description", "value": "IK-Verfeinerungen, die an realer Biomechanik orientiert sind." },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title", "value": "Tracker-Beugerichtung" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.description", "value": "Beugt das Knie in der Ebene, in die dein Unterschenkel-Tracker tatsächlich zeigt, anstatt einer festen körperrelativen Schätzung, sodass das Knie nicht mehr nach hinten schnappt und deinem Bein folgt, wenn du es drehst. Entfernt außerdem einen alten Aufwärts-Versatz an der Brust, damit die Wirbelsäule deiner echten Brustposition folgt. Aus stellt das vorherige Vorwärts-Pol-Verhalten wieder her." },
 
 
     { "key": "settings.bodyTracking.fbt.description", "value": "Hauptschalter für Hüft-/Brust-/Fuß-/Knie-Tracker. Wenn ausgeschaltet, fällt sofort auf Kopf + Hände + Fuß-IK zurück. Erneut aktivieren und neu kalibrieren, um Tracker wieder zu nutzen." },

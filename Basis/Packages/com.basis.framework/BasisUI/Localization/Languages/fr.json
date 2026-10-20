@@ -830,7 +830,6 @@
     { "key": "settings.bodyTracking.minCutoff.title.tooltip", "value": "Niveau de lissage de base lorsque vous restez immobile." },
     { "key": "settings.bodyTracking.beta.title.tooltip", "value": "De combien le lissage se relâche à mesure que vous bougez plus vite." },
     { "key": "settings.bodyTracking.derivativeCutoff.title.tooltip", "value": "Lissage appliqué à la vitesse du mouvement pour stabiliser le filtre." },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title.tooltip", "value": "Plie le genou dans la direction réelle vers laquelle pointe votre tracker de jambe." },
     { "key": "settings.bodyTracking.debugInfo.tooltip", "value": "Affiche les mesures de suivi corporel en direct pour le dépannage." },
     { "key": "settings.bodyTracking.refreshDebug.tooltip", "value": "Met à jour les mesures de suivi affichées avec les dernières valeurs." },
     { "key": "settings.ik.title.bone.tooltip", "value": "Choisissez l'os dont vous voulez modifier les réglages de lissage et de calibration ci-dessous." },
@@ -3404,10 +3403,6 @@
     { "key": "settings.bodyTracking.upperArmTwist.title", "value": "Répartition de la torsion du haut du bras" },
     { "key": "settings.bodyTracking.upperArmTwist.description", "value": "À quel point l'os de torsion du haut du bras répartit uniformément la rotation du coude le long de l'os. 1 = dégradé uniforme ; 0 = désactivé. Par défaut : 1.0" },
 
-    { "key": "settings.bodyTracking.section.anatomy.title", "value": "Anatomie" },
-    { "key": "settings.bodyTracking.section.anatomy.description", "value": "Raffinements IK modélisés sur la biomécanique réelle." },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title", "value": "Direction de flexion du tracker" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.description", "value": "Plie le genou dans le plan vers lequel pointe réellement votre tracker de bas de jambe au lieu d'une estimation fixe relative au corps, de sorte que le genou cesse de basculer vers l'arrière et suive votre jambe lorsque vous la tournez. Supprime également un ancien ajustement vers le haut sur la poitrine afin que la colonne suive la position réelle de votre poitrine. Désactivé restaure le comportement précédent à pôle avant." },
 
 
     { "key": "settings.bodyTracking.fbt.description", "value": "Interrupteur principal pour les trackers de hanches / torse / pieds / genoux. Le désactiver retombe immédiatement sur tête + mains + IK des pieds. Réactivez et recalibrez pour utiliser les trackers à nouveau." },

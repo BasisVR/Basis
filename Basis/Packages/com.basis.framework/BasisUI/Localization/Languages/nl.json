@@ -830,7 +830,6 @@
     { "key": "settings.bodyTracking.minCutoff.title.tooltip", "value": "Basissmoothing-niveau wanneer je stilstaat." },
     { "key": "settings.bodyTracking.beta.title.tooltip", "value": "Hoeveel smoothing afneemt naarmate je sneller beweegt." },
     { "key": "settings.bodyTracking.derivativeCutoff.title.tooltip", "value": "Smoothing toegepast op bewegingssnelheid om het filter te stabiliseren." },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title.tooltip", "value": "Buig de knie in de richting waarin je beentracker daadwerkelijk wijst." },
     { "key": "settings.bodyTracking.debugInfo.tooltip", "value": "Toon live lichaamstracking-metingen voor probleemoplossing." },
     { "key": "settings.bodyTracking.refreshDebug.tooltip", "value": "Werk de getoonde trackingmetingen bij met de nieuwste waarden." },
     { "key": "settings.ik.title.bone.tooltip", "value": "Kies welk bot zijn smoothing- en kalibratie-instellingen hieronder bewerkt worden." },
@@ -3404,10 +3403,6 @@
     { "key": "settings.bodyTracking.upperArmTwist.title", "value": "Bovenarm-twistverdeling" },
     { "key": "settings.bodyTracking.upperArmTwist.description", "value": "Hoe gelijkmatig de bovenarm-twist bone de rotatie van de elleboog over de bone verdeelt. 1 = gelijkmatig verloop; 0 = uit. Standaard: 1.0" },
 
-    { "key": "settings.bodyTracking.section.anatomy.title", "value": "Anatomie" },
-    { "key": "settings.bodyTracking.section.anatomy.description", "value": "IK-verfijningen gemodelleerd op echte biomechanica." },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title", "value": "Trackerbuigrichting" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.description", "value": "Buigt de knie in het vlak waarin je onderbeentracker daadwerkelijk wijst in plaats van een vaste lichaam-relatieve schatting, zodat de knie niet meer naar achteren klapt en je been volgt terwijl je het draait. Laat ook een oude opwaartse duw op de borst vallen zodat de wervelkolom je echte borstpositie volgt. Uit herstelt het vorige forward-pole-gedrag." },
 
 
     { "key": "settings.bodyTracking.fbt.description", "value": "Hoofdschakelaar voor heup-/borst-/voet-/knietrackers. Dit uitschakelen valt direct terug op hoofd + handen + voet-IK. Schakel opnieuw in en kalibreer opnieuw om trackers weer te gebruiken." },

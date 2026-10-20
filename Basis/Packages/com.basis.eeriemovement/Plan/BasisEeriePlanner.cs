@@ -131,7 +131,6 @@ namespace Basis.IK
         {
             bool tracked = isLeft ? facts.leftLegTracked : facts.rightLegTracked, kneeTracked = isLeft ? facts.leftKneeTracked : facts.rightKneeTracked;
             bool simRotation = isLeft ? facts.leftSimFootRotation : facts.rightSimFootRotation, roll = isLeft ? facts.leftKneeRoll : facts.rightKneeRoll;
-            bool bendNormal = isLeft ? facts.leftKneeBendNormal : facts.rightKneeBendNormal;
             float sim = isLeft ? facts.leftFootSim : facts.rightFootSim;
             bool simActive = facts.footSimReady && sim > 0.001f;
             leg.tracked = tracked;
@@ -141,7 +140,6 @@ namespace Basis.IK
             leg.solve = leg.weight > 0f && leg.has;
             leg.preserveTip = leg.target == BasisEerieSource.Sim && !simRotation;
             leg.hintRoll = kneeTracked && roll;
-            leg.trackerBendNormal = facts.trackerBendNormal && kneeTracked && bendNormal;
         }
         static Quaternion Unit(Quaternion q) => q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w > BasisEerieMovement.sqrEpsilon ? q : Quaternion.identity;
         static Vector3 Up(Vector3 up)

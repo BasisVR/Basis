@@ -830,7 +830,6 @@
     { "key": "settings.bodyTracking.minCutoff.title.tooltip", "value": "你保持靜止時的基礎平滑程度。" },
     { "key": "settings.bodyTracking.beta.title.tooltip", "value": "你移動越快時平滑減弱的幅度。" },
     { "key": "settings.bodyTracking.derivativeCutoff.title.tooltip", "value": "套用於運動速度的平滑，以穩定濾波器。" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title.tooltip", "value": "依您的腿部追蹤器實際朝向的方向彎曲膝蓋。" },
     { "key": "settings.bodyTracking.debugInfo.tooltip", "value": "顯示用於疑難排解的即時身體追蹤量測值。" },
     { "key": "settings.bodyTracking.refreshDebug.tooltip", "value": "以最新數值更新所顯示的追蹤量測值。" },
     { "key": "settings.ik.title.bone.tooltip", "value": "選擇要在下方編輯哪根骨骼的平滑與校準設定。" },
@@ -3404,10 +3403,6 @@
     { "key": "settings.bodyTracking.upperArmTwist.title", "value": "上臂扭轉分佈" },
     { "key": "settings.bodyTracking.upperArmTwist.description", "value": "上臂扭轉骨骼沿骨骼分攤肘部滾轉的均勻程度。1 = 均勻漸變；0 = 關閉。預設：1.0" },
 
-    { "key": "settings.bodyTracking.section.anatomy.title", "value": "解剖學" },
-    { "key": "settings.bodyTracking.section.anatomy.description", "value": "基於真實生物力學的 IK 最佳化。" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title", "value": "追蹤器彎曲方向" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.description", "value": "在您小腿追蹤器實際朝向的平面內彎曲膝蓋，而非採用固定的相對身體猜測，因此膝蓋不再向後彈跳，並會在您轉動腿時跟隨。同時也移除了對胸部的舊有向上推移，讓脊椎跟隨您真實的胸部位置。關閉則還原先前的前向極向量行為。" },
 
 
     { "key": "settings.bodyTracking.fbt.description", "value": "髖/胸/腳/膝追蹤器的總開關。關閉後立即回退到頭部 + 雙手 + 腳部 IK。重新啟用並重新校準才能再次使用追蹤器。" },

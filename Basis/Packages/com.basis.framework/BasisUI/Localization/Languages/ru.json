@@ -830,7 +830,6 @@
     { "key": "settings.bodyTracking.minCutoff.title.tooltip", "value": "Базовый уровень сглаживания, когда вы стоите неподвижно." },
     { "key": "settings.bodyTracking.beta.title.tooltip", "value": "Насколько сглаживание ослабевает по мере того, как вы двигаетесь быстрее." },
     { "key": "settings.bodyTracking.derivativeCutoff.title.tooltip", "value": "Сглаживание, применяемое к скорости движения для стабилизации фильтра." },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title.tooltip", "value": "Сгибать колено в ту сторону, куда фактически направлен трекер ноги." },
     { "key": "settings.bodyTracking.debugInfo.tooltip", "value": "Показывать измерения отслеживания тела в реальном времени для устранения неполадок." },
     { "key": "settings.bodyTracking.refreshDebug.tooltip", "value": "Обновить отображаемые измерения отслеживания последними значениями." },
     { "key": "settings.ik.title.bone.tooltip", "value": "Выберите, чьи настройки сглаживания и калибровки кости редактировать ниже." },
@@ -3404,10 +3403,6 @@
     { "key": "settings.bodyTracking.upperArmTwist.title", "value": "Распределение скручивания плеча" },
     { "key": "settings.bodyTracking.upperArmTwist.description", "value": "Насколько равномерно кость скручивания плеча распределяет вращение локтя вдоль кости. 1 = равномерный градиент; 0 = выкл. По умолчанию: 1,0" },
 
-    { "key": "settings.bodyTracking.section.anatomy.title", "value": "Анатомия" },
-    { "key": "settings.bodyTracking.section.anatomy.description", "value": "Уточнения IK по реальной биомеханике." },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.title", "value": "Направление изгиба по трекеру" },
-    { "key": "settings.bodyTracking.anat.trackerBendNormal.description", "value": "Сгибает колено в плоскости, в которую фактически направлен трекер голени, вместо фиксированного предположения относительно тела, так что колено перестаёт выгибаться назад и следует за ногой при её повороте. Также убирает старое смещение груди вверх, чтобы позвоночник следовал за реальным положением груди. Отключение восстанавливает прежнее поведение с передним полюсом." },
 
 
     { "key": "settings.bodyTracking.fbt.description", "value": "Главный переключатель для трекеров бёдер / груди / ступней / коленей. Его выключение немедленно возвращает к IK головы + рук + ступней. Включите снова и откалибруйте, чтобы снова использовать трекеры." },

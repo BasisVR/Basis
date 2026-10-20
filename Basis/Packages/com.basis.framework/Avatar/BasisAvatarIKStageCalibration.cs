@@ -36,19 +36,6 @@ namespace Basis.Scripts.Avatar
             }
         }
 
-        // Per-role limb bend-plane normal captured in the tracker's local frame at calibration. Consumed by
-        // BasisLocalRigDriver via BasisTrackerBendNormalCore.ResolveWorldNormal so the knee bend plane follows
-        // the lower-leg tracker's rotation instead of a fixed hips-frame axis (flip-free, natural bending).
-        [AutoStaticsCleanup]
-        public static partial class BasisBendNormalStore
-        {
-            public static readonly Dictionary<BasisBoneTrackedRole, Vector3> LocalAxis = new();
-
-            public static void Set(BasisBoneTrackedRole role, Vector3 localAxis) => LocalAxis[role] = localAxis;
-            public static bool TryGet(BasisBoneTrackedRole role, out Vector3 localAxis) => LocalAxis.TryGetValue(role, out localAxis);
-            public static void Clear() => LocalAxis.Clear();
-        }
-
         [AutoStaticsCleanup]
         public static partial class BasisLimbRollStore
         {
@@ -160,7 +147,6 @@ namespace Basis.Scripts.Avatar
                 BasisHeightDriver.OnAvatarFBCalibration();//avatar height is good,player height is needed
                 HasFBIKTrackers = false;
                 BasisHintBiasStore.Clear();
-                BasisBendNormalStore.Clear();
                 BasisLimbRollStore.Clear();
                 BasisDeviceManagement.UnassignFBTrackers();
                 BasisLocalPlayer.Instance.LocalBoneDriver.SimulateAndApplyWithoutLerp(BasisLocalPlayer.Instance);
@@ -1331,9 +1317,6 @@ namespace Basis.Scripts.Avatar
 
                     if (lll.HasTracked == BasisHasTracked.HasTracker)
                     {
-                        BasisBendNormalStore.Set(BasisBoneTrackedRole.LeftLowerLeg,
-                            Basis.IK.BasisTrackerBendNormalCore.CaptureLocalAxis(trackerRot, hipsRefRot * Vector3.right));
-
                         CaptureLimbRoll(storedRoleTransforms, BasisBoneTrackedRole.LeftLowerLeg, trackerRot);
                     }
                 }
@@ -1352,9 +1335,6 @@ namespace Basis.Scripts.Avatar
 
                     if (rll.HasTracked == BasisHasTracked.HasTracker)
                     {
-                        BasisBendNormalStore.Set(BasisBoneTrackedRole.RightLowerLeg,
-                            Basis.IK.BasisTrackerBendNormalCore.CaptureLocalAxis(trackerRot, hipsRefRot * Vector3.right));
-
                         CaptureLimbRoll(storedRoleTransforms, BasisBoneTrackedRole.RightLowerLeg, trackerRot);
                     }
                 }
