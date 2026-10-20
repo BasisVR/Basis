@@ -151,7 +151,6 @@ public partial class SMModuleCalibration : BasisSettingsBase
     private static string K_FBIK_HAND_RADIUS => BasisSettingsDefaults.FBIKHandRadius.BindingKey;
     private static string K_FBIK_HAND_SKIN => BasisSettingsDefaults.FBIKHandSkin.BindingKey;
     private static string K_FBIK_SHOULDER_SOLVE => BasisSettingsDefaults.FBIKShoulderSolveEnabled.BindingKey;
-    private static string K_FBIK_SHOULDER_SHRUG => BasisSettingsDefaults.FBIKShoulderShrug.BindingKey;
     private static string K_FBIK_SHOULDER_ELEVATION => BasisSettingsDefaults.FBIKShoulderElevation.BindingKey;
     private static string K_FBIK_SHOULDER_PROTRACTION => BasisSettingsDefaults.FBIKShoulderProtraction.BindingKey;
 
@@ -604,10 +603,6 @@ public partial class SMModuleCalibration : BasisSettingsBase
 
             case var s when s == K_FBIK_SHOULDER_SOLVE:
                 if (bool.TryParse(optionValue, out var ssVal)) ApplyIKDataBool((ref BasisEerieMovement d) => d.shoulderSolveEnabled = ssVal);
-                break;
-
-            case var s when s == K_FBIK_SHOULDER_SHRUG:
-                if (bool.TryParse(optionValue, out var shrugVal)) ApplyIKDataBool((ref BasisEerieMovement d) => d.shoulderShrugEnabled = shrugVal);
                 break;
 
             case var s when s == K_FBIK_SHOULDER_ELEVATION:

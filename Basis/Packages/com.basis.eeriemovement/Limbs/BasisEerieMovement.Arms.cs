@@ -86,7 +86,6 @@ namespace Basis.IK
             input.TorsoUp = frame.Up;
             input.TorsoForward = frame.Forward;
             input.TorsoOut = isLeft ? -frame.Right : frame.Right;
-            input.ShrugEnabled = shoulderShrugEnabled;
             input.ElevationFactor = shoulderElevationFactor;
             input.ProtractionFactor = shoulderProtractionFactor;
             BasisShoulderSolveCore.Solve(input, out BasisShoulderSolveResult result);

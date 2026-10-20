@@ -328,11 +328,6 @@ public static partial class SettingsProviderIK
             shoulderSolveToggle.AssignBinding(BasisSettingsDefaults.FBIKShoulderSolveEnabled);
             shoulderSolveToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.shoulderSolve.title.tooltip"));
 
-            var shoulderShrugToggle = PanelToggle.CreateNewEntry(shoulderParent);
-            shoulderShrugToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.shoulderShrug.title"));
-            shoulderShrugToggle.AssignBinding(BasisSettingsDefaults.FBIKShoulderShrug);
-            shoulderShrugToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.shoulderShrug.title.tooltip"));
-
             var shoulderElevSlider = PanelSlider.CreateAndBind(
                 shoulderParent,
                 PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.shoulderElevation.title"), 0f, 1f, false, 2, ValueDisplayMode.Raw),
@@ -413,9 +408,6 @@ public static partial class SettingsProviderIK
             BasisLocalization.Get("settings.bodyTracking.section.anatomy.title"),
             BasisLocalization.Get("settings.bodyTracking.section.anatomy.description"), false, anatomyParent =>
         {
-            AddAnatomyToggle(anatomyParent, BasisSettingsDefaults.FBIKSpineAnatomicalRom,
-                "settings.bodyTracking.anat.spineRom.title",
-                "settings.bodyTracking.anat.spineRom.description");
             AddAnatomyToggle(anatomyParent, BasisSettingsDefaults.FBIKTrackerBendNormal,
                 "settings.bodyTracking.anat.trackerBendNormal.title",
                 "settings.bodyTracking.anat.trackerBendNormal.description");
@@ -1121,7 +1113,6 @@ public static partial class SettingsProviderIK
         BasisSettingsDefaults.FBIKHandRadius.ResetToDefault();
         BasisSettingsDefaults.FBIKHandSkin.ResetToDefault();
         BasisSettingsDefaults.FBIKShoulderSolveEnabled.ResetToDefault();
-        BasisSettingsDefaults.FBIKShoulderShrug.ResetToDefault();
         BasisSettingsDefaults.FBIKShoulderElevation.ResetToDefault();
         BasisSettingsDefaults.FBIKShoulderProtraction.ResetToDefault();
         BasisSettingsDefaults.FBIKShoulderTrackerBlend.ResetToDefault();
@@ -1148,7 +1139,6 @@ public static partial class SettingsProviderIK
         BasisSettingsDefaults.FBIKNeckFlexionDamp.ResetToDefault();
         BasisSettingsDefaults.VSpineNodPivotEstimate.ResetToDefault();
         BasisSettingsDefaults.VSpineGazeSwingRemoval.ResetToDefault();
-        BasisSettingsDefaults.FBIKSpineAnatomicalRom.ResetToDefault();
         BasisSettingsDefaults.FBIKTrackerBendNormal.ResetToDefault();
         BasisSettingsDefaults.FBIKBodyFit.ResetToDefault();
         BasisSettingsDefaults.FBIKBodyFitMaxDeviation.ResetToDefault();

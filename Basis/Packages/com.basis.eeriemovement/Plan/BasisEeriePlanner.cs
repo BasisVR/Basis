@@ -87,7 +87,6 @@ namespace Basis.IK
             p.crouchOffset = !chestPinsBody && !facts.hipsTracked && !facts.seated && !facts.prone;
             p.gaitPelvis = !facts.hipsTracked && facts.footSimReady && Mathf.Min(facts.leftFootSim, facts.rightFootSim) > 0.001f;
             p.headPinnedHips = !facts.hipsTracked && !chestPinsBody && !facts.seated && !facts.prone;
-            p.spineRom = job.spineAnatomicalRom && p.hasSpineRestFrames;
             p.leftShoulderTracked = facts.leftShoulderTracked;
             p.rightShoulderTracked = facts.rightShoulderTracked;
             p.leftShoulderWeight = facts.leftShoulderTracked ? Mathf.Clamp01(facts.leftShoulderWeight) : 0f;

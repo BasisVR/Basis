@@ -1821,7 +1821,6 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<float> FBIKHandRadius = new("fbikhandradius_v2", new BasisPlatformDefault<float>(0.01f));
         public static BasisSettingsBinding<float> FBIKHandSkin = new("fbikhandskin_v2", new BasisPlatformDefault<float>(0.03f));
         public static BasisSettingsBinding<bool> FBIKShoulderSolveEnabled = new("fbikshouldersolveenabled", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<bool> FBIKShoulderShrug = new("fbikshouldershrug", new BasisPlatformDefault<bool>(true));
         public static BasisSettingsBinding<float> FBIKShoulderElevation = new("fbikshoulderelevation_v2", new BasisPlatformDefault<float>(1f));
         public static BasisSettingsBinding<float> FBIKShoulderProtraction = new("fbikshoulderprotraction_v2", new BasisPlatformDefault<float>(1f));
         public static BasisSettingsBinding<float> FBIKShoulderTrackerBlend = new("fbikshouldertrackerblend", new BasisPlatformDefault<float>(0.25f));
@@ -1845,10 +1844,6 @@ namespace Basis.BasisUI
         // default: the lumbar spine, the upper chest and the neck previously had NO per-joint limit at all
         // once the spine CCD ran, and nothing anywhere limited axial rotation. That is not a safe fallback
         // to keep, it is a measured defect.
-        // Key bumped to _v3: the _v2 rename shipped this false alongside the deliberate chest-IK-target
-        // disable, so every install that ran that build has false pinned on disk and a value-only change
-        // would not reach them.
-        public static BasisSettingsBinding<bool> FBIKSpineAnatomicalRom = new("fbikspineanatomicalrom_v3", new BasisPlatformDefault<bool>(true));
         public static BasisSettingsBinding<bool> FBIKTrackerBendNormal = new("fbiktrackerbendnormal", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<bool> FBIKBodyFit = new("fbikbodyfit", new BasisPlatformDefault<bool>(true));
@@ -2825,13 +2820,11 @@ namespace Basis.BasisUI
             FBIKHandRadius.LoadBindingValue();
             FBIKHandSkin.LoadBindingValue();
             FBIKShoulderSolveEnabled.LoadBindingValue();
-            FBIKShoulderShrug.LoadBindingValue();
             FBIKShoulderElevation.LoadBindingValue();
             FBIKShoulderProtraction.LoadBindingValue();
             FBIKShoulderTrackerBlend.LoadBindingValue();
             FBIKArmSwivelSmoothTime.LoadBindingValue();
             FBIKArmSwivelMaxRate.LoadBindingValue();
-            FBIKSpineAnatomicalRom.LoadBindingValue();
             FBIKBodyFit.LoadBindingValue();
             FBIKJobLocomotion.LoadBindingValue();
             FBIKBodyFitMaxDeviation.LoadBindingValue();

@@ -28,7 +28,7 @@ namespace Basis.IK
         public int chestIdx;
         public uint boundSlots;
         public BasisBoneHandle torsoFrom, torsoTo, legFrameTo, chestRef;
-        public bool prone, hipsTracked, chestTracked, chestChain, headChain, crouchOffset, gaitPelvis, spineRom, headPinnedHips;
+        public bool prone, hipsTracked, chestTracked, chestChain, headChain, crouchOffset, gaitPelvis, headPinnedHips;
         public bool leftShoulderTracked, rightShoulderTracked, leftToeTracked, rightToeTracked, leftToeDriven, rightToeDriven;
         public bool leftToeSurface, rightToeSurface;
         public BasisEerieShoulderMode leftShoulder, rightShoulder;

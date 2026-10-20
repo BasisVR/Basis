@@ -347,7 +347,7 @@ namespace Basis.IK
     {
         public const float ElevationStartDeg = 80f, ElevationEndDeg = 180f, ElevationMaxDeg = 70f;
         public const float RetractionStartDeg = 70f, RetractionSlope = -0.22f, RetractionIntercept = 15.4f;
-        public const float RetractionShare = 0.5f, ForwardReachStart = 0.35f, ForwardReachFullDeg = 30f, CrossBodyDeg = 20f, BehindStart = 0.05f, BehindEnd = 0.8f, BehindFullDeg = 35f, BehindTwistDeg = 20f, ShrugStartDeg = 150f, ShrugFullDeg = 10f;
+        public const float RetractionShare = 0.5f, ForwardReachStart = 0.35f, ForwardReachFullDeg = 30f, CrossBodyDeg = 20f, BehindStart = 0.05f, BehindEnd = 0.8f, BehindFullDeg = 35f, BehindTwistDeg = 20f;
         public const float MaxElbowDeg = 90f;
         const float epsilon = 1e-5f, sqrEpsilon = 1e-8f;
         public static void Solve(in BasisShoulderSolveInput i, out BasisShoulderSolveResult r)

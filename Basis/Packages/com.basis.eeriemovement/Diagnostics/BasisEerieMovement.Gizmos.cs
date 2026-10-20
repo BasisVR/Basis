@@ -468,7 +468,7 @@ namespace Basis.IK
         }
         void RecordSpineRomCones(BasisIKGizmoStage stage)
         {
-            if (!plan.spineRom)
+            if (!plan.hasSpineRestFrames)
             {
                 return;
             }

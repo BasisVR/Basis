@@ -3079,14 +3079,6 @@
       "value": "Fastest the elbow may swing around the arm, in degrees per second."
     },
     {
-      "key": "settings.bodyTracking.armSwivelSwitchDwell.title",
-      "value": "Elbow Switch Delay"
-    },
-    {
-      "key": "settings.bodyTracking.armSwivelSwitchDwell.title.tooltip",
-      "value": "Seconds a clearly better elbow direction on the other side of the arm must persist before the elbow moves there."
-    },
-    {
       "key": "settings.bodyTracking.armPriorWeight.title",
       "value": "Natural Pose Weight"
     },
@@ -3179,10 +3171,6 @@
       "value": "Largest angle the hips may twist away from the chest."
     },
     {
-      "key": "settings.bodyTracking.vspineTorsoYawDeadzoneVR.title.tooltip",
-      "value": "Head turn the torso ignores in VR before it follows; glances inside it stay in the neck."
-    },
-    {
       "key": "settings.bodyTracking.moveBodyBackWhenCrouching.title.tooltip",
       "value": "How far your body shifts backward as you crouch down."
     },
@@ -3231,10 +3219,6 @@
       "value": "How quickly the torso turns to catch up with your head."
     },
     {
-      "key": "settings.bodyTracking.vspineTorsoYawPlayInVR.title.tooltip",
-      "value": "Apply virtual torso turning while playing in VR."
-    },
-    {
       "key": "settings.bodyTracking.smoothingStrength.title.tooltip",
       "value": "Overall amount of motion smoothing applied to tracking."
     },
@@ -3257,10 +3241,6 @@
     {
       "key": "settings.bodyTracking.derivativeCutoff.title.tooltip",
       "value": "Smoothing applied to motion speed to steady the filter."
-    },
-    {
-      "key": "settings.bodyTracking.anat.legSwivelSmoothing.title.tooltip",
-      "value": "Stop the legs twisting when you stand still."
     },
     {
       "key": "settings.bodyTracking.anat.trackerBendNormal.title.tooltip",
@@ -11027,22 +11007,6 @@
       "value": "IK refinements modeled on real biomechanics."
     },
     {
-      "key": "settings.bodyTracking.anat.spineRom.title",
-      "value": "Anatomical Spine Limits"
-    },
-    {
-      "key": "settings.bodyTracking.anat.spineRom.description",
-      "value": "Holds each spine bone inside the range of motion of the real vertebrae it stands for — the lumbar barely twists, the chest barely folds, the neck is free. Stops impossible spine poses."
-    },
-    {
-      "key": "settings.bodyTracking.anat.legSwivelSmoothing.title",
-      "value": "Leg Swivel Smoothing"
-    },
-    {
-      "key": "settings.bodyTracking.anat.legSwivelSmoothing.description",
-      "value": "Damps the leg's roll about the hip-to-foot axis so a still, near-straight standing leg doesn't twist with tracking jitter. Real turning still tracks without lag."
-    },
-    {
       "key": "settings.bodyTracking.anat.trackerBendNormal.title",
       "value": "Tracker Bend Direction"
     },
@@ -11191,14 +11155,6 @@
       "value": "Maximum rotation delta allowed for the hip bone per frame. Default: 90"
     },
     {
-      "key": "settings.bodyTracking.vspineTorsoYawDeadzoneVR.title",
-      "value": "Torso Yaw Deadzone in VR (deg)"
-    },
-    {
-      "key": "settings.bodyTracking.vspineTorsoYawDeadzoneVR.description",
-      "value": "Head turn the torso ignores in VR before it follows the head; used when Torso Yaw Play In VR is on. Default: 30"
-    },
-    {
       "key": "settings.bodyTracking.moveBodyBackWhenCrouching.title",
       "value": "Move Body Back When Crouching"
     },
@@ -11287,22 +11243,6 @@
       "value": "Fraction of head tilt absorbed by the spine. Default: 0.10"
     },
     {
-      "key": "settings.bodyTracking.vspineChestForwardBias.title",
-      "value": "Chest Forward Bias (m)"
-    },
-    {
-      "key": "settings.bodyTracking.vspineChestForwardBias.description",
-      "value": "Pushes the resting chest position forward of the neck-hips line, giving the chain a natural kyphosis. Scaled by avatar height. Default: 0.025"
-    },
-    {
-      "key": "settings.bodyTracking.vspineHipsYawDeadband.title",
-      "value": "Hips Yaw Deadband (deg)"
-    },
-    {
-      "key": "settings.bodyTracking.vspineHipsYawDeadband.description",
-      "value": "Hips ignore head yaw changes smaller than this many degrees, suppressing HMD micro-jitter. 0 disables. Default: 4"
-    },
-    {
       "key": "settings.bodyTracking.vspineNeckRotationSpeed.title",
       "value": "Neck Rotation Speed"
     },
@@ -11357,14 +11297,6 @@
     {
       "key": "settings.bodyTracking.vspineTorsoYawBlend.description",
       "value": "How quickly the torso eases into and out of following once the head crosses the play cone. Lower = softer, slower blend (removes the click at the edge); higher = snappier. Default: 8"
-    },
-    {
-      "key": "settings.bodyTracking.vspineTorsoYawPlayInVR.title",
-      "value": "Torso Yaw Play In VR"
-    },
-    {
-      "key": "settings.bodyTracking.vspineTorsoYawPlayInVR.description",
-      "value": "When off, the torso follows your head immediately in VR (no yaw play), so the head can't turn independently of the chest. Enable to use the Torso Yaw Play cone in VR too. Desktop always uses the configured play. Default: off"
     },
     {
       "key": "settings.bodyTracking.smoothingStrength.title",
@@ -15499,22 +15431,6 @@
       "value": "Run locomotion on a worker thread. Keeps movement smooth when the main thread is busy."
     },
     {
-      "key": "settings.bodyTracking.shoulderShrug.title",
-      "value": "Shoulder Shrug"
-    },
-    {
-      "key": "settings.bodyTracking.shoulderShrug.title.tooltip",
-      "value": "Raise the shoulder as the hand reaches overhead, the way a real shoulder rides up."
-    },
-    {
-      "key": "settings.bodyTracking.shoulderMaxDeg.title",
-      "value": "Shoulder Travel Limit"
-    },
-    {
-      "key": "settings.bodyTracking.shoulderMaxDeg.title.tooltip",
-      "value": "Largest angle the shoulder may rotate away from its bind pose, in degrees."
-    },
-    {
       "key": "settings.bodyTracking.bodyFit.maxDeviation.title",
       "value": "Max Deviation"
     },
@@ -15529,14 +15445,6 @@
     {
       "key": "settings.bodyTracking.headSwing.strength.tooltip",
       "value": "How far the head leads the body as you move. 0 keeps the head over the hips."
-    },
-    {
-      "key": "settings.bodyTracking.headSwing.backward",
-      "value": "Backward Carry"
-    },
-    {
-      "key": "settings.bodyTracking.headSwing.backward.tooltip",
-      "value": "How much of that carry applies when looking up. Lower it toward 0 to keep the camera still on a look-up instead of sliding it backwards."
     },
     {
       "key": "library.instantiated.assignTracker.tooltip",
