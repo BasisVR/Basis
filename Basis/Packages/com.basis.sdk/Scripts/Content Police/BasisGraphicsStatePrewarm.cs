@@ -248,6 +248,20 @@ public static partial class BasisGraphicsStatePrewarm
                 Object.Destroy(collection);
                 return null;
             }
+            // A seed may have been captured in the Editor or on a different build
+            // platform. Unity warns that warming those PSOs is inaccurate, and on
+            // explicit graphics APIs they may describe incompatible pipeline state.
+            if (collection.runtimePlatform != Application.platform ||
+                collection.graphicsDeviceType != SystemInfo.graphicsDeviceType)
+            {
+                BasisDebug.LogWarning(
+                    $"BasisGraphicsStatePrewarm: ignoring incompatible {SystemInfo.graphicsDeviceType} seed " +
+                    $"(recorded {collection.runtimePlatform}/{collection.graphicsDeviceType}, " +
+                    $"running {Application.platform}/{SystemInfo.graphicsDeviceType})",
+                    BasisDebug.LogTag.Event);
+                Object.Destroy(collection);
+                return null;
+            }
             if (collection.variantCount > 0)
             {
                 return collection;
