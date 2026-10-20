@@ -7,13 +7,13 @@ namespace Basis.IK
     {
         public const float MinElbowInteriorDeg = 20f;
         public const float HeadFadeStartSin = 0.15f, HeadFadeFullSin = 0.45f, RestOutward = 0.35f, RestBack = 0.25f;
-        public const float MinReachFraction = 0.05f, MinReachDirectionFraction = 0.1f,ModelWeight = 0.85f, TeleportFraction = 0.6f;
+        public const float MinReachFraction = 0.05f, MinReachDirectionFraction = 0.15f,ModelWeight = 0.85f, TeleportFraction = 0.6f;
         public const float ForearmHandTwistShare = 0.85f;
         public const float ForearmRollMaxDeg = 120f, WrapFadeStartDeg = 155f, WrapFadeEndDeg = 178f;
         public const float UpperArmPoleTwistShare = 0.5f;
         public const float HandTiltHintPush = 0.5f, BehindHintStart = 0.05f, BehindHintEnd = 0.6f, BehindHintInward = 0.8f;
         public const float TrackerHintBias = 0.06f;
-        public const float TrackerStraightSmoothTime = 0.05f, TrackerStraightStart = 0.9f, TrackerStraightEnd = 1f;
+        public const float TrackerRotationOnlyStartDeg = 150f, TrackerRotationOnlyEndDeg = 165f, TrackerRotationOnlySmoothTime = 0.1f;
         public const float MaxReachBendFraction = 0.0007f;
         const float epsilon = 1e-5f, sqrEpsilon = 1e-8f;
         public static void Frame(Vector3 axis, Vector3 torsoUp, Vector3 torsoForward, Vector3 torsoOut, out Vector3 ex, out Vector3 ey)
@@ -151,9 +151,11 @@ namespace Basis.IK
             // Near full extension a tracked elbow sits on the shoulder/hand line, so the direction of its offset is mostly noise and the arm twists around.
             // Push the hint a fixed distance along the bend direction: the offset then never shrinks below the push, so small noise can't flip it,
             // and once the arm bends the real offset outgrows the push and takes over on its own.
+            // Close to straight (90%+), the position is dropped entirely so a tracker that drifts off the line can't twist the arm; only its rotation steers.
             if (i.HasTrackerHint)
             {
-                hintDir += TrackerHintBiasDir(i, state, axis, side, ex, ey) * (TrackerHintBias * chain);
+                float positionWeight = 1f - Smoothstep(TrackerRotationOnlyStartDeg, TrackerRotationOnlyEndDeg, r.ElbowDeg);
+                hintDir = hintDir * positionWeight + TrackerHintBiasDir(i, state, axis, side, ex, ey) * (TrackerHintBias * chain);
             }
             float targetDeg = hintDir.sqrMagnitude > sqrEpsilon ? DirToDeg(hintDir.normalized, ex, ey) : BodyPrior(i, axis, ex, ey);
 
@@ -166,9 +168,9 @@ namespace Basis.IK
             }
             else
             {
-                // A tracked elbow has its own smoothing, so only smooth it a little near full extension where noise flips happen.
+                // A tracked elbow has its own smoothing, so only smooth it near full extension, where the swivel comes from the tracker's rotation alone.
                 // Otherwise, use the internal smoothing.
-                float smoothing = !i.HasTrackerHint ? i.SmoothTime : TrackerStraightSmoothTime * Smoothstep(TrackerStraightStart, TrackerStraightEnd, r.ReachRatio);
+                float smoothing = !i.HasTrackerHint ? i.SmoothTime : TrackerRotationOnlySmoothTime * Smoothstep(TrackerRotationOnlyStartDeg, TrackerRotationOnlyEndDeg, r.ElbowDeg);
                 float delta = Wrap(targetDeg - state.SwivelDeg), alpha = smoothing > 1e-4f ? 1f - Mathf.Exp(-i.Dt / smoothing) : 1f, step = delta * alpha;
                 float maxStep = i.MaxRateDeg > 0f ? i.MaxRateDeg * i.Dt : float.MaxValue;
                 if (step > maxStep) step = maxStep; else if (step < -maxStep) step = -maxStep;
