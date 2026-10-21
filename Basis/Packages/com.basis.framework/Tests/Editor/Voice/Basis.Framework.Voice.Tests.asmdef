@@ -5,7 +5,6 @@
         "Basis Framework",
         "Basis Framework Editor",
         "BasisNetworkCore",
-        "BasisNetworkServer",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "BasisSDK",

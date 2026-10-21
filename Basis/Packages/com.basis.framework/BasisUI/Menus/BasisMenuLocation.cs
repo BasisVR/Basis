@@ -185,7 +185,7 @@ namespace Basis.BasisUI
                 }
                 yield return new WaitForSecondsRealtime(RetrySeconds);
             }
-            yield return ShowRevealed(control, onShown);
+            yield return ShowRevealed(control, onShown, onMissing);
         }
 
         internal static string JoinPlace(string place, string tab)
@@ -308,11 +308,15 @@ namespace Basis.BasisUI
             return panel != null && panel.Descriptor != null ? panel.Descriptor.ContentParent : null;
         }
 
-        private static IEnumerator ShowRevealed(PanelComponent control, Action<PanelComponent, string> onShown)
+        private static IEnumerator ShowRevealed(PanelComponent control, Action<PanelComponent, string> onShown, Action onMissing)
         {
             yield return null;
             yield return null;
-            if (control == null) yield break;
+            if (control == null)
+            {
+                onMissing?.Invoke();
+                yield break;
+            }
             ScrollRect scroll = control.GetComponentInParent<ScrollRect>(true);
             BasisPanelSearch.ScrollToRow(scroll != null && scroll.content != null ? scroll.content : control.rectTransform, control.rectTransform, RevealViewFraction);
             onShown?.Invoke(control, TryLocate(control, out _, out _, out string path) ? path : null);

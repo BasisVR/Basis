@@ -339,7 +339,8 @@ namespace LiteNetLib
         {
             return NetConstants.PossibleMtu[mtuIdx]
                 - NetManager.ExtraSizeForLayer((byte)PacketProperty.MtuCheck)
-                - (_outboundPacketLayer?.ExtraSizeFor((byte)PacketProperty.MtuCheck) ?? 0);
+                - (_outboundPacketLayer?.ExtraSizeFor((byte)PacketProperty.MtuCheck) ?? 0)
+                - (_inboundPacketLayer?.InboundExtraSizeFor((byte)PacketProperty.MtuOk) ?? 0);
         }
 
         /// <summary>
@@ -1397,7 +1398,7 @@ namespace LiteNetLib
             }
 
             //MtuOk
-            if (receivedMtu > _mtu && !_finishMtu)
+            if (!_finishMtu && _mtuIdx < NetConstants.PossibleMtu.Length - 1)
             {
                 //invalid packet
                 if (receivedMtu == ProbeSizeForIndex(_mtuIdx + 1))

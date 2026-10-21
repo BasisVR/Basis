@@ -2,6 +2,7 @@ using Basis;
 using Basis.BasisUI;
 using System;
 using System.Text;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -10,6 +11,7 @@ public partial class BasisHandHeldCamera
 {
     private const string MissingPassShader = "Render pass shaders could not be loaded, so the camera keeps showing the picture.";
     private static readonly int ComposeDepthId = Shader.PropertyToID("_BasisPassDepthTex"), ComposeNormalsId = Shader.PropertyToID("_BasisPassNormalsTex"), ComposeMaskId = Shader.PropertyToID("_BasisPassMaskTex");
+    [NoAutoStaticsCleanup] private static readonly string[] PassTargetNames = Array.ConvertAll(BasisCameraPasses.Suffixes, suffix => "BasisCameraPass" + suffix);
     private readonly RenderTexture[] passTextures = new RenderTexture[BasisCameraPasses.Count], capturePassTextures = new RenderTexture[BasisCameraPasses.Count];
     private readonly IBasisVideoOutputSink[] passSinks = new IBasisVideoOutputSink[BasisCameraPasses.Count];
     private readonly BasisWebVideoOutputSink[] passWebSinks = new BasisWebVideoOutputSink[BasisCameraPasses.Count];
@@ -29,7 +31,24 @@ public partial class BasisHandHeldCamera
     public bool SeparatePasses { get; private set; }
     public BasisCameraPassSet SeparatePassSet { get; private set; } = BasisCameraPasses.DefaultSeparateSet;
     public bool RenderPassesAvailable => LoadPassMaterials();
-    public BasisCameraPassSet LivePassSet => BasisCameraPasses.For(PassOutput) | (SeparatePasses && IsAnyVideoOutputActive ? SeparatePassSet : BasisCameraPassSet.None);
+    public BasisCameraPassSet LivePassSet => BasisCameraPasses.For(PassOutput) | (SeparatePasses && IsAnyVideoOutputActive ? StreamingSeparatePassSet : BasisCameraPassSet.None);
+    private BasisCameraPassSet StreamingSeparatePassSet
+    {
+        get
+        {
+            BasisCameraPassSet set = BasisCameraPassSet.None;
+            for (int Index = 0; Index < BasisCameraPasses.Count; Index++)
+            {
+                if (!string.IsNullOrEmpty(passOutputFailures[Index])) continue;
+                IBasisVideoOutputSink sink = passSinks[Index];
+                BasisWebVideoOutputSink web = passWebSinks[Index];
+                bool platform = sink != null && sink.FailureMessage == null;
+                bool watched = web != null && web.FailureMessage == null && web.HasClients;
+                if (platform || watched) set |= BasisCameraPasses.Flag((BasisCameraPass)Index);
+            }
+            return set & SeparatePassSet;
+        }
+    }
     public BasisCameraPassSet CapturePassSet => BasisCameraPasses.For(PassOutput) | (SeparatePasses ? SeparatePassSet : BasisCameraPassSet.None);
     public RenderTexture OutputTexture
     {
@@ -144,7 +163,7 @@ public partial class BasisHandHeldCamera
                 if (targets[Index] != null) rebuilt |= BasisCameraPasses.Flag(pass);
                 BasisCameraRenderTargets.Release(ref targets[Index]);
             }
-            else if (EnsurePassTarget(ref targets[Index], data, "BasisCameraPass" + BasisCameraPasses.Suffixes[Index]))
+            else if (EnsurePassTarget(ref targets[Index], data, PassTargetNames[Index]))
             {
                 rebuilt |= BasisCameraPasses.Flag(pass);
             }

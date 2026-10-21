@@ -7,7 +7,7 @@ namespace Basis.IK
         public bool leftElbowTracked, rightElbowTracked, leftShoulderTracked, rightShoulderTracked, leftToeTracked, rightToeTracked;
         public bool leftSimFootRotation, rightSimFootRotation, leftToeBend, rightToeBend, leftElbowRoll, rightElbowRoll, leftKneeRoll, rightKneeRoll;
         public bool leftKneeBendNormal, rightKneeBendNormal;
-        public float deltaTime, leftHandWeight, rightHandWeight, leftShoulderWeight, rightShoulderWeight, leftFootSim, rightFootSim, leftKneeAssist, rightKneeAssist;
+        public float deltaTime, leftHandWeight, rightHandWeight, leftShoulderWeight, rightShoulderWeight, leftFootSim, rightFootSim;
     }
     public struct BasisEerieArmPlan
     {
@@ -16,9 +16,9 @@ namespace Basis.IK
     }
     public struct BasisEerieLegPlan
     {
-        public bool has, solve, tracked, kneeTracked, preserveTip, modelHint, hintRoll, trackerBendNormal, swivel, swivelTracked;
-        public float weight, hintWeight;
-        public BasisEerieSource target, hint;
+        public bool has, solve, tracked, kneeTracked, preserveTip, hintRoll, trackerBendNormal, swivel, swivelTracked;
+        public float weight;
+        public BasisEerieSource target;
     }
     public struct BasisEeriePlan
     {

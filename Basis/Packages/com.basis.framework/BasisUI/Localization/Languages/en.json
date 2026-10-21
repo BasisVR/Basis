@@ -4387,6 +4387,18 @@
       "value": "Mirror Settings"
     },
     {
+      "key": "menu.content.source.world",
+      "value": "Added by the world: {0}"
+    },
+    {
+      "key": "menu.content.source.prop",
+      "value": "Added by the prop: {0}"
+    },
+    {
+      "key": "menu.content.source.avatar",
+      "value": "Added by your avatar: {0}"
+    },
+    {
       "key": "menu.provider.cameraSettings",
       "value": "Camera Settings"
     },
@@ -5467,10 +5479,6 @@
       "value": "Allow grabbing and pulling jiggle physics between you and this player, in both directions. Turning this off immediately releases any grab they have on you. Blocking a player always prevents grabbing."
     },
     {
-      "key": "menu.individualPlayer.enableInteractions",
-      "value": "Enable Interactions"
-    },
-    {
       "key": "menu.individualPlayer.disableInteractions",
       "value": "Disable Interactions"
     },
@@ -5549,10 +5557,6 @@
     {
       "key": "menu.individualPlayer.directConnection.request",
       "value": "Request Direct Connection"
-    },
-    {
-      "key": "menu.individualPlayer.directConnection.cancel",
-      "value": "Cancel Direct Connection"
     },
     {
       "key": "menu.individualPlayer.directConnection.requesting",
@@ -5689,10 +5693,6 @@
     {
       "key": "menu.individualPlayer.chat.description",
       "value": "Control chat message visibility for this player."
-    },
-    {
-      "key": "menu.individualPlayer.showChat",
-      "value": "Show Chat"
     },
     {
       "key": "menu.individualPlayer.hideChat",
@@ -7120,7 +7120,7 @@
     },
     {
       "key": "settings.general.showDeveloperTab.tooltip",
-      "value": "Add the Developer tab to Settings. It holds diagnostics, gizmos, and debug tools that are not needed for normal use."
+      "value": "Show developer options throughout the menu, each in the tab it belongs to. They include diagnostics, gizmos, and debug tools that are not needed for normal use."
     },
     {
       "key": "settings.audio.title",
@@ -7831,10 +7831,6 @@
       "value": "Microphone"
     },
     {
-      "key": "settings.microphone.group.description",
-      "value": "Microphone Related Settings"
-    },
-    {
       "key": "settings.microphone.volume",
       "value": "Microphone Volume"
     },
@@ -7899,10 +7895,6 @@
       "value": "Limiter"
     },
     {
-      "key": "settings.microphone.limiter.description",
-      "value": "Prevents clipping by soft-limiting peaks."
-    },
-    {
       "key": "settings.microphone.limiter.threshold",
       "value": "Limit Threshold"
     },
@@ -7911,28 +7903,12 @@
       "value": "Limit Knee"
     },
     {
-      "key": "settings.microphone.denoiser.title",
-      "value": "Denoiser Tuning"
-    },
-    {
-      "key": "settings.microphone.denoiser.description",
-      "value": "Adjust denoiser blend and makeup gain."
-    },
-    {
       "key": "settings.microphone.denoiser.wet",
       "value": "Denoise Wet"
     },
     {
       "key": "settings.microphone.denoiser.makeup",
       "value": "Denoise Makeup (dB)"
-    },
-    {
-      "key": "settings.microphone.agc.title",
-      "value": "AGC Tuning"
-    },
-    {
-      "key": "settings.microphone.agc.description",
-      "value": "Target loudness and responsiveness (only applies when AGC is enabled)."
     },
     {
       "key": "settings.microphone.agc.targetRms",
@@ -7953,10 +7929,6 @@
     {
       "key": "settings.microphone.noiseGate.title",
       "value": "Noise Gate"
-    },
-    {
-      "key": "settings.microphone.noiseGate.description",
-      "value": "Mutes audio below a threshold to cut background noise."
     },
     {
       "key": "settings.microphone.noiseGate.enable",
@@ -10631,22 +10603,6 @@
       "value": "Disable Animations in FBT"
     },
     {
-      "key": "settings.bodyTracking.butterflyKnees",
-      "value": "Butterfly Knees"
-    },
-    {
-      "key": "settings.bodyTracking.butterflyKnees.tooltip",
-      "value": "With foot trackers (and no knee trackers), tilt your feet outward and pull them in to let your knees fall open — both laying on your back and sitting upright (cross-legged). Default: On"
-    },
-    {
-      "key": "settings.bodyTracking.butterflyKneeMaxOpen.title",
-      "value": "Butterfly Knee Max Open (deg)"
-    },
-    {
-      "key": "settings.bodyTracking.butterflyKneeMaxOpen.title.tooltip",
-      "value": "How far the knees may fall open in the butterfly pose, clamped to the hip's natural range. Default: 60"
-    },
-    {
       "key": "settings.bodyTracking.playspaceMover.title",
       "value": "Playspace Mover"
     },
@@ -10979,14 +10935,6 @@
       "value": "Pre-solve that elevates and protracts shoulders based on hand reach."
     },
     {
-      "key": "settings.bodyTracking.section.spineReach.title",
-      "value": "Spine: Reach Limits"
-    },
-    {
-      "key": "settings.bodyTracking.section.spineReach.description",
-      "value": "Caps on hip-to-head bend, struggle blending, and per-frame chest / hip rotation deltas."
-    },
-    {
       "key": "settings.bodyTracking.section.spineBend.title",
       "value": "Spine: Bend Distribution"
     },
@@ -11093,22 +11041,6 @@
     {
       "key": "settings.bodyTracking.anat.legSwivelSmoothing.description",
       "value": "Damps the leg's roll about the hip-to-foot axis so a still, near-straight standing leg doesn't twist with tracking jitter. Real turning still tracks without lag."
-    },
-    {
-      "key": "settings.bodyTracking.kneeFootPoleHold.title",
-      "value": "Foot-Pole Knee Hold"
-    },
-    {
-      "key": "settings.bodyTracking.kneeFootPoleHold.description",
-      "value": "Extends the knee-swivel freeze to knees aimed by a foot tracker alone. A knee tracker always gets it; this widens it to the guessed pole, which stops a near-straight standing leg rolling with sway at the cost of a slower release out of the pose. Needs Leg Swivel Smoothing on."
-    },
-    {
-      "key": "settings.bodyTracking.kneeFootPoleConditioning.title",
-      "value": "Foot-Pole Knee Low-Pass"
-    },
-    {
-      "key": "settings.bodyTracking.kneeFootPoleConditioning.description",
-      "value": "Runs the knee-swivel low-pass on knees aimed by a foot tracker alone. Quieter near a straight leg, but adds lag to real shin motion. Needs Leg Swivel Smoothing on."
     },
     {
       "key": "settings.bodyTracking.anat.trackerBendNormal.title",
@@ -12163,8 +12095,104 @@
       "value": "Logging & Notifications"
     },
     {
-      "key": "settings.developer.group.packages",
-      "value": "Package Tools"
+      "key": "settings.developer.cilboxProfiler.title",
+      "value": "Cilbox Script Performance"
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.description",
+      "value": "Shows which sandboxed scripts take the most time in Update, Awake, OnBeforeRender and every other callback Cilbox runs. ms/frame and Calls average the last second. Each row is that callback's own time; callbacks it triggers get their own rows."
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.enable",
+      "value": "Profile Cilbox Scripts"
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.enable.tooltip",
+      "value": "Times every Cilbox script callback while on. Leave it on and load a world to capture Awake and Start. Adds a small cost to each callback."
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.sort",
+      "value": "Sort By"
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.sort.tooltip",
+      "value": "Per Frame ranks the last second, Peak the slowest single frame, Total all time since recording started."
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.sort.frame",
+      "value": "Per Frame"
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.sort.peak",
+      "value": "Peak"
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.sort.total",
+      "value": "Total"
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.clear",
+      "value": "Clear"
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.clear.tooltip",
+      "value": "Resets the peak and total columns."
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.off",
+      "value": "Turn on Profile Cilbox Scripts to start recording."
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.empty",
+      "value": "No Cilbox script has run since recording started."
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.summary",
+      "value": "{0:0.00} ms per frame across {1} callbacks in {2} sandboxes"
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.column.script",
+      "value": "Script"
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.column.source",
+      "value": "Source"
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.column.frame",
+      "value": "ms/frame"
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.column.peak",
+      "value": "Peak ms"
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.column.calls",
+      "value": "Calls"
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.column.total",
+      "value": "Total ms"
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.source.world",
+      "value": "World"
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.source.prop",
+      "value": "Prop"
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.source.avatar",
+      "value": "Avatar"
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.more",
+      "value": "{0} more not shown"
+    },
+    {
+      "key": "settings.developer.cilboxProfiler.graph",
+      "value": "Cilbox time per frame over the last {1:0.0} s, one color per script and grey for everything else. Top line: {0} ms."
     },
     {
       "key": "settings.developer.group.trackingDiagnostics",
@@ -14715,6 +14743,10 @@
       "value": "Keep its own save data on this device"
     },
     {
+      "key": "settings.cilboxPermissions.cap.readSaves",
+      "value": "Read save data other content shared on this device"
+    },
+    {
       "key": "settings.cilboxPermissions.cap.serverSaves",
       "value": "Keep save data for you on this server"
     },
@@ -14852,7 +14884,11 @@
     },
     {
       "key": "settings.cilboxPermissions.why.saves",
-      "value": "Can keep up to 1 MB of its own save data on this device and read it back on later visits. It cannot reach any other files. Other content that uses the same save name can also read and change that data."
+      "value": "Can keep up to 1 MB of its own save data on this device and read it back on later visits. It cannot reach any other files. Other content that uses the same save name can also read and change that data. It can also publish data that other content can read but not change."
+    },
+    {
+      "key": "settings.cilboxPermissions.why.readSaves",
+      "value": "Can read save data that other content on this device published as read-only, using that content's ID. It cannot change that data or read anything that content kept private."
     },
     {
       "key": "settings.cilboxPermissions.why.serverSaves",
@@ -15463,14 +15499,6 @@
       "value": "Run locomotion on a worker thread. Keeps movement smooth when the main thread is busy."
     },
     {
-      "key": "settings.bodyTracking.kneeFollowsFoot",
-      "value": "Knees Follow Feet"
-    },
-    {
-      "key": "settings.bodyTracking.kneeFollowsFoot.tooltip",
-      "value": "Aim each knee along its foot's facing instead of straight ahead, so turned feet don't twist the leg."
-    },
-    {
       "key": "settings.bodyTracking.shoulderShrug.title",
       "value": "Shoulder Shrug"
     },
@@ -15517,14 +15545,6 @@
     {
       "key": "library.instantiated.unbindTracker.tooltip",
       "value": "Release this item from its tracker"
-    },
-    {
-      "key": "settings.bodyTracking.kneeFootFollow.title",
-      "value": "Knee Follows Foot (Upright)"
-    },
-    {
-      "key": "settings.bodyTracking.kneeFootFollow.title.tooltip",
-      "value": "How strongly the knee tracks its foot while you are standing upright."
     },
     {
       "key": "settings.bodyTracking.vspineGazeSwingRemoval.title",
@@ -16281,16 +16301,44 @@
       "value": "Set the gate threshold from your measured room noise instead of a fixed number."
     },
     {
-      "key": "settings.microphone.agc.debug",
-      "value": "AGC Status"
+      "key": "settings.microphone.processing.title",
+      "value": "Voice Processing"
     },
     {
-      "key": "settings.microphone.agc.debug.off",
-      "value": "Automatic gain is off."
+      "key": "settings.microphone.denoiser.title",
+      "value": "Denoiser"
     },
     {
-      "key": "settings.microphone.agc.debug.listening",
-      "value": "Listening for your voice..."
+      "key": "settings.microphone.agc.title",
+      "value": "Auto Gain"
+    },
+    {
+      "key": "settings.microphone.scope.sent",
+      "value": "Sent"
+    },
+    {
+      "key": "settings.microphone.scope.muted",
+      "value": "Muted"
+    },
+    {
+      "key": "settings.microphone.scope.notSent",
+      "value": "Not Sent"
+    },
+    {
+      "key": "settings.microphone.scope.cutGate",
+      "value": "Cut by Noise Gate"
+    },
+    {
+      "key": "settings.microphone.scope.cutDenoiser",
+      "value": "Removed by Denoiser"
+    },
+    {
+      "key": "settings.microphone.scope.cutLimiter",
+      "value": "Cut by Limiter"
+    },
+    {
+      "key": "settings.microphone.scope.target",
+      "value": "Auto Gain Target"
     },
     {
       "key": "settings.performanceMode.title",
@@ -16381,16 +16429,8 @@
       "value": "Record this player's voice on your machine. They are asked first and can revoke it at any time."
     },
     {
-      "key": "menu.individualPlayer.voiceRecording.start",
-      "value": "Start Recording"
-    },
-    {
       "key": "menu.individualPlayer.voiceRecording.start.description",
       "value": "Ask this player for permission to record their voice."
-    },
-    {
-      "key": "menu.individualPlayer.voiceRecording.stop",
-      "value": "Stop Recording"
     },
     {
       "key": "menu.individualPlayer.voiceRecording.requesting",
@@ -20170,7 +20210,7 @@
     },
     {
       "key": "library.placement.atAnchor.description",
-      "value": "Lands on the spawn anchor selected under Settings > Developer > Spawn Anchors. Without one it falls back to aiming."
+      "value": "Lands on the spawn anchor selected under Settings > Controls > Spawn Anchors (shown when \"Show Developer Tab\" is on). Without one it falls back to aiming."
     },
     {
       "key": "settings.developer.spawnAnchors.positionX",
@@ -20631,6 +20671,10 @@
     {
       "key": "settings.controls.keyboard.pressKey",
       "value": "Press a key..."
+    },
+    {
+      "key": "settings.controls.keyboard.keyInUse",
+      "value": "({0} is already in use)"
     },
     {
       "key": "ui.bodyRole.centerEye",
@@ -21825,6 +21869,10 @@
       "value": "Allow"
     },
     {
+      "key": "webRequests.prompt.site",
+      "value": "Site"
+    },
+    {
       "key": "externalLinks.prompt.link",
       "value": "Address"
     },
@@ -21843,6 +21891,34 @@
     {
       "key": "externalLinks.unnamed",
       "value": "Unnamed"
+    },
+    {
+      "key": "serverRequests.connect.title",
+      "value": "Switch Server?"
+    },
+    {
+      "key": "serverRequests.connect.body",
+      "value": "\"{0}\" ({1}) wants to move you to the server below. You will leave this server. Only accept if you trust where it goes."
+    },
+    {
+      "key": "serverRequests.connect.accept",
+      "value": "Switch Server"
+    },
+    {
+      "key": "serverRequests.disconnect.title",
+      "value": "Leave Server?"
+    },
+    {
+      "key": "serverRequests.disconnect.body",
+      "value": "\"{0}\" ({1}) wants to disconnect you from this server."
+    },
+    {
+      "key": "serverRequests.disconnect.accept",
+      "value": "Leave Server"
+    },
+    {
+      "key": "serverRequests.prompt.server",
+      "value": "Server"
     },
     {
       "key": "settings.general.externalLinkRequests",

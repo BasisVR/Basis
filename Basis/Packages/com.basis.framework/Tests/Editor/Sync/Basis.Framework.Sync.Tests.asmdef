@@ -12,8 +12,7 @@
         "UnityEngine.TestRunner",
         "BasisSDK",
         "BasisShims",
-        "Cilbox",
-        "BasisSDKEditor"
+        "Cilbox"
     ],
     "includePlatforms": [
         "Editor"

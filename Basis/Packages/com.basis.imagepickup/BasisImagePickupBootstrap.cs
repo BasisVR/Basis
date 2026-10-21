@@ -69,7 +69,7 @@ namespace Basis.ImagePickup
         /// </summary>
         private static void SpawnFromClipboardBitmap(byte[] dib)
         {
-            BasisDibDecodeResult decoded = BasisDibImage.Decode(dib);
+            BasisDibDecodeResult decoded = BasisDibImage.Decode(dib, BasisImagePickupSettings.MaxSourceDimension, BasisImagePickupSettings.MaxSourceTotalPixels);
             if (!decoded.Ok)
             {
                 BasisImagePickupRejectionPopup.Show(DescribeFormat(BasisClipboardImageFormat.Bitmap), decoded.Error);

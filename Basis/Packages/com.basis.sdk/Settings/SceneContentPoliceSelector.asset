@@ -367,6 +367,7 @@ MonoBehaviour:
   - Basis.Media.BasisPrismMediaPlayerNetworked
   - Basis.BasisInteractableShim
   - Basis.BasisNetworkShim
+  - Basis.Shims.BasisNetworkCilboxBehaviour
   - Basis.Scripts.BasisSdk.Interactions.BasisInteractableButton
   - Basis.Shims.BasisInteractableShim
   - Basis.Shims.BasisOsc

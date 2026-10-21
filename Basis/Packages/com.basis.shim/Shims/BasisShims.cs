@@ -51,7 +51,7 @@ namespace Basis
 		// Read-only identity of the content (avatar, prop or scene) the calling script belongs to.
 		// Resolved from the script's own object, so a script can only ask about its own content.
 		// Creator links (Authorship.Contact), the bundle hash, CRC and password stay withheld.
-		static BasisContentBase ContentOf(object self) => self is Component c && BasisContent.TryResolve(c, out BasisContentBase content) ? content : null;
+		static BasisContentBase ContentOf(object self) => self is Component c && BasisContent.TryResolve(c, out BasisContentBase content) && CilboxBasisConsent.TryRunning(out CilboxBasisCommon box) && CilboxBasisConsent.TryOwner(box, box.gameObject, out BasisContentBase owner) && ReferenceEquals(content, owner) ? content : null;
 
 		/// <summary>Stable id shared by every build and version of this content, or "" for content built before group ids existed.</summary>
 		public static string GetContentGroupId(object self) => ContentOf(self)?.BasisBundleDescription?.ContentGroupId ?? string.Empty;

@@ -13,6 +13,7 @@ namespace Cilbox
 		static readonly HashSet<string> extraWhiteListType = new HashSet<string>(){
 			// Avatar-specific Basis shim types
 			"Basis.Shims.BasisNet*", // Restrictive, only used as a type and for events.
+			"Basis.Scripts.Networking.Behaviour.BasisNetworkAvatarBehaviour",
 			"Basis.Shims.BasisAvatarShim",
 			"Basis.Shims.BasisAvatarShim+OnReady",
 			"Basis.Shims.BasisAvatarShim+AvatarReadyEvent",
@@ -46,6 +47,9 @@ namespace Cilbox
 			"Basis.Shims.BasisComputeShim",
 			"Basis.Shims.BasisAudioRoutingShim", // Only routes the avatar's own sources, to the Avatars group.
 			"Basis.Shims.BasisStatsShim",
+			"Basis.Shims.BasisMenuShim",
+			"Basis.Shims.BasisMenuPage",
+			"Basis.Shims.BasisMenuItem",
 
 			// HVR Vixxy
 			"HVR.Vixxy.HVRVixxyMenuItem", // Restrictive, see method whitelist.
@@ -151,6 +155,9 @@ namespace Cilbox
 		{
 			switch (sType)
 			{
+				case "Basis.Scripts.Networking.Behaviour.BasisNetworkAvatarBehaviour":
+					t = typeof(Basis.Shims.BasisNetworkAvatarCilboxBehaviour);
+					return true;
 				case "Basis.Scripts.BasisSdk.BasisAvatar":
 					t = typeof(Basis.Shims.BasisAvatarShim);
 					return true;

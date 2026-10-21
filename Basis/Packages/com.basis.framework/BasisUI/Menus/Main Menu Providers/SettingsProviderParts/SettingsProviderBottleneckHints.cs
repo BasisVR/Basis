@@ -10,6 +10,7 @@ namespace Basis.BasisUI
     {
         private struct Hint
         {
+            public PanelElementDescriptor Page;
             public PanelElementDescriptor Element;
             public BasisPanelTint.Handle Tint;
             public BasisFrameCostSide Side;
@@ -23,7 +24,6 @@ namespace Basis.BasisUI
         private static readonly HashSet<PanelElementDescriptor> Headers = new();
 
         private static Dictionary<string, BasisFrameCostSide> _table;
-        private static PanelElementDescriptor _page;
         private static BasisFrameCostSide _shown = BasisFrameCostSide.None;
 
         public static BasisFrameCostSide SideFor(BasisFrameBottleneckKind kind)
@@ -60,17 +60,16 @@ namespace Basis.BasisUI
 
         public static void Bind(PanelElementDescriptor page)
         {
-            Lit.Clear();
-            _page = null;
             _shown = BasisFrameCostSide.None;
 
             if (page == null)
             {
+                Lit.Clear();
                 Forget();
                 return;
             }
 
-            _page = page;
+            Drop(page);
 
             CollectBoundControls(page.ContentParent);
             CollectSections(page.ContentParent);
@@ -85,6 +84,7 @@ namespace Basis.BasisUI
 
                 Lit.Add(new Hint
                 {
+                    Page = page,
                     Element = element,
                     Tint = BasisPanelTint.Capture(element),
                     Side = Marked[element],
@@ -99,15 +99,35 @@ namespace Basis.BasisUI
 
         public static void Release(PanelElementDescriptor page)
         {
-            if (page != null && !ReferenceEquals(_page, page))
+            if (page == null)
+            {
+                Lit.Clear();
+            }
+            else if (!Drop(page))
             {
                 return;
             }
 
-            Lit.Clear();
             Forget();
-            _page = null;
-            _shown = BasisFrameCostSide.None;
+            if (Lit.Count == 0)
+            {
+                _shown = BasisFrameCostSide.None;
+            }
+        }
+
+        private static bool Drop(PanelElementDescriptor page)
+        {
+            bool dropped = false;
+            for (int index = Lit.Count - 1; index >= 0; index--)
+            {
+                PanelElementDescriptor owner = Lit[index].Page;
+                if (owner == null || ReferenceEquals(owner, page))
+                {
+                    Lit.RemoveAt(index);
+                    dropped = true;
+                }
+            }
+            return dropped;
         }
 
         private static void Forget()

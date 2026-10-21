@@ -149,7 +149,9 @@ namespace Basis.BasisUI
         /// </summary>
         public void ApplyDrivenValue(T value) => ApplyReset(value);
 
-        public override bool CanShareSetting => SupportsResetGesture && (SettingsBinding != null || !string.IsNullOrEmpty(ShareTitleKey) || (Descriptor != null && !string.IsNullOrEmpty(Descriptor.Title)));
+        public bool ExcludeFromShare { get; set; }
+
+        public override bool CanShareSetting => !ExcludeFromShare && SupportsResetGesture && (SettingsBinding != null || !string.IsNullOrEmpty(ShareTitleKey) || (Descriptor != null && !string.IsNullOrEmpty(Descriptor.Title)));
 
         private T SharedValue => SettingsBinding != null ? SettingsBinding.RawValue : Value;
 

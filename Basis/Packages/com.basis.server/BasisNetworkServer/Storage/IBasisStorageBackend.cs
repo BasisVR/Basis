@@ -12,4 +12,21 @@ namespace BasisNetworkServer.Storage
         void Quarantine(string ownerKey);
         void Measure(out long records, out long bytes);
     }
+    public interface IBasisStorageCatalog
+    {
+        bool TryLoad(string ownerKey, out byte[] blob, out long lastUsed);
+        void Touch(string ownerKey, long lastUsed);
+        void List(long usedBefore, Func<BasisStorageRecordInfo, bool> visit);
+        bool TryExpire(string ownerKey, long usedBefore, out long bytes);
+    }
+    public interface IBasisSharedStorageBackend
+    {
+        bool TryReadRevision(string ownerKey, out long revision);
+    }
+    public struct BasisStorageRecordInfo
+    {
+        public string OwnerKey;
+        public long Bytes;
+        public long LastUsed;
+    }
 }

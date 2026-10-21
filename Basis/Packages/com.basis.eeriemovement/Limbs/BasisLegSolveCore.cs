@@ -6,6 +6,8 @@ namespace Basis.IK
         const float epsilon = 1e-5f, sqrEpsilon = 1e-8f, poleColinearSin = 0.5f, restBendAgreeCos = 0.94f;
         public const float MinKneeInteriorDeg = 20f, MaxKneeInteriorDeg = 176f, KneeAnteriorSoftDeg = 85f;
         public const float KneeAnteriorHardDeg = 89.5f, KneeAnteriorTaperStartDeg = 160f, TrackerShinRollMaxDeg = 45f;
+        public const float KneeHintForward = 0.5f;
+        public const float KneeHintFootFlatTrust = 0.3f;
         public static float ClampKneeSwivelDeg(float swivelDeg, float softDeg, float hardDeg)
         {
             float wrapped = swivelDeg - 360f * Mathf.Floor((swivelDeg + 180f) / 360f);
@@ -49,10 +51,31 @@ namespace Basis.IK
             Quaternion rootRot = i.RootRotation, midRot = i.MidRotation;
             Vector3 tPosition = i.TargetPosition;
             Quaternion tRotation = i.TargetRotation * i.TargetOffset;
-            float hintWeight = i.HintWeight;
-            bool hasHint = hintWeight > 0f;
             Vector3 ab = bPosition - aPosition, bc = cPosition - bPosition, ac = cPosition - aPosition;
             float abLen = ab.magnitude, bcLen = bc.magnitude, acLen = ac.magnitude, maxReach = abLen + bcLen;
+
+            // If we don't have a knee hint (active knee tracker) then we make our own and position it accordingly.
+            Vector3 hintPosition = i.HintPosition;
+            float hintWeight = i.HintWeight;
+            if (!i.HintIsTracker && i.HasBodyFrame)
+            {
+                // Push direction is the foot's forward flattened onto the ground, so the knee points the way the foot does.
+                // When the foot points mostly up/down the flattened forward gets unreliable, so blend toward the hips forward.
+                Vector3 flatFoot = Vector3.ProjectOnPlane(i.FootForward, i.Up);
+                float flatLen = flatFoot.magnitude;
+                Vector3 pushDir = i.HipsForward;
+                if (flatLen > epsilon)
+                {
+                    float footTrust = Mathf.Clamp01(flatLen / KneeHintFootFlatTrust);
+                    pushDir = Vector3.Slerp(i.HipsForward, flatFoot / flatLen, footTrust);
+                }
+
+                // Start halfway between the hip and the foot target, then push it out in front of the knee.
+                hintPosition = (aPosition + tPosition) * 0.5f + pushDir * (maxReach * KneeHintForward);
+                hintWeight = 1f;
+            }
+
+            bool hasHint = hintWeight > 0f;
             float oldAbcAngle = BasisIKMath.TriangleAngle(acLen, abLen, bcLen);
             Vector3 atCorrected = tPosition - aPosition;
             float atCorrectedLen = atCorrected.magnitude, minFlexReach = MinFlexionReach(abLen, bcLen);
@@ -75,7 +98,7 @@ namespace Basis.IK
             {
                 if (hasHint)
                 {
-                    bendAxis = Vector3.Cross(i.HintPosition - aPosition, bc);
+                    bendAxis = Vector3.Cross(hintPosition - aPosition, bc);
                     axisSource = 1;
                 }
 
@@ -151,7 +174,7 @@ namespace Basis.IK
                 Vector3 pole = bendPole;
                 if (hasHint)
                 {
-                    Vector3 ah = i.HintPosition - aPosition, ahProj = ah - acNorm * Vector3.Dot(ah, acNorm);
+                    Vector3 ah = hintPosition - aPosition, ahProj = ah - acNorm * Vector3.Dot(ah, acNorm);
                     float ahLen = ah.magnitude;
 
                     if (ahProj.sqrMagnitude > sqrEpsilon)
@@ -168,17 +191,12 @@ namespace Basis.IK
                         pole = Vector3.Slerp(pole.normalized, bendPole.normalized, blend);
                         axisSource = 4;
                     }
-
-                    if (i.HintDistrust > 0f && hasBendPole && pole.sqrMagnitude > sqrEpsilon)
-                    {
-                        pole = Vector3.Slerp(pole.normalized, bendPole.normalized, Mathf.Clamp01(i.HintDistrust));
-                        axisSource = 5;
-                    }
                 }
 
                 pole -= acNorm * Vector3.Dot(pole, acNorm);
 
                 pole = GuardPoleAnterior(pole, anteriorPole, acNorm, hasAnteriorPole, ref axisSource);
+                if (pole.sqrMagnitude > sqrEpsilon) r.PoleDir = pole.normalized;
 
                 float weight = hasHint ? hintWeight : 1f;
 
@@ -215,6 +233,7 @@ namespace Basis.IK
                 }
             }
 
+            r.HintPosition = hintPosition;
             r.MidDelta = deltaR;
             r.RootDelta = rootDelta;
             r.HintDelta = hintR;
@@ -278,91 +297,6 @@ namespace Basis.IK
             float c = Mathf.Cos(MaxKneeInteriorDeg * Mathf.Deg2Rad);
             float d2 = upper * upper + lower * lower - 2f * upper * lower * c;
             return d2 > 0f ? Mathf.Sqrt(d2) : 0f;
-        }
-    }
-    public static class BasisKneeForwardCore
-    {
-        public const float DefaultUprightCoupling = 1.0f, FollowFadeStartDeg = 120f, MaxFollowDeg = 60f;
-        public const float LegUprightFadeStartDot = 0.25f, LegUprightFadeFullDot = 0.55f, RefCondSinFadeStart = 0.15f;
-        public const float RefCondSinFadeFull = 0.35f;
-        const float epsilon = 1e-5f, sqrEpsilon = 1e-10f;
-        public static void Solve(in BasisKneeForwardInput i, out BasisKneeForwardResult r)
-        {
-            r = default;
-
-            Vector3 hipToFoot = i.FootPosition - i.HipPosition;
-            float axisSqr = hipToFoot.sqrMagnitude, radius = i.UpperLength > epsilon ? i.UpperLength : 0.4f;
-            Vector3 mid = (i.HipPosition + i.FootPosition) * 0.5f;
-
-            if (axisSqr < sqrEpsilon)
-            {
-                r.BendDir = i.BodyForwardDir.sqrMagnitude > sqrEpsilon ? i.BodyForwardDir.normalized : Vector3.forward;
-                r.KneeHint = mid + r.BendDir * radius;
-                r.HintWeight = 0f;
-                return;
-            }
-            Vector3 axis = hipToFoot / Mathf.Sqrt(axisSqr);
-            Vector3 up = i.PlayerUp.sqrMagnitude > sqrEpsilon ? i.PlayerUp.normalized : Vector3.up;
-            Vector3 bodyPerp = Vector3.ProjectOnPlane(i.BodyForwardDir, axis);
-            if (bodyPerp.sqrMagnitude < sqrEpsilon)
-            {
-                Vector3 fallback = Vector3.ProjectOnPlane(up, axis);
-                if (fallback.sqrMagnitude < sqrEpsilon)
-                {
-                    fallback = Vector3.Cross(axis, Vector3.right);
-                }
-                if (fallback.sqrMagnitude < sqrEpsilon)
-                {
-                    fallback = Vector3.Cross(axis, Vector3.up);
-                }
-                r.BendDir = fallback.normalized;
-                r.KneeHint = mid + r.BendDir * radius;
-                r.HintWeight = 0f;
-                return;
-            }
-            Vector3 bodyPerpN = bodyPerp.normalized;
-            float fwdMag = i.BodyForwardDir.magnitude;
-            float refConditioning = Smoothstep(RefCondSinFadeStart, RefCondSinFadeFull, fwdMag > epsilon ? Mathf.Sqrt(bodyPerp.sqrMagnitude) / fwdMag : 0f);
-            float legVertical01 = Smoothstep(LegUprightFadeStartDot, LegUprightFadeFullDot, Mathf.Abs(Vector3.Dot(axis, up)));
-            r.Upright01 = legVertical01;
-
-            float strength = BasisIKMath.Saturate(i.Strength);
-            Vector3 footPerp = Vector3.ProjectOnPlane(i.FootForwardDir, axis), bendDir;
-            float followDeg;
-            if (footPerp.sqrMagnitude < sqrEpsilon || legVertical01 <= 0f)
-            {
-                bendDir = bodyPerpN;
-                followDeg = 0f;
-            }
-            else
-            {
-                Vector3 footPerpN = footPerp.normalized;
-                float signedDeg = Vector3.SignedAngle(bodyPerpN, footPerpN, axis);
-                float rawAngle = signedDeg < 0f ? -signedDeg : signedDeg;
-
-                followDeg = Mathf.Min(BasisIKMath.Saturate(i.Coupling) * legVertical01 * refConditioning * rawAngle, MaxFollowDeg);
-
-                if (rawAngle > FollowFadeStartDeg)
-                {
-                    float u = (rawAngle - FollowFadeStartDeg) / (180f - FollowFadeStartDeg);
-                    if (u > 1f) u = 1f;
-                    followDeg *= 1f - u * u * (3f - 2f * u);
-                }
-
-                bendDir = Quaternion.AngleAxis(signedDeg < 0f ? -followDeg : followDeg, axis) * bodyPerpN;
-                bendDir = Vector3.ProjectOnPlane(bendDir, axis);
-                bendDir = bendDir.sqrMagnitude > sqrEpsilon ? bendDir.normalized : bodyPerpN;
-            }
-
-            r.BendDir = bendDir;
-            r.FollowDeg = followDeg;
-            r.KneeHint = mid + bendDir * radius;
-            r.HintWeight = strength * refConditioning;
-        }
-        static float Smoothstep(float a, float b, float v)
-        {
-            float t = Mathf.Approximately(a, b) ? (v >= b ? 1f : 0f) : BasisIKMath.Saturate((v - a) / (b - a));
-            return t * t * (3f - 2f * t);
         }
     }
 }

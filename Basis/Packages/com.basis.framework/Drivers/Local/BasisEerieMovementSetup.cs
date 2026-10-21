@@ -68,8 +68,6 @@ namespace Basis.Scripts.Drivers
 
             job.spineAnatomicalRom = Basis.BasisUI.BasisSettingsDefaults.FBIKSpineAnatomicalRom.RawValue;
             job.legSwivelSmoothing = Basis.BasisUI.BasisSettingsDefaults.FBIKLegSwivelSmoothing.RawValue;
-            job.kneeFootPoleHold = Basis.BasisUI.BasisSettingsDefaults.FBIKKneeFootPoleHold.RawValue;
-            job.kneeFootPoleConditioning = Basis.BasisUI.BasisSettingsDefaults.FBIKKneeFootPoleConditioning.RawValue;
 
             job.slotPositions.Length = BasisEerieMovement.Count;
             job.slotRotations.Length = BasisEerieMovement.Count;

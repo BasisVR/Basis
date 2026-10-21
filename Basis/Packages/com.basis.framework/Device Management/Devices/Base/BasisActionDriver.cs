@@ -51,6 +51,12 @@ public static partial class BasisActionDriver
         }
     }
 
+    public static string BindingsMode { get; private set; }
+
+    public static event Action<string> OnBindingsLoaded;
+
+    private static int s_LoadCount;
+
     /// <summary>
     /// Identifiers for executable input actions.
     /// </summary>
@@ -266,22 +272,138 @@ public static partial class BasisActionDriver
     /// </summary>
     public static async Task LoadBindings()
     {
+        string mode = BasisDeviceManagement.StaticCurrentMode;
+        int load = ++s_LoadCount;
+        BindingsMode = null;
+        ApplyToDriver(mode, default);
+
+        string path = SavePathFor(mode);
+        BindingWrapper? saved = null;
+        if (File.Exists(path))
+        {
+            saved = await ReadWrapperAsync(path);
+            if (load != s_LoadCount)
+            {
+                return;
+            }
+        }
+
+        if (saved.HasValue)
+        {
+            ApplyToDriver(mode, saved.Value);
+            BindingsMode = mode;
+        }
+        else
+        {
+            BindingsMode = mode;
+            await SaveFromDriver();
+        }
+
+        if (load == s_LoadCount)
+        {
+            OnBindingsLoaded?.Invoke(mode);
+        }
+    }
+
+    private static void ApplyToDriver(string mode, BindingWrapper saved)
+    {
         s_ActionToRoles.Clear();
         s_RoleToActions.Clear();
         s_RoleToCompiled.Clear();
 
         s_SuppressRebuild = true;
-        BindDefaults(BasisDeviceManagement.StaticCurrentMode, Bind);
+        ComposeBindings(mode, saved, Bind);
         s_SuppressRebuild = false;
         RebuildAllCompiled();
+    }
 
-        if (File.Exists(SavePath))
+    internal static void ComposeBindings(string mode, BindingWrapper saved, Action<ActionId, BasisBoneTrackedRole> bind)
+    {
+        HashSet<(ActionId, BasisBoneTrackedRole)> unbound = new HashSet<(ActionId, BasisBoneTrackedRole)>();
+        if (saved.unbound != null)
         {
-            await LoadApplyToDriverAsync();
+            for (int Index = 0; Index < saved.unbound.Length; Index++)
+            {
+                if (TryReadRecord(saved.unbound[Index], out ActionId action, out BasisBoneTrackedRole role))
+                {
+                    unbound.Add((action, role));
+                }
+            }
         }
-        else
+
+        BindDefaults(mode, (action, role) =>
         {
-            await SaveFromDriver();
+            if (!unbound.Contains((action, role)))
+            {
+                bind(action, role);
+            }
+        });
+
+        if (saved.records == null)
+        {
+            return;
+        }
+
+        for (int Index = 0; Index < saved.records.Length; Index++)
+        {
+            if (TryReadRecord(saved.records[Index], out ActionId action, out BasisBoneTrackedRole role))
+            {
+                bind(action, role);
+            }
+        }
+    }
+
+    internal static BindingWrapper BuildWrapper(string mode, Dictionary<ActionId, HashSet<BasisBoneTrackedRole>> bindings)
+    {
+        List<BasisBindingRecord> records = new List<BasisBindingRecord>(32);
+        foreach (var pair in bindings)
+        {
+            if (pair.Key < 0 || pair.Key >= ActionId.Count)
+            {
+                continue;
+            }
+            foreach (var role in pair.Value)
+            {
+                records.Add(new BasisBindingRecord { action = pair.Key.ToString(), role = role.ToString() });
+            }
+        }
+
+        List<BasisBindingRecord> unbound = new List<BasisBindingRecord>(4);
+        BindDefaults(mode, (action, role) =>
+        {
+            if (!bindings.TryGetValue(action, out var roles) || !roles.Contains(role))
+            {
+                unbound.Add(new BasisBindingRecord { action = action.ToString(), role = role.ToString() });
+            }
+        });
+
+        return new BindingWrapper { records = records.ToArray(), unbound = unbound.ToArray() };
+    }
+
+    private static bool TryReadRecord(BasisBindingRecord record, out ActionId action, out BasisBoneTrackedRole role)
+    {
+        role = default;
+        return EnumTryParse(record.action, out action)
+            && action >= 0 && action < ActionId.Count
+            && EnumTryParse(record.role, out role)
+            && Enum.IsDefined(typeof(BasisBoneTrackedRole), role);
+    }
+
+    private static async Task<BindingWrapper?> ReadWrapperAsync(string path)
+    {
+        try
+        {
+            string json = await BasisFiles.ReadAllTextAsync(path);
+            if (string.IsNullOrEmpty(json))
+            {
+                return default(BindingWrapper);
+            }
+            return JsonUtility.FromJson<BindingWrapper>(json);
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogError($"Bindings Failed to read/parse bindings file {path}: {ex.Message}", BasisDebug.LogTag.Input);
+            return null;
         }
     }
 
@@ -322,7 +444,7 @@ public static partial class BasisActionDriver
             roles.Add(role);
         }
 
-        if (string.Equals(mode, BasisDeviceManagement.StaticCurrentMode, StringComparison.Ordinal))
+        if (IsLoadedMode(mode))
         {
             foreach (var pair in s_ActionToRoles)
             {
@@ -334,64 +456,57 @@ public static partial class BasisActionDriver
             return map;
         }
 
-        BindDefaults(mode, Add);
-
         string path = SavePathFor(mode);
-        if (!File.Exists(path))
-        {
-            return map;
-        }
-
-        try
-        {
-            string json = await BasisFiles.ReadAllTextAsync(path);
-            if (string.IsNullOrEmpty(json))
-            {
-                return map;
-            }
-
-            BindingWrapper wrapper = JsonUtility.FromJson<BindingWrapper>(json);
-            if (wrapper.records != null)
-            {
-                for (int Index = 0; Index < wrapper.records.Length; Index++)
-                {
-                    var rec = wrapper.records[Index];
-                    if (EnumTryParse(rec.action, out ActionId action) && EnumTryParse(rec.role, out BasisBoneTrackedRole role))
-                    {
-                        Add(action, role);
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            BasisDebug.LogError($"Bindings Failed to read/parse bindings file for {mode}: {ex.Message}", BasisDebug.LogTag.Input);
-        }
-
+        BindingWrapper? saved = File.Exists(path) ? await ReadWrapperAsync(path) : null;
+        ComposeBindings(mode, saved ?? default, Add);
         return map;
     }
 
+    private static bool IsLoadedMode(string mode) => mode != null && string.Equals(mode, BindingsMode, StringComparison.Ordinal);
+
     /// <summary>
-    /// Saves <paramref name="bindings"/> as the bindings file of <paramref name="mode"/>. The live
-    /// driver is not touched, so this is for a mode the player is not in; the current mode is
-    /// edited through <see cref="Bind"/>/<see cref="Unbind"/> and <see cref="SaveFromDriver"/>.
+    /// Saves <paramref name="bindings"/> as the bindings file of <paramref name="mode"/>.
     /// </summary>
     public static async Task WriteBindingsForMode(string mode, Dictionary<ActionId, HashSet<BasisBoneTrackedRole>> bindings)
     {
-        List<BasisBindingRecord> list = new List<BasisBindingRecord>(32);
+        if (!IsLoadedMode(mode))
+        {
+            await WriteWrapperToDisk(BuildWrapper(mode, bindings), SavePathFor(mode));
+            return;
+        }
+
+        List<(ActionId action, BasisBoneTrackedRole role)> removed = new List<(ActionId action, BasisBoneTrackedRole role)>();
+        foreach (var pair in s_ActionToRoles)
+        {
+            foreach (var role in pair.Value)
+            {
+                if (!bindings.TryGetValue(pair.Key, out var roles) || !roles.Contains(role))
+                {
+                    removed.Add((pair.Key, role));
+                }
+            }
+        }
+
+        s_SuppressRebuild = true;
+        for (int Index = 0; Index < removed.Count; Index++)
+        {
+            Unbind(removed[Index].action, removed[Index].role);
+        }
         foreach (var pair in bindings)
         {
-            if (pair.Key == ActionId.Count)
+            if (pair.Key < 0 || pair.Key >= ActionId.Count)
             {
                 continue;
             }
             foreach (var role in pair.Value)
             {
-                list.Add(new BasisBindingRecord { action = pair.Key.ToString(), role = role.ToString() });
+                Bind(pair.Key, role);
             }
         }
+        s_SuppressRebuild = false;
+        RebuildAllCompiled();
 
-        await WriteWrapperToDisk(new BindingWrapper { records = list.ToArray() }, SavePathFor(mode));
+        await SaveFromDriver();
     }
 
     /// <summary>
@@ -787,27 +902,8 @@ public static partial class BasisActionDriver
     /// </summary>
     public static async Task SaveFromDriver()
     {
-        List<BasisBindingRecord> list = new List<BasisBindingRecord>(32);
-
-        foreach (var pair in s_ActionToRoles)
-        {
-            ActionId action = pair.Key;
-
-            if (action != ActionId.Count)
-            {
-                foreach (var role in pair.Value)
-                {
-                    list.Add(new BasisBindingRecord
-                    {
-                        action = action.ToString(),
-                        role = role.ToString()
-                    });
-                }
-            }
-        }
-
-        BindingWrapper wrapper = new BindingWrapper { records = list.ToArray() };
-        await WriteWrapperToDisk(wrapper, SavePath);
+        string mode = BindingsMode ?? BasisDeviceManagement.StaticCurrentMode;
+        await WriteWrapperToDisk(BuildWrapper(mode, s_ActionToRoles), SavePathFor(mode));
     }
 
     /// <summary>
@@ -815,50 +911,28 @@ public static partial class BasisActionDriver
     /// </summary>
     public static async Task LoadApplyToDriverAsync()
     {
-        if (!File.Exists(SavePath))
+        string mode = BindingsMode ?? BasisDeviceManagement.StaticCurrentMode;
+        string path = SavePathFor(mode);
+        if (!File.Exists(path))
         {
             return;
         }
 
-        BindingWrapper wrapper;
-
-        try
+        int load = s_LoadCount;
+        BindingWrapper? saved = await ReadWrapperAsync(path);
+        if (load != s_LoadCount)
         {
-            string json = await BasisFiles.ReadAllTextAsync(SavePath);
-
-            if (string.IsNullOrEmpty(json))
-            {
-                return;
-            }
-
-            wrapper = JsonUtility.FromJson<BindingWrapper>(json);
+            return;
         }
-        catch (Exception ex)
+
+        if (!saved.HasValue)
         {
-            BasisDebug.LogError($"Bindings Failed to read/parse bindings file: {ex.Message}", BasisDebug.LogTag.Input);
             await SaveFromDriver();
             return;
         }
 
-        if (wrapper.records == null || wrapper.records.Length == 0)
-        {
-            return;
-        }
-
-        s_SuppressRebuild = true;
-
-        for (int Index = 0; Index < wrapper.records.Length; Index++)
-        {
-            var rec = wrapper.records[Index];
-
-            if (EnumTryParse(rec.action, out ActionId action) && EnumTryParse(rec.role, out BasisBoneTrackedRole role))
-            {
-                Bind(action, role);
-            }
-        }
-
-        s_SuppressRebuild = false;
-        RebuildAllCompiled();
+        ApplyToDriver(mode, saved.Value);
+        OnBindingsLoaded?.Invoke(mode);
     }
 
     /// <summary>
@@ -942,5 +1016,7 @@ public static partial class BasisActionDriver
         /// Array of (action, role) binding records.
         /// </summary>
         public BasisBindingRecord[] records;
+
+        public BasisBindingRecord[] unbound;
     }
 }

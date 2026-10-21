@@ -26,6 +26,7 @@ namespace Cilbox
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable", // Restrictive (See below), only access field.
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject", // Restrictive (See below), only access field.
 			"Basis.BasisNetworkBehaviour",
+			"Basis.Shims.BasisNetworkCilboxBehaviour",
 			"Basis.BasisNetworkShim*",
 			"BasisNetworkCommon+EventTiming",
 			"Basis.Shims.BasisOsc*",
@@ -51,6 +52,7 @@ namespace Cilbox
 			// nothing here writes a setting.
 			"Basis.Shims.BasisGraphicsSettingsShim",
 			"Basis.Shims.BasisPlatformShim",
+			"Basis.Shims.BasisSaveScope",
 			"BasisPlatformSwitch", // Restrictive, see method whitelist.
 			"BasisPlatformSwitchRule",
 			"Basis.Scripts.Device_Management.BasisPlatformCondition",
@@ -406,9 +408,16 @@ namespace Cilbox
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractStartEvent",
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractEndEvent",
             "BasisNetworkContentBase+BasisContentInformation",
+            // Legacy BasisNetworkShim scripts read these fields from a real native shim component.
+            // Keep the original permissions so already-built content continues to load. Direct
+            // Cilbox inheritance cannot safely read them through "this" because the interpreted
+            // receiver is a CilboxProxy; the editor scanner/build hook rejects that specific case.
             "Basis.BasisNetworkBehaviour.CurrentOwnerId",
 			"Basis.BasisNetworkBehaviour.IsOwnedLocallyOnServer",
 			"Basis.BasisNetworkBehaviour.HasNetworkID",
+            "Basis.Shims.BasisNetworkCilboxBehaviour.CurrentOwnerId",
+			"Basis.Shims.BasisNetworkCilboxBehaviour.IsOwnedLocallyOnServer",
+			"Basis.Shims.BasisNetworkCilboxBehaviour.HasNetworkID",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.playerId",
 			// Quantizer configuration (Precision/Min/Max/RequiredBits/Mask) on the script's
 			// own instance; Compress/Decompress clamp, so a mangled config can't corrupt.
@@ -550,6 +559,10 @@ namespace Cilbox
 				typeof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer).GetProperty(nameof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.displayName)).GetGetMethod().Name,
 				"get_playerId", nameof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.GetAllPlayers),
 				} },
+			{ typeof(Basis.Scripts.Networking.BasisNetworkConnection), new HashSet<string> {
+				$"get_{nameof(Basis.Scripts.Networking.BasisNetworkConnection.LocalPlayerIsConnected)}",
+				nameof(Basis.Scripts.Networking.BasisNetworkConnection.TryGetLocalPlayerID),
+				} },
 			{ typeof(Basis.SafeUtil), new HashSet<string>{
 				".ctor",
 				nameof(Basis.SafeUtil.GetCurrentLanguage),
@@ -589,7 +602,7 @@ namespace Cilbox
 			{ typeof(BasisPositionConstraint), new HashSet<string>() },
 			{ typeof(BasisRotationConstraint), new HashSet<string>() },
 			{ typeof(BasisScaleConstraint), new HashSet<string>() },
-			{ typeof(BasisParentConstraint), new HashSet<string>{ nameof(BasisParentConstraint.CaptureOffsets) } },
+			{ typeof(Basis.Scripts.BasisSdk.Constraints.BasisParentConstraint), new HashSet<string>{ nameof(Basis.Scripts.BasisSdk.Constraints.BasisParentConstraint.CaptureOffsets) } },
 			{ typeof(BasisAimConstraint), new HashSet<string>() },
 			{ typeof(BasisLookAtConstraint), new HashSet<string>() },
 			{ typeof(BasisBlendConstraint), new HashSet<string>() },
@@ -781,12 +794,17 @@ namespace Cilbox
 		internal string consentHash;
 		internal HashSet<string> consentGranted;
 		internal CilboxBasisConsent.Scan consentScan;
+		internal BasisContentBase ownerContent;
+		internal bool ownerRecorded;
 		internal string saveContentKey;
 		internal HashSet<string> saveStores;
+		internal HashSet<string> saveReadStores;
 		internal double saveWindowStart;
 		internal int saveWindowWrites;
 		internal double hapticWindowStart;
 		internal int hapticWindowPulses;
+		internal double menuWindowStart;
+		internal int menuWindowAdds;
 		internal List<(WeakReference<IDisposable> Buffer, long Bytes)> computeBuffers;
 		internal long computeBytes;
 		internal int computeFrame;
@@ -831,6 +849,14 @@ namespace Cilbox
 			"Basis.BasisUI.BasisExternalLinks",
 			"Basis.BasisUI.BasisWebRequests",
 			"Basis.Scripts.BasisSdk.Interactions.BasisUserActivation",
+			"BasisNetworkLifeCycle",
+			"Basis.Scripts.Networking.BasisNetworkManagement",
+			"Basis.Scripts.Networking.BasisConnectionService",
+			"Basis.Scripts.Networking.BasisServerRequests",
+			"Basis.Scripts.Networking.BasisDeepLinkProvider",
+			"Basis.Scripts.Networking.BasisServerStorageClient",
+			"Basis.BasisUI.BasisCilboxPermissions",
+			"Basis.Scripts.Settings.BasisSettingsSystem",
 		};
 
 		public override bool CheckTypeAllowed(Type t)
@@ -863,13 +889,15 @@ namespace Cilbox
 			{
 				if (MatchesWildcard(allowedType, sType)) return true;
 			}
-			return Beyond(CilboxItems.TypePrefix + sType, false);
+			return Beyond(CilboxItems.TypePrefix + sType, sType.StartsWith("Cilbox.", StringComparison.Ordinal));
 		}
 
 		public bool CheckFieldAllowed(string sType, string sFieldName)
 		{
 			if (!CheckTypeAllowed(sType)) return false;
 			string fullField = sType + "." + sFieldName;
+			if (sType == typeof(Basis.Scripts.Networking.BasisNetworkConnection).FullName) return Beyond(CilboxItems.FieldPrefix + fullField, true);
+			if (sType == typeof(Basis.BasisUI.BasisSettingsDefaults).FullName && sFieldName == nameof(Basis.BasisUI.BasisSettingsDefaults.AllowUntrustedScriptPermissions)) return Beyond(CilboxItems.FieldPrefix + fullField, true);
 			if (commonWhiteListFields.Contains(fullField)) return true;
 			if (ExtraWhiteListFields.Contains(fullField)) return true;
 			foreach (var allowedField in commonWhiteListFields)
@@ -886,6 +914,26 @@ namespace Cilbox
 		public override bool CheckMethodAllowed(out MethodInfo mi, Type declaringType, string name, SerializedTypeDescriptor[] parametersIn, SerializedTypeDescriptor[] genericArgumentsIn, string fullSignature)
 		{
 			mi = null;
+			CilboxProfiler.Resolving(this);
+
+			if (declaringType == typeof(Basis.Shims.BasisNetworkCilboxBehaviour))
+			{
+				mi = this is CilboxAvatarBasis
+					? Basis.Shims.BasisCilboxNetworkRedirect.ResolveAvatar(usage, name, parametersIn)
+					: Basis.Shims.BasisCilboxNetworkRedirect.ResolveNormal(usage, name, parametersIn);
+				return mi != null;
+			}
+			if (declaringType == typeof(Basis.Shims.BasisNetworkAvatarCilboxBehaviour))
+			{
+				mi = Basis.Shims.BasisCilboxNetworkRedirect.ResolveAvatar(usage, name, parametersIn);
+				return mi != null;
+			}
+			if (declaringType == typeof(Basis.Scripts.Behaviour.BasisAvatarMonoBehaviour) &&
+				(name == "OnNetworkReady" || name == "OnNetworkMessageServerReductionSystem"))
+			{
+				mi = Basis.Shims.BasisCilboxNetworkRedirect.ResolveAvatar(usage, name, parametersIn);
+				return mi != null;
+			}
 
 			if (fullSignature != null && fullSignature.IndexOf('*') >= 0) return Beyond(MethodItem(declaringType, name), true);
 
@@ -918,9 +966,13 @@ namespace Cilbox
 					   Beyond(MethodItem(declaringType, name), true);
 			}
 
+			if (PublicOnly(declaringType) && (!declaringType.IsVisible || (name != ConstructorInfo.ConstructorName && !IsPublicMethod(declaringType, name, parametersIn, genericArgumentsIn, fullSignature)))) return Beyond(MethodItem(declaringType, name), true);
+
+			if (declaringType == typeof(Basis.Shims.VideoPlayerShim) && (name == nameof(Basis.Shims.VideoPlayerShim.Awake) || name == nameof(Basis.Shims.VideoPlayerShim.OnDestroy))) return Beyond(MethodItem(declaringType, name), true);
+
 			if (declaringType == typeof(Basis.Shims.BasisSaveShim))
 			{
-				if (name != nameof(Basis.Shims.BasisSaveShim.Save) && name != nameof(Basis.Shims.BasisSaveShim.Load) && name != nameof(Basis.Shims.BasisSaveShim.Delete)) return Beyond(MethodItem(declaringType, name), true);
+				if (name != nameof(Basis.Shims.BasisSaveShim.Save) && name != nameof(Basis.Shims.BasisSaveShim.Load) && name != nameof(Basis.Shims.BasisSaveShim.Delete) && name != nameof(Basis.Shims.BasisSaveShim.LoadReadOnly)) return Beyond(MethodItem(declaringType, name), true);
 				Beyond(MethodItem(declaringType, name), false);
 			}
 
@@ -940,6 +992,12 @@ namespace Cilbox
 
 			if (declaringType == typeof(Basis.Shims.BasisHapticsShim) && !CilboxHaptics.IsEntryPoint(name)) return Beyond(MethodItem(declaringType, name), true);
 
+			if (CilboxMenus.Blocks(declaringType, name)) return Beyond(MethodItem(declaringType, name), true);
+
+			if (declaringType == typeof(Basis.Scripts.Networking.BasisNetworkConnection) && !CuratedMethodAllowed(declaringType, name)) return Beyond(MethodItem(declaringType, name), true);
+
+			if (declaringType == typeof(Basis.Shims.BasisConnectionShim) && (this is CilboxAvatarBasis || !CilboxConnection.IsEntryPoint(name))) return Beyond(MethodItem(declaringType, name), true);
+
 			if (CilboxCompute.IsRedirect(declaringType, name))
 			{
 				if (parametersIn == null) return true;
@@ -950,6 +1008,38 @@ namespace Cilbox
 			if (declaringType == typeof(Basis.Shims.BasisComputeShim) && !CilboxCompute.IsEntryPoint(name)) return Beyond(MethodItem(declaringType, name), true);
 
 			return CuratedMethodAllowed(declaringType, name) || Beyond(MethodItem(declaringType, name), false);
+		}
+
+		private static bool PublicOnly(Type type)
+		{
+			for (; type != null; type = type.DeclaringType)
+			{
+				if (type == typeof(Basis.Shims.VideoPlayerShim) || type == typeof(Basis.BasisStringDownloader) || type == typeof(Basis.BasisImageDownloader)) return true;
+			}
+			return false;
+		}
+
+		protected bool IsPublicMethod(Type declaringType, string name, SerializedTypeDescriptor[] parametersIn, SerializedTypeDescriptor[] genericArgumentsIn, string fullSignature)
+		{
+			const BindingFlags publicMembers = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static;
+			if (genericArgumentsIn != null && genericArgumentsIn.Length > 0) return false;
+			try
+			{
+				if (parametersIn == null)
+				{
+					foreach (MethodInfo method in declaringType.GetMethods(publicMembers))
+						if (method.Name == name && (fullSignature == null || method.ToString() == fullSignature)) return true;
+					return false;
+				}
+				Type[] parameters = usage.DescriptorsToArrayOfNativeTypes(parametersIn);
+				for (int i = 0; i < parameters.Length; i++)
+					if (parameters[i] == null) return false;
+				return declaringType.GetMethod(name, 0, publicMembers, null, CallingConventions.Any, parameters, null) != null;
+			}
+			catch (Exception)
+			{
+				return false;
+			}
 		}
 
 		private bool CuratedMethodAllowed(Type declaringType, string name)
@@ -1020,6 +1110,9 @@ namespace Cilbox
 			if (ExtraGetTypeOverride(sType, out t)) return true;
 			switch (sType)
 			{
+				case "Basis.BasisNetworkBehaviour":
+					t = typeof(Basis.Shims.BasisNetworkCilboxBehaviour);
+					return true;
 				case "Basis.Shims.BasisNetworkShim":
 					t = typeof(Basis.BasisNetworkShim);
 					return true;

@@ -15,6 +15,15 @@ public static partial class BasisOpenLipSyncDriver
     [NoAutoStaticsCleanup] private static float _webStatsTimer, _webFramesSeen, _webBusySeen;
     [NoAutoStaticsCleanup] private static readonly float[] _webStats = new float[4];
 
+    public static int InputSampleRate
+    {
+        get
+        {
+            OpenLipSyncBackend backend = _backend;
+            return backend != null ? backend.SampleRate : 0;
+        }
+    }
+
     public static void WebTick(int sampleRate, float deltaTime)
     {
         if (_webStage == 3 && (!_initialized || _backend == null)) _webStage = 0;

@@ -182,6 +182,7 @@ namespace Cilbox
 			{ typeof(Basis.Shims.BasisControllerInputShim), new HashSet<string>() },
 			// Props may ask whether the local player sits; the seat itself is a world object.
 			{ typeof(Basis.Shims.BasisSeatShim), new HashSet<string>{ $"get_{nameof(Basis.Shims.BasisSeatShim.IsSeated)}" } },
+			{ typeof(Basis.Shims.BasisVelocityShim), new HashSet<string>{ $"get_{nameof(Basis.Shims.BasisVelocityShim.Velocity)}" } },
 			// Jiggle grab/touch events, so a prop with jiggle can answer being handled the same way
 			// an avatar or a world object can.
 			{ typeof(Basis.Shims.BasisJiggleEventShim), new HashSet<string>{
@@ -268,13 +269,6 @@ namespace Cilbox
 				"get_queriesHitBackfaces", "get_queriesHitTriggers",
 				"get_sleepThreshold", "get_defaultContactOffset",
 				} },
-			{
-				typeof(Basis.Scripts.Networking.BasisNetworkConnection),
-				new HashSet<string>
-				{
-					"get_LocalPlayerIsConnected",
-				}
-			},
 			{
 				typeof(BasisNetworkContentBase),
 				new HashSet<string>
@@ -393,29 +387,6 @@ namespace Cilbox
 			}
 
 			return base.CheckMethodAllowed(out mi, declaringType, name, parametersIn, genericArgumentsIn, fullSignature);
-		}
-
-		bool IsPublicMethod(Type declaringType, string name, SerializedTypeDescriptor[] parametersIn, SerializedTypeDescriptor[] genericArgumentsIn, string fullSignature)
-		{
-			const BindingFlags publicMembers = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static;
-			if (genericArgumentsIn != null && genericArgumentsIn.Length > 0) return false;
-			try
-			{
-				if (parametersIn == null)
-				{
-					foreach (MethodInfo method in declaringType.GetMethods(publicMembers))
-						if (method.Name == name && (fullSignature == null || method.ToString() == fullSignature)) return true;
-					return false;
-				}
-				Type[] parameters = usage.DescriptorsToArrayOfNativeTypes(parametersIn);
-				for (int i = 0; i < parameters.Length; i++)
-					if (parameters[i] == null) return false;
-				return declaringType.GetMethod(name, 0, publicMembers, null, CallingConventions.Any, parameters, null) != null;
-			}
-			catch (Exception)
-			{
-				return false;
-			}
 		}
 
 		[NoAutoStaticsCleanup] static readonly HashSet<string> mergedWhiteListType = MergeTypes(extraWhiteListType);

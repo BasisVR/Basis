@@ -69,6 +69,9 @@ public sealed partial class BasisCameraDirectToScreenOutput : MonoBehaviour
 
     public int TargetDisplay => screenCamera != null ? screenCamera.targetDisplay : 0;
 
+    public static bool AllowsHDROutput(int display) => AllowsHDROutput(display, Application.isEditor, HDROutputSettings.displays);
+    public static bool AllowsHDROutput(int display, bool editor, HDROutputSettings[] displays) => display <= 0 || editor || (displays != null && display < displays.Length && displays[display] != null && displays[display].available && displays[display].active);
+
     public static BasisCameraDirectToScreenOutput Create(BasisHandHeldCamera owner)
     {
         GameObject go = new GameObject("Direct To Screen Output");
@@ -160,6 +163,7 @@ public sealed partial class BasisCameraDirectToScreenOutput : MonoBehaviour
             screenCamera.targetDisplay = display;
         }
         BasisCameraDirectToScreen.ActivateDisplay(display);
+        if (screenCameraData != null) screenCameraData.allowHDROutput = AllowsHDROutput(display);
         SetBlank(display, false);
         if (!IsPresenting)
         {

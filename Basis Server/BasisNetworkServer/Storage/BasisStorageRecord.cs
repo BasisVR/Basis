@@ -204,6 +204,18 @@ namespace BasisNetworkServer.Storage
             record = parsed;
             return true;
         }
+        public static bool TryReadOwner(byte[] blob, out string owner)
+        {
+            owner = null;
+            if (blob == null || blob.Length < HeaderBytes + 2 + HashBytes || blob.Length > MaxBlobBytes) return false;
+            ReadOnlySpan<byte> span = blob;
+            if (!span.Slice(0, 4).SequenceEqual(Magic) || span[4] != Version) return false;
+            int ownerLength = BinaryPrimitives.ReadUInt16LittleEndian(span.Slice(16));
+            if (ownerLength == 0 || ownerLength > MaxOwnerBytes || HeaderBytes + ownerLength + 2 + HashBytes > blob.Length) return false;
+            try { owner = BasisStorageProtocol.StrictUtf8.GetString(blob, HeaderBytes, ownerLength); }
+            catch (ArgumentException) { return false; }
+            return true;
+        }
         private static int PutName(Span<byte> span, int at, string name)
         {
             int length = BasisStorageProtocol.StrictUtf8.GetBytes(name, span.Slice(at + 1));

@@ -1,6 +1,5 @@
 #if UNITY_EDITOR
 using System;
-using System.IO;
 using Basis.Editor.Localization;
 using UnityEditor;
 using UnityEngine;
@@ -9,23 +8,8 @@ public partial class BasisProjectSetup : EditorWindow
 {
     private void HookLanguageChanged()
     {
-        BasisEditorLocalization.Initialize();
-        // Tables read via AssetDatabase.LoadAssetAtPath, which can serve a stale
-        // TextAsset until Unity reimports the JSON. Force-reimport our language
-        // files so external edits show up the first time the window opens.
-        ForceReimportLanguageFiles();
-        BasisEditorLocalization.ReloadTables();
+        BasisEditorLocalization.ReloadTablesIfChanged();
         BasisEditorLocalization.OnLanguageChanged += OnEditorLanguageChanged;
-    }
-
-    private static void ForceReimportLanguageFiles()
-    {
-        string folder = BasisEditorLocalization.LanguagesFolder;
-        if (!Directory.Exists(folder)) return;
-        foreach (string path in Directory.GetFiles(folder, "*.json"))
-        {
-            AssetDatabase.ImportAsset(path.Replace('\\', '/'), ImportAssetOptions.ForceUpdate);
-        }
     }
 
     private void UnhookLanguageChanged()
@@ -76,7 +60,6 @@ public partial class BasisProjectSetup : EditorWindow
             }
             if (GUILayout.Button("↻", EditorStyles.miniButton, GUILayout.Width(24)))
             {
-                ForceReimportLanguageFiles();
                 BasisEditorLocalization.ReloadTables();
                 Repaint();
             }

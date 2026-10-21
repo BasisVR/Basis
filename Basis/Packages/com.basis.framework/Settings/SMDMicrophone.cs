@@ -22,6 +22,8 @@ public partial class SMDMicrophone : BasisSettingsBase
 
     public enum BasisMicrophoneMode { OnActivation = 0, PushToTalk = 1 }
 
+    public const float NoiseGateThresholdMax = 0.1f;
+
     [Serializable]
     public struct MicSettings
     {
@@ -140,7 +142,7 @@ public partial class SMDMicrophone : BasisSettingsBase
         s.AgcTargetRms = BasisMicrophoneAgc.DefaultTargetRms;
         s.AgcAttack = Mathf.Clamp01(s.AgcAttack);
         s.AgcRelease = Mathf.Clamp01(s.AgcRelease);
-        s.NoiseGateThreshold = Mathf.Clamp(s.NoiseGateThreshold, 0f, 0.5f);
+        s.NoiseGateThreshold = Mathf.Clamp(s.NoiseGateThreshold, 0f, NoiseGateThresholdMax);
         s.NoiseGateAttack = Mathf.Clamp01(s.NoiseGateAttack);
         s.NoiseGateRelease = Mathf.Clamp01(s.NoiseGateRelease);
 

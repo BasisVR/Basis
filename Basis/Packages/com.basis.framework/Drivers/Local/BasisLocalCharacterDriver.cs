@@ -38,6 +38,10 @@ namespace Basis.Scripts.BasisCharacterController
         public bool HasJumpAction = false;
         public float jumpHeight = 1.0f; // Jump height set to 1 meter
         public float currentVerticalSpeed = 0f; // Vertical speed of the character
+        [System.NonSerialized] public Vector3 ExternalVelocity;
+        [SerializeField] public float externalVelocityFriction = 8f;
+        public const float MaxExternalSpeed = 100f;
+        private const float ExternalVelocityRestSq = 0.0025f;
         [System.NonSerialized] public float landingCrouchEffect;
         [System.NonSerialized] public float landingCrouchTarget;
         [SerializeField] public float landingDescentSpeed = 15f;
@@ -77,6 +81,7 @@ namespace Basis.Scripts.BasisCharacterController
             if (CurrentModeKind == mode && CurrentMode != null) return;
             CurrentMode?.Exit(this);
             CurrentModeKind = mode;
+            ExternalVelocity = Vector3.zero;
             CurrentMode = mode switch
             {
                 Mode.Fly => _flyMode,
@@ -101,6 +106,7 @@ namespace Basis.Scripts.BasisCharacterController
         private const float SnapTurnAbsoluteThreshold = 0.8f;
         private bool isSnapTurning;
         public Vector3 CurrentPosition;
+        [System.NonSerialized] public Vector3 MoveStartPosition;
         public Quaternion CurrentRotation;
         public CollisionFlags Flags;
         public float radius;
@@ -120,6 +126,7 @@ namespace Basis.Scripts.BasisCharacterController
         private Vector3 _appliedCenter = new Vector3(float.NaN, float.NaN, float.NaN);
         private float _appliedStepOffset = float.NaN;
         public Vector2 MovementVector { get; private set; }
+        public Vector3 Velocity { get; private set; }
         [field: SerializeField] public float MovementSpeedScale { get; private set; }
         [field: SerializeField] public float MovementSpeedBoost { get; private set; }
         public float CrouchBlend = 1f;
@@ -144,6 +151,12 @@ namespace Basis.Scripts.BasisCharacterController
             set
             {
                 isEnabled = value;
+                ExternalVelocity = Vector3.zero;
+                Velocity = Vector3.zero;
+                if (currentVerticalSpeed > 0f)
+                {
+                    currentVerticalSpeed = 0f;
+                }
                 Validate();
                 CalculateCharacterSize();
                 characterController.enabled = value;
@@ -289,6 +302,7 @@ namespace Basis.Scripts.BasisCharacterController
 
             // Delegate movement, gravity, and ground checking to the active mode.
             BasisLocalPlayerMarkers.MoveMode.Begin();
+            MoveStartPosition = BasisLocalPlayerTransform.GetPosition();
             if (CurrentMode != null)
             {
                 CurrentMode.Tick(this, DeltaTime);
@@ -297,6 +311,10 @@ namespace Basis.Scripts.BasisCharacterController
             {
                 HandleMovement(DeltaTime);
                 GroundCheck(DeltaTime);
+            }
+            if (DeltaTime > 0f)
+            {
+                Velocity = (CurrentPosition - MoveStartPosition) / DeltaTime;
             }
             BasisLocalPlayerMarkers.MoveMode.End();
 
@@ -396,7 +414,7 @@ namespace Basis.Scripts.BasisCharacterController
 
                 if (!LastWasGrounded)
                 {
-                    float fallSpeed = Mathf.Abs(currentVerticalSpeed);
+                    float fallSpeed = Mathf.Max(0f, -currentVerticalSpeed);
                     // Suppress hip dip in FBT to avoid fighting real hip tracker data on landing.
                     // The comment already named the right question -- the code was asking a different one. The dip is
                     // applied to the HIPS (BasisLocalRigDriver subtracts landingCrouchEffect from hipsPos), so only a
@@ -407,7 +425,7 @@ namespace Basis.Scripts.BasisCharacterController
                         landingCrouchTarget = Mathf.Clamp(fallSpeed * landingImpactScale, 0f, maxLandingCrouchEffect) * BasisHeightDriver.AvatarToDefaultRatioScaled;
                     }
                     JustLanded?.Invoke();
-                    currentVerticalSpeed = 0f;
+                    currentVerticalSpeed = Mathf.Max(currentVerticalSpeed, 0f);
                 }
             }
             else
@@ -548,6 +566,63 @@ namespace Basis.Scripts.BasisCharacterController
         public void SetMovementVector(Vector2 movement)
         {
             MovementVector = movement;
+        }
+        public bool HasExternalVelocity => ExternalVelocity.x != 0f || ExternalVelocity.y != 0f || ExternalVelocity.z != 0f;
+        public void SetVelocity(Vector3 velocity)
+        {
+            if (!IsEnabled || !math.all(math.isfinite((float3)velocity)))
+            {
+                return;
+            }
+            velocity = Vector3.ClampMagnitude(velocity, MaxExternalSpeed);
+            if (CurrentModeKind == Mode.Walk)
+            {
+                currentVerticalSpeed = velocity.y;
+                velocity.y = 0f;
+            }
+            ExternalVelocity = velocity;
+        }
+        public void AddVelocity(Vector3 velocity)
+        {
+            Vector3 current = ExternalVelocity;
+            if (CurrentModeKind == Mode.Walk)
+            {
+                current.y = groundedPlayer && currentVerticalSpeed < 0f ? 0f : currentVerticalSpeed;
+            }
+            SetVelocity(current + velocity);
+        }
+        public static Vector3 CombineMotion(Vector3 own, Vector3 external)
+        {
+            float speed = own.magnitude;
+            if (speed <= 0f)
+            {
+                return external;
+            }
+            Vector3 direction = own / speed;
+            return external + direction * Mathf.Max(0f, speed - Mathf.Max(0f, Vector3.Dot(external, direction)));
+        }
+        public void ClipExternalVelocity(Vector3 intended, Vector3 moved, float deltaTime)
+        {
+            Vector3 lost = intended - moved;
+            float length = lost.magnitude;
+            if (length <= 1e-5f || deltaTime <= 0f)
+            {
+                return;
+            }
+            Vector3 normal = lost / length;
+            float into = Vector3.Dot(ExternalVelocity, normal);
+            if (into > 0f)
+            {
+                ExternalVelocity -= normal * Mathf.Min(into, length / deltaTime);
+            }
+        }
+        public void DecayExternalVelocity(float deltaTime)
+        {
+            ExternalVelocity *= Mathf.Exp(-externalVelocityFriction * deltaTime);
+            if (ExternalVelocity.sqrMagnitude < ExternalVelocityRestSq)
+            {
+                ExternalVelocity = Vector3.zero;
+            }
         }
         public static Quaternion GetMovementFacing()
         {

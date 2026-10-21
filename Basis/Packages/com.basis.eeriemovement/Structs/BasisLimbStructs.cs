@@ -15,7 +15,6 @@ public struct BasisFootNativeState
     public quaternion landRot;
     public float3 idealPos, filteredNormal, currentPos;
     public quaternion currentRot;
-    public float3 kneeHint;
     public float toeBendDeg;
     public float3 toeBendAxis;
     public bool wantsStep;
@@ -39,17 +38,17 @@ public struct BasisFootSimInput
     public bool hasChest, groundHit;
     public float3 groundPoint;
     public bool leftGroundValid, rightGroundValid;
-    public float leftGroundUp, rightGroundUp, splayWhenCrouched;
+    public float leftGroundUp, rightGroundUp;
     public float3 playerUp;
 }
 public struct BasisFootSimParams
 {
     public float predictionFactor, velocityBiasFactor, leadOffsetFactor, maxVelocityOffsetFraction;
     public float maxPredictionFraction, plantedLerpSpeed, rotationLerpSpeed, velocitySmoothAccel, velocitySmoothDecel;
-    public float bodyFwdRateMoving, bodyFwdRateStationary, kneeHintLerpSpeed, maxFootTiltDegrees, maxFootYawDegrees;
+    public float bodyFwdRateMoving, bodyFwdRateStationary, maxFootTiltDegrees, maxFootYawDegrees;
     public float stepArcLiftExp, stepArcDropExp, stepHeightMinFraction, stepHeightStrideRefFraction, idleSpeedThreshold;
     public float idleBoostFraction, maxPlantedYawDegrees, idealSideEnforceFraction, stepTargetSideFraction;
-    public float footSideEnforceFraction, maxVerticalDriftFraction, kneeForwardPushFraction, kneeMinSideFraction;
+    public float footSideEnforceFraction, maxVerticalDriftFraction;
     public float bodyFwdHipsWeight, bodyFwdChestWeight, bodyFwdHeadWeight, hipBobFraction;
     public quaternion footAlignLeft, footAlignRight;
     public float stanceWidth, hipToFoot, leftLegLen, rightLegLen, leftThighLen, leftShinLen, rightThighLen;
@@ -98,14 +97,18 @@ namespace Basis.IK
         public Vector3 TargetPosition;
         public Quaternion TargetRotation;
         public Vector3 HintPosition;
-        public float HintWeight, HintDistrust;
+        public float HintWeight;
         public Quaternion TargetOffset;
         public Vector3 BendNormal, AnteriorNormal;
         public Quaternion HintRotation;
         public bool HintIsTracker, HasHintRotation;
+        public Vector3 FootForward, Up, HipsForward;
+        public bool HasBodyFrame;
     }
     public struct BasisLegSolveResult
     {
+        public Vector3 HintPosition;
+        public Vector3 PoleDir;
         public Quaternion MidDelta, RootDelta, HintDelta, MidPostRoll, TipRotation;
         public bool HintApplied;
         public float ShinRollDeg;
@@ -115,22 +118,12 @@ namespace Basis.IK
         public byte AxisSource;
         public float FootError;
     }
-    public struct BasisKneeForwardInput
-    {
-        public Vector3 HipPosition, FootPosition, FootForwardDir, BodyForwardDir, PlayerUp;
-        public float UpperLength, Coupling, Strength;
-    }
-    public struct BasisKneeForwardResult
-    {
-        public Vector3 KneeHint, BendDir;
-        public float HintWeight, Upright01, FollowDeg;
-    }
     public struct BasisLegDiagnostics
     {
-        public float ReachRatio, KneeAngleDeg, AxisSource, HintApplied, ModelHintUsed, ModelConfidence, HintDistrust;
+        public float ReachRatio, KneeAngleDeg, AxisSource, HintApplied;
         public float RawSwivelDeg, SmoothSwivelDeg, Conditioning, HoldGate, AnteriorGuardApplied, Seeded, ShinRollDeg;
         public float HipFlexionDeg, HipAbductionDeg, FemurTwistDeg;
-        public static string Header => "leg,reach,kneeDeg,axisSrc,hintApplied,modelUsed,modelConf,distrust,rawSwivel,smoothSwivel,cond,holdGate,antGuard,seeded,shinRoll,hipFlex,hipAbd,femurTwist";
-        public string ToRow(string leg) => $"{leg},{ReachRatio:F4},{KneeAngleDeg:F2},{AxisSource:F0},{HintApplied:F0},{ModelHintUsed:F0}," + $"{ModelConfidence:F3},{HintDistrust:F3},{RawSwivelDeg:F2},{SmoothSwivelDeg:F2}," + $"{Conditioning:F4},{HoldGate:F3},{AnteriorGuardApplied:F0},{Seeded:F0},{ShinRollDeg:F2}," + $"{HipFlexionDeg:F2},{HipAbductionDeg:F2},{FemurTwistDeg:F2}";
+        public static string Header => "leg,reach,kneeDeg,axisSrc,hintApplied,rawSwivel,smoothSwivel,cond,holdGate,antGuard,seeded,shinRoll,hipFlex,hipAbd,femurTwist";
+        public string ToRow(string leg) => $"{leg},{ReachRatio:F4},{KneeAngleDeg:F2},{AxisSource:F0},{HintApplied:F0}," + $"{RawSwivelDeg:F2},{SmoothSwivelDeg:F2}," + $"{Conditioning:F4},{HoldGate:F3},{AnteriorGuardApplied:F0},{Seeded:F0},{ShinRollDeg:F2}," + $"{HipFlexionDeg:F2},{HipAbductionDeg:F2},{FemurTwistDeg:F2}";
     }
 }

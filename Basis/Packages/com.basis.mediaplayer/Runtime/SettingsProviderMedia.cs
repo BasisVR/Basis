@@ -9,13 +9,15 @@ using UnityEngine;
 /// </summary>
 public static class SettingsProviderMedia
 {
+    const string TitleKey = "settings.media.title";
+
     [RuntimeInitializeOnLoadMethod]
     static void Register()
     {
         // Detach first: with domain reload disabled in the editor these statics survive
         // into the next play session, and a second Add would draw the section twice.
-        SettingsProvider.DeveloperSectionBuilders.Remove(BuildSection);
-        SettingsProvider.DeveloperSectionBuilders.Add(BuildSection);
+        SettingsProvider.DeveloperSectionBuilders.Remove((TitleKey, BuildSection));
+        SettingsProvider.DeveloperSectionBuilders.Add((TitleKey, BuildSection));
         SettingsProvider.DeveloperResetActions.Remove(ResetDefaults);
         SettingsProvider.DeveloperResetActions.Add(ResetDefaults);
         BasisMediaSettings.EnsureLoaded();
@@ -26,7 +28,6 @@ public static class SettingsProviderMedia
         PanelElementDescriptor group =
             PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
         group.SetBackgroundVisible(false);
-        group.SetTitle(BasisLocalization.Get("settings.media.title"));
         group.SetDescription(BasisLocalization.Get("settings.media.description"));
 
         PanelDropdown decode = PanelDropdown.CreateNewEntry(group.ContentParent);

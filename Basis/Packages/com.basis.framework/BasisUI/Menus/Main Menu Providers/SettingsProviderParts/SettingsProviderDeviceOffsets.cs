@@ -269,6 +269,7 @@ namespace Basis.BasisUI
             slider.SetSliderSettings(PanelSlider.SliderSettings.Advanced(BasisLocalization.Get(titleKey), min, max, false, decimals, mode));
             slider.Descriptor.SetTooltip(BasisLocalization.Get(tooltipKey));
             slider.SetResetDefault(0f);
+            slider.ExcludeFromShare = true;
             slider.SetValueWithoutNotify(0f);
             return slider;
         }

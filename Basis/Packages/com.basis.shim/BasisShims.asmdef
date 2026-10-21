@@ -4,7 +4,6 @@
     "references": [
         "Unity.Mathematics",
         "BasisNetworkCore",
-        "BasisNetworkServer",
         "BasisDebug",
         "Cilbox",
         "BasisEventDriver",
@@ -17,7 +16,8 @@
         "BasisEditor",
         "HVR.Basis.Comms",
         "BasisExamples",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

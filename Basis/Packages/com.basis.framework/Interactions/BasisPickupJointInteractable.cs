@@ -32,6 +32,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         private const float separationGraceSeconds = 0.2f;
         public static System.Action<double> OnFixedSimulate;
         private static readonly List<BasisPickupJointInteractable> held = new List<BasisPickupJointInteractable>();
+        private static readonly List<BasisPickupJointInteractable> restoring = new List<BasisPickupJointInteractable>();
         private readonly List<Collider> ignoredColliders = new List<Collider>();
         private Rigidbody anchorBody;
         private ConfigurableJoint holdJoint;
@@ -426,6 +427,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         private void IgnorePlayerCollisions()
         {
+            RestoreAllPlayerCollisions();
             BasisLocalPlayer player = BasisLocalPlayer.Instance;
             CharacterController controller = player != null ? player.LocalCharacterDriver.characterController : null;
             if (controller == null || !controller.enabled || !controller.gameObject.activeInHierarchy)
@@ -449,21 +451,88 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         private void RestorePlayerCollisions()
         {
+            if (TryRestorePlayerCollisions() || restoring.Contains(this))
+            {
+                return;
+            }
+            restoring.Add(this);
+            if (restoring.Count == 1)
+            {
+                OnFixedSimulate += RestorePending;
+            }
+        }
+
+        private bool TryRestorePlayerCollisions()
+        {
+            CharacterController controller = ignoredController;
+            if (controller == null)
+            {
+                ignoredController = null;
+                ignoredColliders.Clear();
+                return true;
+            }
+            if (controller.enabled && controller.gameObject.activeInHierarchy)
+            {
+                Bounds playerBounds = controller.bounds;
+                for (int index = ignoredColliders.Count - 1; index >= 0; index--)
+                {
+                    Collider collider = ignoredColliders[index];
+                    if (collider == null)
+                    {
+                        ignoredColliders.RemoveAt(index);
+                        continue;
+                    }
+                    if (!collider.enabled || !collider.gameObject.activeInHierarchy || collider.bounds.Intersects(playerBounds))
+                    {
+                        continue;
+                    }
+                    Physics.IgnoreCollision(collider, controller, false);
+                    ignoredColliders.RemoveAt(index);
+                }
+            }
+            if (ignoredColliders.Count > 0)
+            {
+                return false;
+            }
+            ignoredController = null;
+            return true;
+        }
+
+        private void RestoreAllPlayerCollisions()
+        {
+            if (restoring.Remove(this) && restoring.Count == 0)
+            {
+                OnFixedSimulate -= RestorePending;
+            }
             CharacterController controller = ignoredController;
             ignoredController = null;
             if (controller != null && controller.enabled && controller.gameObject.activeInHierarchy)
             {
-                Bounds playerBounds = controller.bounds;
                 for (int index = 0; index < ignoredColliders.Count; index++)
                 {
                     Collider collider = ignoredColliders[index];
-                    if (collider != null && collider.enabled && collider.gameObject.activeInHierarchy && !collider.bounds.Intersects(playerBounds))
+                    if (collider != null && collider.enabled && collider.gameObject.activeInHierarchy)
                     {
                         Physics.IgnoreCollision(collider, controller, false);
                     }
                 }
             }
             ignoredColliders.Clear();
+        }
+
+        private static void RestorePending(double time)
+        {
+            for (int index = restoring.Count - 1; index >= 0; index--)
+            {
+                if (restoring[index].TryRestorePlayerCollisions())
+                {
+                    restoring.RemoveAt(index);
+                }
+            }
+            if (restoring.Count == 0)
+            {
+                OnFixedSimulate -= RestorePending;
+            }
         }
     }
 }

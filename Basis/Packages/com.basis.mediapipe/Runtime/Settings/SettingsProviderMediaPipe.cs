@@ -20,6 +20,47 @@ namespace Basis.MediaPipe
         private static void Register()
         {
             SettingsProvider.TrackerSettingsExtraBuilder = BuildSection;
+            SettingsProvider.AddPageResetAction(SettingsProviderTrackerSettings.TabKey, ResetDefaults);
+        }
+
+        private static void ResetDefaults()
+        {
+            bool wasEnabled = BasisMediaPipeSettings.Enable.RawValue;
+            BasisMediaPipeSettings.Enable.ResetToDefault();
+            BasisMediaPipeSettings.EnableFace.ResetToDefault();
+            BasisMediaPipeSettings.EnableHands.ResetToDefault();
+            BasisMediaPipeSettings.EnableHeadRotation.ResetToDefault();
+            BasisMediaPipeSettings.EnableHeadPosition.ResetToDefault();
+            BasisMediaPipeSettings.EnableHandTracking.ResetToDefault();
+            BasisMediaPipeSettings.EnableBody.ResetToDefault();
+            BasisMediaPipeSettings.ShowPreview.ResetToDefault();
+            BasisMediaPipeSettings.ResolutionWidth.ResetToDefault();
+            BasisMediaPipeSettings.ResolutionHeight.ResetToDefault();
+            BasisMediaPipeSettings.CameraFps.ResetToDefault();
+            BasisMediaPipeSettings.CameraFpsAuto.ResetToDefault();
+            BasisMediaPipeSettings.LowLightBoost.ResetToDefault();
+            BasisMediaPipeSettings.Mirror.ResetToDefault();
+            BasisMediaPipeSettings.RejectGlitches.ResetToDefault();
+            BasisMediaPipeSettings.PoseModel.ResetToDefault();
+            BasisMediaPipeSettings.HeadRotationStrength.ResetToDefault();
+            BasisMediaPipeSettings.HeadPositionStrength.ResetToDefault();
+            BasisMediaPipeSettings.HeadHeight.ResetToDefault();
+            BasisMediaPipeSettings.InvertHeadYaw.ResetToDefault();
+            BasisMediaPipeSettings.InvertHeadPitch.ResetToDefault();
+            BasisMediaPipeSettings.InvertHeadRoll.ResetToDefault();
+            BasisMediaPipeSettings.GazeStrength.ResetToDefault();
+            BasisMediaPipeSettings.InvertBlink.ResetToDefault();
+            BasisMediaPipeSettings.EnableTongue.ResetToDefault();
+            BasisMediaPipeSettings.TongueStrength.ResetToDefault();
+            BasisMediaPipeSettings.EnableArmElbowPole.ResetToDefault();
+            BasisMediaPipeSettings.HandRotation.ResetToDefault();
+            BasisMediaPipeSettings.ArmHeadAnchor.ResetToDefault();
+            BasisMediaPipeSettings.ChestMotion.ResetToDefault();
+
+            BasisMediaPipeManagement manager = BasisMediaPipeManagement.Instance;
+            if (manager == null) return;
+            if (wasEnabled != BasisMediaPipeSettings.Enable.RawValue) manager.SetEnabled(BasisMediaPipeSettings.Enable.RawValue);
+            manager.ApplySettings();
         }
 
         private static void BuildSection(RectTransform parent)

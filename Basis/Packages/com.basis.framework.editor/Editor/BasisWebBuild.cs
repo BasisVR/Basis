@@ -37,7 +37,10 @@ public static class BasisWebBuild
     {
         string buildPath = GetArgument("customBuildPath");
         if (string.IsNullOrWhiteSpace(buildPath)) throw new BuildFailedException("Required command line argument '-customBuildPath' was not provided.");
+        string version = GetArgument("buildVersion");
+        if (!string.IsNullOrWhiteSpace(version) && version != "none") PlayerSettings.bundleVersion = version;
         Build(buildPath, Array.IndexOf(Environment.GetCommandLineArgs(), "-webStackTraces") >= 0);
+        Console.WriteLine("Build succeeded!");
     }
 
     public static void CheckWebScripts()

@@ -33,9 +33,9 @@
         "BasisGlobalIllumination",
         "OpusSharp",
         "Basis.OpenLipSync.Runtime",
-        "Klak.Spout.Runtime",
-        "Klak.Syphon.Runtime",
         "Basis.Eerie.Movement",
+        "Basis.Constraints",
+        "Basis.AuthoredMotion",
         "Unity.UnifiedRayTracing.Runtime",
         "Basis.RTAO"
     ],
@@ -60,21 +60,6 @@
             "name": "com.basis.openxr",
             "expression": "",
             "define": "BASIS_HAS_OPENXR"
-        },
-        {
-            "name": "com.basis.mediapipe",
-            "expression": "",
-            "define": "BASIS_HAS_MEDIAPIPE"
-        },
-        {
-            "name": "jp.keijiro.klak.spout",
-            "expression": "",
-            "define": "BASIS_HAS_SPOUT"
-        },
-        {
-            "name": "jp.keijiro.klak.syphon",
-            "expression": "",
-            "define": "BASIS_HAS_SYPHON"
         },
         {
             "name": "com.basis.globalillumination",

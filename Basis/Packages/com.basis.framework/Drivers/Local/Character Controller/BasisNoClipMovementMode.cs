@@ -71,6 +71,12 @@ namespace Basis.Scripts.BasisCharacterController
 
             if (ctx.MovementLock) move = Vector3.zero;
 
+            if (ctx.HasExternalVelocity)
+            {
+                move = BasisLocalCharacterDriver.CombineMotion(move, ctx.ExternalVelocity * dt);
+                ctx.DecayExternalVelocity(dt);
+            }
+
             // Ghost move: translate transform directly
             Vector3 ghostPosition = ctx.BasisLocalPlayerTransform.GetPosition() + move;
             ctx.BasisLocalPlayerTransform.SetPosition(ghostPosition);

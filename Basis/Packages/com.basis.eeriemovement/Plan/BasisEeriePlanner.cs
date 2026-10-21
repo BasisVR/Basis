@@ -117,7 +117,6 @@ namespace Basis.IK
             job.offsetRotationLeftHand = Unit(job.offsetRotationLeftHand);
             job.offsetRotationRightHand = Unit(job.offsetRotationRightHand);
         }
-        public static bool KneeAssistWanted(in BasisEerieFrameFacts facts, bool isLeft) => isLeft ? facts.leftFootTracked && !facts.leftKneeTracked : facts.rightFootTracked && !facts.rightKneeTracked;
         static BasisEerieShoulderMode Shoulder(bool has, bool solve, bool tracked) => !has ? BasisEerieShoulderMode.None : tracked ? BasisEerieShoulderMode.Tracker : solve ? BasisEerieShoulderMode.Solve : BasisEerieShoulderMode.None;
         static void Arm(ref BasisEerieArmPlan arm, ref BasisEerieMovement job, float weight, bool elbowTracked, bool roll)
         {
@@ -134,7 +133,7 @@ namespace Basis.IK
             bool tracked = isLeft ? facts.leftLegTracked : facts.rightLegTracked, kneeTracked = isLeft ? facts.leftKneeTracked : facts.rightKneeTracked;
             bool simRotation = isLeft ? facts.leftSimFootRotation : facts.rightSimFootRotation, roll = isLeft ? facts.leftKneeRoll : facts.rightKneeRoll;
             bool bendNormal = isLeft ? facts.leftKneeBendNormal : facts.rightKneeBendNormal;
-            float sim = isLeft ? facts.leftFootSim : facts.rightFootSim, assist = isLeft ? facts.leftKneeAssist : facts.rightKneeAssist;
+            float sim = isLeft ? facts.leftFootSim : facts.rightFootSim;
             bool simActive = facts.footSimReady && sim > 0.001f;
             leg.tracked = tracked;
             leg.kneeTracked = kneeTracked;
@@ -142,9 +141,6 @@ namespace Basis.IK
             leg.weight = tracked ? 1f : simActive ? sim : 0f;
             leg.solve = leg.weight > 0f && leg.has;
             leg.preserveTip = leg.target == BasisEerieSource.Sim && !simRotation;
-            leg.hint = kneeTracked ? BasisEerieSource.Tracker : simActive ? BasisEerieSource.Sim : assist > 0f ? BasisEerieSource.Assist : BasisEerieSource.None;
-            leg.hintWeight = kneeTracked ? 1f : simActive ? sim : assist > 0f ? assist : 0f;
-            leg.modelHint = job.plan.hasLegFrame && (leg.hint == BasisEerieSource.None || leg.hint == BasisEerieSource.Sim);
             leg.hintRoll = kneeTracked && roll;
             leg.trackerBendNormal = facts.trackerBendNormal && kneeTracked && bendNormal;
             leg.swivel = job.legSwivelSmoothing && job.plan.hasLegState && job.plan.hasHips;

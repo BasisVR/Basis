@@ -11,11 +11,13 @@ namespace Basis.Developer.Recorder
     /// </summary>
     public static class SettingsProviderRecorder
     {
+        private const string TitleKey = "settings.developer.recorder.title";
+
         [RuntimeInitializeOnLoadMethod]
         private static void Register()
         {
-            SettingsProvider.DeveloperSectionBuilders.Remove(BuildSection);
-            SettingsProvider.DeveloperSectionBuilders.Add(BuildSection);
+            SettingsProvider.DeveloperSectionBuilders.Remove((TitleKey, BuildSection));
+            SettingsProvider.DeveloperSectionBuilders.Add((TitleKey, BuildSection));
             SettingsProvider.DeveloperResetActions.Remove(ResetDefaults);
             SettingsProvider.DeveloperResetActions.Add(ResetDefaults);
             BasisRecorderSettings.EnsureLoaded();
@@ -26,7 +28,7 @@ namespace Basis.Developer.Recorder
             PanelElementDescriptor recorderGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             recorderGroup.SetBackgroundVisible(false);
-            recorderGroup.SetTitle(BasisLocalization.Get("settings.developer.recorder.title"));
+            if (recorderGroup.Header != null) recorderGroup.Header.gameObject.SetActive(false);
 
             PanelTextField recorderCountdownField = PanelTextField.CreateNewEntry(recorderGroup.ContentParent);
             recorderCountdownField.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.recorder.countdown"));

@@ -2958,18 +2958,18 @@ namespace Basis.BasisUI.HandHeldCamera
             tagging.AssignLocalizedEntries(
                 new List<string>
                 {
-                    BasisSettingsDefaults.PhotoTagging_NoOne,
-                    BasisSettingsDefaults.PhotoTagging_EveryoneInPhoto,
-                    BasisSettingsDefaults.PhotoTagging_JustMe,
+                    BasisPhotoMetadataSettings.PhotoTagging_NoOne,
+                    BasisPhotoMetadataSettings.PhotoTagging_EveryoneInPhoto,
+                    BasisPhotoMetadataSettings.PhotoTagging_JustMe,
                 },
                 new List<string>(PhotoTaggingKeys));
-            tagging.AssignBinding(BasisSettingsDefaults.PhotoMetadataTagging);
+            tagging.AssignBinding(BasisPhotoMetadataSettings.PhotoMetadataTagging);
 
-            AddPhotoMetadataToggle(content, "settings.chat.camera.personDetails", BasisSettingsDefaults.PhotoEmbedPersonDetails);
-            AddPhotoMetadataToggle(content, "settings.chat.camera.cameraSettings", BasisSettingsDefaults.PhotoEmbedCameraSettings);
-            AddPhotoMetadataToggle(content, "settings.chat.camera.captureInfo", BasisSettingsDefaults.PhotoEmbedCaptureInfo);
-            AddPhotoMetadataToggle(content, "settings.chat.camera.photographer", BasisSettingsDefaults.PhotoEmbedPhotographer);
-            AddPhotoMetadataToggle(content, "settings.chat.camera.world", BasisSettingsDefaults.PhotoEmbedWorld);
+            AddPhotoMetadataToggle(content, "settings.chat.camera.personDetails", BasisPhotoMetadataSettings.PhotoEmbedPersonDetails);
+            AddPhotoMetadataToggle(content, "settings.chat.camera.cameraSettings", BasisPhotoMetadataSettings.PhotoEmbedCameraSettings);
+            AddPhotoMetadataToggle(content, "settings.chat.camera.captureInfo", BasisPhotoMetadataSettings.PhotoEmbedCaptureInfo);
+            AddPhotoMetadataToggle(content, "settings.chat.camera.photographer", BasisPhotoMetadataSettings.PhotoEmbedPhotographer);
+            AddPhotoMetadataToggle(content, "settings.chat.camera.world", BasisPhotoMetadataSettings.PhotoEmbedWorld);
         }
 
         private static void AddPhotoMetadataToggle(RectTransform content, string key, BasisSettingsBinding<bool> binding)

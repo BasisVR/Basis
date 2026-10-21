@@ -5,7 +5,7 @@ using Basis.Scripts.Settings;
 namespace Basis.BasisUI
 {
     /// <summary>
-    /// Settings tab for remote nameplate appearance.
+    /// Settings section for remote nameplate appearance.
     /// Exposes an enable toggle plus size and transparency controls.
     /// </summary>
     public static class SettingsProviderNamePlate
@@ -37,7 +37,7 @@ namespace Basis.BasisUI
         /// <summary>
         /// Builds the nameplate group + controls into <paramref name="container"/>
         /// without adding a reset button. Used by the standalone tab and by the
-        /// merged Chat tab so both share one source of truth.
+        /// Chat &amp; UI tab so both share one source of truth.
         /// </summary>
         public static void BuildNamePlateContent(RectTransform container, PanelElementDescriptor tabDescriptor = null)
         {

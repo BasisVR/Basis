@@ -466,7 +466,14 @@ namespace Basis.Scripts.BasisSdk.Players
         {
 #if !BASIS_DISABLE_MICROPHONE
             LocalVisemeDriver.VoiceRms = BasisVoiceLevel.LocalVoiceRms;
-            LocalVisemeDriver.ProcessAudioSamples(BasisLocalMicrophoneDriver.processBufferArray,1,BasisLocalMicrophoneDriver.processBufferArray.Length);
+#if UNITY_WEBGL && !UNITY_EDITOR
+            float[] frame = BasisLocalMicrophoneDriver.WebLipSyncAudio(out int count);
+#else
+            float[] frame = BasisLocalMicrophoneDriver.processBufferArray;
+            int count = frame != null ? Math.Min(BasisLocalMicrophoneDriver.ProcessFrameSize, frame.Length) : 0;
+#endif
+            if (frame == null || count <= 0) return;
+            LocalVisemeDriver.ProcessAudioSamples(frame,1,count);
 #endif
         }
 
@@ -474,7 +481,13 @@ namespace Basis.Scripts.BasisSdk.Players
         {
 #if !BASIS_DISABLE_MICROPHONE
             LocalVisemeDriver.VoiceRms = BasisVoiceLevel.LocalVoiceRms;
-            LocalVisemeDriver.ProcessSilence(BasisLocalMicrophoneDriver.processBufferArray.Length);
+#if UNITY_WEBGL && !UNITY_EDITOR
+            int count = BasisLocalMicrophoneDriver.WebLipSyncSilence();
+#else
+            float[] frame = BasisLocalMicrophoneDriver.processBufferArray;
+            int count = frame != null ? Math.Min(BasisLocalMicrophoneDriver.ProcessFrameSize, frame.Length) : 0;
+#endif
+            if (count > 0) LocalVisemeDriver.ProcessSilence(count);
 #endif
         }
 

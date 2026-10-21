@@ -570,7 +570,7 @@ public class BasisStorageServiceTests
     [Fact]
     public void ServerCap_StopsGrowthForEveryone()
     {
-        using BasisStorageService service = Memory(maxTotal: 300);
+        using BasisStorageService service = Memory(maxTotal: 2 * BasisStorageService.RecordOverheadBytes + 300);
         Assert.Equal(BasisStorageStatus.Ok, StorageTestSupport.Run(service, "did:key:first", StorageTestSupport.Set("w", "a", StorageTestSupport.Bytes(100))).Status);
         Assert.Equal(BasisStorageStatus.Full, StorageTestSupport.Run(service, "did:key:second", StorageTestSupport.Set("w", "a", StorageTestSupport.Bytes(200))).Status);
         Assert.Equal(BasisStorageStatus.Ok, StorageTestSupport.Run(service, "did:key:first", StorageTestSupport.Set("w", "a", StorageTestSupport.Bytes(10))).Status);

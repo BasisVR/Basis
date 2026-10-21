@@ -89,20 +89,15 @@ internal static class BasisProjectSettingsUI
                         EditorStyles.radioButton))
                     mode = BasisBuildScriptingBackendPreference.Mode.Ask;
 
-                if (GUILayout.Toggle(mode == BasisBuildScriptingBackendPreference.Mode.IL2CPP,
-                        Tr("projectSetup.buildModules.scriptingBackendIl2cpp", "Always IL2CPP"),
+                if (GUILayout.Toggle(mode == BasisBuildScriptingBackendPreference.Mode.CoreCLR,
+                        Tr("projectSetup.buildModules.scriptingBackendCoreClr", "Always CoreCLR"),
                         EditorStyles.radioButton))
-                    mode = BasisBuildScriptingBackendPreference.Mode.IL2CPP;
+                    mode = BasisBuildScriptingBackendPreference.Mode.CoreCLR;
 
                 if (GUILayout.Toggle(mode == BasisBuildScriptingBackendPreference.Mode.Mono,
                         Tr("projectSetup.buildModules.scriptingBackendMono", "Always Mono"),
                         EditorStyles.radioButton))
                     mode = BasisBuildScriptingBackendPreference.Mode.Mono;
-
-                if (GUILayout.Toggle(mode == BasisBuildScriptingBackendPreference.Mode.CoreCLR,
-                        Tr("projectSetup.buildModules.scriptingBackendCoreClr", "Always CoreCLR"),
-                        EditorStyles.radioButton))
-                    mode = BasisBuildScriptingBackendPreference.Mode.CoreCLR;
             }
 
             if (mode != original)
@@ -110,7 +105,7 @@ internal static class BasisProjectSettingsUI
 
             EditorGUILayout.HelpBox(
                 Tr("projectSetup.buildModules.scriptingBackendHelp",
-                    "Remembers the IL2CPP/Mono/CoreCLR answer for Windows and macOS builds so you’re not asked every time. " +
+                    "Remembers the CoreCLR/Mono answer for Windows and macOS builds so you’re not asked every time. " +
                     "Forced platforms are unaffected: Android and iOS always use IL2CPP, Linux always uses CoreCLR (ARM64: IL2CPP). " +
                     "Choosing a backend in the build prompt also updates this setting."),
                 MessageType.None);

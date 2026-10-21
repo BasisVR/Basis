@@ -5,7 +5,9 @@ using System.Security.Cryptography;
 using System.Text;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk;
+using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
+using Basis.Scripts.Networking.NetworkedAvatar;
 using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -119,8 +121,60 @@ namespace Cilbox
 			}
 		}
 
+		internal static bool TryOwner(CilboxBasisCommon box, GameObject caller, out BasisContentBase content)
+		{
+			if (box != null && box.ownerRecorded)
+			{
+				content = box.ownerContent;
+				return content != null;
+			}
+			return BasisContent.TryResolve(caller, out content);
+		}
+
+		internal static bool ForLocalPlayer(CilboxBasisCommon box, GameObject caller)
+		{
+			if (box is CilboxSceneBasis) return true;
+			if (!TryOwner(box, caller, out BasisContentBase content)) return false;
+			if (content is BasisAvatar avatar) return WornLocally(avatar);
+			return !(box is CilboxAvatarBasis) && (content is BasisScene || content.SpawnedByLocalPlayer);
+		}
+
+		private static bool WornLocally(BasisAvatar avatar)
+		{
+			BasisNetworkPlayer local = BasisNetworkPlayer.LocalPlayer;
+			return (local != null && avatar.TryGetLinkedPlayer(out ushort id) && id == local.playerId) || (BasisLocalPlayer.Instance is BasisLocalPlayer player && ReferenceEquals(player.BasisAvatar, avatar));
+		}
+
+		internal static bool TryRunning(out CilboxBasisCommon box)
+		{
+			box = null;
+			foreach (CilboxBasisCommon other in UnityEngine.Object.FindObjectsByType<CilboxBasisCommon>(FindObjectsInactive.Include))
+			{
+				if (other == null || other.interpreterAccountingDepth == 0) continue;
+				if (box != null)
+				{
+					box = null;
+					return false;
+				}
+				box = other;
+			}
+			return box != null;
+		}
+
+		private static void Record(CilboxBasisCommon box, List<CilboxProxy> proxies)
+		{
+			foreach (CilboxProxy proxy in proxies)
+			{
+				if (proxy == null || !BasisContent.TryResolve(proxy.gameObject, out BasisContentBase content)) continue;
+				box.ownerContent = content;
+				box.ownerRecorded = true;
+				return;
+			}
+		}
+
 		private static void Gate(CilboxBasisCommon box, List<CilboxProxy> proxies)
 		{
+			if (!box.ownerRecorded) Record(box, proxies);
 			if (box.consentState == State.Unchecked) Check(box);
 			if (box.consentState != State.Pending || box.consentHash == null || !requests.TryGetValue(box.consentHash, out Request request)) return;
 			foreach (CilboxProxy proxy in proxies)

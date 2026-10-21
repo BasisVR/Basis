@@ -218,9 +218,15 @@ jobs:
           versioning: None
           buildsPath: build/${{ matrix.buildOutput }}
           linux64RemoveExecutableExtension: false
+      - name: "Clear Library for a cold retry"
+        if: steps.unity-build.outcome == 'failure'
+        shell: bash
+        run: |
+          sudo dmesg -T | grep -i -E 'invoked oom-killer|oom-kill:|killed process|memory: usage|swap: usage|out of memory' || echo "No OOM kill in the kernel log"
+          sudo rm -rf "${projectPath}/Library" "build/${{ matrix.buildOutput }}"
       - name: "Build Unity project (retry)"
         if: steps.unity-build.outcome == 'failure'
-        timeout-minutes: ${{ matrix.buildTimeout }}
+        timeout-minutes: 150
         uses: BasisVR/unity-builder@main
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}

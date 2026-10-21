@@ -148,6 +148,14 @@ public class NetworkingManager : MonoBehaviour
             return state;
         }
 
+        public bool IsValid(int physicsCount, int tableModelCount)
+        {
+            if (teamIdSynced > 1 || teamColorSynced > 1 || winningTeamSynced > 2) return false;
+            if (gameModeSynced > 4) return false;
+            if (physicsSynced >= physicsCount || tableModelSynced >= tableModelCount) return false;
+            return true;
+        }
+
         private static int putInt32(byte[] data, int o, int v)
         {
             data[o] = (byte)v;
@@ -310,7 +318,19 @@ public class NetworkingManager : MonoBehaviour
             else if (SyncState.isUrgentSynced == 2) table.isLocalSimulationRunning = false;
         }
 
-        table._OnRemoteDeserialization();
+        try
+        {
+            table._OnRemoteDeserialization();
+        }
+        catch (Exception)
+        {
+            table._LogWarn("failed to apply table state " + SyncState.stateIdSynced);
+        }
+    }
+
+    private bool isValidState(GameStateData state)
+    {
+        return state != null && state.IsValid(table.PhysicsManagers.Length, table.tableModels.Length);
     }
 
     public void _OnGameWin(uint winnerId)
@@ -782,7 +802,7 @@ public class NetworkingManager : MonoBehaviour
             {
                 received = null;
             }
-            if (received == null)
+            if (!isValidState(received))
             {
                 table._LogWarn("ignored a malformed table state from player " + PlayerID);
                 return;
@@ -922,54 +942,57 @@ public class NetworkingManager : MonoBehaviour
         byte[] gameState = Convert.FromBase64String(gameStateStr);
         if (gameState.Length != 0x54) return;
 
-      SyncState.stateIdSynced++;
+        GameStateData loaded = copyState();
+        if (loaded == null) return;
+
+        loaded.stateIdSynced++;
 
         for (int i = 0; i < 16; i++)
         {
-            SyncState.ballsPSynced[i] = decodeVec3Full(gameState, i * 4, 2.5f);
+            loaded.ballsPSynced[i] = decodeVec3Full(gameState, i * 4, 2.5f);
         }
-        SyncState.cueBallVSynced = decodeVec3Full(gameState, 0x40, 50.0f);
-        SyncState.cueBallWSynced = decodeVec3Full(gameState, 0x46, 500.0f);
+        loaded.cueBallVSynced = decodeVec3Full(gameState, 0x40, 50.0f);
+        loaded.cueBallWSynced = decodeVec3Full(gameState, 0x46, 500.0f);
 
         uint spec = decodeU16(gameState, 0x4C);
         uint state = decodeU16(gameState, 0x4E);
-        SyncState.turnStateSynced = (byte)((state & 0x1u) == 0x1u ? 1 : 0);
-        SyncState.teamIdSynced = (byte)((state & 0x2u) >> 1);
-        SyncState.foulStateSynced = (byte)((state & 0x4u) == 0x4u ? 1 : 0);
-        SyncState.isTableOpenSynced = (state & 0x8u) == 0x8u;
-        SyncState.teamColorSynced = (byte)((state & 0x10u) >> 4);
-        SyncState.gameModeSynced = (byte)((state & 0x700u) >> 8);
+        loaded.turnStateSynced = (byte)((state & 0x1u) == 0x1u ? 1 : 0);
+        loaded.teamIdSynced = (byte)((state & 0x2u) >> 1);
+        loaded.foulStateSynced = (byte)((state & 0x4u) == 0x4u ? 1 : 0);
+        loaded.isTableOpenSynced = (state & 0x8u) == 0x8u;
+        loaded.teamColorSynced = (byte)((state & 0x10u) >> 4);
+        loaded.gameModeSynced = (byte)((state & 0x700u) >> 8);
         uint timerSetting = (state & 0x6000u) >> 13;
         switch (timerSetting)
         {
             case 0:
-                SyncState.timerSynced = 0;
+                loaded.timerSynced = 0;
                 break;
             case 1:
-                SyncState.timerSynced = 60;
+                loaded.timerSynced = 60;
                 break;
             case 2:
-                SyncState.timerSynced = 30;
+                loaded.timerSynced = 30;
                 break;
             case 3:
-                SyncState.timerSynced = 15;
+                loaded.timerSynced = 15;
                 break;
         }
-        SyncState.timerStartSynced = BasisNetworkTimeShim.ServerTimeMilliseconds;
-        SyncState.teamsSynced = (state & 0x8000u) == 0x8000u;
+        loaded.timerStartSynced = BasisNetworkTimeShim.ServerTimeMilliseconds;
+        loaded.teamsSynced = (state & 0x8000u) == 0x8000u;
 
-        if (SyncState.gameModeSynced == 2)
+        if (loaded.gameModeSynced == 2)
         {
-            SyncState.fourBallScoresSynced[0] = (byte)(spec & 0x0fu);
-            SyncState.fourBallScoresSynced[1] = (byte)((spec & 0x0fu) >> 4);
-            if ((spec & 0x100u) == 0x100u) SyncState.gameModeSynced = 3;
+            loaded.fourBallScoresSynced[0] = (byte)(spec & 0x0fu);
+            loaded.fourBallScoresSynced[1] = (byte)((spec & 0x0fu) >> 4);
+            if ((spec & 0x100u) == 0x100u) loaded.gameModeSynced = 3;
         }
         else
         {
-            SyncState.ballsPocketedSynced = (ushort)spec;
+            loaded.ballsPocketedSynced = (ushort)spec;
         }
 
-        bufferMessages(true);
+        applyLoadedState(loaded);
     }
 
     private void onLoadGameStateV2(string gameStateStr)
@@ -979,30 +1002,33 @@ public class NetworkingManager : MonoBehaviour
         byte[] gameState = Convert.FromBase64String(gameStateStr);
         if (gameState.Length != 0x7b) return;
 
-        SyncState.stateIdSynced++;
+        GameStateData loaded = copyState();
+        if (loaded == null) return;
+
+        loaded.stateIdSynced++;
 
         for (int i = 0; i < 16; i++)
         {
-            SyncState.ballsPSynced[i] = decodeVec3Full(gameState, i * 6, 2.5f);
+            loaded.ballsPSynced[i] = decodeVec3Full(gameState, i * 6, 2.5f);
         }
-        SyncState.cueBallVSynced = decodeVec3Full(gameState, 0x60, 50.0f);
-        SyncState.cueBallWSynced = decodeVec3Full(gameState, 0x66, 500.0f);
+        loaded.cueBallVSynced = decodeVec3Full(gameState, 0x60, 50.0f);
+        loaded.cueBallWSynced = decodeVec3Full(gameState, 0x66, 500.0f);
 
-        SyncState.ballsPocketedSynced = decodeU16(gameState, 0x6C);
-        SyncState.teamIdSynced = gameState[0x6E];
-        SyncState.foulStateSynced = gameState[0x6F];
-        SyncState.isTableOpenSynced = gameState[0x70] != 0;
-        SyncState.teamColorSynced = gameState[0x71];
-        SyncState.turnStateSynced = gameState[0x72];
-        SyncState.gameModeSynced = gameState[0x73];
-        SyncState.timerSynced = gameState[0x75]; // timer was recently changed to a byte, that's why this skips 1
-        SyncState.teamsSynced = gameState[0x76] != 0;
-        SyncState.fourBallScoresSynced[0] = gameState[0x77];
-        SyncState.fourBallScoresSynced[1] = gameState[0x78];
-        SyncState.fourBallCueBallSynced = gameState[0x79];
-        SyncState.colorTurnSynced = gameState[0x7a] != 0;
+        loaded.ballsPocketedSynced = decodeU16(gameState, 0x6C);
+        loaded.teamIdSynced = gameState[0x6E];
+        loaded.foulStateSynced = gameState[0x6F];
+        loaded.isTableOpenSynced = gameState[0x70] != 0;
+        loaded.teamColorSynced = gameState[0x71];
+        loaded.turnStateSynced = gameState[0x72];
+        loaded.gameModeSynced = gameState[0x73];
+        loaded.timerSynced = gameState[0x75]; // timer was recently changed to a byte, that's why this skips 1
+        loaded.teamsSynced = gameState[0x76] != 0;
+        loaded.fourBallScoresSynced[0] = gameState[0x77];
+        loaded.fourBallScoresSynced[1] = gameState[0x78];
+        loaded.fourBallCueBallSynced = gameState[0x79];
+        loaded.colorTurnSynced = gameState[0x7a] != 0;
 
-        bufferMessages(true);
+        applyLoadedState(loaded);
     }
 
     // V3 no longer encodes floats to shorts, as the string isn't synced it doesn't matter how long it is
@@ -1015,45 +1041,64 @@ public class NetworkingManager : MonoBehaviour
         byte[] gameState = Convert.FromBase64String(gameStateStr);
         if (gameState.Length != gameStateLength) return;
 
-        SyncState.stateIdSynced++;
+        GameStateData loaded = copyState();
+        if (loaded == null) return;
+
+        loaded.stateIdSynced++;
 
         int encodePos = 0; // Add the size of the loaded type in bytes after loading
 
         for (int i = 0; i < 16; i++)
         {
-            SyncState.ballsPSynced[i] = bytesToVec3(gameState, encodePos);
+            loaded.ballsPSynced[i] = bytesToVec3(gameState, encodePos);
             encodePos += 12;
         }
-        SyncState.cueBallVSynced = bytesToVec3(gameState, encodePos);
+        loaded.cueBallVSynced = bytesToVec3(gameState, encodePos);
         encodePos += 12;
-        SyncState.cueBallWSynced = bytesToVec3(gameState, encodePos);
+        loaded.cueBallWSynced = bytesToVec3(gameState, encodePos);
         encodePos += 12;
 
-        SyncState.ballsPocketedSynced = decodeU16(gameState, encodePos);
+        loaded.ballsPocketedSynced = decodeU16(gameState, encodePos);
         encodePos += 2;
-        SyncState.teamIdSynced = gameState[encodePos];
+        loaded.teamIdSynced = gameState[encodePos];
         encodePos += 1;
-        SyncState.foulStateSynced = gameState[encodePos];
+        loaded.foulStateSynced = gameState[encodePos];
         encodePos += 1;
-        SyncState.isTableOpenSynced = gameState[encodePos] != 0;
+        loaded.isTableOpenSynced = gameState[encodePos] != 0;
         encodePos += 1;
-        SyncState.teamColorSynced = gameState[encodePos];
+        loaded.teamColorSynced = gameState[encodePos];
         encodePos += 1;
-        SyncState.turnStateSynced = gameState[encodePos];
+        loaded.turnStateSynced = gameState[encodePos];
         encodePos += 1;
-        SyncState.gameModeSynced = gameState[encodePos];
+        loaded.gameModeSynced = gameState[encodePos];
         encodePos += 1;
-        SyncState.timerSynced = gameState[encodePos];
+        loaded.timerSynced = gameState[encodePos];
         encodePos += 1;
-        SyncState.teamsSynced = gameState[encodePos] != 0;
+        loaded.teamsSynced = gameState[encodePos] != 0;
         encodePos += 1;
-        SyncState.fourBallScoresSynced[0] = gameState[encodePos];
+        loaded.fourBallScoresSynced[0] = gameState[encodePos];
         encodePos += 1;
-        SyncState.fourBallScoresSynced[1] = gameState[encodePos];
+        loaded.fourBallScoresSynced[1] = gameState[encodePos];
         encodePos += 1;
-        SyncState.fourBallCueBallSynced = gameState[encodePos];
+        loaded.fourBallCueBallSynced = gameState[encodePos];
         encodePos += 1;
-        SyncState.colorTurnSynced = gameState[encodePos] != 0;
+        loaded.colorTurnSynced = gameState[encodePos] != 0;
+        applyLoadedState(loaded);
+    }
+
+    private GameStateData copyState()
+    {
+        return GameStateData.FromBytes(SyncState.ToBytes(MessageState), 1);
+    }
+
+    private void applyLoadedState(GameStateData loaded)
+    {
+        if (!isValidState(loaded))
+        {
+            table._LogWarn("ignored a saved table state with out of range values");
+            return;
+        }
+        SyncState = loaded;
         bufferMessages(true);
     }
 

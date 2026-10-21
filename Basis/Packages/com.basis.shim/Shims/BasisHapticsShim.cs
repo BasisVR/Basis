@@ -1,8 +1,6 @@
 using Basis.BasisUI;
-using Basis.Scripts.BasisSdk;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Device_Management;
-using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.TransformBinders.BoneControl;
 using UnityEngine;
 using Cilbox;
@@ -42,7 +40,7 @@ namespace Cilbox
 		{
 			if (!(self is CilboxProxy proxy) || proxy == null || !(proxy.box is CilboxBasisCommon box) || box == null || box.disabled || box.interpreterAccountingDepth == 0) return false;
 			if (hand < BasisHapticHand.Left || hand > BasisHapticHand.Both || float.IsNaN(strength) || float.IsNaN(seconds) || strength <= 0f || seconds <= 0f) return false;
-			if (!BasisSettingsDefaults.UIHaptics.RawValue || !WornLocally(box, proxy) || !Spend(box)) return false;
+			if (!BasisSettingsDefaults.UIHaptics.RawValue || !CilboxBasisConsent.ForLocalPlayer(box, proxy.gameObject) || !Spend(box)) return false;
 			BasisDeviceManagement devices = BasisDeviceManagement.Instance;
 			if (devices == null) return false;
 			float amplitude = Mathf.Clamp01(strength), duration = Mathf.Clamp(seconds, MinSeconds, BasisHapticsShim.MaxSeconds);
@@ -56,14 +54,6 @@ namespace Cilbox
 			if (!devices.FindDevice(out BasisInput input, role) || input == null) return false;
 			input.PlayHaptic(duration, amplitude);
 			return true;
-		}
-		// An avatar runs its scripts on every client, so a remote player's avatar must not reach
-		// this player's hands. Worlds and props run for the local player by definition.
-		private static bool WornLocally(CilboxBasisCommon box, CilboxProxy proxy)
-		{
-			if (!(box is CilboxAvatarBasis)) return true;
-			BasisNetworkPlayer local = BasisNetworkPlayer.LocalPlayer;
-			return local != null && BasisContent.TryResolve(proxy.gameObject, out BasisContentBase content) && content is BasisAvatar avatar && avatar.TryGetLinkedPlayer(out ushort id) && id == local.playerId;
 		}
 		private static bool Spend(CilboxBasisCommon box)
 		{

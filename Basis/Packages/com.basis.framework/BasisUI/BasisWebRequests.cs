@@ -52,6 +52,9 @@ namespace Basis.BasisUI
         public const int MaxWaitingPerAsk = 8;
         public const int MaxQueuedAsks = 8;
         public const float ArmSeconds = 1f;
+        public const float DeclineCooldownSeconds = 30f;
+        public const int DeclinesBeforeMute = 3;
+        public const int ReceiveChunkBytes = 16 * 1024;
 
         [NoAutoStaticsCleanup] private static readonly string[] ContentTypes =
         {
@@ -74,6 +77,7 @@ namespace Basis.BasisUI
         private sealed class Ask
         {
             public string Key;
+            public string OwnerKey;
             public string Host;
             public string Name;
             public string Kind;
@@ -88,8 +92,15 @@ namespace Basis.BasisUI
             public int WindowCount;
         }
 
+        private sealed class Strike
+        {
+            public int Count;
+            public float Until;
+        }
+
         private static readonly HashSet<string> approved = new HashSet<string>(StringComparer.Ordinal);
         private static readonly HashSet<string> declined = new HashSet<string>(StringComparer.Ordinal);
+        private static readonly Dictionary<string, Strike> strikes = new Dictionary<string, Strike>(StringComparer.Ordinal);
         private static readonly Dictionary<string, Budget> budgets = new Dictionary<string, Budget>(StringComparer.Ordinal);
         private static readonly Dictionary<string, Ask> asks = new Dictionary<string, Ask>(StringComparer.Ordinal);
         private static readonly Queue<Ask> queue = new Queue<Ask>();
@@ -164,7 +175,8 @@ namespace Basis.BasisUI
             job.Uri = uri;
 
             string key = ApprovalKey(ownerKey, uri.IdnHost);
-            if (declined.Contains(key))
+            bool known = approved.Contains(key);
+            if (declined.Contains(key) || (!known && IsMuted(ownerKey)))
             {
                 Refuse(job, Status.Declined);
                 return;
@@ -174,12 +186,34 @@ namespace Basis.BasisUI
                 Refuse(job, Status.Busy);
                 return;
             }
-            if (approved.Contains(key))
+            if (known)
             {
                 Run(job);
                 return;
             }
-            Enqueue(job, key, uri.IdnHost, content);
+            Enqueue(job, key, ownerKey, uri.IdnHost, content);
+        }
+
+        public static bool IsMuted(string ownerKey)
+        {
+            return ownerKey != null && strikes.TryGetValue(ownerKey, out Strike strike) && (strike.Count >= DeclinesBeforeMute || Time.realtimeSinceStartup < strike.Until);
+        }
+
+        public static void Forgive(string ownerKey)
+        {
+            if (ownerKey != null) strikes.Remove(ownerKey);
+        }
+
+        internal static void StrikeOut(string ownerKey)
+        {
+            if (ownerKey == null) return;
+            if (!strikes.TryGetValue(ownerKey, out Strike strike))
+            {
+                strike = new Strike();
+                strikes[ownerKey] = strike;
+            }
+            strike.Count++;
+            strike.Until = Time.realtimeSinceStartup + DeclineCooldownSeconds;
         }
 
         private static bool Headless
@@ -225,7 +259,7 @@ namespace Basis.BasisUI
 
         // ------------------------------------------------------------------ approval
 
-        private static void Enqueue(Job job, string key, string host, BasisContentBase content)
+        private static void Enqueue(Job job, string key, string ownerKey, string host, BasisContentBase content)
         {
             if (asks.TryGetValue(key, out Ask pending))
             {
@@ -244,7 +278,7 @@ namespace Basis.BasisUI
                 Refuse(job, Status.Busy);
                 return;
             }
-            Ask ask = new Ask { Key = key, Host = host, Name = NameOf(content), Kind = KindOf(content) };
+            Ask ask = new Ask { Key = key, OwnerKey = ownerKey, Host = host, Name = NameOf(content), Kind = KindOf(content) };
             ask.Waiting.Add(job);
             asks[key] = ask;
             queue.Enqueue(ask);
@@ -254,8 +288,13 @@ namespace Basis.BasisUI
         private static void Pump()
         {
             if (showing || queue.Count == 0) return;
-            showing = true;
             Ask ask = queue.Dequeue();
+            if (IsMuted(ask.OwnerKey))
+            {
+                Settle(ask, false);
+                return;
+            }
+            showing = true;
             try
             {
                 Show(ask);
@@ -339,11 +378,19 @@ namespace Basis.BasisUI
         private static void Answer(Ask ask, bool accepted)
         {
             if (ask.Done) return;
+            (accepted ? approved : declined).Add(ask.Key);
+            if (accepted) Forgive(ask.OwnerKey);
+            else StrikeOut(ask.OwnerKey);
+            BasisDebug.Log($"[WebRequests] The {ask.Kind} \"{ask.Name}\" asked to use {ask.Host}: {(accepted ? "allowed" : "declined")}", BasisDebug.LogTag.Networking);
+            Settle(ask, accepted);
+        }
+
+        private static void Settle(Ask ask, bool accepted)
+        {
+            if (ask.Done) return;
             ask.Done = true;
             showing = false;
             asks.Remove(ask.Key);
-            (accepted ? approved : declined).Add(ask.Key);
-            BasisDebug.Log($"[WebRequests] The {ask.Kind} \"{ask.Name}\" asked to use {ask.Host}: {(accepted ? "allowed" : "declined")}", BasisDebug.LogTag.Networking);
             for (int i = 0; i < ask.Waiting.Count; i++)
             {
                 Job job = ask.Waiting[i];
@@ -429,13 +476,13 @@ namespace Basis.BasisUI
 
                 Uri hostRoot = new Uri(Uri.UriSchemeHttps + "://" + target.IdnHost + "/");
                 UnityWebRequest.ClearCookieCache(hostRoot);
-                using (UnityWebRequest www = Build(target, body, job.ContentType))
+                using (UnityWebRequest www = Build(target, body, job.ContentType, out CappedDownload download))
                 {
                     UnityWebRequestAsyncOperation op = www.SendWebRequest();
                     float deadline = Time.realtimeSinceStartup + TimeoutSeconds;
                     while (!op.isDone)
                     {
-                        if (www.downloadedBytes > MaxDownloadBytes || ClaimsTooMuch(www))
+                        if (download.Exceeded || www.downloadedBytes > MaxDownloadBytes || ClaimsTooMuch(www))
                         {
                             www.Abort();
                             UnityWebRequest.ClearCookieCache(hostRoot);
@@ -458,6 +505,7 @@ namespace Basis.BasisUI
                     UnityWebRequest.ClearCookieCache(hostRoot);
 
                     int code = (int)www.responseCode;
+                    if (download.Exceeded) return new Reply { Status = Status.TooLarge, Code = code };
                     if (code >= 300 && code < 400 && code != 304)
                     {
                         if (hop >= MaxRedirects || !TryRedirect(target, www.GetResponseHeader("Location"), job.Uri.IdnHost, out Uri next)) return new Reply { Status = Status.Blocked, Code = code };
@@ -469,23 +517,22 @@ namespace Basis.BasisUI
                     {
                         return new Reply { Status = www.error != null && www.error.IndexOf("timeout", StringComparison.OrdinalIgnoreCase) >= 0 ? Status.TimedOut : Status.NetworkError, Code = code };
                     }
-                    byte[] data = www.downloadHandler != null ? www.downloadHandler.data : null;
-                    if (data != null && data.Length > MaxDownloadBytes) return new Reply { Status = Status.TooLarge, Code = code };
                     return new Reply
                     {
                         Status = www.result == UnityWebRequest.Result.Success ? Status.Ok : Status.HttpError,
                         Code = code,
-                        Body = data != null ? (byte[])data.Clone() : Array.Empty<byte>(),
+                        Body = download.Take(),
                     };
                 }
             }
         }
 
-        private static UnityWebRequest Build(Uri target, byte[] body, string contentType)
+        private static UnityWebRequest Build(Uri target, byte[] body, string contentType, out CappedDownload download)
         {
+            download = new CappedDownload();
             UnityWebRequest www = new UnityWebRequest(target, body == null ? UnityWebRequest.kHttpVerbGET : UnityWebRequest.kHttpVerbPOST)
             {
-                downloadHandler = new DownloadHandlerBuffer(),
+                downloadHandler = download,
                 redirectLimit = 0,
                 timeout = (int)TimeoutSeconds,
                 useHttpContinue = false,
@@ -504,6 +551,58 @@ namespace Basis.BasisUI
         {
             string length = www.GetResponseHeader("Content-Length");
             return length != null && long.TryParse(length, out long claimed) && claimed > MaxDownloadBytes;
+        }
+
+        internal sealed class CappedDownload : DownloadHandlerScript
+        {
+            private byte[] received = Array.Empty<byte>();
+            private int length;
+
+            public CappedDownload() : base(new byte[ReceiveChunkBytes]) { }
+
+            public bool Exceeded { get; private set; }
+
+            public int Length => length;
+
+            internal bool Accept(byte[] data, int dataLength)
+            {
+                if (Exceeded) return false;
+                if (dataLength <= 0) return true;
+                if (data == null || dataLength > data.Length) return false;
+                if (dataLength > MaxDownloadBytes - length)
+                {
+                    Exceeded = true;
+                    return false;
+                }
+                int needed = length + dataLength;
+                if (needed > received.Length) Array.Resize(ref received, Math.Min(MaxDownloadBytes, Math.Max(needed, received.Length * 2)));
+                Buffer.BlockCopy(data, 0, received, length, dataLength);
+                length = needed;
+                return true;
+            }
+
+            internal void Expect(ulong contentLength)
+            {
+                if (contentLength > MaxDownloadBytes)
+                {
+                    Exceeded = true;
+                    return;
+                }
+                if ((int)contentLength > received.Length) Array.Resize(ref received, (int)contentLength);
+            }
+
+            public byte[] Take()
+            {
+                byte[] copy = new byte[length];
+                Buffer.BlockCopy(received, 0, copy, 0, length);
+                return copy;
+            }
+
+            protected override bool ReceiveData(byte[] data, int dataLength) => Accept(data, dataLength);
+
+            protected override void ReceiveContentLengthHeader(ulong contentLength) => Expect(contentLength);
+
+            protected override byte[] GetData() => Take();
         }
 
         /// <summary>A redirect may only go to another https address on the host the player approved.</summary>

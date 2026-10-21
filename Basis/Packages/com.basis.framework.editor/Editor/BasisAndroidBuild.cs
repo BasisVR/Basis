@@ -58,6 +58,7 @@ public static class BasisAndroidBuild
             PlayerSettings.Android.keystorePass = string.Empty;
             PlayerSettings.Android.keyaliasPass = string.Empty;
         }
+        Console.WriteLine("Build succeeded!");
     }
     private static string GetArgument(string name)
     {

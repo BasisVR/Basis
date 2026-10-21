@@ -82,11 +82,11 @@ public static partial class BasisHandHeldCameraPhotoMetadata
             return meta;
 
         bool tagPeopleAllowed = !BasisNetworkModeration.IsCameraCategoryDisallowed(BasisNetworkModeration.CameraPolicy_TagPeople);
-        bool details = BasisSettingsDefaults.PhotoEmbedPersonDetails.RawValue
+        bool details = BasisPhotoMetadataSettings.PhotoEmbedPersonDetails.RawValue
             && !BasisNetworkModeration.IsCameraCategoryDisallowed(BasisNetworkModeration.CameraPolicy_PersonDetails);
         meta.People = tagPeopleAllowed ? CollectTaggedPeople(captureCamera, ignoreRoot, details, panoramic) : new List<TaggedPerson>();
 
-        if (BasisSettingsDefaults.PhotoEmbedCameraSettings.RawValue
+        if (BasisPhotoMetadataSettings.PhotoEmbedCameraSettings.RawValue
             && !BasisNetworkModeration.IsCameraCategoryDisallowed(BasisNetworkModeration.CameraPolicy_CameraExif))
         {
             meta.HasCamera = true;
@@ -99,7 +99,7 @@ public static partial class BasisHandHeldCameraPhotoMetadata
             meta.FieldOfView = captureCamera.fieldOfView;
         }
 
-        if (BasisSettingsDefaults.PhotoEmbedCaptureInfo.RawValue
+        if (BasisPhotoMetadataSettings.PhotoEmbedCaptureInfo.RawValue
             && !BasisNetworkModeration.IsCameraCategoryDisallowed(BasisNetworkModeration.CameraPolicy_CaptureInfo))
         {
             meta.HasCaptureInfo = true;
@@ -108,7 +108,7 @@ public static partial class BasisHandHeldCameraPhotoMetadata
             meta.UnityVersion = Application.unityVersion;
         }
 
-        if (BasisSettingsDefaults.PhotoEmbedPhotographer.RawValue
+        if (BasisPhotoMetadataSettings.PhotoEmbedPhotographer.RawValue
             && !BasisNetworkModeration.IsCameraCategoryDisallowed(BasisNetworkModeration.CameraPolicy_Photographer))
         {
             BasisPlayer local = BasisLocalPlayer.Instance;
@@ -120,7 +120,7 @@ public static partial class BasisHandHeldCameraPhotoMetadata
             }
         }
 
-        if (BasisSettingsDefaults.PhotoEmbedWorld.RawValue
+        if (BasisPhotoMetadataSettings.PhotoEmbedWorld.RawValue
             && !BasisNetworkModeration.IsCameraCategoryDisallowed(BasisNetworkModeration.CameraPolicy_World))
         {
             meta.HasWorld = true;
@@ -159,12 +159,12 @@ public static partial class BasisHandHeldCameraPhotoMetadata
     private static List<TaggedPerson> CollectTaggedPeople(Camera captureCamera, Transform ignoreRoot, bool details, bool panoramic)
     {
         var people = new List<TaggedPerson>();
-        string mode = BasisSettingsDefaults.PhotoMetadataTagging.RawValue;
+        string mode = BasisPhotoMetadataSettings.PhotoMetadataTagging.RawValue;
 
-        if (string.IsNullOrEmpty(mode) || mode == BasisSettingsDefaults.PhotoTagging_NoOne)
+        if (string.IsNullOrEmpty(mode) || mode == BasisPhotoMetadataSettings.PhotoTagging_NoOne)
             return people;
 
-        if (mode == BasisSettingsDefaults.PhotoTagging_JustMe)
+        if (mode == BasisPhotoMetadataSettings.PhotoTagging_JustMe)
         {
             BasisPlayer local = BasisLocalPlayer.Instance;
             if (local != null && TryBuildPerson(captureCamera, local, requireBounds: false, details, computeBox: !panoramic, out TaggedPerson self))

@@ -30,7 +30,17 @@ public static partial class BasisOpenLipSyncDriver
     private static readonly Dictionary<EntityId, Action> _slotRevokedCallbacks = new Dictionary<EntityId, Action>();
     private static readonly Stack<uint> _contextPool = new Stack<uint>();
     private static volatile bool _initialized;
-    private static int _inferenceInFlight;
+    [NoAutoStaticsCleanup] private static int _inferenceInFlight;
+    [NoAutoStaticsCleanup] private static volatile bool _releasePending;
+    [NoAutoStaticsCleanup] private static readonly object _releaseLock = new object();
+    [NoAutoStaticsCleanup] private static readonly List<RetiredContext> _retiredContexts = new List<RetiredContext>();
+    [NoAutoStaticsCleanup] private static readonly List<OpenLipSyncBackend> _retiredBackends = new List<OpenLipSyncBackend>();
+
+    private struct RetiredContext
+    {
+        public OpenLipSyncBackend Backend;
+        public uint Handle;
+    }
 
     public static bool IsInitialized => _initialized;
 
@@ -117,32 +127,76 @@ public static partial class BasisOpenLipSyncDriver
         configAsset = default;
     }
 
-    private static void WaitForInferenceIdle()
+    private static bool IsRetired(OpenLipSyncBackend backend, uint contextHandle)
     {
-        for (int i = 0; i < 250 && Interlocked.CompareExchange(ref _inferenceInFlight, 0, 0) != 0; i++) Thread.Sleep(1);
+        if (!_releasePending) return false;
+        lock (_releaseLock)
+        {
+            if (_retiredBackends.Contains(backend)) return true;
+            for (int index = 0; index < _retiredContexts.Count; index++)
+            {
+                if (_retiredContexts[index].Handle == contextHandle && ReferenceEquals(_retiredContexts[index].Backend, backend)) return true;
+            }
+            return false;
+        }
+    }
+
+    private static void ReleaseRetiredWhenIdle()
+    {
+        if (!_releasePending || Interlocked.CompareExchange(ref _inferenceInFlight, 0, 0) != 0) return;
+        lock (_releaseLock)
+        {
+            if (!_releasePending || Interlocked.CompareExchange(ref _inferenceInFlight, 0, 0) != 0) return;
+            try
+            {
+                for (int index = 0; index < _retiredContexts.Count; index++)
+                {
+                    try
+                    {
+                        _retiredContexts[index].Backend.DestroyContext(_retiredContexts[index].Handle);
+                    }
+                    catch (Exception ex)
+                    {
+                        BasisDebug.LogWarning($"[OpenLipSync] Freeing a lip sync context failed: {ex.Message}");
+                    }
+                }
+                for (int index = 0; index < _retiredBackends.Count; index++)
+                {
+                    try
+                    {
+                        _retiredBackends[index].Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        BasisDebug.LogWarning($"[OpenLipSync] Freeing the lip sync backend failed: {ex.Message}");
+                    }
+                }
+            }
+            finally
+            {
+                _retiredContexts.Clear();
+                _retiredBackends.Clear();
+                _releasePending = false;
+            }
+        }
     }
 
     public static void Shutdown()
     {
         _initialized = false;
-        WaitForInferenceIdle();
-
-        if (_backend != null)
-        {
-            foreach (var kvp in _playerToContext)
-            {
-                _backend.DestroyContext(kvp.Value);
-            }
-            while (_contextPool.Count > 0)
-            {
-                _backend.DestroyContext(_contextPool.Pop());
-            }
-        }
+        OpenLipSyncBackend backend = _backend;
+        _backend = null;
         _playerToContext.Clear();
         _contextPool.Clear();
-
-        _backend?.Dispose();
-        _backend = null;
+        if (backend != null)
+        {
+            lock (_releaseLock)
+            {
+                _retiredBackends.Add(backend);
+                _releasePending = true;
+            }
+            ReleaseRetiredWhenIdle();
+        }
         ReleaseHandles();
     }
 
@@ -212,11 +266,11 @@ public static partial class BasisOpenLipSyncDriver
         try
         {
             var backend = _backend;
-            return !_initialized || backend == null ? Result.Unknown : backend.ProcessFrameFloat(contextHandle, new ReadOnlySpan<float>(audioData, 0, sampleCount), stereo: false, ref frame);
+            return !_initialized || backend == null || IsRetired(backend, contextHandle) ? Result.Unknown : backend.ProcessFrameFloat(contextHandle, new ReadOnlySpan<float>(audioData, 0, sampleCount), stereo: false, ref frame);
         }
         finally
         {
-            Interlocked.Decrement(ref _inferenceInFlight);
+            ExitInference();
         }
     }
 
@@ -231,7 +285,10 @@ public static partial class BasisOpenLipSyncDriver
 
     public static void EnterInference() => Interlocked.Increment(ref _inferenceInFlight);
 
-    public static void ExitInference() => Interlocked.Decrement(ref _inferenceInFlight);
+    public static void ExitInference()
+    {
+        if (Interlocked.Decrement(ref _inferenceInFlight) == 0) ReleaseRetiredWhenIdle();
+    }
 
     public static bool Flush()
     {
@@ -243,7 +300,7 @@ public static partial class BasisOpenLipSyncDriver
         }
         finally
         {
-            Interlocked.Decrement(ref _inferenceInFlight);
+            ExitInference();
         }
     }
 
@@ -253,11 +310,11 @@ public static partial class BasisOpenLipSyncDriver
         try
         {
             var backend = _backend;
-            return !_initialized || backend == null ? Result.Unknown : backend.SendSignal(contextHandle, signal, arg1);
+            return !_initialized || backend == null || IsRetired(backend, contextHandle) ? Result.Unknown : backend.SendSignal(contextHandle, signal, arg1);
         }
         finally
         {
-            Interlocked.Decrement(ref _inferenceInFlight);
+            ExitInference();
         }
     }
 
@@ -310,11 +367,15 @@ public static partial class BasisOpenLipSyncDriver
         int maxPooled = Math.Max(0, MaxSlots - _playerToContext.Count);
         if (_contextPool.Count > maxPooled)
         {
-            WaitForInferenceIdle();
-            while (_contextPool.Count > maxPooled)
+            lock (_releaseLock)
             {
-                _backend.DestroyContext(_contextPool.Pop());
+                while (_contextPool.Count > maxPooled)
+                {
+                    _retiredContexts.Add(new RetiredContext { Backend = _backend, Handle = _contextPool.Pop() });
+                }
+                _releasePending = true;
             }
+            ReleaseRetiredWhenIdle();
         }
     }
     public static int ActiveSlotCount => _playerToContext.Count;

@@ -4,6 +4,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Threading.Tasks;
 using Basis.Scripts.BasisSdk;
+using Basis.Scripts.Networking.Behaviour;
+using Basis.Shims;
+using Basis.Shims.Editor;
 using Cilbox;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -92,6 +95,7 @@ public class BasisCilboxBuildHook
             }
             EnsureTemporarySceneHasAssemblyData(temporarySceneCilbox, cilboxAssemblySnapshot);
             RebindProxiesToTemporarySceneCilbox(prefabRoot, temporarySceneCilbox);
+            AttachNetworkBridges(prefabRoot);
             RestoreExternalCilboxAssemblyData(cilboxAssemblySnapshot, temporaryScene);
         }
         finally
@@ -334,6 +338,130 @@ public class BasisCilboxBuildHook
             proxy.box = temporarySceneCilbox;
             EditorUtility.SetDirty(proxy);
         }
+    }
+
+    internal static void AttachNetworkBridges(GameObject contentRoot)
+    {
+        if (contentRoot == null)
+        {
+            return;
+        }
+
+        CilboxProxy[] proxies = contentRoot.GetComponentsInChildren<CilboxProxy>(true);
+        for (int i = 0; i < proxies.Length; i++)
+        {
+            CilboxProxy proxy = proxies[i];
+            if (proxy == null || string.IsNullOrEmpty(proxy.className))
+            {
+                continue;
+            }
+
+            Type sourceType = FindLoadedType(proxy.className);
+            if (sourceType == null)
+            {
+                Debug.LogWarning($"Basis Cilbox networking could not resolve source type {proxy.className}.", proxy);
+                continue;
+            }
+
+            if (typeof(BasisNetworkAvatarBehaviour).IsAssignableFrom(sourceType))
+            {
+                EnsureAvatarNetworkBridge(proxy, false);
+            }
+            else if (typeof(Basis.BasisNetworkBehaviour).IsAssignableFrom(sourceType))
+            {
+                if (BasisCilboxScriptScanner.UsesUnsupportedInheritedNetworkStateField(
+                        sourceType,
+                        out string networkFields))
+                {
+                    throw new InvalidOperationException(
+                        $"Cilbox script {sourceType.FullName} directly inherits BasisNetworkBehaviour " +
+                        $"and accesses inherited network state field(s): {networkFields}. " +
+                        "Those fields cannot be remapped from CilboxProxy to the native network host. " +
+                        "Use NetworkID, IsLocalOwner(), ownership methods/callbacks, or a native BasisNetworkShim reference instead.");
+                }
+
+                if (proxy.box is CilboxAvatarBasis)
+                {
+                    EnsureAvatarNetworkBridge(proxy, true);
+                }
+                else
+                {
+                    EnsureNetworkBridge(proxy);
+                }
+            }
+        }
+    }
+
+    private static void EnsureNetworkBridge(CilboxProxy proxy)
+    {
+        BasisNetworkCilboxBehaviour[] existing = proxy.GetComponents<BasisNetworkCilboxBehaviour>();
+        for (int i = 0; i < existing.Length; i++)
+        {
+            if (existing[i] != null && existing[i].Target == proxy)
+            {
+                return;
+            }
+        }
+
+        BasisNetworkCilboxBehaviour bridge = proxy.gameObject.AddComponent<BasisNetworkCilboxBehaviour>();
+        bridge.Bind(proxy);
+        EditorUtility.SetDirty(bridge);
+    }
+
+    private static void EnsureAvatarNetworkBridge(CilboxProxy proxy, bool genericNetworkBehaviourApi)
+    {
+        BasisNetworkAvatarCilboxBehaviour[] existing = proxy.GetComponents<BasisNetworkAvatarCilboxBehaviour>();
+        for (int i = 0; i < existing.Length; i++)
+        {
+            if (existing[i] != null && existing[i].Target == proxy)
+            {
+                existing[i].Bind(proxy, genericNetworkBehaviourApi);
+                EditorUtility.SetDirty(existing[i]);
+                RemoveGenericNetworkBridge(proxy);
+                return;
+            }
+        }
+
+        BasisNetworkAvatarCilboxBehaviour bridge = proxy.gameObject.AddComponent<BasisNetworkAvatarCilboxBehaviour>();
+        bridge.Bind(proxy, genericNetworkBehaviourApi);
+        EditorUtility.SetDirty(bridge);
+        RemoveGenericNetworkBridge(proxy);
+    }
+
+    private static void RemoveGenericNetworkBridge(CilboxProxy proxy)
+    {
+        BasisNetworkCilboxBehaviour[] genericBridges = proxy.GetComponents<BasisNetworkCilboxBehaviour>();
+        for (int i = genericBridges.Length - 1; i >= 0; i--)
+        {
+            BasisNetworkCilboxBehaviour bridge = genericBridges[i];
+            if (bridge != null && bridge.Target == proxy)
+            {
+                UnityEngine.Object.DestroyImmediate(bridge);
+            }
+        }
+    }
+
+    private static Type FindLoadedType(string fullName)
+    {
+        System.Reflection.Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
+        for (int i = 0; i < assemblies.Length; i++)
+        {
+            try
+            {
+                Type type = assemblies[i].GetType(fullName, false);
+                if (type != null)
+                {
+                    return type;
+                }
+            }
+            catch (Exception)
+            {
+                // Dynamic/reflection-only assemblies can reject type lookup.
+                // They cannot contain the authored MonoBehaviour we are resolving,
+                // so skip them instead of aborting the build hook.
+            }
+        }
+        return null;
     }
 
     private static void RestoreExternalCilboxAssemblyData(Dictionary<EntityId, string> snapshot, Scene keepScene)

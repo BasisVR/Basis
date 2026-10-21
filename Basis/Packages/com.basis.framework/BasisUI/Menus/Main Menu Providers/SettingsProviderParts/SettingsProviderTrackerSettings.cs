@@ -40,7 +40,7 @@ namespace Basis.BasisUI
         private const string UnlinkedLabel = "(unlinked)";
         // Localization key — kept as the historical "trackerlinking" so existing
         // translations and any saved last-tab pointers still resolve.
-        private const string TabKey = "settings.tab.trackerlinking";
+        public const string TabKey = "settings.tab.trackerlinking";
 
         // Roles we let the user force a tracker into. Mirrors the FB-tracker priors
         // in BasisAvatarIKStageCalibration.BuildPriors so anything you can pick here
@@ -473,6 +473,7 @@ namespace Basis.BasisUI
             }
 
             PanelDropdown roleDropdown = PanelDropdown.CreateNewEntry(group.ContentParent);
+            roleDropdown.ExcludeFromShare = true;
             roleDropdown.Descriptor.SetTitle(BasisLocalization.Get("trackerLinking.roleOverrideLabel"));
             roleDropdown.Descriptor.SetTooltip(BasisLocalization.Get(row.IsPair
                 ? "trackerLinking.roleOverridePair.tooltip"
@@ -535,6 +536,7 @@ namespace Basis.BasisUI
         private static PanelDropdown BuildLinkDropdown(PanelElementDescriptor group, TrackerRow row, List<TrackerRow> rows, bool[] suppressFlag)
         {
             PanelDropdown linkDropdown = PanelDropdown.CreateNewEntry(group.ContentParent);
+            linkDropdown.ExcludeFromShare = true;
             linkDropdown.Descriptor.SetTitle(BasisLocalization.Get("trackerLinking.linkLabel"));
             linkDropdown.Descriptor.SetTooltip(BasisLocalization.Get("trackerLinking.linkLabel.tooltip"));
 

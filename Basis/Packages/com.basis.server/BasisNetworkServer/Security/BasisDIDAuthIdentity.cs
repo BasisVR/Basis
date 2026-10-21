@@ -236,9 +236,9 @@ namespace BasisDidLink
                     BasisServerHandleEvents.RejectWithReason(newPeer, "Payload Provided was invalid! potential Duplication");
                     return;
                 }
-                if (!TryAdmit(newPeer.Id, Identity, Configuration.HowManyDuplicateAuthCanExist))
+                if (!TryAdmit(newPeer.Id, Identity, Configuration.HowManyDuplicateAuthCanExist, newPeer))
                 {
-                    RefuseLogin(newPeer, "To Many Auths From this DID!");
+                    if (OwnsPendingEntry(newPeer)) RefuseLogin(newPeer, "To Many Auths From this DID!");
                     return;
                 }
                 if (Configuration.LogConnectionHandshake) BNL.Log($"Peer {newPeer.Id} logged in as {VerifiedIdentity}, verified by its transport.");
@@ -287,11 +287,11 @@ namespace BasisDidLink
             }
         }
 
-        internal bool TryAdmit(int PeerId, Did Did, int Limit)
+        internal bool TryAdmit(int PeerId, Did Did, int Limit, NetPeer Expected = null)
         {
             lock (_admitLock)
             {
-                if (_admitted.ContainsKey(PeerId) || CheckForDuplicates(Did) >= Limit)
+                if (!AuthIdentity.TryGetValue(PeerId, out OnAuth Entry) || (Expected != null && !Equals(Entry.Peer, Expected)) || _admitted.ContainsKey(PeerId) || CheckForDuplicates(Did) >= Limit)
                 {
                     return false;
                 }
@@ -299,6 +299,11 @@ namespace BasisDidLink
                 _admitted[PeerId] = Did.V;
                 return true;
             }
+        }
+
+        private bool OwnsPendingEntry(NetPeer Peer)
+        {
+            return AuthIdentity.TryGetValue(Peer.Id, out OnAuth Entry) && Equals(Entry.Peer, Peer);
         }
 
         private void RefuseLogin(NetPeer newPeer, string reason)
@@ -388,9 +393,9 @@ namespace BasisDidLink
 
                     if (isAuthenticated)
                     {
-                        if (!TryAdmit(newPeer.Id, authIdentity.Did, NetworkServer.Configuration.HowManyDuplicateAuthCanExist))
+                        if (!TryAdmit(newPeer.Id, authIdentity.Did, NetworkServer.Configuration.HowManyDuplicateAuthCanExist, newPeer))
                         {
-                            RefuseLogin(newPeer, "To Many Auths From this DID!");
+                            if (OwnsPendingEntry(newPeer)) RefuseLogin(newPeer, "To Many Auths From this DID!");
                             return;
                         }
                         BasisServerHandleEvents.OnNetworkAccepted(newPeer, authIdentity.ReadyMessage, authIdentity.Did.V);
@@ -433,16 +438,23 @@ namespace BasisDidLink
         {
             bool Removed;
             OnAuth Entry;
-            if (Expected == null)
+            lock (_admitLock)
             {
-                Removed = AuthIdentity.TryRemove(Id, out Entry);
-            }
-            else
-            {
-                Removed = AuthIdentity.TryGetValue(Id, out Entry)
-                       && Equals(Entry.Peer, Expected)
-                       && ((ICollection<KeyValuePair<int, OnAuth>>)AuthIdentity)
-                              .Remove(new KeyValuePair<int, OnAuth>(Id, Entry));
+                if (Expected == null)
+                {
+                    Removed = AuthIdentity.TryRemove(Id, out Entry);
+                }
+                else
+                {
+                    Removed = AuthIdentity.TryGetValue(Id, out Entry)
+                           && Equals(Entry.Peer, Expected)
+                           && ((ICollection<KeyValuePair<int, OnAuth>>)AuthIdentity)
+                                  .Remove(new KeyValuePair<int, OnAuth>(Id, Entry));
+                }
+                if (Removed && _admitted.TryRemove(Id, out _))
+                {
+                    ReleaseDid(Entry.Did);
+                }
             }
 
             if (!Removed)
@@ -450,10 +462,6 @@ namespace BasisDidLink
                 return false;
             }
 
-            if (_admitted.TryRemove(Id, out _))
-            {
-                ReleaseDid(Entry.Did);
-            }
             if (_timeouts.TryRemove(Id, out var cts))
             {
                 try { cts.Cancel(); } catch { }

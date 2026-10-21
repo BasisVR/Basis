@@ -181,6 +181,12 @@ public class ServerConfigurationDefaultsTests
         Assert.Equal(256, cfg.StorageMaxTotalMegabytes);
         Assert.Equal("", cfg.StorageConnectionString);
         Assert.Equal("basis_storage", cfg.StorageSqlTable);
+        Assert.Equal(4, cfg.StorageNewOwnersPerAddress);
+        Assert.Equal(60, cfg.StorageNewOwnerWindowMinutes);
+        Assert.Equal(60, cfg.StorageNewOwnersPerHour);
+        Assert.Equal(365, cfg.StorageExpiryDays);
+        Assert.False(Configuration.RequiresRestart(nameof(Configuration.StorageNewOwnersPerAddress)));
+        Assert.False(Configuration.RequiresRestart(nameof(Configuration.StorageExpiryDays)));
         Assert.True(Configuration.IsSecretFieldName(nameof(Configuration.StorageConnectionString)));
         Assert.True(Configuration.RequiresRestart(nameof(Configuration.StorageBackend)));
         Assert.True(Configuration.RequiresRestart(nameof(Configuration.StorageConnectionString)));
@@ -204,7 +210,7 @@ public class ServerConfigurationDefaultsTests
         // 15: added the persistent application-level ServerUUID.
         // 16: added the shared-orb leave timeout and deletion timer.
         // 17: added player storage.
-        Assert.Equal(17, Configuration.CurrentConfigVersion);
+        Assert.Equal(18, Configuration.CurrentConfigVersion);
         Assert.Equal(0, new Configuration().ConfigVersion);
         Assert.Equal("config", Configuration.ConfigFolderName);
         Assert.Equal("logs", Configuration.LogsFolderName);

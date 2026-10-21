@@ -56,6 +56,11 @@ public static class BasisNetworkContentShare
         {
             return;
         }
+        if (string.IsNullOrEmpty(msg.SphereNetID) || msg.SphereNetID.Length > ContentSharePayload.MaxSphereIdLength || (msg.UnlockPassword?.Length ?? 0) > ContentSharePayload.MaxPasswordLength)
+        {
+            BNL.LogError($"Content share from peer {peer.Id} has a {msg.SphereNetID?.Length ?? 0} character sphere id and a {msg.UnlockPassword?.Length ?? 0} character password; the ceilings are {ContentSharePayload.MaxSphereIdLength} and {ContentSharePayload.MaxPasswordLength}.");
+            return;
+        }
 
         // Global lock check based on content type: blocked when the content's
         // lock is on AND the peer lacks the matching lockbypass permission.
@@ -98,8 +103,8 @@ public static class BasisNetworkContentShare
                 BNL.LogError($"Unknown content share type {(byte)msg.ContentType} from peer {peer.Id}");
                 return;
         }
-        if (ContentSharePayload.IsPayloadType(msg.ContentType)
-            && (msg.ContentURL == null || msg.ContentURL.Length > ContentSharePayload.MaxLengthFor(msg.ContentType)))
+        if ((ContentSharePayload.IsPayloadType(msg.ContentType) && msg.ContentURL == null)
+            || (msg.ContentURL?.Length ?? 0) > ContentSharePayload.MaxLengthFor(msg.ContentType))
         {
             BNL.LogError($"Content share payload from peer {peer.Id} is {msg.ContentURL?.Length ?? -1} characters; the ceiling is {ContentSharePayload.MaxLengthFor(msg.ContentType)}.");
             return;

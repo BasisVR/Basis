@@ -26,10 +26,7 @@ public static class BasisValidationAssetCache
     private static readonly Dictionary<string, AssetImporter> Importers = new Dictionary<string, AssetImporter>(128);
     private static readonly Dictionary<EntityId, int[]> ShaderTextureProperties = new Dictionary<EntityId, int[]>(32);
     private static readonly List<int> PropertyScratch = new List<int>(32);
-
-    // 0 = not looked yet, 1 = present, 2 = missing. The lookup is a disk hit and the answer cannot
-    // change without restarting the editor, so it is worth doing exactly once.
-    private static int _il2cppState;
+    private static readonly Dictionary<BuildTarget, bool> ScriptingBackends = new Dictionary<BuildTarget, bool>(8);
 
     /// <summary>Raised after an import invalidates the cache, so open validators can re-run.</summary>
     public static event Action Invalidated;
@@ -129,30 +126,21 @@ public static class BasisValidationAssetCache
         return ids;
     }
 
-    /// <summary>
-    /// True when this editor install has no IL2CPP backend, which means the author cannot build
-    /// content for platforms that require it.
-    /// </summary>
-    public static bool Il2CppMissing
+    public static bool ScriptingBackendInstalled(BuildTarget target)
     {
-        get
+        if (!ScriptingBackends.TryGetValue(target, out bool installed))
         {
-            if (_il2cppState == 0)
+            try
             {
-                bool exists;
-                try
-                {
-                    string unityFolder = Path.GetDirectoryName(EditorApplication.applicationPath);
-                    exists = !string.IsNullOrEmpty(unityFolder) && Directory.Exists(Path.Combine(unityFolder, "Data", "il2cpp"));
-                }
-                catch (Exception)
-                {
-                    exists = true; // Cannot tell — say nothing rather than cry wolf on every pass.
-                }
-                _il2cppState = exists ? 1 : 2;
+                installed = BuildPipeline.IsBuildTargetSupported(BuildPipeline.GetBuildTargetGroup(target), target) && (BasisSDKConstants.ScriptingBackendFor(target) != ScriptingImplementation.CoreCLR || Directory.Exists(Path.Combine(BuildPipeline.GetPlaybackEngineDirectory(target, BuildOptions.None), "Variations", "coreclr", "Managed")));
             }
-            return _il2cppState == 2;
+            catch (Exception)
+            {
+                installed = true;
+            }
+            ScriptingBackends[target] = installed;
         }
+        return installed;
     }
 
     private sealed class ImportWatcher : AssetPostprocessor

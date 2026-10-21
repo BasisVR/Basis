@@ -112,7 +112,7 @@ namespace Basis.ImagePickup
             return true;
         }
 
-        public static BasisDibDecodeResult Decode(byte[] dib)
+        public static BasisDibDecodeResult Decode(byte[] dib, int maxAxis = MaxAxis, long maxPixels = (long)MaxAxis * MaxAxis)
         {
             var result = new BasisDibDecodeResult();
 
@@ -185,6 +185,10 @@ namespace Basis.ImagePickup
                 }
                 paletteBytes = entries * 4;
             }
+            else
+            {
+                paletteBytes = (long)paletteEntries * 4;
+            }
 
             long pixelOffset = headerSize + maskBytes + paletteBytes;
             long stride = ((long)width * bitCount + 31) / 32 * 4;
@@ -229,7 +233,7 @@ namespace Basis.ImagePickup
             }
 
             long rgbaBytes = (long)width * height * 4;
-            if (rgbaBytes > int.MaxValue)
+            if (rgbaBytes > int.MaxValue || width > maxAxis || height > maxAxis || (long)width * height > maxPixels)
             {
                 result.Error = "Clipboard bitmap is too large to decode";
                 return result;

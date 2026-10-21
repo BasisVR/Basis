@@ -45,6 +45,8 @@ public static partial class SerializableBasis
         /// </summary>
         public const int MaxLength = 16384;
         public const int MaxTextLength = 4096;
+        public const int MaxSphereIdLength = 64;
+        public const int MaxPasswordLength = 1024;
 
         public static bool IsPayloadType(ContentShareType type) => type == ContentShareType.DollyTrack || type == ContentShareType.Folder || type == ContentShareType.Setting || IsTextType(type);
         public static bool IsTextType(ContentShareType type) => type == ContentShareType.Link || type == ContentShareType.Text;
@@ -88,9 +90,26 @@ public static partial class SerializableBasis
             // on the same site, or what the confirmation names is not where the browser goes.
             if (!Uri.TryCreate(parsed.AbsoluteUri, UriKind.Absolute, out Uri reparsed)) return false;
             if (reparsed.Scheme != parsed.Scheme || reparsed.Port != parsed.Port || !string.IsNullOrEmpty(reparsed.UserInfo)) return false;
-            if (!string.Equals(reparsed.IdnHost, parsed.IdnHost, StringComparison.OrdinalIgnoreCase)) return false;
+            if (!TryGetIdnHost(reparsed, out string reparsedHost) || !TryGetIdnHost(parsed, out string parsedHost) || !string.Equals(reparsedHost, parsedHost, StringComparison.OrdinalIgnoreCase)) return false;
             link = parsed;
             return true;
+        }
+
+        private static bool TryGetIdnHost(Uri link, out string host)
+        {
+            try
+            {
+                host = link.IdnHost;
+                return true;
+            }
+            catch (FormatException)
+            {
+            }
+            catch (ArgumentException)
+            {
+            }
+            host = null;
+            return false;
         }
 
         private static bool IsPlainHost(Uri link)
@@ -102,10 +121,9 @@ public static partial class SerializableBasis
                 case UriHostNameType.IPv6:
                     // A zone id (fe80::1%eth0) names a network card on the reader's own machine.
                     // Host drops it silently; IdnHost keeps it.
-                    return link.IdnHost.IndexOf('%') < 0 && link.Host.IndexOf('%') < 0;
+                    return TryGetIdnHost(link, out string address) && address.IndexOf('%') < 0 && link.Host.IndexOf('%') < 0;
                 case UriHostNameType.Dns:
-                    string host = link.IdnHost;
-                    if (string.IsNullOrEmpty(host) || host.Length > 254 || host[0] == '.' || host.Contains("..")) return false;
+                    if (!TryGetIdnHost(link, out string host) || string.IsNullOrEmpty(host) || host.Length > 254 || host[0] == '.' || host.Contains("..")) return false;
                     for (int i = 0; i < host.Length; i++)
                     {
                         char c = host[i];

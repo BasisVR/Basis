@@ -542,8 +542,7 @@ namespace Basis.BasisUI
             locateGroup.SetTitle(BasisLocalization.Get("menu.individualPlayer.locate"));
             locateGroup.SetDescription(BasisLocalization.Get("menu.individualPlayer.locate.description"));
 
-            PanelButton highlightBtn = PanelButton.CreateNew(locateGroup.ContentParent);
-            highlightBtn.Descriptor.SetDescription(BasisLocalization.Get("menu.individualPlayer.highlight.description"));
+            PanelToggle highlightToggle = CreatePlayerToggle(locateGroup.ContentParent, "menu.individualPlayer.highlight", "menu.individualPlayer.highlight.description");
 
             PanelButton clearHighlightBtn = PanelButton.CreateNew(locateGroup.ContentParent);
             clearHighlightBtn.Descriptor.SetTitle(BasisLocalization.Get("menu.individualPlayer.clearHighlights"));
@@ -551,20 +550,15 @@ namespace Basis.BasisUI
 
             void PaintDetailHighlight()
             {
-                if (highlightBtn == null || highlightBtn.Descriptor == null) return;
-                highlightBtn.Descriptor.SetTitle(BasisLocalization.Get(IsHighlighted(remotePlayer)
-                    ? "menu.individualPlayer.removeHighlight" : "menu.individualPlayer.highlight"));
+                if (highlightToggle == null) return;
+                highlightToggle.SetValueWithoutNotify(IsHighlighted(remotePlayer));
             }
             PaintDetailHighlight();
             sync.Highlight += PaintDetailHighlight;
 
-            highlightBtn.OnClicked += () =>
+            highlightToggle.OnValueChanged += highlighted =>
             {
-                if (Basis.Scripts.Networking.BasisNetworkPlayers.PlayerToNetworkedPlayer(
-                    remotePlayer, out BasisNetworkPlayer netPlayer))
-                {
-                    SetHighlight(netPlayer);
-                }
+                SetHighlighted(remotePlayer, highlighted);
                 sync.Highlight?.Invoke();
             };
 
@@ -580,21 +574,19 @@ namespace Basis.BasisUI
             pinGroup.SetDescription(BasisLocalization.Get("menu.individualPlayer.pin.description"));
 
             string pinUuid = remotePlayer.UUID;
-            PanelButton pinBtn = PanelButton.CreateNew(pinGroup.ContentParent);
-            pinBtn.Descriptor.SetDescription(BasisLocalization.Get("menu.individualPlayer.pin.button.description"));
+            PanelToggle pinToggle = CreatePlayerToggle(pinGroup.ContentParent, "menu.individualPlayer.pinButton", "menu.individualPlayer.pin.button.description");
 
             void PaintDetailPin()
             {
-                if (pinBtn == null || pinBtn.Descriptor == null) return;
-                pinBtn.Descriptor.SetTitle(BasisLocalization.Get(
-                    PinnedPlayers.IsPinned(pinUuid) ? "menu.individualPlayer.unpin" : "menu.individualPlayer.pinButton"));
+                if (pinToggle == null) return;
+                pinToggle.SetValueWithoutNotify(PinnedPlayers.IsPinned(pinUuid));
             }
             PaintDetailPin();
             sync.Pin += PaintDetailPin;
 
-            pinBtn.OnClicked += () =>
+            pinToggle.OnValueChanged += pinned =>
             {
-                PinnedPlayers.Toggle(pinUuid);
+                SetPinned(pinUuid, pinned);
                 sync.Pin?.Invoke();
             };
 
@@ -777,34 +769,27 @@ namespace Basis.BasisUI
             };
 
             // ---- Mute toggle (audio-only, separate from full block) ----
-            PanelButton muteBtn = PanelButton.CreateNew(audioGroup.ContentParent);
-            muteBtn.Descriptor.SetDescription(BasisLocalization.Get("menu.individualPlayer.mute.description"));
+            PanelToggle muteToggle = CreatePlayerToggle(audioGroup.ContentParent, "menu.individualPlayer.mute", "menu.individualPlayer.mute.description");
 
             // Also drags the slider back to whatever mute/unmute resolved to, so the helper's
             // restore-from-snapshot logic is visible rather than just audible.
             void PaintDetailVolume(BasisPlayerSettingsData s)
             {
-                if (muteBtn != null && muteBtn.Descriptor != null)
-                {
-                    muteBtn.Descriptor.SetTitle(BasisLocalization.Get(
-                        s.VolumeLevel <= 0f ? "menu.individualPlayer.unmute" : "menu.individualPlayer.mute"));
-                }
+                if (muteToggle != null) muteToggle.SetValueWithoutNotify(s.VolumeLevel <= 0f);
                 if (volumeSlider != null)
                 {
                     volumeSlider.SetValueWithoutNotify(s.VolumeLevel);
                     RefreshBoostTint(s.VolumeLevel, true);
                 }
             }
-            // Initial paint only needs the button — the slider and its tint were already set
+            // Initial paint only needs the toggle — the slider and its tint were already set
             // above, and re-setting them here would tween a row that has not been shown yet.
-            muteBtn.Descriptor.SetTitle(BasisLocalization.Get(
-                settings.VolumeLevel <= 0f ? "menu.individualPlayer.unmute" : "menu.individualPlayer.mute"));
+            muteToggle.SetValueWithoutNotify(settings.VolumeLevel <= 0f);
             sync.Volume += PaintDetailVolume;
 
-            muteBtn.OnClicked += async () =>
+            muteToggle.OnValueChanged += async muted =>
             {
-                await ToggleMute(remotePlayer);
-                sync.Volume?.Invoke(await BasisPlayerSettingsManager.RequestPlayerSettings(remotePlayer.UUID));
+                sync.Volume?.Invoke(await SetMuted(remotePlayer, muted));
             };
 
             // ---- Voice recording (consent-gated capture / re-route) ----
@@ -817,32 +802,51 @@ namespace Basis.BasisUI
                 remotePlayer, out BasisNetworkPlayer voiceRecNet);
             if (hasVoiceRecTarget) voiceRecPlayerId = voiceRecNet.playerId;
 
-            Basis.Scripts.Networking.VoiceRecording.BasisRecordingHandle voiceRecHandle = null;
-            PanelButton recordBtn = PanelButton.CreateNew(voiceRecGroup.ContentParent);
-            recordBtn.Descriptor.SetTitle(BasisLocalization.Get(
-                hasVoiceRecTarget && Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.IsRecording(voiceRecPlayerId)
-                    ? "menu.individualPlayer.voiceRecording.stop"
-                    : "menu.individualPlayer.voiceRecording.start"));
-            recordBtn.Descriptor.SetDescription(BasisLocalization.Get("menu.individualPlayer.voiceRecording.start.description"));
-            recordBtn.OnClicked += async () =>
+            PanelToggle recordToggle = CreatePlayerToggle(voiceRecGroup.ContentParent, "menu.individualPlayer.voiceRecording", "menu.individualPlayer.voiceRecording.start.description");
+            void PaintRecording()
             {
-                if (!hasVoiceRecTarget) return;
-                if (Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.IsRecording(voiceRecPlayerId))
+                if (recordToggle == null) return;
+                recordToggle.SetValueWithoutNotify(hasVoiceRecTarget && Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.IsRecording(voiceRecPlayerId));
+            }
+            PaintRecording();
+            recordToggle.OnValueChanged += async recording =>
+            {
+                if (hasVoiceRecTarget && !recording)
                 {
                     Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.StopRecording(voiceRecPlayerId);
-                    voiceRecHandle = null;
-                    recordBtn.Descriptor.SetTitle(BasisLocalization.Get("menu.individualPlayer.voiceRecording.start"));
-                    return;
                 }
-                recordBtn.Descriptor.SetTitle(BasisLocalization.Get("menu.individualPlayer.voiceRecording.requesting"));
-                voiceRecHandle = await Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.StartRecording(
-                    remotePlayer, Basis.Scripts.Networking.VoiceRecording.BasisRecordingOptions.Default);
-                if (recordBtn == null) return;
-                recordBtn.Descriptor.SetTitle(BasisLocalization.Get(
-                    voiceRecHandle != null
-                        ? "menu.individualPlayer.voiceRecording.stop"
-                        : "menu.individualPlayer.voiceRecording.start"));
+                else if (hasVoiceRecTarget && !Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.IsRecording(voiceRecPlayerId))
+                {
+                    recordToggle.SetInteractable(false);
+                    recordToggle.Descriptor.SetDescription(BasisLocalization.Get("menu.individualPlayer.voiceRecording.requesting"));
+                    RebuildSection(voiceRecGroup, audioPage);
+                    await Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.StartRecording(
+                        remotePlayer, Basis.Scripts.Networking.VoiceRecording.BasisRecordingOptions.Default);
+                    if (recordToggle == null) return;
+                    recordToggle.SetInteractable(true);
+                    recordToggle.Descriptor.SetDescription(string.Empty);
+                    RebuildSection(voiceRecGroup, audioPage);
+                }
+                PaintRecording();
             };
+
+            Action<ushort, Basis.Scripts.Networking.VoiceRecording.BasisRecording> recordingHandler = null;
+            recordingHandler = (changedId, _) =>
+            {
+                if (!hasVoiceRecTarget || changedId != voiceRecPlayerId) return;
+                BasisDeviceManagement.EnqueueOnMainThread(() =>
+                {
+                    if (recordToggle == null)
+                    {
+                        Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.OnRecordingStarted -= recordingHandler;
+                        Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.OnRecordingStopped -= recordingHandler;
+                        return;
+                    }
+                    PaintRecording();
+                });
+            };
+            Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.OnRecordingStarted += recordingHandler;
+            Basis.Scripts.Networking.VoiceRecording.BasisVoiceRecording.OnRecordingStopped += recordingHandler;
 
             if (!string.IsNullOrEmpty(remotePlayer.UUID))
             {
@@ -886,46 +890,26 @@ namespace Basis.BasisUI
                 remotePlayer, out BasisNetworkPlayer privateChatNet);
             if (hasPrivateChatTarget) privateChatPlayerId = privateChatNet.playerId;
 
-            PanelButton privateChatBtn = PanelButton.CreateNew(privateChatGroup.ContentParent);
-            privateChatBtn.Descriptor.SetDescription(BasisLocalization.Get("menu.individualPlayer.privateChat.add.description"));
-
-            PanelButton talkToOnlyBtn = PanelButton.CreateNew(privateChatGroup.ContentParent);
-            talkToOnlyBtn.Descriptor.SetDescription(BasisLocalization.Get("menu.individualPlayer.talkToOnly.description"));
+            PanelToggle privateChatToggle = CreatePlayerToggle(privateChatGroup.ContentParent, "menu.individualPlayer.privateChat.add", "menu.individualPlayer.privateChat.add.description");
+            PanelToggle talkToOnlyToggle = CreatePlayerToggle(privateChatGroup.ContentParent, "menu.individualPlayer.talkToOnly", "menu.individualPlayer.talkToOnly.description");
 
             void PaintDetailTalkModes()
             {
-                if (privateChatBtn != null && privateChatBtn.Descriptor != null)
-                {
-                    privateChatBtn.Descriptor.SetTitle(BasisLocalization.Get(
-                        hasPrivateChatTarget && Basis.Scripts.Networking.BasisTalkModeManager.IsPrivateMember(privateChatPlayerId)
-                            ? "menu.individualPlayer.privateChat.remove"
-                            : "menu.individualPlayer.privateChat.add"));
-                }
-                if (talkToOnlyBtn != null && talkToOnlyBtn.Descriptor != null)
-                {
-                    talkToOnlyBtn.Descriptor.SetTitle(BasisLocalization.Get(
-                        hasPrivateChatTarget && Basis.Scripts.Networking.BasisTalkModeManager.IsTalkingOnlyTo(privateChatPlayerId)
-                            ? "menu.individualPlayer.talkToOnly.stop"
-                            : "menu.individualPlayer.talkToOnly"));
-                }
+                if (privateChatToggle != null) privateChatToggle.SetValueWithoutNotify(hasPrivateChatTarget && Basis.Scripts.Networking.BasisTalkModeManager.IsPrivateMember(privateChatPlayerId));
+                if (talkToOnlyToggle != null) talkToOnlyToggle.SetValueWithoutNotify(hasPrivateChatTarget && Basis.Scripts.Networking.BasisTalkModeManager.IsTalkingOnlyTo(privateChatPlayerId));
             }
             PaintDetailTalkModes();
             sync.TalkModes += PaintDetailTalkModes;
 
-            privateChatBtn.OnClicked += () =>
+            privateChatToggle.OnValueChanged += member =>
             {
-                if (!hasPrivateChatTarget) return;
-                Basis.Scripts.Networking.BasisTalkModeManager.TogglePrivateMember(privateChatPlayerId);
+                if (hasPrivateChatTarget) SetPrivateMember(privateChatPlayerId, member);
                 sync.TalkModes?.Invoke();
             };
 
-            talkToOnlyBtn.OnClicked += () =>
+            talkToOnlyToggle.OnValueChanged += only =>
             {
-                if (!hasPrivateChatTarget) return;
-                if (Basis.Scripts.Networking.BasisTalkModeManager.IsTalkingOnlyTo(privateChatPlayerId))
-                    Basis.Scripts.Networking.BasisTalkModeManager.StopThisPerson();
-                else
-                    Basis.Scripts.Networking.BasisTalkModeManager.SetThisPersonTarget(privateChatPlayerId);
+                if (hasPrivateChatTarget) SetTalkingOnlyTo(privateChatPlayerId, only);
                 sync.TalkModes?.Invoke();
             };
 
@@ -952,11 +936,11 @@ namespace Basis.BasisUI
                 remotePlayer, out BasisNetworkPlayer p2pNetTarget);
             if (hasDirectConnTarget) directConnPlayerId = p2pNetTarget.playerId;
 
-            PanelButton directConnBtn = PanelButton.CreateNew(p2pGroup.ContentParent);
+            PanelToggle directConnToggle = CreatePlayerToggle(p2pGroup.ContentParent, "menu.individualPlayer.directConnection", "menu.individualPlayer.directConnection.description");
 
             // Where the link actually is. The card carries the state and grades itself with the
-            // Calm/Caution/Hot tint the frame bottleneck card uses, so the button next to it is
-            // free to say what clicking does rather than doubling as the readout.
+            // Calm/Caution/Hot tint the frame bottleneck card uses, so the toggle next to it only
+            // has to say whether a link is wanted rather than doubling as the readout.
             var directConnStatus = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, p2pGroup.ContentParent);
             directConnStatus.SetDescription(BasisLocalization.Get("menu.individualPlayer.directConnection.partial.description"));
             directConnStatus.SetActive(false);
@@ -972,19 +956,6 @@ namespace Basis.BasisUI
                 if (!hasDirectConnTarget) return;
                 Basis.Scripts.Networking.BasisP2PManager.RetryDirect(directConnPlayerId);
             };
-
-            // What clicking the button does from here — the state itself is on the status card.
-            string DirectConnActionKey(P2PState st)
-            {
-                if (DirectConnectionBlocked(st))
-                {
-                    return "menu.individualPlayer.directConnection.disabled";
-                }
-                // Mirrors the click handler below: only Idle and Failed start a new request.
-                return st == P2PState.Idle || st == P2PState.Failed
-                    ? "menu.individualPlayer.directConnection.request"
-                    : "menu.individualPlayer.directConnection.cancel";
-            }
 
             // Null when there is nothing to report and the card stays hidden.
             string DirectConnStatusKey(P2PState st)
@@ -1037,11 +1008,16 @@ namespace Basis.BasisUI
                 }
             }
 
-            void RefreshDirectConnLabel()
+            void RefreshDirectConn()
             {
-                if (directConnBtn == null || directConnBtn.Descriptor == null) return;
+                if (directConnToggle == null || directConnToggle.Descriptor == null) return;
                 P2PState st = Basis.Scripts.Networking.BasisP2PManager.GetSessionState(directConnPlayerId);
-                directConnBtn.Descriptor.SetTitle(BasisLocalization.Get(DirectConnActionKey(st)));
+                bool live = DirectConnectionLive(st);
+                directConnToggle.SetValueWithoutNotify(live);
+                directConnToggle.Descriptor.SetDescription(
+                    !live && DirectConnectionBlocked(st)
+                        ? BasisLocalization.Get("menu.individualPlayer.directConnection.disabled")
+                        : string.Empty);
 
                 string statusKey = DirectConnStatusKey(st);
                 bool showStatus = statusKey != null;
@@ -1071,12 +1047,12 @@ namespace Basis.BasisUI
                     directConnRetryBtn.Descriptor.SetActive(canRetry);
                 RebuildSection(p2pGroup, networkPage);
             }
-            RefreshDirectConnLabel();
-            sync.DirectConnection += RefreshDirectConnLabel;
+            RefreshDirectConn();
+            sync.DirectConnection += RefreshDirectConn;
 
-            directConnBtn.OnClicked += () =>
+            directConnToggle.OnValueChanged += on =>
             {
-                ToggleDirectConnection(remotePlayer);
+                SetDirectConnection(remotePlayer, on);
                 sync.DirectConnection?.Invoke();
             };
 
@@ -1087,7 +1063,7 @@ namespace Basis.BasisUI
                 if (changedId != directConnPlayerId) return;
                 BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
-                    if (directConnBtn == null || directConnBtn.Descriptor == null)
+                    if (directConnToggle == null || directConnToggle.Descriptor == null)
                     {
                         Basis.Scripts.Networking.BasisP2PManager.OnSessionStateChanged -= p2pHandler;
                         return;
@@ -1241,37 +1217,31 @@ namespace Basis.BasisUI
                 }
             }
 
-            PanelButton toggleAvatarBtn = PanelButton.CreateNew(avatarGroup.ContentParent);
-            toggleAvatarBtn.Descriptor.SetDescription(BasisLocalization.Get("menu.individualPlayer.toggleAvatar.description"));
-
-            void PaintDetailAvatarVisible(BasisPlayerSettingsData s)
+            PanelToggle hideAvatarToggle = CreatePlayerToggle(avatarGroup.ContentParent, "menu.individualPlayer.hideAvatar", "menu.individualPlayer.toggleAvatar.description");
+            hideAvatarToggle.SetValueWithoutNotify(!settings.AvatarVisible);
+            sync.AvatarVisible += s =>
             {
-                if (toggleAvatarBtn == null || toggleAvatarBtn.Descriptor == null) return;
-                toggleAvatarBtn.Descriptor.SetTitle(BasisLocalization.Get(
-                    s.AvatarVisible ? "menu.individualPlayer.hideAvatar" : "menu.individualPlayer.showAvatar"));
-            }
-            PaintDetailAvatarVisible(settings);
-            sync.AvatarVisible += PaintDetailAvatarVisible;
+                if (hideAvatarToggle == null) return;
+                hideAvatarToggle.SetValueWithoutNotify(!s.AvatarVisible);
+            };
 
-            PanelButton toggleInteractionsBtn = PanelButton.CreateNew(avatarGroup.ContentParent);
-            toggleInteractionsBtn.Descriptor.SetTitle(BasisLocalization.Get(settings.AvatarInteraction ? "menu.individualPlayer.disableInteractions" : "menu.individualPlayer.enableInteractions"));
-            toggleInteractionsBtn.Descriptor.SetDescription(BasisLocalization.Get("menu.individualPlayer.toggleInteractions.description"));
+            PanelToggle disableInteractionsToggle = CreatePlayerToggle(avatarGroup.ContentParent, "menu.individualPlayer.disableInteractions", "menu.individualPlayer.toggleInteractions.description");
+            disableInteractionsToggle.SetValueWithoutNotify(!settings.AvatarInteraction);
 
             // Manual toggle is the only escape hatch from the global "bail on retries" state set
             // by BasisAvatarFactory.MarkRemoteLoadFailed — ToggleAvatarVisible clears it so
             // showing the avatar again actually re-attempts the download.
-            toggleAvatarBtn.OnClicked += async () =>
+            hideAvatarToggle.OnValueChanged += async hidden =>
             {
-                sync.AvatarVisible?.Invoke(await ToggleAvatarVisible(remotePlayer));
+                sync.AvatarVisible?.Invoke(await SetAvatarVisible(remotePlayer, !hidden));
             };
 
-            toggleInteractionsBtn.OnClicked += async () =>
+            disableInteractionsToggle.OnValueChanged += async disabled =>
             {
                 var s = await BasisPlayerSettingsManager.RequestPlayerSettings(remotePlayer.UUID);
-                s.AvatarInteraction = !s.AvatarInteraction;
-               await BasisPlayerSettingsManager.SetPlayerSettings(s);
-
-                toggleInteractionsBtn.Descriptor.SetTitle(BasisLocalization.Get(s.AvatarInteraction ? "menu.individualPlayer.disableInteractions" : "menu.individualPlayer.enableInteractions"));
+                if (s.AvatarInteraction == !disabled) return;
+                s.AvatarInteraction = !disabled;
+                await BasisPlayerSettingsManager.SetPlayerSettings(s);
 
                 if (remotePlayer != null)
                 {
@@ -1334,39 +1304,32 @@ namespace Basis.BasisUI
             blockGroup.SetTitle(BasisLocalization.Get("menu.individualPlayer.block"));
             blockGroup.SetDescription(BasisLocalization.Get("menu.individualPlayer.block.description"));
 
-            PanelButton toggleBlockBtn = PanelButton.CreateNew(blockGroup.ContentParent);
-            toggleBlockBtn.Descriptor.SetDescription(BasisLocalization.Get("menu.individualPlayer.block.button.description"));
-
-            void PaintDetailBlock(BasisPlayerSettingsData s)
+            PanelToggle blockToggle = CreatePlayerToggle(blockGroup.ContentParent, "menu.individualPlayer.blockButton", "menu.individualPlayer.block.button.description");
+            blockToggle.SetValueWithoutNotify(settings.IsBlocked);
+            sync.Blocked += s =>
             {
-                if (toggleBlockBtn == null || toggleBlockBtn.Descriptor == null) return;
-                toggleBlockBtn.Descriptor.SetTitle(BasisLocalization.Get(
-                    s.IsBlocked ? "menu.individualPlayer.unblock" : "menu.individualPlayer.blockButton"));
-            }
-            PaintDetailBlock(settings);
-            sync.Blocked += PaintDetailBlock;
+                if (blockToggle == null) return;
+                blockToggle.SetValueWithoutNotify(s.IsBlocked);
+            };
 
-            toggleBlockBtn.OnClicked += async () =>
+            blockToggle.OnValueChanged += async blocked =>
             {
-                await ToggleBlockWithConfirmation(remotePlayer);
-                sync.Blocked?.Invoke(await BasisPlayerSettingsManager.RequestPlayerSettings(remotePlayer.UUID));
+                sync.Blocked?.Invoke(await SetBlocked(remotePlayer, blocked));
             };
 
             var chatGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);
             chatGroup.SetTitle(BasisLocalization.Get("settings.tab.chat"));
             chatGroup.SetDescription(BasisLocalization.Get("menu.individualPlayer.chat.description"));
 
-            PanelButton toggleChatBtn = PanelButton.CreateNew(chatGroup.ContentParent);
-            toggleChatBtn.Descriptor.SetTitle(BasisLocalization.Get(settings.ChatVisible ? "menu.individualPlayer.hideChat" : "menu.individualPlayer.showChat"));
-            toggleChatBtn.Descriptor.SetDescription(BasisLocalization.Get("menu.individualPlayer.toggleChat.description"));
+            PanelToggle hideChatToggle = CreatePlayerToggle(chatGroup.ContentParent, "menu.individualPlayer.hideChat", "menu.individualPlayer.toggleChat.description");
+            hideChatToggle.SetValueWithoutNotify(!settings.ChatVisible);
 
-            toggleChatBtn.OnClicked += async () =>
+            hideChatToggle.OnValueChanged += async hidden =>
             {
                 var s = await BasisPlayerSettingsManager.RequestPlayerSettings(remotePlayer.UUID);
-                s.ChatVisible = !s.ChatVisible;
+                if (s.ChatVisible == !hidden) return;
+                s.ChatVisible = !hidden;
                 await BasisPlayerSettingsManager.SetPlayerSettings(s);
-
-                toggleChatBtn.Descriptor.SetTitle(BasisLocalization.Get(s.ChatVisible ? "menu.individualPlayer.hideChat" : "menu.individualPlayer.showChat"));
 
                 // If chat was just hidden, clear any currently displayed message
                 if (!s.ChatVisible && remotePlayer != null)
@@ -1453,52 +1416,38 @@ namespace Basis.BasisUI
                         BasisNetworkModeration.TeleportHere(np.playerId);
                 };
 
-                PanelButton announceBtn = PanelButton.CreateNew(adminGroup.ContentParent);
-                announceBtn.Descriptor.SetDescription(BasisLocalization.Get("menu.individualPlayer.announce.description"));
+                PanelToggle announceToggle = CreatePlayerToggle(adminGroup.ContentParent, "menu.individualPlayer.announce.enable", "menu.individualPlayer.announce.description");
                 bool hasAnnounceTarget = BasisNetworkPlayers.PlayerToNetworkedPlayer(remotePlayer, out BasisNetworkPlayer announceNp);
                 ushort announcePlayerId = hasAnnounceTarget ? announceNp.playerId : (ushort)0;
 
                 void PaintDetailAnnounce()
                 {
-                    if (announceBtn == null || announceBtn.Descriptor == null) return;
-                    announceBtn.Descriptor.SetTitle(BasisLocalization.Get(
-                        hasAnnounceTarget && BasisAnnounceAudioDriver.IsInAnnounceMode(announcePlayerId)
-                            ? "menu.individualPlayer.announce.disable"
-                            : "menu.individualPlayer.announce.enable"));
+                    if (announceToggle == null) return;
+                    announceToggle.SetValueWithoutNotify(hasAnnounceTarget && BasisAnnounceAudioDriver.IsInAnnounceMode(announcePlayerId));
                 }
                 PaintDetailAnnounce();
                 sync.Announce += PaintDetailAnnounce;
 
-                announceBtn.OnClicked += () =>
+                announceToggle.OnValueChanged += on =>
                 {
-                    if (!hasAnnounceTarget) return;
-                    if (BasisAnnounceAudioDriver.IsInAnnounceMode(announcePlayerId))
-                        BasisNetworkModeration.DisableAnnounceMode(announcePlayerId);
-                    else
-                        BasisNetworkModeration.EnableAnnounceMode(announcePlayerId);
+                    if (hasAnnounceTarget) SetAnnounceMode(announcePlayerId, on);
+                    else PaintDetailAnnounce();
                 };
 
-                PanelButton shoutBtn = PanelButton.CreateNew(adminGroup.ContentParent);
-                shoutBtn.Descriptor.SetDescription(BasisLocalization.Get("menu.individualPlayer.shout.description"));
+                PanelToggle shoutToggle = CreatePlayerToggle(adminGroup.ContentParent, "menu.individualPlayer.shout.enable", "menu.individualPlayer.shout.description");
 
                 void PaintDetailShout()
                 {
-                    if (shoutBtn == null || shoutBtn.Descriptor == null) return;
-                    shoutBtn.Descriptor.SetTitle(BasisLocalization.Get(
-                        hasAnnounceTarget && BasisNetworkModeration.IsInShoutMode(announcePlayerId)
-                            ? "menu.individualPlayer.shout.disable"
-                            : "menu.individualPlayer.shout.enable"));
+                    if (shoutToggle == null) return;
+                    shoutToggle.SetValueWithoutNotify(hasAnnounceTarget && BasisNetworkModeration.IsInShoutMode(announcePlayerId));
                 }
                 PaintDetailShout();
                 sync.Shout += PaintDetailShout;
 
-                shoutBtn.OnClicked += () =>
+                shoutToggle.OnValueChanged += on =>
                 {
-                    if (!hasAnnounceTarget) return;
-                    if (BasisNetworkModeration.IsInShoutMode(announcePlayerId))
-                        BasisNetworkModeration.DisableShoutMode(announcePlayerId);
-                    else
-                        BasisNetworkModeration.EnableShoutMode(announcePlayerId);
+                    if (hasAnnounceTarget) SetShoutMode(announcePlayerId, on);
+                    else PaintDetailShout();
                 };
 
                 // Server-enforced mutes, painted from the state the server reports: asked for on
@@ -1919,6 +1868,18 @@ namespace Basis.BasisUI
                 });
             };
             BasisNetworkModeration.OnShoutModeChanged += shoutHandler;
+
+            Action talkModeHandler = null;
+            talkModeHandler = () => BasisDeviceManagement.EnqueueOnMainThread(() =>
+            {
+                if (panel == null || panel.Descriptor == null)
+                {
+                    BasisTalkModeManager.OnLocalTalkModeChanged -= talkModeHandler;
+                    return;
+                }
+                sync.TalkModes?.Invoke();
+            });
+            BasisTalkModeManager.OnLocalTalkModeChanged += talkModeHandler;
 
             panel.Descriptor.ForceRebuild();
             panel.Descriptor.ForceRebuild();

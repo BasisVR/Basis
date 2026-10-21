@@ -94,6 +94,7 @@ public class BasisPickupSyncNetworking : BasisSyncedTransform, IBasisStaticLocka
 
     private bool _authoredKinematic;
     private bool _authoredKinematicLatched;
+    private BasisPickupInteractable _gatedPickup;
 
     /// <summary>
     /// The resting <see cref="Rigidbody.isKinematic"/> this prop returns to when it isn't held, remotely
@@ -142,9 +143,7 @@ public class BasisPickupSyncNetworking : BasisSyncedTransform, IBasisStaticLocka
         base.Awake();
         if (BasisPickupInteractable != null)
         {
-            BasisPickupInteractable.CanHoverInjected.Add(CanHover);
-            BasisPickupInteractable.CanInteractInjected.Add(CanInteract);
-            BasisPickupInteractable.OnInteractStartEvent.AddListener(OnInteractStartEvent);
+            AddGating();
             LatchAuthoredKinematic();
         }
 
@@ -188,14 +187,39 @@ public class BasisPickupSyncNetworking : BasisSyncedTransform, IBasisStaticLocka
             BasisDebug.LogTag.Pickups);
     }
 
+    public void OnEnable()
+    {
+        AddGating();
+    }
+
     public void OnDisable()
     {
-        if (BasisPickupInteractable != null)
+        RemoveGating();
+    }
+
+    private void AddGating()
+    {
+        if (_gatedPickup != null || BasisPickupInteractable == null)
         {
-            BasisPickupInteractable.CanHoverInjected.Remove(CanHover);
-            BasisPickupInteractable.CanInteractInjected.Remove(CanInteract);
-            BasisPickupInteractable.OnInteractStartEvent.RemoveListener(OnInteractStartEvent);
+            return;
         }
+        _gatedPickup = BasisPickupInteractable;
+        _gatedPickup.CanHoverInjected.Add(CanHover);
+        _gatedPickup.CanInteractInjected.Add(CanInteract);
+        _gatedPickup.OnInteractStartEvent.AddListener(OnInteractStartEvent);
+    }
+
+    private void RemoveGating()
+    {
+        BasisPickupInteractable pickup = _gatedPickup;
+        _gatedPickup = null;
+        if (pickup == null)
+        {
+            return;
+        }
+        pickup.CanHoverInjected.Remove(CanHover);
+        pickup.CanInteractInjected.Remove(CanInteract);
+        pickup.OnInteractStartEvent.RemoveListener(OnInteractStartEvent);
     }
 
     public override void OnNetworkReady()

@@ -47,7 +47,7 @@ jobs:
 
   build-client:
     name: Build client for ${{ matrix.targetPlatform }}
-    timeout-minutes: 100
+    timeout-minutes: 180
     runs-on: ubuntu-latest
     permissions:
       actions: write # to allow us to manage cache
@@ -107,7 +107,33 @@ jobs:
           projectPath: ${{ env.projectPath }}
           modules: ${{ matrix.unityModules }}
       - name: "Build Unity project"
+        id: unity-build
         timeout-minutes: 100
+        continue-on-error: true
+        uses: BasisVR/unity-builder@main
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          customImage: ${{ steps.unity-image.outputs.image }}
+          dockerShmSize: 2g
+          buildName: ${{ env.buildName }}
+          projectPath: ${{ env.projectPath }}
+          targetPlatform: ${{ matrix.targetPlatform }}
+          customParameters: ${{ startsWith(matrix.targetPlatform, 'Standalone') && '-standaloneBuildSubtarget Player' || '' }}
+          versioning: Custom
+          version: ${{ steps.version.outputs.gitversion }}
+          linux64RemoveExecutableExtension: false
+      - name: "Clear Library for a cold retry"
+        if: steps.unity-build.outcome == 'failure'
+        shell: bash
+        run: |
+          sudo dmesg -T | grep -i -E 'invoked oom-killer|oom-kill:|killed process|memory: usage|swap: usage|out of memory' || echo "No OOM kill in the kernel log"
+          sudo rm -rf "${projectPath}/Library" "build/${{ matrix.targetPlatform }}"
+      - name: "Build Unity project (cold retry)"
+        if: steps.unity-build.outcome == 'failure'
+        timeout-minutes: 120
         uses: BasisVR/unity-builder@main
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
@@ -125,12 +151,12 @@ jobs:
           linux64RemoveExecutableExtension: false
       - name: "Save Library Cache"
         uses: actions/cache/save@v3
-        if: always() && github.ref_name == 'developer'
+        if: success() && github.ref_name == 'developer'
         with:
           path: ${{ env.projectPath }}/Library
           key: ${{ steps.restore-cache.outputs.cache-primary-key }}
       - name: "Only retain latest cache"
-        if: always() && github.ref_name == 'developer'
+        if: success() && github.ref_name == 'developer'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -262,12 +288,12 @@ jobs:
           linux64RemoveExecutableExtension: false
       - name: "Save Library Cache"
         uses: actions/cache/save@v3
-        if: always() && github.ref_name == 'developer'
+        if: success() && github.ref_name == 'developer'
         with:
           path: ${{ env.projectPath }}/Library
           key: ${{ steps.restore-cache.outputs.cache-primary-key }}
       - name: "Only retain latest cache"
-        if: always() && github.ref_name == 'developer'
+        if: success() && github.ref_name == 'developer'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -298,6 +324,141 @@ jobs:
         uses: "softprops/action-gh-release@v2"
         with:
           files: build/Android/${{ env.buildName }}.apk
+
+  build-client-web:
+    name: Build client for WebGL
+    timeout-minutes: 240
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write # to allow us to manage cache
+    env:
+      projectPath: Basis
+      buildName: BasisVR
+      websocketTransportPackage: https://github.com/dooly123/Basis-TCP-Transport-Package.git
+      webMaximumMemoryMegabytes: 16384
+    needs: [check-secret]
+    if: needs.check-secret.outputs.secret-is-set == 'true'
+    steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: false
+          swap-storage: false
+      - name: "Checkout repository"
+        timeout-minutes: 10
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: "Restore Library cache"
+        id: restore-cache
+        timeout-minutes: 10
+        uses: actions/cache/restore@v3
+        with:
+          path: ${{ env.projectPath }}/Library
+          key: Library-${{ env.projectPath }}-WebGL-client-${{ hashFiles(env.projectPath) }}
+          restore-keys: Library-${{ env.projectPath }}-WebGL-client-
+      - name: "Create version string"
+        id: version
+        run: echo "gitversion=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
+      - name: "Add WebSocket transport package"
+        shell: bash
+        run: |
+          manifest="${projectPath}/Packages/manifest.json"
+          jq --arg url "$websocketTransportPackage" '.dependencies["com.basis.transport.websocket"] = $url' "$manifest" > "$manifest.tmp"
+          mv "$manifest.tmp" "$manifest"
+      - name: "Build Unity editor image"
+        id: unity-image
+        timeout-minutes: 40
+        uses: ./.github/actions/unity-editor-image
+        with:
+          projectPath: ${{ env.projectPath }}
+          modules: webgl
+      - name: "Build Unity project"
+        id: unity-build
+        timeout-minutes: 180
+        continue-on-error: true
+        uses: BasisVR/unity-builder@main
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          customImage: ${{ steps.unity-image.outputs.image }}
+          dockerShmSize: 2g
+          buildName: ${{ env.buildName }}
+          buildMethod: BasisWebBuild.BuildWeb
+          projectPath: ${{ env.projectPath }}
+          targetPlatform: WebGL
+          versioning: Custom
+          version: ${{ steps.version.outputs.gitversion }}
+      - name: "Clear Library for a cold retry"
+        if: steps.unity-build.outcome == 'failure'
+        shell: bash
+        run: |
+          sudo dmesg -T | grep -i -E 'invoked oom-killer|oom-kill:|killed process|memory: usage|swap: usage|out of memory' || echo "No OOM kill in the kernel log"
+          sudo rm -rf "${projectPath}/Library" build/WebGL
+      - name: "Build Unity project (cold retry)"
+        if: steps.unity-build.outcome == 'failure'
+        timeout-minutes: 180
+        uses: BasisVR/unity-builder@main
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          customImage: ${{ steps.unity-image.outputs.image }}
+          dockerShmSize: 2g
+          buildName: ${{ env.buildName }}
+          buildMethod: BasisWebBuild.BuildWeb
+          projectPath: ${{ env.projectPath }}
+          targetPlatform: WebGL
+          versioning: Custom
+          version: ${{ steps.version.outputs.gitversion }}
+      - name: "Check web build memory"
+        shell: bash
+        run: node .github/scripts/check_web_build.mjs "build/WebGL/${buildName}" "${webMaximumMemoryMegabytes}"
+      - name: "Save Library Cache"
+        uses: actions/cache/save@v3
+        if: success() && github.ref_name == 'developer'
+        with:
+          path: ${{ env.projectPath }}/Library
+          key: ${{ steps.restore-cache.outputs.cache-primary-key }}
+      - name: "Only retain latest cache"
+        if: success() && github.ref_name == 'developer'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          OLD_CACHE_IDS=$(gh cache list --sort created_at --key Library-${{ env.projectPath }}-WebGL-client- --json id --jq '.[1:] | map(.id) | @sh')
+          for cache_id in $OLD_CACHE_IDS; do
+            echo "Deleting cache id: $cache_id"
+            gh cache delete $cache_id
+          done
+      - name: "Upload client artifact"
+        timeout-minutes: 5
+        uses: actions/upload-artifact@v4
+        with:
+          name: Basis-Client-WebGL
+          path: build/WebGL/${{ env.buildName }}
+          if-no-files-found: error
+      - name: Archive client
+        uses: thedoctor0/zip-release@0.7.6
+        if: github.ref_type == 'tag'
+        with:
+          type: "zip"
+          directory: build/WebGL/${{ env.buildName }}
+          filename: "${{ github.workspace }}/BasisVR WebGL.zip"
+      - name: "Release client zip"
+        if: github.ref_type == 'tag'
+        timeout-minutes: 5
+        uses: "softprops/action-gh-release@v2"
+        with:
+          files: ${{ github.workspace }}/BasisVR WebGL.zip
 
   build-server:
     name: Build server on Ubuntu

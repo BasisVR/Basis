@@ -39,7 +39,7 @@ public struct BasisFootSimulateJob : IJob
         float3 up = inp.playerUp;
         if (math.lengthsq(up) < 0.001f) up = new float3(0, 1, 0);
 
-        float3 velSample = inp.hipsPos, hipsCarry = sim.hasPrevHeadPos ? velSample - sim.prevHeadPos : float3.zero, rawVel = (velSample - sim.prevHeadPos) / dt;
+        float3 velSample = inp.hipsPos, rawVel = (velSample - sim.prevHeadPos) / dt;
         rawVel -= up * math.dot(rawVel, up);
         sim.prevHeadPos = velSample;
         sim.hasPrevHeadPos = true;
@@ -203,37 +203,7 @@ public struct BasisFootSimulateJob : IJob
             if (ld >= rd) right.wantsStep = false; else left.wantsStep = false;
         }
 
-        float avgThigh = (p.leftThighLen + p.rightThighLen) * 0.5f;
         float3 hp = inp.hipsPos;
-        float hipFootUpDist = math.abs(GetUpComponent(hp, up) - GetUpComponent((left.currentPos + right.currentPos) * 0.5f, up));
-        float avgLeg2 = (p.leftLegLen + p.rightLegLen) * 0.5f, bendRatio = 1f - math.saturate(hipFootUpDist / avgLeg2);
-        float3 leftKneeTarget = (hp + left.currentPos) * 0.5f + bodyFwd * (avgThigh * p.kneeForwardPushFraction);
-        float3 rightKneeTarget = (hp + right.currentPos) * 0.5f + bodyFwd * (avgThigh * p.kneeForwardPushFraction);
-        float kneeSplay = halfStance * inp.splayWhenCrouched * bendRatio;
-        leftKneeTarget -= rawRight * kneeSplay;
-        rightKneeTarget += rawRight * kneeSplay;
-
-        float leftKneeUp = GetUpComponent(leftKneeTarget, up);
-        float3 hipsGround2 = ProjectOntoUpPlane(hp, up) + up * leftKneeUp;
-        float kneeMinSide = halfStance * p.kneeMinSideFraction;
-        EnforceSide(ref leftKneeTarget, hipsGround2, rawRight, -1, kneeMinSide);
-        float rightKneeUp = GetUpComponent(rightKneeTarget, up);
-        EnforceSide(ref rightKneeTarget, ProjectOntoUpPlane(hp, up) + up * rightKneeUp, rawRight, +1, kneeMinSide);
-
-        left.kneeHint += hipsCarry;
-        right.kneeHint += hipsCarry;
-        float kneeCarryDeg = bodyYawRate * dt;
-        if (math.abs(kneeCarryDeg) > 1e-4f)
-        {
-            quaternion kneeCarry = quaternion.AxisAngle(up, math.radians(kneeCarryDeg));
-            left.kneeHint = hp + math.mul(kneeCarry, left.kneeHint - hp);
-            right.kneeHint = hp + math.mul(kneeCarry, right.kneeHint - hp);
-        }
-
-        float kneeAlpha = 1f - math.exp(-p.kneeHintLerpSpeed * dt);
-        left.kneeHint = math.lerp(left.kneeHint, leftKneeTarget, kneeAlpha);
-        right.kneeHint = math.lerp(right.kneeHint, rightKneeTarget, kneeAlpha);
-
         float leftFootUp = GetUpComponent(left.currentPos, up);
         float3 hipsGround3 = ProjectOntoUpPlane(hp, up) + up * leftFootUp;
         float footMinSide = halfStance * p.footSideEnforceFraction;

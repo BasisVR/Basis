@@ -29,7 +29,11 @@ namespace Basis.Scripts.Networking
         public static bool AutoConnectAttempted;
         public static bool HasBootstrapConnection { get; private set; }
         private static bool _connectInProgress;
-        public static bool ConnectInProgress => _connectInProgress;
+        public static bool ConnectInProgress => _connectInProgress || ClientConnecting;
+
+        public static bool ClientConnecting =>
+            !BasisNetworkConnection.LocalPlayerIsConnected
+            && (BasisNetworkConnection.LocalPlayerPeer != null || BasisNetworkConnectionWatchdog.Health == BasisConnectionHealth.Connecting);
 
         // Stable key the loading bar uses to merge updates for the same connection
         // attempt, distinct from the bundle-load key BasisSceneLoad reports under.
@@ -123,7 +127,7 @@ namespace Basis.Scripts.Networking
         /// </summary>
         public static async Task ConnectAsync(ServerDirectoryEntry entry, string userName, bool isHostMode = false, bool legacyLogin = false)
         {
-            if (_connectInProgress)
+            if (ConnectInProgress)
             {
                 BasisDebug.LogWarning("Connect requested while a connection attempt is already in progress; ignoring.");
                 return;
@@ -137,13 +141,7 @@ namespace Basis.Scripts.Networking
                 if (BasisNetworkConnection.LocalPlayerIsConnected)
                 {
                     ReportConnectionProgress(15f, BasisLocalization.Get("menu.servers.status.disconnecting"));
-                    BasisDebug.Log("Disconnecting from current connection", BasisDebug.LogTag.Networking);
-
-                    using CancellationTokenSource cts = new CancellationTokenSource();
-                    Task rebootWait = BasisNetworkConnection.WaitForRebootCompleteAsync(cts.Token);
-                    await BasisNetworkLifeCycle.Destroy();
-                    await rebootWait;
-                    BasisNetworkLifeCycle.Initialize();
+                    await TeardownAsync();
                 }
 
                 if (!BasisNetworkManagement.IsInitialized)
@@ -220,6 +218,30 @@ namespace Basis.Scripts.Networking
             {
                 _connectInProgress = false;
             }
+        }
+
+        public static async Task DisconnectAsync()
+        {
+            if (_connectInProgress || !BasisNetworkConnection.LocalPlayerIsConnected) return;
+            _connectInProgress = true;
+            try
+            {
+                await TeardownAsync();
+            }
+            finally
+            {
+                _connectInProgress = false;
+            }
+        }
+
+        private static async Task TeardownAsync()
+        {
+            BasisDebug.Log("Disconnecting from current connection", BasisDebug.LogTag.Networking);
+            using CancellationTokenSource cts = new CancellationTokenSource();
+            Task rebootWait = BasisNetworkConnection.WaitForRebootCompleteAsync(cts.Token);
+            await BasisNetworkLifeCycle.Destroy();
+            await rebootWait;
+            BasisNetworkLifeCycle.Initialize();
         }
 
         /// <summary>
