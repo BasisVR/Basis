@@ -1030,6 +1030,7 @@ public static partial class SettingsProviderIK
         BasisSettingsDefaults.EnableArmToHeightBlend.ResetToDefault();
         BasisSettingsDefaults.ArmToHeightBlend.ResetToDefault();
         BasisSettingsDefaults.ContinuousBodyMeasurement.ResetToDefault();
+        BasisSettingsDefaults.RemeasureHeightOnCalibration.ResetToDefault();
         BasisSettingsDefaults.CalibrationMirror.ResetToDefault();
         BasisSettingsDefaults.CustomScale.ResetToDefault();
         BasisSettingsDefaults.SelectedScale.ResetToDefault();

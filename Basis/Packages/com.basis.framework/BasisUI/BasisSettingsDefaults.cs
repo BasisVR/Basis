@@ -919,6 +919,11 @@ namespace Basis.BasisUI
         // corrects upward and settles. See BasisBodyEvidenceSampler.
         public static BasisSettingsBinding<bool> ContinuousBodyMeasurement = new("continuousbodymeasurement_v2", new BasisPlatformDefault<bool>(false));
 
+        // Re-measure the player's eye height and arm span every time they calibrate full body. Off keeps the
+        // size they already have, so binding trackers doesn't rescale the world and shift the view. A player
+        // with no measurement yet is still measured. See BasisHeightDriver.OnAvatarFBCalibration.
+        public static BasisSettingsBinding<bool> RemeasureHeightOnCalibration = new("remeasureheightoncalibration", new BasisPlatformDefault<bool>(true));
+
         public static BasisSettingsBinding<string> SelectedBone = new("selectedbone", new BasisPlatformDefault<string>("selectedbone"));
 
         public static BasisSettingsBinding<float> FoveatedRendering = new("foveatedrendering", new BasisPlatformDefault<float>
@@ -2264,6 +2269,7 @@ namespace Basis.BasisUI
             SavedPlayerArmSpan.LoadBindingValue();
             AutoScaleEstimateEnabled.LoadBindingValue();
             ContinuousBodyMeasurement.LoadBindingValue();
+            RemeasureHeightOnCalibration.LoadBindingValue();
             StatedBodyHeight.LoadBindingValue();
             SitStand.LoadBindingValue();
             EnableFBT.LoadBindingValue();

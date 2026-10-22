@@ -4919,6 +4919,14 @@
       "value": "Keep watching your real height and arm span while you play, and resize the avatar when a better measurement turns up. Your reach in particular can only be measured once you actually reach out, which you have rarely done at the moment an avatar loads. Turn this off to use only what was measured when you last calibrated."
     },
     {
+      "key": "settings.calibration.remeasureHeightOnCalibration",
+      "value": "Re-measure Me On Calibrate"
+    },
+    {
+      "key": "settings.calibration.remeasureHeightOnCalibration.tooltip",
+      "value": "Measure your height and arm span again every time you calibrate. Stand up straight and look ahead when you do, or the avatar will be sized from a slouch. Turn this off to keep your current size, so calibrating doesn't shift your view. Use Measure Me to update your size by hand."
+    },
+    {
       "key": "settings.calibration.armToHeightRatio",
       "value": "Arm To Height Ratio"
     },

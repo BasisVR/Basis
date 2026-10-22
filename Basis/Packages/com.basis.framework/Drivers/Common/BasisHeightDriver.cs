@@ -131,13 +131,21 @@ public static partial class BasisHeightDriver
     public static void OnAvatarFBCalibration()
     {
         HasUserCalibratedHeight = true;
-        // An explicit recalibration is the player saying the current fit is wrong, so the observations
-        // that produced it have to go with it — otherwise the high-water estimate would simply be
-        // re-adopted a moment later and recalibrating could never change anything. This is the escape
-        // hatch for a session poisoned by a bad tracking episode or a different person in the headset.
-        BasisBodyEvidenceSampler.ResetEvidence();
-        HasGenuinePlayerArmSpan = false;
-        CapturePlayerHeight();
+        // Re-measuring here reads the headset at whatever pose the player binds in, and any change to the
+        // eye height moves the camera by that delta x DeviceScale (the grounding offset re-centres on the
+        // new eye). With the option off, keep the current size; CapturePlayerHeight(false) still measures
+        // anything that has no genuine value yet, so a first calibration is never left on the fallback.
+        bool remeasure = BasisSettingsDefaults.RemeasureHeightOnCalibration.RawValue;
+        if (remeasure)
+        {
+            // An explicit recalibration is the player saying the current fit is wrong, so the observations
+            // that produced it have to go with it — otherwise the high-water estimate would simply be
+            // re-adopted a moment later and recalibrating could never change anything. This is the escape
+            // hatch for a session poisoned by a bad tracking episode or a different person in the headset.
+            BasisBodyEvidenceSampler.ResetEvidence();
+            HasGenuinePlayerArmSpan = false;
+        }
+        CapturePlayerHeight(recaptureEyeHeight: remeasure);
         PersistCalibratedBodySize();
         ApplyScaleAndHeight();
         ScheduleHeightChangeCallback(HeightModeChange.OnAvatarFBCalibration);

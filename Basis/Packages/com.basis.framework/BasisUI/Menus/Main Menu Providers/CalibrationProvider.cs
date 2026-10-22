@@ -196,6 +196,13 @@ namespace Basis.BasisUI
             continuousMeasureToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.calibration.continuousBodyMeasurement.tooltip"));
             continuousMeasureToggle.AssignBinding(BasisSettingsDefaults.ContinuousBodyMeasurement);
 
+            // Off: calibrating keeps the current body size instead of re-measuring it, so binding
+            // trackers doesn't rescale the world and shift the view.
+            var remeasureOnCalibrateToggle = PanelToggle.CreateNewEntry(container);
+            remeasureOnCalibrateToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.calibration.remeasureHeightOnCalibration"));
+            remeasureOnCalibrateToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.calibration.remeasureHeightOnCalibration.tooltip"));
+            remeasureOnCalibrateToggle.AssignBinding(BasisSettingsDefaults.RemeasureHeightOnCalibration);
+
             // Arm To Height Ratio: scale by a percentage between the two measurements instead of a single
             // scaling mode. Overrides the Avatar Scaling Mode dropdown while enabled (VR only).
             var armToHeightToggle = PanelToggle.CreateNewEntry(container);
