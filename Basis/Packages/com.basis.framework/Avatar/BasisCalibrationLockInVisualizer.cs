@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
+using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
 using UnityEngine;
 namespace Basis.Scripts.Avatar
@@ -60,15 +61,18 @@ namespace Basis.Scripts.Avatar
             float falloff = FalloffFrac * eyeHeight, minDiam = MinDiameterFrac * eyeHeight;
             float maxDiam = MaxDiameterFrac * eyeHeight, lineWidth = LineWidthFrac * eyeHeight;
 
-            // Body-forward reference for the foot aim color: the hips bone's facing, flattened. Falls
-            // back to world forward when there's no hips bone (e.g. trackerless setups).
+            // Body-forward reference for the foot aim color: the head's flattened facing, which is the
+            // frame calibration binds against. The hips control would carry the virtual spine's torso yaw
+            // lag, so a foot aimed where the bind expects could read as mis-aimed (and vice versa).
             Vector3 bodyForward = Vector3.forward;
-            if (boneDriver.FindBone(out var hipsControl, BasisBoneTrackedRole.Hips) && hipsControl != null)
+            BasisLocalBoneControl headControl = BasisLocalBoneDriver.HeadControl;
+            if (headControl != null)
             {
-                Vector3 fwd = hipsControl.OutgoingWorldData.rotation * Vector3.forward;
+                Vector3 fwd = headControl.OutgoingWorldData.rotation * Vector3.forward;
                 fwd.y = 0f;
                 if (fwd.sqrMagnitude > 1e-4f) bodyForward = fwd.normalized;
             }
+            Matrix4x4 playerToWorld = BasisLocalPlayer.localToWorldMatrix;
 
             CollectCandidates();
 
@@ -92,7 +96,11 @@ namespace Basis.Scripts.Avatar
                     continue;
                 }
 
-                Vector3 bonePos = control.OutgoingWorldData.position;
+                // Target = where the bind will attach this bone (head-aligned T-pose reference), not the
+                // live bone-sim pose, which swings with the virtual spine's torso yaw.
+                Vector3 bonePos = BasisAvatarIKStageCalibration.TryGetCalibrationReference(role, out Vector3 referenceLocal, out _)
+                    ? playerToWorld.MultiplyPoint3x4(referenceLocal)
+                    : control.OutgoingWorldData.position;
 
                 // A guide only appears once SOME candidate tracker is near this bone, so bones the
                 // player has no tracker for stay out of the view instead of hanging far/red.

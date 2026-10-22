@@ -1294,6 +1294,8 @@ namespace Basis.Scripts.Drivers
             {
                 BasisCalibrationDebugRecorder.RuntimeBone("head", BasisLocalBoneDriver.HeadControl.OutgoingWorldData.rotation, data.offsetRotationHead, BasisLocalAvatarDriver.Mapping.head);
                 BasisCalibrationDebugRecorder.RuntimeBone("hips", BasisLocalBoneDriver.HipsControl.OutgoingWorldData.rotation, data.offsetRotationHips, BasisLocalAvatarDriver.Mapping.Hips);
+                // What the solver was actually handed (filtered + gait-adjusted), vs the raw control above.
+                BasisCalibrationDebugRecorder.RuntimeBone("hipsSolver", data.targetRotationHips, data.offsetRotationHips, BasisLocalAvatarDriver.Mapping.Hips);
                 BasisCalibrationDebugRecorder.RuntimeBone("leftFoot", BasisLocalBoneDriver.LeftFootControl.OutgoingWorldData.rotation, data.offsetRotationLeftFoot, BasisLocalAvatarDriver.Mapping.leftFoot);
                 BasisCalibrationDebugRecorder.RuntimeBone("rightFoot", BasisLocalBoneDriver.RightFootControl.OutgoingWorldData.rotation, data.offsetRotationRightFoot, BasisLocalAvatarDriver.Mapping.rightFoot);
                 Transform animRoot = localPlayer?.BasisAvatar?.Animator != null ? localPlayer.BasisAvatar.Animator.transform : null;
