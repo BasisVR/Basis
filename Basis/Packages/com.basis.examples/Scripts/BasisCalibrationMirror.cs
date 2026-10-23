@@ -1,5 +1,7 @@
 using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
+using Basis.Scripts.Avatar;
+using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
 using UnityEngine;
@@ -25,10 +27,14 @@ public static partial class BasisCalibrationMirror
 {
     // Big enough to frame a full body right away.
     private const float MirrorScale = 3f;
+    private const float MirrorDistance = 0.9f;
+    private const int FollowPriority = 249;
 
     private static GameObject _instance;
     private static AsyncOperationHandle<GameObject> _handle;
     private static bool _hasHandle;
+    private static BasisCalibrationStageFrame _stage;
+    private static bool _following;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Register()
@@ -42,6 +48,21 @@ public static partial class BasisCalibrationMirror
         public bool Toggle() => BasisCalibrationMirror.Toggle();
         public bool Summon() => BasisCalibrationMirror.Summon();
         public void Hide() => BasisCalibrationMirror.Hide();
+        public bool TryGetSurface(out Vector3 position, out Vector3 normal) => BasisCalibrationMirror.TryGetSurface(out position, out normal);
+    }
+
+    public static bool TryGetSurface(out Vector3 position, out Vector3 normal)
+    {
+        if (_instance == null)
+        {
+            position = Vector3.zero;
+            normal = Vector3.forward;
+            return false;
+        }
+        Transform surface = _instance.transform;
+        position = surface.position;
+        normal = -surface.forward;
+        return true;
     }
 
     /// <summary>The instance reference goes Unity-fake-null if the mirror is destroyed out from
@@ -120,10 +141,44 @@ public static partial class BasisCalibrationMirror
         // visuals players line their trackers up with live on Default and would be invisible in
         // the mirror; the relay moves just those onto the avatar layer while the mirror is up.
         _instance.AddComponent<BasisCalibrationMirrorRelay>();
+
+        _stage = default;
+        if (!_following)
+        {
+            BasisLocalPlayer.AfterSimulateOnRender.AddAction(FollowPriority, Follow);
+            _following = true;
+        }
+        Follow();
+    }
+
+    private static void StopFollowing()
+    {
+        if (_following)
+        {
+            BasisLocalPlayer.AfterSimulateOnRender.RemoveAction(FollowPriority, Follow);
+            _following = false;
+        }
+    }
+
+    private static void Follow()
+    {
+        if (_instance == null)
+        {
+            StopFollowing();
+            return;
+        }
+        if (!BasisCalibrationLockInVisualizer.TryGetViewer(out Vector3 eye, out _, out Vector3 facing, out bool fromHands) || !_stage.Track(eye, facing, fromHands, Time.deltaTime))
+        {
+            return;
+        }
+        float size = BasisCalibrationLockInVisualizer.PlayerSizeScale();
+        _instance.transform.SetPositionAndRotation(_stage.Origin + _stage.Forward * (MirrorDistance * size), Quaternion.LookRotation(_stage.Forward, Vector3.up));
+        _instance.transform.localScale = Vector3.one * (MirrorScale * size);
     }
 
     private static void Despawn()
     {
+        StopFollowing();
         if (_hasHandle)
         {
             Addressables.ReleaseInstance(_handle);

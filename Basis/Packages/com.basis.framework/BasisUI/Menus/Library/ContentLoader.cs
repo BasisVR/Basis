@@ -42,6 +42,52 @@ namespace Basis.BasisUI
             LibraryLoadProgress.ReportProgress(uniqueID, progress, eventDescription);
         }
 
+        public static void ShowLoadFailure(BasisDataStoreItemKeys.ItemKey item, string error)
+        {
+            string detail = string.IsNullOrWhiteSpace(error) ? "The content could not be loaded. No additional details were provided." : error.Trim();
+            bool passwordOrCorrupt = detail.IndexOf("WrongPasswordOrCorruptedData", StringComparison.OrdinalIgnoreCase) >= 0
+                || detail.IndexOf("wrong password", StringComparison.OrdinalIgnoreCase) >= 0
+                || detail.IndexOf("Padding is invalid", StringComparison.OrdinalIgnoreCase) >= 0;
+
+            string title = passwordOrCorrupt ? "Bad password or corrupt content" : "Content failed to load";
+            string description = passwordOrCorrupt
+                ? "The password did not unlock this content. Check the password and try again. If the password is correct, the file is likely corrupt."
+                : "Basis could not load this content. Copy the error details below when reporting the problem.";
+
+            BasisMainMenu.Open();
+            if (!BasisMainMenu.Instance)
+            {
+                BasisDebug.LogError($"{title}: {detail}");
+                return;
+            }
+
+            if (BasisMainMenu.Instance.Dialogue != null)
+                BasisMainMenu.Instance.Dialogue.ReleaseInstance();
+
+            BasisMainMenu.Instance.OpenDialogue(
+                title,
+                description,
+                "Close",
+                accepted => { },
+                severity: BasisPanelSeverity.Hot,
+                category: BasisNotificationCategory.System);
+
+            BasisMenuDialoguePanel panel = BasisMainMenu.Instance.Dialogue;
+            if (panel == null) return;
+            panel.ShowDetails(new[]
+            {
+                new BasisMenuDialoguePanel.DetailRow("Error details", detail, true, true)
+            });
+            PanelButton copyButton = null;
+            copyButton = panel.AddOption("Copy error", () => BasisClipboard.Copy(detail, copyButton), false);
+        }
+
+        private static void ShowCachedMetaFailure(BasisDataStoreItemKeys.ItemKey item, string fallback)
+        {
+            string error = CachedMetaData.TryGetFailureReason(item?.Url, out string reason) ? reason : fallback;
+            ShowLoadFailure(item, error);
+        }
+
         public static async Task LoadAvatar(BasisDataStoreItemKeys.ItemKey item)
         {
             LastAvatarReachabilityWarning = null;
@@ -54,7 +100,9 @@ namespace Basis.BasisUI
 
             if (!CachedMetaData.TryGetMeta(item.Url, out CachedMetaData.CachedContent cachedMeta))
             {
-                BasisDebug.LogError($"LoadAvatar({item.Url}) -> failed to get cached meta");
+                string error = $"LoadAvatar({item.Url}) -> failed to get cached metadata.";
+                BasisDebug.LogError(error);
+                ShowCachedMetaFailure(item, error);
                 return;
             }
 
@@ -179,8 +227,13 @@ namespace Basis.BasisUI
                 }
                 else
                 {
-                    BasisDebug.LogError($"Library provider failed to create desired with networking: {desiredNetworkType} with LoadSelectedItem of url {item.Url}");
-                    BasisRuntimeSpawnRegistry.FailPendingLoad(pending.PendingId, $"No content came back for platform {Application.platform}.");
+                    string error = $"No content came back for {item.Url} on platform {Application.platform}.";
+                    BasisDebug.LogError($"Library provider failed to create desired content with networking: {desiredNetworkType}. {error}");
+                    BasisRuntimeSpawnRegistry.FailPendingLoad(pending.PendingId, error);
+                    if (desiredNetworkType == BundledContentHolder.NetworkType.Local)
+                    {
+                        ShowLoadFailure(item, error);
+                    }
                 }
 
                 return createdObject;
@@ -589,7 +642,9 @@ namespace Basis.BasisUI
             }
             else
             {
-                BasisDebug.LogError($"LoadProp failed to find cached meta for url {item.Url}, cannot load bundle without it!");
+                string error = $"LoadProp failed to find cached metadata for {item.Url}; the bundle cannot be loaded without it.";
+                BasisDebug.LogError(error);
+                ShowCachedMetaFailure(item, error);
             }
         }
 
@@ -653,8 +708,10 @@ namespace Basis.BasisUI
                                 }
                                 else
                                 {
-                                    BasisDebug.LogError($"Library provider failed to create desired scene with networking: {desiredNetworkType} with of url {item.Url}");
-                                    BasisRuntimeSpawnRegistry.FailPendingLoad(pending.PendingId, $"No scene came back for platform {Application.platform}.");
+                                    string error = $"No scene came back for {item.Url} on platform {Application.platform}.";
+                                    BasisDebug.LogError($"Library provider failed to create desired scene with networking: {desiredNetworkType}. {error}");
+                                    BasisRuntimeSpawnRegistry.FailPendingLoad(pending.PendingId, error);
+                                    ShowLoadFailure(item, error);
                                 }
                             }
                             catch (OperationCanceledException)
@@ -743,7 +800,9 @@ namespace Basis.BasisUI
             }
             else
             {
-                BasisDebug.LogError($"LoadWorld failed to find the cached meta for url {item.Url}");
+                string error = $"LoadWorld failed to find cached metadata for {item.Url}.";
+                BasisDebug.LogError(error);
+                ShowCachedMetaFailure(item, error);
             }
 
         }

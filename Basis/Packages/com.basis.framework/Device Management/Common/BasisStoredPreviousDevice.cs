@@ -51,5 +51,7 @@ namespace Basis.Scripts.Device_Management
         /// Stable unique identifier for the physical/logical device instance.
         /// </summary>
         public string UniqueDeviceIdentifier;
+
+        public string DeviceSerial;
     }
 }

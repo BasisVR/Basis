@@ -54,6 +54,10 @@ namespace Basis.BasisUI
         {
             return _notWorking.ContainsKey(url ?? string.Empty);
         }
+        public static bool TryGetFailureReason(string url, out string reason)
+        {
+            return _notWorking.TryGetValue(url ?? string.Empty, out reason);
+        }
         private static void MarkNotWorking(string url, string reason)
         {
             _notWorking[url ?? string.Empty] = reason;
@@ -224,11 +228,13 @@ namespace Basis.BasisUI
         {
             public readonly BasisLoadableBundleWrapper Wrapper;
             public readonly bool IsTransient;
+            public readonly string Error;
 
-            public MetaOnlyLoadOutcome(BasisLoadableBundleWrapper wrapper, bool isTransient)
+            public MetaOnlyLoadOutcome(BasisLoadableBundleWrapper wrapper, bool isTransient, string error = null)
             {
                 Wrapper = wrapper;
                 IsTransient = isTransient;
+                Error = error;
             }
         }
 
@@ -249,7 +255,7 @@ namespace Basis.BasisUI
             // would flag the user's cached item just because the remote is unreachable right now.
             if (!metaResult.Loaded && metaResult.IsTransient)
             {
-                return new MetaOnlyLoadOutcome(null, true);
+                return new MetaOnlyLoadOutcome(null, true, metaResult.Error);
             }
 
             // Local BEE files are read straight from disk and never written to the on-disc meta cache,
@@ -257,23 +263,25 @@ namespace Basis.BasisUI
             // item. The connector is already populated by the meta-only load above.
             if (BasisIOManagement.TryResolveLocalBeePath(item.Url, out _))
             {
-                return new MetaOnlyLoadOutcome(metaResult.Loaded ? newWrapper : null, false);
+                return new MetaOnlyLoadOutcome(metaResult.Loaded ? newWrapper : null, false, metaResult.Error);
             }
 
             // grab the wrapper from disc, we can pass in our wrapper
             BasisLoadableBundleWrapper loaded = await LoadWrapperFromDisc(item, newWrapper);
-            return new MetaOnlyLoadOutcome(loaded, false);
+            return new MetaOnlyLoadOutcome(loaded, false, metaResult.Error);
         }
 
         public readonly struct CacheNewItemResult
         {
             public readonly CachedContent Cached;
             public readonly bool IsTransient;
+            public readonly string Error;
 
-            public CacheNewItemResult(CachedContent cached, bool isTransient)
+            public CacheNewItemResult(CachedContent cached, bool isTransient, string error = null)
             {
                 Cached = cached;
                 IsTransient = isTransient;
+                Error = error;
             }
         }
 
@@ -283,14 +291,14 @@ namespace Basis.BasisUI
 
             if (outcome.IsTransient)
             {
-                return new CacheNewItemResult(null, true);
+                return new CacheNewItemResult(null, true, outcome.Error);
             }
 
             BasisLoadableBundleWrapper wrapper = outcome.Wrapper;
             if (wrapper == null)
             {
                 BasisDebug.LogError("Missing Wrapper!, was the data provided correct?");
-                return new CacheNewItemResult(null, false);
+                return new CacheNewItemResult(null, false, outcome.Error);
             }
 
             var connector = wrapper.BasisLoadableBundle.BasisBundleConnector; //wrapper.LoadableBundle.BasisBundleConnector;
@@ -312,7 +320,7 @@ namespace Basis.BasisUI
                 cached.Created = parsedDate;
             }
 
-            return new CacheNewItemResult(cached, false);
+            return new CacheNewItemResult(cached, false, outcome.Error);
         }
 
 
@@ -333,6 +341,7 @@ namespace Basis.BasisUI
             {
                 CachedContent cached = null;
                 bool isTransient = false;
+                string loadError = null;
 
                 if (item.EmbeddedSettings.IsEmbedded && item.EmbeddedSettings.SourceType == BasisDataStoreItemKeys.EmbeddedSource.Addressable)
                 {
@@ -366,6 +375,7 @@ namespace Basis.BasisUI
                     CacheNewItemResult result = await CacheNewItem(item);
                     cached = result.Cached;
                     isTransient = result.IsTransient;
+                    loadError = result.Error;
                 }
 
                 if (isTransient)
@@ -377,7 +387,7 @@ namespace Basis.BasisUI
 
                 if (cached == null || cached.BasisBundleConnector == null)
                 {
-                    MarkNotWorking(urlKey, "corrupt or invalid data");
+                    MarkNotWorking(urlKey, string.IsNullOrWhiteSpace(loadError) ? "corrupt or invalid data" : loadError);
                     return;
                 }
 

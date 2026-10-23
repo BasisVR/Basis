@@ -135,9 +135,13 @@ public static partial class BasisHeightDriver
         // that produced it have to go with it — otherwise the high-water estimate would simply be
         // re-adopted a moment later and recalibrating could never change anything. This is the escape
         // hatch for a session poisoned by a bad tracking episode or a different person in the headset.
-        BasisBodyEvidenceSampler.ResetEvidence();
+        if (!MeasureWindowOpen)
+        {
+            BasisBodyEvidenceSampler.ResetEvidence();
+        }
         HasGenuinePlayerArmSpan = false;
         CapturePlayerHeight();
+        EndMeasureWindow();
         PersistCalibratedBodySize();
         ApplyScaleAndHeight();
         ScheduleHeightChangeCallback(HeightModeChange.OnAvatarFBCalibration);
@@ -591,6 +595,12 @@ public static partial class BasisHeightDriver
     {
         s_measureWindowRemaining = MeasureWindowSeconds;
     }
+    public static void EndMeasureWindow()
+    {
+        s_measureWindowRemaining = 0f;
+        s_hasRefitTarget = false;
+        s_refitHeldLogged = false;
+    }
 
     public static void TickObservedEvidence(float deltaTime)
     {
@@ -599,7 +609,7 @@ public static partial class BasisHeightDriver
             return;
         }
 
-        if (s_measureWindowRemaining > 0f)
+        if (s_measureWindowRemaining > 0f && !Basis.Scripts.Drivers.BasisLocalAvatarDriver.CurrentlyTposing)
         {
             s_measureWindowRemaining -= deltaTime;
         }

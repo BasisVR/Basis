@@ -229,7 +229,7 @@ public static class BasisEncryptionToData
         offset++;
         return true;
     }
-    public static async Task<BasisBundleConnector> GenerateMetaFromBytes(string password, byte[] encryptedBytes, BasisProgressReport progressCallback)
+    public static async Task<(BasisBundleConnector Connector, string ErrorMessage)> GenerateMetaFromBytesWithError(string password, byte[] encryptedBytes, BasisProgressReport progressCallback)
     {
         var basisPassword = new BasisEncryptionWrapper.BasisPassword { VP = password };
         string uniqueID = BasisGenerateUniqueID.GenerateUniqueID();
@@ -239,13 +239,23 @@ public static class BasisEncryptionToData
 
         if (decryptedMeta.Success)
         {
-            return ConvertBytesToJson(decryptedMeta.Data, out var connector) ? connector : null;
+            if (ConvertBytesToJson(decryptedMeta.Data, out var connector))
+            {
+                return (connector, string.Empty);
+            }
+
+            return (null, "Decryption succeeded, but the connector metadata is corrupt or invalid.");
         }
-        else
-        {
-            BasisDebug.LogError($"Failed to Decrypt, {decryptedMeta.Error} | {decryptedMeta.Message} | {decryptedMeta.Exception}");
-            return null;
-        }
+
+        string detail = $"Failed to Decrypt, {decryptedMeta.Error} | {decryptedMeta.Message} | {decryptedMeta.Exception}";
+        BasisDebug.LogError(detail);
+        return (null, detail);
+    }
+
+    public static async Task<BasisBundleConnector> GenerateMetaFromBytes(string password, byte[] encryptedBytes, BasisProgressReport progressCallback)
+    {
+        var result = await GenerateMetaFromBytesWithError(password, encryptedBytes, progressCallback).ConfigureAwait(false);
+        return result.Connector;
     }
 
     public static bool ConvertBytesToJson(byte[] data, out BasisBundleConnector connector)

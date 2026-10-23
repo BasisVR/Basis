@@ -45,6 +45,7 @@ namespace Basis.BasisUI
         private string _progressDisplay = string.Empty;
         private float _progressPercentage;
         private bool _progressActive;
+        private bool _hidden;
 
         public override Component ProviderButtonParent => HorizontalLayout ? HorizontalLayout.ContentParent : null;
 
@@ -473,12 +474,43 @@ namespace Basis.BasisUI
         {
             if (Instance)
             {
+                if (IsHidden)
+                {
+                    SetHidden(false);
+                    return;
+                }
                 Close();
             }
             else
             {
                 Open();
             }
+        }
+
+        public static bool IsHidden => Instance && ((BasisMainMenu)Instance)._hidden;
+
+        public static void SetHidden(bool hidden)
+        {
+            if (!Instance)
+            {
+                return;
+            }
+            BasisMainMenu menu = (BasisMainMenu)Instance;
+            if (menu._hidden == hidden)
+            {
+                return;
+            }
+            if (menu.MenuObjectInstance == null)
+            {
+                menu._hidden = false;
+                return;
+            }
+            if (hidden)
+            {
+                HideTooltip();
+            }
+            menu._hidden = hidden;
+            menu.MenuObjectInstance.gameObject.SetActive(!hidden);
         }
 
         public static void Close()

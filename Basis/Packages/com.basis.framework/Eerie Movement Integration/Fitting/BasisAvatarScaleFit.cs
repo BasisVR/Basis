@@ -143,6 +143,12 @@ public static partial class BasisCalibrationRefitGate
             return true;
         }
 
+        if (BasisLocalAvatarDriver.CurrentlyTposing)
+        {
+            reason = "calibrating";
+            return true;
+        }
+
         if (IsHoldingSomething())
         {
             reason = "holding something";

@@ -662,7 +662,7 @@ namespace Basis.Scripts.Device_Management
             {
                 return;
             }
-            if (RestoreDevice(input.SubSystemIdentifier, input.UniqueDeviceIdentifier, out var prev))
+            if (RestoreDevice(input.SubSystemIdentifier, input.UniqueDeviceIdentifier, SerialIfUnique(input), out var prev))
             {
                 if (CheckBeforeOverride(prev))
                 {
@@ -734,11 +734,60 @@ namespace Basis.Scripts.Device_Management
                 {
                     input.Control.OnHasRigChanged?.Invoke(true);
                 }
+                BasisLocalPlayer player = BasisLocalPlayer.Instance;
+                if (restoreRole && player != null && player.LocalAnimatorDriver != null && player.LocalAnimatorDriver.HasEvents)
+                {
+                    player.LocalAnimatorDriver.AssignHipsFBTracker();
+                }
             }
             else
             {
                 BasisDebug.LogError("Device was removed!", BasisDebug.LogTag.Device);
             }
+        }
+
+        private string SerialIfUnique(BasisInput input)
+        {
+            if (string.IsNullOrEmpty(input.DeviceSerial))
+            {
+                return null;
+            }
+            for (int i = 0; i < AllInputDevices.Count; i++)
+            {
+                BasisInput other = AllInputDevices[i];
+                if (other != null && other != input && other.SubSystemIdentifier == input.SubSystemIdentifier && other.DeviceSerial == input.DeviceSerial)
+                {
+                    return null;
+                }
+            }
+            return input.DeviceSerial;
+        }
+
+        private int FindStoredDevice(string subsystem, string id, string serial)
+        {
+            int bySerial = -1;
+            for (int i = 0; i < PreviouslyConnectedDevices.Count; i++)
+            {
+                BasisStoredPreviousDevice dev = PreviouslyConnectedDevices[i];
+                if (dev == null || dev.SubSystemIdentifier != subsystem)
+                {
+                    continue;
+                }
+                bool serialKnown = !string.IsNullOrEmpty(serial) && !string.IsNullOrEmpty(dev.DeviceSerial);
+                if (serialKnown && dev.DeviceSerial != serial)
+                {
+                    continue;
+                }
+                if (dev.UniqueDeviceIdentifier == id)
+                {
+                    return i;
+                }
+                if (serialKnown && bySerial < 0)
+                {
+                    bySerial = i;
+                }
+            }
+            return bySerial;
         }
 
         /// <summary>
@@ -748,25 +797,21 @@ namespace Basis.Scripts.Device_Management
         /// <param name="id">Unique device identifier.</param>
         /// <param name="restored">Outputs the stored device record when found.</param>
         /// <returns><c>true</c> if a matching stored device was found; otherwise <c>false</c>.</returns>
-        public bool RestoreDevice(string subsystem, string id, out BasisStoredPreviousDevice restored)
+        public bool RestoreDevice(string subsystem, string id, string serial, out BasisStoredPreviousDevice restored)
         {
             restored = null;
             if (PreviouslyConnectedDevices == null || PreviouslyConnectedDevices.Count == 0)
                 return false;
 
-            // Safe index-based remove when found
-            for (int i = 0; i < PreviouslyConnectedDevices.Count; i++)
+            int found = FindStoredDevice(subsystem, id, serial);
+            if (found < 0)
             {
-                var dev = PreviouslyConnectedDevices[i];
-                if (dev != null && dev.UniqueDeviceIdentifier == id && dev.SubSystemIdentifier == subsystem)
-                {
-                    restored = dev;
-                    PreviouslyConnectedDevices.RemoveAt(i);
-                    BasisDebug.Log("Device is restorable — restoring.", BasisDebug.LogTag.Device);
-                    return true;
-                }
+                return false;
             }
-            return false;
+            restored = PreviouslyConnectedDevices[found];
+            PreviouslyConnectedDevices.RemoveAt(found);
+            BasisDebug.Log(restored.UniqueDeviceIdentifier == id ? "Device is restorable — restoring." : $"Device {restored.UniqueDeviceIdentifier} came back as {id} (serial {serial}), restoring.", BasisDebug.LogTag.Device);
+            return true;
         }
 
         /// <summary>
@@ -779,12 +824,18 @@ namespace Basis.Scripts.Device_Management
 
             if (device.TryGetRole(out var role) && device.Control != null)
             {
+                string serial = SerialIfUnique(device);
+                for (int found = FindStoredDevice(device.SubSystemIdentifier, device.UniqueDeviceIdentifier, serial); found >= 0; found = FindStoredDevice(device.SubSystemIdentifier, device.UniqueDeviceIdentifier, serial))
+                {
+                    PreviouslyConnectedDevices.RemoveAt(found);
+                }
                 PreviouslyConnectedDevices.Add(new BasisStoredPreviousDevice
                 {
                     trackedRole = role,
                     hasRoleAssigned = device.hasRoleAssigned,
                     SubSystemIdentifier = device.SubSystemIdentifier,
                     UniqueDeviceIdentifier = device.UniqueDeviceIdentifier,
+                    DeviceSerial = serial,
                     InverseOffsetFromBone = device.Control.InverseOffsetFromBone,
                     HasCalibratedOffsetSnapshot = device.HasCalibratedOffsetSnapshot,
                     CalibratedUnscaledPosition = device.CalibratedUnscaledPosition,

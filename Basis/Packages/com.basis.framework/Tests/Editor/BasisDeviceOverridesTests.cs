@@ -467,6 +467,90 @@ namespace Basis.Framework.Tests
         }
 
         [Test]
+        public void ATrackerThatComesBackUnderANewIndex_IsFoundBySerial()
+        {
+            BasisDeviceManagement.Instance.PreviouslyConnectedDevices.Add(new BasisStoredPreviousDevice
+            {
+                trackedRole = BasisBoneTrackedRole.Hips,
+                hasRoleAssigned = true,
+                SubSystemIdentifier = "Test",
+                UniqueDeviceIdentifier = "5|tracker",
+                DeviceSerial = "LHR-1",
+            });
+
+            Assert.That(BasisDeviceManagement.Instance.RestoreDevice("Test", "7|tracker", "LHR-1", out BasisStoredPreviousDevice restored), Is.True);
+            Assert.That(restored.trackedRole, Is.EqualTo(BasisBoneTrackedRole.Hips));
+            Assert.That(BasisDeviceManagement.Instance.PreviouslyConnectedDevices, Is.Empty);
+        }
+
+        [Test]
+        public void AReusedIndex_DoesNotTakeAnotherTrackersCalibration()
+        {
+            BasisDeviceManagement.Instance.PreviouslyConnectedDevices.Add(new BasisStoredPreviousDevice
+            {
+                trackedRole = BasisBoneTrackedRole.Hips,
+                hasRoleAssigned = true,
+                SubSystemIdentifier = "Test",
+                UniqueDeviceIdentifier = "5|tracker",
+                DeviceSerial = "LHR-1",
+            });
+
+            Assert.That(BasisDeviceManagement.Instance.RestoreDevice("Test", "5|tracker", "LHR-2", out _), Is.False);
+            Assert.That(BasisDeviceManagement.Instance.PreviouslyConnectedDevices.Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ATrackerWithoutAKnownSerial_IsStillRestoredByItsId()
+        {
+            BasisDeviceManagement.Instance.PreviouslyConnectedDevices.Add(new BasisStoredPreviousDevice
+            {
+                trackedRole = BasisBoneTrackedRole.Hips,
+                hasRoleAssigned = true,
+                SubSystemIdentifier = "Test",
+                UniqueDeviceIdentifier = "5|tracker",
+            });
+            BasisDeviceManagement.Instance.PreviouslyConnectedDevices.Add(new BasisStoredPreviousDevice
+            {
+                trackedRole = BasisBoneTrackedRole.Chest,
+                hasRoleAssigned = true,
+                SubSystemIdentifier = "Test",
+                UniqueDeviceIdentifier = "6|tracker",
+                DeviceSerial = "LHR-3",
+            });
+
+            Assert.That(BasisDeviceManagement.Instance.RestoreDevice("Test", "5|tracker", "LHR-1", out BasisStoredPreviousDevice first), Is.True);
+            Assert.That(first.trackedRole, Is.EqualTo(BasisBoneTrackedRole.Hips));
+            Assert.That(BasisDeviceManagement.Instance.RestoreDevice("Test", "6|tracker", null, out BasisStoredPreviousDevice second), Is.True);
+            Assert.That(second.trackedRole, Is.EqualTo(BasisBoneTrackedRole.Chest));
+        }
+
+        [Test]
+        public void CachingATrackerTwice_KeepsOneEntryWithItsSerial()
+        {
+            BasisInputXRSimulate tracker = Spawn("5|tracker", "Test", false, BasisBoneTrackedRole.CenterEye, "LHR-1");
+            tracker.AssignRoleAndTracker(BasisBoneTrackedRole.Hips);
+
+            BasisDeviceManagement.Instance.CacheDevice(tracker);
+            BasisDeviceManagement.Instance.CacheDevice(tracker);
+
+            Assert.That(BasisDeviceManagement.Instance.PreviouslyConnectedDevices.Count, Is.EqualTo(1));
+            Assert.That(BasisDeviceManagement.Instance.PreviouslyConnectedDevices[0].DeviceSerial, Is.EqualTo("LHR-1"));
+            Assert.That(BasisDeviceManagement.Instance.PreviouslyConnectedDevices[0].trackedRole, Is.EqualTo(BasisBoneTrackedRole.Hips));
+        }
+
+        [Test]
+        public void ASerialSharedByTwoDevices_IsNotUsedToMatchThem()
+        {
+            BasisInputXRSimulate first = Spawn("5|tracker", "Test", false, BasisBoneTrackedRole.CenterEye, "SAME");
+            Spawn("6|tracker", "Test", false, BasisBoneTrackedRole.CenterEye, "SAME");
+            first.AssignRoleAndTracker(BasisBoneTrackedRole.Hips);
+
+            BasisDeviceManagement.Instance.CacheDevice(first);
+
+            Assert.That(BasisDeviceManagement.Instance.PreviouslyConnectedDevices[0].DeviceSerial, Is.Null);
+        }
+
+        [Test]
         public void SetHand_RejectsRolesThatAreNotHands()
         {
             BasisDeviceOverrides.SetHand("Test|a", BasisBoneTrackedRole.Hips);

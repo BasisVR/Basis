@@ -185,6 +185,23 @@ public class BasisSectionDecryptTests
     }
 
     [Test]
+    public void ConnectorParsePreservesDecryptFailureDetails()
+    {
+        Run(async () =>
+        {
+            var result = await BasisEncryptionToData.GenerateMetaFromBytesWithError(
+                Password,
+                new byte[1],
+                new BasisProgressReport());
+
+            Assert.IsNull(result.Connector);
+            StringAssert.Contains("HeaderTooShort", result.ErrorMessage);
+            StringAssert.Contains("Encrypted data too short", result.ErrorMessage);
+            return true;
+        });
+    }
+
+    [Test]
     public void SectionSliceUsesRelativeOffsetsForMemoryAndFiles()
     {
         byte[] bytes = { 0, 1, 2, 3, 4, 5 };

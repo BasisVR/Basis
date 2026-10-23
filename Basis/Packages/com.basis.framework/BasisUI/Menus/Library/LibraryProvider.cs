@@ -2234,7 +2234,9 @@ namespace Basis.BasisUI
                         await ContentLoader.LoadWorld(item, networkType, persistence, IsProtected);
                         break;
                     default:
-                        BasisDebug.LogError($"LoadSelectedItem was given an item with an unknown mode of {item.Mode}, cannot determine how to load!");
+                        string error = $"LoadSelectedItem was given an item with an unknown mode of {item.Mode}; Basis cannot determine how to load it.";
+                        BasisDebug.LogError(error);
+                        ContentLoader.ShowLoadFailure(item, error);
                         break;
                 }
             }
@@ -2245,6 +2247,7 @@ namespace Basis.BasisUI
             catch (Exception ex)
             {
                 BasisDebug.LogError(ex);
+                ContentLoader.ShowLoadFailure(item, ex.ToString());
             }
         }
 

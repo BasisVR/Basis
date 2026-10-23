@@ -2908,7 +2908,7 @@
     },
     {
       "key": "calibration.calibrate.tooltip",
-      "value": "Start full-body calibration; pull both triggers while standing in a T-pose."
+      "value": "Measure your size and calibrate full-body tracking. Stand up straight in a T-pose, look at the ring in front of you, then pull both triggers."
     },
     {
       "key": "calibration.decreaseHeight.tooltip",
@@ -4823,15 +4823,7 @@
       "value": "Could not read that as a height — try 178, 178cm, 1.78m or 5'10\"."
     },
     {
-      "key": "calibration.measureMe",
-      "value": "Measure Me"
-    },
-    {
-      "key": "calibration.measureMe.tooltip",
-      "value": "Forget what we have measured and watch you again from scratch. No T-pose needed — just stand up straight and stretch your arms out wide, and the numbers below will settle. Use this if the avatar feels the wrong size, or if someone else has been using this headset."
-    },
-    {
-      "key": "calibration.measureMe.prompt",
+      "key": "calibration.tposePrompt",
       "value": "Stand up straight and stretch your arms out wide."
     },
     {
@@ -4908,7 +4900,7 @@
     },
     {
       "key": "calibration.summary.differentPerson",
-      "value": "You have been measuring shorter than the size on record for a while. If someone else used this headset, press Measure Me."
+      "value": "You have been measuring shorter than the size on record for a while. If someone else used this headset, press Calibrate."
     },
     {
       "key": "calibration.summary.floorLow",
@@ -4980,7 +4972,7 @@
     },
     {
       "key": "calibration.lockInGuides.tooltip",
-      "value": "While calibrating, show a shrinking sphere at each tracker's prime spot plus a foot-forward guide that turns green when the foot points forward and flat. Line trackers up before pulling the triggers."
+      "value": "While calibrating, show rings that shrink and turn green as you line up: one at each tracker's prime spot (feet must also point forward and flat), one on each arm of the T-pose for your wrists, and one straight ahead at eye level to keep your head level. Line up before pulling the triggers."
     },
     {
       "key": "calibration.bodyTrackingSettings",

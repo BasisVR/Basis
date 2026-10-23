@@ -23,5 +23,6 @@ namespace Basis.BasisUI
         bool Summon();
         /// <summary>Take the mirror down (if up).</summary>
         void Hide();
+        bool TryGetSurface(out UnityEngine.Vector3 position, out UnityEngine.Vector3 normal);
     }
 }

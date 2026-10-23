@@ -33,6 +33,7 @@ namespace Basis.BasisUI
         private bool _leftPressed;
         private bool _rightPressed;
         private bool _calibrated;
+        private bool _awaitingConfirm;
 
         public PanelButton Button;
         private PanelElementDescriptor _reportGroup;
@@ -64,15 +65,6 @@ namespace Basis.BasisUI
             Button.OnClicked += OnCalibrateButtonClicked;
             Button.Descriptor.SetTitle(BasisLocalization.Get("calibration.calibrate"));
             Button.Descriptor.SetTooltip(BasisLocalization.Get("calibration.calibrate.tooltip"));
-
-            // Sizing no longer needs the T-pose ritual — that is for assigning full-body trackers and
-            // capturing their offsets. Measuring the player only needs them to stand tall and reach out
-            // once, which the sampler picks up on its own, so it gets its own low-friction button. For a
-            // desktop or 3-point player this is the only calibration they ever needed.
-            PanelButton measureButton = PanelButton.CreateNew(PanelButton.ButtonStyles.Default, container);
-            measureButton.OnClicked += OnMeasureMeClicked;
-            measureButton.Descriptor.SetTitle(BasisLocalization.Get("calibration.measureMe"));
-            measureButton.Descriptor.SetTooltip(BasisLocalization.Get("calibration.measureMe.tooltip"));
 
             // See-through calibration mirror (implementation registers from the examples assembly):
             // shows only your avatar + calibration visuals, and unlike the pinned Personal Mirror it
@@ -282,23 +274,6 @@ namespace Basis.BasisUI
             Calibrate();
         }
 
-        private void OnMeasureMeClicked()
-        {
-            BasisBodyEvidenceSampler.ResetEvidence();
-            BasisHeightDriver.BeginMeasureWindow();
-            BasisHeightDriver.HasGenuinePlayerEyeHeight = false;
-            BasisHeightDriver.HasGenuinePlayerArmSpan = false;
-            BasisHeightDriver.CapturePlayerHeight();
-            BasisHeightDriver.ApplyScaleAndHeight();
-
-            BasisNotificationCenter.LogResolved(
-                BasisLocalization.Get("calibration.measureMe"),
-                BasisLocalization.Get("calibration.measureMe.prompt"),
-                AddressableAssets.Sprites.Information,
-                BasisNotificationStatus.Accepted,
-                BasisNotificationCategory.Avatar);
-        }
-
         private void OnStatedHeightEntered(PanelTextField field, string text)
         {
             if (string.IsNullOrWhiteSpace(text))
@@ -344,11 +319,18 @@ namespace Basis.BasisUI
             _calibrated = false;
             _leftPressed = false;
             _rightPressed = false;
+            _awaitingConfirm = true;
 
             Button.Descriptor.SetTitle(GetAwaitConfirmTitle());
+            BasisBodyEvidenceSampler.ResetEvidence();
+            BasisHeightDriver.BeginMeasureWindow();
             localplayer.LocalAvatarDriver.PutAvatarIntoTPose();
             BasisCalibrationLockInVisualizer.Begin();
             SubscribeToTriggers();
+            if (!BasisDeviceManagement.IsUserInDesktop())
+            {
+                BasisMainMenu.SetHidden(true);
+            }
         }
 
         // The wait-for-confirmation label must say HOW to confirm: VR completes by pulling both
@@ -408,6 +390,11 @@ namespace Basis.BasisUI
             BasisCalibrationLockInVisualizer.End();
             _leftPressed = false;
             _rightPressed = false;
+            if (_awaitingConfirm)
+            {
+                _awaitingConfirm = false;
+                BasisHeightDriver.EndMeasureWindow();
+            }
 
             // The cutout mirror is owned by this panel: closing the panel takes it down.
             if (BasisCalibrationMirrorService.Available)
@@ -487,11 +474,13 @@ namespace Basis.BasisUI
                 return;
 
             _calibrated = true;
+            _awaitingConfirm = false;
 
             UnsubscribeAll();
             BasisCalibrationLockInVisualizer.End();
             BasisAvatarIKStageCalibration.FullBodyCalibration();
             BasisUINeedsVisibleTrackers.Remove(BasisLocalPlayer.Instance);
+            BasisMainMenu.SetHidden(false);
             Button.Descriptor.SetTitle(BasisLocalization.Get("calibration.calibrate"));
 
             BasisCalibrationQualityReport.Capture();

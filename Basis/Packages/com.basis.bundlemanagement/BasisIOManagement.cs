@@ -288,10 +288,11 @@ public static partial class BasisIOManagement
         BasisDebug.Log("Downloaded Connector block size: " + connectorBytes.Length);
 
         // 3) Parse connector
-        BasisBundleConnector connector = await BasisEncryptionToData.GenerateMetaFromBytes(vp, connectorBytes, progressCallback?.Stage(progressKey, 2, 3));
+        var parsedConnector = await BasisEncryptionToData.GenerateMetaFromBytesWithError(vp, connectorBytes, progressCallback?.Stage(progressKey, 2, 3));
+        BasisBundleConnector connector = parsedConnector.Connector;
 
         if (connector == null)
-            return BeeResult<BeeDownloadResult>.Fail("DownloadBEEEx: Failed to parse connector metadata (null).");
+            return BeeResult<BeeDownloadResult>.Fail("DownloadBEEEx: " + parsedConnector.ErrorMessage);
 
         if (connector.BasisBundleGenerated == null || connector.BasisBundleGenerated.Length == 0)
             return BeeResult<BeeDownloadResult>.Fail("DownloadBEEEx: Connector contains no sections.");
@@ -453,10 +454,11 @@ public static partial class BasisIOManagement
         if (connectorRes.Value.Data.LongLength != connectorLength)
             return BeeResult<(BasisBundleConnector, string, string)>.Fail($"DownloadConnectorOnlyEx: Expected {connectorLength} bytes, got {connectorRes.Value.Data.LongLength}.", connectorRes.ResponseCode);
 
-        var connector = await BasisEncryptionToData.GenerateMetaFromBytes(vp, connectorRes.Value.Data, progressCallback);
+        var parsedConnector = await BasisEncryptionToData.GenerateMetaFromBytesWithError(vp, connectorRes.Value.Data, progressCallback);
+        BasisBundleConnector connector = parsedConnector.Connector;
         if (connector == null)
         {
-            return BeeResult<(BasisBundleConnector, string, string)>.Fail("DownloadConnectorOnlyEx: Failed to parse connector metadata (null).");
+            return BeeResult<(BasisBundleConnector, string, string)>.Fail("DownloadConnectorOnlyEx: " + parsedConnector.ErrorMessage);
         }
 
         // 5) Write local .bec (Int32 header + connector only, no section)
@@ -528,10 +530,11 @@ public static partial class BasisIOManagement
             return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: Failed to read full connector block. Expected {connectorSize}, got {connectorBytes.Length}.");
         }
 
-        BasisBundleConnector connector = await BasisEncryptionToData.GenerateMetaFromBytes(vp, connectorBytes, progressCallback).ConfigureAwait(false);
+        var parsedConnector = await BasisEncryptionToData.GenerateMetaFromBytesWithError(vp, connectorBytes, progressCallback).ConfigureAwait(false);
+        BasisBundleConnector connector = parsedConnector.Connector;
 
         if (connector == null)
-            return BeeResult<BeeReadResult>.Fail("ReadBEEFileEx: Failed to regenerate connector metadata (null).");
+            return BeeResult<BeeReadResult>.Fail("ReadBEEFileEx: " + parsedConnector.ErrorMessage);
 
         // Remaining is section data
         long sectionOffset = fs.Position;
@@ -591,10 +594,11 @@ public static partial class BasisIOManagement
         if (connectorBytes.Length != connectorSize)
             return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: Failed to read full connector block. Expected {connectorSize}, got {connectorBytes.Length}.");
 
-        BasisBundleConnector connector = await BasisEncryptionToData.GenerateMetaFromBytes(vp, connectorBytes, progressCallback).ConfigureAwait(false);
+        var parsedConnector = await BasisEncryptionToData.GenerateMetaFromBytesWithError(vp, connectorBytes, progressCallback).ConfigureAwait(false);
+        BasisBundleConnector connector = parsedConnector.Connector;
 
         if (connector == null)
-            return BeeResult<BeeReadResult>.Fail("ReadBEEFileEx: Failed to regenerate connector metadata (null).");
+            return BeeResult<BeeReadResult>.Fail("ReadBEEFileEx: " + parsedConnector.ErrorMessage);
 
         return BeeResult<BeeReadResult>.Ok(new BeeReadResult(connector, null));
     }
@@ -640,9 +644,10 @@ public static partial class BasisIOManagement
         if (connectorBytes.LongLength != connectorLength)
             return BeeResult<BeeReadResult>.Fail($"ReadRemoteBeeFromDiskEx: Failed to read full connector block. Expected {connectorLength}, got {connectorBytes.Length}.");
 
-        BasisBundleConnector connector = await BasisEncryptionToData.GenerateMetaFromBytes(vp, connectorBytes, progressCallback).ConfigureAwait(false);
+        var parsedConnector = await BasisEncryptionToData.GenerateMetaFromBytesWithError(vp, connectorBytes, progressCallback).ConfigureAwait(false);
+        BasisBundleConnector connector = parsedConnector.Connector;
         if (connector == null)
-            return BeeResult<BeeReadResult>.Fail("ReadRemoteBeeFromDiskEx: Failed to parse connector metadata (null).");
+            return BeeResult<BeeReadResult>.Fail("ReadRemoteBeeFromDiskEx: " + parsedConnector.ErrorMessage);
 
         if (!includeSection)
             return BeeResult<BeeReadResult>.Ok(new BeeReadResult(connector, null));
