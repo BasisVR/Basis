@@ -4,8 +4,11 @@
     <assembly fullname="Base128" preserve="all" />
     <assembly fullname="Basis Framework" preserve="all" />
     <assembly fullname="Basis.Addon.SnapControls" preserve="all" />
+    <assembly fullname="Basis.AuthoredMotion" preserve="all" />
+    <assembly fullname="Basis.Constraints" preserve="all" />
     <assembly fullname="Basis.Developer.Exceptions" preserve="all" />
     <assembly fullname="Basis.Developer.Recorder" preserve="all" />
+    <assembly fullname="Basis.Developer.StreamingMeta" preserve="all" />
     <assembly fullname="Basis.Eerie.Movement" preserve="all" />
     <assembly fullname="Basis.ImagePickup" preserve="all" />
     <assembly fullname="Basis.Integration.AudioLink" preserve="all" />
@@ -19,7 +22,6 @@
     <assembly fullname="BasisBundleManagement" preserve="all" />
     <assembly fullname="BasisCamera" preserve="all" />
     <assembly fullname="BasisCommon" preserve="all" />
-    <assembly fullname="BasisConsoleDisplay" preserve="all" />
     <assembly fullname="BasisDebug" preserve="all" />
     <assembly fullname="BasisEditor" preserve="all" />
     <assembly fullname="BasisEventDriver" preserve="all" />
@@ -77,6 +79,7 @@
     <assembly fullname="TrueAudioNext" preserve="all" />
     <assembly fullname="UdonSharp.Lib" preserve="all" />
     <assembly fullname="UdonSharp.Runtime" preserve="all" />
+    <assembly fullname="Unity.AI.Navigation" preserve="all" />
     <assembly fullname="Unity.Addressables" preserve="all" />
     <assembly fullname="Unity.Animation.Rigging" preserve="all" />
     <assembly fullname="Unity.Burst" preserve="all" />
