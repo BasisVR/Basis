@@ -88,6 +88,11 @@ namespace Basis.IK
             input.TorsoOut = isLeft ? -frame.Right : frame.Right;
             input.ElevationFactor = shoulderElevationFactor;
             input.ProtractionFactor = shoulderProtractionFactor;
+            input.HasElbow = (isLeft ? plan.leftArm : plan.rightArm).trackerHint;
+            input.ElbowPos = isLeft ? hintPositionLeftHand : hintPositionRightHand;
+            input.UpperArmLength = isLeft ? tposeShoulderToElbowLeft - tposeClavicleLenLeft : tposeShoulderToElbowRight - tposeClavicleLenRight;
+            Quaternion handRot = isLeft ? targetRotationLeftHand * offsetRotationLeftHand : targetRotationRightHand * offsetRotationRightHand;
+            input.HandBack = handRot * (isLeft ? tposeLeftHandBackLocal : tposeRightHandBackLocal);
             BasisShoulderSolveCore.Solve(input, out BasisShoulderSolveResult result);
             solved = result.Delta * poseStream.GetRotation(shoulder);
             return result.Apply;

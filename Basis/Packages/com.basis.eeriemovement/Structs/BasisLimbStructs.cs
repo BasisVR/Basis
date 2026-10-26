@@ -82,12 +82,18 @@ namespace Basis.IK
     {
         public Vector3 ShoulderPos, UpperArmPos, HandTargetPos, TorsoUp, TorsoForward, TorsoOut;
         public float ArmLength, ElevationFactor, ProtractionFactor;
+        // Tracked elbow: drives the lift and the shrug. UpperArmLength is the rest upper-arm joint -> elbow distance.
+        public bool HasElbow;
+        public Vector3 ElbowPos;
+        public float UpperArmLength;
+        // World direction the back of the hand points (zero if unknown). Used for the upside-down hand shrug.
+        public Vector3 HandBack;
     }
     public struct BasisShoulderSolveResult
     {
         public bool Apply;
         public Quaternion Delta;
-        public float ElevationDeg, ProtractionDeg, HumeralElevationDeg, ReachRatio;
+        public float ElevationDeg, ProtractionDeg, HumeralElevationDeg, ReachRatio, ShrugDeg;
     }
     public struct BasisLegSolveInput
     {

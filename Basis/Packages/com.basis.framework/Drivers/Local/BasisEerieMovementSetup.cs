@@ -123,6 +123,12 @@ namespace Basis.Scripts.Drivers
             job.tposeShoulderToElbowLeft = (Mapping.leftShoulder != null && Mapping.leftLowerArm != null) ? Vector3.Distance(Mapping.leftShoulder.position, Mapping.leftLowerArm.position) : 0f;
             job.tposeShoulderToElbowRight = (Mapping.RightShoulder != null && Mapping.RightLowerArm != null) ? Vector3.Distance(Mapping.RightShoulder.position, Mapping.RightLowerArm.position) : 0f;
 
+            // In T-pose the back of the hand faces the avatar's up. Store that in hand-bone space so it works whatever the bone's axes are.
+            Vector3 avatarUp = (Mapping.head != null && Mapping.Hips != null) ? (Mapping.head.position - Mapping.Hips.position).normalized : Vector3.up;
+            if (avatarUp.sqrMagnitude < 0.5f) avatarUp = Vector3.up;
+            job.tposeLeftHandBackLocal = Mapping.leftHand != null ? Quaternion.Inverse(Mapping.leftHand.rotation) * avatarUp : Vector3.zero;
+            job.tposeRightHandBackLocal = Mapping.rightHand != null ? Quaternion.Inverse(Mapping.rightHand.rotation) * avatarUp : Vector3.zero;
+
             job.tposeLeftLowerArmTwistBind = BindLocal(Mapping.leftLowerArm, Mapping.leftLowerArmTwist);
             job.tposeLeftLowerArmChildBind = BindLocal(Mapping.leftLowerArm, Mapping.leftHand);
             job.tposeRightLowerArmTwistBind = BindLocal(Mapping.RightLowerArm, Mapping.RightLowerArmTwist);

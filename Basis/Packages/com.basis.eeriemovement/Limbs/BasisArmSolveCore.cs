@@ -351,6 +351,8 @@ namespace Basis.IK
         public const float RetractionStartDeg = 70f, RetractionSlope = -0.22f, RetractionIntercept = 15.4f;
         public const float RetractionShare = 0.5f, ForwardReachStart = 0.35f, ForwardReachFullDeg = 30f, CrossBodyDeg = 20f, BehindStart = 0.05f, BehindEnd = 0.8f, BehindFullDeg = 35f, BehindTwistDeg = 20f;
         public const float MaxElbowDeg = 90f;
+        public const float ShrugSqueezeStart = 0.02f, ShrugSqueezeFull = 0.3f, ShrugMaxDeg = 30f;
+        public const float UpsideDownFull = 0.9f, UpsideDownEarlyDeg = 40f, UpsideDownNearReach = 0.2f, UpsideDownFarReach = 0.8f;
         const float epsilon = 1e-5f, sqrEpsilon = 1e-8f;
         public static void Solve(in BasisShoulderSolveInput i, out BasisShoulderSolveResult r)
         {
@@ -366,9 +368,30 @@ namespace Basis.IK
             float forward = Vector3.Dot(toHand, i.TorsoForward) / armLen, medial = -Vector3.Dot(toHand, i.TorsoOut) / armLen;
             float prot = BasisArmSolveCore.Smoothstep(ForwardReachStart, 1f, forward) * ForwardReachFullDeg + Mathf.Clamp01(medial) * CrossBodyDeg;
 
-            // Rotate shoulder up when arm is raised
-            Vector3 dir = toHand / reach;
-            float elevation = Vector3.Angle(-i.TorsoUp, dir), elev = ElevationMaxDeg * BasisArmSolveCore.Smoothstep(ElevationStartDeg, ElevationEndDeg, elevation);
+            // Rotate shoulder up when arm is raised. A tracked elbow gives the upper arm's real direction, so use it over the hand.
+            Vector3 toElbow = i.ElbowPos - i.UpperArmPos;
+            bool useElbow = i.HasElbow && toElbow.sqrMagnitude > sqrEpsilon;
+            Vector3 dir = useElbow ? toElbow.normalized : toHand / reach;
+            float elevation = Vector3.Angle(-i.TorsoUp, dir), liftStart = ElevationStartDeg, shrug = 0f;
+            if (useElbow)
+            {
+                // If the tracker moves closer to the shoulder then we raise the shoulder
+                if (i.UpperArmLength > epsilon)
+                {
+                    float squeeze = (i.UpperArmLength - toElbow.magnitude) / i.UpperArmLength;
+                    shrug = ShrugMaxDeg * BasisArmSolveCore.Smoothstep(ShrugSqueezeStart, ShrugSqueezeFull, squeeze);
+                }
+            }
+            else if (i.HandBack.sqrMagnitude > sqrEpsilon)
+            {
+                // When palm is rotated upward and close to the shoulder, raise it
+                float upsideDown = BasisArmSolveCore.Smoothstep(0f, UpsideDownFull, -Vector3.Dot(i.HandBack.normalized, i.TorsoUp));
+                float near = 1f - BasisArmSolveCore.Smoothstep(UpsideDownNearReach, UpsideDownFarReach, reach / armLen);
+                liftStart -= UpsideDownEarlyDeg * upsideDown * near;
+            }
+
+            // Take the larger of the arm-height lift and the shrug so they don't stack.
+            float elev = Mathf.Max(ElevationMaxDeg * BasisArmSolveCore.Smoothstep(liftStart, ElevationEndDeg, elevation), shrug);
             float behind = BasisArmSolveCore.Smoothstep(BehindStart, BehindEnd, -forward);
             prot -= behind * BehindFullDeg;
 
@@ -400,6 +423,7 @@ namespace Basis.IK
             r.ElevationDeg = elev;
             r.ProtractionDeg = prot;
             r.HumeralElevationDeg = elevation;
+            r.ShrugDeg = shrug;
             r.ReachRatio = reach / armLen;
             r.Apply = true;
         }

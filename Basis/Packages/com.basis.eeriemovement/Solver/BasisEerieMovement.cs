@@ -49,6 +49,8 @@ namespace Basis.IK
         public Quaternion tposeLeftShoulderRot, tposeRightShoulderRot, tposeChestRot;
         public float tposeShoulderToHandLeft, tposeShoulderToHandRight, tposeClavicleLenLeft, tposeClavicleLenRight;
         public float tposeShoulderToElbowLeft, tposeShoulderToElbowRight;
+        // Back-of-hand direction in each hand bone's local space, captured in T-pose (zero = unknown).
+        public Vector3 tposeLeftHandBackLocal, tposeRightHandBackLocal;
         public Quaternion tposeLeftLowerArmTwistBind, tposeLeftLowerArmChildBind, tposeRightLowerArmTwistBind;
         public Quaternion tposeRightLowerArmChildBind, tposeLeftUpperArmTwistBind, tposeLeftUpperArmChildBind;
         public Quaternion tposeRightUpperArmTwistBind, tposeRightUpperArmChildBind;
