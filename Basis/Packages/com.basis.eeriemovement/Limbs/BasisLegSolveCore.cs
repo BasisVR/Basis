@@ -6,8 +6,9 @@ namespace Basis.IK
         const float epsilon = 1e-5f, sqrEpsilon = 1e-8f, restBendAgreeCos = 0.94f;
         public const float MinKneeInteriorDeg = 20f, MaxKneeInteriorDeg = 176f, KneeAnteriorSoftDeg = 85f;
         public const float KneeAnteriorHardDeg = 89.5f, KneeAnteriorTaperStartDeg = 160f, TrackerShinRollMaxDeg = 45f;
-        public const float KneeHintForward = 0.5f;
+        public const float KneeHintForward = 0.75f;
         public const float KneeHintFootFlatTrust = 0.3f;
+        public const float KneeHintUpBias = 0.1f;
         public const float KneeTrackerHintBias = 0.06f;
         public static float ClampKneeSwivelDeg(float swivelDeg, float softDeg, float hardDeg)
         {
@@ -60,19 +61,25 @@ namespace Basis.IK
             float hintWeight = i.HintWeight;
             if (!i.HintIsTracker && i.HasBodyFrame)
             {
-                // Push direction is the foot's forward flattened onto the ground, so the knee points the way the foot does.
-                // When the foot points mostly up/down the flattened forward gets unreliable, so blend toward the hips forward.
-                Vector3 flatFoot = Vector3.ProjectOnPlane(i.FootForward, i.Up);
-                float flatLen = flatFoot.magnitude;
-                Vector3 pushDir = i.HipsForward;
-                if (flatLen > epsilon)
+                // Everything is measured against the hip->foot line, so the hint stays in front of the kneecap in any body pose (standing, lying, on the side).
+                Vector3 legAxis = tPosition - aPosition;
+                float legLen = legAxis.magnitude;
+                legAxis = legLen > epsilon ? legAxis / legLen : -i.Up;
+
+                // Hips and foot forward with their along-the-leg part removed. The foot steers the knee only when it points
+                // clearly out from the leg and not behind the hips (pointed toes while lying down fall back to the hips).
+                Vector3 hipsPerp = Vector3.ProjectOnPlane(i.HipsForward, legAxis), footPerp = Vector3.ProjectOnPlane(i.FootForward, legAxis);
+                Vector3 pushDir = hipsPerp.sqrMagnitude > sqrEpsilon ? hipsPerp.normalized : i.HipsForward;
+                float footLen = footPerp.magnitude;
+                if (footLen > epsilon && Vector3.Dot(footPerp, pushDir) > 0f)
                 {
-                    float footTrust = Mathf.Clamp01(flatLen / KneeHintFootFlatTrust);
-                    pushDir = Vector3.Slerp(i.HipsForward, flatFoot / flatLen, footTrust);
+                    float footTrust = Mathf.Clamp01(footLen / KneeHintFootFlatTrust);
+                    pushDir = Vector3.Slerp(pushDir, footPerp / footLen, footTrust).normalized;
                 }
 
-                // Start halfway between the hip and the foot target, then push it out in front of the knee.
-                hintPosition = (aPosition + tPosition) * 0.5f + pushDir * (maxReach * KneeHintForward);
+                // Start on the leg line where the knee sits, push out in front of it, and lift slightly toward the hip.
+                float kneeFrac = maxReach > epsilon ? abLen / maxReach : 0.5f;
+                hintPosition = aPosition + legAxis * (legLen * kneeFrac) + pushDir * (maxReach * KneeHintForward) - legAxis * (maxReach * KneeHintUpBias);
                 hintWeight = 1f;
             }
 
