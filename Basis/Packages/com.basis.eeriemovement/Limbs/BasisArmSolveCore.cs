@@ -8,7 +8,7 @@ namespace Basis.IK
         public const float MinElbowInteriorDeg = 20f;
         public const float HeadFadeStartSin = 0.15f, HeadFadeFullSin = 0.45f, RestOutward = 0.35f, RestBack = 0.25f;
         public const float MinReachFraction = 0.05f, MinReachDirectionFraction = 0.15f,ModelWeight = 0.85f, TeleportFraction = 0.6f;
-        public const float ForearmHandTwistShare = 0.85f;
+        public const float ForearmHandTwistShare = 0.75f;
         public const float ForearmRollMaxDeg = 120f, WrapFadeStartDeg = 155f, WrapFadeEndDeg = 178f;
         public const float UpperArmPoleTwistShare = 0.5f;
         public const float HandTiltHintPush = 0.5f, BehindHintStart = 0.05f, BehindHintEnd = 0.6f, BehindHintInward = 0.8f;

@@ -5,6 +5,7 @@ namespace Basis.IK
     public partial struct BasisEerieMovement
     {
         const uint gizmoTarget = 0xFF00D7FFu, gizmoHint = 0xFFFFFF00u, gizmoResidual = 0xFF3030FFu;
+        const float HintPointScale = 3f, ConstrainedHintPointScale = 2f; // Knee/elbow hint spheres drawn larger than regular points so they read at a glance
         const uint gizmoRaw = 0xFF909090u, gizmoLeft = 0xFF4090FFu, gizmoRight = 0xFFFF9040u, gizmoReach = 0x60FFFFFFu;
         static uint SideColor(bool isLeft) => isLeft ? gizmoLeft : gizmoRight;
         void RecordTargetGizmos()
@@ -69,7 +70,7 @@ namespace Basis.IK
             {
                 return;
             }
-            gizmos.Point(stage, hint, gizmoHint);
+            gizmos.Point(stage, hint, gizmoHint, gizmos.PointSize * HintPointScale);
             gizmos.Line(stage, target, hint, gizmoHint);
             if (isLeft)
             {
@@ -102,7 +103,7 @@ namespace Basis.IK
             {
                 return;
             }
-            gizmos.Point(stage, hint, gizmoHint);
+            gizmos.Point(stage, hint, gizmoHint, gizmos.PointSize * HintPointScale);
             gizmos.Line(stage, target, hint, gizmoHint);
             if (isLeft)
             {
@@ -230,7 +231,7 @@ namespace Basis.IK
                 if (legSlot.PoleDir.sqrMagnitude > sqrEpsilon) gizmos.Direction(stage, hipPos, legSlot.PoleDir, hintLength, BasisIKGizmoPalette.Magenta); // Where the solver wanted the knee
                 if (legSlot.KneeDir.sqrMagnitude > sqrEpsilon) gizmos.Direction(stage, hipPos, legSlot.KneeDir, hintLength, BasisIKGizmoPalette.Yellow); // Where the knee ended up
 
-                gizmos.Point(stage, legSlot.ConstrainedHintPosition, BasisIKGizmoPalette.Green);
+                gizmos.Point(stage, legSlot.ConstrainedHintPosition, BasisIKGizmoPalette.Green, gizmos.PointSize * ConstrainedHintPointScale);
             }
 
             if (isLeft)
@@ -298,7 +299,7 @@ namespace Basis.IK
                     gizmos.Label(stage, elbowPos + playerUp * gizmos.PointSize * 4f, text, BasisIKGizmoPalette.Yellow);
                 }
 
-                gizmos.Point(stage, armSlot.ConstrainedHintPosition, BasisIKGizmoPalette.Green);
+                gizmos.Point(stage, armSlot.ConstrainedHintPosition, BasisIKGizmoPalette.Green, gizmos.PointSize * ConstrainedHintPointScale);
             }
 
             if (isLeft)

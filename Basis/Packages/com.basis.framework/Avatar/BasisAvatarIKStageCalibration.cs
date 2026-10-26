@@ -387,10 +387,10 @@ namespace Basis.Scripts.Avatar
             Matrix4x4 playerToWorld = BasisLocalPlayer.localToWorldMatrix;
             localPosition = playerToWorld.inverse.MultiplyPoint3x4(anchorPos + anchorRot * boneTpose);
             localRotation = Quaternion.Inverse(playerToWorld.rotation) * anchorRot;
-            if (BasisCalibrationMath.IsFloorAnchoredRole(role))
-            {
-                localPosition.y = BasisCalibrationMath.FloorAnchorY(BasisLocalPlayspaceMover.VerticalOffset, BasisHeightDriver.DeviceScale, BasisInput.OffsetCoords.position, BasisInput.OffsetCoords.rotation) + AuthoredFloorHeight(role, boneTpose.y);
-            }
+            //if (BasisCalibrationMath.IsFloorAnchoredRole(role))
+            //{
+            //    localPosition.y = BasisCalibrationMath.FloorAnchorY(BasisLocalPlayspaceMover.VerticalOffset, BasisHeightDriver.DeviceScale, BasisInput.OffsetCoords.position, BasisInput.OffsetCoords.rotation) + AuthoredFloorHeight(role, boneTpose.y);
+            //}
             return true;
         }
 

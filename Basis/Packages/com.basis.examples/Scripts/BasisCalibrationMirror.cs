@@ -25,6 +25,9 @@ public static partial class BasisCalibrationMirror
 {
     // Big enough to frame a full body right away.
     private const float MirrorScale = 3f;
+    // How far behind the calibration panel the mirror sits, and the fallback distance from the head.
+    private const float MirrorBehindMenu = 0.5f;
+    private const float MirrorInFrontOfHead = 0.9f;
 
     private static GameObject _instance;
     private static AsyncOperationHandle<GameObject> _handle;
@@ -87,12 +90,7 @@ public static partial class BasisCalibrationMirror
             return;
         }
 
-        Vector3 head = BasisLocalCameraDriver.HeadPosition;
-        Vector3 forward = Vector3.ProjectOnPlane(BasisLocalCameraDriver.HeadForward(), Vector3.up);
-        if (forward.sqrMagnitude < 1e-4f) forward = Vector3.forward;
-        forward.Normalize();
-        Vector3 position = head + forward * 0.9f;
-        Quaternion rotation = Quaternion.LookRotation(forward, Vector3.up);
+        GetSpawnPose(out Vector3 position, out Quaternion rotation);
         Transform parent = BasisDeviceManagement.Instance != null
             ? BasisDeviceManagement.Instance.transform : null;
 
@@ -120,6 +118,35 @@ public static partial class BasisCalibrationMirror
         // visuals players line their trackers up with live on Default and would be invisible in
         // the mirror; the relay moves just those onto the avatar layer while the mirror is up.
         _instance.AddComponent<BasisCalibrationMirrorRelay>();
+    }
+
+    /// <summary>Directly behind the open calibration panel, facing the same way it does, so the
+    /// mirror sits where the player is already looking. Falls back to in front of the head when
+    /// there is no open panel.</summary>
+    private static void GetSpawnPose(out Vector3 position, out Quaternion rotation)
+    {
+        BasisMenuBase<BasisMainMenu> menu = BasisMenuBase<BasisMainMenu>.Instance;
+        BasisMenuPanel panel = menu != null ? menu.ActiveMenu : null;
+
+        Vector3 origin, forward;
+        if (panel != null)
+        {
+            RectTransform rect = panel.transform as RectTransform;
+            origin = rect != null ? rect.TransformPoint(rect.rect.center) : panel.transform.position;
+            forward = panel.transform.forward; // A world-space panel faces away from the viewer along +Z
+        }
+        else
+        {
+            origin = BasisLocalCameraDriver.HeadPosition;
+            forward = BasisLocalCameraDriver.HeadForward();
+        }
+
+        forward = Vector3.ProjectOnPlane(forward, Vector3.up);
+        if (forward.sqrMagnitude < 1e-4f) forward = Vector3.forward;
+        forward.Normalize();
+
+        position = origin + forward * (panel != null ? MirrorBehindMenu : MirrorInFrontOfHead);
+        rotation = Quaternion.LookRotation(forward, Vector3.up);
     }
 
     private static void Despawn()
