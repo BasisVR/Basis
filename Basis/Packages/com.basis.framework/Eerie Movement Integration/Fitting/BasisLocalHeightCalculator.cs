@@ -8,64 +8,6 @@ using UnityEngine;
 [AutoStaticsCleanup]
 public static partial class BasisLocalHeightCalculator
 {
-    private const float EyeArmTolerance = 0.30f;
-    private static Vector3 HandSpanPoint(BasisInput input) => input is BasisInputController controller ? controller.UnscaledHandTarget : input.UnscaledDeviceCoord.position;
-    public static void CalculatePlayerArmSpan()
-    {
-        bool hasLeft = BasisDeviceManagement.Instance.FindDevice(out BasisInput left, BasisBoneTrackedRole.LeftHand);
-        bool hasRight = BasisDeviceManagement.Instance.FindDevice(out BasisInput right, BasisBoneTrackedRole.RightHand);
-
-        if (!hasLeft && !hasRight)
-        {
-            if (BasisHeightDriver.PlayerArmSpan < BasisHeightDriver.MinPlausibleBodyMeasure || BasisHeightDriver.PlayerArmSpan > BasisHeightDriver.MaxPlausibleBodyMeasure)
-            {
-                BasisDebug.LogWarning("No hands found. Using fallback.", BasisDebug.LogTag.Avatar);
-                BasisHeightDriver.PlayerArmSpan = BasisHeightDriver.FallbackHeightInMeters;
-            }
-            return;
-        }
-
-        var lockToInput = BasisLocalCameraDriver.Instance?.BasisLockToInput;
-        if (!hasLeft || !hasRight)
-        {
-            if (lockToInput?.BasisInput == null)
-            {
-                if (BasisHeightDriver.PlayerArmSpan < BasisHeightDriver.MinPlausibleBodyMeasure || BasisHeightDriver.PlayerArmSpan > BasisHeightDriver.MaxPlausibleBodyMeasure)
-                {
-                    BasisHeightDriver.PlayerArmSpan = BasisHeightDriver.FallbackHeightInMeters;
-                }
-                return;
-            }
-
-            lockToInput.BasisInput.LatePollData();
-            if (hasLeft) left.LatePollData();
-            if (hasRight) right.LatePollData();
-
-            var head = lockToInput.BasisInput.UnscaledDeviceCoord.position;
-            var hand = HandSpanPoint(hasLeft ? left : right);
-
-            var headFlat = new Vector3(head.x, 0f, head.z);
-            var handFlat = new Vector3(hand.x, 0f, hand.z);
-
-            BasisHeightDriver.PlayerArmSpan = Vector3.Distance(headFlat, handFlat) * 2f;
-            return;
-        }
-
-        left.LatePollData();
-        right.LatePollData();
-
-        Vector3 l = HandSpanPoint(left);
-        Vector3 r = HandSpanPoint(right);
-
-        Vector3 lFlat = new Vector3(l.x, 0f, l.z);
-        Vector3 rFlat = new Vector3(r.x, 0f, r.z);
-        float span = Vector3.Distance(lFlat, rFlat);
-
-        BasisHeightDriver.PlayerArmSpan = span;
-
-        BasisHeightDriver.HasGenuinePlayerArmSpan = true;
-        BasisDebug.Log($"Player hand-to-hand arm span: {BasisHeightDriver.PlayerArmSpan}", BasisDebug.LogTag.Avatar);
-    }
     public static void CalculatePlayerHipHeight()
     {
         if (SMModuleSitStand.IsSteatedMode)
@@ -314,46 +256,6 @@ public static partial class BasisLocalHeightCalculator
         Vector3 l = lu.position, r = ru.position;
         span = Vector3.Distance(new Vector3(l.x, 0f, l.z), new Vector3(r.x, 0f, r.z)) + Vector3.Distance(lu.position, ll.position) + Vector3.Distance(ll.position, lh.position) + Vector3.Distance(ru.position, rl.position) + Vector3.Distance(rl.position, rh.position);
         return span > 0f && !float.IsNaN(span) && !float.IsInfinity(span);
-    }
-    private static void ValidateEyeToArm(ref float eyeHeight, ref float armSpan, float fallbackEyeHeight, string label, float maxAbsoluteSpan)
-    {
-        if (eyeHeight <= 0f)
-        {
-            eyeHeight = fallbackEyeHeight;
-            BasisDebug.LogWarning($"{label} eye height invalid; using fallback {fallbackEyeHeight}.", BasisDebug.LogTag.Avatar);
-        }
-
-        if (armSpan <= 0f)
-        {
-            armSpan = eyeHeight;
-            BasisDebug.LogWarning($"{label} arm span was invalid. Set to {label} eye height: {armSpan}", BasisDebug.LogTag.Avatar);
-            return;
-        }
-
-        float minAllowed = Mathf.Min(eyeHeight, BasisCalibrationMath.MaxPlausibleStandingEyeMeters) * (1f - EyeArmTolerance);
-        if (armSpan < minAllowed)
-        {
-            BasisDebug.LogWarning( $"{label} arm span ({armSpan}) is >{EyeArmTolerance:P0} smaller than {label} eye height ({eyeHeight}). " + $"Clamping to min allowed: {minAllowed}", BasisDebug.LogTag.Avatar );
-            armSpan = minAllowed;
-        }
-
-        float maxAllowed = eyeHeight * (1f + EyeArmTolerance);
-        if (armSpan > maxAllowed)
-        {
-            if (armSpan > maxAbsoluteSpan)
-            {
-                BasisDebug.LogWarning( $"{label} arm span ({armSpan}) exceeds the absolute plausibility cap {maxAbsoluteSpan}. Clamping.", BasisDebug.LogTag.Avatar );
-                armSpan = maxAbsoluteSpan;
-            }
-            else
-            {
-                BasisDebug.Log( $"{label} arm span ({armSpan}) is >{EyeArmTolerance:P0} larger than {label} eye height ({eyeHeight}); " + "keeping it — the eye height was likely under-measured (seated/slouched capture).", BasisDebug.LogTag.Avatar );
-            }
-        }
-    }
-    public static void ValidateEyeToArmSizesPlayer()
-    {
-        ValidateEyeToArm( ref BasisHeightDriver.PlayerEyeHeight, ref BasisHeightDriver.PlayerArmSpan, BasisHeightDriver.FallbackHeightInMeters, "Player", BasisHeightDriver.MaxPlausibleBodyMeasure );
     }
     public static void ValidateEyeToArmSizesAvatar()
     {

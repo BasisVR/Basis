@@ -207,7 +207,6 @@ namespace Basis.Tests.Fitting
             Assert.That(BasisCalibrationMath.ArmSpanLooksUnderMeasured(1.64f, 1.45f), Is.False);
             Assert.That(BasisCalibrationMath.ArmSpanLooksUnderMeasured(1.64f, 1.38f), Is.False, "an average wrist-to-wrist span is not a bent-arm reading");
             Assert.That(BasisCalibrationMath.ArmSpanLooksUnderMeasured(1.64f, 1.05f), Is.True);
-            Assert.That(BasisCalibrationMath.AutoHeightModePicksArmSpan(1.64f, 1.45f), Is.False);
         }
         [Test]
         public void GroundingOffsetIsSigned()

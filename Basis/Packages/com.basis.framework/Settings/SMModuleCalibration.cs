@@ -43,6 +43,7 @@ public partial class SMModuleCalibration : BasisSettingsBase
     private static string K_ARM_TO_HEIGHT_BLEND => BasisSettingsDefaults.ArmToHeightBlend.BindingKey;              // "armtoheightblend"
     private static string K_FBIK_BODY_FIT => BasisSettingsDefaults.FBIKBodyFit.BindingKey;                         // "fbikbodyfit"
     private static string K_FBIK_BODY_FIT_MAX_DEVIATION => BasisSettingsDefaults.FBIKBodyFitMaxDeviation.BindingKey; // "fbikbodyfitmaxdeviation"
+    private static string K_ARM_SPAN_ESTIMATE_RATIO => BasisSettingsDefaults.FBIKArmHeightRatio.BindingKey;       // "fbikarmheightratio_v3"
 
     // One Euro globals
     private static string K_FBIK_MINCUTOFF => BasisSettingsDefaults.FBIKMinCutoff.BindingKey;                 // "fbikmincutoff"
@@ -290,6 +291,10 @@ public partial class SMModuleCalibration : BasisSettingsBase
             case var s when s == K_FBIK_BODY_FIT:
             case var s2 when s2 == K_FBIK_BODY_FIT_MAX_DEVIATION:
                 BasisHeightDriver.ApplyScaleAndHeight();
+                break;
+
+            case var s when s == K_ARM_SPAN_ESTIMATE_RATIO:
+                BasisHeightDriver.OnArmSpanRatioChanged();
                 break;
 
             // ---------- GLOBAL ONE EURO PARAMS ----------

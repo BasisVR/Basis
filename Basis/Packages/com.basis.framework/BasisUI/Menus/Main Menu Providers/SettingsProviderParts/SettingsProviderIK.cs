@@ -382,11 +382,6 @@ public static partial class SettingsProviderIK
                 maxDeviation.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.bodyFit.maxDeviation.tooltip"));
             }
 
-            var armHeightRatioToggle = PanelToggle.CreateNewEntry(fitParent);
-            armHeightRatioToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.armHeightRatio.enabled.title"));
-            armHeightRatioToggle.AssignBinding(BasisSettingsDefaults.FBIKArmHeightRatioEnabled);
-            armHeightRatioToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.armHeightRatio.enabled.title.tooltip"));
-
             var armHeightRatioSlider = PanelSlider.CreateAndBind(
                 fitParent,
                 PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.armHeightRatio.title"), 0.6f, 1.5f, false, 2, ValueDisplayMode.Raw),
@@ -394,12 +389,6 @@ public static partial class SettingsProviderIK
             if (armHeightRatioSlider != null)
             {
                 armHeightRatioSlider.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.armHeightRatio.title.tooltip"));
-                armHeightRatioSlider.Descriptor.SetActive(armHeightRatioToggle.Value);
-                armHeightRatioToggle.OnValueChanged += value =>
-                {
-                    armHeightRatioSlider.Descriptor.SetActive(value);
-                    RebuildLayoutChain(fitParent, tabDesc);
-                };
             }
         });
 
@@ -1109,7 +1098,6 @@ public static partial class SettingsProviderIK
         BasisSettingsDefaults.FBIKShoulderTrackerBlend.ResetToDefault();
         BasisSettingsDefaults.FBIKArmSwivelSmoothTime.ResetToDefault();
         BasisSettingsDefaults.FBIKArmSwivelMaxRate.ResetToDefault();
-        BasisSettingsDefaults.FBIKArmHeightRatioEnabled.ResetToDefault();
         BasisSettingsDefaults.FBIKArmHeightRatio.ResetToDefault();
         BasisSettingsDefaults.FBIKMoveBodyBackWhenCrouching.ResetToDefault();
         BasisSettingsDefaults.VSpineChestPitchFrac.ResetToDefault();
