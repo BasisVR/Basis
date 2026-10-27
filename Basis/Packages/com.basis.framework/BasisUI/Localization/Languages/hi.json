@@ -2382,6 +2382,8 @@
     { "key": "library.instantiated.static.tooltip", "value": "लॉक नहीं है। लॉक करने के लिए क्लिक करें ताकि कोई इसे उठा या हिला न सके (वाहन चलाए नहीं जा सकते)। केवल निर्माता या मॉडरेटर।" },
     { "key": "library.instantiated.static.lockedTooltip", "value": "लॉक किया गया — कोई इस आइटम को हिला नहीं सकता। अनलॉक करने के लिए क्लिक करें। मॉडरेटर इसे एडमिन-लॉक बनाने के लिए क्लिक कर सकते हैं।" },
     { "key": "library.instantiated.static.adminTooltip", "value": "एडमिन-लॉक — कोई इस आइटम को हिला नहीं सकता, और केवल एक मॉडरेटर ही इसे अनलॉक कर सकता है। अनलॉक करने के लिए क्लिक करें।" },
+    { "key": "library.instantiated.saveToServer.tooltip", "value": "सर्वर पर सहेजें। सर्वर रीस्टार्ट होने के बाद भी यह आइटम अपनी मौजूदा जगह पर रहेगा। केवल एडमिन के लिए।" },
+    { "key": "library.instantiated.saveToServer.savedTooltip", "value": "सर्वर पर सहेजा गया: रीस्टार्ट के बाद यह आइटम फिर से लोड होगा। सहेजना बंद करने के लिए क्लिक करें; हटाए जाने तक यह बना रहेगा।" },
     { "key": "library.instantiated.static.noPermission", "value": "केवल आइटम का निर्माता या कोई मॉडरेटर ही इस आइटम को लॉक कर सकता है।" },
     { "key": "library.instantiated.static.adminOnly", "value": "यह आइटम एडमिन-लॉक है; केवल एक मॉडरेटर ही इसे बदल सकता है।" },
     { "key": "library.instantiated.select.tooltip", "value": "इस आइटम को वर्ल्ड में चयन आउटलाइन के साथ हाइलाइट करें। इसे साफ़ करने के लिए फिर से क्लिक करें।" },

@@ -171,12 +171,72 @@ public class ContentSharePortalTests
         }
     }
 
+    [Theory]
+    [InlineData(ContentSharePortal.Style.Orb, 60)]
+    [InlineData(ContentSharePortal.Style.Rift, 60)]
+    [InlineData(ContentSharePortal.Style.Rift, ContentSharePortal.Persistent)]
+    public void Lifetime_RoundTripsStyle(ContentSharePortal.Style style, int seconds)
+    {
+        Assert.True(ContentSharePortal.TryRead(ContentSharePortal.WriteLifetime(seconds, style), out int read, out ContentSharePortal.Style readStyle));
+        Assert.Equal(seconds, read);
+        Assert.Equal(style, readStyle);
+        Assert.True(ContentSharePortal.TryReadLifetime(ContentSharePortal.WriteLifetime(seconds, style), out read));
+        Assert.Equal(seconds, read);
+    }
+
+    [Theory]
+    [InlineData(":rift")]
+    [InlineData("60:orb")]
+    [InlineData("60:rift:rift")]
+    [InlineData("rift")]
+    public void Lifetime_RejectsMalformedStyle(string value)
+    {
+        Assert.False(ContentSharePortal.TryReadLifetime(value, out _));
+    }
+
     [Fact]
-    public void ModeratorGroup_HasPortalNode()
+    public void PortalNode_IsAdminOnly()
     {
         PermissionIntegration.Manager.EnsureDefaults();
-        string uuid = $"portal-mod-{Guid.NewGuid():N}";
-        PermissionIntegration.Manager.AddUserToGroup(uuid, "moderator");
-        Assert.True(PermissionIntegration.HasValidRequirement(uuid, PermNodes.ContentSharePortal));
+        string mod = $"portal-mod-{Guid.NewGuid():N}", admin = $"portal-admin-{Guid.NewGuid():N}";
+        PermissionIntegration.Manager.AddUserToGroup(mod, "moderator");
+        PermissionIntegration.Manager.AddUserToGroup(admin, "admin");
+        Assert.False(PermissionIntegration.HasValidRequirement(mod, PermNodes.ContentSharePortal));
+        Assert.True(PermissionIntegration.HasValidRequirement(admin, PermNodes.ContentSharePortal));
+    }
+
+    [Fact]
+    public void EnsureDefaults_WithdrawsSeededModeratorPortalGrant()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"portal-perms-{Guid.NewGuid():N}.xml");
+        try
+        {
+            File.WriteAllText(path, $"""
+                <Permissions>
+                  <Groups>
+                    <Group name="moderator"><Node value="{PermNodes.ContentSharePortal}" /><Node value="kept.node" /></Group>
+                  </Groups>
+                  <Users />
+                  <SeededDefaults>
+                    <Group name="moderator"><Node value="{PermNodes.ContentSharePortal}" /></Group>
+                  </SeededDefaults>
+                </Permissions>
+                """);
+            PermissionManager m = new PermissionManager();
+            m.SetXmlPath(path);
+            m.LoadFromXml();
+            m.EnsureDefaults();
+            Assert.True(m.TryGetGroup("moderator", out var group));
+            Assert.DoesNotContain(PermNodes.ContentSharePortal, group.Nodes);
+            Assert.Contains("kept.node", group.Nodes);
+            m.AddGroupNode("moderator", PermNodes.ContentSharePortal);
+            m.EnsureDefaults();
+            Assert.True(m.TryGetGroup("moderator", out group));
+            Assert.Contains(PermNodes.ContentSharePortal, group.Nodes);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 }

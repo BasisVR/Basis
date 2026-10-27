@@ -6711,6 +6711,14 @@
       "value": "Admin-locked — no one can move this item, and only a moderator can unlock it. Click to unlock."
     },
     {
+      "key": "library.instantiated.saveToServer.tooltip",
+      "value": "Save to server. This item stays here after the server restarts, where it is now. Admins only."
+    },
+    {
+      "key": "library.instantiated.saveToServer.savedTooltip",
+      "value": "Saved to server: this item loads again after a restart. Click to stop saving it; it stays until removed."
+    },
+    {
       "key": "library.instantiated.static.noPermission",
       "value": "Only the item's creator or a moderator can lock this item."
     },

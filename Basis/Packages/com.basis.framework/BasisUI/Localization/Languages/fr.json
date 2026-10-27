@@ -2382,6 +2382,8 @@
     { "key": "library.instantiated.static.tooltip", "value": "Non verrouillé. Cliquez pour verrouiller afin que personne ne puisse le ramasser ou le déplacer (les véhicules ne peuvent pas être conduits). Créateur ou modérateurs uniquement." },
     { "key": "library.instantiated.static.lockedTooltip", "value": "Verrouillé — personne ne peut déplacer cet élément. Cliquez pour déverrouiller. Les modérateurs peuvent cliquer pour le verrouiller en mode admin." },
     { "key": "library.instantiated.static.adminTooltip", "value": "Verrouillé par un admin — personne ne peut déplacer cet élément, et seul un modérateur peut le déverrouiller. Cliquez pour déverrouiller." },
+    { "key": "library.instantiated.saveToServer.tooltip", "value": "Enregistrer sur le serveur. Cet élément reste ici à sa position actuelle après le redémarrage du serveur. Réservé aux admins." },
+    { "key": "library.instantiated.saveToServer.savedTooltip", "value": "Enregistré sur le serveur : cet élément est rechargé après un redémarrage. Cliquez pour ne plus l'enregistrer ; il reste jusqu'à sa suppression." },
     { "key": "library.instantiated.static.noPermission", "value": "Seuls le créateur de l'élément ou un modérateur peuvent verrouiller cet élément." },
     { "key": "library.instantiated.static.adminOnly", "value": "Cet élément est verrouillé par un admin ; seul un modérateur peut le modifier." },
     { "key": "library.instantiated.select.tooltip", "value": "Met en surbrillance cet élément dans le monde avec un contour de sélection. Cliquez à nouveau pour l'effacer." },

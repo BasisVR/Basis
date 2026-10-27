@@ -2382,6 +2382,8 @@
     { "key": "library.instantiated.static.tooltip", "value": "Niet vergrendeld. Klik om te vergrendelen zodat niemand het kan oppakken of verplaatsen (voertuigen kunnen niet worden bestuurd). Alleen maker of moderators." },
     { "key": "library.instantiated.static.lockedTooltip", "value": "Vergrendeld — niemand kan dit item verplaatsen. Klik om te ontgrendelen. Moderators kunnen klikken om het beheerder-vergrendeld te maken." },
     { "key": "library.instantiated.static.adminTooltip", "value": "Beheerder-vergrendeld — niemand kan dit item verplaatsen en alleen een moderator kan het ontgrendelen. Klik om te ontgrendelen." },
+    { "key": "library.instantiated.saveToServer.tooltip", "value": "Op de server opslaan. Dit item blijft na een herstart van de server staan waar het nu is. Alleen voor admins." },
+    { "key": "library.instantiated.saveToServer.savedTooltip", "value": "Op de server opgeslagen: dit item wordt na een herstart opnieuw geladen. Klik om het niet meer op te slaan; het blijft tot het verwijderd wordt." },
     { "key": "library.instantiated.static.noPermission", "value": "Alleen de maker van het item of een moderator kan dit item vergrendelen." },
     { "key": "library.instantiated.static.adminOnly", "value": "Dit item is beheerder-vergrendeld; alleen een moderator kan het wijzigen." },
     { "key": "library.instantiated.select.tooltip", "value": "Markeer dit item in de wereld met een selectiecontour. Klik nogmaals om dit te wissen." },

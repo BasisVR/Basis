@@ -294,6 +294,9 @@
     { "key": "menu.servers.list.portal", "value": "ポータルを設置" },
     { "key": "menu.servers.list.portalLifetime", "value": "ポータルの持続時間" },
     { "key": "menu.servers.list.portalLifetime.timed", "value": "60秒" },
-    { "key": "menu.servers.list.portalLifetime.persistent", "value": "永続" }
+    { "key": "menu.servers.list.portalLifetime.persistent", "value": "永続" },
+    { "key": "menu.servers.list.portalStyle", "value": "ポータルの形" },
+    { "key": "menu.servers.list.portalStyle.orb", "value": "オーブ" },
+    { "key": "menu.servers.list.portalStyle.rift", "value": "次元の裂け目" }
   ]
 }

@@ -2382,6 +2382,8 @@
     { "key": "library.instantiated.static.tooltip", "value": "লক করা নেই। লক করতে ক্লিক করুন যাতে কেউ এটি তুলতে বা সরাতে না পারে (যানবাহন চালানো যাবে না)। শুধু নির্মাতা বা মডারেটর।" },
     { "key": "library.instantiated.static.lockedTooltip", "value": "লকড — কেউ এই আইটেম সরাতে পারবে না। আনলক করতে ক্লিক করুন। মডারেটররা এটিকে অ্যাডমিন-লকড করতে ক্লিক করতে পারেন।" },
     { "key": "library.instantiated.static.adminTooltip", "value": "অ্যাডমিন-লকড — কেউ এই আইটেম সরাতে পারবে না, এবং শুধু একজন মডারেটর এটি আনলক করতে পারবেন। আনলক করতে ক্লিক করুন।" },
+    { "key": "library.instantiated.saveToServer.tooltip", "value": "সার্ভারে সংরক্ষণ করুন। সার্ভার রিস্টার্টের পরেও এই আইটেমটি তার বর্তমান জায়গায় থাকবে। শুধুমাত্র অ্যাডমিনদের জন্য।" },
+    { "key": "library.instantiated.saveToServer.savedTooltip", "value": "সার্ভারে সংরক্ষিত: রিস্টার্টের পরে এই আইটেমটি আবার লোড হবে। সংরক্ষণ বন্ধ করতে ক্লিক করুন; সরানো না হওয়া পর্যন্ত এটি থাকবে।" },
     { "key": "library.instantiated.static.noPermission", "value": "শুধু আইটেমের নির্মাতা বা একজন মডারেটর এই আইটেম লক করতে পারবেন।" },
     { "key": "library.instantiated.static.adminOnly", "value": "এই আইটেমটি অ্যাডমিন-লকড; শুধু একজন মডারেটর এটি পরিবর্তন করতে পারবেন।" },
     { "key": "library.instantiated.select.tooltip", "value": "একটি নির্বাচন আউটলাইন দিয়ে জগতে এই আইটেম হাইলাইট করুন। এটি সাফ করতে আবার ক্লিক করুন।" },

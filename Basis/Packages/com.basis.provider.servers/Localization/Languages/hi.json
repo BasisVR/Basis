@@ -294,6 +294,9 @@
     { "key": "menu.servers.list.portal", "value": "पोर्टल रखें" },
     { "key": "menu.servers.list.portalLifetime", "value": "पोर्टल की अवधि" },
     { "key": "menu.servers.list.portalLifetime.timed", "value": "60 सेकंड" },
-    { "key": "menu.servers.list.portalLifetime.persistent", "value": "स्थायी" }
+    { "key": "menu.servers.list.portalLifetime.persistent", "value": "स्थायी" },
+    { "key": "menu.servers.list.portalStyle", "value": "पोर्टल शैली" },
+    { "key": "menu.servers.list.portalStyle.orb", "value": "गोला" },
+    { "key": "menu.servers.list.portalStyle.rift", "value": "आयामी दरार" }
   ]
 }

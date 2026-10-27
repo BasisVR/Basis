@@ -2382,6 +2382,8 @@
     { "key": "library.instantiated.static.tooltip", "value": "مقفل نہیں۔ مقفل کرنے کے لیے کلک کریں تاکہ کوئی اسے اٹھا یا حرکت نہ دے سکے (گاڑیاں نہیں چلائی جا سکتیں)۔ صرف تخلیق کار یا موڈریٹرز۔" },
     { "key": "library.instantiated.static.lockedTooltip", "value": "مقفل — کوئی اس آئٹم کو حرکت نہیں دے سکتا۔ غیر مقفل کرنے کے لیے کلک کریں۔ موڈریٹرز اسے ایڈمن-مقفل بنانے کے لیے کلک کر سکتے ہیں۔" },
     { "key": "library.instantiated.static.adminTooltip", "value": "ایڈمن-مقفل — کوئی اس آئٹم کو حرکت نہیں دے سکتا، اور صرف ایک موڈریٹر اسے غیر مقفل کر سکتا ہے۔ غیر مقفل کرنے کے لیے کلک کریں۔" },
+    { "key": "library.instantiated.saveToServer.tooltip", "value": "سرور پر محفوظ کریں۔ سرور ری اسٹارٹ ہونے کے بعد بھی یہ آئٹم اپنی موجودہ جگہ پر رہے گا۔ صرف ایڈمنز کے لیے۔" },
+    { "key": "library.instantiated.saveToServer.savedTooltip", "value": "سرور پر محفوظ: ری اسٹارٹ کے بعد یہ آئٹم دوبارہ لوڈ ہوگا۔ محفوظ کرنا بند کرنے کے لیے کلک کریں؛ ہٹائے جانے تک یہ رہے گا۔" },
     { "key": "library.instantiated.static.noPermission", "value": "صرف آئٹم کا تخلیق کار یا ایک موڈریٹر اس آئٹم کو مقفل کر سکتا ہے۔" },
     { "key": "library.instantiated.static.adminOnly", "value": "یہ آئٹم ایڈمن-مقفل ہے؛ صرف ایک موڈریٹر اسے تبدیل کر سکتا ہے۔" },
     { "key": "library.instantiated.select.tooltip", "value": "اس آئٹم کو دنیا میں سلیکشن آؤٹ لائن کے ساتھ نمایاں کریں۔ اسے صاف کرنے کے لیے دوبارہ کلک کریں۔" },

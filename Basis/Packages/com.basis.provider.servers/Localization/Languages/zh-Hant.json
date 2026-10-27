@@ -294,6 +294,9 @@
     { "key": "menu.servers.list.portal", "value": "放置傳送門" },
     { "key": "menu.servers.list.portalLifetime", "value": "傳送門持續時間" },
     { "key": "menu.servers.list.portalLifetime.timed", "value": "60 秒" },
-    { "key": "menu.servers.list.portalLifetime.persistent", "value": "永久" }
+    { "key": "menu.servers.list.portalLifetime.persistent", "value": "永久" },
+    { "key": "menu.servers.list.portalStyle", "value": "傳送門樣式" },
+    { "key": "menu.servers.list.portalStyle.orb", "value": "球體" },
+    { "key": "menu.servers.list.portalStyle.rift", "value": "次元裂隙" }
   ]
 }

@@ -2382,6 +2382,8 @@
     { "key": "library.instantiated.static.tooltip", "value": "ロックされていません。クリックしてロックすると、誰も拾ったり移動したりできなくなります（乗り物は運転できなくなります）。作成者またはモデレーターのみ。" },
     { "key": "library.instantiated.static.lockedTooltip", "value": "ロック済み — 誰もこのアイテムを移動できません。クリックしてロック解除します。モデレーターはクリックして管理者ロックにできます。" },
     { "key": "library.instantiated.static.adminTooltip", "value": "管理者ロック済み — 誰もこのアイテムを移動できず、モデレーターのみがロック解除できます。クリックしてロック解除します。" },
+    { "key": "library.instantiated.saveToServer.tooltip", "value": "サーバーに保存します。サーバーの再起動後も、このアイテムは今の位置に残ります。管理者のみ。" },
+    { "key": "library.instantiated.saveToServer.savedTooltip", "value": "サーバーに保存済み: 再起動後もこのアイテムが読み込まれます。クリックで保存を解除します。削除されるまでは残ります。" },
     { "key": "library.instantiated.static.noPermission", "value": "アイテムの作成者またはモデレーターのみがこのアイテムをロックできます。" },
     { "key": "library.instantiated.static.adminOnly", "value": "このアイテムは管理者ロックされています。モデレーターのみが変更できます。" },
     { "key": "library.instantiated.select.tooltip", "value": "選択アウトラインでこのアイテムをワールド内で強調表示します。もう一度クリックすると解除します。" },

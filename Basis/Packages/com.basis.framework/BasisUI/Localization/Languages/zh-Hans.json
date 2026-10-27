@@ -2382,6 +2382,8 @@
     { "key": "library.instantiated.static.tooltip", "value": "未锁定。点击以锁定，使任何人都无法拾取或移动它（载具无法驾驶）。仅限创建者或协管员。" },
     { "key": "library.instantiated.static.lockedTooltip", "value": "已锁定——任何人都无法移动此项目。点击以解锁。协管员可点击将其设为管理员锁定。" },
     { "key": "library.instantiated.static.adminTooltip", "value": "管理员锁定——任何人都无法移动此项目，只有协管员可以解锁。点击以解锁。" },
+    { "key": "library.instantiated.saveToServer.tooltip", "value": "保存到服务器。服务器重启后，此物品会留在当前位置。仅限管理员。" },
+    { "key": "library.instantiated.saveToServer.savedTooltip", "value": "已保存到服务器：重启后会再次加载此物品。点击可取消保存；在被移除之前它会一直保留。" },
     { "key": "library.instantiated.static.noPermission", "value": "只有该项目的创建者或协管员才能锁定此项目。" },
     { "key": "library.instantiated.static.adminOnly", "value": "此项目已被管理员锁定；只有协管员才能更改它。" },
     { "key": "library.instantiated.select.tooltip", "value": "在世界中用选择轮廓高亮此项目。再次点击可清除。" },

@@ -294,6 +294,9 @@
     { "key": "menu.servers.list.portal", "value": "Portal platzieren" },
     { "key": "menu.servers.list.portalLifetime", "value": "Portal-Lebensdauer" },
     { "key": "menu.servers.list.portalLifetime.timed", "value": "60 Sekunden" },
-    { "key": "menu.servers.list.portalLifetime.persistent", "value": "Dauerhaft" }
+    { "key": "menu.servers.list.portalLifetime.persistent", "value": "Dauerhaft" },
+    { "key": "menu.servers.list.portalStyle", "value": "Portal-Stil" },
+    { "key": "menu.servers.list.portalStyle.orb", "value": "Kugel" },
+    { "key": "menu.servers.list.portalStyle.rift", "value": "Dimensionsriss" }
   ]
 }

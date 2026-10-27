@@ -309,6 +309,18 @@
     {
       "key": "menu.servers.list.portalLifetime.persistent",
       "value": "Persistent"
+    },
+    {
+      "key": "menu.servers.list.portalStyle",
+      "value": "Portal Style"
+    },
+    {
+      "key": "menu.servers.list.portalStyle.orb",
+      "value": "Orb"
+    },
+    {
+      "key": "menu.servers.list.portalStyle.rift",
+      "value": "Dimensional Rift"
     }
   ]
 }

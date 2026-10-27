@@ -55,7 +55,7 @@ namespace Basis.Shims.Editor
     }
 
     /// <summary>
-    /// The hand-written half of the window: what a cilboxed script can actually do, in the order
+    /// The Cilbox API Reference section of the Creator Guide window: what a cilboxed script can actually do, in the order
     /// someone writing one needs it.
     ///
     /// <para>Only the prose is written here. Whether an entry is available in a given box is asked

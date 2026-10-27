@@ -16,6 +16,7 @@ public static partial class BasisContentSharePortal
 {
     public const string PortalEntryId = "basis-portal";
     public const int ProbeTimeoutMs = 3000;
+    [NoAutoStaticsCleanup]
     private static CancellationTokenSource probeCts;
 
     internal static void Present(BasisContentSphere sphere, string title, string sharerLine)

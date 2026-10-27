@@ -2332,6 +2332,8 @@
     { "key": "library.instantiated.static.tooltip", "value": "Não bloqueado. Clique para bloquear para que ninguém possa pegá-lo ou movê-lo (veículos não podem ser dirigidos). Apenas o criador ou moderadores." },
     { "key": "library.instantiated.static.lockedTooltip", "value": "Bloqueado — ninguém pode mover este item. Clique para desbloquear. Moderadores podem clicar para torná-lo bloqueado por admin." },
     { "key": "library.instantiated.static.adminTooltip", "value": "Bloqueado por admin — ninguém pode mover este item, e apenas um moderador pode desbloqueá-lo. Clique para desbloquear." },
+    { "key": "library.instantiated.saveToServer.tooltip", "value": "Salvar no servidor. Este item fica aqui, onde está agora, depois que o servidor reiniciar. Só administradores." },
+    { "key": "library.instantiated.saveToServer.savedTooltip", "value": "Salvo no servidor: este item carrega de novo após reiniciar. Clique para parar de salvá-lo; ele fica até ser removido." },
     { "key": "library.instantiated.static.noPermission", "value": "Apenas o criador do item ou um moderador pode bloquear este item." },
     { "key": "library.instantiated.static.adminOnly", "value": "Este item está bloqueado por admin; apenas um moderador pode alterá-lo." },
     { "key": "library.instantiated.select.tooltip", "value": "Destaca este item no mundo com um contorno de seleção. Clique novamente para removê-lo." },

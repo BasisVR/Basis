@@ -29,10 +29,12 @@ namespace BasisNetworking.InitialData
                     BNL.Log("Example XML file created at: " + exampleFilePath);
                 }
 
-                BasisLoadableConfiguration[] configurations = BasisLoadableConfiguration.LoadAllFromFolder(FolderName);
+                BasisNetworkResourceDisk.Folder = newFolderPath;
+                BasisLoadableConfiguration[] configurations = BasisLoadableConfiguration.LoadAllFromFolder(newFolderPath, out string[] files);
 
-                foreach (BasisLoadableConfiguration config in configurations)
+                for (int index = 0; index < configurations.Length; index++)
                 {
+                    BasisLoadableConfiguration config = configurations[index];
                     BNL.Log($"CombinedURL: {config.CombinedURL}, LoadAssetPassword: {config.UnlockPassword}");
                     LocalLoadResource LLR = FromBasisLoadableConfiguration(config);
                     if(string.IsNullOrEmpty(LLR.LoadedNetID))
@@ -41,6 +43,7 @@ namespace BasisNetworking.InitialData
                         BNL.Log($"No Network Id Assigned Generated to be {LLR.LoadedNetID}");
                     }
                     BasisNetworkResourceManagement.LoadResource(LLR);
+                    BasisNetworkResourceDisk.Register(LLR.LoadedNetID, files[index]);
 
                 }
             }
@@ -77,6 +80,8 @@ namespace BasisNetworking.InitialData
                 ScaleZ = config.ScaleZ,
                 Persist = config.Persist,
                 ModifyScale = config.ModifyScale,
+                Static = config.Static || config.StaticAdminLocked,
+                StaticAdminLocked = config.StaticAdminLocked,
                 IsAdminLocked = true,
             };
         }
@@ -110,6 +115,10 @@ namespace BasisNetworking.InitialData
 
     <!-- Persist flag -->
     <Persist>false</Persist>
+
+    <!-- Frozen in place for everyone, and whether only a moderator may change that -->
+    <Static>false</Static>
+    <StaticAdminLocked>false</StaticAdminLocked>
 </BasisLoadableConfiguration>";
     }
 }

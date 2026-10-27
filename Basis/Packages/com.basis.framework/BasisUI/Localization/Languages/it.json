@@ -2382,6 +2382,8 @@
     { "key": "library.instantiated.static.tooltip", "value": "Non bloccato. Clicca per bloccarlo così nessuno può raccoglierlo o spostarlo (i veicoli non possono essere guidati). Solo creatore o moderatori." },
     { "key": "library.instantiated.static.lockedTooltip", "value": "Bloccato — nessuno può spostare questo elemento. Clicca per sbloccarlo. I moderatori possono cliccare per renderlo bloccato dall'amministratore." },
     { "key": "library.instantiated.static.adminTooltip", "value": "Bloccato dall'amministratore — nessuno può spostare questo elemento e solo un moderatore può sbloccarlo. Clicca per sbloccarlo." },
+    { "key": "library.instantiated.saveToServer.tooltip", "value": "Salva sul server. Questo oggetto resta qui, nella posizione attuale, dopo il riavvio del server. Solo amministratori." },
+    { "key": "library.instantiated.saveToServer.savedTooltip", "value": "Salvato sul server: questo oggetto viene ricaricato dopo un riavvio. Fai clic per non salvarlo più; resta finché non viene rimosso." },
     { "key": "library.instantiated.static.noPermission", "value": "Solo il creatore dell'elemento o un moderatore può bloccare questo elemento." },
     { "key": "library.instantiated.static.adminOnly", "value": "Questo elemento è bloccato dall'amministratore; solo un moderatore può modificarlo." },
     { "key": "library.instantiated.select.tooltip", "value": "Evidenzia questo elemento nel mondo con un contorno di selezione. Clicca di nuovo per rimuoverlo." },

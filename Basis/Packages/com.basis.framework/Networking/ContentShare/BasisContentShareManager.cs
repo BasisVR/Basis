@@ -95,7 +95,7 @@ public static partial class BasisContentShareManager
         await PlaceAndDrop(connectionString, string.Empty, ContentShareType.Server);
     }
 
-    public static async void DropPortal(string connectionString, int lifetimeSeconds)
+    public static async void DropPortal(string connectionString, int lifetimeSeconds, ContentSharePortal.Style style = ContentSharePortal.Style.Orb)
     {
         if (string.IsNullOrWhiteSpace(connectionString) || connectionString.Length > ContentSharePayload.MaxTextLength)
         {
@@ -107,7 +107,7 @@ public static partial class BasisContentShareManager
             BasisDebug.LogWarning("Cannot drop a portal: missing the portal permission on this server.", BasisDebug.LogTag.Networking);
             return;
         }
-        await PlaceAndDrop(connectionString, ContentSharePortal.WriteLifetime(lifetimeSeconds), ContentShareType.Portal);
+        await PlaceAndDrop(connectionString, ContentSharePortal.WriteLifetime(lifetimeSeconds, style), ContentShareType.Portal);
     }
 
     /// <summary>

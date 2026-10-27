@@ -294,6 +294,9 @@
     { "key": "menu.servers.list.portal", "value": "Colocar portal" },
     { "key": "menu.servers.list.portalLifetime", "value": "Duração do portal" },
     { "key": "menu.servers.list.portalLifetime.timed", "value": "60 segundos" },
-    { "key": "menu.servers.list.portalLifetime.persistent", "value": "Persistente" }
+    { "key": "menu.servers.list.portalLifetime.persistent", "value": "Persistente" },
+    { "key": "menu.servers.list.portalStyle", "value": "Estilo do portal" },
+    { "key": "menu.servers.list.portalStyle.orb", "value": "Orbe" },
+    { "key": "menu.servers.list.portalStyle.rift", "value": "Fenda dimensional" }
   ]
 }

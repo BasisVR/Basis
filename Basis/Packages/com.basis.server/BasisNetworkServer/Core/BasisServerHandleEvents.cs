@@ -1669,6 +1669,13 @@ namespace BasisServerHandle
             ModifyResource modifyResource = new ModifyResource();
             modifyResource.Deserialize(Reader);
             Reader.Recycle();
+            if (modifyResource.Op == ModifyResource.OpSaveToDisk || modifyResource.Op == ModifyResource.OpRemoveFromDisk)
+            {
+                // Authorization (basis.resource.savetodisk) is enforced inside HandleRequest.
+                BasisNetworkResourceDisk.HandleRequest(modifyResource, Peer);
+                return;
+            }
+            if (modifyResource.Op != ModifyResource.OpStatic) return;
             // Authorization (creator or moderator) is enforced inside SetStatic.
             BasisNetworkResourceManagement.SetStatic(modifyResource, Peer);
         }

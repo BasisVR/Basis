@@ -404,15 +404,27 @@ namespace Basis.Scripts.Networking
         private const string PageConnectionParameter = "connection";
         private const string PagePasswordParameter = "password";
         private const string PageNameParameter = "name";
+        private const string PagePortParameter = "port";
 
         private static bool TryGetPageConnection(out ServerDirectoryEntry entry)
         {
             entry = null;
             if (!TryGetPageParameter(PageConnectionParameter, out string value)) return false;
+            if (TryGetPageParameter(PagePortParameter, out string pagePort) && ushort.TryParse(pagePort.Trim(), out ushort port) && port > 0) value = WithPagePort(value, port);
             if (value.IndexOf('#') < 0 && TryGetPageParameter(PagePasswordParameter, out string pagePassword)) value += "#" + pagePassword;
             if (BuildEntryFromConnectionString(value, out entry)) return true;
             BasisDebug.LogWarning($"connection page parameter could not be parsed: {value}");
             return false;
+        }
+
+        private static string WithPagePort(string value, ushort port)
+        {
+            int hash = value.IndexOf('#');
+            string left = hash >= 0 ? value.Substring(0, hash) : value;
+            string tail = hash >= 0 ? value.Substring(hash) : string.Empty;
+            if (left.IndexOf("://", StringComparison.Ordinal) > 0) return HostPortConnectionTargetParser.TryAddUrlPort(left, port, out string url) ? url + tail : value;
+            if (!HostPortConnectionTargetParser.TryParseConnectionString(left, out string host, out _, out bool portProvided, out _) || portProvided) return value;
+            return (host.IndexOf(':') >= 0 ? $"[{host}]:{port}" : $"{host}:{port}") + tail;
         }
 
         private static bool TryGetPageParameter(string name, out string value)

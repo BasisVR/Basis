@@ -636,7 +636,8 @@ namespace Basis.BasisUI
             _editingId = existing?.Id ?? string.Empty;
 
             bool canPortal = existing != null && BasisNetworkConnection.LocalPlayerIsConnected && BasisNetworkModeration.LocalPlayerHasNode(BasisPermissions.PermNodes.ContentSharePortal);
-            DialogBox<bool> dialog = DialogBox<bool>.Create(_panel, new Vector2(1170, canPortal ? 800 : 700),
+            int actionButtons = 2 + (existing != null ? 2 : 0) + (canPortal ? 1 : 0);
+            DialogBox<bool> dialog = DialogBox<bool>.Create(_panel, new Vector2(Mathf.Max(1170, EditorDialogMargin + actionButtons * EditorButtonSlot), canPortal ? 900 : 700),
                 BasisLocalization.Get(existing == null ? "menu.servers.list.newServer" : "menu.servers.list.editing"),
                 null,
                 AddressableAssets.Sprites.Servers);
@@ -668,9 +669,13 @@ namespace Basis.BasisUI
             RebuildStackOptions();
             SetStackDropdownToId(existing?.Target?.StackId);
 
-            PanelDropdown portalLifetime = null;
+            PanelDropdown portalLifetime = null, portalStyle = null;
             if (canPortal)
             {
+                portalStyle = PanelDropdown.CreateNewEntry(content);
+                portalStyle.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.list.portalStyle"));
+                portalStyle.AssignEntries(new List<string> { PortalOrb, PortalRift }, new List<string> { BasisLocalization.Get("menu.servers.list.portalStyle.orb"), BasisLocalization.Get("menu.servers.list.portalStyle.rift") });
+                portalStyle.SetValueWithoutNotify(PortalOrb);
                 portalLifetime = PanelDropdown.CreateNewEntry(content);
                 portalLifetime.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.list.portalLifetime"));
                 portalLifetime.AssignEntries(new List<string> { PortalTimed, PortalPersistent }, new List<string> { BasisLocalization.Get("menu.servers.list.portalLifetime.timed"), BasisLocalization.Get("menu.servers.list.portalLifetime.persistent") });
@@ -718,7 +723,8 @@ namespace Basis.BasisUI
                     ServerDirectoryEntry target = FindEntry(_editingId);
                     if (target == null) return;
                     bool persistent = string.Equals(portalLifetime.Value, PortalPersistent, StringComparison.Ordinal);
-                    BasisContentShareManager.DropPortal(BuildConnectionString(target), persistent ? SerializableBasis.ContentSharePortal.Persistent : SerializableBasis.ContentSharePortal.TimedSeconds);
+                    SerializableBasis.ContentSharePortal.Style style = string.Equals(portalStyle.Value, PortalRift, StringComparison.Ordinal) ? SerializableBasis.ContentSharePortal.Style.Rift : SerializableBasis.ContentSharePortal.Style.Orb;
+                    BasisContentShareManager.DropPortal(BuildConnectionString(target), persistent ? SerializableBasis.ContentSharePortal.Persistent : SerializableBasis.ContentSharePortal.TimedSeconds, style);
                 };
             }
 
@@ -1619,6 +1625,9 @@ namespace Basis.BasisUI
 
         private const string PortalTimed = "timed";
         private const string PortalPersistent = "persistent";
+        private const float EditorDialogMargin = 250f, EditorButtonSlot = 230f;
+        private const string PortalOrb = "orb";
+        private const string PortalRift = "rift";
 
         private static string BuildConnectionString(ServerDirectoryEntry entry)
         {

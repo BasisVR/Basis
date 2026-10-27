@@ -2382,6 +2382,8 @@
     { "key": "library.instantiated.static.tooltip", "value": "غير مقفل. انقر للقفل بحيث لا يستطيع أحد التقاطه أو تحريكه (لا يمكن قيادة المركبات). المنشئ أو المشرفون فقط." },
     { "key": "library.instantiated.static.lockedTooltip", "value": "مقفل — لا يستطيع أحد تحريك هذا العنصر. انقر لفتح القفل. يمكن للمشرفين النقر لجعله مقفلًا من المسؤول." },
     { "key": "library.instantiated.static.adminTooltip", "value": "مقفل من المسؤول — لا يستطيع أحد تحريك هذا العنصر، ولا يمكن فتحه إلا لمشرف. انقر لفتح القفل." },
+    { "key": "library.instantiated.saveToServer.tooltip", "value": "حفظ على الخادم. يبقى هذا العنصر في مكانه الحالي بعد إعادة تشغيل الخادم. للمشرفين فقط." },
+    { "key": "library.instantiated.saveToServer.savedTooltip", "value": "محفوظ على الخادم: يُحمَّل هذا العنصر مجددًا بعد إعادة التشغيل. انقر لإيقاف حفظه؛ سيبقى حتى تتم إزالته." },
     { "key": "library.instantiated.static.noPermission", "value": "يمكن فقط لمنشئ العنصر أو لمشرف قفل هذا العنصر." },
     { "key": "library.instantiated.static.adminOnly", "value": "هذا العنصر مقفل من المسؤول؛ لا يمكن تغييره إلا لمشرف." },
     { "key": "library.instantiated.select.tooltip", "value": "ميّز هذا العنصر في العالم بمخطط تحديد. انقر مرة أخرى لإزالته." },

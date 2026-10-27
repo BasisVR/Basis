@@ -294,6 +294,9 @@
     { "key": "menu.servers.list.portal", "value": "Поставить портал" },
     { "key": "menu.servers.list.portalLifetime", "value": "Время жизни портала" },
     { "key": "menu.servers.list.portalLifetime.timed", "value": "60 секунд" },
-    { "key": "menu.servers.list.portalLifetime.persistent", "value": "Постоянный" }
+    { "key": "menu.servers.list.portalLifetime.persistent", "value": "Постоянный" },
+    { "key": "menu.servers.list.portalStyle", "value": "Стиль портала" },
+    { "key": "menu.servers.list.portalStyle.orb", "value": "Сфера" },
+    { "key": "menu.servers.list.portalStyle.rift", "value": "Пространственный разлом" }
   ]
 }

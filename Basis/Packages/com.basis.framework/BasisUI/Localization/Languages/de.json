@@ -2382,6 +2382,8 @@
     { "key": "library.instantiated.static.tooltip", "value": "Nicht gesperrt. Klicke zum Sperren, damit niemand es aufheben oder bewegen kann (Fahrzeuge können nicht gefahren werden). Nur Ersteller oder Moderatoren." },
     { "key": "library.instantiated.static.lockedTooltip", "value": "Gesperrt – niemand kann dieses Element bewegen. Klicke zum Entsperren. Moderatoren können es per Klick admin-gesperrt machen." },
     { "key": "library.instantiated.static.adminTooltip", "value": "Admin-gesperrt – niemand kann dieses Element bewegen, und nur ein Moderator kann es entsperren. Klicke zum Entsperren." },
+    { "key": "library.instantiated.saveToServer.tooltip", "value": "Auf dem Server speichern. Dieses Element bleibt nach einem Serverneustart an seiner jetzigen Position. Nur für Admins." },
+    { "key": "library.instantiated.saveToServer.savedTooltip", "value": "Auf dem Server gespeichert: Dieses Element wird nach einem Neustart wieder geladen. Klicke, um das Speichern zu beenden; es bleibt, bis es entfernt wird." },
     { "key": "library.instantiated.static.noPermission", "value": "Nur der Ersteller des Elements oder ein Moderator kann dieses Element sperren." },
     { "key": "library.instantiated.static.adminOnly", "value": "Dieses Element ist admin-gesperrt; nur ein Moderator kann es ändern." },
     { "key": "library.instantiated.select.tooltip", "value": "Hebt dieses Element in der Welt mit einem Auswahlrahmen hervor. Klicke erneut, um ihn zu entfernen." },

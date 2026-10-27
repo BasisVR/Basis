@@ -2382,6 +2382,8 @@
     { "key": "library.instantiated.static.tooltip", "value": "未鎖定。點擊以鎖定，使任何人都無法拾取或移動它（載具無法駕駛）。僅限建立者或版主。" },
     { "key": "library.instantiated.static.lockedTooltip", "value": "已鎖定 — 任何人都無法移動此項目。點擊以解鎖。版主可點擊使其成為管理員鎖定。" },
     { "key": "library.instantiated.static.adminTooltip", "value": "管理員鎖定 — 任何人都無法移動此項目，且只有版主可以解鎖。點擊以解鎖。" },
+    { "key": "library.instantiated.saveToServer.tooltip", "value": "儲存到伺服器。伺服器重新啟動後，此物品會留在目前位置。僅限管理員。" },
+    { "key": "library.instantiated.saveToServer.savedTooltip", "value": "已儲存到伺服器：重新啟動後會再次載入此物品。點擊可取消儲存；在被移除之前它會一直保留。" },
     { "key": "library.instantiated.static.noPermission", "value": "只有此項目的建立者或版主可以鎖定此項目。" },
     { "key": "library.instantiated.static.adminOnly", "value": "此項目為管理員鎖定；只有版主可以變更它。" },
     { "key": "library.instantiated.select.tooltip", "value": "以選取輪廓在世界中突顯此項目。再次點擊即可清除。" },

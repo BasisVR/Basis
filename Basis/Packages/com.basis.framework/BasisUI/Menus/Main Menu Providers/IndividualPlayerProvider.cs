@@ -1682,6 +1682,7 @@ namespace Basis.BasisUI
                     PermNodes.ResourceUnloadProp,
                     PermNodes.ResourceLoadAvatar,
                     PermNodes.ResourceUnloadAvatar,
+                    PermNodes.ResourceSaveToDisk,
                     PermNodes.OwnershipTransfer,
                     PermNodes.OwnershipRemove,
                     PermNodes.OwnershipGet,
