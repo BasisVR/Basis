@@ -77,6 +77,22 @@
     {
       "key": "settings.developer.recorder.cancel",
       "value": "Annuler le compte à rebours"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion",
+      "value": "Enregistrer le root motion"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion.tooltip",
+      "value": "Enregistre le déplacement et la rotation de l'avatar dans le monde (déplacement au joystick) comme root motion dans le clip."
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones",
+      "value": "Enregistrer les os supplémentaires"
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones.tooltip",
+      "value": "Enregistre aussi les os non humanoïdes comme les os à physique, cheveux, queues, oreilles et accessoires."
     }
   ]
 }

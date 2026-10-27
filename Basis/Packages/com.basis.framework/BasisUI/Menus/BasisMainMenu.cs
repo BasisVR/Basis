@@ -1,15 +1,19 @@
+using System;
 using Basis.BasisUI.Styling;
 using Basis.BTween;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.UI.UI_Panels;
 using TMPro;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Basis.BasisUI
 {
-    public class BasisMainMenu : BasisMenuBase<BasisMainMenu>
+    [AutoStaticsCleanup]
+    public partial class BasisMainMenu : BasisMenuBase<BasisMainMenu>
     {
+        public static event Action<bool> OpenStateChanged;
 
         public const string MenuTitleKey = "menu.main.title";
         public static string MenuTitle => BasisLocalization.Get(MenuTitleKey);
@@ -430,6 +434,7 @@ namespace Basis.BasisUI
             BasisCursorManagement.UnlockCursor(nameof(BasisMainMenu));
             SetMicrophoneIconHudVisible(false);
             BasisMenuStateMemory.WasOpen = true;
+            OpenStateChanged?.Invoke(true);
         }
         public static void OpenWithProvider(string ProviderTitle) => OpenWithProvider(FindProvider(ProviderTitle));
 
@@ -496,6 +501,7 @@ namespace Basis.BasisUI
             BasisUILoadingBar.SetHudSuppressed(false);
             SetMicrophoneIconHudVisible(true);
             BasisMenuStateMemory.WasOpen = false;
+            OpenStateChanged?.Invoke(false);
         }
 
         private static void SetMicrophoneIconHudVisible(bool visible)

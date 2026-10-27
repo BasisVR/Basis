@@ -38,6 +38,7 @@ namespace BasisPermissions
 
         public const string ContentShareDelete = "basis.contentshare.delete";
         public const string ContentShareCreate = "basis.contentshare.create";
+        public const string ContentSharePortal = "basis.contentshare.portal";
 
         public const string StorageUse = "basis.storage.use";
 

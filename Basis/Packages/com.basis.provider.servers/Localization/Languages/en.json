@@ -293,6 +293,22 @@
     {
       "key": "menu.servers.portInvalid",
       "value": "Port must be 1-65535"
+    },
+    {
+      "key": "menu.servers.list.portal",
+      "value": "Drop Portal"
+    },
+    {
+      "key": "menu.servers.list.portalLifetime",
+      "value": "Portal Lifetime"
+    },
+    {
+      "key": "menu.servers.list.portalLifetime.timed",
+      "value": "60 Seconds"
+    },
+    {
+      "key": "menu.servers.list.portalLifetime.persistent",
+      "value": "Persistent"
     }
   ]
 }

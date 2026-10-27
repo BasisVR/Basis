@@ -490,7 +490,7 @@ namespace BasisServerHandle
                     {
                         BasisNetworkIDDatabase.Reset();
                         BasisNetworkResourceManagement.Reset();
-                        BasisNetworkContentShare.Reset();
+                        BasisNetworkContentShare.Reset(keepPersistentPortals: true);
                     }
 
                     if (removed)

@@ -30,6 +30,27 @@ public static partial class SerializableBasis
         Text = 6,
         Folder = 7,
         Setting = 8,
+        Portal = 9,
+    }
+
+    public static class ContentSharePortal
+    {
+        public const int Persistent = 0;
+        public const int TimedSeconds = 60;
+        public const int MaxSeconds = 86400;
+
+        public static string WriteLifetime(int seconds) => seconds.ToString(CultureInfo.InvariantCulture);
+
+        public static bool TryReadLifetime(string value, out int seconds)
+        {
+            seconds = 0;
+            if (string.IsNullOrEmpty(value) || value.Length > 6) return false;
+            for (int i = 0; i < value.Length; i++)
+            {
+                if (value[i] < '0' || value[i] > '9') return false;
+            }
+            return int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out seconds) && seconds >= 0 && seconds <= MaxSeconds;
+        }
     }
 
     /// <summary>

@@ -77,6 +77,22 @@
     {
       "key": "settings.developer.recorder.cancel",
       "value": "کاؤنٹ ڈاؤن منسوخ کریں"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion",
+      "value": "روٹ موشن ریکارڈ کریں"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion.tooltip",
+      "value": "اوتار کی دنیا میں حرکت اور گھماؤ (جوائے اسٹک سے چلنا) کو کلپ میں روٹ موشن کے طور پر ریکارڈ کرتا ہے۔"
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones",
+      "value": "اضافی ہڈیاں ریکارڈ کریں"
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones.tooltip",
+      "value": "جگل ہڈیاں، بال، دم، کان اور لوازمات جیسی غیر ہیومنائیڈ ہڈیاں بھی ریکارڈ کرتا ہے۔"
     }
   ]
 }

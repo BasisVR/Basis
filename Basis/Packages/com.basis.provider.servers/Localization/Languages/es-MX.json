@@ -290,6 +290,10 @@
     {
       "key": "menu.servers.portInvalid",
       "value": "El puerto debe estar entre 1 y 65535"
-    }
+    },
+    { "key": "menu.servers.list.portal", "value": "Colocar portal" },
+    { "key": "menu.servers.list.portalLifetime", "value": "Duración del portal" },
+    { "key": "menu.servers.list.portalLifetime.timed", "value": "60 segundos" },
+    { "key": "menu.servers.list.portalLifetime.persistent", "value": "Persistente" }
   ]
 }

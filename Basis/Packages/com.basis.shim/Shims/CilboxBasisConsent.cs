@@ -7,6 +7,7 @@ using Basis.BasisUI;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
+using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
@@ -45,6 +46,9 @@ namespace Cilbox
 			public string Hash;
 			public string Name;
 			public string Kind;
+			public string Owner;
+			public bool Yours;
+			public int Waits;
 			public string[] Items;
 			public string[] Blocked;
 			public List<BasisCilboxPermissionText.Use> Uses;
@@ -57,7 +61,9 @@ namespace Cilbox
 		private static readonly Dictionary<string, Request> requests = new Dictionary<string, Request>(StringComparer.Ordinal);
 		private static readonly Queue<string> queue = new Queue<string>();
 		private const int HashChunk = 4096;
+		private const int OwnerWaitTicks = 60;
 		private static string showing;
+		private static bool waiting;
 
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
 		private static void Hook()
@@ -463,21 +469,87 @@ namespace Cilbox
 
 		private static void ShowNext()
 		{
-			if (showing != null) return;
+			if (showing != null || waiting) return;
 			while (queue.Count > 0)
 			{
-				string hash = queue.Dequeue();
-				if (!requests.TryGetValue(hash, out Request request)) continue;
+				string hash = queue.Peek();
+				if (!requests.TryGetValue(hash, out Request request))
+				{
+					queue.Dequeue();
+					continue;
+				}
 				request.Boxes.RemoveAll(box => box == null);
 				if (request.Boxes.Count == 0)
 				{
+					queue.Dequeue();
 					requests.Remove(hash);
 					continue;
 				}
+				if (!OwnerOf(request) && request.Waits++ < OwnerWaitTicks)
+				{
+					waiting = true;
+					BasisDeviceManagement.OnDeviceManagementLoop -= Retry;
+					BasisDeviceManagement.OnDeviceManagementLoop += Retry;
+					return;
+				}
+				queue.Dequeue();
 				showing = hash;
-				BasisCilboxConsentPrompt.Show(request.Name, request.Kind, request.Items, request.Blocked, request.Uses, answer => Answer(hash, answer), notice => Deferred(hash, notice));
+				BasisCilboxConsentPrompt.Show(request.Name, request.Kind, request.Owner, request.Yours, request.Items, request.Blocked, request.Uses, answer => Answer(hash, answer), notice => Deferred(hash, notice));
 				return;
 			}
+		}
+
+		private static void Retry()
+		{
+			BasisDeviceManagement.OnDeviceManagementLoop -= Retry;
+			waiting = false;
+			ShowNext();
+		}
+
+		private static bool OwnerOf(Request request)
+		{
+			request.Owner = null;
+			request.Yours = false;
+			CilboxBasisCommon box = request.Boxes[0];
+			if (box is CilboxSceneBasis) return true;
+			BasisContentBase content = box.ownerRecorded ? box.ownerContent : box.GetComponentInParent<BasisContentBase>(true);
+			if (content == null || content is BasisScene) return true;
+			if (content is BasisAvatar avatar)
+			{
+				if (WornLocally(avatar))
+				{
+					request.Yours = true;
+					return true;
+				}
+				return Named(request, Wearer(avatar));
+			}
+			string creator = content.CreatorUUID;
+			if (content.SpawnedByLocalPlayer || (!string.IsNullOrEmpty(creator) && BasisLocalPlayer.Instance != null && creator == BasisLocalPlayer.Instance.UUID))
+			{
+				request.Yours = true;
+				return true;
+			}
+			if (string.IsNullOrEmpty(creator)) return content.TryGetIdentifier(out _);
+			return !BasisNetworkPlayers.TryGetPlayerByUUID(creator, out BasisNetworkPlayer spawner) || Named(request, spawner);
+		}
+
+		private static BasisNetworkPlayer Wearer(BasisAvatar avatar)
+		{
+			if (avatar.TryGetLinkedPlayer(out ushort id) && BasisNetworkPlayers.GetPlayerById(id, out BasisNetworkPlayer linked)) return linked;
+			foreach (BasisNetworkPlayer player in BasisNetworkPlayers.Players.Values)
+			{
+				if (player?.Player != null && ReferenceEquals(player.Player.BasisAvatar, avatar)) return player;
+			}
+			return null;
+		}
+
+		private static bool Named(Request request, BasisNetworkPlayer player)
+		{
+			string name = player?.SafeDisplayName;
+			if (string.IsNullOrWhiteSpace(name)) name = player?.displayName;
+			if (string.IsNullOrWhiteSpace(name)) return false;
+			request.Owner = name;
+			return true;
 		}
 
 		private static void Deferred(string hash, BasisNotification notice)
@@ -521,6 +593,8 @@ namespace Cilbox
 			requests.Clear();
 			queue.Clear();
 			showing = null;
+			waiting = false;
+			BasisDeviceManagement.OnDeviceManagementLoop -= Retry;
 			foreach (Request request in pending)
 			{
 				Release(request, false);

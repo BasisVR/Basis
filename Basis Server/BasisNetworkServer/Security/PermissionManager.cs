@@ -806,6 +806,7 @@ namespace BasisPermissions
             PermNodes.PermissionsView,
             PermNodes.ResourceLockBypassAvatar, PermNodes.ResourceLockBypassProp,
             PermNodes.ResourceLockBypassWorld, PermNodes.ResourceLockBypassServer,
+            PermNodes.ContentSharePortal,
             PermNodes.ChatLockBypass, PermNodes.VoiceLockBypass,
         };
 

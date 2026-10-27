@@ -290,6 +290,10 @@
     {
       "key": "menu.servers.portInvalid",
       "value": "يجب أن يكون المنفذ بين 1 و65535"
-    }
+    },
+    { "key": "menu.servers.list.portal", "value": "إسقاط بوابة" },
+    { "key": "menu.servers.list.portalLifetime", "value": "مدة بقاء البوابة" },
+    { "key": "menu.servers.list.portalLifetime.timed", "value": "60 ثانية" },
+    { "key": "menu.servers.list.portalLifetime.persistent", "value": "دائمة" }
   ]
 }

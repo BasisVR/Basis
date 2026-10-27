@@ -105,6 +105,7 @@ namespace Basis.BasisUI
         private PanelElementDescriptor _emptyState;
         private PanelTextField _editAddress;
         private PanelTextField _editPort;
+        private string _editPortInitial;
         private PanelPasswordField _editPassword;
         private PanelDropdown _editNetworkStack;
         private List<string> _stackIds;
@@ -634,7 +635,8 @@ namespace Basis.BasisUI
             if (_panel == null || _serverEditorDialog != null) return;
             _editingId = existing?.Id ?? string.Empty;
 
-            DialogBox<bool> dialog = DialogBox<bool>.Create(_panel, new Vector2(1170, 700),
+            bool canPortal = existing != null && BasisNetworkConnection.LocalPlayerIsConnected && BasisNetworkModeration.LocalPlayerHasNode(BasisPermissions.PermNodes.ContentSharePortal);
+            DialogBox<bool> dialog = DialogBox<bool>.Create(_panel, new Vector2(1170, canPortal ? 800 : 700),
                 BasisLocalization.Get(existing == null ? "menu.servers.list.newServer" : "menu.servers.list.editing"),
                 null,
                 AddressableAssets.Sprites.Servers);
@@ -654,7 +656,8 @@ namespace Basis.BasisUI
 
             _editPort = PanelTextField.CreateNewEntry(content);
             _editPort.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.port"));
-            _editPort.SetValueWithoutNotify(existing?.Target?.Get(ConnectionTarget.Keys.Port) ?? "4296");
+            _editPortInitial = existing?.Target?.Get(ConnectionTarget.Keys.Port) ?? "4296";
+            _editPort.SetValueWithoutNotify(_editPortInitial);
 
             _editPassword = PanelPasswordField.CreateNewEntry(content);
             _editPassword.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.password"));
@@ -664,6 +667,15 @@ namespace Basis.BasisUI
             _editNetworkStack.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.networkStack"));
             RebuildStackOptions();
             SetStackDropdownToId(existing?.Target?.StackId);
+
+            PanelDropdown portalLifetime = null;
+            if (canPortal)
+            {
+                portalLifetime = PanelDropdown.CreateNewEntry(content);
+                portalLifetime.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.list.portalLifetime"));
+                portalLifetime.AssignEntries(new List<string> { PortalTimed, PortalPersistent }, new List<string> { BasisLocalization.Get("menu.servers.list.portalLifetime.timed"), BasisLocalization.Get("menu.servers.list.portalLifetime.persistent") });
+                portalLifetime.SetValueWithoutNotify(PortalTimed);
+            }
 
             PanelTabGroup actionRow = PanelTabGroup.CreateNew(content, LayoutDirection.HorizontalNoBackground);
             actionRow.Descriptor.SetHeight(60);
@@ -692,6 +704,21 @@ namespace Basis.BasisUI
                 {
                     ServerDirectoryEntry target = FindEntry(_editingId);
                     if (target != null) ShareEntry(target);
+                };
+            }
+
+            if (canPortal)
+            {
+                PanelButton portalButton = PanelButton.CreateNew(PanelButton.ButtonStyles.StandardButton, actionRow.TabButtonParent);
+                portalButton.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.list.portal"));
+                portalButton.Descriptor.SetWidth(200);
+                portalButton.Descriptor.SetHeight(60);
+                portalButton.OnClicked += () =>
+                {
+                    ServerDirectoryEntry target = FindEntry(_editingId);
+                    if (target == null) return;
+                    bool persistent = string.Equals(portalLifetime.Value, PortalPersistent, StringComparison.Ordinal);
+                    BasisContentShareManager.DropPortal(BuildConnectionString(target), persistent ? SerializableBasis.ContentSharePortal.Persistent : SerializableBasis.ContentSharePortal.TimedSeconds);
                 };
             }
 
@@ -814,7 +841,15 @@ namespace Basis.BasisUI
                 if (!string.IsNullOrEmpty(claimedHost))
                 {
                     address = claimedHost;
-                    if (ushort.TryParse(claimed.Get(ConnectionTarget.Keys.Port), out ushort claimedPort) && claimedPort > 0) parsedPortOverride = claimedPort;
+                    string portInput = _editPort.Value?.Trim();
+                    if (!string.Equals(portInput, _editPortInitial, StringComparison.Ordinal)
+                        && ushort.TryParse(portInput, out ushort fieldPort) && fieldPort > 0
+                        && HostPortConnectionTargetParser.TryAddUrlPort(claimedHost, fieldPort, out string withPort))
+                    {
+                        address = withPort;
+                        parsedPortOverride = fieldPort;
+                    }
+                    else if (ushort.TryParse(claimed.Get(ConnectionTarget.Keys.Port), out ushort claimedPort) && claimedPort > 0) parsedPortOverride = claimedPort;
                     string claimedPassword = claimed.Get(ConnectionTarget.Keys.Password);
                     if (!string.IsNullOrEmpty(claimedPassword)) parsedPasswordOverride = claimedPassword;
                 }
@@ -1581,6 +1616,9 @@ namespace Basis.BasisUI
                 UIAnimations.PunchScale(card.ConnectButton.transform);
             }
         }
+
+        private const string PortalTimed = "timed";
+        private const string PortalPersistent = "persistent";
 
         private static string BuildConnectionString(ServerDirectoryEntry entry)
         {

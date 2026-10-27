@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Interactions;
@@ -107,6 +108,22 @@ namespace Basis.Scripts.Drivers
 
         private static BasisLocks.LockContext _movementLock;
         private static bool _hasMovementLock;
+        private static readonly HashSet<object> _suppressors = new();
+
+        /// <summary>True while gameplay owns the same hand gesture and the play-space mover must stand down.</summary>
+        public static bool IsSuppressed => _suppressors.Count != 0;
+
+        /// <summary>
+        /// Suppresses device-driven play-space movement for an owner without changing the user's setting or
+        /// discarding an existing offset. Owner tracking lets independent gameplay systems compose safely.
+        /// </summary>
+        public static void SetSuppressed(object owner, bool suppressed)
+        {
+            if (owner == null) return;
+            if (suppressed) _suppressors.Add(owner);
+            else _suppressors.Remove(owner);
+            if (suppressed) Stop();
+        }
 
         /// <summary>Total horizontal play-space drag currently applied (world units).</summary>
         public static Vector3 CurrentOffset => _offsetPos;
@@ -169,6 +186,13 @@ namespace Basis.Scripts.Drivers
             // Publish the flip from its settings every active frame (it's independent of grabbing and
             // persists through movement lock + idle, like the vertical offset).
             UpdateFlip();
+
+            if (IsSuppressed)
+            {
+                Stop();
+                SetGizmoState(BasisPlayspaceMoverState.MovementLocked);
+                return;
+            }
 
             if (_movementLock)
             {

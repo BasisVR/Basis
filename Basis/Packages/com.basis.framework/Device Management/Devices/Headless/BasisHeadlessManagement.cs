@@ -865,7 +865,7 @@ public partial class BasisHeadlessManagement : BasisBaseTypeManagement
         healthCheck = null;
     }
 
-    private void AttemptConnect()
+    private async void AttemptConnect()
     {
         if (isShuttingDown || !BasisNetworkManagement.IsInitialized)
         {
@@ -875,10 +875,30 @@ public partial class BasisHeadlessManagement : BasisBaseTypeManagement
         ResetServerHeadlessAudioPolicy();
         reconnectScheduled = false;
         BasisHeadlessRuntimeStatus.MarkConnecting();
-        BasisNetworkManagement.Ip = Ip;
+        string ip = Ip;
+        ushort port = (ushort)Port;
+        if (port == HostPortConnectionTargetParser.DefaultPort && BasisSrvResolver.TryBuildServiceName(ip, BasisSrvResolver.UdpProtocol, out string serviceName))
+        {
+            try
+            {
+                BasisSrvRecord[] records = await BasisSrvResolver.ResolveAsync(serviceName, 1500, CancellationToken.None);
+                if (records.Length > 0)
+                {
+                    BasisDebug.Log($"SRV {ip} -> {records[0].Target}:{records[0].Port}");
+                    ip = records[0].Target;
+                    port = records[0].Port;
+                }
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogWarning($"SRV lookup for {ip} failed: {ex.Message}");
+            }
+            if (isShuttingDown || !BasisNetworkManagement.IsInitialized) return;
+        }
+        BasisNetworkManagement.Ip = ip;
         BasisNetworkManagement.Password = Password;
         BasisNetworkManagement.IsHostMode = false;
-        BasisNetworkManagement.Port = (ushort)Port;
+        BasisNetworkManagement.Port = port;
         BasisNetworkManagement.Connect();
         BasisDebug.Log("connecting to default");
         BasisMainMenu.Close();

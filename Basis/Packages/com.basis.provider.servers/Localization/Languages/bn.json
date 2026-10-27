@@ -290,6 +290,10 @@
     {
       "key": "menu.servers.portInvalid",
       "value": "পোর্ট 1 থেকে 65535-এর মধ্যে হতে হবে"
-    }
+    },
+    { "key": "menu.servers.list.portal", "value": "পোর্টাল রাখুন" },
+    { "key": "menu.servers.list.portalLifetime", "value": "পোর্টালের স্থায়িত্বকাল" },
+    { "key": "menu.servers.list.portalLifetime.timed", "value": "৬০ সেকেন্ড" },
+    { "key": "menu.servers.list.portalLifetime.persistent", "value": "স্থায়ী" }
   ]
 }

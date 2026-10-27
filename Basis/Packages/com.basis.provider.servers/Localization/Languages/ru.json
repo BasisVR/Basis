@@ -290,6 +290,10 @@
     {
       "key": "menu.servers.portInvalid",
       "value": "Порт должен быть от 1 до 65535"
-    }
+    },
+    { "key": "menu.servers.list.portal", "value": "Поставить портал" },
+    { "key": "menu.servers.list.portalLifetime", "value": "Время жизни портала" },
+    { "key": "menu.servers.list.portalLifetime.timed", "value": "60 секунд" },
+    { "key": "menu.servers.list.portalLifetime.persistent", "value": "Постоянный" }
   ]
 }

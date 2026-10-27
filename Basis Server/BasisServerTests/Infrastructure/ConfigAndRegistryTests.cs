@@ -413,6 +413,8 @@ public class HostPortConnectionTargetParserTests
 {
     [Theory]
     [InlineData("example.com:5000", "example.com", 5000, true, "")]
+    [InlineData("example.com:43203", "example.com", 43203, true, "")]
+    [InlineData("example.com:443", "example.com", 443, true, "")]
     [InlineData("example.com", "example.com", 4296, false, "")]
     [InlineData("192.168.1.5:4297", "192.168.1.5", 4297, true, "")]
     [InlineData("example.com:5000#hunter2", "example.com", 5000, true, "hunter2")]
@@ -454,6 +456,30 @@ public class HostPortConnectionTargetParserTests
         Assert.Equal("", address);
         Assert.Equal(HostPortConnectionTargetParser.DefaultPort, port);
         Assert.False(portProvided);
+    }
+
+    [Theory]
+    [InlineData("wss://example.com", 43203, "wss://example.com:43203")]
+    [InlineData("wss://example.com/basis", 43203, "wss://example.com:43203/basis")]
+    [InlineData("ws://example.com?x=1", 8080, "ws://example.com:8080?x=1")]
+    [InlineData("wss://[2001:db8::1]/basis", 5000, "wss://[2001:db8::1]:5000/basis")]
+    public void TryAddUrlPort_AddsAPortToUrlsWithoutOne(string url, int port, string expected)
+    {
+        Assert.True(HostPortConnectionTargetParser.TryAddUrlPort(url, (ushort)port, out string result));
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData("wss://example.com:43203")]
+    [InlineData("wss://example.com:443/basis")]
+    [InlineData("ws://[::1]:8080/")]
+    [InlineData("example.com")]
+    [InlineData("wss:///basis")]
+    [InlineData("")]
+    public void TryAddUrlPort_KeepsExplicitPortsAndRejectsNonUrls(string url)
+    {
+        Assert.False(HostPortConnectionTargetParser.TryAddUrlPort(url, 5000, out string result));
+        Assert.Equal(url, result);
     }
 
     [Fact]

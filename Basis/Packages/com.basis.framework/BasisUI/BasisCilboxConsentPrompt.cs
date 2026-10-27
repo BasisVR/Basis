@@ -16,7 +16,7 @@ namespace Basis.BasisUI
         private const string SevereHex = "#FF5A4A";
         private const int MaxNameLength = 48;
 
-        public static void Show(string contentName, string contentKind, IReadOnlyList<string> items, IReadOnlyList<string> blocked, IReadOnlyList<BasisCilboxPermissionText.Use> uses, Action<Answer> onAnswer, Action<BasisNotification> onDeferred)
+        public static void Show(string contentName, string contentKind, string owner, bool yours, IReadOnlyList<string> items, IReadOnlyList<string> blocked, IReadOnlyList<BasisCilboxPermissionText.Use> uses, Action<Answer> onAnswer, Action<BasisNotification> onDeferred)
         {
             if (!BasisCilboxPermissions.UntrustedAllowed)
             {
@@ -24,25 +24,25 @@ namespace Basis.BasisUI
                 return;
             }
             string title = BasisLocalization.Get("settings.cilboxPermissions.prompt.title");
-            string description = BasisLocalization.Get("settings.cilboxPermissions.prompt.body", CleanName(contentName), KindLabel(contentKind));
+            string description = Body(contentName, contentKind, owner, yours);
             if (BasisNotificationCenter.RouteToNotifications)
             {
-                Defer(title, description, contentName, contentKind, items, blocked, uses, onAnswer, onDeferred);
+                Defer(title, description, contentName, contentKind, owner, yours, items, blocked, uses, onAnswer, onDeferred);
                 return;
             }
             if (!BasisMainMenu.Instance) BasisMainMenu.Open();
             if (!BasisMainMenu.Instance)
             {
-                Defer(title, description, contentName, contentKind, items, blocked, uses, onAnswer, onDeferred);
+                Defer(title, description, contentName, contentKind, owner, yours, items, blocked, uses, onAnswer, onDeferred);
                 return;
             }
             if (BasisMainMenu.Instance.Dialogue)
             {
-                BasisMainMenu.Instance.Dialogue.OnInstanceReleased += () => BasisDeviceManagement.EnqueueOnMainThread(() => Show(contentName, contentKind, items, blocked, uses, onAnswer, onDeferred));
+                BasisMainMenu.Instance.Dialogue.OnInstanceReleased += () => BasisDeviceManagement.EnqueueOnMainThread(() => Show(contentName, contentKind, owner, yours, items, blocked, uses, onAnswer, onDeferred));
                 return;
             }
 
-            List<BasisCilboxPermissionText.Line> lines = BasisCilboxPermissionText.Describe(items);
+            List<BasisCilboxPermissionText.Line> lines = BasisCilboxPermissionText.Describe(items, uses);
             bool severe = lines.Exists(line => line.Severe);
             bool answered = false;
             BasisMenuDialoguePanel panel = BasisMenuDialoguePanel.CreateNew(
@@ -60,7 +60,7 @@ namespace Basis.BasisUI
                 BasisNotificationCategory.Content);
             if (panel == null)
             {
-                Defer(title, description, contentName, contentKind, items, blocked, uses, onAnswer, onDeferred);
+                Defer(title, description, contentName, contentKind, owner, yours, items, blocked, uses, onAnswer, onDeferred);
                 return;
             }
 
@@ -81,8 +81,17 @@ namespace Basis.BasisUI
             if (moreInfo != null) moreInfo.rectTransform.SetAsLastSibling();
             panel.OnInstanceReleased += () =>
             {
-                if (!answered) Defer(title, description, contentName, contentKind, items, blocked, uses, onAnswer, onDeferred);
+                if (!answered) Defer(title, description, contentName, contentKind, owner, yours, items, blocked, uses, onAnswer, onDeferred);
             };
+        }
+
+        public static string Body(string contentName, string contentKind, string owner, bool yours)
+        {
+            string name = CleanName(contentName), kind = KindLabel(contentKind);
+            bool avatar = contentKind == "Avatar", world = contentKind == "World";
+            if (world || (!yours && string.IsNullOrWhiteSpace(owner))) return BasisLocalization.Get("settings.cilboxPermissions.prompt.body", name, kind);
+            if (yours) return BasisLocalization.Get(avatar ? "settings.cilboxPermissions.prompt.bodyYours" : "settings.cilboxPermissions.prompt.bodySpawnedYours", name, kind);
+            return BasisLocalization.Get(avatar ? "settings.cilboxPermissions.prompt.bodyOwner" : "settings.cilboxPermissions.prompt.bodySpawned", name, kind, CleanName(owner));
         }
 
         private static List<BasisMenuDialoguePanel.DetailRow> Rows(List<BasisCilboxPermissionText.Line> lines, bool wrap)
@@ -112,7 +121,7 @@ namespace Basis.BasisUI
             return clean.Length > MaxNameLength ? clean.Substring(0, MaxNameLength) : clean;
         }
 
-        private static void Defer(string title, string description, string contentName, string contentKind, IReadOnlyList<string> items, IReadOnlyList<string> blocked, IReadOnlyList<BasisCilboxPermissionText.Use> uses, Action<Answer> onAnswer, Action<BasisNotification> onDeferred)
+        private static void Defer(string title, string description, string contentName, string contentKind, string owner, bool yours, IReadOnlyList<string> items, IReadOnlyList<string> blocked, IReadOnlyList<BasisCilboxPermissionText.Use> uses, Action<Answer> onAnswer, Action<BasisNotification> onDeferred)
         {
             if (!BasisCilboxPermissions.UntrustedAllowed)
             {
@@ -123,7 +132,7 @@ namespace Basis.BasisUI
                 title,
                 description,
                 AddressableAssets.Sprites.Unlocked,
-                reopen: () => Show(contentName, contentKind, items, blocked, uses, onAnswer, onDeferred),
+                reopen: () => Show(contentName, contentKind, owner, yours, items, blocked, uses, onAnswer, onDeferred),
                 onDismiss: () => onAnswer?.Invoke(Answer.Deny),
                 category: BasisNotificationCategory.Content);
             onDeferred?.Invoke(notice);

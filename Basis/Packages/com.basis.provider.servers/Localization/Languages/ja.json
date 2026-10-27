@@ -290,6 +290,10 @@
     {
       "key": "menu.servers.portInvalid",
       "value": "ポートは 1～65535 の範囲で指定してください"
-    }
+    },
+    { "key": "menu.servers.list.portal", "value": "ポータルを設置" },
+    { "key": "menu.servers.list.portalLifetime", "value": "ポータルの持続時間" },
+    { "key": "menu.servers.list.portalLifetime.timed", "value": "60秒" },
+    { "key": "menu.servers.list.portalLifetime.persistent", "value": "永続" }
   ]
 }

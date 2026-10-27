@@ -75,7 +75,7 @@ public partial class BasisContentSphere : BasisInteractableObject
         // bundle to introspect, so skip the metadata fetch and just show the
         // address as the label. Inline payloads carry the content itself and
         // have nothing to fetch either.
-        if (contentType == ContentShareType.Server)
+        if (contentType == ContentShareType.Server || contentType == ContentShareType.Portal)
         {
             ApplyLocalLabel(ServerAddressLabel());
         }
@@ -311,6 +311,11 @@ public partial class BasisContentSphere : BasisInteractableObject
             BasisContentShareSetting.Present(this, title, sharerLine);
             return;
         }
+        if (ContentType == ContentShareType.Portal)
+        {
+            BasisContentSharePortal.Present(this, title, sharerLine);
+            return;
+        }
 
         string description;
         if (ContentType == ContentShareType.Server)
@@ -464,6 +469,7 @@ public partial class BasisContentSphere : BasisInteractableObject
             case ContentShareType.Prop: return new Color(0.3f, 1.0f, 0.5f, 1f);
             case ContentShareType.World: return new Color(1.0f, 0.6f, 0.2f, 1f);
             case ContentShareType.Server: return new Color(0.8f, 0.4f, 1.0f, 1f);
+            case ContentShareType.Portal: return new Color(0.2f, 0.9f, 1.0f, 1f);
             default:
                 return BasisContentSharePayloadRegistry.TryGet(ContentType, out BasisContentSharePayloadKind colorKind)
                     ? colorKind.Color
@@ -482,6 +488,7 @@ public partial class BasisContentSphere : BasisInteractableObject
         ContentShareType.Text => "library.shareable.text",
         ContentShareType.Folder => "library.shareable.folder",
         ContentShareType.Setting => "library.shareable.setting",
+        ContentShareType.Portal => "library.shareable.portal",
         _ => "library.shareable.other",
     };
 
@@ -493,6 +500,7 @@ public partial class BasisContentSphere : BasisInteractableObject
             case ContentShareType.Prop: return BasisLocalization.Get("content.share.type.prop");
             case ContentShareType.World: return BasisLocalization.Get("content.share.type.world");
             case ContentShareType.Server: return BasisLocalization.Get("content.share.type.server");
+            case ContentShareType.Portal: return BasisLocalization.Get("content.share.type.portal");
             default:
                 return BasisContentSharePayloadRegistry.TryGet(ContentType, out BasisContentSharePayloadKind nameKind)
                     ? (string.IsNullOrEmpty(nameKind.NameKey) ? nameKind.Name : BasisLocalization.Get(nameKind.NameKey))

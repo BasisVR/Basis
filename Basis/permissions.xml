@@ -14,6 +14,7 @@
       <Node value="basis.ownership.get" />
       <Node value="basis.contentshare.delete" />
       <Node value="basis.contentshare.create" />
+      <Node value="basis.storage.use" />
     </Group>
     <Group name="moderator">
       <Parent name="default" />
@@ -69,6 +70,7 @@
       <Node value="basis.ownership.get" />
       <Node value="basis.contentshare.delete" />
       <Node value="basis.contentshare.create" />
+      <Node value="basis.storage.use" />
     </Group>
     <Group name="moderator">
       <Node value="basis.moderation" />

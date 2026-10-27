@@ -88,7 +88,7 @@ public static partial class BasisOpenLipSyncDriver
 
             if (result != Result.Success)
             {
-                BasisDebug.LogWarning($"[OpenLipSync] Backend initialization failed: {_backend.LastError}");
+                BasisDebug.LogWarning($"{DisabledPrefix}{_backend.LastError}");
                 _backend.Dispose();
                 _backend = null;
                 ReleaseHandles();
@@ -102,10 +102,12 @@ public static partial class BasisOpenLipSyncDriver
         }
         catch (Exception ex)
         {
-            BasisDebug.LogWarning($"[OpenLipSync] Initialization exception: {ex.Message}");
+            BasisDebug.LogWarning($"{DisabledPrefix}{OpenLipSyncBackend.DescribeFailure(ex)}");
             Shutdown();
         }
     }
+
+    private const string DisabledPrefix = "[OpenLipSync] Lip sync is off, avatar mouths will not follow voice (voice chat still works): ";
 
     public static void Initialize()
     {

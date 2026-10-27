@@ -77,6 +77,22 @@
     {
       "key": "settings.developer.recorder.cancel",
       "value": "Aftellen Annuleren"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion",
+      "value": "Root motion opnemen"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion.tooltip",
+      "value": "Neemt de beweging en draaiing van de avatar in de wereld (joystickbeweging) op als root motion in de clip."
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones",
+      "value": "Extra botten opnemen"
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones.tooltip",
+      "value": "Neemt ook niet-humanoïde botten op, zoals jiggle-botten, haar, staarten, oren en accessoires."
     }
   ]
 }
