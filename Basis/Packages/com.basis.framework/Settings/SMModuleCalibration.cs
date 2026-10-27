@@ -216,8 +216,8 @@ public partial class SMModuleCalibration : BasisSettingsBase
 
                         case "auto":
                             BasisDebug.Log($"Height Mode Set To {optionValue}");
-                            // Stored as Auto; BasisHeightDriver.ResolveHeightMode picks the concrete
-                            // metric pair per avatar (and forces EyeHeight on desktop).
+                            // Stored as Auto; BasisHeightDriver.ResolveHeightMode picks ArmSpan without
+                            // hips/leg trackers, BestFit with them, and EyeHeight on desktop.
                             HeightMode = BasisSelectedHeightMode.Auto;
                             break;
                     }

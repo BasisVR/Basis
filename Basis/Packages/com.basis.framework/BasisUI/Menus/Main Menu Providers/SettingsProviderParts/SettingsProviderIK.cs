@@ -896,7 +896,9 @@ public static partial class SettingsProviderIK
         "Scaled to Match Value" => $"{BasisHeightDriver.ScaledToMatchValue:F4}",
         "Height Mode" => BasisHeightDriver.TryGetArmToHeightBlend(out float armToHeightBlend)
             ? $"ArmToHeightBlend {armToHeightBlend:P0}"
-            : $"{SMModuleCalibration.HeightMode}",
+            : SMModuleCalibration.HeightMode == BasisSelectedHeightMode.Auto
+                ? $"Auto -> {BasisHeightDriver.ResolveHeightMode(BasisSelectedHeightMode.Auto)}"
+                : $"{SMModuleCalibration.HeightMode}",
         "Seated Mode" => SMModuleSitStand.IsSteatedMode ? "Seated" : "Standing",
         "Seated Height Delta" => $"{SMModuleSitStand.MissingHeightDelta:F4} m",
         "Height Grounding Offset" => $"{BasisHeightDriver.HeightModeGroundingOffset:F4} m",

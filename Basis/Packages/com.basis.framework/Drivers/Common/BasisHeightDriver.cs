@@ -675,12 +675,18 @@ public static partial class BasisHeightDriver
         {
             return BasisSelectedHeightMode.EyeHeight;
         }
-        if (s_lastAutoResolvedMode != BasisSelectedHeightMode.BestFit)
+        // Without hips or leg trackers nothing below the head is tracked, so the avatar's lower body is
+        // posed rather than matched to the player: fitting the arms exactly is worth more than matching
+        // eye height. With them, the body has to line up, so eye height leads (BestFit).
+        bool hasLowerBodyTrackers = Basis.Scripts.Avatar.BasisAvatarIKStageCalibration.HasHipsFBIKTracker
+            || Basis.Scripts.Avatar.BasisAvatarIKStageCalibration.HasLegFBIKTrackers;
+        BasisSelectedHeightMode resolved = hasLowerBodyTrackers ? BasisSelectedHeightMode.BestFit : BasisSelectedHeightMode.ArmSpan;
+        if (s_lastAutoResolvedMode != resolved)
         {
-            s_lastAutoResolvedMode = BasisSelectedHeightMode.BestFit;
-            BasisDebug.Log("Auto height mode resolved to BestFit", BasisDebug.LogTag.Avatar);
+            s_lastAutoResolvedMode = resolved;
+            BasisDebug.Log($"Auto height mode resolved to {resolved} ({(hasLowerBodyTrackers ? "hips/leg trackers present" : "no hips/leg trackers")})", BasisDebug.LogTag.Avatar);
         }
-        return BasisSelectedHeightMode.BestFit;
+        return resolved;
     }
 
     public static BasisScaleInputs CurrentScaleInputs()
