@@ -57,6 +57,9 @@ public partial class BasisContentSphere : BasisInteractableObject
     public static float BobPhaseOffset = 0.05f;
     public static float RotationSpeed = 30f;
     public static int MaxTitleNameLength = 24;
+    public static float PortalEnterRadius = 0.6f, PortalEnterBelow = 2.2f, PortalEnterAbove = 0.5f;
+    private bool portalOccupied = true;
+    private BasisContentSharePortalRift rift;
     public Texture2D texture;
     public void Initialize(string sphereNetID, string contentURL, string unlockPassword, ContentShareType contentType, ushort creatorPlayerID, string creatorUUID, string creatorDisplayName, bool sharerProtected)
     {
@@ -75,9 +78,10 @@ public partial class BasisContentSphere : BasisInteractableObject
         // bundle to introspect, so skip the metadata fetch and just show the
         // address as the label. Inline payloads carry the content itself and
         // have nothing to fetch either.
-        if (contentType == ContentShareType.Server)
+        if (contentType == ContentShareType.Server || contentType == ContentShareType.Portal)
         {
             ApplyLocalLabel(ServerAddressLabel());
+            if (contentType == ContentShareType.Portal && ContentSharePortal.TryRead(unlockPassword, out _, out ContentSharePortal.Style style) && style == ContentSharePortal.Style.Rift) BuildRift();
         }
         else if (ContentSharePayload.IsPayloadType(contentType))
         {
@@ -96,6 +100,21 @@ public partial class BasisContentSphere : BasisInteractableObject
         }
     }
 
+    private void BuildRift()
+    {
+        Material source = Renderer != null ? Renderer.sharedMaterials[Mathf.Clamp(MaterialIndex, 0, Renderer.sharedMaterials.Length - 1)] : null;
+        if (source == null) return;
+        Renderer labelRenderer = Label != null ? Label.GetComponent<Renderer>() : null;
+        foreach (Renderer child in GetComponentsInChildren<Renderer>(true))
+        {
+            if (child != labelRenderer) child.enabled = false;
+        }
+        foreach (Collider child in GetComponentsInChildren<Collider>(true)) child.enabled = false;
+        transform.rotation = Quaternion.identity;
+        rift = BasisContentSharePortalRift.Create(transform, source);
+        RefreshColliders();
+        if (Label != null) Label.transform.position = _restPosition + Vector3.up * (BasisContentSharePortalRift.HalfHeight + 0.3f);
+    }
     private string ServerAddressLabel()
     {
         string display = ContentURL ?? string.Empty;
@@ -140,6 +159,11 @@ public partial class BasisContentSphere : BasisInteractableObject
     }
     private void Update()
     {
+        if (rift != null)
+        {
+            UpdatePortalEntry();
+            return;
+        }
         var DeltaTime = Time.deltaTime;
         // Gentle hover/bob animation
         _bobPhase += DeltaTime * BobPhaseClock;
@@ -148,6 +172,16 @@ public partial class BasisContentSphere : BasisInteractableObject
 
         // Slow rotation
         transform.Rotate(Vector3.up, RotationSpeed * DeltaTime, Space.World);
+        if (ContentType == ContentShareType.Portal) UpdatePortalEntry();
+    }
+    private void UpdatePortalEntry()
+    {
+        BasisLocalPlayer local = BasisLocalPlayer.Instance;
+        if (local == null) return;
+        Vector3 offset = local.transform.position - _restPosition;
+        bool inside = offset.x * offset.x + offset.z * offset.z <= PortalEnterRadius * PortalEnterRadius && offset.y >= -PortalEnterBelow && offset.y <= PortalEnterAbove;
+        if (inside && !portalOccupied) WasPressed();
+        portalOccupied = inside;
     }
     private async Task LoadMetadataImageAsync(CancellationToken cancellationToken)
     {
@@ -311,6 +345,11 @@ public partial class BasisContentSphere : BasisInteractableObject
             BasisContentShareSetting.Present(this, title, sharerLine);
             return;
         }
+        if (ContentType == ContentShareType.Portal)
+        {
+            BasisContentSharePortal.Present(this, title, sharerLine);
+            return;
+        }
 
         string description;
         if (ContentType == ContentShareType.Server)
@@ -464,6 +503,7 @@ public partial class BasisContentSphere : BasisInteractableObject
             case ContentShareType.Prop: return new Color(0.3f, 1.0f, 0.5f, 1f);
             case ContentShareType.World: return new Color(1.0f, 0.6f, 0.2f, 1f);
             case ContentShareType.Server: return new Color(0.8f, 0.4f, 1.0f, 1f);
+            case ContentShareType.Portal: return new Color(0.2f, 0.9f, 1.0f, 1f);
             default:
                 return BasisContentSharePayloadRegistry.TryGet(ContentType, out BasisContentSharePayloadKind colorKind)
                     ? colorKind.Color
@@ -482,6 +522,7 @@ public partial class BasisContentSphere : BasisInteractableObject
         ContentShareType.Text => "library.shareable.text",
         ContentShareType.Folder => "library.shareable.folder",
         ContentShareType.Setting => "library.shareable.setting",
+        ContentShareType.Portal => "library.shareable.portal",
         _ => "library.shareable.other",
     };
 
@@ -493,6 +534,7 @@ public partial class BasisContentSphere : BasisInteractableObject
             case ContentShareType.Prop: return BasisLocalization.Get("content.share.type.prop");
             case ContentShareType.World: return BasisLocalization.Get("content.share.type.world");
             case ContentShareType.Server: return BasisLocalization.Get("content.share.type.server");
+            case ContentShareType.Portal: return BasisLocalization.Get("content.share.type.portal");
             default:
                 return BasisContentSharePayloadRegistry.TryGet(ContentType, out BasisContentSharePayloadKind nameKind)
                     ? (string.IsNullOrEmpty(nameKind.NameKey) ? nameKind.Name : BasisLocalization.Get(nameKind.NameKey))

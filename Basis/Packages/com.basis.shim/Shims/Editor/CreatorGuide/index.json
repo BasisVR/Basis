@@ -1,0 +1,359 @@
+{
+  "baseUrl": "https://docs.basisvr.org/en/docs/",
+  "sections": [
+    {
+      "title": "Scripting",
+      "pages": [
+        {
+          "id": "scripting/native-and-cilbox",
+          "title": "Native and Cilbox",
+          "description": "The two ways to script Basis. Native scripts are compiled into the application; Cilbox scripts ship inside content and run at runtime in a sandbox.",
+          "file": "scripting.native-and-cilbox.md"
+        },
+        {
+          "id": "scripting/common-usages",
+          "title": "Common Usages",
+          "description": "The everyday building blocks of a Basis script, players, input, UI, timers, loading data, saving, menus and platform checks, each with a short example.",
+          "file": "scripting.common-usages.md"
+        },
+        {
+          "id": "scripting/sandbox-rules",
+          "title": "Sandbox Rules",
+          "description": "The Cilbox rules that are not obvious from the API, and the performance costs to plan around.",
+          "file": "scripting.sandbox-rules.md"
+        },
+        {
+          "id": "scripting/allowed-components",
+          "title": "Allowed Components",
+          "description": "Which components survive in uploaded worlds, props and avatars, how to check, and how client builds add more.",
+          "file": "scripting.allowed-components.md"
+        },
+        {
+          "id": "scripting/avatar-scripting",
+          "title": "Avatar Scripting",
+          "description": "Cilbox scripts on avatars, the wearer versus everyone else, avatar ready events, and syncing avatar state.",
+          "file": "scripting.avatar-scripting.md"
+        }
+      ]
+    },
+    {
+      "title": "Networking",
+      "pages": [
+        {
+          "id": "scripting/networking",
+          "title": "Networking",
+          "description": "How to make a Basis world or prop behave the same for every player, synced variables, network events, ownership and late joiners.",
+          "file": "scripting.networking.md"
+        },
+        {
+          "id": "scripting/networking/network-events",
+          "title": "Network Events",
+          "description": "Sending one off messages between players, recipients, delivery methods, payload packing and the Cilbox equivalent.",
+          "file": "scripting.networking.network-events.md"
+        },
+        {
+          "id": "scripting/networking/synced-variables",
+          "title": "Synced Variables",
+          "description": "Keeping a value the same for everyone with BasisSyncedParameters or a custom BasisSyncedObject, including compression and interpolation.",
+          "file": "scripting.networking.synced-variables.md"
+        },
+        {
+          "id": "scripting/networking/ownership",
+          "title": "Ownership",
+          "description": "Who owns a networked object, how to take and check ownership, how to react to transfers, and what happens when the owner leaves.",
+          "file": "scripting.networking.ownership.md"
+        },
+        {
+          "id": "scripting/networking/late-joiners",
+          "title": "Late Joiners",
+          "description": "Making sure players who join after something changed see the current state instead of the scene defaults.",
+          "file": "scripting.networking.late-joiners.md"
+        },
+        {
+          "id": "scripting/networking/network-components",
+          "title": "Network Components",
+          "description": "The ready made components that sync pickups, seats, transforms, rigidbodies and parameters without code.",
+          "file": "scripting.networking.network-components.md"
+        },
+        {
+          "id": "scripting/networking/performance",
+          "title": "Performance and Debugging",
+          "description": "Keeping networked content cheap, and tracking down objects that fall out of sync.",
+          "file": "scripting.networking.performance.md"
+        }
+      ]
+    },
+    {
+      "title": "Examples",
+      "pages": [
+        {
+          "id": "scripting/examples",
+          "title": "Examples",
+          "description": "Complete, copyable scripts for common world and prop features, from a spinning cube to a networked scoreboard.",
+          "file": "scripting.examples.md"
+        },
+        {
+          "id": "scripting/examples/basics",
+          "title": "Basics",
+          "description": "Your first Basis scripts, a spinning object and a UI button, as Cilbox scripts that ship inside a scene or prop.",
+          "file": "scripting.examples.basics.md"
+        },
+        {
+          "id": "scripting/examples/synced-toggle",
+          "title": "Synced Toggle",
+          "description": "A button that turns an object on or off for every player, including players who join later.",
+          "file": "scripting.examples.synced-toggle.md"
+        },
+        {
+          "id": "scripting/examples/scoreboard",
+          "title": "Scoreboard",
+          "description": "A networked score with one owner keeping the truth and other players asking the owner to add points.",
+          "file": "scripting.examples.scoreboard.md"
+        },
+        {
+          "id": "scripting/examples/pickup-gun",
+          "title": "Pickup Gun",
+          "description": "A synced pickup that fires when used, with the shot effect played for every player.",
+          "file": "scripting.examples.pickup-gun.md"
+        },
+        {
+          "id": "scripting/examples/touch-button",
+          "title": "Touch Button",
+          "description": "A button pressed by touching it with either hand, using the local player's hand bone positions.",
+          "file": "scripting.examples.touch-button.md"
+        },
+        {
+          "id": "scripting/examples/seats",
+          "title": "Seats",
+          "description": "Sitting players down from a script, a swivel chair, and an eject button, with Basis Seat and Basis Seat Sync.",
+          "file": "scripting.examples.seats.md"
+        },
+        {
+          "id": "scripting/examples/zones-and-teleporters",
+          "title": "Zones and Teleporters",
+          "description": "Detecting when the local player is inside an area, teleporting them, launching them, and counting players in a lobby.",
+          "file": "scripting.examples.zones-and-teleporters.md"
+        },
+        {
+          "id": "scripting/examples/npc-follow",
+          "title": "NPC Follow",
+          "description": "A navigation mesh agent that follows the nearest player, simulated by one owner and sent to everyone else.",
+          "file": "scripting.examples.npc-follow.md"
+        },
+        {
+          "id": "scripting/examples/image-loading",
+          "title": "Image Loading",
+          "description": "Showing a picture from a URL on a sign, with a fallback while it loads or when the player declines.",
+          "file": "scripting.examples.image-loading.md"
+        },
+        {
+          "id": "scripting/examples/minimap",
+          "title": "Minimap",
+          "description": "A live top down minimap that follows the local player, using a camera, a render texture and an optional Graphics.Blit mask.",
+          "file": "scripting.examples.minimap.md"
+        },
+        {
+          "id": "scripting/examples/persistence",
+          "title": "Persistence",
+          "description": "Saving a player's progress between visits with BasisSaveShim, packing values into bytes and sharing saves between a world and its props.",
+          "file": "scripting.examples.persistence.md"
+        },
+        {
+          "id": "scripting/examples/settings-tab",
+          "title": "Settings Tab",
+          "description": "Adding world options to the player's settings menu with BasisMenuShim, and remembering them with BasisSaveShim.",
+          "file": "scripting.examples.settings-tab.md"
+        },
+        {
+          "id": "scripting/examples/day-night-cycle",
+          "title": "Day Night Cycle",
+          "description": "A sun that moves on the server clock, so every player sees the same time of day with no networking code.",
+          "file": "scripting.examples.day-night-cycle.md"
+        },
+        {
+          "id": "scripting/examples/round-timer",
+          "title": "Round Timer",
+          "description": "A countdown everyone sees in sync. The owner sends the end time once and every client counts down on the server clock.",
+          "file": "scripting.examples.round-timer.md"
+        },
+        {
+          "id": "scripting/examples/trivia-quiz",
+          "title": "Trivia Quiz",
+          "description": "Questions loaded from a JSON file on the web, with the current question synced so everyone plays the same round.",
+          "file": "scripting.examples.trivia-quiz.md"
+        },
+        {
+          "id": "scripting/examples/server-best-time",
+          "title": "Server Best Time",
+          "description": "Saving each player's best lap on the server with BasisServerStorageShim, so it follows them across devices.",
+          "file": "scripting.examples.server-best-time.md"
+        },
+        {
+          "id": "scripting/examples/staff-door",
+          "title": "Staff Door",
+          "description": "A door that only opens for admins and moderators, updating live when roles change.",
+          "file": "scripting.examples.staff-door.md"
+        },
+        {
+          "id": "scripting/examples/voice-stage",
+          "title": "Voice Stage",
+          "description": "A stage that plays the speaker's voice from big speakers, using BasisVoiceRoutingShim.",
+          "file": "scripting.examples.voice-stage.md"
+        },
+        {
+          "id": "scripting/examples/drawing-board",
+          "title": "Drawing Board",
+          "description": "A shared whiteboard. Points are packed with BasisBinaryShim, the full drawing is compressed with BasisCompressionShim and sent to late joiners.",
+          "file": "scripting.examples.drawing-board.md"
+        },
+        {
+          "id": "scripting/examples/random-loot",
+          "title": "Random Loot",
+          "description": "A loot chest that shows every player the same random item without sending a message, using BasisSharedRandomShim.",
+          "file": "scripting.examples.random-loot.md"
+        },
+        {
+          "id": "scripting/examples/elevator",
+          "title": "Elevator",
+          "description": "A moving platform everyone rides together. Only the target floor is synced; every client moves the platform toward it.",
+          "file": "scripting.examples.elevator.md"
+        },
+        {
+          "id": "scripting/examples/tail-reaction",
+          "title": "Tail Reaction",
+          "description": "An avatar tail that wags and squeaks when someone grabs it, using BasisJiggleEventShim.",
+          "file": "scripting.examples.tail-reaction.md"
+        },
+        {
+          "id": "scripting/examples/hand-flashlight",
+          "title": "Hand Flashlight",
+          "description": "A flashlight pinned to the local player's hand without lag, using BasisBeforeRenderShim and controller input.",
+          "file": "scripting.examples.hand-flashlight.md"
+        },
+        {
+          "id": "scripting/examples/desktop-and-vr-input",
+          "title": "Desktop and VR Input",
+          "description": "One script that fires a blaster from a VR trigger or a mouse click, with haptics in VR.",
+          "file": "scripting.examples.desktop-and-vr-input.md"
+        },
+        {
+          "id": "scripting/examples/localized-sign",
+          "title": "Localized Sign",
+          "description": "A sign that shows text in the player's language and switches live when they change it, using BasisLanguageEventShim.",
+          "file": "scripting.examples.localized-sign.md"
+        },
+        {
+          "id": "scripting/examples/performance-scaler",
+          "title": "Performance Scaler",
+          "description": "Turning expensive effects down when the player's frame rate drops, using BasisStatsShim and BasisGraphicsSettingsEventShim.",
+          "file": "scripting.examples.performance-scaler.md"
+        },
+        {
+          "id": "scripting/examples/server-portal",
+          "title": "Server Portal",
+          "description": "A portal that offers to move the player to another Basis server, using BasisConnectionShim.",
+          "file": "scripting.examples.server-portal.md"
+        },
+        {
+          "id": "scripting/examples/boids",
+          "title": "Boids",
+          "description": "A flock of 200 birds animated cheaply in Cilbox by batching transform writes with BasisTransformBatchShim.",
+          "file": "scripting.examples.boids.md"
+        }
+      ]
+    },
+    {
+      "title": "Shim Reference",
+      "pages": [
+        {
+          "id": "scripting/shims",
+          "title": "Shim Reference",
+          "description": "Every Basis shim a Cilbox script can use, grouped by area, each with a short example.",
+          "file": "scripting.shims.md"
+        },
+        {
+          "id": "scripting/shims/players",
+          "title": "Players",
+          "description": "BasisPlayersShim, BasisVelocityShim, BasisPlayspaceInputShim, BasisSeatShim, BasisAvatarSwitchShim and BasisPermissionsShim.",
+          "file": "scripting.shims.players.md"
+        },
+        {
+          "id": "scripting/shims/input",
+          "title": "Input",
+          "description": "BasisControllerInputShim, BasisDesktopInputShim, BasisHapticsShim, BasisInteractableShim, BasisActionTrigger and BasisUIExtensions.",
+          "file": "scripting.shims.input.md"
+        },
+        {
+          "id": "scripting/shims/events",
+          "title": "Events",
+          "description": "The opt in event shims. Get the component in Start, then declare the callback by name.",
+          "file": "scripting.shims.events.md"
+        },
+        {
+          "id": "scripting/shims/networking",
+          "title": "Networking",
+          "description": "BasisNetworkShim, BasisNetworkTimeShim, BasisSharedRandomShim, BasisBinaryShim, BasisCompressionShim and BasisConnectionShim.",
+          "file": "scripting.shims.networking.md"
+        },
+        {
+          "id": "scripting/shims/data",
+          "title": "Data",
+          "description": "BasisSaveShim, BasisServerStorageShim, BasisJson, BasisWebRequestShim, BasisExternalLinkShim and the image and text downloaders.",
+          "file": "scripting.shims.data.md"
+        },
+        {
+          "id": "scripting/shims/menus",
+          "title": "Menus",
+          "description": "BasisMenuShim, settings tabs and menu panels with headers, labels, buttons, toggles, sliders and dropdowns.",
+          "file": "scripting.shims.menus.md"
+        },
+        {
+          "id": "scripting/shims/rendering-and-audio",
+          "title": "Rendering and Audio",
+          "description": "BasisGraphicsSettingsShim, BasisStatsShim, BasisComputeShim, BasisPlatformShim, BasisVoiceRoutingShim and VideoPlayerShim.",
+          "file": "scripting.shims.rendering-and-audio.md"
+        },
+        {
+          "id": "scripting/shims/batching",
+          "title": "Batching",
+          "description": "BasisTransformBatchShim, BasisTransformSyncShim, BasisBlendShapeSyncShim, BasisVectorArrayShim and BasisSphereCastShim, for doing a lot of work in one call.",
+          "file": "scripting.shims.batching.md"
+        },
+        {
+          "id": "scripting/shims/avatar",
+          "title": "Avatar",
+          "description": "BasisAvatarShim and BasisVixxyShim, for scripts on avatars.",
+          "file": "scripting.shims.avatar.md"
+        }
+      ]
+    },
+    {
+      "title": "World",
+      "pages": [
+        {
+          "id": "world/components",
+          "title": "Scene Components",
+          "description": "The Basis components you place in a world, what each one does, and where to read more.",
+          "file": "world.components.md"
+        },
+        {
+          "id": "world/layers",
+          "title": "Layers",
+          "description": "The Unity layers Basis uses, what each one means for collisions, interaction and cameras, and which to use for your objects.",
+          "file": "world.layers.md"
+        }
+      ]
+    },
+    {
+      "title": "Advanced",
+      "pages": [
+        {
+          "id": "advanced/bee-files",
+          "title": "Inside a BEE File",
+          "description": "What a .bee file contains, how it is laid out on disk, how it is encrypted, and how a client downloads only the part it needs.",
+          "file": "advanced.bee-files.md"
+        }
+      ]
+    }
+  ]
+}

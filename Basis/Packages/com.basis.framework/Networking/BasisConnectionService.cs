@@ -178,14 +178,21 @@ namespace Basis.Scripts.Networking
                 bool skipResolve = isHostMode
                     || Application.platform == RuntimePlatform.WebGLPlayer
                     || !string.Equals(stackId, BasisNetworkStackRegistry.LiteNetLibId, StringComparison.OrdinalIgnoreCase);
-                Task<string> resolveTask = skipResolve
-                    ? Task.FromResult(address)
-                    : ResolveConnectionAddressAsync(entry.Target, address);
+                Task<ServerProbeResult> resolveTask = skipResolve
+                    ? Task.FromResult<ServerProbeResult>(null)
+                    : ResolveConnectionAddressAsync(entry.Target);
                 await LoadDefaultAssetBundleAsync();
-                string resolvedIp = await resolveTask;
-                if (!string.IsNullOrEmpty(resolvedIp) && resolvedIp != address)
+                ServerProbeResult probe = await resolveTask;
+                if (probe != null && probe.ResolvedPort != 0 && !string.IsNullOrEmpty(probe.ResolvedHost))
                 {
-                    BasisDebug.Log($"Resolved {address} → {resolvedIp}", BasisDebug.LogTag.Networking);
+                    BasisDebug.Log($"SRV {address} → {probe.ResolvedHost}:{probe.ResolvedPort}", BasisDebug.LogTag.Networking);
+                    BasisNetworkManagement.Ip = probe.ResolvedHost;
+                    BasisNetworkManagement.Port = probe.ResolvedPort;
+                }
+                string resolvedIp = probe?.ResolvedAddress?.ToString();
+                if (!string.IsNullOrEmpty(resolvedIp) && resolvedIp != BasisNetworkManagement.Ip)
+                {
+                    BasisDebug.Log($"Resolved {BasisNetworkManagement.Ip} → {resolvedIp}", BasisDebug.LogTag.Networking);
                     BasisNetworkManagement.Ip = resolvedIp;
                 }
 
@@ -244,23 +251,15 @@ namespace Basis.Scripts.Networking
             BasisNetworkLifeCycle.Initialize();
         }
 
-        /// <summary>
-        /// Probes the server and returns the <see cref="IPAddress"/> string that actually
-        /// responded, or <paramref name="fallback"/> if the probe cannot reach either family.
-        /// A 2.5-second budget is split: first half for IPv6, second half for IPv4.
-        /// </summary>
-        private static async Task<string> ResolveConnectionAddressAsync(ConnectionTarget target, string fallback)
+        private static async Task<ServerProbeResult> ResolveConnectionAddressAsync(ConnectionTarget target)
         {
             try
             {
-                using CancellationTokenSource cts = new CancellationTokenSource(2500);
-                ServerProbeResult probe = await BasisNetworkStackRegistry.ProbeAsync(
-                    target, 2500, cts.Token).ConfigureAwait(false);
-                if (probe?.ResolvedAddress != null)
-                    return probe.ResolvedAddress.ToString();
+                using CancellationTokenSource cts = new CancellationTokenSource(3500);
+                return await BasisNetworkStackRegistry.ProbeAsync(target, 3000, cts.Token).ConfigureAwait(false);
             }
             catch { }
-            return fallback;
+            return null;
         }
 
         public static async Task LoadDefaultAssetBundleAsync()
@@ -370,6 +369,14 @@ namespace Basis.Scripts.Networking
             return false;
         }
 
+        public static bool TryBuildEntry(string connectionString, string id, out ServerDirectoryEntry entry)
+        {
+            if (!BuildEntryFromConnectionString(connectionString, out entry)) return false;
+            entry.Id = id;
+            entry.CanAutoConnect = false;
+            return true;
+        }
+
         private static bool BuildEntryFromConnectionString(string value, out ServerDirectoryEntry entry)
         {
             entry = null;
@@ -397,15 +404,27 @@ namespace Basis.Scripts.Networking
         private const string PageConnectionParameter = "connection";
         private const string PagePasswordParameter = "password";
         private const string PageNameParameter = "name";
+        private const string PagePortParameter = "port";
 
         private static bool TryGetPageConnection(out ServerDirectoryEntry entry)
         {
             entry = null;
             if (!TryGetPageParameter(PageConnectionParameter, out string value)) return false;
+            if (TryGetPageParameter(PagePortParameter, out string pagePort) && ushort.TryParse(pagePort.Trim(), out ushort port) && port > 0) value = WithPagePort(value, port);
             if (value.IndexOf('#') < 0 && TryGetPageParameter(PagePasswordParameter, out string pagePassword)) value += "#" + pagePassword;
             if (BuildEntryFromConnectionString(value, out entry)) return true;
             BasisDebug.LogWarning($"connection page parameter could not be parsed: {value}");
             return false;
+        }
+
+        private static string WithPagePort(string value, ushort port)
+        {
+            int hash = value.IndexOf('#');
+            string left = hash >= 0 ? value.Substring(0, hash) : value;
+            string tail = hash >= 0 ? value.Substring(hash) : string.Empty;
+            if (left.IndexOf("://", StringComparison.Ordinal) > 0) return HostPortConnectionTargetParser.TryAddUrlPort(left, port, out string url) ? url + tail : value;
+            if (!HostPortConnectionTargetParser.TryParseConnectionString(left, out string host, out _, out bool portProvided, out _) || portProvided) return value;
+            return (host.IndexOf(':') >= 0 ? $"[{host}]:{port}" : $"{host}:{port}") + tail;
         }
 
         private static bool TryGetPageParameter(string name, out string value)

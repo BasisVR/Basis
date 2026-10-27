@@ -77,6 +77,22 @@
     {
       "key": "settings.developer.recorder.cancel",
       "value": "カウントダウンをキャンセル"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion",
+      "value": "ルートモーションを記録"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion.tooltip",
+      "value": "アバターのワールド内の移動と回転（スティック移動）をクリップのルートモーションとして記録します。"
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones",
+      "value": "追加ボーンを記録"
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones.tooltip",
+      "value": "揺れものボーン、髪、尻尾、耳、アクセサリーなどのヒューマノイド以外のボーンも記録します。"
     }
   ]
 }

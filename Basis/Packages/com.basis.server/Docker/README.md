@@ -89,6 +89,23 @@ Browsers cannot use UDP, so web builds of Basis connect over WebSocket. WebSocke
 
 `/health` lists each transport under `transports`, with its peer count and, for WebSocket, pending handshakes and shed updates.
 
+### DNS SRV Records (RFC 2782)
+
+Players can join with just your domain name instead of a host and port. When a player enters a name with no port (or the default port 4296), the client first looks up an SRV record for `_basis._udp.<name>` and connects to the host and port it points to. If there is no record, it connects to `<name>:4296` as before, so publishing one is optional.
+
+```
+_basis._udp.example.com. 3600 IN SRV 10 60 4296 eu1.example.com.
+_basis._udp.example.com. 3600 IN SRV 10 40 5000 eu2.example.com.
+_basis._udp.example.com. 3600 IN SRV 20 0 4296 backup.example.com.
+```
+
+- Lower priority is tried first; records with the same priority share players by weight (60/40 above). The client checks up to three targets and joins the first one that answers.
+- A target of `.` means "no Basis server here" and the client falls back to the plain name.
+- A port typed by the player (`example.com:5000`) always wins; no lookup is made.
+- The client caches answers for the record TTL (at most 5 minutes). It asks the system's DNS servers first, then 1.1.1.1 and 8.8.8.8.
+- Web builds cannot make DNS queries, so they always connect to the address as entered.
+- The server itself needs no setting for this; only the DNS zone changes.
+
 ## Docker Compose Configuration
 
 The `docker-compose.yml` file orchestrates the server deployment. Here's the provided example (`Docker/docker-compose.yml`):

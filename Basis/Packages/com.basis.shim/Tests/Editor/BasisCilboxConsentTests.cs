@@ -279,6 +279,33 @@ namespace Basis.Tests.Sync
             Assert.IsTrue(BasisCilboxPermissionText.AnySevere(new[] { "Method:UnityEngine.PlayerPrefs.GetString" }));
         }
 
+        [Test]
+        public void ThePrompt_ShowsTheCallsInTheCode_WhenItKnowsThem()
+        {
+            List<BasisCilboxPermissionText.Use> uses = new List<BasisCilboxPermissionText.Use>
+            {
+                new BasisCilboxPermissionText.Use("Type:System.IO.File", "Leaderboard.Upload", "File.ReadAllText()"),
+                new BasisCilboxPermissionText.Use("Type:System.IO.File", "Leaderboard.Refresh", "File.ReadAllText()"),
+                new BasisCilboxPermissionText.Use("Type:System.IO.File", "Leaderboard.Upload", "File.WriteAllText()"),
+            };
+            List<BasisCilboxPermissionText.Line> lines = BasisCilboxPermissionText.Describe(new[] { "Type:System.IO.File", "Type:System.IO.Path", "Method:UnityEngine.GameObject.AddComponent" }, uses);
+
+            Assert.AreEqual(2, lines.Count);
+            Assert.AreEqual("File.ReadAllText(), File.WriteAllText(), Path", lines[0].Detail);
+            Assert.AreEqual("GameObject.AddComponent", lines[1].Detail);
+        }
+
+        [Test]
+        public void ThePrompt_SaysWhoseAvatarItIs_OrWhoSpawnedIt()
+        {
+            Assert.AreEqual(BasisLocalization.Get("settings.cilboxPermissions.prompt.bodyOwner", "Fox", BasisCilboxConsentPrompt.KindLabel("Avatar"), "Bob"), BasisCilboxConsentPrompt.Body("Fox", "Avatar", "Bob", false));
+            Assert.AreEqual(BasisLocalization.Get("settings.cilboxPermissions.prompt.bodyYours", "Fox", BasisCilboxConsentPrompt.KindLabel("Avatar")), BasisCilboxConsentPrompt.Body("Fox", "Avatar", null, true));
+            Assert.AreEqual(BasisLocalization.Get("settings.cilboxPermissions.prompt.bodySpawned", "Gun", BasisCilboxConsentPrompt.KindLabel("Prop"), "Bob"), BasisCilboxConsentPrompt.Body("Gun", "Prop", "Bob", false));
+            Assert.AreEqual(BasisLocalization.Get("settings.cilboxPermissions.prompt.bodySpawnedYours", "Gun", BasisCilboxConsentPrompt.KindLabel("Prop")), BasisCilboxConsentPrompt.Body("Gun", "Prop", null, true));
+            Assert.AreEqual(BasisLocalization.Get("settings.cilboxPermissions.prompt.body", "Gun", BasisCilboxConsentPrompt.KindLabel("Prop")), BasisCilboxConsentPrompt.Body("Gun", "Prop", " ", false));
+            Assert.AreEqual(BasisLocalization.Get("settings.cilboxPermissions.prompt.body", "Silk", BasisCilboxConsentPrompt.KindLabel("World")), BasisCilboxConsentPrompt.Body("Silk", "World", "Bob", true));
+        }
+
         static List<BasisCilboxPermissionText.Use> UsesOf(CilboxBasisCommon box, params string[] items)
         {
             object scan = Activator.CreateInstance(Field("consentScan").FieldType, true);

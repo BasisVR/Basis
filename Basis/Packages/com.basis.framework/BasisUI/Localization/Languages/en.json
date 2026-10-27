@@ -6715,6 +6715,14 @@
       "value": "Admin-locked — no one can move this item, and only a moderator can unlock it. Click to unlock."
     },
     {
+      "key": "library.instantiated.saveToServer.tooltip",
+      "value": "Save to server. This item stays here after the server restarts, where it is now. Admins only."
+    },
+    {
+      "key": "library.instantiated.saveToServer.savedTooltip",
+      "value": "Saved to server: this item loads again after a restart. Click to stop saving it; it stays until removed."
+    },
+    {
       "key": "library.instantiated.static.noPermission",
       "value": "Only the item's creator or a moderator can lock this item."
     },
@@ -14563,6 +14571,22 @@
       "value": "{0} ({1}) wants to do things scripts are normally blocked from doing:"
     },
     {
+      "key": "settings.cilboxPermissions.prompt.bodyOwner",
+      "value": "{0} ({2}'s {1}) wants to do things scripts are normally blocked from doing:"
+    },
+    {
+      "key": "settings.cilboxPermissions.prompt.bodyYours",
+      "value": "{0} (your {1}) wants to do things scripts are normally blocked from doing:"
+    },
+    {
+      "key": "settings.cilboxPermissions.prompt.bodySpawned",
+      "value": "{0} ({1} spawned by {2}) wants to do things scripts are normally blocked from doing:"
+    },
+    {
+      "key": "settings.cilboxPermissions.prompt.bodySpawnedYours",
+      "value": "{0} ({1} you spawned) wants to do things scripts are normally blocked from doing:"
+    },
+    {
       "key": "settings.cilboxPermissions.prompt.allow",
       "value": "Allow"
     },
@@ -14737,6 +14761,14 @@
     {
       "key": "settings.cilboxPermissions.review.blocked.why",
       "value": "It also tries to use things scripts can never use. These stay blocked whatever you choose, so parts of it may not work."
+    },
+    {
+      "key": "settings.cilboxPermissions.review.header",
+      "value": "Technical details"
+    },
+    {
+      "key": "settings.cilboxPermissions.review.header.why",
+      "value": "Below, each permission lists the script and function that asked for it. These names come from the creator's code and are mostly useful to them."
     },
     {
       "key": "settings.cilboxPermissions.why.openWebPages",
@@ -21835,6 +21867,66 @@
     {
       "key": "settings.admin.title.lockExternalLinks.tooltip",
       "value": "Worlds and props can't ask players to open web pages in their browser. Links players share as orbs are not affected. Admins are unaffected."
+    },
+    {
+      "key": "library.shareable.portal",
+      "value": "Shared Portal"
+    },
+    {
+      "key": "content.share.type.portal",
+      "value": "Portal"
+    },
+    {
+      "key": "content.share.portal.go",
+      "value": "Go"
+    },
+    {
+      "key": "content.share.portal.question",
+      "value": "Travel to this server?"
+    },
+    {
+      "key": "content.share.portal.destination",
+      "value": "Destination"
+    },
+    {
+      "key": "content.share.portal.lifetime",
+      "value": "Lifetime"
+    },
+    {
+      "key": "content.share.portal.persistent",
+      "value": "Stays until removed"
+    },
+    {
+      "key": "content.share.portal.timed",
+      "value": "Closes {0} seconds after it was placed"
+    },
+    {
+      "key": "content.share.portal.health",
+      "value": "Server Health"
+    },
+    {
+      "key": "content.share.portal.checking",
+      "value": "Checking…"
+    },
+    {
+      "key": "content.share.portal.offline",
+      "value": "Offline or unreachable"
+    },
+    {
+      "key": "content.share.portal.online",
+      "value": "Online: {0} / {1} players, {2} ms"
+    },
+    {
+      "key": "content.share.portal.name",
+      "value": "Name"
+    },
+    {
+      "key": "content.share.portal.motd",
+      "value": "Message"
+    },
+    {
+      "key": "content.share.portal.invalid",
+      "value": "This portal's destination could not be read."
     }
   ]
 }

@@ -24,13 +24,15 @@ namespace Basis.Scripts.Drivers
         }
         BasisLocomotionPoseBaker baker;
         BasisLocomotionPoseBake poseBake;
-        BasisLocoSimState graphSim;
         bool simDirty = true;
         bool landingLatch;
         float freezeArmTimer;
-        readonly BasisLocoContribution[] contributionsManaged = new BasisLocoContribution[BasisLocomotionGraph.MaxContributions];
-        int contributionCount;
         NativeArray<BasisLocoContribution> contributionsNative;
+        NativeArray<BasisLocoSimState> graphSimNative;
+        NativeArray<int> contributionCountNative;
+        NativeArray<byte> landingLatchNative;
+        NativeArray<float2> childPositionsNative;
+        NativeArray<float> childTimeScalesNative;
         JobHandle poseJobHandle;
         bool jobScheduled;
         public void NotifyLanding()
@@ -65,13 +67,8 @@ namespace Basis.Scripts.Drivers
                 return;
             }
 
-            Step4StepLocomotionGraph(in frameParams, deltaTime, frozen);
-            if (contributionCount == 0)
-            {
-                return;
-            }
-
-            Step5DispatchPoseJob(rig);
+            JobHandle graphHandle = Step4StepLocomotionGraph(in frameParams, deltaTime, frozen);
+            Step5DispatchPoseJob(rig, graphHandle);
         }
         void Step1TickBake(BasisLocalRigDriver rig, Animator animator, bool stock, bool rigReady)
         {
@@ -101,38 +98,46 @@ namespace Basis.Scripts.Drivers
 
             fastActive = JobDrivenLocomotionPose && stock && !tposeLike && rigReady && graphValid && poseBake != null && poseBake.Ready;
         }
-        void Step4StepLocomotionGraph(in BasisLocoParams frameParams, float deltaTime, bool frozen)
+        JobHandle Step4StepLocomotionGraph(in BasisLocoParams frameParams, float deltaTime, bool frozen)
         {
             if (simDirty)
             {
-                graphSim = BasisLocomotionGraph.DefaultSimState;
+                graphSimNative[0] = BasisLocomotionGraph.DefaultSimState;
+                contributionCountNative[0] = 0;
+                landingLatchNative[0] = 0;
                 landingLatch = false;
                 simDirty = false;
-                contributionCount = 0;
             }
 
-            if (frozen && contributionCount != 0)
+            if (frozen && contributionCountNative[0] != 0)
             {
-                return;
+                return default;
             }
 
             using var _ = BasisLocoPoseMarkers.GraphStep.Auto();
-            BasisLocoParams stepParams = frameParams;
-            stepParams.LandingTrigger = landingLatch;
-            contributionCount = BasisLocomotionGraph.Step( ref graphSim, ref stepParams, deltaTime, poseBake.ClipLengthsManaged, poseBake.ClipLoopingManaged, contributionsManaged);
-            landingLatch = stepParams.LandingTrigger;
-            for (int i = 0; i < contributionCount; i++)
+            landingLatchNative[0] = (byte)(landingLatch ? 1 : 0);
+            landingLatch = false;
+            return new BasisLocomotionGraphJob
             {
-                contributionsNative[i] = contributionsManaged[i];
-            }
+                Params = frameParams,
+                DeltaTime = deltaTime,
+                ClipLengths = poseBake.ClipLength,
+                ClipLooping = poseBake.ClipLooping,
+                ChildPositions = childPositionsNative,
+                ChildTimeScales = childTimeScalesNative,
+                Sim = graphSimNative,
+                Contributions = contributionsNative,
+                ContributionCount = contributionCountNative,
+                LandingLatch = landingLatchNative,
+            }.Schedule();
         }
-        void Step5DispatchPoseJob(BasisLocalRigDriver rig)
+        void Step5DispatchPoseJob(BasisLocalRigDriver rig, JobHandle dependency)
         {
             using var dispatch = BasisLocoPoseMarkers.Dispatch.Auto();
             var job = new BasisLocomotionPoseJob
             {
                 Contributions = contributionsNative,
-                ContributionCount = contributionCount,
+                ContributionCount = contributionCountNative,
                 Rotations = poseBake.Rotations,
                 HipsPositions = poseBake.HipsPositions,
                 SnapshotScales = poseBake.SnapshotScales,
@@ -147,7 +152,7 @@ namespace Basis.Scripts.Drivers
                 OutLocalRotation = rig.PoseSkeleton.Stream.LocalRotation,
                 OutLocalScale = rig.PoseSkeleton.Stream.LocalScale,
             };
-            poseJobHandle = job.Schedule();
+            poseJobHandle = job.Schedule(dependency);
             jobScheduled = true;
             JobHandle.ScheduleBatchedJobs();
         }
@@ -159,6 +164,7 @@ namespace Basis.Scripts.Drivers
             }
             poseJobHandle.Complete();
             jobScheduled = false;
+            landingLatch |= landingLatchNative[0] != 0;
             skeleton.RefreshRootFromTransform();
             return true;
         }
@@ -168,6 +174,7 @@ namespace Basis.Scripts.Drivers
             {
                 poseJobHandle.Complete();
                 jobScheduled = false;
+                if (landingLatchNative.IsCreated) landingLatch |= landingLatchNative[0] != 0;
             }
         }
         void EnsureRuntimeArrays()
@@ -175,6 +182,22 @@ namespace Basis.Scripts.Drivers
             if (!contributionsNative.IsCreated)
             {
                 contributionsNative = new NativeArray<BasisLocoContribution>(BasisLocomotionGraph.MaxContributions, Allocator.Persistent);
+                graphSimNative = new NativeArray<BasisLocoSimState>(1, Allocator.Persistent);
+                contributionCountNative = new NativeArray<int>(1, Allocator.Persistent);
+                landingLatchNative = new NativeArray<byte>(1, Allocator.Persistent);
+                childPositionsNative = new NativeArray<float2>(BasisLocomotionGraph.ProneClipStart + BasisLocomotionGraph.ProneChildCount, Allocator.Persistent);
+                childTimeScalesNative = new NativeArray<float>(childPositionsNative.Length, Allocator.Persistent);
+                CopyTree(BasisLocomotionGraph.WalkingClipStart, BasisLocomotionGraph.WalkingChildPositions, BasisLocomotionGraph.WalkingChildTimeScales);
+                CopyTree(BasisLocomotionGraph.CrouchingClipStart, BasisLocomotionGraph.CrouchingChildPositions, BasisLocomotionGraph.CrouchingChildTimeScales);
+                CopyTree(BasisLocomotionGraph.ProneClipStart, BasisLocomotionGraph.ProneChildPositions, BasisLocomotionGraph.ProneChildTimeScales);
+            }
+        }
+        void CopyTree(int start, float2[] positions, float[] timeScales)
+        {
+            for (int i = 0; i < positions.Length; i++)
+            {
+                childPositionsNative[start + i] = positions[i];
+                childTimeScalesNative[start + i] = timeScales[i];
             }
         }
         void DisposeBakeData()
@@ -183,7 +206,7 @@ namespace Basis.Scripts.Drivers
             baker = null;
             poseBake?.Dispose();
             poseBake = null;
-            contributionCount = 0;
+            if (contributionCountNative.IsCreated) contributionCountNative[0] = 0;
         }
         public void Dispose()
         {
@@ -196,6 +219,11 @@ namespace Basis.Scripts.Drivers
             {
                 contributionsNative.Dispose();
             }
+            if (graphSimNative.IsCreated) graphSimNative.Dispose();
+            if (contributionCountNative.IsCreated) contributionCountNative.Dispose();
+            if (landingLatchNative.IsCreated) landingLatchNative.Dispose();
+            if (childPositionsNative.IsCreated) childPositionsNative.Dispose();
+            if (childTimeScalesNative.IsCreated) childTimeScalesNative.Dispose();
         }
     }
 }

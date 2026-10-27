@@ -55,6 +55,13 @@ namespace Basis.Scripts.BasisSdk.Players
 
         public static BasisOrderedDelegate AfterSimulateOnLate = new BasisOrderedDelegate();
 
+        /// <summary>
+        /// Runs after current-frame device input has been joined, immediately before character
+        /// locomotion consumes it. Gameplay movement modes should use this instead of Update when
+        /// controller edges and tracked poses must affect the same simulation frame.
+        /// </summary>
+        public static BasisOrderedDelegate BeforeCharacterMovement = new BasisOrderedDelegate();
+
         public static Matrix4x4 localToWorldMatrix = Matrix4x4.identity;
         #region Drivers
 
@@ -496,6 +503,8 @@ namespace Basis.Scripts.BasisSdk.Players
             // Opens this frame's transform snapshot. Nothing cached can survive it, so a missed
             // invalidation is bounded to a single frame.
             BasisLocalPose.BeginFrame();
+
+            BeforeCharacterMovement.Invoke();
 
             // Kick the locomotion pose job first: when active it fills the IK stream on a worker
             // while everything below runs, and is joined inside SimulateIKDestinations.

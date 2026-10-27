@@ -77,6 +77,22 @@
     {
       "key": "settings.developer.recorder.cancel",
       "value": "Отменить отсчёт"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion",
+      "value": "Записывать root motion"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion.tooltip",
+      "value": "Записывает перемещение и повороты аватара в мире (движение джойстиком) как root motion в клипе."
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones",
+      "value": "Записывать дополнительные кости"
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones.tooltip",
+      "value": "Также записывает негуманоидные кости: кости с физикой, волосы, хвосты, уши и аксессуары."
     }
   ]
 }

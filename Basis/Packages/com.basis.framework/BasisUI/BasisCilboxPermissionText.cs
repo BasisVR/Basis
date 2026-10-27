@@ -111,21 +111,47 @@ namespace Basis.BasisUI
             new Rule("Basis.", null, "basisInternals", false),
         };
 
-        public static List<Line> Describe(IEnumerable<string> items)
+        public static List<Line> Describe(IEnumerable<string> items) => Describe(items, null);
+
+        public static List<Line> Describe(IEnumerable<string> items, IReadOnlyList<Use> uses)
         {
             List<(string Key, bool Severe, List<string> Items)> groups = Group(items);
             List<Line> lines = new List<Line>(groups.Count);
             foreach ((string key, bool severe, List<string> group) in groups)
             {
-                List<string> names = new List<string>(group.Count);
+                List<string> names = Calls(group, uses);
                 foreach (string item in group)
                 {
                     string name = ShortName(item);
-                    if (!names.Contains(name)) names.Add(name);
+                    if (!names.Contains(name) && !Called(item, uses)) names.Add(name);
                 }
                 lines.Add(new Line(BasisLocalization.Get("settings.cilboxPermissions.cap." + key), Join(names, DetailNames), severe));
             }
             return lines;
+        }
+
+        private static List<string> Calls(List<string> items, IReadOnlyList<Use> uses)
+        {
+            List<string> calls = new List<string>();
+            if (uses == null) return calls;
+            HashSet<string> wanted = new HashSet<string>(items, StringComparer.Ordinal);
+            foreach (Use use in uses)
+            {
+                if (use.Item == null || use.Code == null || !wanted.Contains(use.Item)) continue;
+                string code = Clean(use.Code);
+                if (!calls.Contains(code)) calls.Add(code);
+            }
+            return calls;
+        }
+
+        private static bool Called(string item, IReadOnlyList<Use> uses)
+        {
+            if (uses == null) return false;
+            foreach (Use use in uses)
+            {
+                if (use.Code != null && string.Equals(use.Item, item, StringComparison.Ordinal)) return true;
+            }
+            return false;
         }
 
         public static List<Line> Review(IEnumerable<string> items, IEnumerable<string> blocked, IReadOnlyList<Use> uses)

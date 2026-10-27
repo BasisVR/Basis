@@ -77,6 +77,22 @@
     {
       "key": "settings.developer.recorder.cancel",
       "value": "取消倒计时"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion",
+      "value": "录制根运动"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion.tooltip",
+      "value": "将虚拟形象在世界中的移动和转向（摇杆移动）作为根运动录入片段。"
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones",
+      "value": "录制额外骨骼"
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones.tooltip",
+      "value": "同时录制非人形骨骼，例如物理摆动骨骼、头发、尾巴、耳朵和配饰。"
     }
   ]
 }

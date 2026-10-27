@@ -290,6 +290,13 @@
     {
       "key": "menu.servers.portInvalid",
       "value": "Poort moet tussen 1 en 65535 liggen"
-    }
+    },
+    { "key": "menu.servers.list.portal", "value": "Portaal plaatsen" },
+    { "key": "menu.servers.list.portalLifetime", "value": "Levensduur portaal" },
+    { "key": "menu.servers.list.portalLifetime.timed", "value": "60 seconden" },
+    { "key": "menu.servers.list.portalLifetime.persistent", "value": "Blijvend" },
+    { "key": "menu.servers.list.portalStyle", "value": "Portaalstijl" },
+    { "key": "menu.servers.list.portalStyle.orb", "value": "Bol" },
+    { "key": "menu.servers.list.portalStyle.rift", "value": "Dimensionale scheur" }
   ]
 }

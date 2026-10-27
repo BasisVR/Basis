@@ -810,6 +810,7 @@ namespace BasisPermissions
         };
 
         private static readonly string[] AdminGroupNodes = { PermNodes.All };
+        private static readonly (string group, string node)[] WithdrawnGroupNodes = { ("moderator", PermNodes.ContentSharePortal) };
 
         public void EnsureDefaults()
         {
@@ -819,6 +820,7 @@ namespace BasisPermissions
                 SeedGroup_NoLock("default", null, DefaultGroupNodes);
                 SeedGroup_NoLock("moderator", "default", ModeratorGroupNodes);
                 SeedGroup_NoLock("admin", "moderator", AdminGroupNodes);
+                foreach ((string group, string node) in WithdrawnGroupNodes) WithdrawSeededNode_NoLock(group, node);
 
                 _version++;
                 _cache.Clear();
@@ -851,6 +853,12 @@ namespace BasisPermissions
                 if (seeded.Add(node) && !group.Nodes.Contains("-" + node))
                     group.Nodes.Add(node);
             }
+        }
+
+        private void WithdrawSeededNode_NoLock(string name, string node)
+        {
+            if (!_store.SeededDefaults.TryGetValue(name, out HashSet<string> seeded) || !seeded.Remove(node)) return;
+            if (_store.Groups.TryGetValue(name, out PermissionGroup group)) group.Nodes.Remove(node);
         }
 
         // =========================================

@@ -17,6 +17,7 @@ public class BasisAvatarRecorderWindow : EditorWindow
     private Vector2 _graphScroll;
 
     private FileInfo[] _recordingFiles = Array.Empty<FileInfo>();
+    private int[] _recordingFrames = Array.Empty<int>();
     private int _selectedIndex = -1;
 
     // Parsed data for the current file
@@ -147,9 +148,7 @@ public class BasisAvatarRecorderWindow : EditorWindow
             long bytes = 0;
             try { bytes = fi.Length; } catch { }
 
-            int frames = BasisAvatarRecorder.BytesPerFrame > 0
-                ? (int)(bytes / BasisAvatarRecorder.BytesPerFrame)
-                : 0;
+            int frames = i < _recordingFrames.Length ? _recordingFrames[i] : 0;
 
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -401,17 +400,8 @@ public class BasisAvatarRecorderWindow : EditorWindow
 
         try
         {
-            long bytes = fi.Length;
-            if (bytes <= 0 || bytes % BasisAvatarRecorder.BytesPerFrame != 0)
-            {
-                Debug.LogWarning(
-                    $"File size is not a multiple of BytesPerFrame: {bytes} " +
-                    $"(BytesPerFrame={BasisAvatarRecorder.BytesPerFrame})");
-            }
-
-            _frameCount = BasisAvatarRecorder.BytesPerFrame > 0
-                ? (int)(bytes / BasisAvatarRecorder.BytesPerFrame)
-                : 0;
+            BasisAvatarRecording recording = BasisAvatarRecording.Load(path);
+            _frameCount = recording.FrameCount;
 
             if (_frameCount <= 0)
             {
@@ -420,47 +410,13 @@ public class BasisAvatarRecorderWindow : EditorWindow
                 return;
             }
 
-            _intervals = new float[_frameCount];
-            _positions = new Vector3[_frameCount];
+            recording.ComputeRootCurves(out Vector3[] rootT, out Quaternion[] rootQ);
+            _intervals = recording.Intervals;
+            _positions = rootT;
+            _scales = recording.Scales;
             _rotY = new float[_frameCount];
-            _scales = new float[_frameCount];
-
-            using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-            using (var br = new BinaryReader(fs))
-            {
-                for (int i = 0; i < _frameCount; i++)
-                {
-                    // IntervalSeconds (new first float)
-                    float interval = br.ReadSingle();
-                    _intervals[i] = interval;
-
-                    // Rotation (Quaternion)
-                    float rx = br.ReadSingle();
-                    float ry = br.ReadSingle();
-                    float rz = br.ReadSingle();
-                    float rw = br.ReadSingle();
-                    Quaternion rot = new Quaternion(rx, ry, rz, rw);
-
-                    // Position
-                    float px = br.ReadSingle();
-                    float py = br.ReadSingle();
-                    float pz = br.ReadSingle();
-                    _positions[i] = new Vector3(px, py, pz);
-
-                    // Muscles (skip)
-                    for (int m = 0; m < MuscleCount; m++)
-                    {
-                        br.ReadSingle();
-                    }
-
-                    // Scale
-                    float s = br.ReadSingle();
-                    _scales[i] = s;
-
-                    // Store Y rotation (degrees)
-                    _rotY[i] = rot.eulerAngles.y;
-                }
-            }
+            for (int i = 0; i < _frameCount; i++)
+                _rotY[i] = rootQ[i].eulerAngles.y;
 
             _loadedPath = path;
         }
@@ -507,6 +463,11 @@ public class BasisAvatarRecorderWindow : EditorWindow
 
             Array.Sort(_recordingFiles,
                 (a, b) => b.LastWriteTimeUtc.CompareTo(a.LastWriteTimeUtc)); // newest first
+            _recordingFrames = new int[_recordingFiles.Length];
+            for (int i = 0; i < _recordingFiles.Length; i++)
+            {
+                try { _recordingFrames[i] = BasisAvatarRecording.CountFrames(_recordingFiles[i].FullName); } catch { }
+            }
 
             if (_recordingFiles.Length == 0)
             {
@@ -563,61 +524,14 @@ public class BasisAvatarRecorderWindow : EditorWindow
             return;
         }
 
-        long bytes;
-        try { bytes = new FileInfo(path).Length; }
-        catch (Exception e) { Debug.LogError($"Failed to read recording size: {e}"); return; }
+        BasisAvatarRecording recording;
+        try { recording = BasisAvatarRecording.Load(path); }
+        catch (Exception e) { Debug.LogError($"Failed to read recording for conversion: {e}"); return; }
 
-        int frameCount = (int)(bytes / BasisAvatarRecorder.BytesPerFrame);
+        int frameCount = recording.FrameCount;
         if (frameCount <= 0)
         {
             EditorUtility.DisplayDialog(BasisEditorLocalization.Get("editor.recorder.window.convertToAnimationClip"), BasisEditorLocalization.Get("editor.recorder.window.noFrames"), BasisEditorLocalization.Get("editor.common.ok"));
-            return;
-        }
-
-        int muscleCount = MuscleCount;
-
-        float[] times = new float[frameCount];
-        float[] rootTx = new float[frameCount];
-        float[] rootTy = new float[frameCount];
-        float[] rootTz = new float[frameCount];
-        float[] rootQx = new float[frameCount];
-        float[] rootQy = new float[frameCount];
-        float[] rootQz = new float[frameCount];
-        float[] rootQw = new float[frameCount];
-        float[][] muscles = new float[muscleCount][];
-        for (int m = 0; m < muscleCount; m++)
-            muscles[m] = new float[frameCount];
-
-        try
-        {
-            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            using var br = new BinaryReader(fs);
-
-            float t = 0f;
-            for (int i = 0; i < frameCount; i++)
-            {
-                float interval = br.ReadSingle();
-                if (i > 0) t += interval;
-                times[i] = t;
-
-                rootQx[i] = br.ReadSingle();
-                rootQy[i] = br.ReadSingle();
-                rootQz[i] = br.ReadSingle();
-                rootQw[i] = br.ReadSingle();
-
-                rootTx[i] = br.ReadSingle();
-                rootTy[i] = br.ReadSingle();
-                rootTz[i] = br.ReadSingle();
-
-                for (int m = 0; m < muscleCount; m++)
-                    muscles[m][i] = br.ReadSingle();
-
-                br.ReadSingle();
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"Failed to read recording for conversion: {e}");
             return;
         }
 
@@ -631,23 +545,9 @@ public class BasisAvatarRecorderWindow : EditorWindow
         if (string.IsNullOrEmpty(savePath))
             return;
 
-        AnimationClip clip = new AnimationClip();
-
-        string[] muscleNames = BuildMuscleCurveNames();
-        for (int m = 0; m < muscleCount && m < muscleNames.Length; m++)
-            clip.SetCurve("", typeof(Animator), muscleNames[m], BuildCurve(times, muscles[m]));
-
-        clip.SetCurve("", typeof(Animator), "RootT.x", BuildCurve(times, rootTx));
-        clip.SetCurve("", typeof(Animator), "RootT.y", BuildCurve(times, rootTy));
-        clip.SetCurve("", typeof(Animator), "RootT.z", BuildCurve(times, rootTz));
-        clip.SetCurve("", typeof(Animator), "RootQ.x", BuildCurve(times, rootQx));
-        clip.SetCurve("", typeof(Animator), "RootQ.y", BuildCurve(times, rootQy));
-        clip.SetCurve("", typeof(Animator), "RootQ.z", BuildCurve(times, rootQz));
-        clip.SetCurve("", typeof(Animator), "RootQ.w", BuildCurve(times, rootQw));
-
-        float duration = times[frameCount - 1];
+        AnimationClip clip = BuildClip(recording);
+        float duration = recording.Times[frameCount - 1];
         clip.frameRate = duration > 0f ? Mathf.Clamp(Mathf.Round((frameCount - 1) / duration), 1f, 240f) : 60f;
-        clip.EnsureQuaternionContinuity();
 
         var existing = AssetDatabase.LoadAssetAtPath<AnimationClip>(savePath);
         if (existing != null)
@@ -664,7 +564,101 @@ public class BasisAvatarRecorderWindow : EditorWindow
 
         var saved = AssetDatabase.LoadAssetAtPath<AnimationClip>(savePath);
         EditorGUIUtility.PingObject(saved);
-        Debug.Log($"Converted {frameCount} frames to humanoid AnimationClip: {savePath}");
+        Debug.Log($"Converted {frameCount} frames ({recording.BoneCount} additional bones, root motion {(recording.HasRootMotion ? "on" : "off")}) to humanoid AnimationClip: {savePath}");
+    }
+
+    public static AnimationClip BuildClip(BasisAvatarRecording recording)
+    {
+        int frameCount = recording.FrameCount;
+        float[] times = recording.Times;
+        AnimationClip clip = new AnimationClip();
+
+        string[] muscleNames = BuildMuscleCurveNames();
+        for (int m = 0; m < MuscleCount && m < muscleNames.Length; m++)
+            clip.SetCurve("", typeof(Animator), muscleNames[m], BuildCurve(times, recording.Muscles[m]));
+
+        recording.ComputeRootCurves(out Vector3[] rootT, out Quaternion[] rootQ);
+        MakeContinuous(rootQ, 0, 1, frameCount);
+        SetVectorCurves(clip, "", typeof(Animator), "RootT", times, rootT, 0, 1, false);
+        SetQuaternionCurves(clip, "", typeof(Animator), "RootQ", times, rootQ, 0, 1, false);
+
+        int bones = recording.BoneCount;
+        for (int b = 0; b < bones; b++)
+        {
+            string bonePath = recording.BonePaths[b];
+            MakeContinuous(recording.BoneLocalRotations, b, bones, frameCount);
+            SetVectorCurves(clip, bonePath, typeof(Transform), "localPosition", times, recording.BoneLocalPositions, b, bones, true);
+            SetQuaternionCurves(clip, bonePath, typeof(Transform), "localRotation", times, recording.BoneLocalRotations, b, bones, true);
+            if (!IsConstant(recording.BoneLocalScales, b, bones, frameCount))
+                SetVectorCurves(clip, bonePath, typeof(Transform), "localScale", times, recording.BoneLocalScales, b, bones, false);
+        }
+
+        clip.EnsureQuaternionContinuity();
+        AnimationClipSettings settings = AnimationUtility.GetAnimationClipSettings(clip);
+        settings.keepOriginalOrientation = true;
+        settings.keepOriginalPositionXZ = true;
+        settings.keepOriginalPositionY = true;
+        AnimationUtility.SetAnimationClipSettings(clip, settings);
+        return clip;
+    }
+
+    private static void MakeContinuous(Quaternion[] values, int offset, int stride, int frames)
+    {
+        for (int i = 1, k = offset + stride; i < frames; i++, k += stride)
+        {
+            Quaternion prev = values[k - stride];
+            Quaternion q = values[k];
+            if (prev.x * q.x + prev.y * q.y + prev.z * q.z + prev.w * q.w < 0f)
+                values[k] = new Quaternion(-q.x, -q.y, -q.z, -q.w);
+        }
+    }
+
+    private static bool IsConstant(Vector3[] values, int offset, int stride, int frames)
+    {
+        Vector3 first = values[offset];
+        for (int i = 1, k = offset + stride; i < frames; i++, k += stride)
+            if ((values[k] - first).sqrMagnitude > 1e-10f) return false;
+        return true;
+    }
+
+    private static bool IsConstant(Quaternion[] values, int offset, int stride, int frames)
+    {
+        Quaternion first = values[offset];
+        for (int i = 1, k = offset + stride; i < frames; i++, k += stride)
+        {
+            Quaternion q = values[k];
+            if (Mathf.Abs(q.x - first.x) > 1e-6f || Mathf.Abs(q.y - first.y) > 1e-6f || Mathf.Abs(q.z - first.z) > 1e-6f || Mathf.Abs(q.w - first.w) > 1e-6f) return false;
+        }
+        return true;
+    }
+
+    private static void SetVectorCurves(AnimationClip clip, string path, Type type, string property, float[] times, Vector3[] values, int offset, int stride, bool collapseConstant)
+    {
+        int frames = times.Length;
+        bool constant = collapseConstant && IsConstant(values, offset, stride, frames);
+        float[] x = new float[frames], y = new float[frames], z = new float[frames];
+        for (int i = 0, k = offset; i < frames; i++, k += stride) { x[i] = values[k].x; y[i] = values[k].y; z[i] = values[k].z; }
+        clip.SetCurve(path, type, property + ".x", constant ? BuildConstantCurve(times, x[0]) : BuildCurve(times, x));
+        clip.SetCurve(path, type, property + ".y", constant ? BuildConstantCurve(times, y[0]) : BuildCurve(times, y));
+        clip.SetCurve(path, type, property + ".z", constant ? BuildConstantCurve(times, z[0]) : BuildCurve(times, z));
+    }
+
+    private static void SetQuaternionCurves(AnimationClip clip, string path, Type type, string property, float[] times, Quaternion[] values, int offset, int stride, bool collapseConstant)
+    {
+        int frames = times.Length;
+        bool constant = collapseConstant && IsConstant(values, offset, stride, frames);
+        float[] x = new float[frames], y = new float[frames], z = new float[frames], w = new float[frames];
+        for (int i = 0, k = offset; i < frames; i++, k += stride) { x[i] = values[k].x; y[i] = values[k].y; z[i] = values[k].z; w[i] = values[k].w; }
+        clip.SetCurve(path, type, property + ".x", constant ? BuildConstantCurve(times, x[0]) : BuildCurve(times, x));
+        clip.SetCurve(path, type, property + ".y", constant ? BuildConstantCurve(times, y[0]) : BuildCurve(times, y));
+        clip.SetCurve(path, type, property + ".z", constant ? BuildConstantCurve(times, z[0]) : BuildCurve(times, z));
+        clip.SetCurve(path, type, property + ".w", constant ? BuildConstantCurve(times, w[0]) : BuildCurve(times, w));
+    }
+
+    private static AnimationCurve BuildConstantCurve(float[] times, float value)
+    {
+        float end = times[times.Length - 1];
+        return end > 0f ? new AnimationCurve(new Keyframe(0f, value), new Keyframe(end, value)) : new AnimationCurve(new Keyframe(0f, value));
     }
 
     private static AnimationCurve BuildCurve(float[] times, float[] values)

@@ -12,6 +12,7 @@
     <assembly fullname="Basis.Eerie.Movement" preserve="all" />
     <assembly fullname="Basis.ImagePickup" preserve="all" />
     <assembly fullname="Basis.Integration.AudioLink" preserve="all" />
+    <assembly fullname="Basis.Integration.BHaptics" preserve="all" />
     <assembly fullname="Basis.Integration.MetaBodyTracking" preserve="all" />
     <assembly fullname="Basis.Integration.SlimeVR" preserve="all" />
     <assembly fullname="Basis.Integration.TrackerObjects" preserve="all" />
@@ -161,6 +162,14 @@
     <assembly fullname="phonon" preserve="all" />
     <assembly fullname="phonon_fmod" preserve="all" />
     <assembly fullname="ucrtbased" preserve="all" />
+
+    <assembly fullname="Bhaptics.SDK2">
+        <type fullname="Bhaptics.SDK2.BhapticsLibrary" preserve="all" />
+        <type fullname="Bhaptics.SDK2.PositionType" preserve="all" />
+        <type fullname="Bhaptics.SDK2.BhapticsSDK2" preserve="all" />
+        <type fullname="Bhaptics.SDK2.BhapticsSettings" preserve="all" />
+        <type fullname="Bhaptics.SDK2.Universal.UnityMainThreadDispatcher" preserve="all" />
+    </assembly>
 
     <assembly fullname="System">
         <type fullname="System.Collections.Generic.ISet`1" preserve="all" />

@@ -3413,6 +3413,27 @@ namespace Basis.BasisUI
                 });
             }
 
+            // Save to server — admins with basis.resource.savetodisk can make a network prop or world load again after a server restart.
+            if (itemKey.SpawnMethod == BasisRuntimeSpawnRegistry.SpawnMethod.Network
+                && (itemKey.SpawnMode == BasisRuntimeSpawnRegistry.SpawnMode.GameObject || itemKey.SpawnMode == BasisRuntimeSpawnRegistry.SpawnMode.Scene)
+                && BasisNetworkModeration.LocalPlayerHasNode(BasisPermissions.PermNodes.ResourceSaveToDisk))
+            {
+                bool savedToDisk = BasisRuntimeSpawnRegistry.IsSavedToDisk(itemKey.LoadedNetID);
+                byte diskMode = itemKey.SpawnMode == BasisRuntimeSpawnRegistry.SpawnMode.Scene ? (byte)1 : (byte)0;
+                BuildEntryActionButton(itemListPanel.TabButtonParent, new EntryActionButton
+                {
+                    Style = savedToDisk ? ButtonStyles.AcceptButton : ButtonStyles.StandardButton,
+                    Icon = AddressableAssets.Sprites.Pin,
+                    Tooltip = BasisLocalization.Get(savedToDisk ? "library.instantiated.saveToServer.savedTooltip" : "library.instantiated.saveToServer.tooltip"),
+                    OnClick = () =>
+                    {
+                        // The row updates when the server broadcasts the new saved state (RegistryChangeType.Modified).
+                        BasisNetworkSpawnItem.RequestSaveToDisk(itemKey.LoadedNetID, diskMode, !savedToDisk);
+                        return Task.CompletedTask;
+                    },
+                });
+            }
+
             // Network items can be protected; only an admin may remove those. Non-network items always removable.
             bool canRemove = CanRemoveSpawn(itemKey.SpawnMethod, itemKey.isProtected, itemKey.UUIDOfCreator);
 

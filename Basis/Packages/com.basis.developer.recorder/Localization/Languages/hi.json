@@ -77,6 +77,22 @@
     {
       "key": "settings.developer.recorder.cancel",
       "value": "काउंटडाउन रद्द करें"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion",
+      "value": "रूट मोशन रिकॉर्ड करें"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion.tooltip",
+      "value": "अवतार की दुनिया में चाल और घुमाव (जॉयस्टिक से चलना) को क्लिप में रूट मोशन के रूप में रिकॉर्ड करता है।"
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones",
+      "value": "अतिरिक्त हड्डियाँ रिकॉर्ड करें"
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones.tooltip",
+      "value": "जिगल हड्डियाँ, बाल, पूँछ, कान और एक्सेसरीज़ जैसी गैर-ह्यूमनॉइड हड्डियाँ भी रिकॉर्ड करता है।"
     }
   ]
 }

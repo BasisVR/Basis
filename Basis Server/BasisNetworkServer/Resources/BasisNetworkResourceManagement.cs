@@ -170,6 +170,7 @@ public static class BasisNetworkResourceManagement
 
                 LLR.Serialize(Writer);
                 NetworkServer.TrySend(NewConnection, Writer, BasisNetworkCommons.LoadResourceChannel, DeliveryMethod.ReliableOrdered);
+                BasisNetworkResourceDisk.SendStateToPeer(NewConnection, LLR);
             }
             NetworkServer.ReturnWriter(Writer);
         }
@@ -224,6 +225,7 @@ public static class BasisNetworkResourceManagement
             return false;
         }
         NoteResourceRemoved(removedResource.UUIDOfCreator);
+        BasisNetworkResourceDisk.OnUnloaded(unLoadResource.LoadedNetID);
 
         NetDataWriter writer = NetworkServer.RentWriter();
         unLoadResource.Serialize(writer);
@@ -265,6 +267,7 @@ public static class BasisNetworkResourceManagement
             return;
         }
         NoteResourceRemoved(resource.UUIDOfCreator);
+        BasisNetworkResourceDisk.OnUnloaded(unLoadResource.LoadedNetID);
 
         NetDataWriter writer = NetworkServer.RentWriter();
         unLoadResource.Serialize(writer);
@@ -323,6 +326,7 @@ public static class BasisNetworkResourceManagement
         resource.Static = targetStatic;
         resource.StaticAdminLocked = targetAdminLocked;
         UshortNetworkDatabase[modifyResource.LoadedNetID] = resource;
+        BasisNetworkResourceDisk.Resave(modifyResource.LoadedNetID);
 
         // Normalize the broadcast so every client agrees on the resolved state + routing.
         modifyResource.Static = targetStatic;

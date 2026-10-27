@@ -290,6 +290,13 @@
     {
       "key": "menu.servers.portInvalid",
       "value": "La porta deve essere compresa tra 1 e 65535"
-    }
+    },
+    { "key": "menu.servers.list.portal", "value": "Piazza portale" },
+    { "key": "menu.servers.list.portalLifetime", "value": "Durata del portale" },
+    { "key": "menu.servers.list.portalLifetime.timed", "value": "60 secondi" },
+    { "key": "menu.servers.list.portalLifetime.persistent", "value": "Persistente" },
+    { "key": "menu.servers.list.portalStyle", "value": "Stile del portale" },
+    { "key": "menu.servers.list.portalStyle.orb", "value": "Sfera" },
+    { "key": "menu.servers.list.portalStyle.rift", "value": "Squarcio dimensionale" }
   ]
 }

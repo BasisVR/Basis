@@ -290,6 +290,13 @@
     {
       "key": "menu.servers.portInvalid",
       "value": "پورٹ 1 سے 65535 کے درمیان ہونا چاہیے"
-    }
+    },
+    { "key": "menu.servers.list.portal", "value": "پورٹل رکھیں" },
+    { "key": "menu.servers.list.portalLifetime", "value": "پورٹل کی مدت" },
+    { "key": "menu.servers.list.portalLifetime.timed", "value": "60 سیکنڈ" },
+    { "key": "menu.servers.list.portalLifetime.persistent", "value": "مستقل" },
+    { "key": "menu.servers.list.portalStyle", "value": "پورٹل کا انداز" },
+    { "key": "menu.servers.list.portalStyle.orb", "value": "گولا" },
+    { "key": "menu.servers.list.portalStyle.rift", "value": "جہتی دراڑ" }
   ]
 }

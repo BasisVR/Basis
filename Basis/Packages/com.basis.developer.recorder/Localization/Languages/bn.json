@@ -77,6 +77,22 @@
     {
       "key": "settings.developer.recorder.cancel",
       "value": "কাউন্টডাউন বাতিল করুন"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion",
+      "value": "রুট মোশন রেকর্ড করুন"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion.tooltip",
+      "value": "অ্যাভাটারের বিশ্বে চলাচল ও ঘোরা (জয়স্টিক চলাচল) ক্লিপে রুট মোশন হিসেবে রেকর্ড করে।"
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones",
+      "value": "অতিরিক্ত হাড় রেকর্ড করুন"
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones.tooltip",
+      "value": "জিগল হাড়, চুল, লেজ, কান ও অ্যাক্সেসরির মতো অ-হিউম্যানয়েড হাড়ও রেকর্ড করে।"
     }
   ]
 }

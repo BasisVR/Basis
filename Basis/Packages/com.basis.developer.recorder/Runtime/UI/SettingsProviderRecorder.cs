@@ -63,6 +63,16 @@ namespace Basis.Developer.Recorder
                 recorderGroup.ForceRebuild();
             };
 
+            PanelToggle recorderRootMotionToggle = PanelToggle.CreateNewEntry(recorderGroup.ContentParent);
+            recorderRootMotionToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.recorder.rootMotion"));
+            recorderRootMotionToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.developer.recorder.rootMotion.tooltip"));
+            recorderRootMotionToggle.AssignBinding(BasisRecorderSettings.RootMotion);
+
+            PanelToggle recorderBonesToggle = PanelToggle.CreateNewEntry(recorderGroup.ContentParent);
+            recorderBonesToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.recorder.additionalBones"));
+            recorderBonesToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.developer.recorder.additionalBones.tooltip"));
+            recorderBonesToggle.AssignBinding(BasisRecorderSettings.AdditionalBones);
+
             PanelElementDescriptor recorderStatusField =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, recorderGroup.ContentParent);
             recorderStatusField.SetTitle(BasisLocalization.Get("settings.developer.recorder.status.title"));
@@ -103,6 +113,8 @@ namespace Basis.Developer.Recorder
             BasisRecorderSettings.CountdownSeconds.ResetToDefault();
             BasisRecorderSettings.AutoStop.ResetToDefault();
             BasisRecorderSettings.MaxDurationSeconds.ResetToDefault();
+            BasisRecorderSettings.RootMotion.ResetToDefault();
+            BasisRecorderSettings.AdditionalBones.ResetToDefault();
         }
 
         private static float ParseSeconds(string raw)

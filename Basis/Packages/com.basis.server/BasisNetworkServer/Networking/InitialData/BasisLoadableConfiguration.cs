@@ -28,7 +28,11 @@ namespace BasisNetworking.InitialData
 
         public bool Persist = false;
         public bool ModifyScale;
-        public static BasisLoadableConfiguration[] LoadAllFromFolder(string folderPath)
+        public bool Static;
+        public bool StaticAdminLocked;
+        public static BasisLoadableConfiguration[] LoadAllFromFolder(string folderPath) => LoadAllFromFolder(folderPath, out _);
+
+        public static BasisLoadableConfiguration[] LoadAllFromFolder(string folderPath, out string[] files)
         {
             if (!Directory.Exists(folderPath))
             {
@@ -36,6 +40,7 @@ namespace BasisNetworking.InitialData
             }
 
             List<BasisLoadableConfiguration> configurations = new List<BasisLoadableConfiguration>();
+            List<string> loaded = new List<string>();
 
             string[] xmlFiles = Directory.GetFiles(folderPath, "*.xml");
             var serializer = new XmlSerializer(typeof(BasisLoadableConfiguration));
@@ -43,9 +48,11 @@ namespace BasisNetworking.InitialData
             {
                 using var reader = new StreamReader(file);
                 configurations.Add((BasisLoadableConfiguration)serializer.Deserialize(reader));
+                loaded.Add(file);
                 reader.Close();
             }
 
+            files = loaded.ToArray();
             return configurations.ToArray();
         }
     }

@@ -77,6 +77,22 @@
     {
       "key": "settings.developer.recorder.cancel",
       "value": "Cancel Countdown"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion",
+      "value": "Record root motion"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion.tooltip",
+      "value": "Record the avatar's world movement and turning (joystick locomotion) as root motion in the clip."
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones",
+      "value": "Record additional bones"
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones.tooltip",
+      "value": "Also record non-humanoid bones such as jiggle bones, hair, tails, ears and accessories."
     }
   ]
 }

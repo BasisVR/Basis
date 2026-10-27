@@ -30,6 +30,43 @@ public static partial class SerializableBasis
         Text = 6,
         Folder = 7,
         Setting = 8,
+        Portal = 9,
+    }
+
+    public static class ContentSharePortal
+    {
+        public const int Persistent = 0;
+        public const int TimedSeconds = 60;
+        public const int MaxSeconds = 86400;
+
+        public const string RiftSuffix = ":rift";
+        public enum Style : byte { Orb = 0, Rift = 1 }
+
+        public static string WriteLifetime(int seconds, Style style = Style.Orb) => style == Style.Rift ? seconds.ToString(CultureInfo.InvariantCulture) + RiftSuffix : seconds.ToString(CultureInfo.InvariantCulture);
+
+        public static bool TryReadLifetime(string value, out int seconds) => TryRead(value, out seconds, out _);
+
+        public static bool TryRead(string value, out int seconds, out Style style)
+        {
+            style = Style.Orb;
+            if (value != null && value.EndsWith(RiftSuffix, StringComparison.Ordinal))
+            {
+                style = Style.Rift;
+                value = value.Substring(0, value.Length - RiftSuffix.Length);
+            }
+            return TryReadSeconds(value, out seconds);
+        }
+
+        private static bool TryReadSeconds(string value, out int seconds)
+        {
+            seconds = 0;
+            if (string.IsNullOrEmpty(value) || value.Length > 6) return false;
+            for (int i = 0; i < value.Length; i++)
+            {
+                if (value[i] < '0' || value[i] > '9') return false;
+            }
+            return int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out seconds) && seconds >= 0 && seconds <= MaxSeconds;
+        }
     }
 
     /// <summary>

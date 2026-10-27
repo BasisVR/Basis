@@ -46,6 +46,7 @@ public partial class BasisHandHeldCamera
         {
             StopCoroutine(countdownRoutine);
             countdownRoutine = null;
+            if (BasisNetworkConnection.LocalPlayerIsConnected) BasisNetworkPIPCameraDriver.SendCountdown(0);
         }
         CountdownRemaining = 0;
         if (countdownText != null) countdownText.text = string.Empty;
@@ -177,7 +178,7 @@ public partial class BasisHandHeldCamera
 
         CountdownRemaining = 0;
         countdownText.text = "!";
-        yield return new WaitForSeconds(0.5f);
+        yield return new WaitForSeconds(BasisCameraCountdownRing.CaptureLead);
 
         countdownRoutine = null;
 

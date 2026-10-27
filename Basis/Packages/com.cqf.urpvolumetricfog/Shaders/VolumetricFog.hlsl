@@ -146,7 +146,8 @@ float4 VolumetricFog(float2 uv, float2 positionCS)
         return float4(0.0, 0.0, 0.0, 1.0);
 
     float invHeightRange = rcp(max(_MaximumHeight - _BaseHeight, 1e-4));
-    bool analyticOpticalDepth = _VFAnalyticOpticalDepth > 0.5;
+    bool externalVolume = ExternalVolumeActive();
+    bool analyticOpticalDepth = _VFAnalyticOpticalDepth > 0.5 && !externalVolume;
     float odA = (_MaximumHeight - (roNearPlane.y + rd.y * tEnter)) * invHeightRange;
     float odB = rd.y * invHeightRange;
 
@@ -200,6 +201,13 @@ float4 VolumetricFog(float2 uv, float2 positionCS)
         float tSample = t + ds * jitterFrac;
         float3 currPosWS = roNearPlane + rd * tSample;
         float density = GetFogDensity(currPosWS.y, invHeightRange);
+        float4 external = float4(0.0, 0.0, 0.0, 1.0);
+        UNITY_BRANCH
+        if (externalVolume)
+        {
+            external = SampleExternalVolume(currPosWS);
+            density *= external.a;
+        }
 
         UNITY_BRANCH
         if (density > minDensity)
@@ -239,7 +247,7 @@ float4 VolumetricFog(float2 uv, float2 positionCS)
 
             real3 ltcgiColor = GetStepLTCGIColor(currPosWS, -rd, density);
 
-            real3 stepColor = apvColor + mainLightColor + ltcgiColor;
+            real3 stepColor = apvColor + mainLightColor + ltcgiColor + external.rgb * (density * _VFExternalVolumeParams1.w);
             volumetricFogColor += (stepColor * (transmittance * ds));
 
             // Early-out once the medium is effectively opaque: further steps contribute ~0 and, since

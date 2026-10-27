@@ -20,6 +20,9 @@ namespace BasisPermissions
         public const string ResourceLoadAvatar = "basis.resource.load.avatar";
         public const string ResourceUnloadAvatar = "basis.resource.unload.avatar";
 
+        // Save a spawned prop or world into the server's initial resources so it comes back after a restart.
+        public const string ResourceSaveToDisk = "basis.resource.savetodisk";
+
         // Bypass the global lockouts (BasisGlobalLockManager). Users without
         // the matching bypass node are blocked from loading while the lock is on.
         public const string ResourceLockBypassAvatar = "basis.resource.lockbypass.avatar";
@@ -38,6 +41,7 @@ namespace BasisPermissions
 
         public const string ContentShareDelete = "basis.contentshare.delete";
         public const string ContentShareCreate = "basis.contentshare.create";
+        public const string ContentSharePortal = "basis.contentshare.portal";
 
         public const string StorageUse = "basis.storage.use";
 
