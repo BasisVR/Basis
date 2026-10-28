@@ -1,4 +1,4 @@
-When content loads, Basis's **content police** removes every component whose type is not on the allowlist for that kind of content. Scripts marked `[Cilboxable]` are converted to sandboxed proxies first, so they survive.
+When content loads, Basis's **content police** removes every component whose type is not on the allowlist for that kind of content. Scripts marked `[Cilboxable]` survive because they are converted to sandboxed proxies first.
 
 ## The allowlists
 
@@ -26,7 +26,7 @@ Each is a list of full type names. Matching is exact: a subclass of an allowed t
 ## Checking your content
 
 - Enter play mode: Basis applies the same policing, and removed components are logged.
-- **Basis > Tools > Cilbox Permissions** lists what each sandbox lets scripts call.
+- The **Basis > Tools > Cilbox Permissions** window lists what each sandbox lets scripts call.
 
 ## Adding a component (client builds)
 

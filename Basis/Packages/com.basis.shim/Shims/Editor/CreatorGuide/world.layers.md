@@ -17,10 +17,10 @@ Basis reserves several Unity layers. Use them as described so players, pointers 
 
 ## Choosing a layer
 
-- **Walls, floors, props:** Default.
-- **Trigger volumes and invisible blockers in front of buttons:** IgnoredByInteractable, so pointers can reach what is behind them.
-- **Decorative colliders the pointer should never hit:** Ignore Raycast.
-- **Never put your objects on** Player, LocalPlayerAvatar, RemotePlayerAvatar or OverlayUI.
+- Walls, floors, props: Default.
+- Trigger volumes and invisible blockers in front of buttons: IgnoredByInteractable. Pointers pass through to what is behind them.
+- Decorative colliders the pointer should never hit: Ignore Raycast.
+- Never put your objects on Player, LocalPlayerAvatar, RemotePlayerAvatar or OverlayUI.
 
 > [!info]
-> The layer names and numbers come from the Basis project's Tag Manager. Content is built with them, so do not rename or reorder Basis layers in your project.
+> The layer names and numbers come from the Basis project's Tag Manager. Content is built with them. Do not rename or reorder Basis layers in your project.

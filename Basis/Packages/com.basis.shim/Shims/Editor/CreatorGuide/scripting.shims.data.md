@@ -24,7 +24,7 @@ More: [Persistence example](/en/docs/scripting/examples/persistence).
 
 ## BasisServerStorageShim
 
-Data saved **on the server**, per player, so it follows the player between devices on that server. Every call is asynchronous. Keys are up to 64 bytes, values up to 64 KB; the server sets a total per player (16 KB by default).
+Data saved **on the server**, per player. It follows the player between devices on that server. Every call is asynchronous. Keys are up to 64 bytes, values up to 64 KB; the server sets a total per player (16 KB by default).
 
 ```csharp
 if (!BasisServerStorageShim.IsAvailable(this)) return;

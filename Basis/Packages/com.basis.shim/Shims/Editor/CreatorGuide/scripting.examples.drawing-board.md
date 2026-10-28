@@ -70,4 +70,4 @@ public class DrawingBoard : MonoBehaviour
 
 - Live points are 12 bytes each; the whole drawing for a late joiner is one compressed message.
 - A compressed snapshot is told apart from a single point by its length. A real board would add a message type byte.
-- The last player to draw owns the board, so exactly one player answers late joiners.
+- The last player to draw owns the board and is the one who answers late joiners.

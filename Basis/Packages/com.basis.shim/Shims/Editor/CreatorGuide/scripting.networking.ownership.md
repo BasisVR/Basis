@@ -1,6 +1,6 @@
 Every networked object has at most one **owner**. The owner is the player whose copy is the truth: they write synced variables, they simulate the physics, and their version is what late joiners receive. Everyone else follows.
 
-The server decides ownership, so two players can never both own an object.
+The server decides ownership and two players can never both own an object.
 
 ## Reading ownership
 

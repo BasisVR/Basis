@@ -1,7 +1,7 @@
-Every event shim works the same way: call `GetComponent<T>()` once in `Start` (Cilbox adds it for you), then declare a method with the shim's callback name. Basis calls it directly, so there is nothing to subscribe to or unsubscribe from.
+Every event shim works the same way: call `GetComponent<T>()` once in `Start` (Cilbox adds it for you), then declare a method with the shim's callback name. Basis calls it directly. There is nothing to subscribe to or unsubscribe from.
 
 > [!info]
-> Most event shims call you once straight after you opt in, with the current value, so you do not need separate start up code.
+> Most event shims call you once straight after you opt in, with the current value. You do not need separate start up code.
 
 ## BasisPlatformEventShim
 

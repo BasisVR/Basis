@@ -23,6 +23,6 @@ public class StaffDoor : MonoBehaviour
 }
 ```
 
-- The door is turned off for staff on their own client. Nobody else is affected, so nothing is networked.
+- The door is turned off for staff on their own client. Nobody else is affected and nothing is networked.
 - To show a badge over *other* staff, ask with `BasisPermissionsShim.IsModerator(player, callback)`; it is a round trip to the server.
 - Client side checks keep honest players out. Do not rely on them for anything a modified client must not reach.

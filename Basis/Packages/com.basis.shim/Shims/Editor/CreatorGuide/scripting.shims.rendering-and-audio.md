@@ -16,7 +16,7 @@ string[] readable = BasisGraphicsSettingsShim.ReadableKeys;
 
 ## BasisStatsShim
 
-What the player's own performance overlay shows. Measured only while a script keeps reading, so poll it.
+What the player's own performance overlay shows. Basis only measures while a script keeps reading. Poll it.
 
 ```csharp
 float fps = BasisStatsShim.FramesPerSecond;

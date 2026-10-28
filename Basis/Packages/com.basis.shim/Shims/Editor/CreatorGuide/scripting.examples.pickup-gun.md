@@ -78,9 +78,9 @@ public class PickupGun : MonoBehaviour
 
 ## How it works
 
-- **Basis Pickup Sync Networking** takes ownership when grabbed and streams the gun's pose, so everyone sees it in the holder's hand. No code needed for that part.
-- **The shot is an event**, not state. Nobody who joins later needs to know a shot happened, so there is no late joiner handling.
-- **Only the shooter raycasts.** Hit results that matter for gameplay (damage, score) should be decided by the shooter and sent as their own event, or routed to an owner like in the [Scoreboard](/en/docs/scripting/examples/scoreboard).
+- **Basis Pickup Sync Networking** takes ownership when the gun is grabbed and streams its pose. Everyone sees it in the holder's hand without any code.
+- The shot is an event, not state. Nobody who joins later needs to know a shot happened, and there is no late joiner code.
+- Only the shooter raycasts. Hit results that matter for gameplay (damage, score) should be decided by the shooter and sent as their own event, or routed to an owner like in the [Scoreboard](/en/docs/scripting/examples/scoreboard).
 
 > [!info]
 > Set **CanNetworkSteal** off on the sync component if other players should not be able to pull the gun out of someone's hand.

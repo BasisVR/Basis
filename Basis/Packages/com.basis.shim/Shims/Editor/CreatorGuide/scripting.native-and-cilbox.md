@@ -2,7 +2,7 @@ Basis runs code in two ways. Which one you use depends on **where the script liv
 
 ## Native: compiled into the application
 
-A native script is an ordinary Unity `MonoBehaviour` that is built into the Basis client (or your own app built on the Basis framework). It is compiled with the application, so it ships with the next client build, not with a world or prop.
+A native script is an ordinary Unity `MonoBehaviour` that is built into the Basis client (or your own app built on the Basis framework). It is compiled with the application and ships with the next client build, not with a world or prop.
 
 - Full C# and the full Unity and Basis API.
 - Full native speed.
@@ -16,7 +16,7 @@ Use native scripts when you are **building an application or game on Basis**: yo
 A Cilbox script is a `MonoBehaviour` marked `[Cilboxable]` that ships **inside** a world, prop or avatar `.bee` file. When the content loads, Basis runs it in the Cilbox interpreter, inside a sandbox for that kind of content (Scene, Prop or Avatar).
 
 - Works on any Basis client that loads the content. No client build needed.
-- Sandboxed: only whitelisted types and methods can be called, so content cannot harm the player's machine.
+- Sandboxed. Only whitelisted types and methods can be called, which keeps content from harming the player's machine.
 - Slower than native, because the code is interpreted.
 - Uses shims instead of base classes, for example `BasisNetworkShim` instead of deriving from `BasisNetworkBehaviour`.
 
@@ -75,8 +75,8 @@ public class Door : MonoBehaviour
 
 ## Shipping each one
 
-- **Native:** add the script to your Unity project and build the client. If a native component is placed inside a world or prop bundle, also add its type to the matching content police selector, or it is removed when the content loads (see [Allowed Components](/en/docs/scripting/allowed-components)).
-- **Cilbox:** add a **Cilbox Scene Basis** (world) or **Cilbox Prop Basis** (prop) to your content, mark scripts `[Cilboxable]`, and build the `.bee` as usual. See [Basics](/en/docs/scripting/examples/basics).
+- Native: add the script to your Unity project and build the client. If a native component is placed inside a world or prop bundle, also add its type to the matching content police selector, or it is removed when the content loads (see [Allowed Components](/en/docs/scripting/allowed-components)).
+- Cilbox: add a **Cilbox Scene Basis** (world) or **Cilbox Prop Basis** (prop) to your content, mark scripts `[Cilboxable]`, and build the `.bee` as usual. See [Basics](/en/docs/scripting/examples/basics).
 
 > [!info]
 > Examples across these docs are labelled **Native** or **Cilbox**. Most Cilbox examples also compile as native scripts; native examples usually need changes to run in Cilbox. The rules to watch for are in [Sandbox Rules](/en/docs/scripting/sandbox-rules).

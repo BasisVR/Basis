@@ -1,4 +1,4 @@
-`BasisSaveShim` saves on the player's machine. `BasisServerStorageShim` saves on the **server**, per player, so a best time set on PC is still there when they visit from Quest.
+`BasisSaveShim` saves on the player's machine. `BasisServerStorageShim` saves on the **server**, per player. A best time set on PC is still there when they visit from Quest.
 
 ```csharp title="ServerBestTime.cs (Cilbox)"
 using Basis.Shims;

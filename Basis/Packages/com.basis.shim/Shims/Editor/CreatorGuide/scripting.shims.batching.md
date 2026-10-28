@@ -1,7 +1,7 @@
 Every call from a Cilbox script into Unity is expensive, often far more than the work it does. These shims take whole arrays across the boundary in one call and run the loop natively.
 
 > [!info]
-> Rule of thumb: if a loop in `Update` touches more than a handful of transforms or blendshapes, batch it.
+> If a loop in `Update` touches more than a handful of transforms or blendshapes, batch it.
 
 ## BasisTransformBatchShim
 
@@ -61,7 +61,7 @@ follow.BindMeshes(new[] { face }, new[] { mask }, this);
 
 ## BasisVectorArrayShim
 
-Splits vectors into float arrays and joins them back, so maths can run on plain floats, which is much cheaper in the interpreter.
+Splits vectors into float arrays and joins them back. Maths on plain floats is much cheaper in the interpreter.
 
 ```csharp
 BasisVectorArrayShim.Split(positions, xs, ys, zs);

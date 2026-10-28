@@ -167,7 +167,7 @@
         {
           "id": "scripting/examples/day-night-cycle",
           "title": "Day Night Cycle",
-          "description": "A sun that moves on the server clock, so every player sees the same time of day with no networking code.",
+          "description": "A sun driven by the server clock. Every player sees the same time of day and there is no networking code.",
           "file": "scripting.examples.day-night-cycle.md"
         },
         {
@@ -185,7 +185,7 @@
         {
           "id": "scripting/examples/server-best-time",
           "title": "Server Best Time",
-          "description": "Saving each player's best lap on the server with BasisServerStorageShim, so it follows them across devices.",
+          "description": "Saving each player's best lap on the server with BasisServerStorageShim, where it follows them across devices.",
           "file": "scripting.examples.server-best-time.md"
         },
         {

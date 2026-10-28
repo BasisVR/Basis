@@ -32,4 +32,4 @@ public class Blaster : MonoBehaviour
 ```
 
 - For a held item, prefer **Basis Pickup Interactable** and `OnPickupUse` ([Pickup Gun](/en/docs/scripting/examples/pickup-gun)), which works the same on every platform.
-- Controller input reads as released while the menu is open, so players do not fire while clicking menu buttons.
+- Controller input reads as released while the menu is open. Clicking menu buttons will not fire the blaster.

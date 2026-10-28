@@ -71,7 +71,7 @@ public class Scoreboard : MonoBehaviour
 }
 ```
 
-`BasisSyncedParameters` already receives network messages for its own stream, so route requests to the scoreboard with a small subclass:
+`BasisSyncedParameters` already receives network messages for its own stream. Route requests to the scoreboard with a small subclass:
 
 ```csharp title="ScoreboardParameters.cs (Native)"
 using Basis.Network.Core;
@@ -97,10 +97,10 @@ Use **ScoreboardParameters** in place of **Basis Synced Parameters** in the setu
 
 ## How it works
 
-- **Only the owner writes** the score, so simultaneous presses are applied one after another on the owner.
-- **Everyone else sends a request** to `CurrentOwnerId` instead of taking ownership. Taking ownership would let two players each add 1 to the same old value.
-- **Late joiners** need nothing extra: synced parameters send a keyframe to new players.
-- **If the owner leaves**, ownership moves to the longest connected player, who already has the current score.
+- Only the owner writes the score. Simultaneous presses are applied one after another on the owner.
+- Everyone else sends a request to `CurrentOwnerId` instead of taking ownership. Taking ownership would let two players each add 1 to the same old value.
+- Late joiners need nothing extra. Synced parameters send new players a keyframe.
+- If the owner leaves, ownership moves to the longest connected player, who already has the current score.
 
 > [!info]
-> Requests are one byte; sync packets are larger, so checking the length is enough to tell them apart here. For more message types, prefix your own messages with a marker byte the sync stream never starts with, or put the request handling on a separate `BasisNetworkBehaviour`.
+> Requests are one byte and sync packets are always larger, which is why checking the length is enough here. For more message types, prefix your own messages with a marker byte the sync stream never starts with, or put the request handling on a separate `BasisNetworkBehaviour`.

@@ -49,4 +49,4 @@ public class SwivelChair : MonoBehaviour
 | `EjectLocalPlayer()` | Stands the local player up. |
 
 > [!info]
-> Seats only move the local player, so the script needs no networking of its own. **Basis Seat Sync** handles who is sitting.
+> Seats only move the local player and the script needs no networking of its own. **Basis Seat Sync** handles who is sitting.

@@ -1,7 +1,7 @@
-This page collects the things almost every world or prop script needs. Each section shows the call you write and the rule that usually trips people up. Networking has its own guide: see [Networking](/en/docs/scripting/networking).
+Players, input, UI, timers, downloads, saving and menus, with the call you write for each and the rule that usually trips people up. Networking is covered in [Networking](/en/docs/scripting/networking).
 
 > [!info]
-> Examples marked **Cilbox** run inside the sandbox, so they also work in content uploaded as a `.bee` file. Examples marked **Native** use the full Unity and Basis API and only work in code compiled into the client. Most Cilbox examples also compile natively.
+> Examples marked **Cilbox** run inside the sandbox and work in content uploaded as a `.bee` file. Examples marked **Native** use the full Unity and Basis API and only work in code compiled into the client. Most Cilbox examples also compile natively.
 
 ## Writing a script
 
@@ -31,7 +31,7 @@ The proxy forwards these Unity messages to a Cilbox script:
 | --- | --- |
 | `Awake`, `Start` | Do one time setup in `Start`. |
 | `Update`, `FixedUpdate` | There is no `LateUpdate`. |
-| `OnEnable`, `OnDisable` | The **first** `OnEnable` never arrives, so never subscribe there. |
+| `OnEnable`, `OnDisable` | The **first** `OnEnable` never arrives. Do not subscribe there. |
 | `OnDestroy` | Unsubscribe and clean up here. |
 | `OnTriggerEnter/Stay/Exit`, `OnCollisionEnter/Stay/Exit` | Need a collider, and a Rigidbody on one side. |
 
@@ -63,7 +63,7 @@ local.SetJumpHeight(1.2f);
 local.Immobilize(true);
 ```
 
-For a zone that changes movement only while the player is inside, use overrides under your own key. Clearing the key restores whatever was underneath, so two zones never fight over the original value.
+For a zone that changes movement only while the player is inside, use overrides under your own key. Clearing the key restores whatever was underneath, and two zones never fight over the original value.
 
 ```csharp title="Cilbox"
 // Mode: 0 = Walk, 1 = Fly, 2 = NoClip.
@@ -74,7 +74,7 @@ local.ClearLocomotionOverride("LowGravityZone");
 ```
 
 > [!info]
-> In client builds, the **Basis Locomotion Zone** component (com.basis.examples) does this without code. It is not on the default content allowlists, so uploaded worlds use the overrides above instead.
+> In client builds, the **Basis Locomotion Zone** component (com.basis.examples) does this without code. It is not on the default content allowlists. Uploaded worlds use the overrides above instead.
 
 ### Everyone in the instance
 
@@ -389,4 +389,4 @@ if (BasisStatsShim.Bottleneck == BasisStatsShim.BottleneckGpu) mirror.SetActive(
 `Debug.Log` works as written; Basis tags each message with the content it came from. In the editor, **Basis > Tools > Cilbox Permissions** shows what each sandbox allows, and its **Script Check** tab scans your scripts for calls that will be blocked. The **Basis > Creator Guide** window has this guide and the full Cilbox API reference offline.
 
 > [!warn]
-> Blocked calls do not throw at build time. A call outside the whitelist fails when it runs, so scan scripts before uploading.
+> Blocked calls do not throw at build time. A call outside the whitelist only fails when it runs. Scan scripts before uploading.

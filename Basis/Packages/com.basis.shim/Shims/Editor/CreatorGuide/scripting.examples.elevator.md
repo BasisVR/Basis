@@ -1,4 +1,4 @@
-Streaming the platform's position costs bandwidth every frame. An elevator only ever moves toward a floor, so sync the **target floor** and let every client move the platform itself.
+Streaming the platform's position costs bandwidth every frame. An elevator only ever moves toward a floor. Sync the **target floor** and let every client move the platform itself.
 
 ## Setup
 
@@ -66,6 +66,6 @@ public class Elevator : MonoBehaviour
 }
 ```
 
-- Every client runs the same motion, so riders see a smooth platform with no position stream.
+- Every client runs the same motion. Riders see a smooth platform without a position stream.
 - A late joiner gets the target floor and the current height in one 5 byte message.
 - Note the `new Vector3(...)`: changing `p.y` directly would also change the value it was copied from in Cilbox (see [Sandbox Rules](/en/docs/scripting/sandbox-rules)).

@@ -83,10 +83,10 @@ public class CourseProgress : MonoBehaviour
 
 ## Rules
 
-- **The player decides.** Until they allow saving for your content, `Save` returns false and `Load` returns null. Your script keeps running, so always handle a missing save.
-- **Version your data.** Write a version byte first and refuse data you do not understand. Players keep old saves when you update your world.
-- **Validate on load.** Clamp indices; never trust saved values to still match your scene.
-- **Limits:** 256 KB per slot, 32 slots and 1 MB per store, 8 writes a second. Save on meaningful events, not every frame.
+- The player decides. Until they allow saving for your content, `Save` returns false and `Load` returns null. Your script keeps running either way. Always handle a missing save.
+- Version your data. Write a version byte first and refuse data you do not understand. Players keep old saves when you update your world.
+- Validate on load. Clamp indices; never trust saved values to still match your scene.
+- Limits: 256 KB per slot, 32 slots and 1 MB per store, 8 writes a second. Save on meaningful events, not every frame.
 
 ## Sharing between content
 

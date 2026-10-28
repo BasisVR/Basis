@@ -53,8 +53,8 @@ void Update()
 
 ## Syncing avatar state
 
-- **Custom values:** get a `BasisNetworkShim` and send [network events](/en/docs/scripting/networking/network-events#cilbox) from the wearer, then apply them on every client.
-- **Moving parts:** `BasisSyncedTransform` is allowed on avatars.
+- Custom values: get a `BasisNetworkShim` and send [network events](/en/docs/scripting/networking/network-events#cilbox) from the wearer, then apply them on every client.
+- Moving parts: `BasisSyncedTransform` is allowed on avatars.
 
 ## Settings tab on an avatar
 

@@ -2,11 +2,11 @@ Cilbox interprets your script's compiled code inside a sandbox. Most C# works, b
 
 ## Lifecycle
 
-- **No `LateUpdate`, `OnGUI`, `OnAnimatorIK`, `OnParticleCollision` or coroutines.** Use `Update` and [delayed events](/en/docs/scripting/common-usages#timers-and-delayed-events).
-- **The first `OnEnable` is dropped.** Set up in `Start`, tear down in `OnDestroy`.
-- **Do not derive from `BasisNetworkBehaviour`.** The proxy that replaces your script is not one. Use `BasisNetworkShim` (see [Network Events](/en/docs/scripting/networking/network-events#cilbox)).
+- No `LateUpdate`, `OnGUI`, `OnAnimatorIK`, `OnParticleCollision` or coroutines. Use `Update` and [delayed events](/en/docs/scripting/common-usages#timers-and-delayed-events).
+- The first `OnEnable` is dropped. Set up in `Start`, tear down in `OnDestroy`.
+- Do not derive from `BasisNetworkBehaviour`. The proxy that replaces your script is not one. Use `BasisNetworkShim` (see [Network Events](/en/docs/scripting/networking/network-events#cilbox)).
 
-## Structs are shared, not copied
+## Structs share their value
 
 Copying a Unity struct (`Vector3`, `Quaternion`, `Color`) into a variable shares the same value. Changing a field on the copy changes the original.
 
@@ -25,16 +25,16 @@ Vector3 p = new Vector3(target.x, 0f, target.z);
 
 ## Calls and permissions
 
-- **A whitelisted type allows all its public methods** unless that type also has a method restriction. **Fields are denied** unless listed.
-- **Parameter, generic and return types are checked too.** A call can pass the name check and still be refused because of one of its types.
-- **`this.GetComponent` always works.** `gameObject.GetComponent` is restricted, and the prop sandbox does not allow walking the hierarchy with it.
-- **`AddComponent`, `SendMessage` and `BroadcastMessage` are always blocked.** Cilbox adds a `BasisNetworkShim` and the event shims for you on `GetComponent`.
-- **`Debug.DrawLine` and `Debug.DrawRay` do not exist** in the sandbox's `Debug`, and referencing them stops every script in the content from loading.
-- **Constants are free.** A `const` needs no whitelist entry.
+- A whitelisted type allows all its public methods unless that type also has a method restriction. Fields are denied unless listed.
+- Parameter, generic and return types are checked too. A call can pass the name check and still be refused because of one of its types.
+- `this.GetComponent` always works. `gameObject.GetComponent` is restricted, and the prop sandbox does not allow walking the hierarchy with it.
+- `AddComponent`, `SendMessage` and `BroadcastMessage` are always blocked. Cilbox adds a `BasisNetworkShim` and the event shims for you on `GetComponent`.
+- `Debug.DrawLine` and `Debug.DrawRay` do not exist in the sandbox's `Debug`, and referencing them stops every script in the content from loading.
+- Constants are free. A `const` needs no whitelist entry.
 
 ## Events and delegates
 
-Each time you use a method as a delegate it becomes a new wrapper, so `-=` may not remove the one you added. For publishers that outlive your script, poll a value in `Update` instead of subscribing.
+Each time you use a method as a delegate it becomes a new wrapper, and `-=` may not remove the one you added. For publishers that outlive your script, poll a value in `Update` instead of subscribing.
 
 ## Content police
 
@@ -55,13 +55,13 @@ Interpreted code is much slower than native code. Rough costs on a desktop PC:
 | A `Vector3` operator (`a + b`) | ~1.7 µs, plus garbage |
 | A Unity call such as `Mathf.Sqrt` | ~0.9 µs |
 
-So:
+To keep scripts cheap:
 
-- **Do work on events, not every frame.** Check timers, distances and UI a few times a second.
-- **Prefer floats over `Vector3` math in loops.** Vector math in a hot loop is about 100x slower than the same math on separate floats.
-- **Let components do the heavy lifting.** Animators, particle systems, physics and constraints run natively.
-- **Pool objects** instead of calling `Instantiate` every shot.
-- **Batch transform work.** `BasisTransformSyncShim` reads, writes or copies whole arrays of transforms in one call, and `BasisBlendShapeSyncShim` does the same for blendshapes.
+- Do work on events, not every frame. Check timers, distances and UI a few times a second.
+- Prefer floats over `Vector3` math in loops. Vector math in a hot loop is about 100x slower than the same math on separate floats.
+- Let components do the heavy lifting. Animators, particle systems, physics and constraints run natively.
+- Pool objects instead of calling `Instantiate` every shot.
+- Batch transform work. `BasisTransformSyncShim` reads, writes or copies whole arrays of transforms in one call, and `BasisBlendShapeSyncShim` does the same for blendshapes.
 
 > [!info]
 > **Basis > Tools > Cilbox Permissions** shows each sandbox's whitelist, and its **Script Check** tab scans your scripts for blocked calls before you upload.

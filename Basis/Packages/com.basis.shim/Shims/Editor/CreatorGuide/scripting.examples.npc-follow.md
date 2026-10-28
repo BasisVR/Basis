@@ -85,10 +85,10 @@ public class NpcFollow : MonoBehaviour
 
 ## How it works
 
-- **One simulation.** Only the owner runs the agent; everyone else disables it and eases toward the received position. Two clients pathing the same NPC would fight.
-- **`Sequenced` delivery** drops late packets, so an old position never overrides a newer one. Ten updates a second is plenty with smoothing.
-- **No late joiner code.** The next update arrives within 0.1 seconds.
-- **Owner changes are free.** If the owner leaves, the new owner enables its agent at the last position it received.
+- One simulation. Only the owner runs the agent; everyone else disables it and eases toward the received position. Two clients pathing the same NPC would fight.
+- `Sequenced` delivery drops late packets. An old position never overrides a newer one. Ten updates a second is plenty with smoothing.
+- No late joiner code. The next update arrives within 0.1 seconds.
+- Owner changes are free. If the owner leaves, the new owner enables its agent at the last position it received.
 
 > [!info]
 > Check whether `Buffer` and `BitConverter` are allowed in your sandbox in **Basis > Tools > Cilbox Permissions**; `BinaryWriter` (see [Network Events](/en/docs/scripting/networking/network-events#packing-a-payload)) works too.

@@ -60,13 +60,13 @@ BasisMenuPage rules = game.AddTab("Rules");
 rules.AddLabel("Hit every target before the timer runs out.");
 ```
 
-`game.Open()` only works within 5 seconds of the player pressing something in your content, so content cannot pop menus open on its own.
+`game.Open()` only works within 5 seconds of the player pressing something in your content. Content cannot pop menus open on its own.
 
 ## Rules
 
-- **Who may add a tab:** worlds, props the local player spawned, and the local player's own avatar. `null` means refused; check it.
-- **Options are local.** Each player sets their own. Sync a choice only if it should change the world for everyone.
-- **Remember choices** with [BasisSaveShim](/en/docs/scripting/examples/persistence) if they should survive the next visit.
+- Who may add a tab: worlds, props the local player spawned, and the local player's own avatar. `null` means refused; check it.
+- Options are local. Each player sets their own. Sync a choice only if it should change the world for everyone.
+- Remember choices with [BasisSaveShim](/en/docs/scripting/examples/persistence) if they should survive the next visit.
 
 > [!info]
-> On an avatar, add the tab from `BasisAvatarShim.OnAvatarReady` when `isOwner` is true, so only the wearer gets it.
+> On an avatar, add the tab from `BasisAvatarShim.OnAvatarReady` when `isOwner` is true. Only the wearer gets it.

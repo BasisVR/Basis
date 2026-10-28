@@ -33,11 +33,11 @@ public class LocalPlayerZone : MonoBehaviour
 ```
 
 > [!info]
-> For movement changes inside an area (low gravity, flying, faster walking) use the **Basis Locomotion Zone** component from com.basis.examples. It needs no code.
+> For movement changes inside an area (low gravity, flying, faster walking), use the locomotion overrides on `BasisLocalPlayer` from [Common Usages](/en/docs/scripting/common-usages). In client builds, the **Basis Locomotion Zone** component does the same without code.
 
 ## Teleporter
 
-Add to a pad or a button. Teleport only affects the local player, so this needs no networking: every player teleports themselves.
+Add to a pad or a button. Teleport only affects the local player. Every player teleports themselves and nothing is networked.
 
 ```csharp title="Teleporter.cs (Cilbox)"
 using Basis.Scripts.BasisSdk.Players;
@@ -99,7 +99,7 @@ public class Trampoline : MonoBehaviour
 
 ## Lobby count
 
-Show how many players are standing in a lobby area. Every client counts for itself from player positions, so no messages are needed.
+Show how many players are standing in a lobby area. Every client counts for itself from player positions and no messages are sent.
 
 ```csharp title="LobbyCounter.cs (Cilbox)"
 using Basis.Scripts.BasisSdk.Players;

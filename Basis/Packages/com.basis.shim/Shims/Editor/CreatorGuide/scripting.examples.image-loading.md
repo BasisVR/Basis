@@ -47,9 +47,9 @@ public class RemoteImage : MonoBehaviour
 
 ## Rules
 
-- **https only.** Plain http, raw IP addresses and anything resolving to a local network address are refused before a request is made.
-- **No redirects.** Host the image at its final address.
-- **Players approve hosts.** The first time content asks for a new host, the player is prompted. Until they accept, the download fails and your placeholder stays.
+- https only. Plain http, raw IP addresses and anything resolving to a local network address are refused before a request is made.
+- No redirects. Host the image at its final address.
+- Players approve hosts. The first time content asks for a new host, the player is prompted. Until they accept, the download fails and your placeholder stays.
 - Every player downloads the image themselves; there is nothing to sync. To make everyone show the same changing image, sync the **URL index** (see [Synced Toggle](/en/docs/scripting/examples/synced-toggle) for the pattern) and load locally.
 
 > [!info]

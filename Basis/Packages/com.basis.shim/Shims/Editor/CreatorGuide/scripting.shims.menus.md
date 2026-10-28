@@ -1,4 +1,4 @@
-`BasisMenuShim` adds UI to the player's own menu. Both calls return null when refused, so always check.
+`BasisMenuShim` adds UI to the player's own menu. Both calls return null when refused. Always check.
 
 | Call | Adds |
 | --- | --- |
@@ -46,7 +46,7 @@ Pages: `SetTitle`, `SetVisible`, `Clear`, `Remove`, `AddTab` (panels), `IsOpen`,
 
 ## Opening a panel
 
-`Open()` only works within 5 seconds of the player pressing something in your content, so content cannot pop menus open by itself.
+`Open()` only works within 5 seconds of the player pressing something in your content, and content cannot pop menus open by itself.
 
 ```csharp
 BasisMenuPage arcade;

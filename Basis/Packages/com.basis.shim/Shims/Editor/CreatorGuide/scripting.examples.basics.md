@@ -25,7 +25,7 @@ public class Spinner : MonoBehaviour
 }
 ```
 
-Public fields and `[SerializeField]` fields are saved with the content, so you can set them in the inspector.
+Public fields and `[SerializeField]` fields are saved with the content and can be set in the inspector.
 
 ## A button that changes text
 
@@ -68,4 +68,4 @@ This counter is local: every player has their own count. The [Synced Toggle](/en
 
 ## Testing
 
-Enter play mode in your scene. Basis swaps each `[Cilboxable]` script for a `CilboxProxy`, so you are testing exactly what runs after upload. Then build the content and load it in the client as described in [Building](/en/docs/world/building).
+Enter play mode in your scene. Basis swaps each `[Cilboxable]` script for a `CilboxProxy`, the same as after upload. Then build the content and load it in the client as described in [Building](/en/docs/world/building).

@@ -9,7 +9,7 @@ A synced variable is a value the **owner** writes and every other player reads. 
 | A moving object | [`BasisSyncedTransform`, `BasisSyncedRigidbody` or `BasisPickupSyncNetworking`](/en/docs/scripting/networking/network-components). |
 
 > [!warn]
-> `BasisSyncedParameters` and your own `BasisSyncedObject` subclasses are not on the default allowlists for uploaded content, so they are stripped from a `.bee` unless the type is added to the content police selectors. In uploaded Cilbox content, sync values with [network events](/en/docs/scripting/networking/network-events#cilbox) and moving objects with **Basis Synced Transform**.
+> `BasisSyncedParameters` and your own `BasisSyncedObject` subclasses are not on the default allowlists for uploaded content. They are stripped from a `.bee` unless the type is added to the content police selectors. In uploaded Cilbox content, sync values with [network events](/en/docs/scripting/networking/network-events#cilbox) and moving objects with **Basis Synced Transform**.
 
 ## BasisSyncedParameters: no serialization code
 
@@ -45,8 +45,8 @@ public class Lever : MonoBehaviour
 }
 ```
 
-- **Writes only count on the owner.** Take ownership before writing (see [Ownership](/en/docs/scripting/networking/ownership)).
-- **Reads work everywhere.** On the owner you get the value you wrote; on everyone else you get the interpolated network value.
+- Writes only count on the owner. Take ownership before writing (see [Ownership](/en/docs/scripting/networking/ownership)).
+- Reads work everywhere. On the owner you get the value you wrote; on everyone else you get the interpolated network value.
 - Resolve the name to an id once with `GetParameterId` and use the id overloads in `Update` to skip the name lookup.
 
 There are no change callbacks. Read the value in `Update` and react when it differs from what you last saw:
@@ -104,9 +104,9 @@ public class Turret : BasisSyncedObject
 ```
 
 > [!warn]
-> Register every field in `Awake`, before the object becomes network ready. The field layout is the wire format, so every client must register the same fields in the same order.
+> Register every field in `Awake`, before the object becomes network ready. The field layout is the wire format. Every client must register the same fields in the same order.
 
-`OnBeforeTransmit` runs only on the frames a packet is actually due, not every frame, so keep it a pure copy of your values.
+`OnBeforeTransmit` runs only on the frames a packet is due, not every frame. Keep it a plain copy of your values.
 
 To drive a transform directly from registered fields, call `BindTransform(target, position, rotation, scale, worldSpace)`; the driver then applies interpolated values in a job without your `Update` running.
 
@@ -139,5 +139,5 @@ In `BasisSyncedParameters` the same choice is the **Compression** setting on eac
 
 A Cilbox script cannot derive from `BasisSyncedObject`. In uploaded content:
 
-- **Moving objects:** add a **Basis Synced Transform** or **Basis Pickup Sync Networking** component. No script needed.
-- **Values:** keep them on the owner and send them as [network events](/en/docs/scripting/networking/network-events#cilbox), re-sending to [late joiners](/en/docs/scripting/networking/late-joiners). The [Synced Toggle](/en/docs/scripting/examples/synced-toggle) example is the template.
+- Moving objects: add a **Basis Synced Transform** or **Basis Pickup Sync Networking** component. No script needed.
+- Values: keep them on the owner and send them as [network events](/en/docs/scripting/networking/network-events#cilbox), re-sending to [late joiners](/en/docs/scripting/networking/late-joiners). The [Synced Toggle](/en/docs/scripting/examples/synced-toggle) example is the template.

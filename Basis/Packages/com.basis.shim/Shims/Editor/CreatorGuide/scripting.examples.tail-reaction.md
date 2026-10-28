@@ -31,5 +31,5 @@ public class TailReaction : MonoBehaviour
 }
 ```
 
-- Every client that renders the avatar sees the grab, so the reaction plays for everyone with no networking.
-- Detection only runs while a script has opted in, so avatars without it cost nothing.
+- Every client that renders the avatar sees the grab. The reaction plays for everyone without networking.
+- Detection only runs while a script has opted in. Avatars without it cost nothing.

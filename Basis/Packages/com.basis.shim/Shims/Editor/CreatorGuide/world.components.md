@@ -34,7 +34,7 @@ See [Network Components](/en/docs/scripting/networking/network-components).
 | Component | What it does |
 | --- | --- |
 | **Basis Media Player** | Synced video and stream playback. See [Media Player](/en/docs/world/media-player). |
-| **Basis SDK Mirror** | A mirror. Set the render texture size, far clip and whether post processing renders in the reflection. Mirrors render the scene again, so keep them small and off by default. |
+| **Basis SDK Mirror** | A mirror. Set the render texture size, far clip and whether post processing renders in the reflection. Mirrors render the scene again. Keep them small and off by default. |
 | **TextMesh Pro** | Text on signs and UI. Supported in worlds and in Cilbox scripts. |
 | **Canvas** | World space UI that works with the Basis pointer. See [UI Canvas](/en/docs/world/ui-canvas). |
 

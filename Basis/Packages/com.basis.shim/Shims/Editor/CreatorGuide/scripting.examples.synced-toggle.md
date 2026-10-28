@@ -78,9 +78,9 @@ public class SyncedToggle : MonoBehaviour
 
 ## How it works
 
-- **Pressing** takes ownership, flips the value locally so the presser sees it instantly, and sends the new value to everyone else.
-- **`ReliableSequenced`** guarantees the latest value arrives and drops older ones, which is exactly right for a toggle.
-- **A joining player** gets the current value from the owner only. Because the message is the whole state, the same `OnMessage` handles both live changes and catch up.
+- Pressing takes ownership, flips the value locally so the presser sees it instantly, and sends the new value to everyone else.
+- `ReliableSequenced` guarantees the latest value arrives and drops older ones. A toggle only cares about the latest value.
+- A joining player gets the current value from the owner only. Because the message is the whole state, the same `OnMessage` handles both live changes and catch up.
 
 > [!info]
 > Native version: derive from `BasisNetworkBehaviour`, replace the shim events with `OnNetworkMessage` and `OnPlayerJoined` overrides, and call `TakeOwnership()` and `SendCustomNetworkEvent` directly.

@@ -1,4 +1,4 @@
-Everything a script does runs on one player's machine. If a player opens a door, nobody else sees it until you tell the network. This guide covers the tools Basis gives you for that and when to use each one.
+Everything a script does runs on one player's machine. If a player opens a door, nobody else sees it until you tell the network.
 
 For how the transport itself works (server relay, delivery methods, distance based update rates), see [Network Syncing](/en/docs/technical/network-syncing).
 
@@ -12,14 +12,14 @@ For how the transport itself works (server relay, delivery methods, distance bas
 | **Late joiners** | Players who arrive after things changed. | Making sure they see the current state, not the scene defaults. |
 
 > [!info]
-> Rule of thumb: if a player who joins five minutes later needs to see it, it is **state** and belongs in a synced variable (or must be re-sent to them). If it only matters at the moment it happens, it is an **event**.
+> If a player who joins five minutes later needs to see it, it is **state** and belongs in a synced variable (or must be re-sent to them). If it only matters at the moment it happens, it is an **event**.
 
 ## The building blocks
 
-- **`BasisNetworkBehaviour`** is the base class for networked scripts compiled into the client. It gets a network ID, an owner, and the callbacks `OnNetworkReady`, `OnNetworkMessage`, `OnOwnershipTransfer`, `OnPlayerJoined` and `OnPlayerLeft`.
-- **`BasisNetworkShim`** is the same thing for Cilbox scripts. A Cilbox script cannot derive from `BasisNetworkBehaviour`, so it gets a `BasisNetworkShim` with `GetComponent` and subscribes to its events.
-- **`BasisSyncedObject`** builds on `BasisNetworkBehaviour` with a compact, interpolated state stream. **`BasisSyncedParameters`**, **`BasisSyncedTransform`** and **`BasisSyncedRigidbody`** are ready made components on top of it.
-- **`BasisPickupSyncNetworking`** and **`BasisSeatSync`** sync pickups and seats with no code.
+- `BasisNetworkBehaviour` is the base class for networked scripts compiled into the client. It gets a network ID, an owner, and the callbacks `OnNetworkReady`, `OnNetworkMessage`, `OnOwnershipTransfer`, `OnPlayerJoined` and `OnPlayerLeft`.
+- `BasisNetworkShim` is the same thing for Cilbox scripts. A Cilbox script cannot derive from `BasisNetworkBehaviour`; it gets a `BasisNetworkShim` with `GetComponent` and subscribes to its events instead.
+- `BasisSyncedObject` builds on `BasisNetworkBehaviour` with a compact, interpolated state stream. `BasisSyncedParameters`, `BasisSyncedTransform` and `BasisSyncedRigidbody` are ready made components on top of it.
+- `BasisPickupSyncNetworking` and `BasisSeatSync` sync pickups and seats with no code.
 
 ## A networked script, start to finish
 
@@ -67,7 +67,7 @@ Native scripts like this one work in client builds. In uploaded content, write t
 
 What it shows:
 
-1. The player who presses the button **takes ownership**, so there is one source of truth.
+1. The player who presses the button takes ownership and becomes the one source of truth.
 2. The new value is **sent as an event** to everyone else (`Recipients = null` means everyone but you).
 3. When someone joins, **only the owner** sends them the current value.
 

@@ -16,7 +16,7 @@ A `.bee` (Basis Encrypted Experience) file is the single file every world, prop 
 └──────────────────────────────┘
 ```
 
-Sections follow the connector back to back, in the order the connector lists them. Each section's length is stored in the connector, so a reader can compute where every section starts without scanning the file.
+Sections follow the connector back to back, in the order the connector lists them. The connector stores each section's length, which is enough to work out where every section starts without scanning the file.
 
 ## The connector
 
@@ -30,7 +30,7 @@ The connector is a JSON document (`BasisBundleConnector`) that describes the con
 | `ImageBase64` | The thumbnail shown in menus and on content orbs. |
 | `FarLodBase64` | Avatars only: a tiny stand in drawn at long distance. |
 | `DateOfCreation` | Build time (UTC). |
-| `Bounds` | The content's size, so it can be placed before it loads. |
+| `Bounds` | The content's size, used to place it before it loads. |
 | `MetaData` | Triangle, material and bone counts, texture memory, render pipeline, content kind (Avatar, Prop or Scene), prop spawn placement and a count of each component type. |
 
 Because the connector is small and comes first, menus can show names, thumbnails and performance stats after downloading only the first few kilobytes.
@@ -51,15 +51,15 @@ Each `BasisBundleGenerated` entry describes one section:
 
 A decrypted section is a Unity **AssetBundle**, optionally followed by **graphics state** data used to prewarm shaders so the content does not stutter the first time it is seen.
 
-The **Generic** section is avatar only: an encrypted `.glb` (glTF 2.0 binary) plus avatar setup data. A client uses it only when the file has no section for its platform, so an avatar still appears on platforms it was not built for.
+The **Generic** section is avatar only: an encrypted `.glb` (glTF 2.0 binary) plus avatar setup data. A client falls back to it only when the file has no section for its platform. That way an avatar still shows up on platforms it was never built for.
 
 ## Encryption
 
 The connector and each section are encrypted separately with the content password:
 
-- **Cipher:** AES with a 256 bit key.
-- **Key:** derived from the password with PBKDF2 (SHA-1, 10,000 iterations) and a random 16 byte salt.
-- **Layout of each encrypted block:** `salt (16 bytes) | IV (16 bytes) | ciphertext`.
+- Cipher: AES with a 256 bit key.
+- Key: derived from the password with PBKDF2 (SHA-1, 10,000 iterations) and a random 16 byte salt.
+- Layout of each encrypted block: `salt (16 bytes) | IV (16 bytes) | ciphertext`.
 
 Sections over a few megabytes are decrypted in parallel chunks. One decrypted section can be at most about 2 GB; the file as a whole has no such limit, because only one section is ever decrypted.
 
@@ -68,12 +68,12 @@ Sections over a few megabytes are decrypted in parallel chunks. One decrypted se
 
 ## How a client loads a BEE
 
-1. **Read the header** with an HTTP range request: the first 8 bytes.
-2. **Download and decrypt the connector.** Menus can now show the name, thumbnail and stats.
-3. **Walk the sections table** to find the one for this platform, computing its byte range from the lengths.
-4. **Download only that section** with a range request. Other platforms' sections are never downloaded.
-5. **Decrypt** it, check the CRC, and load the AssetBundle (or build the avatar from glTF).
-6. **Cache** the file locally, so the next visit only checks whether the content changed.
+1. Read the first 8 bytes (the header) with an HTTP range request.
+2. Download and decrypt the connector. Menus can now show the name, thumbnail and stats.
+3. Walk the sections table to find this platform's section and work out its byte range from the lengths.
+4. Download only that section with a range request. Other platforms' sections never leave the server.
+5. Decrypt it, check the CRC and load the AssetBundle (or build the avatar from glTF).
+6. Cache the file locally. Next time the client only checks whether the content changed.
 
 This is why one `.bee` can carry Windows, Linux and Android builds without costing Quest players the download size of the PC build.
 
@@ -81,4 +81,4 @@ This is why one `.bee` can carry Windows, Linux and Android builds without costi
 
 - Any static host that supports **HTTP range requests** works.
 - Upload the `.bee` and share its URL and password. The password is what players or your load config use to unlock it.
-- Rebuilding produces a new `UniqueVersion`, which lets clients tell builds apart. Clients revalidate cached copies against the host, so replacing the file at the same URL updates it.
+- Rebuilding produces a new `UniqueVersion`, which lets clients tell builds apart. Clients revalidate cached copies against the host, and replacing the file at the same URL updates it for everyone.

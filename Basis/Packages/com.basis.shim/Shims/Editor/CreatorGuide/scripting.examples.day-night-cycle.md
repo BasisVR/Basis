@@ -1,4 +1,4 @@
-A day cycle driven by `Time.time` drifts apart between players who joined at different moments. Driving it from the server clock keeps everyone in step for free.
+A day cycle driven by `Time.time` drifts apart between players who joined at different moments. Driving it from the server clock keeps everyone in step without any messages.
 
 ```csharp title="DayNightCycle.cs (Cilbox)"
 using Basis.Shims;

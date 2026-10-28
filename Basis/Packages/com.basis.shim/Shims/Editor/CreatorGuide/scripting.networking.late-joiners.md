@@ -6,7 +6,7 @@ A player who joins loads the scene exactly as you built it. Anything that change
 
 ## Network events: send the state again
 
-Events are not remembered. If an event changed lasting state, re-send that **state** (not the event history) to the new player. Only the owner does it, so the newcomer gets one message instead of one from everyone.
+Events are not remembered. If an event changed lasting state, re-send that **state** (not the event history) to the new player. Only the owner does it. The newcomer gets one message instead of one from every player.
 
 ```csharp title="Native"
 public override void OnPlayerJoined(BasisNetworkPlayer player)
@@ -31,6 +31,6 @@ Design your messages so applying the full state is the same code path as applyin
 
 ## Things to check
 
-- **Does it work if the owner is not the first player?** Test with three clients: A joins, B joins and changes something, A leaves, C joins.
-- **Is anything set from `Start` that should come from the network?** A late joiner's `Start` runs before their first network message. Show a neutral state until the first message or synced value arrives.
-- **Persistent props.** Props spawned from a load config need **Persistent** set so they exist for players who join later. See [Scene Props](/en/docs/world/scene-props).
+- Does it work if the owner is not the first player? Test with three clients: A joins, B joins and changes something, A leaves, C joins.
+- Is anything set from `Start` that should come from the network? A late joiner's `Start` runs before their first network message. Show a neutral state until the first message or synced value arrives.
+- Persistent props. Props spawned from a load config need **Persistent** set so they exist for players who join later. See [Scene Props](/en/docs/world/scene-props).
