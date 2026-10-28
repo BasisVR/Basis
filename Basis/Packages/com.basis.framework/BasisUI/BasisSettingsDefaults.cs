@@ -901,7 +901,6 @@ namespace Basis.BasisUI
         // Reset Calibration. Standing measurements only -- seated calibrations use the virtual standing
         // eye and are never saved here.
         public static BasisSettingsBinding<float> SavedPlayerEyeHeight = new("savedplayereyeheight", new BasisPlatformDefault<float>(0f));
-        public static BasisSettingsBinding<float> SavedPlayerArmSpan = new("savedplayerarmspan", new BasisPlatformDefault<float>(0f));
 
         // Estimate a ballpark scale from the live HMD/controllers while the player hasn't calibrated yet, so an
         // uncalibrated VR session isn't wildly mis-sized. A real calibration overrides it. See BasisAutoScaleEstimator.
@@ -1858,11 +1857,10 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<bool> FBIKJobLocomotion = new("fbikjoblocomotion", new BasisPlatformDefault<bool>(true));
         public static BasisSettingsBinding<float> FBIKBodyFitMaxDeviation = new("fbikbodyfitmaxdeviation_v3", new BasisPlatformDefault<float>(Basis.IK.BasisBodyFitCore.DefaultMaxDeviation));
 
-        // Arm vs height ratio (arm-distance IK mode): when enabled, the player's arm span is
-        // derived from eye height * ratio instead of the T-pose measurement, so reach can be
-        // dialed in per avatar (fixes "stubby arms"). Ratio is wrist-to-wrist span / eye height (~0.92).
-        public static BasisSettingsBinding<bool> FBIKArmHeightRatioEnabled = new("fbikarmheightratioenabled", new BasisPlatformDefault<bool>(false));
-        public static BasisSettingsBinding<float> FBIKArmHeightRatio = new("fbikarmheightratio_v2", new BasisPlatformDefault<float>(BasisCalibrationMath.SpanToHeightRatio / BasisCalibrationMath.EyeToHeightRatio));
+        // The player's arm span is always estimated as eye height * this ratio; it is never measured,
+        // since a T-pose reading depends on straight, level arms that nothing can verify without elbow
+        // trackers. Ratio is hand-to-hand span / eye height (~0.92). Key bumped so the new default applies.
+        public static BasisSettingsBinding<float> FBIKArmHeightRatio = new("fbikarmheightratio_v3", new BasisPlatformDefault<float>(BasisCalibrationMath.SpanToHeightRatio / BasisCalibrationMath.EyeToHeightRatio));
 
         // Desktop only. The head pitches about the base of the neck, so looking down carries the eye FORWARD --
         // the swing an HMD makes for free, which desktop used to pin away. Strength 1 = the avatar's own
@@ -2266,7 +2264,6 @@ namespace Basis.BasisUI
             EnableArmToHeightBlend.LoadBindingValue();
             ArmToHeightBlend.LoadBindingValue();
             SavedPlayerEyeHeight.LoadBindingValue();
-            SavedPlayerArmSpan.LoadBindingValue();
             AutoScaleEstimateEnabled.LoadBindingValue();
             ContinuousBodyMeasurement.LoadBindingValue();
             RemeasureHeightOnCalibration.LoadBindingValue();
@@ -2836,7 +2833,6 @@ namespace Basis.BasisUI
             FBIKNeckExtensionDamp.LoadBindingValue();
             FBIKNeckFlexionDamp.LoadBindingValue();
             FBIKMoveBodyBackWhenCrouching.LoadBindingValue();
-            FBIKArmHeightRatioEnabled.LoadBindingValue();
             FBIKArmHeightRatio.LoadBindingValue();
             DesktopHeadSwingEnabled.LoadBindingValue();
             DesktopHeadSwingStrength.LoadBindingValue();

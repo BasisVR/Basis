@@ -93,22 +93,13 @@ public static class BasisCalibrationMath
         return Mathf.Lerp(eyeMetric, spanMetric, Mathf.Clamp(blend, ArmToHeightBlendMin, ArmToHeightBlendMax));
     }
     public const float EyeToHeightRatio = 0.93f;
+    // Hand-target-to-hand-target span as a fraction of standing height. Higher than anatomical
+    // wrist-to-wrist (~0.78) because the tracked hand point sits a few cm past the wrist toward the
+    // palm, and real reach adds shoulder movement. Confirmed in-headset: estimating span from height
+    // with this value (eye height x ~0.92) puts the avatar's reach just short of the player's.
     public const float SpanToHeightRatio = 0.86f;
-    public const float AutoModeEyePreferenceBand = 1.08f;
     public static float ImpliedHeightFromEye(float playerEye) => playerEye / EyeToHeightRatio;
     public static float ImpliedHeightFromSpan(float playerSpan) => playerSpan / SpanToHeightRatio;
-    public static bool AutoHeightModePicksArmSpan(float playerEye, float playerSpan)
-    {
-        if (playerEye <= 0f)
-        {
-            return playerSpan > 0f;
-        }
-        if (playerSpan <= 0f)
-        {
-            return false;
-        }
-        return ImpliedHeightFromSpan(playerSpan) > ImpliedHeightFromEye(playerEye) * AutoModeEyePreferenceBand;
-    }
     public static bool ShouldRecaptureEyeHeight(bool recapture, bool hasGenuine)
     {
         return recapture || !hasGenuine;

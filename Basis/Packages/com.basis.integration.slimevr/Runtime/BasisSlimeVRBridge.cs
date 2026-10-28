@@ -598,27 +598,8 @@ namespace Basis.Integration.SlimeVR
                 changed = true;
             }
 
-            float armSpan = metrics.ControllerSpanMeters;
-            if (Basis.BasisUI.BasisSettingsDefaults.FBIKArmHeightRatioEnabled.RawValue)
-            {
-                // The arm-height-ratio override owns the span (CapturePlayerHeight derives it
-                // from the eye height); keep that invariant against the just-applied eye instead
-                // of stomping the override with the measured controller span every config poll.
-                armSpan = BasisHeightDriver.PlayerEyeHeight
-                    * Mathf.Max(0.1f, Basis.BasisUI.BasisSettingsDefaults.FBIKArmHeightRatio.RawValue);
-            }
-            bool spanPlausible = armSpan >= BasisHeightDriver.MinPlausibleBodyMeasure
-                && armSpan <= BasisHeightDriver.MaxPlausibleBodyMeasure;
-            if (spanPlausible && Mathf.Abs(BasisHeightDriver.PlayerArmSpan - armSpan) > 0.005f)
-            {
-                BasisHeightDriver.PlayerArmSpan = armSpan;
-                // SlimeVR measured this off a real skeleton, so it must survive the next avatar load
-                // rather than being re-polled from whatever pose the player is in.
-                BasisHeightDriver.HasGenuinePlayerArmSpan = true;
-                BasisHeightDriver.ArmSpanSource = BasisHeightDriver.BasisBodyMeasurementSource.SlimeVR;
-                Basis.BasisUI.BasisSettingsDefaults.SavedPlayerArmSpan.SetValue(armSpan);
-                changed = true;
-            }
+            // The arm span is not taken from SlimeVR: it is always estimated from the eye height applied
+            // above, inside ApplyScaleAndHeight.
 
             if (!changed)
             {

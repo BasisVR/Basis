@@ -4843,6 +4843,10 @@
       "value": "from SlimeVR"
     },
     {
+      "key": "calibration.summary.source.estimated",
+      "value": "estimated from your height"
+    },
+    {
       "key": "calibration.summary.source.fallback",
       "value": "a generic default — nothing measured yet"
     },
@@ -15400,15 +15404,15 @@
     },
     {
       "key": "settings.bodyTracking.armHeightRatio.tooltip",
-      "value": "Derives your arm span from eye height x ratio so your reach matches the avatar's (fixes stubby arms). Requires IK Mode = Arm Distance. Re-calibrate to apply."
+      "value": "Estimates your arm span from your height (eye height x ratio) instead of measuring it in a T-pose."
     },
     {
       "key": "settings.bodyTracking.armHeightRatio.enabled.title",
-      "value": "Match Arm Span"
+      "value": "Estimate Arm Span From Height"
     },
     {
       "key": "settings.bodyTracking.armHeightRatio.enabled.title.tooltip",
-      "value": "Scale the avatar's arms to your measured arm span instead of using the authored length."
+      "value": "Estimate your arm span from your height instead of measuring it in a T-pose. A T-pose reads short when arms are not held perfectly straight and level. Turn off to measure it instead."
     },
     {
       "key": "settings.bodyTracking.armHeightRatio.title",
@@ -15416,7 +15420,7 @@
     },
     {
       "key": "settings.bodyTracking.armHeightRatio.title.tooltip",
-      "value": "Arm span as a multiple of height. 1.0 is the human average; raise it for longer arms."
+      "value": "Hand-to-hand arm span as a multiple of eye height. About 0.92 suits most people; raise it if your arms are longer than average."
     },
     {
       "key": "settings.bodyTracking.calibSphereScale",

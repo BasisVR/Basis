@@ -104,8 +104,6 @@ namespace Basis.Tests.Calibration
             // never fills this in would find their readings silently rejected.
             Assert.IsTrue(BasisStatedHeight.IsPlausibleEye(1.60f));
             Assert.IsTrue(BasisStatedHeight.IsPlausibleEye(2.60f));
-            Assert.IsTrue(BasisStatedHeight.IsPlausibleSpan(0.40f));
-            Assert.IsTrue(BasisStatedHeight.IsPlausibleSpan(2.60f));
         }
     }
 }

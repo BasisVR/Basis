@@ -294,7 +294,6 @@ namespace Basis.BasisUI
             BasisBodyEvidenceSampler.ResetEvidence();
             BasisHeightDriver.BeginMeasureWindow();
             BasisHeightDriver.HasGenuinePlayerEyeHeight = false;
-            BasisHeightDriver.HasGenuinePlayerArmSpan = false;
             BasisHeightDriver.CapturePlayerHeight();
             BasisHeightDriver.ApplyScaleAndHeight();
 

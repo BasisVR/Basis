@@ -13,7 +13,7 @@ namespace Basis.IK
             BasisBodyFitStatus.Disabled => "turned off",
             BasisBodyFitStatus.PlayerEyeHeightMissing => $"your eye height has not been measured (needs more than {minSegmentMeters:F2} m)",
             BasisBodyFitStatus.AvatarEyeHeightMissing => $"the avatar's eye height is unreadable (needs more than {minSegmentMeters:F2} m)",
-            BasisBodyFitStatus.PlayerArmSpanMissing => "your arm span has not been measured — hold both controllers out and calibrate",
+            BasisBodyFitStatus.PlayerArmSpanMissing => "your arm span is unknown because your height has not been measured yet — calibrate",
             BasisBodyFitStatus.AvatarArmSpanMissing => "the avatar's arm span is unreadable — its hand bones may be missing",
             BasisBodyFitStatus.ArmLengthDegenerate => "the avatar's shoulders are as wide as its arm span, leaving no arm to resize",
             BasisBodyFitStatus.ArmRatioOutOfBand => $"your arms differ from the avatar's by more than the sane band ({minRatio:F1}x to {maxRatio:F1}x) — likely a bad calibration frame",
