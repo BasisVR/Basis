@@ -59,9 +59,9 @@ namespace Basis.IK
         public float moveBodyBackWhenCrouching, crouchDepth, standingHeadHeight;
         public float restChordHeadHips, restChordHeadLumbar, restChordHeadUpper, restReachHeadLumbar;
         public Quaternion chestTrackedRot, chestRestFromHead;
-        // Without a hips tracker: how much the chest/spine take on the head's pitch/roll as shape. 1 = the full blend the
-        // spine solver uses with trackers (head pitch bows the chest out several cm), 0 = the spine only bends to reach the head.
-        public const float SpineHeadFollow = 0.3f;
+        public const float SpineHeadFollow = 0.3f; // How much spine bends with head, no hip tracker,
+        public const float TrackedHipsPositionFollow = 1f;
+        public const float TrackedHipsRotationFollow = 0f;
         public bool shoulderSolveEnabled;
         public float shoulderElevationFactor, shoulderProtractionFactor, shoulderTrackerBlendTime;
         public bool protectElbow, collideTrackedElbow;
