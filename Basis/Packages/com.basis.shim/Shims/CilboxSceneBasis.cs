@@ -384,6 +384,7 @@ namespace Cilbox
 				nameof(BasisLocalPlayer.GetGravityValue),
 				nameof(BasisLocalPlayer.SetGravityValue),
 				nameof(BasisLocalPlayer.GetMovementMode),
+				nameof(BasisLocalPlayer.GetAvatarEyeHeight),
 				nameof(BasisLocalPlayer.SetJumpHeightOverride),
 				nameof(BasisLocalPlayer.SetWalkSpeedOverride),
 				nameof(BasisLocalPlayer.SetRunSpeedOverride),

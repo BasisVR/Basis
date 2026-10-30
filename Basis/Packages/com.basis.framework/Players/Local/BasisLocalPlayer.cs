@@ -709,6 +709,8 @@ namespace Basis.Scripts.BasisSdk.Players
 
         public int GetMovementMode() => (int)LocalCharacterDriver.CurrentModeKind;
 
+        public float GetAvatarEyeHeight() => BasisHeightDriver.ScaledAvatarEyeHeight;
+
         public void SetJumpHeightOverride(string key, float jumpHeight)
         {
             PushLocomotionOverride(key, new BasisLocomotionValues
