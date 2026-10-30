@@ -263,11 +263,11 @@
       ]
     },
     {
-      "title": "Shim Reference",
+      "title": "Cilbox Shim Reference",
       "pages": [
         {
           "id": "scripting/shims",
-          "title": "Shim Reference",
+          "title": "Cilbox Shim Reference",
           "description": "Every Basis shim a Cilbox script can use, grouped by area, each with a short example.",
           "file": "scripting.shims.md"
         },

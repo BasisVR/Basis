@@ -1476,7 +1476,7 @@ namespace SteamAudio
             }
 
             // Worker joined — free any handles queued for deferred release.
-            Singleton.DrainPendingSourceReleases();
+            Singleton.DrainPendingSourceReleases(true);
 
 #if STEAMAUDIO_ENABLED
             Singleton.DisposeTransformAndPoseBuffers();
@@ -1562,7 +1562,7 @@ namespace SteamAudio
 
             // Worker joined — free queued handles and drop the stale snapshot so the
             // next ApplyInstance rebuilds against the fresh simulator/sources.
-            Singleton.DrainPendingSourceReleases();
+            Singleton.DrainPendingSourceReleases(true);
             Singleton.mSnapCount = 0;
             Singleton.mReflSnapCount = 0;
 
@@ -1810,12 +1810,13 @@ namespace SteamAudio
         // Frees native source handles queued by SteamAudioSource.OnDestroy. Must be
         // called only when the direct worker is idle (top of ApplyInstance after the
         // reap WaitOne, or after the worker thread is joined on shutdown/reinit).
-        private void DrainPendingSourceReleases()
+        private void DrainPendingSourceReleases(bool joined = false)
         {
             if (sPendingSourceRelease.Count == 0)
                 return;
 
-            BlockUntilReflectionsIdleInstance();
+            if (!joined && (mReflInFlight || mReflInputCursor > 0 || mReflInputsStaged))
+                return;
 
             while (sPendingSourceRelease.Count > 0)
             {

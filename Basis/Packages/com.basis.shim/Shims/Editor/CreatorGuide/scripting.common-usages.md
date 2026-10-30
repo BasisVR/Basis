@@ -369,7 +369,7 @@ source.spatialBlend = 1f;
 source.Play();
 ```
 
-To let a speaker carry a player's voice, see `BasisVoiceRoutingShim` in the [Shim Reference](/en/docs/scripting/shims/rendering-and-audio).
+To let a speaker carry a player's voice, see `BasisVoiceRoutingShim` in the [Cilbox Shim Reference](/en/docs/scripting/shims/rendering-and-audio).
 
 ## Performance and quality
 
