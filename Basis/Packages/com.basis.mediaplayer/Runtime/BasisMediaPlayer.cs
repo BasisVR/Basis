@@ -20,8 +20,10 @@ using UnityEngine.Rendering;
 ///
 /// It draws nothing on its own. The video texture reaches the world through
 /// an output sink (<see cref="BasisVideoMaterialOutput"/> for a renderer,
-/// <see cref="BasisVideoDisplay"/> for a uGUI RawImage), which owns aspect,
-/// projection, stereo eye and the frame-origin correction.
+/// <see cref="BasisVideoDisplay"/> for a uGUI RawImage,
+/// <see cref="BasisVideoTextureOutput"/> for a RenderTexture), which owns the
+/// frame-origin correction and whichever of aspect, projection and stereo eye
+/// it offers.
 ///
 /// It makes no sound on its own. Audio belongs to
 /// <see cref="BasisMediaPlayerAudio"/> on the same GameObject, which

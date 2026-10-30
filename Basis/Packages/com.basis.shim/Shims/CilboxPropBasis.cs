@@ -26,6 +26,7 @@ namespace Cilbox
 			"BasisMediaPlayerStreaming",
 			"BasisVideoMaterialOutput",
 			"BasisVideoMaterialOutput+MaterialTarget",
+			"BasisVideoTextureOutput",
 			"BasisVideoProjectionMode",
 			"BasisVideoStereoEye",
 			"BasisVideoAspectMode",
@@ -163,6 +164,7 @@ namespace Cilbox
 			"BasisMediaPlayerStreaming.PcUrl",
 			"BasisMediaPlayerStreaming.QuestUrl",
 			"BasisVideoMaterialOutput.*",
+			"BasisVideoTextureOutput.*",
 		};
 
 		static readonly Dictionary<Type, HashSet<string>> extraMethodWhitelist = new Dictionary<Type, HashSet<string>>()
