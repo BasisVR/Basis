@@ -152,6 +152,11 @@ namespace Basis.Shims
 		{
 			playerId = 0;
 			if( !Alive( player ) ) return false;
+			if( player is BasisRemotePlayer remote && remote.NetworkReceiver != null )
+			{
+				playerId = remote.NetworkReceiver.playerId;
+				return true;
+			}
 			Rebuild();
 			for( int i = 0; i < cached.Length; i++ )
 			{
