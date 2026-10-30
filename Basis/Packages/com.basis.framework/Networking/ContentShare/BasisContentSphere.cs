@@ -113,7 +113,7 @@ public partial class BasisContentSphere : BasisInteractableObject
         transform.rotation = Quaternion.identity;
         rift = BasisContentSharePortalRift.Create(transform, source);
         RefreshColliders();
-        if (Label != null) Label.transform.position = _restPosition + Vector3.up * (BasisContentSharePortalRift.HalfHeight + 0.3f);
+        if (Label != null) Label.transform.position = _restPosition + Vector3.up * (BasisContentSharePortalRift.Radius + 0.3f);
     }
     private string ServerAddressLabel()
     {

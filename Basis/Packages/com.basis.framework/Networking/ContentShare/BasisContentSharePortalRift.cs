@@ -5,7 +5,7 @@ using UnityEngine;
 [AutoStaticsCleanup]
 public partial class BasisContentSharePortalRift : MonoBehaviour
 {
-    public static float HalfWidth = 0.55f, HalfHeight = 1.05f, RimWidth = 0.07f, RimJitter = 0.09f, SwirlSpeed = 0.18f, SwirlTwist = 3.2f, OpenSeconds = 0.6f, TurnSpeed = 4f;
+    public static float Radius = 0.9f, RimWidth = 0.07f, RimJitter = 0.09f, SwirlSpeed = 0.18f, SwirlTwist = 3.2f, OpenSeconds = 0.6f, TurnSpeed = 4f;
     public static Color CoreColor = new Color(0.35f, 0.06f, 0.65f, 1f), EdgeColor = new Color(0.2f, 0.9f, 1f, 1f);
     private const int Rings = 12, Segments = 64, TextureSize = 128;
     private static readonly int baseMapId = Shader.PropertyToID("_BaseMap"), mainTexId = Shader.PropertyToID("_MainTex"), emissionMapId = Shader.PropertyToID("_EmissionMap"), emissionColorId = Shader.PropertyToID("_EmissionColor"), baseColorId = Shader.PropertyToID("_BaseColor"), cullId = Shader.PropertyToID("_Cull");
@@ -39,7 +39,7 @@ public partial class BasisContentSharePortalRift : MonoBehaviour
         AddLayer("Rim", rimMesh, rimMaterial);
         BoxCollider box = gameObject.AddComponent<BoxCollider>();
         box.isTrigger = true;
-        box.size = new Vector3(HalfWidth * 2f, HalfHeight * 2f, 0.3f);
+        box.size = new Vector3(Radius * 2f, Radius * 2f, 0.3f);
         transform.localScale = new Vector3(1f, 0.001f, 1f);
         UpdateCore(0f);
         UpdateRim(0f);
@@ -99,7 +99,7 @@ public partial class BasisContentSharePortalRift : MonoBehaviour
             for (int s = 0; s < Segments; s++)
             {
                 float angle = s * Mathf.PI * 2f / Segments;
-                vertices[ring * Segments + s] = new Vector3(Mathf.Cos(angle) * HalfWidth * r, Mathf.Sin(angle) * HalfHeight * r, 0f);
+                vertices[ring * Segments + s] = new Vector3(Mathf.Cos(angle) * Radius * r, Mathf.Sin(angle) * Radius * r, 0f);
                 if (ring == Rings) continue;
                 int a = ring * Segments + s, b = ring * Segments + (s + 1) % Segments, c = a + Segments, d = b + Segments;
                 triangles[t++] = a; triangles[t++] = c; triangles[t++] = b;
@@ -112,7 +112,7 @@ public partial class BasisContentSharePortalRift : MonoBehaviour
         mesh.uv = uvs;
         mesh.triangles = triangles;
         mesh.RecalculateNormals();
-        mesh.bounds = new Bounds(Vector3.zero, new Vector3(HalfWidth * 2.5f, HalfHeight * 2.5f, 0.1f));
+        mesh.bounds = new Bounds(Vector3.zero, new Vector3(Radius * 2.5f, Radius * 2.5f, 0.1f));
         return mesh;
     }
     private Mesh BuildRimMesh()
@@ -134,7 +134,7 @@ public partial class BasisContentSharePortalRift : MonoBehaviour
         Vector3[] normals = new Vector3[Segments * 2];
         for (int i = 0; i < normals.Length; i++) normals[i] = Vector3.back;
         mesh.normals = normals;
-        mesh.bounds = new Bounds(Vector3.zero, new Vector3(HalfWidth * 2.5f, HalfHeight * 2.5f, 0.1f));
+        mesh.bounds = new Bounds(Vector3.zero, new Vector3(Radius * 2.5f, Radius * 2.5f, 0.1f));
         return mesh;
     }
     private void UpdateCore(float time)
@@ -158,8 +158,8 @@ public partial class BasisContentSharePortalRift : MonoBehaviour
             float angle = s * Mathf.PI * 2f / Segments, cos = Mathf.Cos(angle), sin = Mathf.Sin(angle);
             float jag = Mathf.PerlinNoise(seed + s * 0.37f, time * 2.2f) * 0.7f + Mathf.PerlinNoise(seed + s * 1.9f, time * 7f) * 0.3f;
             float outer = RimWidth + RimJitter * jag, inner = RimWidth * 0.25f * Mathf.PerlinNoise(seed + s * 0.8f, time * 3f);
-            rimVertices[s * 2] = new Vector3(cos * (HalfWidth - inner), sin * (HalfHeight - inner), 0f);
-            rimVertices[s * 2 + 1] = new Vector3(cos * (HalfWidth + outer), sin * (HalfHeight + outer), 0f);
+            rimVertices[s * 2] = new Vector3(cos * (Radius - inner), sin * (Radius - inner), 0f);
+            rimVertices[s * 2 + 1] = new Vector3(cos * (Radius + outer), sin * (Radius + outer), 0f);
         }
         rimMesh.vertices = rimVertices;
     }
