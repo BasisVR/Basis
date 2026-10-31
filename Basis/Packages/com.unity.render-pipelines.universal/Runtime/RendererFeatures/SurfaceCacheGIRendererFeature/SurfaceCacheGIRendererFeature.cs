@@ -130,7 +130,7 @@ namespace UnityEngine.Rendering.Universal
             return TryGetSupportedRayTracingBackend(out _);
         }
 
-        static bool IsEligibleCamera(Camera camera)
+        internal static bool IsEligibleCamera(Camera camera)
         {
             if (camera.cullingMask == 0)
                 return false;
@@ -164,6 +164,7 @@ namespace UnityEngine.Rendering.Universal
                     BouncePatchAllocation = volumeOverride.lightTransportBouncePatchAllocation.value,
                     SampleCount = (uint)volumeOverride.lightTransportSampleCount.value,
                     WarmUpSampleMultiplier = (uint)volumeOverride.lightTransportWarmupSampleMultiplier.value,
+                    PunctualLightCandidateCount = (uint)volumeOverride.lightTransportPunctualLightCandidateCount.value,
                     DistanceFallback = volumeOverride.volumeDistanceFallback.value
                 },
                 PatchFilteringParams = new SurfaceCachePatchFilteringParameterSet
@@ -1275,6 +1276,7 @@ namespace UnityEngine.Rendering.Universal
         private const float k_EmissiveTriangleIntensityMultiplier = k_ConformToUnityGIFormat ? 1.0f / Mathf.PI : 1.0f;
 
         private int _lastFrameCount = -1;
+        private int _lastMotionVectorFrameIndex = -1;
 
         void ClearResources()
         {
@@ -1349,6 +1351,7 @@ namespace UnityEngine.Rendering.Universal
             ClearResources();
 
             _lastFrameCount = -1;
+            _lastMotionVectorFrameIndex = -1;
 
             if (!isActive)
                 return;
@@ -1485,9 +1488,13 @@ namespace UnityEngine.Rendering.Universal
             perCameraState.LastUsedFrame = Time.frameCount;
             perCameraState.RenderingLayerMask = volumeParams.RenderingLayerMask;
 
-            if (Time.frameCount != _lastFrameCount)
+            // Editor repaints only advance the motion vector index, which stalls while no camera uses motion vectors.
+            int motionVectorFrameIndex =
+                Unity.RenderPipelines.Core.Runtime.Shared.RendererUpdateManagerBridge.GetMotionVectorFrameIndex();
+            if (Time.frameCount != _lastFrameCount || motionVectorFrameIndex != _lastMotionVectorFrameIndex)
             {
                 _lastFrameCount = Time.frameCount;
+                _lastMotionVectorFrameIndex = motionVectorFrameIndex;
                 EvictStaleCameraStates();
 
                 uint combinedMask = 0;

@@ -22,6 +22,29 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
+--- !u!114 &-8573264130738293855
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1fb3b72aeefb24b2385d42c815422187, type: 3}
+  m_Name: MetaHandTrackingFrequencyHintFeature Standalone
+  m_EditorClassIdentifier: Unity.XR.Hands::UnityEngine.XR.Hands.OpenXR.MetaHandTrackingFrequencyHintFeature
+  m_enabled: 0
+  nameUi: Meta Hand Tracking Frequency Hint
+  version: 0.0.1
+  featureIdInternal: com.unity.openxr.feature.input.metahandtrackingfrequencyhint
+  openxrExtensionStrings: XR_META_hand_tracking_frequency_hint
+  company: Unity
+  priority: -101
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
+  m_FrequencyHint: 1
 --- !u!114 &-8377521960917039191
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -520,6 +543,29 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
+--- !u!114 &-4148702767030345292
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1fb3b72aeefb24b2385d42c815422187, type: 3}
+  m_Name: MetaHandTrackingFrequencyHintFeature Android
+  m_EditorClassIdentifier: Unity.XR.Hands::UnityEngine.XR.Hands.OpenXR.MetaHandTrackingFrequencyHintFeature
+  m_enabled: 0
+  nameUi: Meta Hand Tracking Frequency Hint
+  version: 0.0.1
+  featureIdInternal: com.unity.openxr.feature.input.metahandtrackingfrequencyhint
+  openxrExtensionStrings: XR_META_hand_tracking_frequency_hint
+  company: Unity
+  priority: -101
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
+  m_FrequencyHint: 1
 --- !u!114 &-4043191770439387137
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -612,6 +658,10 @@ MonoBehaviour:
   required: 0
   customRuntimeLoaderName: 
   enableSubsampledLayout: 1
+  useEyeTracking: 1
+  m_SkipFDMForFinalPassesSRP: 0
+  m_SkipFDMForFinalPassesSRPOverridden: 0
+  m_EnableDynamicFoveation: 0
 --- !u!114 &-3753664232341013626
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -647,6 +697,55 @@ MonoBehaviour:
   extensionStrings:
   - XR_KHR_binding_modification
   - XR_EXT_dpad_binding
+--- !u!114 &-3726446428451588314
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f96d1677c155dc14d9ac7a921f15085a, type: 3}
+  m_Name: MetaTemporalPixelSynthesisFeature Android
+  m_EditorClassIdentifier: Unity.XR.OpenXR::UnityEngine.XR.OpenXR.Features.Meta.MetaTemporalPixelSynthesisFeature
+  m_enabled: 0
+  nameUi: 'Meta: Temporal Pixel Synthesis'
+  version: 1.0.0
+  featureIdInternal: com.unity.openxr.feature.meta.temporalpixelsynthesis
+  openxrExtensionStrings: XR_META_temporal_pixel_synthesis
+  company: Unity
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
+  defaultFoveaQuality: 3
+  defaultPeripheryQuality: 2
+  defaultFoveaRadius: 2
+  defaultEnableUpscaling: 0
+  defaultUpscalingQuality: 2
+--- !u!114 &-3436691855316582059
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6d52b7855f44d55a44782e8c7208670, type: 3}
+  m_Name: MetaHandTrackingUnextrapolatedPoses Android
+  m_EditorClassIdentifier: Unity.XR.Hands::UnityEngine.XR.Hands.OpenXR.MetaHandTrackingUnextrapolatedPoses
+  m_enabled: 0
+  nameUi: Meta Hand Tracking Unextrapolated Poses
+  version: 0.0.1
+  featureIdInternal: com.unity.openxr.feature.input.metahandtrackingunextrapolatedposes
+  openxrExtensionStrings: XR_META_hand_tracking_unextrapolated_poses
+  company: Unity
+  priority: -101
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
 --- !u!114 &-3390493332852390039
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -788,6 +887,28 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
+--- !u!114 &-2354888520993758764
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d8f9b39c56217499f928108734266cc6, type: 3}
+  m_Name: MetaHandTrackingWideMotionMode Android
+  m_EditorClassIdentifier: Unity.XR.Hands::UnityEngine.XR.Hands.OpenXR.MetaHandTrackingWideMotionMode
+  m_enabled: 0
+  nameUi: Meta Hand Tracking Wide Motion Mode
+  version: 0.0.1
+  featureIdInternal: com.unity.openxr.feature.input.metahandtrackingwidemotionmode
+  openxrExtensionStrings: XR_META_hand_tracking_wide_motion_mode2
+  company: Unity
+  priority: -102
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
 --- !u!114 &-2348015020651987278
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -828,7 +949,7 @@ MonoBehaviour:
   featureIdInternal: com.unity.openxr.feature.input.handjointsmotionrange
   openxrExtensionStrings: XR_EXT_hand_joints_motion_range
   company: Unity
-  priority: 0
+  priority: -101
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
@@ -852,7 +973,7 @@ MonoBehaviour:
   featureIdInternal: com.unity.openxr.feature.input.handjointsmotionrange
   openxrExtensionStrings: XR_EXT_hand_joints_motion_range
   company: Unity
-  priority: 0
+  priority: -101
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
@@ -944,7 +1065,7 @@ MonoBehaviour:
   featureIdInternal: com.unity.openxr.feature.input.handtrackingdatasource
   openxrExtensionStrings: XR_EXT_hand_tracking_data_source
   company: Unity
-  priority: 0
+  priority: -101
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
@@ -1302,6 +1423,10 @@ MonoBehaviour:
   - {fileID: 4438077085720265041}
   - {fileID: 4138757849292144290}
   - {fileID: 1981983295813178899}
+  - {fileID: -3436691855316582059}
+  - {fileID: -4148702767030345292}
+  - {fileID: -2354888520993758764}
+  - {fileID: -3726446428451588314}
   customLoaderName: 
   m_renderMode: 1
   m_latencyOptimization: 0
@@ -1426,6 +1551,28 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
+--- !u!114 &569210618942339098
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6d52b7855f44d55a44782e8c7208670, type: 3}
+  m_Name: MetaHandTrackingUnextrapolatedPoses Standalone
+  m_EditorClassIdentifier: Unity.XR.Hands::UnityEngine.XR.Hands.OpenXR.MetaHandTrackingUnextrapolatedPoses
+  m_enabled: 0
+  nameUi: Meta Hand Tracking Unextrapolated Poses
+  version: 0.0.1
+  featureIdInternal: com.unity.openxr.feature.input.metahandtrackingunextrapolatedposes
+  openxrExtensionStrings: XR_META_hand_tracking_unextrapolated_poses
+  company: Unity
+  priority: -101
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
 --- !u!114 &638788782186964685
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1493,6 +1640,10 @@ MonoBehaviour:
   required: 0
   customRuntimeLoaderName: 
   enableSubsampledLayout: 0
+  useEyeTracking: 1
+  m_SkipFDMForFinalPassesSRP: 0
+  m_SkipFDMForFinalPassesSRPOverridden: 0
+  m_EnableDynamicFoveation: 0
 --- !u!114 &1063500065831918426
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2070,6 +2221,9 @@ MonoBehaviour:
   - {fileID: 2231758598234634398}
   - {fileID: -2546553118739243343}
   - {fileID: 638815009775519648}
+  - {fileID: 569210618942339098}
+  - {fileID: -8573264130738293855}
+  - {fileID: 9082714065171438442}
   customLoaderName: 
   m_renderMode: 1
   m_latencyOptimization: 0
@@ -2743,7 +2897,7 @@ MonoBehaviour:
   featureIdInternal: com.unity.openxr.feature.input.handtrackingdatasource
   openxrExtensionStrings: XR_EXT_hand_tracking_data_source
   company: Unity
-  priority: 0
+  priority: -101
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
@@ -2778,3 +2932,25 @@ MonoBehaviour:
   m_hasMigratedMultiviewRenderRegionSetting: 1
   m_foveatedRenderingApi: 0
   m_useOpenXRPredictedTime: 0
+--- !u!114 &9082714065171438442
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d8f9b39c56217499f928108734266cc6, type: 3}
+  m_Name: MetaHandTrackingWideMotionMode Standalone
+  m_EditorClassIdentifier: Unity.XR.Hands::UnityEngine.XR.Hands.OpenXR.MetaHandTrackingWideMotionMode
+  m_enabled: 0
+  nameUi: Meta Hand Tracking Wide Motion Mode
+  version: 0.0.1
+  featureIdInternal: com.unity.openxr.feature.input.metahandtrackingwidemotionmode
+  openxrExtensionStrings: XR_META_hand_tracking_wide_motion_mode2
+  company: Unity
+  priority: -102
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 

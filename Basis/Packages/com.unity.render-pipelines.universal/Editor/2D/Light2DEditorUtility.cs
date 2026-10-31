@@ -11,6 +11,9 @@ namespace UnityEditor.Rendering.Universal
     {
         internal static readonly string ResourcePath = "Packages/com.unity.render-pipelines.universal/Editor/2D/ResourceIcons/";
 
+        // The Undo entry for a pick in the Light Type dropdown, shared by every place that applies one.
+        internal const string k_ChangeLightTypeUndoName = "Change Light Type";
+
         private static class Styles
         {
             static GUIContent s_LightTypeFreeform;
@@ -35,6 +38,12 @@ namespace UnityEditor.Rendering.Universal
         static Material s_TexCapMaterial = CoreUtils.CreateEngineMaterial(Shader.Find("Hidden/Internal-GUITexture"));
         static Mesh k_MeshQuad_Cache;
         static Mesh k_MeshQuad => k_MeshQuad_Cache == null || k_MeshQuad_Cache.Equals(null) ? (k_MeshQuad_Cache = Resources.GetBuiltinResource<Mesh>("Quad.fbx")) : k_MeshQuad_Cache;
+
+        // Without the runtime's 2D Common tessellator, a Freeform light renders only its falloff edge.
+        internal static bool ShouldShowMissing2DCommonError(Light2D.LightType type)
+        {
+            return type == Light2D.LightType.Freeform && !LightUtility.canTessellateFreeformInterior;
+        }
 
         /// <summary>
         /// Draws the Light Type dropdown for a Light2D component using the provider system.
@@ -224,9 +233,7 @@ namespace UnityEditor.Rendering.Universal
                     if (targetNames[j].text != chosen.text)
                         continue;
 
-                    Provider2DSources<Light2DProvider, Light2DProviderSource>.UpdateSelectionFromIndex(targetSources, j);
-                    targetSelectionSources.boxedValue = targetSources;
-                    Light2DProviderSources.SetSourceType(targetSelectionSources);
+                    Light2DProviderSources.ApplySelectionFromIndex(targetSelectionSources, j, k_ChangeLightTypeUndoName);
                     break;
                 }
             }

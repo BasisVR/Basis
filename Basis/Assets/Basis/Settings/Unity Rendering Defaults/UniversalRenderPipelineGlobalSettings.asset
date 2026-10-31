@@ -82,36 +82,7 @@ MonoBehaviour:
       - rid: 5535555232957464576
       - rid: 5535555232957464577
     m_RuntimeSettings:
-      m_List:
-      - rid: 2858994164428701699
-      - rid: 2858994164428701700
-      - rid: 2858994164428701702
-      - rid: 2858994164428701703
-      - rid: 2858994164428701708
-      - rid: 3153963600462741861
-      - rid: 3153963794888130669
-      - rid: 3153963794888130672
-      - rid: 2858994164428701716
-      - rid: 2858994164428701717
-      - rid: 2858994164428701718
-      - rid: 3153963858029445121
-      - rid: 3153963858029445122
-      - rid: 3153963862961160193
-      - rid: 3153963862961160195
-      - rid: 6463774988590383104
-      - rid: 6463774988590383105
-      - rid: 4866357552403447808
-      - rid: 4866357552403448038
-      - rid: 8580723549207527424
-      - rid: 8580723549207527425
-      - rid: 8580723549207527426
-      - rid: 8580723549207527427
-      - rid: 8580723549207527429
-      - rid: 8580723549207527430
-      - rid: 8580723549207527431
-      - rid: 8580723549207527432
-      - rid: 5535555232957464576
-      - rid: 5535555232957464577
+      m_List: []
   m_AssetVersion: 14
   m_ObsoleteDefaultVolumeProfile: {fileID: 0}
   m_RenderingLayerNames:
@@ -358,6 +329,7 @@ MonoBehaviour:
       data:
         m_RasterizationShader: {fileID: 4800000, guid: 0849e84e3d62649e8882e9d6f056a017, type: 3}
         m_GTAOComputeShader: {fileID: 7200000, guid: 0e79c0fbcc6ffc642834ff60779ad086, type: 3}
+        m_GTAODepthPrefilterComputeShader: {fileID: 7200000, guid: 42244eac3d92497eb7dd4ad591a29e19, type: 3}
         m_Version: 0
     - rid: 3153963862961160195
       type: {class: ScreenSpaceAmbientOcclusionBlueNoiseResources, ns: UnityEngine.Rendering.Universal, asm: Unity.RenderPipelines.Universal.Runtime}

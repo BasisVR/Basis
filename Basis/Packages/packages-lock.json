@@ -404,7 +404,7 @@
       "dependencies": {}
     },
     "com.unity.addressables": {
-      "version": "4.1.1",
+      "version": "4.1.2",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -414,7 +414,7 @@
         "com.unity.modules.jsonserialize": "1.0.0",
         "com.unity.modules.imageconversion": "1.0.0",
         "com.unity.modules.unitywebrequest": "1.0.0",
-        "com.unity.scriptablebuildpipeline": "4.0.1",
+        "com.unity.scriptablebuildpipeline": "4.0.2",
         "com.unity.modules.unitywebrequestassetbundle": "1.0.0"
       },
       "url": "https://packages.unity.com"
@@ -483,7 +483,7 @@
     },
     "com.unity.ext.nunit": {
       "version": "2.1.1",
-      "depth": 1,
+      "depth": 2,
       "source": "builtin",
       "dependencies": {}
     },
@@ -494,21 +494,17 @@
       "dependencies": {}
     },
     "com.unity.ide.rider": {
-      "version": "3.0.40",
+      "version": "3.1.0",
       "depth": 0,
       "source": "registry",
-      "dependencies": {
-        "com.unity.ext.nunit": "1.0.6"
-      },
+      "dependencies": {},
       "url": "https://packages.unity.com"
     },
     "com.unity.ide.visualstudio": {
-      "version": "2.0.27",
+      "version": "2.0.29",
       "depth": 0,
       "source": "registry",
-      "dependencies": {
-        "com.unity.test-framework": "1.1.33"
-      },
+      "dependencies": {},
       "url": "https://packages.unity.com"
     },
     "com.unity.inputsystem": {
@@ -526,7 +522,7 @@
       "dependencies": {}
     },
     "com.unity.memoryprofiler": {
-      "version": "1.2.0-pre.1",
+      "version": "1.2.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -589,7 +585,7 @@
       }
     },
     "com.unity.scriptablebuildpipeline": {
-      "version": "4.0.1",
+      "version": "4.0.2",
       "depth": 1,
       "source": "registry",
       "dependencies": {
@@ -726,7 +722,7 @@
       }
     },
     "com.unity.xr.hands": {
-      "version": "1.10.0-pre.2",
+      "version": "1.10.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -759,10 +755,11 @@
       }
     },
     "com.unity.xr.openxr": {
-      "version": "1.18.0-pre.2",
+      "version": "1.19.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {
+        "com.unity.modules.xr": "1.0.0",
         "com.unity.inputsystem": "1.6.3",
         "com.unity.xr.core-utils": "2.3.0",
         "com.unity.xr.management": "4.4.0",
