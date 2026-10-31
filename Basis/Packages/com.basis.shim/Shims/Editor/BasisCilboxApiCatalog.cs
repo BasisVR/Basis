@@ -846,6 +846,11 @@ void OnDestroy()
 
 if (seat.IsAvailable) seat.TrySeatLocalPlayer();
 if (seat.IsLocalPlayerSeated) seat.SetOccupantYaw(90f);
+seat.HipsLock = BasisSeatLockMode.UnlessTracked;
+seat.LeftFootLock = BasisSeatLockMode.UnlessTracked;
+seat.RightFootLock = BasisSeatLockMode.Free;
+seat.OccupantOffsetLimit = 0.5f;
+seat.SetOccupantOffset(new Vector3(0f, 0.1f, 0f));
 seat.EjectLocalPlayer();",
             },
             new CilboxApiEntry

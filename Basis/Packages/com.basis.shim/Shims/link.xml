@@ -517,6 +517,7 @@
         <type fullname="Basis.Scripts.BasisSdk.Players.BasisTeleportMode" preserve="all"/>
         <type fullname="Basis.Scripts.Device_Management.BasisDeviceManagement" preserve="all"/>
         <type fullname="Basis.Scripts.BasisSdk.Interactions.BasisSeat" preserve="all"/>
+        <type fullname="Basis.Scripts.BasisSdk.Interactions.BasisSeatLockMode" preserve="all"/>
         <type fullname="Basis.Scripts.Device_Management.BasisPlatformCondition" preserve="all"/>
     </assembly>
     <assembly fullname="BasisNetworkCore">

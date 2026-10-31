@@ -235,7 +235,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             {
                 Vector3 eyeFromNeck = tposeEyeWorld - BasisLocalBoneDriver.NeckControl.TposeLocal.position;
                 eyeFromNeck.y = 0f;
-                eyeWorld += Quaternion.Euler(0f, rotationYaw, 0f) * eyeFromNeck - eyeFromNeck;
+                eyeWorld += Quaternion.Euler(0f, rotationYaw, 0f) * eyeFromNeck - Quaternion.Inverse(OffsetCoords.rotation) * eyeFromNeck;
             }
 
             // The head pitches about the BASE OF THE NECK, not about itself, so the eye rides a lever arm and is

@@ -13,7 +13,7 @@ These components are the building blocks of a Basis world. None of them need cod
 | **Basis Interactable Shim** | Makes an object pressable from a script: `ButtonDown` and `ButtonUp`, with hover and press colours. |
 | **Basis Pickup Interactable** | Lets players grab, hold and use an object. Raises `OnPickupUse` when the trigger is pressed while held. |
 | **Basis Interactable Button** | A ready made pressable button (com.basis.examples, `ExampleInteractableButton` prefab). |
-| **Basis Seat** | Lets players sit. Rotation limits, highlight mode, and scripting through `TrySeatLocalPlayer`, `EjectLocalPlayer` and `IsAvailable`. |
+| **Basis Seat** | Lets players sit. Rotation limits, highlight mode, leg and hip control, a script-set offset, and scripting through `TrySeatLocalPlayer`, `EjectLocalPlayer` and `IsAvailable`. |
 | **Basis Avatar Pedestal** | Shows an avatar and lets players switch to it. Worlds only. |
 | **Basis Runtime Loader** *(client builds)* | Spawns props from a load config, for example from a button. See [Scene Props](/en/docs/world/scene-props). |
 

@@ -665,7 +665,7 @@ namespace Basis.Scripts.Drivers
                     continue;
                 }
                 data.SetWeight(slot, false);
-                data.SetOffsetRotation(slot, t.rotation);
+                data.SetOffsetRotation(slot, Quaternion.Inverse(localPlayer.AvatarTransform.rotation) * t.rotation);
                 data.SetTargetRotation(slot, t.rotation);
             }
             data.minFactor = 0.95f;
@@ -764,6 +764,12 @@ namespace Basis.Scripts.Drivers
             data.SetTargetPosition((int)bone, position);
             data.SetTargetRotation((int)bone, rotation);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetOverrideRotation(HumanBodyBones bone, in Quaternion rotation)
+        {
+            ref BasisEerieMovement data = ref IKJob;
+            data.SetTargetRotation((int)bone, rotation);
+        }
         private Transform ResolveHumanoidBoneTransform(HumanBodyBones bone)
         {
 
@@ -836,7 +842,7 @@ namespace Basis.Scripts.Drivers
             facts.footIKSetting = Basis.BasisUI.BasisSettingsDefaults.FootIKEnabled.RawValue;
             facts.moving = localPlayer.LocalCharacterDriver.IsLocomoting;
             facts.prone = localPlayer.LocalCharacterDriver.IsProne;
-            facts.seated = localPlayer.LocalSeatDriver.IsSeated;
+            facts.seated = localPlayer.LocalSeatDriver.HipsPinned;
             facts.upright = BasisLocalPlayspaceMover.FlipUpSign > 0f;
             facts.hipsTracked = fbt && BasisLocalBoneDriver.HipsControl.HasTracked == BasisHasTracked.HasTracker;
             facts.chestTracked = fbt && BasisLocalBoneDriver.ChestControl.HasTracked == BasisHasTracked.HasTracker;

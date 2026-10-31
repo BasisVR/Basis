@@ -1,7 +1,16 @@
+using System.Collections.Generic;
+using Basis.Scripts.Common;
 using UnityEngine;
 
 namespace Basis.Scripts.BasisSdk.Interactions
 {
+    public enum BasisSeatLockMode
+    {
+        Locked,
+        UnlessTracked,
+        Free,
+    }
+
     public struct BasisSeatFitFrame
     {
         public Vector3 Back;
@@ -29,6 +38,32 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 UpperLegLength = (lowerLeg - upperLeg).magnitude,
                 LowerLegLength = (foot - lowerLeg).magnitude,
                 FootThickness = Mathf.Max(foot.y, toe.y),
+            };
+        }
+
+        public static bool TryFromMapping(Dictionary<HumanBodyBones, BasisCalibratedCoords> tposeFromRoot, Vector3 rootScale, float soleHeight, out BasisSeatFitLegs legs)
+        {
+            legs = default;
+            if (tposeFromRoot == null
+                || !tposeFromRoot.TryGetValue(HumanBodyBones.LeftUpperLeg, out BasisCalibratedCoords upperLeg)
+                || !tposeFromRoot.TryGetValue(HumanBodyBones.LeftLowerLeg, out BasisCalibratedCoords lowerLeg)
+                || !tposeFromRoot.TryGetValue(HumanBodyBones.LeftFoot, out BasisCalibratedCoords foot)
+                || !tposeFromRoot.TryGetValue(HumanBodyBones.LeftToes, out BasisCalibratedCoords toe))
+            {
+                return false;
+            }
+            legs = FromBones(Vector3.Scale(rootScale, upperLeg.position), Vector3.Scale(rootScale, lowerLeg.position), Vector3.Scale(rootScale, foot.position), Vector3.Scale(rootScale, toe.position));
+            legs.FootThickness = Mathf.Max(0f, legs.FootThickness - soleHeight * rootScale.y);
+            return true;
+        }
+
+        public BasisSeatFitLegs InSeatUnits(float seatScale)
+        {
+            return new BasisSeatFitLegs
+            {
+                UpperLegLength = UpperLegLength / seatScale,
+                LowerLegLength = LowerLegLength / seatScale,
+                FootThickness = FootThickness / seatScale,
             };
         }
     }
@@ -298,6 +333,11 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         public static float WrapDegrees(float degrees) => Mathf.DeltaAngle(0f, degrees);
 
+        public static bool IsLocked(BasisSeatLockMode mode, bool hasTracker)
+        {
+            return mode == BasisSeatLockMode.Locked || (mode == BasisSeatLockMode.UnlessTracked && !hasTracker);
+        }
+
         public static void ComposeHipsWorld(
             Matrix4x4 seatLocalToWorld,
             Quaternion seatWorldRotation,
@@ -386,6 +426,21 @@ namespace Basis.Scripts.BasisSdk.Interactions
         {
             rootRotation = hipsWorldRotation * Quaternion.Inverse(avatarHipsBasis);
             rootPosition = hipsWorldPosition - (rootRotation * hipsTposeLocal);
+        }
+
+        public static Quaternion LegDelta(Vector3 restDirection, Vector3 restForward, Vector3 desiredDirection, Vector3 right)
+        {
+            if (restDirection.sqrMagnitude < 1e-8f || desiredDirection.sqrMagnitude < 1e-8f)
+            {
+                return Quaternion.identity;
+            }
+            Vector3 restPole = Vector3.ProjectOnPlane(restForward, restDirection.normalized);
+            Vector3 desiredPole = Vector3.Cross(desiredDirection.normalized, right);
+            if (restPole.sqrMagnitude < 1e-8f || desiredPole.sqrMagnitude < 1e-8f)
+            {
+                return Quaternion.FromToRotation(restDirection, desiredDirection);
+            }
+            return Quaternion.LookRotation(desiredDirection, desiredPole) * Quaternion.Inverse(Quaternion.LookRotation(restDirection, restPole));
         }
     }
 }

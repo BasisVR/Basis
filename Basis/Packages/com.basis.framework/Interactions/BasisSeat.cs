@@ -1,6 +1,8 @@
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management.Devices;
+using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System;
 using UnityEngine;
@@ -87,7 +89,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         #region Occupant Rotation
         [Header("Occupant Rotation")]
-        [Tooltip("Total sweep the occupant may turn themselves, centred on the seat's forward. 0 holds them forward, 360 is a free spin, 90 gives 45 degrees either way.")]
+        [Tooltip("Total sweep the occupant may turn themselves with the right stick in VR or mouse look on desktop, centred on the seat's forward. 0 holds them forward, 360 is a free spin, 90 gives 45 degrees either way.")]
         [SerializeField, Range(0f, 360f)] private float _occupantRotationRangeDegrees = 0f;
 
         [Tooltip("Step the occupant's turn is quantised to. 0 turns smoothly.")]
@@ -147,6 +149,13 @@ namespace Basis.Scripts.BasisSdk.Interactions
             return CommitOccupantYaw(BasisSeatFit.ResolveOccupantYaw(_occupantYawRaw, limits));
         }
 
+        public float TakeOccupantLookYaw(float lookDegrees)
+        {
+            float before = _occupantYawDegrees;
+            SetOccupantYaw(before + lookDegrees);
+            return Mathf.DeltaAngle(before, _occupantYawDegrees);
+        }
+
         public void ApplyNetworkedOccupantYaw(float degrees)
         {
             if (float.IsNaN(degrees) || float.IsInfinity(degrees))
@@ -174,6 +183,96 @@ namespace Basis.Scripts.BasisSdk.Interactions
             return true;
         }
         #endregion Occupant Rotation
+
+        #region Occupant Body
+        [Header("Occupant Body")]
+        [Tooltip("Locked holds the hips at the seat's back point. Unless Tracked releases them when the player has a hips tracker. Free always lets them follow the player's head and trackers, while the seat still carries them.")]
+        [SerializeField] private BasisSeatLockMode _hipsLock = BasisSeatLockMode.Locked;
+
+        [Tooltip("Locked poses the left leg into the seat. Unless Tracked releases it when the player has a tracker on that leg. Free always leaves it to trackers and foot placement.")]
+        [SerializeField] private BasisSeatLockMode _leftFootLock = BasisSeatLockMode.Locked;
+
+        [Tooltip("Locked poses the right leg into the seat. Unless Tracked releases it when the player has a tracker on that leg. Free always leaves it to trackers and foot placement.")]
+        [SerializeField] private BasisSeatLockMode _rightFootLock = BasisSeatLockMode.Locked;
+
+        [Tooltip("How far a script may move the occupant from the seat's fit point with SetOccupantOffset, in the seat's local units. 0 holds them on the fit point.")]
+        [SerializeField, Min(0f)] private float _occupantOffsetLimit = 0f;
+
+        private Vector3 _occupantOffset;
+
+        public BasisSeatLockMode HipsLock
+        {
+            get => _hipsLock;
+            set
+            {
+                if (_hipsLock != value)
+                {
+                    _hipsLock = value;
+                    OnOccupantBodyChanged?.Invoke();
+                }
+            }
+        }
+
+        public BasisSeatLockMode LeftFootLock
+        {
+            get => _leftFootLock;
+            set => _leftFootLock = value;
+        }
+
+        public BasisSeatLockMode RightFootLock
+        {
+            get => _rightFootLock;
+            set => _rightFootLock = value;
+        }
+
+        public float OccupantOffsetLimit
+        {
+            get => _occupantOffsetLimit;
+            set
+            {
+                _occupantOffsetLimit = Mathf.Max(0f, value);
+                SetOccupantOffset(_occupantOffset);
+            }
+        }
+
+        public Vector3 OccupantOffset => _occupantOffset;
+
+        public float NetworkedSoleHeight { get; set; }
+
+        public Action OnOccupantBodyChanged;
+
+        public bool SetOccupantOffset(Vector3 seatLocalOffset)
+        {
+            if (float.IsNaN(seatLocalOffset.x) || float.IsNaN(seatLocalOffset.y) || float.IsNaN(seatLocalOffset.z)
+                || float.IsInfinity(seatLocalOffset.x) || float.IsInfinity(seatLocalOffset.y) || float.IsInfinity(seatLocalOffset.z))
+            {
+                return false;
+            }
+            Vector3 resolved = Vector3.ClampMagnitude(seatLocalOffset, _occupantOffsetLimit);
+            if (resolved == _occupantOffset)
+            {
+                return false;
+            }
+            _occupantOffset = resolved;
+            OnOccupantBodyChanged?.Invoke();
+            return true;
+        }
+
+        public void ResetOccupantOffset()
+        {
+            SetOccupantOffset(Vector3.zero);
+        }
+
+        public void ApplyNetworkedOccupantOffset(Vector3 seatLocalOffset)
+        {
+            if (float.IsNaN(seatLocalOffset.x) || float.IsNaN(seatLocalOffset.y) || float.IsNaN(seatLocalOffset.z)
+                || float.IsInfinity(seatLocalOffset.x) || float.IsInfinity(seatLocalOffset.y) || float.IsInfinity(seatLocalOffset.z))
+            {
+                return;
+            }
+            _occupantOffset = seatLocalOffset;
+        }
+        #endregion Occupant Body
 
         #region Occupancy
         private IBasisPlayer _occupant;
@@ -369,26 +468,37 @@ namespace Basis.Scripts.BasisSdk.Interactions
             };
         }
 
-        public void CalculateSeatPositionRotation(BasisRemotePlayer Player, out Quaternion hipsWorldRot, out Vector3 hipsWorldPos)
+        public BasisSeatFitResult SolveFit(in BasisSeatFitLegs legs)
         {
-            var tpose = Player.RemoteAvatarDriver.References.TposeFromRoot;
-            Vector3 scale = Player.AvatarTransform.localScale;
+            Vector3 scale = transform.lossyScale;
+            float seatScale = Mathf.Max((Mathf.Abs(scale.x) + Mathf.Abs(scale.y) + Mathf.Abs(scale.z)) / 3f, 1e-4f);
+            return BasisSeatFit.Solve(GetFitFrame(), legs.InSeatUnits(seatScale));
+        }
 
-            BasisSeatFitLegs legs = BasisSeatFitLegs.FromBones(
-                Vector3.Scale(scale, tpose[HumanBodyBones.LeftUpperLeg].position),
-                Vector3.Scale(scale, tpose[HumanBodyBones.LeftLowerLeg].position),
-                Vector3.Scale(scale, tpose[HumanBodyBones.LeftFoot].position),
-                Vector3.Scale(scale, tpose[HumanBodyBones.LeftToes].position));
-
-            CalculateSeatPositionRotation(legs, out hipsWorldRot, out hipsWorldPos);
+        public bool TryCalculateOccupantPose(BasisTransformMapping mapping, Vector3 rootScale, float occupantYawDegrees, out Vector3 hipsWorldPos, out Quaternion rootWorldRot, out Quaternion hipsRestFromRoot)
+        {
+            hipsWorldPos = default;
+            rootWorldRot = Quaternion.identity;
+            hipsRestFromRoot = Quaternion.identity;
+            if (mapping == null || !BasisSeatFitLegs.TryFromMapping(mapping.TposeFromRoot, rootScale, NetworkedSoleHeight, out BasisSeatFitLegs legs)
+                || !mapping.TposeFromRoot.TryGetValue(HumanBodyBones.Hips, out BasisCalibratedCoords hipsRest))
+            {
+                return false;
+            }
+            hipsRestFromRoot = hipsRest.rotation;
+            BasisSeatFitResult fit = SolveFit(legs);
+            BasisSeatFit.ComposeHipsWorld(transform.localToWorldMatrix, transform.rotation, SpineRotation, fit.Back + _occupantOffset,
+                occupantYawDegrees, out hipsWorldPos, out Quaternion seated, out _);
+            rootWorldRot = seated * Quaternion.Inverse(BasisGenericBoneRotationUtils.GetCharacterBasis(mapping));
+            return true;
         }
 
         /// <summary>
         /// </summary>
         public void CalculateSeatPositionRotation(in BasisSeatFitLegs legs, out Quaternion hipsWorldRot, out Vector3 hipsWorldPos)
         {
-            BasisSeatFitResult fit = BasisSeatFit.Solve(GetFitFrame(), legs);
-            BasisSeatFit.ComposeHipsWorld(transform.localToWorldMatrix, transform.rotation, SpineRotation, fit.Back,
+            BasisSeatFitResult fit = SolveFit(legs);
+            BasisSeatFit.ComposeHipsWorld(transform.localToWorldMatrix, transform.rotation, SpineRotation, fit.Back + _occupantOffset,
                 _occupantYawDegrees, out hipsWorldPos, out hipsWorldRot, out _);
         }
         public static Vector3 ClosestPointOnSphere(Vector3 point, Vector3 sphereCenter, float sphereRadius)
@@ -431,6 +541,12 @@ namespace Basis.Scripts.BasisSdk.Interactions
         #endregion Highlight Code
 
         #region Unity Lifecycle Hooks
+        public override void Awake()
+        {
+            base.Awake();
+            _recalculateHelperVectors();
+        }
+
         private void OnValidate()
         {
             // Triggered whenever inspector values change.
@@ -439,7 +555,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             {
                 if (_seatHighlightMeshFilter.mesh != null)
                 {
-                    DestroyImmediate(_seatHighlightMeshFilter.mesh);
+                    Destroy(_seatHighlightMeshFilter.mesh);
                 }
                 _seatHighlightMeshFilter.mesh = _generateSeatHighlightMesh();
             }
@@ -476,7 +592,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             {
                 if (_seatHighlightMeshFilter.mesh != null)
                 {
-                    DestroyImmediate(_seatHighlightMeshFilter.mesh);
+                    Destroy(_seatHighlightMeshFilter.mesh);
                 }
             }
             if (_asyncOperationHighlightMat.IsValid())
