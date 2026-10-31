@@ -571,12 +571,15 @@ public class BasisSeatSync : BasisNetworkBehaviour
     }
 
     public const int BodyPacketLength = 30;
+    private const int PosePacketShift = 1;
+    private const int PosePacketMask = 7;
     private const float MillimetersPerUnit = 1000f;
 
     private struct SeatBodyTail
     {
         public bool Present;
         public bool HipsFree;
+        public BasisSeatPose Pose;
         public float SoleHeight;
         public Vector3 Offset;
         public Vector3 HipsOffset;
@@ -608,7 +611,7 @@ public class BasisSeatSync : BasisNetworkBehaviour
         _lastSentHipsRotation = hipsRotation;
         _lastSentHipsFree = hipsFree;
         _lastSentSoleHeight = BasisLocalAvatarDriver.TposeSoleHeight;
-        data[7] = hipsFree ? (byte)1 : (byte)0;
+        data[7] = (byte)((hipsFree ? 1 : 0) | (((int)(Seat != null ? Seat.Pose : BasisSeatPose.Seated) & PosePacketMask) << PosePacketShift));
         WriteShort(data, 8, QuantizeMillimeters(_lastSentSoleHeight));
         WriteVector(data, 10, Seat != null ? Seat.OccupantOffset : Vector3.zero);
         WriteVector(data, 16, hipsOffset);
@@ -627,6 +630,7 @@ public class BasisSeatSync : BasisNetworkBehaviour
         {
             Seat.NetworkedSoleHeight = body.SoleHeight;
             Seat.ApplyNetworkedOccupantOffset(body.Offset);
+            Seat.ApplyNetworkedPose(body.Pose);
         }
     }
 
@@ -762,6 +766,7 @@ public class BasisSeatSync : BasisNetworkBehaviour
             float magnitude = Mathf.Sqrt(rotation.x * rotation.x + rotation.y * rotation.y + rotation.z * rotation.z + rotation.w * rotation.w);
             body.Present = true;
             body.HipsFree = (buffer[7] & 1) != 0;
+            body.Pose = (BasisSeatPose)((buffer[7] >> PosePacketShift) & PosePacketMask);
             body.SoleHeight = ReadShort(buffer, 8) / MillimetersPerUnit;
             body.Offset = ReadVector(buffer, 10);
             body.HipsOffset = ReadVector(buffer, 16);

@@ -37,6 +37,8 @@ namespace Basis.Scripts.Drivers
         bool ikSolveScheduled, ikScatterPending, ikPublishPending;
         public Quaternion LeftHandIKOffset => IKDataReady ? IKJob.offsetRotationLeftHand : Quaternion.identity;
         public Quaternion RightHandIKOffset => IKDataReady ? IKJob.offsetRotationRightHand : Quaternion.identity;
+        public Quaternion LeftFootIKOffset => IKDataReady ? IKJob.offsetRotationLeftFoot : Quaternion.identity;
+        public Quaternion RightFootIKOffset => IKDataReady ? IKJob.offsetRotationRightFoot : Quaternion.identity;
         private BasisLocalPlayer localPlayer;
         public BasisTransformMapping basisTransformMapping;
         public const int sHips = 0, sHead = 1, sLeftFoot = 2, sRightFoot = 3, sChest = 4, sLeftLowerLeg = 5, sRightLowerLeg = 6, sLeftHand = 7, sRightHand = 8, sLeftLowerArm = 9, sRightLowerArm = 10, sLeftToe = 11, sRightToe = 12, sLeftShoulder = 13, sRightShoulder = 14, SlotCount = 15;

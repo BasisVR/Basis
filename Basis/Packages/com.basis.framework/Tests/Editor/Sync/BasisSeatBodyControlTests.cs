@@ -2,6 +2,7 @@ using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.Common;
 using NUnit.Framework;
+using System.Reflection;
 using UnityEngine;
 
 namespace Basis.Tests.Sync
@@ -42,6 +43,73 @@ namespace Basis.Tests.Sync
         private static void AssertSameRotation(Quaternion expected, Quaternion actual, string message)
         {
             Assert.Less(Quaternion.Angle(expected, actual), 0.05f, message);
+        }
+
+        private MeshFilter AttachHighlightFilter()
+        {
+            MeshFilter filter = _go.AddComponent<MeshFilter>();
+            typeof(BasisSeat)
+                .GetField("_seatHighlightMeshFilter", BindingFlags.Instance | BindingFlags.NonPublic)
+                .SetValue(_seat, filter);
+            return filter;
+        }
+
+        private void DestroyHighlightMesh()
+        {
+            typeof(BasisSeat)
+                .GetMethod("DestroyHighlightMesh", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(_seat, null);
+        }
+
+        private void RegenerateHighlight()
+        {
+            _seat.Back = _seat.Back;
+        }
+
+        [Test]
+        public void EditMode_RegeneratingTheHighlightReusesOneMesh()
+        {
+            MeshFilter filter = AttachHighlightFilter();
+            RegenerateHighlight();
+            Mesh mesh = filter.sharedMesh;
+            Assert.IsNotNull(mesh);
+            Vector3 footVertex = mesh.vertices[0];
+
+            _seat.Foot = new Vector3(0f, -0.8f, 0.25f);
+
+            Assert.AreSame(mesh, filter.sharedMesh, "an inspector edit must not make a new mesh");
+            Assert.AreNotEqual(footVertex, mesh.vertices[0], "the mesh must follow the new points");
+            Assert.AreEqual(18, mesh.vertexCount);
+        }
+
+        [Test]
+        public void EditMode_CleanupDestroysTheHighlightMesh()
+        {
+            MeshFilter filter = AttachHighlightFilter();
+            RegenerateHighlight();
+            Mesh mesh = filter.sharedMesh;
+            Assert.IsNotNull(mesh);
+
+            DestroyHighlightMesh();
+
+            Assert.IsTrue(mesh == null, "The highlight mesh must not outlive its seat.");
+        }
+
+        [Test]
+        public void EditMode_ChangingAPointWithoutAHighlightMakesNoMesh()
+        {
+            _seat.Back = new Vector3(0f, 0f, -0.3f);
+            _seat.Foot = new Vector3(0f, -0.6f, 0.25f);
+            _seat.Knee = new Vector3(0f, 0f, 0.3f);
+            _seat.SpineAngleDegrees = 100.0;
+            Assert.IsFalse(_go.TryGetComponent(out MeshFilter _));
+        }
+
+        [Test]
+        public void EditMode_CleanupWithoutAHighlightIsSafeTwice()
+        {
+            Assert.DoesNotThrow(DestroyHighlightMesh);
+            Assert.DoesNotThrow(DestroyHighlightMesh);
         }
 
         [Test]

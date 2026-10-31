@@ -65,6 +65,23 @@ namespace Basis.Tests.Sync
                 $"set_{nameof(BasisSeat.OccupantOffsetLimit)}",
                 nameof(BasisSeat.SetOccupantOffset),
                 nameof(BasisSeat.ResetOccupantOffset),
+                $"get_{nameof(BasisSeat.Pose)}",
+                $"set_{nameof(BasisSeat.Pose)}",
+                $"get_{nameof(BasisSeat.LeftHandTarget)}",
+                $"set_{nameof(BasisSeat.LeftHandTarget)}",
+                $"get_{nameof(BasisSeat.RightHandTarget)}",
+                $"set_{nameof(BasisSeat.RightHandTarget)}",
+                $"get_{nameof(BasisSeat.LeftHandLock)}",
+                $"set_{nameof(BasisSeat.LeftHandLock)}",
+                $"get_{nameof(BasisSeat.RightHandLock)}",
+                $"set_{nameof(BasisSeat.RightHandLock)}",
+                $"get_{nameof(BasisSeat.LeftFootTarget)}",
+                $"set_{nameof(BasisSeat.LeftFootTarget)}",
+                $"get_{nameof(BasisSeat.RightFootTarget)}",
+                $"set_{nameof(BasisSeat.RightFootTarget)}",
+                nameof(BasisSeat.SetHandTargets),
+                nameof(BasisSeat.SetFootTargets),
+                nameof(BasisSeat.ClearLimbTargets),
                 $"get_{nameof(BasisSeat.HasOccupant)}",
                 $"get_{nameof(BasisSeat.IsAvailable)}",
                 $"get_{nameof(BasisSeat.IsLocalPlayerSeated)}",
@@ -81,6 +98,17 @@ namespace Basis.Tests.Sync
         }
 
         [Test]
+        public void TheSceneBox_ExposesThePoseEnumAndAvatarBoxesDoNot()
+        {
+            Assert.IsTrue(TypeList(typeof(CilboxSceneBasis)).Contains(typeof(BasisSeatPose).FullName),
+                "A scene script cannot name a seat pose unless the enum is whitelisted.");
+            foreach (Type box in new[] { typeof(CilboxAvatarBasis), typeof(CilboxPropBasis) })
+            {
+                Assert.IsFalse(TypeList(box).Contains(typeof(BasisSeatPose).FullName), $"{box.Name} has no seat to pose.");
+            }
+        }
+
+        [Test]
         public void TheSceneBox_BlocksTheAuthorityAndOccupancyPaths()
         {
             HashSet<string> allowed = MethodDict(typeof(CilboxSceneBasis))[typeof(BasisSeat)];
@@ -89,6 +117,7 @@ namespace Basis.Tests.Sync
             {
                 nameof(BasisSeat.ApplyNetworkedOccupantYaw),
                 nameof(BasisSeat.ApplyNetworkedOccupantOffset),
+                nameof(BasisSeat.ApplyNetworkedPose),
                 nameof(BasisSeat.SolveFit),
                 nameof(BasisSeat.TryCalculateOccupantPose),
                 $"set_{nameof(BasisSeat.NetworkedSoleHeight)}",

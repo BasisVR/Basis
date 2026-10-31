@@ -50,7 +50,12 @@ public class SwivelChair : MonoBehaviour
 | `LeftFootLock`, `RightFootLock` | `Locked` (default) poses that leg into the seat. `UnlessTracked` releases it when the player has a tracker on that leg. `Free` always leaves it to trackers and foot placement. |
 | `OccupantOffsetLimit` | How far `SetOccupantOffset` may move the player, in the seat's local units. 0 holds them on the fit point. |
 | `SetOccupantOffset(offset)` | Moves the seated player relative to the fit point, in the seat's local space. Resets when they stand. |
+| `Pose` | How locked legs are arranged: `Seated` (default), `KneesApart`, `CrossLegged`, `LegsOut`, `Dangling` or `Kneeling`. `Kneeling` raises the hips so the knees clear the seat. A change made by the seated player is synced. |
+| `SetHandTargets(left, right)` | Transforms the hands go to, such as steering wheel grips. Pass `null` to leave a hand alone. `LeftHandTarget` and `RightHandTarget` set one at a time. With no rotation the hand is in its T-pose, palm down with the fingers pointing out to the side. |
+| `LeftHandLock`, `RightHandLock` | `UnlessTracked` (default) puts the hand on its target unless a VR controller or hand tracker is driving it. `Locked` holds it on the target in VR as well. `Free` ignores the target. |
+| `SetFootTargets(left, right)` | Transforms the soles of the feet rest on, such as pedals. Pass `null` to use the seat pose. `LeftFootTarget` and `RightFootTarget` set one at a time. Up points out of the sole and forward points along the toes. A target only applies while `LeftFootLock` or `RightFootLock` holds that leg and the player has full-body tracking enabled in their settings. Otherwise the leg uses the seat pose. |
+| `ClearLimbTargets()` | Removes all hand and foot targets. |
 | `EjectLocalPlayer()` | Stands the local player up. |
 
 > [!info]
-> Seats only move the local player and the script needs no networking of its own. **Basis Seat Sync** handles who is sitting.
+> Seats only move the local player and the script needs no networking of its own. **Basis Seat Sync** handles who is sitting. Hand and foot targets only need to be set for the seated player, because other players see the result through their normal pose updates.

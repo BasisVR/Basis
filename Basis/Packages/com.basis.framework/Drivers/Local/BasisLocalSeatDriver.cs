@@ -20,6 +20,15 @@ namespace Basis.Scripts.Drivers
         public bool IsSeated => _seat != null;
         public bool HipsPinned => _seat != null && hipsLocked;
         private bool hipsLocked = true;
+        private bool leftHandTargeted;
+        private bool rightHandTargeted;
+        private bool leftFootTargeted;
+        private bool rightFootTargeted;
+        private bool leftHandClaimed;
+        private bool rightHandClaimed;
+        private bool leftFootClaimed;
+        private bool rightFootClaimed;
+        private int limbDriveMask;
 
         /// <summary>The seat the local player is in, or null. A static read so scripts can poll it every frame.</summary>
         public static BasisSeat ActiveSeat { get; private set; }
@@ -37,6 +46,10 @@ namespace Basis.Scripts.Drivers
         // Per-avatar stable hips basis (from T-pose positions)
         private Quaternion avatarHipsBasisTpose = Quaternion.identity;
         private Quaternion hipsRestFromRoot = Quaternion.identity;
+        private Quaternion leftHandRestFromRoot = Quaternion.identity;
+        private Quaternion rightHandRestFromRoot = Quaternion.identity;
+        private Quaternion leftFootRestFromRoot = Quaternion.identity;
+        private Quaternion rightFootRestFromRoot = Quaternion.identity;
         private Vector3 lastSeatPelvisPosition = Vector3.zero;
 
         public Vector3 HipsOffsetFromPin { get; private set; }
@@ -81,6 +94,10 @@ namespace Basis.Scripts.Drivers
             BasisSeatFitLegs.TryFromMapping(mapping.TposeFromRoot, LocalPlayer.AvatarTransform.localScale, BasisLocalAvatarDriver.TposeSoleHeight, out legs);
             avatarHipsBasisTpose = BasisGenericBoneRotationUtils.GetCharacterBasis(mapping);
             hipsRestFromRoot = mapping.TposeFromRoot.TryGetValue(HumanBodyBones.Hips, out var hipsRest) ? hipsRest.rotation : Quaternion.identity;
+            leftHandRestFromRoot = mapping.TposeFromRoot.TryGetValue(HumanBodyBones.LeftHand, out var leftHandRest) ? leftHandRest.rotation : Quaternion.identity;
+            rightHandRestFromRoot = mapping.TposeFromRoot.TryGetValue(HumanBodyBones.RightHand, out var rightHandRest) ? rightHandRest.rotation : Quaternion.identity;
+            leftFootRestFromRoot = mapping.TposeFromRoot.TryGetValue(HumanBodyBones.LeftFoot, out var leftFootRest) ? leftFootRest.rotation : Quaternion.identity;
+            rightFootRestFromRoot = mapping.TposeFromRoot.TryGetValue(HumanBodyBones.RightFoot, out var rightFootRest) ? rightFootRest.rotation : Quaternion.identity;
         }
 
         private void OnLocalAvatarChanged()
@@ -201,10 +218,12 @@ namespace Basis.Scripts.Drivers
                 hasEvent = false;
             }
             hasPlayspaceOffset = false;
+            leftHandTargeted = rightHandTargeted = leftFootTargeted = rightFootTargeted = false;
 
             if (LocalPlayer == null)
                 return;
 
+            UpdateLimbDrive();
             LocalPlayer.LocalVirtualSpineDriver.HipsFreezeToTpose = false;
             LocalPlayer.LocalAnimatorDriver.PauseAnimator = false;
             LocalPlayer.OnVirtualData -= OnSimulate;
@@ -309,9 +328,16 @@ namespace Basis.Scripts.Drivers
 
             bool fbt = Basis.BasisUI.BasisSettingsDefaults.EnableFBT.RawValue;
             hipsLocked = BasisSeatFit.IsLocked(_seat.HipsLock, fbt && HasTracker(BasisLocalBoneDriver.HipsControl));
-            bool leftLocked = BasisSeatFit.IsLocked(_seat.LeftFootLock, fbt && (HasTracker(BasisLocalBoneDriver.LeftFootControl) || HasTracker(BasisLocalBoneDriver.LeftUpperLegControl)));
-            bool rightLocked = BasisSeatFit.IsLocked(_seat.RightFootLock, fbt && (HasTracker(BasisLocalBoneDriver.RightFootControl) || HasTracker(BasisLocalBoneDriver.RightUpperLegControl)));
-            ApplyOverrideUsages(hipsLocked, leftLocked, rightLocked);
+            bool leftLocked = BasisSeatFit.IsLocked(_seat.LeftFootLock, fbt && ((!SeatDrives(BasisLocalBoneDriver.LeftFootControl, leftFootClaimed) && HasTracker(BasisLocalBoneDriver.LeftFootControl)) || HasTracker(BasisLocalBoneDriver.LeftUpperLegControl)));
+            bool rightLocked = BasisSeatFit.IsLocked(_seat.RightFootLock, fbt && ((!SeatDrives(BasisLocalBoneDriver.RightFootControl, rightFootClaimed) && HasTracker(BasisLocalBoneDriver.RightFootControl)) || HasTracker(BasisLocalBoneDriver.RightUpperLegControl)));
+            leftHandTargeted = BasisSeatFit.IsLocked(_seat.LeftHandLock, !SeatDrives(BasisLocalBoneDriver.LeftHandControl, leftHandClaimed) && HasRigLayer(BasisLocalBoneDriver.LeftHandControl)) && UsableTarget(_seat.LeftHandTarget);
+            rightHandTargeted = BasisSeatFit.IsLocked(_seat.RightHandLock, !SeatDrives(BasisLocalBoneDriver.RightHandControl, rightHandClaimed) && HasRigLayer(BasisLocalBoneDriver.RightHandControl)) && UsableTarget(_seat.RightHandTarget);
+            leftFootTargeted = fbt && leftLocked && UsableTarget(_seat.LeftFootTarget);
+            rightFootTargeted = fbt && rightLocked && UsableTarget(_seat.RightFootTarget);
+            bool leftPosed = leftLocked && !leftFootTargeted;
+            bool rightPosed = rightLocked && !rightFootTargeted;
+            UpdateLimbDrive();
+            ApplyOverrideUsages(hipsLocked, leftPosed, rightPosed);
             LocalPlayer.LocalVirtualSpineDriver.HipsFreezeToTpose = hipsLocked;
             CaptureHipsFromPin(hipsLocked);
 
@@ -322,13 +348,102 @@ namespace Basis.Scripts.Drivers
             {
                 LocalPlayer.LocalRigDriver.SetOverrideData(HumanBodyBones.Hips, pelvisWorldPos, playerRot);
             }
-            if (leftLocked || rightLocked)
+            if (leftPosed || rightPosed)
             {
                 ApplyLegPose(fit, playerRot);
             }
         }
 
         private static bool HasTracker(BasisLocalBoneControl control) => control != null && control.HasTracked == BasisHasTracked.HasTracker;
+
+        private static bool HasRigLayer(BasisLocalBoneControl control) => control != null && control.HasRigLayer == BasisHasRigLayer.HasRigLayer;
+
+        private static bool UsableTarget(Transform target)
+        {
+            if (target == null)
+            {
+                return false;
+            }
+            target.GetPositionAndRotation(out Vector3 position, out Quaternion rotation);
+            return BasisSeatFit.IsFinitePose(position, rotation);
+        }
+
+        public static bool SeatDrives(BasisLocalBoneControl control, bool claimed) => claimed && control.DevicesWithRoles.Count == 0;
+
+        public static void ClaimLimb(BasisLocalBoneControl control, bool targeted, ref bool claimed)
+        {
+            if (control == null)
+            {
+                return;
+            }
+            if (targeted && control.DevicesWithRoles.Count == 0 && (claimed || (!HasTracker(control) && !HasRigLayer(control))))
+            {
+                claimed = true;
+                control.HasTracked = BasisHasTracked.HasTracker;
+                control.HasRigLayer = BasisHasRigLayer.HasRigLayer;
+            }
+            else if (claimed)
+            {
+                claimed = false;
+                if (control.DevicesWithRoles.Count == 0)
+                {
+                    control.HasTracked = BasisHasTracked.HasNoTracker;
+                    control.HasRigLayer = BasisHasRigLayer.HasNoRigLayer;
+                }
+            }
+        }
+
+        private void UpdateLimbDrive()
+        {
+            ClaimLimb(BasisLocalBoneDriver.LeftHandControl, leftHandTargeted, ref leftHandClaimed);
+            ClaimLimb(BasisLocalBoneDriver.RightHandControl, rightHandTargeted, ref rightHandClaimed);
+            ClaimLimb(BasisLocalBoneDriver.LeftFootControl, leftFootTargeted, ref leftFootClaimed);
+            ClaimLimb(BasisLocalBoneDriver.RightFootControl, rightFootTargeted, ref rightFootClaimed);
+            int mask = (leftHandTargeted ? 1 : 0) | (rightHandTargeted ? 2 : 0) | (leftFootTargeted ? 4 : 0) | (rightFootTargeted ? 8 : 0);
+            if (mask == limbDriveMask)
+            {
+                return;
+            }
+            limbDriveMask = mask;
+            LocalPlayer.OnLatePollData -= DriveLimbTargets;
+            if (mask != 0)
+            {
+                LocalPlayer.OnLatePollData += DriveLimbTargets;
+            }
+        }
+
+        private void DriveLimbTargets()
+        {
+            if (_seat == null)
+            {
+                return;
+            }
+            BasisLocalRigDriver rig = LocalPlayer.LocalRigDriver;
+            Matrix4x4 playerToWorld = BasisLocalPlayer.localToWorldMatrix;
+            if (leftHandTargeted) DriveHand(BasisLocalBoneDriver.LeftHandControl, _seat.LeftHandTarget, leftHandRestFromRoot, rig.LeftHandIKOffset, playerToWorld);
+            if (rightHandTargeted) DriveHand(BasisLocalBoneDriver.RightHandControl, _seat.RightHandTarget, rightHandRestFromRoot, rig.RightHandIKOffset, playerToWorld);
+            if (leftFootTargeted) DriveFoot(BasisLocalBoneDriver.LeftFootControl, _seat.LeftFootTarget, leftFootRestFromRoot, rig.LeftFootIKOffset, playerToWorld);
+            if (rightFootTargeted) DriveFoot(BasisLocalBoneDriver.RightFootControl, _seat.RightFootTarget, rightFootRestFromRoot, rig.RightFootIKOffset, playerToWorld);
+        }
+
+        private void DriveHand(BasisLocalBoneControl control, Transform target, Quaternion restFromRoot, Quaternion ikOffset, in Matrix4x4 playerToWorld)
+        {
+            target.GetPositionAndRotation(out Vector3 position, out Quaternion rotation);
+            DriveControl(control, position, BasisSeatFit.LimbBoneRotation(rotation, avatarHipsBasisTpose, restFromRoot) * Quaternion.Inverse(ikOffset), playerToWorld);
+        }
+
+        private void DriveFoot(BasisLocalBoneControl control, Transform target, Quaternion restFromRoot, Quaternion ikOffset, in Matrix4x4 playerToWorld)
+        {
+            target.GetPositionAndRotation(out Vector3 sole, out Quaternion rotation);
+            DriveControl(control, BasisSeatFit.FootTargetPosition(sole, rotation, legs.FootThickness), BasisSeatFit.LimbBoneRotation(rotation, avatarHipsBasisTpose, restFromRoot) * Quaternion.Inverse(ikOffset), playerToWorld);
+        }
+
+        private static void DriveControl(BasisLocalBoneControl control, Vector3 worldPosition, Quaternion worldRotation, in Matrix4x4 playerToWorld)
+        {
+            Common.BasisCalibratedCoords offset = control.UseInverseOffset ? control.InverseOffsetFromBone : Common.BasisCalibratedCoords.Identity;
+            BasisSeatFit.ControlIncoming(playerToWorld, worldPosition, worldRotation, offset.position, offset.rotation, out Vector3 position, out Quaternion rotation);
+            control.SetIncoming(position, rotation);
+        }
 
         private void CaptureHipsFromPin(bool pinHips)
         {
@@ -347,23 +462,27 @@ namespace Basis.Scripts.Drivers
         private void ApplyLegPose(in BasisSeatFitResult fit, Quaternion playerRot)
         {
             Quaternion seatToAvatar = avatarHipsBasisTpose * Quaternion.Inverse(_seat.SpineRotation);
-            Vector3 upperDir = seatToAvatar * (fit.Knee - fit.Back);
-            Vector3 lowerDir = seatToAvatar * (fit.Foot - fit.Knee);
             Vector3 right = avatarHipsBasisTpose * Vector3.right;
             Vector3 forward = avatarHipsBasisTpose * Vector3.forward;
+            Vector3 upperDir = fit.Knee - fit.Back;
+            Vector3 lowerDir = fit.Foot - fit.Knee;
 
-            Quaternion leftLower = BasisSeatFit.LegDelta(leftLowerLegOffset, forward, lowerDir, right);
-            Quaternion rightLower = BasisSeatFit.LegDelta(rightLowerLegOffset, forward, lowerDir, right);
+            BasisSeatLegPose left = BasisSeatFit.SolveLegPose(_seat.Pose, upperDir, lowerDir, _seat.SpineRotation, true);
+            BasisSeatLegPose rightLeg = BasisSeatFit.SolveLegPose(_seat.Pose, upperDir, lowerDir, _seat.SpineRotation, false);
+            Quaternion leftLower = BasisSeatFit.LegDeltaWithPole(leftLowerLegOffset, forward, seatToAvatar * left.LowerDir, seatToAvatar * left.LowerPole);
+            Quaternion rightLower = BasisSeatFit.LegDeltaWithPole(rightLowerLegOffset, forward, seatToAvatar * rightLeg.LowerDir, seatToAvatar * rightLeg.LowerPole);
+            Quaternion leftFoot = leftLower * Quaternion.AngleAxis(left.FootPitchDegrees, right);
+            Quaternion rightFoot = rightLower * Quaternion.AngleAxis(rightLeg.FootPitchDegrees, right);
 
             BasisLocalRigDriver rig = LocalPlayer.LocalRigDriver;
-            rig.SetOverrideRotation(HumanBodyBones.LeftUpperLeg, playerRot * BasisSeatFit.LegDelta(leftUpperLegOffset, forward, upperDir, right));
-            rig.SetOverrideRotation(HumanBodyBones.RightUpperLeg, playerRot * BasisSeatFit.LegDelta(rightUpperLegOffset, forward, upperDir, right));
+            rig.SetOverrideRotation(HumanBodyBones.LeftUpperLeg, playerRot * BasisSeatFit.LegDeltaWithPole(leftUpperLegOffset, forward, seatToAvatar * left.UpperDir, seatToAvatar * left.UpperPole));
+            rig.SetOverrideRotation(HumanBodyBones.RightUpperLeg, playerRot * BasisSeatFit.LegDeltaWithPole(rightUpperLegOffset, forward, seatToAvatar * rightLeg.UpperDir, seatToAvatar * rightLeg.UpperPole));
             rig.SetOverrideRotation(HumanBodyBones.LeftLowerLeg, playerRot * leftLower);
             rig.SetOverrideRotation(HumanBodyBones.RightLowerLeg, playerRot * rightLower);
-            rig.SetOverrideRotation(HumanBodyBones.LeftFoot, playerRot * leftLower);
-            rig.SetOverrideRotation(HumanBodyBones.RightFoot, playerRot * rightLower);
-            rig.SetOverrideRotation(HumanBodyBones.LeftToes, playerRot * leftLower);
-            rig.SetOverrideRotation(HumanBodyBones.RightToes, playerRot * rightLower);
+            rig.SetOverrideRotation(HumanBodyBones.LeftFoot, playerRot * leftFoot);
+            rig.SetOverrideRotation(HumanBodyBones.RightFoot, playerRot * rightFoot);
+            rig.SetOverrideRotation(HumanBodyBones.LeftToes, playerRot * leftFoot);
+            rig.SetOverrideRotation(HumanBodyBones.RightToes, playerRot * rightFoot);
         }
 
         private void PlaceRoot(Vector3 pelvisSeatLocal, out Vector3 pelvisWorldPos, out Quaternion playerRot)

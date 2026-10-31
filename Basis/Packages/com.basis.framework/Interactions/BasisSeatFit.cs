@@ -11,6 +11,25 @@ namespace Basis.Scripts.BasisSdk.Interactions
         Free,
     }
 
+    public enum BasisSeatPose
+    {
+        Seated,
+        KneesApart,
+        CrossLegged,
+        LegsOut,
+        Dangling,
+        Kneeling,
+    }
+
+    public struct BasisSeatLegPose
+    {
+        public Vector3 UpperDir;
+        public Vector3 UpperPole;
+        public Vector3 LowerDir;
+        public Vector3 LowerPole;
+        public float FootPitchDegrees;
+    }
+
     public struct BasisSeatFitFrame
     {
         public Vector3 Back;
@@ -338,6 +357,88 @@ namespace Basis.Scripts.BasisSdk.Interactions
             return mode == BasisSeatLockMode.Locked || (mode == BasisSeatLockMode.UnlessTracked && !hasTracker);
         }
 
+        public const float KneesApartDegrees = 25f;
+        public const float CrossLeggedThighDegrees = 55f;
+        public const float KneelingThighDegrees = 60f;
+        public const float KneelingFootPitchDegrees = 60f;
+        public const float DanglingFootPitchDegrees = 25f;
+
+        public static BasisSeatLegPose SolveLegPose(BasisSeatPose pose, Vector3 upperDirection, Vector3 lowerDirection, Quaternion spineRotation, bool isLeft)
+        {
+            Vector3 up = spineRotation * Vector3.up;
+            Vector3 forward = spineRotation * Vector3.forward;
+            Vector3 right = spineRotation * Vector3.right;
+            Vector3 outward = isLeft ? -right : right;
+            Vector3 upper = upperDirection.normalized;
+            Vector3 lower = lowerDirection.normalized;
+            float footPitch = 0f;
+
+            switch (pose)
+            {
+                case BasisSeatPose.KneesApart:
+                    upper = Quaternion.AngleAxis(isLeft ? -KneesApartDegrees : KneesApartDegrees, up) * upper;
+                    break;
+                case BasisSeatPose.CrossLegged:
+                    float thigh = CrossLeggedThighDegrees * Mathf.Deg2Rad;
+                    return new BasisSeatLegPose
+                    {
+                        UpperDir = forward * Mathf.Cos(thigh) + outward * Mathf.Sin(thigh),
+                        UpperPole = (up + outward * 0.5f).normalized,
+                        LowerDir = (forward * 0.3f - outward * 0.95f - up * (isLeft ? 0.02f : 0.14f)).normalized,
+                        LowerPole = (up + forward * 0.4f).normalized,
+                    };
+                case BasisSeatPose.LegsOut:
+                    lower = (upper - up * 0.1f).normalized;
+                    break;
+                case BasisSeatPose.Dangling:
+                    lower = -up;
+                    footPitch = DanglingFootPitchDegrees;
+                    break;
+                case BasisSeatPose.Kneeling:
+                    float kneel = KneelingThighDegrees * Mathf.Deg2Rad;
+                    upper = forward * Mathf.Cos(kneel) - up * Mathf.Sin(kneel);
+                    lower = -forward;
+                    footPitch = KneelingFootPitchDegrees;
+                    break;
+            }
+
+            return new BasisSeatLegPose
+            {
+                UpperDir = upper,
+                UpperPole = Vector3.Cross(upper, right),
+                LowerDir = lower,
+                LowerPole = Vector3.Cross(lower, right),
+                FootPitchDegrees = footPitch,
+            };
+        }
+
+        public static float PosePelvisLift(BasisSeatPose pose, float upperLegLength)
+        {
+            return pose == BasisSeatPose.Kneeling ? upperLegLength * Mathf.Sin(KneelingThighDegrees * Mathf.Deg2Rad) : 0f;
+        }
+
+        public static Quaternion LimbBoneRotation(Quaternion targetWorldRotation, Quaternion avatarHipsBasis, Quaternion restFromRoot)
+        {
+            return targetWorldRotation * Quaternion.Inverse(avatarHipsBasis) * restFromRoot;
+        }
+
+        public static Vector3 FootTargetPosition(Vector3 targetWorldPosition, Quaternion targetWorldRotation, float footThickness)
+        {
+            return targetWorldPosition + targetWorldRotation * Vector3.up * footThickness;
+        }
+
+        public static void ControlIncoming(in Matrix4x4 playerToWorld, Vector3 worldPosition, Quaternion worldRotation, Vector3 inverseOffsetPosition, Quaternion inverseOffsetRotation, out Vector3 position, out Quaternion rotation)
+        {
+            rotation = Quaternion.Inverse(playerToWorld.rotation) * worldRotation * Quaternion.Inverse(inverseOffsetRotation);
+            position = playerToWorld.inverse.MultiplyPoint3x4(worldPosition) - rotation * inverseOffsetPosition;
+        }
+
+        public static bool IsFinitePose(Vector3 position, Quaternion rotation)
+        {
+            return !float.IsNaN(position.x + position.y + position.z) && !float.IsInfinity(position.x + position.y + position.z)
+                && !float.IsNaN(rotation.x + rotation.y + rotation.z + rotation.w) && !float.IsInfinity(rotation.x + rotation.y + rotation.z + rotation.w);
+        }
+
         public static void ComposeHipsWorld(
             Matrix4x4 seatLocalToWorld,
             Quaternion seatWorldRotation,
@@ -430,12 +531,16 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         public static Quaternion LegDelta(Vector3 restDirection, Vector3 restForward, Vector3 desiredDirection, Vector3 right)
         {
+            return LegDeltaWithPole(restDirection, restForward, desiredDirection, Vector3.Cross(desiredDirection.normalized, right));
+        }
+
+        public static Quaternion LegDeltaWithPole(Vector3 restDirection, Vector3 restForward, Vector3 desiredDirection, Vector3 desiredPole)
+        {
             if (restDirection.sqrMagnitude < 1e-8f || desiredDirection.sqrMagnitude < 1e-8f)
             {
                 return Quaternion.identity;
             }
             Vector3 restPole = Vector3.ProjectOnPlane(restForward, restDirection.normalized);
-            Vector3 desiredPole = Vector3.Cross(desiredDirection.normalized, right);
             if (restPole.sqrMagnitude < 1e-8f || desiredPole.sqrMagnitude < 1e-8f)
             {
                 return Quaternion.FromToRotation(restDirection, desiredDirection);

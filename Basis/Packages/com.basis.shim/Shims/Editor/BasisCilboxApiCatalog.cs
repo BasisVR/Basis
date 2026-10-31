@@ -851,6 +851,11 @@ seat.LeftFootLock = BasisSeatLockMode.UnlessTracked;
 seat.RightFootLock = BasisSeatLockMode.Free;
 seat.OccupantOffsetLimit = 0.5f;
 seat.SetOccupantOffset(new Vector3(0f, 0.1f, 0f));
+seat.Pose = BasisSeatPose.KneesApart;
+seat.SetHandTargets(leftGrip, rightGrip);
+seat.LeftHandLock = BasisSeatLockMode.Locked;
+seat.SetFootTargets(leftPedal, rightPedal);
+seat.ClearLimbTargets();
 seat.EjectLocalPlayer();",
             },
             new CilboxApiEntry
