@@ -709,6 +709,12 @@ namespace Basis.Scripts.BasisSdk.Players
 
         public int GetMovementMode() => (int)LocalCharacterDriver.CurrentModeKind;
 
+        public float GetAvatarEyeHeight() => BasisHeightDriver.ScaledAvatarEyeHeight;
+        public void SetAvatarEyeHeight(float meters) => BasisHeightDriver.ApplyRuntimeOscEyeHeightOverride(meters);
+        public void SetAvatarEyeHeightByMultiplier(float multiplier) => BasisHeightDriver.ApplyRuntimeOscEyeHeightOverride(BasisHeightDriver.AvatarEyeHeight * multiplier);
+        public float GetAvatarEyeHeightMinimum() => BasisNetworkModeration.ServerMinAvatarEyeHeightMeters;
+        public float GetAvatarEyeHeightMaximum() => BasisNetworkModeration.ServerMaxAvatarEyeHeightMeters;
+
         public void SetJumpHeightOverride(string key, float jumpHeight)
         {
             PushLocomotionOverride(key, new BasisLocomotionValues
