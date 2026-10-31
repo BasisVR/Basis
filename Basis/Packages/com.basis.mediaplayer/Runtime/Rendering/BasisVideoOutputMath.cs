@@ -141,6 +141,13 @@ public static class BasisVideoOutputMath
         offset.x = offset.x - scale.x;
         offset.y = offset.y - scale.y;
     }
+
+    public static void ApplyFlips(bool vertical, bool horizontal, ref Vector2 scale, ref Vector2 offset)
+    {
+        if (vertical && horizontal) ApplyBothFlip(ref scale, ref offset);
+        else if (vertical) ApplyVerticalFlip(ref scale, ref offset);
+        else if (horizontal) ApplyHorizontalFlip(ref scale, ref offset);
+    }
 }
 
 /// <summary>Per-output colour adjustment. Serializable because both output sinks

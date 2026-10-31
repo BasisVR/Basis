@@ -116,6 +116,13 @@ On `BasisVideoMaterialOutput`, the Picture foldout shows four sliders at 1, and
 a moved slider keeps its value after Play Mode. `BasisVideoPicture` must stay
 `[System.Serializable]` or the foldout is empty.
 
+On `BasisVideoTextureOutput`, give it a `RenderTexture` and a `ClearColor` that
+stands out, play a video and read the texture back. Before the first frame it
+holds `ClearColor`; while playing it shows the picture upright and filling the
+target; paused, it stays the same frame, and a second texture assigned as the
+target while paused shows that frame at once; after Stop it holds `ClearColor`
+again.
+
 The first Play Mode after a script reload stalls for a few seconds; judge
 startup in a build or on the second load.
 
