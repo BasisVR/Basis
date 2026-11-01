@@ -888,7 +888,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         TextureHandle batchedDepth = TextureHandle.nullHandle;
         if (batched)
         {
-            DrawingSettings batchedDrawing = new DrawingSettings(new ShaderTagId("Universal2D"), new SortingSettings(cameraData.camera) { criteria = SortingCriteria.CommonOpaque })
+            DrawingSettings batchedDrawing = new DrawingSettings(new ShaderTagId("BasisSurface"), new SortingSettings(cameraData.camera) { criteria = SortingCriteria.CommonOpaque })
             {
                 perObjectData = PerObjectData.None,
                 enableInstancing = true

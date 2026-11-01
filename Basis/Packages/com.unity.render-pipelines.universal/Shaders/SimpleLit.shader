@@ -450,6 +450,38 @@ Shader "Universal Render Pipeline/Simple Lit"
 
         Pass
         {
+            Name "BasisSurface"
+            Tags
+            {
+                "LightMode" = "BasisSurface"
+                "RenderType" = "Transparent"
+                "Queue" = "Transparent"
+            }
+
+            HLSLPROGRAM
+            #pragma target 2.0
+
+            // -------------------------------------
+            // Shader Stages
+            #pragma vertex vert
+            #pragma fragment frag
+
+            // -------------------------------------
+            // Material Keywords
+            #pragma shader_feature_local_fragment _ALPHATEST_ON
+            #pragma shader_feature_local_fragment _ _ALPHAPREMULTIPLY_ON
+
+            // -------------------------------------
+            // Includes
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/SimpleLitInput.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/Utils/Universal2D.hlsl"
+            ENDHLSL
+        }
+
+        Pass
+        {
             Name "MotionVectors"
             Tags { "LightMode" = "MotionVectors" }
             ColorMask RG

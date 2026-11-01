@@ -20,7 +20,7 @@ namespace Basis.Tests.GlobalIllumination
         private AmbientMode ambientMode;
         private Color ambientLight;
         private float reflectionIntensity;
-        private int overrideWarnings;
+        private long logStart;
 
         [SetUp]
         public void SetUp()
@@ -40,14 +40,12 @@ namespace Basis.Tests.GlobalIllumination
             harness.AddSun(Quaternion.Euler(35f, 25f, 0f), 2f);
             harness.Camera.transform.position = new Vector3(0f, 0f, -3f);
             harness.Camera.transform.rotation = Quaternion.identity;
-            overrideWarnings = 0;
-            Application.logMessageReceived += CountOverrideWarning;
+            logStart = new System.IO.FileInfo(Application.consoleLogPath).Length;
         }
 
         [TearDown]
         public void TearDown()
         {
-            Application.logMessageReceived -= CountOverrideWarning;
             RenderSettings.ambientMode = ambientMode;
             RenderSettings.ambientLight = ambientLight;
             RenderSettings.reflectionIntensity = reflectionIntensity;
@@ -61,9 +59,19 @@ namespace Basis.Tests.GlobalIllumination
             UnityEditor.ShaderUtil.allowAsyncCompilation = previousAsync;
         }
 
-        private void CountOverrideWarning(string message, string stack, LogType type)
+        private int BatchWarnings()
         {
-            if (message.Contains("Override shaders")) { overrideWarnings++; }
+            GL.Flush();
+            using System.IO.FileStream stream = new System.IO.FileStream(Application.consoleLogPath, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.ReadWrite | System.IO.FileShare.Delete);
+            stream.Seek(logStart, System.IO.SeekOrigin.Begin);
+            using System.IO.StreamReader reader = new System.IO.StreamReader(stream);
+            string text = reader.ReadToEnd();
+            int count = 0;
+            foreach (string needle in new[] { "Override shaders (from DrawingSettings", "does not define a DOTS_INSTANCING_ON" })
+            {
+                for (int at = text.IndexOf(needle, StringComparison.Ordinal); at >= 0; at = text.IndexOf(needle, at + 1, StringComparison.Ordinal)) { count++; }
+            }
+            return count;
         }
 
         private JobHandle Cull(BatchRendererGroup source, BatchCullingContext context, BatchCullingOutput output, IntPtr user)
@@ -143,24 +151,91 @@ namespace Basis.Tests.GlobalIllumination
             return read;
         }
 
-        [Test]
-        public void ABatchedDrawReadsTheSameColourAsAnOrdinaryOne()
+        [TestCase("Universal Render Pipeline/Lit")]
+        [TestCase("Universal Render Pipeline/Simple Lit")]
+        [TestCase("Universal Render Pipeline/Complex Lit")]
+        [TestCase("Universal Render Pipeline/Baked Lit")]
+        public void ABatchedDrawReadsTheSameColourAsAnOrdinaryOne(string shaderName)
         {
-            Material lit = harness.CreateLitMaterial(new Color(0.8f, 0.1f, 0.1f), Color.black);
+            Material lit = harness.Own(new Material(Shader.Find(shaderName)));
+            lit.SetColor("_BaseColor", new Color(0.8f, 0.1f, 0.1f));
             GameObject ordinary = harness.AddBox(Vector3.zero, new Vector3(3f, 3f, 0.2f), lit);
             Color expected = Surface();
             ordinary.SetActive(false);
 
             AddBatchedBox(lit);
-            Color drawn = harness.RenderAndSample(Centre());
-            Assert.Greater(drawn.r, drawn.b * 1.5f, $"the group never drew, so this test proves nothing: {drawn}");
             Color read = Surface();
-            Debug.Log($"[BasisGI] batched surface {read} | ordinary surface {expected} | lit frame {drawn}");
+            Debug.Log($"[BasisGI] {shaderName} batched surface {read} | ordinary surface {expected}");
+            Assert.Greater(read.r, read.b * 2f, $"the group never drew into the surface: {read}");
             Assert.AreEqual(expected.r, read.r, 0.02f, "a batched draw read something other than its base colour");
             Assert.AreEqual(expected.g, read.g, 0.02f, "a batched draw read something other than its base colour");
             Assert.AreEqual(expected.b, read.b, 0.02f, "a batched draw read something other than its base colour");
-            Assert.AreEqual(0, overrideWarnings, "the override shader reached a batched draw");
+            Assert.AreEqual(0, BatchWarnings(), "a batched draw warned");
         }
+
+        [Test]
+        public void ABatchedShaderGraphHasThePassAndDoesNotWarn()
+        {
+            const string path = "Packages/com.basis.gizmos/GizmoShader.shadergraph";
+            UnityEditor.AssetDatabase.ImportAsset(path, UnityEditor.ImportAssetOptions.ForceUpdate);
+            Shader graph = UnityEditor.AssetDatabase.LoadAssetAtPath<Shader>(path);
+            Assert.IsNotNull(graph, path);
+            Material material = harness.Own(new Material(graph));
+            Assert.GreaterOrEqual(material.FindPass("BasisSurface"), 0, "the Lit Shader Graph target did not generate the pass");
+            AddBatchedBox(material);
+            Color read = Surface();
+            Debug.Log($"[BasisGI] shader graph batched surface {read}");
+            Assert.Greater(read.maxColorComponent, 0.01f, "the batched graph drew nothing into the surface");
+            Assert.AreEqual(0, BatchWarnings(), "a batched graph warned");
+        }
+
+        [Test]
+        public void ABundledGraphWithOnlyTheOld2DPassIsSkippedSilently()
+        {
+            Shader shader = UnityEditor.ShaderUtil.CreateShaderAsset(OldGraphSource);
+            harness.Own(shader);
+            Assert.IsTrue(shader.isSupported, "the fixture shader did not compile");
+            Material material = harness.Own(new Material(shader));
+            Assert.Less(material.FindPass("BasisSurface"), 0);
+            AddBatchedBox(material);
+            Color read = Surface();
+            Debug.Log($"[BasisGI] old graph batched surface {read}");
+            Assert.Less(read.maxColorComponent, 0.01f, $"the pixel should be left for the multiply: {read}");
+            Assert.AreEqual(0, BatchWarnings(), "a bundled graph warned");
+        }
+
+        private const string OldGraphSource = @"Shader ""Hidden/BasisGIT/OldGraph""
+{
+    SubShader
+    {
+        Tags { ""RenderPipeline"" = ""UniversalPipeline"" }
+        HLSLINCLUDE
+        #include ""Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl""
+        struct A { float4 p : POSITION; UNITY_VERTEX_INPUT_INSTANCE_ID };
+        float4 V(A a) : SV_POSITION { UNITY_SETUP_INSTANCE_ID(a); return TransformObjectToHClip(a.p.xyz); }
+        float4 F() : SV_Target { return float4(0, 1, 0, 1); }
+        ENDHLSL
+        Pass
+        {
+            Tags { ""LightMode"" = ""UniversalForward"" }
+            HLSLPROGRAM
+            #pragma vertex V
+            #pragma fragment F
+            #pragma target 4.5
+            #pragma multi_compile _ DOTS_INSTANCING_ON
+            ENDHLSL
+        }
+        Pass
+        {
+            Name ""Universal 2D""
+            Tags { ""LightMode"" = ""Universal2D"" }
+            HLSLPROGRAM
+            #pragma vertex V
+            #pragma fragment F
+            ENDHLSL
+        }
+    }
+}";
 
         [Test]
         public void ABatchedDrawBehindAnOrdinaryOneDoesNotShowThrough()
@@ -183,13 +258,6 @@ namespace Basis.Tests.GlobalIllumination
             Color read = Surface();
             Debug.Log($"[BasisGI] batched behind unlit {read}");
             Assert.Less(read.maxColorComponent, 0.05f, $"the unlit pixel took the colour behind it: {read}");
-        }
-
-        [Test]
-        public void TheBatchedPassIsKeptInBuilds()
-        {
-            string text = System.IO.File.ReadAllText("Packages/com.unity.render-pipelines.universal/Editor/ShaderBuildPreprocessor.cs");
-            StringAssert.Contains("s_Strip2DPasses = false;", text, "a stripped Universal2D pass leaves every batched surface on the multiply in a player");
         }
     }
 }

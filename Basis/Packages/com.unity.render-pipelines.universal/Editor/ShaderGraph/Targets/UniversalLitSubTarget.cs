@@ -490,6 +490,7 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
                 result.passes.Add(PassVariant(CorePasses.SceneSelection(target), CorePragmas.Instanced));
                 result.passes.Add(PassVariant(CorePasses.ScenePicking(target), CorePragmas.Instanced));
                 result.passes.Add(PassVariant(LitPasses._2D(target), CorePragmas.Default));
+                result.passes.Add(PassVariant(LitPasses.BasisSurface(target), CorePragmas.Instanced));
 
                 return result;
             }
@@ -716,6 +717,15 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
 
                 CorePasses.AddAlphaClipControlToPass(ref result, target);
 
+                return result;
+            }
+
+            public static PassDescriptor BasisSurface(UniversalTarget target)
+            {
+                var result = _2D(target);
+                result.displayName = "BasisSurface";
+                result.lightMode = "BasisSurface";
+                result.includes = LitIncludes.BasisSurface;
                 return result;
             }
 
@@ -1112,6 +1122,18 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
                 // Post-graph
                 { CoreIncludes.CorePostgraph },
                 { kLightingMetaPass, IncludeLocation.Postgraph },
+            };
+
+            public static readonly IncludeCollection BasisSurface = new IncludeCollection
+            {
+                // Pre-graph
+                { CoreIncludes.DOTSPregraph },
+                { CoreIncludes.CorePregraph },
+                { CoreIncludes.ShaderGraphPregraph },
+
+                // Post-graph
+                { CoreIncludes.CorePostgraph },
+                { k2DPass, IncludeLocation.Postgraph },
             };
 
             public static readonly IncludeCollection _2D = new IncludeCollection

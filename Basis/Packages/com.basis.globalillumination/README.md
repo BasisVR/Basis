@@ -82,9 +82,10 @@ buffer decides which fragment owns a pixel, so a cutout hole shows the surface b
 clip logic was.
 
 Unity ignores an override shader on BatchRendererGroup draws, so GPU Resident Drawer batches are filtered out of that
-list and drawn through their own `Universal2D` pass instead, which outputs base map times base colour. A copy of the
-camera depth decides visibility for them. A batched shader with no `Universal2D` pass draws nothing here and keeps the
-multiply.
+list and drawn through their own `BasisSurface` pass instead, which outputs base map times base colour. URP Lit, Simple
+Lit, Complex Lit, Baked Lit and Lit Shader Graphs carry it. The tag is ours rather than `Universal2D` because Shader
+Graph and most URP shaders build that pass with no DOTS variant, and Unity warns about every such draw. A copy of the
+camera depth decides visibility. A batched shader with no `BasisSurface` pass draws nothing here and keeps the multiply.
 
 The composite then adds `indirect * surfaceColour` to `sceneColor * obscurance`. A pixel the pass did not claim keeps
 the multiply, and that covers URP Unlit and anything else drawn without a `UniversalForward` tag.
@@ -101,8 +102,8 @@ the multiply, and that covers URP Unlit and anything else drawn without a `Unive
 
 - Surface colour reads the standard property names. A shader that keeps its colour elsewhere reads as white, or as
   its tint alone, and only the bounce it receives is affected.
-- A batched custom shader, or a world bundle built before `Universal2D` was kept in builds, keeps the multiply, so an
-  unlit part of it stays black. It looks the same as it did before surface colour existed.
+- A batched custom shader, or a batched material in a world bundle built before `BasisSurface` existed, keeps the
+  multiply, so an unlit part of it stays black. It looks the same as it did before surface colour existed.
 - Transparent materials draw after the composite and do not receive the bounce.
 - A thin wall one voxel thick can hold both of its faces in one voxel and leak.
 - An emissive surface the camera has never looked at contributes nothing until it has been seen.
