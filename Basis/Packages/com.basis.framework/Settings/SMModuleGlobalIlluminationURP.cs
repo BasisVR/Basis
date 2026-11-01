@@ -55,6 +55,7 @@ public struct BasisGlobalIlluminationState
     public float TemporalResponse;
     public bool TemporalFilter;
     public bool WideBlur;
+    public bool AlternateEyes;
     public bool RayReuse;
     public bool Emitters;
     public float EmitterIntensity;
@@ -105,6 +106,7 @@ public struct BasisGlobalIlluminationState
             TemporalResponse = BasisSettingsDefaults.GlobalIlluminationTemporalResponse.DefaultValue.GetDefault(),
             TemporalFilter = BasisSettingsDefaults.GlobalIlluminationTemporalFilter.DefaultValue.GetDefault(),
             WideBlur = BasisSettingsDefaults.GlobalIlluminationWideBlur.DefaultValue.GetDefault(),
+            AlternateEyes = BasisSettingsDefaults.GlobalIlluminationAlternateEyes.DefaultValue.GetDefault(),
             RayReuse = BasisSettingsDefaults.GlobalIlluminationRayReuse.DefaultValue.GetDefault(),
             Emitters = BasisSettingsDefaults.GlobalIlluminationEmitters.DefaultValue.GetDefault(),
             EmitterIntensity = BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.DefaultValue.GetDefault(),
@@ -156,6 +158,7 @@ public struct BasisGlobalIlluminationState
             TemporalResponse = BasisSettingsDefaults.GlobalIlluminationTemporalResponse.RawValue,
             TemporalFilter = BasisSettingsDefaults.GlobalIlluminationTemporalFilter.RawValue,
             WideBlur = BasisSettingsDefaults.GlobalIlluminationWideBlur.RawValue,
+            AlternateEyes = BasisSettingsDefaults.GlobalIlluminationAlternateEyes.RawValue,
             RayReuse = BasisSettingsDefaults.GlobalIlluminationRayReuse.RawValue,
             Emitters = BasisSettingsDefaults.GlobalIlluminationEmitters.RawValue,
             EmitterIntensity = BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.RawValue,
@@ -207,6 +210,7 @@ public struct BasisGlobalIlluminationCaptureOverride
     public float RayLength;
     public float Smoothing;
     public bool WideBlur;
+    public bool AlternateEyes;
     public bool RayReuse;
     public bool Emitters;
     public float EmitterIntensity;
@@ -285,6 +289,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
     private static string K_GI_TEMPORAL_RESPONSE => BasisSettingsDefaults.GlobalIlluminationTemporalResponse.BindingKey;
     private static string K_GI_TEMPORAL_FILTER => BasisSettingsDefaults.GlobalIlluminationTemporalFilter.BindingKey;
     private static string K_GI_WIDE_BLUR => BasisSettingsDefaults.GlobalIlluminationWideBlur.BindingKey;
+    private static string K_GI_ALTERNATE_EYES => BasisSettingsDefaults.GlobalIlluminationAlternateEyes.BindingKey;
     private static string K_GI_RAY_REUSE => BasisSettingsDefaults.GlobalIlluminationRayReuse.BindingKey;
     private static string K_GI_EMITTERS => BasisSettingsDefaults.GlobalIlluminationEmitters.BindingKey;
     private static string K_GI_EMITTER_INTENSITY => BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.BindingKey;
@@ -494,6 +499,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
         }
         else if (matchedSettingName == K_GI_TEMPORAL_FILTER) { state.TemporalFilter = optionValue == "true"; }
         else if (matchedSettingName == K_GI_WIDE_BLUR) { state.WideBlur = optionValue == "true"; }
+        else if (matchedSettingName == K_GI_ALTERNATE_EYES) { state.AlternateEyes = optionValue == "true"; }
         else if (matchedSettingName == K_GI_RAY_REUSE) { state.RayReuse = optionValue == "true"; }
         else if (matchedSettingName == K_GI_EMITTERS) { state.Emitters = optionValue == "true"; }
         else if (matchedSettingName == K_GI_REFLECTION_PROBES) { state.ReflectionProbes = optionValue == "true"; }
@@ -704,6 +710,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
             effective.RayLength = o.RayLength;
             effective.Smoothing = o.Smoothing;
             effective.WideBlur = o.WideBlur;
+            effective.AlternateEyes = o.AlternateEyes;
             effective.RayReuse = o.RayReuse;
             effective.Emitters = o.Emitters;
             effective.EmitterIntensity = o.EmitterIntensity;
@@ -934,6 +941,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
         target.temporalResponse = Mathf.Clamp(state.TemporalResponse, BasisSettingsDefaults.GI_TEMPORAL_RESPONSE_MIN, BasisSettingsDefaults.GI_TEMPORAL_RESPONSE_MAX);
 
         target.wideBlur = state.WideBlur;
+        target.alternateEyes = state.AlternateEyes;
         target.rayReuse = state.RayReuse;
 
         target.emitters = state.Emitters;

@@ -9059,6 +9059,14 @@
       "value": "A second, wider blur pass. Removes the low frequency blotching a small blur leaves behind, for one more pass over the traced buffer."
     },
     {
+      "key": "settings.graphics.gi.alternateEyes",
+      "value": "Update Eyes In Turn"
+    },
+    {
+      "key": "settings.graphics.gi.alternateEyes.tooltip",
+      "value": "In VR, gathers bounce light for one eye each frame and reuses the last result for the other. Saves up to half the cost with a small loss of accuracy."
+    },
+    {
       "key": "settings.graphics.gi.temporalFilter",
       "value": "Temporal Filter"
     },
@@ -15465,6 +15473,14 @@
     {
       "key": "settings.remoteAudio.occlusionRadius",
       "value": "Occlusion Radius"
+    },
+    {
+      "key": "settings.remoteAudio.worldReflectionPlayers",
+      "value": "World Reflection Players"
+    },
+    {
+      "key": "settings.remoteAudio.worldReflectionPlayers.tooltip",
+      "value": "Most players whose voices a world script can give reflections to. Reflections are CPU heavy, so lower this if a world slows your game down. 0 blocks them."
     },
     {
       "key": "settings.remoteAudio.occlusionSamples",

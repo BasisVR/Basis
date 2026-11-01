@@ -1002,6 +1002,22 @@ float clear = BasisSteamAudioShim.GetOcclusion(this, source);",
             },
             new CilboxApiEntry
             {
+                GroupKey = GroupAudio,
+                TitleKey = "sdk.cilbox.api.remotePlayerAudio.title",
+                SummaryKey = "sdk.cilbox.api.remotePlayerAudio.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisRemotePlayerAudioShim", "SetOcclusion") },
+                Example =
+@"using Basis.Shims;
+
+// World scripts only. Changes how this client hears that player. Volume and mutes stay with the listener.
+BasisRemotePlayerAudioShim.SetOcclusion(this, player, false);
+BasisRemotePlayerAudioShim.SetReflections(this, player, true, 0.5f);
+
+// Back to this listener's own Remote Audio settings. Also happens when the world unloads.
+BasisRemotePlayerAudioShim.Clear(this, player);",
+            },
+            new CilboxApiEntry
+            {
                 GroupKey = GroupPlayers,
                 TitleKey = "sdk.cilbox.api.languageEvent.title",
                 SummaryKey = "sdk.cilbox.api.languageEvent.summary",

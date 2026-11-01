@@ -251,6 +251,41 @@ namespace Basis.Tests.GlobalIllumination
         }
 
         [Test]
+        public void AnEyeIsOnlySkippedInStereoWithTheSettingOn()
+        {
+            RenderTextureDescriptor mono = new RenderTextureDescriptor(64, 64) { dimension = UnityEngine.Rendering.TextureDimension.Tex2D, volumeDepth = 1 };
+            RenderTextureDescriptor stereo = new RenderTextureDescriptor(64, 64) { dimension = UnityEngine.Rendering.TextureDimension.Tex2DArray, volumeDepth = 2 };
+            Assert.AreEqual(-1f, BasisGlobalIlluminationPass.SkipEyeFor(true, mono, 3, false));
+            Assert.AreEqual(-1f, BasisGlobalIlluminationPass.SkipEyeFor(false, stereo, 3, false));
+            Assert.AreEqual(-1f, BasisGlobalIlluminationPass.SkipEyeFor(true, stereo, 3, true));
+            Assert.AreEqual(1f, BasisGlobalIlluminationPass.SkipEyeFor(true, stereo, 3, false));
+            Assert.AreEqual(0f, BasisGlobalIlluminationPass.SkipEyeFor(true, stereo, 4, false));
+        }
+
+        [Test]
+        public void ARedRoomBouncesRedLightThroughItsVoxels()
+        {
+            OpenDark();
+            Material red = harness.CreateLitMaterial(new Color(0.8f, 0.08f, 0.08f), Color.black);
+            Room(red, new Vector3(6f, 3f, 6f));
+            harness.AddBox(new Vector3(0f, 2.9f, 0f), new Vector3(1.5f, 0.05f, 1.5f), harness.CreateLitMaterial(Color.black, new Color(25f, 25f, 25f)));
+            Look(new Vector3(0f, 1.5f, -2.5f), new Vector3(0f, 1.2f, 2.5f));
+            harness.Settings.worldSpace = true;
+            harness.Settings.bounceFeedback = 0.6f;
+            harness.SetDebugView(BasisGlobalIlluminationDebugView.Indirect);
+            RectInt whole = new RectInt(4, 4, BasisGlobalIlluminationRenderHarness.Width - 8, BasisGlobalIlluminationRenderHarness.Height - 8);
+            harness.Settings.surfaceColour = false;
+            BasisGlobalIlluminationPass.ReleaseWorld();
+            Color grey = harness.Converged(whole, 64, 8);
+            harness.Settings.surfaceColour = true;
+            BasisGlobalIlluminationPass.ReleaseWorld();
+            Color known = harness.Converged(whole, 64, 8);
+            float greyTint = grey.r / Mathf.Max(grey.g, 1e-4f), knownTint = known.r / Mathf.Max(known.g, 1e-4f);
+            Debug.Log($"[BasisGI] red room indirect: grey voxels {grey} tint {greyTint:F2} | known colour {known} tint {knownTint:F2}");
+            Assert.Greater(knownTint, greyTint * 1.05f, "the voxels did not pick up the colour of what they hold");
+        }
+
+        [Test]
         public void ThePyramidDoesNotChangeWhatTheRaysSee()
         {
             OpenDark();

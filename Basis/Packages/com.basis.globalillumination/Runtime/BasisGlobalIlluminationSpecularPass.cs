@@ -277,6 +277,7 @@ public sealed partial class BasisGlobalIlluminationPass
                     passData.previousViewProjection = previousViewProjection;
                     previousViewProjection[0] = history.PreviousSpecularViewProjection[0];
                     previousViewProjection[1] = history.PreviousSpecularViewProjection[1];
+                    passData.skipEye = -1f;
                     // Pooled PassData again: the temporal stage binds motion and the traced depth buffer
                     // whenever their handles look valid, and this pass records earlier in the frame than the
                     // diffuse one that also sets them - so anything left unset here is a handle from a graph

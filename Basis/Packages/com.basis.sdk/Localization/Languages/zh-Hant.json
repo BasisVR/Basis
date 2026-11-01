@@ -844,6 +844,8 @@
     { "key": "sdk.cilbox.api.audioRouting.summary", "value": "把腳本之後新增的音訊來源放到世界、道具或模型群組，讓玩家的音量滑桿生效。" },
     { "key": "sdk.cilbox.api.steamAudio.title", "value": "Steam Audio" },
     { "key": "sdk.cilbox.api.steamAudio.summary", "value": "為此內容的音訊來源啟用空間化，並透過指令碼設定 HRTF、遮蔽、穿透、空氣吸收和反射。世界還可以新增聲學幾何體。" },
+    { "key": "sdk.cilbox.api.remotePlayerAudio.title", "value": "其他玩家的 Steam Audio" },
+    { "key": "sdk.cilbox.api.remotePlayerAudio.summary", "value": "世界指令碼可變更其他玩家語音的遮蔽、穿透、空氣吸收、指向性和反射，僅在此用戶端生效。音量和靜音仍由聽者控制。" },
     { "key": "sdk.cilbox.api.languageEvent.title", "value": "語言變更" },
     { "key": "sdk.cilbox.api.languageEvent.summary", "value": "告訴腳本玩家使用的語言，並在每次變更時再次通知。" },
     { "key": "sdk.cilbox.api.sharedRandom.title", "value": "共享亂數" },

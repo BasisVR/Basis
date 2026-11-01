@@ -76,6 +76,17 @@ float _BasisGISpecHitDistanceValid;
 /// fail to draw leaves the effect exactly as it was without the mask. The first version of this pass had
 /// the opposite polarity and every failure read as "global illumination is gone"; see the pass in
 /// BasisGlobalIlluminationPass.RecordLightmapMask.
+float _BasisGISkipEye;
+
+bool BasisGISkippedEye()
+{
+#if defined(UNITY_STEREO_INSTANCING_ENABLED) || defined(UNITY_STEREO_MULTIVIEW_ENABLED)
+    return (float)SLICE_ARRAY_INDEX == _BasisGISkipEye;
+#else
+    return false;
+#endif
+}
+
 TEXTURE2D_X(_BasisGISurface);
 float _BasisGISurfaceValid;
 TEXTURE2D_X(_BasisGILightmapMask);

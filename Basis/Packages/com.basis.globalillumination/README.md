@@ -97,6 +97,12 @@ the multiply, and that covers URP Unlit and anything else drawn without a `Unive
 - Only the level being traced this frame injects light, and the other levels copy their harmonics.
 - A voxel the camera has seen recently skips its light loop and shadow rays.
 - Voxels refresh at half the rate of the cascades, since their seen colour comes from the camera anyway.
+- `alternateEyes` (off by default) traces one eye per frame in stereo and holds the other in its temporal history. A
+  pixel with no history reads the eye that traced this frame. The blend rate doubles on the frames an eye updates, so
+  it reacts to a light change as quickly as tracing both eyes.
+
+Voxels hold the colour the surface colour pass read for them once the camera has seen them, and a neutral grey before
+that.
 
 ### Limits
 

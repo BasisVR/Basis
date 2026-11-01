@@ -208,6 +208,30 @@ BasisGITemporalOutput BasisGITemporal(float2 uv)
 
     float2 previousUv;
     bool onScreen;
+#if defined(UNITY_STEREO_INSTANCING_ENABLED) || defined(UNITY_STEREO_MULTIVIEW_ENABLED)
+    if (!specular && BasisGISkippedEye())
+    {
+        float2 heldUv;
+        if (BasisGIReproject(uv, worldPosition, heldUv))
+        {
+            float4 heldStats = BasisGILoadHistoryStats(heldUv);
+            if (heldStats.r > 0.0 && abs(heldStats.r - eyeDepth) / max(eyeDepth, BASISGI_EPSILON) <= BASISGI_DEPTH_REJECTION)
+            {
+                output.indirect = BasisGILoadHistory(heldUv);
+                output.stats = float4(eyeDepth, heldStats.g, heldStats.b, heldStats.a);
+                return output;
+            }
+        }
+        float4 otherClip = mul(unity_StereoMatrixVP[1 - SLICE_ARRAY_INDEX], float4(worldPosition, 1.0));
+        float2 otherUv = otherClip.xy / max(otherClip.w, BASISGI_EPSILON) * 0.5 + 0.5;
+#if UNITY_UV_STARTS_AT_TOP
+        otherUv.y = 1.0 - otherUv.y;
+#endif
+        output.indirect = SAMPLE_TEXTURE2D_ARRAY_LOD(_BasisGIIndirect, sampler_LinearClamp, saturate(otherUv), 1 - SLICE_ARRAY_INDEX, 0);
+        output.stats = float4(eyeDepth, 1.0, Luminance(output.indirect.rgb), 0.0);
+        return output;
+    }
+#endif
     UNITY_BRANCH
     if (specular)
     {
@@ -271,8 +295,10 @@ BasisGITemporalOutput BasisGITemporal(float2 uv)
     // count rather than throwing the history away outright. The response slider is the floor: it decides
     // where accumulation stops, and it is only reached once there is enough history to stop at.
     float rejection = saturate(relativeDelta / max(BASISGI_DEPTH_REJECTION, BASISGI_EPSILON));
-    float frames = min(historyStats.g * (1.0 - rejection) + 1.0, BASISGI_TEMPORAL_MAX_FRAMES);
+    float elapsed = !specular && _BasisGISkipEye >= 0.0 ? 2.0 : 1.0;
+    float frames = min(historyStats.g * (1.0 - rejection) + elapsed, BASISGI_TEMPORAL_MAX_FRAMES);
     float response = max(rcp(max(frames, 1.0)), BASISGI_TEMPORAL_RESPONSE);
+    if (elapsed > 1.0) { response = max(response, 1.0 - Sq(1.0 - BASISGI_TEMPORAL_RESPONSE)); }
 
     output.indirect = lerp(history, current, response);
 

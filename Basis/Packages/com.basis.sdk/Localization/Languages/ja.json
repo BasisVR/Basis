@@ -844,6 +844,8 @@
     { "key": "sdk.cilbox.api.audioRouting.summary", "value": "スクリプトが後から追加したオーディオソースをワールド、プロップ、アバターのグループに振り分け、プレイヤーの音量スライダーが効くようにします。" },
     { "key": "sdk.cilbox.api.steamAudio.title", "value": "Steam Audio" },
     { "key": "sdk.cilbox.api.steamAudio.summary", "value": "このコンテンツのオーディオソースを立体音響にし、HRTF、オクルージョン、透過、空気吸収、反射をスクリプトから設定します。ワールドは音響ジオメトリも追加できます。" },
+    { "key": "sdk.cilbox.api.remotePlayerAudio.title", "value": "他のプレイヤーの Steam Audio" },
+    { "key": "sdk.cilbox.api.remotePlayerAudio.summary", "value": "ワールドスクリプトが他のプレイヤーの声のオクルージョン、透過、空気吸収、指向性、反射を、このクライアント上でのみ変更します。音量とミュートは聞き手が管理します。" },
     { "key": "sdk.cilbox.api.languageEvent.title", "value": "言語の変更" },
     { "key": "sdk.cilbox.api.languageEvent.summary", "value": "プレイヤーが使っている言語をスクリプトに伝え、変更されるたびに再び通知します。" },
     { "key": "sdk.cilbox.api.sharedRandom.title", "value": "共有乱数" },

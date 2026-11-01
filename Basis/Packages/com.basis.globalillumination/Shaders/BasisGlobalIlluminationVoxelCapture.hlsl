@@ -7,6 +7,7 @@
 
 RWTexture3D<uint> _BasisGIVoxSeenWrite : register(u1);
 RWTexture3D<float> _BasisGIVoxSeenWeightWrite : register(u2);
+RWTexture3D<uint> _BasisGIVoxSeenAlbedoWrite : register(u3);
 
 #define BASISGI_VOXEL_CAPTURE_BLEND 0.25
 
@@ -33,6 +34,17 @@ float BasisGIVoxelCapture(float2 uv)
     float3 blended = weight > 0.05 ? lerp(previous, colour, BASISGI_VOXEL_CAPTURE_BLEND) : colour;
     _BasisGIVoxSeenWrite[voxel] = PackToR11G11B10f(min(blended, 60000.0));
     _BasisGIVoxSeenWeightWrite[voxel] = 1.0;
+
+    if (_BasisGISurfaceValid > 0.5)
+    {
+        float4 surface = SAMPLE_TEXTURE2D_X_LOD(_BasisGISurface, sampler_PointClamp, UnityStereoTransformScreenSpaceTex(uv), 0);
+        if (surface.a < 0.5)
+        {
+            uint known = _BasisGIVoxSeenAlbedoWrite[voxel];
+            float3 albedo = known != 0u ? lerp(UnpackFromR11G11B10f(known), surface.rgb, BASISGI_VOXEL_CAPTURE_BLEND) : surface.rgb;
+            _BasisGIVoxSeenAlbedoWrite[voxel] = PackToR11G11B10f(max(albedo, 1.0 / 255.0));
+        }
+    }
     return 0.0;
 }
 

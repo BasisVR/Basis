@@ -1,6 +1,10 @@
 using System;
 using System.Collections.Generic;
+using Basis.BasisUI;
 using Basis.Scripts.Drivers;
+using Basis.Scripts.Networking;
+using Basis.Scripts.Networking.NetworkedAvatar;
+using Basis.Scripts.Networking.Receivers;
 using Cilbox;
 using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
@@ -331,12 +335,183 @@ namespace Basis.Shims
 		public static bool RemoveGeometry(object self, MeshFilter filter) => false;
 #endif
 		private static int Scope(CilboxBasisCommon box, int world, int prop, int avatar) => box is CilboxSceneBasis ? world : box is CilboxAvatarBasis ? avatar : prop;
-		private static bool TryCaller(object self, out CilboxProxy proxy, out CilboxBasisCommon box)
+		internal static bool TryCaller(object self, out CilboxProxy proxy, out CilboxBasisCommon box)
 		{
 			proxy = self as CilboxProxy;
 			box = proxy != null ? proxy.box as CilboxBasisCommon : null;
 			return box != null && !box.disabled && box.interpreterAccountingDepth > 0;
 		}
 		private static bool SameContent(CilboxBasisCommon box, CilboxProxy proxy, Component target) => CilboxBasisConsent.TryOwner(box, proxy.gameObject, out BasisContentBase mine) && BasisContent.TryResolve(target, out BasisContentBase theirs) && mine == theirs;
+	}
+	[AutoStaticsCleanup]
+	public static partial class BasisRemotePlayerAudioShim
+	{
+#if STEAMAUDIO_ENABLED && !UNITY_WEBGL
+		private sealed class Override { public BasisNetworkReceiver player; public ushort id; public CilboxBasisCommon box; public bool? occlusion, transmission, airAbsorption, directivity, reflections; public float dipoleWeight, dipolePower, reflectionsMix; }
+		private static readonly List<Override> overrides = new List<Override>();
+		public static bool SetOcclusion(object self, BasisNetworkPlayer player, bool enabled)
+		{
+			if (!TryEdit(self, player, out Override o)) return false;
+			o.occlusion = enabled;
+			return Apply(o);
+		}
+		public static bool SetTransmission(object self, BasisNetworkPlayer player, bool enabled)
+		{
+			if (!TryEdit(self, player, out Override o)) return false;
+			o.transmission = enabled;
+			return Apply(o);
+		}
+		public static bool SetAirAbsorption(object self, BasisNetworkPlayer player, bool enabled)
+		{
+			if (!TryEdit(self, player, out Override o)) return false;
+			o.airAbsorption = enabled;
+			return Apply(o);
+		}
+		public static bool SetDirectivity(object self, BasisNetworkPlayer player, bool enabled, float dipoleWeight, float dipolePower)
+		{
+			if (float.IsNaN(dipoleWeight) || float.IsNaN(dipolePower) || !TryEdit(self, player, out Override o)) return false;
+			o.directivity = enabled;
+			o.dipoleWeight = Mathf.Clamp01(dipoleWeight);
+			o.dipolePower = Mathf.Clamp(dipolePower, 0f, 4f);
+			return Apply(o);
+		}
+		public static bool SetReflections(object self, BasisNetworkPlayer player, bool enabled, float mixLevel)
+		{
+			if (float.IsNaN(mixLevel) || !TryEdit(self, player, out Override o)) return false;
+			if (enabled && o.reflections != true && RemainingReflectionPlayers(self) <= 0)
+			{
+				DropIfEmpty(o);
+				return false;
+			}
+			o.reflections = enabled;
+			o.reflectionsMix = Mathf.Clamp(mixLevel, 0f, 10f);
+			return Apply(o);
+		}
+		public static float GetOcclusion(object self, BasisNetworkPlayer player) => TryWorld(self, out _) && player is BasisNetworkReceiver r && r.AudioReceiverModule.audioSource != null && r.AudioReceiverModule.audioSource.TryGetComponent(out SteamAudioSource s) && s.occlusion ? s.occlusionValue : 1f;
+		public static int RemainingReflectionPlayers(object self)
+		{
+			if (!TryWorld(self, out _)) return 0;
+			int used = 0;
+			foreach (Override o in overrides) if (o.reflections == true) used++;
+			return Mathf.Max(0, ReflectionPlayerLimit - used);
+		}
+		public static bool Clear(object self, BasisNetworkPlayer player)
+		{
+			if (!TryWorld(self, out _) || !(player is BasisNetworkReceiver receiver)) return false;
+			for (int i = overrides.Count - 1; i >= 0; i--)
+			{
+				if (overrides[i].player != receiver) continue;
+				overrides.RemoveAt(i);
+				SettingsProviderRemoteAudio.ApplyRemoteAudioTo(receiver.AudioReceiverModule);
+				return true;
+			}
+			return false;
+		}
+		public static int ClearAll(object self)
+		{
+			if (!TryWorld(self, out CilboxBasisCommon box)) return 0;
+			int cleared = 0;
+			for (int i = overrides.Count - 1; i >= 0; i--)
+			{
+				if (overrides[i].box != box) continue;
+				BasisNetworkReceiver receiver = overrides[i].player;
+				overrides.RemoveAt(i);
+				SettingsProviderRemoteAudio.ApplyRemoteAudioTo(receiver.AudioReceiverModule);
+				cleared++;
+			}
+			return cleared;
+		}
+		private static int ReflectionPlayerLimit => (int)BasisSettingsDefaults.RAWorldReflectionPlayers.RawValue;
+		private static bool WithinReflectionLimit(Override target)
+		{
+			int rank = 0;
+			foreach (Override o in overrides)
+			{
+				if (o == target) return rank < ReflectionPlayerLimit;
+				if (o.reflections == true) rank++;
+			}
+			return false;
+		}
+		private static bool TryWorld(object self, out CilboxBasisCommon box) => BasisSteamAudioShim.TryCaller(self, out _, out box) && box is CilboxSceneBasis;
+		private static bool TryEdit(object self, BasisNetworkPlayer player, out Override found)
+		{
+			found = null;
+			if (!TryWorld(self, out CilboxBasisCommon box) || !(player is BasisNetworkReceiver receiver)) return false;
+			foreach (Override o in overrides)
+			{
+				if (o.player != receiver) continue;
+				o.box = box;
+				found = o;
+				return true;
+			}
+			found = new Override { player = receiver, id = receiver.playerId, box = box };
+			overrides.Add(found);
+			SettingsProviderRemoteAudio.RemoteAudioApplied -= OnApplied;
+			SettingsProviderRemoteAudio.RemoteAudioApplied += OnApplied;
+			BasisFrameClock.OnTick -= Tick;
+			BasisFrameClock.OnTick += Tick;
+			return true;
+		}
+		private static void DropIfEmpty(Override o)
+		{
+			if (!o.occlusion.HasValue && !o.transmission.HasValue && !o.airAbsorption.HasValue && !o.directivity.HasValue && !o.reflections.HasValue) overrides.Remove(o);
+		}
+		private static void OnApplied(BasisAudioReceiver receiver)
+		{
+			foreach (Override o in overrides)
+			{
+				if (o.player.AudioReceiverModule != receiver) continue;
+				Apply(o);
+				return;
+			}
+		}
+		private static bool Apply(Override o)
+		{
+			AudioSource source = o.player.AudioReceiverModule.audioSource;
+			if (source == null || !source.TryGetComponent(out SteamAudioSource s)) return true;
+			if (o.occlusion.HasValue) s.occlusion = o.occlusion.Value;
+			if (o.transmission.HasValue) s.transmission = o.transmission.Value;
+			if (o.airAbsorption.HasValue) s.airAbsorption = o.airAbsorption.Value;
+			if (o.directivity.HasValue)
+			{
+				s.directivity = o.directivity.Value;
+				s.dipoleWeight = o.dipoleWeight;
+				s.dipolePower = o.dipolePower;
+			}
+			if (o.reflections.HasValue && (!o.reflections.Value || WithinReflectionLimit(o)))
+			{
+				s.reflections = o.reflections.Value;
+				s.reflectionsType = ReflectionsType.Realtime;
+				s.reflectionsMixLevel = o.reflectionsMix;
+			}
+			s.MarkCacheDirty();
+			s.ForceUpdate();
+			return true;
+		}
+		private static void Tick()
+		{
+			for (int i = overrides.Count - 1; i >= 0; i--)
+			{
+				Override o = overrides[i];
+				bool present = BasisNetworkPlayers.GetPlayerById(o.id, out BasisNetworkPlayer current) && ReferenceEquals(current, o.player);
+				if (present && o.box != null && !o.box.disabled) continue;
+				overrides.RemoveAt(i);
+				if (present) SettingsProviderRemoteAudio.ApplyRemoteAudioTo(o.player.AudioReceiverModule);
+			}
+			if (overrides.Count > 0) return;
+			BasisFrameClock.OnTick -= Tick;
+			SettingsProviderRemoteAudio.RemoteAudioApplied -= OnApplied;
+		}
+#else
+		public static bool SetOcclusion(object self, BasisNetworkPlayer player, bool enabled) => false;
+		public static bool SetTransmission(object self, BasisNetworkPlayer player, bool enabled) => false;
+		public static bool SetAirAbsorption(object self, BasisNetworkPlayer player, bool enabled) => false;
+		public static bool SetDirectivity(object self, BasisNetworkPlayer player, bool enabled, float dipoleWeight, float dipolePower) => false;
+		public static bool SetReflections(object self, BasisNetworkPlayer player, bool enabled, float mixLevel) => false;
+		public static float GetOcclusion(object self, BasisNetworkPlayer player) => 1f;
+		public static int RemainingReflectionPlayers(object self) => 0;
+		public static bool Clear(object self, BasisNetworkPlayer player) => false;
+		public static int ClearAll(object self) => 0;
+#endif
 	}
 }

@@ -447,6 +447,7 @@ namespace Basis.BasisUI
         public const float GI_TEMPORAL_RESPONSE_MAX = 1f;
         public static BasisSettingsBinding<bool> GlobalIlluminationTemporalFilter = new("globalilluminationtemporalfilter", new BasisPlatformDefault<bool>(true));
         public static BasisSettingsBinding<bool> GlobalIlluminationWideBlur = new("globalilluminationwideblur", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> GlobalIlluminationAlternateEyes = new("globalilluminationalternateeyes", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<bool> GlobalIlluminationRayReuse = new("globalilluminationrayreuse", new BasisPlatformDefault<bool>(true));
         // Emitters carry light from sources the trace cannot see: a sign or a strip light is under one
         // texel at traced resolution, and anything behind the camera is off screen entirely.
@@ -1806,6 +1807,14 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<bool> RAReflections = new("ra_reflections", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<float> RAReflectionsMixLevel = new("ra_reflectionsmixlevel", new BasisPlatformDefault<float>(0.1f));
         public static BasisSettingsBinding<bool> RAApplyHRTFToReflections = new("ra_applyhrtftoreflections", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<float> RAWorldReflectionPlayers = new("ra_worldreflectionplayers", new BasisPlatformDefault<float>
+        {
+            windows = 16f,
+            android = 4f,
+            linux = 16f,
+            ios = 4f,
+            other = 16f
+        });
 
         // ---------------- CALIBRATION SPHERE SCALE (per bone) ----------------
         public static BasisSettingsBinding<float> CalibSphereScaleHips = new("calibspherescalehips", new BasisPlatformDefault<float>(1f));
@@ -2374,6 +2383,7 @@ namespace Basis.BasisUI
             GlobalIlluminationTemporalResponse.LoadBindingValue();
             GlobalIlluminationTemporalFilter.LoadBindingValue();
             GlobalIlluminationWideBlur.LoadBindingValue();
+            GlobalIlluminationAlternateEyes.LoadBindingValue();
             GlobalIlluminationRayReuse.LoadBindingValue();
             GlobalIlluminationEmitters.LoadBindingValue();
             GlobalIlluminationEmitterIntensity.LoadBindingValue();
@@ -2949,6 +2959,7 @@ namespace Basis.BasisUI
             RAReflections.LoadBindingValue();
             RAReflectionsMixLevel.LoadBindingValue();
             RAApplyHRTFToReflections.LoadBindingValue();
+            RAWorldReflectionPlayers.LoadBindingValue();
             RAVoiceToneShaping.LoadBindingValue();
 
             // UI Style Palette

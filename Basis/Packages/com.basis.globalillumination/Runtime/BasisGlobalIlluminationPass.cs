@@ -71,6 +71,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         public RendererListHandle lightmapRenderers;
         public TextureHandle surface;
         public bool surfaceValid;
+        public float skipEye;
         public RendererListHandle surfaceBatched;
         public bool surfaceBatchedValid;
         // The reflection trace's hit distances, which turn the temporal stage into its specular flavour:
@@ -276,6 +277,14 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
 
     public void SetMaterial(Material value) { material = value; }
 
+    private static readonly int idSkipEye = Shader.PropertyToID("_BasisGISkipEye");
+
+    public static float SkipEyeFor(bool alternateEyes, in RenderTextureDescriptor descriptor, int frame, bool rayTraced)
+    {
+        bool stereo = descriptor.dimension == TextureDimension.Tex2DArray && descriptor.volumeDepth == 2;
+        return stereo && alternateEyes && !rayTraced ? frame & 1 : -1f;
+    }
+
     private Shader surfaceShader;
     public void SetSurface(Shader value) { surfaceShader = value; }
 
@@ -404,6 +413,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
             ? RecordLightmapMask(renderGraph, frameData, resourceData, cameraData, descriptor, tracedWidth, tracedHeight)
             : TextureHandle.nullHandle;
         CoreUtils.SetKeyword(material, "_BASISGI_LIGHTMAP_MASK", lightmapMask.IsValid());
+        bool alternateEyes = settings.alternateEyes && historyValid;
         TextureHandle surface = RecordSurface(renderGraph, frameData, resourceData, cameraData, settings, descriptor);
 
         // Declared out here because the temporal filter runs in both modes and wants it whenever the screen
@@ -486,7 +496,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
                 builder.SetRenderFunc((PassData data, RasterGraphContext context) => Execute(data, context));
             }
 
-            RecordWorldCapture(renderGraph, resourceData, camera, sceneColor, tracedWidth, tracedHeight);
+            RecordWorldCapture(renderGraph, resourceData, camera, sceneColor, surface, tracedWidth, tracedHeight);
 
             RecordDepthPyramid(renderGraph, resourceData, descriptor, tracedWidth, tracedHeight, divisor,
                 false, true, out tracedDepth, out TextureHandle coarse);
@@ -496,7 +506,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
             SharedTracedDepthCamera = camera;
 
             RecordRadianceCascades(renderGraph, resourceData, settings, sceneColorDescriptor, descriptor, sceneColor, tracedDepth,
-                normals, traced, tracedWidth, tracedHeight, frame, emitterCount, sky);
+                normals, traced, tracedWidth, tracedHeight, frame, emitterCount, sky, alternateEyes);
         }
 
         TextureHandle denoiseSource = traced;
@@ -520,6 +530,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
                 // inherit a dead graph's handle and run the diffuse accumulation as a reflection.
                 passData.specularHitDistance = TextureHandle.nullHandle;
                 passData.specularHitDistanceValid = false;
+                passData.skipEye = SkipEyeFor(settings.alternateEyes && historyValid, descriptor, frame, rayTraced);
                 previousViewProjection[0] = history.PreviousViewProjection[0];
                 previousViewProjection[1] = history.PreviousViewProjection[1];
                 builder.SetRenderAttachment(historyWrite, 0, AccessFlags.WriteAll);
@@ -1262,6 +1273,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
                 if (data.normals.IsValid()) { cmd.SetGlobalTexture(idNormals, data.normals); }
                 break;
             case Stage.Temporal:
+                cmd.SetGlobalFloat(idSkipEye, data.skipEye);
                 BindTracedDepth(cmd, data);
                 cmd.SetGlobalTexture(idIndirect, data.indirect);
                 cmd.SetGlobalTexture(idHistory, data.history);

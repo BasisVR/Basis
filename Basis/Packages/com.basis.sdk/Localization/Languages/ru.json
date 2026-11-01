@@ -844,6 +844,8 @@
     { "key": "sdk.cilbox.api.audioRouting.summary", "value": "Направляет источники звука, добавленные скриптом позже, в группу «Мир», «Пропы» или «Аватары», чтобы работали ползунки громкости игрока." },
     { "key": "sdk.cilbox.api.steamAudio.title", "value": "Steam Audio" },
     { "key": "sdk.cilbox.api.steamAudio.summary", "value": "Делает источники звука этого контента пространственными и задаёт из скрипта HRTF, окклюзию, прохождение звука, поглощение воздухом и отражения. Миры также могут добавлять акустическую геометрию." },
+    { "key": "sdk.cilbox.api.remotePlayerAudio.title", "value": "Steam Audio других игроков" },
+    { "key": "sdk.cilbox.api.remotePlayerAudio.summary", "value": "Скрипты мира меняют окклюзию, прохождение звука, поглощение воздухом, направленность и отражения голоса другого игрока только на этом клиенте. Громкость и отключение звука остаются за слушателем." },
     { "key": "sdk.cilbox.api.languageEvent.title", "value": "Смена языка" },
     { "key": "sdk.cilbox.api.languageEvent.summary", "value": "Сообщает скрипту, какой язык выбрал игрок, и снова при каждой его смене." },
     { "key": "sdk.cilbox.api.sharedRandom.title", "value": "Общие случайные числа" },

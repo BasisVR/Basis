@@ -844,6 +844,8 @@
     { "key": "sdk.cilbox.api.audioRouting.summary", "value": "स्क्रिप्ट द्वारा बाद में जोड़े गए ऑडियो स्रोतों को वर्ल्ड, प्रॉप्स या अवतार समूह में रखता है, ताकि खिलाड़ी के वॉल्यूम स्लाइडर लागू हों।" },
     { "key": "sdk.cilbox.api.steamAudio.title", "value": "Steam Audio" },
     { "key": "sdk.cilbox.api.steamAudio.summary", "value": "इस कंटेंट के ऑडियो स्रोतों को स्थानिक बनाता है और स्क्रिप्ट से HRTF, ऑक्लूज़न, ट्रांसमिशन, वायु अवशोषण और परावर्तन सेट करता है। वर्ल्ड ध्वनिक ज्यामिति भी जोड़ सकते हैं।" },
+    { "key": "sdk.cilbox.api.remotePlayerAudio.title", "value": "अन्य खिलाड़ियों का Steam Audio" },
+    { "key": "sdk.cilbox.api.remotePlayerAudio.summary", "value": "वर्ल्ड स्क्रिप्ट किसी अन्य खिलाड़ी की आवाज़ का ऑक्लूज़न, ट्रांसमिशन, वायु अवशोषण, दिशात्मकता और परावर्तन केवल इस क्लाइंट पर बदलती हैं। वॉल्यूम और म्यूट श्रोता के नियंत्रण में रहते हैं।" },
     { "key": "sdk.cilbox.api.languageEvent.title", "value": "भाषा बदलना" },
     { "key": "sdk.cilbox.api.languageEvent.summary", "value": "आपकी स्क्रिप्ट को बताता है कि खिलाड़ी कौन सी भाषा इस्तेमाल करता है, और हर बार बदलने पर फिर से।" },
     { "key": "sdk.cilbox.api.sharedRandom.title", "value": "साझा रैंडम संख्याएँ" },

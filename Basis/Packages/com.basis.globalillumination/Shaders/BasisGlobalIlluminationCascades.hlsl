@@ -108,6 +108,13 @@ struct BasisGIRCReduceOutput
 
 BasisGIRCReduceOutput BasisGIRCReduce(float2 positionCS)
 {
+    if (BasisGISkippedEye())
+    {
+        BasisGIRCReduceOutput skipped;
+        skipped.color = float4(0.0, 0.0, 0.0, 1.0);
+        skipped.depth = float2(0.0, 0.0);
+        return skipped;
+    }
     int2 base = int2(positionCS) * 2;
     int2 limit = int2(_BasisGIRCJitter.zw) - 1;
     float nearest = BASISGI_SKY_DEPTH;
@@ -137,6 +144,7 @@ BasisGIRCReduceOutput BasisGIRCReduce(float2 positionCS)
 
 float4 BasisGIRCPlaceProbe(float2 positionCS)
 {
+    if (BasisGISkippedEye()) { return float4(0.0, 0.0, 0.0, 0.0); }
     int2 probe = int2(positionCS);
     if (any(probe >= int2(_BasisGIRCGrid.xy))) { return float4(0.0, 0.0, 0.0, 0.0); }
 
@@ -387,6 +395,7 @@ bool BasisGIRCMergeFixed(BasisGIRCProbe probe, float probeEye, float2 probeCentr
 
 float4 BasisGIRCCascade(float2 positionCS)
 {
+    if (BasisGISkippedEye()) { return float4(0.0, 0.0, 0.0, 0.0); }
     int2 texel = int2(positionCS);
     float resolution = _BasisGIRCCascade.z;
     int2 probeIndex = texel / (int)resolution;
@@ -445,6 +454,7 @@ BasisGIRCHarmonics BasisGIRCResolve(float2 positionCS)
     output.bandX = float4(0.0, 0.0, 0.0, 0.0);
     output.bandY = float4(0.0, 0.0, 0.0, 0.0);
     output.bandZ = float4(0.0, 0.0, 0.0, 0.0);
+    if (BasisGISkippedEye()) { return output; }
 
     int2 probe = int2(positionCS);
     if (any(probe >= int2(_BasisGIRCGrid.xy))) { return output; }
@@ -477,6 +487,7 @@ BasisGIRCHarmonics BasisGIRCResolve(float2 positionCS)
 
 float4 BasisGIRCGather(float2 traceUv, float2 positionSS)
 {
+    if (BasisGISkippedEye()) { return float4(0.0, 0.0, 0.0, 1.0); }
     float2 uv = BasisGIRCSnapToDepthTexel(traceUv);
     float rawDepth = BasisGISampleRawDepth(uv);
     if (BasisGIIsSky(rawDepth)) { return float4(0.0, 0.0, 0.0, 1.0); }

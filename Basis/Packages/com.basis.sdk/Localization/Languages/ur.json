@@ -844,6 +844,8 @@
     { "key": "sdk.cilbox.api.audioRouting.summary", "value": "اسکرپٹ کے بعد میں شامل کردہ آڈیو سورسز کو ورلڈ، پراپس یا اوتار گروپ میں رکھتا ہے تاکہ کھلاڑی کے والیوم سلائیڈر لاگو ہوں۔" },
     { "key": "sdk.cilbox.api.steamAudio.title", "value": "Steam Audio" },
     { "key": "sdk.cilbox.api.steamAudio.summary", "value": "اس مواد کے آڈیو ذرائع کو مکانی بناتا ہے اور اسکرپٹ سے HRTF، آکلوژن، ٹرانسمیشن، ہوا کا جذب اور انعکاس سیٹ کرتا ہے۔ ورلڈز صوتی جیومیٹری بھی شامل کر سکتے ہیں۔" },
+    { "key": "sdk.cilbox.api.remotePlayerAudio.title", "value": "دوسرے کھلاڑیوں کا Steam Audio" },
+    { "key": "sdk.cilbox.api.remotePlayerAudio.summary", "value": "ورلڈ اسکرپٹس دوسرے کھلاڑی کی آواز کا آکلوژن، ٹرانسمیشن، ہوا کا جذب، سمت پذیری اور انعکاس صرف اس کلائنٹ پر بدلتی ہیں۔ آواز کی سطح اور میوٹ سننے والے کے اختیار میں رہتے ہیں۔" },
     { "key": "sdk.cilbox.api.languageEvent.title", "value": "زبان کی تبدیلی" },
     { "key": "sdk.cilbox.api.languageEvent.summary", "value": "آپ کے اسکرپٹ کو بتاتا ہے کہ کھلاڑی کون سی زبان استعمال کرتا ہے، اور ہر بار تبدیل ہونے پر دوبارہ۔" },
     { "key": "sdk.cilbox.api.sharedRandom.title", "value": "مشترکہ بے ترتیب اعداد" },

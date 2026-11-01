@@ -844,6 +844,8 @@
     { "key": "sdk.cilbox.api.audioRouting.summary", "value": "Mette le sorgenti audio aggiunte in seguito da uno script nel gruppo Mondo, Prop o Avatar, così valgono i cursori del volume del giocatore." },
     { "key": "sdk.cilbox.api.steamAudio.title", "value": "Steam Audio" },
     { "key": "sdk.cilbox.api.steamAudio.summary", "value": "Spazializza le sorgenti audio di questo contenuto e imposta HRTF, occlusione, trasmissione, assorbimento dell'aria e riflessioni da script. I mondi possono anche aggiungere geometria acustica." },
+    { "key": "sdk.cilbox.api.remotePlayerAudio.title", "value": "Steam Audio degli altri giocatori" },
+    { "key": "sdk.cilbox.api.remotePlayerAudio.summary", "value": "Gli script del mondo modificano occlusione, trasmissione, assorbimento dell'aria, direttività e riflessioni della voce di un altro giocatore, solo su questo client. Volume e silenziamento restano a chi ascolta." },
     { "key": "sdk.cilbox.api.languageEvent.title", "value": "Cambi di lingua" },
     { "key": "sdk.cilbox.api.languageEvent.summary", "value": "Comunica al tuo script la lingua del giocatore, e di nuovo ogni volta che la cambia." },
     { "key": "sdk.cilbox.api.sharedRandom.title", "value": "Numeri casuali condivisi" },

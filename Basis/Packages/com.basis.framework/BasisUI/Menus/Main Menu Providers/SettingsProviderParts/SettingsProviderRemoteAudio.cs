@@ -617,6 +617,12 @@ namespace Basis.BasisUI
             };
             */
 
+            PanelSlider sliderWorldReflectionPlayers = PanelSlider.CreateEntryAndBind(
+                container,
+                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.remoteAudio.worldReflectionPlayers"), 0f, 64f, true, 0, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.RAWorldReflectionPlayers);
+            sliderWorldReflectionPlayers.Descriptor.SetTooltip(BasisLocalization.Get("settings.remoteAudio.worldReflectionPlayers.tooltip"));
+
             PanelSectionToggleHelpers.FinalizeCollapsibleGroup(advancedToggle, advancedGroup, false,
                 _ => RebuildLayout());
         }
@@ -678,6 +684,7 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.RAReflections.ResetToDefault();
             BasisSettingsDefaults.RAReflectionsMixLevel.ResetToDefault();
             BasisSettingsDefaults.RAApplyHRTFToReflections.ResetToDefault();
+            BasisSettingsDefaults.RAWorldReflectionPlayers.ResetToDefault();
 
             ApplyRemoteAudioToAll();
         }

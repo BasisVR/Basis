@@ -222,6 +222,7 @@ public sealed partial class BasisGlobalIlluminationSettings
 
     public bool rayTracedTextureAlbedo = true;
     public bool surfaceColour = true;
+    public bool alternateEyes = false;
     public BasisGlobalIlluminationRaySkinnedMode rayTracedSkinnedMeshes = BasisGlobalIlluminationRaySkinnedMode.Proxy;
     public LayerMask rayTracedLayerMask = ~0;
     public bool rayTracedShadowCastersOnly = false;
@@ -366,6 +367,7 @@ public sealed partial class BasisGlobalIlluminationSettings
         lightmappedReceive = other.lightmappedReceive;
         emissionScale = other.emissionScale; avatarEmissionScale = other.avatarEmissionScale;
         surfaceColour = other.surfaceColour;
+        alternateEyes = other.alternateEyes;
         rayTracedTextureAlbedo = other.rayTracedTextureAlbedo; rayTracedSkinnedMeshes = other.rayTracedSkinnedMeshes;
         rayTracedLayerMask = other.rayTracedLayerMask;
         rayTracedShadowCastersOnly = other.rayTracedShadowCastersOnly;

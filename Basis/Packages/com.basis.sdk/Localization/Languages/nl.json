@@ -844,6 +844,8 @@
     { "key": "sdk.cilbox.api.audioRouting.summary", "value": "Zet audiobronnen die een script later toevoegt in de groep Wereld, Props of Avatars, zodat de volumeschuiven van de speler gelden." },
     { "key": "sdk.cilbox.api.steamAudio.title", "value": "Steam Audio" },
     { "key": "sdk.cilbox.api.steamAudio.summary", "value": "Maakt de audiobronnen van deze content ruimtelijk en stelt HRTF, occlusie, transmissie, luchtabsorptie en reflecties in via een script. Werelden kunnen ook akoestische geometrie toevoegen." },
+    { "key": "sdk.cilbox.api.remotePlayerAudio.title", "value": "Steam Audio van andere spelers" },
+    { "key": "sdk.cilbox.api.remotePlayerAudio.summary", "value": "Wereldscripts wijzigen occlusie, transmissie, luchtabsorptie, directiviteit en reflecties van de stem van een andere speler, alleen op deze client. Volume en dempen blijven bij de luisteraar." },
     { "key": "sdk.cilbox.api.languageEvent.title", "value": "Taalwijzigingen" },
     { "key": "sdk.cilbox.api.languageEvent.summary", "value": "Vertelt je script welke taal de speler gebruikt, en opnieuw zodra die verandert." },
     { "key": "sdk.cilbox.api.sharedRandom.title", "value": "Gedeelde willekeurige getallen" },

@@ -43,6 +43,27 @@ namespace Basis.Tests.Shims
             Assert.IsTrue(Method(box, nameof(BasisSteamAudioShim.AddGeometry)));
         }
         [Test]
+        public void RemotePlayerAudioIsWorldOnly()
+        {
+            bool Reach(Type boxType)
+            {
+                CilboxBasisCommon box = Box(boxType);
+                return box.CheckTypeAllowed(typeof(BasisRemotePlayerAudioShim)) && box.CheckMethodAllowed(out MethodInfo _, typeof(BasisRemotePlayerAudioShim), nameof(BasisRemotePlayerAudioShim.SetOcclusion), Array.Empty<SerializedTypeDescriptor>(), Array.Empty<SerializedTypeDescriptor>(), "SetOcclusion()");
+            }
+            Assert.IsTrue(Reach(typeof(CilboxSceneBasis)));
+            Assert.IsFalse(Reach(typeof(CilboxPropBasis)));
+            Assert.IsFalse(Reach(typeof(CilboxAvatarBasis)));
+        }
+        [Test]
+        public void RemotePlayerAudioRefusesCallersThatAreNotRunningScripts()
+        {
+            Assert.IsFalse(BasisRemotePlayerAudioShim.SetOcclusion(null, null, true));
+            Assert.IsFalse(BasisRemotePlayerAudioShim.Clear(new object(), null));
+            Assert.AreEqual(0, BasisRemotePlayerAudioShim.ClearAll(null));
+            Assert.AreEqual(0, BasisRemotePlayerAudioShim.RemainingReflectionPlayers(null));
+            Assert.AreEqual(1f, BasisRemotePlayerAudioShim.GetOcclusion(null, null));
+        }
+        [Test]
         public void CallerThatIsNotARunningScriptGetsNothing()
         {
             AudioSource source = Host("source").AddComponent<AudioSource>();

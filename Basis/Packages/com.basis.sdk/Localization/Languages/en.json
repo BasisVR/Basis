@@ -850,6 +850,8 @@
     { "key": "sdk.cilbox.api.audioRouting.summary", "value": "Puts audio sources a script adds later on the World, Props or Avatars group, so the player's volume sliders apply." },
     { "key": "sdk.cilbox.api.steamAudio.title", "value": "Steam Audio" },
     { "key": "sdk.cilbox.api.steamAudio.summary", "value": "Spatializes this content's audio sources and sets HRTF, occlusion, transmission, air absorption and reflections from script. Worlds can also add acoustic geometry." },
+    { "key": "sdk.cilbox.api.remotePlayerAudio.title", "value": "Remote player Steam Audio" },
+    { "key": "sdk.cilbox.api.remotePlayerAudio.summary", "value": "World scripts change occlusion, transmission, air absorption, directivity and reflections on a remote player's voice, on this client only. Volume and mutes stay with the listener." },
     { "key": "sdk.cilbox.api.languageEvent.title", "value": "Language changes" },
     { "key": "sdk.cilbox.api.languageEvent.summary", "value": "Tells your script which language the player uses, and again whenever they change it." },
     { "key": "sdk.cilbox.api.sharedRandom.title", "value": "Shared random numbers" },

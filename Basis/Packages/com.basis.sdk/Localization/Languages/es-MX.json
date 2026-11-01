@@ -844,6 +844,8 @@
     { "key": "sdk.cilbox.api.audioRouting.summary", "value": "Pone las fuentes de audio que un script agrega después en el grupo Mundo, Props o Avatares, para que apliquen los controles de volumen del jugador." },
     { "key": "sdk.cilbox.api.steamAudio.title", "value": "Steam Audio" },
     { "key": "sdk.cilbox.api.steamAudio.summary", "value": "Espacializa las fuentes de audio de este contenido y ajusta HRTF, oclusión, transmisión, absorción del aire y reflexiones desde un script. Los mundos también pueden agregar geometría acústica." },
+    { "key": "sdk.cilbox.api.remotePlayerAudio.title", "value": "Steam Audio de otros jugadores" },
+    { "key": "sdk.cilbox.api.remotePlayerAudio.summary", "value": "Los scripts de mundo cambian la oclusión, la transmisión, la absorción del aire, la directividad y las reflexiones de la voz de otro jugador, solo en este cliente. El volumen y los silencios siguen en manos de quien escucha." },
     { "key": "sdk.cilbox.api.languageEvent.title", "value": "Cambios de idioma" },
     { "key": "sdk.cilbox.api.languageEvent.summary", "value": "Le dice a tu script qué idioma usa el jugador, y otra vez cada que lo cambia." },
     { "key": "sdk.cilbox.api.sharedRandom.title", "value": "Números aleatorios compartidos" },

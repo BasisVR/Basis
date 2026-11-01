@@ -2526,6 +2526,11 @@ namespace Basis.BasisUI
                 toggleGiWideBlur.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.wideBlur"));
                 toggleGiWideBlur.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.wideBlur.tooltip"));
 
+                PanelToggle toggleGiAlternateEyes = PanelToggle.CreateNewEntry(giAdvanced.ContentParent);
+                toggleGiAlternateEyes.AssignBinding(BasisSettingsDefaults.GlobalIlluminationAlternateEyes);
+                toggleGiAlternateEyes.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.alternateEyes"));
+                toggleGiAlternateEyes.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.alternateEyes.tooltip"));
+
                 PanelToggle toggleGiTemporal = PanelToggle.CreateNewEntry(giAdvanced.ContentParent);
                 toggleGiTemporal.AssignBinding(BasisSettingsDefaults.GlobalIlluminationTemporalFilter);
                 toggleGiTemporal.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.temporalFilter"));
@@ -2708,6 +2713,7 @@ namespace Basis.BasisUI
                     sliderGiRayLength.Descriptor.SetActive(basis);
                     sliderGiSmoothing.Descriptor.SetActive(basis);
                     toggleGiWideBlur.Descriptor.SetActive(basis);
+                    toggleGiAlternateEyes.Descriptor.SetActive(cascades);
                     toggleGiTemporal.Descriptor.SetActive(basis);
                     sliderGiTemporalResponse.Descriptor.SetActive(basis && toggleGiTemporal.Value);
                     dropdownGiFallback.Descriptor.SetActive(basis);
@@ -4156,6 +4162,7 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.GlobalIlluminationTemporalResponse.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationTemporalFilter.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationWideBlur.ResetToDefault();
+            BasisSettingsDefaults.GlobalIlluminationAlternateEyes.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationRayReuse.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationEmitters.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.ResetToDefault();

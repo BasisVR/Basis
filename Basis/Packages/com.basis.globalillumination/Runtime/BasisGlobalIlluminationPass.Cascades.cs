@@ -133,7 +133,7 @@ public sealed partial class BasisGlobalIlluminationPass
 
     private void RecordRadianceCascades(RenderGraph renderGraph, UniversalResourceData resourceData, BasisGlobalIlluminationSettings settings,
         in RenderTextureDescriptor tracedDescriptor, in RenderTextureDescriptor descriptor, TextureHandle sceneColor, TextureHandle tracedDepth,
-        TextureHandle normals, TextureHandle traced, int tracedWidth, int tracedHeight, int frame, int emitterCount, in BasisGlobalIlluminationRayTracer.SkyBinding sky)
+        TextureHandle normals, TextureHandle traced, int tracedWidth, int tracedHeight, int frame, int emitterCount, in BasisGlobalIlluminationRayTracer.SkyBinding sky, bool alternateEyes)
     {
         int spacing = Mathf.Max(1, settings.ResolvedCascadeSpacing());
         bool nearField = settings.worldSpace && worldAlbedo != null;
@@ -145,6 +145,7 @@ public sealed partial class BasisGlobalIlluminationPass
         float jitterAmount = settings.temporalFilter ? settings.jitter : 0f;
         CascadeJitter(frame, jitterAmount, spacing, out Vector2 jitter, out Quaternion rotation);
         Matrix4x4 rotationMatrix = Matrix4x4.Rotate(rotation);
+        float skipEye = SkipEyeFor(alternateEyes, descriptor, frame, false);
 
         RenderTextureDescriptor colorDescriptor = tracedDescriptor;
         colorDescriptor.graphicsFormat = GraphicsFormat.B10G11R11_UFloatPack32;
@@ -177,6 +178,7 @@ public sealed partial class BasisGlobalIlluminationPass
                 passData.rcSourceColor = sourceColor;
                 passData.rcSourceDepth = sourceDepth;
                 passData.rcJitter = new Vector4(0f, 0f, sourceWidth, sourceHeight);
+                passData.skipEye = skipEye;
                 builder.SetRenderAttachment(levelColor, 0, AccessFlags.WriteAll);
                 builder.SetRenderAttachment(levelDepth, 1, AccessFlags.WriteAll);
                 builder.UseTexture(sourceColor);
@@ -216,6 +218,7 @@ public sealed partial class BasisGlobalIlluminationPass
                 passData.rcCascade = new Vector4(cascade, cascadeSpacing, resolution, 0f);
                 passData.rcGrid = new Vector4(gridWidth, gridHeight, 0f, 0f);
                 passData.rcJitter = new Vector4(jitter.x, jitter.y, 0f, 0f);
+                passData.skipEye = skipEye;
                 builder.SetRenderAttachment(cascadeProbes[cascade], 0, AccessFlags.WriteAll);
                 builder.UseTexture(resourceData.cameraDepthTexture);
                 if (normals.IsValid()) { builder.UseTexture(normals); }
@@ -261,6 +264,7 @@ public sealed partial class BasisGlobalIlluminationPass
                 passData.rcGrid = new Vector4(gridWidth, gridHeight, upperWidth, upperHeight);
                 passData.rcJitter = new Vector4(jitter.x, jitter.y, atlasWidth, atlasHeight);
                 passData.rcRotation = rotationMatrix;
+                passData.skipEye = skipEye;
                 System.Array.Copy(cascadeLevels, passData.rcLevels, CascadeLevels);
                 builder.SetRenderAttachment(target, 0, AccessFlags.WriteAll);
                 builder.UseTexture(sceneColor);
@@ -297,6 +301,7 @@ public sealed partial class BasisGlobalIlluminationPass
             passData.rcCascade = new Vector4(0f, spacing, CascadeDirections, 0f);
             passData.rcGrid = new Vector4(baseWidth, baseHeight, 0f, 0f);
             passData.rcRotation = rotationMatrix;
+            passData.skipEye = skipEye;
             builder.SetRenderAttachment(sh0, 0, AccessFlags.WriteAll);
             builder.SetRenderAttachment(sh1, 1, AccessFlags.WriteAll);
             builder.SetRenderAttachment(sh2, 2, AccessFlags.WriteAll);
@@ -320,6 +325,7 @@ public sealed partial class BasisGlobalIlluminationPass
             passData.rcCascade = new Vector4(0f, spacing, CascadeDirections, 0f);
             passData.rcGrid = new Vector4(baseWidth, baseHeight, 0f, 0f);
             passData.rcJitter = new Vector4(jitter.x, jitter.y, 0f, 0f);
+            passData.skipEye = skipEye;
             builder.SetRenderAttachment(traced, 0, AccessFlags.WriteAll);
             builder.UseTexture(cascadeProbes[0]);
             builder.UseTexture(sh0); builder.UseTexture(sh1); builder.UseTexture(sh2); builder.UseTexture(sh3);
@@ -342,6 +348,7 @@ public sealed partial class BasisGlobalIlluminationPass
         passData.tracedDepthValid = false;
         passData.rcCascade = passData.rcInterval = passData.rcGrid = passData.rcJitter = Vector4.zero;
         passData.rcRotation = Matrix4x4.identity;
+        passData.skipEye = -1f;
     }
 
     private static void BindCascades(RasterCommandBuffer cmd, PassData data)
@@ -374,5 +381,6 @@ public sealed partial class BasisGlobalIlluminationPass
         cmd.SetGlobalVector(idRcGrid, data.rcGrid);
         cmd.SetGlobalVector(idRcJitter, data.rcJitter);
         cmd.SetGlobalMatrix(idRcRotation, data.rcRotation);
+        cmd.SetGlobalFloat(idSkipEye, data.skipEye);
     }
 }

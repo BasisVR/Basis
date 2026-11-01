@@ -844,6 +844,8 @@
     { "key": "sdk.cilbox.api.audioRouting.summary", "value": "Legt Audioquellen, die ein Skript später hinzufügt, auf die Gruppe Welt, Props oder Avatare, damit die Lautstärkeregler des Spielers gelten." },
     { "key": "sdk.cilbox.api.steamAudio.title", "value": "Steam Audio" },
     { "key": "sdk.cilbox.api.steamAudio.summary", "value": "Verräumlicht die Audioquellen dieses Inhalts und stellt HRTF, Okklusion, Transmission, Luftabsorption und Reflexionen per Skript ein. Welten können zusätzlich akustische Geometrie hinzufügen." },
+    { "key": "sdk.cilbox.api.remotePlayerAudio.title", "value": "Steam Audio für andere Spieler" },
+    { "key": "sdk.cilbox.api.remotePlayerAudio.summary", "value": "Welt-Skripte ändern Okklusion, Transmission, Luftabsorption, Richtwirkung und Reflexionen der Stimme eines anderen Spielers, nur auf diesem Client. Lautstärke und Stummschaltung bleiben beim Zuhörer." },
     { "key": "sdk.cilbox.api.languageEvent.title", "value": "Sprachwechsel" },
     { "key": "sdk.cilbox.api.languageEvent.summary", "value": "Teilt deinem Skript mit, welche Sprache der Spieler nutzt, und erneut, sobald er sie ändert." },
     { "key": "sdk.cilbox.api.sharedRandom.title", "value": "Gemeinsame Zufallszahlen" },
