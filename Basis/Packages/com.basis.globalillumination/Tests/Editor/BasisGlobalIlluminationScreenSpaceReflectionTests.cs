@@ -66,7 +66,7 @@ namespace Basis.Tests.GlobalIllumination
             harness.Camera.transform.rotation = Quaternion.LookRotation(new Vector3(0f, 0.35f, 1.2f) - harness.Camera.transform.position, Vector3.up);
 
             harness.Settings.enable = true;
-            harness.Settings.mode = BasisGlobalIlluminationMode.ScreenSpace;
+            harness.Settings.mode = BasisGlobalIlluminationDiffuseMode.RadianceCascades;
             // Reflections only: the diffuse gather would also carry red onto the floor, and this suite is
             // about whether the SPECULAR path carries it. SpecularActive is independent of intensity.
             harness.Settings.intensity = 0f;
@@ -192,7 +192,7 @@ namespace Basis.Tests.GlobalIllumination
             try
             {
                 harness.Settings.enable = true;
-                harness.Settings.mode = BasisGlobalIlluminationMode.ScreenSpace;
+                harness.Settings.mode = BasisGlobalIlluminationDiffuseMode.RadianceCascades;
                 harness.Settings.intensity = 0f;
                 harness.Settings.specular = true;
                 harness.Settings.specularIntensity = 1f;
@@ -238,7 +238,7 @@ namespace Basis.Tests.GlobalIllumination
             Assert.IsTrue(BasisGlobalIlluminationPass.SpecularPass.ScreenSpaceReflections(settings, false),
                 "Ray Traced mode without the hardware used to mean no reflections at all; it must fall back to screen space the way the diffuse gather falls back");
 
-            settings.mode = BasisGlobalIlluminationMode.RayTraced;
+            settings.mode = BasisGlobalIlluminationDiffuseMode.RayTraced;
             settings.specularMode = BasisGlobalIlluminationMode.ScreenSpace;
             Assert.IsTrue(BasisGlobalIlluminationPass.SpecularPass.ScreenSpaceReflections(settings, true),
                 "the reflections follow their own mode, not the diffuse gather's");

@@ -842,6 +842,8 @@
     { "key": "sdk.cilbox.api.menuPanel.summary", "value": "在主菜单中添加一个按钮，用于打开你自己的面板，面板最多可有 8 个标签页，填写方式与设置标签页相同。每个内容一个面板。Open() 可以显示它，但只能在玩家按下你内容中的某个东西后的 5 秒内使用。" },
     { "key": "sdk.cilbox.api.audioRouting.title", "value": "音量滑块路由" },
     { "key": "sdk.cilbox.api.audioRouting.summary", "value": "把脚本之后添加的音频源放到世界、道具或模型分组，让玩家的音量滑块生效。" },
+    { "key": "sdk.cilbox.api.steamAudio.title", "value": "Steam Audio" },
+    { "key": "sdk.cilbox.api.steamAudio.summary", "value": "为此内容的音频源启用空间化，并通过脚本设置 HRTF、遮挡、透射、空气吸收和反射。世界还可以添加声学几何体。" },
     { "key": "sdk.cilbox.api.languageEvent.title", "value": "语言变更" },
     { "key": "sdk.cilbox.api.languageEvent.summary", "value": "告诉脚本玩家使用的语言，并在每次更改时再次通知。" },
     { "key": "sdk.cilbox.api.sharedRandom.title", "value": "共享随机数" },

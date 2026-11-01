@@ -842,6 +842,8 @@
     { "key": "sdk.cilbox.api.menuPanel.summary", "value": "Adiciona ao menu principal um botão que abre seu próprio painel, com até 8 abas preenchidas do mesmo jeito que uma aba de Configurações. Um painel por conteúdo. Open() o exibe, mas só até 5 segundos depois de o jogador pressionar algo no seu conteúdo." },
     { "key": "sdk.cilbox.api.audioRouting.title", "value": "Encaminhamento dos controlos de volume" },
     { "key": "sdk.cilbox.api.audioRouting.summary", "value": "Coloca as fontes de áudio que um script adiciona depois no grupo Mundo, Props ou Avatares, para que os controlos de volume do jogador se apliquem." },
+    { "key": "sdk.cilbox.api.steamAudio.title", "value": "Steam Audio" },
+    { "key": "sdk.cilbox.api.steamAudio.summary", "value": "Espacializa as fontes de áudio deste conteúdo e ajusta HRTF, oclusão, transmissão, absorção do ar e reflexões por script. Os mundos também podem adicionar geometria acústica." },
     { "key": "sdk.cilbox.api.languageEvent.title", "value": "Mudanças de idioma" },
     { "key": "sdk.cilbox.api.languageEvent.summary", "value": "Diz ao teu script que idioma o jogador usa, e de novo sempre que o muda." },
     { "key": "sdk.cilbox.api.sharedRandom.title", "value": "Números aleatórios partilhados" },

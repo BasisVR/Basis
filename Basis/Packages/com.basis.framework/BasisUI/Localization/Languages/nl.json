@@ -2882,9 +2882,89 @@
     { "key": "settings.graphics.gi.preset.natural", "value": "Natuurlijk" },
     { "key": "settings.graphics.gi.preset.unnatural", "value": "Onnatuurlijk" },
     { "key": "settings.graphics.gi.mode", "value": "GI-modus" },
-    { "key": "settings.graphics.gi.mode.tooltip", "value": "Screen Space kaatst licht met wat de camera al heeft getekend, dus alles buiten beeld of achter je draagt niets bij. Ray Traced traceert de wereld zelf en belicht wat het raakt met de echte lichten en gloeiende materialen, wat meer kost en een grafische kaart met ray tracing vereist — zonder die kaart valt het terug op Screen Space." },
+    { "key": "settings.graphics.gi.mode.tooltip", "value": "Radiance Cascades kaatst licht via een 3D-kopie van de wereld om je heen, dus ook licht van achter je en om hoeken telt mee, en het werkt op elke desktopvideokaart. Ray Traced traceert de wereld zelf en belicht wat het raakt met de echte lichten, wat meer kost en een videokaart met raytracing vereist. Zonder die kaart werkt het als Radiance Cascades." },
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "Screen Space" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "Ray Traced" },
+    {
+      "key": "settings.graphics.gi.bounceFeedback",
+      "value": "Kaatssterkte"
+    },
+    {
+      "key": "settings.graphics.gi.bounceFeedback.tooltip",
+      "value": "Hoeveel van het licht dat al is weerkaatst opnieuw mag weerkaatsen. Op nul krijgt elk oppervlak één keer kaatslicht; hoger draagt het licht verder hoeken in en om deuropeningen heen, en komt binnen een paar frames tot rust. Vereist het temporele filter."
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace",
+      "value": "GI in wereldruimte"
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace.tooltip",
+      "value": "Volgt het kaatslicht door een 3D-voxelkopie van de wereld om je heen, zodat ook licht van achter je, om hoeken en van verborgen dingen weerkaatst. De schermpass blijft erbovenop voor fijne details."
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels",
+      "value": "Wereldbereik"
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels.tooltip",
+      "value": "Hoeveel geneste voxellagen je omringen. Elke laag verdubbelt het bereik: drie bij voxels van 0,2 m dekken ongeveer 13, 26 en 51 meter."
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize",
+      "value": "Voxelgrootte"
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize.tooltip",
+      "value": "Grootte van de fijnste voxels, in meters. Kleiner houdt dunne muren dicht en laat kleine objecten weerkaatsen; groter reikt verder tegen dezelfde kosten."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride",
+      "value": "Cascades overschrijven"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride.tooltip",
+      "value": "Stel de probe-indeling handmatig in in plaats van via Kwaliteit. Gaat verder dan Ultra, tegen bijbehorende kosten."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing",
+      "value": "Probe-afstand"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing.tooltip",
+      "value": "Hoe ver de dichtstbijzijnde probes uit elkaar liggen, in gevolgde pixels. Kleiner geeft scherper contactlicht en kost meer: elke halvering is ongeveer vier keer zoveel werk."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount",
+      "value": "Cascades"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount.tooltip",
+      "value": "Door hoeveel probe-lagen het licht wordt verzameld. Elke laag reikt vier keer verder dan die eronder en samen halen ze de straallengte, dus meer cascades geven fijner detail dicht bij oppervlakken."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps",
+      "value": "Intervalstappen"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps.tooltip",
+      "value": "Hoeveel dieptemonsters elke probestraal over zijn traject neemt. Hoger vangt dunne objecten die anders licht doorlaten, en kost meer."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix",
+      "value": "Lekvrij samenvoegen"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix.tooltip",
+      "value": "Elke probe volgt de straal tot precies waar de probes van de volgende laag beginnen te zoeken, in plaats van dat stuk over te slaan. Voorkomt dat licht door dunne muren lekt en de ringen rond felle lichten, tegen ongeveer vier keer de volgkosten. Kwaliteit zet het aan bij Ultra."
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades",
+      "value": "Radiance Cascades"
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades.tooltip",
+      "value": "Kaatst licht via een 3D-kopie van de wereld om je heen, vloeiend en zonder korrel. Werkt op elke videokaart met compute shaders, ook onder DirectX 11."
+    },
     { "key": "settings.graphics.gi.advanced", "value": "Geavanceerd" },
     { "key": "settings.graphics.gi.obscuranceRadius", "value": "Contactverdonkeringsstraal" },
     { "key": "settings.graphics.gi.obscuranceRadius.tooltip", "value": "Hoe ver een oppervlak van het object erboven kan zijn en er toch nog door verdonkerd wordt. Korte waarden verdonkeren alleen krappe hoeken; lange waarden reiken door een hele ruimte en kosten niets extra, omdat de afstand wordt gemeten op stralen die toch al werden getraceerd. Als de verdonkering stopt bij een harde rand op een vaste afstand van elk object, is dit die afstand." },

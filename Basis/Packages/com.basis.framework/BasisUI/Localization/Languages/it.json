@@ -2882,9 +2882,89 @@
     { "key": "settings.graphics.gi.preset.natural", "value": "Naturale" },
     { "key": "settings.graphics.gi.preset.unnatural", "value": "Innaturale" },
     { "key": "settings.graphics.gi.mode", "value": "Modalità GI" },
-    { "key": "settings.graphics.gi.mode.tooltip", "value": "Screen Space fa rimbalzare la luce usando ciò che la fotocamera ha già disegnato, quindi tutto ciò che è fuori schermo o dietro di te non contribuisce in nulla. Ray Tracing traccia il mondo stesso e ombreggia ciò che colpisce con le luci reali e i materiali luminosi, il che costa di più e richiede una scheda grafica con ray tracing — senza una di queste torna a Screen Space." },
+    { "key": "settings.graphics.gi.mode.tooltip", "value": "Radiance Cascades fa rimbalzare la luce attraverso una copia 3D del mondo intorno a te, così conta anche la luce che arriva da dietro di te e da dietro gli angoli, e funziona su qualsiasi scheda grafica desktop. Ray Traced traccia il mondo stesso e ombreggia ciò che colpisce con le luci reali, costa di più e richiede una scheda grafica con ray tracing. Senza di essa funziona come Radiance Cascades." },
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "Screen Space" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "Ray Tracing" },
+    {
+      "key": "settings.graphics.gi.bounceFeedback",
+      "value": "Intensità del rimbalzo"
+    },
+    {
+      "key": "settings.graphics.gi.bounceFeedback.tooltip",
+      "value": "Quanta della luce già rimbalzata può rimbalzare di nuovo. A zero ogni superficie riceve un solo rimbalzo; valori più alti portano la luce più lontano negli angoli e intorno alle porte, stabilizzandosi in pochi fotogrammi. Richiede il filtro temporale."
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace",
+      "value": "GI nello spazio mondo"
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace.tooltip",
+      "value": "Traccia il rimbalzo attraverso una copia in voxel 3D del mondo intorno a te, così anche la luce da dietro, dagli angoli e dagli oggetti nascosti rimbalza. Il passaggio a schermo resta sopra per i dettagli fini."
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels",
+      "value": "Portata del mondo"
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels.tooltip",
+      "value": "Quanti livelli di voxel annidati ti circondano. Ognuno raddoppia la portata: tre con voxel da 0,2 m coprono circa 13, 26 e 51 metri."
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize",
+      "value": "Dimensione voxel"
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize.tooltip",
+      "value": "Dimensione dei voxel più fini, in metri. Più piccola mantiene solide le pareti sottili e fa rimbalzare gli oggetti piccoli; più grande arriva più lontano a parità di costo."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride",
+      "value": "Sovrascrivi cascate"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride.tooltip",
+      "value": "Imposta a mano la disposizione delle sonde invece di seguire la qualità. Va oltre Ultra, con un costo corrispondente."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing",
+      "value": "Spaziatura sonde"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing.tooltip",
+      "value": "Quanto distano le sonde più vicine, in pixel tracciati. Più piccola dà una luce di contatto più nitida e costa di più: ogni dimezzamento è circa quattro volte il lavoro."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount",
+      "value": "Cascate"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount.tooltip",
+      "value": "Attraverso quanti strati di sonde viene raccolta la luce. Ognuno arriva quattro volte più lontano di quello sotto e insieme raggiungono la lunghezza del raggio, quindi più cascate danno più dettaglio vicino alle superfici."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps",
+      "value": "Passi per intervallo"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps.tooltip",
+      "value": "Quanti campioni di profondità prende ogni raggio di sonda sul suo tratto. Valori più alti colgono oggetti sottili che altrimenti lascerebbero filtrare la luce, e costano di più."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix",
+      "value": "Unione senza perdite"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix.tooltip",
+      "value": "Ogni sonda traccia fino al punto esatto in cui le sonde dello strato successivo iniziano a cercare, invece di lasciare quel tratto non tracciato. Impedisce alla luce di filtrare attraverso pareti sottili ed elimina gli anelli attorno alle luci intense, a circa quattro volte il costo di tracciamento. La qualità lo attiva in Ultra."
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades",
+      "value": "Radiance Cascades"
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades.tooltip",
+      "value": "Fa rimbalzare la luce attraverso una copia 3D del mondo intorno a te, in modo uniforme e senza grana. Funziona su qualsiasi scheda grafica con compute shader, DirectX 11 compreso."
+    },
     { "key": "settings.graphics.gi.advanced", "value": "Avanzate" },
     { "key": "settings.graphics.gi.obscuranceRadius", "value": "Raggio oscuramento da contatto" },
     { "key": "settings.graphics.gi.obscuranceRadius.tooltip", "value": "Quanto può essere lontana una superficie dall'oggetto sopra di essa e venire comunque scurita da questo. Valori bassi scuriscono solo gli angoli stretti; valori alti raggiungono l'intera stanza e non costano nulla in più, perché la distanza è misurata su raggi già tracciati comunque. Se l'oscuramento si interrompe bruscamente a una distanza fissa da ogni oggetto, è questa la distanza in questione." },

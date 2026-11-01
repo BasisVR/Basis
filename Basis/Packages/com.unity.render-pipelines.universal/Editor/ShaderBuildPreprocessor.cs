@@ -536,7 +536,7 @@ namespace UnityEditor.Rendering.Universal
         // The path for gathering shader features for normal shader stripping
         private static void HandleEnabledShaderStripping()
         {
-            s_Strip2DPasses = true;
+            s_Strip2DPasses = false;
             using (UnityEngine.Pool.ListPool<UniversalRenderPipelineAsset>.Get(out List<UniversalRenderPipelineAsset> urpAssets))
             {
                 bool buildingForURP = EditorUserBuildSettings.activeBuildTarget.TryGetRenderPipelineAssets(urpAssets);

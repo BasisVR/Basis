@@ -2888,7 +2888,7 @@ namespace SteamAudio
             scene.Release();
         }
 
-        static Scene CreateScene(Context context)
+        public static Scene CreateScene(Context context)
         {
             var sceneType = GetSceneType();
 

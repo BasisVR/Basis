@@ -2827,9 +2827,89 @@
     { "key": "settings.graphics.gi.preset.natural", "value": "Natural" },
     { "key": "settings.graphics.gi.preset.unnatural", "value": "Não Natural" },
     { "key": "settings.graphics.gi.mode", "value": "Modo de Iluminação Global" },
-    { "key": "settings.graphics.gi.mode.tooltip", "value": "Espaço de Tela reflete a luz usando o que a câmera já desenhou, então qualquer coisa fora da tela ou atrás de você não contribui em nada. Traçado de Raios traça o próprio mundo e sombreia o que atinge com as luzes reais e materiais luminosos, o que custa mais e precisa de uma placa de vídeo com traçado de raios - sem uma, recorre ao Espaço de Tela." },
+    { "key": "settings.graphics.gi.mode.tooltip", "value": "Radiance Cascades faz a luz ricochetear através de uma cópia 3D do mundo à sua volta, então a luz vinda de trás de você e de trás das esquinas também conta, e funciona em qualquer placa de vídeo de desktop. Ray Traced traça o próprio mundo e sombreia o que atinge com as luzes reais, o que custa mais e exige uma placa de vídeo com ray tracing. Sem ela, funciona como Radiance Cascades." },
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "Espaço de Tela" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "Traçado de Raios" },
+    {
+      "key": "settings.graphics.gi.bounceFeedback",
+      "value": "Força do Rebote"
+    },
+    {
+      "key": "settings.graphics.gi.bounceFeedback.tooltip",
+      "value": "Quanto da luz que já ricocheteou pode ricochetear de novo. Em zero cada superfície recebe um único rebote; valores maiores levam a luz mais longe para os cantos e ao redor das portas, estabilizando em poucos quadros. Requer o filtro temporal."
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace",
+      "value": "GI no Espaço do Mundo"
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace.tooltip",
+      "value": "Traça o rebote por uma cópia em voxels 3D do mundo ao seu redor, para que a luz de trás, das quinas e de coisas escondidas também ricocheteie. A passagem de tela continua por cima para o detalhe fino."
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels",
+      "value": "Alcance do Mundo"
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels.tooltip",
+      "value": "Quantos níveis de voxels aninhados envolvem você. Cada um dobra o alcance: três com voxels de 0,2 m cobrem cerca de 13, 26 e 51 metros."
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize",
+      "value": "Tamanho do Voxel"
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize.tooltip",
+      "value": "Tamanho dos voxels mais finos, em metros. Menor mantém paredes finas sólidas e faz objetos pequenos refletirem luz; maior alcança mais longe pelo mesmo custo."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride",
+      "value": "Substituir Cascatas"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride.tooltip",
+      "value": "Define a disposição das sondas manualmente em vez de pela qualidade. Vai além do Ultra, com o custo correspondente."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing",
+      "value": "Espaçamento das Sondas"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing.tooltip",
+      "value": "A distância entre as sondas mais próximas, em pixels traçados. Menor dá uma luz de contato mais nítida e custa mais: cada redução pela metade é cerca de quatro vezes o trabalho."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount",
+      "value": "Cascatas"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount.tooltip",
+      "value": "Por quantas camadas de sondas a luz é coletada. Cada uma alcança quatro vezes mais longe que a anterior e juntas chegam ao Comprimento do Raio, então mais cascatas trazem mais detalhe perto das superfícies."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps",
+      "value": "Passos por Intervalo"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps.tooltip",
+      "value": "Quantas amostras de profundidade cada raio de sonda faz no seu trecho. Mais passos detectam objetos finos que de outra forma deixariam a luz vazar, e custam mais."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix",
+      "value": "Mesclagem sem Vazamento"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix.tooltip",
+      "value": "Cada sonda traça até exatamente onde as sondas da próxima camada começam a procurar, em vez de deixar esse trecho sem traçar. Impede que a luz vaze por paredes finas e os anéis em volta de luzes fortes, com cerca de quatro vezes o custo de traçado. A qualidade o liga no Ultra."
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades",
+      "value": "Cascatas de Radiância"
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades.tooltip",
+      "value": "Faz a luz ricochetear através de uma cópia 3D do mundo à sua volta, de forma suave e sem granulação. Funciona em qualquer placa de vídeo com compute shaders, incluindo DirectX 11."
+    },
     { "key": "settings.graphics.gi.advanced", "value": "Avançado" },
     { "key": "settings.graphics.gi.obscuranceRadius", "value": "Raio de Escurecimento de Contato" },
     { "key": "settings.graphics.gi.obscuranceRadius.tooltip", "value": "A que distância uma superfície pode estar da coisa acima dela e ainda ser escurecida por ela. Valores curtos escurecem apenas cantos apertados; valores longos alcançam por toda uma sala e não custam nada extra, porque a distância é medida em raios que já seriam traçados de qualquer forma. Se o escurecimento parar em uma borda dura a uma distância fixa de cada objeto, esta é essa distância." },

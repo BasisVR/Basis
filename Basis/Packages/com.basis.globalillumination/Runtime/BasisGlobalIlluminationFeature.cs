@@ -11,6 +11,8 @@ using UnityEngine.Rendering.Universal;
 public sealed partial class BasisGlobalIlluminationFeature : ScriptableRendererFeature
 {
     public const string ShaderName = "Hidden/Basis/GlobalIllumination";
+    public const string VoxelizeShaderName = "Hidden/Basis/GlobalIlluminationVoxelize";
+    public const string SurfaceShaderName = "Hidden/Basis/GlobalIlluminationSurface";
     public const string RayStagesShaderName = "Hidden/Basis/GlobalIlluminationRT";
     public const string ShaderRoot = "Packages/com.basis.globalillumination/Shaders/";
 
@@ -24,6 +26,9 @@ public sealed partial class BasisGlobalIlluminationFeature : ScriptableRendererF
     public static bool KeepRenderingWithDebugger;
 
     [SerializeField, HideInInspector] private Shader m_Shader;
+    [SerializeField, HideInInspector] private Shader m_VoxelizeShader;
+    [SerializeField, HideInInspector] private ComputeShader m_WorldCompute;
+    [SerializeField, HideInInspector] private Shader m_SurfaceShader;
     [SerializeField, HideInInspector] private Shader m_RayStagesShader;
     [SerializeField, HideInInspector] private RayTracingShader m_RayTraceShader;
     [SerializeField, HideInInspector] private ComputeShader m_RayTraceCompute;
@@ -100,6 +105,8 @@ public sealed partial class BasisGlobalIlluminationFeature : ScriptableRendererF
         m_Material = m_Shader != null ? CoreUtils.CreateEngineMaterial(m_Shader) : null;
         m_RayStagesMaterial = m_RayStagesShader != null ? CoreUtils.CreateEngineMaterial(m_RayStagesShader) : null;
         m_Pass = new BasisGlobalIlluminationPass(m_Material);
+        m_Pass.SetWorld(m_WorldCompute, m_VoxelizeShader);
+        m_Pass.SetSurface(m_SurfaceShader);
         m_Pass.SetRayTracing(m_RayStagesMaterial, m_RayTraceShader, m_RayTraceCompute, m_RayTracingComputeFallback);
         m_Pass.DebugView = m_DebugView;
     }
@@ -129,6 +136,8 @@ public sealed partial class BasisGlobalIlluminationFeature : ScriptableRendererF
         m_Pass.UseMotionVectors = wantsMotion;
         m_Pass.DebugView = m_DebugView;
         m_Pass.SetMaterial(m_Material);
+        m_Pass.SetWorld(m_WorldCompute, m_VoxelizeShader);
+        m_Pass.SetSurface(m_SurfaceShader);
         m_Pass.SetRayTracing(m_RayStagesMaterial, m_RayTraceShader, m_RayTraceCompute, m_RayTracingComputeFallback);
         m_Pass.RayTracingAvailable = RayTracingAvailable;
         m_Pass.ConfigureInput(inputs);
@@ -187,6 +196,17 @@ public sealed partial class BasisGlobalIlluminationFeature : ScriptableRendererF
     private void ResolveShader()
     {
         ResolveShaders(this, ref m_Shader, ref m_RayStagesShader, ref m_RayTraceShader, ref m_RayTraceCompute);
+#if UNITY_EDITOR
+        bool resolved = false;
+        if (m_VoxelizeShader == null) { m_VoxelizeShader = Shader.Find(VoxelizeShaderName); resolved |= m_VoxelizeShader != null; }
+        if (m_SurfaceShader == null) { m_SurfaceShader = Shader.Find(SurfaceShaderName); resolved |= m_SurfaceShader != null; }
+        if (m_WorldCompute == null)
+        {
+            m_WorldCompute = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(ShaderRoot + "BasisGlobalIlluminationWorld.compute");
+            resolved |= m_WorldCompute != null;
+        }
+        if (resolved && !UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode) { UnityEditor.EditorUtility.SetDirty(this); }
+#endif
     }
 
     public static void ResolveShaders(ScriptableRendererFeature owner, ref Shader shader, ref Shader rayStagesShader, ref RayTracingShader rayTraceShader, ref ComputeShader rayTraceCompute)
@@ -214,6 +234,7 @@ public sealed partial class BasisGlobalIlluminationFeature : ScriptableRendererF
         base.Dispose(disposing);
         m_Pass?.Dispose();
         m_Pass = null;
+        BasisGlobalIlluminationPass.ReleaseWorld();
         CoreUtils.Destroy(m_Material);
         m_Material = null;
         CoreUtils.Destroy(m_RayStagesMaterial);

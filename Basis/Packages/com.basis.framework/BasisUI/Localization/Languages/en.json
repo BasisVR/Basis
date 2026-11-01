@@ -8804,7 +8804,7 @@
     },
     {
       "key": "settings.graphics.gi.mode.tooltip",
-      "value": "Screen Space bounces light using what the camera already drew, so anything off screen or behind you contributes nothing. Ray Traced traces the world itself and shades what it hits with the real lights and glowing materials, which costs more and needs a graphics card with ray tracing - without one it falls back to Screen Space."
+      "value": "Radiance Cascades bounces light through a 3D copy of the world around you, so light from behind you and round corners still counts, and it runs on any desktop graphics card. Ray Traced traces the world itself and shades what it hits with the real lights, which costs more and needs a graphics card with ray tracing. Without one it runs as Radiance Cascades."
     },
     {
       "key": "settings.graphics.gi.mode.screenSpace",
@@ -8813,6 +8813,86 @@
     {
       "key": "settings.graphics.gi.mode.rayTraced",
       "value": "Ray Traced"
+    },
+    {
+      "key": "settings.graphics.gi.bounceFeedback",
+      "value": "Bounce Strength"
+    },
+    {
+      "key": "settings.graphics.gi.bounceFeedback.tooltip",
+      "value": "How much of the light that has already bounced may bounce again. At zero every surface gets a single bounce; higher carries light further into corners and around doorways, settling over a few frames. Needs the temporal filter."
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace",
+      "value": "World Space GI"
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace.tooltip",
+      "value": "Trace the bounce through a 3D voxel copy of the world around you, so light from behind you, round corners and from things hidden behind others still bounces. The screen pass stays on top for fine detail."
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels",
+      "value": "World Range"
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels.tooltip",
+      "value": "How many nested voxel levels surround you. Each doubles the reach: three at 0.2 m voxels cover about 13, 26 and 51 metres."
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize",
+      "value": "Voxel Size"
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize.tooltip",
+      "value": "Size of the finest voxels, in metres. Smaller keeps thin walls solid and small objects bouncing; larger reaches further for the same cost."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride",
+      "value": "Override Cascades"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride.tooltip",
+      "value": "Set the probe layout by hand instead of from Quality. Goes past Ultra, at a matching cost."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing",
+      "value": "Probe Spacing"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing.tooltip",
+      "value": "How far apart the nearest probes sit, in traced pixels. Smaller gives sharper contact light and costs more: each halving is about four times the work."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount",
+      "value": "Cascades"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount.tooltip",
+      "value": "How many probe layers the light is gathered through. Each reaches four times further than the one below it and together they reach Ray Length, so more cascades put finer detail close to surfaces."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps",
+      "value": "Interval Steps"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps.tooltip",
+      "value": "How many depth samples each probe ray takes over its stretch. Higher catches thin objects that would otherwise let light leak through, and costs more."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix",
+      "value": "Leak-Free Merge"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix.tooltip",
+      "value": "Each probe traces to exactly where the next layer's probes start looking, instead of leaving that stretch untraced. Stops light leaking through thin walls and the rings around bright lights, at about four times the tracing cost. Quality turns it on at Ultra."
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades",
+      "value": "Radiance Cascades"
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades.tooltip",
+      "value": "Bounces light through a 3D copy of the world around you, smoothly and without grain. Runs on any graphics card with compute shaders, DirectX 11 included."
     },
     {
       "key": "settings.graphics.gi.advanced",

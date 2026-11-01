@@ -151,6 +151,22 @@ namespace Basis.Tests.Graphics
             Assert.AreEqual(expected, SMModuleGlobalIlluminationURP.ReadQuality(option));
         }
 
+        [TestCase("Screen Space", BasisGlobalIlluminationDiffuseMode.RadianceCascades)]
+        [TestCase("Radiance Cascades", BasisGlobalIlluminationDiffuseMode.RadianceCascades)]
+        [TestCase("Ray Traced", BasisGlobalIlluminationDiffuseMode.RayTraced)]
+        [TestCase("garbage", BasisGlobalIlluminationDiffuseMode.RadianceCascades)]
+        public void DiffuseModeValuesMigrateToCascades(string option, BasisGlobalIlluminationDiffuseMode expected)
+        {
+            Assert.AreEqual(expected, SMModuleGlobalIlluminationURP.ReadDiffuseMode(option));
+        }
+
+        [Test]
+        public void TheDiffuseDefaultIsRadianceCascades()
+        {
+            Assert.AreEqual("Radiance Cascades", BasisSettingsDefaults.GlobalIlluminationMode.DefaultValue.GetDefault());
+            Assert.AreEqual(BasisGlobalIlluminationDiffuseMode.RadianceCascades, new BasisGlobalIlluminationSettings().mode);
+        }
+
         [TestCase("Screen Space", BasisGlobalIlluminationMode.ScreenSpace)]
         [TestCase("ray traced", BasisGlobalIlluminationMode.RayTraced)]
         [TestCase("RayTraced", BasisGlobalIlluminationMode.RayTraced)]

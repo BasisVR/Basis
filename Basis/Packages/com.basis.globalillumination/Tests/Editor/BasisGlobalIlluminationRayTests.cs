@@ -32,14 +32,14 @@ namespace Basis.Tests.GlobalIllumination
         [Test]
         public void ScreenSpaceIsTheDefaultMode()
         {
-            Assert.AreEqual(BasisGlobalIlluminationMode.ScreenSpace, volume.mode);
+            Assert.AreEqual(BasisGlobalIlluminationDiffuseMode.RadianceCascades, volume.mode);
             Assert.IsFalse(volume.IsRayTraced());
         }
 
         [Test]
         public void RayTracedModeIsReported()
         {
-            volume.mode = BasisGlobalIlluminationMode.RayTraced;
+            volume.mode = BasisGlobalIlluminationDiffuseMode.RayTraced;
             Assert.IsTrue(volume.IsRayTraced());
         }
 

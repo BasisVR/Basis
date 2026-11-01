@@ -76,6 +76,8 @@ float _BasisGISpecHitDistanceValid;
 /// fail to draw leaves the effect exactly as it was without the mask. The first version of this pass had
 /// the opposite polarity and every failure read as "global illumination is gone"; see the pass in
 /// BasisGlobalIlluminationPass.RecordLightmapMask.
+TEXTURE2D_X(_BasisGISurface);
+float _BasisGISurfaceValid;
 TEXTURE2D_X(_BasisGILightmapMask);
 SAMPLER(sampler_BasisGILightmapMask);
 /// x: how much bounce a lightmapped surface still receives (its own bounce is already in its lightmap).
@@ -125,6 +127,7 @@ float4 _BasisGIEmitterRadiance[BASISGI_MAX_EMITTERS];
 #define BASISGI_RAY_COUNT          _BasisGIParams2.x
 #define BASISGI_RAY_STEPS          _BasisGIParams2.y
 #define BASISGI_FIREFLY_CLAMP      _BasisGIParams2.z
+#define BASISGI_BOUNCE_FEEDBACK    _BasisGIParams2.w
 #define BASISGI_FRAME_INDEX        _BasisGIParams3.x
 #define BASISGI_TEMPORAL_RESPONSE  _BasisGIParams3.y
 #define BASISGI_DEPTH_REJECTION    _BasisGIParams3.z
@@ -211,7 +214,6 @@ float3 BasisGIReconstructNormal(float2 uv, float3 viewPosition, float rawDepth)
     // Pick the side FIRST, then reconstruct it. A ternary between two BasisGIViewPosition calls looks
     // like a choice but is not one: HLSL evaluates both arms, so four positions were being unprojected
     // to answer a question about two. Each one is an inverse view projection and a divide followed by a
-    // world to view, and this runs for every shaded pixel and again for every ray hit under _BASISGI_HIT_NORMAL.
     bool useRight = diffRight < diffLeft;
     bool useUp = diffUp < diffDown;
     float3 horizontalPosition = BasisGIViewPosition(useRight ? uvRight : uvLeft, useRight ? depthRight : depthLeft);
@@ -229,38 +231,6 @@ float BasisGIInterleavedGradientNoise(float2 pixel, float frame)
 {
     pixel += frame * float2(47.0, 17.0) * 0.695;
     return frac(52.9829189 * frac(dot(pixel, float2(0.06711056, 0.00583715))));
-}
-
-float2 BasisGIHammersley(uint index, uint count)
-{
-    uint bits = index;
-    bits = (bits << 16u) | (bits >> 16u);
-    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
-    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
-    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
-    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
-    return float2(float(index) / max(1.0, float(count)), float(bits) * 2.3283064365386963e-10);
-}
-
-float3x3 BasisGIOrthonormalBasis(float3 normal)
-{
-    float sign = normal.z >= 0.0 ? 1.0 : -1.0;
-    float a = -1.0 / (sign + normal.z);
-    float b = normal.x * normal.y * a;
-    float3 tangent = float3(1.0 + sign * normal.x * normal.x * a, sign * b, -sign * normal.x);
-    float3 bitangent = float3(b, sign + normal.y * normal.y * a, -normal.y);
-    return float3x3(tangent, bitangent, normal);
-}
-
-float3 BasisGICosineDirection(float2 sample, float3x3 basis)
-{
-    float radius = sqrt(sample.x);
-    float angle = TWO_PI * sample.y;
-    float3 local = float3(radius * cos(angle), radius * sin(angle), sqrt(max(0.0, 1.0 - sample.x)));
-    // Already unit: radius^2 + (1 - sample.x) is exactly one, and the basis is orthonormal, so the product
-    // is a rotation of a unit vector. The normalize was a dot, an rsqrt and three multiplies per ray spent
-    // renormalising something that was never off the sphere.
-    return mul(local, basis);
 }
 
 float3 BasisGIClampFirefly(float3 radiance)

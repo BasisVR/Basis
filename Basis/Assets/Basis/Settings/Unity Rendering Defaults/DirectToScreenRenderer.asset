@@ -14,6 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: BasisGlobalIllumination::BasisGlobalIlluminationFeature
   m_Active: 1
   m_Shader: {fileID: 4800000, guid: 03edcf40bafe4c3d8424f23fcf1d3ff1, type: 3}
+  m_VoxelizeShader: {fileID: 4800000, guid: 0c98fbd8c3803c6468929872b8079f74, type: 3}
+  m_WorldCompute: {fileID: 7200000, guid: b8c3d8acfcc12ec428f1f1ab15d0f7b5, type: 3}
+  m_SurfaceShader: {fileID: 4800000, guid: 5d7a1e3c9b2f4c86a0e1f7d24b6c8e13, type: 3}
   m_RayStagesShader: {fileID: 4800000, guid: d844523f25c598748831a41b5572ff82, type: 3}
   m_RayTraceShader: {fileID: 4807578003741378534, guid: 4d1b09960d174e54eb42461cb8005e17, type: 3}
   m_RayTraceCompute: {fileID: 7200000, guid: 3324c9bab86b6b44db2a1d4f0479c2ed, type: 3}

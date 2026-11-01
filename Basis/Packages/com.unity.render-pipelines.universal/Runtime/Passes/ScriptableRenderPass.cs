@@ -236,7 +236,7 @@ namespace UnityEngine.Rendering.Universal
             get
             {
 
-#if UNITY_INCLUDE_INSTRUMENTATION
+#if UNITY_INCLUDE_INSTRUMENTATION || ENABLE_PROFILER
                 return m_ProfingSampler;
 #else
                 return null;

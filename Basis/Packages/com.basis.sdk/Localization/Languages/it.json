@@ -842,6 +842,8 @@
     { "key": "sdk.cilbox.api.menuPanel.summary", "value": "Aggiunge al menu principale un pulsante che apre un tuo pannello, con fino a 8 schede da riempire come una scheda delle Impostazioni. Un pannello per contenuto. Open() lo mostra, ma solo entro 5 secondi da quando il giocatore ha premuto qualcosa nel tuo contenuto." },
     { "key": "sdk.cilbox.api.audioRouting.title", "value": "Instradamento dei cursori del volume" },
     { "key": "sdk.cilbox.api.audioRouting.summary", "value": "Mette le sorgenti audio aggiunte in seguito da uno script nel gruppo Mondo, Prop o Avatar, così valgono i cursori del volume del giocatore." },
+    { "key": "sdk.cilbox.api.steamAudio.title", "value": "Steam Audio" },
+    { "key": "sdk.cilbox.api.steamAudio.summary", "value": "Spazializza le sorgenti audio di questo contenuto e imposta HRTF, occlusione, trasmissione, assorbimento dell'aria e riflessioni da script. I mondi possono anche aggiungere geometria acustica." },
     { "key": "sdk.cilbox.api.languageEvent.title", "value": "Cambi di lingua" },
     { "key": "sdk.cilbox.api.languageEvent.summary", "value": "Comunica al tuo script la lingua del giocatore, e di nuovo ogni volta che la cambia." },
     { "key": "sdk.cilbox.api.sharedRandom.title", "value": "Numeri casuali condivisi" },

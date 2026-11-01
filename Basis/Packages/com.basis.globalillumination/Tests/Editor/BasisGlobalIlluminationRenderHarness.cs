@@ -215,10 +215,11 @@ namespace Basis.Tests.GlobalIllumination
             // One settings object, restored on Dispose. No profile to author, no volume to out-prioritise,
             // and nothing for the project's own defaults to leak in through - a test states what it is
             // testing and that is exactly what renders.
+            BasisGlobalIlluminationPass.ReleaseWorld();
             Settings = BasisGlobalIlluminationSettings.Current;
             authoredSettings = Settings.Clone();
             Settings.enable = true;
-            Settings.mode = BasisGlobalIlluminationMode.ScreenSpace;
+            Settings.mode = BasisGlobalIlluminationDiffuseMode.RadianceCascades;
         }
 
         private BasisGlobalIlluminationSettings authoredSettings;
@@ -302,8 +303,22 @@ namespace Basis.Tests.GlobalIllumination
             return emitter;
         }
 
+        private int targetWidth = Width, targetHeight = Height;
+
+        public void Resize(int width, int height)
+        {
+            RenderTexture resized = Own(new RenderTexture(width, height, 24, RenderTextureFormat.DefaultHDR) { name = "BasisGIHarnessTarget" });
+            resized.Create();
+            Target = resized;
+            Camera.targetTexture = resized;
+            readback = Own(new Texture2D(width, height, TextureFormat.RGBAFloat, false, true));
+            targetWidth = width;
+            targetHeight = height;
+        }
+
         public void Render()
         {
+            BasisGlobalIlluminationPass.FrameOffset++;
             Camera.Render();
         }
 
@@ -312,7 +327,7 @@ namespace Basis.Tests.GlobalIllumination
         {
             RenderTexture previous = RenderTexture.active;
             RenderTexture.active = Target;
-            readback.ReadPixels(new Rect(0, 0, Width, Height), 0, 0, false);
+            readback.ReadPixels(new Rect(0, 0, targetWidth, targetHeight), 0, 0, false);
             readback.Apply(false);
             RenderTexture.active = previous;
         }
@@ -328,7 +343,7 @@ namespace Basis.Tests.GlobalIllumination
             {
                 for (int x = region.xMin; x < region.xMax; x++)
                 {
-                    if (x < 0 || y < 0 || x >= Width || y >= Height) { continue; }
+                    if (x < 0 || y < 0 || x >= targetWidth || y >= targetHeight) { continue; }
                     total += readback.GetPixel(x, y);
                     count++;
                 }
@@ -383,7 +398,7 @@ namespace Basis.Tests.GlobalIllumination
         {
             RenderTexture previous = RenderTexture.active;
             RenderTexture.active = Target;
-            readback.ReadPixels(new Rect(0, 0, Width, Height), 0, 0, false);
+            readback.ReadPixels(new Rect(0, 0, targetWidth, targetHeight), 0, 0, false);
             readback.Apply(false);
             RenderTexture.active = previous;
         }
@@ -396,7 +411,7 @@ namespace Basis.Tests.GlobalIllumination
             {
                 for (int x = region.xMin; x < region.xMax; x++)
                 {
-                    if (x < 0 || y < 0 || x >= Width || y >= Height) { continue; }
+                    if (x < 0 || y < 0 || x >= targetWidth || y >= targetHeight) { continue; }
                     total += readback.GetPixel(x, y);
                     count++;
                 }
@@ -413,7 +428,7 @@ namespace Basis.Tests.GlobalIllumination
                 for (int x = region.xMin; x < region.xMax; x++)
                 {
                     if (cursor >= pixels.Length) { break; }
-                    bool inside = x >= 0 && y >= 0 && x < Width && y < Height;
+                    bool inside = x >= 0 && y >= 0 && x < targetWidth && y < targetHeight;
                     pixels[cursor++] = inside ? Luminance(readback.GetPixel(x, y)) : 0f;
                 }
             }
@@ -429,7 +444,7 @@ namespace Basis.Tests.GlobalIllumination
             {
                 for (int x = region.xMin; x < region.xMax; x++)
                 {
-                    if (x < 0 || y < 0 || x >= Width || y >= Height) { continue; }
+                    if (x < 0 || y < 0 || x >= targetWidth || y >= targetHeight) { continue; }
                     float difference = Luminance(readback.GetPixel(x, y)) - target;
                     total += difference * difference;
                     count++;
@@ -629,7 +644,7 @@ namespace Basis.Tests.GlobalIllumination
             {
                 for (int x = region.xMin + 1; x < region.xMax - 1; x++)
                 {
-                    if (x < 1 || y < 1 || x >= Width - 1 || y >= Height - 1) { continue; }
+                    if (x < 1 || y < 1 || x >= targetWidth - 1 || y >= targetHeight - 1) { continue; }
                     float response =
                         4f * channel(readback.GetPixel(x, y))
                         - 2f * (channel(readback.GetPixel(x - 1, y)) + channel(readback.GetPixel(x + 1, y))
@@ -651,7 +666,7 @@ namespace Basis.Tests.GlobalIllumination
             {
                 for (int x = region.xMin; x < region.xMax; x++)
                 {
-                    if (x < 0 || y < 0 || x >= Width || y >= Height) { continue; }
+                    if (x < 0 || y < 0 || x >= targetWidth || y >= targetHeight) { continue; }
                     total += channel(readback.GetPixel(x, y));
                     count++;
                 }

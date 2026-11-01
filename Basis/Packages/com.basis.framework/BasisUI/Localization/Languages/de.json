@@ -2882,9 +2882,89 @@
     { "key": "settings.graphics.gi.preset.natural", "value": "Natürlich" },
     { "key": "settings.graphics.gi.preset.unnatural", "value": "Unnatürlich" },
     { "key": "settings.graphics.gi.mode", "value": "GI-Modus" },
-    { "key": "settings.graphics.gi.mode.tooltip", "value": "Bildschirmraum lässt Licht anhand dessen abprallen, was die Kamera bereits gezeichnet hat, sodass alles außerhalb des Bildschirms oder hinter dir nichts beiträgt. Raytracing verfolgt die Welt selbst und schattiert, was es trifft, mit den echten Lichtern und leuchtenden Materialien; das kostet mehr und benötigt eine Grafikkarte mit Raytracing-Unterstützung — ohne eine solche wird auf Bildschirmraum zurückgegriffen." },
+    { "key": "settings.graphics.gi.mode.tooltip", "value": "Radiance Cascades wirft Licht durch eine 3D-Kopie der Welt um dich herum, sodass auch Licht von hinten und um Ecken zählt, und läuft auf jeder Desktop-Grafikkarte. Ray Traced verfolgt die Welt selbst und beleuchtet Getroffenes mit den echten Lichtern, was mehr kostet und eine Grafikkarte mit Raytracing braucht. Ohne sie läuft es als Radiance Cascades." },
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "Bildschirmraum" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "Raytracing" },
+    {
+      "key": "settings.graphics.gi.bounceFeedback",
+      "value": "Abprallstärke"
+    },
+    {
+      "key": "settings.graphics.gi.bounceFeedback.tooltip",
+      "value": "Wie viel des bereits abgeprallten Lichts erneut abprallen darf. Bei null erhält jede Fläche einen einzigen Abprall; höhere Werte tragen das Licht weiter in Ecken und um Türöffnungen und pendeln sich über einige Frames ein. Benötigt den zeitlichen Filter."
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace",
+      "value": "GI im Weltraum"
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace.tooltip",
+      "value": "Verfolgt den Lichtabprall durch eine 3D-Voxelkopie der Welt um dich herum, sodass auch Licht von hinten, um Ecken und von verdeckten Dingen abprallt. Der Bildschirmdurchgang liegt für feine Details darüber."
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels",
+      "value": "Weltreichweite"
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels.tooltip",
+      "value": "Wie viele verschachtelte Voxelebenen dich umgeben. Jede verdoppelt die Reichweite: drei bei 0,2 m Voxeln decken etwa 13, 26 und 51 Meter ab."
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize",
+      "value": "Voxelgröße"
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize.tooltip",
+      "value": "Größe der feinsten Voxel in Metern. Kleiner hält dünne Wände dicht und lässt kleine Objekte Licht abprallen; größer reicht bei gleichen Kosten weiter."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride",
+      "value": "Kaskaden überschreiben"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride.tooltip",
+      "value": "Legt die Sondenanordnung von Hand fest statt über die Qualität. Geht über Ultra hinaus, mit entsprechenden Kosten."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing",
+      "value": "Sondenabstand"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing.tooltip",
+      "value": "Wie weit die nächsten Sonden auseinanderliegen, in verfolgten Pixeln. Kleiner ergibt schärferes Kontaktlicht und kostet mehr: Jede Halbierung bedeutet etwa die vierfache Arbeit."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount",
+      "value": "Kaskaden"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount.tooltip",
+      "value": "Durch wie viele Sondenebenen das Licht gesammelt wird. Jede reicht viermal so weit wie die darunter, zusammen erreichen sie die Strahllänge; mehr Kaskaden bringen also feinere Details nahe an Oberflächen."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps",
+      "value": "Intervallschritte"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps.tooltip",
+      "value": "Wie viele Tiefenproben jeder Sondenstrahl auf seinem Abschnitt nimmt. Höhere Werte erfassen dünne Objekte, durch die sonst Licht dringen würde, und kosten mehr."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix",
+      "value": "Leckfreies Zusammenführen"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix.tooltip",
+      "value": "Jede Sonde verfolgt den Strahl genau bis dorthin, wo die Sonden der nächsten Ebene zu suchen beginnen, statt diesen Abschnitt auszulassen. Verhindert, dass Licht durch dünne Wände dringt, und die Ringe um helle Lichter, bei etwa vierfachen Verfolgungskosten. Die Qualität schaltet es bei Ultra ein."
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades",
+      "value": "Radiance Cascades"
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades.tooltip",
+      "value": "Wirft Licht durch eine 3D-Kopie der Welt um dich herum, gleichmäßig und ohne Körnung. Läuft auf jeder Grafikkarte mit Compute-Shadern, auch unter DirectX 11."
+    },
     { "key": "settings.graphics.gi.advanced", "value": "Erweitert" },
     { "key": "settings.graphics.gi.obscuranceRadius", "value": "Kontaktverdunklungsradius" },
     { "key": "settings.graphics.gi.obscuranceRadius.tooltip", "value": "Wie weit eine Oberfläche von dem Objekt darüber entfernt sein kann und trotzdem davon verdunkelt wird. Kurze Werte verdunkeln nur enge Ecken; lange Werte reichen quer durch einen Raum und kosten nichts zusätzlich, da die Entfernung auf ohnehin verfolgten Strahlen gemessen wird. Wenn die Verdunklung in einem festen Abstand von jedem Objekt hart endet, ist dies der Abstand." },

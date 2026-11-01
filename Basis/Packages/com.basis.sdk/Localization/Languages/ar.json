@@ -842,6 +842,8 @@
     { "key": "sdk.cilbox.api.menuPanel.summary", "value": "يضيف زرًا إلى القائمة الرئيسية يفتح لوحتك الخاصة، مع ما يصل إلى 8 علامات تبويب تملؤها بالطريقة نفسها التي تملأ بها علامة تبويب الإعدادات. لوحة واحدة لكل محتوى. تعرضها Open()، ولكن فقط خلال 5 ثوانٍ من ضغط اللاعب على شيء في محتواك." },
     { "key": "sdk.cilbox.api.audioRouting.title", "value": "توجيه منزلقات مستوى الصوت" },
     { "key": "sdk.cilbox.api.audioRouting.summary", "value": "يضع مصادر الصوت التي يضيفها البرنامج النصي لاحقًا في مجموعة العالم أو العناصر أو الأفاتارات، لتنطبق عليها منزلقات مستوى الصوت لدى اللاعب." },
+    { "key": "sdk.cilbox.api.steamAudio.title", "value": "Steam Audio" },
+    { "key": "sdk.cilbox.api.steamAudio.summary", "value": "يجعل مصادر الصوت في هذا المحتوى مكانية ويضبط HRTF والحجب والنفاذ وامتصاص الهواء والانعكاسات من خلال البرنامج النصي. ويمكن للعوالم أيضًا إضافة هندسة صوتية." },
     { "key": "sdk.cilbox.api.languageEvent.title", "value": "تغيير اللغة" },
     { "key": "sdk.cilbox.api.languageEvent.summary", "value": "يخبر البرنامج النصي باللغة التي يستخدمها اللاعب، ومرة أخرى كلما غيّرها." },
     { "key": "sdk.cilbox.api.sharedRandom.title", "value": "أرقام عشوائية مشتركة" },

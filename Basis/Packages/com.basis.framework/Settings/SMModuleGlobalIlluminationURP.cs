@@ -19,7 +19,16 @@ using UnityEngine.Rendering.Universal;
 public struct BasisGlobalIlluminationState
 {
     public bool Enabled;
-    public BasisGlobalIlluminationMode Mode;
+    public BasisGlobalIlluminationDiffuseMode Mode;
+    public float BounceFeedback;
+    public bool CascadeOverride;
+    public float CascadeCount;
+    public string CascadeSpacing;
+    public float CascadeSteps;
+    public bool CascadeMergeFix;
+    public bool WorldSpace;
+    public float WorldLevels;
+    public float WorldVoxelSize;
     public BasisGlobalIlluminationRaySkinnedMode SkinnedMeshes;
     /// <summary>
     /// Which layers the ray traced path walks, kept as the dropdown option rather than a resolved mask.
@@ -71,7 +80,16 @@ public struct BasisGlobalIlluminationState
         return new BasisGlobalIlluminationState
         {
             Enabled = BasisSettingsDefaults.UseGlobalIllumination.DefaultValue.GetDefault() && !BasisLightingSolutions.IsUnity(BasisSettingsDefaults.GlobalIlluminationSolution.DefaultValue.GetDefault()),
-            Mode = SMModuleGlobalIlluminationURP.ReadMode(BasisSettingsDefaults.GlobalIlluminationMode.DefaultValue.GetDefault()),
+            Mode = SMModuleGlobalIlluminationURP.ReadDiffuseMode(BasisSettingsDefaults.GlobalIlluminationMode.DefaultValue.GetDefault()),
+            BounceFeedback = BasisSettingsDefaults.GlobalIlluminationBounceFeedback.DefaultValue.GetDefault(),
+            CascadeOverride = BasisSettingsDefaults.GlobalIlluminationCascadeOverride.DefaultValue.GetDefault(),
+            CascadeCount = BasisSettingsDefaults.GlobalIlluminationCascadeCount.DefaultValue.GetDefault(),
+            CascadeSpacing = BasisSettingsDefaults.GlobalIlluminationCascadeSpacing.DefaultValue.GetDefault(),
+            CascadeSteps = BasisSettingsDefaults.GlobalIlluminationCascadeSteps.DefaultValue.GetDefault(),
+            CascadeMergeFix = BasisSettingsDefaults.GlobalIlluminationCascadeMergeFix.DefaultValue.GetDefault(),
+            WorldSpace = BasisSettingsDefaults.GlobalIlluminationWorldSpace.DefaultValue.GetDefault(),
+            WorldLevels = BasisSettingsDefaults.GlobalIlluminationWorldLevels.DefaultValue.GetDefault(),
+            WorldVoxelSize = BasisSettingsDefaults.GlobalIlluminationWorldVoxelSize.DefaultValue.GetDefault(),
             SkinnedMeshes = SMModuleGlobalIlluminationURP.ReadSkinnedMode(BasisSettingsDefaults.GlobalIlluminationSkinnedMeshes.DefaultValue.GetDefault()),
             Layers = BasisSettingsDefaults.GlobalIlluminationLayers.DefaultValue.GetDefault(),
             Quality = SMModuleGlobalIlluminationURP.ReadQuality(BasisSettingsDefaults.GlobalIlluminationQuality.DefaultValue.GetDefault()),
@@ -113,7 +131,16 @@ public struct BasisGlobalIlluminationState
         return new BasisGlobalIlluminationState
         {
             Enabled = BasisLightingSolutions.BasisGlobalIllumination,
-            Mode = SMModuleGlobalIlluminationURP.ReadMode(BasisSettingsDefaults.GlobalIlluminationMode.RawValue),
+            Mode = SMModuleGlobalIlluminationURP.ReadDiffuseMode(BasisSettingsDefaults.GlobalIlluminationMode.RawValue),
+            BounceFeedback = BasisSettingsDefaults.GlobalIlluminationBounceFeedback.RawValue,
+            CascadeOverride = BasisSettingsDefaults.GlobalIlluminationCascadeOverride.RawValue,
+            CascadeCount = BasisSettingsDefaults.GlobalIlluminationCascadeCount.RawValue,
+            CascadeSpacing = BasisSettingsDefaults.GlobalIlluminationCascadeSpacing.RawValue,
+            CascadeSteps = BasisSettingsDefaults.GlobalIlluminationCascadeSteps.RawValue,
+            CascadeMergeFix = BasisSettingsDefaults.GlobalIlluminationCascadeMergeFix.RawValue,
+            WorldSpace = BasisSettingsDefaults.GlobalIlluminationWorldSpace.RawValue,
+            WorldLevels = BasisSettingsDefaults.GlobalIlluminationWorldLevels.RawValue,
+            WorldVoxelSize = BasisSettingsDefaults.GlobalIlluminationWorldVoxelSize.RawValue,
             SkinnedMeshes = SMModuleGlobalIlluminationURP.ReadSkinnedMode(BasisSettingsDefaults.GlobalIlluminationSkinnedMeshes.RawValue),
             Layers = BasisSettingsDefaults.GlobalIlluminationLayers.RawValue,
             Quality = SMModuleGlobalIlluminationURP.ReadQuality(BasisSettingsDefaults.GlobalIlluminationQuality.RawValue),
@@ -210,7 +237,8 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
     private BasisGlobalIlluminationCaptureOverride? captureOverride;
 
     /// <summary>Canonical option strings for <see cref="BasisGlobalIlluminationCaptureOverride.Mode"/>, index-matched to the live Mode dropdown. Parsed by <see cref="ReadMode"/>.</summary>
-    [NoAutoStaticsCleanup] public static readonly string[] ModeOptions = { "Screen Space", "Ray Traced" };
+    [NoAutoStaticsCleanup] public static readonly string[] ModeOptions = { "Radiance Cascades", "Ray Traced" };
+    [NoAutoStaticsCleanup] public static readonly string[] CascadeSpacingOptions = { "1", "2", "4", "8" };
     /// <summary>See <see cref="ModeOptions"/>. Parsed by <see cref="ReadSkinnedMode"/>.</summary>
     [NoAutoStaticsCleanup] public static readonly string[] SkinnedMeshesOptions = { "Off", "Proxy" };
     /// <summary>See <see cref="ModeOptions"/>. Parsed by <see cref="ReadLayers"/>.</summary>
@@ -227,6 +255,15 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
 
     private static string K_USE_GI => BasisSettingsDefaults.UseGlobalIllumination.BindingKey;
     private static string K_GI_MODE => BasisSettingsDefaults.GlobalIlluminationMode.BindingKey;
+    private static string K_GI_BOUNCE_FEEDBACK => BasisSettingsDefaults.GlobalIlluminationBounceFeedback.BindingKey;
+    private static string K_GI_CASCADE_OVERRIDE => BasisSettingsDefaults.GlobalIlluminationCascadeOverride.BindingKey;
+    private static string K_GI_CASCADE_COUNT => BasisSettingsDefaults.GlobalIlluminationCascadeCount.BindingKey;
+    private static string K_GI_CASCADE_SPACING => BasisSettingsDefaults.GlobalIlluminationCascadeSpacing.BindingKey;
+    private static string K_GI_CASCADE_STEPS => BasisSettingsDefaults.GlobalIlluminationCascadeSteps.BindingKey;
+    private static string K_GI_CASCADE_MERGE_FIX => BasisSettingsDefaults.GlobalIlluminationCascadeMergeFix.BindingKey;
+    private static string K_GI_WORLD_SPACE => BasisSettingsDefaults.GlobalIlluminationWorldSpace.BindingKey;
+    private static string K_GI_WORLD_LEVELS => BasisSettingsDefaults.GlobalIlluminationWorldLevels.BindingKey;
+    private static string K_GI_WORLD_VOXEL_SIZE => BasisSettingsDefaults.GlobalIlluminationWorldVoxelSize.BindingKey;
     private static string K_GI_SKINNED => BasisSettingsDefaults.GlobalIlluminationSkinnedMeshes.BindingKey;
     private static string K_GI_LAYERS => BasisSettingsDefaults.GlobalIlluminationLayers.BindingKey;
     private static string K_GI_OBSCURANCE_RADIUS => BasisSettingsDefaults.GlobalIlluminationObscuranceRadius.BindingKey;
@@ -268,6 +305,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
         base.Awake();
         instance = this;
         BasisGlobalIlluminationFeature.CameraFilter = AcceptsCamera;
+        BasisGlobalIlluminationPass.WorldAnchor = IsWorldAnchor;
         BasisReflectionFeature.CameraFilter = AcceptsCamera;
         BasisGlobalIlluminationFeature.KeepRenderingWithDebugger = true;
         ApplyOverride();
@@ -280,6 +318,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
         if (instance == this)
         {
             BasisGlobalIlluminationFeature.CameraFilter = null;
+            BasisGlobalIlluminationPass.WorldAnchor = null;
             BasisReflectionFeature.CameraFilter = null;
             instance = null;
         }
@@ -382,7 +421,36 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
         else if (matchedSettingName == K_GI_SOLUTION) { state.Enabled = BasisSettingsDefaults.UseGlobalIllumination.RawValue && !BasisLightingSolutions.PicksUnityGlobalIllumination(optionValue); }
         else if (matchedSettingName == K_REFLECTIONS_SOLUTION) { state.Specular = BasisSettingsDefaults.GlobalIlluminationSpecular.RawValue && !BasisLightingSolutions.PicksUnityReflections(optionValue); }
         else if (matchedSettingName == K_REFLECTIONS_MODE) { state.ReflectionsMode = ReadMode(optionValue); }
-        else if (matchedSettingName == K_GI_MODE) { state.Mode = ReadMode(optionValue); }
+        else if (matchedSettingName == K_GI_MODE) { state.Mode = ReadDiffuseMode(optionValue); }
+        else if (matchedSettingName == K_GI_BOUNCE_FEEDBACK)
+        {
+            if (!SliderReadOption(optionValue, out float value)) { return; }
+            state.BounceFeedback = value;
+        }
+        else if (matchedSettingName == K_GI_CASCADE_OVERRIDE) { state.CascadeOverride = optionValue == "true"; }
+        else if (matchedSettingName == K_GI_CASCADE_COUNT)
+        {
+            if (!SliderReadOption(optionValue, out float value)) { return; }
+            state.CascadeCount = value;
+        }
+        else if (matchedSettingName == K_GI_CASCADE_SPACING) { state.CascadeSpacing = optionValue; }
+        else if (matchedSettingName == K_GI_CASCADE_STEPS)
+        {
+            if (!SliderReadOption(optionValue, out float value)) { return; }
+            state.CascadeSteps = value;
+        }
+        else if (matchedSettingName == K_GI_CASCADE_MERGE_FIX) { state.CascadeMergeFix = optionValue == "true"; }
+        else if (matchedSettingName == K_GI_WORLD_SPACE) { state.WorldSpace = optionValue == "true"; }
+        else if (matchedSettingName == K_GI_WORLD_LEVELS)
+        {
+            if (!SliderReadOption(optionValue, out float value)) { return; }
+            state.WorldLevels = value;
+        }
+        else if (matchedSettingName == K_GI_WORLD_VOXEL_SIZE)
+        {
+            if (!SliderReadOption(optionValue, out float value)) { return; }
+            state.WorldVoxelSize = value;
+        }
         else if (matchedSettingName == K_GI_SKINNED) { state.SkinnedMeshes = ReadSkinnedMode(optionValue); }
         else if (matchedSettingName == K_GI_LAYERS) { state.Layers = optionValue; }
         else if (matchedSettingName == K_GI_OBSCURANCE_RADIUS)
@@ -514,9 +582,24 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
 
     /// <summary>
     /// Which gather the effect runs. A GPU with no ray tracing backend still reports Ray Traced here - the
-    /// renderer feature is what falls the frame back to the screen space gather, so the player's choice is
     /// remembered rather than rewritten under them.
     /// </summary>
+    public static BasisGlobalIlluminationDiffuseMode ReadDiffuseMode(string optionValue)
+    {
+        return ReadMode(optionValue) == BasisGlobalIlluminationMode.RayTraced ? BasisGlobalIlluminationDiffuseMode.RayTraced : BasisGlobalIlluminationDiffuseMode.RadianceCascades;
+    }
+
+    public static int ReadCascadeSpacing(string optionValue)
+    {
+        return int.TryParse(optionValue, out int spacing) && System.Array.IndexOf(CascadeSpacingOptions, optionValue) >= 0 ? spacing : 2;
+    }
+
+    public static bool IsWorldAnchor(Camera camera)
+    {
+        Camera localCamera = BasisLocalCameraDriver.CameraInstance;
+        return localCamera == null || ReferenceEquals(camera, localCamera);
+    }
+
     public static BasisGlobalIlluminationMode ReadMode(string optionValue)
     {
         switch (optionValue?.ToLowerInvariant())
@@ -609,7 +692,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
         if (effective.Capture && captureOverride.HasValue)
         {
             BasisGlobalIlluminationCaptureOverride o = captureOverride.Value;
-            effective.Mode = ReadMode(o.Mode);
+            effective.Mode = ReadDiffuseMode(o.Mode);
             effective.SkinnedMeshes = ReadSkinnedMode(o.SkinnedMeshes);
             effective.Layers = o.Layers;
             effective.Quality = ReadQuality(o.Quality);
@@ -783,15 +866,22 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
 
         target.enable = state.Enabled;
 
-        // Ray traced costs a great deal more than screen space, and putting every skinned mesh in the room
         // into the acceleration structure is what makes it cost that on a busy instance, so both are the
         // player's call.
         target.mode = state.Mode;
+        target.bounceFeedback = Mathf.Clamp(state.BounceFeedback, BasisSettingsDefaults.GI_BOUNCE_FEEDBACK_MIN, BasisSettingsDefaults.GI_BOUNCE_FEEDBACK_MAX);
+        target.cascadeOverride = state.CascadeOverride;
+        target.cascadeCount = Mathf.RoundToInt(Mathf.Clamp(state.CascadeCount, BasisSettingsDefaults.GI_CASCADE_COUNT_MIN, BasisSettingsDefaults.GI_CASCADE_COUNT_MAX));
+        target.cascadeSpacing = ReadCascadeSpacing(state.CascadeSpacing);
+        target.cascadeSteps = Mathf.RoundToInt(Mathf.Clamp(state.CascadeSteps, BasisSettingsDefaults.GI_CASCADE_STEPS_MIN, BasisSettingsDefaults.GI_CASCADE_STEPS_MAX));
+        target.mergeFix = state.CascadeMergeFix;
+        target.worldSpace = state.WorldSpace;
+        target.worldLevels = Mathf.RoundToInt(Mathf.Clamp(state.WorldLevels, BasisSettingsDefaults.GI_WORLD_LEVELS_MIN, BasisSettingsDefaults.GI_WORLD_LEVELS_MAX));
+        target.worldVoxelSize = Mathf.Clamp(state.WorldVoxelSize, BasisSettingsDefaults.GI_WORLD_VOXEL_SIZE_MIN, BasisSettingsDefaults.GI_WORLD_VOXEL_SIZE_MAX);
         target.rayTracedSkinnedMeshes = state.SkinnedMeshes;
         target.rayTracedLayerMask = ReadLayers(state.Layers);
 
         // Independent of Mode by design (see BasisGlobalIlluminationSettings.specular) - a reflection is
-        // worth having over a screen space diffuse gather, so this is not gated on target.IsRayTraced().
         // Mode still decides the backend: Ray Traced walks the shared acceleration structure, Screen
         // Space (and any GPU without ray tracing) walks the depth buffer against the previous frame.
         target.specular = state.Specular;

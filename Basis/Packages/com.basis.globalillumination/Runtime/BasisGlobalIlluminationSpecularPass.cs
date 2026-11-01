@@ -333,6 +333,8 @@ public sealed partial class BasisGlobalIlluminationPass
                 // this pass shares that stage and must not inherit the diffuse composite's mask handle.
                 passData.lightmapMask = TextureHandle.nullHandle;
                 passData.lightmapMaskValid = false;
+                passData.surface = TextureHandle.nullHandle;
+                passData.surfaceValid = false;
                 builder.SetRenderAttachment(published, 0, AccessFlags.WriteAll);
                 builder.UseTexture(denoiseSource);
                 builder.UseTexture(historyWriteStats);

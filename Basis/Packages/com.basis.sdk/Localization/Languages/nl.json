@@ -842,6 +842,8 @@
     { "key": "sdk.cilbox.api.menuPanel.summary", "value": "Voegt een knop aan het hoofdmenu toe die je eigen paneel opent, met tot 8 tabbladen die je net zo vult als een instellingentabblad. Eén paneel per content. Open() toont het, maar alleen binnen 5 seconden nadat de speler iets in je content heeft ingedrukt." },
     { "key": "sdk.cilbox.api.audioRouting.title", "value": "Volumeschuif-routering" },
     { "key": "sdk.cilbox.api.audioRouting.summary", "value": "Zet audiobronnen die een script later toevoegt in de groep Wereld, Props of Avatars, zodat de volumeschuiven van de speler gelden." },
+    { "key": "sdk.cilbox.api.steamAudio.title", "value": "Steam Audio" },
+    { "key": "sdk.cilbox.api.steamAudio.summary", "value": "Maakt de audiobronnen van deze content ruimtelijk en stelt HRTF, occlusie, transmissie, luchtabsorptie en reflecties in via een script. Werelden kunnen ook akoestische geometrie toevoegen." },
     { "key": "sdk.cilbox.api.languageEvent.title", "value": "Taalwijzigingen" },
     { "key": "sdk.cilbox.api.languageEvent.summary", "value": "Vertelt je script welke taal de speler gebruikt, en opnieuw zodra die verandert." },
     { "key": "sdk.cilbox.api.sharedRandom.title", "value": "Gedeelde willekeurige getallen" },

@@ -673,6 +673,9 @@ void Update()
 // BasisComputeShim.RemainingBytes(this) and RemainingThreads(this). A buffer over
 // the memory budget throws; a Dispatch over this frame's budget is skipped with a
 // warning. Basis frees every buffer when the content unloads.
+// To read results back, poll BasisComputeShim.TryGetDataAsync(heights, values): it returns
+// true when newer data was copied into values and never waits. buffer.GetData stops the
+// whole game until the GPU catches up, so avoid it in anything that runs every frame.
 // Not available: DispatchIndirect, SetTextureFromGlobal, Shader.SetGlobalBuffer.",
             },
             new CilboxApiEntry
@@ -970,6 +973,32 @@ BasisAudioRoutingShim.Route(this, source);
 
 // Or route every source in this content at once.
 int routed = BasisAudioRoutingShim.RouteAll(this);",
+            },
+            new CilboxApiEntry
+            {
+                GroupKey = GroupAudio,
+                TitleKey = "sdk.cilbox.api.steamAudio.title",
+                SummaryKey = "sdk.cilbox.api.steamAudio.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisSteamAudioShim", "SetOcclusion") },
+                Example =
+@"using Basis.Shims;
+
+// Works on audio sources in this content. Add spatializes one that has no Steam Audio yet.
+AudioSource source = GetComponent<AudioSource>();
+BasisSteamAudioShim.Add(this, source);
+BasisSteamAudioShim.SetHrtf(this, source, true, true);
+BasisSteamAudioShim.SetAirAbsorption(this, source, true);
+
+// Occlusion and reflections need geometry. Worlds add it from readable meshes.
+BasisSteamAudioShim.AddGeometry(this, wallMesh, 0.1f, 0.2f, 0.3f, 0.5f, 0.05f, 0.04f, 0.03f);
+BasisSteamAudioShim.SetOcclusion(this, source, true);
+BasisSteamAudioShim.SetTransmission(this, source, true, true, 2);
+
+// False when this content has used its reflection sources.
+BasisSteamAudioShim.SetReflections(this, source, true, 1f, false);
+
+// 1 is clear, 0 is fully blocked.
+float clear = BasisSteamAudioShim.GetOcclusion(this, source);",
             },
             new CilboxApiEntry
             {

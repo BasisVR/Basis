@@ -2882,9 +2882,89 @@
     { "key": "settings.graphics.gi.preset.natural", "value": "自然" },
     { "key": "settings.graphics.gi.preset.unnatural", "value": "非自然" },
     { "key": "settings.graphics.gi.mode", "value": "全局光照模式" },
-    { "key": "settings.graphics.gi.mode.tooltip", "value": "「屏幕空间」利用相机已经绘制出的画面来反弹光线，因此画面外或你身后的物体不会产生任何贡献。「光线追踪」会直接追踪世界本身，并用真实的灯光和发光材质为击中的物体上色，开销更高，且需要支持光线追踪的显卡——若显卡不支持，则会回退到「屏幕空间」。" },
+    { "key": "settings.graphics.gi.mode.tooltip", "value": "Radiance Cascades 通过你周围世界的 3D 副本反弹光线,因此来自身后和拐角另一侧的光也会被计入,并可在任何桌面显卡上运行。Ray Traced 直接追踪世界本身,并用真实光源为击中的表面着色,开销更高,且需要支持光线追踪的显卡。没有这类显卡时,它会以 Radiance Cascades 方式运行。" },
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "屏幕空间" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "光线追踪" },
+    {
+      "key": "settings.graphics.gi.bounceFeedback",
+      "value": "反弹强度"
+    },
+    {
+      "key": "settings.graphics.gi.bounceFeedback.tooltip",
+      "value": "已经反弹过的光有多少可以再次反弹。为零时每个表面只获得一次反弹；更高时光线会更深入角落、绕过门口，并在几帧内稳定下来。需要开启时间滤波。"
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace",
+      "value": "世界空间全局光照"
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace.tooltip",
+      "value": "通过你周围世界的三维体素副本追踪反弹光，因此来自身后、拐角处以及被遮挡物体的光也能反弹。屏幕通道仍叠加在上方，负责细节。"
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels",
+      "value": "世界范围"
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels.tooltip",
+      "value": "围绕你的嵌套体素层级数。每一级覆盖范围翻倍：0.2 米体素的三级约覆盖 13、26 和 51 米。"
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize",
+      "value": "体素大小"
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize.tooltip",
+      "value": "最精细体素的尺寸，单位为米。越小，薄墙越不易漏光，小物体也能反弹光；越大，在相同开销下覆盖越远。"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride",
+      "value": "手动设置级联"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride.tooltip",
+      "value": "手动设置探针布局，而不是由质量决定。可以超过“极高”，代价相应增加。"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing",
+      "value": "探针间距"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing.tooltip",
+      "value": "最近的探针之间相隔多少个追踪像素。越小接触处的光越清晰，开销也越大：每减半一次，工作量约为四倍。"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount",
+      "value": "级联数"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount.tooltip",
+      "value": "光线通过多少层探针收集。每层的覆盖距离是下一层的四倍，合起来达到光线长度，因此级联越多，靠近表面的细节越精细。"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps",
+      "value": "区间步数"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps.tooltip",
+      "value": "每条探针光线在其区段内采样深度的次数。更高能捕捉到原本会漏光的薄物体，开销也更大。"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix",
+      "value": "无漏光合并"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix.tooltip",
+      "value": "每个探针都会追踪到下一层探针开始查找的准确位置，而不是留下这段未追踪。可阻止光线穿过薄墙泄漏，并消除亮光周围的光环，追踪开销约为四倍。质量设为“极高”时开启。"
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades",
+      "value": "辐射级联"
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades.tooltip",
+      "value": "通过你周围世界的 3D 副本平滑地反弹光线,没有颗粒感。可在任何支持计算着色器的显卡上运行,包括 DirectX 11。"
+    },
     { "key": "settings.graphics.gi.advanced", "value": "高级" },
     { "key": "settings.graphics.gi.obscuranceRadius", "value": "接触变暗半径" },
     { "key": "settings.graphics.gi.obscuranceRadius.tooltip", "value": "表面与其上方物体之间仍能产生变暗效果的最大距离。数值较小时只会使狭窄的角落变暗；数值较大时可以覆盖整个房间，且不会产生额外开销，因为该距离是基于本就会被追踪的光线来测量的。如果变暗效果在每个物体外固定距离处出现明显的硬边界，调整的就是这个距离。" },

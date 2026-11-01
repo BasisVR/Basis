@@ -10,33 +10,6 @@ Shader "Hidden/Basis/GlobalIllumination"
 
         Pass
         {
-            Name "BasisGITrace"
-            Blend Off
-
-            HLSLPROGRAM
-            #pragma vertex Vert
-            #pragma fragment Frag
-            #pragma target 3.5
-            #pragma multi_compile_local_fragment _ _BASISGI_NORMALS_TEXTURE
-            #pragma multi_compile_local_fragment _ _BASISGI_FALLBACK_SKY _BASISGI_FALLBACK_PROBE
-            #pragma multi_compile_local_fragment _ _BASISGI_EMITTERS
-            #pragma multi_compile_local_fragment _ _BASISGI_EMITTER_OCCLUSION
-            #pragma multi_compile_local_fragment _ _BASISGI_RAY_REUSE
-            #pragma multi_compile_local_fragment _ _BASISGI_HIT_NORMAL
-            #pragma multi_compile_local_fragment _ _BASISGI_HIERARCHICAL_MARCH
-
-            #include "./BasisGlobalIlluminationTrace.hlsl"
-
-            float4 Frag(Varyings input) : SV_Target
-            {
-                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
-                return BasisGITrace(input.texcoord, input.positionCS.xy);
-            }
-            ENDHLSL
-        }
-
-        Pass
-        {
             Name "BasisGITemporal"
             Blend Off
 
@@ -131,19 +104,19 @@ Shader "Hidden/Basis/GlobalIllumination"
             #pragma vertex Vert
             #pragma fragment Frag
             #pragma target 3.5
+            #pragma multi_compile_local_fragment _ _BASISGI_BOUNCE_FEEDBACK
+            #pragma multi_compile_local_fragment _ _BASISGI_LIGHTMAP_MASK
 
-            #include "./BasisGlobalIlluminationCommon.hlsl"
+            #include "./BasisGlobalIlluminationDenoise.hlsl"
 
             float4 Frag(Varyings input) : SV_Target
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
-                return float4(SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_LinearClamp, UnityStereoTransformScreenSpaceTex(input.texcoord), 0).rgb, 1.0);
+                return float4(BasisGIBounceCopy(input.texcoord), 1.0);
             }
             ENDHLSL
         }
 
-        // Pass 6, appended rather than inserted: the pass indices above are constants on
-        // BasisGlobalIlluminationPass and reordering them silently repoints every stage.
         Pass
         {
             Name "BasisGISpecularUpsample"
@@ -297,7 +270,6 @@ Shader "Hidden/Basis/GlobalIllumination"
             ENDHLSL
         }
 
-        // Pass 9, appended for the same reason pass 6 was. The one pass here that draws GEOMETRY rather
         // than a fullscreen triangle: the opaque renderer list, redrawn at traced resolution with this as
         // the override material, into a mask cleared to ONE. A lightmapped surface writes zero; everything
         // else writes one over the one already there. The polarity is the load-bearing decision: the first
@@ -326,6 +298,179 @@ Shader "Hidden/Basis/GlobalIllumination"
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
 
             #include "./BasisGlobalIlluminationLightmapMask.hlsl"
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "BasisGICascadeReduce"
+            Blend Off
+
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment Frag
+            #pragma target 4.5
+
+            #include "./BasisGlobalIlluminationCascades.hlsl"
+
+            BasisGIRCReduceOutput Frag(Varyings input)
+            {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+                return BasisGIRCReduce(input.positionCS.xy);
+            }
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "BasisGICascadeProbe"
+            Blend Off
+
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment Frag
+            #pragma target 4.5
+            #pragma multi_compile_local_fragment _ _BASISGI_NORMALS_TEXTURE
+
+            #include "./BasisGlobalIlluminationCascades.hlsl"
+
+            float4 Frag(Varyings input) : SV_Target
+            {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+                return BasisGIRCPlaceProbe(input.positionCS.xy);
+            }
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "BasisGICascade"
+            Blend Off
+
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment Frag
+            #pragma target 4.5
+            #pragma multi_compile_local_fragment _ _BASISGI_FALLBACK_SKY _BASISGI_FALLBACK_PROBE
+            #pragma multi_compile_local_fragment _ _BASISGI_RAY_REUSE
+            #pragma multi_compile_local_fragment _ _BASISGI_RC_MERGE_FIX
+
+            #include "./BasisGlobalIlluminationCascades.hlsl"
+
+            float4 Frag(Varyings input) : SV_Target
+            {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+                return BasisGIRCCascade(input.positionCS.xy);
+            }
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "BasisGICascadeResolve"
+            Blend Off
+
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment Frag
+            #pragma target 4.5
+
+            #include "./BasisGlobalIlluminationCascades.hlsl"
+
+            BasisGIRCHarmonics Frag(Varyings input)
+            {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+                return BasisGIRCResolve(input.positionCS.xy);
+            }
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "BasisGICascadeGather"
+            Blend Off
+
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment Frag
+            #pragma target 4.5
+            #pragma multi_compile_local_fragment _ _BASISGI_NORMALS_TEXTURE
+            #pragma multi_compile_local_fragment _ _BASISGI_EMITTERS
+            #pragma multi_compile_local_fragment _ _BASISGI_EMITTER_OCCLUSION
+
+            #include "./BasisGlobalIlluminationCascades.hlsl"
+
+            float4 Frag(Varyings input) : SV_Target
+            {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+                return BasisGIRCGather(input.texcoord, input.positionCS.xy);
+            }
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "BasisGIVoxelCapture"
+            Blend Off
+            ColorMask 0
+
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment Frag
+            #pragma target 4.5
+
+            #include "./BasisGlobalIlluminationVoxelCapture.hlsl"
+
+            float Frag(Varyings input) : SV_Target
+            {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+                return BasisGIVoxelCapture(input.texcoord);
+            }
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "BasisGICompositeSurface"
+            Blend One SrcAlpha, Zero One
+
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment Frag
+            #pragma target 3.5
+            #pragma multi_compile_local_fragment _ _BASISGI_NORMALS_TEXTURE
+            #pragma multi_compile_local_fragment _ _BASISGI_BILATERAL_UPSAMPLE
+            #pragma multi_compile_local_fragment _ _BASISGI_LIGHTMAP_MASK
+
+            #include "./BasisGlobalIlluminationComposite.hlsl"
+
+            float4 Frag(Varyings input) : SV_Target
+            {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+                return BasisGICompositeSurface(input.texcoord);
+            }
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "BasisGISurfaceDepth"
+            ZTest Always
+            ZWrite On
+            ColorMask 0
+
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment Frag
+            #pragma target 3.5
+
+            #include "./BasisGlobalIlluminationCommon.hlsl"
+
+            float Frag(Varyings input) : SV_Depth
+            {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+                return BasisGISampleRawDepth(input.texcoord);
+            }
             ENDHLSL
         }
     }

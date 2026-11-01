@@ -45,6 +45,7 @@ namespace Cilbox
 			"Basis.Shims.BasisSharedRandomShim",
 			"Basis.Shims.BasisComputeShim",
 			"Basis.Shims.BasisAudioRoutingShim", // Only routes the avatar's own sources, to the Avatars group.
+			"Basis.Shims.BasisSteamAudioShim",
 			"Basis.Shims.BasisStatsShim",
 			"Basis.Shims.BasisMenuShim",
 			"Basis.Shims.BasisMenuPage",

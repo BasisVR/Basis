@@ -204,6 +204,7 @@ namespace Basis.Tests.Sync
                 Assert.IsTrue(Allowed(box, typeof(BasisComputeShim), "get_" + nameof(BasisComputeShim.IsSupported)), boxType.Name);
                 Assert.IsTrue(Allowed(box, typeof(BasisComputeShim), nameof(BasisComputeShim.RemainingBytes)), boxType.Name);
                 Assert.IsTrue(Allowed(box, typeof(BasisComputeShim), nameof(BasisComputeShim.RemainingThreads)), boxType.Name);
+                Assert.IsTrue(Allowed(box, typeof(BasisComputeShim), nameof(BasisComputeShim.TryGetDataAsync)), boxType.Name);
                 Assert.IsFalse(Allowed(box, typeof(BasisComputeShim), "Charge"), boxType.Name);
             }
         }
@@ -280,6 +281,96 @@ namespace Basis.Tests.Sync
             Assert.IsInstanceOf<ArgumentOutOfRangeException>(Refusal(dispatch, shader, 0, -1, 1, 1));
             Assert.IsInstanceOf<ArgumentOutOfRangeException>(Refusal(dispatch, shader, 0, 1, BasisComputeShim.MaxThreadGroups + 1, 1));
             Assert.IsInstanceOf<NullReferenceException>(Refusal(dispatch, null, 0, 1, 1, 1));
+        }
+
+        [Test]
+        public void GetData_GoesThroughTheShim_AndReturnsTheSameValues()
+        {
+            if (!SystemInfo.supportsComputeShaders) Assert.Ignore("This graphics device has no compute shaders.");
+            foreach (Type boxType in BoxTypes)
+            {
+                CilboxBasisCommon box = Box(boxType);
+                MethodInfo create = Redirect(box, typeof(ComputeBuffer), ".ctor", typeof(int), typeof(int));
+                MethodInfo whole = Redirect(box, typeof(ComputeBuffer), nameof(ComputeBuffer.GetData), typeof(Array));
+                MethodInfo range = Redirect(box, typeof(ComputeBuffer), nameof(ComputeBuffer.GetData), typeof(Array), typeof(int), typeof(int), typeof(int));
+                Redirect(box, typeof(GraphicsBuffer), nameof(GraphicsBuffer.GetData), typeof(Array));
+                Redirect(box, typeof(GraphicsBuffer), nameof(GraphicsBuffer.GetData), typeof(Array), typeof(int), typeof(int), typeof(int));
+                CollectionAssert.AreEqual(new[] { typeof(ComputeBuffer), typeof(Array) }, whole.GetParameters().Select(p => p.ParameterType), "GetData must take the buffer the script called it on first.");
+                Run(box);
+                ComputeBuffer buffer = Create(create, 4, 4);
+                buffer.SetData(new[] { 1, 2, 3, 4 });
+                int[] all = new int[4], part = new int[2];
+                whole.Invoke(null, new object[] { buffer, all });
+                range.Invoke(null, new object[] { buffer, part, 0, 2, 2 });
+                CollectionAssert.AreEqual(new[] { 1, 2, 3, 4 }, all, boxType.Name);
+                CollectionAssert.AreEqual(new[] { 3, 4 }, part, boxType.Name);
+                box.interpreterAccountingDepth = 0;
+            }
+        }
+
+        [Test]
+        public void GetData_EveryFrame_WarnsOnce_AndOneOffReadsDoNot()
+        {
+            if (!SystemInfo.supportsComputeShaders) Assert.Ignore("This graphics device has no compute shaders.");
+            CilboxBasisCommon avatar = Box(typeof(CilboxAvatarBasis));
+            MethodInfo create = Redirect(avatar, typeof(ComputeBuffer), ".ctor", typeof(int), typeof(int));
+            MethodInfo read = Redirect(avatar, typeof(ComputeBuffer), nameof(ComputeBuffer.GetData), typeof(Array));
+            Run(avatar);
+            ComputeBuffer buffer = Create(create, 1, 4);
+            int[] value = new int[1];
+            int now = Time.frameCount;
+            SetField(avatar, "computeBlockingFrame", now - 2);
+            SetField(avatar, "computeBlockingFrames", 500);
+            read.Invoke(null, new object[] { buffer, value });
+            Assert.AreEqual(1, GetField<int>(avatar, "computeBlockingFrames"), "A gap between reads has to restart the count.");
+            Assert.IsFalse(GetField<bool>(avatar, "computeBlockingWarned"));
+            read.Invoke(null, new object[] { buffer, value });
+            Assert.AreEqual(1, GetField<int>(avatar, "computeBlockingFrames"), "Several reads in one frame count once.");
+            SetField(avatar, "computeBlockingFrame", now - 1);
+            SetField(avatar, "computeBlockingFrames", BasisComputeShimWarnFrames - 1);
+            LogAssert.Expect(LogType.Warning, new Regex("TryGetDataAsync"));
+            read.Invoke(null, new object[] { buffer, value });
+            Assert.IsTrue(GetField<bool>(avatar, "computeBlockingWarned"));
+            SetField(avatar, "computeBlockingFrame", now - 1);
+            read.Invoke(null, new object[] { buffer, value });
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        const int BasisComputeShimWarnFrames = 120;
+
+        static FieldInfo BoxField(string name) => typeof(CilboxBasisCommon).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic);
+
+        static void SetField(CilboxBasisCommon box, string name, int value) => BoxField(name).SetValue(box, value);
+
+        static T GetField<T>(CilboxBasisCommon box, string name) => (T)BoxField(name).GetValue(box);
+
+        [Test]
+        public void TryGetDataAsync_NeverWaits_AndDeliversEachReadOnce()
+        {
+            if (!SystemInfo.supportsComputeShaders || !SystemInfo.supportsAsyncGPUReadback) Assert.Ignore("This graphics device has no async readback.");
+            ComputeBuffer compute = new ComputeBuffer(3, 4);
+            GraphicsBuffer graphics = new GraphicsBuffer(GraphicsBuffer.Target.Structured, 2, 12);
+            buffers.Add(compute);
+            buffers.Add(graphics);
+            compute.SetData(new[] { 7f, 8f, 9f });
+            graphics.SetData(new[] { new Vector3(1f, 2f, 3f), new Vector3(4f, 5f, 6f) });
+            float[] floats = new float[3];
+            Vector3[] vectors = new Vector3[2];
+            Assert.IsFalse(BasisComputeShim.TryGetDataAsync(compute, floats), "The first poll can only start the read.");
+            Assert.IsFalse(BasisComputeShim.TryGetDataAsync(graphics, vectors), "The first poll can only start the read.");
+            AsyncGPUReadback.WaitAllRequests();
+            Assert.IsTrue(BasisComputeShim.TryGetDataAsync(compute, floats));
+            Assert.IsTrue(BasisComputeShim.TryGetDataAsync(graphics, vectors));
+            CollectionAssert.AreEqual(new[] { 7f, 8f, 9f }, floats);
+            CollectionAssert.AreEqual(new[] { new Vector3(1f, 2f, 3f), new Vector3(4f, 5f, 6f) }, vectors);
+            Assert.IsFalse(BasisComputeShim.TryGetDataAsync(compute, floats), "The same completed read must not be delivered twice.");
+            compute.SetData(new[] { 10f, 11f, 12f });
+            AsyncGPUReadback.WaitAllRequests();
+            Assert.IsTrue(BasisComputeShim.TryGetDataAsync(compute, new float[1]), "A short target takes what fits instead of writing past its end.");
+            AsyncGPUReadback.WaitAllRequests();
+            Assert.Throws<ArgumentNullException>(() => BasisComputeShim.TryGetDataAsync(compute, null));
+            Assert.Throws<ArgumentNullException>(() => BasisComputeShim.TryGetDataAsync((ComputeBuffer)null, floats));
+            Assert.Throws<ArgumentException>(() => BasisComputeShim.TryGetDataAsync(compute, new string[1]));
         }
 
         [Test]

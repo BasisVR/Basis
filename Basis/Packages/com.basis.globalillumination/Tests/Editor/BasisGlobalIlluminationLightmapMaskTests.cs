@@ -71,7 +71,7 @@ namespace Basis.Tests.GlobalIllumination
             harness.Camera.transform.rotation = Quaternion.LookRotation(new Vector3(-0.1f, 0.3f, 0.6f) - harness.Camera.transform.position, Vector3.up);
 
             harness.Settings.enable = true;
-            harness.Settings.mode = BasisGlobalIlluminationMode.ScreenSpace;
+            harness.Settings.mode = BasisGlobalIlluminationDiffuseMode.RadianceCascades;
         }
 
         /// <summary>

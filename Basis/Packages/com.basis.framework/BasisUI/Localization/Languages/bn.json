@@ -2882,9 +2882,89 @@
     { "key": "settings.graphics.gi.preset.natural", "value": "ন্যাচারাল" },
     { "key": "settings.graphics.gi.preset.unnatural", "value": "আনন্যাচারাল" },
     { "key": "settings.graphics.gi.mode", "value": "GI মোড" },
-    { "key": "settings.graphics.gi.mode.tooltip", "value": "স্ক্রিন স্পেস ক্যামেরা যা আগেই এঁকেছে তা ব্যবহার করে আলো বাউন্স করে, তাই স্ক্রিনের বাইরে বা আপনার পেছনে থাকা কিছুই অবদান রাখে না। রে ট্রেসড বিশ্বকেই ট্রেস করে এবং এটি যা আঘাত করে তা প্রকৃত আলো ও উজ্জ্বল ম্যাটেরিয়াল দিয়ে শেড করে, যা বেশি খরচ করে এবং রে ট্রেসিং সমর্থিত গ্রাফিক্স কার্ড প্রয়োজন — না থাকলে এটি স্ক্রিন স্পেসে ফিরে যায়।" },
+    { "key": "settings.graphics.gi.mode.tooltip", "value": "Radiance Cascades আপনার চারপাশের জগতের একটি 3D কপির মধ্য দিয়ে আলো প্রতিফলিত করে, তাই আপনার পেছনের ও কোণার ওপাশের আলোও গণনায় আসে, এবং এটি যেকোনো ডেস্কটপ গ্রাফিক্স কার্ডে চলে। Ray Traced জগৎটিকেই ট্রেস করে এবং যা স্পর্শ করে তা আসল আলো দিয়ে শেড করে, এতে খরচ বেশি এবং রে ট্রেসিং সমর্থিত গ্রাফিক্স কার্ড লাগে। সেটি না থাকলে এটি Radiance Cascades হিসেবে চলে।" },
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "স্ক্রিন স্পেস" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "রে ট্রেসড" },
+    {
+      "key": "settings.graphics.gi.bounceFeedback",
+      "value": "বাউন্সের শক্তি"
+    },
+    {
+      "key": "settings.graphics.gi.bounceFeedback.tooltip",
+      "value": "যে আলো ইতিমধ্যে বাউন্স করেছে তার কতটা আবার বাউন্স করতে পারবে। শূন্যে প্রতিটি পৃষ্ঠ একবার বাউন্স পায়; বেশি হলে আলো কোণে ও দরজার চারপাশে আরও দূরে যায় এবং কয়েক ফ্রেমে স্থির হয়। টেম্পোরাল ফিল্টার প্রয়োজন।"
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace",
+      "value": "ওয়ার্ল্ড স্পেস GI"
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace.tooltip",
+      "value": "আপনার চারপাশের জগতের একটি 3D ভক্সেল কপির মধ্য দিয়ে বাউন্স ট্রেস করে, তাই পেছন থেকে, কোণের ওপাশ থেকে এবং আড়ালে থাকা জিনিস থেকে আসা আলোও বাউন্স হয়। সূক্ষ্ম বিবরণের জন্য স্ক্রিন পাস উপরে থাকে।"
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels",
+      "value": "ওয়ার্ল্ড রেঞ্জ"
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels.tooltip",
+      "value": "আপনার চারপাশে কতগুলো নেস্টেড ভক্সেল স্তর থাকবে। প্রতিটি স্তর পরিসর দ্বিগুণ করে: 0.2 মি ভক্সেলে তিনটি স্তর প্রায় 13, 26 ও 51 মিটার জুড়ে থাকে।"
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize",
+      "value": "ভক্সেলের আকার"
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize.tooltip",
+      "value": "সবচেয়ে সূক্ষ্ম ভক্সেলের আকার, মিটারে। ছোট হলে পাতলা দেয়াল নিরেট থাকে এবং ছোট বস্তুও আলো বাউন্স করে; বড় হলে একই খরচে আরও দূর পর্যন্ত পৌঁছায়।"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride",
+      "value": "ক্যাসকেড ওভাররাইড"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride.tooltip",
+      "value": "গুণমানের বদলে হাতে প্রোবের বিন্যাস নির্ধারণ করুন। সমপরিমাণ খরচে Ultra ছাড়িয়ে যায়।"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing",
+      "value": "প্রোবের ব্যবধান"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing.tooltip",
+      "value": "সবচেয়ে কাছের প্রোবগুলো কত দূরে থাকে, ট্রেস করা পিক্সেলে। কম হলে সংস্পর্শের আলো আরও স্পষ্ট হয় এবং খরচ বাড়ে: প্রতিবার অর্ধেক করলে কাজ প্রায় চারগুণ হয়।"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount",
+      "value": "ক্যাসকেড"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount.tooltip",
+      "value": "কতগুলো প্রোব স্তরের মধ্য দিয়ে আলো সংগ্রহ হয়। প্রতিটি স্তর নিচেরটির চেয়ে চারগুণ দূরে পৌঁছায় এবং একসাথে রে দৈর্ঘ্য পর্যন্ত যায়, তাই বেশি ক্যাসকেড পৃষ্ঠের কাছে সূক্ষ্ম বিবরণ দেয়।"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps",
+      "value": "ইন্টারভাল ধাপ"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps.tooltip",
+      "value": "প্রতিটি প্রোব রে তার অংশে কতগুলো গভীরতার নমুনা নেয়। বেশি হলে পাতলা বস্তু ধরা পড়ে যেগুলো অন্যথায় আলো ফুটো করে দিত, এবং খরচ বাড়ে।"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix",
+      "value": "লিক-মুক্ত মার্জ"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix.tooltip",
+      "value": "প্রতিটি প্রোব ঠিক সেই জায়গা পর্যন্ত ট্রেস করে যেখান থেকে পরের স্তরের প্রোবগুলো খোঁজা শুরু করে, অংশটি ট্রেস না করে ফেলে রাখে না। পাতলা দেয়াল দিয়ে আলো চুঁইয়ে পড়া এবং উজ্জ্বল আলোর চারপাশের বলয় বন্ধ করে, প্রায় চারগুণ ট্রেসিং খরচে। গুণমান Ultra-তে এটি চালু করে।"
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades",
+      "value": "রেডিয়েন্স ক্যাসকেড"
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades.tooltip",
+      "value": "আপনার চারপাশের জগতের একটি 3D কপির মধ্য দিয়ে মসৃণভাবে ও দানা ছাড়া আলো প্রতিফলিত করে। compute shader সমর্থিত যেকোনো গ্রাফিক্স কার্ডে চলে, DirectX 11 সহ।"
+    },
     { "key": "settings.graphics.gi.advanced", "value": "উন্নত" },
     { "key": "settings.graphics.gi.obscuranceRadius", "value": "কন্টাক্ট ডার্কেনিং ব্যাসার্ধ" },
     { "key": "settings.graphics.gi.obscuranceRadius.tooltip", "value": "একটি পৃষ্ঠতল তার ওপরের বস্তু থেকে কত দূরে থাকলেও তার দ্বারা গাঢ় হতে পারে। কম মান শুধু আঁটসাঁট কোণা গাঢ় করে; বেশি মান পুরো ঘর জুড়ে পৌঁছায় এবং অতিরিক্ত কোনো খরচ হয় না, কারণ দূরত্ব যেসব রে যেভাবেই ট্রেস করা হচ্ছিল সেগুলোতেই মাপা হয়। প্রতিটি বস্তু থেকে নির্দিষ্ট দূরত্বে যদি গাঢ়ভাব একটি ধারালো প্রান্তে থেমে যায়, সেটিই এই দূরত্ব।" },

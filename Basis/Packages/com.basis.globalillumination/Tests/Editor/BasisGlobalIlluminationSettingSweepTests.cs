@@ -143,6 +143,7 @@ namespace Basis.Tests.GlobalIllumination
             v.temporalResponse = 0.15f;
             v.neighbourhoodClamp = true;
             v.bilateralUpsample = true;
+            v.surfaceColour = false;
             v.fireflyClamp = 6f;
             v.fallback = BasisGlobalIlluminationFallback.ReflectionProbe;
             v.fallbackIntensity = 1f;
@@ -201,9 +202,9 @@ namespace Basis.Tests.GlobalIllumination
             };
         }
 
-        private BasisGlobalIlluminationRenderHarness.Reading[] Measure(BasisGlobalIlluminationMode mode)
+        private BasisGlobalIlluminationRenderHarness.Reading[] Measure(BasisGlobalIlluminationDiffuseMode mode)
         {
-            if (mode != BasisGlobalIlluminationMode.RayTraced) { return harness.ConvergedReadings(probes, 26, 8); }
+            if (mode != BasisGlobalIlluminationDiffuseMode.RayTraced) { return harness.ConvergedReadings(probes, 26, 8); }
 
             // The traced gather has to be given longer. Its structure and light list are rebuilt between
             // measurements - the scene is only rescanned on a timer, and in edit mode the frame counter that
@@ -233,7 +234,7 @@ namespace Basis.Tests.GlobalIllumination
             return worst;
         }
 
-        private void Sweep(BasisGlobalIlluminationMode mode, List<string> dead, StringBuilder report)
+        private void Sweep(BasisGlobalIlluminationDiffuseMode mode, List<string> dead, StringBuilder report)
         {
             List<Setting> settings = Settings();
             harness.Settings.mode = mode;
@@ -249,7 +250,7 @@ namespace Basis.Tests.GlobalIllumination
             for (int index = 0; index < settings.Count; index++)
             {
                 Setting setting = settings[index];
-                bool applies = mode == BasisGlobalIlluminationMode.ScreenSpace ? setting.ScreenSpace : setting.RayTraced;
+                bool applies = mode == BasisGlobalIlluminationDiffuseMode.RadianceCascades ? setting.ScreenSpace : setting.RayTraced;
 
                 Baseline(harness.Settings);
                 setting.Low(harness.Settings);
@@ -302,7 +303,7 @@ namespace Basis.Tests.GlobalIllumination
         {
             List<string> dead = new List<string>();
             StringBuilder report = new StringBuilder("[BasisGI] screen space setting sweep\n");
-            Sweep(BasisGlobalIlluminationMode.ScreenSpace, dead, report);
+            Sweep(BasisGlobalIlluminationDiffuseMode.RadianceCascades, dead, report);
             Debug.Log(report.ToString());
             Assert.IsEmpty(dead, "screen space settings that provably changed nothing on screen: " + string.Join(", ", dead));
         }
@@ -319,7 +320,7 @@ namespace Basis.Tests.GlobalIllumination
             }
 
             List<string> dead = new List<string>();
-            Sweep(BasisGlobalIlluminationMode.RayTraced, dead, report);
+            Sweep(BasisGlobalIlluminationDiffuseMode.RayTraced, dead, report);
             report.Append($"  traced={harness.RayTracingRan}\n");
             Debug.Log(report.ToString());
 

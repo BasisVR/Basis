@@ -2882,9 +2882,89 @@
     { "key": "settings.graphics.gi.preset.natural", "value": "नैचुरल" },
     { "key": "settings.graphics.gi.preset.unnatural", "value": "अननैचुरल" },
     { "key": "settings.graphics.gi.mode", "value": "GI मोड" },
-    { "key": "settings.graphics.gi.mode.tooltip", "value": "स्क्रीन स्पेस उस चीज़ का इस्तेमाल करके रोशनी बाउंस करता है जो कैमरे ने पहले से बना ली है, इसलिए स्क्रीन से बाहर या आपके पीछे की कोई भी चीज़ कुछ योगदान नहीं देती। रे ट्रेस्ड दुनिया को खुद ट्रेस करता है और जो कुछ भी टकराता है उसे असली रोशनियों और चमकते मटीरियल से शेड करता है, जिसमें ज़्यादा खर्च आता है और रे ट्रेसिंग वाले ग्राफ़िक्स कार्ड की ज़रूरत होती है - बिना उसके यह स्क्रीन स्पेस पर वापस चला जाता है।" },
+    { "key": "settings.graphics.gi.mode.tooltip", "value": "Radiance Cascades आपके आसपास की दुनिया की एक 3D कॉपी से होकर प्रकाश को उछालता है, इसलिए आपके पीछे और कोनों के पार का प्रकाश भी गिना जाता है, और यह किसी भी डेस्कटॉप ग्राफ़िक्स कार्ड पर चलता है। Ray Traced दुनिया को ही ट्रेस करता है और जिस पर पड़ता है उसे असली लाइटों से शेड करता है, जो महँगा है और इसके लिए रे ट्रेसिंग वाला ग्राफ़िक्स कार्ड चाहिए। उसके बिना यह Radiance Cascades की तरह चलता है।" },
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "स्क्रीन स्पेस" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "रे ट्रेस्ड" },
+    {
+      "key": "settings.graphics.gi.bounceFeedback",
+      "value": "बाउंस की ताकत"
+    },
+    {
+      "key": "settings.graphics.gi.bounceFeedback.tooltip",
+      "value": "जो रोशनी पहले ही बाउंस हो चुकी है उसका कितना हिस्सा फिर से बाउंस हो सकता है। शून्य पर हर सतह को एक बाउंस मिलता है; ज़्यादा होने पर रोशनी कोनों और दरवाज़ों के आसपास और दूर तक जाती है और कुछ फ़्रेम में स्थिर हो जाती है। टेम्पोरल फ़िल्टर ज़रूरी है।"
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace",
+      "value": "वर्ल्ड स्पेस GI"
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace.tooltip",
+      "value": "आपके आसपास की दुनिया की 3D वॉक्सेल कॉपी से बाउंस ट्रेस करता है, ताकि पीछे से, कोनों के पार से और छिपी चीज़ों से आने वाली रोशनी भी बाउंस हो। बारीक विवरण के लिए स्क्रीन पास ऊपर बना रहता है।"
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels",
+      "value": "वर्ल्ड रेंज"
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels.tooltip",
+      "value": "आपके आसपास कितने नेस्टेड वॉक्सेल स्तर हैं। हर स्तर पहुँच दोगुनी करता है: 0.2 मी वॉक्सेल के तीन स्तर लगभग 13, 26 और 51 मीटर कवर करते हैं।"
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize",
+      "value": "वॉक्सेल आकार"
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize.tooltip",
+      "value": "सबसे बारीक वॉक्सेल का आकार, मीटर में। छोटा होने पर पतली दीवारें ठोस रहती हैं और छोटी चीज़ें भी रोशनी बाउंस करती हैं; बड़ा होने पर उसी लागत में ज़्यादा दूर तक पहुँचता है।"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride",
+      "value": "कैस्केड ओवरराइड"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride.tooltip",
+      "value": "गुणवत्ता के बजाय प्रोब का लेआउट हाथ से तय करें। उतनी ही लागत पर Ultra से आगे जाता है।"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing",
+      "value": "प्रोब की दूरी"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing.tooltip",
+      "value": "सबसे पास के प्रोब कितनी दूरी पर हैं, ट्रेस किए गए पिक्सेल में। कम होने पर संपर्क की रोशनी ज़्यादा साफ़ होती है और लागत बढ़ती है: हर बार आधा करने पर काम लगभग चार गुना होता है।"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount",
+      "value": "कैस्केड"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount.tooltip",
+      "value": "रोशनी कितनी प्रोब परतों से इकट्ठा होती है। हर परत नीचे वाली से चार गुना दूर तक पहुँचती है और मिलकर रे लंबाई तक जाती हैं, इसलिए ज़्यादा कैस्केड सतहों के पास बारीक विवरण देते हैं।"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps",
+      "value": "इंटरवल स्टेप"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps.tooltip",
+      "value": "हर प्रोब रे अपने हिस्से में कितने गहराई सैंपल लेती है। ज़्यादा होने पर पतली चीज़ें पकड़ में आती हैं जो वरना रोशनी को आर-पार जाने देतीं, और लागत बढ़ती है।"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix",
+      "value": "लीक-मुक्त मर्ज"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix.tooltip",
+      "value": "हर प्रोब ठीक उस जगह तक ट्रेस करता है जहाँ से अगली परत के प्रोब खोजना शुरू करते हैं, उस हिस्से को बिना ट्रेस किए नहीं छोड़ता। पतली दीवारों से रोशनी के रिसाव और तेज़ रोशनी के आसपास के छल्लों को रोकता है, लगभग चार गुना ट्रेसिंग लागत पर। गुणवत्ता इसे Ultra पर चालू करती है।"
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades",
+      "value": "रेडियंस कैस्केड"
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades.tooltip",
+      "value": "आपके आसपास की दुनिया की 3D कॉपी से होकर प्रकाश को सहज रूप से और बिना ग्रेन के उछालता है। compute shader वाले किसी भी ग्राफ़िक्स कार्ड पर चलता है, DirectX 11 सहित।"
+    },
     { "key": "settings.graphics.gi.advanced", "value": "उन्नत" },
     { "key": "settings.graphics.gi.obscuranceRadius", "value": "कॉन्टैक्ट डार्कनिंग त्रिज्या" },
     { "key": "settings.graphics.gi.obscuranceRadius.tooltip", "value": "कोई सतह अपने ऊपर वाली चीज़ से कितनी दूर हो सकती है और फिर भी उससे गहरी हो सकती है। छोटे मान केवल तंग कोनों को गहरा करते हैं; बड़े मान पूरे कमरे में पहुँचते हैं और इसकी कोई अतिरिक्त कीमत नहीं है, क्योंकि दूरी उन किरणों पर मापी जाती है जो वैसे भी ट्रेस की जा चुकी थीं। अगर गहरापन हर वस्तु से एक तय दूरी पर एक सख़्त किनारे पर रुक जाता है, तो यही वह दूरी है।" },

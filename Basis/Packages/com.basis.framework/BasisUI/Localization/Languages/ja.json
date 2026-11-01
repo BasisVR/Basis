@@ -2882,9 +2882,89 @@
     { "key": "settings.graphics.gi.preset.natural", "value": "ナチュラル" },
     { "key": "settings.graphics.gi.preset.unnatural", "value": "アンナチュラル" },
     { "key": "settings.graphics.gi.mode", "value": "GIモード" },
-    { "key": "settings.graphics.gi.mode.tooltip", "value": "「スクリーンスペース」はカメラがすでに描画した内容を使って光をバウンスさせるため、画面外や背後にあるものは一切寄与しません。「レイトレーシング」はワールド自体をトレースし、実際のライトや発光マテリアルで陰影付けを行いますが、コストが高く、レイトレーシング対応のグラフィックカードが必要です。非対応の場合は「スクリーンスペース」にフォールバックします。" },
+    { "key": "settings.graphics.gi.mode.tooltip", "value": "Radiance Cascades は周囲の世界の 3D コピーを通して光を反射させるため、背後や曲がり角の先からの光も反映され、どのデスクトップ向けグラフィックスカードでも動作します。Ray Traced は世界そのものをトレースし、当たった場所を実際のライトで照らします。負荷が高く、レイトレーシング対応のグラフィックスカードが必要です。非対応の場合は Radiance Cascades として動作します。" },
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "スクリーンスペース" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "レイトレーシング" },
+    {
+      "key": "settings.graphics.gi.bounceFeedback",
+      "value": "バウンス強度"
+    },
+    {
+      "key": "settings.graphics.gi.bounceFeedback.tooltip",
+      "value": "すでに反射した光をどれだけ再び反射させるか。0 ではすべての面が 1 回だけバウンスし、高くすると光が隅や出入口の周りまで届き、数フレームで落ち着きます。テンポラルフィルタが必要です。"
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace",
+      "value": "ワールド空間 GI"
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace.tooltip",
+      "value": "周囲のワールドの 3D ボクセルコピーを通してバウンスをトレースするため、背後や曲がり角の先、他の物に隠れた物からの光もバウンスします。細部はスクリーンパスが上に重ねて補います。"
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels",
+      "value": "ワールド範囲"
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels.tooltip",
+      "value": "周囲を囲む入れ子のボクセルレベル数。レベルごとに範囲が 2 倍になり、0.2 m のボクセルで 3 レベルなら約 13、26、51 メートルをカバーします。"
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize",
+      "value": "ボクセルサイズ"
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize.tooltip",
+      "value": "最も細かいボクセルの大きさ（メートル）。小さいほど薄い壁が抜けず、小さな物も光を反射します。大きいほど同じ負荷でより遠くまで届きます。"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride",
+      "value": "カスケードを手動設定"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride.tooltip",
+      "value": "プローブの配置を品質ではなく手動で設定します。それに見合う負荷で Ultra を超えられます。"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing",
+      "value": "プローブ間隔"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing.tooltip",
+      "value": "最も近いプローブ同士の間隔（トレースピクセル単位）。小さいほど接触部の光がシャープになり負荷が増えます。半分にするごとに処理量は約 4 倍です。"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount",
+      "value": "カスケード数"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount.tooltip",
+      "value": "光を集めるプローブ層の数。各層は下の層の 4 倍先まで届き、合わせてレイ長に達するため、カスケードを増やすと面の近くがより細かくなります。"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps",
+      "value": "区間ステップ数"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps.tooltip",
+      "value": "各プローブのレイが担当区間で取る深度サンプル数。高くすると、光が漏れてしまう薄い物体も捉えられますが、負荷が増えます。"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix",
+      "value": "リークのない統合"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix.tooltip",
+      "value": "各プローブが次の層のプローブが探索を始める地点までを正確にトレースし、その区間を未トレースのまま残しません。薄い壁を通る光漏れと明るい光源の周りのリングを防ぎますが、トレース負荷は約 4 倍です。品質では Ultra でオンになります。"
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades",
+      "value": "ラディアンスカスケード"
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades.tooltip",
+      "value": "周囲の世界の 3D コピーを通して、粒状感のないなめらかな光を反射させます。compute shader に対応したグラフィックスカードで動作し、DirectX 11 にも対応します。"
+    },
     { "key": "settings.graphics.gi.advanced", "value": "詳細設定" },
     { "key": "settings.graphics.gi.obscuranceRadius", "value": "接触暗化半径" },
     { "key": "settings.graphics.gi.obscuranceRadius.tooltip", "value": "ある表面が、その上にある物体からどれだけ離れていても暗化の影響を受けるかを決めます。値を小さくすると狭い角だけが暗くなり、大きくすると部屋全体に届きますが、距離の計算はもともとトレースされているレイを使うため追加コストはありません。あらゆる物体から一定距離のところで暗化がくっきりと途切れる場合、その距離がこの値です。" },

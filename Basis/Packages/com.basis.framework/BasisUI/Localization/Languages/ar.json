@@ -2882,9 +2882,89 @@
     { "key": "settings.graphics.gi.preset.natural", "value": "طبيعي" },
     { "key": "settings.graphics.gi.preset.unnatural", "value": "غير طبيعي" },
     { "key": "settings.graphics.gi.mode", "value": "وضع الإضاءة الشاملة" },
-    { "key": "settings.graphics.gi.mode.tooltip", "value": "مساحة الشاشة تُرَدِّد الضوء باستخدام ما رسمته الكاميرا بالفعل، لذا فإن أي شيء خارج الشاشة أو خلفك لا يُسهم بشيء. تتبع الأشعة يتتبع العالم نفسه ويُظلِّل ما يُصيبه بالأضواء الحقيقية والمواد المتوهجة، وهو ما يكلف أكثر ويحتاج بطاقة رسومات تدعم تتبع الأشعة - وبدونها يتراجع إلى مساحة الشاشة." },
+    { "key": "settings.graphics.gi.mode.tooltip", "value": "تعكس Radiance Cascades الضوء عبر نسخة ثلاثية الأبعاد من العالم من حولك، فيُحتسب الضوء القادم من خلفك ومن وراء الزوايا، وتعمل على أي بطاقة رسوميات مكتبية. أما Ray Traced فتتتبع العالم نفسه وتضيء ما تصيبه بالأضواء الحقيقية، وهي أعلى تكلفة وتحتاج إلى بطاقة رسوميات تدعم تتبع الأشعة. وبدونها تعمل كـ Radiance Cascades." },
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "مساحة الشاشة" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "تتبع الأشعة" },
+    {
+      "key": "settings.graphics.gi.bounceFeedback",
+      "value": "قوة الارتداد"
+    },
+    {
+      "key": "settings.graphics.gi.bounceFeedback.tooltip",
+      "value": "مقدار الضوء الذي ارتد بالفعل والمسموح له بالارتداد مرة أخرى. عند الصفر يحصل كل سطح على ارتداد واحد؛ والقيم الأعلى تحمل الضوء أبعد إلى الزوايا وحول المداخل، ويستقر خلال بضعة إطارات. يتطلب المرشِّح الزمني."
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace",
+      "value": "إضاءة شاملة في فضاء العالم"
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace.tooltip",
+      "value": "يتتبع ارتداد الضوء عبر نسخة فوكسلية ثلاثية الأبعاد من العالم من حولك، فيرتد أيضًا الضوء القادم من خلفك ومن وراء الزوايا ومن الأشياء المحجوبة. تبقى مرحلة الشاشة فوقها للتفاصيل الدقيقة."
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels",
+      "value": "مدى العالم"
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels.tooltip",
+      "value": "عدد مستويات الفوكسل المتداخلة من حولك. كل مستوى يضاعف المدى: ثلاثة مستويات بفوكسل 0.2 م تغطي نحو 13 و26 و51 مترًا."
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize",
+      "value": "حجم الفوكسل"
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize.tooltip",
+      "value": "حجم أدق الفوكسلات بالأمتار. الأصغر يبقي الجدران الرقيقة صلبة ويجعل الأجسام الصغيرة تعكس الضوء؛ والأكبر يصل أبعد بالتكلفة نفسها."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride",
+      "value": "تجاوز التتاليات"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride.tooltip",
+      "value": "اضبط توزيع المجسات يدويًا بدلًا من الجودة. يتجاوز Ultra بتكلفة مماثلة."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing",
+      "value": "تباعد المجسات"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing.tooltip",
+      "value": "المسافة بين أقرب المجسات بالبكسلات المتتبَّعة. الأصغر يعطي ضوء تلامس أوضح ويكلّف أكثر: كل تنصيف يعني نحو أربعة أضعاف العمل."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount",
+      "value": "التتاليات"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount.tooltip",
+      "value": "عدد طبقات المجسات التي يُجمع الضوء عبرها. تصل كل طبقة إلى أربعة أضعاف مدى الطبقة التي تحتها، ومعًا تبلغ طول الشعاع، لذا تمنح التتاليات الإضافية تفاصيل أدق قرب الأسطح."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps",
+      "value": "خطوات الفترة"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps.tooltip",
+      "value": "عدد عينات العمق التي يأخذها كل شعاع مجس على امتداده. القيم الأعلى تلتقط الأجسام الرفيعة التي كانت ستسمح بتسرب الضوء، وتكلّف أكثر."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix",
+      "value": "دمج بلا تسرب"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix.tooltip",
+      "value": "يتتبع كل مجس الشعاع حتى النقطة التي تبدأ عندها مجسات الطبقة التالية بالبحث تمامًا، بدلًا من ترك ذلك المقطع دون تتبع. يمنع تسرب الضوء عبر الجدران الرقيقة والحلقات حول الأضواء الساطعة، بتكلفة تتبع تقارب أربعة أضعاف. تفعّله الجودة عند Ultra."
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades",
+      "value": "التتالي الإشعاعي"
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades.tooltip",
+      "value": "تعكس الضوء عبر نسخة ثلاثية الأبعاد من العالم من حولك، بسلاسة ودون تشويش. تعمل على أي بطاقة رسوميات تدعم compute shaders، بما في ذلك DirectX 11."
+    },
     { "key": "settings.graphics.gi.advanced", "value": "متقدم" },
     { "key": "settings.graphics.gi.obscuranceRadius", "value": "نطاق تعتيم التلامس" },
     { "key": "settings.graphics.gi.obscuranceRadius.tooltip", "value": "إلى أي مدى يمكن أن يبتعد سطح عن الشيء الذي فوقه ويظل معتَّمًا بسببه. القيم الصغيرة تُعتِّم الزوايا الضيقة فقط؛ والقيم الكبيرة تمتد عبر الغرفة كلها ولا تكلف شيئًا إضافيًا، لأن المسافة تُقاس على أشعة كانت متتبَّعة أصلًا. إذا توقف التعتيم عند حافة حادة على مسافة ثابتة من كل جسم، فهذه هي تلك المسافة." },

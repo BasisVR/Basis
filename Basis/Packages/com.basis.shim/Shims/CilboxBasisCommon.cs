@@ -802,6 +802,9 @@ namespace Cilbox
 		internal int computeFrame;
 		internal long computeFrameThreads;
 		internal bool computeWarned;
+		internal int computeBlockingFrame = -1;
+		internal int computeBlockingFrames;
+		internal bool computeBlockingWarned;
 
 		void OnDestroy() => CilboxCompute.Release(this);
 

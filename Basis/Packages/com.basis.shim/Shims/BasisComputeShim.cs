@@ -1,8 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using Cilbox;
 using Basis.Shims;
@@ -24,6 +29,8 @@ namespace Basis.Shims
 		public static bool IsSupported => SystemInfo.supportsComputeShaders;
 		public static long RemainingBytes(object self) => CilboxCompute.RemainingBytes(self);
 		public static long RemainingThreads(object self) => CilboxCompute.RemainingThreads(self);
+		public static bool TryGetDataAsync(ComputeBuffer buffer, Array data) => CilboxCompute.TryGetDataAsync(buffer, data);
+		public static bool TryGetDataAsync(GraphicsBuffer buffer, Array data) => CilboxCompute.TryGetDataAsync(buffer, data);
 	}
 }
 
@@ -36,6 +43,40 @@ namespace Cilbox
 		private static int frame = -1;
 		private static long frameThreads;
 		private static bool warned;
+		internal const int BlockingWarnFrames = 120;
+		[NoAutoStaticsCleanup] private static readonly ConditionalWeakTable<object, ComputeRead> reads = new ConditionalWeakTable<object, ComputeRead>();
+
+		private sealed class ComputeRead
+		{
+			private byte[] latest;
+			private int length;
+			private bool fresh;
+			public bool Pending;
+			public readonly Action<AsyncGPUReadbackRequest> Done;
+			public ComputeRead() => Done = Completed;
+
+			private void Completed(AsyncGPUReadbackRequest request)
+			{
+				Pending = false;
+				if (request.hasError) return;
+				NativeArray<byte> bytes = request.GetData<byte>();
+				if (latest == null || latest.Length < bytes.Length) latest = new byte[bytes.Length];
+				NativeArray<byte>.Copy(bytes, latest, bytes.Length);
+				length = bytes.Length;
+				fresh = true;
+			}
+
+			public bool Take(Array data)
+			{
+				if (!fresh) return false;
+				fresh = false;
+				long capacity = (long)data.Length * UnsafeUtility.SizeOf(data.GetType().GetElementType());
+				GCHandle pin = GCHandle.Alloc(data, GCHandleType.Pinned);
+				try { Marshal.Copy(latest, 0, pin.AddrOfPinnedObject(), (int)Math.Min(length, capacity)); }
+				finally { pin.Free(); }
+				return true;
+			}
+		}
 
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
 		private static void Hook()
@@ -54,12 +95,12 @@ namespace Cilbox
 
 		private static void Sweep(Scene scene) => Prune();
 
-		internal static bool IsEntryPoint(string name) => name == "get_" + nameof(BasisComputeShim.IsSupported) || name == nameof(BasisComputeShim.RemainingBytes) || name == nameof(BasisComputeShim.RemainingThreads);
+		internal static bool IsEntryPoint(string name) => name == "get_" + nameof(BasisComputeShim.IsSupported) || name == nameof(BasisComputeShim.RemainingBytes) || name == nameof(BasisComputeShim.RemainingThreads) || name == nameof(BasisComputeShim.TryGetDataAsync);
 
 		internal static bool IsRedirect(Type declaringType, string name)
 		{
 			if (declaringType == typeof(ComputeShader)) return name == nameof(ComputeShader.Dispatch);
-			return (declaringType == typeof(ComputeBuffer) || declaringType == typeof(GraphicsBuffer)) && (name == ".ctor" || name == nameof(ComputeBuffer.CopyCount));
+			return (declaringType == typeof(ComputeBuffer) || declaringType == typeof(GraphicsBuffer)) && (name == ".ctor" || name == nameof(ComputeBuffer.CopyCount) || name == nameof(ComputeBuffer.GetData));
 		}
 
 		internal static MethodInfo Resolve(CilboxBasisCommon box, Type declaringType, string name, SerializedTypeDescriptor[] parametersIn)
@@ -69,12 +110,12 @@ namespace Cilbox
 			foreach (Type parameter in parameters) if (parameter == null) return null;
 			string target = name;
 			if (name == ".ctor") target = declaringType == typeof(ComputeBuffer) ? nameof(NewComputeBuffer) : nameof(NewGraphicsBuffer);
-			else if (name == nameof(ComputeShader.Dispatch))
+			else if (name == nameof(ComputeShader.Dispatch) || name == nameof(ComputeBuffer.GetData))
 			{
-				Type[] withShader = new Type[parameters.Length + 1];
-				withShader[0] = typeof(ComputeShader);
-				Array.Copy(parameters, 0, withShader, 1, parameters.Length);
-				parameters = withShader;
+				Type[] withTarget = new Type[parameters.Length + 1];
+				withTarget[0] = declaringType;
+				Array.Copy(parameters, 0, withTarget, 1, parameters.Length);
+				parameters = withTarget;
 			}
 			MethodInfo method = typeof(CilboxCompute).GetMethod(target, BindingFlags.Static | BindingFlags.NonPublic, null, parameters, null);
 			if (method != null && !boxes.Contains(box)) boxes.Add(box);
@@ -143,6 +184,85 @@ namespace Cilbox
 		{
 			CheckCount(src, dst, dst == null ? 0 : (long)dst.count * dst.stride, dstOffsetBytes);
 			GraphicsBuffer.CopyCount(src, dst, dstOffsetBytes);
+		}
+
+		internal static void GetData(ComputeBuffer buffer, Array data)
+		{
+			NoteBlockingRead();
+			buffer.GetData(data);
+		}
+
+		internal static void GetData(ComputeBuffer buffer, Array data, int managedBufferStartIndex, int computeBufferStartIndex, int count)
+		{
+			NoteBlockingRead();
+			buffer.GetData(data, managedBufferStartIndex, computeBufferStartIndex, count);
+		}
+
+		internal static void GetData(GraphicsBuffer buffer, Array data)
+		{
+			NoteBlockingRead();
+			buffer.GetData(data);
+		}
+
+		internal static void GetData(GraphicsBuffer buffer, Array data, int managedBufferStartIndex, int computeBufferStartIndex, int count)
+		{
+			NoteBlockingRead();
+			buffer.GetData(data, managedBufferStartIndex, computeBufferStartIndex, count);
+		}
+
+		internal static bool TryGetDataAsync(ComputeBuffer buffer, Array data)
+		{
+			if (buffer == null) throw new ArgumentNullException(nameof(buffer));
+			CheckReadTarget(data);
+			if (!SystemInfo.supportsAsyncGPUReadback)
+			{
+				buffer.GetData(data);
+				return true;
+			}
+			ComputeRead read = reads.GetOrCreateValue(buffer);
+			if (!read.Pending)
+			{
+				AsyncGPUReadback.Request(buffer, read.Done);
+				read.Pending = true;
+			}
+			return read.Take(data);
+		}
+
+		internal static bool TryGetDataAsync(GraphicsBuffer buffer, Array data)
+		{
+			if (buffer == null) throw new ArgumentNullException(nameof(buffer));
+			CheckReadTarget(data);
+			if (!SystemInfo.supportsAsyncGPUReadback)
+			{
+				buffer.GetData(data);
+				return true;
+			}
+			ComputeRead read = reads.GetOrCreateValue(buffer);
+			if (!read.Pending)
+			{
+				AsyncGPUReadback.Request(buffer, read.Done);
+				read.Pending = true;
+			}
+			return read.Take(data);
+		}
+
+		private static void CheckReadTarget(Array data)
+		{
+			if (data == null) throw new ArgumentNullException(nameof(data));
+			if (!UnsafeUtility.IsBlittable(data.GetType().GetElementType())) throw new ArgumentException("A compute buffer can only be read into an array of plain values.", nameof(data));
+		}
+
+		private static void NoteBlockingRead()
+		{
+			CilboxBasisCommon box = Running();
+			if (box == null) return;
+			int now = Time.frameCount;
+			if (box.computeBlockingFrame == now) return;
+			box.computeBlockingFrames = box.computeBlockingFrame == now - 1 ? box.computeBlockingFrames + 1 : 1;
+			box.computeBlockingFrame = now;
+			if (box.computeBlockingFrames < BlockingWarnFrames || box.computeBlockingWarned) return;
+			box.computeBlockingWarned = true;
+			Debug.LogWarning("[Cilbox] " + CilboxBasisConsent.NameOf(box) + " reads a compute buffer with GetData every frame, which stops the game until the GPU catches up. BasisComputeShim.TryGetDataAsync reads it without waiting.");
 		}
 
 		internal static long RemainingBytes(object self)

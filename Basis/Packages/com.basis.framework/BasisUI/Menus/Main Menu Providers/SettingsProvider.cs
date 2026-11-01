@@ -2341,10 +2341,26 @@ namespace Basis.BasisUI
                 dropdownGiMode.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.mode"));
                 dropdownGiMode.Descriptor.SetTooltip(WithRayTracingNote(BasisLocalization.Get("settings.graphics.gi.mode.tooltip"), giCanTrace));
                 dropdownGiMode.AssignLocalizedEntries(
-                    new List<string> { "Screen Space", "Ray Traced" },
-                    new List<string> { "settings.graphics.gi.mode.screenSpace", "settings.graphics.gi.mode.rayTraced" });
+                    new List<string>(SMModuleGlobalIlluminationURP.ModeOptions),
+                    new List<string> { "settings.graphics.gi.mode.radianceCascades", "settings.graphics.gi.mode.rayTraced" });
                 dropdownGiMode.AssignBinding(BasisSettingsDefaults.GlobalIlluminationMode);
                 SettingsProviderBottleneckHints.Mark(dropdownGiMode, BasisFrameCostSide.Gpu);
+
+                PanelSlider sliderGiBounceFeedback = PanelSlider.CreateEntryAndBind(
+                    giGroup.ContentParent,
+                    new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.gi.bounceFeedback"),
+                        "",
+                        BasisSettingsDefaults.GI_BOUNCE_FEEDBACK_MIN,
+                        BasisSettingsDefaults.GI_BOUNCE_FEEDBACK_MAX,
+                        false, 2, ValueDisplayMode.Raw),
+                    BasisSettingsDefaults.GlobalIlluminationBounceFeedback);
+                sliderGiBounceFeedback.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.bounceFeedback.tooltip"));
+
+                PanelToggle toggleGiWorldSpace = PanelToggle.CreateNewEntry(giGroup.ContentParent);
+                toggleGiWorldSpace.AssignBinding(BasisSettingsDefaults.GlobalIlluminationWorldSpace);
+                toggleGiWorldSpace.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.worldSpace"));
+                toggleGiWorldSpace.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.worldSpace.tooltip"));
+                SettingsProviderBottleneckHints.Mark(toggleGiWorldSpace, BasisFrameCostSide.Gpu);
 
                 PanelDropdown dropdownGiLayers = PanelDropdown.CreateNewEntry(giGroup.ContentParent);
                 dropdownGiLayers.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.layers"));
@@ -2433,6 +2449,67 @@ namespace Basis.BasisUI
                     BasisSettingsDefaults.GlobalIlluminationRayLength);
                 sliderGiRayLength.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.rayLength.tooltip"));
                 SettingsProviderBottleneckHints.Mark(sliderGiRayLength, BasisFrameCostSide.Gpu);
+
+                PanelToggle toggleGiCascadeOverride = PanelToggle.CreateNewEntry(giAdvanced.ContentParent);
+                toggleGiCascadeOverride.AssignBinding(BasisSettingsDefaults.GlobalIlluminationCascadeOverride);
+                toggleGiCascadeOverride.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.cascadeOverride"));
+                toggleGiCascadeOverride.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.cascadeOverride.tooltip"));
+                SettingsProviderBottleneckHints.Mark(toggleGiCascadeOverride, BasisFrameCostSide.Gpu);
+
+                PanelDropdown dropdownGiCascadeSpacing = PanelDropdown.CreateNewEntry(giAdvanced.ContentParent);
+                dropdownGiCascadeSpacing.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.cascadeSpacing"));
+                dropdownGiCascadeSpacing.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.cascadeSpacing.tooltip"));
+                dropdownGiCascadeSpacing.AssignEntries(new List<string>(SMModuleGlobalIlluminationURP.CascadeSpacingOptions));
+                dropdownGiCascadeSpacing.AssignBinding(BasisSettingsDefaults.GlobalIlluminationCascadeSpacing);
+                SettingsProviderBottleneckHints.Mark(dropdownGiCascadeSpacing, BasisFrameCostSide.Gpu);
+
+                PanelSlider sliderGiCascadeCount = PanelSlider.CreateEntryAndBind(
+                    giAdvanced.ContentParent,
+                    new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.gi.cascadeCount"),
+                        "",
+                        BasisSettingsDefaults.GI_CASCADE_COUNT_MIN,
+                        BasisSettingsDefaults.GI_CASCADE_COUNT_MAX,
+                        false, 0, ValueDisplayMode.Raw),
+                    BasisSettingsDefaults.GlobalIlluminationCascadeCount);
+                sliderGiCascadeCount.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.cascadeCount.tooltip"));
+
+                PanelSlider sliderGiCascadeSteps = PanelSlider.CreateEntryAndBind(
+                    giAdvanced.ContentParent,
+                    new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.gi.cascadeSteps"),
+                        "",
+                        BasisSettingsDefaults.GI_CASCADE_STEPS_MIN,
+                        BasisSettingsDefaults.GI_CASCADE_STEPS_MAX,
+                        false, 0, ValueDisplayMode.Raw),
+                    BasisSettingsDefaults.GlobalIlluminationCascadeSteps);
+                sliderGiCascadeSteps.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.cascadeSteps.tooltip"));
+                SettingsProviderBottleneckHints.Mark(sliderGiCascadeSteps, BasisFrameCostSide.Gpu);
+
+                PanelSlider sliderGiWorldLevels = PanelSlider.CreateEntryAndBind(
+                    giAdvanced.ContentParent,
+                    new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.gi.worldLevels"),
+                        "",
+                        BasisSettingsDefaults.GI_WORLD_LEVELS_MIN,
+                        BasisSettingsDefaults.GI_WORLD_LEVELS_MAX,
+                        false, 0, ValueDisplayMode.Raw),
+                    BasisSettingsDefaults.GlobalIlluminationWorldLevels);
+                sliderGiWorldLevels.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.worldLevels.tooltip"));
+                SettingsProviderBottleneckHints.Mark(sliderGiWorldLevels, BasisFrameCostSide.Gpu);
+
+                PanelSlider sliderGiWorldVoxelSize = PanelSlider.CreateEntryAndBind(
+                    giAdvanced.ContentParent,
+                    new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.gi.worldVoxelSize"),
+                        "",
+                        BasisSettingsDefaults.GI_WORLD_VOXEL_SIZE_MIN,
+                        BasisSettingsDefaults.GI_WORLD_VOXEL_SIZE_MAX,
+                        false, 2, ValueDisplayMode.Raw),
+                    BasisSettingsDefaults.GlobalIlluminationWorldVoxelSize);
+                sliderGiWorldVoxelSize.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.worldVoxelSize.tooltip"));
+
+                PanelToggle toggleGiCascadeMergeFix = PanelToggle.CreateNewEntry(giAdvanced.ContentParent);
+                toggleGiCascadeMergeFix.AssignBinding(BasisSettingsDefaults.GlobalIlluminationCascadeMergeFix);
+                toggleGiCascadeMergeFix.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.cascadeMergeFix"));
+                toggleGiCascadeMergeFix.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.cascadeMergeFix.tooltip"));
+                SettingsProviderBottleneckHints.Mark(toggleGiCascadeMergeFix, BasisFrameCostSide.Gpu);
 
                 PanelSlider sliderGiSmoothing = PanelSlider.CreateEntryAndBind(
                     giAdvanced.ContentParent,
@@ -2608,6 +2685,16 @@ namespace Basis.BasisUI
                     showUnityGi(val && !basis);
                     dropdownGiPreset.Descriptor.SetActive(basis);
                     dropdownGiMode.Descriptor.SetActive(basis);
+                    bool cascades = basis && !rayTraced;
+                    sliderGiBounceFeedback.Descriptor.SetActive(cascades && toggleGiTemporal.Value);
+                    toggleGiWorldSpace.Descriptor.SetActive(cascades);
+                    sliderGiWorldLevels.Descriptor.SetActive(cascades && toggleGiWorldSpace.Value);
+                    sliderGiWorldVoxelSize.Descriptor.SetActive(cascades && toggleGiWorldSpace.Value);
+                    toggleGiCascadeOverride.Descriptor.SetActive(cascades);
+                    dropdownGiCascadeSpacing.Descriptor.SetActive(cascades && toggleGiCascadeOverride.Value);
+                    sliderGiCascadeCount.Descriptor.SetActive(cascades && toggleGiCascadeOverride.Value);
+                    sliderGiCascadeSteps.Descriptor.SetActive(cascades && toggleGiCascadeOverride.Value);
+                    toggleGiCascadeMergeFix.Descriptor.SetActive(cascades && toggleGiCascadeOverride.Value);
                     // Both of these describe what goes into the acceleration structure, which only the ray
                     // traced path builds. On screen space the trace walks the depth buffer, so neither has
                     // anything to act on and showing them promises a control that does nothing.
@@ -2656,6 +2743,16 @@ namespace Basis.BasisUI
 
                 SetGiRowsActive(toggleGi.Value);
                 dropdownGiMode.OnValueChanged += (_) =>
+                {
+                    SetGiRowsActive(toggleGi.Value);
+                    RebuildGiLayout();
+                };
+                toggleGiWorldSpace.OnValueChanged += (_) =>
+                {
+                    SetGiRowsActive(toggleGi.Value);
+                    RebuildGiLayout();
+                };
+                toggleGiCascadeOverride.OnValueChanged += (_) =>
                 {
                     SetGiRowsActive(toggleGi.Value);
                     RebuildGiLayout();
@@ -4046,6 +4143,15 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.GlobalIlluminationSaturation.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationObscurance.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationRayLength.ResetToDefault();
+            BasisSettingsDefaults.GlobalIlluminationBounceFeedback.ResetToDefault();
+            BasisSettingsDefaults.GlobalIlluminationCascadeOverride.ResetToDefault();
+            BasisSettingsDefaults.GlobalIlluminationCascadeCount.ResetToDefault();
+            BasisSettingsDefaults.GlobalIlluminationCascadeSpacing.ResetToDefault();
+            BasisSettingsDefaults.GlobalIlluminationCascadeSteps.ResetToDefault();
+            BasisSettingsDefaults.GlobalIlluminationCascadeMergeFix.ResetToDefault();
+            BasisSettingsDefaults.GlobalIlluminationWorldSpace.ResetToDefault();
+            BasisSettingsDefaults.GlobalIlluminationWorldLevels.ResetToDefault();
+            BasisSettingsDefaults.GlobalIlluminationWorldVoxelSize.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationSmoothing.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationTemporalResponse.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationTemporalFilter.ResetToDefault();

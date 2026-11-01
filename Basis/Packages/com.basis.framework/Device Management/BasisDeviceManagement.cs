@@ -373,21 +373,24 @@ namespace Basis.Scripts.Device_Management
                 await BasisDataStoreAvatarKeys.LoadKeys();
                 await BasisDataStoreItemKeys.LoadKeys();
 
-                AvatarKey[] activeKeys = BasisDataStoreAvatarKeys.DisplayKeys();
-                foreach (AvatarKey Key in activeKeys)
+                if (!BasisDataStoreAvatarKeys.LoadFailed && !BasisDataStoreItemKeys.IsReadOnly)
                 {
-                    ItemKey ItemKey = new ItemKey
+                    AvatarKey[] activeKeys = BasisDataStoreAvatarKeys.DisplayKeys();
+                    foreach (AvatarKey Key in activeKeys)
                     {
-                        Url = Key.Url,
-                        Pass = Key.Pass,
-                        Mode = BundledContentHolder.Mode.Avatar,
-                        EmbeddedSettings = EmbeddedSettings.Default
-                    };
+                        ItemKey ItemKey = new ItemKey
+                        {
+                            Url = Key.Url,
+                            Pass = Key.Pass,
+                            Mode = BundledContentHolder.Mode.Avatar,
+                            EmbeddedSettings = EmbeddedSettings.Default
+                        };
 
-                    await BasisDataStoreItemKeys.AddNewKey(ItemKey);
+                        await BasisDataStoreItemKeys.AddNewKey(ItemKey);
+                    }
+
+                    File.Delete(BasisDataStoreAvatarKeys.FilePath);
                 }
-
-                File.Delete(BasisDataStoreAvatarKeys.FilePath);
             }
 
             await BasisPlayerFactory.CreateLocalPlayer(new InstantiationParameters(transform, true));

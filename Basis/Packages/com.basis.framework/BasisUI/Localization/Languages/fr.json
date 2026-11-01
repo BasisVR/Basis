@@ -2882,9 +2882,89 @@
     { "key": "settings.graphics.gi.preset.natural", "value": "Naturel" },
     { "key": "settings.graphics.gi.preset.unnatural", "value": "Non naturel" },
     { "key": "settings.graphics.gi.mode", "value": "Mode IG" },
-    { "key": "settings.graphics.gi.mode.tooltip", "value": "Espace écran fait rebondir la lumière à partir de ce que la caméra a déjà dessiné, donc tout ce qui est hors champ ou derrière vous ne contribue à rien. Lancer de rayons trace le monde lui-même et ombre ce qu'il touche avec les vraies lumières et les matériaux lumineux, ce qui coûte plus cher et nécessite une carte graphique compatible avec le lancer de rayons - sans cela, il revient à Espace écran." },
+    { "key": "settings.graphics.gi.mode.tooltip", "value": "Radiance Cascades fait rebondir la lumière à travers une copie 3D du monde autour de vous, si bien que la lumière venant de derrière vous et de derrière les angles compte aussi, et fonctionne sur toute carte graphique de bureau. Ray Traced trace le monde lui-même et éclaire ce qu'il touche avec les vraies lumières, ce qui coûte plus cher et demande une carte graphique avec ray tracing. Sans elle, il fonctionne comme Radiance Cascades." },
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "Espace écran" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "Lancer de rayons" },
+    {
+      "key": "settings.graphics.gi.bounceFeedback",
+      "value": "Force du rebond"
+    },
+    {
+      "key": "settings.graphics.gi.bounceFeedback.tooltip",
+      "value": "Quelle part de la lumière ayant déjà rebondi peut rebondir à nouveau. À zéro, chaque surface reçoit un seul rebond ; plus haut, la lumière va plus loin dans les coins et autour des portes, et se stabilise en quelques images. Nécessite le filtre temporel."
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace",
+      "value": "IG en espace monde"
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace.tooltip",
+      "value": "Trace le rebond à travers une copie en voxels 3D du monde autour de vous, pour que la lumière venant de derrière, des recoins et des objets masqués rebondisse aussi. La passe écran reste par-dessus pour le détail fin."
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels",
+      "value": "Portée du monde"
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels.tooltip",
+      "value": "Le nombre de niveaux de voxels imbriqués autour de vous. Chacun double la portée : trois à 0,2 m couvrent environ 13, 26 et 51 mètres."
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize",
+      "value": "Taille des voxels"
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize.tooltip",
+      "value": "Taille des voxels les plus fins, en mètres. Plus petit garde les murs fins opaques et fait rebondir les petits objets ; plus grand porte plus loin pour le même coût."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride",
+      "value": "Remplacer les cascades"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride.tooltip",
+      "value": "Règle la disposition des sondes à la main plutôt que via la qualité. Permet d'aller au-delà d'Ultra, pour un coût équivalent."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing",
+      "value": "Espacement des sondes"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing.tooltip",
+      "value": "L'écart entre les sondes les plus proches, en pixels tracés. Plus petit donne une lumière de contact plus nette et coûte plus : chaque division par deux représente environ quatre fois plus de travail."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount",
+      "value": "Cascades"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount.tooltip",
+      "value": "Le nombre de couches de sondes par lesquelles la lumière est collectée. Chacune porte quatre fois plus loin que celle du dessous et ensemble elles atteignent la longueur du rayon, donc plus de cascades apportent plus de détail près des surfaces."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps",
+      "value": "Pas par intervalle"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps.tooltip",
+      "value": "Le nombre d'échantillons de profondeur que prend chaque rayon de sonde sur son tronçon. Plus haut détecte les objets fins qui laisseraient sinon passer la lumière, et coûte plus."
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix",
+      "value": "Fusion sans fuite"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix.tooltip",
+      "value": "Chaque sonde trace jusqu'à l'endroit exact où les sondes de la couche suivante commencent à chercher, au lieu de laisser ce tronçon non tracé. Empêche la lumière de traverser les murs fins et supprime les anneaux autour des lumières vives, pour environ quatre fois le coût de traçage. La qualité l'active en Ultra."
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades",
+      "value": "Cascades de radiance"
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades.tooltip",
+      "value": "Fait rebondir la lumière à travers une copie 3D du monde autour de vous, de façon lisse et sans grain. Fonctionne sur toute carte graphique avec compute shaders, DirectX 11 compris."
+    },
     { "key": "settings.graphics.gi.advanced", "value": "Avancé" },
     { "key": "settings.graphics.gi.obscuranceRadius", "value": "Rayon d'assombrissement de contact" },
     { "key": "settings.graphics.gi.obscuranceRadius.tooltip", "value": "À quelle distance une surface peut se trouver de l'objet qui la surplombe tout en étant encore assombrie par lui. De petites valeurs n'assombrissent que les coins resserrés ; de grandes valeurs portent à travers toute une pièce et ne coûtent rien de plus, car la distance est mesurée sur des rayons de toute façon déjà tracés. Si l'assombrissement s'arrête net à une distance fixe de chaque objet, c'est cette distance-là." },

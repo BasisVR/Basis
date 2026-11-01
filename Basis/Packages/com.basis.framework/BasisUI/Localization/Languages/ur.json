@@ -2882,9 +2882,89 @@
     { "key": "settings.graphics.gi.preset.natural", "value": "نیچرل" },
     { "key": "settings.graphics.gi.preset.unnatural", "value": "ان نیچرل" },
     { "key": "settings.graphics.gi.mode", "value": "GI موڈ" },
-    { "key": "settings.graphics.gi.mode.tooltip", "value": "اسکرین اسپیس کیمرے کے پہلے سے بنائے ہوئے مواد کو استعمال کر کے روشنی منعکس کرتا ہے، اس لیے اسکرین سے باہر یا آپ کے پیچھے کی کوئی بھی چیز کوئی حصہ نہیں ڈالتی۔ رے ٹریسڈ خود دنیا کو ٹریس کرتا ہے اور جو کچھ اسے ملے اسے حقیقی روشنیوں اور چمکتے میٹریلز سے شیڈ کرتا ہے، جو زیادہ خرچ کرتا ہے اور رے ٹریسنگ والے گرافکس کارڈ کا تقاضا کرتا ہے — اگر وہ نہ ہو تو یہ اسکرین اسپیس پر واپس چلا جاتا ہے۔" },
+    { "key": "settings.graphics.gi.mode.tooltip", "value": "Radiance Cascades آپ کے اردگرد کی دنیا کی 3D نقل کے ذریعے روشنی کو منعکس کرتا ہے، اس لیے آپ کے پیچھے اور کونوں کے پار کی روشنی بھی شامل ہوتی ہے، اور یہ کسی بھی ڈیسک ٹاپ گرافکس کارڈ پر چلتا ہے۔ Ray Traced خود دنیا کو ٹریس کرتا ہے اور جس پر پڑے اسے اصل روشنیوں سے شیڈ کرتا ہے، جو مہنگا ہے اور اس کے لیے رے ٹریسنگ والا گرافکس کارڈ درکار ہے۔ اس کے بغیر یہ Radiance Cascades کے طور پر چلتا ہے۔" },
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "اسکرین اسپیس" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "رے ٹریسڈ" },
+    {
+      "key": "settings.graphics.gi.bounceFeedback",
+      "value": "باؤنس کی طاقت"
+    },
+    {
+      "key": "settings.graphics.gi.bounceFeedback.tooltip",
+      "value": "جو روشنی پہلے ہی باؤنس ہو چکی ہے اس کا کتنا حصہ دوبارہ باؤنس ہو سکتا ہے۔ صفر پر ہر سطح کو ایک باؤنس ملتا ہے؛ زیادہ ہونے پر روشنی کونوں اور دروازوں کے گرد مزید دور تک جاتی ہے اور چند فریم میں ٹھہر جاتی ہے۔ وقتی فلٹر درکار ہے۔"
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace",
+      "value": "ورلڈ اسپیس GI"
+    },
+    {
+      "key": "settings.graphics.gi.worldSpace.tooltip",
+      "value": "آپ کے اردگرد کی دنیا کی 3D ووکسل نقل کے ذریعے باؤنس ٹریس کرتا ہے، تاکہ پیچھے سے، کونوں کے پار سے اور چھپی چیزوں سے آنے والی روشنی بھی باؤنس ہو۔ باریک تفصیل کے لیے اسکرین پاس اوپر رہتا ہے۔"
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels",
+      "value": "ورلڈ رینج"
+    },
+    {
+      "key": "settings.graphics.gi.worldLevels.tooltip",
+      "value": "آپ کے اردگرد کتنی نیسٹڈ ووکسل سطحیں ہوں۔ ہر سطح رسائی دگنی کرتی ہے: 0.2 م ووکسل کی تین سطحیں تقریباً 13، 26 اور 51 میٹر کا احاطہ کرتی ہیں۔"
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize",
+      "value": "ووکسل سائز"
+    },
+    {
+      "key": "settings.graphics.gi.worldVoxelSize.tooltip",
+      "value": "سب سے باریک ووکسل کا سائز، میٹر میں۔ چھوٹا ہو تو پتلی دیواریں ٹھوس رہتی ہیں اور چھوٹی چیزیں بھی روشنی باؤنس کرتی ہیں؛ بڑا ہو تو اسی لاگت میں زیادہ دور تک پہنچتا ہے۔"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride",
+      "value": "کیسکیڈ اوور رائیڈ"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeOverride.tooltip",
+      "value": "کوالٹی کے بجائے پروب کی ترتیب ہاتھ سے طے کریں۔ اسی حساب سے لاگت پر Ultra سے آگے جاتا ہے۔"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing",
+      "value": "پروب کا فاصلہ"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSpacing.tooltip",
+      "value": "قریب ترین پروبز کے درمیان فاصلہ، ٹریس کیے گئے پکسلز میں۔ کم ہونے پر رابطے کی روشنی زیادہ واضح ہوتی ہے اور لاگت بڑھتی ہے: ہر بار آدھا کرنے پر کام تقریباً چار گنا ہوتا ہے۔"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount",
+      "value": "کیسکیڈز"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeCount.tooltip",
+      "value": "روشنی کتنی پروب تہوں کے ذریعے جمع ہوتی ہے۔ ہر تہہ نیچے والی سے چار گنا دور تک پہنچتی ہے اور مل کر رے کی لمبائی تک جاتی ہیں، اس لیے زیادہ کیسکیڈز سطحوں کے قریب باریک تفصیل دیتے ہیں۔"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps",
+      "value": "وقفے کے مراحل"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeSteps.tooltip",
+      "value": "ہر پروب رے اپنے حصے میں گہرائی کے کتنے نمونے لیتی ہے۔ زیادہ ہونے پر پتلی چیزیں پکڑی جاتی ہیں جو ورنہ روشنی کو گزرنے دیتیں، اور لاگت بڑھتی ہے۔"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix",
+      "value": "لیک سے پاک انضمام"
+    },
+    {
+      "key": "settings.graphics.gi.cascadeMergeFix.tooltip",
+      "value": "ہر پروب ٹھیک اس جگہ تک ٹریس کرتا ہے جہاں سے اگلی تہہ کے پروب تلاش شروع کرتے ہیں، اس حصے کو بغیر ٹریس کیے نہیں چھوڑتا۔ پتلی دیواروں سے روشنی کے رساؤ اور تیز روشنیوں کے گرد حلقوں کو روکتا ہے، تقریباً چار گنا ٹریسنگ لاگت پر۔ کوالٹی اسے Ultra پر آن کرتی ہے۔"
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades",
+      "value": "ریڈیئنس کیسکیڈز"
+    },
+    {
+      "key": "settings.graphics.gi.mode.radianceCascades.tooltip",
+      "value": "آپ کے اردگرد کی دنیا کی 3D نقل کے ذریعے روشنی کو ہموار انداز میں اور بغیر دانے دار پن کے منعکس کرتا ہے۔ compute shader والے کسی بھی گرافکس کارڈ پر چلتا ہے، بشمول DirectX 11۔"
+    },
     { "key": "settings.graphics.gi.advanced", "value": "جدید" },
     { "key": "settings.graphics.gi.obscuranceRadius", "value": "کانٹیکٹ ڈارکننگ رداس" },
     { "key": "settings.graphics.gi.obscuranceRadius.tooltip", "value": "ایک سطح اپنے اوپر موجود چیز سے کتنی دور ہو کر بھی اس سے تاریک ہو سکتی ہے۔ کم قدریں صرف تنگ کونوں کو تاریک کرتی ہیں؛ زیادہ قدریں پورے کمرے تک پہنچتی ہیں اور کچھ اضافی خرچ نہیں کرتیں، کیونکہ فاصلہ انہی شعاعوں پر ناپا جاتا ہے جو ویسے بھی ٹریس ہو رہی تھیں۔ اگر تاریکی ہر چیز سے ایک مقررہ فاصلے پر ایک سخت کنارے پر رک جاتی ہے، تو یہی وہ فاصلہ ہے۔" },

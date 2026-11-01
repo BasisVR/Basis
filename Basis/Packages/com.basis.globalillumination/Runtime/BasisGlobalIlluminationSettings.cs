@@ -10,14 +10,16 @@ public enum BasisGlobalIlluminationQuality
 }
 
 /// <summary>
-/// How the bounce is gathered. Screen Space marches the depth buffer and can only gather what the camera
-/// already drew; Ray Traced traces the scene itself, so it also carries light from behind the camera and
-/// from surfaces the frame never rasterised - and it shades what it hits with the real lights and emissive
-/// materials rather than reading the colour off the screen.
 /// </summary>
 public enum BasisGlobalIlluminationMode
 {
     ScreenSpace,
+    RayTraced
+}
+
+public enum BasisGlobalIlluminationDiffuseMode
+{
+    RadianceCascades,
     RayTraced
 }
 
@@ -48,7 +50,8 @@ public enum BasisGlobalIlluminationDebugView
     Obscurance,
     Normals,
     RayHits,
-    IndirectOnly
+    IndirectOnly,
+    SurfaceColour
 }
 
 /// <summary>
@@ -92,6 +95,12 @@ public sealed partial class BasisGlobalIlluminationSettings
     public const int LightSamplesMax = 4;
     public const float RayTracedNormalBiasMin = 0f, RayTracedNormalBiasMax = 0.5f;
     public const float RescanIntervalMin = 0.1f, RescanIntervalMax = 30f;
+    public const float BounceFeedbackMin = 0f, BounceFeedbackMax = 1f;
+    public const int CascadeCountMin = 2, CascadeCountMax = 8;
+    public const int CascadeSpacingMin = 1, CascadeSpacingMax = 8;
+    public const int CascadeStepsMin = 2, CascadeStepsMax = 32;
+    public const int WorldLevelsMin = 1, WorldLevelsMax = 4;
+    public const float WorldVoxelSizeMin = 0.1f, WorldVoxelSizeMax = 0.5f;
     /// <summary>
     /// How far a surface may be from the thing above it and still be darkened by it. Named rather than
     /// written into Clamp because it is the distance the obscurance term is measured against, and a hard
@@ -111,7 +120,7 @@ public sealed partial class BasisGlobalIlluminationSettings
     [NoAutoStaticsCleanup] public static readonly BasisGlobalIlluminationSettings Current = new BasisGlobalIlluminationSettings();
 
     public bool enable = false;
-    public BasisGlobalIlluminationMode mode = BasisGlobalIlluminationMode.ScreenSpace;
+    public BasisGlobalIlluminationDiffuseMode mode = BasisGlobalIlluminationDiffuseMode.RadianceCascades;
 
     public float intensity = 1f;
     public float saturation = 1f;
@@ -150,6 +159,15 @@ public sealed partial class BasisGlobalIlluminationSettings
     public float emitterIntensity = 1f;
     public bool emitterOcclusion = true;
 
+    public float bounceFeedback = 0.6f;
+    public bool cascadeOverride = false;
+    public int cascadeCount = 6;
+    public int cascadeSpacing = 2;
+    public int cascadeSteps = 16;
+    public bool mergeFix = true;
+    public bool worldSpace = true;
+    public int worldLevels = 3;
+    public float worldVoxelSize = 0.2f;
     public int bounces = 1;
     public bool rayTracedLights = true;
     public float rayTracedLightIntensity = 1f;
@@ -203,6 +221,7 @@ public sealed partial class BasisGlobalIlluminationSettings
     public float avatarEmissionScale = 1f;
 
     public bool rayTracedTextureAlbedo = true;
+    public bool surfaceColour = true;
     public BasisGlobalIlluminationRaySkinnedMode rayTracedSkinnedMeshes = BasisGlobalIlluminationRaySkinnedMode.Proxy;
     public LayerMask rayTracedLayerMask = ~0;
     public bool rayTracedShadowCastersOnly = false;
@@ -303,6 +322,12 @@ public sealed partial class BasisGlobalIlluminationSettings
         emissionScale = Mathf.Clamp(emissionScale, EmissionScaleMin, EmissionScaleMax);
         avatarEmissionScale = Mathf.Clamp(avatarEmissionScale, EmissionScaleMin, EmissionScaleMax);
         bounces = Mathf.Clamp(bounces, BouncesMin, BouncesMax);
+        bounceFeedback = Mathf.Clamp(bounceFeedback, BounceFeedbackMin, BounceFeedbackMax);
+        cascadeCount = Mathf.Clamp(cascadeCount, CascadeCountMin, CascadeCountMax);
+        cascadeSpacing = Mathf.ClosestPowerOfTwo(Mathf.Clamp(cascadeSpacing, CascadeSpacingMin, CascadeSpacingMax));
+        cascadeSteps = Mathf.Clamp(cascadeSteps, CascadeStepsMin, CascadeStepsMax);
+        worldLevels = Mathf.Clamp(worldLevels, WorldLevelsMin, WorldLevelsMax);
+        worldVoxelSize = Mathf.Clamp(worldVoxelSize, WorldVoxelSizeMin, WorldVoxelSizeMax);
         rayTracedLightIntensity = Mathf.Clamp(rayTracedLightIntensity, LightIntensityMin, LightIntensityMax);
         rayTracedRescanInterval = Mathf.Clamp(rayTracedRescanInterval, RescanIntervalMin, RescanIntervalMax);
         rayTracedNormalBias = Mathf.Clamp(rayTracedNormalBias, RayTracedNormalBiasMin, RayTracedNormalBiasMax);
@@ -332,11 +357,15 @@ public sealed partial class BasisGlobalIlluminationSettings
         wideBlur = other.wideBlur; normalSource = other.normalSource;
         fallback = other.fallback; fallbackIntensity = other.fallbackIntensity; rayReuse = other.rayReuse;
         emitters = other.emitters; emitterIntensity = other.emitterIntensity; emitterOcclusion = other.emitterOcclusion;
+        bounceFeedback = other.bounceFeedback; cascadeOverride = other.cascadeOverride; cascadeCount = other.cascadeCount;
+        cascadeSpacing = other.cascadeSpacing; cascadeSteps = other.cascadeSteps; mergeFix = other.mergeFix;
+        worldSpace = other.worldSpace; worldLevels = other.worldLevels; worldVoxelSize = other.worldVoxelSize;
         bounces = other.bounces; rayTracedLights = other.rayTracedLights;
         rayTracedLightIntensity = other.rayTracedLightIntensity; rayTracedShadows = other.rayTracedShadows;
         rayTracedEmissiveSurfaces = other.rayTracedEmissiveSurfaces; respectBakedEmission = other.respectBakedEmission;
         lightmappedReceive = other.lightmappedReceive;
         emissionScale = other.emissionScale; avatarEmissionScale = other.avatarEmissionScale;
+        surfaceColour = other.surfaceColour;
         rayTracedTextureAlbedo = other.rayTracedTextureAlbedo; rayTracedSkinnedMeshes = other.rayTracedSkinnedMeshes;
         rayTracedLayerMask = other.rayTracedLayerMask;
         rayTracedShadowCastersOnly = other.rayTracedShadowCastersOnly;
@@ -394,6 +423,60 @@ public sealed partial class BasisGlobalIlluminationSettings
         }
     }
 
+    public int ResolvedCascadeCount()
+    {
+        if (cascadeOverride) { return cascadeCount; }
+        switch (quality)
+        {
+            case BasisGlobalIlluminationQuality.Low: return 4;
+            case BasisGlobalIlluminationQuality.High: return 6;
+            case BasisGlobalIlluminationQuality.Ultra: return 6;
+            default: return 5;
+        }
+    }
+
+    public int ResolvedCascadeSpacing()
+    {
+        if (cascadeOverride) { return cascadeSpacing; }
+        if (overrideQualityCounts) { return quality == BasisGlobalIlluminationQuality.Ultra ? 2 : Mathf.Min(2, quality == BasisGlobalIlluminationQuality.Low ? 8 : 4); }
+        switch (quality)
+        {
+            case BasisGlobalIlluminationQuality.Low: return 8;
+            case BasisGlobalIlluminationQuality.Ultra: return 2;
+            default: return 4;
+        }
+    }
+
+    public int ResolvedCascadeSteps()
+    {
+        if (cascadeOverride) { return cascadeSteps; }
+        if (overrideQualityCounts) { return CascadeStepsMax; }
+        switch (quality)
+        {
+            case BasisGlobalIlluminationQuality.Low: return 6;
+            case BasisGlobalIlluminationQuality.High: return 12;
+            case BasisGlobalIlluminationQuality.Ultra: return 16;
+            default: return 8;
+        }
+    }
+
+    public int ResolvedWorldInterval()
+    {
+        if (overrideQualityCounts) { return 1; }
+        switch (quality)
+        {
+            case BasisGlobalIlluminationQuality.Low: return 4;
+            case BasisGlobalIlluminationQuality.Medium: return 2;
+            default: return 1;
+        }
+    }
+
+    public bool ResolvedMergeFix()
+    {
+        if (cascadeOverride) { return mergeFix; }
+        return overrideQualityCounts;
+    }
+
     public int ResolvedMaxEmitters()
     {
         switch (quality)
@@ -411,7 +494,7 @@ public sealed partial class BasisGlobalIlluminationSettings
         return divisor < 1 ? 1 : divisor;
     }
 
-    public bool IsRayTraced() => mode == BasisGlobalIlluminationMode.RayTraced;
+    public bool IsRayTraced() => mode == BasisGlobalIlluminationDiffuseMode.RayTraced;
     public bool IsSpecularRayTraced() => specularMode == BasisGlobalIlluminationMode.RayTraced;
     public bool UsesRayTracer() => (DiffuseActive() && IsRayTraced()) || (SpecularActive() && IsSpecularRayTraced());
 
@@ -507,10 +590,6 @@ public sealed partial class BasisGlobalIlluminationSettings
         }
     }
 
-    /// <summary>
-    /// A second bounce doubles the ray budget, so the quality ladder owns it unless the counts were
-    /// explicitly taken over.
-    /// </summary>
     public int ResolvedBounces()
     {
         if (overrideQualityCounts) { return Mathf.Clamp(bounces, BouncesMin, BouncesMax); }

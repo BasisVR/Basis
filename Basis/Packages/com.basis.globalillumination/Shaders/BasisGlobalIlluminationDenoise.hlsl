@@ -390,4 +390,35 @@ float4 BasisGIBilateralBlur(float2 uv)
     return total / max(weightSum, BASISGI_EPSILON);
 }
 
+float3 BasisGIBounceCopy(float2 uv)
+{
+    float3 colour = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_LinearClamp, UnityStereoTransformScreenSpaceTex(uv), 0).rgb;
+#if defined(_BASISGI_BOUNCE_FEEDBACK)
+    float rawDepth = BasisGISampleRawDepth(uv);
+    if (BasisGIIsSky(rawDepth) || _BasisGIHistoryValid < 0.5) { return colour; }
+
+    float eyeDepth = BasisGILinearEyeDepth(rawDepth);
+    float2 previousUv;
+    if (!BasisGIReprojectMatrix(BasisGIWorldPosition(uv, rawDepth), previousUv)) { return colour; }
+
+    float settledDepth = BasisGILoadHistoryStats(previousUv).r;
+    if (settledDepth <= 0.0 || abs(settledDepth - eyeDepth) / max(eyeDepth, BASISGI_EPSILON) > BASISGI_DEPTH_REJECTION) { return colour; }
+
+    float3 bounce = max(0.0, BasisGILoadHistory(previousUv).rgb);
+    bounce = max(0.0, lerp(Luminance(bounce).xxx, bounce, BASISGI_SATURATION)) * _BasisGITint.rgb * BASISGI_INTENSITY;
+#if defined(_BASISGI_LIGHTMAP_MASK)
+    float mask = SAMPLE_TEXTURE2D_X_LOD(_BasisGILightmapMask, sampler_BasisGILightmapMask, UnityStereoTransformScreenSpaceTex(uv), 0).r;
+    bounce *= lerp(_BasisGILightmapParams.x, 1.0, mask);
+#endif
+    bounce = min(bounce * BASISGI_BOUNCE_FEEDBACK, 4.0);
+    if (_BasisGISurfaceValid > 0.5)
+    {
+        float4 surface = SAMPLE_TEXTURE2D_X_LOD(_BasisGISurface, sampler_PointClamp, UnityStereoTransformScreenSpaceTex(uv), 0);
+        return colour * (1.0 + Luminance(bounce) * surface.a) + bounce * surface.rgb * (1.0 - surface.a);
+    }
+    colour *= 1.0 + bounce;
+#endif
+    return colour;
+}
+
 #endif

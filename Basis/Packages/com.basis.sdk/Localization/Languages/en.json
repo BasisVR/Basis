@@ -848,6 +848,8 @@
     { "key": "sdk.cilbox.api.menuPanel.summary", "value": "Adds a main menu button that opens your own panel, with up to 8 tabs you fill the same way as a Settings tab. One panel per content. Open() brings it up, but only within 5 seconds of the player pressing something in your content." },
     { "key": "sdk.cilbox.api.audioRouting.title", "value": "Volume slider routing" },
     { "key": "sdk.cilbox.api.audioRouting.summary", "value": "Puts audio sources a script adds later on the World, Props or Avatars group, so the player's volume sliders apply." },
+    { "key": "sdk.cilbox.api.steamAudio.title", "value": "Steam Audio" },
+    { "key": "sdk.cilbox.api.steamAudio.summary", "value": "Spatializes this content's audio sources and sets HRTF, occlusion, transmission, air absorption and reflections from script. Worlds can also add acoustic geometry." },
     { "key": "sdk.cilbox.api.languageEvent.title", "value": "Language changes" },
     { "key": "sdk.cilbox.api.languageEvent.summary", "value": "Tells your script which language the player uses, and again whenever they change it." },
     { "key": "sdk.cilbox.api.sharedRandom.title", "value": "Shared random numbers" },

@@ -374,7 +374,7 @@ namespace Basis.BasisUI
         // traces the scene itself against an acceleration structure, so it also carries light from behind the
         // camera and shades what it hits with the real lights and emissive materials - and it needs a GPU
         // with ray tracing, falling back to Screen Space on one that has none.
-        public static BasisSettingsBinding<string> GlobalIlluminationMode = new("globalilluminationmode", new BasisPlatformDefault<string>("Screen Space"));
+        public static BasisSettingsBinding<string> GlobalIlluminationMode = new("globalilluminationmode", new BasisPlatformDefault<string>("Radiance Cascades"));
         // A quick way to snap Intensity, Saturation and Emitter Intensity together rather than one at a
         // time: Natural is each at its own default, Unnatural pushes all three to an exaggerated,
         // stylised look. Only ever written by the preset dropdown - nothing reads it to decide how to
@@ -417,6 +417,25 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<float> GlobalIlluminationRayLength = new("globalilluminationraylength", new BasisPlatformDefault<float>(16f));
         public const float GI_RAY_LENGTH_MIN = 1f;
         public const float GI_RAY_LENGTH_MAX = 64f;
+        public static BasisSettingsBinding<float> GlobalIlluminationBounceFeedback = new("globalilluminationbouncefeedback", new BasisPlatformDefault<float>(0.6f));
+        public const float GI_BOUNCE_FEEDBACK_MIN = 0f;
+        public const float GI_BOUNCE_FEEDBACK_MAX = 1f;
+        public static BasisSettingsBinding<bool> GlobalIlluminationCascadeOverride = new("globalilluminationcascadeoverride", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<float> GlobalIlluminationCascadeCount = new("globalilluminationcascadecount", new BasisPlatformDefault<float>(6f));
+        public const float GI_CASCADE_COUNT_MIN = 2f;
+        public const float GI_CASCADE_COUNT_MAX = 8f;
+        public static BasisSettingsBinding<string> GlobalIlluminationCascadeSpacing = new("globalilluminationcascadespacing", new BasisPlatformDefault<string>("2"));
+        public static BasisSettingsBinding<float> GlobalIlluminationCascadeSteps = new("globalilluminationcascadesteps", new BasisPlatformDefault<float>(16f));
+        public const float GI_CASCADE_STEPS_MIN = 2f;
+        public const float GI_CASCADE_STEPS_MAX = 32f;
+        public static BasisSettingsBinding<bool> GlobalIlluminationCascadeMergeFix = new("globalilluminationcascademergefix", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> GlobalIlluminationWorldSpace = new("globalilluminationworldspace", new BasisPlatformDefault<bool> { windows = true, android = false, ios = false, linux = true, other = true });
+        public static BasisSettingsBinding<float> GlobalIlluminationWorldLevels = new("globalilluminationworldlevels", new BasisPlatformDefault<float>(3f));
+        public const float GI_WORLD_LEVELS_MIN = 1f;
+        public const float GI_WORLD_LEVELS_MAX = 4f;
+        public static BasisSettingsBinding<float> GlobalIlluminationWorldVoxelSize = new("globalilluminationworldvoxelsize", new BasisPlatformDefault<float>(0.2f));
+        public const float GI_WORLD_VOXEL_SIZE_MIN = 0.1f;
+        public const float GI_WORLD_VOXEL_SIZE_MAX = 0.5f;
         public static BasisSettingsBinding<float> GlobalIlluminationSmoothing = new("globalilluminationsmoothing", new BasisPlatformDefault<float>(1f));
         public const float GI_SMOOTHING_MIN = 0.25f;
         public const float GI_SMOOTHING_MAX = 2f;
@@ -2342,6 +2361,15 @@ namespace Basis.BasisUI
             GlobalIlluminationSaturation.LoadBindingValue();
             GlobalIlluminationObscurance.LoadBindingValue();
             GlobalIlluminationRayLength.LoadBindingValue();
+            GlobalIlluminationBounceFeedback.LoadBindingValue();
+            GlobalIlluminationCascadeOverride.LoadBindingValue();
+            GlobalIlluminationCascadeCount.LoadBindingValue();
+            GlobalIlluminationCascadeSpacing.LoadBindingValue();
+            GlobalIlluminationCascadeSteps.LoadBindingValue();
+            GlobalIlluminationCascadeMergeFix.LoadBindingValue();
+            GlobalIlluminationWorldSpace.LoadBindingValue();
+            GlobalIlluminationWorldLevels.LoadBindingValue();
+            GlobalIlluminationWorldVoxelSize.LoadBindingValue();
             GlobalIlluminationSmoothing.LoadBindingValue();
             GlobalIlluminationTemporalResponse.LoadBindingValue();
             GlobalIlluminationTemporalFilter.LoadBindingValue();
@@ -2962,7 +2990,52 @@ namespace Basis.BasisUI
             RaycastLineWidth.LoadBindingValue();
             RaycastLineColor.LoadBindingValue();
             HighlightColor.LoadBindingValue();
-            PickupLineColor.LoadBindingValue();
+            PickupLineColor.LoadBindingValue();
+            PerformanceBarDetailed.LoadBindingValue();
+            GraphicsApi.LoadBindingValue();
+            QuestControllerFix.LoadBindingValue();
+            FBIKSmoothPresetHead.LoadBindingValue();
+            FBIKSmoothMinCutoffHead.LoadBindingValue();
+            FBIKSmoothBetaHead.LoadBindingValue();
+            FBIKSmoothStrengthHead.LoadBindingValue();
+            FBIKSmoothPosHzHead.LoadBindingValue();
+            FBIKSmoothRotHzHead.LoadBindingValue();
+            FBIKSmoothPresetHands.LoadBindingValue();
+            FBIKSmoothMinCutoffHands.LoadBindingValue();
+            FBIKSmoothBetaHands.LoadBindingValue();
+            FBIKSmoothStrengthHands.LoadBindingValue();
+            FBIKSmoothPosHzHands.LoadBindingValue();
+            FBIKSmoothRotHzHands.LoadBindingValue();
+            FBIKSmoothPresetElbows.LoadBindingValue();
+            FBIKSmoothMinCutoffElbows.LoadBindingValue();
+            FBIKSmoothBetaElbows.LoadBindingValue();
+            FBIKSmoothStrengthElbows.LoadBindingValue();
+            FBIKSmoothPosHzElbows.LoadBindingValue();
+            FBIKSmoothRotHzElbows.LoadBindingValue();
+            FBIKSmoothPresetChest.LoadBindingValue();
+            FBIKSmoothMinCutoffChest.LoadBindingValue();
+            FBIKSmoothBetaChest.LoadBindingValue();
+            FBIKSmoothStrengthChest.LoadBindingValue();
+            FBIKSmoothPosHzChest.LoadBindingValue();
+            FBIKSmoothRotHzChest.LoadBindingValue();
+            FBIKSmoothPresetHips.LoadBindingValue();
+            FBIKSmoothMinCutoffHips.LoadBindingValue();
+            FBIKSmoothBetaHips.LoadBindingValue();
+            FBIKSmoothStrengthHips.LoadBindingValue();
+            FBIKSmoothPosHzHips.LoadBindingValue();
+            FBIKSmoothRotHzHips.LoadBindingValue();
+            FBIKSmoothPresetKnees.LoadBindingValue();
+            FBIKSmoothMinCutoffKnees.LoadBindingValue();
+            FBIKSmoothBetaKnees.LoadBindingValue();
+            FBIKSmoothStrengthKnees.LoadBindingValue();
+            FBIKSmoothPosHzKnees.LoadBindingValue();
+            FBIKSmoothRotHzKnees.LoadBindingValue();
+            FBIKSmoothPresetFeet.LoadBindingValue();
+            FBIKSmoothMinCutoffFeet.LoadBindingValue();
+            FBIKSmoothBetaFeet.LoadBindingValue();
+            FBIKSmoothStrengthFeet.LoadBindingValue();
+            FBIKSmoothPosHzFeet.LoadBindingValue();
+            FBIKSmoothRotHzFeet.LoadBindingValue();
 
             // Holds its binding privately (JSON blob, not a plain primitive) — reload
             // through its own accessor so a pre-load touch can't pin the default blocklist.
