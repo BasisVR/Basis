@@ -14607,6 +14607,22 @@
       "value": "Lets scripts ask for things the normal script sandbox blocks, like your files, the internet or your microphone. Basis still asks you before any script gets them. Turning this off blocks them every time and stops scripts that are already using them."
     },
     {
+      "key": "settings.cilboxPermissions.modelTriangles",
+      "value": "Script Model Triangles (thousands)"
+    },
+    {
+      "key": "settings.cilboxPermissions.modelTriangles.tooltip",
+      "value": "Most triangles each world or prop can build from model files with its scripts. Lower this if loaded models slow your game down. 0 blocks them."
+    },
+    {
+      "key": "settings.cilboxPermissions.modelMemory",
+      "value": "Script Model Memory (MB)"
+    },
+    {
+      "key": "settings.cilboxPermissions.modelMemory.tooltip",
+      "value": "Most memory each world or prop can use for models its scripts build. Lower this if a world runs you out of memory. 0 blocks them."
+    },
+    {
       "key": "settings.cilboxPermissions.allowed",
       "value": "Allowed"
     },

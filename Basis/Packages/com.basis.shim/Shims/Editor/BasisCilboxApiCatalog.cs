@@ -600,6 +600,33 @@ void OnCollisionEnter(Collision collision)
             new CilboxApiEntry
             {
                 GroupKey = GroupRendering,
+                TitleKey = "sdk.cilbox.api.models.title",
+                SummaryKey = "sdk.cilbox.api.models.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisModelShim", "Load") },
+                Example =
+@"using Basis.Shims;
+
+// GLB, glTF, OBJ, STL or PLY, read from the file's contents. Worlds and props only.
+// A glTF must embed its buffers and images: nothing is fetched on its behalf.
+BasisWebRequestShim.Get(this, ""https://example.com/chair.glb"", (web, status, bytes) =>
+{
+    if (web != BasisWebResult.Ok) return;
+    BasisModelShim.Load(this, bytes, transform, (result, model) =>
+    {
+        if (result == BasisModelResult.Ok) chair = model;
+    });
+});
+
+// Just the Mesh, for your own MeshFilter or MeshCollider. OBJ, STL and PLY.
+BasisModelShim.LoadMesh(this, objBytes, (result, mesh) => filter.sharedMesh = mesh);
+
+// Models stay until you unload them, destroy them or the content unloads.
+BasisModelShim.Unload(this, chair);
+long left = BasisModelShim.RemainingTriangles(this);",
+            },
+            new CilboxApiEntry
+            {
+                GroupKey = GroupRendering,
                 TitleKey = "sdk.cilbox.api.material.title",
                 SummaryKey = "sdk.cilbox.api.material.summary",
                 Requires = new[] { new CilboxApiRequirement("UnityEngine.Material") },

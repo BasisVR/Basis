@@ -786,6 +786,8 @@
     { "key": "sdk.cilbox.api.raycast.summary", "value": "স্থির অনুসন্ধানের অংশ। সিমুলেশন নিয়ন্ত্রণের পথ এতে নেই।" },
     { "key": "sdk.cilbox.api.triggers.title", "value": "ট্রিগার ও সংঘর্ষ" },
     { "key": "sdk.cilbox.api.triggers.summary", "value": "দুই ধরনের কলব্যাকই Cilbox স্ক্রিপ্টে পাঠানো হয়।" },
+    { "key": "sdk.cilbox.api.models.title", "value": "মডেল লোড" },
+    { "key": "sdk.cilbox.api.models.summary", "value": "ওয়ার্ল্ড ও প্রপে GLB, glTF, OBJ, STL বা PLY বাইট থেকে মডেল বা মেশ তৈরি করে। ফাইলের জন্য কিছু ডাউনলোড হয় না, এবং প্রতিটি কনটেন্ট খেলোয়াড়ের ঠিক করা বাজেট ভাগ করে নেয়।" },
     { "key": "sdk.cilbox.api.material.title", "value": "ম্যাটেরিয়াল" },
     { "key": "sdk.cilbox.api.material.summary", "value": "রঙ, শেডার বৈশিষ্ট্য ও প্রপার্টি ব্লক।" },
     { "key": "sdk.cilbox.api.blit.title", "value": "Blit" },

@@ -786,6 +786,8 @@
     { "key": "sdk.cilbox.api.raycast.summary", "value": "La superficie di query statica. I punti di ingresso di controllo della simulazione non sono inclusi." },
     { "key": "sdk.cilbox.api.triggers.title", "value": "Trigger e collisioni" },
     { "key": "sdk.cilbox.api.triggers.summary", "value": "Entrambe le famiglie di callback sono inoltrate agli script cilboxati." },
+    { "key": "sdk.cilbox.api.models.title", "value": "Carica modelli" },
+    { "key": "sdk.cilbox.api.models.summary", "value": "Crea un modello o una mesh da byte GLB, glTF, OBJ, STL o PLY in mondi e prop. Non viene scaricato nulla per conto del file e ogni contenuto condivide un budget impostato dal giocatore." },
     { "key": "sdk.cilbox.api.material.title", "value": "Materiali" },
     { "key": "sdk.cilbox.api.material.summary", "value": "Colori, proprietà degli shader e blocchi di proprietà." },
     { "key": "sdk.cilbox.api.blit.title", "value": "Blit" },

@@ -41,6 +41,7 @@ Shims come in three shapes:
 | `BasisGraphicsSettingsShim` | Read quality settings | [Rendering and Audio](/en/docs/scripting/shims/rendering-and-audio) |
 | `BasisStatsShim` | Frame rate, bottleneck, connection | [Rendering and Audio](/en/docs/scripting/shims/rendering-and-audio) |
 | `BasisComputeShim` | Compute shader budget | [Rendering and Audio](/en/docs/scripting/shims/rendering-and-audio) |
+| `BasisModelShim` | Build models from GLB, glTF, OBJ, STL and PLY bytes | [Rendering and Audio](/en/docs/scripting/shims/rendering-and-audio) |
 | `BasisVoiceRoutingShim` | Play a player's voice from an object | [Rendering and Audio](/en/docs/scripting/shims/rendering-and-audio) |
 | `VideoPlayerShim` | `VideoPlayer` with the URL prompt | [Rendering and Audio](/en/docs/scripting/shims/rendering-and-audio) |
 | `BasisPlatformShim` | Platform detection | [Rendering and Audio](/en/docs/scripting/shims/rendering-and-audio) |

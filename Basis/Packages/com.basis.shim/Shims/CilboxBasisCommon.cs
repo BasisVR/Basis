@@ -966,6 +966,8 @@ namespace Cilbox
 				if (CilboxWebRequests.NeedsConsent(name)) Beyond(MethodItem(declaringType, name), false);
 			}
 
+			if (declaringType == typeof(Basis.Shims.BasisModelShim) && (this is CilboxAvatarBasis || !CilboxModels.IsEntryPoint(name))) return Beyond(MethodItem(declaringType, name), true);
+
 			if (declaringType == typeof(Basis.Shims.BasisHapticsShim) && !CilboxHaptics.IsEntryPoint(name)) return Beyond(MethodItem(declaringType, name), true);
 
 			if (CilboxMenus.Blocks(declaringType, name)) return Beyond(MethodItem(declaringType, name), true);

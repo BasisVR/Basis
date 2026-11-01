@@ -786,6 +786,8 @@
     { "key": "sdk.cilbox.api.raycast.summary", "value": "Статическая поверхность запросов. Точки управления симуляцией сюда не входят." },
     { "key": "sdk.cilbox.api.triggers.title", "value": "Триггеры и столкновения" },
     { "key": "sdk.cilbox.api.triggers.summary", "value": "Обе группы обратных вызовов пересылаются скриптам в Cilbox." },
+    { "key": "sdk.cilbox.api.models.title", "value": "Загрузка моделей" },
+    { "key": "sdk.cilbox.api.models.summary", "value": "Создаёт модель или меш из данных GLB, glTF, OBJ, STL или PLY в мирах и пропах. Для файла ничего не скачивается, а каждый контент делит бюджет, заданный игроком." },
     { "key": "sdk.cilbox.api.material.title", "value": "Материалы" },
     { "key": "sdk.cilbox.api.material.summary", "value": "Цвета, свойства шейдеров и блоки свойств." },
     { "key": "sdk.cilbox.api.blit.title", "value": "Blit" },

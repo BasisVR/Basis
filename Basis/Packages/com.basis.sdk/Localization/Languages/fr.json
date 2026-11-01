@@ -786,6 +786,8 @@
     { "key": "sdk.cilbox.api.raycast.summary", "value": "La surface de requête statique. Les points d'entrée de contrôle de la simulation n'y sont pas." },
     { "key": "sdk.cilbox.api.triggers.title", "value": "Déclencheurs et collisions" },
     { "key": "sdk.cilbox.api.triggers.summary", "value": "Les deux familles de rappels sont relayées aux scripts cilboxés." },
+    { "key": "sdk.cilbox.api.models.title", "value": "Charger des modèles" },
+    { "key": "sdk.cilbox.api.models.summary", "value": "Crée un modèle ou un maillage à partir d'octets GLB, glTF, OBJ, STL ou PLY dans les mondes et les props. Rien n'est téléchargé pour le fichier, et chaque contenu partage un budget fixé par le joueur." },
     { "key": "sdk.cilbox.api.material.title", "value": "Matériaux" },
     { "key": "sdk.cilbox.api.material.summary", "value": "Couleurs, propriétés de shader et blocs de propriétés." },
     { "key": "sdk.cilbox.api.blit.title", "value": "Blit" },

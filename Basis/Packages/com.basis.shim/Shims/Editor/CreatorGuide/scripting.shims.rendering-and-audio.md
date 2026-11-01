@@ -45,6 +45,32 @@ long threadsLeft = BasisComputeShim.RemainingThreads(this);
 
 A buffer over the memory budget throws; a dispatch over the frame's thread budget is skipped. Basis frees every buffer when the content unloads.
 
+## BasisModelShim
+
+Builds a model from bytes for world and prop scripts. Avatars cannot use it. The format comes from the file's contents: GLB, glTF, OBJ, STL or PLY. FBX cannot be loaded at runtime. Files can be up to 64 MB.
+
+```csharp
+using Basis.Shims;
+
+BasisModelShim.Load(this, bytes, transform, (result, model) =>
+{
+    if (result != BasisModelResult.Ok) return;
+    chair = model;
+});
+
+BasisModelShim.LoadMesh(this, objBytes, (result, mesh) => filter.sharedMesh = mesh);
+
+BasisModelShim.Unload(this, chair);
+long triangles = BasisModelShim.RemainingTriangles(this);
+long bytesLeft = BasisModelShim.RemainingBytes(this);
+```
+
+The callback runs on a later frame. `Load` parents the model to a transform in your own content, or to the script's object when you pass null. `LoadMesh` takes OBJ, STL and PLY.
+
+Basis never fetches anything a file points at, so a glTF must embed its buffers and images. Use `BasisWebRequestShim` to download the file; it caps downloads at 4 MB. Models come in with their meshes, materials, skins and blend shapes. Animations, cameras and lights are left out, along with sparse accessors, Draco, meshopt, KTX and GPU instancing. Textures must be PNG or JPEG.
+
+Each world or prop shares a triangle and memory budget the player sets in Script Permissions. Over budget, the callback gets `TooLarge`. Models stay until you unload or destroy them, or until the content unloads. Unloading frees the meshes and textures, so anything you cloned from a model loses them too.
+
 ## BasisPlatformShim
 
 ```csharp

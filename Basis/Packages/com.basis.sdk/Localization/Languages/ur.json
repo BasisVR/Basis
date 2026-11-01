@@ -786,6 +786,8 @@
     { "key": "sdk.cilbox.api.raycast.summary", "value": "جامد سوالات کی سطح۔ سِمولیشن کو قابو کرنے والے راستے شامل نہیں۔" },
     { "key": "sdk.cilbox.api.triggers.title", "value": "ٹریگر اور ٹکراؤ" },
     { "key": "sdk.cilbox.api.triggers.summary", "value": "کال بیکس کے دونوں خاندان Cilbox اسکرپٹس کو بھیجے جاتے ہیں۔" },
+    { "key": "sdk.cilbox.api.models.title", "value": "ماڈل لوڈ کریں" },
+    { "key": "sdk.cilbox.api.models.summary", "value": "ورلڈز اور پراپس میں GLB، glTF، OBJ، STL یا PLY بائٹس سے ماڈل یا میش بناتا ہے۔ فائل کے لیے کچھ ڈاؤن لوڈ نہیں ہوتا، اور ہر مواد کھلاڑی کا طے کردہ بجٹ بانٹتا ہے۔" },
     { "key": "sdk.cilbox.api.material.title", "value": "میٹریلز" },
     { "key": "sdk.cilbox.api.material.summary", "value": "رنگ، شیڈر کی خصوصیات اور پراپرٹی بلاکس۔" },
     { "key": "sdk.cilbox.api.blit.title", "value": "Blit" },

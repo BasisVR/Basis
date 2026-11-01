@@ -786,6 +786,8 @@
     { "key": "sdk.cilbox.api.raycast.summary", "value": "Het statische query-oppervlak. De ingangen voor simulatiebesturing horen er niet bij." },
     { "key": "sdk.cilbox.api.triggers.title", "value": "Triggers en botsingen" },
     { "key": "sdk.cilbox.api.triggers.summary", "value": "Beide callbackfamilies worden doorgestuurd naar cilbox-scripts." },
+    { "key": "sdk.cilbox.api.models.title", "value": "Modellen laden" },
+    { "key": "sdk.cilbox.api.models.summary", "value": "Maakt in werelden en props een model of mesh van GLB-, glTF-, OBJ-, STL- of PLY-bytes. Er wordt niets voor het bestand opgehaald, en elke inhoud deelt een budget dat de speler instelt." },
     { "key": "sdk.cilbox.api.material.title", "value": "Materialen" },
     { "key": "sdk.cilbox.api.material.summary", "value": "Kleuren, shader-eigenschappen en property blocks." },
     { "key": "sdk.cilbox.api.blit.title", "value": "Blitten" },

@@ -1273,6 +1273,22 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<bool> DisablePropPickup = new("disableproppickup", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<bool> ExternalLinkRequests = new("externallinkrequests", new BasisPlatformDefault<bool>(true));
         public static BasisSettingsBinding<bool> AllowUntrustedScriptPermissions = new("allowuntrustedscriptpermissions", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<float> ScriptModelTriangles = new("scriptmodeltriangles", new BasisPlatformDefault<float>
+        {
+            windows = 4000f,
+            android = 500f,
+            linux = 4000f,
+            ios = 500f,
+            other = 4000f
+        });
+        public static BasisSettingsBinding<float> ScriptModelMemory = new("scriptmodelmemory", new BasisPlatformDefault<float>
+        {
+            windows = 2048f,
+            android = 512f,
+            linux = 2048f,
+            ios = 512f,
+            other = 2048f
+        });
         public static BasisSettingsBinding<bool> DisableVRAutoHold = new("disablevrautohold", new BasisPlatformDefault<bool>(false));
         // Master switch for jiggle grab-and-pull: off = never initiate, never be grabbed, never apply observed grabs.
         public static BasisSettingsBinding<bool> JiggleGrabInteractions = new("jigglegrabinteractions", new BasisPlatformDefault<bool>(true));
@@ -2676,6 +2692,8 @@ namespace Basis.BasisUI
             DisablePropPickup.LoadBindingValue();
             ExternalLinkRequests.LoadBindingValue();
             AllowUntrustedScriptPermissions.LoadBindingValue();
+            ScriptModelTriangles.LoadBindingValue();
+            ScriptModelMemory.LoadBindingValue();
             AllowUntrustedScriptPermissions.OnChanged -= BasisCilboxPermissions.UntrustedChanged;
             AllowUntrustedScriptPermissions.OnChanged += BasisCilboxPermissions.UntrustedChanged;
             DisableVRAutoHold.LoadBindingValue();

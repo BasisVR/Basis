@@ -16,6 +16,18 @@ namespace Basis.BasisUI
             allowUntrusted.Descriptor.SetTitle(BasisLocalization.Get("settings.cilboxPermissions.allowUntrusted"));
             allowUntrusted.Descriptor.SetTooltip(BasisLocalization.Get("settings.cilboxPermissions.allowUntrusted.tooltip"));
 
+            PanelSlider modelTriangles = PanelSlider.CreateEntryAndBind(
+                container,
+                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.cilboxPermissions.modelTriangles"), 0f, 20000f, true, 0, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.ScriptModelTriangles);
+            modelTriangles.Descriptor.SetTooltip(BasisLocalization.Get("settings.cilboxPermissions.modelTriangles.tooltip"));
+
+            PanelSlider modelMemory = PanelSlider.CreateEntryAndBind(
+                container,
+                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.cilboxPermissions.modelMemory"), 0f, 8192f, true, 0, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.ScriptModelMemory);
+            modelMemory.Descriptor.SetTooltip(BasisLocalization.Get("settings.cilboxPermissions.modelMemory.tooltip"));
+
             PanelElementDescriptor list = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             list.SetTitle(BasisLocalization.Get("settings.cilboxPermissions.allowed"));
 

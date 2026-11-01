@@ -786,6 +786,8 @@
     { "key": "sdk.cilbox.api.raycast.summary", "value": "静的なクエリ群。シミュレーションを操作する入り口は含みません。" },
     { "key": "sdk.cilbox.api.triggers.title", "value": "トリガーと衝突" },
     { "key": "sdk.cilbox.api.triggers.summary", "value": "どちらのコールバック群も Cilbox のスクリプトへ転送されます。" },
+    { "key": "sdk.cilbox.api.models.title", "value": "モデルの読み込み" },
+    { "key": "sdk.cilbox.api.models.summary", "value": "ワールドとプロップで GLB、glTF、OBJ、STL、PLY のバイト列からモデルやメッシュを作成します。ファイルのために何かをダウンロードすることはなく、各コンテンツはプレイヤーが設定した予算を共有します。" },
     { "key": "sdk.cilbox.api.material.title", "value": "マテリアル" },
     { "key": "sdk.cilbox.api.material.summary", "value": "色、シェーダープロパティ、プロパティブロック。" },
     { "key": "sdk.cilbox.api.blit.title", "value": "Blit" },

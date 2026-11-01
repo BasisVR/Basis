@@ -786,6 +786,8 @@
     { "key": "sdk.cilbox.api.raycast.summary", "value": "سطح الاستعلام الساكن. أما منافذ التحكم في المحاكاة فغير مشمولة." },
     { "key": "sdk.cilbox.api.triggers.title", "value": "المشغّلات والتصادمات" },
     { "key": "sdk.cilbox.api.triggers.summary", "value": "تُمرَّر عائلتا الاستدعاءات كلتاهما إلى البرامج داخل Cilbox." },
+    { "key": "sdk.cilbox.api.models.title", "value": "تحميل النماذج" },
+    { "key": "sdk.cilbox.api.models.summary", "value": "ينشئ نموذجًا أو شبكة من بيانات GLB أو glTF أو OBJ أو STL أو PLY في العوالم والعناصر. لا يتم تنزيل أي شيء نيابة عن الملف، ويشترك كل محتوى في ميزانية يحددها اللاعب." },
     { "key": "sdk.cilbox.api.material.title", "value": "الخامات" },
     { "key": "sdk.cilbox.api.material.summary", "value": "الألوان وخصائص المظلِّلات وكتل الخصائص." },
     { "key": "sdk.cilbox.api.blit.title", "value": "Blit" },

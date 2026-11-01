@@ -786,6 +786,8 @@
     { "key": "sdk.cilbox.api.raycast.summary", "value": "静态查询接口。不包含控制物理模拟的入口。" },
     { "key": "sdk.cilbox.api.triggers.title", "value": "触发器与碰撞" },
     { "key": "sdk.cilbox.api.triggers.summary", "value": "两类回调都会转发给 Cilbox 脚本。" },
+    { "key": "sdk.cilbox.api.models.title", "value": "加载模型" },
+    { "key": "sdk.cilbox.api.models.summary", "value": "在世界和道具中，根据 GLB、glTF、OBJ、STL 或 PLY 字节创建模型或网格。不会为文件下载任何内容，每项内容共用玩家设置的预算。" },
     { "key": "sdk.cilbox.api.material.title", "value": "材质" },
     { "key": "sdk.cilbox.api.material.summary", "value": "颜色、着色器属性和属性块。" },
     { "key": "sdk.cilbox.api.blit.title", "value": "Blit" },

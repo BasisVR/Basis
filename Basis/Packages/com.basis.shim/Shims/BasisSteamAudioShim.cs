@@ -341,7 +341,7 @@ namespace Basis.Shims
 			box = proxy != null ? proxy.box as CilboxBasisCommon : null;
 			return box != null && !box.disabled && box.interpreterAccountingDepth > 0;
 		}
-		private static bool SameContent(CilboxBasisCommon box, CilboxProxy proxy, Component target) => CilboxBasisConsent.TryOwner(box, proxy.gameObject, out BasisContentBase mine) && BasisContent.TryResolve(target, out BasisContentBase theirs) && mine == theirs;
+		internal static bool SameContent(CilboxBasisCommon box, CilboxProxy proxy, Component target) => CilboxBasisConsent.TryOwner(box, proxy.gameObject, out BasisContentBase mine) && BasisContent.TryResolve(target, out BasisContentBase theirs) && mine == theirs;
 	}
 	[AutoStaticsCleanup]
 	public static partial class BasisRemotePlayerAudioShim

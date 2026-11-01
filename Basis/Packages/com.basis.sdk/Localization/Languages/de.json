@@ -786,6 +786,8 @@
     { "key": "sdk.cilbox.api.raycast.summary", "value": "Die statische Abfrage-Oberfläche. Die Einstiegspunkte zur Simulationssteuerung sind nicht enthalten." },
     { "key": "sdk.cilbox.api.triggers.title", "value": "Trigger und Kollisionen" },
     { "key": "sdk.cilbox.api.triggers.summary", "value": "Beide Callback-Familien werden an Cilbox-Skripte weitergeleitet." },
+    { "key": "sdk.cilbox.api.models.title", "value": "Modelle laden" },
+    { "key": "sdk.cilbox.api.models.summary", "value": "Erstellt in Welten und Props ein Modell oder Mesh aus GLB-, glTF-, OBJ-, STL- oder PLY-Daten. Für die Datei wird nichts nachgeladen, und jeder Inhalt teilt sich ein Budget, das der Spieler festlegt." },
     { "key": "sdk.cilbox.api.material.title", "value": "Materialien" },
     { "key": "sdk.cilbox.api.material.summary", "value": "Farben, Shader-Eigenschaften und Property-Blocks." },
     { "key": "sdk.cilbox.api.blit.title", "value": "Blitting" },

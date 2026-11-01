@@ -786,6 +786,8 @@
     { "key": "sdk.cilbox.api.raycast.summary", "value": "स्थैतिक क्वेरी क्षमता। सिमुलेशन नियंत्रण के रास्ते शामिल नहीं हैं।" },
     { "key": "sdk.cilbox.api.triggers.title", "value": "ट्रिगर और टक्कर" },
     { "key": "sdk.cilbox.api.triggers.summary", "value": "कॉलबैक के दोनों समूह Cilbox स्क्रिप्ट तक भेजे जाते हैं।" },
+    { "key": "sdk.cilbox.api.models.title", "value": "मॉडल लोड करें" },
+    { "key": "sdk.cilbox.api.models.summary", "value": "वर्ल्ड और प्रॉप में GLB, glTF, OBJ, STL या PLY बाइट्स से मॉडल या मेश बनाता है। फ़ाइल के लिए कुछ भी डाउनलोड नहीं होता, और हर कंटेंट खिलाड़ी का तय किया बजट साझा करता है।" },
     { "key": "sdk.cilbox.api.material.title", "value": "मटीरियल" },
     { "key": "sdk.cilbox.api.material.summary", "value": "रंग, शेडर प्रॉपर्टी और प्रॉपर्टी ब्लॉक।" },
     { "key": "sdk.cilbox.api.blit.title", "value": "Blit" },

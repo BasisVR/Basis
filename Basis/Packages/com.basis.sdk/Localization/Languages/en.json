@@ -792,6 +792,8 @@
     { "key": "sdk.cilbox.api.raycast.summary", "value": "The static query surface. The simulation-control entry points are not included." },
     { "key": "sdk.cilbox.api.triggers.title", "value": "Triggers and collisions" },
     { "key": "sdk.cilbox.api.triggers.summary", "value": "Both callback families are forwarded to cilboxed scripts." },
+    { "key": "sdk.cilbox.api.models.title", "value": "Load Models" },
+    { "key": "sdk.cilbox.api.models.summary", "value": "Builds a model or mesh from GLB, glTF, OBJ, STL or PLY bytes in worlds and props. Nothing is fetched on the file's behalf, and each piece of content shares a budget the player sets." },
     { "key": "sdk.cilbox.api.material.title", "value": "Materials" },
     { "key": "sdk.cilbox.api.material.summary", "value": "Colours, shader properties and property blocks." },
     { "key": "sdk.cilbox.api.blit.title", "value": "Blitting" },

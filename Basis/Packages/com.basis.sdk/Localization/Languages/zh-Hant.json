@@ -786,6 +786,8 @@
     { "key": "sdk.cilbox.api.raycast.summary", "value": "靜態查詢介面。不包含控制物理模擬的入口。" },
     { "key": "sdk.cilbox.api.triggers.title", "value": "觸發器與碰撞" },
     { "key": "sdk.cilbox.api.triggers.summary", "value": "兩類回呼都會轉送給 Cilbox 腳本。" },
+    { "key": "sdk.cilbox.api.models.title", "value": "載入模型" },
+    { "key": "sdk.cilbox.api.models.summary", "value": "在世界和道具中，根據 GLB、glTF、OBJ、STL 或 PLY 位元組建立模型或網格。不會為檔案下載任何內容，每項內容共用玩家設定的預算。" },
     { "key": "sdk.cilbox.api.material.title", "value": "材質" },
     { "key": "sdk.cilbox.api.material.summary", "value": "顏色、著色器屬性與屬性區塊。" },
     { "key": "sdk.cilbox.api.blit.title", "value": "Blit" },
