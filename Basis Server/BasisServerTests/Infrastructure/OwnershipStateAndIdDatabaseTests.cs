@@ -528,9 +528,10 @@ public class BasisNetworkOwnershipTests
             Assert.Equal(DeliveryMethod.ReliableOrdered, reply.Method);
             Assert.Equal((ushort)1, DecodeOwnership(reply.Data).playerIdMessage.playerID);
 
+            while (peer.Sent.TryDequeue(out _)) { }
             BasisNetworkOwnership.SendOutOwnershipInformation(peer);
             Assert.All(peer.Sent, s => Assert.Equal(BasisNetworkCommons.ChangeCurrentOwnerRequestChannel, s.Channel));
-            var snapshot = peer.Sent.Select(s => DecodeOwnership(s.Data)).ToList();
+            var snapshot = peer.Sent.SelectMany(s => DecodeAllOwnership(s.Data)).ToList();
             Assert.Contains(snapshot, m => m.ownershipID == keyA && m.playerIdMessage.playerID == 1);
             Assert.Contains(snapshot, m => m.ownershipID == keyB && m.playerIdMessage.playerID == 2);
         }
@@ -539,6 +540,40 @@ public class BasisNetworkOwnershipTests
             BasisNetworkOwnership.RemoveObject(keyA);
             BasisNetworkOwnership.RemoveObject(keyB);
         }
+    }
+
+    [Fact]
+    public void JoinSnapshot_PacksManyEntriesPerPacketAndLosesNone()
+    {
+        var peer = new RecordingNetPeer(42301);
+        var keys = Enumerable.Range(0, 300).Select(i => $"own:batch:{i:D4}").ToList();
+        try
+        {
+            foreach (string key in keys) Assert.True(BasisNetworkOwnership.AddOwnership(key, 7));
+            BasisNetworkOwnership.SendOutOwnershipInformation(peer);
+            var decoded = peer.Sent.SelectMany(s => DecodeAllOwnership(s.Data)).Where(m => m.ownershipID.StartsWith("own:batch:")).ToList();
+            Assert.Equal(keys.OrderBy(k => k), decoded.Select(m => m.ownershipID).OrderBy(k => k));
+            Assert.All(decoded, m => Assert.Equal((ushort)7, m.playerIdMessage.playerID));
+            Assert.True(peer.Sent.Count < keys.Count / 10, $"{peer.Sent.Count} packets for {keys.Count} entries");
+            Assert.All(peer.Sent, s => Assert.True(s.Data.Length < BasisNetworkOwnership.JoinReplayBatchBytes + 300));
+        }
+        finally
+        {
+            foreach (string key in keys) BasisNetworkOwnership.RemoveObject(key);
+        }
+    }
+
+    private static List<OwnershipTransferMessage> DecodeAllOwnership(byte[] payload)
+    {
+        var messages = new List<OwnershipTransferMessage>();
+        NetPacketReader reader = NetPacketReader.Create(payload, 0, payload.Length, static () => { });
+        while (reader.AvailableBytes > 0)
+        {
+            var message = new OwnershipTransferMessage();
+            message.Deserialize(reader);
+            messages.Add(message);
+        }
+        return messages;
     }
 }
 

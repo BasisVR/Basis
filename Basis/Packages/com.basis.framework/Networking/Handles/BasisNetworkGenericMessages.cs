@@ -209,9 +209,13 @@ public static partial class BasisNetworkGenericMessages
     }
     public static void HandleOwnershipTransfer(NetPacketReader reader)
     {
-        OwnershipTransferMessage OwnershipTransferMessage = new OwnershipTransferMessage();
-        OwnershipTransferMessage.Deserialize(reader);
-        HandleOwnership(OwnershipTransferMessage);
+        do
+        {
+            OwnershipTransferMessage OwnershipTransferMessage = new OwnershipTransferMessage();
+            OwnershipTransferMessage.Deserialize(reader);
+            HandleOwnership(OwnershipTransferMessage);
+        }
+        while (reader.AvailableBytes > 0);
     }
     public static void HandleOwnershipResponse(NetPacketReader reader)
     {

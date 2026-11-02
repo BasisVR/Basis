@@ -127,6 +127,141 @@ public class TransportFloodTests
             BasisPendingLoginGate.Reset();
         }
     }
+    [Fact]
+    public void Cookie_AlwaysOn_SpoofedRequestGetsOneSmallReplyAndNoState()
+    {
+        var serverListener = new LiteNetLib.EventBasedNetListener();
+        var server = new LiteNetLib.NetManager(serverListener) { ConnectCookieMode = 2 };
+        int requests = 0;
+        serverListener.ConnectionRequestEvent += request => { requests++; request.Accept(); };
+        using var attacker = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
+        try
+        {
+            Assert.True(server.Start(IPAddress.Loopback, IPAddress.IPv6Loopback, 0));
+            var target = new IPEndPoint(IPAddress.Loopback, server.LocalPort);
+            var data = new LiteNetLib.Utils.NetDataWriter();
+            data.Put(new byte[64]);
+            LiteNetLib.NetPacket packet = LiteNetLib.NetConnectRequestPacket.Make(data, target.Serialize(), DateTime.UtcNow.Ticks, 0);
+            attacker.Send(packet.RawData, packet.Size, target);
+            attacker.Client.ReceiveTimeout = 2000;
+            IPEndPoint? from = null;
+            byte[] reply = attacker.Receive(ref from);
+            Poll(server, () => false, 200);
+            Assert.Equal(0, requests);
+            Assert.Equal(0, server.GetPeersCount(LiteNetLib.ConnectionState.Any));
+            Assert.True(reply.Length <= packet.Size, $"reply {reply.Length} bytes for a {packet.Size} byte request");
+            Assert.Equal(1, server.ConnectCookieChallenges);
+        }
+        finally
+        {
+            server.Stop();
+        }
+    }
+    [Theory]
+    [InlineData(2)]
+    [InlineData(1)]
+    public void Cookie_RealClientStillConnects(int mode)
+    {
+        var serverListener = new LiteNetLib.EventBasedNetListener();
+        var server = new LiteNetLib.NetManager(serverListener) { ConnectCookieMode = mode, ConnectCookieAutoRequestsPerSecond = 0, ConnectCookiePressure = () => true };
+        serverListener.ConnectionRequestEvent += request => request.Accept();
+        var client = new LiteNetLib.NetManager(new LiteNetLib.EventBasedNetListener());
+        try
+        {
+            Assert.True(server.Start(IPAddress.Loopback, IPAddress.IPv6Loopback, 0));
+            Assert.True(client.Start());
+            LiteNetLib.NetPeer clientSide = client.Connect(new IPEndPoint(IPAddress.Loopback, server.LocalPort), ReadOnlySpan<byte>.Empty);
+            Assert.True(Poll(server, () => { client.PollEvents(); return clientSide.ConnectionState == LiteNetLib.ConnectionState.Connected; }, 3000));
+            Assert.True(server.ConnectCookieChallenges >= 1);
+            Assert.True(server.ConnectCookieActive);
+        }
+        finally
+        {
+            client.Stop();
+            server.Stop();
+        }
+    }
+    [Fact]
+    public void Cookie_AutoMode_TurnsOnOnlyAfterTheThreshold()
+    {
+        var serverListener = new LiteNetLib.EventBasedNetListener();
+        var server = new LiteNetLib.NetManager(serverListener) { ConnectCookieMode = 1, ConnectCookieAutoRequestsPerSecond = 3 };
+        int requests = 0;
+        serverListener.ConnectionRequestEvent += request => { requests++; request.Reject(Array.Empty<byte>(), 0, 0, true); };
+        var attackers = new List<UdpClient>();
+        try
+        {
+            Assert.True(server.Start(IPAddress.Loopback, IPAddress.IPv6Loopback, 0));
+            Assert.False(server.ConnectCookieActive);
+            var target = new IPEndPoint(IPAddress.Loopback, server.LocalPort);
+            for (int i = 0; i < 20; i++)
+            {
+                var attacker = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
+                attackers.Add(attacker);
+                LiteNetLib.NetPacket packet = LiteNetLib.NetConnectRequestPacket.Make(new LiteNetLib.Utils.NetDataWriter(), target.Serialize(), DateTime.UtcNow.Ticks + i, 0);
+                attacker.Send(packet.RawData, packet.Size, target);
+            }
+            Poll(server, () => false, 300);
+            Assert.InRange(requests, 1, 3);
+            Assert.True(server.ConnectCookieActive);
+        }
+        finally
+        {
+            foreach (var attacker in attackers) attacker.Dispose();
+            server.Stop();
+        }
+    }
+    [Fact]
+    public void ReliableQueue_ForAPeerThatNeverAcks_DisconnectsAtTheBudget()
+    {
+        var serverListener = new LiteNetLib.EventBasedNetListener();
+        var server = new LiteNetLib.NetManager(serverListener) { MaxQueuedChannelBytesPerPeer = 32 * 1024, DisconnectTimeout = 30000 };
+        LiteNetLib.NetPeer? accepted = null;
+        bool dropped = false;
+        serverListener.ConnectionRequestEvent += request => accepted = request.Accept();
+        serverListener.PeerDisconnectedEvent += (peer, info) => dropped = true;
+        using var attacker = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
+        try
+        {
+            Assert.True(server.Start(IPAddress.Loopback, IPAddress.IPv6Loopback, 0));
+            var target = new IPEndPoint(IPAddress.Loopback, server.LocalPort);
+            LiteNetLib.NetPacket packet = LiteNetLib.NetConnectRequestPacket.Make(new LiteNetLib.Utils.NetDataWriter(), target.Serialize(), DateTime.UtcNow.Ticks, 0);
+            attacker.Send(packet.RawData, packet.Size, target);
+            Assert.True(Poll(server, () => accepted != null, 2000));
+            for (int i = 0; i < 200; i++) accepted!.Send(new byte[1000], LiteNetLib.DeliveryMethod.ReliableOrdered);
+            Assert.True(Poll(server, () => dropped, 3000));
+        }
+        finally
+        {
+            server.Stop();
+        }
+    }
+    [Fact]
+    public void ProtectionSettings_ClampRoundAndApplyThroughTheRegistry()
+    {
+        var holder = new Configuration { MaxPendingLogins = 512 };
+        BasisProtectionSettings.RegisterField(() => holder, typeof(Configuration), nameof(Configuration.MaxPendingLogins), "Test", 0, 1000);
+        Assert.True(BasisProtectionSettings.TrySet(nameof(Configuration.MaxPendingLogins), 5000.7, out double clamped));
+        Assert.Equal(1000, clamped);
+        Assert.Equal(1000, holder.MaxPendingLogins);
+        Assert.True(BasisProtectionSettings.TrySet(nameof(Configuration.MaxPendingLogins), 12.6, out double rounded));
+        Assert.Equal(13, holder.MaxPendingLogins);
+        Assert.False(BasisProtectionSettings.TrySet("NoSuchSetting", 1, out _));
+        Assert.Equal("Max Pending Logins Per Address", BasisProtectionSettings.Humanize("MaxPendingLoginsPerAddress"));
+        var writer = new NetDataWriter();
+        BasisProtectionSettings.Write(writer);
+        Assert.True(BasisProtectionSettings.TryRead(new NetDataReader(writer.CopyData()), out List<BasisProtectionSettings.Info> infos));
+        BasisProtectionSettings.Info info = infos.Single(i => i.Key == nameof(Configuration.MaxPendingLogins));
+        Assert.Equal(13, info.Value);
+        Assert.True(info.WholeNumber);
+        Assert.False(string.IsNullOrEmpty(info.Description));
+        var changes = new List<KeyValuePair<string, double>> { new("A", 1.5), new("B", 2) };
+        var changeWriter = new NetDataWriter();
+        BasisProtectionSettings.WriteChanges(changeWriter, changes);
+        Assert.True(BasisProtectionSettings.TryReadChanges(new NetDataReader(changeWriter.CopyData()), out var read));
+        Assert.Equal(changes, read);
+        BasisProtectionSettings.RegisterField(() => NetworkServer.Configuration, typeof(Configuration), nameof(Configuration.MaxPendingLogins), BasisServerProtectionSettings.Logins, 0, 65535);
+    }
     private static bool Poll(LiteNetLib.NetManager server, Func<bool> done, int timeoutMs)
     {
         var watch = Stopwatch.StartNew();

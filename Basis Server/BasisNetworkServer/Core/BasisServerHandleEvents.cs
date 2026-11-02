@@ -868,6 +868,7 @@ namespace BasisServerHandle
                 BasisNetworkServer.Security.BasisPlayerModeration.SendReductionSettingsToPeer(newPeer);
                 BasisNetworkServer.Security.BasisPlayerModeration.SendImageBandwidthToPeer(newPeer);
                 BasisNetworkServer.Security.BasisPlayerModeration.SendPeerLimitToPeer(newPeer);
+                BasisNetworkServer.Security.BasisPlayerModeration.SendProtectionSettingsIfEditor(newPeer);
                 BasisNetworkServer.Security.BasisPlayerMuteManager.SendStateToPeerIfMuted(newPeer);
                 SendAnnounceStateToPeer(newPeer);
                 SendShoutStateToPeer(newPeer);
@@ -891,7 +892,7 @@ namespace BasisServerHandle
         public static ServerEventHandler OnServerReceived;
         public delegate void ServerEventHandler(NetPeer peer, NetPacketReader reader, DeliveryMethod deliveryMethod);
         #region Avatar and Voice Handling
-        private static readonly BasisPeerRateLimiter AvatarChangeLimiter = new BasisPeerRateLimiter(2f, 10f);
+        private static readonly BasisPeerRateLimiter AvatarChangeLimiter = new BasisPeerRateLimiter(() => NetworkServer.Configuration?.AvatarChangesPerSecondPerPlayer ?? 2f, () => NetworkServer.Configuration?.AvatarChangeBurstPerPlayer ?? 10f);
         public static void SendAvatarMessageToClients(NetPacketReader Reader, NetPeer Peer)
         {
             // Leading kind byte multiplexes this channel — see BasisNetworkCommons.AvatarChangeKind*.
@@ -1560,8 +1561,8 @@ namespace BasisServerHandle
             BasisNetworkIDDatabase.AddOrFindNetworkID(Peer, ServerUniqueIDMessage.playerID);
             //we need to convert the string int a  ushort.
         }
-        private static readonly BasisPeerRateLimiter LoadResourceLimiter = new BasisPeerRateLimiter(20f, 200f);
-        public const int MaxLoadedNetIdLength = 256, MaxUnlockPasswordLength = 1024, MaxCombinedUrlLength = 4096;
+        private static readonly BasisPeerRateLimiter LoadResourceLimiter = new BasisPeerRateLimiter(() => NetworkServer.Configuration?.LoadResourcesPerSecondPerPlayer ?? 20f, () => NetworkServer.Configuration?.LoadResourceBurstPerPlayer ?? 200f);
+        private static bool OverLimit(string value, int max) => max > 0 && (value?.Length ?? 0) > max;
         public static void LoadResource(NetPacketReader Reader, NetPeer Peer,string UUID)
         {
             LocalLoadResource LocalLoadResource = new LocalLoadResource();
@@ -1578,7 +1579,7 @@ namespace BasisServerHandle
                 return;
             }
             LocalLoadResource.Deserialize(Reader);
-            if ((LocalLoadResource.LoadedNetID?.Length ?? 0) > MaxLoadedNetIdLength || (LocalLoadResource.UnlockPassword?.Length ?? 0) > MaxUnlockPasswordLength || (LocalLoadResource.CombinedURL?.Length ?? 0) > MaxCombinedUrlLength)
+            if (OverLimit(LocalLoadResource.LoadedNetID, NetworkServer.Configuration.MaxResourceIdLength) || OverLimit(LocalLoadResource.UnlockPassword, NetworkServer.Configuration.MaxResourcePasswordLength) || OverLimit(LocalLoadResource.CombinedURL, NetworkServer.Configuration.MaxResourceUrlLength))
             {
                 BNLThrottle.LogWarning("resources.tooLong", $"Dropped a load request from {uuid} with an id, password or URL over the length limit.");
                 Reader.Recycle();

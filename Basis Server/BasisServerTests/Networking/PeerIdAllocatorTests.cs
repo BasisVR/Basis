@@ -7,6 +7,17 @@ namespace BasisServerTests;
 public class PeerIdAllocatorTests
 {
     [Fact]
+    public void ExhaustedSpace_RefusesInsteadOfOverflowing()
+    {
+        BasisPeerIdAllocator ids = new BasisPeerIdAllocator(60000);
+        for (int index = 0; index <= BasisPeerIdAllocator.MaxPlayerId; index++) Assert.Equal(index, ids.Allocate());
+        Assert.Equal(-1, ids.Allocate());
+        Assert.True(ids.Release(5));
+        Assert.Equal(5, ids.Allocate());
+        Assert.Equal(-1, ids.Allocate());
+    }
+
+    [Fact]
     public void AllocatesDenseIdsFromZero()
     {
         BasisPeerIdAllocator ids = new BasisPeerIdAllocator(0);

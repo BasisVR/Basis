@@ -2,6 +2,7 @@
 using Basis.Scripts.BasisCharacterController;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
+using Basis.Network.Core;
 using BasisNetworkCore.Security;
 using System;
 using System.Collections.Generic;
@@ -554,6 +555,56 @@ namespace Basis.BasisUI
             resourceDirty.WatchNumericText(sphereDeletionTimerField, () => BasisNetworkModeration.ServerContentSphereDeletionTimerSeconds);
             controller.DirtySections.Add(resourceDirty);
 
+            // --- Network protection (flood and abuse limits; every registered setting, persisted and live) ---
+            PanelSectionDirtyState protectionDirty = new PanelSectionDirtyState();
+            PanelSectionToggle protectionToggle = PanelSectionToggle.CreateNewEntry(container);
+            protectionToggle.SetTitle(BasisLocalization.Get("settings.admin.title.networkProtection"));
+            int protectionStart = container.childCount;
+
+            PanelElementDescriptor protectionInfo = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            List<BasisProtectionSettings.Info> protectionSettings = BasisNetworkModeration.ServerProtectionSettings;
+            protectionInfo.SetDescription(BasisLocalization.Get(protectionSettings.Count == 0 ? "settings.admin.networkProtection.empty" : "settings.admin.networkProtection.description"));
+
+            string currentProtectionGroup = null;
+            foreach (BasisProtectionSettings.Info setting in protectionSettings)
+            {
+                if (setting.Group != currentProtectionGroup)
+                {
+                    currentProtectionGroup = setting.Group;
+                    PanelElementDescriptor groupHeader = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+                    groupHeader.SetDescription(currentProtectionGroup);
+                }
+                PanelTextField field = PanelTextField.CreateNewEntry(container);
+                field.Descriptor.SetTitle(setting.Title);
+                field.Descriptor.SetTooltip($"{setting.Description} ({FormatProtectionValue(setting.Min, setting.WholeNumber)} to {FormatProtectionValue(setting.Max, setting.WholeNumber)})");
+                field.SetValueWithoutNotify(FormatProtectionValue(setting.Value, setting.WholeNumber));
+                controller.ProtectionFields[setting.Key] = field;
+                string key = setting.Key;
+                protectionDirty.WatchNumericText(field, () => (float)ProtectionServerValue(key));
+            }
+
+            void ApplyProtectionSettings()
+            {
+                List<KeyValuePair<string, double>> changes = new List<KeyValuePair<string, double>>();
+                foreach (KeyValuePair<string, PanelTextField> pair in controller.ProtectionFields)
+                {
+                    if (!double.TryParse(pair.Value.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double typed)) continue;
+                    if (Math.Abs(typed - ProtectionServerValue(pair.Key)) > 1e-9) changes.Add(new KeyValuePair<string, double>(pair.Key, typed));
+                }
+                BasisNetworkModeration.SetProtectionSettings(changes);
+            }
+
+            if (protectionSettings.Count > 0)
+            {
+                PanelButton protectionApply = MakeApplyButton(container, protectionDirty);
+                protectionApply.OnClicked += ApplyProtectionSettings;
+            }
+
+            PanelElementDescriptor protectionBox = PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(
+                protectionToggle, container, protectionStart, false, _ => descriptor.ForceRebuild());
+            protectionDirty.Attach(protectionToggle, protectionBox);
+            controller.DirtySections.Add(protectionDirty);
+
             // --- Avatar reduction (BSR) tuning; persisted to config.xml, re-applied live ---
             PanelSectionDirtyState reductionDirty = new PanelSectionDirtyState();
             PanelSectionToggle reductionToggle = PanelSectionToggle.CreateNewEntry(container);
@@ -1002,6 +1053,19 @@ namespace Basis.BasisUI
             return mode >= 0 && mode <= (int)BasisLocalCharacterDriver.Mode.NoClip ? mode + 1 : 0;
         }
 
+        private static string FormatProtectionValue(double value, bool wholeNumber) => wholeNumber
+            ? Math.Round(value).ToString("0", System.Globalization.CultureInfo.InvariantCulture)
+            : value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+
+        private static double ProtectionServerValue(string key)
+        {
+            foreach (BasisProtectionSettings.Info info in BasisNetworkModeration.ServerProtectionSettings)
+            {
+                if (info.Key == key) return info.Value;
+            }
+            return 0;
+        }
+
         private static PanelButton MakeApplyButton(RectTransform container, PanelSectionDirtyState dirty)
         {
             PanelButton button = PanelButton.CreateNew(container);
@@ -1197,6 +1261,7 @@ namespace Basis.BasisUI
         /// </summary>
         private sealed class AdminTabController : MonoBehaviour
         {
+            public readonly Dictionary<string, PanelTextField> ProtectionFields = new Dictionary<string, PanelTextField>();
             public PanelToggle AvatarLockToggle;
             public PanelToggle PropLockToggle;
             public PanelToggle WorldLockToggle;
@@ -1343,6 +1408,8 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnLocomotionPolicyChanged += OnLocomotionPolicyChanged;
                 BasisNetworkModeration.OnResourceLimitsChanged -= OnResourceLimitsChanged;
                 BasisNetworkModeration.OnResourceLimitsChanged += OnResourceLimitsChanged;
+                BasisNetworkModeration.OnProtectionSettingsChanged -= OnProtectionSettingsChanged;
+                BasisNetworkModeration.OnProtectionSettingsChanged += OnProtectionSettingsChanged;
                 BasisNetworkModeration.OnReductionSettingsChanged -= OnReductionSettingsChanged;
                 BasisNetworkModeration.OnReductionSettingsChanged += OnReductionSettingsChanged;
                 BasisNetworkModeration.OnImageBandwidthChanged -= OnImageBandwidthChanged;
@@ -1384,6 +1451,7 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnAvatarScaleLimitsChanged -= OnAvatarScaleLimitsChanged;
                 BasisNetworkModeration.OnLocomotionPolicyChanged -= OnLocomotionPolicyChanged;
                 BasisNetworkModeration.OnResourceLimitsChanged -= OnResourceLimitsChanged;
+                BasisNetworkModeration.OnProtectionSettingsChanged -= OnProtectionSettingsChanged;
                 BasisNetworkModeration.OnReductionSettingsChanged -= OnReductionSettingsChanged;
                 BasisNetworkModeration.OnImageBandwidthChanged -= OnImageBandwidthChanged;
                 BasisNetworkModeration.OnPeerLimitChanged -= OnPeerLimitChanged;
@@ -1420,6 +1488,7 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnAvatarScaleLimitsChanged -= OnAvatarScaleLimitsChanged;
                 BasisNetworkModeration.OnLocomotionPolicyChanged -= OnLocomotionPolicyChanged;
                 BasisNetworkModeration.OnResourceLimitsChanged -= OnResourceLimitsChanged;
+                BasisNetworkModeration.OnProtectionSettingsChanged -= OnProtectionSettingsChanged;
                 BasisNetworkModeration.OnReductionSettingsChanged -= OnReductionSettingsChanged;
                 BasisNetworkModeration.OnImageBandwidthChanged -= OnImageBandwidthChanged;
                 BasisNetworkModeration.OnPeerLimitChanged -= OnPeerLimitChanged;
@@ -1595,6 +1664,15 @@ namespace Basis.BasisUI
                 }
 
                 ApplyPolicySliderVisibility?.Invoke();
+                ReevaluateDirty();
+            }
+
+            private void OnProtectionSettingsChanged(List<BasisProtectionSettings.Info> settings)
+            {
+                foreach (BasisProtectionSettings.Info setting in settings)
+                {
+                    if (ProtectionFields.TryGetValue(setting.Key, out PanelTextField field) && field != null) field.SetValueWithoutNotify(FormatProtectionValue(setting.Value, setting.WholeNumber));
+                }
                 ReevaluateDirty();
             }
 

@@ -56,6 +56,21 @@ namespace Basis.Network.Core
             lock (_docs) _docs[type] = t;
         }
 
+        public static string GetComment(Type type, string field)
+        {
+            lock (_docs)
+            {
+                if (type != null && _docs.TryGetValue(type, out TypeDoc entry))
+                {
+                    foreach (FieldDoc f in entry.Fields)
+                    {
+                        if (f.Field == field) return f.Comment?.Trim();
+                    }
+                }
+            }
+            return null;
+        }
+
         /// <summary>Serialize <paramref name="value"/> to <paramref name="writer"/> with doc comments injected for <paramref name="type"/>.</summary>
         public static void Serialize(XmlSerializer serializer, Type type, object value, TextWriter writer)
         {
@@ -204,6 +219,26 @@ namespace Basis.Network.Core
             t.Fields.Add(new FieldDoc("MaxSceneRelayMegabitsPerSecondPerPlayer", " Most non-image scene data one player may have the server send out, in megabits per second, counted after fan-out (payload times recipients). Short bursts of up to two seconds' worth are allowed. Messages over the budget are dropped. int; default 64; 0 or negative turns it off. Raise it for worlds that sync a lot of state to large rooms. "));
             t.Fields.Add(new FieldDoc("MaxAvatarRelayMegabitsPerSecondPerPlayer", " The same budget for avatar data messages (avatar scripts talking to each other, not avatar poses). int; default 64; 0 or negative turns it off. "));
             t.Fields.Add(new FieldDoc("MaxRelayPayloadBytes", " Largest single non-image scene or avatar data message the server will relay, in bytes. Larger messages are dropped. int; default 1048576 (1 MB); 0 or negative removes the limit. "));
+            t.Fields.Add(new FieldDoc("AvatarChangesPerSecondPerPlayer", " Avatar swaps one player may broadcast per second once their burst is spent. Extra swaps are dropped. float; default 2. Set this and AvatarChangeBurstPerPlayer to 0 to remove the limit. Editable live. "));
+            t.Fields.Add(new FieldDoc("AvatarChangeBurstPerPlayer", " Avatar swaps one player may make back to back before AvatarChangesPerSecondPerPlayer applies. int; default 10. "));
+            t.Fields.Add(new FieldDoc("OwnershipRequestsPerSecondPerPlayer", " Ownership requests and transfers one player may send per second once their burst is spent. float; default 200. Set this and the burst to 0 to remove the limit. Editable live. "));
+            t.Fields.Add(new FieldDoc("OwnershipRequestBurstPerPlayer", " Ownership requests one player may send back to back, sized for worlds that claim many objects when they load. int; default 4096. "));
+            t.Fields.Add(new FieldDoc("MaxOwnershipEntries", " Most objects the server tracks ownership for at once. New objects past this are refused until some are released. Each one is sent to every player who joins. int; default 65536. Editable live. "));
+            t.Fields.Add(new FieldDoc("LoadResourcesPerSecondPerPlayer", " Prop or world load requests one player may send per second once their burst is spent. float; default 20. Set this and the burst to 0 to remove the limit. Editable live. "));
+            t.Fields.Add(new FieldDoc("LoadResourceBurstPerPlayer", " Load requests one player may send back to back. int; default 200. "));
+            t.Fields.Add(new FieldDoc("MaxResourceIdLength", " Longest id a load request may carry, in characters. Longer requests are dropped. Every loaded resource is kept in memory and sent to each joiner. int; default 256. Editable live. "));
+            t.Fields.Add(new FieldDoc("MaxResourcePasswordLength", " Longest unlock password a load request may carry, in characters. int; default 1024. Editable live. "));
+            t.Fields.Add(new FieldDoc("MaxResourceUrlLength", " Longest URL a load request may carry, in characters. int; default 4096. Editable live. "));
+            t.Fields.Add(new FieldDoc("StateChangesPerSecondPerPlayer", " Mute, talk-mode and avatar update-rate changes one player may broadcast per second, each counted separately. Every change is sent to everyone. float; default 10. Set this and the burst to 0 to remove the limit. Editable live. "));
+            t.Fields.Add(new FieldDoc("StateChangeBurstPerPlayer", " Changes of each kind one player may make back to back. int; default 30. "));
+            t.Fields.Add(new FieldDoc("CameraEventsPerSecondPerPlayer", " Camera shutter sounds and countdowns one player may broadcast per second, each counted separately. float; default 5. Set this and the burst to 0 to remove the limit. Editable live. "));
+            t.Fields.Add(new FieldDoc("CameraEventBurstPerPlayer", " Camera events of each kind one player may send back to back. int; default 15. "));
+            t.Fields.Add(new FieldDoc("CrashReportsPerSecondPerPlayer", " Error reports one player may send per second once their burst is spent. Reports over the limit are not read at all. float; default 1. Editable live. "));
+            t.Fields.Add(new FieldDoc("CrashReportBurstPerPlayer", " Error reports one player may send back to back. int; default 20. "));
+            t.Fields.Add(new FieldDoc("MaxCrashReportKilobytesPerPlayer", " Largest CrashReports file one player may grow, in kilobytes. Reports past it are not saved. int; default 1024. Editable live. "));
+            t.Fields.Add(new FieldDoc("MaxCrashReportFolderMegabytes", " Largest the whole CrashReports folder may grow, in megabytes. Reports past it are not saved until logs are deleted. int; default 256. Editable live. "));
+            t.Fields.Add(new FieldDoc("MaxCrashReportDecompressedKilobytes", " Most a single error report may expand to when unpacked, in kilobytes. Bigger reports are thrown away. int; default 32. Editable live. "));
+            t.Fields.Add(new FieldDoc("RepeatedLogIntervalSeconds", " How often a log line that a client can trigger over and over (rejected connections, bad requests) is written, in seconds. Repeats in between are counted and the count is written with the next one. int; default 5; 0 writes every line. Editable live. "));
             t.Fields.Add(new FieldDoc("MaxPendingLogins"," Logins the whole server may have in progress at once. Stops connections that never finish signing in from filling the server or its memory; players already signed in are unaffected. Loopback is not counted. int; default 512; 0 or negative removes the limit. Editable live. "));
             t.Fields.Add(new FieldDoc("EnableConsole", " Enable the interactive server console (CLI input). Set false for headless/daemon deployments. true|false. ", " ===== Console / persistence ===== "));
             t.Fields.Add(new FieldDoc("EnableAvatarBundleCompression", " Bundle per-receiver avatar messages and send them compressed (falls back to uncompressed per-message when not worthwhile); clients must support the matching decoder. true|false. ", " ===== Avatar bundle compression ===== "));

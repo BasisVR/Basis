@@ -16003,6 +16003,18 @@
       "value": "Resource Limits"
     },
     {
+      "key": "settings.admin.title.networkProtection",
+      "value": "Network Protection"
+    },
+    {
+      "key": "settings.admin.networkProtection.description",
+      "value": "Limits that protect this server from connection floods and abuse. Changes apply right away and are saved to the server config."
+    },
+    {
+      "key": "settings.admin.networkProtection.empty",
+      "value": "Join this server with config editor permission to see these settings."
+    },
+    {
       "value": "Max Database Entries"
     },
     {

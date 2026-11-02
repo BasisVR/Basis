@@ -486,6 +486,10 @@ public static partial class BasisNetworkModeration
                 HandleResourceLimits(reader);
                 break;
 
+            case AdminRequestMode.GlobalGetProtectionSettings:
+                HandleProtectionSettings(reader);
+                break;
+
             case AdminRequestMode.GlobalGetImageBandwidth:
                 HandleImageBandwidth(reader);
                 break;
@@ -1990,6 +1994,24 @@ public static partial class BasisNetworkModeration
 
     /// <summary>Fired when the server pushes new resource limits (spheres/player).</summary>
     public static event Action<int> OnResourceLimitsChanged;
+
+    public static List<BasisProtectionSettings.Info> ServerProtectionSettings { get; private set; } = new List<BasisProtectionSettings.Info>();
+    public static event Action<List<BasisProtectionSettings.Info>> OnProtectionSettingsChanged;
+
+    private static void HandleProtectionSettings(NetDataReader reader)
+    {
+        if (!BasisProtectionSettings.TryRead(reader, out List<BasisProtectionSettings.Info> infos)) return;
+        ServerProtectionSettings = infos;
+        OnProtectionSettingsChanged?.Invoke(infos);
+    }
+
+    public static void RequestProtectionSettings() => SendAdminRequest(AdminRequestMode.GetProtectionSettings);
+
+    public static void SetProtectionSettings(List<KeyValuePair<string, double>> changes)
+    {
+        if (changes == null || changes.Count == 0) return;
+        SendAdminRequest(AdminRequestMode.SetProtectionSettings, w => BasisProtectionSettings.WriteChanges(w, changes));
+    }
 
     private static void HandleResourceLimits(NetDataReader reader)
     {
