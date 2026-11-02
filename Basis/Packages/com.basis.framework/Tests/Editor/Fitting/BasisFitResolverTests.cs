@@ -125,6 +125,8 @@ namespace Basis.Tests.Fitting
             Assert.That(BasisCalibrationMath.SizingEyeHeight(2.118f, 1.479f, false, 0f), Is.EqualTo(2.118f), "without a measured reach there is nothing better to size from");
             Assert.That(BasisCalibrationMath.SizingEyeHeight(1.75f, 1.0f, true, 0f), Is.EqualTo(1.75f), "a believable eye height is never shrunk to match a short reach, which may just be bent arms");
             Assert.That(BasisCalibrationMath.SizingEyeHeight(1.95f, 1.85f, true, 0f), Is.EqualTo(1.95f), "a tall player whose reach agrees is left alone");
+            Assert.That(BasisCalibrationMath.SizingEyeHeight(1.70f, 1.5f, true, 1.62f), Is.EqualTo(1.62f), "a stated height sizes the player even when the headset reading is believable");
+            Assert.That(BasisCalibrationMath.SizingEyeHeight(1.55f, 1.5f, true, 1.62f), Is.EqualTo(1.62f), "a stated height also wins over a reading that came out short");
         }
         [Test]
         public void ALowVrFloorStillLandsTheEyeAndPutsTheFloorBack([Values(BasisSelectedHeightMode.EyeHeight, BasisSelectedHeightMode.BestFit, BasisSelectedHeightMode.ArmSpan)] BasisSelectedHeightMode mode, [Values(1f, 1.4f)] float k)

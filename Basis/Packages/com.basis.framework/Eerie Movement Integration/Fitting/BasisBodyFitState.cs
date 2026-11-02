@@ -157,8 +157,8 @@ public static class BasisBodyFitSummary
         var facts = new Facts
         {
             BodyHeight = BasisCalibrationMath.ImpliedHeightFromEye(BasisHeightDriver.SizingEyeHeight),
-            FloorShift = Mathf.Max(0f, BasisHeightDriver.PlayerEyeHeight - BasisHeightDriver.SizingEyeHeight),
-            HeightSource = BasisHeightDriver.EyeHeightSource,
+            FloorShift = BasisHeightDriver.EyeHeightLooksFloorShifted ? BasisHeightDriver.PlayerEyeHeight - BasisHeightDriver.SizingEyeHeight : 0f,
+            HeightSource = BasisHeightDriver.SizingEyeSource,
             Reach = BasisHeightDriver.PlayerArmSpan,
             DifferentPersonSuspected = BasisBodyEvidenceSampler.LooksLikeADifferentPerson(),
         };

@@ -878,7 +878,7 @@ public static partial class SettingsProviderIK
 
     private static string GetDebugMetric(string label) => label switch
     {
-        "Player Eye Height" => BasisHeightDriver.EyeHeightLooksFloorShifted ? $"{BasisHeightDriver.PlayerEyeHeight:F4} m (sized as {BasisHeightDriver.SizingEyeHeight:F4} m)" : $"{BasisHeightDriver.PlayerEyeHeight:F4} m",
+        "Player Eye Height" => !Mathf.Approximately(BasisHeightDriver.SizingEyeHeight, BasisHeightDriver.PlayerEyeHeight) ? $"{BasisHeightDriver.PlayerEyeHeight:F4} m (sized as {BasisHeightDriver.SizingEyeHeight:F4} m)" : $"{BasisHeightDriver.PlayerEyeHeight:F4} m",
         "Player Arm Span" => $"{BasisHeightDriver.PlayerArmSpan:F4} m",
         "Avatar Eye Height" => $"{BasisHeightDriver.AvatarEyeHeight:F4} m",
         "Avatar Arm Span" => $"{BasisHeightDriver.AvatarArmSpan:F4} m",

@@ -43,7 +43,7 @@ public partial class SMModuleCalibration : BasisSettingsBase
     private static string K_ARM_TO_HEIGHT_BLEND => BasisSettingsDefaults.ArmToHeightBlend.BindingKey;              // "armtoheightblend"
     private static string K_FBIK_BODY_FIT => BasisSettingsDefaults.FBIKBodyFit.BindingKey;                         // "fbikbodyfit"
     private static string K_FBIK_BODY_FIT_MAX_DEVIATION => BasisSettingsDefaults.FBIKBodyFitMaxDeviation.BindingKey; // "fbikbodyfitmaxdeviation"
-    private static string K_ARM_SPAN_ESTIMATE_RATIO => BasisSettingsDefaults.FBIKArmHeightRatio.BindingKey;       // "fbikarmheightratio_v3"
+    private static string K_ARM_SPAN_ESTIMATE_RATIO => BasisSettingsDefaults.FBIKArmHeightRatio.BindingKey;       // "fbikarmheightratio_v4"
 
     // One Euro globals
     private static string K_FBIK_MINCUTOFF => BasisSettingsDefaults.FBIKMinCutoff.BindingKey;                 // "fbikmincutoff"

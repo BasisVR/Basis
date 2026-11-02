@@ -103,10 +103,15 @@ public static partial class BasisHeightDriver
 
     public static float DeviceScale = 1f;
     public static float HeightModeGroundingOffset = 0f;
-    // The arm span is derived from the eye height, so it cannot testify against it: only a stated
-    // height can stand in for a lift-poisoned eye.
+    // The scale is sized from the stated height when one is set; PlayerEyeHeight stays the measured
+    // headset height so grounding still lands the view on the avatar's eyes. The arm span is derived
+    // from the eye height, so it cannot testify against it: only a stated height can stand in for a
+    // lift-poisoned eye.
     public static float SizingEyeHeight => BasisCalibrationMath.SizingEyeHeight(PlayerEyeHeight, PlayerArmSpan, spanGenuine: false, BasisStatedHeight.ImpliedEyeHeight);
-    public static bool EyeHeightLooksFloorShifted => SizingEyeHeight < PlayerEyeHeight;
+    public static BasisBodyMeasurementSource SizingEyeSource => BasisStatedHeight.IsSet ? BasisBodyMeasurementSource.Stated : EyeHeightSource;
+    // Only a reading taller than any standing player means the VR floor is off; a stated height that
+    // merely disagrees with the headset by a few centimetres does not.
+    public static bool EyeHeightLooksFloorShifted => BasisCalibrationMath.EyeHeightLooksLiftPoisoned(PlayerEyeHeight) && SizingEyeHeight < PlayerEyeHeight;
     public static float EffectiveAvatarArmSpan
     {
         get
@@ -726,7 +731,7 @@ public static partial class BasisHeightDriver
             BasisDebug.Log($"Scale fit {state.BestFit.Status} from {state.BestFit.UsedCount} measurement(s): scale {state.BestFit.Scale:F4} | leftover for the stretcher — eye {state.BestFit.EyeResidual:F3} arm {state.BestFit.ArmResidual:F3}", BasisDebug.LogTag.Avatar);
         }
         float sizingEye = SizingEyeHeight;
-        if (sizingEye < PlayerEyeHeight && !Mathf.Approximately(sizingEye, s_lastLoggedSizingEye))
+        if (EyeHeightLooksFloorShifted && !Mathf.Approximately(sizingEye, s_lastLoggedSizingEye))
         {
             s_lastLoggedSizingEye = sizingEye;
             BasisDebug.LogWarning($"Your eye height reads {PlayerEyeHeight:F3} m, taller than anyone standing, so the VR floor is likely {PlayerEyeHeight - sizingEye:F2} m too low. Sizing you from your {(BasisStatedHeight.IsSet ? "stated height" : "arm span")} as a {sizingEye:F3} m eye height and lowering the play space to match.", BasisDebug.LogTag.Avatar);

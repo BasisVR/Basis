@@ -1912,8 +1912,8 @@ namespace Basis.BasisUI
 
         // The player's arm span is always estimated as eye height * this ratio; it is never measured,
         // since a T-pose reading depends on straight, level arms that nothing can verify without elbow
-        // trackers. Ratio is hand-to-hand span / eye height (~0.92). Key bumped so the new default applies.
-        public static BasisSettingsBinding<float> FBIKArmHeightRatio = new("fbikarmheightratio_v3", new BasisPlatformDefault<float>(BasisCalibrationMath.SpanToHeightRatio / BasisCalibrationMath.EyeToHeightRatio));
+        // trackers. Ratio is hand-to-hand span / eye height.
+        public static BasisSettingsBinding<float> FBIKArmHeightRatio = new("fbikarmheightratio_v4", new BasisPlatformDefault<float>(0.90f));
 
         // Desktop only. The head pitches about the base of the neck, so looking down carries the eye FORWARD --
         // the swing an HMD makes for free, which desktop used to pin away. Strength 1 = the avatar's own
