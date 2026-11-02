@@ -47,13 +47,22 @@ namespace Basis.Scripts.UI.NamePlate
                 indexScratch.Add(i);
                 visibleOut.Add(false);
             }
-            indexScratch.Sort((a, b) => distancesSq[a].CompareTo(distancesSq[b]));
+            DistanceOrder.Distances = distancesSq;
+            indexScratch.Sort(DistanceOrder);
+            DistanceOrder.Distances = null;
             for (int i = 0; i < cap; i++)
             {
                 visibleOut[indexScratch[i]] = true;
             }
             return cap;
         }
+
+        private sealed class DistanceComparer : IComparer<int>
+        {
+            public List<float> Distances;
+            public int Compare(int a, int b) => Distances[a].CompareTo(Distances[b]);
+        }
+        private static readonly DistanceComparer DistanceOrder = new DistanceComparer();
 
         /// <summary>
         /// Quantizes a 0–100 progress value into buckets of <paramref name="stepPercent"/> so

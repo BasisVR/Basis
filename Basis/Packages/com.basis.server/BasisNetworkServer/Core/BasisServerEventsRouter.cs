@@ -7,7 +7,7 @@ namespace BasisNetworkServer
 {
     public static class BasisServerEventsRouter
     {
-        private static readonly BasisPeerRateLimiter ShutterLimiter = new BasisPeerRateLimiter(5f, 15f), CountdownLimiter = new BasisPeerRateLimiter(2f, 6f), RateChangeLimiter = new BasisPeerRateLimiter(5f, 20f), TalkModeLimiter = new BasisPeerRateLimiter(5f, 20f), MuteLimiter = new BasisPeerRateLimiter(10f, 30f);
+        private static readonly BasisPeerRateLimiter ShutterLimiter = new BasisPeerRateLimiter(() => NetworkServer.Configuration?.CameraEventsPerSecondPerPlayer ?? 5f, () => NetworkServer.Configuration?.CameraEventBurstPerPlayer ?? 15f), CountdownLimiter = new BasisPeerRateLimiter(() => NetworkServer.Configuration?.CameraEventsPerSecondPerPlayer ?? 5f, () => NetworkServer.Configuration?.CameraEventBurstPerPlayer ?? 15f), RateChangeLimiter = new BasisPeerRateLimiter(() => NetworkServer.Configuration?.StateChangesPerSecondPerPlayer ?? 10f, () => NetworkServer.Configuration?.StateChangeBurstPerPlayer ?? 30f), TalkModeLimiter = new BasisPeerRateLimiter(() => NetworkServer.Configuration?.StateChangesPerSecondPerPlayer ?? 10f, () => NetworkServer.Configuration?.StateChangeBurstPerPlayer ?? 30f), MuteLimiter = new BasisPeerRateLimiter(() => NetworkServer.Configuration?.StateChangesPerSecondPerPlayer ?? 10f, () => NetworkServer.Configuration?.StateChangeBurstPerPlayer ?? 30f);
         public static void HandleEvent(NetPacketReader reader, NetPeer peer)
         {
             byte eventType = reader.GetByte();

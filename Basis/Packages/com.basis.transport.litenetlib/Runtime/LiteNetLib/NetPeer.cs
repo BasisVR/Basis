@@ -190,6 +190,15 @@ namespace LiteNetLib
         private readonly Dictionary<ushort, IncomingFragments> _holdedFragments;
         private readonly Dictionary<ushort, ushort> _deliveredFragments;
         private long _heldFragmentBytes;
+        private long _channelQueuedBytes;
+        private volatile bool _channelQueueExceeded;
+        public long ChannelQueuedBytes => Interlocked.Read(ref _channelQueuedBytes);
+        internal void NoteChannelQueued(int delta)
+        {
+            long queued = Interlocked.Add(ref _channelQueuedBytes, delta);
+            long max = NetManager.MaxQueuedChannelBytesPerPeer;
+            if (delta > 0 && max > 0 && queued > max) _channelQueueExceeded = true;
+        }
         private volatile bool _fragmentBudgetExceeded;
 
         /// <summary>
@@ -229,7 +238,7 @@ namespace LiteNetLib
         private float _shutdownElapsed;
         private readonly NetPacket _pingPacket;
         private readonly NetPacket _pongPacket;
-        private readonly NetPacket _connectRequestPacket;
+        private NetPacket _connectRequestPacket;
         private readonly NetPacket _connectAcceptPacket;
 
         /// <summary>
@@ -695,6 +704,19 @@ namespace LiteNetLib
             _connectTime = requestData.ConnectionTime;
             _connectNum = requestData.ConnectionNumber;
             Shutdown(data, start, length, false);
+        }
+
+        internal void ProcessConnectCookie(NetPacket packet)
+        {
+            if (_connectionState != ConnectionState.Outgoing || _connectRequestPacket == null || packet.Size < NetConstants.HeaderSize + 8 + NetConnectRequestPacket.CookieSize)
+                return;
+            if (FastBitConverter.Read<long>(packet.RawData, NetConstants.HeaderSize) != _connectTime)
+                return;
+            NetPacket withCookie = NetConnectRequestPacket.WithCookie(_connectRequestPacket, packet.RawData, NetConstants.HeaderSize + 8);
+            withCookie.ConnectionNumber = _connectRequestPacket.ConnectionNumber;
+            _connectRequestPacket = withCookie;
+            _connectTimer = 0;
+            NetManager.SendRaw(_connectRequestPacket, this);
         }
 
         internal bool ProcessConnectAccept(NetConnectAcceptPacket packet)
@@ -1942,6 +1964,12 @@ namespace LiteNetLib
             switch (_connectionState)
             {
                 case ConnectionState.Connected:
+                    if (_channelQueueExceeded)
+                    {
+                        _channelQueueExceeded = false;
+                        NetManager.DisconnectPeerForce(this, DisconnectReason.Timeout, 0, null);
+                        return;
+                    }
                     if (_fragmentBudgetExceeded)
                     {
                         _fragmentBudgetExceeded = false;

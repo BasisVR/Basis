@@ -13,8 +13,9 @@ namespace Basis.Network.Server.Ownership
         public static ConcurrentDictionary<string, ushort> ownershipByObjectId = new ConcurrentDictionary<string, ushort>();
 
         public static readonly object LockObject = new object();  // For synchronized multi-step operations
-        public const int MaxOwnershipEntries = 65536;
-        private static readonly BasisPeerRateLimiter RequestLimiter = new BasisPeerRateLimiter(200f, 4096f);
+        public const int JoinReplayBatchBytes = 1100;
+        private static int MaxOwnershipEntries => NetworkServer.Configuration?.MaxOwnershipEntries ?? 65536;
+        private static readonly BasisPeerRateLimiter RequestLimiter = new BasisPeerRateLimiter(() => NetworkServer.Configuration?.OwnershipRequestsPerSecondPerPlayer ?? 200f, () => NetworkServer.Configuration?.OwnershipRequestBurstPerPlayer ?? 4096f);
         public static void SendOutOwnershipInformation(NetPeer Peer)
         {
             NetDataWriter Writer = NetworkServer.RentWriter();
@@ -26,8 +27,15 @@ namespace Basis.Network.Server.Ownership
                     ownershipTransferMessage.playerIdMessage.playerID = Ownership.Value;
                     ownershipTransferMessage.ownershipID = Ownership.Key;
                     ownershipTransferMessage.Serialize(Writer);
+                    if (Writer.Length >= JoinReplayBatchBytes)
+                    {
+                        NetworkServer.TrySend(Peer, Writer, BasisNetworkCommons.ChangeCurrentOwnerRequestChannel, DeliveryMethod.ReliableOrdered);
+                        Writer.Reset();
+                    }
+                }
+                if (Writer.Length > 0)
+                {
                     NetworkServer.TrySend(Peer, Writer, BasisNetworkCommons.ChangeCurrentOwnerRequestChannel, DeliveryMethod.ReliableOrdered);
-                    Writer.Reset();
                 }
             }
             NetworkServer.ReturnWriter(Writer);
@@ -166,7 +174,7 @@ namespace Basis.Network.Server.Ownership
         /// </summary>
         public static bool AddOwnership(string objectId, ushort ownerId)
         {
-            if (ownershipByObjectId.Count >= MaxOwnershipEntries)
+            if (MaxOwnershipEntries > 0 && ownershipByObjectId.Count >= MaxOwnershipEntries)
             {
                 BNLThrottle.LogWarning("ownership.full", $"Ownership table is full ({MaxOwnershipEntries} objects); refusing new object {objectId}.");
                 return false;

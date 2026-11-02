@@ -37,9 +37,10 @@ namespace BasisNetworkServer
         private static readonly ConcurrentDictionary<string, HashSet<long>> SeenPerUser =
             new ConcurrentDictionary<string, HashSet<long>>();
         private static readonly object FileLock = new object();
-        private static readonly BasisPeerRateLimiter ReportLimiter = new BasisPeerRateLimiter(1f, 20f);
-        public const int MaxDecompressedReportBytes = 32 * 1024;
-        public const long MaxBytesPerUserFile = 1024 * 1024, MaxCrashReportFolderBytes = 256L * 1024 * 1024;
+        private static readonly BasisPeerRateLimiter ReportLimiter = new BasisPeerRateLimiter(() => NetworkServer.Configuration?.CrashReportsPerSecondPerPlayer ?? 1f, () => NetworkServer.Configuration?.CrashReportBurstPerPlayer ?? 20f);
+        private static int MaxDecompressedReportBytes => Math.Max(1, NetworkServer.Configuration?.MaxCrashReportDecompressedKilobytes ?? 32) * 1024;
+        private static long MaxBytesPerUserFile => Math.Max(1L, NetworkServer.Configuration?.MaxCrashReportKilobytesPerPlayer ?? 1024) * 1024L;
+        private static long MaxCrashReportFolderBytes => Math.Max(1L, NetworkServer.Configuration?.MaxCrashReportFolderMegabytes ?? 256) * 1024L * 1024L;
         private static long folderBytes = -1;
 
         public static void ClearAllSeen()

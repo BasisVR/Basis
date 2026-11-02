@@ -12,7 +12,7 @@ namespace Basis.Network.Core
         public const int MaxTrackedAddresses = 65536;
         private readonly Dictionary<ulong, Bucket> addresses = new Dictionary<ulong, Bucket>();
         private readonly List<ulong> refilled = new List<ulong>();
-        private readonly double perTick, burst;
+        private double perTick, burst;
         private long admitted, dropped;
         public bool ExemptLoopback = true;
         public long Admitted => Interlocked.Read(ref admitted);
@@ -26,8 +26,15 @@ namespace Basis.Network.Core
         }
         public BasisConnectAttemptGate(double perSecond, int burst)
         {
-            perTick = Math.Max(0.000001, perSecond) / Stopwatch.Frequency;
-            this.burst = Math.Max(1, burst);
+            Configure(perSecond, burst);
+        }
+        public void Configure(double perSecond, int burst)
+        {
+            lock (addresses)
+            {
+                perTick = Math.Max(0.000001, perSecond) / Stopwatch.Frequency;
+                this.burst = Math.Max(1, burst);
+            }
         }
         public bool TryAdmit(IPEndPoint endPoint) => endPoint == null || TryAdmit(endPoint.Address, Stopwatch.GetTimestamp());
         public bool TryAdmit(IPAddress address, long now)

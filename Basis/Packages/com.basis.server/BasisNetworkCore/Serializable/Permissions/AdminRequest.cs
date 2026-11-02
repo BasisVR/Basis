@@ -313,6 +313,9 @@ namespace BasisNetworkCore.Serializable
             MuteStateResult, // server→moderator: answer to GetMuteState, also echoed after SetVoiceMute/SetTextMute. Payload: [string uuid][bool voiceMuted][bool textMuted]
             GlobalToggleContentRemoval,
             GlobalToggleExternalLinks,
+            GetProtectionSettings, // config editor → server: send the current network protection settings back. No payload.
+            GlobalGetProtectionSettings, // server → config editor: every registered protection setting. Payload: BasisProtectionSettings.Write
+            SetProtectionSettings, // config editor → server: change some of them, persisted and applied live. Payload: [ushort count]{[string key][double value]}
         }
 
         /// <summary>

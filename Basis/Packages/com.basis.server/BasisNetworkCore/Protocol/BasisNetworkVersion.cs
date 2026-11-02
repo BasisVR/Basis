@@ -16,7 +16,10 @@ namespace Basis.Network.Core
         // X25519 key before the ReadyMessage, the challenge adds the server's X25519 key and
         // ServerUUID, the signature covers BasisDidLoginTranscript, and client-to-server user data
         // is sealed with the derived key (wire-format change).
-        public static ushort ServerVersion = 56;
+        // 57: the ownership list a joining player receives is batched, several entries per packet
+        // on ChangeCurrentOwnerRequestChannel instead of one; clients read entries until the packet
+        // is empty (wire-format change).
+        public static ushort ServerVersion = 57;
         public static ushort LegacyLoginVersion = 55;
     }
 }

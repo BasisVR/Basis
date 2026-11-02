@@ -574,6 +574,16 @@ namespace BasisNetworkServer.Security
                         HandleResourceLimitsSet(peer, reader));
                     break;
 
+                case AdminRequestMode.GetProtectionSettings:
+                    Require(peer, PermNodes.ConfigurationEditor, () =>
+                        SendProtectionSettings(peer));
+                    break;
+
+                case AdminRequestMode.SetProtectionSettings:
+                    Require(peer, PermNodes.ConfigurationEditor, () =>
+                        HandleProtectionSettingsSet(peer, reader));
+                    break;
+
                 case AdminRequestMode.SetGlobalReductionSettings:
                     Require(peer, PermNodes.ModerationGlobalLock, () =>
                         HandleReductionSettingsSet(peer, reader));
@@ -1328,6 +1338,55 @@ namespace BasisNetworkServer.Security
             SendBackMessage(peer, BasisLocomotionPolicyManager.Fields == 0
                 ? "Locomotion policy cleared; players keep their own movement values."
                 : $"Locomotion policy set for the instance (fields {BasisLocomotionPolicyManager.Fields}); it applies to everyone here and to every player who joins.");
+        }
+
+        public static void SendProtectionSettings(NetPeer peer)
+        {
+            NetDataWriter writer = NetworkServer.RentWriter();
+            try
+            {
+                new AdminRequest().Serialize(writer, AdminRequestMode.GlobalGetProtectionSettings);
+                BasisProtectionSettings.Write(writer);
+                NetworkServer.TrySend(peer, writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
+            }
+            finally
+            {
+                NetworkServer.ReturnWriter(writer);
+            }
+        }
+
+        public static void SendProtectionSettingsIfEditor(NetPeer peer)
+        {
+            if (PermissionIntegration.HasValidRequirement(peer, PermNodes.ConfigurationEditor)) SendProtectionSettings(peer);
+        }
+
+        private static void HandleProtectionSettingsSet(NetPeer peer, NetPacketReader reader)
+        {
+            if (!BasisProtectionSettings.TryReadChanges(reader, out List<KeyValuePair<string, double>> changes))
+            {
+                SendBackMessage(peer, "Protection settings were not changed: the request was malformed.");
+                return;
+            }
+            List<string> applied = new List<string>(), unknown = new List<string>();
+            foreach (KeyValuePair<string, double> change in changes)
+            {
+                if (BasisProtectionSettings.TrySet(change.Key, change.Value, out double value)) applied.Add($"{change.Key} = {value.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+                else unknown.Add(change.Key);
+            }
+            if (applied.Count > 0)
+            {
+                SaveConfig();
+                NetworkServer.ApplyLiveConfiguration();
+                BasisProtectionSettings.RaiseChanged();
+                BNL.Log($"Admin (peer {peer.Id}) changed protection settings: {string.Join(", ", applied)}");
+            }
+            foreach (NetPeer editor in NetworkServer.PeerSnapshot ?? Array.Empty<NetPeer>())
+            {
+                if (editor != null) SendProtectionSettingsIfEditor(editor);
+            }
+            SendBackMessage(peer, unknown.Count == 0
+                ? $"Protection settings saved ({applied.Count} changed)."
+                : $"Protection settings saved ({applied.Count} changed); not recognised: {string.Join(", ", unknown)}.");
         }
 
         private static void HandleResourceLimitsSet(NetPeer peer, NetPacketReader reader)

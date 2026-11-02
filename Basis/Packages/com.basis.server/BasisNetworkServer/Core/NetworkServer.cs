@@ -124,6 +124,8 @@ public static class NetworkServer
         BasisNetworkServer.Security.BasisAvatarScaleLimitManager.InitializeFromConfig(configuration);
         BasisNetworkServer.Security.BasisLocomotionPolicyManager.InitializeFromConfig(configuration);
         BasisNetworkServer.Security.BasisResourceLimitManager.InitializeFromConfig(configuration);
+        BasisNetworkServer.Security.BasisServerProtectionSettings.RegisterAll();
+        BasisNetworkServer.Security.BasisServerProtectionSettings.ApplyLive(configuration);
         if (!SetupServer(configuration)) return false;
         BasisNetworkServer.Storage.BasisServerStorage.Start(configuration);
         SubscribeEvents(Configuration);
@@ -260,6 +262,8 @@ public static class NetworkServer
         BasisNetworkServer.Security.BasisLocomotionPolicyManager.InitializeFromConfig(Configuration);
         BasisNetworkServer.Security.BasisResourceLimitManager.InitializeFromConfig(Configuration);
         BasisNetworkServer.Storage.BasisServerStorage.ApplyConfiguration(Configuration);
+        BasisNetworkServer.Security.BasisServerProtectionSettings.RegisterAll();
+        BasisNetworkServer.Security.BasisServerProtectionSettings.ApplyLive(Configuration);
 
         if (Server == null) return;
 

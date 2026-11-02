@@ -204,7 +204,8 @@ namespace HVR.Vixxy
                     if (aggregator.TryAggregate(out var newAggregators, out var newActuators))
                     {
                         _aggregatorsToUpdateThisTick.UnionWith(newAggregators);
-                        _actuatorsToUpdateThisTick.UnionWith(newActuators);
+                        if (newActuators is HashSet<IHVRVixxyActuator> actuatorSet) { foreach (var item in actuatorSet) _actuatorsToUpdateThisTick.Add(item); }
+                        else _actuatorsToUpdateThisTick.UnionWith(newActuators);
                     }
                 }
             }
