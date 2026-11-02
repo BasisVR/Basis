@@ -50,7 +50,7 @@ public static partial class BasisHeightDriver
     public static float EstimatedPlayerArmSpan()
     {
         float eye = BasisStatedHeight.IsSet ? BasisStatedHeight.ImpliedEyeHeight : SanitizePositive(PlayerEyeHeight, FallbackHeightInMeters);
-        return eye * Mathf.Max(0.1f, BasisSettingsDefaults.FBIKArmHeightRatio.RawValue);
+        return BasisCalibrationMath.SpanFromArmRatio(eye, BasisSettingsDefaults.ArmRatio.RawValue);
     }
 
     private static void ApplyEstimatedArmSpan()
@@ -681,11 +681,12 @@ public static partial class BasisHeightDriver
             return BasisSelectedHeightMode.EyeHeight;
         }
         // Without hips or leg trackers nothing below the head is tracked, so the avatar's lower body is
-        // posed rather than matched to the player: fitting the arms exactly is worth more than matching
-        // eye height. With them, the body has to line up, so eye height leads (BestFit).
+        // posed rather than matched to the player: fitting the arms is worth more than matching eye
+        // height. With them, the body has to line up, so size by eye height.
+        // for full body. BestFit is still available as its own mode.
         bool hasLowerBodyTrackers = Basis.Scripts.Avatar.BasisAvatarIKStageCalibration.HasHipsFBIKTracker
             || Basis.Scripts.Avatar.BasisAvatarIKStageCalibration.HasLegFBIKTrackers;
-        BasisSelectedHeightMode resolved = hasLowerBodyTrackers ? BasisSelectedHeightMode.BestFit : BasisSelectedHeightMode.ArmSpan;
+        BasisSelectedHeightMode resolved = hasLowerBodyTrackers ? BasisSelectedHeightMode.EyeHeight : BasisSelectedHeightMode.ArmSpan;
         if (s_lastAutoResolvedMode != resolved)
         {
             s_lastAutoResolvedMode = resolved;

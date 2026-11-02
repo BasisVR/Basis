@@ -117,6 +117,45 @@ namespace Basis.BasisUI
             seatedModeDropdown.AssignBinding(BasisSettingsDefaults.SitStand);
             NarrowDropdownForPanel(seatedModeDropdown);
 
+            // How the avatar is sized against the player, by eye height or by arms, with
+            // the arm ratio right under it. Auto picks arms in 3-point and eye height in full body.
+            var scalingModeDropdown = PanelDropdown.CreateNewEntry(container);
+            scalingModeDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.ikMode"));
+            scalingModeDropdown.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.ikMode.tooltip"));
+            scalingModeDropdown.AssignLocalizedEntries(
+                new List<string> { "Auto", "Eye Height", "Arm Distance", "Best Fit" },
+                new List<string> { "settings.bodyTracking.ikMode.auto", "settings.bodyTracking.ikMode.eyeHeight", "settings.bodyTracking.ikMode.armDistance", "settings.bodyTracking.ikMode.bestFit" },
+                new List<string> { "settings.bodyTracking.ikMode.auto.tooltip", "settings.bodyTracking.ikMode.eyeHeight.tooltip", "settings.bodyTracking.ikMode.armDistance.tooltip", "settings.bodyTracking.ikMode.bestFit.tooltip" });
+            scalingModeDropdown.AssignBinding(BasisSettingsDefaults.IKMode);
+            NarrowDropdownForPanel(scalingModeDropdown);
+
+            PanelSlider armRatioSlider = SettingsProviderIK.CreateArmRatioSlider(container);
+
+            // The mode is moot in seated mode (a fixed height is used) and while the arm-to-height blend
+            // replaces it. The arm ratio only matters when arms take part in the sizing, so it hides
+            // when Eye Height alone is chosen.
+            void UpdateScalingControls()
+            {
+                bool isSeated = seatedModeDropdown.Value == SettingsProviderIK.SeatedMode_Seated;
+                bool blendActive = BasisSettingsDefaults.EnableArmToHeightBlend.RawValue;
+                scalingModeDropdown.SetInteractable(!isSeated && !blendActive,
+                    isSeated ? BasisLocalization.Get("settings.bodyTracking.ikMode.disabledSeated")
+                    : blendActive ? BasisLocalization.Get("settings.bodyTracking.ikMode.disabledArmToHeight") : null);
+                if (armRatioSlider != null)
+                {
+                    bool eyeHeightOnly = !blendActive && string.Equals(scalingModeDropdown.Value, "eye height", StringComparison.OrdinalIgnoreCase);
+                    armRatioSlider.gameObject.SetActive(!eyeHeightOnly);
+                }
+            }
+            void UpdateScalingControlsAndLayout()
+            {
+                UpdateScalingControls();
+                layout.ForceRebuild();
+            }
+            seatedModeDropdown.OnValueChanged += _ => UpdateScalingControlsAndLayout();
+            scalingModeDropdown.OnValueChanged += _ => UpdateScalingControlsAndLayout();
+            UpdateScalingControls();
+
             // Avatar scale
             var customScaleToggle = PanelToggle.CreateNewEntry(container);
             customScaleToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.customScale"));
@@ -148,7 +187,7 @@ namespace Basis.BasisUI
             PanelSectionToggleHelpers.CreateCollapsibleFlatSection(
                 container,
                 BasisLocalization.Get("ui.advanced"),
-                () => armToHeightSlider = BuildAdvancedSection(container, layout, seatedModeDropdown),
+                () => armToHeightSlider = BuildAdvancedSection(container, layout, UpdateScalingControls),
                 false,
                 visible =>
                 {
@@ -162,7 +201,7 @@ namespace Basis.BasisUI
                 });
         }
 
-        private PanelSlider BuildAdvancedSection(RectTransform container, PanelElementDescriptor layout, PanelDropdown seatedModeDropdown)
+        private PanelSlider BuildAdvancedSection(RectTransform container, PanelElementDescriptor layout, Action onBlendToggled)
         {
             // Calibration quality report — filled in after a calibration completes.
             _reportGroup = null;
@@ -180,14 +219,6 @@ namespace Basis.BasisUI
             heightField.Descriptor.SetTooltip(BasisLocalization.Get("settings.calibration.yourHeight.tooltip"));
             heightField.SetValueWithoutNotify(BasisStatedHeight.FormatCompact(BasisStatedHeight.Meters));
             heightField.OnValueChanged += text => OnStatedHeightEntered(heightField, text);
-
-            var scalingModeDropdown = PanelDropdown.CreateNewEntry(container);
-            scalingModeDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.ikMode"));
-            scalingModeDropdown.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.ikMode.tooltip"));
-            scalingModeDropdown.AssignLocalizedEntries(
-                new List<string> { "Auto", "Eye Height", "Arm Distance" },
-                new List<string> { "settings.bodyTracking.ikMode.auto", "settings.bodyTracking.ikMode.eyeHeight", "settings.bodyTracking.ikMode.armDistance" });
-            scalingModeDropdown.AssignBinding(BasisSettingsDefaults.IKMode);
 
             // Keep observing the player's real size while they play instead of trusting the pose they
             // happened to be in when an avatar loaded (VR only; see BasisBodyEvidenceSampler).
@@ -217,22 +248,6 @@ namespace Basis.BasisUI
                     false, 2, ValueDisplayMode.percentageFromZero),
                 BasisSettingsDefaults.ArmToHeightBlend);
 
-            // Slim calibration panel: inset each dropdown control's left edge so its label isn't squished.
-            NarrowDropdownForPanel(scalingModeDropdown);
-
-            // Avatar Scaling Mode is moot in seated mode (a fixed height is used) and while the
-            // Arm To Height Ratio blend replaces it, so disable it there.
-            void UpdateScalingModeInteractable()
-            {
-                bool isSeated = seatedModeDropdown.Value == SettingsProviderIK.SeatedMode_Seated;
-                bool blendActive = BasisSettingsDefaults.EnableArmToHeightBlend.RawValue;
-                scalingModeDropdown.SetInteractable(!isSeated && !blendActive,
-                    isSeated ? BasisLocalization.Get("settings.bodyTracking.ikMode.disabledSeated")
-                    : blendActive ? BasisLocalization.Get("settings.bodyTracking.ikMode.disabledArmToHeight") : null);
-            }
-            seatedModeDropdown.OnValueChanged += _ => UpdateScalingModeInteractable();
-            UpdateScalingModeInteractable();
-
             if (armToHeightSlider != null)
             {
                 armToHeightSlider.Descriptor.SetTooltip(BasisLocalization.Get("settings.calibration.armToHeightRatio.slider.tooltip"));
@@ -244,7 +259,7 @@ namespace Basis.BasisUI
                 {
                     armToHeightSlider.gameObject.SetActive(enabled);
                 }
-                UpdateScalingModeInteractable();
+                onBlendToggled?.Invoke();
                 layout.ForceRebuild();
             };
 

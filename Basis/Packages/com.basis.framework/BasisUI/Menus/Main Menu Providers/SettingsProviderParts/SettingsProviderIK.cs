@@ -382,14 +382,7 @@ public static partial class SettingsProviderIK
                 maxDeviation.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.bodyFit.maxDeviation.tooltip"));
             }
 
-            var armHeightRatioSlider = PanelSlider.CreateAndBind(
-                fitParent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.armHeightRatio.title"), 0.6f, 1.5f, false, 2, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.FBIKArmHeightRatio);
-            if (armHeightRatioSlider != null)
-            {
-                armHeightRatioSlider.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.armHeightRatio.title.tooltip"));
-            }
+            CreateArmRatioSlider(fitParent);
         });
 
         // ============== Desktop head carry ==============
@@ -748,6 +741,25 @@ public static partial class SettingsProviderIK
         return tabPage;
     }
 
+    /// <summary>
+    /// Arm ratio slider (shown as a percentage, default 45%). Higher maps the player
+    /// smaller relative to the avatar. Only affects Arm Distance mode, Auto when it picks arms, Best Fit
+    /// and the arm-to-height blend.
+    /// </summary>
+    public static PanelSlider CreateArmRatioSlider(Component parent)
+    {
+        var slider = PanelSlider.CreateAndBind(
+            parent,
+            PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.armRatio"),
+                BasisCalibrationMath.ArmRatioMin, BasisCalibrationMath.ArmRatioMax, false, 3, ValueDisplayMode.percentageFromZero),
+            BasisSettingsDefaults.ArmRatio);
+        if (slider != null)
+        {
+            slider.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.armRatio.tooltip"));
+        }
+        return slider;
+    }
+
     public static void SetAvatarScaleSliderValueWithoutNotify(float value)
     {
         if (_avatarScaleSlider == null)
@@ -1100,7 +1112,7 @@ public static partial class SettingsProviderIK
         BasisSettingsDefaults.FBIKShoulderTrackerBlend.ResetToDefault();
         BasisSettingsDefaults.FBIKArmSwivelSmoothTime.ResetToDefault();
         BasisSettingsDefaults.FBIKArmSwivelMaxRate.ResetToDefault();
-        BasisSettingsDefaults.FBIKArmHeightRatio.ResetToDefault();
+        BasisSettingsDefaults.ArmRatio.ResetToDefault();
         BasisSettingsDefaults.FBIKMoveBodyBackWhenCrouching.ResetToDefault();
         BasisSettingsDefaults.VSpineChestPitchFrac.ResetToDefault();
         BasisSettingsDefaults.VSpineChestRollFrac.ResetToDefault();

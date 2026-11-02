@@ -86,6 +86,15 @@ public static class BasisCalibrationMath
         float offset = (avatarUnscaledEye * appliedUpScale) / deviceScale - playerTrueEye;
         return float.IsNaN(offset) || float.IsInfinity(offset) || Mathf.Abs(offset) < 1e-5f ? 0f : offset;
     }
+    // Arm ratio: half the hand-to-hand span / eye height. 0.45 = 45% on the slider.
+    public const float DefaultArmRatio = 0.45f;
+    public const float ArmRatioMin = 0.35f;
+    public const float ArmRatioMax = 0.55f;
+    public static float SpanFromArmRatio(float eyeHeight, float armRatio)
+    {
+        float ratio = float.IsNaN(armRatio) || float.IsInfinity(armRatio) ? DefaultArmRatio : Mathf.Clamp(armRatio, ArmRatioMin, ArmRatioMax);
+        return eyeHeight * 2f * ratio;
+    }
     public const float ArmToHeightBlendMin = 0f;
     public const float ArmToHeightBlendMax = 1f;
     public static float BlendEyeSpanMetric(float eyeMetric, float spanMetric, float blend)

@@ -15487,6 +15487,22 @@
       "value": "Arm Distance"
     },
     {
+      "key": "settings.bodyTracking.ikMode.bestFit",
+      "value": "Best Fit"
+    },
+    {
+      "key": "settings.bodyTracking.ikMode.bestFit.tooltip",
+      "value": "Balance eye height and arm span together, leaning on eye height. Useful for avatars whose proportions differ from yours."
+    },
+    {
+      "key": "settings.bodyTracking.armRatio",
+      "value": "Arm Ratio"
+    },
+    {
+      "key": "settings.bodyTracking.armRatio.tooltip",
+      "value": "How long your arms are for your height. Higher makes you smaller compared to the avatar; lower makes you bigger. 45% suits most people. Used when sizing by arms."
+    },
+    {
       "key": "settings.bodyTracking.ikMode.disabledSeated",
       "value": "Disabled in Seated Mode. Switch to Standing Mode to choose Eye Height or Arm Distance."
     },

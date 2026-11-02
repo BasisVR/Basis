@@ -43,7 +43,7 @@ public partial class SMModuleCalibration : BasisSettingsBase
     private static string K_ARM_TO_HEIGHT_BLEND => BasisSettingsDefaults.ArmToHeightBlend.BindingKey;              // "armtoheightblend"
     private static string K_FBIK_BODY_FIT => BasisSettingsDefaults.FBIKBodyFit.BindingKey;                         // "fbikbodyfit"
     private static string K_FBIK_BODY_FIT_MAX_DEVIATION => BasisSettingsDefaults.FBIKBodyFitMaxDeviation.BindingKey; // "fbikbodyfitmaxdeviation"
-    private static string K_ARM_SPAN_ESTIMATE_RATIO => BasisSettingsDefaults.FBIKArmHeightRatio.BindingKey;       // "fbikarmheightratio_v4"
+    private static string K_ARM_SPAN_ESTIMATE_RATIO => BasisSettingsDefaults.ArmRatio.BindingKey;       // "armratio"
 
     // One Euro globals
     private static string K_FBIK_MINCUTOFF => BasisSettingsDefaults.FBIKMinCutoff.BindingKey;                 // "fbikmincutoff"
@@ -214,10 +214,15 @@ public partial class SMModuleCalibration : BasisSettingsBase
                             HeightMode = BasisDeviceManagement.IsUserInDesktop() ? BasisSelectedHeightMode.EyeHeight : BasisSelectedHeightMode.ArmSpan;
                             break;
 
+                        case "best fit":
+                            BasisDebug.Log($"Height Mode Set To {optionValue}");
+                            HeightMode = BasisDeviceManagement.IsUserInDesktop() ? BasisSelectedHeightMode.EyeHeight : BasisSelectedHeightMode.BestFit;
+                            break;
+
                         case "auto":
                             BasisDebug.Log($"Height Mode Set To {optionValue}");
                             // Stored as Auto; BasisHeightDriver.ResolveHeightMode picks ArmSpan without
-                            // hips/leg trackers, BestFit with them, and EyeHeight on desktop.
+                            // hips/leg trackers, EyeHeight with them, and EyeHeight on desktop.
                             HeightMode = BasisSelectedHeightMode.Auto;
                             break;
                     }

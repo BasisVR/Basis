@@ -1910,10 +1910,11 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<bool> FBIKJobLocomotion = new("fbikjoblocomotion", new BasisPlatformDefault<bool>(true));
         public static BasisSettingsBinding<float> FBIKBodyFitMaxDeviation = new("fbikbodyfitmaxdeviation_v3", new BasisPlatformDefault<float>(Basis.IK.BasisBodyFitCore.DefaultMaxDeviation));
 
-        // The player's arm span is always estimated as eye height * this ratio; it is never measured,
+        // The player's arm span is always estimated from eye height with this ratio; it is never measured,
         // since a T-pose reading depends on straight, level arms that nothing can verify without elbow
-        // trackers. Ratio is hand-to-hand span / eye height.
-        public static BasisSettingsBinding<float> FBIKArmHeightRatio = new("fbikarmheightratio_v4", new BasisPlatformDefault<float>(0.90f));
+        // trackers. Half the hand-to-hand span / eye height, so span = eye height * 2 * ratio.
+        // Range in BasisCalibrationMath.ArmRatioMin/Max.
+        public static BasisSettingsBinding<float> ArmRatio = new("armratio", new BasisPlatformDefault<float>(BasisCalibrationMath.DefaultArmRatio));
 
         // Desktop only. The head pitches about the base of the neck, so looking down carries the eye FORWARD --
         // the swing an HMD makes for free, which desktop used to pin away. Strength 1 = the avatar's own
@@ -2903,7 +2904,7 @@ namespace Basis.BasisUI
             FBIKNeckExtensionDamp.LoadBindingValue();
             FBIKNeckFlexionDamp.LoadBindingValue();
             FBIKMoveBodyBackWhenCrouching.LoadBindingValue();
-            FBIKArmHeightRatio.LoadBindingValue();
+            ArmRatio.LoadBindingValue();
             DesktopHeadSwingEnabled.LoadBindingValue();
             DesktopHeadSwingStrength.LoadBindingValue();
             VSpineChestPitchFrac.LoadBindingValue();
