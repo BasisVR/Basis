@@ -210,7 +210,8 @@ public class ServerConfigurationDefaultsTests
         // 15: added the persistent application-level ServerUUID.
         // 16: added the shared-orb leave timeout and deletion timer.
         // 17: added player storage.
-        Assert.Equal(18, Configuration.CurrentConfigVersion);
+        // 19: scene-relay backstop on by default, avatar-relay backstop, relay payload cap, pending-login caps.
+        Assert.Equal(19, Configuration.CurrentConfigVersion);
         Assert.Equal(0, new Configuration().ConfigVersion);
         Assert.Equal("config", Configuration.ConfigFolderName);
         Assert.Equal("logs", Configuration.LogsFolderName);

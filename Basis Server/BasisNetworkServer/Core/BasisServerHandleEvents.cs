@@ -376,6 +376,7 @@ namespace BasisServerHandle
             JoinBroadcast.Stop();
             NetworkServer.Server?.Stop();
             BasisServerHandleEvents.UnsubscribeServerEvents();
+            BasisConsoleWriter.Flush();
         }
         #endregion
 
@@ -427,7 +428,6 @@ namespace BasisServerHandle
             {
                 PermissionIntegration.RemovePlayerMeta(uuid);
                 PermissionIntegration.EvictPermissionCache(uuid);
-                BasisNetworkHandleErrorReport.RemoveUser(uuid);
                 BasisNetworkResourceManagement.RemovePeerResources(uuid);
             }
 
@@ -446,6 +446,7 @@ namespace BasisServerHandle
             BasisNetworkIDDatabase.RemovePeer(id);
             Basis.Network.Server.Generic.BasisNetworkingGeneric.RemovePeerSceneEgress(id);
             BasisNetworkMessageProcessor.ClearPeerErrors(id);
+            BasisPeerRateLimiter.RemovePeerFromAll(id);
             BasisServerMessageRegistry.ClearSubscription(id);
             BasisNetworkServer.Storage.BasisServerStorage.RemovePeer(peer, id);
             JoinBroadcast.UnregisterPeer(id);
@@ -890,6 +891,7 @@ namespace BasisServerHandle
         public static ServerEventHandler OnServerReceived;
         public delegate void ServerEventHandler(NetPeer peer, NetPacketReader reader, DeliveryMethod deliveryMethod);
         #region Avatar and Voice Handling
+        private static readonly BasisPeerRateLimiter AvatarChangeLimiter = new BasisPeerRateLimiter(2f, 10f);
         public static void SendAvatarMessageToClients(NetPacketReader Reader, NetPeer Peer)
         {
             // Leading kind byte multiplexes this channel — see BasisNetworkCommons.AvatarChangeKind*.
@@ -900,6 +902,11 @@ namespace BasisServerHandle
                 return;
             }
 
+            if (!AvatarChangeLimiter.TryConsume(Peer))
+            {
+                Reader.Recycle();
+                return;
+            }
             ClientAvatarChangeMessage ClientAvatarChangeMessage = new ClientAvatarChangeMessage();
             ClientAvatarChangeMessage.Deserialize(Reader);
             Reader.Recycle();
@@ -1553,16 +1560,30 @@ namespace BasisServerHandle
             BasisNetworkIDDatabase.AddOrFindNetworkID(Peer, ServerUniqueIDMessage.playerID);
             //we need to convert the string int a  ushort.
         }
+        private static readonly BasisPeerRateLimiter LoadResourceLimiter = new BasisPeerRateLimiter(20f, 200f);
+        public const int MaxLoadedNetIdLength = 256, MaxUnlockPasswordLength = 1024, MaxCombinedUrlLength = 4096;
         public static void LoadResource(NetPacketReader Reader, NetPeer Peer,string UUID)
         {
             LocalLoadResource LocalLoadResource = new LocalLoadResource();
 
             if (NetworkServer.AuthIdentity.NetIDToUUID(Peer, out string uuid) == false)
             {
-                BNL.LogError($"User UUID not found for peer: {Peer.Id}");
+                BNLThrottle.LogError("resources.noUuid", $"User UUID not found for peer: {Peer.Id}");
+                Reader.Recycle();
+                return;
+            }
+            if (!LoadResourceLimiter.TryConsume(Peer))
+            {
+                Reader.Recycle();
                 return;
             }
             LocalLoadResource.Deserialize(Reader);
+            if ((LocalLoadResource.LoadedNetID?.Length ?? 0) > MaxLoadedNetIdLength || (LocalLoadResource.UnlockPassword?.Length ?? 0) > MaxUnlockPasswordLength || (LocalLoadResource.CombinedURL?.Length ?? 0) > MaxCombinedUrlLength)
+            {
+                BNLThrottle.LogWarning("resources.tooLong", $"Dropped a load request from {uuid} with an id, password or URL over the length limit.");
+                Reader.Recycle();
+                return;
+            }
             bool isPrivileged = PermissionIntegration.HasValidRequirement(uuid, PermNodes.protection);
             LocalLoadResource.IsAdminLocked = isPrivileged;
             LocalLoadResource.UUIDOfCreator = UUID;

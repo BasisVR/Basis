@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using BasisNetworkServer.Security;
 using static BasisNetworkCore.Serializable.SerializableBasis;
 
 namespace BasisNetworkCore
@@ -20,10 +21,12 @@ namespace BasisNetworkCore
         // networked object (plus a reliable broadcast + 3 log lines per assignment). Entries are never
         // removed individually so this count only grows during a peer's session and is dropped on
         // disconnect — it cannot drift.
-        private static readonly ConcurrentDictionary<int, int> PerPeerAssignedCount = new ConcurrentDictionary<int, int>();
+        private static readonly ConcurrentDictionary<string, int> PerPeerAssignedCount = new ConcurrentDictionary<string, int>();
         // Peers we have already warned about hitting the cap, so a client that keeps requesting after
         // the limit cannot turn one reject into a log flood (the flood this cap exists to stop).
-        private static readonly ConcurrentDictionary<int, byte> PerPeerCapWarned = new ConcurrentDictionary<int, byte>();
+        private static readonly ConcurrentDictionary<string, byte> PerPeerCapWarned = new ConcurrentDictionary<string, byte>();
+        private static readonly BasisPeerRateLimiter RequestLimiter = new BasisPeerRateLimiter(200f, 8192f);
+        private static string CountKey(NetPeer peer) => NetworkServer.AuthIdentity != null && NetworkServer.AuthIdentity.NetIDToUUID(peer, out string uuid) && !string.IsNullOrEmpty(uuid) ? uuid : "peer:" + peer.Id;
         private const int DefaultMaxNetworkIdsPerPlayer = 32768;
 
         private static int ResolveMaxIdsPerPlayer()
@@ -36,12 +39,16 @@ namespace BasisNetworkCore
         /// until the instance empties (Reset); this only frees the throttling counter.</summary>
         public static void RemovePeer(int peerId)
         {
-            PerPeerAssignedCount.TryRemove(peerId, out _);
-            PerPeerCapWarned.TryRemove(peerId, out _);
+            PerPeerAssignedCount.TryRemove("peer:" + peerId, out _);
+            PerPeerCapWarned.TryRemove("peer:" + peerId, out _);
         }
         private static readonly object AssignLock = new object();
         public static void AddOrFindNetworkID(NetPeer NetPeer, string UniqueStringID)
         {
+            if (string.IsNullOrEmpty(UniqueStringID) || !RequestLimiter.TryConsume(NetPeer))
+            {
+                return;
+            }
             if (UshortNetworkDatabase.TryGetValue(UniqueStringID, out ushort Value))
             {
                 SendExistingNetworkID(NetPeer, UniqueStringID, Value);
@@ -59,9 +66,10 @@ namespace BasisNetworkCore
                 // else out. The count only grows during a session and is cleared on disconnect, so it
                 // cannot drift into a false reject.
                 int perPeerCap = ResolveMaxIdsPerPlayer();
-                if (PerPeerAssignedCount.TryGetValue(NetPeer.Id, out int assigned) && assigned >= perPeerCap)
+                string countKey = CountKey(NetPeer);
+                if (PerPeerAssignedCount.TryGetValue(countKey, out int assigned) && assigned >= perPeerCap)
                 {
-                    if (PerPeerCapWarned.TryAdd(NetPeer.Id, 0))
+                    if (PerPeerCapWarned.TryAdd(countKey, 0))
                     {
                         BNLThrottle.LogError("netid.66", $"Peer {NetPeer.Id} reached the per-player network-id limit ({perPeerCap}); dropping registration for {UniqueStringID} and further ids this session.");
                     }
@@ -92,7 +100,7 @@ namespace BasisNetworkCore
 
                 // Add to the database
                 UshortNetworkDatabase[UniqueStringID] = newID;
-                PerPeerAssignedCount.AddOrUpdate(NetPeer.Id, 1, (_, c) => c + 1);
+                PerPeerAssignedCount.AddOrUpdate(countKey, 1, (_, c) => c + 1);
                 BNLThrottle.Log("netid.96", $"New ID {newID} assigned to {UniqueStringID}");
 
                 // Notify the requesting peer and broadcast to others

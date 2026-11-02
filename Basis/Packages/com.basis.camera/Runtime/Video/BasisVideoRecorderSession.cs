@@ -80,6 +80,30 @@ namespace Basis
             frameReady.Set();
             return true;
         }
+        public bool TryRentFrameBuffer(out byte[] buffer)
+        {
+            buffer = null;
+            if (completeAdding || failureMessage != null) return false;
+            int length = width * height * 4;
+            if (!bufferPool.TryPop(out buffer) || buffer.Length != length) buffer = new byte[length];
+            return true;
+        }
+        public bool TrySubmitFrameBuffer(byte[] buffer, double timestamp)
+        {
+            if (completeAdding || failureMessage != null || buffer == null || buffer.Length != width * height * 4)
+            {
+                ReturnFrameBuffer(buffer);
+                return false;
+            }
+            pendingFrames.Enqueue(new QueuedFrame { Rgba = buffer, Timestamp = timestamp });
+            Interlocked.Increment(ref framesQueued);
+            frameReady.Set();
+            return true;
+        }
+        public void ReturnFrameBuffer(byte[] buffer)
+        {
+            if (buffer != null) bufferPool.Push(buffer);
+        }
         public void CompleteAdding()
         {
             completeAdding = true;

@@ -10,6 +10,7 @@ namespace Basis.Tests.Camera
     {
         const BindingFlags NP = BindingFlags.NonPublic | BindingFlags.Instance;
         static readonly FieldInfo PointsF = typeof(BasisCameraDollyTrack).GetField("points", NP);
+        static readonly FieldInfo WaypointsF = typeof(BasisCameraDollyTrack).GetField("waypoints", NP);
         static readonly FieldInfo BufferF = typeof(BasisCameraDollyTrack).GetField("lineBuffer", NP);
         static readonly FieldInfo ColorsF = typeof(BasisCameraDollyTrack).GetField("lineColors", NP);
         static readonly FieldInfo LineIdF = typeof(BasisCameraDollyTrack).GetField("lineId", NP);
@@ -21,12 +22,14 @@ namespace Basis.Tests.Camera
         [SetUp]
         public void SetUp()
         {
-            Assert.IsNotNull(PointsF); Assert.IsNotNull(BufferF); Assert.IsNotNull(ColorsF); Assert.IsNotNull(UpdateLineM); Assert.IsNotNull(HideLineM);
+            Assert.IsNotNull(PointsF); Assert.IsNotNull(WaypointsF); Assert.IsNotNull(BufferF); Assert.IsNotNull(ColorsF); Assert.IsNotNull(UpdateLineM); Assert.IsNotNull(HideLineM);
             _track = new BasisCameraDollyTrack();
             var points = (List<Vector3>)PointsF.GetValue(_track);
             points.Add(new Vector3(0f, 1f, 0f));
             points.Add(new Vector3(2f, 1f, 1f));
             points.Add(new Vector3(4f, 1.5f, -1f));
+            var slots = (List<BasisCameraDollyWaypoint>)WaypointsF.GetValue(_track);
+            for (int i = 0; i < points.Count; i++) slots.Add(null);
         }
 
         [TearDown]

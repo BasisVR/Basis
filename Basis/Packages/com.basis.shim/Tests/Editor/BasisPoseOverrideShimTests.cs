@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Runtime.Serialization;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
@@ -36,7 +35,10 @@ namespace Basis.Tests.Sync
             transmitterBefore = BasisNetworkManagement.Transmitter;
             localBefore = BasisLocalPlayer.Instance;
             BasisNetworkManagement.Transmitter = new BasisNetworkTransmitter(LocalId);
-            BasisLocalPlayer player = (BasisLocalPlayer)FormatterServices.GetUninitializedObject(typeof(BasisLocalPlayer));
+            GameObject playerHost = new GameObject("pose test local player");
+            playerHost.SetActive(false);
+            hosts.Add(playerHost);
+            BasisLocalPlayer player = playerHost.AddComponent<BasisLocalPlayer>();
             rig = new BasisLocalRigDriver();
             BasisEerieMovementSetup.SetDefaultValues(ref rig.IKJob);
             player.LocalRigDriver = rig;
@@ -47,9 +49,10 @@ namespace Basis.Tests.Sync
         [TearDown]
         public void TearDown()
         {
-            foreach (GameObject host in hosts) if (host != null) UnityEngine.Object.DestroyImmediate(host);
-            hosts.Clear();
+            for (int i = hosts.Count - 1; i >= 1; i--) if (hosts[i] != null) UnityEngine.Object.DestroyImmediate(hosts[i]);
             Tick();
+            if (hosts.Count > 0 && hosts[0] != null) UnityEngine.Object.DestroyImmediate(hosts[0]);
+            hosts.Clear();
             LocalPlayerInstance.SetValue(null, localBefore);
             BasisNetworkManagement.Transmitter = transmitterBefore;
         }

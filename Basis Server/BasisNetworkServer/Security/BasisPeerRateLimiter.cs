@@ -14,7 +14,13 @@ namespace BasisNetworkServer.Security
     {
         private readonly float tokensPerSecond;
         private readonly float tokenBurst;
-        private const int MaxTrackedPeers = 4096;
+        private const int MaxTrackedPeers = ushort.MaxValue + 1;
+        private static readonly ConcurrentDictionary<BasisPeerRateLimiter, byte> all = new ConcurrentDictionary<BasisPeerRateLimiter, byte>();
+        public static void RemovePeerFromAll(int peerId)
+        {
+            foreach (BasisPeerRateLimiter limiter in all.Keys) limiter.buckets.TryRemove(peerId, out _);
+        }
+        public void RemovePeer(int peerId) => buckets.TryRemove(peerId, out _);
 
         private class TokenBucket
         {
@@ -28,6 +34,7 @@ namespace BasisNetworkServer.Security
         {
             this.tokensPerSecond = tokensPerSecond;
             this.tokenBurst = tokenBurst;
+            all[this] = 0;
         }
 
         public bool TryConsume(NetPeer peer)

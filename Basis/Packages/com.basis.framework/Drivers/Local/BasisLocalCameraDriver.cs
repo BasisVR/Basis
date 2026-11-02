@@ -404,6 +404,9 @@ namespace Basis.Scripts.Drivers
                 HasInstance = true;
             }
             CameraInstance = Camera;
+#if !UNITY_ANDROID && !UNITY_IOS && !UNITY_WEBGL
+            Camera.opaqueSortMode = UnityEngine.Rendering.OpaqueSortMode.NoDistanceSort;
+#endif
             SelfTransform = Instance.transform;
             // Set initial scale from player height and set the clip planes.
             UpdateCameraScale();

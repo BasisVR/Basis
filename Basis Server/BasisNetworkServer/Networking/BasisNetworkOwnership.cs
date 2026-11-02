@@ -1,5 +1,6 @@
 using Basis.Network.Core;
 using BasisNetworkCore;
+using BasisNetworkServer.Security;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,6 +13,8 @@ namespace Basis.Network.Server.Ownership
         public static ConcurrentDictionary<string, ushort> ownershipByObjectId = new ConcurrentDictionary<string, ushort>();
 
         public static readonly object LockObject = new object();  // For synchronized multi-step operations
+        public const int MaxOwnershipEntries = 65536;
+        private static readonly BasisPeerRateLimiter RequestLimiter = new BasisPeerRateLimiter(200f, 4096f);
         public static void SendOutOwnershipInformation(NetPeer Peer)
         {
             NetDataWriter Writer = NetworkServer.RentWriter();
@@ -31,6 +34,11 @@ namespace Basis.Network.Server.Ownership
         }
         public static void OwnershipResponse(NetPacketReader Reader, NetPeer Peer)
         {
+            if (!RequestLimiter.TryConsume(Peer))
+            {
+                Reader.Recycle();
+                return;
+            }
             OwnershipTransferMessage ownershipTransferMessage = new OwnershipTransferMessage();
             ownershipTransferMessage.Deserialize(Reader);
             Reader.Recycle();
@@ -97,6 +105,11 @@ namespace Basis.Network.Server.Ownership
         /// </summary>
         public static void OwnershipTransfer(NetPacketReader Reader, NetPeer Peer)
         {
+            if (!RequestLimiter.TryConsume(Peer))
+            {
+                Reader.Recycle();
+                return;
+            }
             OwnershipTransferMessage ownershipTransferMessage = new OwnershipTransferMessage();
             ownershipTransferMessage.Deserialize(Reader);
             Reader.Recycle();
@@ -153,6 +166,11 @@ namespace Basis.Network.Server.Ownership
         /// </summary>
         public static bool AddOwnership(string objectId, ushort ownerId)
         {
+            if (ownershipByObjectId.Count >= MaxOwnershipEntries)
+            {
+                BNLThrottle.LogWarning("ownership.full", $"Ownership table is full ({MaxOwnershipEntries} objects); refusing new object {objectId}.");
+                return false;
+            }
             if (ownershipByObjectId.TryAdd(objectId, ownerId))
             {
                 BNLThrottle.Log("ownership.158", $"Object {objectId} added with owner {ownerId}");
@@ -195,7 +213,7 @@ namespace Basis.Network.Server.Ownership
                     // Update ownership only if the current owner matches
                     if (ownershipByObjectId.TryUpdate(objectId, newOwnerId, currentOwnerId))
                     {
-                        BNL.Log($"Ownership of object {objectId} switched from {currentOwnerId} to {newOwnerId}.");
+                        BNLThrottle.Log("ownership.switch", $"Ownership of object {objectId} switched from {currentOwnerId} to {newOwnerId}.");
                         return true;
                     }
                 }
@@ -204,7 +222,7 @@ namespace Basis.Network.Server.Ownership
                     return AddOwnership(objectId, newOwnerId);
                 }
 
-                BNL.LogError($"Object with ID {objectId} does not exist or ownership change failed.");
+                BNLThrottle.LogError("ownership.switchFail", $"Object with ID {objectId} does not exist or ownership change failed.");
                 return false;
             }
         }

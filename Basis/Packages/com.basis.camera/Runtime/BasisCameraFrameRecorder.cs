@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -22,6 +24,12 @@ namespace Basis
     {
         /// <summary>Main thread. Copies one readback and queues it; false when full or failed.</summary>
         bool TryAddFrame(NativeArray<byte> rgba, double timestamp);
+
+        bool TryRentFrameBuffer(out byte[] buffer) { buffer = null; return false; }
+
+        bool TrySubmitFrameBuffer(byte[] buffer, double timestamp) => false;
+
+        void ReturnFrameBuffer(byte[] buffer) { }
 
         /// <summary>Main thread. No more frames are coming; the worker finalises once the queue drains.</summary>
         void CompleteAdding();
@@ -77,6 +85,44 @@ namespace Basis
             /// over while it was still in flight.
             /// </summary>
             public IBasisFrameRecorderSession Owner;
+            public byte[] Buffer;
+            public GCHandle Pin;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            public AtomicSafetyHandle Safety;
+#endif
+        }
+
+        private static unsafe AsyncGPUReadbackRequest RequestInto(ref PendingReadback pending, RenderTexture source)
+        {
+            pending.Pin = GCHandle.Alloc(pending.Buffer, GCHandleType.Pinned);
+            NativeArray<byte> view = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<byte>((void*)pending.Pin.AddrOfPinnedObject(), pending.Buffer.Length, Allocator.None);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            pending.Safety = AtomicSafetyHandle.Create();
+            NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref view, pending.Safety);
+#endif
+            return AsyncGPUReadback.RequestIntoNativeArray(ref view, source, 0, TextureFormat.RGBA32);
+        }
+
+        private static void ReleaseBuffer(ref PendingReadback pending)
+        {
+            if (pending.Buffer == null) return;
+            pending.Request.WaitForCompletion();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.Release(pending.Safety);
+#endif
+            if (pending.Pin.IsAllocated) pending.Pin.Free();
+        }
+
+        private void ClearPendingReadbacks()
+        {
+            for (int Index = 0; Index < pendingReadbacks.Count; Index++)
+            {
+                PendingReadback pending = pendingReadbacks[Index];
+                if (pending.Buffer == null) continue;
+                ReleaseBuffer(ref pending);
+                pending.Owner?.ReturnFrameBuffer(pending.Buffer);
+            }
+            pendingReadbacks.Clear();
         }
 
         /// <summary>A clip that has stopped recording and is still writing its file.</summary>
@@ -166,7 +212,7 @@ namespace Basis
             flipVertically = flip;
             maxPendingFrames = (int)Mathf.Clamp(MaxPendingBytes / (width * height * 4L), 2, 16);
             pacing = default;
-            pendingReadbacks.Clear();
+            ClearPendingReadbacks();
             segmentSeconds = durationSeconds;
             deadline = Time.unscaledTimeAsDouble + durationSeconds;
             FramesCaptured = 0;
@@ -197,7 +243,7 @@ namespace Basis
             {
                 if (Session == null)
                 {
-                    pendingReadbacks.Clear();
+                    ClearPendingReadbacks();
                     ReleaseTarget();
                     State = BasisCameraRecordingState.Idle;
                 }
@@ -356,7 +402,7 @@ namespace Basis
             }
             draining.Clear();
 
-            pendingReadbacks.Clear();
+            ClearPendingReadbacks();
             Session = null;
             nextSegment = null;
             completeSignalled = false;
@@ -384,12 +430,18 @@ namespace Basis
                 Graphics.Blit(source, target, scale, offset);
             }
 
-            pendingReadbacks.Add(new PendingReadback
+            var pending = new PendingReadback { Timestamp = Time.unscaledTimeAsDouble, Owner = Session };
+            if (Session.TryRentFrameBuffer(out byte[] buffer) && buffer != null && buffer.Length == target.width * target.height * 4)
             {
-                Request = AsyncGPUReadback.Request(target, 0, TextureFormat.RGBA32),
-                Timestamp = Time.unscaledTimeAsDouble,
-                Owner = Session,
-            });
+                pending.Buffer = buffer;
+                pending.Request = RequestInto(ref pending, target);
+            }
+            else
+            {
+                if (buffer != null) Session.ReturnFrameBuffer(buffer);
+                pending.Request = AsyncGPUReadback.Request(target, 0, TextureFormat.RGBA32);
+            }
+            pendingReadbacks.Add(pending);
             FramesCaptured++;
         }
 
@@ -402,6 +454,14 @@ namespace Basis
                 if (!pending.Request.done) break;
 
                 pendingReadbacks.RemoveAt(0);
+                if (pending.Buffer != null)
+                {
+                    ReleaseBuffer(ref pending);
+                    if (pending.Owner == null) continue;
+                    if (pending.Request.hasError) pending.Owner.ReturnFrameBuffer(pending.Buffer);
+                    else pending.Owner.TrySubmitFrameBuffer(pending.Buffer, pending.Timestamp);
+                    continue;
+                }
                 if (pending.Request.hasError) continue;
 
                 // To the clip that asked for it, which is not always the one recording now.

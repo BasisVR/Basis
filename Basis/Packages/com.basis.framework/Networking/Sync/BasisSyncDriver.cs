@@ -209,20 +209,9 @@ namespace Basis.Scripts.Networking.Sync
                     BasisSyncValues cur = recv.CurrentValues;
                     BasisSyncValues nxt = recv.NextValues;
 
-                    for (int c = 0; c < cc; c++)
-                    {
-                        _contCur[cb + c] = cur.Cont[c];
-                        _contNext[cb + c] = nxt.Cont[c];
-                    }
-                    for (int r = 0; r < rc; r++)
-                    {
-                        _rotCur[rb + r] = cur.Rot[r];
-                        _rotNext[rb + r] = nxt.Rot[r];
-                    }
-                    for (int d = 0; d < dc; d++)
-                    {
-                        _discNext[db + d] = nxt.Disc[d];
-                    }
+                    if (cc > 0) { NativeArray<float>.Copy(cur.Cont, 0, _contCur, cb, cc); NativeArray<float>.Copy(nxt.Cont, 0, _contNext, cb, cc); }
+                    if (rc > 0) { NativeArray<quaternion>.Copy(cur.Rot, 0, _rotCur, rb, rc); NativeArray<quaternion>.Copy(nxt.Rot, 0, _rotNext, rb, rc); }
+                    if (dc > 0) NativeArray<int>.Copy(nxt.Disc, 0, _discNext, db, dc);
                 }
 
                 if (o.JobApplyConditional)

@@ -16,7 +16,7 @@ public static class BasisNetworkResourceManagement
     // re-derives it from the database at the cap boundary so a missed decrement can never permanently
     // block a legitimate creator.
     private static readonly ConcurrentDictionary<string, int> PerCreatorCount = new ConcurrentDictionary<string, int>();
-    private const int DefaultMaxLoadedResourcesPerPlayer = 16384;
+    private const int DefaultMaxLoadedResourcesPerPlayer = Configuration.DefaultMaxLoadedResourcesPerPlayer;
 
     private static int ResolveMaxLoadedPerPlayer()
     {
