@@ -97,7 +97,7 @@ namespace Basis.Network
             {
                 PlayersCurrentPosition[i] = PinSpacingMeters > 0f
                     ? new Vector3 { x = i * PinSpacingMeters, y = 1f, z = 0f }
-                    : Randomizer.GetSpawnPosition(Basis.Config.ConfigManager.SpawnRadiusMeters);
+                    : Randomizer.GetSpawnPosition(Basis.Config.ConfigManager.SpawnRadiusMeters, i);
                 ActivePlayerData[i] = Generate(i);
             }
         }

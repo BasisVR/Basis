@@ -120,6 +120,9 @@ namespace Basis.Scripts.Networking.Sync
 
         internal bool WantsMainThreadApply;
         internal bool JobApplied;
+        internal bool JobApplyConditional;
+        internal bool JobAppliedThisFrame = true;
+        internal virtual bool UseJobApplyThisFrame(int discBase) => true;
         internal int TeleportWatchStart;
         internal int TeleportWatchCount;
 

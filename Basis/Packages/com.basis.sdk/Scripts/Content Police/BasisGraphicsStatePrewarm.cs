@@ -138,6 +138,7 @@ public static partial class BasisGraphicsStatePrewarm
 
             bool onDisk = System.IO.File.Exists(_filePath);
 
+            _variantCaches.Clear();
             // Warm source: last session's PSOs, never traced so it stays warmable.
             _warm = LoadCollection(onDisk);
             int loaded = _warm != null ? _warm.variantCount : 0;
@@ -499,6 +500,61 @@ public static partial class BasisGraphicsStatePrewarm
         return shaders;
     }
 
+    private sealed class VariantCache
+    {
+        public int VariantCount = -1;
+        public readonly List<GraphicsStateCollection.ShaderVariant> Resolved = new List<GraphicsStateCollection.ShaderVariant>();
+        public readonly HashSet<Shader> Checked = new HashSet<Shader>();
+        public bool HasUnresolved;
+    }
+    private static readonly Dictionary<GraphicsStateCollection, VariantCache> _variantCaches = new Dictionary<GraphicsStateCollection, VariantCache>();
+    private static readonly List<GraphicsStateCollection.ShaderVariant> _variantScratch = new List<GraphicsStateCollection.ShaderVariant>();
+    private static readonly List<GraphicsStateCollection.GraphicsState> _stateScratch = new List<GraphicsStateCollection.GraphicsState>();
+
+    private static VariantCache GetVariantCache(GraphicsStateCollection source, HashSet<Shader> shaders)
+    {
+        if (!_variantCaches.TryGetValue(source, out VariantCache cache))
+        {
+            cache = new VariantCache();
+            _variantCaches[source] = cache;
+        }
+        bool rebuild = cache.VariantCount != source.variantCount;
+        if (!rebuild && cache.HasUnresolved)
+        {
+            foreach (Shader shader in shaders)
+            {
+                if (!cache.Checked.Contains(shader)) { rebuild = true; break; }
+            }
+        }
+        if (!rebuild)
+        {
+            return cache;
+        }
+        StackTraceLogType previous = Application.GetStackTraceLogType(LogType.Warning);
+        Application.SetStackTraceLogType(LogType.Warning, StackTraceLogType.None);
+        try
+        {
+            _variantScratch.Clear();
+            source.GetVariants(_variantScratch);
+        }
+        finally
+        {
+            Application.SetStackTraceLogType(LogType.Warning, previous);
+        }
+        cache.VariantCount = source.variantCount;
+        cache.Resolved.Clear();
+        cache.HasUnresolved = false;
+        for (int i = 0; i < _variantScratch.Count; i++)
+        {
+            if (_variantScratch[i].shader == null) cache.HasUnresolved = true;
+            else cache.Resolved.Add(_variantScratch[i]);
+        }
+        _variantScratch.Clear();
+        cache.Checked.RemoveWhere(shader => shader == null);
+        cache.Checked.UnionWith(shaders);
+        return cache;
+    }
+
     private static void CopyMatchingStates(GraphicsStateCollection source, GraphicsStateCollection destination, HashSet<Shader> shaders)
     {
         if (source == null || source.variantCount == 0)
@@ -506,9 +562,8 @@ public static partial class BasisGraphicsStatePrewarm
             return;
         }
 
-        List<GraphicsStateCollection.ShaderVariant> variants = new List<GraphicsStateCollection.ShaderVariant>();
-        List<GraphicsStateCollection.GraphicsState> states = new List<GraphicsStateCollection.GraphicsState>();
-        source.GetVariants(variants);
+        List<GraphicsStateCollection.ShaderVariant> variants = GetVariantCache(source, shaders).Resolved;
+        List<GraphicsStateCollection.GraphicsState> states = _stateScratch;
         for (int i = 0; i < variants.Count; i++)
         {
             GraphicsStateCollection.ShaderVariant variant = variants[i];
@@ -529,6 +584,7 @@ public static partial class BasisGraphicsStatePrewarm
                 destination.AddGraphicsStateForVariant(variant, states[stateIndex]);
             }
         }
+        states.Clear();
     }
 
     public static void Pump()

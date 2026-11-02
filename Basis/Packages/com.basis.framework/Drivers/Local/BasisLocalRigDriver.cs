@@ -196,6 +196,7 @@ namespace Basis.Scripts.Drivers
             PoseSkeleton.SetTranslationFree(basisTransformMapping.Hips);
             BasisEerieMovementSetup.Create(ref IKJob, PoseSkeleton, basisTransformMapping);
             IKJobCreated = true;
+            unoverriddenValid = false;
             ResetSmoothingState();
             RefreshBodyFit();
             LocomotionPose.OnRigBuilt();
@@ -291,6 +292,7 @@ namespace Basis.Scripts.Drivers
                 IKJob = default;
                 IKJobCreated = false;
             }
+            unoverriddenValid = false;
             PoseSkeleton.Dispose();
             IKDataReady = false;
         }
@@ -652,6 +654,7 @@ namespace Basis.Scripts.Drivers
                 IKJob.Destroy();
                 IKJobCreated = false;
             }
+            unoverriddenValid = false;
             IKJob = default;
             BasisAnimationRiggingHelper.CreateBasisFullBodyRIG(localPlayer, basisTransformMapping, ref IKJob);
             IKDataReady = true;
@@ -774,6 +777,39 @@ namespace Basis.Scripts.Drivers
             ref BasisEerieMovement data = ref IKJob;
             data.SetTargetRotation((int)bone, rotation);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetOverrideBlend(HumanBodyBones bone, float blend)
+        {
+            ref BasisEerieMovement data = ref IKJob;
+            data.SetBlend((int)bone, blend);
+        }
+        public bool TryGetUnoverriddenPose(HumanBodyBones bone, out Vector3 position, out Quaternion rotation)
+        {
+            int s = BasisEerieMovement.Slot((int)bone);
+            if (!unoverriddenValid || s < 0 || s >= BasisEerieMovement.Count || !IKJobCreated || (IKJob.plan.boundSlots & (1u << s)) == 0)
+            {
+                position = default;
+                rotation = Quaternion.identity;
+                return false;
+            }
+            position = unoverriddenPositions[s];
+            rotation = s < IKJob.slotOffsets.Length ? unoverriddenRotations[s] * Quaternion.Inverse(IKJob.slotOffsets[s]) : unoverriddenRotations[s];
+            return true;
+        }
+        void CaptureUnoverriddenPose()
+        {
+            if (!IKJob.solvedPositions.IsCreated || !IKJob.solvedRotations.IsCreated)
+            {
+                unoverriddenValid = false;
+                return;
+            }
+            IKJob.solvedPositions.CopyTo(unoverriddenPositions);
+            IKJob.solvedRotations.CopyTo(unoverriddenRotations);
+            unoverriddenValid = true;
+        }
+        readonly Vector3[] unoverriddenPositions = new Vector3[BasisEerieMovement.Count];
+        readonly Quaternion[] unoverriddenRotations = new Quaternion[BasisEerieMovement.Count];
+        bool unoverriddenValid;
         private Transform ResolveHumanoidBoneTransform(HumanBodyBones bone)
         {
 
@@ -846,7 +882,7 @@ namespace Basis.Scripts.Drivers
             facts.deltaTime = deltaTime;
             facts.footSimReady = footDriver.IsInitialized;
             facts.footIKSetting = Basis.BasisUI.BasisSettingsDefaults.FootIKEnabled.RawValue;
-            facts.moving = localPlayer.LocalCharacterDriver.IsLocomoting;
+            facts.moving = localPlayer.LocalCharacterDriver.IsLocomoting || LocomotionPose.StepInProgress;
             facts.prone = localPlayer.LocalCharacterDriver.IsProne;
             facts.seated = localPlayer.LocalSeatDriver.HipsPinned;
             facts.upright = BasisLocalPlayspaceMover.FlipUpSign > 0f;
@@ -1276,6 +1312,10 @@ namespace Basis.Scripts.Drivers
                 tail = new BasisReadBoneWorldPoseJob { Positions = ikPublishPositions, Rotations = ikPublishRotations }.ScheduleReadOnly(ikPublishTransforms, 32, tail);
             }
             Step17JoinSolve(solveRan || scatterQueued || publishQueued, tail);
+            if (solveRan)
+            {
+                CaptureUnoverriddenPose();
+            }
             Step18DrainSolveGizmos(solveRan);
             Step19ScatterPose(scatterQueued);
             if (!ikPublishPending)

@@ -177,6 +177,8 @@ public class JiggleMemoryBus {
 
     private List<JiggleColliderSerializable> pendingSceneColliderAdd;
     private List<JiggleColliderSerializable> pendingSceneColliderRemove;
+    private readonly List<Transform> pendingSceneColliderToggle = new List<Transform>();
+    private readonly List<bool> pendingSceneColliderToggleState = new List<bool>();
     // Membership mirror of pendingSceneColliderAdd's transforms, kept in sync at
     // every add/remove/clear site so dedup is O(1). Avoids rebuilding a HashSet
     // from the whole pending list on each ScheduleAdd(Batch) — that was O(n) per
@@ -226,6 +228,14 @@ public class JiggleMemoryBus {
     private int deferredTreeCommits;
     private const int MaxDeferredTreeCommits = 8;
     public void SetTreeBacklog(bool backlogRemains) => treeBacklogRemains = backlogRemains;
+
+    // An in-place commit still writes the front access arrays, and Unity re-sorts a touched
+    // TransformAccessArray in full at its next Schedule. Commits that only add trees can wait a few
+    // commits so a trickle of installs pays that once; anything with a remove commits at once,
+    // because a removed tree's bones may be destroyed right after. 0 keeps every commit immediate.
+    private static int treeAddCoalesceCommits;
+    public static void SetTreeAddCoalesceCommits(int value) => treeAddCoalesceCommits = Mathf.Max(0, value);
+    private int commitsSinceInPlaceTreeCommit;
 
     /// <summary>
     /// Sparse on purpose: a dummy is only ever asked for by the slots a commit actually parked, and
@@ -570,6 +580,15 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
         ClearFrontSlotRecords();
     }
 
+    private bool HasPendingRemoveCommand() {
+        for (int i = 0; i < pendingCommands.Count; i++) {
+            if (pendingCommands[i].commandType == AddRemoveCommand.CommandType.Remove) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void ClearFrontSlotRecords() {
         preCommitTransformSlots.Clear();
         preCommitRootSlots.Clear();
@@ -763,6 +782,10 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
                     ReclaimDeadSceneColliderSlots(false);
                     currentSceneColliderTransformAccessIndex = 0;
                     commitSceneColliderState = CommitState.ProcessingTransformAccess;
+                    return;
+                }
+                if (ApplySceneColliderToggles()) {
+                    NativeArray<JiggleCollider>.Copy(sceneColliderArray, sceneColliders, sceneColliderCount);
                 }
                 return;
             }
@@ -840,6 +863,7 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
 
             pendingSceneColliderAdd.Clear();
             pendingSceneColliderAddSet.Clear();
+            ApplySceneColliderToggles();
 
             if (inPlace) {
                 FlushSceneColliderSlotWrites();
@@ -860,6 +884,48 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
             doubleBufferSceneColliderTransformAccessArray.Flip();
             commitSceneColliderState = CommitState.Idle;
         }
+    }
+
+    /// <summary>
+    /// Queues an enable or disable of already-registered scene colliders. Applied at the next idle
+    /// commit to the managed mirror and copied to the native array, without touching the transform
+    /// access array, so the next Schedule does not pay a full re-sort. Unregistered colliders are
+    /// ignored.
+    /// </summary>
+    public void ScheduleSetEnabledBatch(List<JiggleColliderSerializable> colliders, bool enabled) {
+        int count = colliders.Count;
+        for (int i = 0; i < count; i++) {
+            pendingSceneColliderToggle.Add(colliders[i].transform);
+            pendingSceneColliderToggleState.Add(enabled);
+        }
+    }
+
+    private bool ApplySceneColliderToggles() {
+        int count = pendingSceneColliderToggle.Count;
+        if (count == 0) {
+            return false;
+        }
+        bool changed = false;
+        for (int i = 0; i < count; i++) {
+            var transform = pendingSceneColliderToggle[i];
+            bool enabled = pendingSceneColliderToggleState[i];
+            if (enabled && !transform) {
+                continue;
+            }
+            if (!sceneColliderTransformToIndex.TryGetValue(transform, out var index)) {
+                continue;
+            }
+            var collider = sceneColliderArray[index];
+            if (collider.enabled == enabled) {
+                continue;
+            }
+            collider.enabled = enabled;
+            sceneColliderArray[index] = collider;
+            changed = true;
+        }
+        pendingSceneColliderToggle.Clear();
+        pendingSceneColliderToggleState.Clear();
+        return changed;
     }
 
     /// <summary>
@@ -964,6 +1030,14 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
                 return;
             }
             deferredTreeCommits = 0;
+
+            if (inPlace && treeAddCoalesceCommits > 0) {
+                commitsSinceInPlaceTreeCommit++;
+                if (commitsSinceInPlaceTreeCommit <= treeAddCoalesceCommits && !HasPendingRemoveCommand()) {
+                    return;
+                }
+                commitsSinceInPlaceTreeCommit = 0;
+            }
 
             int newTransforms = 0;
             int newTrees = 0;

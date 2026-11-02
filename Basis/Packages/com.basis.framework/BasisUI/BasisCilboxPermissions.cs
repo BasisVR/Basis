@@ -1,4 +1,5 @@
 using Unity.Scripting.LifecycleManagement;
+using Basis.Scripts.BasisSdk.Players;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -10,6 +11,16 @@ namespace Basis.BasisUI
     public static partial class BasisCilboxPermissions
     {
         private const string FileName = "cilboxPermissions.json";
+        private const string TimeFormat = "yyyy-MM-dd HH:mm:ss";
+        private const int MaxCalls = 256;
+
+        [Serializable]
+        public class Call
+        {
+            public string Item;
+            public string Where;
+            public string Code;
+        }
 
         [Serializable]
         public class Approval
@@ -17,10 +28,34 @@ namespace Basis.BasisUI
             public string ContentHash;
             public string ContentName;
             public string ContentKind;
+            public string ContentId;
             public List<string> Items = new List<string>();
+            public List<string> Blocked = new List<string>();
+            public List<Call> Calls = new List<Call>();
+            public string OwnerName;
+            public string OwnerUUID;
+            public bool OwnerYours;
+            public string ApprovedByName;
+            public string ApprovedByUUID;
+            public string WorldName;
+            public string Server;
+            public string RequestedUtc;
             public string ApprovedUtc;
             [NonSerialized] public bool Remembered;
+
+            public List<BasisCilboxPermissionText.Use> Uses()
+            {
+                List<BasisCilboxPermissionText.Use> uses = new List<BasisCilboxPermissionText.Use>(Calls?.Count ?? 0);
+                if (Calls == null) return uses;
+                foreach (Call call in Calls)
+                {
+                    if (call != null) uses.Add(new BasisCilboxPermissionText.Use(call.Item, call.Where, call.Code));
+                }
+                return uses;
+            }
         }
+
+        public static string Now() => DateTime.UtcNow.ToString(TimeFormat);
 
         [Serializable]
         private class SavedApprovals
@@ -105,17 +140,36 @@ namespace Basis.BasisUI
 
         public static void Allow(string contentHash, string contentName, string contentKind, IEnumerable<string> items, bool remember)
         {
+            Allow(new Approval { ContentHash = contentHash, ContentName = contentName, ContentKind = contentKind, Items = new List<string>(items) }, null, remember);
+        }
+
+        public static void Allow(Approval approval, IEnumerable<BasisCilboxPermissionText.Use> uses, bool remember)
+        {
+            string contentHash = approval?.ContentHash;
             if (string.IsNullOrEmpty(contentHash)) return;
             EnsureLoaded();
-            Approval approval = new Approval
+            approval.ContentName ??= string.Empty;
+            approval.ContentKind ??= string.Empty;
+            approval.Items ??= new List<string>();
+            approval.Blocked ??= new List<string>();
+            approval.Calls = new List<Call>();
+            if (uses != null)
             {
-                ContentHash = contentHash,
-                ContentName = contentName ?? string.Empty,
-                ContentKind = contentKind ?? string.Empty,
-                Items = new List<string>(items),
-                ApprovedUtc = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"),
-                Remembered = remember,
-            };
+                foreach (BasisCilboxPermissionText.Use use in uses)
+                {
+                    if (approval.Calls.Count >= MaxCalls) break;
+                    approval.Calls.Add(new Call { Item = use.Item, Where = use.Where, Code = use.Code });
+                }
+            }
+            BasisLocalPlayer local = BasisLocalPlayer.Instance;
+            if (local != null)
+            {
+                approval.ApprovedByName = string.IsNullOrWhiteSpace(local.SafeDisplayName) ? local.DisplayName : local.SafeDisplayName;
+                approval.ApprovedByUUID = local.UUID;
+            }
+            approval.ApprovedUtc = Now();
+            if (string.IsNullOrEmpty(approval.RequestedUtc)) approval.RequestedUtc = approval.ApprovedUtc;
+            approval.Remembered = remember;
             declined.Remove(contentHash);
             int index = IndexOf(remembered, contentHash);
             if (remember)

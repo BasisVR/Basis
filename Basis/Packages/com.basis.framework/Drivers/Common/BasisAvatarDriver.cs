@@ -237,6 +237,7 @@ namespace Basis.Scripts.Drivers
         /// <summary>Which detail level of colliders is currently registered with the jiggle system.</summary>
         public BasisJiggleColliderTier RegisteredColliderTier = BasisJiggleColliderTier.Full;
 
+        private bool _feetRegistered, _armsRegistered, _handsRegistered, _fingersRegistered;
         // Retained so deferred finger colliders can be built lazily on LOD tier-up (see ApplyColliderLOD).
         private BasisTransformMapping _jiggleColliderMapping;
         private bool _fingersBuilt;
@@ -333,6 +334,8 @@ namespace Basis.Scripts.Drivers
 
             HasJiggleColliders = total > 0 || deferFingers;
             RegisteredColliderTier = deferFingers ? BasisJiggleColliderTier.NoFingers : BasisJiggleColliderTier.Full;
+            _feetRegistered = _armsRegistered = _handsRegistered = true;
+            _fingersRegistered = !deferFingers;
 
             // Batch-add the full set at once to avoid O(n²) dedup in JiggleMemoryBus. The distance
             // LOD pass (BasisTransmissionResults) trims remote avatars back down afterward.
@@ -385,27 +388,28 @@ namespace Basis.Scripts.Drivers
                 _fingersBuilt = true;
             }
 
-            ApplyColliderCategoryDelta(JiggleCollidersFeet, cur[0], next[0]);
-            ApplyColliderCategoryDelta(JiggleCollidersArms, cur[1], next[1]);
-            ApplyColliderCategoryDelta(JiggleCollidersHands, cur[2], next[2]);
-            ApplyColliderCategoryDelta(JiggleCollidersFingers, cur[3], next[3]);
+            ApplyColliderCategoryDelta(JiggleCollidersFeet, cur[0], next[0], ref _feetRegistered);
+            ApplyColliderCategoryDelta(JiggleCollidersArms, cur[1], next[1], ref _armsRegistered);
+            ApplyColliderCategoryDelta(JiggleCollidersHands, cur[2], next[2], ref _handsRegistered);
+            ApplyColliderCategoryDelta(JiggleCollidersFingers, cur[3], next[3], ref _fingersRegistered);
 
             RegisteredColliderTier = target;
         }
 
-        private static void ApplyColliderCategoryDelta(List<JiggleColliderSerializable> colliders, bool wasActive, bool nowActive)
+        private static void ApplyColliderCategoryDelta(List<JiggleColliderSerializable> colliders, bool wasActive, bool nowActive, ref bool registered)
         {
             if (colliders.Count == 0 || wasActive == nowActive)
             {
                 return;
             }
-            if (nowActive)
+            if (registered)
+            {
+                JigglePhysics.SetJiggleCollidersEnabled(colliders, nowActive);
+            }
+            else if (nowActive)
             {
                 JigglePhysics.AddJiggleColliders(colliders);
-            }
-            else
-            {
-                JigglePhysics.RemoveJiggleColliders(colliders);
+                registered = true;
             }
         }
 
@@ -604,6 +608,7 @@ namespace Basis.Scripts.Drivers
             JiggleCollidersFingers.Clear();
             HasJiggleColliders = false;
             RegisteredColliderTier = BasisJiggleColliderTier.Full;
+            _feetRegistered = _armsRegistered = _handsRegistered = _fingersRegistered = false;
             _fingersBuilt = false;
             _jiggleColliderMapping = null;
         }

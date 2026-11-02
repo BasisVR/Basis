@@ -143,6 +143,60 @@ namespace Basis.Tests.Sync
         }
 
         [Test]
+        public void Target_IsWrittenWithoutARead()
+        {
+            BasisInputRequest request = Request();
+            int space = request.AddKey(Key.Space);
+            float[] values = new float[1];
+            Assert.AreEqual(1, request.Target(values));
+            Poll();
+            Press(Key.Space);
+            Poll();
+            Assert.AreEqual(1f, values[space]);
+            Press();
+            Poll();
+            Assert.AreEqual(0f, values[space]);
+            request.Release();
+            Press(Key.Space);
+            Poll();
+            Assert.AreEqual(0f, values[space], "A released request must stop writing into the script's array");
+        }
+
+        [Test]
+        public void Target_ShorterThanTheSlots_IsNotOverrun()
+        {
+            BasisInputRequest request = Request();
+            request.AddKey(Key.Space);
+            int enter = request.AddKey(Key.Enter);
+            float[] values = new float[1];
+            Assert.AreEqual(1, request.Target(values));
+            Poll();
+            Press(Key.Enter);
+            Poll();
+            Assert.AreEqual(1f, request.Get(enter));
+            Assert.AreEqual(0f, values[0]);
+        }
+
+        [Test]
+        public void WakeOn_MaskedSlotsUpdateQuietly()
+        {
+            BasisInputRequest request = Request();
+            int space = request.AddKey(Key.Space), enter = request.AddKey(Key.Enter);
+            request.WakeOn(1 << space);
+            Poll();
+            request.Read(null);
+            Press(Key.Enter);
+            Poll();
+            Assert.IsFalse(request.Changed, "A slot left out of the wake mask must not wake the script");
+            Assert.AreEqual(1f, request.Get(enter));
+            Assert.AreEqual(1 << enter, request.Held);
+            Assert.AreEqual(1 << enter, request.TakeDown(), "Edges still arrive for quiet slots");
+            Press(Key.Enter, Key.Space);
+            Poll();
+            Assert.IsTrue(request.Changed);
+        }
+
+        [Test]
         public void Typing_HidesKeyboardFromScripts()
         {
             BasisInputRequest request = Request();

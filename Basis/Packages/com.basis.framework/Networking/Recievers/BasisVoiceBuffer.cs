@@ -257,6 +257,7 @@ public class BasisVoiceBuffer
 
     public int DecodedFrameCount => Volatile.Read(ref _frameCount);
     public int DecodedFrameCapacity => MaxDecodedFrames;
+    public bool IsIdleRelaxed => Volatile.Read(ref _encodedCount) == 0 && Volatile.Read(ref _frameCount) == 0 && !Volatile.Read(ref _holdingForSeq) && (!_started || !Volatile.Read(ref _hasHighest) || SeqDist(Volatile.Read(ref _highestReceivedSeq), Volatile.Read(ref _nextPlaybackSeq)) < 0);
 
     /// <summary>Approximate buffered sample count for diagnostics.</summary>
     public int SampleCount

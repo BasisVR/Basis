@@ -271,6 +271,24 @@ public class BasisPickupSyncNetworking : BasisSyncedTransform, IBasisStaticLocka
         LocalSet(_angX, w.x); LocalSet(_angY, w.y); LocalSet(_angZ, w.z);
     }
 
+    protected override bool CustomApplyHasJobPath => true;
+
+    internal override bool UseJobApplyThisFrame(int discBase)
+    {
+        if (IsOwnedLocallyOnClient) return false;
+        if (AttachToHandOnGrab && _attachId.IsValid)
+        {
+            int handId = (byte)BasisSyncDriver.ReadDiscNext(discBase + Schema.GetField(_attachId.FieldIndex).Offset);
+            if (handId != HandNone || handId != _lastAppliedHandId) return false;
+        }
+        if (RemoteDeadReckon && _velX.IsValid && BasisPickupInteractable != null)
+        {
+            Rigidbody rb = BasisPickupInteractable.RigidRef;
+            if (rb != null && !rb.isKinematic) return false;
+        }
+        return true;
+    }
+
     protected override void ApplyInterpolated()
     {
         if (AttachToHandOnGrab && _attachId.IsValid)

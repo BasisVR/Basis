@@ -258,13 +258,26 @@ namespace Basis.ImagePickup
         {
             if (_isController || !_hasRemoteTarget) return;
             transform.GetPositionAndRotation(out Vector3 currentPos, out Quaternion currentRot);
+            float currentScale = transform.localScale.x;
+            bool positionSettled = (currentPos - _targetPosition).sqrMagnitude <= RemoteSettlePositionSqr;
+            bool rotationSettled = Mathf.Abs(Quaternion.Dot(currentRot, _targetRotation)) >= RemoteSettleRotationDot;
+            bool scaleSettled = Mathf.Abs(currentScale - _targetScale) <= RemoteSettleScale;
+            if (positionSettled && rotationSettled && scaleSettled)
+            {
+                if (_remoteSettled) return;
+                transform.SetPositionAndRotation(_targetPosition, _targetRotation);
+                transform.localScale = new Vector3(_targetScale, _targetScale, _targetScale);
+                _remoteSettled = true;
+                return;
+            }
+            _remoteSettled = false;
             float t = CalculateRemoteTransformLerpFactor(deltaTime);
-            transform.SetPositionAndRotation(
-                Vector3.Lerp(currentPos, _targetPosition, t),
-                Quaternion.Slerp(currentRot, _targetRotation, t));
-            float scale = Mathf.Lerp(transform.localScale.x, _targetScale, t);
+            transform.SetPositionAndRotation(Vector3.Lerp(currentPos, _targetPosition, t), Quaternion.Slerp(currentRot, _targetRotation, t));
+            float scale = Mathf.Lerp(currentScale, _targetScale, t);
             transform.localScale = new Vector3(scale, scale, scale);
         }
+        private const float RemoteSettlePositionSqr = 1e-8f, RemoteSettleRotationDot = 0.9999999f, RemoteSettleScale = 1e-5f;
+        private bool _remoteSettled;
 
         internal static float CalculateRemoteTransformLerpFactor(float deltaTime)
         {

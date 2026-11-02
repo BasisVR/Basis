@@ -579,26 +579,31 @@ namespace Basis.Scripts.UI.NamePlate
             // HasAudioSource is volatile — false while out of range, not yet loaded, or unloaded.
             if (audio == null || !audio.HasAudioSource) return;
 
-            BasisDeviceManagement.EnqueueOnMainThread(() =>
-            {
-                if (this == null || !isActiveAndEnabled || NameHidden) return;
+            if (System.Threading.Interlocked.Exchange(ref audioPulsePending, 1) == 1) return;
+            BasisDeviceManagement.EnqueueOnMainThread(audioPulseOnMain ??= AudioPulseOnMain);
+        }
+        private int audioPulsePending;
+        private System.Action audioPulseOnMain;
+        private void AudioPulseOnMain()
+        {
+            System.Threading.Volatile.Write(ref audioPulsePending, 0);
+            if (this == null || !isActiveAndEnabled || NameHidden) return;
 
-                // Re-check on the main thread: state may have changed during the
-                // enqueue + drain window, and this covers the volume check that
-                // can't be done safely off the main thread.
-                if (!CanCurrentlyBeHeard()) return;
+            // Re-check on the main thread: state may have changed during the
+            // enqueue + drain window, and this covers the volume check that
+            // can't be done safely off the main thread.
+            if (!CanCurrentlyBeHeard()) return;
 
-                talkColorCached = BasisRemoteNamePlateDriver.GetModeTalkColor(BasisRemotePlayer != null ? BasisRemotePlayer.TalkMode : BasisTalkMode.Normal);
-                talkColorFloat4 = new float4(talkColorCached.r, talkColorCached.g, talkColorCached.b, talkColorCached.a);
+            talkColorCached = BasisRemoteNamePlateDriver.GetModeTalkColor(BasisRemotePlayer != null ? BasisRemotePlayer.TalkMode : BasisTalkMode.Normal);
+            talkColorFloat4 = new float4(talkColorCached.r, talkColorCached.g, talkColorCached.b, talkColorCached.a);
 
-                // Start pulse timeline
-                talkStartTime = Time.timeAsDouble;
-                isPulsingTalk = true;
+            // Start pulse timeline
+            talkStartTime = Time.timeAsDouble;
+            isPulsingTalk = true;
 
-                // Stage 1: snap to talk color
-                SetPlateColor(talkColorCached);
-                BasisRemoteNamePlateDriver.SyncPlateJobState(this);
-            });
+            // Stage 1: snap to talk color
+            SetPlateColor(talkColorCached);
+            BasisRemoteNamePlateDriver.SyncPlateJobState(this);
         }
         internal bool GetIsPulsingForJob() => isPulsingTalk;
         internal float4 GetRestingColorFloat4ForJob() => restingColorFloat4;

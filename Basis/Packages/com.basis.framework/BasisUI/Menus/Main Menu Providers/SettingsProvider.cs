@@ -177,6 +177,7 @@ namespace Basis.BasisUI
         {
             JiggleSettings.BroadPhaseCellSize = BasisSettingsDefaults.JiggleBroadPhaseCellSize.RawValue;
             appliedJiggleBroadPhaseCellSize = JiggleSettings.BroadPhaseCellSize;
+            JiggleMemoryBus.SetTreeAddCoalesceCommits(6);
         }
 
         public static bool JiggleBroadPhaseCellSizeNeedsRestart =>

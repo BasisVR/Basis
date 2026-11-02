@@ -10,7 +10,9 @@ using Mediapipe.Tasks.Vision.Core;
 using Mediapipe.Tasks.Vision.FaceLandmarker;
 using Mediapipe.Tasks.Vision.HandLandmarker;
 using Mediapipe.Tasks.Vision.PoseLandmarker;
+using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.Rendering;
@@ -18,6 +20,29 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace Basis.MediaPipe.Homuler
 {
+    [BurstCompile]
+    internal static unsafe class HomulerFrameKernel
+    {
+        [BurstCompile]
+        public static void FlipToneMap(byte* src, byte* dst, byte* lut, int w, int h, int mirror)
+        {
+            int stride = w * 4;
+            for (int y = 0; y < h; y++)
+            {
+                byte* s = src + (h - 1 - y) * stride;
+                byte* d = dst + y * stride;
+                for (int x = 0; x < w; x++)
+                {
+                    int si = (mirror != 0 ? w - 1 - x : x) * 4, di = x * 4;
+                    d[di] = lut[s[si]];
+                    d[di + 1] = lut[s[si + 1]];
+                    d[di + 2] = lut[s[si + 2]];
+                    d[di + 3] = s[si + 3];
+                }
+            }
+        }
+    }
+
     public sealed class HomulerMediaPipeBackend : IBasisMediaPipeBackend
     {
         private const string FaceModelAddress = "Packages/com.basis.mediapipe/Models/face_landmarker.task.bytes";
@@ -57,7 +82,6 @@ namespace Basis.MediaPipe.Homuler
         private bool _faceOk, _poseOk, _handOk;
 
         private Color32[] _pixels;
-        private byte[] _srcRgba, _rgba;
         private NativeArray<byte> _native;
         private int _w, _h;
         private long _ts;
@@ -355,10 +379,8 @@ namespace Basis.MediaPipe.Homuler
         private void EnsureBuffers(int w, int h)
         {
             int len = w * h;
-            if (_rgba != null && _rgba.Length == len * 4) return;
+            if (_native.IsCreated && _native.Length == len * 4) return;
             _pixels = new Color32[len];
-            _srcRgba = new byte[len * 4];
-            _rgba = new byte[len * 4];
             if (_native.IsCreated) _native.Dispose();
             _native = new NativeArray<byte>(len * 4, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             if (_useAsyncReadback)
@@ -382,7 +404,7 @@ namespace Basis.MediaPipe.Homuler
                 return;
             }
 
-            if (_srcRgba == null || !_readbackNative.IsCreated || _readbackNative.Length != _srcRgba.Length) return;
+            if (!_native.IsCreated || !_readbackNative.IsCreated || _readbackNative.Length != _native.Length) return;
 
             _w = _pendingW;
             _h = _pendingH;
@@ -480,47 +502,23 @@ namespace Basis.MediaPipe.Homuler
 
             // WebCamTexture origin is bottom-left; MediaPipe expects top-left. Flip rows,
             // and mirror columns for a selfie-style camera.
-            if (_useAsyncReadback) _readbackNative.CopyTo(_srcRgba);
             MeterLight(w, h);
             _exposure.Update(_lowLight);
-            byte[] lut = _exposure.Lut;
-            if (_useAsyncReadback)
+            unsafe
             {
-                for (int y = 0; y < h; y++)
+                byte* dst = (byte*)_native.GetUnsafePtr();
+                fixed (byte* lut = _exposure.Lut)
                 {
-                    int srcRow = (h - 1 - y) * w;
-                    int dstRow = y * w;
-                    for (int x = 0; x < w; x++)
+                    if (_useAsyncReadback)
                     {
-                        int src = (srcRow + (mirror ? (w - 1 - x) : x)) * 4;
-                        int dst = (dstRow + x) * 4;
-                        _rgba[dst + 0] = lut[_srcRgba[src + 0]];
-                        _rgba[dst + 1] = lut[_srcRgba[src + 1]];
-                        _rgba[dst + 2] = lut[_srcRgba[src + 2]];
-                        _rgba[dst + 3] = _srcRgba[src + 3];
+                        HomulerFrameKernel.FlipToneMap((byte*)_readbackNative.GetUnsafeReadOnlyPtr(), dst, lut, w, h, mirror ? 1 : 0);
+                    }
+                    else
+                    {
+                        fixed (Color32* src = _pixels) HomulerFrameKernel.FlipToneMap((byte*)src, dst, lut, w, h, mirror ? 1 : 0);
                     }
                 }
             }
-            else
-            {
-                for (int y = 0; y < h; y++)
-                {
-                    int srcRow = (h - 1 - y) * w;
-                    int dstRow = y * w;
-                    for (int x = 0; x < w; x++)
-                    {
-                        int src = srcRow + (mirror ? (w - 1 - x) : x);
-                        int dst = (dstRow + x) * 4;
-                        Color32 c = _pixels[src];
-                        _rgba[dst + 0] = lut[c.r];
-                        _rgba[dst + 1] = lut[c.g];
-                        _rgba[dst + 2] = lut[c.b];
-                        _rgba[dst + 3] = c.a;
-                    }
-                }
-            }
-
-            _native.CopyFrom(_rgba);
             _flipMs = MsSince(stage);
 
             MediaPipeResultSlot slot = _slots.BeginWrite();
@@ -774,7 +772,7 @@ namespace Basis.MediaPipe.Homuler
         // interior (a tongue protruding past the lower lip), gated on the mouth being open.
         private float ComputeTongueOut(FaceLandmarkerResult faceResult, int w, int h)
         {
-            if (_rgba == null || faceResult.faceLandmarks == null || faceResult.faceLandmarks.Count == 0) return 0f;
+            if (!_native.IsCreated || faceResult.faceLandmarks == null || faceResult.faceLandmarks.Count == 0) return 0f;
             var lm = faceResult.faceLandmarks[0].landmarks;
             if (lm == null || lm.Count < 468) return 0f;
 
@@ -802,9 +800,9 @@ namespace Basis.MediaPipe.Homuler
                 for (int x = px0; x <= px1; x += stepX)
                 {
                     int idx = (row + x) * 4;
-                    byte r = _rgba[idx];
-                    byte g = _rgba[idx + 1];
-                    byte b = _rgba[idx + 2];
+                    byte r = _native[idx];
+                    byte g = _native[idx + 1];
+                    byte b = _native[idx + 2];
                     total++;
                     // pink/red, not too dark, not white (teeth)
                     if (r > 60 && r > g + 12 && r > b + 12 && r + g + b < 600)
@@ -839,7 +837,7 @@ namespace Basis.MediaPipe.Homuler
                     for (int x = x0; x < x1; x += step)
                     {
                         int i = (row + x) * 4;
-                        _exposure.Add(_srcRgba[i], _srcRgba[i + 1], _srcRgba[i + 2]);
+                        _exposure.Add(_readbackNative[i], _readbackNative[i + 1], _readbackNative[i + 2]);
                     }
                 }
             }

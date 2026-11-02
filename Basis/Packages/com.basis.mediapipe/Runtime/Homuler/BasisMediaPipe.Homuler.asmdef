@@ -9,6 +9,7 @@
         "BasisDebug",
         "Unity.Mathematics",
         "Unity.Collections",
+        "Unity.Burst",
         "Mediapipe.Runtime",
         "Unity.Addressables",
         "Unity.ResourceManager"
@@ -17,7 +18,7 @@
     "excludePlatforms": [
         "WebGL"
     ],
-    "allowUnsafeCode": false,
+    "allowUnsafeCode": true,
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,

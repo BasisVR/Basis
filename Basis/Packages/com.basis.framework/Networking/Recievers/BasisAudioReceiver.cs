@@ -474,6 +474,7 @@ namespace Basis.Scripts.Networking.Receivers
         private void DrainAndDecodeLocked()
         {
             _lastDrainDecoded = false;
+            if (_idleResetDone && !_catchupActive && (!VoiceBuffer.Started || (_starveEpisode && _starvePlcBudget == 0)) && VoiceBuffer.IsIdleRelaxed) return;
 
             // Mute creates a gap that Opus's own loss handling won't catch:
             // sender stops advancing sequence numbers, so the jitter buffer never

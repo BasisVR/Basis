@@ -229,11 +229,25 @@ namespace Basis.BasisUI
                 card.DisableRichText();
                 if (card.TitleLabel != null) card.TitleLabel.overflowMode = TextOverflowModes.Ellipsis;
                 card.SetTitle($"{name} ({BasisCilboxConsentPrompt.KindLabel(approval.ContentKind)})");
-                card.SetDescription(BasisCilboxPermissionText.Summary(approval.Items) + "\n" + (approval.Remembered
+                string description = BasisCilboxPermissionText.Summary(approval.Items);
+                if (approval.OwnerYours) description += "\n" + BasisLocalization.Get("settings.cilboxPermissions.fromYou");
+                else if (!string.IsNullOrWhiteSpace(approval.OwnerName)) description += "\n" + BasisLocalization.Get("settings.cilboxPermissions.from", BasisCilboxConsentPrompt.CleanName(approval.OwnerName));
+                if (!string.IsNullOrWhiteSpace(approval.WorldName))
+                {
+                    string world = BasisCilboxConsentPrompt.CleanName(approval.WorldName);
+                    description += "\n" + (string.IsNullOrEmpty(approval.Server)
+                        ? BasisLocalization.Get("settings.cilboxPermissions.inOffline", world)
+                        : BasisLocalization.Get("settings.cilboxPermissions.inServer", world, BasisCilboxConsentPrompt.CleanName(approval.Server)));
+                }
+                card.SetDescription(description + "\n" + (approval.Remembered
                     ? BasisLocalization.Get("settings.cilboxPermissions.remembered", approval.ApprovedUtc)
                     : BasisLocalization.Get("settings.cilboxPermissions.sessionOnly")));
 
                 RectTransform actions = PanelElementDescriptor.BuildActionRow(card.ContentParent, "ScriptPermissionCardActions");
+                PanelButton review = PanelButton.CreateNew(actions);
+                review.Descriptor.SetTitle(BasisLocalization.Get("settings.cilboxPermissions.review"));
+                review.Descriptor.SetTooltip(BasisLocalization.Get("settings.cilboxPermissions.review.tooltip"));
+                review.OnClicked += () => BasisCilboxConsentPrompt.ShowRecord(approval);
                 PanelButton remove = PanelButton.CreateNew(actions);
                 remove.Descriptor.SetTitle(BasisLocalization.Get("settings.cilboxPermissions.remove"));
                 remove.Descriptor.SetTooltip(BasisLocalization.Get("settings.cilboxPermissions.remove.tooltip"));

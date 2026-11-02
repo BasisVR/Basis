@@ -204,17 +204,20 @@ public partial class BasisLocalFootDriver
         {
             return;
         }
-        ReEngageFoot(ref Foot(0), leftFootBone, FootWorldPosition(BasisLocalBoneDriver.LeftFootControl, leftFootBone));
-        ReEngageFoot(ref Foot(1), rightFootBone, FootWorldPosition(BasisLocalBoneDriver.RightFootControl, rightFootBone));
+        ReEngageFoot(ref Foot(0), BasisLocalBoneDriver.LeftFootControl, leftFootBone);
+        ReEngageFoot(ref Foot(1), BasisLocalBoneDriver.RightFootControl, rightFootBone);
     }
-    private static void ReEngageFoot(ref BasisFootNativeState f, Transform bone, Vector3 position)
+    // Start from the foot on screen: last frame's solved pose. The bone control holds the rest stance, which can be a stride away after walking,
+    // and the bone transform already holds this frame's unsolved animation, so either would drag the foot as the driver fades in.
+    private static void ReEngageFoot(ref BasisFootNativeState f, BasisLocalBoneControl control, Transform bone)
     {
-        f.currentPos = f.plantedPos = position;
+        bool solved = control != null && control.HasIKWorldData;
+        f.currentPos = f.plantedPos = solved ? control.IKWorldData.position : FootWorldPosition(control, bone);
         f.phase = 0;
         f.plantedTime = SettledPlantedTime;
-        if (bone != null)
+        if (solved || bone != null)
         {
-            f.currentRot = f.plantedRot = f.stepStartRot = bone.rotation;
+            f.currentRot = f.plantedRot = f.stepStartRot = solved ? control.IKWorldData.rotation : bone.rotation;
         }
         f.plantedBodyFwd = float3.zero;
         ClearTransient(ref f);

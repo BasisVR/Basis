@@ -13,6 +13,9 @@ namespace Basis.IK
         public FixedList512Bytes<Vector3> slotPositions;
         public FixedList512Bytes<Quaternion> slotRotations, slotOffsets;
         public FixedList64Bytes<bool> slotWeights;
+        public FixedList128Bytes<float> slotBlends;
+        public NativeArray<Vector3> solvedPositions;
+        public NativeArray<Quaternion> solvedRotations;
         public BasisBoneHandle handleHips, handleSpine, handleChest, handleUpperChest, handleNeck, handleHead;
         public BasisBoneHandle handleLeftShoulder, handleLeftUpperArm, handleLeftLowerArm, handleLeftHand;
         public BasisBoneHandle handleRightShoulder, handleRightUpperArm, handleRightLowerArm, handleRightHand;
@@ -187,6 +190,15 @@ namespace Basis.IK
                 slotWeights[s] = State;
             }
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetBlend(int idx, float blend)
+        {
+            int s = Slot(idx);
+            if (s >= 0 && s < slotBlends.Length)
+            {
+                slotBlends[s] = blend > 0f ? (blend < 1f ? blend : 1f) : 0f;
+            }
+        }
         public void RescaleTposeScalars(float newScale)
         {
             if (float.IsNaN(newScale) || float.IsInfinity(newScale) || newScale <= 0f || tposeBakeScale <= 0f)
@@ -246,6 +258,8 @@ namespace Basis.IK
             if (armState.IsCreated) armState.Dispose();
             if (legState.IsCreated) legState.Dispose();
             if (legDiagnostics.IsCreated) legDiagnostics.Dispose();
+            if (solvedPositions.IsCreated) solvedPositions.Dispose();
+            if (solvedRotations.IsCreated) solvedRotations.Dispose();
 
             gizmos.Dispose();
         }

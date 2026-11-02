@@ -8,18 +8,39 @@ namespace Basis.IK
     {
         void ApplyTrackerOverrides()
         {
+            bool capture = solvedPositions.IsCreated && solvedRotations.IsCreated;
+            if (capture)
+            {
+                for (int i = 0; i < slotPositions.Length && i < solvedPositions.Length; i++)
+                {
+                    if ((plan.boundSlots & (1u << i)) == 0)
+                    {
+                        continue;
+                    }
+                    BasisBoneHandle handle = SlotHandle(i);
+                    solvedPositions[i] = poseStream.GetPosition(handle);
+                    solvedRotations[i] = poseStream.GetRotation(handle);
+                }
+            }
             for (int i = 0; i < slotPositions.Length; i++)
             {
                 if (!slotWeights[i] || (plan.boundSlots & (1u << i)) == 0)
                 {
                     continue;
                 }
+                float blend = i < slotBlends.Length ? slotBlends[i] : 1f;
+                if (!(blend > 0f))
+                {
+                    continue;
+                }
                 BasisBoneHandle handle = SlotHandle(i);
+                bool partial = blend < 1f && capture;
                 if (poseStream.TranslationFree.IsCreated && poseStream.TranslationFree[handle.Index] != 0)
                 {
-                    poseStream.SetPosition(handle, slotPositions[i]);
+                    poseStream.SetPosition(handle, partial ? Vector3.Lerp(solvedPositions[i], slotPositions[i], blend) : slotPositions[i]);
                 }
-                poseStream.SetRotation(handle, slotRotations[i] * slotOffsets[i]);
+                Quaternion rotation = slotRotations[i] * slotOffsets[i];
+                poseStream.SetRotation(handle, partial ? Quaternion.Slerp(solvedRotations[i], rotation, blend) : rotation);
             }
         }
         void ResetToRest(BasisBoneHandle root, BasisBoneHandle mid, BasisBoneHandle tip)

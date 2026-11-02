@@ -33,7 +33,7 @@ namespace Basis.Scripts.Networking.Sync
         private static JobHandle _jobHandle;
 
         // Per-slot (indexed by remote list position).
-        [NoAutoStaticsCleanup] private static NativeArray<byte> _active;
+        [NoAutoStaticsCleanup] private static NativeArray<byte> _active, _jobApply;
         [NoAutoStaticsCleanup] private static NativeArray<float> _t;
         [NoAutoStaticsCleanup] private static NativeArray<int> _contBase, _contCount, _rotBase, _rotCount, _discBase, _discCount;
 
@@ -117,7 +117,7 @@ namespace Basis.Scripts.Networking.Sync
             _reductionCount = 0;
             _lastReductionPassTime = double.NegativeInfinity;
 
-            DisposeIf(ref _active); DisposeIf(ref _t);
+            DisposeIf(ref _active); DisposeIf(ref _jobApply); DisposeIf(ref _t);
             DisposeIf(ref _contBase); DisposeIf(ref _contCount);
             DisposeIf(ref _rotBase); DisposeIf(ref _rotCount);
             DisposeIf(ref _discBase); DisposeIf(ref _discCount);
@@ -225,6 +225,13 @@ namespace Basis.Scripts.Networking.Sync
                     }
                 }
 
+                if (o.JobApplyConditional)
+                {
+                    bool useJob = o.UseJobApplyThisFrame(_discBase[i]);
+                    o.JobAppliedThisFrame = useJob;
+                    _jobApply[i] = (byte)(useJob ? 1 : 0);
+                }
+
                 _t[i] = recv.InterpTime;
                 _active[i] = 1;
             }
@@ -262,6 +269,7 @@ namespace Basis.Scripts.Networking.Sync
                     ContOut = _contOut,
                     RotOut = _rotOut,
                     Active = _active,
+                    JobApply = _jobApply,
                     Bindings = _bindingsArr,
                 };
                 h = apply.Schedule(_taa, h);
@@ -287,7 +295,7 @@ namespace Basis.Scripts.Networking.Sync
             for (int i = 0; i < _mainThreadApply.Count; i++)
             {
                 BasisSyncedObject o = _mainThreadApply[i];
-                if (o != null && !o.JobApplied) o.DriverApply();
+                if (o != null && !(o.JobApplied && o.JobAppliedThisFrame)) o.DriverApply();
             }
         }
 
@@ -538,6 +546,9 @@ namespace Basis.Scripts.Networking.Sync
         internal static int ReadDisc(int idx)
             => (idx >= 0 && _discOut.IsCreated && idx < _discOut.Length) ? _discOut[idx] : 0;
 
+        internal static int ReadDiscNext(int idx)
+            => (idx >= 0 && _discNext.IsCreated && idx < _discNext.Length) ? _discNext[idx] : 0;
+
         private static void RebuildLayout()
         {
             if (_scheduled) { _jobHandle.Complete(); _scheduled = false; }
@@ -593,6 +604,9 @@ namespace Basis.Scripts.Networking.Sync
                 }
 
                 o.JobApplied = false;
+                o.JobApplyConditional = false;
+                o.JobAppliedThisFrame = true;
+                _jobApply[i] = 1;
                 if (o.TryGetJobApplyBinding(out BasisSyncApplyBinding binding, out Transform target, out bool replacesMainThreadApply) && target != null)
                 {
                     binding.Slot = i;
@@ -628,11 +642,12 @@ namespace Basis.Scripts.Networking.Sync
         {
             if (n < 1) n = 1;
             if (_active.IsCreated && _active.Length == n) return;
-            DisposeIf(ref _active); DisposeIf(ref _t);
+            DisposeIf(ref _active); DisposeIf(ref _jobApply); DisposeIf(ref _t);
             DisposeIf(ref _contBase); DisposeIf(ref _contCount);
             DisposeIf(ref _rotBase); DisposeIf(ref _rotCount);
             DisposeIf(ref _discBase); DisposeIf(ref _discCount);
             _active = new NativeArray<byte>(n, Allocator.Persistent);
+            _jobApply = new NativeArray<byte>(n, Allocator.Persistent);
             _t = new NativeArray<float>(n, Allocator.Persistent);
             _contBase = new NativeArray<int>(n, Allocator.Persistent);
             _contCount = new NativeArray<int>(n, Allocator.Persistent);

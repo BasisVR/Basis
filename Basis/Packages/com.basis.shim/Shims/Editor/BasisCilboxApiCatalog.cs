@@ -931,7 +931,7 @@ void Update()
                 GroupKey = GroupInteraction,
                 TitleKey = "sdk.cilbox.api.inputRequest.title",
                 SummaryKey = "sdk.cilbox.api.inputRequest.summary",
-                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisInputShim", "Request"), new CilboxApiRequirement("Basis.Shims.BasisInputRequest", "Read") },
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisInputShim", "Request"), new CilboxApiRequirement("Basis.Shims.BasisInputRequest", "Target") },
                 Example =
 @"using Basis.Shims;
 using UnityEngine.InputSystem;
@@ -949,12 +949,11 @@ void Start()
     fire = input.AddController(BasisControllerHand.Right, BasisControllerButton.Trigger);
     stickX = input.AddGamepad(BasisInputGamepadControl.LeftStickX);
     stickY = input.AddGamepad(BasisInputGamepadControl.LeftStickY);
+    input.Target(values);
 }
 
-void OnInputChanged()
+void OnInputChanged(int down, int up)
 {
-    input.Read(values);
-    int down = input.TakeDown();
     if ((down & (1 << jump)) != 0) Jump();
     if ((down & (1 << fire)) != 0) Fire();
     Steer(values[stickX], values[stickY]);

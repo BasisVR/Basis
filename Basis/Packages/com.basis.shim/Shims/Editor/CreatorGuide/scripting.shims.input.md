@@ -48,12 +48,11 @@ void Start()
     jump = input.AddKey(Key.Space);
     fire = input.AddController(BasisControllerHand.Right, BasisControllerButton.Trigger);
     stickX = input.AddGamepad(BasisInputGamepadControl.LeftStickX);
+    input.Target(values);
 }
 
-void OnInputChanged()
+void OnInputChanged(int down, int up)
 {
-    input.Read(values);
-    int down = input.TakeDown();
     if ((down & (1 << jump)) != 0) Jump();
     if ((down & (1 << fire)) != 0) Fire();
     speed = values[stickX];
@@ -76,8 +75,12 @@ Each `Add` call returns a slot number, or -1 if it was refused. A request holds 
 
 Scripts can read results in two ways.
 
-- Add an `OnInputChanged()` method with no parameters. Basis calls it at most once a frame, only when a value changed.
-- Check `input.Changed` from your own `Update` and call `Read` only when it is true. `values` keeps its contents between reads, so a held stick can keep moving something every frame.
+- Add an `OnInputChanged(int down, int up)` method. Basis calls it at most once a frame, only when a value changed, and passes the presses and releases since the last call. A method with no parameters, `OnInputChanged()`, also works, with `TakeDown()` and `TakeUp()` to get the presses.
+- Check `input.Changed` from your own `Update`. `values` keeps its contents, so a held stick can keep moving something every frame.
+
+`Target(values)` makes Basis write each new value straight into your array, which is the fastest way to read. Without it, call `Read(values)` to copy them over. Slots past the end of the array are skipped.
+
+`WakeOn(mask)` picks which slots wake the script, one bit per slot. The others still update `values`, `Held` and the presses and releases, but on their own they don't call `OnInputChanged` or set `Changed`. Use it when you read something that changes every frame, like mouse movement, but only need to act on a button. For example, `input.WakeOn(1 << fire)`.
 
 `values` holds one number per slot. Buttons are 0 or 1, triggers run from 0 to 1, and sticks from -1 to 1. `Held`, `TakeDown()` and `TakeUp()` hold one bit per slot, set at 0.5 and above. `TakeDown` and `TakeUp` give you each press and release once and clear it, so a quick tap between two reads still arrives, and they work from `FixedUpdate`.
 

@@ -156,6 +156,7 @@ namespace HVR.Basis.Comms
                 if (BasisNetworkPlayers.AvatarToPlayer(avatar, out _, out var networkPlayer))
                 {
                     Receiver = networkPlayer as BasisNetworkReceiver;
+                    _eyeTracking?.UpdateAfterAvatarChangesApplied();
                 }
                 else
                 {
@@ -166,13 +167,11 @@ namespace HVR.Basis.Comms
 
         private void OnEnable()
         {
-            BasisNetworkTransmitter.AfterAvatarChanges += UpdateAfterAvatarChangesApplied;
             RefreshDriverRegistration();
         }
 
         private void OnDisable()
         {
-            BasisNetworkTransmitter.AfterAvatarChanges -= UpdateAfterAvatarChangesApplied;
             RefreshDriverRegistration();
         }
 
@@ -205,7 +204,6 @@ namespace HVR.Basis.Comms
         {
             _eyeTracking?.Update();
         }
-        private void UpdateAfterAvatarChangesApplied() => _eyeTracking?.UpdateAfterAvatarChangesApplied();
 
         private void SetOverride(ref float field, float value, float defaultValue, string address)
         {
@@ -440,6 +438,7 @@ namespace HVR.Basis.Comms
                     our.Receiver.RemotePlayer.RemoteFaceDriver.OverrideEye = shouldOverride;
                     our.Receiver.RemotePlayer.RemoteFaceDriver.OverrideBlinking = shouldOverride;
                     our.Receiver.RemotePlayer.RemoteFaceDriver.OverrideViseme = shouldOverride;
+                    if (shouldOverride) UpdateAfterAvatarChangesApplied();
                 }
             }
 
@@ -451,6 +450,7 @@ namespace HVR.Basis.Comms
                 _yClamped = -Mathf.Sin(ClampToEyeAngleLimits(Mathf.Asin(-y) * our.EffectiveMultiplyY, maxYRad));
                 _xLeftClamped = Mathf.Sin(ClampToEyeAngleLimits(Mathf.Asin(xLeft) * our.EffectiveMultiplyX, maxXRad));
                 _xRightClamped = Mathf.Sin(ClampToEyeAngleLimits(Mathf.Asin(xRight) * our.EffectiveMultiplyX, maxXRad));
+                UpdateAfterAvatarChangesApplied();
             }
 
             public void OnDestroy()

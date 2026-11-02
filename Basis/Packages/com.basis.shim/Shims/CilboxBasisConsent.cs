@@ -47,7 +47,12 @@ namespace Cilbox
 			public string Name;
 			public string Kind;
 			public string Owner;
+			public string OwnerUUID;
 			public bool Yours;
+			public string ContentId;
+			public string World;
+			public string Server;
+			public string RequestedUtc;
 			public int Waits;
 			public string[] Items;
 			public string[] Blocked;
@@ -225,7 +230,7 @@ namespace Cilbox
 			box.consentState = State.Pending;
 			if (!requests.TryGetValue(hash, out Request request))
 			{
-				request = new Request { Hash = hash, Name = NameOf(box), Kind = KindOf(box), Items = result.Items, Blocked = result.Blocked, Uses = result.Uses };
+				request = new Request { Hash = hash, Name = NameOf(box), Kind = KindOf(box), Items = result.Items, Blocked = result.Blocked, Uses = result.Uses, World = WorldOf(box), Server = ServerNow(), RequestedUtc = BasisCilboxPermissions.Now() };
 				requests[hash] = request;
 				queue.Enqueue(hash);
 				BasisDeviceManagement.EnqueueOnMainThread(ShowNext);
@@ -509,28 +514,45 @@ namespace Cilbox
 		private static bool OwnerOf(Request request)
 		{
 			request.Owner = null;
+			request.OwnerUUID = null;
 			request.Yours = false;
 			CilboxBasisCommon box = request.Boxes[0];
 			if (box is CilboxSceneBasis) return true;
 			BasisContentBase content = box.ownerRecorded ? box.ownerContent : box.GetComponentInParent<BasisContentBase>(true);
 			if (content == null || content is BasisScene) return true;
+			if (content.TryGetNetworkGUIDIdentifier(out string id)) request.ContentId = id;
 			if (content is BasisAvatar avatar)
 			{
-				if (WornLocally(avatar))
-				{
-					request.Yours = true;
-					return true;
-				}
+				if (WornLocally(avatar)) return Mine(request);
 				return Named(request, Wearer(avatar));
 			}
 			string creator = content.CreatorUUID;
-			if (content.SpawnedByLocalPlayer || (!string.IsNullOrEmpty(creator) && BasisLocalPlayer.Instance != null && creator == BasisLocalPlayer.Instance.UUID))
-			{
-				request.Yours = true;
-				return true;
-			}
+			if (content.SpawnedByLocalPlayer || (!string.IsNullOrEmpty(creator) && BasisLocalPlayer.Instance != null && creator == BasisLocalPlayer.Instance.UUID)) return Mine(request);
 			if (string.IsNullOrEmpty(creator)) return content.TryGetIdentifier(out _);
+			request.OwnerUUID = creator;
 			return !BasisNetworkPlayers.TryGetPlayerByUUID(creator, out BasisNetworkPlayer spawner) || Named(request, spawner);
+		}
+
+		private static bool Mine(Request request)
+		{
+			request.Yours = true;
+			request.OwnerUUID = BasisLocalPlayer.Instance != null ? BasisLocalPlayer.Instance.UUID : null;
+			return true;
+		}
+
+		private static string WorldOf(CilboxBasisCommon box)
+		{
+			if (box is CilboxSceneBasis) return NameOf(box);
+			BasisScene scene = BasisScene.Instance;
+			if (scene == null) return box.gameObject.scene.name;
+			string name = scene.gameObject.scene.name;
+			return string.IsNullOrEmpty(name) ? scene.gameObject.name : name;
+		}
+
+		private static string ServerNow()
+		{
+			if (!BasisNetworkManagement.NetworkRunning) return string.Empty;
+			return BasisNetworkManagement.IsHostMode ? BasisNetworkManagement.HostServerName : BasisNetworkManagement.Ip + ":" + BasisNetworkManagement.Port;
 		}
 
 		private static BasisNetworkPlayer Wearer(BasisAvatar avatar)
@@ -549,6 +571,7 @@ namespace Cilbox
 			if (string.IsNullOrWhiteSpace(name)) name = player?.displayName;
 			if (string.IsNullOrWhiteSpace(name)) return false;
 			request.Owner = name;
+			if (player.Player != null && !string.IsNullOrEmpty(player.Player.UUID)) request.OwnerUUID = player.Player.UUID;
 			return true;
 		}
 
@@ -567,7 +590,21 @@ namespace Cilbox
 				requests.Remove(hash);
 				bool allowed = answer != BasisCilboxConsentPrompt.Answer.Deny && BasisCilboxPermissions.UntrustedAllowed;
 				if (answer == BasisCilboxConsentPrompt.Answer.Deny) BasisCilboxPermissions.Decline(hash);
-				else if (allowed) BasisCilboxPermissions.Allow(hash, request.Name, request.Kind, request.Items, answer == BasisCilboxConsentPrompt.Answer.AllowAndRemember);
+				else if (allowed) BasisCilboxPermissions.Allow(new BasisCilboxPermissions.Approval
+				{
+					ContentHash = hash,
+					ContentName = request.Name,
+					ContentKind = request.Kind,
+					ContentId = request.ContentId,
+					Items = new List<string>(request.Items),
+					Blocked = new List<string>(request.Blocked ?? Array.Empty<string>()),
+					OwnerName = request.Owner,
+					OwnerUUID = request.OwnerUUID,
+					OwnerYours = request.Yours,
+					WorldName = request.World,
+					Server = request.Server,
+					RequestedUtc = request.RequestedUtc,
+				}, request.Uses, answer == BasisCilboxConsentPrompt.Answer.AllowAndRemember);
 				Release(request, allowed);
 			}
 			ShowNext();

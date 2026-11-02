@@ -63,12 +63,14 @@ namespace Basis.Scripts.Drivers
             job.slotRotations.Length = BasisEerieMovement.Count;
             job.slotOffsets.Length = BasisEerieMovement.Count;
             job.slotWeights.Length = BasisEerieMovement.Count;
+            job.slotBlends.Length = BasisEerieMovement.Count;
             for (int i = 0; i < BasisEerieMovement.Count; i++)
             {
                 job.slotPositions[i] = Vector3.zero;
                 job.slotRotations[i] = Quaternion.identity;
                 job.slotOffsets[i] = Quaternion.identity;
                 job.slotWeights[i] = false;
+                job.slotBlends[i] = 1f;
             }
         }
         private static Quaternion BindLocal(Transform parent, Transform bone)
@@ -146,6 +148,8 @@ namespace Basis.Scripts.Drivers
             job.armState = new NativeArray<BasisArmState>(BasisEerieMovement.armCount, Allocator.Persistent);
             job.legState = new NativeArray<BasisLegSlotState>(2, Allocator.Persistent);
             job.legDiagnostics = new NativeArray<BasisLegDiagnostics>(2, Allocator.Persistent);
+            job.solvedPositions = new NativeArray<Vector3>(BasisEerieMovement.Count, Allocator.Persistent);
+            job.solvedRotations = new NativeArray<Quaternion>(BasisEerieMovement.Count, Allocator.Persistent);
             // Raliv initialization reads the bound pose just like SpineTest.Awake.
             // The stream must be assigned before that cache is built.
             job.poseStream = skeleton.Stream;

@@ -151,13 +151,14 @@ namespace Basis.Scripts.Networking.Sync
         [ReadOnly] public NativeArray<float> ContOut;
         [ReadOnly] public NativeArray<quaternion> RotOut;
         [ReadOnly] public NativeArray<byte> Active;
+        [ReadOnly] public NativeArray<byte> JobApply;
         [ReadOnly] public NativeArray<BasisSyncApplyBinding> Bindings;
 
         public void Execute(int index, TransformAccess transform)
         {
             if (!transform.isValid) return;
             BasisSyncApplyBinding b = Bindings[index];
-            if (Active[b.Slot] == 0) return;
+            if (Active[b.Slot] == 0 || JobApply[b.Slot] == 0) return;
             bool world = b.World == 1;
 
             bool hasPos = b.HasPosition;

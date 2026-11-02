@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Basis.BasisUI;
 using NUnit.Framework;
@@ -71,7 +72,7 @@ namespace Basis.Tests.UI
             BasisAddressablePrefabCache.ResetForTests(null);
             for (int Index = 0; Index < _roots.Count; Index++)
             {
-                if (_roots[Index]) Object.DestroyImmediate(_roots[Index]);
+                if (_roots[Index]) UnityEngine.Object.DestroyImmediate(_roots[Index]);
             }
             _roots.Clear();
         }
@@ -155,6 +156,121 @@ namespace Basis.Tests.UI
             AssertSettled("after closing");
             _section.SetExpanded(true);
             AssertSettled("after reopening");
+        }
+
+        [Test]
+        public void ApprovalKeepsWhoWhatWhenWhere()
+        {
+            const string hash = "grid-test-record";
+            try
+            {
+                BasisCilboxPermissions.Allow(new BasisCilboxPermissions.Approval
+                {
+                    ContentHash = hash,
+                    ContentName = "Recorded",
+                    ContentKind = "Prop",
+                    ContentId = "net-id-1",
+                    Items = new List<string> { "Type:System.IO.File" },
+                    Blocked = new List<string> { "Type:System.Runtime.InteropServices.Marshal" },
+                    OwnerName = "Spawner",
+                    OwnerUUID = "owner-uuid-1",
+                    WorldName = "Test World",
+                    Server = "host.example:4296",
+                    RequestedUtc = "2026-01-02 03:04:05",
+                }, new[] { new BasisCilboxPermissionText.Use("Type:System.IO.File", "Door.Start", "File.ReadAllText()") }, false);
+
+                BasisCilboxPermissions.Approval stored = BasisCilboxPermissions.Find(hash);
+                Assert.That(stored, Is.Not.Null);
+                Assert.That(stored.RequestedUtc, Is.EqualTo("2026-01-02 03:04:05"));
+                Assert.That(stored.ApprovedUtc, Is.Not.Empty);
+                Assert.That(stored.Calls.Count, Is.EqualTo(1));
+
+                BasisCilboxPermissions.Approval copy = JsonUtility.FromJson<BasisCilboxPermissions.Approval>(JsonUtility.ToJson(stored));
+                Assert.That(copy.OwnerUUID, Is.EqualTo("owner-uuid-1"));
+                Assert.That(copy.Server, Is.EqualTo("host.example:4296"));
+                Assert.That(copy.Uses()[0].Code, Is.EqualTo("File.ReadAllText()"));
+
+                Assert.That(copy.ContentId, Is.EqualTo("net-id-1"));
+                Assert.That(copy.WorldName, Is.EqualTo("Test World"));
+                Assert.That(copy.Blocked, Is.EquivalentTo(new[] { "Type:System.Runtime.InteropServices.Marshal" }));
+
+                List<BasisMenuDialoguePanel.DetailRow> rows = BasisCilboxConsentPrompt.Record(stored);
+                Assert.That(rows.Count, Is.EqualTo(4), "who, what, when, where");
+                Assert.That(rows[0].Value, Is.EqualTo("Spawner (owner-uuid-1)"));
+            }
+            finally
+            {
+                BasisCilboxPermissions.Remove(hash);
+            }
+        }
+
+        [Serializable]
+        private class LanguageFile
+        {
+            public List<LanguageEntry> entries = new List<LanguageEntry>();
+        }
+
+        [Serializable]
+        private class LanguageEntry
+        {
+            public string key;
+            public string value;
+        }
+
+        [Test]
+        public void EnglishHasEveryRecordString()
+        {
+            TextAsset english = AssetDatabase.LoadAssetAtPath<TextAsset>("Packages/com.basis.framework/BasisUI/Localization/Languages/en.json");
+            Assert.That(english, Is.Not.Null);
+            HashSet<string> keys = new HashSet<string>();
+            foreach (LanguageEntry entry in JsonUtility.FromJson<LanguageFile>(english.text).entries) keys.Add(entry.key);
+            foreach (string key in new[] { "from", "fromYou", "inServer", "inOffline", "review", "review.tooltip", "record.who", "record.what", "record.when", "record.where", "record.yours", "record.name", "record.id", "record.key", "record.asked", "record.allowed", "record.by", "record.kept", "record.world", "record.server", "record.offline", "record.unknown" })
+            {
+                Assert.That(keys, Does.Contain("settings.cilboxPermissions." + key));
+            }
+        }
+
+        [Test]
+        public void OlderApprovalsSayWhatWasNotRecorded()
+        {
+            string record = Flatten(BasisCilboxConsentPrompt.Record(new BasisCilboxPermissions.Approval
+            {
+                ContentHash = "old",
+                ContentName = "Old",
+                ContentKind = "Avatar",
+                ApprovedUtc = "2026-01-02 03:04",
+                Remembered = true,
+            }));
+            Assert.That(record, Does.Contain(BasisLocalization.Get("settings.cilboxPermissions.record.unknown")));
+            Assert.That(record, Does.Not.Contain(BasisLocalization.Get("settings.cilboxPermissions.record.offline")));
+        }
+
+        [Test]
+        public void EveryCardHasReviewBeforeRemove()
+        {
+            _section.SetExpanded(true);
+            AssertSettled("after expanding");
+            int cards = 0;
+            foreach (RectTransform row in Rows())
+            {
+                for (int Index = 0; Index < row.childCount; Index++)
+                {
+                    PanelElementDescriptor card = row.GetChild(Index).GetComponent<PanelElementDescriptor>();
+                    if (card == null) continue;
+                    PanelButton[] buttons = card.ContentParent.Find("ScriptPermissionCardActions").GetComponentsInChildren<PanelButton>(true);
+                    Assert.That(buttons.Length, Is.EqualTo(2));
+                    Assert.That(buttons[0].Descriptor.TitleLabel.text, Is.EqualTo(BasisLocalization.Get("settings.cilboxPermissions.review")));
+                    cards++;
+                }
+            }
+            Assert.That(cards, Is.EqualTo(BasisCilboxPermissions.GetAll().Count));
+        }
+
+        private static string Flatten(List<BasisMenuDialoguePanel.DetailRow> rows)
+        {
+            System.Text.StringBuilder text = new System.Text.StringBuilder();
+            foreach (BasisMenuDialoguePanel.DetailRow row in rows) text.Append(row.Title).Append('\n').Append(row.Value).Append('\n');
+            return text.ToString();
         }
 
         private void RebuildList()

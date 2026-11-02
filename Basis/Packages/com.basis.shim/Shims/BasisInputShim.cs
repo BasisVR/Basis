@@ -7,6 +7,7 @@ using Basis.Scripts.TransformBinders.BoneControl;
 using Basis.Scripts.UI;
 using Basis.Shims;
 using Cilbox;
+using Unity.Profiling;
 using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -81,6 +82,8 @@ namespace Basis.Shims
 		public bool IsBound(int slot) => lease.IsBound(slot);
 		public float Get(int slot) => lease.Get(slot);
 		public int Read(float[] values) => lease.Read(values);
+		public int Target(float[] values) => lease.Target(values);
+		public void WakeOn(int mask) => lease.WakeMask = mask;
 		public int TakeDown() => lease.TakeDown();
 		public int TakeUp() => lease.TakeUp();
 		public void Release() => CilboxInputRequests.Release(lease);
@@ -108,10 +111,13 @@ namespace Cilbox
 		internal readonly CilboxProxy owner;
 		internal readonly CilboxBasisCommon box;
 		internal readonly CilboxMethod callback;
+		internal readonly bool callbackTakesEdges;
 		internal readonly BasisInputRequest handle;
 		private readonly float[] values = new float[BasisInputShim.MaxSlots];
 		private readonly CilboxInputChannel[] channels = new CilboxInputChannel[BasisInputShim.MaxSlots];
+		private float[] target;
 		private int pendingDown, pendingUp;
+		internal int WakeMask = -1;
 		internal int Count { get; private set; }
 		internal int Held { get; private set; }
 		internal bool Changed { get; private set; }
@@ -122,6 +128,7 @@ namespace Cilbox
 			this.owner = owner;
 			this.box = box;
 			this.callback = callback;
+			callbackTakesEdges = callback != null && callback.typeParameters != null && callback.typeParameters.Length == 2;
 			handle = new BasisInputRequest(this);
 		}
 		internal int AddKey(Key key)
@@ -153,6 +160,11 @@ namespace Cilbox
 			Array.Copy(values, into, copied);
 			return copied;
 		}
+		internal int Target(float[] into)
+		{
+			target = Released ? null : into;
+			return Read(target);
+		}
 		internal int TakeDown()
 		{
 			int taken = pendingDown;
@@ -165,26 +177,32 @@ namespace Cilbox
 			pendingUp = 0;
 			return taken;
 		}
-		internal void Publish(int slot, float value, bool held, bool flipped)
+		internal bool Publish(int slot, float value, bool held, bool flipped)
 		{
 			values[slot] = value;
-			Changed = true;
-			if (!flipped) return;
+			if (target != null && slot < target.Length) target[slot] = value;
 			int bit = 1 << slot;
-			if (held)
+			if (flipped)
 			{
-				Held |= bit;
-				pendingDown |= bit;
+				if (held)
+				{
+					Held |= bit;
+					pendingDown |= bit;
+				}
+				else
+				{
+					Held &= ~bit;
+					pendingUp |= bit;
+				}
 			}
-			else
-			{
-				Held &= ~bit;
-				pendingUp |= bit;
-			}
+			if ((WakeMask & bit) == 0) return false;
+			Changed = true;
+			return true;
 		}
 		internal void DetachAll()
 		{
 			Released = true;
+			target = null;
 			for (int i = 0; i < Count; i++) CilboxInputRequests.Unsubscribe(channels[i], this, i);
 			Count = 0;
 			Held = pendingDown = pendingUp = 0;
@@ -207,6 +225,7 @@ namespace Cilbox
 			channel.leases.Add(this);
 			channel.slots.Add(slot);
 			values[slot] = channel.value;
+			if (target != null && slot < target.Length) target[slot] = channel.value;
 			if (channel.held) Held |= 1 << slot;
 			Changed = true;
 			return slot;
@@ -228,6 +247,10 @@ namespace Cilbox
 		[NoAutoStaticsCleanup] private static readonly BasisInputState[] handLast = { new BasisInputState(), new BasisInputState() };
 		[NoAutoStaticsCleanup] private static readonly int[] handTick = new int[2];
 		[NoAutoStaticsCleanup] private static readonly bool[] handHeld = new bool[2];
+		[NoAutoStaticsCleanup] private static readonly object[] edgeArgs = new object[2];
+		[NoAutoStaticsCleanup] private static readonly object[] boxedBits = BoxBits();
+		[NoAutoStaticsCleanup] private static readonly ProfilerMarker pollMarker = new ProfilerMarker("BasisInputShim.Poll");
+		[NoAutoStaticsCleanup] private static readonly ProfilerMarker notifyMarker = new ProfilerMarker("BasisInputShim.Notify");
 		[NoAutoStaticsCleanup] private static readonly Action tickHandler = Tick;
 		[NoAutoStaticsCleanup] private static readonly Action<InputDevice, InputDeviceChange> deviceHandler = DeviceChanged;
 		private static Keyboard keyboard;
@@ -312,6 +335,12 @@ namespace Cilbox
 		}
 		internal static void Poll(bool menu, bool hover, bool typing, bool focused)
 		{
+			using (pollMarker.Auto()) Scan(menu, hover, typing, focused);
+			if (notify.Count == 0) return;
+			using (notifyMarker.Auto()) Notify();
+		}
+		private static void Scan(bool menu, bool hover, bool typing, bool focused)
+		{
 			tick++;
 			Keyboard currentKeyboard = Keyboard.current;
 			Mouse currentMouse = Mouse.current;
@@ -351,15 +380,13 @@ namespace Cilbox
 				for (int s = 0; s < channel.leases.Count; s++)
 				{
 					CilboxInputLease lease = channel.leases[s];
-					lease.Publish(channel.slots[s], raw, held, flipped);
-					if (lease.callback != null && !lease.Queued)
+					if (lease.Publish(channel.slots[s], raw, held, flipped) && lease.callback != null && !lease.Queued)
 					{
 						lease.Queued = true;
 						notify.Add(lease);
 					}
 				}
 			}
-			Notify();
 		}
 		private static void Tick()
 		{
@@ -387,7 +414,13 @@ namespace Cilbox
 				notify.RemoveAt(i);
 				try
 				{
-					lease.callback.Interpret(lease.owner, null);
+					if (lease.callbackTakesEdges)
+					{
+						edgeArgs[0] = Boxed(lease.TakeDown());
+						edgeArgs[1] = Boxed(lease.TakeUp());
+						lease.callback.Interpret(lease.owner, edgeArgs);
+					}
+					else lease.callback.Interpret(lease.owner, null);
 				}
 				catch (Exception e)
 				{
@@ -538,13 +571,40 @@ namespace Cilbox
 				default: return null;
 			}
 		}
+		private static object[] BoxBits()
+		{
+			object[] boxed = new object[33];
+			boxed[0] = 0;
+			for (int i = 0; i < 32; i++) boxed[i + 1] = 1 << i;
+			return boxed;
+		}
+		private static object Boxed(int mask)
+		{
+			if (mask == 0) return boxedBits[0];
+			if ((mask & (mask - 1)) == 0)
+			{
+				uint bit = (uint)mask;
+				int index = 1;
+				while ((bit >>= 1) != 0) index++;
+				return boxedBits[index];
+			}
+			return mask;
+		}
 		private static CilboxMethod FindCallback(CilboxProxy proxy)
 		{
 			CilboxClass cls = proxy.cls;
-			if (cls == null || cls.methodNameToIndex == null || !cls.methodNameToIndex.TryGetValue(CallbackName, out uint index)) return null;
-			CilboxMethod method = cls.methods[index];
-			if (method.isStatic || (method.signatureParameters != null && method.signatureParameters.Length != 0)) return null;
-			return method;
+			if (cls == null || cls.methods == null) return null;
+			CilboxMethod plain = null;
+			for (int i = 0; i < cls.methods.Length; i++)
+			{
+				CilboxMethod method = cls.methods[i];
+				if (method == null || method.isStatic || method.methodName != CallbackName) continue;
+				Type[] parameters = method.typeParameters;
+				int count = parameters == null ? 0 : parameters.Length;
+				if (count == 2 && parameters[0] == typeof(int) && parameters[1] == typeof(int)) return method;
+				if (count == 0) plain = method;
+			}
+			return plain;
 		}
 		private static void DeviceChanged(InputDevice device, InputDeviceChange change)
 		{

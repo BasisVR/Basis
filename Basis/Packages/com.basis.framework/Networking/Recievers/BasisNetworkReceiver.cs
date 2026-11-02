@@ -236,11 +236,17 @@ namespace Basis.Scripts.Networking.Receivers
         /// pre-schedule receiver pass — no transform access; the Burst read/compute/write jobs do the
         /// actual anchoring. Only limbs anchored in BOTH bracketing frames stay masked; the rest FK.
         /// </summary>
-        public unsafe void WriteEffectorJobInputs()
+        private int _windowEffectorMask;
+        private void RefreshWindowEffectorMask()
         {
             BasisAvatarBuffer cur = Current, nxt = Next;
-            int mask = (cur != null && nxt != null) ? (cur.EffectorMask & nxt.EffectorMask) : 0;
-            if (mask == 0)
+            _windowEffectorMask = (cur != null && nxt != null) ? (cur.EffectorMask & nxt.EffectorMask) : 0;
+        }
+        public unsafe void WriteEffectorJobInputs()
+        {
+            int mask = _windowEffectorMask;
+            BasisAvatarBuffer cur = mask != 0 ? Current : null, nxt = mask != 0 ? Next : null;
+            if (mask == 0 || cur == null || nxt == null)
             {
                 BasisRemoteNetworkDriver.ClearEffectorMask(playerId);
                 return;
@@ -542,6 +548,7 @@ namespace Basis.Scripts.Networking.Receivers
                     interpolationTime -= 1.0;
 
                     TrySetLastFromStaging();
+                    RefreshWindowEffectorMask();
 
                     HasBufferHolds = HasCurrentBuffer && HasNextBuffer;
                     if (!HasBufferHolds)
@@ -910,6 +917,7 @@ namespace Basis.Scripts.Networking.Receivers
                 Current = first;
                 SentLatest = true;
                 HasCurrentBuffer = true;
+                RefreshWindowEffectorMask();
             }
 
             StagedCount = _stagedRing.Count;
@@ -928,6 +936,7 @@ namespace Basis.Scripts.Networking.Receivers
                 Next = next;
                 SentLatest = true;
                 HasNextBuffer = true;
+                RefreshWindowEffectorMask();
             }
 
             StagedCount = _stagedRing.Count;
@@ -948,6 +957,7 @@ namespace Basis.Scripts.Networking.Receivers
                 Next = null;
                 HasNextBuffer = false;
             }
+            _windowEffectorMask = 0;
         }
 
         public void ReleaseCurrent()
@@ -957,6 +967,7 @@ namespace Basis.Scripts.Networking.Receivers
                 BasisAvatarBufferPool.Release(Current);
                 Current = null;
                 HasCurrentBuffer = false;
+                _windowEffectorMask = 0;
             }
         }
     }

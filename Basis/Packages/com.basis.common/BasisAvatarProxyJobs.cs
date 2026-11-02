@@ -38,9 +38,9 @@ public static partial class BasisAvatarProxyJobs
     private static int limbCount;
 
     [NoAutoStaticsCleanup] private static TransformAccessArray access;
-    [NoAutoStaticsCleanup] private static NativeArray<Vector3> positions;
+    [NoAutoStaticsCleanup] private static NativeArray<float3> positions;
     [NoAutoStaticsCleanup] private static NativeArray<float2> shapeNative;
-    [NoAutoStaticsCleanup] private static NativeArray<Matrix4x4> outMatrices;
+    [NoAutoStaticsCleanup] private static NativeArray<float4x4> outMatrices;
     private static JobHandle handle;
     private static bool scheduled;
     private static bool hooked;
@@ -48,7 +48,7 @@ public static partial class BasisAvatarProxyJobs
     [BurstCompile]
     private struct GatherJob : IJobParallelForTransform
     {
-        public NativeArray<Vector3> Positions;
+        public NativeArray<float3> Positions;
 
         public void Execute(int index, TransformAccess transform)
         {
@@ -60,9 +60,9 @@ public static partial class BasisAvatarProxyJobs
     [BurstCompile]
     private struct BuildJob : IJobParallelFor
     {
-        [ReadOnly] public NativeArray<Vector3> Positions;
+        [ReadOnly] public NativeArray<float3> Positions;
         [ReadOnly] public NativeArray<float2> Shape;
-        public NativeArray<Matrix4x4> Matrices;
+        public NativeArray<float4x4> Matrices;
 
         public void Execute(int index)
         {
@@ -122,11 +122,11 @@ public static partial class BasisAvatarProxyJobs
         if (!everyBoneAlive) { return; }
 
         access = new TransformAccessArray(bones);
-        positions = new NativeArray<Vector3>(limbCount * 2, Allocator.Persistent);
+        positions = new NativeArray<float3>(limbCount * 2, Allocator.Persistent);
         for (int index = 0; index < limbCount * 2; index++) { positions[index] = bones[index].position; }
         shapeNative = new NativeArray<float2>(shape, Allocator.Persistent);
-        outMatrices = new NativeArray<Matrix4x4>(limbCount, Allocator.Persistent);
-        for (int index = 0; index < limbCount; index++) { outMatrices[index] = Matrix4x4.identity; }
+        outMatrices = new NativeArray<float4x4>(limbCount, Allocator.Persistent);
+        for (int index = 0; index < limbCount; index++) { outMatrices[index] = float4x4.identity; }
         EnsureHook();
     }
 
@@ -174,7 +174,7 @@ public static partial class BasisAvatarProxyJobs
         {
             handle.Complete();
             scheduled = false;
-            outMatrices.CopyTo(matrices);
+            outMatrices.Reinterpret<Matrix4x4>().CopyTo(matrices);
             return;
         }
 
@@ -192,24 +192,20 @@ public static partial class BasisAvatarProxyJobs
     /// with radius 1 and its ends at y = +/-2, so the scale is (radius, half length, radius) and the
     /// second column is the bone direction.
     /// </summary>
-    public static Matrix4x4 Build(Vector3 start, Vector3 end, float radius, float extend)
+    public static Matrix4x4 Build(Vector3 start, Vector3 end, float radius, float extend) => Build((float3)start, (float3)end, radius, extend);
+    public static float4x4 Build(float3 start, float3 end, float radius, float extend)
     {
-        Vector3 axis = end - start;
-        float length = axis.magnitude;
+        float3 axis = end - start;
+        float length = math.length(axis);
 
         if (length <= 0.0001f)
         {
             // A collapsed joint still has a body part sitting on it, so it stays a ball rather than
             // vanishing - which is what stops a degenerate rig punching holes in the occlusion.
-            Matrix4x4 ball = new Matrix4x4();
-            ball.SetColumn(0, new Vector4(radius, 0f, 0f, 0f));
-            ball.SetColumn(1, new Vector4(0f, radius, 0f, 0f));
-            ball.SetColumn(2, new Vector4(0f, 0f, radius, 0f));
-            ball.SetColumn(3, new Vector4(start.x, start.y, start.z, 1f));
-            return ball;
+            return new float4x4(new float4(radius, 0f, 0f, 0f), new float4(0f, radius, 0f, 0f), new float4(0f, 0f, radius, 0f), new float4(start, 1f));
         }
 
-        Vector3 direction = axis / length;
+        float3 direction = axis / length;
         if (extend > 0f)
         {
             end += direction * extend;
@@ -218,19 +214,13 @@ public static partial class BasisAvatarProxyJobs
 
         // The capsule is radially symmetric, so any orthonormal basis with +Y down the bone is the right
         // one. Built directly rather than through FromToRotation, which needs its own antiparallel case.
-        Vector3 reference = Mathf.Abs(direction.y) < 0.99f ? Vector3.up : Vector3.right;
-        Vector3 x = Vector3.Normalize(Vector3.Cross(reference, direction));
-        Vector3 z = Vector3.Cross(direction, x);
+        float3 reference = math.abs(direction.y) < 0.99f ? new float3(0f, 1f, 0f) : new float3(1f, 0f, 0f);
+        float3 x = math.normalize(math.cross(reference, direction));
+        float3 z = math.cross(direction, x);
 
         float halfLength = length * 0.5f;
-        Vector3 centre = (start + end) * 0.5f;
-
-        Matrix4x4 matrix = new Matrix4x4();
-        matrix.SetColumn(0, new Vector4(x.x * radius, x.y * radius, x.z * radius, 0f));
-        matrix.SetColumn(1, new Vector4(direction.x * halfLength, direction.y * halfLength, direction.z * halfLength, 0f));
-        matrix.SetColumn(2, new Vector4(z.x * radius, z.y * radius, z.z * radius, 0f));
-        matrix.SetColumn(3, new Vector4(centre.x, centre.y, centre.z, 1f));
-        return matrix;
+        float3 centre = (start + end) * 0.5f;
+        return new float4x4(new float4(x * radius, 0f), new float4(direction * halfLength, 0f), new float4(z * radius, 0f), new float4(centre, 1f));
     }
 
     private static void DisposeNative()

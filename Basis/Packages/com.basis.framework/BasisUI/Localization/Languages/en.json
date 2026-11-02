@@ -14679,6 +14679,94 @@
       "value": "Allowed until you close Basis"
     },
     {
+      "key": "settings.cilboxPermissions.from",
+      "value": "From {0}"
+    },
+    {
+      "key": "settings.cilboxPermissions.fromYou",
+      "value": "Yours"
+    },
+    {
+      "key": "settings.cilboxPermissions.inServer",
+      "value": "In {0} on {1}"
+    },
+    {
+      "key": "settings.cilboxPermissions.inOffline",
+      "value": "In {0}, offline"
+    },
+    {
+      "key": "settings.cilboxPermissions.review",
+      "value": "Review"
+    },
+    {
+      "key": "settings.cilboxPermissions.review.tooltip",
+      "value": "See who it came from, when and where you allowed it, and what its code does."
+    },
+    {
+      "key": "settings.cilboxPermissions.record.who",
+      "value": "Who"
+    },
+    {
+      "key": "settings.cilboxPermissions.record.what",
+      "value": "What"
+    },
+    {
+      "key": "settings.cilboxPermissions.record.when",
+      "value": "When"
+    },
+    {
+      "key": "settings.cilboxPermissions.record.where",
+      "value": "Where"
+    },
+    {
+      "key": "settings.cilboxPermissions.record.yours",
+      "value": "Yours"
+    },
+    {
+      "key": "settings.cilboxPermissions.record.name",
+      "value": "{0} ({1})"
+    },
+    {
+      "key": "settings.cilboxPermissions.record.id",
+      "value": "Content ID: {0}"
+    },
+    {
+      "key": "settings.cilboxPermissions.record.key",
+      "value": "Script key: {0}"
+    },
+    {
+      "key": "settings.cilboxPermissions.record.asked",
+      "value": "Asked {0} UTC"
+    },
+    {
+      "key": "settings.cilboxPermissions.record.allowed",
+      "value": "Allowed {0} UTC"
+    },
+    {
+      "key": "settings.cilboxPermissions.record.by",
+      "value": "Allowed by {0}"
+    },
+    {
+      "key": "settings.cilboxPermissions.record.kept",
+      "value": "Remembered"
+    },
+    {
+      "key": "settings.cilboxPermissions.record.world",
+      "value": "World: {0}"
+    },
+    {
+      "key": "settings.cilboxPermissions.record.server",
+      "value": "Server: {0}"
+    },
+    {
+      "key": "settings.cilboxPermissions.record.offline",
+      "value": "Offline"
+    },
+    {
+      "key": "settings.cilboxPermissions.record.unknown",
+      "value": "Not recorded"
+    },
+    {
       "key": "settings.cilboxPermissions.remove",
       "value": "Remove"
     },

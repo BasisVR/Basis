@@ -1,5 +1,28 @@
 using System;
 using System.Collections.Generic;
+using Unity.Burst;
+
+[BurstCompile]
+internal static unsafe class BasisPcmFirKernel
+{
+    [BurstCompile]
+    public static void FilterChannel(float* carry, int carryLen, float* readBuf, int frames, int channelCount, int c, float* hist, int historyPos, float* taps, int tapCount, float* dst, long writePos, int capacity)
+    {
+        int mid = (tapCount - 1) / 2;
+        for (int f = 0; f < frames; f++)
+        {
+            int s = f * channelCount + c;
+            float x = s < carryLen ? carry[s] : readBuf[s - carryLen];
+            hist[historyPos] = x;
+            hist[historyPos + tapCount] = x;
+            int oldest = historyPos + 1, newest = historyPos + tapCount;
+            float y = taps[mid] * hist[oldest + mid];
+            for (int k = 0; k < mid; k++) y += taps[k] * (hist[oldest + k] + hist[newest - k]);
+            dst[(int)((writePos + f) % capacity)] = y;
+            if (++historyPos == tapCount) historyPos = 0;
+        }
+    }
+}
 
 /// <summary>
 /// Broadcasts a single interleaved-PCM source to several independent readers.
@@ -306,33 +329,28 @@ public sealed class BasisMultiChannelPcmSplitter
         }
 
         float[] taps = lowPass;
-        int tapCount = taps != null ? taps.Length : 0;
-        int mid = (tapCount - 1) / 2;
-        for (int f = 0; f < frames; f++)
+        if (taps == null)
         {
-            int ringIdx = (int)((writePos + f) % capacity);
-            for (int c = 0; c < channelCount; c++)
+            for (int f = 0; f < frames; f++)
             {
-                int s = f * channelCount + c;
-                float x = s < carryLen ? carry[s] : readBuf[s - carryLen];
-                if (taps == null)
+                int ringIdx = (int)((writePos + f) % capacity);
+                for (int c = 0; c < channelCount; c++)
                 {
-                    window[c][ringIdx] = x;
-                    continue;
+                    int s = f * channelCount + c;
+                    window[c][ringIdx] = s < carryLen ? carry[s] : readBuf[s - carryLen];
                 }
-                // The newest sample lands at historyPos + tapCount, the
-                // oldest at historyPos + 1; the taps are symmetric, so each
-                // pair shares a multiply.
-                float[] hist = history[c];
-                hist[historyPos] = x;
-                hist[historyPos + tapCount] = x;
-                int oldest = historyPos + 1;
-                int newest = historyPos + tapCount;
-                float y = taps[mid] * hist[oldest + mid];
-                for (int k = 0; k < mid; k++) y += taps[k] * (hist[oldest + k] + hist[newest - k]);
-                window[c][ringIdx] = y;
             }
-            if (taps != null && ++historyPos == tapCount) historyPos = 0;
+        }
+        else
+        {
+            unsafe
+            {
+                fixed (float* carryPtr = carry, readPtr = readBuf, tapPtr = taps)
+                    for (int c = 0; c < channelCount; c++)
+                        fixed (float* hist = history[c], dst = window[c])
+                            BasisPcmFirKernel.FilterChannel(carryPtr, carryLen, readPtr, frames, channelCount, c, hist, historyPos, tapPtr, taps.Length, dst, writePos, capacity);
+            }
+            historyPos = (int)((historyPos + (long)frames) % taps.Length);
         }
         writePos += frames;
 

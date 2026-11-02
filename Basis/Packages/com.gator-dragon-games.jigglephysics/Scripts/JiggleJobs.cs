@@ -30,6 +30,8 @@ public class JiggleJobs {
 
     private JobHandle handleSimulate;
     private bool hasHandleSimulate;
+    private bool simulatePending;
+    private JobHandle simulateDependency;
 
     private JobHandle handleTransformWrite;
     private bool hasHandleTransformWrite;
@@ -109,6 +111,7 @@ public class JiggleJobs {
     }
 
     public bool TryGetRenderDependencies(out JobHandle handle) {
+        FlushPendingSimulate(default);
         if (hasHandleSimulate && hasHandleInterpolate) {
             handle = JobHandle.CombineDependencies(handleSimulate, handleInterpolate);
             return true;
@@ -149,6 +152,7 @@ public class JiggleJobs {
         if (hasHandleBulkRead) handleBulkRead.Complete();
         if (hasHandleBulkReset) handleBulkReset.Complete();
         if (hasHandleRootRead) handleRootRead.Complete();
+        FlushPendingSimulate(default);
         if (hasHandleSimulate) handleSimulate.Complete();
         if (hasHandleTransformWrite) handleTransformWrite.Complete();
         if (hasHandleInterpolate) handleInterpolate.Complete();
@@ -164,14 +168,36 @@ public class JiggleJobs {
     }
 
     private bool accessArraysDesynced;
+    private int resetScheduledFrame = -1;
 
     // Scheduling a transform job is not free and is not constant: Unity rebuilds a
     // TransformAccessArray's batch layout on the first Schedule after the array is touched, at
     // O(whole array) — 0.60ms over 32k bones against 0.096ms clean. These four samples say which of
     // the pose chain's schedules is paying it.
     public JobHandle SchedulePoses(double timeAsDouble) {
+        JobHandle poseHandle = SchedulePosesThenSimulate(timeAsDouble);
+        FlushPendingSimulate(poseHandle);
+        return poseHandle;
+    }
+
+    private void FlushPendingSimulate(JobHandle after) {
+        if (!simulatePending) {
+            return;
+        }
+        simulatePending = false;
+        handleSimulate = jobSimulate.ScheduleParallel(_memoryBus.treeCount, 1, JobHandle.CombineDependencies(simulateDependency, after));
+        hasHandleSimulate = true;
+        JobHandle.ScheduleBatchedJobs();
+    }
+
+    private JobHandle SchedulePosesThenSimulate(double timeAsDouble) {
         if (_memoryBus.transformCount == 0 || accessArraysDesynced) {
+            resetScheduledFrame = -1;
             return default;
+        }
+        if (resetScheduledFrame == Time.frameCount) {
+            resetScheduledFrame = -1;
+            return SchedulePoses(handleBulkRead, timeAsDouble);
         }
         jobBulkTransformReset.UpdateArrays(_memoryBus);
         // TODO: This technically only needs to happen for root bones, as their positions are used for posing. Instead just doing a full reset because I'm lazy.
@@ -245,6 +271,7 @@ public class JiggleJobs {
     /// has already consumed the mutated data.
     /// </summary>
     public void CompleteSimulate() {
+        FlushPendingSimulate(default);
         if (hasHandleSimulate) {
             handleSimulate.Complete();
         }
@@ -265,7 +292,9 @@ public class JiggleJobs {
         // access arrays and buffers the pose chain is scheduled over. The host's pose fence
         // can be skipped on an exception frame, and hosts may call ScheduleSimulate between
         // SchedulePoses and CompletePose — join the pose chain first. No-op on healthy frames.
+        FlushPendingSimulate(default);
         CompletePoses();
+        resetScheduledFrame = -1;
         if (_memoryBus.transformCount == 0) {
             _memoryBus.CommitTrees();
             _memoryBus.CommitColliders();
@@ -392,14 +421,15 @@ public class JiggleJobs {
         }
         hasHandleBulkReset = true;
         hasHandleBulkRead = true;
+        resetScheduledFrame = Time.frameCount;
 
         handleInputInterpolate = jobInputInterpolation.ScheduleParallel(_memoryBus.transformCount, 128, handleBulkRead);
         hasHandleInputInterpolate = true;
 
         jobSimulate.gravity = gravity;
         jobSimulate.timeStamp = simulateTime;
-        handleSimulate = jobSimulate.ScheduleParallel(_memoryBus.treeCount, 1, JobHandle.CombineDependencies(handleBroadPhase, handleInputInterpolate, handlePersonalColliderRead));
-        hasHandleSimulate = true;
+        simulateDependency = JobHandle.CombineDependencies(handleBroadPhase, handleInputInterpolate, handlePersonalColliderRead);
+        simulatePending = true;
 
         JobHandle.ScheduleBatchedJobs();
         Profiler.EndSample();
@@ -451,11 +481,16 @@ public class JiggleJobs {
         _memoryBus.ScheduleRemoveBatch(colliders);
     }
 
+    public void ScheduleSetCollidersEnabled(List<JiggleColliderSerializable> colliders, bool enabled) {
+        _memoryBus.ScheduleSetEnabledBatch(colliders, enabled);
+    }
+
     public void GetColliders(out JiggleCollider[] personalColliders, out JiggleCollider[] sceneColliders, out int personalColliderCount, out int sceneColliderCount) {
         _memoryBus.GetColliders(out personalColliders, out sceneColliders, out personalColliderCount, out sceneColliderCount);
     }
     
     public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] trees, out int poseCount, out int treeCount) {
+        FlushPendingSimulate(default);
         if (hasHandleSimulate) {
             handleSimulate.Complete();
         }
@@ -506,6 +541,7 @@ public class JiggleJobs {
     }
 
     public void OnDrawGizmos() {
+        FlushPendingSimulate(default);
         if (!hasHandleInterpolate || !hasHandleSimulate || !Application.isEditor) {
             return;
         }

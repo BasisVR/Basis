@@ -30,19 +30,20 @@ namespace BasisNetworkClientConsole
         /// and the effective spread is much smaller than the radius suggests. Y stays near standing
         /// height with slight variation, since players occupy a floor rather than a sphere.
         /// </summary>
-        public static Vector3 GetSpawnPosition(float radiusMeters)
+        public static Vector3 GetSpawnPosition(float radiusMeters, int clientIndex = -1)
         {
             if (radiusMeters <= 0f)
             {
                 return GetRandomOffset();
             }
 
-            double angle = Random.Shared.NextDouble() * System.Math.PI * 2.0;
-            double radius = radiusMeters * System.Math.Sqrt(Random.Shared.NextDouble());
+            Random rng = clientIndex >= 0 ? new Random(unchecked(clientIndex * 7919) ^ 0x51ab) : Random.Shared;
+            double angle = rng.NextDouble() * System.Math.PI * 2.0;
+            double radius = radiusMeters * System.Math.Sqrt(rng.NextDouble());
 
             return new Vector3(
                 (float)(System.Math.Cos(angle) * radius),
-                1f + (float)(Random.Shared.NextDouble() * 0.2 - 0.1),
+                1f + (float)(rng.NextDouble() * 0.2 - 0.1),
                 (float)(System.Math.Sin(angle) * radius)
             );
         }

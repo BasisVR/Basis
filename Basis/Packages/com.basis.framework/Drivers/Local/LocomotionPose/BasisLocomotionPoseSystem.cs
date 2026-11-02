@@ -197,7 +197,7 @@ namespace Basis.Scripts.Drivers
                 {
                     float3 leadVector = lead;
                     skeletonToWorld = math.mul(float4x4.Translate(leadVector), skeletonToWorld);
-                    worldToSkeleton = math.inverse(skeletonToWorld);
+                    worldToSkeleton = math.mul(worldToSkeleton, float4x4.Translate(-leadVector));
                 }
                 facingToSkeleton = math.mul(math.inverse((quaternion)frameRotation),(quaternion)Basis.Scripts.BasisCharacterController.BasisLocalCharacterDriver.GetMovementFacing());
             }
@@ -280,6 +280,7 @@ namespace Basis.Scripts.Drivers
             motionDatabase = null;
             motionDatabaseFailed = false;
             motionActive = false;
+            StepInProgress = false;
             motionLegsValid = false;
             motionFootTargetsValid = false;
             motionHasLastFrame = false;
@@ -361,6 +362,7 @@ namespace Basis.Scripts.Drivers
             poseJobHandle.Complete();
             jobScheduled = false;
             landingLatch |= landingLatchNative[0] != 0;
+            UpdateStepInProgress();
             skeleton.RefreshRootFromTransform();
             return true;
         }
@@ -371,7 +373,20 @@ namespace Basis.Scripts.Drivers
                 poseJobHandle.Complete();
                 jobScheduled = false;
                 if (landingLatchNative.IsCreated) landingLatch |= landingLatchNative[0] != 0;
+                UpdateStepInProgress();
             }
+        }
+        // True while the walk is still winding down to idle after the stick is released, so the standing foot driver waits for the last step to land.
+        public bool StepInProgress { get; private set; }
+        void UpdateStepInProgress()
+        {
+            if (!motionActive || !motionStateNative.IsCreated)
+            {
+                StepInProgress = false;
+                return;
+            }
+            BasisMotionMatchingState state = motionStateNative[0];
+            StepInProgress = BasisLocomotionGraph.IsTree(state.LocoState) && math.length(state.BlendVelocity) >= BasisMotionMatchingJob.RestBlendSpeed;
         }
         void EnsureRuntimeArrays()
         {
