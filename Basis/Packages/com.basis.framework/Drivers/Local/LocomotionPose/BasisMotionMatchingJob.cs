@@ -75,7 +75,7 @@ namespace Basis.Scripts.Drivers
         public const float RestBlendSpeed = 0.1f, PlaybackRateHalfLife = 0.1f, StrideWarpHalfLife = 0.15f, StrideWarpMinSpeed = 0.3f, WarpReachRatio = 0.97f;
         public const float SuddenInputSpeed = 3f, StopHoldSpeed = 0.5f, FootTargetBlendSeconds = 0.15f, MinSwingHalfLife = 0.08f;
         public const float MinPlaybackRate = 0.75f, MaxPlaybackRate = 1.35f;
-        public const float FootTeleportLegRatio = 1.5f, FootLockMinBlendSpeed = 0.1f;
+        public const float FootTeleportLegRatio = 1.5f, FootLockMinBlendSpeed = 0.1f, FootSideFraction = 0.3f, OffsetCatchUpLegsPerSecond = 2.5f;
         public const float KneePlaneMinSine = 0.1f;
         // Near full extension a tiny foot movement swings the knee by a large angle, so stop just short of it.
         public const float MaxLegExtension = 0.995f;
@@ -476,11 +476,24 @@ namespace Basis.Scripts.Drivers
             }
             float blendSpeed = math.length(state.BlendVelocity);
             float3 travel = blendSpeed > 1e-3f ? math.mul(FacingToSkeleton, new float3(state.BlendVelocity.x, 0f, state.BlendVelocity.y) / blendSpeed) : float3.zero;
-            float3 hips = worldPosition[Sampler.HipsNode];
-            ProcessFoot(ref state.LeftFoot, LeftLeg, (flags & BasisMotionMatchingDatabase.LeftContactBit) != 0, SwingHalfLife(in state, BasisMotionMatchingDatabase.LeftContactBit), deltaTime, worldPosition, worldRotation, Warp(worldPosition[LeftLeg.Foot], hips, travel, state.StrideWarp));
-            ProcessFoot(ref state.RightFoot, RightLeg, (flags & BasisMotionMatchingDatabase.RightContactBit) != 0, SwingHalfLife(in state, BasisMotionMatchingDatabase.RightContactBit), deltaTime, worldPosition, worldRotation, Warp(worldPosition[RightLeg.Foot], hips, travel, state.StrideWarp));
+            // The strafe clips cross one leg over the other. Stop there and the feet stand tangled, so each foot keeps to its own side of the body.
+            float3 hips = worldPosition[Sampler.HipsNode], right = math.mul(FacingToSkeleton, new float3(1f, 0f, 0f));
+            float minSide = math.distance(worldPosition[LeftLeg.Upper], worldPosition[RightLeg.Upper]) * 0.5f * FootSideFraction;
+            ProcessFoot(ref state.LeftFoot, LeftLeg, (flags & BasisMotionMatchingDatabase.LeftContactBit) != 0, SwingHalfLife(in state, BasisMotionMatchingDatabase.LeftContactBit), deltaTime, worldPosition, worldRotation, KeepSide(Warp(worldPosition[LeftLeg.Foot], worldPosition[LeftLeg.Upper], travel, state.StrideWarp), hips, right, -1f, minSide));
+            ProcessFoot(ref state.RightFoot, RightLeg, (flags & BasisMotionMatchingDatabase.RightContactBit) != 0, SwingHalfLife(in state, BasisMotionMatchingDatabase.RightContactBit), deltaTime, worldPosition, worldRotation, KeepSide(Warp(worldPosition[RightLeg.Foot], worldPosition[RightLeg.Upper], travel, state.StrideWarp), hips, right, 1f, minSide));
         }
-        static float3 Warp(float3 foot, float3 hips, float3 travel, float warp) => foot + travel * (math.dot(foot - hips, travel) * (warp - 1f));
+        // Eases in over one more minSide, so a foot brushing the line bends away instead of hitting a wall.
+        static float3 KeepSide(float3 foot, float3 hips, float3 right, float side, float minSide)
+        {
+            float over = math.dot(foot - hips, right) * side - minSide;
+            if (minSide <= 1e-5f || over >= minSide)
+            {
+                return foot;
+            }
+            return foot + right * (side * (minSide * math.exp(over / minSide - 1f) - over));
+        }
+        // Stretch each stride from its own hip joint. From the pelvis centre a strafe would also stretch the stance width, throwing the crossing foot further over the other.
+        static float3 Warp(float3 foot, float3 hip, float3 travel, float warp) => foot + travel * (math.dot(foot - hip, travel) * (warp - 1f));
         // A correction left over from the last stance should be gone by the time the foot lands, or it lands sliding.
         float SwingHalfLife(in BasisMotionMatchingState state, byte contactBit)
         {
@@ -526,7 +539,8 @@ namespace Basis.Scripts.Drivers
 
             if (foot.Locked)
             {
-                if (!contact || math.distance(foot.LockWorld, input) > legLength * Tuning.FootUnlockDistance)
+                // Also let go before the hip outruns the lock: held to full stretch the leg snaps straight, then flicks forward when it lifts.
+                if (!contact || math.distance(foot.LockWorld, input) > legLength * Tuning.FootUnlockDistance || math.distance(foot.LockWorld, math.transform(SkeletonToWorld, a)) > legLength * WarpReachRatio)
                 {
                     foot.OffsetWorld = foot.LockWorld + foot.OffsetWorld - input;
                     foot.OffsetVelocity -= inputVelocity;
@@ -550,9 +564,17 @@ namespace Basis.Scripts.Drivers
 
             float y = 2f * Ln2 / (foot.Locked ? Tuning.FootBlendHalfLife : swingHalfLife);
             float decay = math.exp(-y * deltaTime);
-            float3 j1 = foot.OffsetVelocity + foot.OffsetWorld * y;
+            float3 j1 = foot.OffsetVelocity + foot.OffsetWorld * y, previousOffset = foot.OffsetWorld;
             foot.OffsetWorld = decay * (foot.OffsetWorld + j1 * deltaTime);
             foot.OffsetVelocity = decay * (foot.OffsetVelocity - j1 * y * deltaTime);
+            // A lock released far from the animation (a long stance, a hitch) would close the gap in a flick. Cap how fast it closes.
+            float3 offsetStep = foot.OffsetWorld - previousOffset;
+            float maxOffsetStep = legLength * OffsetCatchUpLegsPerSecond * deltaTime, offsetStepLength = math.length(offsetStep);
+            if (offsetStepLength > maxOffsetStep && deltaTime > 0f)
+            {
+                foot.OffsetWorld = previousOffset + offsetStep * (maxOffsetStep / offsetStepLength);
+                foot.OffsetVelocity = (foot.OffsetWorld - previousOffset) / deltaTime;
+            }
 
             float3 targetWorld = (foot.Locked ? foot.LockWorld : input) + foot.OffsetWorld;
             foot.TargetWorld = targetWorld;

@@ -140,9 +140,9 @@ public struct BasisFootSimulateJob : IJob
 
         SetUpComponent(ref left.idealPos, leftGroundUp, up);
         SetUpComponent(ref right.idealPos, rightGroundUp, up);
-        float adoptReach = avgLeg * stanceAdoptFrac;
-        AdoptStance(ref left, up, adoptReach);
-        AdoptStance(ref right, up, adoptReach);
+        float adoptReach = avgLeg * stanceAdoptFrac, adoptSide = halfStance * p.footSideEnforceFraction;
+        AdoptStance(ref left, up, hipsGround, rawRight, adoptReach, adoptSide);
+        AdoptStance(ref right, up, hipsGround, rawRight, adoptReach, adoptSide);
 
         float urgencyT = math.max(math.max(math.saturate(speed / p.fastSpeedRef), yawUrgency), accelUrgency);
         bool stationary = speed < p.idleSpeedThreshold && math.abs(sim.smoothedYawRateDeg) < 20f;
@@ -376,13 +376,15 @@ public struct BasisFootSimulateJob : IJob
             }
         }
     }
-    // Taking over from the walk: keep the stance the last step landed in, so stopping does not square the feet up with extra steps. A foot past reach steps as usual.
-    private static void AdoptStance(ref BasisFootNativeState f, float3 up, float adoptReach)
+    // Taking over from the walk: keep the stance the last step landed in, so stopping does not square the feet up with extra steps.
+    // A foot past reach, or one a strafe left crossed over the other, steps as usual.
+    private static void AdoptStance(ref BasisFootNativeState f, float3 up, float3 hipsGround, float3 bodyRight, float adoptReach, float minSide)
     {
         if (!f.adoptStance) return;
         f.adoptStance = false;
         float3 offset = ProjectOntoUpPlane(f.plantedPos - f.idealPos, up);
-        f.stanceOffset = math.length(offset) <= adoptReach ? offset : float3.zero;
+        bool ownSide = math.dot(f.plantedPos - hipsGround, bodyRight) * f.sideSign >= minSide;
+        f.stanceOffset = ownSide && math.length(offset) <= adoptReach ? offset : float3.zero;
     }
     private float FootGroundUp(bool valid, float measuredUp, float3 normal, float3 up, float hipsUpComponent, float reachLimit, float shared)
     {
