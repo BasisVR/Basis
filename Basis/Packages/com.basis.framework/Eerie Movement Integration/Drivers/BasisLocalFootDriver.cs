@@ -220,6 +220,7 @@ public partial class BasisLocalFootDriver
             f.currentRot = f.plantedRot = f.stepStartRot = solved ? control.IKWorldData.rotation : bone.rotation;
         }
         f.plantedBodyFwd = float3.zero;
+        f.adoptStance = true;
         ClearTransient(ref f);
     }
     private static void ClearTransient(ref BasisFootNativeState f)

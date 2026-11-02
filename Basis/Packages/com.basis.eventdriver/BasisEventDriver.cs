@@ -600,6 +600,7 @@ namespace Basis.EventDriver
                 using (Prof.FacialBlink.Auto())
                 {
                     localplayer.FacialBlinkDriver.Simulate(TimeAsDouble);
+                    localplayer.IdleExpressionDriver.Simulate(TimeAsDouble, DeltaTime, localplayer.FaceIsVisible, localplayer.LocalVisemeDriver.VoiceLevel01);
                 }
                 using (Prof.VisemeApply.Auto())
                 {
@@ -671,6 +672,7 @@ namespace Basis.EventDriver
             using (Prof.RemoteFaceSimulate.Auto())
             {
                 BasisRemoteFaceManagement.Simulate(TimeAsDouble, DeltaTime);
+                BasisIdleExpressionDriver.SimulateRemotes(TimeAsDouble, DeltaTime);
             }
             ProfileEnd(PROF_REMOTE_FACE_SIMULATE);
 

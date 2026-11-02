@@ -40,7 +40,7 @@ namespace Basis.Scripts.Drivers
         public int Grid;
         public float Norm, IdleTime, StateTime, StallTimer, PlaybackRate, StopTimer, StrideWarp;
         public float2 BlendVelocity, BlendAcceleration;
-        public bool Seeded, NeedsPhase;
+        public bool Seeded, NeedsPhase, StopLanded;
         public float3 PreviousHips, PreviousHipsVelocity, OffsetHips, OffsetHipsVelocity;
         public float3 LastLeftFoot, LastRightFoot, LastHips, LeftFootVelocity, RightFootVelocity, HipsVelocity;
         public float InertializeTime;
@@ -226,11 +226,14 @@ namespace Basis.Scripts.Drivers
             if (!stopping)
             {
                 state.StopTimer = 0f;
+                state.StopLanded = false;
                 return target;
             }
             state.StopTimer += deltaTime;
-            if (state.StopTimer >= Tuning.StopHoldSeconds || ContactAt(state.Grid, state.Norm) == (BasisMotionMatchingDatabase.LeftContactBit | BasisMotionMatchingDatabase.RightContactBit))
+            // Both feet down ends the walk: the standing foot driver takes over from here instead of the cycle shuffling down to idle.
+            if (state.StopLanded || state.StopTimer >= Tuning.StopHoldSeconds || ContactAt(state.Grid, state.Norm) == (BasisMotionMatchingDatabase.LeftContactBit | BasisMotionMatchingDatabase.RightContactBit))
             {
+                state.StopLanded = true;
                 return target;
             }
             return state.BlendVelocity / blendSpeed * math.min(blendSpeed, StopHoldSpeed);

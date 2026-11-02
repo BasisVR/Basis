@@ -93,15 +93,21 @@ namespace HVR.Basis.Comms
         public const string ActivityAddress = "HVR/Internal/FaceTrackingActive";
         public static readonly int ActivityAddressId = HVRAddress.AddressToId(ActivityAddress);
         public const float InactivityTimeoutSeconds = 0.5f;
+        public const string ExpressionActivityAddress = "HVR/Internal/ExpressionTrackingActive";
+        public static readonly int ExpressionActivityAddressId = HVRAddress.AddressToId(ExpressionActivityAddress);
+        [NoAutoStaticsCleanup] private static readonly HashSet<string> EyeOnlyAddresses = new() { "FT/v2/EyeLeftX", "FT/v2/EyeRightX", "FT/v2/EyeY", "FT/v2/EyeLidLeft", "FT/v2/EyeLidRight", "FT/v2/EyeLid" };
 
         [HideInInspector] [SerializeField] private BasisAvatar avatar;
         [HideInInspector] [SerializeField] private AcquisitionService acquisition;
 
         private bool _isWearer;
         private bool _isTrackingActive;
+        private bool _isExpressionTrackingActive;
         private float _lastActivityTime = float.NegativeInfinity;
+        private float _lastExpressionTime = float.NegativeInfinity;
         private HVRAvatarComms comms;
         private readonly Dictionary<int, bool> _isFaceTrackingAddress = new();
+        private readonly Dictionary<int, bool> _isExpressionAddress = new();
         private bool _isInitialized;
         private bool _isRegistered;
 
@@ -110,8 +116,11 @@ namespace HVR.Basis.Comms
         // Replaces routing via the shared AcquisitionService singleton, which caused
         // remote players' activity state changes to fan-fire into local subscribers.
         public event Action<bool> OnTrackingActivityChanged;
+        public event Action<bool> OnExpressionActivityChanged;
 
         public bool IsTrackingActive => _isTrackingActive;
+        public bool IsExpressionTrackingActive => _isExpressionTrackingActive;
+        public bool ExpressionActivityReported { get; private set; }
 
         public static FaceTrackingActivityRelay GetOrCreate(BasisAvatar avatar)
         {
@@ -163,10 +172,11 @@ namespace HVR.Basis.Comms
             _isWearer = isWearer;
             RefreshDriverRegistration();
 
-            comms.VariableStore.RegisterAddresses(new[] { ActivityAddressId }, OnAddressUpdated);
+            comms.VariableStore.RegisterAddresses(new[] { ActivityAddressId, ExpressionActivityAddressId }, OnAddressUpdated);
             if (isWearer)
             {
                 comms.VariableStore.SubmitOrDefineDefaultValue(ActivityAddressId, 0f);
+                comms.VariableStore.SubmitOrDefineDefaultValue(ExpressionActivityAddressId, 0f);
             }
         }
 
@@ -177,6 +187,15 @@ namespace HVR.Basis.Comms
             comms.RequireVariable(new HVRVariable
             {
                 addressId = ActivityAddressId,
+                initialValue = 0f,
+                variableTypeCode = HVRVariableTypeCode.Float,
+                needsInterpolation = false,
+                min = 0f,
+                max = 1f,
+            });
+            comms.RequireVariable(new HVRVariable
+            {
+                addressId = ExpressionActivityAddressId,
                 initialValue = 0f,
                 variableTypeCode = HVRVariableTypeCode.Float,
                 needsInterpolation = false,
@@ -200,12 +219,16 @@ namespace HVR.Basis.Comms
 
         internal void SimulateTick()
         {
-            if (!_isInitialized || !_isWearer || !_isTrackingActive)
+            if (!_isInitialized || !_isWearer)
             {
                 return;
             }
 
-            if (Time.unscaledTime - _lastActivityTime > InactivityTimeoutSeconds)
+            if (_isExpressionTrackingActive && Time.unscaledTime - _lastExpressionTime > InactivityTimeoutSeconds)
+            {
+                comms.VariableStore.Submit(ExpressionActivityAddressId, 0f);
+            }
+            if (_isTrackingActive && Time.unscaledTime - _lastActivityTime > InactivityTimeoutSeconds)
             {
                 comms.VariableStore.Submit(ActivityAddressId, 0f);
             }
@@ -240,15 +263,42 @@ namespace HVR.Basis.Comms
             {
                 comms.VariableStore.Submit(ActivityAddressId, 1f);
             }
+
+            if (!_isExpressionAddress.TryGetValue(addressId, out var isExpressionAddress))
+            {
+                isExpressionAddress = !EyeOnlyAddresses.Contains(HVRAddress.ResolveKnownAddressFromId(addressId));
+                _isExpressionAddress[addressId] = isExpressionAddress;
+            }
+            if (!isExpressionAddress) return;
+
+            _lastExpressionTime = Time.unscaledTime;
+            if (!_isExpressionTrackingActive)
+            {
+                comms.VariableStore.Submit(ExpressionActivityAddressId, 1f);
+            }
         }
 
         private void OnAddressUpdated(int addressId, float value)
         {
+            if (addressId == ExpressionActivityAddressId)
+            {
+                ExpressionActivityReported = true;
+                bool isExpressionActive = value > 0.5f;
+                bool expressionChanged = _isExpressionTrackingActive != isExpressionActive;
+                _isExpressionTrackingActive = isExpressionActive;
+                if (avatar != null) avatar.FaceExpressionTrackingActive = isExpressionActive;
+                if (expressionChanged)
+                {
+                    OnExpressionActivityChanged?.Invoke(isExpressionActive);
+                }
+                return;
+            }
             if (addressId != ActivityAddressId) return;
 
             bool isTrackingActive = value > 0.5f;
             bool stateChanged = _isTrackingActive != isTrackingActive;
             _isTrackingActive = isTrackingActive;
+            if (avatar != null && !ExpressionActivityReported) avatar.FaceExpressionTrackingActive = isTrackingActive;
 
             if (stateChanged)
             {

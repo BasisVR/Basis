@@ -70,20 +70,6 @@ namespace Basis.Scripts.Networking
                 BasisNetworkReceiver BasisNetworkReceiver = new BasisNetworkReceiver(playerId);
                 RemoteInitialization(BasisNetworkReceiver, remote, ServerReadyMessage, avatarID.LocalAvatarIndex, prepared);
 
-                if (avatarID.byteArray != null && avatarID.byteArray.Length > 0)
-                {
-                    if (prepared != null && prepared.AvatarDecodeError != null)
-                    {
-                        // The load thread already tried and failed to decode the blob; re-running
-                        // the same decode here would only fail again, on the frame thread.
-                        remote.AvatarLoadErrorMessage = prepared.AvatarDecodeError;
-                    }
-                    else
-                    {
-                        remote.LoadAvatarFromInitial(avatarID, prepared?.InitialAvatar);
-                    }
-                }
-
                 if (!BasisNetworkPlayers.AddPlayer(BasisNetworkReceiver))
                 {
                     BasisNetworkHandleRemoval.HandleDisconnectId(playerId);
@@ -96,6 +82,20 @@ namespace Basis.Scripts.Networking
                         BasisDebug.LogError("Critical issue this should never occur this is after the fallback system");
                         Discard(BasisNetworkReceiver, remote);
                         return null;
+                    }
+                }
+
+                if (avatarID.byteArray != null && avatarID.byteArray.Length > 0)
+                {
+                    if (prepared != null && prepared.AvatarDecodeError != null)
+                    {
+                        // The load thread already tried and failed to decode the blob; re-running
+                        // the same decode here would only fail again, on the frame thread.
+                        remote.AvatarLoadErrorMessage = prepared.AvatarDecodeError;
+                    }
+                    else
+                    {
+                        remote.LoadAvatarFromInitial(avatarID, prepared?.InitialAvatar);
                     }
                 }
 

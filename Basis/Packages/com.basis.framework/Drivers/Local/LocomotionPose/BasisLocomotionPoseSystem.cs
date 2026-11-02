@@ -376,7 +376,7 @@ namespace Basis.Scripts.Drivers
                 UpdateStepInProgress();
             }
         }
-        // True while the walk is still winding down to idle after the stick is released, so the standing foot driver waits for the last step to land.
+        // True after the stick is released until the last step lands, so the standing foot driver takes over from planted feet.
         public bool StepInProgress { get; private set; }
         void UpdateStepInProgress()
         {
@@ -386,7 +386,7 @@ namespace Basis.Scripts.Drivers
                 return;
             }
             BasisMotionMatchingState state = motionStateNative[0];
-            StepInProgress = BasisLocomotionGraph.IsTree(state.LocoState) && math.length(state.BlendVelocity) >= BasisMotionMatchingJob.RestBlendSpeed;
+            StepInProgress = BasisLocomotionGraph.IsTree(state.LocoState) && !state.StopLanded && math.length(state.BlendVelocity) >= BasisMotionMatchingJob.RestBlendSpeed;
         }
         void EnsureRuntimeArrays()
         {

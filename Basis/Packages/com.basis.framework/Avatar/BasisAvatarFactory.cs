@@ -650,6 +650,7 @@ namespace Basis.Scripts.Avatar
         /// Configures a player with a specific avatar.
         /// Handles both local and remote player cases.
         /// </summary>
+        public static Action<BasisAvatar, bool> OnAvatarPreCalibration;
         private static void SetupPlayerAvatar(IBasisPlayer Player, BasisAvatar avatar, bool isFallback, List<BasisHeadChop.HeadChopTarget> headChop)
         {
             // Explicitly unregister old JiggleRigs synchronously. DeleteLastAvatar is async void
@@ -717,6 +718,17 @@ namespace Basis.Scripts.Avatar
                 loadHarvest.ReturnToPool();
             }
             Player.BasisAvatar.IsOwnedLocally = Player.IsLocal;
+            if (OnAvatarPreCalibration != null && !avatar.IsFarLodAvatar)
+            {
+                try
+                {
+                    OnAvatarPreCalibration(avatar, Player.IsLocal);
+                }
+                catch (Exception e)
+                {
+                    BasisDebug.LogError($"Avatar pre-calibration hook failed: {e}", BasisDebug.LogTag.Avatar);
+                }
+            }
 
             switch (Player)
             {

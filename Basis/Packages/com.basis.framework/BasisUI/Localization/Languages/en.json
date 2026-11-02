@@ -11575,6 +11575,38 @@
       "value": "This avatar does not support any Avatar Customization."
     },
     {
+      "key": "settings.myAvatar.face",
+      "value": "Face"
+    },
+    {
+      "key": "settings.myAvatar.face.description",
+      "value": "Face tracking, eye tracking and expressions for avatars that were not set up for them."
+    },
+    {
+      "key": "settings.myAvatar.autoDetectFaceTracking",
+      "value": "Auto-Detect Face Tracking"
+    },
+    {
+      "key": "settings.myAvatar.autoDetectFaceTracking.description",
+      "value": "Use face tracking on your avatar even when it was not set up for it, by matching its blendshape names. Applies the next time your avatar loads."
+    },
+    {
+      "key": "settings.myAvatar.autoDetectEyeTracking",
+      "value": "Auto-Detect Eye Tracking"
+    },
+    {
+      "key": "settings.myAvatar.autoDetectEyeTracking.description",
+      "value": "Drive your avatar's eyes and eyelids from eye tracking even when it was not set up for it. Applies the next time your avatar loads."
+    },
+    {
+      "key": "settings.myAvatar.idleExpressions",
+      "value": "Idle Expressions"
+    },
+    {
+      "key": "settings.myAvatar.idleExpressions.description",
+      "value": "Show small, natural expressions on avatars when nothing else is driving their face. Applies to every avatar you see."
+    },
+    {
       "key": "settings.myAvatar.overview",
       "value": "Overview"
     },

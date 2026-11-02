@@ -101,6 +101,9 @@ namespace Basis.BasisUI
         /// natural eye look keeps running.
         /// </summary>
         public static BasisSettingsBinding<bool> EnableEyeTracking = new("enableeyetracking", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> AutoDetectFaceTracking = new("autodetectfacetracking", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> AutoDetectEyeTracking = new("autodetecteyetracking", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> IdleFaceExpressions = new("idlefaceexpressions", new BasisPlatformDefault<bool>(true));
 
         public static BasisSettingsBinding<float> AvatarRange = new("avatarrange", new BasisPlatformDefault<float> { windows = 25, android = 15, ios = 15, linux = 25, other = 25 });
 
@@ -2328,6 +2331,9 @@ namespace Basis.BasisUI
             EnableOSC.LoadBindingValue();
             EnableFaceTracking.LoadBindingValue();
             EnableEyeTracking.LoadBindingValue();
+            AutoDetectFaceTracking.LoadBindingValue();
+            AutoDetectEyeTracking.LoadBindingValue();
+            IdleFaceExpressions.LoadBindingValue();
             EyeTrackingPreferOsc.LoadBindingValue();
             FootIKEnabled.LoadBindingValue();
             DisableAnimationsInFBT.LoadBindingValue();

@@ -26,6 +26,7 @@ namespace HVR.Basis.Comms
         private const string AddressMaxAngleX = "HVR/EyeTracking/MaxAngleX";
         private const string AddressMaxAngleY = "HVR/EyeTracking/MaxAngleY";
         public const float MaxAngleLimitDeg = 90f;
+        private static readonly int EyeLidLeftId = HVRAddress.AddressToId("FT/v2/EyeLidLeft"), EyeLidRightId = HVRAddress.AddressToId("FT/v2/EyeLidRight");
 
         private readonly int _eyeLeftXAddress;
         private readonly int _eyeRightXAddress;
@@ -119,6 +120,8 @@ namespace HVR.Basis.Comms
                 _eyeTracking.OnEyeTrackingActiveAddressUpdated(_activityRelay != null && _activityRelay.IsTrackingActive);
                 _activityRelay.OnTrackingActivityChanged -= OnTrackingActivityUpdated;
                 _activityRelay.OnTrackingActivityChanged += OnTrackingActivityUpdated;
+                _activityRelay.OnExpressionActivityChanged -= OnExpressionActivityUpdated;
+                _activityRelay.OnExpressionActivityChanged += OnExpressionActivityUpdated;
             }
 
             comms.VariableStore.RegisterAddresses(_sourceEyeAddresses, OnAddressUpdated);
@@ -190,6 +193,7 @@ namespace HVR.Basis.Comms
             if (_activityRelay != null)
             {
                 _activityRelay.OnTrackingActivityChanged -= OnTrackingActivityUpdated;
+                _activityRelay.OnExpressionActivityChanged -= OnExpressionActivityUpdated;
             }
 
             if (comms != null)
@@ -252,6 +256,7 @@ namespace HVR.Basis.Comms
             private bool _trackingActive;
             private bool _eyeTrackingActive;
             private bool _suppressStoreEcho;
+            private float _lastMirroredLid = -1f;
 
             public EyeTracking_Wearer(EyeTrackingBoneActuation our)
             {
@@ -324,6 +329,18 @@ namespace HVR.Basis.Comms
                     store.Submit(our._eyeLeftXAddress, xLeft);
                     store.Submit(our._eyeRightXAddress, xRight);
                     store.Submit(our._eyeYAddress, y);
+                    if (!data.HasOpenness)
+                    {
+                        var localPlayer = BasisLocalPlayer.Instance;
+                        var blink = localPlayer != null ? localPlayer.FacialBlinkDriver : null;
+                        float lid = 0.75f * (1f - Mathf.Clamp01(blink != null && blink.IsEnabled ? blink.CurrentWeight / 100f : 0f));
+                        if (lid != _lastMirroredLid)
+                        {
+                            _lastMirroredLid = lid;
+                            store.Submit(EyeLidLeftId, lid);
+                            store.Submit(EyeLidRightId, lid);
+                        }
+                    }
                 }
                 finally
                 {
@@ -433,11 +450,13 @@ namespace HVR.Basis.Comms
             private void ReevaluateActivity()
             {
                 var shouldOverride = _isTrackingActive && _isEyeTrackingActive;
+                var relay = our._activityRelay;
+                var expressionDriven = relay == null || !relay.ExpressionActivityReported || relay.IsExpressionTrackingActive;
                 if (our.Receiver != null)
                 {
                     our.Receiver.RemotePlayer.RemoteFaceDriver.OverrideEye = shouldOverride;
                     our.Receiver.RemotePlayer.RemoteFaceDriver.OverrideBlinking = shouldOverride;
-                    our.Receiver.RemotePlayer.RemoteFaceDriver.OverrideViseme = shouldOverride;
+                    our.Receiver.RemotePlayer.RemoteFaceDriver.OverrideViseme = shouldOverride && expressionDriven;
                     if (shouldOverride) UpdateAfterAvatarChangesApplied();
                 }
             }
@@ -511,6 +530,11 @@ namespace HVR.Basis.Comms
         private void OnTrackingActivityUpdated(bool isTrackingActive)
         {
             _eyeTracking?.OnTrackingActivityUpdated(isTrackingActive);
+        }
+
+        private void OnExpressionActivityUpdated(bool isExpressionActive)
+        {
+            if (_activityRelay != null) _eyeTracking?.OnTrackingActivityUpdated(_activityRelay.IsTrackingActive);
         }
 
         private static float SanitizeAndClampEyeValue(float value)

@@ -241,6 +241,7 @@ namespace Basis.Scripts.Drivers
                 // gracefully (sets BlinkingEnabled = false) and eye calibration still runs
                 // for avatars that only have eye bones.
                 RemotePlayer.RemoteFaceDriver.Initialize(Player, RemotePlayer.BasisAvatar);
+                RemotePlayer.IdleExpressionDriver.Initialize(RemotePlayer.BasisAvatar, RemotePlayer);
             }
             using (BasisAvatarMarkers.CalibrateRenderers.Auto())
             {

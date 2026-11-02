@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Basis;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using HVR.Vixxy;
@@ -62,6 +63,7 @@ namespace HVR.Basis.Comms
 
         static void BuildAvatarCustomizationSection(RectTransform parent)
         {
+            InitializeFacePanel(parent);
             InitializeVixxyPanel(parent);
             InitializeEyeTrackingPanel(parent);
         }
@@ -145,6 +147,25 @@ namespace HVR.Basis.Comms
             field.SetTitle(title);
             field.SetDescription(initialValue);
             return field;
+        }
+
+        private static void InitializeFacePanel(RectTransform container)
+        {
+            var sectionToggle = PanelSectionToggle.CreateNewEntry(container);
+            var faceGroup = PanelSectionToggleHelpers.CreateCollapsibleContentGroup(sectionToggle, container, BasisLocalization.Get("settings.myAvatar.face"));
+            faceGroup.SetDescription(BasisLocalization.Get("settings.myAvatar.face.description"));
+            BuildBindingToggle(faceGroup, "settings.myAvatar.autoDetectFaceTracking", BasisSettingsDefaults.AutoDetectFaceTracking);
+            BuildBindingToggle(faceGroup, "settings.myAvatar.autoDetectEyeTracking", BasisSettingsDefaults.AutoDetectEyeTracking);
+            BuildBindingToggle(faceGroup, "settings.myAvatar.idleExpressions", BasisSettingsDefaults.IdleFaceExpressions);
+            PanelSectionToggleHelpers.FinalizeCollapsibleGroup(sectionToggle, faceGroup, true);
+        }
+
+        private static void BuildBindingToggle(PanelElementDescriptor group, string key, BasisSettingsBinding<bool> binding)
+        {
+            var toggle = PanelToggle.CreateNewEntry(group.ContentParent);
+            toggle.Descriptor.SetTitle(BasisLocalization.Get(key));
+            toggle.Descriptor.SetDescription(BasisLocalization.Get(key + ".description"));
+            toggle.AssignBinding(binding);
         }
 
         private static void InitializeVixxyPanel(RectTransform container)

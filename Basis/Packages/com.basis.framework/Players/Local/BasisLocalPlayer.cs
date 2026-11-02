@@ -115,6 +115,7 @@ namespace Basis.Scripts.BasisSdk.Players
         [Header("Blink Driver")]
         [SerializeField]
         public BasisLocalFacialBlinkDriver FacialBlinkDriver = new BasisLocalFacialBlinkDriver();
+        [System.NonSerialized] public BasisIdleExpressionDriver IdleExpressionDriver = new BasisIdleExpressionDriver();
 
         #endregion
         public async Task LocalInitialize()
@@ -455,6 +456,7 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 FacialBlinkDriver.OnDestroy();
             }
+            IdleExpressionDriver?.Clear();
 
 #if !BASIS_DISABLE_MICROPHONE
             BasisLocalMicrophoneDriver.OnPausedAction -= LocalVisemeDriver.OnPausedEvent;

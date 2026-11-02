@@ -39,6 +39,18 @@ namespace HVR.Basis.Comms
         {
             _nethack = new Nethack(OnReadyBothAvatarAndNetwork);
         }
+        internal const int RuntimeCarrierCount = 5;
+        internal static GameObject CreateRuntimeInactive(BasisAvatar owner)
+        {
+            var holder = new GameObject("Generated__HVR.Networking");
+            holder.SetActive(false);
+            holder.transform.SetParent(owner.transform, false);
+            var comms = holder.AddComponent<HVRAvatarComms>();
+            comms.isFromPrefab = true;
+            comms.avatar = owner;
+            for (var index = 0; index < RuntimeCarrierCount; index++) holder.AddComponent<HVRNetworkingCarrier>();
+            return holder;
+        }
 
         private void Awake()
         {

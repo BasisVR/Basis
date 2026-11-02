@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk;
+using Basis.Scripts.Drivers;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 
@@ -34,6 +35,12 @@ namespace HVR.Basis.Comms
         private static readonly ConditionalWeakTable<BlendshapeActuationDefinitionFile, HashSet<string>> PossibleBlendshapesCache = new ConditionalWeakTable<BlendshapeActuationDefinitionFile, HashSet<string>>();
 
         private BasisAvatar _avatar;
+        internal const int MinimumAutoDetectedBlendshapes = 8;
+        private static readonly string[] EyeLidAddresses = { "FT/v2/EyeLidLeft", "FT/v2/EyeLidRight" };
+        [NonSerialized] internal bool autoDetected, autoFace = true, autoEye = true;
+        [NonSerialized] internal BlendshapeActuationDefinitionFile[] preResolvedFiles;
+        [NonSerialized] internal NamingConvention preResolvedConvention;
+        private readonly List<BlendshapeActuationDefinitionFile> _generatedFiles = new List<BlendshapeActuationDefinitionFile>();
 
         // Exposed to the Unity editor for this component
         [NonSerialized] internal bool successful;
@@ -82,6 +89,11 @@ namespace HVR.Basis.Comms
         private void Discover()
         {
             var smrs = _avatar.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            if (autoDetected)
+            {
+                DiscoverAutoDetected(smrs);
+                return;
+            }
 
             var files = ResolveFilesOrNull(smrs, out namingConvention);
             if (files != null)
@@ -99,10 +111,176 @@ namespace HVR.Basis.Comms
             }
         }
 
-        public BlendshapeActuationDefinitionFile[] ResolveFilesOrNull(SkinnedMeshRenderer[] smrs, out NamingConvention resolvedNamingConvention)
+        private void DiscoverAutoDetected(SkinnedMeshRenderer[] smrs)
+        {
+            BlendshapeActuationDefinitionFile[] files = null;
+            namingConvention = NamingConvention.Unknown;
+            if (autoFace)
+            {
+                files = preResolvedFiles ?? ResolveAutoDetectedFilesOrNull(smrs, out preResolvedConvention);
+                namingConvention = files != null ? preResolvedConvention : NamingConvention.Unknown;
+                TrackGenerated(files);
+            }
+            else DestroyGenerated(preResolvedFiles);
+            preResolvedFiles = null;
+            if (autoEye) files = AppendEyeLidFallback(files, smrs);
+            var foundSmrs = files != null ? FindSkinnedMeshes(files, smrs) : new List<SkinnedMeshRenderer>();
+            if (foundSmrs.Count > 0 || (autoEye && HasEyeBones(_avatar)))
+            {
+                SetupFaceTracking(files ?? Array.Empty<BlendshapeActuationDefinitionFile>(), foundSmrs);
+            }
+            else Failed();
+        }
+
+        internal static bool HasEyeBones(BasisAvatar avatar)
+        {
+            var animator = avatar != null ? avatar.Animator : null;
+            return animator != null && animator.isHuman && animator.GetBoneTransform(HumanBodyBones.LeftEye) != null && animator.GetBoneTransform(HumanBodyBones.RightEye) != null;
+        }
+
+        internal static BlendshapeActuationDefinitionFile[] ResolveAutoDetectedFilesOrNull(SkinnedMeshRenderer[] smrs, out NamingConvention resolvedNamingConvention)
+        {
+            LoadDefaultHandles();
+            resolvedNamingConvention = GuessNamingConvention(smrs);
+            if (resolvedNamingConvention == NamingConvention.UnifiedExpressions && _ueHandle != null) return new[] { _ueHandle };
+            if (resolvedNamingConvention == NamingConvention.ARKit && _arKitHandle != null) return new[] { _arKitHandle };
+            var matchers = new List<BasisBlendshapeNameMatcher>();
+            foreach (var smr in smrs)
+            {
+                if (smr == null) continue;
+                var mesh = smr.sharedMesh;
+                if (mesh == null || mesh.blendShapeCount == 0) continue;
+                var matcher = BasisBlendshapeNameMatcher.For(mesh);
+                if (!matchers.Contains(matcher)) matchers.Add(matcher);
+            }
+            resolvedNamingConvention = NamingConvention.Unknown;
+            if (matchers.Count == 0) return null;
+            var arKit = RemapDefinitionFile(_arKitHandle, matchers, out var arKitCount);
+            var ue = RemapDefinitionFile(_ueHandle, matchers, out var ueCount);
+            var best = arKitCount >= ueCount ? arKit : ue;
+            DestroyGenerated(best == arKit ? ue : arKit);
+            if (best == null || Mathf.Max(arKitCount, ueCount) < MinimumAutoDetectedBlendshapes)
+            {
+                DestroyGenerated(best);
+                return null;
+            }
+            resolvedNamingConvention = NamingConvention.AutoDetected;
+            return new[] { best };
+        }
+
+        private static BlendshapeActuationDefinitionFile RemapDefinitionFile(BlendshapeActuationDefinitionFile source, List<BasisBlendshapeNameMatcher> matchers, out int matchedBlendshapes)
+        {
+            matchedBlendshapes = 0;
+            if (source == null) return null;
+            var remapped = new List<BlendshapeActuationDefinition>(source.definitions.Length);
+            var matched = new HashSet<string>();
+            var names = new List<string>();
+            foreach (var definition in source.definitions)
+            {
+                if (definition.blendshapes == null) continue;
+                names.Clear();
+                foreach (var candidate in definition.blendshapes)
+                {
+                    foreach (var matcher in matchers)
+                    {
+                        var index = matcher.Find(candidate);
+                        if (index < 0) continue;
+                        var actual = matcher.Mesh.GetBlendShapeName(index);
+                        if (!names.Contains(actual)) names.Add(actual);
+                    }
+                }
+                if (names.Count == 0) continue;
+                var copy = definition;
+                copy.blendshapes = names.ToArray();
+                remapped.Add(copy);
+                matched.UnionWith(names);
+            }
+            matchedBlendshapes = matched.Count;
+            if (remapped.Count == 0) return null;
+            var file = ScriptableObject.CreateInstance<BlendshapeActuationDefinitionFile>();
+            file.hideFlags = HideFlags.DontSave;
+            file.name = $"AutoDetected_{source.name}";
+            file.definitions = remapped.ToArray();
+            file.addressOverrides = source.addressOverrides;
+            file.internalVersion = source.internalVersion;
+            return file;
+        }
+
+        private BlendshapeActuationDefinitionFile[] AppendEyeLidFallback(BlendshapeActuationDefinitionFile[] files, SkinnedMeshRenderer[] smrs)
+        {
+            var blinkMesh = _avatar.FaceBlinkMesh;
+            var blinkVisemes = _avatar.BlinkViseme;
+            if (blinkMesh == null || blinkMesh.sharedMesh == null || blinkVisemes == null) return files;
+            if (files != null && CoversEyeLids(files, smrs)) return files;
+            var mesh = blinkMesh.sharedMesh;
+            var names = new List<string>();
+            foreach (var index in blinkVisemes)
+            {
+                if (index < 0 || index >= mesh.blendShapeCount) continue;
+                var name = mesh.GetBlendShapeName(index);
+                if (!names.Contains(name)) names.Add(name);
+            }
+            if (names.Count == 0) return files;
+            var file = ScriptableObject.CreateInstance<BlendshapeActuationDefinitionFile>();
+            file.hideFlags = HideFlags.DontSave;
+            file.name = "AutoDetected_EyeLids";
+            file.definitions = EyeLidAddresses.Select(address => new BlendshapeActuationDefinition { address = address, inStart = 0.75f, inEnd = 0f, outStart = 0f, outEnd = 1f, blendshapes = names.ToArray() }).ToArray();
+            file.addressOverrides = EyeLidAddresses.Select(address => new AddressOverride { address = address, overrideDefaultValue = true, defaultValue = 0.8f }).ToArray();
+            file.internalVersion = 2;
+            _generatedFiles.Add(file);
+            return files == null ? new[] { file } : files.Append(file).ToArray();
+        }
+
+        private static bool CoversEyeLids(BlendshapeActuationDefinitionFile[] files, SkinnedMeshRenderer[] smrs)
+        {
+            foreach (var file in files)
+            {
+                foreach (var definition in file.definitions)
+                {
+                    if (definition.blendshapes == null || Array.IndexOf(EyeLidAddresses, definition.address) < 0) continue;
+                    foreach (var smr in smrs)
+                    {
+                        var mesh = smr != null ? smr.sharedMesh : null;
+                        if (mesh == null) continue;
+                        foreach (var blendshape in definition.blendshapes)
+                        {
+                            if (mesh.GetBlendShapeIndex(blendshape) >= 0) return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        private void TrackGenerated(BlendshapeActuationDefinitionFile[] files)
+        {
+            if (files == null) return;
+            foreach (var file in files)
+            {
+                if (file != null && file != _ueHandle && file != _arKitHandle && !_generatedFiles.Contains(file)) _generatedFiles.Add(file);
+            }
+        }
+
+        internal static void DestroyGenerated(BlendshapeActuationDefinitionFile[] files)
+        {
+            if (files == null) return;
+            foreach (var file in files) DestroyGenerated(file);
+        }
+
+        private static void DestroyGenerated(BlendshapeActuationDefinitionFile file)
+        {
+            if (file != null && file != _ueHandle && file != _arKitHandle) Destroy(file);
+        }
+
+        private static void LoadDefaultHandles()
         {
             _ueHandle ??= Addressables.LoadAssetAsync<BlendshapeActuationDefinitionFile>("HVR.Basis.Comms.FaceTracking.DefaultUnifiedExpressionsDefinitionFile").WaitForCompletion();
             _arKitHandle ??= Addressables.LoadAssetAsync<BlendshapeActuationDefinitionFile>("HVR.Basis.Comms.FaceTracking.DefaultARKitDefinitionFile").WaitForCompletion();
+        }
+
+        public BlendshapeActuationDefinitionFile[] ResolveFilesOrNull(SkinnedMeshRenderer[] smrs, out NamingConvention resolvedNamingConvention)
+        {
+            LoadDefaultHandles();
 
             if (useOverrideDefinitionFiles && overrideDefinitionFiles != null && overrideDefinitionFiles.Length != 0)
             {
@@ -163,6 +341,7 @@ namespace HVR.Basis.Comms
 
             blendshapeActuation.OnHVRAvatarReady(_isWearer);
             eyeTrackingBoneActuation.OnHVRAvatarReady(_isWearer);
+            if (autoDetected && !autoEye) eyeTrackingBoneActuation.enabled = false;
 
             ApplyFaceTrackingEnabled(BasisSettingsDefaults.EnableFaceTracking.RawValue);
             ApplyEyeTrackingEnabled(BasisSettingsDefaults.EnableEyeTracking.RawValue);
@@ -187,12 +366,16 @@ namespace HVR.Basis.Comms
         {
             if (eyeTrackingBoneActuation != null)
             {
-                eyeTrackingBoneActuation.enabled = enabledValue;
+                eyeTrackingBoneActuation.enabled = enabledValue && (!autoDetected || autoEye);
             }
         }
 
         private void OnDestroy()
         {
+            DestroyGenerated(preResolvedFiles);
+            preResolvedFiles = null;
+            foreach (var file in _generatedFiles) DestroyGenerated(file);
+            _generatedFiles.Clear();
             if (_onFaceTrackingEnabledChanged != null)
             {
                 BasisSettingsDefaults.EnableFaceTracking.OnChanged -= _onFaceTrackingEnabledChanged;
@@ -238,10 +421,11 @@ namespace HVR.Basis.Comms
             Unknown,
             UnifiedExpressions,
             ARKit,
-            UserDefined
+            UserDefined,
+            AutoDetected
         }
 
-        private NamingConvention GuessNamingConvention(SkinnedMeshRenderer[] smrs)
+        private static NamingConvention GuessNamingConvention(SkinnedMeshRenderer[] smrs)
         {
             foreach (var smr in smrs)
             {

@@ -13,7 +13,7 @@ public struct BasisFootSimulateJob : IJob
     const float stanceNarrowAtSpeed = 0.35f, hipSwayFraction = 0.03f, toeOffDeg = 22f, heelStrikeDeg = 16f;
     const float preSwingFrac = 0.20f, footFlatFrac = 0.30f, pelvisAxialDeg = 4.5f, pelvisListDeg = 5f;
     const float loadingDipFraction = 0.012f, loadingResponseFrac = 0.35f, yawTrackGain = 5.0f, rotWidenFrac = 0.6f;
-    const float minFootSepFrac = 0.85f;
+    const float minFootSepFrac = 0.85f, stanceAdoptFrac = 0.25f;
     public const float YawUrgencyRefMul = 5.0f, TurnStepArcFloor = 0.65f;
     public BasisFootSimParams p;
     public NativeArray<BasisFootNativeState> feet;
@@ -140,6 +140,9 @@ public struct BasisFootSimulateJob : IJob
 
         SetUpComponent(ref left.idealPos, leftGroundUp, up);
         SetUpComponent(ref right.idealPos, rightGroundUp, up);
+        float adoptReach = avgLeg * stanceAdoptFrac;
+        AdoptStance(ref left, up, adoptReach);
+        AdoptStance(ref right, up, adoptReach);
 
         float urgencyT = math.max(math.max(math.saturate(speed / p.fastSpeedRef), yawUrgency), accelUrgency);
         bool stationary = speed < p.idleSpeedThreshold && math.abs(sim.smoothedYawRateDeg) < 20f;
@@ -199,7 +202,7 @@ public struct BasisFootSimulateJob : IJob
 
         if (left.phase == 0 && right.phase == 0 && left.wantsStep && right.wantsStep)
         {
-            float ld = HDist(left.plantedPos, left.idealPos, up), rd = HDist(right.plantedPos, right.idealPos, up);
+            float ld = HDist(left.plantedPos, left.idealPos + left.stanceOffset, up), rd = HDist(right.plantedPos, right.idealPos + right.stanceOffset, up);
             if (ld >= rd) right.wantsStep = false; else left.wantsStep = false;
         }
 
@@ -256,7 +259,7 @@ public struct BasisFootSimulateJob : IJob
                 f.currentRot = math.slerp(f.currentRot, f.plantedRot, ra);
             }
 
-            float dist = HDist(f.plantedPos, f.idealPos, up);
+            float dist = HDist(f.plantedPos, f.idealPos + f.stanceOffset, up);
             bool yawTrigger = false;
             if (bodyFlatValid)
             {
@@ -295,6 +298,7 @@ public struct BasisFootSimulateJob : IJob
         else
         {
             f.wantsStep = false;
+            f.stanceOffset = float3.zero;
             f.stepTimer += dt;
             float t = math.saturate(f.stepTimer / f.stepDur);
             float3 footFwd = math.lengthsq(f.plantedBodyFwd) > 1e-6f ? math.normalize(f.plantedBodyFwd) : bodyFlat;
@@ -371,6 +375,14 @@ public struct BasisFootSimulateJob : IJob
                 f.plantedTime = 0f;
             }
         }
+    }
+    // Taking over from the walk: keep the stance the last step landed in, so stopping does not square the feet up with extra steps. A foot past reach steps as usual.
+    private static void AdoptStance(ref BasisFootNativeState f, float3 up, float adoptReach)
+    {
+        if (!f.adoptStance) return;
+        f.adoptStance = false;
+        float3 offset = ProjectOntoUpPlane(f.plantedPos - f.idealPos, up);
+        f.stanceOffset = math.length(offset) <= adoptReach ? offset : float3.zero;
     }
     private float FootGroundUp(bool valid, float measuredUp, float3 normal, float3 up, float hipsUpComponent, float reachLimit, float shared)
     {
