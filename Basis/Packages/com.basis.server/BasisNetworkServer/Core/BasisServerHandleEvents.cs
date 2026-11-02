@@ -686,7 +686,9 @@ namespace BasisServerHandle
                         return;
                     }
 
+                    byte capabilities = BasisNetworkVersion.ReadCapabilities(ConReq.Data);
                     accepted = ConReq.Accept();//can do both way Communication from here on
+                    NetworkServer.SetPeerCapabilities(accepted, capabilities);
                     string verifiedOrClaimed = ConReq.VerifiedIdentity;
                     OnNetworkAccepted(accepted, readyMessage, string.IsNullOrEmpty(verifiedOrClaimed) ? ResolveUnauthenticatedUuid(readyMessage.playerMetaDataMessage.playerUUID) : verifiedOrClaimed);
                 }

@@ -333,11 +333,16 @@ public struct MappedNameplateApplyJob : IJobParallelForTransform
     /// <summary>Per-player-ID nameplate active mirror; 0 = the plate is not being displayed.</summary>
     [ReadOnly] public NativeArray<byte> PlateActive;
 
+    /// <summary>Per-player-ID last written plate pose (xyz position, w yaw); NaN forces the next write.</summary>
+    [NativeDisableParallelForRestriction] public NativeArray<float4> LastPose;
+
     /// <summary>Computes position above hips and rotates toward camera.</summary>
     public void Execute(int jobIndex, TransformAccess tx)
     {
         int key = PlayerKeys[jobIndex];
-        if ((uint)key >= (uint)PlateActive.Length || PlateActive[key] == 0) return;
+        if ((uint)key >= (uint)PlateActive.Length) return;
+        byte state = PlateActive[key];
+        if ((state & 1) == 0) return;
 
         var data = NamePlateIn[jobIndex];
         float3 hips = data.pos_Hips;
@@ -351,9 +356,14 @@ public struct MappedNameplateApplyJob : IJobParallelForTransform
         float3 toCam = CameraPosition - nameplatePos;
         float2 xz = new float2(toCam.x, toCam.z);
         float yaw = math.lengthsq(xz) > 1e-12f ? math.atan2(xz.x, xz.y) : 0f;
-        quaternion rot = quaternion.RotateY(yaw);
-
-        tx.SetPositionAndRotation(nameplatePos, rot);
+        float4 last = LastPose[key];
+        if ((state & 2) == 0 && math.lengthsq(nameplatePos - last.xyz) < 4e-6f)
+        {
+            float yawDelta = math.abs(yaw - last.w);
+            if (math.min(yawDelta, 2f * math.PI - yawDelta) < 0.00436f) return;
+        }
+        LastPose[key] = new float4(nameplatePos, yaw);
+        tx.SetPositionAndRotation(nameplatePos, quaternion.RotateY(yaw));
     }
 }
 
@@ -684,6 +694,7 @@ public static partial class RemoteBoneJobSystem
     /// transform write in <see cref="MappedNameplateApplyJob"/>. 0 = not displayed.
     /// </summary>
     [NoAutoStaticsCleanup] static NativeArray<byte> sNamePlateActive;
+    [NoAutoStaticsCleanup] static NativeArray<float4> sNamePlateLastPose;
     /// <summary>Key space of <see cref="sFaceVisible"/> and <see cref="sKeyToIndex"/>.</summary>
     const int KeySpace = 65536;
 
@@ -713,6 +724,16 @@ public static partial class RemoteBoneJobSystem
             sNamePlateActive = new NativeArray<byte>(KeySpace, Allocator.Persistent);
         }
         return sNamePlateActive;
+    }
+
+    static NativeArray<float4> NamePlateLastPose()
+    {
+        if (!sNamePlateLastPose.IsCreated)
+        {
+            sNamePlateLastPose = new NativeArray<float4>(KeySpace, Allocator.Persistent);
+            for (int i = 0; i < KeySpace; i++) sNamePlateLastPose[i] = new float4(float.NaN);
+        }
+        return sNamePlateLastPose;
     }
     /// <summary>Pending job handle chain.</summary>
     static JobHandle sPending;
@@ -1047,6 +1068,7 @@ public static partial class RemoteBoneJobSystem
         // A write after this point simply reallocates it — see FaceVisibleMap.
         if (sFaceVisible.IsCreated) sFaceVisible.Dispose();
         if (sNamePlateActive.IsCreated) sNamePlateActive.Dispose();
+        if (sNamePlateLastPose.IsCreated) sNamePlateLastPose.Dispose();
 
         if (sKeyToIndex != null) Array.Fill(sKeyToIndex, -1);
         sPendingAdds.Clear();
@@ -1523,6 +1545,7 @@ public static partial class RemoteBoneJobSystem
         // inherit a stale "visible" before its avatar sets up.
         if (sFaceVisible.IsCreated) sFaceVisible[key] = 0;
         if (sNamePlateActive.IsCreated) sNamePlateActive[key] = 0;
+        if (sNamePlateLastPose.IsCreated) sNamePlateLastPose[key] = new float4(float.NaN);
         // sKeyArray's slot at `last` is now stale, but consumers gate on AuthoringLength
         // (count), so the unused tail slot is harmless. No truncation needed.
         AuthoringLength = sAuthoring.Length;
@@ -2029,6 +2052,7 @@ public static partial class RemoteBoneJobSystem
             NamePlateIn = sOut.AsDeferredJobArray(),
             PlayerKeys = sKeyArray,
             PlateActive = NamePlateActiveMap(),
+            LastPose = NamePlateLastPose(),
         }.Schedule(sNamePlate, simAndRoot);
 
         var mouthJob = new ApplyMouthJob
@@ -2244,7 +2268,26 @@ public static partial class RemoteBoneJobSystem
         if ((uint)key >= (uint)KeySpace) return;
         CompletePending();
         NativeArray<byte> map = NamePlateActiveMap();
-        map[key] = active ? (byte)1 : (byte)0;
+        byte previous = map[key];
+        map[key] = (byte)((previous & 2) | (active ? 1 : 0));
+        if (active && (previous & 1) == 0) { NativeArray<float4> last = NamePlateLastPose(); last[key] = new float4(float.NaN); }
+    }
+
+    /// <summary>
+    /// Marks a player's nameplate as carrying a visible overlay (chat bubble or loading display), so
+    /// <see cref="MappedNameplateApplyJob"/> writes its transform every frame. Without it a plate's
+    /// transform, which only drives its interaction collider and overlays, is left alone until it
+    /// moves or turns past a small threshold.
+    /// </summary>
+    public static void SetNamePlateTracked(int key, bool tracked)
+    {
+        if ((uint)key >= (uint)KeySpace) return;
+        NativeArray<byte> map = NamePlateActiveMap();
+        byte previous = map[key];
+        byte next = (byte)((previous & 1) | (tracked ? 2 : 0));
+        if (next == previous) return;
+        CompletePending();
+        map[key] = next;
     }
 
     /// <summary>

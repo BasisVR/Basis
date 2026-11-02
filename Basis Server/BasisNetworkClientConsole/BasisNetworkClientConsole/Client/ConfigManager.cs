@@ -36,6 +36,7 @@ namespace Basis.Config
         // and send interval by pair distance, so spawning everyone on one spot measures a worst case
         // no real instance hits. 0 keeps the legacy sub-metre cluster.
         public static float SpawnRadiusMeters = 40f;
+        public static bool Wander = true;
 
         // Voice is a large share of what a real instance costs the server, and a silent crowd hides
         // it completely. Basis culls voice client-side, so each simulated client advertises the peers
@@ -302,6 +303,7 @@ namespace Basis.Config
                     SimulateRealisticPlatforms = ReadBool(root, "SimulateRealisticPlatforms", SimulateRealisticPlatforms);
                     SimulateBodyFit = ReadBool(root, "SimulateBodyFit", SimulateBodyFit);
                     SpawnRadiusMeters = ReadFloat(root, "SpawnRadiusMeters", SpawnRadiusMeters);
+                    Wander = ReadBool(root, "Wander", Wander);
                     SimulateVoice = ReadBool(root, "SimulateVoice", SimulateVoice);
                     VoiceRangeMeters = ReadFloat(root, "VoiceRangeMeters", VoiceRangeMeters);
                     VoiceParticipantPercent = ReadInt(root, "VoiceParticipantPercent", VoiceParticipantPercent);

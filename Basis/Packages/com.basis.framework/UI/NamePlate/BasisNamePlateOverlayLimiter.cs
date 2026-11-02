@@ -44,6 +44,8 @@ namespace Basis.Scripts.UI.NamePlate
         private static readonly List<float> _distances = new List<float>(64);
         private static readonly List<int> _indexScratch = new List<int>(64);
         private static readonly List<bool> _visible = new List<bool>(64);
+        private static readonly HashSet<int> _trackedKeys = new HashSet<int>();
+        private static readonly HashSet<int> _trackedScratch = new HashSet<int>();
 
         internal static void BeginFrame()
         {
@@ -73,6 +75,7 @@ namespace Basis.Scripts.UI.NamePlate
                 for (int i = 0; i < chatCount; i++)
                 {
                     _chat[i].SetChatOverlayCulled(!_visible[i]);
+                    if (_visible[i]) TrackPlate(_chat[i]);
                 }
             }
 
@@ -84,8 +87,24 @@ namespace Basis.Scripts.UI.NamePlate
                 for (int i = 0; i < loadingCount; i++)
                 {
                     _loading[i].SetLoadingOverlayCulled(!_visible[i]);
+                    if (_visible[i]) TrackPlate(_loading[i]);
                 }
             }
+            foreach (int key in _trackedKeys)
+            {
+                if (!_trackedScratch.Contains(key)) RemoteBoneJobSystem.SetNamePlateTracked(key, false);
+            }
+            _trackedKeys.Clear();
+            _trackedKeys.UnionWith(_trackedScratch);
+            _trackedScratch.Clear();
+        }
+
+        private static void TrackPlate(BasisRemoteNamePlate plate)
+        {
+            var receiver = plate.BasisRemotePlayer != null ? plate.BasisRemotePlayer.NetworkReceiver : null;
+            if (receiver == null) return;
+            int key = receiver.playerId;
+            if (_trackedScratch.Add(key) && !_trackedKeys.Contains(key)) RemoteBoneJobSystem.SetNamePlateTracked(key, true);
         }
 
         private static void RankDistances(List<BasisRemoteNamePlate> plates, Vector3 viewerPosition)

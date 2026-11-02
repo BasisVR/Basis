@@ -640,7 +640,7 @@ namespace Basis.Network
             int poseSeed = pd.PoseSeed;
 
             // Update position (held fixed when pinned to a distance tier)
-            if (PinSpacingMeters <= 0f)
+            if (PinSpacingMeters <= 0f && Basis.Config.ConfigManager.Wander)
             {
                 PlayersCurrentPosition[index] += Randomizer.GetRandomOffset();
             }
