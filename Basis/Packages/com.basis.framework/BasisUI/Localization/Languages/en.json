@@ -15723,22 +15723,6 @@
       "value": "Run locomotion on a worker thread. Keeps movement smooth when the main thread is busy."
     },
     {
-      "key": "settings.bodyTracking.inertialization",
-      "value": "Inertialization"
-    },
-    {
-      "key": "settings.bodyTracking.inertialization.tooltip",
-      "value": "Smoothly carries the body's motion through animation changes such as jumping, landing and crouching, instead of cutting to the new pose. Requires Motion Matching."
-    },
-    {
-      "key": "settings.bodyTracking.motionMatching",
-      "value": "Motion Matching"
-    },
-    {
-      "key": "settings.bodyTracking.motionMatching.tooltip",
-      "value": "Picks the walk pose closest to your current stride for smoother starts, stops and turns. Requires Threaded Locomotion."
-    },
-    {
       "key": "settings.bodyTracking.bodyFit.maxDeviation.title",
       "value": "Max Deviation"
     },

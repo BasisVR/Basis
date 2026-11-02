@@ -1908,8 +1908,6 @@ namespace Basis.BasisUI
         // in a Burst job overlapping Simulate, instead of evaluating the Animator on the main thread.
         // Only engages on avatars wearing the stock controller; custom animators keep the Animator path.
         public static BasisSettingsBinding<bool> FBIKJobLocomotion = new("fbikjoblocomotion", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<bool> FBIKMotionMatching = new("fbikmotionmatching", new BasisPlatformDefault<bool>(false));
-        public static BasisSettingsBinding<bool> FBIKInertialization = new("fbikinertialization", new BasisPlatformDefault<bool>(true));
         public static BasisSettingsBinding<float> FBIKBodyFitMaxDeviation = new("fbikbodyfitmaxdeviation_v3", new BasisPlatformDefault<float>(Basis.IK.BasisBodyFitCore.DefaultMaxDeviation));
 
         // The player's arm span is always estimated as eye height * this ratio; it is never measured,
@@ -2901,8 +2899,6 @@ namespace Basis.BasisUI
             FBIKArmSwivelMaxRate.LoadBindingValue();
             FBIKBodyFit.LoadBindingValue();
             FBIKJobLocomotion.LoadBindingValue();
-            FBIKMotionMatching.LoadBindingValue();
-            FBIKInertialization.LoadBindingValue();
             FBIKBodyFitMaxDeviation.LoadBindingValue();
             FBIKNeckExtensionDamp.LoadBindingValue();
             FBIKNeckFlexionDamp.LoadBindingValue();

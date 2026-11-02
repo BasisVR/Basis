@@ -297,16 +297,6 @@ public static partial class SettingsProviderIK
             jobLocomotionToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.jobLocomotion"));
             jobLocomotionToggle.AssignBinding(BasisSettingsDefaults.FBIKJobLocomotion);
             jobLocomotionToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.jobLocomotion.tooltip"));
-
-            var motionMatchingToggle = PanelToggle.CreateNewEntry(trackingParent);
-            motionMatchingToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.motionMatching"));
-            motionMatchingToggle.AssignBinding(BasisSettingsDefaults.FBIKMotionMatching);
-            motionMatchingToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.motionMatching.tooltip"));
-
-            var inertializationToggle = PanelToggle.CreateNewEntry(trackingParent);
-            inertializationToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.inertialization"));
-            inertializationToggle.AssignBinding(BasisSettingsDefaults.FBIKInertialization);
-            inertializationToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.inertialization.tooltip"));
         });
 
         // ------------------
@@ -1098,8 +1088,6 @@ public static partial class SettingsProviderIK
         BasisSettingsDefaults.FootIKEnabled.ResetToDefault();
         BasisSettingsDefaults.DisableAnimationsInFBT.ResetToDefault();
         BasisSettingsDefaults.FBIKJobLocomotion.ResetToDefault();
-        BasisSettingsDefaults.FBIKMotionMatching.ResetToDefault();
-        BasisSettingsDefaults.FBIKInertialization.ResetToDefault();
         BasisSettingsDefaults.FBIKProtectElbow.ResetToDefault();
         BasisSettingsDefaults.FBIKCollideTrackedElbow.ResetToDefault();
         BasisSettingsDefaults.FBIKChestRadius.ResetToDefault();

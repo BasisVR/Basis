@@ -16,10 +16,13 @@ namespace Basis.Scripts.Drivers
     {
         [AutoStaticsCleanup] static readonly List<BasisIdleExpressionDriver> remoteDrivers = new List<BasisIdleExpressionDriver>();
         [AutoStaticsCleanup] static double talkerTime = double.NaN;
-        [AutoStaticsCleanup] static int talkerCount;
+        [AutoStaticsCleanup] static int talkerCount, scanCursor;
+        [AutoStaticsCleanup] static uint scannedVersion = uint.MaxValue;
+        [AutoStaticsCleanup] static float[] scannedLevels = Array.Empty<float>();
         [NoAutoStaticsCleanup] static readonly Vector3[] talkerPositions = new Vector3[8];
         [NoAutoStaticsCleanup] static readonly float[] talkerLevels = new float[8];
         [NoAutoStaticsCleanup] static readonly BasisIdleExpressionDriver[] talkerOwners = new BasisIdleExpressionDriver[8];
+        const int MinScanSlice = 64, ScanSlices = 8;
         public const float MaxRemoteDistance = 15f, DetailDistance = 6f, ListenDistance = 6f, RangeCheckInterval = .25f, GainRate = 3f, SpeakAttack = 10f, SpeakRelease = 1.5f, SpeakThreshold = 0.08f;
         const int smileL = 0, smileR = 1, cheekSquintL = 2, cheekSquintR = 3, eyeSquintL = 4, eyeSquintR = 5, browInnerUp = 6, browOuterUpL = 7, browOuterUpR = 8, browDownL = 9, browDownR = 10, eyeWideL = 11, eyeWideR = 12, mouthPressL = 13, mouthPressR = 14, mouthFrownL = 15, mouthFrownR = 16, cheekPuffL = 17, cheekPuffR = 18, cheekPuffBoth = 19, cheekSuckL = 20, cheekSuckR = 21, cheekSuckBoth = 22, dimpleL = 23, dimpleR = 24, sneerL = 25, sneerR = 26, nasalL = 27, nasalR = 28, jawChannel = 29, rollLowerChannel = 30, rollUpperChannel = 31, shrugChannel = 32, sideL = 33, sideR = 34, sideLowerL = 35, sideLowerR = 36, genericSmile = 37, genericSurprised = 38, genericSad = 39, laughterChannel = 40, channelCount = 41;
         const int sSmile = 0, sAsym = 1, sSquint = 2, sBrowInner = 3, sBrowOuterL = 4, sBrowOuterR = 5, sBrowDownL = 6, sBrowDownR = 7, sWide = 8, sPress = 9, sFrown = 10, semanticCount = 11, microCount = 8, vSil = 0, vPP = 1, vFF = 2, vSS = 7, vRR = 9, vAA = 10, vE = 11, vIH = 12, vOH = 13, vOU = 14, visemeCount = 15;
@@ -693,15 +696,30 @@ namespace Basis.Scripts.Drivers
             }
             BasisNetworkReceiver[] receivers = BasisNetworkPlayers.ReceiversSnapshot;
             int count = math.min(BasisNetworkPlayers.ReceiverCount, receivers.Length);
+            if (count <= 0) return;
+            if (scannedVersion != BasisNetworkPlayers.SnapshotVersion)
+            {
+                scannedVersion = BasisNetworkPlayers.SnapshotVersion;
+                if (scannedLevels.Length < count) scannedLevels = new float[math.max(count, scannedLevels.Length * 2)];
+                else Array.Clear(scannedLevels, 0, count);
+                scanCursor = 0;
+            }
+            int slice = math.min(count, math.max(MinScanSlice, (count + ScanSlices - 1) / ScanSlices));
+            for (int s = 0; s < slice; s++)
+            {
+                if (scanCursor >= count) scanCursor = 0;
+                BasisNetworkReceiver scanned = receivers[scanCursor];
+                BasisAudioReceiver audio = scanned is null ? null : scanned.AudioReceiverModule;
+                scannedLevels[scanCursor++] = audio is null ? 0f : audio.VoiceLevel01;
+            }
             for (int i = 0; i < count && talkerCount < talkerOwners.Length; i++)
             {
-                BasisNetworkReceiver receiver = receivers[i];
-                if (receiver is null || receiver.AudioReceiverModule is null) continue;
-                float level = receiver.AudioReceiverModule.VoiceLevel01;
+                float level = scannedLevels[i];
                 if (level <= SpeakThreshold) continue;
-                BasisRemotePlayer player = receiver.RemotePlayer;
-                if (player is null || player.AvatarTransform == null) continue;
-                AddTalker(player.IdleExpressionDriver, player.AvatarTransform.position, level);
+                BasisNetworkReceiver receiver = receivers[i];
+                BasisRemotePlayer player = receiver is null ? null : receiver.RemotePlayer;
+                if (player is null || !RemoteBoneJobSystem.GetOutGoingMouth(receiver.playerId, out float3 mouth)) continue;
+                AddTalker(player.IdleExpressionDriver, mouth, level);
             }
         }
         static void AddTalker(BasisIdleExpressionDriver owner, Vector3 at, float level)
@@ -715,10 +733,10 @@ namespace Basis.Scripts.Drivers
         {
             if (time >= nextRangeCheck)
             {
-                Transform root = remote.AvatarTransform;
-                if (root != null)
+                BasisNetworkReceiver receiver = remote.NetworkReceiver;
+                if (receiver != null && RemoteBoneJobSystem.GetOutGoingMouth(receiver.playerId, out float3 mouth))
                 {
-                    position = root.position;
+                    position = mouth;
                     distanceSq = (position - viewer).sqrMagnitude;
                 }
                 else distanceSq = float.MaxValue;

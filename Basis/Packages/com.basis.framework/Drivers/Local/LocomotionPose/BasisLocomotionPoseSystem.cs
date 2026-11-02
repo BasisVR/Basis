@@ -11,9 +11,8 @@ namespace Basis.Scripts.Drivers
     public sealed partial class BasisLocomotionPoseSystem
     {
         public static bool JobDrivenLocomotionPose => Basis.BasisUI.BasisSettingsDefaults.FBIKJobLocomotion.RawValue;
-        public static bool MotionMatchingEnabled => Basis.BasisUI.BasisSettingsDefaults.FBIKMotionMatching.RawValue;
         public static readonly bool FreezeAnimatorInFullFBT = true;
-        const float FreezeArmSeconds = 0.5f, MotionFrameTeleportSq = 1f;
+        const float FreezeArmSeconds = 0.5f;
         static RuntimeAnimatorController sStockController;
         public static void NotifyStockControllerAssigned(RuntimeAnimatorController controller)
         {
@@ -36,17 +35,6 @@ namespace Basis.Scripts.Drivers
         NativeArray<float> childTimeScalesNative;
         JobHandle poseJobHandle;
         bool jobScheduled;
-        BasisMotionMatchingDatabase motionDatabase;
-        bool motionDatabaseFailed;
-        bool motionActive;
-        bool motionLegsValid;
-        Transform motionFrame;
-        BasisMotionMatchingLegNodes motionLeftLeg, motionRightLeg;
-        bool motionFootTargetsValid, motionHasLastFrame;
-        Vector3 motionLastFramePosition;
-        NativeArray<BasisMotionMatchingState> motionStateNative;
-        NativeArray<float3> motionScratchPosition, motionPreviousAngularVelocity, motionOffsetAngularVelocity;
-        NativeArray<quaternion> motionScratchRotation, motionPreviousRotation, motionOffsetRotation, motionFinalRotation;
         public void NotifyLanding()
         {
             landingLatch = true;
@@ -79,18 +67,6 @@ namespace Basis.Scripts.Drivers
                 return;
             }
 
-            bool useMotionMatching = MotionMatchingEnabled && motionDatabase != null && motionDatabase.Ready;
-            if (useMotionMatching != motionActive)
-            {
-                motionActive = useMotionMatching;
-                simDirty = true;
-            }
-            if (useMotionMatching)
-            {
-                DispatchMotionMatching(rig, in frameParams, frozen ? 0f : deltaTime);
-                return;
-            }
-
             JobHandle graphHandle = Step4StepLocomotionGraph(in frameParams, deltaTime, frozen);
             Step5DispatchPoseJob(rig, graphHandle);
         }
@@ -112,187 +88,6 @@ namespace Basis.Scripts.Drivers
                     baker = null;
                 }
             }
-
-            if (MotionMatchingEnabled && motionDatabase == null && !motionDatabaseFailed && poseBake != null && poseBake.Ready)
-            {
-                StartMotionDatabase(rig);
-            }
-            motionDatabase?.Tick();
-        }
-        void StartMotionDatabase(BasisLocalRigDriver rig)
-        {
-            BasisPoseSkeleton skeleton = rig.PoseSkeleton;
-            int leftFoot = System.Array.IndexOf(skeleton.Nodes, rig.basisTransformMapping.leftFoot);
-            int rightFoot = System.Array.IndexOf(skeleton.Nodes, rig.basisTransformMapping.rightFoot);
-            if (!DescendsFromHips(skeleton, leftFoot) || !DescendsFromHips(skeleton, rightFoot))
-            {
-                // Validated here so the feature job can trust its foot indices; the graph path keeps running.
-                motionDatabaseFailed = true;
-                BasisDebug.LogWarning("Motion matching unavailable: this avatar's feet are not under its hips in the pose skeleton.", BasisDebug.LogTag.Avatar);
-                return;
-            }
-            int hipsParent = skeleton.Stream.Parent[poseBake.HipsNode];
-            motionFrame = hipsParent >= 0 ? skeleton.Nodes[hipsParent] : skeleton.Anchor;
-            float3 up = motionFrame != null ? (float3)motionFrame.InverseTransformDirection(Vector3.up) : new float3(0f, 1f, 0f);
-            motionDatabase = BasisMotionMatchingDatabase.ScheduleBuild(poseBake, skeleton.Stream.Parent, skeleton.Stream.RestLocalPosition, leftFoot, rightFoot, up, motionFrame != null ? math.length(((float4x4)motionFrame.worldToLocalMatrix).c0.xyz) : 1f, childPositionsNative, childTimeScalesNative);
-
-            var mapping = rig.basisTransformMapping;
-            motionLeftLeg = new BasisMotionMatchingLegNodes { Upper = System.Array.IndexOf(skeleton.Nodes, mapping.LeftUpperLeg), Lower = System.Array.IndexOf(skeleton.Nodes, mapping.LeftLowerLeg), Foot = leftFoot };
-            motionRightLeg = new BasisMotionMatchingLegNodes { Upper = System.Array.IndexOf(skeleton.Nodes, mapping.RightUpperLeg), Lower = System.Array.IndexOf(skeleton.Nodes, mapping.RightLowerLeg), Foot = rightFoot };
-            motionLegsValid = motionFrame != null && LegChainValid(skeleton, in motionLeftLeg) && LegChainValid(skeleton, in motionRightLeg);
-            motionHasLastFrame = false;
-        }
-        bool LegChainValid(BasisPoseSkeleton skeleton, in BasisMotionMatchingLegNodes leg)
-        {
-            return DescendsFrom(skeleton, leg.Upper, poseBake.HipsNode) && DescendsFrom(skeleton, leg.Lower, leg.Upper) && DescendsFrom(skeleton, leg.Foot, leg.Lower);
-        }
-        static bool DescendsFrom(BasisPoseSkeleton skeleton, int node, int ancestor)
-        {
-            if (node < 0 || ancestor < 0)
-            {
-                return false;
-            }
-            NativeArray<int> parents = skeleton.Stream.Parent;
-            while (node >= 0)
-            {
-                if (node == ancestor)
-                {
-                    return true;
-                }
-                node = parents[node];
-            }
-            return false;
-        }
-        bool DescendsFromHips(BasisPoseSkeleton skeleton, int node) => DescendsFrom(skeleton, node, poseBake.HipsNode);
-        void DispatchMotionMatching(BasisLocalRigDriver rig, in BasisLocoParams frameParams, float deltaTime)
-        {
-            using var dispatch = BasisLocoPoseMarkers.Dispatch.Auto();
-            EnsureMotionArrays();
-            if (simDirty)
-            {
-                motionStateNative[0] = BasisMotionMatchingState.Default;
-                landingLatchNative[0] = 0;
-                landingLatch = false;
-                simDirty = false;
-            }
-            landingLatchNative[0] = (byte)(landingLatch ? 1 : 0);
-            landingLatch = false;
-            // Trackers already place the feet, and a lock would only fight them.
-            bool hasFrame = motionFrame != null;
-            bool footLock = motionLegsValid && hasFrame && !BasisAvatarIKStageCalibration.HasLegFBIKTrackers;
-            float4x4 skeletonToWorld = float4x4.identity, worldToSkeleton = float4x4.identity;
-            float unitsPerMeter = 1f;
-            quaternion facingToSkeleton = quaternion.identity;
-            if (hasFrame)
-            {
-                skeletonToWorld = motionFrame.localToWorldMatrix;
-                worldToSkeleton = motionFrame.worldToLocalMatrix;
-                unitsPerMeter = math.length(worldToSkeleton.c0.xyz);
-                // This runs before the body moves this frame. Lead the frame by the last move so a world-space foot lands where the body will be.
-                motionFrame.GetPositionAndRotation(out Vector3 framePosition, out Quaternion frameRotation);
-                Vector3 lead = motionHasLastFrame ? framePosition - motionLastFramePosition : Vector3.zero;
-                motionLastFramePosition = framePosition;
-                motionHasLastFrame = true;
-                if (deltaTime > 0f && lead.sqrMagnitude < MotionFrameTeleportSq)
-                {
-                    float3 leadVector = lead;
-                    skeletonToWorld = math.mul(float4x4.Translate(leadVector), skeletonToWorld);
-                    worldToSkeleton = math.mul(worldToSkeleton, float4x4.Translate(-leadVector));
-                }
-                facingToSkeleton = math.mul(math.inverse((quaternion)frameRotation),(quaternion)Basis.Scripts.BasisCharacterController.BasisLocalCharacterDriver.GetMovementFacing());
-            }
-            motionFootTargetsValid = footLock;
-            poseJobHandle = new BasisMotionMatchingJob
-            {
-                Params = frameParams,
-                DeltaTime = deltaTime,
-                SkeletonUnitsPerMeter = unitsPerMeter,
-                FootLockEnabled = footLock,
-                InertializationEnabled = Basis.BasisUI.BasisSettingsDefaults.FBIKInertialization.RawValue,
-                FacingToSkeleton = facingToSkeleton,
-                Tuning = BasisMotionMatchingTuning.Default,
-                LeftLeg = motionLeftLeg,
-                RightLeg = motionRightLeg,
-                SkeletonToWorld = skeletonToWorld,
-                WorldToSkeleton = worldToSkeleton,
-                Parents = rig.PoseSkeleton.Stream.Parent,
-                ContactFlags = motionDatabase.ContactFlags,
-                GridStanceSpeed = motionDatabase.GridStanceSpeed,
-                ClipPhaseOffset = motionDatabase.ClipPhaseOffset,
-                Sampler = poseBake.CreateSampler(rig.PoseSkeleton.Stream.RestLocalPosition),
-                ClipLooping = poseBake.ClipLooping,
-                SnapshotScales = poseBake.SnapshotScales,
-                ClipGroundSpeed = motionDatabase.ClipGroundSpeed,
-                ChildTimeScales = childTimeScalesNative,
-                FeatureScale = motionDatabase.FeatureScale,
-                Features = motionDatabase.Features,
-                State = motionStateNative,
-                LandingLatch = landingLatchNative,
-                Contributions = contributionsNative,
-                ScratchPosition = motionScratchPosition,
-                ScratchRotation = motionScratchRotation,
-                PreviousRotation = motionPreviousRotation,
-                OffsetRotation = motionOffsetRotation,
-                FinalRotation = motionFinalRotation,
-                PreviousAngularVelocity = motionPreviousAngularVelocity,
-                OffsetAngularVelocity = motionOffsetAngularVelocity,
-                OutLocalPosition = rig.PoseSkeleton.Stream.LocalPosition,
-                OutLocalRotation = rig.PoseSkeleton.Stream.LocalRotation,
-                OutLocalScale = rig.PoseSkeleton.Stream.LocalScale,
-            }.Schedule();
-            jobScheduled = true;
-            JobHandle.ScheduleBatchedJobs();
-        }
-        public bool TryGetFootTarget(bool left, out Vector3 world, out float weight)
-        {
-            world = Vector3.zero;
-            weight = 0f;
-            if (!motionFootTargetsValid || !motionActive || jobScheduled || !motionStateNative.IsCreated)
-            {
-                return false;
-            }
-            BasisMotionMatchingState state = motionStateNative[0];
-            BasisMotionMatchingFootLock foot = left ? state.LeftFoot : state.RightFoot;
-            world = foot.TargetWorld;
-            weight = foot.TargetWeight;
-            return weight > 0f;
-        }
-        void EnsureMotionArrays()
-        {
-            if (motionStateNative.IsCreated)
-            {
-                return;
-            }
-            int nodes = poseBake.NodeCount;
-            motionStateNative = new NativeArray<BasisMotionMatchingState>(1, Allocator.Persistent);
-            motionScratchPosition = new NativeArray<float3>(nodes, Allocator.Persistent);
-            motionPreviousAngularVelocity = new NativeArray<float3>(nodes, Allocator.Persistent);
-            motionOffsetAngularVelocity = new NativeArray<float3>(nodes, Allocator.Persistent);
-            motionScratchRotation = new NativeArray<quaternion>(nodes, Allocator.Persistent);
-            motionPreviousRotation = new NativeArray<quaternion>(nodes, Allocator.Persistent);
-            motionOffsetRotation = new NativeArray<quaternion>(nodes, Allocator.Persistent);
-            motionFinalRotation = new NativeArray<quaternion>(nodes, Allocator.Persistent);
-            simDirty = true;
-        }
-        void DisposeMotionData()
-        {
-            motionDatabase?.Dispose();
-            motionDatabase = null;
-            motionDatabaseFailed = false;
-            motionActive = false;
-            StepInProgress = false;
-            motionLegsValid = false;
-            motionFootTargetsValid = false;
-            motionHasLastFrame = false;
-            motionFrame = null;
-            if (motionStateNative.IsCreated) motionStateNative.Dispose();
-            if (motionScratchPosition.IsCreated) motionScratchPosition.Dispose();
-            if (motionPreviousAngularVelocity.IsCreated) motionPreviousAngularVelocity.Dispose();
-            if (motionOffsetAngularVelocity.IsCreated) motionOffsetAngularVelocity.Dispose();
-            if (motionScratchRotation.IsCreated) motionScratchRotation.Dispose();
-            if (motionPreviousRotation.IsCreated) motionPreviousRotation.Dispose();
-            if (motionOffsetRotation.IsCreated) motionOffsetRotation.Dispose();
-            if (motionFinalRotation.IsCreated) motionFinalRotation.Dispose();
         }
         void Step2ResolveGates(bool stock, bool rigReady, bool graphValid, float deltaTime, out bool frozen, out bool fastActive)
         {
@@ -343,8 +138,16 @@ namespace Basis.Scripts.Drivers
             {
                 Contributions = contributionsNative,
                 ContributionCount = contributionCountNative,
+                Rotations = poseBake.Rotations,
+                HipsPositions = poseBake.HipsPositions,
                 SnapshotScales = poseBake.SnapshotScales,
-                Sampler = poseBake.CreateSampler(rig.PoseSkeleton.Stream.RestLocalPosition),
+                ClipRotationOffset = poseBake.ClipRotationOffset,
+                ClipHipsOffset = poseBake.ClipHipsOffset,
+                ClipSampleCount = poseBake.ClipSampleCount,
+                ClipLength = poseBake.ClipLength,
+                RestPositions = rig.PoseSkeleton.Stream.RestLocalPosition,
+                NodeCount = poseBake.NodeCount,
+                HipsNode = poseBake.HipsNode,
                 OutLocalPosition = rig.PoseSkeleton.Stream.LocalPosition,
                 OutLocalRotation = rig.PoseSkeleton.Stream.LocalRotation,
                 OutLocalScale = rig.PoseSkeleton.Stream.LocalScale,
@@ -362,7 +165,6 @@ namespace Basis.Scripts.Drivers
             poseJobHandle.Complete();
             jobScheduled = false;
             landingLatch |= landingLatchNative[0] != 0;
-            UpdateStepInProgress();
             skeleton.RefreshRootFromTransform();
             return true;
         }
@@ -373,20 +175,7 @@ namespace Basis.Scripts.Drivers
                 poseJobHandle.Complete();
                 jobScheduled = false;
                 if (landingLatchNative.IsCreated) landingLatch |= landingLatchNative[0] != 0;
-                UpdateStepInProgress();
             }
-        }
-        // True after the stick is released until the last step lands, so the standing foot driver takes over from planted feet.
-        public bool StepInProgress { get; private set; }
-        void UpdateStepInProgress()
-        {
-            if (!motionActive || !motionStateNative.IsCreated)
-            {
-                StepInProgress = false;
-                return;
-            }
-            BasisMotionMatchingState state = motionStateNative[0];
-            StepInProgress = BasisLocomotionGraph.IsTree(state.LocoState) && !state.StopLanded && math.length(state.BlendVelocity) >= BasisMotionMatchingJob.RestBlendSpeed;
         }
         void EnsureRuntimeArrays()
         {
@@ -413,7 +202,6 @@ namespace Basis.Scripts.Drivers
         }
         void DisposeBakeData()
         {
-            DisposeMotionData();
             baker?.Dispose();
             baker = null;
             poseBake?.Dispose();
@@ -423,7 +211,6 @@ namespace Basis.Scripts.Drivers
         public void Dispose()
         {
             CompleteIfPending();
-            DisposeMotionData();
             baker?.Dispose();
             baker = null;
             poseBake?.Dispose();

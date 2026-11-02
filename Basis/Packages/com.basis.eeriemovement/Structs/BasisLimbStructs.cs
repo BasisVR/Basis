@@ -17,8 +17,8 @@ public struct BasisFootNativeState
     public quaternion currentRot;
     public float toeBendDeg;
     public float3 toeBendAxis;
-    public bool wantsStep, adoptStance;
-    public float3 predictedTargetXZ, stanceOffset;
+    public bool wantsStep;
+    public float3 predictedTargetXZ;
 }
 public struct BasisFootSimState
 {

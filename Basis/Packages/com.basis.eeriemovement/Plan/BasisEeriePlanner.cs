@@ -136,8 +136,7 @@ namespace Basis.IK
             leg.tracked = tracked;
             leg.kneeTracked = kneeTracked;
             leg.target = tracked ? BasisEerieSource.Tracker : simActive ? BasisEerieSource.Sim : BasisEerieSource.None;
-            // An eased ramp: this weight blends two knee solutions, so a linear start kicks the foot on the first frame.
-            leg.weight = tracked ? 1f : simActive ? sim * sim * (3f - 2f * sim) : 0f;
+            leg.weight = tracked ? 1f : simActive ? sim : 0f;
             leg.solve = leg.weight > 0f && leg.has;
             leg.preserveTip = leg.target == BasisEerieSource.Sim && !simRotation;
             leg.hintRoll = kneeTracked && roll;

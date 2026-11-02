@@ -953,7 +953,6 @@ namespace Basis.Scripts.Drivers
             Step13FillKneeBendPreferences();
             Step14FillArmTargets();
             bool basePoseInStream = Step15JoinBasePose();
-            ApplyAnimationFootTargets(basePoseInStream);
             ApplyEffectorOverrides();
             Step16ScheduleSolve(deltaTime, basePoseInStream);
             ikPublishPending = true;
@@ -976,7 +975,7 @@ namespace Basis.Scripts.Drivers
             facts.deltaTime = deltaTime;
             facts.footSimReady = footDriver.IsInitialized;
             facts.footIKSetting = Basis.BasisUI.BasisSettingsDefaults.FootIKEnabled.RawValue;
-            facts.moving = localPlayer.LocalCharacterDriver.IsLocomoting || LocomotionPose.StepInProgress;
+            facts.moving = localPlayer.LocalCharacterDriver.IsLocomoting;
             facts.prone = localPlayer.LocalCharacterDriver.IsProne;
             facts.seated = localPlayer.LocalSeatDriver.HipsPinned;
             facts.upright = BasisLocalPlayspaceMover.FlipUpSign > 0f;
@@ -1332,41 +1331,6 @@ namespace Basis.Scripts.Drivers
             bool streamPrefilled = LocomotionPose.TryComplete(PoseSkeleton);
             BasisLocalPlayerMarkers.IKDestLocoPoseJoin.End();
             return streamPrefilled;
-        }
-        // The solve moves the hips under the head, so a foot the animation planted would slide with them unless the leg solve holds it.
-        void ApplyAnimationFootTargets(bool basePoseInStream)
-        {
-            if (!basePoseInStream)
-            {
-                return;
-            }
-            ref BasisEerieMovement data = ref IKJob;
-            if (LocomotionPose.TryGetFootTarget(true, out Vector3 left, out float leftWeight))
-            {
-                HoldAnimationFoot(ref data.plan.leftLeg, ref data.targetPositionLeftLowerLeg, left, leftWeight);
-            }
-            if (LocomotionPose.TryGetFootTarget(false, out Vector3 right, out float rightWeight))
-            {
-                HoldAnimationFoot(ref data.plan.rightLeg, ref data.targetPositionRightLowerLeg, right, rightWeight);
-            }
-        }
-        // The foot driver fades in once the body has stopped. Cross over to it, or the leg drops the lock for its low weight and the foot jumps.
-        static void HoldAnimationFoot(ref BasisEerieLegPlan leg, ref Vector3 target, Vector3 foot, float weight)
-        {
-            if (!leg.has || leg.tracked)
-            {
-                return;
-            }
-            if (leg.target == BasisEerieSource.Sim)
-            {
-                target = Vector3.Lerp(foot, target, leg.weight);
-                leg.weight = Mathf.Max(leg.weight, weight);
-                return;
-            }
-            target = foot;
-            leg.weight = weight;
-            leg.solve = true;
-            leg.preserveTip = true;
         }
         void Step16ScheduleSolve(float deltaTime, bool streamPrefilled)
         {

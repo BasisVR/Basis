@@ -17,21 +17,6 @@ namespace Basis.Scripts.Drivers
         public NativeArray<int> ClipRotationOffset, ClipHipsOffset, ClipSampleCount;
         public NativeArray<float> ClipLength;
         public NativeArray<byte> ClipLooping;
-        public BasisLocoPoseSampler CreateSampler(NativeArray<float3> restPositions)
-        {
-            return new BasisLocoPoseSampler
-            {
-                Rotations = Rotations,
-                HipsPositions = HipsPositions,
-                ClipRotationOffset = ClipRotationOffset,
-                ClipHipsOffset = ClipHipsOffset,
-                ClipSampleCount = ClipSampleCount,
-                ClipLength = ClipLength,
-                RestPositions = restPositions,
-                NodeCount = NodeCount,
-                HipsNode = HipsNode,
-            };
-        }
         public void Dispose()
         {
             Ready = false;
@@ -265,14 +250,7 @@ namespace Basis.Scripts.Drivers
             }
             if (cloneRoot != null)
             {
-                if (Application.isPlaying)
-                {
-                    UnityEngine.Object.Destroy(cloneRoot);
-                }
-                else
-                {
-                    UnityEngine.Object.DestroyImmediate(cloneRoot);
-                }
+                UnityEngine.Object.Destroy(cloneRoot);
                 cloneRoot = null;
             }
             cloneAnimator = null;

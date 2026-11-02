@@ -97,21 +97,10 @@ namespace Basis.Scripts.Animator_Driver
         public BasisLocoParams GetLocoParams()
         {
             var variables = basisAnimatorVariableApply.BasisAnimatorVariables;
-            // Stopped means the animator is being held (T-pose, leg trackers, paused), so the stick must not animate.
-            Vector2 desired = !basisAnimatorVariableApply.IsStopped && LocalCharacterDriver.IsLocomoting
-                ? LocalCharacterDriver.MovementVector.normalized * LocalCharacterDriver.CurrentSpeed
-                : Vector2.zero;
-            // While coasting there is no stick to predict from, and the body is still travelling.
-            if (LocalCharacterDriver.IsSettling && LocalCharacterDriver.MovementVector.sqrMagnitude <= 0.001f && !basisAnimatorVariableApply.IsStopped)
-            {
-                desired = new Vector2(variables.Velocity.x, variables.Velocity.z);
-            }
             return new BasisLocoParams
             {
                 VelocityX = variables.Velocity.x,
                 VelocityZ = variables.Velocity.z,
-                DesiredVelocityX = desired.x,
-                DesiredVelocityZ = desired.y,
                 CurrentSpeed = variables.AnimationsCurrentSpeed,
                 CrouchedState = variables.IsCrouching,
                 ProneState = variables.IsProne,
