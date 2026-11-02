@@ -297,6 +297,7 @@ namespace BasisDidLink
                 }
                 RetainDid(Did);
                 _admitted[PeerId] = Did.V;
+                BasisPendingLoginGate.Release(PeerId, Entry.Peer);
                 return true;
             }
         }
@@ -336,7 +337,7 @@ namespace BasisDidLink
         {
             try
             {
-                await Task.Delay(GetAuthTimeoutMs(NetworkServer.Server?.ConnectedPeersCount ?? 0), cts.Token);
+                await Task.Delay(GetAuthTimeoutMs(NetworkServer.AuthenticatedPeers?.Count ?? 0), cts.Token);
                 if (!RemoveConnection(newPeer.Id, newPeer))
                 {
                     return;
@@ -436,6 +437,7 @@ namespace BasisDidLink
 
         public bool RemoveConnection(int Id, NetPeer Expected)
         {
+            BasisPendingLoginGate.Release(Id, Expected);
             bool Removed;
             OnAuth Entry;
             lock (_admitLock)

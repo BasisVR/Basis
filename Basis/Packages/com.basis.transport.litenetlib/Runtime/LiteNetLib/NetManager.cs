@@ -1248,6 +1248,7 @@ namespace LiteNetLib
             return netPeer;
         }
 
+        public Func<IPEndPoint, bool> ConnectRequestFilter;
         public Func<int> PeerIdAllocator;
         public Action<int> PeerIdRelease;
 
@@ -1318,6 +1319,9 @@ namespace LiteNetLib
                     req.UpdateRequest(connRequest);
                     return;
                 }
+                Func<IPEndPoint, bool> filter = ConnectRequestFilter;
+                if (netPeer == null && filter != null && !filter(remoteEndPoint))
+                    return;
                 req = new ConnectionRequest(remoteEndPoint, connRequest, this);
                 _requestsDict.Add(remoteEndPoint, req);
             }

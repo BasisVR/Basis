@@ -9,6 +9,7 @@ namespace GatorDragonGames.JigglePhysics {
 [BurstCompile]
 public struct JiggleJobInterpolation : IJobFor {
     [ReadOnly] public NativeArray<float3> realRootPositions;
+    [ReadOnly] public NativeArray<int> rootSlotIndices;
 
     [ReadOnly] public NativeArray<PoseData> previousPoses;
     [ReadOnly] public NativeArray<PoseData> currentPoses;
@@ -29,6 +30,7 @@ public struct JiggleJobInterpolation : IJobFor {
         currentPoses = bus.interpolationCurrentPoseData;
         outputInterpolatedPoses = bus.interpolationOutputPoses;
         realRootPositions = bus.rootOutputPositions;
+        rootSlotIndices = bus.rootSlotIndices;
     }
 
     public void UpdateArrays(JiggleMemoryBus bus) {
@@ -36,6 +38,7 @@ public struct JiggleJobInterpolation : IJobFor {
         currentPoses = bus.interpolationCurrentPoseData;
         outputInterpolatedPoses = bus.interpolationOutputPoses;
         realRootPositions = bus.rootOutputPositions;
+        rootSlotIndices = bus.rootSlotIndices;
     }
     
     public void SetFixedDeltaTime(float fixedDeltaTime) {
@@ -50,7 +53,7 @@ public struct JiggleJobInterpolation : IJobFor {
         var t = diff == 0 ? 1.0 : math.saturate((currentTime - timeCorrection - previousTimeStamp) / diff);
         var interPose = PoseData.Lerp(prevPose, newPose, (float)t);
 
-        var snapToReal = realRootPositions[index] - interPose.rootPosition;
+        var snapToReal = realRootPositions[rootSlotIndices[index]] - interPose.rootPosition;
         interPose.pose.position += (snapToReal + interPose.rootOffset) * interPose.rootSnapStrength;
         outputInterpolatedPoses[index] = interPose.pose;
     }

@@ -42,6 +42,7 @@ namespace Cilbox
 			"Basis.Shims.BasisServerStorageResult",
 			"Basis.Shims.BasisHapticsShim", // Only buzzes the player wearing the avatar.
 			"Basis.Shims.BasisHapticHand",
+			"Basis.Shims.BasisPoseOverrideShim", // Only poses the player wearing the avatar.
 			"Basis.Shims.BasisSharedRandomShim",
 			"Basis.Shims.BasisComputeShim",
 			"Basis.Shims.BasisAudioRoutingShim", // Only routes the avatar's own sources, to the Avatars group.

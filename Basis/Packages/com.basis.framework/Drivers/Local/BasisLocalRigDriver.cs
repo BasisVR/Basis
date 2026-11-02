@@ -807,6 +807,99 @@ namespace Basis.Scripts.Drivers
             IKJob.solvedRotations.CopyTo(unoverriddenRotations);
             unoverriddenValid = true;
         }
+        struct EffectorOverride
+        {
+            public bool on, trackedValid;
+            public float blend;
+            public Vector3 position, trackedPosition;
+            public Quaternion rotation, trackedRotation;
+        }
+        readonly EffectorOverride[] effectors = { Effector(), Effector(), Effector(), Effector() };
+        static EffectorOverride Effector() => new EffectorOverride { blend = 1f, rotation = Quaternion.identity, trackedRotation = Quaternion.identity };
+        static int EffectorIndex(HumanBodyBones bone)
+        {
+            switch (bone)
+            {
+                case HumanBodyBones.LeftHand: return 0;
+                case HumanBodyBones.RightHand: return 1;
+                case HumanBodyBones.LeftFoot: return 2;
+                case HumanBodyBones.RightFoot: return 3;
+                default: return -1;
+            }
+        }
+        public static bool IsEffector(HumanBodyBones bone) => EffectorIndex(bone) >= 0;
+        public void SetEffectorUsage(HumanBodyBones bone, bool enabled)
+        {
+            int i = EffectorIndex(bone);
+            if (i >= 0) effectors[i].on = enabled;
+        }
+        public void SetEffectorOverride(HumanBodyBones bone, in Vector3 position, in Quaternion rotation)
+        {
+            int i = EffectorIndex(bone);
+            if (i < 0) return;
+            effectors[i].position = position;
+            effectors[i].rotation = rotation;
+        }
+        public void SetEffectorBlend(HumanBodyBones bone, float blend)
+        {
+            int i = EffectorIndex(bone);
+            if (i >= 0) effectors[i].blend = blend > 0f ? (blend < 1f ? blend : 1f) : 0f;
+        }
+        public bool TryGetTrackedEffector(HumanBodyBones bone, out Vector3 position, out Quaternion rotation)
+        {
+            int i = EffectorIndex(bone);
+            if (i < 0 || !effectors[i].trackedValid)
+            {
+                position = default;
+                rotation = Quaternion.identity;
+                return false;
+            }
+            position = effectors[i].trackedPosition;
+            rotation = effectors[i].trackedRotation;
+            return true;
+        }
+        void ApplyEffectorOverrides()
+        {
+            ref BasisEerieMovement data = ref IKJob;
+            ApplyHandEffector(ref effectors[0], ref data.plan.leftArm, ref data.targetPositionLeftHand, ref data.targetRotationLeftHand, data.offsetRotationLeftHand);
+            ApplyHandEffector(ref effectors[1], ref data.plan.rightArm, ref data.targetPositionRightHand, ref data.targetRotationRightHand, data.offsetRotationRightHand);
+            ApplyFootEffector(ref effectors[2], ref data.plan.leftLeg, ref data.targetPositionLeftLowerLeg, ref data.targetRotationLeftLowerLeg, data.offsetRotationLeftFoot);
+            ApplyFootEffector(ref effectors[3], ref data.plan.rightLeg, ref data.targetPositionRightLowerLeg, ref data.targetRotationRightLowerLeg, data.offsetRotationRightFoot);
+        }
+        static void ApplyHandEffector(ref EffectorOverride e, ref BasisEerieArmPlan arm, ref Vector3 targetPosition, ref Quaternion targetRotation, Quaternion offset)
+        {
+            float tracked = arm.solve ? arm.weight : 0f;
+            e.trackedValid = tracked > 0f;
+            if (e.trackedValid)
+            {
+                e.trackedPosition = targetPosition;
+                e.trackedRotation = targetRotation * offset;
+            }
+            if (!e.on || !arm.has || !(e.blend > 0f)) return;
+            Quaternion wanted = e.rotation * Quaternion.Inverse(offset);
+            targetPosition = tracked > 0f ? Vector3.Lerp(targetPosition, e.position, e.blend) : e.position;
+            targetRotation = tracked > 0f ? Quaternion.Slerp(targetRotation, wanted, e.blend) : wanted;
+            arm.weight = tracked + (1f - tracked) * e.blend;
+            arm.solve = arm.weight > 0f;
+        }
+        static void ApplyFootEffector(ref EffectorOverride e, ref BasisEerieLegPlan leg, ref Vector3 targetPosition, ref Quaternion targetRotation, Quaternion offset)
+        {
+            float tracked = leg.solve ? leg.weight : 0f;
+            e.trackedValid = tracked > 0f;
+            if (e.trackedValid)
+            {
+                e.trackedPosition = targetPosition;
+                e.trackedRotation = targetRotation * offset;
+            }
+            if (!e.on || !leg.has || !(e.blend > 0f)) return;
+            Quaternion wanted = e.rotation * Quaternion.Inverse(offset);
+            bool blendRotation = tracked > 0f && !leg.preserveTip;
+            targetPosition = tracked > 0f ? Vector3.Lerp(targetPosition, e.position, e.blend) : e.position;
+            targetRotation = blendRotation ? Quaternion.Slerp(targetRotation, wanted, e.blend) : wanted;
+            leg.weight = tracked + (1f - tracked) * e.blend;
+            leg.solve = leg.weight > 0f;
+            leg.preserveTip = false;
+        }
         readonly Vector3[] unoverriddenPositions = new Vector3[BasisEerieMovement.Count];
         readonly Quaternion[] unoverriddenRotations = new Quaternion[BasisEerieMovement.Count];
         bool unoverriddenValid;
@@ -861,6 +954,7 @@ namespace Basis.Scripts.Drivers
             Step14FillArmTargets();
             bool basePoseInStream = Step15JoinBasePose();
             ApplyAnimationFootTargets(basePoseInStream);
+            ApplyEffectorOverrides();
             Step16ScheduleSolve(deltaTime, basePoseInStream);
             ikPublishPending = true;
         }

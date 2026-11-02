@@ -754,6 +754,8 @@
     { "key": "sdk.cilbox.api.localPlayer.summary", "value": "اس کلائنٹ کے کھلاڑی کے لیے ٹیلی پورٹ، دوبارہ پیدائش، جمود اور حرکت کی قدریں۔" },
     { "key": "sdk.cilbox.api.velocity.title", "value": "کھلاڑی کی رفتار" },
     { "key": "sdk.cilbox.api.velocity.summary", "value": "کسی رفتار سے مقامی کھلاڑی کو اچھالیں، دھکیلیں یا آہستہ کریں، اور پڑھیں کہ وہ کتنی تیزی سے حرکت کر رہا ہے۔" },
+    { "key": "sdk.cilbox.api.poseOverride.title", "value": "پوز اوور رائیڈ" },
+    { "key": "sdk.cilbox.api.poseOverride.summary", "value": "لوکل کھلاڑی کے ہاتھوں، بازوؤں، سر یا جسم کو ان کی ٹریکنگ کے اوپر پوز دیتا ہے، آہستہ اندر باہر ہونے کے لیے بلینڈ کے ساتھ، اور وہ پوز پڑھتا ہے جو ان کی ٹریکنگ دیتی۔ صرف ورلڈز، ان کا پہنا اوتار اور ان کے اسپان کیے پراپس۔" },
     { "key": "sdk.cilbox.api.playspaceInput.title", "value": "اسکرپٹ سے کھلاڑی کا ان پٹ" },
     { "key": "sdk.cilbox.api.playspaceInput.summary", "value": "اوتار اسکرپٹ سے پہننے والے کی اپنی حرکت اور ہاتھ چلاتا ہے، اس کے اصل ان پٹ کے ساتھ ملا کر۔" },
     { "key": "sdk.cilbox.api.avatarShim.title", "value": "اوتار تک رسائی" },

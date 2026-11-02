@@ -93,6 +93,7 @@ public class JiggleMemoryBus {
     public NativeArray<JiggleTransform> restPoseTransforms;
     public NativeArray<JiggleTransform> previousLocalRestPoseTransforms;
     public NativeArray<float3> rootOutputPositions;
+    public NativeArray<int> rootSlotIndices;
     public NativeArray<JiggleTransform> interpolationOutputPoses;
     public NativeArray<PoseData> simulationOutputPoseData;
     public NativeArray<PoseData> interpolationCurrentPoseData;
@@ -392,6 +393,7 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
         var newRestPoseTransforms = new NativeArray<JiggleTransform>(newTransformCapacity, Allocator.Persistent);
         var newPreviousLocalRestPoseTransforms = new NativeArray<JiggleTransform>(newTransformCapacity, Allocator.Persistent);
         var newRootOutputPositions = new NativeArray<float3>(newTransformCapacity, Allocator.Persistent);
+        var newRootSlotIndices = new NativeArray<int>(newTransformCapacity, Allocator.Persistent);
         var newInterpolationOutputPoses = new NativeArray<JiggleTransform>(newTransformCapacity, Allocator.Persistent);
         var newSimulationOutputPoseData = new NativeArray<PoseData>(newTransformCapacity, Allocator.Persistent);
         var newInterpolationCurrentPoseData = new NativeArray<PoseData>(newTransformCapacity, Allocator.Persistent);
@@ -405,6 +407,7 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
             NativeArray<JiggleTransform>.Copy(restPoseTransforms, newRestPoseTransforms, copyCount);
             NativeArray<JiggleTransform>.Copy(previousLocalRestPoseTransforms, newPreviousLocalRestPoseTransforms, copyCount);
             NativeArray<float3>.Copy(rootOutputPositions, newRootOutputPositions, copyCount);
+            NativeArray<int>.Copy(rootSlotIndices, newRootSlotIndices, copyCount);
             NativeArray<JiggleTransform>.Copy(interpolationOutputPoses, newInterpolationOutputPoses, copyCount);
             NativeArray<PoseData>.Copy(simulationOutputPoseData, newSimulationOutputPoseData, copyCount);
             NativeArray<PoseData>.Copy(interpolationCurrentPoseData, newInterpolationCurrentPoseData, copyCount);
@@ -416,6 +419,7 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
             restPoseTransforms.Dispose();
             previousLocalRestPoseTransforms.Dispose();
             rootOutputPositions.Dispose();
+            rootSlotIndices.Dispose();
             interpolationOutputPoses.Dispose();
             simulationOutputPoseData.Dispose();
             interpolationCurrentPoseData.Dispose();
@@ -428,6 +432,7 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
         restPoseTransforms = newRestPoseTransforms;
         previousLocalRestPoseTransforms = newPreviousLocalRestPoseTransforms;
         rootOutputPositions = newRootOutputPositions;
+        rootSlotIndices = newRootSlotIndices;
         interpolationOutputPoses = newInterpolationOutputPoses;
         simulationOutputPoseData = newSimulationOutputPoseData;
         interpolationCurrentPoseData = newInterpolationCurrentPoseData;
@@ -753,6 +758,7 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
                 restPoseTransforms[index + o] = localPose;
                 previousLocalRestPoseTransforms[index + o] = localPose;
                 rootOutputPositions[index + o] = rootPos;
+                rootSlotIndices[index + o] = index;
                 interpolationOutputPoses[index + o] = pose;
                 var poseData = new PoseData() {
                     pose = pose,
@@ -1546,6 +1552,7 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
             restPoseTransforms.Dispose();
             previousLocalRestPoseTransforms.Dispose();
             rootOutputPositions.Dispose();
+            if (rootSlotIndices.IsCreated) rootSlotIndices.Dispose();
             interpolationOutputPoses.Dispose();
             simulationOutputPoseData.Dispose();
             interpolationCurrentPoseData.Dispose();

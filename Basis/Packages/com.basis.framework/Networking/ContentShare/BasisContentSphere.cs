@@ -156,25 +156,13 @@ public partial class BasisContentSphere : BasisInteractableObject
     {
         _restPosition = transform.position;
         _bobPhase = UnityEngine.Random.value * Mathf.PI * 2f;
+        BasisContentSphereBillboardDriver.RegisterSphere(this);
     }
-    private void Update()
-    {
-        if (rift != null)
-        {
-            UpdatePortalEntry();
-            return;
-        }
-        var DeltaTime = Time.deltaTime;
-        // Gentle hover/bob animation
-        _bobPhase += DeltaTime * BobPhaseClock;
-        float bobOffset = Mathf.Sin(_bobPhase) * BobPhaseOffset;
-        transform.position = _restPosition + Vector3.up * bobOffset;
-
-        // Slow rotation
-        transform.Rotate(Vector3.up, RotationSpeed * DeltaTime, Space.World);
-        if (ContentType == ContentShareType.Portal) UpdatePortalEntry();
-    }
-    private void UpdatePortalEntry()
+    internal bool Bobs => rift == null;
+    internal bool WatchesPortalEntry => rift != null || ContentType == ContentShareType.Portal;
+    internal Vector3 RestPosition => _restPosition;
+    internal float BobPhase { get => _bobPhase; set => _bobPhase = value; }
+    internal void UpdatePortalEntry()
     {
         BasisLocalPlayer local = BasisLocalPlayer.Instance;
         if (local == null) return;
@@ -251,6 +239,7 @@ public partial class BasisContentSphere : BasisInteractableObject
     }
     public override void OnDestroy()
     {
+        BasisContentSphereBillboardDriver.UnregisterSphere(this);
         if (Label != null)
         {
             BasisContentSphereBillboardDriver.Unregister(Label.transform);

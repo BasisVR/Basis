@@ -754,6 +754,8 @@
     { "key": "sdk.cilbox.api.localPlayer.summary", "value": "このクライアントのプレイヤーのテレポート・リスポーン・移動停止と移動パラメーター。" },
     { "key": "sdk.cilbox.api.velocity.title", "value": "プレイヤーの速度" },
     { "key": "sdk.cilbox.api.velocity.summary", "value": "速度を与えてローカルプレイヤーを打ち上げ・押し出し・減速させ、現在の移動速度を読み取る。" },
+    { "key": "sdk.cilbox.api.poseOverride.title", "value": "ポーズ上書き" },
+    { "key": "sdk.cilbox.api.poseOverride.summary", "value": "ローカルプレイヤーの手、腕、頭、体をトラッキングの上からポーズさせ、ブレンドで滑らかに出入りさせます。トラッキングだけなら取っていたポーズも読み取れます。ワールド、着ているアバター、本人がスポーンしたプロップのみ。" },
     { "key": "sdk.cilbox.api.playspaceInput.title", "value": "スクリプトによるプレイヤー入力" },
     { "key": "sdk.cilbox.api.playspaceInput.summary", "value": "アバタースクリプトから着用者自身の移動と手を動かし、実際の入力と混ぜます。" },
     { "key": "sdk.cilbox.api.avatarShim.title", "value": "アバターに触れる" },

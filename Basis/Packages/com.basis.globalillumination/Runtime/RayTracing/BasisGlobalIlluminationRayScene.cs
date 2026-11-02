@@ -1309,7 +1309,8 @@ public sealed partial class BasisGlobalIlluminationRayScene : IDisposable
                 int instanceId = entry.instanceIds[index];
                 if (instanceId >= 0)
                 {
-                    instances[instanceId].SetNormalMatrixOrthogonal(matrix);
+                    if (entry.pose.TryNormalRowsAt(index, out Vector4 n0, out Vector4 n1, out Vector4 n2)) { instances[instanceId].normal0 = n0; instances[instanceId].normal1 = n1; instances[instanceId].normal2 = n2; }
+                    else instances[instanceId].SetNormalMatrixOrthogonal(matrix);
                     MarkInstanceDirty(instanceId);
                 }
             }

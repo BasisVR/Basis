@@ -177,6 +177,30 @@ namespace Basis.Tests.Sync
                 "after the transition the prop must sit at the streamed free-state world pose");
         }
 
+        [Test]
+        public void FreeProp_AppliesThroughTheJob_HeldAndReleaseEdgeStayManaged()
+        {
+            _hand.SetPositionAndRotation(new Vector3(1f, 1f, 1f), Quaternion.identity);
+            FeedHeld(new Vector3(0.2f, 0f, 0f), Quaternion.identity);
+            Frame();
+            Assert.IsTrue(_remote.JobApplyConditional, "pickups bind to the apply job with a per-frame gate");
+            Assert.IsFalse(_remote.JobAppliedThisFrame, "a held prop is welded on the main thread");
+
+            Vector3 drop = new Vector3(4f, 0.5f, -3f);
+            FeedFree(drop, Quaternion.identity);
+            Frame();
+            Assert.IsFalse(_remote.JobAppliedThisFrame, "the release edge runs the managed transition");
+
+            for (int i = 0; i < 4; i++) Frame();
+            Assert.IsTrue(_remote.JobAppliedThisFrame, "a free remote prop is moved by the apply job");
+            Assert.LessOrEqual(Vector3.Distance(_remote.Target.position, drop), 0.02f, "the job lands the streamed pose");
+
+            _remote.IsOwnedLocallyOnClient = true;
+            Frame();
+            Assert.IsFalse(_remote.JobAppliedThisFrame, "a locally owned prop is never written by the job");
+            _remote.IsOwnedLocallyOnClient = false;
+        }
+
         // -- rig --
 
         BasisPickupSyncNetworking CreatePickup(string name)

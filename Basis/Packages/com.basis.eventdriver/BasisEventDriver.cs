@@ -362,6 +362,10 @@ namespace Basis.EventDriver
             {
                 InvokeEventCallbacks(OnUpdate, nameof(OnUpdate), ref _onUpdateCachedDelegate, ref _onUpdateInvocationList);
             }
+            using (Prof.ContentSphereSchedule.Auto())
+            {
+                BasisContentSphereBillboardDriver.ScheduleBob(DeltaTime);
+            }
             timeSinceLastUpdate += DeltaTime;
 
 #if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION

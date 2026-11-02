@@ -513,7 +513,7 @@ namespace BasisServerHandle
             writer.Put(reason);
             request.Reject(writer);
             NetworkServer.ReturnWriter(writer);
-            BNL.LogError($"Rejected for reason: {reason}");
+            BNLThrottle.LogError("connect.reject", $"Rejected for reason: {reason}");
         }
 
         /// <summary>
@@ -532,7 +532,7 @@ namespace BasisServerHandle
             writer.Put(message ?? string.Empty);
             request.Reject(writer);
             NetworkServer.ReturnWriter(writer);
-            BNL.LogError($"Rejected (kind {kind}): {message}");
+            BNLThrottle.LogError("connect.rejectKind", $"Rejected (kind {kind}): {message}");
         }
 
         public static void RejectVersionMismatch(ConnectionRequest request, ushort serverVersion, ushort clientVersion)
@@ -649,12 +649,19 @@ namespace BasisServerHandle
                     }
                     else
                     {
+                        if (!BasisPendingLoginGate.TryReserve(ConReq.RemoteEndPoint?.Address, NetworkServer.Configuration.MaxPendingLogins, NetworkServer.Configuration.MaxPendingLoginsPerAddress, out ulong pendingKey))
+                        {
+                            RejectStructured(ConReq, BasisNetworkCommons.RejectKind_ServerFull, 0, 0, "This server is busy with other logins. Please try again in a moment.");
+                            return;
+                        }
                         accepted = ConReq.AcceptAwaitingSeal();
                         if (accepted == null)
                         {
+                            BasisPendingLoginGate.Cancel(pendingKey);
                             RejectWithReason(ConReq, "Transport cannot protect the login.");
                             return;
                         }
+                        BasisPendingLoginGate.Bind(accepted.Id, accepted, pendingKey);
                         NetworkServer.AuthIdentity.ProcessConnection(NetworkServer.Configuration, ConReq, accepted);
                     }
                 }
@@ -693,7 +700,7 @@ namespace BasisServerHandle
                 {
                     RejectWithReason(ConReq, "Fatal Connection Issue stacktrace on server " + e.Message);
                 }
-                BNL.LogError(e.StackTrace);
+                BNLThrottle.LogError("connect.fatal", e.StackTrace);
             }
         }
         private static string ResolveUnauthenticatedUuid(string clientUuid)

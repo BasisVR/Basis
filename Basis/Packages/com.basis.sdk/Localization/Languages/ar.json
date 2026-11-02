@@ -754,6 +754,8 @@
     { "key": "sdk.cilbox.api.localPlayer.summary", "value": "الانتقال والإحياء والتجميد وقيم الحركة للاعب على هذا الجهاز." },
     { "key": "sdk.cilbox.api.velocity.title", "value": "سرعة اللاعب" },
     { "key": "sdk.cilbox.api.velocity.summary", "value": "أطلق اللاعب المحلي أو ادفعه أو أبطئه بسرعة محددة، واقرأ مدى سرعة حركته." },
+    { "key": "sdk.cilbox.api.poseOverride.title", "value": "تجاوز الوضعية" },
+    { "key": "sdk.cilbox.api.poseOverride.summary", "value": "يضبط وضعية يدي اللاعب المحلي أو ذراعيه أو رأسه أو جسمه فوق تتبّعه، مع مزج للدخول والخروج بسلاسة، ويقرأ الوضعية التي كان تتبّعه سيعطيها. للعوالم والأفاتار الذي يرتديه والعناصر التي أنشأها فقط." },
     { "key": "sdk.cilbox.api.playspaceInput.title", "value": "إدخال اللاعب برمجيًا" },
     { "key": "sdk.cilbox.api.playspaceInput.summary", "value": "يقود حركة مرتدي الأفاتار ويديه من برنامج الأفاتار، ممزوجًا بإدخاله الحقيقي." },
     { "key": "sdk.cilbox.api.avatarShim.title", "value": "الوصول إلى الأفاتار" },

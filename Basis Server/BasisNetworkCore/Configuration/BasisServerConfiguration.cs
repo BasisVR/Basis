@@ -86,6 +86,8 @@ public class Configuration
     public BasisUserRestrictionMode BasisUserRestrictionMode;
     public int HowManyDuplicateAuthCanExist = 2;
     public int AuthValidationTimeOutMiliseconds = 9000;
+    public int MaxPendingLoginsPerAddress = 8;
+    public int MaxPendingLogins = 512;
     public bool EnableConsole = true;
     /// <summary>
     /// When true, the avatar reduction system bundles per-receiver avatar messages

@@ -63,13 +63,13 @@ namespace BasisNetworkCore
                 {
                     if (PerPeerCapWarned.TryAdd(NetPeer.Id, 0))
                     {
-                        BNL.LogError($"Peer {NetPeer.Id} reached the per-player network-id limit ({perPeerCap}); dropping registration for {UniqueStringID} and further ids this session.");
+                        BNLThrottle.LogError("netid.66", $"Peer {NetPeer.Id} reached the per-player network-id limit ({perPeerCap}); dropping registration for {UniqueStringID} and further ids this session.");
                     }
                     return;
                 }
 
                 // Log that we are assigning a new ID
-                BNL.Log($"No existing ID found for {UniqueStringID}. Assigning a new ID.");
+                BNLThrottle.Log("netid.72", $"No existing ID found for {UniqueStringID}. Assigning a new ID.");
 
                 // Generate a new unique ushort ID (thread-safe increment)
                 int newCounter = Interlocked.Increment(ref counter);
@@ -83,7 +83,7 @@ namespace BasisNetworkCore
                     // through the message processor. The requester simply gets no assignment.
                     if (Interlocked.Exchange(ref exhaustedLogged, 1) == 0)
                     {
-                        BNL.LogError($"NetID space exhausted ({ushort.MaxValue} ids assigned since the server was last empty); dropping request for {UniqueStringID}.");
+                        BNLThrottle.LogError("netid.86", $"NetID space exhausted ({ushort.MaxValue} ids assigned since the server was last empty); dropping request for {UniqueStringID}.");
                     }
                     return;
                 }
@@ -93,7 +93,7 @@ namespace BasisNetworkCore
                 // Add to the database
                 UshortNetworkDatabase[UniqueStringID] = newID;
                 PerPeerAssignedCount.AddOrUpdate(NetPeer.Id, 1, (_, c) => c + 1);
-                BNL.Log($"New ID {newID} assigned to {UniqueStringID}");
+                BNLThrottle.Log("netid.96", $"New ID {newID} assigned to {UniqueStringID}");
 
                 // Notify the requesting peer and broadcast to others
                 ServerNetIDMessage SUIMA = new ServerNetIDMessage
@@ -106,7 +106,7 @@ namespace BasisNetworkCore
 
                 NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.netIDAssignChannel, NetworkServer.PeerSnapshot, DeliveryMethod.ReliableOrdered);
                 NetworkServer.ReturnWriter(Writer);
-                BNL.Log($"Broadcasted new ID ({newID}) for {UniqueStringID} to all connected peers.");
+                BNLThrottle.Log("netid.109", $"Broadcasted new ID ({newID}) for {UniqueStringID} to all connected peers.");
             }
         }
         private static void SendExistingNetworkID(NetPeer NetPeer, string UniqueStringID, ushort Value)
@@ -121,7 +121,7 @@ namespace BasisNetworkCore
             SNIM.Serialize(Writer);
             NetworkServer.TrySend(NetPeer, Writer, BasisNetworkCommons.netIDAssignChannel, DeliveryMethod.ReliableOrdered);
             NetworkServer.ReturnWriter(Writer);
-            BNL.Log($"Sent existing NetID ({Value}) for {UniqueStringID} to peer {NetPeer.Id}");
+            BNLThrottle.Log("netid.124", $"Sent existing NetID ({Value}) for {UniqueStringID} to peer {NetPeer.Id}");
         }
 
         public static bool GetAllNetworkID(out List<ServerNetIDMessage> ServerUniqueIDMessages)
@@ -141,23 +141,23 @@ namespace BasisNetworkCore
         }
         public static void RemoveUshortNetworkID(ushort netID)
         {
-            BNL.Log($"Attempting to remove NetID: {netID}");
+            BNLThrottle.Log("netid.144", $"Attempting to remove NetID: {netID}");
             // Remove based on value (ushort ID)
             var itemToRemove = UshortNetworkDatabase.FirstOrDefault(kvp => kvp.Value == netID);
             if (!string.IsNullOrEmpty(itemToRemove.Key))
             {
                 if (UshortNetworkDatabase.TryRemove(itemToRemove.Key, out _))
                 {
-                    BNL.Log($"Successfully removed NetID: {netID} associated with UniqueStringID: {itemToRemove.Key}");
+                    BNLThrottle.Log("netid.151", $"Successfully removed NetID: {netID} associated with UniqueStringID: {itemToRemove.Key}");
                 }
                 else
                 {
-                    BNL.Log($"Failed to remove NetID: {netID} (concurrent operation may have interfered)");
+                    BNLThrottle.Log("netid.155", $"Failed to remove NetID: {netID} (concurrent operation may have interfered)");
                 }
             }
             else
             {
-                BNL.Log($"NetID {netID} not found in the database.");
+                BNLThrottle.Log("netid.160", $"NetID {netID} not found in the database.");
             }
         }
 

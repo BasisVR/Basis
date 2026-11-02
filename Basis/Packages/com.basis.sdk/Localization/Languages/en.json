@@ -760,6 +760,8 @@
     { "key": "sdk.cilbox.api.localPlayer.summary", "value": "Teleport, respawn, immobilize and the locomotion tuning values for the player on this client." },
     { "key": "sdk.cilbox.api.velocity.title", "value": "Player velocity" },
     { "key": "sdk.cilbox.api.velocity.summary", "value": "Launch, push or slow down the local player with a velocity, and read how fast they are moving." },
+    { "key": "sdk.cilbox.api.poseOverride.title", "value": "Pose override" },
+    { "key": "sdk.cilbox.api.poseOverride.summary", "value": "Poses the local player's hands, arms, head or body on top of their tracking, with a blend to ease in and out, and reads the pose their tracking would have given. Worlds, the avatar they wear and props they spawned only." },
     { "key": "sdk.cilbox.api.playspaceInput.title", "value": "Scripted player input" },
     { "key": "sdk.cilbox.api.playspaceInput.summary", "value": "Drives the wearer's own locomotion and hands from an avatar script, blended against their real input." },
     { "key": "sdk.cilbox.api.avatarShim.title", "value": "Reaching the avatar" },

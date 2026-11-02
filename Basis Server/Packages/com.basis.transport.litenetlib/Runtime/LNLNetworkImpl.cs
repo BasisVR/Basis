@@ -140,7 +140,7 @@ namespace Basis.Network.Core
 
         void ConnectionRequest.Reject(NetDataWriter w)
         {
-            request.Reject(w.Data, 0, w.Length, false);
+            request.Reject(w.Data, 0, w.Length, true);
         }
     }
 
@@ -322,7 +322,13 @@ namespace Basis.Network.Core
                 PacketPoolSizePerPeer = lnl.PacketPoolSizePerPeer,
                 PacketPoolSizeMax = lnl.PacketPoolSizeMax
             };
+            if (lnl.ConnectAttemptsPerAddressPerSecond > 0)
+            {
+                ConnectGate = new BasisConnectAttemptGate(lnl.ConnectAttemptsPerAddressPerSecond, lnl.ConnectAttemptBurstPerAddress);
+                manager.ConnectRequestFilter = ConnectGate.TryAdmit;
+            }
         }
+        public BasisConnectAttemptGate ConnectGate;
         public void Start(IPAddress IPv4Address, IPAddress IPv6Address, int SetPort)
         {
             if (!manager.Start(IPv4Address, IPv6Address, SetPort))

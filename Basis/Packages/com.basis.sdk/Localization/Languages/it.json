@@ -754,6 +754,8 @@
     { "key": "sdk.cilbox.api.localPlayer.summary", "value": "Teletrasporto, respawn, immobilizzazione e i valori di movimento del giocatore su questo client." },
     { "key": "sdk.cilbox.api.velocity.title", "value": "Velocità del giocatore" },
     { "key": "sdk.cilbox.api.velocity.summary", "value": "Lancia, spingi o rallenta il giocatore locale con una velocità e leggi quanto velocemente si sta muovendo." },
+    { "key": "sdk.cilbox.api.poseOverride.title", "value": "Sostituzione posa" },
+    { "key": "sdk.cilbox.api.poseOverride.summary", "value": "Mette in posa mani, braccia, testa o corpo del giocatore locale sopra il suo tracciamento, con una miscela per entrare e uscire dolcemente, e legge la posa che il suo tracciamento avrebbe dato. Solo mondi, l'avatar indossato e i prop che ha generato." },
     { "key": "sdk.cilbox.api.playspaceInput.title", "value": "Input del giocatore da script" },
     { "key": "sdk.cilbox.api.playspaceInput.summary", "value": "Guida il movimento e le mani di chi indossa l'avatar da uno script, miscelato con il suo input reale." },
     { "key": "sdk.cilbox.api.avatarShim.title", "value": "Raggiungere l'avatar" },

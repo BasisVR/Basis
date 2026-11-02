@@ -754,6 +754,8 @@
     { "key": "sdk.cilbox.api.localPlayer.summary", "value": "এই ক্লায়েন্টের খেলোয়াড়ের জন্য টেলিপোর্ট, পুনর্জন্ম, স্থবিরতা ও চলাচলের মান।" },
     { "key": "sdk.cilbox.api.velocity.title", "value": "খেলোয়াড়ের বেগ" },
     { "key": "sdk.cilbox.api.velocity.summary", "value": "একটি বেগ দিয়ে স্থানীয় খেলোয়াড়কে ছুড়ে দিন, ধাক্কা দিন বা ধীর করুন, এবং সে কত দ্রুত চলছে তা পড়ুন।" },
+    { "key": "sdk.cilbox.api.poseOverride.title", "value": "পোজ ওভাররাইড" },
+    { "key": "sdk.cilbox.api.poseOverride.summary", "value": "লোকাল খেলোয়াড়ের হাত, বাহু, মাথা বা শরীরকে তাদের ট্র্যাকিংয়ের উপর পোজ দেয়, ধীরে ঢোকা ও বেরোনোর জন্য ব্লেন্ডসহ, আর তাদের ট্র্যাকিং যে পোজ দিত তা পড়ে। শুধু ওয়ার্ল্ড, তাদের পরা অবতার আর তাদের স্পন করা প্রপ।" },
     { "key": "sdk.cilbox.api.playspaceInput.title", "value": "স্ক্রিপ্ট থেকে খেলোয়াড়ের ইনপুট" },
     { "key": "sdk.cilbox.api.playspaceInput.summary", "value": "অবতার স্ক্রিপ্ট থেকে পরিধানকারীর নিজের চলাচল ও হাত চালায়, তার আসল ইনপুটের সঙ্গে মিশিয়ে।" },
     { "key": "sdk.cilbox.api.avatarShim.title", "value": "অবতারে পৌঁছানো" },

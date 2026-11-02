@@ -754,6 +754,8 @@
     { "key": "sdk.cilbox.api.localPlayer.summary", "value": "本用戶端玩家的傳送、重生、禁止移動以及移動參數。" },
     { "key": "sdk.cilbox.api.velocity.title", "value": "玩家速度" },
     { "key": "sdk.cilbox.api.velocity.summary", "value": "用速度將本機玩家彈射、推動或減速，並讀取其目前的移動速度。" },
+    { "key": "sdk.cilbox.api.poseOverride.title", "value": "姿勢覆蓋" },
+    { "key": "sdk.cilbox.api.poseOverride.summary", "value": "在本地玩家的追蹤之上擺出手、手臂、頭部或身體的姿勢,可用混合平滑進出,並能讀取追蹤本來會給出的姿勢。僅限世界、玩家穿著的虛擬人偶和玩家自己生成的道具。" },
     { "key": "sdk.cilbox.api.playspaceInput.title", "value": "由腳本驅動的玩家輸入" },
     { "key": "sdk.cilbox.api.playspaceInput.summary", "value": "從頭像腳本驅動穿戴者自身的移動與雙手，並與其真實輸入混合。" },
     { "key": "sdk.cilbox.api.avatarShim.title", "value": "存取頭像" },

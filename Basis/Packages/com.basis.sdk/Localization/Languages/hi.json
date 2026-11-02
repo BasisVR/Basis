@@ -754,6 +754,8 @@
     { "key": "sdk.cilbox.api.localPlayer.summary", "value": "इस क्लाइंट के खिलाड़ी के लिए टेलीपोर्ट, रीस्पॉन, गतिरोध और चाल के मान।" },
     { "key": "sdk.cilbox.api.velocity.title", "value": "खिलाड़ी का वेग" },
     { "key": "sdk.cilbox.api.velocity.summary", "value": "किसी वेग से स्थानीय खिलाड़ी को उछालें, धकेलें या धीमा करें, और पढ़ें कि वह कितनी तेज़ी से चल रहा है।" },
+    { "key": "sdk.cilbox.api.poseOverride.title", "value": "पोज़ ओवरराइड" },
+    { "key": "sdk.cilbox.api.poseOverride.summary", "value": "लोकल खिलाड़ी के हाथ, बाँहें, सिर या शरीर को उनकी ट्रैकिंग के ऊपर पोज़ देता है, धीरे से अंदर-बाहर होने के लिए ब्लेंड के साथ, और वह पोज़ पढ़ता है जो उनकी ट्रैकिंग देती। केवल वर्ल्ड, उनका पहना अवतार और उनके स्पॉन किए प्रॉप।" },
     { "key": "sdk.cilbox.api.playspaceInput.title", "value": "स्क्रिप्ट से खिलाड़ी इनपुट" },
     { "key": "sdk.cilbox.api.playspaceInput.summary", "value": "अवतार स्क्रिप्ट से पहनने वाले की अपनी चाल और हाथ चलाता है, उसके असली इनपुट के साथ मिलाकर।" },
     { "key": "sdk.cilbox.api.avatarShim.title", "value": "अवतार तक पहुँच" },

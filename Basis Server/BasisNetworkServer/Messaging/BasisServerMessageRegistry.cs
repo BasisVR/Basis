@@ -405,7 +405,7 @@ public static class BasisServerMessageRegistry
             return true;
         }
 
-        BNL.LogError($"Unauthorized access attempt by UUID: {uuid} for {permNode}");
+        BNLThrottle.LogError("registry.408", $"Unauthorized access attempt by UUID: {uuid} for {permNode}");
         reader.Recycle();
         return false;
     }

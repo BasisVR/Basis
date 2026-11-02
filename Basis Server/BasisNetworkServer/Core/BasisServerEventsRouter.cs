@@ -54,7 +54,7 @@ namespace BasisNetworkServer
                     break;
 
                 default:
-                    BNL.LogError($"Unknown EventsChannel event type: {eventType}");
+                    BNLThrottle.LogError("events.57", $"Unknown EventsChannel event type: {eventType}");
                     reader.Recycle();
                     break;
             }

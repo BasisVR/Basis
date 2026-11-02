@@ -205,13 +205,13 @@ public static class BasisNetworkResourceManagement
             }
             else
             {
-                BNL.LogError("Try Add Failed Already have Object Loaded With " + LocalLoadResource.LoadedNetID);
+                BNLThrottle.LogError("resources.208", "Try Add Failed Already have Object Loaded With " + LocalLoadResource.LoadedNetID);
             }
             NetworkServer.ReturnWriter(Writer);
         }
         else
         {
-            BNL.LogError("Already have Object Loaded With " + LocalLoadResource.LoadedNetID);
+            BNLThrottle.LogError("resources.214", "Already have Object Loaded With " + LocalLoadResource.LoadedNetID);
         }
     }
     // Server-authoritative path — skips IsAdminLocked peer check because the caller

@@ -261,6 +261,58 @@ BasisVelocityShim.SetVelocity(new Vector3(velocity.x, 9f, velocity.z));
             new CilboxApiEntry
             {
                 GroupKey = GroupPlayers,
+                TitleKey = "sdk.cilbox.api.poseOverride.title",
+                SummaryKey = "sdk.cilbox.api.poseOverride.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisPoseOverrideShim", "Claim"), new CilboxApiRequirement("Basis.Shims.BasisPoseOverrideShim", "TryGetUnoverridden") },
+                Example =
+@"using Basis.Shims;
+
+// Worlds, the local player's own avatar, and props the local player spawned.
+// Poses the local player's body on top of their tracking. Only the hips take a
+// position; every other bone takes a rotation.
+public Transform grip;
+float blend;
+bool holding;
+
+public void Grab()
+{
+    holding = BasisPoseOverrideShim.Claim(this, HumanBodyBones.RightHand);
+}
+
+void Update()
+{
+    if (!BasisPoseOverrideShim.IsClaimed(this, HumanBodyBones.RightHand)) return;
+    BasisPoseOverrideShim.SetRotation(this, HumanBodyBones.RightHand, grip.rotation);
+
+    // What their tracking would have done without the override, last frame.
+    if (holding && BasisPoseOverrideShim.TryGetUnoverridden(this, HumanBodyBones.RightHand, out Vector3 wrist, out Quaternion realHand)
+        && Quaternion.Angle(realHand, grip.rotation) > 45f) holding = false;
+
+    blend = Mathf.MoveTowards(blend, holding ? 1f : 0f, Time.deltaTime * 5f);
+    BasisPoseOverrideShim.SetBlend(this, HumanBodyBones.RightHand, blend);
+    if (!holding && blend == 0f) BasisPoseOverrideShim.Release(this, HumanBodyBones.RightHand);
+}
+
+// To move a hand or foot instead, claim it as an effector. IK bends the whole
+// arm to reach it in place of the controller, desktop included.
+public Transform handle;
+
+void Start() { BasisPoseOverrideShim.ClaimEffector(this, HumanBodyBones.LeftHand); }
+
+void LateUpdate()
+{
+    BasisPoseOverrideShim.SetEffector(this, HumanBodyBones.LeftHand, handle.position, handle.rotation);
+    // Where the real controller is, to let go when they pull away.
+    if (BasisPoseOverrideShim.TryGetTracked(this, HumanBodyBones.LeftHand, out Vector3 controller, out _)
+        && Vector3.Distance(controller, handle.position) > 0.4f)
+        BasisPoseOverrideShim.ReleaseEffector(this, HumanBodyBones.LeftHand);
+}
+
+void OnDestroy() { BasisPoseOverrideShim.ReleaseAll(this); }",
+            },
+            new CilboxApiEntry
+            {
+                GroupKey = GroupPlayers,
                 TitleKey = "sdk.cilbox.api.playspaceInput.title",
                 SummaryKey = "sdk.cilbox.api.playspaceInput.summary",
                 Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisPlayspaceInputShim", "SetLocomotion") },

@@ -754,6 +754,8 @@
     { "key": "sdk.cilbox.api.localPlayer.summary", "value": "Téléportation, réapparition, immobilisation et les valeurs de déplacement du joueur sur ce client." },
     { "key": "sdk.cilbox.api.velocity.title", "value": "Vitesse du joueur" },
     { "key": "sdk.cilbox.api.velocity.summary", "value": "Propulser, pousser ou ralentir le joueur local avec une vitesse, et lire à quelle vitesse il se déplace." },
+    { "key": "sdk.cilbox.api.poseOverride.title", "value": "Remplacement de pose" },
+    { "key": "sdk.cilbox.api.poseOverride.summary", "value": "Pose les mains, les bras, la tête ou le corps du joueur local par-dessus son suivi, avec un fondu pour entrer et sortir en douceur, et lit la pose que son suivi aurait donnée. Mondes, avatar porté et props qu'il a fait apparaître uniquement." },
     { "key": "sdk.cilbox.api.playspaceInput.title", "value": "Entrée joueur scriptée" },
     { "key": "sdk.cilbox.api.playspaceInput.summary", "value": "Pilote le déplacement et les mains du porteur depuis un script d'avatar, mélangés à sa véritable entrée." },
     { "key": "sdk.cilbox.api.avatarShim.title", "value": "Atteindre l'avatar" },

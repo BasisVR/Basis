@@ -35,7 +35,9 @@ public static partial class BasisAvatarProxyJobs
     private static Transform[] bones;
     private static float2[] shape;
     private static Matrix4x4[] matrices;
+    private static Vector4[] normalRows;
     private static int limbCount;
+    [NoAutoStaticsCleanup] private static NativeArray<float4> outNormals;
 
     [NoAutoStaticsCleanup] private static TransformAccessArray access;
     [NoAutoStaticsCleanup] private static NativeArray<float3> positions;
@@ -63,12 +65,34 @@ public static partial class BasisAvatarProxyJobs
         [ReadOnly] public NativeArray<float3> Positions;
         [ReadOnly] public NativeArray<float2> Shape;
         public NativeArray<float4x4> Matrices;
+        [NativeDisableParallelForRestriction] public NativeArray<float4> Normals;
 
         public void Execute(int index)
         {
             float2 s = Shape[index];
-            Matrices[index] = Build(Positions[index * 2], Positions[index * 2 + 1], s.x, s.y);
+            float4x4 m = Build(Positions[index * 2], Positions[index * 2 + 1], s.x, s.y);
+            Matrices[index] = m;
+            NormalRows(m, out float4 n0, out float4 n1, out float4 n2);
+            Normals[index * 3] = n0; Normals[index * 3 + 1] = n1; Normals[index * 3 + 2] = n2;
         }
+    }
+
+    public static void NormalRows(in float4x4 m, out float4 n0, out float4 n1, out float4 n2)
+    {
+        float4 c0 = m.c0, c1 = m.c1, c2 = m.c2;
+        float s0 = c0.x * c0.x + c0.y * c0.y + c0.z * c0.z, s1 = c1.x * c1.x + c1.y * c1.y + c1.z * c1.z, s2 = c2.x * c2.x + c2.y * c2.y + c2.z * c2.z;
+        if (s0 < 1e-12f || s1 < 1e-12f || s2 < 1e-12f) { n0 = new float4(float.NaN); n1 = n2 = default; return; }
+        float i0 = 1f / s0, i1 = 1f / s1, i2 = 1f / s2;
+        n0 = new float4(c0.x * i0, c1.x * i1, c2.x * i2, 0f);
+        n1 = new float4(c0.y * i0, c1.y * i1, c2.y * i2, 0f);
+        n2 = new float4(c0.z * i0, c1.z * i1, c2.z * i2, 0f);
+    }
+
+    public static bool TryNormalRowsAt(int index, out Vector4 n0, out Vector4 n1, out Vector4 n2)
+    {
+        if (normalRows == null || index < 0 || index >= limbCount || float.IsNaN(normalRows[index * 3].x)) { n0 = n1 = n2 = default; return false; }
+        n0 = normalRows[index * 3]; n1 = normalRows[index * 3 + 1]; n2 = normalRows[index * 3 + 2];
+        return true;
     }
 
     public static bool IsAllocated => matrices != null && limbCount > 0;
@@ -98,12 +122,15 @@ public static partial class BasisAvatarProxyJobs
             bones = null;
             shape = null;
             matrices = null;
+            normalRows = null;
             return;
         }
 
         bones = new Transform[limbCount * 2];
         shape = new float2[limbCount];
         matrices = new Matrix4x4[limbCount];
+        normalRows = new Vector4[limbCount * 3];
+        for (int index = 0; index < limbCount; index++) { normalRows[index * 3] = new Vector4(1f, 0f, 0f, 0f); normalRows[index * 3 + 1] = new Vector4(0f, 1f, 0f, 0f); normalRows[index * 3 + 2] = new Vector4(0f, 0f, 1f, 0f); }
 
         bool everyBoneAlive = true;
         for (int index = 0; index < limbCount; index++)
@@ -127,6 +154,8 @@ public static partial class BasisAvatarProxyJobs
         shapeNative = new NativeArray<float2>(shape, Allocator.Persistent);
         outMatrices = new NativeArray<float4x4>(limbCount, Allocator.Persistent);
         for (int index = 0; index < limbCount; index++) { outMatrices[index] = float4x4.identity; }
+        outNormals = new NativeArray<float4>(limbCount * 3, Allocator.Persistent);
+        outNormals.Reinterpret<Vector4>().CopyFrom(normalRows);
         EnsureHook();
     }
 
@@ -150,7 +179,7 @@ public static partial class BasisAvatarProxyJobs
     {
         if (scheduled || limbCount == 0 || !access.isCreated) { return; }
         JobHandle gather = new GatherJob { Positions = positions }.Schedule(access);
-        handle = new BuildJob { Positions = positions, Shape = shapeNative, Matrices = outMatrices }.Schedule(limbCount, 16, gather);
+        handle = new BuildJob { Positions = positions, Shape = shapeNative, Matrices = outMatrices, Normals = outNormals }.Schedule(limbCount, 16, gather);
         scheduled = true;
         JobHandle.ScheduleBatchedJobs();
     }
@@ -175,6 +204,7 @@ public static partial class BasisAvatarProxyJobs
             handle.Complete();
             scheduled = false;
             outMatrices.Reinterpret<Matrix4x4>().CopyTo(matrices);
+            outNormals.Reinterpret<Vector4>().CopyTo(normalRows);
             return;
         }
 
@@ -183,7 +213,10 @@ public static partial class BasisAvatarProxyJobs
             Transform from = bones[index * 2];
             Transform to = bones[index * 2 + 1];
             if (from == null || to == null) { continue; }
-            matrices[index] = Build(from.position, to.position, shape[index].x, shape[index].y);
+            float4x4 m = Build((float3)from.position, (float3)to.position, shape[index].x, shape[index].y);
+            matrices[index] = m;
+            NormalRows(m, out float4 n0, out float4 n1, out float4 n2);
+            normalRows[index * 3] = n0; normalRows[index * 3 + 1] = n1; normalRows[index * 3 + 2] = n2;
         }
     }
 
@@ -229,6 +262,7 @@ public static partial class BasisAvatarProxyJobs
         if (positions.IsCreated) { positions.Dispose(); }
         if (shapeNative.IsCreated) { shapeNative.Dispose(); }
         if (outMatrices.IsCreated) { outMatrices.Dispose(); }
+        if (outNormals.IsCreated) { outNormals.Dispose(); }
     }
 
     public static void Release()
@@ -238,6 +272,7 @@ public static partial class BasisAvatarProxyJobs
         bones = null;
         shape = null;
         matrices = null;
+        normalRows = null;
         limbCount = 0;
     }
 }

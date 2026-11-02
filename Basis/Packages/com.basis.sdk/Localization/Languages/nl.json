@@ -754,6 +754,8 @@
     { "key": "sdk.cilbox.api.localPlayer.summary", "value": "Teleporteren, respawnen, immobiliseren en de bewegingswaarden van de speler op deze client." },
     { "key": "sdk.cilbox.api.velocity.title", "value": "Snelheid van de speler" },
     { "key": "sdk.cilbox.api.velocity.summary", "value": "De lokale speler lanceren, duwen of afremmen met een snelheid, en uitlezen hoe snel die beweegt." },
+    { "key": "sdk.cilbox.api.poseOverride.title", "value": "Pose overschrijven" },
+    { "key": "sdk.cilbox.api.poseOverride.summary", "value": "Zet de handen, armen, het hoofd of lichaam van de lokale speler in een pose bovenop hun tracking, met een overgang om soepel in en uit te faden, en leest de pose die hun tracking zou geven. Alleen werelden, de gedragen avatar en zelf gespawnde props." },
     { "key": "sdk.cilbox.api.playspaceInput.title", "value": "Gescripte spelerinvoer" },
     { "key": "sdk.cilbox.api.playspaceInput.summary", "value": "Stuurt de beweging en handen van de drager vanuit een avatarscript, gemengd met diens echte invoer." },
     { "key": "sdk.cilbox.api.avatarShim.title", "value": "De avatar bereiken" },

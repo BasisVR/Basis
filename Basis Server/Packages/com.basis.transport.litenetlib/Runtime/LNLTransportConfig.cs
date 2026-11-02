@@ -45,6 +45,8 @@ namespace Basis.Network.Core
         public int NatPortPredictionRange = 32;
         public int PingInterval = 1500;
         public int DisconnectTimeout = 30000;
+        public float ConnectAttemptsPerAddressPerSecond = 4f;
+        public int ConnectAttemptBurstPerAddress = 20;
         int IBasisTransportTimeouts.DisconnectTimeoutMs => DisconnectTimeout;
         public bool SimulatePacketLoss = false;
         public bool SimulateLatency = false;

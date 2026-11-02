@@ -754,6 +754,8 @@
     { "key": "sdk.cilbox.api.localPlayer.summary", "value": "Телепорт, возрождение, обездвиживание и параметры передвижения игрока на этом клиенте." },
     { "key": "sdk.cilbox.api.velocity.title", "value": "Скорость игрока" },
     { "key": "sdk.cilbox.api.velocity.summary", "value": "Подбросить, толкнуть или замедлить локального игрока заданной скоростью и узнать, как быстро он движется." },
+    { "key": "sdk.cilbox.api.poseOverride.title", "value": "Переопределение позы" },
+    { "key": "sdk.cilbox.api.poseOverride.summary", "value": "Задаёт позу рук, головы или тела локального игрока поверх его трекинга, с плавным смешиванием на входе и выходе, и читает позу, которую дал бы трекинг. Только миры, надетый аватар и созданные им пропы." },
     { "key": "sdk.cilbox.api.playspaceInput.title", "value": "Скриптовый ввод игрока" },
     { "key": "sdk.cilbox.api.playspaceInput.summary", "value": "Управляет передвижением и руками носителя из скрипта аватара, смешивая с его реальным вводом." },
     { "key": "sdk.cilbox.api.avatarShim.title", "value": "Доступ к аватару" },

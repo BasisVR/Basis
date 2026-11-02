@@ -754,6 +754,8 @@
     { "key": "sdk.cilbox.api.localPlayer.summary", "value": "Teleportieren, Respawn, Bewegungssperre und die Fortbewegungswerte des Spielers auf diesem Client." },
     { "key": "sdk.cilbox.api.velocity.title", "value": "Spielergeschwindigkeit" },
     { "key": "sdk.cilbox.api.velocity.summary", "value": "Den lokalen Spieler mit einer Geschwindigkeit abschießen, schieben oder abbremsen und auslesen, wie schnell er sich bewegt." },
+    { "key": "sdk.cilbox.api.poseOverride.title", "value": "Pose überschreiben" },
+    { "key": "sdk.cilbox.api.poseOverride.summary", "value": "Posiert Hände, Arme, Kopf oder Körper des lokalen Spielers über seinem Tracking, mit Überblendung zum sanften Ein- und Ausblenden, und liest die Pose, die sein Tracking ergeben hätte. Nur Welten, der getragene Avatar und selbst gespawnte Props." },
     { "key": "sdk.cilbox.api.playspaceInput.title", "value": "Skriptgesteuerte Spielereingabe" },
     { "key": "sdk.cilbox.api.playspaceInput.summary", "value": "Steuert Fortbewegung und Hände des Trägers aus einem Avatar-Skript, gemischt mit seiner echten Eingabe." },
     { "key": "sdk.cilbox.api.avatarShim.title", "value": "Den Avatar erreichen" },

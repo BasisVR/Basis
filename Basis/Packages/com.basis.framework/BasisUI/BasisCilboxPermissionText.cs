@@ -81,6 +81,7 @@ namespace Basis.BasisUI
             new Rule("UnityEngine.SceneManagement.", null, "scenes", true),
             new Rule("Basis.Scripts.BasisSdk.Players.BasisLocalPlayer", null, "yourPlayer", true),
             new Rule("Basis.Shims.BasisVelocityShim", null, "yourPlayer", true),
+            new Rule("Basis.Shims.BasisPoseOverrideShim", null, "yourPlayer", true),
             new Rule("BasisMediaPlayer", "LoadLocalPath", "localMedia", true),
             new Rule("BasisMediaPlayer", "LoadSource", "localMedia", true),
             new Rule("BasisMediaPlayer", "CaptureScreenshot", "screenshots", false),

@@ -754,6 +754,8 @@
     { "key": "sdk.cilbox.api.localPlayer.summary", "value": "本客户端玩家的传送、重生、禁止移动以及移动参数。" },
     { "key": "sdk.cilbox.api.velocity.title", "value": "玩家速度" },
     { "key": "sdk.cilbox.api.velocity.summary", "value": "用速度将本地玩家弹射、推动或减速，并读取其当前的移动速度。" },
+    { "key": "sdk.cilbox.api.poseOverride.title", "value": "姿势覆盖" },
+    { "key": "sdk.cilbox.api.poseOverride.summary", "value": "在本地玩家的追踪之上摆出手、手臂、头部或身体的姿势,可用混合平滑进出,并能读取追踪本来会给出的姿势。仅限世界、玩家穿着的头像和玩家自己生成的道具。" },
     { "key": "sdk.cilbox.api.playspaceInput.title", "value": "脚本驱动的玩家输入" },
     { "key": "sdk.cilbox.api.playspaceInput.summary", "value": "从头像脚本驱动穿戴者自身的移动和双手，并与其真实输入混合。" },
     { "key": "sdk.cilbox.api.avatarShim.title", "value": "访问头像" },

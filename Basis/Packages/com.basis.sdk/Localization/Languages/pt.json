@@ -754,6 +754,8 @@
     { "key": "sdk.cilbox.api.localPlayer.summary", "value": "Teletransporte, renascimento, imobilização e os valores de locomoção do jogador neste cliente." },
     { "key": "sdk.cilbox.api.velocity.title", "value": "Velocidade do jogador" },
     { "key": "sdk.cilbox.api.velocity.summary", "value": "Lance, empurre ou desacelere o jogador local com uma velocidade e leia a rapidez com que ele se move." },
+    { "key": "sdk.cilbox.api.poseOverride.title", "value": "Substituir pose" },
+    { "key": "sdk.cilbox.api.poseOverride.summary", "value": "Coloca em pose as mãos, braços, cabeça ou corpo do jogador local por cima do seu rastreamento, com uma mistura para entrar e sair suavemente, e lê a pose que o rastreamento teria dado. Só mundos, o avatar que usa e os props que criou." },
     { "key": "sdk.cilbox.api.playspaceInput.title", "value": "Entrada do jogador por script" },
     { "key": "sdk.cilbox.api.playspaceInput.summary", "value": "Controla a locomoção e as mãos de quem veste o avatar a partir de um script, misturado com a entrada real." },
     { "key": "sdk.cilbox.api.avatarShim.title", "value": "Alcançar o avatar" },

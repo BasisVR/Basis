@@ -300,6 +300,8 @@ namespace LiteNetLib
         /// Default: ushort.MaxValue (65535)
         /// </summary>
         public ushort MaxFragmentsCount = ushort.MaxValue;
+        public int MaxHeldFragmentBytesPerPeer = 32 * 1024 * 1024;
+        public int ShutdownLingerMs = 3000;
 
         /// <summary>
         /// UDP Only Socket Option
@@ -1248,6 +1250,7 @@ namespace LiteNetLib
             return netPeer;
         }
 
+        public Func<IPEndPoint, bool> ConnectRequestFilter;
         public Func<int> PeerIdAllocator;
         public Action<int> PeerIdRelease;
 
@@ -1318,6 +1321,9 @@ namespace LiteNetLib
                     req.UpdateRequest(connRequest);
                     return;
                 }
+                Func<IPEndPoint, bool> filter = ConnectRequestFilter;
+                if (netPeer == null && filter != null && !filter(remoteEndPoint))
+                    return;
                 req = new ConnectionRequest(remoteEndPoint, connRequest, this);
                 _requestsDict.Add(remoteEndPoint, req);
             }

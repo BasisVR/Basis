@@ -63,6 +63,7 @@ namespace Basis.Tests.Sync
             var contMode = new NativeArray<byte>(cc, Allocator.Temp);
             var rotCur = new NativeArray<quaternion>(rc, Allocator.Temp);
             var rotNext = new NativeArray<quaternion>(rc, Allocator.Temp);
+            var rotMode = new NativeArray<byte>(rc, Allocator.Temp);
             var discNext = new NativeArray<int>(dc, Allocator.Temp);
             var contOutN = new NativeArray<float>(cc, Allocator.Temp);
             var rotOutN = new NativeArray<quaternion>(rc, Allocator.Temp);
@@ -82,6 +83,7 @@ namespace Basis.Tests.Sync
                 for (int fi = 0; fi < schema.FieldCount; fi++)
                 {
                     BasisSyncField fld = schema.GetField(fi);
+                    if (fld.Pool == BasisSyncPool.Rotation) { rotMode[fld.Offset] = (byte)(fld.Interpolate ? 1 : 0); continue; }
                     if (fld.Pool != BasisSyncPool.Continuous) continue;
                     byte mode = fld.Type == BasisSyncFieldType.Angle ? (fld.Interpolate ? (byte)2 : (byte)0) : (fld.Interpolate ? (byte)1 : (byte)0);
                     for (int c = 0; c < fld.ContComponents; c++) contMode[fld.Offset + c] = mode;
@@ -94,7 +96,7 @@ namespace Basis.Tests.Sync
                     RotBase = rotBase, RotCount = rotCount,
                     DiscBase = discBase, DiscCount = discCount,
                     ContCur = contCur, ContNext = contNext, ContMode = contMode,
-                    RotCur = rotCur, RotNext = rotNext, DiscNext = discNext,
+                    RotCur = rotCur, RotNext = rotNext, RotMode = rotMode, DiscNext = discNext,
                     ContOut = contOutN, RotOut = rotOutN, DiscOut = discOutN,
                 };
                 job.Execute(0);
@@ -109,7 +111,7 @@ namespace Basis.Tests.Sync
                 active.Dispose(); tArr.Dispose(); contBase.Dispose(); contCount.Dispose();
                 rotBase.Dispose(); rotCount.Dispose(); discBase.Dispose(); discCount.Dispose();
                 contCur.Dispose(); contNext.Dispose(); contMode.Dispose();
-                rotCur.Dispose(); rotNext.Dispose(); discNext.Dispose();
+                rotCur.Dispose(); rotNext.Dispose(); rotMode.Dispose(); discNext.Dispose();
                 contOutN.Dispose(); rotOutN.Dispose(); discOutN.Dispose();
             }
         }

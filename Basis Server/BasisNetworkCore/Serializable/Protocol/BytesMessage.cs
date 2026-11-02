@@ -15,14 +15,14 @@ namespace Basis.Network.Core.Serializable
             {
                 if (!reader.TryGetUShort(out ushort msgLength))
                 {
-                    BNL.LogError("unable to read the size of the data");
+                    BNLThrottle.LogError("bytes.18", "unable to read the size of the data");
                     Data = null;
                     return false;
                 }
 
                 if (reader.AvailableBytes < msgLength)
                 {
-                    BNL.LogError($"BytesMessage: declared length {msgLength} exceeds available bytes {reader.AvailableBytes}; possible protocol mismatch or truncated packet.");
+                    BNLThrottle.LogError("bytes.25", $"BytesMessage: declared length {msgLength} exceeds available bytes {reader.AvailableBytes}; possible protocol mismatch or truncated packet.");
                     Data = null;
                     return false;
                 }
@@ -40,7 +40,7 @@ namespace Basis.Network.Core.Serializable
                 ushort Length = (ushort)Data.Length;
                 if (Length == 0)
                 {
-                    BNL.LogError("this data does not belong on the network! was size 0");
+                    BNLThrottle.LogError("bytes.43", "this data does not belong on the network! was size 0");
                 }
                 writer.Put(Length);
                 writer.Put(Data);
