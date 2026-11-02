@@ -60,7 +60,7 @@ namespace Cilbox
 			internal uint Depth;
 			internal bool Skip;
 		}
-		[NoAutoStaticsCleanup] static readonly string[] callbacks = { BasisBeforeRenderShim.CallbackName, BasisGraphicsSettingsEventShim.CallbackName, BasisJiggleEventShim.GrabCallbackName, BasisJiggleEventShim.TouchCallbackName, BasisLanguageEventShim.CallbackName, BasisPermissionEventShim.CallbackName, BasisPlatformEventShim.CallbackName };
+		[NoAutoStaticsCleanup] static readonly string[] callbacks = { BasisBeforeRenderShim.CallbackName, BasisGraphicsSettingsEventShim.CallbackName, BasisJiggleEventShim.GrabCallbackName, BasisJiggleEventShim.TouchCallbackName, BasisLanguageEventShim.CallbackName, BasisPermissionEventShim.CallbackName, BasisPlatformEventShim.CallbackName, BasisSpawnEventShim.CallbackName };
 		[NoAutoStaticsCleanup] static readonly CilMetadataTokenInfo.DelegateOverride enter = Enter, exit = Exit;
 		static readonly List<CilboxProfileBox> boxes = new List<CilboxProfileBox>();
 		static readonly Dictionary<string, CilboxProfileEntry> entries = new Dictionary<string, CilboxProfileEntry>(StringComparer.Ordinal);

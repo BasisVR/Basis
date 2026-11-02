@@ -80,6 +80,7 @@ public class BasisSDKConstants
     public static readonly string SceneDescription = "scenedescriptioninput";
     public static readonly string SceneDocumentationURL = "https://docs.basisvr.org/en/docs/world";
     public static readonly string SpawnPointField = "spawnpointfield";
+    public static readonly string OverrideSpawningField = "overridespawningfield";
     public static readonly string MainCameraField = "maincamerafield";
     public static readonly string AudioMixerGroupField = "audiomixergroupfield";
     public static readonly string IsReadyField = "isreadyfield";

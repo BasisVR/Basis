@@ -18,6 +18,13 @@ namespace Basis.Scripts.BasisSdk
         public Transform SpawnPoint;
 
         /// <summary>
+        /// When true, the client never moves the local player on a spawn or respawn and leaves it to
+        /// the scene's own scripts, which hear about each one through the spawn event. Clients that
+        /// predate this field spawn at <see cref="SpawnPoint"/>.
+        /// </summary>
+        public bool OverrideSpawning;
+
+        /// <summary>
         /// Height threshold below which respawn is triggered.
         /// </summary>
         public float RespawnHeight = -100;

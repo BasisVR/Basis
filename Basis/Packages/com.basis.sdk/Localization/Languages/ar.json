@@ -2701,6 +2701,7 @@
     { "key": "sdk.uxml.scene.sceneicon.label", "value": "أيقونة المشهد" },
     { "key": "sdk.uxml.scene.assignedinput.text", "value": "الإعدادات" },
     { "key": "sdk.uxml.scene.spawnpointfield.label", "value": "نقطة الظهور" },
+    { "key": "sdk.uxml.scene.overridespawningfield.label", "value": "تجاوز الظهور" },
     { "key": "sdk.uxml.scene.maincamerafield.label", "value": "Main Camera" },
     { "key": "sdk.uxml.scene.audiomixergroupfield.label", "value": "مجموعة مازج الصوت" },
     { "key": "sdk.uxml.scene.isreadyfield.label", "value": "جاهز" },

@@ -80,6 +80,15 @@ namespace Basis.Tests.Sync
         }
 
         [Test]
+        public void SpawnEvent_WorldOnly()
+        {
+            Assert.IsTrue(Method(Box(typeof(CilboxSceneBasis)), typeof(BasisSpawnEventShim), nameof(BasisSpawnEventShim.Rebind)));
+            Assert.IsFalse(Method(Box(typeof(CilboxSceneBasis)), typeof(BasisSpawnEventShim), "SendMessage"));
+            Assert.IsFalse(Method(Box(typeof(CilboxPropBasis)), typeof(BasisSpawnEventShim), nameof(BasisSpawnEventShim.Rebind)));
+            Assert.IsFalse(Method(Box(typeof(CilboxAvatarBasis)), typeof(BasisSpawnEventShim), nameof(BasisSpawnEventShim.Rebind)));
+        }
+
+        [Test]
         public void SharedRandom_EveryBox()
         {
             foreach (Type boxType in new[] { typeof(CilboxSceneBasis), typeof(CilboxPropBasis), typeof(CilboxAvatarBasis) })
