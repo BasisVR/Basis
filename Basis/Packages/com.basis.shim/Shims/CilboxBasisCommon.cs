@@ -919,6 +919,8 @@ namespace Cilbox
 			mi = null;
 			CilboxProfiler.Resolving(this);
 
+			if (fullSignature != null && fullSignature.IndexOf('*') >= 0) return Beyond(MethodItem(declaringType, name), true);
+
 			// Network methods must resolve to the native Cilbox bridge before general whitelist checks.
 			if (declaringType == typeof(Basis.Shims.BasisNetworkCilboxBehaviour))
 			{
@@ -938,8 +940,6 @@ namespace Cilbox
 				mi = Basis.Shims.BasisCilboxNetworkRedirect.ResolveAvatar(usage, name, parametersIn);
 				return mi != null;
 			}
-
-			if (fullSignature != null && fullSignature.IndexOf('*') >= 0) return Beyond(MethodItem(declaringType, name), true);
 
 			// Redirect every UnityEngine.Object.Instantiate variant through the sanitizing
 			// shim so spawned prefabs are scrubbed (disallowed components destroyed,
