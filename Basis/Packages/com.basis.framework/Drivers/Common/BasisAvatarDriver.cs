@@ -932,31 +932,22 @@ namespace Basis.Scripts.Drivers
                 int count = sync.Count;
 
                 float* pCurrent = (float*)sync.Current.GetUnsafePtr();
+                float* pPrevious = (float*)sync.Previous.GetUnsafePtr();
+                byte* pChanged = (byte*)sync.ChangedMask.GetUnsafePtr();
                 SkinnedMeshRenderer source = sync.Source;
                 for (int Index = 0; Index < count; Index++)
                 {
-                    pCurrent[Index] = source.GetBlendShapeWeight(Index);
+                    float current = source.GetBlendShapeWeight(Index);
+                    pCurrent[Index] = current;
+                    bool changed = Mathf.Abs(current - pPrevious[Index]) > epsilon;
+                    pChanged[Index] = (byte)(changed ? 1 : 0);
+                    if (changed)
+                    {
+                        pPrevious[Index] = current;
+                    }
                 }
-
-                // Schedule job
-                var job = new BasisDiffBlendShapesJob
-                {
-                    Current = sync.Current,
-                    Previous = sync.Previous,
-                    ChangedMask = sync.ChangedMask,
-                    Epsilon = epsilon
-                };
-
-                // Batch size can be tuned; 32 is a decent start
-                sync.Handle = job.Schedule(count, 32);
+                sync.Handle = default;
             }
-            // Self-sufficient kick: the driver currently calls BasisAuthoredMotionSystem.Schedule()
-            // immediately after this (which flushes its own job via the same API), so this job has
-            // always started by the time ApplyShadowCloneBlendShapes joins it later in LateUpdate —
-            // but that overlap was incidental to caller ordering, not guaranteed by this function on
-            // its own. Matches the standing rule: a schedule without a kick at schedule time is not
-            // actually overlapping anything, it just happens not to matter yet.
-            JobHandle.ScheduleBatchedJobs();
         }
         public static unsafe void ApplyShadowCloneBlendShapes()
         {

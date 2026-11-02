@@ -77,9 +77,10 @@ end GPUs have not been measured.
 The camera image holds `albedo * lighting`, which is zero on a surface with no light of its own, so multiplying
 bounce onto it can never light it. The surface colour pass redraws the opaque renderer list with an override shader
 that keeps each material's own properties, and reads `_BaseMap` and `_BaseColor`, or `_MainTex` and `_Color`.
-Nothing per shader is needed. Poiyomi, locked or unlocked, reads exactly the same as its texture does in URP Lit. The depth
-buffer decides which fragment owns a pixel, so a cutout hole shows the surface behind it whatever the material's
-clip logic was.
+Nothing per shader is needed. Poiyomi, locked or unlocked, reads exactly the same as its texture does in URP Lit. The
+fragment closest to the camera image's depth owns a pixel, whatever the draw order, material culling or clip logic was.
+That holds with a few millimetres between layers: clothing over a body, a lining inside a garment, or a cutout hole in
+a tight layer. A fragment further than `0.2% of depth + 3 mm` from that depth is never claimed.
 
 Unity ignores an override shader on BatchRendererGroup draws, so GPU Resident Drawer batches are filtered out of that
 list and drawn through their own `BasisSurface` pass instead, which outputs base map times base colour. URP Lit, Simple

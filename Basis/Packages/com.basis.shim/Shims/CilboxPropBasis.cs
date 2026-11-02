@@ -182,6 +182,8 @@ namespace Cilbox
 			{ typeof(Basis.Shims.BasisVixxyShim), new HashSet<string>() },
 			{ typeof(Basis.Shims.BasisDesktopInputShim), new HashSet<string>() },
 			{ typeof(Basis.Shims.BasisControllerInputShim), new HashSet<string>() },
+			{ typeof(Basis.Shims.BasisInputShim), new HashSet<string>() },
+			{ typeof(Basis.Shims.BasisInputRequest), new HashSet<string>() },
 			{ typeof(Basis.Shims.BasisRemotePlayerAudioShim), new HashSet<string>() },
 			// Props may ask whether the local player sits; the seat itself is a world object.
 			{ typeof(Basis.Shims.BasisSeatShim), new HashSet<string>{ $"get_{nameof(Basis.Shims.BasisSeatShim.IsSeated)}" } },

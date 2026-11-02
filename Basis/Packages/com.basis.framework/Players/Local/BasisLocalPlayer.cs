@@ -607,17 +607,17 @@ namespace Basis.Scripts.BasisSdk.Players
 
             using (BasisLocalPlayerMarkers.AfterSimulateOnLate.Auto())
             {
-                AfterSimulateOnLate?.Invoke();
+                AfterSimulateOnLate.Invoke();
             }
             BasisFiniteWatchdog.Checkpoint("LocalFinish/PostAfterSimulateOnLate");
         }
         public static void FireJustBeforeNetworkApply()
         {
-            JustBeforeNetworkApply?.Invoke();
+            JustBeforeNetworkApply.Invoke();
         }
         public static void FireAfterRemoteSyncInterpolated()
         {
-            AfterRemoteSyncInterpolated?.Invoke();
+            AfterRemoteSyncInterpolated.Invoke();
         }
         public void SimulateOnRender()
         {
@@ -625,7 +625,7 @@ namespace Basis.Scripts.BasisSdk.Players
             BasisFiniteWatchdog.Checkpoint("LocalRender/PostRenderPollData");
 
             // now other things can move like UI and NON-CHILDREN OF BASISLOCALPLAYER.
-            AfterSimulateOnRender?.Invoke();
+            AfterSimulateOnRender.Invoke();
             BasisFiniteWatchdog.Checkpoint("LocalRender/PostAfterSimulateOnRender");
         }
         public void OnLateSimulateBones(BasisPlayer Player)

@@ -838,6 +838,8 @@
     { "key": "sdk.cilbox.api.haptics.summary", "value": "Lässt die Controller des lokalen Spielers mit kurzen, begrenzten Impulsen vibrieren. Avatare erreichen nur den Spieler, der sie trägt." },
     { "key": "sdk.cilbox.api.controllerInput.title", "value": "VR-Controller-Eingabe" },
     { "key": "sdk.cilbox.api.controllerInput.summary", "value": "Liest Trigger, Griffe, Tasten und Sticks des lokalen Spielers in Welten. Liest nichts, solange das Menü offen ist oder ein Zeiger über der Oberfläche liegt." },
+    { "key": "sdk.cilbox.api.inputRequest.title", "value": "Angeforderte Eingaben" },
+    { "key": "sdk.cilbox.api.inputRequest.summary", "value": "Fordert einmalig die Tasten, Knöpfe und Sticks an, die ein Welt-Skript von einem beliebigen Gerät braucht. Jede Eingabe wird pro Frame einmal für alle Skripte abgefragt, und das Skript erfährt nur von Änderungen. Liest nichts, solange das Menü offen ist oder der Spieler tippt." },
     { "key": "sdk.cilbox.api.settingsTab.title", "value": "Einstellungs-Tabs" },
     { "key": "sdk.cilbox.api.settingsTab.summary", "value": "Fügt den Basis-Einstellungen einen Tab mit eigenen Überschriften, Texten, Schaltflächen, Schaltern, Schiebereglern und Auswahllisten hinzu. Basis zeichnet die Bedienelemente und ruft deine Methoden auf, wenn der Spieler sie benutzt. Welten, vom lokalen Spieler erzeugte Props und der eigene Avatar des lokalen Spielers können je bis zu 4 Tabs hinzufügen; sie verschwinden mit dem Skript." },
     { "key": "sdk.cilbox.api.menuPanel.title", "value": "Menü-Panels" },

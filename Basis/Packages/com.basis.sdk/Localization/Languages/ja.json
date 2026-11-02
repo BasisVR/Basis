@@ -838,6 +838,8 @@
     { "key": "sdk.cilbox.api.haptics.summary", "value": "ローカルプレイヤーのコントローラーを、短く制限されたパルスで振動させます。アバターは装着しているプレイヤーにのみ届きます。" },
     { "key": "sdk.cilbox.api.controllerInput.title", "value": "VRコントローラー入力" },
     { "key": "sdk.cilbox.api.controllerInput.summary", "value": "ワールド内でローカルプレイヤーのトリガー、グリップ、ボタン、スティックを読み取ります。メニューが開いているときやポインターがUI上にあるときは何も読み取りません。" },
+    { "key": "sdk.cilbox.api.inputRequest.title", "value": "リクエスト入力" },
+    { "key": "sdk.cilbox.api.inputRequest.summary", "value": "ワールドスクリプトが必要なキー、ボタン、スティックを、どのデバイスからでも一度だけ要求します。各入力は全スクリプト共通で1フレームに1回読み取られ、変化したときだけスクリプトに通知されます。メニューを開いている間やプレイヤーの入力中は何も読み取りません。" },
     { "key": "sdk.cilbox.api.settingsTab.title", "value": "設定タブ" },
     { "key": "sdk.cilbox.api.settingsTab.summary", "value": "Basis の設定に、独自の見出し、テキスト、ボタン、トグル、スライダー、ドロップダウンを持つタブを追加します。コントロールは Basis が描画し、プレイヤーが操作するとあなたのメソッドを呼び出します。ワールド、ローカルプレイヤーが出したプロップ、ローカルプレイヤー自身のアバターはそれぞれ最大 4 つのタブを追加でき、スクリプトがなくなるとタブも消えます。" },
     { "key": "sdk.cilbox.api.menuPanel.title", "value": "メニューパネル" },

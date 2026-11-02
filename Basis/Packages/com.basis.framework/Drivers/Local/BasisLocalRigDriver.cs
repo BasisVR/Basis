@@ -501,20 +501,22 @@ namespace Basis.Scripts.Drivers
             }
             return rawPos;
         }
-        private void PublishIKWorldData()
+        private void PublishIKWorldData(bool posesRead)
         {
-            if (!ikPublishTransforms.isCreated || ikPublishControls == null || ikPublishTransforms.length != ikPublishControls.Length)
+            if (!ikPublishTransforms.isCreated || ikPublishTransforms.length != ikPublishControls.Length)
             {
                 PublishIKWorldDataMainThread();
                 return;
             }
             if (ikPublishControls.Length > 0)
             {
-
-                new BasisReadBoneWorldPoseJob
+                if (!posesRead)
                 {
-                    Positions = ikPublishPositions, Rotations = ikPublishRotations,
-                }.RunReadOnly(ikPublishTransforms);
+                    new BasisReadBoneWorldPoseJob
+                    {
+                        Positions = ikPublishPositions, Rotations = ikPublishRotations,
+                    }.RunReadOnly(ikPublishTransforms);
+                }
                 for (int i = 0; i < ikPublishControls.Length; i++)
                 {
                     ikPublishControls[i].SetIKWorldData(ikPublishPositions[i], ikPublishRotations[i]);
@@ -745,7 +747,7 @@ namespace Basis.Scripts.Drivers
         }
         private static float RigWeight(BasisLocalBoneControl control)
         {
-            if (control == null || control.HasRigLayer != BasisHasRigLayer.HasRigLayer) return 0f;
+            if (control.HasRigLayer != BasisHasRigLayer.HasRigLayer) return 0f;
             float w = control.RigLayerWeight;
             return w > 0f ? (w < 1f ? w : 1f) : 0f;
         }
@@ -791,7 +793,8 @@ namespace Basis.Scripts.Drivers
         public void ScheduleLocomotionPose(BasisLocalPlayer player, float deltaTime)
         {
             CompleteSolveIfPending();
-            Animator animator = player?.BasisAvatar != null ? player.BasisAvatar.Animator : null;
+            var avatar = player.BasisAvatar;
+            Animator animator = avatar != null ? avatar.Animator : null;
             BasisLocoParams frameParams = player.LocalAnimatorDriver.GetLocoParams();
             LocomotionPose.Schedule(this, animator, in frameParams, deltaTime);
         }
@@ -821,6 +824,7 @@ namespace Basis.Scripts.Drivers
             Step13FillKneeBendPreferences();
             Step14FillArmTargets();
             bool basePoseInStream = Step15JoinBasePose();
+            ApplyAnimationFootTargets(basePoseInStream);
             Step16ScheduleSolve(deltaTime, basePoseInStream);
             ikPublishPending = true;
         }
@@ -1021,7 +1025,7 @@ namespace Basis.Scripts.Drivers
                 {
                     Matrix4x4 worldToPlayer = BasisLocalPlayer.localToWorldMatrix.inverse;
                     float headDrop = restHeadLocalY - worldToPlayer.MultiplyPoint3x4((Vector3)pOut[sHead]).y;
-                    float eyeDrop = BasisLocalBoneDriver.EyeControl != null ? BasisLocalBoneDriver.EyeControl.TposeLocalScaled.position.y - worldToPlayer.MultiplyPoint3x4(BasisLocalBoneDriver.EyeControl.OutgoingWorldData.position).y : headDrop;
+                    float eyeDrop = BasisLocalBoneDriver.EyeControl.TposeLocalScaled.position.y - worldToPlayer.MultiplyPoint3x4(BasisLocalBoneDriver.EyeControl.OutgoingWorldData.position).y;
                     data.crouchDepth = Mathf.Max(0f, Mathf.Min(headDrop, eyeDrop) * framePlayerUpScale);
                 }
                 Vector3 chestPos = pOut[sChest];
@@ -1199,6 +1203,41 @@ namespace Basis.Scripts.Drivers
             BasisLocalPlayerMarkers.IKDestLocoPoseJoin.End();
             return streamPrefilled;
         }
+        // The solve moves the hips under the head, so a foot the animation planted would slide with them unless the leg solve holds it.
+        void ApplyAnimationFootTargets(bool basePoseInStream)
+        {
+            if (!basePoseInStream)
+            {
+                return;
+            }
+            ref BasisEerieMovement data = ref IKJob;
+            if (LocomotionPose.TryGetFootTarget(true, out Vector3 left, out float leftWeight))
+            {
+                HoldAnimationFoot(ref data.plan.leftLeg, ref data.targetPositionLeftLowerLeg, left, leftWeight);
+            }
+            if (LocomotionPose.TryGetFootTarget(false, out Vector3 right, out float rightWeight))
+            {
+                HoldAnimationFoot(ref data.plan.rightLeg, ref data.targetPositionRightLowerLeg, right, rightWeight);
+            }
+        }
+        // The foot driver fades in once the body has stopped. Cross over to it, or the leg drops the lock for its low weight and the foot jumps.
+        static void HoldAnimationFoot(ref BasisEerieLegPlan leg, ref Vector3 target, Vector3 foot, float weight)
+        {
+            if (!leg.has || leg.tracked)
+            {
+                return;
+            }
+            if (leg.target == BasisEerieSource.Sim)
+            {
+                target = Vector3.Lerp(foot, target, leg.weight);
+                leg.weight = Mathf.Max(leg.weight, weight);
+                return;
+            }
+            target = foot;
+            leg.weight = weight;
+            leg.solve = true;
+            leg.preserveTip = true;
+        }
         void Step16ScheduleSolve(float deltaTime, bool streamPrefilled)
         {
             if (!RigLayerActive || !IKJobCreated || !PoseSkeleton.IsCreated)
@@ -1228,28 +1267,35 @@ namespace Basis.Scripts.Drivers
         }
         public void CompleteIKSolve()
         {
-            bool solveRan = Step17JoinSolve();
+            bool solveRan = ikSolveScheduled;
+            JobHandle tail = solveRan ? ikSolveHandle : default;
+            bool scatterQueued = ikScatterPending && PoseSkeleton.TryScheduleScatter(tail, out tail);
+            bool publishQueued = ikPublishPending && CanSchedulePublish();
+            if (publishQueued)
+            {
+                tail = new BasisReadBoneWorldPoseJob { Positions = ikPublishPositions, Rotations = ikPublishRotations }.ScheduleReadOnly(ikPublishTransforms, 32, tail);
+            }
+            Step17JoinSolve(solveRan || scatterQueued || publishQueued, tail);
             Step18DrainSolveGizmos(solveRan);
-            Step19ScatterPose();
+            Step19ScatterPose(scatterQueued);
             if (!ikPublishPending)
             {
                 return;
             }
             ikPublishPending = false;
-            Step20PublishWorldData();
+            Step20PublishWorldData(publishQueued);
             Step21SampleRecorders();
         }
-        bool Step17JoinSolve()
+        bool CanSchedulePublish() => ikPublishTransforms.isCreated && ikPublishControls.Length > 0 && ikPublishTransforms.length == ikPublishControls.Length;
+        void Step17JoinSolve(bool anyQueued, JobHandle tail)
         {
-            bool solveRan = ikSolveScheduled;
-            if (ikSolveScheduled)
+            if (anyQueued)
             {
                 BasisLocalPlayerMarkers.IKDestSolveJoin.Begin();
-                ikSolveHandle.Complete();
+                tail.Complete();
                 ikSolveScheduled = false;
                 BasisLocalPlayerMarkers.IKDestSolveJoin.End();
             }
-            return solveRan;
         }
         void Step18DrainSolveGizmos(bool solveRan)
         {
@@ -1264,7 +1310,7 @@ namespace Basis.Scripts.Drivers
             }
             BasisLocalPlayerMarkers.IKDestSolveGizmos.End();
         }
-        void Step19ScatterPose()
+        void Step19ScatterPose(bool scatterDone)
         {
             if (!ikScatterPending)
             {
@@ -1284,15 +1330,18 @@ namespace Basis.Scripts.Drivers
                 }
             }
             WatchdogCheckPoseStream("IKDest/PostSolve (stream, pre-scatter)");
-            BasisLocalPlayerMarkers.IKDestPoseScatter.Begin();
-            PoseSkeleton.ScatterNow();
-            BasisLocalPlayerMarkers.IKDestPoseScatter.End();
+            if (!scatterDone)
+            {
+                BasisLocalPlayerMarkers.IKDestPoseScatter.Begin();
+                PoseSkeleton.ScatterNow();
+                BasisLocalPlayerMarkers.IKDestPoseScatter.End();
+            }
             BasisFiniteWatchdog.Checkpoint("IKDest/PostPoseScatter (FBIK solve output)");
         }
-        void Step20PublishWorldData()
+        void Step20PublishWorldData(bool posesRead)
         {
             BasisLocalPlayerMarkers.IKDestPublishWorldData.Begin();
-            PublishIKWorldData();
+            PublishIKWorldData(posesRead);
             BasisLocalPlayerMarkers.IKDestPublishWorldData.End();
         }
         void Step21SampleRecorders()

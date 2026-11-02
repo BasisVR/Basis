@@ -35,6 +35,7 @@ namespace HVR.Vixxy
         private readonly HashSet<GameObject> _stagedBlocks = new(); // FIXME: We should really just be binding tuples into _objectToMaterialPropertyBlock
 
         private readonly HashSet<IHVRVixxyAggregator> _workAggregators = new();
+        private readonly HashSet<int> _addressesPassedSinceLastSimulate = new();
 
         private readonly List<HVRVixxyToBeNetworked> _toBeNetworked = new();
         private bool _needsReevaluateSystemAddresses;
@@ -67,6 +68,11 @@ namespace HVR.Vixxy
             // The value may have not changed. We need to track it so that we don't send unnecessarily update actuators,
             // like that of face tracking.
             // OR, modify AcquisitionService to have OnAddressValueChanged.
+
+            if (!_addressesPassedSinceLastSimulate.Add(addressId))
+            {
+                return;
+            }
 
             // Iterated as concrete HashSets: this fires per changed address per frame, and going
             // through IEnumerable boxes the set's struct enumerator to the heap each time.
@@ -146,6 +152,7 @@ namespace HVR.Vixxy
 
         internal void SimulateTick()
         {
+            if (!_anythingNeedsUpdating && !_needsReevaluateSystemAddresses && _actuatorsToUpdateThisTick.Count == 0 && _stagedBlocks.Count == 0) return;
             if (ShouldSkipThisTick()) return;
 
             if (_needsReevaluateSystemAddresses)
@@ -175,6 +182,7 @@ namespace HVR.Vixxy
         public void Simulate()
         {
             if (!_anythingNeedsUpdating) return;
+            _addressesPassedSinceLastSimulate.Clear();
 
             // Randomness in the number of iteration cycles is an attempt to ensure we don't get implementation-specific
             // behaviour that expects a specific number of cycles to happen.
@@ -204,10 +212,11 @@ namespace HVR.Vixxy
             if (_actuatorsWithFiltersToCheckThisTick.Count > 0)
             {
                 L_actuatorsWithFiltersToCheckNextTick.Clear();
+                var deltaTime = Time.deltaTime;
 
                 foreach (var actuator in _actuatorsWithFiltersToCheckThisTick)
                 {
-                    var filterResult = actuator.ApplyFilters();
+                    var filterResult = actuator.ApplyFilters(deltaTime);
                     if (filterResult.filterNeedsCheckNextTick)
                     {
                         L_actuatorsWithFiltersToCheckNextTick.Add(actuator);
@@ -275,6 +284,7 @@ namespace HVR.Vixxy
 
             // When an actuator is added, it is scheduled to be updated for initialization purposes.
             _anythingNeedsUpdating = true;
+            _addressesPassedSinceLastSimulate.Remove(addressId);
             _actuatorsToUpdateThisTick.Add(actuator);
 
             HVRVariableStore.AddressUpdated addressUpdatedFn = (_, value) => implicitAddressUpdatedFn.Invoke(value);
@@ -332,6 +342,7 @@ namespace HVR.Vixxy
 
             // When an aggregator is added, it is scheduled to be updated for initialization purposes.
             _anythingNeedsUpdating = true;
+            _addressesPassedSinceLastSimulate.Remove(addressId);
             _aggregatorsToUpdateThisTick.Add(actuator);
         }
 

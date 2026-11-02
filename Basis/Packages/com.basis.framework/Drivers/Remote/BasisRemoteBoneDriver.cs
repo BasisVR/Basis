@@ -2055,7 +2055,8 @@ public static partial class RemoteBoneJobSystem
         // targets, and write the resulting local rotations back — all on workers, chained off the skeleton
         // + hips apply and folded into `pending` so it completes at the tail with everything else.
         JobHandle effectorIkJob = default;
-        if (BasisNetworkReceiver.EndEffectorIKEnabled && BasisRemoteNetworkDriver.AnyEffectorAnchored && totalBones > 0)
+        bool hasEffectorIk = BasisNetworkReceiver.EndEffectorIKEnabled && BasisRemoteNetworkDriver.AnyEffectorAnchored && totalBones > 0;
+        if (hasEffectorIk)
         {
             if (!sIkReadPos.IsCreated || sIkReadPos.Length != totalBones)
             {
@@ -2101,10 +2102,8 @@ public static partial class RemoteBoneJobSystem
             }.Schedule(sSkeletonBones, ikComputeJob);
         }
 
-        var pending = JobHandle.CombineDependencies(nameplateJob, mouthJob, rootAndScaleJob);
-        pending = JobHandle.CombineDependencies(pending, hipsWorldJob);
-        pending = JobHandle.CombineDependencies(pending, skeletonJob);
-        pending = JobHandle.CombineDependencies(pending, effectorIkJob);
+        var pending = JobHandle.CombineDependencies(nameplateJob, mouthJob, hipsWorldJob);
+        if (hasEffectorIk) pending = JobHandle.CombineDependencies(pending, effectorIkJob);
         sPending = pending;
 
         // Kick the queued batch so workers start now and overlap the main-thread simulate

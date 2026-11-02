@@ -47,6 +47,17 @@ namespace Basis.Tests.Sync
             Assert.IsFalse(Method(Box(typeof(CilboxAvatarBasis)), typeof(BasisControllerInputShim), nameof(BasisControllerInputShim.GetButtonDown)));
         }
 
+        [Test]
+        public void InputRequest_WorldOnly()
+        {
+            Assert.IsTrue(Method(Box(typeof(CilboxSceneBasis)), typeof(BasisInputShim), nameof(BasisInputShim.Request)));
+            Assert.IsTrue(Method(Box(typeof(CilboxSceneBasis)), typeof(BasisInputRequest), nameof(BasisInputRequest.Read)));
+            foreach (Type boxType in new[] { typeof(CilboxPropBasis), typeof(CilboxAvatarBasis) })
+            {
+                Assert.IsFalse(Method(Box(boxType), typeof(BasisInputShim), nameof(BasisInputShim.Request)), boxType.Name);
+                Assert.IsFalse(Method(Box(boxType), typeof(BasisInputRequest), nameof(BasisInputRequest.Read)), boxType.Name);
+            }
+        }
 
         [Test]
         public void LanguageEvent_EveryBox_RebindOnly()

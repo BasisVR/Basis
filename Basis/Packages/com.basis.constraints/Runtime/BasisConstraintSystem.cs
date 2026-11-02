@@ -424,9 +424,8 @@ namespace Basis.Scripts.Constraints
         /// population gets; it only grows once there are enough groups that a batch apiece would cost
         /// more in dispatch than it saves — a scene of hundreds of separately constrained props.
         /// </summary>
-        private static int SolveBatch(int groupCount)
+        private static int SolveBatch(int groupCount, int workers)
         {
-            int workers = math.max(1, Unity.Jobs.LowLevel.Unsafe.JobsUtility.JobWorkerCount);
             return math.max(1, groupCount / (workers * SolveBatchesPerWorker));
         }
 
@@ -479,9 +478,9 @@ namespace Basis.Scripts.Constraints
 
             JobHandle read;
             JobHandle clear;
+            int readWorkers = math.max(1, Unity.Jobs.LowLevel.Unsafe.JobsUtility.JobWorkerCount);
             using (BasisConstraintMarkers.ScheduleSample.Auto())
             {
-                int readWorkers = math.max(1, Unity.Jobs.LowLevel.Unsafe.JobsUtility.JobWorkerCount);
                 read = new BasisConstraintReadJob
                 {
                     World = sWorld.AsArray(),
@@ -529,7 +528,7 @@ namespace Basis.Scripts.Constraints
                     DeltaTime = Time.unscaledDeltaTime,
                 }.Schedule(
                     sSolveGroups.Length,
-                    SolveBatch(sSolveGroups.Length),
+                    SolveBatch(sSolveGroups.Length, readWorkers),
                     JobHandle.CombineDependencies(read, clear));
 
                 sPending = new BasisConstraintWriteJob
@@ -1360,8 +1359,8 @@ namespace Basis.Scripts.Constraints
 
             sRefreshFrame++;
 
-            bool hasReference = sPriorityRoot != null;
-            float3 reference = hasReference ? (float3)sPriorityRoot.position : float3.zero;
+            bool hasReference = sPriorityRoot != null, referenceRead = false;
+            float3 reference = float3.zero;
 
             for (int Group = 0; Group < groupCount; Group++)
             {
@@ -1378,6 +1377,11 @@ namespace Basis.Scripts.Constraints
                 int interval = NearInterval;
                 if (hasReference && !ReferenceEquals(root, sPriorityRoot))
                 {
+                    if (!referenceRead)
+                    {
+                        reference = sPriorityRoot.position;
+                        referenceRead = true;
+                    }
                     float distanceSq = math.distancesq(reference, (float3)root.position);
                     interval = distanceSq <= NearMetres * NearMetres ? NearInterval
                         : distanceSq <= MidMetres * MidMetres ? MidInterval
@@ -1420,11 +1424,6 @@ namespace Basis.Scripts.Constraints
                 int Index = members[Member];
                 Registration registration = sRegistrations[Index];
                 BasisConstraintBase component = registration.Component;
-                if (component == null)
-                {
-                    sDirty = true;
-                    continue;
-                }
 
                 // Swapping or assigning worldUpObject only takes effect through a rebuild, and
                 // nothing on the components marks it dirty, so diff it here — but only for the two
@@ -1660,6 +1659,7 @@ namespace Basis.Scripts.Constraints
             }
 
             BasisParentConstraint parent = registration.Parent;
+            bool hasParent = !ReferenceEquals(parent, null);
             bool identityMap = registration.SourceMapIsIdentity;
             for (int Index = 0; Index < registration.SourceCount; Index++)
             {
@@ -1672,7 +1672,7 @@ namespace Basis.Scripts.Constraints
                 ref BasisConstraintSource source = ref sSources.ElementAt(flattened);
                 source.Weight = math.max(0f, component.GetSource(authored).weight);
 
-                if (parent != null)
+                if (hasParent)
                 {
                     source.PositionOffset = authored < parent.translationOffsets.Length
                         ? parent.translationOffsets[authored]

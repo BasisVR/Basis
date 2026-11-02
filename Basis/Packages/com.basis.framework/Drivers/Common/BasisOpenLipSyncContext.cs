@@ -783,8 +783,7 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         private void ApplyDirect()
         {
-            int blendShapeCount = LiveBlendShapeCount();
-            if (blendShapeCount == 0) return;
+            int blendShapeCount = -1;
 
             // Apply cached weights (new or stale from last frame - no stall)
             for (int i = 0; i < VisemeCount; i++)
@@ -792,7 +791,7 @@ namespace Basis.Scripts.Drivers
                 if (!_hasViseme[i]) continue;
 
                 int bsIndex = _visemeToBlendShape[i];
-                if (bsIndex < 0 || bsIndex >= blendShapeCount) continue;
+                if (bsIndex < 0) continue;
 
                 float weight = _cachedVisemeWeights[i] * 100f;
                 weight = Math.Clamp(weight, 0f, 100f);
@@ -802,6 +801,12 @@ namespace Basis.Scripts.Drivers
 
                 if (diff * diff > BlendShapeWriteEps * BlendShapeWriteEps)
                 {
+                    if (blendShapeCount < 0)
+                    {
+                        blendShapeCount = LiveBlendShapeCount();
+                        if (blendShapeCount == 0) return;
+                    }
+                    if (bsIndex >= blendShapeCount) continue;
                     _meshRenderer.SetBlendShapeWeight(bsIndex, weight);
                     _lastApplied[i] = weight;
                 }

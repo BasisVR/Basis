@@ -151,7 +151,7 @@ namespace Basis.Scripts.Drivers
                 && BasisDeviceManagement.IsCurrentModeVR();
             bool scriptDriven = BasisScriptedPlayerInput.MoverActive;
 
-            if (player == null || BasisLocalPlayer.PlayerReady == false
+            if (BasisLocalPlayer.PlayerReady == false
                 || (deviceDriven == false && scriptDriven == false)
                 || player.LocalSeatDriver.IsSeated)
             {
@@ -584,7 +584,7 @@ namespace Basis.Scripts.Drivers
         private static void ReportInactive(BasisLocalPlayer player)
         {
             BasisPlayspaceMoverState state = BasisPlayspaceMoverState.Disabled;
-            if (player != null && BasisLocalPlayer.PlayerReady && player.LocalSeatDriver.IsSeated)
+            if (BasisLocalPlayer.PlayerReady && player.LocalSeatDriver.IsSeated)
             {
                 state = BasisPlayspaceMoverState.Seated;
             }

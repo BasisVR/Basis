@@ -138,8 +138,8 @@ namespace Basis.IK
             // No hips/chest tracker (desktop, 3-point): pin the hips below the head bone. Without a hips tracker we assume
             // no feet trackers either. Prone and seated keep their own paths.
             bool headPinnedHips = TrackerOwned(hips) == 0 && (TrackerOwned(chest) == 0 || chest.TrackerFollowsBody) && !BasisLocalPlayer.Instance.LocalCharacterDriver.IsProne;
-            bool leftFootTracked = leftFoot != null && leftFoot.HasTracked == BasisHasTracked.HasTracker;
-            bool rightFootTracked = rightFoot != null && rightFoot.HasTracked == BasisHasTracked.HasTracker;
+            bool leftFootTracked = leftFoot.HasTracked == BasisHasTracked.HasTracker;
+            bool rightFootTracked = rightFoot.HasTracked == BasisHasTracked.HasTracker;
 
             BasisVirtualSpineCore.SpineSolveParams p = new BasisVirtualSpineCore.SpineSolveParams
             {

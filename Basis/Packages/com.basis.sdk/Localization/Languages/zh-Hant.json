@@ -838,6 +838,8 @@
     { "key": "sdk.cilbox.api.haptics.summary", "value": "以短暫且受限的脈衝震動本地玩家的控制器。虛擬化身只能作用於穿戴它的玩家。" },
     { "key": "sdk.cilbox.api.controllerInput.title", "value": "VR 控制器輸入" },
     { "key": "sdk.cilbox.api.controllerInput.summary", "value": "在世界中讀取本地玩家的扳機、握把、按鈕和搖桿。選單開啟或指標位於介面上時不讀取任何內容。" },
+    { "key": "sdk.cilbox.api.inputRequest.title", "value": "按需輸入" },
+    { "key": "sdk.cilbox.api.inputRequest.summary", "value": "一次性請求世界腳本需要的任意裝置上的按鍵、按鈕和搖桿。每個輸入每幀只為所有腳本讀取一次,只有變化時才通知腳本。選單開啟或玩家打字時不讀取任何內容。" },
     { "key": "sdk.cilbox.api.settingsTab.title", "value": "設定分頁" },
     { "key": "sdk.cilbox.api.settingsTab.summary", "value": "在 Basis 設定中新增一個分頁，包含你自己的標題、文字、按鈕、開關、滑桿和下拉選單。控制項由 Basis 繪製，玩家使用它們時會呼叫你的方法。世界、本機玩家產生的道具以及本機玩家自己的模型各自最多可新增 4 個分頁，腳本消失時它們也會一併移除。" },
     { "key": "sdk.cilbox.api.menuPanel.title", "value": "選單面板" },

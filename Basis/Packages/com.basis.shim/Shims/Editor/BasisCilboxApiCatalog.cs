@@ -929,6 +929,42 @@ void Update()
             new CilboxApiEntry
             {
                 GroupKey = GroupInteraction,
+                TitleKey = "sdk.cilbox.api.inputRequest.title",
+                SummaryKey = "sdk.cilbox.api.inputRequest.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisInputShim", "Request"), new CilboxApiRequirement("Basis.Shims.BasisInputRequest", "Read") },
+                Example =
+@"using Basis.Shims;
+using UnityEngine.InputSystem;
+
+// Worlds only. Ask once for the inputs you need. Basis polls each one once a frame for
+// every script and only calls this script when one of them changed, so no Update is needed.
+BasisInputRequest input;
+float[] values = new float[BasisInputShim.MaxSlots];
+int jump, fire, stickX, stickY;
+
+void Start()
+{
+    input = BasisInputShim.Request(this);
+    jump = input.AddKey(Key.Space);
+    fire = input.AddController(BasisControllerHand.Right, BasisControllerButton.Trigger);
+    stickX = input.AddGamepad(BasisInputGamepadControl.LeftStickX);
+    stickY = input.AddGamepad(BasisInputGamepadControl.LeftStickY);
+}
+
+void OnInputChanged()
+{
+    input.Read(values);
+    int down = input.TakeDown();
+    if ((down & (1 << jump)) != 0) Jump();
+    if ((down & (1 << fire)) != 0) Fire();
+    Steer(values[stickX], values[stickY]);
+}
+
+void OnDestroy() { input.Release(); }",
+            },
+            new CilboxApiEntry
+            {
+                GroupKey = GroupInteraction,
                 TitleKey = "sdk.cilbox.api.settingsTab.title",
                 SummaryKey = "sdk.cilbox.api.settingsTab.summary",
                 Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisMenuShim", "AddSettingsTab"), new CilboxApiRequirement("Basis.Shims.BasisMenuPage", "AddToggle") },

@@ -220,10 +220,85 @@ namespace Basis.Tests.GlobalIllumination
         }
 
         [Test]
+        public void TheLayerUnderAGarmentDoesNotShowThroughIt()
+        {
+            Material garment = harness.CreateLitMaterial(new Color(0.8f, 0.05f, 0.05f), Color.black);
+            Material body = harness.CreateLitMaterial(new Color(0.05f, 0.05f, 0.8f), Color.black);
+            garment.renderQueue = (int)RenderQueue.Geometry;
+            body.renderQueue = (int)RenderQueue.Geometry + 1;
+            Look(new Vector3(0f, 0f, -3f), Vector3.zero);
+            harness.AddBox(new Vector3(0f, 0f, 0.1f), new Vector3(3f, 3f, 0.2f), garment);
+            harness.AddBox(new Vector3(0f, 0f, 0.103f), new Vector3(3f, 3f, 0.2f), body);
+            Color read = SurfaceAt(Vector3.zero);
+            Debug.Log($"[BasisGI] garment over a later body: {read}");
+            Assert.Greater(read.r, read.b * 2f, $"the layer 3 mm under the garment took the pixel: {read}");
+        }
+
+        [Test]
+        public void TheGarmentAlsoWinsWhenItDrawsLast()
+        {
+            Material garment = harness.CreateLitMaterial(new Color(0.8f, 0.05f, 0.05f), Color.black);
+            Material body = harness.CreateLitMaterial(new Color(0.05f, 0.05f, 0.8f), Color.black);
+            garment.renderQueue = (int)RenderQueue.Geometry + 1;
+            body.renderQueue = (int)RenderQueue.Geometry;
+            Look(new Vector3(0f, 0f, -3f), Vector3.zero);
+            harness.AddBox(new Vector3(0f, 0f, 0.1f), new Vector3(3f, 3f, 0.2f), garment);
+            harness.AddBox(new Vector3(0f, 0f, 0.103f), new Vector3(3f, 3f, 0.2f), body);
+            Color read = SurfaceAt(Vector3.zero);
+            Debug.Log($"[BasisGI] garment over an earlier body: {read}");
+            Assert.Greater(read.r, read.b * 2f, $"the layer 3 mm under the garment took the pixel: {read}");
+        }
+
+        [Test]
+        public void TheFarSideOfAThinPanelDoesNotShowThroughIt()
+        {
+            Material outside = harness.CreateLitMaterial(new Color(0.8f, 0.05f, 0.05f), Color.black);
+            Material inside = harness.CreateLitMaterial(new Color(0.05f, 0.8f, 0.05f), Color.black);
+            outside.renderQueue = (int)RenderQueue.Geometry;
+            inside.renderQueue = (int)RenderQueue.Geometry + 1;
+            Look(new Vector3(0f, 0f, -3f), Vector3.zero);
+            GameObject front = harness.Own(GameObject.CreatePrimitive(PrimitiveType.Quad));
+            front.transform.localScale = new Vector3(3f, 3f, 1f);
+            front.GetComponent<MeshRenderer>().sharedMaterial = outside;
+            GameObject back = harness.Own(GameObject.CreatePrimitive(PrimitiveType.Quad));
+            back.transform.position = new Vector3(0f, 0f, 0.002f);
+            back.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            back.transform.localScale = new Vector3(3f, 3f, 1f);
+            back.GetComponent<MeshRenderer>().sharedMaterial = inside;
+            Color read = SurfaceAt(Vector3.zero);
+            Debug.Log($"[BasisGI] thin panel: {read}");
+            Assert.Greater(read.r, read.g * 2f, $"the culled lining took the pixel: {read}");
+        }
+
+        [Test]
+        public void ACutoutHoleInATightLayerShowsTheLayerUnderIt()
+        {
+            Texture2D map = harness.Own(new Texture2D(2, 1, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp });
+            map.SetPixels(new[] { new Color(0.9f, 0f, 0f, 1f), new Color(0.9f, 0f, 0f, 0f) });
+            map.Apply();
+            Material cutout = harness.CreateLitMaterial(Color.white, Color.black);
+            cutout.SetTexture("_BaseMap", map);
+            cutout.SetFloat("_AlphaClip", 1f);
+            cutout.SetFloat("_Cutoff", 0.5f);
+            cutout.EnableKeyword("_ALPHATEST_ON");
+            cutout.renderQueue = (int)RenderQueue.AlphaTest;
+            Look(new Vector3(0f, 0f, -3f), Vector3.zero);
+            GameObject quad = harness.Own(GameObject.CreatePrimitive(PrimitiveType.Quad));
+            quad.transform.localScale = new Vector3(3f, 3f, 1f);
+            quad.GetComponent<MeshRenderer>().sharedMaterial = cutout;
+            harness.AddBox(new Vector3(0f, 0f, 0.103f), new Vector3(6f, 6f, 0.2f), harness.CreateLitMaterial(new Color(0.1f, 0.1f, 0.8f), Color.black));
+            Color hole = SurfaceAt(new Vector3(0.75f, 0f, 0f));
+            Color solid = SurfaceAt(new Vector3(-0.75f, 0f, 0f));
+            Debug.Log($"[BasisGI] tight cutout: hole {hole} | solid {solid}");
+            Assert.Greater(hole.b, hole.r, $"the hole read the clipped layer: {hole}");
+            Assert.Greater(solid.r, solid.b, $"the solid part read the layer under it: {solid}");
+        }
+
+        [Test]
         public void ACutoutHoleShowsWhatIsBehindIt()
         {
             Texture2D map = harness.Own(new Texture2D(2, 1, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp });
-            map.SetPixels(new[] { new Color(1f, 0f, 0f, 1f), new Color(1f, 0f, 0f, 0f) });
+            map.SetPixels(new[] { new Color(0.9f, 0f, 0f, 1f), new Color(0.9f, 0f, 0f, 0f) });
             map.Apply();
             Material cutout = harness.CreateLitMaterial(Color.white, Color.black);
             cutout.SetTexture("_BaseMap", map);

@@ -31,6 +31,10 @@ public class BasisOrderedDelegate
 
     public void AddAction(int priority, Action action)
     {
+        if (action == null)
+        {
+            return;
+        }
         entries.Add(new Entry(priority, action));
         RebuildExecutionOrder();
         Count = executionOrder.Count;
@@ -63,14 +67,12 @@ public class BasisOrderedDelegate
         executionOrder.Sort((a, b) => entries[a].Priority.CompareTo(entries[b].Priority));
 
         // Flatten once here so the per-frame invoke is a straight array walk.
-        if (orderedActions.Length != executionOrder.Count)
+        Action[] rebuilt = new Action[executionOrder.Count];
+        for (int Index = 0; Index < rebuilt.Length; Index++)
         {
-            orderedActions = new Action[executionOrder.Count];
+            rebuilt[Index] = entries[executionOrder[Index]].Action;
         }
-        for (int Index = 0; Index < executionOrder.Count; Index++)
-        {
-            orderedActions[Index] = entries[executionOrder[Index]].Action;
-        }
+        orderedActions = rebuilt;
     }
 
     public void Invoke()
@@ -80,7 +82,7 @@ public class BasisOrderedDelegate
         Action[] actions = orderedActions;
         for (int Index = 0; Index < actions.Length; Index++)
         {
-            actions[Index]?.Invoke();
+            actions[Index].Invoke();
         }
     }
 }

@@ -70,6 +70,7 @@ namespace Basis.Scripts.BasisCharacterController
             ctx.HasJumpAction = false;
 
             if (ctx.MovementLock) move = Vector3.zero;
+            move = ctx.ApplyMovementSettle(move, dt);
 
             if (ctx.HasExternalVelocity)
             {

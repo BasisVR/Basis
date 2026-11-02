@@ -30,6 +30,61 @@ float scroll = BasisDesktopInputShim.MouseScroll.y;
 Vector2 screen = BasisDesktopInputShim.MousePosition;
 ```
 
+## BasisInputShim
+
+Worlds only. The cheapest way to read input from any device when a script watches more than a few buttons. Ask once for the inputs you need, and Basis polls each one once a frame no matter how many scripts share it. Your script does nothing until something changes.
+
+```csharp
+using Basis.Shims;
+using UnityEngine.InputSystem;
+
+BasisInputRequest input;
+float[] values = new float[BasisInputShim.MaxSlots];
+int jump, fire, stickX;
+
+void Start()
+{
+    input = BasisInputShim.Request(this);
+    jump = input.AddKey(Key.Space);
+    fire = input.AddController(BasisControllerHand.Right, BasisControllerButton.Trigger);
+    stickX = input.AddGamepad(BasisInputGamepadControl.LeftStickX);
+}
+
+void OnInputChanged()
+{
+    input.Read(values);
+    int down = input.TakeDown();
+    if ((down & (1 << jump)) != 0) Jump();
+    if ((down & (1 << fire)) != 0) Fire();
+    speed = values[stickX];
+}
+
+void OnDestroy() { input.Release(); }
+```
+
+Each `Add` call returns a slot number, or -1 if it was refused. A request holds up to 32 slots and can be null, so check it if your script might hold more than 64 requests.
+
+| Call | Reads |
+| --- | --- |
+| `AddKey(Key.Space)` | A keyboard key |
+| `AddMouseButton(0)` | A mouse button. 0 is left, 1 right, 2 middle, 3 back, 4 forward |
+| `AddMouseAxis(BasisInputMouseAxis.DeltaX)` | Mouse movement, scroll or position |
+| `AddGamepad(BasisInputGamepadControl.South)` | A gamepad button, trigger or stick axis |
+| `AddController(hand, BasisControllerButton.Grip)` | A VR controller button |
+| `AddController(hand, BasisInputControllerAxis.StickX)` | A VR controller trigger or stick axis |
+| `AddControl("<Joystick>/trigger")` | Any other button or axis, by Input System control path. Name one axis, such as `<Pen>/position/x` |
+
+Scripts can read results in two ways.
+
+- Add an `OnInputChanged()` method with no parameters. Basis calls it at most once a frame, only when a value changed.
+- Check `input.Changed` from your own `Update` and call `Read` only when it is true. `values` keeps its contents between reads, so a held stick can keep moving something every frame.
+
+`values` holds one number per slot. Buttons are 0 or 1, triggers run from 0 to 1, and sticks from -1 to 1. `Held`, `TakeDown()` and `TakeUp()` hold one bit per slot, set at 0.5 and above. `TakeDown` and `TakeUp` give you each press and release once and clear it, so a quick tap between two reads still arrives, and they work from `FixedUpdate`.
+
+Everything reads 0 while the menu is open. Keyboards and gamepads also read 0 while the player types in a text field or the game window is out of focus. Mice and VR controllers also read 0 while a pointer is over UI, and mice while the window is out of focus. A button held when reading resumes stays at 0 until it is let go.
+
+`IsBound(slot)` tells you whether a device is there to read, for example false for `AddController` on desktop. Requests end on their own when the script is destroyed. Call `Release()` sooner if you stop needing them.
+
 ## BasisHapticsShim
 
 Vibrates the local player's controllers. Strength 0 to 1, at most 1 second, 10 pulses a second per content. Returns false when nothing played.

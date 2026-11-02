@@ -280,7 +280,7 @@
         {
           "id": "scripting/shims/input",
           "title": "Input",
-          "description": "BasisControllerInputShim, BasisDesktopInputShim, BasisHapticsShim, BasisInteractableShim, BasisActionTrigger and BasisUIExtensions.",
+          "description": "BasisControllerInputShim, BasisDesktopInputShim, BasisInputShim, BasisHapticsShim, BasisInteractableShim, BasisActionTrigger and BasisUIExtensions.",
           "file": "scripting.shims.input.md"
         },
         {

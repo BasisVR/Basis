@@ -896,7 +896,15 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
 
         bool batched = GraphicsSettings.currentRenderPipeline is UniversalRenderPipelineAsset asset && asset.gpuResidentDrawerMode != GPUResidentDrawerMode.Disabled;
         RendererListHandle batchedList = default;
-        TextureHandle batchedDepth = TextureHandle.nullHandle;
+        TextureHandle surfaceDepth = renderGraph.CreateTexture(new TextureDesc(descriptor.width, descriptor.height)
+        {
+            format = GraphicsFormat.D32_SFloat,
+            dimension = descriptor.dimension,
+            slices = Mathf.Max(1, descriptor.volumeDepth),
+            msaaSamples = MSAASamples.None,
+            clearBuffer = true,
+            name = "_BasisGISurfaceDepth"
+        });
         if (batched)
         {
             DrawingSettings batchedDrawing = new DrawingSettings(new ShaderTagId("BasisSurface"), new SortingSettings(cameraData.camera) { criteria = SortingCriteria.CommonOpaque })
@@ -922,14 +930,6 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
                 stateBlocks = stateBlocks,
                 isPassTagName = false
             });
-            batchedDepth = renderGraph.CreateTexture(new TextureDesc(descriptor.width, descriptor.height)
-            {
-                format = GraphicsFormat.D32_SFloat,
-                dimension = descriptor.dimension,
-                slices = Mathf.Max(1, descriptor.volumeDepth),
-                msaaSamples = MSAASamples.None,
-                name = "_BasisGISurfaceDepth"
-            });
         }
 
         using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass("Basis GI Surface Colour", out PassData passData, samplerSurface))
@@ -943,11 +943,8 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
             passData.materialPass = PassSurfaceDepth;
             passData.tracedTexelSize = new Vector4(1f / descriptor.width, 1f / descriptor.height, descriptor.width, descriptor.height);
             builder.SetRenderAttachment(surface, 0, AccessFlags.Write);
-            if (batched)
-            {
-                builder.SetRenderAttachmentDepth(batchedDepth, AccessFlags.WriteAll);
-                builder.UseRendererList(batchedList);
-            }
+            builder.SetRenderAttachmentDepth(surfaceDepth, AccessFlags.Write);
+            if (batched) { builder.UseRendererList(batchedList); }
             builder.UseRendererList(rendererList);
             builder.UseTexture(resourceData.cameraDepthTexture);
             builder.AllowPassCulling(false);
@@ -1233,12 +1230,12 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
                 break;
             case Stage.Surface:
                 cmd.SetGlobalVector(idSurfaceTexelSize, data.tracedTexelSize);
+                cmd.DrawRendererList(data.lightmapRenderers);
                 if (data.surfaceBatchedValid)
                 {
                     Blitter.BlitTexture(cmd, data.source, new Vector4(1f, 1f, 0f, 0f), data.material, data.materialPass);
                     cmd.DrawRendererList(data.surfaceBatched);
                 }
-                cmd.DrawRendererList(data.lightmapRenderers);
                 return;
             case Stage.LightmapMask:
                 // Geometry, not a fullscreen blit. The texel size is bound here rather than inherited so

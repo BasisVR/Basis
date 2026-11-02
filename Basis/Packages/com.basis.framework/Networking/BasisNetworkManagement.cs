@@ -492,6 +492,7 @@ namespace Basis.Scripts.Networking
 #endif
 
             byte* skipPtr = BasisRemoteNetworkDriver.SkipBonesPtr();
+            int skipCapacity = BasisRemoteNetworkDriver.Capacity;
             bool endEffectorIK = BasisNetworkReceiver.EndEffectorIKEnabled;
             if (endEffectorIK) BasisRemoteNetworkDriver.ResetEffectorAnchored();
 
@@ -499,6 +500,8 @@ namespace Basis.Scripts.Networking
             {
                 var receiver = snapshot[Index];
                 var remote = receiver.RemotePlayer;
+                ushort playerId = receiver.playerId;
+                bool overridden = receiver.HasOverriddenDestination;
 
 #if UNITY_EDITOR
                 if (p)
@@ -514,19 +517,19 @@ namespace Basis.Scripts.Networking
 #endif
 
                 // LOD-based frame skipping: distant players update pose less often
-                if (poseLodEnabled && remote.PoseSkipCounter > 0 && !receiver.HasOverriddenDestination)
+                if (poseLodEnabled && !overridden && remote.PoseSkipCounter > 0)
                 {
                     remote.PoseSkipCounter--;
-                    if (skipPtr != null && receiver.playerId < BasisRemoteNetworkDriver.Capacity) skipPtr[receiver.playerId] = 1;
-                    if (endEffectorIK) BasisRemoteNetworkDriver.ClearEffectorMask(receiver.playerId);
+                    if (skipPtr != null && playerId < skipCapacity) skipPtr[playerId] = 1;
+                    if (endEffectorIK) BasisRemoteNetworkDriver.ClearEffectorMask(playerId);
 #if UNITY_EDITOR
                     _skipped++;
 #endif
                     continue;
                 }
-                if (receiver.HasOverriddenDestination)
+                if (overridden)
                 {
-                    BasisRemoteNetworkDriver.SetFilteredHipsOverride(receiver.playerId, receiver.OverriddenPosition, (quaternion)receiver.OverriddenRotation);
+                    BasisRemoteNetworkDriver.SetFilteredHipsOverride(playerId, receiver.OverriddenPosition, (quaternion)receiver.OverriddenRotation);
                 }
 #if UNITY_EDITOR
                 _applied++;
@@ -537,7 +540,7 @@ namespace Basis.Scripts.Networking
                     int lod = math.clamp(remote.CurrentLodLevel, 0, 3);
                     remote.PoseSkipCounter = SMModuleDistanceBasedReductions.PoseSkipByLod[lod];
                 }
-                if (skipPtr != null && receiver.playerId < BasisRemoteNetworkDriver.Capacity) skipPtr[receiver.playerId] = 0;
+                if (skipPtr != null && playerId < skipCapacity) skipPtr[playerId] = 0;
                 if (endEffectorIK) receiver.WriteEffectorJobInputs();
             }
             // The loop above is the last writer of the filtered hips overrides this job reads, so

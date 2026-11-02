@@ -70,16 +70,24 @@ namespace Basis.Scripts.Drivers
         /// short. Does not fire on a headless client, which never renders.
         /// </summary>
         public static event Action BeforeRender;
+        private static Action beforeRenderSnapshot;
+        private static Delegate[] beforeRenderHandlers;
 
         public static void RaiseBeforeRender()
         {
             // Subscribers are independent, and one of them is the sandbox bridge — a throwing
             // handler must not take the rest of the frame's late-latch work down with it.
-            Delegate[] handlers = BeforeRender?.GetInvocationList();
-            if (handlers == null)
+            Action current = BeforeRender;
+            if (current == null)
             {
                 return;
             }
+            if (!ReferenceEquals(current, beforeRenderSnapshot))
+            {
+                beforeRenderSnapshot = current;
+                beforeRenderHandlers = current.GetInvocationList();
+            }
+            Delegate[] handlers = beforeRenderHandlers;
             for (int Index = 0; Index < handlers.Length; Index++)
             {
                 try

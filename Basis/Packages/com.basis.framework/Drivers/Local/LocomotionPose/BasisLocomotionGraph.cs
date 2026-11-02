@@ -7,6 +7,7 @@ namespace Basis.Scripts.Drivers
     public struct BasisLocoParams
     {
         public float VelocityX, VelocityZ, CurrentSpeed;
+        public float DesiredVelocityX, DesiredVelocityZ;
         public bool CrouchedState, ProneState, IsFalling, IsJumping, LandingTrigger;
     }
     public struct BasisLocoContribution
@@ -379,7 +380,7 @@ namespace Basis.Scripts.Drivers
             return count;
         }
 
-        static void NativeWeights(float2 point, BasisLocoState state, in NativeArray<float2> positions, ref FixedList128Bytes<float> weights)
+        public static void NativeWeights(float2 point, BasisLocoState state, in NativeArray<float2> positions, ref FixedList128Bytes<float> weights)
         {
             int start = state == BasisLocoState.Walking ? WalkingClipStart : state == BasisLocoState.Crouching ? CrouchingClipStart : ProneClipStart;
             int count = state == BasisLocoState.Walking ? WalkingChildCount : state == BasisLocoState.Crouching ? CrouchingChildCount : ProneChildCount;
@@ -416,7 +417,8 @@ namespace Basis.Scripts.Drivers
             float inv = math.rcp(total);
             for (int i = 0; i < count; i++) weights[i] *= inv;
         }
-        static bool IsTree(BasisLocoState state) => state == BasisLocoState.Walking || state == BasisLocoState.Crouching || state == BasisLocoState.Prone;
+        public static bool IsTree(BasisLocoState state) => state == BasisLocoState.Walking || state == BasisLocoState.Crouching || state == BasisLocoState.Prone;
+        public static int OneShotClip(BasisLocoState state) => state == BasisLocoState.Jump ? JumpClip : state == BasisLocoState.Falling ? FallingClip : LandingClip;
         static int NativeClipStart(BasisLocoState state) => state == BasisLocoState.Walking ? WalkingClipStart : state == BasisLocoState.Crouching ? CrouchingClipStart : ProneClipStart;
         static int NativeChildCount(BasisLocoState state) => state == BasisLocoState.Walking ? WalkingChildCount : state == BasisLocoState.Crouching ? CrouchingChildCount : ProneChildCount;
         static float NativeStateDelta(BasisLocoState state, in BasisLocoParams p, float dt, in NativeArray<float> clipLengths, in NativeArray<float2> positions, in NativeArray<float> timeScales, ref FixedList128Bytes<float> weights)
@@ -433,7 +435,7 @@ namespace Basis.Scripts.Drivers
             for (int i = 0; i < count; i++) duration += weights[i] * (clipLengths[start + i] / timeScales[start + i]);
             return duration > 1e-4f ? dt * p.CurrentSpeed / duration : 0f;
         }
-        static bool NativeTransition(BasisLocoState state, float previousNorm, float currentNorm, in BasisLocoParams p, out BasisLocoTransition transition)
+        public static bool NativeTransition(BasisLocoState state, float previousNorm, float currentNorm, in BasisLocoParams p, out BasisLocoTransition transition)
         {
             transition = default;
             switch (state)

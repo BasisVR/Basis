@@ -42,6 +42,9 @@ namespace Basis.Scripts.BasisCharacterController
         [SerializeField] public float externalVelocityFriction = 8f;
         public const float MaxExternalSpeed = 100f;
         private const float ExternalVelocityRestSq = 0.0025f;
+        [System.NonSerialized] public Vector3 SettleVelocity;
+        [System.NonSerialized] private Vector3 settleStartVelocity;
+        [System.NonSerialized] private float settleElapsed;
         [System.NonSerialized] public float landingCrouchEffect;
         [System.NonSerialized] public float landingCrouchTarget;
         [SerializeField] public float landingDescentSpeed = 15f;
@@ -82,6 +85,7 @@ namespace Basis.Scripts.BasisCharacterController
             CurrentMode?.Exit(this);
             CurrentModeKind = mode;
             ExternalVelocity = Vector3.zero;
+            ClearMovementSettle();
             CurrentMode = mode switch
             {
                 Mode.Fly => _flyMode,
@@ -138,7 +142,8 @@ namespace Basis.Scripts.BasisCharacterController
         public bool IsCrouching => CrouchBlend <= LocalAnimatorDriver.CrouchThreshold;
         public bool IsProne = false;
         public bool IsRunning => CurrentSpeed > DefaultMovementSpeed;
-        public bool IsLocomoting => !MovementLock && MovementVector.sqrMagnitude > 0.001f;
+        public bool IsSettling => SettleVelocity.x != 0f || SettleVelocity.y != 0f || SettleVelocity.z != 0f;
+        public bool IsLocomoting => !MovementLock && (MovementVector.sqrMagnitude > 0.001f || IsSettling);
         public bool UseMaxSpeed => BasisLocalInputActions.IsRunHeld;
         public bool CanPushRigidbodys = false;
         public bool IsEnabled
@@ -152,6 +157,7 @@ namespace Basis.Scripts.BasisCharacterController
             {
                 isEnabled = value;
                 ExternalVelocity = Vector3.zero;
+                ClearMovementSettle();
                 Velocity = Vector3.zero;
                 if (currentVerticalSpeed > 0f)
                 {
@@ -623,6 +629,73 @@ namespace Basis.Scripts.BasisCharacterController
             {
                 ExternalVelocity = Vector3.zero;
             }
+        }
+        public static bool MovementSettleAllowed()
+        {
+            string mode = Basis.BasisUI.BasisSettingsDefaults.MovementSettle.RawValue;
+            return mode == Basis.BasisUI.BasisSettingsDefaults.MovementSettle_Always || (mode == Basis.BasisUI.BasisSettingsDefaults.MovementSettle_DesktopOnly && !BasisDeviceManagement.IsCurrentModeVR());
+        }
+        public Vector3 ApplyMovementSettle(Vector3 commanded, float deltaTime)
+        {
+            return ApplyMovementSettle(commanded, MovementSettleAllowed(), Basis.BasisUI.BasisSettingsDefaults.MovementSettleTime.RawValue, deltaTime);
+        }
+        public Vector3 ApplyMovementSettle(Vector3 commanded, bool allowed, float settleSeconds, float deltaTime)
+        {
+            if (!allowed || MovementLock || settleSeconds <= 0f)
+            {
+                ClearMovementSettle();
+                return commanded;
+            }
+            if (deltaTime <= 0f)
+            {
+                return commanded;
+            }
+            if (commanded.x != 0f || commanded.y != 0f || commanded.z != 0f)
+            {
+                settleStartVelocity = commanded / deltaTime;
+                SettleVelocity = settleStartVelocity;
+                settleElapsed = 0f;
+                return commanded;
+            }
+            if (!IsSettling)
+            {
+                return commanded;
+            }
+            settleElapsed += deltaTime;
+            float remaining = 1f - settleElapsed / settleSeconds;
+            if (remaining <= 0f)
+            {
+                ClearMovementSettle();
+                return Vector3.zero;
+            }
+            // Speed falls with the square of the time left: the brake is hardest while fast and eases out at exactly settleSeconds.
+            SettleVelocity = settleStartVelocity * (remaining * remaining);
+            return SettleVelocity * deltaTime;
+        }
+        public void ClipMovementSettle(Vector3 moved, float deltaTime)
+        {
+            float speed = SettleVelocity.magnitude;
+            if (speed <= 0f || deltaTime <= 0f)
+            {
+                return;
+            }
+            Vector3 actual = moved / deltaTime;
+            float actualSpeed = actual.magnitude;
+            if (actualSpeed < 1e-3f)
+            {
+                ClearMovementSettle();
+            }
+            else if (actualSpeed < speed)
+            {
+                settleStartVelocity = actual * (settleStartVelocity.magnitude / speed);
+                SettleVelocity = actual;
+            }
+        }
+        public void ClearMovementSettle()
+        {
+            SettleVelocity = Vector3.zero;
+            settleStartVelocity = Vector3.zero;
+            settleElapsed = 0f;
         }
         public static Quaternion GetMovementFacing()
         {

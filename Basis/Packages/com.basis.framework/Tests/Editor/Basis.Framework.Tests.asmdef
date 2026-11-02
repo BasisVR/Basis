@@ -3,6 +3,7 @@
     "rootNamespace": "",
     "references": [
         "Basis Framework",
+        "Basis.Eerie.Movement",
         "Unity.InputSystem",
         "BasisSDK",
         "BasisCommon",

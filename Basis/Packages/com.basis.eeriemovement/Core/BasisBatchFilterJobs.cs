@@ -103,6 +103,31 @@ namespace Basis.Scripts.Drivers
         }
     }
     [BurstCompile]
+    public struct BasisPoseScatterJob : IJobParallelForTransform
+    {
+        [ReadOnly] public NativeArray<int> WriteIndices;
+        [ReadOnly] public NativeArray<float3> LocalPosition;
+        [ReadOnly] public NativeArray<quaternion> LocalRotation;
+        public void Execute(int index, TransformAccess transform)
+        {
+            int node = WriteIndices[index];
+            transform.SetLocalPositionAndRotation(LocalPosition[node], LocalRotation[node]);
+        }
+    }
+    [BurstCompile]
+    public struct BasisPoseGatherJob : IJobParallelForTransform
+    {
+        public NativeArray<float3> LocalPosition;
+        public NativeArray<quaternion> LocalRotation;
+        public NativeArray<float3> LocalScale;
+        public void Execute(int index, TransformAccess transform)
+        {
+            LocalPosition[index] = transform.localPosition;
+            LocalRotation[index] = transform.localRotation;
+            LocalScale[index] = transform.localScale;
+        }
+    }
+    [BurstCompile]
     public static class BasisFilterMath
     {
         public static float Alpha(float cutoff, float dt)

@@ -17,8 +17,8 @@ Shader "Hidden/Basis/GlobalIlluminationSurface"
         {
             Name "BasisGISurface"
             Cull Off
-            ZTest Always
-            ZWrite Off
+            ZTest LEqual
+            ZWrite On
 
             HLSLPROGRAM
             #pragma vertex SurfaceVert

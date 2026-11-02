@@ -113,7 +113,7 @@ namespace Basis.Scripts.Drivers
         /// with no face mesh at all still reports its wearer's voice here.
         /// </summary>
         public float VoiceLevel01 =>
-            TrackedAudioSource != null && AudioSourceInactive && !AnnounceActive
+            AudioSourceInactive && !AnnounceActive && TrackedAudioSource != null
                 ? 0f
                 : BasisVoiceLevel.RmsToUnit(VoiceRms);
 
@@ -295,7 +295,7 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         public bool ShouldReleaseForIdleSource()
         {
-            return TrackedAudioSource != null && AudioSourceInactive && !AnnounceActive;
+            return AudioSourceInactive && !AnnounceActive && TrackedAudioSource != null;
         }
 
         private bool _overrideZeroed;

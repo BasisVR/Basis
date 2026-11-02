@@ -105,7 +105,7 @@ namespace Basis.Scripts.UI.NamePlate
         private int loadingTextBucket = int.MinValue;
 
         /// <summary>True while a chat message or typing indicator wants to display.</summary>
-        internal bool HasActiveChatOverlay => ChatText != null && HasBubbleText();
+        internal bool HasActiveChatOverlay => HasBubbleText() && ChatText != null;
 
         /// <summary>True while the avatar-loading text + bar want to display.</summary>
         internal bool HasActiveLoadingOverlay => HasProgressBarVisible && !NameHidden;
@@ -652,10 +652,6 @@ namespace Basis.Scripts.UI.NamePlate
 
         internal void ApplyColorFromJob(Color c)
         {
-            if (BasisRemotePlayer != null && BasisRemotePlayer.HasFailedAvatarLoadGlobally)
-            {
-                c = BasisRemoteNamePlateDriver.StaticFailedLoadColor;
-            }
             SetPlateColor(c);
         }
 

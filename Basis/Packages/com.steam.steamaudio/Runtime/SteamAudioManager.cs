@@ -352,16 +352,18 @@ namespace SteamAudio
 
         public static PerspectiveCorrection GetPerspectiveCorrection()
         {
-            if (!SteamAudioSettings.Singleton.perspectiveCorrection)
+            var settings = SteamAudioSettings.Singleton;
+            if (!settings.perspectiveCorrection)
                 return default;
 
             var mainCamera = Singleton.GetMainCamera();
             PerspectiveCorrection correction = default;
-            if (mainCamera != null && mainCamera.aspect > .0f)
+            float aspect = mainCamera != null ? mainCamera.aspect : 0f;
+            if (aspect > .0f)
             {
-                correction.enabled = SteamAudioSettings.Singleton.perspectiveCorrection ? Bool.True : Bool.False;
-                correction.xfactor = 1.0f * SteamAudioSettings.Singleton.perspectiveCorrectionFactor;
-                correction.yfactor = correction.xfactor / mainCamera.aspect;
+                correction.enabled = Bool.True;
+                correction.xfactor = 1.0f * settings.perspectiveCorrectionFactor;
+                correction.yfactor = correction.xfactor / aspect;
 
                 // Camera space matches OpenGL convention. No need to transform matrix to ConvertTransform.
                 correction.transform = Common.TransformMatrix(mainCamera.projectionMatrix * mainCamera.worldToCameraMatrix);
@@ -1027,7 +1029,6 @@ namespace SteamAudio
                             if (h == IntPtr.Zero) continue;
 
                             SteamAudioSource src = mSources[i];
-                            if (src == null) continue;
 
                             SimulationInputsCore core = mSourceCoreCache[i];
                             SimulationInputs inputs = default;

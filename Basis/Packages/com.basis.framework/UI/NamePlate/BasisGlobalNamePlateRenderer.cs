@@ -89,6 +89,9 @@ namespace Basis.Scripts.UI.NamePlate
         // Per-plate world position copied out of sOut during the gather, so the scheduled
         // matrix job never dereferences the bone system's array while deferred to before-render.
         [NoAutoStaticsCleanup] private static NativeArray<float3> platePos;
+        [NoAutoStaticsCleanup] private static NativeArray<RaycastCommand> occlusionCommands;
+        [NoAutoStaticsCleanup] private static NativeArray<RaycastHit> occlusionHits;
+        private static int[] occlusionPlate;
         // Snapshot mirrored as a plain array so the per-frame gather indexes a T[] instead of
         // List<T>.this[] (the List indexer's bounds-check showed up in the gather).
         private static BasisRemoteNamePlate[] snapArr = System.Array.Empty<BasisRemoteNamePlate>();
@@ -787,6 +790,8 @@ namespace Basis.Scripts.UI.NamePlate
             Color* colPtr = (Color*)plateColors.GetUnsafePtr();
             float3* posPtr = (float3*)platePos.GetUnsafePtr();
             RemoteFrameOutput* framePtr = (RemoteFrameOutput*)frames.GetUnsafeReadOnlyPtr();
+            int occlusionCount = 0;
+            QueryParameters occlusionQuery = new QueryParameters(OcclusionMask, false, QueryTriggerInteraction.Ignore, Physics.queriesHitBackfaces);
 
             for (int gi = 0; gi < plateCount; gi++)
             {
@@ -828,14 +833,27 @@ namespace Basis.Scripts.UI.NamePlate
                             if (along < BehindDotThreshold * Mathf.Sqrt(distSqr)) wouldBeCulled = true;
                         }
 
-                        if (!wouldBeCulled &&
-                            Physics.Linecast(camPos, platePosition, OcclusionMask, QueryTriggerInteraction.Ignore))
+                        if (!wouldBeCulled && distSqr > 0f)
                         {
-                            slot = -1;
+                            float distance = Mathf.Sqrt(distSqr);
+                            occlusionCommands[occlusionCount] = new RaycastCommand(camPos, toPlate / distance, occlusionQuery, distance);
+                            occlusionPlate[occlusionCount++] = gi;
                         }
                     }
                 }
                 slotPtr[gi] = slot;
+            }
+
+            if (occlusionCount > 0)
+            {
+                RaycastCommand.ScheduleBatch(occlusionCommands.GetSubArray(0, occlusionCount), occlusionHits.GetSubArray(0, occlusionCount), 4).Complete();
+                for (int i = 0; i < occlusionCount; i++)
+                {
+                    if (occlusionHits[i].colliderEntityId.IsValid())
+                    {
+                        slotPtr[occlusionPlate[i]] = -1;
+                    }
+                }
             }
 
             // Phase 2: distance/angle cull + per-plate matrix math, scheduled to a worker. The fence
@@ -912,7 +930,12 @@ namespace Basis.Scripts.UI.NamePlate
             if (plateKey.IsCreated) plateKey.Dispose();
             if (plateSlot.IsCreated) plateSlot.Dispose();
             if (platePos.IsCreated) platePos.Dispose();
+            if (occlusionCommands.IsCreated) occlusionCommands.Dispose();
+            if (occlusionHits.IsCreated) occlusionHits.Dispose();
             plateCapacity = Mathf.Max(16, Mathf.NextPowerOfTwo(n));
+            occlusionCommands = new NativeArray<RaycastCommand>(plateCapacity, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            occlusionHits = new NativeArray<RaycastHit>(plateCapacity, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            occlusionPlate = new int[plateCapacity];
             matrices = new NativeArray<Matrix4x4>(plateCapacity, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             plateColors = new NativeArray<Color>(plateCapacity, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             plateKey = new NativeArray<int>(plateCapacity, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
@@ -1052,6 +1075,8 @@ namespace Basis.Scripts.UI.NamePlate
             if (plateKey.IsCreated) plateKey.Dispose();
             if (plateSlot.IsCreated) plateSlot.Dispose();
             if (platePos.IsCreated) platePos.Dispose();
+            if (occlusionCommands.IsCreated) occlusionCommands.Dispose();
+            if (occlusionHits.IsCreated) occlusionHits.Dispose();
             if (uvScratch.IsCreated) uvScratch.Dispose();
             if (panelScratch.IsCreated) panelScratch.Dispose();
             if (textScratch.IsCreated) textScratch.Dispose();

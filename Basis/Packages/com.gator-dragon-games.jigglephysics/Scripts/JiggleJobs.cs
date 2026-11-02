@@ -323,9 +323,12 @@ public class JiggleJobs {
 
         jobSimulate.UpdateArrays(_memoryBus);
         jobSimulate.substeps = substeps;
-        jobBulkTransformReset.UpdateArrays(_memoryBus);
-        jobBulkTransformRead.UpdateArrays(_memoryBus);
-        jobBulkTransformReadReset.UpdateArrays(_memoryBus);
+        if (UseMergedTransformReadReset) {
+            jobBulkTransformReadReset.UpdateArrays(_memoryBus);
+        } else {
+            jobBulkTransformReset.UpdateArrays(_memoryBus);
+            jobBulkTransformRead.UpdateArrays(_memoryBus);
+        }
         jobBulkPersonalColliderTransformRead.UpdateArrays(_memoryBus.personalColliders);
         jobBulkSceneColliderTransformRead.UpdateArrays(_memoryBus.sceneColliders);
         jobBroadPhase.UpdateArrays(_memoryBus);
@@ -351,14 +354,11 @@ public class JiggleJobs {
         CaptureStartupSettings();
 
         Profiler.BeginSample("JiggleJobs.Simulate.Schedule");
-        if (hasHandleSimulate) {
-            var colliderReadDependency = JobHandle.CombineDependencies(handleSimulate, externalDependency);
-            handlePersonalColliderRead = jobBulkPersonalColliderTransformRead.ScheduleReadOnly( _memoryBus.GetPersonalColliderTransformAccessArray(), 128, colliderReadDependency);
-            handleSceneColliderRead = jobBulkSceneColliderTransformRead.ScheduleReadOnly(_memoryBus.GetSceneColliderTransformAccessArray(), 128, colliderReadDependency);
-        } else {
-            handlePersonalColliderRead = jobBulkPersonalColliderTransformRead.ScheduleReadOnly( _memoryBus.GetPersonalColliderTransformAccessArray(), 128, externalDependency);
-            handleSceneColliderRead = jobBulkSceneColliderTransformRead.ScheduleReadOnly(_memoryBus.GetSceneColliderTransformAccessArray(), 128, externalDependency);
-        }
+        var colliderReadDependency = hasHandleSimulate ? JobHandle.CombineDependencies(handleSimulate, externalDependency) : externalDependency;
+        var personalColliderTransforms = _memoryBus.GetPersonalColliderTransformAccessArray();
+        var sceneColliderTransforms = _memoryBus.GetSceneColliderTransformAccessArray();
+        handlePersonalColliderRead = personalColliderTransforms.length > 0 ? jobBulkPersonalColliderTransformRead.ScheduleReadOnly(personalColliderTransforms, 128, colliderReadDependency) : colliderReadDependency;
+        handleSceneColliderRead = sceneColliderTransforms.length > 0 ? jobBulkSceneColliderTransformRead.ScheduleReadOnly(sceneColliderTransforms, 128, colliderReadDependency) : colliderReadDependency;
 
         hasHandlePersonalColliderRead = true;
         hasHandleSceneColliderRead = true;
@@ -371,10 +371,8 @@ public class JiggleJobs {
         var sceneColliderCount = _memoryBus.sceneColliderCount;
         // Read live rather than captured at startup: the worker pool can be resized at runtime, and
         // the same build runs on a 4 core headset and a 32 thread desktop.
-        var cullBatchSize = JiggleJobColliderCull.GetBatchSize(sceneColliderCount,
-            JobsUtility.JobWorkerCount, colliderCullMinBatch);
         handleColliderCull = sceneColliderCount > 0
-            ? jobColliderCull.Schedule(sceneColliderCount, cullBatchSize, handleSceneColliderRead)
+            ? jobColliderCull.Schedule(sceneColliderCount, JiggleJobColliderCull.GetBatchSize(sceneColliderCount, JobsUtility.JobWorkerCount, colliderCullMinBatch), handleSceneColliderRead)
             : handleSceneColliderRead;
         hasHandleColliderCull = true;
 

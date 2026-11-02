@@ -52,7 +52,7 @@ namespace Basis.Scripts.UI.UI_Panels
             BasisLocalPlayer.OnLocalAvatarChanged -= UpdateDelayedSetUI;
             BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= UpdateDelayedSetUI;
 
-            BasisLocalPlayer.AfterSimulateOnLate.RemoveAction(101, UpdateUI);
+            BasisLocalPlayer.AfterSimulateOnLate.RemoveAction(105, UpdateUI);
         }
         #endregion
         #region Player Change Callbacks

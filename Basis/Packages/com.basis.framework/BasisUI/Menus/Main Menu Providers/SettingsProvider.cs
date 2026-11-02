@@ -644,10 +644,11 @@ namespace Basis.BasisUI
 
             BuildNetworkingSection(container, descriptor);
 
-            PanelSectionToggleHelpers.CreateLazyBoxedSection(container,
+            PanelSectionToggle cilboxPermissionsSection = null;
+            cilboxPermissionsSection = PanelSectionToggleHelpers.CreateLazyBoxedSection(container,
                 BasisLocalization.Get("settings.cilboxPermissions.title"),
                 () => SettingsProviderCilboxPermissions.BuildSection(container, descriptor),
-                false, _ => descriptor.ForceRebuild());
+                false, _ => SettingsProviderCilboxPermissions.SettleSection(cilboxPermissionsSection, container));
 
             PanelSectionToggle developerSection = null;
             developerSection = PanelSectionToggleHelpers.CreateCollapsibleBoxedSection(container,

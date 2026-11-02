@@ -75,6 +75,8 @@ public static class SettingsProviderControllerConfig
             }
         });
 
+        BuildMovementSection(container);
+
         if (isVR)
         {
             BuildTurningSection(container);
@@ -157,6 +159,36 @@ public static class SettingsProviderControllerConfig
 
         descriptor.ForceRebuild();
         return tab;
+    }
+    private static void BuildMovementSection(RectTransform container)
+    {
+        SettingsProviderKeyboardBindings.CreateCollapsibleSection(
+            container, BasisLocalization.Get("settings.controls.movement.title"), BasisLocalization.Get("settings.controls.movement.description"), group =>
+        {
+            PanelDropdown dropdownSettle = PanelDropdown.CreateNewEntry(group);
+            dropdownSettle.Descriptor.SetTitle(BasisLocalization.Get("settings.controls.movementSettle"));
+            dropdownSettle.Descriptor.SetTooltip(BasisLocalization.Get("settings.controls.movementSettle.tooltip"));
+            dropdownSettle.AssignLocalizedEntries(
+                new List<string>
+                {
+                    BasisSettingsDefaults.MovementSettle_DesktopOnly,
+                    BasisSettingsDefaults.MovementSettle_Always,
+                    BasisSettingsDefaults.MovementSettle_Off,
+                },
+                new List<string>
+                {
+                    "settings.controls.movementSettle.desktopOnly",
+                    "settings.controls.movementSettle.always",
+                    "settings.controls.movementSettle.off",
+                });
+            dropdownSettle.AssignBinding(BasisSettingsDefaults.MovementSettle);
+
+            PanelSlider sliderSettleTime = PanelSlider.CreateEntryAndBind(
+                group,
+                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.controls.movementSettleTime"), 0.1f, 1f, false, 2, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.MovementSettleTime);
+            sliderSettleTime.Descriptor.SetTooltip(BasisLocalization.Get("settings.controls.movementSettleTime.tooltip"));
+        });
     }
     /// <summary>
     /// Snap turn on/off, then only the one slider that applies: the snap angle, or the smooth
@@ -446,6 +478,8 @@ public static class SettingsProviderControllerConfig
     }
     private static void ResetControlsDefaults()
     {
+        BasisSettingsDefaults.MovementSettle.ResetToDefault();
+        BasisSettingsDefaults.MovementSettleTime.ResetToDefault();
         BasisSettingsDefaults.ForceGridSnap.ResetToDefault();
         BasisSettingsDefaults.GridSnapSize.ResetToDefault();
         BasisSettingsDefaults.ForceRotationSnap.ResetToDefault();

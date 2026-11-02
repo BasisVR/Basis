@@ -1334,6 +1334,12 @@ namespace Basis.BasisUI
         public const string DesktopInputInVR_Adaptive = "Adaptive";
         public const string DesktopInputInVR_AlwaysOn = "Always On";
         public const string DesktopInputInVR_Off = "Off";
+        // Letting go of movement coasts to a stop. Desktop only by default: in VR an uncommanded glide moves the view with nothing matching it in the inner ear.
+        public static BasisSettingsBinding<string> MovementSettle = new("movementsettle", new BasisPlatformDefault<string>(MovementSettle_DesktopOnly));
+        public static BasisSettingsBinding<float> MovementSettleTime = new("movementsettletime", new BasisPlatformDefault<float>(0.35f));
+        public const string MovementSettle_Off = "Off";
+        public const string MovementSettle_DesktopOnly = "Desktop Only";
+        public const string MovementSettle_Always = "Always";
         public static BasisSettingsBinding<bool> QuestControllerFix = new("questcontrollerfix", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<bool> ForceGridSnap = new("forcegridsnap", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<float> GridSnapSize = new("gridsnapsize", new BasisPlatformDefault<float>(0.25f));
@@ -1899,6 +1905,8 @@ namespace Basis.BasisUI
         // in a Burst job overlapping Simulate, instead of evaluating the Animator on the main thread.
         // Only engages on avatars wearing the stock controller; custom animators keep the Animator path.
         public static BasisSettingsBinding<bool> FBIKJobLocomotion = new("fbikjoblocomotion", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> FBIKMotionMatching = new("fbikmotionmatching", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> FBIKInertialization = new("fbikinertialization", new BasisPlatformDefault<bool>(true));
         public static BasisSettingsBinding<float> FBIKBodyFitMaxDeviation = new("fbikbodyfitmaxdeviation_v3", new BasisPlatformDefault<float>(Basis.IK.BasisBodyFitCore.DefaultMaxDeviation));
 
         // The player's arm span is always estimated as eye height * this ratio; it is never measured,
@@ -2279,6 +2287,8 @@ namespace Basis.BasisUI
             SmoothTurnSpeed.LoadBindingValue();
             ScrollSpeed.LoadBindingValue();
             DesktopInputInVR.LoadBindingValue();
+            MovementSettle.LoadBindingValue();
+            MovementSettleTime.LoadBindingValue();
 
             // Avatar / IK / Body
             SelectedHeight.LoadBindingValue();
@@ -2885,6 +2895,8 @@ namespace Basis.BasisUI
             FBIKArmSwivelMaxRate.LoadBindingValue();
             FBIKBodyFit.LoadBindingValue();
             FBIKJobLocomotion.LoadBindingValue();
+            FBIKMotionMatching.LoadBindingValue();
+            FBIKInertialization.LoadBindingValue();
             FBIKBodyFitMaxDeviation.LoadBindingValue();
             FBIKNeckExtensionDamp.LoadBindingValue();
             FBIKNeckFlexionDamp.LoadBindingValue();
@@ -3019,7 +3031,7 @@ namespace Basis.BasisUI
             RaycastLineWidth.LoadBindingValue();
             RaycastLineColor.LoadBindingValue();
             HighlightColor.LoadBindingValue();
-            PickupLineColor.LoadBindingValue();
+            PickupLineColor.LoadBindingValue();
             PerformanceBarDetailed.LoadBindingValue();
             GraphicsApi.LoadBindingValue();
             QuestControllerFix.LoadBindingValue();

@@ -838,6 +838,8 @@
     { "key": "sdk.cilbox.api.haptics.summary", "value": "Hace vibrar los mandos del jugador local con pulsos cortos y limitados. Los avatares solo llegan al jugador que los lleva." },
     { "key": "sdk.cilbox.api.controllerInput.title", "value": "Entrada de mandos de RV" },
     { "key": "sdk.cilbox.api.controllerInput.summary", "value": "Lee los gatillos, agarres, botones y palancas del jugador local en mundos. No lee nada mientras el menú está abierto o un puntero está sobre la interfaz." },
+    { "key": "sdk.cilbox.api.inputRequest.title", "value": "Entrada solicitada" },
+    { "key": "sdk.cilbox.api.inputRequest.summary", "value": "Pide una sola vez las teclas, botones y palancas que un script de mundo necesita de cualquier dispositivo. Cada entrada se lee una vez por fotograma para todos los scripts, y el script solo se entera cuando cambia. No lee nada mientras el menú está abierto o el jugador escribe." },
     { "key": "sdk.cilbox.api.settingsTab.title", "value": "Pestañas de Ajustes" },
     { "key": "sdk.cilbox.api.settingsTab.summary", "value": "Añade una pestaña a los Ajustes de Basis con tus propios encabezados, textos, botones, interruptores, deslizadores y listas desplegables. Basis dibuja los controles y llama a tus métodos cuando el jugador los usa. Los mundos, los props que generó el jugador local y el propio avatar del jugador local pueden añadir hasta 4 pestañas cada uno, y desaparecen con el script." },
     { "key": "sdk.cilbox.api.menuPanel.title", "value": "Paneles de menú" },

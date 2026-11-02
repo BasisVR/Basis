@@ -1122,8 +1122,11 @@ namespace Basis.Scripts.UI.NamePlate
                         }
                     }
 
-                    p.UpdateChatTimeout(now);
-                    p.RefreshTypingIndicatorAnimation(now);
+                    if (p.ChatRegistryIndex >= 0)
+                    {
+                        p.UpdateChatTimeout(now);
+                        p.RefreshTypingIndicatorAnimation(now);
+                    }
                     BasisNamePlateOverlayLimiter.Consider(p);
                 }
                 BasisNamePlateOverlayLimiter.Apply(Basis.Scripts.Drivers.BasisLocalCameraDriver.Position);

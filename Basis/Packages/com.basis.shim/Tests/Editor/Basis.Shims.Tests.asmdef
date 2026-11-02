@@ -8,6 +8,7 @@
         "BasisNetworkCore",
         "Unity.Collections",
         "Unity.Mathematics",
+        "Unity.InputSystem",
         "UnityEngine.TestRunner",
         "BasisSDK",
         "BasisShims",

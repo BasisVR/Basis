@@ -275,7 +275,7 @@ public partial class BasisLocalFootDriver
     private Vector3 HipsWorldPosition()
     {
         var c = BasisLocalBoneDriver.HipsControl;
-        return c != null && c.HasStore ? c.OutgoingWorldData.position : BasisLocalPose.GetPosition(BasisPoseSlot.Hips, hips);
+        return c.HasStore ? c.OutgoingWorldData.position : BasisLocalPose.GetPosition(BasisPoseSlot.Hips, hips);
     }
     private static Vector3 FootWorldPosition(BasisLocalBoneControl c, Transform bone)
     {
@@ -759,7 +759,7 @@ public partial class BasisLocalFootDriver
             headRot = headData.rotation,
             avatarForward = avatarRotation * Vector3.forward,
             avatarRight = avatarRotation * Vector3.right,
-            hasChest = chestCtrl != null,
+            hasChest = true,
             groundHit = groundHit,
             groundPoint = groundHit ? (float3)ch.point : float3.zero,
             leftGroundValid = footGroundValid[0],
@@ -866,8 +866,8 @@ public partial class BasisLocalFootDriver
     private bool IsSelfCollider(Collider c)
     {
         if (c == null) return true;
-        if (selfCollider != null && c == selfCollider) return true;
-        return selfRoot != null && c.transform.IsChildOf(selfRoot);
+        if (ReferenceEquals(c, selfCollider)) return true;
+        return c.transform.IsChildOf(selfRoot);
     }
     private bool GroundCast(Vector3 origin, Vector3 dir, float maxDist, float sphereRadius, float maxUpComponent, out RaycastHit best)
     {

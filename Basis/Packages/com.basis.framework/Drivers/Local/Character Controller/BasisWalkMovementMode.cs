@@ -71,6 +71,9 @@ namespace Basis.Scripts.BasisCharacterController
                 move.x = 0;
                 move.z = 0;
             }
+            Vector3 settled = ctx.ApplyMovementSettle(new Vector3(move.x, 0f, move.z), dt);
+            move.x = settled.x;
+            move.z = settled.z;
 
             bool pushed = ctx.HasExternalVelocity;
             if (pushed)
@@ -91,6 +94,12 @@ namespace Basis.Scripts.BasisCharacterController
             if ((ctx.Flags & CollisionFlags.Above) != 0 && ctx.currentVerticalSpeed > 0f)
             {
                 ctx.currentVerticalSpeed = 0f;
+            }
+            if (ctx.IsSettling && (ctx.Flags & CollisionFlags.Sides) != 0)
+            {
+                Vector3 slid = ctx.CurrentPosition - ctx.MoveStartPosition;
+                slid.y = 0f;
+                ctx.ClipMovementSettle(slid, dt);
             }
             if (pushed)
             {
