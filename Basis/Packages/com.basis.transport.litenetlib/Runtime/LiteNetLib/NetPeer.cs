@@ -127,6 +127,7 @@ namespace LiteNetLib
             public readonly byte ChannelId;
             public int ReceivedCount;
             public int TotalSize;
+            public int HeldBytes;
             /// <summary>Peer clock (ms) when a fragment last arrived for this set. See fragment sweep in Update.</summary>
             public double LastTouchedMs;
 
@@ -188,6 +189,8 @@ namespace LiteNetLib
         private readonly object _fragmentsLock = new object();
         private readonly Dictionary<ushort, IncomingFragments> _holdedFragments;
         private readonly Dictionary<ushort, ushort> _deliveredFragments;
+        private long _heldFragmentBytes;
+        private volatile bool _fragmentBudgetExceeded;
 
         /// <summary>
         /// Reassembly sets an abandoned sender leaves behind used to live for the whole session —
@@ -223,6 +226,7 @@ namespace LiteNetLib
         private NetPacket _shutdownPacket;
         private const int ShutdownDelay = 300;
         private float _shutdownTimer;
+        private float _shutdownElapsed;
         private readonly NetPacket _pingPacket;
         private readonly NetPacket _pongPacket;
         private readonly NetPacket _connectRequestPacket;
@@ -1152,6 +1156,7 @@ namespace LiteNetLib
 
                 //reset time for reconnect protection
                 Interlocked.Exchange(ref _timeSinceLastPacket, 0);
+                _shutdownElapsed = 0;
 
                 //send shutdown packet
                 _shutdownPacket = new NetPacket(PacketProperty.Disconnect, length) { ConnectionNumber = _connectNum };
@@ -1236,7 +1241,17 @@ namespace LiteNetLib
                         return;
                     }
 
+                    if (_heldFragmentBytes + p.Size > NetManager.MaxHeldFragmentBytesPerPeer)
+                    {
+                        NetManager.PoolRecycle(p);
+                        ReleaseAllFragments();
+                        _fragmentBudgetExceeded = true;
+                        return;
+                    }
+
                     incomingFragments.Set(p.FragmentPart, p);
+                    incomingFragments.HeldBytes += p.Size;
+                    _heldFragmentBytes += p.Size;
                     incomingFragments.ReceivedCount++;
                     incomingFragments.TotalSize += p.Size - NetConstants.FragmentedHeaderTotalSize;
                     incomingFragments.LastTouchedMs = _peerClockMs;
@@ -1254,12 +1269,14 @@ namespace LiteNetLib
                         {
                             // Should not happen since ReceivedCount == TotalFragments, but handle gracefully
                             _holdedFragments.Remove(packetFragId);
+                            _heldFragmentBytes -= incomingFragments.HeldBytes;
                             incomingFragments.RecycleAll(NetManager);
                             NetDebug.WriteError($"Fragment {i} missing during reassembly");
                             return;
                         }
                     }
                     _holdedFragments.Remove(packetFragId);
+                    _heldFragmentBytes -= incomingFragments.HeldBytes;
                 }
 
                 // Outside lock: do the actual data copy
@@ -1336,6 +1353,7 @@ namespace LiteNetLib
                 if (stale == null) return;
                 foreach (ushort fragId in stale)
                 {
+                    _heldFragmentBytes -= _holdedFragments[fragId].HeldBytes;
                     _holdedFragments[fragId].RecycleAll(NetManager);
                     _holdedFragments.Remove(fragId);
                 }
@@ -1362,11 +1380,15 @@ namespace LiteNetLib
                 NetManager.PoolRecycle(priorityQueued);
             }
             lock (_fragmentsLock)
-            {
-                foreach (var frag in _holdedFragments.Values)
-                    frag.RecycleAll(NetManager);
-                _holdedFragments.Clear();
-            }
+                ReleaseAllFragments();
+        }
+
+        private void ReleaseAllFragments()
+        {
+            foreach (var frag in _holdedFragments.Values)
+                frag.RecycleAll(NetManager);
+            _holdedFragments.Clear();
+            _heldFragmentBytes = 0;
         }
 
         private void ProcessMtuPacket(NetPacket packet)
@@ -1920,6 +1942,12 @@ namespace LiteNetLib
             switch (_connectionState)
             {
                 case ConnectionState.Connected:
+                    if (_fragmentBudgetExceeded)
+                    {
+                        _fragmentBudgetExceeded = false;
+                        NetManager.DisconnectPeerForce(this, DisconnectReason.ConnectionFailed, 0, null);
+                        return;
+                    }
                     if (_timeSinceLastPacket > NetManager.DisconnectTimeout)
                     {
                         //NetDebug.Write($"[UPDATE] Disconnect by timeout: {_timeSinceLastPacket} > {NetManager.DisconnectTimeout}");
@@ -1929,7 +1957,8 @@ namespace LiteNetLib
                     break;
 
                 case ConnectionState.ShutdownRequested:
-                    if (_timeSinceLastPacket > NetManager.DisconnectTimeout)
+                    _shutdownElapsed += deltaTime;
+                    if (_timeSinceLastPacket > NetManager.DisconnectTimeout || _shutdownElapsed > NetManager.ShutdownLingerMs)
                     {
                         _connectionState = ConnectionState.Disconnected;
                     }

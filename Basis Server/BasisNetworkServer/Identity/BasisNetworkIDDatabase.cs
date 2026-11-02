@@ -4,7 +4,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using BasisNetworkServer.Security;
 using static BasisNetworkCore.Serializable.SerializableBasis;
 
 namespace BasisNetworkCore
@@ -25,7 +24,6 @@ namespace BasisNetworkCore
         // Peers we have already warned about hitting the cap, so a client that keeps requesting after
         // the limit cannot turn one reject into a log flood (the flood this cap exists to stop).
         private static readonly ConcurrentDictionary<string, byte> PerPeerCapWarned = new ConcurrentDictionary<string, byte>();
-        private static readonly BasisPeerRateLimiter RequestLimiter = new BasisPeerRateLimiter(200f, 8192f);
         private static string CountKey(NetPeer peer) => NetworkServer.AuthIdentity != null && NetworkServer.AuthIdentity.NetIDToUUID(peer, out string uuid) && !string.IsNullOrEmpty(uuid) ? uuid : "peer:" + peer.Id;
         private const int DefaultMaxNetworkIdsPerPlayer = 32768;
 
@@ -45,7 +43,7 @@ namespace BasisNetworkCore
         private static readonly object AssignLock = new object();
         public static void AddOrFindNetworkID(NetPeer NetPeer, string UniqueStringID)
         {
-            if (string.IsNullOrEmpty(UniqueStringID) || !RequestLimiter.TryConsume(NetPeer))
+            if (string.IsNullOrEmpty(UniqueStringID))
             {
                 return;
             }

@@ -210,7 +210,11 @@ namespace Basis.Network
             message = Sanitize(message);
             MinuteStamp stamp = CurrentStamp();
 
-            if (WriteToScreen) WriteScreenLine(stamp.Bracketed, consoleLabel, levelColor, message);
+            if (WriteToScreen)
+            {
+                string bracketed = stamp.Bracketed;
+                BasisConsoleWriter.Enqueue(() => WriteScreenLine(bracketed, consoleLabel, levelColor, message));
+            }
 
             if (UseLogging)
             {

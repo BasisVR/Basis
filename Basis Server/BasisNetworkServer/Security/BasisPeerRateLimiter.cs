@@ -21,6 +21,7 @@ namespace BasisNetworkServer.Security
             foreach (BasisPeerRateLimiter limiter in all.Keys) limiter.buckets.TryRemove(peerId, out _);
         }
         public void RemovePeer(int peerId) => buckets.TryRemove(peerId, out _);
+        public int TrackedPeers => buckets.Count;
 
         private class TokenBucket
         {

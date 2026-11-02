@@ -94,6 +94,7 @@ public class JiggleMemoryBus {
     public NativeArray<JiggleTransform> previousLocalRestPoseTransforms;
     public NativeArray<float3> rootOutputPositions;
     public NativeArray<int> rootSlotIndices;
+    public unsafe int* RootSlotIndicesPointer => rootSlotIndices.IsCreated ? (int*)rootSlotIndices.GetUnsafeReadOnlyPtr() : null;
     public NativeArray<JiggleTransform> interpolationOutputPoses;
     public NativeArray<PoseData> simulationOutputPoseData;
     public NativeArray<PoseData> interpolationCurrentPoseData;

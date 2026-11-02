@@ -674,9 +674,9 @@ public class BasisPeerRateLimiterTests
     [Fact]
     public void PeerIdChurn_DoesNotGrowTrackingWithoutBound()
     {
-        // Tracking is capped and cleared wholesale when it is exceeded, so a peer that
-        // reconnects under a new id cannot make the server hold a bucket per attempt.
-        // The clear is observable: a peer that had spent its burst gets a fresh one.
+        // Departed peers are dropped from every limiter on disconnect, so a peer that reconnects
+        // under a new id cannot make the server hold a bucket per attempt, and churn never resets
+        // the buckets of peers that are still connected.
         var limiter = new BasisPeerRateLimiter(tokensPerSecond: 0f, tokenBurst: 1f);
         FakeNetPeer victim = NewPeer();
         Assert.True(limiter.TryConsume(victim));
@@ -684,10 +684,13 @@ public class BasisPeerRateLimiterTests
 
         for (int i = 0; i < 4200; i++)
         {
-            limiter.TryConsume(NewPeer());
+            FakeNetPeer churn = NewPeer();
+            limiter.TryConsume(churn);
+            BasisPeerRateLimiter.RemovePeerFromAll(churn.Id);
         }
 
-        Assert.True(limiter.TryConsume(victim));
+        Assert.Equal(1, limiter.TrackedPeers);
+        Assert.False(limiter.TryConsume(victim));
     }
 
     [Fact]

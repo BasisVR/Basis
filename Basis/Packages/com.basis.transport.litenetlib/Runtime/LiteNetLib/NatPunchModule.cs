@@ -85,6 +85,9 @@ namespace LiteNetLib
         private readonly NetDataWriter _cacheWriter = new NetDataWriter();
         private readonly NetPacketProcessor _netPacketProcessor = new NetPacketProcessor(MaxTokenLength);
         private INatPunchListener _natPunchListener;
+        private readonly ConcurrentDictionary<IPEndPoint, long> _introducers = new ConcurrentDictionary<IPEndPoint, long>();
+        private const long IntroducerTrustMs = 120000;
+        private const int MaxIntroducers = 16;
         public const int MaxTokenLength = 256;
 
         /// <summary>
@@ -95,7 +98,7 @@ namespace LiteNetLib
         internal NatPunchModule(NetManager socket)
         {
             _socket = socket;
-            _netPacketProcessor.SubscribeReusable<NatIntroduceResponsePacket>(OnNatIntroductionResponse);
+            _netPacketProcessor.SubscribeReusable<NatIntroduceResponsePacket, IPEndPoint>(OnNatIntroductionResponse);
             _netPacketProcessor.SubscribeReusable<NatIntroduceRequestPacket, IPEndPoint>(OnNatIntroductionRequest);
             _netPacketProcessor.SubscribeReusable<NatPunchPacket, IPEndPoint>(OnNatPunch);
         }
@@ -205,6 +208,8 @@ namespace LiteNetLib
                 networkIp = NetUtils.GetLocalIp(LocalAddrType.IPv6);
             }
 
+            if (_introducers.Count >= MaxIntroducers) _introducers.Clear();
+            _introducers[Normalize(masterServerEndPoint)] = NowMs();
             Send(
                 new NatIntroduceRequestPacket
                 {
@@ -236,8 +241,19 @@ namespace LiteNetLib
         }
 
         //We got introduce and must punch
-        private void OnNatIntroductionResponse(NatIntroduceResponsePacket req)
+        private static long NowMs() => (long)(System.Diagnostics.Stopwatch.GetTimestamp() * (1000.0 / System.Diagnostics.Stopwatch.Frequency));
+        private static IPEndPoint Normalize(IPEndPoint endPoint) => endPoint.Address.IsIPv4MappedToIPv6 ? new IPEndPoint(endPoint.Address.MapToIPv4(), endPoint.Port) : endPoint;
+        private bool FromIntroducer(IPEndPoint sender) => sender != null && _introducers.TryGetValue(Normalize(sender), out long sent) && NowMs() - sent <= IntroducerTrustMs;
+        private bool ExpectingPunch()
         {
+            long now = NowMs();
+            foreach (var pair in _introducers) if (now - pair.Value <= IntroducerTrustMs) return true;
+            return false;
+        }
+        private void OnNatIntroductionResponse(NatIntroduceResponsePacket req, IPEndPoint senderEndPoint)
+        {
+            if (!FromIntroducer(senderEndPoint) || req.Internal == null || req.External == null)
+                return;
             //NetDebug.Write(NetLogLevel.Trace, "[NAT] introduction received");
 
             // send internal punch
@@ -279,6 +295,8 @@ namespace LiteNetLib
         //We got punch and can connect
         private void OnNatPunch(NatPunchPacket req, IPEndPoint senderEndPoint)
         {
+            if (!ExpectingPunch())
+                return;
             //Read info
             //NetDebug.Write(NetLogLevel.Trace, $"[NAT] punch received from {senderEndPoint} - additional info: {req.Token}");
 

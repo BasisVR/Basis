@@ -88,6 +88,7 @@ namespace Basis.Tests.GlobalIllumination
             finally
             {
                 BasisAvatarProxyJobs.Release();
+                typeof(BasisAvatarProxy).GetField("layoutDirty", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)?.SetValue(null, true);
                 Object.DestroyImmediate(a.gameObject);
                 Object.DestroyImmediate(b.gameObject);
                 Object.DestroyImmediate(c.gameObject);

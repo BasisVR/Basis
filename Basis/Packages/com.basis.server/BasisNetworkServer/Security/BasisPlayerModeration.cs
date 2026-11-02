@@ -153,8 +153,17 @@ namespace BasisNetworkServer.Security
         // Ban Storage
         // =========================
 
+        private static volatile HashSet<string> BannedIps = new HashSet<string>();
+        private static void RebuildBannedIps()
+        {
+            HashSet<string> ips = new HashSet<string>();
+            foreach (BannedPlayer p in BannedPlayers.Values) if (p.HasBannedIp && !string.IsNullOrEmpty(p.BannedIp)) ips.Add(p.BannedIp);
+            BannedIps = ips;
+        }
+
         public static void SaveBannedPlayers()
         {
+            RebuildBannedIps();
             if (!UseFileOnDisc) return;
 
             try
@@ -189,6 +198,7 @@ namespace BasisNetworkServer.Security
                     BannedPlayers[p.UUID] = p;
                     BannedUUIDs[p.UUID] = 0;
                 }
+                RebuildBannedIps();
             }
             catch (Exception ex)
             {
@@ -1801,7 +1811,7 @@ namespace BasisNetworkServer.Security
                 return false;
             }
 
-            return BannedPlayers.Values.Any(p => p.HasBannedIp && p.BannedIp == ip);
+            return BannedIps.Contains(ip);
         }
     }
 }

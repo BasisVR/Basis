@@ -38,7 +38,8 @@ public class Configuration
     // 15: ServerUUID added - the stable application-level identity sent to clients when they join.
     // 16: ContentSphereLeaveTimeoutSeconds and ContentSphereDeletionTimerSeconds added - how long shared orbs outlive their sharer, and an optional lifetime.
     // 17: player storage (StorageEnabled, StorageBackend, StorageMaxBytesPerPlayer, StorageMaxTotalMegabytes, StorageConnectionString, StorageSqlTable) added.
-    public const int CurrentConfigVersion = 18;
+    // 19: scene-relay backstop on by default (MaxSceneRelayMegabitsPerSecondPerPlayer 0 -> 64), avatar-relay backstop and MaxRelayPayloadBytes added, pending-login caps added.
+    public const int CurrentConfigVersion = 19;
     /// <summary>Schema version stamped into config.xml; 0 = a pre-versioning file that is upgraded on load.</summary>
     public int ConfigVersion = 0;
 
@@ -86,6 +87,8 @@ public class Configuration
     public BasisUserRestrictionMode BasisUserRestrictionMode;
     public int HowManyDuplicateAuthCanExist = 2;
     public int AuthValidationTimeOutMiliseconds = 9000;
+    public int MaxPendingLoginsPerAddress = 8;
+    public int MaxPendingLogins = 512;
     public bool EnableConsole = true;
     /// <summary>
     /// When true, the avatar reduction system bundles per-receiver avatar messages
@@ -376,16 +379,18 @@ public class Configuration
     /// normal heavy use (thousands per player); raise it for instances that legitimately hold more.
     /// 0 or negative restores the default rather than removing the cap.
     /// </summary>
-    public int MaxLoadedResourcesPerPlayer = 16384;
+    public int MaxLoadedResourcesPerPlayer = DefaultMaxLoadedResourcesPerPlayer;
+    public const int DefaultMaxLoadedResourcesPerPlayer = 4096;
     /// <summary>
-    /// Opt-in server-side ceiling on NON-image scene-relay egress one player may spend, in megabits
+    /// Server-side ceiling on NON-image scene-relay egress one player may spend, in megabits
     /// per second, charged on fan-out (payload times recipients). Image traffic is metered
-    /// separately by the image bandwidth governor. 0 (default) disables it entirely and preserves
-    /// the historical behaviour — a legitimate instance's scene-traffic ceiling is deployment
-    /// specific, so this is off until an operator sets a value. Set it as a backstop against a
-    /// modified client broadcasting arbitrary scene payloads to the whole room.
+    /// separately by the image bandwidth governor. 0 disables it. Backstop against a modified
+    /// client broadcasting arbitrary scene payloads to the whole room.
     /// </summary>
-    public int MaxSceneRelayMegabitsPerSecondPerPlayer = 0;
+    public int MaxSceneRelayMegabitsPerSecondPerPlayer = DefaultRelayMegabitsPerSecondPerPlayer;
+    public int MaxAvatarRelayMegabitsPerSecondPerPlayer = DefaultRelayMegabitsPerSecondPerPlayer;
+    public int MaxRelayPayloadBytes = 1024 * 1024;
+    public const int DefaultRelayMegabitsPerSecondPerPlayer = 64;
     public bool PlayspaceMoverLocked = false;
     public bool DirectConnectLocked = false;
     /// <summary>
@@ -493,6 +498,16 @@ public class Configuration
             // Heal an older config: if it predates the current schema version or is missing
             // any setting we now write, re-save it so the new settings (with defaults and
             // doc comments) are added without disturbing the values already present.
+            if (result.ConfigVersion < 19 && result.MaxLoadedResourcesPerPlayer == 16384)
+            {
+                result.MaxLoadedResourcesPerPlayer = DefaultMaxLoadedResourcesPerPlayer;
+                BNL.Log($"[Config] MaxLoadedResourcesPerPlayer was the old default 16384; lowering it to {DefaultMaxLoadedResourcesPerPlayer}.");
+            }
+            if (result.ConfigVersion < 19 && result.MaxSceneRelayMegabitsPerSecondPerPlayer == 0)
+            {
+                result.MaxSceneRelayMegabitsPerSecondPerPlayer = DefaultRelayMegabitsPerSecondPerPlayer;
+                BNL.Log($"[Config] MaxSceneRelayMegabitsPerSecondPerPlayer was the old 0 (off), which let one player fan unlimited scene data out to everyone; setting it to {DefaultRelayMegabitsPerSecondPerPlayer}.");
+            }
             if (BasisConfigXmlDocs.NeedsUpgrade(filePath, typeof(Configuration), result))
             {
                 BNL.Log($"{filePath} is from an older version; adding missing settings.");

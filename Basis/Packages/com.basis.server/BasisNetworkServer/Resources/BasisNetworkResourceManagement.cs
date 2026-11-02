@@ -16,7 +16,7 @@ public static class BasisNetworkResourceManagement
     // re-derives it from the database at the cap boundary so a missed decrement can never permanently
     // block a legitimate creator.
     private static readonly ConcurrentDictionary<string, int> PerCreatorCount = new ConcurrentDictionary<string, int>();
-    private const int DefaultMaxLoadedResourcesPerPlayer = 16384;
+    private const int DefaultMaxLoadedResourcesPerPlayer = Configuration.DefaultMaxLoadedResourcesPerPlayer;
 
     private static int ResolveMaxLoadedPerPlayer()
     {
@@ -205,13 +205,13 @@ public static class BasisNetworkResourceManagement
             }
             else
             {
-                BNL.LogError("Try Add Failed Already have Object Loaded With " + LocalLoadResource.LoadedNetID);
+                BNLThrottle.LogError("resources.208", "Try Add Failed Already have Object Loaded With " + LocalLoadResource.LoadedNetID);
             }
             NetworkServer.ReturnWriter(Writer);
         }
         else
         {
-            BNL.LogError("Already have Object Loaded With " + LocalLoadResource.LoadedNetID);
+            BNLThrottle.LogError("resources.214", "Already have Object Loaded With " + LocalLoadResource.LoadedNetID);
         }
     }
     // Server-authoritative path — skips IsAdminLocked peer check because the caller

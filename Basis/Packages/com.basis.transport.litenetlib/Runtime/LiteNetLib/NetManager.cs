@@ -300,6 +300,8 @@ namespace LiteNetLib
         /// Default: ushort.MaxValue (65535)
         /// </summary>
         public ushort MaxFragmentsCount = ushort.MaxValue;
+        public int MaxHeldFragmentBytesPerPeer = 32 * 1024 * 1024;
+        public int ShutdownLingerMs = 3000;
 
         /// <summary>
         /// UDP Only Socket Option

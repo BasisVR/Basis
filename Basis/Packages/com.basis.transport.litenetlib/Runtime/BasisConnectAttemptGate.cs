@@ -14,6 +14,7 @@ namespace Basis.Network.Core
         private readonly List<ulong> refilled = new List<ulong>();
         private readonly double perTick, burst;
         private long admitted, dropped;
+        public bool ExemptLoopback = true;
         public long Admitted => Interlocked.Read(ref admitted);
         public long Dropped => Interlocked.Read(ref dropped);
         public int TrackedAddresses
@@ -31,7 +32,7 @@ namespace Basis.Network.Core
         public bool TryAdmit(IPEndPoint endPoint) => endPoint == null || TryAdmit(endPoint.Address, Stopwatch.GetTimestamp());
         public bool TryAdmit(IPAddress address, long now)
         {
-            if (!TryKey(address, out ulong key)) return true;
+            if (!TryKey(address, out ulong key) || (ExemptLoopback && IPAddress.IsLoopback(address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address))) return true;
             lock (addresses)
             {
                 if (addresses.TryGetValue(key, out Bucket bucket)) Refill(ref bucket, now);
