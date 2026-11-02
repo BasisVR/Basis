@@ -808,9 +808,26 @@ public static partial class BasisHeightDriver
         AvatarToPlayerRatioScaled = SanitizePositive(SafeDivide(SelectedScaledAvatarHeight, SelectedScaledPlayerHeight, 1f), 1f);
 
         float denominator = BasisCalibrationMath.StandingEyeDenominator(SelectedUnScaledPlayerHeight, eyeScaleOffset, 0f);
+        float previousDeviceScale = DeviceScale;
         DeviceScale = SanitizePositive(state.DeviceScale, 1f);
+        bool hasHead = KeepHeadInPlaceAcrossScale(player, previousDeviceScale, DeviceScale, out Vector3 rootShift, out Vector3 headWorld);
         AppliedUniformScale = state.UniformScale;
         HeightModeGroundingOffset = state.GroundingOffset;
+        // The player's own eye height in the avatar's world, relative to the default. Equal to
+        // AvatarToDefaultRatioScaled in eye-height mode; in arm / best-fit modes it follows DeviceScale,
+        // so UI sized by it keeps the same size relative to the player's hands.
+        UserToDefaultRatioScaled = SanitizePositive(SafeDivide(DeviceScale * (SizingEyeHeight + PlayerCenterEyeVerticalOffset), FallbackHeightInMeters, AvatarToDefaultRatioScaled), AvatarToDefaultRatioScaled);
+        if (!Mathf.Approximately(previousDeviceScale, DeviceScale) && BasisLocalPlayer.PlayerReady)
+        {
+            OnDeviceScaleChanged?.Invoke(new BasisDeviceScaleChange
+            {
+                OldScale = previousDeviceScale,
+                NewScale = DeviceScale,
+                RootShift = rootShift,
+                HeadWorld = headWorld,
+                HasHead = hasHead,
+            });
+        }
 
         BasisDebug.Log(
             $"Height Mode: {(blendHeights ? $"ArmToHeightBlend {armToHeightBlend:P0}" : Height.ToString())} | PlayerMetric(scaled): {SelectedScaledPlayerHeight}m | " +
@@ -829,6 +846,93 @@ public static partial class BasisHeightDriver
             BasisDebug.LogTag.Avatar
         );
     }
+    /// <summary>
+    /// Tracked devices sit at root + headInRoom * DeviceScale, so a scale change slides the player
+    /// sideways by however far they stand from the play-space centre. Shift the root the opposite way
+    /// so the head is the pivot and the player stays where they are. Horizontal only: height is the
+    /// grounding offset's job. Moves through the character controller so a wall stops the shift.
+    /// </summary>
+    /// <returns>True when the head was found and is the pivot (headWorld is valid).</returns>
+    private static bool KeepHeadInPlaceAcrossScale(BasisLocalPlayer player, float oldScale, float newScale, out Vector3 rootShift, out Vector3 headWorld)
+    {
+        rootShift = Vector3.zero;
+        headWorld = Vector3.zero;
+        if (Mathf.Approximately(oldScale, newScale) || !BasisLocalPlayer.PlayerReady
+            || !BasisDeviceManagement.IsCurrentModeVR()
+            || player.LocalSeatDriver == null || player.LocalSeatDriver.IsSeated)
+        {
+            return false;
+        }
+        var head = Basis.Scripts.Drivers.BasisLocalCameraDriver.Instance?.BasisLockToInput?.BasisInput;
+        if (head == null)
+        {
+            return false;
+        }
+        // Where the head is right now, before anything moves: the pivot everything scales about.
+        headWorld = BasisLocalPlayer.localToWorldMatrix.MultiplyPoint3x4(head.ScaledDeviceCoord.position);
+        Vector3 headInRoom = head.UnscaledDeviceCoord.position;
+        headInRoom.y = 0f;
+        Transform root = player.transform;
+        Vector3 delta = root.rotation * (headInRoom * (oldScale - newScale));
+        delta.y = 0f;
+        if (delta.sqrMagnitude < 1e-8f || float.IsNaN(delta.x) || float.IsNaN(delta.z))
+        {
+            return true;
+        }
+
+        Vector3 startPos = root.position;
+        var driver = player.LocalCharacterDriver;
+        var controller = driver != null ? driver.characterController : null;
+        if (controller != null && controller.enabled)
+        {
+            // A purely horizontal Move clears isGrounded; keep floor contact the same way the
+            // play-space mover does so the avatar doesn't drop into the falling animation.
+            if (controller.isGrounded)
+            {
+                delta.y = -Mathf.Max(controller.skinWidth * 4f, 0.02f);
+            }
+            controller.Move(delta);
+            BasisLocalPose.InvalidateAll();
+        }
+        else
+        {
+            root.position += delta;
+        }
+
+        root.GetPositionAndRotation(out Vector3 finalPos, out Quaternion finalRot);
+        BasisLocalPlayer.localToWorldMatrix = Matrix4x4.TRS(finalPos, finalRot, root.lossyScale);
+        if (driver != null)
+        {
+            driver.CurrentPosition = finalPos;
+            driver.CurrentRotation = finalRot;
+        }
+
+        // Report what actually moved (a wall can cut the shift short) so things anchored to the root,
+        // like the play-space-stable menu, can cancel it out.
+        rootShift = finalPos - startPos;
+        rootShift.y = 0f;
+        return true;
+    }
+
+    public struct BasisDeviceScaleChange
+    {
+        public float OldScale, NewScale;
+        /// <summary>World-space shift applied to the player root to keep the head in place.</summary>
+        public Vector3 RootShift;
+        /// <summary>The head's world position: the pivot the play space scaled about. Valid when HasHead.</summary>
+        public Vector3 HeadWorld;
+        public bool HasHead;
+    }
+
+    /// <summary>
+    /// Fired the moment DeviceScale changes. Synchronous, so anything anchored to the player root
+    /// (the play-space-stable menu) can follow before the next render.
+    /// </summary>
+    public static event System.Action<BasisDeviceScaleChange> OnDeviceScaleChanged;
+
+    /// <summary>The player's eye height in the avatar's world over the default height. See ChooseHeightToUse.</summary>
+    public static float UserToDefaultRatioScaled = 1f;
+
     private static float SanitizePositive(float value, float fallback)
     {
         if (float.IsNaN(value) || float.IsInfinity(value) || value <= 0f)
