@@ -21,6 +21,7 @@ namespace Basis.Scripts.Networking.Sync
         private static readonly HashSet<BasisSyncedObject> _owned = new HashSet<BasisSyncedObject>();
         private static readonly List<BasisSyncedObject> _ownedScratch = new List<BasisSyncedObject>();
         private static readonly List<BasisSyncedObject> _mainThreadApply = new List<BasisSyncedObject>();
+        private static readonly HashSet<BasisSyncedObject> _mainThreadApplySet = new HashSet<BasisSyncedObject>();
         private static readonly List<BasisPickupSyncNetworking> _pickupReweld = new List<BasisPickupSyncNetworking>();
 
         private static bool _initialized;
@@ -127,26 +128,48 @@ namespace Basis.Scripts.Networking.Sync
             DisposeIf(ref _bindingsArr);
             if (_taa.isCreated) _taa.Dispose();
 
+            for (int i = 0; i < _remote.Count; i++) if (_remote[i] is not null) _remote[i].SyncSlot = -1;
             _remote.Clear();
+            _mainThreadApply.Clear();
+            _mainThreadApplySet.Clear();
             _owned.Clear();
             _ownedScratch.Clear();
             _ownedDirty = false;
             _initialized = false;
         }
 
+        // SyncSlot doubles as the object's index in _remote so membership and removal are O(1)
+        // instead of List.Contains/Remove scans (quadratic across a spawn/ownership storm). Order
+        // in _remote carries no meaning: the layout is rebuilt from it and the transform apply is a
+        // parallel job. _mainThreadApply keeps its order (sequential applies can be hierarchical).
+        private static bool IsRemoteRegistered(BasisSyncedObject obj)
+            => (uint)obj.SyncSlot < (uint)_remote.Count && ReferenceEquals(_remote[obj.SyncSlot], obj);
+
         public static void RegisterRemote(BasisSyncedObject obj)
         {
-            if (obj == null || _remote.Contains(obj)) return;
+            if (obj == null || IsRemoteRegistered(obj)) return;
+            obj.SyncSlot = _remote.Count;
             _remote.Add(obj);
-            if (obj.WantsMainThreadApply && !_mainThreadApply.Contains(obj)) _mainThreadApply.Add(obj);
+            if (obj.WantsMainThreadApply && _mainThreadApplySet.Add(obj)) _mainThreadApply.Add(obj);
             _dirtyLayout = true;
         }
 
         public static void UnregisterRemote(BasisSyncedObject obj)
         {
-            if (obj == null) return;
-            _mainThreadApply.Remove(obj);
-            if (_remote.Remove(obj)) _dirtyLayout = true;
+            if (obj is null) return;
+            if (_mainThreadApplySet.Remove(obj)) _mainThreadApply.Remove(obj);
+            if (!IsRemoteRegistered(obj)) return;
+            int slot = obj.SyncSlot;
+            int last = _remote.Count - 1;
+            if (slot != last)
+            {
+                BasisSyncedObject moved = _remote[last];
+                _remote[slot] = moved;
+                moved.SyncSlot = slot;
+            }
+            _remote.RemoveAt(last);
+            obj.SyncSlot = -1;
+            _dirtyLayout = true;
         }
 
         /// <summary>Live list of remote (interpolated) synced objects, for debug visualisation. Do not mutate.</summary>

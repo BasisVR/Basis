@@ -46,12 +46,17 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             int snapshotLen = maxId + 1;
             if (_generationSnapshot.Length < snapshotLen)
             {
-                _generationSnapshot = new long[Math.Max(snapshotLen, _generationSnapshot.Length * 2)];
+                _generationSnapshot = new uint[Math.Max(snapshotLen, _generationSnapshot.Length * 2)];
             }
+            // Collected here so the pair loop only dereferences a sender's PlayerState for
+            // BypassReduction (rarely set) when some sender has it on.
+            bool anyBypass = false;
             for (int i = 0; i < playerCount; i++)
             {
                 int id = activeCopy[i].id;
-                _generationSnapshot[id] = Interlocked.Read(ref activeCopy[i].state.DataGeneration);
+                PlayerState s = activeCopy[i].state;
+                _generationSnapshot[id] = (uint)Interlocked.Read(ref s.DataGeneration);
+                anyBypass |= s.BypassReduction;
             }
 
             // Fallback interval for pairs not yet in the distance cache (new players).
@@ -90,6 +95,11 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             _lastSendWorkers = Math.Min(parallelOptions.MaxDegreeOfParallelism, end - start);
 
             bool bundlingEnabled = EnableAvatarBundleCompression;
+
+            // Tick-scoped values hoisted out of the pair loop: both are only written by the tick
+            // thread outside this phase, so re-reading the statics per pair bought nothing.
+            uint[] genSnapshot = _generationSnapshot;
+            int shedTier = _loadShedTier;
 
             Parallel.For(start, end, parallelOptions, i =>
             {
@@ -166,7 +176,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                     // Truncated to 32 bits on both sides: the snapshot is a counter of avatar updates
                     // and the low half takes over a year to wrap at full rate. See
                     // PlayerState.PeerLastSeenGeneration for why this one field is not in the record.
-                    uint senderGen = (uint)_generationSnapshot[jId];
+                    uint senderGen = genSnapshot[jId];
                     if (senderGen <= lastSeen[jId])
                     {
                         continue;
@@ -181,14 +191,16 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                         continue;
                     }
 
-                    PlayerState stateJ = activeCopy[index].state;
+                    ref PeerTrackingData pair = ref tracking[jId];
 
                     // Full-quality broadcast bypasses the distance throttle + quality reduction; the new-data gate still bounds it to the source rate.
-                    bool bypassReduction = stateJ.BypassReduction;
+                    // Only dereferenced when some sender has it on: otherwise every pair that the
+                    // interval gate rejects would still pay a load from the sender's PlayerState.
+                    bool bypassReduction = anyBypass && activeCopy[index].state.BypassReduction;
 
                     // Quality tier for this pair, from the distance cache. Needed before the
                     // interval check because load shedding scales the interval by it.
-                    int qi = bypassReduction ? 3 : tracking[jId].CachedQualityIndex;
+                    int qi = bypassReduction ? 3 : pair.CachedQualityIndex;
 
                     // 2. Interval check using cached distance results (no float math).
                     //    Load shedding is applied here as an interval MULTIPLIER rather than as a
@@ -201,12 +213,12 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                     {
                         // Unsigned subtraction: LastSentTime is the low 32 bits of the tick counter and
                         // wrapping is the intended arithmetic, not an overflow. See PeerTrackingData.
-                        uint elapsed = (uint)nowTicks - tracking[jId].LastSentTime;
-                        long required = tracking[jId].HasDistanceCache
-                            ? intervalTickTable[tracking[jId].CachedIntervalByte]
+                        uint elapsed = (uint)nowTicks - pair.LastSentTime;
+                        long required = pair.HasDistanceCache
+                            ? intervalTickTable[pair.CachedIntervalByte]
                             : minIntervalTicks;
 
-                        int shedSteps = _loadShedTier - qi;
+                        int shedSteps = shedTier - qi;
                         if (shedSteps > 0)
                         {
                             required <<= Math.Min(shedSteps, MaxShedIntervalDoublings);
@@ -217,6 +229,8 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                             continue;
                         }
                     }
+
+                    PlayerState stateJ = activeCopy[index].state;
 
                     // Why shed by distance at all: tick slicing gets the priority backwards. Slicing
                     // visits a receiver once every _sliceCount ticks, capping its effective rate at
@@ -241,8 +255,8 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                         // Include the shed stretch: if this pair is being slowed to a quarter rate the
                         // client must interpolate over that longer window, or it runs off the end of
                         // its buffer and stutters exactly like an under-delivering server.
-                        int shedSteps = _loadShedTier - qi;
-                        byte pairInterval = tracking[jId].CachedIntervalByte;
+                        int shedSteps = shedTier - qi;
+                        byte pairInterval = pair.CachedIntervalByte;
                         if (shedSteps > 0)
                         {
                             int stretched = BasisNetworkCommons.DecodeAvatarIntervalMs(pairInterval, BSRSMillisecondDefaultInterval)
@@ -258,8 +272,8 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                     bool sendDelta = EnableAvatarDeltaCompression
                         && !bypassReduction
                         && !stateJ.CurrentIsKeyframe
-                        && tracking[jId].BaselineKeyframeGen == (uint)stateJ.KeyframeGen
-                        && tracking[jId].BaselineQuality == qi
+                        && pair.BaselineKeyframeGen == (uint)stateJ.KeyframeGen
+                        && pair.BaselineQuality == qi
                         && stateJ.SerializedDeltaLength[qi] > 0
                         && stateJ.SerializedDelta[qi] != null;
 
@@ -291,8 +305,8 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                         // keyframe frame layout: [playerId:1|2][interval:1]...
                         intervalOffset = (byte)(stateJ.SmallId ? 1 : 2);
                         // Receiver now holds this keyframe generation + quality; subsequent deltas apply.
-                        tracking[jId].BaselineKeyframeGen = (uint)stateJ.KeyframeGen;
-                        tracking[jId].BaselineQuality = (byte)qi;
+                        pair.BaselineKeyframeGen = (uint)stateJ.KeyframeGen;
+                        pair.BaselineQuality = (byte)qi;
                     }
 
                     // Defer the send. Cheaper per-pair than SendUnreliableRawMerge:
@@ -311,7 +325,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
 
                     MarkQualityUsed(ref stateJ.UsedQualities, qi);
 
-                    tracking[jId].LastSentTime = (uint)nowTicks;
+                    pair.LastSentTime = (uint)nowTicks;
                     lastSeen[jId] = senderGen;
 
                     localSends++;
@@ -419,6 +433,9 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             };
         }
 
+        /// <summary>Per-worker scratch for the uncompressed tail handed to the transport.</summary>
+        [ThreadStatic] private static UnreliableRawSend[] t_tailBatch;
+
         private static void FlushPendingForReceiver(PlayerState stateI, NetPeer peer, bool bundlingEnabled)
         {
             int count = stateI.PendingCount;
@@ -468,14 +485,36 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             // Send anything not packed into a bundle (the tail < min, or all of pending
             // when bundling is disabled / pathological no-fit). Equivalent to the
             // pre-bundling path; LiteNetLib's merge buffer still packs these into UDP packets.
+            // Handed to the transport as one run so it can queue it as a few packets rather than one
+            // pooled packet per message (see SendUnreliableRawMergeBatch).
             int tailSent = 0;
-            for (int i = cursor; i < count; i++)
+            if (cursor < count)
             {
-                ref PendingAvatarSend p = ref pending[i];
-                if (p.Length <= p.IntervalOffset) continue;
-                peer.SendUnreliableRawMerge(p.Source, 0, p.Length, p.Channel, p.IntervalOffset, p.Interval);
-                tail.Add(p.Channel, p.Length);
-                tailSent++;
+                UnreliableRawSend[] batch = t_tailBatch;
+                if (batch == null || batch.Length < count - cursor)
+                {
+                    batch = new UnreliableRawSend[Math.Max(count - cursor, batch == null ? 64 : batch.Length * 2)];
+                    t_tailBatch = batch;
+                }
+                for (int i = cursor; i < count; i++)
+                {
+                    ref PendingAvatarSend p = ref pending[i];
+                    if (p.Length <= p.IntervalOffset) continue;
+                    ref UnreliableRawSend s = ref batch[tailSent++];
+                    s.Data = p.Source;
+                    s.Offset = 0;
+                    s.Length = p.Length;
+                    s.Channel = p.Channel;
+                    s.PatchOffset = p.IntervalOffset;
+                    s.PatchValue = p.Interval;
+                    tail.Add(p.Channel, p.Length);
+                }
+                if (tailSent > 0)
+                {
+                    peer.SendUnreliableRawMergeBatch(batch, tailSent);
+                    // Same reasoning as clearing pending below: don't keep payloads reachable.
+                    for (int i = 0; i < tailSent; i++) batch[i].Data = null;
+                }
             }
 
             // Flush accumulated stats in one Interlocked.Add per (channel, metric).

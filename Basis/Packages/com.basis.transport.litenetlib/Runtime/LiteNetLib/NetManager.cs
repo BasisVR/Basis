@@ -169,6 +169,7 @@ namespace LiteNetLib
 
         // Pre-allocated to avoid per-tick heap allocations in UpdateLogic (called every 2ms).
         private readonly List<NetPeer> _updateSnapshot = new List<NetPeer>(64);
+        private int _updateSnapshotVersion = -1;
         private readonly ConcurrentQueue<NetPeer> _peersToRemoveQueue = new ConcurrentQueue<NetPeer>();
 
         private const int ParallelPeerThreshold = 8;
@@ -684,6 +685,8 @@ namespace LiteNetLib
 
         internal void NoteUnreliableDropped() => Interlocked.Increment(ref _unreliableDropped);
 
+        internal void NoteUnreliableDropped(int count) => Interlocked.Add(ref _unreliableDropped, count);
+
         private long _priorityUnreliableDropped;
 
         /// <summary>
@@ -1091,7 +1094,10 @@ namespace LiteNetLib
                     elapsed = elapsed <= 0.0f ? 0.001f : elapsed;
                     stopwatch.Restart();
 
-                    // 1. Snapshot peers under read lock (reuse pre-allocated list)
+                    // 1. Snapshot peers under read lock (reuse pre-allocated list). Only rebuilt when
+                    // the list has changed: at a thousand peers and several hundred passes a second
+                    // the walk-and-copy was a measurable cost for a list that changes on join/leave.
+                    if (Volatile.Read(ref _peerListVersion) != _updateSnapshotVersion)
                     {
                         _peersLock.EnterReadLock();
                         try
@@ -1101,6 +1107,7 @@ namespace LiteNetLib
                             {
                                 _updateSnapshot.Add(netPeer);
                             }
+                            _updateSnapshotVersion = _peerListVersion;
                         }
                         finally
                         {

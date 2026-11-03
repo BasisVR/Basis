@@ -2082,18 +2082,23 @@ public static partial class RemoteBoneJobSystem
         bool hasEffectorIk = BasisNetworkReceiver.EndEffectorIKEnabled && BasisRemoteNetworkDriver.AnyEffectorAnchored && totalBones > 0;
         if (hasEffectorIk)
         {
-            if (!sIkReadPos.IsCreated || sIkReadPos.Length != totalBones)
+            // Grow-only with slack, like EnsureSkeletonRotationBuffer: totalBones moves by
+            // SyncBoneCount on every join/leave, and an exact-length check reallocated all five
+            // (~3.5 MB at 1k players) per membership change. Every consumer indexes by TAA slot,
+            // and the read pass rewrites each live slot's mask before anything reads it.
+            if (!sIkReadPos.IsCreated || sIkReadPos.Length < totalBones || sIkReadPos.Length > totalBones * 4 + 64)
             {
                 if (sIkReadPos.IsCreated) sIkReadPos.Dispose();
                 if (sIkReadWorldRot.IsCreated) sIkReadWorldRot.Dispose();
                 if (sIkReadLocalRot.IsCreated) sIkReadLocalRot.Dispose();
                 if (sIkOverrideRot.IsCreated) sIkOverrideRot.Dispose();
                 if (sIkOverrideMask.IsCreated) sIkOverrideMask.Dispose();
-                sIkReadPos = new NativeArray<float3>(totalBones, Allocator.Persistent);
-                sIkReadWorldRot = new NativeArray<quaternion>(totalBones, Allocator.Persistent);
-                sIkReadLocalRot = new NativeArray<quaternion>(totalBones, Allocator.Persistent);
-                sIkOverrideRot = new NativeArray<quaternion>(totalBones, Allocator.Persistent);
-                sIkOverrideMask = new NativeArray<byte>(totalBones, Allocator.Persistent);
+                int ikCapacity = GrowCapacity(totalBones);
+                sIkReadPos = new NativeArray<float3>(ikCapacity, Allocator.Persistent);
+                sIkReadWorldRot = new NativeArray<quaternion>(ikCapacity, Allocator.Persistent);
+                sIkReadLocalRot = new NativeArray<quaternion>(ikCapacity, Allocator.Persistent);
+                sIkOverrideRot = new NativeArray<quaternion>(ikCapacity, Allocator.Persistent);
+                sIkOverrideMask = new NativeArray<byte>(ikCapacity, Allocator.Persistent);
             }
 
             var readPoseJob = new ReadBonePoseJob
@@ -2111,12 +2116,16 @@ public static partial class RemoteBoneJobSystem
                 JobHandle.CombineDependencies(hipsWorldJob, skeletonJob));
 
             int ikBatch = math.max(1, math.min(maxBatchSize, (AuthoringLength + workerCount - 1) / workerCount));
+            // Blends each anchored player's effector window into the IK inputs; independent of the
+            // transform passes, so it overlaps them and only joins at the solve.
+            JobHandle effectorInputsJob = BasisRemoteNetworkDriver.ScheduleInterpolateEffectorInputs(
+                sKeyArray, AuthoringLength, ikBatch);
             var ikComputeJob = BasisRemoteNetworkDriver.ScheduleComputeEffectorIK(
                 sKeyArray, AuthoringLength, BasisBoneRotationCompression.SyncBoneCount,
                 sTmpHipsWorldPos, sTmpHipsWorldRot,
                 sIkReadPos, sIkReadWorldRot, sIkReadLocalRot,
                 sSkeletonDecodePre.AsDeferredJobArray(), sSkeletonDecodePost.AsDeferredJobArray(), sSkeletonValid.AsDeferredJobArray(),
-                sIkOverrideRot, sIkOverrideMask, ikBatch, readPoseJob);
+                sIkOverrideRot, sIkOverrideMask, ikBatch, JobHandle.CombineDependencies(readPoseJob, effectorInputsJob));
 
             effectorIkJob = new WriteBoneRotationJob
             {

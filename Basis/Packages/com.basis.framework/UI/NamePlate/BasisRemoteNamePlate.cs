@@ -36,12 +36,16 @@ namespace Basis.Scripts.UI.NamePlate
         /// Maintained by ApplyPendingStructuralChanges, including swap-back moves.</summary>
         internal int RegistryIndex = -1;
         internal int ChatRegistryIndex = -1;
+        internal int LoadingRegistryIndex = -1;
 
         /// <summary>Cached gameObject-active state for the global merge gather, so it never calls the
         /// (managed→native) isActiveAndEnabled per plate per frame. Maintained by
         /// <see cref="Initialize"/> and <see cref="RefreshActiveState"/>.</summary>
         internal bool RenderActive;
         internal bool NameHidden;
+        /// <summary>Slot in BasisGlobalNamePlateRenderer's merge snapshot; -1 when not in it.
+        /// Written only by the renderer's topology rebuild.</summary>
+        internal int GlobalIndex = -1;
 
         public bool HasProgressBarVisible = false;
         public MeshRenderer Renderer;
@@ -198,6 +202,7 @@ namespace Basis.Scripts.UI.NamePlate
             Renderer.GetPropertyBlock(mpb, 0);
             ApplyTalkModeColors();
             BasisRemoteNamePlateDriver.Register(this);
+            if (HasProgressBarVisible) BasisRemoteNamePlateDriver.SetLoadingPlateRegistered(this, true);
 
             RefreshActiveState();
             SetTypingIndicatorVisible(BasisRemotePlayer.IsChatTyping);
@@ -260,6 +265,7 @@ namespace Basis.Scripts.UI.NamePlate
             bool wasNameHidden = NameHidden;
             RenderActive = BasisRemoteNamePlateDriver.ShouldPlateBeActive(this);
             NameHidden = !(RenderActive && BasisRemoteNamePlateDriver.NamesVisible());
+            BasisGlobalNamePlateRenderer.PushPlateState(this);
             gameObject.SetActive(RenderActive);
             PushPoseGate(RenderActive);
 
@@ -335,6 +341,7 @@ namespace Basis.Scripts.UI.NamePlate
 
             // Single source of truth; the global merge reads CurrentColor each frame.
             CurrentColor = c;
+            BasisGlobalNamePlateRenderer.PushPlateState(this);
 
             if (BasisRemoteNamePlateDriver.UseGlobalNamePlateMesh) return;
 
@@ -450,8 +457,10 @@ namespace Basis.Scripts.UI.NamePlate
             // its deferred topology rebuild, and a recycled playerId must not resurface our name on the
             // new player. Replaces the per-plate Unity null check in GatherFromBoneSystem.
             RenderActive = false;
+            BasisGlobalNamePlateRenderer.PushPlateState(this);
             PushPoseGate(false);
             BasisRemoteNamePlateDriver.SetChatPlateRegistered(this, false);
+            BasisRemoteNamePlateDriver.SetLoadingPlateRegistered(this, false);
             if (BasisRemotePlayer != null)
             {
                 // Unsubscribe all events we hooked up
@@ -900,6 +909,7 @@ namespace Basis.Scripts.UI.NamePlate
                 if (BasisNamePlateOverlayCore.IsLoadingComplete(progress))
                 {
                     HasProgressBarVisible = false;
+                    BasisRemoteNamePlateDriver.SetLoadingPlateRegistered(this, false);
                     loadingTextBucket = int.MinValue;
                     ApplyLoadingOverlayActive();
                 }
@@ -908,6 +918,7 @@ namespace Basis.Scripts.UI.NamePlate
                     if (HasProgressBarVisible == false)
                     {
                         HasProgressBarVisible = true;
+                        BasisRemoteNamePlateDriver.SetLoadingPlateRegistered(this, true);
                         ApplyLoadingOverlayActive();
                     }
 

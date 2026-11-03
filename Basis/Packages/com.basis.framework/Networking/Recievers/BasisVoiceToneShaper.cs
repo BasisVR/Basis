@@ -82,6 +82,63 @@ namespace Basis.Scripts.Networking.Receivers
     }
 
     /// <summary>
+    /// Burst body for the polyphase resampler's convolution loop
+    /// (<see cref="OpenLipSync.Inference.Audio.AudioResampler.AcceleratedRun"/>). Runs on the audio
+    /// thread for every audible remote voice and on the lip-sync worker per context. Bit-for-bit the
+    /// managed loop: same Floor/Round phase pick, float products summed in order into a double
+    /// (no FloatMode.Fast, so nothing is reassociated) — only the bounds checks and the JIT go away.
+    /// </summary>
+    [BurstCompile]
+    public static unsafe class BasisResamplerKernel
+    {
+        private static OpenLipSync.Inference.Audio.AudioResampler.ConvolveRun _entry;
+
+        /// <summary>Installs the Burst loop for every AudioResampler. Idempotent and allocation-free after the first call.</summary>
+        public static void EnsureInstalled()
+        {
+            if (OpenLipSync.Inference.Audio.AudioResampler.AcceleratedRun != null) return;
+            _entry ??= Run;
+            OpenLipSync.Inference.Audio.AudioResampler.AcceleratedRun = _entry;
+        }
+
+        private static double Run(float[] buf, int bufHead, int halfMinus1, float[] coeffs, int taps, int phases,
+                                  double time, double inputPerOutput, float[] output, int outCount)
+        {
+            fixed (float* b = buf, c = coeffs, o = output)
+            {
+                Convolve(b, bufHead, halfMinus1, c, taps, phases, &time, inputPerOutput, o, outCount);
+            }
+            return time;
+        }
+
+        [BurstCompile]
+        public static void Convolve(float* buf, int bufHead, int halfMinus1, float* coeffs, int taps, int phases,
+                                    double* time, double inputPerOutput, float* output, int outCount)
+        {
+            double t = *time;
+            for (int o = 0; o < outCount; o++)
+            {
+                int center = (int)Unity.Mathematics.math.floor(t);
+                double frac = t - center;
+                int phaseIndex = (int)Unity.Mathematics.math.round(frac * phases);
+                if (phaseIndex == phases) phaseIndex = 0;
+
+                float* src = buf + bufHead + (center - halfMinus1);
+                float* k = coeffs + phaseIndex * taps;
+                double sum = 0.0;
+                for (int i = 0; i < taps; i++)
+                {
+                    sum += (double)src[i] * k[i]; // same widening as AudioResampler.ConvolveTaps
+                }
+                output[o] = (float)sum;
+
+                t += inputPerOutput;
+            }
+            *time = t;
+        }
+    }
+
+    /// <summary>
     /// Two cascaded one-pole high shelves applied to a remote voice on the audio
     /// thread: one for the talker's mouth directivity, one for the listener's own
     /// head being in the way. Together they carry the frequency-dependent part of

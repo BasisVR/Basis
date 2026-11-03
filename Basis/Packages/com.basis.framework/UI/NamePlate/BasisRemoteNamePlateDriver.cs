@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using TMPro;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
@@ -907,6 +908,8 @@ namespace Basis.Scripts.UI.NamePlate
         private static readonly List<BasisRemoteNamePlate> pendingAdd = new(64);
         private static readonly List<BasisRemoteNamePlate> pendingRemove = new(64);
         private static readonly List<BasisRemoteNamePlate> chatPlates = new(64);
+        // Plates showing the avatar-loading overlay, so the per-frame overlay ranking only visits them.
+        private static readonly List<BasisRemoteNamePlate> loadingPlates = new(64);
 
         // Job-visible mirror of each plate's pulse state, kept in lockstep with `plates`
         // (same indices, swap-back moves included). Written on state transitions via
@@ -952,6 +955,25 @@ namespace Basis.Scripts.UI.NamePlate
             p.ChatRegistryIndex = -1;
         }
 
+        internal static void SetLoadingPlateRegistered(BasisRemoteNamePlate p, bool registered)
+        {
+            int index = p.LoadingRegistryIndex;
+            if (registered)
+            {
+                if (index >= 0) return;
+                p.LoadingRegistryIndex = loadingPlates.Count;
+                loadingPlates.Add(p);
+                return;
+            }
+            if (index < 0) return;
+            int last = loadingPlates.Count - 1;
+            BasisRemoteNamePlate moved = loadingPlates[last];
+            loadingPlates[index] = moved;
+            moved.LoadingRegistryIndex = index;
+            loadingPlates.RemoveAt(last);
+            p.LoadingRegistryIndex = -1;
+        }
+
         public static void Dispose()
         {
             CompletePulseInFlight();
@@ -972,6 +994,11 @@ namespace Basis.Scripts.UI.NamePlate
                 if (chatPlates[i] != null) chatPlates[i].ChatRegistryIndex = -1;
             }
             chatPlates.Clear();
+            for (int i = 0; i < loadingPlates.Count; i++)
+            {
+                if (loadingPlates[i] != null) loadingPlates[i].LoadingRegistryIndex = -1;
+            }
+            loadingPlates.Clear();
             bakeQueue.Clear();
 
             if (jobStates.IsCreated) jobStates.Dispose();
@@ -1092,42 +1119,60 @@ namespace Basis.Scripts.UI.NamePlate
             {
                 pulseComputed = false;
 
-                BasisNamePlateOverlayLimiter.BeginFrame();
-                var arr = plates;
-                for (int i = 0; i < count; i++)
+                // Only pulsing plates can have a non-zero job result (PlatePulseJob emits default
+                // for isPulsing == 0), and the job-state mirror is synced on every pulse transition,
+                // so the scan reads that native mirror and touches only the talking plates' objects.
+                unsafe
                 {
-                    var p = arr[i];
-
-                    // Mid-pulse audibility recheck lives here, not in the job — it touches Unity
-                    // audio components. If the player became inaudible (mute, block, out-of-range,
-                    // audio source unloaded, etc.) while a pulse was in flight, snap the plate back
-                    // to normal now instead of letting the hold+fade finish; overrides job output.
-                    if (p.GetIsPulsingForJob() && !p.CanCurrentlyBeHeard())
+                    PlateJobState* states = (PlateJobState*)jobStates.GetUnsafeReadOnlyPtr();
+                    PlateOutput* outputs = (PlateOutput*)results.GetUnsafeReadOnlyPtr();
+                    var arr = plates;
+                    for (int i = 0; i < count; i++)
                     {
-                        float4 rc = p.GetRestingColorFloat4ForJob();
-                        p.ApplyColorFromJob(new Color(rc.x, rc.y, rc.z, rc.w));
-                        p.StopPulseFromJob();
-                    }
-                    else
-                    {
-                        PlateOutput o = results[i];
+                        if (states[i].isPulsing == 0) continue;
+                        var p = arr[i];
 
-                        if (o.stopPulsing != 0)
-                            p.StopPulseFromJob();
-
-                        if (o.hasChange != 0)
+                        // Mid-pulse audibility recheck lives here, not in the job — it touches Unity
+                        // audio components. If the player became inaudible (mute, block, out-of-range,
+                        // audio source unloaded, etc.) while a pulse was in flight, snap the plate back
+                        // to normal now instead of letting the hold+fade finish; overrides job output.
+                        if (p.GetIsPulsingForJob() && !p.CanCurrentlyBeHeard())
                         {
-                            float4 c = o.color;
-                            p.ApplyColorFromJob(new Color(c.x, c.y, c.z, c.w));
+                            float4 rc = p.GetRestingColorFloat4ForJob();
+                            p.ApplyColorFromJob(new Color(rc.x, rc.y, rc.z, rc.w));
+                            p.StopPulseFromJob();
+                        }
+                        else
+                        {
+                            PlateOutput o = outputs[i];
+
+                            if (o.stopPulsing != 0)
+                                p.StopPulseFromJob();
+
+                            if (o.hasChange != 0)
+                            {
+                                float4 c = o.color;
+                                p.ApplyColorFromJob(new Color(c.x, c.y, c.z, c.w));
+                            }
                         }
                     }
+                }
 
-                    if (p.ChatRegistryIndex >= 0)
-                    {
-                        p.UpdateChatTimeout(now);
-                        p.RefreshTypingIndicatorAnimation(now);
-                    }
-                    BasisNamePlateOverlayLimiter.Consider(p);
+                BasisNamePlateOverlayLimiter.BeginFrame();
+                // Reverse: UpdateChatTimeout can unregister (swap-back) the current entry.
+                for (int i = chatPlates.Count - 1; i >= 0; i--)
+                {
+                    var p = chatPlates[i];
+                    if (p.RegistryIndex < 0) continue;
+                    p.UpdateChatTimeout(now);
+                    p.RefreshTypingIndicatorAnimation(now);
+                    BasisNamePlateOverlayLimiter.ConsiderChat(p);
+                }
+                for (int i = 0; i < loadingPlates.Count; i++)
+                {
+                    var p = loadingPlates[i];
+                    if (p.RegistryIndex < 0) continue;
+                    BasisNamePlateOverlayLimiter.ConsiderLoading(p);
                 }
                 BasisNamePlateOverlayLimiter.Apply(Basis.Scripts.Drivers.BasisLocalCameraDriver.Position);
             }

@@ -131,6 +131,13 @@ namespace LiteNetLib
         //Pool node
         public NetPacket Next;
 
+        /// <summary>
+        /// Non-zero only for an unreliable-queue batch built by NetPeer.SendUnreliableRawMergeBatch:
+        /// RawData then holds this many [ushort size][unreliable packet] entries, not a datagram.
+        /// Reset by the pool on recycle.
+        /// </summary>
+        public int BatchEntries;
+
         public NetPacket(int size)
         {
             RawData = new byte[size];

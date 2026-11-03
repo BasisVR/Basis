@@ -16,7 +16,9 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         // Generation snapshot: populated once per tick before the O(N²) send loop.
         // Eliminates Interlocked.Read per pair (N² memory fences → N).
         // Pre-allocated to InitialPlayerArrayCapacity to avoid reallocation on early player joins.
-        private static long[] _generationSnapshot = new long[InitialPlayerArrayCapacity];
+        // Stored already truncated to the 32 bits the pair gate compares (see
+        // PlayerState.PeerLastSeenGeneration), so the loop streams half the bytes.
+        private static uint[] _generationSnapshot = new uint[InitialPlayerArrayCapacity];
 
         // Position snapshots in roster order: contiguous arrays for cache-friendly reads in the inner
         // loop, avoiding pointer-chasing through scattered heap PlayerState objects per pair. Roster
