@@ -79,6 +79,10 @@
       "value": "Video clip"
     },
     {
+      "key": "mediaClip.defaultAudioName",
+      "value": "Audio clip"
+    },
+    {
       "key": "mediaClip.panel.play",
       "value": "Play"
     },
@@ -124,7 +128,7 @@
     },
     {
       "key": "mediaClip.popup.title",
-      "value": "Video clip not shared"
+      "value": "Clip not shared"
     },
     {
       "key": "mediaClip.popup.accept",
@@ -136,11 +140,11 @@
     },
     {
       "key": "mediaClip.popup.unsupportedPlatform",
-      "value": "Video clips cannot be shared from this platform."
+      "value": "Video and audio clips cannot be shared from this platform."
     },
     {
       "key": "mediaClip.popup.limit",
-      "value": "You can share up to {0} video clips at once. Remove one to share another."
+      "value": "You can share up to {0} clips at once. Remove one to share another."
     },
     {
       "key": "mediaClip.popup.readFailed",
@@ -148,11 +152,11 @@
     },
     {
       "key": "mediaClip.popup.tooLarge",
-      "value": "{0} is {1}. Video clips can be up to {2}."
+      "value": "{0} is {1}. Clips can be up to {2}."
     },
     {
       "key": "mediaClip.popup.notVideo",
-      "value": "{0} is not a video file the media player can open."
+      "value": "{0} is not a video or audio file the media player can open."
     },
     {
       "key": "mediaClip.panel.show",
@@ -196,27 +200,27 @@
     },
     {
       "key": "mediaClip.status.locked",
-      "value": "Video clips are locked by an admin"
+      "value": "Video and audio clips are locked by an admin"
     },
     {
       "key": "mediaClip.popup.clipsLocked",
-      "value": "An admin has turned off video clip sharing in this instance."
+      "value": "An admin has turned off video and audio clip sharing in this instance."
     },
     {
       "key": "settings.media.clips.title",
-      "value": "Shared video clips"
+      "value": "Shared video and audio clips"
     },
     {
       "key": "settings.media.clips.description",
-      "value": "Video files that players paste or drop into the world."
+      "value": "Video and audio files that players paste or drop into the world."
     },
     {
       "key": "settings.media.clips.accept",
-      "value": "Receive shared video clips"
+      "value": "Receive shared clips"
     },
     {
       "key": "settings.media.clips.accept.tooltip",
-      "value": "Download and show video clips other players share. When off, new clips are ignored and clips already here stay."
+      "value": "Download and play video and audio clips other players share. When off, new clips are ignored and clips already here stay."
     },
     {
       "key": "settings.media.clips.volume",
@@ -224,7 +228,7 @@
     },
     {
       "key": "settings.media.clips.volume.tooltip",
-      "value": "Starting volume for each shared video clip. The volume slider under a clip changes that clip for you only."
+      "value": "Starting volume for each shared clip. The volume slider under a clip changes that clip for you only."
     }
   ]
 }

@@ -18,6 +18,9 @@ public sealed partial class BasisMediaClipObject : MonoBehaviour
     private const float FrontPixelsWide = 900f;
     private const float FrontPixelsHigh = 150f;
     private const float FrontMinWorldWidth = 0.7f;
+    private const float AudioWidthMeters = 0.7f;
+    private const float AudioHeightMeters = 0.26f;
+    private const float AudioPixelsWide = 700f;
     private const float BackPixelsWide = 900f;
     private const float UiRefreshSeconds = 0.1f;
     private const float SeekHoldSeconds = 3f;
@@ -39,8 +42,13 @@ public sealed partial class BasisMediaClipObject : MonoBehaviour
     public BasisMediaPlayerNetworking Networking { get; private set; }
     public bool HeldLocally { get; private set; }
     public bool HiddenLocally { get; private set; }
+    public bool IsAudio { get; private set; }
 
     private Transform screen;
+    private GameObject audioCard;
+    private RectTransform audioCardRect;
+    private TextMeshProUGUI audioTitle;
+    private TextMeshProUGUI audioSubtitle;
     private MeshRenderer screenRenderer;
     private Transform backPlate;
     private BoxCollider box;
@@ -100,7 +108,7 @@ public sealed partial class BasisMediaClipObject : MonoBehaviour
     private static Mesh quadMesh;
     private static Material screenTemplate;
 
-    public static BasisMediaClipObject Build(Guid id, string title, Vector3 position, Quaternion rotation, float scale)
+    public static BasisMediaClipObject Build(Guid id, string title, Vector3 position, Quaternion rotation, float scale, bool audioOnly)
     {
         var root = new GameObject($"BasisMediaClip_{id.ToString("N").Substring(0, 8)}");
         root.SetActive(false);
@@ -112,37 +120,19 @@ public sealed partial class BasisMediaClipObject : MonoBehaviour
 
         var clip = root.AddComponent<BasisMediaClipObject>();
         clip.ClipId = id;
+        clip.IsAudio = audioOnly;
         clip.targetPosition = position;
         clip.targetRotation = rotation;
         clip.targetScale = scale;
         clip.volume = Mathf.Clamp01(BasisMediaSettings.ClipVolume.RawValue);
 
         BasisMediaPlayer player = root.AddComponent<BasisMediaPlayer>();
-        player.DisplayName = string.IsNullOrEmpty(title) ? BasisLocalization.Get("mediaClip.defaultName") : title;
+        player.DisplayName = string.IsNullOrEmpty(title) ? BasisLocalization.Get(audioOnly ? "mediaClip.defaultAudioName" : "mediaClip.defaultName") : title;
         player.Loop = true;
         clip.Player = player;
 
-        var screenObject = new GameObject("Screen");
-        if (interactableLayer >= 0) screenObject.layer = interactableLayer;
-        screenObject.transform.SetParent(root.transform, false);
-        clip.screen = screenObject.transform;
-        screenObject.AddComponent<MeshFilter>().sharedMesh = GetQuadMesh();
-        var renderer = screenObject.AddComponent<MeshRenderer>();
-        clip.screenRenderer = renderer;
-        clip.screenMaterial = CreateScreenMaterial();
-        renderer.sharedMaterial = clip.screenMaterial;
-        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        var output = screenObject.AddComponent<BasisVideoMaterialOutput>();
-        output.Player = player;
-        output.TargetRenderer = renderer;
-        output.TexturePropertyName = "_BaseMap";
-        output.UseSharedMaterial = true;
-        output.AspectMode = BasisVideoAspectMode.Original;
-        output.RestorePlaceholderOnEnded = false;
-        if (clip.screenMaterial.HasProperty("_EmissionMap"))
-        {
-            output.AdditionalTargets.Add(new BasisVideoMaterialOutput.MaterialTarget { Renderer = renderer, MaterialIndex = 0, TexturePropertyName = "_EmissionMap" });
-        }
+        if (audioOnly) clip.BuildAudioCard();
+        else clip.BuildScreen(player, interactableLayer);
 
         var backObject = new GameObject("Back");
         if (interactableLayer >= 0) backObject.layer = interactableLayer;
@@ -208,13 +198,66 @@ public sealed partial class BasisMediaClipObject : MonoBehaviour
         pickup.OnInteractStartEvent.AddListener(clip.OnGrabbed);
         pickup.OnInteractEndEvent.AddListener(clip.OnReleased);
 
-        clip.ApplyAspect(DefaultAspect);
+        clip.ApplyAspect(audioOnly ? AudioWidthMeters / AudioHeightMeters : DefaultAspect);
         player.OnFirstFrameReady += clip.OnFirstFrame;
         player.OnReady += clip.OnFirstFrame;
 
         root.SetActive(true);
         clip.RefreshLabel();
         return clip;
+    }
+
+    private void BuildScreen(BasisMediaPlayer player, int interactableLayer)
+    {
+        var screenObject = new GameObject("Screen");
+        if (interactableLayer >= 0) screenObject.layer = interactableLayer;
+        screenObject.transform.SetParent(transform, false);
+        screen = screenObject.transform;
+        screenObject.AddComponent<MeshFilter>().sharedMesh = GetQuadMesh();
+        var renderer = screenObject.AddComponent<MeshRenderer>();
+        screenRenderer = renderer;
+        screenMaterial = CreateScreenMaterial();
+        renderer.sharedMaterial = screenMaterial;
+        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        var output = screenObject.AddComponent<BasisVideoMaterialOutput>();
+        output.Player = player;
+        output.TargetRenderer = renderer;
+        output.TexturePropertyName = "_BaseMap";
+        output.UseSharedMaterial = true;
+        output.AspectMode = BasisVideoAspectMode.Original;
+        output.RestorePlaceholderOnEnded = false;
+        if (screenMaterial.HasProperty("_EmissionMap"))
+        {
+            output.AdditionalTargets.Add(new BasisVideoMaterialOutput.MaterialTarget { Renderer = renderer, MaterialIndex = 0, TexturePropertyName = "_EmissionMap" });
+        }
+    }
+
+    private void BuildAudioCard()
+    {
+        audioCardRect = BasisWorldPanelKit.CreateCanvas("AudioCard", transform, new Vector2(AudioPixelsWide, AudioPixelsWide * AudioHeightMeters / AudioWidthMeters), out audioCard);
+        audioCardRect.localScale = Vector3.one * (AudioWidthMeters / AudioPixelsWide);
+        audioCardRect.localPosition = new Vector3(0f, 0f, -0.001f);
+        audioCardRect.localRotation = Quaternion.identity;
+        BasisWorldPanelKit.CreateWindow(audioCardRect);
+        float pixelsHigh = audioCardRect.sizeDelta.y;
+        const float margin = 30f;
+        float tile = pixelsHigh - 2f * margin;
+        float half = AudioPixelsWide * 0.5f;
+        float tileX = -half + margin + tile * 0.5f;
+        Image tileImage = BasisWorldPanelKit.CreateStyledImage("Art", audioCardRect, new Vector2(tileX, 0f), new Vector2(tile, tile), BasisWorldPanelKit.StyleButtonAccent, new Color(0.45f, 0.3f, 0.85f, 1f));
+        RectTransform iconRect = BasisWorldPanelKit.CreateRect("Icon", tileImage.rectTransform, Vector2.zero, new Vector2(tile * 0.62f, tile * 0.62f));
+        var icon = iconRect.gameObject.AddComponent<Image>();
+        icon.sprite = BasisWorldPanelKit.MusicIcon;
+        icon.preserveAspect = true;
+        icon.raycastTarget = false;
+        BasisWorldPanelKit.Style(icon, BasisWorldPanelKit.StyleIcon);
+        float textLeft = tileX + tile * 0.5f + 26f;
+        float textRight = half - margin;
+        float textWidth = textRight - textLeft;
+        float textX = (textLeft + textRight) * 0.5f;
+        audioTitle = BasisWorldPanelKit.CreateLabel(audioCardRect, new Vector2(textX, 26f), new Vector2(textWidth, 60f), BasisWorldPanelKit.StyleHeader, TextAlignmentOptions.Left);
+        audioSubtitle = BasisWorldPanelKit.CreateLabel(audioCardRect, new Vector2(textX, -30f), new Vector2(textWidth, 40f), BasisWorldPanelKit.StyleSubtitle, TextAlignmentOptions.Left);
+        audioCard.SetActive(true);
     }
 
     private static UnityEngine.Audio.AudioMixerGroup WorldMixerGroup()
@@ -280,14 +323,14 @@ public sealed partial class BasisMediaClipObject : MonoBehaviour
     {
         if (Player == null) return;
         Vector2Int size = Player.VideoSize;
-        if (size.x > 0 && size.y > 0) ApplyAspect((float)size.x / size.y);
+        if (!IsAudio && size.x > 0 && size.y > 0) ApplyAspect((float)size.x / size.y);
         SetStatus(string.Empty);
     }
 
     private void ApplyAspect(float value)
     {
         aspect = Mathf.Clamp(value, 0.2f, 5f);
-        screenHeight = BaseHeightMeters;
+        screenHeight = IsAudio ? AudioHeightMeters : BaseHeightMeters;
         screenWidth = screenHeight * aspect;
         if (screenWidth > MaxWidthMeters)
         {
@@ -323,6 +366,8 @@ public sealed partial class BasisMediaClipObject : MonoBehaviour
         if (HiddenLocally) status = string.IsNullOrEmpty(status) ? BasisLocalization.Get("mediaClip.status.hidden") : status + " \u00b7 " + BasisLocalization.Get("mediaClip.status.hidden");
         if (backDetails != null) backDetails.text = string.IsNullOrEmpty(status) ? detailText : status;
         if (frontTitle != null) frontTitle.text = string.IsNullOrEmpty(statusText) ? (Player != null ? Player.DisplayName : string.Empty) : statusText;
+        if (audioTitle != null) audioTitle.text = Player != null ? Player.DisplayName : string.Empty;
+        if (audioSubtitle != null) audioSubtitle.text = string.IsNullOrEmpty(statusText) ? sharerText : statusText;
     }
 
     private void OnGrabbed(BasisInput input)
@@ -637,6 +682,7 @@ public sealed partial class BasisMediaClipObject : MonoBehaviour
     {
         HiddenLocally = !HiddenLocally;
         if (screenRenderer != null) screenRenderer.enabled = !HiddenLocally;
+        if (audioCard != null) audioCard.SetActive(!HiddenLocally);
         ApplyAudio();
         RefreshHideButton();
         RefreshLabel();
