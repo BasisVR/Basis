@@ -101,6 +101,7 @@ SubShader {
 
 		struct vertex_t
 		{
+			UNITY_VERTEX_INPUT_INSTANCE_ID
 			float4	vertex			: POSITION;
 			float3	normal			: NORMAL;
 			fixed4	color			: COLOR;
@@ -110,6 +111,7 @@ SubShader {
 
 		struct pixel_t
 		{
+			UNITY_VERTEX_OUTPUT_STEREO
 			float4	vertex			: SV_POSITION;
 			fixed4	faceColor		: COLOR;
 			fixed4	outlineColor	: COLOR1;
@@ -133,6 +135,10 @@ SubShader {
 
 		pixel_t VertShader(vertex_t input)
 		{
+			pixel_t output;
+			UNITY_SETUP_INSTANCE_ID(input);
+			UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
+
 			float bold = step(input.texcoord0.w, 0);
 
 			float4 vert = input.vertex;
@@ -189,18 +195,16 @@ SubShader {
 			const half2 maskSoftness = half2(max(_UIMaskSoftnessX, _MaskSoftnessX), max(_UIMaskSoftnessY, _MaskSoftnessY));
 
 			// Structure for pixel shader
-			pixel_t output = {
-				vPosition,
-				faceColor,
-				outlineColor,
-				float4(input.texcoord0.x, input.texcoord0.y, maskUV.x, maskUV.y),
-				half4(scale, bias - outline, bias + outline, bias),
-				half4(vert.xy * 2 - clampedRect.xy - clampedRect.zw, 0.25 / (0.25 * maskSoftness + pixelSize.xy)),
-			    #if (UNDERLAY_ON | UNDERLAY_INNER)
-				float4(input.texcoord0 + layerOffset, input.color.a, 0),
-				half2(layerScale, layerBias),
-			    #endif
-			};
+			output.vertex = vPosition;
+			output.faceColor = faceColor;
+			output.outlineColor = outlineColor;
+			output.texcoord0 = float4(input.texcoord0.x, input.texcoord0.y, maskUV.x, maskUV.y);
+			output.param = half4(scale, bias - outline, bias + outline, bias);
+			output.mask = half4(vert.xy * 2 - clampedRect.xy - clampedRect.zw, 0.25 / (0.25 * maskSoftness + pixelSize.xy));
+			#if (UNDERLAY_ON | UNDERLAY_INNER)
+			output.texcoord1 = float4(input.texcoord0 + layerOffset, input.color.a, 0);
+			output.underlayParam = half2(layerScale, layerBias);
+			#endif
 
 			return output;
 		}

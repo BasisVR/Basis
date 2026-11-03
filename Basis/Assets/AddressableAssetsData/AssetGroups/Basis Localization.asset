@@ -339,6 +339,102 @@ MonoBehaviour:
     m_SerializedLabels:
     - language
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8079a27d89534f24b26e3ee005bdbbc7
+    m_Address: Languages/com.basis.screenshare/ar
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ec610aed7ed244958a40d9608aaf75b4
+    m_Address: Languages/com.basis.screenshare/bn
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fbc1a1d926e14feea26b01b313571e4f
+    m_Address: Languages/com.basis.screenshare/de
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e5f8b32601d5425c997f3bbdf8b50a2a
+    m_Address: Languages/com.basis.screenshare/en
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d6037be43e6e4eebb8b52de293ddbf3c
+    m_Address: Languages/com.basis.screenshare/es-MX
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c7c60266b844447fa3abe81bcfbdb87a
+    m_Address: Languages/com.basis.screenshare/es
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 979619b088f14ba0b2d889a02017d579
+    m_Address: Languages/com.basis.screenshare/fr
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1765139af2aa43e2a8c673bb037c91dd
+    m_Address: Languages/com.basis.screenshare/hi
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d5d3e32743704aa59dd22947eeb52f82
+    m_Address: Languages/com.basis.screenshare/it
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 11775d0be0c440b39bdad5b5d9c366c3
+    m_Address: Languages/com.basis.screenshare/ja
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 299d030428a14290a7c3431ad78d883e
+    m_Address: Languages/com.basis.screenshare/nl
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 87496d55c9cd46fa87743d67bbca96dd
+    m_Address: Languages/com.basis.screenshare/pt
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f493e178ba244e2f8bd668d7fd4ede3e
+    m_Address: Languages/com.basis.screenshare/ru
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ef103d1a83b843c8ba1df3773c9aa0ed
+    m_Address: Languages/com.basis.screenshare/ur
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b73067723b6747689a9fd446e58214be
+    m_Address: Languages/com.basis.screenshare/zh-Hans
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 6e72d06608584116aa6c2113dc14129d
+    m_Address: Languages/com.basis.screenshare/zh-Hant
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 8f1158553a9346e4c9ee0ef9ba4778b2
     m_Address: Languages/com.basis.provider.servers/ja
     m_ReadOnly: 0

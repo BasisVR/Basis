@@ -23,6 +23,9 @@ public static class NetworkServer
     public static NetManager Server;
     public static ConcurrentDictionary<int, NetPeer> AuthenticatedPeers = new();
     public static readonly object AuthenticatedPeerTag = new object();
+    private static readonly byte[] PeerCapabilities = new byte[ushort.MaxValue + 1];
+    public static void SetPeerCapabilities(NetPeer peer, byte capabilities) { if (peer != null && (uint)peer.Id < (uint)PeerCapabilities.Length) PeerCapabilities[peer.Id] = capabilities; }
+    public static bool PeerHasCapability(NetPeer peer, byte capability) => peer != null && (uint)peer.Id < (uint)PeerCapabilities.Length && (PeerCapabilities[peer.Id] & capability) != 0;
     public static Configuration Configuration;
     /// <summary>
     /// Allow-list consulted at <see cref="BasisServerHandle.BasisServerHandleEvents.OnNetworkAccepted"/>

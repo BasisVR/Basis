@@ -139,6 +139,12 @@ public static partial class BasisRemoteNetworkDriver
     [NoAutoStaticsCleanup] static NativeArray<float3> _effOffset;
     [NoAutoStaticsCleanup] static NativeArray<quaternion> _effTipRot;
     [NoAutoStaticsCleanup] static IntPtr _ptrEffMask, _ptrEffOffset, _ptrEffTipRot;
+    // The window's two bracketing effector frames, same layout as _effOffset/_effTipRot. Written by
+    // the receiver whenever its window slides; InterpolateEffectorInputsJob blends them into the IK
+    // inputs on a worker, so the per-frame interpolation no longer runs per player on the main thread.
+    [NoAutoStaticsCleanup] static NativeArray<float3> _effCurOffset, _effNxtOffset;
+    [NoAutoStaticsCleanup] static NativeArray<quaternion> _effCurTipRot, _effNxtTipRot;
+    [NoAutoStaticsCleanup] static IntPtr _ptrEffCurOffset, _ptrEffNxtOffset, _ptrEffCurTipRot, _ptrEffNxtTipRot;
 
     // State
     static bool _initialized;
@@ -361,6 +367,10 @@ public static partial class BasisRemoteNetworkDriver
         _ptrEffMask = (IntPtr)_effMask.GetUnsafePtr();
         _ptrEffOffset = (IntPtr)_effOffset.GetUnsafePtr();
         _ptrEffTipRot = (IntPtr)_effTipRot.GetUnsafePtr();
+        _ptrEffCurOffset = (IntPtr)_effCurOffset.GetUnsafePtr();
+        _ptrEffNxtOffset = (IntPtr)_effNxtOffset.GetUnsafePtr();
+        _ptrEffCurTipRot = (IntPtr)_effCurTipRot.GetUnsafePtr();
+        _ptrEffNxtTipRot = (IntPtr)_effNxtTipRot.GetUnsafePtr();
     }
 
     /// <summary>
@@ -395,6 +405,7 @@ public static partial class BasisRemoteNetworkDriver
         _ptrPrevHipsRotDelta = _ptrTargetHipsRotDelta = IntPtr.Zero;
         _ptrPoseFilterSeeded = _ptrSkipBones = IntPtr.Zero;
         _ptrEffMask = _ptrEffOffset = _ptrEffTipRot = IntPtr.Zero;
+        _ptrEffCurOffset = _ptrEffNxtOffset = _ptrEffCurTipRot = _ptrEffNxtTipRot = IntPtr.Zero;
         _ptrScaleChange = _ptrFilteredRotations = _ptrFilteredPositions = IntPtr.Zero;
         _ptrScaledBodyPositions = _ptrFilteredBoneRotations = _ptrOutScales = IntPtr.Zero;
     }
@@ -1060,6 +1071,92 @@ public static partial class BasisRemoteNetworkDriver
         }
     }
 
+    /// <summary>
+    /// Stores the two effector frames bracketing a player's interpolation window. Called by the
+    /// receiver each time its window slides (packet rate, on the network compute worker), so the
+    /// per-frame blend can run in <see cref="InterpolateEffectorInputsJob"/>.
+    /// </summary>
+    public static unsafe void SetEffectorWindow(int playerId, float3[] curOffset, quaternion[] curTipRot, float3[] nxtOffset, quaternion[] nxtTipRot)
+    {
+        if (!_initialized || (uint)playerId >= _capacity) return;
+        int b = playerId * 4;
+        float3* co = (float3*)(void*)_ptrEffCurOffset + b;
+        float3* no = (float3*)(void*)_ptrEffNxtOffset + b;
+        quaternion* cr = (quaternion*)(void*)_ptrEffCurTipRot + b;
+        quaternion* nr = (quaternion*)(void*)_ptrEffNxtTipRot + b;
+        for (int e = 0; e < 4; e++)
+        {
+            co[e] = curOffset[e];
+            no[e] = nxtOffset[e];
+            cr[e] = curTipRot[e];
+            nr[e] = nxtTipRot[e];
+        }
+    }
+
+    /// <summary>
+    /// Sets the anchored mask for this frame; the offsets and tip rotations come from the window
+    /// stored by <see cref="SetEffectorWindow"/>, blended in <see cref="ScheduleInterpolateEffectorInputs"/>.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static unsafe void SetEffectorMask(int playerId, byte mask)
+    {
+        if (!_initialized || (uint)playerId >= _capacity) return;
+        if (mask != 0) AnyEffectorAnchored = true;
+        ((byte*)(void*)_ptrEffMask)[playerId] = mask;
+    }
+
+    /// <summary>
+    /// Per dense player: blends the stored effector window at the player's interpolation time into
+    /// the IK inputs (<c>_effOffset</c>/<c>_effTipRot</c>). Same math the receiver loop used to do
+    /// on the main thread (lerp offsets, shortest nlerp tip rotations at saturate(t)).
+    /// </summary>
+    [BurstCompile]
+    struct InterpolateEffectorInputsJob : IJobParallelFor
+    {
+        [ReadOnly] public NativeArray<int> PlayerKeys;
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<byte> EffMask;
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<double> InterpolationTimes;
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<float3> CurOffset;
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<float3> NxtOffset;
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<quaternion> CurTipRot;
+        [ReadOnly, NativeDisableContainerSafetyRestriction] public NativeArray<quaternion> NxtTipRot;
+        [WriteOnly, NativeDisableParallelForRestriction, NativeDisableContainerSafetyRestriction] public NativeArray<float3> OutOffset;
+        [WriteOnly, NativeDisableParallelForRestriction, NativeDisableContainerSafetyRestriction] public NativeArray<quaternion> OutTipRot;
+        public int CapacityFixed;
+
+        public void Execute(int dense)
+        {
+            int key = PlayerKeys[dense];
+            if ((uint)key >= (uint)CapacityFixed || EffMask[key] == 0) return;
+            float t = math.saturate((float)InterpolationTimes[key]);
+            int b = key * 4;
+            for (int e = 0; e < 4; e++)
+            {
+                OutOffset[b + e] = math.lerp(CurOffset[b + e], NxtOffset[b + e], t);
+                OutTipRot[b + e] = BasisRemoteInterpolationCore.NlerpShortest(CurTipRot[b + e], NxtTipRot[b + e], t);
+            }
+        }
+    }
+
+    /// <summary>Schedules <see cref="InterpolateEffectorInputsJob"/> over the dense player set.</summary>
+    public static JobHandle ScheduleInterpolateEffectorInputs(NativeArray<int> playerKeys, int count, int batch, JobHandle deps = default)
+    {
+        if (!_initialized || count == 0) return deps;
+        return new InterpolateEffectorInputsJob
+        {
+            PlayerKeys = playerKeys,
+            EffMask = _effMask,
+            InterpolationTimes = _interpolationTimes,
+            CurOffset = _effCurOffset,
+            NxtOffset = _effNxtOffset,
+            CurTipRot = _effCurTipRot,
+            NxtTipRot = _effNxtTipRot,
+            OutOffset = _effOffset,
+            OutTipRot = _effTipRot,
+            CapacityFixed = _capacity,
+        }.Schedule(count, batch, deps);
+    }
+
     /// <summary>Clears a player's end-effector IK mask so no limb anchors this frame.</summary>
     public static unsafe void ClearEffectorMask(int playerId)
     {
@@ -1366,6 +1463,10 @@ public static partial class BasisRemoteNetworkDriver
         Resize(ref _effMask, capacity, NativeArrayOptions.ClearMemory);
         Resize(ref _effOffset, capacity * 4, NativeArrayOptions.ClearMemory);
         Resize(ref _effTipRot, capacity * 4, NativeArrayOptions.ClearMemory);
+        Resize(ref _effCurOffset, capacity * 4, NativeArrayOptions.ClearMemory);
+        Resize(ref _effNxtOffset, capacity * 4, NativeArrayOptions.ClearMemory);
+        Resize(ref _effCurTipRot, capacity * 4, NativeArrayOptions.ClearMemory);
+        Resize(ref _effNxtTipRot, capacity * 4, NativeArrayOptions.ClearMemory);
 
         // Nothing is scheduled yet at allocation, so both sets are legal to take here.
         PublishWritePointers();
@@ -1391,6 +1492,7 @@ public static partial class BasisRemoteNetworkDriver
         D(ref _p0BoneRotations); D(ref _prevBoneRotations);
         D(ref _targetBoneRotations); D(ref _p3BoneRotations); D(ref _outBoneRotations);
         D(ref _effMask); D(ref _effOffset); D(ref _effTipRot);
+        D(ref _effCurOffset); D(ref _effNxtOffset); D(ref _effCurTipRot); D(ref _effNxtTipRot);
 
         _capacity = 0;
         _initializedCount = 0;

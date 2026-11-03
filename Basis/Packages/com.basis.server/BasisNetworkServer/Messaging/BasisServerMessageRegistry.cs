@@ -52,7 +52,11 @@ public static class BasisServerMessageRegistry
     static BasisServerMessageRegistry()
     {
         RegisterCoreHandlers();
+        Basis.Network.Server.Generic.BasisAvatarHostRelay.Register();
+        Basis.Network.Server.Generic.BasisNetworkScreenShare.Register();
     }
+
+    public static event Action<NetPeer> PeerSubscribed;
 
     /// <summary>Force the static constructor to run (registers core handlers). Safe to call repeatedly.</summary>
     public static void EnsureInitialized() { }
@@ -131,6 +135,21 @@ public static class BasisServerMessageRegistry
         NetDataWriter writer = NetworkServer.RentWriter();
         writer.Put(id);
         writePayload?.Invoke(writer);
+        BasisNetworkStatistics.RecordOutbound(descriptor.Channel, writer.Length);
+        NetworkServer.TrySend(peer, writer, descriptor.Channel, BasisNetworkCommons.GetDeliveryForPluginChannel(descriptor.Channel));
+        NetworkServer.ReturnWriter(writer);
+        return true;
+    }
+
+    public static bool SendToPeer<TState>(NetPeer peer, string name, in TState state, Action<NetDataWriter, TState> writePayload)
+    {
+        if (!PluginIdsByName.TryGetValue(name, out ushort id) || !PluginDescriptors.TryGetValue(id, out SerializableBasis.BasisMessageDescriptor descriptor) || !IsSubscribed(peer.Id, id))
+        {
+            return false;
+        }
+        NetDataWriter writer = NetworkServer.RentWriter();
+        writer.Put(id);
+        writePayload(writer, state);
         BasisNetworkStatistics.RecordOutbound(descriptor.Channel, writer.Length);
         NetworkServer.TrySend(peer, writer, descriptor.Channel, BasisNetworkCommons.GetDeliveryForPluginChannel(descriptor.Channel));
         NetworkServer.ReturnWriter(writer);
@@ -385,6 +404,9 @@ public static class BasisServerMessageRegistry
                 SerializableBasis.BasisMessageSubscribe subscribe = new SerializableBasis.BasisMessageSubscribe();
                 subscribe.Deserialize(reader);
                 SetSubscription(peer.Id, subscribe.Ids);
+                reader.Recycle();
+                PeerSubscribed?.Invoke(peer);
+                return;
             }
             reader.Recycle();
         });

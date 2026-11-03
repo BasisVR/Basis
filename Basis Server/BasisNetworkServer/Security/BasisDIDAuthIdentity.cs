@@ -255,6 +255,7 @@ namespace BasisDidLink
         {
             readyMessage = new ReadyMessage();
             readyMessage.Deserialize(Data);
+            NetworkServer.SetPeerCapabilities(newPeer, BasisNetworkVersion.ReadCapabilities(Data));
             if (!readyMessage.WasDeserializedCorrectly())
             {
                 BasisServerHandleEvents.RejectWithReason(newPeer, "Invalid ReadyMessage received.");

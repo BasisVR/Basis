@@ -21,8 +21,7 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 00e81ac93a7373b4f840adeb3ab1a35b
-    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Password Field -
-      Entry Variant - Long.prefab
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Password Field - Entry Variant - Long.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -182,13 +181,17 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 45748bc469fa0a2419c17c39d0c614a1
-    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Dropdown - Entry
-      Variant - Overlay.prefab
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Dropdown - Entry Variant - Overlay.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 48d3892416a874e4d8b719c8711c79f8
     m_Address: Packages/com.basis.sdk/Fonts/Inter_24pt-Regular SDF.asset
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 49007205683a44d784f6c15e00b2b9a6
+    m_Address: Screen Share
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -293,14 +296,12 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 80bfab9c60f08a14899e90dece791054
-    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Horizontal
-      - No Background.prefab
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Horizontal - No Background.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 81b3e830fd16aae4ab914a654371f2bf
-    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Panel Element Base -
-      Overlay.prefab
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Panel Element Base - Overlay.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -525,8 +526,7 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: f50fe7d1576f16645bb5246612e15366
-    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Vertical -
-      No Background.prefab
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Vertical - No Background.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -561,3 +561,6 @@ MonoBehaviour:
     m_Schemas:
     - {fileID: 11400000, guid: c6a67ffc7d029f142b9e6d0963fc0094, type: 2}
     - {fileID: 11400000, guid: 49080ec9d92ed41498b92e785c181073, type: 2}
+    m_SchemaDisplayOrder: []
+  m_IncludeInBuild: 1
+  m_IncludeInBuildMigrated: 1

@@ -202,6 +202,10 @@ namespace Basis.Scripts.Drivers
         private float _micLayoutFov, _micLayoutAspect, _micLayoutDistance;
         private Vector2 _micLayoutOffset;
         private bool _micLayoutMobile;
+        // Cached VR mic-icon offset: only the icon offset feeds it, so the ParentOfUI write (which
+        // re-dirties every UI child under the camera) happens on a change, not every frame.
+        private bool _micVrLayoutValid;
+        private Vector3 _micVrLayoutOffset;
 
         /// <summary>The desired far clipping plane from scene settings before avatar overriding.</summary>
         private float DesiredClipFar = 1000.0f;
@@ -768,7 +772,12 @@ namespace Basis.Scripts.Drivers
                     Vector3 offset = VRMicrophoneLocalOffset;
                     offset.x += microphoneIconDriver.IconPositionOffset.x;
                     offset.y += microphoneIconDriver.IconPositionOffset.y;
-                    ParentOfUI.SetLocalPosition(offset);
+                    if (!_micVrLayoutValid || offset != _micVrLayoutOffset)
+                    {
+                        ParentOfUI.SetLocalPosition(offset);
+                        _micVrLayoutOffset = offset;
+                        _micVrLayoutValid = true;
+                    }
                     _micLayoutValid = false;
                 }
                 else
@@ -794,6 +803,7 @@ namespace Basis.Scripts.Drivers
                         Vector3 localPos = SelfTransform.ToLocalPoint(worldPoint);
                         ParentOfUI.SetLocalPosition(localPos.normalized * MicrophoneAnchorDistance);
 
+                        _micVrLayoutValid = false;
                         _micLayoutValid = true;
                         _micLayoutFov = fov;
                         _micLayoutAspect = aspect;

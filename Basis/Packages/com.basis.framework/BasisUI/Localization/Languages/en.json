@@ -5115,6 +5115,34 @@
       "value": "This avatar is loaded from a file on your computer and isn't hosted anywhere the other players can reach, so nobody else on this server can download it. You will see it normally; everyone else will see a placeholder. Upload it and load it from a URL for other players to see it. Built-in avatars are unaffected — every client already has those."
     },
     {
+      "key": "network.avatarShare.title",
+      "value": "Share Your Avatar?"
+    },
+    {
+      "key": "network.avatarShare.body",
+      "value": "This avatar is loaded from a file on your computer, and nobody else on this server can download it. Share it through this server? Each player receives only the parts their device needs, and only while you are connected. If you say no, you keep wearing it and everyone else sees a placeholder."
+    },
+    {
+      "key": "network.avatarShare.accept",
+      "value": "Share"
+    },
+    {
+      "key": "network.avatarShare.deny",
+      "value": "Not Now"
+    },
+    {
+      "key": "network.avatarShare.failed.disabled",
+      "value": "This server does not share avatars from local files."
+    },
+    {
+      "key": "network.avatarShare.failed.tooLarge",
+      "value": "This avatar is larger than this server will share."
+    },
+    {
+      "key": "network.avatarShare.failed.generic",
+      "value": "Sharing this avatar through the server did not work."
+    },
+    {
       "key": "network.legacyServer.title",
       "value": "Server Out Of Date"
     },
@@ -15919,6 +15947,14 @@
       "value": "Stop non-admin players from sharing new image pickups, and from receiving images shared while this is on. Admins are unaffected."
     },
     {
+      "key": "settings.admin.title.imageMaxResolution",
+      "value": "Max Shared Image Resolution"
+    },
+    {
+      "key": "settings.admin.title.imageMaxResolution.tooltip",
+      "value": "Largest side a shared image can have, from 1K (1024) to 16K (16384). Larger images are downscaled before sharing. Players whose GPU can't hold the chosen size skip images bigger than it supports. Default 4K."
+    },
+    {
       "key": "settings.admin.title.lockSharedImages.description",
       "value": "Stops non-admin players from sharing new image pickups, and from receiving images shared while this is on. Images already shared stay until removed. Admins are unaffected."
     },
@@ -15969,6 +16005,14 @@
     {
       "key": "settings.admin.title.lockMediaPlayer.description",
       "value": "Stops non-admin players from loading new media player URLs, and from accepting ones shared while this is on. Media already playing keeps playing until replaced. Admins are unaffected."
+    },
+    {
+      "key": "settings.admin.title.lockVideoClips",
+      "value": "Lock Video Clips"
+    },
+    {
+      "key": "settings.admin.title.lockVideoClips.tooltip",
+      "value": "Stop non-admin players from sharing video files they paste or drop into the world. Clips that already arrived keep playing. Admins are unaffected."
     },
     {
       "key": "settings.admin.title.lockCameraCapture",
@@ -21885,6 +21929,10 @@
       "value": "Shared Setting"
     },
     {
+      "key": "library.shareable.video",
+      "value": "Shared Video"
+    },
+    {
       "key": "content.share.setting.offer.title",
       "value": "Share Setting"
     },
@@ -22163,6 +22211,14 @@
     {
       "key": "settings.admin.title.lockExternalLinks.tooltip",
       "value": "Worlds and props can't ask players to open web pages in their browser. Links players share as orbs are not affected. Admins are unaffected."
+    },
+    {
+      "key": "settings.admin.title.lockAvatarHosting",
+      "value": "Lock Local Avatar Sharing"
+    },
+    {
+      "key": "settings.admin.title.lockAvatarHosting.tooltip",
+      "value": "Players can't share an avatar from a file on their computer through this server, and anything they are already sharing stops. Anyone who already loaded it keeps it. Admins are unaffected. Size and memory limits are under Network Protection."
     },
     {
       "key": "library.shareable.portal",

@@ -114,6 +114,7 @@ public static partial class BasisMediaUrlRouter
     public static bool IsDirectlyPlayable(string url)
     {
         if (string.IsNullOrEmpty(url)) return false;
+        if (BasisMediaClipProtocol.IsClipUrl(url)) return false;
 
         bool isHttp = url.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
                    || url.StartsWith("https://", StringComparison.OrdinalIgnoreCase);

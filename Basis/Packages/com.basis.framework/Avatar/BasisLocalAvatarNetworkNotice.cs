@@ -1,6 +1,9 @@
 using Unity.Scripting.LifecycleManagement;
 using System;
+using System.Threading.Tasks;
 using Basis.BasisUI;
+using Basis.Network.Core;
+using Basis.Scripts.Device_Management;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
 
@@ -28,6 +31,7 @@ namespace Basis.Scripts.Avatar
         /// does not nag. Scoped to one connection by <see cref="Reset"/>.
         /// </summary>
         private static string WarnedForUrl;
+        private static bool WaitingForSupply;
 
         /// <summary>
         /// Forgets what has already been warned about, so the next server gets its own warning
@@ -36,6 +40,9 @@ namespace Basis.Scripts.Avatar
         public static void Reset()
         {
             WarnedForUrl = null;
+            WaitingForSupply = false;
+            BasisClientMessageRegistry.OnSupplyApplied -= OnSupplyApplied;
+            BasisAvatarHostClient.Reset();
         }
 
         /// <summary>
@@ -82,16 +89,156 @@ namespace Basis.Scripts.Avatar
             }
 
             string Url = Player.AvatarMetaData.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
-            if (WarnedForUrl == Url)
+            if (WarnedForUrl == Url || BasisAvatarHostClient.IsHosted(Url))
             {
+                return;
+            }
+
+            if (!BasisClientMessageRegistry.HasSupplyFor(BasisNetworkConnection.LocalPlayerPeer))
+            {
+                WaitForSupply();
                 return;
             }
             WarnedForUrl = Url;
 
-            BasisDebug.LogWarning($"Local avatar {Url} is worn while connected; remote players cannot load it.");
+            if (BasisAvatarHostClient.SharingAllowed)
+            {
+                PromptToShare(Url, Player.AvatarMetaData.UnlockPassword);
+                return;
+            }
+
+            ShowLocalOnlyWarning(BasisAvatarHostClient.ServerSupportsHosting ? BasisLocalization.Get("network.avatarShare.failed.disabled") : null);
+        }
+
+        public static void OnSharingRevoked()
+        {
+            BasisLocalPlayer Player = BasisLocalPlayer.Instance;
+            if (Player == null || !BasisNetworkConnection.LocalPlayerIsConnected || !IsLocalOnly(Player.AvatarLoadMode, Player.AvatarMetaData))
+            {
+                return;
+            }
+            BasisNetworkManagement.Transmitter?.SendOutAvatarChange();
+            WarnedForUrl = Player.AvatarMetaData.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
+            ShowLocalOnlyWarning(BasisLocalization.Get("network.avatarShare.failed.disabled"));
+        }
+
+        private static void WaitForSupply()
+        {
+            if (WaitingForSupply)
+            {
+                return;
+            }
+            WaitingForSupply = true;
+            BasisClientMessageRegistry.OnSupplyApplied -= OnSupplyApplied;
+            BasisClientMessageRegistry.OnSupplyApplied += OnSupplyApplied;
+            _ = SupplyTimeout();
+        }
+
+        private static async Task SupplyTimeout()
+        {
+            await Task.Delay(5000);
+            if (!WaitingForSupply)
+            {
+                return;
+            }
+            BasisDeviceManagement.EnqueueOnMainThread(() =>
+            {
+                if (!WaitingForSupply)
+                {
+                    return;
+                }
+                WaitingForSupply = false;
+                BasisClientMessageRegistry.OnSupplyApplied -= OnSupplyApplied;
+                if (!BasisNetworkConnection.LocalPlayerIsConnected || BasisClientMessageRegistry.HasSupplyFor(BasisNetworkConnection.LocalPlayerPeer))
+                {
+                    NotifyIfLocalOnly();
+                    return;
+                }
+                BasisLocalPlayer Player = BasisLocalPlayer.Instance;
+                if (Player == null || !IsLocalOnly(Player.AvatarLoadMode, Player.AvatarMetaData))
+                {
+                    return;
+                }
+                WarnedForUrl = Player.AvatarMetaData.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
+                ShowLocalOnlyWarning(null);
+            });
+        }
+
+        private static void OnSupplyApplied()
+        {
+            BasisDeviceManagement.EnqueueOnMainThread(() =>
+            {
+                if (!WaitingForSupply)
+                {
+                    return;
+                }
+                WaitingForSupply = false;
+                BasisClientMessageRegistry.OnSupplyApplied -= OnSupplyApplied;
+                NotifyIfLocalOnly();
+            });
+        }
+
+        private static void PromptToShare(string Url, string Password)
+        {
+            string Title = BasisLocalization.Get("network.avatarShare.title");
+            string Body = BasisLocalization.Get("network.avatarShare.body");
+            string Accept = BasisLocalization.Get("network.avatarShare.accept");
+            string Deny = BasisLocalization.Get("network.avatarShare.deny");
+
+            if (!BasisNotificationCenter.RouteToNotifications && !BasisMainMenu.Instance)
+            {
+                BasisMainMenu.Open();
+            }
+
+            BasisMenuDialoguePanel.CreateNew(Title, Body, Accept, Deny, Share =>
+            {
+                if (Share)
+                {
+                    _ = ShareAsync(Url, Password);
+                }
+            }, true, BasisPanelSeverity.Caution);
+        }
+
+        private static async Task ShareAsync(string Url, string Password)
+        {
+            (bool Shared, byte Reason, string Error) Result = await BasisAvatarHostClient.ShareAsync(Url, Password);
+            BasisLocalPlayer Player = BasisLocalPlayer.Instance;
+            bool StillWorn = Player != null && IsLocalOnly(Player.AvatarLoadMode, Player.AvatarMetaData) && Player.AvatarMetaData.BasisRemoteBundleEncrypted.RemoteBeeFileLocation == Url;
+            if (!Result.Shared)
+            {
+                BasisDebug.LogWarning($"Sharing local avatar through the server failed (reason {Result.Reason}): {Result.Error}");
+                if (StillWorn)
+                {
+                    ShowLocalOnlyWarning(DescribeShareFailure(Result.Reason, Result.Error));
+                }
+                return;
+            }
+            if (StillWorn && BasisNetworkConnection.LocalPlayerIsConnected)
+            {
+                BasisNetworkManagement.Transmitter?.SendOutAvatarChange();
+            }
+        }
+
+        private static string DescribeShareFailure(byte Reason, string Error)
+        {
+            switch (Reason)
+            {
+                case BasisAvatarHostProtocol.ReasonDisabled: return BasisLocalization.Get("network.avatarShare.failed.disabled");
+                case BasisAvatarHostProtocol.ReasonTooLarge: return BasisLocalization.Get("network.avatarShare.failed.tooLarge");
+                default: return BasisLocalization.Get("network.avatarShare.failed.generic");
+            }
+        }
+
+        private static void ShowLocalOnlyWarning(string Reason)
+        {
+            BasisDebug.LogWarning("Local avatar is worn while connected; remote players cannot load it.");
 
             string Title = BasisLocalization.Get("network.avatarLocalOnly.title");
             string Body = BasisLocalization.Get("network.avatarLocalOnly.body");
+            if (!string.IsNullOrEmpty(Reason))
+            {
+                Body = Reason + "\n\n" + Body;
+            }
             string Accept = BasisLocalization.Get("ui.ok");
 
             // Unsolicited, so under do-not-disturb this belongs in the notification bell instead of

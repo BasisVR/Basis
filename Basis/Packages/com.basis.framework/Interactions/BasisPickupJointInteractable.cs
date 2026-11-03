@@ -47,7 +47,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         protected internal override bool HoldControlsKinematic => CanHoldByJoint();
 
-        protected internal override bool HoldFollowsHand => !articulated;
+        protected internal override bool HoldFollowsHand => !articulated && base.HoldFollowsHand;
 
         internal bool JointHolding => holding;
 

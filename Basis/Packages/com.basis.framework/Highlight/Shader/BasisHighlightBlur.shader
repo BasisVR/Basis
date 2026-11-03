@@ -51,10 +51,14 @@ Shader "Basis/Highlight/Blur"
             return c;
         }
 
-        // Separable max filter (dilation). Always loops a fixed number of times
-        // and gates each tap with step(); this avoids `[unroll(N)] { ... break; }`
-        // patterns that some compilers (notably Adreno on Quest) implement
-        // incorrectly when the bound is a uniform.
+        // Separable max filter (dilation). Fully unrolled with a uniform-condition
+        // branch per tap pair instead of `[unroll(N)] { ... break; }`, which some
+        // compilers (notably Adreno on Quest) implement incorrectly when the bound
+        // is a uniform. Taps past the radius are skipped rather than fetched and
+        // zero-weighted: the mask is >= 0 so they could never raise the max, and
+        // the usual radius is 1-2, so this drops ~14 of 17 fetches per pixel.
+        // _LOD sampling keeps gradient ops out of flow control; the mask targets
+        // have a single mip, so the result is identical.
         #define MAX_DILATE_TAPS 8
 
         half4 DilateAxis(Varyings input, float2 dir)
@@ -65,18 +69,19 @@ Shader "Basis/Highlight/Blur"
 
             float radius = clamp(_BasisHighlightDilateRadius, 0.0, (float)MAX_DILATE_TAPS);
 
-            half m = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv).r;
+            half m = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_LinearClamp, uv, 0).r;
 
             UNITY_UNROLL
             for (int i = 1; i <= MAX_DILATE_TAPS; i++)
             {
-                // w = 1 when i is within the configured radius, 0 otherwise.
-                // Zero-weighted taps still execute but contribute nothing to max.
-                half w = (half)step((float)i, radius);
-                float2 ofs = texelStep * (float)i;
-                half a = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + ofs).r * w;
-                half b = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - ofs).r * w;
-                m = max(m, max(a, b));
+                UNITY_BRANCH
+                if ((float)i <= radius)
+                {
+                    float2 ofs = texelStep * (float)i;
+                    half a = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_LinearClamp, uv + ofs, 0).r;
+                    half b = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_LinearClamp, uv - ofs, 0).r;
+                    m = max(m, max(a, b));
+                }
             }
 
             return half4(m, m, m, m);

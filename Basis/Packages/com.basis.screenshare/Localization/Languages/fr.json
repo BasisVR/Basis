@@ -1,0 +1,310 @@
+{
+  "code": "fr",
+  "nativeName": "Français",
+  "entries": [
+    {
+      "key": "menu.provider.screenShare",
+      "value": "Partage d'écran"
+    },
+    {
+      "key": "library.embedded.screenShare",
+      "value": "Partage d'écran"
+    },
+    {
+      "key": "screenShare.yourShare",
+      "value": "Votre écran"
+    },
+    {
+      "key": "screenShare.source",
+      "value": "Partager"
+    },
+    {
+      "key": "screenShare.source.tooltip",
+      "value": "L'affichage ou la fenêtre que verront toutes les personnes près de l'écran."
+    },
+    {
+      "key": "screenShare.source.display",
+      "value": "{0} ({1}×{2})"
+    },
+    {
+      "key": "screenShare.source.none",
+      "value": "Aucun affichage ni fenêtre trouvé"
+    },
+    {
+      "key": "screenShare.refreshSources",
+      "value": "Actualiser la liste"
+    },
+    {
+      "key": "screenShare.resolution",
+      "value": "Résolution"
+    },
+    {
+      "key": "screenShare.resolution.tooltip",
+      "value": "La taille maximale à laquelle l'image est envoyée. Une source plus petite n'est jamais agrandie."
+    },
+    {
+      "key": "screenShare.resolution.native",
+      "value": "Native"
+    },
+    {
+      "key": "screenShare.resolution.1440",
+      "value": "1440p"
+    },
+    {
+      "key": "screenShare.resolution.1080",
+      "value": "1080p"
+    },
+    {
+      "key": "screenShare.resolution.720",
+      "value": "720p"
+    },
+    {
+      "key": "screenShare.resolution.480",
+      "value": "480p"
+    },
+    {
+      "key": "screenShare.frameRate",
+      "value": "Fréquence d'images"
+    },
+    {
+      "key": "screenShare.frameRate.tooltip",
+      "value": "La fréquence de mise à jour de l'image. 60 convient aux jeux et aux vidéos, 15 ou 5 aux documents et diapositives et laissent plus de bande passante pour les détails."
+    },
+    {
+      "key": "screenShare.frameRate.60",
+      "value": "60 fps"
+    },
+    {
+      "key": "screenShare.frameRate.30",
+      "value": "30 fps"
+    },
+    {
+      "key": "screenShare.frameRate.15",
+      "value": "15 fps"
+    },
+    {
+      "key": "screenShare.frameRate.5",
+      "value": "5 fps"
+    },
+    {
+      "key": "screenShare.quality",
+      "value": "Qualité"
+    },
+    {
+      "key": "screenShare.quality.tooltip",
+      "value": "La bande passante que l'image peut utiliser. Auto choisit un débit selon la résolution et la fréquence d'images ; le serveur fixe la limite supérieure."
+    },
+    {
+      "key": "screenShare.quality.auto",
+      "value": "Auto"
+    },
+    {
+      "key": "screenShare.quality.low",
+      "value": "Faible"
+    },
+    {
+      "key": "screenShare.quality.high",
+      "value": "Élevée"
+    },
+    {
+      "key": "screenShare.quality.max",
+      "value": "Maximale"
+    },
+    {
+      "key": "screenShare.audio",
+      "value": "Partager l'audio de l'ordinateur"
+    },
+    {
+      "key": "screenShare.audio.tooltip",
+      "value": "Envoie ce que joue votre ordinateur, sauf Basis lui-même, pour que les personnes près de l'écran l'entendent depuis l'écran."
+    },
+    {
+      "key": "screenShare.cursor",
+      "value": "Afficher le pointeur de la souris"
+    },
+    {
+      "key": "screenShare.start",
+      "value": "Démarrer le partage"
+    },
+    {
+      "key": "screenShare.stop",
+      "value": "Arrêter le partage"
+    },
+    {
+      "key": "screenShare.viewing",
+      "value": "Visionnage"
+    },
+    {
+      "key": "screenShare.viewing.none",
+      "value": "Personne d'autre ne partage d'écran."
+    },
+    {
+      "key": "screenShare.viewing.count",
+      "value": "Écrans partagés par d'autres : {0}"
+    },
+    {
+      "key": "screenShare.receive",
+      "value": "Afficher les écrans des autres"
+    },
+    {
+      "key": "screenShare.receive.tooltip",
+      "value": "Désactivé, aucun partage d'écran n'est téléchargé et les écrans des autres restent vides."
+    },
+    {
+      "key": "screenShare.viewDistance",
+      "value": "Distance d'affichage (m)"
+    },
+    {
+      "key": "screenShare.viewDistance.tooltip",
+      "value": "Un écran plus éloigné que cette distance n'est pas téléchargé tant que vous ne vous approchez pas."
+    },
+    {
+      "key": "screenShare.volume",
+      "value": "Volume du partage d'écran"
+    },
+    {
+      "key": "screenShare.status.none",
+      "value": "Faites apparaître Partage d'écran depuis votre Bibliothèque pour partager votre écran."
+    },
+    {
+      "key": "screenShare.status.idle",
+      "value": "Aucun partage. Choisissez quoi partager et appuyez sur Démarrer le partage."
+    },
+    {
+      "key": "screenShare.status.offline",
+      "value": "Aucun partage. Rejoignez un serveur pour partager votre écran."
+    },
+    {
+      "key": "screenShare.status.unsupportedServer",
+      "value": "Aucun partage. Ce serveur ne prend pas en charge le partage d'écran."
+    },
+    {
+      "key": "screenShare.status.starting",
+      "value": "Démarrage…"
+    },
+    {
+      "key": "screenShare.status.waiting",
+      "value": "Partage de {0}. En attente du serveur…"
+    },
+    {
+      "key": "screenShare.status.live",
+      "value": "Partage de {0}, {1} spectateur(s)"
+    },
+    {
+      "key": "screenShare.status.error",
+      "value": "Arrêté : {0}"
+    },
+    {
+      "key": "screenShare.status.noAudio",
+      "value": "L'audio de l'ordinateur n'est pas partagé : {0}"
+    },
+    {
+      "key": "screenShare.error.unsupported",
+      "value": "Le partage d'écran nécessite Windows 10 version 2004 ou ultérieure. Vous pouvez toujours regarder les écrans des autres."
+    },
+    {
+      "key": "screenShare.error.open",
+      "value": "Impossible de capturer l'écran."
+    },
+    {
+      "key": "screenShare.error.permission",
+      "value": "Ce serveur ne vous autorise pas à partager votre écran."
+    },
+    {
+      "key": "screenShare.error.tooMany",
+      "value": "Ce serveur affiche déjà autant de partages d'écran qu'il le permet."
+    },
+    {
+      "key": "screenShare.error.refused",
+      "value": "Le serveur a refusé le partage d'écran."
+    },
+    {
+      "key": "screenShare.error.ended",
+      "value": "L'affichage ou la fenêtre partagé n'est plus disponible."
+    },
+    {
+      "key": "screenShare.back.sharedBy",
+      "value": "Partagé par {0}"
+    },
+    {
+      "key": "screenShare.back.yours",
+      "value": "Votre écran"
+    },
+    {
+      "key": "screenShare.back.hide",
+      "value": "Masquer"
+    },
+    {
+      "key": "screenShare.panel.live",
+      "value": "EN DIRECT"
+    },
+    {
+      "key": "screenShare.panel.watching",
+      "value": "{0} spectateurs"
+    },
+    {
+      "key": "screenShare.panel.details",
+      "value": "{0}×{1} · {2} i/s"
+    },
+    {
+      "key": "screenShare.showHidden",
+      "value": "Afficher les écrans masqués"
+    },
+    {
+      "key": "screenShare.viewing.hidden",
+      "value": "Masqués par vous : {0}"
+    },
+    {
+      "key": "settings.admin.title.lockScreenShare",
+      "value": "Verrouiller le partage d'écran"
+    },
+    {
+      "key": "settings.admin.title.lockScreenShare.tooltip",
+      "value": "Empêche les joueurs sans l'autorisation de verrouillage global de partager leur écran. Leurs partages en cours s'arrêtent aussitôt ; les administrateurs peuvent toujours partager."
+    },
+    {
+      "key": "screenShare.status.locked",
+      "value": "Le partage d'écran est désactivé sur ce serveur."
+    },
+    {
+      "key": "screenShare.error.locked",
+      "value": "Un administrateur a désactivé le partage d'écran sur ce serveur."
+    },
+    {
+      "key": "screenShare.error.restart",
+      "value": "Le module multimédia a été mis à jour. Redémarrez pour utiliser le partage d'écran."
+    },
+    {
+      "key": "screenShare.audioSource",
+      "value": "Source audio"
+    },
+    {
+      "key": "screenShare.audioSource.tooltip",
+      "value": "Automatique partage uniquement le son de l'application quand vous partagez une fenêtre, et tout sauf Basis quand vous partagez un écran."
+    },
+    {
+      "key": "screenShare.audioSource.auto",
+      "value": "Automatique"
+    },
+    {
+      "key": "screenShare.audioSource.application",
+      "value": "Cette application uniquement"
+    },
+    {
+      "key": "screenShare.audioSource.system",
+      "value": "Tout l'ordinateur"
+    },
+    {
+      "key": "screenShare.source.portal",
+      "value": "Écran ou fenêtre (choisi dans la boîte de dialogue du système)"
+    },
+    {
+      "key": "screenShare.status.choose",
+      "value": "Choisissez quoi partager dans la boîte de dialogue du système…"
+    },
+    {
+      "key": "screenShare.error.pluginMissing",
+      "value": "Le module multimédia de cette version ne peut pas partager l'écran. Recompilez le module pour cette plateforme."
+    }
+  ]
+}

@@ -29,6 +29,8 @@
 //! keeps issuing as `BM_EVENT_COLLECT` (see
 //! `bm_session_set_output_texture`).
 
+pub mod capture;
+pub mod cpu_present;
 mod host_log;
 
 use std::ffi::c_void;
@@ -275,6 +277,7 @@ struct Descriptor {
 
 struct Entry {
     session: Mutex<Option<Session>>,
+    push: Option<Arc<media_engine::PushFeed>>,
     shared: Arc<SessionShared>,
     pipeline: Arc<PipelineShared>,
     unity_texture: AtomicUsize,
@@ -565,8 +568,14 @@ pub unsafe extern "C" fn bm_session_open(
             Some("software_only") => media_engine::DecodePreference::SoftwareOnly,
             _ => media_engine::DecodePreference::HardwareWithFallback,
         };
-        let session = Session::open(request);
+        let (session, push) = if media_engine::is_push_url(&request.url) {
+            let (session, feed) = Session::open_push(request);
+            (session, Some(feed))
+        } else {
+            (Session::open(request), None)
+        };
         let entry = Arc::new(Entry {
+            push,
             shared: Arc::clone(session.shared()),
             pipeline: Arc::clone(session.pipeline()),
             session: Mutex::new(Some(session)),
@@ -620,6 +629,9 @@ pub unsafe extern "C" fn bm_session_close(handle: u64) -> i32 {
             slot.generation = slot.generation.wrapping_add(1);
             slot.entry.take()
         };
+        if let Some(feed) = entry.as_ref().and_then(|e| e.push.as_ref()) {
+            feed.close();
+        }
         if let Some(entry) = entry
             && let Ok(mut session) = entry.session.lock()
             // Explicit close (join) rather than relying on drop timing.

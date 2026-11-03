@@ -56,11 +56,21 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                     effectiveIntervalSec = Basis.Network.Core.BasisNetworkCommons.DecodeAvatarIntervalMs(syncMessage.interval, serverDefaultMs) / 1000.0;
                 }
 
-                if (TryCreateAvatarBuffer(data, ref offset, effectiveIntervalSec, q, out BasisAvatarBuffer avatarBuffer))
+                if (!math.isfinite(effectiveIntervalSec))
                 {
-                    avatarBuffer.Sequence = syncMessage.sequence;
-                    EnqueueAndProcessAdditionalData(baseReceiver, avatarBuffer, syncMessage.avatarSerialization);
+                    BasisDebug.LogError($"non finite data found in Decompression Stage, bailing.", BasisDebug.LogTag.Remote);
+                    return;
                 }
+
+                // Streaming poses are bit-unpacked by the receiver's own compute pass (parallel,
+                // off the frame thread) rather than here: server-relayed packets are handled on the
+                // main thread inside TickTransports, where the per-packet unpack was a per-player
+                // main-thread cost. Only a byte copy happens on this thread now.
+                BasisAvatarBuffer avatarBuffer = BasisAvatarBufferPool.Get();
+                avatarBuffer.SetRawPayload(data, expected, (byte)q, effectiveIntervalSec);
+                avatarBuffer.Sequence = syncMessage.sequence;
+                baseReceiver.EnqueueRawAvatarPayload(avatarBuffer);
+                ProcessAdditionalData(baseReceiver, syncMessage.avatarSerialization);
             }
             else
             {
@@ -126,9 +136,36 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             EnqueueAndProcessAdditionalData(baseReceiver, avatarBuffer, avatarSerialization);
         }
 
+        /// <summary>
+        /// Unpacks a payload staged by <see cref="BasisAvatarBuffer.SetRawPayload"/> into the same
+        /// buffer. Thread-safe (pure decode, no Unity API); called from the receiver's compute pass.
+        /// Returns false when the payload is malformed, leaving the buffer for the caller to release.
+        /// </summary>
+        internal static bool TryDecodeRawPayload(BasisAvatarBuffer buffer)
+        {
+            byte[] data = buffer.RawPayload;
+            if (data == null || buffer.RawLength <= 0)
+            {
+                return false;
+            }
+            int offset = 0;
+            return TryDecodeInto(buffer, data, ref offset, buffer.SecondsInterval, (BasisAvatarBitPacking.BitQuality)buffer.RawQuality);
+        }
+
         private static bool TryCreateAvatarBuffer(byte[] data, ref int offset, double secondsInterval, BasisAvatarBitPacking.BitQuality quality, out BasisAvatarBuffer basisAvatarBuffer)
         {
+            basisAvatarBuffer = BasisAvatarBufferPool.Get();
+            if (TryDecodeInto(basisAvatarBuffer, data, ref offset, secondsInterval, quality))
+            {
+                return true;
+            }
+            BasisAvatarBufferPool.Release(basisAvatarBuffer);
             basisAvatarBuffer = null;
+            return false;
+        }
+
+        private static bool TryDecodeInto(BasisAvatarBuffer basisAvatarBuffer, byte[] data, ref int offset, double secondsInterval, BasisAvatarBitPacking.BitQuality quality)
+        {
             int startOffset = offset;
 
             if (!math.isfinite(secondsInterval))
@@ -137,8 +174,6 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             }
 
             secondsInterval = math.clamp(secondsInterval, 1e-3, 1.0);
-
-            basisAvatarBuffer = BasisAvatarBufferPool.Get();
 
             // Position: 3 × int24 millimetres at every quality
             if (!BasisUnityBitPackerExtensionsUnsafe.TryReadPosition(ref data, ref offset, out basisAvatarBuffer.Position))
@@ -204,11 +239,6 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 
         Fail:
             offset = startOffset;
-            if (basisAvatarBuffer != null)
-            {
-                BasisAvatarBufferPool.Release(basisAvatarBuffer);
-                basisAvatarBuffer = null;
-            }
             BasisDebug.LogError($"non finite data found in Decompression Stage, bailing.", BasisDebug.LogTag.Remote);
             return false;
         }
@@ -216,7 +246,11 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         private static void EnqueueAndProcessAdditionalData(BasisNetworkReceiver baseReceiver, BasisAvatarBuffer avatarBuffer, LocalAvatarSyncMessage message)
         {
             baseReceiver.EnQueueAvatarBuffer(avatarBuffer);
+            ProcessAdditionalData(baseReceiver, message);
+        }
 
+        private static void ProcessAdditionalData(BasisNetworkReceiver baseReceiver, LocalAvatarSyncMessage message)
+        {
             if (message.AdditionalAvatarDataSize > 0 && message.AdditionalAvatarDatas != null)
             {
                 int additionalCount = math.min(message.AdditionalAvatarDataSize, message.AdditionalAvatarDatas.Length);

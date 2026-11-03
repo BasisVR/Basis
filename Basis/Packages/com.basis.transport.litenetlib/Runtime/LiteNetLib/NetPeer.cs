@@ -580,10 +580,28 @@ namespace LiteNetLib
             //
             // Oldest-first, because these are position updates: the newest frame supersedes
             // everything queued behind it, so a stale one is exactly what you want to lose.
+            TrimUnreliableQueue(limit);
+        }
+
+        /// <summary>
+        /// Drops from the front of the bulk queue until it is back inside <paramref name="limit"/>.
+        /// A batch counts, and is dropped, as the messages it holds.
+        /// </summary>
+        private void TrimUnreliableQueue(int limit)
+        {
             while (Volatile.Read(ref _unreliableCount) > limit && _unreliableChannel.TryDequeue(out var stale))
             {
-                Interlocked.Decrement(ref _unreliableCount);
-                NetManager.NoteUnreliableDropped();
+                int entries = stale.BatchEntries;
+                if (entries == 0)
+                {
+                    Interlocked.Decrement(ref _unreliableCount);
+                    NetManager.NoteUnreliableDropped();
+                }
+                else
+                {
+                    Interlocked.Add(ref _unreliableCount, -entries);
+                    NetManager.NoteUnreliableDropped(entries);
+                }
                 NetManager.PoolRecycle(stale);
             }
         }
@@ -1393,7 +1411,8 @@ namespace LiteNetLib
         {
             while (_unreliableChannel.TryDequeue(out NetPacket queued))
             {
-                Interlocked.Decrement(ref _unreliableCount);
+                int entries = queued.BatchEntries;
+                Interlocked.Add(ref _unreliableCount, entries == 0 ? -1 : -entries);
                 NetManager.PoolRecycle(queued);
             }
             while (_priorityUnreliableChannel.TryDequeue(out NetPacket priorityQueued))
@@ -1845,6 +1864,172 @@ namespace LiteNetLib
             EnqueueUnreliable(packet);
         }
 
+        /// <summary>
+        /// Queues a run of unreliable raw sends, equivalent to <see cref="SendUnreliableRawMerge"/>
+        /// per entry in order, but packed into as few pooled packets as fit
+        /// <see cref="NetConstants.MaxPacketSize"/>. One packet per message meant a shared-pool rent,
+        /// a queue node and two interlocked counter updates for every avatar frame the server relays,
+        /// millions a second at 1000 players. The drain unpacks each entry into the merge
+        /// accumulator exactly as it would a single packet, so what reaches the wire is unchanged,
+        /// and the queue bound still counts messages. Priority-channel and oversized entries take
+        /// the single-packet path.
+        /// </summary>
+        public void SendUnreliableRawMergeBatch(Basis.Network.Core.UnreliableRawSend[] sends, int count)
+        {
+            if (_connectionState != ConnectionState.Connected)
+                return;
+
+            int cap = NetConstants.MaxPacketSize;
+            bool[] priority = NetManager.PriorityUnreliableChannels;
+            int i = 0;
+            while (i < count)
+            {
+                ref Basis.Network.Core.UnreliableRawSend first = ref sends[i];
+                if (!CanBatch(first.Channel, first.Length, cap, priority))
+                {
+                    SendUnreliableRawMerge(first.Data, first.Offset, first.Length, first.Channel, first.PatchOffset, first.PatchValue);
+                    i++;
+                    continue;
+                }
+
+                // Size the run first so the pooled packet is rented at the size it needs.
+                int end = i;
+                int total = 0;
+                while (end < count)
+                {
+                    ref Basis.Network.Core.UnreliableRawSend s = ref sends[end];
+                    if (!CanBatch(s.Channel, s.Length, cap, priority))
+                        break;
+                    int entry = BatchEntrySize(s.Length);
+                    if (total + entry > cap)
+                        break;
+                    total += entry;
+                    end++;
+                }
+
+                NetPacket batch = NetManager.PoolGetPacket(total);
+                byte[] raw = batch.RawData;
+                int pos = 0;
+                for (int k = i; k < end; k++)
+                {
+                    ref Basis.Network.Core.UnreliableRawSend s = ref sends[k];
+                    int packetSize = NetConstants.UnreliableHeaderSize + s.Length;
+                    raw[pos] = (byte)packetSize;
+                    raw[pos + 1] = (byte)(packetSize >> 8);
+                    raw[pos + 2] = (byte)PacketProperty.Unreliable; // connection number is set at drain
+                    raw[pos + 3] = s.Channel;
+                    int payload = pos + 2 + NetConstants.UnreliableHeaderSize;
+                    Buffer.BlockCopy(s.Data, s.Offset, raw, payload, s.Length);
+                    if (s.PatchOffset >= 0 && s.PatchOffset < s.Length)
+                        raw[payload + s.PatchOffset] = s.PatchValue;
+                    pos += 2 + packetSize;
+                }
+                batch.Size = pos;
+                batch.BatchEntries = end - i;
+                EnqueueUnreliableBatch(batch);
+                i = end;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static int BatchEntrySize(int length) => 2 + NetConstants.UnreliableHeaderSize + length;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private bool CanBatch(byte channel, int length, int cap, bool[] priority)
+        {
+            return channel < _channels.Length
+                && BatchEntrySize(length) <= cap
+                && !(priority != null && channel < priority.Length && priority[channel]);
+        }
+
+        private void EnqueueUnreliableBatch(NetPacket batch)
+        {
+            _unreliableChannel.Enqueue(batch);
+            int depth = Interlocked.Add(ref _unreliableCount, batch.BatchEntries);
+            int limit = NetManager.EffectiveUnreliableQueuePerPeer;
+            if (limit <= 0 || depth <= limit) return;
+            TrimUnreliableQueue(limit);
+        }
+
+        private void SendUnreliableBatchEntries(NetPacket batch)
+        {
+            byte[] raw = batch.RawData;
+            int pos = 0;
+            int size = batch.Size;
+            while (pos + 2 <= size)
+            {
+                int packetSize = raw[pos] | (raw[pos + 1] << 8);
+                SendUnreliableEntry(raw, pos + 2, packetSize);
+                pos += 2 + packetSize;
+            }
+        }
+
+        /// <summary>
+        /// <see cref="SendUserData"/>'s path for one unfragmented unreliable packet held at
+        /// <paramref name="offset"/> in <paramref name="raw"/> rather than in its own NetPacket.
+        /// Kept step-for-step identical so batched and single sends produce the same datagrams.
+        /// </summary>
+        private void SendUnreliableEntry(byte[] raw, int offset, int size)
+        {
+            raw[offset] = (byte)((byte)PacketProperty.Unreliable | (_connectNum << 5));
+            byte channel = raw[offset + 1];
+            int payloadSize = size - NetConstants.UnreliableHeaderSize;
+            const int sizeThreshold = 20;
+
+            bool compact = NetManager.CompactMergeEnabled;
+            int entrySize = compact ? CompactMerge.EntrySize(payloadSize) : size + 2;
+            if ((compact && !CompactMerge.CanCarryChannel(channel)) ||
+                NetConstants.HeaderSize + entrySize + sizeThreshold >= _mtu)
+            {
+                int bytesSent = NetManager.SendRaw(raw, offset, size, this);
+                if (NetManager.EnableStatistics)
+                {
+                    Statistics.IncrementPacketsSent();
+                    Statistics.AddBytesSent(bytesSent);
+                }
+                return;
+            }
+
+            if (_mergeCount > 0 && compact != _mergeCompact)
+                SendMerged();
+
+            if (NetConstants.HeaderSize + _mergePos + entrySize > _mtu)
+                SendMerged();
+
+            if (_mergeCount == 0)
+            {
+                _mergeCompact = compact;
+                _mergeData.Property = compact ? PacketProperty.CompactMerged : PacketProperty.Merged;
+            }
+
+            if (compact)
+            {
+                _mergePos += CompactMerge.WriteUnreliableEntry(
+                    _mergeData.RawData,
+                    NetConstants.HeaderSize + _mergePos,
+                    channel,
+                    raw,
+                    offset + NetConstants.UnreliableHeaderSize,
+                    payloadSize);
+            }
+            else
+            {
+                FastBitConverter.GetBytes(
+                    _mergeData.RawData,
+                    _mergePos + NetConstants.HeaderSize,
+                    (ushort)size);
+                Buffer.BlockCopy(
+                    raw,
+                    offset,
+                    _mergeData.RawData,
+                    _mergePos + NetConstants.HeaderSize + 2,
+                    size);
+                _mergePos += size + 2;
+            }
+
+            _mergeCount++;
+        }
+
         internal void SendUserData(NetPacket packet)
         {
             packet.ConnectionNumber = _connectNum;
@@ -2075,8 +2260,17 @@ namespace LiteNetLib
 
             while (_unreliableChannel.TryDequeue(out var packet))
             {
-                Interlocked.Decrement(ref _unreliableCount);
-                SendUserData(packet);
+                int entries = packet.BatchEntries;
+                if (entries == 0)
+                {
+                    Interlocked.Decrement(ref _unreliableCount);
+                    SendUserData(packet);
+                }
+                else
+                {
+                    Interlocked.Add(ref _unreliableCount, -entries);
+                    SendUnreliableBatchEntries(packet);
+                }
                 NetManager.PoolRecycle(packet);
             }
 

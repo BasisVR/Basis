@@ -1,0 +1,310 @@
+{
+  "code": "ru",
+  "nativeName": "Русский",
+  "entries": [
+    {
+      "key": "menu.provider.screenShare",
+      "value": "Демонстрация экрана"
+    },
+    {
+      "key": "library.embedded.screenShare",
+      "value": "Демонстрация экрана"
+    },
+    {
+      "key": "screenShare.yourShare",
+      "value": "Ваш экран"
+    },
+    {
+      "key": "screenShare.source",
+      "value": "Источник"
+    },
+    {
+      "key": "screenShare.source.tooltip",
+      "value": "Дисплей или окно, которое увидят все рядом с экраном."
+    },
+    {
+      "key": "screenShare.source.display",
+      "value": "{0} ({1}×{2})"
+    },
+    {
+      "key": "screenShare.source.none",
+      "value": "Дисплеи и окна не найдены"
+    },
+    {
+      "key": "screenShare.refreshSources",
+      "value": "Обновить список"
+    },
+    {
+      "key": "screenShare.resolution",
+      "value": "Разрешение"
+    },
+    {
+      "key": "screenShare.resolution.tooltip",
+      "value": "Максимальный размер, в котором передаётся изображение. Источник меньшего размера никогда не увеличивается."
+    },
+    {
+      "key": "screenShare.resolution.native",
+      "value": "Исходное"
+    },
+    {
+      "key": "screenShare.resolution.1440",
+      "value": "1440p"
+    },
+    {
+      "key": "screenShare.resolution.1080",
+      "value": "1080p"
+    },
+    {
+      "key": "screenShare.resolution.720",
+      "value": "720p"
+    },
+    {
+      "key": "screenShare.resolution.480",
+      "value": "480p"
+    },
+    {
+      "key": "screenShare.frameRate",
+      "value": "Частота кадров"
+    },
+    {
+      "key": "screenShare.frameRate.tooltip",
+      "value": "Как часто обновляется изображение. 60 подходит для игр и видео, 15 или 5 для документов и слайдов и оставляют больше пропускной способности для детализации."
+    },
+    {
+      "key": "screenShare.frameRate.60",
+      "value": "60 fps"
+    },
+    {
+      "key": "screenShare.frameRate.30",
+      "value": "30 fps"
+    },
+    {
+      "key": "screenShare.frameRate.15",
+      "value": "15 fps"
+    },
+    {
+      "key": "screenShare.frameRate.5",
+      "value": "5 fps"
+    },
+    {
+      "key": "screenShare.quality",
+      "value": "Качество"
+    },
+    {
+      "key": "screenShare.quality.tooltip",
+      "value": "Сколько пропускной способности может использовать изображение. Авто выбирает битрейт по разрешению и частоте кадров; верхний предел задаёт сервер."
+    },
+    {
+      "key": "screenShare.quality.auto",
+      "value": "Авто"
+    },
+    {
+      "key": "screenShare.quality.low",
+      "value": "Низкое"
+    },
+    {
+      "key": "screenShare.quality.high",
+      "value": "Высокое"
+    },
+    {
+      "key": "screenShare.quality.max",
+      "value": "Максимальное"
+    },
+    {
+      "key": "screenShare.audio",
+      "value": "Транслировать звук компьютера"
+    },
+    {
+      "key": "screenShare.audio.tooltip",
+      "value": "Передаёт то, что воспроизводит ваш компьютер, кроме самого Basis, чтобы люди рядом с экраном слышали это из экрана."
+    },
+    {
+      "key": "screenShare.cursor",
+      "value": "Показывать указатель мыши"
+    },
+    {
+      "key": "screenShare.start",
+      "value": "Начать демонстрацию"
+    },
+    {
+      "key": "screenShare.stop",
+      "value": "Остановить демонстрацию"
+    },
+    {
+      "key": "screenShare.viewing",
+      "value": "Просмотр"
+    },
+    {
+      "key": "screenShare.viewing.none",
+      "value": "Больше никто не демонстрирует экран."
+    },
+    {
+      "key": "screenShare.viewing.count",
+      "value": "Экранов от других: {0}"
+    },
+    {
+      "key": "screenShare.receive",
+      "value": "Показывать экраны других"
+    },
+    {
+      "key": "screenShare.receive.tooltip",
+      "value": "Если выключено, демонстрации экрана не загружаются, а экраны других остаются пустыми."
+    },
+    {
+      "key": "screenShare.viewDistance",
+      "value": "Дальность просмотра (м)"
+    },
+    {
+      "key": "screenShare.viewDistance.tooltip",
+      "value": "Экран дальше этого расстояния не загружается, пока вы не подойдёте ближе."
+    },
+    {
+      "key": "screenShare.volume",
+      "value": "Громкость демонстрации экрана"
+    },
+    {
+      "key": "screenShare.status.none",
+      "value": "Создайте «Демонстрация экрана» из Библиотеки, чтобы показать свой экран."
+    },
+    {
+      "key": "screenShare.status.idle",
+      "value": "Демонстрация не идёт. Выберите, что показать, и нажмите «Начать демонстрацию»."
+    },
+    {
+      "key": "screenShare.status.offline",
+      "value": "Демонстрация не идёт. Подключитесь к серверу, чтобы показать свой экран."
+    },
+    {
+      "key": "screenShare.status.unsupportedServer",
+      "value": "Демонстрация не идёт. Этот сервер не поддерживает демонстрацию экрана."
+    },
+    {
+      "key": "screenShare.status.starting",
+      "value": "Запуск…"
+    },
+    {
+      "key": "screenShare.status.waiting",
+      "value": "Показ: {0}. Ожидание сервера…"
+    },
+    {
+      "key": "screenShare.status.live",
+      "value": "Показ: {0}, зрителей: {1}"
+    },
+    {
+      "key": "screenShare.status.error",
+      "value": "Остановлено: {0}"
+    },
+    {
+      "key": "screenShare.status.noAudio",
+      "value": "Звук компьютера не передаётся: {0}"
+    },
+    {
+      "key": "screenShare.error.unsupported",
+      "value": "Для демонстрации экрана нужна Windows 10 версии 2004 или новее. Смотреть экраны других вы по-прежнему можете."
+    },
+    {
+      "key": "screenShare.error.open",
+      "value": "Не удалось захватить экран."
+    },
+    {
+      "key": "screenShare.error.permission",
+      "value": "Этот сервер не разрешает вам демонстрировать экран."
+    },
+    {
+      "key": "screenShare.error.tooMany",
+      "value": "На этом сервере уже показано максимально допустимое число демонстраций экрана."
+    },
+    {
+      "key": "screenShare.error.refused",
+      "value": "Сервер отклонил демонстрацию экрана."
+    },
+    {
+      "key": "screenShare.error.ended",
+      "value": "Показываемый дисплей или окно больше недоступно."
+    },
+    {
+      "key": "screenShare.back.sharedBy",
+      "value": "Показывает {0}"
+    },
+    {
+      "key": "screenShare.back.yours",
+      "value": "Ваш экран"
+    },
+    {
+      "key": "screenShare.back.hide",
+      "value": "Скрыть"
+    },
+    {
+      "key": "screenShare.panel.live",
+      "value": "ЭФИР"
+    },
+    {
+      "key": "screenShare.panel.watching",
+      "value": "Смотрят: {0}"
+    },
+    {
+      "key": "screenShare.panel.details",
+      "value": "{0}×{1} · {2} к/с"
+    },
+    {
+      "key": "screenShare.showHidden",
+      "value": "Показать скрытые экраны"
+    },
+    {
+      "key": "screenShare.viewing.hidden",
+      "value": "Скрыто вами: {0}"
+    },
+    {
+      "key": "settings.admin.title.lockScreenShare",
+      "value": "Запретить демонстрацию экрана"
+    },
+    {
+      "key": "settings.admin.title.lockScreenShare.tooltip",
+      "value": "Игроки без права глобальной блокировки не смогут показывать свой экран. Их текущие демонстрации сразу завершатся; администраторы по-прежнему могут показывать экран."
+    },
+    {
+      "key": "screenShare.status.locked",
+      "value": "Демонстрация экрана на этом сервере отключена."
+    },
+    {
+      "key": "screenShare.error.locked",
+      "value": "Администратор отключил демонстрацию экрана на этом сервере."
+    },
+    {
+      "key": "screenShare.error.restart",
+      "value": "Медиаплагин обновлён. Перезапустите, чтобы пользоваться демонстрацией экрана."
+    },
+    {
+      "key": "screenShare.audioSource",
+      "value": "Источник звука"
+    },
+    {
+      "key": "screenShare.audioSource.tooltip",
+      "value": "Авто передаёт только звук приложения при показе окна и весь звук, кроме Basis, при показе экрана."
+    },
+    {
+      "key": "screenShare.audioSource.auto",
+      "value": "Авто"
+    },
+    {
+      "key": "screenShare.audioSource.application",
+      "value": "Только это приложение"
+    },
+    {
+      "key": "screenShare.audioSource.system",
+      "value": "Весь компьютер"
+    },
+    {
+      "key": "screenShare.source.portal",
+      "value": "Экран или окно (выбирается в системном окне)"
+    },
+    {
+      "key": "screenShare.status.choose",
+      "value": "Выберите, что показать, в системном окне…"
+    },
+    {
+      "key": "screenShare.error.pluginMissing",
+      "value": "Медиаплагин этой сборки не умеет показывать экран. Пересоберите плагин для этой платформы."
+    }
+  ]
+}

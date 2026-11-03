@@ -57,3 +57,25 @@ MonoBehaviour:
       m_Extents: {x: 0, y: 0, z: 0}
     HasCustomSpawnOffset: 1
     SpawnOffsetFromPlayerReference: {x: 0, y: 0, z: 0.5}
+  - Key:
+      Mode: 2
+      PlacementType: 1
+      Url: Screen Share
+      Pass:
+      EmbeddedSettings:
+        IsEmbedded: 1
+        SourceType: 1
+      PinnedSettings:
+        IsPinned: 0
+        NetworkType: 0
+        IsEphemeral: 1
+    HasCustomIconAddress: 1
+    IconAddress: Packages/com.basis.sdk/Textures/Runtime/computer.png
+    HasCustomDisplayName: 1
+    DisplayNameKey: library.embedded.screenShare
+    HasCustomBounds: 1
+    Bounds:
+      m_Center: {x: 0.87, y: 0.49, z: 0.05}
+      m_Extents: {x: 0, y: 0, z: 0}
+    HasCustomSpawnOffset: 1
+    SpawnOffsetFromPlayerReference: {x: 0, y: 0, z: 1.2}

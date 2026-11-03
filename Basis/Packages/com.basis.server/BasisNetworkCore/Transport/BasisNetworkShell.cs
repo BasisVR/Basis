@@ -85,6 +85,18 @@ namespace Basis.Network.Core
         public string VerifiedIdentity => null;
     }
 
+    /// <summary>One entry of <see cref="NetPeer.SendUnreliableRawMergeBatch"/>; fields mean what the
+    /// matching <see cref="NetPeer.SendUnreliableRawMerge"/> parameters do.</summary>
+    public struct UnreliableRawSend
+    {
+        public byte[] Data;
+        public int Offset;
+        public int Length;
+        public byte Channel;
+        public byte PatchValue;
+        public int PatchOffset;
+    }
+
     public interface NetPeer
     {
         public void Disconnect();
@@ -93,6 +105,21 @@ namespace Basis.Network.Core
         public void Send(byte[] data, byte channelNumber, DeliveryMethod deliveryMethod);
         public void Send(NetDataWriter data, byte channelNumber, DeliveryMethod deliveryMethod);
         public void SendUnreliableRawMerge(byte[] data, int offset, int length, byte channelNumber, int patchOffset = -1, byte patchValue = 0);
+
+        /// <summary>
+        /// <paramref name="count"/> unreliable raw sends from <paramref name="sends"/>, with the same
+        /// delivery as calling <see cref="SendUnreliableRawMerge"/> once per entry in order. A
+        /// transport may override it to queue the whole run as one unit instead of one per message.
+        /// </summary>
+        public void SendUnreliableRawMergeBatch(UnreliableRawSend[] sends, int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                ref UnreliableRawSend s = ref sends[i];
+                SendUnreliableRawMerge(s.Data, s.Offset, s.Length, s.Channel, s.PatchOffset, s.PatchValue);
+            }
+        }
+
         public int GetPacketsCountInQueue(byte channel, DeliveryMethod deliveryMethod);
         public int Id { get; }
         public IPAddress Address { get; }

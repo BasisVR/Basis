@@ -40,6 +40,8 @@ namespace Basis.Scripts.UI
 
         public static BasisMenuBackgroundTier ActiveTier { get; private set; } = BasisMenuBackgroundTier.Full;
 
+        public static Material SharedMaterial => _runtimeMaterial;
+
         [RuntimeInitializeOnLoadMethod]
         private static void Initialize()
         {

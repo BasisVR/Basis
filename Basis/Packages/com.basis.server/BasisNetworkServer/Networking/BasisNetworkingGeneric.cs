@@ -120,6 +120,32 @@ namespace Basis.Network.Server.Generic
             }
         }
 
+        private const string VideoClipShareIdentifier = "BasisMediaClipShare";
+        private const byte VideoClipOpOffer = 1;
+        private const byte VideoClipOpChunk = 2;
+
+        private static bool IsBlockedVideoClipTraffic(ushort messageIndex, byte[] payload, int payloadLength, NetPeer sender)
+        {
+            if (!BasisNetworkServer.Security.BasisGlobalLockManager.VideoClipsLocked || payloadLength <= 0)
+            {
+                return false;
+            }
+            if (payload[0] != VideoClipOpOffer && payload[0] != VideoClipOpChunk)
+            {
+                return false;
+            }
+            if (!BasisNetworkCore.BasisNetworkIDDatabase.UshortNetworkDatabase.TryGetValue(VideoClipShareIdentifier, out ushort clipShareId) || clipShareId != messageIndex)
+            {
+                return false;
+            }
+            string uuid = null;
+            if (sender != null && NetworkServer.AuthIdentity != null)
+            {
+                NetworkServer.AuthIdentity.NetIDToUUID(sender, out uuid);
+            }
+            return string.IsNullOrEmpty(uuid) || !BasisPermissions.PermissionManager.PermissionIntegration.HasValidRequirement(uuid, BasisPermissions.PermNodes.ModerationGlobalLock);
+        }
+
         public static void HandleScene(NetPacketReader Reader, DeliveryMethod DeliveryMethod, NetPeer sender, byte broadcastChannel = BasisNetworkCommons.SceneChannel)
         {
             SceneDataMessage SceneDataMessage = new SceneDataMessage();
@@ -133,6 +159,10 @@ namespace Basis.Network.Server.Generic
             // malformed payload can never interfere with the live send.
             bool isImageTraffic = BasisNetworkImageCache.IsImageTraffic(SceneDataMessage.messageIndex);
             if (isImageTraffic && BasisNetworkImageCache.IsAnimationPayload(payload, payloadLength) && BasisNetworkImageCache.IsGifBlockedFor(sender))
+            {
+                return;
+            }
+            if (!isImageTraffic && IsBlockedVideoClipTraffic(SceneDataMessage.messageIndex, payload, payloadLength, sender))
             {
                 return;
             }

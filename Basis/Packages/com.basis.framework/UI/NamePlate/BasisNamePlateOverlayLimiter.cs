@@ -9,10 +9,10 @@ namespace Basis.Scripts.UI.NamePlate
     /// avatar-loading displays — regardless of player count: only the
     /// <see cref="MaxVisibleChatBubbles"/> / <see cref="MaxVisibleLoadingDisplays"/> nearest
     /// to the viewer actually render; the rest keep their state but their objects are
-    /// deactivated and skip every text/mesh write. Fed by the driver's existing per-plate
-    /// loop in <see cref="BasisRemoteNamePlateDriver.CompleteNamePlates"/> (BeginFrame →
-    /// Consider per plate → Apply), so plates never register themselves and there is no
-    /// stale bookkeeping. Selection math lives in <see cref="BasisNamePlateOverlayCore"/>.
+    /// deactivated and skip every text/mesh write. Fed each frame by
+    /// <see cref="BasisRemoteNamePlateDriver.CompleteNamePlates"/> (BeginFrame → Consider* over
+    /// the driver's chat and loading plate lists → Apply), so only plates that actually carry an
+    /// overlay are visited. Selection math lives in <see cref="BasisNamePlateOverlayCore"/>.
     /// </summary>
     [AutoStaticsCleanup]
     public static partial class BasisNamePlateOverlayLimiter
@@ -59,6 +59,22 @@ namespace Basis.Scripts.UI.NamePlate
             {
                 _chat.Add(plate);
             }
+            if (plate.HasActiveLoadingOverlay)
+            {
+                _loading.Add(plate);
+            }
+        }
+
+        internal static void ConsiderChat(BasisRemoteNamePlate plate)
+        {
+            if (plate.HasActiveChatOverlay)
+            {
+                _chat.Add(plate);
+            }
+        }
+
+        internal static void ConsiderLoading(BasisRemoteNamePlate plate)
+        {
             if (plate.HasActiveLoadingOverlay)
             {
                 _loading.Add(plate);

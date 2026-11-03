@@ -3445,6 +3445,11 @@ namespace Basis.ImagePickup
                 reason = "pixel budget";
                 return false;
             }
+            if (width > BasisImagePickupSettings.LocalMaxTextureSize || height > BasisImagePickupSettings.LocalMaxTextureSize)
+            {
+                reason = "larger than this GPU supports";
+                return false;
+            }
 
             int expectedChunks =
                 (totalBytes + BasisImagePickupSettings.ChunkPayloadBytes - 1)

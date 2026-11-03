@@ -946,6 +946,7 @@ namespace Basis.Scripts.Networking.Receivers
             silentData ??= new float[RemoteOpusSettings.MaxFrameSize];
             BasisNetworkReceiver = networkedPlayer;
             LogOutputRateOnce();
+            BasisResamplerKernel.EnsureInstalled();
 
 #if (UNITY_IOS || UNITY_WEBGL) && !UNITY_EDITOR
             // iOS requires statically linked Opus library

@@ -174,7 +174,7 @@ public static class BasisBeeManagement
     {
         string beeLocation = wrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
         bool networkSourced = wrapper.LoadableBundle.BasisRemoteBundleEncrypted.IsNetworkSourced;
-        if (networkSourced && !Basis.Scripts.Common.BasisUrlSecurity.IsHttpUrlAllowed(beeLocation, out string locationError))
+        if (networkSourced && !BasisServerHostedBee.IsHostedUrl(beeLocation) && !Basis.Scripts.Common.BasisUrlSecurity.IsHttpUrlAllowed(beeLocation, out string locationError))
         {
             throw new Exception($"Refusing networked content location: {locationError}");
         }
@@ -496,7 +496,7 @@ public static class BasisBeeManagement
     {
         string beeLocation = wrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
         bool networkSourced = wrapper.LoadableBundle.BasisRemoteBundleEncrypted.IsNetworkSourced;
-        if (networkSourced && !Basis.Scripts.Common.BasisUrlSecurity.IsHttpUrlAllowed(beeLocation, out string locationError))
+        if (networkSourced && !BasisServerHostedBee.IsHostedUrl(beeLocation) && !Basis.Scripts.Common.BasisUrlSecurity.IsHttpUrlAllowed(beeLocation, out string locationError))
         {
             return BasisMetaLoadResult.Corrupt($"Refusing networked content location: {locationError}");
         }

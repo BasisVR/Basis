@@ -199,6 +199,16 @@ public class BasisSeatSync : BasisNetworkBehaviour
 
     public void ProvideRemotePlayerTarget()
     {
+        // Runs per seat per frame, and most seats are empty: with no occupant and no remote held,
+        // both flushes need a local occupant and every branch below ends in a no-op
+        // ClearCurrentRemote, so skip the Unity null checks on the way there.
+        if (!LinkedPlayer.hasPlayerId && _currentRemoteRec == null)
+        {
+            _currentUserId = ushort.MaxValue;
+            _hasLastPinPosition = false;
+            return;
+        }
+
         FlushOccupantBody(Time.unscaledTime);
         FlushOccupantYaw(Time.unscaledTime);
 

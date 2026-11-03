@@ -86,6 +86,24 @@ public static class SettingsProviderMedia
         captionBackground.OnValueChanged = v =>
             BasisMediaSettings.CaptionBackgroundOpacity.SetValue(Mathf.Clamp01(v / 100f));
 
+        PanelElementDescriptor clips =
+            PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, group.ContentParent);
+        clips.SetTitle(BasisLocalization.Get("settings.media.clips.title"));
+        clips.SetDescription(BasisLocalization.Get("settings.media.clips.description"));
+
+        PanelToggle acceptClips = PanelToggle.CreateNewEntry(clips.ContentParent);
+        acceptClips.Descriptor.SetTitle(BasisLocalization.Get("settings.media.clips.accept"));
+        acceptClips.Descriptor.SetTooltip(BasisLocalization.Get("settings.media.clips.accept.tooltip"));
+        acceptClips.AssignBinding(BasisMediaSettings.ClipAcceptShared);
+
+        PanelSlider clipVolume = PanelSlider.CreateNew(clips.ContentParent);
+        clipVolume.SetSliderSettings(PanelSlider.SliderSettings.Percentage(
+            BasisLocalization.Get("settings.media.clips.volume")));
+        clipVolume.Descriptor.SetTooltip(BasisLocalization.Get("settings.media.clips.volume.tooltip"));
+        clipVolume.SetValueWithoutNotify(Mathf.Clamp01(BasisMediaSettings.ClipVolume.RawValue) * 100f);
+        clipVolume.OnValueChanged = v =>
+            BasisMediaSettings.ClipVolume.SetValue(Mathf.Clamp01(v / 100f));
+
         PanelElementDescriptor engineStatus =
             PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, group.ContentParent);
         engineStatus.SetTitle(BasisLocalization.Get("settings.media.engine.title"));
@@ -124,5 +142,7 @@ public static class SettingsProviderMedia
         BasisMediaSettings.CaptionBackgroundOpacity.ResetToDefault();
         BasisMediaSettings.MaxActivePlayers.ResetToDefault();
         BasisMediaSettings.BufferDepthMs.ResetToDefault();
+        BasisMediaSettings.ClipAcceptShared.ResetToDefault();
+        BasisMediaSettings.ClipVolume.ResetToDefault();
     }
 }

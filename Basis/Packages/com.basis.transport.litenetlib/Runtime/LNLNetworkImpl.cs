@@ -227,6 +227,11 @@ namespace Basis.Network.Core
             peer.SendUnreliableRawMerge(data, offset, length, channelNumber, patchOffset, patchValue);
         }
 
+        void NetPeer.SendUnreliableRawMergeBatch(UnreliableRawSend[] sends, int count)
+        {
+            peer.SendUnreliableRawMergeBatch(sends, count);
+        }
+
         public override bool Equals(object obj)
         {
             if (obj == null || !(obj is LNLNetPeer))

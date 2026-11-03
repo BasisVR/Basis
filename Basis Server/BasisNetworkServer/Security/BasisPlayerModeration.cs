@@ -556,6 +556,25 @@ namespace BasisNetworkServer.Security
                         HandleGlobalFeatureToggle(peer, "Opening web pages from worlds and props", BasisGlobalLockManager.ToggleExternalLinks()));
                     break;
 
+                case AdminRequestMode.GlobalToggleAvatarHosting:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                    {
+                        bool nowLocked = BasisGlobalLockManager.ToggleAvatarHosting();
+                        Basis.Network.Server.Generic.BasisAvatarHostRelay.ApplyConfiguration();
+                        HandleGlobalFeatureToggle(peer, "Sharing local avatars through the server", nowLocked);
+                    });
+                    break;
+
+                case AdminRequestMode.GlobalToggleVideoClips:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleGlobalFeatureToggle(peer, "Sharing video clips", BasisGlobalLockManager.ToggleVideoClips()));
+                    break;
+
+                case AdminRequestMode.SetGlobalImageMaxResolution:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleImageMaxResolutionSet(peer, reader));
+                    break;
+
                 case AdminRequestMode.SetGlobalAvatarScaleLimits:
                     Require(peer, PermNodes.ModerationGlobalLock, () =>
                         HandleAvatarScaleLimitsSet(peer, reader));
@@ -1357,7 +1376,7 @@ namespace BasisNetworkServer.Security
 
         public static void SendProtectionSettingsIfEditor(NetPeer peer)
         {
-            if (PermissionIntegration.HasValidRequirement(peer, PermNodes.ConfigurationEditor)) SendProtectionSettings(peer);
+            if (NetworkServer.PeerHasCapability(peer, BasisNetworkVersion.CapabilityProtectionSettings) && PermissionIntegration.HasValidRequirement(peer, PermNodes.ConfigurationEditor)) SendProtectionSettings(peer);
         }
 
         private static void HandleProtectionSettingsSet(NetPeer peer, NetPacketReader reader)
@@ -1762,6 +1781,21 @@ namespace BasisNetworkServer.Security
             BasisGlobalLockManager.SetCameraMetadataDisallowMask(mask);
             BNL.Log($"Camera photo-metadata disallow mask set to {mask}.");
             SendBackMessage(peer, $"Camera metadata policy updated (mask {mask}).");
+            PersistGlobalLockState();
+            BasisGlobalLockManager.BroadcastLockState();
+        }
+
+        private static void HandleImageMaxResolutionSet(NetPeer peer, NetPacketReader reader)
+        {
+            if (reader.AvailableBytes < 1)
+            {
+                SendBackMessage(peer, "Failed to set image resolution limit: missing value byte.");
+                return;
+            }
+
+            int applied = BasisGlobalLockManager.SetImageMaxResolutionK(reader.GetByte());
+            BNL.Log($"Shared image resolution limit set to {applied}K ({applied * 1024} px).");
+            SendBackMessage(peer, $"Shared images are now limited to {applied}K ({applied * 1024}x{applied * 1024}).");
             PersistGlobalLockState();
             BasisGlobalLockManager.BroadcastLockState();
         }

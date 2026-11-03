@@ -172,14 +172,16 @@ public class Configuration
     public bool ImageCacheEnabled = true;
     /// <summary>
     /// Ceiling on the image cache, in megabytes. Set 0 to hold nothing (equivalent to disabling the
-    /// cache). This is a hard cap on retained payloads, not a target.
+    /// cache). This is a hard cap on retained payloads, not a target. One image at
+    /// <see cref="ImageMaxResolutionK"/> can reach 32 MB at 4K, 128 MB at 8K and 512 MB at 16K.
     /// </summary>
     public int ImageCacheMaxMegabytes = 512;
     /// <summary>
     /// Floor on one player's slice of the cache, in megabytes. The buffer is divided evenly between
     /// everyone currently holding images so nobody can crowd anyone else out; without a floor a busy
     /// instance would shrink each share below a single image and cache nothing at all. An owner over
-    /// their share evicts their own oldest image, never another player's.
+    /// their share evicts their own oldest image, never another player's. Raised to fit one image at
+    /// <see cref="ImageMaxResolutionK"/> (never past the cache cap); 0 turns the floor off.
     /// </summary>
     public int ImageCacheMinimumPerOwnerMegabytes = 32;
     /// <summary>
@@ -197,6 +199,12 @@ public class Configuration
     /// accordingly. 0 leaves the client on its own conservative default.
     /// </summary>
     public int ImageShareEgressMegabitsPerSecond = 200;
+    public int ScreenShareMaxKilobitsPerSecond = 12000;
+    public int ScreenShareEgressMegabitsPerSecond = 200;
+    public int ScreenShareMaxConcurrent = 8;
+    public bool ScreenShareLocked = false;
+    public int AvatarHostMaxMegabytes = 256;
+    public int AvatarHostCacheMegabytes = 1024;
 
     /// <summary>
     /// Rate the server replays cached images to ONE arriving player, in megabits per second.
@@ -427,6 +435,12 @@ public class Configuration
     /// </summary>
     public bool ImagesLocked = false;
     /// <summary>
+    /// Largest shared image side, in units of 1024 pixels (1 = 1K up to 16 = 16K). Senders downscale
+    /// to fit and receivers refuse anything larger. Seeds BasisGlobalLockManager at boot, can be set
+    /// live from the admin lock section, and is broadcast to clients in GlobalGetLockState. Default 4.
+    /// </summary>
+    public int ImageMaxResolutionK = 4;
+    /// <summary>
     /// When false (default) clients two-bone-IK anchor remote avatars' tracked hands/feet to their sent
     /// world targets so they stop sliding; when true, every client falls back to pure-FK playback for
     /// remotes. Seeds BasisGlobalLockManager at boot, can be toggled live from the admin panel, and is
@@ -480,6 +494,8 @@ public class Configuration
     public bool GifsLocked = false;
     public bool ContentRemovalLocked = false;
     public bool ExternalLinksLocked = false;
+    public bool AvatarHostingLocked = false;
+    public bool VideoClipsLocked = false;
     public bool StorageEnabled = true;
     public string StorageBackend = "file";
     public int StorageMaxBytesPerPlayer = 16384;

@@ -114,6 +114,13 @@ namespace Basis.Scripts.Constraints
         private static readonly List<Transform> sAvatarRoots = new List<Transform>();
 
         /// <summary>
+        /// Index-parallel with <see cref="sAvatarRoots"/>: the distance band each group was last
+        /// classified into, or -1 before its first classification. Lets the classify pass re-read a
+        /// root's position on a staggered cadence instead of every group every frame.
+        /// </summary>
+        private static readonly List<int> sAvatarIntervals = new List<int>();
+
+        /// <summary>
         /// Which groups are due a refresh this frame, decided by the distance walk before anything
         /// is scheduled. Grows to the peak population and stays, like the other rebuild pools.
         /// </summary>
@@ -152,6 +159,14 @@ namespace Basis.Scripts.Constraints
         private const int NearInterval = 1;
         private const int MidInterval = 4;
         private const int FarInterval = 16;
+
+        /// <summary>
+        /// How often (in frames, power of two) a group's distance band is re-measured. Equal to
+        /// <see cref="FarInterval"/>, so a far avatar walking close is promoted no later than its
+        /// next far-band refresh would have come anyway; every band divides it, so a re-measure frame
+        /// is always also a refresh frame for that group.
+        /// </summary>
+        private const int ReclassifyInterval = FarInterval;
 
         private static int sRefreshFrame;
 
@@ -347,6 +362,7 @@ namespace Basis.Scripts.Constraints
             sAvatarGroups.Clear();
             sAvatarLookup.Clear();
             sAvatarRoots.Clear();
+            sAvatarIntervals.Clear();
             sRefreshDue.Clear();
             sChainStride = 1;
             sDirty = false;
@@ -638,6 +654,7 @@ namespace Basis.Scripts.Constraints
             sChainBind.Clear();
             sAvatarLookup.Clear();
             sAvatarRoots.Clear();
+            sAvatarIntervals.Clear();
             sRefreshFrame = 0;
             sSources.Clear();
             sWorld.Clear();
@@ -1377,15 +1394,23 @@ namespace Basis.Scripts.Constraints
                 int interval = NearInterval;
                 if (hasReference && !ReferenceEquals(root, sPriorityRoot))
                 {
-                    if (!referenceRead)
+                    // The band is cached and re-measured on a staggered cadence: a Transform.position
+                    // read per remote avatar per frame dominated this pass at crowd scale,
+                    // and a band only changes as someone walks across an 8 m / 20 m boundary.
+                    interval = sAvatarIntervals[Group];
+                    if (interval < 0 || ((sRefreshFrame + Group) & (ReclassifyInterval - 1)) == 0)
                     {
-                        reference = sPriorityRoot.position;
-                        referenceRead = true;
+                        if (!referenceRead)
+                        {
+                            reference = sPriorityRoot.position;
+                            referenceRead = true;
+                        }
+                        float distanceSq = math.distancesq(reference, (float3)root.position);
+                        interval = distanceSq <= NearMetres * NearMetres ? NearInterval
+                            : distanceSq <= MidMetres * MidMetres ? MidInterval
+                            : FarInterval;
+                        sAvatarIntervals[Group] = interval;
                     }
-                    float distanceSq = math.distancesq(reference, (float3)root.position);
-                    interval = distanceSq <= NearMetres * NearMetres ? NearInterval
-                        : distanceSq <= MidMetres * MidMetres ? MidInterval
-                        : FarInterval;
                 }
 
                 // Offsetting the phase by the group keeps the far avatars from all landing on the
@@ -1831,6 +1856,7 @@ namespace Basis.Scripts.Constraints
                 avatarId = sAvatarRoots.Count;
                 sAvatarLookup[root] = avatarId;
                 sAvatarRoots.Add(root);
+                sAvatarIntervals.Add(-1);
                 if (sAvatarGroups.Count <= avatarId)
                 {
                     sAvatarGroups.Add(new List<int>());

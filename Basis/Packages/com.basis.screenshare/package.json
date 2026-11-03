@@ -1,0 +1,21 @@
+{
+  "name": "com.basis.screenshare",
+  "displayName": "Basis Screen Share",
+  "version": "0.0.1",
+  "description": "Share a display or window, with its sound, onto a screen in the world. Frames are captured and hardware H.264 encoded by the Basis media engine, relayed through the game server only to players looking at the screen, and decoded by the same engine on every viewer.",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "com.unity.addressables": "2.9.1",
+    "com.unity.ugui": "2.0.0"
+  },
+  "vpmDependencies": {
+    "com.basis.framework": "0.0.1",
+    "com.basis.mediaplayer": "0.0.1",
+    "com.basis.sdk": "0.0.1",
+    "com.basis.server": "1.0.0"
+  }
+}

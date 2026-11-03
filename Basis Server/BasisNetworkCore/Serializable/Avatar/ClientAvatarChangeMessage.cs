@@ -24,7 +24,7 @@ public static partial class SerializableBasis
         public float TorsoScale;
 
         // Every fit scale is bounded by construction: BasisBodyFitCore clamps to 1 +/- maxDeviation and
-        // caps maxDeviation at MaxDeviationCeiling = 0.5, so all three live in [0.5, 1.5]. Quantizing
+        // caps maxDeviation at MaxDeviationCeiling (0.1, 0.5 in older clients), so all three live in [0.5, 1.5]. Quantizing
         // over exactly that range means the wire cannot represent an invalid scale at all — no clamping
         // on read, no hostile value reaching a skeleton — and costs 2 bytes instead of 4 per scale.
         // 16 bits over a range of 1.0 is a 1.5e-5 step: 0.013 mm on a 0.84 m leg span, i.e. lossless in

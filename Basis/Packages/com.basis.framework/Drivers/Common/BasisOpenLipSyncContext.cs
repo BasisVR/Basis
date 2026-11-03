@@ -159,6 +159,7 @@ namespace Basis.Scripts.Drivers
         {
             _contextHandle = contextHandle;
             _meshRenderer = avatar.FaceVisemeMesh;
+            Basis.Scripts.Networking.Receivers.BasisResamplerKernel.EnsureInstalled();
 
             int count = Math.Min(avatar.FaceVisemeMovement.Length, VisemeCount);
             _visemeToBlendShape = new int[VisemeCount];
@@ -915,15 +916,16 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         private void ApplyShaped(float deltaTime)
         {
-            int blendShapeCount = LiveBlendShapeCount();
-            if (blendShapeCount == 0) return;
+            // Resolved on the first write, as ApplyDirect does: a settled mouth writes nothing,
+            // so it should not pay the two native mesh reads either.
+            int blendShapeCount = -1;
 
             for (int i = 0; i < VisemeCount; i++)
             {
                 if (!_hasViseme[i]) continue;
 
                 int bsIndex = _visemeToBlendShape[i];
-                if (bsIndex < 0 || bsIndex >= blendShapeCount) continue;
+                if (bsIndex < 0) continue;
 
                 float value = _current[i];
                 float target = _target[i];
@@ -947,6 +949,12 @@ namespace Basis.Scripts.Drivers
 
                 if (diff * diff > BlendShapeWriteEps * BlendShapeWriteEps || (converged && diff != 0f))
                 {
+                    if (blendShapeCount < 0)
+                    {
+                        blendShapeCount = LiveBlendShapeCount();
+                        if (blendShapeCount == 0) return;
+                    }
+                    if (bsIndex >= blendShapeCount) continue;
                     _meshRenderer.SetBlendShapeWeight(bsIndex, target);
                     _lastApplied[i] = target;
                 }

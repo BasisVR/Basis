@@ -113,6 +113,7 @@ namespace Basis.Scripts.Networking.Sync
             else if (_dynamicDepth < _depthFloor) _dynamicDepth = _depthFloor;
         }
 
+        public bool SuppressExtrapolation;
         public bool HasData => _current != null;
         public float InterpTime => _next != null ? (float)_interpTime : 0f;
         public BasisSyncValues CurrentValues => _current != null ? _current.Values : null;
@@ -308,7 +309,7 @@ namespace Basis.Scripts.Networking.Sync
                         double cap = 1.0;
                         // A collapsed gap window has a garbage slope (real distance over a nominal interval)
                         // — extrapolating along it would overshoot hard, so hold at the window end instead.
-                        if (_extrapolate && !gap && window > 1e-6) cap = 1.0 + _maxExtrapSeconds / window;
+                        if (_extrapolate && !SuppressExtrapolation && !gap && window > 1e-6) cap = 1.0 + _maxExtrapSeconds / window;
                         if (_interpTime > cap) _interpTime = cap;
                         _dynamicDepth = math.min(_dynamicDepth + 0.25f, MaxJitterDepth);
                     }
