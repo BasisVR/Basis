@@ -15992,11 +15992,11 @@
     },
     {
       "key": "settings.admin.title.lockVideoClips",
-      "value": "Lock Video Clips"
+      "value": "Lock Video and Audio Clips"
     },
     {
       "key": "settings.admin.title.lockVideoClips.tooltip",
-      "value": "Stop non-admin players from sharing video files they paste or drop into the world. Clips that already arrived keep playing. Admins are unaffected."
+      "value": "Stop non-admin players from sharing video and audio files they paste or drop into the world. Clips that already arrived keep playing. Admins are unaffected."
     },
     {
       "key": "settings.admin.title.lockCameraCapture",

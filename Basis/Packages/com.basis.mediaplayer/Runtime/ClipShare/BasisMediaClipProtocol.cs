@@ -12,6 +12,12 @@ public enum BasisMediaClipContainer : byte
     Mov = 2,
     WebM = 3,
     Mkv = 4,
+    Mp3 = 5,
+    M4a = 6,
+    Flac = 7,
+    Wav = 8,
+    Opus = 9,
+    Aac = 10,
 }
 
 public struct BasisMediaClipOffer
@@ -94,9 +100,29 @@ public static class BasisMediaClipProtocol
             case ".mkv":
                 container = BasisMediaClipContainer.Mkv;
                 return true;
+            case ".mp3":
+                container = BasisMediaClipContainer.Mp3;
+                return true;
+            case ".m4a":
+                container = BasisMediaClipContainer.M4a;
+                return true;
+            case ".flac":
+                container = BasisMediaClipContainer.Flac;
+                return true;
+            case ".wav":
+                container = BasisMediaClipContainer.Wav;
+                return true;
+            case ".opus":
+                container = BasisMediaClipContainer.Opus;
+                return true;
+            case ".aac":
+                container = BasisMediaClipContainer.Aac;
+                return true;
         }
         return false;
     }
+
+    public static bool IsAudio(BasisMediaClipContainer container) => container >= BasisMediaClipContainer.Mp3 && container <= BasisMediaClipContainer.Aac;
 
     public static string Extension(BasisMediaClipContainer container)
     {
@@ -106,6 +132,12 @@ public static class BasisMediaClipProtocol
             case BasisMediaClipContainer.Mov: return ".mov";
             case BasisMediaClipContainer.WebM: return ".webm";
             case BasisMediaClipContainer.Mkv: return ".mkv";
+            case BasisMediaClipContainer.Mp3: return ".mp3";
+            case BasisMediaClipContainer.M4a: return ".m4a";
+            case BasisMediaClipContainer.Flac: return ".flac";
+            case BasisMediaClipContainer.Wav: return ".wav";
+            case BasisMediaClipContainer.Opus: return ".opus";
+            case BasisMediaClipContainer.Aac: return ".aac";
         }
         return null;
     }
@@ -114,8 +146,19 @@ public static class BasisMediaClipProtocol
     {
         switch (container)
         {
+            case BasisMediaClipContainer.Mp3:
+                return HasId3(head) || head.Length >= 2 && head[0] == 0xFF && (head[1] & 0xE0) == 0xE0;
+            case BasisMediaClipContainer.Aac:
+                return HasId3(head) || head.Length >= 4 && IsAscii(head.Slice(0, 4), "ADIF") || head.Length >= 2 && head[0] == 0xFF && (head[1] & 0xF6) == 0xF0;
+            case BasisMediaClipContainer.Flac:
+                return HasId3(head) || head.Length >= 4 && IsAscii(head.Slice(0, 4), "fLaC");
+            case BasisMediaClipContainer.Wav:
+                return head.Length >= 12 && (IsAscii(head.Slice(0, 4), "RIFF") || IsAscii(head.Slice(0, 4), "RF64")) && IsAscii(head.Slice(8, 4), "WAVE");
+            case BasisMediaClipContainer.Opus:
+                return head.Length >= 4 && IsAscii(head.Slice(0, 4), "OggS");
             case BasisMediaClipContainer.Mp4:
             case BasisMediaClipContainer.Mov:
+            case BasisMediaClipContainer.M4a:
                 if (head.Length < 8) return false;
                 ReadOnlySpan<byte> atom = head.Slice(4, 4);
                 return IsAscii(atom, "ftyp") || IsAscii(atom, "moov") || IsAscii(atom, "mdat") || IsAscii(atom, "wide") || IsAscii(atom, "free") || IsAscii(atom, "skip") || IsAscii(atom, "pnot");
@@ -125,6 +168,8 @@ public static class BasisMediaClipProtocol
         }
         return false;
     }
+
+    private static bool HasId3(ReadOnlySpan<byte> head) => head.Length >= 3 && IsAscii(head.Slice(0, 3), "ID3");
 
     private static bool IsAscii(ReadOnlySpan<byte> bytes, string text)
     {

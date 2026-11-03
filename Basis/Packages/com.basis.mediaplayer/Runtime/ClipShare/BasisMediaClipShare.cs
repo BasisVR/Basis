@@ -77,7 +77,7 @@ public static partial class BasisMediaClipShare
     private static readonly List<int> scratchIndices = new List<int>();
     private static readonly List<Guid> scratchIds = new List<Guid>();
     private static readonly List<ushort> scratchRecipients = new List<ushort>();
-    private static readonly string[] Extensions = { ".mp4", ".m4v", ".mov", ".webm", ".mkv" };
+    private static readonly string[] Extensions = { ".mp4", ".m4v", ".mov", ".webm", ".mkv", ".mp3", ".m4a", ".flac", ".wav", ".opus", ".aac" };
     private static bool initialized;
     private static bool hasNetworkId;
     private static ushort networkId;
@@ -324,7 +324,7 @@ public static partial class BasisMediaClipShare
             CreatedTime = Time.realtimeSinceStartup,
         };
         clips[clip.Id] = clip;
-        clip.View = BasisMediaClipObject.Build(clip.Id, clip.Name, position, rotation, 1f);
+        clip.View = BasisMediaClipObject.Build(clip.Id, clip.Name, position, rotation, 1f, BasisMediaClipProtocol.IsAudio(clip.Container));
         RefreshBackInfo(clip);
         if (panelsVisible) clip.View.SetPanelVisible(true);
         RegisterShareable(clip);
@@ -533,7 +533,7 @@ public static partial class BasisMediaClipShare
         created.OwnsFile = true;
         inboundBytes += created.TotalBytes;
         clips[created.Id] = created;
-        created.View = BasisMediaClipObject.Build(created.Id, created.Name, offer.Position, offer.Rotation, offer.Scale);
+        created.View = BasisMediaClipObject.Build(created.Id, created.Name, offer.Position, offer.Rotation, offer.Scale, BasisMediaClipProtocol.IsAudio(created.Container));
         RefreshBackInfo(created);
         UpdateReceiveStatus(created);
         if (panelsVisible) created.View.SetPanelVisible(true);
@@ -579,7 +579,7 @@ public static partial class BasisMediaClipShare
         }
         if (!BasisMediaClipProtocol.SignatureMatches(new ReadOnlySpan<byte>(head, 0, headLength), clip.Container))
         {
-            FailReceive(clip, "the data is not a video file");
+            FailReceive(clip, "the data does not match its media format");
             return;
         }
         clip.Writing = true;
@@ -1054,7 +1054,7 @@ public static partial class BasisMediaClipShare
         {
             target = await Task.Run(() =>
             {
-                string folder = SaveFolder();
+                string folder = SaveFolder(BasisMediaClipProtocol.IsAudio(clip.Container));
                 Directory.CreateDirectory(folder);
                 string stamp = DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss", System.Globalization.CultureInfo.InvariantCulture);
                 string candidate = Path.Combine(folder, baseName + " " + stamp + extension);
@@ -1073,13 +1073,13 @@ public static partial class BasisMediaClipShare
         done?.Invoke(ok);
     }
 
-    private static string SaveFolder()
+    private static string SaveFolder(bool audio)
     {
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
-        string videos = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
-        if (!string.IsNullOrEmpty(videos)) return Path.Combine(videos, "Basis");
+        string library = Environment.GetFolderPath(audio ? Environment.SpecialFolder.MyMusic : Environment.SpecialFolder.MyVideos);
+        if (!string.IsNullOrEmpty(library)) return Path.Combine(library, "Basis");
 #endif
-        return Path.Combine(Application.persistentDataPath, "Basis", "Videos");
+        return Path.Combine(Application.persistentDataPath, "Basis", audio ? "Audio" : "Videos");
     }
 
     private static string SaveFileBaseName(string name)

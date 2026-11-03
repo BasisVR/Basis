@@ -38,7 +38,8 @@ namespace Basis.BasisUI
         private const int ShapeSpeaker = 2;
         private const int ShapeSpeakerMuted = 3;
         private const int ShapeCopy = 4;
-        private const int ShapeCount = 5;
+        private const int ShapeMusic = 5;
+        private const int ShapeCount = 6;
 
         private static Sprite[] icons;
         private static Sprite rounded;
@@ -50,6 +51,7 @@ namespace Basis.BasisUI
         public static Sprite SpeakerIcon => GetIcon(ShapeSpeaker);
         public static Sprite SpeakerMutedIcon => GetIcon(ShapeSpeakerMuted);
         public static Sprite CopyIcon => GetIcon(ShapeCopy);
+        public static Sprite MusicIcon => GetIcon(ShapeMusic);
 
         public static Sprite AddressableIcon(string address)
         {
@@ -583,8 +585,20 @@ namespace Basis.BasisUI
                 case ShapeSpeaker: return SpeakerCoverage(x, y);
                 case ShapeSpeakerMuted: return SpeakerMutedCoverage(x, y);
                 case ShapeCopy: return CopyCoverage(x, y);
+                case ShapeMusic: return MusicCoverage(x, y);
             }
             return 0f;
+        }
+
+        private static float MusicCoverage(float x, float y)
+        {
+            float ax = (x - 18f) / 9.5f, ay = (y - 15f) / 7f;
+            float bx = (x - 46f) / 9.5f, by = (y - 11f) / 7f;
+            if (ax * ax + ay * ay <= 1f || bx * bx + by * by <= 1f) return 1f;
+            if (x >= 23.5f && x <= 27.5f && y >= 15f && y <= 52f) return 1f;
+            if (x >= 51.5f && x <= 55.5f && y >= 11f && y <= 48f) return 1f;
+            float top = 58f - (x - 23.5f) * (4f / 32f);
+            return x >= 23.5f && x <= 55.5f && y <= top && y >= top - 9f ? 1f : 0f;
         }
 
         private static bool SpeakerBody(float x, float y)
