@@ -547,6 +547,7 @@ public class BasisNetworkOwnershipTests
     {
         var peer = new RecordingNetPeer(42301);
         var keys = Enumerable.Range(0, 300).Select(i => $"own:batch:{i:D4}").ToList();
+        NetworkServer.SetPeerCapabilities(peer, BasisNetworkVersion.CapabilityBatchedOwnership);
         try
         {
             foreach (string key in keys) Assert.True(BasisNetworkOwnership.AddOwnership(key, 7));
@@ -556,6 +557,27 @@ public class BasisNetworkOwnershipTests
             Assert.All(decoded, m => Assert.Equal((ushort)7, m.playerIdMessage.playerID));
             Assert.True(peer.Sent.Count < keys.Count / 10, $"{peer.Sent.Count} packets for {keys.Count} entries");
             Assert.All(peer.Sent, s => Assert.True(s.Data.Length < BasisNetworkOwnership.JoinReplayBatchBytes + 300));
+        }
+        finally
+        {
+            NetworkServer.SetPeerCapabilities(peer, 0);
+            foreach (string key in keys) BasisNetworkOwnership.RemoveObject(key);
+        }
+    }
+
+    [Fact]
+    public void JoinSnapshot_WithoutTheBatchCapability_SendsOneEntryPerPacket()
+    {
+        var peer = new RecordingNetPeer(42302);
+        var keys = Enumerable.Range(0, 20).Select(i => $"own:single:{i:D4}").ToList();
+        NetworkServer.SetPeerCapabilities(peer, 0);
+        try
+        {
+            foreach (string key in keys) Assert.True(BasisNetworkOwnership.AddOwnership(key, 7));
+            BasisNetworkOwnership.SendOutOwnershipInformation(peer);
+            var packets = peer.Sent.Select(s => DecodeAllOwnership(s.Data)).Where(p => p.Any(m => m.ownershipID.StartsWith("own:single:"))).ToList();
+            Assert.Equal(keys.Count, packets.Count);
+            Assert.All(packets, p => Assert.Single(p));
         }
         finally
         {

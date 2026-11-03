@@ -1,0 +1,310 @@
+{
+  "code": "ur",
+  "nativeName": "اردو",
+  "entries": [
+    {
+      "key": "menu.provider.screenShare",
+      "value": "اسکرین شیئر"
+    },
+    {
+      "key": "library.embedded.screenShare",
+      "value": "اسکرین شیئر"
+    },
+    {
+      "key": "screenShare.yourShare",
+      "value": "آپ کی اسکرین"
+    },
+    {
+      "key": "screenShare.source",
+      "value": "شیئر"
+    },
+    {
+      "key": "screenShare.source.tooltip",
+      "value": "وہ ڈسپلے یا ونڈو جو اسکرین کے قریب ہر کوئی دیکھے گا۔"
+    },
+    {
+      "key": "screenShare.source.display",
+      "value": "{0} ({1}×{2})"
+    },
+    {
+      "key": "screenShare.source.none",
+      "value": "کوئی ڈسپلے یا ونڈو نہیں ملی"
+    },
+    {
+      "key": "screenShare.refreshSources",
+      "value": "فہرست ریفریش کریں"
+    },
+    {
+      "key": "screenShare.resolution",
+      "value": "ریزولوشن"
+    },
+    {
+      "key": "screenShare.resolution.tooltip",
+      "value": "تصویر بھیجنے کا سب سے بڑا سائز۔ چھوٹے ماخذ کو کبھی بڑا نہیں کیا جاتا۔"
+    },
+    {
+      "key": "screenShare.resolution.native",
+      "value": "اصل"
+    },
+    {
+      "key": "screenShare.resolution.1440",
+      "value": "1440p"
+    },
+    {
+      "key": "screenShare.resolution.1080",
+      "value": "1080p"
+    },
+    {
+      "key": "screenShare.resolution.720",
+      "value": "720p"
+    },
+    {
+      "key": "screenShare.resolution.480",
+      "value": "480p"
+    },
+    {
+      "key": "screenShare.frameRate",
+      "value": "فریم ریٹ"
+    },
+    {
+      "key": "screenShare.frameRate.tooltip",
+      "value": "تصویر کتنی بار اپڈیٹ ہوتی ہے۔ 60 گیمز اور ویڈیو کے لیے موزوں ہے، 15 یا 5 دستاویزات اور سلائیڈز کے لیے، اور یہ تفصیل کے لیے زیادہ بینڈوڈتھ چھوڑتے ہیں۔"
+    },
+    {
+      "key": "screenShare.frameRate.60",
+      "value": "60 fps"
+    },
+    {
+      "key": "screenShare.frameRate.30",
+      "value": "30 fps"
+    },
+    {
+      "key": "screenShare.frameRate.15",
+      "value": "15 fps"
+    },
+    {
+      "key": "screenShare.frameRate.5",
+      "value": "5 fps"
+    },
+    {
+      "key": "screenShare.quality",
+      "value": "معیار"
+    },
+    {
+      "key": "screenShare.quality.tooltip",
+      "value": "تصویر کتنی بینڈوڈتھ استعمال کر سکتی ہے۔ خودکار ریزولوشن اور فریم ریٹ سے بٹ ریٹ چنتا ہے؛ زیادہ سے زیادہ حد سرور طے کرتا ہے۔"
+    },
+    {
+      "key": "screenShare.quality.auto",
+      "value": "خودکار"
+    },
+    {
+      "key": "screenShare.quality.low",
+      "value": "کم"
+    },
+    {
+      "key": "screenShare.quality.high",
+      "value": "زیادہ"
+    },
+    {
+      "key": "screenShare.quality.max",
+      "value": "زیادہ سے زیادہ"
+    },
+    {
+      "key": "screenShare.audio",
+      "value": "کمپیوٹر آڈیو شیئر کریں"
+    },
+    {
+      "key": "screenShare.audio.tooltip",
+      "value": "آپ کا کمپیوٹر جو چلا رہا ہے وہ بھیجتا ہے، سوائے Basis کے، تاکہ اسکرین کے قریب لوگ اسے اسکرین سے سنیں۔"
+    },
+    {
+      "key": "screenShare.cursor",
+      "value": "ماؤس پوائنٹر دکھائیں"
+    },
+    {
+      "key": "screenShare.start",
+      "value": "شیئرنگ شروع کریں"
+    },
+    {
+      "key": "screenShare.stop",
+      "value": "شیئرنگ بند کریں"
+    },
+    {
+      "key": "screenShare.viewing",
+      "value": "دیکھنا"
+    },
+    {
+      "key": "screenShare.viewing.none",
+      "value": "کوئی اور اسکرین شیئر نہیں کر رہا۔"
+    },
+    {
+      "key": "screenShare.viewing.count",
+      "value": "دوسروں کی شیئر کردہ اسکرینیں: {0}"
+    },
+    {
+      "key": "screenShare.receive",
+      "value": "دوسروں کی اسکرینیں دکھائیں"
+    },
+    {
+      "key": "screenShare.receive.tooltip",
+      "value": "بند ہونے پر کوئی اسکرین شیئر ڈاؤن لوڈ نہیں ہوتا اور دوسروں کی اسکرینیں خالی رہتی ہیں۔"
+    },
+    {
+      "key": "screenShare.viewDistance",
+      "value": "دیکھنے کا فاصلہ (میٹر)"
+    },
+    {
+      "key": "screenShare.viewDistance.tooltip",
+      "value": "اس سے زیادہ دور کی اسکرین تب تک ڈاؤن لوڈ نہیں ہوتی جب تک آپ قریب نہ آئیں۔"
+    },
+    {
+      "key": "screenShare.volume",
+      "value": "اسکرین شیئر والیوم"
+    },
+    {
+      "key": "screenShare.status.none",
+      "value": "اپنی اسکرین شیئر کرنے کے لیے اپنی لائبریری سے اسکرین شیئر اسپان کریں۔"
+    },
+    {
+      "key": "screenShare.status.idle",
+      "value": "شیئر نہیں ہو رہا۔ منتخب کریں کہ کیا شیئر کرنا ہے اور شیئرنگ شروع کریں دبائیں۔"
+    },
+    {
+      "key": "screenShare.status.offline",
+      "value": "شیئر نہیں ہو رہا۔ اپنی اسکرین شیئر کرنے کے لیے کسی سرور میں شامل ہوں۔"
+    },
+    {
+      "key": "screenShare.status.unsupportedServer",
+      "value": "شیئر نہیں ہو رہا۔ یہ سرور اسکرین شیئرنگ کی سہولت نہیں دیتا۔"
+    },
+    {
+      "key": "screenShare.status.starting",
+      "value": "شروع ہو رہا ہے…"
+    },
+    {
+      "key": "screenShare.status.waiting",
+      "value": "{0} شیئر ہو رہا ہے۔ سرور کا انتظار…"
+    },
+    {
+      "key": "screenShare.status.live",
+      "value": "{0} شیئر ہو رہا ہے، {1} دیکھ رہے ہیں"
+    },
+    {
+      "key": "screenShare.status.error",
+      "value": "رک گیا: {0}"
+    },
+    {
+      "key": "screenShare.status.noAudio",
+      "value": "کمپیوٹر آڈیو شیئر نہیں ہو رہا: {0}"
+    },
+    {
+      "key": "screenShare.error.unsupported",
+      "value": "اسکرین شیئر کرنے کے لیے Windows 10 ورژن 2004 یا اس کے بعد کا ورژن درکار ہے۔ آپ اب بھی دوسروں کی اسکرینیں دیکھ سکتے ہیں۔"
+    },
+    {
+      "key": "screenShare.error.open",
+      "value": "اسکرین کیپچر نہیں ہو سکی۔"
+    },
+    {
+      "key": "screenShare.error.permission",
+      "value": "یہ سرور آپ کو اپنی اسکرین شیئر کرنے کی اجازت نہیں دیتا۔"
+    },
+    {
+      "key": "screenShare.error.tooMany",
+      "value": "یہ سرور پہلے ہی اتنے اسکرین شیئر دکھا رہا ہے جتنے کی اجازت ہے۔"
+    },
+    {
+      "key": "screenShare.error.refused",
+      "value": "سرور نے اسکرین شیئر مسترد کر دیا۔"
+    },
+    {
+      "key": "screenShare.error.ended",
+      "value": "شیئر کردہ ڈسپلے یا ونڈو اب موجود نہیں۔"
+    },
+    {
+      "key": "screenShare.back.sharedBy",
+      "value": "{0} کی جانب سے شیئر کیا گیا"
+    },
+    {
+      "key": "screenShare.back.yours",
+      "value": "آپ کی اسکرین"
+    },
+    {
+      "key": "screenShare.back.hide",
+      "value": "چھپائیں"
+    },
+    {
+      "key": "screenShare.panel.live",
+      "value": "لائیو"
+    },
+    {
+      "key": "screenShare.panel.watching",
+      "value": "{0} دیکھ رہے ہیں"
+    },
+    {
+      "key": "screenShare.panel.details",
+      "value": "{0}×{1} · {2} fps"
+    },
+    {
+      "key": "screenShare.showHidden",
+      "value": "چھپی ہوئی اسکرینیں دکھائیں"
+    },
+    {
+      "key": "screenShare.viewing.hidden",
+      "value": "آپ نے چھپائیں: {0}"
+    },
+    {
+      "key": "settings.admin.title.lockScreenShare",
+      "value": "اسکرین شیئرنگ لاک کریں"
+    },
+    {
+      "key": "settings.admin.title.lockScreenShare.tooltip",
+      "value": "جن کھلاڑیوں کے پاس گلوبل لاک کی اجازت نہیں وہ اپنی اسکرین شیئر نہیں کر سکیں گے۔ ان کی جاری شیئرنگ فوراً ختم ہو جاتی ہے؛ ایڈمن اب بھی شیئر کر سکتے ہیں۔"
+    },
+    {
+      "key": "screenShare.status.locked",
+      "value": "اس سرور پر اسکرین شیئرنگ بند ہے۔"
+    },
+    {
+      "key": "screenShare.error.locked",
+      "value": "ایک ایڈمن نے اس سرور پر اسکرین شیئرنگ بند کر دی ہے۔"
+    },
+    {
+      "key": "screenShare.error.restart",
+      "value": "میڈیا پلگ ان اپ ڈیٹ ہو گیا ہے۔ اسکرین شیئرنگ استعمال کرنے کے لیے دوبارہ شروع کریں۔"
+    },
+    {
+      "key": "screenShare.audioSource",
+      "value": "آڈیو ماخذ"
+    },
+    {
+      "key": "screenShare.audioSource.tooltip",
+      "value": "خودکار ونڈو شیئر کرنے پر صرف اسی ایپ کی آواز اور ڈسپلے شیئر کرنے پر Basis کے سوا سب کچھ شیئر کرتا ہے۔"
+    },
+    {
+      "key": "screenShare.audioSource.auto",
+      "value": "خودکار"
+    },
+    {
+      "key": "screenShare.audioSource.application",
+      "value": "صرف یہ ایپ"
+    },
+    {
+      "key": "screenShare.audioSource.system",
+      "value": "پورا کمپیوٹر"
+    },
+    {
+      "key": "screenShare.source.portal",
+      "value": "اسکرین یا ونڈو (سسٹم ڈائیلاگ میں منتخب کریں)"
+    },
+    {
+      "key": "screenShare.status.choose",
+      "value": "سسٹم ڈائیلاگ میں منتخب کریں کہ کیا شیئر کرنا ہے…"
+    },
+    {
+      "key": "screenShare.error.pluginMissing",
+      "value": "اس بلڈ کا میڈیا پلگ ان اسکرین شیئر نہیں کر سکتا۔ اس پلیٹ فارم کے لیے پلگ ان دوبارہ بلڈ کریں۔"
+    }
+  ]
+}

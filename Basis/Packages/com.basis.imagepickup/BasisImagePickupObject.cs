@@ -210,10 +210,12 @@ namespace Basis.ImagePickup
 
             if (_backPanel == null)
             {
+                Vector3 card = _cardTransform != null ? _cardTransform.localScale : new Vector3(BasisImagePickupSettings.BaseHeightMeters, BasisImagePickupSettings.BaseHeightMeters, 1f);
                 _backPanel = BasisImagePickupBackPanel.Build(
                     transform,
                     this,
-                    BasisImagePickupSettings.BaseHeightMeters
+                    card.x,
+                    card.y
                 );
                 return;
             }
@@ -709,8 +711,8 @@ namespace Basis.ImagePickup
         {
             if (_sharedBackMaterial != null) return _sharedBackMaterial;
             _sharedBackMaterial = new Material(BundledContentHolder.Instance.UnlitUrpShader) { name = "BasisImagePickupBack" };
-            if (_sharedBackMaterial.HasProperty(BaseColorId)) _sharedBackMaterial.SetColor(BaseColorId, Color.white);
-            else _sharedBackMaterial.color = Color.white;
+            if (_sharedBackMaterial.HasProperty(BaseColorId)) _sharedBackMaterial.SetColor(BaseColorId, Color.black);
+            else _sharedBackMaterial.color = Color.black;
             return _sharedBackMaterial;
         }
 

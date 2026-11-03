@@ -20,6 +20,7 @@ namespace Basis.Network.Server.Ownership
         {
             NetDataWriter Writer = NetworkServer.RentWriter();
             OwnershipTransferMessage ownershipTransferMessage = new OwnershipTransferMessage();
+            int batchBytes = NetworkServer.PeerHasCapability(Peer, BasisNetworkVersion.CapabilityBatchedOwnership) ? JoinReplayBatchBytes : 1;
             lock (LockObject)
             {
                 foreach (KeyValuePair<string, ushort> Ownership in ownershipByObjectId)
@@ -27,7 +28,7 @@ namespace Basis.Network.Server.Ownership
                     ownershipTransferMessage.playerIdMessage.playerID = Ownership.Value;
                     ownershipTransferMessage.ownershipID = Ownership.Key;
                     ownershipTransferMessage.Serialize(Writer);
-                    if (Writer.Length >= JoinReplayBatchBytes)
+                    if (Writer.Length >= batchBytes)
                     {
                         NetworkServer.TrySend(Peer, Writer, BasisNetworkCommons.ChangeCurrentOwnerRequestChannel, DeliveryMethod.ReliableOrdered);
                         Writer.Reset();

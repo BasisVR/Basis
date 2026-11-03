@@ -308,6 +308,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// </summary>
         public bool enableAutoReturn = false;
         Vector3 _positionAtStart;
+        bool _travelOriginSet;
         Quaternion _rotationAtStart;
         Vector3 _scaleAtStart;
 
@@ -361,7 +362,21 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         protected internal virtual bool HoldControlsKinematic => KinematicWhileInteracting;
 
-        protected internal virtual bool HoldFollowsHand => true;
+        protected internal virtual bool HoldFollowsHand => constrainToAxis == BasisAxisType.None;
+
+        internal void ClampToTravelLimits()
+        {
+            if (constrainToAxis == BasisAxisType.None || !_travelOriginSet) return;
+            Vector3 p = transform.localPosition;
+            float lo = -math.max(negativeTravelLimit, 0f), hi = math.max(positiveTravelLimit, 0f);
+            switch (constrainToAxis)
+            {
+                case BasisAxisType.X: p.x = math.clamp(p.x, _positionAtStart.x + lo, _positionAtStart.x + hi); break;
+                case BasisAxisType.Y: p.y = math.clamp(p.y, _positionAtStart.y + lo, _positionAtStart.y + hi); break;
+                case BasisAxisType.Z: p.z = math.clamp(p.z, _positionAtStart.z + lo, _positionAtStart.z + hi); break;
+            }
+            transform.localPosition = p;
+        }
 
         private Vector3 magicNumberHandOffsetRight = new(0.26f, -0.14f, 0.24f); // right, down, forward
         private Quaternion magicNumberHandRotationRight = Quaternion.Euler(00, 010, -100);
@@ -385,6 +400,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public void Start()
         {
             transform.GetLocalPositionAndRotation(out _positionAtStart, out _rotationAtStart);
+            _travelOriginSet = true;
             _scaleAtStart = transform.localScale;
 
             if (RigidRef == null)

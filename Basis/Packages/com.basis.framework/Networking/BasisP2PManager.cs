@@ -298,6 +298,8 @@ namespace Basis.Scripts.Networking
             return true;
         }
 
+        public static event Action<ushort, NetPacketReader, DeliveryMethod> OnDirectPluginMessage;
+
         public static bool HasAnyConnectedSession()
         {
             return Volatile.Read(ref _connectedSessionCount) > 0;
@@ -931,6 +933,14 @@ namespace Basis.Scripts.Networking
                 return;
             }
 
+            if (channel == BasisNetworkCommons.PluginReliableChannel)
+            {
+                try { OnDirectPluginMessage?.Invoke(expectedOtherId, reader, deliveryMethod); }
+                catch (Exception ex) { BasisDebug.LogError($"[P2P] Direct plugin message from player {expectedOtherId} failed: {ex.Message}"); }
+                reader.Recycle();
+                return;
+            }
+
             if (channel == BasisNetworkCommons.DeltaAvatarChannel)
             {
                 bool leftoverIsExpected = HandleP2PDeltaFrame(reader, expectedOtherId);
@@ -1031,7 +1041,8 @@ namespace Basis.Scripts.Networking
                 channel == BasisNetworkCommons.VoiceLargeChannel ||
                 channel == BasisNetworkCommons.DirectSceneChannel ||
                 channel == BasisNetworkCommons.DirectAvatarChannel ||
-                channel == BasisNetworkCommons.DeltaAvatarChannel)
+                channel == BasisNetworkCommons.DeltaAvatarChannel ||
+                channel == BasisNetworkCommons.PluginReliableChannel)
                 return true;
             return (channel >= BasisNetworkCommons.PlayerAvatarVeryLowChannel &&
                     channel <= BasisNetworkCommons.PlayerAvatarHighAdditionalChannel) ||

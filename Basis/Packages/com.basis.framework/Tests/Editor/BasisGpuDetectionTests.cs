@@ -94,6 +94,58 @@ namespace Basis.Tests.Graphics
                 "A desktop GPU must never be handed the mobile defaults, so the mobile branch has to stay behind the GPU class.");
         }
 
+        [TestCase("Intel(R) UHD Graphics 630", "Intel", 0x8086, 128, TestName = "LowEnd_IntelUhd")]
+        [TestCase("Intel(R) Iris(R) Xe Graphics", "Intel", 0x8086, 128, TestName = "LowEnd_IntelIrisXe")]
+        [TestCase("Intel(R) Arc(TM) Graphics", "Intel", 0x8086, 128, TestName = "LowEnd_IntelCoreUltraArcIntegrated")]
+        [TestCase("Intel(R) Arc(TM) 140V GPU (16GB)", "Intel", 0x8086, 128, TestName = "LowEnd_IntelLunarLake")]
+        [TestCase("AMD Radeon(TM) Graphics", "ATI", 0x1002, 512, TestName = "LowEnd_AmdApu")]
+        [TestCase("AMD Radeon(TM) Vega 8 Graphics", "ATI", 0x1002, 2048, TestName = "LowEnd_AmdVegaApu")]
+        [TestCase("AMD Radeon 780M Graphics", "ATI", 0x1002, 4096, TestName = "LowEnd_AmdRdna3Apu")]
+        [TestCase("AMD Custom GPU 0405", "AMD", 0x1002, 1024, TestName = "LowEnd_SteamDeck")]
+        [TestCase("NVIDIA GeForce MX450", "NVIDIA", 0x10DE, 2048, TestName = "LowEnd_GeforceMx")]
+        [TestCase("NVIDIA GeForce GT 1030", "NVIDIA", 0x10DE, 2048, TestName = "LowEnd_GeforceGt")]
+        [TestCase("NVIDIA GeForce GTX 1050", "NVIDIA", 0x10DE, 2048, TestName = "LowEnd_TwoGigabyteCard")]
+        [TestCase("Microsoft Basic Render Driver", "Microsoft", 0x1414, 0, TestName = "LowEnd_Warp")]
+        public void IntegratedAndEntryParts_ReadAsLowEndDesktop(string name, string vendor, int vendorId, int memory)
+        {
+            BasisGpuFacts facts = new BasisGpuFacts(name, vendor, vendorId, "x86-64", false, memory);
+            Assert.That(BasisGpuDetection.ResolveLowEndDesktop(facts), Is.True);
+            Assert.That(BasisGpuDetection.ResolveMobileGpu(facts), Is.False);
+        }
+
+        [TestCase("NVIDIA GeForce RTX 4090", "NVIDIA", 0x10DE, 24564, TestName = "Full_Rtx4090")]
+        [TestCase("NVIDIA GeForce RTX 3050 Laptop GPU", "NVIDIA", 0x10DE, 4096, TestName = "Full_LaptopRtx")]
+        [TestCase("NVIDIA GeForce GTX 1060 6GB", "NVIDIA", 0x10DE, 6144, TestName = "Full_Gtx1060")]
+        [TestCase("AMD Radeon RX 7900 XTX", "ATI", 0x1002, 24560, TestName = "Full_RxDesktop")]
+        [TestCase("AMD Radeon RX 7600M XT", "ATI", 0x1002, 8176, TestName = "Full_RxLaptop")]
+        [TestCase("Intel(R) Arc(TM) A770 Graphics", "Intel", 0x8086, 16256, TestName = "Full_ArcA770")]
+        [TestCase("Intel(R) Arc(TM) B580 Graphics", "Intel", 0x8086, 12032, TestName = "Full_ArcB580")]
+        [TestCase("NVIDIA GeForce RTX 4070", "NVIDIA", 0x10DE, 0, TestName = "Full_UnreportedMemory")]
+        public void DiscreteCards_KeepTheDesktopDefaults(string name, string vendor, int vendorId, int memory)
+        {
+            Assert.That(BasisGpuDetection.ResolveLowEndDesktop(new BasisGpuFacts(name, vendor, vendorId, "x86-64", false, memory)), Is.False);
+        }
+
+        [Test]
+        public void MobileParts_NeverReadAsLowEndDesktop()
+        {
+            Assert.That(BasisGpuDetection.ResolveLowEndDesktop(Facts("Turnip Adreno (TM) 750", "", 0x5143, "FEX-2506 (Cortex-A720)", false)), Is.False,
+                "Mobile hardware takes the android column; the low-end desktop column must not shadow it.");
+        }
+
+        [Test]
+        public void LowEndColumn_IsOptional()
+        {
+            BasisPlatformDefault<string> plain = new BasisPlatformDefault<string> { windows = "w", android = "a", ios = "i", linux = "l", other = "o" };
+            Assert.That(plain.HasLowEnd, Is.False);
+            BasisPlatformDefault<string> tiered = new BasisPlatformDefault<string> { windows = "w", lowEnd = "low", android = "a", ios = "i", linux = "l", other = "o" };
+            Assert.That(tiered.HasLowEnd, Is.True);
+            if (BasisGpuDetection.IsMobileGpu) Assert.That(tiered.GetDefault(), Is.EqualTo("a"));
+            else if (BasisGpuDetection.IsLowEndDesktop) Assert.That(tiered.GetDefault(), Is.EqualTo("low"));
+            else Assert.That(tiered.GetDefault(), Is.Not.EqualTo("low"));
+            Assert.That(plain.GetDefault(), Is.Not.EqualTo("low"));
+        }
+
         [Test]
         public void UnknownDesktopGpuOnArmHost_StaysDesktop()
         {

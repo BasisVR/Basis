@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 
@@ -545,9 +546,9 @@ namespace Basis.ImagePickup
         }
 
         /// <summary>
-        /// Async twin of <see cref="FinishTexture"/>: the pixels are copied out once on the main
-        /// thread, then the downscale, cap checks, PNG re-encode, and alpha scan all run on a
-        /// worker; the main thread only builds the final texture from the processed pixels.
+        /// Async twin of <see cref="FinishTexture"/>: the fit (copy or area downscale) and alpha scan run
+        /// as one Burst parallel job awaited across frames, the PNG re-encode runs on a worker, and the
+        /// main thread only uploads the final pixels. The decoded texture is freed as soon as the fit lands.
         /// </summary>
         private static async Task<BasisImageValidationResult> FinishTextureAsync(
             Texture2D decoded,
@@ -557,99 +558,146 @@ namespace Basis.ImagePickup
         )
         {
             var result = new BasisImageValidationResult();
+            if (!TryScheduleFit(decoded, allowDownscale, out BasisImageFit fit, out NativeArray<Color32> ownedSource, out string scheduleError))
+            {
+                DestroyDecoded(decoded);
+                result.Error = scheduleError;
+                return result;
+            }
 
-            int sourceWidth = decoded.width;
-            int sourceHeight = decoded.height;
-            Color32[] sourcePixels;
             try
             {
-                sourcePixels = decoded.GetPixels32();
+                while (!fit.Handle.IsCompleted)
+                {
+                    await Task.Yield();
+                }
+                fit.Handle.Complete();
+                DestroyDecoded(decoded);
+                decoded = null;
+                if (ownedSource.IsCreated) ownedSource.Dispose();
+
+                if (!DimensionsWithinCaps(fit.Width, fit.Height, out string finalCapError))
+                {
+                    result.Error = finalCapError;
+                    return result;
+                }
+
+                byte[] clean = bytes;
+                if (reencode)
+                {
+                    NativeArray<Color32> pixels = fit.Pixels;
+                    uint width = (uint)fit.Width;
+                    uint height = (uint)fit.Height;
+                    (byte[] png, string encodeError) = await BasisTasks.Run(() => EncodePng(pixels, width, height));
+                    if (!AcceptCleanPng(png, encodeError, out string cleanError))
+                    {
+                        result.Error = cleanError;
+                        return result;
+                    }
+                    clean = png;
+                }
+
+                return CompleteFit(ref fit, clean);
+            }
+            finally
+            {
+                if (decoded != null) DestroyDecoded(decoded);
+                if (ownedSource.IsCreated) ownedSource.Dispose();
+                fit.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Schedules the fit job straight over the decoded texture's own pixel memory when it is RGBA32,
+        /// so nothing is copied out first. Other decode formats (JPEG lands as RGB24) are converted once
+        /// into a buffer the caller owns.
+        /// </summary>
+        private static bool TryScheduleFit(Texture2D decoded, bool allowDownscale, out BasisImageFit fit, out NativeArray<Color32> ownedSource, out string error)
+        {
+            fit = default;
+            ownedSource = default;
+            int fitDimension = allowDownscale ? BasisImagePickupSettings.LocalShareDimension : int.MaxValue;
+            NativeArray<Color32> source;
+            try
+            {
+                if (decoded.format == TextureFormat.RGBA32)
+                {
+                    source = decoded.GetPixelData<Color32>(0);
+                }
+                else
+                {
+                    ownedSource = new NativeArray<Color32>(decoded.GetPixels32(), Allocator.Persistent);
+                    source = ownedSource;
+                }
             }
             catch (Exception e)
             {
-                DestroyDecoded(decoded);
-                result.Error = "Pixel read failed: " + e.Message;
-                return result;
-            }
-            DestroyDecoded(decoded);
-
-            bool downscale = allowDownscale && ExceedsDisplayCaps(sourceWidth, sourceHeight);
-
-            (Color32[] pixels, int width, int height, byte[] clean, bool hasAlpha, string error) = await BasisTasks.Run(() =>
-            {
-                Color32[] finalPixels = sourcePixels;
-                int finalWidth = sourceWidth;
-                int finalHeight = sourceHeight;
-                if (downscale)
-                {
-                    finalPixels = DownscalePixels(sourcePixels, sourceWidth, sourceHeight, BasisImagePickupSettings.MaxDimension, out finalWidth, out finalHeight);
-                    if (finalPixels == null)
-                    {
-                        return (null, 0, 0, null, false, "Resize failed");
-                    }
-                }
-
-                if (!DimensionsWithinCaps(finalWidth, finalHeight, out string finalCapError))
-                {
-                    return (null, 0, 0, null, false, finalCapError);
-                }
-
-                byte[] cleanPng = bytes;
-                if (reencode)
-                {
-                    try
-                    {
-                        cleanPng = ImageConversion.EncodeArrayToPNG(finalPixels, GraphicsFormat.R8G8B8A8_SRGB, (uint)finalWidth, (uint)finalHeight, 0);
-                    }
-                    catch (Exception e)
-                    {
-                        return (null, 0, 0, null, false, "Re-encode failed: " + e.Message);
-                    }
-                    if (cleanPng == null || cleanPng.Length == 0 || cleanPng.Length > BasisImagePickupSettings.MaxImageBytes)
-                    {
-                        return (null, 0, 0, null, false,
-                            cleanPng == null || cleanPng.Length == 0
-                                ? "PNG sanitization produced no image data."
-                                : DescribeByteLimit("Sanitized PNG", cleanPng.Length, BasisImagePickupSettings.MaxImageBytes));
-                    }
-                }
-
-                bool alpha = false;
-                for (int i = 0; i < finalPixels.Length; i++)
-                {
-                    if (finalPixels[i].a < 255)
-                    {
-                        alpha = true;
-                        break;
-                    }
-                }
-
-                return (finalPixels, finalWidth, finalHeight, cleanPng, alpha, (string)null);
-            });
-
-            if (error != null)
-            {
-                result.Error = error;
-                return result;
+                if (ownedSource.IsCreated) ownedSource.Dispose();
+                ownedSource = default;
+                error = "Pixel read failed: " + e.Message;
+                return false;
             }
 
+            fit = BasisImageFit.Schedule(source, decoded.width, decoded.height, fitDimension);
+            error = null;
+            return true;
+        }
+
+        private static (byte[] png, string error) EncodePng(NativeArray<Color32> pixels, uint width, uint height)
+        {
+            try
+            {
+                using NativeArray<byte> png = ImageConversion.EncodeNativeArrayToPNG(pixels, GraphicsFormat.R8G8B8A8_SRGB, width, height, 0);
+                return (png.IsCreated ? png.ToArray() : null, null);
+            }
+            catch (Exception e)
+            {
+                return (null, "Re-encode failed: " + e.Message);
+            }
+        }
+
+        private static bool AcceptCleanPng(byte[] png, string encodeError, out string error)
+        {
+            if (encodeError != null)
+            {
+                error = encodeError;
+                return false;
+            }
+            if (png == null || png.Length == 0)
+            {
+                error = "PNG sanitization produced no image data.";
+                return false;
+            }
+            if (png.Length > BasisImagePickupSettings.MaxImageBytes)
+            {
+                error = DescribeByteLimit("Sanitized PNG", png.Length, BasisImagePickupSettings.MaxImageBytes);
+                return false;
+            }
+            error = null;
+            return true;
+        }
+
+        private static BasisImageValidationResult CompleteFit(ref BasisImageFit fit, byte[] clean)
+        {
             Texture2D finalTexture = new Texture2D(
-                width,
-                height,
+                fit.Width,
+                fit.Height,
                 GraphicsFormatUtility.GetGraphicsFormat(TextureFormat.RGBA32, true),
                 TextureCreationFlags.DontInitializePixels | TextureCreationFlags.DontUploadUponCreate
             );
-            finalTexture.SetPixels32(pixels);
-            result.HasAlpha = hasAlpha;
+            finalTexture.SetPixelData(fit.Pixels, 0);
             finalTexture.wrapMode = TextureWrapMode.Clamp;
             finalTexture.Apply(false, true);
 
-            result.Ok = true;
-            result.Texture = finalTexture;
-            result.CleanPng = clean;
-            result.Width = width;
-            result.Height = height;
-            return result;
+            return new BasisImageValidationResult
+            {
+                Ok = true,
+                Texture = finalTexture,
+                CleanPng = clean,
+                Width = fit.Width,
+                Height = fit.Height,
+                HasAlpha = fit.HasAlpha(),
+            };
         }
 
         /// <summary>True when the data begins with a GIF signature, so it may carry animation.</summary>
@@ -734,6 +782,7 @@ namespace Basis.ImagePickup
         /// The half of import that is the same whatever the pixels came from: fit the display caps,
         /// re-encode to a PNG that carries nothing but image data, and hand back a texture ready to
         /// show. Shared by the file, network, and clipboard paths so all three obey one set of limits.
+        /// Runs the same Burst fit job as the async path, completed in place.
         /// </summary>
         private static BasisImageValidationResult FinishTexture(
             Texture2D decoded,
@@ -743,63 +792,45 @@ namespace Basis.ImagePickup
         )
         {
             var result = new BasisImageValidationResult();
-
-            Texture2D finalTexture = decoded;
-            if (allowDownscale && ExceedsDisplayCaps(decoded.width, decoded.height))
+            if (!TryScheduleFit(decoded, allowDownscale, out BasisImageFit fit, out NativeArray<Color32> ownedSource, out string scheduleError))
             {
-                Texture2D scaled = DownscaleToFit(decoded, BasisImagePickupSettings.MaxDimension);
-                if (scaled == null || scaled == decoded)
-                {
-                    DestroyDecoded(decoded);
-                    result.Error = "Resize failed";
-                    return result;
-                }
                 DestroyDecoded(decoded);
-                finalTexture = scaled;
-            }
-
-            if (!DimensionsWithinCaps(finalTexture.width, finalTexture.height, out string finalCapError))
-            {
-                DestroyDecoded(finalTexture);
-                result.Error = finalCapError;
+                result.Error = scheduleError;
                 return result;
             }
 
-            byte[] clean = bytes;
-            if (reencode)
+            try
             {
-                try
+                fit.Handle.Complete();
+                DestroyDecoded(decoded);
+                decoded = null;
+
+                if (!DimensionsWithinCaps(fit.Width, fit.Height, out string finalCapError))
                 {
-                    clean = finalTexture.EncodeToPNG();
-                }
-                catch (Exception e)
-                {
-                    DestroyDecoded(finalTexture);
-                    result.Error = "Re-encode failed: " + e.Message;
+                    result.Error = finalCapError;
                     return result;
                 }
-                if (clean == null || clean.Length == 0 || clean.Length > BasisImagePickupSettings.MaxImageBytes)
+
+                byte[] clean = bytes;
+                if (reencode)
                 {
-                    DestroyDecoded(finalTexture);
-                    result.Error =
-                        clean == null || clean.Length == 0
-                            ? "PNG sanitization produced no image data."
-                            : DescribeByteLimit("Sanitized PNG", clean.Length, BasisImagePickupSettings.MaxImageBytes);
-                    return result;
+                    (byte[] png, string encodeError) = EncodePng(fit.Pixels, (uint)fit.Width, (uint)fit.Height);
+                    if (!AcceptCleanPng(png, encodeError, out string cleanError))
+                    {
+                        result.Error = cleanError;
+                        return result;
+                    }
+                    clean = png;
                 }
+
+                return CompleteFit(ref fit, clean);
             }
-
-            result.HasAlpha = HasTransparency(finalTexture);
-
-            finalTexture.wrapMode = TextureWrapMode.Clamp;
-            finalTexture.Apply(false, true);
-
-            result.Ok = true;
-            result.Texture = finalTexture;
-            result.CleanPng = clean;
-            result.Width = finalTexture.width;
-            result.Height = finalTexture.height;
-            return result;
+            finally
+            {
+                if (decoded != null) DestroyDecoded(decoded);
+                if (ownedSource.IsCreated) ownedSource.Dispose();
+                fit.Dispose();
+            }
         }
 
         private static BasisImageValidationResult BuildFromGifFile(string path)
@@ -818,92 +849,6 @@ namespace Basis.ImagePickup
                     Error = "GIF Burst pipeline failed: " + exception.Message,
                 };
             }
-        }
-
-        private static bool HasTransparency(Texture2D texture)
-        {
-            Color32[] pixels = texture.GetPixels32();
-            int pixelCount = pixels.Length;
-            for (int i = 0; i < pixelCount; i++)
-            {
-                if (pixels[i].a < 255)
-                    return true;
-            }
-            return false;
-        }
-
-        private static bool ExceedsDisplayCaps(int width, int height)
-        {
-            return width > BasisImagePickupSettings.MaxDimension
-                || height > BasisImagePickupSettings.MaxDimension
-                || (long)width * height > BasisImagePickupSettings.MaxTotalPixels;
-        }
-
-        private static Texture2D DownscaleToFit(Texture2D source, int maxDimension)
-        {
-            Color32[] dst = DownscalePixels(source.GetPixels32(), source.width, source.height, maxDimension, out int tw, out int th);
-            if (dst == null)
-                return source;
-
-            Texture2D scaled = new Texture2D(tw, th, TextureFormat.RGBA32, false);
-            scaled.SetPixels32(dst);
-            scaled.Apply(false, false);
-            return scaled;
-        }
-
-        private static Color32[] DownscalePixels(Color32[] src, int sw, int sh, int maxDimension, out int tw, out int th)
-        {
-            float scale = Mathf.Min((float)maxDimension / sw, (float)maxDimension / sh);
-            if (scale >= 1f)
-            {
-                tw = sw;
-                th = sh;
-                return null;
-            }
-
-            tw = Mathf.Max(1, Mathf.RoundToInt(sw * scale));
-            th = Mathf.Max(1, Mathf.RoundToInt(sh * scale));
-
-            Color32[] dst = new Color32[tw * th];
-
-            for (int y = 0; y < th; y++)
-            {
-                float v = (y + 0.5f) / th * sh - 0.5f;
-                int y0 = Mathf.Clamp(Mathf.FloorToInt(v), 0, sh - 1);
-                int y1 = Mathf.Min(y0 + 1, sh - 1);
-                float fy = Mathf.Clamp01(v - y0);
-                int row0 = y0 * sw;
-                int row1 = y1 * sw;
-                int drow = y * tw;
-                for (int x = 0; x < tw; x++)
-                {
-                    float u = (x + 0.5f) / tw * sw - 0.5f;
-                    int x0 = Mathf.Clamp(Mathf.FloorToInt(u), 0, sw - 1);
-                    int x1 = Mathf.Min(x0 + 1, sw - 1);
-                    float fx = Mathf.Clamp01(u - x0);
-                    dst[drow + x] = MixBilinear(src[row0 + x0], src[row0 + x1], src[row1 + x0], src[row1 + x1], fx, fy);
-                }
-            }
-
-            return dst;
-        }
-
-        private static Color32 MixBilinear(Color32 c00, Color32 c10, Color32 c01, Color32 c11, float fx, float fy)
-        {
-            float topR = c00.r + (c10.r - c00.r) * fx;
-            float topG = c00.g + (c10.g - c00.g) * fx;
-            float topB = c00.b + (c10.b - c00.b) * fx;
-            float topA = c00.a + (c10.a - c00.a) * fx;
-            float botR = c01.r + (c11.r - c01.r) * fx;
-            float botG = c01.g + (c11.g - c01.g) * fx;
-            float botB = c01.b + (c11.b - c01.b) * fx;
-            float botA = c01.a + (c11.a - c01.a) * fx;
-            return new Color32(
-                (byte)Mathf.Clamp(Mathf.RoundToInt(topR + (botR - topR) * fy), 0, 255),
-                (byte)Mathf.Clamp(Mathf.RoundToInt(topG + (botG - topG) * fy), 0, 255),
-                (byte)Mathf.Clamp(Mathf.RoundToInt(topB + (botB - topB) * fy), 0, 255),
-                (byte)Mathf.Clamp(Mathf.RoundToInt(topA + (botA - topA) * fy), 0, 255)
-            );
         }
 
         /// <summary>
@@ -1267,11 +1212,12 @@ namespace Basis.ImagePickup
 
         private static bool DimensionsWithinCaps(int width, int height, out string error)
         {
+            int limit = BasisImagePickupSettings.LocalShareDimension;
             long pixels = (long)width * height;
             if (
-                width > BasisImagePickupSettings.MaxDimension
-                || height > BasisImagePickupSettings.MaxDimension
-                || pixels > BasisImagePickupSettings.MaxTotalPixels
+                width > limit
+                || height > limit
+                || pixels > (long)limit * limit
             )
             {
                 error = DescribeDimensionLimit(
@@ -1279,8 +1225,8 @@ namespace Basis.ImagePickup
                     width,
                     height,
                     pixels,
-                    BasisImagePickupSettings.MaxDimension,
-                    BasisImagePickupSettings.MaxTotalPixels
+                    limit,
+                    (long)limit * limit
                 );
                 return false;
             }

@@ -11,6 +11,13 @@ public class BasisPlatformDefault<T>
     public T ios;
     public T linux;
     public T other;
+    private T lowEndValue;
+    private bool hasLowEnd;
+
+    /// <summary>Optional default for desktop-class low-end GPUs (<see cref="BasisGpuDetection.IsLowEndDesktop"/>); unset falls through to the platform column.</summary>
+    public T lowEnd { get => lowEndValue; set { lowEndValue = value; hasLowEnd = true; } }
+
+    public bool HasLowEnd => hasLowEnd;
 
     public T GetDefault()
     {
@@ -25,6 +32,11 @@ public class BasisPlatformDefault<T>
         if (BasisGpuDetection.IsMobileGpu)
         {
             return android;
+        }
+
+        if (hasLowEnd && BasisGpuDetection.IsLowEndDesktop)
+        {
+            return lowEndValue;
         }
 
         switch (Application.platform)

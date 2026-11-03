@@ -316,6 +316,9 @@ namespace BasisNetworkCore.Serializable
             GetProtectionSettings, // config editor → server: send the current network protection settings back. No payload.
             GlobalGetProtectionSettings, // server → config editor: every registered protection setting. Payload: BasisProtectionSettings.Write
             SetProtectionSettings, // config editor → server: change some of them, persisted and applied live. Payload: [ushort count]{[string key][double value]}
+            GlobalToggleAvatarHosting,
+            GlobalToggleVideoClips,
+            SetGlobalImageMaxResolution, // admin: largest shared image side in units of 1024 px, persisted and rebroadcast in GlobalGetLockState. Payload: [byte k] (1-16)
         }
 
         /// <summary>

@@ -365,6 +365,7 @@ public class PermissionManagerTests
         Assert.True(m.Has(uuid, PermNodes.ResourceLoadAvatar));
         Assert.True(m.Has(uuid, PermNodes.OwnershipTransfer));
         Assert.True(m.Has(uuid, PermNodes.ContentShareCreate));
+        Assert.True(m.Has(uuid, PermNodes.ScreenShare));
         Assert.False(m.Has(uuid, PermNodes.ModerationKick));
         Assert.False(m.Has(uuid, PermNodes.protection));
         Assert.False(m.Has(uuid, PermNodes.All));
@@ -379,6 +380,7 @@ public class PermissionManagerTests
             PermNodes.OwnershipTransfer, PermNodes.OwnershipRemove, PermNodes.OwnershipGet,
             PermNodes.ContentShareDelete, PermNodes.ContentShareCreate,
             PermNodes.StorageUse,
+            PermNodes.ScreenShare,
         }));
     }
 
@@ -502,7 +504,7 @@ public class PermissionManagerTests
         Assert.True(custom.Has(uuid, "custom.only.node"));
         Assert.True(custom.Has(uuid, PermNodes.help));
         Assert.True(custom.TryGetGroup("default", out var def));
-        Assert.Equal(14, def.Nodes.Count);
+        Assert.Equal(15, def.Nodes.Count);
     }
 
     [Fact]

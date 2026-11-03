@@ -272,6 +272,15 @@
         "com.unity.render-pipelines.universal": "17.5.0"
       }
     },
+    "com.basis.screenshare": {
+      "version": "file:com.basis.screenshare",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.unity.addressables": "2.9.1",
+        "com.unity.ugui": "2.0.0"
+      }
+    },
     "com.basis.sdk": {
       "version": "file:com.basis.sdk",
       "depth": 0,

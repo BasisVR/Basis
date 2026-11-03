@@ -234,6 +234,7 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<string> QualityLevel = new("qualitylevel", new BasisPlatformDefault<string>
         {
             windows = "Ultra",
+            lowEnd = "Medium",
             android = "Very Low",
             ios = "Very Low",
             linux = "Ultra",
@@ -243,6 +244,7 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<string> ShadowQuality = new("shadowquality", new BasisPlatformDefault<string>
         {
             windows = "Ultra",
+            lowEnd = "Medium",
             android = "Very Low",
             ios = "Very Low",
             linux = "Ultra",
@@ -252,6 +254,7 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<string> HDRSupport = new("hdrsupport", new BasisPlatformDefault<string>
         {
             windows = "64bit",
+            lowEnd = "32bit",
             android = "Off",
             ios = "Off",
             linux = "64bit",

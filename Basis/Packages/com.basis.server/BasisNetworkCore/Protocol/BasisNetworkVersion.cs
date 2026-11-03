@@ -23,7 +23,10 @@ namespace Basis.Network.Core
         // several entries per packet on ChangeCurrentOwnerRequestChannel; clients read entries
         // until the packet is empty, which also reads the one-entry packets older servers send.
         // CapabilityProtectionSettings: the client understands GlobalGetProtectionSettings.
-        public static ushort ServerVersion = 56;
+        // 57: GlobalGetLockState ends with the shared image resolution limit (after VideoClipsLocked),
+        // alongside the video clip, avatar hosting and screen share messages. The capability byte above
+        // still applies.
+        public static ushort ServerVersion = 57;
         public static ushort LegacyLoginVersion = 55;
         public const byte CapabilityBatchedOwnership = 1, CapabilityProtectionSettings = 2;
         public const byte ClientCapabilities = CapabilityBatchedOwnership | CapabilityProtectionSettings;

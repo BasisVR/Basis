@@ -3104,6 +3104,7 @@ namespace Basis.BasisUI
                 case BasisShareableKind.Text: return AddressableAssets.Sprites.List;
                 case BasisShareableKind.Folder: return AddressableAssets.Sprites.FileTray;
                 case BasisShareableKind.Setting: return AddressableAssets.Sprites.Settings;
+                case BasisShareableKind.Video: return AddressableAssets.Sprites.Camera;
                 default: return AddressableAssets.Sprites.Items;
             }
         }
@@ -3122,6 +3123,7 @@ namespace Basis.BasisUI
                 case BasisShareableKind.Text: return BasisLocalization.Get("library.shareable.text");
                 case BasisShareableKind.Folder: return BasisLocalization.Get("library.shareable.folder");
                 case BasisShareableKind.Setting: return BasisLocalization.Get("library.shareable.setting");
+                case BasisShareableKind.Video: return BasisLocalization.Get("library.shareable.video");
                 default: return BasisLocalization.Get("library.shareable.other");
             }
         }

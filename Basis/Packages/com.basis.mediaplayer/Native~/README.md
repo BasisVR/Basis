@@ -23,6 +23,7 @@ the built binaries are committed in `../Runtime/Plugins/`.
 | `media-rist` | RIST, through librist |
 | `media-decode` | The decoder trait, with `decode-mf` (Windows), `decode-mediacodec` (Android) and `decode-sw` (FLAC, Opus, AV1, PCM) |
 | `media-present` | Frame hand-off to Unity: Direct3D 11 and 12 on Windows, Vulkan on Android |
+| `media-capture` | Screen and system-audio capture for screen sharing: Windows Graphics Capture, the Direct3D 11 video processor and Media Foundation H.264 encoders (hardware first, Microsoft's software encoder as fallback), WASAPI process loopback without the host's own sound, Opus |
 | `media-diag` | Counters, the event log and the capture writer |
 | `media-testkit` | Recorded network-delay profiles for tests |
 | `bm-probe` | A command-line player for running the engine without Unity |

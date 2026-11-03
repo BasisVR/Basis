@@ -29,7 +29,7 @@ public static class BasisCameraPrintResize
     /// the source bounds is downscaled to exactly this before it is sent, so a copy made here is
     /// the same picture the pickup would have produced on its own.
     /// </summary>
-    public const int MaxPrintDimension = BasisImagePickupSettings.MaxDimension;
+    public static int MaxPrintDimension => BasisImagePickupSettings.LocalShareDimension;
 
     /// <summary>
     /// Floor on the shrink loop. Reached only by a photo whose PNG is still over the wire limit

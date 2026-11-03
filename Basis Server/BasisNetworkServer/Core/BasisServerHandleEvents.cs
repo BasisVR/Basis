@@ -437,9 +437,11 @@ namespace BasisServerHandle
             BasisNetworkPIPCamera.RemovePlayer(id);
             BasisNetworkContentShare.RemovePlayerSpheres(id);
             BasisNetworkImageCache.RemovePlayerImages(id);
+            BasisAvatarHostRelay.RemovePeer(id);
             // Drops this peer's egress bucket and any replay still queued for it. Without this a
             // recycled player id would inherit the previous holder's spent budget.
             BasisImageBandwidthGovernor.RemovePeer(id);
+            BasisNetworkScreenShare.RemovePeer(id);
             BasisNetworkPreloadResourceManagement.RemovePeer(id);
             BasisNetworkServer.Security.BasisUserOpusBitrateStateManager.ClearForPeer(id);
             BasisServerP2PBroker.RemovePeer(id);
@@ -686,7 +688,9 @@ namespace BasisServerHandle
                         return;
                     }
 
+                    byte capabilities = BasisNetworkVersion.ReadCapabilities(ConReq.Data);
                     accepted = ConReq.Accept();//can do both way Communication from here on
+                    NetworkServer.SetPeerCapabilities(accepted, capabilities);
                     string verifiedOrClaimed = ConReq.VerifiedIdentity;
                     OnNetworkAccepted(accepted, readyMessage, string.IsNullOrEmpty(verifiedOrClaimed) ? ResolveUnauthenticatedUuid(readyMessage.playerMetaDataMessage.playerUUID) : verifiedOrClaimed);
                 }

@@ -68,6 +68,12 @@ public static class BasisMediaSettings
     public static BasisSettingsBinding<string> DecodePreference =
         new("mediaplayerdecodepreference", new BasisPlatformDefault<string>(DecodeHardwareWithFallback));
 
+    public static BasisSettingsBinding<bool> ClipAcceptShared =
+        new("mediaclipacceptshared", new BasisPlatformDefault<bool>(true));
+
+    public static BasisSettingsBinding<float> ClipVolume =
+        new("mediaclipvolume", new BasisPlatformDefault<float>(1f));
+
     /// <summary>Touches the binding so the static constructor runs, then pushes
     /// the stored decode preference into the engine.</summary>
     public static void EnsureLoaded()

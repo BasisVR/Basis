@@ -1,5 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
+using Unity.Scripting.LifecycleManagement;
+using UnityEngine;
 
 /// <summary>
 /// ABI v4 bindings for basis_media. Probe <see cref="bm_abi_version"/>
@@ -11,6 +13,7 @@ using System.Runtime.InteropServices;
 /// pointer the engine keeps past the call is the native texture handed to
 /// <see cref="bm_session_set_output_texture"/>.
 /// </summary>
+[NoAutoStaticsCleanup]
 public static class BasisMediaNative
 {
     public const uint AbiVersion = 4;
@@ -125,6 +128,39 @@ public static class BasisMediaNative
     /// </summary>
     [DllImport(Dll)] public static extern int bm_session_set_output_texture(ulong handle, IntPtr texture);
     [DllImport(Dll)] public static extern IntPtr bm_render_event_func();
+
+    public const string PushScheme = "basis-push://";
+    [DllImport(Dll)] public static extern uint bm_push_version();
+    [DllImport(Dll)] public static extern unsafe int bm_session_take_bgra(ulong handle, byte* dst, UIntPtr capacity, out uint width, out uint height);
+
+    public static bool CpuPresent
+    {
+        get
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            return false;
+#else
+            return Application.platform != RuntimePlatform.WindowsPlayer && Application.platform != RuntimePlatform.WindowsEditor;
+#endif
+        }
+    }
+    [DllImport(Dll)] public static extern unsafe int bm_session_push_video(ulong handle, byte* data, UIntPtr length, long ptsUs, uint key, uint width, uint height);
+    [DllImport(Dll)] public static extern unsafe int bm_session_push_audio(ulong handle, byte* data, UIntPtr length, long ptsUs, uint sampleRate, uint channels);
+    static int pushVersion = -1;
+
+    public static bool PushSupported
+    {
+        get
+        {
+            if (pushVersion < 0)
+            {
+                try { pushVersion = (int)bm_push_version(); }
+                catch (EntryPointNotFoundException) { pushVersion = 0; }
+                catch (DllNotFoundException) { pushVersion = 0; }
+            }
+            return pushVersion > 0;
+        }
+    }
 
     /// <summary>The per-session present pass: the event data is the session
     /// handle (BM_EVENT_PRESENT).</summary>

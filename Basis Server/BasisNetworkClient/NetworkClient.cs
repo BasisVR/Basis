@@ -50,6 +50,7 @@ public class NetworkClient
                 AuthBytes.Serialize(Writer, ConnectionPublicKey);
             }
             ReadyMessage.Serialize(Writer);
+            Writer.Put(BasisNetworkVersion.ClientCapabilities);
             if (!legacyLogin)
             {
                 ConnectionPayloadHash = BasisDidLoginTranscript.HashConnectionPayload(Writer.Data, PayloadStart, Writer.Length - PayloadStart);

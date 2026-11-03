@@ -32,6 +32,12 @@ namespace BasisNetworkServer.Security
         private static int _gifsLocked;
         private static int _contentRemovalLocked;
         private static int _externalLinksLocked;
+        private static int _avatarHostingLocked;
+        private static int _videoClipsLocked;
+        private static int _imageMaxResolutionK = DefaultImageMaxResolutionK;
+        public const int MinImageMaxResolutionK = 1;
+        public const int MaxImageMaxResolutionK = 16;
+        public const int DefaultImageMaxResolutionK = 4;
         // 0 = feature on (default), 1 = admin-disabled. Inverted vs the locks above — this is a default-on feature.
         private static int _endEffectorIKDisabled;
 
@@ -55,6 +61,9 @@ namespace BasisNetworkServer.Security
         public static bool GifsLocked => Interlocked.CompareExchange(ref _gifsLocked, 0, 0) == 1;
         public static bool ContentRemovalLocked => Interlocked.CompareExchange(ref _contentRemovalLocked, 0, 0) == 1;
         public static bool ExternalLinksLocked => Interlocked.CompareExchange(ref _externalLinksLocked, 0, 0) == 1;
+        public static bool AvatarHostingLocked => Interlocked.CompareExchange(ref _avatarHostingLocked, 0, 0) == 1;
+        public static bool VideoClipsLocked => Interlocked.CompareExchange(ref _videoClipsLocked, 0, 0) == 1;
+        public static byte ImageMaxResolutionK => (byte)Interlocked.CompareExchange(ref _imageMaxResolutionK, 0, 0);
         public static bool EndEffectorIKDisabled => Interlocked.CompareExchange(ref _endEffectorIKDisabled, 0, 0) == 1;
 
         /// <summary>
@@ -83,6 +92,9 @@ namespace BasisNetworkServer.Security
             Interlocked.Exchange(ref _gifsLocked, config.GifsLocked ? 1 : 0);
             Interlocked.Exchange(ref _contentRemovalLocked, config.ContentRemovalLocked ? 1 : 0);
             Interlocked.Exchange(ref _externalLinksLocked, config.ExternalLinksLocked ? 1 : 0);
+            Interlocked.Exchange(ref _avatarHostingLocked, config.AvatarHostingLocked ? 1 : 0);
+            Interlocked.Exchange(ref _videoClipsLocked, config.VideoClipsLocked ? 1 : 0);
+            SetImageMaxResolutionK(config.ImageMaxResolutionK);
             Interlocked.Exchange(ref _endEffectorIKDisabled, config.EndEffectorIKDisabled ? 1 : 0);
         }
 
@@ -118,6 +130,9 @@ namespace BasisNetworkServer.Security
             config.GifsLocked = GifsLocked;
             config.ContentRemovalLocked = ContentRemovalLocked;
             config.ExternalLinksLocked = ExternalLinksLocked;
+            config.AvatarHostingLocked = AvatarHostingLocked;
+            config.VideoClipsLocked = VideoClipsLocked;
+            config.ImageMaxResolutionK = ImageMaxResolutionK;
             config.EndEffectorIKDisabled = EndEffectorIKDisabled;
         }
 
@@ -220,6 +235,10 @@ namespace BasisNetworkServer.Security
 
         public static bool ToggleExternalLinks() => Toggle(ref _externalLinksLocked);
 
+        public static bool ToggleAvatarHosting() => Toggle(ref _avatarHostingLocked);
+
+        public static bool ToggleVideoClips() => Toggle(ref _videoClipsLocked);
+
         /// <summary>
         /// Toggle the global remote end-effector IK disable. Returns the new state (true = disabled;
         /// clients fall back to pure-FK playback for remote hands/feet). Enforced client-side.
@@ -230,6 +249,16 @@ namespace BasisNetworkServer.Security
         /// Set the per-category camera photo-metadata disallow mask (set bit = disallowed).
         /// </summary>
         public static void SetCameraMetadataDisallowMask(byte mask) => Interlocked.Exchange(ref _cameraMetadataDisallowMask, mask);
+
+        /// <summary>
+        /// Set the largest shared image side in units of 1024 pixels, clamped to 1-16. Returns the value applied.
+        /// </summary>
+        public static int SetImageMaxResolutionK(int k)
+        {
+            int clamped = k < MinImageMaxResolutionK ? MinImageMaxResolutionK : (k > MaxImageMaxResolutionK ? MaxImageMaxResolutionK : k);
+            Interlocked.Exchange(ref _imageMaxResolutionK, clamped);
+            return clamped;
+        }
 
         private static bool Toggle(ref int field)
         {
@@ -284,6 +313,9 @@ namespace BasisNetworkServer.Security
             writer.Put(GifsLocked);
             writer.Put(ContentRemovalLocked);
             writer.Put(ExternalLinksLocked);
+            writer.Put(AvatarHostingLocked);
+            writer.Put(VideoClipsLocked);
+            writer.Put(ImageMaxResolutionK);
             NetworkServer.TrySend(peer, writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
             NetworkServer.ReturnWriter(writer);
         }
@@ -328,6 +360,9 @@ namespace BasisNetworkServer.Security
             writer.Put(GifsLocked);
             writer.Put(ContentRemovalLocked);
             writer.Put(ExternalLinksLocked);
+            writer.Put(AvatarHostingLocked);
+            writer.Put(VideoClipsLocked);
+            writer.Put(ImageMaxResolutionK);
             NetworkServer.BroadcastMessageToClients(
                 writer,
                 BasisNetworkCommons.AdminChannel,

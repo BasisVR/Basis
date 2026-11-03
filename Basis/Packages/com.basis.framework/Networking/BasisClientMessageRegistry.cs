@@ -88,12 +88,33 @@ public static partial class BasisClientMessageRegistry
         }
 
         lastSupplyPeer = peer;
+        OnSupplyApplied?.Invoke();
 
         SerializableBasis.BasisMessageSubscribe subscribe = new SerializableBasis.BasisMessageSubscribe { Ids = handled.ToArray() };
         NetDataWriter writer = new NetDataWriter();
         writer.Put(BasisNetworkCommons.RegistrySub_Subscribe);
         subscribe.Serialize(writer);
         peer.Send(writer, BasisNetworkCommons.RegistryControlChannel, DeliveryMethod.ReliableOrdered);
+    }
+
+    public static event System.Action OnSupplyApplied;
+
+    public static bool IsPluginSupplied(string name)
+    {
+        NetPeer peer = BasisNetworkConnection.LocalPlayerPeer;
+        return SamePeer(lastSupplyPeer, peer) && PluginDescriptorsByName.ContainsKey(name);
+    }
+
+    public static bool HasSupplyFor(NetPeer peer) => SamePeer(lastSupplyPeer, peer);
+
+    static bool SamePeer(NetPeer a, NetPeer b) => a != null && b != null && (ReferenceEquals(a, b) || a.Equals(b));
+
+    public static bool TryGetPluginId(string name, out ushort id)
+    {
+        id = 0;
+        if (!PluginDescriptorsByName.TryGetValue(name, out SerializableBasis.BasisMessageDescriptor descriptor)) return false;
+        id = descriptor.Id;
+        return true;
     }
 
     /// <summary>
@@ -138,6 +159,27 @@ public static partial class BasisClientMessageRegistry
         NetDataWriter writer = new NetDataWriter();
         writer.Put(descriptor.Id);
         writePayload?.Invoke(writer);
+        peer.Send(writer, descriptor.Channel, BasisNetworkCommons.GetDeliveryForPluginChannel(descriptor.Channel));
+        return true;
+    }
+
+    [System.ThreadStatic, NoAutoStaticsCleanup] private static NetDataWriter reusableWriter;
+
+    public static bool Send<TState>(string name, in TState state, System.Action<NetDataWriter, TState> writePayload)
+    {
+        if (!PluginDescriptorsByName.TryGetValue(name, out SerializableBasis.BasisMessageDescriptor descriptor))
+        {
+            return false;
+        }
+        NetPeer peer = BasisNetworkConnection.LocalPlayerPeer;
+        if (peer == null)
+        {
+            return false;
+        }
+        NetDataWriter writer = reusableWriter ??= new NetDataWriter(true, 1024);
+        writer.Reset();
+        writer.Put(descriptor.Id);
+        writePayload(writer, state);
         peer.Send(writer, descriptor.Channel, BasisNetworkCommons.GetDeliveryForPluginChannel(descriptor.Channel));
         return true;
     }

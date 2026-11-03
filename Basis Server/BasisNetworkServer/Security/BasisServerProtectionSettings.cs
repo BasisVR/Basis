@@ -5,7 +5,8 @@ namespace BasisNetworkServer.Security
 {
     public static class BasisServerProtectionSettings
     {
-        public const string Logins = "Logins", Relays = "Relays", Rates = "Rate limits", Caps = "Per-player caps", Reports = "Error reports", Logging = "Logging";
+        public const string ScreenShare = "Screen share";
+        public const string Logins = "Logins", Relays = "Relays", Rates = "Rate limits", Caps = "Per-player caps", Reports = "Error reports", Logging = "Logging", AvatarHosting = "Local avatar sharing";
         private static bool registered;
         public static void RegisterAll()
         {
@@ -43,11 +44,17 @@ namespace BasisNetworkServer.Security
             Add(nameof(Configuration.MaxCrashReportFolderMegabytes), Reports, 1, 1024 * 1024);
             Add(nameof(Configuration.MaxCrashReportDecompressedKilobytes), Reports, 1, 1024);
             Add(nameof(Configuration.RepeatedLogIntervalSeconds), Logging, 0, 3600);
+            Add(nameof(Configuration.ScreenShareMaxKilobitsPerSecond), ScreenShare, 500, 100000);
+            Add(nameof(Configuration.ScreenShareEgressMegabitsPerSecond), ScreenShare, 0, 100000);
+            Add(nameof(Configuration.ScreenShareMaxConcurrent), ScreenShare, 0, 1024);
+            Add(nameof(Configuration.AvatarHostMaxMegabytes), AvatarHosting, 0, 4096);
+            Add(nameof(Configuration.AvatarHostCacheMegabytes), AvatarHosting, 0, 65536);
         }
         public static void ApplyLive(Configuration configuration)
         {
             if (configuration == null) return;
             System.Threading.Interlocked.Exchange(ref BNLThrottle.IntervalMs, System.Math.Max(0, configuration.RepeatedLogIntervalSeconds) * 1000L);
+            Basis.Network.Server.Generic.BasisAvatarHostRelay.ApplyConfiguration();
         }
         private static void Add(string field, string group, double min, double max) => BasisProtectionSettings.RegisterField(() => NetworkServer.Configuration, typeof(Configuration), field, group, min, max);
     }

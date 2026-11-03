@@ -505,6 +505,11 @@ namespace Basis.Scripts.Networking.Sync
         /// </summary>
         public void SnapReceiver() => _receiver?.ForceSnap();
 
+        protected void SuppressReceiverExtrapolation(bool suppress)
+        {
+            if (_receiver != null) _receiver.SuppressExtrapolation = suppress;
+        }
+
         /// <summary>
         /// Owner hook fired right before serialization; push live source values into LocalSet here.
         /// Called once per outgoing packet — on the frames a send is actually due, not on every

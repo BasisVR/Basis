@@ -9,6 +9,7 @@ mod pipeline;
 mod playable;
 mod pool;
 mod present;
+mod push;
 mod route;
 mod sink;
 mod sync;
@@ -22,8 +23,8 @@ pub use pipeline::PipelineShared;
 pub use pool::FramePool;
 #[cfg(windows)]
 pub use present::render_present;
-#[cfg(target_os = "android")]
 pub use present::render_take;
+pub use push::{PUSH_VERSION, PushFeed, PushOutcome, is_push_url};
 pub use route::SLOW_VIDEO_DECODE_ENV;
 pub use sync::{SYNC_DEAD_BAND, SYNC_SEEK_THRESHOLD, SYNC_SLEW_PPM, SyncAction, ladder};
 
@@ -334,17 +335,26 @@ impl Session {
     /// Open a session. Returns immediately in `Opening`; all I/O happens on
     /// the pipeline's threads and progress is polled through the snapshot.
     pub fn open(request: OpenRequest) -> Self {
-        Self::open_internal(request, None)
+        Self::open_internal(request, None, None)
     }
 
     /// Open over a caller-built byte source instead of one derived from the
     /// URL, as the impairment harness does. The request's URL is
     /// display-only here.
     pub fn open_with_source(request: OpenRequest, source: Box<dyn ByteSource>) -> Self {
-        Self::open_internal(request, Some(source))
+        Self::open_internal(request, Some(source), None)
     }
 
-    fn open_internal(mut request: OpenRequest, source: Option<Box<dyn ByteSource>>) -> Self {
+    pub fn open_push(request: OpenRequest) -> (Self, Arc<PushFeed>) {
+        let (feed, demuxer) = push::push_pair();
+        (Self::open_internal(request, None, Some(demuxer)), feed)
+    }
+
+    fn open_internal(
+        mut request: OpenRequest,
+        source: Option<Box<dyn ByteSource>>,
+        push: Option<push::PushDemuxer>,
+    ) -> Self {
         let shared = Arc::new(SessionShared {
             av_offset_us: AtomicI32::new(i32::MIN),
             ..SessionShared::default()
@@ -455,7 +465,10 @@ impl Session {
         let opener_threads = Arc::clone(&threads);
         let opener = std::thread::Builder::new()
             .name("bm-open".into())
-            .spawn(move || open_and_run(opener_px, request, source, bank_cfg, opener_threads))
+            .spawn(move || match push {
+                Some(demuxer) => open_push(opener_px, demuxer, &request, bank_cfg, opener_threads),
+                None => open_and_run(opener_px, request, source, bank_cfg, opener_threads),
+            })
             .expect("spawn opener thread");
         threads
             .lock()
@@ -1167,6 +1180,22 @@ fn open_whep(
         })
     };
     finish_open(px, demuxer, bank_cfg, Some(factory), threads);
+}
+
+fn open_push(
+    px: Arc<PipelineShared>,
+    mut demuxer: push::PushDemuxer,
+    request: &OpenRequest,
+    mut bank_cfg: BankConfig,
+    threads: Arc<Mutex<Vec<JoinHandle<()>>>>,
+) {
+    bank_cfg.liveness = Liveness::Live;
+    if request.buffer_depth_ms.is_none() {
+        bank_cfg.depth = BufferDepth::Millis(bank_cfg.decoder_cushion.as_micros() as u32 / 1000);
+    }
+    let cancel = px.io_cancel.clone();
+    demuxer.set_cancel(Box::new(move || cancel.is_cancelled()));
+    finish_open(px, Box::new(demuxer), bank_cfg, None, threads);
 }
 
 /// RIST: always live. librist owns the sockets, ARQ, jitter buffer and

@@ -27,19 +27,20 @@ namespace Basis.Scripts.Common
     public readonly struct BasisGpuFacts
     {
         public readonly string DeviceName, VendorName, ProcessorType;
-        public readonly int VendorId;
+        public readonly int VendorId, GraphicsMemoryMB;
         public readonly bool MobileRuntime;
 
-        public BasisGpuFacts(string deviceName, string vendorName, int vendorId, string processorType, bool mobileRuntime)
+        public BasisGpuFacts(string deviceName, string vendorName, int vendorId, string processorType, bool mobileRuntime, int graphicsMemoryMB = 0)
         {
             DeviceName = deviceName ?? string.Empty;
             VendorName = vendorName ?? string.Empty;
             ProcessorType = processorType ?? string.Empty;
             VendorId = vendorId;
             MobileRuntime = mobileRuntime;
+            GraphicsMemoryMB = graphicsMemoryMB;
         }
 
-        public static BasisGpuFacts FromSystemInfo() => new BasisGpuFacts(SystemInfo.graphicsDeviceName, SystemInfo.graphicsDeviceVendor, SystemInfo.graphicsDeviceVendorID, SystemInfo.processorType, Application.isMobilePlatform);
+        public static BasisGpuFacts FromSystemInfo() => new BasisGpuFacts(SystemInfo.graphicsDeviceName, SystemInfo.graphicsDeviceVendor, SystemInfo.graphicsDeviceVendorID, SystemInfo.processorType, Application.isMobilePlatform, SystemInfo.graphicsMemorySize);
 
         public string Device => $"{DeviceName} {VendorName}".ToLowerInvariant();
 
@@ -79,11 +80,19 @@ namespace Basis.Scripts.Common
         private static readonly string[] DesktopMarkers = { "geforce", "nvidia", "radeon", "quadro", "titan", "arc(tm)", "iris", "hd graphics" };
         private static readonly string[] ArmHostMarkers = { "aarch64", "arm64", "armv8", "armv9", "cortex", "oryon", "snapdragon", "apple m", "fex" };
 
+        private static readonly string[] IntegratedMarkers = { "radeon(tm) graphics", "radeon graphics", "vega 3 graphics", "vega 6 graphics", "vega 8 graphics", "vega 10 graphics", "vega 11 graphics", "amd custom gpu", "geforce mx", "geforce gt ", "geforce 9", "geforce 8", "uhd graphics", "hd graphics", "iris" };
+        private static readonly System.Text.RegularExpressions.Regex DiscreteArc = new System.Text.RegularExpressions.Regex(@"arc(\(tm\))?\s+(pro\s+)?[ab]\d", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        private static readonly System.Text.RegularExpressions.Regex AmdIntegratedNumbered = new System.Text.RegularExpressions.Regex(@"radeon(\(tm\))?\s+\d{3}m\b", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        public const int LowEndGraphicsMemoryMB = 2048;
+
         private const string OverrideVariable = "BASIS_MOBILE_GPU";
         private const string ForceMobileFlag = "--mobile-gpu";
         private const string ForceDesktopFlag = "--desktop-gpu";
+        private const string LowEndOverrideVariable = "BASIS_LOW_END_GPU";
+        private const string ForceLowEndFlag = "--low-end-gpu";
+        private const string ForceFullDesktopFlag = "--full-desktop-gpu";
 
-        private static bool hasInitialized, mobileGpu, softwareRenderer, armHost, forced;
+        private static bool hasInitialized, mobileGpu, lowEndDesktop, softwareRenderer, armHost, forced;
         private static BasisGpuVendor vendor;
         private static string deviceName = string.Empty, vendorName = string.Empty, summary = string.Empty;
         private static int vendorId;
@@ -94,6 +103,14 @@ namespace Basis.Scripts.Common
         /// Android and iOS players, and true for the Frame and Windows-on-ARM cases above.
         /// </summary>
         public static bool IsMobileGpu { get { EnsureInitialized(); return mobileGpu; } }
+
+        /// <summary>
+        /// True for a desktop-class renderer that cannot carry the desktop defaults: integrated
+        /// graphics, entry cards with 2 GB or less, and CPU rasterizers. Never true when
+        /// <see cref="IsMobileGpu"/> is, since mobile hardware has its own defaults column.
+        /// Only picks default values; it must never hide or lock a setting.
+        /// </summary>
+        public static bool IsLowEndDesktop { get { EnsureInitialized(); return lowEndDesktop; } }
 
         public static BasisGpuVendor Vendor { get { EnsureInitialized(); return vendor; } }
 
@@ -141,8 +158,9 @@ namespace Basis.Scripts.Common
                 forced = true;
                 mobileGpu = forcedMobile;
             }
+            lowEndDesktop = !mobileGpu && (TryReadLowEndOverride(out bool forcedLowEnd) ? forcedLowEnd : ResolveLowEndDesktop(facts));
 
-            summary = $"{(deviceName.Length == 0 ? "unnamed GPU" : deviceName)} [{vendor}, id 0x{vendorId:X4}, {api}, shader level {shaderLevel}, {graphicsMemory} MB] on {facts.ProcessorType} -> {(mobileGpu ? "mobile" : "desktop")} class{(forced ? " (forced)" : string.Empty)}";
+            summary = $"{(deviceName.Length == 0 ? "unnamed GPU" : deviceName)} [{vendor}, id 0x{vendorId:X4}, {api}, shader level {shaderLevel}, {graphicsMemory} MB] on {facts.ProcessorType} -> {(mobileGpu ? "mobile" : lowEndDesktop ? "low-end desktop" : "desktop")} class{(forced ? " (forced)" : string.Empty)}";
            // BasisDebug.Log($"Graphics hardware: {summary}", BasisDebug.LogTag.Rendering);
         }
 
@@ -213,6 +231,45 @@ namespace Basis.Scripts.Common
             if (facts.MobileRuntime) return true;
             if (ContainsAny(device, MobileMarkers)) return true;
             return ResolveArmHost(facts) && resolved == BasisGpuVendor.Unknown && !ContainsAny(device, DesktopMarkers);
+        }
+
+        /// <summary>
+        /// Whether a desktop-class renderer should start on the low-end defaults. Integrated parts
+        /// share system memory and a laptop power budget, so the desktop Ultra defaults (8K shadow
+        /// maps, four cascades, 64 bit colour) cost them several times the frame. Discrete Intel
+        /// Arc cards are excluded by model number; anything else is judged by its own memory.
+        /// </summary>
+        public static bool ResolveLowEndDesktop(BasisGpuFacts facts)
+        {
+            if (ResolveMobileGpu(facts)) return false;
+            if (ResolveSoftwareRenderer(facts)) return true;
+            string device = facts.Device;
+            BasisGpuVendor resolved = ResolveVendor(facts);
+            if (resolved == BasisGpuVendor.Intel) return !DiscreteArc.IsMatch(device);
+            if (resolved == BasisGpuVendor.Amd && AmdIntegratedNumbered.IsMatch(device) && !device.Contains(" rx ")) return true;
+            if (ContainsAny(device, IntegratedMarkers)) return true;
+            return facts.GraphicsMemoryMB > 0 && facts.GraphicsMemoryMB <= LowEndGraphicsMemoryMB;
+        }
+
+        private static bool TryReadLowEndOverride(out bool forcedLowEnd)
+        {
+            forcedLowEnd = false;
+            string variable = Environment.GetEnvironmentVariable(LowEndOverrideVariable);
+            if (!string.IsNullOrEmpty(variable))
+            {
+                forcedLowEnd = !variable.Equals("0", StringComparison.Ordinal) && !variable.Equals("false", StringComparison.OrdinalIgnoreCase);
+                return true;
+            }
+            string[] args;
+            try { args = Environment.GetCommandLineArgs(); }
+            catch { return false; }
+            if (args == null) return false;
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (string.Equals(args[i], ForceLowEndFlag, StringComparison.OrdinalIgnoreCase)) { forcedLowEnd = true; return true; }
+                if (string.Equals(args[i], ForceFullDesktopFlag, StringComparison.OrdinalIgnoreCase)) { forcedLowEnd = false; return true; }
+            }
+            return false;
         }
 
         private static bool TryReadOverride(out bool forcedMobile)

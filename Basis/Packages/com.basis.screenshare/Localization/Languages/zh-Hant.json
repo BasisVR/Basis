@@ -1,0 +1,310 @@
+{
+  "code": "zh-Hant",
+  "nativeName": "繁體中文",
+  "entries": [
+    {
+      "key": "menu.provider.screenShare",
+      "value": "螢幕分享"
+    },
+    {
+      "key": "library.embedded.screenShare",
+      "value": "螢幕分享"
+    },
+    {
+      "key": "screenShare.yourShare",
+      "value": "你的螢幕"
+    },
+    {
+      "key": "screenShare.source",
+      "value": "分享內容"
+    },
+    {
+      "key": "screenShare.source.tooltip",
+      "value": "螢幕附近所有人都會看到的顯示器或視窗。"
+    },
+    {
+      "key": "screenShare.source.display",
+      "value": "{0} ({1}×{2})"
+    },
+    {
+      "key": "screenShare.source.none",
+      "value": "找不到顯示器或視窗"
+    },
+    {
+      "key": "screenShare.refreshSources",
+      "value": "重新整理清單"
+    },
+    {
+      "key": "screenShare.resolution",
+      "value": "解析度"
+    },
+    {
+      "key": "screenShare.resolution.tooltip",
+      "value": "畫面傳送的最大尺寸。較小的來源不會被放大。"
+    },
+    {
+      "key": "screenShare.resolution.native",
+      "value": "原生"
+    },
+    {
+      "key": "screenShare.resolution.1440",
+      "value": "1440p"
+    },
+    {
+      "key": "screenShare.resolution.1080",
+      "value": "1080p"
+    },
+    {
+      "key": "screenShare.resolution.720",
+      "value": "720p"
+    },
+    {
+      "key": "screenShare.resolution.480",
+      "value": "480p"
+    },
+    {
+      "key": "screenShare.frameRate",
+      "value": "幀率"
+    },
+    {
+      "key": "screenShare.frameRate.tooltip",
+      "value": "畫面更新的頻率。60 適合遊戲和影片，15 或 5 適合文件和簡報，並為細節保留更多頻寬。"
+    },
+    {
+      "key": "screenShare.frameRate.60",
+      "value": "60 fps"
+    },
+    {
+      "key": "screenShare.frameRate.30",
+      "value": "30 fps"
+    },
+    {
+      "key": "screenShare.frameRate.15",
+      "value": "15 fps"
+    },
+    {
+      "key": "screenShare.frameRate.5",
+      "value": "5 fps"
+    },
+    {
+      "key": "screenShare.quality",
+      "value": "品質"
+    },
+    {
+      "key": "screenShare.quality.tooltip",
+      "value": "畫面可使用的頻寬。自動會依解析度和幀率選擇位元率；上限由伺服器設定。"
+    },
+    {
+      "key": "screenShare.quality.auto",
+      "value": "自動"
+    },
+    {
+      "key": "screenShare.quality.low",
+      "value": "低"
+    },
+    {
+      "key": "screenShare.quality.high",
+      "value": "高"
+    },
+    {
+      "key": "screenShare.quality.max",
+      "value": "最高"
+    },
+    {
+      "key": "screenShare.audio",
+      "value": "分享電腦音訊"
+    },
+    {
+      "key": "screenShare.audio.tooltip",
+      "value": "傳送電腦正在播放的聲音（Basis 本身除外），讓螢幕附近的人從螢幕聽到。"
+    },
+    {
+      "key": "screenShare.cursor",
+      "value": "顯示滑鼠游標"
+    },
+    {
+      "key": "screenShare.start",
+      "value": "開始分享"
+    },
+    {
+      "key": "screenShare.stop",
+      "value": "停止分享"
+    },
+    {
+      "key": "screenShare.viewing",
+      "value": "觀看"
+    },
+    {
+      "key": "screenShare.viewing.none",
+      "value": "沒有其他人在分享螢幕。"
+    },
+    {
+      "key": "screenShare.viewing.count",
+      "value": "他人分享的螢幕：{0}"
+    },
+    {
+      "key": "screenShare.receive",
+      "value": "顯示他人的螢幕"
+    },
+    {
+      "key": "screenShare.receive.tooltip",
+      "value": "關閉後不會下載任何螢幕分享，他人的螢幕會保持空白。"
+    },
+    {
+      "key": "screenShare.viewDistance",
+      "value": "觀看距離（公尺）"
+    },
+    {
+      "key": "screenShare.viewDistance.tooltip",
+      "value": "比此距離更遠的螢幕在你靠近之前不會下載。"
+    },
+    {
+      "key": "screenShare.volume",
+      "value": "螢幕分享音量"
+    },
+    {
+      "key": "screenShare.status.none",
+      "value": "從你的資源庫產生螢幕分享，即可分享你的螢幕。"
+    },
+    {
+      "key": "screenShare.status.idle",
+      "value": "未在分享。選擇要分享的內容，然後按「開始分享」。"
+    },
+    {
+      "key": "screenShare.status.offline",
+      "value": "未在分享。加入伺服器即可分享你的螢幕。"
+    },
+    {
+      "key": "screenShare.status.unsupportedServer",
+      "value": "未在分享。此伺服器不支援螢幕分享。"
+    },
+    {
+      "key": "screenShare.status.starting",
+      "value": "正在啟動…"
+    },
+    {
+      "key": "screenShare.status.waiting",
+      "value": "正在分享 {0}。等待伺服器…"
+    },
+    {
+      "key": "screenShare.status.live",
+      "value": "正在分享 {0}，{1} 人觀看"
+    },
+    {
+      "key": "screenShare.status.error",
+      "value": "已停止：{0}"
+    },
+    {
+      "key": "screenShare.status.noAudio",
+      "value": "電腦音訊未分享：{0}"
+    },
+    {
+      "key": "screenShare.error.unsupported",
+      "value": "分享螢幕需要 Windows 10 版本 2004 或更新版本。你仍可觀看他人的螢幕。"
+    },
+    {
+      "key": "screenShare.error.open",
+      "value": "無法擷取螢幕。"
+    },
+    {
+      "key": "screenShare.error.permission",
+      "value": "此伺服器不允許你分享螢幕。"
+    },
+    {
+      "key": "screenShare.error.tooMany",
+      "value": "此伺服器顯示的螢幕分享已達上限。"
+    },
+    {
+      "key": "screenShare.error.refused",
+      "value": "伺服器拒絕了螢幕分享。"
+    },
+    {
+      "key": "screenShare.error.ended",
+      "value": "分享的顯示器或視窗已不存在。"
+    },
+    {
+      "key": "screenShare.back.sharedBy",
+      "value": "由 {0} 分享"
+    },
+    {
+      "key": "screenShare.back.yours",
+      "value": "你的螢幕"
+    },
+    {
+      "key": "screenShare.back.hide",
+      "value": "隱藏"
+    },
+    {
+      "key": "screenShare.panel.live",
+      "value": "直播"
+    },
+    {
+      "key": "screenShare.panel.watching",
+      "value": "{0} 人正在觀看"
+    },
+    {
+      "key": "screenShare.panel.details",
+      "value": "{0}×{1} · {2} fps"
+    },
+    {
+      "key": "screenShare.showHidden",
+      "value": "顯示已隱藏的螢幕"
+    },
+    {
+      "key": "screenShare.viewing.hidden",
+      "value": "你已隱藏：{0}"
+    },
+    {
+      "key": "settings.admin.title.lockScreenShare",
+      "value": "鎖定螢幕分享"
+    },
+    {
+      "key": "settings.admin.title.lockScreenShare.tooltip",
+      "value": "沒有全域鎖定權限的玩家無法分享螢幕。這些玩家進行中的分享會立即結束；管理員仍可分享。"
+    },
+    {
+      "key": "screenShare.status.locked",
+      "value": "此伺服器已關閉螢幕分享。"
+    },
+    {
+      "key": "screenShare.error.locked",
+      "value": "管理員已在此伺服器上關閉螢幕分享。"
+    },
+    {
+      "key": "screenShare.error.restart",
+      "value": "媒體外掛已更新。請重新啟動以使用螢幕分享。"
+    },
+    {
+      "key": "screenShare.audioSource",
+      "value": "音訊來源"
+    },
+    {
+      "key": "screenShare.audioSource.tooltip",
+      "value": "自動：分享視窗時只分享該應用程式的聲音，分享螢幕時分享 Basis 以外的所有聲音。"
+    },
+    {
+      "key": "screenShare.audioSource.auto",
+      "value": "自動"
+    },
+    {
+      "key": "screenShare.audioSource.application",
+      "value": "僅此應用程式"
+    },
+    {
+      "key": "screenShare.audioSource.system",
+      "value": "整台電腦"
+    },
+    {
+      "key": "screenShare.source.portal",
+      "value": "螢幕或視窗（在系統對話框中選擇）"
+    },
+    {
+      "key": "screenShare.status.choose",
+      "value": "請在系統對話框中選擇要分享的內容…"
+    },
+    {
+      "key": "screenShare.error.pluginMissing",
+      "value": "此版本的媒體外掛不支援螢幕分享。請為此平台重新建置外掛。"
+    }
+  ]
+}

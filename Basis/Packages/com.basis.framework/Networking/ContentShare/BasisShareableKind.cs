@@ -10,5 +10,6 @@ public enum BasisShareableKind
     Text,
     Folder,
     Setting,
-    Other
+    Other,
+    Video
 }

@@ -791,6 +791,7 @@ namespace BasisPermissions
             PermNodes.OwnershipTransfer, PermNodes.OwnershipRemove, PermNodes.OwnershipGet,
             PermNodes.ContentShareDelete, PermNodes.ContentShareCreate,
             PermNodes.StorageUse,
+            PermNodes.ScreenShare,
         };
 
         private static readonly string[] ModeratorGroupNodes =
