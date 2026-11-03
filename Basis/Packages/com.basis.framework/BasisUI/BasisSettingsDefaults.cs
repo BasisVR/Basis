@@ -914,13 +914,6 @@ namespace Basis.BasisUI
 
         public static BasisSettingsBinding<bool> CalibrationMirror = new("calibrationmirror", new BasisPlatformDefault<bool>(false));
 
-        // Arm-to-height ratio: scale the avatar by a percentage between the two measurements instead of a
-        // single mode -- 0 = eye height, 1 = arm distance (range in BasisCalibrationMath.ArmToHeightBlendMin/Max).
-        // Chooses which measurement the uniform scale matches; FBIKBodyFit takes up the residual per-segment.
-        // While enabled it replaces the Avatar Scaling Mode dropdown (VR only; desktop always scales by eye height).
-        public static BasisSettingsBinding<bool> EnableArmToHeightBlend = new("enablearmtoheightblend", new BasisPlatformDefault<bool>(false));
-        public static BasisSettingsBinding<float> ArmToHeightBlend = new("armtoheightblend", new BasisPlatformDefault<float>(0.5f));
-
         // The player's body size measured at their last explicit calibration (metres). Seeded back into
         // BasisHeightDriver at boot so the very first avatar fits at the right scale instead of the
         // 1.61 m fallback / a stance-dependent first poll. 0 = never calibrated (no seed). Cleared by
@@ -2320,8 +2313,6 @@ namespace Basis.BasisUI
             SelectedBone.LoadBindingValue();
             IKMode.LoadBindingValue();
             CalibrationMirror.LoadBindingValue();
-            EnableArmToHeightBlend.LoadBindingValue();
-            ArmToHeightBlend.LoadBindingValue();
             SavedPlayerEyeHeight.LoadBindingValue();
             AutoScaleEstimateEnabled.LoadBindingValue();
             ContinuousBodyMeasurement.LoadBindingValue();

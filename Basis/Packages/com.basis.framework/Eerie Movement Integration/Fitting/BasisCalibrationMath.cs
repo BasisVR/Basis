@@ -95,12 +95,6 @@ public static class BasisCalibrationMath
         float ratio = float.IsNaN(armRatio) || float.IsInfinity(armRatio) ? DefaultArmRatio : Mathf.Clamp(armRatio, ArmRatioMin, ArmRatioMax);
         return eyeHeight * 2f * ratio;
     }
-    public const float ArmToHeightBlendMin = 0f;
-    public const float ArmToHeightBlendMax = 1f;
-    public static float BlendEyeSpanMetric(float eyeMetric, float spanMetric, float blend)
-    {
-        return Mathf.Lerp(eyeMetric, spanMetric, Mathf.Clamp(blend, ArmToHeightBlendMin, ArmToHeightBlendMax));
-    }
     public const float EyeToHeightRatio = 0.93f;
     // Hand-target-to-hand-target span as a fraction of standing height. Higher than anatomical
     // wrist-to-wrist (~0.78) because the tracked hand point sits a few cm past the wrist toward the

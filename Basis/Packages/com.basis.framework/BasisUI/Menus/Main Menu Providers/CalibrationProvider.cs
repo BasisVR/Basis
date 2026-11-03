@@ -131,19 +131,16 @@ namespace Basis.BasisUI
 
             PanelSlider armRatioSlider = SettingsProviderIK.CreateArmRatioSlider(container);
 
-            // The mode is moot in seated mode (a fixed height is used) and while the arm-to-height blend
-            // replaces it. The arm ratio only matters when arms take part in the sizing, so it hides
-            // when Eye Height alone is chosen.
+            // The mode is moot in seated mode (a fixed height is used). The arm ratio only matters
+            // when arms take part in the sizing, so it hides when Eye Height alone is chosen.
             void UpdateScalingControls()
             {
                 bool isSeated = seatedModeDropdown.Value == SettingsProviderIK.SeatedMode_Seated;
-                bool blendActive = BasisSettingsDefaults.EnableArmToHeightBlend.RawValue;
-                scalingModeDropdown.SetInteractable(!isSeated && !blendActive,
-                    isSeated ? BasisLocalization.Get("settings.bodyTracking.ikMode.disabledSeated")
-                    : blendActive ? BasisLocalization.Get("settings.bodyTracking.ikMode.disabledArmToHeight") : null);
+                scalingModeDropdown.SetInteractable(!isSeated,
+                    isSeated ? BasisLocalization.Get("settings.bodyTracking.ikMode.disabledSeated") : null);
                 if (armRatioSlider != null)
                 {
-                    bool eyeHeightOnly = !blendActive && string.Equals(scalingModeDropdown.Value, "eye height", StringComparison.OrdinalIgnoreCase);
+                    bool eyeHeightOnly = string.Equals(scalingModeDropdown.Value, "eye height", StringComparison.OrdinalIgnoreCase);
                     armRatioSlider.gameObject.SetActive(!eyeHeightOnly);
                 }
             }
@@ -182,26 +179,24 @@ namespace Basis.BasisUI
             // Collapsed by default so the panel is a Calibrate button, a Measure Me button and a mode.
             // The report lives in there, so drop the previous panel's reference whether or not the
             // section rebuilds it.
+            // The single most reliable measurement available, and the only one a permanently-seated
+            // player has: their own answer.
+            var heightField = PanelTextField.CreateNewEntry(container);
+            heightField.Descriptor.SetTitle(BasisLocalization.Get("settings.calibration.yourHeight"));
+            heightField.Descriptor.SetTooltip(BasisLocalization.Get("settings.calibration.yourHeight.tooltip"));
+            heightField.SetValueWithoutNotify(BasisStatedHeight.FormatCompact(BasisStatedHeight.Meters));
+            heightField.OnValueChanged += text => OnStatedHeightEntered(heightField, text);
+
             _reportGroup = null;
-            PanelSlider armToHeightSlider = null;
             PanelSectionToggleHelpers.CreateCollapsibleFlatSection(
                 container,
                 BasisLocalization.Get("ui.advanced"),
-                () => armToHeightSlider = BuildAdvancedSection(container, layout, UpdateScalingControls),
+                () => BuildAdvancedSection(container),
                 false,
-                visible =>
-                {
-                    // The section restores every row it owns; the ratio slider is only meant to be
-                    // up while its toggle is on, so re-apply that after an expand.
-                    if (visible && armToHeightSlider != null)
-                    {
-                        armToHeightSlider.gameObject.SetActive(BasisSettingsDefaults.EnableArmToHeightBlend.RawValue);
-                    }
-                    layout.ForceRebuild();
-                });
+                _ => layout.ForceRebuild());
         }
 
-        private PanelSlider BuildAdvancedSection(RectTransform container, PanelElementDescriptor layout, Action onBlendToggled)
+        private void BuildAdvancedSection(RectTransform container)
         {
             // Calibration quality report — filled in after a calibration completes.
             _reportGroup = null;
@@ -211,14 +206,6 @@ namespace Basis.BasisUI
                 _reportGroup.SetTitle(BasisLocalization.Get("calibration.report.title"));
                 _reportGroup.SetDescription(BasisCalibrationQualityReport.HasReport ? BasisCalibrationQualityReport.BuildSummary() : BasisLocalization.Get("calibration.report.empty"));
             }
-
-            // The single most reliable measurement available, and the only one a permanently-seated
-            // player has: their own answer.
-            var heightField = PanelTextField.CreateNewEntry(container);
-            heightField.Descriptor.SetTitle(BasisLocalization.Get("settings.calibration.yourHeight"));
-            heightField.Descriptor.SetTooltip(BasisLocalization.Get("settings.calibration.yourHeight.tooltip"));
-            heightField.SetValueWithoutNotify(BasisStatedHeight.FormatCompact(BasisStatedHeight.Meters));
-            heightField.OnValueChanged += text => OnStatedHeightEntered(heightField, text);
 
             // Keep observing the player's real size while they play instead of trusting the pose they
             // happened to be in when an avatar loaded (VR only; see BasisBodyEvidenceSampler).
@@ -234,35 +221,6 @@ namespace Basis.BasisUI
             remeasureOnCalibrateToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.calibration.remeasureHeightOnCalibration.tooltip"));
             remeasureOnCalibrateToggle.AssignBinding(BasisSettingsDefaults.RemeasureHeightOnCalibration);
 
-            // Arm To Height Ratio: scale by a percentage between the two measurements instead of a single
-            // scaling mode. Overrides the Avatar Scaling Mode dropdown while enabled (VR only).
-            var armToHeightToggle = PanelToggle.CreateNewEntry(container);
-            armToHeightToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.calibration.armToHeightRatio"));
-            armToHeightToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.calibration.armToHeightRatio.tooltip"));
-            armToHeightToggle.AssignBinding(BasisSettingsDefaults.EnableArmToHeightBlend);
-
-            var armToHeightSlider = PanelSlider.CreateAndBind(
-                container,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.calibration.armToHeightRatio"),
-                    BasisCalibrationMath.ArmToHeightBlendMin, BasisCalibrationMath.ArmToHeightBlendMax,
-                    false, 2, ValueDisplayMode.percentageFromZero),
-                BasisSettingsDefaults.ArmToHeightBlend);
-
-            if (armToHeightSlider != null)
-            {
-                armToHeightSlider.Descriptor.SetTooltip(BasisLocalization.Get("settings.calibration.armToHeightRatio.slider.tooltip"));
-                armToHeightSlider.gameObject.SetActive(BasisSettingsDefaults.EnableArmToHeightBlend.RawValue);
-            }
-            armToHeightToggle.OnValueChanged += enabled =>
-            {
-                if (armToHeightSlider != null)
-                {
-                    armToHeightSlider.gameObject.SetActive(enabled);
-                }
-                onBlendToggled?.Invoke();
-                layout.ForceRebuild();
-            };
-
             // Lock-in guides toggle (shrinking spheres + foot-forward guide while calibrating).
             if (BasisSettingsDefaults.DevShowCalibrationDebug.RawValue)
             {
@@ -272,8 +230,6 @@ namespace Basis.BasisUI
                 lockInGuidesToggle.SetValueWithoutNotify(BasisCalibrationLockInVisualizer.Enabled);
                 lockInGuidesToggle.OnValueChanged += value => BasisCalibrationLockInVisualizer.Enabled = value;
             }
-
-            return armToHeightSlider;
         }
 
         private static string FormatScaleMeters(float meters) => meters.ToString("0.##") + " m";

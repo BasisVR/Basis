@@ -4931,18 +4931,6 @@
       "value": "Measure your height and arm span again every time you calibrate. Stand up straight and look ahead when you do, or the avatar will be sized from a slouch. Turn this off to keep your current size, so calibrating doesn't shift your view. Use Measure Me to update your size by hand."
     },
     {
-      "key": "settings.calibration.armToHeightRatio",
-      "value": "Arm To Height Ratio"
-    },
-    {
-      "key": "settings.calibration.armToHeightRatio.tooltip",
-      "value": "Scale the avatar by a percentage between your two measurements instead of a single scaling mode: 0% uses eye height, 100% uses arm distance, and values outside that range keep going in the same direction. Overrides Avatar Scaling Mode while enabled."
-    },
-    {
-      "key": "settings.calibration.armToHeightRatio.slider.tooltip",
-      "value": "Percentage between the two measurements: 0% scales by eye height, 100% by arm distance. Negative pushes past eye height, above 100% pushes past arm distance."
-    },
-    {
       "key": "calibration.decreaseHeight",
       "value": "Decrease Height"
     },
@@ -21103,10 +21091,6 @@
     {
       "key": "calibration.report.unavailable",
       "value": "Calibration report unavailable."
-    },
-    {
-      "key": "settings.bodyTracking.ikMode.disabledArmToHeight",
-      "value": "Disabled while Arm To Height Ratio is enabled."
     },
     {
       "key": "settings.platform.activeTag",

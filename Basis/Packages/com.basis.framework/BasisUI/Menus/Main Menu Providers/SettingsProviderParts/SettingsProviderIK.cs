@@ -906,9 +906,7 @@ public static partial class SettingsProviderIK
         "Device Scale" => $"{BasisHeightDriver.DeviceScale:F4}",
         "Applied Up Scale" => $"{BasisHeightDriver.AppliedUpScale:F4}",
         "Scaled to Match Value" => $"{BasisHeightDriver.ScaledToMatchValue:F4}",
-        "Height Mode" => BasisHeightDriver.TryGetArmToHeightBlend(out float armToHeightBlend)
-            ? $"ArmToHeightBlend {armToHeightBlend:P0}"
-            : SMModuleCalibration.HeightMode == BasisSelectedHeightMode.Auto
+        "Height Mode" => SMModuleCalibration.HeightMode == BasisSelectedHeightMode.Auto
                 ? $"Auto -> {BasisHeightDriver.ResolveHeightMode(BasisSelectedHeightMode.Auto)}"
                 : $"{SMModuleCalibration.HeightMode}",
         "Seated Mode" => SMModuleSitStand.IsSteatedMode ? "Seated" : "Standing",
@@ -1030,8 +1028,6 @@ public static partial class SettingsProviderIK
         BasisSettingsDefaults.SitStand.ResetToDefault();
         BasisSettingsDefaults.TrackerVisuals.ResetToDefault();
         BasisSettingsDefaults.IKMode.ResetToDefault();
-        BasisSettingsDefaults.EnableArmToHeightBlend.ResetToDefault();
-        BasisSettingsDefaults.ArmToHeightBlend.ResetToDefault();
         BasisSettingsDefaults.ContinuousBodyMeasurement.ResetToDefault();
         BasisSettingsDefaults.RemeasureHeightOnCalibration.ResetToDefault();
         BasisSettingsDefaults.CalibrationMirror.ResetToDefault();

@@ -39,8 +39,6 @@ public partial class SMModuleCalibration : BasisSettingsBase
     private static string K_CUSTOM_SCALE => BasisSettingsDefaults.CustomScale.BindingKey;         // "custom scale"
     private static string K_SELECTED_SCALE => BasisSettingsDefaults.SelectedScale.BindingKey;     // "selected scale"
     private static string K_REALWORLD_EYE_HEIGHT => BasisSettingsDefaults.realworldeyeheight.BindingKey; // "real world eye height"
-    private static string K_ENABLE_ARM_TO_HEIGHT_BLEND => BasisSettingsDefaults.EnableArmToHeightBlend.BindingKey; // "enablearmtoheightblend"
-    private static string K_ARM_TO_HEIGHT_BLEND => BasisSettingsDefaults.ArmToHeightBlend.BindingKey;              // "armtoheightblend"
     private static string K_FBIK_BODY_FIT => BasisSettingsDefaults.FBIKBodyFit.BindingKey;                         // "fbikbodyfit"
     private static string K_FBIK_BODY_FIT_MAX_DEVIATION => BasisSettingsDefaults.FBIKBodyFitMaxDeviation.BindingKey; // "fbikbodyfitmaxdeviation"
     private static string K_ARM_SPAN_ESTIMATE_RATIO => BasisSettingsDefaults.ArmRatio.BindingKey;       // "armratio"
@@ -281,17 +279,6 @@ public partial class SMModuleCalibration : BasisSettingsBase
                     }
                     break;
                 }
-
-            case var s when s == K_ENABLE_ARM_TO_HEIGHT_BLEND:
-                // Toggling the arm-to-height ratio swaps the scaling metric pair: re-apply height/scale
-                // now so DeviceScale picks up the new denominator. Applied directly (not via the _dirty
-                // path, which only re-applies on height-mode/scale/custom-scale changes).
-                BasisHeightDriver.ApplyScaleAndHeight();
-                break;
-
-            case var s when s == K_ARM_TO_HEIGHT_BLEND:
-                BasisHeightDriver.ApplyScaleAndHeight();
-                break;
 
             case var s when s == K_FBIK_BODY_FIT:
             case var s2 when s2 == K_FBIK_BODY_FIT_MAX_DEVIATION:

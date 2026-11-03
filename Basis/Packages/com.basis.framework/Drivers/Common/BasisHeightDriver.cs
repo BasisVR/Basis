@@ -699,15 +699,12 @@ public static partial class BasisHeightDriver
     {
         bool fitEnabled = BasisSettingsDefaults.FBIKBodyFit.RawValue;
         float sizingEye = SizingEyeHeight;
-        bool blend = TryGetArmToHeightBlend(out float armToHeightBlend);
         float k = BasisLocalPlayer.Instance?.LocalAvatarDriver?.ScaleAvatarModification != null ? BasisLocalPlayer.Instance.LocalAvatarDriver.ScaleAvatarModification.ApplyScale : AppliedUpScale;
         return new BasisScaleInputs
         {
             Mode = ResolveHeightMode(SMModuleCalibration.HeightMode),
             Desktop = BasisDeviceManagement.IsUserInDesktop(),
             Seated = SMModuleSitStand.IsSteatedMode,
-            Blend = blend,
-            BlendAmount = armToHeightBlend,
             // The span is estimated from height, so it is always usable.
             SpanUsable = true,
             PlayerEye = SanitizePositive(sizingEye, FallbackHeightInMeters),
@@ -740,14 +737,6 @@ public static partial class BasisHeightDriver
     }
     private static BasisScaleFitStatus s_lastScaleFitStatus = BasisScaleFitStatus.NoData;
     private static float s_lastLoggedSizingEye;
-
-    public static bool TryGetArmToHeightBlend(out float blend)
-    {
-        blend = Mathf.Clamp(Basis.BasisUI.BasisSettingsDefaults.ArmToHeightBlend.RawValue,
-            BasisCalibrationMath.ArmToHeightBlendMin, BasisCalibrationMath.ArmToHeightBlendMax);
-        return Basis.BasisUI.BasisSettingsDefaults.EnableArmToHeightBlend.RawValue
-            && BasisDeviceManagement.IsUserInDesktop() == false;
-    }
 
     public static void RevaluateUnscaledHeight(BasisSelectedHeightMode Height)
     {
@@ -788,8 +777,7 @@ public static partial class BasisHeightDriver
         inputs.Mode = Height;
         inputs.AppliedUpScale = AppliedUpScale;
         BasisScaleState state = BasisScaleResolver.Resolve(inputs);
-        bool blendHeights = state.Blended;
-        float armToHeightBlend = inputs.BlendAmount, eyeScaleOffset = state.EyeOffset;
+        float eyeScaleOffset = state.EyeOffset;
 
         // AppliedUpScale multiplies BOTH player and avatar metrics.
         SelectedScaledPlayerHeight = SanitizePositive((eyeScaleOffset + state.PlayerMetric) * AppliedUpScale, 1.6f);
@@ -830,7 +818,7 @@ public static partial class BasisHeightDriver
         }
 
         BasisDebug.Log(
-            $"Height Mode: {(blendHeights ? $"ArmToHeightBlend {armToHeightBlend:P0}" : Height.ToString())} | PlayerMetric(scaled): {SelectedScaledPlayerHeight}m | " +
+            $"Height Mode: {Height} | PlayerMetric(scaled): {SelectedScaledPlayerHeight}m | " +
             $"AvatarMetric(scaled): {SelectedScaledAvatarHeight}m | " +
             $"PlayerToAvatar: {PlayerToAvatarRatioScaled} | AvatarToPlayer: {AvatarToPlayerRatioScaled} | " +
             $"PlayerToDefault: {PlayerToDefaultRatioScaledWithAvatarScale} | AvatarToDefault: {AvatarToDefaultRatioScaledWithAvatarScale} | " +
@@ -841,8 +829,7 @@ public static partial class BasisHeightDriver
         // true-eye estimate against your tape-measured standing eye height.
         BasisDebug.Log(
             $"Eye-height denominator (true standing eye estimate): {denominator:F3}m = eye {SelectedUnScaledPlayerHeight:F3} (measured {PlayerEyeHeight:F3}) " +
-            $"+ eye offset {eyeScaleOffset:F3} (device->eye {PlayerCenterEyeVerticalOffset:F3}" +
-            $"{(blendHeights ? $", weighted {Mathf.Clamp01(1f - armToHeightBlend):P0} by the arm-to-height ratio" : "")})",
+            $"+ eye offset {eyeScaleOffset:F3} (device->eye {PlayerCenterEyeVerticalOffset:F3})",
             BasisDebug.LogTag.Avatar
         );
     }
