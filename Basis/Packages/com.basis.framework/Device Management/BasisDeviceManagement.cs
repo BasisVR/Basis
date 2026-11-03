@@ -721,7 +721,6 @@ namespace Basis.Scripts.Device_Management
                         input.HasCalibratedOffsetSnapshot = prev.HasCalibratedOffsetSnapshot;
                         input.CalibratedUnscaledPosition = prev.CalibratedUnscaledPosition;
                         input.CalibratedUnscaledRotation = prev.CalibratedUnscaledRotation;
-                        input.CalibratedUnscaledLift = prev.CalibratedUnscaledLift;
                         input.CalibratedUnscaledHeadPosition = prev.CalibratedUnscaledHeadPosition;
                         input.CalibratedUnscaledHeadRotation = prev.CalibratedUnscaledHeadRotation;
                         input.HasCalibratedHeadFromEye = prev.HasCalibratedHeadFromEye;
@@ -792,7 +791,6 @@ namespace Basis.Scripts.Device_Management
                     HasCalibratedOffsetSnapshot = device.HasCalibratedOffsetSnapshot,
                     CalibratedUnscaledPosition = device.CalibratedUnscaledPosition,
                     CalibratedUnscaledRotation = device.CalibratedUnscaledRotation,
-                    CalibratedUnscaledLift = device.CalibratedUnscaledLift,
                     CalibratedUnscaledHeadPosition = device.CalibratedUnscaledHeadPosition,
                     CalibratedUnscaledHeadRotation = device.CalibratedUnscaledHeadRotation,
                     HasCalibratedHeadFromEye = device.HasCalibratedHeadFromEye,

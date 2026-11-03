@@ -26,24 +26,14 @@ public static class BasisCalibrationMath
     }
     public static void ReprojectInverseOffsetPosition( Vector3 calibUnscaledTrackerPos, Quaternion calibUnscaledTrackerRot, Vector3 calibUnscaledHeadPos, Quaternion calibUnscaledHeadRot, float deviceScale, Vector3 offsetPos, Quaternion offsetRot, Vector3 headTposeLocalScaled, Vector3 boneTposeLocalScaled, out Vector3 inverseOffsetPosition)
     {
-        ReprojectInverseOffsetPosition(calibUnscaledTrackerPos, calibUnscaledTrackerRot, calibUnscaledHeadPos, calibUnscaledHeadRot, deviceScale, offsetPos, offsetRot, headTposeLocalScaled, boneTposeLocalScaled, false, 0f, out inverseOffsetPosition);
-    }
-    public static void ReprojectInverseOffsetPosition( Vector3 calibUnscaledTrackerPos, Quaternion calibUnscaledTrackerRot, Vector3 calibUnscaledHeadPos, Quaternion calibUnscaledHeadRot, float deviceScale, Vector3 offsetPos, Quaternion offsetRot, Vector3 headTposeLocalScaled, Vector3 boneTposeLocalScaled, bool floorAnchored, float floorY, out Vector3 inverseOffsetPosition)
-    {
         ScaleDeviceCoord(calibUnscaledTrackerPos, calibUnscaledTrackerRot, deviceScale, offsetPos, offsetRot, out Vector3 trackerPos, out Quaternion trackerRot);
         ScaleDeviceCoord(calibUnscaledHeadPos, calibUnscaledHeadRot, deviceScale, offsetPos, offsetRot, out Vector3 headPos, out Quaternion headRot);
 
         ComputeTposeAnchor(headPos, headRot, headTposeLocalScaled, out Vector3 rootPos, out Quaternion rootRot);
 
         Vector3 reference = rootPos + rootRot * boneTposeLocalScaled;
-        if (floorAnchored)
-        {
-            reference.y = floorY;
-        }
         ComputeInverseOffset(trackerPos, trackerRot, reference, Quaternion.identity, out inverseOffsetPosition, out _);
     }
-    public static bool IsFloorAnchoredRole(Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole role) => role == Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole.LeftFoot || role == Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole.RightFoot || role == Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole.LeftToes || role == Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole.RightToes;
-    public static float FloorAnchorY(float verticalOffset, float deviceScale, Vector3 offsetPos, Quaternion offsetRot) => (offsetPos + offsetRot * new Vector3(0f, verticalOffset * deviceScale, 0f)).y;
     public static void ComputeTposeAnchor(Vector3 headPos, Quaternion headRot, Vector3 headTposeLocalScaled, out Vector3 anchorPos, out Quaternion anchorRot)
     {
         Vector3 flatFwd = headRot * Vector3.forward;

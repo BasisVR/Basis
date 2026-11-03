@@ -602,7 +602,6 @@ namespace Basis.Scripts.Device_Management.Devices
         public bool HasCalibratedOffsetSnapshot;
         public Vector3 CalibratedUnscaledPosition;
         public Quaternion CalibratedUnscaledRotation = Quaternion.identity;
-        public float CalibratedUnscaledLift;
         // Head anchor the snapshot above was captured against, in the same unscaled space. Each
         // tracker pairs with its OWN capture-time head so reprojection and continuous-calibration
         // adoption rebuild the geometry of THIS capture — a mid-session recapture (device reconnect,
@@ -677,7 +676,6 @@ namespace Basis.Scripts.Device_Management.Devices
             if (anchorHeadControl != null)
             {
                 BasisCalibrationMath.UnscaleDeviceCoord(tracker.position, tracker.rotation, BasisHeightDriver.DeviceScale, OffsetCoords.position, OffsetCoords.rotation, out CalibratedUnscaledPosition, out CalibratedUnscaledRotation);
-                CalibratedUnscaledLift = UnscaledVerticalLift();
                 BasisCalibratedCoords anchorHeadOut = anchorHeadControl.OutGoingData;
                 BasisCalibrationMath.UnscaleDeviceCoord(anchorHeadOut.position, anchorHeadOut.rotation, BasisHeightDriver.DeviceScale, OffsetCoords.position, OffsetCoords.rotation, out CalibratedUnscaledHeadPosition, out CalibratedUnscaledHeadRotation);
                 HasCalibratedHeadFromEye = BasisAvatarIKStageCalibration.TryGetUnscaledHeadFromEye(out CalibratedUnscaledHeadFromEye);

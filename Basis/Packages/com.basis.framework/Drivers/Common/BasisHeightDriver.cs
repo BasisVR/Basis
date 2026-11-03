@@ -669,6 +669,31 @@ public static partial class BasisHeightDriver
     }
 
     private static BasisSelectedHeightMode s_lastAutoResolvedMode = BasisSelectedHeightMode.EyeHeight;
+    private static bool? s_heldAutoLowerBody;
+
+    /// <summary>
+    /// Pins Auto's "are hips/legs tracked" answer until <see cref="ReleaseAutoResolution"/>. Full-body
+    /// calibration unassigns every tracker and reassigns them part-way through; without this, Auto
+    /// flips Eye Height -> Arm Span -> Eye Height inside one pass, and the DeviceScale jump after the
+    /// offsets are captured shifts the player sideways (KeepHeadInPlaceAcrossScale).
+    /// </summary>
+    public static void HoldAutoResolution(bool hasLowerBodyTrackers) => s_heldAutoLowerBody = hasLowerBodyTrackers;
+
+    /// <summary>
+    /// Ends a <see cref="HoldAutoResolution"/>. Returns true when Auto now resolves differently than
+    /// it did while held, meaning the caller should re-apply height and scale.
+    /// </summary>
+    public static bool ReleaseAutoResolution()
+    {
+        if (s_heldAutoLowerBody == null)
+        {
+            return false;
+        }
+        BasisSelectedHeightMode held = ResolveHeightMode(BasisSelectedHeightMode.Auto);
+        s_heldAutoLowerBody = null;
+        return SMModuleCalibration.HeightMode == BasisSelectedHeightMode.Auto
+            && ResolveHeightMode(BasisSelectedHeightMode.Auto) != held;
+    }
 
     public static BasisSelectedHeightMode ResolveHeightMode(BasisSelectedHeightMode mode)
     {
@@ -684,8 +709,8 @@ public static partial class BasisHeightDriver
         // posed rather than matched to the player: fitting the arms is worth more than matching eye
         // height. With them, the body has to line up, so size by eye height.
         // for full body. BestFit is still available as its own mode.
-        bool hasLowerBodyTrackers = Basis.Scripts.Avatar.BasisAvatarIKStageCalibration.HasHipsFBIKTracker
-            || Basis.Scripts.Avatar.BasisAvatarIKStageCalibration.HasLegFBIKTrackers;
+        bool hasLowerBodyTrackers = s_heldAutoLowerBody ?? (Basis.Scripts.Avatar.BasisAvatarIKStageCalibration.HasHipsFBIKTracker
+            || Basis.Scripts.Avatar.BasisAvatarIKStageCalibration.HasLegFBIKTrackers);
         BasisSelectedHeightMode resolved = hasLowerBodyTrackers ? BasisSelectedHeightMode.EyeHeight : BasisSelectedHeightMode.ArmSpan;
         if (s_lastAutoResolvedMode != resolved)
         {
