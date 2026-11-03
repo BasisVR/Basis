@@ -273,4 +273,30 @@ public class BasisMediaClipProtocolTests
         Assert.IsFalse(BasisMediaClipProtocol.SignatureMatches(ogg, BasisMediaClipContainer.Wav));
         Assert.IsFalse(BasisMediaClipProtocol.SignatureMatches(new byte[] { (byte)'R', (byte)'I', (byte)'F', (byte)'F', 0, 0, 0, 0, (byte)'A', (byte)'V', (byte)'I', (byte)' ' }, BasisMediaClipContainer.Wav));
     }
+
+    [Test]
+    public void Server_cache_messages_decode()
+    {
+        Guid id = Guid.NewGuid();
+        byte[] state = new byte[18];
+        state[0] = BasisMediaClipProtocol.OpServerCacheState;
+        id.ToByteArray().CopyTo(state, 1);
+        state[17] = BasisMediaClipProtocol.ServerStateHeld;
+        Assert.IsTrue(BasisMediaClipProtocol.TryDecodeServerState(state, out Guid decoded, out byte held));
+        Assert.AreEqual(id, decoded);
+        Assert.AreEqual(BasisMediaClipProtocol.ServerStateHeld, held);
+        state[17] = 3;
+        Assert.IsFalse(BasisMediaClipProtocol.TryDecodeServerState(state, out _, out _));
+
+        var offer = new BasisMediaClipOffer { Id = id, TotalBytes = 1000, Container = BasisMediaClipContainer.Mp3, Rotation = UnityEngine.Quaternion.identity, Scale = 1f, Name = "song" };
+        byte[] relayed = BasisMediaClipProtocol.EncodeOffer(offer);
+        relayed[0] = BasisMediaClipProtocol.OpServerCacheOffer;
+        Assert.IsTrue(BasisMediaClipProtocol.TryDecodeOffer(relayed, out BasisMediaClipOffer fromServer, out _));
+        Assert.AreEqual(id, fromServer.Id);
+        Assert.AreEqual(BasisMediaClipContainer.Mp3, fromServer.Container);
+
+        byte[] request = BasisMediaClipProtocol.EncodeId(BasisMediaClipProtocol.OpServerCacheRequest, id);
+        Assert.IsTrue(BasisMediaClipProtocol.TryDecodeId(request, BasisMediaClipProtocol.OpServerCacheRequest, out Guid requested));
+        Assert.AreEqual(id, requested);
+    }
 }

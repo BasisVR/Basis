@@ -156,6 +156,36 @@ public static partial class BasisScreenShareClient
         pose.Serialize(w);
     });
 
+    public static void SendMove(ushort sharer, ScreenPose pose) => Send(ControlMessage, w =>
+    {
+        w.Put(MoveSub);
+        w.Put(sharer);
+        pose.Serialize(w);
+    });
+
+    static ScreenPose localPlacement;
+    static int localPoseVersion;
+
+    public static int LocalPoseVersion
+    {
+        get
+        {
+            lock (RemotesLock) return localPoseVersion;
+        }
+    }
+
+    public static bool TryGetPlacement(Remote remote, ref int seen, out ScreenPose pose)
+    {
+        lock (RemotesLock)
+        {
+            pose = remote != null ? remote.Placement : localPlacement;
+            int version = remote != null ? remote.PoseVersion : localPoseVersion;
+            if (version == seen) return false;
+            seen = version;
+            return true;
+        }
+    }
+
     public static void SendWatch(ushort sharer, bool watching) => Send(ControlMessage, w =>
     {
         w.Put(WatchSub);
@@ -382,6 +412,12 @@ public static partial class BasisScreenShareClient
         if (!reader.TryGetUShort(out ushort sharer) || !pose.TryDeserialize(reader)) return;
         lock (RemotesLock)
         {
+            if (BasisNetworkConnection.TryGetLocalPlayerID(out ushort self) && self == sharer)
+            {
+                localPlacement = pose;
+                localPoseVersion++;
+                return;
+            }
             if (!Remotes.TryGetValue(sharer, out Remote remote)) return;
             remote.Placement = pose;
             remote.PoseVersion++;

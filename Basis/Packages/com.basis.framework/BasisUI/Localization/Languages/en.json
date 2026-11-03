@@ -16003,6 +16003,22 @@
       "value": "Stop non-admin players from sharing video and audio files they paste or drop into the world. Clips that already arrived keep playing. Admins are unaffected."
     },
     {
+      "key": "settings.admin.title.videoClipMaxSize",
+      "value": "Max Shared Clip Size"
+    },
+    {
+      "key": "settings.admin.title.videoClipMaxSize.tooltip",
+      "value": "Largest video or audio file players can paste or drop into the world, from 16 MB to 1 GB. Bigger files are refused when shared, and players skip clips larger than this. Larger clips take longer to reach everyone and use more server bandwidth. Default 96 MB."
+    },
+    {
+      "key": "settings.admin.title.videoClipMaxPerPlayer",
+      "value": "Max Shared Clips Per Player"
+    },
+    {
+      "key": "settings.admin.title.videoClipMaxPerPlayer.tooltip",
+      "value": "How many video or audio clips each player can have shared at once, from 1 to 16. Players have to remove one to share another past this. Every clip that plays costs viewers bandwidth and frame rate. Default 3."
+    },
+    {
       "key": "settings.admin.title.lockCameraCapture",
       "value": "Lock Camera Capture"
     },

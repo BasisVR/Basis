@@ -319,6 +319,8 @@ namespace BasisNetworkCore.Serializable
             GlobalToggleAvatarHosting,
             GlobalToggleVideoClips,
             SetGlobalImageMaxResolution, // admin: largest shared image side in units of 1024 px, persisted and rebroadcast in GlobalGetLockState. Payload: [byte k] (1-16)
+            SetGlobalVideoClipMaxSize, // admin: largest shared video/audio clip in megabytes, persisted and rebroadcast in GlobalGetLockState. Payload: [ushort megabytes] (16-1024)
+            SetGlobalVideoClipMaxPerPlayer, // admin: how many video/audio clips one player may share at once, persisted and rebroadcast in GlobalGetLockState. Payload: [byte count] (1-16)
         }
 
         /// <summary>

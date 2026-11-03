@@ -194,6 +194,7 @@ namespace Basis.Network.Server.Generic
                     case InfoSub: HandleInfo(from, reader); break;
                     case StopSub: End(from); break;
                     case PoseSub: HandlePose(from, reader); break;
+                    case MoveSub: HandleMove(from, reader); break;
                     case WatchSub: HandleWatch(from, reader); break;
                     case KeyframeSub: HandleKeyframe(from, reader); break;
                     case LockSub: HandleLock(peer, reader); break;
@@ -282,6 +283,20 @@ namespace Basis.Network.Server.Generic
             {
                 w.Put(PoseSub);
                 w.Put(from);
+                pose.Serialize(w);
+            });
+        }
+
+        static void HandleMove(ushort from, NetPacketReader reader)
+        {
+            if (!reader.TryGetUShort(out ushort sharer) || !Sessions.TryGetValue(sharer, out Session session)) return;
+            ScreenPose pose = default;
+            if (!pose.TryDeserialize(reader)) return;
+            lock (session) session.Placement = pose;
+            BroadcastControl(from, w =>
+            {
+                w.Put(PoseSub);
+                w.Put(sharer);
                 pose.Serialize(w);
             });
         }

@@ -441,6 +441,37 @@ public class Configuration
     /// </summary>
     public int ImageMaxResolutionK = 4;
     /// <summary>
+    /// Largest video or audio clip a player can paste or drop into the world, in megabytes (16-1024).
+    /// Senders refuse bigger files and receivers refuse bigger offers. Seeds BasisGlobalLockManager at
+    /// boot, can be set live from the admin lock section, and is broadcast in GlobalGetLockState. Default 96.
+    /// </summary>
+    public int VideoClipMaxMegabytes = 96;
+    /// <summary>
+    /// How many video or audio clips one player may share at once (1-16). Senders refuse past it and
+    /// receivers ignore extra offers. Seeds BasisGlobalLockManager at boot, can be set live from the
+    /// admin lock section, and is broadcast in GlobalGetLockState. Default 3.
+    /// </summary>
+    public int VideoClipMaxPerPlayer = 3;
+    /// <summary>
+    /// Keep a copy of every shared video or audio clip on the server's disk so players who join later
+    /// download it from the server instead of the sharer uploading it again. Default true.
+    /// </summary>
+    public bool VideoClipCacheEnabled = true;
+    /// <summary>
+    /// Disk space the clip cache may use, in megabytes. When full, the oldest clip of whoever holds the
+    /// most is dropped and its sharer serves it again. 0 turns the cache off. Default 4096.
+    /// </summary>
+    public int VideoClipCacheMaxMegabytes = 4096;
+    /// <summary>
+    /// Folder for cached clips. Empty uses BasisClipCache in the system temp folder. Cleared on shutdown.
+    /// </summary>
+    public string VideoClipCacheDirectory = "";
+    /// <summary>
+    /// Total rate the server sends cached clips to players, in megabytes per second, shared by every
+    /// download. 0 sends as fast as each connection takes it. Default 16.
+    /// </summary>
+    public int VideoClipCacheServeMegabytesPerSecond = 16;
+    /// <summary>
     /// When false (default) clients two-bone-IK anchor remote avatars' tracked hands/feet to their sent
     /// world targets so they stop sliding; when true, every client falls back to pure-FK playback for
     /// remotes. Seeds BasisGlobalLockManager at boot, can be toggled live from the admin panel, and is

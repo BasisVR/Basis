@@ -57,7 +57,7 @@ public partial class BasisContentSphere : BasisInteractableObject
     public static float BobPhaseOffset = 0.05f;
     public static float RotationSpeed = 30f;
     public static int MaxTitleNameLength = 24;
-    public static float PortalEnterRadius = 0.6f, PortalEnterBelow = 2.2f, PortalEnterAbove = 0.5f;
+    public static float PortalEnterRadius = 0.6f, PortalEnterBelow = 2.2f, PortalEnterAbove = 0.5f, RiftGroundClearance = 0.05f;
     private bool portalOccupied = true;
     private BasisContentSharePortalRift rift;
     public Texture2D texture;
@@ -112,8 +112,12 @@ public partial class BasisContentSphere : BasisInteractableObject
         foreach (Collider child in GetComponentsInChildren<Collider>(true)) child.enabled = false;
         transform.rotation = Quaternion.identity;
         rift = BasisContentSharePortalRift.Create(transform, source);
+        float extent = (BasisContentSharePortalRift.Radius + BasisContentSharePortalRift.RimWidth + BasisContentSharePortalRift.RimJitter) * transform.lossyScale.y;
+        float groundY = Physics.Raycast(_restPosition + Vector3.up * 0.5f, Vector3.down, out RaycastHit hit, 3f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) ? hit.point.y : _restPosition.y - 0.25f;
+        Vector3 center = new Vector3(_restPosition.x, Mathf.Max(_restPosition.y, groundY + extent + RiftGroundClearance), _restPosition.z);
+        rift.transform.position = center;
         RefreshColliders();
-        if (Label != null) Label.transform.position = _restPosition + Vector3.up * (BasisContentSharePortalRift.Radius + 0.3f);
+        if (Label != null) Label.transform.position = center + Vector3.up * (extent + 0.2f);
     }
     private string ServerAddressLabel()
     {

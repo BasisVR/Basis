@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Basis.BasisUI;
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Interactions;
+using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Drivers;
 using Basis;
 using UnityEngine;
@@ -39,6 +40,8 @@ public class BasisScreenShare : MonoBehaviour
     Quaternion sentRotation;
     float sentScale, baseScale = 1f;
     int infoVersion = -1, poseVersion = -1;
+    bool controlling = true, held, following;
+    ScreenPose followTarget;
     StreamInfo info;
     bool infoPending;
     BasisScreenShareNative.Source source;
@@ -50,6 +53,12 @@ public class BasisScreenShare : MonoBehaviour
         if (Player == null) TryGetComponent(out Player);
         if (Audio == null) TryGetComponent(out Audio);
         if (Pickup == null) TryGetComponent(out Pickup);
+        if (Pickup != null)
+        {
+            Pickup.OnInteractStartEvent.AddListener(OnGrabbed);
+            Pickup.OnInteractEndEvent.AddListener(OnReleased);
+        }
+        poseVersion = BasisScreenShareClient.LocalPoseVersion;
         if (Player != null)
         {
             Player.ListInMediaMenu = false;
@@ -60,6 +69,60 @@ public class BasisScreenShare : MonoBehaviour
         BasisScreenShareBack.BuildBack(transform, screenBounds);
         controls = gameObject.AddComponent<BasisScreenShareControls>();
         controls.Bind(this, screenBounds);
+    }
+
+    void OnGrabbed(BasisInput input)
+    {
+        held = true;
+        controlling = true;
+        following = false;
+        nextPose = 0f;
+        sentScale = -1f;
+    }
+
+    void OnReleased(BasisInput input)
+    {
+        held = false;
+        nextPose = 0f;
+    }
+
+    void FollowPlacement(BasisScreenShareClient.Remote remote, bool snap)
+    {
+        if (BasisScreenShareClient.TryGetPlacement(remote, ref poseVersion, out ScreenPose pose) && !held)
+        {
+            controlling = false;
+            followTarget = pose;
+            following = true;
+        }
+        if (!following && !snap) return;
+        Vector3 target = new Vector3(followTarget.PX, followTarget.PY, followTarget.PZ);
+        Quaternion rotation = new Quaternion(followTarget.RX, followTarget.RY, followTarget.RZ, followTarget.RW).normalized;
+        float scale = baseScale * followTarget.Scale;
+        Transform t = transform;
+        float blend = snap ? 1f : 1f - Mathf.Exp(-15f * Time.deltaTime);
+        t.SetPositionAndRotation(Vector3.Lerp(t.position, target, blend), Quaternion.Slerp(t.rotation, rotation, blend));
+        t.localScale = Vector3.one * Mathf.Lerp(t.localScale.x, scale, blend);
+        if (blend >= 1f || (t.position - target).sqrMagnitude < 0.000001f && Quaternion.Angle(t.rotation, rotation) < 0.01f && Mathf.Abs(t.localScale.x - scale) < 0.00001f)
+        {
+            t.SetPositionAndRotation(target, rotation);
+            t.localScale = Vector3.one * scale;
+            following = false;
+        }
+        sentPosition = t.position;
+        sentRotation = t.rotation;
+        sentScale = t.localScale.x;
+    }
+
+    bool PoseDue(float now)
+    {
+        if (!controlling || now < nextPose) return false;
+        nextPose = now + PoseInterval;
+        Transform t = transform;
+        if ((t.position - sentPosition).sqrMagnitude <= 0.0001f && Quaternion.Angle(t.rotation, sentRotation) <= 0.25f && Mathf.Abs(t.localScale.x - sentScale) <= 0.001f) return false;
+        sentPosition = t.position;
+        sentRotation = t.rotation;
+        sentScale = t.localScale.x;
+        return true;
     }
 
     void UpdateBackPanel()
@@ -114,9 +177,11 @@ public class BasisScreenShare : MonoBehaviour
         IsRemote = true;
         Remote = remote;
         name = $"Screen Share ({BasisScreenShareClient.SharerName(remote.Sharer)})";
-        if (Pickup != null) Pickup.enabled = false;
+        controlling = false;
+        poseVersion = -1;
         foreach (Rigidbody body in GetComponentsInChildren<Rigidbody>()) body.isKinematic = true;
-        ApplyRemotePose(true);
+        BasisScreenShareClient.TryGetPlacement(remote, ref poseVersion, out followTarget);
+        FollowPlacement(remote, true);
     }
 
     void Raise() => Changed?.Invoke();
@@ -333,18 +398,9 @@ public class BasisScreenShare : MonoBehaviour
             directChanged = false;
             Raise();
         }
-        if (accepted && now >= nextPose)
-        {
-            nextPose = now + PoseInterval;
-            Transform t = transform;
-            if ((t.position - sentPosition).sqrMagnitude > 0.0001f || Quaternion.Angle(t.rotation, sentRotation) > 0.25f || Mathf.Abs(t.localScale.x - sentScale) > 0.001f)
-            {
-                sentPosition = t.position;
-                sentRotation = t.rotation;
-                sentScale = t.localScale.x;
-                BasisScreenShareClient.SendPose(CurrentPose());
-            }
-        }
+        if (!accepted) return;
+        FollowPlacement(null, false);
+        if (PoseDue(now)) BasisScreenShareClient.SendPose(CurrentPose());
     }
 
     StreamInfo CurrentInfo() => new StreamInfo { Width = (ushort)CaptureStatus.width, Height = (ushort)CaptureStatus.height, Fps = (byte)BasisScreenShareSettings.Fps(BasisScreenShareSettings.FrameRate.RawValue), HasAudio = CaptureStatus.audio, Title = SourceName ?? string.Empty };
@@ -381,7 +437,8 @@ public class BasisScreenShare : MonoBehaviour
     {
         BasisScreenShareClient.Remote remote = Remote;
         if (remote == null || remote.Ended) return;
-        ApplyRemotePose(false);
+        FollowPlacement(remote, false);
+        if (PoseDue(Time.unscaledTime)) BasisScreenShareClient.SendMove(remote.Sharer, CurrentPose());
         bool want = BasisScreenShareSettings.Receive.RawValue && Near();
         int route = !want ? BasisScreenShareClient.RouteNone : BasisScreenShareClient.HasDirectLink(remote.Sharer) ? BasisScreenShareClient.RouteDirect : BasisScreenShareClient.RouteServer;
         if (route != remote.Route)
@@ -432,20 +489,6 @@ public class BasisScreenShare : MonoBehaviour
     }
 
     static float Sq(float v) => v * v;
-
-    void ApplyRemotePose(bool snap)
-    {
-        BasisScreenShareClient.Remote remote = Remote;
-        if (remote == null || remote.PoseVersion == poseVersion && !snap) return;
-        ScreenPose pose = remote.Placement;
-        Vector3 target = new Vector3(pose.PX, pose.PY, pose.PZ);
-        Quaternion rotation = new Quaternion(pose.RX, pose.RY, pose.RZ, pose.RW).normalized;
-        Transform t = transform;
-        float blend = snap ? 1f : Mathf.Clamp01(Time.deltaTime * 15f);
-        t.SetPositionAndRotation(Vector3.Lerp(t.position, target, blend), Quaternion.Slerp(t.rotation, rotation, blend));
-        t.localScale = Vector3.Lerp(t.localScale, Vector3.one * baseScale * pose.Scale, blend);
-        if (blend >= 1f || (t.position - target).sqrMagnitude < 0.000001f) poseVersion = remote.PoseVersion;
-    }
 
     void OnDestroy()
     {

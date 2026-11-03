@@ -21,6 +21,7 @@ namespace Basis.Network.Core
         public const byte KeyframeSub = 4;
         public const byte InfoSub = 5;
         public const byte LockSub = 6;
+        public const byte MoveSub = 7;
         public const byte AcceptedSub = 10;
         public const byte RefusedSub = 11;
         public const byte AnnounceSub = 12;

@@ -50,7 +50,7 @@ public static class SettingsProviderMedia
 
         PanelSlider maxActive = PanelSlider.CreateNew(group.ContentParent);
         maxActive.SetSliderSettings(PanelSlider.SliderSettings.Advanced(
-            BasisLocalization.Get("settings.media.maxActive"), 0f, 8f, true, 0, ValueDisplayMode.Raw));
+            BasisLocalization.Get("settings.media.maxActive"), 0f, 16f, true, 0, ValueDisplayMode.Raw));
         maxActive.Descriptor.SetTooltip(BasisLocalization.Get("settings.media.maxActive.tooltip"));
         maxActive.OnValueChanged = v =>
             BasisMediaSettings.MaxActivePlayers.SetValue(Mathf.RoundToInt(v));

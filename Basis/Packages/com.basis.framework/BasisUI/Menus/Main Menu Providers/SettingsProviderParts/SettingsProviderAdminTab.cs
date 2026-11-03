@@ -64,6 +64,57 @@ namespace Basis.BasisUI
             return index < 0 ? BasisNetworkModeration.DefaultImageMaxResolutionK : index + BasisNetworkModeration.MinImageMaxResolutionK;
         }
 
+        [NoAutoStaticsCleanup] private static readonly int[] VideoClipMaxMegabyteSteps = { 16, 32, 64, 96, 128, 256, 512, 768, 1024 };
+        [NoAutoStaticsCleanup] private static readonly List<string> VideoClipMaxSizeNames = BuildVideoClipMaxSizeNames();
+
+        private static List<string> BuildVideoClipMaxSizeNames()
+        {
+            List<string> names = new List<string>(VideoClipMaxMegabyteSteps.Length);
+            for (int i = 0; i < VideoClipMaxMegabyteSteps.Length; i++)
+            {
+                int megabytes = VideoClipMaxMegabyteSteps[i];
+                names.Add(megabytes >= 1024 && megabytes % 1024 == 0 ? $"{megabytes / 1024} GB" : $"{megabytes} MB");
+            }
+            return names;
+        }
+
+        private static string VideoClipMaxSizeToName(int megabytes)
+        {
+            int best = 0;
+            for (int i = 1; i < VideoClipMaxMegabyteSteps.Length; i++)
+            {
+                if (Mathf.Abs(VideoClipMaxMegabyteSteps[i] - megabytes) < Mathf.Abs(VideoClipMaxMegabyteSteps[best] - megabytes)) best = i;
+            }
+            return VideoClipMaxSizeNames[best];
+        }
+
+        [NoAutoStaticsCleanup] private static readonly List<string> VideoClipMaxPerPlayerNames = BuildVideoClipMaxPerPlayerNames();
+
+        private static List<string> BuildVideoClipMaxPerPlayerNames()
+        {
+            List<string> names = new List<string>(BasisNetworkModeration.MaxVideoClipMaxPerPlayer);
+            for (int count = BasisNetworkModeration.MinVideoClipMaxPerPlayer; count <= BasisNetworkModeration.MaxVideoClipMaxPerPlayer; count++)
+            {
+                names.Add(count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+            return names;
+        }
+
+        private static string VideoClipMaxPerPlayerToName(int count) =>
+            VideoClipMaxPerPlayerNames[Mathf.Clamp(count, BasisNetworkModeration.MinVideoClipMaxPerPlayer, BasisNetworkModeration.MaxVideoClipMaxPerPlayer) - BasisNetworkModeration.MinVideoClipMaxPerPlayer];
+
+        private static int NameToVideoClipMaxPerPlayer(string name)
+        {
+            int index = VideoClipMaxPerPlayerNames.IndexOf(name);
+            return index < 0 ? BasisNetworkModeration.DefaultVideoClipMaxPerPlayer : index + BasisNetworkModeration.MinVideoClipMaxPerPlayer;
+        }
+
+        private static int NameToVideoClipMaxSize(string name)
+        {
+            int index = VideoClipMaxSizeNames.IndexOf(name);
+            return index < 0 ? BasisNetworkModeration.DefaultVideoClipMaxMegabytes : VideoClipMaxMegabyteSteps[index];
+        }
+
         /// <summary>
         /// Mirrors the clamp the server applies to the player cap. The field refuses an out-of-range
         /// number rather than clamping it, so Apply can never quietly install a cap nobody typed.
@@ -226,6 +277,28 @@ namespace Basis.BasisUI
             videoClipsLock.SetValueWithoutNotify(BasisNetworkModeration.GlobalVideoClipsLocked);
             videoClipsLock.OnValueChanged += _ => SendLockRequest(videoClipsLock, BasisNetworkModeration.GlobalToggleVideoClips, () => BasisNetworkModeration.GlobalVideoClipsLocked);
 
+            PanelDropdown videoClipMaxSizeDropdown = PanelDropdown.CreateNewEntry(container);
+            videoClipMaxSizeDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.videoClipMaxSize"));
+            videoClipMaxSizeDropdown.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.videoClipMaxSize.tooltip"));
+            videoClipMaxSizeDropdown.AssignEntries(new List<string>(VideoClipMaxSizeNames));
+            videoClipMaxSizeDropdown.SetValueWithoutNotify(VideoClipMaxSizeToName(BasisNetworkModeration.GlobalVideoClipMaxMegabytes));
+            videoClipMaxSizeDropdown.OnValueChanged += value =>
+            {
+                BasisNetworkModeration.SetGlobalVideoClipMaxMegabytes(NameToVideoClipMaxSize(value));
+                videoClipMaxSizeDropdown.SetValueWithoutNotify(VideoClipMaxSizeToName(BasisNetworkModeration.GlobalVideoClipMaxMegabytes));
+            };
+
+            PanelDropdown videoClipMaxPerPlayerDropdown = PanelDropdown.CreateNewEntry(container);
+            videoClipMaxPerPlayerDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.videoClipMaxPerPlayer"));
+            videoClipMaxPerPlayerDropdown.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.videoClipMaxPerPlayer.tooltip"));
+            videoClipMaxPerPlayerDropdown.AssignEntries(new List<string>(VideoClipMaxPerPlayerNames));
+            videoClipMaxPerPlayerDropdown.SetValueWithoutNotify(VideoClipMaxPerPlayerToName(BasisNetworkModeration.GlobalVideoClipMaxPerPlayer));
+            videoClipMaxPerPlayerDropdown.OnValueChanged += value =>
+            {
+                BasisNetworkModeration.SetGlobalVideoClipMaxPerPlayer(NameToVideoClipMaxPerPlayer(value));
+                videoClipMaxPerPlayerDropdown.SetValueWithoutNotify(VideoClipMaxPerPlayerToName(BasisNetworkModeration.GlobalVideoClipMaxPerPlayer));
+            };
+
             PanelToggle cameraCaptureLock = PanelToggle.CreateNewEntry(container);
             cameraCaptureLock.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.lockCameraCapture"));
             cameraCaptureLock.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.lockCameraCapture.tooltip"));
@@ -299,6 +372,8 @@ namespace Basis.BasisUI
             controller.ExternalLinksLockToggle = externalLinksLock;
             controller.AvatarHostingLockToggle = avatarHostingLock;
             controller.VideoClipsLockToggle = videoClipsLock;
+            controller.VideoClipMaxSizeDropdown = videoClipMaxSizeDropdown;
+            controller.VideoClipMaxPerPlayerDropdown = videoClipMaxPerPlayerDropdown;
             controller.SafeDisplayNamesToggle = safeDisplayNamesToggle;
             controller.EndEffectorIKToggle = endEffectorIKToggle;
 
@@ -1351,6 +1426,8 @@ namespace Basis.BasisUI
             public PanelToggle ExternalLinksLockToggle;
             public PanelToggle AvatarHostingLockToggle;
             public PanelToggle VideoClipsLockToggle;
+            public PanelDropdown VideoClipMaxSizeDropdown;
+            public PanelDropdown VideoClipMaxPerPlayerDropdown;
             public PanelToggle SafeDisplayNamesToggle;
             public PanelToggle EndEffectorIKToggle;
             public PanelSlider MinAvatarHeightSlider;
@@ -1464,6 +1541,10 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalAvatarHostingLockedChanged += OnGlobalAvatarHostingLockedChanged;
                 BasisNetworkModeration.OnGlobalVideoClipsLockedChanged -= OnGlobalVideoClipsLockedChanged;
                 BasisNetworkModeration.OnGlobalVideoClipsLockedChanged += OnGlobalVideoClipsLockedChanged;
+                BasisNetworkModeration.OnGlobalVideoClipMaxMegabytesChanged -= OnGlobalVideoClipMaxMegabytesChanged;
+                BasisNetworkModeration.OnGlobalVideoClipMaxMegabytesChanged += OnGlobalVideoClipMaxMegabytesChanged;
+                BasisNetworkModeration.OnGlobalVideoClipMaxPerPlayerChanged -= OnGlobalVideoClipMaxPerPlayerChanged;
+                BasisNetworkModeration.OnGlobalVideoClipMaxPerPlayerChanged += OnGlobalVideoClipMaxPerPlayerChanged;
                 BasisNetworkModeration.OnGlobalSafeDisplayNamesForcedChanged -= OnGlobalSafeDisplayNamesForcedChanged;
                 BasisNetworkModeration.OnGlobalSafeDisplayNamesForcedChanged += OnGlobalSafeDisplayNamesForcedChanged;
                 BasisNetworkModeration.OnGlobalEndEffectorIKDisabledChanged -= OnGlobalEndEffectorIKDisabledChanged;
@@ -1514,6 +1595,8 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalContentRemovalLockedChanged -= OnGlobalContentRemovalLockedChanged;
                 BasisNetworkModeration.OnGlobalExternalLinksLockedChanged -= OnGlobalExternalLinksLockedChanged;
                 BasisNetworkModeration.OnGlobalVideoClipsLockedChanged -= OnGlobalVideoClipsLockedChanged;
+                BasisNetworkModeration.OnGlobalVideoClipMaxMegabytesChanged -= OnGlobalVideoClipMaxMegabytesChanged;
+                BasisNetworkModeration.OnGlobalVideoClipMaxPerPlayerChanged -= OnGlobalVideoClipMaxPerPlayerChanged;
                 BasisNetworkModeration.OnGlobalAvatarHostingLockedChanged -= OnGlobalAvatarHostingLockedChanged;
                 BasisNetworkModeration.OnGlobalSafeDisplayNamesForcedChanged -= OnGlobalSafeDisplayNamesForcedChanged;
                 BasisNetworkModeration.OnGlobalEndEffectorIKDisabledChanged -= OnGlobalEndEffectorIKDisabledChanged;
@@ -1554,6 +1637,8 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalContentRemovalLockedChanged -= OnGlobalContentRemovalLockedChanged;
                 BasisNetworkModeration.OnGlobalExternalLinksLockedChanged -= OnGlobalExternalLinksLockedChanged;
                 BasisNetworkModeration.OnGlobalVideoClipsLockedChanged -= OnGlobalVideoClipsLockedChanged;
+                BasisNetworkModeration.OnGlobalVideoClipMaxMegabytesChanged -= OnGlobalVideoClipMaxMegabytesChanged;
+                BasisNetworkModeration.OnGlobalVideoClipMaxPerPlayerChanged -= OnGlobalVideoClipMaxPerPlayerChanged;
                 BasisNetworkModeration.OnGlobalAvatarHostingLockedChanged -= OnGlobalAvatarHostingLockedChanged;
                 BasisNetworkModeration.OnGlobalSafeDisplayNamesForcedChanged -= OnGlobalSafeDisplayNamesForcedChanged;
                 BasisNetworkModeration.OnGlobalEndEffectorIKDisabledChanged -= OnGlobalEndEffectorIKDisabledChanged;
@@ -1714,6 +1799,16 @@ namespace Basis.BasisUI
             private void OnGlobalAvatarHostingLockedChanged(bool locked)
             {
                 if (AvatarHostingLockToggle != null) AvatarHostingLockToggle.SetValueWithoutNotify(locked);
+            }
+
+            private void OnGlobalVideoClipMaxPerPlayerChanged(int count)
+            {
+                if (VideoClipMaxPerPlayerDropdown != null) VideoClipMaxPerPlayerDropdown.SetValueWithoutNotify(VideoClipMaxPerPlayerToName(count));
+            }
+
+            private void OnGlobalVideoClipMaxMegabytesChanged(int megabytes)
+            {
+                if (VideoClipMaxSizeDropdown != null) VideoClipMaxSizeDropdown.SetValueWithoutNotify(VideoClipMaxSizeToName(megabytes));
             }
 
             private void OnGlobalVideoClipsLockedChanged(bool locked)

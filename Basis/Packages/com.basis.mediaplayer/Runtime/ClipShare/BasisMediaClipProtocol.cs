@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
@@ -33,23 +34,39 @@ public struct BasisMediaClipOffer
     public string Name;
 }
 
-public static class BasisMediaClipProtocol
+[AutoStaticsCleanup]
+public static partial class BasisMediaClipProtocol
 {
     public const byte OpOffer = 1;
     public const byte OpChunk = 2;
     public const byte OpRemove = 3;
     public const byte OpPose = 4;
     public const byte OpNeed = 5;
+    public const byte OpServerCacheState = 6;
+    public const byte OpServerCacheOffer = 7;
+    public const byte OpServerCacheRequest = 8;
+    public const byte OpServerCacheCatalog = 9;
+    public const byte ServerStateNotHeld = 0;
+    public const byte ServerStateUpload = 1;
+    public const byte ServerStateHeld = 2;
     public const byte FlagProtected = 1;
     public const byte FlagLockBypass = 2;
     public const int GuidBytes = 16;
     public const int ChunkBytes = 16 * 1024;
     public const int ChunkHeaderBytes = 1 + GuidBytes + sizeof(int);
-    public const int MaxClipBytes = 96 * 1024 * 1024;
+    public const int DefaultMaxClipBytes = 96 * 1024 * 1024;
+    public const int HardMaxClipBytes = 1024 * 1024 * 1024;
+    private static int maxClipBytes = DefaultMaxClipBytes;
     public const int MaxNameBytes = 160;
     public const int MaxNeedIndices = 512;
     public const int PoseBytes = 1 + GuidBytes + sizeof(float) * 8;
     public const string UrlScheme = "basisclip://";
+
+    public static int MaxClipBytes
+    {
+        get => maxClipBytes;
+        set => maxClipBytes = Math.Clamp(value, ChunkBytes, HardMaxClipBytes);
+    }
 
     public static int ChunkCount(int totalBytes) => totalBytes <= 0 ? 0 : (totalBytes + ChunkBytes - 1) / ChunkBytes;
 
@@ -229,7 +246,7 @@ public static class BasisMediaClipProtocol
         offer = default;
         error = null;
         int fixedBytes = 1 + GuidBytes + sizeof(int) + 2 + sizeof(float) * 8 + sizeof(ushort);
-        if (buffer == null || buffer.Length < fixedBytes || buffer[0] != OpOffer)
+        if (buffer == null || buffer.Length < fixedBytes || (buffer[0] != OpOffer && buffer[0] != OpServerCacheOffer))
         {
             error = "truncated offer";
             return false;
@@ -311,13 +328,26 @@ public static class BasisMediaClipProtocol
         return true;
     }
 
-    public static byte[] EncodeRemove(Guid id)
+    public static byte[] EncodeRemove(Guid id) => EncodeId(OpRemove, id);
+
+    public static byte[] EncodeId(byte op, Guid id)
     {
         byte[] buffer = new byte[1 + GuidBytes];
         int offset = 0;
-        buffer[offset++] = OpRemove;
+        buffer[offset++] = op;
         WriteGuid(buffer, ref offset, id);
         return buffer;
+    }
+
+    public static bool TryDecodeServerState(byte[] buffer, out Guid id, out byte state)
+    {
+        id = Guid.Empty;
+        state = ServerStateNotHeld;
+        if (buffer == null || buffer.Length != 1 + GuidBytes + 1 || buffer[0] != OpServerCacheState) return false;
+        int offset = 1;
+        id = ReadGuid(buffer, ref offset);
+        state = buffer[offset];
+        return id != Guid.Empty && state <= ServerStateHeld;
     }
 
     public static bool TryDecodeId(byte[] buffer, byte op, out Guid id)

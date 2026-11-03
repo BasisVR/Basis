@@ -406,4 +406,41 @@ public class ScreenShareRelayTests
             Remove(sharer, other);
         }
     }
+
+    [Fact]
+    public void AnyoneCanMoveTheScreen_AndEveryoneElseFollows()
+    {
+        FakeNetPeer sharer = NewPeer();
+        FakeNetPeer mover = NewPeer();
+        FakeNetPeer other = NewPeer();
+        try
+        {
+            Start(sharer);
+            Deliver(mover, ControlMessage, w =>
+            {
+                w.Put(MoveSub);
+                w.Put((ushort)sharer.Id);
+                new ScreenPose { PX = 7, RW = 1, Scale = 3 }.Serialize(w);
+            });
+            foreach (FakeNetPeer peer in new[] { sharer, other })
+            {
+                byte[] pose = Messages(peer, ControlMessage).Last();
+                Assert.Equal(PoseSub, pose[2]);
+                Assert.Equal((ushort)sharer.Id, BitConverter.ToUInt16(pose, 3));
+                Assert.Equal(7f, BitConverter.ToSingle(pose, 5));
+            }
+            Assert.DoesNotContain(PoseSub, ControlSubs(mover));
+            Deliver(mover, ControlMessage, w =>
+            {
+                w.Put(MoveSub);
+                w.Put((ushort)sharer.Id);
+                new ScreenPose { PX = float.NaN, RW = 1, Scale = 1 }.Serialize(w);
+            });
+            Assert.Single(Messages(other, ControlMessage).Where(d => d[2] == PoseSub));
+        }
+        finally
+        {
+            Remove(sharer, mover, other);
+        }
+    }
 }

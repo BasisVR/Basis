@@ -162,9 +162,19 @@ namespace Basis.Network.Server.Generic
             {
                 return;
             }
-            if (!isImageTraffic && IsBlockedVideoClipTraffic(SceneDataMessage.messageIndex, payload, payloadLength, sender))
+            bool isClipTraffic = !isImageTraffic && BasisNetworkClipCache.IsClipTraffic(SceneDataMessage.messageIndex);
+            if (isClipTraffic && IsBlockedVideoClipTraffic(SceneDataMessage.messageIndex, payload, payloadLength, sender))
             {
                 return;
+            }
+            if (isClipTraffic)
+            {
+                bool toServer = BasisNetworkClipCache.IsAddressedToServer((ushort)sender.Id, SceneDataMessage.recipients, SceneDataMessage.recipientsSize);
+                BasisNetworkClipCache.Observe((ushort)sender.Id, payload, payloadLength, toServer);
+                if (toServer)
+                {
+                    return;
+                }
             }
             if (isImageTraffic)
             {
@@ -232,7 +242,7 @@ namespace Basis.Network.Server.Generic
                 for (int index = 0; index < recipientsLength; index++)
                 {
                     ushort recipient = SceneDataMessage.recipients[index];
-                    if (!seen.Add(recipient))
+                    if (!seen.Add(recipient) || (isClipTraffic && recipient == sender.Id))
                     {
                         continue;
                     }

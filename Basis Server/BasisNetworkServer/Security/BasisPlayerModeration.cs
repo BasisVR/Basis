@@ -575,6 +575,16 @@ namespace BasisNetworkServer.Security
                         HandleImageMaxResolutionSet(peer, reader));
                     break;
 
+                case AdminRequestMode.SetGlobalVideoClipMaxSize:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleVideoClipMaxSizeSet(peer, reader));
+                    break;
+
+                case AdminRequestMode.SetGlobalVideoClipMaxPerPlayer:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleVideoClipMaxPerPlayerSet(peer, reader));
+                    break;
+
                 case AdminRequestMode.SetGlobalAvatarScaleLimits:
                     Require(peer, PermNodes.ModerationGlobalLock, () =>
                         HandleAvatarScaleLimitsSet(peer, reader));
@@ -1796,6 +1806,36 @@ namespace BasisNetworkServer.Security
             int applied = BasisGlobalLockManager.SetImageMaxResolutionK(reader.GetByte());
             BNL.Log($"Shared image resolution limit set to {applied}K ({applied * 1024} px).");
             SendBackMessage(peer, $"Shared images are now limited to {applied}K ({applied * 1024}x{applied * 1024}).");
+            PersistGlobalLockState();
+            BasisGlobalLockManager.BroadcastLockState();
+        }
+
+        private static void HandleVideoClipMaxSizeSet(NetPeer peer, NetPacketReader reader)
+        {
+            if (reader.AvailableBytes < 2)
+            {
+                SendBackMessage(peer, "Failed to set clip size limit: missing value.");
+                return;
+            }
+
+            int applied = BasisGlobalLockManager.SetVideoClipMaxMegabytes(reader.GetUShort());
+            BNL.Log($"Shared video/audio clip size limit set to {applied} MB.");
+            SendBackMessage(peer, $"Shared video and audio clips are now limited to {applied} MB.");
+            PersistGlobalLockState();
+            BasisGlobalLockManager.BroadcastLockState();
+        }
+
+        private static void HandleVideoClipMaxPerPlayerSet(NetPeer peer, NetPacketReader reader)
+        {
+            if (reader.AvailableBytes < 1)
+            {
+                SendBackMessage(peer, "Failed to set clips per player: missing value byte.");
+                return;
+            }
+
+            int applied = BasisGlobalLockManager.SetVideoClipMaxPerPlayer(reader.GetByte());
+            BNL.Log($"Shared video/audio clips per player set to {applied}.");
+            SendBackMessage(peer, $"Each player can now share up to {applied} video or audio clips at once.");
             PersistGlobalLockState();
             BasisGlobalLockManager.BroadcastLockState();
         }

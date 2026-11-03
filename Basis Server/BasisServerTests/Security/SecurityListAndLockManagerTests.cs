@@ -770,6 +770,8 @@ public class BasisGlobalLockManagerTests
                 AvatarHostingLocked = true,
                 VideoClipsLocked = false,
                 ImageMaxResolutionK = 8,
+                VideoClipMaxMegabytes = 512,
+                VideoClipMaxPerPlayer = 7,
             });
 
             var peer = new SecurityTestPeer(1);
@@ -797,6 +799,8 @@ public class BasisGlobalLockManagerTests
                 1,
                 0,
                 8,                                        // image max resolution, in 1024 px units
+                0x00, 0x02,                               // video clip max size, 512 MB as a little-endian ushort
+                7,                                        // video clips per player
             }, payload);
 
             BasisGlobalLockManager.BroadcastLockState(); // zero connected peers: must be a safe no-op
