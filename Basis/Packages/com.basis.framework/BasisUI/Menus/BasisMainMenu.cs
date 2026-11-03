@@ -428,6 +428,8 @@ namespace Basis.BasisUI
                 BasisMenuPromptRestore.Capture();
                 Instance.Release();
             }
+            IsTemporarilyHidden = false;
+            _hiddenToggleRequested = null;
 
             Instance = new BasisMainMenu();
             BasisMenuPromptRestore.SetOwner(Instance.MenuObjectInstance);
@@ -474,8 +476,56 @@ namespace Basis.BasisUI
             }
         }
 
+        /// <summary>
+        /// True while the open menu is hidden from view (e.g. during calibration) but still alive,
+        /// so its active page and that page's state survive until it is shown again.
+        /// </summary>
+        public static bool IsTemporarilyHidden { get; private set; }
+        private static Action _hiddenToggleRequested;
+
+        /// <summary>
+        /// Hide the whole open menu without releasing it. While hidden, the menu toggle input
+        /// shows the menu again and invokes <paramref name="onToggleWhileHidden"/> instead of closing it.
+        /// </summary>
+        public static void HideTemporarily(Action onToggleWhileHidden)
+        {
+            if (!Instance || !Instance.MenuObjectInstance)
+            {
+                return;
+            }
+
+            HideTooltip();
+            _hiddenToggleRequested = onToggleWhileHidden;
+            IsTemporarilyHidden = true;
+            Instance.MenuObjectInstance.gameObject.SetActive(false);
+        }
+
+        /// <summary>Show a menu hidden by <see cref="HideTemporarily"/> again.</summary>
+        public static void RestoreFromHide()
+        {
+            if (!IsTemporarilyHidden)
+            {
+                return;
+            }
+
+            IsTemporarilyHidden = false;
+            _hiddenToggleRequested = null;
+            if (Instance && Instance.MenuObjectInstance)
+            {
+                Instance.MenuObjectInstance.gameObject.SetActive(true);
+            }
+        }
+
         public static void Toggle()
         {
+            if (Instance && IsTemporarilyHidden)
+            {
+                Action onToggle = _hiddenToggleRequested;
+                RestoreFromHide();
+                onToggle?.Invoke();
+                return;
+            }
+
             if (Instance)
             {
                 Close();
@@ -497,6 +547,8 @@ namespace Basis.BasisUI
             BasisMenuPromptRestore.Clear();
             Instance.Release();
             Instance = null;
+            IsTemporarilyHidden = false;
+            _hiddenToggleRequested = null;
             BasisCursorManagement.LockCursor(nameof(BasisMainMenu));
             BasisUILoadingBar.SetHudSuppressed(false);
             SetMicrophoneIconHudVisible(true);

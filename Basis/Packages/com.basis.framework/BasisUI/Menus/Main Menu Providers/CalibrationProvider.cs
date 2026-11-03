@@ -53,7 +53,7 @@ namespace Basis.BasisUI
                 },
                 BasisMenuPanel.PanelStyles.Page);
             BoundButton?.BindActiveStateToAddressablesInstance(panel);
-            panel.OnInstanceReleased += CancelActiveCalibration;
+            panel.OnInstanceReleased += OnPanelReleased;
 
             RectTransform container = panel.Descriptor.ContentParent;
 
@@ -370,6 +370,10 @@ namespace Basis.BasisUI
             localplayer.LocalAvatarDriver.PutAvatarIntoTPose();
             BasisCalibrationLockInVisualizer.Begin();
             SubscribeToTriggers();
+
+            // Get the whole menu out of the way while the player T-poses. It comes back once the
+            // calibration is applied, or when the menu button is pressed, which cancels it.
+            BasisMainMenu.HideTemporarily(CancelActiveCalibration);
         }
 
         // The wait-for-confirmation label must say HOW to confirm: VR completes by pulling both
@@ -423,18 +427,24 @@ namespace Basis.BasisUI
             _rightHand = null;
         }
 
-        private void CancelActiveCalibration()
+        private void OnPanelReleased()
         {
-            UnsubscribeAll();
-            BasisCalibrationLockInVisualizer.End();
-            _leftPressed = false;
-            _rightPressed = false;
+            CancelActiveCalibration();
 
             // The cutout mirror is owned by this panel: closing the panel takes it down.
             if (BasisCalibrationMirrorService.Available)
             {
                 BasisCalibrationMirrorService.Provider.Hide();
             }
+        }
+
+        private void CancelActiveCalibration()
+        {
+            UnsubscribeAll();
+            BasisCalibrationLockInVisualizer.End();
+            BasisMainMenu.RestoreFromHide();
+            _leftPressed = false;
+            _rightPressed = false;
 
             if (BasisLocalPlayer.Instance == null)
             {
@@ -511,6 +521,7 @@ namespace Basis.BasisUI
 
             UnsubscribeAll();
             BasisCalibrationLockInVisualizer.End();
+            BasisMainMenu.RestoreFromHide();
             BasisAvatarIKStageCalibration.FullBodyCalibration();
             BasisUINeedsVisibleTrackers.Remove(BasisLocalPlayer.Instance);
             Button.Descriptor.SetTitle(BasisLocalization.Get("calibration.calibrate"));
