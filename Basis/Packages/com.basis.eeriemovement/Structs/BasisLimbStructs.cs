@@ -119,6 +119,7 @@ namespace Basis.IK
         public float ShinRollDeg;
         public Vector3 KneeSolved, FootSolved;
         public Quaternion RootRotationSolved, MidRotationSolved;
+        public Quaternion ThighUntwist;
         public float UpperLength, LowerLength, TargetDistance, ReachRatio, KneeAngleDeg;
         public byte AxisSource;
         public float FootError;

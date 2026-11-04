@@ -115,6 +115,12 @@ namespace Basis.IK
             poseStream.SetRotation(root, result.HintDelta * poseStream.GetRotation(root));
             poseStream.SetRotation(mid, result.MidPostRoll * poseStream.GetRotation(mid));
             poseStream.SetRotation(tip, result.TipRotation);
+
+            // Thigh roll
+            Quaternion keptMidRot = poseStream.GetRotation(mid);
+            poseStream.SetRotation(root, result.ThighUntwist * poseStream.GetRotation(root));
+            poseStream.SetRotation(mid, keptMidRot);
+            poseStream.SetRotation(tip, result.TipRotation);
             Quaternion shinRoll = result.MidPostRoll;
 
             if (posWeight < 1f)
