@@ -662,6 +662,10 @@ void Resolve(uint3 id : SV_DispatchThreadID)
     float blend = owned ? _BasisGIWorldResolve.x : 1.0;
 
     float4 previous0 = owned ? _BasisGIWorldSHPrev0[slot] : float4(0.0, 0.0, 0.0, 0.0);
+    float previousLevel = dot(previous0.rgb, float3(0.2126, 0.7152, 0.0722));
+    float currentLevel = dot(c0, float3(0.2126, 0.7152, 0.0722));
+    float shift = abs(currentLevel - previousLevel) / (max(previousLevel, currentLevel) + 1e-3);
+    blend = max(blend, saturate((shift - 0.3) * 2.0));
     float3 previousX = owned ? _BasisGIWorldSHPrev1[slot].rgb : float3(0.0, 0.0, 0.0);
     float3 previousY = owned ? _BasisGIWorldSHPrev2[slot].rgb : float3(0.0, 0.0, 0.0);
     float3 previousZ = owned ? _BasisGIWorldSHPrev3[slot].rgb : float3(0.0, 0.0, 0.0);
