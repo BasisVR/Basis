@@ -94,6 +94,7 @@ namespace Basis.IK
             input.HintIsTracker = hintIsTracker;
             input.HasBodyFrame = bodyFrame.Valid;
             input.HipsForward = bodyFrame.Forward;
+            input.HipsRight = bodyFrame.Right;
             input.FootForward = (isLeft ? targetRotationLeftLowerLeg : targetRotationRightLowerLeg) * Vector3.forward; // Foot target's control rotation, before any preserveTip swap
             input.Up = playerUp;
 

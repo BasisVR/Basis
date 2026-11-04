@@ -8,6 +8,8 @@ namespace Basis.IK
         public const float KneeAnteriorHardDeg = 89.5f, KneeAnteriorTaperStartDeg = 160f, TrackerShinRollMaxDeg = 45f;
         public const float KneeHintForward = 0.75f;
         public const float KneeHintFootFlatTrust = 0.3f;
+        public const float KneeHintFootAgreeFull = 0.5f;
+        public const float KneeHintHingeFadeStart = 0.2f, KneeHintHingeFadeFull = 0.5f;
         public const float KneeTrackerHintBias = 0.06f;
         public static float ClampKneeSwivelDeg(float swivelDeg, float softDeg, float hardDeg)
         {
@@ -65,15 +67,30 @@ namespace Basis.IK
                 float legLen = legAxis.magnitude;
                 legAxis = legLen > epsilon ? legAxis / legLen : -i.Up;
 
-                // Hips and foot forward with their along-the-leg part removed. The foot steers the knee only when it points
-                // clearly out from the leg and not behind the hips (pointed toes while lying down fall back to the hips).
+                // The knee bends around the hips' left/right axis, so the kneecap faces leg x hipsRight
                 Vector3 hipsPerp = Vector3.ProjectOnPlane(i.HipsForward, legAxis), footPerp = Vector3.ProjectOnPlane(i.FootForward, legAxis);
                 Vector3 pushDir = hipsPerp.sqrMagnitude > sqrEpsilon ? hipsPerp.normalized : i.HipsForward;
-                float footLen = footPerp.magnitude;
-                if (footLen > epsilon && Vector3.Dot(footPerp, pushDir) > 0f)
+                Vector3 hingeDir = Vector3.Cross(legAxis, i.HipsRight);
+                float hingeLen = hingeDir.magnitude; // sin of the leg/hipsRight angle
+                if (hingeLen > epsilon)
                 {
-                    float footTrust = Mathf.Clamp01(footLen / KneeHintFootFlatTrust);
-                    pushDir = Vector3.Slerp(pushDir, footPerp / footLen, footTrust).normalized;
+                    float hingeTrust = Mathf.Clamp01((hingeLen - KneeHintHingeFadeStart) / (KneeHintHingeFadeFull - KneeHintHingeFadeStart));
+                    hingeTrust = hingeTrust * hingeTrust * (3f - 2f * hingeTrust);
+                    pushDir = Vector3.Slerp(pushDir, hingeDir / hingeLen, hingeTrust).normalized;
+                }
+
+                // The foot steers the knee only when it points clearly out from the leg and roughly the same way as the knee.
+                // Its pull fades as it turns away so a splayed or pointed foot doesn't pop the knee.
+                float footLen = footPerp.magnitude;
+                if (footLen > epsilon)
+                {
+                    Vector3 footN = footPerp / footLen;
+                    float agree = Mathf.Clamp01(Vector3.Dot(footN, pushDir) / KneeHintFootAgreeFull);
+                    float footTrust = Mathf.Clamp01(footLen / KneeHintFootFlatTrust) * agree * agree * (3f - 2f * agree);
+                    if (footTrust > 0f)
+                    {
+                        pushDir = Vector3.Slerp(pushDir, footN, footTrust).normalized;
+                    }
                 }
 
                 // Start on the leg line where the knee sits, then push out in front of it.
