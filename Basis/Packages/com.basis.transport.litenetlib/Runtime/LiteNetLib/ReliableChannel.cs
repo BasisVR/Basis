@@ -203,7 +203,7 @@ namespace LiteNetLib
                 {
                     while (dequeued < capacity && OutgoingQueue.Count > 0)
                     {
-                        _dequeuedPackets[dequeued++] = OutgoingQueue.Dequeue();
+                        _dequeuedPackets[dequeued++] = DequeueOutgoing();
                     }
                 }
             }

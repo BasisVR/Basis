@@ -73,6 +73,162 @@
     {
       "key": "settings.media.engine.unavailable",
       "value": "Engine unavailable on this platform."
+    },
+    {
+      "key": "mediaClip.defaultName",
+      "value": "Video clip"
+    },
+    {
+      "key": "mediaClip.defaultAudioName",
+      "value": "Audio clip"
+    },
+    {
+      "key": "mediaClip.panel.play",
+      "value": "Play"
+    },
+    {
+      "key": "mediaClip.panel.pause",
+      "value": "Pause"
+    },
+    {
+      "key": "mediaClip.panel.restart",
+      "value": "Restart"
+    },
+    {
+      "key": "mediaClip.panel.remove",
+      "value": "Remove"
+    },
+    {
+      "key": "mediaClip.panel.hide",
+      "value": "Hide"
+    },
+    {
+      "key": "mediaClip.panel.confirmRemove",
+      "value": "Confirm?"
+    },
+    {
+      "key": "mediaClip.status.receiving",
+      "value": "Receiving {0}%"
+    },
+    {
+      "key": "mediaClip.status.preparing",
+      "value": "Preparing"
+    },
+    {
+      "key": "mediaClip.status.waiting",
+      "value": "Waiting for the sharer"
+    },
+    {
+      "key": "mediaClip.status.failed",
+      "value": "Could not receive this clip"
+    },
+    {
+      "key": "mediaClip.status.sharedBy",
+      "value": "Shared by {0}"
+    },
+    {
+      "key": "mediaClip.popup.title",
+      "value": "Clip not shared"
+    },
+    {
+      "key": "mediaClip.popup.accept",
+      "value": "OK"
+    },
+    {
+      "key": "mediaClip.popup.locked",
+      "value": "Media players are locked by an admin in this instance."
+    },
+    {
+      "key": "mediaClip.popup.unsupportedPlatform",
+      "value": "Video and audio clips cannot be shared from this platform."
+    },
+    {
+      "key": "mediaClip.popup.limit",
+      "value": "You can share up to {0} clips at once. Remove one to share another."
+    },
+    {
+      "key": "mediaClip.popup.readFailed",
+      "value": "{0} could not be read: {1}"
+    },
+    {
+      "key": "mediaClip.popup.tooLarge",
+      "value": "{0} is {1}. Clips can be up to {2}."
+    },
+    {
+      "key": "mediaClip.popup.notVideo",
+      "value": "{0} is not a video or audio file the media player can open."
+    },
+    {
+      "key": "mediaClip.panel.show",
+      "value": "Show"
+    },
+    {
+      "key": "mediaClip.panel.save",
+      "value": "Save"
+    },
+    {
+      "key": "mediaClip.panel.saving",
+      "value": "Saving"
+    },
+    {
+      "key": "mediaClip.panel.saved",
+      "value": "Saved"
+    },
+    {
+      "key": "mediaClip.panel.saveFailed",
+      "value": "Save failed"
+    },
+    {
+      "key": "mediaClip.panel.removeForMe",
+      "value": "Remove for me"
+    },
+    {
+      "key": "mediaClip.panel.sharedByYou",
+      "value": "Shared by you"
+    },
+    {
+      "key": "mediaClip.panel.unknownSharer",
+      "value": "someone"
+    },
+    {
+      "key": "mediaClip.panel.details",
+      "value": "{0} · {1}"
+    },
+    {
+      "key": "mediaClip.status.hidden",
+      "value": "Hidden for you"
+    },
+    {
+      "key": "mediaClip.status.locked",
+      "value": "Video and audio clips are locked by an admin"
+    },
+    {
+      "key": "mediaClip.popup.clipsLocked",
+      "value": "An admin has turned off video and audio clip sharing in this instance."
+    },
+    {
+      "key": "settings.media.clips.title",
+      "value": "Shared video and audio clips"
+    },
+    {
+      "key": "settings.media.clips.description",
+      "value": "Video and audio files that players paste or drop into the world."
+    },
+    {
+      "key": "settings.media.clips.accept",
+      "value": "Receive shared clips"
+    },
+    {
+      "key": "settings.media.clips.accept.tooltip",
+      "value": "Download and play video and audio clips other players share. When off, new clips are ignored and clips already here stay."
+    },
+    {
+      "key": "settings.media.clips.volume",
+      "value": "Shared clip volume"
+    },
+    {
+      "key": "settings.media.clips.volume.tooltip",
+      "value": "Starting volume for each shared clip. The volume slider under a clip changes that clip for you only."
     }
   ]
 }

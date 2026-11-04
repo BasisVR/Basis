@@ -4,12 +4,13 @@
     "references": [
         "Unity.Mathematics",
         "BasisNetworkCore",
-        "BasisNetworkServer",
         "BasisDebug",
         "Cilbox",
         "BasisEventDriver",
         "BasisSDK",
         "Basis Framework",
+        "SteamAudioUnity",
+        "glTFast",
         "BasisCommon",
         "BasisSettings",
         "BasisMediaPlayer",
@@ -17,7 +18,8 @@
         "BasisEditor",
         "HVR.Basis.Comms",
         "BasisExamples",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

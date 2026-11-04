@@ -108,6 +108,7 @@ namespace Basis.Scripts.BasisSdk
         /// True once avatar setup has completed and readiness callbacks have fired for this instance.
         /// </summary>
         public bool IsReady { get; private set; }
+        public bool FaceExpressionTrackingActive { get; set; }
 
         /// <summary>
         /// Gets or sets the linked player ID. Setting also marks <see cref="HasLinkedPlayer"/> true.

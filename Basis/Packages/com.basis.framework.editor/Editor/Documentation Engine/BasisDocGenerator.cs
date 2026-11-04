@@ -15,10 +15,13 @@ public static class BasisDocGenerator
     // Package IDs we want to scan (directories will be resolved at runtime)
     private static readonly string[] PackageIdsToScan = new[]
     {
+        "com.basis.authoredmotion",
         "com.basis.bundlemanagement",
         "com.basis.common",
+        "com.basis.constraints",
         "com.basis.developer.exceptions",
         "com.basis.developer.recorder",
+        "com.basis.developer.streamingmeta",
         "com.basis.eventdriver",
         "com.basis.examples",
         "com.basis.framework",

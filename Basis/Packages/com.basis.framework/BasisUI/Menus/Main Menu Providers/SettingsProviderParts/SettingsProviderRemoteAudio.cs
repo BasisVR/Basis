@@ -617,6 +617,12 @@ namespace Basis.BasisUI
             };
             */
 
+            PanelSlider sliderWorldReflectionPlayers = PanelSlider.CreateEntryAndBind(
+                container,
+                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.remoteAudio.worldReflectionPlayers"), 0f, 64f, true, 0, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.RAWorldReflectionPlayers);
+            sliderWorldReflectionPlayers.Descriptor.SetTooltip(BasisLocalization.Get("settings.remoteAudio.worldReflectionPlayers.tooltip"));
+
             PanelSectionToggleHelpers.FinalizeCollapsibleGroup(advancedToggle, advancedGroup, false,
                 _ => RebuildLayout());
         }
@@ -678,6 +684,7 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.RAReflections.ResetToDefault();
             BasisSettingsDefaults.RAReflectionsMixLevel.ResetToDefault();
             BasisSettingsDefaults.RAApplyHRTFToReflections.ResetToDefault();
+            BasisSettingsDefaults.RAWorldReflectionPlayers.ResetToDefault();
 
             ApplyRemoteAudioToAll();
         }
@@ -815,7 +822,18 @@ namespace Basis.BasisUI
             // ApplyHrtfProfile only latches on a successful apply, so every call after that one
             // is a string compare.
             ApplyHrtfProfile();
+
+            RemoteAudioApplied?.Invoke(receiver);
         }
+
+        /// <summary>
+        /// Raised at the end of <see cref="ApplyRemoteAudioTo"/>, after the remote-audio settings
+        /// have been written onto a receiver's AudioSource and Steam Audio source. A world or
+        /// package that layers its own per-source changes on top (for example its own reflection
+        /// policy) re-applies them here, so a settings pass or a pooled source being handed to a
+        /// new player does not silently undo them. Main thread.
+        /// </summary>
+        public static event Action<BasisAudioReceiver> RemoteAudioApplied;
 
         /// <summary>
         /// Name of the HRTF profile the last <see cref="ApplyHrtfProfile"/> call actually landed

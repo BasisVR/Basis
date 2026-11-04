@@ -5,6 +5,5 @@ namespace Basis.IK
         None,
         Tracker,
         Sim,
-        Assist,
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Basis;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using HVR.Vixxy;
@@ -63,6 +64,7 @@ namespace HVR.Basis.Comms
         static void BuildAvatarCustomizationSection(RectTransform parent)
         {
             InitializeVixxyPanel(parent);
+            InitializeFacePanel(parent);
             InitializeEyeTrackingPanel(parent);
         }
 
@@ -147,6 +149,24 @@ namespace HVR.Basis.Comms
             return field;
         }
 
+        private static void InitializeFacePanel(RectTransform container)
+        {
+            var sectionToggle = PanelSectionToggle.CreateNewEntry(container);
+            var faceGroup = PanelSectionToggleHelpers.CreateCollapsibleContentGroup(sectionToggle, container, BasisLocalization.Get("settings.myAvatar.face"));
+            faceGroup.SetDescription(BasisLocalization.Get("settings.myAvatar.face.description"));
+            BuildBindingToggle(faceGroup, "settings.myAvatar.autoDetectFaceTracking", BasisSettingsDefaults.AutoDetectFaceTracking);
+            BuildBindingToggle(faceGroup, "settings.myAvatar.idleExpressions", BasisSettingsDefaults.IdleFaceExpressions);
+            PanelSectionToggleHelpers.FinalizeCollapsibleGroup(sectionToggle, faceGroup, true);
+        }
+
+        private static void BuildBindingToggle(PanelElementDescriptor group, string key, BasisSettingsBinding<bool> binding)
+        {
+            var toggle = PanelToggle.CreateNewEntry(group.ContentParent);
+            toggle.Descriptor.SetTitle(BasisLocalization.Get(key));
+            toggle.Descriptor.SetDescription(BasisLocalization.Get(key + ".description"));
+            toggle.AssignBinding(binding);
+        }
+
         private static void InitializeVixxyPanel(RectTransform container)
         {
             var localPlayer = BasisLocalPlayer.Instance;
@@ -199,15 +219,41 @@ namespace HVR.Basis.Comms
         {
             var localPlayer = BasisLocalPlayer.Instance;
             var avatar = localPlayer?.BasisAvatar;
-            if (avatar == null) return;
-
-            var eyeActuation = avatar.GetComponentInChildren<EyeTrackingBoneActuation>(true);
-            if (eyeActuation == null) return;
+            var eyeActuation = avatar != null ? avatar.GetComponentInChildren<EyeTrackingBoneActuation>(true) : null;
 
             var sectionToggle = PanelSectionToggle.CreateNewEntry(container);
             var eyeGroup = PanelSectionToggleHelpers.CreateCollapsibleContentGroup(
                 sectionToggle, container, BasisLocalization.Get("settings.faceTracking.eyeTracking"));
             eyeGroup.SetDescription(BasisLocalization.Get("settings.faceTracking.eyeTracking.description"));
+            BuildBindingToggle(eyeGroup, "settings.myAvatar.autoDetectEyeTracking", BasisSettingsDefaults.AutoDetectEyeTracking);
+
+            var lookRangeToggle = PanelToggle.CreateNewEntry(eyeGroup.ContentParent);
+            lookRangeToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.myAvatar.eyeLookRangeOverride"));
+            lookRangeToggle.Descriptor.SetDescription(BasisLocalization.Get("settings.myAvatar.eyeLookRangeOverride.description"));
+            lookRangeToggle.AssignBinding(BasisSettingsDefaults.EyeMaxLookAngleOverride);
+            var lookRangeSlider = PanelSlider.CreateEntryAndBind(eyeGroup.ContentParent, new PanelSlider.SliderSettings
+            {
+                SliderMin = BasisLocalEyeDriverData.MinUserLookAngle,
+                SliderMax = BasisLocalEyeDriverData.MaxUserLookAngle,
+                DecimalPlaces = 0,
+                DisplayMode = ValueDisplayMode.Degrees,
+            }, BasisSettingsDefaults.EyeMaxLookAngleOverrideDegrees);
+            lookRangeSlider.Descriptor.SetTitle(BasisLocalization.Get("settings.myAvatar.eyeLookRange"));
+            lookRangeSlider.Descriptor.SetDescription(BasisLocalization.Get("settings.myAvatar.eyeLookRange.description"));
+            void ApplyLookRangeVisibility(bool visible)
+            {
+                lookRangeSlider.gameObject.SetActive(visible);
+                eyeGroup.ForceRebuild();
+            }
+            ApplyLookRangeVisibility(BasisSettingsDefaults.EyeMaxLookAngleOverride.RawValue);
+            lookRangeToggle.OnValueChanged += ApplyLookRangeVisibility;
+
+            if (eyeActuation == null)
+            {
+                PanelSectionToggleHelpers.FinalizeCollapsibleGroup(sectionToggle, eyeGroup, true,
+                    visible => { if (visible) ApplyLookRangeVisibility(BasisSettingsDefaults.EyeMaxLookAngleOverride.RawValue); });
+                return;
+            }
 
             var overrideToggle = PanelToggle.CreateNewEntry(eyeGroup.ContentParent);
             overrideToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.faceTracking.overrideRotationLimits"));
@@ -264,6 +310,7 @@ namespace HVR.Basis.Comms
                     if (visible)
                     {
                         ApplySliderVisibility(eyeActuation.RuntimeOverrideEnabled);
+                        ApplyLookRangeVisibility(BasisSettingsDefaults.EyeMaxLookAngleOverride.RawValue);
                     }
                 });
         }

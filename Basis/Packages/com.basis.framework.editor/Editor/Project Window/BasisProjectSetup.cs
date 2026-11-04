@@ -44,7 +44,6 @@ public partial class BasisProjectSetup : EditorWindow
 
     // SessionState keys
     private const string SESSION_SHOW_FIRST_NOTICE = "BasisPlatformSwitcher_ShowFirstNotice";
-    private const string SESSION_NEED_MODULE_RECHECK = "BasisPlatformSwitcher_NeedModuleRecheck";
 
     // Links
     private const string BASIS_SITE = "https://basisvr.org/";
@@ -79,7 +78,7 @@ public partial class BasisProjectSetup : EditorWindow
     private FirstRunKind _firstRunKind;
 
     // Enforcement
-    private bool _enforceIl2cpp = true;
+    private bool _applyBackend = true;
 
     // Cached module checks (session)
     private bool? _hasWin;
@@ -88,7 +87,9 @@ public partial class BasisProjectSetup : EditorWindow
     private bool? _hasMac;
     private bool? _hasIOS;
 
-    private bool? _hasIl2cppStandalone;
+    private bool? _hasCoreClrWin;
+    private bool? _hasCoreClrLinux;
+    private bool? _hasCoreClrMac;
     private bool? _hasIl2cppAndroid;
 
     // Quality presets — must match indices in BasisQualitySettingsGuard
@@ -131,11 +132,7 @@ public partial class BasisProjectSetup : EditorWindow
 
         _firstRunKind = (FirstRunKind)EditorPrefs.GetInt(PREF_FIRST_RUN_KIND, (int)FirstRunKind.None);
 
-        if (SessionState.GetBool(SESSION_NEED_MODULE_RECHECK, true))
-        {
-            RecheckBuildModulesAndBackends();
-            SessionState.SetBool(SESSION_NEED_MODULE_RECHECK, false);
-        }
+        RecheckBuildModulesAndBackends();
 
         BeginPackageScanIfNeeded();
         EditorApplication.update += PollPackageOperations;
@@ -173,7 +170,7 @@ public partial class BasisProjectSetup : EditorWindow
         {
             EditorGUILayout.HelpBox(
                 Tr("projectSetup.firstRun.notice",
-                    "First time here! Choose what you’re setting up, verify build modules (including IL2CPP), and pick your target platform before building or pressing Play."),
+                    "First time here! Choose what you’re setting up, verify build modules (CoreCLR for Windows and Linux, IL2CPP for Android), and pick your target platform before building or pressing Play."),
                 MessageType.Warning);
         }
 
@@ -383,13 +380,13 @@ public partial class BasisProjectSetup : EditorWindow
     {
         DrawLinuxMetaXrNotice();
 
-        FoldoutBox(Tr("projectSetup.buildModules.foldout", "Build Targets / Modules / IL2CPP"), FOLD_BUILD_STATUS, () =>
+        FoldoutBox(Tr("projectSetup.buildModules.foldout", "Build Targets / Modules / Scripting Backends"), FOLD_BUILD_STATUS, () =>
         {
             DrawStatusChips();
 
             EditorGUILayout.Space(4);
             if (!_hasWin.HasValue || !_hasLinux.HasValue || !_hasAndroid.HasValue ||
-                !_hasIl2cppStandalone.HasValue || !_hasIl2cppAndroid.HasValue)
+                !_hasCoreClrWin.HasValue || !_hasCoreClrLinux.HasValue || !_hasIl2cppAndroid.HasValue)
             {
                 RecheckBuildModulesAndBackendsRow();
             }
@@ -429,8 +426,8 @@ public partial class BasisProjectSetup : EditorWindow
                 DrawPlatformRadio(PlatformChoice.IOS, Tr("projectSetup.platformQuality.ios", "iOS"));
             }
 
-            _enforceIl2cpp = EditorGUILayout.ToggleLeft(
-                Tr("projectSetup.platformQuality.enforceIl2cpp", "Enforce IL2CPP scripting backend when applying"), _enforceIl2cpp);
+            _applyBackend = EditorGUILayout.ToggleLeft(
+                Tr("projectSetup.platformQuality.applyBackend", "Set the scripting backend when applying (CoreCLR on Windows/Linux/macOS, IL2CPP on Android/iOS)"), _applyBackend);
 
             BasisEditorUI.Readout(Tr("projectSetup.platformQuality.qualityHelp", "Quality presets: Desktop (Windows/Linux/macOS), mobile tier for Android/Quest and iOS."));
 
@@ -444,14 +441,14 @@ public partial class BasisProjectSetup : EditorWindow
             }
 
             bool modulesOk = AreRequiredModulesOkForCurrentSelection();
-            bool blockApply = !selectedModuleInstalled || (!modulesOk && _enforceIl2cpp);
+            bool blockApply = !selectedModuleInstalled || (!modulesOk && _applyBackend);
             using (new EditorGUI.DisabledScope(blockApply))
             {
                 string label = blockApply
                     ? Tr("projectSetup.platformQuality.applyButtonMissing", "Apply & Switch Platform (modules missing)")
                     : Tr("projectSetup.platformQuality.applyButton", "Apply & Switch Platform");
                 if (GUILayout.Button(label))
-                    ApplyPlatformAndQuality(_choice, _enforceIl2cpp);
+                    ApplyPlatformAndQuality(_choice, _applyBackend);
             }
         });
     }
@@ -955,6 +952,32 @@ public class ListenForLocalSpawn : MonoBehaviour
         }
     }
 
+    private bool? PlatformBackendInstalled(PlatformChoice value)
+    {
+        switch (value)
+        {
+            case PlatformChoice.Windows: return _hasCoreClrWin;
+            case PlatformChoice.Linux: return _hasCoreClrLinux;
+            case PlatformChoice.Android: return _hasIl2cppAndroid;
+            case PlatformChoice.Mac: return _hasCoreClrMac;
+            case PlatformChoice.IOS: return _hasIOS;
+            default: return null;
+        }
+    }
+
+    private static string BuildSupportModuleName(PlatformChoice value)
+    {
+        switch (value)
+        {
+            case PlatformChoice.Windows: return "Windows Build Support (CoreCLR)";
+            case PlatformChoice.Linux: return "Linux Build Support (CoreCLR)";
+            case PlatformChoice.Android: return "Android Build Support";
+            case PlatformChoice.Mac: return "Mac Build Support (CoreCLR)";
+            case PlatformChoice.IOS: return "iOS Build Support";
+            default: return value.ToString();
+        }
+    }
+
     private string PlatformDisplayName(PlatformChoice value)
     {
         switch (value)
@@ -1013,7 +1036,8 @@ public class ListenForLocalSpawn : MonoBehaviour
         }
         using (new EditorGUILayout.HorizontalScope())
         {
-            DrawChip(Tr("projectSetup.status.il2cppStandalone", "IL2CPP Standalone"), _hasIl2cppStandalone, scriptingTip);
+            DrawChip(Tr("projectSetup.status.coreClrWindows", "CoreCLR Windows"), _hasCoreClrWin, scriptingTip);
+            DrawChip(Tr("projectSetup.status.coreClrLinux", "CoreCLR Linux"), _hasCoreClrLinux, scriptingTip);
             DrawChip(Tr("projectSetup.status.il2cppAndroid", "IL2CPP Android"), _hasIl2cppAndroid, scriptingTip);
             if (!string.IsNullOrEmpty(_pkgStatus))
                 GUILayout.Label(string.Format(Tr("projectSetup.status.pkgPrefix", "Pkg: {0}"), _pkgStatus), EditorStyles.miniLabel);
@@ -1081,40 +1105,6 @@ public class ListenForLocalSpawn : MonoBehaviour
         catch { return false; }
     }
 
-    private static bool SupportsScriptingBackend(BuildTargetGroup group, ScriptingImplementation impl)
-    {
-        // Public API doesn’t expose “available backends”, so we reflect internal ModuleManager.
-        try
-        {
-            var mbt = typeof(BuildTargetGroup);
-#if UNITY_2021_2_OR_NEWER
-            // NamedBuildTarget is a thing, but we can still probe by group for availability
-#endif
-            var moduleManagerType = Type.GetType("UnityEditor.Modules.ModuleManager, UnityEditor.dll");
-            if (moduleManagerType != null)
-            {
-                var mi = moduleManagerType.GetMethod("GetScriptingImplementations", BindingFlags.Static | BindingFlags.NonPublic);
-                if (mi != null)
-                {
-                    var result = mi.Invoke(null, new object[] { group }) as Array;
-                    if (result != null)
-                    {
-                        foreach (var x in result)
-                        {
-                            if ((int)x == (int)impl) return true;
-                        }
-                        return false;
-                    }
-                }
-            }
-        }
-        catch { /* swallow */ }
-
-        // Fallback heuristics:
-        if (group == BuildTargetGroup.Android) return true;          // Android installs usually ship IL2CPP
-        if (group == BuildTargetGroup.Standalone) return true;       // Common on dev machines
-        return false;
-    }
     private static Type FindTypeByName(string fullName)
     {
         foreach (var asm in UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies())

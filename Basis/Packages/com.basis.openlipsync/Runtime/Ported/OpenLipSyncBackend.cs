@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Concurrent;
+using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
@@ -118,6 +121,9 @@ namespace OpenLipSync.Inference
                     return Result.Success;
                 }
 #endif
+#if ENABLE_CORECLR
+                InstallOrtResolver();
+#endif
                 var sessionOptions = new SessionOptions();
                 sessionOptions.LogSeverityLevel = OrtLoggingLevel.ORT_LOGGING_LEVEL_WARNING;
                 sessionOptions.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
@@ -142,11 +148,86 @@ namespace OpenLipSync.Inference
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[OpenLipSync] Initialization failed: {ex.Message}");
-                LastError = $"Initialization failed: {ex.Message}";
+                LastError = DescribeFailure(ex);
                 return Result.CannotCreateContext;
             }
         }
+
+        private static string OrtVersion => typeof(InferenceSession).Assembly.GetName().Version.ToString(3);
+
+        public static string DescribeFailure(Exception ex)
+        {
+            Exception root = ex;
+            bool native = false;
+            while (root.InnerException != null && (root is TypeInitializationException || root is TargetInvocationException || root is AggregateException))
+            {
+                native |= root is TypeInitializationException init && init.TypeName != null && init.TypeName.StartsWith("Microsoft.ML.OnnxRuntime", StringComparison.Ordinal);
+                root = root.InnerException;
+            }
+            native |= root is DllNotFoundException || root is EntryPointNotFoundException || root is BadImageFormatException;
+            string reason = "ONNX Runtime could not start the lip sync model";
+            if (native)
+            {
+                string loaded = LoadedOrtModule(out bool bundled);
+                reason = loaded == null ? $"the ONNX Runtime {OrtVersion} native library for {Application.platform} {RuntimeInformation.ProcessArchitecture} could not be loaded"
+                    : bundled ? $"the bundled ONNX Runtime ({loaded}) loaded but would not start"
+                    : $"a different ONNX Runtime ({loaded}) was loaded instead of the {OrtVersion} copy that ships with Basis";
+            }
+            return $"{reason}.\n{root.GetType().Name}: {root.Message}";
+        }
+
+        private static string LoadedOrtModule(out bool bundled)
+        {
+            bundled = false;
+            try
+            {
+                foreach (System.Diagnostics.ProcessModule module in System.Diagnostics.Process.GetCurrentProcess().Modules)
+                {
+                    string name = module.ModuleName;
+                    if (!(name.StartsWith("onnxruntime.", StringComparison.OrdinalIgnoreCase) || name.StartsWith("libonnxruntime.", StringComparison.OrdinalIgnoreCase))) continue;
+                    string path = Path.GetFullPath(module.FileName), version = module.FileVersionInfo?.FileVersion;
+                    bundled = path.IndexOf("com.basis.openlipsync", StringComparison.OrdinalIgnoreCase) >= 0 || path.StartsWith(Path.GetFullPath(Application.dataPath), StringComparison.OrdinalIgnoreCase);
+                    return string.IsNullOrEmpty(version) ? path : $"{path}, version {version}";
+                }
+            }
+            catch (Exception)
+            {
+            }
+            return null;
+        }
+#if ENABLE_CORECLR
+        private static bool _ortResolverInstalled;
+        private static string _bundledOrtPath;
+        private static MethodInfo _tryLoad;
+
+        // CoreCLR players only probe Managed and CoreCLR/native before the OS search path, so the plugin in Data/Plugins loses to any onnxruntime.dll in System32 or on PATH.
+        private static void InstallOrtResolver()
+        {
+            if (_ortResolverInstalled) return;
+            _ortResolverInstalled = true;
+            string file = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "onnxruntime.dll" : RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "libonnxruntime.dylib" : "libonnxruntime.so", data = Application.dataPath;
+            _bundledOrtPath = new[] { Path.Combine(data, "Plugins", "x86_64", file), Path.Combine(data, "Plugins", file), Path.Combine(data, "PlugIns", file) }.FirstOrDefault(File.Exists);
+            Type nativeLibrary = Type.GetType("System.Runtime.InteropServices.NativeLibrary"), resolver = Type.GetType("System.Runtime.InteropServices.DllImportResolver");
+            _tryLoad = nativeLibrary?.GetMethod("TryLoad", new[] { typeof(string), typeof(IntPtr).MakeByRefType() });
+            MethodInfo set = resolver == null ? null : nativeLibrary?.GetMethod("SetDllImportResolver", new[] { typeof(Assembly), resolver });
+            if (_bundledOrtPath == null || _tryLoad == null || set == null) return;
+            try
+            {
+                set.Invoke(null, new object[] { typeof(InferenceSession).Assembly, Delegate.CreateDelegate(resolver, typeof(OpenLipSyncBackend).GetMethod(nameof(ResolveOrt), BindingFlags.NonPublic | BindingFlags.Static)) });
+            }
+            catch (TargetInvocationException ex)
+            {
+                Debug.LogWarning($"[OpenLipSync] could not point ONNX Runtime at {_bundledOrtPath}: {ex.InnerException?.Message}");
+            }
+        }
+
+        private static IntPtr ResolveOrt(string name, Assembly assembly, DllImportSearchPath? searchPath)
+        {
+            if (name != "onnxruntime") return IntPtr.Zero;
+            object[] args = { Path.GetFullPath(_bundledOrtPath), IntPtr.Zero };
+            return (bool)_tryLoad.Invoke(null, args) ? (IntPtr)args[1] : IntPtr.Zero;
+        }
+#endif
 
         public void Shutdown()
         {

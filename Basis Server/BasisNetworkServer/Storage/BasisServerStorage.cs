@@ -11,7 +11,7 @@ namespace BasisNetworkServer.Storage
 {
     public static class BasisServerStorage
     {
-        public const int MaxInFlightPerPeer = 16, DefaultMaxTotalMegabytes = 256;
+        public const int MaxInFlightPerPeer = BasisStorageProtocol.MaxInFlightPerConnection, DefaultMaxTotalMegabytes = 256;
         private static readonly ConcurrentDictionary<int, PeerSlot> peers = new ConcurrentDictionary<int, PeerSlot>();
         private static readonly object gate = new object();
         private static BasisStorageService service;
@@ -35,7 +35,9 @@ namespace BasisNetworkServer.Storage
                 {
                     backend = BasisStorageBackends.Create(name, configuration, StorageFolder);
                     backend.Open();
-                    Volatile.Write(ref service, new BasisStorageService(backend, BytesPerPlayerOf(configuration), TotalBytesOf(configuration)));
+                    BasisStorageService created = new BasisStorageService(backend, BytesPerPlayerOf(configuration), TotalBytesOf(configuration));
+                    Apply(created, configuration);
+                    Volatile.Write(ref service, created);
                 }
                 catch (Exception ex)
                 {
@@ -44,14 +46,16 @@ namespace BasisNetworkServer.Storage
                     return false;
                 }
                 BasisStorageService started = Service;
-                BNL.Log($"Player storage on ({started.BackendName}): {started.TotalRecords} players, {started.TotalBytes} bytes stored, {started.BytesPerPlayer} bytes per player, {started.MaxTotalBytes / (1024 * 1024)} MB server cap.");
+                string expiry = !started.CanExpire ? "kept until wiped (this backend cannot tell when data was last used)" : started.ExpiryDays > 0 ? $"removed after {started.ExpiryDays} days unused" : "kept forever";
+                BNL.Log($"Player storage on ({started.BackendName}): {started.TotalRecords} players, {started.TotalBytes} bytes stored, {started.UsedBytes} of the {started.MaxTotalBytes / (1024 * 1024)} MB server cap in use counting {BasisStorageService.RecordOverheadBytes} bytes per player, {started.BytesPerPlayer} bytes per player. New players may start saving {started.NewOwners.PerAddress} per address every {(long)started.NewOwners.Window.TotalMinutes} minutes and {started.NewOwners.PerHour} an hour in total. Idle data is {expiry}.");
                 if (!configuration.UseAuthIdentity) BNL.LogWarning("Player storage only serves verified identities, and UseAuthIdentity is off, so every storage request will be refused.");
                 return true;
             }
         }
         public static void ApplyConfiguration(Configuration configuration)
         {
-            if (configuration != null) Service?.Configure(BytesPerPlayerOf(configuration), TotalBytesOf(configuration));
+            BasisStorageService running = Service;
+            if (configuration != null && running != null) Apply(running, configuration);
         }
         public static void Stop()
         {
@@ -103,7 +107,7 @@ namespace BasisNetworkServer.Storage
             {
                 Interlocked.Decrement(ref slot.InFlight);
                 Send(peer, reply);
-            });
+            }, BasisStorageNewOwnerLimiter.OriginOf(peer.Address));
             if (queued == BasisStorageStatus.Ok) return;
             Interlocked.Decrement(ref slot.InFlight);
             Reply(peer, request, queued);
@@ -141,6 +145,12 @@ namespace BasisNetworkServer.Storage
             {
                 NetworkServer.ReturnWriter(writer);
             }
+        }
+        private static void Apply(BasisStorageService target, Configuration configuration)
+        {
+            target.Configure(BytesPerPlayerOf(configuration), TotalBytesOf(configuration));
+            target.ConfigureNewOwners(configuration.StorageNewOwnersPerAddress, TimeSpan.FromMinutes(Math.Max(0, configuration.StorageNewOwnerWindowMinutes)), configuration.StorageNewOwnersPerHour);
+            target.ConfigureExpiry(configuration.StorageExpiryDays);
         }
         private static int BytesPerPlayerOf(Configuration configuration) => configuration.StorageMaxBytesPerPlayer > 0 ? Math.Min(configuration.StorageMaxBytesPerPlayer, BasisStorageProtocol.MaxBytesPerPlayer) : BasisStorageProtocol.DefaultBytesPerPlayer;
         private static long TotalBytesOf(Configuration configuration) => (configuration.StorageMaxTotalMegabytes > 0 ? configuration.StorageMaxTotalMegabytes : DefaultMaxTotalMegabytes) * 1024L * 1024L;

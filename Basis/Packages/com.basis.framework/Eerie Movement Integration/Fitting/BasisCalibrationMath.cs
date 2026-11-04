@@ -26,24 +26,14 @@ public static class BasisCalibrationMath
     }
     public static void ReprojectInverseOffsetPosition( Vector3 calibUnscaledTrackerPos, Quaternion calibUnscaledTrackerRot, Vector3 calibUnscaledHeadPos, Quaternion calibUnscaledHeadRot, float deviceScale, Vector3 offsetPos, Quaternion offsetRot, Vector3 headTposeLocalScaled, Vector3 boneTposeLocalScaled, out Vector3 inverseOffsetPosition)
     {
-        ReprojectInverseOffsetPosition(calibUnscaledTrackerPos, calibUnscaledTrackerRot, calibUnscaledHeadPos, calibUnscaledHeadRot, deviceScale, offsetPos, offsetRot, headTposeLocalScaled, boneTposeLocalScaled, false, 0f, out inverseOffsetPosition);
-    }
-    public static void ReprojectInverseOffsetPosition( Vector3 calibUnscaledTrackerPos, Quaternion calibUnscaledTrackerRot, Vector3 calibUnscaledHeadPos, Quaternion calibUnscaledHeadRot, float deviceScale, Vector3 offsetPos, Quaternion offsetRot, Vector3 headTposeLocalScaled, Vector3 boneTposeLocalScaled, bool floorAnchored, float floorY, out Vector3 inverseOffsetPosition)
-    {
         ScaleDeviceCoord(calibUnscaledTrackerPos, calibUnscaledTrackerRot, deviceScale, offsetPos, offsetRot, out Vector3 trackerPos, out Quaternion trackerRot);
         ScaleDeviceCoord(calibUnscaledHeadPos, calibUnscaledHeadRot, deviceScale, offsetPos, offsetRot, out Vector3 headPos, out Quaternion headRot);
 
         ComputeTposeAnchor(headPos, headRot, headTposeLocalScaled, out Vector3 rootPos, out Quaternion rootRot);
 
         Vector3 reference = rootPos + rootRot * boneTposeLocalScaled;
-        if (floorAnchored)
-        {
-            reference.y = floorY;
-        }
         ComputeInverseOffset(trackerPos, trackerRot, reference, Quaternion.identity, out inverseOffsetPosition, out _);
     }
-    public static bool IsFloorAnchoredRole(Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole role) => role == Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole.LeftFoot || role == Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole.RightFoot || role == Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole.LeftToes || role == Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole.RightToes;
-    public static float FloorAnchorY(float verticalOffset, float deviceScale, Vector3 offsetPos, Quaternion offsetRot) => (offsetPos + offsetRot * new Vector3(0f, verticalOffset * deviceScale, 0f)).y;
     public static void ComputeTposeAnchor(Vector3 headPos, Quaternion headRot, Vector3 headTposeLocalScaled, out Vector3 anchorPos, out Quaternion anchorRot)
     {
         Vector3 flatFwd = headRot * Vector3.forward;
@@ -86,29 +76,23 @@ public static class BasisCalibrationMath
         float offset = (avatarUnscaledEye * appliedUpScale) / deviceScale - playerTrueEye;
         return float.IsNaN(offset) || float.IsInfinity(offset) || Mathf.Abs(offset) < 1e-5f ? 0f : offset;
     }
-    public const float ArmToHeightBlendMin = 0f;
-    public const float ArmToHeightBlendMax = 1f;
-    public static float BlendEyeSpanMetric(float eyeMetric, float spanMetric, float blend)
+    // Arm ratio: half the hand-to-hand span / eye height. 0.45 = 45% on the slider.
+    public const float DefaultArmRatio = 0.45f;
+    public const float ArmRatioMin = 0.35f;
+    public const float ArmRatioMax = 0.55f;
+    public static float SpanFromArmRatio(float eyeHeight, float armRatio)
     {
-        return Mathf.Lerp(eyeMetric, spanMetric, Mathf.Clamp(blend, ArmToHeightBlendMin, ArmToHeightBlendMax));
+        float ratio = float.IsNaN(armRatio) || float.IsInfinity(armRatio) ? DefaultArmRatio : Mathf.Clamp(armRatio, ArmRatioMin, ArmRatioMax);
+        return eyeHeight * 2f * ratio;
     }
     public const float EyeToHeightRatio = 0.93f;
+    // Hand-target-to-hand-target span as a fraction of standing height. Higher than anatomical
+    // wrist-to-wrist (~0.78) because the tracked hand point sits a few cm past the wrist toward the
+    // palm, and real reach adds shoulder movement. Confirmed in-headset: estimating span from height
+    // with this value (eye height x ~0.92) puts the avatar's reach just short of the player's.
     public const float SpanToHeightRatio = 0.86f;
-    public const float AutoModeEyePreferenceBand = 1.08f;
     public static float ImpliedHeightFromEye(float playerEye) => playerEye / EyeToHeightRatio;
     public static float ImpliedHeightFromSpan(float playerSpan) => playerSpan / SpanToHeightRatio;
-    public static bool AutoHeightModePicksArmSpan(float playerEye, float playerSpan)
-    {
-        if (playerEye <= 0f)
-        {
-            return playerSpan > 0f;
-        }
-        if (playerSpan <= 0f)
-        {
-            return false;
-        }
-        return ImpliedHeightFromSpan(playerSpan) > ImpliedHeightFromEye(playerEye) * AutoModeEyePreferenceBand;
-    }
     public static bool ShouldRecaptureEyeHeight(bool recapture, bool hasGenuine)
     {
         return recapture || !hasGenuine;
@@ -155,15 +139,16 @@ public static class BasisCalibrationMath
         }
         return ImpliedHeightFromEye(playerEye) > ImpliedHeightFromSpan(playerSpan) * EyeOverSpanPersistBand;
     }
+
     public static float SizingEyeHeight(float measuredEye, float span, bool spanGenuine, float statedEye)
     {
-        if (!EyeHeightLooksLiftPoisoned(measuredEye))
-        {
-            return measuredEye;
-        }
         if (statedEye > 0f)
         {
             return statedEye;
+        }
+        if (!EyeHeightLooksLiftPoisoned(measuredEye))
+        {
+            return measuredEye;
         }
         return spanGenuine && ArmSpanLooksUnderMeasured(measuredEye, span) ? Mathf.Max(ImpliedHeightFromSpan(span) * EyeToHeightRatio, BasisHeightDriver.MinPlausibleBodyMeasure) : measuredEye;
     }

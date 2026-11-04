@@ -1,11 +1,13 @@
 using Basis.Network.Core;
 using BasisNetworkServer.BasisNetworking;
+using BasisNetworkServer.Security;
 using static SerializableBasis;
 
 namespace BasisNetworkServer
 {
     public static class BasisServerEventsRouter
     {
+        private static readonly BasisPeerRateLimiter ShutterLimiter = new BasisPeerRateLimiter(() => NetworkServer.Configuration?.CameraEventsPerSecondPerPlayer ?? 5f, () => NetworkServer.Configuration?.CameraEventBurstPerPlayer ?? 15f), CountdownLimiter = new BasisPeerRateLimiter(() => NetworkServer.Configuration?.CameraEventsPerSecondPerPlayer ?? 5f, () => NetworkServer.Configuration?.CameraEventBurstPerPlayer ?? 15f), RateChangeLimiter = new BasisPeerRateLimiter(() => NetworkServer.Configuration?.StateChangesPerSecondPerPlayer ?? 10f, () => NetworkServer.Configuration?.StateChangeBurstPerPlayer ?? 30f), TalkModeLimiter = new BasisPeerRateLimiter(() => NetworkServer.Configuration?.StateChangesPerSecondPerPlayer ?? 10f, () => NetworkServer.Configuration?.StateChangeBurstPerPlayer ?? 30f), MuteLimiter = new BasisPeerRateLimiter(() => NetworkServer.Configuration?.StateChangesPerSecondPerPlayer ?? 10f, () => NetworkServer.Configuration?.StateChangeBurstPerPlayer ?? 30f);
         public static void HandleEvent(NetPacketReader reader, NetPeer peer)
         {
             byte eventType = reader.GetByte();
@@ -13,12 +15,13 @@ namespace BasisNetworkServer
             switch (eventType)
             {
                 case BasisNetworkCommons.EventType_CameraShutterSound:
-                    HandleCameraShutterSound(peer, eventType);
+                    if (ShutterLimiter.TryConsume(peer)) HandleCameraShutterSound(peer, eventType);
                     reader.Recycle();
                     break;
 
                 case BasisNetworkCommons.EventType_CameraCountdown:
-                    HandleCameraCountdown(reader, peer, eventType);
+                    if (CountdownLimiter.TryConsume(peer)) HandleCameraCountdown(reader, peer, eventType);
+                    else reader.Recycle();
                     break;
 
                 case BasisNetworkCommons.EventType_PlayerTempBlock:
@@ -26,18 +29,21 @@ namespace BasisNetworkServer
                     break;
 
                 case BasisNetworkCommons.EventType_AvatarRateChange:
-                    HandleAvatarRateChange(reader, peer, eventType);
+                    if (RateChangeLimiter.TryConsume(peer)) HandleAvatarRateChange(reader, peer, eventType);
+                    else reader.Recycle();
                     break;
 
                 case BasisNetworkCommons.EventType_PlayerChatTyping:
                     BasisNetworkHandleChatTyping.HandleEvent(reader, peer, eventType);
                     break;
                 case BasisNetworkCommons.EventType_TalkModeChanged:
-                    HandleTalkModeChanged(reader, peer, eventType);
+                    if (TalkModeLimiter.TryConsume(peer)) HandleTalkModeChanged(reader, peer, eventType);
+                    else reader.Recycle();
                     break;
 
                 case BasisNetworkCommons.EventType_MuteStateChanged:
-                    HandleMuteStateChanged(reader, peer, eventType);
+                    if (MuteLimiter.TryConsume(peer)) HandleMuteStateChanged(reader, peer, eventType);
+                    else reader.Recycle();
                     break;
 
                 case BasisNetworkCommons.EventType_ErrorReport:
@@ -54,7 +60,7 @@ namespace BasisNetworkServer
                     break;
 
                 default:
-                    BNL.LogError($"Unknown EventsChannel event type: {eventType}");
+                    BNLThrottle.LogError("events.57", $"Unknown EventsChannel event type: {eventType}");
                     reader.Recycle();
                     break;
             }

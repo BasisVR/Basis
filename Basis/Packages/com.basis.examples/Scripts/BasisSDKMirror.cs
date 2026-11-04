@@ -1254,6 +1254,9 @@ public partial class BasisSDKMirror : MonoBehaviour
         newCamera.depth = 2;
         newCamera.allowHDR = false;
         newCamera.allowMSAA = true;
+#if !UNITY_ANDROID && !UNITY_IOS && !UNITY_WEBGL
+        newCamera.opaqueSortMode = UnityEngine.Rendering.OpaqueSortMode.NoDistanceSort;
+#endif
         updateCameraClearFlags(newCamera, sourceCamera);
 
         cameraData = newCamera.GetUniversalAdditionalCameraData();

@@ -215,6 +215,7 @@ namespace Basis.Scripts.BasisSdk.Players
         /// Network Face Driver that provides eye and blink support
         /// </summary>
         public BasisRemoteFaceDriver RemoteFaceDriver = new BasisRemoteFaceDriver();
+        [NonSerialized] public BasisIdleExpressionDriver IdleExpressionDriver = new BasisIdleExpressionDriver();
         #endregion
 
         #region UI / Name Plate
@@ -943,6 +944,7 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 RemoteFaceDriver.OnDestroy();
             }
+            IdleExpressionDriver?.Clear();
 
             // Nothing dropped this before, so every disconnect leaked whatever the grid held —
             // a 207 KB Persistent NativeArray per player back when each one allocated its own.

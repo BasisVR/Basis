@@ -241,11 +241,29 @@ namespace Basis.Scripts.Networking
                 return false;
             }
 
-            // Match by reference: a player is the same object on both sides. The remote
-            // player is a plain managed object, so the old GetEntityId() identity check
-            // (a UnityEngine.Object method) no longer applies.
-            foreach (var nPlayer in Players.Values)
+            // Direct lookups first: a remote player carries its receiver (and so its id), and the
+            // local player has a static handle. Both are verified by reference, so the scan below
+            // only runs for a player that is not (or no longer) registered.
+            if (basisPlayer is BasisRemotePlayer remote && remote.NetworkReceiver != null
+                && Players.TryGetValue(remote.NetworkReceiver.playerId, out BasisNetworkPlayer byId)
+                && byId != null && ReferenceEquals(byId.Player, basisPlayer))
             {
+                networkedPlayer = byId;
+                return true;
+            }
+            BasisNetworkPlayer local = BasisNetworkPlayer.LocalPlayer;
+            if (local != null && ReferenceEquals(local.Player, basisPlayer)
+                && Players.TryGetValue(local.playerId, out BasisNetworkPlayer registered) && ReferenceEquals(registered, local))
+            {
+                networkedPlayer = local;
+                return true;
+            }
+
+            // Match by reference: a player is the same object on both sides. Enumerates the
+            // dictionary directly — .Values takes every bucket lock and copies into a new list.
+            foreach (KeyValuePair<ushort, BasisNetworkPlayer> entry in Players)
+            {
+                BasisNetworkPlayer nPlayer = entry.Value;
                 if (nPlayer?.Player == null) continue;
                 if (ReferenceEquals(nPlayer.Player, basisPlayer))
                 {

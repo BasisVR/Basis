@@ -5,7 +5,7 @@ namespace Basis.Tests.Calibration
     public class BasisSwapHipHeightTests
     {
         float eye, span, hip, drop;
-        bool eyeGenuine, spanGenuine, hipGenuine;
+        bool eyeGenuine, hipGenuine;
         [SetUp]
         public void Save()
         {
@@ -14,7 +14,6 @@ namespace Basis.Tests.Calibration
             hip = BasisHeightDriver.PlayerHipHeight;
             drop = BasisHeightDriver.PlayerEyeToHipDrop;
             eyeGenuine = BasisHeightDriver.HasGenuinePlayerEyeHeight;
-            spanGenuine = BasisHeightDriver.HasGenuinePlayerArmSpan;
             hipGenuine = BasisHeightDriver.HasGenuinePlayerHipHeight;
         }
         [TearDown]
@@ -25,7 +24,6 @@ namespace Basis.Tests.Calibration
             BasisHeightDriver.PlayerHipHeight = hip;
             BasisHeightDriver.PlayerEyeToHipDrop = drop;
             BasisHeightDriver.HasGenuinePlayerEyeHeight = eyeGenuine;
-            BasisHeightDriver.HasGenuinePlayerArmSpan = spanGenuine;
             BasisHeightDriver.HasGenuinePlayerHipHeight = hipGenuine;
         }
         [Test]
@@ -36,7 +34,6 @@ namespace Basis.Tests.Calibration
             BasisHeightDriver.PlayerHipHeight = 0.95f;
             BasisHeightDriver.PlayerEyeToHipDrop = 0.65f;
             BasisHeightDriver.HasGenuinePlayerEyeHeight = true;
-            BasisHeightDriver.HasGenuinePlayerArmSpan = true;
             BasisHeightDriver.HasGenuinePlayerHipHeight = true;
 
             Assert.DoesNotThrow(() => BasisHeightDriver.CapturePlayerHeight(recaptureEyeHeight: false));

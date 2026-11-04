@@ -17,8 +17,7 @@ namespace Basis.IK
     }
     public struct BasisLegSlotState
     {
-        public BasisSwivelFilterState Swivel;
-        public bool SwivelSeeded;
+        public Vector3 KneeDir, PoleDir, ConstrainedHintPosition;
     }
     public struct BasisChestSpringState
     {

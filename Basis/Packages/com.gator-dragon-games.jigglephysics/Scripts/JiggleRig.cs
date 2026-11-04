@@ -18,6 +18,14 @@ public class JiggleRig : MonoBehaviour, IJiggleParameterProvider {
 
     public JiggleRigData GetJiggleRigData() => jiggleRigData;
 
+    /// <summary>Assigns runtime-created rig data before the component is enabled.</summary>
+    public void Configure(JiggleRigData data) {
+        bool restart = isActiveAndEnabled && addedToJiggleTreeSegments;
+        if (restart) OnRemove();
+        jiggleRigData = data;
+        if (restart) OnInitialize();
+    }
+
     public JiggleTree GetJiggleTree() => segment?.jiggleTree;
 
     public bool GetLockedFromGrabbing() => jiggleRigData.lockFromGrabbing;

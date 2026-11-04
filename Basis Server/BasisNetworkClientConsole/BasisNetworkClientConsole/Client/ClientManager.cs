@@ -118,12 +118,12 @@ namespace Basis.Network
             BNL.Log($"Loaded {_avatarPool.Length} avatar(s) from keystore for random assignment.");
         }
 
-        private (byte[] bytes, byte loadMode) PickAvatar()
+        private (byte[] bytes, byte loadMode) PickAvatar(int clientIndex)
         {
             var pool = _avatarPool;
             if (pool != null && pool.Length > 0)
             {
-                return pool[Random.Shared.Next(pool.Length)];
+                return pool[(int)((uint)clientIndex % (uint)pool.Length)];
             }
 
             return (_cachedAvatarBytes, (byte)ConfigManager.AvatarLoadMode);
@@ -135,7 +135,7 @@ namespace Basis.Network
             {
                 var name = NameGenerator.GenerateRandomPlayerName();
                 var identity = new ConsoleClientIdentity();
-                var (avatarBytes, avatarLoadMode) = PickAvatar();
+                var (avatarBytes, avatarLoadMode) = PickAvatar(Index);
 
                 BodyFitForClient(Index, out float armScale, out float legScale, out float torsoScale);
 
@@ -207,7 +207,7 @@ namespace Basis.Network
 
             var name = NameGenerator.GenerateRandomPlayerName();
             var identity = new ConsoleClientIdentity();
-            var (avatarBytes, avatarLoadMode) = PickAvatar();
+            var (avatarBytes, avatarLoadMode) = PickAvatar(index);
 
             BodyFitForClient(index, out float armScale, out float legScale, out float torsoScale);
 

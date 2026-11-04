@@ -290,6 +290,13 @@
     {
       "key": "menu.servers.portInvalid",
       "value": "端口必须在 1-65535 之间"
-    }
+    },
+    { "key": "menu.servers.list.portal", "value": "放置传送门" },
+    { "key": "menu.servers.list.portalLifetime", "value": "传送门持续时间" },
+    { "key": "menu.servers.list.portalLifetime.timed", "value": "60 秒" },
+    { "key": "menu.servers.list.portalLifetime.persistent", "value": "永久" },
+    { "key": "menu.servers.list.portalStyle", "value": "传送门样式" },
+    { "key": "menu.servers.list.portalStyle.orb", "value": "球体" },
+    { "key": "menu.servers.list.portalStyle.rift", "value": "次元裂隙" }
   ]
 }

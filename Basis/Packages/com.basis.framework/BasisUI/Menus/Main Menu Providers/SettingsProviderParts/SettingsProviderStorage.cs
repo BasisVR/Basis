@@ -50,7 +50,9 @@ public static class SettingsProviderStorage
 
         // Cache size limit slider (lightweight, no file I/O) plus the on-demand
         // storage-data loader, all under the one collapsible Cache section.
-        PanelSectionToggleHelpers.CreateCollapsibleFlatSection(container,
+        PanelSectionToggle cacheSection = null;
+        List<PanelElementDescriptor> storageRows = new List<PanelElementDescriptor>();
+        cacheSection = PanelSectionToggleHelpers.CreateCollapsibleFlatSection(container,
             BasisLocalization.Get("settings.storage.cache.title"), () =>
         {
             PanelSlider cacheSizeSlider = PanelSlider.CreateEntryAndBind(
@@ -65,13 +67,30 @@ public static class SettingsProviderStorage
             loadDataButton.Descriptor.SetTooltip(BasisLocalization.Get("settings.storage.loadButton.tooltip"));
             loadDataButton.OnClicked += () =>
             {
-                // Remove the load button itself
-                Object.Destroy(loadDataButton.gameObject);
+                int insertAt = loadDataButton.transform.GetSiblingIndex() + 1;
 
-                PopulateStorageData(container);
-                descriptor.ForceRebuild();
+                // Remove the load button itself
+                cacheSection.UnregisterContentContainer(loadDataButton);
+                loadDataButton.ReleaseInstance();
+
+                PopulateStorageData(container, insertAt, storageRows);
+                for (int i = 0; i < storageRows.Count; i++)
+                {
+                    cacheSection.RegisterContentContainer(storageRows[i]);
+                }
+                PanelSectionToggleHelpers.RebuildSectionLayout(cacheSection, container);
             };
-        }, false, _ => descriptor.ForceRebuild());
+        }, false, visible =>
+        {
+            for (int i = 0; i < storageRows.Count; i++)
+            {
+                if (storageRows[i] != null)
+                {
+                    storageRows[i].SetActive(visible);
+                }
+            }
+            PanelSectionToggleHelpers.RebuildSectionLayout(cacheSection, container);
+        });
 
         SettingsProviderTrustedUrls.Populate(container, TabKey, descriptor);
 
@@ -118,7 +137,7 @@ public static class SettingsProviderStorage
         return BasisPanelSeverity.Calm;
     }
 
-    private static void PopulateStorageData(RectTransform container)
+    private static void PopulateStorageData(RectTransform container, int insertAt, List<PanelElementDescriptor> rows)
     {
         long totalBytes = BasisStorageManagement.GetTotalCacheSizeBytes();
         string sizeText = BasisStorageManagement.FormatBytes(totalBytes);
@@ -126,9 +145,16 @@ public static class SettingsProviderStorage
 
         List<BasisStorageManagement.StoredBeeFileInfo> storedFiles = BasisStorageManagement.GetAllStoredFiles();
 
+        void Place(PanelElementDescriptor row)
+        {
+            row.transform.SetSiblingIndex(insertAt++);
+            rows.Add(row);
+        }
+
         // Cache size info group
         PanelElementDescriptor infoGroup =
             PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+        Place(infoGroup);
         infoGroup.SetTitle(BasisLocalization.Get("settings.storage.cacheInfo"));
 
         PanelPasswordField cacheInfoField = PanelPasswordField.CreateNew(infoGroup.ContentParent);
@@ -143,6 +169,7 @@ public static class SettingsProviderStorage
 
         // Clear all cache button
         PanelButton clearAllButton = PanelButton.CreateNew(container);
+        Place(clearAllButton.Descriptor);
         clearAllButton.Descriptor.SetTitle(BasisLocalization.Get("settings.storage.clearAll"));
         clearAllButton.Descriptor.SetTooltip(BasisLocalization.Get("settings.storage.clearAll.tooltip"));
         clearAllButton.OnClicked += () =>
@@ -166,6 +193,7 @@ public static class SettingsProviderStorage
         {
             PanelElementDescriptor filesGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            Place(filesGroup);
             filesGroup.SetTitle(BasisLocalization.Get("settings.storage.storedBeeFiles"));
 
             foreach (var file in storedFiles)

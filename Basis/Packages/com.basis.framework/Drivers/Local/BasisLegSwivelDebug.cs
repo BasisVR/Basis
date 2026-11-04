@@ -140,15 +140,6 @@ namespace Basis.Scripts.Drivers
             var sb = new StringBuilder();
             bool said = false;
 
-            if (_l.MaxBendVsAnt > 90f || _r.MaxBendVsAnt > 90f)
-            {
-                sb.Append($"[verdict] BEND NORMAL DIVERGED past 90 deg (L {_l.MaxBendVsAnt:F0}, R {_r.MaxBendVsAnt:F0}). ")
-                  .Append("Past 90 the near-colinear pole ease is handed a near-anti-parallel slerp and the knee gain ")
-                  .Append("goes to hundreds. Confirm by turning FBIKTrackerBendNormal OFF -- both legs then use ")
-                  .Append("body-frame hips-right and this cannot happen.\n");
-                said = true;
-            }
-
             float rawGap = Mathf.Abs(_l.MaxAbsRaw - _r.MaxAbsRaw);
             if (rawGap > 45f)
             {

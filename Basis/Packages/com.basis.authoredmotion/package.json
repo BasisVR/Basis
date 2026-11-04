@@ -1,0 +1,11 @@
+{
+  "name": "com.basis.authoredmotion",
+  "displayName": "Basis Authored Motion",
+  "version": "0.0.1",
+  "description": "Burst job system that animates BasisAuthoredMotion components (creator-authored procedural movement: oscillations, spins, chains) on avatars and props. Split out of com.basis.framework: it depends only on the SDK and Unity math/collections, so the framework references it and never the other way round.",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
+  "license": "MIT"
+}

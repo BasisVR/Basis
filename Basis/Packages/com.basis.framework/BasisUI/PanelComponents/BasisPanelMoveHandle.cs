@@ -358,6 +358,23 @@ namespace Basis.BasisUI
             handle.RefreshResetAvailability();
         }
 
+        public static void RefreshDefaultPosition(BasisMenuPanel panel)
+        {
+            if (panel == null)
+            {
+                return;
+            }
+
+            BasisPanelMoveHandle handle = panel.GetComponentInChildren<BasisPanelMoveHandle>(true);
+            if (handle == null || handle._panel != panel)
+            {
+                return;
+            }
+
+            handle._defaultLocalPosition = panel.Data.PanelPosition;
+            handle.ApplyStoredOffset();
+        }
+
         private string _panelResetLabel;
         private string _panelResetQuestion;
         private Action _panelReset;

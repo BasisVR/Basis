@@ -75,6 +75,8 @@ public static class SettingsProviderControllerConfig
             }
         });
 
+        BuildMovementSection(container);
+
         if (isVR)
         {
             BuildTurningSection(container);
@@ -157,6 +159,36 @@ public static class SettingsProviderControllerConfig
 
         descriptor.ForceRebuild();
         return tab;
+    }
+    private static void BuildMovementSection(RectTransform container)
+    {
+        SettingsProviderKeyboardBindings.CreateCollapsibleSection(
+            container, BasisLocalization.Get("settings.controls.movement.title"), BasisLocalization.Get("settings.controls.movement.description"), group =>
+        {
+            PanelDropdown dropdownSettle = PanelDropdown.CreateNewEntry(group);
+            dropdownSettle.Descriptor.SetTitle(BasisLocalization.Get("settings.controls.movementSettle"));
+            dropdownSettle.Descriptor.SetTooltip(BasisLocalization.Get("settings.controls.movementSettle.tooltip"));
+            dropdownSettle.AssignLocalizedEntries(
+                new List<string>
+                {
+                    BasisSettingsDefaults.MovementSettle_DesktopOnly,
+                    BasisSettingsDefaults.MovementSettle_Always,
+                    BasisSettingsDefaults.MovementSettle_Off,
+                },
+                new List<string>
+                {
+                    "settings.controls.movementSettle.desktopOnly",
+                    "settings.controls.movementSettle.always",
+                    "settings.controls.movementSettle.off",
+                });
+            dropdownSettle.AssignBinding(BasisSettingsDefaults.MovementSettle);
+
+            PanelSlider sliderSettleTime = PanelSlider.CreateEntryAndBind(
+                group,
+                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.controls.movementSettleTime"), 0.1f, 1f, false, 2, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.MovementSettleTime);
+            sliderSettleTime.Descriptor.SetTooltip(BasisLocalization.Get("settings.controls.movementSettleTime.tooltip"));
+        });
     }
     /// <summary>
     /// Snap turn on/off, then only the one slider that applies: the snap angle, or the smooth
@@ -446,6 +478,8 @@ public static class SettingsProviderControllerConfig
     }
     private static void ResetControlsDefaults()
     {
+        BasisSettingsDefaults.MovementSettle.ResetToDefault();
+        BasisSettingsDefaults.MovementSettleTime.ResetToDefault();
         BasisSettingsDefaults.ForceGridSnap.ResetToDefault();
         BasisSettingsDefaults.GridSnapSize.ResetToDefault();
         BasisSettingsDefaults.ForceRotationSnap.ResetToDefault();
@@ -554,6 +588,10 @@ public static class SettingsProviderControllerConfig
         actionDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.controls.action"));
         actionDropdown.Descriptor.SetTooltip(BasisLocalization.Get("settings.controls.action.tooltip"));
         actionDropdown.AssignLocalizedEntries(actionNames, actionKeys);
+        if (actionNames.Count > 0)
+        {
+            actionDropdown.SetValueWithoutNotify(actionNames[0]);
+        }
 
         var rolesGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
         rolesGroup.SetTitle(BasisLocalization.Get("settings.controls.roles"));
@@ -562,9 +600,37 @@ public static class SettingsProviderControllerConfig
 
         bool updatingUI = false;
         ActionId currentAction = actions.Length > 0 ? actions[0] : ActionId.Count;
-        string editMode = currentMode;
+        string editMode = null;
+        string wantedMode = currentMode;
+        int modeReads = 0;
         // Bindings of the selected mode while it is not the live one; null means edit the driver.
         Dictionary<ActionId, HashSet<BasisBoneTrackedRole>> detached = null;
+
+        bool IsLive(string mode) => mode != null && string.Equals(mode, BasisActionDriver.BindingsMode, StringComparison.Ordinal);
+
+        bool IsGone() => rolesGroup == null || rolesGroup.IsReleased;
+
+        async void ShowMode(string mode)
+        {
+            int read = ++modeReads;
+            wantedMode = mode;
+            Dictionary<ActionId, HashSet<BasisBoneTrackedRole>> loaded = null;
+            if (!IsLive(mode))
+            {
+                loaded = await BasisActionDriver.ReadBindingsForMode(mode);
+                if (read != modeReads || IsGone())
+                {
+                    return;
+                }
+                if (IsLive(mode))
+                {
+                    loaded = null;
+                }
+            }
+            editMode = mode;
+            detached = loaded;
+            RefreshRoleToggles();
+        }
 
         void RefreshRoleToggles()
         {
@@ -585,6 +651,7 @@ public static class SettingsProviderControllerConfig
 
             PanelToggle t = PanelToggle.CreateNewEntry(rolesGroup.ContentParent);
             t.Descriptor.SetTitle(roleNames[i]);
+            t.ExcludeFromShare = true;
 
             t.OnValueChanged += async isOn =>
             {
@@ -593,8 +660,16 @@ public static class SettingsProviderControllerConfig
                     return;
                 }
 
-                if (detached == null)
+                string mode = editMode;
+                var map = detached;
+                if (map == null)
                 {
+                    if (!IsLive(mode))
+                    {
+                        ShowMode(wantedMode);
+                        return;
+                    }
+
                     if (isOn)
                     {
                         BasisActionDriver.Bind(currentAction, role);
@@ -608,10 +683,10 @@ public static class SettingsProviderControllerConfig
                     return;
                 }
 
-                if (!detached.TryGetValue(currentAction, out var set))
+                if (!map.TryGetValue(currentAction, out var set))
                 {
                     set = new HashSet<BasisBoneTrackedRole>();
-                    detached[currentAction] = set;
+                    map[currentAction] = set;
                 }
                 if (isOn)
                 {
@@ -622,39 +697,45 @@ public static class SettingsProviderControllerConfig
                     set.Remove(role);
                 }
 
-                await BasisActionDriver.WriteBindingsForMode(editMode, detached);
+                await BasisActionDriver.WriteBindingsForMode(mode, map);
             };
 
             roleToggles[i] = t;
         }
 
-        actionDropdown.DropdownComponent.onValueChanged.AddListener(index =>
+        actionDropdown.OnValueChanged += value =>
         {
-            currentAction = actions[Mathf.Clamp(index, 0, actions.Length - 1)];
-            RefreshRoleToggles();
-        });
-
-        modeDropdown.OnValueChanged += async mode =>
-        {
-            editMode = mode;
-            if (string.Equals(mode, BasisDeviceManagement.StaticCurrentMode, StringComparison.Ordinal))
-            {
-                detached = null;
-                RefreshRoleToggles();
-                return;
-            }
-
-            var loaded = await BasisActionDriver.ReadBindingsForMode(mode);
-            // A later pick may have finished first; only the newest selection is shown.
-            if (editMode != mode || roleToggles[0] == null)
+            int index = actionNames.IndexOf(value);
+            if (index < 0)
             {
                 return;
             }
-            detached = loaded;
+            currentAction = actions[index];
             RefreshRoleToggles();
         };
 
-        RefreshRoleToggles();
+        modeDropdown.OnValueChanged += ShowMode;
+
+        Action<string> rederive = null;
+        void Unsubscribe()
+        {
+            BasisDeviceManagement.OnBootModeChanged -= rederive;
+            BasisActionDriver.OnBindingsLoaded -= rederive;
+        }
+        rederive = _ =>
+        {
+            if (IsGone())
+            {
+                Unsubscribe();
+                return;
+            }
+            ShowMode(wantedMode);
+        };
+        BasisDeviceManagement.OnBootModeChanged += rederive;
+        BasisActionDriver.OnBindingsLoaded += rederive;
+        rolesGroup.OnInstanceReleased += Unsubscribe;
+
+        ShowMode(currentMode);
     }
     public static string BodyRoleLabel(BasisBoneTrackedRole role) => BasisLocalization.Get("ui.bodyRole." + LowerFirst(role.ToString()));
     private static string LowerFirst(string value) => string.IsNullOrEmpty(value) ? value : char.ToLowerInvariant(value[0]) + value.Substring(1);

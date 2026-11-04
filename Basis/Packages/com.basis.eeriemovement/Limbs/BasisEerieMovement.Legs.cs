@@ -28,6 +28,22 @@ namespace Basis.IK
 
             return BasisSwivelHintCore.BuildFrame( poseStream.GetPosition(handleLeftUpperLeg), poseStream.GetPosition(handleRightUpperLeg), poseStream.GetPosition(handleHips), poseStream.GetPosition(plan.legFrameTo));
         }
+        // Hips facing used to place our own knee hint. Falls back to the hips bone rotation if the leg frame can't be built.
+        BasisSwivelFrame BuildLegBodyFrame()
+        {
+            BasisSwivelFrame f = BuildLegFrame();
+            if (f.Valid || !plan.hasHips)
+            {
+                return f;
+            }
+
+            Quaternion hipsRot = poseStream.GetRotation(handleHips) * Quaternion.Inverse(offsetRotationHips);
+            f.Up = hipsRot * Vector3.up;
+            f.Right = hipsRot * Vector3.right;
+            f.Forward = hipsRot * Vector3.forward;
+            f.Valid = true;
+            return f;
+        }
         public void SolveLeg(int legSlot)
         {
             bool isLeft = legSlot == 0;
@@ -43,10 +59,9 @@ namespace Basis.IK
             BasisBoneHandle tip = isLeft ? handleLeftFoot : handleRightFoot;
             Vector3 hint = isLeft ? hintPositionLeftLowerLeg : hintPositionRightLowerLeg;
             Quaternion hintRot = isLeft ? hintRotationLeftLowerLeg : hintRotationRightLowerLeg;
-            float hintW = leg.hintWeight;
             Quaternion targetOffset = isLeft ? offsetRotationLeftFoot : offsetRotationRightFoot;
             Vector3 bendNormal = isLeft ? kneeBendPrefLeft : kneeBendPrefRight;
-            bool hintIsTracker = leg.kneeTracked, footIsTracker = leg.tracked;
+            bool hintIsTracker = leg.kneeTracked;
             Quaternion origRootRot = poseStream.GetRotation(root), origMidRot = poseStream.GetRotation(mid);
             Quaternion origTipRot = poseStream.GetRotation(tip);
             ResetToRest(root, mid, tip);
@@ -54,20 +69,10 @@ namespace Basis.IK
             bool preserveTip = leg.preserveTip;
             if (preserveTip) tRot = origTipRot;
 
-            Vector3 targetPos = isLeft ? targetPositionLeftLowerLeg : targetPositionRightLowerLeg, modelHint = default;
-            float hintDistrust = 0f, conf = 0f;
-            bool usedModelHint = leg.modelHint && BasisLegHintCore.Solve(BuildLegFrame(), poseStream.GetPosition(root), poseStream.GetPosition(mid), poseStream.GetPosition(tip), targetPos, isLeft, out modelHint, out conf, out hintDistrust);
-            if (usedModelHint)
-            {
-                hint = modelHint;
-                hintW = 1f;
-                if (plan.hasLegDiagnostics)
-                {
-                    ref BasisLegDiagnostics d = ref Ref(legDiagnostics, legSlot);
-                    d.ModelHintUsed = 1f;
-                    d.ModelConfidence = conf;
-                }
-            }
+            Vector3 targetPos = isLeft ? targetPositionLeftLowerLeg : targetPositionRightLowerLeg;
+
+            // If no knee tracker, then we build our own knee hint from the hips frame
+            BasisSwivelFrame bodyFrame = hintIsTracker ? default : BuildLegBodyFrame();
 
             BasisLegSolveInput input = default;
             poseStream.GetPositionAndRotation(root, out Vector3 rootPos, out Quaternion rootRot);
@@ -80,14 +85,17 @@ namespace Basis.IK
             input.TargetPosition = targetPos;
             input.TargetRotation = tRot;
             input.HintPosition = hint;
-            input.HintWeight = hintW;
-            input.HintDistrust = hintDistrust;
+            input.HintWeight = hintIsTracker ? 1f : 0f;
             input.TargetOffset = targetOffset;
             input.BendNormal = bendNormal;
             input.AnteriorNormal = kneeAnteriorRef;
             input.HintRotation = hintRot;
             input.HasHintRotation = leg.hintRoll;
             input.HintIsTracker = hintIsTracker;
+            input.HasBodyFrame = bodyFrame.Valid;
+            input.HipsForward = bodyFrame.Forward;
+            input.FootForward = (isLeft ? targetRotationLeftLowerLeg : targetRotationRightLowerLeg) * Vector3.forward; // Foot target's control rotation, before any preserveTip swap
+            input.Up = playerUp;
 
             BasisLegSolveCore.Solve(input, out BasisLegSolveResult result);
 
@@ -98,7 +106,6 @@ namespace Basis.IK
                 d.KneeAngleDeg = result.KneeAngleDeg;
                 d.AxisSource = result.AxisSource;
                 d.HintApplied = result.HintApplied ? 1f : 0f;
-                d.HintDistrust = hintDistrust;
                 d.ShinRollDeg = result.ShinRollDeg;
             }
 
@@ -123,17 +130,16 @@ namespace Basis.IK
             }
 
             RecordHipDiagnostics(root, mid, legSlot);
-            if (leg.swivel)
+
+            // Store gizmo data, same as the arm state does.
+            if (plan.hasLegState)
             {
-                if (leg.swivelTracked)
-                {
-                    bool footDerivedPole = !hintIsTracker && footIsTracker && !usedModelHint;
-                    SmoothKneeSwivel(root, mid, tip, legSlot, trackedKneeSwivelMinCutoffHz, trackedKneeSwivelBeta, trackedKneeSwivelDerivCutoffHz, conditionOnPole: !hintIsTracker && (!footDerivedPole || kneeFootPoleConditioning), holdWhenSingular: !footDerivedPole || kneeFootPoleHold);
-                }
-                else
-                {
-                    SmoothKneeSwivel(root, mid, tip, legSlot, BasisSwivelFilterCore.MinCutoffHz, BasisSwivelFilterCore.Beta, BasisSwivelFilterCore.DerivCutoffHz, conditionOnPole: true, holdWhenSingular: true);
-                }
+                ref BasisLegSlotState state = ref Ref(legState, legSlot);
+                Vector3 hipPos = poseStream.GetPosition(root), axis = poseStream.GetPosition(tip) - hipPos, kneeDir = poseStream.GetPosition(mid) - hipPos;
+                if (axis.sqrMagnitude > sqrEpsilon) kneeDir = Vector3.ProjectOnPlane(kneeDir, axis.normalized);
+                state.KneeDir = kneeDir.sqrMagnitude > sqrEpsilon ? kneeDir.normalized : Vector3.zero;
+                state.PoleDir = result.PoleDir;
+                state.ConstrainedHintPosition = result.HintPosition;
             }
         }
         void RecordHipDiagnostics(BasisBoneHandle root, BasisBoneHandle mid, int slot)
@@ -156,59 +162,6 @@ namespace Basis.IK
             d.HipFlexionDeg = Mathf.Atan2(femurLocal.z, -femurLocal.y) * Mathf.Rad2Deg;
             d.HipAbductionDeg = Mathf.Atan2(femurLocal.x, -femurLocal.y) * Mathf.Rad2Deg;
             d.FemurTwistDeg = TwistDeg(hipsInv * poseStream.GetRotation(root), femurLocal);
-        }
-        void SmoothKneeSwivel(BasisBoneHandle root, BasisBoneHandle mid, BasisBoneHandle tip, int slot, float minCutoffHz, float beta, float derivCutoffHz, bool conditionOnPole, bool holdWhenSingular)
-        {
-            ref BasisLegSlotState leg = ref Ref(legState, slot);
-            BasisSwivelSmootherInput input = default;
-            input.Root = poseStream.GetPosition(root);
-            input.Mid = poseStream.GetPosition(mid);
-            input.Tip = poseStream.GetPosition(tip);
-            input.BodyRotation = poseStream.GetRotation(handleHips) * Quaternion.Inverse(offsetRotationHips);
-            input.ReferenceLocal = Vector3.forward;
-            input.FallbackLocal = Vector3.right;
-            input.TransportHomeLocal = Vector3.down;
-            input.Dt = poseStream.deltaTime;
-            input.MinCutoffHz = minCutoffHz;
-            input.Beta = beta;
-            input.DerivCutoffHz = derivCutoffHz;
-            input.ConditionOnPole = conditionOnPole;
-            input.SingularMinCutoffHz = BasisSwivelFilterCore.MinCutoffHz;
-            input.GuardAnteriorHalfSpace = true;
-            input.AnteriorSoftDeg = BasisLegSolveCore.KneeAnteriorSoftDeg;
-            input.AnteriorHardDeg = BasisLegSolveCore.KneeAnteriorHardDeg;
-            input.HoldWhenSingular = holdWhenSingular;
-            input.HoldCondLo = BasisSwivelSmootherCore.DefaultHoldCondLo;
-            input.HoldCondHi = BasisSwivelSmootherCore.DefaultHoldCondHi;
-            input.State = leg.Swivel;
-            input.Seeded = leg.SwivelSeeded;
-
-            BasisSwivelSmootherCore.Solve(input, out BasisSwivelSmootherResult result);
-            if (plan.hasLegDiagnostics)
-            {
-                ref BasisLegDiagnostics d = ref Ref(legDiagnostics, slot);
-                d.RawSwivelDeg = result.RawSwivelDeg;
-                d.SmoothSwivelDeg = result.SmoothSwivelDeg;
-                d.Conditioning = result.Conditioning;
-                d.HoldGate = result.HoldGate;
-                d.AnteriorGuardApplied = result.AnteriorGuardApplied ? 1f : 0f;
-                d.Seeded = result.Seeded ? 1f : 0f;
-            }
-            if (result.WriteState)
-            {
-                leg.Swivel = result.State;
-                leg.SwivelSeeded = true;
-            }
-            if (!result.Valid)
-            {
-                return;
-            }
-
-            Vector3 preFoot = input.Tip;
-            Quaternion preFootRot = poseStream.GetRotation(tip);
-            SwingElbowAroundAC(root, mid, tip, result.DesiredMid);
-            poseStream.SetPosition(tip, preFoot);
-            poseStream.SetRotation(tip, preFootRot);
         }
         public void ApplyToeSurfaceBend(BasisBoneHandle handle, float bendDeg, Vector3 axis)
         {

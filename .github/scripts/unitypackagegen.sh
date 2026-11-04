@@ -27,10 +27,13 @@ if [[ "$1" == "full" ]]; then
   # Need this for framework (But only framework)
   SUBFOLDERS+=":Packages/com.avionblock.opussharp:
               Packages/com.basis.addon.snapcontrols:
+              Packages/com.basis.authoredmotion:
               Packages/com.basis.camera:
               Packages/com.basis.common:
+              Packages/com.basis.constraints:
               Packages/com.basis.developer.exceptions:
               Packages/com.basis.developer.recorder:
+              Packages/com.basis.developer.streamingmeta:
               Packages/com.basis.eeriemovement:
               Packages/com.basis.eventdriver:
               Packages/com.basis.examples:
@@ -54,7 +57,6 @@ if [[ "$1" == "full" ]]; then
               Packages/com.basis.provider.servers:
               Packages/com.basis.rtao:
               Packages/com.basis.settings:
-              Packages/com.basis.setup:
               Packages/com.basis.shim:
               Packages/com.basis.soundpack:
               Packages/com.basis.textmeshpro:

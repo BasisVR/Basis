@@ -11,39 +11,20 @@ public partial class BasisProjectSetup : EditorWindow
     {
         if (!_hasWin.HasValue || !_hasLinux.HasValue || !_hasAndroid.HasValue ||
             !_hasMac.HasValue || !_hasIOS.HasValue ||
-            !_hasIl2cppStandalone.HasValue || !_hasIl2cppAndroid.HasValue)
+            !_hasCoreClrWin.HasValue || !_hasCoreClrLinux.HasValue || !_hasCoreClrMac.HasValue || !_hasIl2cppAndroid.HasValue)
             return false;
 
         if (_firstRunKind == FirstRunKind.Avatar || _firstRunKind == FirstRunKind.World)
         {
             return _hasWin == true && _hasLinux == true && _hasAndroid == true
-                && _hasIl2cppStandalone == true && _hasIl2cppAndroid == true;
+                && _hasCoreClrWin == true && _hasCoreClrLinux == true && _hasIl2cppAndroid == true;
         }
 
-        switch (_choice)
-        {
-            case PlatformChoice.Windows:
-            case PlatformChoice.Linux:
-                return (_hasWin == true || _hasLinux == true)
-                    ? _hasIl2cppStandalone == true
-                    : false;
-
-            case PlatformChoice.Android:
-                return _hasAndroid == true && _hasIl2cppAndroid == true;
-
-            case PlatformChoice.Mac:
-                return _hasMac == true && _hasIl2cppStandalone == true;
-
-            case PlatformChoice.IOS:
-                return _hasIOS == true;
-
-            default:
-                return false;
-        }
+        return PlatformModuleInstalled(_choice) == true && PlatformBackendInstalled(_choice) == true;
     }
 
-    // Apply platform + quality (+ optional IL2CPP enforce)
-    private void ApplyPlatformAndQuality(PlatformChoice choice, bool enforceIl2cpp)
+    // Apply platform + quality (+ optional scripting backend)
+    private void ApplyPlatformAndQuality(PlatformChoice choice, bool applyBackend)
     {
         BuildTargetGroup group;
         BuildTarget target;
@@ -90,28 +71,29 @@ public partial class BasisProjectSetup : EditorWindow
         }
 #endif
 
-        if (enforceIl2cpp)
+        if (applyBackend)
         {
-            if (!SupportsIl2cpp(group))
+            ScriptingImplementation desiredBackend = BasisSDKConstants.ScriptingBackendFor(target);
+            if (!BasisValidationAssetCache.ScriptingBackendInstalled(target))
             {
                 EditorUtility.DisplayDialog(
-                    Tr("projectSetup.platformQuality.il2cppNotAvailableTitle", "IL2CPP Not Available"),
-                    string.Format(Tr("projectSetup.platformQuality.il2cppNotAvailableBody",
-                        "IL2CPP scripting backend is not available for {0}. " +
-                        "Install the appropriate *Build Support (IL2CPP)* module via Unity Hub, some platforms won't have Il2cpp support."), group),
+                    string.Format(Tr("projectSetup.platformQuality.backendNotAvailableTitle", "{0} Not Available"), desiredBackend),
+                    string.Format(Tr("projectSetup.platformQuality.backendNotAvailableBody",
+                        "The {0} scripting backend is not installed for {1}. " +
+                        "Install *{2}* via Unity Hub, or untick the scripting backend option to switch platforms without changing it."), desiredBackend, PlatformDisplayName(choice), BuildSupportModuleName(choice)),
                     Tr("projectSetup.dialog.ok", "OK"));
                 return;
             }
 
             try
             {
-                SetScriptingBackendSafe(group, ScriptingImplementation.IL2CPP);
+                SetScriptingBackendSafe(group, desiredBackend);
             }
             catch (Exception ex)
             {
                 EditorUtility.DisplayDialog(
-                    Tr("projectSetup.platformQuality.failedIl2cppTitle", "Failed to Set IL2CPP"),
-                    string.Format(Tr("projectSetup.platformQuality.failedIl2cppBody", "Tried to set IL2CPP but Unity reported an error:\n{0}"), ex.Message),
+                    string.Format(Tr("projectSetup.platformQuality.failedBackendTitle", "Failed to Set {0}"), desiredBackend),
+                    string.Format(Tr("projectSetup.platformQuality.failedBackendBody", "Tried to set {0} but Unity reported an error:\n{1}"), desiredBackend, ex.Message),
                     Tr("projectSetup.dialog.ok", "OK"));
                 return;
             }
@@ -136,7 +118,7 @@ public partial class BasisProjectSetup : EditorWindow
         QualitySettings.SetQualityLevel(index, true);
     }
 
-    // Build module + IL2CPP checks
+    // Build module + scripting backend checks
     private void RecheckBuildModulesAndBackends()
     {
         _hasWin = BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.Standalone, BuildTarget.StandaloneWindows64);
@@ -145,8 +127,10 @@ public partial class BasisProjectSetup : EditorWindow
         _hasMac = BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.Standalone, BuildTarget.StandaloneOSX);
         _hasIOS = BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.iOS, BuildTarget.iOS);
 
-        _hasIl2cppStandalone = SupportsIl2cpp(BuildTargetGroup.Standalone);
-        _hasIl2cppAndroid = SupportsIl2cpp(BuildTargetGroup.Android);
+        _hasCoreClrWin = BasisValidationAssetCache.ScriptingBackendInstalled(BuildTarget.StandaloneWindows64);
+        _hasCoreClrLinux = BasisValidationAssetCache.ScriptingBackendInstalled(BuildTarget.StandaloneLinux64);
+        _hasCoreClrMac = BasisValidationAssetCache.ScriptingBackendInstalled(BuildTarget.StandaloneOSX);
+        _hasIl2cppAndroid = BasisValidationAssetCache.ScriptingBackendInstalled(BuildTarget.Android);
     }
 
     private void RecheckBuildModulesAndBackendsRow()
@@ -172,10 +156,11 @@ public partial class BasisProjectSetup : EditorWindow
         EditorGUILayout.EndHorizontal();
 
         EditorGUILayout.Space(2);
-        EditorGUILayout.LabelField(Tr("projectSetup.buildModules.il2cppAvailability", "IL2CPP Availability:"), EditorStyles.miniBoldLabel);
+        EditorGUILayout.LabelField(Tr("projectSetup.buildModules.backendAvailability", "Scripting Backends:"), EditorStyles.miniBoldLabel);
         EditorGUILayout.BeginHorizontal();
-        DrawBadge(Tr("projectSetup.buildModules.il2cppStandalone", "Standalone (Win/Linux/macOS)"), _hasIl2cppStandalone == true);
-        DrawBadge(Tr("projectSetup.status.androidPlain", "Android"), _hasIl2cppAndroid == true);
+        DrawBadge(Tr("projectSetup.status.coreClrWindows", "CoreCLR Windows"), _hasCoreClrWin == true);
+        DrawBadge(Tr("projectSetup.status.coreClrLinux", "CoreCLR Linux"), _hasCoreClrLinux == true);
+        DrawBadge(Tr("projectSetup.status.il2cppAndroid", "IL2CPP Android"), _hasIl2cppAndroid == true);
         GUILayout.FlexibleSpace();
         EditorGUILayout.EndHorizontal();
 
@@ -189,12 +174,12 @@ public partial class BasisProjectSetup : EditorWindow
                         "Avatar/World setup: install Windows, Linux, and Android Build Support via Unity Hub."),
                     MessageType.Warning);
             }
-            if (!(_hasIl2cppStandalone == true && _hasIl2cppAndroid == true))
+            if (!(_hasCoreClrWin == true && _hasCoreClrLinux == true && _hasIl2cppAndroid == true))
             {
                 EditorGUILayout.HelpBox(
-                    Tr("projectSetup.buildModules.warnAvatarWorldNeedsIl2cpp",
-                        "Avatar/World setup: IL2CPP must be available for Standalone and Android. " +
-                        "Install *Build Support (IL2CPP)* modules in Unity Hub."),
+                    Tr("projectSetup.buildModules.warnAvatarWorldNeedsBackends",
+                        "Avatar/World setup: Windows and Linux build with CoreCLR, Android with IL2CPP. " +
+                        "Install *Windows Build Support (CoreCLR)*, *Linux Build Support (CoreCLR)* and *Android Build Support* in Unity Hub."),
                     MessageType.Warning);
             }
         }
@@ -203,8 +188,11 @@ public partial class BasisProjectSetup : EditorWindow
             if (_choice == PlatformChoice.Android && _hasAndroid != true)
                 BasisEditorUI.Help(Tr("projectSetup.buildModules.errAndroidMissing", "Android Build Support is missing. Install it in Unity Hub to build for Quest."), MessageType.Error);
 
-            if (_choice == PlatformChoice.Android && _hasIl2cppAndroid != true && _enforceIl2cpp)
+            if (_choice == PlatformChoice.Android && _hasIl2cppAndroid != true && _applyBackend)
                 BasisEditorUI.Help(Tr("projectSetup.buildModules.errAndroidIl2cppMissing", "Android IL2CPP is not available. Install Android Build Support (includes IL2CPP) in Unity Hub."), MessageType.Error);
+
+            if ((_choice == PlatformChoice.Windows || _choice == PlatformChoice.Linux || _choice == PlatformChoice.Mac) && PlatformModuleInstalled(_choice) == true && PlatformBackendInstalled(_choice) != true && _applyBackend)
+                BasisEditorUI.Help(string.Format(Tr("projectSetup.buildModules.errCoreClrMissing", "{0} CoreCLR is not available. Install {1} in Unity Hub."), PlatformDisplayName(_choice), BuildSupportModuleName(_choice)), MessageType.Error);
         }
 
         if (Application.platform == RuntimePlatform.LinuxEditor)
@@ -225,57 +213,12 @@ public partial class BasisProjectSetup : EditorWindow
         GUI.color = prev;
     }
 
-    // IL2CPP helpers
-    private static bool SupportsIl2cpp(BuildTargetGroup group)
-    {
-        try
-        {
-            var backends = GetAvailableScriptingBackendsSafe(group);
-            foreach (var b in backends)
-            {
-                if (b == ScriptingImplementation.IL2CPP)
-                    return true;
-            }
-        }
-        catch { /* ignore */ }
-        return false;
-    }
-
-    private static ScriptingImplementation[] GetAvailableScriptingBackendsSafe(BuildTargetGroup group)
-    {
-        var direct = typeof(PlayerSettings).GetMethod(
-            "GetAvailableScriptingBackends",
-            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-        if (direct != null)
-        {
-            return (ScriptingImplementation[])direct.Invoke(null, new object[] { group });
-        }
-
-        var any = typeof(PlayerSettings).GetMethod(
-            "GetAvailableScriptingBackends",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        if (any != null)
-        {
-            return (ScriptingImplementation[])any.Invoke(null, new object[] { group });
-        }
-
-        if (group == BuildTargetGroup.Android)
-            return new[] { ScriptingImplementation.Mono2x, ScriptingImplementation.IL2CPP };
-
-        return new[] {PlayerSettings.GetScriptingBackend(NamedBuildTarget.FromBuildTargetGroup(group))
-    };
-    }
-
+    // Scripting backend helpers
     private static void SetScriptingBackendSafe(BuildTargetGroup group, ScriptingImplementation impl)
     {
-        if (PlayerSettings.GetScriptingBackend(NamedBuildTarget.FromBuildTargetGroup(group)) == impl) return;
-
-        var backends = GetAvailableScriptingBackendsSafe(group);
-        bool supported = Array.Exists(backends, b => b == impl);
-        if (!supported)
-            throw new InvalidOperationException($"IL2CPP not supported for {group} on this Editor install.");
-
-        PlayerSettings.SetScriptingBackend(NamedBuildTarget.FromBuildTargetGroup(group), impl);
+        NamedBuildTarget namedBuildTarget = NamedBuildTarget.FromBuildTargetGroup(group);
+        if (PlayerSettings.GetScriptingBackend(namedBuildTarget) == impl) return;
+        PlayerSettings.SetScriptingBackend(namedBuildTarget, impl);
     }
 
     private void DrawBuildScriptingBackendPreference()

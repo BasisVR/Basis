@@ -512,15 +512,11 @@ public class CrowdScaleTests
     }
 
     [Fact]
-    public void RateLimiter_BeyondItsTrackingCeiling_HandsTheBurstBackToEveryone()
+    public void RateLimiter_AboveFiveThousandPeers_StillHoldsEarlyPeers()
     {
-        // The limiter tracks at most 4096 peers and drops the whole table when it goes over, which
-        // is what keeps peer-id churn from growing memory without bound. The cost is that above
-        // that population every peer gets its burst reissued whenever the table is dropped.
-        //
-        // PeerLimit defaults to ushort.MaxValue, so an operator CAN run past this. Pinned here so
-        // the trade is a decision rather than a surprise: at the 2000-player scale the server is
-        // tuned for, the table never fills and the limiter holds (see the test above).
+        // The limiter used to drop its whole table past 4096 peers, which handed every peer a fresh
+        // burst on large servers. It now tracks the full peer-id range and forgets peers when they
+        // disconnect, so a crowd this size keeps every limit in force.
         var limiter = new BasisPeerRateLimiter(tokensPerSecond: 0f, tokenBurst: 1f);
 
         FakeNetPeer early = new FakeNetPeer(150_000, "10.62.0.1");
@@ -532,8 +528,7 @@ public class CrowdScaleTests
             limiter.TryConsume(new FakeNetPeer(151_000 + index, "10.62.0.2"));
         }
 
-        Assert.True(limiter.TryConsume(early),
-            "past the tracking ceiling the table is dropped, so a spent peer starts over");
+        Assert.False(limiter.TryConsume(early), "a large crowd no longer resets a spent peer");
     }
 
     [Fact]

@@ -2,6 +2,7 @@ using Basis.BasisUI;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.TransformBinders.BoneControl;
 using Basis.Scripts.UI;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Basis.Shims
@@ -41,7 +42,7 @@ namespace Basis.Shims
 			public int Frame = -1;
 		}
 
-		private static readonly HandState[] Hands = { new HandState(), new HandState() };
+		[NoAutoStaticsCleanup] private static readonly HandState[] Hands = { new HandState(), new HandState() };
 
 		public static bool IsBlocked => BasisMainMenu.Instance != null || (BasisInputModuleHandler.Instance != null && BasisInputModuleHandler.Instance.HasHoverONInput);
 

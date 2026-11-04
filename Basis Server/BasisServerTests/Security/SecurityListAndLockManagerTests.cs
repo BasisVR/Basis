@@ -507,6 +507,8 @@ public class BasisGlobalLockManagerTests
         GifsLocked = false,
         ContentRemovalLocked = false,
         ExternalLinksLocked = false,
+        AvatarHostingLocked = false,
+        VideoClipsLocked = false,
     };
 
     private static Configuration AllLocked() => new()
@@ -532,6 +534,8 @@ public class BasisGlobalLockManagerTests
         GifsLocked = true,
         ContentRemovalLocked = true,
         ExternalLinksLocked = true,
+        AvatarHostingLocked = true,
+        VideoClipsLocked = true,
     };
 
     private static void AssertAllFlags(bool expected)
@@ -556,6 +560,8 @@ public class BasisGlobalLockManagerTests
         Assert.Equal(expected, BasisGlobalLockManager.GifsLocked);
         Assert.Equal(expected, BasisGlobalLockManager.ContentRemovalLocked);
         Assert.Equal(expected, BasisGlobalLockManager.ExternalLinksLocked);
+        Assert.Equal(expected, BasisGlobalLockManager.AvatarHostingLocked);
+        Assert.Equal(expected, BasisGlobalLockManager.VideoClipsLocked);
     }
 
     /// <summary>
@@ -643,6 +649,8 @@ public class BasisGlobalLockManagerTests
             Assert.False(BasisGlobalLockManager.GifsLocked);
             Assert.False(BasisGlobalLockManager.ContentRemovalLocked);
             Assert.False(BasisGlobalLockManager.ExternalLinksLocked);
+            Assert.False(BasisGlobalLockManager.AvatarHostingLocked);
+            Assert.False(BasisGlobalLockManager.VideoClipsLocked);
             Assert.Equal(0, BasisGlobalLockManager.CameraMetadataDisallowMask);
         }
         finally
@@ -677,6 +685,8 @@ public class BasisGlobalLockManagerTests
             (BasisGlobalLockManager.ToggleGifs, () => BasisGlobalLockManager.GifsLocked),
             (BasisGlobalLockManager.ToggleContentRemoval, () => BasisGlobalLockManager.ContentRemovalLocked),
             (BasisGlobalLockManager.ToggleExternalLinks, () => BasisGlobalLockManager.ExternalLinksLocked),
+            (BasisGlobalLockManager.ToggleAvatarHosting, () => BasisGlobalLockManager.AvatarHostingLocked),
+            (BasisGlobalLockManager.ToggleVideoClips, () => BasisGlobalLockManager.VideoClipsLocked),
         };
 
         foreach ((Func<bool> toggle, Func<bool> state) in toggles)
@@ -757,6 +767,11 @@ public class BasisGlobalLockManagerTests
                 GifsLocked = true,
                 ContentRemovalLocked = false,
                 ExternalLinksLocked = true,
+                AvatarHostingLocked = true,
+                VideoClipsLocked = false,
+                ImageMaxResolutionK = 8,
+                VideoClipMaxMegabytes = 512,
+                VideoClipMaxPerPlayer = 7,
             });
 
             var peer = new SecurityTestPeer(1);
@@ -781,6 +796,11 @@ public class BasisGlobalLockManagerTests
                 1,
                 0,
                 1,
+                1,
+                0,
+                8,                                        // image max resolution, in 1024 px units
+                0x00, 0x02,                               // video clip max size, 512 MB as a little-endian ushort
+                7,                                        // video clips per player
             }, payload);
 
             BasisGlobalLockManager.BroadcastLockState(); // zero connected peers: must be a safe no-op

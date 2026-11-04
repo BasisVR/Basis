@@ -293,6 +293,34 @@
     {
       "key": "menu.servers.portInvalid",
       "value": "Port must be 1-65535"
+    },
+    {
+      "key": "menu.servers.list.portal",
+      "value": "Drop Portal"
+    },
+    {
+      "key": "menu.servers.list.portalLifetime",
+      "value": "Portal Lifetime"
+    },
+    {
+      "key": "menu.servers.list.portalLifetime.timed",
+      "value": "60 Seconds"
+    },
+    {
+      "key": "menu.servers.list.portalLifetime.persistent",
+      "value": "Persistent"
+    },
+    {
+      "key": "menu.servers.list.portalStyle",
+      "value": "Portal Style"
+    },
+    {
+      "key": "menu.servers.list.portalStyle.orb",
+      "value": "Orb"
+    },
+    {
+      "key": "menu.servers.list.portalStyle.rift",
+      "value": "Dimensional Rift"
     }
   ]
 }

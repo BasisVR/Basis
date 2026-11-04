@@ -77,6 +77,22 @@
     {
       "key": "settings.developer.recorder.cancel",
       "value": "Countdown abbrechen"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion",
+      "value": "Root Motion aufzeichnen"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion.tooltip",
+      "value": "Zeichnet die Bewegung und Drehung des Avatars in der Welt (Joystick-Fortbewegung) als Root Motion im Clip auf."
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones",
+      "value": "Zusätzliche Knochen aufzeichnen"
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones.tooltip",
+      "value": "Zeichnet auch nicht-humanoide Knochen wie Jiggle-Knochen, Haare, Schwänze, Ohren und Accessoires auf."
     }
   ]
 }

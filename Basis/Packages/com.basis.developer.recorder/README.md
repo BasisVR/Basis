@@ -1,7 +1,9 @@
 # Basis Avatar Recorder
 
 Records the local humanoid avatar's pose to disk every frame and converts recordings
-into Unity humanoid `AnimationClip`s. Split out of the Basis framework Developer tab
+into Unity humanoid `AnimationClip`s. Clips carry the avatar's root motion (joystick
+locomotion and turning) as `RootT`/`RootQ`, and non-humanoid bones (jiggle bones, hair,
+tails, accessories) as transform curves. Both are on by default in the recorder settings. Split out of the Basis framework Developer tab
 into its own package.
 
 This package was extracted from the Basis monorepo so it can be versioned and installed

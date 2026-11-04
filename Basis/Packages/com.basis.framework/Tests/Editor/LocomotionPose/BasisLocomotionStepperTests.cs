@@ -1,5 +1,7 @@
 using Basis.Scripts.Drivers;
 using NUnit.Framework;
+using Unity.Collections;
+using Unity.Jobs;
 using Unity.Mathematics;
 
 namespace Basis.Framework.IK.Tests
@@ -31,6 +33,66 @@ namespace Basis.Framework.IK.Tests
         }
 
         static BasisLocoContribution[] Buffer() => new BasisLocoContribution[BasisLocomotionGraph.MaxContributions];
+
+        [Test]
+        public void BurstGraphJobMatchesManagedStepper()
+        {
+            float[] lengths = Lengths();
+            bool[] looping = Looping();
+            byte[] loopingBytes = new byte[looping.Length];
+            for (int i = 0; i < looping.Length; i++) loopingBytes[i] = (byte)(looping[i] ? 1 : 0);
+            int children = BasisLocomotionGraph.ProneClipStart + BasisLocomotionGraph.ProneChildCount;
+            float2[] positions = new float2[children];
+            float[] scales = new float[children];
+            void Copy(int start, float2[] sourcePositions, float[] sourceScales)
+            {
+                for (int i = 0; i < sourcePositions.Length; i++) { positions[start + i] = sourcePositions[i]; scales[start + i] = sourceScales[i]; }
+            }
+            Copy(BasisLocomotionGraph.WalkingClipStart, BasisLocomotionGraph.WalkingChildPositions, BasisLocomotionGraph.WalkingChildTimeScales);
+            Copy(BasisLocomotionGraph.CrouchingClipStart, BasisLocomotionGraph.CrouchingChildPositions, BasisLocomotionGraph.CrouchingChildTimeScales);
+            Copy(BasisLocomotionGraph.ProneClipStart, BasisLocomotionGraph.ProneChildPositions, BasisLocomotionGraph.ProneChildTimeScales);
+            using NativeArray<float> nativeLengths = new NativeArray<float>(lengths, Allocator.TempJob);
+            using NativeArray<byte> nativeLooping = new NativeArray<byte>(loopingBytes, Allocator.TempJob);
+            using NativeArray<float2> nativePositions = new NativeArray<float2>(positions, Allocator.TempJob);
+            using NativeArray<float> nativeScales = new NativeArray<float>(scales, Allocator.TempJob);
+            using NativeArray<BasisLocoSimState> nativeSim = new NativeArray<BasisLocoSimState>(new[] { BasisLocomotionGraph.DefaultSimState }, Allocator.TempJob);
+            using NativeArray<BasisLocoContribution> nativeContributions = new NativeArray<BasisLocoContribution>(BasisLocomotionGraph.MaxContributions, Allocator.TempJob);
+            using NativeArray<int> nativeCount = new NativeArray<int>(1, Allocator.TempJob);
+            using NativeArray<byte> nativeLatch = new NativeArray<byte>(1, Allocator.TempJob);
+            byte[] latchInput = new byte[1];
+            BasisLocoSimState managedSim = BasisLocomotionGraph.DefaultSimState;
+            BasisLocoParams managedParams = new BasisLocoParams { CurrentSpeed = 1f };
+            BasisLocoContribution[] managedContributions = Buffer();
+            for (int frame = 0; frame < 180; frame++)
+            {
+                managedParams.VelocityX = math.sin(frame * 0.13f) * 2.2f;
+                managedParams.VelocityZ = math.cos(frame * 0.09f) * 2.4f;
+                managedParams.CrouchedState = frame >= 25 && frame < 55;
+                managedParams.ProneState = frame >= 55 && frame < 82;
+                managedParams.IsJumping = frame >= 100 && frame < 106;
+                managedParams.IsFalling = frame >= 106 && frame < 140;
+                if (frame == 140) managedParams.LandingTrigger = true;
+                BasisLocoParams jobParams = managedParams;
+                latchInput[0] = (byte)(managedParams.LandingTrigger ? 1 : 0);
+                NativeArray<byte>.Copy(latchInput, nativeLatch);
+                int managedCount = BasisLocomotionGraph.Step(ref managedSim, ref managedParams, 1f / 90f, lengths, looping, managedContributions);
+                new BasisLocomotionGraphJob { Params = jobParams, DeltaTime = 1f / 90f, ClipLengths = nativeLengths, ClipLooping = nativeLooping, ChildPositions = nativePositions, ChildTimeScales = nativeScales, Sim = nativeSim, Contributions = nativeContributions, ContributionCount = nativeCount, LandingLatch = nativeLatch }.Schedule().Complete();
+                BasisLocoSimState actual = nativeSim[0];
+                Assert.AreEqual(managedSim.Current, actual.Current, "state at frame " + frame);
+                Assert.AreEqual(managedSim.To, actual.To, "target at frame " + frame);
+                Assert.AreEqual(managedSim.InTransition, actual.InTransition, "transition at frame " + frame);
+                Assert.AreEqual(managedSim.CurrentNorm, actual.CurrentNorm, 1e-5f, "phase at frame " + frame);
+                Assert.AreEqual(managedSim.ToNorm, actual.ToNorm, 1e-5f, "target phase at frame " + frame);
+                Assert.AreEqual(managedCount, nativeCount[0], "contribution count at frame " + frame);
+                Assert.AreEqual(managedParams.LandingTrigger, nativeLatch[0] != 0, "landing latch at frame " + frame);
+                for (int i = 0; i < managedCount; i++)
+                {
+                    Assert.AreEqual(managedContributions[i].Clip, nativeContributions[i].Clip, "clip at frame " + frame);
+                    Assert.AreEqual(managedContributions[i].Weight, nativeContributions[i].Weight, 1e-5f, "weight at frame " + frame);
+                    Assert.AreEqual(managedContributions[i].Time, nativeContributions[i].Time, 1e-5f, "time at frame " + frame);
+                }
+            }
+        }
 
         [Test]
         public void WeightsAreOneAtEachChildPosition()

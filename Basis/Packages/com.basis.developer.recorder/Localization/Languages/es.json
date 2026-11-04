@@ -77,6 +77,22 @@
     {
       "key": "settings.developer.recorder.cancel",
       "value": "Cancelar cuenta atrás"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion",
+      "value": "Grabar movimiento raíz"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion.tooltip",
+      "value": "Graba el desplazamiento y el giro del avatar en el mundo (movimiento con joystick) como movimiento raíz en el clip."
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones",
+      "value": "Grabar huesos adicionales"
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones.tooltip",
+      "value": "Graba también huesos no humanoides como huesos con físicas, pelo, colas, orejas y accesorios."
     }
   ]
 }

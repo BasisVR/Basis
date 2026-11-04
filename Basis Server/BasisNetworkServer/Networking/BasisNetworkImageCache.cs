@@ -193,6 +193,19 @@ namespace Basis.Network.Server.Generic
 
         private const long BytesPerMegabyte = 1024L * 1024L;
 
+        /// <summary>
+        /// Largest payload one image may have at the server's resolution setting: two bytes per pixel
+        /// of the cap, the same ceiling clients enforce. 32 MiB at 4K, 512 MiB at 16K.
+        /// </summary>
+        private static long LargestImageBytes
+        {
+            get
+            {
+                long side = BasisGlobalLockManager.ImageMaxResolutionK * 1024L;
+                return side * side * 2L;
+            }
+        }
+
         private static long MaxBytes
         {
             get
@@ -205,13 +218,14 @@ namespace Basis.Network.Server.Generic
         /// <summary>
         /// Every owner is guaranteed this much before fair-share division applies, so a busy
         /// instance cannot shrink each person's allowance to something that fits no image at all.
+        /// Raised to fit one image at the server's resolution setting; 0 turns the floor off.
         /// </summary>
         private static long MinimumOwnerBytes
         {
             get
             {
                 int configured = NetworkServer.Configuration?.ImageCacheMinimumPerOwnerMegabytes ?? 0;
-                return configured > 0 ? configured * BytesPerMegabyte : 0;
+                return configured > 0 ? Math.Max(configured * BytesPerMegabyte, LargestImageBytes) : 0;
             }
         }
 

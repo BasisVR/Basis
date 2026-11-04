@@ -9,10 +9,10 @@ namespace Basis.Scripts.UI.NamePlate
     /// avatar-loading displays — regardless of player count: only the
     /// <see cref="MaxVisibleChatBubbles"/> / <see cref="MaxVisibleLoadingDisplays"/> nearest
     /// to the viewer actually render; the rest keep their state but their objects are
-    /// deactivated and skip every text/mesh write. Fed by the driver's existing per-plate
-    /// loop in <see cref="BasisRemoteNamePlateDriver.CompleteNamePlates"/> (BeginFrame →
-    /// Consider per plate → Apply), so plates never register themselves and there is no
-    /// stale bookkeeping. Selection math lives in <see cref="BasisNamePlateOverlayCore"/>.
+    /// deactivated and skip every text/mesh write. Fed each frame by
+    /// <see cref="BasisRemoteNamePlateDriver.CompleteNamePlates"/> (BeginFrame → Consider* over
+    /// the driver's chat and loading plate lists → Apply), so only plates that actually carry an
+    /// overlay are visited. Selection math lives in <see cref="BasisNamePlateOverlayCore"/>.
     /// </summary>
     [AutoStaticsCleanup]
     public static partial class BasisNamePlateOverlayLimiter
@@ -44,6 +44,8 @@ namespace Basis.Scripts.UI.NamePlate
         private static readonly List<float> _distances = new List<float>(64);
         private static readonly List<int> _indexScratch = new List<int>(64);
         private static readonly List<bool> _visible = new List<bool>(64);
+        private static readonly HashSet<int> _trackedKeys = new HashSet<int>();
+        private static readonly HashSet<int> _trackedScratch = new HashSet<int>();
 
         internal static void BeginFrame()
         {
@@ -63,6 +65,22 @@ namespace Basis.Scripts.UI.NamePlate
             }
         }
 
+        internal static void ConsiderChat(BasisRemoteNamePlate plate)
+        {
+            if (plate.HasActiveChatOverlay)
+            {
+                _chat.Add(plate);
+            }
+        }
+
+        internal static void ConsiderLoading(BasisRemoteNamePlate plate)
+        {
+            if (plate.HasActiveLoadingOverlay)
+            {
+                _loading.Add(plate);
+            }
+        }
+
         internal static void Apply(Vector3 viewerPosition)
         {
             int chatCount = _chat.Count;
@@ -73,6 +91,7 @@ namespace Basis.Scripts.UI.NamePlate
                 for (int i = 0; i < chatCount; i++)
                 {
                     _chat[i].SetChatOverlayCulled(!_visible[i]);
+                    if (_visible[i]) TrackPlate(_chat[i]);
                 }
             }
 
@@ -84,8 +103,24 @@ namespace Basis.Scripts.UI.NamePlate
                 for (int i = 0; i < loadingCount; i++)
                 {
                     _loading[i].SetLoadingOverlayCulled(!_visible[i]);
+                    if (_visible[i]) TrackPlate(_loading[i]);
                 }
             }
+            foreach (int key in _trackedKeys)
+            {
+                if (!_trackedScratch.Contains(key)) RemoteBoneJobSystem.SetNamePlateTracked(key, false);
+            }
+            _trackedKeys.Clear();
+            _trackedKeys.UnionWith(_trackedScratch);
+            _trackedScratch.Clear();
+        }
+
+        private static void TrackPlate(BasisRemoteNamePlate plate)
+        {
+            var receiver = plate.BasisRemotePlayer != null ? plate.BasisRemotePlayer.NetworkReceiver : null;
+            if (receiver == null) return;
+            int key = receiver.playerId;
+            if (_trackedScratch.Add(key) && !_trackedKeys.Contains(key)) RemoteBoneJobSystem.SetNamePlateTracked(key, true);
         }
 
         private static void RankDistances(List<BasisRemoteNamePlate> plates, Vector3 viewerPosition)

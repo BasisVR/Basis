@@ -35,14 +35,18 @@ namespace Basis.Network.Core
                 {
                     id = _ready.Dequeue();
                 }
-                else if (_next <= MaxPlayerId || _quarantineIds.Count == 0)
+                else if (_next <= MaxPlayerId)
                 {
                     id = _next++;
                 }
-                else
+                else if (_quarantineIds.Count > 0)
                 {
                     _quarantineReadyAt.Dequeue();
                     id = _quarantineIds.Dequeue();
+                }
+                else
+                {
+                    return -1;
                 }
                 _live.Add(id);
                 return id;

@@ -134,6 +134,15 @@ float4 BasisGIComposite(float2 uv)
     return float4(obscurance + indirect, 1.0);
 }
 
+float4 BasisGICompositeSurface(float2 uv)
+{
+    float3 indirect;
+    float obscurance, rawDepth;
+    BasisGIResolve(uv, indirect, obscurance, rawDepth);
+    float4 surface = SAMPLE_TEXTURE2D_X_LOD(_BasisGISurface, sampler_PointClamp, UnityStereoTransformScreenSpaceTex(uv), 0);
+    return float4(indirect * surface.rgb * (1.0 - surface.a), obscurance + Luminance(indirect) * surface.a);
+}
+
 float3 BasisGIHeat(float value)
 {
     float clamped = saturate(value);
@@ -156,6 +165,11 @@ float4 BasisGIDebug(float2 uv)
         return float4(normalWS * 0.5 + 0.5, 1.0);
     }
     if (_BasisGIDebugView == 4) { return float4(BasisGIHeat(Luminance(indirect)), 1.0); }
+    if (_BasisGIDebugView == 6)
+    {
+        if (_BasisGISurfaceValid < 0.5) { return float4(1.0, 0.0, 1.0, 1.0); }
+        return SAMPLE_TEXTURE2D_X_LOD(_BasisGISurface, sampler_PointClamp, UnityStereoTransformScreenSpaceTex(uv), 0);
+    }
     return float4(0.18 * (obscurance + indirect), 1.0);
 }
 

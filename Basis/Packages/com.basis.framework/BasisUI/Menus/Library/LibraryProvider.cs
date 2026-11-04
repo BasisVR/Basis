@@ -3104,6 +3104,7 @@ namespace Basis.BasisUI
                 case BasisShareableKind.Text: return AddressableAssets.Sprites.List;
                 case BasisShareableKind.Folder: return AddressableAssets.Sprites.FileTray;
                 case BasisShareableKind.Setting: return AddressableAssets.Sprites.Settings;
+                case BasisShareableKind.Video: return AddressableAssets.Sprites.Camera;
                 default: return AddressableAssets.Sprites.Items;
             }
         }
@@ -3122,6 +3123,7 @@ namespace Basis.BasisUI
                 case BasisShareableKind.Text: return BasisLocalization.Get("library.shareable.text");
                 case BasisShareableKind.Folder: return BasisLocalization.Get("library.shareable.folder");
                 case BasisShareableKind.Setting: return BasisLocalization.Get("library.shareable.setting");
+                case BasisShareableKind.Video: return BasisLocalization.Get("library.shareable.video");
                 default: return BasisLocalization.Get("library.shareable.other");
             }
         }
@@ -3408,6 +3410,27 @@ namespace Basis.BasisUI
                         // Mode 0 = GameObject. The server authorizes per tier and rebroadcasts; the row
                         // icon updates when that broadcast arrives (RegistryChangeType.Modified).
                         BasisNetworkSpawnItem.RequestSetStatic(itemKey.LoadedNetID, 0, nextStatic, nextAdmin);
+                        return Task.CompletedTask;
+                    },
+                });
+            }
+
+            // Save to server — admins with basis.resource.savetodisk can make a network prop or world load again after a server restart.
+            if (itemKey.SpawnMethod == BasisRuntimeSpawnRegistry.SpawnMethod.Network
+                && (itemKey.SpawnMode == BasisRuntimeSpawnRegistry.SpawnMode.GameObject || itemKey.SpawnMode == BasisRuntimeSpawnRegistry.SpawnMode.Scene)
+                && BasisNetworkModeration.LocalPlayerHasNode(BasisPermissions.PermNodes.ResourceSaveToDisk))
+            {
+                bool savedToDisk = BasisRuntimeSpawnRegistry.IsSavedToDisk(itemKey.LoadedNetID);
+                byte diskMode = itemKey.SpawnMode == BasisRuntimeSpawnRegistry.SpawnMode.Scene ? (byte)1 : (byte)0;
+                BuildEntryActionButton(itemListPanel.TabButtonParent, new EntryActionButton
+                {
+                    Style = savedToDisk ? ButtonStyles.AcceptButton : ButtonStyles.StandardButton,
+                    Icon = AddressableAssets.Sprites.Pin,
+                    Tooltip = BasisLocalization.Get(savedToDisk ? "library.instantiated.saveToServer.savedTooltip" : "library.instantiated.saveToServer.tooltip"),
+                    OnClick = () =>
+                    {
+                        // The row updates when the server broadcasts the new saved state (RegistryChangeType.Modified).
+                        BasisNetworkSpawnItem.RequestSaveToDisk(itemKey.LoadedNetID, diskMode, !savedToDisk);
                         return Task.CompletedTask;
                     },
                 });

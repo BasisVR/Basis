@@ -17,16 +17,11 @@
 use std::sync::atomic::{AtomicI64, Ordering};
 
 use media_clock::MediaTime;
-#[cfg(any(windows, target_os = "android"))]
 use media_diag::Stage;
 
-#[cfg(any(windows, target_os = "android"))]
 use crate::State;
-#[cfg(any(windows, target_os = "android"))]
 use crate::pipeline::PipelineShared;
-#[cfg(any(windows, target_os = "android", test))]
 use crate::pool::FramePool;
-#[cfg(any(windows, target_os = "android", test))]
 use crate::pool::Lease;
 
 /// A render event within this window marks the render consumer live, and
@@ -139,7 +134,6 @@ impl Default for PresentShared {
 /// One render-event selection: the newest due frame against the mirrored
 /// clock with a vsync of lookahead. `None` = parked clock, nothing due,
 /// or momentary pool contention (re-present the previous output).
-#[cfg(any(windows, target_os = "android", test))]
 pub fn select_for_render(
     shared: &PresentShared,
     pool: &FramePool,
@@ -151,7 +145,6 @@ pub fn select_for_render(
 
 /// Presentation bookkeeping, wherever selection ran: presented pts, the
 /// Present out-count and the Buffering to Playing transition.
-#[cfg(any(windows, target_os = "android"))]
 fn presented(px: &PipelineShared, pts: MediaTime, generation: u64) {
     px.diag
         .stage(Stage::Present)
@@ -210,7 +203,6 @@ pub fn render_present(px: &PipelineShared) -> bool {
 /// The Android render event's engine half: stamp, select, do the
 /// bookkeeping and hand the frame to the Vulkan conversion pass, whose GPU
 /// lifetime the caller's renderer manages. `None` = nothing new this vsync.
-#[cfg(target_os = "android")]
 pub fn render_take(px: &PipelineShared) -> Option<media_decode::VideoFrame> {
     let wall = px.wall.now();
     px.present.note_event(wall);

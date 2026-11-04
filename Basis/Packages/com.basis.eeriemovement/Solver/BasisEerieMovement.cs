@@ -13,6 +13,9 @@ namespace Basis.IK
         public FixedList512Bytes<Vector3> slotPositions;
         public FixedList512Bytes<Quaternion> slotRotations, slotOffsets;
         public FixedList64Bytes<bool> slotWeights;
+        public FixedList128Bytes<float> slotBlends;
+        public NativeArray<Vector3> solvedPositions;
+        public NativeArray<Quaternion> solvedRotations;
         public BasisBoneHandle handleHips, handleSpine, handleChest, handleUpperChest, handleNeck, handleHead;
         public BasisBoneHandle handleLeftShoulder, handleLeftUpperArm, handleLeftLowerArm, handleLeftHand;
         public BasisBoneHandle handleRightShoulder, handleRightUpperArm, handleRightLowerArm, handleRightHand;
@@ -49,6 +52,8 @@ namespace Basis.IK
         public Quaternion tposeLeftShoulderRot, tposeRightShoulderRot, tposeChestRot;
         public float tposeShoulderToHandLeft, tposeShoulderToHandRight, tposeClavicleLenLeft, tposeClavicleLenRight;
         public float tposeShoulderToElbowLeft, tposeShoulderToElbowRight;
+        // Back-of-hand direction in each hand bone's local space, captured in T-pose (zero = unknown).
+        public Vector3 tposeLeftHandBackLocal, tposeRightHandBackLocal;
         public Quaternion tposeLeftLowerArmTwistBind, tposeLeftLowerArmChildBind, tposeRightLowerArmTwistBind;
         public Quaternion tposeRightLowerArmChildBind, tposeLeftUpperArmTwistBind, tposeLeftUpperArmChildBind;
         public Quaternion tposeRightUpperArmTwistBind, tposeRightUpperArmChildBind;
@@ -57,16 +62,13 @@ namespace Basis.IK
         public float moveBodyBackWhenCrouching, crouchDepth, standingHeadHeight;
         public float restChordHeadHips, restChordHeadLumbar, restChordHeadUpper, restReachHeadLumbar;
         public Quaternion chestTrackedRot, chestRestFromHead;
-        public bool spineAnatomicalRom;
-        // Without a hips tracker: how much the chest/spine take on the head's pitch/roll as shape. 1 = the full blend the
-        // spine solver uses with trackers (head pitch bows the chest out several cm), 0 = the spine only bends to reach the head.
-        public const float SpineHeadFollow = 0.3f;
-        public bool shoulderSolveEnabled, shoulderShrugEnabled;
-        public float shoulderElevationFactor, shoulderProtractionFactor, shoulderMaxDeg, shoulderTrackerBlendTime, lowerArmTwistFraction, upperArmTwistFraction;
+        public const float SpineHeadFollow = 0.3f; // How much spine bends with head, no hip tracker,
+        public const float TrackedHipsPositionFollow = 1f;
+        public const float TrackedHipsRotationFollow = 0f;
+        public bool shoulderSolveEnabled;
+        public float shoulderElevationFactor, shoulderProtractionFactor, shoulderTrackerBlendTime;
         public bool protectElbow, collideTrackedElbow;
         public float armSwivelSmoothTime, armSwivelMaxRateDeg;
-        public bool legSwivelSmoothing, kneeFootPoleHold, kneeFootPoleConditioning;
-        public float trackedKneeSwivelMinCutoffHz, trackedKneeSwivelBeta, trackedKneeSwivelDerivCutoffHz;
         public bool collisionsEnabled;
         public float chestRadius, collisionSkin, handRadius, handSkin;
         public NativeArray<BasisChestSpringState> chestSpring;
@@ -188,6 +190,15 @@ namespace Basis.IK
                 slotWeights[s] = State;
             }
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetBlend(int idx, float blend)
+        {
+            int s = Slot(idx);
+            if (s >= 0 && s < slotBlends.Length)
+            {
+                slotBlends[s] = blend > 0f ? (blend < 1f ? blend : 1f) : 0f;
+            }
+        }
         public void RescaleTposeScalars(float newScale)
         {
             if (float.IsNaN(newScale) || float.IsInfinity(newScale) || newScale <= 0f || tposeBakeScale <= 0f)
@@ -247,6 +258,8 @@ namespace Basis.IK
             if (armState.IsCreated) armState.Dispose();
             if (legState.IsCreated) legState.Dispose();
             if (legDiagnostics.IsCreated) legDiagnostics.Dispose();
+            if (solvedPositions.IsCreated) solvedPositions.Dispose();
+            if (solvedRotations.IsCreated) solvedRotations.Dispose();
 
             gizmos.Dispose();
         }

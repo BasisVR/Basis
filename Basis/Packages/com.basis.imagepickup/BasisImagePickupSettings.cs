@@ -1,3 +1,4 @@
+using System;
 using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.Common;
 using UnityEngine;
@@ -44,20 +45,67 @@ namespace Basis.ImagePickup
 
         public const string ReceiveEnabledKey = "Basis.ImagePickup.ReceiveEnabled";
 
-        public const int MaxImageBytes = 8 * 1024 * 1024;
-        public const int MaxSourceBytes = 32 * 1024 * 1024;
-        public const int MaxDimension = 2048;
-        public const long MaxTotalPixels = 2048L * 2048L;
-        public const int MaxSourceDimension = 4096;
-        public const long MaxSourceTotalPixels = 4096L * 4096L;
+        /// <summary>Hard ceiling on any shared image side, the 16K top of the admin dropdown.</summary>
+        public const int AbsoluteMaxDimension = 16384;
+        private const int MinSourceDimension = 4096;
+        private const int MinSourceBytes = 32 * 1024 * 1024;
+
+        /// <summary>Largest texture this GPU can hold, capped at <see cref="AbsoluteMaxDimension"/>.</summary>
+        public static readonly int LocalMaxTextureSize = ReadLocalMaxTextureSize();
+
+        private static int ReadLocalMaxTextureSize()
+        {
+            int size = SystemInfo.maxTextureSize;
+            return size > 0 ? Mathf.Min(size, AbsoluteMaxDimension) : AbsoluteMaxDimension;
+        }
+
+        /// <summary>
+        /// The server's shared image limit in units of 1024 pixels (admin lock section, 1K to 16K).
+        /// Read on worker threads too; it is a single int.
+        /// </summary>
+        public static int ServerMaxResolutionK
+        {
+            get
+            {
+                int k = BasisNetworkModeration.GlobalImageMaxResolutionK;
+                return k < BasisNetworkModeration.MinImageMaxResolutionK || k > BasisNetworkModeration.MaxImageMaxResolutionK
+                    ? BasisNetworkModeration.DefaultImageMaxResolutionK
+                    : k;
+            }
+        }
+
+        /// <summary>Longest side an image may have on the wire. Receivers refuse anything larger.</summary>
+        public static int MaxDimension => ServerMaxResolutionK * 1024;
+        public static long MaxTotalPixels => (long)MaxDimension * MaxDimension;
+
+        /// <summary>
+        /// Size this client actually shares and shows at: the server limit, lowered to what the local GPU
+        /// can hold. Senders downscale to it; receivers skip images past it.
+        /// </summary>
+        public static int LocalShareDimension => Mathf.Min(MaxDimension, LocalMaxTextureSize);
+
+        /// <summary>
+        /// Two bytes per pixel of the wire cap: 8 MiB at 2K, 32 MiB at 4K, 512 MiB at 16K. The same ratio
+        /// the fixed 2K limit always used.
+        /// </summary>
+        public static int MaxImageBytes => (int)Math.Min(int.MaxValue, MaxTotalPixels * 2L);
+
+        /// <summary>
+        /// Sources may be up to twice the wire cap (never below 4K, never past what the GPU can decode)
+        /// and are downscaled on import.
+        /// </summary>
+        public static int MaxSourceDimension => Mathf.Min(Mathf.Max(MinSourceDimension, MaxDimension * 2), LocalMaxTextureSize);
+        public static long MaxSourceTotalPixels => (long)MaxSourceDimension * MaxSourceDimension;
+        public static int MaxSourceBytes => (int)Math.Min(int.MaxValue, Math.Max(MinSourceBytes, MaxSourceTotalPixels * 2L));
         public const int ChunkPayloadBytes = 16 * 1024;
 
         // Large drag batches are allowed by count, then bounded by aggregate decoded pixels and poster bytes.
+        // Each budget always leaves room for at least one image at the server's limit.
         public const int MaxConcurrentImagesPerSender = 64;
-        public const long MaxRemoteImagePixelsPerSender = 64L * 1024L * 1024L;
-        public const long MaxRemoteImageBytesPerSender = 128L * 1024L * 1024L;
+        public static long MaxRemoteImagePixelsPerSender => Math.Max(64L * 1024L * 1024L, MaxTotalPixels);
+        public static long MaxRemoteImageBytesPerSender => Math.Max(128L * 1024L * 1024L, MaxImageBytes);
         public const int MaxInboundTransfersPerSender = 4;
-        public const long MaxInboundTransferBytes = 512L * 1024L * 1024L;
+        public static long MaxInboundTransferBytes => Math.Max(512L * 1024L * 1024L, MaxImageBytes);
         public const int SpawnRateBurstAllowance = MaxConcurrentImagesPerSender;
         public const float MinSecondsBetweenSpawnsPerSender = 0.5f;
         public const float InboundTransferTimeoutSeconds = 30f;

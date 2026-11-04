@@ -181,6 +181,12 @@ public class ServerConfigurationDefaultsTests
         Assert.Equal(256, cfg.StorageMaxTotalMegabytes);
         Assert.Equal("", cfg.StorageConnectionString);
         Assert.Equal("basis_storage", cfg.StorageSqlTable);
+        Assert.Equal(4, cfg.StorageNewOwnersPerAddress);
+        Assert.Equal(60, cfg.StorageNewOwnerWindowMinutes);
+        Assert.Equal(60, cfg.StorageNewOwnersPerHour);
+        Assert.Equal(365, cfg.StorageExpiryDays);
+        Assert.False(Configuration.RequiresRestart(nameof(Configuration.StorageNewOwnersPerAddress)));
+        Assert.False(Configuration.RequiresRestart(nameof(Configuration.StorageExpiryDays)));
         Assert.True(Configuration.IsSecretFieldName(nameof(Configuration.StorageConnectionString)));
         Assert.True(Configuration.RequiresRestart(nameof(Configuration.StorageBackend)));
         Assert.True(Configuration.RequiresRestart(nameof(Configuration.StorageConnectionString)));
@@ -204,7 +210,8 @@ public class ServerConfigurationDefaultsTests
         // 15: added the persistent application-level ServerUUID.
         // 16: added the shared-orb leave timeout and deletion timer.
         // 17: added player storage.
-        Assert.Equal(17, Configuration.CurrentConfigVersion);
+        // 19: scene-relay backstop on by default, avatar-relay backstop, relay payload cap, pending-login caps.
+        Assert.Equal(19, Configuration.CurrentConfigVersion);
         Assert.Equal(0, new Configuration().ConfigVersion);
         Assert.Equal("config", Configuration.ConfigFolderName);
         Assert.Equal("logs", Configuration.LogsFolderName);
@@ -407,6 +414,8 @@ public class HostPortConnectionTargetParserTests
 {
     [Theory]
     [InlineData("example.com:5000", "example.com", 5000, true, "")]
+    [InlineData("example.com:43203", "example.com", 43203, true, "")]
+    [InlineData("example.com:443", "example.com", 443, true, "")]
     [InlineData("example.com", "example.com", 4296, false, "")]
     [InlineData("192.168.1.5:4297", "192.168.1.5", 4297, true, "")]
     [InlineData("example.com:5000#hunter2", "example.com", 5000, true, "hunter2")]
@@ -448,6 +457,30 @@ public class HostPortConnectionTargetParserTests
         Assert.Equal("", address);
         Assert.Equal(HostPortConnectionTargetParser.DefaultPort, port);
         Assert.False(portProvided);
+    }
+
+    [Theory]
+    [InlineData("wss://example.com", 43203, "wss://example.com:43203")]
+    [InlineData("wss://example.com/basis", 43203, "wss://example.com:43203/basis")]
+    [InlineData("ws://example.com?x=1", 8080, "ws://example.com:8080?x=1")]
+    [InlineData("wss://[2001:db8::1]/basis", 5000, "wss://[2001:db8::1]:5000/basis")]
+    public void TryAddUrlPort_AddsAPortToUrlsWithoutOne(string url, int port, string expected)
+    {
+        Assert.True(HostPortConnectionTargetParser.TryAddUrlPort(url, (ushort)port, out string result));
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData("wss://example.com:43203")]
+    [InlineData("wss://example.com:443/basis")]
+    [InlineData("ws://[::1]:8080/")]
+    [InlineData("example.com")]
+    [InlineData("wss:///basis")]
+    [InlineData("")]
+    public void TryAddUrlPort_KeepsExplicitPortsAndRejectsNonUrls(string url)
+    {
+        Assert.False(HostPortConnectionTargetParser.TryAddUrlPort(url, 5000, out string result));
+        Assert.Equal(url, result);
     }
 
     [Fact]

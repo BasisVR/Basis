@@ -168,6 +168,9 @@ void BakedLitForwardPassFragment(
 #ifdef _WRITE_RENDERING_LAYERS
     , out uint outRenderingLayers : SV_Target1
 #endif
+#ifdef _BASIS_SURFACE_MRT
+    , out half4 outBasisSurface : BASIS_SURFACE_TARGET
+#endif
     )
 {
     UNITY_SETUP_INSTANCE_ID(input);
@@ -209,6 +212,9 @@ void BakedLitForwardPassFragment(
 
 #ifdef _WRITE_RENDERING_LAYERS
     outRenderingLayers = EncodeMeshRenderingLayer();
+#endif
+#ifdef _BASIS_SURFACE_MRT
+    outBasisSurface = BasisSurfaceOutput(color, half(0.0));
 #endif
 }
 

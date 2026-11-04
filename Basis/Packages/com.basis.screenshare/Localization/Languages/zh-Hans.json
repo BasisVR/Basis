@@ -1,0 +1,310 @@
+{
+  "code": "zh-Hans",
+  "nativeName": "简体中文",
+  "entries": [
+    {
+      "key": "menu.provider.screenShare",
+      "value": "屏幕共享"
+    },
+    {
+      "key": "library.embedded.screenShare",
+      "value": "屏幕共享"
+    },
+    {
+      "key": "screenShare.yourShare",
+      "value": "你的屏幕"
+    },
+    {
+      "key": "screenShare.source",
+      "value": "共享内容"
+    },
+    {
+      "key": "screenShare.source.tooltip",
+      "value": "屏幕附近的所有人都能看到的显示器或窗口。"
+    },
+    {
+      "key": "screenShare.source.display",
+      "value": "{0} ({1}×{2})"
+    },
+    {
+      "key": "screenShare.source.none",
+      "value": "未找到显示器或窗口"
+    },
+    {
+      "key": "screenShare.refreshSources",
+      "value": "刷新列表"
+    },
+    {
+      "key": "screenShare.resolution",
+      "value": "分辨率"
+    },
+    {
+      "key": "screenShare.resolution.tooltip",
+      "value": "画面发送的最大尺寸。较小的来源不会被放大。"
+    },
+    {
+      "key": "screenShare.resolution.native",
+      "value": "原生"
+    },
+    {
+      "key": "screenShare.resolution.1440",
+      "value": "1440p"
+    },
+    {
+      "key": "screenShare.resolution.1080",
+      "value": "1080p"
+    },
+    {
+      "key": "screenShare.resolution.720",
+      "value": "720p"
+    },
+    {
+      "key": "screenShare.resolution.480",
+      "value": "480p"
+    },
+    {
+      "key": "screenShare.frameRate",
+      "value": "帧率"
+    },
+    {
+      "key": "screenShare.frameRate.tooltip",
+      "value": "画面更新的频率。60 适合游戏和视频，15 或 5 适合文档和幻灯片，并为细节留出更多带宽。"
+    },
+    {
+      "key": "screenShare.frameRate.60",
+      "value": "60 fps"
+    },
+    {
+      "key": "screenShare.frameRate.30",
+      "value": "30 fps"
+    },
+    {
+      "key": "screenShare.frameRate.15",
+      "value": "15 fps"
+    },
+    {
+      "key": "screenShare.frameRate.5",
+      "value": "5 fps"
+    },
+    {
+      "key": "screenShare.quality",
+      "value": "质量"
+    },
+    {
+      "key": "screenShare.quality.tooltip",
+      "value": "画面可使用的带宽。自动会根据分辨率和帧率选择码率；上限由服务器设定。"
+    },
+    {
+      "key": "screenShare.quality.auto",
+      "value": "自动"
+    },
+    {
+      "key": "screenShare.quality.low",
+      "value": "低"
+    },
+    {
+      "key": "screenShare.quality.high",
+      "value": "高"
+    },
+    {
+      "key": "screenShare.quality.max",
+      "value": "最高"
+    },
+    {
+      "key": "screenShare.audio",
+      "value": "共享电脑音频"
+    },
+    {
+      "key": "screenShare.audio.tooltip",
+      "value": "发送电脑正在播放的声音（Basis 本身除外），让屏幕附近的人从屏幕听到。"
+    },
+    {
+      "key": "screenShare.cursor",
+      "value": "显示鼠标指针"
+    },
+    {
+      "key": "screenShare.start",
+      "value": "开始共享"
+    },
+    {
+      "key": "screenShare.stop",
+      "value": "停止共享"
+    },
+    {
+      "key": "screenShare.viewing",
+      "value": "观看"
+    },
+    {
+      "key": "screenShare.viewing.none",
+      "value": "没有其他人在共享屏幕。"
+    },
+    {
+      "key": "screenShare.viewing.count",
+      "value": "他人共享的屏幕：{0}"
+    },
+    {
+      "key": "screenShare.receive",
+      "value": "显示他人的屏幕"
+    },
+    {
+      "key": "screenShare.receive.tooltip",
+      "value": "关闭后不会下载任何屏幕共享，他人的屏幕保持空白。"
+    },
+    {
+      "key": "screenShare.viewDistance",
+      "value": "观看距离（米）"
+    },
+    {
+      "key": "screenShare.viewDistance.tooltip",
+      "value": "比此距离更远的屏幕在你靠近之前不会下载。"
+    },
+    {
+      "key": "screenShare.volume",
+      "value": "屏幕共享音量"
+    },
+    {
+      "key": "screenShare.status.none",
+      "value": "从你的资源库生成屏幕共享，即可共享你的屏幕。"
+    },
+    {
+      "key": "screenShare.status.idle",
+      "value": "未在共享。选择要共享的内容，然后按“开始共享”。"
+    },
+    {
+      "key": "screenShare.status.offline",
+      "value": "未在共享。加入服务器即可共享你的屏幕。"
+    },
+    {
+      "key": "screenShare.status.unsupportedServer",
+      "value": "未在共享。此服务器不支持屏幕共享。"
+    },
+    {
+      "key": "screenShare.status.starting",
+      "value": "正在启动…"
+    },
+    {
+      "key": "screenShare.status.waiting",
+      "value": "正在共享 {0}。等待服务器…"
+    },
+    {
+      "key": "screenShare.status.live",
+      "value": "正在共享 {0}，{1} 人观看"
+    },
+    {
+      "key": "screenShare.status.error",
+      "value": "已停止：{0}"
+    },
+    {
+      "key": "screenShare.status.noAudio",
+      "value": "电脑音频未共享：{0}"
+    },
+    {
+      "key": "screenShare.error.unsupported",
+      "value": "共享屏幕需要 Windows 10 版本 2004 或更高版本。你仍可观看他人的屏幕。"
+    },
+    {
+      "key": "screenShare.error.open",
+      "value": "无法捕获屏幕。"
+    },
+    {
+      "key": "screenShare.error.permission",
+      "value": "此服务器不允许你共享屏幕。"
+    },
+    {
+      "key": "screenShare.error.tooMany",
+      "value": "此服务器显示的屏幕共享已达上限。"
+    },
+    {
+      "key": "screenShare.error.refused",
+      "value": "服务器拒绝了屏幕共享。"
+    },
+    {
+      "key": "screenShare.error.ended",
+      "value": "共享的显示器或窗口已不存在。"
+    },
+    {
+      "key": "screenShare.back.sharedBy",
+      "value": "由 {0} 共享"
+    },
+    {
+      "key": "screenShare.back.yours",
+      "value": "你的屏幕"
+    },
+    {
+      "key": "screenShare.back.hide",
+      "value": "隐藏"
+    },
+    {
+      "key": "screenShare.panel.live",
+      "value": "直播"
+    },
+    {
+      "key": "screenShare.panel.watching",
+      "value": "{0} 人正在观看"
+    },
+    {
+      "key": "screenShare.panel.details",
+      "value": "{0}×{1} · {2} fps"
+    },
+    {
+      "key": "screenShare.showHidden",
+      "value": "显示已隐藏的屏幕"
+    },
+    {
+      "key": "screenShare.viewing.hidden",
+      "value": "你已隐藏：{0}"
+    },
+    {
+      "key": "settings.admin.title.lockScreenShare",
+      "value": "锁定屏幕共享"
+    },
+    {
+      "key": "settings.admin.title.lockScreenShare.tooltip",
+      "value": "没有全局锁定权限的玩家无法共享屏幕。这些玩家正在进行的共享会立即结束；管理员仍可共享。"
+    },
+    {
+      "key": "screenShare.status.locked",
+      "value": "此服务器已关闭屏幕共享。"
+    },
+    {
+      "key": "screenShare.error.locked",
+      "value": "管理员已在此服务器上关闭屏幕共享。"
+    },
+    {
+      "key": "screenShare.error.restart",
+      "value": "媒体插件已更新。请重新启动以使用屏幕共享。"
+    },
+    {
+      "key": "screenShare.audioSource",
+      "value": "音频来源"
+    },
+    {
+      "key": "screenShare.audioSource.tooltip",
+      "value": "自动：共享窗口时只共享该应用的声音，共享显示器时共享除 Basis 外的所有声音。"
+    },
+    {
+      "key": "screenShare.audioSource.auto",
+      "value": "自动"
+    },
+    {
+      "key": "screenShare.audioSource.application",
+      "value": "仅此应用"
+    },
+    {
+      "key": "screenShare.audioSource.system",
+      "value": "整台电脑"
+    },
+    {
+      "key": "screenShare.source.portal",
+      "value": "屏幕或窗口（在系统对话框中选择）"
+    },
+    {
+      "key": "screenShare.status.choose",
+      "value": "请在系统对话框中选择要共享的内容…"
+    },
+    {
+      "key": "screenShare.error.pluginMissing",
+      "value": "此版本的媒体插件不支持屏幕共享。请为此平台重新构建插件。"
+    }
+  ]
+}

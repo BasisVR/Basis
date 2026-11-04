@@ -26,7 +26,6 @@ namespace Basis.Scripts.Device_Management
         public bool HasCalibratedOffsetSnapshot;
         public Vector3 CalibratedUnscaledPosition;
         public Quaternion CalibratedUnscaledRotation = Quaternion.identity;
-        public float CalibratedUnscaledLift;
         public Vector3 CalibratedUnscaledHeadPosition;
         public Quaternion CalibratedUnscaledHeadRotation = Quaternion.identity;
         public bool HasCalibratedHeadFromEye;

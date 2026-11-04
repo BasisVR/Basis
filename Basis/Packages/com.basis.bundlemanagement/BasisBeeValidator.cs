@@ -48,6 +48,10 @@ public static class BasisBeeValidator
             BasisDebug.LogError(error);
             return false;
         }
+        if (BasisServerHostedBee.IsHostedUrl(url))
+        {
+            return true;
+        }
         if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri))
         {
             error = "URL is not a valid absolute URI: '" + url + "'.";

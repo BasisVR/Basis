@@ -97,7 +97,7 @@ namespace Basis.Network
             {
                 PlayersCurrentPosition[i] = PinSpacingMeters > 0f
                     ? new Vector3 { x = i * PinSpacingMeters, y = 1f, z = 0f }
-                    : Randomizer.GetSpawnPosition(Basis.Config.ConfigManager.SpawnRadiusMeters);
+                    : Randomizer.GetSpawnPosition(Basis.Config.ConfigManager.SpawnRadiusMeters, i);
                 ActivePlayerData[i] = Generate(i);
             }
         }
@@ -640,7 +640,7 @@ namespace Basis.Network
             int poseSeed = pd.PoseSeed;
 
             // Update position (held fixed when pinned to a distance tier)
-            if (PinSpacingMeters <= 0f)
+            if (PinSpacingMeters <= 0f && Basis.Config.ConfigManager.Wander)
             {
                 PlayersCurrentPosition[index] += Randomizer.GetRandomOffset();
             }

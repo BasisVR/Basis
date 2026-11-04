@@ -185,6 +185,22 @@ public class ContentShareTextAndLinkTests
     }
 
     [Theory]
+    [InlineData("http://ä-.com/")]
+    [InlineData("https://ä-.example/path?q=1")]
+    [InlineData("https://www.ä-.example:8443/")]
+    public void TryParseLink_RefusesHostsWithNoValidAsciiForm_InsteadOfThrowing(string value)
+    {
+        Assert.False(ContentSharePayload.TryParseLink(value, out Uri link));
+        Assert.Null(link);
+    }
+
+    [Fact]
+    public void LinkShares_WithHostsThatHaveNoAsciiForm_AreRefused()
+    {
+        AssertRefused(ContentShareType.Link, "http://ä-.com/");
+    }
+
+    [Theory]
     [InlineData("")]
     [InlineData("   \n\t ")]
     public void EmptyTextShares_AreRefused(string payload)

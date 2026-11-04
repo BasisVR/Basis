@@ -20,15 +20,19 @@ public static class BasisNetworkContentShare
     {
         public readonly ServerContentShareMessage Message;
         public readonly long DroppedAt, SharerLeftAt;
-        public readonly bool SharerLeft;
+        public readonly bool SharerLeft, IsPortal;
+        public readonly int PortalLifetimeSeconds;
         public ActiveSphere(ServerContentShareMessage message, long droppedAt, bool sharerLeft = false, long sharerLeftAt = 0)
         {
             Message = message;
             DroppedAt = droppedAt;
             SharerLeft = sharerLeft;
             SharerLeftAt = sharerLeftAt;
+            IsPortal = message.contentShareMessage.ContentType == ContentShareType.Portal;
+            PortalLifetimeSeconds = IsPortal && ContentSharePortal.TryReadLifetime(message.contentShareMessage.UnlockPassword, out int seconds) ? seconds : 0;
         }
         public ushort SharerId => Message.playerIdMessage.playerID;
+        public bool PersistentPortal => IsPortal && PortalLifetimeSeconds == ContentSharePortal.Persistent;
     }
 
     /// <summary>
@@ -54,6 +58,11 @@ public static class BasisNetworkContentShare
 
         if (!PermissionIntegration.HasValidRequirement(peer, PermNodes.ContentShareCreate))
         {
+            return;
+        }
+        if (string.IsNullOrEmpty(msg.SphereNetID) || msg.SphereNetID.Length > ContentSharePayload.MaxSphereIdLength || (msg.UnlockPassword?.Length ?? 0) > ContentSharePayload.MaxPasswordLength)
+        {
+            BNL.LogError($"Content share from peer {peer.Id} has a {msg.SphereNetID?.Length ?? 0} character sphere id and a {msg.UnlockPassword?.Length ?? 0} character password; the ceilings are {ContentSharePayload.MaxSphereIdLength} and {ContentSharePayload.MaxPasswordLength}.");
             return;
         }
 
@@ -94,12 +103,26 @@ public static class BasisNetworkContentShare
             case ContentShareType.Setting:
                 contentName = "Setting";
                 break;
+            case ContentShareType.Portal:
+                if (!PermissionIntegration.HasValidRequirement(peer, PermNodes.ContentSharePortal))
+                {
+                    BNL.LogWarning($"Peer {peer.Id} tried to drop a portal without {PermNodes.ContentSharePortal}.");
+                    BasisNetworkServer.Security.BasisPlayerModeration.SendBackMessage(peer, "You do not have permission to drop portals.");
+                    return;
+                }
+                if (string.IsNullOrWhiteSpace(msg.ContentURL) || msg.ContentURL.Length > ContentSharePayload.MaxTextLength || !ContentSharePortal.TryReadLifetime(msg.UnlockPassword, out _))
+                {
+                    BNL.LogError($"Portal from peer {peer.Id} has no destination or an unreadable lifetime.");
+                    return;
+                }
+                contentName = "Portal";
+                break;
             default:
                 BNL.LogError($"Unknown content share type {(byte)msg.ContentType} from peer {peer.Id}");
                 return;
         }
-        if (ContentSharePayload.IsPayloadType(msg.ContentType)
-            && (msg.ContentURL == null || msg.ContentURL.Length > ContentSharePayload.MaxLengthFor(msg.ContentType)))
+        if ((ContentSharePayload.IsPayloadType(msg.ContentType) && msg.ContentURL == null)
+            || (msg.ContentURL?.Length ?? 0) > ContentSharePayload.MaxLengthFor(msg.ContentType))
         {
             BNL.LogError($"Content share payload from peer {peer.Id} is {msg.ContentURL?.Length ?? -1} characters; the ceiling is {ContentSharePayload.MaxLengthFor(msg.ContentType)}.");
             return;
@@ -327,7 +350,7 @@ public static class BasisNetworkContentShare
 
         foreach (KeyValuePair<string, ActiveSphere> kvp in shared)
         {
-            if (leaveTimeoutSeconds > 0)
+            if (leaveTimeoutSeconds > 0 || kvp.Value.PersistentPortal)
             {
                 if (ActiveSpheres.TryUpdate(kvp.Key, new ActiveSphere(kvp.Value.Message, kvp.Value.DroppedAt, true, now), kvp.Value))
                 {
@@ -377,7 +400,15 @@ public static class BasisNetworkContentShare
         foreach (KeyValuePair<string, ActiveSphere> kvp in ActiveSpheres)
         {
             ActiveSphere sphere = kvp.Value;
-            bool due = (sphere.SharerLeft && now - sphere.SharerLeftAt >= leaveTimeout) || (deletionTimer > 0 && now - sphere.DroppedAt >= deletionTimer);
+            bool due;
+            if (sphere.IsPortal)
+            {
+                due = !sphere.PersistentPortal && now - sphere.DroppedAt >= sphere.PortalLifetimeSeconds * Stopwatch.Frequency;
+            }
+            else
+            {
+                due = (sphere.SharerLeft && now - sphere.SharerLeftAt >= leaveTimeout) || (deletionTimer > 0 && now - sphere.DroppedAt >= deletionTimer);
+            }
             if (due && ((ICollection<KeyValuePair<string, ActiveSphere>>)ActiveSpheres).Remove(kvp))
             {
                 BNL.Log($"Content sphere expired: {kvp.Key}");
@@ -391,12 +422,12 @@ public static class BasisNetworkContentShare
     /// <summary>
     /// Clears all non-persistent spheres (called when server empties).
     /// </summary>
-    public static void Reset()
+    public static void Reset(bool keepPersistentPortals = false)
     {
-        string[] keys = ActiveSpheres.Keys.ToArray();
-        foreach (string key in keys)
+        foreach (KeyValuePair<string, ActiveSphere> kvp in ActiveSpheres.ToArray())
         {
-            ActiveSpheres.TryRemove(key, out _);
+            if (keepPersistentPortals && kvp.Value.PersistentPortal) continue;
+            ActiveSpheres.TryRemove(kvp.Key, out _);
         }
     }
 }

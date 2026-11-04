@@ -22,7 +22,15 @@ namespace LiteNetLib
             {
                 OutgoingQueue.Enqueue(packet);
             }
+            Peer.NoteChannelQueued(packet.Size);
             AddToPeerChannelSendQueue();
+        }
+
+        protected NetPacket DequeueOutgoing()
+        {
+            NetPacket packet = OutgoingQueue.Dequeue();
+            Peer.NoteChannelQueued(-packet.Size);
+            return packet;
         }
 
         protected void AddToPeerChannelSendQueue()

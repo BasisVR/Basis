@@ -78,7 +78,7 @@ namespace Basis.Tests.Rendering
             Assert.That(sharpness, Is.GreaterThan(0f));
         }
 
-#if ENABLE_UPSCALER_FRAMEWORK && UNITY_EDITOR_WIN
+#if UNITY_EDITOR_WIN
         [Test]
         public void EveryTemporalOption_IsRegisteredWithUnity()
         {

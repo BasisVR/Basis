@@ -137,7 +137,14 @@ load.
 `BasisVideoMaterialOutput` sets the video on one or more renderers' materials
 (`TargetRenderer` and `AdditionalTargets`; `_BaseMap` on URP, `_MainTex`
 otherwise, or `TexturePropertyName`). `BasisVideoDisplay` sets it on a uGUI
-`RawImage` and can drive an `AspectRatioFitter`.
+`RawImage` and can drive an `AspectRatioFitter`. `BasisVideoTextureOutput`
+copies it into a `RenderTexture` (`TargetTexture`) each frame the player
+presents one, for anything that samples a texture instead of drawing a screen,
+such as a lighting system's colour source. The copy fills the target, only the
+flips below apply to it, and the target holds `ClearColor` while there is no
+video. A target assigned or re-created while it runs is filled at once. A
+`CustomRenderTexture` target must not have a material assigned, or its update
+draws over the copy.
 
 Aspect, stereo eye and flips are applied to texture coordinates; the mesh is
 not resized. `AspectMode`:
@@ -310,7 +317,8 @@ Advanced.
 ## Scripting
 
 Everything below is on `BasisMediaPlayer` unless it says otherwise. The
-companions are an output (`BasisVideoMaterialOutput` or `BasisVideoDisplay`),
+companions are an output (`BasisVideoMaterialOutput`, `BasisVideoDisplay` or
+`BasisVideoTextureOutput`),
 `BasisMediaPlayerAudio` for sound and `BasisMediaPlayerNetworking` for shared
 playback; the sections above cover each.
 

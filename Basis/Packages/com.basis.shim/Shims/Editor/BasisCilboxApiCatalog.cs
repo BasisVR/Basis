@@ -55,7 +55,7 @@ namespace Basis.Shims.Editor
     }
 
     /// <summary>
-    /// The hand-written half of the window: what a cilboxed script can actually do, in the order
+    /// The Cilbox API Reference section of the Creator Guide window: what a cilboxed script can actually do, in the order
     /// someone writing one needs it.
     ///
     /// <para>Only the prose is written here. Whether an entry is available in a given box is asked
@@ -232,6 +232,83 @@ local.SetWalkSpeedOverride(""LowGravityZone"", 1.2f);
 local.SetJumpHeightOverride(""LowGravityZone"", 2.5f);
 local.SetMovementModeOverride(""LowGravityZone"", 1);
 local.ClearLocomotionOverride(""LowGravityZone"");",
+            },
+            new CilboxApiEntry
+            {
+                GroupKey = GroupPlayers,
+                TitleKey = "sdk.cilbox.api.velocity.title",
+                SummaryKey = "sdk.cilbox.api.velocity.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisVelocityShim", "SetVelocity") },
+                Example =
+@"using Basis.Shims;
+
+// Worlds only. World space metres per second, on top of the player's own
+// movement. Gravity takes the vertical part; the rest carries through the air
+// and fades out once they are on the ground. Capped at 100 m/s.
+BasisVelocityShim.SetVelocity(transform.up * 12f);
+
+// Adds to what they already have, for boosts and knockback.
+BasisVelocityShim.AddVelocity(transform.forward * 6f);
+
+// How fast they are actually moving. Props can read this too.
+Vector3 velocity = BasisVelocityShim.Velocity;
+
+// A trampoline: keep the run, replace the fall.
+BasisVelocityShim.SetVelocity(new Vector3(velocity.x, 9f, velocity.z));
+
+// Teleporting, sitting down or changing movement mode clears it.",
+            },
+            new CilboxApiEntry
+            {
+                GroupKey = GroupPlayers,
+                TitleKey = "sdk.cilbox.api.poseOverride.title",
+                SummaryKey = "sdk.cilbox.api.poseOverride.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisPoseOverrideShim", "Claim"), new CilboxApiRequirement("Basis.Shims.BasisPoseOverrideShim", "TryGetUnoverridden") },
+                Example =
+@"using Basis.Shims;
+
+// Worlds, the local player's own avatar, and props the local player spawned.
+// Poses the local player's body on top of their tracking. Only the hips take a
+// position; every other bone takes a rotation.
+public Transform grip;
+float blend;
+bool holding;
+
+public void Grab()
+{
+    holding = BasisPoseOverrideShim.Claim(this, HumanBodyBones.RightHand);
+}
+
+void Update()
+{
+    if (!BasisPoseOverrideShim.IsClaimed(this, HumanBodyBones.RightHand)) return;
+    BasisPoseOverrideShim.SetRotation(this, HumanBodyBones.RightHand, grip.rotation);
+
+    // What their tracking would have done without the override, last frame.
+    if (holding && BasisPoseOverrideShim.TryGetUnoverridden(this, HumanBodyBones.RightHand, out Vector3 wrist, out Quaternion realHand)
+        && Quaternion.Angle(realHand, grip.rotation) > 45f) holding = false;
+
+    blend = Mathf.MoveTowards(blend, holding ? 1f : 0f, Time.deltaTime * 5f);
+    BasisPoseOverrideShim.SetBlend(this, HumanBodyBones.RightHand, blend);
+    if (!holding && blend == 0f) BasisPoseOverrideShim.Release(this, HumanBodyBones.RightHand);
+}
+
+// To move a hand or foot instead, claim it as an effector. IK bends the whole
+// arm to reach it in place of the controller, desktop included.
+public Transform handle;
+
+void Start() { BasisPoseOverrideShim.ClaimEffector(this, HumanBodyBones.LeftHand); }
+
+void LateUpdate()
+{
+    BasisPoseOverrideShim.SetEffector(this, HumanBodyBones.LeftHand, handle.position, handle.rotation);
+    // Where the real controller is, to let go when they pull away.
+    if (BasisPoseOverrideShim.TryGetTracked(this, HumanBodyBones.LeftHand, out Vector3 controller, out _)
+        && Vector3.Distance(controller, handle.position) > 0.4f)
+        BasisPoseOverrideShim.ReleaseEffector(this, HumanBodyBones.LeftHand);
+}
+
+void OnDestroy() { BasisPoseOverrideShim.ReleaseAll(this); }",
             },
             new CilboxApiEntry
             {
@@ -575,6 +652,33 @@ void OnCollisionEnter(Collision collision)
             new CilboxApiEntry
             {
                 GroupKey = GroupRendering,
+                TitleKey = "sdk.cilbox.api.models.title",
+                SummaryKey = "sdk.cilbox.api.models.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisModelShim", "Load") },
+                Example =
+@"using Basis.Shims;
+
+// GLB, glTF, OBJ, STL or PLY, read from the file's contents. Worlds and props only.
+// A glTF must embed its buffers and images: nothing is fetched on its behalf.
+BasisWebRequestShim.Get(this, ""https://example.com/chair.glb"", (web, status, bytes) =>
+{
+    if (web != BasisWebResult.Ok) return;
+    BasisModelShim.Load(this, bytes, transform, (result, model) =>
+    {
+        if (result == BasisModelResult.Ok) chair = model;
+    });
+});
+
+// Just the Mesh, for your own MeshFilter or MeshCollider. OBJ, STL and PLY.
+BasisModelShim.LoadMesh(this, objBytes, (result, mesh) => filter.sharedMesh = mesh);
+
+// Models stay until you unload them, destroy them or the content unloads.
+BasisModelShim.Unload(this, chair);
+long left = BasisModelShim.RemainingTriangles(this);",
+            },
+            new CilboxApiEntry
+            {
+                GroupKey = GroupRendering,
                 TitleKey = "sdk.cilbox.api.material.title",
                 SummaryKey = "sdk.cilbox.api.material.summary",
                 Requires = new[] { new CilboxApiRequirement("UnityEngine.Material") },
@@ -648,6 +752,9 @@ void Update()
 // BasisComputeShim.RemainingBytes(this) and RemainingThreads(this). A buffer over
 // the memory budget throws; a Dispatch over this frame's budget is skipped with a
 // warning. Basis frees every buffer when the content unloads.
+// To read results back, poll BasisComputeShim.TryGetDataAsync(heights, values): it returns
+// true when newer data was copied into values and never waits. buffer.GetData stops the
+// whole game until the GPU catches up, so avoid it in anything that runs every frame.
 // Not available: DispatchIndirect, SetTextureFromGlobal, Shader.SetGlobalBuffer.",
             },
             new CilboxApiEntry
@@ -821,6 +928,16 @@ void OnDestroy()
 
 if (seat.IsAvailable) seat.TrySeatLocalPlayer();
 if (seat.IsLocalPlayerSeated) seat.SetOccupantYaw(90f);
+seat.HipsLock = BasisSeatLockMode.UnlessTracked;
+seat.LeftFootLock = BasisSeatLockMode.UnlessTracked;
+seat.RightFootLock = BasisSeatLockMode.Free;
+seat.OccupantOffsetLimit = 0.5f;
+seat.SetOccupantOffset(new Vector3(0f, 0.1f, 0f));
+seat.Pose = BasisSeatPose.KneesApart;
+seat.SetHandTargets(leftGrip, rightGrip);
+seat.LeftHandLock = BasisSeatLockMode.Locked;
+seat.SetFootTargets(leftPedal, rightPedal);
+seat.ClearLimbTargets();
 seat.EjectLocalPlayer();",
             },
             new CilboxApiEntry
@@ -863,6 +980,146 @@ void Update()
             },
             new CilboxApiEntry
             {
+                GroupKey = GroupInteraction,
+                TitleKey = "sdk.cilbox.api.inputRequest.title",
+                SummaryKey = "sdk.cilbox.api.inputRequest.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisInputShim", "Request"), new CilboxApiRequirement("Basis.Shims.BasisInputRequest", "Target") },
+                Example =
+@"using Basis.Shims;
+using UnityEngine.InputSystem;
+
+// Worlds only. Ask once for the inputs you need. Basis polls each one once a frame for
+// every script and only calls this script when one of them changed, so no Update is needed.
+BasisInputRequest input;
+float[] values = new float[BasisInputShim.MaxSlots];
+int jump, fire, stickX, stickY;
+
+void Start()
+{
+    input = BasisInputShim.Request(this);
+    jump = input.AddKey(Key.Space);
+    fire = input.AddController(BasisControllerHand.Right, BasisControllerButton.Trigger);
+    stickX = input.AddGamepad(BasisInputGamepadControl.LeftStickX);
+    stickY = input.AddGamepad(BasisInputGamepadControl.LeftStickY);
+    input.Target(values);
+}
+
+void OnInputChanged(int down, int up)
+{
+    if ((down & (1 << jump)) != 0) Jump();
+    if ((down & (1 << fire)) != 0) Fire();
+    Steer(values[stickX], values[stickY]);
+}
+
+void OnDestroy() { input.Release(); }",
+            },
+            new CilboxApiEntry
+            {
+                GroupKey = GroupInteraction,
+                TitleKey = "sdk.cilbox.api.settingsTab.title",
+                SummaryKey = "sdk.cilbox.api.settingsTab.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisMenuShim", "AddSettingsTab"), new CilboxApiRequirement("Basis.Shims.BasisMenuPage", "AddToggle") },
+                Example =
+@"using Basis.Shims;
+
+// Worlds, props the local player spawned, and the local player's own avatar.
+// Null when refused. Removed with the script; keep values with BasisSaveShim.
+// On an avatar, call it from BasisAvatarShim.OnAvatarReady when isOwner is true.
+BasisMenuPage page;
+BasisMenuItem laps;
+
+void Start()
+{
+    page = BasisMenuShim.AddSettingsTab(this, ""Race Track"");
+    if (page == null) return;
+    page.AddHeader(""Race"");
+    page.AddToggle(""Ghost car"", true, OnGhost);
+    laps = page.AddSlider(""Laps"", 1, 10, 3, true, OnLaps);
+    page.AddDropdown(""Weather"", new[] { ""Sun"", ""Rain"" }, 0, OnWeather);
+    page.AddButton(""Reset race"", OnReset);
+}
+
+void OnGhost(bool on) { }
+void OnLaps(float value) { }
+void OnWeather(int index) { }
+void OnReset() { laps.SetValue(3); }",
+            },
+            new CilboxApiEntry
+            {
+                GroupKey = GroupInteraction,
+                TitleKey = "sdk.cilbox.api.menuPanel.title",
+                SummaryKey = "sdk.cilbox.api.menuPanel.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisMenuShim", "AddPanel"), new CilboxApiRequirement("Basis.Shims.BasisMenuPage", "AddTab") },
+                Example =
+@"using Basis.Shims;
+
+// One menu button per content; AddTab adds another tab to the same panel.
+// Open() only works within 5 s of the player pressing something in this content.
+BasisMenuPage game;
+BasisMenuItem score;
+
+void Start()
+{
+    game = BasisMenuShim.AddPanel(this, ""Arcade"");
+    if (game == null) return;
+    score = game.AddLabel(""Score: 0"");
+    game.AddButton(""New game"", OnNewGame);
+    BasisMenuPage rules = game.AddTab(""Rules"");
+    rules.AddLabel(""Hit every target before the timer runs out."");
+}
+
+void OnNewGame() { score.SetText(""Score: 0""); }
+public void OnKioskPressed() { game.Open(); }",
+            },
+            new CilboxApiEntry
+            {
+                GroupKey = GroupInteraction,
+                TitleKey = "sdk.cilbox.api.scriptBus.title",
+                SummaryKey = "sdk.cilbox.api.scriptBus.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisScriptBus", "Send"), new CilboxApiRequirement("Basis.Shims.BasisScriptBus", "Listen"), new CilboxApiRequirement("Basis.Shims.BasisScriptBus", "Tag"), new CilboxApiRequirement("Basis.Shims.BasisScriptTarget", "HasTag") },
+                Example =
+@"using Basis.Shims;
+
+// Everything stays on this machine and arrives next frame. Sender is filled in
+// by Basis, so it cannot be faked. Use BasisNetworkShim to reach other players.
+
+// World: tags itself so props can tell what game it runs.
+int blue;
+
+void Start()
+{
+    BasisScriptBus.Tag(this, ""sport.football"");
+    BasisScriptBus.Describe(this, ""goal"", ""Props send this when they score. Text is the team."");
+    BasisScriptBus.Listen(this, ""goal"", BasisScriptBus.FromProps, OnGoal);
+}
+
+void OnGoal(BasisScriptMessage message)
+{
+    if (!message.Sender.HasTag(""ball"")) return;
+    if (message.Text == ""blue"") blue++;
+    Vector3 where = message.GetVector3(Vector3.zero);
+    message.Reply(""counted"");
+}
+
+// Ball prop: values can be numbers, bools, vectors, colours, byte[] and arrays.
+void Start()
+{
+    BasisScriptBus.Tag(this, ""ball"");
+    BasisScriptBus.Describe(this, ""A football. Kick it into a goal."");
+    BasisScriptBus.Publish(this, ""trail"", new byte[] { 1, 2, 3 });
+    BasisScriptBus.Listen(this, ""goal"", BasisScriptBus.FromWorld, OnAnswer);
+}
+
+void Score(Vector3 where)
+{
+    BasisScriptTarget world = BasisScriptBus.World;
+    if (world != null && world.HasTag(""sport.football"")) BasisScriptBus.Send(this, world, ""goal"", ""blue"", where);
+}
+
+void OnAnswer(BasisScriptMessage message) { }",
+            },
+            new CilboxApiEntry
+            {
                 GroupKey = GroupAudio,
                 TitleKey = "sdk.cilbox.api.audioRouting.title",
                 SummaryKey = "sdk.cilbox.api.audioRouting.summary",
@@ -877,6 +1134,48 @@ BasisAudioRoutingShim.Route(this, source);
 
 // Or route every source in this content at once.
 int routed = BasisAudioRoutingShim.RouteAll(this);",
+            },
+            new CilboxApiEntry
+            {
+                GroupKey = GroupAudio,
+                TitleKey = "sdk.cilbox.api.steamAudio.title",
+                SummaryKey = "sdk.cilbox.api.steamAudio.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisSteamAudioShim", "SetOcclusion") },
+                Example =
+@"using Basis.Shims;
+
+// Works on audio sources in this content. Add spatializes one that has no Steam Audio yet.
+AudioSource source = GetComponent<AudioSource>();
+BasisSteamAudioShim.Add(this, source);
+BasisSteamAudioShim.SetHrtf(this, source, true, true);
+BasisSteamAudioShim.SetAirAbsorption(this, source, true);
+
+// Occlusion and reflections need geometry. Worlds add it from readable meshes.
+BasisSteamAudioShim.AddGeometry(this, wallMesh, 0.1f, 0.2f, 0.3f, 0.5f, 0.05f, 0.04f, 0.03f);
+BasisSteamAudioShim.SetOcclusion(this, source, true);
+BasisSteamAudioShim.SetTransmission(this, source, true, true, 2);
+
+// False when this content has used its reflection sources.
+BasisSteamAudioShim.SetReflections(this, source, true, 1f, false);
+
+// 1 is clear, 0 is fully blocked.
+float clear = BasisSteamAudioShim.GetOcclusion(this, source);",
+            },
+            new CilboxApiEntry
+            {
+                GroupKey = GroupAudio,
+                TitleKey = "sdk.cilbox.api.remotePlayerAudio.title",
+                SummaryKey = "sdk.cilbox.api.remotePlayerAudio.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisRemotePlayerAudioShim", "SetOcclusion") },
+                Example =
+@"using Basis.Shims;
+
+// World scripts only. Changes how this client hears that player. Volume and mutes stay with the listener.
+BasisRemotePlayerAudioShim.SetOcclusion(this, player, false);
+BasisRemotePlayerAudioShim.SetReflections(this, player, true, 0.5f);
+
+// Back to this listener's own Remote Audio settings. Also happens when the world unloads.
+BasisRemotePlayerAudioShim.Clear(this, player);",
             },
             new CilboxApiEntry
             {
@@ -933,6 +1232,33 @@ void OnWebsiteButtonPressed()
         if (result != BasisExternalLinkResult.Opened) addressLabel.text = ""example.com/community"";
     });
 }",
+            },
+            new CilboxApiEntry
+            {
+                GroupKey = GroupNetworking,
+                TitleKey = "sdk.cilbox.api.connection.title",
+                SummaryKey = "sdk.cilbox.api.connection.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisConnectionShim", "RequestConnect") },
+                Example =
+@"using Basis.Shims;
+
+// Call these from the player's own press, grab or click on this world or prop.
+// The player sees the request, and the address when moving, and has to accept.
+void OnPortalPressed()
+{
+    BasisConnectionShim.RequestConnect(this, ""play.example.com"", 4296, null, result =>
+    {
+        if (result == BasisConnectionResult.Declined) sign.text = ""Maybe next time"";
+    });
+}
+
+void OnLeavePressed()
+{
+    BasisConnectionShim.RequestDisconnect(this);
+}
+
+// Reading the connection needs no request: BasisStatsShim.IsConnected, or
+// BasisNetworkConnection.LocalPlayerIsConnected and TryGetLocalPlayerID.",
             },
             new CilboxApiEntry
             {
@@ -1151,6 +1477,32 @@ BasisSaveShim.Delete(this, ""progress"");
 BasisSaveShim.Save(this, ""my-game"", ""progress"", bytes);
 
 // 256 KB per slot, 32 slots and 1 MB per store, 8 writes a second.",
+            },
+            new CilboxApiEntry
+            {
+                GroupKey = GroupData,
+                TitleKey = "sdk.cilbox.api.saveScopes.title",
+                SummaryKey = "sdk.cilbox.api.saveScopes.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisSaveShim", "Save"), new CilboxApiRequirement("Basis.Shims.BasisSaveShim", "LoadReadOnly"), new CilboxApiRequirement("Basis.Shims.BasisSaveScope") },
+                Example =
+@"using Basis.Shims;
+
+// Protected: only this content can read or change it. A null store is the
+// default store that BasisSaveShim.Save(this, slot, bytes) uses.
+BasisSaveShim.Save(this, BasisSaveScope.Protected, ""settings"", ""volume"", bytes);
+byte[] volume = BasisSaveShim.Load(this, BasisSaveScope.Protected, ""settings"", ""volume"");
+
+// ReadOnly: any content can read it, only this content can change it.
+BasisSaveShim.Save(this, BasisSaveScope.ReadOnly, null, ""badge"", bytes);
+
+// Other content reads it with the Content ID you publish.
+byte[] badge = BasisSaveShim.LoadReadOnly(this, partnerContentId, null, ""badge"");
+
+// Shared: any content that names the store can read and change it.
+BasisSaveShim.Save(this, BasisSaveScope.Shared, ""my-game"", ""progress"", bytes);
+
+// Same limits as above. Reading another content's ReadOnly data does not
+// count against this script's 4 stores; it may read 16 of them.",
             },
             // ---------------------------------------------------------- media
             new CilboxApiEntry

@@ -45,6 +45,7 @@ namespace Basis.Scripts.UI.UI_Panels
         }
         private static ItemFolders folders = new ItemFolders { Data = Array.Empty<ItemFolder>() };
         private static bool _loaded = false;
+        private static bool _readOnly = false;
         [NoAutoStaticsCleanup] private static readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
 
         public static ItemFolder[] DisplayFolders() => folders?.Data ?? Array.Empty<ItemFolder>();
@@ -236,16 +237,18 @@ namespace Basis.Scripts.UI.UI_Panels
 
         private static async Task<ItemFolders> Load()
         {
+            _readOnly = false;
             ItemFolders loaded = await TryRead(FilePath);
-            if (loaded == null && File.Exists(FilePath))
+            if (loaded == null && File.Exists(FilePath) && !_readOnly)
             {
                 try
                 {
-                    File.Copy(FilePath, FilePath + ".corrupt_backup", true);
+                    File.Copy(FilePath, BasisDataStoreItemKeys.UnreadableCopyPath(FilePath), false);
                 }
                 catch (Exception e)
                 {
-                    BasisDebug.LogError($"Could not keep a copy of the unreadable item folder file: {e.Message}");
+                    _readOnly = true;
+                    BasisDebug.LogError($"Could not keep a copy of the unreadable item folder file, nothing will be saved this session: {e.Message}");
                 }
             }
             loaded ??= await TryRead(FilePath + ".bak");
@@ -256,12 +259,22 @@ namespace Basis.Scripts.UI.UI_Panels
         private static async Task<ItemFolders> TryRead(string path)
         {
             if (!File.Exists(path)) return null;
+            byte[] bytes;
             try
             {
-                byte[] bytes = await BasisFiles.ReadAllBytesAsync(path);
+                bytes = await BasisDataStoreItemKeys.ReadWithRetry(path);
+            }
+            catch (Exception e)
+            {
+                if (path == FilePath) _readOnly = true;
+                BasisDebug.LogError($"Failed to read item folders from {path}: {e}");
+                return null;
+            }
+            try
+            {
                 if (bytes == null || bytes.Length == 0) return null;
                 ItemFolders read = BasisSerialization.DeserializeValue<ItemFolders>(bytes);
-                if (read == null) return null;
+                if (read?.Data == null) return null;
                 read.Data = Scrub(read.Data);
                 return read;
             }
@@ -292,6 +305,11 @@ namespace Basis.Scripts.UI.UI_Panels
 
         private static async Task Save()
         {
+            if (_readOnly)
+            {
+                BasisDebug.LogError("Item folder file could not be read at launch, so this change was not saved. Restart to reload it.");
+                return;
+            }
             byte[] bytes;
             try
             {

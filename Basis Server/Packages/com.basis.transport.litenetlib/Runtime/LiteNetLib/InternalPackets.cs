@@ -7,14 +7,18 @@ namespace LiteNetLib
    internal sealed class NetConnectRequestPacket
     {
         public const int HeaderSize = 18;
+        public const int CookieSize = 16;
+        private const byte CookieFlag = 0x80;
+        public readonly byte[] Cookie;
         public readonly long ConnectionTime;
         public byte ConnectionNumber;
         public readonly byte[] TargetAddress;
         public readonly NetDataReader Data;
         public readonly int PeerId;
 
-        private NetConnectRequestPacket(long connectionTime, byte connectionNumber, int localId, byte[] targetAddress, NetDataReader data)
+        private NetConnectRequestPacket(long connectionTime, byte connectionNumber, int localId, byte[] targetAddress, NetDataReader data, byte[] cookie)
         {
+            Cookie = cookie;
             ConnectionTime = connectionTime;
             ConnectionNumber = connectionNumber;
             TargetAddress = targetAddress;
@@ -39,18 +43,43 @@ namespace LiteNetLib
             int peerId = FastBitConverter.Read<int>(packet.RawData, 13);
 
             //Get target address
-            int addrSize = packet.RawData[HeaderSize-1];
+            int addrByte = packet.RawData[HeaderSize-1];
+            bool hasCookie = (addrByte & CookieFlag) != 0;
+            int addrSize = addrByte & ~CookieFlag;
             if (addrSize != 16 && addrSize != 28)
+                return null;
+            int dataStart = HeaderSize + addrSize + (hasCookie ? CookieSize : 0);
+            if (packet.Size < dataStart)
                 return null;
             byte[] addressBytes = new byte[addrSize];
             Buffer.BlockCopy(packet.RawData, HeaderSize, addressBytes, 0, addrSize);
+            byte[] cookie = null;
+            if (hasCookie)
+            {
+                cookie = new byte[CookieSize];
+                Buffer.BlockCopy(packet.RawData, HeaderSize + addrSize, cookie, 0, CookieSize);
+            }
 
             // Read data and create request
             var reader = new NetDataReader(null, 0, 0);
-            if (packet.Size > HeaderSize+addrSize)
-                reader.SetSource(packet.RawData, HeaderSize + addrSize, packet.Size);
+            if (packet.Size > dataStart)
+                reader.SetSource(packet.RawData, dataStart, packet.Size);
 
-            return new NetConnectRequestPacket(connectionTime, packet.ConnectionNumber, peerId, addressBytes, reader);
+            return new NetConnectRequestPacket(connectionTime, packet.ConnectionNumber, peerId, addressBytes, reader, cookie);
+        }
+
+        public static NetPacket WithCookie(NetPacket request, byte[] cookie, int offset)
+        {
+            int addrByte = request.RawData[HeaderSize - 1];
+            int addrSize = addrByte & ~CookieFlag;
+            int oldCookie = (addrByte & CookieFlag) != 0 ? CookieSize : 0;
+            int tail = request.Size - (HeaderSize + addrSize + oldCookie);
+            var packet = new NetPacket(PacketProperty.ConnectRequest, addrSize + CookieSize + tail);
+            Buffer.BlockCopy(request.RawData, 0, packet.RawData, 0, HeaderSize + addrSize);
+            packet.RawData[HeaderSize - 1] = (byte)(addrSize | CookieFlag);
+            Buffer.BlockCopy(cookie, offset, packet.RawData, HeaderSize + addrSize, CookieSize);
+            Buffer.BlockCopy(request.RawData, HeaderSize + addrSize + oldCookie, packet.RawData, HeaderSize + addrSize + CookieSize, tail);
+            return packet;
         }
 
         public static NetPacket Make(NetDataWriter connectData, SocketAddress addressBytes, long connectTime, int localId)

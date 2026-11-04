@@ -190,12 +190,12 @@ namespace Basis.Tests.GlobalIllumination
         [Test]
         public void ReflectionsCarryTheirOwnMode()
         {
-            volume.mode = BasisGlobalIlluminationMode.RayTraced;
+            volume.mode = BasisGlobalIlluminationDiffuseMode.RayTraced;
             volume.specularMode = BasisGlobalIlluminationMode.ScreenSpace;
             Assert.IsTrue(volume.IsRayTraced());
             Assert.IsFalse(volume.IsSpecularRayTraced());
 
-            volume.mode = BasisGlobalIlluminationMode.ScreenSpace;
+            volume.mode = BasisGlobalIlluminationDiffuseMode.RadianceCascades;
             volume.specularMode = BasisGlobalIlluminationMode.RayTraced;
             Assert.IsFalse(volume.IsRayTraced());
             Assert.IsTrue(volume.IsSpecularRayTraced());
@@ -209,11 +209,11 @@ namespace Basis.Tests.GlobalIllumination
         {
             volume.enable = true;
             volume.intensity = 1f;
-            volume.mode = BasisGlobalIlluminationMode.ScreenSpace;
+            volume.mode = BasisGlobalIlluminationDiffuseMode.RadianceCascades;
             volume.specular = false;
             Assert.IsFalse(volume.UsesRayTracer());
 
-            volume.mode = BasisGlobalIlluminationMode.RayTraced;
+            volume.mode = BasisGlobalIlluminationDiffuseMode.RayTraced;
             Assert.IsTrue(volume.UsesRayTracer());
 
             volume.enable = false;
@@ -237,11 +237,11 @@ namespace Basis.Tests.GlobalIllumination
             volume.specular = true;
             volume.specularIntensity = 1f;
 
-            volume.mode = BasisGlobalIlluminationMode.ScreenSpace;
+            volume.mode = BasisGlobalIlluminationDiffuseMode.RadianceCascades;
             Assert.IsTrue(volume.SpecularActive());
             Assert.IsFalse(volume.IsRayTraced());
 
-            volume.mode = BasisGlobalIlluminationMode.RayTraced;
+            volume.mode = BasisGlobalIlluminationDiffuseMode.RayTraced;
             Assert.IsTrue(volume.SpecularActive());
         }
     }

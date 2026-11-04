@@ -1,7 +1,83 @@
 using System;
+using Unity.Burst;
 
 namespace Basis
 {
+    [BurstCompile]
+    internal static unsafe class BasisGifQuantizerKernel
+    {
+        const int BinBits = 5, BinShift = 8 - BinBits, BinMask = (1 << BinBits) - 1;
+
+        [BurstCompile]
+        public static void Histogram(byte* rgba, int pixelCount, int* counts, int* sumR, int* sumG, int* sumB)
+        {
+            for (int p = 0, o = 0; p < pixelCount; p++, o += 4)
+            {
+                int r = rgba[o], g = rgba[o + 1], b = rgba[o + 2], bin = BinOf(r, g, b);
+                counts[bin]++; sumR[bin] += r; sumG[bin] += g; sumB[bin] += b;
+            }
+        }
+
+        [BurstCompile]
+        public static void MapDirect(byte* rgba, int pixelCount, byte* indices, short* nearest, byte* palette, int paletteCount)
+        {
+            for (int p = 0, o = 0; p < pixelCount; p++, o += 4) indices[p] = Nearest(rgba[o], rgba[o + 1], rgba[o + 2], nearest, palette, paletteCount);
+        }
+
+        [BurstCompile]
+        public static void MapDither(byte* rgba, int width, int height, byte* indices, short* nearest, byte* palette, int paletteCount, int* errorCurrent, int* errorNext)
+        {
+            int rowSize = (width + 2) * 3;
+            for (int y = 0; y < height; y++)
+            {
+                bool leftToRight = (y & 1) == 0;
+                int x = leftToRight ? 0 : width - 1, step = leftToRight ? 1 : -1;
+                for (int column = 0; column < width; column++, x += step)
+                {
+                    int pixel = y * width + x, e = (x + 1) * 3;
+                    int r = Clamp255(rgba[pixel * 4] + errorCurrent[e]), g = Clamp255(rgba[pixel * 4 + 1] + errorCurrent[e + 1]), b = Clamp255(rgba[pixel * 4 + 2] + errorCurrent[e + 2]);
+                    byte index = Nearest(r, g, b, nearest, palette, paletteCount);
+                    indices[pixel] = index;
+                    int er = r - palette[index * 3], eg = g - palette[index * 3 + 1], eb = b - palette[index * 3 + 2];
+                    int ahead = e + step * 3, behind = e - step * 3;
+                    Diffuse(errorCurrent, ahead, er, eg, eb, 7);
+                    Diffuse(errorNext, behind, er, eg, eb, 3);
+                    Diffuse(errorNext, e, er, eg, eb, 5);
+                    Diffuse(errorNext, ahead, er, eg, eb, 1);
+                }
+                int* swap = errorCurrent; errorCurrent = errorNext; errorNext = swap;
+                for (int i = 0; i < rowSize; i++) errorNext[i] = 0;
+            }
+        }
+
+        static void Diffuse(int* row, int offset, int er, int eg, int eb, int weight)
+        {
+            row[offset] += er * weight / 16; row[offset + 1] += eg * weight / 16; row[offset + 2] += eb * weight / 16;
+        }
+
+        static int Clamp255(int v) => v < 0 ? 0 : (v > 255 ? 255 : v);
+
+        public static int BinOf(int r, int g, int b) => ((r >> BinShift) << (BinBits * 2)) | ((g >> BinShift) << BinBits) | (b >> BinShift);
+
+        static int CenterOf(int fiveBit) => (fiveBit << BinShift) | (fiveBit >> (BinBits - BinShift));
+
+        static byte Nearest(int r, int g, int b, short* nearest, byte* palette, int paletteCount)
+        {
+            int bin = BinOf(r, g, b);
+            short cached = nearest[bin];
+            if (cached >= 0) return (byte)cached;
+            int cr = CenterOf(bin >> (BinBits * 2)), cg = CenterOf((bin >> BinBits) & BinMask), cb = CenterOf(bin & BinMask);
+            int best = 0, bestDistance = int.MaxValue;
+            for (int i = 0; i < paletteCount; i++)
+            {
+                int dr = cr - palette[i * 3], dg = cg - palette[i * 3 + 1], db = cb - palette[i * 3 + 2], d = dr * dr + dg * dg + db * db;
+                if (d < bestDistance) { bestDistance = d; best = i; }
+            }
+            nearest[bin] = (short)best;
+            return (byte)best;
+        }
+    }
+
     /// <summary>
     /// Reduces one RGBA32 frame to at most 256 colours for a GIF frame: median cut over a
     /// 15-bit colour histogram, then per-pixel mapping with optional serpentine Floyd–Steinberg
@@ -54,7 +130,7 @@ namespace Basis
         /// pixel and must hold at least width×height bytes. The alpha channel is ignored — the
         /// capture feed is opaque.
         /// </summary>
-        public void Quantize(byte[] rgba, int width, int height, bool dither, byte[] indices)
+        public unsafe void Quantize(byte[] rgba, int width, int height, bool dither, byte[] indices)
         {
             if (rgba == null || indices == null) throw new ArgumentNullException(rgba == null ? nameof(rgba) : nameof(indices));
             int pixelCount = width * height;
@@ -67,17 +143,7 @@ namespace Basis
             Array.Clear(sumG, 0, HistogramSize);
             Array.Clear(sumB, 0, HistogramSize);
 
-            for (int Pixel = 0, Byte = 0; Pixel < pixelCount; Pixel++, Byte += 4)
-            {
-                int r = rgba[Byte];
-                int g = rgba[Byte + 1];
-                int b = rgba[Byte + 2];
-                int bin = BinOf(r, g, b);
-                counts[bin]++;
-                sumR[bin] += r;
-                sumG[bin] += g;
-                sumB[bin] += b;
-            }
+            fixed (byte* src = rgba) fixed (int* c = counts, r = sumR, g = sumG, b = sumB) BasisGifQuantizerKernel.Histogram(src, pixelCount, c, r, g, b);
 
             int occupied = 0;
             for (int Bin = 0; Bin < HistogramSize; Bin++)
@@ -92,12 +158,16 @@ namespace Basis
             // frame would resolve them against that frame's palette.
             Array.Fill(nearest, (short)-1);
 
-            if (dither) MapWithDither(rgba, width, height, indices);
-            else MapDirect(rgba, pixelCount, indices);
+            fixed (byte* src = rgba, dst = indices, palette = PaletteRgb) fixed (short* near = nearest)
+            {
+                if (!dither) { BasisGifQuantizerKernel.MapDirect(src, pixelCount, dst, near, palette, PaletteCount); return; }
+                int rowSize = (width + 2) * 3;
+                if (errorCurrent.Length < rowSize) { errorCurrent = new int[rowSize]; errorNext = new int[rowSize]; }
+                Array.Clear(errorCurrent, 0, rowSize);
+                Array.Clear(errorNext, 0, rowSize);
+                fixed (int* a = errorCurrent, b = errorNext) BasisGifQuantizerKernel.MapDither(src, width, height, dst, near, palette, PaletteCount, a, b);
+            }
         }
-
-        private static int BinOf(int r, int g, int b) =>
-            ((r >> BinShift) << (BinBits * 2)) | ((g >> BinShift) << BinBits) | (b >> BinShift);
 
         /// <summary>
         /// Median cut: every occupied bin starts in one box; the most populous splittable box is
@@ -215,109 +285,5 @@ namespace Basis
             boxLength[box] = leftLength;
             boxPopulation[box] = leftPopulation;
         }
-
-        private void MapDirect(byte[] rgba, int pixelCount, byte[] indices)
-        {
-            for (int Pixel = 0, Byte = 0; Pixel < pixelCount; Pixel++, Byte += 4)
-            {
-                indices[Pixel] = NearestIndex(rgba[Byte], rgba[Byte + 1], rgba[Byte + 2]);
-            }
-        }
-
-        /// <summary>
-        /// Serpentine Floyd–Steinberg. The error rows carry full-precision residue; the palette
-        /// lookup itself is cached per histogram bin, which trades at most half a bin of accuracy
-        /// for not scanning 256 palette entries per pixel.
-        /// </summary>
-        private void MapWithDither(byte[] rgba, int width, int height, byte[] indices)
-        {
-            int rowSize = (width + 2) * 3;
-            if (errorCurrent.Length < rowSize)
-            {
-                errorCurrent = new int[rowSize];
-                errorNext = new int[rowSize];
-            }
-            Array.Clear(errorCurrent, 0, rowSize);
-            Array.Clear(errorNext, 0, rowSize);
-
-            for (int Y = 0; Y < height; Y++)
-            {
-                bool leftToRight = (Y & 1) == 0;
-                int x = leftToRight ? 0 : width - 1;
-                int step = leftToRight ? 1 : -1;
-
-                for (int Column = 0; Column < width; Column++, x += step)
-                {
-                    int pixel = Y * width + x;
-                    int errorBase = (x + 1) * 3;
-
-                    int r = Clamp255(rgba[pixel * 4] + errorCurrent[errorBase]);
-                    int g = Clamp255(rgba[pixel * 4 + 1] + errorCurrent[errorBase + 1]);
-                    int b = Clamp255(rgba[pixel * 4 + 2] + errorCurrent[errorBase + 2]);
-
-                    byte index = NearestIndex(r, g, b);
-                    indices[pixel] = index;
-
-                    int errorR = r - PaletteRgb[index * 3];
-                    int errorG = g - PaletteRgb[index * 3 + 1];
-                    int errorB = b - PaletteRgb[index * 3 + 2];
-
-                    int ahead = errorBase + step * 3;
-                    int behind = errorBase - step * 3;
-                    Diffuse(errorCurrent, ahead, errorR, errorG, errorB, 7);
-                    Diffuse(errorNext, behind, errorR, errorG, errorB, 3);
-                    Diffuse(errorNext, errorBase, errorR, errorG, errorB, 5);
-                    Diffuse(errorNext, ahead, errorR, errorG, errorB, 1);
-                }
-
-                int[] swap = errorCurrent;
-                errorCurrent = errorNext;
-                errorNext = swap;
-                Array.Clear(errorNext, 0, rowSize);
-            }
-        }
-
-        private static void Diffuse(int[] row, int offset, int errorR, int errorG, int errorB, int weight)
-        {
-            row[offset] += errorR * weight / 16;
-            row[offset + 1] += errorG * weight / 16;
-            row[offset + 2] += errorB * weight / 16;
-        }
-
-        private static int Clamp255(int value) => value < 0 ? 0 : (value > 255 ? 255 : value);
-
-        private byte NearestIndex(int r, int g, int b)
-        {
-            int bin = BinOf(r, g, b);
-            short cached = nearest[bin];
-            if (cached >= 0) return (byte)cached;
-
-            // Match against the bin centre rather than this pixel, so every colour that shares
-            // the bin agrees with the cache entry.
-            int centerR = CenterOf(bin >> (BinBits * 2));
-            int centerG = CenterOf((bin >> BinBits) & (BinsPerChannel - 1));
-            int centerB = CenterOf(bin & (BinsPerChannel - 1));
-
-            int best = 0;
-            int bestDistance = int.MaxValue;
-            for (int Index = 0; Index < PaletteCount; Index++)
-            {
-                int dr = centerR - PaletteRgb[Index * 3];
-                int dg = centerG - PaletteRgb[Index * 3 + 1];
-                int db = centerB - PaletteRgb[Index * 3 + 2];
-                int distance = dr * dr + dg * dg + db * db;
-                if (distance < bestDistance)
-                {
-                    bestDistance = distance;
-                    best = Index;
-                }
-            }
-
-            nearest[bin] = (short)best;
-            return (byte)best;
-        }
-
-        /// <summary>A 5-bit channel scaled back to 8 bits, hitting both 0 and 255 exactly.</summary>
-        private static int CenterOf(int fiveBit) => (fiveBit << BinShift) | (fiveBit >> (BinBits - BinShift));
     }
 }

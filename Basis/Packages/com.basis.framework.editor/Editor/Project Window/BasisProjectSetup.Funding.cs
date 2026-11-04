@@ -441,7 +441,7 @@ public partial class BasisProjectSetup : EditorWindow
             {
                 EditorGUILayout.HelpBox(
                     Tr("projectSetup.funding.installModulesHelp",
-                        "Install Windows, Linux, and Android Build Support via Unity Hub. Use IL2CPP for best compatibility (required on Android)."),
+                        "Install Windows, Linux, and Android Build Support via Unity Hub. Windows and Linux build with CoreCLR, so pick their *Build Support (CoreCLR)* modules; Android builds with IL2CPP, which Android Build Support includes."),
                     MessageType.Info);
             }
         }

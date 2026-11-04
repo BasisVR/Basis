@@ -83,7 +83,10 @@ namespace Basis.IK
             SpineData.hipTargetRotation = plan.hasHips ? poseStream.GetRotation(handleHips) : SpineData.rotations[0];
             SpineData.headTargetPosition = headTargetPosition;
             SpineData.headTargetRotation = headTargetRotation;
-            SpineData.clampHipDistance = !plan.headPinnedHips;
+            // A tracked hip is the tracker's pose, not something to pull toward the head.
+            SpineData.clampHipDistance = !plan.headPinnedHips && !plan.hipsTracked;
+            SpineData.hipPositionFollow = plan.hipsTracked ? TrackedHipsPositionFollow : 1f;
+            SpineData.hipRotationFollow = plan.hipsTracked ? TrackedHipsRotationFollow : 1f;
             SpineData.headFollow = plan.headPinnedHips ? SpineHeadFollow : 1f;
             int chestIndex = count - 1 - plan.chestIdx;
             bool hasTrackedChest = plan.chestTracked && plan.chestChain && chestIndex > 0 && chestIndex < count - 1;
@@ -105,7 +108,7 @@ namespace Basis.IK
             Vector3 headCorrection = headTargetPosition - poseStream.GetPosition(headHandle);
             if (headCorrection.sqrMagnitude > sqrEpsilon)
             {
-                poseStream.SetPosition(rootHandle, poseStream.GetPosition(rootHandle) + headCorrection);
+                poseStream.SetPosition(rootHandle, poseStream.GetPosition(rootHandle) + headCorrection * SpineData.hipPositionFollow);
             }
         }
         public void InitalizeRalivSpineIK()

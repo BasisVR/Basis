@@ -49,6 +49,8 @@ public class RalivIKSpine
         public float chestHintWeight;
         public int chestIndex;
         public bool clampHipDistance;
+        public float hipPositionFollow; // How much the solve may move the hips away from their target position (0 = pinned, 1 = free)
+        public float hipRotationFollow; // How much the solve may tilt the hips away from their target rotation (0 = pinned, 1 = free)
         public float headFollow; // How much the bones between hips and head take on the head's rotated rest shape
         public FixedList512Bytes<Vector3> targetSpinePositions;
         public FixedList512Bytes<Vector3> hipTargetAlignedSpinePositions;
@@ -123,7 +125,8 @@ public class RalivIKSpine
                 var boneLength = Vector3.Magnitude(spineData.restPositions[targetIndex] - spineData.restPositions[index]);
                 targetOffset = targetOffset.normalized * boneLength;
                 var targetPosition = spineData.positions[targetIndex] + targetOffset;
-                spineData.positions[index] = Vector3.Lerp(spineData.positions[index], targetPosition, lengthConstraint);
+                var pull = index == 0 ? lengthConstraint * spineData.hipPositionFollow : lengthConstraint;
+                spineData.positions[index] = Vector3.Lerp(spineData.positions[index], targetPosition, pull);
             }
             for (int index = 1; index < spineData.positions.Length; index++)
             {
@@ -155,6 +158,11 @@ public class RalivIKSpine
             spineData.rotations[index] = fromTo * preRotation * spineData.restRotations[index];
         }
         spineData.rotations[^1] = spineData.headTargetRotation;
+        // The rebuilt hip rotation tilts the hips toward wherever the spine bone landed - keep the target rotation instead.
+        if (spineData.hipRotationFollow < 1f)
+        {
+            spineData.rotations[0] = Quaternion.Slerp(spineData.hipTargetRotation, spineData.rotations[0], spineData.hipRotationFollow);
+        }
 
         var chestRotate = 0f;
         if (spineData.chestHintWeight > 0f)
@@ -215,7 +223,7 @@ public class RalivIKSpine
         var headPinCorrection = spineData.headTargetPosition - spineData.positions[^1];
         for (var index = 0; index < spineData.positions.Length; index++)
         {
-            spineData.positions[index] += headPinCorrection;
+            spineData.positions[index] += index == 0 ? headPinCorrection * spineData.hipPositionFollow : headPinCorrection;
         }
 
         static Quaternion SafeFromToRotation(Vector3 from, Vector3 to)

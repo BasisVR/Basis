@@ -14,6 +14,21 @@ namespace Basis.Network.Core
             Register();
         }
 
+        private static bool protectionRegistered;
+        private static void RegisterProtectionSettings()
+        {
+            if (protectionRegistered) return;
+            protectionRegistered = true;
+            void Add(string field, double min, double max) => BasisProtectionSettings.RegisterField(() => BasisTransportConfigStore.Get<LNLTransportConfig>(StackId), typeof(LNLTransportConfig), field, DisplayName, min, max, LNLNetManager.ApplyProtectionToAll);
+            Add(nameof(LNLTransportConfig.ConnectAttemptsPerAddressPerSecond), 0, 10000);
+            Add(nameof(LNLTransportConfig.ConnectAttemptBurstPerAddress), 1, 100000);
+            Add(nameof(LNLTransportConfig.ConnectCookieMode), 0, 2);
+            Add(nameof(LNLTransportConfig.ConnectCookieAutoRequestsPerSecond), 0, 1000000);
+            Add(nameof(LNLTransportConfig.MaxHeldFragmentMegabytesPerPeer), 0, 2047);
+            Add(nameof(LNLTransportConfig.MaxQueuedReliableMegabytesPerPeer), 0, 1024 * 1024);
+            Add(nameof(LNLTransportConfig.ShutdownLingerMs), 0, 600000);
+        }
+
         public static void Register()
         {
 #if !UNITY_WEBGL || UNITY_EDITOR
@@ -44,6 +59,13 @@ namespace Basis.Network.Core
                 new BasisConfigXmlDocs.FieldDoc("MtuOverride", " Force a fixed MTU instead of negotiating. int (bytes); 0 = auto/disabled. "),
                 new BasisConfigXmlDocs.FieldDoc("MtuDiscovery", " Enable path-MTU discovery. true|false. "),
                 new BasisConfigXmlDocs.FieldDoc("DisconnectOnUnreachable", " [NOT APPLIED] Disconnect a peer when an ICMP 'unreachable' is received. true|false. "),
+                new BasisConfigXmlDocs.FieldDoc("ConnectAttemptsPerAddressPerSecond", " New connection attempts one address may start per second, refilling ConnectAttemptBurstPerAddress. Attempts over the limit are dropped before any memory is set aside for them and get no reply. IPv6 addresses are counted per /64 network. float; default 4; 0 or negative turns the limit off. "),
+                new BasisConfigXmlDocs.FieldDoc("ConnectAttemptBurstPerAddress", " New connection attempts one address may start at once before ConnectAttemptsPerAddressPerSecond applies. Raise it for many players joining from one network at the same time. int; default 20; values below 1 count as 1. "),
+                new BasisConfigXmlDocs.FieldDoc("MaxHeldFragmentMegabytesPerPeer", " Most data one player may have half-received at once, in megabytes, for messages that arrive split into pieces. A player who goes over is disconnected. Stops a client from starting thousands of messages and never finishing them. int; default 32; 0 removes the limit. Editable live. "),
+                new BasisConfigXmlDocs.FieldDoc("MaxQueuedReliableMegabytesPerPeer", " Most reliable data that may wait to be sent to one player, in megabytes. A player whose connection cannot keep up past this is disconnected instead of growing server memory. int; default 128; 0 removes the limit. Editable live. "),
+                new BasisConfigXmlDocs.FieldDoc("ShutdownLingerMs", " How long the server keeps resending a disconnect to a player who does not answer, in milliseconds. A real client answers within its ping; one that never answers is forgotten after this. int; default 3000; 0 uses DisconnectTimeout. Editable live. "),
+                new BasisConfigXmlDocs.FieldDoc("ConnectCookieMode", " Whether a new connection must first prove it can receive replies at its address. 0 = never, 1 = only while the server is getting more new connection attempts than ConnectCookieAutoRequestsPerSecond or has too many logins in progress, 2 = always. Clients older than this server cannot connect while it is on, so 2 locks them out. int; default 1. Editable live. "),
+                new BasisConfigXmlDocs.FieldDoc("ConnectCookieAutoRequestsPerSecond", " New connection attempts per second, across all addresses, that switch the address check on in mode 1. It then stays on for 30 seconds after the last busy second. int; default 100; 0 relies on the login count alone. Editable live. "),
                 new BasisConfigXmlDocs.FieldDoc("AllowPeerAddressChange", " Allow a peer's remote endpoint (IP/port) to change mid-session, e.g. mobile network roaming. true|false. "),
                 new BasisConfigXmlDocs.FieldDoc("MergeHoldMs", " How long, in milliseconds, a partly-filled packet-merge buffer may wait for more data before being sent. float; 0 = send on every logic pass (legacy). The logic loop runs hundreds of times a second, so flushing every pass emits many half-empty datagrams and the server pays full per-packet cost for each; holding a partial buffer briefly lets consecutive passes coalesce. A buffer that fills the MTU is always sent immediately, so this caps added latency rather than adding it — only small sends ever wait, and never longer than this value. 2-5 is a reasonable range; raise it to cut packet rate further, lower it if voice latency matters more than CPU. "),
                 new BasisConfigXmlDocs.FieldDoc("CompactMerged", " Frame merged unreliable traffic with the compact per-entry format. true|false; true is recommended. A merged message used to carry four bytes of framing (a two-byte nested length plus its own property and channel bytes); the compact form drops the property byte, since the datagram already says everything inside it is unreliable, and uses a one-byte length for payloads up to 255 - two bytes of framing, or three above 255. Different traffic still shares one MTU-sized datagram, so avatar updates and voice keep riding together. Measured at 500 players: 0.93% less total egress (~4.97 Mbit/s, about 2.24 GB/hour), 0.37% fewer UDP packets, no CPU change, no drops. This is a send-side setting and is safe to change on one end only, because both framings are always decoded; every client able to connect understands it, which the transport protocol id and the server version check together guarantee. Turn it off only to A/B the saving or to rule the framing out while diagnosing something else. "),
@@ -55,6 +77,7 @@ namespace Basis.Network.Core
                 new BasisConfigXmlDocs.FieldDoc("MultiSocketCount", " Number of UDP sockets to bind on the listen port using SO_REUSEPORT (Linux only). 1 = single socket / single receive thread (default). N>1 spawns N-1 extra sockets + receive threads so the Linux kernel RSS-hashes inbound 4-tuples across them; per-peer packet order is preserved because each peer's 4-tuple is stable. On Windows/macOS this falls back to 1 with a warning at Start(). Sensible range: 2-4 around 1k players, 4-8 around 2k. int. "),
                 new BasisConfigXmlDocs.FieldDoc("PacketPoolSizePerPeer", " Recycled packets kept per connected peer, so the packet pool grows with the crowd instead of hitting a fixed wall. The pool absorbs the gap between a burst of sends draining it and those packets being returned, and that gap scales with peer count: measured at ~2,850 players a fixed 65,536 pool swung between full (recycled packets discarded) and empty (every send allocating), with ~36% of pool requests allocating. The effective ceiling is peers x this value, floored at PacketPoolSize and capped by PacketPoolSizeMax. 0 disables scaling. int. "),
                 new BasisConfigXmlDocs.FieldDoc("PacketPoolSizeMax", " Hard ceiling on the scaled packet pool, so peer count cannot turn into unbounded memory. Each pooled packet retains its buffer (up to one MTU), so this is roughly the worst-case pool footprint in packets. int; 0 = size automatically from available memory, which is recommended. This used to be a fixed 262144, which is the wall from roughly 5400 peers upward: at 8000 peers the per-peer rule asks for 384000 and every recycle past the cap was discarded for the garbage collector to re-allocate. Set a positive value only to pin it. "));
+            RegisterProtectionSettings();
 #endif
         }
     }

@@ -10,10 +10,7 @@
         "Unity.Collections",
         "Unity.Mathematics",
         "UnityEngine.TestRunner",
-        "BasisSDK",
-        "BasisShims",
-        "Cilbox",
-        "BasisSDKEditor"
+        "BasisSDK"
     ],
     "includePlatforms": [
         "Editor"

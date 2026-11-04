@@ -99,9 +99,7 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
     {
         Front = 2,          // = CullMode.Back -- render front face only
         Back = 1,           // = CullMode.Front -- render back face only
-        Both = 0,           // = CullMode.Off -- render both faces
-        BackToFront = 3,    // = Two-pass -- back faces first (CullMode.Front), then front faces (CullMode.Back)
-        FrontToBack = 4     // = Two-pass -- front faces first (CullMode.Back), then back faces (CullMode.Front)
+        Both = 0            // = CullMode.Off -- render both faces
     }
 
     internal enum AdditionalMotionVectorMode
@@ -345,7 +343,7 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
 
         public RenderFace renderFace
         {
-            get => m_RenderFace;
+            get => (RenderFace)Mathf.Clamp((int)m_RenderFace, (int)RenderFace.Both, (int)RenderFace.Front);
             set => m_RenderFace = value;
         }
 
@@ -616,10 +614,15 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
             // geometry generator's payload (role, fanParam, prev.xy) rather than a tangent at all -- so
             // a Normal or Tangent port there is not merely unused, it invites a silently wrong shadow.
             // It registers the blocks it does want in its own GetActiveBlocks.
-            bool useCoreBlocks = !(m_ActiveSubTarget.value is UnityEditor.Rendering.Fullscreen.ShaderGraph.FullscreenSubTarget<UniversalTarget>
-                | m_ActiveSubTarget.value is UnityEditor.Rendering.Canvas.ShaderGraph.CanvasSubTarget<UniversalTarget>
-                | m_ActiveSubTarget.value is UnityEditor.Rendering.UITK.ShaderGraph.UISubTarget<UniversalTarget>
-                | m_ActiveSubTarget.value is UniversalShadowCaster2DSubTarget);
+            //
+            // Light2D opts out too, since its passes never read a normal, a tangent or a base colour.
+            // Any block reported active here is added to the graph when the Material changes (UUM-153138).
+            // It also registers its own blocks in its GetActiveBlocks.
+            bool useCoreBlocks = m_ActiveSubTarget.value is not (UnityEditor.Rendering.Fullscreen.ShaderGraph.FullscreenSubTarget<UniversalTarget>
+                or UnityEditor.Rendering.Canvas.ShaderGraph.CanvasSubTarget<UniversalTarget>
+                or UnityEditor.Rendering.UITK.ShaderGraph.UISubTarget<UniversalTarget>
+                or UniversalShadowCaster2DSubTarget
+                or UniversalLight2DSubTarget);
 
             // Core blocks
             if (useCoreBlocks)
@@ -775,7 +778,7 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
                 });
             }
 
-            context.AddProperty("Render Face", "Which faces of the geometry are rendered. Two-pass options render back faces first, then front (or vice versa).", 0, new EnumField(RenderFace.Front) { value = renderFace }, (evt) =>
+            context.AddProperty("Render Face", "Which faces of the geometry are rendered.", 0, new EnumField(RenderFace.Front) { value = renderFace }, (evt) =>
             {
                 if (Equals(renderFace, evt.newValue))
                     return;
@@ -1894,14 +1897,9 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
             { RenderState.Blend(Blend.DstColor, Blend.Zero), new FieldCondition(UniversalFields.BlendMultiply, true) },
         };
 
-        public static bool IsTwoPassRendering(RenderFace renderFace)
-        {
-            return renderFace == RenderFace.BackToFront || renderFace == RenderFace.FrontToBack;
-        }
-
         public static bool RendersBothFaces(RenderFace renderFace)
         {
-            return renderFace == RenderFace.Both || IsTwoPassRendering(renderFace);
+            return renderFace == RenderFace.Both;
         }
 
         public static Cull RenderFaceToCull(RenderFace renderFace)
@@ -2117,11 +2115,6 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
         public static RenderStateDescriptor UberSwitchedCullRenderState(UniversalTarget target)
         {
             if (target.allowMaterialOverride)
-                return RenderState.Cull(Uniforms.cullMode);
-            // Two-pass renderFace (BackToFront/FrontToBack) has no Cull enum value and ShaderLab
-            // rejects a numeric literal, so bind cull to [_Cull] (baked to 3/4 by the subtarget) -
-            // the engine two-pass injection reads it via EvaluateRawCullMode (only honored when IsVar).
-            if (IsTwoPassRendering(target.renderFace))
                 return RenderState.Cull(Uniforms.cullMode);
             return RenderState.Cull(RenderFaceToCull(target.renderFace));
         }

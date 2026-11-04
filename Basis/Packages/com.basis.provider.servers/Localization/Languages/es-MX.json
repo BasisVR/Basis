@@ -290,6 +290,13 @@
     {
       "key": "menu.servers.portInvalid",
       "value": "El puerto debe estar entre 1 y 65535"
-    }
+    },
+    { "key": "menu.servers.list.portal", "value": "Colocar portal" },
+    { "key": "menu.servers.list.portalLifetime", "value": "Duración del portal" },
+    { "key": "menu.servers.list.portalLifetime.timed", "value": "60 segundos" },
+    { "key": "menu.servers.list.portalLifetime.persistent", "value": "Persistente" },
+    { "key": "menu.servers.list.portalStyle", "value": "Estilo del portal" },
+    { "key": "menu.servers.list.portalStyle.orb", "value": "Orbe" },
+    { "key": "menu.servers.list.portalStyle.rift", "value": "Grieta dimensional" }
   ]
 }

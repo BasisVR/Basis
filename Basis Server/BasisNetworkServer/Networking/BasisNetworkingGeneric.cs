@@ -54,26 +54,34 @@ namespace Basis.Network.Server.Generic
             return _seenRecipients;
         }
 
-        // ── Opt-in non-image scene-egress backstop ───────────────────────────────────────────────
+        // ── Non-image scene and avatar egress backstop ───────────────────────────────────────────────
         // Per-sender token bucket on the bytes this relay fans out, charged the same way the image
-        // governor charges (payload × recipients). Disabled unless an operator sets
-        // MaxSceneRelayMegabitsPerSecondPerPlayer, so the default hot path is a single config read.
+        // governor charges (payload × recipients). Sized by MaxSceneRelayMegabitsPerSecondPerPlayer and
+        // MaxAvatarRelayMegabitsPerSecondPerPlayer; 0 turns either off.
         private sealed class SceneEgressBucket { public double Tokens; public long LastTicks; }
         private static readonly ConcurrentDictionary<ushort, SceneEgressBucket> _sceneEgress =
+            new ConcurrentDictionary<ushort, SceneEgressBucket>();
+        private static readonly ConcurrentDictionary<ushort, SceneEgressBucket> _avatarEgress =
             new ConcurrentDictionary<ushort, SceneEgressBucket>();
         private const double SceneMegabitsToBytes = 125_000.0;
         private const double SceneBurstSeconds = 2.0;
 
-        private static bool SceneEgressAllowed(ushort senderId, long bytes)
+        private static bool SceneEgressAllowed(ushort senderId, long bytes) => EgressAllowed(_sceneEgress, NetworkServer.Configuration?.MaxSceneRelayMegabitsPerSecondPerPlayer ?? 0, senderId, bytes);
+        private static bool AvatarEgressAllowed(ushort senderId, long bytes) => EgressAllowed(_avatarEgress, NetworkServer.Configuration?.MaxAvatarRelayMegabitsPerSecondPerPlayer ?? 0, senderId, bytes);
+        private static bool PayloadTooLarge(int length)
         {
-            int megabits = NetworkServer.Configuration?.MaxSceneRelayMegabitsPerSecondPerPlayer ?? 0;
+            int max = NetworkServer.Configuration?.MaxRelayPayloadBytes ?? 0;
+            return max > 0 && length > max;
+        }
+        private static bool EgressAllowed(ConcurrentDictionary<ushort, SceneEgressBucket> buckets, int megabits, ushort senderId, long bytes)
+        {
             if (megabits <= 0 || bytes <= 0)
             {
                 return true; // disabled, or nothing to charge
             }
 
             double ratePerSecond = megabits * SceneMegabitsToBytes;
-            SceneEgressBucket bucket = _sceneEgress.GetOrAdd(senderId, _ => new SceneEgressBucket
+            SceneEgressBucket bucket = buckets.GetOrAdd(senderId, _ => new SceneEgressBucket
             {
                 Tokens = ratePerSecond * SceneBurstSeconds,
                 LastTicks = DateTime.UtcNow.Ticks,
@@ -108,7 +116,34 @@ namespace Basis.Network.Server.Generic
             if (peerId >= 0 && peerId <= ushort.MaxValue)
             {
                 _sceneEgress.TryRemove((ushort)peerId, out _);
+                _avatarEgress.TryRemove((ushort)peerId, out _);
             }
+        }
+
+        private const string VideoClipShareIdentifier = "BasisMediaClipShare";
+        private const byte VideoClipOpOffer = 1;
+        private const byte VideoClipOpChunk = 2;
+
+        private static bool IsBlockedVideoClipTraffic(ushort messageIndex, byte[] payload, int payloadLength, NetPeer sender)
+        {
+            if (!BasisNetworkServer.Security.BasisGlobalLockManager.VideoClipsLocked || payloadLength <= 0)
+            {
+                return false;
+            }
+            if (payload[0] != VideoClipOpOffer && payload[0] != VideoClipOpChunk)
+            {
+                return false;
+            }
+            if (!BasisNetworkCore.BasisNetworkIDDatabase.UshortNetworkDatabase.TryGetValue(VideoClipShareIdentifier, out ushort clipShareId) || clipShareId != messageIndex)
+            {
+                return false;
+            }
+            string uuid = null;
+            if (sender != null && NetworkServer.AuthIdentity != null)
+            {
+                NetworkServer.AuthIdentity.NetIDToUUID(sender, out uuid);
+            }
+            return string.IsNullOrEmpty(uuid) || !BasisPermissions.PermissionManager.PermissionIntegration.HasValidRequirement(uuid, BasisPermissions.PermNodes.ModerationGlobalLock);
         }
 
         public static void HandleScene(NetPacketReader Reader, DeliveryMethod DeliveryMethod, NetPeer sender, byte broadcastChannel = BasisNetworkCommons.SceneChannel)
@@ -126,6 +161,20 @@ namespace Basis.Network.Server.Generic
             if (isImageTraffic && BasisNetworkImageCache.IsAnimationPayload(payload, payloadLength) && BasisNetworkImageCache.IsGifBlockedFor(sender))
             {
                 return;
+            }
+            bool isClipTraffic = !isImageTraffic && BasisNetworkClipCache.IsClipTraffic(SceneDataMessage.messageIndex);
+            if (isClipTraffic && IsBlockedVideoClipTraffic(SceneDataMessage.messageIndex, payload, payloadLength, sender))
+            {
+                return;
+            }
+            if (isClipTraffic)
+            {
+                bool toServer = BasisNetworkClipCache.IsAddressedToServer((ushort)sender.Id, SceneDataMessage.recipients, SceneDataMessage.recipientsSize);
+                BasisNetworkClipCache.Observe((ushort)sender.Id, payload, payloadLength, toServer);
+                if (toServer)
+                {
+                    return;
+                }
             }
             if (isImageTraffic)
             {
@@ -159,12 +208,11 @@ namespace Basis.Network.Server.Generic
                     return;
                 }
             }
-            else if (!SceneEgressAllowed((ushort)sender.Id, egressBytes))
+            else if (PayloadTooLarge(payloadLength) || !SceneEgressAllowed((ushort)sender.Id, egressBytes))
             {
                 // Everything else on this channel is interactive scene state measured in tens of
-                // bytes, so this backstop is OFF by default (MaxSceneRelayMegabitsPerSecondPerPlayer
-                // == 0). An operator can set a per-player ceiling to cap a modified client that
-                // broadcasts arbitrary scene payloads to the whole room.
+                // bytes; this backstop caps a modified client that broadcasts arbitrary scene
+                // payloads to the whole room.
                 return;
             }
 
@@ -194,7 +242,7 @@ namespace Basis.Network.Server.Generic
                 for (int index = 0; index < recipientsLength; index++)
                 {
                     ushort recipient = SceneDataMessage.recipients[index];
-                    if (!seen.Add(recipient))
+                    if (!seen.Add(recipient) || (isClipTraffic && recipient == sender.Id))
                     {
                         continue;
                     }
@@ -225,6 +273,13 @@ namespace Basis.Network.Server.Generic
             AvatarDataMessage avatarDataMessage = new AvatarDataMessage();
             avatarDataMessage.Deserialize(Reader);
             Reader.Recycle();
+            int avatarPayloadLength = avatarDataMessage.payload?.Length ?? 0;
+            NetPeer[] avatarSnapshot = NetworkServer.PeerSnapshot;
+            int avatarFanOut = avatarDataMessage.recipientsSize != 0 ? avatarDataMessage.recipientsSize : (avatarSnapshot != null ? avatarSnapshot.Length - 1 : 0);
+            if (PayloadTooLarge(avatarPayloadLength) || !AvatarEgressAllowed((ushort)sender.Id, (long)avatarPayloadLength * Math.Max(1, avatarFanOut)))
+            {
+                return;
+            }
             ServerAvatarDataMessage serverAvatarDataMessage = new ServerAvatarDataMessage
             {
                 avatarDataMessage = new RemoteAvatarDataMessage()

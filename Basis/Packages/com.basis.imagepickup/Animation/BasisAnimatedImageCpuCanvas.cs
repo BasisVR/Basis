@@ -95,7 +95,6 @@ namespace Basis.ImagePickup
     internal sealed class BasisAnimatedImageCpuCanvas : IDisposable
     {
         private readonly BasisAnimatedImageData _data;
-        private NativeArray<Color32> _pixels;
         private NativeArray<Color32> _previousPixels;
 
         private Texture2D _texture;
@@ -127,11 +126,6 @@ namespace Basis.ImagePickup
                     _reservedCompositorBytes = 0;
                     throw new BasisAnimationMemoryBudgetException(budgetError);
                 }
-                _pixels = new NativeArray<Color32>(
-                    canvasPixels,
-                    Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory
-                );
                 _previousPixels = new NativeArray<Color32>(
 					data.RequiresPreviousCanvas ? canvasPixels : 1,
                     Allocator.Persistent,
@@ -148,8 +142,6 @@ namespace Basis.ImagePickup
             }
             catch
             {
-                if (_pixels.IsCreated)
-                    _pixels.Dispose();
                 if (_previousPixels.IsCreated)
                     _previousPixels.Dispose();
                 if (_texture != null)
@@ -291,7 +283,7 @@ namespace Basis.ImagePickup
                 Background = _data.BackgroundColor,
                 Frames = _data.FramesNative,
                 FramePixels = _data.PixelsNative,
-                Canvas = _pixels,
+                Canvas = _texture.GetPixelData<Color32>(0),
                 Previous = _previousPixels,
             }.Schedule();
             _composePending = true;
@@ -315,7 +307,6 @@ namespace Basis.ImagePickup
             _composeHandle = default;
             if (_disposed || _texture == null)
                 return;
-            _texture.SetPixelData(_pixels, 0);
             _texture.Apply(false, false);
         }
 
@@ -342,8 +333,6 @@ namespace Basis.ImagePickup
             _composeHandle.Complete();
             _composeHandle = default;
             _composePending = false;
-            if (_pixels.IsCreated)
-                _pixels.Dispose();
             if (_previousPixels.IsCreated)
                 _previousPixels.Dispose();
             if (_texture != null)

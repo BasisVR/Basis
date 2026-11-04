@@ -208,6 +208,30 @@ BasisGITemporalOutput BasisGITemporal(float2 uv)
 
     float2 previousUv;
     bool onScreen;
+#if defined(UNITY_STEREO_INSTANCING_ENABLED) || defined(UNITY_STEREO_MULTIVIEW_ENABLED)
+    if (!specular && BasisGISkippedEye())
+    {
+        float2 heldUv;
+        if (BasisGIReproject(uv, worldPosition, heldUv))
+        {
+            float4 heldStats = BasisGILoadHistoryStats(heldUv);
+            if (heldStats.r > 0.0 && abs(heldStats.r - eyeDepth) / max(eyeDepth, BASISGI_EPSILON) <= BASISGI_DEPTH_REJECTION)
+            {
+                output.indirect = BasisGILoadHistory(heldUv);
+                output.stats = float4(eyeDepth, heldStats.g, heldStats.b, heldStats.a);
+                return output;
+            }
+        }
+        float4 otherClip = mul(unity_StereoMatrixVP[1 - SLICE_ARRAY_INDEX], float4(worldPosition, 1.0));
+        float2 otherUv = otherClip.xy / max(otherClip.w, BASISGI_EPSILON) * 0.5 + 0.5;
+#if UNITY_UV_STARTS_AT_TOP
+        otherUv.y = 1.0 - otherUv.y;
+#endif
+        output.indirect = SAMPLE_TEXTURE2D_ARRAY_LOD(_BasisGIIndirect, sampler_LinearClamp, saturate(otherUv), 1 - SLICE_ARRAY_INDEX, 0);
+        output.stats = float4(eyeDepth, 1.0, Luminance(output.indirect.rgb), 0.0);
+        return output;
+    }
+#endif
     UNITY_BRANCH
     if (specular)
     {
@@ -271,8 +295,13 @@ BasisGITemporalOutput BasisGITemporal(float2 uv)
     // count rather than throwing the history away outright. The response slider is the floor: it decides
     // where accumulation stops, and it is only reached once there is enough history to stop at.
     float rejection = saturate(relativeDelta / max(BASISGI_DEPTH_REJECTION, BASISGI_EPSILON));
-    float frames = min(historyStats.g * (1.0 - rejection) + 1.0, BASISGI_TEMPORAL_MAX_FRAMES);
+    float elapsed = !specular && _BasisGISkipEye >= 0.0 ? 2.0 : 1.0;
+    float frames = min(historyStats.g * (1.0 - rejection) + elapsed, BASISGI_TEMPORAL_MAX_FRAMES);
+    float surprise = abs(luminance - historyStats.b) / (sqrt(max(historyStats.a, 0.0)) + 0.02 * historyStats.b + BASISGI_EPSILON);
+    float change = specular ? 0.0 : saturate((surprise - 2.0) * 0.5);
+    frames = max(1.0, lerp(frames, 2.0, change));
     float response = max(rcp(max(frames, 1.0)), BASISGI_TEMPORAL_RESPONSE);
+    if (elapsed > 1.0) { response = max(response, 1.0 - Sq(1.0 - BASISGI_TEMPORAL_RESPONSE)); }
 
     output.indirect = lerp(history, current, response);
 
@@ -388,6 +417,37 @@ float4 BasisGIBilateralBlur(float2 uv)
     }
 
     return total / max(weightSum, BASISGI_EPSILON);
+}
+
+float3 BasisGIBounceCopy(float2 uv)
+{
+    float3 colour = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_LinearClamp, UnityStereoTransformScreenSpaceTex(uv), 0).rgb;
+#if defined(_BASISGI_BOUNCE_FEEDBACK)
+    float rawDepth = BasisGISampleRawDepth(uv);
+    if (BasisGIIsSky(rawDepth) || _BasisGIHistoryValid < 0.5) { return colour; }
+
+    float eyeDepth = BasisGILinearEyeDepth(rawDepth);
+    float2 previousUv;
+    if (!BasisGIReprojectMatrix(BasisGIWorldPosition(uv, rawDepth), previousUv)) { return colour; }
+
+    float settledDepth = BasisGILoadHistoryStats(previousUv).r;
+    if (settledDepth <= 0.0 || abs(settledDepth - eyeDepth) / max(eyeDepth, BASISGI_EPSILON) > BASISGI_DEPTH_REJECTION) { return colour; }
+
+    float3 bounce = max(0.0, BasisGILoadHistory(previousUv).rgb);
+    bounce = max(0.0, lerp(Luminance(bounce).xxx, bounce, BASISGI_SATURATION)) * _BasisGITint.rgb * BASISGI_INTENSITY;
+#if defined(_BASISGI_LIGHTMAP_MASK)
+    float mask = SAMPLE_TEXTURE2D_X_LOD(_BasisGILightmapMask, sampler_BasisGILightmapMask, UnityStereoTransformScreenSpaceTex(uv), 0).r;
+    bounce *= lerp(_BasisGILightmapParams.x, 1.0, mask);
+#endif
+    bounce = min(bounce * BASISGI_BOUNCE_FEEDBACK, 4.0);
+    if (_BasisGISurfaceValid > 0.5)
+    {
+        float4 surface = SAMPLE_TEXTURE2D_X_LOD(_BasisGISurface, sampler_PointClamp, UnityStereoTransformScreenSpaceTex(uv), 0);
+        return colour * (1.0 + Luminance(bounce) * surface.a) + bounce * surface.rgb * (1.0 - surface.a);
+    }
+    colour *= 1.0 + bounce;
+#endif
+    return colour;
 }
 
 #endif

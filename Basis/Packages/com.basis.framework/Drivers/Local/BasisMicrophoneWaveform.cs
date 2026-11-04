@@ -7,42 +7,38 @@ using UnityEngine;
 [AutoStaticsCleanup]
 public static partial class BasisMicrophoneWaveform
 {
-    public const int Columns = 192;
+    public const int Columns = 256;
+    public const int Rows = 3;
+    public const int RowStride = Columns * 4;
     public const int ColumnsPerSecond = 50;
-    public const int MaxChannels = 2;
+    public const float FloorDb = -90f;
+    public const float GridDb = 12f;
 
-    [NoAutoStaticsCleanup] private static readonly Vector4[] packed = new Vector4[Columns];
+    public const int FlagSent = 1;
+    public const int FlagMuted = 2;
+    public const int FlagDenoiser = 4;
+    public const int FlagGate = 8;
+    public const int FlagAutoGate = 16;
+    public const int FlagAgc = 32;
+
+    [NoAutoStaticsCleanup] private static readonly float[] data = new float[Columns * Rows * 4];
 
     private static int subscribers;
     private static int writeGate;
     private static int writeSlot;
-    private static int channels = 1;
     private static long published;
     private static long captured;
-    private static float pendingLeftMinimum;
-    private static float pendingLeftMaximum;
-    private static float pendingRightMinimum;
-    private static float pendingRightMaximum;
-    private static int pendingSamples;
     private static float idleColumns;
+    private static float inputPeak;
+    private static float inputRms;
+    private static float denoisedRms;
+    private static float preLimitPeak;
 
     public static bool Enabled => Volatile.Read(ref subscribers) > 0;
     public static long Published => Interlocked.Read(ref published);
     public static long Captured => Interlocked.Read(ref captured);
-
-    /// <summary>
-    /// Ring storage already in the layout the shader reads: one element per time column,
-    /// xy = left trough/peak, zw = right trough/peak. Handed straight to
-    /// Material.SetVectorArray, so a redraw copies and allocates nothing — pair it with
-    /// <see cref="Oldest"/> and unwrap the ring in the shader.
-    /// </summary>
-    public static Vector4[] Packed => packed;
-
-    /// <summary>Ring slot the next column lands in, which is also the oldest column on screen.</summary>
+    public static float[] Data => data;
     public static int Oldest => Volatile.Read(ref writeSlot);
-
-    /// <summary>Channels actually captured, 1 or 2. Drives the red/blue split.</summary>
-    public static int Channels => Volatile.Read(ref channels);
 
     public static void AddSubscriber()
     {
@@ -54,51 +50,43 @@ public static partial class BasisMicrophoneWaveform
         if (Interlocked.Decrement(ref subscribers) < 0) Interlocked.Exchange(ref subscribers, 0);
     }
 
-    /// <summary>
-    /// Feeds one interleaved capture chunk straight off the device, before the mono downmix —
-    /// the only point in the pipeline where the channels still exist separately.
-    /// </summary>
-    public static void Push(float[] interleaved, int frames, int sourceChannels, bool silent)
+    public static float ToUnit(float amplitude)
     {
-        if (interleaved == null || frames <= 0 || sourceChannels <= 0) return;
+        if (!(amplitude > 1e-9f)) return 0f;
+        float db = 20f * Mathf.Log10(amplitude);
+        return Mathf.Clamp01((db - FloorDb) / -FloorDb);
+    }
+
+    public static void MeasureInput(float[] samples, int count)
+    {
+        Measure(samples, count, out inputPeak, out inputRms);
+        denoisedRms = inputRms;
+    }
+
+    public static void MeasureDenoised(float[] samples, int count)
+    {
+        Measure(samples, count, out _, out denoisedRms);
+    }
+
+    public static void MeasurePreLimit(float[] samples, int count)
+    {
+        Measure(samples, count, out preLimitPeak, out _);
+    }
+
+    public static void CommitFrame(float[] samples, int count, float gateThreshold, float gateGain, float agcGainDb, int flags)
+    {
         if (Volatile.Read(ref subscribers) <= 0) return;
 
-        int used = sourceChannels < MaxChannels ? sourceChannels : MaxChannels;
-        if ((long)frames * sourceChannels > interleaved.Length) frames = interleaved.Length / sourceChannels;
-        if (frames <= 0) return;
+        Measure(samples, count, out float outputPeak, out float outputRms);
         if (Interlocked.CompareExchange(ref writeGate, 1, 0) != 0) return;
 
         try
         {
-            Volatile.Write(ref channels, used);
-
-            int columnLength = LocalOpusSettings.MicrophoneSampleRate / ColumnsPerSecond;
-            if (columnLength < 1) columnLength = 1;
-
-            for (int frame = 0; frame < frames; frame++)
-            {
-                if (!silent)
-                {
-                    int offset = frame * sourceChannels;
-
-                    float left = interleaved[offset];
-                    if (left < pendingLeftMinimum) pendingLeftMinimum = left;
-                    else if (left > pendingLeftMaximum) pendingLeftMaximum = left;
-
-                    if (used > 1)
-                    {
-                        float right = interleaved[offset + 1];
-                        if (right < pendingRightMinimum) pendingRightMinimum = right;
-                        else if (right > pendingRightMaximum) pendingRightMaximum = right;
-                    }
-                }
-
-                if (++pendingSamples < columnLength) continue;
-
-                Commit();
-                Interlocked.Increment(ref captured);
-            }
-
+            WriteColumn(
+                new Vector4(ToUnit(inputPeak), ToUnit(inputRms), ToUnit(outputPeak), ToUnit(outputRms)),
+                new Vector4(ToUnit(denoisedRms), ToUnit(preLimitPeak), ToUnit(gateThreshold), 0f),
+                new Vector4(agcGainDb, flags, Mathf.Clamp01(gateGain), 1f));
+            Interlocked.Increment(ref captured);
             idleColumns = 0f;
         }
         finally
@@ -120,11 +108,8 @@ public static partial class BasisMicrophoneWaveform
             while (idleColumns >= 1f)
             {
                 idleColumns -= 1f;
-                ResetPending();
-                Commit();
+                WriteColumn(Vector4.zero, Vector4.zero, Vector4.zero);
             }
-
-            ResetPending();
         }
         finally
         {
@@ -138,10 +123,9 @@ public static partial class BasisMicrophoneWaveform
 
         try
         {
-            Array.Clear(packed, 0, Columns);
+            Array.Clear(data, 0, data.Length);
             Volatile.Write(ref writeSlot, 0);
             idleColumns = 0f;
-            ResetPending();
             Interlocked.Increment(ref published);
         }
         finally
@@ -150,23 +134,46 @@ public static partial class BasisMicrophoneWaveform
         }
     }
 
-    private static void Commit()
+    private static void Measure(float[] samples, int count, out float peak, out float rms)
+    {
+        peak = 0f;
+        rms = 0f;
+        if (samples == null) return;
+        if (count > samples.Length) count = samples.Length;
+        if (count <= 0) return;
+
+        float maximum = 0f;
+        double square = 0d;
+        for (int i = 0; i < count; i++)
+        {
+            float value = samples[i];
+            float magnitude = value < 0f ? -value : value;
+            if (magnitude > maximum) maximum = magnitude;
+            square += (double)value * value;
+        }
+
+        peak = maximum;
+        rms = (float)Math.Sqrt(square / count);
+    }
+
+    private static void WriteColumn(Vector4 levels, Vector4 stages, Vector4 meta)
     {
         int slot = writeSlot;
-        packed[slot] = new Vector4(pendingLeftMinimum, pendingLeftMaximum, pendingRightMinimum, pendingRightMaximum);
+        int offset = slot * 4;
+        Store(offset, levels);
+        Store(RowStride + offset, stages);
+        Store(RowStride * 2 + offset, meta);
 
         Volatile.Write(ref writeSlot, slot + 1 == Columns ? 0 : slot + 1);
-        ResetPending();
         Interlocked.Increment(ref published);
     }
 
-    private static void ResetPending()
+    private static void Store(int index, Vector4 value)
     {
-        pendingLeftMinimum = 0f;
-        pendingLeftMaximum = 0f;
-        pendingRightMinimum = 0f;
-        pendingRightMaximum = 0f;
-        pendingSamples = 0;
+        data[index] = value.x;
+        data[index + 1] = value.y;
+        data[index + 2] = value.z;
+        data[index + 3] = value.w;
     }
 }
 #endif

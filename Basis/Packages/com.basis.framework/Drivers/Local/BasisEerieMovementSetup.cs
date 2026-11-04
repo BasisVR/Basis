@@ -49,38 +49,28 @@ namespace Basis.Scripts.Drivers
             job.collideTrackedElbow = Basis.BasisUI.BasisSettingsDefaults.FBIKCollideTrackedElbow.RawValue;
 
             job.shoulderSolveEnabled = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderSolveEnabled.RawValue;
-            job.shoulderShrugEnabled = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderShrug.RawValue;
             job.shoulderElevationFactor = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderElevation.RawValue;
             job.shoulderProtractionFactor = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderProtraction.RawValue;
-            job.shoulderMaxDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderMaxDeg.RawValue;
             job.shoulderTrackerBlendTime = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderTrackerBlend.RawValue;
             job.armSwivelSmoothTime = Basis.BasisUI.BasisSettingsDefaults.FBIKArmSwivelSmoothTime.RawValue;
             job.armSwivelMaxRateDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKArmSwivelMaxRate.RawValue;
-            job.trackedKneeSwivelMinCutoffHz = Basis.BasisUI.BasisSettingsDefaults.FBIKTrackedKneeSwivelMinCutoffHz.RawValue;
-            job.trackedKneeSwivelBeta = Basis.BasisUI.BasisSettingsDefaults.FBIKTrackedKneeSwivelBeta.RawValue;
-            job.trackedKneeSwivelDerivCutoffHz = Basis.BasisUI.BasisSettingsDefaults.FBIKTrackedKneeSwivelDerivCutoffHz.RawValue;
 
             job.moveBodyBackWhenCrouching = Basis.BasisUI.BasisSettingsDefaults.FBIKMoveBodyBackWhenCrouching.RawValue;
             job.crouchDepth = 0f;
             job.standingHeadHeight = 0f;
-            job.lowerArmTwistFraction = Basis.BasisUI.BasisSettingsDefaults.FBIKLowerArmTwistFraction.RawValue;
-            job.upperArmTwistFraction = Basis.BasisUI.BasisSettingsDefaults.FBIKUpperArmTwistFraction.RawValue;
-
-            job.spineAnatomicalRom = Basis.BasisUI.BasisSettingsDefaults.FBIKSpineAnatomicalRom.RawValue;
-            job.legSwivelSmoothing = Basis.BasisUI.BasisSettingsDefaults.FBIKLegSwivelSmoothing.RawValue;
-            job.kneeFootPoleHold = Basis.BasisUI.BasisSettingsDefaults.FBIKKneeFootPoleHold.RawValue;
-            job.kneeFootPoleConditioning = Basis.BasisUI.BasisSettingsDefaults.FBIKKneeFootPoleConditioning.RawValue;
 
             job.slotPositions.Length = BasisEerieMovement.Count;
             job.slotRotations.Length = BasisEerieMovement.Count;
             job.slotOffsets.Length = BasisEerieMovement.Count;
             job.slotWeights.Length = BasisEerieMovement.Count;
+            job.slotBlends.Length = BasisEerieMovement.Count;
             for (int i = 0; i < BasisEerieMovement.Count; i++)
             {
                 job.slotPositions[i] = Vector3.zero;
                 job.slotRotations[i] = Quaternion.identity;
                 job.slotOffsets[i] = Quaternion.identity;
                 job.slotWeights[i] = false;
+                job.slotBlends[i] = 1f;
             }
         }
         private static Quaternion BindLocal(Transform parent, Transform bone)
@@ -135,6 +125,12 @@ namespace Basis.Scripts.Drivers
             job.tposeShoulderToElbowLeft = (Mapping.leftShoulder != null && Mapping.leftLowerArm != null) ? Vector3.Distance(Mapping.leftShoulder.position, Mapping.leftLowerArm.position) : 0f;
             job.tposeShoulderToElbowRight = (Mapping.RightShoulder != null && Mapping.RightLowerArm != null) ? Vector3.Distance(Mapping.RightShoulder.position, Mapping.RightLowerArm.position) : 0f;
 
+            // In T-pose the back of the hand faces the avatar's up. Store that in hand-bone space so it works whatever the bone's axes are.
+            Vector3 avatarUp = (Mapping.head != null && Mapping.Hips != null) ? (Mapping.head.position - Mapping.Hips.position).normalized : Vector3.up;
+            if (avatarUp.sqrMagnitude < 0.5f) avatarUp = Vector3.up;
+            job.tposeLeftHandBackLocal = Mapping.leftHand != null ? Quaternion.Inverse(Mapping.leftHand.rotation) * avatarUp : Vector3.zero;
+            job.tposeRightHandBackLocal = Mapping.rightHand != null ? Quaternion.Inverse(Mapping.rightHand.rotation) * avatarUp : Vector3.zero;
+
             job.tposeLeftLowerArmTwistBind = BindLocal(Mapping.leftLowerArm, Mapping.leftLowerArmTwist);
             job.tposeLeftLowerArmChildBind = BindLocal(Mapping.leftLowerArm, Mapping.leftHand);
             job.tposeRightLowerArmTwistBind = BindLocal(Mapping.RightLowerArm, Mapping.RightLowerArmTwist);
@@ -152,6 +148,8 @@ namespace Basis.Scripts.Drivers
             job.armState = new NativeArray<BasisArmState>(BasisEerieMovement.armCount, Allocator.Persistent);
             job.legState = new NativeArray<BasisLegSlotState>(2, Allocator.Persistent);
             job.legDiagnostics = new NativeArray<BasisLegDiagnostics>(2, Allocator.Persistent);
+            job.solvedPositions = new NativeArray<Vector3>(BasisEerieMovement.Count, Allocator.Persistent);
+            job.solvedRotations = new NativeArray<Quaternion>(BasisEerieMovement.Count, Allocator.Persistent);
             // Raliv initialization reads the bound pose just like SpineTest.Awake.
             // The stream must be assigned before that cache is built.
             job.poseStream = skeleton.Stream;

@@ -1,0 +1,17 @@
+{
+    "name": "com.basis.developer.streamingmeta",
+    "version": "0.0.1",
+    "displayName": "Basis Developer - Streaming Meta (OBS)",
+    "description": "Loopback-only HTTP listener (127.0.0.1) that serves FPS, CCU and ping as /stats.json and /overlay.html for an OBS Browser Source. Split out of the framework Developer tab into its own package.",
+    "vpmDependencies": {
+        "com.basis.framework": "0.0.1",
+        "com.basis.sdk": "0.0.1",
+        "com.basis.settings": "1.0.0",
+        "com.basis.server": "1.0.0"
+    },
+    "author": {
+        "name": "BasisVR",
+        "url": "https://github.com/BasisVR"
+    },
+    "license": "MIT"
+}

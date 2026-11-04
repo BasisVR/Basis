@@ -1,0 +1,310 @@
+{
+  "code": "bn",
+  "nativeName": "বাংলা",
+  "entries": [
+    {
+      "key": "menu.provider.screenShare",
+      "value": "স্ক্রিন শেয়ার"
+    },
+    {
+      "key": "library.embedded.screenShare",
+      "value": "স্ক্রিন শেয়ার"
+    },
+    {
+      "key": "screenShare.yourShare",
+      "value": "আপনার স্ক্রিন"
+    },
+    {
+      "key": "screenShare.source",
+      "value": "শেয়ার"
+    },
+    {
+      "key": "screenShare.source.tooltip",
+      "value": "যে ডিসপ্লে বা উইন্ডো স্ক্রিনের কাছে থাকা সবাই দেখবে।"
+    },
+    {
+      "key": "screenShare.source.display",
+      "value": "{0} ({1}×{2})"
+    },
+    {
+      "key": "screenShare.source.none",
+      "value": "কোনো ডিসপ্লে বা উইন্ডো পাওয়া যায়নি"
+    },
+    {
+      "key": "screenShare.refreshSources",
+      "value": "তালিকা রিফ্রেশ করুন"
+    },
+    {
+      "key": "screenShare.resolution",
+      "value": "রেজোলিউশন"
+    },
+    {
+      "key": "screenShare.resolution.tooltip",
+      "value": "ছবি পাঠানোর সর্বোচ্চ আকার। ছোট উৎস কখনো বড় করা হয় না।"
+    },
+    {
+      "key": "screenShare.resolution.native",
+      "value": "নেটিভ"
+    },
+    {
+      "key": "screenShare.resolution.1440",
+      "value": "1440p"
+    },
+    {
+      "key": "screenShare.resolution.1080",
+      "value": "1080p"
+    },
+    {
+      "key": "screenShare.resolution.720",
+      "value": "720p"
+    },
+    {
+      "key": "screenShare.resolution.480",
+      "value": "480p"
+    },
+    {
+      "key": "screenShare.frameRate",
+      "value": "ফ্রেম রেট"
+    },
+    {
+      "key": "screenShare.frameRate.tooltip",
+      "value": "ছবি কত ঘন ঘন আপডেট হয়। 60 গেম ও ভিডিওর জন্য উপযুক্ত, 15 বা 5 ডকুমেন্ট ও স্লাইডের জন্য, এবং এগুলো খুঁটিনাটির জন্য বেশি ব্যান্ডউইথ রাখে।"
+    },
+    {
+      "key": "screenShare.frameRate.60",
+      "value": "60 fps"
+    },
+    {
+      "key": "screenShare.frameRate.30",
+      "value": "30 fps"
+    },
+    {
+      "key": "screenShare.frameRate.15",
+      "value": "15 fps"
+    },
+    {
+      "key": "screenShare.frameRate.5",
+      "value": "5 fps"
+    },
+    {
+      "key": "screenShare.quality",
+      "value": "গুণমান"
+    },
+    {
+      "key": "screenShare.quality.tooltip",
+      "value": "ছবি কতটা ব্যান্ডউইথ ব্যবহার করতে পারে। অটো রেজোলিউশন ও ফ্রেম রেট থেকে বিটরেট বেছে নেয়; সর্বোচ্চ সীমা সার্ভার ঠিক করে।"
+    },
+    {
+      "key": "screenShare.quality.auto",
+      "value": "অটো"
+    },
+    {
+      "key": "screenShare.quality.low",
+      "value": "নিম্ন"
+    },
+    {
+      "key": "screenShare.quality.high",
+      "value": "উচ্চ"
+    },
+    {
+      "key": "screenShare.quality.max",
+      "value": "সর্বোচ্চ"
+    },
+    {
+      "key": "screenShare.audio",
+      "value": "কম্পিউটারের অডিও শেয়ার করুন"
+    },
+    {
+      "key": "screenShare.audio.tooltip",
+      "value": "আপনার কম্পিউটারে যা বাজছে তা পাঠায়, Basis বাদে, যাতে স্ক্রিনের কাছের লোকেরা স্ক্রিন থেকে তা শুনতে পায়।"
+    },
+    {
+      "key": "screenShare.cursor",
+      "value": "মাউস পয়েন্টার দেখান"
+    },
+    {
+      "key": "screenShare.start",
+      "value": "শেয়ার শুরু করুন"
+    },
+    {
+      "key": "screenShare.stop",
+      "value": "শেয়ার বন্ধ করুন"
+    },
+    {
+      "key": "screenShare.viewing",
+      "value": "দেখা"
+    },
+    {
+      "key": "screenShare.viewing.none",
+      "value": "আর কেউ স্ক্রিন শেয়ার করছে না।"
+    },
+    {
+      "key": "screenShare.viewing.count",
+      "value": "অন্যদের শেয়ার করা স্ক্রিন: {0}"
+    },
+    {
+      "key": "screenShare.receive",
+      "value": "অন্যদের স্ক্রিন দেখান"
+    },
+    {
+      "key": "screenShare.receive.tooltip",
+      "value": "বন্ধ থাকলে কোনো স্ক্রিন শেয়ার ডাউনলোড হয় না এবং অন্যদের স্ক্রিন ফাঁকা থাকে।"
+    },
+    {
+      "key": "screenShare.viewDistance",
+      "value": "দেখার দূরত্ব (মি)"
+    },
+    {
+      "key": "screenShare.viewDistance.tooltip",
+      "value": "এর চেয়ে দূরের স্ক্রিন আপনি কাছে না আসা পর্যন্ত ডাউনলোড হয় না।"
+    },
+    {
+      "key": "screenShare.volume",
+      "value": "স্ক্রিন শেয়ার ভলিউম"
+    },
+    {
+      "key": "screenShare.status.none",
+      "value": "আপনার স্ক্রিন শেয়ার করতে লাইব্রেরি থেকে স্ক্রিন শেয়ার স্পন করুন।"
+    },
+    {
+      "key": "screenShare.status.idle",
+      "value": "শেয়ার হচ্ছে না। কী শেয়ার করবেন বেছে নিয়ে শেয়ার শুরু করুন চাপুন।"
+    },
+    {
+      "key": "screenShare.status.offline",
+      "value": "শেয়ার হচ্ছে না। আপনার স্ক্রিন শেয়ার করতে একটি সার্ভারে যোগ দিন।"
+    },
+    {
+      "key": "screenShare.status.unsupportedServer",
+      "value": "শেয়ার হচ্ছে না। এই সার্ভার স্ক্রিন শেয়ার সমর্থন করে না।"
+    },
+    {
+      "key": "screenShare.status.starting",
+      "value": "শুরু হচ্ছে…"
+    },
+    {
+      "key": "screenShare.status.waiting",
+      "value": "{0} শেয়ার হচ্ছে। সার্ভারের অপেক্ষায়…"
+    },
+    {
+      "key": "screenShare.status.live",
+      "value": "{0} শেয়ার হচ্ছে, {1} জন দেখছে"
+    },
+    {
+      "key": "screenShare.status.error",
+      "value": "থেমে গেছে: {0}"
+    },
+    {
+      "key": "screenShare.status.noAudio",
+      "value": "কম্পিউটারের অডিও শেয়ার হচ্ছে না: {0}"
+    },
+    {
+      "key": "screenShare.error.unsupported",
+      "value": "স্ক্রিন শেয়ার করতে Windows 10 সংস্করণ 2004 বা পরবর্তী সংস্করণ প্রয়োজন। আপনি এখনও অন্যদের স্ক্রিন দেখতে পারবেন।"
+    },
+    {
+      "key": "screenShare.error.open",
+      "value": "স্ক্রিন ক্যাপচার করা যায়নি।"
+    },
+    {
+      "key": "screenShare.error.permission",
+      "value": "এই সার্ভার আপনাকে স্ক্রিন শেয়ার করার অনুমতি দেয় না।"
+    },
+    {
+      "key": "screenShare.error.tooMany",
+      "value": "এই সার্ভার ইতিমধ্যে অনুমোদিত সর্বোচ্চ সংখ্যক স্ক্রিন শেয়ার দেখাচ্ছে।"
+    },
+    {
+      "key": "screenShare.error.refused",
+      "value": "সার্ভার স্ক্রিন শেয়ার প্রত্যাখ্যান করেছে।"
+    },
+    {
+      "key": "screenShare.error.ended",
+      "value": "শেয়ার করা ডিসপ্লে বা উইন্ডো আর নেই।"
+    },
+    {
+      "key": "screenShare.back.sharedBy",
+      "value": "{0} শেয়ার করছেন"
+    },
+    {
+      "key": "screenShare.back.yours",
+      "value": "আপনার স্ক্রিন"
+    },
+    {
+      "key": "screenShare.back.hide",
+      "value": "লুকান"
+    },
+    {
+      "key": "screenShare.panel.live",
+      "value": "লাইভ"
+    },
+    {
+      "key": "screenShare.panel.watching",
+      "value": "{0} জন দেখছেন"
+    },
+    {
+      "key": "screenShare.panel.details",
+      "value": "{0}×{1} · {2} fps"
+    },
+    {
+      "key": "screenShare.showHidden",
+      "value": "লুকানো স্ক্রিন দেখান"
+    },
+    {
+      "key": "screenShare.viewing.hidden",
+      "value": "আপনি লুকিয়েছেন: {0}"
+    },
+    {
+      "key": "settings.admin.title.lockScreenShare",
+      "value": "স্ক্রিন শেয়ার লক করুন"
+    },
+    {
+      "key": "settings.admin.title.lockScreenShare.tooltip",
+      "value": "যাদের গ্লোবাল লক অনুমতি নেই তারা স্ক্রিন শেয়ার করতে পারবে না। তাদের চলমান শেয়ার সঙ্গে সঙ্গে বন্ধ হবে; অ্যাডমিনরা এখনও শেয়ার করতে পারবেন।"
+    },
+    {
+      "key": "screenShare.status.locked",
+      "value": "এই সার্ভারে স্ক্রিন শেয়ার বন্ধ আছে।"
+    },
+    {
+      "key": "screenShare.error.locked",
+      "value": "একজন অ্যাডমিন এই সার্ভারে স্ক্রিন শেয়ার বন্ধ করেছেন।"
+    },
+    {
+      "key": "screenShare.error.restart",
+      "value": "মিডিয়া প্লাগইন আপডেট হয়েছে। স্ক্রিন শেয়ার ব্যবহার করতে আবার চালু করুন।"
+    },
+    {
+      "key": "screenShare.audioSource",
+      "value": "অডিও উৎস"
+    },
+    {
+      "key": "screenShare.audioSource.tooltip",
+      "value": "অটো উইন্ডো শেয়ার করলে শুধু সেই অ্যাপের শব্দ, আর ডিসপ্লে শেয়ার করলে Basis ছাড়া সব শব্দ শেয়ার করে।"
+    },
+    {
+      "key": "screenShare.audioSource.auto",
+      "value": "অটো"
+    },
+    {
+      "key": "screenShare.audioSource.application",
+      "value": "শুধু এই অ্যাপ"
+    },
+    {
+      "key": "screenShare.audioSource.system",
+      "value": "পুরো কম্পিউটার"
+    },
+    {
+      "key": "screenShare.source.portal",
+      "value": "স্ক্রিন বা উইন্ডো (সিস্টেম ডায়ালগে বেছে নিন)"
+    },
+    {
+      "key": "screenShare.status.choose",
+      "value": "সিস্টেম ডায়ালগে কী শেয়ার করবেন বেছে নিন…"
+    },
+    {
+      "key": "screenShare.error.pluginMissing",
+      "value": "এই বিল্ডের মিডিয়া প্লাগইন স্ক্রিন শেয়ার করতে পারে না। এই প্ল্যাটফর্মের জন্য প্লাগইনটি আবার বিল্ড করুন।"
+    }
+  ]
+}

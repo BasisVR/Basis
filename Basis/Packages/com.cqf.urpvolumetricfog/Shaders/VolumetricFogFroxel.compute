@@ -178,6 +178,13 @@ void CSFroxelLight(uint3 id : SV_DispatchThreadID)
 
     float invHeightRange = rcp(max(_MaximumHeight - _BaseHeight, 1e-4));
     float density = GetFogDensity(posWS.y, invHeightRange);
+    float4 external = float4(0.0, 0.0, 0.0, 1.0);
+    UNITY_BRANCH
+    if (ExternalVolumeActive())
+    {
+        external = SampleExternalVolume(posWS);
+        density *= external.a;
+    }
     float4 result = float4(0.0, 0.0, 0.0, 0.0);
 
     UNITY_BRANCH
@@ -196,7 +203,7 @@ void CSFroxelLight(uint3 id : SV_DispatchThreadID)
         if (_VFFroxelLightFlags.z > 0.5)
             additionalColor = FroxelAdditionalLights(posWS, normalize(column.xyz), density, centerUVW.xy, sampleDepth, viewIndex);
 
-        result = float4(apvColor + mainLightColor + additionalColor, _Absortion * density);
+        result = float4(apvColor + mainLightColor + additionalColor + external.rgb * (density * _VFExternalVolumeParams1.w), _Absortion * density);
     }
 
     UNITY_BRANCH

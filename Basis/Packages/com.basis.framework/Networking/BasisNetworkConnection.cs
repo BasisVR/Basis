@@ -102,7 +102,7 @@ namespace Basis.Scripts.Networking
             var basisLocalPlayer = BasisLocalPlayer.Instance;
             basisLocalPlayer.UUID = uuid;
 
-            byte[] avatarBytes = BasisBundleConversionNetwork.ConvertBasisLoadableBundleToBytes(basisLocalPlayer.AvatarMetaData);
+            byte[] avatarBytes = BasisAvatarHostClient.OutboundAvatarBytes(basisLocalPlayer.AvatarMetaData);
 
             // Calibration usually happens before ever connecting, so the body fit has to ride the very
             // first record — otherwise the server stores identity for us and nobody sees the fitted

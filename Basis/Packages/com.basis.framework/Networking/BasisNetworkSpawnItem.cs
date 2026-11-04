@@ -160,6 +160,36 @@ public static partial class BasisNetworkSpawnItem
         BasisNetworkConnection.LocalPlayerPeer?.Send(writer, BasisNetworkCommons.ModifyResourceChannel, DeliveryMethod.ReliableOrdered);
     }
 
+    /// <summary>
+    /// Asks the server to save an already-spawned item into its initial resources (so it loads again
+    /// after a server restart) or to forget it again. Needs basis.resource.savetodisk; the server
+    /// answers with a status message and broadcasts the new state. A prop is saved where it is now.
+    /// </summary>
+    public static void RequestSaveToDisk(string LoadedNetID, byte Mode, bool Save)
+    {
+        if (string.IsNullOrEmpty(LoadedNetID))
+        {
+            BasisDebug.Log("Invalid LoadedNetID for save to disk request.", BasisDebug.LogTag.Networking);
+            return;
+        }
+
+        ModifyResource modifyResource = new ModifyResource { LoadedNetID = LoadedNetID, Mode = Mode, Op = Save ? ModifyResource.OpSaveToDisk : ModifyResource.OpRemoveFromDisk };
+        if (Save && Mode == 0 && BasisRuntimeSpawnRegistry.SpawnedGameobjects.TryGetValue(LoadedNetID, out GameObject spawned) && spawned != null)
+        {
+            spawned.transform.GetPositionAndRotation(out Vector3 position, out Quaternion rotation);
+            Vector3 scale = spawned.transform.localScale;
+            modifyResource.HasTransform = true;
+            modifyResource.PositionX = position.x; modifyResource.PositionY = position.y; modifyResource.PositionZ = position.z;
+            modifyResource.QuaternionX = rotation.x; modifyResource.QuaternionY = rotation.y; modifyResource.QuaternionZ = rotation.z; modifyResource.QuaternionW = rotation.w;
+            modifyResource.ScaleX = scale.x; modifyResource.ScaleY = scale.y; modifyResource.ScaleZ = scale.z;
+        }
+        NetDataWriter writer = new NetDataWriter();
+        modifyResource.Serialize(writer);
+
+        BasisDebug.Log($"Sending save to disk request with NetID: {LoadedNetID} Save={Save}", BasisDebug.LogTag.Networking);
+        BasisNetworkConnection.LocalPlayerPeer?.Send(writer, BasisNetworkCommons.ModifyResourceChannel, DeliveryMethod.ReliableOrdered);
+    }
+
     public static async Task<Scene> SpawnScene(LocalLoadResource localLoadResource)
     {
         CancellationToken sessionToken = _loadCts.Token;

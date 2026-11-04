@@ -815,6 +815,7 @@ public sealed class VolumetricFogRenderPass : ScriptableRenderPass
         material.SetFloat(SunTrimsId, parameters.sunTrims);
         material.SetTexture(BlueNoiseTextureId, parameters.blueNoise);
         material.SetVector(BlueNoiseParamsId, parameters.blueNoiseParams);
+        VolumetricFogExternalVolume.Bind(material);
     }
 
     private static void ApplyFogParameters(ComputeCommandBuffer cmd, ComputeShader computeShader, int kernelIndex, in FogParameters parameters)
@@ -840,6 +841,7 @@ public sealed class VolumetricFogRenderPass : ScriptableRenderPass
         cmd.SetComputeFloatParam(computeShader, AdditionalAnisotropyId, parameters.additionalAnisotropy);
         cmd.SetComputeFloatParam(computeShader, AdditionalScatteringId, parameters.additionalScattering);
         computeShader.SetTexture(kernelIndex, BlueNoiseTextureId, parameters.blueNoise);
+        VolumetricFogExternalVolume.Bind(cmd, computeShader, kernelIndex);
     }
 
     private static void ApplyFroxelGridParameters(ComputeCommandBuffer cmd, ComputeShader computeShader, PassData data)

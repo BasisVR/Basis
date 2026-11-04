@@ -1,7 +1,6 @@
 using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Concurrent;
-using System.Numerics;
 
 namespace OpenLipSync.Inference.Audio
 {
@@ -84,6 +83,19 @@ namespace OpenLipSync.Inference.Audio
             _disposed = false;
         }
 
+        /// <summary>
+        /// Native-speed replacement for the per-output convolution loop in <see cref="Resample"/>,
+        /// installed by a host that can compile one (this assembly has no Burst/unsafe access).
+        /// Must reproduce the managed loop exactly: same phase pick, same float products summed
+        /// sequentially into a double. Receives the delay line, the coefficient table and the
+        /// starting time; writes <paramref name="outCount"/> samples and returns the advanced time.
+        /// The caller has already proven every tap read is inside <paramref name="buf"/>.
+        /// </summary>
+        public delegate double ConvolveRun(float[] buf, int bufHead, int halfMinus1, float[] coeffs, int taps, int phases,
+                                           double time, double inputPerOutput, float[] output, int outCount);
+
+        [NoAutoStaticsCleanup] public static ConvolveRun AcceleratedRun;
+
         public int InputSampleRate => _inputSampleRate;
         public int OutputSampleRate => _outputSampleRate;
         public double ResampleRatio => _ratio;
@@ -142,20 +154,30 @@ namespace OpenLipSync.Inference.Audio
             int bufHead = _bufHead;
             int phases = _numPhases;
 
-            for (int o = 0; o < outCount; o++)
+            // Reads span buf[bufHead + floor(_time) - halfMinus1 .. bufHead + maxCenter + _halfTaps];
+            // the right edge is bufHead + _bufCount - 1, always in range, so only the left needs proving.
+            ConvolveRun accelerated = AcceleratedRun;
+            if (accelerated != null && _time >= 0.0 && (int)Math.Floor(_time) - halfMinus1 >= 0)
             {
-                int center = (int)Math.Floor(_time);
-                int leftIndex = center - halfMinus1;
+                _time = accelerated(buf, bufHead, halfMinus1, coeffs, taps, phases, _time, inputPerOutput, _outputArray, outCount);
+            }
+            else
+            {
+                for (int o = 0; o < outCount; o++)
+                {
+                    int center = (int)Math.Floor(_time);
+                    int leftIndex = center - halfMinus1;
 
-                double frac = _time - center;
-                int phaseIndex = (int)Math.Round(frac * phases);
-                if (phaseIndex == phases) phaseIndex = 0;
-                int coeffBase = phaseIndex * taps;
-                int bufBase = bufHead + leftIndex;
+                    double frac = _time - center;
+                    int phaseIndex = (int)Math.Round(frac * phases);
+                    if (phaseIndex == phases) phaseIndex = 0;
+                    int coeffBase = phaseIndex * taps;
+                    int bufBase = bufHead + leftIndex;
 
-                _outputArray[o] = ConvolveTaps(buf, bufBase, coeffs, coeffBase, taps);
+                    _outputArray[o] = ConvolveTaps(buf, bufBase, coeffs, coeffBase, taps);
 
-                _time += inputPerOutput;
+                    _time += inputPerOutput;
+                }
             }
 
             int safeToRemove = (int)Math.Floor(_time) - halfMinus1;
@@ -196,7 +218,9 @@ namespace OpenLipSync.Inference.Audio
             double sum = 0.0;
             for (int t = 0; t < taps; t++)
             {
-                sum += buf[bufBase + t] * coeffs[coeffBase + t];
+                // Widened before the multiply: a float*float product is exact in double, so
+                // Mono, IL2CPP and the Burst kernel all produce the same bits.
+                sum += (double)buf[bufBase + t] * coeffs[coeffBase + t];
             }
             return (float)sum;
         }

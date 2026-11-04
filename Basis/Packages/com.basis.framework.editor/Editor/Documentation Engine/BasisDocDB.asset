@@ -102684,7 +102684,7 @@ MonoBehaviour:
     IsMemberConst: 0
     IsMemberVirtual: 0
     IsMemberOverride: 0
-    Summary: "Feature packages append a developer section builder here (typically via\n [RuntimeInitializeOnLoadMethod]); the General tab's Developer section invokes each one\n under Package Tools (Show Developer Tab only) so a package can own its diagnostics UI\n without the framework referencing the package."
+    Summary: "Feature packages append (title key, builder) here (typically via\n [RuntimeInitializeOnLoadMethod]); the General tab's Developer section gives each one its\n own collapsible section (Show Developer Tab only), built when opened, so a package can\n own its diagnostics UI without the framework referencing the package."
     Remarks: 
     Returns: 
     Value: 
@@ -144872,37 +144872,6 @@ MonoBehaviour:
     IsMemberVirtual: 0
     IsMemberOverride: 0
     Summary: "Runs the complete suite \u2014 every group \u2014 and returns fresh lists.\n\n \n\nThis is what the build button calls. Uploads never read the panels: they get a full\n pass taken on the spot, so nothing can ship on a stale or partial result."
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: 
-    MemberName: ReportIfNoIll2CPP
-    Kind: Method
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    BaseTypeName: 
-    Interfaces: []
-    IsAbstract: 0
-    IsSealed: 0
-    IsStatic: 0
-    IsPartial: 0
-    IsMemberStatic: 1
-    IsMemberReadOnly: 0
-    IsMemberConst: 0
-    IsMemberVirtual: 0
-    IsMemberOverride: 0
-    Summary: "Distinct model importers behind the avatar's skinned meshes, from the scan taken for this\n pass. Kept as paths so callers can hold onto one safely \u2014 an importer instance does not\n survive the reimport a fix triggers."
     Remarks: 
     Returns: 
     Value: 

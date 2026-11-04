@@ -24,6 +24,8 @@ namespace Basis.Network.Core
         /// confirmed-reachable address family (supporting IPv6→IPv4 fallback).
         /// </summary>
         public IPAddress ResolvedAddress;
+        public string ResolvedHost;
+        public ushort ResolvedPort;
     }
 
     public delegate Task<ServerProbeResult> StackProbeDelegate(ConnectionTarget target, int timeoutMs, CancellationToken ct);
@@ -422,7 +424,30 @@ namespace Basis.Network.Core
                     probe = slot.Probe;
                 }
             }
-            return probe(target, timeoutMs, ct);
+            if (!BasisSrvResolver.TryGetServiceName(target, out string serviceName)) return probe(target, timeoutMs, ct);
+            return ProbeWithSrvAsync(probe, target, serviceName, timeoutMs, ct);
+        }
+
+        public const int MaxSrvProbeTargets = 3;
+
+        private static async Task<ServerProbeResult> ProbeWithSrvAsync(StackProbeDelegate probe, ConnectionTarget target, string serviceName, int timeoutMs, CancellationToken ct)
+        {
+            System.Diagnostics.Stopwatch clock = System.Diagnostics.Stopwatch.StartNew();
+            BasisSrvRecord[] records = await BasisSrvResolver.ResolveAsync(serviceName, Math.Min(1500, timeoutMs / 2), ct).ConfigureAwait(false);
+            int remaining = Math.Max(250, timeoutMs - (int)clock.ElapsedMilliseconds);
+            if (records.Length == 0) return await probe(target, remaining, ct).ConfigureAwait(false);
+            int count = Math.Min(records.Length, MaxSrvProbeTargets);
+            ServerProbeResult first = null;
+            for (int i = 0; i < count && !ct.IsCancellationRequested; i++)
+            {
+                int budget = Math.Max(250, (timeoutMs - (int)clock.ElapsedMilliseconds) / (count - i));
+                ServerProbeResult result = await probe(BasisSrvResolver.WithEndpoint(target, records[i].Target, records[i].Port), budget, ct).ConfigureAwait(false) ?? new ServerProbeResult();
+                result.ResolvedHost = records[i].Target;
+                result.ResolvedPort = records[i].Port;
+                if (result.Reachable) return result;
+                if (first == null) first = result;
+            }
+            return first ?? new ServerProbeResult { ResolvedHost = records[0].Target, ResolvedPort = records[0].Port, TimedOut = true };
         }
 
         public static void TickActive()

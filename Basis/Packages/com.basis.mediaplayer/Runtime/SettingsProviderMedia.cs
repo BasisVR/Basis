@@ -9,13 +9,15 @@ using UnityEngine;
 /// </summary>
 public static class SettingsProviderMedia
 {
+    const string TitleKey = "settings.media.title";
+
     [RuntimeInitializeOnLoadMethod]
     static void Register()
     {
         // Detach first: with domain reload disabled in the editor these statics survive
         // into the next play session, and a second Add would draw the section twice.
-        SettingsProvider.DeveloperSectionBuilders.Remove(BuildSection);
-        SettingsProvider.DeveloperSectionBuilders.Add(BuildSection);
+        SettingsProvider.DeveloperSectionBuilders.Remove((TitleKey, BuildSection));
+        SettingsProvider.DeveloperSectionBuilders.Add((TitleKey, BuildSection));
         SettingsProvider.DeveloperResetActions.Remove(ResetDefaults);
         SettingsProvider.DeveloperResetActions.Add(ResetDefaults);
         BasisMediaSettings.EnsureLoaded();
@@ -26,7 +28,6 @@ public static class SettingsProviderMedia
         PanelElementDescriptor group =
             PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
         group.SetBackgroundVisible(false);
-        group.SetTitle(BasisLocalization.Get("settings.media.title"));
         group.SetDescription(BasisLocalization.Get("settings.media.description"));
 
         PanelDropdown decode = PanelDropdown.CreateNewEntry(group.ContentParent);
@@ -49,7 +50,7 @@ public static class SettingsProviderMedia
 
         PanelSlider maxActive = PanelSlider.CreateNew(group.ContentParent);
         maxActive.SetSliderSettings(PanelSlider.SliderSettings.Advanced(
-            BasisLocalization.Get("settings.media.maxActive"), 0f, 8f, true, 0, ValueDisplayMode.Raw));
+            BasisLocalization.Get("settings.media.maxActive"), 0f, 16f, true, 0, ValueDisplayMode.Raw));
         maxActive.Descriptor.SetTooltip(BasisLocalization.Get("settings.media.maxActive.tooltip"));
         maxActive.OnValueChanged = v =>
             BasisMediaSettings.MaxActivePlayers.SetValue(Mathf.RoundToInt(v));
@@ -84,6 +85,24 @@ public static class SettingsProviderMedia
         captionBackground.SetValueWithoutNotify(Mathf.Clamp01(BasisMediaSettings.CaptionBackgroundOpacity.RawValue) * 100f);
         captionBackground.OnValueChanged = v =>
             BasisMediaSettings.CaptionBackgroundOpacity.SetValue(Mathf.Clamp01(v / 100f));
+
+        PanelElementDescriptor clips =
+            PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, group.ContentParent);
+        clips.SetTitle(BasisLocalization.Get("settings.media.clips.title"));
+        clips.SetDescription(BasisLocalization.Get("settings.media.clips.description"));
+
+        PanelToggle acceptClips = PanelToggle.CreateNewEntry(clips.ContentParent);
+        acceptClips.Descriptor.SetTitle(BasisLocalization.Get("settings.media.clips.accept"));
+        acceptClips.Descriptor.SetTooltip(BasisLocalization.Get("settings.media.clips.accept.tooltip"));
+        acceptClips.AssignBinding(BasisMediaSettings.ClipAcceptShared);
+
+        PanelSlider clipVolume = PanelSlider.CreateNew(clips.ContentParent);
+        clipVolume.SetSliderSettings(PanelSlider.SliderSettings.Percentage(
+            BasisLocalization.Get("settings.media.clips.volume")));
+        clipVolume.Descriptor.SetTooltip(BasisLocalization.Get("settings.media.clips.volume.tooltip"));
+        clipVolume.SetValueWithoutNotify(Mathf.Clamp01(BasisMediaSettings.ClipVolume.RawValue) * 100f);
+        clipVolume.OnValueChanged = v =>
+            BasisMediaSettings.ClipVolume.SetValue(Mathf.Clamp01(v / 100f));
 
         PanelElementDescriptor engineStatus =
             PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, group.ContentParent);
@@ -123,5 +142,7 @@ public static class SettingsProviderMedia
         BasisMediaSettings.CaptionBackgroundOpacity.ResetToDefault();
         BasisMediaSettings.MaxActivePlayers.ResetToDefault();
         BasisMediaSettings.BufferDepthMs.ResetToDefault();
+        BasisMediaSettings.ClipAcceptShared.ResetToDefault();
+        BasisMediaSettings.ClipVolume.ResetToDefault();
     }
 }

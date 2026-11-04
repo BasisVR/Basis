@@ -36,12 +36,16 @@ namespace Basis.Scripts.UI.NamePlate
         /// Maintained by ApplyPendingStructuralChanges, including swap-back moves.</summary>
         internal int RegistryIndex = -1;
         internal int ChatRegistryIndex = -1;
+        internal int LoadingRegistryIndex = -1;
 
         /// <summary>Cached gameObject-active state for the global merge gather, so it never calls the
         /// (managed→native) isActiveAndEnabled per plate per frame. Maintained by
         /// <see cref="Initialize"/> and <see cref="RefreshActiveState"/>.</summary>
         internal bool RenderActive;
         internal bool NameHidden;
+        /// <summary>Slot in BasisGlobalNamePlateRenderer's merge snapshot; -1 when not in it.
+        /// Written only by the renderer's topology rebuild.</summary>
+        internal int GlobalIndex = -1;
 
         public bool HasProgressBarVisible = false;
         public MeshRenderer Renderer;
@@ -105,7 +109,7 @@ namespace Basis.Scripts.UI.NamePlate
         private int loadingTextBucket = int.MinValue;
 
         /// <summary>True while a chat message or typing indicator wants to display.</summary>
-        internal bool HasActiveChatOverlay => ChatText != null && HasBubbleText();
+        internal bool HasActiveChatOverlay => HasBubbleText() && ChatText != null;
 
         /// <summary>True while the avatar-loading text + bar want to display.</summary>
         internal bool HasActiveLoadingOverlay => HasProgressBarVisible && !NameHidden;
@@ -198,6 +202,7 @@ namespace Basis.Scripts.UI.NamePlate
             Renderer.GetPropertyBlock(mpb, 0);
             ApplyTalkModeColors();
             BasisRemoteNamePlateDriver.Register(this);
+            if (HasProgressBarVisible) BasisRemoteNamePlateDriver.SetLoadingPlateRegistered(this, true);
 
             RefreshActiveState();
             SetTypingIndicatorVisible(BasisRemotePlayer.IsChatTyping);
@@ -260,6 +265,7 @@ namespace Basis.Scripts.UI.NamePlate
             bool wasNameHidden = NameHidden;
             RenderActive = BasisRemoteNamePlateDriver.ShouldPlateBeActive(this);
             NameHidden = !(RenderActive && BasisRemoteNamePlateDriver.NamesVisible());
+            BasisGlobalNamePlateRenderer.PushPlateState(this);
             gameObject.SetActive(RenderActive);
             PushPoseGate(RenderActive);
 
@@ -335,6 +341,7 @@ namespace Basis.Scripts.UI.NamePlate
 
             // Single source of truth; the global merge reads CurrentColor each frame.
             CurrentColor = c;
+            BasisGlobalNamePlateRenderer.PushPlateState(this);
 
             if (BasisRemoteNamePlateDriver.UseGlobalNamePlateMesh) return;
 
@@ -450,8 +457,10 @@ namespace Basis.Scripts.UI.NamePlate
             // its deferred topology rebuild, and a recycled playerId must not resurface our name on the
             // new player. Replaces the per-plate Unity null check in GatherFromBoneSystem.
             RenderActive = false;
+            BasisGlobalNamePlateRenderer.PushPlateState(this);
             PushPoseGate(false);
             BasisRemoteNamePlateDriver.SetChatPlateRegistered(this, false);
+            BasisRemoteNamePlateDriver.SetLoadingPlateRegistered(this, false);
             if (BasisRemotePlayer != null)
             {
                 // Unsubscribe all events we hooked up
@@ -579,26 +588,31 @@ namespace Basis.Scripts.UI.NamePlate
             // HasAudioSource is volatile — false while out of range, not yet loaded, or unloaded.
             if (audio == null || !audio.HasAudioSource) return;
 
-            BasisDeviceManagement.EnqueueOnMainThread(() =>
-            {
-                if (this == null || !isActiveAndEnabled || NameHidden) return;
+            if (System.Threading.Interlocked.Exchange(ref audioPulsePending, 1) == 1) return;
+            BasisDeviceManagement.EnqueueOnMainThread(audioPulseOnMain ??= AudioPulseOnMain);
+        }
+        private int audioPulsePending;
+        private System.Action audioPulseOnMain;
+        private void AudioPulseOnMain()
+        {
+            System.Threading.Volatile.Write(ref audioPulsePending, 0);
+            if (this == null || !isActiveAndEnabled || NameHidden) return;
 
-                // Re-check on the main thread: state may have changed during the
-                // enqueue + drain window, and this covers the volume check that
-                // can't be done safely off the main thread.
-                if (!CanCurrentlyBeHeard()) return;
+            // Re-check on the main thread: state may have changed during the
+            // enqueue + drain window, and this covers the volume check that
+            // can't be done safely off the main thread.
+            if (!CanCurrentlyBeHeard()) return;
 
-                talkColorCached = BasisRemoteNamePlateDriver.GetModeTalkColor(BasisRemotePlayer != null ? BasisRemotePlayer.TalkMode : BasisTalkMode.Normal);
-                talkColorFloat4 = new float4(talkColorCached.r, talkColorCached.g, talkColorCached.b, talkColorCached.a);
+            talkColorCached = BasisRemoteNamePlateDriver.GetModeTalkColor(BasisRemotePlayer != null ? BasisRemotePlayer.TalkMode : BasisTalkMode.Normal);
+            talkColorFloat4 = new float4(talkColorCached.r, talkColorCached.g, talkColorCached.b, talkColorCached.a);
 
-                // Start pulse timeline
-                talkStartTime = Time.timeAsDouble;
-                isPulsingTalk = true;
+            // Start pulse timeline
+            talkStartTime = Time.timeAsDouble;
+            isPulsingTalk = true;
 
-                // Stage 1: snap to talk color
-                SetPlateColor(talkColorCached);
-                BasisRemoteNamePlateDriver.SyncPlateJobState(this);
-            });
+            // Stage 1: snap to talk color
+            SetPlateColor(talkColorCached);
+            BasisRemoteNamePlateDriver.SyncPlateJobState(this);
         }
         internal bool GetIsPulsingForJob() => isPulsingTalk;
         internal float4 GetRestingColorFloat4ForJob() => restingColorFloat4;
@@ -652,10 +666,6 @@ namespace Basis.Scripts.UI.NamePlate
 
         internal void ApplyColorFromJob(Color c)
         {
-            if (BasisRemotePlayer != null && BasisRemotePlayer.HasFailedAvatarLoadGlobally)
-            {
-                c = BasisRemoteNamePlateDriver.StaticFailedLoadColor;
-            }
             SetPlateColor(c);
         }
 
@@ -899,6 +909,7 @@ namespace Basis.Scripts.UI.NamePlate
                 if (BasisNamePlateOverlayCore.IsLoadingComplete(progress))
                 {
                     HasProgressBarVisible = false;
+                    BasisRemoteNamePlateDriver.SetLoadingPlateRegistered(this, false);
                     loadingTextBucket = int.MinValue;
                     ApplyLoadingOverlayActive();
                 }
@@ -907,6 +918,7 @@ namespace Basis.Scripts.UI.NamePlate
                     if (HasProgressBarVisible == false)
                     {
                         HasProgressBarVisible = true;
+                        BasisRemoteNamePlateDriver.SetLoadingPlateRegistered(this, true);
                         ApplyLoadingOverlayActive();
                     }
 

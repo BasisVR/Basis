@@ -1,0 +1,25 @@
+{
+    "name": "Basis.Developer.Recorder.Tests",
+    "rootNamespace": "Basis.Developer.Recorder.Tests",
+    "references": [
+        "Basis.Developer.Recorder",
+        "Basis.Developer.Recorder.Editor",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

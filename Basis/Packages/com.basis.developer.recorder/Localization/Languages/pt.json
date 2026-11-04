@@ -77,6 +77,22 @@
     {
       "key": "settings.developer.recorder.cancel",
       "value": "Cancelar Contagem Regressiva"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion",
+      "value": "Gravar root motion"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion.tooltip",
+      "value": "Grava o deslocamento e a rotação do avatar no mundo (movimento com joystick) como root motion no clipe."
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones",
+      "value": "Gravar ossos adicionais"
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones.tooltip",
+      "value": "Grava também ossos não humanoides, como ossos com física, cabelo, caudas, orelhas e acessórios."
     }
   ]
 }

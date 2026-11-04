@@ -11,11 +11,13 @@ namespace Basis.Developer.Recorder
     /// </summary>
     public static class SettingsProviderRecorder
     {
+        private const string TitleKey = "settings.developer.recorder.title";
+
         [RuntimeInitializeOnLoadMethod]
         private static void Register()
         {
-            SettingsProvider.DeveloperSectionBuilders.Remove(BuildSection);
-            SettingsProvider.DeveloperSectionBuilders.Add(BuildSection);
+            SettingsProvider.DeveloperSectionBuilders.Remove((TitleKey, BuildSection));
+            SettingsProvider.DeveloperSectionBuilders.Add((TitleKey, BuildSection));
             SettingsProvider.DeveloperResetActions.Remove(ResetDefaults);
             SettingsProvider.DeveloperResetActions.Add(ResetDefaults);
             BasisRecorderSettings.EnsureLoaded();
@@ -26,7 +28,7 @@ namespace Basis.Developer.Recorder
             PanelElementDescriptor recorderGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             recorderGroup.SetBackgroundVisible(false);
-            recorderGroup.SetTitle(BasisLocalization.Get("settings.developer.recorder.title"));
+            if (recorderGroup.Header != null) recorderGroup.Header.gameObject.SetActive(false);
 
             PanelTextField recorderCountdownField = PanelTextField.CreateNewEntry(recorderGroup.ContentParent);
             recorderCountdownField.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.recorder.countdown"));
@@ -60,6 +62,16 @@ namespace Basis.Developer.Recorder
                 recorderDurationField.Descriptor.SetActive(enabled);
                 recorderGroup.ForceRebuild();
             };
+
+            PanelToggle recorderRootMotionToggle = PanelToggle.CreateNewEntry(recorderGroup.ContentParent);
+            recorderRootMotionToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.recorder.rootMotion"));
+            recorderRootMotionToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.developer.recorder.rootMotion.tooltip"));
+            recorderRootMotionToggle.AssignBinding(BasisRecorderSettings.RootMotion);
+
+            PanelToggle recorderBonesToggle = PanelToggle.CreateNewEntry(recorderGroup.ContentParent);
+            recorderBonesToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.recorder.additionalBones"));
+            recorderBonesToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.developer.recorder.additionalBones.tooltip"));
+            recorderBonesToggle.AssignBinding(BasisRecorderSettings.AdditionalBones);
 
             PanelElementDescriptor recorderStatusField =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, recorderGroup.ContentParent);
@@ -101,6 +113,8 @@ namespace Basis.Developer.Recorder
             BasisRecorderSettings.CountdownSeconds.ResetToDefault();
             BasisRecorderSettings.AutoStop.ResetToDefault();
             BasisRecorderSettings.MaxDurationSeconds.ResetToDefault();
+            BasisRecorderSettings.RootMotion.ResetToDefault();
+            BasisRecorderSettings.AdditionalBones.ResetToDefault();
         }
 
         private static float ParseSeconds(string raw)

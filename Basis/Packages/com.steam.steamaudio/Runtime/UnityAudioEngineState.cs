@@ -22,12 +22,17 @@ namespace SteamAudio
 {
     public sealed class UnityAudioEngineState : AudioEngineState
     {
+        IntPtr currentHRTF;
+        bool correctionEnabled, hrtfDisabledKnown, hrtfDisabled;
         public override void Initialize(IntPtr context, IntPtr defaultHRTF, SimulationSettings simulationSettings, PerspectiveCorrection correction)
         {
             API.iplUnityInitialize(context);
             API.iplUnitySetHRTF(defaultHRTF);
             API.iplUnitySetSimulationSettings(simulationSettings);
             API.iplUnitySetPerspectiveCorrection(correction);
+            currentHRTF = defaultHRTF;
+            correctionEnabled = correction.enabled == Bool.True;
+            hrtfDisabledKnown = false;
         }
 
         public override void Destroy()
@@ -37,11 +42,16 @@ namespace SteamAudio
 
         public override void SetHRTF(IntPtr hrtf)
         {
+            if (hrtf == currentHRTF) return;
+            currentHRTF = hrtf;
             API.iplUnitySetHRTF(hrtf);
         }
 
         public override void SetPerspectiveCorrection(PerspectiveCorrection correction)
         {
+            bool enabled = correction.enabled == Bool.True;
+            if (!enabled && !correctionEnabled) return;
+            correctionEnabled = enabled;
             API.iplUnitySetPerspectiveCorrection(correction);
         }
 
@@ -54,6 +64,9 @@ namespace SteamAudio
         {
             base.SetHRTFDisabled(disabled);
 
+            if (hrtfDisabledKnown && hrtfDisabled == disabled) return;
+            hrtfDisabledKnown = true;
+            hrtfDisabled = disabled;
             API.iplUnitySetHRTFDisabled(disabled);
         }
     }

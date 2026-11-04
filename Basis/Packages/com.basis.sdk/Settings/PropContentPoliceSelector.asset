@@ -23,6 +23,7 @@ MonoBehaviour:
   - BasisMediaPlayerSynthetic
   - BasisVideoDisplay
   - BasisVideoMaterialOutput
+  - BasisVideoTextureOutput
   - BasisMediaCaptionOverlay
   - BasisSDKMirror
   - Basis.Scripts.BasisSdk.BasisAvatar

@@ -608,7 +608,7 @@ namespace HVR.Vixxy
             _actuatedValue = filteredValue;
         }
 
-        public HVRVixxyActuatorApplyFilterResult ApplyFilters()
+        public HVRVixxyActuatorApplyFilterResult ApplyFilters(float deltaTime)
         {
             if (Filters.Count == 0) throw new InvalidOperationException("ApplyFilters must never be called when there are no filters, this indicates a programming error.");
 
@@ -619,7 +619,7 @@ namespace HVR.Vixxy
             {
                 if (filter.isTimeFilter)
                 {
-                    var filtered = filter.TimeFilter(filteredValue, Time.deltaTime);
+                    var filtered = filter.TimeFilter(filteredValue, deltaTime);
                     filteredValue = filtered.result;
                     if (filtered.needsCheckNextTick)
                     {
@@ -797,8 +797,15 @@ namespace HVR.Vixxy
                     // TODO: Rather than do that check every time, bake the applicable properties into an internal field.
                     if (!property.IsApplicable) continue;
 
-                    var lerpValue = property.CalculateLerpValue(active01, inactiveIndex, activeIndex, _actuatedValue);
-                    Apply(property, lerpValue, out var propertyNeedsCleanup);
+                    bool propertyNeedsCleanup;
+                    if (property is HVRVixxyPropertyFloat floatProperty && property.KindMarker is HVRKindMarker.AffectsMaterialPropertyBlock or HVRKindMarker.BlendShape)
+                    {
+                        ApplyFloat(floatProperty, Mathf.Lerp(floatProperty.choices[inactiveIndex], floatProperty.choices[activeIndex], active01), out propertyNeedsCleanup);
+                    }
+                    else
+                    {
+                        Apply(property, property.CalculateLerpValue(active01, inactiveIndex, activeIndex, _actuatedValue), out propertyNeedsCleanup);
+                    }
 
                     if (propertyNeedsCleanup)
                     {
@@ -837,6 +844,31 @@ namespace HVR.Vixxy
                             // TODO: Also invalidate the subject if no property of that subject is applicable
                         }
                     }
+                }
+            }
+        }
+
+        private void ApplyFloat(HVRVixxyPropertyFloat property, float resolvedValue, out bool propertyNeedsCleanup)
+        {
+            propertyNeedsCleanup = false;
+            bool materialProperty = property.KindMarker == HVRKindMarker.AffectsMaterialPropertyBlock;
+            foreach (var component in property.FoundComponents)
+            {
+                if (null == component)
+                {
+                    propertyNeedsCleanup = true;
+                    continue;
+                }
+                if (materialProperty)
+                {
+                    var bakedObject = component.gameObject;
+                    orchestrator.GetMaterialPropertyBlockForBakedObject(bakedObject).SetFloat(property.ShaderMaterialProperty, resolvedValue);
+                    orchestrator.StagePropertyBlock(bakedObject);
+                }
+                else
+                {
+                    var smr = (SkinnedMeshRenderer)component;
+                    smr.SetBlendShapeWeight(property.SmrToBlendshapeIndex[smr], resolvedValue);
                 }
             }
         }

@@ -17,6 +17,7 @@
 #endif
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Macros.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/BasisWorldReflection.hlsl"
 
 #if defined(_SCREEN_SPACE_IRRADIANCE)
 TEXTURE2D_X(_ScreenSpaceIrradiance);
@@ -535,6 +536,7 @@ half3 CalculateIrradianceFromReflectionProbes(half3 reflectVector, float3 positi
 half3 GlossyEnvironmentReflection(half3 reflectVector, float3 positionWS, half perceptualRoughness, half occlusion, float2 normalizedScreenSpaceUV, bool useEnvironmentReflections)
 {
     half3 irradiance = half3(0, 0, 0);
+    half4 basisWorld = half4(0, 0, 0, 0);
 
     #if defined(_SCREENSPACEREFLECTIONS_OFF)
     half4 ssrColor = 0;
@@ -549,7 +551,14 @@ half3 GlossyEnvironmentReflection(half3 reflectVector, float3 positionWS, half p
     if (ssrColor.a < 1.0)
 #endif
     {
-        if (!useEnvironmentReflections)
+        if (useEnvironmentReflections)
+            basisWorld = BasisWorldReflection(positionWS, basisWorldReflectionNormal, reflectVector, perceptualRoughness);
+
+        if (basisWorld.a >= 1.0)
+        {
+            irradiance = basisWorld.rgb;
+        }
+        else if (!useEnvironmentReflections)
         {
             irradiance = _GlossyEnvironmentColor.rgb;
         }
@@ -582,6 +591,7 @@ half3 GlossyEnvironmentReflection(half3 reflectVector, float3 positionWS, half p
 
             irradiance = SelectProbeExposureMultiplier(unity_SpecCube0_Exposure.x) * DecodeHDREnvironment(encodedIrradiance, unity_SpecCube0_HDR);
         }
+        irradiance = lerp(irradiance, basisWorld.rgb, basisWorld.a);
     }
 
     irradiance = lerp(irradiance.rgb, ssrColor.rgb, ssrColor.a);
@@ -721,6 +731,7 @@ URP_LIGHT_ACCUM3 GlobalIllumination(BRDFData brdfData, BRDFData brdfDataClearCoa
 
     half specularOcclusion = lerp(half(1.0), GetSpecularOcclusion(NoV, occlusion, brdfData.perceptualRoughness), _AmbientOcclusionParam.y);
     URP_LIGHT_ACCUM3 indirectDiffuse = bakedGI * occlusion;
+    basisWorldReflectionNormal = normalWS;
     half3 indirectSpecular = GlossyEnvironmentReflection(reflectVector, positionWS, brdfData.perceptualRoughness, specularOcclusion, normalizedScreenSpaceUV, useEnvironmentReflections);
     if (useEnvironmentReflections)
         indirectSpecular = BasisSampleTracedReflection(indirectSpecular, brdfData.perceptualRoughness, positionWS, normalizedScreenSpaceUV);

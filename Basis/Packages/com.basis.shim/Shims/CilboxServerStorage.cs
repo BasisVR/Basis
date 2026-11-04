@@ -76,7 +76,7 @@ namespace Cilbox
 			scope = null;
 			proxy = self as CilboxProxy;
 			CilboxBasisCommon box = proxy != null ? proxy.box as CilboxBasisCommon : null;
-			if (proxy == null || box == null || box.disabled || box.interpreterAccountingDepth == 0 || !OnlyRunning(box) || !CilboxBasisConsent.Permits(box, CilboxBasisCommon.MethodItem(typeof(BasisServerStorageShim), method)))
+			if (proxy == null || box == null || box.disabled || box.interpreterAccountingDepth == 0 || !OnlyRunning(box) || !CilboxBasisConsent.ForLocalPlayer(box, proxy.gameObject) || !CilboxBasisConsent.Permits(box, CilboxBasisCommon.MethodItem(typeof(BasisServerStorageShim), method)))
 			{
 				BasisServerStorageClient.Refuse(op, BasisStorageStatus.NotAllowed, answer, proxy);
 				return false;
@@ -101,7 +101,7 @@ namespace Cilbox
 				string named = StorePrefix + store.Trim().ToLowerInvariant();
 				return store.Trim().Length > 0 && BasisStorageProtocol.IsValidName(named) ? named : null;
 			}
-			string id = BasisContent.TryResolve(box.gameObject, out BasisContentBase content) && content.BasisBundleDescription != null ? content.BasisBundleDescription.ContentGroupId : null;
+			string id = CilboxBasisConsent.TryOwner(box, box.gameObject, out BasisContentBase content) && content.BasisBundleDescription != null ? content.BasisBundleDescription.ContentGroupId : null;
 			if (!string.IsNullOrWhiteSpace(id)) return BasisStorageProtocol.IsValidName(id.Trim()) ? id.Trim() : null;
 			string hash = box.consentHash;
 			return string.IsNullOrEmpty(hash) ? null : CodePrefix + hash.Substring(0, Math.Min(CodeHashLength, hash.Length));

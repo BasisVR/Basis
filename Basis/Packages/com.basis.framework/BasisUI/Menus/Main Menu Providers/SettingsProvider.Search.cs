@@ -108,7 +108,7 @@ namespace Basis.BasisUI
 
                 tab.Search.CollectHits(_searchQuery, _hitBuffer);
 
-                string tabName = BasisLocalization.Get(tab.Key);
+                string tabName = TabLabel(tab.Key);
                 for (int h = 0; h < _hitBuffer.Count; h++)
                 {
                     BasisPanelSearchHit hit = _hitBuffer[h];

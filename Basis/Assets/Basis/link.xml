@@ -4,8 +4,11 @@
     <assembly fullname="Base128" preserve="all" />
     <assembly fullname="Basis Framework" preserve="all" />
     <assembly fullname="Basis.Addon.SnapControls" preserve="all" />
+    <assembly fullname="Basis.AuthoredMotion" preserve="all" />
+    <assembly fullname="Basis.Constraints" preserve="all" />
     <assembly fullname="Basis.Developer.Exceptions" preserve="all" />
     <assembly fullname="Basis.Developer.Recorder" preserve="all" />
+    <assembly fullname="Basis.Developer.StreamingMeta" preserve="all" />
     <assembly fullname="Basis.Eerie.Movement" preserve="all" />
     <assembly fullname="Basis.ImagePickup" preserve="all" />
     <assembly fullname="Basis.Integration.AudioLink" preserve="all" />
@@ -15,11 +18,11 @@
     <assembly fullname="Basis.Integration.YtDlp.Core" preserve="all" />
     <assembly fullname="Basis.OpenLipSync.Runtime" preserve="all" />
     <assembly fullname="Basis.RTAO" preserve="all" />
+    <assembly fullname="Basis.ScreenShare" preserve="all" />
     <assembly fullname="Basis.Shims.Samples" preserve="all" />
     <assembly fullname="BasisBundleManagement" preserve="all" />
     <assembly fullname="BasisCamera" preserve="all" />
     <assembly fullname="BasisCommon" preserve="all" />
-    <assembly fullname="BasisConsoleDisplay" preserve="all" />
     <assembly fullname="BasisDebug" preserve="all" />
     <assembly fullname="BasisEditor" preserve="all" />
     <assembly fullname="BasisEventDriver" preserve="all" />
@@ -77,6 +80,7 @@
     <assembly fullname="TrueAudioNext" preserve="all" />
     <assembly fullname="UdonSharp.Lib" preserve="all" />
     <assembly fullname="UdonSharp.Runtime" preserve="all" />
+    <assembly fullname="Unity.AI.Navigation" preserve="all" />
     <assembly fullname="Unity.Addressables" preserve="all" />
     <assembly fullname="Unity.Animation.Rigging" preserve="all" />
     <assembly fullname="Unity.Burst" preserve="all" />
@@ -145,19 +149,134 @@
     <assembly fullname="XRSDKOpenVR" preserve="all" />
     <assembly fullname="YtDlp.Runtime" preserve="all" />
     <assembly fullname="ZstdSharp" preserve="all" />
+    <assembly fullname="async_recursion-2b3b08695a8ff89b" preserve="all" />
+    <assembly fullname="async_recursion-766828be6254792f" preserve="all" />
+    <assembly fullname="async_trait-2fe189e1f366867e" preserve="all" />
+    <assembly fullname="async_trait-6bcc2adb0b74f2d4" preserve="all" />
+    <assembly fullname="async_trait-da2d3fa4ce8b7114" preserve="all" />
+    <assembly fullname="async_trait-df0eecd4fb57e04e" preserve="all" />
+    <assembly fullname="async_trait-ed0101411b78d815" preserve="all" />
+    <assembly fullname="async_trait-ef2ec69fd513a580" preserve="all" />
+    <assembly fullname="atomig_macro-1df552e21a7c5a2c" preserve="all" />
+    <assembly fullname="atomig_macro-323c07a09190a0e8" preserve="all" />
+    <assembly fullname="atomig_macro-489d1b1f67fad903" preserve="all" />
+    <assembly fullname="atomig_macro-8f63e1877df150b5" preserve="all" />
     <assembly fullname="audioplugin_phonon" preserve="all" />
+    <assembly fullname="basis_media" preserve="all" />
+    <assembly fullname="clap_derive-b0ae48c49055e1d7" preserve="all" />
     <assembly fullname="com.cqf.urpvolumetricfog.runtime" preserve="all" />
     <assembly fullname="com.gator-dragon-games.jigglephysics" preserve="all" />
+    <assembly fullname="curve25519_dalek_derive-df92d86f7b3c5d67" preserve="all" />
+    <assembly fullname="curve25519_dalek_derive-fcf969a4f81bd0f2" preserve="all" />
+    <assembly fullname="der_derive-1ca9fabe71bd70d5" preserve="all" />
+    <assembly fullname="der_derive-8f2b2375564145dc" preserve="all" />
+    <assembly fullname="derive_more_impl-066bf4d0700522f8" preserve="all" />
+    <assembly fullname="derive_more_impl-59fbf45cc32e50d2" preserve="all" />
+    <assembly fullname="derive_more_impl-6973884125f7ef62" preserve="all" />
+    <assembly fullname="derive_more_impl-d4b78f1c0e92d16c" preserve="all" />
+    <assembly fullname="displaydoc-134e56a92746ebde" preserve="all" />
+    <assembly fullname="displaydoc-3aff3c39682a375d" preserve="all" />
+    <assembly fullname="displaydoc-524199a2b2c289de" preserve="all" />
+    <assembly fullname="displaydoc-bf1e6c740e1faeac" preserve="all" />
+    <assembly fullname="displaydoc-c31f95cca62522a0" preserve="all" />
+    <assembly fullname="displaydoc-fedcc8482956eb39" preserve="all" />
+    <assembly fullname="enumflags2_derive-525076d24b00f360" preserve="all" />
+    <assembly fullname="enumflags2_derive-7fceffd1e29ec424" preserve="all" />
+    <assembly fullname="enumflags2_derive-ada6b6bcb00bda33" preserve="all" />
+    <assembly fullname="futures_macro-19560f72539d506e" preserve="all" />
+    <assembly fullname="futures_macro-509a3c4468a7d7be" preserve="all" />
+    <assembly fullname="futures_macro-97b4a8061873a9cf" preserve="all" />
+    <assembly fullname="futures_macro-b6a1ee470673d73b" preserve="all" />
+    <assembly fullname="futures_macro-ce3a45bb2ffb2731" preserve="all" />
+    <assembly fullname="futures_macro-e836619254b88342" preserve="all" />
     <assembly fullname="glTFast" preserve="all" />
     <assembly fullname="glTFast.Documentation.Examples" preserve="all" />
     <assembly fullname="glTFast.Export" preserve="all" />
     <assembly fullname="glTFast.Newtonsoft" preserve="all" />
     <assembly fullname="glTFast.dots" preserve="all" />
+    <assembly fullname="jni_sys_macros-4b75117f85653c47" preserve="all" />
+    <assembly fullname="jni_sys_macros-9c900d8eba7764fa" preserve="all" />
     <assembly fullname="openvr_api" preserve="all" />
     <assembly fullname="opus" preserve="all" />
+    <assembly fullname="paste-2b78d34e973f4de4" preserve="all" />
+    <assembly fullname="paste-45773f8dae41be8c" preserve="all" />
+    <assembly fullname="paste-7549ce92c193ad60" preserve="all" />
+    <assembly fullname="paste-8ed4ae8d4fe9ee88" preserve="all" />
     <assembly fullname="phonon" preserve="all" />
     <assembly fullname="phonon_fmod" preserve="all" />
+    <assembly fullname="pin_project_internal-03bba705e1b36a97" preserve="all" />
+    <assembly fullname="pin_project_internal-07253877d8b2d18c" preserve="all" />
+    <assembly fullname="pin_project_internal-8cdadccff92c97d7" preserve="all" />
+    <assembly fullname="pin_project_internal-e2742ff4672044a1" preserve="all" />
+    <assembly fullname="rustversion-16aa66de7d67bb78" preserve="all" />
+    <assembly fullname="rustversion-658294290d15143f" preserve="all" />
+    <assembly fullname="rustversion-6803c7e27637cf39" preserve="all" />
+    <assembly fullname="rustversion-8f30f21495293e4f" preserve="all" />
+    <assembly fullname="serde_derive-2cb3a16ca25d7d02" preserve="all" />
+    <assembly fullname="serde_derive-4a32ae0aff4cf000" preserve="all" />
+    <assembly fullname="serde_derive-62317bba01a4aa9b" preserve="all" />
+    <assembly fullname="serde_derive-9a33fe93567fe786" preserve="all" />
+    <assembly fullname="serde_derive-c07a49332a07c458" preserve="all" />
+    <assembly fullname="serde_derive-e5e633be9bbcc5e3" preserve="all" />
+    <assembly fullname="serde_derive-ebc57c3ebeee953d" preserve="all" />
+    <assembly fullname="serde_derive-f0b081f29c36ac9e" preserve="all" />
+    <assembly fullname="serde_repr-15a8ba06f34752f1" preserve="all" />
+    <assembly fullname="serde_repr-614d2fd925a6f608" preserve="all" />
+    <assembly fullname="strum_macros-01e847554a53226a" preserve="all" />
+    <assembly fullname="strum_macros-5b6a615d0ee55ada" preserve="all" />
+    <assembly fullname="strum_macros-db95f6ea5f3ed3f0" preserve="all" />
+    <assembly fullname="strum_macros-e1b669140a8f30c6" preserve="all" />
+    <assembly fullname="thiserror_impl-1ecad80f8bc07e59" preserve="all" />
+    <assembly fullname="thiserror_impl-5df4896d0415e979" preserve="all" />
+    <assembly fullname="thiserror_impl-9594fc8c4919b424" preserve="all" />
+    <assembly fullname="thiserror_impl-9908cca5147dcff9" preserve="all" />
+    <assembly fullname="thiserror_impl-9fc74c81ecdf801e" preserve="all" />
+    <assembly fullname="thiserror_impl-a0ce758b502aa4c8" preserve="all" />
+    <assembly fullname="thiserror_impl-aceb97ce83713793" preserve="all" />
+    <assembly fullname="thiserror_impl-b0868bd47e420053" preserve="all" />
+    <assembly fullname="thiserror_impl-b74cee1b8d17ee4f" preserve="all" />
+    <assembly fullname="thiserror_impl-fd2f37f6c22e266e" preserve="all" />
+    <assembly fullname="tokio_macros-6ab4eb94a2275751" preserve="all" />
+    <assembly fullname="tokio_macros-6f44067ff38f218f" preserve="all" />
+    <assembly fullname="tokio_macros-944918e94fccb10c" preserve="all" />
+    <assembly fullname="tokio_macros-a0d975166a91213f" preserve="all" />
+    <assembly fullname="tokio_macros-abab198d34cf11c5" preserve="all" />
+    <assembly fullname="tokio_macros-b31743922a80ef41" preserve="all" />
+    <assembly fullname="tracing_attributes-08465c5a9229b9c2" preserve="all" />
+    <assembly fullname="tracing_attributes-884deab0237cbf1a" preserve="all" />
+    <assembly fullname="tracing_attributes-9674f4ca17e91064" preserve="all" />
+    <assembly fullname="tracing_attributes-aa6a68f70ba45f70" preserve="all" />
+    <assembly fullname="tracing_attributes-e5eba19db3ff7d36" preserve="all" />
     <assembly fullname="ucrtbased" preserve="all" />
+    <assembly fullname="windows_implement-1e7c612cffd345a3" preserve="all" />
+    <assembly fullname="windows_implement-a92ea4dd081bec65" preserve="all" />
+    <assembly fullname="windows_implement-f760864de9fd0713" preserve="all" />
+    <assembly fullname="windows_interface-17197fe5bcf4ff67" preserve="all" />
+    <assembly fullname="windows_interface-29aafcbcb9fb5ad7" preserve="all" />
+    <assembly fullname="windows_interface-8cbb348445eab35d" preserve="all" />
+    <assembly fullname="yoke_derive-1de9771e75afc006" preserve="all" />
+    <assembly fullname="yoke_derive-47b42feefd721716" preserve="all" />
+    <assembly fullname="yoke_derive-83ec9eb8a2675bd7" preserve="all" />
+    <assembly fullname="yoke_derive-f175868e173c721f" preserve="all" />
+    <assembly fullname="zbus_macros-00ba31ca8a1d6fa6" preserve="all" />
+    <assembly fullname="zbus_macros-164d9aa756dcf3e8" preserve="all" />
+    <assembly fullname="zbus_macros-f8aee06ee9c1c9e1" preserve="all" />
+    <assembly fullname="zerocopy_derive-444ce6847b694bfb" preserve="all" />
+    <assembly fullname="zerocopy_derive-c8e376cb4aa83a95" preserve="all" />
+    <assembly fullname="zerocopy_derive-c9de28813474d36b" preserve="all" />
+    <assembly fullname="zerocopy_derive-feb2b1ae5e7cceb9" preserve="all" />
+    <assembly fullname="zerofrom_derive-09110c852e750d69" preserve="all" />
+    <assembly fullname="zerofrom_derive-3e1ca583b397e235" preserve="all" />
+    <assembly fullname="zerofrom_derive-4d714a2c4b1ccf98" preserve="all" />
+    <assembly fullname="zerofrom_derive-ab04a545a38b596f" preserve="all" />
+    <assembly fullname="zeroize_derive-ee17084690e6d3ae" preserve="all" />
+    <assembly fullname="zeroize_derive-f221a3a66b2cf376" preserve="all" />
+    <assembly fullname="zerovec_derive-4581074d6bdc2453" preserve="all" />
+    <assembly fullname="zerovec_derive-568708092e7af5e6" preserve="all" />
+    <assembly fullname="zerovec_derive-d3eac224540f97a1" preserve="all" />
+    <assembly fullname="zerovec_derive-e9117c92f946df3e" preserve="all" />
+    <assembly fullname="zvariant_derive-ef747552daff72ce" preserve="all" />
+    <assembly fullname="zvariant_derive-fc43d1857572c2c2" preserve="all" />
 
     <assembly fullname="System">
         <type fullname="System.Collections.Generic.ISet`1" preserve="all" />

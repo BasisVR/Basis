@@ -23,6 +23,7 @@ namespace Basis.Scripts.UI.UI_Panels
         }
 
         public static string FilePath = Path.Combine(Application.persistentDataPath, "KeyStore.json");
+        public static bool LoadFailed { get; private set; }
 
         [SerializeField]
         private static AvatarKeys keys = new AvatarKeys { Data = System.Array.Empty<AvatarKey>() };
@@ -78,6 +79,7 @@ namespace Basis.Scripts.UI.UI_Panels
             BasisDebug.Log($"Loading keys from file at path: {FilePath}");
 
             EnsureInit();
+            LoadFailed = false;
 
             if (!File.Exists(FilePath))
             {
@@ -104,6 +106,7 @@ namespace Basis.Scripts.UI.UI_Panels
             }
             catch (System.Exception e)
             {
+                LoadFailed = true;
                 BasisDebug.LogError($"Failed to load keys: {e.Message}");
                 keys = new AvatarKeys { Data = System.Array.Empty<AvatarKey>() };
             }

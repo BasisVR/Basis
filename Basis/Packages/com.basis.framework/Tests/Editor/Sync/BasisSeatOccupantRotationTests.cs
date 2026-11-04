@@ -266,7 +266,7 @@ namespace Basis.Tests.Sync
             _seat.SetOccupantYaw(123.456f);
 
             byte[] packet = sync.CreateSeatPacket(true);
-            Assert.AreEqual(7, packet.Length, "the seat packet should be occupied + generation + yaw");
+            Assert.AreEqual(BasisSeatSync.BodyPacketLength, packet.Length, "the seat packet should be occupied + generation + yaw + body tail");
             Assert.AreEqual(1, packet[0], "the claim flag must stay in byte 0 where older readers look for it");
 
             float decoded = BasisSeatSync.DequantizeYaw((short)(packet[5] | (packet[6] << 8)));

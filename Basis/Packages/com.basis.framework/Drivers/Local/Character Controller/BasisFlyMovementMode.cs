@@ -44,6 +44,10 @@ namespace Basis.Scripts.BasisCharacterController
             ctx.HasJumpAction = false;
 
             if (ctx.MovementLock) move = Vector3.zero;
+            move = ctx.ApplyMovementSettle(move, dt);
+
+            bool pushed = ctx.HasExternalVelocity;
+            if (pushed) move = BasisLocalCharacterDriver.CombineMotion(move, ctx.ExternalVelocity * dt);
 
             using (BasisLocalPlayerMarkers.MovePhysics.Auto())
             {
@@ -52,6 +56,16 @@ namespace Basis.Scripts.BasisCharacterController
             // PhysX writes the root transform directly; the pose cache cannot observe it.
             BasisLocalPose.InvalidateAll();
             ctx.BasisLocalPlayerTransform.GetPose(out ctx.CurrentPosition, out ctx.CurrentRotation);
+
+            if (ctx.IsSettling && ctx.Flags != CollisionFlags.None)
+            {
+                ctx.ClipMovementSettle(ctx.CurrentPosition - ctx.MoveStartPosition, dt);
+            }
+            if (pushed)
+            {
+                if (ctx.Flags != CollisionFlags.None) ctx.ClipExternalVelocity(move, ctx.CurrentPosition - ctx.MoveStartPosition, dt);
+                ctx.DecayExternalVelocity(dt);
+            }
 
             // Flight state
             ctx.groundedPlayer = false;

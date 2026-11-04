@@ -48,7 +48,7 @@ namespace Basis.Network.Core
     public static class BasisStorageProtocol
     {
         public const int MaxNameBytes = 64, MaxValueBytes = ushort.MaxValue, MaxEntriesPerPlayer = 1024, MaxScopesPerPlayer = 64;
-        public const int DefaultBytesPerPlayer = 16384, MaxBytesPerPlayer = 1048576;
+        public const int DefaultBytesPerPlayer = 16384, MaxBytesPerPlayer = 1048576, MaxInFlightPerConnection = 16;
         public static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);
         public static bool HasKey(BasisStorageOp op) => op == BasisStorageOp.Get || op == BasisStorageOp.Set || op == BasisStorageOp.Delete;
         public static bool IsKnown(BasisStorageOp op) => op <= BasisStorageOp.Clear;

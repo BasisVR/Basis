@@ -435,6 +435,7 @@ namespace Basis.Scripts.Drivers
             {
                 LocalPlayer.FacialBlinkDriver.Initialize(LocalPlayer, Avatar);
             }
+            LocalPlayer.IdleExpressionDriver.Initialize(Avatar);
         }
 
         public void PutAvatarIntoTPose()

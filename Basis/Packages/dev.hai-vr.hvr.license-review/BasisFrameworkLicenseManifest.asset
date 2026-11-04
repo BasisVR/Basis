@@ -222,7 +222,6 @@ MonoBehaviour:
   - com.basis.integration.ytdlp
   - com.basis.mediapipe
   - com.basis.provider.servers
-  - com.basis.setup
   baked:
   - productName: AudioLink
     packageName: com.llealloo.audiolink

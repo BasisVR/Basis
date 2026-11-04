@@ -14,7 +14,6 @@ public partial class BasisProjectSetup : EditorWindow
         {
             EditorApplication.update += OpenOnceOnLoad;
             SessionState.SetBool(SESSION_SHOW_FIRST_NOTICE, true);
-            SessionState.SetBool(SESSION_NEED_MODULE_RECHECK, true);
         }
     }
 

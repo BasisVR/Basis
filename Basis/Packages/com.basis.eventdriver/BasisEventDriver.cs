@@ -362,6 +362,10 @@ namespace Basis.EventDriver
             {
                 InvokeEventCallbacks(OnUpdate, nameof(OnUpdate), ref _onUpdateCachedDelegate, ref _onUpdateInvocationList);
             }
+            using (Prof.ContentSphereSchedule.Auto())
+            {
+                BasisContentSphereBillboardDriver.ScheduleBob(DeltaTime);
+            }
             timeSinceLastUpdate += DeltaTime;
 
 #if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
@@ -587,27 +591,28 @@ namespace Basis.EventDriver
             ProfileEnd(PROF_LOCAL_PLAYER);
             BasisFiniteWatchdog.Checkpoint("PostLocalPlayerSimulate (FBIK solve in flight)");
 
-            // Blink and viseme write local blendshape weights only — no pose reads, no jobs — so
-            // they run inside the solve window as overlap rather than ahead of Simulate. They stay
-            // ahead of the head blendshape read scheduled further down.
+            using (Prof.RemoteBoneComplete.Auto())
+            {
+                BasisNetworkManagement.CompleteRemoteBoneJobSystemJobs();
+            }
+            BasisFiniteWatchdog.CheckpointRemote("PostRemoteBoneJobs (skeleton / hips / mouth / nameplate write)");
+
+            // Blink, idle expression and viseme write local blendshape weights only. They sit after the
+            // remote bone join because idle expression reads remote mouth positions that job writes,
+            // and they stay ahead of the head blendshape read scheduled further down.
             if (BasisLocalPlayer.PlayerReady)
             {
                 BasisLocalPlayer localplayer = BasisLocalPlayer.Instance;
                 using (Prof.FacialBlink.Auto())
                 {
                     localplayer.FacialBlinkDriver.Simulate(TimeAsDouble);
+                    localplayer.IdleExpressionDriver.Simulate(TimeAsDouble, DeltaTime, localplayer.FaceIsVisible, localplayer.LocalVisemeDriver.VoiceLevel01);
                 }
                 using (Prof.VisemeApply.Auto())
                 {
                     localplayer.LocalVisemeDriver.Apply(DeltaTime);
                 }
             }
-
-            using (Prof.RemoteBoneComplete.Auto())
-            {
-                BasisNetworkManagement.CompleteRemoteBoneJobSystemJobs();
-            }
-            BasisFiniteWatchdog.CheckpointRemote("PostRemoteBoneJobs (skeleton / hips / mouth / nameplate write)");
 
             // The beacon reads a remote MouthTransform's world position on the main thread, so it
             // has to sit in the one window where that hierarchy carries no in-flight job: the mouth
@@ -667,6 +672,7 @@ namespace Basis.EventDriver
             using (Prof.RemoteFaceSimulate.Auto())
             {
                 BasisRemoteFaceManagement.Simulate(TimeAsDouble, DeltaTime);
+                BasisIdleExpressionDriver.SimulateRemotes(TimeAsDouble, DeltaTime);
             }
             ProfileEnd(PROF_REMOTE_FACE_SIMULATE);
 

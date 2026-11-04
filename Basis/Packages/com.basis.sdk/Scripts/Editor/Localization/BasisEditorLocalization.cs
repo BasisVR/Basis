@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Text;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -13,9 +14,8 @@ namespace Basis.Editor.Localization
     /// <summary>
     /// Editor-time twin of <c>Basis.BasisUI.BasisLocalization</c>. Same key/value
     /// JSON schema, same Get/SetLanguage surface — but loads tables straight from
-    /// disk via <see cref="AssetDatabase"/> because editor UI runs before the
-    /// Addressables catalog is built and the runtime path can't be relied on
-    /// during authoring.
+    /// disk because editor UI runs before the Addressables catalog is built and
+    /// the runtime path can't be relied on during authoring.
     ///
     /// <para>Language JSON files live under
     /// <c>Packages/com.basis.sdk/Localization/Languages/{code}.json</c>; dropping
@@ -37,6 +37,7 @@ namespace Basis.Editor.Localization
         private static readonly Dictionary<(Type, string), PropertyInfo> _stringProperties = new();
 
         private static bool _initialized;
+        private static string _tablesStamp;
         private static string _currentLanguage = DefaultLanguage;
 
         public static bool TrackMissingKeys = true;
@@ -270,31 +271,25 @@ namespace Basis.Editor.Localization
 
             if (!Directory.Exists(LanguagesFolder))
             {
+                _tablesStamp = string.Empty;
                 Debug.LogError($"[BasisEditorLocalization] Languages folder not found: {LanguagesFolder}. The default English fallback will be used and Get() returns raw keys.");
                 return;
             }
 
             string[] jsonFiles = Directory.GetFiles(LanguagesFolder, "*.json");
+            _tablesStamp = ReadTablesStamp(jsonFiles);
             for (int i = 0; i < jsonFiles.Length; i++)
             {
                 string unityPath = jsonFiles[i].Replace('\\', '/');
-                TextAsset asset = AssetDatabase.LoadAssetAtPath<TextAsset>(unityPath);
                 string text;
-                if (asset != null && !string.IsNullOrEmpty(asset.text))
+                try
                 {
-                    text = asset.text;
+                    text = File.ReadAllText(unityPath);
                 }
-                else
+                catch (Exception e)
                 {
-                    try
-                    {
-                        text = File.ReadAllText(unityPath);
-                    }
-                    catch (Exception e)
-                    {
-                        Debug.LogError($"[BasisEditorLocalization] Failed to read \"{unityPath}\": {e}");
-                        continue;
-                    }
+                    Debug.LogError($"[BasisEditorLocalization] Failed to read \"{unityPath}\": {e}");
+                    continue;
                 }
 
                 if (string.IsNullOrEmpty(text))
@@ -349,6 +344,17 @@ namespace Basis.Editor.Localization
             }
         }
 
+        private static string ReadTablesStamp(string[] jsonFiles)
+        {
+            StringBuilder stamp = new();
+            for (int i = 0; i < jsonFiles.Length; i++)
+            {
+                FileInfo info = new(jsonFiles[i]);
+                stamp.Append(jsonFiles[i]).Append('|').Append(info.Exists ? info.Length : -1L).Append('|').Append(info.LastWriteTimeUtc.Ticks).Append('\n');
+            }
+            return stamp.ToString();
+        }
+
         /// <summary>
         /// Forces a re-scan of <see cref="LanguagesFolder"/>. Useful after dropping
         /// a new JSON in or editing one outside Unity — call from a menu item if
@@ -360,6 +366,21 @@ namespace Basis.Editor.Localization
             string code = _currentLanguage;
             _initialized = true;
             SetLanguage(code, notify: true);
+        }
+
+        public static void ReloadTablesIfChanged()
+        {
+            if (!_initialized)
+            {
+                Initialize();
+                return;
+            }
+
+            string[] jsonFiles = Directory.Exists(LanguagesFolder) ? Directory.GetFiles(LanguagesFolder, "*.json") : Array.Empty<string>();
+            if (!string.Equals(ReadTablesStamp(jsonFiles), _tablesStamp, StringComparison.Ordinal))
+            {
+                ReloadTables();
+            }
         }
 
         private class Importer : AssetPostprocessor

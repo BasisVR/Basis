@@ -37,32 +37,23 @@ namespace BasisNetworkServer
         private static readonly ConcurrentDictionary<string, HashSet<long>> SeenPerUser =
             new ConcurrentDictionary<string, HashSet<long>>();
         private static readonly object FileLock = new object();
-
-        public static void RemoveUser(string uuid)
-        {
-            if (string.IsNullOrEmpty(uuid)) return;
-            SeenPerUser.TryRemove(uuid, out _);
-        }
+        private static readonly BasisPeerRateLimiter ReportLimiter = new BasisPeerRateLimiter(() => NetworkServer.Configuration?.CrashReportsPerSecondPerPlayer ?? 1f, () => NetworkServer.Configuration?.CrashReportBurstPerPlayer ?? 20f);
+        private static int MaxDecompressedReportBytes => Math.Max(1, NetworkServer.Configuration?.MaxCrashReportDecompressedKilobytes ?? 32) * 1024;
+        private static long MaxBytesPerUserFile => Math.Max(1L, NetworkServer.Configuration?.MaxCrashReportKilobytesPerPlayer ?? 1024) * 1024L;
+        private static long MaxCrashReportFolderBytes => Math.Max(1L, NetworkServer.Configuration?.MaxCrashReportFolderMegabytes ?? 256) * 1024L * 1024L;
+        private static long folderBytes = -1;
 
         public static void ClearAllSeen()
         {
             SeenPerUser.Clear();
+            lock (FileLock) folderBytes = -1;
         }
 
         public static void HandleEvent(NetPacketReader reader, NetPeer peer, byte eventType)
         {
             try
             {
-                if (!BasisCrashReportStateManager.Enabled) return;
-
-                if (!reader.TryGetByte(out byte severity)) return;
-                if (!reader.TryGetBytesWithLength(out byte[] compressed)) return;
-                string[] parts = PermissionCompression.DecompressExtras(compressed, 3);
-                string system = parts.Length > 0 ? parts[0] : string.Empty;
-                string message = parts.Length > 1 ? parts[1] : string.Empty;
-                string stack = parts.Length > 2 ? parts[2] : string.Empty;
-
-                if (!NetworkServer.Configuration.HasFileSupport) return;
+                if (!BasisCrashReportStateManager.Enabled || !NetworkServer.Configuration.HasFileSupport || !ReportLimiter.TryConsume(peer)) return;
 
                 string uuid = "unknown";
                 string displayName = string.Empty;
@@ -73,6 +64,20 @@ namespace BasisNetworkServer
                     displayName = meta.playerDisplayName ?? string.Empty;
                     platform = meta.playerPlatform ?? string.Empty;
                 }
+                if (SeenPerUser.TryGetValue(uuid, out HashSet<long> known))
+                {
+                    lock (known)
+                    {
+                        if (known.Count >= MaxSeenPerUser) return;
+                    }
+                }
+
+                if (!reader.TryGetByte(out byte severity)) return;
+                if (!reader.TryGetBytesWithLength(out byte[] compressed)) return;
+                string[] parts = PermissionCompression.DecompressExtras(compressed, 3, MaxDecompressedReportBytes, true);
+                string system = parts.Length > 0 ? parts[0] : string.Empty;
+                string message = parts.Length > 1 ? parts[1] : string.Empty;
+                string stack = parts.Length > 2 ? parts[2] : string.Empty;
 
                 // Truncate before hashing so the dedup key and the written report agree.
                 if (message != null && message.Length > MaxMessageChars) message = message.Substring(0, MaxMessageChars);
@@ -91,11 +96,21 @@ namespace BasisNetworkServer
                     if (!seen.Add(hash)) return;
                 }
 
-                WriteReport(uuid, displayName, platform, severity, system, message, stack);
+                System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+                {
+                    try
+                    {
+                        WriteReport(uuid, displayName, platform, severity, system, message, stack);
+                    }
+                    catch (Exception e)
+                    {
+                        BNLThrottle.LogError("errorReport.write", $"Failed to write error report: {e.Message}");
+                    }
+                });
             }
             catch (Exception e)
             {
-                BNL.LogError($"Failed to handle error report: {e.Message}");
+                BNLThrottle.LogError("errorReport.handle", $"Failed to handle error report: {e.Message}");
             }
             finally
             {
@@ -157,10 +172,25 @@ namespace BasisNetworkServer
             sb.Append("\"message\":\"").Append(JsonEscape(message)).Append("\",");
             sb.Append("\"stack\":\"").Append(JsonEscape(stack)).Append("\"}");
 
+            sb.Append('\n');
+            string line = sb.ToString();
+            long lineBytes = Encoding.UTF8.GetByteCount(line);
             lock (FileLock)
             {
                 Directory.CreateDirectory(dir);
-                File.AppendAllText(file, sb.ToString() + "\n");
+                if (folderBytes < 0)
+                {
+                    folderBytes = 0;
+                    foreach (string existing in Directory.EnumerateFiles(dir, "*.jsonl")) folderBytes += new FileInfo(existing).Length;
+                }
+                long fileBytes = File.Exists(file) ? new FileInfo(file).Length : 0;
+                if (fileBytes + lineBytes > MaxBytesPerUserFile || folderBytes + lineBytes > MaxCrashReportFolderBytes)
+                {
+                    BNLThrottle.LogWarning("errorReport.quota", $"Crash report storage is full ({MaxBytesPerUserFile / 1024} KB per player, {MaxCrashReportFolderBytes / (1024 * 1024)} MB in total); report from {uuid} not saved.");
+                    return;
+                }
+                File.AppendAllText(file, line);
+                folderBytes += lineBytes;
             }
         }
 

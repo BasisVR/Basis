@@ -4,6 +4,8 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Device_Management.Devices.Desktop;
+using Basis.Scripts.Networking.NetworkedAvatar;
+using Basis.Scripts.TransformBinders.BoneControl;
 using GatorDragonGames.JigglePhysics;
 using UnityEngine;
 namespace Basis.Scripts.Drivers
@@ -16,6 +18,17 @@ namespace Basis.Scripts.Drivers
 
         private BasisSeat _seat;
         public bool IsSeated => _seat != null;
+        public bool HipsPinned => _seat != null && hipsLocked;
+        private bool hipsLocked = true;
+        private bool leftHandTargeted;
+        private bool rightHandTargeted;
+        private bool leftFootTargeted;
+        private bool rightFootTargeted;
+        private bool leftHandClaimed;
+        private bool rightHandClaimed;
+        private bool leftFootClaimed;
+        private bool rightFootClaimed;
+        private int limbDriveMask;
 
         /// <summary>The seat the local player is in, or null. A static read so scripts can poll it every frame.</summary>
         public static BasisSeat ActiveSeat { get; private set; }
@@ -32,6 +45,15 @@ namespace Basis.Scripts.Drivers
 
         // Per-avatar stable hips basis (from T-pose positions)
         private Quaternion avatarHipsBasisTpose = Quaternion.identity;
+        private Quaternion hipsRestFromRoot = Quaternion.identity;
+        private Quaternion leftHandRestFromRoot = Quaternion.identity;
+        private Quaternion rightHandRestFromRoot = Quaternion.identity;
+        private Quaternion leftFootRestFromRoot = Quaternion.identity;
+        private Quaternion rightFootRestFromRoot = Quaternion.identity;
+        private Vector3 lastSeatPelvisPosition = Vector3.zero;
+
+        public Vector3 HipsOffsetFromPin { get; private set; }
+        public Quaternion HipsRotationFromPin { get; private set; } = Quaternion.identity;
 
         // State during seating
         private Vector3 previousRelativePosition = Vector3.zero;
@@ -68,14 +90,20 @@ namespace Basis.Scripts.Drivers
                 BasisLocalBoneDriver.RightLowerLegControl.TposeLocalScaled.position -
                 BasisLocalBoneDriver.RightUpperLegControl.TposeLocalScaled.position;
 
-            legs = BasisSeatFitLegs.FromBones(
-                BasisLocalBoneDriver.LeftUpperLegControl.TposeLocalScaled.position,
-                BasisLocalBoneDriver.LeftLowerLegControl.TposeLocalScaled.position,
-                BasisLocalBoneDriver.LeftFootControl.TposeLocalScaled.position,
-                BasisLocalBoneDriver.LeftToeControl.TposeLocalScaled.position);
-
             var mapping = BasisLocalAvatarDriver.Mapping;
-            avatarHipsBasisTpose = BuildAvatarHipsBasisFromTpose(mapping.AvatarForwards, mapping.AvatarUpwards, mapping.AvatarRightwards);
+            BasisSeatFitLegs.TryFromMapping(mapping.TposeFromRoot, LocalPlayer.AvatarTransform.localScale, BasisLocalAvatarDriver.TposeSoleHeight, out legs);
+            avatarHipsBasisTpose = BasisGenericBoneRotationUtils.GetCharacterBasis(mapping);
+            hipsRestFromRoot = mapping.TposeFromRoot.TryGetValue(HumanBodyBones.Hips, out var hipsRest) ? hipsRest.rotation : Quaternion.identity;
+            leftHandRestFromRoot = mapping.TposeFromRoot.TryGetValue(HumanBodyBones.LeftHand, out var leftHandRest) ? leftHandRest.rotation : Quaternion.identity;
+            rightHandRestFromRoot = mapping.TposeFromRoot.TryGetValue(HumanBodyBones.RightHand, out var rightHandRest) ? rightHandRest.rotation : Quaternion.identity;
+            leftFootRestFromRoot = mapping.TposeFromRoot.TryGetValue(HumanBodyBones.LeftFoot, out var leftFootRest) ? leftFootRest.rotation : Quaternion.identity;
+            rightFootRestFromRoot = mapping.TposeFromRoot.TryGetValue(HumanBodyBones.RightFoot, out var rightFootRest) ? rightFootRest.rotation : Quaternion.identity;
+        }
+
+        private void OnLocalAvatarChanged()
+        {
+            GrabLatestTposeLocalScaleData(BasisHeightDriver.HeightModeChange.OnTpose);
+            ReanchorPlayspaceHeight();
         }
 
         private void OnPlayersHeightChanged(BasisHeightDriver.HeightModeChange HeightModeChange)
@@ -95,6 +123,9 @@ namespace Basis.Scripts.Drivers
             _seat = seat;
             ActiveSeat = seat;
             _seat.ResetOccupantYaw();
+            _seat.ResetOccupantOffset();
+            HipsOffsetFromPin = Vector3.zero;
+            HipsRotationFromPin = Quaternion.identity;
             seatedSnapTurnLatched = false;
 
             BasisLocalPose.GetPose(BasisPoseSlot.PlayerRoot, LocalPlayer.transform, out lastSeatRootPosition, out lastSeatRootRotation);
@@ -110,14 +141,12 @@ namespace Basis.Scripts.Drivers
 
             CapturePlayspaceOffset();
 
-            LocalPlayer.LocalVirtualSpineDriver.HipsFreezeToTpose = true;
             LocalPlayer.LocalCharacterDriver.IsEnabled = false;
             LocalPlayer.LocalCharacterDriver.MovementLock.Add(nameof(BasisLocalSeatDriver));
             LocalPlayer.LocalCharacterDriver.CrouchingLock.Add(nameof(BasisLocalSeatDriver));
             LocalPlayer.LocalAnimatorDriver.StopAllVariables();
             LocalPlayer.LocalAnimatorDriver.PauseAnimator = true;
 
-            SetAllOverrideUsages(true);
             LocalPlayer.OnVirtualData += OnSimulate;
 
             GrabLatestTposeLocalScaleData( BasisHeightDriver.HeightModeChange.OnTpose);
@@ -125,6 +154,7 @@ namespace Basis.Scripts.Drivers
             if (!hasEvent)
             {
                 BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnPlayersHeightChanged;
+                BasisLocalPlayer.OnLocalAvatarChanged += OnLocalAvatarChanged;
                 hasEvent = true;
             }
 
@@ -184,13 +214,16 @@ namespace Basis.Scripts.Drivers
             if (hasEvent)
             {
                 BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnPlayersHeightChanged;
+                BasisLocalPlayer.OnLocalAvatarChanged -= OnLocalAvatarChanged;
                 hasEvent = false;
             }
             hasPlayspaceOffset = false;
+            leftHandTargeted = rightHandTargeted = leftFootTargeted = rightFootTargeted = false;
 
             if (LocalPlayer == null)
                 return;
 
+            UpdateLimbDrive();
             LocalPlayer.LocalVirtualSpineDriver.HipsFreezeToTpose = false;
             LocalPlayer.LocalAnimatorDriver.PauseAnimator = false;
             LocalPlayer.OnVirtualData -= OnSimulate;
@@ -200,7 +233,7 @@ namespace Basis.Scripts.Drivers
             LocalPlayer.LocalCharacterDriver.IsEnabled = true;
             BasisInput.OffsetCoords = new Common.BasisCalibratedCoords(Vector3.zero, Quaternion.identity);
 
-            SetAllOverrideUsages(false);
+            ApplyOverrideUsages(false, false, false);
 
             var cc = BasisLocalPlayer.Instance.LocalCharacterDriver.characterController;
 
@@ -216,6 +249,7 @@ namespace Basis.Scripts.Drivers
             }
 
             _seat.ResetOccupantYaw();
+            _seat.ResetOccupantOffset();
             seatedSnapTurnLatched = false;
 
             Vector3 desiredPos = _seat.transform.ToWorldPoint(previousRelativePosition);
@@ -247,6 +281,13 @@ namespace Basis.Scripts.Drivers
             {
                 seatedSnapTurnLatched = false;
                 return;
+            }
+
+            BasisDesktopEye eye = BasisDesktopEye.Instance;
+            if (eye != null && !BasisDeviceManagement.IsCurrentModeVR())
+            {
+                float look = BasisSeatFit.WrapDegrees((BasisInput.OffsetCoords.rotation * Quaternion.Euler(0f, eye.rotationYaw, 0f)).eulerAngles.y);
+                eye.rotationYaw -= _seat.TakeOccupantLookYaw(look);
             }
 
             float axis = LocalPlayer.LocalCharacterDriver.Rotation.x;
@@ -285,228 +326,173 @@ namespace Basis.Scripts.Drivers
 
             TickOccupantTurn();
 
-            BasisSeatFitResult fit = BasisSeatFit.Solve(_seat.GetFitFrame(), legs);
+            bool fbt = Basis.BasisUI.BasisSettingsDefaults.EnableFBT.RawValue;
+            hipsLocked = BasisSeatFit.IsLocked(_seat.HipsLock, fbt && HasTracker(BasisLocalBoneDriver.HipsControl));
+            bool leftLocked = BasisSeatFit.IsLocked(_seat.LeftFootLock, fbt && ((!SeatDrives(BasisLocalBoneDriver.LeftFootControl, leftFootClaimed) && HasTracker(BasisLocalBoneDriver.LeftFootControl)) || HasTracker(BasisLocalBoneDriver.LeftUpperLegControl)));
+            bool rightLocked = BasisSeatFit.IsLocked(_seat.RightFootLock, fbt && ((!SeatDrives(BasisLocalBoneDriver.RightFootControl, rightFootClaimed) && HasTracker(BasisLocalBoneDriver.RightFootControl)) || HasTracker(BasisLocalBoneDriver.RightUpperLegControl)));
+            leftHandTargeted = BasisSeatFit.IsLocked(_seat.LeftHandLock, !SeatDrives(BasisLocalBoneDriver.LeftHandControl, leftHandClaimed) && HasRigLayer(BasisLocalBoneDriver.LeftHandControl)) && UsableTarget(_seat.LeftHandTarget);
+            rightHandTargeted = BasisSeatFit.IsLocked(_seat.RightHandLock, !SeatDrives(BasisLocalBoneDriver.RightHandControl, rightHandClaimed) && HasRigLayer(BasisLocalBoneDriver.RightHandControl)) && UsableTarget(_seat.RightHandTarget);
+            leftFootTargeted = fbt && leftLocked && UsableTarget(_seat.LeftFootTarget);
+            rightFootTargeted = fbt && rightLocked && UsableTarget(_seat.RightFootTarget);
+            bool leftPosed = leftLocked && !leftFootTargeted;
+            bool rightPosed = rightLocked && !rightFootTargeted;
+            UpdateLimbDrive();
+            ApplyOverrideUsages(hipsLocked, leftPosed, rightPosed);
+            LocalPlayer.LocalVirtualSpineDriver.HipsFreezeToTpose = hipsLocked;
+            CaptureHipsFromPin(hipsLocked);
 
-            // --- POLE (knee plane) setup ---
-            // Define pole in seat hips frame, then map to avatar-local using hips basis.
-            Vector3 desiredPoleInSeatHipsFrame = (Vector3.forward + Vector3.up * 0.20f).normalized;
-            Vector3 desiredPoleAvatarLocal = (avatarHipsBasisTpose * desiredPoleInSeatHipsFrame).normalized;
-            desiredPoleAvatarLocal = EnsureForwardHemisphereInAvatarBasis(desiredPoleAvatarLocal);
+            BasisSeatFitResult fit = _seat.SolveFit(legs);
+            PlaceRoot(fit.Back + _seat.OccupantOffset, out Vector3 pelvisWorldPos, out Quaternion playerRot);
 
-            // A stable "knee axis hint" in avatar-local: use hips-basis forward as "knees forward".
-            Vector3 poleAxisHintAvatarLocal = (avatarHipsBasisTpose * Vector3.forward).normalized;
-
-            Vector3 upperDirInSeatHipsFrame = Quaternion.Inverse(_seat.SpineRotation) * (fit.Knee - fit.Back);
-            Vector3 lowerDirInSeatHipsFrame = Quaternion.Inverse(_seat.SpineRotation) * (fit.Foot - fit.Knee);
-
-            Vector3 targetUpperLegDirRelToHips = EnsureForwardHemisphereInAvatarBasis(avatarHipsBasisTpose * upperDirInSeatHipsFrame);
-            Vector3 targetLowerLegDirRelToHips = EnsureForwardHemisphereInAvatarBasis(avatarHipsBasisTpose * lowerDirInSeatHipsFrame);
-
-            Quaternion desiredLeftUpperLegRot = AlignAimWithPole(
-                BasisLocalBoneDriver.LeftUpperLegControl.TposeLocalScaled.rotation,
-                leftUpperLegOffset,
-                targetUpperLegDirRelToHips,
-                poleAxisHintAvatarLocal,
-                desiredPoleAvatarLocal
-            );
-
-            Quaternion desiredRightUpperLegRot = AlignAimWithPole(
-                BasisLocalBoneDriver.RightUpperLegControl.TposeLocalScaled.rotation,
-                rightUpperLegOffset,
-                targetUpperLegDirRelToHips,
-                poleAxisHintAvatarLocal,
-                desiredPoleAvatarLocal
-            );
-
-            // Calves: aim + pole too (helps reduce sideways shin twist)
-            Quaternion desiredLeftLowerLegRot = AlignAimWithPole(
-                BasisLocalBoneDriver.LeftLowerLegControl.TposeLocalScaled.rotation,
-                leftLowerLegOffset,
-                targetLowerLegDirRelToHips,
-                poleAxisHintAvatarLocal,
-                desiredPoleAvatarLocal
-            );
-
-            Quaternion desiredRightLowerLegRot = AlignAimWithPole(
-                BasisLocalBoneDriver.RightLowerLegControl.TposeLocalScaled.rotation,
-                rightLowerLegOffset,
-                targetLowerLegDirRelToHips,
-                poleAxisHintAvatarLocal,
-                desiredPoleAvatarLocal
-            );
-
-            ApplyLocalLegPose(
-                fit.Back,
-                fit.Foot,
-                desiredLeftUpperLegRot,
-                desiredRightUpperLegRot,
-                desiredLeftLowerLegRot,
-                desiredRightLowerLegRot
-            );
+            if (hipsLocked)
+            {
+                LocalPlayer.LocalRigDriver.SetOverrideData(HumanBodyBones.Hips, pelvisWorldPos, playerRot);
+            }
+            if (leftPosed || rightPosed)
+            {
+                ApplyLegPose(fit, playerRot);
+            }
         }
 
-        private static Quaternion BuildAvatarHipsBasisFromTpose(Vector3 forwardsLocal, Vector3 upwardsLocal, Vector3 rightsLocal)
+        private static bool HasTracker(BasisLocalBoneControl control) => control != null && control.HasTracked == BasisHasTracked.HasTracker;
+
+        private static bool HasRigLayer(BasisLocalBoneControl control) => control != null && control.HasRigLayer == BasisHasRigLayer.HasRigLayer;
+
+        private static bool UsableTarget(Transform target)
         {
-            Vector3 hips = BasisLocalBoneDriver.HipsControl.TposeLocalScaled.position;
-            Vector3 lHip = BasisLocalBoneDriver.LeftUpperLegControl.TposeLocalScaled.position;
-            Vector3 rHip = BasisLocalBoneDriver.RightUpperLegControl.TposeLocalScaled.position;
-
-            // UP
-            Vector3 up = upwardsLocal;
-            if (up.sqrMagnitude < 1e-8f)
+            if (target == null)
             {
-                Vector3 upTarget = hips;
-
-                if (BasisLocalBoneDriver.SpineControl != null)
-                    upTarget = BasisLocalBoneDriver.SpineControl.TposeLocalScaled.position;
-                else if (BasisLocalBoneDriver.ChestControl != null)
-                    upTarget = BasisLocalBoneDriver.ChestControl.TposeLocalScaled.position;
-                else if (BasisLocalBoneDriver.HeadControl != null)
-                    upTarget = BasisLocalBoneDriver.HeadControl.TposeLocalScaled.position;
-                else
-                    upTarget = hips + Vector3.up;
-
-                up = upTarget - hips;
+                return false;
             }
+            target.GetPositionAndRotation(out Vector3 position, out Quaternion rotation);
+            return BasisSeatFit.IsFinitePose(position, rotation);
+        }
 
-            if (up.sqrMagnitude < 1e-8f)
-                return Quaternion.identity;
-            up.Normalize();
+        public static bool SeatDrives(BasisLocalBoneControl control, bool claimed) => claimed && control.DevicesWithRoles.Count == 0;
 
-            // RIGHT
-            Vector3 right = rightsLocal;
-            if (right.sqrMagnitude < 1e-8f)
-                right = (rHip - lHip);
-
-            right = Vector3.ProjectOnPlane(right, up);
-            if (right.sqrMagnitude < 1e-8f)
-                return Quaternion.identity;
-            right.Normalize();
-
-            // FORWARD
-            Vector3 forward = Vector3.Cross(right, up);
-            if (forward.sqrMagnitude < 1e-8f)
-                return Quaternion.identity;
-            forward.Normalize();
-
-            // Hemisphere disambiguation
-            Vector3 hintForward = forwardsLocal;
-            if (hintForward.sqrMagnitude > 1e-8f)
+        public static void ClaimLimb(BasisLocalBoneControl control, bool targeted, ref bool claimed)
+        {
+            if (control == null)
             {
-                hintForward = Vector3.ProjectOnPlane(hintForward, up);
-                if (hintForward.sqrMagnitude > 1e-8f)
+                return;
+            }
+            if (targeted && control.DevicesWithRoles.Count == 0 && (claimed || (!HasTracker(control) && !HasRigLayer(control))))
+            {
+                claimed = true;
+                control.HasTracked = BasisHasTracked.HasTracker;
+                control.HasRigLayer = BasisHasRigLayer.HasRigLayer;
+            }
+            else if (claimed)
+            {
+                claimed = false;
+                if (control.DevicesWithRoles.Count == 0)
                 {
-                    hintForward.Normalize();
-                    if (Vector3.Dot(forward, hintForward) < 0f)
-                    {
-                        forward = -forward;
-                        right = -right;
-                    }
+                    control.HasTracked = BasisHasTracked.HasNoTracker;
+                    control.HasRigLayer = BasisHasRigLayer.HasNoRigLayer;
                 }
             }
-            else
+        }
+
+        private void UpdateLimbDrive()
+        {
+            ClaimLimb(BasisLocalBoneDriver.LeftHandControl, leftHandTargeted, ref leftHandClaimed);
+            ClaimLimb(BasisLocalBoneDriver.RightHandControl, rightHandTargeted, ref rightHandClaimed);
+            ClaimLimb(BasisLocalBoneDriver.LeftFootControl, leftFootTargeted, ref leftFootClaimed);
+            ClaimLimb(BasisLocalBoneDriver.RightFootControl, rightFootTargeted, ref rightFootClaimed);
+            int mask = (leftHandTargeted ? 1 : 0) | (rightHandTargeted ? 2 : 0) | (leftFootTargeted ? 4 : 0) | (rightFootTargeted ? 8 : 0);
+            if (mask == limbDriveMask)
             {
-                if (BasisLocalBoneDriver.LeftToeControl != null && BasisLocalBoneDriver.RightToeControl != null &&
-                    BasisLocalBoneDriver.LeftFootControl != null && BasisLocalBoneDriver.RightFootControl != null)
-                {
-                    Vector3 toesMid =
-                        (BasisLocalBoneDriver.LeftToeControl.TposeLocalScaled.position +
-                         BasisLocalBoneDriver.RightToeControl.TposeLocalScaled.position) * 0.5f;
-
-                    Vector3 feetMid =
-                        (BasisLocalBoneDriver.LeftFootControl.TposeLocalScaled.position +
-                         BasisLocalBoneDriver.RightFootControl.TposeLocalScaled.position) * 0.5f;
-
-                    Vector3 toeDir = Vector3.ProjectOnPlane(toesMid - feetMid, up);
-                    if (toeDir.sqrMagnitude > 1e-8f)
-                    {
-                        toeDir.Normalize();
-                        if (Vector3.Dot(forward, toeDir) < 0f)
-                        {
-                            forward = -forward;
-                            right = -right;
-                        }
-                    }
-                }
+                return;
             }
-
-            right = Vector3.Cross(up, forward).normalized;
-            forward = Vector3.Cross(right, up).normalized;
-
-            return Quaternion.LookRotation(forward, up);
+            limbDriveMask = mask;
+            LocalPlayer.OnLatePollData -= DriveLimbTargets;
+            if (mask != 0)
+            {
+                LocalPlayer.OnLatePollData += DriveLimbTargets;
+            }
         }
 
-        private Vector3 EnsureForwardHemisphereInAvatarBasis(Vector3 dirAvatarLocal)
+        private void DriveLimbTargets()
         {
-            Vector3 dirInBasis = Quaternion.Inverse(avatarHipsBasisTpose) * dirAvatarLocal;
-            if (dirInBasis.z < 0f)
-                dirInBasis.z = -dirInBasis.z;
-            return (avatarHipsBasisTpose * dirInBasis).normalized;
+            if (_seat == null)
+            {
+                return;
+            }
+            BasisLocalRigDriver rig = LocalPlayer.LocalRigDriver;
+            Matrix4x4 playerToWorld = BasisLocalPlayer.localToWorldMatrix;
+            if (leftHandTargeted) DriveHand(BasisLocalBoneDriver.LeftHandControl, _seat.LeftHandTarget, leftHandRestFromRoot, rig.LeftHandIKOffset, playerToWorld);
+            if (rightHandTargeted) DriveHand(BasisLocalBoneDriver.RightHandControl, _seat.RightHandTarget, rightHandRestFromRoot, rig.RightHandIKOffset, playerToWorld);
+            if (leftFootTargeted) DriveFoot(BasisLocalBoneDriver.LeftFootControl, _seat.LeftFootTarget, leftFootRestFromRoot, rig.LeftFootIKOffset, playerToWorld);
+            if (rightFootTargeted) DriveFoot(BasisLocalBoneDriver.RightFootControl, _seat.RightFootTarget, rightFootRestFromRoot, rig.RightFootIKOffset, playerToWorld);
         }
 
-        private static Quaternion AlignAimWithPole(
-            Quaternion tposeLocalRot,
-            Vector3 tposeOffsetUpperToLower,
-            Vector3 desiredDirAvatarLocal,
-            Vector3 poleAxisHintAvatarLocal,
-            Vector3 desiredPoleAvatarLocal)
+        private void DriveHand(BasisLocalBoneControl control, Transform target, Quaternion restFromRoot, Quaternion ikOffset, in Matrix4x4 playerToWorld)
         {
-            if (desiredDirAvatarLocal.sqrMagnitude < 1e-8f)
-                return tposeLocalRot;
-
-            Vector3 desiredDir = desiredDirAvatarLocal.normalized;
-
-            // --- Swing (aim) ---
-            Vector3 offsetDir = (tposeOffsetUpperToLower.sqrMagnitude > 1e-8f)
-                ? tposeOffsetUpperToLower.normalized
-                : Vector3.down;
-
-            Vector3 aimedNow = tposeLocalRot * offsetDir;
-            if (aimedNow.sqrMagnitude < 1e-8f)
-                return tposeLocalRot;
-
-            aimedNow.Normalize();
-
-            Quaternion swing = Quaternion.FromToRotation(aimedNow, desiredDir);
-            Quaternion rotAfterSwing = swing * tposeLocalRot;
-
-            // --- Twist (pole) ---
-            Vector3 currentPole = rotAfterSwing * poleAxisHintAvatarLocal;
-            currentPole = Vector3.ProjectOnPlane(currentPole, desiredDir);
-
-            Vector3 desiredPole = Vector3.ProjectOnPlane(desiredPoleAvatarLocal, desiredDir);
-
-            if (currentPole.sqrMagnitude < 1e-8f || desiredPole.sqrMagnitude < 1e-8f)
-                return rotAfterSwing;
-
-            currentPole.Normalize();
-            desiredPole.Normalize();
-
-            float signedAngle = Vector3.SignedAngle(currentPole, desiredPole, desiredDir);
-            Quaternion twist = Quaternion.AngleAxis(signedAngle, desiredDir);
-
-            return twist * rotAfterSwing;
+            target.GetPositionAndRotation(out Vector3 position, out Quaternion rotation);
+            DriveControl(control, position, BasisSeatFit.LimbBoneRotation(rotation, avatarHipsBasisTpose, restFromRoot) * Quaternion.Inverse(ikOffset), playerToWorld);
         }
 
-        private void ApplyLocalLegPose(
-            Vector3 pelvisSeatLocal,
-            Vector3 footSeatLocal,
-            Quaternion leftUpperLegRot,
-            Quaternion rightUpperLegRot,
-            Quaternion leftLowerLegRot,
-            Quaternion rightLowerLegRot)
+        private void DriveFoot(BasisLocalBoneControl control, Transform target, Quaternion restFromRoot, Quaternion ikOffset, in Matrix4x4 playerToWorld)
+        {
+            target.GetPositionAndRotation(out Vector3 sole, out Quaternion rotation);
+            DriveControl(control, BasisSeatFit.FootTargetPosition(sole, rotation, legs.FootThickness), BasisSeatFit.LimbBoneRotation(rotation, avatarHipsBasisTpose, restFromRoot) * Quaternion.Inverse(ikOffset), playerToWorld);
+        }
+
+        private static void DriveControl(BasisLocalBoneControl control, Vector3 worldPosition, Quaternion worldRotation, in Matrix4x4 playerToWorld)
+        {
+            Common.BasisCalibratedCoords offset = control.UseInverseOffset ? control.InverseOffsetFromBone : Common.BasisCalibratedCoords.Identity;
+            BasisSeatFit.ControlIncoming(playerToWorld, worldPosition, worldRotation, offset.position, offset.rotation, out Vector3 position, out Quaternion rotation);
+            control.SetIncoming(position, rotation);
+        }
+
+        private void CaptureHipsFromPin(bool pinHips)
+        {
+            if (pinHips || !hasLastSeatRootPosition || !BasisLocalAvatarDriver.Mapping.HasHips)
+            {
+                HipsOffsetFromPin = Vector3.zero;
+                HipsRotationFromPin = Quaternion.identity;
+                return;
+            }
+            BasisLocalAvatarDriver.Mapping.Hips.GetPositionAndRotation(out Vector3 hipsPos, out Quaternion hipsRot);
+            Quaternion rootInverse = Quaternion.Inverse(lastSeatRootRotation);
+            HipsOffsetFromPin = rootInverse * (hipsPos - lastSeatPelvisPosition);
+            HipsRotationFromPin = rootInverse * hipsRot * Quaternion.Inverse(hipsRestFromRoot);
+        }
+
+        private void ApplyLegPose(in BasisSeatFitResult fit, Quaternion playerRot)
+        {
+            Quaternion seatToAvatar = avatarHipsBasisTpose * Quaternion.Inverse(_seat.SpineRotation);
+            Vector3 right = avatarHipsBasisTpose * Vector3.right;
+            Vector3 forward = avatarHipsBasisTpose * Vector3.forward;
+            Vector3 upperDir = fit.Knee - fit.Back;
+            Vector3 lowerDir = fit.Foot - fit.Knee;
+
+            BasisSeatLegPose left = BasisSeatFit.SolveLegPose(_seat.Pose, upperDir, lowerDir, _seat.SpineRotation, true);
+            BasisSeatLegPose rightLeg = BasisSeatFit.SolveLegPose(_seat.Pose, upperDir, lowerDir, _seat.SpineRotation, false);
+            Quaternion leftLower = BasisSeatFit.LegDeltaWithPole(leftLowerLegOffset, forward, seatToAvatar * left.LowerDir, seatToAvatar * left.LowerPole);
+            Quaternion rightLower = BasisSeatFit.LegDeltaWithPole(rightLowerLegOffset, forward, seatToAvatar * rightLeg.LowerDir, seatToAvatar * rightLeg.LowerPole);
+            Quaternion leftFoot = leftLower * Quaternion.AngleAxis(left.FootPitchDegrees, right);
+            Quaternion rightFoot = rightLower * Quaternion.AngleAxis(rightLeg.FootPitchDegrees, right);
+
+            BasisLocalRigDriver rig = LocalPlayer.LocalRigDriver;
+            rig.SetOverrideRotation(HumanBodyBones.LeftUpperLeg, playerRot * BasisSeatFit.LegDeltaWithPole(leftUpperLegOffset, forward, seatToAvatar * left.UpperDir, seatToAvatar * left.UpperPole));
+            rig.SetOverrideRotation(HumanBodyBones.RightUpperLeg, playerRot * BasisSeatFit.LegDeltaWithPole(rightUpperLegOffset, forward, seatToAvatar * rightLeg.UpperDir, seatToAvatar * rightLeg.UpperPole));
+            rig.SetOverrideRotation(HumanBodyBones.LeftLowerLeg, playerRot * leftLower);
+            rig.SetOverrideRotation(HumanBodyBones.RightLowerLeg, playerRot * rightLower);
+            rig.SetOverrideRotation(HumanBodyBones.LeftFoot, playerRot * leftFoot);
+            rig.SetOverrideRotation(HumanBodyBones.RightFoot, playerRot * rightFoot);
+            rig.SetOverrideRotation(HumanBodyBones.LeftToes, playerRot * leftFoot);
+            rig.SetOverrideRotation(HumanBodyBones.RightToes, playerRot * rightFoot);
+        }
+
+        private void PlaceRoot(Vector3 pelvisSeatLocal, out Vector3 pelvisWorldPos, out Quaternion playerRot)
         {
             Transform seatT = _seat.transform;
-
-            // Avatar T-pose hips pivot in avatar-local
             Vector3 hipsLocalPos = BasisLocalBoneDriver.HipsControl.TposeLocalScaled.position;
 
-            // Stable avatar hips basis
-            Quaternion avatarHipsBasis = avatarHipsBasisTpose;
-
             BasisSeatFit.ComposeHipsWorld(seatT.GetLocalToWorld(), seatT.rotation, _seat.SpineRotation, pelvisSeatLocal,
-                _seat.OccupantYawDegrees, out Vector3 pelvisWorldPos, out Quaternion hipsWorldRot, out Quaternion occupantPivot);
-            BasisSeatFit.ComposeSeatedRoot(pelvisWorldPos, hipsWorldRot, avatarHipsBasis, hipsLocalPos, out Vector3 playerPos, out Quaternion playerRot);
+                _seat.OccupantYawDegrees, out pelvisWorldPos, out Quaternion hipsWorldRot, out _);
+            BasisSeatFit.ComposeSeatedRoot(pelvisWorldPos, hipsWorldRot, avatarHipsBasisTpose, hipsLocalPos, out Vector3 playerPos, out playerRot);
 
             LocalPlayer.transform.SetPose(playerPos, playerRot);
             LocalPlayer.LocalAnimatorDriver.HandleTeleport();
@@ -532,67 +518,22 @@ namespace Basis.Scripts.Drivers
             }
             lastSeatRootPosition = playerPos;
             lastSeatRootRotation = playerRot;
+            lastSeatPelvisPosition = pelvisWorldPos;
             hasLastSeatRootPosition = true;
-
-            // Local->world helper for T-pose points (after root placement)
-            Vector3 ToWorld(Vector3 tposeLocalPos) => playerPos + playerRot * tposeLocalPos;
-
-            // --- Compute left/right foot seat-local targets ---
-            Vector3 lFootLocal = BasisLocalBoneDriver.LeftFootControl.TposeLocalScaled.position;
-            Vector3 rFootLocal = BasisLocalBoneDriver.RightFootControl.TposeLocalScaled.position;
-
-            Vector3 lFootRelHips = lFootLocal - hipsLocalPos;
-            Vector3 rFootRelHips = rFootLocal - hipsLocalPos;
-
-            Vector3 lFootRelInBasis = Quaternion.Inverse(avatarHipsBasis) * lFootRelHips;
-            Vector3 rFootRelInBasis = Quaternion.Inverse(avatarHipsBasis) * rFootRelHips;
-
-            Vector3 seatRightLocal = _seat.SpineRotation * Vector3.right;
-
-            Vector3 leftFootSeatLocal = footSeatLocal + seatRightLocal * lFootRelInBasis.x;
-            Vector3 rightFootSeatLocal = footSeatLocal + seatRightLocal * rFootRelInBasis.x;
-
-            Vector3 leftFootWorldTarget = BasisSeatFit.RotateAboutPivot(seatT.ToWorldPoint(leftFootSeatLocal), pelvisWorldPos, occupantPivot);
-            Vector3 rightFootWorldTarget = BasisSeatFit.RotateAboutPivot(seatT.ToWorldPoint(rightFootSeatLocal), pelvisWorldPos, occupantPivot);
-
-            // --- World positions for overridden bones ---
-            Vector3 hipsW = ToWorld(BasisLocalBoneDriver.HipsControl.TposeLocalScaled.position);
-            Vector3 lUpperW = ToWorld(BasisLocalBoneDriver.LeftUpperLegControl.TposeLocalScaled.position);
-            Vector3 rUpperW = ToWorld(BasisLocalBoneDriver.RightUpperLegControl.TposeLocalScaled.position);
-            Vector3 lLowerW = ToWorld(BasisLocalBoneDriver.LeftLowerLegControl.TposeLocalScaled.position);
-            Vector3 rLowerW = ToWorld(BasisLocalBoneDriver.RightLowerLegControl.TposeLocalScaled.position);
-
-            // --- Apply overrides ---
-            LocalPlayer.LocalRigDriver.SetOverrideData(HumanBodyBones.Hips, hipsW, hipsWorldRot);
-
-            LocalPlayer.LocalRigDriver.SetOverrideData(HumanBodyBones.LeftUpperLeg, lUpperW, hipsWorldRot * leftUpperLegRot);
-            LocalPlayer.LocalRigDriver.SetOverrideData(HumanBodyBones.RightUpperLeg, rUpperW, hipsWorldRot * rightUpperLegRot);
-            LocalPlayer.LocalRigDriver.SetOverrideData(HumanBodyBones.LeftLowerLeg, lLowerW, hipsWorldRot * leftLowerLegRot);
-            LocalPlayer.LocalRigDriver.SetOverrideData(HumanBodyBones.RightLowerLeg, rLowerW, hipsWorldRot * rightLowerLegRot);
-
-            // Feet/toes targets
-            LocalPlayer.LocalRigDriver.SetOverrideData(HumanBodyBones.LeftFoot, leftFootWorldTarget, hipsWorldRot);
-            LocalPlayer.LocalRigDriver.SetOverrideData(HumanBodyBones.RightFoot, rightFootWorldTarget, hipsWorldRot);
-
-            Vector3 lToesW = ToWorld(BasisLocalBoneDriver.LeftToeControl.TposeLocalScaled.position);
-            Vector3 rToesW = ToWorld(BasisLocalBoneDriver.RightToeControl.TposeLocalScaled.position);
-
-            LocalPlayer.LocalRigDriver.SetOverrideData(HumanBodyBones.LeftToes, lToesW, hipsWorldRot);
-            LocalPlayer.LocalRigDriver.SetOverrideData(HumanBodyBones.RightToes, rToesW, hipsWorldRot);
         }
 
-        private void SetAllOverrideUsages(bool enabled)
+        private void ApplyOverrideUsages(bool hips, bool leftLeg, bool rightLeg)
         {
-            LocalPlayer.LocalRigDriver.SetOverrideUsage(HumanBodyBones.Hips, enabled);
-            LocalPlayer.LocalRigDriver.SetOverrideUsage(HumanBodyBones.LeftUpperLeg, enabled);
-            LocalPlayer.LocalRigDriver.SetOverrideUsage(HumanBodyBones.RightUpperLeg, enabled);
-            LocalPlayer.LocalRigDriver.SetOverrideUsage(HumanBodyBones.LeftLowerLeg, enabled);
-            LocalPlayer.LocalRigDriver.SetOverrideUsage(HumanBodyBones.RightLowerLeg, enabled);
-
-            LocalPlayer.LocalRigDriver.SetOverrideUsage(HumanBodyBones.LeftFoot, enabled);
-            LocalPlayer.LocalRigDriver.SetOverrideUsage(HumanBodyBones.RightFoot, enabled);
-            LocalPlayer.LocalRigDriver.SetOverrideUsage(HumanBodyBones.LeftToes, enabled);
-            LocalPlayer.LocalRigDriver.SetOverrideUsage(HumanBodyBones.RightToes, enabled);
+            BasisLocalRigDriver rig = LocalPlayer.LocalRigDriver;
+            rig.SetOverrideUsage(HumanBodyBones.Hips, hips);
+            rig.SetOverrideUsage(HumanBodyBones.LeftUpperLeg, leftLeg);
+            rig.SetOverrideUsage(HumanBodyBones.LeftLowerLeg, leftLeg);
+            rig.SetOverrideUsage(HumanBodyBones.LeftFoot, leftLeg);
+            rig.SetOverrideUsage(HumanBodyBones.LeftToes, leftLeg);
+            rig.SetOverrideUsage(HumanBodyBones.RightUpperLeg, rightLeg);
+            rig.SetOverrideUsage(HumanBodyBones.RightLowerLeg, rightLeg);
+            rig.SetOverrideUsage(HumanBodyBones.RightFoot, rightLeg);
+            rig.SetOverrideUsage(HumanBodyBones.RightToes, rightLeg);
         }
 
         // =============================
@@ -612,18 +553,16 @@ namespace Basis.Scripts.Drivers
                 return;
             }
 
-            GrabLatestTposeLocalScaleData( BasisHeightDriver.HeightModeChange.OnTpose);
-
-            BasisSeatFitResult fit = BasisSeatFit.Solve(_seat.GetFitFrame(), legs);
+            BasisSeatFitResult fit = _seat.SolveFit(legs);
 
             Transform seatT = _seat.transform;
-            Vector3 kneeW = seatT.ToWorldPoint(fit.Knee);
-            Vector3 footW = seatT.ToWorldPoint(fit.Foot);
 
             Quaternion seatWorldRot = seatT.rotation;
 
             Vector3 hipsLocalPos = BasisLocalBoneDriver.HipsControl.TposeLocalScaled.position;
-            BasisSeatFit.ComposeHipsWorld(seatT.GetLocalToWorld(), seatWorldRot, _seat.SpineRotation, fit.Back, out Vector3 backW, out Quaternion hipsWorldRot);
+            BasisSeatFit.ComposeHipsWorld(seatT.GetLocalToWorld(), seatWorldRot, _seat.SpineRotation, fit.Back + _seat.OccupantOffset, _seat.OccupantYawDegrees, out Vector3 backW, out Quaternion hipsWorldRot, out Quaternion occupantPivot);
+            Vector3 kneeW = BasisSeatFit.RotateAboutPivot(seatT.ToWorldPoint(fit.Knee + _seat.OccupantOffset), backW, occupantPivot);
+            Vector3 footW = BasisSeatFit.RotateAboutPivot(seatT.ToWorldPoint(fit.Foot + _seat.OccupantOffset), backW, occupantPivot);
             BasisSeatFit.ComposeSeatedRoot(backW, hipsWorldRot, avatarHipsBasisTpose, hipsLocalPos, out Vector3 playerPos, out Quaternion playerRot);
 
             Vector3 ToWorld(Vector3 tposeLocalPos) => playerPos + playerRot * tposeLocalPos;

@@ -5,7 +5,10 @@ using System.Security.Cryptography;
 using System.Text;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk;
+using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
+using Basis.Scripts.Networking;
+using Basis.Scripts.Networking.NetworkedAvatar;
 using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -43,6 +46,14 @@ namespace Cilbox
 			public string Hash;
 			public string Name;
 			public string Kind;
+			public string Owner;
+			public string OwnerUUID;
+			public bool Yours;
+			public string ContentId;
+			public string World;
+			public string Server;
+			public string RequestedUtc;
+			public int Waits;
 			public string[] Items;
 			public string[] Blocked;
 			public List<BasisCilboxPermissionText.Use> Uses;
@@ -55,7 +66,9 @@ namespace Cilbox
 		private static readonly Dictionary<string, Request> requests = new Dictionary<string, Request>(StringComparer.Ordinal);
 		private static readonly Queue<string> queue = new Queue<string>();
 		private const int HashChunk = 4096;
+		private const int OwnerWaitTicks = 60;
 		private static string showing;
+		private static bool waiting;
 
 		[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
 		private static void Hook()
@@ -119,8 +132,60 @@ namespace Cilbox
 			}
 		}
 
+		internal static bool TryOwner(CilboxBasisCommon box, GameObject caller, out BasisContentBase content)
+		{
+			if (box != null && box.ownerRecorded)
+			{
+				content = box.ownerContent;
+				return content != null;
+			}
+			return BasisContent.TryResolve(caller, out content);
+		}
+
+		internal static bool ForLocalPlayer(CilboxBasisCommon box, GameObject caller)
+		{
+			if (box is CilboxSceneBasis) return true;
+			if (!TryOwner(box, caller, out BasisContentBase content)) return false;
+			if (content is BasisAvatar avatar) return WornLocally(avatar);
+			return !(box is CilboxAvatarBasis) && (content is BasisScene || content.SpawnedByLocalPlayer);
+		}
+
+		private static bool WornLocally(BasisAvatar avatar)
+		{
+			BasisNetworkPlayer local = BasisNetworkPlayer.LocalPlayer;
+			return (local != null && avatar.TryGetLinkedPlayer(out ushort id) && id == local.playerId) || (BasisLocalPlayer.Instance is BasisLocalPlayer player && ReferenceEquals(player.BasisAvatar, avatar));
+		}
+
+		internal static bool TryRunning(out CilboxBasisCommon box)
+		{
+			box = null;
+			foreach (CilboxBasisCommon other in UnityEngine.Object.FindObjectsByType<CilboxBasisCommon>(FindObjectsInactive.Include))
+			{
+				if (other == null || other.interpreterAccountingDepth == 0) continue;
+				if (box != null)
+				{
+					box = null;
+					return false;
+				}
+				box = other;
+			}
+			return box != null;
+		}
+
+		private static void Record(CilboxBasisCommon box, List<CilboxProxy> proxies)
+		{
+			foreach (CilboxProxy proxy in proxies)
+			{
+				if (proxy == null || !BasisContent.TryResolve(proxy.gameObject, out BasisContentBase content)) continue;
+				box.ownerContent = content;
+				box.ownerRecorded = true;
+				return;
+			}
+		}
+
 		private static void Gate(CilboxBasisCommon box, List<CilboxProxy> proxies)
 		{
+			if (!box.ownerRecorded) Record(box, proxies);
 			if (box.consentState == State.Unchecked) Check(box);
 			if (box.consentState != State.Pending || box.consentHash == null || !requests.TryGetValue(box.consentHash, out Request request)) return;
 			foreach (CilboxProxy proxy in proxies)
@@ -165,7 +230,7 @@ namespace Cilbox
 			box.consentState = State.Pending;
 			if (!requests.TryGetValue(hash, out Request request))
 			{
-				request = new Request { Hash = hash, Name = NameOf(box), Kind = KindOf(box), Items = result.Items, Blocked = result.Blocked, Uses = result.Uses };
+				request = new Request { Hash = hash, Name = NameOf(box), Kind = KindOf(box), Items = result.Items, Blocked = result.Blocked, Uses = result.Uses, World = WorldOf(box), Server = ServerNow(), RequestedUtc = BasisCilboxPermissions.Now() };
 				requests[hash] = request;
 				queue.Enqueue(hash);
 				BasisDeviceManagement.EnqueueOnMainThread(ShowNext);
@@ -409,21 +474,105 @@ namespace Cilbox
 
 		private static void ShowNext()
 		{
-			if (showing != null) return;
+			if (showing != null || waiting) return;
 			while (queue.Count > 0)
 			{
-				string hash = queue.Dequeue();
-				if (!requests.TryGetValue(hash, out Request request)) continue;
+				string hash = queue.Peek();
+				if (!requests.TryGetValue(hash, out Request request))
+				{
+					queue.Dequeue();
+					continue;
+				}
 				request.Boxes.RemoveAll(box => box == null);
 				if (request.Boxes.Count == 0)
 				{
+					queue.Dequeue();
 					requests.Remove(hash);
 					continue;
 				}
+				if (!OwnerOf(request) && request.Waits++ < OwnerWaitTicks)
+				{
+					waiting = true;
+					BasisDeviceManagement.OnDeviceManagementLoop -= Retry;
+					BasisDeviceManagement.OnDeviceManagementLoop += Retry;
+					return;
+				}
+				queue.Dequeue();
 				showing = hash;
-				BasisCilboxConsentPrompt.Show(request.Name, request.Kind, request.Items, request.Blocked, request.Uses, answer => Answer(hash, answer), notice => Deferred(hash, notice));
+				BasisCilboxConsentPrompt.Show(request.Name, request.Kind, request.Owner, request.Yours, request.Items, request.Blocked, request.Uses, answer => Answer(hash, answer), notice => Deferred(hash, notice));
 				return;
 			}
+		}
+
+		private static void Retry()
+		{
+			BasisDeviceManagement.OnDeviceManagementLoop -= Retry;
+			waiting = false;
+			ShowNext();
+		}
+
+		private static bool OwnerOf(Request request)
+		{
+			request.Owner = null;
+			request.OwnerUUID = null;
+			request.Yours = false;
+			CilboxBasisCommon box = request.Boxes[0];
+			if (box is CilboxSceneBasis) return true;
+			BasisContentBase content = box.ownerRecorded ? box.ownerContent : box.GetComponentInParent<BasisContentBase>(true);
+			if (content == null || content is BasisScene) return true;
+			if (content.TryGetNetworkGUIDIdentifier(out string id)) request.ContentId = id;
+			if (content is BasisAvatar avatar)
+			{
+				if (WornLocally(avatar)) return Mine(request);
+				return Named(request, Wearer(avatar));
+			}
+			string creator = content.CreatorUUID;
+			if (content.SpawnedByLocalPlayer || (!string.IsNullOrEmpty(creator) && BasisLocalPlayer.Instance != null && creator == BasisLocalPlayer.Instance.UUID)) return Mine(request);
+			if (string.IsNullOrEmpty(creator)) return content.TryGetIdentifier(out _);
+			request.OwnerUUID = creator;
+			return !BasisNetworkPlayers.TryGetPlayerByUUID(creator, out BasisNetworkPlayer spawner) || Named(request, spawner);
+		}
+
+		private static bool Mine(Request request)
+		{
+			request.Yours = true;
+			request.OwnerUUID = BasisLocalPlayer.Instance != null ? BasisLocalPlayer.Instance.UUID : null;
+			return true;
+		}
+
+		private static string WorldOf(CilboxBasisCommon box)
+		{
+			if (box is CilboxSceneBasis) return NameOf(box);
+			BasisScene scene = BasisScene.Instance;
+			if (scene == null) return box.gameObject.scene.name;
+			string name = scene.gameObject.scene.name;
+			return string.IsNullOrEmpty(name) ? scene.gameObject.name : name;
+		}
+
+		private static string ServerNow()
+		{
+			if (!BasisNetworkManagement.NetworkRunning) return string.Empty;
+			return BasisNetworkManagement.IsHostMode ? BasisNetworkManagement.HostServerName : BasisNetworkManagement.Ip + ":" + BasisNetworkManagement.Port;
+		}
+
+		private static BasisNetworkPlayer Wearer(BasisAvatar avatar)
+		{
+			if (avatar.TryGetLinkedPlayer(out ushort id) && BasisNetworkPlayers.GetPlayerById(id, out BasisNetworkPlayer linked)) return linked;
+			foreach (BasisNetworkPlayer player in BasisNetworkPlayers.Players.Values)
+			{
+				if (player?.Player != null && ReferenceEquals(player.Player.BasisAvatar, avatar)) return player;
+			}
+			return null;
+		}
+
+		private static bool Named(Request request, BasisNetworkPlayer player)
+		{
+			string name = player?.SafeDisplayName;
+			if (string.IsNullOrWhiteSpace(name)) name = player?.displayName;
+			if (string.IsNullOrWhiteSpace(name)) return false;
+			request.Owner = name;
+			if (player.Player != null && !string.IsNullOrEmpty(player.Player.UUID)) request.OwnerUUID = player.Player.UUID;
+			return true;
 		}
 
 		private static void Deferred(string hash, BasisNotification notice)
@@ -441,7 +590,21 @@ namespace Cilbox
 				requests.Remove(hash);
 				bool allowed = answer != BasisCilboxConsentPrompt.Answer.Deny && BasisCilboxPermissions.UntrustedAllowed;
 				if (answer == BasisCilboxConsentPrompt.Answer.Deny) BasisCilboxPermissions.Decline(hash);
-				else if (allowed) BasisCilboxPermissions.Allow(hash, request.Name, request.Kind, request.Items, answer == BasisCilboxConsentPrompt.Answer.AllowAndRemember);
+				else if (allowed) BasisCilboxPermissions.Allow(new BasisCilboxPermissions.Approval
+				{
+					ContentHash = hash,
+					ContentName = request.Name,
+					ContentKind = request.Kind,
+					ContentId = request.ContentId,
+					Items = new List<string>(request.Items),
+					Blocked = new List<string>(request.Blocked ?? Array.Empty<string>()),
+					OwnerName = request.Owner,
+					OwnerUUID = request.OwnerUUID,
+					OwnerYours = request.Yours,
+					WorldName = request.World,
+					Server = request.Server,
+					RequestedUtc = request.RequestedUtc,
+				}, request.Uses, answer == BasisCilboxConsentPrompt.Answer.AllowAndRemember);
 				Release(request, allowed);
 			}
 			ShowNext();
@@ -467,6 +630,8 @@ namespace Cilbox
 			requests.Clear();
 			queue.Clear();
 			showing = null;
+			waiting = false;
+			BasisDeviceManagement.OnDeviceManagementLoop -= Retry;
 			foreach (Request request in pending)
 			{
 				Release(request, false);

@@ -105,10 +105,12 @@ namespace Basis.BasisUI
             }
             BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
             BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnAvatarHeightChange;
+            BasisHeightDriver.OnDeviceScaleChanged += OnDeviceScaleChanged;
         }
 
         private void OnDisable()
         {
+            BasisHeightDriver.OnDeviceScaleChanged -= OnDeviceScaleChanged;
             if (BasisLocalPlayer.PlayerReady)
             {
                 BasisLocalPlayer.Instance.OnAvatarSwitched -= OnAvatarHeightChange;
@@ -161,6 +163,31 @@ namespace Basis.BasisUI
                 return;
             }
             SetRootMode(GetFindCurrentMode());
+        }
+
+        /// <summary>
+        /// The play space just scaled about the player's head, so their hands now reach a different
+        /// distance. Scale the play-space-stable menu about the same pivot by the same ratio -- position
+        /// and size -- so it keeps the same relation to the head and hands and pointing stays on target.
+        /// The root also shifted to keep the head still; the anchor rides on the root, so undo that first.
+        /// </summary>
+        private void OnDeviceScaleChanged(BasisHeightDriver.BasisDeviceScaleChange change)
+        {
+            if (InUse != PanelGroupRootMode.PlaySpaceStable || !_stableHasAnchor || !BasisLocalPlayer.PlayerReady)
+            {
+                return;
+            }
+            BasisLocalPlayer.Instance.PlayerSelf.GetPositionAndRotation(out Vector3 playPosWS, out Quaternion playRotWS);
+            // Where the anchor was in the world before the root moved.
+            Vector3 anchorWS = (playPosWS - change.RootShift) + playRotWS * _stableLocalPos;
+            if (change.HasHead && change.OldScale > 1e-5f)
+            {
+                anchorWS = change.HeadWorld + (anchorWS - change.HeadWorld) * (change.NewScale / change.OldScale);
+            }
+            _stableLocalPos = Quaternion.Inverse(playRotWS) * (anchorWS - playPosWS);
+            ApplyScaleOnly();
+            UpdateUILocationPlaySpace();
+            BasisPhysicsSyncGate.MarkColliderMoved();
         }
 
         public void OnAvatarHeightChange(BasisHeightDriver.HeightModeChange change)
@@ -300,7 +327,7 @@ namespace Basis.BasisUI
         {
             _hasLastEyeWrite = false;
 
-            float playerHeight = BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
+            float playerHeight = BasisHeightDriver.UserToDefaultRatioScaled;
 
             GroupOffset.SetLocalPositionAndRotation(offset.Position, offset.Rotation);
 
@@ -318,7 +345,7 @@ namespace Basis.BasisUI
         /// </summary>
         private bool SetEyePose(Vector3 worldPosition, Quaternion worldRotation, float scaleFactor)
         {
-            float playerHeight = BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
+            float playerHeight = BasisHeightDriver.UserToDefaultRatioScaled;
 
             Vector3 scaledOffset = Vector3.Scale(HeadOffset.Position, new Vector3(scaleFactor, scaleFactor, 1f));
             Quaternion offsetRotation = HeadOffset.Rotation;
@@ -374,7 +401,7 @@ namespace Basis.BasisUI
             offsetScale.z = Mathf.Max(MIN_Z_SCALE, offsetScale.z);
             GroupOffset.localScale = offsetScale;
 
-            transform.localScale = Vector3.one * GetRenderSafeMenuScale(BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale);
+            transform.localScale = Vector3.one * GetRenderSafeMenuScale(BasisHeightDriver.UserToDefaultRatioScaled);
         }
 
         // Menu was designed at 80 FOV
@@ -512,6 +539,9 @@ namespace Basis.BasisUI
             _lastStablePos = targetPos;
             _lastStableRot = targetRot;
             _hasLastStableWrite = true;
+            // Physics.autoSyncTransforms is off project-wide, so without this the pointer ray keeps
+            // hitting the menu's colliders where they were until the next physics step.
+            BasisPhysicsSyncGate.MarkColliderMoved();
         }
 
         private static float ExtractPitchDegreesNoRoll(Quaternion localRot)

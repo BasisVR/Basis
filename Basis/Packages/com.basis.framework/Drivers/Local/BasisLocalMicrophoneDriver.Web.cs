@@ -8,8 +8,8 @@ public static partial class BasisLocalMicrophoneDriver
 {
     public const string WebMicrophoneDevice = "Browser Microphone";
     private const int WebReadCapacity = 24000;
-    [NoAutoStaticsCleanup] private static AudioResampler webResampler;
-    private static float[] webRead, webPending;
+    [NoAutoStaticsCleanup] private static AudioResampler webResampler, webLipSyncResampler;
+    private static float[] webRead, webPending, webLipSync;
     private static int webPendingCount, webResamplerRate, webLastState, webDeviceVersion;
     private static string[] webDevices = new[] { WebMicrophoneDevice };
     private static readonly byte[] webDeviceNames = new byte[8192];
@@ -36,6 +36,7 @@ public static partial class BasisLocalMicrophoneDriver
     {
         lock (processingLock)
         {
+            bool retryAfterError = webLastState == BasisWebAudio.MicError;
             StopSelectedMicrophone_Internal();
             if (IsPaused)
             {
@@ -89,11 +90,12 @@ public static partial class BasisLocalMicrophoneDriver
             Denoiser ??= new RNNoise.NET.Denoiser();
             webPendingCount = 0;
             webResampler?.Reset();
+            webLipSyncResampler?.Reset();
             MicrophoneIsStarted = true;
             PacketSize = ProcessFrameLength * 4;
             ChangeMicrophoneVolume(SMDMicrophone.Current.Volume01);
             MicrophoneDevice = device;
-            return true;
+            return !retryAfterError;
         }
     }
 
@@ -111,10 +113,42 @@ public static partial class BasisLocalMicrophoneDriver
         if (state != webLastState)
         {
             webLastState = state;
-            if (state == BasisWebAudio.MicRunning) BasisDebug.Log($"Browser microphone running at {BasisWebAudio.BasisWebAudio_MicSampleRate()} Hz");
+            if (state == BasisWebAudio.MicRunning)
+            {
+                _recoveryBackoffUntil = 0f;
+                _recoveryBackoffSeconds = 0f;
+                BasisDebug.Log($"Browser microphone running at {BasisWebAudio.BasisWebAudio_MicSampleRate()} Hz");
+            }
             else if (state == BasisWebAudio.MicDenied) BasisDebug.LogWarning("Browser microphone permission was denied. Allow microphone access for this site and unmute to retry.");
         }
         return state == 0 || state == BasisWebAudio.MicError;
+    }
+
+    public static float[] WebLipSyncAudio(out int count)
+    {
+        float[] frame = processBufferArray;
+        count = frame != null ? Math.Min(ProcessFrameSize, frame.Length) : 0;
+        int rate = BasisOpenLipSyncDriver.InputSampleRate, source = LocalOpusSettings.MicrophoneSampleRate;
+        if (count <= 0 || rate <= 0 || rate == source) return frame;
+        if (webLipSyncResampler == null || webLipSyncResampler.InputSampleRate != source || webLipSyncResampler.OutputSampleRate != rate)
+        {
+            webLipSyncResampler?.Dispose();
+            webLipSyncResampler = new AudioResampler(source, rate, filterTaps: 32, numPhases: 512);
+        }
+        ReadOnlySpan<float> samples = webLipSyncResampler.Resample(new ReadOnlySpan<float>(frame, 0, count));
+        if (webLipSync == null || webLipSync.Length < samples.Length) webLipSync = new float[samples.Length + ProcessFrameSize];
+        samples.CopyTo(webLipSync);
+        count = samples.Length;
+        return webLipSync;
+    }
+
+    public static int WebLipSyncSilence()
+    {
+        float[] frame = processBufferArray;
+        int count = frame != null ? Math.Min(ProcessFrameSize, frame.Length) : 0, rate = BasisOpenLipSyncDriver.InputSampleRate, source = LocalOpusSettings.MicrophoneSampleRate;
+        if (count <= 0 || rate <= 0 || rate == source) return count;
+        webLipSyncResampler?.Reset();
+        return (int)((long)count * rate / source);
     }
 
     private static void PumpWebCapture()

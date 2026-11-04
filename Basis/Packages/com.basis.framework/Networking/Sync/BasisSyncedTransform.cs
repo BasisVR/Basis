@@ -292,9 +292,11 @@ namespace Basis.Scripts.Networking.Sync
         /// </summary>
         internal override bool TryGetJobApplyBinding(out BasisSyncApplyBinding binding, out Transform target, out bool replacesMainThreadApply)
         {
-            if (Target == null || RelativeTo != null || HasCustomApply())
+            bool customApply = HasCustomApply();
+            if (Target == null || RelativeTo != null || (customApply && !CustomApplyHasJobPath))
                 return base.TryGetJobApplyBinding(out binding, out target, out replacesMainThreadApply);
 
+            JobApplyConditional = customApply;
             binding = BasisSyncApplyBinding.Empty;
             target = Target;
             replacesMainThreadApply = true;
@@ -335,6 +337,7 @@ namespace Basis.Scripts.Networking.Sync
         }
 
         private int ContOffset(BasisSyncHandle h) => Schema.GetField(h.FieldIndex).Offset;
+        protected virtual bool CustomApplyHasJobPath => false;
 
         private static readonly Dictionary<System.Type, bool> _customApplyByType = new Dictionary<System.Type, bool>();
 

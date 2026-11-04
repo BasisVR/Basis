@@ -77,6 +77,22 @@
     {
       "key": "settings.developer.recorder.cancel",
       "value": "Annulla conto alla rovescia"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion",
+      "value": "Registra root motion"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion.tooltip",
+      "value": "Registra lo spostamento e la rotazione dell'avatar nel mondo (movimento con joystick) come root motion nella clip."
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones",
+      "value": "Registra ossa aggiuntive"
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones.tooltip",
+      "value": "Registra anche le ossa non umanoidi come ossa con fisica, capelli, code, orecchie e accessori."
     }
   ]
 }

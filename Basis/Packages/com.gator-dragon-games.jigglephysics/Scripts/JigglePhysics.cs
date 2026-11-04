@@ -346,6 +346,15 @@ public static class JigglePhysics {
         jobs?.ScheduleRemoveBatch(colliders);
     }
 
+    /// <summary>
+    /// Enables or disables colliders that are already registered, without unregistering them. A
+    /// disabled collider keeps its slot, so turning it back on costs no transform access array
+    /// write. Colliders that are not registered are ignored.
+    /// </summary>
+    public static void SetJiggleCollidersEnabled(List<JiggleColliderSerializable> colliders, bool enabled) {
+        jobs?.ScheduleSetCollidersEnabled(colliders, enabled);
+    }
+
     public static unsafe void FreeOnComplete(IntPtr pointer) {
         // Trees outlive the pipeline on shutdown and domain reload, and there is nothing left to
         // defer the free behind at that point. Without this the dispose threw and leaked the buffer,

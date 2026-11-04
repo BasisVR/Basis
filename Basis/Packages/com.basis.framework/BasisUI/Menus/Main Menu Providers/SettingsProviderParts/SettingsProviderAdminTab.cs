@@ -2,6 +2,7 @@
 using Basis.Scripts.BasisCharacterController;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
+using Basis.Network.Core;
 using BasisNetworkCore.Security;
 using System;
 using System.Collections.Generic;
@@ -34,10 +35,84 @@ namespace Basis.BasisUI
         /// basis.moderation.globallock) sends nothing back, and without this the switch would sit
         /// there showing a lock that was never applied.
         /// </summary>
+        public static readonly List<Action<RectTransform>> LockSectionBuilders = new();
+
         private static void SendLockRequest(PanelToggle toggle, Action send, Func<bool> serverState)
         {
             send();
             toggle.SetValueWithoutNotify(serverState());
+        }
+
+        [NoAutoStaticsCleanup] private static readonly List<string> ImageMaxResolutionNames = BuildImageMaxResolutionNames();
+
+        private static List<string> BuildImageMaxResolutionNames()
+        {
+            List<string> names = new List<string>(BasisNetworkModeration.MaxImageMaxResolutionK);
+            for (int k = BasisNetworkModeration.MinImageMaxResolutionK; k <= BasisNetworkModeration.MaxImageMaxResolutionK; k++)
+            {
+                names.Add($"{k}K ({k * 1024})");
+            }
+            return names;
+        }
+
+        private static string ImageMaxResolutionToName(int k) =>
+            ImageMaxResolutionNames[Mathf.Clamp(k, BasisNetworkModeration.MinImageMaxResolutionK, BasisNetworkModeration.MaxImageMaxResolutionK) - BasisNetworkModeration.MinImageMaxResolutionK];
+
+        private static int NameToImageMaxResolution(string name)
+        {
+            int index = ImageMaxResolutionNames.IndexOf(name);
+            return index < 0 ? BasisNetworkModeration.DefaultImageMaxResolutionK : index + BasisNetworkModeration.MinImageMaxResolutionK;
+        }
+
+        [NoAutoStaticsCleanup] private static readonly int[] VideoClipMaxMegabyteSteps = { 16, 32, 64, 96, 128, 256, 512, 768, 1024 };
+        [NoAutoStaticsCleanup] private static readonly List<string> VideoClipMaxSizeNames = BuildVideoClipMaxSizeNames();
+
+        private static List<string> BuildVideoClipMaxSizeNames()
+        {
+            List<string> names = new List<string>(VideoClipMaxMegabyteSteps.Length);
+            for (int i = 0; i < VideoClipMaxMegabyteSteps.Length; i++)
+            {
+                int megabytes = VideoClipMaxMegabyteSteps[i];
+                names.Add(megabytes >= 1024 && megabytes % 1024 == 0 ? $"{megabytes / 1024} GB" : $"{megabytes} MB");
+            }
+            return names;
+        }
+
+        private static string VideoClipMaxSizeToName(int megabytes)
+        {
+            int best = 0;
+            for (int i = 1; i < VideoClipMaxMegabyteSteps.Length; i++)
+            {
+                if (Mathf.Abs(VideoClipMaxMegabyteSteps[i] - megabytes) < Mathf.Abs(VideoClipMaxMegabyteSteps[best] - megabytes)) best = i;
+            }
+            return VideoClipMaxSizeNames[best];
+        }
+
+        [NoAutoStaticsCleanup] private static readonly List<string> VideoClipMaxPerPlayerNames = BuildVideoClipMaxPerPlayerNames();
+
+        private static List<string> BuildVideoClipMaxPerPlayerNames()
+        {
+            List<string> names = new List<string>(BasisNetworkModeration.MaxVideoClipMaxPerPlayer);
+            for (int count = BasisNetworkModeration.MinVideoClipMaxPerPlayer; count <= BasisNetworkModeration.MaxVideoClipMaxPerPlayer; count++)
+            {
+                names.Add(count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+            return names;
+        }
+
+        private static string VideoClipMaxPerPlayerToName(int count) =>
+            VideoClipMaxPerPlayerNames[Mathf.Clamp(count, BasisNetworkModeration.MinVideoClipMaxPerPlayer, BasisNetworkModeration.MaxVideoClipMaxPerPlayer) - BasisNetworkModeration.MinVideoClipMaxPerPlayer];
+
+        private static int NameToVideoClipMaxPerPlayer(string name)
+        {
+            int index = VideoClipMaxPerPlayerNames.IndexOf(name);
+            return index < 0 ? BasisNetworkModeration.DefaultVideoClipMaxPerPlayer : index + BasisNetworkModeration.MinVideoClipMaxPerPlayer;
+        }
+
+        private static int NameToVideoClipMaxSize(string name)
+        {
+            int index = VideoClipMaxSizeNames.IndexOf(name);
+            return index < 0 ? BasisNetworkModeration.DefaultVideoClipMaxMegabytes : VideoClipMaxMegabyteSteps[index];
         }
 
         /// <summary>
@@ -159,6 +234,19 @@ namespace Basis.BasisUI
             imagesLock.SetValueWithoutNotify(BasisNetworkModeration.GlobalImagesLocked);
             imagesLock.OnValueChanged += _ => SendLockRequest(imagesLock, BasisNetworkModeration.GlobalToggleImages, () => BasisNetworkModeration.GlobalImagesLocked);
 
+            // Same server-authoritative pattern as the toggles: send, then show the last broadcast
+            // value until the server's GlobalGetLockState confirms the change.
+            PanelDropdown imageMaxResolutionDropdown = PanelDropdown.CreateNewEntry(container);
+            imageMaxResolutionDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.imageMaxResolution"));
+            imageMaxResolutionDropdown.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.imageMaxResolution.tooltip"));
+            imageMaxResolutionDropdown.AssignEntries(new List<string>(ImageMaxResolutionNames));
+            imageMaxResolutionDropdown.SetValueWithoutNotify(ImageMaxResolutionToName(BasisNetworkModeration.GlobalImageMaxResolutionK));
+            imageMaxResolutionDropdown.OnValueChanged += value =>
+            {
+                BasisNetworkModeration.SetGlobalImageMaxResolution(NameToImageMaxResolution(value));
+                imageMaxResolutionDropdown.SetValueWithoutNotify(ImageMaxResolutionToName(BasisNetworkModeration.GlobalImageMaxResolutionK));
+            };
+
             PanelToggle gifsLock = PanelToggle.CreateNewEntry(container);
             gifsLock.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.lockGifs"));
             gifsLock.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.lockGifs.tooltip"));
@@ -183,6 +271,34 @@ namespace Basis.BasisUI
             mediaPlayerLock.SetValueWithoutNotify(BasisNetworkModeration.GlobalMediaPlayerLocked);
             mediaPlayerLock.OnValueChanged += _ => SendLockRequest(mediaPlayerLock, BasisNetworkModeration.GlobalToggleMediaPlayer, () => BasisNetworkModeration.GlobalMediaPlayerLocked);
 
+            PanelToggle videoClipsLock = PanelToggle.CreateNewEntry(container);
+            videoClipsLock.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.lockVideoClips"));
+            videoClipsLock.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.lockVideoClips.tooltip"));
+            videoClipsLock.SetValueWithoutNotify(BasisNetworkModeration.GlobalVideoClipsLocked);
+            videoClipsLock.OnValueChanged += _ => SendLockRequest(videoClipsLock, BasisNetworkModeration.GlobalToggleVideoClips, () => BasisNetworkModeration.GlobalVideoClipsLocked);
+
+            PanelDropdown videoClipMaxSizeDropdown = PanelDropdown.CreateNewEntry(container);
+            videoClipMaxSizeDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.videoClipMaxSize"));
+            videoClipMaxSizeDropdown.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.videoClipMaxSize.tooltip"));
+            videoClipMaxSizeDropdown.AssignEntries(new List<string>(VideoClipMaxSizeNames));
+            videoClipMaxSizeDropdown.SetValueWithoutNotify(VideoClipMaxSizeToName(BasisNetworkModeration.GlobalVideoClipMaxMegabytes));
+            videoClipMaxSizeDropdown.OnValueChanged += value =>
+            {
+                BasisNetworkModeration.SetGlobalVideoClipMaxMegabytes(NameToVideoClipMaxSize(value));
+                videoClipMaxSizeDropdown.SetValueWithoutNotify(VideoClipMaxSizeToName(BasisNetworkModeration.GlobalVideoClipMaxMegabytes));
+            };
+
+            PanelDropdown videoClipMaxPerPlayerDropdown = PanelDropdown.CreateNewEntry(container);
+            videoClipMaxPerPlayerDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.videoClipMaxPerPlayer"));
+            videoClipMaxPerPlayerDropdown.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.videoClipMaxPerPlayer.tooltip"));
+            videoClipMaxPerPlayerDropdown.AssignEntries(new List<string>(VideoClipMaxPerPlayerNames));
+            videoClipMaxPerPlayerDropdown.SetValueWithoutNotify(VideoClipMaxPerPlayerToName(BasisNetworkModeration.GlobalVideoClipMaxPerPlayer));
+            videoClipMaxPerPlayerDropdown.OnValueChanged += value =>
+            {
+                BasisNetworkModeration.SetGlobalVideoClipMaxPerPlayer(NameToVideoClipMaxPerPlayer(value));
+                videoClipMaxPerPlayerDropdown.SetValueWithoutNotify(VideoClipMaxPerPlayerToName(BasisNetworkModeration.GlobalVideoClipMaxPerPlayer));
+            };
+
             PanelToggle cameraCaptureLock = PanelToggle.CreateNewEntry(container);
             cameraCaptureLock.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.lockCameraCapture"));
             cameraCaptureLock.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.lockCameraCapture.tooltip"));
@@ -206,6 +322,18 @@ namespace Basis.BasisUI
             externalLinksLock.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.lockExternalLinks.tooltip"));
             externalLinksLock.SetValueWithoutNotify(BasisNetworkModeration.GlobalExternalLinksLocked);
             externalLinksLock.OnValueChanged += _ => SendLockRequest(externalLinksLock, BasisNetworkModeration.GlobalToggleExternalLinks, () => BasisNetworkModeration.GlobalExternalLinksLocked);
+
+            PanelToggle avatarHostingLock = PanelToggle.CreateNewEntry(container);
+            avatarHostingLock.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.lockAvatarHosting"));
+            avatarHostingLock.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.lockAvatarHosting.tooltip"));
+            avatarHostingLock.SetValueWithoutNotify(BasisNetworkModeration.GlobalAvatarHostingLocked);
+            avatarHostingLock.OnValueChanged += _ => SendLockRequest(avatarHostingLock, BasisNetworkModeration.GlobalToggleAvatarHosting, () => BasisNetworkModeration.GlobalAvatarHostingLocked);
+
+            for (int i = 0; i < LockSectionBuilders.Count; i++)
+            {
+                try { LockSectionBuilders[i]?.Invoke(container); }
+                catch (Exception e) { BasisDebug.LogError($"[Admin] lock section builder failed: {e}"); }
+            }
 
             PanelToggle safeDisplayNamesToggle = PanelToggle.CreateNewEntry(container);
             safeDisplayNamesToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.safeDisplayNames"));
@@ -233,6 +361,7 @@ namespace Basis.BasisUI
             controller.DirectConnectLockToggle = directConnectLock;
             controller.CilboxLockToggle = cilboxLock;
             controller.ImagesLockToggle = imagesLock;
+            controller.ImageMaxResolutionDropdown = imageMaxResolutionDropdown;
             controller.GifsLockToggle = gifsLock;
             controller.TextChatLockToggle = textChatLock;
             controller.VoiceChatLockToggle = voiceChatLock;
@@ -241,6 +370,10 @@ namespace Basis.BasisUI
             controller.PropGrabbingLockToggle = propGrabbingLock;
             controller.ContentRemovalLockToggle = contentRemovalLock;
             controller.ExternalLinksLockToggle = externalLinksLock;
+            controller.AvatarHostingLockToggle = avatarHostingLock;
+            controller.VideoClipsLockToggle = videoClipsLock;
+            controller.VideoClipMaxSizeDropdown = videoClipMaxSizeDropdown;
+            controller.VideoClipMaxPerPlayerDropdown = videoClipMaxPerPlayerDropdown;
             controller.SafeDisplayNamesToggle = safeDisplayNamesToggle;
             controller.EndEffectorIKToggle = endEffectorIKToggle;
 
@@ -553,6 +686,56 @@ namespace Basis.BasisUI
             resourceDirty.WatchNumericText(sphereLeaveTimeoutField, () => BasisNetworkModeration.ServerContentSphereLeaveTimeoutSeconds);
             resourceDirty.WatchNumericText(sphereDeletionTimerField, () => BasisNetworkModeration.ServerContentSphereDeletionTimerSeconds);
             controller.DirtySections.Add(resourceDirty);
+
+            // --- Network protection (flood and abuse limits; every registered setting, persisted and live) ---
+            PanelSectionDirtyState protectionDirty = new PanelSectionDirtyState();
+            PanelSectionToggle protectionToggle = PanelSectionToggle.CreateNewEntry(container);
+            protectionToggle.SetTitle(BasisLocalization.Get("settings.admin.title.networkProtection"));
+            int protectionStart = container.childCount;
+
+            PanelElementDescriptor protectionInfo = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            List<BasisProtectionSettings.Info> protectionSettings = BasisNetworkModeration.ServerProtectionSettings;
+            protectionInfo.SetDescription(BasisLocalization.Get(protectionSettings.Count == 0 ? "settings.admin.networkProtection.empty" : "settings.admin.networkProtection.description"));
+
+            string currentProtectionGroup = null;
+            foreach (BasisProtectionSettings.Info setting in protectionSettings)
+            {
+                if (setting.Group != currentProtectionGroup)
+                {
+                    currentProtectionGroup = setting.Group;
+                    PanelElementDescriptor groupHeader = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+                    groupHeader.SetDescription(currentProtectionGroup);
+                }
+                PanelTextField field = PanelTextField.CreateNewEntry(container);
+                field.Descriptor.SetTitle(setting.Title);
+                field.Descriptor.SetTooltip($"{setting.Description} ({FormatProtectionValue(setting.Min, setting.WholeNumber)} to {FormatProtectionValue(setting.Max, setting.WholeNumber)})");
+                field.SetValueWithoutNotify(FormatProtectionValue(setting.Value, setting.WholeNumber));
+                controller.ProtectionFields[setting.Key] = field;
+                string key = setting.Key;
+                protectionDirty.WatchNumericText(field, () => (float)ProtectionServerValue(key));
+            }
+
+            void ApplyProtectionSettings()
+            {
+                List<KeyValuePair<string, double>> changes = new List<KeyValuePair<string, double>>();
+                foreach (KeyValuePair<string, PanelTextField> pair in controller.ProtectionFields)
+                {
+                    if (!double.TryParse(pair.Value.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double typed)) continue;
+                    if (Math.Abs(typed - ProtectionServerValue(pair.Key)) > 1e-9) changes.Add(new KeyValuePair<string, double>(pair.Key, typed));
+                }
+                BasisNetworkModeration.SetProtectionSettings(changes);
+            }
+
+            if (protectionSettings.Count > 0)
+            {
+                PanelButton protectionApply = MakeApplyButton(container, protectionDirty);
+                protectionApply.OnClicked += ApplyProtectionSettings;
+            }
+
+            PanelElementDescriptor protectionBox = PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(
+                protectionToggle, container, protectionStart, false, _ => descriptor.ForceRebuild());
+            protectionDirty.Attach(protectionToggle, protectionBox);
+            controller.DirtySections.Add(protectionDirty);
 
             // --- Avatar reduction (BSR) tuning; persisted to config.xml, re-applied live ---
             PanelSectionDirtyState reductionDirty = new PanelSectionDirtyState();
@@ -1002,6 +1185,19 @@ namespace Basis.BasisUI
             return mode >= 0 && mode <= (int)BasisLocalCharacterDriver.Mode.NoClip ? mode + 1 : 0;
         }
 
+        private static string FormatProtectionValue(double value, bool wholeNumber) => wholeNumber
+            ? Math.Round(value).ToString("0", System.Globalization.CultureInfo.InvariantCulture)
+            : value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+
+        private static double ProtectionServerValue(string key)
+        {
+            foreach (BasisProtectionSettings.Info info in BasisNetworkModeration.ServerProtectionSettings)
+            {
+                if (info.Key == key) return info.Value;
+            }
+            return 0;
+        }
+
         private static PanelButton MakeApplyButton(RectTransform container, PanelSectionDirtyState dirty)
         {
             PanelButton button = PanelButton.CreateNew(container);
@@ -1197,6 +1393,7 @@ namespace Basis.BasisUI
         /// </summary>
         private sealed class AdminTabController : MonoBehaviour
         {
+            public readonly Dictionary<string, PanelTextField> ProtectionFields = new Dictionary<string, PanelTextField>();
             public PanelToggle AvatarLockToggle;
             public PanelToggle PropLockToggle;
             public PanelToggle WorldLockToggle;
@@ -1218,6 +1415,7 @@ namespace Basis.BasisUI
             public PanelToggle DirectConnectLockToggle;
             public PanelToggle CilboxLockToggle;
             public PanelToggle ImagesLockToggle;
+            public PanelDropdown ImageMaxResolutionDropdown;
             public PanelToggle GifsLockToggle;
             public PanelToggle TextChatLockToggle;
             public PanelToggle VoiceChatLockToggle;
@@ -1226,6 +1424,10 @@ namespace Basis.BasisUI
             public PanelToggle PropGrabbingLockToggle;
             public PanelToggle ContentRemovalLockToggle;
             public PanelToggle ExternalLinksLockToggle;
+            public PanelToggle AvatarHostingLockToggle;
+            public PanelToggle VideoClipsLockToggle;
+            public PanelDropdown VideoClipMaxSizeDropdown;
+            public PanelDropdown VideoClipMaxPerPlayerDropdown;
             public PanelToggle SafeDisplayNamesToggle;
             public PanelToggle EndEffectorIKToggle;
             public PanelSlider MinAvatarHeightSlider;
@@ -1317,6 +1519,8 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalCilboxLockChanged += OnGlobalCilboxLockChanged;
                 BasisNetworkModeration.OnGlobalImagesLockedChanged -= OnGlobalImagesLockedChanged;
                 BasisNetworkModeration.OnGlobalImagesLockedChanged += OnGlobalImagesLockedChanged;
+                BasisNetworkModeration.OnGlobalImageMaxResolutionChanged -= OnGlobalImageMaxResolutionChanged;
+                BasisNetworkModeration.OnGlobalImageMaxResolutionChanged += OnGlobalImageMaxResolutionChanged;
                 BasisNetworkModeration.OnGlobalGifsLockedChanged -= OnGlobalGifsLockedChanged;
                 BasisNetworkModeration.OnGlobalGifsLockedChanged += OnGlobalGifsLockedChanged;
                 BasisNetworkModeration.OnGlobalTextChatLockedChanged -= OnGlobalTextChatLockedChanged;
@@ -1333,6 +1537,14 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalContentRemovalLockedChanged += OnGlobalContentRemovalLockedChanged;
                 BasisNetworkModeration.OnGlobalExternalLinksLockedChanged -= OnGlobalExternalLinksLockedChanged;
                 BasisNetworkModeration.OnGlobalExternalLinksLockedChanged += OnGlobalExternalLinksLockedChanged;
+                BasisNetworkModeration.OnGlobalAvatarHostingLockedChanged -= OnGlobalAvatarHostingLockedChanged;
+                BasisNetworkModeration.OnGlobalAvatarHostingLockedChanged += OnGlobalAvatarHostingLockedChanged;
+                BasisNetworkModeration.OnGlobalVideoClipsLockedChanged -= OnGlobalVideoClipsLockedChanged;
+                BasisNetworkModeration.OnGlobalVideoClipsLockedChanged += OnGlobalVideoClipsLockedChanged;
+                BasisNetworkModeration.OnGlobalVideoClipMaxMegabytesChanged -= OnGlobalVideoClipMaxMegabytesChanged;
+                BasisNetworkModeration.OnGlobalVideoClipMaxMegabytesChanged += OnGlobalVideoClipMaxMegabytesChanged;
+                BasisNetworkModeration.OnGlobalVideoClipMaxPerPlayerChanged -= OnGlobalVideoClipMaxPerPlayerChanged;
+                BasisNetworkModeration.OnGlobalVideoClipMaxPerPlayerChanged += OnGlobalVideoClipMaxPerPlayerChanged;
                 BasisNetworkModeration.OnGlobalSafeDisplayNamesForcedChanged -= OnGlobalSafeDisplayNamesForcedChanged;
                 BasisNetworkModeration.OnGlobalSafeDisplayNamesForcedChanged += OnGlobalSafeDisplayNamesForcedChanged;
                 BasisNetworkModeration.OnGlobalEndEffectorIKDisabledChanged -= OnGlobalEndEffectorIKDisabledChanged;
@@ -1343,6 +1555,8 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnLocomotionPolicyChanged += OnLocomotionPolicyChanged;
                 BasisNetworkModeration.OnResourceLimitsChanged -= OnResourceLimitsChanged;
                 BasisNetworkModeration.OnResourceLimitsChanged += OnResourceLimitsChanged;
+                BasisNetworkModeration.OnProtectionSettingsChanged -= OnProtectionSettingsChanged;
+                BasisNetworkModeration.OnProtectionSettingsChanged += OnProtectionSettingsChanged;
                 BasisNetworkModeration.OnReductionSettingsChanged -= OnReductionSettingsChanged;
                 BasisNetworkModeration.OnReductionSettingsChanged += OnReductionSettingsChanged;
                 BasisNetworkModeration.OnImageBandwidthChanged -= OnImageBandwidthChanged;
@@ -1371,6 +1585,7 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalDirectConnectLockedChanged -= OnGlobalDirectConnectLockedChanged;
                 BasisNetworkModeration.OnGlobalCilboxLockChanged -= OnGlobalCilboxLockChanged;
                 BasisNetworkModeration.OnGlobalImagesLockedChanged -= OnGlobalImagesLockedChanged;
+                BasisNetworkModeration.OnGlobalImageMaxResolutionChanged -= OnGlobalImageMaxResolutionChanged;
                 BasisNetworkModeration.OnGlobalGifsLockedChanged -= OnGlobalGifsLockedChanged;
                 BasisNetworkModeration.OnGlobalTextChatLockedChanged -= OnGlobalTextChatLockedChanged;
                 BasisNetworkModeration.OnGlobalVoiceChatLockedChanged -= OnGlobalVoiceChatLockedChanged;
@@ -1379,11 +1594,16 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalPropGrabbingLockedChanged -= OnGlobalPropGrabbingLockedChanged;
                 BasisNetworkModeration.OnGlobalContentRemovalLockedChanged -= OnGlobalContentRemovalLockedChanged;
                 BasisNetworkModeration.OnGlobalExternalLinksLockedChanged -= OnGlobalExternalLinksLockedChanged;
+                BasisNetworkModeration.OnGlobalVideoClipsLockedChanged -= OnGlobalVideoClipsLockedChanged;
+                BasisNetworkModeration.OnGlobalVideoClipMaxMegabytesChanged -= OnGlobalVideoClipMaxMegabytesChanged;
+                BasisNetworkModeration.OnGlobalVideoClipMaxPerPlayerChanged -= OnGlobalVideoClipMaxPerPlayerChanged;
+                BasisNetworkModeration.OnGlobalAvatarHostingLockedChanged -= OnGlobalAvatarHostingLockedChanged;
                 BasisNetworkModeration.OnGlobalSafeDisplayNamesForcedChanged -= OnGlobalSafeDisplayNamesForcedChanged;
                 BasisNetworkModeration.OnGlobalEndEffectorIKDisabledChanged -= OnGlobalEndEffectorIKDisabledChanged;
                 BasisNetworkModeration.OnAvatarScaleLimitsChanged -= OnAvatarScaleLimitsChanged;
                 BasisNetworkModeration.OnLocomotionPolicyChanged -= OnLocomotionPolicyChanged;
                 BasisNetworkModeration.OnResourceLimitsChanged -= OnResourceLimitsChanged;
+                BasisNetworkModeration.OnProtectionSettingsChanged -= OnProtectionSettingsChanged;
                 BasisNetworkModeration.OnReductionSettingsChanged -= OnReductionSettingsChanged;
                 BasisNetworkModeration.OnImageBandwidthChanged -= OnImageBandwidthChanged;
                 BasisNetworkModeration.OnPeerLimitChanged -= OnPeerLimitChanged;
@@ -1407,6 +1627,7 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalDirectConnectLockedChanged -= OnGlobalDirectConnectLockedChanged;
                 BasisNetworkModeration.OnGlobalCilboxLockChanged -= OnGlobalCilboxLockChanged;
                 BasisNetworkModeration.OnGlobalImagesLockedChanged -= OnGlobalImagesLockedChanged;
+                BasisNetworkModeration.OnGlobalImageMaxResolutionChanged -= OnGlobalImageMaxResolutionChanged;
                 BasisNetworkModeration.OnGlobalGifsLockedChanged -= OnGlobalGifsLockedChanged;
                 BasisNetworkModeration.OnGlobalTextChatLockedChanged -= OnGlobalTextChatLockedChanged;
                 BasisNetworkModeration.OnGlobalVoiceChatLockedChanged -= OnGlobalVoiceChatLockedChanged;
@@ -1415,11 +1636,16 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalPropGrabbingLockedChanged -= OnGlobalPropGrabbingLockedChanged;
                 BasisNetworkModeration.OnGlobalContentRemovalLockedChanged -= OnGlobalContentRemovalLockedChanged;
                 BasisNetworkModeration.OnGlobalExternalLinksLockedChanged -= OnGlobalExternalLinksLockedChanged;
+                BasisNetworkModeration.OnGlobalVideoClipsLockedChanged -= OnGlobalVideoClipsLockedChanged;
+                BasisNetworkModeration.OnGlobalVideoClipMaxMegabytesChanged -= OnGlobalVideoClipMaxMegabytesChanged;
+                BasisNetworkModeration.OnGlobalVideoClipMaxPerPlayerChanged -= OnGlobalVideoClipMaxPerPlayerChanged;
+                BasisNetworkModeration.OnGlobalAvatarHostingLockedChanged -= OnGlobalAvatarHostingLockedChanged;
                 BasisNetworkModeration.OnGlobalSafeDisplayNamesForcedChanged -= OnGlobalSafeDisplayNamesForcedChanged;
                 BasisNetworkModeration.OnGlobalEndEffectorIKDisabledChanged -= OnGlobalEndEffectorIKDisabledChanged;
                 BasisNetworkModeration.OnAvatarScaleLimitsChanged -= OnAvatarScaleLimitsChanged;
                 BasisNetworkModeration.OnLocomotionPolicyChanged -= OnLocomotionPolicyChanged;
                 BasisNetworkModeration.OnResourceLimitsChanged -= OnResourceLimitsChanged;
+                BasisNetworkModeration.OnProtectionSettingsChanged -= OnProtectionSettingsChanged;
                 BasisNetworkModeration.OnReductionSettingsChanged -= OnReductionSettingsChanged;
                 BasisNetworkModeration.OnImageBandwidthChanged -= OnImageBandwidthChanged;
                 BasisNetworkModeration.OnPeerLimitChanged -= OnPeerLimitChanged;
@@ -1520,6 +1746,11 @@ namespace Basis.BasisUI
                 if (ImagesLockToggle != null) ImagesLockToggle.SetValueWithoutNotify(locked);
             }
 
+            private void OnGlobalImageMaxResolutionChanged(int k)
+            {
+                if (ImageMaxResolutionDropdown != null) ImageMaxResolutionDropdown.SetValueWithoutNotify(ImageMaxResolutionToName(k));
+            }
+
             private void OnGlobalGifsLockedChanged(bool locked)
             {
                 if (GifsLockToggle != null) GifsLockToggle.SetValueWithoutNotify(locked);
@@ -1565,6 +1796,26 @@ namespace Basis.BasisUI
                 if (ExternalLinksLockToggle != null) ExternalLinksLockToggle.SetValueWithoutNotify(locked);
             }
 
+            private void OnGlobalAvatarHostingLockedChanged(bool locked)
+            {
+                if (AvatarHostingLockToggle != null) AvatarHostingLockToggle.SetValueWithoutNotify(locked);
+            }
+
+            private void OnGlobalVideoClipMaxPerPlayerChanged(int count)
+            {
+                if (VideoClipMaxPerPlayerDropdown != null) VideoClipMaxPerPlayerDropdown.SetValueWithoutNotify(VideoClipMaxPerPlayerToName(count));
+            }
+
+            private void OnGlobalVideoClipMaxMegabytesChanged(int megabytes)
+            {
+                if (VideoClipMaxSizeDropdown != null) VideoClipMaxSizeDropdown.SetValueWithoutNotify(VideoClipMaxSizeToName(megabytes));
+            }
+
+            private void OnGlobalVideoClipsLockedChanged(bool locked)
+            {
+                if (VideoClipsLockToggle != null) VideoClipsLockToggle.SetValueWithoutNotify(locked);
+            }
+
             private void OnGlobalEndEffectorIKDisabledChanged(bool disabled)
             {
                 if (EndEffectorIKToggle != null) EndEffectorIKToggle.SetValueWithoutNotify(!disabled);
@@ -1595,6 +1846,15 @@ namespace Basis.BasisUI
                 }
 
                 ApplyPolicySliderVisibility?.Invoke();
+                ReevaluateDirty();
+            }
+
+            private void OnProtectionSettingsChanged(List<BasisProtectionSettings.Info> settings)
+            {
+                foreach (BasisProtectionSettings.Info setting in settings)
+                {
+                    if (ProtectionFields.TryGetValue(setting.Key, out PanelTextField field) && field != null) field.SetValueWithoutNotify(FormatProtectionValue(setting.Value, setting.WholeNumber));
+                }
                 ReevaluateDirty();
             }
 

@@ -668,6 +668,12 @@ public sealed class BasisAvatarProxyPose
         return BasisAvatarProxyJobs.MatrixAt(Offset + index);
     }
 
+    public bool TryNormalRowsAt(int index, out Vector4 n0, out Vector4 n1, out Vector4 n2)
+    {
+        if (Offset < 0 || index < 0 || index >= Limbs.Count) { n0 = n1 = n2 = default; return false; }
+        return BasisAvatarProxyJobs.TryNormalRowsAt(Offset + index, out n0, out n1, out n2);
+    }
+
     internal void Resolve(List<BasisAvatarProxy.ResolvedLimb> limbs)
     {
         Limbs.Clear();

@@ -337,7 +337,15 @@ namespace UnityEngine.Rendering.Universal
         }
         private TextureHandle _ssrTexture;
 
-#if ENABLE_UPSCALER_FRAMEWORK
+        public TextureHandle basisSurfaceTexture
+        {
+            get => CheckAndGetTextureHandle(ref _basisSurfaceTexture);
+            set => CheckAndSetTextureHandle(ref _basisSurfaceTexture, value);
+        }
+        private TextureHandle _basisSurfaceTexture;
+
+        public bool basisSurfaceWritten { get; internal set; }
+
         /// <summary>
         /// Copy of camera color before post processing is executed.
         /// </summary>
@@ -347,7 +355,6 @@ namespace UnityEngine.Rendering.Universal
             set => CheckAndSetTextureHandle(ref _cameraColorBeforePP, value);
         }
         private TextureHandle _cameraColorBeforePP;
-#endif
 
         /// <summary>
         /// Screen Space reflection ray travel distances, blurred into a mip chain. Only valid when contact hardening
@@ -412,10 +419,10 @@ namespace UnityEngine.Rendering.Universal
             _ssaoTexture = TextureHandle.nullHandle;
             _irradianceTexture = TextureHandle.nullHandle;
             _ssrTexture = TextureHandle.nullHandle;
+            _basisSurfaceTexture = TextureHandle.nullHandle;
+            basisSurfaceWritten = false;
             _ssrRayDistanceTexture = TextureHandle.nullHandle;
-#if ENABLE_UPSCALER_FRAMEWORK
             _cameraColorBeforePP = TextureHandle.nullHandle;
-#endif
             _stpDebugView = TextureHandle.nullHandle;
             _destinationCameraColor = TextureHandle.nullHandle;
             _exposureMultiplier = TextureHandle.nullHandle;

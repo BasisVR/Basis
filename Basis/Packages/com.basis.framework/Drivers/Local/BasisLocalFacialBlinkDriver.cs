@@ -333,8 +333,10 @@ namespace Basis.Scripts.Drivers
 
             return false;
         }
+        public float CurrentWeight;
         public void SafeSetBlendShape(int idx,float blendWeight)
         {
+            CurrentWeight = blendWeight;
             if (meshRenderer == null || meshRenderer.sharedMesh == null) return;
             if (idx >= 0 && idx < meshRenderer.sharedMesh.blendShapeCount)
             {

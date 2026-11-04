@@ -3,13 +3,13 @@
     "rootNamespace": "",
     "references": [
         "Basis Framework",
+        "Basis.Constraints",
         "BasisSDK",
         "Unity.Animation.Rigging",
         "Unity.Collections",
         "Unity.Mathematics",
         "Unity.Burst",
-        "UnityEngine.TestRunner",
-        "HVR.Basis.Comms"
+        "UnityEngine.TestRunner"
     ],
     "includePlatforms": [
         "Editor"

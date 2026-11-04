@@ -1,0 +1,310 @@
+{
+  "code": "en",
+  "nativeName": "English",
+  "entries": [
+    {
+      "key": "menu.provider.screenShare",
+      "value": "Screen Share"
+    },
+    {
+      "key": "library.embedded.screenShare",
+      "value": "Screen Share"
+    },
+    {
+      "key": "screenShare.yourShare",
+      "value": "Your Screen"
+    },
+    {
+      "key": "screenShare.source",
+      "value": "Share"
+    },
+    {
+      "key": "screenShare.source.tooltip",
+      "value": "The display or window everyone near the screen will see."
+    },
+    {
+      "key": "screenShare.source.display",
+      "value": "{0} ({1}×{2})"
+    },
+    {
+      "key": "screenShare.source.none",
+      "value": "No displays or windows found"
+    },
+    {
+      "key": "screenShare.refreshSources",
+      "value": "Refresh List"
+    },
+    {
+      "key": "screenShare.resolution",
+      "value": "Resolution"
+    },
+    {
+      "key": "screenShare.resolution.tooltip",
+      "value": "The largest size the picture is sent at. A smaller source is never scaled up."
+    },
+    {
+      "key": "screenShare.resolution.native",
+      "value": "Native"
+    },
+    {
+      "key": "screenShare.resolution.1440",
+      "value": "1440p"
+    },
+    {
+      "key": "screenShare.resolution.1080",
+      "value": "1080p"
+    },
+    {
+      "key": "screenShare.resolution.720",
+      "value": "720p"
+    },
+    {
+      "key": "screenShare.resolution.480",
+      "value": "480p"
+    },
+    {
+      "key": "screenShare.frameRate",
+      "value": "Frame Rate"
+    },
+    {
+      "key": "screenShare.frameRate.tooltip",
+      "value": "How often the picture updates. 60 suits games and video, 15 or 5 suit documents and slides and leave more bandwidth for detail."
+    },
+    {
+      "key": "screenShare.frameRate.60",
+      "value": "60 fps"
+    },
+    {
+      "key": "screenShare.frameRate.30",
+      "value": "30 fps"
+    },
+    {
+      "key": "screenShare.frameRate.15",
+      "value": "15 fps"
+    },
+    {
+      "key": "screenShare.frameRate.5",
+      "value": "5 fps"
+    },
+    {
+      "key": "screenShare.quality",
+      "value": "Quality"
+    },
+    {
+      "key": "screenShare.quality.tooltip",
+      "value": "How much bandwidth the picture may use. Auto picks a bitrate from the resolution and frame rate; the server sets the upper limit."
+    },
+    {
+      "key": "screenShare.quality.auto",
+      "value": "Auto"
+    },
+    {
+      "key": "screenShare.quality.low",
+      "value": "Low"
+    },
+    {
+      "key": "screenShare.quality.high",
+      "value": "High"
+    },
+    {
+      "key": "screenShare.quality.max",
+      "value": "Maximum"
+    },
+    {
+      "key": "screenShare.audio",
+      "value": "Share Computer Audio"
+    },
+    {
+      "key": "screenShare.audio.tooltip",
+      "value": "Send what your computer is playing, except Basis itself, so people near the screen hear it from the screen."
+    },
+    {
+      "key": "screenShare.cursor",
+      "value": "Show Mouse Pointer"
+    },
+    {
+      "key": "screenShare.start",
+      "value": "Start Sharing"
+    },
+    {
+      "key": "screenShare.stop",
+      "value": "Stop Sharing"
+    },
+    {
+      "key": "screenShare.viewing",
+      "value": "Watching"
+    },
+    {
+      "key": "screenShare.viewing.none",
+      "value": "Nobody else is sharing a screen."
+    },
+    {
+      "key": "screenShare.viewing.count",
+      "value": "Screens shared by others: {0}"
+    },
+    {
+      "key": "screenShare.receive",
+      "value": "Show Other People's Screens"
+    },
+    {
+      "key": "screenShare.receive.tooltip",
+      "value": "Off, no screen share is downloaded and other people's screens stay blank."
+    },
+    {
+      "key": "screenShare.viewDistance",
+      "value": "View Distance (m)"
+    },
+    {
+      "key": "screenShare.viewDistance.tooltip",
+      "value": "A screen further away than this is not downloaded until you come closer."
+    },
+    {
+      "key": "screenShare.volume",
+      "value": "Screen Share Volume"
+    },
+    {
+      "key": "screenShare.status.none",
+      "value": "Spawn Screen Share from your Library to share your screen."
+    },
+    {
+      "key": "screenShare.status.idle",
+      "value": "Not sharing. Pick what to share and press Start Sharing."
+    },
+    {
+      "key": "screenShare.status.offline",
+      "value": "Not sharing. Join a server to share your screen."
+    },
+    {
+      "key": "screenShare.status.unsupportedServer",
+      "value": "Not sharing. This server does not support screen sharing."
+    },
+    {
+      "key": "screenShare.status.starting",
+      "value": "Starting…"
+    },
+    {
+      "key": "screenShare.status.waiting",
+      "value": "Sharing {0}. Waiting for the server…"
+    },
+    {
+      "key": "screenShare.status.live",
+      "value": "Sharing {0} with {1} watching"
+    },
+    {
+      "key": "screenShare.status.error",
+      "value": "Stopped: {0}"
+    },
+    {
+      "key": "screenShare.status.noAudio",
+      "value": "Computer audio is not being shared: {0}"
+    },
+    {
+      "key": "screenShare.error.unsupported",
+      "value": "Sharing your screen needs Windows 10 version 2004 or later. You can still watch other people's screens."
+    },
+    {
+      "key": "screenShare.error.open",
+      "value": "The screen could not be captured."
+    },
+    {
+      "key": "screenShare.error.permission",
+      "value": "This server does not allow you to share your screen."
+    },
+    {
+      "key": "screenShare.error.tooMany",
+      "value": "This server is already showing as many screen shares as it allows."
+    },
+    {
+      "key": "screenShare.error.refused",
+      "value": "The server refused the screen share."
+    },
+    {
+      "key": "screenShare.error.ended",
+      "value": "The shared display or window went away."
+    },
+    {
+      "key": "screenShare.back.sharedBy",
+      "value": "Shared by {0}"
+    },
+    {
+      "key": "screenShare.back.yours",
+      "value": "Your screen"
+    },
+    {
+      "key": "screenShare.back.hide",
+      "value": "Hide"
+    },
+    {
+      "key": "screenShare.panel.live",
+      "value": "LIVE"
+    },
+    {
+      "key": "screenShare.panel.watching",
+      "value": "{0} watching"
+    },
+    {
+      "key": "screenShare.panel.details",
+      "value": "{0}×{1} · {2} fps"
+    },
+    {
+      "key": "screenShare.showHidden",
+      "value": "Show Hidden Screens"
+    },
+    {
+      "key": "screenShare.viewing.hidden",
+      "value": "Hidden by you: {0}"
+    },
+    {
+      "key": "settings.admin.title.lockScreenShare",
+      "value": "Lock Screen Sharing"
+    },
+    {
+      "key": "settings.admin.title.lockScreenShare.tooltip",
+      "value": "Stop players without the global lock permission from sharing their screen. Running shares by those players end at once; admins can still share."
+    },
+    {
+      "key": "screenShare.status.locked",
+      "value": "Screen sharing is turned off on this server."
+    },
+    {
+      "key": "screenShare.error.locked",
+      "value": "An admin turned off screen sharing on this server."
+    },
+    {
+      "key": "screenShare.error.restart",
+      "value": "The media plugin was updated. Restart to use screen sharing."
+    },
+    {
+      "key": "screenShare.audioSource",
+      "value": "Audio Source"
+    },
+    {
+      "key": "screenShare.audioSource.tooltip",
+      "value": "Auto shares only the shared window's app when you share a window, and everything except Basis when you share a display."
+    },
+    {
+      "key": "screenShare.audioSource.auto",
+      "value": "Auto"
+    },
+    {
+      "key": "screenShare.audioSource.application",
+      "value": "This App Only"
+    },
+    {
+      "key": "screenShare.audioSource.system",
+      "value": "Whole Computer"
+    },
+    {
+      "key": "screenShare.source.portal",
+      "value": "Screen or window (chosen in the system dialog)"
+    },
+    {
+      "key": "screenShare.status.choose",
+      "value": "Choose what to share in the system dialog…"
+    },
+    {
+      "key": "screenShare.error.pluginMissing",
+      "value": "This build's media plugin can't share screens. Rebuild the plugin for this platform."
+    }
+  ]
+}

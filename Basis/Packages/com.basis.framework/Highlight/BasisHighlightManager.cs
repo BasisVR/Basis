@@ -12,7 +12,12 @@ namespace Basis.Scripts.BasisSdk.Highlight
     ///  - <see cref="Overrides"/> records *capability* (renderer => (mode, mask material)).
     ///    Authored by <see cref="BasisHighlightOverride"/>.
     ///  - <see cref="Active"/> records *state* (renderer is currently highlighted).
-    ///    Driven by hover/interaction code via <see cref="Highlight"/> / <see cref="Unhighlight"/>.
+    ///    Driven by hover/interaction code via <see cref="Highlight(Renderer)"/> / <see cref="Unhighlight"/>.
+    ///  - <see cref="ActiveColors"/> records an optional outline colour per active renderer,
+    ///    set via <see cref="Highlight(Renderer, Color)"/>. The composite draws one ring colour
+    ///    per frame, so while any coloured highlight is active the most recently coloured one
+    ///    wins for the whole mask (see <see cref="TryGetColorOverride"/>); otherwise the
+    ///    feature's configured colour is used.
     ///
     /// The static methods are thin facades that delegate to <see cref="Instance"/>. An
     /// implementing application can replace <see cref="Instance"/> with a subclass during
@@ -43,6 +48,11 @@ namespace Basis.Scripts.BasisSdk.Highlight
         // Renderer => cached submesh count, resolved once at Highlight() registration
         protected readonly Dictionary<Renderer, int> Active = new();
 
+        // Renderer => outline colour and width scale requested by the caller (subset of Active)
+        protected readonly Dictionary<Renderer, (Color color, float widthScale)> ActiveColors = new();
+        private Color _colorOverride;
+        private float _widthScaleOverride = 1f;
+
         // Scratch list reused across DrawAll calls to drop fake-null entries
         // without allocating each frame.
         private readonly List<Renderer> _pruneScratch = new();
@@ -57,6 +67,25 @@ namespace Basis.Scripts.BasisSdk.Highlight
         public static void UnregisterOverride(Renderer r) => Instance.UnregisterOverrideImpl(r);
 
         public static void Highlight(Renderer r) => Instance.HighlightImpl(r);
+
+        /// <summary>
+        /// Highlight <paramref name="r"/> with its own outline colour instead of the
+        /// feature's configured one, and optionally a multiplier on the configured outline
+        /// width (rounded to whole mask pixels, never below 1). Cleared by <see cref="Unhighlight"/>.
+        /// </summary>
+        public static void Highlight(Renderer r, Color color, float widthScale = 1f) => Instance.HighlightImpl(r, color, widthScale);
+
+        /// <summary>
+        /// The outline colour the composite should use this frame, if any active
+        /// highlight asked for one.
+        /// </summary>
+        public static bool TryGetColorOverride(out Color color) => Instance.TryGetColorOverrideImpl(out color);
+
+        /// <summary>
+        /// The multiplier on the configured outline width for this frame; 1 unless a
+        /// coloured highlight asked for another width (same winner as the colour).
+        /// </summary>
+        public static float WidthScale => Instance.WidthScaleImpl;
 
         public static void Unhighlight(Renderer r) => Instance.UnhighlightImpl(r);
 
@@ -89,6 +118,7 @@ namespace Basis.Scripts.BasisSdk.Highlight
             }
 
             Overrides.Remove(r);
+            RemoveColor(r);
             // If the renderer was being highlighted at the moment of teardown,
             // drop it from Active too. The pass would lazy-prune it next frame
             // anyway, but this keeps state consistent for ActiveCount.
@@ -105,6 +135,43 @@ namespace Basis.Scripts.BasisSdk.Highlight
             }
 
             Active[r] = ResolveSubmeshCount(r);
+        }
+
+        protected virtual void HighlightImpl(Renderer r, Color color, float widthScale)
+        {
+            if (r == null)
+            {
+                return;
+            }
+
+            HighlightImpl(r);
+            ActiveColors[r] = (color, widthScale);
+            _colorOverride = color;
+            _widthScaleOverride = widthScale;
+        }
+
+        protected virtual bool TryGetColorOverrideImpl(out Color color)
+        {
+            color = _colorOverride;
+            return ActiveColors.Count > 0;
+        }
+
+        protected virtual float WidthScaleImpl => ActiveColors.Count > 0 ? _widthScaleOverride : 1f;
+
+        private void RemoveColor(Renderer r)
+        {
+            if (!ActiveColors.Remove(r) || ActiveColors.Count == 0)
+            {
+                return;
+            }
+
+            // Fall back to any remaining coloured highlight. Struct enumerator, no allocation.
+            foreach (KeyValuePair<Renderer, (Color color, float widthScale)> kv in ActiveColors)
+            {
+                _colorOverride = kv.Value.color;
+                _widthScaleOverride = kv.Value.widthScale;
+                break;
+            }
         }
 
         // Resolve the draw-index bound (submesh count) once at registration
@@ -125,12 +192,15 @@ namespace Basis.Scripts.BasisSdk.Highlight
 
         protected virtual void UnhighlightImpl(Renderer r)
         {
-            if (r == null)
+            // Reference check, not Unity's fake-null: a renderer destroyed while
+            // highlighted must still leave Active/ActiveColors right away.
+            if (ReferenceEquals(r, null))
             {
                 return;
             }
 
             Active.Remove(r);
+            RemoveColor(r);
         }
 
         protected virtual void SetHighlightImpl(Renderer r, bool active)
@@ -204,6 +274,7 @@ namespace Basis.Scripts.BasisSdk.Highlight
                 foreach (Renderer r in _pruneScratch)
                 {
                     Active.Remove(r);
+                    RemoveColor(r);
                 }
 
                 _pruneScratch.Clear();

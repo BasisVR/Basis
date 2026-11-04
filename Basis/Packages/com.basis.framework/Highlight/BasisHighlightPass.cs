@@ -174,7 +174,12 @@ namespace Basis.Scripts.BasisSdk.Highlight
             TextureHandle dilated = UniversalRenderer.CreateRenderGraphTexture(
                 renderGraph, maskDesc, "_BasisHighlightDilated", clear: false);
 
-            float dilateRadius = Mathf.Clamp(_settings.outlineWidth, 0, 8);
+            float dilateRadius = _settings.outlineWidth;
+            if (dilateRadius > 0f)
+            {
+                dilateRadius = Mathf.Max(1f, Mathf.Round(dilateRadius * BasisHighlightManager.WidthScale));
+            }
+            dilateRadius = Mathf.Clamp(dilateRadius, 0, 8);
             Blit1D(renderGraph, rawMask, dilateH, _settings.blurMaterial, PassDilateH,
                 blurRadius: 0f, dilateRadius: dilateRadius, "BasisHighlight DilateH");
             Blit1D(renderGraph, dilateH, dilated, _settings.blurMaterial, PassDilateV,
@@ -260,7 +265,7 @@ namespace Basis.Scripts.BasisSdk.Highlight
                 data.glow = glow;
                 data.dilated = dilatedSoft; // softened mask drives ring AA
                 data.rawMask = rawSoft; // inner-softened mask drives inner-edge AA
-                data.color = _outlineColor;
+                data.color = BasisHighlightManager.TryGetColorOverride(out Color colorOverride) ? colorOverride : _outlineColor;
                 data.softness = _settings.ringSoftness;
                 data.glowIntensity = _settings.glowIntensity;
                 data.interiorFill = _settings.interiorFill;

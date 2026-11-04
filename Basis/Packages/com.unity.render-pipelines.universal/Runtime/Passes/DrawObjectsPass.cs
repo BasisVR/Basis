@@ -159,6 +159,7 @@ namespace UnityEngine.Rendering.Universal.Internal
             internal TextureHandle screenSpaceIrradianceHdl;
             internal TextureHandle screenSpaceReflectionHdl;
             internal TextureHandle screenSpaceReflectionRayDistanceHdl;
+            internal bool basisSurface;
 
             internal UniversalCameraData cameraData;
             internal UniversalShadowData shadowData;
@@ -224,6 +225,23 @@ namespace UnityEngine.Rendering.Universal.Internal
             }
         }
 
+        internal static readonly GlobalKeyword BasisSurfaceKeyword = GlobalKeyword.Create("_BASIS_SURFACE_MRT");
+
+        internal static bool BindBasisSurface(RenderGraph renderGraph, IRasterRenderGraphBuilder builder, UniversalResourceData resourceData, in TextureHandle colorTarget, int index)
+        {
+            TextureHandle surface = resourceData.basisSurfaceTexture;
+            if (!surface.IsValid() || !colorTarget.IsValid()) { return false; }
+            TextureDesc colorDesc = renderGraph.GetTextureDesc(colorTarget);
+            TextureDesc surfaceDesc = renderGraph.GetTextureDesc(surface);
+            if (colorDesc.msaaSamples != surfaceDesc.msaaSamples || colorDesc.slices != surfaceDesc.slices || colorDesc.dimension != surfaceDesc.dimension) { return false; }
+            if (colorDesc.sizeMode != surfaceDesc.sizeMode) { return false; }
+            if (colorDesc.sizeMode == TextureSizeMode.Explicit && (colorDesc.width != surfaceDesc.width || colorDesc.height != surfaceDesc.height)) { return false; }
+            if (colorDesc.sizeMode == TextureSizeMode.Scale && colorDesc.scale != surfaceDesc.scale) { return false; }
+            builder.SetRenderAttachment(surface, index, AccessFlags.Write);
+            resourceData.basisSurfaceWritten = true;
+            return true;
+        }
+
         internal static bool CanDisableZWrite(UniversalCameraData cameraData, bool isOpaque)
         {
             return cameraData.renderer.useDepthPriming && isOpaque && (cameraData.renderType == CameraRenderType.Base || cameraData.clearDepth);
@@ -250,6 +268,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                     passData.albedoHdl = colorTarget;
                     builder.SetRenderAttachment(colorTarget, 0, AccessFlags.Write);
                 }
+                passData.basisSurface = isMainOpaquePass && m_IsOpaque && BindBasisSurface(renderGraph, builder, resourceData, colorTarget, 1);
 
                 if (depthTarget.IsValid())
                 {
@@ -361,6 +380,8 @@ namespace UnityEngine.Rendering.Universal.Internal
 
                     bool yFlip = RenderingUtils.IsHandleYFlipped(context, in (data.albedoHdl.IsValid() ? ref data.albedoHdl : ref data.depthHdl));
 
+                    if (data.basisSurface) { context.cmd.SetKeyword(BasisSurfaceKeyword, true); }
+
                     bool useScreenSpaceIrradiance = data.screenSpaceIrradianceHdl.IsValid();
                     context.cmd.SetKeyword(ShaderGlobalKeywords.ScreenSpaceIrradiance, useScreenSpaceIrradiance);
                     if (useScreenSpaceIrradiance)
@@ -379,6 +400,8 @@ namespace UnityEngine.Rendering.Universal.Internal
                     }
 
                     ExecutePass(context.cmd, data, data.rendererListHdl, data.objectsWithErrorRendererListHdl, yFlip);
+
+                    if (data.basisSurface) { context.cmd.SetKeyword(BasisSurfaceKeyword, false); }
                 });
             }
         }
@@ -434,6 +457,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                 passData.basePassData.albedoHdl = colorTarget;
                 builder.SetRenderAttachment(colorTarget, 0, AccessFlags.Write);
                 builder.SetRenderAttachment(renderingLayersTexture, 1, AccessFlags.Write);
+                passData.basePassData.basisSurface = passData.basePassData.isOpaque && BindBasisSurface(renderGraph, builder, resourceData, colorTarget, 2);
 
                 bool disableZWrite = CanDisableZWrite(cameraData, passData.basePassData.isOpaque);
                 // Priming disables ZWrite, but the pass may still write stencil into the shared
@@ -507,6 +531,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                 {
                     // Enable Rendering Layers
                     context.cmd.SetKeyword(ShaderGlobalKeywords.WriteRenderingLayers, true);
+                    if (data.basePassData.basisSurface) { context.cmd.SetKeyword(BasisSurfaceKeyword, true); }
 
                     RenderingLayerUtils.SetupProperties(context.cmd, data.maskSize);
 
@@ -525,6 +550,7 @@ namespace UnityEngine.Rendering.Universal.Internal
 
                     // Clean up
                     context.cmd.SetKeyword(ShaderGlobalKeywords.WriteRenderingLayers, false);
+                    if (data.basePassData.basisSurface) { context.cmd.SetKeyword(BasisSurfaceKeyword, false); }
                 });
             }
         }

@@ -17,7 +17,10 @@ using UnityEngine;
 /// </summary>
 public class BasisLocalizationEditorWindow : EditorWindow
 {
-    private const string LanguagesRelativePath = "StreamingAssets/Basis/Languages";
+    private const string LanguagesRelativePath = "Localization/Languages";
+    private const string LanguagesFolderToken = "/" + LanguagesRelativePath + "/";
+    private const string EditorOnlyLanguagesFolder = "Packages/com.basis.sdk/" + LanguagesRelativePath + "/";
+    private const string DefaultLanguagesFolder = "Packages/com.basis.framework/BasisUI/" + LanguagesRelativePath;
 
     [Serializable]
     private class LanguageTableDTO
@@ -61,16 +64,21 @@ public class BasisLocalizationEditorWindow : EditorWindow
         GetWindow<BasisLocalizationEditorWindow>(BasisEditorLocalization.Get("editor.localizationWindow.windowTitle"));
     }
 
-    private static string LanguagesDirectory =>
-        Path.Combine(Application.streamingAssetsPath, "Basis/Languages");
+    private string LanguagesDirectory =>
+        string.IsNullOrEmpty(_loadedPath) ? DefaultLanguagesFolder : Path.GetDirectoryName(_loadedPath).Replace('\\', '/');
+
+    private static string LanguageLabel(string assetPath)
+    {
+        string[] parts = assetPath.Split('/');
+        return (parts.Length > 2 ? parts[1] + "/" : string.Empty) + Path.GetFileNameWithoutExtension(assetPath);
+    }
 
     private void OnEnable()
     {
         RefreshLanguageList();
-        LoadEnglishSnapshot();
         if (_languageFiles.Count > 0)
         {
-            _selectedLanguageIndex = 0;
+            _selectedLanguageIndex = Mathf.Max(0, _languageFiles.IndexOf(DefaultLanguagesFolder + "/" + BasisLocalization.DefaultLanguage + ".json"));
             LoadSelectedLanguage();
         }
     }
@@ -109,19 +117,18 @@ public class BasisLocalizationEditorWindow : EditorWindow
             if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.refresh"), EditorStyles.toolbarButton, GUILayout.Width(70)))
             {
                 RefreshLanguageList();
-                LoadEnglishSnapshot();
                 LoadSelectedLanguage();
             }
 
             string[] labels = _languageFiles
-                .Select(p => Path.GetFileNameWithoutExtension(p))
+                .Select(LanguageLabel)
                 .ToArray();
 
             int newIndex = EditorGUILayout.Popup(
                 _selectedLanguageIndex,
                 labels,
                 EditorStyles.toolbarPopup,
-                GUILayout.Width(160));
+                GUILayout.Width(240));
 
             if (newIndex != _selectedLanguageIndex)
             {
@@ -160,8 +167,7 @@ public class BasisLocalizationEditorWindow : EditorWindow
     {
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
-            string fileName = Path.GetFileName(_loadedPath);
-            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.localizationWindow.file"), fileName);
+            EditorGUILayout.LabelField(BasisEditorLocalization.Get("editor.localizationWindow.file"), _loadedPath);
 
             string newCode = EditorGUILayout.TextField(BasisEditorLocalization.Get("editor.localizationWindow.code"), _loaded.code ?? string.Empty);
             if (newCode != _loaded.code)
@@ -367,14 +373,12 @@ public class BasisLocalizationEditorWindow : EditorWindow
     private void RefreshLanguageList()
     {
         _languageFiles.Clear();
-        string dir = LanguagesDirectory;
-        if (!Directory.Exists(dir))
+        foreach (string guid in AssetDatabase.FindAssets("t:TextAsset"))
         {
-            Directory.CreateDirectory(dir);
-        }
-
-        foreach (string path in Directory.GetFiles(dir, "*.json"))
-        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            if (string.IsNullOrEmpty(path) || !path.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) continue;
+            if (path.IndexOf(LanguagesFolderToken, StringComparison.OrdinalIgnoreCase) < 0) continue;
+            if (path.StartsWith(EditorOnlyLanguagesFolder, StringComparison.OrdinalIgnoreCase)) continue;
             _languageFiles.Add(path);
         }
 
@@ -399,7 +403,7 @@ public class BasisLocalizationEditorWindow : EditorWindow
         _loadedPath = _languageFiles[_selectedLanguageIndex];
         try
         {
-            string json = File.ReadAllText(_loadedPath);
+            string json = File.ReadAllText(Path.GetFullPath(_loadedPath));
             _loaded = JsonUtility.FromJson<LanguageTableDTO>(json) ?? new LanguageTableDTO();
             _loaded.entries ??= new List<LanguageEntryDTO>();
         }
@@ -415,6 +419,7 @@ public class BasisLocalizationEditorWindow : EditorWindow
         }
 
         _dirty = false;
+        LoadEnglishSnapshot();
     }
 
     private void SaveSelectedLanguage()
@@ -429,7 +434,7 @@ public class BasisLocalizationEditorWindow : EditorWindow
                 .ToList();
 
             string json = JsonUtility.ToJson(_loaded, true);
-            File.WriteAllText(_loadedPath, json);
+            File.WriteAllText(Path.GetFullPath(_loadedPath), json);
             AssetDatabase.Refresh();
             _dirty = false;
 
@@ -449,7 +454,7 @@ public class BasisLocalizationEditorWindow : EditorWindow
     private void LoadEnglishSnapshot()
     {
         _englishSnapshot.Clear();
-        string path = Path.Combine(LanguagesDirectory, BasisLocalization.DefaultLanguage + ".json");
+        string path = Path.GetFullPath(LanguagesDirectory + "/" + BasisLocalization.DefaultLanguage + ".json");
         if (!File.Exists(path)) return;
 
         try
@@ -484,8 +489,8 @@ public class BasisLocalizationEditorWindow : EditorWindow
             string.Empty);
         if (string.IsNullOrEmpty(code)) return;
 
-        string path = Path.Combine(LanguagesDirectory, code + ".json");
-        if (File.Exists(path))
+        string path = LanguagesDirectory + "/" + code + ".json";
+        if (File.Exists(Path.GetFullPath(path)))
         {
             EditorUtility.DisplayDialog(
                 BasisEditorLocalization.Get("editor.localizationWindow.alreadyExistsTitle"),
@@ -501,7 +506,7 @@ public class BasisLocalizationEditorWindow : EditorWindow
             entries = new List<LanguageEntryDTO>()
         };
 
-        File.WriteAllText(path, JsonUtility.ToJson(table, true));
+        File.WriteAllText(Path.GetFullPath(path), JsonUtility.ToJson(table, true));
         AssetDatabase.Refresh();
 
         RefreshLanguageList();

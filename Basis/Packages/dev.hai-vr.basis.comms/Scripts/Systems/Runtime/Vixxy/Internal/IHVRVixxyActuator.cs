@@ -15,7 +15,7 @@
         public bool HasFilters();
 
         /// Write the new actuated value to the actuator, based on its filters.
-        HVRVixxyActuatorApplyFilterResult ApplyFilters();
+        HVRVixxyActuatorApplyFilterResult ApplyFilters(float deltaTime);
     }
 
     public struct HVRVixxyActuatorApplyFilterResult

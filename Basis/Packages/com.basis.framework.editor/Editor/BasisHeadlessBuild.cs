@@ -132,6 +132,8 @@ public static class BasisHeadlessBuild
                 Debug.Log($"[BasisHeadlessBuild] Restored AudioManager.m_DisableAudio={originalDisableAudio}");
             }
         }
+
+        Console.WriteLine("Build succeeded!");
     }
 
     /// <summary>

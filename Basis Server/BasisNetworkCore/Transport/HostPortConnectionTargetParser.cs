@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
@@ -103,6 +104,23 @@ namespace Basis.Network.Core
             }
 
             return !string.IsNullOrEmpty(address);
+        }
+
+        private static readonly char[] UrlAuthorityEnd = { '/', '?', '#' };
+
+        public static bool TryAddUrlPort(string url, ushort port, out string result)
+        {
+            result = url;
+            if (string.IsNullOrEmpty(url) || port == 0) return false;
+            int scheme = url.IndexOf("://", StringComparison.Ordinal);
+            if (scheme <= 0) return false;
+            int start = scheme + 3;
+            int end = url.IndexOfAny(UrlAuthorityEnd, start);
+            if (end < 0) end = url.Length;
+            string authority = url.Substring(start, end - start);
+            if (authority.Length == 0 || authority.IndexOf(':', authority.LastIndexOf(']') + 1) >= 0) return false;
+            result = url.Substring(0, end) + ":" + port.ToString(CultureInfo.InvariantCulture) + url.Substring(end);
+            return true;
         }
     }
 }

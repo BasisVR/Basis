@@ -17,7 +17,15 @@ namespace Basis.BasisUI
         public static void Copy(string value)
         {
             GUIUtility.systemCopyBuffer = value ?? string.Empty;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            BasisWebClipboard_Copy(value ?? string.Empty);
+#endif
         }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        [System.Runtime.InteropServices.DllImport("__Internal")]
+        private static extern void BasisWebClipboard_Copy(string text);
+#endif
 
         public static void Copy(string value, PanelElementDescriptor confirmOn)
         {

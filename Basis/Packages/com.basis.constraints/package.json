@@ -1,0 +1,11 @@
+{
+  "name": "com.basis.constraints",
+  "displayName": "Basis Constraint Solver",
+  "version": "0.0.1",
+  "description": "Burst constraint solver that drives the Basis SDK constraint components (position, rotation, scale, parent, aim, look-at, damped transforms, chains). Split out of com.basis.framework: it depends only on the SDK and Unity math/collections, so the framework references it and never the other way round.",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
+  "license": "MIT"
+}

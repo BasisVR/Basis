@@ -3,7 +3,6 @@
     "rootNamespace": "",
     "references": [
         "Basis Framework",
-        "BasisEditor",
         "BasisSDK",
         "Unity.Mathematics",
         "Unity.Collections",

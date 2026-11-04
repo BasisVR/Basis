@@ -59,6 +59,7 @@ SubShader {
 
 		struct appdata_t
 		{
+			UNITY_VERTEX_INPUT_INSTANCE_ID
 			float4 vertex : POSITION;
 			fixed4 color : COLOR;
 			float2 texcoord0 : TEXCOORD0;
@@ -67,6 +68,7 @@ SubShader {
 
 		struct v2f
 		{
+			UNITY_VERTEX_OUTPUT_STEREO
 			float4 vertex		: POSITION;
 			fixed4 color		: COLOR;
 			float2 texcoord0	: TEXCOORD0;
@@ -89,6 +91,8 @@ SubShader {
 		v2f vert (appdata_t v)
 		{
 			v2f OUT;
+			UNITY_SETUP_INSTANCE_ID(v);
+			UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(OUT);
 			float4 vert = v.vertex;
 			vert.x += _VertexOffsetX;
 			vert.y += _VertexOffsetY;

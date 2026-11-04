@@ -25,6 +25,13 @@ RUN if ls -d "$UNITY_PATH"/Editor/Data/PlaybackEngines/LinuxStandaloneSupport/Va
       && rm -rf /var/lib/apt/lists/*; \
     fi
 
+RUN if [ -d "$UNITY_PATH/Editor/Data/PlaybackEngines/WebGLSupport" ]; then \
+      apt-get -q update \
+      && apt-get -q install -y --no-install-recommends build-essential clang ffmpeg \
+      && apt-get clean \
+      && rm -rf /var/lib/apt/lists/*; \
+    fi
+
 RUN printf '%s\n' '#!/bin/bash' \
       'for i in /usr/bin/unity-editor.d/*.sh; do [ -r "$i" ] && . "$i"; done' \
       'xvfb-run -ae /dev/stdout "$UNITY_PATH/Editor/Unity" -batchmode "$@"' > /usr/bin/unity-editor \

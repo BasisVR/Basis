@@ -1,0 +1,688 @@
+#pragma kernel ClearVoxels
+#pragma kernel BuildBlocks
+#pragma kernel BuildCoarse
+#pragma kernel Inject
+#pragma kernel Cascade
+#pragma kernel Detail
+#pragma kernel Resolve
+
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/EntityLighting.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl"
+#include "./BasisGlobalIlluminationWorld.hlsl"
+
+#define BASISGI_WORLD_MAX_LIGHTS 32
+#define BASISGI_WORLD_DIRECTIONS0 4
+#define BASISGI_WORLD_BLOCK_SHIFT 2
+#define BASISGI_WORLD_COARSE_SHIFT 4
+#define BASISGI_WORLD_SPECULAR_BINS 8
+
+SamplerState sampler_LinearClamp;
+
+struct BasisGIWorldLight
+{
+    float4 position;
+    float4 colour;
+    float4 spot;
+    float4 attenuation;
+};
+
+Texture3D<float4> _BasisGIVoxNormal;
+Texture3D<float4> _BasisGIVoxRadiance;
+RWTexture3D<float4> _BasisGIVoxAlbedoRW;
+RWTexture3D<float4> _BasisGIVoxNormalRW;
+RWTexture3D<uint> _BasisGIVoxFacesRW;
+Texture3D<uint> _BasisGIVoxFaces;
+RWTexture3D<float4> _BasisGIVoxRadianceRW;
+RWTexture3D<float4> _BasisGIVoxEmissionRW;
+Texture3D<float4> _BasisGIVoxEmission;
+RWTexture3D<uint> _BasisGIVoxSeenRW;
+RWTexture3D<float> _BasisGIVoxSeenWeightRW;
+RWTexture3D<uint> _BasisGIVoxSeenAlbedoRW;
+Texture3D<uint> _BasisGIVoxSeenAlbedo;
+Texture3D<float> _BasisGIVoxBlocks;
+Texture3D<float> _BasisGIVoxCoarse;
+RWTexture3D<float> _BasisGIVoxBlocksRW;
+RWTexture3D<float> _BasisGIVoxCoarseRW;
+float _BasisGIWorldPyramid;
+
+Texture3D<float4> _BasisGIWorldCascadeUpper;
+RWTexture3D<float4> _BasisGIWorldCascadeOut;
+Texture3D<float4> _BasisGIWorldCascadeZero;
+Texture3D<float4> _BasisGIWorldCascadeDetail;
+RWTexture3D<float4> _BasisGIWorldCascadeDetailRW;
+Texture3D<float4> _BasisGIWorldSpecularPrev;
+RWTexture3D<float3> _BasisGIWorldSpecularOut;
+
+Texture3D<float4> _BasisGIWorldSHPrev0;
+Texture3D<float4> _BasisGIWorldSHPrev1;
+Texture3D<float4> _BasisGIWorldSHPrev2;
+Texture3D<float4> _BasisGIWorldSHPrev3;
+RWTexture3D<float4> _BasisGIWorldSHOut0;
+RWTexture3D<float4> _BasisGIWorldSHOut1;
+RWTexture3D<float4> _BasisGIWorldSHOut2;
+RWTexture3D<float4> _BasisGIWorldSHOut3;
+RWTexture3D<float> _BasisGIWorldStamp;
+
+StructuredBuffer<BasisGIWorldLight> _BasisGIWorldLights;
+
+TEXTURECUBE(_BasisGISkyCube);
+SAMPLER(sampler_BasisGISkyCube);
+float4 _BasisGISky;
+float4 _BasisGISkyDecode;
+
+float4 _BasisGIWorldPrevious;
+float4 _BasisGIWorldDispatch;
+float4 _BasisGIWorldInterval;
+float4 _BasisGIWorldInject;
+float4 _BasisGIWorldSeen;
+float4 _BasisGIWorldResolve;
+float4x4 _BasisGIWorldRotation;
+float _BasisGIRCSolidAngle[16];
+
+float3 BasisGIWorldSky(float3 direction)
+{
+    if (_BasisGISky.y <= 0.0) { return float3(0.0, 0.0, 0.0); }
+    float4 encoded = SAMPLE_TEXTURECUBE_LOD(_BasisGISkyCube, sampler_BasisGISkyCube, direction, _BasisGISky.x);
+    return max(0.0, DecodeHDREnvironment(encoded, _BasisGISkyDecode)) * _BasisGISky.y;
+}
+
+float BasisGIWorldHash(uint3 value)
+{
+    uint hash = value.x * 1973u + value.y * 9277u + value.z * 26699u;
+    hash ^= hash >> 16;
+    hash *= 0x7feb352du;
+    hash ^= hash >> 15;
+    hash *= 0x846ca68bu;
+    hash ^= hash >> 16;
+    return (hash & 0x00ffffffu) / 16777216.0;
+}
+
+float3 BasisGIWorldUvw(float3 positionWS, int level)
+{
+    float voxels = _BasisGIWorldParams.y;
+    float4 box = _BasisGIWorldLevel[level];
+    float3 local = clamp((positionWS - box.xyz) / box.w, 0.5, voxels - 0.5);
+    local.z += level * voxels;
+    return local / float3(voxels, voxels, voxels * BasisGIWorldLevels());
+}
+
+int BasisGIWorldMarchLevel(float3 positionWS, float stepLength)
+{
+    int level = BasisGIWorldLevelAt(positionWS, 0.25);
+    if (level < 0) { return -1; }
+    int levels = BasisGIWorldLevels();
+    UNITY_LOOP
+    while (level < levels - 1 && _BasisGIWorldLevel[level].w < stepLength * 0.5) { level++; }
+    return level;
+}
+
+float BasisGIWorldOccupancy(float3 positionWS, float stepLength)
+{
+    int level = BasisGIWorldMarchLevel(positionWS, stepLength);
+    if (level < 0) { return 0.0; }
+    float coverage = _BasisGIVoxAlbedo.SampleLevel(sampler_LinearClamp, BasisGIWorldUvw(positionWS, level), 0).a;
+    return 1.0 - pow(saturate(1.0 - coverage), max(stepLength / _BasisGIWorldLevel[level].w, 0.25));
+}
+
+float BasisGIWorldEmptySpan(float3 positionWS, float3 direction, int level)
+{
+    if (_BasisGIWorldPyramid < 0.5) { return 0.0; }
+    float4 box = _BasisGIWorldLevel[level];
+    int voxels = (int)_BasisGIWorldParams.y;
+    float3 local = (positionWS - box.xyz) / box.w;
+    int3 voxel = clamp((int3)floor(local), 0, voxels - 1);
+    int shift = BASISGI_WORLD_COARSE_SHIFT;
+    if (_BasisGIVoxCoarse.Load(int4((voxel >> BASISGI_WORLD_COARSE_SHIFT) + int3(0, 0, level * (voxels >> BASISGI_WORLD_COARSE_SHIFT)), 0)) > 0.5)
+    {
+        if (_BasisGIVoxBlocks.Load(int4((voxel >> BASISGI_WORLD_BLOCK_SHIFT) + int3(0, 0, level * (voxels >> BASISGI_WORLD_BLOCK_SHIFT)), 0)) > 0.5) { return 0.0; }
+        shift = BASISGI_WORLD_BLOCK_SHIFT;
+    }
+    float3 low = (float3)((voxel >> shift) << shift);
+    float3 high = low + (float)(1 << shift);
+    float3 safe = (float3)(direction >= 0.0) * 2.0 - 1.0;
+    float3 magnitude = max(abs(direction), 1e-5) * safe;
+    float3 exits = (lerp(low, high, (float3)(direction >= 0.0)) - local) / magnitude;
+    return max(0.0, min(exits.x, min(exits.y, exits.z))) * box.w;
+}
+
+[numthreads(4, 4, 4)]
+void BuildBlocks(uint3 id : SV_DispatchThreadID)
+{
+    int voxels = (int)_BasisGIWorldParams.y;
+    int side = voxels >> BASISGI_WORLD_BLOCK_SHIFT;
+    if (any((int3)id >= side)) { return; }
+    int level = (int)_BasisGIWorldDispatch.x;
+    int3 low = max(((int3)id << BASISGI_WORLD_BLOCK_SHIFT) - 1, 0);
+    int3 high = min(((int3)id + 1) << BASISGI_WORLD_BLOCK_SHIFT, voxels - 1);
+    float found = 0.0;
+    UNITY_LOOP
+    for (int z = low.z; z <= high.z && found < 0.5; z++)
+    {
+        for (int y = low.y; y <= high.y && found < 0.5; y++)
+        {
+            for (int x = low.x; x <= high.x && found < 0.5; x++)
+            {
+                if (_BasisGIVoxAlbedo.Load(int4(x, y, z + level * voxels, 0)).a > 0.0) { found = 1.0; }
+            }
+        }
+    }
+    _BasisGIVoxBlocksRW[uint3(id.xy, id.z + (uint)(level * side))] = found;
+}
+
+[numthreads(4, 4, 4)]
+void BuildCoarse(uint3 id : SV_DispatchThreadID)
+{
+    int voxels = (int)_BasisGIWorldParams.y;
+    int side = voxels >> BASISGI_WORLD_COARSE_SHIFT;
+    if (any((int3)id >= side)) { return; }
+    int level = (int)_BasisGIWorldDispatch.x;
+    int blockSide = voxels >> BASISGI_WORLD_BLOCK_SHIFT;
+    float found = 0.0;
+    UNITY_LOOP
+    for (int index = 0; index < 64 && found < 0.5; index++)
+    {
+        int3 child = ((int3)id << 2) + int3(index & 3, (index >> 2) & 3, index >> 4);
+        child.z += level * blockSide;
+        found = _BasisGIVoxBlocks.Load(int4(child, 0));
+    }
+    _BasisGIVoxCoarseRW[uint3(id.xy, id.z + (uint)(level * side))] = found;
+}
+
+[numthreads(4, 4, 4)]
+void ClearVoxels(uint3 id : SV_DispatchThreadID)
+{
+    uint voxels = (uint)_BasisGIWorldParams.y;
+    if (any(id >= voxels)) { return; }
+    uint3 texel = uint3(id.xy, id.z + (uint)_BasisGIWorldDispatch.x * voxels);
+    _BasisGIVoxAlbedoRW[texel] = float4(0.0, 0.0, 0.0, 0.0);
+    _BasisGIVoxNormalRW[texel] = float4(0.5, 0.5, 0.5, 0.0);
+    _BasisGIVoxFacesRW[texel] = 0u;
+    _BasisGIVoxEmissionRW[texel] = float4(0.0, 0.0, 0.0, 0.0);
+    if (_BasisGIWorldDispatch.y > 0.5)
+    {
+        int level = (int)_BasisGIWorldDispatch.x;
+        float4 box = _BasisGIWorldLevel[level];
+        float3 centre = box.xyz + ((float3)id + 0.5) * box.w;
+        float3 before = (centre - _BasisGIWorldPrevious.xyz) / box.w;
+        if (any(before < 0.0) || any(before >= (float)voxels))
+        {
+            int3 slot = BasisGIWorldSeenSlot(centre, level);
+            _BasisGIVoxSeenRW[slot] = 0u;
+            _BasisGIVoxSeenWeightRW[slot] = 0.0;
+            _BasisGIVoxSeenAlbedoRW[slot] = 0u;
+        }
+    }
+}
+
+float BasisGIWorldShadow(float3 origin, float3 direction, float distance, float voxelSize)
+{
+    int steps = (int)_BasisGIWorldInject.z;
+    float travelled = voxelSize;
+    float transmittance = 1.0;
+    UNITY_LOOP
+    for (int step = 0; step < steps && travelled < distance; step++)
+    {
+        float stepLength = max(voxelSize, travelled * 0.25);
+        float3 position = origin + direction * travelled;
+        int level = BasisGIWorldMarchLevel(position, stepLength);
+        if (level >= 0)
+        {
+            float span = BasisGIWorldEmptySpan(position, direction, level);
+            if (span > stepLength)
+            {
+                travelled += span;
+                continue;
+            }
+        }
+        transmittance *= 1.0 - BasisGIWorldOccupancy(position, stepLength);
+        if (transmittance < 0.02) { return 0.0; }
+        travelled += stepLength;
+    }
+    return transmittance;
+}
+
+[numthreads(4, 4, 4)]
+void Inject(uint3 id : SV_DispatchThreadID)
+{
+    uint voxels = (uint)_BasisGIWorldParams.y;
+    if (any(id >= voxels)) { return; }
+    int level = (int)_BasisGIWorldDispatch.x;
+    uint3 texel = uint3(id.xy, id.z + (uint)level * voxels);
+
+    float4 albedo = _BasisGIVoxAlbedo[texel];
+    float4 box = _BasisGIWorldLevel[level];
+    float3 positionWS = box.xyz + ((float3)id + 0.5) * box.w;
+    int3 seenSlot = BasisGIWorldSeenSlot(positionWS, level);
+    float seenWeight = _BasisGIVoxSeenWeightRW[seenSlot];
+    _BasisGIVoxSeenWeightRW[seenSlot] = seenWeight * _BasisGIWorldSeen.x;
+    if (albedo.a < 0.004)
+    {
+        _BasisGIVoxRadianceRW[texel] = float4(0.0, 0.0, 0.0, 0.0);
+        return;
+    }
+
+    float3 normal = _BasisGIVoxNormal[texel].xyz * 2.0 - 1.0;
+    float normalLength = length(normal);
+    bool oriented = normalLength > 0.2;
+    normal = oriented ? normal / normalLength : float3(0.0, 1.0, 0.0);
+    float3 origin = positionWS + (oriented ? normal * box.w * 0.75 : float3(0.0, 0.0, 0.0));
+
+    float seenShare = saturate(seenWeight / 0.9);
+    float3 direct = float3(0.0, 0.0, 0.0);
+    int lights = seenShare < 1.0 ? (int)_BasisGIWorldInject.y : 0;
+    UNITY_LOOP
+    for (int index = 0; index < lights; index++)
+    {
+        BasisGIWorldLight light = _BasisGIWorldLights[index];
+        float3 toLight;
+        float attenuation = 1.0;
+        float distance = box.w * 64.0 * BasisGIWorldLevels();
+        if (light.position.w < 0.5)
+        {
+            toLight = -light.position.xyz;
+        }
+        else
+        {
+            float3 delta = light.position.xyz - positionWS;
+            float distanceSquared = max(dot(delta, delta), 1e-4);
+            distance = sqrt(distanceSquared);
+            toLight = delta / distance;
+            float window = saturate(1.0 - Sq(distanceSquared * light.attenuation.z));
+            attenuation = window * window / distanceSquared;
+            if (light.position.w > 1.5)
+            {
+                float spot = saturate(dot(light.spot.xyz, -toLight) * light.attenuation.x + light.attenuation.y);
+                attenuation *= spot * spot;
+            }
+        }
+
+        float facing = oriented ? saturate(dot(normal, toLight)) : 0.5;
+        float3 arriving = light.colour.rgb * (facing * attenuation);
+        if (max(arriving.r, max(arriving.g, arriving.b)) < 1e-4) { continue; }
+        direct += arriving * BasisGIWorldShadow(origin, toLight, distance, box.w);
+    }
+
+    float3 bounce = float3(0.0, 0.0, 0.0);
+    if (_BasisGIWorldInject.w > 0.5 && _BasisGIWorldInject.x > 0.0)
+    {
+        int shLevel = BasisGIWorldLevelAt(origin, 1.0);
+        if (shLevel >= 0)
+        {
+            BasisGIWorldSH sh = BasisGIWorldSampleSH(origin, shLevel);
+            bounce = min(BasisGIWorldIrradianceSH(sh, normal) * _BasisGIWorldInject.x, 4.0);
+        }
+    }
+
+    uint knownAlbedo = _BasisGIVoxSeenAlbedo[seenSlot];
+    float3 surfaceAlbedo = knownAlbedo != 0u ? UnpackFromR11G11B10f(knownAlbedo) : albedo.rgb;
+    float3 computed = surfaceAlbedo * (direct + bounce) + _BasisGIVoxEmission[texel].rgb;
+    float3 seen = UnpackFromR11G11B10f(_BasisGIVoxSeenRW[seenSlot]) + surfaceAlbedo * bounce;
+    float3 radiance = lerp(computed, seen, seenShare);
+    _BasisGIVoxRadianceRW[texel] = float4(radiance * albedo.a, albedo.a);
+}
+
+struct BasisGIWorldSegment
+{
+    float3 radiance;
+    float transmittance;
+    bool escaped;
+    float stopped;
+};
+
+float BasisGIWorldFront(float3 positionWS, float3 direction, int level)
+{
+    float4 box = _BasisGIWorldLevel[level];
+    int voxels = (int)_BasisGIWorldParams.y;
+    int3 voxel = clamp((int3)floor((positionWS - box.xyz) / box.w), 0, voxels - 1);
+    voxel.z += level * voxels;
+    uint faces = _BasisGIVoxFaces.Load(int4(voxel, 0));
+    if (faces == 0u) { return 1.0; }
+    uint facing = (direction.x < -0.1 ? 1u : 0u) | (direction.x > 0.1 ? 2u : 0u) | (direction.y < -0.1 ? 4u : 0u) | (direction.y > 0.1 ? 8u : 0u) | (direction.z < -0.1 ? 16u : 0u) | (direction.z > 0.1 ? 32u : 0u);
+    return (faces & facing) != 0u ? 1.0 : 0.0;
+}
+
+BasisGIWorldSegment BasisGIWorldMarch(float3 origin, float3 direction, float start, float end, float stepLength, float noise)
+{
+    BasisGIWorldSegment segment;
+    segment.radiance = float3(0.0, 0.0, 0.0);
+    segment.transmittance = 1.0;
+    segment.escaped = false;
+    segment.stopped = end;
+    int steps = min((int)ceil((end - start) / stepLength), 256);
+
+    UNITY_LOOP
+    for (int step = 0; step < steps; step++)
+    {
+        float3 position = origin + direction * (start + ((float)step + noise) * stepLength);
+        int level = BasisGIWorldMarchLevel(position, stepLength);
+        if (level < 0)
+        {
+            segment.escaped = true;
+            segment.stopped = start + (float)step * stepLength;
+            break;
+        }
+        float span = BasisGIWorldEmptySpan(position, direction, level);
+        if (span >= stepLength)
+        {
+            step += (int)floor(span / stepLength) - 1;
+            continue;
+        }
+        float4 voxel = _BasisGIVoxRadiance.SampleLevel(sampler_LinearClamp, BasisGIWorldUvw(position, level), 0);
+        if (voxel.a <= 1e-3) { continue; }
+        float alpha = 1.0 - pow(saturate(1.0 - saturate(voxel.a * 2.0)), max(stepLength / _BasisGIWorldLevel[level].w, 0.25));
+        segment.radiance += segment.transmittance * BasisGIWorldFront(position, direction, level) * (alpha / voxel.a) * voxel.rgb;
+        segment.transmittance *= 1.0 - alpha;
+        if (segment.transmittance < 0.02)
+        {
+            segment.transmittance = 0.0;
+            break;
+        }
+    }
+    return segment;
+}
+
+float3 BasisGIWorldBeyond(float3 positionWS, float3 direction, int level)
+{
+    int levels = BasisGIWorldLevels();
+    UNITY_LOOP
+    for (int next = level + 1; next < levels; next++)
+    {
+        float4 box = _BasisGIWorldLevel[next];
+        float size = box.w * _BasisGIWorldParams.y;
+        float margin = box.w * 2.0;
+        float3 local = positionWS - box.xyz;
+        if (all(local >= margin) && all(local <= size - margin))
+        {
+            BasisGIWorldSH sh = BasisGIWorldSampleSH(positionWS, next);
+            if (sh.c0.a > 0.0) { return BasisGIWorldRadianceSH(sh, direction); }
+        }
+    }
+    return BasisGIWorldSky(direction);
+}
+
+float3 BasisGIWorldDirection(int2 texel, float resolution)
+{
+    float2 oct = ((float2)texel + 0.5) / resolution * 2.0 - 1.0;
+    return mul((float3x3)_BasisGIWorldRotation, UnpackNormalOctQuadEncode(oct));
+}
+
+[numthreads(8, 8, 1)]
+void Cascade(uint3 id : SV_DispatchThreadID)
+{
+    int level = (int)_BasisGIWorldDispatch.x;
+    int cascade = (int)_BasisGIWorldDispatch.y;
+    int cascades = (int)_BasisGIWorldDispatch.z;
+    int probes0 = (int)_BasisGIWorldParams.z;
+    int probes = probes0 >> cascade;
+    int resolution = (int)_BasisGIWorldInterval.w;
+    if (any((int2)id.xy >= probes * resolution) || (int)id.z >= probes) { return; }
+
+    int3 probe = int3((int2)id.xy / resolution, (int)id.z);
+    int2 directionTexel = (int2)id.xy - probe.xy * resolution;
+    float4 box = _BasisGIWorldLevel[level];
+    float spacing = box.w * 2.0 * exp2((float)cascade);
+    int3 first = (int3)round(box.xyz / spacing);
+    float3 position = ((float3)(first + probe) + 0.5) * spacing;
+    float3 direction = BasisGIWorldDirection(directionTexel, (float)resolution);
+    uint3 outTexel = uint3(id.xy, id.z + (uint)(level * probes));
+
+    int ownLevel = BasisGIWorldLevelAt(position, 0.0);
+    float buried = ownLevel >= 0 ? _BasisGIVoxRadiance.SampleLevel(sampler_LinearClamp, BasisGIWorldUvw(position, ownLevel), 0).a : 0.0;
+    if (buried > 0.75)
+    {
+        _BasisGIWorldCascadeOut[outTexel] = float4(0.0, 0.0, 0.0, 0.0);
+        return;
+    }
+
+    bool top = cascade >= cascades - 1;
+    float end = _BasisGIWorldInterval.y + (top ? 0.0 : min(_BasisGIWorldInterval.y - _BasisGIWorldInterval.x, spacing * 2.0 * 1.7320508));
+    float noise = BasisGIWorldHash(uint3(id.xy, id.z + (uint)_BasisGIWorldDispatch.w * 131u));
+    BasisGIWorldSegment segment = BasisGIWorldMarch(position, direction, _BasisGIWorldInterval.x, end, _BasisGIWorldInterval.z, noise);
+
+    float3 beyond = float3(0.0, 0.0, 0.0);
+    if (segment.transmittance > 0.0)
+    {
+        if (top || segment.escaped)
+        {
+            beyond = BasisGIWorldBeyond(position + direction * segment.stopped, direction, level);
+        }
+        else
+        {
+            int upperProbes = probes >> 1;
+            int upperResolution = resolution * 2;
+            float upperSpacing = spacing * 2.0;
+            int3 upperFirst = (int3)round(box.xyz / upperSpacing);
+            float3 grid = position / upperSpacing - 0.5;
+            int3 cell = (int3)floor(grid);
+            float3 blend = grid - (float3)cell;
+            float width = (float)(probes * resolution);
+            float depth = (float)(upperProbes * BasisGIWorldLevels());
+            float3 gathered = float3(0.0, 0.0, 0.0), hidden = gathered;
+            float weightSum = 0.0, hiddenSum = 0.0;
+            UNITY_UNROLL
+            for (int index = 0; index < 8; index++)
+            {
+                int3 offset = int3(index & 1, (index >> 1) & 1, index >> 2);
+                int3 upper = clamp(cell + offset - upperFirst, 0, upperProbes - 1);
+                float3 trilinear = lerp(1.0 - blend, blend, (float3)offset);
+                float weight = trilinear.x * trilinear.y * trilinear.z;
+                float2 xy = ((float2)(upper.xy * upperResolution) + (float2)directionTexel * 2.0 + 1.0) / width;
+                float z = ((float)(upper.z + level * upperProbes) + 0.5) / depth;
+                float4 upperValue = _BasisGIWorldCascadeUpper.SampleLevel(sampler_LinearClamp, float3(xy, z), 0);
+                float3 upperPosition = ((float3)(upper + upperFirst) + 0.5) * upperSpacing;
+                if (BasisGIWorldBlocked((position + upperPosition) * 0.5, level))
+                {
+                    hidden += upperValue.rgb * weight * upperValue.a;
+                    hiddenSum += weight * upperValue.a;
+                    continue;
+                }
+                gathered += upperValue.rgb * weight * upperValue.a;
+                weightSum += weight * upperValue.a;
+            }
+            beyond = weightSum > 1e-5 ? gathered / weightSum : hidden / max(hiddenSum, 1e-5);
+        }
+    }
+
+    _BasisGIWorldCascadeOut[outTexel] = float4(segment.radiance + beyond * segment.transmittance, cascade == 0 ? segment.transmittance : 1.0);
+}
+
+[numthreads(8, 8, 1)]
+void Detail(uint3 id : SV_DispatchThreadID)
+{
+    int level = (int)_BasisGIWorldDispatch.x;
+    int probes = (int)_BasisGIWorldParams.z >> 1;
+    int resolution = BASISGI_WORLD_DIRECTIONS0 * 2;
+    if (any((int2)id.xy >= probes * resolution) || (int)id.z >= probes) { return; }
+    int2 tile = ((int2)id.xy / resolution) * resolution;
+    int2 inside = (int2)id.xy - tile;
+    int zSlice = (int)id.z + level * probes;
+    float4 centre = _BasisGIWorldCascadeUpper.Load(int4(id.xy, zSlice, 0));
+    float3 blurred = float3(0.0, 0.0, 0.0);
+    UNITY_UNROLL
+    for (int index = 0; index < 9; index++)
+    {
+        int2 offset = int2(index % 3, index / 3) - 1;
+        int2 texel = tile + clamp(inside + offset, 0, resolution - 1);
+        float tap = (offset.x == 0 ? 2.0 : 1.0) * (offset.y == 0 ? 2.0 : 1.0);
+        blurred += _BasisGIWorldCascadeUpper.Load(int4(texel, zSlice, 0)).rgb * tap;
+    }
+    _BasisGIWorldCascadeDetailRW[uint3(id.xy, (uint)zSlice)] = float4(centre.rgb - blurred * (1.0 / 16.0), centre.a);
+}
+
+bool BasisGIWorldSurfaceNear(float3 positionWS, int level)
+{
+    if (_BasisGIWorldPyramid < 0.5) { return true; }
+    float4 box = _BasisGIWorldLevel[level];
+    int voxels = (int)_BasisGIWorldParams.y;
+    int side = voxels >> BASISGI_WORLD_BLOCK_SHIFT;
+    float3 local = (positionWS - box.xyz) / box.w;
+    int3 low = clamp((int3)floor(local - 2.0) >> BASISGI_WORLD_BLOCK_SHIFT, 0, side - 1);
+    int3 high = clamp((int3)floor(local + 2.0) >> BASISGI_WORLD_BLOCK_SHIFT, 0, side - 1);
+    UNITY_LOOP
+    for (int z = low.z; z <= high.z; z++)
+    {
+        for (int y = low.y; y <= high.y; y++)
+        {
+            for (int x = low.x; x <= high.x; x++)
+            {
+                if (_BasisGIVoxBlocks.Load(int4(x, y, z + level * side, 0)) > 0.5) { return true; }
+            }
+        }
+    }
+    return false;
+}
+
+void BasisGIWorldKeepSpecular(uint3 slot, float blend)
+{
+    uint3 tile = uint3(slot.xy * BASISGI_WORLD_SPECULAR_BINS, slot.z);
+    UNITY_LOOP
+    for (int bin = 0; bin < BASISGI_WORLD_SPECULAR_BINS * BASISGI_WORLD_SPECULAR_BINS; bin++)
+    {
+        uint3 texel = tile + uint3(bin % BASISGI_WORLD_SPECULAR_BINS, bin / BASISGI_WORLD_SPECULAR_BINS, 0);
+        _BasisGIWorldSpecularOut[texel] = blend < 1.0 ? _BasisGIWorldSpecularPrev[texel].rgb : float3(0.0, 0.0, 0.0);
+    }
+}
+
+void BasisGIWorldResolveSpecular(uint3 id, int level, float3 position, uint3 slot, float blend)
+{
+    int probes = (int)_BasisGIWorldParams.z;
+    int upperProbes = probes >> 1;
+    int upperResolution = BASISGI_WORLD_DIRECTIONS0 * 2;
+    int levels = BasisGIWorldLevels();
+    float4 box = _BasisGIWorldLevel[level];
+    float upperSpacing = box.w * 4.0;
+    int3 upperFirst = (int3)round(box.xyz / upperSpacing);
+    float3 grid = position / upperSpacing - 0.5;
+    int3 cell = (int3)floor(grid);
+    float3 fraction = grid - (float3)cell;
+    float upperWidth = (float)(upperProbes * upperResolution);
+    float upperDepth = (float)(upperProbes * levels);
+
+    float parentWeight[8];
+    float3 parentTile[8];
+    float parentSum = 0.0;
+    UNITY_UNROLL
+    for (int index = 0; index < 8; index++)
+    {
+        int3 offset = int3(index & 1, (index >> 1) & 1, index >> 2);
+        int3 upper = clamp(cell + offset - upperFirst, 0, upperProbes - 1);
+        float3 trilinear = lerp(1.0 - fraction, fraction, (float3)offset);
+        float valid = _BasisGIWorldCascadeDetail.Load(int4(upper.xy * upperResolution, upper.z + level * upperProbes, 0)).a;
+        float3 upperPosition = ((float3)(upper + upperFirst) + 0.5) * upperSpacing;
+        float visible = BasisGIWorldBlocked((position + upperPosition) * 0.5, level) ? 0.0 : 1.0;
+        parentWeight[index] = trilinear.x * trilinear.y * trilinear.z * valid * visible;
+        parentTile[index] = float3((float2)(upper.xy * upperResolution), (float)(upper.z + level * upperProbes) + 0.5);
+        parentSum += parentWeight[index];
+    }
+    float parentScale = parentSum > 1e-5 ? 1.0 / parentSum : 0.0;
+
+    float zeroWidth = (float)(probes * BASISGI_WORLD_DIRECTIONS0);
+    float zeroDepth = (float)(probes * levels);
+    float2 zeroTile = (float2)(id.xy * BASISGI_WORLD_DIRECTIONS0);
+    float zeroSlice = (float)(id.z + (uint)(level * probes)) + 0.5;
+    float3x3 toLocal = transpose((float3x3)_BasisGIWorldRotation);
+    uint3 outTile = uint3(slot.xy * BASISGI_WORLD_SPECULAR_BINS, slot.z);
+
+    UNITY_LOOP
+    for (int bin = 0; bin < BASISGI_WORLD_SPECULAR_BINS * BASISGI_WORLD_SPECULAR_BINS; bin++)
+    {
+        int2 binTexel = int2(bin % BASISGI_WORLD_SPECULAR_BINS, bin / BASISGI_WORLD_SPECULAR_BINS);
+        float3 direction = UnpackNormalOctQuadEncode(((float2)binTexel + 0.5) / BASISGI_WORLD_SPECULAR_BINS * 2.0 - 1.0);
+        float2 octant = PackNormalOctQuadEncode(mul(toLocal, direction)) * 0.5 + 0.5;
+
+        float2 zeroTexel = clamp(octant * BASISGI_WORLD_DIRECTIONS0, 0.5, BASISGI_WORLD_DIRECTIONS0 - 0.5);
+        float4 coarse = _BasisGIWorldCascadeZero.SampleLevel(sampler_LinearClamp, float3((zeroTile + zeroTexel) / zeroWidth, zeroSlice / zeroDepth), 0);
+
+        float2 upperTexel = clamp(octant * upperResolution, 0.5, upperResolution - 0.5);
+        float3 detail = float3(0.0, 0.0, 0.0);
+        UNITY_UNROLL
+        for (int parent = 0; parent < 8; parent++)
+        {
+            UNITY_BRANCH
+            if (parentWeight[parent] <= 0.0) { continue; }
+            float3 uvw = float3((parentTile[parent].xy + upperTexel) / upperWidth, parentTile[parent].z / upperDepth);
+            detail += _BasisGIWorldCascadeDetail.SampleLevel(sampler_LinearClamp, uvw, 0).rgb * parentWeight[parent];
+        }
+
+        float3 glossy = max(0.0, coarse.rgb + detail * (parentScale * saturate(coarse.a)));
+        uint3 texel = outTile + uint3(binTexel, 0);
+        float3 previous = blend < 1.0 ? _BasisGIWorldSpecularPrev[texel].rgb : float3(0.0, 0.0, 0.0);
+        _BasisGIWorldSpecularOut[texel] = lerp(previous, glossy, blend);
+    }
+}
+
+[numthreads(4, 4, 4)]
+void Resolve(uint3 id : SV_DispatchThreadID)
+{
+    int level = (int)_BasisGIWorldDispatch.x;
+    int probes = (int)_BasisGIWorldParams.z;
+    if (any((int3)id >= probes)) { return; }
+
+    float4 box = _BasisGIWorldLevel[level];
+    float spacing = box.w * 2.0;
+    int3 first = (int3)round(box.xyz / spacing);
+    int3 worldProbe = first + (int3)id;
+    float3 position = ((float3)worldProbe + 0.5) * spacing;
+
+    uint3 kept = (uint3)BasisGIWorldWrap(worldProbe, probes);
+    kept.z += (uint)(level * probes);
+    if (_BasisGIWorldResolve.z > 0.5)
+    {
+        _BasisGIWorldSHOut0[kept] = _BasisGIWorldSHPrev0[kept];
+        _BasisGIWorldSHOut1[kept] = _BasisGIWorldSHPrev1[kept];
+        _BasisGIWorldSHOut2[kept] = _BasisGIWorldSHPrev2[kept];
+        _BasisGIWorldSHOut3[kept] = _BasisGIWorldSHPrev3[kept];
+        if (_BasisGIWorldResolve.w > 0.5) { BasisGIWorldKeepSpecular(kept, 0.0); }
+        return;
+    }
+
+    float3 c0 = float3(0.0, 0.0, 0.0), cx = c0, cy = c0, cz = c0;
+    float depth = (float)(probes * BasisGIWorldLevels());
+    UNITY_UNROLL
+    for (int index = 0; index < BASISGI_WORLD_DIRECTIONS0 * BASISGI_WORLD_DIRECTIONS0; index++)
+    {
+        int2 directionTexel = int2(index % BASISGI_WORLD_DIRECTIONS0, index / BASISGI_WORLD_DIRECTIONS0);
+        uint3 texel = uint3(id.xy * BASISGI_WORLD_DIRECTIONS0 + (uint2)directionTexel, id.z + (uint)(level * probes));
+        float3 radiance = _BasisGIWorldCascadeZero[texel].rgb;
+        float3 direction = BasisGIWorldDirection(directionTexel, (float)BASISGI_WORLD_DIRECTIONS0);
+        float solidAngle = _BasisGIRCSolidAngle[index];
+        c0 += radiance * (BASISGI_WORLD_SH_Y0 * solidAngle);
+        float3 band = radiance * (BASISGI_WORLD_SH_Y1 * solidAngle);
+        cx += band * direction.x;
+        cy += band * direction.y;
+        cz += band * direction.z;
+    }
+
+    int occupancyLevel = BasisGIWorldLevelAt(position, 0.0);
+    float buried = occupancyLevel >= 0 ? _BasisGIVoxAlbedo.SampleLevel(sampler_LinearClamp, BasisGIWorldUvw(position, occupancyLevel), 0).a : 0.0;
+    float validity = 1.0 - saturate(buried * 2.0 - 0.5);
+
+    uint3 slot = (uint3)BasisGIWorldWrap(worldProbe, probes);
+    slot.z += (uint)(level * probes);
+    float stamp = 1.0 + floor(BasisGIWorldHash((uint3)(worldProbe + 1048576)) * 16777214.0);
+    bool owned = _BasisGIWorldResolve.y < 0.5 && abs(_BasisGIWorldStamp[slot] - stamp) < 0.5;
+    float blend = owned ? _BasisGIWorldResolve.x : 1.0;
+
+    float4 previous0 = owned ? _BasisGIWorldSHPrev0[slot] : float4(0.0, 0.0, 0.0, 0.0);
+    float previousLevel = dot(previous0.rgb, float3(0.2126, 0.7152, 0.0722));
+    float currentLevel = dot(c0, float3(0.2126, 0.7152, 0.0722));
+    float shift = abs(currentLevel - previousLevel) / (max(previousLevel, currentLevel) + 1e-3);
+    blend = max(blend, saturate((shift - 0.3) * 2.0));
+    float3 previousX = owned ? _BasisGIWorldSHPrev1[slot].rgb : float3(0.0, 0.0, 0.0);
+    float3 previousY = owned ? _BasisGIWorldSHPrev2[slot].rgb : float3(0.0, 0.0, 0.0);
+    float3 previousZ = owned ? _BasisGIWorldSHPrev3[slot].rgb : float3(0.0, 0.0, 0.0);
+
+    _BasisGIWorldSHOut0[slot] = lerp(previous0, float4(c0, validity), blend);
+    _BasisGIWorldSHOut1[slot] = float4(lerp(previousX, cx, blend), 0.0);
+    _BasisGIWorldSHOut2[slot] = float4(lerp(previousY, cy, blend), 0.0);
+    _BasisGIWorldSHOut3[slot] = float4(lerp(previousZ, cz, blend), 0.0);
+    _BasisGIWorldStamp[slot] = stamp;
+
+    if (_BasisGIWorldResolve.w > 0.5)
+    {
+        bool turn = blend > 0.5 || ((worldProbe.x + worldProbe.y + worldProbe.z + (int)_BasisGIWorldResolve.w) & 1) == 0;
+        if (turn && validity > 0.0 && BasisGIWorldSurfaceNear(position, level)) { BasisGIWorldResolveSpecular(id, level, position, slot, blend); }
+        else { BasisGIWorldKeepSpecular(slot, blend); }
+    }
+}

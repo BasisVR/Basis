@@ -28,10 +28,10 @@ public class SMModuleAntialiasingURP : BasisSettingsBase
     private static string requestedUpscalerId = string.Empty;
     private static string requestedQuality;
     private static float cameraSharpening;
-#if ENABLE_UPSCALER_FRAMEWORK && ENABLE_NVIDIA && BASIS_HAS_NVIDIA
+#if ENABLE_NVIDIA && BASIS_HAS_NVIDIA
     private static readonly UnityEngine.NVIDIA.DLSSQuality[] DlssQualityTiers = { UnityEngine.NVIDIA.DLSSQuality.DLAA, UnityEngine.NVIDIA.DLSSQuality.MaximumQuality, UnityEngine.NVIDIA.DLSSQuality.Balanced, UnityEngine.NVIDIA.DLSSQuality.MaximumPerformance, UnityEngine.NVIDIA.DLSSQuality.UltraPerformance };
 #endif
-#if ENABLE_UPSCALER_FRAMEWORK && ENABLE_AMD && BASIS_HAS_AMD
+#if ENABLE_AMD && BASIS_HAS_AMD
     private static readonly UnityEngine.AMD.FSR2Quality[] Fsr2QualityTiers = { UnityEngine.AMD.FSR2Quality.Quality, UnityEngine.AMD.FSR2Quality.Quality, UnityEngine.AMD.FSR2Quality.Balanced, UnityEngine.AMD.FSR2Quality.Performance, UnityEngine.AMD.FSR2Quality.UltraPerformance };
     private static readonly UnityEngine.AMD.FSR3Quality[] Fsr3QualityTiers = { UnityEngine.AMD.FSR3Quality.NativeAA, UnityEngine.AMD.FSR3Quality.Quality, UnityEngine.AMD.FSR3Quality.Balanced, UnityEngine.AMD.FSR3Quality.Performance, UnityEngine.AMD.FSR3Quality.UltraPerformance };
     private static readonly UnityEngine.AMD.FSR4Quality[] Fsr4QualityTiers = { UnityEngine.AMD.FSR4Quality.NativeAA, UnityEngine.AMD.FSR4Quality.Quality, UnityEngine.AMD.FSR4Quality.Balanced, UnityEngine.AMD.FSR4Quality.Performance, UnityEngine.AMD.FSR4Quality.UltraPerformance };
@@ -57,14 +57,9 @@ public class SMModuleAntialiasingURP : BasisSettingsBase
     public static bool IsRtx40OrNewer(string deviceName) => !string.IsNullOrEmpty(deviceName) && Regex.IsMatch(deviceName, Rtx40OrNewerPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     public static bool IsUpscalerSupported(string option)
     {
-#if ENABLE_UPSCALER_FRAMEWORK
         string upscalerId = TemporalUpscalerId(option);
         return upscalerId != null && RenderPipelineManager.currentPipeline is UniversalRenderPipeline pipeline && pipeline.GetUpscaler(upscalerId) is IUpscaler upscaler && upscaler.isSupportedOnDevice;
-#else
-        return false;
-#endif
     }
-#if ENABLE_UPSCALER_FRAMEWORK
 #if UNITY_EDITOR
     [UnityEditor.InitializeOnLoadMethod]
 #endif
@@ -99,7 +94,6 @@ public class SMModuleAntialiasingURP : BasisSettingsBase
         return false;
 #endif
     }
-#endif
     private void OnEnable()
     {
         RenderPipelineManager.activeRenderPipelineCreated += OnRenderPipelineCreated;
@@ -197,11 +191,7 @@ public class SMModuleAntialiasingURP : BasisSettingsBase
                 break;
         }
         Asset.msaaSampleCount = sampleCount;
-#if ENABLE_UPSCALER_FRAMEWORK
         ApplyUpscaler(upscalerId);
-#else
-        Asset.upscalingFilter = LegacyUpscalingFilter(upscalerId);
-#endif
         if (Camera == null)
         {
             if (BasisLocalCameraDriver.Instance != null)
@@ -238,7 +228,6 @@ public class SMModuleAntialiasingURP : BasisSettingsBase
         requestedUpscalerId = upscalerId ?? string.Empty;
         bool temporal = false;
         bool sharpenOnCamera = false;
-#if ENABLE_UPSCALER_FRAMEWORK
         if (RenderPipelineManager.currentPipeline is UniversalRenderPipeline pipeline)
         {
             IUpscaler upscaler = string.IsNullOrEmpty(requestedUpscalerId) ? null : pipeline.GetUpscaler(requestedUpscalerId);
@@ -254,7 +243,6 @@ public class SMModuleAntialiasingURP : BasisSettingsBase
             temporal = upscaler != null && upscaler.isTemporal;
             sharpenOnCamera = temporal && !upscaler.supportsSharpening;
         }
-#endif
         cameraSharpening = sharpenOnCamera ? UpscalerSharpness : 0f;
         ApplyCameraSharpening();
         if (temporal != TemporalUpscalerActive)
@@ -270,7 +258,6 @@ public class SMModuleAntialiasingURP : BasisSettingsBase
             BasisLocalCameraDriver.Instance.CameraData.taaSettings.contrastAdaptiveSharpening = cameraSharpening;
         }
     }
-#if ENABLE_UPSCALER_FRAMEWORK
     private static void ApplyUpscalerOptions(UpscalerOptions options, string quality)
     {
         if (options == null)
@@ -357,24 +344,6 @@ public class SMModuleAntialiasingURP : BasisSettingsBase
         dlss.dlssRenderPresetBalanced = preset;
         dlss.dlssRenderPresetPerformance = preset;
         dlss.dlssRenderPresetUltraPerformance = ultraPerformancePreset;
-    }
-#endif
-#else
-    private static UpscalingFilterSelection LegacyUpscalingFilter(string upscalerId)
-    {
-        switch (upscalerId)
-        {
-            case "unity.bilinear":
-                return UpscalingFilterSelection.Linear;
-            case "unity.point":
-                return UpscalingFilterSelection.Point;
-            case "amd.fsr1":
-                return UpscalingFilterSelection.FSR;
-            case "unity.stp":
-                return UpscalingFilterSelection.STP;
-            default:
-                return UpscalingFilterSelection.Auto;
-        }
     }
 #endif
     public override void ChangedSettings()

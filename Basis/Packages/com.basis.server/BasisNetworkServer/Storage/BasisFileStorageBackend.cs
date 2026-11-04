@@ -5,7 +5,7 @@ using System.Threading;
 
 namespace BasisNetworkServer.Storage
 {
-    public sealed class BasisFileStorageBackend : IBasisStorageBackend
+    public sealed class BasisFileStorageBackend : IBasisStorageBackend, IBasisStorageCatalog
     {
         public const string PlayersFolderName = "players", RecordExtension = ".bsr", TempExtension = ".tmp", LockFileName = ".lock";
         private readonly string root, players;
@@ -30,9 +30,11 @@ namespace BasisNetworkServer.Storage
                 }
             }
         }
-        public bool TryLoad(string ownerKey, out byte[] blob)
+        public bool TryLoad(string ownerKey, out byte[] blob) => TryLoad(ownerKey, out blob, out _);
+        public bool TryLoad(string ownerKey, out byte[] blob, out long lastUsed)
         {
             blob = null;
+            lastUsed = 0;
             string path = PathOf(ownerKey);
             try
             {
@@ -46,8 +48,9 @@ namespace BasisNetworkServer.Storage
                         if ((got = stream.Read(data, read, data.Length - read)) <= 0) throw new EndOfStreamException($"Storage record {ownerKey} ended early.");
                     }
                     blob = data;
-                    return true;
                 }
+                lastUsed = UnixMilliseconds(File.GetLastWriteTimeUtc(path));
+                return true;
             }
             catch (FileNotFoundException) { return false; }
             catch (DirectoryNotFoundException) { return false; }
@@ -110,11 +113,53 @@ namespace BasisNetworkServer.Storage
                 }
             }
         }
+        public void Touch(string ownerKey, long lastUsed)
+        {
+            string path = PathOf(ownerKey);
+            try
+            {
+                if (File.Exists(path) && UnixMilliseconds(File.GetLastWriteTimeUtc(path)) < lastUsed) File.SetLastWriteTimeUtc(path, DateTimeOffset.FromUnixTimeMilliseconds(lastUsed).UtcDateTime);
+            }
+            catch (FileNotFoundException) { }
+            catch (DirectoryNotFoundException) { }
+        }
+        public void List(long usedBefore, Func<BasisStorageRecordInfo, bool> visit)
+        {
+            DirectoryInfo folder = new DirectoryInfo(players);
+            if (!folder.Exists) return;
+            foreach (DirectoryInfo shard in folder.EnumerateDirectories())
+            {
+                foreach (FileInfo file in shard.EnumerateFiles("*" + RecordExtension))
+                {
+                    if (!string.Equals(file.Extension, RecordExtension, StringComparison.Ordinal)) continue;
+                    string ownerKey = Path.GetFileNameWithoutExtension(file.Name);
+                    if (!BasisStorageRecord.IsOwnerKey(ownerKey)) continue;
+                    long lastUsed = UnixMilliseconds(file.LastWriteTimeUtc);
+                    if (lastUsed < usedBefore && !visit(new BasisStorageRecordInfo { OwnerKey = ownerKey, Bytes = file.Length, LastUsed = lastUsed })) return;
+                }
+            }
+        }
+        public bool TryExpire(string ownerKey, long usedBefore, out long bytes)
+        {
+            bytes = 0;
+            FileInfo file = new FileInfo(PathOf(ownerKey));
+            if (!file.Exists || UnixMilliseconds(file.LastWriteTimeUtc) >= usedBefore) return false;
+            long length = file.Length;
+            try
+            {
+                file.Delete();
+            }
+            catch (FileNotFoundException) { return false; }
+            catch (DirectoryNotFoundException) { return false; }
+            bytes = length;
+            return true;
+        }
         public void Dispose()
         {
             lockStream?.Dispose();
             lockStream = null;
         }
+        private static long UnixMilliseconds(DateTime utc) => new DateTimeOffset(DateTime.SpecifyKind(utc, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
         private string PathOf(string ownerKey)
         {
             if (!BasisStorageRecord.IsOwnerKey(ownerKey)) throw new ArgumentException("Storage owner keys are 64 lowercase hex characters.", nameof(ownerKey));

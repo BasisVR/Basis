@@ -1,0 +1,310 @@
+{
+  "code": "nl",
+  "nativeName": "Nederlands",
+  "entries": [
+    {
+      "key": "menu.provider.screenShare",
+      "value": "Scherm delen"
+    },
+    {
+      "key": "library.embedded.screenShare",
+      "value": "Scherm delen"
+    },
+    {
+      "key": "screenShare.yourShare",
+      "value": "Jouw scherm"
+    },
+    {
+      "key": "screenShare.source",
+      "value": "Delen"
+    },
+    {
+      "key": "screenShare.source.tooltip",
+      "value": "Het beeldscherm of venster dat iedereen bij het scherm ziet."
+    },
+    {
+      "key": "screenShare.source.display",
+      "value": "{0} ({1}×{2})"
+    },
+    {
+      "key": "screenShare.source.none",
+      "value": "Geen beeldschermen of vensters gevonden"
+    },
+    {
+      "key": "screenShare.refreshSources",
+      "value": "Lijst vernieuwen"
+    },
+    {
+      "key": "screenShare.resolution",
+      "value": "Resolutie"
+    },
+    {
+      "key": "screenShare.resolution.tooltip",
+      "value": "De grootste afmeting waarop het beeld wordt verzonden. Een kleinere bron wordt nooit opgeschaald."
+    },
+    {
+      "key": "screenShare.resolution.native",
+      "value": "Origineel"
+    },
+    {
+      "key": "screenShare.resolution.1440",
+      "value": "1440p"
+    },
+    {
+      "key": "screenShare.resolution.1080",
+      "value": "1080p"
+    },
+    {
+      "key": "screenShare.resolution.720",
+      "value": "720p"
+    },
+    {
+      "key": "screenShare.resolution.480",
+      "value": "480p"
+    },
+    {
+      "key": "screenShare.frameRate",
+      "value": "Framerate"
+    },
+    {
+      "key": "screenShare.frameRate.tooltip",
+      "value": "Hoe vaak het beeld wordt bijgewerkt. 60 past bij games en video, 15 of 5 bij documenten en dia's en laat meer bandbreedte over voor detail."
+    },
+    {
+      "key": "screenShare.frameRate.60",
+      "value": "60 fps"
+    },
+    {
+      "key": "screenShare.frameRate.30",
+      "value": "30 fps"
+    },
+    {
+      "key": "screenShare.frameRate.15",
+      "value": "15 fps"
+    },
+    {
+      "key": "screenShare.frameRate.5",
+      "value": "5 fps"
+    },
+    {
+      "key": "screenShare.quality",
+      "value": "Kwaliteit"
+    },
+    {
+      "key": "screenShare.quality.tooltip",
+      "value": "Hoeveel bandbreedte het beeld mag gebruiken. Automatisch kiest een bitrate op basis van resolutie en framerate; de server bepaalt de bovengrens."
+    },
+    {
+      "key": "screenShare.quality.auto",
+      "value": "Automatisch"
+    },
+    {
+      "key": "screenShare.quality.low",
+      "value": "Laag"
+    },
+    {
+      "key": "screenShare.quality.high",
+      "value": "Hoog"
+    },
+    {
+      "key": "screenShare.quality.max",
+      "value": "Maximaal"
+    },
+    {
+      "key": "screenShare.audio",
+      "value": "Computergeluid delen"
+    },
+    {
+      "key": "screenShare.audio.tooltip",
+      "value": "Stuurt door wat je computer afspeelt, behalve Basis zelf, zodat mensen bij het scherm het uit het scherm horen."
+    },
+    {
+      "key": "screenShare.cursor",
+      "value": "Muisaanwijzer tonen"
+    },
+    {
+      "key": "screenShare.start",
+      "value": "Delen starten"
+    },
+    {
+      "key": "screenShare.stop",
+      "value": "Delen stoppen"
+    },
+    {
+      "key": "screenShare.viewing",
+      "value": "Kijken"
+    },
+    {
+      "key": "screenShare.viewing.none",
+      "value": "Niemand anders deelt een scherm."
+    },
+    {
+      "key": "screenShare.viewing.count",
+      "value": "Schermen gedeeld door anderen: {0}"
+    },
+    {
+      "key": "screenShare.receive",
+      "value": "Schermen van anderen tonen"
+    },
+    {
+      "key": "screenShare.receive.tooltip",
+      "value": "Uit: er wordt geen schermdeling gedownload en schermen van anderen blijven leeg."
+    },
+    {
+      "key": "screenShare.viewDistance",
+      "value": "Kijkafstand (m)"
+    },
+    {
+      "key": "screenShare.viewDistance.tooltip",
+      "value": "Een scherm dat verder weg is, wordt pas gedownload als je dichterbij komt."
+    },
+    {
+      "key": "screenShare.volume",
+      "value": "Volume schermdeling"
+    },
+    {
+      "key": "screenShare.status.none",
+      "value": "Spawn Scherm delen vanuit je Bibliotheek om je scherm te delen."
+    },
+    {
+      "key": "screenShare.status.idle",
+      "value": "Niet aan het delen. Kies wat je wilt delen en druk op Delen starten."
+    },
+    {
+      "key": "screenShare.status.offline",
+      "value": "Niet aan het delen. Ga naar een server om je scherm te delen."
+    },
+    {
+      "key": "screenShare.status.unsupportedServer",
+      "value": "Niet aan het delen. Deze server ondersteunt geen scherm delen."
+    },
+    {
+      "key": "screenShare.status.starting",
+      "value": "Starten…"
+    },
+    {
+      "key": "screenShare.status.waiting",
+      "value": "{0} wordt gedeeld. Wachten op de server…"
+    },
+    {
+      "key": "screenShare.status.live",
+      "value": "{0} wordt gedeeld, {1} kijkers"
+    },
+    {
+      "key": "screenShare.status.error",
+      "value": "Gestopt: {0}"
+    },
+    {
+      "key": "screenShare.status.noAudio",
+      "value": "Computergeluid wordt niet gedeeld: {0}"
+    },
+    {
+      "key": "screenShare.error.unsupported",
+      "value": "Voor het delen van je scherm is Windows 10 versie 2004 of later nodig. Je kunt nog steeds schermen van anderen bekijken."
+    },
+    {
+      "key": "screenShare.error.open",
+      "value": "Het scherm kon niet worden vastgelegd."
+    },
+    {
+      "key": "screenShare.error.permission",
+      "value": "Deze server staat niet toe dat je je scherm deelt."
+    },
+    {
+      "key": "screenShare.error.tooMany",
+      "value": "Deze server toont al zoveel schermdelingen als toegestaan."
+    },
+    {
+      "key": "screenShare.error.refused",
+      "value": "De server heeft de schermdeling geweigerd."
+    },
+    {
+      "key": "screenShare.error.ended",
+      "value": "Het gedeelde beeldscherm of venster is verdwenen."
+    },
+    {
+      "key": "screenShare.back.sharedBy",
+      "value": "Gedeeld door {0}"
+    },
+    {
+      "key": "screenShare.back.yours",
+      "value": "Jouw scherm"
+    },
+    {
+      "key": "screenShare.back.hide",
+      "value": "Verbergen"
+    },
+    {
+      "key": "screenShare.panel.live",
+      "value": "LIVE"
+    },
+    {
+      "key": "screenShare.panel.watching",
+      "value": "{0} kijken mee"
+    },
+    {
+      "key": "screenShare.panel.details",
+      "value": "{0}×{1} · {2} fps"
+    },
+    {
+      "key": "screenShare.showHidden",
+      "value": "Verborgen schermen tonen"
+    },
+    {
+      "key": "screenShare.viewing.hidden",
+      "value": "Door jou verborgen: {0}"
+    },
+    {
+      "key": "settings.admin.title.lockScreenShare",
+      "value": "Scherm delen vergrendelen"
+    },
+    {
+      "key": "settings.admin.title.lockScreenShare.tooltip",
+      "value": "Spelers zonder de globale vergrendelrechten kunnen hun scherm niet delen. Lopende deelsessies van die spelers stoppen meteen; beheerders kunnen nog steeds delen."
+    },
+    {
+      "key": "screenShare.status.locked",
+      "value": "Scherm delen staat uit op deze server."
+    },
+    {
+      "key": "screenShare.error.locked",
+      "value": "Een beheerder heeft scherm delen op deze server uitgezet."
+    },
+    {
+      "key": "screenShare.error.restart",
+      "value": "De mediaplugin is bijgewerkt. Start opnieuw om scherm delen te gebruiken."
+    },
+    {
+      "key": "screenShare.audioSource",
+      "value": "Audiobron"
+    },
+    {
+      "key": "screenShare.audioSource.tooltip",
+      "value": "Automatisch deelt alleen het geluid van de app als je een venster deelt, en alles behalve Basis als je een scherm deelt."
+    },
+    {
+      "key": "screenShare.audioSource.auto",
+      "value": "Automatisch"
+    },
+    {
+      "key": "screenShare.audioSource.application",
+      "value": "Alleen deze app"
+    },
+    {
+      "key": "screenShare.audioSource.system",
+      "value": "Hele computer"
+    },
+    {
+      "key": "screenShare.source.portal",
+      "value": "Scherm of venster (gekozen in het systeemvenster)"
+    },
+    {
+      "key": "screenShare.status.choose",
+      "value": "Kies in het systeemvenster wat je wilt delen…"
+    },
+    {
+      "key": "screenShare.error.pluginMissing",
+      "value": "De mediaplugin van deze build kan geen scherm delen. Bouw de plugin opnieuw voor dit platform."
+    }
+  ]
+}

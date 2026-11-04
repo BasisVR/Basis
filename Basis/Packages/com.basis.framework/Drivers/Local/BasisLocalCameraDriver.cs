@@ -70,16 +70,24 @@ namespace Basis.Scripts.Drivers
         /// short. Does not fire on a headless client, which never renders.
         /// </summary>
         public static event Action BeforeRender;
+        private static Action beforeRenderSnapshot;
+        private static Delegate[] beforeRenderHandlers;
 
         public static void RaiseBeforeRender()
         {
             // Subscribers are independent, and one of them is the sandbox bridge — a throwing
             // handler must not take the rest of the frame's late-latch work down with it.
-            Delegate[] handlers = BeforeRender?.GetInvocationList();
-            if (handlers == null)
+            Action current = BeforeRender;
+            if (current == null)
             {
                 return;
             }
+            if (!ReferenceEquals(current, beforeRenderSnapshot))
+            {
+                beforeRenderSnapshot = current;
+                beforeRenderHandlers = current.GetInvocationList();
+            }
+            Delegate[] handlers = beforeRenderHandlers;
             for (int Index = 0; Index < handlers.Length; Index++)
             {
                 try
@@ -194,6 +202,10 @@ namespace Basis.Scripts.Drivers
         private float _micLayoutFov, _micLayoutAspect, _micLayoutDistance;
         private Vector2 _micLayoutOffset;
         private bool _micLayoutMobile;
+        // Cached VR mic-icon offset: only the icon offset feeds it, so the ParentOfUI write (which
+        // re-dirties every UI child under the camera) happens on a change, not every frame.
+        private bool _micVrLayoutValid;
+        private Vector3 _micVrLayoutOffset;
 
         /// <summary>The desired far clipping plane from scene settings before avatar overriding.</summary>
         private float DesiredClipFar = 1000.0f;
@@ -396,6 +408,9 @@ namespace Basis.Scripts.Drivers
                 HasInstance = true;
             }
             CameraInstance = Camera;
+#if !UNITY_ANDROID && !UNITY_IOS && !UNITY_WEBGL
+            Camera.opaqueSortMode = UnityEngine.Rendering.OpaqueSortMode.NoDistanceSort;
+#endif
             SelfTransform = Instance.transform;
             // Set initial scale from player height and set the clip planes.
             UpdateCameraScale();
@@ -757,7 +772,12 @@ namespace Basis.Scripts.Drivers
                     Vector3 offset = VRMicrophoneLocalOffset;
                     offset.x += microphoneIconDriver.IconPositionOffset.x;
                     offset.y += microphoneIconDriver.IconPositionOffset.y;
-                    ParentOfUI.SetLocalPosition(offset);
+                    if (!_micVrLayoutValid || offset != _micVrLayoutOffset)
+                    {
+                        ParentOfUI.SetLocalPosition(offset);
+                        _micVrLayoutOffset = offset;
+                        _micVrLayoutValid = true;
+                    }
                     _micLayoutValid = false;
                 }
                 else
@@ -783,6 +803,7 @@ namespace Basis.Scripts.Drivers
                         Vector3 localPos = SelfTransform.ToLocalPoint(worldPoint);
                         ParentOfUI.SetLocalPosition(localPos.normalized * MicrophoneAnchorDistance);
 
+                        _micVrLayoutValid = false;
                         _micLayoutValid = true;
                         _micLayoutFov = fov;
                         _micLayoutAspect = aspect;

@@ -61,6 +61,10 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
     public override void Draw()
     {
         DrawToolbar();
+        if (BasisEditorCalibrationSession.Active)
+        {
+            EditorGUILayout.HelpBox(BasisEditorLocalization.Get("editor.calibration.holding"), MessageType.Info);
+        }
         DrawHeader();
         DrawStaleBanner();
         EditorGUILayout.Space(4);
@@ -88,12 +92,28 @@ public sealed class BasisConstellationTab : BasisEditorTabPage
         {
             if (GUILayout.Button(BasisEditorLocalization.Get("editor.common.refresh"), EditorStyles.toolbarButton, GUILayout.Width(70))) Host.Repaint();
 
-            using (new EditorGUI.DisabledScope(!EditorApplication.isPlaying || BasisLocalPlayer.Instance == null))
+            if (BasisEditorCalibrationSession.Active)
             {
-                if (GUILayout.Button(BasisEditorLocalization.Get("editor.constellation.runCalibration"), EditorStyles.toolbarButton, GUILayout.Width(120)))
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.calibration.confirm"), EditorStyles.toolbarButton, GUILayout.Width(120)))
                 {
-                    BasisAvatarIKStageCalibration.FullBodyCalibration();
+                    BasisEditorCalibrationSession.Confirm();
                     Host.Repaint();
+                }
+                if (GUILayout.Button(BasisEditorLocalization.Get("editor.calibration.cancel"), EditorStyles.toolbarButton, GUILayout.Width(60)))
+                {
+                    BasisEditorCalibrationSession.Cancel();
+                    Host.Repaint();
+                }
+            }
+            else
+            {
+                using (new EditorGUI.DisabledScope(!BasisEditorCalibrationSession.CanStart))
+                {
+                    if (GUILayout.Button(BasisEditorLocalization.Get("editor.constellation.runCalibration"), EditorStyles.toolbarButton, GUILayout.Width(120)))
+                    {
+                        BasisEditorCalibrationSession.Start();
+                        Host.Repaint();
+                    }
                 }
             }
 

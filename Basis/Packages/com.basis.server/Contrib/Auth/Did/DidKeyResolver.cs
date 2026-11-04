@@ -43,7 +43,10 @@ namespace Basis.Contrib.Auth.DecentralizedIds
 				count: 2,
 				StringSplitOptions.RemoveEmptyEntries
 			);
-			Debug.Assert(parts.Length == 1, "expected string to start with did:key");
+			if (parts.Length != 1 || !did.V.StartsWith(PREFIX, StringComparison.Ordinal))
+			{
+				throw new DidKeyDecodeException(DidKeyDecodeError.NotBase58Btc);
+			}
 			var multibasePart = parts[0];
 			var multibaseChar = multibasePart[0];
 			// did:key uses base58-btc encoding, see the spec here:

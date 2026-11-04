@@ -1,6 +1,8 @@
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management.Devices;
+using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System;
 using UnityEngine;
@@ -87,7 +89,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         #region Occupant Rotation
         [Header("Occupant Rotation")]
-        [Tooltip("Total sweep the occupant may turn themselves, centred on the seat's forward. 0 holds them forward, 360 is a free spin, 90 gives 45 degrees either way.")]
+        [Tooltip("Total sweep the occupant may turn themselves with the right stick in VR or mouse look on desktop, centred on the seat's forward. 0 holds them forward, 360 is a free spin, 90 gives 45 degrees either way.")]
         [SerializeField, Range(0f, 360f)] private float _occupantRotationRangeDegrees = 0f;
 
         [Tooltip("Step the occupant's turn is quantised to. 0 turns smoothly.")]
@@ -147,6 +149,13 @@ namespace Basis.Scripts.BasisSdk.Interactions
             return CommitOccupantYaw(BasisSeatFit.ResolveOccupantYaw(_occupantYawRaw, limits));
         }
 
+        public float TakeOccupantLookYaw(float lookDegrees)
+        {
+            float before = _occupantYawDegrees;
+            SetOccupantYaw(before + lookDegrees);
+            return Mathf.DeltaAngle(before, _occupantYawDegrees);
+        }
+
         public void ApplyNetworkedOccupantYaw(float degrees)
         {
             if (float.IsNaN(degrees) || float.IsInfinity(degrees))
@@ -174,6 +183,190 @@ namespace Basis.Scripts.BasisSdk.Interactions
             return true;
         }
         #endregion Occupant Rotation
+
+        #region Occupant Body
+        [Header("Occupant Body")]
+        [Tooltip("Locked holds the hips at the seat's back point. Unless Tracked releases them when the player has a hips tracker. Free always lets them follow the player's head and trackers, while the seat still carries them.")]
+        [SerializeField] private BasisSeatLockMode _hipsLock = BasisSeatLockMode.Locked;
+
+        [Tooltip("Locked poses the left leg into the seat. Unless Tracked releases it when the player has a tracker on that leg. Free always leaves it to trackers and foot placement.")]
+        [SerializeField] private BasisSeatLockMode _leftFootLock = BasisSeatLockMode.Locked;
+
+        [Tooltip("Locked poses the right leg into the seat. Unless Tracked releases it when the player has a tracker on that leg. Free always leaves it to trackers and foot placement.")]
+        [SerializeField] private BasisSeatLockMode _rightFootLock = BasisSeatLockMode.Locked;
+
+        [Tooltip("How far a script may move the occupant from the seat's fit point with SetOccupantOffset, in the seat's local units. 0 holds them on the fit point.")]
+        [SerializeField, Min(0f)] private float _occupantOffsetLimit = 0f;
+
+        [Tooltip("How locked legs are arranged. Kneeling raises the hips so the knees clear the seat.")]
+        [SerializeField] private BasisSeatPose _pose = BasisSeatPose.Seated;
+
+        [Header("Occupant Limb Targets")]
+        [Tooltip("Where the left hand goes, such as a steering wheel grip. With no rotation the hand is in its T-pose, palm down with the fingers pointing out to the side. Leave empty to not control the hand.")]
+        [SerializeField] private Transform _leftHandTarget;
+
+        [Tooltip("Where the right hand goes, such as a steering wheel grip. With no rotation the hand is in its T-pose, palm down with the fingers pointing out to the side. Leave empty to not control the hand.")]
+        [SerializeField] private Transform _rightHandTarget;
+
+        [Tooltip("Locked holds the left hand on its target, even over a VR controller. Unless Tracked lets a VR controller or hand tracker keep it. Free ignores the target.")]
+        [SerializeField] private BasisSeatLockMode _leftHandLock = BasisSeatLockMode.UnlessTracked;
+
+        [Tooltip("Locked holds the right hand on its target, even over a VR controller. Unless Tracked lets a VR controller or hand tracker keep it. Free ignores the target.")]
+        [SerializeField] private BasisSeatLockMode _rightHandLock = BasisSeatLockMode.UnlessTracked;
+
+        [Tooltip("Where the sole of the left foot rests, such as a pedal. Its up axis points out of the sole and its forward axis points along the toes. Used while Left Foot Lock holds the leg. Leave empty to use the seat pose.")]
+        [SerializeField] private Transform _leftFootTarget;
+
+        [Tooltip("Where the sole of the right foot rests, such as a pedal. Its up axis points out of the sole and its forward axis points along the toes. Used while Right Foot Lock holds the leg. Leave empty to use the seat pose.")]
+        [SerializeField] private Transform _rightFootTarget;
+
+        private Vector3 _occupantOffset;
+
+        public BasisSeatPose Pose
+        {
+            get => _pose;
+            set
+            {
+                if (_pose != value)
+                {
+                    _pose = value;
+                    OnOccupantBodyChanged?.Invoke();
+                }
+            }
+        }
+
+        public void ApplyNetworkedPose(BasisSeatPose pose)
+        {
+            _pose = Enum.IsDefined(typeof(BasisSeatPose), pose) ? pose : BasisSeatPose.Seated;
+        }
+
+        public Transform LeftHandTarget
+        {
+            get => _leftHandTarget;
+            set => _leftHandTarget = value;
+        }
+
+        public Transform RightHandTarget
+        {
+            get => _rightHandTarget;
+            set => _rightHandTarget = value;
+        }
+
+        public BasisSeatLockMode LeftHandLock
+        {
+            get => _leftHandLock;
+            set => _leftHandLock = value;
+        }
+
+        public BasisSeatLockMode RightHandLock
+        {
+            get => _rightHandLock;
+            set => _rightHandLock = value;
+        }
+
+        public Transform LeftFootTarget
+        {
+            get => _leftFootTarget;
+            set => _leftFootTarget = value;
+        }
+
+        public Transform RightFootTarget
+        {
+            get => _rightFootTarget;
+            set => _rightFootTarget = value;
+        }
+
+        public void SetHandTargets(Transform left, Transform right)
+        {
+            _leftHandTarget = left;
+            _rightHandTarget = right;
+        }
+
+        public void SetFootTargets(Transform left, Transform right)
+        {
+            _leftFootTarget = left;
+            _rightFootTarget = right;
+        }
+
+        public void ClearLimbTargets()
+        {
+            SetHandTargets(null, null);
+            SetFootTargets(null, null);
+        }
+
+        public BasisSeatLockMode HipsLock
+        {
+            get => _hipsLock;
+            set
+            {
+                if (_hipsLock != value)
+                {
+                    _hipsLock = value;
+                    OnOccupantBodyChanged?.Invoke();
+                }
+            }
+        }
+
+        public BasisSeatLockMode LeftFootLock
+        {
+            get => _leftFootLock;
+            set => _leftFootLock = value;
+        }
+
+        public BasisSeatLockMode RightFootLock
+        {
+            get => _rightFootLock;
+            set => _rightFootLock = value;
+        }
+
+        public float OccupantOffsetLimit
+        {
+            get => _occupantOffsetLimit;
+            set
+            {
+                _occupantOffsetLimit = Mathf.Max(0f, value);
+                SetOccupantOffset(_occupantOffset);
+            }
+        }
+
+        public Vector3 OccupantOffset => _occupantOffset;
+
+        public float NetworkedSoleHeight { get; set; }
+
+        public Action OnOccupantBodyChanged;
+
+        public bool SetOccupantOffset(Vector3 seatLocalOffset)
+        {
+            if (float.IsNaN(seatLocalOffset.x) || float.IsNaN(seatLocalOffset.y) || float.IsNaN(seatLocalOffset.z)
+                || float.IsInfinity(seatLocalOffset.x) || float.IsInfinity(seatLocalOffset.y) || float.IsInfinity(seatLocalOffset.z))
+            {
+                return false;
+            }
+            Vector3 resolved = Vector3.ClampMagnitude(seatLocalOffset, _occupantOffsetLimit);
+            if (resolved == _occupantOffset)
+            {
+                return false;
+            }
+            _occupantOffset = resolved;
+            OnOccupantBodyChanged?.Invoke();
+            return true;
+        }
+
+        public void ResetOccupantOffset()
+        {
+            SetOccupantOffset(Vector3.zero);
+        }
+
+        public void ApplyNetworkedOccupantOffset(Vector3 seatLocalOffset)
+        {
+            if (float.IsNaN(seatLocalOffset.x) || float.IsNaN(seatLocalOffset.y) || float.IsNaN(seatLocalOffset.z)
+                || float.IsInfinity(seatLocalOffset.x) || float.IsInfinity(seatLocalOffset.y) || float.IsInfinity(seatLocalOffset.z))
+            {
+                return;
+            }
+            _occupantOffset = seatLocalOffset;
+        }
+        #endregion Occupant Body
 
         #region Occupancy
         private IBasisPlayer _occupant;
@@ -242,6 +435,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         private AsyncOperationHandle<Material> _asyncOperationHighlightMat;
         private GameObject _seatHighlightObject;
         private MeshFilter _seatHighlightMeshFilter;
+        private Mesh _seatHighlightMesh;
         private Material _colliderHighlightMat;
         private const string k_LoadMaterialAddress = "Interactable/InteractHighlightMat.mat";
         public Action<BasisPlayer> OnLocalPlayerEnterSeat;
@@ -296,7 +490,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         #endregion Seat Internals
 
         #region Highlight Code
-        private Mesh _generateSeatHighlightMesh()
+        private void _writeSeatHighlightMesh(Mesh mesh)
         {
             const float k_lineWidth = 0.1f;
             float seatWidth = Mathf.Min(Vector3.Distance(Back, Knee), Vector3.Distance(Knee, Foot));
@@ -345,12 +539,9 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 14, 10, 9, 14, 15, 10, // Back Upper Leg
                 6, 16, 5, 17, 16, 6, // Knee Upper Leg
             };
-            Mesh mesh = new Mesh
-            {
-                vertices = vertices,
-                triangles = triangles
-            };
-            return mesh;
+            mesh.Clear();
+            mesh.vertices = vertices;
+            mesh.triangles = triangles;
         }
         public BasisSeatFitFrame GetFitFrame()
         {
@@ -369,26 +560,41 @@ namespace Basis.Scripts.BasisSdk.Interactions
             };
         }
 
-        public void CalculateSeatPositionRotation(BasisRemotePlayer Player, out Quaternion hipsWorldRot, out Vector3 hipsWorldPos)
+        public BasisSeatFitResult SolveFit(in BasisSeatFitLegs legs)
         {
-            var tpose = Player.RemoteAvatarDriver.References.TposeFromRoot;
-            Vector3 scale = Player.AvatarTransform.localScale;
+            Vector3 scale = transform.lossyScale;
+            float seatScale = Mathf.Max((Mathf.Abs(scale.x) + Mathf.Abs(scale.y) + Mathf.Abs(scale.z)) / 3f, 1e-4f);
+            BasisSeatFitLegs seatLegs = legs.InSeatUnits(seatScale);
+            BasisSeatFitFrame frame = GetFitFrame();
+            BasisSeatFitResult fit = BasisSeatFit.Solve(frame, seatLegs);
+            fit.Back += frame.SpineRotation * Vector3.up * BasisSeatFit.PosePelvisLift(_pose, seatLegs.UpperLegLength);
+            return fit;
+        }
 
-            BasisSeatFitLegs legs = BasisSeatFitLegs.FromBones(
-                Vector3.Scale(scale, tpose[HumanBodyBones.LeftUpperLeg].position),
-                Vector3.Scale(scale, tpose[HumanBodyBones.LeftLowerLeg].position),
-                Vector3.Scale(scale, tpose[HumanBodyBones.LeftFoot].position),
-                Vector3.Scale(scale, tpose[HumanBodyBones.LeftToes].position));
-
-            CalculateSeatPositionRotation(legs, out hipsWorldRot, out hipsWorldPos);
+        public bool TryCalculateOccupantPose(BasisTransformMapping mapping, Vector3 rootScale, float occupantYawDegrees, out Vector3 hipsWorldPos, out Quaternion rootWorldRot, out Quaternion hipsRestFromRoot)
+        {
+            hipsWorldPos = default;
+            rootWorldRot = Quaternion.identity;
+            hipsRestFromRoot = Quaternion.identity;
+            if (mapping == null || !BasisSeatFitLegs.TryFromMapping(mapping.TposeFromRoot, rootScale, NetworkedSoleHeight, out BasisSeatFitLegs legs)
+                || !mapping.TposeFromRoot.TryGetValue(HumanBodyBones.Hips, out BasisCalibratedCoords hipsRest))
+            {
+                return false;
+            }
+            hipsRestFromRoot = hipsRest.rotation;
+            BasisSeatFitResult fit = SolveFit(legs);
+            BasisSeatFit.ComposeHipsWorld(transform.localToWorldMatrix, transform.rotation, SpineRotation, fit.Back + _occupantOffset,
+                occupantYawDegrees, out hipsWorldPos, out Quaternion seated, out _);
+            rootWorldRot = seated * Quaternion.Inverse(BasisGenericBoneRotationUtils.GetCharacterBasis(mapping));
+            return true;
         }
 
         /// <summary>
         /// </summary>
         public void CalculateSeatPositionRotation(in BasisSeatFitLegs legs, out Quaternion hipsWorldRot, out Vector3 hipsWorldPos)
         {
-            BasisSeatFitResult fit = BasisSeatFit.Solve(GetFitFrame(), legs);
-            BasisSeatFit.ComposeHipsWorld(transform.localToWorldMatrix, transform.rotation, SpineRotation, fit.Back,
+            BasisSeatFitResult fit = SolveFit(legs);
+            BasisSeatFit.ComposeHipsWorld(transform.localToWorldMatrix, transform.rotation, SpineRotation, fit.Back + _occupantOffset,
                 _occupantYawDegrees, out hipsWorldPos, out hipsWorldRot, out _);
         }
         public static Vector3 ClosestPointOnSphere(Vector3 point, Vector3 sphereCenter, float sphereRadius)
@@ -431,18 +637,42 @@ namespace Basis.Scripts.BasisSdk.Interactions
         #endregion Highlight Code
 
         #region Unity Lifecycle Hooks
+        public override void Awake()
+        {
+            base.Awake();
+            _recalculateHelperVectors();
+        }
+
         private void OnValidate()
         {
             // Triggered whenever inspector values change.
             _recalculateHelperVectors();
             if (_seatHighlightMeshFilter != null)
             {
-                if (_seatHighlightMeshFilter.mesh != null)
+                if (_seatHighlightMesh == null)
                 {
-                    DestroyImmediate(_seatHighlightMeshFilter.mesh);
+                    _seatHighlightMesh = new Mesh();
+                    _seatHighlightMeshFilter.sharedMesh = _seatHighlightMesh;
                 }
-                _seatHighlightMeshFilter.mesh = _generateSeatHighlightMesh();
+                _writeSeatHighlightMesh(_seatHighlightMesh);
             }
+        }
+
+        private void DestroyHighlightMesh()
+        {
+            if (_seatHighlightMesh == null)
+            {
+                return;
+            }
+            if (Application.isPlaying)
+            {
+                Destroy(_seatHighlightMesh);
+            }
+            else
+            {
+                DestroyImmediate(_seatHighlightMesh);
+            }
+            _seatHighlightMesh = null;
         }
 
         public void Start()
@@ -472,13 +702,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 SetSeatOccupied(false);
                 LocallyInSeat = false;
             }
-            if (_seatHighlightMeshFilter != null)
-            {
-                if (_seatHighlightMeshFilter.mesh != null)
-                {
-                    DestroyImmediate(_seatHighlightMeshFilter.mesh);
-                }
-            }
+            DestroyHighlightMesh();
             if (_asyncOperationHighlightMat.IsValid())
             {
                 _asyncOperationHighlightMat.Release();
@@ -723,6 +947,21 @@ namespace Basis.Scripts.BasisSdk.Interactions
             Gizmos.DrawLine(Vector3.zero, Vector3.forward * 0.3f);
 
             Gizmos.matrix = Matrix4x4.identity;
+
+            DrawLimbTargetGizmo(_leftHandTarget);
+            DrawLimbTargetGizmo(_rightHandTarget);
+            DrawLimbTargetGizmo(_leftFootTarget);
+            DrawLimbTargetGizmo(_rightFootTarget);
+        }
+
+        private void DrawLimbTargetGizmo(Transform target)
+        {
+            if (target == null)
+            {
+                return;
+            }
+            Gizmos.DrawWireSphere(target.position, 0.04f);
+            Gizmos.DrawLine(transform.position, target.position);
         }
     }
 }

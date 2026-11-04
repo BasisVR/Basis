@@ -1,5 +1,6 @@
 using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -13,10 +14,10 @@ using UnityEngine.Rendering.Universal;
 [AutoStaticsCleanup]
 public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
 {
-    public const int PassTrace = 0, PassTemporal = 1, PassBlur = 2, PassComposite = 3, PassDebug = 4, PassCopyColor = 5;
-    public const int PassSpecularUpsample = 6;
-    public const int PassCoarseSeed = 7, PassCoarseReduce = 8;
-    public const int PassLightmapMask = 9;
+    public const int PassTemporal = 0, PassBlur = 1, PassComposite = 2, PassDebug = 3, PassCopyColor = 4, PassCompositeSurface = 15, PassSurfaceDepth = 16;
+    public const int PassSpecularUpsample = 5;
+    public const int PassCoarseSeed = 6, PassCoarseReduce = 7;
+    public const int PassLightmapMask = 8;
     // How many traced texels one texel of the finished coarse summary stands for. Eight is the point
     // where a cell is big enough that skipping one is worth the tap that decided it, and still small
     // enough that the fine walk inside a cell it cannot rule out is only eight steps long.
@@ -40,7 +41,8 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     // scaled, not ignored - so a player who wants a snappier bounce still gets one.
     public const float RayTemporalResponseScale = 0.35f;
 
-    private enum Stage { CopyColor, Trace, Temporal, Blur, Composite, RayPrepass, RayResolve, Coarse, LightmapMask }
+    public static int FrameOffset;
+    private enum Stage { CopyColor, Trace, Temporal, Blur, Composite, RayPrepass, RayResolve, Coarse, LightmapMask, Cascade, Surface }
 
     private sealed class PassData
     {
@@ -67,6 +69,13 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         public bool lightmapMaskValid;
         public Vector4 lightmapParams;
         public RendererListHandle lightmapRenderers;
+        public TextureHandle surface;
+        public bool surfaceValid;
+        public float skipEye;
+        public RendererListHandle surfaceBatched;
+        public bool surfaceBatchedValid;
+        public RendererListHandle surfaceTagged;
+        public bool surfaceTaggedValid;
         // The reflection trace's hit distances, which turn the temporal stage into its specular flavour:
         // virtual point reprojection instead of surface reprojection. Pooled-PassData rule as ever - every
         // pass that runs Stage.Temporal writes both fields, valid or not.
@@ -76,6 +85,12 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         // representative texel - the reflection pyramid's mode. Pool rule: written at every Stage.Coarse
         // call site.
         public bool coarseConservative;
+        public TextureHandle rcColor1, rcColor2, rcColor3, rcDepth1, rcDepth2, rcDepth3, rcSourceColor, rcSourceDepth;
+        public TextureHandle rcProbes, rcUpperProbes, rcUpper, rcSh0, rcSh1, rcSh2, rcSh3;
+        public Vector4 rcCascade, rcInterval, rcGrid, rcJitter;
+        public Vector4[] rcRotations;
+        public float rcPhase;
+        public readonly Vector4[] rcLevels = new Vector4[CascadeLevels];
     }
 
     private sealed class RayTraceData
@@ -112,6 +127,9 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     private static readonly int idStats = Shader.PropertyToID("_BasisGIStats");
     private static readonly int idStatsValid = Shader.PropertyToID("_BasisGIStatsValid");
     private static readonly int idNormals = Shader.PropertyToID("_BasisGINormals");
+    private static readonly int idSurface = Shader.PropertyToID("_BasisGISurface");
+    private static readonly int idSurfaceValid = Shader.PropertyToID("_BasisGISurfaceValid");
+    private static readonly int idSurfaceTexelSize = Shader.PropertyToID("_BasisGISurfaceTexelSize");
     private static readonly int idLightmapMask = Shader.PropertyToID("_BasisGILightmapMask");
     private static readonly int idLightmapParams = Shader.PropertyToID("_BasisGILightmapParams");
     private static readonly int idLightmapMaskForce = Shader.PropertyToID("_BasisGILightmapMaskForce");
@@ -174,14 +192,17 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerRayResolve = new ProfilingSampler("Basis GI Ray Resolve");
     [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerCopy = new ProfilingSampler("Basis GI Copy Color");
     [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerLightmapMask = new ProfilingSampler("Basis GI Lightmap Mask");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerSurface = new ProfilingSampler("Basis GI Surface Colour");
+    private static ShaderTagId[] surfaceTags;
+    [NoAutoStaticsCleanup] private static readonly ShaderTagId[] surfaceTagValue = new ShaderTagId[1];
+    [NoAutoStaticsCleanup] private static readonly RenderStateBlock[] surfaceStateBlock = new RenderStateBlock[1];
     [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerCoarse = new ProfilingSampler("Basis GI Coarse Depth");
-    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerTrace = new ProfilingSampler("Basis GI Trace");
     [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerTemporal = new ProfilingSampler("Basis GI Temporal");
     [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerBlur = new ProfilingSampler("Basis GI Blur");
     [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerComposite = new ProfilingSampler("Basis GI Composite");
 
     public static float GpuMs =>
-        samplerCopy.gpuElapsedTime + samplerLightmapMask.gpuElapsedTime + samplerCoarse.gpuElapsedTime + samplerTrace.gpuElapsedTime +
+        samplerCopy.gpuElapsedTime + samplerLightmapMask.gpuElapsedTime + samplerSurface.gpuElapsedTime + samplerCoarse.gpuElapsedTime + samplerCascades.gpuElapsedTime + samplerWorld.gpuElapsedTime + samplerWorldCapture.gpuElapsedTime +
         samplerTemporal.gpuElapsedTime + samplerBlur.gpuElapsedTime + samplerComposite.gpuElapsedTime +
         samplerRayPrepass.gpuElapsedTime + samplerRayTrace.gpuElapsedTime + samplerRayResolve.gpuElapsedTime;
 
@@ -189,8 +210,10 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     {
         samplerCopy.enableRecording = enabled;
         samplerLightmapMask.enableRecording = enabled;
+        samplerSurface.enableRecording = enabled;
         samplerCoarse.enableRecording = enabled;
-        samplerTrace.enableRecording = enabled;
+        samplerCascades.enableRecording = enabled;
+        samplerWorld.enableRecording = enabled;
         samplerTemporal.enableRecording = enabled;
         samplerBlur.enableRecording = enabled;
         samplerComposite.enableRecording = enabled;
@@ -204,7 +227,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     public static float GpuMsRayResolve => samplerRayResolve.gpuElapsedTime;
     public static float GpuMsCopyColor => samplerCopy.gpuElapsedTime;
     public static float GpuMsCoarseDepth => samplerCoarse.gpuElapsedTime;
-    public static float GpuMsTrace => samplerTrace.gpuElapsedTime;
+    public static float GpuMsTrace => samplerCascades.gpuElapsedTime + samplerWorld.gpuElapsedTime;
     public static float GpuMsTemporal => samplerTemporal.gpuElapsedTime;
     public static float GpuMsBlur => samplerBlur.gpuElapsedTime;
     public static float GpuMsComposite => samplerComposite.gpuElapsedTime;
@@ -257,6 +280,23 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
 
     public void SetMaterial(Material value) { material = value; }
 
+    private static readonly int idSkipEye = Shader.PropertyToID("_BasisGISkipEye");
+
+    public static float SkipEyeFor(bool alternateEyes, in RenderTextureDescriptor descriptor, int frame, bool rayTraced)
+    {
+        bool stereo = descriptor.dimension == TextureDimension.Tex2DArray && descriptor.volumeDepth == 2;
+        return stereo && alternateEyes && !rayTraced ? frame & 1 : -1f;
+    }
+
+    private Shader surfaceShader;
+    public void SetSurface(Shader value) { surfaceShader = value; }
+
+    private static void BindSurface(RasterCommandBuffer cmd, PassData data)
+    {
+        cmd.SetGlobalFloat(idSurfaceValid, data.surfaceValid ? 1f : 0f);
+        if (data.surfaceValid) { cmd.SetGlobalTexture(idSurface, data.surface); }
+    }
+
     public void SetRayTracing(Material stages, RayTracingShader hardware, ComputeShader compute, bool computeFallback)
     {
         rayStagesMaterial = stages;
@@ -304,7 +344,11 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         BasisGlobalIlluminationSettings settings = BasisGlobalIlluminationSettings.Current;
         // DiffuseActive, not IsActive: IsActive is also true when only reflections were asked for, and
         // those are recorded by SpecularPass at a different point in the frame.
-        if (!settings.DiffuseActive()) { return; }
+        if (!settings.DiffuseActive())
+        {
+            ReleaseWorldIfAllocated();
+            return;
+        }
         if (!resourceData.cameraColor.IsValid() || !resourceData.cameraDepthTexture.IsValid()) { return; }
 
         if (invocationFrame != Time.frameCount) { invocationFrame = Time.frameCount; invocationCount = 0; }
@@ -317,7 +361,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         int tracedWidth = Mathf.Max(1, descriptor.width / divisor);
         int tracedHeight = Mathf.Max(1, descriptor.height / divisor);
 
-        int frame = Time.renderedFrameCount;
+        int frame = Time.renderedFrameCount + FrameOffset;
         BasisGlobalIlluminationHistory.Key historyKey = BasisGlobalIlluminationHistory.ComputeKey(camera, cameraData.xr);
         BasisGlobalIlluminationHistory history = BasisGlobalIlluminationHistory.Get(historyKey);
         bool resetHistory = camera != null && camera.TryGetComponent(out UniversalAdditionalCameraData additionalCameraData) && additionalCameraData.resetHistory;
@@ -357,9 +401,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         TextureHandle historyWriteStats = renderGraph.ImportTexture(history.Stats[history.Write]);
         TextureHandle normals = UseNormalsTexture && resourceData.cameraNormalsTexture.IsValid() ? resourceData.cameraNormalsTexture : TextureHandle.nullHandle;
 
-        // The ray traced mode replaces the screen space gather and nothing else: the temporal filter, the
         // bilateral blur and the composite downstream read the same traced texture either way. A GPU or a
-        // scene that cannot serve the trace falls back to the screen space gather rather than to nothing.
         bool rayTraced = settings.IsRayTraced() && PrepareRayTracing(settings, camera, CameraPosition, frame);
         float obscuranceIntensity = BasisGlobalIlluminationFeature.ExternalAmbientOcclusionActive?.Invoke(camera) == true
             ? 0f
@@ -374,6 +416,8 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
             ? RecordLightmapMask(renderGraph, frameData, resourceData, cameraData, descriptor, tracedWidth, tracedHeight)
             : TextureHandle.nullHandle;
         CoreUtils.SetKeyword(material, "_BASISGI_LIGHTMAP_MASK", lightmapMask.IsValid());
+        bool alternateEyes = settings.alternateEyes && historyValid;
+        TextureHandle surface = RecordSurface(renderGraph, frameData, resourceData, cameraData, settings, descriptor);
 
         // Declared out here because the temporal filter runs in both modes and wants it whenever the screen
         // space gather built it. The ray traced mode reconstructs its own positions and never asks.
@@ -385,6 +429,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         int rayCount = settings.ResolvedRayCount();
         int bounces = settings.ResolvedBounces();
         int lightSamples = settings.ResolvedRayTracedLightSamples();
+        if (!rayTraced) { rayCount = 2; }
         if (rayTraced && BasisGlobalIlluminationRayTracer.Instance.Context.Backend == RayTracingBackend.Compute)
         {
             rayCount = Mathf.Min(rayCount, ComputeBackendRayCeiling);
@@ -409,57 +454,62 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         FillConstants(settings, frame, rayTraced, rayCount, obscuranceIntensity);
         int emitterCount = settings.emitters ? GatherEmitters(camera, settings.ResolvedMaxEmitters()) : 0;
 
+        worldRayTraced = rayTraced;
         if (rayTraced)
         {
+            ReleaseWorldIfAllocated();
             RecordRayTraced(renderGraph, resourceData, cameraData, settings, traced, tracedWidth, tracedHeight, descriptor, frame, emitterCount, rayCount, bounces, lightSamples, sky, obscuranceIntensity);
         }
         else
         {
+            RecordWorld(renderGraph, cameraData, settings, frame);
+
+            bool bounceFeedback = historyValid && settings.bounceFeedback > 0f;
+            CoreUtils.SetKeyword(material, "_BASISGI_BOUNCE_FEEDBACK", bounceFeedback);
+
             using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass("Basis GI Copy Color", out PassData passData, samplerCopy))
             {
                 passData.stage = Stage.CopyColor;
                 passData.material = material;
                 passData.materialPass = PassCopyColor;
                 passData.source = resourceData.cameraColor;
+                passData.history = bounceFeedback ? historyRead : TextureHandle.nullHandle;
+                passData.historyStats = bounceFeedback ? historyReadStats : TextureHandle.nullHandle;
+                passData.historyValid = bounceFeedback;
+                passData.previousViewProjection = previousViewProjection;
+                passData.lightmapMask = lightmapMask;
+                passData.lightmapMaskValid = lightmapMask.IsValid();
+                passData.lightmapParams = new Vector4(settings.lightmappedReceive, 0f, 0f, 0f);
+                passData.surface = surface;
+                passData.surfaceValid = surface.IsValid();
+                if (surface.IsValid()) { builder.UseTexture(surface); }
+                previousViewProjection[0] = history.PreviousViewProjection[0];
+                previousViewProjection[1] = history.PreviousViewProjection[1];
                 Configure(passData, settings, tracedWidth, tracedHeight, descriptor, emitterCount, sky);
                 builder.SetRenderAttachment(sceneColor, 0, AccessFlags.WriteAll);
                 builder.UseTexture(resourceData.cameraColor);
+                if (bounceFeedback)
+                {
+                    builder.UseTexture(historyRead);
+                    builder.UseTexture(historyReadStats);
+                    builder.UseTexture(resourceData.cameraDepthTexture);
+                }
+                if (lightmapMask.IsValid()) { builder.UseTexture(lightmapMask); }
                 builder.AllowGlobalStateModification(true);
                 builder.SetRenderFunc((PassData data, RasterGraphContext context) => Execute(data, context));
             }
 
-            RecordDepthPyramid(renderGraph, resourceData, descriptor, tracedWidth, tracedHeight, divisor,
-                settings.hierarchicalMarch, false, out tracedDepth, out TextureHandle coarse);
+            RecordWorldCapture(renderGraph, resourceData, camera, sceneColor, surface, tracedWidth, tracedHeight);
 
-            // Published for the whole frame, not just this pass: BindTracedDepth below covers GI's own
-            // downstream stages, this covers everyone else's.
+            RecordDepthPyramid(renderGraph, resourceData, descriptor, tracedWidth, tracedHeight, divisor,
+                false, true, out tracedDepth, out TextureHandle coarse);
+
             SharedTracedDepthValid = true;
             SharedTracedDepth = tracedDepth;
             SharedTracedDepthCamera = camera;
 
-            using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass("Basis GI Trace", out PassData passData, samplerTrace))
-            {
-                passData.stage = Stage.Trace;
-                passData.material = material;
-                passData.materialPass = PassTrace;
-                passData.source = sceneColor;
-                passData.sceneColor = sceneColor;
-                passData.normals = normals;
-                passData.coarse = coarse;
-                passData.coarseValid = coarse.IsValid();
-                passData.coarseTexelSize = coarseTexelSize;
-                passData.coarseParams = new Vector4(0f, 0f, 0f, CoarseBlock);
-                passData.tracedDepth = tracedDepth;
-                passData.tracedDepthValid = true;
-                builder.SetRenderAttachment(traced, 0, AccessFlags.WriteAll);
-                builder.UseTexture(sceneColor);
-                builder.UseTexture(resourceData.cameraDepthTexture);
-                builder.UseTexture(tracedDepth);
-                if (coarse.IsValid()) { builder.UseTexture(coarse); }
-                if (normals.IsValid()) { builder.UseTexture(normals); }
-                builder.AllowGlobalStateModification(true);
-                builder.SetRenderFunc((PassData data, RasterGraphContext context) => Execute(data, context));
-            }
+            RecordRadianceCascades(renderGraph, resourceData, settings, sceneColorDescriptor, descriptor, sceneColor, tracedDepth,
+                normals, traced, tracedWidth, tracedHeight, frame, emitterCount, sky, alternateEyes);
         }
 
         TextureHandle denoiseSource = traced;
@@ -483,6 +533,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
                 // inherit a dead graph's handle and run the diffuse accumulation as a reflection.
                 passData.specularHitDistance = TextureHandle.nullHandle;
                 passData.specularHitDistanceValid = false;
+                passData.skipEye = SkipEyeFor(settings.alternateEyes && historyValid, descriptor, frame, rayTraced);
                 previousViewProjection[0] = history.PreviousViewProjection[0];
                 previousViewProjection[1] = history.PreviousViewProjection[1];
                 builder.SetRenderAttachment(historyWrite, 0, AccessFlags.WriteAll);
@@ -506,7 +557,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         int taps = Mathf.Clamp(Mathf.RoundToInt(settings.smoothing * 2f), 0, 4);
         if (taps > 0)
         {
-            int levels = settings.wideBlur ? BlurLevels : BlurLevels - 1;
+            int levels = rayTraced ? (settings.wideBlur ? BlurLevels : BlurLevels - 1) : 1;
             for (int level = 0; level < levels; level++)
             {
                 float stride = 1 << level;
@@ -519,7 +570,10 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         {
             passData.stage = Stage.Composite;
             passData.material = material;
-            passData.materialPass = DebugView == BasisGlobalIlluminationDebugView.None ? PassComposite : PassDebug;
+            passData.materialPass = DebugView != BasisGlobalIlluminationDebugView.None ? PassDebug : (surface.IsValid() ? PassCompositeSurface : PassComposite);
+            passData.surface = surface;
+            passData.surfaceValid = surface.IsValid();
+            if (surface.IsValid()) { builder.UseTexture(surface); }
             passData.source = denoiseSource;
             passData.indirect = denoiseSource;
             passData.normals = normals;
@@ -567,7 +621,6 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     /// <summary>
     /// Brings the shared acceleration structure up to date for this frame. Returns false when the mode cannot
     /// run - no ray tracing on this GPU, the context failed to come up, or the scene holds no traceable
-    /// geometry yet - and the caller then renders the screen space gather instead.
     /// </summary>
     private bool PrepareRayTracing(BasisGlobalIlluminationSettings settings, Camera camera,Vector3 Position, int frame)
     {
@@ -606,7 +659,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     {
         if (loggedRayTracingFallback) { return; }
         loggedRayTracingFallback = true;
-        Debug.LogWarning($"[BasisGI] Ray traced global illumination fell back to the screen space gather: {reason}.");
+        Debug.LogWarning($"[BasisGI] Ray traced global illumination fell back to radiance cascades: {reason}.");
     }
 
     private void RecordRayTraced(RenderGraph renderGraph, UniversalResourceData resourceData, UniversalCameraData cameraData,
@@ -811,6 +864,148 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     /// BatchRendererGroup refusing a variant, an empty list, a culled pass) collapsed to "global
     /// illumination is gone". This way round every failure leaves the image exactly as it was.
     /// </summary>
+    public sealed class SurfaceTargetPass : ScriptableRenderPass
+    {
+        public SurfaceTargetPass()
+        {
+            renderPassEvent = RenderPassEvent.BeforeRenderingOpaques;
+        }
+
+        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
+        {
+            UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
+            if (!resourceData.activeColorTexture.IsValid()) { return; }
+            TextureDesc colorDesc = renderGraph.GetTextureDesc(resourceData.activeColorTexture);
+            if (colorDesc.msaaSamples != MSAASamples.None) { return; }
+            TextureDesc surfaceDesc = new TextureDesc(colorDesc)
+            {
+                format = GraphicsFormat.R8G8B8A8_SRGB,
+                clearBuffer = true,
+                clearColor = Color.black,
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                useMipMap = false,
+                enableRandomWrite = false,
+                bindTextureMS = false,
+                name = "_BasisGISurface"
+            };
+            resourceData.basisSurfaceTexture = renderGraph.CreateTexture(surfaceDesc);
+        }
+    }
+
+    private TextureHandle RecordSurface(RenderGraph renderGraph, ContextContainer frameData, UniversalResourceData resourceData,
+        UniversalCameraData cameraData, BasisGlobalIlluminationSettings settings, in RenderTextureDescriptor descriptor)
+    {
+        if (surfaceShader == null || !settings.surfaceColour) { return TextureHandle.nullHandle; }
+        UniversalRenderingData renderingData = frameData.Get<UniversalRenderingData>();
+
+        TextureDesc surfaceDescriptor = new TextureDesc(descriptor.width, descriptor.height)
+        {
+            format = GraphicsFormat.R8G8B8A8_SRGB,
+            dimension = descriptor.dimension,
+            slices = Mathf.Max(1, descriptor.volumeDepth),
+            msaaSamples = MSAASamples.None,
+            clearBuffer = true,
+            clearColor = Color.black,
+            filterMode = FilterMode.Point,
+            wrapMode = TextureWrapMode.Clamp,
+            name = "_BasisGISurface"
+        };
+        bool forward = resourceData.basisSurfaceWritten && resourceData.basisSurfaceTexture.IsValid();
+        TextureHandle surface = resourceData.basisSurfaceTexture.IsValid() ? resourceData.basisSurfaceTexture : renderGraph.CreateTexture(surfaceDescriptor);
+        TextureDesc surfaceSize = renderGraph.GetTextureDesc(surface);
+        Vector2Int surfacePixels = surfaceSize.sizeMode == TextureSizeMode.Explicit ? new Vector2Int(surfaceSize.width, surfaceSize.height) : new Vector2Int(descriptor.width, descriptor.height);
+        uint taggedMask = BasisGlobalIlluminationSurfaceTags.Mask;
+
+        surfaceTags ??= new[] { new ShaderTagId("UniversalForward"), new ShaderTagId("UniversalForwardOnly") };
+        DrawingSettings drawing = new DrawingSettings(surfaceTags[0], new SortingSettings(cameraData.camera) { criteria = SortingCriteria.CommonOpaque })
+        {
+            overrideShader = surfaceShader,
+            overrideShaderPassIndex = 0,
+            perObjectData = PerObjectData.None,
+            enableInstancing = true
+        };
+        drawing.SetShaderPassName(1, surfaceTags[1]);
+        FilteringSettings ordinary = new FilteringSettings(RenderQueueRange.opaque) { batchLayerMask = ~BatchLayer.InstanceCullingMask, renderingLayerMask = taggedMask != 0u ? taggedMask : uint.MaxValue };
+        RendererListParams listParams = new RendererListParams(renderingData.cullResults, drawing, ordinary);
+        RendererListHandle rendererList = renderGraph.CreateRendererList(listParams);
+
+        bool batched = !forward && GraphicsSettings.currentRenderPipeline is UniversalRenderPipelineAsset asset && asset.gpuResidentDrawerMode != GPUResidentDrawerMode.Disabled;
+        bool tagged = !forward && taggedMask != 0u;
+        RendererListHandle batchedList = default, taggedList = default;
+        TextureHandle surfaceDepth = renderGraph.CreateTexture(new TextureDesc(surfaceSize)
+        {
+            format = GraphicsFormat.D32_SFloat,
+            msaaSamples = MSAASamples.None,
+            clearBuffer = true,
+            filterMode = FilterMode.Point,
+            name = "_BasisGISurfaceDepth"
+        });
+        if (batched || tagged)
+        {
+            DrawingSettings batchedDrawing = new DrawingSettings(new ShaderTagId("BasisSurface"), new SortingSettings(cameraData.camera) { criteria = SortingCriteria.CommonOpaque })
+            {
+                perObjectData = PerObjectData.None,
+                enableInstancing = true
+            };
+            FilteringSettings batchedFilter = new FilteringSettings(RenderQueueRange.opaque) { batchLayerMask = BatchLayer.InstanceCullingMask };
+            surfaceTagValue[0] = ShaderTagId.none;
+            surfaceStateBlock[0] = new RenderStateBlock(RenderStateMask.Blend | RenderStateMask.Raster)
+            {
+                blendState = new BlendState(false, false)
+                {
+                    blendState0 = new RenderTargetBlendState(ColorWriteMask.All, BlendMode.One, BlendMode.Zero, BlendMode.Zero, BlendMode.Zero, BlendOp.Add, BlendOp.Add)
+                },
+                rasterState = new RasterState(CullMode.Off, -1, -1f, true)
+            };
+            NativeArray<ShaderTagId> tagValues = new NativeArray<ShaderTagId>(surfaceTagValue, Allocator.Temp);
+            NativeArray<RenderStateBlock> stateBlocks = new NativeArray<RenderStateBlock>(surfaceStateBlock, Allocator.Temp);
+            if (batched)
+            {
+                batchedList = renderGraph.CreateRendererList(new RendererListParams(renderingData.cullResults, batchedDrawing, batchedFilter)
+                {
+                    tagValues = tagValues,
+                    stateBlocks = stateBlocks,
+                    isPassTagName = false
+                });
+            }
+            if (tagged)
+            {
+                FilteringSettings taggedFilter = new FilteringSettings(RenderQueueRange.opaque) { batchLayerMask = ~BatchLayer.InstanceCullingMask };
+                taggedList = renderGraph.CreateRendererList(new RendererListParams(renderingData.cullResults, batchedDrawing, taggedFilter)
+                {
+                    tagValues = tagValues,
+                    stateBlocks = stateBlocks,
+                    isPassTagName = false
+                });
+            }
+        }
+
+        using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass("Basis GI Surface Colour", out PassData passData, samplerSurface))
+        {
+            passData.stage = Stage.Surface;
+            passData.material = material;
+            passData.lightmapRenderers = rendererList;
+            passData.surfaceBatched = batchedList;
+            passData.surfaceBatchedValid = batched;
+            passData.surfaceTagged = taggedList;
+            passData.surfaceTaggedValid = tagged;
+            passData.source = resourceData.cameraDepthTexture;
+            passData.materialPass = PassSurfaceDepth;
+            passData.tracedTexelSize = new Vector4(1f / surfacePixels.x, 1f / surfacePixels.y, surfacePixels.x, surfacePixels.y);
+            builder.SetRenderAttachment(surface, 0, AccessFlags.Write);
+            builder.SetRenderAttachmentDepth(surfaceDepth, AccessFlags.Write);
+            if (batched) { builder.UseRendererList(batchedList); }
+            if (tagged) { builder.UseRendererList(taggedList); }
+            builder.UseRendererList(rendererList);
+            builder.UseTexture(resourceData.cameraDepthTexture);
+            builder.AllowPassCulling(false);
+            builder.AllowGlobalStateModification(true);
+            builder.SetRenderFunc((PassData data, RasterGraphContext context) => Execute(data, context));
+        }
+        return surface;
+    }
+
     private TextureHandle RecordLightmapMask(RenderGraph renderGraph, ContextContainer frameData, UniversalResourceData resourceData,
         UniversalCameraData cameraData, in RenderTextureDescriptor descriptor, int tracedWidth, int tracedHeight)
     {
@@ -1003,7 +1198,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         CoreUtils.SetKeyword(material, "_BASISGI_EMITTERS", settings.emitters);
         CoreUtils.SetKeyword(material, "_BASISGI_EMITTER_OCCLUSION", settings.emitters && settings.emitterOcclusion);
         CoreUtils.SetKeyword(material, "_BASISGI_RAY_REUSE", settings.rayReuse);
-        CoreUtils.SetKeyword(material, "_BASISGI_HIT_NORMAL", settings.quality >= BasisGlobalIlluminationQuality.High);
+        CoreUtils.SetKeyword(material, "_BASISGI_RC_MERGE_FIX", settings.ResolvedMergeFix());
         CoreUtils.SetKeyword(material, "_BASISGI_HIERARCHICAL_MARCH", settings.hierarchicalMarch);
         CoreUtils.SetKeyword(material, "_BASISGI_NEIGHBOURHOOD_CLAMP", settings.neighbourhoodClamp);
         CoreUtils.SetKeyword(material, "_BASISGI_BILATERAL_UPSAMPLE", settings.bilateralUpsample && settings.ResolvedResolutionDivisor() > 1);
@@ -1015,8 +1210,8 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         constants[1] = new Vector4(settings.maxRayLength, settings.thickness, settings.jitter, settings.fadeDistance);
         // The fallback's intensity rides with the sky binding rather than here, because that is where the
         // cubemap it applies to comes from.
-        constants[2] = new Vector4(rayCount, settings.ResolvedRaySteps(), settings.fireflyClamp, 0f);
-        float temporalResponse = rayTraced ? settings.temporalResponse * RayTemporalResponseScale : settings.temporalResponse;
+        constants[2] = new Vector4(rayCount, settings.ResolvedRaySteps(), settings.fireflyClamp, settings.bounceFeedback);
+        float temporalResponse = settings.temporalResponse * RayTemporalResponseScale;
         constants[3] = new Vector4(frame % 64, temporalResponse, settings.depthRejection, settings.emitterIntensity);
     }
 
@@ -1068,7 +1263,33 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         {
             case Stage.CopyColor:
                 SetSharedConstants(cmd, data);
+                BindSurface(cmd, data);
+                cmd.SetGlobalFloat(idHistoryValid, data.historyValid ? 1f : 0f);
+                if (data.historyValid)
+                {
+                    cmd.SetGlobalTexture(idHistory, data.history);
+                    cmd.SetGlobalTexture(idHistoryStats, data.historyStats);
+                    cmd.SetGlobalMatrixArray(idPrevViewProjection, data.previousViewProjection);
+                }
+                if (data.lightmapMaskValid)
+                {
+                    cmd.SetGlobalTexture(idLightmapMask, data.lightmapMask);
+                    cmd.SetGlobalVector(idLightmapParams, data.lightmapParams);
+                }
                 break;
+            case Stage.Cascade:
+                BindCascades(cmd, data);
+                break;
+            case Stage.Surface:
+                cmd.SetGlobalVector(idSurfaceTexelSize, data.tracedTexelSize);
+                cmd.DrawRendererList(data.lightmapRenderers);
+                if (data.surfaceBatchedValid || data.surfaceTaggedValid)
+                {
+                    Blitter.BlitTexture(cmd, data.source, new Vector4(1f, 1f, 0f, 0f), data.material, data.materialPass);
+                    if (data.surfaceTaggedValid) { cmd.DrawRendererList(data.surfaceTagged); }
+                    if (data.surfaceBatchedValid) { cmd.DrawRendererList(data.surfaceBatched); }
+                }
+                return;
             case Stage.LightmapMask:
                 // Geometry, not a fullscreen blit. The texel size is bound here rather than inherited so
                 // this pass does not depend on which stage happened to run before it.
@@ -1102,6 +1323,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
                 if (data.normals.IsValid()) { cmd.SetGlobalTexture(idNormals, data.normals); }
                 break;
             case Stage.Temporal:
+                cmd.SetGlobalFloat(idSkipEye, data.skipEye);
                 BindTracedDepth(cmd, data);
                 cmd.SetGlobalTexture(idIndirect, data.indirect);
                 cmd.SetGlobalTexture(idHistory, data.history);
@@ -1121,6 +1343,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
                 cmd.SetGlobalVector(idBlurAxis, data.blurAxis);
                 break;
             case Stage.Composite:
+                BindSurface(cmd, data);
                 cmd.SetGlobalTexture(idIndirect, data.indirect);
                 cmd.SetGlobalTexture(idStats, data.stats);
                 cmd.SetGlobalFloat(idStatsValid, data.statsValid ? 1f : 0f);

@@ -38,7 +38,8 @@ public class Configuration
     // 15: ServerUUID added - the stable application-level identity sent to clients when they join.
     // 16: ContentSphereLeaveTimeoutSeconds and ContentSphereDeletionTimerSeconds added - how long shared orbs outlive their sharer, and an optional lifetime.
     // 17: player storage (StorageEnabled, StorageBackend, StorageMaxBytesPerPlayer, StorageMaxTotalMegabytes, StorageConnectionString, StorageSqlTable) added.
-    public const int CurrentConfigVersion = 17;
+    // 19: scene-relay backstop on by default (MaxSceneRelayMegabitsPerSecondPerPlayer 0 -> 64), avatar-relay backstop and MaxRelayPayloadBytes added, pending-login caps added.
+    public const int CurrentConfigVersion = 19;
     /// <summary>Schema version stamped into config.xml; 0 = a pre-versioning file that is upgraded on load.</summary>
     public int ConfigVersion = 0;
 
@@ -86,6 +87,8 @@ public class Configuration
     public BasisUserRestrictionMode BasisUserRestrictionMode;
     public int HowManyDuplicateAuthCanExist = 2;
     public int AuthValidationTimeOutMiliseconds = 9000;
+    public int MaxPendingLoginsPerAddress = 8;
+    public int MaxPendingLogins = 512;
     public bool EnableConsole = true;
     /// <summary>
     /// When true, the avatar reduction system bundles per-receiver avatar messages
@@ -169,14 +172,16 @@ public class Configuration
     public bool ImageCacheEnabled = true;
     /// <summary>
     /// Ceiling on the image cache, in megabytes. Set 0 to hold nothing (equivalent to disabling the
-    /// cache). This is a hard cap on retained payloads, not a target.
+    /// cache). This is a hard cap on retained payloads, not a target. One image at
+    /// <see cref="ImageMaxResolutionK"/> can reach 32 MB at 4K, 128 MB at 8K and 512 MB at 16K.
     /// </summary>
     public int ImageCacheMaxMegabytes = 512;
     /// <summary>
     /// Floor on one player's slice of the cache, in megabytes. The buffer is divided evenly between
     /// everyone currently holding images so nobody can crowd anyone else out; without a floor a busy
     /// instance would shrink each share below a single image and cache nothing at all. An owner over
-    /// their share evicts their own oldest image, never another player's.
+    /// their share evicts their own oldest image, never another player's. Raised to fit one image at
+    /// <see cref="ImageMaxResolutionK"/> (never past the cache cap); 0 turns the floor off.
     /// </summary>
     public int ImageCacheMinimumPerOwnerMegabytes = 32;
     /// <summary>
@@ -194,6 +199,12 @@ public class Configuration
     /// accordingly. 0 leaves the client on its own conservative default.
     /// </summary>
     public int ImageShareEgressMegabitsPerSecond = 200;
+    public int ScreenShareMaxKilobitsPerSecond = 12000;
+    public int ScreenShareEgressMegabitsPerSecond = 200;
+    public int ScreenShareMaxConcurrent = 8;
+    public bool ScreenShareLocked = false;
+    public int AvatarHostMaxMegabytes = 256;
+    public int AvatarHostCacheMegabytes = 1024;
 
     /// <summary>
     /// Rate the server replays cached images to ONE arriving player, in megabits per second.
@@ -376,16 +387,38 @@ public class Configuration
     /// normal heavy use (thousands per player); raise it for instances that legitimately hold more.
     /// 0 or negative restores the default rather than removing the cap.
     /// </summary>
-    public int MaxLoadedResourcesPerPlayer = 16384;
+    public int MaxLoadedResourcesPerPlayer = DefaultMaxLoadedResourcesPerPlayer;
+    public const int DefaultMaxLoadedResourcesPerPlayer = 4096;
     /// <summary>
-    /// Opt-in server-side ceiling on NON-image scene-relay egress one player may spend, in megabits
+    /// Server-side ceiling on NON-image scene-relay egress one player may spend, in megabits
     /// per second, charged on fan-out (payload times recipients). Image traffic is metered
-    /// separately by the image bandwidth governor. 0 (default) disables it entirely and preserves
-    /// the historical behaviour — a legitimate instance's scene-traffic ceiling is deployment
-    /// specific, so this is off until an operator sets a value. Set it as a backstop against a
-    /// modified client broadcasting arbitrary scene payloads to the whole room.
+    /// separately by the image bandwidth governor. 0 disables it. Backstop against a modified
+    /// client broadcasting arbitrary scene payloads to the whole room.
     /// </summary>
-    public int MaxSceneRelayMegabitsPerSecondPerPlayer = 0;
+    public int MaxSceneRelayMegabitsPerSecondPerPlayer = DefaultRelayMegabitsPerSecondPerPlayer;
+    public int MaxAvatarRelayMegabitsPerSecondPerPlayer = DefaultRelayMegabitsPerSecondPerPlayer;
+    public int MaxRelayPayloadBytes = 1024 * 1024;
+    public float AvatarChangesPerSecondPerPlayer = 2f;
+    public int AvatarChangeBurstPerPlayer = 10;
+    public float OwnershipRequestsPerSecondPerPlayer = 200f;
+    public int OwnershipRequestBurstPerPlayer = 4096;
+    public int MaxOwnershipEntries = 65536;
+    public float LoadResourcesPerSecondPerPlayer = 20f;
+    public int LoadResourceBurstPerPlayer = 200;
+    public int MaxResourceIdLength = 256;
+    public int MaxResourcePasswordLength = 1024;
+    public int MaxResourceUrlLength = 4096;
+    public float StateChangesPerSecondPerPlayer = 10f;
+    public int StateChangeBurstPerPlayer = 30;
+    public float CameraEventsPerSecondPerPlayer = 5f;
+    public int CameraEventBurstPerPlayer = 15;
+    public float CrashReportsPerSecondPerPlayer = 1f;
+    public int CrashReportBurstPerPlayer = 20;
+    public int MaxCrashReportKilobytesPerPlayer = 1024;
+    public int MaxCrashReportFolderMegabytes = 256;
+    public int MaxCrashReportDecompressedKilobytes = 32;
+    public int RepeatedLogIntervalSeconds = 5;
+    public const int DefaultRelayMegabitsPerSecondPerPlayer = 64;
     public bool PlayspaceMoverLocked = false;
     public bool DirectConnectLocked = false;
     /// <summary>
@@ -401,6 +434,43 @@ public class Configuration
     /// live from the admin panel, and is broadcast to clients in GlobalGetLockState. Default off.
     /// </summary>
     public bool ImagesLocked = false;
+    /// <summary>
+    /// Largest shared image side, in units of 1024 pixels (1 = 1K up to 16 = 16K). Senders downscale
+    /// to fit and receivers refuse anything larger. Seeds BasisGlobalLockManager at boot, can be set
+    /// live from the admin lock section, and is broadcast to clients in GlobalGetLockState. Default 4.
+    /// </summary>
+    public int ImageMaxResolutionK = 4;
+    /// <summary>
+    /// Largest video or audio clip a player can paste or drop into the world, in megabytes (16-1024).
+    /// Senders refuse bigger files and receivers refuse bigger offers. Seeds BasisGlobalLockManager at
+    /// boot, can be set live from the admin lock section, and is broadcast in GlobalGetLockState. Default 96.
+    /// </summary>
+    public int VideoClipMaxMegabytes = 96;
+    /// <summary>
+    /// How many video or audio clips one player may share at once (1-16). Senders refuse past it and
+    /// receivers ignore extra offers. Seeds BasisGlobalLockManager at boot, can be set live from the
+    /// admin lock section, and is broadcast in GlobalGetLockState. Default 3.
+    /// </summary>
+    public int VideoClipMaxPerPlayer = 3;
+    /// <summary>
+    /// Keep a copy of every shared video or audio clip on the server's disk so players who join later
+    /// download it from the server instead of the sharer uploading it again. Default true.
+    /// </summary>
+    public bool VideoClipCacheEnabled = true;
+    /// <summary>
+    /// Disk space the clip cache may use, in megabytes. When full, the oldest clip of whoever holds the
+    /// most is dropped and its sharer serves it again. 0 turns the cache off. Default 4096.
+    /// </summary>
+    public int VideoClipCacheMaxMegabytes = 4096;
+    /// <summary>
+    /// Folder for cached clips. Empty uses BasisClipCache in the system temp folder. Cleared on shutdown.
+    /// </summary>
+    public string VideoClipCacheDirectory = "";
+    /// <summary>
+    /// Total rate the server sends cached clips to players, in megabytes per second, shared by every
+    /// download. 0 sends as fast as each connection takes it. Default 16.
+    /// </summary>
+    public int VideoClipCacheServeMegabytesPerSecond = 16;
     /// <summary>
     /// When false (default) clients two-bone-IK anchor remote avatars' tracked hands/feet to their sent
     /// world targets so they stop sliding; when true, every client falls back to pure-FK playback for
@@ -455,12 +525,18 @@ public class Configuration
     public bool GifsLocked = false;
     public bool ContentRemovalLocked = false;
     public bool ExternalLinksLocked = false;
+    public bool AvatarHostingLocked = false;
+    public bool VideoClipsLocked = false;
     public bool StorageEnabled = true;
     public string StorageBackend = "file";
     public int StorageMaxBytesPerPlayer = 16384;
     public int StorageMaxTotalMegabytes = 256;
     public string StorageConnectionString = "";
     public string StorageSqlTable = "basis_storage";
+    public int StorageNewOwnersPerAddress = 4;
+    public int StorageNewOwnerWindowMinutes = 60;
+    public int StorageNewOwnersPerHour = 60;
+    public int StorageExpiryDays = 365;
 
     // ── REST API ──────────────────────────────────────────────────────────────
     /// <summary>Set to true to enable the REST management API.</summary>
@@ -489,6 +565,16 @@ public class Configuration
             // Heal an older config: if it predates the current schema version or is missing
             // any setting we now write, re-save it so the new settings (with defaults and
             // doc comments) are added without disturbing the values already present.
+            if (result.ConfigVersion < 19 && result.MaxLoadedResourcesPerPlayer == 16384)
+            {
+                result.MaxLoadedResourcesPerPlayer = DefaultMaxLoadedResourcesPerPlayer;
+                BNL.Log($"[Config] MaxLoadedResourcesPerPlayer was the old default 16384; lowering it to {DefaultMaxLoadedResourcesPerPlayer}.");
+            }
+            if (result.ConfigVersion < 19 && result.MaxSceneRelayMegabitsPerSecondPerPlayer == 0)
+            {
+                result.MaxSceneRelayMegabitsPerSecondPerPlayer = DefaultRelayMegabitsPerSecondPerPlayer;
+                BNL.Log($"[Config] MaxSceneRelayMegabitsPerSecondPerPlayer was the old 0 (off), which let one player fan unlimited scene data out to everyone; setting it to {DefaultRelayMegabitsPerSecondPerPlayer}.");
+            }
             if (BasisConfigXmlDocs.NeedsUpgrade(filePath, typeof(Configuration), result))
             {
                 BNL.Log($"{filePath} is from an older version; adding missing settings.");

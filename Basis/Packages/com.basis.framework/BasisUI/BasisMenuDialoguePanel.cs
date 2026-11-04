@@ -256,13 +256,14 @@ namespace Basis.BasisUI
 
         private void GrowForDetails(float questionHeight, float listHeight)
         {
-            float panelHeight = Mathf.Clamp(220f + questionHeight + DetailTopGap + listHeight + DetailBottomInset, Data.PanelSize.y, DetailPanelMaxHeight);
+            PanelData standardPanel = PanelData.Standard(string.Empty);
+            float bottomEdge = Data.PanelPosition.y - Data.PanelSize.y * 0.5f;
+            float topEdge = standardPanel.PanelPosition.y + standardPanel.PanelSize.y * 0.5f;
+            float maximumHeight = Mathf.Min(DetailPanelMaxHeight, topEdge - bottomEdge);
+            float panelHeight = Mathf.Clamp(220f + questionHeight + DetailTopGap + listHeight + DetailBottomInset, Data.PanelSize.y, Mathf.Max(Data.PanelSize.y, maximumHeight));
             if (panelHeight <= Data.PanelSize.y) return;
-            PanelData data = Data;
-            data.PanelSize = new Vector2(data.PanelSize.x, panelHeight);
-            Data = data;
-            rectTransform.sizeDelta = data.PanelSize;
-            BasisGraphicUIRayCaster.SetBoxColliderToRectTransform(gameObject);
+            ApplyPanelSize(new Vector2(Data.PanelSize.x, panelHeight), Data.PanelPosition, bottomEdge);
+            BasisPanelMoveHandle.RefreshDefaultPosition(this);
         }
 
         /// <summary>

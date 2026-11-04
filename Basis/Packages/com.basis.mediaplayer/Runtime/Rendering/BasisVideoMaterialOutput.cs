@@ -260,9 +260,7 @@ public sealed class BasisVideoMaterialOutput : MonoBehaviour
         // that per-client correction into the authored flip and one serialized
         // FlipVertically value stays correct on every machine.
         bool flipV = FlipVertically ^ (Player != null && Player.OutputFrameIsTopLeftOrigin);
-        if (flipV && FlipHorizontally) BasisVideoOutputMath.ApplyBothFlip(ref scale, ref offset);
-        else if (flipV) BasisVideoOutputMath.ApplyVerticalFlip(ref scale, ref offset);
-        else if (FlipHorizontally) BasisVideoOutputMath.ApplyHorizontalFlip(ref scale, ref offset);
+        BasisVideoOutputMath.ApplyFlips(flipV, FlipHorizontally, ref scale, ref offset);
 
         material.SetTextureScale(target.PropertyId, scale);
         material.SetTextureOffset(target.PropertyId, offset);

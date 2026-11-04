@@ -36,18 +36,17 @@ namespace UnityEngine.Rendering.Universal
         internal const string k_UpscalerName_Linear = "Bilinear";
         internal const string k_UpscalerName_FSR1 = "FidelityFX Super Resolution 1.0";
 
-#if ENABLE_UPSCALER_FRAMEWORK
-        // Interned ids, so the per-camera resolved upscaler can be compared as an int.
-        internal static readonly int k_UpscalerHash_Point = Shader.PropertyToID(k_UpscalerId_Point);
-        internal static readonly int k_UpscalerHash_Linear = Shader.PropertyToID(k_UpscalerId_Linear);
-        internal static readonly int k_UpscalerHash_FSR1 = Shader.PropertyToID(k_UpscalerId_FSR1);
-        internal static readonly int k_UpscalerHash_STP = Shader.PropertyToID(STPIUpscaler.registeredId);
-
         // Stable identifiers for the builtin upscalers, serialized by UniversalRenderPipelineAsset. Never change these.
         internal static readonly string k_UpscalerId_Auto = "unity.auto";
         internal static readonly string k_UpscalerId_Point = "unity.point";
         internal static readonly string k_UpscalerId_Linear = "unity.bilinear";
         internal static readonly string k_UpscalerId_FSR1 = "amd.fsr1";
+
+        // Interned ids, so the per-camera resolved upscaler can be compared as an int.
+        internal static readonly int k_UpscalerHash_Point = Shader.PropertyToID(k_UpscalerId_Point);
+        internal static readonly int k_UpscalerHash_Linear = Shader.PropertyToID(k_UpscalerId_Linear);
+        internal static readonly int k_UpscalerHash_FSR1 = Shader.PropertyToID(k_UpscalerId_FSR1);
+        internal static readonly int k_UpscalerHash_STP = Shader.PropertyToID(STPIUpscaler.registeredId);
 
         internal class AutoUpscaler : AbstractUpscaler
         {
@@ -121,7 +120,6 @@ namespace UnityEngine.Rendering.Universal
                 UpscalerRegistry.Register<FSR1Upscaler>(k_UpscalerId_FSR1, k_UpscalerName_FSR1);
             }
         }
-#endif
 
         // Cache camera data to avoid per-frame allocations.
         internal static class CameraMetadataCache
@@ -342,7 +340,6 @@ namespace UnityEngine.Rendering.Universal
         /// <inheritdoc/>
         public override string ToString() => pipelineAsset?.ToString();
 
-#if ENABLE_UPSCALER_FRAMEWORK
         internal static Upscaling upscaling;
 
         public static Func<string, bool> skipUpscaler;
@@ -419,7 +416,6 @@ namespace UnityEngine.Rendering.Universal
                     registry[registered.Key] = registered.Value;
             }
         }
-#endif
 
         /// <summary>
         /// Creates a new <c>UniversalRenderPipeline</c> instance.
@@ -514,7 +510,6 @@ namespace UnityEngine.Rendering.Universal
             // Initializes only if VRS is supported.
             Vrs.InitializeResources();
 
-#if ENABLE_UPSCALER_FRAMEWORK
             // URP-native (builtin) upscalers are handled here.
             // For the embedded upscalers {linear, point, auto}, we will provide them in a set to the upscaling system.
             // For the standalone pass upcalers (fsr1, stp), we'll let them register themselves.
@@ -528,7 +523,6 @@ namespace UnityEngine.Rendering.Universal
             // Editing the asset recreates the pipeline via RenderPipelineAsset.OnValidate(), which re-resolves.
             if (asset.scalingMode == ScalingMode.Upscaling)
                 upscaling.SetActiveUpscalerToFirstSupported(asset.GetUpscalerPriorityIds());
-#endif
         }
 
         // Disables swapchain pre-transform while any Tile-Only renderer is in use (the two are
@@ -611,7 +605,6 @@ namespace UnityEngine.Rendering.Universal
             requireOffscreenUICoverPrepass = false;
             offscreenUIRenderedInCurrentFrame = false;
 
-#if ENABLE_UPSCALER_FRAMEWORK
             // Dispose only clears the contexts, leaving the registered-upscaler list intact.
             // The command buffer signals upscaler plugins on the render thread to release their native resources;
             // it records no GPU work. Release can be asynchronous, so this can't be a plain managed Dispose on the
@@ -624,7 +617,6 @@ namespace UnityEngine.Rendering.Universal
                 Graphics.ExecuteCommandBuffer(upscalerCmd);
                 CommandBufferPool.Release(upscalerCmd);
             }
-#endif
         }
 
         // If the URP gets destroyed, we must clean up all the added URP specific camera data and
@@ -793,7 +785,6 @@ namespace UnityEngine.Rendering.Universal
                 s_RenderGraph.EndFrame();
                 s_RTHandlePool.PurgeUnusedResources(Time.frameCount);
 
-#if ENABLE_UPSCALER_FRAMEWORK
                 // Clean up expired upscaler contexts (unused for > 400 frames)
                 if (upscaling != null)
                 {
@@ -802,7 +793,6 @@ namespace UnityEngine.Rendering.Universal
                     renderContext.ExecuteCommandBuffer(cmd);
                     CommandBufferPool.Release(cmd);
                 }
-#endif
             }
 
 #if ENABLE_SHADER_DEBUG_PRINT
@@ -1634,7 +1624,6 @@ namespace UnityEngine.Rendering.Universal
                     "The compositor performs the temporal resolve, and URP must not apply its own jitter. Set Anti-aliasing to None on the camera to silence this message.");
             }
 
-#if ENABLE_UPSCALER_FRAMEWORK
             bool spatialUpscalerActive = cameraData.resolvedUpscalerHash != k_UpscalerHash_Linear
                 && cameraData.resolvedUpscalerHash != k_UpscalerHash_Point
                 && cameraData.imageScalingMode == ImageScalingMode.Upscaling;
@@ -1645,21 +1634,6 @@ namespace UnityEngine.Rendering.Universal
                 Debug.LogWarning($"URP upscaler '{upscaling?.activeUpscaler?.name ?? string.Empty}' is disabled: Meta Temporal Pixel Synthesis is the active resolver on this XR device and the compositor performs anti-aliasing and upscaling. " +
                     "URP has fallen back to a bilinear resolve for the render scale. Set the URP Asset's upscaling filter to Automatic to silence this message.");
             }
-#else
-            // upscalingFilter is the single per-camera source of truth here, so it is safe to neutralise.
-            if (cameraData.upscalingFilter == ImageUpscalingFilter.FSR || cameraData.upscalingFilter == ImageUpscalingFilter.STP)
-            {
-                var suppressed = cameraData.upscalingFilter;
-                cameraData.upscalingFilter = ImageUpscalingFilter.Linear;
-
-                if (s_LastTemporalPixelSynthesisSuppressedUpscalerFrame != Time.frameCount)
-                {
-                    s_LastTemporalPixelSynthesisSuppressedUpscalerFrame = Time.frameCount;
-                    Debug.LogWarning($"URP upscaling filter '{suppressed}' is disabled: Meta Temporal Pixel Synthesis is the active resolver on this XR device and the compositor performs anti-aliasing and upscaling. " +
-                        "URP has fallen back to bilinear filtering for the render-scale resolve. Set the URP Asset's upscaling filter to Automatic to silence this message.");
-                }
-            }
-#endif
         }
 
         static void UpdateOffscreenUIRendering(UniversalCameraData cameraData, bool finalOutputHDR)
@@ -1795,7 +1769,6 @@ namespace UnityEngine.Rendering.Universal
             cameraData.scaledHeight = Mathf.Max(1, (int) (camera.pixelHeight * cameraData.renderScale));
         }
 
-#if ENABLE_UPSCALER_FRAMEWORK
         // Whether the active upscaler drives this camera's render resolution. False for editor cameras (scene/preview/
         // reflection would get resized to the upscaler's resolution) and hardware-DRS cameras (ScalableBufferManager
         // owns scaling and is mutually exclusive with the framework upscaler; see UpscalerPostProcessPass).
@@ -1922,8 +1895,6 @@ namespace UnityEngine.Rendering.Universal
             return clamped;
         }
 
-#endif
-
         static UniversalCameraData CreateCameraData(ContextContainer frameData, Camera camera, UniversalAdditionalCameraData additionalCameraData)
         {
             using var profScope = new ProfilingScope(Profiling.Pipeline.initializeCameraData);
@@ -1947,7 +1918,7 @@ namespace UnityEngine.Rendering.Universal
 
             // If upscaling is active, set the scaled width and height
             InitializeScaledDimensions(camera, cameraData);
-#if ENABLE_UPSCALER_FRAMEWORK
+
             IUpscaler activeUpscaler = GetCameraUpscaler(camera);
             bool upscalerDictatesResolution = TryGetUpscalerDictatedResolution(cameraData, activeUpscaler, out var upscalerRenderSize);
             if (upscalerDictatesResolution)
@@ -1969,7 +1940,6 @@ namespace UnityEngine.Rendering.Universal
             cameraData.hardwareDynamicResolutionScale = camera.allowDynamicResolution
                 ? new Vector2(ScalableBufferManager.widthScaleFactor, ScalableBufferManager.heightScaleFactor)
                 : Vector2.one;
-#endif
 
 #if ENABLE_WINDOW_ABSTRACTION && PLATFORM_SUPPORTS_PER_WINDOW_TRANSPARENCY && !UNITY_EDITOR
             bool needsAlphaChannel = WindowingTransparency.IsGameWindowTransparent(cameraData.camera.targetDisplay);
@@ -2075,7 +2045,6 @@ namespace UnityEngine.Rendering.Universal
             bool disableRenderScale = (Mathf.Abs(1.0f - settings.renderScale) < kRenderScaleThreshold) || isScenePreviewOrReflectionCamera || !supportedRenderingFeatures.upscaling;
             cameraData.renderScale = disableRenderScale? 1.0f : settings.renderScale;
 
-#if ENABLE_UPSCALER_FRAMEWORK
             // ImageUpscalingFilter is deprecated, we now track by upscaler id.
             // The active upscaler is the highest priority one supported on this device, so resolve from it rather than
             // from the serialized selection.
@@ -2086,15 +2055,6 @@ namespace UnityEngine.Rendering.Universal
 
             bool upscalerSupportsTemporalAntiAliasing = activeUpscaler != null && activeUpscaler.isTemporal;
             bool upscalerSupportsSharpening = activeUpscaler != null && activeUpscaler.supportsSharpening;
-#else
-            // Convert the upscaling filter selection from the pipeline asset into an image upscaling filter
-            cameraData.upscalingFilter = supportedRenderingFeatures.upscaling?
-                ResolveUpscalingFilterSelection(new Vector2(cameraData.pixelWidth, cameraData.pixelHeight), cameraData.renderScale, settings.upscalingFilter)
-                : ImageUpscalingFilter.Point;
-
-            bool upscalerSupportsTemporalAntiAliasing = cameraData.upscalingFilter == ImageUpscalingFilter.STP;
-            bool upscalerSupportsSharpening = cameraData.upscalingFilter == ImageUpscalingFilter.FSR;
-#endif
 
             if (cameraData.renderScale > 1.0f)
             {
@@ -2248,9 +2208,9 @@ namespace UnityEngine.Rendering.Universal
 
             Matrix4x4 jitterMat = Matrix4x4.identity;
             // Depends on the cameraTargetDesc, size and MSAA also XR modifications of those.
-#if ENABLE_UPSCALER_FRAMEWORK
             IUpscaler activeUpscaler = GetCameraUpscaler(camera);
-            if (cameraData.IsTemporalAAEnabled() && activeUpscaler != null)
+            // Only a temporal upscaler drives the jitter sequence.
+            if (cameraData.IsTemporalAAEnabled() && activeUpscaler != null && activeUpscaler.isTemporal)
             {
                 // Upscalers compute jitter with resolution-dependent parameters.
                 int taaFrameIndex = TemporalAA.CalculateTaaFrameIndex(ref cameraData.taaSettings);
@@ -2268,9 +2228,7 @@ namespace UnityEngine.Rendering.Universal
 
                 jitterMat = TemporalAA.CalculateJitterMatrix(cameraData, subpixelJitter);
             }
-            else
-#endif
-            if (cameraData.IsSTPEnabled())
+            else if (cameraData.IsSTPEnabled())
             {
                 jitterMat = TemporalAA.CalculateJitterMatrix(cameraData, StpUtils.s_JitterFunc);
             }
@@ -2508,11 +2466,9 @@ namespace UnityEngine.Rendering.Universal
             postProcessingData.supportScreenSpaceLensFlare = settings.supportScreenSpaceLensFlare;
             postProcessingData.supportDataDrivenLensFlare = settings.supportDataDrivenLensFlare;
 
-#if ENABLE_UPSCALER_FRAMEWORK
             // Disable upscaler when TPS is active
             postProcessingData.activeUpscaler = cameraData.IsTemporalPixelSynthesisActive() ? null : GetCameraUpscaler(cameraData.camera);
             postProcessingData.activeUpscalerIsEmbedded = postProcessingData.activeUpscaler != null && upscaling.activeUpscalerIsEmbedded;
-#endif
 
             return postProcessingData;
         }
@@ -2584,13 +2540,8 @@ namespace UnityEngine.Rendering.Universal
                 cameraData.stpHistory = additionalCameraData.historyManager.GetHistoryForWrite<StpHistory>();
             }
 
-            bool needsAlphaUpscaleHistory = cameraData.isAlphaOutputEnabled;
-#if ENABLE_UPSCALER_FRAMEWORK
             IUpscaler activeUpscaler = GetCameraUpscaler(cameraData.camera);
-            needsAlphaUpscaleHistory &= activeUpscaler != null && activeUpscaler.isTemporal && !activeUpscaler.supportsAlphaUpscaling;
-#else
-            needsAlphaUpscaleHistory &= cameraData.IsSTPEnabled();
-#endif
+            bool needsAlphaUpscaleHistory = cameraData.isAlphaOutputEnabled && activeUpscaler != null && activeUpscaler.isTemporal && !activeUpscaler.supportsAlphaUpscaling;
             if (needsAlphaUpscaleHistory)
             {
                 additionalCameraData.historyManager.RequestAccess<AlphaUpscaleHistory>();
@@ -2830,7 +2781,6 @@ namespace UnityEngine.Rendering.Universal
             }
         }
 
-#if ENABLE_UPSCALER_FRAMEWORK
         /// <summary>
         /// Resolves the automatic upscaler to the spatial upscaler best suited to the final image size and render scale.
         /// </summary>
@@ -2866,86 +2816,6 @@ namespace UnityEngine.Rendering.Universal
 
             return resolvedUpscalerId;
         }
-#else
-        /// <summary>
-        /// Returns the best supported image upscaling filter based on the provided upscaling filter selection
-        /// </summary>
-        /// <param name="imageSize">Size of the final image</param>
-        /// <param name="renderScale">Scale being applied to the final image size</param>
-        /// <param name="selection">Upscaling filter selected by the user</param>
-        /// <returns>Either the original filter provided, or the best replacement available</returns>
-        static ImageUpscalingFilter ResolveUpscalingFilterSelection(Vector2 imageSize, float renderScale, UpscalingFilterSelection selection)
-        {
-            // By default we just use linear filtering since it's the most compatible choice
-            ImageUpscalingFilter filter = ImageUpscalingFilter.Linear;
-
-            // Fall back to the automatic filter if the selected filter isn't supported on the current platform or rendering environment
-            if ((selection == UpscalingFilterSelection.FSR && !FSRUtils.IsSupported())
-                || (selection == UpscalingFilterSelection.STP && !STP.IsSupported())
-            )
-            {
-                selection = UpscalingFilterSelection.Auto;
-            }
-
-            switch (selection)
-            {
-                case UpscalingFilterSelection.Auto:
-                {
-                    // The user selected "auto" for their upscaling filter so we should attempt to choose the best filter
-                    // for the current situation. When the current resolution and render scale are compatible with integer
-                    // scaling we use the point sampling filter. Otherwise we just use the default filter (linear).
-                    float pixelScale = (1.0f / renderScale);
-                    bool isIntegerScale = Mathf.Approximately((pixelScale - Mathf.Floor(pixelScale)), 0.0f);
-
-                    if (isIntegerScale)
-                    {
-                        float widthScale = (imageSize.x / pixelScale);
-                        float heightScale = (imageSize.y / pixelScale);
-
-                        bool isImageCompatible = (Mathf.Approximately((widthScale - Mathf.Floor(widthScale)), 0.0f) &&
-                                                  Mathf.Approximately((heightScale - Mathf.Floor(heightScale)), 0.0f));
-
-                        if (isImageCompatible)
-                        {
-                            filter = ImageUpscalingFilter.Point;
-                        }
-                    }
-
-                    break;
-                }
-
-                case UpscalingFilterSelection.Linear:
-                {
-                    // Do nothing since linear is already the default
-
-                    break;
-                }
-
-                case UpscalingFilterSelection.Point:
-                {
-                    filter = ImageUpscalingFilter.Point;
-
-                    break;
-                }
-
-                case UpscalingFilterSelection.FSR:
-                {
-                    filter = ImageUpscalingFilter.FSR;
-
-                    break;
-                }
-
-                case UpscalingFilterSelection.STP:
-                {
-                    filter = ImageUpscalingFilter.STP;
-
-                    break;
-                }
-            }
-
-            return filter;
-        }
-#endif
 
         // Returns true when the platform supports backbuffer depth memoryless AND
         // the user has enabled it in PlayerSettings. Should only be called from
@@ -3124,7 +2994,7 @@ namespace UnityEngine.Rendering.Universal
             {
                 cameraData.cameraTargetDescriptor.width = Mathf.Max(1, (int)(cameraData.pixelWidth * cameraData.renderScale));
                 cameraData.cameraTargetDescriptor.height = Mathf.Max(1, (int)(cameraData.pixelHeight * cameraData.renderScale));
-#if ENABLE_UPSCALER_FRAMEWORK
+
                 IUpscaler activeUpscaler = GetCameraUpscaler(cameraData.camera);
                 if (TryGetUpscalerDictatedResolution(cameraData, activeUpscaler, out var upscalerRenderSize))
                 {
@@ -3139,7 +3009,7 @@ namespace UnityEngine.Rendering.Universal
                     cameraData.cameraTargetDescriptor.width = Mathf.Max(1, clamped.x);
                     cameraData.cameraTargetDescriptor.height = Mathf.Max(1, clamped.y);
                 }
-#endif
+
                 cameraData.scaledWidth = cameraData.cameraTargetDescriptor.width;
                 cameraData.scaledHeight = cameraData.cameraTargetDescriptor.height;
             }

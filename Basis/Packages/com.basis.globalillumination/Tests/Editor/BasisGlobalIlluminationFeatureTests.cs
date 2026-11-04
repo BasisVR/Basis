@@ -103,12 +103,17 @@ namespace Basis.Tests.GlobalIllumination
             feature.Create();
             Assert.IsNotNull(feature.Material);
             Material material = feature.Material;
-            Assert.AreEqual("BasisGITrace", material.GetPassName(BasisGlobalIlluminationPass.PassTrace));
             Assert.AreEqual("BasisGITemporal", material.GetPassName(BasisGlobalIlluminationPass.PassTemporal));
             Assert.AreEqual("BasisGIBlur", material.GetPassName(BasisGlobalIlluminationPass.PassBlur));
             Assert.AreEqual("BasisGIComposite", material.GetPassName(BasisGlobalIlluminationPass.PassComposite));
             Assert.AreEqual("BasisGIDebug", material.GetPassName(BasisGlobalIlluminationPass.PassDebug));
             Assert.AreEqual("BasisGICopyColor", material.GetPassName(BasisGlobalIlluminationPass.PassCopyColor));
+            Assert.AreEqual("BasisGICascadeReduce", material.GetPassName(BasisGlobalIlluminationPass.PassCascadeReduce));
+            Assert.AreEqual("BasisGICascadeGather", material.GetPassName(BasisGlobalIlluminationPass.PassCascadeGather));
+            Assert.AreEqual("BasisGIVoxelCapture", material.GetPassName(BasisGlobalIlluminationPass.PassVoxelCapture));
+            Assert.AreEqual("BasisGICompositeSurface", material.GetPassName(BasisGlobalIlluminationPass.PassCompositeSurface));
+            Assert.AreEqual("BasisGISurfaceDepth", material.GetPassName(BasisGlobalIlluminationPass.PassSurfaceDepth));
+            Assert.AreEqual(BasisGlobalIlluminationPass.PassSurfaceDepth + 1, material.passCount);
         }
     }
 }

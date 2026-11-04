@@ -2,8 +2,8 @@
     "name": "BasisEditor",
     "rootNamespace": "",
     "references": [
-        "Basis.Eerie.Movement",
         "Basis Framework",
+        "Basis Framework Editor",
         "BasisSDKEditor",
         "BasisCommon",
         "BasisSDK",

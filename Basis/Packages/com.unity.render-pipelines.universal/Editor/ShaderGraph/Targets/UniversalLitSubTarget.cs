@@ -240,11 +240,6 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
                 collector.AddFloatProperty(Property.AlphaToMask, enableAlphaToMask ? 1.0f : 0.0f);
             }
 
-            // Always emit _Cull so the engine can detect two-pass rendering (BackToFront/FrontToBack)
-            // even when allowMaterialOverride is false and the cull mode is baked into the shader.
-            if (!target.allowMaterialOverride)
-                collector.AddFloatProperty(Property.CullMode, (float)target.renderFace);
-
             // Marker for the material UI: this shader bakes stencil writes into the ShadowCaster pass.
             // BaseShaderGUI uses this to show a warning when the URP renderer's Shadowmap Stencil is off.
             if (target.overrideStencilState && target.depthStencilPassMask.Has(DepthStencilPassMask.ShadowPass))
@@ -495,6 +490,7 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
                 result.passes.Add(PassVariant(CorePasses.SceneSelection(target), CorePragmas.Instanced));
                 result.passes.Add(PassVariant(CorePasses.ScenePicking(target), CorePragmas.Instanced));
                 result.passes.Add(PassVariant(LitPasses._2D(target), CorePragmas.Default));
+                result.passes.Add(PassVariant(LitPasses.BasisSurface(target), CorePragmas.Instanced));
 
                 return result;
             }
@@ -721,6 +717,15 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
 
                 CorePasses.AddAlphaClipControlToPass(ref result, target);
 
+                return result;
+            }
+
+            public static PassDescriptor BasisSurface(UniversalTarget target)
+            {
+                var result = _2D(target);
+                result.displayName = "BasisSurface";
+                result.lightMode = "BasisSurface";
+                result.includes = LitIncludes.BasisSurface;
                 return result;
             }
 
@@ -1077,6 +1082,7 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
                 { CoreIncludes.DOTSPregraph },
                 { CoreIncludes.FogPregraph },
                 { CoreIncludes.WriteRenderLayersPregraph },
+                { "Packages/com.unity.render-pipelines.universal/ShaderLibrary/BasisSurfaceOutput.hlsl", IncludeLocation.Pregraph, true },
                 { CoreIncludes.ProbeVolumePregraph },
                 { CoreIncludes.CorePregraph },
                 { kShadows, IncludeLocation.Pregraph },
@@ -1117,6 +1123,18 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
                 // Post-graph
                 { CoreIncludes.CorePostgraph },
                 { kLightingMetaPass, IncludeLocation.Postgraph },
+            };
+
+            public static readonly IncludeCollection BasisSurface = new IncludeCollection
+            {
+                // Pre-graph
+                { CoreIncludes.DOTSPregraph },
+                { CoreIncludes.CorePregraph },
+                { CoreIncludes.ShaderGraphPregraph },
+
+                // Post-graph
+                { CoreIncludes.CorePostgraph },
+                { k2DPass, IncludeLocation.Postgraph },
             };
 
             public static readonly IncludeCollection _2D = new IncludeCollection

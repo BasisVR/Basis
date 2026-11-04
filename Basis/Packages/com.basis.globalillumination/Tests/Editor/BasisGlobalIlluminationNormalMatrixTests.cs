@@ -46,6 +46,56 @@ namespace Basis.Tests.GlobalIllumination
         }
 
         [Test]
+        public void PublishedNormalRowsMatchTheOrthogonalForm_OnTheJobAndManagedPaths()
+        {
+            var a = new GameObject("proxy-a").transform;
+            var b = new GameObject("proxy-b").transform;
+            var c = new GameObject("proxy-c").transform;
+            a.position = new Vector3(1f, 2f, 3f);
+            b.position = new Vector3(1.4f, 3.1f, 2.2f);
+            c.position = new Vector3(-0.5f, 0.2f, 4f);
+            var limbs = new System.Collections.Generic.List<BasisAvatarProxy.ResolvedLimb>
+            {
+                new BasisAvatarProxy.ResolvedLimb(a, b, 0.12f, 0f),
+                new BasisAvatarProxy.ResolvedLimb(b, c, 0.3f, 0.1f),
+                new BasisAvatarProxy.ResolvedLimb(c, c, 0.05f, 0f),
+                new BasisAvatarProxy.ResolvedLimb(a, c, 0f, 0f),
+            };
+            var schedule = typeof(BasisAvatarProxyJobs).GetMethod("ScheduleBeforeRender", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            Assert.IsNotNull(schedule, "ScheduleBeforeRender moved");
+            try
+            {
+                BasisAvatarProxyJobs.Rebuild(limbs);
+                for (int pass = 0; pass < 2; pass++)
+                {
+                    if (pass == 0) schedule.Invoke(null, null);
+                    BasisAvatarProxyJobs.Run();
+                    for (int i = 0; i < limbs.Count; i++)
+                    {
+                        Matrix4x4 m = BasisAvatarProxyJobs.MatrixAt(i);
+                        var expected = new BasisGlobalIlluminationRayInstance();
+                        expected.SetNormalMatrixOrthogonal(m);
+                        bool ok = BasisAvatarProxyJobs.TryNormalRowsAt(i, out Vector4 n0, out Vector4 n1, out Vector4 n2);
+                        string path = pass == 0 ? "job" : "managed";
+                        if (i == 3) { Assert.IsFalse(ok, $"{path}: a zero-radius limb defers to the general inverse"); continue; }
+                        Assert.IsTrue(ok, $"{path} limb {i}");
+                        AssertVectorsMatch(expected.normal0, n0, 1e-6f, $"{path} limb {i} row 0");
+                        AssertVectorsMatch(expected.normal1, n1, 1e-6f, $"{path} limb {i} row 1");
+                        AssertVectorsMatch(expected.normal2, n2, 1e-6f, $"{path} limb {i} row 2");
+                    }
+                }
+            }
+            finally
+            {
+                BasisAvatarProxyJobs.Release();
+                typeof(BasisAvatarProxy).GetField("layoutDirty", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)?.SetValue(null, true);
+                Object.DestroyImmediate(a.gameObject);
+                Object.DestroyImmediate(b.gameObject);
+                Object.DestroyImmediate(c.gameObject);
+            }
+        }
+
+        [Test]
         public void ACollapsedLimbFallsBackToTheGeneralPath()
         {
             // Radius zero makes every column zero; the analytical form must defer, not divide by it.

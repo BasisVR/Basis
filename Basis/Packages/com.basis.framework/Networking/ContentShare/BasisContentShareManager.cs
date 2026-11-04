@@ -95,6 +95,21 @@ public static partial class BasisContentShareManager
         await PlaceAndDrop(connectionString, string.Empty, ContentShareType.Server);
     }
 
+    public static async void DropPortal(string connectionString, int lifetimeSeconds, ContentSharePortal.Style style = ContentSharePortal.Style.Orb)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString) || connectionString.Length > ContentSharePayload.MaxTextLength)
+        {
+            BasisDebug.LogError("Cannot drop a portal without a destination.", BasisDebug.LogTag.Networking);
+            return;
+        }
+        if (!BasisNetworkModeration.LocalPlayerHasNode(BasisPermissions.PermNodes.ContentSharePortal))
+        {
+            BasisDebug.LogWarning("Cannot drop a portal: missing the portal permission on this server.", BasisDebug.LogTag.Networking);
+            return;
+        }
+        await PlaceAndDrop(connectionString, ContentSharePortal.WriteLifetime(lifetimeSeconds, style), ContentShareType.Portal);
+    }
+
     /// <summary>
     /// Drops a share whose payload travels inside the message rather than being fetched: the
     /// caller hands over the content itself, already serialised. Refused when no package in this
@@ -263,6 +278,7 @@ public static partial class BasisContentShareManager
                 orbKey = WorldOrb;
                 break;
             case ContentShareType.Server:
+            case ContentShareType.Portal:
                 orbKey = ServerOrb;
                 break;
             default:
@@ -321,7 +337,7 @@ public static partial class BasisContentShareManager
 
                 string sphereId = msg.SphereNetID;
                 string shareDetail = string.Empty;
-                if (msg.ContentType == ContentShareType.Server && !string.IsNullOrEmpty(msg.ContentURL))
+                if ((msg.ContentType == ContentShareType.Server || msg.ContentType == ContentShareType.Portal) && !string.IsNullOrEmpty(msg.ContentURL))
                 {
                     int passwordSeparator = msg.ContentURL.IndexOf('#');
                     shareDetail = passwordSeparator >= 0 ? msg.ContentURL.Substring(0, passwordSeparator) : msg.ContentURL;
@@ -429,7 +445,8 @@ public static partial class BasisContentShareManager
             case ContentShareType.Avatar: return BasisShareableKind.Avatar;
             case ContentShareType.Prop: return BasisShareableKind.Prop;
             case ContentShareType.World: return BasisShareableKind.World;
-            case ContentShareType.Server: return BasisShareableKind.Server;
+            case ContentShareType.Server:
+            case ContentShareType.Portal: return BasisShareableKind.Server;
             default:
                 return BasisContentSharePayloadRegistry.TryGet(type, out BasisContentSharePayloadKind kind)
                     ? kind.ShareableKind

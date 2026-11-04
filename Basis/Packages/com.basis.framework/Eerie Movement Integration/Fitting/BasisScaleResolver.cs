@@ -4,14 +4,13 @@ using UnityEngine;
 public struct BasisScaleInputs
 {
     public BasisSelectedHeightMode Mode;
-    public bool Desktop, Seated, Blend, SpanUsable;
-    public float BlendAmount, PlayerEye, PlayerTrackedEye, PlayerSpan, PlayerEyeOffset, AvatarEye, AvatarSpan, AvatarShoulderWidth, AppliedUpScale, FitDeviation;
+    public bool Desktop, Seated, SpanUsable;
+    public float PlayerEye, PlayerTrackedEye, PlayerSpan, PlayerEyeOffset, AvatarEye, AvatarSpan, AvatarShoulderWidth, AppliedUpScale, FitDeviation;
 }
 public struct BasisScaleState
 {
     public BasisSelectedHeightMode Mode;
     public BasisScaleFitResult BestFit;
-    public bool Blended;
     public float AvatarMetric, PlayerMetric, EyeOffset, UniformScale, DeviceScale, GroundingOffset, ScaledAvatarEye;
 }
 public static class BasisScaleResolver
@@ -21,17 +20,9 @@ public static class BasisScaleResolver
         BasisScaleState s = default;
         s.BestFit = BasisScaleFitResult.Invalid;
         s.Mode = i.Desktop ? BasisSelectedHeightMode.EyeHeight : i.Mode == BasisSelectedHeightMode.Auto ? BasisSelectedHeightMode.BestFit : i.Mode;
-        s.Blended = i.Blend && !i.Desktop;
         float avatarEye = Positive(i.AvatarEye, BasisHeightDriver.FallbackHeightInMeters), playerEye = Positive(i.PlayerEye, BasisHeightDriver.FallbackHeightInMeters);
         float avatarSpan = Positive(i.AvatarSpan, avatarEye), playerSpan = Positive(i.PlayerSpan, playerEye), k = Positive(i.AppliedUpScale, 1f), fullOffset = Finite(i.PlayerEyeOffset), trackedEye = Positive(i.PlayerTrackedEye, playerEye);
-        if (s.Blended)
-        {
-            float blend = Mathf.Clamp(i.BlendAmount, BasisCalibrationMath.ArmToHeightBlendMin, BasisCalibrationMath.ArmToHeightBlendMax);
-            s.AvatarMetric = BasisCalibrationMath.BlendEyeSpanMetric(avatarEye, avatarSpan, blend);
-            s.PlayerMetric = BasisCalibrationMath.BlendEyeSpanMetric(playerEye, playerSpan, blend);
-            s.EyeOffset = fullOffset * Mathf.Clamp01(1f - blend);
-        }
-        else if (s.Mode == BasisSelectedHeightMode.ArmSpan)
+        if (s.Mode == BasisSelectedHeightMode.ArmSpan)
         {
             s.AvatarMetric = avatarSpan;
             s.PlayerMetric = playerSpan;

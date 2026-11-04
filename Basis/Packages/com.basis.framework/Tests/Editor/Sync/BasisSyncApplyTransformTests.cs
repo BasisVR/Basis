@@ -27,6 +27,7 @@ namespace Basis.Tests.Sync
             var contOut = new NativeArray<float>(12, Allocator.TempJob);
             var rotOut = new NativeArray<quaternion>(3, Allocator.TempJob);
             var active = new NativeArray<byte>(5, Allocator.TempJob);
+            var jobApply = new NativeArray<byte>(new byte[] { 1, 1, 1, 1, 1 }, Allocator.TempJob);
             var bindings = new NativeArray<BasisSyncApplyBinding>(5, Allocator.TempJob);
             TransformAccessArray taa = default;
 
@@ -73,6 +74,7 @@ namespace Basis.Tests.Sync
                     ContOut = contOut,
                     RotOut = rotOut,
                     Active = active,
+                    JobApply = jobApply,
                     Bindings = bindings,
                 }.Schedule(taa).Complete();
 
@@ -96,7 +98,7 @@ namespace Basis.Tests.Sync
             {
                 if (taa.isCreated) taa.Dispose();
                 contOut.Dispose(); rotOut.Dispose();
-                active.Dispose(); bindings.Dispose();
+                active.Dispose(); jobApply.Dispose(); bindings.Dispose();
                 if (gos != null) foreach (GameObject go in gos) if (go != null) Object.DestroyImmediate(go);
                 Object.DestroyImmediate(parent);
             }
@@ -109,6 +111,7 @@ namespace Basis.Tests.Sync
             var contOut = new NativeArray<float>(8, Allocator.TempJob);
             var rotOut = new NativeArray<quaternion>(1, Allocator.TempJob);
             var active = new NativeArray<byte>(5, Allocator.TempJob);
+            var jobApply = new NativeArray<byte>(new byte[] { 1, 1, 1, 1, 1 }, Allocator.TempJob);
             var bindings = new NativeArray<BasisSyncApplyBinding>(5, Allocator.TempJob);
             TransformAccessArray taa = default;
 
@@ -157,6 +160,7 @@ namespace Basis.Tests.Sync
                     ContOut = contOut,
                     RotOut = rotOut,
                     Active = active,
+                    JobApply = jobApply,
                     Bindings = bindings,
                 }.Schedule(taa).Complete();
 
@@ -175,8 +179,41 @@ namespace Basis.Tests.Sync
             {
                 if (taa.isCreated) taa.Dispose();
                 contOut.Dispose(); rotOut.Dispose();
-                active.Dispose(); bindings.Dispose();
+                active.Dispose(); jobApply.Dispose(); bindings.Dispose();
                 if (gos != null) foreach (GameObject go in gos) if (go != null) Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void ApplyTransforms_SkipsSlotsHandedToMainThreadThisFrame()
+        {
+            var a = new GameObject("apply-job");
+            var b = new GameObject("apply-main");
+            var contOut = new NativeArray<float>(new[] { 1f, 2f, 3f, 4f, 5f, 6f }, Allocator.TempJob);
+            var rotOut = new NativeArray<quaternion>(1, Allocator.TempJob);
+            var active = new NativeArray<byte>(new byte[] { 1, 1 }, Allocator.TempJob);
+            var jobApply = new NativeArray<byte>(new byte[] { 1, 0 }, Allocator.TempJob);
+            var bindings = new NativeArray<BasisSyncApplyBinding>(2, Allocator.TempJob);
+            TransformAccessArray taa = default;
+            try
+            {
+                b.transform.localPosition = new Vector3(9f, 9f, 9f);
+                var b0 = BasisSyncApplyBinding.Empty;
+                b0.Slot = 0; b0.PosX = 0; b0.PosY = 1; b0.PosZ = 2;
+                var b1 = BasisSyncApplyBinding.Empty;
+                b1.Slot = 1; b1.PosX = 3; b1.PosY = 4; b1.PosZ = 5;
+                bindings[0] = b0; bindings[1] = b1;
+                taa = new TransformAccessArray(new[] { a.transform, b.transform });
+                new ApplySyncTransformsJob { ContOut = contOut, RotOut = rotOut, Active = active, JobApply = jobApply, Bindings = bindings }.Schedule(taa).Complete();
+                AssertVec(new Vector3(1f, 2f, 3f), a.transform.localPosition, "job slot written");
+                AssertVec(new Vector3(9f, 9f, 9f), b.transform.localPosition, "main-thread slot untouched");
+            }
+            finally
+            {
+                if (taa.isCreated) taa.Dispose();
+                contOut.Dispose(); rotOut.Dispose(); active.Dispose(); jobApply.Dispose(); bindings.Dispose();
+                Object.DestroyImmediate(a);
+                Object.DestroyImmediate(b);
             }
         }
 

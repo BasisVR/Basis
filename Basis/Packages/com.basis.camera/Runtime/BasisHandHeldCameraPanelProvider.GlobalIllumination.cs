@@ -71,7 +71,7 @@ namespace Basis.BasisUI.HandHeldCamera
             _giModeDropdown.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.mode.tooltip"));
             _giModeDropdown.AssignLocalizedEntries(
                 new List<string>(SMModuleGlobalIlluminationURP.ModeOptions),
-                new List<string> { "settings.graphics.gi.mode.screenSpace", "settings.graphics.gi.mode.rayTraced" });
+                new List<string> { "settings.graphics.gi.mode.radianceCascades", "settings.graphics.gi.mode.rayTraced" });
             _giModeDropdown.OnValueChanged = _ =>
             {
                 if (_activeCamera == null || _giModeDropdown == null) return;

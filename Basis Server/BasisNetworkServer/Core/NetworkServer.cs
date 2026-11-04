@@ -23,6 +23,9 @@ public static class NetworkServer
     public static NetManager Server;
     public static ConcurrentDictionary<int, NetPeer> AuthenticatedPeers = new();
     public static readonly object AuthenticatedPeerTag = new object();
+    private static readonly byte[] PeerCapabilities = new byte[ushort.MaxValue + 1];
+    public static void SetPeerCapabilities(NetPeer peer, byte capabilities) { if (peer != null && (uint)peer.Id < (uint)PeerCapabilities.Length) PeerCapabilities[peer.Id] = capabilities; }
+    public static bool PeerHasCapability(NetPeer peer, byte capability) => peer != null && (uint)peer.Id < (uint)PeerCapabilities.Length && (PeerCapabilities[peer.Id] & capability) != 0;
     public static Configuration Configuration;
     /// <summary>
     /// Allow-list consulted at <see cref="BasisServerHandle.BasisServerHandleEvents.OnNetworkAccepted"/>
@@ -124,6 +127,8 @@ public static class NetworkServer
         BasisNetworkServer.Security.BasisAvatarScaleLimitManager.InitializeFromConfig(configuration);
         BasisNetworkServer.Security.BasisLocomotionPolicyManager.InitializeFromConfig(configuration);
         BasisNetworkServer.Security.BasisResourceLimitManager.InitializeFromConfig(configuration);
+        BasisNetworkServer.Security.BasisServerProtectionSettings.RegisterAll();
+        BasisNetworkServer.Security.BasisServerProtectionSettings.ApplyLive(configuration);
         if (!SetupServer(configuration)) return false;
         BasisNetworkServer.Storage.BasisServerStorage.Start(configuration);
         SubscribeEvents(Configuration);
@@ -173,6 +178,7 @@ public static class NetworkServer
         BasisNetworkContentShare.Reset();
         BasisNetworkPIPCamera.Reset();
         Basis.Network.Server.Generic.BasisNetworkImageCache.Reset();
+        Basis.Network.Server.Generic.BasisNetworkClipCache.Reset();
         Basis.Network.Server.Generic.BasisImageBandwidthGovernor.Reset();
         BasisNetworkServer.BasisServerP2PBroker.Reset();
     }
@@ -260,6 +266,8 @@ public static class NetworkServer
         BasisNetworkServer.Security.BasisLocomotionPolicyManager.InitializeFromConfig(Configuration);
         BasisNetworkServer.Security.BasisResourceLimitManager.InitializeFromConfig(Configuration);
         BasisNetworkServer.Storage.BasisServerStorage.ApplyConfiguration(Configuration);
+        BasisNetworkServer.Security.BasisServerProtectionSettings.RegisterAll();
+        BasisNetworkServer.Security.BasisServerProtectionSettings.ApplyLive(Configuration);
 
         if (Server == null) return;
 

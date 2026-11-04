@@ -77,7 +77,7 @@ namespace Basis.MediaPipe
         private readonly int _idEyeLeftX, _idEyeRightX, _idEyeY;
         private readonly int _idEyeLidLeft, _idEyeLidRight;
         private readonly int _idJawX, _idJawZ, _idCheekPuffSuck;
-        private readonly int _idTongueOut;
+        private readonly int _idTongueOut, _idJawOpen;
 
         private BasisAvatar _relayAvatar;
         private FaceTrackingActivityRelay _relay;
@@ -99,6 +99,7 @@ namespace Basis.MediaPipe
             _idJawZ = HVRAddress.AddressToId("FT/v2/JawZ");
             _idCheekPuffSuck = HVRAddress.AddressToId("FT/v2/CheekPuffSuck");
             _idTongueOut = HVRAddress.AddressToId("FT/v2/TongueOut");
+            _idJawOpen = HVRAddress.AddressToId("FT/v2/JawOpen");
         }
 
         public Vector2 GazeCenterLeft => _gazeCenterLeft;
@@ -212,7 +213,9 @@ namespace Basis.MediaPipe
         private void Submit(AcquisitionService acquisition, BasisAvatar avatar)
         {
             float[] bs = _smoothed;
-            ResolveRelay(avatar)?.NotifySourceSample(_idEyeLidLeft);
+            FaceTrackingActivityRelay relay = ResolveRelay(avatar);
+            relay?.NotifySourceSample(_idEyeLidLeft);
+            relay?.NotifySourceSample(_idJawOpen);
 
             for (int i = 0; i < Direct.Length; i++)
             {

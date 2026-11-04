@@ -5,7 +5,7 @@ This package includes or depends on the following third-party components:
 
 ## Microsoft ONNX Runtime
 
-- Files: `Plugins/Managed/Microsoft.ML.OnnxRuntime.dll`, `Plugins/win-x64/native/onnxruntime.dll`, `Plugins/win-x64/native/onnxruntime_providers_shared.dll`
+- Files: `Plugins/Managed/Microsoft.ML.OnnxRuntime.dll`, `Plugins/win-x64/native/onnxruntime.dll`, `Plugins/win-x64/native/onnxruntime_providers_shared.dll`, `Plugins/linux-x64/native/libonnxruntime.so` (1.22.0, from https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-linux-x64-1.22.0.tgz)
 - Version: 1.x
 - License: MIT
 - Source: https://github.com/microsoft/onnxruntime

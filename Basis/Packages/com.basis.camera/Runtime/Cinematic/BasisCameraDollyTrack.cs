@@ -309,6 +309,39 @@ namespace Basis.Cinematics
             }
         }
 
+        private readonly List<Vector3> drawnPoints = new List<Vector3>();
+        private bool drawnLooped, drawnPaints;
+        private float drawnColourScale;
+        private BasisCameraDollySettings drawnMotion;
+
+        private bool LineGeometryCurrent()
+        {
+            if (!lineCreated || !lineVisible || drawnLooped != Looped || drawnPoints.Count != points.Count) return false;
+            for (int Index = 0; Index < points.Count; Index++) if (!drawnPoints[Index].Equals(points[Index])) return false;
+            return true;
+        }
+
+        private bool LineColourCurrent(float colourScale, bool paints)
+        {
+            if (paints != drawnPaints) return false;
+            if (!paints) return true;
+            return colourScale.Equals(drawnColourScale) && Motion.speed.Equals(drawnMotion.speed) && Motion.easeIn == drawnMotion.easeIn && Motion.easeOut == drawnMotion.easeOut
+                && Motion.easeInPortion.Equals(drawnMotion.easeInPortion) && Motion.easeOutPortion.Equals(drawnMotion.easeOutPortion);
+        }
+
+        private static string[] labelTexts = System.Array.Empty<string>();
+
+        private static string LabelText(int number)
+        {
+            if (number >= labelTexts.Length)
+            {
+                int size = Mathf.Max(32, labelTexts.Length);
+                while (size <= number) size *= 2;
+                System.Array.Resize(ref labelTexts, size);
+            }
+            return labelTexts[number] ??= number.ToString();
+        }
+
         private void UpdateLine(float scale)
         {
             if (!HasPath)
@@ -316,6 +349,25 @@ namespace Basis.Cinematics
                 HideLine();
                 return;
             }
+
+            float colourScale = MotionScale > 0f ? MotionScale : scale;
+            bool paints = PaintsBySpeed;
+            bool geometryCurrent = LineGeometryCurrent();
+            if (geometryCurrent && LineColourCurrent(colourScale, paints))
+            {
+                return;
+            }
+            drawnPaints = paints;
+            drawnColourScale = colourScale;
+            drawnMotion = Motion;
+            if (geometryCurrent)
+            {
+                ColorLine(lineBuffer.Length, scale);
+                return;
+            }
+            drawnLooped = Looped;
+            drawnPoints.Clear();
+            drawnPoints.AddRange(points);
 
             float max = BasisCameraSpline.MaxPosition(points.Count, Looped);
             int samples = Mathf.Max(2, Mathf.CeilToInt(max * SamplesPerSegment)) + 1;
@@ -411,7 +463,7 @@ namespace Basis.Cinematics
             for (int Index = 0; Index < waypoints.Count; Index++)
             {
                 Vector3 position = waypoints[Index].Position + lift;
-                string text = (Index + 1).ToString();
+                string text = LabelText(Index + 1);
                 Color color = ColorForIndex(Index, waypoints.Count);
 
                 if (Index >= labelIds.Count)

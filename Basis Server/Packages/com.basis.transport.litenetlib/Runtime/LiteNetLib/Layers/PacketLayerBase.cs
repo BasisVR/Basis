@@ -13,6 +13,8 @@ namespace LiteNetLib.Layers
 
         public virtual int ExtraSizeFor(byte property) => ExtraPacketSizeForLayer;
 
+        public virtual int InboundExtraSizeFor(byte property) => 0;
+
         public virtual bool AllowsEndPointChange => true;
 
         public abstract void ProcessInboundPacket(ref IPEndPoint endPoint, ref byte[] data, ref int length);

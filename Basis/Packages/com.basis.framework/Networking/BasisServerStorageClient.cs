@@ -13,7 +13,7 @@ namespace Basis.Scripts.Networking
     {
         public const string MessageName = "basis.core.storage";
         public const float TimeoutSeconds = 15f;
-        public const int MaxInFlight = 32, MaxInFlightPerOwner = 8;
+        public const int MaxInFlight = BasisStorageProtocol.MaxInFlightPerConnection, MaxInFlightPerOwner = 8;
         private static readonly Dictionary<ushort, Pending> pending = new Dictionary<ushort, Pending>();
         private static readonly List<Pending> completed = new List<Pending>();
         private static readonly List<Pending> sweep = new List<Pending>();

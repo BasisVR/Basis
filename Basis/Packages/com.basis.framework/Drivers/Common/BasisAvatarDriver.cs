@@ -237,6 +237,7 @@ namespace Basis.Scripts.Drivers
         /// <summary>Which detail level of colliders is currently registered with the jiggle system.</summary>
         public BasisJiggleColliderTier RegisteredColliderTier = BasisJiggleColliderTier.Full;
 
+        private bool _feetRegistered, _armsRegistered, _handsRegistered, _fingersRegistered;
         // Retained so deferred finger colliders can be built lazily on LOD tier-up (see ApplyColliderLOD).
         private BasisTransformMapping _jiggleColliderMapping;
         private bool _fingersBuilt;
@@ -333,6 +334,8 @@ namespace Basis.Scripts.Drivers
 
             HasJiggleColliders = total > 0 || deferFingers;
             RegisteredColliderTier = deferFingers ? BasisJiggleColliderTier.NoFingers : BasisJiggleColliderTier.Full;
+            _feetRegistered = _armsRegistered = _handsRegistered = true;
+            _fingersRegistered = !deferFingers;
 
             // Batch-add the full set at once to avoid O(n²) dedup in JiggleMemoryBus. The distance
             // LOD pass (BasisTransmissionResults) trims remote avatars back down afterward.
@@ -385,27 +388,28 @@ namespace Basis.Scripts.Drivers
                 _fingersBuilt = true;
             }
 
-            ApplyColliderCategoryDelta(JiggleCollidersFeet, cur[0], next[0]);
-            ApplyColliderCategoryDelta(JiggleCollidersArms, cur[1], next[1]);
-            ApplyColliderCategoryDelta(JiggleCollidersHands, cur[2], next[2]);
-            ApplyColliderCategoryDelta(JiggleCollidersFingers, cur[3], next[3]);
+            ApplyColliderCategoryDelta(JiggleCollidersFeet, cur[0], next[0], ref _feetRegistered);
+            ApplyColliderCategoryDelta(JiggleCollidersArms, cur[1], next[1], ref _armsRegistered);
+            ApplyColliderCategoryDelta(JiggleCollidersHands, cur[2], next[2], ref _handsRegistered);
+            ApplyColliderCategoryDelta(JiggleCollidersFingers, cur[3], next[3], ref _fingersRegistered);
 
             RegisteredColliderTier = target;
         }
 
-        private static void ApplyColliderCategoryDelta(List<JiggleColliderSerializable> colliders, bool wasActive, bool nowActive)
+        private static void ApplyColliderCategoryDelta(List<JiggleColliderSerializable> colliders, bool wasActive, bool nowActive, ref bool registered)
         {
             if (colliders.Count == 0 || wasActive == nowActive)
             {
                 return;
             }
-            if (nowActive)
+            if (registered)
+            {
+                JigglePhysics.SetJiggleCollidersEnabled(colliders, nowActive);
+            }
+            else if (nowActive)
             {
                 JigglePhysics.AddJiggleColliders(colliders);
-            }
-            else
-            {
-                JigglePhysics.RemoveJiggleColliders(colliders);
+                registered = true;
             }
         }
 
@@ -604,6 +608,7 @@ namespace Basis.Scripts.Drivers
             JiggleCollidersFingers.Clear();
             HasJiggleColliders = false;
             RegisteredColliderTier = BasisJiggleColliderTier.Full;
+            _feetRegistered = _armsRegistered = _handsRegistered = _fingersRegistered = false;
             _fingersBuilt = false;
             _jiggleColliderMapping = null;
         }
@@ -932,31 +937,22 @@ namespace Basis.Scripts.Drivers
                 int count = sync.Count;
 
                 float* pCurrent = (float*)sync.Current.GetUnsafePtr();
+                float* pPrevious = (float*)sync.Previous.GetUnsafePtr();
+                byte* pChanged = (byte*)sync.ChangedMask.GetUnsafePtr();
                 SkinnedMeshRenderer source = sync.Source;
                 for (int Index = 0; Index < count; Index++)
                 {
-                    pCurrent[Index] = source.GetBlendShapeWeight(Index);
+                    float current = source.GetBlendShapeWeight(Index);
+                    pCurrent[Index] = current;
+                    bool changed = Mathf.Abs(current - pPrevious[Index]) > epsilon;
+                    pChanged[Index] = (byte)(changed ? 1 : 0);
+                    if (changed)
+                    {
+                        pPrevious[Index] = current;
+                    }
                 }
-
-                // Schedule job
-                var job = new BasisDiffBlendShapesJob
-                {
-                    Current = sync.Current,
-                    Previous = sync.Previous,
-                    ChangedMask = sync.ChangedMask,
-                    Epsilon = epsilon
-                };
-
-                // Batch size can be tuned; 32 is a decent start
-                sync.Handle = job.Schedule(count, 32);
+                sync.Handle = default;
             }
-            // Self-sufficient kick: the driver currently calls BasisAuthoredMotionSystem.Schedule()
-            // immediately after this (which flushes its own job via the same API), so this job has
-            // always started by the time ApplyShadowCloneBlendShapes joins it later in LateUpdate —
-            // but that overlap was incidental to caller ordering, not guaranteed by this function on
-            // its own. Matches the standing rule: a schedule without a kick at schedule time is not
-            // actually overlapping anything, it just happens not to matter yet.
-            JobHandle.ScheduleBatchedJobs();
         }
         public static unsafe void ApplyShadowCloneBlendShapes()
         {

@@ -469,6 +469,74 @@ namespace Basis.Tests.Camera
             }
         }
 
+        [Test]
+        public void CapturedFramesReadBackStraightIntoTheEncodersBuffers()
+        {
+            const int W = 64, H = 32;
+            string finalPath = Path.Combine(Path.GetTempPath(), $"BasisVideoZeroCopy_{Guid.NewGuid():N}.avi");
+            var inner = new BasisVideoRecorderSession(W, H, quality: 70, frameRate: 30, finalPath);
+            Assert.That(inner.Start(), Is.True);
+            var session = new CountingSession(inner);
+            var source = new RenderTexture(new RenderTextureDescriptor(W, H, RenderTextureFormat.ARGB32, 0) { sRGB = true });
+            source.Create();
+            RenderTexture previous = RenderTexture.active;
+            RenderTexture.active = source;
+            GL.Clear(false, true, new Color(1f, 0f, 0f, 1f));
+            RenderTexture.active = previous;
+            var recorder = new BasisCameraFrameRecorder("Test");
+            try
+            {
+                Assert.That(recorder.Start(session, W, H, 0, 600f, false), Is.True);
+                for (int Tick = 0; Tick < 6; Tick++) recorder.Tick(source, false);
+                recorder.Shutdown();
+                WaitUntilFinished(inner);
+
+                Assert.That(session.Added, Is.Zero, "no frame went through the copying path");
+                Assert.That(session.Submitted, Is.GreaterThan(0));
+                Assert.That(session.Submitted + session.Returned, Is.EqualTo(session.Rented), "every rented buffer came back");
+                Assert.That(inner.FramesEncoded, Is.EqualTo(session.Submitted));
+                Assert.That(inner.FailureMessage, Is.Null);
+                Assert.That(File.Exists(finalPath), Is.True);
+                Assert.That(session.FirstPixel[0], Is.GreaterThanOrEqualTo(253), "red read back into the buffer");
+                Assert.That(session.FirstPixel[1], Is.LessThanOrEqualTo(2));
+                Assert.That(session.FirstPixel[2], Is.LessThanOrEqualTo(2));
+            }
+            finally
+            {
+                recorder.Shutdown();
+                source.Release();
+                UnityEngine.Object.DestroyImmediate(source);
+                if (File.Exists(finalPath)) File.Delete(finalPath);
+                if (File.Exists(finalPath + ".tmp")) File.Delete(finalPath + ".tmp");
+            }
+        }
+
+        private sealed class CountingSession : IBasisFrameRecorderSession
+        {
+            private readonly BasisVideoRecorderSession inner;
+            public int Added, Rented, Submitted, Returned;
+            public byte[] FirstPixel;
+
+            public CountingSession(BasisVideoRecorderSession inner) => this.inner = inner;
+
+            public int FramesQueued => inner.FramesQueued;
+            public int FramesEncoded => inner.FramesEncoded;
+            public bool IsFinished => inner.IsFinished;
+            public string FailureMessage => inner.FailureMessage;
+            public string FinalPath => inner.FinalPath;
+
+            public bool TryAddFrame(NativeArray<byte> rgba, double timestamp) { Added++; return inner.TryAddFrame(rgba, timestamp); }
+            public bool TryRentFrameBuffer(out byte[] buffer) { Rented++; return inner.TryRentFrameBuffer(out buffer); }
+            public bool TrySubmitFrameBuffer(byte[] buffer, double timestamp)
+            {
+                if (FirstPixel == null) FirstPixel = new[] { buffer[0], buffer[1], buffer[2], buffer[3] };
+                Submitted++;
+                return inner.TrySubmitFrameBuffer(buffer, timestamp);
+            }
+            public void ReturnFrameBuffer(byte[] buffer) { Returned++; inner.ReturnFrameBuffer(buffer); }
+            public void CompleteAdding() => inner.CompleteAdding();
+        }
+
         /// <summary>
         /// A session with no encoder behind it: records what the recorder hands it and reports
         /// itself finished the moment it is told nothing more is coming, so a roll's bookkeeping

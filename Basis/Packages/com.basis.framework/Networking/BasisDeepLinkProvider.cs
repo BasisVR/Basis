@@ -396,7 +396,7 @@ namespace Basis.Scripts.Networking
                         BasisDebug.LogWarning("[BasisDeepLink] Pipe read hit buffer limit — URL may be truncated.");
                     string url = System.Text.Encoding.UTF8.GetString(buf, 0, (int)read);
                     Basis.Scripts.Device_Management.BasisDeviceManagement.mainThreadActions
-                        .Enqueue(() => OnDeepLinkActivated(url));
+                        .Enqueue(() => { if (BasisBeeFileDrop.HasBeeExtension(url)) OpenBeeFile(url); else OnDeepLinkActivated(url); });
                 }
 
                 CloseHandle(pipe);
@@ -422,7 +422,7 @@ namespace Basis.Scripts.Networking
                         return arg;
             }
             catch { }
-            return null;
+            return OwnsBeeFiles ? GetCliBeePath() : null;
         }
 
         // ── Registry URL scheme registration ──────────────────────────────────

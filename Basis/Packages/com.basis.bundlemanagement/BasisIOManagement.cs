@@ -245,7 +245,7 @@ public static partial class BasisIOManagement
     public static async Task<BeeResult<BeeDownloadResult>> DownloadBEEEx(string url, string vp, BasisProgressReport progressCallback, CancellationToken cancellationToken = default, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
     {
         // Validate inputs with actionable messages
-        if (!ValidateUrl(url, out url, out var urlErr))
+        if (!ValidateBeeSourceUrl(url, out url, out var urlErr))
             return BeeResult<BeeDownloadResult>.Fail($"DownloadBEEEx: {urlErr}");
 
         if (string.IsNullOrWhiteSpace(vp))
@@ -413,7 +413,7 @@ public static partial class BasisIOManagement
     /// </summary>
     public static async Task<BeeResult<(BasisBundleConnector, string, string)>> DownloadConnectorOnlyEx(string url, string vp, BasisProgressReport progressCallback, CancellationToken cancellationToken = default, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
     {
-        if (!ValidateUrl(url, out url, out var urlErr))
+        if (!ValidateBeeSourceUrl(url, out url, out var urlErr))
             return BeeResult<(BasisBundleConnector, string, string)>.Fail($"DownloadConnectorOnlyEx: {urlErr}");
 
         if (string.IsNullOrWhiteSpace(vp))
@@ -763,8 +763,41 @@ public static partial class BasisIOManagement
     /// <param name="ct"></param>
     /// <param name="MaxDownloadSizeInMB">Defaults to 4GB</param>
     /// <returns></returns>
+    private static async Task<BeeResult<DownloadPayload>> DownloadHostedRangeInternal(string id, long startByte, long? endByteInclusive, string toFilePath, BasisProgressReport progress, CancellationToken ct, long maxBytes)
+    {
+        if (!string.IsNullOrEmpty(toFilePath))
+            return BeeResult<DownloadPayload>.Fail("Server hosted content cannot be streamed to a file.");
+        if (startByte < 0 || !endByteInclusive.HasValue || endByteInclusive.Value < startByte)
+            return BeeResult<DownloadPayload>.Fail($"Invalid byte range: {startByte}-{endByteInclusive}");
+        long expectedBytes = endByteInclusive.Value - startByte + 1;
+        if (expectedBytes > maxBytes || expectedBytes > int.MaxValue)
+            return BeeResult<DownloadPayload>.Fail($"Refusing download: requested {expectedBytes} bytes exceeds limit {Math.Min(maxBytes, int.MaxValue)}.");
+        BasisServerHostedBee.RangeFetcher fetcher = BasisServerHostedBee.Fetcher;
+        if (fetcher == null)
+            return BeeResult<DownloadPayload>.Fail("This avatar is shared through a server you are not connected to.");
+        string requestId = BasisGenerateUniqueID.GenerateUniqueID();
+        (byte[] data, string error) = await fetcher(id, startByte, (int)expectedBytes, p => progress?.ReportProgress(requestId, p, "Downloading data..."), ct);
+        progress?.ReportProgress(requestId, 100, "Downloading Complete");
+        if (data == null)
+            return BeeResult<DownloadPayload>.Fail(error ?? "Server hosted download failed.");
+        if (data.LongLength != expectedBytes)
+            return BeeResult<DownloadPayload>.Fail($"Expected {expectedBytes} bytes from the server, got {data.LongLength}.");
+        return BeeResult<DownloadPayload>.Ok(new DownloadPayload { Data = data });
+    }
+    private static bool ValidateBeeSourceUrl(string url, out string normalizedUrl, out string error)
+    {
+        if (BasisServerHostedBee.TryParse(url, out string id))
+        {
+            normalizedUrl = BasisServerHostedBee.BuildUrl(id);
+            error = string.Empty;
+            return true;
+        }
+        return ValidateUrl(url, out normalizedUrl, out error);
+    }
     private static async Task<BeeResult<DownloadPayload>> DownloadRangeInternal(string url, long startByte, long? endByteInclusive, string toFilePath, BasisProgressReport progress, CancellationToken ct, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024, int redirectsRemaining = MaxValidatedRedirects)
     {
+        if (BasisServerHostedBee.TryParse(url, out string hostedId))
+            return await DownloadHostedRangeInternal(hostedId, startByte, endByteInclusive, toFilePath, progress, ct, MaxDownloadSizeInMB);
         if (!ValidateUrl(url, out url, out var urlErr))
             return BeeResult<DownloadPayload>.Fail(urlErr);
 

@@ -153,8 +153,17 @@ namespace BasisNetworkServer.Security
         // Ban Storage
         // =========================
 
+        private static volatile HashSet<string> BannedIps = new HashSet<string>();
+        private static void RebuildBannedIps()
+        {
+            HashSet<string> ips = new HashSet<string>();
+            foreach (BannedPlayer p in BannedPlayers.Values) if (p.HasBannedIp && !string.IsNullOrEmpty(p.BannedIp)) ips.Add(p.BannedIp);
+            BannedIps = ips;
+        }
+
         public static void SaveBannedPlayers()
         {
+            RebuildBannedIps();
             if (!UseFileOnDisc) return;
 
             try
@@ -189,6 +198,7 @@ namespace BasisNetworkServer.Security
                     BannedPlayers[p.UUID] = p;
                     BannedUUIDs[p.UUID] = 0;
                 }
+                RebuildBannedIps();
             }
             catch (Exception ex)
             {
@@ -546,6 +556,35 @@ namespace BasisNetworkServer.Security
                         HandleGlobalFeatureToggle(peer, "Opening web pages from worlds and props", BasisGlobalLockManager.ToggleExternalLinks()));
                     break;
 
+                case AdminRequestMode.GlobalToggleAvatarHosting:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                    {
+                        bool nowLocked = BasisGlobalLockManager.ToggleAvatarHosting();
+                        Basis.Network.Server.Generic.BasisAvatarHostRelay.ApplyConfiguration();
+                        HandleGlobalFeatureToggle(peer, "Sharing local avatars through the server", nowLocked);
+                    });
+                    break;
+
+                case AdminRequestMode.GlobalToggleVideoClips:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleGlobalFeatureToggle(peer, "Sharing video clips", BasisGlobalLockManager.ToggleVideoClips()));
+                    break;
+
+                case AdminRequestMode.SetGlobalImageMaxResolution:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleImageMaxResolutionSet(peer, reader));
+                    break;
+
+                case AdminRequestMode.SetGlobalVideoClipMaxSize:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleVideoClipMaxSizeSet(peer, reader));
+                    break;
+
+                case AdminRequestMode.SetGlobalVideoClipMaxPerPlayer:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleVideoClipMaxPerPlayerSet(peer, reader));
+                    break;
+
                 case AdminRequestMode.SetGlobalAvatarScaleLimits:
                     Require(peer, PermNodes.ModerationGlobalLock, () =>
                         HandleAvatarScaleLimitsSet(peer, reader));
@@ -562,6 +601,16 @@ namespace BasisNetworkServer.Security
                 case AdminRequestMode.SetGlobalResourceLimits:
                     Require(peer, PermNodes.ModerationGlobalLock, () =>
                         HandleResourceLimitsSet(peer, reader));
+                    break;
+
+                case AdminRequestMode.GetProtectionSettings:
+                    Require(peer, PermNodes.ConfigurationEditor, () =>
+                        SendProtectionSettings(peer));
+                    break;
+
+                case AdminRequestMode.SetProtectionSettings:
+                    Require(peer, PermNodes.ConfigurationEditor, () =>
+                        HandleProtectionSettingsSet(peer, reader));
                     break;
 
                 case AdminRequestMode.SetGlobalReductionSettings:
@@ -1320,6 +1369,55 @@ namespace BasisNetworkServer.Security
                 : $"Locomotion policy set for the instance (fields {BasisLocomotionPolicyManager.Fields}); it applies to everyone here and to every player who joins.");
         }
 
+        public static void SendProtectionSettings(NetPeer peer)
+        {
+            NetDataWriter writer = NetworkServer.RentWriter();
+            try
+            {
+                new AdminRequest().Serialize(writer, AdminRequestMode.GlobalGetProtectionSettings);
+                BasisProtectionSettings.Write(writer);
+                NetworkServer.TrySend(peer, writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
+            }
+            finally
+            {
+                NetworkServer.ReturnWriter(writer);
+            }
+        }
+
+        public static void SendProtectionSettingsIfEditor(NetPeer peer)
+        {
+            if (NetworkServer.PeerHasCapability(peer, BasisNetworkVersion.CapabilityProtectionSettings) && PermissionIntegration.HasValidRequirement(peer, PermNodes.ConfigurationEditor)) SendProtectionSettings(peer);
+        }
+
+        private static void HandleProtectionSettingsSet(NetPeer peer, NetPacketReader reader)
+        {
+            if (!BasisProtectionSettings.TryReadChanges(reader, out List<KeyValuePair<string, double>> changes))
+            {
+                SendBackMessage(peer, "Protection settings were not changed: the request was malformed.");
+                return;
+            }
+            List<string> applied = new List<string>(), unknown = new List<string>();
+            foreach (KeyValuePair<string, double> change in changes)
+            {
+                if (BasisProtectionSettings.TrySet(change.Key, change.Value, out double value)) applied.Add($"{change.Key} = {value.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+                else unknown.Add(change.Key);
+            }
+            if (applied.Count > 0)
+            {
+                SaveConfig();
+                NetworkServer.ApplyLiveConfiguration();
+                BasisProtectionSettings.RaiseChanged();
+                BNL.Log($"Admin (peer {peer.Id}) changed protection settings: {string.Join(", ", applied)}");
+            }
+            foreach (NetPeer editor in NetworkServer.PeerSnapshot ?? Array.Empty<NetPeer>())
+            {
+                if (editor != null) SendProtectionSettingsIfEditor(editor);
+            }
+            SendBackMessage(peer, unknown.Count == 0
+                ? $"Protection settings saved ({applied.Count} changed)."
+                : $"Protection settings saved ({applied.Count} changed); not recognised: {string.Join(", ", unknown)}.");
+        }
+
         private static void HandleResourceLimitsSet(NetPeer peer, NetPacketReader reader)
         {
             int maxContentSpheresPerPlayer = reader.GetInt();
@@ -1697,6 +1795,51 @@ namespace BasisNetworkServer.Security
             BasisGlobalLockManager.BroadcastLockState();
         }
 
+        private static void HandleImageMaxResolutionSet(NetPeer peer, NetPacketReader reader)
+        {
+            if (reader.AvailableBytes < 1)
+            {
+                SendBackMessage(peer, "Failed to set image resolution limit: missing value byte.");
+                return;
+            }
+
+            int applied = BasisGlobalLockManager.SetImageMaxResolutionK(reader.GetByte());
+            BNL.Log($"Shared image resolution limit set to {applied}K ({applied * 1024} px).");
+            SendBackMessage(peer, $"Shared images are now limited to {applied}K ({applied * 1024}x{applied * 1024}).");
+            PersistGlobalLockState();
+            BasisGlobalLockManager.BroadcastLockState();
+        }
+
+        private static void HandleVideoClipMaxSizeSet(NetPeer peer, NetPacketReader reader)
+        {
+            if (reader.AvailableBytes < 2)
+            {
+                SendBackMessage(peer, "Failed to set clip size limit: missing value.");
+                return;
+            }
+
+            int applied = BasisGlobalLockManager.SetVideoClipMaxMegabytes(reader.GetUShort());
+            BNL.Log($"Shared video/audio clip size limit set to {applied} MB.");
+            SendBackMessage(peer, $"Shared video and audio clips are now limited to {applied} MB.");
+            PersistGlobalLockState();
+            BasisGlobalLockManager.BroadcastLockState();
+        }
+
+        private static void HandleVideoClipMaxPerPlayerSet(NetPeer peer, NetPacketReader reader)
+        {
+            if (reader.AvailableBytes < 1)
+            {
+                SendBackMessage(peer, "Failed to set clips per player: missing value byte.");
+                return;
+            }
+
+            int applied = BasisGlobalLockManager.SetVideoClipMaxPerPlayer(reader.GetByte());
+            BNL.Log($"Shared video/audio clips per player set to {applied}.");
+            SendBackMessage(peer, $"Each player can now share up to {applied} video or audio clips at once.");
+            PersistGlobalLockState();
+            BasisGlobalLockManager.BroadcastLockState();
+        }
+
         private static void HandleUserOpusBitrateSet(NetPeer peer, NetPacketReader reader)
         {
             if (reader.AvailableBytes < 6) // ushort + int
@@ -1801,7 +1944,7 @@ namespace BasisNetworkServer.Security
                 return false;
             }
 
-            return BannedPlayers.Values.Any(p => p.HasBannedIp && p.BannedIp == ip);
+            return BannedIps.Contains(ip);
         }
     }
 }

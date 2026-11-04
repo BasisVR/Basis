@@ -376,6 +376,7 @@ namespace BasisServerHandle
             JoinBroadcast.Stop();
             NetworkServer.Server?.Stop();
             BasisServerHandleEvents.UnsubscribeServerEvents();
+            BasisConsoleWriter.Flush();
         }
         #endregion
 
@@ -427,7 +428,6 @@ namespace BasisServerHandle
             {
                 PermissionIntegration.RemovePlayerMeta(uuid);
                 PermissionIntegration.EvictPermissionCache(uuid);
-                BasisNetworkHandleErrorReport.RemoveUser(uuid);
                 BasisNetworkResourceManagement.RemovePeerResources(uuid);
             }
 
@@ -437,15 +437,19 @@ namespace BasisServerHandle
             BasisNetworkPIPCamera.RemovePlayer(id);
             BasisNetworkContentShare.RemovePlayerSpheres(id);
             BasisNetworkImageCache.RemovePlayerImages(id);
+            BasisNetworkClipCache.RemovePlayer(id);
+            BasisAvatarHostRelay.RemovePeer(id);
             // Drops this peer's egress bucket and any replay still queued for it. Without this a
             // recycled player id would inherit the previous holder's spent budget.
             BasisImageBandwidthGovernor.RemovePeer(id);
+            BasisNetworkScreenShare.RemovePeer(id);
             BasisNetworkPreloadResourceManagement.RemovePeer(id);
             BasisNetworkServer.Security.BasisUserOpusBitrateStateManager.ClearForPeer(id);
             BasisServerP2PBroker.RemovePeer(id);
             BasisNetworkIDDatabase.RemovePeer(id);
             Basis.Network.Server.Generic.BasisNetworkingGeneric.RemovePeerSceneEgress(id);
             BasisNetworkMessageProcessor.ClearPeerErrors(id);
+            BasisPeerRateLimiter.RemovePeerFromAll(id);
             BasisServerMessageRegistry.ClearSubscription(id);
             BasisNetworkServer.Storage.BasisServerStorage.RemovePeer(peer, id);
             JoinBroadcast.UnregisterPeer(id);
@@ -490,7 +494,7 @@ namespace BasisServerHandle
                     {
                         BasisNetworkIDDatabase.Reset();
                         BasisNetworkResourceManagement.Reset();
-                        BasisNetworkContentShare.Reset();
+                        BasisNetworkContentShare.Reset(keepPersistentPortals: true);
                     }
 
                     if (removed)
@@ -513,7 +517,7 @@ namespace BasisServerHandle
             writer.Put(reason);
             request.Reject(writer);
             NetworkServer.ReturnWriter(writer);
-            BNL.LogError($"Rejected for reason: {reason}");
+            BNLThrottle.LogError("connect.reject", $"Rejected for reason: {reason}");
         }
 
         /// <summary>
@@ -532,7 +536,7 @@ namespace BasisServerHandle
             writer.Put(message ?? string.Empty);
             request.Reject(writer);
             NetworkServer.ReturnWriter(writer);
-            BNL.LogError($"Rejected (kind {kind}): {message}");
+            BNLThrottle.LogError("connect.rejectKind", $"Rejected (kind {kind}): {message}");
         }
 
         public static void RejectVersionMismatch(ConnectionRequest request, ushort serverVersion, ushort clientVersion)
@@ -649,12 +653,19 @@ namespace BasisServerHandle
                     }
                     else
                     {
+                        if (!BasisPendingLoginGate.TryReserve(ConReq.RemoteEndPoint?.Address, NetworkServer.Configuration.MaxPendingLogins, NetworkServer.Configuration.MaxPendingLoginsPerAddress, out ulong pendingKey))
+                        {
+                            RejectStructured(ConReq, BasisNetworkCommons.RejectKind_ServerFull, 0, 0, "This server is busy with other logins. Please try again in a moment.");
+                            return;
+                        }
                         accepted = ConReq.AcceptAwaitingSeal();
                         if (accepted == null)
                         {
+                            BasisPendingLoginGate.Cancel(pendingKey);
                             RejectWithReason(ConReq, "Transport cannot protect the login.");
                             return;
                         }
+                        BasisPendingLoginGate.Bind(accepted.Id, accepted, pendingKey);
                         NetworkServer.AuthIdentity.ProcessConnection(NetworkServer.Configuration, ConReq, accepted);
                     }
                 }
@@ -678,7 +689,9 @@ namespace BasisServerHandle
                         return;
                     }
 
+                    byte capabilities = BasisNetworkVersion.ReadCapabilities(ConReq.Data);
                     accepted = ConReq.Accept();//can do both way Communication from here on
+                    NetworkServer.SetPeerCapabilities(accepted, capabilities);
                     string verifiedOrClaimed = ConReq.VerifiedIdentity;
                     OnNetworkAccepted(accepted, readyMessage, string.IsNullOrEmpty(verifiedOrClaimed) ? ResolveUnauthenticatedUuid(readyMessage.playerMetaDataMessage.playerUUID) : verifiedOrClaimed);
                 }
@@ -693,7 +706,7 @@ namespace BasisServerHandle
                 {
                     RejectWithReason(ConReq, "Fatal Connection Issue stacktrace on server " + e.Message);
                 }
-                BNL.LogError(e.StackTrace);
+                BNLThrottle.LogError("connect.fatal", e.StackTrace);
             }
         }
         private static string ResolveUnauthenticatedUuid(string clientUuid)
@@ -860,6 +873,7 @@ namespace BasisServerHandle
                 BasisNetworkServer.Security.BasisPlayerModeration.SendReductionSettingsToPeer(newPeer);
                 BasisNetworkServer.Security.BasisPlayerModeration.SendImageBandwidthToPeer(newPeer);
                 BasisNetworkServer.Security.BasisPlayerModeration.SendPeerLimitToPeer(newPeer);
+                BasisNetworkServer.Security.BasisPlayerModeration.SendProtectionSettingsIfEditor(newPeer);
                 BasisNetworkServer.Security.BasisPlayerMuteManager.SendStateToPeerIfMuted(newPeer);
                 SendAnnounceStateToPeer(newPeer);
                 SendShoutStateToPeer(newPeer);
@@ -883,6 +897,7 @@ namespace BasisServerHandle
         public static ServerEventHandler OnServerReceived;
         public delegate void ServerEventHandler(NetPeer peer, NetPacketReader reader, DeliveryMethod deliveryMethod);
         #region Avatar and Voice Handling
+        private static readonly BasisPeerRateLimiter AvatarChangeLimiter = new BasisPeerRateLimiter(() => NetworkServer.Configuration?.AvatarChangesPerSecondPerPlayer ?? 2f, () => NetworkServer.Configuration?.AvatarChangeBurstPerPlayer ?? 10f);
         public static void SendAvatarMessageToClients(NetPacketReader Reader, NetPeer Peer)
         {
             // Leading kind byte multiplexes this channel — see BasisNetworkCommons.AvatarChangeKind*.
@@ -893,6 +908,11 @@ namespace BasisServerHandle
                 return;
             }
 
+            if (!AvatarChangeLimiter.TryConsume(Peer))
+            {
+                Reader.Recycle();
+                return;
+            }
             ClientAvatarChangeMessage ClientAvatarChangeMessage = new ClientAvatarChangeMessage();
             ClientAvatarChangeMessage.Deserialize(Reader);
             Reader.Recycle();
@@ -1546,16 +1566,30 @@ namespace BasisServerHandle
             BasisNetworkIDDatabase.AddOrFindNetworkID(Peer, ServerUniqueIDMessage.playerID);
             //we need to convert the string int a  ushort.
         }
+        private static readonly BasisPeerRateLimiter LoadResourceLimiter = new BasisPeerRateLimiter(() => NetworkServer.Configuration?.LoadResourcesPerSecondPerPlayer ?? 20f, () => NetworkServer.Configuration?.LoadResourceBurstPerPlayer ?? 200f);
+        private static bool OverLimit(string value, int max) => max > 0 && (value?.Length ?? 0) > max;
         public static void LoadResource(NetPacketReader Reader, NetPeer Peer,string UUID)
         {
             LocalLoadResource LocalLoadResource = new LocalLoadResource();
 
             if (NetworkServer.AuthIdentity.NetIDToUUID(Peer, out string uuid) == false)
             {
-                BNL.LogError($"User UUID not found for peer: {Peer.Id}");
+                BNLThrottle.LogError("resources.noUuid", $"User UUID not found for peer: {Peer.Id}");
+                Reader.Recycle();
+                return;
+            }
+            if (!LoadResourceLimiter.TryConsume(Peer))
+            {
+                Reader.Recycle();
                 return;
             }
             LocalLoadResource.Deserialize(Reader);
+            if (OverLimit(LocalLoadResource.LoadedNetID, NetworkServer.Configuration.MaxResourceIdLength) || OverLimit(LocalLoadResource.UnlockPassword, NetworkServer.Configuration.MaxResourcePasswordLength) || OverLimit(LocalLoadResource.CombinedURL, NetworkServer.Configuration.MaxResourceUrlLength))
+            {
+                BNLThrottle.LogWarning("resources.tooLong", $"Dropped a load request from {uuid} with an id, password or URL over the length limit.");
+                Reader.Recycle();
+                return;
+            }
             bool isPrivileged = PermissionIntegration.HasValidRequirement(uuid, PermNodes.protection);
             LocalLoadResource.IsAdminLocked = isPrivileged;
             LocalLoadResource.UUIDOfCreator = UUID;
@@ -1669,6 +1703,13 @@ namespace BasisServerHandle
             ModifyResource modifyResource = new ModifyResource();
             modifyResource.Deserialize(Reader);
             Reader.Recycle();
+            if (modifyResource.Op == ModifyResource.OpSaveToDisk || modifyResource.Op == ModifyResource.OpRemoveFromDisk)
+            {
+                // Authorization (basis.resource.savetodisk) is enforced inside HandleRequest.
+                BasisNetworkResourceDisk.HandleRequest(modifyResource, Peer);
+                return;
+            }
+            if (modifyResource.Op != ModifyResource.OpStatic) return;
             // Authorization (creator or moderator) is enforced inside SetStatic.
             BasisNetworkResourceManagement.SetStatic(modifyResource, Peer);
         }

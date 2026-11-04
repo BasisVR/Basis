@@ -2,12 +2,14 @@
     "name": "com.basis.developer.recorder",
     "version": "0.0.1",
     "displayName": "Basis Developer - Avatar Recorder",
-    "description": "Records the local humanoid avatar's pose to disk every frame and converts recordings into Unity humanoid AnimationClips. Split out of the framework Developer tab into its own package.",
+    "description": "Records the local humanoid avatar's pose, root motion and additional bones to disk every frame and converts recordings into Unity humanoid AnimationClips. Split out of the framework Developer tab into its own package.",
     "vpmDependencies": {
         "com.basis.framework": "0.0.1",
         "com.basis.sdk": "0.0.1",
         "com.basis.settings": "0.0.1",
-        "com.basis.common": "0.0.1"
+        "com.basis.common": "0.0.1",
+        "com.basis.eventdriver": "0.0.1",
+        "com.gator-dragon-games.jigglephysics": "16.0.1"
     },
     "dependencies": {
         "com.unity.ugui": "2.0.0"

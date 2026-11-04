@@ -1,0 +1,310 @@
+{
+  "code": "ja",
+  "nativeName": "日本語",
+  "entries": [
+    {
+      "key": "menu.provider.screenShare",
+      "value": "画面共有"
+    },
+    {
+      "key": "library.embedded.screenShare",
+      "value": "画面共有"
+    },
+    {
+      "key": "screenShare.yourShare",
+      "value": "自分の画面"
+    },
+    {
+      "key": "screenShare.source",
+      "value": "共有対象"
+    },
+    {
+      "key": "screenShare.source.tooltip",
+      "value": "スクリーンの近くにいる全員に表示されるディスプレイまたはウィンドウ。"
+    },
+    {
+      "key": "screenShare.source.display",
+      "value": "{0} ({1}×{2})"
+    },
+    {
+      "key": "screenShare.source.none",
+      "value": "ディスプレイまたはウィンドウが見つかりません"
+    },
+    {
+      "key": "screenShare.refreshSources",
+      "value": "リストを更新"
+    },
+    {
+      "key": "screenShare.resolution",
+      "value": "解像度"
+    },
+    {
+      "key": "screenShare.resolution.tooltip",
+      "value": "映像を送信する最大サイズ。小さいソースが拡大されることはありません。"
+    },
+    {
+      "key": "screenShare.resolution.native",
+      "value": "ネイティブ"
+    },
+    {
+      "key": "screenShare.resolution.1440",
+      "value": "1440p"
+    },
+    {
+      "key": "screenShare.resolution.1080",
+      "value": "1080p"
+    },
+    {
+      "key": "screenShare.resolution.720",
+      "value": "720p"
+    },
+    {
+      "key": "screenShare.resolution.480",
+      "value": "480p"
+    },
+    {
+      "key": "screenShare.frameRate",
+      "value": "フレームレート"
+    },
+    {
+      "key": "screenShare.frameRate.tooltip",
+      "value": "映像の更新頻度。60はゲームや動画向き、15や5は資料やスライド向きで、細部に使える帯域が増えます。"
+    },
+    {
+      "key": "screenShare.frameRate.60",
+      "value": "60 fps"
+    },
+    {
+      "key": "screenShare.frameRate.30",
+      "value": "30 fps"
+    },
+    {
+      "key": "screenShare.frameRate.15",
+      "value": "15 fps"
+    },
+    {
+      "key": "screenShare.frameRate.5",
+      "value": "5 fps"
+    },
+    {
+      "key": "screenShare.quality",
+      "value": "画質"
+    },
+    {
+      "key": "screenShare.quality.tooltip",
+      "value": "映像が使用できる帯域幅。自動では解像度とフレームレートからビットレートを選び、上限はサーバーが決めます。"
+    },
+    {
+      "key": "screenShare.quality.auto",
+      "value": "自動"
+    },
+    {
+      "key": "screenShare.quality.low",
+      "value": "低"
+    },
+    {
+      "key": "screenShare.quality.high",
+      "value": "高"
+    },
+    {
+      "key": "screenShare.quality.max",
+      "value": "最大"
+    },
+    {
+      "key": "screenShare.audio",
+      "value": "PCの音声を共有"
+    },
+    {
+      "key": "screenShare.audio.tooltip",
+      "value": "Basis自体を除く、PCで再生中の音を送信し、スクリーンの近くにいる人にはスクリーンから聞こえます。"
+    },
+    {
+      "key": "screenShare.cursor",
+      "value": "マウスポインターを表示"
+    },
+    {
+      "key": "screenShare.start",
+      "value": "共有を開始"
+    },
+    {
+      "key": "screenShare.stop",
+      "value": "共有を停止"
+    },
+    {
+      "key": "screenShare.viewing",
+      "value": "視聴"
+    },
+    {
+      "key": "screenShare.viewing.none",
+      "value": "他に画面を共有している人はいません。"
+    },
+    {
+      "key": "screenShare.viewing.count",
+      "value": "他の人が共有している画面: {0}"
+    },
+    {
+      "key": "screenShare.receive",
+      "value": "他の人の画面を表示"
+    },
+    {
+      "key": "screenShare.receive.tooltip",
+      "value": "オフにすると画面共有はダウンロードされず、他の人の画面は空白のままになります。"
+    },
+    {
+      "key": "screenShare.viewDistance",
+      "value": "表示距離 (m)"
+    },
+    {
+      "key": "screenShare.viewDistance.tooltip",
+      "value": "これより遠いスクリーンは、近づくまでダウンロードされません。"
+    },
+    {
+      "key": "screenShare.volume",
+      "value": "画面共有の音量"
+    },
+    {
+      "key": "screenShare.status.none",
+      "value": "ライブラリから画面共有を出して、画面を共有しましょう。"
+    },
+    {
+      "key": "screenShare.status.idle",
+      "value": "共有していません。共有する対象を選んで「共有を開始」を押してください。"
+    },
+    {
+      "key": "screenShare.status.offline",
+      "value": "共有していません。画面を共有するにはサーバーに参加してください。"
+    },
+    {
+      "key": "screenShare.status.unsupportedServer",
+      "value": "共有していません。このサーバーは画面共有に対応していません。"
+    },
+    {
+      "key": "screenShare.status.starting",
+      "value": "開始中…"
+    },
+    {
+      "key": "screenShare.status.waiting",
+      "value": "{0}を共有中。サーバーを待っています…"
+    },
+    {
+      "key": "screenShare.status.live",
+      "value": "{0}を共有中、{1}人が視聴中"
+    },
+    {
+      "key": "screenShare.status.error",
+      "value": "停止しました: {0}"
+    },
+    {
+      "key": "screenShare.status.noAudio",
+      "value": "PCの音声は共有されていません: {0}"
+    },
+    {
+      "key": "screenShare.error.unsupported",
+      "value": "画面の共有にはWindows 10 バージョン2004以降が必要です。他の人の画面は引き続き視聴できます。"
+    },
+    {
+      "key": "screenShare.error.open",
+      "value": "画面をキャプチャできませんでした。"
+    },
+    {
+      "key": "screenShare.error.permission",
+      "value": "このサーバーでは画面の共有が許可されていません。"
+    },
+    {
+      "key": "screenShare.error.tooMany",
+      "value": "このサーバーでは、許可された数の画面共有がすでに表示されています。"
+    },
+    {
+      "key": "screenShare.error.refused",
+      "value": "サーバーが画面共有を拒否しました。"
+    },
+    {
+      "key": "screenShare.error.ended",
+      "value": "共有中のディスプレイまたはウィンドウがなくなりました。"
+    },
+    {
+      "key": "screenShare.back.sharedBy",
+      "value": "{0} が共有中"
+    },
+    {
+      "key": "screenShare.back.yours",
+      "value": "あなたの画面"
+    },
+    {
+      "key": "screenShare.back.hide",
+      "value": "非表示"
+    },
+    {
+      "key": "screenShare.panel.live",
+      "value": "ライブ"
+    },
+    {
+      "key": "screenShare.panel.watching",
+      "value": "{0}人が視聴中"
+    },
+    {
+      "key": "screenShare.panel.details",
+      "value": "{0}×{1} · {2} fps"
+    },
+    {
+      "key": "screenShare.showHidden",
+      "value": "非表示の画面を表示"
+    },
+    {
+      "key": "screenShare.viewing.hidden",
+      "value": "非表示にした画面: {0}"
+    },
+    {
+      "key": "settings.admin.title.lockScreenShare",
+      "value": "画面共有をロック"
+    },
+    {
+      "key": "settings.admin.title.lockScreenShare.tooltip",
+      "value": "グローバルロック権限のないプレイヤーは画面を共有できなくなります。そのプレイヤーの共有はすぐに終了します。管理者は引き続き共有できます。"
+    },
+    {
+      "key": "screenShare.status.locked",
+      "value": "このサーバーでは画面共有がオフになっています。"
+    },
+    {
+      "key": "screenShare.error.locked",
+      "value": "管理者がこのサーバーの画面共有をオフにしました。"
+    },
+    {
+      "key": "screenShare.error.restart",
+      "value": "メディアプラグインが更新されました。画面共有を使うには再起動してください。"
+    },
+    {
+      "key": "screenShare.audioSource",
+      "value": "音声ソース"
+    },
+    {
+      "key": "screenShare.audioSource.tooltip",
+      "value": "自動では、ウィンドウを共有するとそのアプリの音だけ、画面を共有すると Basis 以外のすべての音を共有します。"
+    },
+    {
+      "key": "screenShare.audioSource.auto",
+      "value": "自動"
+    },
+    {
+      "key": "screenShare.audioSource.application",
+      "value": "このアプリのみ"
+    },
+    {
+      "key": "screenShare.audioSource.system",
+      "value": "コンピューター全体"
+    },
+    {
+      "key": "screenShare.source.portal",
+      "value": "画面またはウィンドウ（システムのダイアログで選択）"
+    },
+    {
+      "key": "screenShare.status.choose",
+      "value": "システムのダイアログで共有するものを選んでください…"
+    },
+    {
+      "key": "screenShare.error.pluginMissing",
+      "value": "このビルドのメディアプラグインは画面共有に対応していません。このプラットフォーム向けにプラグインを再ビルドしてください。"
+    }
+  ]
+}

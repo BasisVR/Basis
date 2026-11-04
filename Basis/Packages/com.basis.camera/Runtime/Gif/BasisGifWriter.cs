@@ -130,45 +130,53 @@ namespace Basis
         // keyed off nextCode at the moment of emit, which is the convention every decoder
         // mirrors — moving it anywhere else desynchronises the two.
 
-        private const int MaxCodeBits = 12;
-        private const int CodeLimit = 1 << MaxCodeBits;
-        private const int HashSize = 5003;
-        private const int HashShift = 4;
+        private readonly int[] hashKeys = new int[BasisGifLzwKernel.HashSize];
+        private readonly int[] hashCodes = new int[BasisGifLzwKernel.HashSize];
+        private byte[] lzwOut = Array.Empty<byte>();
 
-        private readonly int[] hashKeys = new int[HashSize];
-        private readonly int[] hashCodes = new int[HashSize];
-        private readonly byte[] block = new byte[255];
-        private int blockLength;
-        private int bitBuffer;
-        private int bitCount;
-
-        private int codeBits;
-        private int maxCode;
-        private int nextCode;
-        private int clearCode;
-        private int initialCodeBits;
-        private bool clearPending;
-
-        private void EncodePixels(byte[] indices, int pixelCount, int minCodeSize)
+        private unsafe void EncodePixels(byte[] indices, int pixelCount, int minCodeSize)
         {
-            clearCode = 1 << minCodeSize;
-            int endCode = clearCode + 1;
-            initialCodeBits = minCodeSize + 1;
-            codeBits = initialCodeBits;
-            maxCode = (1 << codeBits) - 1;
-            nextCode = clearCode + 2;
-            clearPending = false;
-            bitBuffer = 0;
-            bitCount = 0;
-            blockLength = 0;
-            Array.Fill(hashKeys, -1);
+            long raw = ((long)pixelCount + pixelCount / 1000 + 8) * BasisGifLzwKernel.MaxCodeBits / 8 + 8;
+            long capacity = raw + raw / 255 + 8;
+            if (lzwOut.Length < capacity) lzwOut = new byte[capacity];
+            int written;
+            fixed (byte* src = indices, dst = lzwOut) fixed (int* keys = hashKeys, codes = hashCodes)
+                written = BasisGifLzwKernel.Encode(src, pixelCount, minCodeSize, keys, codes, dst);
+            stream.Write(lzwOut, 0, written);
+        }
+    }
 
-            EmitCode(clearCode);
+    [Unity.Burst.BurstCompile]
+    internal static unsafe class BasisGifLzwKernel
+    {
+        public const int MaxCodeBits = 12, CodeLimit = 1 << MaxCodeBits, HashSize = 5003, HashShift = 4;
+
+        private struct State
+        {
+            public byte* Output;
+            public int Length, BlockStart, BlockLength, BitBuffer, BitCount, CodeBits, MaxCode, NextCode, ClearCode, InitialCodeBits;
+            public bool ClearPending;
+        }
+
+        [Unity.Burst.BurstCompile]
+        public static int Encode(byte* indices, int pixelCount, int minCodeSize, int* hashKeys, int* hashCodes, byte* output)
+        {
+            State s = default;
+            s.Output = output;
+            s.ClearCode = 1 << minCodeSize;
+            int endCode = s.ClearCode + 1;
+            s.InitialCodeBits = minCodeSize + 1;
+            s.CodeBits = s.InitialCodeBits;
+            s.MaxCode = (1 << s.CodeBits) - 1;
+            s.NextCode = s.ClearCode + 2;
+            for (int i = 0; i < HashSize; i++) hashKeys[i] = -1;
+
+            EmitCode(ref s, s.ClearCode);
 
             int prefix = indices[0];
-            for (int Pixel = 1; Pixel < pixelCount; Pixel++)
+            for (int p = 1; p < pixelCount; p++)
             {
-                int pixel = indices[Pixel];
+                int pixel = indices[p];
                 int packed = (pixel << MaxCodeBits) + prefix;
                 int slot = (pixel << HashShift) ^ prefix;
 
@@ -184,11 +192,7 @@ namespace Basis
                     {
                         slot -= stride;
                         if (slot < 0) slot += HashSize;
-                        if (hashKeys[slot] == packed)
-                        {
-                            found = true;
-                            break;
-                        }
+                        if (hashKeys[slot] == packed) { found = true; break; }
                     }
                     while (hashKeys[slot] >= 0);
                 }
@@ -199,75 +203,76 @@ namespace Basis
                     continue;
                 }
 
-                EmitCode(prefix);
+                EmitCode(ref s, prefix);
 
-                if (nextCode < CodeLimit)
+                if (s.NextCode < CodeLimit)
                 {
-                    hashCodes[slot] = nextCode++;
+                    hashCodes[slot] = s.NextCode++;
                     hashKeys[slot] = packed;
                 }
                 else
                 {
-                    Array.Fill(hashKeys, -1);
-                    nextCode = clearCode + 2;
-                    clearPending = true;
-                    EmitCode(clearCode);
+                    for (int i = 0; i < HashSize; i++) hashKeys[i] = -1;
+                    s.NextCode = s.ClearCode + 2;
+                    s.ClearPending = true;
+                    EmitCode(ref s, s.ClearCode);
                 }
 
                 prefix = pixel;
             }
 
-            EmitCode(prefix);
-            EmitCode(endCode);
+            EmitCode(ref s, prefix);
+            EmitCode(ref s, endCode);
 
-            while (bitCount > 0)
+            while (s.BitCount > 0)
             {
-                EmitByte((byte)(bitBuffer & 0xFF));
-                bitBuffer >>= 8;
-                bitCount -= 8;
+                EmitByte(ref s, (byte)(s.BitBuffer & 0xFF));
+                s.BitBuffer >>= 8;
+                s.BitCount -= 8;
             }
-            FlushBlock();
+            FlushBlock(ref s);
+            return s.Length;
         }
 
-        private void EmitCode(int code)
+        private static void EmitCode(ref State s, int code)
         {
-            bitBuffer |= code << bitCount;
-            bitCount += codeBits;
-            while (bitCount >= 8)
+            s.BitBuffer |= code << s.BitCount;
+            s.BitCount += s.CodeBits;
+            while (s.BitCount >= 8)
             {
-                EmitByte((byte)(bitBuffer & 0xFF));
-                bitBuffer >>= 8;
-                bitCount -= 8;
+                EmitByte(ref s, (byte)(s.BitBuffer & 0xFF));
+                s.BitBuffer >>= 8;
+                s.BitCount -= 8;
             }
 
-            if (nextCode > maxCode || clearPending)
+            if (s.NextCode > s.MaxCode || s.ClearPending)
             {
-                if (clearPending)
+                if (s.ClearPending)
                 {
-                    codeBits = initialCodeBits;
-                    maxCode = (1 << codeBits) - 1;
-                    clearPending = false;
+                    s.CodeBits = s.InitialCodeBits;
+                    s.MaxCode = (1 << s.CodeBits) - 1;
+                    s.ClearPending = false;
                 }
                 else
                 {
-                    codeBits++;
-                    maxCode = codeBits == MaxCodeBits ? CodeLimit : (1 << codeBits) - 1;
+                    s.CodeBits++;
+                    s.MaxCode = s.CodeBits == MaxCodeBits ? CodeLimit : (1 << s.CodeBits) - 1;
                 }
             }
         }
 
-        private void EmitByte(byte value)
+        private static void EmitByte(ref State s, byte value)
         {
-            block[blockLength++] = value;
-            if (blockLength == 255) FlushBlock();
+            if (s.BlockLength == 0) s.BlockStart = s.Length++;
+            s.Output[s.Length++] = value;
+            if (++s.BlockLength == 255) FlushBlock(ref s);
         }
 
-        private void FlushBlock()
+        private static void FlushBlock(ref State s)
         {
-            if (blockLength == 0) return;
-            stream.WriteByte((byte)blockLength);
-            stream.Write(block, 0, blockLength);
-            blockLength = 0;
+            if (s.BlockLength == 0) return;
+            s.Output[s.BlockStart] = (byte)s.BlockLength;
+            s.BlockLength = 0;
         }
     }
 }

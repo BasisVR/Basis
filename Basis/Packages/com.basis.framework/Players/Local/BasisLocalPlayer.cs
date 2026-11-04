@@ -55,6 +55,13 @@ namespace Basis.Scripts.BasisSdk.Players
 
         public static BasisOrderedDelegate AfterSimulateOnLate = new BasisOrderedDelegate();
 
+        /// <summary>
+        /// Runs after current-frame device input has been joined, immediately before character
+        /// locomotion consumes it. Gameplay movement modes should use this instead of Update when
+        /// controller edges and tracked poses must affect the same simulation frame.
+        /// </summary>
+        public static BasisOrderedDelegate BeforeCharacterMovement = new BasisOrderedDelegate();
+
         public static Matrix4x4 localToWorldMatrix = Matrix4x4.identity;
         #region Drivers
 
@@ -108,6 +115,7 @@ namespace Basis.Scripts.BasisSdk.Players
         [Header("Blink Driver")]
         [SerializeField]
         public BasisLocalFacialBlinkDriver FacialBlinkDriver = new BasisLocalFacialBlinkDriver();
+        [System.NonSerialized] public BasisIdleExpressionDriver IdleExpressionDriver = new BasisIdleExpressionDriver();
 
         #endregion
         public async Task LocalInitialize()
@@ -448,6 +456,7 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 FacialBlinkDriver.OnDestroy();
             }
+            IdleExpressionDriver?.Clear();
 
 #if !BASIS_DISABLE_MICROPHONE
             BasisLocalMicrophoneDriver.OnPausedAction -= LocalVisemeDriver.OnPausedEvent;
@@ -466,7 +475,14 @@ namespace Basis.Scripts.BasisSdk.Players
         {
 #if !BASIS_DISABLE_MICROPHONE
             LocalVisemeDriver.VoiceRms = BasisVoiceLevel.LocalVoiceRms;
-            LocalVisemeDriver.ProcessAudioSamples(BasisLocalMicrophoneDriver.processBufferArray,1,BasisLocalMicrophoneDriver.processBufferArray.Length);
+#if UNITY_WEBGL && !UNITY_EDITOR
+            float[] frame = BasisLocalMicrophoneDriver.WebLipSyncAudio(out int count);
+#else
+            float[] frame = BasisLocalMicrophoneDriver.processBufferArray;
+            int count = frame != null ? Math.Min(BasisLocalMicrophoneDriver.ProcessFrameSize, frame.Length) : 0;
+#endif
+            if (frame == null || count <= 0) return;
+            LocalVisemeDriver.ProcessAudioSamples(frame,1,count);
 #endif
         }
 
@@ -474,7 +490,13 @@ namespace Basis.Scripts.BasisSdk.Players
         {
 #if !BASIS_DISABLE_MICROPHONE
             LocalVisemeDriver.VoiceRms = BasisVoiceLevel.LocalVoiceRms;
-            LocalVisemeDriver.ProcessSilence(BasisLocalMicrophoneDriver.processBufferArray.Length);
+#if UNITY_WEBGL && !UNITY_EDITOR
+            int count = BasisLocalMicrophoneDriver.WebLipSyncSilence();
+#else
+            float[] frame = BasisLocalMicrophoneDriver.processBufferArray;
+            int count = frame != null ? Math.Min(BasisLocalMicrophoneDriver.ProcessFrameSize, frame.Length) : 0;
+#endif
+            if (count > 0) LocalVisemeDriver.ProcessSilence(count);
 #endif
         }
 
@@ -483,6 +505,8 @@ namespace Basis.Scripts.BasisSdk.Players
             // Opens this frame's transform snapshot. Nothing cached can survive it, so a missed
             // invalidation is bounded to a single frame.
             BasisLocalPose.BeginFrame();
+
+            BeforeCharacterMovement.Invoke();
 
             // Kick the locomotion pose job first: when active it fills the IK stream on a worker
             // while everything below runs, and is joined inside SimulateIKDestinations.
@@ -585,17 +609,17 @@ namespace Basis.Scripts.BasisSdk.Players
 
             using (BasisLocalPlayerMarkers.AfterSimulateOnLate.Auto())
             {
-                AfterSimulateOnLate?.Invoke();
+                AfterSimulateOnLate.Invoke();
             }
             BasisFiniteWatchdog.Checkpoint("LocalFinish/PostAfterSimulateOnLate");
         }
         public static void FireJustBeforeNetworkApply()
         {
-            JustBeforeNetworkApply?.Invoke();
+            JustBeforeNetworkApply.Invoke();
         }
         public static void FireAfterRemoteSyncInterpolated()
         {
-            AfterRemoteSyncInterpolated?.Invoke();
+            AfterRemoteSyncInterpolated.Invoke();
         }
         public void SimulateOnRender()
         {
@@ -603,7 +627,7 @@ namespace Basis.Scripts.BasisSdk.Players
             BasisFiniteWatchdog.Checkpoint("LocalRender/PostRenderPollData");
 
             // now other things can move like UI and NON-CHILDREN OF BASISLOCALPLAYER.
-            AfterSimulateOnRender?.Invoke();
+            AfterSimulateOnRender.Invoke();
             BasisFiniteWatchdog.Checkpoint("LocalRender/PostAfterSimulateOnRender");
         }
         public void OnLateSimulateBones(BasisPlayer Player)

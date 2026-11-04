@@ -20,8 +20,10 @@ using UnityEngine.Rendering;
 ///
 /// It draws nothing on its own. The video texture reaches the world through
 /// an output sink (<see cref="BasisVideoMaterialOutput"/> for a renderer,
-/// <see cref="BasisVideoDisplay"/> for a uGUI RawImage), which owns aspect,
-/// projection, stereo eye and the frame-origin correction.
+/// <see cref="BasisVideoDisplay"/> for a uGUI RawImage,
+/// <see cref="BasisVideoTextureOutput"/> for a RenderTexture), which owns the
+/// frame-origin correction and whichever of aspect, projection and stereo eye
+/// it offers.
 ///
 /// It makes no sound on its own. Audio belongs to
 /// <see cref="BasisMediaPlayerAudio"/> on the same GameObject, which
@@ -95,6 +97,13 @@ public partial class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
 
     [Tooltip("Silence the audio sink beside this player without stopping it.")]
     public bool Mute;
+
+    [Tooltip("List this player in the Media Players menu. Off for players the client feeds itself, such as a screen share.")]
+    public bool ListInMediaMenu = true;
+
+    public bool IsPushStream { get; private set; }
+
+    public ulong PushHandle => _open && IsPushStream ? _handle : 0;
 
     [Tooltip("Log this player's own actions to the Console: state changes, seeks, loops, the sleep timer. Engine events are logged regardless.")]
     public bool VerboseLogging;
@@ -863,7 +872,7 @@ public partial class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
         // tick; defaults do not, so a prefab's own sink settings stand.
         _volumeSent = Mathf.Approximately(Volume, 1f) ? 1f : float.NaN;
         _muteSent = false;
-        BasisMediaPlayerRegistry.Add(this);
+        if (ListInMediaMenu) BasisMediaPlayerRegistry.Add(this);
     }
 
     void OnEnable() => _frameTick.Arm();
@@ -1018,7 +1027,8 @@ public partial class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
     bool IsApproved(string sourceUrl)
         => !string.IsNullOrWhiteSpace(sourceUrl)
            && (string.Equals(sourceUrl, _approvedUrl, StringComparison.Ordinal)
-               || BasisTrustedUrls.IsTrusted(sourceUrl));
+               || BasisTrustedUrls.IsTrusted(sourceUrl)
+               || BasisMediaClipProtocol.IsClipUrl(sourceUrl));
 
     /// <summary>
     /// Calls <paramref name="open"/> with the normalised URL once the user has
@@ -1270,6 +1280,31 @@ public partial class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
     /// <summary>Open a file on this machine by path. A
     /// <c>file://</c> prefix is accepted and dropped: the engine takes bare
     /// paths. Drops any split-pair audio source a previous open set.</summary>
+    public bool LoadPushStream(string label)
+    {
+        if (!BasisMediaNative.PushSupported)
+        {
+            LastErrorMessage = "this media engine build cannot play pushed streams";
+            State = BmState.Error;
+            return false;
+        }
+        AutoPlayOnSourceAssigned = true;
+        OpenStreams(BasisMediaNative.PushScheme + label, null);
+        return _open;
+    }
+
+    public unsafe int PushVideo(byte[] data, int length, long ptsUs, bool key, int width, int height)
+    {
+        if (!_open || !IsPushStream || data == null || length <= 0 || length > data.Length) return -2;
+        fixed (byte* p = data) return BasisMediaNative.bm_session_push_video(_handle, p, (UIntPtr)length, ptsUs, key ? 1u : 0u, (uint)width, (uint)height);
+    }
+
+    public unsafe int PushAudio(byte[] data, int length, long ptsUs, int sampleRate, int channels)
+    {
+        if (!_open || !IsPushStream || data == null || length <= 0 || length > data.Length) return -2;
+        fixed (byte* p = data) return BasisMediaNative.bm_session_push_audio(_handle, p, (UIntPtr)length, ptsUs, (uint)sampleRate, (uint)channels);
+    }
+
     public void LoadLocalPath(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -1542,6 +1577,7 @@ public partial class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
             return;
         }
         ClearPendingUrlApproval();
+        IsPushStream = sourceUrl != null && sourceUrl.StartsWith(BasisMediaNative.PushScheme, StringComparison.OrdinalIgnoreCase);
         audioUrl = sourceAudioUrl;
         if (!reopen)
         {
@@ -1589,7 +1625,7 @@ public partial class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
             return;
         }
 #else
-        if (SystemInfo.graphicsDeviceType != GraphicsDeviceType.Direct3D11
+        if (!BasisMediaNative.CpuPresent && SystemInfo.graphicsDeviceType != GraphicsDeviceType.Direct3D11
             && SystemInfo.graphicsDeviceType != GraphicsDeviceType.Direct3D12)
         {
             LastErrorMessage = $"needs Direct3D 11 or 12, running on {SystemInfo.graphicsDeviceType}";
@@ -1679,6 +1715,15 @@ public partial class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
         var json = new StringBuilder(sourceUrl.Length + 96);
         json.Append("{\"url\":");
         AppendJsonString(json, sourceUrl);
+        if (IsPushStream)
+        {
+            if (DecodePreference == BmDecodePreference.HardwareOnly)
+                json.Append(",\"decode_preference\":\"hardware_only\"");
+            else if (DecodePreference == BmDecodePreference.SoftwareOnly)
+                json.Append(",\"decode_preference\":\"software_only\"");
+            json.Append('}');
+            return json.ToString();
+        }
         if (!string.IsNullOrEmpty(audioUrl))
         {
             json.Append(",\"audio_url\":");
@@ -2218,7 +2263,7 @@ public partial class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
 #else
             var texture = new Texture2D((int)snapshot.Width, (int)snapshot.Height, TextureFormat.BGRA32, false);
             SetOutputTexture(texture);
-            BasisMediaNative.bm_session_set_output_texture(_handle, texture.GetNativeTexturePtr());
+            if (!BasisMediaNative.CpuPresent) BasisMediaNative.bm_session_set_output_texture(_handle, texture.GetNativeTexturePtr());
 #endif
             // Sinks still hold the texture just retired, so they move now
             // rather than wait for a first frame they have already seen.
@@ -2258,12 +2303,35 @@ public partial class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
                 Graphics.ExecuteCommandBuffer(_commandBuffer);
             }
 #else
-            _commandBuffer.Clear();
-            _commandBuffer.IssuePluginEventAndData(BasisMediaNative.bm_render_event_func(),
-                BasisMediaNative.RenderEventPresent, (IntPtr)_handle);
-            Graphics.ExecuteCommandBuffer(_commandBuffer);
+            if (BasisMediaNative.CpuPresent)
+            {
+                PresentOnCpu();
+            }
+            else
+            {
+                _commandBuffer.Clear();
+                _commandBuffer.IssuePluginEventAndData(BasisMediaNative.bm_render_event_func(),
+                    BasisMediaNative.RenderEventPresent, (IntPtr)_handle);
+                Graphics.ExecuteCommandBuffer(_commandBuffer);
+            }
 #endif
         }
+    }
+
+    unsafe void PresentOnCpu()
+    {
+        if (!(_texture is Texture2D texture)) return;
+        var pixels = texture.GetPixelData<byte>(0);
+        int got;
+        try
+        {
+            got = BasisMediaNative.bm_session_take_bgra(_handle, (byte*)Unity.Collections.LowLevel.Unsafe.NativeArrayUnsafeUtility.GetUnsafePtr(pixels), (UIntPtr)pixels.Length, out _, out _);
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return;
+        }
+        if (got == 1) texture.Apply(false, false);
     }
 
 #if UNITY_ANDROID && !UNITY_EDITOR

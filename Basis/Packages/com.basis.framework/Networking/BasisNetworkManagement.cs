@@ -181,7 +181,8 @@ namespace Basis.Scripts.Networking
         // Written on main thread before Parallel.For, read by worker threads.
         static BasisNetworkReceiver[] s_parallelSnapshot;
         static double s_parallelDeltaTime;
-        [NoAutoStaticsCleanup] static readonly Action<int> s_parallelComputeBody = ParallelComputeBody;
+        [NoAutoStaticsCleanup] static readonly Action<int> s_parallelDrainBody = _ => DrainReceivers();
+        static Exception s_computeExceptionSlot;
         // Leave headroom for Unity's job worker threads.
         [NoAutoStaticsCleanup] static readonly ParallelOptions s_parallelOptions = new ParallelOptions
         {
@@ -208,18 +209,51 @@ namespace Basis.Scripts.Networking
 #else
         static readonly bool ParallelComputeAvailable = true;
 #endif
-        static void RunParallelCompute()
+        // Receivers are claimed through one shared counter, so the compute thread, the pool helpers
+        // and the main thread (when it reaches the join early) all pull from the same list and every
+        // receiver runs exactly once. On a machine with few cores the pool helpers and the compute
+        // thread lose their core to Unity's job workers; the main thread used to sleep in the join
+        // while that happened and now does the remaining receivers itself.
+        static int s_nextIndex, s_completedCount;
+        static void DrainReceivers()
         {
-            if (s_parallelCount <= 4 || !ParallelComputeAvailable)
+            int count = s_parallelCount, i;
+            while ((i = Interlocked.Increment(ref s_nextIndex) - 1) < count)
             {
-                for (int i = 0; i < s_parallelCount; i++)
+                try
                 {
                     ParallelComputeBody(i);
                 }
+                catch (Exception ex)
+                {
+                    Interlocked.CompareExchange(ref s_computeExceptionSlot, ex, null);
+                }
+                Interlocked.Increment(ref s_completedCount);
+            }
+        }
+
+        static void RunParallelCompute()
+        {
+            int count = s_parallelCount;
+            if (count <= 4 || !ParallelComputeAvailable)
+            {
+                DrainReceivers();
             }
             else
             {
-                Parallel.For(0, s_parallelCount, s_parallelOptions, s_parallelComputeBody);
+                Parallel.For(0, Math.Min(count, s_parallelOptions.MaxDegreeOfParallelism), s_parallelOptions, s_parallelDrainBody);
+            }
+            // The main thread may still be finishing a receiver it claimed; the announce pass ran
+            // strictly after every receiver before, so it still does.
+            SpinWait spin = default;
+            while (Volatile.Read(ref s_completedCount) < count)
+            {
+                spin.SpinOnce();
+            }
+            Exception failed = Interlocked.Exchange(ref s_computeExceptionSlot, null);
+            if (failed != null)
+            {
+                s_computeException = failed;
             }
             Basis.Scripts.Networking.Receivers.BasisAnnounceAudioDriver.ComputeAll();
         }
@@ -301,6 +335,10 @@ namespace Basis.Scripts.Networking
             if (!s_computeInFlight)
             {
                 return;
+            }
+            if (!s_computeDone.IsSet)
+            {
+                DrainReceivers();
             }
             s_computeDone.Wait();
             s_computeInFlight = false;
@@ -384,6 +422,8 @@ namespace Basis.Scripts.Networking
             {
                 s_parallelSnapshot = snapshot;
                 s_parallelDeltaTime = UnscaledDeltaTime;
+                s_nextIndex = 0;
+                s_completedCount = 0;
                 KickParallelCompute();
             }
             else
@@ -492,6 +532,7 @@ namespace Basis.Scripts.Networking
 #endif
 
             byte* skipPtr = BasisRemoteNetworkDriver.SkipBonesPtr();
+            int skipCapacity = BasisRemoteNetworkDriver.Capacity;
             bool endEffectorIK = BasisNetworkReceiver.EndEffectorIKEnabled;
             if (endEffectorIK) BasisRemoteNetworkDriver.ResetEffectorAnchored();
 
@@ -499,6 +540,8 @@ namespace Basis.Scripts.Networking
             {
                 var receiver = snapshot[Index];
                 var remote = receiver.RemotePlayer;
+                ushort playerId = receiver.playerId;
+                bool overridden = receiver.HasOverriddenDestination;
 
 #if UNITY_EDITOR
                 if (p)
@@ -514,19 +557,19 @@ namespace Basis.Scripts.Networking
 #endif
 
                 // LOD-based frame skipping: distant players update pose less often
-                if (poseLodEnabled && remote.PoseSkipCounter > 0 && !receiver.HasOverriddenDestination)
+                if (poseLodEnabled && !overridden && remote.PoseSkipCounter > 0)
                 {
                     remote.PoseSkipCounter--;
-                    if (skipPtr != null && receiver.playerId < BasisRemoteNetworkDriver.Capacity) skipPtr[receiver.playerId] = 1;
-                    if (endEffectorIK) BasisRemoteNetworkDriver.ClearEffectorMask(receiver.playerId);
+                    if (skipPtr != null && playerId < skipCapacity) skipPtr[playerId] = 1;
+                    if (endEffectorIK) BasisRemoteNetworkDriver.ClearEffectorMask(playerId);
 #if UNITY_EDITOR
                     _skipped++;
 #endif
                     continue;
                 }
-                if (receiver.HasOverriddenDestination)
+                if (overridden)
                 {
-                    BasisRemoteNetworkDriver.SetFilteredHipsOverride(receiver.playerId, receiver.OverriddenPosition, (quaternion)receiver.OverriddenRotation);
+                    BasisRemoteNetworkDriver.SetFilteredHipsOverride(playerId, receiver.OverriddenPosition, (quaternion)receiver.OverriddenRotation);
                 }
 #if UNITY_EDITOR
                 _applied++;
@@ -537,7 +580,7 @@ namespace Basis.Scripts.Networking
                     int lod = math.clamp(remote.CurrentLodLevel, 0, 3);
                     remote.PoseSkipCounter = SMModuleDistanceBasedReductions.PoseSkipByLod[lod];
                 }
-                if (skipPtr != null && receiver.playerId < BasisRemoteNetworkDriver.Capacity) skipPtr[receiver.playerId] = 0;
+                if (skipPtr != null && playerId < skipCapacity) skipPtr[playerId] = 0;
                 if (endEffectorIK) receiver.WriteEffectorJobInputs();
             }
             // The loop above is the last writer of the filtered hips overrides this job reads, so

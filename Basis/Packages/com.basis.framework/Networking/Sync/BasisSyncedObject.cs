@@ -120,6 +120,9 @@ namespace Basis.Scripts.Networking.Sync
 
         internal bool WantsMainThreadApply;
         internal bool JobApplied;
+        internal bool JobApplyConditional;
+        internal bool JobAppliedThisFrame = true;
+        internal virtual bool UseJobApplyThisFrame(int discBase) => true;
         internal int TeleportWatchStart;
         internal int TeleportWatchCount;
 
@@ -501,6 +504,11 @@ namespace Basis.Scripts.Networking.Sync
         /// or a pickup toggling between world and hand-relative encoding) so the copy snaps instead of sliding.
         /// </summary>
         public void SnapReceiver() => _receiver?.ForceSnap();
+
+        protected void SuppressReceiverExtrapolation(bool suppress)
+        {
+            if (_receiver != null) _receiver.SuppressExtrapolation = suppress;
+        }
 
         /// <summary>
         /// Owner hook fired right before serialization; push live source values into LocalSet here.

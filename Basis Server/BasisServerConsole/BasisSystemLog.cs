@@ -143,14 +143,15 @@ namespace BasisNetworkConsole
                 switch (Target)
                 {
                     case BasisLogTarget.Journal:
-                        Console.Out.Write(FormatJournal(level, message));
+                        string journal = FormatJournal(level, message);
+                        BasisConsoleWriter.Enqueue(() => Console.Out.Write(journal));
                         break;
                     case BasisLogTarget.Syslog:
                         SendSyslog(level, message);
-                        if (!serverLoggingActive) WriteConsole(level, message);
+                        if (!serverLoggingActive) BasisConsoleWriter.Enqueue(() => WriteConsole(level, message));
                         break;
                     default:
-                        if (!serverLoggingActive) WriteConsole(level, message);
+                        if (!serverLoggingActive) BasisConsoleWriter.Enqueue(() => WriteConsole(level, message));
                         break;
                 }
                 Line?.Invoke(level, message);

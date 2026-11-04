@@ -80,5 +80,21 @@ namespace Basis.Tests.UI
             Assert.GreaterOrEqual(firstBottom + 0.5f, _corners[1].y, "the second row starts inside the first");
             Assert.Greater(_panel.Data.PanelSize.y, before);
         }
+
+        [Test]
+        public void LongList_GrowsUpwardFromTheSameBottomEdge_AndStaysInsideTheStandardPage()
+        {
+            _panel.FillDialogue("Shared Folder", string.Join("\n\n", Line, Line, Line, Line, Line, Line), "Save", "Delete");
+            float bottom = _panel.Data.PanelPosition.y - _panel.Data.PanelSize.y * 0.5f;
+            List<BasisMenuDialoguePanel.DetailRow> rows = new List<BasisMenuDialoguePanel.DetailRow>();
+            for (int Index = 0; Index < 128; Index++) rows.Add(new BasisMenuDialoguePanel.DetailRow("World", "Item " + Index, true));
+            _panel.ShowDetails(rows);
+
+            BasisMenuPanel.PanelData standard = BasisMenuPanel.PanelData.Standard(string.Empty);
+            Assert.AreEqual(bottom, _panel.Data.PanelPosition.y - _panel.Data.PanelSize.y * 0.5f, 0.01f);
+            Assert.LessOrEqual(_panel.Data.PanelPosition.y + _panel.Data.PanelSize.y * 0.5f, standard.PanelPosition.y + standard.PanelSize.y * 0.5f + 0.01f);
+            Assert.AreEqual(_panel.Data.PanelPosition.y, _panel.transform.localPosition.y, 0.01f);
+            Assert.AreEqual(_panel.Data.PanelSize.y, _panel.rectTransform.sizeDelta.y, 0.01f);
+        }
     }
 }

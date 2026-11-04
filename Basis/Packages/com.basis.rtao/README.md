@@ -242,7 +242,7 @@ avatars even when the indirect term is pinned by the map.
 The Graphics tab carries an **Ambient Occlusion** section: enable, Occlusion Source, Occlusion Quality,
 Strength, Radius, Noise Reduction, Occlusion On Direct Light, and whether avatars cast occlusion. **Occlusion Source is hidden
 on a GPU that cannot ray trace**, since every entry would resolve to the same fallback. **Show Occlusion
-Buffer** lives on the Developer tab with the other debug views. The effect is off by default. `BasisRTAOIntegration` in the framework subscribes to the
+Buffer** lives in Graphics > Rendering & Shaders with the other debug views; that section only appears while **Show Developer Tab** is on. The effect is off by default. `BasisRTAOIntegration` in the framework subscribes to the
 settings system, maps the dropdown strings through `BasisRTAOSettingsMap`, and clamps the quality against
 the graphics quality tier the way shadows and HDR do, rather than writing the player's dropdown back down.
 
@@ -301,7 +301,7 @@ bridge.
 Tick **Active** on the `BasisRTAOFeature` block of `DesktopRenderer.asset` (and `DirectToScreenRenderer.asset`
 for the stream output), in the renderer inspector or by setting `m_Active: 1` in the asset.
 
-Turn on **Show Occlusion Buffer** (Developer tab) to draw the resolved occlusion over the frame instead of
+Turn on **Show Occlusion Buffer** (Graphics > Rendering & Shaders, with **Show Developer Tab** on) to draw the resolved occlusion over the frame instead of
 reading it through lighting. Expect it to look stronger than the shaded result — see the section above.
 
 ## Tests

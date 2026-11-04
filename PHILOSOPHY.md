@@ -14,7 +14,7 @@ Feel overwhelmed by the technical demands of VR but have an idea you want to mak
 
 Basis is a **set of libraries** designed to help you bootstrap your VR projects. Basis is also a **demo** demonstrating how these components work together.
 
-It is built on top of Unity and C#, and the demo in particular makes use of the Universal Rendering Pipeline (URP) for rendering, and targets IL2CPP.
+It is built on top of Unity and C#, and the demo in particular makes use of the Universal Rendering Pipeline (URP) for rendering, and targets CoreCLR on desktop and IL2CPP on Android.
 
 ## Who is Basis for?
 

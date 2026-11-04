@@ -222,6 +222,9 @@ MonoBehaviour:
   m_SpatialFilter:
     m_OverrideState: 1
     m_Value: 0
+  m_DepthSampling:
+    m_OverrideState: 1
+    m_Value: 0
   m_TemporalFilter:
     m_OverrideState: 1
     m_Value: 0
@@ -862,6 +865,9 @@ MonoBehaviour:
   lightTransportWarmupSampleMultiplier:
     m_OverrideState: 1
     m_Value: 2
+  lightTransportPunctualLightCandidateCount:
+    m_OverrideState: 1
+    m_Value: 4
   patchFilteringTemporalSmoothing:
     m_OverrideState: 1
     m_Value: 0.8
@@ -898,6 +904,7 @@ MonoBehaviour:
   volumePatchWarpingEnabled:
     m_OverrideState: 1
     m_Value: 1
+  m_SerializedVersion: 1
 --- !u!114 &4945305680823667848
 MonoBehaviour:
   m_ObjectHideFlags: 3

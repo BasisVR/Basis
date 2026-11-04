@@ -29,7 +29,11 @@ namespace Basis.Scripts.Networking
         public static bool AutoConnectAttempted;
         public static bool HasBootstrapConnection { get; private set; }
         private static bool _connectInProgress;
-        public static bool ConnectInProgress => _connectInProgress;
+        public static bool ConnectInProgress => _connectInProgress || ClientConnecting;
+
+        public static bool ClientConnecting =>
+            !BasisNetworkConnection.LocalPlayerIsConnected
+            && (BasisNetworkConnection.LocalPlayerPeer != null || BasisNetworkConnectionWatchdog.Health == BasisConnectionHealth.Connecting);
 
         // Stable key the loading bar uses to merge updates for the same connection
         // attempt, distinct from the bundle-load key BasisSceneLoad reports under.
@@ -123,7 +127,7 @@ namespace Basis.Scripts.Networking
         /// </summary>
         public static async Task ConnectAsync(ServerDirectoryEntry entry, string userName, bool isHostMode = false, bool legacyLogin = false)
         {
-            if (_connectInProgress)
+            if (ConnectInProgress)
             {
                 BasisDebug.LogWarning("Connect requested while a connection attempt is already in progress; ignoring.");
                 return;
@@ -137,13 +141,7 @@ namespace Basis.Scripts.Networking
                 if (BasisNetworkConnection.LocalPlayerIsConnected)
                 {
                     ReportConnectionProgress(15f, BasisLocalization.Get("menu.servers.status.disconnecting"));
-                    BasisDebug.Log("Disconnecting from current connection", BasisDebug.LogTag.Networking);
-
-                    using CancellationTokenSource cts = new CancellationTokenSource();
-                    Task rebootWait = BasisNetworkConnection.WaitForRebootCompleteAsync(cts.Token);
-                    await BasisNetworkLifeCycle.Destroy();
-                    await rebootWait;
-                    BasisNetworkLifeCycle.Initialize();
+                    await TeardownAsync();
                 }
 
                 if (!BasisNetworkManagement.IsInitialized)
@@ -180,14 +178,21 @@ namespace Basis.Scripts.Networking
                 bool skipResolve = isHostMode
                     || Application.platform == RuntimePlatform.WebGLPlayer
                     || !string.Equals(stackId, BasisNetworkStackRegistry.LiteNetLibId, StringComparison.OrdinalIgnoreCase);
-                Task<string> resolveTask = skipResolve
-                    ? Task.FromResult(address)
-                    : ResolveConnectionAddressAsync(entry.Target, address);
+                Task<ServerProbeResult> resolveTask = skipResolve
+                    ? Task.FromResult<ServerProbeResult>(null)
+                    : ResolveConnectionAddressAsync(entry.Target);
                 await LoadDefaultAssetBundleAsync();
-                string resolvedIp = await resolveTask;
-                if (!string.IsNullOrEmpty(resolvedIp) && resolvedIp != address)
+                ServerProbeResult probe = await resolveTask;
+                if (probe != null && probe.ResolvedPort != 0 && !string.IsNullOrEmpty(probe.ResolvedHost))
                 {
-                    BasisDebug.Log($"Resolved {address} → {resolvedIp}", BasisDebug.LogTag.Networking);
+                    BasisDebug.Log($"SRV {address} → {probe.ResolvedHost}:{probe.ResolvedPort}", BasisDebug.LogTag.Networking);
+                    BasisNetworkManagement.Ip = probe.ResolvedHost;
+                    BasisNetworkManagement.Port = probe.ResolvedPort;
+                }
+                string resolvedIp = probe?.ResolvedAddress?.ToString();
+                if (!string.IsNullOrEmpty(resolvedIp) && resolvedIp != BasisNetworkManagement.Ip)
+                {
+                    BasisDebug.Log($"Resolved {BasisNetworkManagement.Ip} → {resolvedIp}", BasisDebug.LogTag.Networking);
                     BasisNetworkManagement.Ip = resolvedIp;
                 }
 
@@ -222,23 +227,39 @@ namespace Basis.Scripts.Networking
             }
         }
 
-        /// <summary>
-        /// Probes the server and returns the <see cref="IPAddress"/> string that actually
-        /// responded, or <paramref name="fallback"/> if the probe cannot reach either family.
-        /// A 2.5-second budget is split: first half for IPv6, second half for IPv4.
-        /// </summary>
-        private static async Task<string> ResolveConnectionAddressAsync(ConnectionTarget target, string fallback)
+        public static async Task DisconnectAsync()
+        {
+            if (_connectInProgress || !BasisNetworkConnection.LocalPlayerIsConnected) return;
+            _connectInProgress = true;
+            try
+            {
+                await TeardownAsync();
+            }
+            finally
+            {
+                _connectInProgress = false;
+            }
+        }
+
+        private static async Task TeardownAsync()
+        {
+            BasisDebug.Log("Disconnecting from current connection", BasisDebug.LogTag.Networking);
+            using CancellationTokenSource cts = new CancellationTokenSource();
+            Task rebootWait = BasisNetworkConnection.WaitForRebootCompleteAsync(cts.Token);
+            await BasisNetworkLifeCycle.Destroy();
+            await rebootWait;
+            BasisNetworkLifeCycle.Initialize();
+        }
+
+        private static async Task<ServerProbeResult> ResolveConnectionAddressAsync(ConnectionTarget target)
         {
             try
             {
-                using CancellationTokenSource cts = new CancellationTokenSource(2500);
-                ServerProbeResult probe = await BasisNetworkStackRegistry.ProbeAsync(
-                    target, 2500, cts.Token).ConfigureAwait(false);
-                if (probe?.ResolvedAddress != null)
-                    return probe.ResolvedAddress.ToString();
+                using CancellationTokenSource cts = new CancellationTokenSource(3500);
+                return await BasisNetworkStackRegistry.ProbeAsync(target, 3000, cts.Token).ConfigureAwait(false);
             }
             catch { }
-            return fallback;
+            return null;
         }
 
         public static async Task LoadDefaultAssetBundleAsync()
@@ -348,6 +369,14 @@ namespace Basis.Scripts.Networking
             return false;
         }
 
+        public static bool TryBuildEntry(string connectionString, string id, out ServerDirectoryEntry entry)
+        {
+            if (!BuildEntryFromConnectionString(connectionString, out entry)) return false;
+            entry.Id = id;
+            entry.CanAutoConnect = false;
+            return true;
+        }
+
         private static bool BuildEntryFromConnectionString(string value, out ServerDirectoryEntry entry)
         {
             entry = null;
@@ -375,15 +404,27 @@ namespace Basis.Scripts.Networking
         private const string PageConnectionParameter = "connection";
         private const string PagePasswordParameter = "password";
         private const string PageNameParameter = "name";
+        private const string PagePortParameter = "port";
 
         private static bool TryGetPageConnection(out ServerDirectoryEntry entry)
         {
             entry = null;
             if (!TryGetPageParameter(PageConnectionParameter, out string value)) return false;
+            if (TryGetPageParameter(PagePortParameter, out string pagePort) && ushort.TryParse(pagePort.Trim(), out ushort port) && port > 0) value = WithPagePort(value, port);
             if (value.IndexOf('#') < 0 && TryGetPageParameter(PagePasswordParameter, out string pagePassword)) value += "#" + pagePassword;
             if (BuildEntryFromConnectionString(value, out entry)) return true;
             BasisDebug.LogWarning($"connection page parameter could not be parsed: {value}");
             return false;
+        }
+
+        private static string WithPagePort(string value, ushort port)
+        {
+            int hash = value.IndexOf('#');
+            string left = hash >= 0 ? value.Substring(0, hash) : value;
+            string tail = hash >= 0 ? value.Substring(hash) : string.Empty;
+            if (left.IndexOf("://", StringComparison.Ordinal) > 0) return HostPortConnectionTargetParser.TryAddUrlPort(left, port, out string url) ? url + tail : value;
+            if (!HostPortConnectionTargetParser.TryParseConnectionString(left, out string host, out _, out bool portProvided, out _) || portProvided) return value;
+            return (host.IndexOf(':') >= 0 ? $"[{host}]:{port}" : $"{host}:{port}") + tail;
         }
 
         private static bool TryGetPageParameter(string name, out string value)

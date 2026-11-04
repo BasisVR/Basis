@@ -6,9 +6,9 @@ namespace Basis.BasisUI
 {
     public static class SettingsProviderMicrophoneTest
     {
-        public static void BuildMicrophoneTestSection(RectTransform container, Action<bool> onExpandedChanged)
+        public static PanelSectionToggle BuildMicrophoneTestSection(RectTransform container, Action<bool> onExpandedChanged)
         {
-            PanelSectionToggleHelpers.CreateCollapsibleBoxedSection(container,
+            return PanelSectionToggleHelpers.CreateCollapsibleBoxedSection(container,
                 BasisLocalization.Get("settings.microphone.test.title"), () =>
             {
                 PanelElementDescriptor status = PanelElementDescriptor.CreateNew(

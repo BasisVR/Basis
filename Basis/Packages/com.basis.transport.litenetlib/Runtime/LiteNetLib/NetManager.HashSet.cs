@@ -67,12 +67,19 @@ namespace LiteNetLib
         private readonly ReaderWriterLockSlim _peersLock = new ReaderWriterLockSlim();
         private volatile NetPeer _headPeer;
 
+        /// <summary>
+        /// Bumped under the write lock whenever the peer list changes, so the update pass can keep
+        /// its snapshot between passes instead of re-walking and re-copying every peer each time.
+        /// </summary>
+        private int _peerListVersion;
+
         private void ClearPeerSet()
         {
             _peersLock.EnterWriteLock();
             try
             {
                 _headPeer = null;
+                _peerListVersion++;
                 if (_lastIndex > 0)
                 {
                     Array.Clear(_slots, 0, _lastIndex);
@@ -146,6 +153,7 @@ namespace LiteNetLib
                     _headPeer.PrevPeer = peer;
                 }
                 _headPeer = peer;
+                _peerListVersion++;
                 AddPeerToSet(peer);
                 if (peer.Id >= _peersArray.Length)
                 {
@@ -170,6 +178,7 @@ namespace LiteNetLib
                     _peersLock.EnterWriteLock();
                 if (!RemovePeerFromSet(peer))
                     return;
+                _peerListVersion++;
                 if (peer == _headPeer)
                     _headPeer = peer.NextPeer;
 

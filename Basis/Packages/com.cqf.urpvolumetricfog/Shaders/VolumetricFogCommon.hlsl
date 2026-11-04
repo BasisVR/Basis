@@ -125,6 +125,26 @@ real3 EvaluateWeightedAPVDynamic(float2 positionSS, float3 posWS, bool enabled, 
     return EvaluateLiveAPV(positionSS, posWS);
 }
 
+TEXTURE3D(_VFExternalVolume);
+float4 _VFExternalVolumeParams0;
+float4 _VFExternalVolumeParams1;
+float4 _VFExternalVolumeParams2;
+float4 _VFExternalVolumeNeutral;
+
+bool ExternalVolumeActive()
+{
+    return _VFExternalVolumeParams0.w > 0.5;
+}
+
+float4 SampleExternalVolume(float3 posWS)
+{
+    float3 inside = min(posWS - _VFExternalVolumeParams1.xyz, _VFExternalVolumeParams2.xyz - posWS);
+    float fade = saturate(min(inside.x, min(inside.y, inside.z)) * _VFExternalVolumeParams2.w);
+    float4 data = SAMPLE_TEXTURE3D_LOD(_VFExternalVolume, sampler_LinearRepeat, posWS * _VFExternalVolumeParams0.xyz, 0.0);
+    data = IsFinite(data.x) && IsFinite(data.y) && IsFinite(data.z) && IsFinite(data.w) ? clamp(data, 0.0, 65504.0) : _VFExternalVolumeNeutral;
+    return lerp(_VFExternalVolumeNeutral, data, saturate(fade));
+}
+
 // Gets the main light color at one sample, using the per-ray hoisted constant term
 // (light colour * tint * phase * scattering). Only shadow, cookie and density vary per sample.
 real3 GetStepMainLightColor(float3 currPosWS, real3 mainLightConst, float density)

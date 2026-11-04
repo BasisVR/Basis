@@ -7,7 +7,9 @@
         "BasisCommon",
         "BasisDebug",
         "BasisSettings",
-        "Unity.TextMeshPro"
+        "Unity.TextMeshPro",
+        "BasisEventDriver",
+        "com.gator-dragon-games.jigglephysics"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

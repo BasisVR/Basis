@@ -16,8 +16,7 @@ namespace Basis.Scripts.Drivers
         public NativeArray<float3> HipsPositions, SnapshotScales;
         public NativeArray<int> ClipRotationOffset, ClipHipsOffset, ClipSampleCount;
         public NativeArray<float> ClipLength;
-        public float[] ClipLengthsManaged;
-        public bool[] ClipLoopingManaged;
+        public NativeArray<byte> ClipLooping;
         public void Dispose()
         {
             Ready = false;
@@ -28,6 +27,7 @@ namespace Basis.Scripts.Drivers
             if (ClipHipsOffset.IsCreated) ClipHipsOffset.Dispose();
             if (ClipSampleCount.IsCreated) ClipSampleCount.Dispose();
             if (ClipLength.IsCreated) ClipLength.Dispose();
+            if (ClipLooping.IsCreated) ClipLooping.Dispose();
         }
     }
     public sealed class BasisLocomotionPoseBaker : IDisposable
@@ -135,8 +135,7 @@ namespace Basis.Scripts.Drivers
             poseBake.ClipHipsOffset = new NativeArray<int>(clipCount, Allocator.Persistent);
             poseBake.ClipSampleCount = new NativeArray<int>(clipCount, Allocator.Persistent);
             poseBake.ClipLength = new NativeArray<float>(clipCount, Allocator.Persistent);
-            poseBake.ClipLengthsManaged = new float[clipCount];
-            poseBake.ClipLoopingManaged = new bool[clipCount];
+            poseBake.ClipLooping = new NativeArray<byte>(clipCount, Allocator.Persistent);
             int rotationTotal = 0;
             int sampleTotal = 0;
             for (int i = 0; i < clipCount; i++)
@@ -147,8 +146,7 @@ namespace Basis.Scripts.Drivers
                 poseBake.ClipHipsOffset[i] = sampleTotal;
                 poseBake.ClipSampleCount[i] = samples;
                 poseBake.ClipLength[i] = length;
-                poseBake.ClipLengthsManaged[i] = length;
-                poseBake.ClipLoopingManaged[i] = clips[i].isLooping;
+                poseBake.ClipLooping[i] = (byte)(clips[i].isLooping ? 1 : 0);
                 rotationTotal += samples * streamNodes.Length;
                 sampleTotal += samples;
             }

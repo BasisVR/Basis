@@ -248,6 +248,7 @@ namespace Basis.Scripts.Animator_Driver
             currentVelocity = Vector3.zero;
             dampenedVelocity = Vector3.zero;
             previousAngularVelocity = Vector3.zero; // Reset angular velocity dampening on teleport
+            LocalCharacterDriver?.ClearMovementSettle();
         }
 
         public void OnDestroy()

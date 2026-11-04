@@ -5,28 +5,118 @@ Real-time global illumination for the Universal Render Pipeline, replacing the
 
 Two modes share one denoise and composite chain, chosen by **Mode**:
 
-| | Screen Space | Ray Traced |
+| | Radiance Cascades | Ray Traced |
 | --- | --- | --- |
-| Gathers | the colour buffer along a depth-buffer march | the scene itself, through a ray tracing acceleration structure |
-| Sees | only what the camera drew this frame | everything, including behind the camera and outside the frustum |
-| Radiance at a hit | whatever the frame already shaded there | material albedo relit by the real lights, plus its emission |
-| Needs | nothing but a depth buffer | a ray tracing backend (falls back to Screen Space without one) |
+| Gathers | a voxel copy of the world through world space probes, plus screen probes for near detail | the scene itself, through a ray tracing acceleration structure |
+| Sees | everything inside the clipmap, including behind the camera | everything, including behind the camera and outside the frustum |
+| Radiance at a hit | what the camera rendered on that voxel, or a grey estimate lit by the real lights until it has been seen | material albedo relit by the real lights, plus its emission |
+| Needs | compute shaders and 3D render textures | a ray tracing backend (falls back to Radiance Cascades without one) |
 
-## How Screen Space works
+A saved **Screen Space** value from an older build reads as Radiance Cascades. Screen Space is still a
+reflection mode; see [Reflections](#reflections).
 
-For every pixel of the traced buffer:
+## How Radiance Cascades works
 
-1. A world position and a normal are recovered from the **depth buffer**. The normal is reconstructed
-   from depth by default, so nothing is required of the surface's shader beyond writing depth.
-2. One or more cosine-weighted rays are marched **through the depth buffer** in screen space, coarse to
-   fine - see [The march](#the-march) below.
-3. Where a ray hits a surface, the **camera colour at that point is gathered as incoming radiance**.
-   Because the colour sampled is the previous frame's, bounces compound over frames.
-4. Rays that hit nothing fall back to the reflection probe or the sky.
-5. Short hits accumulate **near-field obscurance**, the effect's own ambient occlusion term.
-6. Registered **emitters** inject light analytically, for sources too small to survive at traced
-   resolution or that are off screen entirely.
-7. The result goes through the denoiser below, then is bilaterally upsampled and composited.
+### The world layer
+
+`BasisGlobalIlluminationPass.World.cs` and `BasisGlobalIlluminationWorld.compute`. One update per frame on the
+player's camera, shared by every other camera.
+
+1. **Voxelize.** Three nested levels of 64^3 voxels surround the player, each with voxels twice the size of the
+   last: 0.2, 0.4 and 0.8 m by default, reaching about 13, 26 and 51 m across. Each level is rasterized from three
+   axes with an override material, because that is the only override a BatchRendererGroup draw honours. Every
+   voxel records coverage, a normal and a bitmask of the faces present in it, written with `InterlockedOr`.
+2. **Capture.** The camera's colour is written into the voxels it landed on, so a voxel's radiance comes from the
+   real material, real shadows and real emission, avatar shaders included. A voxel the camera has never seen uses
+   a 0.5 grey albedo lit by up to 32 lights with shadows marched through the voxels. Seen colour is addressed by
+   world position modulo the level size, so it survives the clipmap scrolling.
+3. **Inject.** Every voxel's radiance is rebuilt every frame, adding last frame's bounce for multiple bounces.
+4. **Cascades.** Each level runs two cascades on fixed world grids: 32^3 probes with 16 directions, then 16^3 with
+   64. A ray steps one voxel at a time for its cascade's scale, so it cannot jump a wall. A voxel only returns
+   light if a face it holds points back along the ray, which keeps light on the outside of a wall out of the room.
+   Where the top cascade of a level stops, it reads the next coarser level's probes. Past the last level it reads
+   the sky.
+5. **Resolve.** Cascade zero is folded into first order spherical harmonics, blended over time, in a toroidal
+   texture so a probe keeps its history while the clipmap scrolls.
+
+### The screen layer
+
+`BasisGlobalIlluminationCascades.hlsl`. With the world layer on, screen probes only reach 16 voxels (3.2 m by
+default) and use one cascade fewer. They supply contact detail finer than a voxel.
+
+A screen ray that leaves the screen, passes behind a surface or runs out of reach asks the world layer what lies
+beyond, from the last point it verified was open. That point matters: asking from where the ray ended reads probes
+on the far side of whatever it went through, which was the source of sky light inside closed rooms. Around the
+lookup, a probe is skipped if the voxel between it and the lookup is solid. When all of them are blocked the answer
+is black rather than whatever the outside probes saw.
+
+With the world layer off the screen layer runs alone, reaching Max Ray Length and using the reflection probe or sky
+for anything it cannot see. It costs less and leaks more.
+
+### Quality and cost
+
+**Quality** sets the screen probe layout and how often the world cascades run:
+
+| Quality | World cascades run | Screen cascades | Probe spacing |
+| --- | --- | --- | --- |
+| Low | every 4th frame | 3 | 8 |
+| Medium | every 2nd frame | 4 | 4 |
+| High | every frame | 5 | 4 |
+| Ultra | every frame | 5 | 2 |
+
+Levels take turns, so one level's cascades run per update. A level that has just scrolled rebuilds immediately.
+**Override Cascades** sets the screen layout by hand and adds the **Leak-Free Merge**, four marches per direction
+that photo captures use.
+
+Measured on an RTX 4090 under Direct3D 11 at 2016x2240, one eye, wall time against GI off, in a scene of about
+60 boxes: Low 0.78 ms, High 1.68 ms, Ultra 3.05 ms. Volume memory is about 50 MB at three levels. Stereo and lower
+end GPUs have not been measured.
+
+### Surface colour
+
+The camera image holds `albedo * lighting`, which is zero on a surface with no light of its own, so multiplying
+bounce onto it can never light it. The surface colour pass redraws the opaque renderer list with an override shader
+that keeps each material's own properties, and reads `_BaseMap` and `_BaseColor`, or `_MainTex` and `_Color`.
+Nothing per shader is needed. Poiyomi, locked or unlocked, reads exactly the same as its texture does in URP Lit. The
+fragment closest to the camera image's depth owns a pixel, whatever the draw order, material culling or clip logic was.
+That holds with a few millimetres between layers: clothing over a body, a lining inside a garment, or a cutout hole in
+a tight layer. A fragment further than `0.2% of depth + 3 mm` from that depth is never claimed.
+
+Unity ignores an override shader on BatchRendererGroup draws, so GPU Resident Drawer batches are filtered out of that
+list and drawn through their own `BasisSurface` pass instead, which outputs base map times base colour. URP Lit, Simple
+Lit, Complex Lit, Baked Lit and Lit Shader Graphs carry it. The tag is ours rather than `Universal2D` because Shader
+Graph and most URP shaders build that pass with no DOTS variant, and Unity warns about every such draw. A copy of the
+camera depth decides visibility. A batched shader with no `BasisSurface` pass draws nothing here and keeps the multiply.
+
+The composite then adds `indirect * surfaceColour` to `sceneColor * obscurance`. A pixel the pass did not claim keeps
+the multiply, and that covers URP Unlit and anything else drawn without a `UniversalForward` tag.
+
+### World ray optimisations
+
+- An occupancy pyramid, with blocks of 4 and 16 voxels per clipmap level, lets a world ray jump empty space. Blocks are grown by one voxel
+  because the march samples trilinearly.
+- Only the level being traced this frame injects light, and the other levels copy their harmonics.
+- A voxel the camera has seen recently skips its light loop and shadow rays.
+- Voxels refresh at half the rate of the cascades, since their seen colour comes from the camera anyway.
+- `alternateEyes` (off by default) traces one eye per frame in stereo and holds the other in its temporal history. A
+  pixel with no history reads the eye that traced this frame. The blend rate doubles on the frames an eye updates, so
+  it reacts to a light change as quickly as tracing both eyes.
+
+Voxels hold the colour the surface colour pass read for them once the camera has seen them, and a neutral grey before
+that.
+
+### Limits
+
+- Surface colour reads the standard property names. A shader that keeps its colour elsewhere reads as white, or as
+  its tint alone, and only the bounce it receives is affected.
+- A batched custom shader, or a batched material in a world bundle built before `BasisSurface` existed, keeps the
+  multiply, so an unlit part of it stays black. It looks the same as it did before surface colour existed.
+- Transparent materials draw after the composite and do not receive the bounce.
+- A thin wall one voxel thick can hold both of its faces in one voxel and leak.
+- An emissive surface the camera has never looked at contributes nothing until it has been seen.
+- First order harmonics blur a small bright source seen from far away.
+- Measured against Ray Traced in a closed room, the cascades gather 0.79 of its light at one bounce and 0.69 with
+  many.
 
 ## Which cameras it runs on
 
@@ -80,8 +170,7 @@ real lightmap is skipped by the ray traced gather (`Respect Baked Emission`, on 
 are required: the flag alone would steal the light in a world nobody ever baked, and a lightmap index alone
 says nothing about whether the emission was baked.
 
-**Receiving.** The composite is `Blend DstColor Zero` emitting `obscurance + indirect`, so the frame becomes
-`sceneColor * (obscurance + indirect)`. On a lightmapped surface `sceneColor` already contains the baked
+**Receiving.** The composite adds the receive-scaled bounce to the frame, as described under Surface colour. On a lightmapped surface `sceneColor` already contains the baked
 bounce and the baked ambient occlusion, so the effect used to multiply a second bounce onto light that had
 already bounced, and darken creases that were already dark - a carefully baked world read blown out and
 crushed at the same time.
@@ -112,7 +201,7 @@ A world with no lightmaps never records the pass, and `Baked Surface Receive` at
 
 ## The march
 
-A uniform march spends its whole step budget evenly along the ray: **Ray Steps** steps across the whole of
+Screen Space reflections walk the depth buffer this way. A uniform march spends its whole step budget evenly along the ray: **Ray Steps** steps across the whole of
 **Max Ray Length**, which at the shipped default is twenty steps over sixteen metres. Near the origin each
 stride is tens of texels, and a stride that long walks straight over anything thinner than itself. The
 **Thickness** setting exists to paper over the result, and it papers over misses and false hits alike -

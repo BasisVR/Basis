@@ -169,6 +169,7 @@ namespace LiteNetLib
 
         // Pre-allocated to avoid per-tick heap allocations in UpdateLogic (called every 2ms).
         private readonly List<NetPeer> _updateSnapshot = new List<NetPeer>(64);
+        private int _updateSnapshotVersion = -1;
         private readonly ConcurrentQueue<NetPeer> _peersToRemoveQueue = new ConcurrentQueue<NetPeer>();
 
         private const int ParallelPeerThreshold = 8;
@@ -300,6 +301,108 @@ namespace LiteNetLib
         /// Default: ushort.MaxValue (65535)
         /// </summary>
         public ushort MaxFragmentsCount = ushort.MaxValue;
+        public int MaxHeldFragmentBytesPerPeer = 32 * 1024 * 1024;
+        public int ShutdownLingerMs = 3000;
+        public long MaxQueuedChannelBytesPerPeer = 0;
+        public int ConnectCookieMode = 0;
+        public int ConnectCookieAutoRequestsPerSecond = 100;
+        public int ConnectCookieAutoHoldSeconds = 30;
+        public Func<bool> ConnectCookiePressure;
+        private readonly byte[] _cookieSecret = NewCookieSecret();
+        private readonly object _cookieLock = new object();
+        private System.Security.Cryptography.HMACSHA256 _cookieHmac;
+        private long _cookieWindowSecond, _cookieUntilSecond;
+        private int _cookieRequestsThisSecond;
+        private long _cookieChallenges, _cookieRejected;
+        public long ConnectCookieChallenges => Interlocked.Read(ref _cookieChallenges);
+        public long ConnectCookieRejected => Interlocked.Read(ref _cookieRejected);
+        public bool ConnectCookieActive
+        {
+            get
+            {
+                int mode = ConnectCookieMode;
+                if (mode >= 2) return true;
+                if (mode <= 0) return false;
+                return DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond < Interlocked.Read(ref _cookieUntilSecond);
+            }
+        }
+
+        private static byte[] NewCookieSecret()
+        {
+            byte[] secret = new byte[32];
+            using (var rng = System.Security.Cryptography.RandomNumberGenerator.Create())
+                rng.GetBytes(secret);
+            return secret;
+        }
+
+        private bool CookieRequired()
+        {
+            int mode = ConnectCookieMode;
+            if (mode >= 2) return true;
+            if (mode <= 0) return false;
+            long second = DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond;
+            if (Interlocked.Exchange(ref _cookieWindowSecond, second) != second)
+                Interlocked.Exchange(ref _cookieRequestsThisSecond, 0);
+            int threshold = ConnectCookieAutoRequestsPerSecond;
+            Func<bool> pressure = ConnectCookiePressure;
+            if ((threshold > 0 && Interlocked.Increment(ref _cookieRequestsThisSecond) > threshold) || (pressure != null && pressure()))
+                Interlocked.Exchange(ref _cookieUntilSecond, second + Math.Max(1, ConnectCookieAutoHoldSeconds));
+            return second < Interlocked.Read(ref _cookieUntilSecond);
+        }
+
+        private void ComputeCookie(IPEndPoint endPoint, long connectionTime, long window, Span<byte> cookie)
+        {
+            Span<byte> input = stackalloc byte[16 + 2 + 8 + 8];
+            input.Clear();
+            endPoint.Address.TryWriteBytes(input, out _);
+            input[16] = (byte)(endPoint.Port >> 8);
+            input[17] = (byte)endPoint.Port;
+            for (int i = 0; i < 8; i++)
+            {
+                input[18 + i] = (byte)(connectionTime >> (8 * i));
+                input[26 + i] = (byte)(window >> (8 * i));
+            }
+            Span<byte> hash = stackalloc byte[32];
+            lock (_cookieLock)
+            {
+                if (_cookieHmac == null)
+                    _cookieHmac = new System.Security.Cryptography.HMACSHA256(_cookieSecret);
+                _cookieHmac.TryComputeHash(input, hash, out _);
+            }
+            hash.Slice(0, NetConnectRequestPacket.CookieSize).CopyTo(cookie);
+        }
+
+        private static long CookieWindow() => DateTime.UtcNow.Ticks / (TimeSpan.TicksPerSecond * 30);
+
+        private bool CookieValid(IPEndPoint endPoint, NetConnectRequestPacket request)
+        {
+            byte[] cookie = request.Cookie;
+            if (cookie == null)
+                return false;
+            Span<byte> expected = stackalloc byte[NetConnectRequestPacket.CookieSize];
+            long window = CookieWindow();
+            for (long w = window; w >= window - 1; w--)
+            {
+                ComputeCookie(endPoint, request.ConnectionTime, w, expected);
+                int diff = 0;
+                for (int i = 0; i < expected.Length; i++)
+                    diff |= expected[i] ^ cookie[i];
+                if (diff == 0)
+                    return true;
+            }
+            return false;
+        }
+
+        private void SendConnectCookie(IPEndPoint endPoint, NetConnectRequestPacket request)
+        {
+            var packet = PoolGetWithProperty(PacketProperty.ConnectCookie);
+            FastBitConverter.GetBytes(packet.RawData, NetConstants.HeaderSize, request.ConnectionTime);
+            ComputeCookie(endPoint, request.ConnectionTime, CookieWindow(), new Span<byte>(packet.RawData, NetConstants.HeaderSize + 8, NetConnectRequestPacket.CookieSize));
+            Interlocked.Increment(ref _cookieChallenges);
+            if (request.Cookie != null)
+                Interlocked.Increment(ref _cookieRejected);
+            SendRawAndRecycle(packet, endPoint);
+        }
 
         /// <summary>
         /// UDP Only Socket Option
@@ -581,6 +684,8 @@ namespace LiteNetLib
         public long UnreliableDropped => Interlocked.Read(ref _unreliableDropped);
 
         internal void NoteUnreliableDropped() => Interlocked.Increment(ref _unreliableDropped);
+
+        internal void NoteUnreliableDropped(int count) => Interlocked.Add(ref _unreliableDropped, count);
 
         private long _priorityUnreliableDropped;
 
@@ -989,7 +1094,10 @@ namespace LiteNetLib
                     elapsed = elapsed <= 0.0f ? 0.001f : elapsed;
                     stopwatch.Restart();
 
-                    // 1. Snapshot peers under read lock (reuse pre-allocated list)
+                    // 1. Snapshot peers under read lock (reuse pre-allocated list). Only rebuilt when
+                    // the list has changed: at a thousand peers and several hundred passes a second
+                    // the walk-and-copy was a measurable cost for a list that changes on join/leave.
+                    if (Volatile.Read(ref _peerListVersion) != _updateSnapshotVersion)
                     {
                         _peersLock.EnterReadLock();
                         try
@@ -999,6 +1107,7 @@ namespace LiteNetLib
                             {
                                 _updateSnapshot.Add(netPeer);
                             }
+                            _updateSnapshotVersion = _peerListVersion;
                         }
                         finally
                         {
@@ -1228,14 +1337,24 @@ namespace LiteNetLib
                 }
                 else if (request.Result == ConnectionRequestResult.Reject)
                 {
-                    netPeer = new NetPeer(this, request.RemoteEndPoint, GetNextPeerId());
-                    netPeer.Reject(request.InternalPacket, rejectData, start, length);
-                    AddPeer(netPeer);
+                    int rejectId = GetNextPeerId();
+                    if (rejectId >= 0)
+                    {
+                        netPeer = new NetPeer(this, request.RemoteEndPoint, rejectId);
+                        netPeer.Reject(request.InternalPacket, rejectData, start, length);
+                        AddPeer(netPeer);
+                    }
                     //NetDebug.Write(NetLogLevel.Trace, "[NM] Peer connect reject.");
                 }
                 else //Accept
                 {
-                    netPeer = new NetPeer(this, request, GetNextPeerId());
+                    int acceptId = GetNextPeerId();
+                    if (acceptId < 0)
+                    {
+                        _requestsDict.Remove(request.RemoteEndPoint);
+                        return null;
+                    }
+                    netPeer = new NetPeer(this, request, acceptId);
                     if (inboundLayer != null)
                         netPeer.SetInboundPacketLayer(inboundLayer);
                     AddPeer(netPeer);
@@ -1248,6 +1367,7 @@ namespace LiteNetLib
             return netPeer;
         }
 
+        public Func<IPEndPoint, bool> ConnectRequestFilter;
         public Func<int> PeerIdAllocator;
         public Action<int> PeerIdRelease;
 
@@ -1310,6 +1430,12 @@ namespace LiteNetLib
                 //NetDebug.Write($"ConnectRequest Id: {connRequest.ConnectionTime}, EP: {remoteEndPoint}");
             }
 
+            if (netPeer == null && CookieRequired() && !CookieValid(remoteEndPoint, connRequest))
+            {
+                SendConnectCookie(remoteEndPoint, connRequest);
+                return;
+            }
+
             ConnectionRequest req;
             lock (_requestsDict)
             {
@@ -1318,6 +1444,9 @@ namespace LiteNetLib
                     req.UpdateRequest(connRequest);
                     return;
                 }
+                Func<IPEndPoint, bool> filter = ConnectRequestFilter;
+                if (netPeer == null && filter != null && !filter(remoteEndPoint))
+                    return;
                 req = new ConnectionRequest(remoteEndPoint, connRequest, this);
                 _requestsDict.Add(remoteEndPoint, req);
             }
@@ -1585,6 +1714,10 @@ namespace LiteNetLib
                     }
                     //Send shutdown
                     SendRawAndRecycle(PoolGetWithProperty(PacketProperty.ShutdownOk), remoteEndPoint);
+                    break;
+                case PacketProperty.ConnectCookie:
+                    if (peerFound)
+                        netPeer.ProcessConnectCookie(packet);
                     break;
                 case PacketProperty.ConnectAccept:
                     if (!peerFound)
@@ -2151,7 +2284,10 @@ namespace LiteNetLib
 
                 //Create reliable connection
                 //And send connection request
-                peer = new NetPeer(this, target, GetNextPeerId(), connectionNumber, connectionData);
+                int outgoingId = GetNextPeerId();
+                if (outgoingId < 0)
+                    return null;
+                peer = new NetPeer(this, target, outgoingId, connectionNumber, connectionData);
                 AddPeer(peer);
                 return peer;
             }
@@ -2190,7 +2326,10 @@ namespace LiteNetLib
 
                 //Create reliable connection
                 //And send connection request
-                peer = new NetPeer(this, target, GetNextPeerId(), connectionNumber, connectionData);
+                int outgoingId = GetNextPeerId();
+                if (outgoingId < 0)
+                    return null;
+                peer = new NetPeer(this, target, outgoingId, connectionNumber, connectionData);
                 AddPeer(peer);
                 return peer;
             }

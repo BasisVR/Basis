@@ -8,7 +8,7 @@ namespace Basis.Scripts.Drivers
     public struct BasisLocomotionPoseJob : IJob
     {
         [ReadOnly] public NativeArray<BasisLocoContribution> Contributions;
-        public int ContributionCount;
+        [ReadOnly] public NativeArray<int> ContributionCount;
         [ReadOnly] public NativeArray<quaternion> Rotations;
         [ReadOnly] public NativeArray<float3> HipsPositions;
         [ReadOnly] public NativeArray<float3> SnapshotScales;
@@ -34,7 +34,8 @@ namespace Basis.Scripts.Drivers
         }
         public void Execute()
         {
-            if (ContributionCount <= 0)
+            int contributionCount = ContributionCount[0];
+            if (contributionCount <= 0)
             {
                 return;
             }
@@ -50,7 +51,7 @@ namespace Basis.Scripts.Drivers
             {
                 float4 accumulated = float4.zero;
                 float4 reference = float4.zero;
-                for (int c = 0; c < ContributionCount; c++)
+                for (int c = 0; c < contributionCount; c++)
                 {
                     BasisLocoContribution contribution = Contributions[c];
                     SampleIndices(contribution.Clip, contribution.Time, out int a, out int b, out float t);
@@ -76,7 +77,7 @@ namespace Basis.Scripts.Drivers
 
             float3 hips = float3.zero;
             float totalWeight = 0f;
-            for (int c = 0; c < ContributionCount; c++)
+            for (int c = 0; c < contributionCount; c++)
             {
                 BasisLocoContribution contribution = Contributions[c];
                 SampleIndices(contribution.Clip, contribution.Time, out int a, out int b, out float t);

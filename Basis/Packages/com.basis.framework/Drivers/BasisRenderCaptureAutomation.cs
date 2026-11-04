@@ -1,6 +1,8 @@
 using Unity.Scripting.LifecycleManagement;
 using System;
+using System.Globalization;
 using Basis.Scripts.BasisSdk.Players;
+using Basis.BasisUI;
 using Basis.Scripts.Networking;
 using UnityEngine;
 #if BASIS_HAS_RTAO && !UNITY_ANDROID && !UNITY_WEBGL
@@ -19,13 +21,19 @@ namespace Basis.Scripts.Drivers
     ///                                       BasisGlobalIlluminationSettings.Current.quality before capture
     ///   --render-capture-rtao-quality=Tier  Low/Medium/High/Ultra, applied via
     ///                                       BasisRTAOFeature.HasQualityOverride/QualityOverride
+    ///   --render-capture-pose=x,y,z,yaw     teleports the local player there before capturing, so runs
+    ///                                       compare the same view
+    ///   --render-capture-settle=seconds     wait after connecting, default 18
+    ///   --render-capture-lite               frame timing only: no marker recorders, so the capture itself
+    ///                                       costs almost nothing and frame times can be compared
+    /// The menu is closed before capturing, since an automated connect leaves it open.
     /// Always self-terminates (Application.Quit) once the capture is written, so it never idles
     /// connected to a real server.
     /// </summary>
     [AutoStaticsCleanup]
     public static partial class BasisRenderCaptureAutomation
     {
-        private const float PostConnectSettleSeconds = 18f;
+        private const float PoseSettleSeconds = 4f;
         private const float PostCaptureQuitDelaySeconds = 2f;
 
         private enum State { Idle, WaitingForNetworkInit, WaitingToSettle, Capturing, WaitingToQuit }
@@ -37,6 +45,10 @@ namespace Basis.Scripts.Drivers
         private static bool hasConnectTarget;
         private static string giQualityOverride;
         private static string rtaoQualityOverride;
+        private static float settleSeconds = 18f;
+        private static bool hasPose, poseApplied;
+        private static Vector3 posePosition;
+        private static float poseYaw;
         private static float settleStartTime;
         private static float quitStartTime;
 
@@ -65,6 +77,18 @@ namespace Basis.Scripts.Drivers
                 else if (arg.StartsWith("--render-capture-rtao-quality=", StringComparison.OrdinalIgnoreCase))
                 {
                     rtaoQualityValue = ValueOf(arg);
+                }
+                else if (arg.StartsWith("--render-capture-pose=", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasPose = TryParsePose(ValueOf(arg), out posePosition, out poseYaw);
+                }
+                else if (arg.StartsWith("--render-capture-settle=", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (float.TryParse(ValueOf(arg), NumberStyles.Float, CultureInfo.InvariantCulture, out float seconds)) settleSeconds = seconds;
+                }
+                else if (arg.Equals("--render-capture-lite", StringComparison.OrdinalIgnoreCase))
+                {
+                    BasisRenderProfileHistory.Lite = true;
                 }
             }
 
@@ -127,10 +151,24 @@ namespace Basis.Scripts.Drivers
                     // No proven "world fully loaded" signal was found in the time available; this
                     // combines the real signal that exists (local player initialized) with a generous
                     // fixed settle window for remote avatars/world content to stream in afterward.
-                    if (BasisLocalPlayerData.PlayerReady && Time.unscaledTime - settleStartTime >= PostConnectSettleSeconds)
+                    if (!BasisLocalPlayerData.PlayerReady || Time.unscaledTime - settleStartTime < settleSeconds)
                     {
-                        BeginCapture();
+                        break;
                     }
+                    if (!poseApplied)
+                    {
+                        poseApplied = true;
+                        BasisMainMenu.Close();
+                        if (hasPose)
+                        {
+                            BasisLocalPlayer.Instance.Teleport(posePosition, Quaternion.Euler(0f, poseYaw, 0f));
+                        }
+                        settleStartTime = Time.unscaledTime;
+                        settleSeconds = PoseSettleSeconds;
+                        break;
+                    }
+                    Debug.Log($"[BasisRenderCaptureAutomation] Capturing at {BasisLocalPlayer.Instance.transform.position:F2}");
+                    BeginCapture();
                     break;
                 case State.WaitingToQuit:
                     if (Time.unscaledTime - quitStartTime >= PostCaptureQuitDelaySeconds)
@@ -227,6 +265,22 @@ namespace Basis.Scripts.Drivers
         {
             int eq = arg.IndexOf('=');
             return eq < 0 || eq == arg.Length - 1 ? null : arg.Substring(eq + 1);
+        }
+
+        private static bool TryParsePose(string value, out Vector3 position, out float yaw)
+        {
+            position = default;
+            yaw = 0f;
+            string[] parts = value == null ? Array.Empty<string>() : value.Split(',');
+            if (parts.Length != 4) return false;
+            float[] parsed = new float[4];
+            for (int i = 0; i < 4; i++)
+            {
+                if (!float.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out parsed[i])) return false;
+            }
+            position = new Vector3(parsed[0], parsed[1], parsed[2]);
+            yaw = parsed[3];
+            return true;
         }
 
         private static bool TryParseHostPort(string value, out string host, out ushort port)

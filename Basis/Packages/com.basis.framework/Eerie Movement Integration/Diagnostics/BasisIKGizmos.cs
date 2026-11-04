@@ -381,8 +381,8 @@ namespace Basis.Scripts.Debugging
     {
         public static bool Show;
         private const int RoleCount = 5;
-        private const float RawSphereSize = 0.03f;
-        private const float BiasedSphereSize = 0.03f;
+        private const float RawSphereSize = 0.06f;
+        private const float BiasedSphereSize = 0.06f;
         private const float AxisLength = 0.06f;
         private const float LineWidth = 0.003f;
         private const float LabelScale = 0.02f;

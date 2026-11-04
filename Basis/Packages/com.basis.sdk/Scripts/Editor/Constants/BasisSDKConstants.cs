@@ -124,4 +124,8 @@ public class BasisSDKConstants
         BuildTarget.Android,
         BuildTarget.iOS,
     };
+    public static ScriptingImplementation ScriptingBackendFor(BuildTarget target)
+    {
+        return BuildPipeline.GetBuildTargetGroup(target) == BuildTargetGroup.Standalone ? ScriptingImplementation.CoreCLR : ScriptingImplementation.IL2CPP;
+    }
 }

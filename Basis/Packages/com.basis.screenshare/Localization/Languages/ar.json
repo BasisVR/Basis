@@ -1,0 +1,310 @@
+{
+  "code": "ar",
+  "nativeName": "العربية",
+  "entries": [
+    {
+      "key": "menu.provider.screenShare",
+      "value": "مشاركة الشاشة"
+    },
+    {
+      "key": "library.embedded.screenShare",
+      "value": "مشاركة الشاشة"
+    },
+    {
+      "key": "screenShare.yourShare",
+      "value": "شاشتك"
+    },
+    {
+      "key": "screenShare.source",
+      "value": "المشاركة"
+    },
+    {
+      "key": "screenShare.source.tooltip",
+      "value": "الشاشة أو النافذة التي سيراها كل من بالقرب من الشاشة."
+    },
+    {
+      "key": "screenShare.source.display",
+      "value": "{0} ({1}×{2})"
+    },
+    {
+      "key": "screenShare.source.none",
+      "value": "لم يتم العثور على شاشات أو نوافذ"
+    },
+    {
+      "key": "screenShare.refreshSources",
+      "value": "تحديث القائمة"
+    },
+    {
+      "key": "screenShare.resolution",
+      "value": "الدقة"
+    },
+    {
+      "key": "screenShare.resolution.tooltip",
+      "value": "أكبر حجم تُرسل به الصورة. لا يتم تكبير المصدر الأصغر أبدًا."
+    },
+    {
+      "key": "screenShare.resolution.native",
+      "value": "الأصلية"
+    },
+    {
+      "key": "screenShare.resolution.1440",
+      "value": "1440p"
+    },
+    {
+      "key": "screenShare.resolution.1080",
+      "value": "1080p"
+    },
+    {
+      "key": "screenShare.resolution.720",
+      "value": "720p"
+    },
+    {
+      "key": "screenShare.resolution.480",
+      "value": "480p"
+    },
+    {
+      "key": "screenShare.frameRate",
+      "value": "معدل الإطارات"
+    },
+    {
+      "key": "screenShare.frameRate.tooltip",
+      "value": "عدد مرات تحديث الصورة. يناسب 60 الألعاب والفيديو، ويناسب 15 أو 5 المستندات والشرائح ويتركان نطاقًا تردديًا أكبر للتفاصيل."
+    },
+    {
+      "key": "screenShare.frameRate.60",
+      "value": "60 fps"
+    },
+    {
+      "key": "screenShare.frameRate.30",
+      "value": "30 fps"
+    },
+    {
+      "key": "screenShare.frameRate.15",
+      "value": "15 fps"
+    },
+    {
+      "key": "screenShare.frameRate.5",
+      "value": "5 fps"
+    },
+    {
+      "key": "screenShare.quality",
+      "value": "الجودة"
+    },
+    {
+      "key": "screenShare.quality.tooltip",
+      "value": "مقدار النطاق الترددي الذي يمكن أن تستخدمه الصورة. يختار الوضع التلقائي معدل البت حسب الدقة ومعدل الإطارات، ويحدد الخادم الحد الأعلى."
+    },
+    {
+      "key": "screenShare.quality.auto",
+      "value": "تلقائي"
+    },
+    {
+      "key": "screenShare.quality.low",
+      "value": "منخفضة"
+    },
+    {
+      "key": "screenShare.quality.high",
+      "value": "عالية"
+    },
+    {
+      "key": "screenShare.quality.max",
+      "value": "قصوى"
+    },
+    {
+      "key": "screenShare.audio",
+      "value": "مشاركة صوت الكمبيوتر"
+    },
+    {
+      "key": "screenShare.audio.tooltip",
+      "value": "يرسل ما يشغّله الكمبيوتر، باستثناء Basis نفسه، ليسمعه من بالقرب من الشاشة صادرًا منها."
+    },
+    {
+      "key": "screenShare.cursor",
+      "value": "إظهار مؤشر الماوس"
+    },
+    {
+      "key": "screenShare.start",
+      "value": "بدء المشاركة"
+    },
+    {
+      "key": "screenShare.stop",
+      "value": "إيقاف المشاركة"
+    },
+    {
+      "key": "screenShare.viewing",
+      "value": "المشاهدة"
+    },
+    {
+      "key": "screenShare.viewing.none",
+      "value": "لا أحد غيرك يشارك شاشته."
+    },
+    {
+      "key": "screenShare.viewing.count",
+      "value": "شاشات يشاركها آخرون: {0}"
+    },
+    {
+      "key": "screenShare.receive",
+      "value": "إظهار شاشات الآخرين"
+    },
+    {
+      "key": "screenShare.receive.tooltip",
+      "value": "عند الإيقاف، لا يتم تنزيل أي مشاركة شاشة وتبقى شاشات الآخرين فارغة."
+    },
+    {
+      "key": "screenShare.viewDistance",
+      "value": "مسافة العرض (م)"
+    },
+    {
+      "key": "screenShare.viewDistance.tooltip",
+      "value": "لا يتم تنزيل الشاشة الأبعد من هذه المسافة حتى تقترب منها."
+    },
+    {
+      "key": "screenShare.volume",
+      "value": "مستوى صوت مشاركة الشاشة"
+    },
+    {
+      "key": "screenShare.status.none",
+      "value": "أنشئ مشاركة الشاشة من مكتبتك لمشاركة شاشتك."
+    },
+    {
+      "key": "screenShare.status.idle",
+      "value": "لا توجد مشاركة. اختر ما تريد مشاركته واضغط بدء المشاركة."
+    },
+    {
+      "key": "screenShare.status.offline",
+      "value": "لا توجد مشاركة. انضم إلى خادم لمشاركة شاشتك."
+    },
+    {
+      "key": "screenShare.status.unsupportedServer",
+      "value": "لا توجد مشاركة. هذا الخادم لا يدعم مشاركة الشاشة."
+    },
+    {
+      "key": "screenShare.status.starting",
+      "value": "جارٍ البدء…"
+    },
+    {
+      "key": "screenShare.status.waiting",
+      "value": "جارٍ مشاركة {0}. في انتظار الخادم…"
+    },
+    {
+      "key": "screenShare.status.live",
+      "value": "جارٍ مشاركة {0}، يشاهد {1}"
+    },
+    {
+      "key": "screenShare.status.error",
+      "value": "توقفت: {0}"
+    },
+    {
+      "key": "screenShare.status.noAudio",
+      "value": "لا تتم مشاركة صوت الكمبيوتر: {0}"
+    },
+    {
+      "key": "screenShare.error.unsupported",
+      "value": "تتطلب مشاركة الشاشة Windows 10 الإصدار 2004 أو أحدث. لا يزال بإمكانك مشاهدة شاشات الآخرين."
+    },
+    {
+      "key": "screenShare.error.open",
+      "value": "تعذر التقاط الشاشة."
+    },
+    {
+      "key": "screenShare.error.permission",
+      "value": "لا يسمح لك هذا الخادم بمشاركة شاشتك."
+    },
+    {
+      "key": "screenShare.error.tooMany",
+      "value": "يعرض هذا الخادم بالفعل الحد الأقصى المسموح به من مشاركات الشاشة."
+    },
+    {
+      "key": "screenShare.error.refused",
+      "value": "رفض الخادم مشاركة الشاشة."
+    },
+    {
+      "key": "screenShare.error.ended",
+      "value": "لم تعد الشاشة أو النافذة المشتركة متاحة."
+    },
+    {
+      "key": "screenShare.back.sharedBy",
+      "value": "مشاركة من {0}"
+    },
+    {
+      "key": "screenShare.back.yours",
+      "value": "شاشتك"
+    },
+    {
+      "key": "screenShare.back.hide",
+      "value": "إخفاء"
+    },
+    {
+      "key": "screenShare.panel.live",
+      "value": "مباشر"
+    },
+    {
+      "key": "screenShare.panel.watching",
+      "value": "{0} يشاهدون"
+    },
+    {
+      "key": "screenShare.panel.details",
+      "value": "{0}×{1} · {2} إطار/ث"
+    },
+    {
+      "key": "screenShare.showHidden",
+      "value": "إظهار الشاشات المخفية"
+    },
+    {
+      "key": "screenShare.viewing.hidden",
+      "value": "أخفيتها: {0}"
+    },
+    {
+      "key": "settings.admin.title.lockScreenShare",
+      "value": "قفل مشاركة الشاشة"
+    },
+    {
+      "key": "settings.admin.title.lockScreenShare.tooltip",
+      "value": "منع اللاعبين الذين لا يملكون صلاحية القفل العام من مشاركة شاشاتهم. تنتهي مشاركاتهم الجارية فورًا، ويظل بإمكان المشرفين المشاركة."
+    },
+    {
+      "key": "screenShare.status.locked",
+      "value": "مشاركة الشاشة متوقفة على هذا الخادم."
+    },
+    {
+      "key": "screenShare.error.locked",
+      "value": "أوقف أحد المشرفين مشاركة الشاشة على هذا الخادم."
+    },
+    {
+      "key": "screenShare.error.restart",
+      "value": "تم تحديث إضافة الوسائط. أعد التشغيل لاستخدام مشاركة الشاشة."
+    },
+    {
+      "key": "screenShare.audioSource",
+      "value": "مصدر الصوت"
+    },
+    {
+      "key": "screenShare.audioSource.tooltip",
+      "value": "تلقائي يشارك صوت التطبيق فقط عند مشاركة نافذة، وكل الصوت عدا Basis عند مشاركة شاشة."
+    },
+    {
+      "key": "screenShare.audioSource.auto",
+      "value": "تلقائي"
+    },
+    {
+      "key": "screenShare.audioSource.application",
+      "value": "هذا التطبيق فقط"
+    },
+    {
+      "key": "screenShare.audioSource.system",
+      "value": "الكمبيوتر بالكامل"
+    },
+    {
+      "key": "screenShare.source.portal",
+      "value": "الشاشة أو النافذة (تُختار في مربع حوار النظام)"
+    },
+    {
+      "key": "screenShare.status.choose",
+      "value": "اختر ما تريد مشاركته في مربع حوار النظام…"
+    },
+    {
+      "key": "screenShare.error.pluginMissing",
+      "value": "إضافة الوسائط في هذا الإصدار لا تدعم مشاركة الشاشة. أعد بناء الإضافة لهذه المنصة."
+    }
+  ]
+}

@@ -972,8 +972,6 @@ public static partial class BasisLocalMicrophoneDriver
                 DownmixDeltaIntoRingMono(written, ProcessFrameSize, bufferLength, ch, _stagingScratch, microphoneBufferArray);
                 written = (written + ProcessFrameSize) % bufferLength;
             }
-
-            BasisMicrophoneWaveform.Push(_stagingScratch, ProcessFrameSize, ch, isPaused && !MuteBypassed);
         }
     }
 
@@ -1024,12 +1022,23 @@ public static partial class BasisLocalMicrophoneDriver
         // Read snapshot ONCE per processing call so settings are consistent for the frame.
         // This assumes SMDMicrophone.Current changes on main thread; the lock makes it coherent with ApplyMicSettings.
         var s = SMDMicrophone.Current;
+        bool scope = BasisMicrophoneWaveform.Enabled;
 
         ApplyUserGain();
+
+        if (scope)
+        {
+            BasisMicrophoneWaveform.MeasureInput(processBufferArray, ProcessFrameSize);
+        }
 
         if (s.UseDenoiser)
         {
             ApplyDeNoise(s);
+
+            if (scope)
+            {
+                BasisMicrophoneWaveform.MeasureDenoised(processBufferArray, ProcessFrameSize);
+            }
         }
 
         if (s.UseNoiseGate)
@@ -1046,13 +1055,25 @@ public static partial class BasisLocalMicrophoneDriver
             _prevAgcAmp = 1f;
         }
 
+        if (scope)
+        {
+            BasisMicrophoneWaveform.MeasurePreLimit(processBufferArray, ProcessFrameSize);
+        }
+
         ApplyLimiter(s);
 
         RollingRMS();
 
         BasisVoiceLevel.LocalVoiceRms = isPaused ? 0f : averageRms;
 
-        if (!isPaused && IsTransmitWorthy())
+        bool transmit = !isPaused && IsTransmitWorthy();
+
+        if (scope)
+        {
+            CommitScopeFrame(s, transmit);
+        }
+
+        if (transmit)
         {
             OnHasAudio?.Invoke();
             Interlocked.Exchange(ref _scheduleMainHasAudio, 1);
@@ -1064,6 +1085,18 @@ public static partial class BasisLocalMicrophoneDriver
             Interlocked.Exchange(ref _scheduleMainHasSilence, 1);
             Interlocked.Exchange(ref _scheduleMainHasAudio, 0);
         }
+    }
+
+    private static void CommitScopeFrame(SMDMicrophone.MicSettings s, bool transmit)
+    {
+        int flags = 0;
+        if (transmit && !Basis.Scripts.Networking.BasisTalkModeManager.TransmitBlockedLocally) flags |= BasisMicrophoneWaveform.FlagSent;
+        if (isPaused && !MuteBypassed) flags |= BasisMicrophoneWaveform.FlagMuted;
+        if (s.UseDenoiser) flags |= BasisMicrophoneWaveform.FlagDenoiser;
+        if (s.UseNoiseGate) flags |= s.AutoNoiseGate ? BasisMicrophoneWaveform.FlagGate | BasisMicrophoneWaveform.FlagAutoGate : BasisMicrophoneWaveform.FlagGate;
+        if (s.UseAGC) flags |= BasisMicrophoneWaveform.FlagAgc;
+
+        BasisMicrophoneWaveform.CommitFrame(processBufferArray, ProcessFrameSize, _lastGateThreshold, s.UseNoiseGate ? _noiseGateGain : 1f, s.UseAGC ? _agc.GainDb : 0f, flags);
     }
 
     public static void AdjustVolume(SMDMicrophone.MicSettings s)

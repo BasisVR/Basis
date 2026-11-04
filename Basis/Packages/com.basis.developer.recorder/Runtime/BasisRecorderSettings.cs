@@ -19,12 +19,16 @@ namespace Basis.Developer.Recorder
         public static BasisSettingsBinding<string> CountdownSeconds = new("recordercountdownseconds", new BasisPlatformDefault<string>("3"));
         public static BasisSettingsBinding<bool> AutoStop = new("recorderautostop", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<string> MaxDurationSeconds = new("recordermaxdurationseconds", new BasisPlatformDefault<string>("30"));
+        public static BasisSettingsBinding<bool> RootMotion = new("recorderrootmotion", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> AdditionalBones = new("recorderadditionalbones", new BasisPlatformDefault<bool>(true));
 
         public static void EnsureLoaded()
         {
             _ = CountdownSeconds;
             _ = AutoStop;
             _ = MaxDurationSeconds;
+            _ = RootMotion;
+            _ = AdditionalBones;
         }
     }
 }

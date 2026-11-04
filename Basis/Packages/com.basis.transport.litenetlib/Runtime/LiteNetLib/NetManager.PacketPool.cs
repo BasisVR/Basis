@@ -316,6 +316,7 @@ namespace LiteNetLib
 
             //Clean fragmented flag
             packet.RawData[0] = 0;
+            packet.BatchEntries = 0;
 
             // Keep it on this thread if there is room. This is the common case by a wide margin —
             // a thread that recycles a packet almost always wants one again shortly.

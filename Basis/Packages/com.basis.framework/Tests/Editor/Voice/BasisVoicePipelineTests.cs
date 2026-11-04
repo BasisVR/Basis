@@ -253,3 +253,66 @@ public class BasisVoicePipelineTests
         Assert.AreEqual(2.5, notches[0].DurationMs, 1.5);
     }
 }
+
+/// <summary>
+/// The installed native convolution loop must be sample-for-sample identical to the managed one,
+/// across ragged feed sizes and every rate the receiver and the lip-sync front end use.
+/// </summary>
+public class BasisResamplerKernelTests
+{
+    [TestCase(48000, 44100, 32, 512)]
+    [TestCase(48000, 16000, 48, 1024)]
+    [TestCase(48000, 96000, 32, 512)]
+    [TestCase(44100, 16000, 48, 1024)]
+    public void AcceleratedMatchesManagedBitForBit(int inRate, int outRate, int taps, int phases)
+    {
+        var previous = OpenLipSync.Inference.Audio.AudioResampler.AcceleratedRun;
+        try
+        {
+            OpenLipSync.Inference.Audio.AudioResampler.AcceleratedRun = null;
+            float[] managed = Run(inRate, outRate, taps, phases);
+
+            Basis.Scripts.Networking.Receivers.BasisResamplerKernel.EnsureInstalled();
+            Assert.IsNotNull(OpenLipSync.Inference.Audio.AudioResampler.AcceleratedRun);
+            float[] accelerated = Run(inRate, outRate, taps, phases);
+
+            Assert.AreEqual(managed.Length, accelerated.Length);
+            for (int i = 0; i < managed.Length; i++)
+            {
+                if (BitConverter.SingleToInt32Bits(managed[i]) != BitConverter.SingleToInt32Bits(accelerated[i]))
+                {
+                    Assert.Fail($"sample {i}: managed {managed[i]:R} vs accelerated {accelerated[i]:R}");
+                }
+            }
+        }
+        finally
+        {
+            OpenLipSync.Inference.Audio.AudioResampler.AcceleratedRun = previous;
+        }
+    }
+
+    private static float[] Run(int inRate, int outRate, int taps, int phases)
+    {
+        var resampler = new OpenLipSync.Inference.Audio.AudioResampler(inRate, outRate, taps, phases);
+        var rng = new Random(1234);
+        var output = new System.Collections.Generic.List<float>(inRate);
+        int[] chunks = { 480, 960, 1, 7, 512, 1024, 333, 2048, 960 };
+        double phase = 0.0;
+        for (int round = 0; round < 6; round++)
+        {
+            foreach (int chunk in chunks)
+            {
+                float[] input = new float[chunk];
+                for (int i = 0; i < chunk; i++)
+                {
+                    phase += 2.0 * Math.PI * 440.0 / inRate;
+                    input[i] = (float)(0.6 * Math.Sin(phase) + 0.1 * (rng.NextDouble() - 0.5));
+                }
+                ReadOnlySpan<float> emitted = resampler.Resample(input);
+                for (int i = 0; i < emitted.Length; i++) output.Add(emitted[i]);
+            }
+        }
+        resampler.Dispose();
+        return output.ToArray();
+    }
+}

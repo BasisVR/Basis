@@ -77,6 +77,22 @@
     {
       "key": "settings.developer.recorder.cancel",
       "value": "إلغاء العد التنازلي"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion",
+      "value": "تسجيل حركة الجذر"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion.tooltip",
+      "value": "يسجل حركة الأفاتار ودورانه في العالم (التنقل بعصا التحكم) كحركة جذر في المقطع."
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones",
+      "value": "تسجيل عظام إضافية"
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones.tooltip",
+      "value": "يسجل أيضًا العظام غير البشرية مثل عظام الاهتزاز والشعر والذيول والآذان والإكسسوارات."
     }
   ]
 }

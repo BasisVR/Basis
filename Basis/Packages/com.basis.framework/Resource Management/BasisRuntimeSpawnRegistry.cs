@@ -76,6 +76,10 @@ namespace Basis
         // LoadedNetID -> instance (fast removal / lookup)
         private static readonly Dictionary<string, SpawnInstance> _byNetId = new();
 
+        // LoadedNetIDs the server has saved to its disk (returns after a server restart). Kept apart
+        // from SpawnInstance because a late joiner can hear the state before its spawn finishes.
+        private static readonly HashSet<string> _savedToDisk = new();
+
         public static bool HasAny(string url)
             => !string.IsNullOrWhiteSpace(url)
                && _map.TryGetValue(url, out var list)
@@ -303,6 +307,7 @@ namespace Basis
         private static bool RemoveByLoadedNetId_RegistryOnly(string loadedNetId)
         {
             if (string.IsNullOrWhiteSpace(loadedNetId)) return false;
+            _savedToDisk.Remove(loadedNetId);
             if (!_byNetId.TryGetValue(loadedNetId, out var instance) || instance == null) return false;
 
             // Remove from URL grouping list
@@ -376,6 +381,19 @@ namespace Basis
             }
         }
 
+        public static bool IsSavedToDisk(string loadedNetId) => !string.IsNullOrWhiteSpace(loadedNetId) && _savedToDisk.Contains(loadedNetId);
+
+        /// <summary>Applies the server's saved-to-disk state for a network spawn. Main-thread only.</summary>
+        public static void SetSavedToDiskByLoadedNetId(string loadedNetId, bool saved)
+        {
+            if (string.IsNullOrWhiteSpace(loadedNetId)) return;
+            bool changed = saved ? _savedToDisk.Add(loadedNetId) : _savedToDisk.Remove(loadedNetId);
+            if (changed && _byNetId.TryGetValue(loadedNetId, out SpawnInstance instance) && instance != null)
+            {
+                RaiseChanged(RegistryChangeType.Modified, instance);
+            }
+        }
+
         /// <summary>
         /// Clears all instances for a specific URL (registry + runtime refs).
         /// Does NOT unload/destroy anything by itself; it only forgets references.
@@ -415,6 +433,7 @@ namespace Basis
         {
             _map.Clear();
             _byNetId.Clear();
+            _savedToDisk.Clear();
 
             SpawnedGameobjects.Clear();
             SpawnedScenes.Clear();

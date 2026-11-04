@@ -1,0 +1,26 @@
+{
+    "name": "Basis.ScreenShare",
+    "rootNamespace": "",
+    "references": [
+        "Basis Framework",
+        "BasisMediaPlayer",
+        "BasisSDK",
+        "BasisCommon",
+        "BasisDebug",
+        "BasisSettings",
+        "BasisNetworkCore",
+        "Unity.Addressables",
+        "Unity.ResourceManager",
+        "UnityEngine.UI",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -44,6 +44,10 @@ namespace Basis.Scripts.Networking.Receivers
         public ConcurrentQueue<BasisAvatarBuffer> PayloadQueue = new ConcurrentQueue<BasisAvatarBuffer>();
         // Volatile counter avoids ConcurrentQueue.TryDequeue on empty queues (1k volatile reads vs 1k TryDequeue).
         private volatile int _pendingCount;
+        // Streaming poses still in wire form (see EnqueueRawAvatarPayload); unpacked at the top of
+        // ComputeData, then fed through EnQueueAvatarBuffer exactly as an eagerly decoded pose was.
+        private readonly ConcurrentQueue<BasisAvatarBuffer> _rawPayloadQueue = new ConcurrentQueue<BasisAvatarBuffer>();
+        private volatile int _rawPendingCount;
         [System.NonSerialized] public BasisRemotePlayer RemotePlayer;
 
         public bool hasEvents = false;
@@ -231,31 +235,31 @@ namespace Basis.Scripts.Networking.Receivers
         public static bool EndEffectorIKEnabled = true;
 
         /// <summary>
-        /// Interpolates this player's anchored end-effector targets (hips-local offset + tip rotation)
-        /// and writes them to the remote bone job system's playerId-keyed inputs. Runs on the
-        /// pre-schedule receiver pass — no transform access; the Burst read/compute/write jobs do the
-        /// actual anchoring. Only limbs anchored in BOTH bracketing frames stay masked; the rest FK.
+        /// Publishes this player's anchored end-effector mask to the remote bone job system's
+        /// playerId-keyed inputs. Runs on the pre-schedule receiver pass. The window's two bracketing
+        /// effector frames are stored when the window slides (<see cref="RefreshWindowEffectorMask"/>)
+        /// and blended at the interpolation time by a Burst job, so this is one byte write per player.
+        /// Only limbs anchored in BOTH bracketing frames stay masked; the rest FK.
         /// </summary>
-        public unsafe void WriteEffectorJobInputs()
+        private int _windowEffectorMask;
+        private void RefreshWindowEffectorMask()
         {
             BasisAvatarBuffer cur = Current, nxt = Next;
-            int mask = (cur != null && nxt != null) ? (cur.EffectorMask & nxt.EffectorMask) : 0;
-            if (mask == 0)
+            _windowEffectorMask = (cur != null && nxt != null) ? (cur.EffectorMask & nxt.EffectorMask) : 0;
+            if (_windowEffectorMask != 0)
+            {
+                BasisRemoteNetworkDriver.SetEffectorWindow(playerId, cur.EffectorPos, cur.EffectorRot, nxt.EffectorPos, nxt.EffectorRot);
+            }
+        }
+        public void WriteEffectorJobInputs()
+        {
+            int mask = _windowEffectorMask;
+            if (mask == 0 || Current == null || Next == null)
             {
                 BasisRemoteNetworkDriver.ClearEffectorMask(playerId);
                 return;
             }
-
-            float t = math.saturate((float)interpolationTime);
-            int n = BasisAvatarEndEffectors.EffectorCount;
-            float3* offsets = stackalloc float3[n];
-            quaternion* tipRots = stackalloc quaternion[n];
-            for (int i = 0; i < n; i++)
-            {
-                offsets[i] = math.lerp(cur.EffectorPos[i], nxt.EffectorPos[i], t);
-                tipRots[i] = BasisRemoteInterpolationCore.NlerpShortest(cur.EffectorRot[i], nxt.EffectorRot[i], t);
-            }
-            BasisRemoteNetworkDriver.WriteEffectorInputs(playerId, (byte)mask, offsets, tipRots);
+            BasisRemoteNetworkDriver.SetEffectorMask(playerId, (byte)mask);
         }
 
         /// <summary>Records received bytes-on-wire for this player (call from the packet handler; thread-safe).</summary>
@@ -354,6 +358,13 @@ namespace Basis.Scripts.Networking.Receivers
 #if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
             UnityEngine.Profiling.Profiler.EndSample();
 #endif
+
+            // 0) Unpack streaming poses that arrived since the last pass. Ahead of the
+            // hasRequiredData gate so the latest-pose snapshot keeps advancing while an avatar loads.
+            if (Interlocked.Exchange(ref _rawPendingCount, 0) > 0)
+            {
+                DecodeRawPayloads();
+            }
 
             if (!hasRequiredData) return;
 
@@ -542,6 +553,7 @@ namespace Basis.Scripts.Networking.Receivers
                     interpolationTime -= 1.0;
 
                     TrySetLastFromStaging();
+                    RefreshWindowEffectorMask();
 
                     HasBufferHolds = HasCurrentBuffer && HasNextBuffer;
                     if (!HasBufferHolds)
@@ -666,6 +678,42 @@ namespace Basis.Scripts.Networking.Receivers
             return false;
         }
 
+        /// <summary>
+        /// Queues a streaming pose still in wire form (staged by
+        /// <see cref="BasisAvatarBuffer.SetRawPayload"/>). Thread-safe. The bit unpack runs in this
+        /// receiver's ComputeData, in parallel with every other receiver, instead of on the thread
+        /// that polled the packet.
+        /// </summary>
+        public void EnqueueRawAvatarPayload(BasisAvatarBuffer rawBuffer)
+        {
+            _rawPayloadQueue.Enqueue(rawBuffer);
+            Interlocked.Increment(ref _rawPendingCount);
+        }
+
+        private void DecodeRawPayloads()
+        {
+            while (_rawPayloadQueue.TryDequeue(out BasisAvatarBuffer buffer))
+            {
+                if (BasisNetworkAvatarDecompressor.TryDecodeRawPayload(buffer))
+                {
+                    EnQueueAvatarBuffer(buffer);
+                }
+                else
+                {
+                    BasisAvatarBufferPool.Release(buffer);
+                }
+            }
+        }
+
+        private void ReleaseRawPayloads()
+        {
+            while (_rawPayloadQueue.TryDequeue(out BasisAvatarBuffer buffer))
+            {
+                BasisAvatarBufferPool.Release(buffer);
+            }
+            _rawPendingCount = 0;
+        }
+
         public void EnQueueAvatarBuffer(BasisAvatarBuffer avatarBuffer)
         {
             // Single choke point for every decoded remote pose (keyframe and delta). One
@@ -676,6 +724,7 @@ namespace Basis.Scripts.Networking.Receivers
             if (!IsFinite(avatarBuffer.Position) || !IsFinite(avatarBuffer.Rotation) || !IsFinite(avatarBuffer.Scale))
             {
                 BasisDebug.LogErrorOnce($"Dropped a non-finite network pose for player {playerId}: pos={avatarBuffer.Position} rot={avatarBuffer.Rotation} scale={avatarBuffer.Scale}", BasisDebug.LogTag.Networking);
+                BasisAvatarBufferPool.Release(avatarBuffer);
                 return;
             }
             // Finite is not enough: a value near 3.4e38 overflows the per-frame filter's
@@ -683,6 +732,7 @@ namespace Basis.Scripts.Networking.Receivers
             if (!IsWithinWorldBounds(avatarBuffer.Position))
             {
                 BasisDebug.LogErrorOnce($"Dropped an out-of-range network pose for player {playerId}: pos={avatarBuffer.Position}", BasisDebug.LogTag.Networking);
+                BasisAvatarBufferPool.Release(avatarBuffer);
                 return;
             }
             Interlocked.Increment(ref _poseVersion);
@@ -729,6 +779,7 @@ namespace Basis.Scripts.Networking.Receivers
                 BasisAvatarBufferPool.Release(buf);
             }
             _pendingCount = 0;
+            ReleaseRawPayloads();
 
             // The slot may have been reused from a player who already left; without
             // this the retained last-applied-scale suppresses the first-frame change
@@ -841,6 +892,7 @@ namespace Basis.Scripts.Networking.Receivers
                 BasisAvatarBufferPool.Release(buffer);
             }
             _pendingCount = 0;
+            ReleaseRawPayloads();
 
             ClearAndRelease();
 
@@ -910,6 +962,7 @@ namespace Basis.Scripts.Networking.Receivers
                 Current = first;
                 SentLatest = true;
                 HasCurrentBuffer = true;
+                RefreshWindowEffectorMask();
             }
 
             StagedCount = _stagedRing.Count;
@@ -928,6 +981,7 @@ namespace Basis.Scripts.Networking.Receivers
                 Next = next;
                 SentLatest = true;
                 HasNextBuffer = true;
+                RefreshWindowEffectorMask();
             }
 
             StagedCount = _stagedRing.Count;
@@ -948,6 +1002,7 @@ namespace Basis.Scripts.Networking.Receivers
                 Next = null;
                 HasNextBuffer = false;
             }
+            _windowEffectorMask = 0;
         }
 
         public void ReleaseCurrent()
@@ -957,6 +1012,7 @@ namespace Basis.Scripts.Networking.Receivers
                 BasisAvatarBufferPool.Release(Current);
                 Current = null;
                 HasCurrentBuffer = false;
+                _windowEffectorMask = 0;
             }
         }
     }

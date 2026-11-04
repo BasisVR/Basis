@@ -1,7 +1,143 @@
+using Unity.Burst;
 using UnityEngine;
 
 namespace Basis.Scripts.Networking.Receivers
 {
+    [BurstCompile]
+    internal static unsafe class BasisVoiceToneShaperKernel
+    {
+        [BurstCompile]
+        public static void Shelve(float* data, int channels, int frames, float directivityCoeff, float headShadowCoeff, float directivityGain, float headShadowGain, float directivityStep, float headShadowStep, float* directivityLpState, float* headShadowLpState)
+        {
+            float directivityLp = *directivityLpState, headShadowLp = *headShadowLpState;
+            int index = 0;
+            for (int f = 0; f < frames; f++)
+            {
+                float x = data[index];
+                directivityLp += directivityCoeff * (x - directivityLp);
+                float y = directivityLp + directivityGain * (x - directivityLp);
+                headShadowLp += headShadowCoeff * (y - headShadowLp);
+                y = headShadowLp + headShadowGain * (y - headShadowLp);
+                for (int c = 0; c < channels; c++) data[index++] = y;
+                directivityGain += directivityStep;
+                headShadowGain += headShadowStep;
+            }
+            *directivityLpState = directivityLp;
+            *headShadowLpState = headShadowLp;
+        }
+    }
+
+    [BurstCompile]
+    internal static unsafe class BasisVoiceOutputKernel
+    {
+        [BurstCompile]
+        public static void Stats(float* src, int frames, double* sumSq, float* peak)
+        {
+            double s = 0.0;
+            float p = 0f;
+            for (int f = 0; f < frames; f++)
+            {
+                float v = src[f];
+                float m = v < 0f ? -v : v;
+                if (m > p) p = m;
+                s += (double)v * v;
+            }
+            *sumSq = s;
+            *peak = p;
+        }
+
+        [BurstCompile]
+        public static void GainWrite(float* src, float* dst, int frames, int channels, float gain, float gainStep, float ceiling, float ceilingStep, float norm, float normStep, float* envelope, float fadeRamp, float* lastWritten)
+        {
+            float env = *envelope, last = *lastWritten;
+            int idx = 0;
+            for (int f = 0; f < frames; f++)
+            {
+                if (env < 1f) { env += fadeRamp; if (env > 1f) env = 1f; }
+                float sample = BasisAudioReceiver.SoftLimit(src[f] * norm * gain * env, ceiling);
+                for (int c = 0; c < channels; c++) dst[idx++] = sample;
+                last = sample;
+                gain += gainStep;
+                ceiling += ceilingStep;
+                norm += normStep;
+            }
+            *envelope = env;
+            *lastWritten = last;
+        }
+
+        [BurstCompile]
+        public static void FadeOut(float* dst, int frames, int channels, float* envelope, float last, float fadeRamp)
+        {
+            float env = *envelope;
+            int idx = 0;
+            for (int f = 0; f < frames; f++)
+            {
+                env -= fadeRamp;
+                if (env < 0f) env = 0f;
+                float sample = last * env;
+                for (int c = 0; c < channels; c++) dst[idx++] = sample;
+            }
+            *envelope = env;
+        }
+    }
+
+    /// <summary>
+    /// Burst body for the polyphase resampler's convolution loop
+    /// (<see cref="OpenLipSync.Inference.Audio.AudioResampler.AcceleratedRun"/>). Runs on the audio
+    /// thread for every audible remote voice and on the lip-sync worker per context. Bit-for-bit the
+    /// managed loop: same Floor/Round phase pick, float products summed in order into a double
+    /// (no FloatMode.Fast, so nothing is reassociated) — only the bounds checks and the JIT go away.
+    /// </summary>
+    [BurstCompile]
+    public static unsafe class BasisResamplerKernel
+    {
+        private static OpenLipSync.Inference.Audio.AudioResampler.ConvolveRun _entry;
+
+        /// <summary>Installs the Burst loop for every AudioResampler. Idempotent and allocation-free after the first call.</summary>
+        public static void EnsureInstalled()
+        {
+            if (OpenLipSync.Inference.Audio.AudioResampler.AcceleratedRun != null) return;
+            _entry ??= Run;
+            OpenLipSync.Inference.Audio.AudioResampler.AcceleratedRun = _entry;
+        }
+
+        private static double Run(float[] buf, int bufHead, int halfMinus1, float[] coeffs, int taps, int phases,
+                                  double time, double inputPerOutput, float[] output, int outCount)
+        {
+            fixed (float* b = buf, c = coeffs, o = output)
+            {
+                Convolve(b, bufHead, halfMinus1, c, taps, phases, &time, inputPerOutput, o, outCount);
+            }
+            return time;
+        }
+
+        [BurstCompile]
+        public static void Convolve(float* buf, int bufHead, int halfMinus1, float* coeffs, int taps, int phases,
+                                    double* time, double inputPerOutput, float* output, int outCount)
+        {
+            double t = *time;
+            for (int o = 0; o < outCount; o++)
+            {
+                int center = (int)Unity.Mathematics.math.floor(t);
+                double frac = t - center;
+                int phaseIndex = (int)Unity.Mathematics.math.round(frac * phases);
+                if (phaseIndex == phases) phaseIndex = 0;
+
+                float* src = buf + bufHead + (center - halfMinus1);
+                float* k = coeffs + phaseIndex * taps;
+                double sum = 0.0;
+                for (int i = 0; i < taps; i++)
+                {
+                    sum += (double)src[i] * k[i]; // same widening as AudioResampler.ConvolveTaps
+                }
+                output[o] = (float)sum;
+
+                t += inputPerOutput;
+            }
+            *time = t;
+        }
+    }
+
     /// <summary>
     /// Two cascaded one-pole high shelves applied to a remote voice on the audio
     /// thread: one for the talker's mouth directivity, one for the listener's own
@@ -86,40 +222,16 @@ namespace Basis.Scripts.Networking.Receivers
                 return;
             }
 
+            if ((long)frames * channels > data.Length) frames = data.Length / channels;
             float directivityStep = (targetDirectivity - _directivityGain) / frames;
             float headShadowStep = (targetHeadShadow - _headShadowGain) / frames;
-            float directivityGain = _directivityGain;
-            float headShadowGain = _headShadowGain;
-
-            float directivityCoeff = _directivityCoeff;
-            float headShadowCoeff = _headShadowCoeff;
-            float directivityLp = _directivityLp;
-            float headShadowLp = _headShadowLp;
-
-            int index = 0;
-            for (int f = 0; f < frames; f++)
+            unsafe
             {
-                float x = data[index];
-
-                directivityLp += directivityCoeff * (x - directivityLp);
-                float y = directivityLp + directivityGain * (x - directivityLp);
-
-                headShadowLp += headShadowCoeff * (y - headShadowLp);
-                y = headShadowLp + headShadowGain * (y - headShadowLp);
-
-                for (int c = 0; c < channels; c++)
-                {
-                    data[index++] = y;
-                }
-
-                directivityGain += directivityStep;
-                headShadowGain += headShadowStep;
+                fixed (float* p = data) fixed (float* dLp = &_directivityLp, hLp = &_headShadowLp)
+                    BasisVoiceToneShaperKernel.Shelve(p, channels, frames, _directivityCoeff, _headShadowCoeff, _directivityGain, _headShadowGain, directivityStep, headShadowStep, dLp, hLp);
             }
-
             _directivityGain = targetDirectivity;
             _headShadowGain = targetHeadShadow;
-            _directivityLp = directivityLp;
-            _headShadowLp = headShadowLp;
         }
 
         private static float DbToGain(float db)

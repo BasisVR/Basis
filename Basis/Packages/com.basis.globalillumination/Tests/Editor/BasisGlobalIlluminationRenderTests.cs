@@ -171,12 +171,13 @@ namespace Basis.Tests.GlobalIllumination
         [Test]
         public void AnEmissiveBounceHoldsStillUnderCameraJitter()
         {
+            harness.Resize(1024, 1024);
             BuildRoom();
             AddEmissiveBlock(new Color(16f, 0.5f, 0.5f));
-            RectInt probe = Probe(NearProbe);
+            RectInt probe = Probe(NearProbe, 20);
 
             harness.SetDebugView(BasisGlobalIlluminationDebugView.Indirect);
-            Color[] samples = harness.RenderJitteredRun(probe, 30);
+            Color[] samples = harness.RenderJitteredRun(probe, 30, 64);
             harness.SetDebugView(BasisGlobalIlluminationDebugView.None);
 
             float mean = BasisGlobalIlluminationRenderHarness.Mean(samples, BasisGlobalIlluminationRenderHarness.Red);
@@ -192,12 +193,13 @@ namespace Basis.Tests.GlobalIllumination
         [Test]
         public void AnAnalyticEmitterHoldsStillUnderCameraJitter()
         {
+            harness.Resize(1024, 1024);
             BuildRoom();
             harness.AddEmitter(BlockCentre, Color.red, 8f, 0.25f, 10f);
-            RectInt probe = Probe(NearProbe);
+            RectInt probe = Probe(NearProbe, 20);
 
             harness.SetDebugView(BasisGlobalIlluminationDebugView.Indirect);
-            Color[] samples = harness.RenderJitteredRun(probe, 30);
+            Color[] samples = harness.RenderJitteredRun(probe, 30, 64);
             harness.SetDebugView(BasisGlobalIlluminationDebugView.None);
 
             float mean = BasisGlobalIlluminationRenderHarness.Mean(samples, BasisGlobalIlluminationRenderHarness.Red);
@@ -311,7 +313,7 @@ namespace Basis.Tests.GlobalIllumination
         /// <summary>Switches to the traced gather and rebuilds the structure so it sees the scene as it is now.</summary>
         private void UseRayTracing()
         {
-            harness.Settings.mode = BasisGlobalIlluminationMode.RayTraced;
+            harness.Settings.mode = BasisGlobalIlluminationDiffuseMode.RayTraced;
             harness.ResetRayTracing();
         }
 

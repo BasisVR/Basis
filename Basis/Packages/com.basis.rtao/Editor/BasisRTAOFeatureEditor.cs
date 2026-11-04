@@ -48,7 +48,7 @@ namespace Basis.Rendering.RTAO.Editor
 
             EditorGUILayout.Space();
             EditorGUILayout.PropertyField(tracingMode, new GUIContent(BasisEditorLocalization.Get("editor.rtao.featureEditor.tracingMode")));
-            DrawTracingModeHelp((BasisRTAOTracingMode)tracingMode.enumValueIndex);
+            DrawTracingModeHelp((BasisRTAOTracingMode)tracingMode.intValue);
             EditorGUILayout.PropertyField(debugView, new GUIContent(BasisEditorLocalization.Get("editor.rtao.featureEditor.debugView")));
 
             serializedObject.ApplyModifiedProperties();

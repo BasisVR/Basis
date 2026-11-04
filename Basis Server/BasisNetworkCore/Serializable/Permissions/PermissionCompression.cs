@@ -59,7 +59,8 @@ namespace Basis.Network.Core
         /// <summary>
         /// Decompresses a byte payload back into the original string array.
         /// </summary>
-        public static string[] DecompressExtras(byte[] data, int expectedCount)
+        public static string[] DecompressExtras(byte[] data, int expectedCount) => DecompressExtras(data, expectedCount, MaxDecompressedBytes, false);
+        public static string[] DecompressExtras(byte[] data, int expectedCount, int maxDecompressedBytes, bool limitPieces)
         {
             if (data == null || data.Length < 1 || expectedCount == 0)
             {
@@ -81,7 +82,7 @@ namespace Basis.Network.Core
                         int read;
                         while ((read = ds.Read(buffer, 0, buffer.Length)) > 0)
                         {
-                            if (output.Length + read > MaxDecompressedBytes)
+                            if (output.Length + read > maxDecompressedBytes)
                             {
                                 return Array.Empty<string>();
                             }
@@ -97,12 +98,16 @@ namespace Basis.Network.Core
             }
             else
             {
+                if (data.Length - 1 > maxDecompressedBytes)
+                {
+                    return Array.Empty<string>();
+                }
                 payload = new byte[data.Length - 1];
                 Buffer.BlockCopy(data, 1, payload, 0, payload.Length);
             }
 
             string joined = Encoding.UTF8.GetString(payload);
-            string[] result = joined.Split('\0');
+            string[] result = limitPieces && expectedCount > 0 ? joined.Split(new[] { '\0' }, expectedCount) : joined.Split('\0');
 
             return result;
         }

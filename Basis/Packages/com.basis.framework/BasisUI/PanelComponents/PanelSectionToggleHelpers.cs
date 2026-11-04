@@ -206,26 +206,36 @@ namespace Basis.BasisUI
 
             List<Transform> boxes = new List<Transform>(1);
             header.GetContentContainers(boxes);
-            for (int i = 0; i < boxes.Count; i++)
+            if (boxes.Count == 1 && boxes[0].gameObject.activeInHierarchy && boxes[0].TryGetComponent(out PanelElementDescriptor box))
             {
-                if (boxes[i].gameObject.activeInHierarchy && boxes[i].TryGetComponent(out PanelElementDescriptor box))
-                {
-                    PanelElementDescriptor.RebuildLayoutChain(box.ContentParent, stopAt);
-                    return;
-                }
+                PanelElementDescriptor.RebuildLayoutChain(box.ContentParent, stopAt);
+                return;
             }
 
-            for (int i = header.transform.GetSiblingIndex() + 1; i < host.childCount; i++)
+            if (boxes.Count > 1)
             {
-                Transform row = host.GetChild(i);
-                if (row.GetComponent<PanelSectionToggle>() != null)
+                for (int i = 0; i < boxes.Count; i++)
                 {
-                    break;
+                    if (boxes[i].gameObject.activeInHierarchy && boxes[i].TryGetComponent(out PanelElementDescriptor rowDesc))
+                    {
+                        PanelElementDescriptor.RebuildLayoutChain(rowDesc.ContentParent, rowDesc.rectTransform);
+                    }
                 }
-
-                if (row.gameObject.activeInHierarchy && row.TryGetComponent(out PanelElementDescriptor rowDesc))
+            }
+            else
+            {
+                for (int i = header.transform.GetSiblingIndex() + 1; i < host.childCount; i++)
                 {
-                    PanelElementDescriptor.RebuildLayoutChain(rowDesc.ContentParent, rowDesc.rectTransform);
+                    Transform row = host.GetChild(i);
+                    if (row.GetComponent<PanelSectionToggle>() != null)
+                    {
+                        break;
+                    }
+
+                    if (row.gameObject.activeInHierarchy && row.TryGetComponent(out PanelElementDescriptor rowDesc))
+                    {
+                        PanelElementDescriptor.RebuildLayoutChain(rowDesc.ContentParent, rowDesc.rectTransform);
+                    }
                 }
             }
 
@@ -367,7 +377,13 @@ namespace Basis.BasisUI
                 // sit under this section's header rather than below every later section.
                 for (int i = 0; i < content.Count; i++)
                 {
-                    MoveBesideHeader(sectionToggle, content[i].transform, i);
+                    GameObject row = content[i];
+                    MoveBesideHeader(sectionToggle, row.transform, i);
+                    bool owned = row.TryGetComponent(out PanelSectionContentMarker marker) && marker.Owner != null;
+                    if (!owned && !row.TryGetComponent(out PanelSectionBreaklineMarker _))
+                    {
+                        sectionToggle.RegisterContentContainer(row.transform);
+                    }
                 }
             }
 
@@ -380,6 +396,8 @@ namespace Basis.BasisUI
                     {
                         continue;
                     }
+
+                    sectionToggle.UnregisterContentContainer(row.transform);
 
                     // Destroy is deferred to end of frame; deactivate first so the dying rows
                     // drop out of the layout pass that this collapse triggers.

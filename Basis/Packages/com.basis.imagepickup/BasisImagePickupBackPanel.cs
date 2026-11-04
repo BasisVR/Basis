@@ -1,7 +1,5 @@
 using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
-using Basis.Scripts.UI;
-using Basis.Scripts.UI.UI_Panels;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -10,121 +8,76 @@ using UnityEngine.UI;
 namespace Basis.ImagePickup
 {
     /// <summary>
-    /// Builds the world-space control panel on the back of an image pickup: a spawner label plus
-    /// Hide/Copy/Save/Delete buttons. Uses the Basis world-UI stack so the VR laser and desktop cursor can click it.
+    /// Builds the world-space control panel on the back of an image pickup: a spawner card plus
+    /// Hide/Copy/Save/Delete buttons, styled from the active Basis UI theme through
+    /// <see cref="BasisWorldPanelKit"/> so it matches the menu and follows theme changes.
     /// Built on demand by <see cref="BasisImagePickupObject.SetBackPanelVisible"/> the first time the menu
     /// opens, then reused — the returned object is the canvas root the pickup toggles.
     /// </summary>
     [AutoStaticsCleanup]
     public static partial class BasisImagePickupBackPanel
     {
-        private const float PanelPixels = 400f;
+        private const float PanelPixels = 520f;
+        private const float MinPanelPixelsHigh = 330f;
+        private const float Margin = 22f;
+        private const float ButtonHeight = 64f;
+        private const float Gap = 12f;
+        private const string EyeOffIconAddress = "Packages/com.basis.sdk/Textures/Runtime/eye-off-outline.png";
 
-        public static GameObject Build(Transform parent, BasisImagePickupObject pickup, float worldHeight)
+        public static GameObject Build(Transform parent, BasisImagePickupObject pickup, float worldWidth, float worldHeight)
         {
-            int uiLayer = LayerMask.NameToLayer("UI");
-            if (uiLayer < 0) uiLayer = 5;
-
-            var canvasObject = new GameObject("BackPanel", typeof(RectTransform));
-            canvasObject.layer = uiLayer;
-            canvasObject.SetActive(false);
-
-            var canvasRect = (RectTransform)canvasObject.transform;
-            canvasRect.SetParent(parent, false);
+            worldWidth = Mathf.Max(0.01f, worldWidth);
+            worldHeight = Mathf.Max(0.01f, worldHeight);
+            float pixelsWide = PanelPixels;
+            float scale = worldWidth / pixelsWide;
+            float pixelsHigh = worldHeight / scale;
+            if (pixelsHigh < MinPanelPixelsHigh)
+            {
+                pixelsHigh = MinPanelPixelsHigh;
+                scale = worldHeight / pixelsHigh;
+                pixelsWide = worldWidth / scale;
+            }
+            RectTransform canvasRect = BasisWorldPanelKit.CreateCanvas("BackPanel", parent, new Vector2(pixelsWide, pixelsHigh), out GameObject canvasObject);
             canvasRect.localPosition = new Vector3(0f, 0f, 0.03f);
             canvasRect.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            canvasRect.sizeDelta = new Vector2(PanelPixels, PanelPixels);
-            canvasRect.localScale = Vector3.one * (worldHeight / PanelPixels);
+            canvasRect.localScale = Vector3.one * scale;
+            BasisWorldPanelKit.CreateWindow(canvasRect);
 
-            var canvas = canvasObject.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.WorldSpace;
-
-            var scaler = canvasObject.AddComponent<CanvasScaler>();
-
-            var rayCaster = canvasObject.AddComponent<BasisGraphicUIRayCaster>();
-            rayCaster.Canvas = canvas;
-
-            var component = canvasObject.AddComponent<BasisUIComponent>();
-            component.Canvas = canvas;
-            component.CanvasScaler = scaler;
-            component.GraphicUIRayCaster = rayCaster;
-
-            pickup.SpawnerLabel = CreateLabel(canvasRect, uiLayer, string.Empty, new Vector2(0f, 150f), new Vector2(PanelPixels - 20f, 80f), 30f);
+            float innerWidth = Mathf.Min(pixelsWide, PanelPixels) - 2f * Margin;
+            Image card = BasisWorldPanelKit.CreateStyledImage("Spawner", canvasRect, Vector2.zero, new Vector2(innerWidth, 110f), BasisWorldPanelKit.StyleCard, new Color(0.2f, 0.19f, 0.27f, 1f));
+            BasisWorldPanelKit.AnchorTop(card.rectTransform, Margin + 55f);
+            pickup.SpawnerLabel = BasisWorldPanelKit.CreateLabel(card.rectTransform, Vector2.zero, new Vector2(innerWidth - 24f, 96f), BasisWorldPanelKit.StyleHeader, TextAlignmentOptions.Center);
+            pickup.SpawnerLabel.textWrappingMode = TextWrappingModes.Normal;
 
             bool canCopy = BasisClipboard.CanCopyImages;
-            float width = canCopy ? 90f : 120f, step = canCopy ? 97f : 130f;
-            float x = canCopy ? -1.5f * step : -step;
-            pickup.HideLabel = CreateButton(canvasRect, uiLayer, string.Empty, new Vector2(x, -120f), width, pickup.OnHidePressed);
+            float halfWidth = (innerWidth - Gap) * 0.5f;
+            float leftX = -(halfWidth + Gap) * 0.5f;
+            float rightX = -leftX;
+            float bottomRow = Margin + ButtonHeight * 0.5f;
+            float topRow = bottomRow + ButtonHeight + Gap;
+
+            pickup.HideLabel = AddButton(canvasRect, leftX, topRow, halfWidth, BasisWorldPanelKit.AddressableIcon(EyeOffIconAddress), BasisWorldPanelKit.StyleButton, pickup.OnHidePressed);
+            pickup.SaveLabel = AddButton(canvasRect, rightX, topRow, halfWidth, BasisWorldPanelKit.AddressableIcon(AddressableAssets.Sprites.FileTray), BasisWorldPanelKit.StyleButton, pickup.OnSavePressed);
             if (canCopy)
             {
-                x += step;
-                pickup.CopyLabel = CreateButton(canvasRect, uiLayer, string.Empty, new Vector2(x, -120f), width, pickup.OnCopyPressed);
+                pickup.CopyLabel = AddButton(canvasRect, leftX, bottomRow, halfWidth, BasisWorldPanelKit.CopyIcon, BasisWorldPanelKit.StyleButton, pickup.OnCopyPressed);
+                pickup.DeleteLabel = AddButton(canvasRect, rightX, bottomRow, halfWidth, BasisWorldPanelKit.AddressableIcon(AddressableAssets.Sprites.Trash), BasisWorldPanelKit.StyleButtonDanger, pickup.OnDeletePressed);
             }
-            x += step;
-            pickup.SaveLabel = CreateButton(canvasRect, uiLayer, string.Empty, new Vector2(x, -120f), width, pickup.OnSavePressed);
-            x += step;
-            pickup.DeleteLabel = CreateButton(canvasRect, uiLayer, string.Empty, new Vector2(x, -120f), width, pickup.OnDeletePressed);
+            else
+            {
+                pickup.DeleteLabel = AddButton(canvasRect, 0f, bottomRow, innerWidth, BasisWorldPanelKit.AddressableIcon(AddressableAssets.Sprites.Trash), BasisWorldPanelKit.StyleButtonDanger, pickup.OnDeletePressed);
+            }
             pickup.RefreshPanelLabels();
 
             canvasObject.SetActive(true);
             return canvasObject;
         }
 
-        private static TextMeshProUGUI CreateButton(RectTransform parent, int layer, string label, Vector2 anchoredPosition, float width, UnityAction onClick)
+        private static TextMeshProUGUI AddButton(RectTransform parent, float x, float fromBottom, float width, Sprite icon, string style, UnityAction onClick)
         {
-            var buttonObject = new GameObject(label + "Button", typeof(RectTransform));
-            buttonObject.layer = layer;
-
-            var rect = (RectTransform)buttonObject.transform;
-            rect.SetParent(parent, false);
-            rect.anchoredPosition = anchoredPosition;
-            rect.sizeDelta = new Vector2(width, 80f);
-
-            var image = buttonObject.AddComponent<Image>();
-            image.color = new Color(0.80f, 0.82f, 0.88f, 0.95f);
-            image.raycastTarget = true;
-
-            var button = buttonObject.AddComponent<Button>();
-            button.targetGraphic = image;
-            button.onClick.AddListener(onClick);
-
-            TextMeshProUGUI text = CreateLabel(rect, layer, label, Vector2.zero, new Vector2(width - 8f, 80f), 28f);
-            text.textWrappingMode = TextWrappingModes.NoWrap;
-            text.enableAutoSizing = true;
-            text.fontSizeMin = 14f;
-            text.fontSizeMax = 28f;
-            return text;
-        }
-
-        private static TextMeshProUGUI CreateLabel(RectTransform parent, int layer, string text, Vector2 anchoredPosition, Vector2 size, float fontSize)
-        {
-            var labelObject = new GameObject("Label", typeof(RectTransform));
-            labelObject.layer = layer;
-
-            var rect = (RectTransform)labelObject.transform;
-            rect.SetParent(parent, false);
-            rect.anchoredPosition = anchoredPosition;
-            rect.sizeDelta = size;
-
-            var tmp = labelObject.AddComponent<TextMeshProUGUI>();
-            if (TMP_Settings.defaultFontAsset != null) tmp.font = TMP_Settings.defaultFontAsset;
-            tmp.text = text;
-            tmp.fontSize = fontSize;
-            tmp.alignment = TextAlignmentOptions.Center;
-            tmp.color = Color.black;
-            tmp.raycastTarget = false;
-            Shader distanceField = GetDistanceFieldShader();
-            if (distanceField != null) tmp.fontMaterial.shader = distanceField;
-            return tmp;
-        }
-
-        private static Shader _distanceFieldShader;
-
-        private static Shader GetDistanceFieldShader()
-        {
-            if (_distanceFieldShader == null)
-                _distanceFieldShader = Shader.Find("TextMeshPro/Distance Field");
-            return _distanceFieldShader;
+            BasisWorldPanelKit.WorldButton button = BasisWorldPanelKit.CreateButton(parent, new Vector2(x, 0f), new Vector2(width, ButtonHeight), icon, string.Empty, style, onClick);
+            BasisWorldPanelKit.AnchorBottom(button.Background.rectTransform, fromBottom);
+            return button.Label;
         }
     }
 }

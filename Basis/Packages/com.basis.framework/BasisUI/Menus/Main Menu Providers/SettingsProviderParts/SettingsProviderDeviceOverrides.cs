@@ -195,6 +195,7 @@ namespace Basis.BasisUI
                 row.Hand = PanelDropdown.CreateNewEntry(group.ContentParent);
                 row.Hand.Descriptor.SetTitle(Get(".hand"));
                 row.Hand.Descriptor.SetTooltip(Get(".hand.tooltip"));
+                row.Hand.ExcludeFromShare = true;
                 row.Hand.AssignEntries(
                     new List<string> { AutoEntry, BasisBoneTrackedRole.LeftHand.ToString(), BasisBoneTrackedRole.RightHand.ToString() },
                     new List<string> { Get(".hand.auto"), Get(".hand.left"), Get(".hand.right") },
@@ -219,6 +220,7 @@ namespace Basis.BasisUI
             row.Ignore = PanelToggle.CreateNewEntry(group.ContentParent);
             row.Ignore.Descriptor.SetTitle(Get(".ignore"));
             row.Ignore.Descriptor.SetTooltip(Get(".ignore.tooltip"));
+            row.Ignore.ExcludeFromShare = true;
             row.Ignore.OnValueChanged += value =>
             {
                 if (syncing())

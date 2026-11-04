@@ -50,7 +50,7 @@ public class BasisFootIKDiagnostics : MonoBehaviour
             }
 
             writer = new StreamWriter(ResolvedLogPath, false, Encoding.UTF8);
-            writer.WriteLine("time_s," + "left_planted,left_step_prog,left_step_timer,left_fx,left_fy,left_fz,left_fyaw,left_slide_mm,left_plant_x,left_plant_z," + "left_knee_x,left_knee_y,left_knee_z,left_ideal_x,left_ideal_y,left_ideal_z,left_tgt_x,left_tgt_y,left_tgt_z," + "right_planted,right_step_prog,right_step_timer,right_fx,right_fy,right_fz,right_fyaw,right_slide_mm,right_plant_x,right_plant_z," + "right_knee_x,right_knee_y,right_knee_z,right_ideal_x,right_ideal_y,right_ideal_z,right_tgt_x,right_tgt_y,right_tgt_z," + "stance_width_m,ground_hit,ground_up,hips_up," + "lbone_x,lbone_y,lbone_z,lbone_jump_mm,rbone_x,rbone_y,rbone_z,rbone_jump_mm");
+            writer.WriteLine("time_s," + "left_planted,left_step_prog,left_step_timer,left_fx,left_fy,left_fz,left_fyaw,left_slide_mm,left_plant_x,left_plant_z," + "left_ideal_x,left_ideal_y,left_ideal_z,left_tgt_x,left_tgt_y,left_tgt_z," + "right_planted,right_step_prog,right_step_timer,right_fx,right_fy,right_fz,right_fyaw,right_slide_mm,right_plant_x,right_plant_z," + "right_ideal_x,right_ideal_y,right_ideal_z,right_tgt_x,right_tgt_y,right_tgt_z," + "stance_width_m,ground_hit,ground_up,hips_up," + "lbone_x,lbone_y,lbone_z,lbone_jump_mm,rbone_x,rbone_y,rbone_z,rbone_jump_mm");
 
             SnapshotsWritten = 0;
             TotalPlantedSlideM = 0f;
@@ -117,8 +117,8 @@ public class BasisFootIKDiagnostics : MonoBehaviour
         float t = Time.realtimeSinceStartup;
         csvBuilder.Clear();
         Append(csvBuilder, t);
-        WriteFoot(csvBuilder, lp, foot.LeftStepProgress, foot.LeftStepTimer, lf, foot.LeftKneeHint, foot.LeftIdealPos, foot.LeftStepTarget, foot.LeftFootRotation, leftSlide, foot.LeftPlantedPos);
-        WriteFoot(csvBuilder, rp, foot.RightStepProgress, foot.RightStepTimer, rf, foot.RightKneeHint, foot.RightIdealPos, foot.RightStepTarget, foot.RightFootRotation, rightSlide, foot.RightPlantedPos);
+        WriteFoot(csvBuilder, lp, foot.LeftStepProgress, foot.LeftStepTimer, lf, foot.LeftIdealPos, foot.LeftStepTarget, foot.LeftFootRotation, leftSlide, foot.LeftPlantedPos);
+        WriteFoot(csvBuilder, rp, foot.RightStepProgress, foot.RightStepTimer, rf, foot.RightIdealPos, foot.RightStepTarget, foot.RightFootRotation, rightSlide, foot.RightPlantedPos);
         Append(csvBuilder, HorizDist(lf, rf));
         csvBuilder.Append(foot.LastGroundHit ? '1' : '0').Append(',');
         Append(csvBuilder, foot.LastGroundUp);
@@ -145,7 +145,7 @@ public class BasisFootIKDiagnostics : MonoBehaviour
             sinceFlush = 0;
         }
     }
-    void WriteFoot(StringBuilder sb, bool planted, float stepProg, float stepTimer, Vector3 foot, Vector3 knee, Vector3 ideal, Vector3 tgt, Quaternion rot, float slide, Vector3 plant)
+    void WriteFoot(StringBuilder sb, bool planted, float stepProg, float stepTimer, Vector3 foot, Vector3 ideal, Vector3 tgt, Quaternion rot, float slide, Vector3 plant)
     {
         sb.Append(planted ? '1' : '0').Append(',');
         Append(sb, stepProg);
@@ -154,7 +154,6 @@ public class BasisFootIKDiagnostics : MonoBehaviour
         Append(sb, rot.eulerAngles.y);
         Append(sb, slide * 1000f);
         Append(sb, plant.x); Append(sb, plant.z);
-        Append(sb, knee.x); Append(sb, knee.y); Append(sb, knee.z);
         Append(sb, ideal.x); Append(sb, ideal.y); Append(sb, ideal.z);
         Append(sb, tgt.x); Append(sb, tgt.y); Append(sb, tgt.z);
     }

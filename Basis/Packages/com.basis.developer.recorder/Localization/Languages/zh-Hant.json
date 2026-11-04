@@ -77,6 +77,22 @@
     {
       "key": "settings.developer.recorder.cancel",
       "value": "取消倒數"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion",
+      "value": "錄製根運動"
+    },
+    {
+      "key": "settings.developer.recorder.rootMotion.tooltip",
+      "value": "將虛擬形象在世界中的移動和轉向（搖桿移動）作為根運動錄入片段。"
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones",
+      "value": "錄製額外骨骼"
+    },
+    {
+      "key": "settings.developer.recorder.additionalBones.tooltip",
+      "value": "同時錄製非人形骨骼，例如物理擺動骨骼、頭髮、尾巴、耳朵和配飾。"
     }
   ]
 }

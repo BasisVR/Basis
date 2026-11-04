@@ -55,6 +55,28 @@ The checklist catches the mechanical stuff. These are the recurring themes that 
 
 **Be wary of fragile patterns.** Wildcard matches, reflection over Unity types, or anything that could become an "oh shit" the next time Unity adds something to a namespace — flag it and discuss before committing to it.
 
+## Math in jobs and hot paths
+
+New math inside a Burst job, or inside any loop that runs per element every frame, uses `Unity.Mathematics`: `float3`, `quaternion`, `float4x4` and the `math` functions. Keep `Vector3`, `Quaternion`, `Matrix4x4` and `Mathf` out of those places. Burst vectorises the `Unity.Mathematics` types and inlines `math.*`. Several `Quaternion` and `Matrix4x4` members are calls into native engine code, which Burst can't compile at all. One-off main-thread code that passes values straight to Unity APIs can keep the `UnityEngine` types. Conversions between the two are implicit and free.
+
+Store job data in the same types, for example `NativeArray<float3>` rather than `NativeArray<Vector3>`. `float4x4` has the same column-major layout as `Matrix4x4`, and `NativeArray<float4x4>.Reinterpret<Matrix4x4>()` hands results to Unity APIs without copying each element.
+
+`Mathf.PerlinNoise` isn't available in Burst. `noise.cnoise` and `noise.snoise` are, but they return different values, and swapping one in changes what players see.
+
+The two libraries don't behave the same in a few places. Check these when porting existing code:
+
+| UnityEngine | Unity.Mathematics | Difference |
+| --- | --- | --- |
+| `Mathf.Lerp`, `Vector3.Lerp`, `Quaternion.Slerp` | `math.lerp`, `math.slerp`, `math.nlerp` | The UnityEngine versions clamp `t` to 0..1. The `math` versions don't. |
+| `Vector3.normalized` | `math.normalize`, `math.normalizesafe` | `normalized` gives zero for a near-zero vector. `math.normalize` gives NaN. Use `normalizesafe` when the input can be zero. |
+| `Quaternion.Euler(x, y, z)` | `quaternion.Euler(float3)` | Degrees against radians. Both default to ZXY order. |
+| `Quaternion.AngleAxis(degrees, axis)` | `quaternion.AxisAngle(axis, radians)` | Argument order and units differ, and `AxisAngle` expects a normalised axis. |
+| `q * v` | `math.mul(q, v)` or `math.rotate(q, v)` | Same result. |
+
+`FloatMode.Fast` lets Burst reorder floating-point operations. Leave it off when a job has to match a managed path exactly, such as a kernel with a managed fallback or a test that compares the two.
+
+When you port existing math, show that the output hasn't changed. Run the old and new code side by side on the same inputs and compare the results bit for bit, or within a stated tolerance when bit-exact isn't possible. Take extra care with the IK solve cores: local and remote players share them, and drift there shows up on every avatar.
+
 ## Testing in depth
 
 The PR template has a testing checklist; here's what those rows actually mean.

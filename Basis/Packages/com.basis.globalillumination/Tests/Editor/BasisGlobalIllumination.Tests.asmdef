@@ -2,6 +2,7 @@
     "name": "BasisGlobalIllumination.Tests",
     "rootNamespace": "",
     "references": [
+        "Unity.RenderPipelines.GPUDriven.Runtime",
         "BasisCommon",
         "GUID:e35bc0e358d246bf90af67ca7dc38f0e",
         "GUID:9f0c933ae2464bf4b7276d9743d3e04e",
@@ -15,7 +16,7 @@
         "Editor"
     ],
     "excludePlatforms": [],
-    "allowUnsafeCode": false,
+    "allowUnsafeCode": true,
     "overrideReferences": true,
     "precompiledReferences": [
         "nunit.framework.dll"

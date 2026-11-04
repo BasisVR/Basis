@@ -302,15 +302,15 @@ namespace BasisNetworkServer
             if (string.IsNullOrEmpty(token)) return;
             if (!_sessions.TryGetValue(token, out Session s))
             {
-                BNL.LogWarning($"[P2P] NatIntroduceRequest with unknown token {Preview(token)} — dropping.");
+                BNLThrottle.LogWarning("p2p.unknownToken", $"[P2P] NatIntroduceRequest with unknown token {Preview(token)} — dropping.");
                 return;
             }
             if (s.State < SessionState.ReadyForPunch)
             {
-                BNL.LogWarning($"[P2P] NatIntroduceRequest for token {Preview(token)} in state {s.State} — not ready, dropping.");
+                BNLThrottle.LogWarning("p2p.notReady", $"[P2P] NatIntroduceRequest for token {Preview(token)} in state {s.State} — not ready, dropping.");
                 return;
             }
-            BNL.Log($"[P2P] NatIntroduceRequest token={Preview(token)}; HasA={s.HasA} HasB={s.HasB}.");
+            BNLThrottle.Log("p2p.introduce", $"[P2P] NatIntroduceRequest token={Preview(token)}; HasA={s.HasA} HasB={s.HasB}.");
 
             // Arrival order labels the slots; NatIntroduce is symmetric so it doesn't matter which is which.
             lock (s)

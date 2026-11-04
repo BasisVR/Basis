@@ -313,6 +313,14 @@ namespace BasisNetworkCore.Serializable
             MuteStateResult, // server→moderator: answer to GetMuteState, also echoed after SetVoiceMute/SetTextMute. Payload: [string uuid][bool voiceMuted][bool textMuted]
             GlobalToggleContentRemoval,
             GlobalToggleExternalLinks,
+            GetProtectionSettings, // config editor → server: send the current network protection settings back. No payload.
+            GlobalGetProtectionSettings, // server → config editor: every registered protection setting. Payload: BasisProtectionSettings.Write
+            SetProtectionSettings, // config editor → server: change some of them, persisted and applied live. Payload: [ushort count]{[string key][double value]}
+            GlobalToggleAvatarHosting,
+            GlobalToggleVideoClips,
+            SetGlobalImageMaxResolution, // admin: largest shared image side in units of 1024 px, persisted and rebroadcast in GlobalGetLockState. Payload: [byte k] (1-16)
+            SetGlobalVideoClipMaxSize, // admin: largest shared video/audio clip in megabytes, persisted and rebroadcast in GlobalGetLockState. Payload: [ushort megabytes] (16-1024)
+            SetGlobalVideoClipMaxPerPlayer, // admin: how many video/audio clips one player may share at once, persisted and rebroadcast in GlobalGetLockState. Payload: [byte count] (1-16)
         }
 
         /// <summary>

@@ -602,7 +602,6 @@ namespace Basis.Scripts.Device_Management.Devices
         public bool HasCalibratedOffsetSnapshot;
         public Vector3 CalibratedUnscaledPosition;
         public Quaternion CalibratedUnscaledRotation = Quaternion.identity;
-        public float CalibratedUnscaledLift;
         // Head anchor the snapshot above was captured against, in the same unscaled space. Each
         // tracker pairs with its OWN capture-time head so reprojection and continuous-calibration
         // adoption rebuild the geometry of THIS capture — a mid-session recapture (device reconnect,
@@ -641,40 +640,22 @@ namespace Basis.Scripts.Device_Management.Devices
             // body. Reprojection uses this same fitted reference. Falls back to the raw snapshot, then
             // the live bone transform, then the bone-sim pose when the fitted reference is unavailable.
             Vector3 referencePosition = bone.position;
+            // The control's rotation after binding = tracker * InverseOffsetRotation, so whatever frame this
+            // captures against is the frame every reader of the control sees (knee bend axis, animator
+            // velocity frame, leg body frame). The live bone-sim rotation is whatever the virtual spine held
+            // at trigger time -- torso yaw lagging the head inside its deadzone -- and that lag was baked into
+            // the tracked control for the rest of the session. Use the head-aligned calibration frame
+            // instead, the same one the position reference and the FBIK rotation references use; the
+            // effector offsets (RecomputeFbikRotationCalibration) re-derive against it, so the solved bones
+            // are unchanged and only the control frame stops carrying the lag.
+            Quaternion referenceRotation = bone.rotation;
             BasisLocalAvatarDriver avatarDriver = BasisLocalPlayer.Instance != null ? BasisLocalPlayer.Instance.LocalAvatarDriver : null;
             if (avatarDriver != null && TryGetRole(out BasisBoneTrackedRole role))
             {
-                BasisLocalBoneControl headControl = BasisLocalBoneDriver.HeadControl;
-                if (headControl != null
-                    && BasisAvatarIKStageCalibration.TryGetFittedTposePositions(role, out Vector3 fittedHeadTpose, out Vector3 fittedBoneTpose))
+                if (BasisAvatarIKStageCalibration.TryGetCalibrationReference(role, out Vector3 tposeLocalPosition, out Quaternion tposeLocalRotation))
                 {
-                    var headWorld = headControl.OutgoingWorldData;
-                    BasisCalibrationMath.ComputeTposeAnchor(headWorld.position, headWorld.rotation, fittedHeadTpose, out Vector3 anchorPos, out Quaternion anchorRot);
-                    Vector3 world = anchorPos + anchorRot * fittedBoneTpose;
-                    referencePosition = BasisLocalPlayer.localToWorldMatrix.inverse.MultiplyPoint3x4(world);
-                    if (BasisCalibrationMath.IsFloorAnchoredRole(role))
-                    {
-                        referencePosition.y = BasisCalibrationMath.FloorAnchorY(BasisLocalPlayspaceMover.VerticalOffset, BasisHeightDriver.DeviceScale, OffsetCoords.position, OffsetCoords.rotation) + BasisAvatarIKStageCalibration.AuthoredFloorHeight(role, fittedBoneTpose.y);
-                    }
-                }
-                else if (BasisLocalAvatarDriver.HasTposeBoneSnapshot
-                    && BasisLocalAvatarDriver.TposeBoneSnapshot.TryGetValue(role, out var bind)
-                    && headControl != null)
-                {
-                    // Anchor derived from the head (the same math DriveTpose uses to PLACE the avatar
-                    // root), not read from the live root: reading the root is only valid in the instant
-                    // after DriveTpose ran, and is wrong for captures outside a T-posed calibration
-                    // (device-reconnect restores, T-pose-free calibration).
-                    var headWorld = headControl.OutgoingWorldData;
-                    BasisCalibrationMath.ComputeTposeAnchor(headWorld.position, headWorld.rotation, headControl.TposeLocalScaled.position, out Vector3 anchorPos, out Quaternion anchorRot);
-                    float avatarScale = avatarDriver.ScaleAvatarModification != null ? avatarDriver.ScaleAvatarModification.ApplyScale : 1f;
-                    if (float.IsNaN(avatarScale) || float.IsInfinity(avatarScale) || avatarScale <= 1e-6f) avatarScale = 1f;
-                    Vector3 world = anchorPos + anchorRot * (bind.position * avatarScale);
-                    referencePosition = BasisLocalPlayer.localToWorldMatrix.inverse.MultiplyPoint3x4(world);
-                    if (BasisCalibrationMath.IsFloorAnchoredRole(role))
-                    {
-                        referencePosition.y = BasisCalibrationMath.FloorAnchorY(BasisLocalPlayspaceMover.VerticalOffset, BasisHeightDriver.DeviceScale, OffsetCoords.position, OffsetCoords.rotation) + bind.position.y * avatarScale;
-                    }
+                    referencePosition = tposeLocalPosition;
+                    referenceRotation = tposeLocalRotation;
                 }
                 else if (avatarDriver.StoredRolesTransforms != null
                     && avatarDriver.StoredRolesTransforms.TryGetValue(role, out Transform avatarBone)
@@ -684,7 +665,7 @@ namespace Basis.Scripts.Device_Management.Devices
                 }
             }
 
-            BasisCalibrationMath.ComputeInverseOffset(tracker.position, tracker.rotation, referencePosition, bone.rotation, out Vector3 InverseOffsetPosition, out Quaternion InverseOffsetRotation);
+            BasisCalibrationMath.ComputeInverseOffset(tracker.position, tracker.rotation, referencePosition, referenceRotation, out Vector3 InverseOffsetPosition, out Quaternion InverseOffsetRotation);
             Control.SetInverseOffset(InverseOffsetPosition, InverseOffsetRotation);
             Control.UseInverseOffset = true;
 
@@ -695,7 +676,6 @@ namespace Basis.Scripts.Device_Management.Devices
             if (anchorHeadControl != null)
             {
                 BasisCalibrationMath.UnscaleDeviceCoord(tracker.position, tracker.rotation, BasisHeightDriver.DeviceScale, OffsetCoords.position, OffsetCoords.rotation, out CalibratedUnscaledPosition, out CalibratedUnscaledRotation);
-                CalibratedUnscaledLift = UnscaledVerticalLift();
                 BasisCalibratedCoords anchorHeadOut = anchorHeadControl.OutGoingData;
                 BasisCalibrationMath.UnscaleDeviceCoord(anchorHeadOut.position, anchorHeadOut.rotation, BasisHeightDriver.DeviceScale, OffsetCoords.position, OffsetCoords.rotation, out CalibratedUnscaledHeadPosition, out CalibratedUnscaledHeadRotation);
                 HasCalibratedHeadFromEye = BasisAvatarIKStageCalibration.TryGetUnscaledHeadFromEye(out CalibratedUnscaledHeadFromEye);

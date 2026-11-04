@@ -23,7 +23,8 @@ namespace LiteNetLib
         InvalidProtocol,
         NatMessage,
         Empty,
-        CompactMerged
+        CompactMerged,
+        ConnectCookie
     }
 
     internal sealed class NetPacket
@@ -59,6 +60,9 @@ namespace LiteNetLib
                         break;
                     case PacketProperty.Pong:
                         HeaderSizes[i] = NetConstants.HeaderSize + 10;
+                        break;
+                    case PacketProperty.ConnectCookie:
+                        HeaderSizes[i] = NetConstants.HeaderSize + 8 + NetConnectRequestPacket.CookieSize;
                         break;
                     default:
                         HeaderSizes[i] = NetConstants.HeaderSize;
@@ -126,6 +130,13 @@ namespace LiteNetLib
 
         //Pool node
         public NetPacket Next;
+
+        /// <summary>
+        /// Non-zero only for an unreliable-queue batch built by NetPeer.SendUnreliableRawMergeBatch:
+        /// RawData then holds this many [ushort size][unreliable packet] entries, not a datagram.
+        /// Reset by the pool on recycle.
+        /// </summary>
+        public int BatchEntries;
 
         public NetPacket(int size)
         {

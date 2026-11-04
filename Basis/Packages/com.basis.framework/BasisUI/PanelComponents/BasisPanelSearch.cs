@@ -673,9 +673,9 @@ namespace Basis.BasisUI
 
         /// <summary>
         /// The containers holding a section's rows. Sections built through the helpers register them;
-        /// a flat lazy section registers nothing, so its rows are read off the siblings between this
-        /// header and the next — valid only while it is open, since collapsed those rows are gone and
-        /// the siblings belong to whatever section follows.
+        /// a section that registers nothing has its rows read off the siblings between this header
+        /// and the next — valid only while it is open, since collapsed those rows are gone and the
+        /// siblings belong to whatever section follows.
         /// </summary>
         private static void GetSectionContents(PanelSectionToggle section, List<Transform> results)
         {

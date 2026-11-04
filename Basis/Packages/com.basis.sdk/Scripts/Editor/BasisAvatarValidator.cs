@@ -171,9 +171,10 @@ public class BasisAvatarValidator : BasisValidationRunner
             bucket.Error(BasisEditorLocalization.Get("sdk.avatarValidator.password.empty"), ValidationCategory.Security);
         }
 
-        if (BasisValidationAssetCache.Il2CppMissing)
+        string missingBackends = MissingScriptingBackends();
+        if (missingBackends != null)
         {
-            bucket.Warn(BasisEditorLocalization.Get("sdk.avatarValidator.il2cpp.warning"), ValidationCategory.None);
+            bucket.Warn(BasisEditorLocalization.Get("sdk.avatarValidator.scriptingBackend.warning", missingBackends), ValidationCategory.None);
         }
     }
 
@@ -901,9 +902,18 @@ public class BasisAvatarValidator : BasisValidationRunner
         return indices / 3;
     }
 
-    public static bool ReportIfNoIll2CPP()
+    private static string MissingScriptingBackends()
     {
-        return BasisValidationAssetCache.Il2CppMissing;
+        BasisAssetBundleObject bundleSettings = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
+        if (bundleSettings == null) return null;
+        string missing = null;
+        foreach (BuildTarget target in bundleSettings.selectedTargets)
+        {
+            if (BasisValidationAssetCache.ScriptingBackendInstalled(target)) continue;
+            string entry = $"{(BasisSDKConstants.targetDisplayNames.TryGetValue(target, out string name) ? name : target.ToString())} ({BasisSDKConstants.ScriptingBackendFor(target)})";
+            missing = missing == null ? entry : missing + ", " + entry;
+        }
+        return missing;
     }
 
     private void ShowErrorPanel(List<BasisValidationIssue> errors)
