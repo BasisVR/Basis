@@ -16,7 +16,8 @@ public static class BasisGlobalIlluminationSurfaceTags
     private static Renderer[] snapshot;
     private static int cursor;
     private static float snapshotTime = float.NegativeInfinity;
-    private static int bit = -2;
+    [NoAutoStaticsCleanup] private static readonly int emissionColorId = Shader.PropertyToID("_EmissionColor");
+    private static int overrideBit = -2, emissiveBit = -2;
     public static bool Enabled = true;
 
     public static uint Mask
@@ -24,20 +25,41 @@ public static class BasisGlobalIlluminationSurfaceTags
         get
         {
             if (!Enabled) { return 0u; }
-            if (bit == -2) { bit = PickBit(); }
-            return bit < 0 ? 0u : 1u << bit;
+            if (overrideBit == -2) { PickBits(); }
+            return overrideBit < 0 ? 0u : 1u << overrideBit;
         }
     }
 
-    private static int PickBit()
+    public static uint EmissiveMask
+    {
+        get
+        {
+            if (!Enabled) { return 0u; }
+            if (overrideBit == -2) { PickBits(); }
+            return emissiveBit < 0 ? 0u : 1u << emissiveBit;
+        }
+    }
+
+    private static void PickBits()
     {
         int defined = RenderingLayerMask.GetRenderingLayerCount();
-        if (defined < 32) { return 31; }
+        overrideBit = emissiveBit = -1;
         for (int candidate = 31; candidate >= 1; candidate--)
         {
-            if (string.IsNullOrEmpty(RenderingLayerMask.RenderingLayerToName(candidate))) { return candidate; }
+            bool free = candidate >= defined || string.IsNullOrEmpty(RenderingLayerMask.RenderingLayerToName(candidate));
+            if (!free) { continue; }
+            if (overrideBit < 0) { overrideBit = candidate; continue; }
+            emissiveBit = candidate;
+            break;
         }
-        return -1;
+    }
+
+    public static bool IsEmissive(Material material)
+    {
+        return material.IsKeywordEnabled("_EMISSION")
+            && (material.globalIlluminationFlags & MaterialGlobalIlluminationFlags.EmissiveIsBlack) == 0
+            && material.HasProperty(emissionColorId)
+            && material.GetColor(emissionColorId).maxColorComponent > 0.001f;
     }
 
     public static bool IsCapable(Shader shader)
@@ -77,21 +99,37 @@ public static class BasisGlobalIlluminationSurfaceTags
 
     public static void Apply(Renderer renderer)
     {
-        uint mask = Mask;
-        if (mask == 0u || renderer == null) { return; }
+        uint overrideMask = Mask, emissiveMask = EmissiveMask;
+        if ((overrideMask | emissiveMask) == 0u || renderer == null) { return; }
+        bool capable = renderer is MeshRenderer || renderer is SkinnedMeshRenderer;
+        bool any = false, emissive = false;
+        renderer.GetSharedMaterials(materialScratch);
+        for (int index = 0; index < materialScratch.Count; index++)
+        {
+            Material material = materialScratch[index];
+            if (material == null) { continue; }
+            any = true;
+            if (capable && !IsCapable(material.shader)) { capable = false; }
+            if (!emissive && IsEmissive(material)) { emissive = true; }
+        }
+        materialScratch.Clear();
+        capable &= any;
         uint current = renderer.renderingLayerMask;
-        uint wanted = IsCapable(renderer) ? current & ~mask : current | mask;
+        uint wanted = current;
+        if (overrideMask != 0u) { wanted = capable ? wanted & ~overrideMask : wanted | overrideMask; }
+        if (emissiveMask != 0u) { wanted = emissive ? wanted | emissiveMask : wanted & ~emissiveMask; }
         if (wanted != current) { renderer.renderingLayerMask = wanted; }
     }
 
     public static void Tick()
     {
-        if (Mask == 0u) { return; }
+        if ((Mask | EmissiveMask) == 0u) { return; }
         float now = Time.realtimeSinceStartup;
         if (snapshot == null || (cursor >= snapshot.Length && now - snapshotTime >= RescanSeconds))
         {
             snapshot = Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             snapshotTime = now;
+            capableShaders.Clear();
             cursor = 0;
         }
         int end = Mathf.Min(cursor + RenderersPerFrame, snapshot.Length);

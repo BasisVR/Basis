@@ -34,6 +34,8 @@ RWTexture3D<float4> _BasisGIVoxNormalRW;
 RWTexture3D<uint> _BasisGIVoxFacesRW;
 Texture3D<uint> _BasisGIVoxFaces;
 RWTexture3D<float4> _BasisGIVoxRadianceRW;
+RWTexture3D<float4> _BasisGIVoxEmissionRW;
+Texture3D<float4> _BasisGIVoxEmission;
 RWTexture3D<uint> _BasisGIVoxSeenRW;
 RWTexture3D<float> _BasisGIVoxSeenWeightRW;
 RWTexture3D<uint> _BasisGIVoxSeenAlbedoRW;
@@ -196,6 +198,7 @@ void ClearVoxels(uint3 id : SV_DispatchThreadID)
     _BasisGIVoxAlbedoRW[texel] = float4(0.0, 0.0, 0.0, 0.0);
     _BasisGIVoxNormalRW[texel] = float4(0.5, 0.5, 0.5, 0.0);
     _BasisGIVoxFacesRW[texel] = 0u;
+    _BasisGIVoxEmissionRW[texel] = float4(0.0, 0.0, 0.0, 0.0);
     if (_BasisGIWorldDispatch.y > 0.5)
     {
         int level = (int)_BasisGIWorldDispatch.x;
@@ -313,7 +316,7 @@ void Inject(uint3 id : SV_DispatchThreadID)
 
     uint knownAlbedo = _BasisGIVoxSeenAlbedo[seenSlot];
     float3 surfaceAlbedo = knownAlbedo != 0u ? UnpackFromR11G11B10f(knownAlbedo) : albedo.rgb;
-    float3 computed = surfaceAlbedo * (direct + bounce);
+    float3 computed = surfaceAlbedo * (direct + bounce) + _BasisGIVoxEmission[texel].rgb;
     float3 seen = UnpackFromR11G11B10f(_BasisGIVoxSeenRW[seenSlot]) + surfaceAlbedo * bounce;
     float3 radiance = lerp(computed, seen, seenShare);
     _BasisGIVoxRadianceRW[texel] = float4(radiance * albedo.a, albedo.a);
@@ -678,7 +681,8 @@ void Resolve(uint3 id : SV_DispatchThreadID)
 
     if (_BasisGIWorldResolve.w > 0.5)
     {
-        if (validity > 0.0 && BasisGIWorldSurfaceNear(position, level)) { BasisGIWorldResolveSpecular(id, level, position, slot, blend); }
+        bool turn = blend > 0.5 || ((worldProbe.x + worldProbe.y + worldProbe.z + (int)_BasisGIWorldResolve.w) & 1) == 0;
+        if (turn && validity > 0.0 && BasisGIWorldSurfaceNear(position, level)) { BasisGIWorldResolveSpecular(id, level, position, slot, blend); }
         else { BasisGIWorldKeepSpecular(slot, blend); }
     }
 }

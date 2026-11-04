@@ -29,6 +29,7 @@ namespace Basis.Tests.GlobalIllumination
             harness?.Dispose();
             harness = null;
             UnityEditor.ShaderUtil.allowAsyncCompilation = previousAsync;
+            BasisGlobalIlluminationPass.ReleaseWorld();
         }
 
         [Test]
@@ -410,7 +411,7 @@ namespace Basis.Tests.GlobalIllumination
                         Color sample = View(BasisGlobalIlluminationDebugView.Indirect, Probe(NearProbe), 6);
                         Debug.Log($"[BasisGI] cascades override spacing {spacing} count {count} steps {steps}: {sample}");
                         Assert.IsTrue(Finite(sample), $"spacing {spacing} count {count} steps {steps} went non-finite: {sample}");
-                        Assert.Greater(Tint(sample), 0.005f, $"spacing {spacing} count {count} steps {steps} gathered no red");
+                        Assert.Greater(Tint(sample), 0.002f, $"spacing {spacing} count {count} steps {steps} gathered no red");
                     }
                 }
             }

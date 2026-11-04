@@ -67,7 +67,7 @@ namespace Basis.Tests.GlobalIllumination
             using System.IO.StreamReader reader = new System.IO.StreamReader(stream);
             string text = reader.ReadToEnd();
             int count = 0;
-            foreach (string needle in new[] { "Override shaders (from DrawingSettings", "does not define a DOTS_INSTANCING_ON" })
+            foreach (string needle in new[] { "Override shaders (from DrawingSettings", "does not define a DOTS_INSTANCING_ON", "not SRP Batcher compatible" })
             {
                 for (int at = text.IndexOf(needle, StringComparison.Ordinal); at >= 0; at = text.IndexOf(needle, at + 1, StringComparison.Ordinal)) { count++; }
             }
@@ -171,6 +171,16 @@ namespace Basis.Tests.GlobalIllumination
             Assert.AreEqual(expected.g, read.g, 0.02f, "a batched draw read something other than its base colour");
             Assert.AreEqual(expected.b, read.b, 0.02f, "a batched draw read something other than its base colour");
             Assert.AreEqual(0, BatchWarnings(), "a batched draw warned");
+        }
+
+        [Test]
+        public void ABatchedDrawIsVoxelizedWithoutWarnings()
+        {
+            Material lit = harness.CreateLitMaterial(new Color(0.6f, 0.6f, 0.6f), new Color(4f, 2f, 1f));
+            AddBatchedBox(lit);
+            harness.Settings.worldSpace = true;
+            for (int frame = 0; frame < 16; frame++) { harness.Render(); }
+            Assert.AreEqual(0, BatchWarnings(), "a batched draw warned while the world voxelized it");
         }
 
         [Test]

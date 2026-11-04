@@ -475,6 +475,31 @@ namespace Basis.Tests.GlobalIllumination
         }
 
         [Test]
+        public void AnEmitterThatWasNeverOnScreenStillLightsTheRoom()
+        {
+            OpenDark();
+            harness.Resize(512, 512);
+            Material white = harness.CreateLitMaterial(new Color(0.75f, 0.75f, 0.75f), Color.black);
+            Room(white, new Vector3(6f, 4f, 8f));
+            harness.AddBox(new Vector3(0f, 3.95f, 0f), new Vector3(2.4f, 0.06f, 2.4f), harness.CreateLitMaterial(Color.black, new Color(14f, 13f, 12f)));
+            harness.Settings.quality = BasisGlobalIlluminationQuality.High;
+            harness.Settings.worldSpace = true;
+            harness.Settings.bounceFeedback = 0f;
+            BasisGlobalIlluminationSurfaceTags.TagAllNow();
+            Vector3 eye = new Vector3(0f, 2f, -3.6f);
+            Look(eye, new Vector3(0f, 1.6f, 1f));
+            RectInt floor = Probe(new Vector3(0f, 0.02f, 0f), 16);
+            Color unseen = Indirect(floor, 64);
+            Look(eye, new Vector3(0f, 3.2f, 0.5f));
+            for (int frame = 0; frame < 64; frame++) { harness.Render(); }
+            Look(eye, new Vector3(0f, 1.6f, 1f));
+            Color seen = Indirect(floor, 1);
+            Debug.Log($"[BasisGI] off screen emitter: never seen {unseen} | after looking at it {seen}");
+            Assert.Greater(BasisGlobalIlluminationRenderHarness.Luma(seen), 0.05f, "the panel lit nothing even after being looked at, so this test proves nothing");
+            Assert.Greater(BasisGlobalIlluminationRenderHarness.Luma(unseen), BasisGlobalIlluminationRenderHarness.Luma(seen) * 0.75f, $"an emitter the camera never saw left the room dark: {unseen} against {seen} once seen");
+        }
+
+        [Test]
         public void TheUpdateIntervalFollowsQuality()
         {
             BasisGlobalIlluminationSettings settings = new BasisGlobalIlluminationSettings { quality = BasisGlobalIlluminationQuality.Low };

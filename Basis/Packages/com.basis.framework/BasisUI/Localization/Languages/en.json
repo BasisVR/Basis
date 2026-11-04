@@ -11631,6 +11631,22 @@
       "value": "Show small, natural expressions on avatars when nothing else is driving their face. Applies to every avatar you see."
     },
     {
+      "key": "settings.myAvatar.eyeLookRangeOverride",
+      "value": "Override Eye Look Range"
+    },
+    {
+      "key": "settings.myAvatar.eyeLookRangeOverride.description",
+      "value": "Let your avatar's eyes turn further than its built-in limit, which is usually 25 degrees. Affects natural eye movement and eye tracking on your own avatar."
+    },
+    {
+      "key": "settings.myAvatar.eyeLookRange",
+      "value": "Eye Look Range"
+    },
+    {
+      "key": "settings.myAvatar.eyeLookRange.description",
+      "value": "How far your avatar's eyes can turn away from center."
+    },
+    {
       "key": "settings.myAvatar.overview",
       "value": "Overview"
     },

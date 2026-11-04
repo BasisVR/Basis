@@ -202,7 +202,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerComposite = new ProfilingSampler("Basis GI Composite");
 
     public static float GpuMs =>
-        samplerCopy.gpuElapsedTime + samplerLightmapMask.gpuElapsedTime + samplerSurface.gpuElapsedTime + samplerCoarse.gpuElapsedTime + samplerCascades.gpuElapsedTime + samplerWorld.gpuElapsedTime +
+        samplerCopy.gpuElapsedTime + samplerLightmapMask.gpuElapsedTime + samplerSurface.gpuElapsedTime + samplerCoarse.gpuElapsedTime + samplerCascades.gpuElapsedTime + samplerWorld.gpuElapsedTime + samplerWorldCapture.gpuElapsedTime +
         samplerTemporal.gpuElapsedTime + samplerBlur.gpuElapsedTime + samplerComposite.gpuElapsedTime +
         samplerRayPrepass.gpuElapsedTime + samplerRayTrace.gpuElapsedTime + samplerRayResolve.gpuElapsedTime;
 

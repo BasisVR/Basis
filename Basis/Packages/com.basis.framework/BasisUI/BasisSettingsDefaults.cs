@@ -104,6 +104,8 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<bool> AutoDetectFaceTracking = new("autodetectfacetracking", new BasisPlatformDefault<bool>(true));
         public static BasisSettingsBinding<bool> AutoDetectEyeTracking = new("autodetecteyetracking", new BasisPlatformDefault<bool>(true));
         public static BasisSettingsBinding<bool> IdleFaceExpressions = new("idlefaceexpressions", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> EyeMaxLookAngleOverride = new("eyemaxlookangleoverride", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<float> EyeMaxLookAngleOverrideDegrees = new("eyemaxlookangleoverridedegrees", new BasisPlatformDefault<float>(Basis.Scripts.BasisSdk.BasisAvatar.DefaultEyeMaxLookAngle));
 
         public static BasisSettingsBinding<float> AvatarRange = new("avatarrange", new BasisPlatformDefault<float> { windows = 25, android = 15, ios = 15, linux = 25, other = 25 });
 
@@ -2328,6 +2330,11 @@ namespace Basis.BasisUI
             AutoDetectFaceTracking.LoadBindingValue();
             AutoDetectEyeTracking.LoadBindingValue();
             IdleFaceExpressions.LoadBindingValue();
+            EyeMaxLookAngleOverride.LoadBindingValue();
+            EyeMaxLookAngleOverrideDegrees.LoadBindingValue();
+            ApplyEyeMaxLookAngleOverride();
+            EyeMaxLookAngleOverride.OnChanged += _ => ApplyEyeMaxLookAngleOverride();
+            EyeMaxLookAngleOverrideDegrees.OnChanged += _ => ApplyEyeMaxLookAngleOverride();
             EyeTrackingPreferOsc.LoadBindingValue();
             FootIKEnabled.LoadBindingValue();
             DisableAnimationsInFBT.LoadBindingValue();
@@ -3142,6 +3149,11 @@ namespace Basis.BasisUI
             {
                 BasisDebug.TagFilter = null;
             }
+        }
+
+        public static void ApplyEyeMaxLookAngleOverride()
+        {
+            Basis.Scripts.BasisSdk.Players.BasisLocalEyeDriverData.SetUserMaxLookAngle(EyeMaxLookAngleOverride.RawValue, EyeMaxLookAngleOverrideDegrees.RawValue);
         }
 
         public static void ApplyDebugLogLevelFilter(string value)

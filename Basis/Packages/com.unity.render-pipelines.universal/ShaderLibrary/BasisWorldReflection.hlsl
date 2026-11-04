@@ -13,8 +13,11 @@ TEXTURE3D(_BasisGIWorldSH3);
 Texture3D<float4> _BasisGIVoxAlbedo;
 #endif
 
+#ifndef BASISGI_WORLD_SPECULAR_DECLARED
+#define BASISGI_WORLD_SPECULAR_DECLARED
 TEXTURE3D(_BasisGIWorldSpecular);
 float4 _BasisGIWorldSpecularParams;
+#endif
 static half3 basisWorldReflectionNormal = half3(0.0, 0.0, 0.0);
 
 half4 BasisWorldReflection(float3 positionWS, half3 normalWS, half3 reflectVector, half perceptualRoughness)

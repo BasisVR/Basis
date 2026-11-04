@@ -11,6 +11,13 @@ RWTexture3D<float4> _BasisGIVoxAlbedoWrite : register(u1);
 RWTexture3D<float4> _BasisGIVoxNormalWrite : register(u2);
 RWTexture3D<uint> _BasisGIVoxFacesWrite : register(u3);
 
+TEXTURE2D(_EmissionMap);
+SAMPLER(sampler_EmissionMap);
+CBUFFER_START(UnityPerMaterial)
+float4 _EmissionMap_ST;
+float4 _EmissionColor;
+CBUFFER_END
+
 struct VoxelAttributes
 {
     float4 positionOS : POSITION;
@@ -41,7 +48,7 @@ float VoxelFrag(VoxelVaryings input) : SV_Target
 {
     float voxels = _BasisGIVoxParams.x;
     float3 local = (input.positionWS - _BasisGIVoxLevel.xyz) / _BasisGIVoxLevel.w;
-    if (any(local < 0.0) || any(local >= voxels)) { return 0.0; }
+    if (any(local < 0.0) || any(local >= voxels) || _EmissionMap_ST.x == -65504.0) { return 0.0; }
     int3 voxel = (int3)floor(local);
     voxel.z += (int)_BasisGIVoxParams.y;
 
@@ -52,5 +59,46 @@ float VoxelFrag(VoxelVaryings input) : SV_Target
     InterlockedOr(_BasisGIVoxFacesWrite[voxel], faces);
     return 0.0;
 }
+
+#if defined(BASISGI_VOXEL_EMISSION)
+RWTexture3D<float4> _BasisGIVoxEmissionWrite : register(u4);
+
+struct VoxelEmissionAttributes
+{
+    float4 positionOS : POSITION;
+    float2 uv : TEXCOORD0;
+    UNITY_VERTEX_INPUT_INSTANCE_ID
+};
+
+struct VoxelEmissionVaryings
+{
+    float4 positionCS : SV_POSITION;
+    float3 positionWS : TEXCOORD0;
+    float2 uv : TEXCOORD1;
+};
+
+VoxelEmissionVaryings VoxelEmissionVert(VoxelEmissionAttributes input)
+{
+    VoxelEmissionVaryings output;
+    UNITY_SETUP_INSTANCE_ID(input);
+    output.positionWS = TransformObjectToWorld(input.positionOS.xyz);
+    output.positionCS = mul(_BasisGIVoxViewProj, float4(output.positionWS, 1.0));
+    output.uv = input.uv;
+    return output;
+}
+
+float VoxelEmissionFrag(VoxelEmissionVaryings input) : SV_Target
+{
+    float voxels = _BasisGIVoxParams.x;
+    float3 local = (input.positionWS - _BasisGIVoxLevel.xyz) / _BasisGIVoxLevel.w;
+    if (any(local < 0.0) || any(local >= voxels)) { return 0.0; }
+    int3 voxel = (int3)floor(local);
+    voxel.z += (int)_BasisGIVoxParams.y;
+    float3 emission = max(0.0, _EmissionColor.rgb);
+    if (any(_EmissionMap_ST.xy != 0.0)) { emission *= SAMPLE_TEXTURE2D(_EmissionMap, sampler_EmissionMap, input.uv * _EmissionMap_ST.xy + _EmissionMap_ST.zw).rgb; }
+    _BasisGIVoxEmissionWrite[voxel] = float4(min(emission, 60000.0), 1.0);
+    return 0.0;
+}
+#endif
 
 #endif

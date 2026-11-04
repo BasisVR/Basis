@@ -226,9 +226,32 @@ namespace HVR.Basis.Comms
                 sectionToggle, container, BasisLocalization.Get("settings.faceTracking.eyeTracking"));
             eyeGroup.SetDescription(BasisLocalization.Get("settings.faceTracking.eyeTracking.description"));
             BuildBindingToggle(eyeGroup, "settings.myAvatar.autoDetectEyeTracking", BasisSettingsDefaults.AutoDetectEyeTracking);
+
+            var lookRangeToggle = PanelToggle.CreateNewEntry(eyeGroup.ContentParent);
+            lookRangeToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.myAvatar.eyeLookRangeOverride"));
+            lookRangeToggle.Descriptor.SetDescription(BasisLocalization.Get("settings.myAvatar.eyeLookRangeOverride.description"));
+            lookRangeToggle.AssignBinding(BasisSettingsDefaults.EyeMaxLookAngleOverride);
+            var lookRangeSlider = PanelSlider.CreateEntryAndBind(eyeGroup.ContentParent, new PanelSlider.SliderSettings
+            {
+                SliderMin = BasisLocalEyeDriverData.MinUserLookAngle,
+                SliderMax = BasisLocalEyeDriverData.MaxUserLookAngle,
+                DecimalPlaces = 0,
+                DisplayMode = ValueDisplayMode.Degrees,
+            }, BasisSettingsDefaults.EyeMaxLookAngleOverrideDegrees);
+            lookRangeSlider.Descriptor.SetTitle(BasisLocalization.Get("settings.myAvatar.eyeLookRange"));
+            lookRangeSlider.Descriptor.SetDescription(BasisLocalization.Get("settings.myAvatar.eyeLookRange.description"));
+            void ApplyLookRangeVisibility(bool visible)
+            {
+                lookRangeSlider.gameObject.SetActive(visible);
+                eyeGroup.ForceRebuild();
+            }
+            ApplyLookRangeVisibility(BasisSettingsDefaults.EyeMaxLookAngleOverride.RawValue);
+            lookRangeToggle.OnValueChanged += ApplyLookRangeVisibility;
+
             if (eyeActuation == null)
             {
-                PanelSectionToggleHelpers.FinalizeCollapsibleGroup(sectionToggle, eyeGroup, true);
+                PanelSectionToggleHelpers.FinalizeCollapsibleGroup(sectionToggle, eyeGroup, true,
+                    visible => { if (visible) ApplyLookRangeVisibility(BasisSettingsDefaults.EyeMaxLookAngleOverride.RawValue); });
                 return;
             }
 
@@ -287,6 +310,7 @@ namespace HVR.Basis.Comms
                     if (visible)
                     {
                         ApplySliderVisibility(eyeActuation.RuntimeOverrideEnabled);
+                        ApplyLookRangeVisibility(BasisSettingsDefaults.EyeMaxLookAngleOverride.RawValue);
                     }
                 });
         }

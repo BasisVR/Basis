@@ -319,6 +319,7 @@ namespace Basis.Tests.GlobalIllumination
         public void Render()
         {
             BasisGlobalIlluminationPass.FrameOffset++;
+            BasisGlobalIlluminationSurfaceTags.TagAllNow();
             Camera.Render();
         }
 
