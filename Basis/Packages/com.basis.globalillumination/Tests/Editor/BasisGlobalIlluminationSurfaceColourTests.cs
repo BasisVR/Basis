@@ -144,7 +144,10 @@ namespace Basis.Tests.GlobalIllumination
         [Test]
         public void AShaderThatOnlyDeclaresMainTexAndColorIsRead()
         {
-            FrontBox(CustomShaderMaterial(new Color(0.1f, 0.1f, 0.8f)));
+            GameObject box = FrontBox(CustomShaderMaterial(new Color(0.1f, 0.1f, 0.8f)));
+            BasisGlobalIlluminationSurfaceTags.TagAllNow();
+            uint mask = BasisGlobalIlluminationSurfaceTags.Mask;
+            if (mask != 0u) { Assert.AreNotEqual(0u, box.GetComponent<Renderer>().renderingLayerMask & mask, "the custom shader was not marked for the override pass"); }
             Color read = SurfaceAt(Vector3.zero);
             Debug.Log($"[BasisGI] surface custom {read}");
             Assert.Greater(read.b, read.r * 2f, $"blue did not come through: {read}");

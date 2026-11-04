@@ -8,7 +8,7 @@ public static class BasisGlobalIlluminationSurfaceTags
     public const string OutputKeyword = "_BASIS_SURFACE_MRT";
     public const string OwnPassTag = "BasisSurface";
     public const int RenderersPerFrame = 512;
-    public const float RescanSeconds = 1f;
+    public const float RescanSeconds = 0.5f;
 
     [NoAutoStaticsCleanup] private static readonly Dictionary<Shader, bool> capableShaders = new Dictionary<Shader, bool>();
     [NoAutoStaticsCleanup] private static readonly List<Material> materialScratch = new List<Material>();
