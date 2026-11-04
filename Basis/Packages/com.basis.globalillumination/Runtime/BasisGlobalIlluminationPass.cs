@@ -74,6 +74,8 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         public float skipEye;
         public RendererListHandle surfaceBatched;
         public bool surfaceBatchedValid;
+        public RendererListHandle surfaceTagged;
+        public bool surfaceTaggedValid;
         // The reflection trace's hit distances, which turn the temporal stage into its specular flavour:
         // virtual point reprojection instead of surface reprojection. Pooled-PassData rule as ever - every
         // pass that runs Stage.Temporal writes both fields, valid or not.
@@ -86,7 +88,8 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         public TextureHandle rcColor1, rcColor2, rcColor3, rcDepth1, rcDepth2, rcDepth3, rcSourceColor, rcSourceDepth;
         public TextureHandle rcProbes, rcUpperProbes, rcUpper, rcSh0, rcSh1, rcSh2, rcSh3;
         public Vector4 rcCascade, rcInterval, rcGrid, rcJitter;
-        public Matrix4x4 rcRotation;
+        public Vector4[] rcRotations;
+        public float rcPhase;
         public readonly Vector4[] rcLevels = new Vector4[CascadeLevels];
     }
 
@@ -861,6 +864,35 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     /// BatchRendererGroup refusing a variant, an empty list, a culled pass) collapsed to "global
     /// illumination is gone". This way round every failure leaves the image exactly as it was.
     /// </summary>
+    public sealed class SurfaceTargetPass : ScriptableRenderPass
+    {
+        public SurfaceTargetPass()
+        {
+            renderPassEvent = RenderPassEvent.BeforeRenderingOpaques;
+        }
+
+        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
+        {
+            UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
+            if (!resourceData.activeColorTexture.IsValid()) { return; }
+            TextureDesc colorDesc = renderGraph.GetTextureDesc(resourceData.activeColorTexture);
+            if (colorDesc.msaaSamples != MSAASamples.None) { return; }
+            TextureDesc surfaceDesc = new TextureDesc(colorDesc)
+            {
+                format = GraphicsFormat.R8G8B8A8_SRGB,
+                clearBuffer = true,
+                clearColor = Color.black,
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                useMipMap = false,
+                enableRandomWrite = false,
+                bindTextureMS = false,
+                name = "_BasisGISurface"
+            };
+            resourceData.basisSurfaceTexture = renderGraph.CreateTexture(surfaceDesc);
+        }
+    }
+
     private TextureHandle RecordSurface(RenderGraph renderGraph, ContextContainer frameData, UniversalResourceData resourceData,
         UniversalCameraData cameraData, BasisGlobalIlluminationSettings settings, in RenderTextureDescriptor descriptor)
     {
@@ -879,7 +911,11 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
             wrapMode = TextureWrapMode.Clamp,
             name = "_BasisGISurface"
         };
-        TextureHandle surface = renderGraph.CreateTexture(surfaceDescriptor);
+        bool forward = resourceData.basisSurfaceWritten && resourceData.basisSurfaceTexture.IsValid();
+        TextureHandle surface = resourceData.basisSurfaceTexture.IsValid() ? resourceData.basisSurfaceTexture : renderGraph.CreateTexture(surfaceDescriptor);
+        TextureDesc surfaceSize = renderGraph.GetTextureDesc(surface);
+        Vector2Int surfacePixels = surfaceSize.sizeMode == TextureSizeMode.Explicit ? new Vector2Int(surfaceSize.width, surfaceSize.height) : new Vector2Int(descriptor.width, descriptor.height);
+        uint taggedMask = BasisGlobalIlluminationSurfaceTags.Mask;
 
         surfaceTags ??= new[] { new ShaderTagId("UniversalForward"), new ShaderTagId("UniversalForwardOnly") };
         DrawingSettings drawing = new DrawingSettings(surfaceTags[0], new SortingSettings(cameraData.camera) { criteria = SortingCriteria.CommonOpaque })
@@ -890,22 +926,22 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
             enableInstancing = true
         };
         drawing.SetShaderPassName(1, surfaceTags[1]);
-        FilteringSettings ordinary = new FilteringSettings(RenderQueueRange.opaque) { batchLayerMask = ~BatchLayer.InstanceCullingMask };
+        FilteringSettings ordinary = new FilteringSettings(RenderQueueRange.opaque) { batchLayerMask = ~BatchLayer.InstanceCullingMask, renderingLayerMask = taggedMask != 0u ? taggedMask : uint.MaxValue };
         RendererListParams listParams = new RendererListParams(renderingData.cullResults, drawing, ordinary);
         RendererListHandle rendererList = renderGraph.CreateRendererList(listParams);
 
-        bool batched = GraphicsSettings.currentRenderPipeline is UniversalRenderPipelineAsset asset && asset.gpuResidentDrawerMode != GPUResidentDrawerMode.Disabled;
-        RendererListHandle batchedList = default;
-        TextureHandle surfaceDepth = renderGraph.CreateTexture(new TextureDesc(descriptor.width, descriptor.height)
+        bool batched = !forward && GraphicsSettings.currentRenderPipeline is UniversalRenderPipelineAsset asset && asset.gpuResidentDrawerMode != GPUResidentDrawerMode.Disabled;
+        bool tagged = !forward && taggedMask != 0u;
+        RendererListHandle batchedList = default, taggedList = default;
+        TextureHandle surfaceDepth = renderGraph.CreateTexture(new TextureDesc(surfaceSize)
         {
             format = GraphicsFormat.D32_SFloat,
-            dimension = descriptor.dimension,
-            slices = Mathf.Max(1, descriptor.volumeDepth),
             msaaSamples = MSAASamples.None,
             clearBuffer = true,
+            filterMode = FilterMode.Point,
             name = "_BasisGISurfaceDepth"
         });
-        if (batched)
+        if (batched || tagged)
         {
             DrawingSettings batchedDrawing = new DrawingSettings(new ShaderTagId("BasisSurface"), new SortingSettings(cameraData.camera) { criteria = SortingCriteria.CommonOpaque })
             {
@@ -924,12 +960,25 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
             };
             NativeArray<ShaderTagId> tagValues = new NativeArray<ShaderTagId>(surfaceTagValue, Allocator.Temp);
             NativeArray<RenderStateBlock> stateBlocks = new NativeArray<RenderStateBlock>(surfaceStateBlock, Allocator.Temp);
-            batchedList = renderGraph.CreateRendererList(new RendererListParams(renderingData.cullResults, batchedDrawing, batchedFilter)
+            if (batched)
             {
-                tagValues = tagValues,
-                stateBlocks = stateBlocks,
-                isPassTagName = false
-            });
+                batchedList = renderGraph.CreateRendererList(new RendererListParams(renderingData.cullResults, batchedDrawing, batchedFilter)
+                {
+                    tagValues = tagValues,
+                    stateBlocks = stateBlocks,
+                    isPassTagName = false
+                });
+            }
+            if (tagged)
+            {
+                FilteringSettings taggedFilter = new FilteringSettings(RenderQueueRange.opaque) { batchLayerMask = ~BatchLayer.InstanceCullingMask };
+                taggedList = renderGraph.CreateRendererList(new RendererListParams(renderingData.cullResults, batchedDrawing, taggedFilter)
+                {
+                    tagValues = tagValues,
+                    stateBlocks = stateBlocks,
+                    isPassTagName = false
+                });
+            }
         }
 
         using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass("Basis GI Surface Colour", out PassData passData, samplerSurface))
@@ -939,12 +988,15 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
             passData.lightmapRenderers = rendererList;
             passData.surfaceBatched = batchedList;
             passData.surfaceBatchedValid = batched;
+            passData.surfaceTagged = taggedList;
+            passData.surfaceTaggedValid = tagged;
             passData.source = resourceData.cameraDepthTexture;
             passData.materialPass = PassSurfaceDepth;
-            passData.tracedTexelSize = new Vector4(1f / descriptor.width, 1f / descriptor.height, descriptor.width, descriptor.height);
+            passData.tracedTexelSize = new Vector4(1f / surfacePixels.x, 1f / surfacePixels.y, surfacePixels.x, surfacePixels.y);
             builder.SetRenderAttachment(surface, 0, AccessFlags.Write);
             builder.SetRenderAttachmentDepth(surfaceDepth, AccessFlags.Write);
             if (batched) { builder.UseRendererList(batchedList); }
+            if (tagged) { builder.UseRendererList(taggedList); }
             builder.UseRendererList(rendererList);
             builder.UseTexture(resourceData.cameraDepthTexture);
             builder.AllowPassCulling(false);
@@ -1231,10 +1283,11 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
             case Stage.Surface:
                 cmd.SetGlobalVector(idSurfaceTexelSize, data.tracedTexelSize);
                 cmd.DrawRendererList(data.lightmapRenderers);
-                if (data.surfaceBatchedValid)
+                if (data.surfaceBatchedValid || data.surfaceTaggedValid)
                 {
                     Blitter.BlitTexture(cmd, data.source, new Vector4(1f, 1f, 0f, 0f), data.material, data.materialPass);
-                    cmd.DrawRendererList(data.surfaceBatched);
+                    if (data.surfaceTaggedValid) { cmd.DrawRendererList(data.surfaceTagged); }
+                    if (data.surfaceBatchedValid) { cmd.DrawRendererList(data.surfaceBatched); }
                 }
                 return;
             case Stage.LightmapMask:

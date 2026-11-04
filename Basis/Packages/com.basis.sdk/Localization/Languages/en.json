@@ -852,6 +852,8 @@
     { "key": "sdk.cilbox.api.settingsTab.summary", "value": "Adds a tab to Basis Settings with your own headers, text, buttons, toggles, sliders and dropdowns. Basis draws the controls and calls your methods when the player uses them. Worlds, props the local player spawned and the local player's own avatar can add up to 4 tabs each, and they go away with the script." },
     { "key": "sdk.cilbox.api.menuPanel.title", "value": "Menu panels" },
     { "key": "sdk.cilbox.api.menuPanel.summary", "value": "Adds a main menu button that opens your own panel, with up to 8 tabs you fill the same way as a Settings tab. One panel per content. Open() brings it up, but only within 5 seconds of the player pressing something in your content." },
+    { "key": "sdk.cilbox.api.scriptBus.title", "value": "Talking to other scripts" },
+    { "key": "sdk.cilbox.api.scriptBus.summary", "value": "Lets worlds, props and avatars send messages to each other's scripts, publish values others can read, and look up who a piece of content belongs to. Messages stay on this machine and arrive on the next frame. To reach other players, use BasisNetworkShim. Content can tag and describe itself so people and scripts can tell what it is for, and values can be numbers, vectors, colours, byte arrays or arrays." },
     { "key": "sdk.cilbox.api.audioRouting.title", "value": "Volume slider routing" },
     { "key": "sdk.cilbox.api.audioRouting.summary", "value": "Puts audio sources a script adds later on the World, Props or Avatars group, so the player's volume sliders apply." },
     { "key": "sdk.cilbox.api.steamAudio.title", "value": "Steam Audio" },

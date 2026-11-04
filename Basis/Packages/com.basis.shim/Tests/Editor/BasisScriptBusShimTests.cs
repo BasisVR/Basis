@@ -1,0 +1,527 @@
+using System;
+using System.Collections.Generic;
+using System.Reflection;
+using Basis.Scripts.BasisSdk;
+using Basis.Shims;
+using Cilbox;
+using NUnit.Framework;
+using Unity.Scripting.LifecycleManagement;
+using UnityEngine;
+using UnityEngine.TestTools;
+
+namespace Basis.Tests.Sync
+{
+    [NoAutoStaticsCleanup]
+    public sealed class BasisScriptBusShimTests
+    {
+        const string Probe = "ZZBusProbe";
+        const BindingFlags Hidden = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static;
+        static readonly Type Bus = typeof(CilboxBasisCommon).Assembly.GetType("Cilbox.CilboxScriptBus", true);
+        readonly List<GameObject> hosts = new List<GameObject>();
+
+        [TearDown]
+        public void TearDown()
+        {
+            Call("Reset");
+            LogAssert.ignoreFailingMessages = false;
+            foreach (GameObject host in hosts)
+            {
+                if (host != null) UnityEngine.Object.DestroyImmediate(host);
+            }
+            hosts.Clear();
+        }
+
+        static object Call(string name)
+        {
+            MethodInfo method = Bus.GetMethod(name, Hidden, null, Type.EmptyTypes, null);
+            Assert.IsNotNull(method, $"CilboxScriptBus.{name} moved; this test cannot drive the bus.");
+            try
+            {
+                return method.Invoke(null, null);
+            }
+            catch (TargetInvocationException e)
+            {
+                throw e.InnerException;
+            }
+        }
+
+        static void Tick() => Call("Tick");
+        static int Queued => (int)Call("get_QueuedCount");
+
+        T Box<T>(string name) where T : CilboxBasisCommon
+        {
+            GameObject host = new GameObject(name);
+            hosts.Add(host);
+            T box = host.AddComponent<T>();
+            box.assemblyData = BuildAssembly();
+            box.BoxInitialize();
+            return box;
+        }
+
+        static CilboxProxy Proxy(CilboxBasisCommon box)
+        {
+            CilboxProxy proxy = box.gameObject.AddComponent<CilboxProxy>();
+            proxy.box = box;
+            proxy.cls = box.GetClass(Probe);
+            proxy.fields = new StackElement[2];
+            proxy.fields[0].LoadInt(0);
+            proxy.fields[1].LoadObject(null);
+            return proxy;
+        }
+
+        static int Clicks(CilboxProxy proxy) => (int)proxy.fields[0].AsObject();
+        static string Last(CilboxProxy proxy) => proxy.fields[1].AsObject() as string;
+
+        static T Running<T>(CilboxBasisCommon box, Func<T> call)
+        {
+            box.interpreterAccountingDepth++;
+            try
+            {
+                return call();
+            }
+            finally
+            {
+                box.interpreterAccountingDepth--;
+            }
+        }
+
+        static Action<BasisScriptMessage> Handler(CilboxProxy proxy, string method)
+        {
+            CilboxClass cls = proxy.cls;
+            return (Action<BasisScriptMessage>)CilboxPlatform.ProxyForGeneratingActions<Action<BasisScriptMessage>>(proxy, cls.methods[cls.methodNameToIndex[method]]);
+        }
+
+        static bool Listen(CilboxProxy proxy, string channel, string method, int from = BasisScriptBus.FromAnyone) => Running((CilboxBasisCommon)proxy.box, () => BasisScriptBus.Listen(proxy, channel, from, Handler(proxy, method)));
+
+        static bool Method(CilboxBasisCommon box, Type type, string name) =>
+            box.CheckTypeAllowed(type) &&
+            box.CheckMethodAllowed(out MethodInfo _, type, name, Array.Empty<SerializedTypeDescriptor>(), Array.Empty<SerializedTypeDescriptor>(), name + "()");
+
+        static string BuildAssembly()
+        {
+            SerializedTypeDescriptor probe = new SerializedTypeDescriptor { assemblyName = "Assembly-CSharp", typeName = Probe };
+            SerializedTypeDescriptor int32 = SerializedTypeDescriptorBuilder.FromNativeType(typeof(int));
+            SerializedTypeDescriptor text = SerializedTypeDescriptorBuilder.FromNativeType(typeof(string));
+            SerializedTypeDescriptor message = SerializedTypeDescriptorBuilder.FromNativeType(typeof(BasisScriptMessage));
+            const byte clicks = 1, last = 2, getText = 3, reply = 4, chat = 5, hi = 6, broadcast = 7, pong = 8;
+            SerializedField arg = new SerializedField { name = "message", type = message };
+            SerializedAssembly assembly = new SerializedAssembly
+            {
+                classes = new[]
+                {
+                    new SerializedClass
+                    {
+                        className = Probe,
+                        staticFields = Array.Empty<SerializedField>(),
+                        instanceFields = new[]
+                        {
+                            new SerializedField { name = "clicks", type = int32 },
+                            new SerializedField { name = "last", type = text },
+                        },
+                        baseClassNames = Array.Empty<string>(),
+                        methods = new[]
+                        {
+                            ScriptMethod("OnMessage", "Void OnMessage(Basis.Shims.BasisScriptMessage)", 3, new byte[] { 0x02, 0x03, 0x6F, getText, 0, 0, 0, 0x7D, last, 0, 0, 0, 0x02, 0x02, 0x7B, clicks, 0, 0, 0, 0x17, 0x58, 0x7D, clicks, 0, 0, 0, 0x2A }, arg),
+                            ScriptMethod("Thrower", "Void Thrower(Basis.Shims.BasisScriptMessage)", 1, new byte[] { 0x14, 0x7B, clicks, 0, 0, 0, 0x26, 0x2A }, arg),
+                            ScriptMethod("Ping", "Void Ping(Basis.Shims.BasisScriptMessage)", 3, new byte[] { 0x03, 0x72, pong, 0, 0, 0, 0x6F, reply, 0, 0, 0, 0x26, 0x02, 0x02, 0x7B, clicks, 0, 0, 0, 0x17, 0x58, 0x7D, clicks, 0, 0, 0, 0x2A }, arg),
+                            ScriptMethod("SendHi", "Void SendHi()", 3, new byte[] { 0x02, 0x72, chat, 0, 0, 0, 0x72, hi, 0, 0, 0, 0x28, broadcast, 0, 0, 0, 0x26, 0x2A }),
+                        },
+                    },
+                },
+                metadata = new[]
+                {
+                    FieldToken(clicks, probe, "clicks", 0),
+                    FieldToken(last, probe, "last", 1),
+                    NativeToken(getText, typeof(BasisScriptMessage), "get_" + nameof(BasisScriptMessage.Text), false),
+                    NativeToken(reply, typeof(BasisScriptMessage), nameof(BasisScriptMessage.Reply), false, typeof(string)),
+                    new SerializedMetadataToken { metaTokenIndex = chat, metaTokenType = (byte)MetaTokenType.mtString, stringValue = "chat" },
+                    new SerializedMetadataToken { metaTokenIndex = hi, metaTokenType = (byte)MetaTokenType.mtString, stringValue = "hi" },
+                    NativeToken(broadcast, typeof(BasisScriptBus), nameof(BasisScriptBus.Broadcast), true, typeof(object), typeof(string), typeof(string)),
+                    new SerializedMetadataToken { metaTokenIndex = pong, metaTokenType = (byte)MetaTokenType.mtString, stringValue = "pong" },
+                },
+                enums = Array.Empty<SerializedEnum>(),
+            };
+            return assembly.SerializeString();
+        }
+
+        static SerializedMetadataToken FieldToken(int index, SerializedTypeDescriptor owner, string name, int field)
+        {
+            return new SerializedMetadataToken { metaTokenIndex = index, metaTokenType = (byte)MetaTokenType.mtField, typeDescriptor = owner, name = name, fieldHasIndex = true, fieldIndex = field };
+        }
+
+        static SerializedMetadataToken NativeToken(int index, Type owner, string name, bool isStatic, params Type[] parameters)
+        {
+            SerializedTypeDescriptor[] descriptors = new SerializedTypeDescriptor[parameters.Length];
+            for (int i = 0; i < parameters.Length; i++) descriptors[i] = SerializedTypeDescriptorBuilder.FromNativeType(parameters[i]);
+            return new SerializedMetadataToken
+            {
+                metaTokenIndex = index,
+                metaTokenType = (byte)MetaTokenType.mtMethod,
+                typeDescriptor = SerializedTypeDescriptorBuilder.FromNativeType(owner),
+                name = name,
+                methodFullSignature = owner.GetMethod(name, parameters).ToString(),
+                methodAssembly = owner.Assembly.GetName().Name,
+                isStatic = isStatic,
+                methodParameters = descriptors,
+                methodGenericArguments = Array.Empty<SerializedTypeDescriptor>(),
+            };
+        }
+
+        static SerializedMethod ScriptMethod(string name, string signature, int stack, byte[] body, params SerializedField[] parameters)
+        {
+            return new SerializedMethod
+            {
+                methodName = name,
+                fullSignature = signature,
+                maxStack = stack,
+                isVoid = true,
+                body = body,
+                locals = Array.Empty<SerializedField>(),
+                parameters = parameters,
+                exceptionHandlers = Array.Empty<SerializedExceptionHandler>(),
+            };
+        }
+
+        [Test]
+        public void TheEntryPoints_ResolveInEveryBox_AndNothingElseOnTheBusTypesDoes()
+        {
+            foreach (Type boxType in new[] { typeof(CilboxSceneBasis), typeof(CilboxPropBasis), typeof(CilboxAvatarBasis) })
+            {
+                GameObject host = new GameObject(boxType.Name + " gate test");
+                hosts.Add(host);
+                CilboxBasisCommon box = (CilboxBasisCommon)host.AddComponent(boxType);
+                box.classes = new Dictionary<string, int>();
+                Assert.IsTrue(Method(box, typeof(BasisScriptBus), nameof(BasisScriptBus.Send)), boxType.Name);
+                Assert.IsTrue(Method(box, typeof(BasisScriptBus), nameof(BasisScriptBus.Listen)), boxType.Name);
+                Assert.IsTrue(Method(box, typeof(BasisScriptBus), "get_" + nameof(BasisScriptBus.World)), boxType.Name);
+                Assert.IsTrue(Method(box, typeof(BasisScriptTarget), nameof(BasisScriptTarget.GetString)), boxType.Name);
+                Assert.IsTrue(Method(box, typeof(BasisScriptTarget), "get_" + nameof(BasisScriptTarget.OwnerPlayerId)), boxType.Name);
+                Assert.IsTrue(Method(box, typeof(BasisScriptMessage), nameof(BasisScriptMessage.Reply)), boxType.Name);
+                Assert.IsTrue(Method(box, typeof(BasisScriptMessage), "get_" + nameof(BasisScriptMessage.Sender)), boxType.Name);
+                Assert.IsFalse(Method(box, typeof(BasisScriptTarget), ".ctor"), boxType.Name + " must not forge a target.");
+                Assert.IsFalse(Method(box, typeof(BasisScriptMessage), ".ctor"), boxType.Name + " must not forge a message.");
+                Assert.IsFalse(Method(box, typeof(BasisScriptMessage), "set_" + nameof(BasisScriptMessage.Sender)), boxType.Name + " must not rewrite who sent a message.");
+                Assert.IsFalse(Method(box, typeof(BasisScriptBus), "Reset"), boxType.Name);
+            }
+        }
+
+        [Test]
+        public void ASend_ArrivesOnTheNextTick_WithTheRealSender_AndItsOwnCopyOfTheData()
+        {
+            CilboxSceneBasis worldBox = Box<CilboxSceneBasis>("World script");
+            CilboxPropBasis propBox = Box<CilboxPropBasis>("Prop script");
+            propBox.gameObject.AddComponent<BasisProp>();
+            CilboxProxy world = Proxy(worldBox), prop = Proxy(propBox);
+            Assert.IsTrue(Listen(world, "score", "OnMessage"));
+
+            BasisScriptTarget worldTarget = Running(worldBox, () => BasisScriptBus.Self(world));
+            BasisScriptTarget propTarget = Running(propBox, () => BasisScriptBus.Self(prop));
+            Assert.IsNotNull(worldTarget);
+            Assert.AreEqual(BasisScriptBus.KindProp, propTarget.Kind);
+            Assert.IsTrue(worldTarget.Listens("score"));
+            Assert.IsFalse(propTarget.Listens("score"));
+
+            byte[] data = { 1, 2, 3 };
+            int id = Running(propBox, () => BasisScriptBus.Send(prop, worldTarget, "score", "goal", data));
+            Assert.Greater(id, 0);
+            data[0] = 9;
+            Assert.AreEqual(0, Clicks(world), "delivery must never run inside the sender's call");
+            object pending = ((System.Collections.IList)Bus.GetField("queue", Hidden).GetValue(null))[0];
+            BasisScriptMessage queued = (BasisScriptMessage)pending.GetType().GetField("Message", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(pending);
+            Assert.AreEqual(1, queued.Data[0], "the sender changing its array after Send must not reach the receiver");
+            Assert.AreSame(propTarget, queued.Sender);
+            Assert.AreEqual(id, queued.Id);
+            Assert.AreEqual("score", queued.Channel);
+
+            Tick();
+            Assert.AreEqual(1, Clicks(world));
+            Assert.AreEqual("goal", Last(world));
+            Assert.AreEqual(0, Queued);
+            Assert.AreEqual(0, Running(propBox, () => BasisScriptBus.Send(prop, propTarget, "score", "nobody")), "a target with no listener on the channel reports 0");
+        }
+
+        [Test]
+        public void ABroadcast_SkipsTheSendingScript_AndRespectsTheFromMask()
+        {
+            CilboxSceneBasis worldBox = Box<CilboxSceneBasis>("World script");
+            CilboxPropBasis propBox = Box<CilboxPropBasis>("Prop script");
+            propBox.gameObject.AddComponent<BasisProp>();
+            CilboxPropBasis otherBox = Box<CilboxPropBasis>("Other prop");
+            otherBox.gameObject.AddComponent<BasisProp>();
+            CilboxProxy world = Proxy(worldBox), prop = Proxy(propBox), other = Proxy(otherBox);
+            Assert.IsTrue(Listen(world, "chat", "OnMessage", BasisScriptBus.FromProps));
+            Assert.IsTrue(Listen(prop, "chat", "OnMessage"));
+            Assert.IsTrue(Listen(other, "chat", "OnMessage", BasisScriptBus.FromWorld));
+
+            Assert.Greater(Running(propBox, () => BasisScriptBus.Broadcast(prop, "chat", "hello")), 0);
+            Tick();
+            Assert.AreEqual(1, Clicks(world));
+            Assert.AreEqual(0, Clicks(prop), "the sender does not hear its own broadcast");
+            Assert.AreEqual(0, Clicks(other), "this listener only takes messages from the world");
+            Assert.AreEqual(3, BasisScriptBus.Listening("chat").Length);
+            Assert.AreEqual(3, BasisScriptBus.All.Length);
+        }
+
+        [Test]
+        public void AnInterpretedScript_Broadcasts_ThroughTheRealNativeCall()
+        {
+            CilboxSceneBasis worldBox = Box<CilboxSceneBasis>("World script");
+            CilboxPropBasis propBox = Box<CilboxPropBasis>("Prop script");
+            CilboxProxy world = Proxy(worldBox), prop = Proxy(propBox);
+            Assert.IsTrue(Listen(world, "chat", "OnMessage"));
+
+            prop.cls.InterpretMethod(prop, "SendHi", null);
+            Assert.IsFalse(prop.disabled, "the script must not have faulted");
+            Tick();
+            Assert.AreEqual(1, Clicks(world));
+            Assert.AreEqual("hi", Last(world));
+        }
+
+        [Test]
+        public void AReply_GoesBackToTheSender_WithTheOriginalId()
+        {
+            CilboxSceneBasis worldBox = Box<CilboxSceneBasis>("World script");
+            CilboxPropBasis propBox = Box<CilboxPropBasis>("Prop script");
+            CilboxProxy world = Proxy(worldBox), prop = Proxy(propBox);
+            Assert.IsTrue(Listen(world, "ping", "Ping"));
+            Assert.IsTrue(Listen(prop, "ping", "OnMessage"));
+            BasisScriptTarget worldTarget = Running(worldBox, () => BasisScriptBus.Self(world));
+
+            int id = Running(propBox, () => BasisScriptBus.Send(prop, worldTarget, "ping", "ping?"));
+            Tick();
+            Assert.AreEqual(1, Clicks(world));
+            Assert.AreEqual(0, Clicks(prop), "the reply waits for the next tick");
+            Tick();
+            Assert.AreEqual(1, Clicks(prop));
+            Assert.AreEqual("pong", Last(prop));
+            Assert.Greater(id, 0);
+        }
+
+        [Test]
+        public void OnlyARunningScript_WithItsOwnHandler_CanListenOrSend()
+        {
+            CilboxSceneBasis worldBox = Box<CilboxSceneBasis>("World script");
+            CilboxPropBasis propBox = Box<CilboxPropBasis>("Prop script");
+            CilboxProxy world = Proxy(worldBox), prop = Proxy(propBox);
+
+            Assert.IsFalse(BasisScriptBus.Listen(world, "chat", Handler(world, "OnMessage")), "idle box");
+            Assert.IsFalse(Running(worldBox, () => BasisScriptBus.Listen(world, "chat", Handler(prop, "OnMessage"))), "a handler from another box must be refused");
+            Assert.IsFalse(Running(worldBox, () => BasisScriptBus.Listen(world, "chat", m => { })), "a host delegate must be refused");
+            Assert.IsFalse(Running(worldBox, () => BasisScriptBus.Listen(world, new string('x', BasisScriptBus.MaxNameLength + 1), Handler(world, "OnMessage"))));
+            Assert.IsFalse(Running(worldBox, () => BasisScriptBus.Listen(world, "bad\nname", Handler(world, "OnMessage"))));
+            Assert.IsTrue(Listen(world, "chat", "OnMessage"));
+            Assert.AreEqual(0, BasisScriptBus.Broadcast(prop, "chat", "idle"), "a box that is not running cannot send");
+            Assert.AreEqual(0, Running(propBox, () => BasisScriptBus.Broadcast(prop, "chat", new string('x', BasisScriptBus.MaxTextLength + 1))));
+            Assert.AreEqual(0, Running(propBox, () => BasisScriptBus.Broadcast(prop, "chat", "big", new byte[BasisScriptBus.MaxDataLength + 1])));
+        }
+
+        [Test]
+        public void SendsAreRateLimited_AndQueuesAreCapped()
+        {
+            CilboxSceneBasis worldBox = Box<CilboxSceneBasis>("World script");
+            CilboxPropBasis propBox = Box<CilboxPropBasis>("Prop script");
+            CilboxProxy world = Proxy(worldBox), prop = Proxy(propBox);
+            Assert.IsTrue(Listen(world, "spam", "OnMessage"));
+            int accepted = 0;
+            for (int i = 0; i < BasisScriptBus.MaxSendsPerSecond + 10; i++)
+            {
+                if (Running(propBox, () => BasisScriptBus.Broadcast(prop, "spam", "x")) > 0) accepted++;
+            }
+            Assert.AreEqual(BasisScriptBus.MaxSendsPerSecond, accepted);
+            Assert.LessOrEqual(Queued, BasisScriptBus.MaxQueued);
+            Tick();
+            Assert.AreEqual(BasisScriptBus.MaxSendsPerSecond, Clicks(world));
+        }
+
+        [Test]
+        public void AThrowingHandler_IsContained_AndStopsReceiving()
+        {
+            CilboxSceneBasis worldBox = Box<CilboxSceneBasis>("World script");
+            CilboxPropBasis propBox = Box<CilboxPropBasis>("Prop script");
+            CilboxProxy world = Proxy(worldBox), prop = Proxy(propBox);
+            Assert.IsTrue(Listen(world, "boom", "Thrower"));
+            LogAssert.ignoreFailingMessages = true;
+            Assert.Greater(Running(propBox, () => BasisScriptBus.Broadcast(prop, "boom", "1")), 0);
+            Assert.DoesNotThrow(Tick);
+            Assert.IsTrue(world.disabled, "the interpreter disables the script that threw");
+            Assert.AreEqual(0, Running(propBox, () => BasisScriptBus.Broadcast(prop, "boom", "2")), "a disabled script is no longer a listener");
+            Assert.IsFalse(prop.disabled);
+        }
+
+        [Test]
+        public void PublishedValues_AreReadableByOthers_AndTyped()
+        {
+            CilboxSceneBasis worldBox = Box<CilboxSceneBasis>("World script");
+            CilboxPropBasis propBox = Box<CilboxPropBasis>("Prop script");
+            BasisProp content = propBox.gameObject.AddComponent<BasisProp>();
+            CilboxProxy world = Proxy(worldBox), prop = Proxy(propBox);
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Publish(prop, "team", "red")));
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Publish(prop, "score", 12)));
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Publish(prop, "speed", 1.5f)));
+            Assert.IsFalse(BasisScriptBus.Publish(prop, "idle", 1), "only a running script may publish");
+            Assert.IsFalse(Running(propBox, () => BasisScriptBus.Publish(prop, "nan", float.NaN)));
+
+            BasisScriptTarget target = BasisScriptBus.Of(propBox.gameObject);
+            Assert.AreSame(Running(propBox, () => BasisScriptBus.Self(prop)), target, "one handle per content, so == works in scripts");
+            Assert.AreEqual("red", target.GetString("team", "none"));
+            Assert.AreEqual(12, target.GetInt("score", -1));
+            Assert.AreEqual(1.5f, target.GetFloat("speed", 0f));
+            Assert.AreEqual(-1, target.GetInt("team", -1), "a text value is not a number");
+            Assert.AreEqual("12", target.GetString("score", null));
+            CollectionAssert.AreEqual(new[] { "score", "speed", "team" }, target.Keys);
+            Running(propBox, () => { BasisScriptBus.Unpublish(prop, "team"); return 0; });
+            Assert.IsFalse(target.HasValue("team"));
+
+            for (int i = 0; i < BasisScriptBus.MaxValues; i++) Running(propBox, () => BasisScriptBus.Publish(prop, "k" + i, i));
+            Assert.LessOrEqual(target.Keys.Length, BasisScriptBus.MaxValues);
+
+            UnityEngine.Object.DestroyImmediate(content);
+            Assert.IsFalse(target.IsValid, "a handle dies with its content");
+            Assert.AreEqual("none", target.GetString("score", "none"));
+        }
+
+        [Test]
+        public void TypedValues_AreCopiedIn_AndCopiedOutForReaders()
+        {
+            CilboxPropBasis propBox = Box<CilboxPropBasis>("Prop script");
+            propBox.gameObject.AddComponent<BasisProp>();
+            CilboxProxy prop = Proxy(propBox);
+            byte[] bytes = { 1, 2, 3 };
+            float[] floats = { 0.5f, 2f };
+            string[] names = { "a", null, "c" };
+            Vector3[] path = { Vector3.one, Vector3.up };
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Publish(prop, "blob", bytes)));
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Publish(prop, "weights", floats)));
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Publish(prop, "names", names)));
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Publish(prop, "path", path)));
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Publish(prop, "spawn", new Vector3(1f, 2f, 3f))));
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Publish(prop, "facing", Quaternion.Euler(0f, 90f, 0f))));
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Publish(prop, "tint", Color.red)));
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Publish(prop, "open", true)));
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Publish(prop, "ids", new[] { 4, 5 })));
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Publish(prop, "big", 9876543210L)));
+            Assert.IsFalse(Running(propBox, () => BasisScriptBus.Publish(prop, "bad", new Vector3(float.NaN, 0f, 0f))));
+            Assert.IsFalse(Running(propBox, () => BasisScriptBus.Publish(prop, "object", new object())), "only the listed types cross");
+            Assert.IsFalse(Running(propBox, () => BasisScriptBus.Publish(prop, "transform", propBox.transform)), "no Unity objects cross");
+            Assert.IsFalse(Running(propBox, () => BasisScriptBus.Publish(prop, "huge", new byte[BasisScriptBus.MaxDataLength + 1])));
+            bytes[0] = 9;
+            floats[0] = 9f;
+
+            BasisScriptTarget target = BasisScriptBus.Of(propBox.gameObject);
+            Assert.AreEqual(BasisScriptBus.TypeBytes, target.TypeOf("blob"));
+            byte[] read = target.GetBytes("blob");
+            CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, read, "publisher edits after Publish must not leak in");
+            read[1] = 7;
+            Assert.AreEqual(2, target.GetBytes("blob")[1], "one reader's edits must not reach the next");
+            CollectionAssert.AreEqual(new[] { 0.5f, 2f }, target.GetFloats("weights"));
+            CollectionAssert.AreEqual(new[] { "a", "", "c" }, target.GetStrings("names"));
+            CollectionAssert.AreEqual(path, target.GetVector3s("path"));
+            Assert.AreEqual(new Vector3(1f, 2f, 3f), target.GetVector3("spawn", Vector3.zero));
+            Assert.AreEqual(Vector3.zero, target.GetVector3("tint", Vector3.zero), "wrong type gives the fallback");
+            Assert.AreEqual(Color.red, target.GetColor("tint", Color.clear));
+            Assert.IsTrue(Quaternion.Angle(Quaternion.Euler(0f, 90f, 0f), target.GetQuaternion("facing", Quaternion.identity)) < 0.01f);
+            Assert.IsTrue(target.GetBool("open", false));
+            CollectionAssert.AreEqual(new[] { 4, 5 }, target.GetInts("ids"));
+            Assert.AreEqual(9876543210d, (double)target.GetFloat("big", 0f), 1000d);
+            Assert.IsNull(target.GetBytes("weights"));
+        }
+
+        [Test]
+        public void AMessage_CarriesATypedValue_AndEachReceiverGetsItsOwnArray()
+        {
+            CilboxSceneBasis worldBox = Box<CilboxSceneBasis>("World script");
+            CilboxPropBasis propBox = Box<CilboxPropBasis>("Prop script");
+            CilboxPropBasis otherBox = Box<CilboxPropBasis>("Other prop");
+            otherBox.gameObject.AddComponent<BasisProp>();
+            CilboxProxy world = Proxy(worldBox), prop = Proxy(propBox), other = Proxy(otherBox);
+            Assert.IsTrue(Listen(world, "path", "OnMessage"));
+            Assert.IsTrue(Listen(other, "path", "OnMessage"));
+            Vector3[] path = { Vector3.one };
+            Assert.Greater(Running(propBox, () => BasisScriptBus.Broadcast(prop, "path", "route", path)), 0);
+            path[0] = Vector3.zero;
+
+            System.Collections.IList pending = (System.Collections.IList)Bus.GetField("queue", Hidden).GetValue(null);
+            Assert.AreEqual(2, pending.Count);
+            FieldInfo field = pending[0].GetType().GetField("Message", BindingFlags.NonPublic | BindingFlags.Instance);
+            BasisScriptMessage a = (BasisScriptMessage)field.GetValue(pending[0]), b = (BasisScriptMessage)field.GetValue(pending[1]);
+            Assert.AreEqual(BasisScriptBus.TypeVector3s, a.ValueType);
+            Assert.AreEqual(Vector3.one, a.GetVector3s()[0]);
+            Assert.AreNotSame(a.GetVector3s(), b.GetVector3s());
+            Assert.IsNull(a.Data);
+            Assert.AreEqual(0, Running(propBox, () => BasisScriptBus.Broadcast(prop, "path", "x", new object())), "an unsupported value refuses the whole send");
+            Assert.AreEqual(0, Running(propBox, () => BasisScriptBus.Broadcast(prop, "path", "x", new byte[BasisScriptBus.MaxDataLength + 1])));
+            Tick();
+            Assert.AreEqual(1, Clicks(world));
+            Assert.AreEqual(1, Clicks(other));
+        }
+
+        [Test]
+        public void SendsAreCappedByBytesPerSecondToo()
+        {
+            CilboxSceneBasis worldBox = Box<CilboxSceneBasis>("World script");
+            CilboxPropBasis propBox = Box<CilboxPropBasis>("Prop script");
+            CilboxProxy world = Proxy(worldBox), prop = Proxy(propBox);
+            Assert.IsTrue(Listen(world, "bulk", "OnMessage"));
+            byte[] chunk = new byte[BasisScriptBus.MaxDataLength];
+            int accepted = 0;
+            for (int i = 0; i < 40; i++)
+            {
+                if (Running(propBox, () => BasisScriptBus.Broadcast(prop, "bulk", null, chunk)) > 0) accepted++;
+            }
+            Assert.AreEqual(BasisScriptBus.MaxBytesPerSecond / (BasisScriptBus.MaxDataLength + 16), accepted);
+        }
+
+        [Test]
+        public void TagsAndDescriptions_TellPeopleAndScriptsWhatContentIsFor()
+        {
+            CilboxSceneBasis worldBox = Box<CilboxSceneBasis>("World script");
+            CilboxPropBasis propBox = Box<CilboxPropBasis>("Prop script");
+            propBox.gameObject.AddComponent<BasisProp>();
+            CilboxProxy world = Proxy(worldBox), prop = Proxy(propBox);
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Tag(prop, "Ball")));
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Tag(prop, "sport.football")));
+            Assert.IsFalse(Running(propBox, () => BasisScriptBus.Tag(prop, "has space")));
+            Assert.IsFalse(Running(propBox, () => BasisScriptBus.Tag(prop, new string('a', BasisScriptBus.MaxTagLength + 1))));
+            Assert.IsFalse(BasisScriptBus.Tag(prop, "idle"), "only a running script may tag its content");
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Describe(prop, "A football. Kick it into a goal.")));
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Describe(prop, "goal", "Sent to the world when the ball crosses a line. Text is the team.")));
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Describe(prop, "speed", "Metres per second, as a number.")));
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Describe(prop, "bad", "<b>bold</b>\u202Eflip")));
+            Assert.IsTrue(Listen(prop, "goal", "OnMessage"));
+
+            BasisScriptTarget ball = BasisScriptBus.Of(propBox.gameObject);
+            CollectionAssert.AreEqual(new[] { "ball", "sport.football" }, ball.Tags);
+            Assert.IsTrue(ball.HasTag("BALL"), "tags ignore case");
+            Assert.AreEqual(1, BasisScriptBus.Tagged("ball").Length);
+            Assert.AreSame(ball, BasisScriptBus.Tagged("ball")[0]);
+            Assert.AreEqual(0, BasisScriptBus.Tagged("world").Length);
+            Assert.AreEqual("A football. Kick it into a goal.", ball.Description);
+            Assert.AreEqual("Metres per second, as a number.", ball.DescriptionOf("speed"));
+            Assert.AreEqual(string.Empty, ball.DescriptionOf("missing"));
+            StringAssert.DoesNotContain("<", ball.DescriptionOf("bad"), "descriptions are shown to people, so no rich text");
+            Assert.AreEqual(-1, ball.DescriptionOf("bad").IndexOf('\u202E'), "bidi overrides are stripped");
+            CollectionAssert.AreEqual(new[] { "goal" }, ball.Channels);
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Untag(prop, "ball")));
+            Assert.AreEqual(0, BasisScriptBus.Tagged("ball").Length);
+            Assert.IsTrue(Running(worldBox, () => BasisScriptBus.Tag(world, "arena")));
+            Assert.IsFalse(ball.HasTag("arena"), "tagging only ever touches the caller's own content");
+        }
+
+        [Test]
+        public void TheClock_IsOnlyHeldWhileMessagesWait()
+        {
+            CilboxSceneBasis worldBox = Box<CilboxSceneBasis>("World script");
+            CilboxPropBasis propBox = Box<CilboxPropBasis>("Prop script");
+            CilboxProxy world = Proxy(worldBox), prop = Proxy(propBox);
+            FieldInfo requests = typeof(Basis.Scripts.Drivers.BasisFrameClock).GetField("_requestCount", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.IsNotNull(requests, "BasisFrameClock._requestCount moved");
+            int before = (int)requests.GetValue(null);
+            Assert.IsTrue(Listen(world, "chat", "OnMessage"));
+            Assert.AreEqual(before, (int)requests.GetValue(null), "listening alone costs nothing per frame");
+            Running(propBox, () => BasisScriptBus.Broadcast(prop, "chat", "x"));
+            Assert.AreEqual(before + 1, (int)requests.GetValue(null));
+            Tick();
+            Assert.AreEqual(before, (int)requests.GetValue(null));
+        }
+    }
+}

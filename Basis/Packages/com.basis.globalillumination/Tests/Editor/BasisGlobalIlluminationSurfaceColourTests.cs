@@ -162,6 +162,37 @@ namespace Basis.Tests.GlobalIllumination
         }
 
         [Test]
+        public void TaggedRenderersReadTheSameSurfaceColour()
+        {
+            Material red = harness.CreateLitMaterial(new Color(0.8f, 0.1f, 0.1f), Color.black);
+            Material mapped = harness.CreateTexturedMaterial(new Color(0.1f, 0.6f, 0.2f));
+            GameObject redBox = harness.AddBox(new Vector3(-0.6f, 0f, 2f), new Vector3(1f, 1f, 0.2f), red);
+            harness.AddBox(new Vector3(0.6f, 0f, 2f), new Vector3(1f, 1f, 0.2f), mapped);
+            Look(new Vector3(0f, 0f, -1f), new Vector3(0f, 0f, 2f));
+            Vector3 redPoint = new Vector3(-0.6f, 0f, 1.9f), mappedPoint = new Vector3(0.6f, 0f, 1.9f);
+            try
+            {
+                BasisGlobalIlluminationSurfaceTags.Enabled = false;
+                Color redPlain = SurfaceAt(redPoint), mappedPlain = SurfaceAt(mappedPoint);
+                BasisGlobalIlluminationSurfaceTags.Enabled = true;
+                uint mask = BasisGlobalIlluminationSurfaceTags.Mask;
+                if (mask == 0u) { Assert.Ignore("Every rendering layer has a name in this project, so tagging is off."); }
+                BasisGlobalIlluminationSurfaceTags.TagAllNow();
+                Assert.AreEqual(0u, redBox.GetComponent<Renderer>().renderingLayerMask & mask, "the Lit box was marked as needing the override pass");
+                Color redTagged = SurfaceAt(redPoint), mappedTagged = SurfaceAt(mappedPoint);
+                Debug.Log($"[BasisGI] surface colour untagged red {redPlain} mapped {mappedPlain} | tagged red {redTagged} mapped {mappedTagged}");
+                Assert.Greater(redTagged.r, redTagged.g * 2f, $"the tagged red box lost its colour: {redTagged}");
+                Assert.Greater(mappedTagged.g, mappedTagged.r * 2f, $"the tagged mapped box lost its base map: {mappedTagged}");
+                Assert.AreEqual(redPlain.r, redTagged.r, 0.03f); Assert.AreEqual(redPlain.g, redTagged.g, 0.03f); Assert.AreEqual(redPlain.b, redTagged.b, 0.03f);
+                Assert.AreEqual(mappedPlain.r, mappedTagged.r, 0.03f); Assert.AreEqual(mappedPlain.g, mappedTagged.g, 0.03f); Assert.AreEqual(mappedPlain.b, mappedTagged.b, 0.03f);
+            }
+            finally
+            {
+                BasisGlobalIlluminationSurfaceTags.Enabled = true;
+            }
+        }
+
+        [Test]
         public void ASurfaceWithNoDirectLightStillTakesBounce()
         {
             Material grey = harness.CreateLitMaterial(new Color(0.7f, 0.7f, 0.7f), Color.black);
@@ -169,6 +200,7 @@ namespace Basis.Tests.GlobalIllumination
             harness.AddBox(new Vector3(0f, 1.5f, 2.8f), new Vector3(3f, 2f, 0.2f), harness.CreateLitMaterial(Color.black, new Color(20f, 20f, 20f)));
             Look(new Vector3(0f, 1.5f, -2.5f), new Vector3(0f, 0.3f, 1f));
             harness.Settings.worldSpace = true;
+            harness.Settings.worldReflections = false;
             RectInt floor = Probe(new Vector3(0f, 0f, 0.5f), 8);
 
             harness.Settings.surfaceColour = false;
@@ -190,6 +222,7 @@ namespace Basis.Tests.GlobalIllumination
             harness.AddBox(new Vector3(0.8f, 0.01f, 0.5f), new Vector3(1.4f, 0.02f, 1.4f), harness.CreateLitMaterial(new Color(0.05f, 0.8f, 0.05f), Color.black));
             Look(new Vector3(0f, 1.5f, -2.5f), new Vector3(0f, 0.3f, 1f));
             harness.Settings.worldSpace = true;
+            harness.Settings.worldReflections = false;
             Color red = harness.Converged(Probe(new Vector3(-0.8f, 0.02f, 0.5f), 6), 40, 6);
             Color green = harness.Converged(Probe(new Vector3(0.8f, 0.02f, 0.5f), 6), 40, 6);
             Debug.Log($"[BasisGI] receivers under white light: red {red} | green {green}");

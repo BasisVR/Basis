@@ -265,6 +265,7 @@ BasisGITemporalOutput BasisGITemporal(float2 uv)
     if (relativeDelta > BASISGI_DEPTH_REJECTION) { return output; }
 
     float4 history = BasisGILoadHistory(previousUv);
+    float agreement = 0.0;
 
 #if defined(_BASISGI_NEIGHBOURHOOD_CLAMP)
     // Variance clipping rather than a min/max box. At one or two rays per pixel the neighbourhood's extremes
@@ -287,6 +288,8 @@ BasisGITemporalOutput BasisGITemporal(float2 uv)
     float rare = BASISGI_TEMPORAL_CLIP_RARE / sampleCount;
     float4 ceiling = float4(BASISGI_FIREFLY_CLAMP.xxx, max(BASISGI_OBSCURANCE, BASISGI_EPSILON));
     float4 halfWidth = max(deviation * BASISGI_TEMPORAL_CLIP_SIGMA, rare * ceiling);
+    float4 offsetInBox = abs(history - mean) / max(halfWidth, BASISGI_EPSILON);
+    agreement = specular ? 0.0 : saturate(1.0 - max(max(offsetInBox.r, offsetInBox.g), offsetInBox.b) * 2.0);
     history = clamp(history, mean - halfWidth, mean + halfWidth);
 #endif
 
@@ -297,7 +300,7 @@ BasisGITemporalOutput BasisGITemporal(float2 uv)
     float rejection = saturate(relativeDelta / max(BASISGI_DEPTH_REJECTION, BASISGI_EPSILON));
     float elapsed = !specular && _BasisGISkipEye >= 0.0 ? 2.0 : 1.0;
     float frames = min(historyStats.g * (1.0 - rejection) + elapsed, BASISGI_TEMPORAL_MAX_FRAMES);
-    float response = max(rcp(max(frames, 1.0)), BASISGI_TEMPORAL_RESPONSE);
+    float response = max(rcp(max(frames, 1.0)), BASISGI_TEMPORAL_RESPONSE * lerp(1.0, 0.5, agreement));
     if (elapsed > 1.0) { response = max(response, 1.0 - Sq(1.0 - BASISGI_TEMPORAL_RESPONSE)); }
 
     output.indirect = lerp(history, current, response);

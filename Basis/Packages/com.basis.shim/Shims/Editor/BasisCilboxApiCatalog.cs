@@ -1073,6 +1073,53 @@ public void OnKioskPressed() { game.Open(); }",
             },
             new CilboxApiEntry
             {
+                GroupKey = GroupInteraction,
+                TitleKey = "sdk.cilbox.api.scriptBus.title",
+                SummaryKey = "sdk.cilbox.api.scriptBus.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisScriptBus", "Send"), new CilboxApiRequirement("Basis.Shims.BasisScriptBus", "Listen"), new CilboxApiRequirement("Basis.Shims.BasisScriptBus", "Tag"), new CilboxApiRequirement("Basis.Shims.BasisScriptTarget", "HasTag") },
+                Example =
+@"using Basis.Shims;
+
+// Everything stays on this machine and arrives next frame. Sender is filled in
+// by Basis, so it cannot be faked. Use BasisNetworkShim to reach other players.
+
+// World: tags itself so props can tell what game it runs.
+int blue;
+
+void Start()
+{
+    BasisScriptBus.Tag(this, ""sport.football"");
+    BasisScriptBus.Describe(this, ""goal"", ""Props send this when they score. Text is the team."");
+    BasisScriptBus.Listen(this, ""goal"", BasisScriptBus.FromProps, OnGoal);
+}
+
+void OnGoal(BasisScriptMessage message)
+{
+    if (!message.Sender.HasTag(""ball"")) return;
+    if (message.Text == ""blue"") blue++;
+    Vector3 where = message.GetVector3(Vector3.zero);
+    message.Reply(""counted"");
+}
+
+// Ball prop: values can be numbers, bools, vectors, colours, byte[] and arrays.
+void Start()
+{
+    BasisScriptBus.Tag(this, ""ball"");
+    BasisScriptBus.Describe(this, ""A football. Kick it into a goal."");
+    BasisScriptBus.Publish(this, ""trail"", new byte[] { 1, 2, 3 });
+    BasisScriptBus.Listen(this, ""goal"", BasisScriptBus.FromWorld, OnAnswer);
+}
+
+void Score(Vector3 where)
+{
+    BasisScriptTarget world = BasisScriptBus.World;
+    if (world != null && world.HasTag(""sport.football"")) BasisScriptBus.Send(this, world, ""goal"", ""blue"", where);
+}
+
+void OnAnswer(BasisScriptMessage message) { }",
+            },
+            new CilboxApiEntry
+            {
                 GroupKey = GroupAudio,
                 TitleKey = "sdk.cilbox.api.audioRouting.title",
                 SummaryKey = "sdk.cilbox.api.audioRouting.summary",

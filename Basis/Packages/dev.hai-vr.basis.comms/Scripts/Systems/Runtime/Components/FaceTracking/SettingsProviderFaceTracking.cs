@@ -63,8 +63,8 @@ namespace HVR.Basis.Comms
 
         static void BuildAvatarCustomizationSection(RectTransform parent)
         {
-            InitializeFacePanel(parent);
             InitializeVixxyPanel(parent);
+            InitializeFacePanel(parent);
             InitializeEyeTrackingPanel(parent);
         }
 
@@ -155,7 +155,6 @@ namespace HVR.Basis.Comms
             var faceGroup = PanelSectionToggleHelpers.CreateCollapsibleContentGroup(sectionToggle, container, BasisLocalization.Get("settings.myAvatar.face"));
             faceGroup.SetDescription(BasisLocalization.Get("settings.myAvatar.face.description"));
             BuildBindingToggle(faceGroup, "settings.myAvatar.autoDetectFaceTracking", BasisSettingsDefaults.AutoDetectFaceTracking);
-            BuildBindingToggle(faceGroup, "settings.myAvatar.autoDetectEyeTracking", BasisSettingsDefaults.AutoDetectEyeTracking);
             BuildBindingToggle(faceGroup, "settings.myAvatar.idleExpressions", BasisSettingsDefaults.IdleFaceExpressions);
             PanelSectionToggleHelpers.FinalizeCollapsibleGroup(sectionToggle, faceGroup, true);
         }
@@ -220,15 +219,18 @@ namespace HVR.Basis.Comms
         {
             var localPlayer = BasisLocalPlayer.Instance;
             var avatar = localPlayer?.BasisAvatar;
-            if (avatar == null) return;
-
-            var eyeActuation = avatar.GetComponentInChildren<EyeTrackingBoneActuation>(true);
-            if (eyeActuation == null) return;
+            var eyeActuation = avatar != null ? avatar.GetComponentInChildren<EyeTrackingBoneActuation>(true) : null;
 
             var sectionToggle = PanelSectionToggle.CreateNewEntry(container);
             var eyeGroup = PanelSectionToggleHelpers.CreateCollapsibleContentGroup(
                 sectionToggle, container, BasisLocalization.Get("settings.faceTracking.eyeTracking"));
             eyeGroup.SetDescription(BasisLocalization.Get("settings.faceTracking.eyeTracking.description"));
+            BuildBindingToggle(eyeGroup, "settings.myAvatar.autoDetectEyeTracking", BasisSettingsDefaults.AutoDetectEyeTracking);
+            if (eyeActuation == null)
+            {
+                PanelSectionToggleHelpers.FinalizeCollapsibleGroup(sectionToggle, eyeGroup, true);
+                return;
+            }
 
             var overrideToggle = PanelToggle.CreateNewEntry(eyeGroup.ContentParent);
             overrideToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.faceTracking.overrideRotationLimits"));

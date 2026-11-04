@@ -51,6 +51,9 @@ namespace Cilbox
 			"Basis.Shims.BasisMenuShim",
 			"Basis.Shims.BasisMenuPage",
 			"Basis.Shims.BasisMenuItem",
+			"Basis.Shims.BasisScriptBus",
+			"Basis.Shims.BasisScriptTarget",
+			"Basis.Shims.BasisScriptMessage",
 
 			// HVR Vixxy
 			"HVR.Vixxy.HVRVixxyMenuItem", // Restrictive, see method whitelist.

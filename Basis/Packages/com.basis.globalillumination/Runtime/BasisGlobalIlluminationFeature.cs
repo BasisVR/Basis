@@ -99,6 +99,8 @@ public sealed partial class BasisGlobalIlluminationFeature : ScriptableRendererF
         }
     }
 
+    private BasisGlobalIlluminationPass.SurfaceTargetPass m_SurfaceTargetPass;
+
     public override void Create()
     {
         ResolveShader();
@@ -141,6 +143,12 @@ public sealed partial class BasisGlobalIlluminationFeature : ScriptableRendererF
         m_Pass.SetRayTracing(m_RayStagesMaterial, m_RayTraceShader, m_RayTraceCompute, m_RayTracingComputeFallback);
         m_Pass.RayTracingAvailable = RayTracingAvailable;
         m_Pass.ConfigureInput(inputs);
+        if (settings.surfaceColour && m_SurfaceShader != null)
+        {
+            BasisGlobalIlluminationSurfaceTags.Tick();
+            m_SurfaceTargetPass ??= new BasisGlobalIlluminationPass.SurfaceTargetPass();
+            renderer.EnqueuePass(m_SurfaceTargetPass);
+        }
         renderer.EnqueuePass(m_Pass);
     }
 

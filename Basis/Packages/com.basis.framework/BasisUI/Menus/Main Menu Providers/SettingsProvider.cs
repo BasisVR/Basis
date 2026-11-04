@@ -2803,6 +2803,12 @@ namespace Basis.BasisUI
                     BasisLocalization.Get("settings.graphics.reflections.title"),
                     showGroupTitle: false);
 
+                PanelToggle toggleWorldReflections = PanelToggle.CreateNewEntry(reflectionsGroup.ContentParent);
+                toggleWorldReflections.AssignBinding(BasisSettingsDefaults.GlobalIlluminationWorldReflections);
+                toggleWorldReflections.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.reflections.world"));
+                toggleWorldReflections.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.reflections.world.tooltip"));
+                SettingsProviderBottleneckHints.Mark(toggleWorldReflections, BasisFrameCostSide.Gpu);
+
                 PanelToggle toggleReflections = PanelToggle.CreateNewEntry(reflectionsGroup.ContentParent);
                 toggleReflections.AssignBinding(BasisSettingsDefaults.GlobalIlluminationSpecular);
                 toggleReflections.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.reflections.enable"));
@@ -4165,6 +4171,7 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.GlobalIlluminationTemporalFilter.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationWideBlur.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationAlternateEyes.ResetToDefault();
+            BasisSettingsDefaults.GlobalIlluminationWorldReflections.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationRayReuse.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationEmitters.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.ResetToDefault();

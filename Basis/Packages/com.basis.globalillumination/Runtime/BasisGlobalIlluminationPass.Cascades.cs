@@ -36,7 +36,9 @@ public sealed partial class BasisGlobalIlluminationPass
     private static readonly int idRcInterval = Shader.PropertyToID("_BasisGIRCInterval");
     private static readonly int idRcGrid = Shader.PropertyToID("_BasisGIRCGrid");
     private static readonly int idRcJitter = Shader.PropertyToID("_BasisGIRCJitter");
-    private static readonly int idRcRotation = Shader.PropertyToID("_BasisGIRCRotation");
+    private static readonly int idRcRotations = Shader.PropertyToID("_BasisGIRCRotations");
+    private static readonly int idRcPhase = Shader.PropertyToID("_BasisGIRCPhase");
+    [NoAutoStaticsCleanup] private static readonly System.Collections.Generic.Dictionary<float, Vector4[]> cascadeRotationTables = new System.Collections.Generic.Dictionary<float, Vector4[]>();
 
     [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerCascades = new ProfilingSampler("Basis GI Radiance Cascades");
     [NoAutoStaticsCleanup] private static readonly float[] cascadeSolidAngles = ComputeCascadeSolidAngles();
@@ -131,6 +133,20 @@ public sealed partial class BasisGlobalIlluminationPass
         rotation = Quaternion.Slerp(Quaternion.identity, uniform, Mathf.Clamp01(amount));
     }
 
+    public static Vector4[] CascadeRotationTable(float amount)
+    {
+        if (cascadeRotationTables.TryGetValue(amount, out Vector4[] table)) { return table; }
+        table = new Vector4[CascadeJitterPeriod * 3];
+        for (int index = 0; index < CascadeJitterPeriod; index++)
+        {
+            CascadeJitter(index, amount, 1, out _, out Quaternion rotation);
+            Matrix4x4 matrix = Matrix4x4.Rotate(rotation);
+            for (int row = 0; row < 3; row++) { table[index * 3 + row] = matrix.GetRow(row); }
+        }
+        cascadeRotationTables[amount] = table;
+        return table;
+    }
+
     private void RecordRadianceCascades(RenderGraph renderGraph, UniversalResourceData resourceData, BasisGlobalIlluminationSettings settings,
         in RenderTextureDescriptor tracedDescriptor, in RenderTextureDescriptor descriptor, TextureHandle sceneColor, TextureHandle tracedDepth,
         TextureHandle normals, TextureHandle traced, int tracedWidth, int tracedHeight, int frame, int emitterCount, in BasisGlobalIlluminationRayTracer.SkyBinding sky, bool alternateEyes)
@@ -143,8 +159,9 @@ public sealed partial class BasisGlobalIlluminationPass
         int steps = Mathf.Max(1, settings.ResolvedCascadeSteps());
         float firstInterval = CascadeInterval(0, cascades, reach).y;
         float jitterAmount = settings.temporalFilter ? settings.jitter : 0f;
-        CascadeJitter(frame, jitterAmount, spacing, out Vector2 jitter, out Quaternion rotation);
-        Matrix4x4 rotationMatrix = Matrix4x4.Rotate(rotation);
+        CascadeJitter(frame, jitterAmount, spacing, out Vector2 jitter, out _);
+        Vector4[] rotationTable = CascadeRotationTable(jitterAmount);
+        float rotationPhase = frame % CascadeJitterPeriod;
         float skipEye = SkipEyeFor(alternateEyes, descriptor, frame, false);
 
         RenderTextureDescriptor colorDescriptor = tracedDescriptor;
@@ -263,7 +280,8 @@ public sealed partial class BasisGlobalIlluminationPass
                 passData.rcInterval = new Vector4(firstInterval, CascadePenumbra * spacing, steps, frame % 64);
                 passData.rcGrid = new Vector4(gridWidth, gridHeight, upperWidth, upperHeight);
                 passData.rcJitter = new Vector4(jitter.x, jitter.y, atlasWidth, atlasHeight);
-                passData.rcRotation = rotationMatrix;
+                passData.rcRotations = rotationTable;
+                passData.rcPhase = rotationPhase;
                 passData.skipEye = skipEye;
                 System.Array.Copy(cascadeLevels, passData.rcLevels, CascadeLevels);
                 builder.SetRenderAttachment(target, 0, AccessFlags.WriteAll);
@@ -300,7 +318,8 @@ public sealed partial class BasisGlobalIlluminationPass
             passData.rcProbes = cascadeProbes[0];
             passData.rcCascade = new Vector4(0f, spacing, CascadeDirections, 0f);
             passData.rcGrid = new Vector4(baseWidth, baseHeight, 0f, 0f);
-            passData.rcRotation = rotationMatrix;
+            passData.rcRotations = rotationTable;
+            passData.rcPhase = rotationPhase;
             passData.skipEye = skipEye;
             builder.SetRenderAttachment(sh0, 0, AccessFlags.WriteAll);
             builder.SetRenderAttachment(sh1, 1, AccessFlags.WriteAll);
@@ -347,7 +366,8 @@ public sealed partial class BasisGlobalIlluminationPass
         passData.tracedDepth = TextureHandle.nullHandle;
         passData.tracedDepthValid = false;
         passData.rcCascade = passData.rcInterval = passData.rcGrid = passData.rcJitter = Vector4.zero;
-        passData.rcRotation = Matrix4x4.identity;
+        passData.rcRotations = CascadeRotationTable(0f);
+        passData.rcPhase = 0f;
         passData.skipEye = -1f;
     }
 
@@ -380,7 +400,8 @@ public sealed partial class BasisGlobalIlluminationPass
         cmd.SetGlobalVector(idRcInterval, data.rcInterval);
         cmd.SetGlobalVector(idRcGrid, data.rcGrid);
         cmd.SetGlobalVector(idRcJitter, data.rcJitter);
-        cmd.SetGlobalMatrix(idRcRotation, data.rcRotation);
+        cmd.SetGlobalVectorArray(idRcRotations, data.rcRotations);
+        cmd.SetGlobalFloat(idRcPhase, data.rcPhase);
         cmd.SetGlobalFloat(idSkipEye, data.skipEye);
     }
 }

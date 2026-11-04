@@ -846,6 +846,8 @@
     { "key": "sdk.cilbox.api.settingsTab.summary", "value": "在 Basis 设置中添加一个标签页，包含你自己的标题、文本、按钮、开关、滑块和下拉列表。控件由 Basis 绘制，玩家使用它们时会调用你的方法。世界、本地玩家生成的道具以及本地玩家自己的模型各自最多可添加 4 个标签页，脚本消失时它们也会随之移除。" },
     { "key": "sdk.cilbox.api.menuPanel.title", "value": "菜单面板" },
     { "key": "sdk.cilbox.api.menuPanel.summary", "value": "在主菜单中添加一个按钮，用于打开你自己的面板，面板最多可有 8 个标签页，填写方式与设置标签页相同。每个内容一个面板。Open() 可以显示它，但只能在玩家按下你内容中的某个东西后的 5 秒内使用。" },
+    { "key": "sdk.cilbox.api.scriptBus.title", "value": "与其他脚本通信" },
+    { "key": "sdk.cilbox.api.scriptBus.summary", "value": "让世界、道具和头像向彼此的脚本发送消息、发布其他内容可读取的值，并查询某个内容属于谁。消息只在本机内传递，并在下一帧送达。要与其他玩家通信，请使用 BasisNetworkShim。内容可以给自己添加标签和说明，方便人和脚本了解它的用途；值可以是数字、向量、颜色、字节数组或数组。" },
     { "key": "sdk.cilbox.api.audioRouting.title", "value": "音量滑块路由" },
     { "key": "sdk.cilbox.api.audioRouting.summary", "value": "把脚本之后添加的音频源放到世界、道具或模型分组，让玩家的音量滑块生效。" },
     { "key": "sdk.cilbox.api.steamAudio.title", "value": "Steam Audio" },

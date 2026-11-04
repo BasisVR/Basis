@@ -454,6 +454,7 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<bool> GlobalIlluminationTemporalFilter = new("globalilluminationtemporalfilter", new BasisPlatformDefault<bool>(true));
         public static BasisSettingsBinding<bool> GlobalIlluminationWideBlur = new("globalilluminationwideblur", new BasisPlatformDefault<bool>(true));
         public static BasisSettingsBinding<bool> GlobalIlluminationAlternateEyes = new("globalilluminationalternateeyes", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> GlobalIlluminationWorldReflections = new("globalilluminationworldreflections", new BasisPlatformDefault<bool> { windows = true, android = false, ios = false, linux = true, other = true });
         public static BasisSettingsBinding<bool> GlobalIlluminationRayReuse = new("globalilluminationrayreuse", new BasisPlatformDefault<bool>(true));
         // Emitters carry light from sources the trace cannot see: a sign or a strip light is under one
         // texel at traced resolution, and anything behind the camera is off screen entirely.
@@ -2409,6 +2410,7 @@ namespace Basis.BasisUI
             GlobalIlluminationTemporalFilter.LoadBindingValue();
             GlobalIlluminationWideBlur.LoadBindingValue();
             GlobalIlluminationAlternateEyes.LoadBindingValue();
+            GlobalIlluminationWorldReflections.LoadBindingValue();
             GlobalIlluminationRayReuse.LoadBindingValue();
             GlobalIlluminationEmitters.LoadBindingValue();
             GlobalIlluminationEmitterIntensity.LoadBindingValue();

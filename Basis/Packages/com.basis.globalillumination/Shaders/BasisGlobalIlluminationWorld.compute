@@ -3,6 +3,7 @@
 #pragma kernel BuildCoarse
 #pragma kernel Inject
 #pragma kernel Cascade
+#pragma kernel Detail
 #pragma kernel Resolve
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
@@ -14,6 +15,7 @@
 #define BASISGI_WORLD_DIRECTIONS0 4
 #define BASISGI_WORLD_BLOCK_SHIFT 2
 #define BASISGI_WORLD_COARSE_SHIFT 4
+#define BASISGI_WORLD_SPECULAR_BINS 8
 
 SamplerState sampler_LinearClamp;
 
@@ -45,6 +47,10 @@ float _BasisGIWorldPyramid;
 Texture3D<float4> _BasisGIWorldCascadeUpper;
 RWTexture3D<float4> _BasisGIWorldCascadeOut;
 Texture3D<float4> _BasisGIWorldCascadeZero;
+Texture3D<float4> _BasisGIWorldCascadeDetail;
+RWTexture3D<float4> _BasisGIWorldCascadeDetailRW;
+Texture3D<float4> _BasisGIWorldSpecularPrev;
+RWTexture3D<float3> _BasisGIWorldSpecularOut;
 
 Texture3D<float4> _BasisGIWorldSHPrev0;
 Texture3D<float4> _BasisGIWorldSHPrev1;
@@ -449,8 +455,8 @@ void Cascade(uint3 id : SV_DispatchThreadID)
             float3 blend = grid - (float3)cell;
             float width = (float)(probes * resolution);
             float depth = (float)(upperProbes * BasisGIWorldLevels());
-            float3 gathered = float3(0.0, 0.0, 0.0);
-            float weightSum = 0.0;
+            float3 gathered = float3(0.0, 0.0, 0.0), hidden = gathered;
+            float weightSum = 0.0, hiddenSum = 0.0;
             UNITY_UNROLL
             for (int index = 0; index < 8; index++)
             {
@@ -461,14 +467,146 @@ void Cascade(uint3 id : SV_DispatchThreadID)
                 float2 xy = ((float2)(upper.xy * upperResolution) + (float2)directionTexel * 2.0 + 1.0) / width;
                 float z = ((float)(upper.z + level * upperProbes) + 0.5) / depth;
                 float4 upperValue = _BasisGIWorldCascadeUpper.SampleLevel(sampler_LinearClamp, float3(xy, z), 0);
+                float3 upperPosition = ((float3)(upper + upperFirst) + 0.5) * upperSpacing;
+                if (BasisGIWorldBlocked((position + upperPosition) * 0.5, level))
+                {
+                    hidden += upperValue.rgb * weight * upperValue.a;
+                    hiddenSum += weight * upperValue.a;
+                    continue;
+                }
                 gathered += upperValue.rgb * weight * upperValue.a;
                 weightSum += weight * upperValue.a;
             }
-            beyond = gathered / max(weightSum, 1e-5);
+            beyond = weightSum > 1e-5 ? gathered / weightSum : hidden / max(hiddenSum, 1e-5);
         }
     }
 
-    _BasisGIWorldCascadeOut[outTexel] = float4(segment.radiance + beyond * segment.transmittance, 1.0);
+    _BasisGIWorldCascadeOut[outTexel] = float4(segment.radiance + beyond * segment.transmittance, cascade == 0 ? segment.transmittance : 1.0);
+}
+
+[numthreads(8, 8, 1)]
+void Detail(uint3 id : SV_DispatchThreadID)
+{
+    int level = (int)_BasisGIWorldDispatch.x;
+    int probes = (int)_BasisGIWorldParams.z >> 1;
+    int resolution = BASISGI_WORLD_DIRECTIONS0 * 2;
+    if (any((int2)id.xy >= probes * resolution) || (int)id.z >= probes) { return; }
+    int2 tile = ((int2)id.xy / resolution) * resolution;
+    int2 inside = (int2)id.xy - tile;
+    int zSlice = (int)id.z + level * probes;
+    float4 centre = _BasisGIWorldCascadeUpper.Load(int4(id.xy, zSlice, 0));
+    float3 blurred = float3(0.0, 0.0, 0.0);
+    UNITY_UNROLL
+    for (int index = 0; index < 9; index++)
+    {
+        int2 offset = int2(index % 3, index / 3) - 1;
+        int2 texel = tile + clamp(inside + offset, 0, resolution - 1);
+        float tap = (offset.x == 0 ? 2.0 : 1.0) * (offset.y == 0 ? 2.0 : 1.0);
+        blurred += _BasisGIWorldCascadeUpper.Load(int4(texel, zSlice, 0)).rgb * tap;
+    }
+    _BasisGIWorldCascadeDetailRW[uint3(id.xy, (uint)zSlice)] = float4(centre.rgb - blurred * (1.0 / 16.0), centre.a);
+}
+
+bool BasisGIWorldSurfaceNear(float3 positionWS, int level)
+{
+    if (_BasisGIWorldPyramid < 0.5) { return true; }
+    float4 box = _BasisGIWorldLevel[level];
+    int voxels = (int)_BasisGIWorldParams.y;
+    int side = voxels >> BASISGI_WORLD_BLOCK_SHIFT;
+    float3 local = (positionWS - box.xyz) / box.w;
+    int3 low = clamp((int3)floor(local - 2.0) >> BASISGI_WORLD_BLOCK_SHIFT, 0, side - 1);
+    int3 high = clamp((int3)floor(local + 2.0) >> BASISGI_WORLD_BLOCK_SHIFT, 0, side - 1);
+    UNITY_LOOP
+    for (int z = low.z; z <= high.z; z++)
+    {
+        for (int y = low.y; y <= high.y; y++)
+        {
+            for (int x = low.x; x <= high.x; x++)
+            {
+                if (_BasisGIVoxBlocks.Load(int4(x, y, z + level * side, 0)) > 0.5) { return true; }
+            }
+        }
+    }
+    return false;
+}
+
+void BasisGIWorldKeepSpecular(uint3 slot, float blend)
+{
+    uint3 tile = uint3(slot.xy * BASISGI_WORLD_SPECULAR_BINS, slot.z);
+    UNITY_LOOP
+    for (int bin = 0; bin < BASISGI_WORLD_SPECULAR_BINS * BASISGI_WORLD_SPECULAR_BINS; bin++)
+    {
+        uint3 texel = tile + uint3(bin % BASISGI_WORLD_SPECULAR_BINS, bin / BASISGI_WORLD_SPECULAR_BINS, 0);
+        _BasisGIWorldSpecularOut[texel] = blend < 1.0 ? _BasisGIWorldSpecularPrev[texel].rgb : float3(0.0, 0.0, 0.0);
+    }
+}
+
+void BasisGIWorldResolveSpecular(uint3 id, int level, float3 position, uint3 slot, float blend)
+{
+    int probes = (int)_BasisGIWorldParams.z;
+    int upperProbes = probes >> 1;
+    int upperResolution = BASISGI_WORLD_DIRECTIONS0 * 2;
+    int levels = BasisGIWorldLevels();
+    float4 box = _BasisGIWorldLevel[level];
+    float upperSpacing = box.w * 4.0;
+    int3 upperFirst = (int3)round(box.xyz / upperSpacing);
+    float3 grid = position / upperSpacing - 0.5;
+    int3 cell = (int3)floor(grid);
+    float3 fraction = grid - (float3)cell;
+    float upperWidth = (float)(upperProbes * upperResolution);
+    float upperDepth = (float)(upperProbes * levels);
+
+    float parentWeight[8];
+    float3 parentTile[8];
+    float parentSum = 0.0;
+    UNITY_UNROLL
+    for (int index = 0; index < 8; index++)
+    {
+        int3 offset = int3(index & 1, (index >> 1) & 1, index >> 2);
+        int3 upper = clamp(cell + offset - upperFirst, 0, upperProbes - 1);
+        float3 trilinear = lerp(1.0 - fraction, fraction, (float3)offset);
+        float valid = _BasisGIWorldCascadeDetail.Load(int4(upper.xy * upperResolution, upper.z + level * upperProbes, 0)).a;
+        float3 upperPosition = ((float3)(upper + upperFirst) + 0.5) * upperSpacing;
+        float visible = BasisGIWorldBlocked((position + upperPosition) * 0.5, level) ? 0.0 : 1.0;
+        parentWeight[index] = trilinear.x * trilinear.y * trilinear.z * valid * visible;
+        parentTile[index] = float3((float2)(upper.xy * upperResolution), (float)(upper.z + level * upperProbes) + 0.5);
+        parentSum += parentWeight[index];
+    }
+    float parentScale = parentSum > 1e-5 ? 1.0 / parentSum : 0.0;
+
+    float zeroWidth = (float)(probes * BASISGI_WORLD_DIRECTIONS0);
+    float zeroDepth = (float)(probes * levels);
+    float2 zeroTile = (float2)(id.xy * BASISGI_WORLD_DIRECTIONS0);
+    float zeroSlice = (float)(id.z + (uint)(level * probes)) + 0.5;
+    float3x3 toLocal = transpose((float3x3)_BasisGIWorldRotation);
+    uint3 outTile = uint3(slot.xy * BASISGI_WORLD_SPECULAR_BINS, slot.z);
+
+    UNITY_LOOP
+    for (int bin = 0; bin < BASISGI_WORLD_SPECULAR_BINS * BASISGI_WORLD_SPECULAR_BINS; bin++)
+    {
+        int2 binTexel = int2(bin % BASISGI_WORLD_SPECULAR_BINS, bin / BASISGI_WORLD_SPECULAR_BINS);
+        float3 direction = UnpackNormalOctQuadEncode(((float2)binTexel + 0.5) / BASISGI_WORLD_SPECULAR_BINS * 2.0 - 1.0);
+        float2 octant = PackNormalOctQuadEncode(mul(toLocal, direction)) * 0.5 + 0.5;
+
+        float2 zeroTexel = clamp(octant * BASISGI_WORLD_DIRECTIONS0, 0.5, BASISGI_WORLD_DIRECTIONS0 - 0.5);
+        float4 coarse = _BasisGIWorldCascadeZero.SampleLevel(sampler_LinearClamp, float3((zeroTile + zeroTexel) / zeroWidth, zeroSlice / zeroDepth), 0);
+
+        float2 upperTexel = clamp(octant * upperResolution, 0.5, upperResolution - 0.5);
+        float3 detail = float3(0.0, 0.0, 0.0);
+        UNITY_UNROLL
+        for (int parent = 0; parent < 8; parent++)
+        {
+            UNITY_BRANCH
+            if (parentWeight[parent] <= 0.0) { continue; }
+            float3 uvw = float3((parentTile[parent].xy + upperTexel) / upperWidth, parentTile[parent].z / upperDepth);
+            detail += _BasisGIWorldCascadeDetail.SampleLevel(sampler_LinearClamp, uvw, 0).rgb * parentWeight[parent];
+        }
+
+        float3 glossy = max(0.0, coarse.rgb + detail * (parentScale * saturate(coarse.a)));
+        uint3 texel = outTile + uint3(binTexel, 0);
+        float3 previous = blend < 1.0 ? _BasisGIWorldSpecularPrev[texel].rgb : float3(0.0, 0.0, 0.0);
+        _BasisGIWorldSpecularOut[texel] = lerp(previous, glossy, blend);
+    }
 }
 
 [numthreads(4, 4, 4)]
@@ -492,6 +630,7 @@ void Resolve(uint3 id : SV_DispatchThreadID)
         _BasisGIWorldSHOut1[kept] = _BasisGIWorldSHPrev1[kept];
         _BasisGIWorldSHOut2[kept] = _BasisGIWorldSHPrev2[kept];
         _BasisGIWorldSHOut3[kept] = _BasisGIWorldSHPrev3[kept];
+        if (_BasisGIWorldResolve.w > 0.5) { BasisGIWorldKeepSpecular(kept, 0.0); }
         return;
     }
 
@@ -532,4 +671,10 @@ void Resolve(uint3 id : SV_DispatchThreadID)
     _BasisGIWorldSHOut2[slot] = float4(lerp(previousY, cy, blend), 0.0);
     _BasisGIWorldSHOut3[slot] = float4(lerp(previousZ, cz, blend), 0.0);
     _BasisGIWorldStamp[slot] = stamp;
+
+    if (_BasisGIWorldResolve.w > 0.5)
+    {
+        if (validity > 0.0 && BasisGIWorldSurfaceNear(position, level)) { BasisGIWorldResolveSpecular(id, level, position, slot, blend); }
+        else { BasisGIWorldKeepSpecular(slot, blend); }
+    }
 }

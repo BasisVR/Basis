@@ -56,6 +56,7 @@ public struct BasisGlobalIlluminationState
     public bool TemporalFilter;
     public bool WideBlur;
     public bool AlternateEyes;
+    public bool WorldReflections;
     public bool RayReuse;
     public bool Emitters;
     public float EmitterIntensity;
@@ -107,6 +108,7 @@ public struct BasisGlobalIlluminationState
             TemporalFilter = BasisSettingsDefaults.GlobalIlluminationTemporalFilter.DefaultValue.GetDefault(),
             WideBlur = BasisSettingsDefaults.GlobalIlluminationWideBlur.DefaultValue.GetDefault(),
             AlternateEyes = BasisSettingsDefaults.GlobalIlluminationAlternateEyes.DefaultValue.GetDefault(),
+            WorldReflections = BasisSettingsDefaults.GlobalIlluminationWorldReflections.DefaultValue.GetDefault(),
             RayReuse = BasisSettingsDefaults.GlobalIlluminationRayReuse.DefaultValue.GetDefault(),
             Emitters = BasisSettingsDefaults.GlobalIlluminationEmitters.DefaultValue.GetDefault(),
             EmitterIntensity = BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.DefaultValue.GetDefault(),
@@ -159,6 +161,7 @@ public struct BasisGlobalIlluminationState
             TemporalFilter = BasisSettingsDefaults.GlobalIlluminationTemporalFilter.RawValue,
             WideBlur = BasisSettingsDefaults.GlobalIlluminationWideBlur.RawValue,
             AlternateEyes = BasisSettingsDefaults.GlobalIlluminationAlternateEyes.RawValue,
+            WorldReflections = BasisSettingsDefaults.GlobalIlluminationWorldReflections.RawValue,
             RayReuse = BasisSettingsDefaults.GlobalIlluminationRayReuse.RawValue,
             Emitters = BasisSettingsDefaults.GlobalIlluminationEmitters.RawValue,
             EmitterIntensity = BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.RawValue,
@@ -211,6 +214,7 @@ public struct BasisGlobalIlluminationCaptureOverride
     public float Smoothing;
     public bool WideBlur;
     public bool AlternateEyes;
+    public bool WorldReflections;
     public bool RayReuse;
     public bool Emitters;
     public float EmitterIntensity;
@@ -290,6 +294,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
     private static string K_GI_TEMPORAL_FILTER => BasisSettingsDefaults.GlobalIlluminationTemporalFilter.BindingKey;
     private static string K_GI_WIDE_BLUR => BasisSettingsDefaults.GlobalIlluminationWideBlur.BindingKey;
     private static string K_GI_ALTERNATE_EYES => BasisSettingsDefaults.GlobalIlluminationAlternateEyes.BindingKey;
+    private static string K_GI_WORLD_REFLECTIONS => BasisSettingsDefaults.GlobalIlluminationWorldReflections.BindingKey;
     private static string K_GI_RAY_REUSE => BasisSettingsDefaults.GlobalIlluminationRayReuse.BindingKey;
     private static string K_GI_EMITTERS => BasisSettingsDefaults.GlobalIlluminationEmitters.BindingKey;
     private static string K_GI_EMITTER_INTENSITY => BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.BindingKey;
@@ -500,6 +505,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
         else if (matchedSettingName == K_GI_TEMPORAL_FILTER) { state.TemporalFilter = optionValue == "true"; }
         else if (matchedSettingName == K_GI_WIDE_BLUR) { state.WideBlur = optionValue == "true"; }
         else if (matchedSettingName == K_GI_ALTERNATE_EYES) { state.AlternateEyes = optionValue == "true"; }
+        else if (matchedSettingName == K_GI_WORLD_REFLECTIONS) { state.WorldReflections = optionValue == "true"; }
         else if (matchedSettingName == K_GI_RAY_REUSE) { state.RayReuse = optionValue == "true"; }
         else if (matchedSettingName == K_GI_EMITTERS) { state.Emitters = optionValue == "true"; }
         else if (matchedSettingName == K_GI_REFLECTION_PROBES) { state.ReflectionProbes = optionValue == "true"; }
@@ -711,6 +717,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
             effective.Smoothing = o.Smoothing;
             effective.WideBlur = o.WideBlur;
             effective.AlternateEyes = o.AlternateEyes;
+            effective.WorldReflections = o.WorldReflections;
             effective.RayReuse = o.RayReuse;
             effective.Emitters = o.Emitters;
             effective.EmitterIntensity = o.EmitterIntensity;
@@ -942,6 +949,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
 
         target.wideBlur = state.WideBlur;
         target.alternateEyes = state.AlternateEyes;
+        target.worldReflections = state.WorldReflections;
         target.rayReuse = state.RayReuse;
 
         target.emitters = state.Emitters;

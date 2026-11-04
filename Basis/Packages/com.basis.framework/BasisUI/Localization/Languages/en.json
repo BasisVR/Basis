@@ -9211,6 +9211,14 @@
       "value": "Reflect the room in smooth surfaces in place of the static reflection probe. Works on its own, with or without global illumination. Costs real frame time, so it is off by default."
     },
     {
+      "key": "settings.graphics.reflections.world",
+      "value": "World Reflections"
+    },
+    {
+      "key": "settings.graphics.reflections.world.tooltip",
+      "value": "Shiny surfaces reflect the light that World Space GI has gathered instead of the static reflection probe, so a glossy floor indoors shows the room rather than the sky. Needs World Space GI. Screen space and ray traced reflections still draw on top where they find a surface."
+    },
+    {
       "key": "settings.graphics.reflections.solution",
       "value": "Solution"
     },
@@ -11592,11 +11600,11 @@
     },
     {
       "key": "settings.myAvatar.face",
-      "value": "Face"
+      "value": "Face Tracking"
     },
     {
       "key": "settings.myAvatar.face.description",
-      "value": "Face tracking, eye tracking and expressions for avatars that were not set up for them."
+      "value": "Face tracking and expressions for avatars that were not set up for them."
     },
     {
       "key": "settings.myAvatar.autoDetectFaceTracking",
@@ -13236,7 +13244,7 @@
     },
     {
       "key": "settings.faceTracking.eyeTracking.description",
-      "value": "Limit and scale eye tracking rotation on this avatar."
+      "value": "Eye tracking for avatars that were not set up for it, and eye rotation limits for this avatar."
     },
     {
       "key": "settings.faceTracking.overrideRotationLimits",

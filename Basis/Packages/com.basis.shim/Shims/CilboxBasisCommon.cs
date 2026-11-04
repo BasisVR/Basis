@@ -972,6 +972,8 @@ namespace Cilbox
 
 			if (CilboxMenus.Blocks(declaringType, name)) return Beyond(MethodItem(declaringType, name), true);
 
+			if (CilboxScriptBus.Blocks(declaringType, name)) return Beyond(MethodItem(declaringType, name), true);
+
 			if (declaringType == typeof(Basis.Scripts.Networking.BasisNetworkConnection) && !CuratedMethodAllowed(declaringType, name)) return Beyond(MethodItem(declaringType, name), true);
 
 			if (declaringType == typeof(Basis.Shims.BasisConnectionShim) && (this is CilboxAvatarBasis || !CilboxConnection.IsEntryPoint(name))) return Beyond(MethodItem(declaringType, name), true);

@@ -169,6 +169,7 @@ Shader "Universal Render Pipeline/Lit"
 #endif
             #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/BasisSurfaceOutput.hlsl"
 
 
             // -------------------------------------

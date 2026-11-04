@@ -222,6 +222,7 @@ namespace UnityEditor.Rendering.Universal
         LocalKeyword m_LightLayers;
         LocalKeyword m_DecalLayers;
         LocalKeyword m_WriteRenderingLayers;
+        LocalKeyword m_BasisSurfaceMRT;
         LocalKeyword m_RenderPassEnabled;
         LocalKeyword m_DebugDisplay;
         LocalKeyword m_DBufferMRT1;
@@ -306,6 +307,7 @@ namespace UnityEditor.Rendering.Universal
             m_LightLayers = TryGetLocalKeyword(shader, ShaderKeywordStrings.LightLayers);
             m_DecalLayers = TryGetLocalKeyword(shader, ShaderKeywordStrings.DecalLayers);
             m_WriteRenderingLayers = TryGetLocalKeyword(shader, ShaderKeywordStrings.WriteRenderingLayers);
+            m_BasisSurfaceMRT = TryGetLocalKeyword(shader, "_BASIS_SURFACE_MRT");
             m_RenderPassEnabled = TryGetLocalKeyword(shader, ShaderKeywordStrings.RenderPassEnabled);
             m_DebugDisplay = TryGetLocalKeyword(shader, ShaderKeywordStrings.DEBUG_DISPLAY);
             m_DBufferMRT1 = TryGetLocalKeyword(shader, ShaderKeywordStrings.DBufferMRT1);
@@ -824,6 +826,11 @@ namespace UnityEditor.Rendering.Universal
             return false;
         }
 
+        internal static bool IsBasisSurfaceMRTStrippedTarget(BuildTarget target)
+        {
+            return target == BuildTarget.Android || target == BuildTarget.iOS || target == BuildTarget.WebGL || target == BuildTarget.VisionOS;
+        }
+
         internal bool StripUnusedFeatures_WriteRenderingLayers(ref IShaderScriptableStrippingData strippingData, ref ShaderStripTool<ShaderFeatures> stripTool)
         {
             // Rendering layers are not supported on gl
@@ -1097,6 +1104,9 @@ namespace UnityEditor.Rendering.Universal
                 return true;
 
             if (StripUnusedFeatures_WriteRenderingLayers(ref strippingData, ref stripTool))
+                return true;
+
+            if (strippingData.IsKeywordEnabled(m_BasisSurfaceMRT) && IsBasisSurfaceMRTStrippedTarget(EditorUserBuildSettings.activeBuildTarget))
                 return true;
 
             if (StripUnusedFeatures_AccurateGbufferNormals(ref strippingData, ref stripTool))

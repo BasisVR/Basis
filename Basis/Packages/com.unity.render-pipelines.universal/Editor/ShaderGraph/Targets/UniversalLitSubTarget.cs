@@ -1082,6 +1082,7 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
                 { CoreIncludes.DOTSPregraph },
                 { CoreIncludes.FogPregraph },
                 { CoreIncludes.WriteRenderLayersPregraph },
+                { "Packages/com.unity.render-pipelines.universal/ShaderLibrary/BasisSurfaceOutput.hlsl", IncludeLocation.Pregraph, true },
                 { CoreIncludes.ProbeVolumePregraph },
                 { CoreIncludes.CorePregraph },
                 { kShadows, IncludeLocation.Pregraph },

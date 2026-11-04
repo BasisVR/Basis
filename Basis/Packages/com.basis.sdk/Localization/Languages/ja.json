@@ -846,6 +846,8 @@
     { "key": "sdk.cilbox.api.settingsTab.summary", "value": "Basis の設定に、独自の見出し、テキスト、ボタン、トグル、スライダー、ドロップダウンを持つタブを追加します。コントロールは Basis が描画し、プレイヤーが操作するとあなたのメソッドを呼び出します。ワールド、ローカルプレイヤーが出したプロップ、ローカルプレイヤー自身のアバターはそれぞれ最大 4 つのタブを追加でき、スクリプトがなくなるとタブも消えます。" },
     { "key": "sdk.cilbox.api.menuPanel.title", "value": "メニューパネル" },
     { "key": "sdk.cilbox.api.menuPanel.summary", "value": "メインメニューに、独自のパネルを開くボタンを追加します。パネルには設定タブと同じ方法で中身を作るタブを最大 8 つ置けます。パネルはコンテンツごとに 1 つです。Open() で表示できますが、プレイヤーがあなたのコンテンツ内の何かを押してから 5 秒以内に限ります。" },
+    { "key": "sdk.cilbox.api.scriptBus.title", "value": "他のスクリプトとのやり取り" },
+    { "key": "sdk.cilbox.api.scriptBus.summary", "value": "ワールド、プロップ、アバターが互いのスクリプトにメッセージを送り、他から読める値を公開し、コンテンツの持ち主を調べられます。メッセージはこのマシン内にとどまり、次のフレームで届きます。他のプレイヤーに届けるには BasisNetworkShim を使ってください。コンテンツは自分にタグと説明を付けられるので、人もスクリプトも用途が分かります。値には数値、ベクトル、色、バイト配列、配列を使えます。" },
     { "key": "sdk.cilbox.api.audioRouting.title", "value": "音量スライダーへの振り分け" },
     { "key": "sdk.cilbox.api.audioRouting.summary", "value": "スクリプトが後から追加したオーディオソースをワールド、プロップ、アバターのグループに振り分け、プレイヤーの音量スライダーが効くようにします。" },
     { "key": "sdk.cilbox.api.steamAudio.title", "value": "Steam Audio" },

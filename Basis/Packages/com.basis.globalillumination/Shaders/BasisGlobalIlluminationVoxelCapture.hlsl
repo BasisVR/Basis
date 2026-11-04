@@ -22,10 +22,18 @@ float BasisGIVoxelCapture(float2 uv)
     int level = BasisGIWorldLevelAt(positionWS, 0.25);
     if (level < 0) { return 0.0; }
     float4 box = _BasisGIWorldLevel[level];
+    float voxels = _BasisGIWorldParams.y;
     float3 nudged = positionWS + toCamera * box.w * 0.25;
     float3 local = (nudged - box.xyz) / box.w;
-    float voxels = _BasisGIWorldParams.y;
     if (any(local < 0.0) || any(local >= voxels)) { return 0.0; }
+    if (_BasisGIVoxAlbedo.Load(int4((int3)floor(local) + int3(0, 0, level * (int)voxels), 0)).a < 0.004)
+    {
+        float3 behind = (positionWS - toCamera * box.w * 0.25 - box.xyz) / box.w;
+        if (all(behind >= 0.0) && all(behind < voxels) && _BasisGIVoxAlbedo.Load(int4((int3)floor(behind) + int3(0, 0, level * (int)voxels), 0)).a >= 0.004)
+        {
+            nudged = positionWS - toCamera * box.w * 0.25;
+        }
+    }
     int3 voxel = BasisGIWorldSeenSlot(nudged, level);
 
     float3 colour = max(0.0, BasisGISampleSceneColor(uv));

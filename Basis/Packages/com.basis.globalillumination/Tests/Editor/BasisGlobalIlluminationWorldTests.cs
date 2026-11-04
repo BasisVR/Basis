@@ -444,6 +444,37 @@ namespace Basis.Tests.GlobalIllumination
         }
 
         [Test]
+        public void ARoughFloorReflectsTheRoomInsteadOfTheSky()
+        {
+            Open();
+            Material white = harness.CreateLitMaterial(new Color(0.75f, 0.75f, 0.75f), Color.black);
+            Room(white, new Vector3(6f, 3f, 6f));
+            harness.AddBox(new Vector3(0f, 1.5f, 2.9f), new Vector3(4f, 2f, 0.1f), harness.CreateLitMaterial(Color.black, new Color(30f, 1f, 1f)));
+            Material metal = harness.CreateLitMaterial(Color.white, Color.black);
+            metal.SetFloat("_Metallic", 1f);
+            metal.SetFloat("_Smoothness", 0.45f);
+            harness.AddBox(new Vector3(0f, 0.01f, 0f), new Vector3(5.8f, 0.02f, 5.8f), metal);
+            Look(new Vector3(0f, 2.6f, -2.8f), new Vector3(0f, 0.6f, 2.9f));
+            harness.Settings.worldSpace = true;
+            RectInt floor = Probe(new Vector3(0f, 0.02f, 0.9f), 6);
+            harness.Settings.worldReflections = false;
+            Color probe = harness.Converged(floor, 48);
+            harness.Settings.worldReflections = true;
+            Color world = harness.Converged(floor, 48);
+            Debug.Log($"[BasisGI] rough floor reflection: probe {probe} | world cascades {world}");
+            Assert.Greater(probe.b, 0.05f, "the reflection probe shows no sky, so this test proves nothing");
+            Assert.Greater(world.r / Mathf.Max(world.b, 1e-4f), probe.r / Mathf.Max(probe.b, 1e-4f) * 1.5f, $"the floor still reflects the sky instead of the red wall: {world}, probe {probe}");
+            Assert.Greater(world.r / Mathf.Max(world.g, 1e-4f), probe.r / Mathf.Max(probe.g, 1e-4f) * 1.3f, $"the floor does not reflect the red wall in front of it: {world}, probe {probe}");
+        }
+
+        [Test]
+        public void TheWrappedVolumesArePowersOfTwo()
+        {
+            Assert.AreEqual(0, BasisGlobalIlluminationPass.WorldVoxels & (BasisGlobalIlluminationPass.WorldVoxels - 1), "the shaders wrap voxel slots with a bit mask");
+            Assert.AreEqual(0, BasisGlobalIlluminationPass.WorldProbes & (BasisGlobalIlluminationPass.WorldProbes - 1), "the shaders wrap probe slots with a bit mask");
+        }
+
+        [Test]
         public void TheUpdateIntervalFollowsQuality()
         {
             BasisGlobalIlluminationSettings settings = new BasisGlobalIlluminationSettings { quality = BasisGlobalIlluminationQuality.Low };

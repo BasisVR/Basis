@@ -100,6 +100,9 @@ void frag(
 #ifdef _WRITE_RENDERING_LAYERS
     , out uint outRenderingLayers : SV_Target1
 #endif
+#ifdef _BASIS_SURFACE_MRT
+    , out half4 outBasisSurface : BASIS_SURFACE_TARGET
+#endif
 )
 {
     Varyings unpacked = UnpackVaryings(packedInput);
@@ -181,5 +184,14 @@ void frag(
 
 #ifdef _WRITE_RENDERING_LAYERS
     outRenderingLayers = EncodeMeshRenderingLayer();
+#endif
+#ifdef _BASIS_SURFACE_MRT
+    outBasisSurface = BasisSurfaceOutput(surface.albedo, surface.metallic, surface.specular,
+    #ifdef _SPECULAR_SETUP
+        true
+    #else
+        false
+    #endif
+    );
 #endif
 }

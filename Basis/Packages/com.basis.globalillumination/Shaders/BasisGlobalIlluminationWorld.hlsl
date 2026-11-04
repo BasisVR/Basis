@@ -5,15 +5,17 @@
 #define BASISGI_WORLD_SH_Y0 0.282095
 #define BASISGI_WORLD_SH_Y1 0.488603
 
-float4 _BasisGIWorldLevel[BASISGI_WORLD_MAX_LEVELS];
+#ifndef BASISGI_WORLD_GLOBALS_DECLARED
+#define BASISGI_WORLD_GLOBALS_DECLARED
+float4 _BasisGIWorldLevel[4];
 float4 _BasisGIWorldParams;
 float4 _BasisGIWorldSHParams;
-
 TEXTURE3D(_BasisGIWorldSH0);
 TEXTURE3D(_BasisGIWorldSH1);
 TEXTURE3D(_BasisGIWorldSH2);
 TEXTURE3D(_BasisGIWorldSH3);
 Texture3D<float4> _BasisGIVoxAlbedo;
+#endif
 
 int BasisGIWorldLevels() { return (int)_BasisGIWorldParams.x; }
 bool BasisGIWorldValid() { return _BasisGIWorldParams.w > 0.5; }
@@ -36,7 +38,7 @@ int BasisGIWorldLevelAt(float3 positionWS, float marginProbes)
 
 int3 BasisGIWorldWrap(int3 index, int count)
 {
-    return ((index % count) + count) % count;
+    return index & (count - 1);
 }
 
 int3 BasisGIWorldSeenSlot(float3 positionWS, int level)
