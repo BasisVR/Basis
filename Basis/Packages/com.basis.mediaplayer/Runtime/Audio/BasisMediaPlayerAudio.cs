@@ -54,13 +54,25 @@ public sealed class BasisMediaPlayerAudio : MonoBehaviour, IBasisMediaTickConsum
     [Tooltip("If true, decoded samples are zeroed before write. Mutes without stopping the AudioSources.")]
     public bool Mute = false;
 
-    /// <summary>Gain the taps apply. Deliberately does NOT fold in the host's
-    /// main volume: these outputs are ordinary AudioSources with no mixer
-    /// group, so they reach the AudioListener, and the main volume slider is
-    /// applied there already (SMModuleAudio.ApplyMainVolume sets
-    /// AudioListener.volume). Multiplying here as well would attenuate media
-    /// by the square of it.</summary>
-    public float EffectiveVolumeGain => Mute ? 0f : Mathf.Clamp(VolumeGain, 0f, 2f);
+    /// <summary>The local viewer's volume for this player, 0..1, set from the
+    /// Media Players panel. It scales the audible outputs only: an Analysis
+    /// Feed output follows <see cref="StreamGain"/>, so analysers keep
+    /// reacting while the viewer has the player turned down or off.</summary>
+    public float ListeningVolume
+    {
+        get => listeningVolume;
+        set => listeningVolume = Mathf.Clamp01(value);
+    }
+    private volatile float listeningVolume = 1f;
+
+    /// <summary><see cref="VolumeGain"/> and <see cref="Mute"/>: the gain the
+    /// stream itself carries, before any viewer's volume.</summary>
+    public float StreamGain => Mute ? 0f : Mathf.Clamp(VolumeGain, 0f, 2f);
+
+    /// <summary>Gain the taps apply on top of each output's own volume and the
+    /// viewer's main volume, which <see cref="BasisMediaPlayerAudioTap"/>
+    /// folds in itself.</summary>
+    public float EffectiveVolumeGain => StreamGain * listeningVolume;
 
     // Read-only metrics for BasisMediaPlayerDiagnostics, so the capture covers
     // what actually reached a speaker. Tracked on the audio thread from the
@@ -484,13 +496,14 @@ public sealed class BasisMediaPlayerAudio : MonoBehaviour, IBasisMediaTickConsum
                 //
                 // Unlike the tap, Unity applies this AudioSource's volume and
                 // mute to clip playback itself, so neither is folded into the
-                // gain here or it would land twice.
+                // gain here or it would land twice. The viewer's listening
+                // volume is left out too: analysis follows the stream.
                 var feed = new AnalysisFeed(src, splitter, taps, outChannels, rate,
                                             Mathf.Clamp(sel.AnalysisFeedLatency,
                                                         BasisMediaAudioChannel.MinAnalysisFeedLatency,
                                                         BasisMediaAudioChannel.MaxAnalysisFeedLatency),
                                             $"BasisMediaPlayerAudio_{i}_analysis",
-                                            () => EffectiveVolumeGain);
+                                            () => StreamGain);
                 b.Feed = feed;
                 b.Clip = feed.Clip;
                 src.clip = b.Clip;

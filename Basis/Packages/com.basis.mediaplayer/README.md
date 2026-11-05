@@ -186,12 +186,19 @@ ITU BS.775 coefficients.
   flags and fixes the order.
 - Each `AudioSource`'s `Volume` and `Mute` apply to that output;
   `BasisMediaPlayerAudio`'s `VolumeGain` and `Mute` to the whole player. They
-  multiply with the viewer's main volume.
+  multiply with the viewer's main volume and with the volume they set for the
+  player in the Media Players panel (`ListeningVolume`). Both prefabs route
+  their outputs to the mixer's `world` group, so the viewer's World Volume
+  applies too; route your own outputs there to match.
 - `Pitch` has no effect. Keep **Spatialize Post Effects** ticked and **Bypass
   Effects** unticked, or the spatialiser receives silence.
 - AudioLink and other `GetOutputData` analysers read silence from a normal
   output. Set `BasisMediaAudioChannel.AnalysisFeed` on the analyser's own
-  `AudioSource`; it adds a small delay.
+  `AudioSource`; it adds a small delay. The feed follows Master Volume but
+  not the viewer's panel volume, so the analyser keeps reacting when they turn
+  the player down or off.
+  Keep the feed's own `AudioSource` near silent, as AudioLink's input is
+  (volume 0.01), or it stays audible when the viewer turns the player down.
 - FLAC and Opus carry up to 7.1, AAC up to 5.1.
 
 For files with several audio tracks (MP4 and Matroska), `AudioTracks` lists

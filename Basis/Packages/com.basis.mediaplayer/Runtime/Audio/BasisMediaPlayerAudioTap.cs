@@ -66,9 +66,10 @@ public sealed class BasisMediaPlayerAudioTap : MonoBehaviour
         PollSourceVolume();
     }
 
-    // Unity applies AudioSource.volume and .mute to the clip this block
-    // overwrites, so neither reaches the mix unless it's folded into the tap's
-    // gain. Polled because neither raises a change notification, and here
+    // Unity applies AudioSource.volume, .mute and AudioListener.volume (the
+    // viewer's main volume) to the clip this block overwrites, so none of
+    // them reaches the mix unless it's folded into the tap's gain. Polled
+    // because none raises a change notification, and here
     // rather than on the owning BasisMediaPlayerAudio so it keeps tracking
     // while that component is disabled with StopOnDisable off, which leaves
     // this tap generating audio.
@@ -90,7 +91,8 @@ public sealed class BasisMediaPlayerAudioTap : MonoBehaviour
     private void PollSourceVolume()
     {
         if (source == null && !TryGetComponent(out source)) return;
-        sourceVolume = source.mute ? 0f : Mathf.Max(0f, source.volume);
+        float listener = source.ignoreListenerVolume ? 1f : AudioListener.volume;
+        sourceVolume = source.mute ? 0f : Mathf.Max(0f, source.volume) * listener;
     }
 
     /// <summary>
