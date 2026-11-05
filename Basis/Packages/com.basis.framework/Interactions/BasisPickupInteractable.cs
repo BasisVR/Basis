@@ -195,6 +195,12 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public const float k_DesktopZoopMaxVelocity = 10f;
 
         /// <summary>
+        /// Desktop Shift + mouse wheel scaling: wheel steps needed to cross the whole
+        /// <see cref="minScalePercent"/> to <see cref="maxScalePercent"/> range.
+        /// </summary>
+        public const float k_DesktopScaleStepsAcrossRange = 20f;
+
+        /// <summary>
         /// Lock context used to temporarily pause head/camera updates while rotating in desktop.
         /// </summary>
         private readonly BasisLocks.LockContext HeadLock = BasisLocks.GetContext(BasisLocks.LookRotation);
@@ -1305,7 +1311,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
         protected virtual bool DesktopMiddleClickReserved => false;
 
         /// <summary>
-        /// Handles desktop-only controls: mouse wheel zoom ("zoop") and drag rotation.
+        /// Handles desktop-only controls: mouse wheel zoom ("zoop"), Shift + mouse wheel scaling
+        /// (when <see cref="enableScaleWithGesture"/> is on) and drag rotation.
         /// Temporarily pauses head/look rotation while rotating.
         /// </summary>
         /// <param name="DesktopEye">The desktop center-eye input wrapper.</param>
@@ -1321,7 +1328,17 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 targetOffset = currentOffset;
             }
 
-            if (mouseScroll != 0)
+            bool scaleWithScroll = enableScaleWithGesture && Keyboard.current != null && Keyboard.current.shiftKey.isPressed;
+            if (mouseScroll != 0 && scaleWithScroll)
+            {
+                var scaleDirection = mouseScroll > 0 ? BasisTransform.Direction.Embiggen : BasisTransform.Direction.Ensmallen;
+                float referenceScale = GestureScaleReference;
+                float minScale = (minScalePercent / 100) * referenceScale;
+                float maxScale = (maxScalePercent / 100) * referenceScale;
+                float stepSize = math.abs(minScale - maxScale) / k_DesktopScaleStepsAcrossRange;
+                ApplyGestureScaleStep(scaleDirection, stepSize, minScale, maxScale);
+            }
+            else if (mouseScroll != 0)
             {
                 Transform sourceTransform = BasisLocalCameraDriver.Instance.transform;
 
