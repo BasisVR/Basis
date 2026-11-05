@@ -34,6 +34,21 @@ ignore = [
     # paste is a proc-macro used at build time by rav1d; unmaintained but
     # inert at runtime. Follows rav1d's own tree; drop when upstream does.
     "RUSTSEC-2024-0436",
+    # crypto-bigint 0.5 comes in through str0m's pure-Rust DTLS backend
+    # (dimpl, ecdsa, elliptic-curve 0.13), which WHEP uses on Android and
+    # Linux; Windows uses wincrypto. The only secret it handles there is
+    # the DTLS key str0m generates for each session. The fixed 0.7 line
+    # needs str0m 0.25; drop this when str0m moves.
+    "RUSTSEC-2026-0387",
+    # pin-utils is unmaintained. nix 0.26 uses its pinning macros, through
+    # webrtc-util 0.17, which is the latest release. Inert at runtime.
+    "RUSTSEC-2026-0441",
+    # zbus_names, zvariant and zvariant_derive are unmaintained as separate
+    # crates; zbus 6 folds them in. Only media-capture uses zbus; drop
+    # these when it moves to zbus 6.
+    "RUSTSEC-2026-0370",
+    "RUSTSEC-2026-0371",
+    "RUSTSEC-2026-0372",
 ]
 
 [bans]

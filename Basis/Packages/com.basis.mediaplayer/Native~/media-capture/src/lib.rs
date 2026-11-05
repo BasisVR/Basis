@@ -3,6 +3,7 @@ mod h264_bitstream;
 #[cfg(target_os = "linux")]
 mod linux;
 mod opus;
+#[cfg(any(windows, target_os = "linux"))]
 mod pack;
 mod queue;
 mod spa_pod;
