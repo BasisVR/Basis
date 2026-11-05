@@ -352,7 +352,7 @@ namespace Basis.IK
         public const float RetractionShare = 0.5f, ForwardReachStart = 0.35f, ForwardReachFullDeg = 30f, CrossBodyDeg = 20f, BehindStart = 0.05f, BehindEnd = 0.8f, BehindFullDeg = 35f, BehindTwistDeg = 20f;
         public const float MaxElbowDeg = 90f;
         public const float ShrugSqueezeStart = 0.02f, ShrugSqueezeFull = 0.3f, ShrugMaxDeg = 30f;
-        public const float UpsideDownFull = 0.9f, UpsideDownEarlyDeg = 40f, UpsideDownNearReach = 0.2f, UpsideDownFarReach = 0.8f;
+        public const float UpsideDownFull = 0.9f, UpsideDownEarlyDeg = 40f, UpsideDownNearReach = 0.3f, UpsideDownFarReach = 0.7f;
         const float epsilon = 1e-5f, sqrEpsilon = 1e-8f;
         public static void Solve(in BasisShoulderSolveInput i, out BasisShoulderSolveResult r)
         {

@@ -69,6 +69,11 @@ public class RalivIKSpine
             spineData.hipTargetPosition = Vector3.Lerp(spineData.hipTargetPosition, spineData.headTargetPosition + headToHip, 0.5f);
         }
 
+        if (spineData.chestHintWeight > 0f)
+        {
+            ClampChestTargetToReach(ref spineData);
+        }
+
         Quaternion hipRotationOffset = spineData.hipTargetRotation * Quaternion.Inverse(spineData.restRotations[0]);
         Quaternion headRotationOffset = spineData.headTargetRotation * Quaternion.Inverse(spineData.restRotations[^1]);
 
@@ -226,6 +231,41 @@ public class RalivIKSpine
             spineData.positions[index] += index == 0 ? headPinCorrection * spineData.hipPositionFollow : headPinCorrection;
         }
 
+        // Keep chest target withing a reasonable reachable range, hopefully preventing weird twisting with low-quality tracking
+        static void ClampChestTargetToReach(ref SpineData spineData)
+        {
+            const int chest = 2;
+            int count = spineData.restPositions.Length;
+            if (count <= chest + 1)
+            {
+                return;
+            }
+            float hipsToChest = 0f, chestToHead = 0f;
+            for (int index = 0; index < count - 1; index++)
+            {
+                float length = Vector3.Magnitude(spineData.restPositions[index + 1] - spineData.restPositions[index]);
+                if (index < chest)
+                {
+                    hipsToChest += length;
+                }
+                else
+                {
+                    chestToHead += length;
+                }
+            }
+            Vector3 target = spineData.chestTargetPosition;
+            Vector3 fromHips = target - spineData.hipTargetPosition;
+            if (fromHips.sqrMagnitude > hipsToChest * hipsToChest)
+            {
+                target = spineData.hipTargetPosition + fromHips.normalized * hipsToChest;
+            }
+            Vector3 fromHead = target - spineData.headTargetPosition;
+            if (fromHead.sqrMagnitude > chestToHead * chestToHead)
+            {
+                target = spineData.headTargetPosition + fromHead.normalized * chestToHead;
+            }
+            spineData.chestTargetPosition = target;
+        }
         static Quaternion SafeFromToRotation(Vector3 from, Vector3 to)
         {
             return from.sqrMagnitude > BasisEerieMovement.sqrEpsilon && to.sqrMagnitude > BasisEerieMovement.sqrEpsilon ? BasisQuaternionExt.FromToRotation(from, to) : Quaternion.identity;
