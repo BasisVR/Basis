@@ -544,9 +544,7 @@ public partial class BasisMediaPlayerPanelProvider : BasisMenuActionProvider<Bas
         {
             BasisMediaPlayerAudio audio = _activePlayer != null ? _activePlayer.AudioComponent : null;
             if (audio == null) return;
-            float volume = Mathf.Clamp01(v / 100f);
-            audio.VolumeGain = volume;
-            audio.Mute = volume <= 0f;
+            audio.ListeningVolume = v / 100f;
         };
 
         // The three caption rows are the viewer's own preferences, but they are
@@ -802,8 +800,7 @@ public partial class BasisMediaPlayerPanelProvider : BasisMenuActionProvider<Bas
         if (canControl) SyncUrlFieldToActivePlayer();
 
         BasisMediaPlayerAudio audio = _activePlayer.AudioComponent;
-        float gain = audio != null && !audio.Mute ? Mathf.Clamp01(audio.VolumeGain) : 0f;
-        _volumeSlider?.SetValueWithoutNotify(gain * 100f);
+        _volumeSlider?.SetValueWithoutNotify((audio != null ? audio.ListeningVolume : 0f) * 100f);
         // Buffer depth belongs to the player, so it follows the selection.
         _bufferDepthSlider?.SetValueWithoutNotify(_activePlayer.EffectiveBufferDepthMs);
         // The caption rows are the viewer's decision about THIS player, so they
