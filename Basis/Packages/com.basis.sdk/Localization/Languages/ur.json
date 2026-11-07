@@ -2703,6 +2703,7 @@
     { "key": "sdk.uxml.scene.sceneicon.label", "value": "سین کا آئیکن" },
     { "key": "sdk.uxml.scene.assignedinput.text", "value": "ترتیبات" },
     { "key": "sdk.uxml.scene.spawnpointfield.label", "value": "اسپان پوائنٹ" },
+    { "key": "sdk.uxml.scene.overridespawningfield.label", "value": "اسپان اوور رائیڈ کریں" },
     { "key": "sdk.uxml.scene.maincamerafield.label", "value": "مرکزی کیمرہ" },
     { "key": "sdk.uxml.scene.audiomixergroupfield.label", "value": "آڈیو مکسر گروپ" },
     { "key": "sdk.uxml.scene.isreadyfield.label", "value": "تیار ہے" },

@@ -2703,6 +2703,7 @@
     { "key": "sdk.uxml.scene.sceneicon.label", "value": "Ícone da cena" },
     { "key": "sdk.uxml.scene.assignedinput.text", "value": "Configurações" },
     { "key": "sdk.uxml.scene.spawnpointfield.label", "value": "Ponto de spawn" },
+    { "key": "sdk.uxml.scene.overridespawningfield.label", "value": "Substituir o spawn" },
     { "key": "sdk.uxml.scene.maincamerafield.label", "value": "Main Camera" },
     { "key": "sdk.uxml.scene.audiomixergroupfield.label", "value": "Grupo do Audio Mixer" },
     { "key": "sdk.uxml.scene.isreadyfield.label", "value": "Pronto" },

@@ -185,6 +185,8 @@ namespace Cilbox
 			{ typeof(Basis.Shims.BasisInputShim), new HashSet<string>() },
 			{ typeof(Basis.Shims.BasisInputRequest), new HashSet<string>() },
 			{ typeof(Basis.Shims.BasisRemotePlayerAudioShim), new HashSet<string>() },
+			// Spawn events are for world scripts only; a prop cannot move the local player.
+			{ typeof(Basis.Shims.BasisSpawnEventShim), new HashSet<string>() },
 			// Props may ask whether the local player sits; the seat itself is a world object.
 			{ typeof(Basis.Shims.BasisSeatShim), new HashSet<string>{ $"get_{nameof(Basis.Shims.BasisSeatShim.IsSeated)}" } },
 			{ typeof(Basis.Shims.BasisVelocityShim), new HashSet<string>{ $"get_{nameof(Basis.Shims.BasisVelocityShim.Velocity)}" } },

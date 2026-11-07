@@ -50,6 +50,22 @@ void OnLocalPermissionsChanged(bool isAdmin, bool isModerator)
 }
 ```
 
+## BasisSpawnEventShim
+
+World scripts only. Fires when Basis spawns or respawns the local player: on joining, from the menu's Respawn button, after a fall below the scene's Respawn Height, and when a script calls `Respawn()`. If the player is already in the world when you opt in, it also fires once straight away for the join your script missed. Basis moves the player to the scene's Spawn Point first, unless Override Spawning is ticked on the Basis Scene. Then the player stays where they are and your callback decides where they go. Move them with `Teleport` here, not `Respawn`, which would call you again.
+
+```csharp
+public Transform[] spawnPoints;
+
+void Start() { GetComponent<BasisSpawnEventShim>(); }
+
+void OnSpawned()
+{
+    Transform point = spawnPoints[Random.Range(0, spawnPoints.Length)];
+    BasisLocalPlayer.Instance.Teleport(point.position, point.rotation, mode: BasisTeleportMode.WorldFeet);
+}
+```
+
 ## BasisJiggleEventShim
 
 Fires when someone grabs or touches this object's jiggle physics. Both callbacks fire once when it starts (`began` true) and once when it ends.

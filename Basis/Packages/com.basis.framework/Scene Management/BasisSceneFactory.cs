@@ -301,12 +301,18 @@ public static partial class BasisSceneFactory
         BasisDebug.Log("Mixer group assigned to all scene AudioSources.");
     }
     /// <summary>
-    /// Fired after the player has been spawned into the scene.
+    /// Fired after the player has been spawned into the scene, or in place of moving them when
+    /// <see cref="BasisScene.OverrideSpawning"/> is set.
     /// </summary>
     public static Action OnSpawnedEvent;
     public static void SpawnPlayer(BasisLocalPlayer localPlayer)
     {
         BasisDebug.Log("Spawning Player");
+        if (BasisScene != null && BasisScene.OverrideSpawning)
+        {
+            OnSpawnedEvent?.Invoke();
+            return;
+        }
         if (RequestSpawnPoint(out Vector3 position, out Quaternion rotation))
         {
             if (localPlayer != null)

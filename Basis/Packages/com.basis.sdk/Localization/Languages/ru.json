@@ -2703,6 +2703,7 @@
     { "key": "sdk.uxml.scene.sceneicon.label", "value": "Значок сцены" },
     { "key": "sdk.uxml.scene.assignedinput.text", "value": "Настройки" },
     { "key": "sdk.uxml.scene.spawnpointfield.label", "value": "Точка появления" },
+    { "key": "sdk.uxml.scene.overridespawningfield.label", "value": "Переопределить появление" },
     { "key": "sdk.uxml.scene.maincamerafield.label", "value": "Основная камера" },
     { "key": "sdk.uxml.scene.audiomixergroupfield.label", "value": "Группа Audio Mixer" },
     { "key": "sdk.uxml.scene.isreadyfield.label", "value": "Готово" },

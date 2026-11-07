@@ -87,6 +87,9 @@ public class BasisSceneSDKInspector : Editor
             SpawnPointField.allowSceneObjects = true;
             SpawnPointField.BindProperty(serializedObject.FindProperty("SpawnPoint"));
 
+            Toggle OverrideSpawningField = uiElementsRoot.Q<Toggle>(BasisSDKConstants.OverrideSpawningField);
+            OverrideSpawningField.BindProperty(serializedObject.FindProperty(nameof(BasisScene.OverrideSpawning)));
+
             // Main camera field
             ObjectField MainCameraField = uiElementsRoot.Q<ObjectField>(BasisSDKConstants.MainCameraField);
             MainCameraField.allowSceneObjects = true;

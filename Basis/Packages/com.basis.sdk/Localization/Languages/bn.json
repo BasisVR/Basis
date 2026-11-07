@@ -2703,6 +2703,7 @@
     { "key": "sdk.uxml.scene.sceneicon.label", "value": "দৃশ্যের আইকন" },
     { "key": "sdk.uxml.scene.assignedinput.text", "value": "সেটিংস" },
     { "key": "sdk.uxml.scene.spawnpointfield.label", "value": "স্পন পয়েন্ট" },
+    { "key": "sdk.uxml.scene.overridespawningfield.label", "value": "স্পন ওভাররাইড" },
     { "key": "sdk.uxml.scene.maincamerafield.label", "value": "Main Camera" },
     { "key": "sdk.uxml.scene.audiomixergroupfield.label", "value": "অডিও মিক্সার গ্রুপ" },
     { "key": "sdk.uxml.scene.isreadyfield.label", "value": "প্রস্তুত" },

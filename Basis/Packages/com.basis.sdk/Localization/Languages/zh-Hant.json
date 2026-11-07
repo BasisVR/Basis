@@ -2703,6 +2703,7 @@
     { "key": "sdk.uxml.scene.sceneicon.label", "value": "場景圖示" },
     { "key": "sdk.uxml.scene.assignedinput.text", "value": "設定" },
     { "key": "sdk.uxml.scene.spawnpointfield.label", "value": "出生點" },
+    { "key": "sdk.uxml.scene.overridespawningfield.label", "value": "覆寫出生" },
     { "key": "sdk.uxml.scene.maincamerafield.label", "value": "主攝影機" },
     { "key": "sdk.uxml.scene.audiomixergroupfield.label", "value": "音訊混音器群組" },
     { "key": "sdk.uxml.scene.isreadyfield.label", "value": "是否就緒" },

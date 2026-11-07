@@ -330,6 +330,9 @@ namespace Cilbox
 			{ typeof(Basis.Shims.BasisPlatformEventShim), new HashSet<string>{
 				nameof(Basis.Shims.BasisPlatformEventShim.Rebind),
 				} },
+			{ typeof(Basis.Shims.BasisSpawnEventShim), new HashSet<string>{
+				nameof(Basis.Shims.BasisSpawnEventShim.Rebind),
+				} },
 			{ typeof(Basis.Shims.BasisLanguageEventShim), new HashSet<string>{
 				nameof(Basis.Shims.BasisLanguageEventShim.Rebind),
 				} },

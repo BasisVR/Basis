@@ -26,6 +26,7 @@ Shims come in three shapes:
 | `BasisLanguageEventShim` | Language changes | [Events](/en/docs/scripting/shims/events) |
 | `BasisGraphicsSettingsEventShim` | Quality changes | [Events](/en/docs/scripting/shims/events) |
 | `BasisPermissionEventShim` | Local permission changes | [Events](/en/docs/scripting/shims/events) |
+| `BasisSpawnEventShim` | Spawns and respawns, Override Spawning | [Events](/en/docs/scripting/shims/events) |
 | `BasisJiggleEventShim` | Someone grabs or touches jiggle bones | [Events](/en/docs/scripting/shims/events) |
 | `BasisBeforeRenderShim` | Late update after IK, before drawing | [Events](/en/docs/scripting/shims/events) |
 | `BasisNetworkShim` | Network events, ownership | [Networking](/en/docs/scripting/shims/networking) |
