@@ -613,12 +613,14 @@ namespace Basis.Scripts.Drivers
             _jiggleColliderMapping = null;
         }
         /// <summary>
-        /// Applies per-renderer flags for local-avatar SkinnedMeshRenderers and creates shadow-only
-        /// clones for every renderer whose geometry is influenced by the head hierarchy.
+        /// Moves every local-avatar renderer onto <paramref name="layer"/>, applies per-renderer flags
+        /// for its SkinnedMeshRenderers and creates shadow-only clones for every renderer whose
+        /// geometry is influenced by the head hierarchy.
         /// </summary>
-        public static void LocalRenderMeshSettings(int layer, int skinnedMeshRendererLength, SkinnedMeshRenderer[] skinnedMeshRenderers, SkinnedMeshRenderer FaceMesh, Transform head = null)
+        public static void LocalRenderMeshSettings(int layer, Renderer[] renderers, int skinnedMeshRendererLength, SkinnedMeshRenderer[] skinnedMeshRenderers, SkinnedMeshRenderer FaceMesh, Transform head = null)
         {
             RemoveOldShadowClones();
+            SetAvatarRendererLayers(layer, renderers, skinnedMeshRendererLength, skinnedMeshRenderers);
 
             for (int index = 0; index < skinnedMeshRendererLength; index++)
             {
@@ -626,7 +628,6 @@ namespace Basis.Scripts.Drivers
                 //  Render.shadowCastingMode = ShadowCastingMode.On;
                 Render.updateWhenOffscreen = true;
                 Render.forceMatrixRecalculationPerRender = true;
-                Render.gameObject.layer = layer;
                 Render.forceMeshLod = 0;
             }
 
@@ -700,16 +701,42 @@ namespace Basis.Scripts.Drivers
             EnableShadowClones();
         }
         /// <summary>
-        /// Applies per-renderer flags for remote-avatar SkinnedMeshRenderers.
+        /// Moves every remote-avatar renderer onto <paramref name="layer"/> and applies per-renderer
+        /// flags for its SkinnedMeshRenderers.
         /// </summary>
-        public static void RemoteRenderMeshSettings(int layer, int skinnedMeshRendererLength, SkinnedMeshRenderer[] skinnedMeshRenderers)
+        public static void RemoteRenderMeshSettings(int layer, Renderer[] renderers, int skinnedMeshRendererLength, SkinnedMeshRenderer[] skinnedMeshRenderers)
         {
+            SetAvatarRendererLayers(layer, renderers, skinnedMeshRendererLength, skinnedMeshRenderers);
             for (int index = 0; index < skinnedMeshRendererLength; index++)
             {
                 var r = skinnedMeshRenderers[index];
                 r.updateWhenOffscreen = false;
                 r.forceMatrixRecalculationPerRender = false;
-                r.gameObject.layer = layer;
+            }
+        }
+        /// <summary>
+        /// Puts every renderer on the avatar onto the avatar layer, not only the skinned ones, so
+        /// cameras and mirrors that cull by the avatar layers see them. Falls back to the skinned
+        /// renderers when the avatar has no renderer list.
+        /// </summary>
+        public static void SetAvatarRendererLayers(int layer, Renderer[] renderers, int skinnedMeshRendererLength, SkinnedMeshRenderer[] skinnedMeshRenderers)
+        {
+            if (renderers == null)
+            {
+                for (int index = 0; index < skinnedMeshRendererLength; index++)
+                {
+                    skinnedMeshRenderers[index].gameObject.layer = layer;
+                }
+                return;
+            }
+            int renderersLength = renderers.Length;
+            for (int index = 0; index < renderersLength; index++)
+            {
+                Renderer renderer = renderers[index];
+                if (renderer != null)
+                {
+                    renderer.gameObject.layer = layer;
+                }
             }
         }
         private static List<BasisShadowCloneBlendshapeSync> ShadowCloneSyncs = new();

@@ -165,6 +165,7 @@ namespace Basis.Scripts.Drivers
             BasisLocalEyeDriver.Initialize();
             LocalRenderMeshSettings(
                 BasisLayerMapper.LocalAvatarLayer,
+                player.BasisAvatar.Renders,
                 SkinnedMeshRendererLength,
                 SkinnedMeshRenderer,
                 player.BasisAvatar.FaceVisemeMesh,
