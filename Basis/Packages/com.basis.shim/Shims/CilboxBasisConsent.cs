@@ -186,7 +186,7 @@ namespace Cilbox
 		private static void Gate(CilboxBasisCommon box, List<CilboxProxy> proxies)
 		{
 			if (!box.ownerRecorded) Record(box, proxies);
-			if (box.consentState == State.Unchecked) Check(box);
+			if (box.consentState == State.Unchecked) Check(box, proxies);
 			if (box.consentState != State.Pending || box.consentHash == null || !requests.TryGetValue(box.consentHash, out Request request)) return;
 			foreach (CilboxProxy proxy in proxies)
 			{
@@ -196,7 +196,7 @@ namespace Cilbox
 			}
 		}
 
-		private static void Check(CilboxBasisCommon box)
+		private static void Check(CilboxBasisCommon box, IList<CilboxProxy> proxies)
 		{
 			box.consentState = State.NotNeeded;
 			if (!Application.isPlaying || string.IsNullOrEmpty(box.assemblyData) || box.metadatas != null) return;
@@ -205,8 +205,9 @@ namespace Cilbox
 				box.consentState = State.Denied;
 				return;
 			}
-			string hash = KeyOf(box);
+			string hash = KeyOf(box, proxies);
 			box.consentHash = hash;
+			box.codeHash = KeyOf(box, null);
 			if (!scans.TryGetValue(hash, out Result result))
 			{
 				result = Run(box);
@@ -456,7 +457,8 @@ namespace Cilbox
 		{
 			box.consentState = State.Denied;
 			if (!Application.isPlaying || string.IsNullOrEmpty(box.assemblyData) || !BasisCilboxPermissions.UntrustedAllowed) return;
-			box.consentHash = KeyOf(box);
+			box.consentHash = KeyOf(box, ProxiesOf(box));
+			box.codeHash = KeyOf(box, null);
 			BasisCilboxPermissions.Approval approval = BasisCilboxPermissions.Find(box.consentHash);
 			if (approval != null)
 			{
@@ -655,16 +657,54 @@ namespace Cilbox
 			}
 		}
 
-		private static string KeyOf(CilboxBasisCommon box)
+		private static List<CilboxProxy> ProxiesOf(CilboxBasisCommon box)
+		{
+			List<CilboxProxy> proxies = new List<CilboxProxy>();
+			foreach (CilboxProxy proxy in UnityEngine.Object.FindObjectsByType<CilboxProxy>(FindObjectsInactive.Include))
+			{
+				if (proxy != null && ReferenceEquals(proxy.box, box)) proxies.Add(proxy);
+			}
+			return proxies;
+		}
+
+		internal static string KeyOf(CilboxBasisCommon box, IList<CilboxProxy> proxies)
 		{
 			using SHA256 sha = SHA256.Create();
 			byte[] buffer = new byte[Encoding.UTF8.GetMaxByteCount(HashChunk)];
 			Feed(sha, box.GetType().FullName + "\n", buffer);
-			Feed(sha, box.assemblyData, buffer);
+			Feed(sha, box.assemblyData ?? string.Empty, buffer);
+			if (proxies != null)
+			{
+				List<string> data = new List<string>(proxies.Count);
+				foreach (CilboxProxy proxy in proxies)
+				{
+					if (proxy != null && ReferenceEquals(proxy.box, box)) data.Add(DataOf(proxy));
+				}
+				data.Sort(StringComparer.Ordinal);
+				foreach (string entry in data)
+				{
+					Feed(sha, "\n" + entry.Length + "\n", buffer);
+					Feed(sha, entry, buffer);
+				}
+			}
 			sha.TransformFinalBlock(buffer, 0, 0);
 			StringBuilder hex = new StringBuilder(sha.Hash.Length * 2);
 			foreach (byte b in sha.Hash) hex.Append(b.ToString("x2"));
 			return hex.ToString();
+		}
+
+		private static string DataOf(CilboxProxy proxy)
+		{
+			StringBuilder data = new StringBuilder();
+			data.Append(proxy.className).Append('\n').Append(proxy.serializedObjectData);
+			if (proxy.fieldsObjects == null) return data.ToString();
+			foreach (UnityEngine.Object reference in proxy.fieldsObjects)
+			{
+				data.Append('\n');
+				if (reference == null) data.Append("null");
+				else data.Append(reference.GetType().FullName).Append(':').Append(reference.name);
+			}
+			return data.ToString();
 		}
 
 		private static void Feed(SHA256 sha, string text, byte[] buffer)

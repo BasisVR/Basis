@@ -278,6 +278,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 hoverSphere.PollSystem(interactInput.input.RaycastCoord.position);
 
                 BasisInteractableObject hitInteractable = SelectTarget(interactInput, hoverSphere);
+                if (desktopEye) DiagnoseNamePlateMiss(interactInput, hitInteractable);
 
                 if (hitInteractable != null)
                 {

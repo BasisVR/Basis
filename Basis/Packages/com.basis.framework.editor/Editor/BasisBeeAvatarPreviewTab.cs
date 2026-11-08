@@ -424,7 +424,7 @@ public sealed class BasisBeeAvatarPreviewTab : BasisEditorTabPage
         }
         genericData = BasisGenericAvatarData.FromJson(genericEntry.GenericAvatarDataJson);
 
-        gltfImport = new GltfImport(deferAgent: new UninterruptedDeferAgent());
+        gltfImport = new GltfImport(BasisGltfNoDownloadProvider.Instance, new UninterruptedDeferAgent());
         ImportSettings importSettings = new ImportSettings
         {
             NodeNameMethod = NameImportMethod.Original,

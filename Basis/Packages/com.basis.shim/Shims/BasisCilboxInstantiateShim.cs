@@ -21,6 +21,9 @@ namespace Basis.Shims
 	// then reparents/activates — matching the non-cilbox bundle-load path.
 	public static class BasisCilboxInstantiateShim
 	{
+		internal static readonly string SpawnPropsItem = CilboxBasisCommon.MethodItem(typeof(UnityEngine.Object), "Instantiate");
+		internal static BundledContentHolder.Selector SelectorFor(CilboxBasisCommon box) => box is CilboxSceneBasis ? BundledContentHolder.Selector.World : box is CilboxPropBasis ? BundledContentHolder.Selector.Prop : box is CilboxAvatarBasis && CilboxBasisConsent.Permits(box, SpawnPropsItem) ? BundledContentHolder.Selector.Prop : BundledContentHolder.Selector.Avatar;
+		internal static BundledContentHolder.Selector RunningSelector() => SelectorFor(CilboxBasisConsent.TryRunning(out CilboxBasisCommon box) ? box : null);
 		// Called from CilboxPropBasis.CheckMethodAllowed / CilboxSceneBasis.CheckMethodAllowed
 		// to resolve the shim overload that matches the original
 		// UnityEngine.Object.Instantiate call site. Reuses the cilbox usage
@@ -109,8 +112,8 @@ namespace Basis.Shims
 		}
 
 		// ------------------------------------------------------------------
-		// Core pipeline: delegate to ContentPoliceControl with the prop
-		// selector and the UnityEvent scrub opt-in, using the canonical
+		// Core pipeline: delegate to ContentPoliceControl with the calling
+		// box's selector and the UnityEvent scrub opt-in, using the canonical
 		// disabled host wired on BasisFramework.prefab.
 		// ------------------------------------------------------------------
 
@@ -167,7 +170,7 @@ namespace Basis.Shims
 				spawnRot,
 				false,
 				Vector3.zero,
-				BundledContentHolder.Selector.Prop,
+				RunningSelector(),
 				parent );
 
 			if( sanitizedClone == null ) return null;

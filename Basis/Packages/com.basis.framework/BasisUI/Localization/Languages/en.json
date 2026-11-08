@@ -15011,6 +15011,14 @@
       "value": "Add new components to objects"
     },
     {
+      "key": "settings.cilboxPermissions.cap.spawnProps",
+      "value": "Spawn objects from your avatar with the same parts a prop can use"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.animationEvents",
+      "value": "Turn animation events back on"
+    },
+    {
       "key": "settings.cilboxPermissions.cap.graphics",
       "value": "Change graphics and display settings"
     },
@@ -15161,6 +15169,14 @@
     {
       "key": "settings.cilboxPermissions.why.addComponents",
       "value": "Can add built-in components to objects, including kinds scripts are not normally allowed to create."
+    },
+    {
+      "key": "settings.cilboxPermissions.why.spawnProps",
+      "value": "Objects an avatar spawns normally keep only what avatars may contain. This lets them keep everything a prop may contain, such as pickups, buttons and media players."
+    },
+    {
+      "key": "settings.cilboxPermissions.why.animationEvents",
+      "value": "Basis removes animation events from content because they can call methods on any component by name, outside the script sandbox. This lets scripts add them back and turn them on."
     },
     {
       "key": "settings.cilboxPermissions.why.graphics",

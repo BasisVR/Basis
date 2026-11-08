@@ -6,6 +6,8 @@
         "BasisSDK",
         "BasisSDKEditor",
         "BasisDebug",
+        "glTFast",
+        "UnityEngine.UI",
         "UnityEngine.TestRunner"
     ],
     "includePlatforms": [

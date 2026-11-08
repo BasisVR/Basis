@@ -172,7 +172,7 @@ namespace Basis.Shims
 		{
 			if (box.saveContentKey != null) return box.saveContentKey;
 			string id = CilboxBasisConsent.TryOwner(box, box.gameObject, out BasisContentBase content) && content.BasisBundleDescription != null ? content.BasisBundleDescription.ContentGroupId : null;
-			box.saveContentKey = string.IsNullOrWhiteSpace(id) ? box.consentHash ?? string.Empty : id.Trim();
+			box.saveContentKey = string.IsNullOrWhiteSpace(id) ? box.codeHash ?? string.Empty : id.Trim();
 			return box.saveContentKey;
 		}
 		static bool Claim(CilboxBasisCommon box, string folder)

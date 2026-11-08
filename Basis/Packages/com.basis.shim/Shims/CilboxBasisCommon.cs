@@ -784,6 +784,7 @@ namespace Cilbox
 
 		internal CilboxBasisConsent.State consentState;
 		internal string consentHash;
+		internal string codeHash;
 		internal HashSet<string> consentGranted;
 		internal CilboxBasisConsent.Scan consentScan;
 		internal BasisContentBase ownerContent;
@@ -917,9 +918,18 @@ namespace Cilbox
 			// shim so spawned prefabs are scrubbed (disallowed components destroyed,
 			// persistent UnityEvent listeners killed) while parked under a disabled host
 			// before they become active in hierarchy.
+			if (CilboxAnimationEvents.IsRedirect(declaringType, name))
+			{
+				if (CilboxAnimationEvents.NeedsConsent(declaringType, name)) Beyond(MethodItem(declaringType, name), false);
+				if (parametersIn == null) return true;
+				mi = CilboxAnimationEvents.Resolve(usage, declaringType, name, parametersIn);
+				return mi != null || Beyond(MethodItem(declaringType, name), true);
+			}
+
 			if (declaringType == typeof(UnityEngine.Object) &&
 				(name == "Instantiate" || name == "InstantiateAsync"))
 			{
+				if (this is CilboxAvatarBasis) Beyond(Basis.Shims.BasisCilboxInstantiateShim.SpawnPropsItem, false);
 				mi = Basis.Shims.BasisCilboxInstantiateShim.ResolveShim(
 					usage, name, parametersIn, genericArgumentsIn, fullSignature);
 				return mi != null;

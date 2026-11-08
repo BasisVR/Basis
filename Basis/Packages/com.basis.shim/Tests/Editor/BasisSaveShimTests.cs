@@ -475,7 +475,7 @@ namespace Basis.Tests.Sync
             Track(ProtectedDefault(scriptHash));
             Plant(ProtectedDefault(scriptHash), "slot", data);
             CilboxProxy unnamed = Script(typeof(CilboxPropBasis), Prop(null, true).transform);
-            Field("consentHash").SetValue(unnamed.box, scriptHash);
+            Field("codeHash").SetValue(unnamed.box, scriptHash);
             CollectionAssert.AreEqual(data, BasisSaveShim.Load(unnamed, "slot"), "content without a Content ID keeps its script-hash store");
         }
 

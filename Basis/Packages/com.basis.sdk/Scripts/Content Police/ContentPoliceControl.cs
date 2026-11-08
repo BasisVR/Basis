@@ -601,16 +601,32 @@ public static partial class ContentPoliceControl
         {
             return BasisGraphicsStatePrewarm.ScheduleResident(null, targetScene.name);
         }
-
-        if (!BundledContentHolder.Instance.GetSelector(selector, out ContentPoliceSelector policeCheck))
+        List<Renderer> renderersForPrewarm = new List<Renderer>();
+        if (!ScrubScene(checks, selector, targetScene, includeInactive, rendererPostprocessor, renderersForPrewarm))
+        {
+            return BasisGraphicsStatePrewarm.ScheduleResident(null, targetScene.name);
+        }
+        return ScheduleScenePrewarm(renderersForPrewarm, targetScene, contentGraphicsStates);
+    }
+    public static BasisGraphicsStatePrewarm.WarmupRequest ScheduleScenePrewarm(List<Renderer> renderersForPrewarm, Scene targetScene, GraphicsStateCollection contentGraphicsStates)
+    {
+        if (ShaderPrewarmEnabled && !(BasisGraphicsStatePrewarm.Enabled && BasisGraphicsStatePrewarm.BackendBenefits()))
+        {
+            BasisShaderPrewarm.Warm(renderersForPrewarm, targetScene.name);
+        }
+        return BasisGraphicsStatePrewarm.ScheduleResident(renderersForPrewarm, targetScene.name, contentGraphicsStates);
+    }
+    public static bool ScrubScene(ChecksRequired checks, BundledContentHolder.Selector selector, Scene targetScene, bool includeInactive, Action<IList<Renderer>> rendererPostprocessor, List<Renderer> renderersForPrewarm)
+    {
+        if (BundledContentHolder.Instance == null || !BundledContentHolder.Instance.GetSelector(selector, out ContentPoliceSelector policeCheck) || policeCheck == null)
         {
             BasisDebug.LogError("Can't find Police check for " + selector, BasisDebug.LogTag.Event);
-            return BasisGraphicsStatePrewarm.ScheduleResident(null, targetScene.name);
+            return false;
         }
         if (!targetScene.IsValid() || !targetScene.isLoaded)
         {
             BasisDebug.LogError("Target scene is not valid or not loaded.");
-            return BasisGraphicsStatePrewarm.ScheduleResident(null, targetScene.name);
+            return false;
         }
 
         List<GameObject> roots = new List<GameObject>();
@@ -618,7 +634,7 @@ public static partial class ContentPoliceControl
         // Renderers harvested across all roots during the same walk that strips dangerous
         // components, so shader prewarm runs without paying for a second walk. Both scratch
         // lists are reused across roots so the scrub allocates only these once.
-        List<Renderer> renderersForPrewarm = new List<Renderer>();
+        renderersForPrewarm ??= new List<Renderer>();
         List<Component> components = new List<Component>();
         BasisConstraintConversion.Report constraintReport = default;
         bool sanitizeMediaFields = IsAvatarOrPropSelector(selector) && TryGetMediaFieldPolicies();
@@ -731,13 +747,7 @@ public static partial class ContentPoliceControl
         // subclasses and objects that are replaced while the scene is sanitized. Let callers run
         // material migrations on that exact list before shader variants are selected and warmed.
         rendererPostprocessor?.Invoke(renderersForPrewarm);
-
-        // Warm shaders for every renderer we just collected. One call per scene scrub.
-        if (ShaderPrewarmEnabled && !(BasisGraphicsStatePrewarm.Enabled && BasisGraphicsStatePrewarm.BackendBenefits()))
-        {
-            BasisShaderPrewarm.Warm(renderersForPrewarm, targetScene.name);
-        }
-        return BasisGraphicsStatePrewarm.ScheduleResident(renderersForPrewarm, targetScene.name, contentGraphicsStates);
+        return true;
     }
 
     // ------------------------------------------------------------------

@@ -11,12 +11,14 @@ public static partial class BasisIOManagement
 {
     public static string PersistentDataPath { get; private set; }
     public static RuntimePlatform CachedPlatform { get; private set; }
+    public static DateTime SessionStartUtc { get; private set; } = DateTime.UtcNow;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void CacheUnityMainThreadValues()
     {
         PersistentDataPath = Application.persistentDataPath;
         CachedPlatform = Application.platform;
+        SessionStartUtc = DateTime.UtcNow;
     }
 
     public static string GetCurrentCachePlatform()
@@ -84,24 +86,59 @@ public static partial class BasisIOManagement
         };
     }
 
-    public static string GetBeeCacheFilePath(string uniqueVersion, string downloadedPlatform = null)
+    public static string SourceCacheTag(string sourceUrl)
     {
-        return GenerateFilePath(BuildPlatformAwareCacheFileName(uniqueVersion, BasisBeeConstants.BasisEncryptedExtension, downloadedPlatform), BasisBeeConstants.AssetBundlesFolder);
+        string canonical = CanonicalizeRemoteUrl(sourceUrl);
+        if (string.IsNullOrEmpty(canonical))
+            throw new ArgumentException("Source url is null or empty.", nameof(sourceUrl));
+        using System.Security.Cryptography.SHA256 sha = System.Security.Cryptography.SHA256.Create();
+        byte[] hash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(canonical));
+        System.Text.StringBuilder builder = new System.Text.StringBuilder(32);
+        for (int index = 0; index < 16; index++) builder.Append(hash[index].ToString("x2"));
+        return builder.ToString();
     }
 
-    public static string GetConnectorCacheFilePath(string uniqueVersion, string downloadedPlatform = null)
+    public static string GetBeeCacheFilePath(string sourceUrl, string uniqueVersion, string downloadedPlatform)
     {
-        return GenerateFilePath(BuildPlatformAwareCacheFileName(uniqueVersion, BasisBeeConstants.BasisConnectorExtension, downloadedPlatform), BasisBeeConstants.AssetBundlesFolder);
+        return GenerateFilePath(BuildPlatformAwareCacheFileName(ScopedCacheStem(sourceUrl, uniqueVersion), BasisBeeConstants.BasisEncryptedExtension, downloadedPlatform), BasisBeeConstants.AssetBundlesFolder);
     }
 
-    public static string GetMetaCacheFilePath(string uniqueVersion, string downloadedPlatform = null)
+    public static string GetConnectorCacheFilePath(string sourceUrl, string uniqueVersion, string downloadedPlatform)
+    {
+        return GenerateFilePath(BuildPlatformAwareCacheFileName(ScopedCacheStem(sourceUrl, uniqueVersion), BasisBeeConstants.BasisConnectorExtension, downloadedPlatform), BasisBeeConstants.AssetBundlesFolder);
+    }
+
+    public static string GetMetaCacheFilePath(string sourceUrl, string uniqueVersion, string downloadedPlatform)
+    {
+        return GenerateFilePath(BuildPlatformAwareCacheFileName(ScopedCacheStem(sourceUrl, uniqueVersion), BasisBeeConstants.BasisMetaExtension, downloadedPlatform), BasisBeeConstants.AssetBundlesFolder);
+    }
+
+    public static bool TryGetMetaCacheFilePath(BasisBEEExtensionMeta meta, out string path)
+    {
+        path = null;
+        if (meta == null || string.IsNullOrWhiteSpace(meta.UniqueVersion) || string.IsNullOrWhiteSpace(meta.StoredRemote?.RemoteBeeFileLocation)) return false;
+        try
+        {
+            path = GetMetaCacheFilePath(meta.StoredRemote.RemoteBeeFileLocation, meta.UniqueVersion, meta.DownloadedPlatform);
+            return true;
+        }
+        catch (Exception)
+        {
+            path = null;
+            return false;
+        }
+    }
+
+    public static string GetUnscopedMetaCacheFilePath(string uniqueVersion, string downloadedPlatform)
     {
         return GenerateFilePath(BuildPlatformAwareCacheFileName(uniqueVersion, BasisBeeConstants.BasisMetaExtension, downloadedPlatform), BasisBeeConstants.AssetBundlesFolder);
     }
 
-    public static string GetLegacyBeeCacheFilePath(string uniqueVersion)
+    private static string ScopedCacheStem(string sourceUrl, string uniqueVersion)
     {
-        return GenerateFilePath($"{uniqueVersion}{BasisBeeConstants.BasisEncryptedExtension}", BasisBeeConstants.AssetBundlesFolder);
+        if (string.IsNullOrWhiteSpace(uniqueVersion))
+            throw new ArgumentException("Unique version is null or empty.", nameof(uniqueVersion));
+        return $"{uniqueVersion}.{SourceCacheTag(sourceUrl)}";
     }
 
     public static string GetLegacyMetaCacheFilePath(string uniqueVersion)
@@ -244,6 +281,7 @@ public static partial class BasisIOManagement
     /// </summary>
     public static async Task<BeeResult<BeeDownloadResult>> DownloadBEEEx(string url, string vp, BasisProgressReport progressCallback, CancellationToken cancellationToken = default, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
     {
+        string sourceUrl = url;
         // Validate inputs with actionable messages
         if (!ValidateBeeSourceUrl(url, out url, out var urlErr))
             return BeeResult<BeeDownloadResult>.Fail($"DownloadBEEEx: {urlErr}");
@@ -388,14 +426,13 @@ public static partial class BasisIOManagement
         // Generic downloads are cached under the Generic platform name so the cache meta,
         // the .bee filename, and the section they describe stay in agreement.
         string cachePlatform = downloadedGeneric ? BasisBundleConnector.GenericPlatform : null;
-        string fileName = Path.GetFileName(GetBeeCacheFilePath(connector.UniqueVersion, cachePlatform));
-        if (string.IsNullOrWhiteSpace(fileName))
+        if (string.IsNullOrWhiteSpace(connector.UniqueVersion))
             return BeeResult<BeeDownloadResult>.Fail("DownloadBEEEx: Connector has no UniqueVersion / file extension.");
 
         string localPath;
         try
         {
-            localPath = GetBeeCacheFilePath(connector.UniqueVersion, cachePlatform);
+            localPath = GetBeeCacheFilePath(sourceUrl, connector.UniqueVersion, cachePlatform);
         }
         catch (Exception ex)
         {
@@ -413,6 +450,7 @@ public static partial class BasisIOManagement
     /// </summary>
     public static async Task<BeeResult<(BasisBundleConnector, string, string)>> DownloadConnectorOnlyEx(string url, string vp, BasisProgressReport progressCallback, CancellationToken cancellationToken = default, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
     {
+        string sourceUrl = url;
         if (!ValidateBeeSourceUrl(url, out url, out var urlErr))
             return BeeResult<(BasisBundleConnector, string, string)>.Fail($"DownloadConnectorOnlyEx: {urlErr}");
 
@@ -460,13 +498,12 @@ public static partial class BasisIOManagement
         }
 
         // 5) Write local .bec (Int32 header + connector only, no section)
-        string fileName = Path.GetFileName(GetConnectorCacheFilePath(connector.UniqueVersion));
-        if (string.IsNullOrWhiteSpace(fileName))
+        if (string.IsNullOrWhiteSpace(connector.UniqueVersion))
         {
             return BeeResult<(BasisBundleConnector, string, string)>.Fail("DownloadConnectorOnlyEx: Connector has no UniqueVersion / file extension.");
 
         }
-        string localPath = GetConnectorCacheFilePath(connector.UniqueVersion);
+        string localPath = GetConnectorCacheFilePath(sourceUrl, connector.UniqueVersion, null);
         var connectorBytes = connectorRes.Value.Data;
 
         var writeRes = await WriteBeeFileAsync(localPath, connectorBytes, null, true);

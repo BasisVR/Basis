@@ -82,12 +82,12 @@ public static partial class BasisStorageManagement
             remoteUrl = meta.StoredRemote.RemoteBeeFileLocation;
 
             string beePath = meta.StoredLocal.DownloadedBeeFileLocation;
-            if (string.IsNullOrEmpty(beePath))
+            if (BasisLoadHandler.TryResolveRecordedCachePath(beePath, out string resolvedBee))
             {
-                beePath = BasisIOManagement.GetBeeCacheFilePath(meta.UniqueVersion, meta.DownloadedPlatform);
+                beePath = resolvedBee;
             }
 
-            string metaFilePath = BasisIOManagement.GetMetaCacheFilePath(meta.UniqueVersion, meta.DownloadedPlatform);
+            BasisIOManagement.TryGetMetaCacheFilePath(meta, out string metaFilePath);
 
             long fileSize = 0;
             DateTime lastWrite = DateTime.MinValue;
@@ -294,22 +294,20 @@ public static partial class BasisStorageManagement
             return false;
         }
 
-        string beePath = meta.StoredLocal.DownloadedBeeFileLocation;
-        if (string.IsNullOrEmpty(beePath))
+        if (BasisLoadHandler.TryResolveRecordedCachePath(meta.StoredLocal?.DownloadedBeeFileLocation, out string beePath))
         {
-            beePath = BasisIOManagement.GetBeeCacheFilePath(meta.UniqueVersion, meta.DownloadedPlatform);
+            TryDeleteFile(beePath);
         }
-        TryDeleteFile(beePath);
 
-        string connectorPath = meta.StoredLocal.DownloadedConnectorFileLocation;
-        if (string.IsNullOrEmpty(connectorPath))
+        if (BasisLoadHandler.TryResolveRecordedCachePath(meta.StoredLocal?.DownloadedConnectorFileLocation, out string connectorPath))
         {
-            connectorPath = BasisIOManagement.GetConnectorCacheFilePath(meta.UniqueVersion, meta.DownloadedPlatform);
+            TryDeleteFile(connectorPath);
         }
-        TryDeleteFile(connectorPath);
 
-        string metaPath = BasisIOManagement.GetMetaCacheFilePath(meta.UniqueVersion, meta.DownloadedPlatform);
-        TryDeleteFile(metaPath);
+        if (BasisIOManagement.TryGetMetaCacheFilePath(meta, out string metaPath))
+        {
+            TryDeleteFile(metaPath);
+        }
 
         BasisDebug.Log($"Deleted stored BEE file: {meta.UniqueVersion} [{meta.DownloadedPlatform}] (source: {meta.StoredRemote.RemoteBeeFileLocation})", BasisDebug.LogTag.Event);
         return true;

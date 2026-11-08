@@ -54,7 +54,7 @@ public static class BasisGltfAvatarLoader
             });
         }
 
-        GltfImport gltf = new GltfImport();
+        GltfImport gltf = new GltfImport(BasisGltfNoDownloadProvider.Instance);
         GameObject holder = null;
         Avatar humanoidAvatar = null;
         try

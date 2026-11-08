@@ -539,56 +539,127 @@ public static partial class BasisLoadHandler
 
     private static bool TryResolveStoredBeePath(BasisBEEExtensionMeta discInfo, out string beePath)
     {
-        beePath = discInfo.StoredLocal.DownloadedBeeFileLocation;
-        if (!string.IsNullOrWhiteSpace(beePath) && File.Exists(beePath))
+        if (TryResolveRecordedCachePath(discInfo.StoredLocal.DownloadedBeeFileLocation, out beePath))
         {
+            discInfo.StoredLocal.DownloadedBeeFileLocation = beePath;
             return true;
         }
-
-        if (!string.IsNullOrWhiteSpace(discInfo.UniqueVersion))
-        {
-            string platformAwarePath = BasisIOManagement.GetBeeCacheFilePath(discInfo.UniqueVersion, discInfo.DownloadedPlatform);
-            if (File.Exists(platformAwarePath))
-            {
-                discInfo.StoredLocal.DownloadedBeeFileLocation = platformAwarePath;
-                beePath = platformAwarePath;
-                return true;
-            }
-
-            string legacyPath = BasisIOManagement.GetLegacyBeeCacheFilePath(discInfo.UniqueVersion);
-            if (File.Exists(legacyPath))
-            {
-                discInfo.StoredLocal.DownloadedBeeFileLocation = legacyPath;
-                beePath = legacyPath;
-                return true;
-            }
-        }
-
-        beePath = null;
         return false;
     }
 
     private static bool TryResolveStoredConnectorPath(BasisBEEExtensionMeta discInfo, out string connectorPath)
     {
-        connectorPath = discInfo.StoredLocal.DownloadedConnectorFileLocation;
-        if (!string.IsNullOrWhiteSpace(connectorPath) && File.Exists(connectorPath))
+        if (TryResolveRecordedCachePath(discInfo.StoredLocal.DownloadedConnectorFileLocation, out connectorPath))
         {
+            discInfo.StoredLocal.DownloadedConnectorFileLocation = connectorPath;
             return true;
         }
+        return false;
+    }
 
-        if (!string.IsNullOrWhiteSpace(discInfo.UniqueVersion))
+    public static bool TryResolveRecordedCachePath(string recordedPath, out string path)
+    {
+        path = null;
+        if (string.IsNullOrWhiteSpace(recordedPath)) return false;
+        if (File.Exists(recordedPath))
         {
-            string platformAwarePath = BasisIOManagement.GetConnectorCacheFilePath(discInfo.UniqueVersion, discInfo.DownloadedPlatform);
-            if (File.Exists(platformAwarePath))
+            path = recordedPath;
+            return true;
+        }
+        string name;
+        try
+        {
+            name = Path.GetFileName(recordedPath);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+        if (string.IsNullOrWhiteSpace(name)) return false;
+        string moved = Path.Combine(BasisIOManagement.GenerateFolderPath(BasisBeeConstants.AssetBundlesFolder), name);
+        if (!File.Exists(moved)) return false;
+        path = moved;
+        return true;
+    }
+
+    public static BasisBEEExtensionMeta MigrateToSourceScopedFiles(string loadedFromMetaPath, BasisBEEExtensionMeta discInfo)
+    {
+        if (discInfo == null || !BasisIOManagement.TryGetMetaCacheFilePath(discInfo, out string scopedMetaPath)) return discInfo;
+        if (string.Equals(Path.GetFullPath(loadedFromMetaPath), Path.GetFullPath(scopedMetaPath), StringComparison.OrdinalIgnoreCase)) return discInfo;
+        string url = discInfo.StoredRemote.RemoteBeeFileLocation;
+        try
+        {
+            discInfo.StoredLocal ??= new BasisStoredEncryptedBundle();
+            discInfo.StoredLocal.DownloadedBeeFileLocation = MoveIntoScopedName(discInfo.StoredLocal.DownloadedBeeFileLocation, BasisIOManagement.GetBeeCacheFilePath(url, discInfo.UniqueVersion, discInfo.DownloadedPlatform));
+            discInfo.StoredLocal.DownloadedConnectorFileLocation = MoveIntoScopedName(discInfo.StoredLocal.DownloadedConnectorFileLocation, BasisIOManagement.GetConnectorCacheFilePath(url, discInfo.UniqueVersion, discInfo.DownloadedPlatform));
+            byte[] serialized = BasisSerialization.SerializeValue(discInfo);
+            File.WriteAllBytes(scopedMetaPath, serialized);
+            File.Delete(loadedFromMetaPath);
+            BasisDebug.Log($"Moved cached content for {url} to source-scoped files.", BasisDebug.LogTag.Event);
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogWarning($"Could not move cached content for {url} to source-scoped files: {ex.Message}", BasisDebug.LogTag.Event);
+        }
+        return discInfo;
+    }
+
+    private static string MoveIntoScopedName(string recordedPath, string scopedPath)
+    {
+        if (!TryResolveRecordedCachePath(recordedPath, out string current)) return recordedPath;
+        string cacheFolder = Path.GetFullPath(BasisIOManagement.GenerateFolderPath(BasisBeeConstants.AssetBundlesFolder));
+        string currentFull = Path.GetFullPath(current);
+        if (!string.Equals(Path.GetDirectoryName(currentFull), cacheFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), StringComparison.OrdinalIgnoreCase)) return current;
+        if (string.Equals(currentFull, Path.GetFullPath(scopedPath), StringComparison.OrdinalIgnoreCase)) return scopedPath;
+        if (File.Exists(scopedPath)) File.Delete(scopedPath);
+        File.Move(current, scopedPath);
+        return scopedPath;
+    }
+
+    private static void DeleteMetaIfOwnedBy(string metaPath, string canonicalUrl)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(metaPath) || !File.Exists(metaPath)) return;
+            BasisBEEExtensionMeta existing = BasisSerialization.DeserializeValue<BasisBEEExtensionMeta>(File.ReadAllBytes(metaPath));
+            if (BasisIOManagement.CanonicalizeRemoteUrl(existing?.StoredRemote?.RemoteBeeFileLocation) == canonicalUrl) File.Delete(metaPath);
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogWarning($"Could not check old cache meta {Path.GetFileName(metaPath)}: {ex.Message}", BasisDebug.LogTag.Event);
+        }
+    }
+
+    public static int SweepUnreferencedCacheFiles(DateTime olderThanUtc)
+    {
+        string folder = BasisIOManagement.GenerateFolderPath(BasisBeeConstants.AssetBundlesFolder);
+        if (!Directory.Exists(folder)) return 0;
+        HashSet<string> referenced = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (BasisBEEExtensionMeta meta in OnDiscData.Values)
+        {
+            if (meta?.StoredLocal == null) continue;
+            if (TryResolveRecordedCachePath(meta.StoredLocal.DownloadedBeeFileLocation, out string bee)) referenced.Add(Path.GetFullPath(bee));
+            if (TryResolveRecordedCachePath(meta.StoredLocal.DownloadedConnectorFileLocation, out string connector)) referenced.Add(Path.GetFullPath(connector));
+        }
+        int removed = 0;
+        foreach (string file in Directory.GetFiles(folder))
+        {
+            string extension = Path.GetExtension(file);
+            if (!string.Equals(extension, BasisBeeConstants.BasisEncryptedExtension, StringComparison.OrdinalIgnoreCase) && !string.Equals(extension, BasisBeeConstants.BasisConnectorExtension, StringComparison.OrdinalIgnoreCase)) continue;
+            if (referenced.Contains(Path.GetFullPath(file))) continue;
+            try
             {
-                discInfo.StoredLocal.DownloadedConnectorFileLocation = platformAwarePath;
-                connectorPath = platformAwarePath;
-                return true;
+                if (File.GetLastWriteTimeUtc(file) >= olderThanUtc) continue;
+                File.Delete(file);
+                removed++;
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogWarning($"Could not remove unreferenced cache file {Path.GetFileName(file)}: {ex.Message}", BasisDebug.LogTag.Event);
             }
         }
-
-        connectorPath = null;
-        return false;
+        if (removed > 0) BasisDebug.Log($"Removed {removed} cached files no entry refers to.", BasisDebug.LogTag.Event);
+        return removed;
     }
 
     private static bool HasAnyCachedPayload(BasisBEEExtensionMeta discInfo)
@@ -619,6 +690,7 @@ public static partial class BasisLoadHandler
                 {
                     continue;
                 }
+                discInfo = MigrateToSourceScopedFiles(file, discInfo);
 
                 OnDiscData[GetDiscInfoKey(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo.DownloadedPlatform)] = discInfo;
 
@@ -731,19 +803,14 @@ public static partial class BasisLoadHandler
     {
         string discKey = GetDiscInfoKey(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo.DownloadedPlatform);
         OnDiscData[discKey] = discInfo;
-        string filePath = BasisIOManagement.GetMetaCacheFilePath(discInfo.UniqueVersion, discInfo.DownloadedPlatform);
         byte[] serializedData = BasisSerialization.SerializeValue(discInfo);
 
         try
         {
-            if (!string.IsNullOrWhiteSpace(discInfo.UniqueVersion))
-            {
-                string legacyMetaPath = BasisIOManagement.GetLegacyMetaCacheFilePath(discInfo.UniqueVersion);
-                if (File.Exists(legacyMetaPath))
-                {
-                    File.Delete(legacyMetaPath);
-                }
-            }
+            string filePath = BasisIOManagement.GetMetaCacheFilePath(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo.UniqueVersion, discInfo.DownloadedPlatform);
+            string canonicalUrl = BasisIOManagement.CanonicalizeRemoteUrl(discInfo.StoredRemote.RemoteBeeFileLocation);
+            DeleteMetaIfOwnedBy(BasisIOManagement.GetLegacyMetaCacheFilePath(discInfo.UniqueVersion), canonicalUrl);
+            DeleteMetaIfOwnedBy(BasisIOManagement.GetUnscopedMetaCacheFilePath(discInfo.UniqueVersion, discInfo.DownloadedPlatform), canonicalUrl);
             string tempPath = filePath + ".tmp";
             await BasisFiles.WriteAllBytesAsync(tempPath, serializedData);
             if (File.Exists(filePath))
@@ -803,7 +870,7 @@ public static partial class BasisLoadHandler
                 try
                 {
                     byte[] fileData = await BasisFiles.ReadAllBytesAsync(file);
-                    BasisBEEExtensionMeta discInfo = BasisSerialization.DeserializeValue<BasisBEEExtensionMeta>(fileData);
+                    BasisBEEExtensionMeta discInfo = MigrateToSourceScopedFiles(file, BasisSerialization.DeserializeValue<BasisBEEExtensionMeta>(fileData));
                     OnDiscData[GetDiscInfoKey(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo.DownloadedPlatform)] = discInfo;
                 }
                 catch (Exception ex)
@@ -815,6 +882,7 @@ public static partial class BasisLoadHandler
         }
 
         await Task.WhenAll(loadTasks);
+        await BasisTasks.Run(() => SweepUnreferencedCacheFiles(BasisIOManagement.SessionStartUtc));
 
         BasisDebug.Log("Completed loading all disc data.");
     }

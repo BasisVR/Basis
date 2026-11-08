@@ -276,28 +276,16 @@ public static class BasisBeeManagement
             await SaveMetaIfNeeded(wrapper, shouldUseOnDiskMeta, didForceRedownload, output.Item1.Platform);
             return;
         }
-        IEnumerable<AssetBundle> AssetBundles = AssetBundle.GetAllLoadedAssetBundles();
-        foreach (AssetBundle assetBundle in AssetBundles)
+        if (output.Item1 == null || output.Item1.AssetToLoadName == null)
         {
-            if (output.Item1 == null || output.Item1.AssetToLoadName == null)
-            {
-                throw new Exception($"Missing AssetToName! in obtained file! corrupted?");
-            }
-            else
-            {
-                string AssetToLoadName = output.Item1.AssetToLoadName;
-                if (assetBundle != null && assetBundle.Contains(AssetToLoadName))
-                {
-                    wrapper.AssetBundle = assetBundle;
-                    #if UNITY_BUNDLEUNLOAD
-                    wrapper.IsBundleBackingStoreReleased = false;
-                    #endif
-                    BasisDebug.Log($"we already have this AssetToLoadName in our loaded bundles using that instead! {AssetToLoadName}");
-                    PrepareEmbeddedGraphicsStates(wrapper, output.Item1, output.Item2);
-                    await SaveMetaIfNeeded(wrapper, shouldUseOnDiskMeta, didForceRedownload, output.Item1.Platform);
-                    return;
-                }
-            }
+            throw new Exception($"Missing AssetToName! in obtained file! corrupted?");
+        }
+        if (TryAdoptLoadedBundle(wrapper, output.Item1.AssetToLoadName))
+        {
+            BasisDebug.Log($"we already have this AssetToLoadName in our loaded bundles using that instead! {output.Item1.AssetToLoadName}");
+            PrepareEmbeddedGraphicsStates(wrapper, output.Item1, output.Item2);
+            await SaveMetaIfNeeded(wrapper, shouldUseOnDiskMeta, didForceRedownload, output.Item1.Platform);
+            return;
         }
         BasisDebug.Log("Calling Load Request", BasisDebug.LogTag.System);
         try
@@ -328,11 +316,12 @@ public static class BasisBeeManagement
 
                 if (bundleRequest == null || bundleRequest.assetBundle == null)
                 {
-                    throw new Exception("AssetBundle creation failed after attempting to refresh the cached bundle.");
+                    throw new Exception(LoadedByOtherSource(output.Item1.AssetToLoadName) ? "AssetBundle creation failed: the same bundle is already loaded from another source, which this content cannot share." : "AssetBundle creation failed after attempting to refresh the cached bundle.");
                 }
             }
 
             wrapper.AssetBundle = bundleRequest.assetBundle;
+            RegisterBundleSource(bundleRequest.assetBundle, SourceKeyOf(wrapper));
             #if UNITY_BUNDLEUNLOAD
             wrapper.IsBundleBackingStoreReleased = false;
             #endif
@@ -382,51 +371,78 @@ public static class BasisBeeManagement
             throw new Exception("Missing AssetToLoadName in local bee file! corrupted?");
         }
 
-        foreach (AssetBundle assetBundle in AssetBundle.GetAllLoadedAssetBundles())
+        if (TryAdoptLoadedBundle(wrapper, assetToLoadName))
         {
-            if (assetBundle != null && assetBundle.Contains(assetToLoadName))
-            {
-                wrapper.AssetBundle = assetBundle;
-                #if UNITY_BUNDLEUNLOAD
-                wrapper.IsBundleBackingStoreReleased = false;
-                #endif
-                BasisDebug.Log($"Reusing already-loaded AssetBundle for {assetToLoadName}");
-                PrepareEmbeddedGraphicsStates(wrapper, output.Item1, output.Item2);
-                return;
-            }
+            BasisDebug.Log($"Reusing already-loaded AssetBundle for {assetToLoadName}");
+            PrepareEmbeddedGraphicsStates(wrapper, output.Item1, output.Item2);
+            return;
         }
 
         AssetBundleCreateRequest bundleRequest = await BasisEncryptionToData.GenerateBundleFromFile(wrapper.LoadableBundle.UnlockPassword, BasisEncryptionToData.AssetBundlePart(output.Item1, output.Item2), output.Item1.AssetBundleCRC, report.Stage(key, 5, 100), version => wrapper.BuiltWithUnityVersion = version);
         if (bundleRequest == null || bundleRequest.assetBundle == null)
         {
-            throw new Exception($"AssetBundle creation failed for local bee file {localBeePath}.");
+            throw new Exception(LoadedByOtherSource(assetToLoadName) ? $"AssetBundle creation failed for local bee file {localBeePath}: the same bundle is already loaded from another source." : $"AssetBundle creation failed for local bee file {localBeePath}.");
         }
 
         wrapper.AssetBundle = bundleRequest.assetBundle;
+        RegisterBundleSource(bundleRequest.assetBundle, SourceKeyOf(wrapper));
         #if UNITY_BUNDLEUNLOAD
         wrapper.IsBundleBackingStoreReleased = false;
         #endif
         PrepareEmbeddedGraphicsStates(wrapper, output.Item1, output.Item2);
     }
 
+    [Unity.Scripting.LifecycleManagement.NoAutoStaticsCleanup]
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<AssetBundle, string> bundleSources = new System.Runtime.CompilerServices.ConditionalWeakTable<AssetBundle, string>();
+    public static string SourceKeyOf(BasisTrackedBundleWrapper wrapper)
+    {
+        return BasisIOManagement.CanonicalizeRemoteUrl(wrapper?.LoadableBundle?.BasisRemoteBundleEncrypted?.RemoteBeeFileLocation);
+    }
+    public static void RegisterBundleSource(AssetBundle bundle, string sourceKey)
+    {
+        if (bundle == null || string.IsNullOrEmpty(sourceKey)) return;
+        lock (bundleSources)
+        {
+            bundleSources.Remove(bundle);
+            bundleSources.Add(bundle, sourceKey);
+        }
+    }
+    public static AssetBundle FindLoadedBundleForSource(string sourceKey, string assetToLoadName)
+    {
+        if (string.IsNullOrEmpty(sourceKey) || string.IsNullOrEmpty(assetToLoadName)) return null;
+        foreach (AssetBundle assetBundle in AssetBundle.GetAllLoadedAssetBundles())
+        {
+            if (assetBundle == null) continue;
+            string owner;
+            lock (bundleSources)
+            {
+                if (!bundleSources.TryGetValue(assetBundle, out owner)) continue;
+            }
+            if (string.Equals(owner, sourceKey, StringComparison.Ordinal) && assetBundle.Contains(assetToLoadName)) return assetBundle;
+        }
+        return null;
+    }
+    private static bool LoadedByOtherSource(string assetToLoadName)
+    {
+        if (string.IsNullOrEmpty(assetToLoadName)) return false;
+        foreach (AssetBundle assetBundle in AssetBundle.GetAllLoadedAssetBundles())
+        {
+            if (assetBundle != null && assetBundle.Contains(assetToLoadName)) return true;
+        }
+        return false;
+    }
     private static bool TryAdoptLoadedBundle(BasisTrackedBundleWrapper wrapper, string assetToLoadName)
     {
-        if (string.IsNullOrEmpty(assetToLoadName))
+        AssetBundle assetBundle = FindLoadedBundleForSource(SourceKeyOf(wrapper), assetToLoadName);
+        if (assetBundle == null)
         {
             return false;
         }
-        foreach (AssetBundle assetBundle in AssetBundle.GetAllLoadedAssetBundles())
-        {
-            if (assetBundle != null && assetBundle.Contains(assetToLoadName))
-            {
-                wrapper.AssetBundle = assetBundle;
-                #if UNITY_BUNDLEUNLOAD
-                wrapper.IsBundleBackingStoreReleased = false;
-                #endif
-                return true;
-            }
-        }
-        return false;
+        wrapper.AssetBundle = assetBundle;
+        #if UNITY_BUNDLEUNLOAD
+        wrapper.IsBundleBackingStoreReleased = false;
+        #endif
+        return true;
     }
 
     private static void PrepareEmbeddedGraphicsStates(

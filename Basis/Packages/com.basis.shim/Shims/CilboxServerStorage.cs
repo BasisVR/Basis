@@ -103,7 +103,7 @@ namespace Cilbox
 			}
 			string id = CilboxBasisConsent.TryOwner(box, box.gameObject, out BasisContentBase content) && content.BasisBundleDescription != null ? content.BasisBundleDescription.ContentGroupId : null;
 			if (!string.IsNullOrWhiteSpace(id)) return BasisStorageProtocol.IsValidName(id.Trim()) ? id.Trim() : null;
-			string hash = box.consentHash;
+			string hash = box.codeHash;
 			return string.IsNullOrEmpty(hash) ? null : CodePrefix + hash.Substring(0, Math.Min(CodeHashLength, hash.Length));
 		}
 	}
