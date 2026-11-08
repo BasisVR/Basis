@@ -19,6 +19,8 @@ namespace Basis.Scripts.Networking
         public bool CanEdit;
         public bool CanRemove;
         public bool CanAutoConnect = true;
+        public string AddressLabel;
+        public Func<string, Task> Join;
     }
 
     public interface IServerDirectorySource

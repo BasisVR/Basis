@@ -83,7 +83,7 @@ namespace Basis.Editor.Localization
                 return 0;
             }
 
-            int updated = 0;
+            int updated = PruneMissing(group);
             for (int i = 0; i < assetPaths.Count; i++)
             {
                 updated += RegisterFile(settings, group, assetPaths[i], logEach);
@@ -95,6 +95,27 @@ namespace Basis.Editor.Localization
             }
 
             return updated;
+        }
+
+        private static int PruneMissing(AddressableAssetGroup group)
+        {
+            List<AddressableAssetEntry> missing = null;
+            foreach (AddressableAssetEntry entry in group.entries)
+            {
+                if (entry != null && string.IsNullOrEmpty(AssetDatabase.GUIDToAssetPath(entry.guid)))
+                {
+                    (missing ??= new List<AddressableAssetEntry>()).Add(entry);
+                }
+            }
+            if (missing == null)
+            {
+                return 0;
+            }
+            for (int i = 0; i < missing.Count; i++)
+            {
+                group.RemoveAssetEntry(missing[i], postEvent: false);
+            }
+            return missing.Count;
         }
 
         private static int RegisterFile(AddressableAssetSettings settings, AddressableAssetGroup group, string unityPath, bool logEach)
@@ -198,7 +219,7 @@ namespace Basis.Editor.Localization
                 string[] movedAssets,
                 string[] movedFromAssetPaths)
             {
-                if (!TouchesLanguagesFolder(importedAssets) && !TouchesLanguagesFolder(movedAssets))
+                if (!TouchesLanguagesFolder(importedAssets) && !TouchesLanguagesFolder(movedAssets) && !TouchesLanguagesFolder(deletedAssets))
                 {
                     return;
                 }

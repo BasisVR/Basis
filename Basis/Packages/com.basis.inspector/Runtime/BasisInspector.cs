@@ -20,7 +20,7 @@ public class BasisInspector : MonoBehaviour
     const float Pad = 24f, BarHigh = 64f, TreeWide = 620f, RowHigh = 44f, RowGap = 4f, ScrollWide = 28f, Indent = 24f, FoldSize = 36f, IconSize = 26f;
     const float FieldInterval = 0.2f, NameInterval = 2f, ReadableDistance = 12f;
     const float TreeRefresh = 0.25f, ComponentAudit = 1f;
-    const int WheelRows = 3, CollapseComponentsAbove = 24, PreviewRowCount = 6, MaxListItems = 1024, MaxViews = 16;
+    const int WheelRows = 3, PreviewRowCount = 6, MaxListItems = 1024, MaxViews = 16;
     const float StripHigh = 44f;
     const double WarmBudgetMs = 1.0;
     enum EntryKind { Header, Field }
@@ -117,7 +117,7 @@ public class BasisInspector : MonoBehaviour
     bool hadSelection, built, languageHooked, hidden, hasHeading;
     int treeOffset, fieldOffset, shownSceneIndex = -2, shownSceneCount = -1, entryCount, pendingTypes;
     float nextTree, nextField, nextNames, nextHeading, nextAudit;
-    bool collapseByDefault;
+    bool collapseComponents;
     string textTitle, textSelectPrompt, textSceneEmpty, textMissingScript;
 
     void Awake()
@@ -507,7 +507,7 @@ public class BasisInspector : MonoBehaviour
         segment.Title = title;
         segment.Members = members;
         segment.Category = category;
-        segment.Collapsed = target != null && (collapseByDefault && !(target is GameObject)) != toggled.Contains(target);
+        segment.Collapsed = target != null && (collapseComponents && !(target is GameObject) && !(target is Transform)) != toggled.Contains(target);
         segments.Add(segment);
     }
 
@@ -534,7 +534,7 @@ public class BasisInspector : MonoBehaviour
         components.Clear();
         go.GetComponents(components);
         shownComponents.AddRange(components);
-        collapseByDefault = components.Count > CollapseComponentsAbove;
+        collapseComponents = true;
         RentSegment(go, typeof(GameObject), nameof(GameObject), BasisInspectorReflection.GameObjectMembers, BasisInspectorCategory.GameObject);
         foreach (Component component in components)
         {
@@ -554,7 +554,7 @@ public class BasisInspector : MonoBehaviour
 
     void BuildView(View view)
     {
-        collapseByDefault = false;
+        collapseComponents = false;
         if (view.Items != null)
         {
             RentSegment(this, null, view.Title, view.ItemMembers, BasisInspectorCategory.Asset);

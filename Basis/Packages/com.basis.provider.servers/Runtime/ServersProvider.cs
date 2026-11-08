@@ -24,6 +24,7 @@ namespace Basis.BasisUI
     {
         private static ServersProvider _instance;
         public static readonly List<Action<RectTransform>> HostSettingsBuilders = new();
+        public static readonly List<Action<RectTransform>> HeaderActionBuilders = new();
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()
         {
@@ -352,7 +353,7 @@ namespace Basis.BasisUI
             _refreshAllButton.SetSize(new Vector2(150, 150));
             _refreshAllButton.Layout.flexibleWidth = 0f;
             _refreshAllButton.EnableIconHoverAnimation();
-            _refreshAllButton.OnClicked += () => _ = RefreshAllAsync();
+            _refreshAllButton.OnClicked += () => _ = RefreshSourcesAsync();
 
             _autoConnectButton = PanelButton.CreateNew(PanelButton.ButtonStyles.Hotbar, headerActions);
             _autoConnectButton.SetIcon(AddressableAssets.Sprites.Network);
@@ -390,6 +391,22 @@ namespace Basis.BasisUI
             _searchButton.EnableIconHoverAnimation();
             _searchButton.OnClicked += () => _ = ShowSearchDialogAsync();
             UpdateSearchButtonVisual();
+
+            for (int index = 0; index < HeaderActionBuilders.Count; index++)
+            {
+                try { HeaderActionBuilders[index]?.Invoke(headerActions); }
+                catch (Exception ex) { BasisDebug.LogError($"Servers header action builder threw: {ex}"); }
+            }
+        }
+
+        private async Task RefreshSourcesAsync()
+        {
+            foreach (IServerDirectorySource source in BasisServerDirectoryRegistry.Sources)
+            {
+                try { await source.RefreshAsync(default); }
+                catch (Exception ex) { BasisDebug.LogWarning($"Directory source '{source.SourceId}' RefreshAsync failed: {ex.Message}"); }
+            }
+            if (_panel != null) await RefreshAllAsync();
         }
 
         /// <summary>
@@ -1232,7 +1249,7 @@ namespace Basis.BasisUI
                 card.Group.IconImage.color = isHost || online ? OnlineTint : card.Probed ? OfflineTint : UnknownTint;
             }
 
-            string addressText = DisplayAddress(address, port);
+            string addressText = string.IsNullOrEmpty(entry.AddressLabel) ? DisplayAddress(address, port) : entry.AddressLabel;
             string description;
             if (online)
             {
@@ -1320,7 +1337,7 @@ namespace Basis.BasisUI
             ushort.TryParse(entry.Target?.Get(ConnectionTarget.Keys.Port) ?? string.Empty, out ushort port);
 
             _tooltipBuilder.Clear();
-            _tooltipBuilder.Append(DisplayAddress(address, port));
+            _tooltipBuilder.Append(string.IsNullOrEmpty(entry.AddressLabel) ? DisplayAddress(address, port) : entry.AddressLabel);
 
             _probeResults.TryGetValue(entry.Id, out ServerProbeResult probe);
             if (probe != null && probe.Reachable)
@@ -1819,6 +1836,14 @@ namespace Basis.BasisUI
                 && BasisHighPlayerCapPerformanceMode.TryOfferBeforeConnect(
                     probe.Online + 1, () => _ = ConnectToAsync(entry, isHostMode)))
             {
+                return;
+            }
+
+            if (entry.Join != null && !isHostMode)
+            {
+                BasisMainMenu.Close();
+                BasisCursorManagement.OnReset();
+                await entry.Join(userName);
                 return;
             }
 
