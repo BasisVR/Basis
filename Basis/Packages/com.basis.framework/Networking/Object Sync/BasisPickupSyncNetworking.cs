@@ -66,6 +66,7 @@ public class BasisPickupSyncNetworking : BasisSyncedTransform, IBasisStaticLocka
     private const byte HandRightPalm = 4;
     private const byte HandLeftGrip = 5;
     private const byte HandRightGrip = 6;
+    private const byte HandHead = 7;
 
     private static bool IsLeftHand(int handId) => handId == HandLeft || handId == HandLeftPalm || handId == HandLeftGrip;
     private static bool IsHandFrame(int handId) => handId >= HandLeftPalm && handId <= HandRightGrip;
@@ -423,7 +424,14 @@ public class BasisPickupSyncNetworking : BasisSyncedTransform, IBasisStaticLocka
         else if (inputs.rightHand.GetState() == BasisInteractInputState.Interacting)
             role = BasisBoneTrackedRole.RightHand;
         else if (inputs.desktopCenterEye.GetState() == BasisInteractInputState.Interacting)
+        {
+            if (TryResolveHandFrame(HandHead, out frame))
+            {
+                handId = HandHead;
+                return true;
+            }
             role = BasisDominantHand.IsLeftHanded ? BasisBoneTrackedRole.LeftHand : BasisBoneTrackedRole.RightHand;
+        }
         else
             return false;
 
@@ -567,6 +575,7 @@ public class BasisPickupSyncNetworking : BasisSyncedTransform, IBasisStaticLocka
             case HandRightPalm: return "R palm";
             case HandLeftGrip: return "L grip";
             case HandRightGrip: return "R grip";
+            case HandHead: return "head";
             default: return "?";
         }
     }
@@ -603,7 +612,7 @@ public class BasisPickupSyncNetworking : BasisSyncedTransform, IBasisStaticLocka
             return true;
         }
 
-        Transform resolved = animator.GetBoneTransform(handId == HandLeft ? HumanBodyBones.LeftHand : HumanBodyBones.RightHand);
+        Transform resolved = animator.GetBoneTransform(handId == HandHead ? HumanBodyBones.Head : handId == HandLeft ? HumanBodyBones.LeftHand : HumanBodyBones.RightHand);
         if (resolved == null) return false;
 
         _cachedHandAnimator = animator;

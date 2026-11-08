@@ -313,6 +313,41 @@ void OnDestroy() { BasisPoseOverrideShim.ReleaseAll(this); }",
             new CilboxApiEntry
             {
                 GroupKey = GroupPlayers,
+                TitleKey = "sdk.cilbox.api.remotePose.title",
+                SummaryKey = "sdk.cilbox.api.remotePose.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisRemotePoseShim", "SolveLimb") },
+                Example =
+@"using Basis.Shims;
+
+// Your own IK on other players, on this client only. It runs every frame
+// right after their networked pose lands. An avatar poses the player wearing
+// it and a prop poses the player who spawned it, both without tracking.
+// Worlds pose whoever they track.
+BasisRemotePoseShim pose;
+public Transform rail;
+
+void Start()
+{
+    pose = GetComponent<BasisRemotePoseShim>();
+    pose.TrackAll(true);
+}
+
+void OnRemotePose(int playerId)
+{
+    if (!pose.TryGetBone(playerId, HumanBodyBones.RightHand, out Vector3 hand, out Quaternion handRotation)) return;
+    if (!pose.TryGetBone(playerId, HumanBodyBones.RightLowerArm, out Vector3 elbow, out _)) return;
+    Vector3 onRail = rail.position + Vector3.Project(hand - rail.position, rail.forward);
+    float weight = Mathf.InverseLerp(0.3f, 0.1f, Vector3.Distance(hand, onRail));
+    pose.SolveLimb(playerId, HumanBodyBones.RightHand, onRail, handRotation, elbow + Vector3.down * 0.2f, weight);
+
+    // Single bones too. World rotation, or local with SetBoneLocalRotation.
+    if (pose.TryGetBone(playerId, HumanBodyBones.Head, out _, out Quaternion head))
+        pose.SetBoneRotation(playerId, HumanBodyBones.Head, Quaternion.Slerp(head, rail.rotation, 0.2f));
+}",
+            },
+            new CilboxApiEntry
+            {
+                GroupKey = GroupPlayers,
                 TitleKey = "sdk.cilbox.api.playspaceInput.title",
                 SummaryKey = "sdk.cilbox.api.playspaceInput.summary",
                 Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisPlayspaceInputShim", "SetLocomotion") },
@@ -1298,6 +1333,28 @@ void Start()
 
 void OnJiggleGrabStart(int rigIndex) { }
 void OnJiggleGrabEnd(int rigIndex) { }",
+            },
+            new CilboxApiEntry
+            {
+                GroupKey = GroupInteraction,
+                TitleKey = "sdk.cilbox.api.contacts.title",
+                SummaryKey = "sdk.cilbox.api.contacts.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisContactEventShim", "FindReceiver") },
+                Example =
+@"using Basis.Shims;
+
+// Put Basis Contact Receivers on this object or its children. Adding the
+// component is the opt-in; the callbacks are found by name on your script.
+int boop;
+
+void Start()
+{
+    var contacts = GetComponent<BasisContactEventShim>();
+    boop = contacts.FindReceiver(""Nose"");
+}
+
+void OnContactEnter(int receiverIndex, int playerId) { }
+void OnContactExit(int receiverIndex, int playerId) { }",
             },
             new CilboxApiEntry
             {

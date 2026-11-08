@@ -18,6 +18,7 @@ public sealed partial class BasisGlobalIlluminationPass
     public const int WorldShadowSteps = 20;
     public const int WorldSpecularBins = 8;
     public const float WorldTemporalBlend = 0.15f;
+    public const float WorldSpecularBlend = 0.03f;
     public const float WorldSeenDecay = 0.996f;
     public const int PassVoxelCapture = 14;
     private const int WorldThreads = 4;
@@ -155,6 +156,7 @@ public sealed partial class BasisGlobalIlluminationPass
     private static readonly int idWorldInterval = Shader.PropertyToID("_BasisGIWorldInterval");
     private static readonly int idWorldInject = Shader.PropertyToID("_BasisGIWorldInject");
     private static readonly int idWorldResolve = Shader.PropertyToID("_BasisGIWorldResolve");
+    private static readonly int idWorldSpecularBlend = Shader.PropertyToID("_BasisGIWorldSpecularBlend");
     private static readonly int idWorldRotation = Shader.PropertyToID("_BasisGIWorldRotation");
     private static readonly int idVoxViewProj = Shader.PropertyToID("_BasisGIVoxViewProj");
     private static readonly int idVoxLevel = Shader.PropertyToID("_BasisGIVoxLevel");
@@ -772,6 +774,7 @@ public sealed partial class BasisGlobalIlluminationPass
         for (int level = 0; level < levels; level++)
         {
             float resolveBlend = 1f - Mathf.Pow(1f - WorldTemporalBlend, WorldLevelPeriod(level, levels, data.interval));
+            cmd.SetComputeFloatParam(compute, idWorldSpecularBlend, 1f - Mathf.Pow(1f - WorldSpecularBlend, 2 * WorldLevelPeriod(level, levels, data.interval)));
             cmd.SetComputeVectorParam(compute, idWorldResolve, new Vector4(resolveBlend, data.fresh ? 1f : 0f, data.cascades[level] ? 0f : 1f, data.specular ? 1f + (worldSpecularTurn[level] & 1) : 0f));
             if (data.cascades[level]) { worldSpecularTurn[level]++; }
             cmd.SetComputeMatrixParam(compute, idWorldRotation, worldRotations[level]);

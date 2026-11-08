@@ -9,6 +9,6 @@
         "com.basis.sdk": "0.0.1"
     },
     "dependencies": {
-        "com.unity.ugui": "2.0.0"
+        "com.unity.ugui": "2.7.0"
     }
 }

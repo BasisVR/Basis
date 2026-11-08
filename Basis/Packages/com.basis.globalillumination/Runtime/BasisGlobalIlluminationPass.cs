@@ -88,7 +88,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         public TextureHandle rcColor1, rcColor2, rcColor3, rcDepth1, rcDepth2, rcDepth3, rcSourceColor, rcSourceDepth;
         public TextureHandle rcProbes, rcUpperProbes, rcUpper, rcSh0, rcSh1, rcSh2, rcSh3;
         public Vector4 rcCascade, rcInterval, rcGrid, rcJitter;
-        public Vector4[] rcRotations;
+        public float rcSpin;
         public float rcPhase;
         public readonly Vector4[] rcLevels = new Vector4[CascadeLevels];
     }

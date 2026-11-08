@@ -150,6 +150,8 @@ namespace Cilbox
 			return !(box is CilboxAvatarBasis) && (content is BasisScene || content.SpawnedByLocalPlayer);
 		}
 
+		internal static bool ForRemoteProp(CilboxBasisCommon box, GameObject caller) => box is CilboxPropBasis && TryOwner(box, caller, out BasisContentBase content) && content is BasisProp && !content.SpawnedByLocalPlayer;
+
 		private static bool WornLocally(BasisAvatar avatar)
 		{
 			BasisNetworkPlayer local = BasisNetworkPlayer.LocalPlayer;

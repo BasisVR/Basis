@@ -18,6 +18,7 @@ namespace Cilbox
 			"Basis.Shims.BasisAvatarShim+AvatarReadyEvent",
 			"Basis.Shims.BasisCilboxInstantiateShim",
 			"Basis.Shims.BasisJiggleEventShim", // Restrictive, see method whitelist.
+			"Basis.Shims.BasisContactEventShim",
 			"Basis.Shims.BasisPermissionEventShim", // Restrictive, see method whitelist.
 			"Basis.Shims.BasisGraphicsSettingsEventShim", // Restrictive, see method whitelist.
 			"Basis.Shims.BasisPlatformEventShim", // Restrictive, see method whitelist.
@@ -43,6 +44,7 @@ namespace Cilbox
 			"Basis.Shims.BasisHapticsShim", // Only buzzes the player wearing the avatar.
 			"Basis.Shims.BasisHapticHand",
 			"Basis.Shims.BasisPoseOverrideShim", // Only poses the player wearing the avatar.
+			"Basis.Shims.BasisRemotePoseShim", // Only poses the remote player wearing the avatar, on this client.
 			"Basis.Shims.BasisSharedRandomShim",
 			"Basis.Shims.BasisComputeShim",
 			"Basis.Shims.BasisAudioRoutingShim", // Only routes the avatar's own sources, to the Avatars group.
@@ -83,6 +85,14 @@ namespace Cilbox
 				nameof(Basis.Shims.BasisJiggleEventShim.GetJiggleRigCount),
 				nameof(Basis.Shims.BasisJiggleEventShim.GetJiggleRigName),
 				nameof(Basis.Shims.BasisJiggleEventShim.FindJiggleRig),
+				} },
+			{ typeof(Basis.Shims.BasisContactEventShim), new HashSet<string>{
+				nameof(Basis.Shims.BasisContactEventShim.Rebind),
+				nameof(Basis.Shims.BasisContactEventShim.GetReceiverCount),
+				nameof(Basis.Shims.BasisContactEventShim.FindReceiver),
+				nameof(Basis.Shims.BasisContactEventShim.GetValue),
+				nameof(Basis.Shims.BasisContactEventShim.IsTouched),
+				nameof(Basis.Shims.BasisContactEventShim.GetTouchingPlayer),
 				} },
 			// Local permission changes. Same shape as the jiggle events above: fetching the
 			// component is the opt-in, Rebind is only for proxies that appear late, and the

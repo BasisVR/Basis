@@ -315,6 +315,14 @@ namespace Cilbox
 				nameof(Basis.Shims.BasisJiggleEventShim.GetJiggleRigName),
 				nameof(Basis.Shims.BasisJiggleEventShim.FindJiggleRig),
 				} },
+			{ typeof(Basis.Shims.BasisContactEventShim), new HashSet<string>{
+				nameof(Basis.Shims.BasisContactEventShim.Rebind),
+				nameof(Basis.Shims.BasisContactEventShim.GetReceiverCount),
+				nameof(Basis.Shims.BasisContactEventShim.FindReceiver),
+				nameof(Basis.Shims.BasisContactEventShim.GetValue),
+				nameof(Basis.Shims.BasisContactEventShim.IsTouched),
+				nameof(Basis.Shims.BasisContactEventShim.GetTouchingPlayer),
+				} },
 			// Local permission changes. Same shape as the jiggle events above: fetching the
 			// component is the opt-in, Rebind is only for proxies that appear late, and the
 			// callback is resolved by name off the script.

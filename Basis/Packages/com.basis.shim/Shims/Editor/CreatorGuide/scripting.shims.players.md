@@ -128,6 +128,46 @@ void Update()
 
 Effector and bone claims are separate, so one script can move the hand with an effector while another turns it with `Claim`. A target the arm can't reach leaves the arm stretched toward it. Feet can't be claimed while seated.
 
+## BasisRemotePoseShim
+
+Runs your own IK on other players' bodies. Declare `void OnRemotePose(int playerId)` and fetch the component once; the callback then runs every frame for each player you may pose, right after their networked pose is applied and before jiggle, eyes and rendering. What you write is only seen on this client. When the callback runs, the bones start again from the networked pose, and they go back to it once your script stops posing them.
+
+An avatar poses the player wearing it and a prop poses the player who spawned it, with no tracking needed. Worlds pick who to pose with `Track` or `TrackAll`. The local player never gets the callback; use `BasisPoseOverrideShim` for them.
+
+```csharp
+BasisRemotePoseShim pose;
+public Transform rail;
+
+void Start()
+{
+    pose = GetComponent<BasisRemotePoseShim>();
+    pose.TrackAll(true);
+}
+
+void OnRemotePose(int playerId)
+{
+    if (!pose.TryGetBone(playerId, HumanBodyBones.RightHand, out Vector3 hand, out Quaternion handRotation)) return;
+    if (!pose.TryGetBone(playerId, HumanBodyBones.RightLowerArm, out Vector3 elbow, out _)) return;
+    Vector3 onRail = rail.position + Vector3.Project(hand - rail.position, rail.forward);
+    float weight = Mathf.InverseLerp(0.3f, 0.1f, Vector3.Distance(hand, onRail));
+    pose.SolveLimb(playerId, HumanBodyBones.RightHand, onRail, handRotation, elbow + Vector3.down * 0.2f, weight);
+}
+```
+
+| Call | Does |
+| --- | --- |
+| `Track(playerId)`, `Untrack(playerId)`, `TrackAll(bool)`, `UntrackAll()` | Worlds: who gets the callback. Players who leave are dropped |
+| `CanPose(playerId)`, `IsTracked(playerId)` | Whether your content may pose them, and whether they get the callback |
+| `TryGetBone(playerId, bone, out position, out rotation)` | World pose of any remote player's bone, including your writes so far this frame |
+| `TryGetBoneLocalRotation(playerId, bone, out rotation)` | Local rotation of a bone |
+| `SetBoneRotation(playerId, bone, rotation)`, `SetBoneLocalRotation(...)` | Turns one bone. Eyes and jaw are left to the face system |
+| `SetHips(playerId, position, rotation)` | Moves the hips, and the body with them |
+| `SolveLimb(playerId, tip, target, rotation, hint, weight)` | Two-bone IK. `tip` is a hand or foot, `hint` is a world point the elbow or knee bends toward, `weight` mixes from their pose (0) to the solve (1) |
+
+Reads and writes only work inside `OnRemotePose`, which is the one point in the frame where remote skeletons are settled. Writes go to the player the callback is for; reads can look at any remote player.
+
+The callback doesn't run for every player every frame. Each frame a fixed number of players get a run, nearest and longest-waiting first, and the pass stops early once it has used about a millisecond. Between runs the bones you wrote keep the pose your script last gave them, applied on worker threads together with the networked pose, so a crowd of scripted avatars costs a few callbacks a frame rather than one per player. Write the bones you want every time the callback runs: a bone you skip goes back to the networked pose. The nameplate and mouth position still follow the networked head.
+
 ## BasisAvatarSwitchShim
 
 Tells you when a player changes avatar. It follows the player and keeps working across switches. Dispose it when done.

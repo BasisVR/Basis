@@ -290,13 +290,39 @@ namespace UnityEngine.Rendering.Universal
 
         private UniversalRenderPipelineGlobalSettings m_GlobalSettings;
 
-        // Set by any camera that needs the real back buffer multisampled; one camera keeps it on for the
-        // whole frame. Reset and consumed only in Render() so it can never be read stale.
-        private bool m_FrameNeedsRealBackbufferMSAA;
+        struct DisplayMSAARequest
+        {
+            // Set by any camera that needs the surface multisampled; one camera keeps it on for the
+            // whole frame. Reset and consumed only in Render() so it can never be read stale.
+            bool m_NeededThisFrame;
 
-        // Hysteresis on dropping back buffer MSAA to 1: counts consecutive frames not needing back buffer
-        // MSAA so a per-frame flip-flop of the decision doesn't keep reallocating the back buffer.
-        private int m_FramesSinceRealBackbufferMSAANeeded;
+            // Hysteresis on dropping MSAA to 1: counts consecutive frames not needing MSAA so a per-frame
+            // flip-flop of the decision doesn't keep reallocating the surface.
+            int m_FramesSinceNeeded;
+
+            public void BeginFrame() => m_NeededThisFrame = false;
+            public void Require() => m_NeededThisFrame = true;
+            public void ResetDowngradeDelay() => m_FramesSinceNeeded = 0;
+
+            // Returns the sample count to request. Upgrades apply immediately; downgrades wait out the
+            // hysteresis, since extra MSAA frames cost only bandwidth, never correctness.
+            public int Resolve(int assetSamples, int currentSamples)
+            {
+                if (m_NeededThisFrame)
+                {
+                    m_FramesSinceNeeded = 0;
+                    return assetSamples;                        // upgrade immediately
+                }
+                if (++m_FramesSinceNeeded >= realBackbufferMSAADowngradeDelayFrames)
+                    return 1;                                   // downgrade only after the delay
+                return currentSamples;                          // hold current during the delay
+            }
+        }
+
+        // The real backbuffer and XR eye textures each need their own: a camera with allowXRRendering disabled
+        // will render into the real back buffer in the same frame as the XR cameras render into the eye textures.
+        private DisplayMSAARequest m_RealBackbufferMSAARequest;
+        private DisplayMSAARequest m_XRDisplayMSAARequest;
 
         // Must be > 1: when the renderer configuration changes for only a few frames (different render passes
         // enqueued, e.g. by the volume system), this keeps us from setting back buffer MSAA to 1 and back
@@ -456,7 +482,7 @@ namespace UnityEngine.Rendering.Universal
             // Apply the asset's MSAA to the back buffer at bind time so it doesn't lag asset changes by a
             // frame; ApplyRealBackbufferMSAARequest still turns it off per-frame when no camera needs it.
             RequestRealBackbufferMSAA(asset.msaaSampleCount);
-            m_FramesSinceRealBackbufferMSAANeeded = 0;
+            m_RealBackbufferMSAARequest.ResetDowngradeDelay();
 
             var defaultVolumeProfileSettings = GraphicsSettings.GetRenderPipelineSettings<URPDefaultVolumeProfileSettings>();
             VolumeManager.instance.Initialize(defaultVolumeProfileSettings.volumeProfile, asset.volumeProfile);
@@ -464,6 +490,7 @@ namespace UnityEngine.Rendering.Universal
             // Configure initial XR settings
             MSAASamples msaaSamples = (MSAASamples)Mathf.Clamp(Mathf.NextPowerOfTwo(QualitySettings.antiAliasing), (int)MSAASamples.None, (int)MSAASamples.MSAA8x);
             XRSystem.SetDisplayMSAASamples(msaaSamples);
+            m_XRDisplayMSAARequest.ResetDowngradeDelay();
             XRSystem.SetRenderScale(asset.renderScale);
 
             Lightmapping.SetDelegate(s_LightsDelegate);
@@ -695,9 +722,11 @@ namespace UnityEngine.Rendering.Universal
             // camera rendered here report its need, then apply. Cameras rendered outside this path (render
             // requests) are not counted — safe only because they target a destination texture, never the back
             // buffer. If that changes, this decision becomes incomplete.
-            m_FrameNeedsRealBackbufferMSAA = false;
+            m_RealBackbufferMSAARequest.BeginFrame();
+            m_XRDisplayMSAARequest.BeginFrame();
             RenderCameras(renderContext, cameras);
             ApplyRealBackbufferMSAARequest();
+            ApplyXRDisplayMSAARequest();
         }
 
         void RenderCameras(ScriptableRenderContext renderContext, List<Camera> cameras)
@@ -726,8 +755,6 @@ namespace UnityEngine.Rendering.Universal
 
                 var cbSettings = GraphicsSettings.GetRenderPipelineSettings<RenderingCapabilitiesSettings>();
                 useGlobalConstantBuffer = cbSettings != null && cbSettings.useGlobalConstantBuffer;
-
-                XRSystem.SetDisplayMSAASamples((MSAASamples)asset.msaaSampleCount);
 
 #if UNITY_ENABLE_CHECKS
                 if (DebugManager.instance.isAnyDebugUIActive)
@@ -800,32 +827,19 @@ namespace UnityEngine.Rendering.Universal
 #endif
         }
 
-        // Renderers call this (via ScriptableRenderer.ReportRealBackbufferMSAA) to report that a camera needs
+        // Renderers call this (via ScriptableRenderer.ReportDisplayTargetMSAA) to report that a camera needs
         // the real back buffer multisampled.
         internal void RequireRealBackbufferMSAA()
         {
-            m_FrameNeedsRealBackbufferMSAA = true;
+            m_RealBackbufferMSAARequest.Require();
         }
 
         // Only sets the request for the next frame. The current frame already imported the live back buffer
         // value (Screen.currentBackbufferMSAASamples) into RenderGraph, so rendering stays correct no matter
         // when the surface is actually reallocated (deferred to the next frame on platforms like Metal).
-        // Upgrades apply immediately; downgrades wait out the hysteresis, since extra MSAA frames cost only
-        // bandwidth, never correctness.
         private void ApplyRealBackbufferMSAARequest()
         {
-            int desired;
-            if (m_FrameNeedsRealBackbufferMSAA)
-            {
-                m_FramesSinceRealBackbufferMSAANeeded = 0;
-                desired = asset.msaaSampleCount;                // upgrade immediately
-            }
-            else if (++m_FramesSinceRealBackbufferMSAANeeded >= realBackbufferMSAADowngradeDelayFrames)
-                desired = 1;                                    // downgrade only after the delay
-            else
-                desired = Screen.msaaSamples;                   // hold current during the delay
-
-            RequestRealBackbufferMSAA(desired);
+            RequestRealBackbufferMSAA(m_RealBackbufferMSAARequest.Resolve(asset.msaaSampleCount, Screen.msaaSamples));
         }
 
         // Sets the real back buffer MSAA count, clamped to 1 where MSAA is resolved explicitly (the
@@ -837,6 +851,23 @@ namespace UnityEngine.Rendering.Universal
                 samples = 1;
             if (samples != Screen.msaaSamples)
                 Screen.SetMSAASamples(samples);
+        }
+
+        // XR counterpart of RequireRealBackbufferMSAA, for the XR eye textures.
+        internal void RequireXRDisplayMSAA()
+        {
+            m_XRDisplayMSAARequest.Require();
+        }
+
+        // XR counterpart of ApplyRealBackbufferMSAARequest. The eye textures are reallocated at the next XR
+        // frame start, and URP imports their live descriptor each frame, so rendering stays correct.
+        private void ApplyXRDisplayMSAARequest()
+        {
+            if (!XRSystem.displayActive)
+                return;
+
+            int samples = m_XRDisplayMSAARequest.Resolve(asset.msaaSampleCount, (int)XRSystem.GetDisplayMSAASamples());
+            XRSystem.SetDisplayMSAASamples((MSAASamples)samples);
         }
 
         /// <summary>
@@ -1055,9 +1086,6 @@ namespace UnityEngine.Rendering.Universal
 
             RenderSingleCamera(context, cameraData);
         }
-#if ENABLE_VR && ENABLE_XR_MODULE
-        static private LODParameters cachedLODParameters;
-#endif
         static bool TryGetCullingParameters(UniversalCameraData cameraData, out ScriptableCullingParameters cullingParams)
         {
 #if ENABLE_VR && ENABLE_XR_MODULE
@@ -1069,14 +1097,9 @@ namespace UnityEngine.Rendering.Universal
                 if (!cameraData.camera.usePhysicalProperties && !XRGraphicsAutomatedTests.enabled)
                     cameraData.camera.fieldOfView = Mathf.Rad2Deg * Mathf.Atan(1.0f / cullingParams.stereoProjectionMatrix.m11) * 2.0f;
 
-                if (cameraData.xr.isFirstCameraPass)
-                {
-                    cachedLODParameters = cullingParams.lodParameters;
-                    cachedLODParameters.fieldOfView = cameraData.camera.fieldOfView; // Update it in case it was synced above
-                    cullingParams.lodParameters = cachedLODParameters;
-                }
-                else
-                    cullingParams.lodParameters = cachedLODParameters;  // For Quad Views, ensures that the inset pass will use the same mesh LODs as the outset pass
+                LODParameters lodParameters = cullingParams.lodParameters;
+                lodParameters.fieldOfView = cameraData.camera.fieldOfView; // Update it in case it was synced above
+                cullingParams.lodParameters = lodParameters;
 
                 return true;
             }
@@ -1199,10 +1222,13 @@ namespace UnityEngine.Rendering.Universal
                 if (cameraData.xr.enabled)
                 {
                     var xrPassUniversal = cameraData.xr as XRPassUniversal;
-                    data.reuseCullingResult = cameraData.xr.isQuadViewInnerPass;
+                    data.reuseCullingResult = cameraData.xr.isQuadViewInnerPass && xrPassUniversal.TryGetStackCullingResults(out data.cullResults);
                     if (!data.reuseCullingResult)
-                        xrPassUniversal.cullingResults = context.Cull(ref cullingParameters);
-                    data.cullResults = xrPassUniversal.cullingResults;
+                    {
+                        data.cullResults = context.Cull(ref cullingParameters);
+                        if (cameraData.xr.xrLayoutType == XRLayoutType.TwoPassQuadViews)
+                            xrPassUniversal.SetStackCullingResults(data.cullResults);
+                    }
                 }
                 else
 #endif
@@ -1248,14 +1274,6 @@ namespace UnityEngine.Rendering.Universal
             context.ExecuteCommandBuffer(cmd); // Sends to ScriptableRenderContext all the commands enqueued since cmd.Clear, i.e the "EndSample" command
             CommandBufferPool.Release(cmd);
 
-#if ENABLE_VR && ENABLE_XR_MODULE
-            // With Quad Views, defer the outer pass's trailing context.Submit() so both passes' commands
-            // are flushed in a single submission at the end of the inner pass, reducing overhead
-            bool isFirstQuadView = cameraData.xr.enabled
-                && cameraData.xr.xrLayoutType == XRLayoutType.TwoPassQuadViews
-                && !cameraData.xr.isQuadViewInnerPass;
-            if (!isFirstQuadView)
-#endif
             using (new ProfilingScope(Profiling.Pipeline.Context.submit, cameraData.camera))
             {
                 context.Submit(); // Actually execute the commands that we previously sent to the ScriptableRenderContext context
@@ -1382,12 +1400,16 @@ namespace UnityEngine.Rendering.Universal
             foreach ((Camera _, XRPass xrPass) in xrLayout.GetActivePasses())
             {
                 var xrPassUniversal = xrPass as XRPassUniversal;
-                // For inner QuadView pass: copy cached culling results from the outer pass so RenderSingleCamera
-                // can reuse them without issuing a second context.Cull() call.
-                if (prevXRPassUniversal != null && xrPassUniversal != null && xrPass.isQuadViewInnerPass)
-                    xrPassUniversal.cullingResults = prevXRPassUniversal.cullingResults;
                 if (xrPass.enabled)
                 {
+                    // For inner QuadView pass: copy each stack camera's culling results from the outer pass so RenderSingleCamera
+                    // can reuse them without issuing a second context.Cull() call.
+                    if (prevXRPassUniversal != null && xrPass.isQuadViewInnerPass)
+                    {
+                        xrPassUniversal.stackCullingResults.Clear();
+                        xrPassUniversal.stackCullingResults.AddRange(prevXRPassUniversal.stackCullingResults);
+                    }
+
                     xrActive = true;
                     UpdateCameraStereoMatrices(baseCamera, xrPass);
 
@@ -1462,6 +1484,9 @@ namespace UnityEngine.Rendering.Universal
                     // Render the HDR offscreen overlay UI only in the first base camera if it renders overlay UI.
                     UpdateOffscreenUIRendering(baseCameraData, finalOutputHDR);
 
+                    if (xrPassUniversal != null)
+                        xrPassUniversal.stackCameraIndex = 0;
+
                     RenderSingleCamera(context, baseCameraData);
                 }
 
@@ -1517,6 +1542,9 @@ namespace UnityEngine.Rendering.Universal
                                     UpdateOffscreenUIRendering(overlayCameraData, finalOutputHDR);
 
                                 xrLayout.ReconfigurePass(overlayCameraData.xr, overlayCamera);
+
+                                if (xrPassUniversal != null)
+                                    xrPassUniversal.stackCameraIndex = i + 1;
 
                                 RenderSingleCamera(context, overlayCameraData);
                             }

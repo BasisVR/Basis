@@ -28,6 +28,8 @@ MonoBehaviour:
   - BasisSDKMirror
   - Basis.Scripts.BasisSdk.BasisAvatar
   - Basis.Scripts.BasisSdk.BasisScene
+  - Basis.Scripts.BasisSdk.Contacts.BasisContactSender
+  - Basis.Scripts.BasisSdk.Contacts.BasisContactReceiver
   - FFmpeg.Unity.FFUnity
   - FFmpeg.Unity.FFUnityAudio
   - HVR.Basis.Comms.AcquisitionAssist

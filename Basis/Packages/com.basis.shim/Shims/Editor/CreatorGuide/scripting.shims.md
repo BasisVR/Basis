@@ -13,6 +13,7 @@ Shims come in three shapes:
 | `BasisPlayspaceInputShim` | Drive the wearer's movement from an avatar | [Players](/en/docs/scripting/shims/players) |
 | `BasisSeatShim` | Is the local player seated, and where | [Players](/en/docs/scripting/shims/players) |
 | `BasisPoseOverrideShim` | Pose the local player's body, or move their hands and feet to targets | [Players](/en/docs/scripting/shims/players) |
+| `BasisRemotePoseShim` | Run your own IK on other players, on your screen | [Players](/en/docs/scripting/shims/players) |
 | `BasisAvatarSwitchShim` | Know when a player changes avatar | [Players](/en/docs/scripting/shims/players) |
 | `BasisPermissionsShim` | Admin, moderator and permission checks | [Players](/en/docs/scripting/shims/players) |
 | `BasisControllerInputShim` | VR controller buttons, triggers, sticks | [Input](/en/docs/scripting/shims/input) |

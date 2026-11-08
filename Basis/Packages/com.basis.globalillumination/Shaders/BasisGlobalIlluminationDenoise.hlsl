@@ -180,6 +180,7 @@ BasisGITemporalOutput BasisGITemporal(float2 uv)
     // Taken before any early out: screen space derivatives are only meaningful where the whole quad agrees
     // on whether to take them.
     float3 planeNormal = BasisGIPlaneNormal(worldPosition);
+    float depthSlope = max(abs(ddx(eyeDepth)), abs(ddy(eyeDepth)));
 
     // The reconstruction has to happen up here, above every early out, because the pixels that need it
     // most are the ones that take those exits - a pixel with no history behind it is handed straight to
@@ -254,17 +255,53 @@ BasisGITemporalOutput BasisGITemporal(float2 uv)
     }
     if (!onScreen) { return output; }
 
-    float4 historyStats = BasisGILoadHistoryStats(previousUv);
-    if (historyStats.r <= 0.0) { return output; }
-    // The depth gate asks "is this still the same surface" - the right question for an accumulation
-    // anchored to its surface, and the wrong one for a reflection, whose history was deliberately fetched
-    // from wherever the virtual image sat last frame: a different point of the mirror, at a different
-    // surface depth, holding exactly the history wanted. The clip box below is what rejects a stale
-    // reflection instead.
-    float relativeDelta = specular ? 0.0 : abs(historyStats.r - eyeDepth) / max(eyeDepth, BASISGI_EPSILON);
-    if (relativeDelta > BASISGI_DEPTH_REJECTION) { return output; }
-
-    float4 history = BasisGILoadHistory(previousUv);
+    float4 historyStats;
+    float4 history;
+    float flagged = 0.0;
+    UNITY_BRANCH
+    if (!specular)
+    {
+#if defined(_BASISGI_MOTION_VECTORS)
+        float expected = eyeDepth;
+#else
+        float expected = mul(BasisGIPreviousViewProjection(), float4(worldPosition, 1.0)).w;
+#endif
+        float tolerance = expected * BASISGI_DEPTH_REJECTION * 0.5 + depthSlope * 1.5;
+        float2 coordinate = previousUv * _BasisGITracedTexelSize.zw - 0.5;
+        int2 baseTexel = (int2)floor(coordinate);
+        float2 fraction = coordinate - (float2)baseTexel;
+        int2 limit = int2(_BasisGITracedTexelSize.zw) - 1;
+        float4 historySum = float4(0.0, 0.0, 0.0, 0.0);
+        float4 statsSum = float4(0.0, 0.0, 0.0, 0.0);
+        float weightSum = 0.0;
+        UNITY_UNROLL
+        for (int tap = 0; tap < 4; tap++)
+        {
+            int2 offset = int2(tap & 1, tap >> 1);
+            int2 texel = clamp(baseTexel + offset, int2(0, 0), limit);
+            float4 tapStats = LOAD_TEXTURE2D_X(_BasisGIHistoryStats, texel);
+            float2 bilinear = lerp(1.0 - fraction, fraction, (float2)offset);
+            float weight = bilinear.x * bilinear.y * (tapStats.r > 0.0 && abs(tapStats.r - expected) <= tolerance ? 1.0 : 0.0);
+            historySum += LOAD_TEXTURE2D_X(_BasisGIHistory, texel) * weight;
+            flagged += tapStats.a < 0.0 ? weight : 0.0;
+            tapStats.a = abs(tapStats.a);
+            statsSum += tapStats * weight;
+            weightSum += weight;
+        }
+        if (weightSum < 0.05) { return output; }
+        float inverse = 1.0 / weightSum;
+        history = historySum * inverse;
+        historyStats = statsSum * inverse;
+        historyStats.r = eyeDepth;
+        flagged *= inverse;
+    }
+    else
+    {
+        historyStats = BasisGILoadHistoryStats(previousUv);
+        if (historyStats.r <= 0.0) { return output; }
+        historyStats.a = abs(historyStats.a);
+        history = BasisGILoadHistory(previousUv);
+    }
 
 #if defined(_BASISGI_NEIGHBOURHOOD_CLAMP)
     // Variance clipping rather than a min/max box. At one or two rays per pixel the neighbourhood's extremes
@@ -291,14 +328,13 @@ BasisGITemporalOutput BasisGITemporal(float2 uv)
 #endif
 
     // How many frames this pixel has been accumulating for. A freshly disoccluded pixel starts at one and
-    // takes the whole of this frame, a settled one keeps a long tail, and a shaky reprojection decays the
-    // count rather than throwing the history away outright. The response slider is the floor: it decides
+    // takes the whole of this frame and a settled one keeps a long tail. The response slider is the floor: it decides
     // where accumulation stops, and it is only reached once there is enough history to stop at.
-    float rejection = saturate(relativeDelta / max(BASISGI_DEPTH_REJECTION, BASISGI_EPSILON));
     float elapsed = !specular && _BasisGISkipEye >= 0.0 ? 2.0 : 1.0;
-    float frames = min(historyStats.g * (1.0 - rejection) + elapsed, BASISGI_TEMPORAL_MAX_FRAMES);
+    float frames = min(historyStats.g + elapsed, BASISGI_TEMPORAL_MAX_FRAMES);
     float surprise = abs(luminance - historyStats.b) / (sqrt(max(historyStats.a, 0.0)) + 0.02 * historyStats.b + BASISGI_EPSILON);
-    float change = specular ? 0.0 : saturate((surprise - 2.0) * 0.5);
+    float rawChange = specular ? 0.0 : saturate((surprise - 2.0) * 0.5);
+    float change = luminance < historyStats.b ? rawChange : rawChange * saturate(flagged * 2.0);
     frames = max(1.0, lerp(frames, 2.0, change));
     float response = max(rcp(max(frames, 1.0)), BASISGI_TEMPORAL_RESPONSE);
     if (elapsed > 1.0) { response = max(response, 1.0 - Sq(1.0 - BASISGI_TEMPORAL_RESPONSE)); }
@@ -318,7 +354,7 @@ BasisGITemporalOutput BasisGITemporal(float2 uv)
     float luminanceIncrement = response * luminanceDelta;
     float accumulatedMean = historyStats.b + luminanceIncrement;
     float accumulatedVariance = (1.0 - response) * (max(0.0, historyStats.a) + luminanceDelta * luminanceIncrement);
-    output.stats = float4(eyeDepth, frames, accumulatedMean, accumulatedVariance);
+    output.stats = float4(eyeDepth, frames, accumulatedMean, rawChange > 0.0 ? -max(accumulatedVariance, 1e-4) : accumulatedVariance);
     return output;
 }
 

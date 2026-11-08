@@ -7287,6 +7287,46 @@
       "value": "Allow grabbing and pulling jiggle physics (hair, tails, and similar) between you and other players. Turning this off means you never grab anyone and nobody's grabs affect you. Per-player permission lives in each player's panel."
     },
     {
+      "key": "settings.general.contactsFromOthers",
+      "value": "Contacts From Other Players"
+    },
+    {
+      "key": "settings.general.contactsFromOthers.tooltip",
+      "value": "Let other players' hands, heads and bodies trigger contact receivers on your avatar, such as boops and headpats that change your Vixxy toggles. Blocked players and players with interactions disabled never trigger them."
+    },
+    {
+      "key": "settings.general.bodyHaptics",
+      "value": "Body Haptics"
+    },
+    {
+      "key": "settings.general.bodyHaptics.tooltip",
+      "value": "Work out where other players touch your body and send it to a haptic vest or suit. Values go out over OSC (turn on OSC) as /avatar/parameters/BasisHaptics/<zone> from 0 to 1, for a bridge app to forward to your hardware."
+    },
+    {
+      "key": "settings.general.bodyHapticsFromOthers",
+      "value": "Haptics From Other Players"
+    },
+    {
+      "key": "settings.general.bodyHapticsFromOthers.tooltip",
+      "value": "Other players' hands, feet and heads, and contact senders on props and worlds, can trigger your haptics. Blocked players and players with interactions disabled never can."
+    },
+    {
+      "key": "settings.general.bodyHapticsFromSelf",
+      "value": "Haptics From Your Own Hands"
+    },
+    {
+      "key": "settings.general.bodyHapticsFromSelf.tooltip",
+      "value": "Your own hands can trigger your haptics. A hand never triggers the arm it belongs to."
+    },
+    {
+      "key": "settings.general.bodyHapticsIntensity",
+      "value": "Haptics Intensity"
+    },
+    {
+      "key": "settings.general.bodyHapticsIntensity.tooltip",
+      "value": "Caps how strong any touch can feel. Lower it if contacts are too intense."
+    },
+    {
       "key": "settings.general.hud.title",
       "value": "HUD"
     },
@@ -14961,6 +15001,10 @@
     {
       "key": "settings.cilboxPermissions.cap.yourPlayer",
       "value": "Move, teleport or freeze you"
+    },
+    {
+      "key": "settings.cilboxPermissions.cap.otherPlayersPose",
+      "value": "Change how other players' bodies look on your screen"
     },
     {
       "key": "settings.cilboxPermissions.cap.localMedia",

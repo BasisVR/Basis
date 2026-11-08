@@ -9,7 +9,7 @@
   },
   "license": "MIT",
   "dependencies": {
-    "com.unity.xr.openxr": "1.17.1"
+    "com.unity.xr.openxr": "1.19.0"
   },
   "vpmDependencies": {
     "com.basis.common": "0.0.1",

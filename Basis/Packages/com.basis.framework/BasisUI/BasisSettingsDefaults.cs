@@ -1294,6 +1294,11 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<bool> DisableVRAutoHold = new("disablevrautohold", new BasisPlatformDefault<bool>(false));
         // Master switch for jiggle grab-and-pull: off = never initiate, never be grabbed, never apply observed grabs.
         public static BasisSettingsBinding<bool> JiggleGrabInteractions = new("jigglegrabinteractions", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> ContactsFromOthers = new("contactsfromothers", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> BodyHaptics = new("bodyhaptics", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> BodyHapticsFromOthers = new("bodyhapticsfromothers", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> BodyHapticsFromSelf = new("bodyhapticsfromself", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<float> BodyHapticsIntensity = new("bodyhapticsintensity", new BasisPlatformDefault<float>(1f));
         public static BasisSettingsBinding<bool> UIHaptics = new("uihaptics", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<float> UIClickPressThreshold = new("uiclickpressthreshold", new BasisPlatformDefault<float>(0.5f));
         public static BasisSettingsBinding<float> UIClickReleaseThreshold = new("uiclickreleasethreshold", new BasisPlatformDefault<float>(0.4f));
@@ -2217,6 +2222,19 @@ namespace Basis.BasisUI
         /// </summary>
         public static BasisSettingsBinding<string> Language = new("basislanguage", new BasisPlatformDefault<string>(string.Empty));
 
+        private static void ApplyContactSettings()
+        {
+            Basis.Scripts.Contacts.BasisContactSystem.ContactsFromOthers = ContactsFromOthers.RawValue;
+            Basis.Scripts.Contacts.BasisBodyHaptics.FromOthers = BodyHapticsFromOthers.RawValue;
+            Basis.Scripts.Contacts.BasisBodyHaptics.FromSelf = BodyHapticsFromSelf.RawValue;
+            Basis.Scripts.Contacts.BasisBodyHaptics.IntensityCap = BodyHapticsIntensity.RawValue;
+            Basis.Scripts.Contacts.BasisBodyHaptics.SetEnabled(BodyHaptics.RawValue);
+        }
+
+        private static void ContactSettingChanged(bool value) => ApplyContactSettings();
+
+        private static void ContactIntensityChanged(float value) => ApplyContactSettings();
+
         public static void LoadAll()
         {
             // Localization
@@ -2725,6 +2743,22 @@ namespace Basis.BasisUI
                     Basis.Scripts.BasisSdk.Interactions.BasisJiggleGrabDriver.ReleaseLocalGrabs();
                 }
             };
+            ContactsFromOthers.LoadBindingValue();
+            BodyHaptics.LoadBindingValue();
+            BodyHapticsFromOthers.LoadBindingValue();
+            BodyHapticsFromSelf.LoadBindingValue();
+            BodyHapticsIntensity.LoadBindingValue();
+            ApplyContactSettings();
+            ContactsFromOthers.OnChanged -= ContactSettingChanged;
+            ContactsFromOthers.OnChanged += ContactSettingChanged;
+            BodyHaptics.OnChanged -= ContactSettingChanged;
+            BodyHaptics.OnChanged += ContactSettingChanged;
+            BodyHapticsFromOthers.OnChanged -= ContactSettingChanged;
+            BodyHapticsFromOthers.OnChanged += ContactSettingChanged;
+            BodyHapticsFromSelf.OnChanged -= ContactSettingChanged;
+            BodyHapticsFromSelf.OnChanged += ContactSettingChanged;
+            BodyHapticsIntensity.OnChanged -= ContactIntensityChanged;
+            BodyHapticsIntensity.OnChanged += ContactIntensityChanged;
             UIHaptics.LoadBindingValue();
             UIClickPressThreshold.LoadBindingValue();
             UIClickReleaseThreshold.LoadBindingValue();

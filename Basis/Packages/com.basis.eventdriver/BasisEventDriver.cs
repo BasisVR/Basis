@@ -182,6 +182,7 @@ namespace Basis.EventDriver
                 BasisAuthoredMotionSystem.Dispose();
                 BasisConstraintSystem.Dispose();
                 Basis.Scripts.Rendering.BasisVisibilitySystem.Dispose();
+                Basis.Scripts.Contacts.BasisContactSystem.Dispose();
                 BasisAvatarBufferPool.Deinitialize();
             }
             finally
@@ -915,6 +916,7 @@ namespace Basis.EventDriver
             // Touch reporting reads the same posed bones. Returns on a count check when no content
             // has asked for jiggle events, which is the usual case.
             Basis.Scripts.BasisSdk.Interactions.BasisJiggleInteractionEvents.FrameTick();
+            Basis.Scripts.Contacts.BasisContactSystem.FrameTick();
             // Avatar visibility schedules here and is joined at the LateUpdate tail. Bounds come off
             // the avatar roots through a TransformAccessArray job, so the main thread only packs the
             // camera frusta; this is the earliest that transform job can go — it needs the same
@@ -1062,6 +1064,7 @@ namespace Basis.EventDriver
             {
                 Basis.Scripts.Rendering.BasisVisibilitySystem.CompleteAndApply();
             }
+            Basis.Scripts.Contacts.BasisContactSystem.CompleteTransformRead();
 
             // One-shot NaN hunter for the Invalid AABB / IsFinite(distanceForSort) spam: names
             // the first non-finite camera/renderer and disarms. Armed from Basis/Debug/Finite

@@ -30,7 +30,7 @@ float4 _BasisGIRCCascade;
 float4 _BasisGIRCInterval;
 float4 _BasisGIRCGrid;
 float4 _BasisGIRCJitter;
-float4 _BasisGIRCRotations[48];
+float _BasisGIRCSpin;
 float _BasisGIRCPhase;
 
 float2 BasisGIRCSnapToDepthTexel(float2 uv)
@@ -69,18 +69,26 @@ BasisGIRCProbe BasisGIRCDecodeProbe(float4 data)
     return probe;
 }
 
-float3x3 BasisGIRCRotationFor(int2 probe)
+float3x3 BasisGIRCBasisFor(int2 probe, float3 normal)
 {
     int2 cell = probe & 3;
     int bayer = ((cell.x ^ cell.y) & 1) * 8 + (cell.y & 1) * 4 + ((cell.x ^ cell.y) & 2) + ((cell.y & 2) >> 1);
-    int index = ((bayer + (int)_BasisGIRCPhase) & 15) * 3;
-    return float3x3(_BasisGIRCRotations[index].xyz, _BasisGIRCRotations[index + 1].xyz, _BasisGIRCRotations[index + 2].xyz);
+    float angle = (float)((bayer + (int)_BasisGIRCPhase) & 15) * (PI / 8.0) * _BasisGIRCSpin;
+    float sign = normal.z >= 0.0 ? 1.0 : -1.0;
+    float a = -1.0 / (sign + normal.z);
+    float b = normal.x * normal.y * a;
+    float3 first = float3(1.0 + sign * normal.x * normal.x * a, sign * b, -sign * normal.x);
+    float3 second = float3(b, sign + normal.y * normal.y * a, -normal.y);
+    float sine, cosine;
+    sincos(angle, sine, cosine);
+    float3 tangent = first * cosine + second * sine;
+    return float3x3(tangent, -normal, cross(tangent, -normal));
 }
 
-float3 BasisGIRCDirection(int2 texel, float resolution, float3x3 rotation)
+float3 BasisGIRCDirection(int2 texel, float resolution, float3x3 basis)
 {
     float2 oct = ((float2)texel + 0.5) / resolution * 2.0 - 1.0;
-    return mul(rotation, UnpackNormalOctQuadEncode(oct));
+    return mul(UnpackNormalOctQuadEncode(oct), basis);
 }
 
 float2 BasisGIRCLoadDepth(int level, float2 uv)
@@ -331,9 +339,10 @@ BasisGIRCUpper BasisGIRCLoadUpper(int index, BasisGIRCProbe probe, float probeEy
 
     float2 bilinear = lerp(1.0 - blend, blend, (float2)offset);
     upper.corner = max(bilinear.x * bilinear.y, 1e-4);
-    float3 upperLocal = mul(transpose(BasisGIRCRotationFor(coordinate)), directionWS);
-    float2 childCentre = clamp((PackNormalOctQuadEncode(upperLocal) * 0.5 + 0.5) * upperResolution, 0.5, upperResolution - 0.5);
-    float2 atlasUv = ((float2)coordinate * upperResolution + childCentre) / _BasisGIRCJitter.zw;
+    float3 upperLocal = mul(BasisGIRCBasisFor(coordinate, upper.probe.normal), directionWS);
+    float2 upperTile = float2(upperResolution, upperResolution * 0.5);
+    float2 childCentre = clamp((PackNormalOctQuadEncode(upperLocal) * 0.5 + 0.5) * upperResolution, 0.5, upperTile - 0.5);
+    float2 atlasUv = ((float2)coordinate * upperTile + childCentre) / _BasisGIRCJitter.zw;
     upper.value = SAMPLE_TEXTURE2D_X_LOD(_BasisGIRCUpper, sampler_LinearClamp, atlasUv, 0);
 
     float tolerance = max(0.05, probeEye * 0.05);
@@ -408,14 +417,15 @@ float4 BasisGIRCCascade(float2 positionCS)
     if (BasisGISkippedEye()) { return float4(0.0, 0.0, 0.0, 0.0); }
     int2 texel = int2(positionCS);
     float resolution = _BasisGIRCCascade.z;
-    int2 probeIndex = texel / (int)resolution;
-    int2 directionTexel = texel - probeIndex * (int)resolution;
+    int2 tile = int2((int)resolution, (int)resolution >> 1);
+    int2 probeIndex = texel / tile;
+    int2 directionTexel = texel - probeIndex * tile;
     if (any(probeIndex >= int2(_BasisGIRCGrid.xy))) { return float4(0.0, 0.0, 0.0, 0.0); }
 
     BasisGIRCProbe probe = BasisGIRCDecodeProbe(LOAD_TEXTURE2D_X(_BasisGIRCProbes, probeIndex));
     if (!probe.valid) { return float4(0.0, 0.0, 0.0, 0.0); }
 
-    float3 direction = BasisGIRCDirection(directionTexel, resolution, BasisGIRCRotationFor(probeIndex));
+    float3 direction = BasisGIRCDirection(directionTexel, resolution, BasisGIRCBasisFor(probeIndex, probe.normal));
     if (dot(direction, probe.normal) < BASISGI_RC_BELOW) { return float4(0.0, 0.0, 0.0, 0.0); }
 
     float eye = -TransformWorldToView(probe.position).z;
@@ -472,12 +482,12 @@ BasisGIRCHarmonics BasisGIRCResolve(float2 positionCS)
     if (!probeData.valid) { return output; }
 
     float cosineSum = 0.0;
-    float3x3 rotation = BasisGIRCRotationFor(probe);
+    float3x3 rotation = BasisGIRCBasisFor(probe, probeData.normal);
     UNITY_UNROLL
-    for (int index = 0; index < BASISGI_RC_DIRECTIONS0 * BASISGI_RC_DIRECTIONS0; index++)
+    for (int index = 0; index < BASISGI_RC_DIRECTIONS0 * BASISGI_RC_DIRECTIONS0 / 2; index++)
     {
         int2 directionTexel = int2(index % BASISGI_RC_DIRECTIONS0, index / BASISGI_RC_DIRECTIONS0);
-        float4 value = LOAD_TEXTURE2D_X(_BasisGIRCUpper, probe * BASISGI_RC_DIRECTIONS0 + directionTexel);
+        float4 value = LOAD_TEXTURE2D_X(_BasisGIRCUpper, probe * int2(BASISGI_RC_DIRECTIONS0, BASISGI_RC_DIRECTIONS0 / 2) + directionTexel);
         float3 direction = BasisGIRCDirection(directionTexel, BASISGI_RC_DIRECTIONS0, rotation);
         float solidAngle = _BasisGIRCSolidAngle[index];
         float4 weighted = value * solidAngle;

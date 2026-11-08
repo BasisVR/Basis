@@ -9,8 +9,8 @@
   },
   "license": "MIT AND Unlicense",
   "dependencies": {
-    "com.unity.inputsystem": "1.19.0",
-    "com.unity.ugui": "2.0.0"
+    "com.unity.inputsystem": "6.7.0",
+    "com.unity.ugui": "2.7.0"
   },
   "vpmDependencies": {
     "com.basis.common": "0.0.1",

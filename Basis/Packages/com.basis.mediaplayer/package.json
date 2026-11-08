@@ -10,7 +10,7 @@
   },
   "license": "MIT OR Apache-2.0",
   "dependencies": {
-    "com.unity.ugui": "2.0.0"
+    "com.unity.ugui": "2.7.0"
   },
   "vpmDependencies": {
     "com.basis.common": "0.0.1",

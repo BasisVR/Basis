@@ -9,16 +9,16 @@
   },
   "license": "MIT",
   "dependencies": {
-    "com.unity.addressables": "2.9.1",
-    "com.unity.burst": "1.8.29",
-    "com.unity.collections": "2.6.6",
-    "com.unity.inputsystem": "1.19.0",
-    "com.unity.mathematics": "1.3.3",
-    "com.unity.render-pipelines.core": "17.4.0",
-    "com.unity.render-pipelines.universal": "17.4.0",
-    "com.unity.ugui": "2.0.0",
-    "com.unity.xr.management": "4.5.4",
-    "com.unity.test-framework": "1.0.0"
+    "com.unity.addressables": "4.2.0",
+    "com.unity.burst": "2.0.0",
+    "com.unity.collections": "6.7.0",
+    "com.unity.inputsystem": "6.7.0",
+    "com.unity.mathematics": "1.4.0",
+    "com.unity.render-pipelines.core": "17.7.0",
+    "com.unity.render-pipelines.universal": "17.7.0",
+    "com.unity.ugui": "2.7.0",
+    "com.unity.xr.management": "6.0.0",
+    "com.unity.test-framework": "1.9.0"
   },
   "vpmDependencies": {
     "com.avionblock.opussharp": "0.0.1",

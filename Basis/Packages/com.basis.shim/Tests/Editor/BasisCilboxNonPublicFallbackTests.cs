@@ -17,7 +17,7 @@ namespace Basis.Tests.Sync
         const BindingFlags Internal = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
         const BindingFlags Declared = BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.DeclaredOnly;
         static readonly Type[] Boxes = { typeof(CilboxSceneBasis), typeof(CilboxPropBasis), typeof(CilboxAvatarBasis) };
-        static readonly Type[] PublicOnly = { typeof(VideoPlayerShim), typeof(BasisStringDownloader), typeof(BasisImageDownloader) };
+        static readonly Type[] PublicOnly = { typeof(VideoPlayerShim), typeof(BasisStringDownloader), typeof(BasisImageDownloader), typeof(BasisRemotePoseShim) };
         static readonly string[] ParameterTypes = { "Type:Basis.Shims.VideoPlayerShim", "Type:Basis.IBasisStringDownload", "Type:Basis.IBasisImageDownload" };
         readonly List<GameObject> hosts = new List<GameObject>();
         bool untrustedBefore;

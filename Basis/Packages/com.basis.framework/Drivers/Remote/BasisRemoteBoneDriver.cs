@@ -425,10 +425,29 @@ public struct ApplyHipsWorldJob : IJobParallelForTransform
 {
     [ReadOnly] public NativeArray<float3> Positions;
     [ReadOnly] public NativeArray<quaternion> Rotations;
+    [ReadOnly] public NativeArray<int> PlayerKeys;
+    [ReadOnly] public NativeArray<ulong> ScriptMask;
+    [ReadOnly] public NativeArray<int> ScriptBlock;
+    [ReadOnly] public NativeArray<quaternion> ScriptRotations;
+    [ReadOnly] public NativeArray<float3> ScriptHipsPositions;
+    public int ScriptStride;
+    public bool ScriptActive;
 
     public void Execute(int index, TransformAccess transform)
     {
-        transform.SetPositionAndRotation(Positions[index], Rotations[index]);
+        float3 position = Positions[index];
+        quaternion rotation = Rotations[index];
+        if (ScriptActive)
+        {
+            int key = PlayerKeys[index];
+            if ((uint)key < (uint)ScriptMask.Length && (ScriptMask[key] >> RemoteBoneJobSystem.ScriptHipsBit) != 0)
+            {
+                int block = ScriptBlock[key];
+                position += math.mul(rotation, ScriptHipsPositions[block]);
+                rotation = math.mul(rotation, ScriptRotations[block * ScriptStride + ScriptStride - 1]);
+            }
+        }
+        transform.SetPositionAndRotation(position, rotation);
     }
 }
 
@@ -528,11 +547,21 @@ public struct WriteBoneRotationJob : IJobParallelForTransform
     /// frame's compute pass, which would then skip the write and leave the limb stuck at its last
     /// anchored pose once the anchor drops.</summary>
     [WriteOnly] public NativeArray<quaternion> LastWritten;
+    [ReadOnly] public NativeArray<int> PlayerKeys;
+    [ReadOnly] public NativeArray<ulong> ScriptMask;
+    public int BoneCount;
+    public bool ScriptActive;
 
     public void Execute(int index, TransformAccess transform)
     {
         if (OverrideMask[index] != 0)
         {
+            if (ScriptActive)
+            {
+                int dense = index / BoneCount;
+                int key = PlayerKeys[dense];
+                if ((uint)key < (uint)ScriptMask.Length && ((ScriptMask[key] >> (index - dense * BoneCount)) & 1ul) != 0) return;
+            }
             quaternion rot = OverrideRot[index];
             transform.localRotation = rot;
             LastWritten[index] = rot;
@@ -1062,6 +1091,7 @@ public static partial class RemoteBoneJobSystem
         if (sDummyBone != null) { UnityEngine.Object.Destroy(sDummyBone.gameObject); sDummyBone = null; }
 
         DisposeTempBuffers();
+        DisposeScriptPose();
 
         if (sKeyArray.IsCreated) sKeyArray.Dispose();
         // Freed here rather than left for process exit so the editor's leak detector stays quiet.
@@ -1415,6 +1445,7 @@ public static partial class RemoteBoneJobSystem
         InvalidateSkeletonCache(idx * boneCount, boneCount);
 
         sKeyToIndex[p.Key] = idx;
+        ClearScriptPose(p.Key);
         EnsureKeyArrayCapacity(idx + 1);
         sKeyArray[idx] = p.Key;
         AuthoringLength = sAuthoring.Length;
@@ -1540,6 +1571,7 @@ public static partial class RemoteBoneJobSystem
             sHeadChain.RemoveAt(sHeadChain.Length - 1);
         }
         sKeyToIndex[key] = -1;
+        ClearScriptPose(key);
         // Drop the departing player's visibility bit. Selection jobs gate on AuthoringLength so
         // they can't reach this key any more, but a rejoin reuses the ID and would otherwise
         // inherit a stale "visible" before its avatar sets up.
@@ -1821,7 +1853,7 @@ public static partial class RemoteBoneJobSystem
             sKeyArray, totalBones, BasisBoneRotationCompression.SyncBoneCount,
             sSkeletonDecodePre.AsDeferredJobArray(), sSkeletonDecodePost.AsDeferredJobArray(), sSkeletonValid.AsDeferredJobArray(),
             sSkeletonRotations, sSkeletonLastWritten, sSkeletonWriteMask,
-            boneBatch);
+            boneBatch, ScriptInputs(totalBones));
 
         sSkeletonComputeBones = totalBones;
         sPending = JobHandle.CombineDependencies(sPending, sSkeletonCompute);
@@ -2028,7 +2060,7 @@ public static partial class RemoteBoneJobSystem
                     sKeyArray, totalBones, BasisBoneRotationCompression.SyncBoneCount,
                     sSkeletonDecodePre.AsDeferredJobArray(), sSkeletonDecodePost.AsDeferredJobArray(), sSkeletonValid.AsDeferredJobArray(),
                     sSkeletonRotations, sSkeletonLastWritten, sSkeletonWriteMask,
-                    boneBatch);
+                    boneBatch, ScriptInputs(totalBones));
             }
 
             skeletonJob = new ApplySkeletonRotationsJob
@@ -2069,10 +2101,18 @@ public static partial class RemoteBoneJobSystem
         // skeletonJob if present (defensive; sSkeletonBones doesn't include hips).
         var hipsWorldDeps = rootAndScaleJob;
         if (totalBones > 0) hipsWorldDeps = JobHandle.CombineDependencies(hipsWorldDeps, skeletonJob);
+        BasisRemoteNetworkDriver.ScriptPoseInputs script = ScriptInputs(totalBones);
         var hipsWorldJob = new ApplyHipsWorldJob
         {
             Positions = sTmpHipsWorldPos,
             Rotations = sTmpHipsWorldRot,
+            PlayerKeys = sKeyArray,
+            ScriptMask = script.Mask,
+            ScriptBlock = script.Block,
+            ScriptRotations = script.Rotations,
+            ScriptHipsPositions = script.HipsPositions,
+            ScriptStride = script.Stride,
+            ScriptActive = script.Active,
         }.Schedule(sHips, hipsWorldDeps);
 
         // End-effector IK: read the FK-posed bone worlds, two-bone-IK the anchored limbs onto their sent
@@ -2132,6 +2172,10 @@ public static partial class RemoteBoneJobSystem
                 OverrideRot = sIkOverrideRot,
                 OverrideMask = sIkOverrideMask,
                 LastWritten = sSkeletonLastWritten,
+                PlayerKeys = sKeyArray,
+                ScriptMask = script.Mask,
+                BoneCount = BasisBoneRotationCompression.SyncBoneCount,
+                ScriptActive = script.Active,
             }.Schedule(sSkeletonBones, ikComputeJob);
         }
 

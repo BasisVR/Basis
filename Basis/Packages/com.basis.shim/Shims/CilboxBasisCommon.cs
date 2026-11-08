@@ -792,6 +792,7 @@ namespace Cilbox
 		internal string saveContentKey;
 		internal HashSet<string> saveStores;
 		internal HashSet<string> saveReadStores;
+		internal HashSet<string> saveStamped;
 		internal double saveWindowStart;
 		internal int saveWindowWrites;
 		internal double hapticWindowStart;
@@ -1004,7 +1005,7 @@ namespace Cilbox
 		{
 			for (; type != null; type = type.DeclaringType)
 			{
-				if (type == typeof(Basis.Shims.VideoPlayerShim) || type == typeof(Basis.BasisStringDownloader) || type == typeof(Basis.BasisImageDownloader)) return true;
+				if (type == typeof(Basis.Shims.VideoPlayerShim) || type == typeof(Basis.BasisStringDownloader) || type == typeof(Basis.BasisImageDownloader) || type == typeof(Basis.Shims.BasisRemotePoseShim)) return true;
 			}
 			return false;
 		}

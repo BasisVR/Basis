@@ -629,5 +629,100 @@ namespace Basis.Tests.Sync
             Assert.IsTrue(BasisSaveShim.Save(Script(typeof(CilboxAvatarBasis), Avatar(NewContentId(), LocalId).transform), store, "slot", new byte[] { 1 }));
             Assert.IsTrue(BasisSaveShim.Save(Script(typeof(CilboxPropBasis), World(NewContentId()).transform), store, "slot", new byte[] { 2 }), "a prop that is part of the world");
         }
+
+        static string Code(string seed)
+        {
+            using (SHA256 sha = SHA256.Create()) return string.Concat(sha.ComputeHash(Encoding.UTF8.GetBytes(seed)).Select(b => b.ToString("x2")));
+        }
+
+        CilboxProxy PropScript(string id, bool spawnedHere, string code)
+        {
+            CilboxProxy script = Script(typeof(CilboxPropBasis), Prop(id, spawnedHere).transform);
+            Field("codeHash").SetValue(script.box, code);
+            return script;
+        }
+
+        [Test]
+        public void SomeoneElsesCopy_LoadsAndSavesThisPlayersPreferences()
+        {
+            string id = NewContentId(), code = Code("prop");
+            CilboxProxy mine = PropScript(id, true, code);
+            Assert.IsTrue(BasisSaveShim.Save(mine, "prefs", new byte[] { 1 }));
+            Assert.IsTrue(File.Exists(Path.Combine(ProtectedDefault(id), "code")), "the spawner's save records which code may use the folder");
+
+            CilboxProxy theirs = PropScript(id, false, code);
+            CollectionAssert.AreEqual(new byte[] { 1 }, BasisSaveShim.Load(theirs, "prefs"), "the same prop spawned by another player reads this player's preferences");
+            Assert.IsTrue(BasisSaveShim.Save(theirs, "prefs", new byte[] { 2 }));
+            Assert.IsTrue(BasisSaveShim.Save(theirs, BasisSaveScope.Protected, "sub", "prefs", new byte[] { 3 }), "named protected stores are local too");
+            Track(ProtectedOf(id, "sub"));
+            Use(mine);
+            CollectionAssert.AreEqual(new byte[] { 2 }, BasisSaveShim.Load(mine, "prefs"), "and what it saves is there when this player spawns it again");
+            CollectionAssert.AreEqual(new byte[] { 3 }, BasisSaveShim.Load(mine, BasisSaveScope.Protected, "sub", "prefs"));
+        }
+
+        [Test]
+        public void SomeoneElsesCopy_OnlyGetsTheLocalStore()
+        {
+            string id = NewContentId(), store = NewStore(), code = Code("prop");
+            CilboxProxy mine = PropScript(id, true, code);
+            Assert.IsTrue(BasisSaveShim.Save(mine, store, "slot", new byte[] { 1 }));
+            Assert.IsTrue(BasisSaveShim.Save(mine, BasisSaveScope.ReadOnly, null, "badge", new byte[] { 1 }));
+
+            CilboxProxy theirs = PropScript(id, false, code);
+            Assert.IsNull(BasisSaveShim.Load(theirs, store, "slot"), "shared stores stay with the spawner");
+            Assert.IsFalse(BasisSaveShim.Save(theirs, store, "slot", new byte[] { 2 }));
+            Assert.IsFalse(BasisSaveShim.Delete(theirs, store, "slot"));
+            Assert.IsFalse(BasisSaveShim.Save(theirs, BasisSaveScope.ReadOnly, null, "badge", new byte[] { 2 }));
+            Assert.IsNull(BasisSaveShim.Load(theirs, BasisSaveScope.ReadOnly, null, "badge"));
+            Assert.IsNull(BasisSaveShim.LoadReadOnly(theirs, id, null, "badge"));
+            Use(mine);
+            CollectionAssert.AreEqual(new byte[] { 1 }, BasisSaveShim.Load(mine, store, "slot"));
+        }
+
+        [Test]
+        public void SomeoneElsesCopy_WithOtherCode_CannotReachThesePreferences()
+        {
+            string id = NewContentId();
+            CilboxProxy mine = PropScript(id, true, Code("prop"));
+            Assert.IsTrue(BasisSaveShim.Save(mine, "prefs", new byte[] { 1 }));
+
+            CilboxProxy impostor = PropScript(id, false, Code("impostor"));
+            Assert.IsNull(BasisSaveShim.Load(impostor, "prefs"), "a bundle that copies the Content ID runs different code");
+            Assert.IsFalse(BasisSaveShim.Save(impostor, "prefs", new byte[] { 9 }));
+            Assert.IsFalse(BasisSaveShim.Delete(impostor, "prefs"));
+            Assert.IsNull(BasisSaveShim.Load(PropScript(id, false, null), "prefs"), "without a code hash there is nothing to match");
+            Use(mine);
+            CollectionAssert.AreEqual(new byte[] { 1 }, BasisSaveShim.Load(mine, "prefs"));
+        }
+
+        [Test]
+        public void SomeoneElsesCopy_CanStartPreferences_ButOldUnstampedSavesWaitForTheSpawner()
+        {
+            string fresh = NewContentId(), code = Code("prop");
+            CilboxProxy viewer = PropScript(fresh, false, code);
+            Assert.IsTrue(BasisSaveShim.Save(viewer, "prefs", new byte[] { 4 }), "a viewer may start a store nobody has written yet");
+            CollectionAssert.AreEqual(new byte[] { 4 }, BasisSaveShim.Load(PropScript(fresh, false, code), "prefs"));
+            Assert.IsNull(BasisSaveShim.Load(PropScript(fresh, false, Code("impostor")), "prefs"));
+
+            string legacy = NewContentId();
+            Plant(ProtectedDefault(legacy), "prefs", new byte[] { 5 });
+            Assert.IsNull(BasisSaveShim.Load(PropScript(legacy, false, code), "prefs"), "saves from before stamping say nothing about which code wrote them");
+            Assert.IsFalse(BasisSaveShim.Save(PropScript(legacy, false, code), "prefs", new byte[] { 6 }));
+            CollectionAssert.AreEqual(new byte[] { 5 }, BasisSaveShim.Load(PropScript(legacy, true, code), "prefs"), "loading them as the spawner vouches for this code");
+            CollectionAssert.AreEqual(new byte[] { 5 }, BasisSaveShim.Load(PropScript(legacy, false, code), "prefs"));
+        }
+
+        [Test]
+        public void DeletingTheLastSlot_RemovesTheStampWithTheFolder()
+        {
+            string id = NewContentId(), code = Code("prop");
+            CilboxProxy viewer = PropScript(id, false, code);
+            Assert.IsTrue(BasisSaveShim.Save(viewer, "prefs", new byte[] { 1 }));
+            Assert.IsTrue(BasisSaveShim.Delete(viewer, "prefs"));
+            Assert.IsFalse(Directory.Exists(ProtectedDefault(id)), "an emptied store should not leave its folder behind");
+            Refill(viewer);
+            Assert.IsTrue(BasisSaveShim.Save(viewer, "prefs", new byte[] { 2 }));
+            Assert.IsTrue(File.Exists(Path.Combine(ProtectedDefault(id), "code")), "saving again after the folder went restamps it");
+        }
     }
 }

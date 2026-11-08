@@ -18,7 +18,7 @@
   ],
   "license": "Apache-2.0",
   "dependencies": {
-    "com.unity.addressables": "2.9.1"
+    "com.unity.addressables": "4.2.0"
   },
   "vpmDependencies": {
     "com.basis.sdk": "0.0.1",

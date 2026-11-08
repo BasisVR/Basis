@@ -333,6 +333,16 @@ namespace Basis.Tests.GlobalIllumination
             RenderTexture.active = previous;
         }
 
+        /// <summary>The whole last rendered frame, row major from the bottom row.</summary>
+        public Color[] CaptureColours()
+        {
+            Capture();
+            return readback.GetPixels();
+        }
+
+        public int TargetWidth => targetWidth;
+        public int TargetHeight => targetHeight;
+
         /// <summary>Mean linear colour over a pixel rectangle of the last rendered frame.</summary>
         public Color Sample(RectInt region)
         {

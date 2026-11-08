@@ -9,9 +9,9 @@
   },
   "license": "MIT",
   "dependencies": {
-    "com.unity.inputsystem": "1.19.0",
-    "com.unity.render-pipelines.core": "17.4.0",
-    "com.unity.render-pipelines.universal": "17.4.0"
+    "com.unity.inputsystem": "6.7.0",
+    "com.unity.render-pipelines.core": "17.7.0",
+    "com.unity.render-pipelines.universal": "17.7.0"
   },
   "vpmDependencies": {
     "com.basis.framework": "0.0.1",

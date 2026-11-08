@@ -9,8 +9,8 @@
   },
   "license": "MIT",
   "dependencies": {
-    "com.unity.ugui": "2.0.0",
-    "com.unity.render-pipelines.universal": "17.4.0"
+    "com.unity.ugui": "2.7.0",
+    "com.unity.render-pipelines.universal": "17.7.0"
   },
   "vpmDependencies": {
     "com.basis.framework": "0.0.1",

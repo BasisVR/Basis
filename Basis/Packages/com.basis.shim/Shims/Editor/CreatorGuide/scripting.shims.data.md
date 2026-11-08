@@ -3,7 +3,7 @@
 
 ## BasisSaveShim
 
-Bytes saved on the player's machine. 256 KB per slot, 32 slots and 1 MB per store.
+Bytes saved on the player's machine. 256 KB per slot, 32 slots and 1 MB per store. On a prop another player spawned, only the default and `Protected` stores work, so each player keeps their own preferences.
 
 ```csharp
 using Basis.Shims;

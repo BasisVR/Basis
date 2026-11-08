@@ -928,6 +928,12 @@ public static partial class BasisRemoteNetworkDriver
         [WriteOnly] public NativeArray<byte> WriteMask;
         public int BoneCount;
         public int CapacityFixed;
+        [ReadOnly] public NativeArray<ulong> ScriptMask;
+        [ReadOnly] public NativeArray<int> ScriptBlock;
+        [ReadOnly] public NativeArray<quaternion> ScriptRotations;
+        [WriteOnly, NativeDisableContainerSafetyRestriction] public NativeArray<quaternion> NetworkRotations;
+        public int ScriptStride;
+        public bool ScriptActive;
 
         public void Execute(int index)
         {
@@ -940,6 +946,11 @@ public static partial class BasisRemoteNetworkDriver
                 : quaternion.identity;
 
             quaternion q = math.mul(math.mul(DecodePre[index], generic), DecodePost[index]);
+            if (ScriptActive && (uint)playerKey < (uint)ScriptMask.Length && ((ScriptMask[playerKey] >> boneIdx) & 1ul) != 0)
+            {
+                NetworkRotations[index] = q;
+                q = ScriptRotations[ScriptBlock[playerKey] * ScriptStride + boneIdx];
+            }
             Rotations[index] = q;
 
             // Bit-exact on purpose, so the skip is provably behaviour-identical rather than a
@@ -1021,11 +1032,20 @@ public static partial class BasisRemoteNetworkDriver
     /// generic→rig decode that replaces the old ScheduleBulkCopySkeletonDeltas plus separate
     /// compute job, removing one dispatch and the intermediate packed buffer.
     /// </summary>
+    public struct ScriptPoseInputs
+    {
+        public bool Active;
+        public NativeArray<ulong> Mask;
+        public NativeArray<int> Block;
+        public NativeArray<quaternion> Rotations, NetworkRotations;
+        public NativeArray<float3> HipsPositions;
+        public int Stride;
+    }
     public static JobHandle ScheduleComputeSkeletonRotations(
         NativeArray<int> playerKeys, int totalBones, int boneCount,
         NativeArray<quaternion> decodePre, NativeArray<quaternion> decodePost, NativeArray<byte> validMask,
         NativeArray<quaternion> rotations, NativeArray<quaternion> lastWritten, NativeArray<byte> writeMask,
-        int batch, JobHandle deps = default)
+        int batch, ScriptPoseInputs script, JobHandle deps = default)
     {
         if (!_initialized || totalBones == 0) return deps;
 
@@ -1041,6 +1061,12 @@ public static partial class BasisRemoteNetworkDriver
             WriteMask = writeMask,
             BoneCount = boneCount,
             CapacityFixed = _capacity,
+            ScriptMask = script.Mask,
+            ScriptBlock = script.Block,
+            ScriptRotations = script.Rotations,
+            NetworkRotations = script.NetworkRotations,
+            ScriptStride = script.Stride,
+            ScriptActive = script.Active,
         }.Schedule(totalBones, batch, deps);
     }
 

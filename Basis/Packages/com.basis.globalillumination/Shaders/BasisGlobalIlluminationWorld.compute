@@ -77,6 +77,7 @@ float4 _BasisGIWorldInterval;
 float4 _BasisGIWorldInject;
 float4 _BasisGIWorldSeen;
 float4 _BasisGIWorldResolve;
+float _BasisGIWorldSpecularBlend;
 float4x4 _BasisGIWorldRotation;
 float _BasisGIRCSolidAngle[16];
 
@@ -583,6 +584,7 @@ void BasisGIWorldResolveSpecular(uint3 id, int level, float3 position, uint3 slo
     float zeroSlice = (float)(id.z + (uint)(level * probes)) + 0.5;
     float3x3 toLocal = transpose((float3x3)_BasisGIWorldRotation);
     uint3 outTile = uint3(slot.xy * BASISGI_WORLD_SPECULAR_BINS, slot.z);
+    float specularBlend = blend >= 1.0 || blend > _BasisGIWorldResolve.x + 1e-3 ? blend : _BasisGIWorldSpecularBlend;
 
     UNITY_LOOP
     for (int bin = 0; bin < BASISGI_WORLD_SPECULAR_BINS * BASISGI_WORLD_SPECULAR_BINS; bin++)
@@ -608,7 +610,7 @@ void BasisGIWorldResolveSpecular(uint3 id, int level, float3 position, uint3 slo
         float3 glossy = max(0.0, coarse.rgb + detail * (parentScale * saturate(coarse.a)));
         uint3 texel = outTile + uint3(binTexel, 0);
         float3 previous = blend < 1.0 ? _BasisGIWorldSpecularPrev[texel].rgb : float3(0.0, 0.0, 0.0);
-        _BasisGIWorldSpecularOut[texel] = lerp(previous, glossy, blend);
+        _BasisGIWorldSpecularOut[texel] = lerp(previous, glossy, specularBlend);
     }
 }
 

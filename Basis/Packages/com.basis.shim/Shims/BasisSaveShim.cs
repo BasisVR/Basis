@@ -19,10 +19,10 @@ namespace Basis.Shims
 	public static class BasisSaveShim
 	{
 		public const int MaxSlotBytes = 256 * 1024, MaxSlots = 32, MaxStoreBytes = 1024 * 1024, MaxNameLength = 128;
-		const int HeaderSize = 16, MaxStores = 128, MaxStoresPerBox = 4, MaxReadOnlyStoresPerBox = 16, MaxWritesPerSecond = 8, GeneratedIdLength = 40, GeneratedIdHexLength = 32, ScriptHashLength = 64;
+		const int HeaderSize = 16, MaxStores = 128, MaxStoresPerBox = 4, MaxReadOnlyStoresPerBox = 16, MaxWritesPerSecond = 8, GeneratedIdLength = 40, GeneratedIdHexLength = 32, ScriptHashLength = 64, MaxStampedCodes = 8;
 		const uint Magic = (uint)('B' | 'S' << 8 | 'A' << 16 | 'V' << 24);
 		const byte Version = 1;
-		const string RootFolder = "CilboxSaves", Extension = ".bsave", SharedPrefix = "store:", ProtectedPrefix = "protected:", ReadOnlyPrefix = "readonly:";
+		const string RootFolder = "CilboxSaves", Extension = ".bsave", SharedPrefix = "store:", ProtectedPrefix = "protected:", ReadOnlyPrefix = "readonly:", StampFile = "code";
 		public static bool Save(object self, string slot, byte[] data) => Save(self, BasisSaveScope.Protected, null, slot, data);
 		public static byte[] Load(object self, string slot) => Load(self, BasisSaveScope.Protected, null, slot);
 		public static bool Delete(object self, string slot) => Delete(self, BasisSaveScope.Protected, null, slot);
@@ -31,26 +31,33 @@ namespace Basis.Shims
 		public static bool Delete(object self, string store, string slot) => Delete(self, store == null ? BasisSaveScope.Protected : BasisSaveScope.Shared, store, slot);
 		public static bool Save(object self, BasisSaveScope scope, string store, string slot, byte[] data)
 		{
-			CilboxBasisCommon box = Caller(self, nameof(Save));
-			string root = Root(), folder = box == null || data == null || data.Length > MaxSlotBytes ? null : Folder(box, root, scope, store), file = SlotFile(folder, slot);
-			return file != null && Claim(box, folder) && Spend(box) && Write(root, folder, file, data);
+			CilboxBasisCommon box = Caller(self, nameof(Save), out bool viewer);
+			string root = Root(), folder = box == null || data == null || data.Length > MaxSlotBytes || (viewer && scope != BasisSaveScope.Protected) ? null : Folder(box, root, scope, store), file = SlotFile(folder, slot);
+			if (file == null || !Claim(box, folder) || !Entrusted(box, folder, viewer, true) || !Spend(box) || !Write(root, folder, file, data)) return false;
+			if (scope == BasisSaveScope.Protected) Stamp(box, folder);
+			return true;
 		}
 		public static byte[] Load(object self, BasisSaveScope scope, string store, string slot)
 		{
-			CilboxBasisCommon box = Caller(self, nameof(Load));
-			string folder = box == null ? null : Folder(box, Root(), scope, store), file = SlotFile(folder, slot);
-			return file != null && Claim(box, folder) ? Read(file) : null;
+			CilboxBasisCommon box = Caller(self, nameof(Load), out bool viewer);
+			string folder = box == null || (viewer && scope != BasisSaveScope.Protected) ? null : Folder(box, Root(), scope, store), file = SlotFile(folder, slot);
+			if (file == null || !Claim(box, folder) || !Entrusted(box, folder, viewer, false)) return null;
+			if (!viewer && scope == BasisSaveScope.Protected) Stamp(box, folder);
+			return Read(file);
 		}
 		public static bool Delete(object self, BasisSaveScope scope, string store, string slot)
 		{
-			CilboxBasisCommon box = Caller(self, nameof(Delete));
-			string folder = box == null ? null : Folder(box, Root(), scope, store), file = SlotFile(folder, slot);
-			return file != null && Claim(box, folder) && Spend(box) && Remove(folder, file);
+			CilboxBasisCommon box = Caller(self, nameof(Delete), out bool viewer);
+			string folder = box == null || (viewer && scope != BasisSaveScope.Protected) ? null : Folder(box, Root(), scope, store), file = SlotFile(folder, slot);
+			if (file == null || !Claim(box, folder) || !Entrusted(box, folder, viewer, false) || !Spend(box) || !Remove(folder, file)) return false;
+			box.saveStamped?.Remove(folder);
+			if (scope == BasisSaveScope.Protected) Stamp(box, folder);
+			return true;
 		}
 		public static byte[] LoadReadOnly(object self, string ownerContentGroupId, string store, string slot)
 		{
-			CilboxBasisCommon box = Caller(self, nameof(LoadReadOnly));
-			string folder = box == null || ownerContentGroupId == null ? null : Prefixed(Root(), ReadOnlyPrefix, ownerContentGroupId.Trim(), store), file = SlotFile(folder, slot);
+			CilboxBasisCommon box = Caller(self, nameof(LoadReadOnly), out bool viewer);
+			string folder = box == null || viewer || ownerContentGroupId == null ? null : Prefixed(Root(), ReadOnlyPrefix, ownerContentGroupId.Trim(), store), file = SlotFile(folder, slot);
 			return file != null && ClaimRead(box, folder) ? Read(file) : null;
 		}
 		static bool Write(string root, string folder, string file, byte[] data)
@@ -114,15 +121,77 @@ namespace Basis.Shims
 			{
 				if (!File.Exists(file)) return false;
 				File.Delete(file);
+				if (Directory.GetFiles(folder, "*" + Extension).Length > 0) return true;
+				File.Delete(Path.Combine(folder, StampFile));
 				if (Directory.GetFileSystemEntries(folder).Length == 0) Directory.Delete(folder);
 				return true;
 			}
 			catch (Exception) { return false; }
 		}
-		static CilboxBasisCommon Caller(object self, string method)
+		static CilboxBasisCommon Caller(object self, string method, out bool viewer)
 		{
-			if (!(self is CilboxProxy proxy) || proxy == null || !(proxy.box is CilboxBasisCommon box) || box == null || box.interpreterAccountingDepth == 0 || !CilboxBasisConsent.ForLocalPlayer(box, proxy.gameObject) || !CilboxBasisConsent.TryRunning(out CilboxBasisCommon running) || !ReferenceEquals(running, box)) return null;
+			viewer = false;
+			if (!(self is CilboxProxy proxy) || proxy == null || !(proxy.box is CilboxBasisCommon box) || box == null || box.interpreterAccountingDepth == 0 || !CilboxBasisConsent.TryRunning(out CilboxBasisCommon running) || !ReferenceEquals(running, box)) return null;
+			if (!CilboxBasisConsent.ForLocalPlayer(box, proxy.gameObject) && !(viewer = CilboxBasisConsent.ForRemoteProp(box, proxy.gameObject))) return null;
 			return CilboxBasisConsent.Permits(box, CilboxBasisCommon.MethodItem(typeof(BasisSaveShim), method)) ? box : null;
+		}
+		static bool Entrusted(CilboxBasisCommon box, string folder, bool viewer, bool creating)
+		{
+			if (!viewer || (box.saveStamped != null && box.saveStamped.Contains(folder))) return true;
+			if (!IsCodeHash(box.codeHash)) return false;
+			if (creating && !Directory.Exists(folder)) return true;
+			if (Array.IndexOf(Stamped(folder), box.codeHash) < 0) return false;
+			(box.saveStamped ??= new HashSet<string>(StringComparer.Ordinal)).Add(folder);
+			return true;
+		}
+		static void Stamp(CilboxBasisCommon box, string folder)
+		{
+			if ((box.saveStamped != null && box.saveStamped.Contains(folder)) || !IsCodeHash(box.codeHash) || !Directory.Exists(folder)) return;
+			string[] hashes = Stamped(folder);
+			if (Array.IndexOf(hashes, box.codeHash) < 0)
+			{
+				List<string> kept = new List<string>(hashes);
+				kept.Add(box.codeHash);
+				if (kept.Count > MaxStampedCodes) kept.RemoveRange(0, kept.Count - MaxStampedCodes);
+				string file = Path.Combine(folder, StampFile), temp = file + ".tmp";
+				try
+				{
+					File.WriteAllText(temp, string.Join("\n", kept));
+					if (File.Exists(file)) File.Replace(temp, file, null);
+					else File.Move(temp, file);
+				}
+				catch (Exception)
+				{
+					try { File.Delete(temp); } catch (Exception) { }
+					return;
+				}
+			}
+			(box.saveStamped ??= new HashSet<string>(StringComparer.Ordinal)).Add(folder);
+		}
+		static string[] Stamped(string folder)
+		{
+			try
+			{
+				string file = Path.Combine(folder, StampFile);
+				if (!File.Exists(file) || new FileInfo(file).Length > MaxStampedCodes * (ScriptHashLength + 2)) return Array.Empty<string>();
+				List<string> hashes = new List<string>(MaxStampedCodes);
+				foreach (string line in File.ReadAllText(file).Split('\n'))
+				{
+					string hash = line.Trim();
+					if (IsCodeHash(hash) && hashes.Count < MaxStampedCodes) hashes.Add(hash);
+				}
+				return hashes.ToArray();
+			}
+			catch (Exception) { return Array.Empty<string>(); }
+		}
+		static bool IsCodeHash(string hash)
+		{
+			if (hash == null || hash.Length != ScriptHashLength) return false;
+			foreach (char c in hash)
+			{
+				if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) return false;
+			}
+			return true;
 		}
 		static string Root() => Path.Combine(Application.persistentDataPath, RootFolder);
 		static string Folder(CilboxBasisCommon box, string root, BasisSaveScope scope, string store)

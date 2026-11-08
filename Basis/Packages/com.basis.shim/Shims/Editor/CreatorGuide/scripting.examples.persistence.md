@@ -105,6 +105,8 @@ Scopes control who can read and write:
 | `BasisSaveScope.ReadOnly` | Any content (with your Content ID) | This content only |
 | `BasisSaveScope.Shared` | Any content that names the store | Any content that names the store |
 
+Props run on every player's machine, not just for the player who spawned them. The spawner gets every scope. Everyone else gets the default store and `Protected` stores only, saved on their own machine. A player sees the same preferences whether they spawned the prop or someone else did, as long as both copies run the same build of your scripts. After you update a prop, its saves reach other players' copies only after each player has spawned the new build themselves and it has loaded or saved once.
+
 ```csharp
 // Publish a badge other worlds can read.
 BasisSaveShim.Save(this, BasisSaveScope.ReadOnly, null, "badge", bytes);

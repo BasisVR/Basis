@@ -292,7 +292,7 @@ float3 BasisGIStats(float2 uv)
 {
     if (_BasisGIStatsValid < 0.5) { return float3(0.0, 0.0, 0.0); }
     float4 stats = SAMPLE_TEXTURE2D_X_LOD(_BasisGIStats, sampler_PointClamp, UnityStereoTransformScreenSpaceTex(saturate(uv)), 0);
-    return float3(stats.r, stats.g, max(0.0, stats.a));
+    return float3(stats.r, stats.g, abs(stats.a));
 }
 
 /// <summary>

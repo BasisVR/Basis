@@ -8,7 +8,7 @@
     "url": "https://github.com/BasisVR"
   },
   "dependencies": {
-    "com.unity.ugui": "2.0.0"
+    "com.unity.ugui": "2.7.0"
   },
   "vpmDependencies": {
     "com.basis.framework": "0.0.1",

@@ -644,6 +644,7 @@ namespace Basis.Scripts.Networking
                     out BasisEventDriverProfilerData.BoneWrite_Total);
             }
 #endif
+            if (RemoteBoneJobSystem.HasPosePass) RemoteBoneJobSystem.RunPosePass();
         }
 
         #endregion

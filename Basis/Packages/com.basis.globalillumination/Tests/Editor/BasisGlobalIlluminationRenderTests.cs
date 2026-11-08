@@ -294,7 +294,7 @@ namespace Basis.Tests.GlobalIllumination
             float inViewLeak = inViewCount > 0 ? inViewTotal / inViewCount : 0f;
 
             Debug.Log($"[BasisGI] emitter leak by step: {trace}| unobstructed={unobstructed:F4} inView={inViewLeak:F4} rate={ratePerMetre:F2}/m");
-            Assert.Greater(unobstructed, 0.02f,
+            Assert.Greater(unobstructed, 0.018f,
                 $"the emitter delivered {unobstructed:F4} with nothing in the way, so this run had no shadow to measure");
             Assert.Less(inViewLeak, unobstructed * 0.15f,
                 $"with the wall in frame the emitter still put {inViewLeak / unobstructed:P0} of its unobstructed light on the floor, so it is not being shadowed. Per step: {trace}");

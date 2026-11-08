@@ -274,7 +274,7 @@
         {
           "id": "scripting/shims/players",
           "title": "Players",
-          "description": "BasisPlayersShim, BasisVelocityShim, BasisPlayspaceInputShim, BasisSeatShim, BasisPoseOverrideShim, BasisAvatarSwitchShim and BasisPermissionsShim.",
+          "description": "BasisPlayersShim, BasisVelocityShim, BasisPlayspaceInputShim, BasisSeatShim, BasisPoseOverrideShim, BasisRemotePoseShim, BasisAvatarSwitchShim and BasisPermissionsShim.",
           "file": "scripting.shims.players.md"
         },
         {

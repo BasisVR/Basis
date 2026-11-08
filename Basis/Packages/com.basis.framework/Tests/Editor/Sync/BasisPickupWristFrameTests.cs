@@ -247,6 +247,59 @@ namespace Basis.Tests.Sync
                 "instead of freezing for the rest of the hold");
         }
 
+        [Test]
+        public void DesktopHold_TurningView_StaysRigidToTheObserverHead()
+        {
+            Transform ownerHead = new GameObject("head").transform;
+            ownerHead.SetParent(_ownerWrist.parent, false);
+            Transform observerHead = new GameObject("head").transform;
+            observerHead.SetParent(_observerWrist.parent, false);
+            SeedCache(_sender, _sender.currentOwnedPlayer, ownerHead, HandHead);
+            SeedCache(_remote, _remote.currentOwnedPlayer, observerHead, HandHead);
+
+            BasisInputWrapper held = default;
+            object boxed = held;
+            InputStateF.SetValue(boxed, BasisInteractInputState.Interacting);
+            _sender.BasisPickupInteractable.Inputs.leftHand = default;
+            _sender.BasisPickupInteractable.Inputs.desktopCenterEye = (BasisInputWrapper)boxed;
+
+            Vector3 grip = new Vector3(0.18f, -0.3f, 0.45f);
+            Vector3 headPos = new Vector3(0f, 1.6f, 0f);
+            Quaternion previousHead = Quaternion.identity;
+            _ownerWrist.SetPositionAndRotation(new Vector3(0.2f, 1.2f, 0.3f), Quaternion.identity);
+            float worst = 0f;
+            for (int frame = 0; frame < 40; frame++)
+            {
+                Quaternion head = Quaternion.Euler(frame * 0.5f, frame * 6f, 0f);
+                ownerHead.SetPositionAndRotation(headPos, head);
+                _ownerWrist.rotation = Quaternion.Slerp(_ownerWrist.rotation, head, 0.3f);
+                _sender.Target.SetPositionAndRotation(headPos + head * grip, head);
+                BeforeTransmitM.Invoke(_sender, null);
+                Feed(1);
+
+                observerHead.SetPositionAndRotation(headPos + new Vector3(3f, 0f, 0f), previousHead);
+                previousHead = head;
+                Tick();
+
+                if (frame < 4) continue;
+                observerHead.GetPositionAndRotation(out Vector3 hp, out Quaternion hr);
+                worst = Mathf.Max(worst, Vector3.Distance(_remote.Target.position, hp + hr * grip));
+            }
+
+            Assert.LessOrEqual(worst, 0.005f,
+                $"a desktop hold is rigid to the camera, so the observer must keep it rigid to the head; worst miss {worst:0.000} m");
+        }
+
+        const byte HandHead = 7;
+
+        static void SeedCache(BasisPickupSyncNetworking p, BasisNetworkPlayer holder, Transform bone, byte id)
+        {
+            holder.TryGetPlayer(out IBasisPlayer player);
+            CachedAnimF.SetValue(p, player.BasisAvatar.Animator);
+            CachedIdF.SetValue(p, (int)id);
+            CachedHandF.SetValue(p, bone);
+        }
+
         // ── rig ──
 
         BasisPickupSyncNetworking CreatePickup(string name)

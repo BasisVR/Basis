@@ -720,6 +720,14 @@ namespace Basis.BasisUI
         private static void BuildInteractionsSection(RectTransform container)
         {
             PanelSlider sliderMenuTeleportDistance = null;
+            PanelToggle toggleBodyHapticsFromOthers = null, toggleBodyHapticsFromSelf = null;
+            PanelSlider sliderBodyHapticsIntensity = null;
+            void SetBodyHapticRowsActive(bool on)
+            {
+                toggleBodyHapticsFromOthers?.Descriptor.SetActive(on);
+                toggleBodyHapticsFromSelf?.Descriptor.SetActive(on);
+                sliderBodyHapticsIntensity?.Descriptor.SetActive(on);
+            }
             void RebuildInteractionRows()
             {
                 PanelElementDescriptor.RebuildLayoutChain(sliderMenuTeleportDistance != null ? sliderMenuTeleportDistance.transform.parent as RectTransform : null, container);
@@ -770,6 +778,39 @@ namespace Basis.BasisUI
                 toggleJiggleGrabInteractions.Descriptor.SetTitle(BasisLocalization.Get("settings.general.jiggleGrabInteractions"));
                 toggleJiggleGrabInteractions.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.jiggleGrabInteractions.tooltip"));
 
+                PanelToggle toggleContactsFromOthers = PanelToggle.CreateNewEntry(container);
+                toggleContactsFromOthers.AssignBinding(BasisSettingsDefaults.ContactsFromOthers);
+                toggleContactsFromOthers.Descriptor.SetTitle(BasisLocalization.Get("settings.general.contactsFromOthers"));
+                toggleContactsFromOthers.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.contactsFromOthers.tooltip"));
+
+                PanelToggle toggleBodyHaptics = PanelToggle.CreateNewEntry(container);
+                toggleBodyHaptics.AssignBinding(BasisSettingsDefaults.BodyHaptics);
+                toggleBodyHaptics.Descriptor.SetTitle(BasisLocalization.Get("settings.general.bodyHaptics"));
+                toggleBodyHaptics.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.bodyHaptics.tooltip"));
+
+                toggleBodyHapticsFromOthers = PanelToggle.CreateNewEntry(container);
+                toggleBodyHapticsFromOthers.AssignBinding(BasisSettingsDefaults.BodyHapticsFromOthers);
+                toggleBodyHapticsFromOthers.Descriptor.SetTitle(BasisLocalization.Get("settings.general.bodyHapticsFromOthers"));
+                toggleBodyHapticsFromOthers.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.bodyHapticsFromOthers.tooltip"));
+
+                toggleBodyHapticsFromSelf = PanelToggle.CreateNewEntry(container);
+                toggleBodyHapticsFromSelf.AssignBinding(BasisSettingsDefaults.BodyHapticsFromSelf);
+                toggleBodyHapticsFromSelf.Descriptor.SetTitle(BasisLocalization.Get("settings.general.bodyHapticsFromSelf"));
+                toggleBodyHapticsFromSelf.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.bodyHapticsFromSelf.tooltip"));
+
+                sliderBodyHapticsIntensity = PanelSlider.CreateEntryAndBind(
+                    container,
+                    PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.general.bodyHapticsIntensity"), 0.05f, 1f, false, 2, ValueDisplayMode.Percentage),
+                    BasisSettingsDefaults.BodyHapticsIntensity);
+                sliderBodyHapticsIntensity.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.bodyHapticsIntensity.tooltip"));
+
+                SetBodyHapticRowsActive(BasisSettingsDefaults.BodyHaptics.RawValue);
+                toggleBodyHaptics.OnValueChanged += val =>
+                {
+                    SetBodyHapticRowsActive(val);
+                    RebuildInteractionRows();
+                };
+
                 PanelToggle toggleUIHaptics = PanelToggle.CreateNewEntry(container);
                 toggleUIHaptics.AssignBinding(BasisSettingsDefaults.UIHaptics);
                 toggleUIHaptics.Descriptor.SetTitle(BasisLocalization.Get("settings.general.uiHaptics"));
@@ -794,6 +835,10 @@ namespace Basis.BasisUI
                 if (visible && sliderMenuTeleportDistance != null)
                 {
                     sliderMenuTeleportDistance.Descriptor.SetActive(BasisSettingsDefaults.MenuTeleport.RawValue);
+                }
+                if (visible)
+                {
+                    SetBodyHapticRowsActive(BasisSettingsDefaults.BodyHaptics.RawValue);
                 }
                 RebuildInteractionRows();
             });
@@ -4564,6 +4609,11 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.DisablePropPickup.ResetToDefault();
             BasisSettingsDefaults.DisableVRAutoHold.ResetToDefault();
             BasisSettingsDefaults.JiggleGrabInteractions.ResetToDefault();
+            BasisSettingsDefaults.ContactsFromOthers.ResetToDefault();
+            BasisSettingsDefaults.BodyHaptics.ResetToDefault();
+            BasisSettingsDefaults.BodyHapticsFromOthers.ResetToDefault();
+            BasisSettingsDefaults.BodyHapticsFromSelf.ResetToDefault();
+            BasisSettingsDefaults.BodyHapticsIntensity.ResetToDefault();
             BasisSettingsDefaults.UIHaptics.ResetToDefault();
             BasisSettingsDefaults.HideRemoteCameraPucks.ResetToDefault();
             BasisSettingsDefaults.ExternalLinkRequests.ResetToDefault();
