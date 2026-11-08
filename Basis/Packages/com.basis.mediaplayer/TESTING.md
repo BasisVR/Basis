@@ -93,6 +93,8 @@ One client, in a scene with more than one player.
 | Lip sync | Play an on-demand video with speech, then a live RTSP stream | Sound and picture land together; the sound does not trail the picture |
 | Before the first frame | Open a live RTSP stream and a fragmented AV1 MP4, watching the screen from the moment the panel reads Buffering | The screen keeps its placeholder until the first frame shows, never white or grey. The debug window's output texture pill reads NO until then |
 | Long pause | Pause a minute, then play, on a video and an audio-only file | Resumes with no error |
+| Volume and analysis | With AudioLink reading an output that has **Analysis Feed** ticked, play music, then drag the panel's volume to half and then to 0 | The music gets quieter, then stops. AudioLink keeps reacting at the level it had at full volume throughout. Back at full, the music returns at its old level |
+| Master and World volume | Play music on each prefab, then set **Settings > Audio > Master Volume** to half and then 0; back at full, do the same with **World Volume** | Each player gets quieter and then silent with either slider, and returns at its old level. AudioLink reading an **Analysis Feed** output stops at Master Volume 0 and keeps reacting at World Volume 0 |
 | Live stream | Open one | The seek bar hides |
 | MPEG-TS file | Open an on-demand `.ts` or `.m2ts` over HTTPS, not through HLS | Plays from the start. The duration reads 0 and the seek bar hides |
 | WAV file | With the yt-dlp package installed, open a 7.1 `.wav` over HTTPS on the multi-channel prefab | Opens straight away with no yt-dlp lines in the Console, and all eight outputs carry sound |
@@ -109,7 +111,8 @@ One client, in a scene with more than one player.
 
 After changing their components, check `MediaPlayerStreaming` and
 `MediaPlayerMultiChannelStreaming`: no missing scripts, outputs wired to their
-channels (all eight on the multi-channel one), the screen showing the picture,
+channels (all eight on the multi-channel one) and routed to the mixer's `world`
+group, the screen showing the picture,
 and the networking component's permission fields as intended.
 
 On `BasisVideoMaterialOutput`, the Picture foldout shows four sliders at 1, and
