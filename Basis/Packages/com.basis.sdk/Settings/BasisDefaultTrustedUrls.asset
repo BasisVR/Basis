@@ -28,6 +28,7 @@ MonoBehaviour:
   - https://*.ttvnw.net/*
   - https://pbs.twimg.com/*
   - https://*.vrcdn.cloud/*
+  - https://vrcdn.cloud/*
   - https://*.vrcdn.live/*
   - rtsp://*.vrcdn.cloud/*
   - rtsp://*.vrcdn.live/*
