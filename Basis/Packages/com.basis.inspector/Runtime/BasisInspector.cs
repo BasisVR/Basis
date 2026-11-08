@@ -957,10 +957,15 @@ public class BasisInspector : MonoBehaviour
         {
             return;
         }
-        Transform target = value is GameObject go && go != null ? go.transform : value is Component component && component != null ? component.transform : null;
-        if (target != null)
+        if (value is GameObject go && go != null)
         {
-            Select(target, true);
+            Select(go.transform, true);
+            return;
+        }
+        if (value is Component component && component != null)
+        {
+            Select(component.transform, true);
+            FocusComponent(component);
             return;
         }
         if (value is UnityEngine.Object asset && asset != null)
@@ -969,6 +974,26 @@ public class BasisInspector : MonoBehaviour
             return;
         }
         if (value is System.Collections.IList list && !(value is string) && list.Count > 0) PushView(ListView(list, entry.Member.Label));
+    }
+
+    void FocusComponent(Component component)
+    {
+        if (CurrentView != null) return;
+        foreach (Segment segment in segments)
+        {
+            if (!ReferenceEquals(segment.Target, component)) continue;
+            if (segment.Collapsed)
+            {
+                segment.Collapsed = false;
+                bool collapsedByDefault = collapseComponents && !(component is Transform);
+                if (collapsedByDefault) toggled.Add(component);
+                else toggled.Remove(component);
+                Recount();
+            }
+            fieldOffset = segment.Start;
+            RefreshFields();
+            return;
+        }
     }
 
     static View ListView(System.Collections.IList list, string title)

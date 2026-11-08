@@ -34,7 +34,7 @@ public static partial class BasisInspectorReflection
     [NoAutoStaticsCleanup] static readonly HashSet<string> materialSkipped = new HashSet<string>(StringComparer.Ordinal) { "color", "mainTexture", "mainTextureOffset", "mainTextureScale" };
     [NoAutoStaticsCleanup] static readonly HashSet<string> sideEffectProperties =new HashSet<string>(StringComparer.Ordinal) { "material", "materials", "mesh", "lightmapBakeType", "shadowRadius", "shadowAngle", "areaSize", "bakingOutput", "isPartOfStaticBatch" };
     [NoAutoStaticsCleanup] static readonly HashSet<string> animatorProperties = new HashSet<string>(StringComparer.Ordinal) { "runtimeAnimatorController", "avatar", "applyRootMotion", "updateMode", "cullingMode", "speed", "isHuman", "hasRootMotion", "humanScale", "isInitialized", "layerCount", "parameterCount", "hasBoundPlayables", "keepAnimatorStateOnDisable", "writeDefaultValuesOnDisable", "fireEvents" };
-    [NoAutoStaticsCleanup] static readonly string[] transformProperties = { "localPosition", "localEulerAngles", "localScale", "position", "eulerAngles", "lossyScale", "childCount" };
+    [NoAutoStaticsCleanup] static readonly string[] transformProperties = { "localPosition", "localEulerAngles", "localScale", "position", "eulerAngles", "lossyScale", "parent", "childCount" };
     [NoAutoStaticsCleanup] static readonly string[] rectTransformProperties = { "anchoredPosition", "sizeDelta", "anchorMin", "anchorMax", "pivot" };
     [NoAutoStaticsCleanup] static readonly string[] sensitiveWords = { "password", "passphrase", "passwd", "secret", "token", "cookie", "privatekey", "apikey", "credential", "signature", "nonce" };
     [NoAutoStaticsCleanup] static readonly char[] lineBreaks = { '\r', '\n', '\t' };
