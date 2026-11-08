@@ -1,0 +1,102 @@
+{
+  "code": "ja",
+  "nativeName": "日本語",
+  "entries": [
+    {
+      "key": "library.embedded.inspector",
+      "value": "インスペクター"
+    },
+    {
+      "key": "inspector.scene",
+      "value": "シーン: {0}"
+    },
+    {
+      "key": "inspector.scene.count",
+      "value": "シーン: {0} ({1}/{2})"
+    },
+    {
+      "key": "inspector.sceneEmpty",
+      "value": "このシーンにはオブジェクトがありません。"
+    },
+    {
+      "key": "inspector.selectPrompt",
+      "value": "ヒエラルキーでオブジェクトを選ぶとコンポーネントが表示されます。"
+    },
+    {
+      "key": "inspector.path",
+      "value": "パス"
+    },
+    {
+      "key": "inspector.enabled",
+      "value": "有効"
+    },
+    {
+      "key": "inspector.disabled",
+      "value": "無効"
+    },
+    {
+      "key": "inspector.missingScript",
+      "value": "スクリプトがありません"
+    },
+    {
+      "key": "inspector.hidden",
+      "value": "非表示"
+    },
+    {
+      "key": "inspector.unreadable",
+      "value": "読み取れません"
+    },
+    {
+      "key": "inspector.none",
+      "value": "なし"
+    },
+    {
+      "key": "inspector.missing",
+      "value": "見つかりません"
+    },
+    {
+      "key": "inspector.true",
+      "value": "True"
+    },
+    {
+      "key": "inspector.false",
+      "value": "False"
+    },
+    {
+      "key": "inspector.gizmo.axes",
+      "value": "軸"
+    },
+    {
+      "key": "inspector.gizmo.bounds",
+      "value": "バウンズ"
+    },
+    {
+      "key": "inspector.gizmo.colliders",
+      "value": "コライダー"
+    },
+    {
+      "key": "inspector.gizmo.ranges",
+      "value": "範囲"
+    },
+    {
+      "key": "inspector.gizmo.camera",
+      "value": "カメラ"
+    },
+    {
+      "key": "inspector.gizmo.children",
+      "value": "子"
+    },
+    {
+      "key": "inspector.gizmo.label",
+      "value": "名前"
+    },
+    {
+      "key": "inspector.shaderProperties",
+      "value": "シェーダープロパティ"
+    },
+    {
+      "key": "inspector.noPreview",
+      "value": "この種類のテクスチャはプレビューできません。"
+    }
+  ]
+}

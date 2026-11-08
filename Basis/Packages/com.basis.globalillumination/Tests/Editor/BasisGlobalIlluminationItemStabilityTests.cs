@@ -12,6 +12,7 @@ namespace Basis.Tests.GlobalIllumination
         private readonly List<GameObject> items = new List<GameObject>();
         private AmbientMode ambientMode;
         private Color ambientLight;
+        private Light light;
 
         [SetUp]
         public void SetUp()
@@ -66,7 +67,7 @@ namespace Basis.Tests.GlobalIllumination
             harness.AddBox(new Vector3(-2.98f, 1.3f, 1.4f), new Vector3(0.04f, 0.8f, 1.6f), harness.CreateLitMaterial(Color.black, new Color(6f, 3.2f, 1.2f)));
             GameObject lightHost = harness.Own(new GameObject("BasisGIItemLight"));
             lightHost.transform.position = new Vector3(0.9f, 2.6f, 0.2f);
-            Light light = lightHost.AddComponent<Light>();
+            light = lightHost.AddComponent<Light>();
             light.type = LightType.Point;
             light.intensity = 6f;
             light.range = 9f;
@@ -88,6 +89,18 @@ namespace Basis.Tests.GlobalIllumination
         }
 
         private static float Luma(Color colour) { return colour.r * 0.2126f + colour.g * 0.7152f + colour.b * 0.0722f; }
+
+        private float Level()
+        {
+            Color[] colours = harness.CaptureColours();
+            double total = 0.0;
+            int count = 0;
+            for (int y = Height / 4; y < Height * 3 / 4; y += 2)
+            {
+                for (int x = Width / 6; x < Width * 5 / 6; x += 2) { total += Luma(colours[y * Width + x]); count++; }
+            }
+            return (float)(total / count);
+        }
 
         private bool[] ItemMask()
         {
@@ -150,6 +163,36 @@ namespace Basis.Tests.GlobalIllumination
             Assert.Greater(samples, 10000.0, "the items barely cover the frame, so this test proves nothing");
             Assert.Less(sparkle, 0.0005f, $"item pixels jumped by more than a fifth between two frames at the same pose: {sparkle:P3}");
             Assert.Less(flicker, 0.01f, $"item pixels moved too far between two frames at the same pose: {flicker:P2}");
+        }
+
+        [Test]
+        public void TheBounceFollowsALightSwitchWithinAFewFrames()
+        {
+            BuildRoom();
+            harness.Settings.quality = BasisGlobalIlluminationQuality.Medium;
+            harness.SetDebugView(BasisGlobalIlluminationDebugView.IndirectOnly);
+            foreach (bool on in new[] { true, false })
+            {
+                light.intensity = on ? 0f : 6f;
+                for (int frame = 0; frame < 90; frame++) { harness.Render(); }
+                float start = Level();
+                light.intensity = on ? 6f : 0f;
+                const int frames = 90;
+                float[] levels = new float[frames];
+                for (int frame = 0; frame < frames; frame++)
+                {
+                    harness.Render();
+                    levels[frame] = Level();
+                }
+                float settled = 0f;
+                for (int frame = frames - 16; frame < frames; frame++) { settled += levels[frame]; }
+                settled /= 16f;
+                int half = frames;
+                for (int frame = frames - 1; frame >= 0; frame--) { if ((levels[frame] - start) / (settled - start) < 0.5f) { half = frame + 1; break; } }
+                Debug.Log($"[BasisGI] light {(on ? "on" : "off")}: bounce {start:F4} -> {settled:F4}, halfway after {half} frames");
+                Assert.Greater(Mathf.Abs(settled - start), 0.004f, "the light barely changes the bounce, so this test proves nothing");
+                Assert.LessOrEqual(half, on ? 10 : 12, $"the bounce took {half} frames to cover half the change after the light switched {(on ? "on" : "off")}");
+            }
         }
     }
 }

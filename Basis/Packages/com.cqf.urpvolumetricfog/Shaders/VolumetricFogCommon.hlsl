@@ -116,13 +116,15 @@ real3 EvaluateWeightedAPV(float2 positionSS, float3 posWS)
 // Same evaluation driven by uniform flags: used by the froxel kernels, which keep their variant count down.
 real3 EvaluateWeightedAPVDynamic(float2 positionSS, float3 posWS, bool enabled, bool baked)
 {
+    real3 result = real3(0.0, 0.0, 0.0);
     UNITY_BRANCH
-    if (!enabled)
-        return real3(0.0, 0.0, 0.0);
-    UNITY_BRANCH
-    if (baked)
-        return EvaluateBakedAPV(posWS);
-    return EvaluateLiveAPV(positionSS, posWS);
+    if (enabled)
+    {
+        UNITY_BRANCH
+        if (baked) { result = EvaluateBakedAPV(posWS); }
+        else { result = EvaluateLiveAPV(positionSS, posWS); }
+    }
+    return result;
 }
 
 TEXTURE3D(_VFExternalVolume);

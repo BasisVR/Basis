@@ -1,0 +1,102 @@
+{
+  "code": "it",
+  "nativeName": "Italiano",
+  "entries": [
+    {
+      "key": "library.embedded.inspector",
+      "value": "Ispettore"
+    },
+    {
+      "key": "inspector.scene",
+      "value": "Scena: {0}"
+    },
+    {
+      "key": "inspector.scene.count",
+      "value": "Scena: {0} ({1}/{2})"
+    },
+    {
+      "key": "inspector.sceneEmpty",
+      "value": "Questa scena non contiene oggetti."
+    },
+    {
+      "key": "inspector.selectPrompt",
+      "value": "Seleziona un oggetto nella gerarchia per vederne i componenti."
+    },
+    {
+      "key": "inspector.path",
+      "value": "Percorso"
+    },
+    {
+      "key": "inspector.enabled",
+      "value": "Attivo"
+    },
+    {
+      "key": "inspector.disabled",
+      "value": "Disattivato"
+    },
+    {
+      "key": "inspector.missingScript",
+      "value": "Script mancante"
+    },
+    {
+      "key": "inspector.hidden",
+      "value": "Nascosto"
+    },
+    {
+      "key": "inspector.unreadable",
+      "value": "Illeggibile"
+    },
+    {
+      "key": "inspector.none",
+      "value": "Nessuno"
+    },
+    {
+      "key": "inspector.missing",
+      "value": "Mancante"
+    },
+    {
+      "key": "inspector.true",
+      "value": "Vero"
+    },
+    {
+      "key": "inspector.false",
+      "value": "Falso"
+    },
+    {
+      "key": "inspector.gizmo.axes",
+      "value": "Assi"
+    },
+    {
+      "key": "inspector.gizmo.bounds",
+      "value": "Limiti"
+    },
+    {
+      "key": "inspector.gizmo.colliders",
+      "value": "Collider"
+    },
+    {
+      "key": "inspector.gizmo.ranges",
+      "value": "Portate"
+    },
+    {
+      "key": "inspector.gizmo.camera",
+      "value": "Camera"
+    },
+    {
+      "key": "inspector.gizmo.children",
+      "value": "Figli"
+    },
+    {
+      "key": "inspector.gizmo.label",
+      "value": "Nome"
+    },
+    {
+      "key": "inspector.shaderProperties",
+      "value": "Proprietà dello shader"
+    },
+    {
+      "key": "inspector.noPreview",
+      "value": "Nessuna anteprima per questo tipo di texture."
+    }
+  ]
+}

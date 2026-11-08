@@ -1,0 +1,21 @@
+{
+    "name": "Basis.Inspector",
+    "rootNamespace": "",
+    "references": [
+        "Basis Framework",
+        "BasisSDK",
+        "BasisDebug",
+        "UnityEngine.UI",
+        "Unity.TextMeshPro",
+        "BasisGizmos"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

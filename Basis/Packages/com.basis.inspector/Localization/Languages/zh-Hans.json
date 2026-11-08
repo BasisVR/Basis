@@ -1,0 +1,102 @@
+{
+  "code": "zh-Hans",
+  "nativeName": "简体中文",
+  "entries": [
+    {
+      "key": "library.embedded.inspector",
+      "value": "检查器"
+    },
+    {
+      "key": "inspector.scene",
+      "value": "场景：{0}"
+    },
+    {
+      "key": "inspector.scene.count",
+      "value": "场景：{0} ({1}/{2})"
+    },
+    {
+      "key": "inspector.sceneEmpty",
+      "value": "此场景中没有对象。"
+    },
+    {
+      "key": "inspector.selectPrompt",
+      "value": "在层级中选择一个对象以查看其组件。"
+    },
+    {
+      "key": "inspector.path",
+      "value": "路径"
+    },
+    {
+      "key": "inspector.enabled",
+      "value": "已启用"
+    },
+    {
+      "key": "inspector.disabled",
+      "value": "已禁用"
+    },
+    {
+      "key": "inspector.missingScript",
+      "value": "缺少脚本"
+    },
+    {
+      "key": "inspector.hidden",
+      "value": "已隐藏"
+    },
+    {
+      "key": "inspector.unreadable",
+      "value": "无法读取"
+    },
+    {
+      "key": "inspector.none",
+      "value": "无"
+    },
+    {
+      "key": "inspector.missing",
+      "value": "缺失"
+    },
+    {
+      "key": "inspector.true",
+      "value": "真"
+    },
+    {
+      "key": "inspector.false",
+      "value": "假"
+    },
+    {
+      "key": "inspector.gizmo.axes",
+      "value": "坐标轴"
+    },
+    {
+      "key": "inspector.gizmo.bounds",
+      "value": "包围盒"
+    },
+    {
+      "key": "inspector.gizmo.colliders",
+      "value": "碰撞体"
+    },
+    {
+      "key": "inspector.gizmo.ranges",
+      "value": "范围"
+    },
+    {
+      "key": "inspector.gizmo.camera",
+      "value": "摄像机"
+    },
+    {
+      "key": "inspector.gizmo.children",
+      "value": "子对象"
+    },
+    {
+      "key": "inspector.gizmo.label",
+      "value": "名称"
+    },
+    {
+      "key": "inspector.shaderProperties",
+      "value": "着色器属性"
+    },
+    {
+      "key": "inspector.noPreview",
+      "value": "此类纹理无法预览。"
+    }
+  ]
+}

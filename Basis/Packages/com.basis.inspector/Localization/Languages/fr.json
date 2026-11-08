@@ -1,0 +1,102 @@
+{
+  "code": "fr",
+  "nativeName": "Français",
+  "entries": [
+    {
+      "key": "library.embedded.inspector",
+      "value": "Inspecteur"
+    },
+    {
+      "key": "inspector.scene",
+      "value": "Scène : {0}"
+    },
+    {
+      "key": "inspector.scene.count",
+      "value": "Scène : {0} ({1}/{2})"
+    },
+    {
+      "key": "inspector.sceneEmpty",
+      "value": "Cette scène ne contient aucun objet."
+    },
+    {
+      "key": "inspector.selectPrompt",
+      "value": "Sélectionnez un objet dans la hiérarchie pour voir ses composants."
+    },
+    {
+      "key": "inspector.path",
+      "value": "Chemin"
+    },
+    {
+      "key": "inspector.enabled",
+      "value": "Activé"
+    },
+    {
+      "key": "inspector.disabled",
+      "value": "Désactivé"
+    },
+    {
+      "key": "inspector.missingScript",
+      "value": "Script manquant"
+    },
+    {
+      "key": "inspector.hidden",
+      "value": "Masqué"
+    },
+    {
+      "key": "inspector.unreadable",
+      "value": "Illisible"
+    },
+    {
+      "key": "inspector.none",
+      "value": "Aucun"
+    },
+    {
+      "key": "inspector.missing",
+      "value": "Manquant"
+    },
+    {
+      "key": "inspector.true",
+      "value": "Vrai"
+    },
+    {
+      "key": "inspector.false",
+      "value": "Faux"
+    },
+    {
+      "key": "inspector.gizmo.axes",
+      "value": "Axes"
+    },
+    {
+      "key": "inspector.gizmo.bounds",
+      "value": "Limites"
+    },
+    {
+      "key": "inspector.gizmo.colliders",
+      "value": "Collisionneurs"
+    },
+    {
+      "key": "inspector.gizmo.ranges",
+      "value": "Portées"
+    },
+    {
+      "key": "inspector.gizmo.camera",
+      "value": "Caméra"
+    },
+    {
+      "key": "inspector.gizmo.children",
+      "value": "Enfants"
+    },
+    {
+      "key": "inspector.gizmo.label",
+      "value": "Nom"
+    },
+    {
+      "key": "inspector.shaderProperties",
+      "value": "Propriétés du shader"
+    },
+    {
+      "key": "inspector.noPreview",
+      "value": "Pas d'aperçu pour ce type de texture."
+    }
+  ]
+}

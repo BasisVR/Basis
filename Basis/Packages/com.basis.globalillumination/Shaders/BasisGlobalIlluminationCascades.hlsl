@@ -418,7 +418,7 @@ float4 BasisGIRCCascade(float2 positionCS)
     int2 texel = int2(positionCS);
     float resolution = _BasisGIRCCascade.z;
     int2 tile = int2((int)resolution, (int)resolution >> 1);
-    int2 probeIndex = texel / tile;
+    int2 probeIndex = (int2)((uint2)texel / (uint2)tile);
     int2 directionTexel = texel - probeIndex * tile;
     if (any(probeIndex >= int2(_BasisGIRCGrid.xy))) { return float4(0.0, 0.0, 0.0, 0.0); }
 

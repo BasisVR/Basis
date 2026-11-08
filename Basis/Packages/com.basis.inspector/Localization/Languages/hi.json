@@ -1,0 +1,102 @@
+{
+  "code": "hi",
+  "nativeName": "हिन्दी",
+  "entries": [
+    {
+      "key": "library.embedded.inspector",
+      "value": "इंस्पेक्टर"
+    },
+    {
+      "key": "inspector.scene",
+      "value": "सीन: {0}"
+    },
+    {
+      "key": "inspector.scene.count",
+      "value": "सीन: {0} ({1}/{2})"
+    },
+    {
+      "key": "inspector.sceneEmpty",
+      "value": "इस सीन में कोई ऑब्जेक्ट नहीं है।"
+    },
+    {
+      "key": "inspector.selectPrompt",
+      "value": "हायरार्की में कोई ऑब्जेक्ट चुनें ताकि उसके कंपोनेंट दिखें।"
+    },
+    {
+      "key": "inspector.path",
+      "value": "पथ"
+    },
+    {
+      "key": "inspector.enabled",
+      "value": "सक्षम"
+    },
+    {
+      "key": "inspector.disabled",
+      "value": "अक्षम"
+    },
+    {
+      "key": "inspector.missingScript",
+      "value": "स्क्रिप्ट गायब है"
+    },
+    {
+      "key": "inspector.hidden",
+      "value": "छिपा हुआ"
+    },
+    {
+      "key": "inspector.unreadable",
+      "value": "पढ़ा नहीं जा सकता"
+    },
+    {
+      "key": "inspector.none",
+      "value": "कोई नहीं"
+    },
+    {
+      "key": "inspector.missing",
+      "value": "गायब"
+    },
+    {
+      "key": "inspector.true",
+      "value": "सत्य"
+    },
+    {
+      "key": "inspector.false",
+      "value": "असत्य"
+    },
+    {
+      "key": "inspector.gizmo.axes",
+      "value": "अक्ष"
+    },
+    {
+      "key": "inspector.gizmo.bounds",
+      "value": "सीमाएँ"
+    },
+    {
+      "key": "inspector.gizmo.colliders",
+      "value": "कोलाइडर"
+    },
+    {
+      "key": "inspector.gizmo.ranges",
+      "value": "रेंज"
+    },
+    {
+      "key": "inspector.gizmo.camera",
+      "value": "कैमरा"
+    },
+    {
+      "key": "inspector.gizmo.children",
+      "value": "चाइल्ड"
+    },
+    {
+      "key": "inspector.gizmo.label",
+      "value": "नाम"
+    },
+    {
+      "key": "inspector.shaderProperties",
+      "value": "शेडर गुण"
+    },
+    {
+      "key": "inspector.noPreview",
+      "value": "इस प्रकार के टेक्सचर का पूर्वावलोकन नहीं है।"
+    }
+  ]
+}

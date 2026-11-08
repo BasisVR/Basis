@@ -1,0 +1,102 @@
+{
+  "code": "bn",
+  "nativeName": "বাংলা",
+  "entries": [
+    {
+      "key": "library.embedded.inspector",
+      "value": "ইন্সপেক্টর"
+    },
+    {
+      "key": "inspector.scene",
+      "value": "দৃশ্য: {0}"
+    },
+    {
+      "key": "inspector.scene.count",
+      "value": "দৃশ্য: {0} ({1}/{2})"
+    },
+    {
+      "key": "inspector.sceneEmpty",
+      "value": "এই দৃশ্যে কোনো অবজেক্ট নেই।"
+    },
+    {
+      "key": "inspector.selectPrompt",
+      "value": "কম্পোনেন্ট দেখতে হায়ারার্কি থেকে একটি অবজেক্ট বেছে নিন।"
+    },
+    {
+      "key": "inspector.path",
+      "value": "পথ"
+    },
+    {
+      "key": "inspector.enabled",
+      "value": "সক্রিয়"
+    },
+    {
+      "key": "inspector.disabled",
+      "value": "নিষ্ক্রিয়"
+    },
+    {
+      "key": "inspector.missingScript",
+      "value": "স্ক্রিপ্ট নেই"
+    },
+    {
+      "key": "inspector.hidden",
+      "value": "লুকানো"
+    },
+    {
+      "key": "inspector.unreadable",
+      "value": "পড়া যায় না"
+    },
+    {
+      "key": "inspector.none",
+      "value": "কিছু নেই"
+    },
+    {
+      "key": "inspector.missing",
+      "value": "অনুপস্থিত"
+    },
+    {
+      "key": "inspector.true",
+      "value": "সত্য"
+    },
+    {
+      "key": "inspector.false",
+      "value": "মিথ্যা"
+    },
+    {
+      "key": "inspector.gizmo.axes",
+      "value": "অক্ষ"
+    },
+    {
+      "key": "inspector.gizmo.bounds",
+      "value": "সীমানা"
+    },
+    {
+      "key": "inspector.gizmo.colliders",
+      "value": "কোলাইডার"
+    },
+    {
+      "key": "inspector.gizmo.ranges",
+      "value": "পরিসর"
+    },
+    {
+      "key": "inspector.gizmo.camera",
+      "value": "ক্যামেরা"
+    },
+    {
+      "key": "inspector.gizmo.children",
+      "value": "চাইল্ড"
+    },
+    {
+      "key": "inspector.gizmo.label",
+      "value": "নাম"
+    },
+    {
+      "key": "inspector.shaderProperties",
+      "value": "শেডার বৈশিষ্ট্য"
+    },
+    {
+      "key": "inspector.noPreview",
+      "value": "এই ধরনের টেক্সচারের প্রিভিউ নেই।"
+    }
+  ]
+}

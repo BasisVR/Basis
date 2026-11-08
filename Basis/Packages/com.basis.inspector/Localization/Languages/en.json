@@ -1,0 +1,102 @@
+{
+  "code": "en",
+  "nativeName": "English",
+  "entries": [
+    {
+      "key": "library.embedded.inspector",
+      "value": "Inspector"
+    },
+    {
+      "key": "inspector.scene",
+      "value": "Scene: {0}"
+    },
+    {
+      "key": "inspector.scene.count",
+      "value": "Scene: {0} ({1}/{2})"
+    },
+    {
+      "key": "inspector.sceneEmpty",
+      "value": "This scene has no objects."
+    },
+    {
+      "key": "inspector.selectPrompt",
+      "value": "Select an object in the hierarchy to see its components."
+    },
+    {
+      "key": "inspector.path",
+      "value": "Path"
+    },
+    {
+      "key": "inspector.enabled",
+      "value": "Enabled"
+    },
+    {
+      "key": "inspector.disabled",
+      "value": "Disabled"
+    },
+    {
+      "key": "inspector.missingScript",
+      "value": "Missing Script"
+    },
+    {
+      "key": "inspector.hidden",
+      "value": "Hidden"
+    },
+    {
+      "key": "inspector.unreadable",
+      "value": "Unreadable"
+    },
+    {
+      "key": "inspector.none",
+      "value": "None"
+    },
+    {
+      "key": "inspector.missing",
+      "value": "Missing"
+    },
+    {
+      "key": "inspector.true",
+      "value": "True"
+    },
+    {
+      "key": "inspector.false",
+      "value": "False"
+    },
+    {
+      "key": "inspector.gizmo.axes",
+      "value": "Axes"
+    },
+    {
+      "key": "inspector.gizmo.bounds",
+      "value": "Bounds"
+    },
+    {
+      "key": "inspector.gizmo.colliders",
+      "value": "Colliders"
+    },
+    {
+      "key": "inspector.gizmo.ranges",
+      "value": "Ranges"
+    },
+    {
+      "key": "inspector.gizmo.camera",
+      "value": "Camera"
+    },
+    {
+      "key": "inspector.gizmo.children",
+      "value": "Children"
+    },
+    {
+      "key": "inspector.gizmo.label",
+      "value": "Label"
+    },
+    {
+      "key": "inspector.shaderProperties",
+      "value": "Shader Properties"
+    },
+    {
+      "key": "inspector.noPreview",
+      "value": "No preview for this texture type."
+    }
+  ]
+}

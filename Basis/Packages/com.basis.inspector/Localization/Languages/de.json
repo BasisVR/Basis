@@ -1,0 +1,102 @@
+{
+  "code": "de",
+  "nativeName": "Deutsch",
+  "entries": [
+    {
+      "key": "library.embedded.inspector",
+      "value": "Inspektor"
+    },
+    {
+      "key": "inspector.scene",
+      "value": "Szene: {0}"
+    },
+    {
+      "key": "inspector.scene.count",
+      "value": "Szene: {0} ({1}/{2})"
+    },
+    {
+      "key": "inspector.sceneEmpty",
+      "value": "Diese Szene enthält keine Objekte."
+    },
+    {
+      "key": "inspector.selectPrompt",
+      "value": "Wähle ein Objekt in der Hierarchie, um seine Komponenten zu sehen."
+    },
+    {
+      "key": "inspector.path",
+      "value": "Pfad"
+    },
+    {
+      "key": "inspector.enabled",
+      "value": "Aktiviert"
+    },
+    {
+      "key": "inspector.disabled",
+      "value": "Deaktiviert"
+    },
+    {
+      "key": "inspector.missingScript",
+      "value": "Fehlendes Skript"
+    },
+    {
+      "key": "inspector.hidden",
+      "value": "Verborgen"
+    },
+    {
+      "key": "inspector.unreadable",
+      "value": "Nicht lesbar"
+    },
+    {
+      "key": "inspector.none",
+      "value": "Keine"
+    },
+    {
+      "key": "inspector.missing",
+      "value": "Fehlt"
+    },
+    {
+      "key": "inspector.true",
+      "value": "Wahr"
+    },
+    {
+      "key": "inspector.false",
+      "value": "Falsch"
+    },
+    {
+      "key": "inspector.gizmo.axes",
+      "value": "Achsen"
+    },
+    {
+      "key": "inspector.gizmo.bounds",
+      "value": "Grenzen"
+    },
+    {
+      "key": "inspector.gizmo.colliders",
+      "value": "Collider"
+    },
+    {
+      "key": "inspector.gizmo.ranges",
+      "value": "Reichweiten"
+    },
+    {
+      "key": "inspector.gizmo.camera",
+      "value": "Kamera"
+    },
+    {
+      "key": "inspector.gizmo.children",
+      "value": "Kinder"
+    },
+    {
+      "key": "inspector.gizmo.label",
+      "value": "Name"
+    },
+    {
+      "key": "inspector.shaderProperties",
+      "value": "Shader-Eigenschaften"
+    },
+    {
+      "key": "inspector.noPreview",
+      "value": "Keine Vorschau für diesen Texturtyp."
+    }
+  ]
+}

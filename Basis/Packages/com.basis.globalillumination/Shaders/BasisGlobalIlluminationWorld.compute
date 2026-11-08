@@ -51,8 +51,8 @@ RWTexture3D<float4> _BasisGIWorldCascadeOut;
 Texture3D<float4> _BasisGIWorldCascadeZero;
 Texture3D<float4> _BasisGIWorldCascadeDetail;
 RWTexture3D<float4> _BasisGIWorldCascadeDetailRW;
-Texture3D<float4> _BasisGIWorldSpecularPrev;
-RWTexture3D<float3> _BasisGIWorldSpecularOut;
+Texture2DArray<float4> _BasisGIWorldSpecularPrev;
+RWTexture2DArray<float3> _BasisGIWorldSpecularOut;
 
 Texture3D<float4> _BasisGIWorldSHPrev0;
 Texture3D<float4> _BasisGIWorldSHPrev1;
@@ -419,7 +419,7 @@ void Cascade(uint3 id : SV_DispatchThreadID)
     int resolution = (int)_BasisGIWorldInterval.w;
     if (any((int2)id.xy >= probes * resolution) || (int)id.z >= probes) { return; }
 
-    int3 probe = int3((int2)id.xy / resolution, (int)id.z);
+    int3 probe = int3((int2)(id.xy / (uint)resolution), (int)id.z);
     int2 directionTexel = (int2)id.xy - probe.xy * resolution;
     float4 box = _BasisGIWorldLevel[level];
     float spacing = box.w * 2.0 * exp2((float)cascade);
@@ -495,7 +495,7 @@ void Detail(uint3 id : SV_DispatchThreadID)
     int probes = (int)_BasisGIWorldParams.z >> 1;
     int resolution = BASISGI_WORLD_DIRECTIONS0 * 2;
     if (any((int2)id.xy >= probes * resolution) || (int)id.z >= probes) { return; }
-    int2 tile = ((int2)id.xy / resolution) * resolution;
+    int2 tile = (int2)((id.xy / (uint)resolution) * (uint)resolution);
     int2 inside = (int2)id.xy - tile;
     int zSlice = (int)id.z + level * probes;
     float4 centre = _BasisGIWorldCascadeUpper.Load(int4(id.xy, zSlice, 0));
@@ -540,7 +540,7 @@ void BasisGIWorldKeepSpecular(uint3 slot, float blend)
     UNITY_LOOP
     for (int bin = 0; bin < BASISGI_WORLD_SPECULAR_BINS * BASISGI_WORLD_SPECULAR_BINS; bin++)
     {
-        uint3 texel = tile + uint3(bin % BASISGI_WORLD_SPECULAR_BINS, bin / BASISGI_WORLD_SPECULAR_BINS, 0);
+        uint3 texel = tile + uint3((uint)bin % BASISGI_WORLD_SPECULAR_BINS, (uint)bin / BASISGI_WORLD_SPECULAR_BINS, 0);
         _BasisGIWorldSpecularOut[texel] = blend < 1.0 ? _BasisGIWorldSpecularPrev[texel].rgb : float3(0.0, 0.0, 0.0);
     }
 }
@@ -589,7 +589,7 @@ void BasisGIWorldResolveSpecular(uint3 id, int level, float3 position, uint3 slo
     UNITY_LOOP
     for (int bin = 0; bin < BASISGI_WORLD_SPECULAR_BINS * BASISGI_WORLD_SPECULAR_BINS; bin++)
     {
-        int2 binTexel = int2(bin % BASISGI_WORLD_SPECULAR_BINS, bin / BASISGI_WORLD_SPECULAR_BINS);
+        int2 binTexel = int2((uint)bin % BASISGI_WORLD_SPECULAR_BINS, (uint)bin / BASISGI_WORLD_SPECULAR_BINS);
         float3 direction = UnpackNormalOctQuadEncode(((float2)binTexel + 0.5) / BASISGI_WORLD_SPECULAR_BINS * 2.0 - 1.0);
         float2 octant = PackNormalOctQuadEncode(mul(toLocal, direction)) * 0.5 + 0.5;
 
@@ -635,7 +635,7 @@ void Resolve(uint3 id : SV_DispatchThreadID)
         _BasisGIWorldSHOut1[kept] = _BasisGIWorldSHPrev1[kept];
         _BasisGIWorldSHOut2[kept] = _BasisGIWorldSHPrev2[kept];
         _BasisGIWorldSHOut3[kept] = _BasisGIWorldSHPrev3[kept];
-        if (_BasisGIWorldResolve.w > 0.5) { BasisGIWorldKeepSpecular(kept, 0.0); }
+        if (_BasisGIWorldResolve.w > 0.5 && _BasisGIWorldSHPrev3[kept].a > 0.5) { BasisGIWorldKeepSpecular(kept, 0.0); }
         return;
     }
 
@@ -671,20 +671,28 @@ void Resolve(uint3 id : SV_DispatchThreadID)
     float currentLevel = dot(c0, float3(0.2126, 0.7152, 0.0722));
     float shift = abs(currentLevel - previousLevel) / (max(previousLevel, currentLevel) + 1e-3);
     blend = max(blend, saturate((shift - 0.3) * 2.0));
+    float rise = owned ? saturate((shift - 0.15) * 3.0) : 0.0;
+    float confirmed = min(rise, _BasisGIWorldSHPrev2[slot].a);
+    float change = owned ? max(confirmed, _BasisGIWorldSHPrev1[slot].a * 0.5) : 0.0;
+    blend = max(blend, change);
     float3 previousX = owned ? _BasisGIWorldSHPrev1[slot].rgb : float3(0.0, 0.0, 0.0);
     float3 previousY = owned ? _BasisGIWorldSHPrev2[slot].rgb : float3(0.0, 0.0, 0.0);
     float3 previousZ = owned ? _BasisGIWorldSHPrev3[slot].rgb : float3(0.0, 0.0, 0.0);
 
     _BasisGIWorldSHOut0[slot] = lerp(previous0, float4(c0, validity), blend);
-    _BasisGIWorldSHOut1[slot] = float4(lerp(previousX, cx, blend), 0.0);
-    _BasisGIWorldSHOut2[slot] = float4(lerp(previousY, cy, blend), 0.0);
-    _BasisGIWorldSHOut3[slot] = float4(lerp(previousZ, cz, blend), 0.0);
+    _BasisGIWorldSHOut1[slot] = float4(lerp(previousX, cx, blend), change);
+    _BasisGIWorldSHOut2[slot] = float4(lerp(previousY, cy, blend), rise);
+    float specularKept = 0.0;
     _BasisGIWorldStamp[slot] = stamp;
 
     if (_BasisGIWorldResolve.w > 0.5)
     {
         bool turn = blend > 0.5 || ((worldProbe.x + worldProbe.y + worldProbe.z + (int)_BasisGIWorldResolve.w) & 1) == 0;
-        if (turn && validity > 0.0 && BasisGIWorldSurfaceNear(position, level)) { BasisGIWorldResolveSpecular(id, level, position, slot, blend); }
-        else { BasisGIWorldKeepSpecular(slot, blend); }
+        bool near = validity > 0.0 && BasisGIWorldSurfaceNear(position, level);
+        bool tracked = owned && _BasisGIWorldSHPrev3[slot].a > 0.5;
+        if (near && (turn || !tracked)) { BasisGIWorldResolveSpecular(id, level, position, slot, tracked ? blend : 1.0); }
+        else if (near) { BasisGIWorldKeepSpecular(slot, blend); }
+        specularKept = near ? 1.0 : 0.0;
     }
+    _BasisGIWorldSHOut3[slot] = float4(lerp(previousZ, cz, blend), specularKept);
 }

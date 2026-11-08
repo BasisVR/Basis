@@ -1,0 +1,20 @@
+{
+  "name": "com.basis.inspector",
+  "displayName": "Basis Inspector",
+  "version": "0.0.1",
+  "description": "A built in prop that shows the running scene the way the Unity hierarchy and inspector do. Browse every loaded scene, expand objects, and read each component's values live. Read only: nothing can be changed from the panel.",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "com.unity.addressables": "4.2.0",
+    "com.unity.ugui": "2.7.0"
+  },
+  "vpmDependencies": {
+    "com.basis.framework": "0.0.1",
+    "com.basis.gizmos": "0.0.1",
+    "com.basis.sdk": "0.0.1"
+  }
+}

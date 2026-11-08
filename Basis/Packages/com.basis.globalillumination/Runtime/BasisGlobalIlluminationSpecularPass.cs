@@ -171,7 +171,7 @@ public sealed partial class BasisGlobalIlluminationPass
             if (!settings.SpecularActive()) { return; }
 
             Camera camera = cameraData.camera;
-            int frame = Time.renderedFrameCount;
+            int frame = Time.renderedFrameCount + FrameOffset;
             int framecount = Time.frameCount;
             bool screenSpace = ScreenSpaceReflections(settings, rayTracingAvailable);
             if (screenSpace && owner == null) { return; }
@@ -732,7 +732,7 @@ public sealed partial class BasisGlobalIlluminationPass
             BasisGlobalIlluminationSettings settings = BasisGlobalIlluminationSettings.Current;
             if (!settings.SpecularActive()) { return; }
 
-            int frame = Time.renderedFrameCount;
+            int frame = Time.renderedFrameCount + FrameOffset;
             BasisGlobalIlluminationHistory.Key historyKey = BasisGlobalIlluminationHistory.ComputeKey(cameraData.camera, cameraData.xr);
             BasisGlobalIlluminationHistory history = BasisGlobalIlluminationHistory.Get(historyKey);
             history.EnsurePriorColor(cameraData.cameraTargetDescriptor);

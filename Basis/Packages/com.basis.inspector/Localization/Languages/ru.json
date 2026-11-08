@@ -1,0 +1,102 @@
+{
+  "code": "ru",
+  "nativeName": "Русский",
+  "entries": [
+    {
+      "key": "library.embedded.inspector",
+      "value": "Инспектор"
+    },
+    {
+      "key": "inspector.scene",
+      "value": "Сцена: {0}"
+    },
+    {
+      "key": "inspector.scene.count",
+      "value": "Сцена: {0} ({1}/{2})"
+    },
+    {
+      "key": "inspector.sceneEmpty",
+      "value": "В этой сцене нет объектов."
+    },
+    {
+      "key": "inspector.selectPrompt",
+      "value": "Выберите объект в иерархии, чтобы увидеть его компоненты."
+    },
+    {
+      "key": "inspector.path",
+      "value": "Путь"
+    },
+    {
+      "key": "inspector.enabled",
+      "value": "Включён"
+    },
+    {
+      "key": "inspector.disabled",
+      "value": "Отключён"
+    },
+    {
+      "key": "inspector.missingScript",
+      "value": "Скрипт отсутствует"
+    },
+    {
+      "key": "inspector.hidden",
+      "value": "Скрыто"
+    },
+    {
+      "key": "inspector.unreadable",
+      "value": "Не читается"
+    },
+    {
+      "key": "inspector.none",
+      "value": "Нет"
+    },
+    {
+      "key": "inspector.missing",
+      "value": "Отсутствует"
+    },
+    {
+      "key": "inspector.true",
+      "value": "Истина"
+    },
+    {
+      "key": "inspector.false",
+      "value": "Ложь"
+    },
+    {
+      "key": "inspector.gizmo.axes",
+      "value": "Оси"
+    },
+    {
+      "key": "inspector.gizmo.bounds",
+      "value": "Границы"
+    },
+    {
+      "key": "inspector.gizmo.colliders",
+      "value": "Коллайдеры"
+    },
+    {
+      "key": "inspector.gizmo.ranges",
+      "value": "Радиусы"
+    },
+    {
+      "key": "inspector.gizmo.camera",
+      "value": "Камера"
+    },
+    {
+      "key": "inspector.gizmo.children",
+      "value": "Дочерние"
+    },
+    {
+      "key": "inspector.gizmo.label",
+      "value": "Имя"
+    },
+    {
+      "key": "inspector.shaderProperties",
+      "value": "Свойства шейдера"
+    },
+    {
+      "key": "inspector.noPreview",
+      "value": "Нет предпросмотра для этого типа текстуры."
+    }
+  ]
+}

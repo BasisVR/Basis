@@ -1,0 +1,102 @@
+{
+  "code": "zh-Hant",
+  "nativeName": "繁體中文",
+  "entries": [
+    {
+      "key": "library.embedded.inspector",
+      "value": "檢視器"
+    },
+    {
+      "key": "inspector.scene",
+      "value": "場景：{0}"
+    },
+    {
+      "key": "inspector.scene.count",
+      "value": "場景：{0} ({1}/{2})"
+    },
+    {
+      "key": "inspector.sceneEmpty",
+      "value": "此場景中沒有物件。"
+    },
+    {
+      "key": "inspector.selectPrompt",
+      "value": "在階層中選擇一個物件以查看其元件。"
+    },
+    {
+      "key": "inspector.path",
+      "value": "路徑"
+    },
+    {
+      "key": "inspector.enabled",
+      "value": "已啟用"
+    },
+    {
+      "key": "inspector.disabled",
+      "value": "已停用"
+    },
+    {
+      "key": "inspector.missingScript",
+      "value": "缺少腳本"
+    },
+    {
+      "key": "inspector.hidden",
+      "value": "已隱藏"
+    },
+    {
+      "key": "inspector.unreadable",
+      "value": "無法讀取"
+    },
+    {
+      "key": "inspector.none",
+      "value": "無"
+    },
+    {
+      "key": "inspector.missing",
+      "value": "遺失"
+    },
+    {
+      "key": "inspector.true",
+      "value": "真"
+    },
+    {
+      "key": "inspector.false",
+      "value": "假"
+    },
+    {
+      "key": "inspector.gizmo.axes",
+      "value": "座標軸"
+    },
+    {
+      "key": "inspector.gizmo.bounds",
+      "value": "包圍盒"
+    },
+    {
+      "key": "inspector.gizmo.colliders",
+      "value": "碰撞體"
+    },
+    {
+      "key": "inspector.gizmo.ranges",
+      "value": "範圍"
+    },
+    {
+      "key": "inspector.gizmo.camera",
+      "value": "攝影機"
+    },
+    {
+      "key": "inspector.gizmo.children",
+      "value": "子物件"
+    },
+    {
+      "key": "inspector.gizmo.label",
+      "value": "名稱"
+    },
+    {
+      "key": "inspector.shaderProperties",
+      "value": "著色器屬性"
+    },
+    {
+      "key": "inspector.noPreview",
+      "value": "此類紋理無法預覽。"
+    }
+  ]
+}

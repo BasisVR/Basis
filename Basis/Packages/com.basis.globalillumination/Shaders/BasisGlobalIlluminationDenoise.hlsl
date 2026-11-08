@@ -2,6 +2,7 @@
 #define BASIS_GLOBAL_ILLUMINATION_DENOISE_INCLUDED
 
 #include "./BasisGlobalIlluminationCommon.hlsl"
+#include "./BasisGlobalIlluminationWorld.hlsl"
 
 float4 _BasisGIBlurAxis;
 
@@ -10,6 +11,17 @@ struct BasisGITemporalOutput
     float4 indirect : SV_Target0;
     float4 stats : SV_Target1;
 };
+
+float BasisGIWorldChangeAt(float3 positionWS)
+{
+    if (!BasisGIWorldValid()) { return 0.0; }
+    int level = BasisGIWorldLevelAt(positionWS, 1.0);
+    if (level < 0) { return 0.0; }
+    int probes = (int)_BasisGIWorldParams.z;
+    int3 slot = BasisGIWorldWrap((int3)floor(positionWS / (_BasisGIWorldLevel[level].w * 2.0)), probes);
+    slot.z += (int)(_BasisGIWorldSHParams.x * _BasisGIWorldSHParams.y) + level * probes;
+    return LOAD_TEXTURE3D(_BasisGIWorldSH1, slot).a;
+}
 
 float4 BasisGILoadIndirect(float2 uv)
 {
@@ -335,6 +347,7 @@ BasisGITemporalOutput BasisGITemporal(float2 uv)
     float surprise = abs(luminance - historyStats.b) / (sqrt(max(historyStats.a, 0.0)) + 0.02 * historyStats.b + BASISGI_EPSILON);
     float rawChange = specular ? 0.0 : saturate((surprise - 2.0) * 0.5);
     float change = luminance < historyStats.b ? rawChange : rawChange * saturate(flagged * 2.0);
+    if (!specular) { change = max(change, BasisGIWorldChangeAt(worldPosition)); }
     frames = max(1.0, lerp(frames, 2.0, change));
     float response = max(rcp(max(frames, 1.0)), BASISGI_TEMPORAL_RESPONSE);
     if (elapsed > 1.0) { response = max(response, 1.0 - Sq(1.0 - BASISGI_TEMPORAL_RESPONSE)); }

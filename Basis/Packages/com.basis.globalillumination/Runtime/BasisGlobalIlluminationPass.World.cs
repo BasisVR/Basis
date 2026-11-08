@@ -18,7 +18,7 @@ public sealed partial class BasisGlobalIlluminationPass
     public const int WorldShadowSteps = 20;
     public const int WorldSpecularBins = 8;
     public const float WorldTemporalBlend = 0.15f;
-    public const float WorldSpecularBlend = 0.03f;
+    public const float WorldSpecularBlend = 0.015f;
     public const float WorldSeenDecay = 0.996f;
     public const int PassVoxelCapture = 14;
     private const int WorldThreads = 4;
@@ -308,6 +308,12 @@ public sealed partial class BasisGlobalIlluminationPass
             filterMode: FilterMode.Bilinear, wrapMode: TextureWrapMode.Clamp, enableRandomWrite: true, name: name);
     }
 
+    private static RTHandle AllocateArray(int width, int height, int slices, GraphicsFormat format, string name)
+    {
+        return RTHandles.Alloc(width, height, slices, dimension: TextureDimension.Tex2DArray, colorFormat: format,
+            filterMode: FilterMode.Bilinear, wrapMode: TextureWrapMode.Clamp, enableRandomWrite: true, name: name);
+    }
+
     private static void EnsureWorldAllocated(int levels)
     {
         if (worldAlbedo != null && worldAllocatedLevels == levels) { return; }
@@ -352,7 +358,7 @@ public sealed partial class BasisGlobalIlluminationPass
             ? GraphicsFormat.B10G11R11_UFloatPack32 : GraphicsFormat.R16G16B16A16_SFloat;
         int side = enabled ? WorldProbes * WorldSpecularBins : 1;
         int depth = enabled ? WorldProbes * levels : 1;
-        for (int set = 0; set < 2; set++) { worldSpecular[set] = AllocateVolume(side, side, depth, format, "_BasisGIWorldSpecular" + set); }
+        for (int set = 0; set < 2; set++) { worldSpecular[set] = AllocateArray(side, side, depth, format, "_BasisGIWorldSpecular" + set); }
         int detailSide = enabled ? WorldProbes * CascadeDirections : 1;
         int detailDepth = enabled ? (WorldProbes >> 1) * levels : 1;
         worldCascadeDetail = AllocateVolume(detailSide, detailSide, detailDepth, GraphicsFormat.R16G16B16A16_SFloat, "_BasisGIWorldCascadeDetail");

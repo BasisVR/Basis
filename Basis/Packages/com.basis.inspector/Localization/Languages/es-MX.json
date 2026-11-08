@@ -1,0 +1,102 @@
+{
+  "code": "es-MX",
+  "nativeName": "Español (México)",
+  "entries": [
+    {
+      "key": "library.embedded.inspector",
+      "value": "Inspector"
+    },
+    {
+      "key": "inspector.scene",
+      "value": "Escena: {0}"
+    },
+    {
+      "key": "inspector.scene.count",
+      "value": "Escena: {0} ({1}/{2})"
+    },
+    {
+      "key": "inspector.sceneEmpty",
+      "value": "Esta escena no tiene objetos."
+    },
+    {
+      "key": "inspector.selectPrompt",
+      "value": "Selecciona un objeto en la jerarquía para ver sus componentes."
+    },
+    {
+      "key": "inspector.path",
+      "value": "Ruta"
+    },
+    {
+      "key": "inspector.enabled",
+      "value": "Activado"
+    },
+    {
+      "key": "inspector.disabled",
+      "value": "Desactivado"
+    },
+    {
+      "key": "inspector.missingScript",
+      "value": "Script faltante"
+    },
+    {
+      "key": "inspector.hidden",
+      "value": "Oculto"
+    },
+    {
+      "key": "inspector.unreadable",
+      "value": "Ilegible"
+    },
+    {
+      "key": "inspector.none",
+      "value": "Ninguno"
+    },
+    {
+      "key": "inspector.missing",
+      "value": "Faltante"
+    },
+    {
+      "key": "inspector.true",
+      "value": "Verdadero"
+    },
+    {
+      "key": "inspector.false",
+      "value": "Falso"
+    },
+    {
+      "key": "inspector.gizmo.axes",
+      "value": "Ejes"
+    },
+    {
+      "key": "inspector.gizmo.bounds",
+      "value": "Límites"
+    },
+    {
+      "key": "inspector.gizmo.colliders",
+      "value": "Colisionadores"
+    },
+    {
+      "key": "inspector.gizmo.ranges",
+      "value": "Alcances"
+    },
+    {
+      "key": "inspector.gizmo.camera",
+      "value": "Cámara"
+    },
+    {
+      "key": "inspector.gizmo.children",
+      "value": "Hijos"
+    },
+    {
+      "key": "inspector.gizmo.label",
+      "value": "Nombre"
+    },
+    {
+      "key": "inspector.shaderProperties",
+      "value": "Propiedades del shader"
+    },
+    {
+      "key": "inspector.noPreview",
+      "value": "No hay vista previa para este tipo de textura."
+    }
+  ]
+}

@@ -19,7 +19,7 @@ Texture3D<float4> _BasisGIVoxAlbedo;
 
 #ifndef BASISGI_WORLD_SPECULAR_DECLARED
 #define BASISGI_WORLD_SPECULAR_DECLARED
-TEXTURE3D(_BasisGIWorldSpecular);
+TEXTURE2D_ARRAY(_BasisGIWorldSpecular);
 float4 _BasisGIWorldSpecularParams;
 #endif
 

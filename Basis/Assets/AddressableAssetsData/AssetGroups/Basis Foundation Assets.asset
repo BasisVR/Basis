@@ -460,6 +460,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: cfe48df91cc94262801b0c0b64269626
+    m_Address: Inspector
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: d068aee952ac10d4986ce62d656a7144
     m_Address: Packages/com.basis.sdk/Fonts/Inter_24pt-BoldItalic SDF.asset
     m_ReadOnly: 0

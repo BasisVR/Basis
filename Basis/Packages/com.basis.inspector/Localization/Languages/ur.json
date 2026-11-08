@@ -1,0 +1,102 @@
+{
+  "code": "ur",
+  "nativeName": "اردو",
+  "entries": [
+    {
+      "key": "library.embedded.inspector",
+      "value": "انسپکٹر"
+    },
+    {
+      "key": "inspector.scene",
+      "value": "منظر: {0}"
+    },
+    {
+      "key": "inspector.scene.count",
+      "value": "منظر: {0} ({1}/{2})"
+    },
+    {
+      "key": "inspector.sceneEmpty",
+      "value": "اس منظر میں کوئی آبجیکٹ نہیں ہے۔"
+    },
+    {
+      "key": "inspector.selectPrompt",
+      "value": "اجزاء دیکھنے کے لیے درجہ بندی میں کوئی آبجیکٹ منتخب کریں۔"
+    },
+    {
+      "key": "inspector.path",
+      "value": "راستہ"
+    },
+    {
+      "key": "inspector.enabled",
+      "value": "فعال"
+    },
+    {
+      "key": "inspector.disabled",
+      "value": "غیر فعال"
+    },
+    {
+      "key": "inspector.missingScript",
+      "value": "اسکرپٹ موجود نہیں"
+    },
+    {
+      "key": "inspector.hidden",
+      "value": "پوشیدہ"
+    },
+    {
+      "key": "inspector.unreadable",
+      "value": "پڑھا نہیں جا سکتا"
+    },
+    {
+      "key": "inspector.none",
+      "value": "کوئی نہیں"
+    },
+    {
+      "key": "inspector.missing",
+      "value": "غائب"
+    },
+    {
+      "key": "inspector.true",
+      "value": "درست"
+    },
+    {
+      "key": "inspector.false",
+      "value": "غلط"
+    },
+    {
+      "key": "inspector.gizmo.axes",
+      "value": "محور"
+    },
+    {
+      "key": "inspector.gizmo.bounds",
+      "value": "حدود"
+    },
+    {
+      "key": "inspector.gizmo.colliders",
+      "value": "کولائیڈر"
+    },
+    {
+      "key": "inspector.gizmo.ranges",
+      "value": "حدود رسائی"
+    },
+    {
+      "key": "inspector.gizmo.camera",
+      "value": "کیمرہ"
+    },
+    {
+      "key": "inspector.gizmo.children",
+      "value": "چائلڈ"
+    },
+    {
+      "key": "inspector.gizmo.label",
+      "value": "نام"
+    },
+    {
+      "key": "inspector.shaderProperties",
+      "value": "شیڈر خصوصیات"
+    },
+    {
+      "key": "inspector.noPreview",
+      "value": "اس قسم کے ٹیکسچر کا پیش منظر دستیاب نہیں۔"
+    }
+  ]
+}

@@ -1,0 +1,102 @@
+{
+  "code": "nl",
+  "nativeName": "Nederlands",
+  "entries": [
+    {
+      "key": "library.embedded.inspector",
+      "value": "Inspector"
+    },
+    {
+      "key": "inspector.scene",
+      "value": "Scène: {0}"
+    },
+    {
+      "key": "inspector.scene.count",
+      "value": "Scène: {0} ({1}/{2})"
+    },
+    {
+      "key": "inspector.sceneEmpty",
+      "value": "Deze scène bevat geen objecten."
+    },
+    {
+      "key": "inspector.selectPrompt",
+      "value": "Selecteer een object in de hiërarchie om de componenten te zien."
+    },
+    {
+      "key": "inspector.path",
+      "value": "Pad"
+    },
+    {
+      "key": "inspector.enabled",
+      "value": "Ingeschakeld"
+    },
+    {
+      "key": "inspector.disabled",
+      "value": "Uitgeschakeld"
+    },
+    {
+      "key": "inspector.missingScript",
+      "value": "Ontbrekend script"
+    },
+    {
+      "key": "inspector.hidden",
+      "value": "Verborgen"
+    },
+    {
+      "key": "inspector.unreadable",
+      "value": "Onleesbaar"
+    },
+    {
+      "key": "inspector.none",
+      "value": "Geen"
+    },
+    {
+      "key": "inspector.missing",
+      "value": "Ontbreekt"
+    },
+    {
+      "key": "inspector.true",
+      "value": "Waar"
+    },
+    {
+      "key": "inspector.false",
+      "value": "Onwaar"
+    },
+    {
+      "key": "inspector.gizmo.axes",
+      "value": "Assen"
+    },
+    {
+      "key": "inspector.gizmo.bounds",
+      "value": "Grenzen"
+    },
+    {
+      "key": "inspector.gizmo.colliders",
+      "value": "Colliders"
+    },
+    {
+      "key": "inspector.gizmo.ranges",
+      "value": "Bereiken"
+    },
+    {
+      "key": "inspector.gizmo.camera",
+      "value": "Camera"
+    },
+    {
+      "key": "inspector.gizmo.children",
+      "value": "Kinderen"
+    },
+    {
+      "key": "inspector.gizmo.label",
+      "value": "Naam"
+    },
+    {
+      "key": "inspector.shaderProperties",
+      "value": "Shader-eigenschappen"
+    },
+    {
+      "key": "inspector.noPreview",
+      "value": "Geen voorbeeld voor dit textuurtype."
+    }
+  ]
+}

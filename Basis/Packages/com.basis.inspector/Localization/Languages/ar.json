@@ -1,0 +1,102 @@
+{
+  "code": "ar",
+  "nativeName": "العربية",
+  "entries": [
+    {
+      "key": "library.embedded.inspector",
+      "value": "المفتش"
+    },
+    {
+      "key": "inspector.scene",
+      "value": "المشهد: {0}"
+    },
+    {
+      "key": "inspector.scene.count",
+      "value": "المشهد: {0} ({1}/{2})"
+    },
+    {
+      "key": "inspector.sceneEmpty",
+      "value": "لا يحتوي هذا المشهد على كائنات."
+    },
+    {
+      "key": "inspector.selectPrompt",
+      "value": "اختر كائنًا في التسلسل الهرمي لعرض مكوناته."
+    },
+    {
+      "key": "inspector.path",
+      "value": "المسار"
+    },
+    {
+      "key": "inspector.enabled",
+      "value": "مفعّل"
+    },
+    {
+      "key": "inspector.disabled",
+      "value": "معطّل"
+    },
+    {
+      "key": "inspector.missingScript",
+      "value": "برنامج نصي مفقود"
+    },
+    {
+      "key": "inspector.hidden",
+      "value": "مخفي"
+    },
+    {
+      "key": "inspector.unreadable",
+      "value": "غير قابل للقراءة"
+    },
+    {
+      "key": "inspector.none",
+      "value": "لا شيء"
+    },
+    {
+      "key": "inspector.missing",
+      "value": "مفقود"
+    },
+    {
+      "key": "inspector.true",
+      "value": "صحيح"
+    },
+    {
+      "key": "inspector.false",
+      "value": "خطأ"
+    },
+    {
+      "key": "inspector.gizmo.axes",
+      "value": "المحاور"
+    },
+    {
+      "key": "inspector.gizmo.bounds",
+      "value": "الحدود"
+    },
+    {
+      "key": "inspector.gizmo.colliders",
+      "value": "المصادمات"
+    },
+    {
+      "key": "inspector.gizmo.ranges",
+      "value": "النطاقات"
+    },
+    {
+      "key": "inspector.gizmo.camera",
+      "value": "الكاميرا"
+    },
+    {
+      "key": "inspector.gizmo.children",
+      "value": "الأبناء"
+    },
+    {
+      "key": "inspector.gizmo.label",
+      "value": "الاسم"
+    },
+    {
+      "key": "inspector.shaderProperties",
+      "value": "خصائص المظلل"
+    },
+    {
+      "key": "inspector.noPreview",
+      "value": "لا توجد معاينة لهذا النوع من الخامات."
+    }
+  ]
+}

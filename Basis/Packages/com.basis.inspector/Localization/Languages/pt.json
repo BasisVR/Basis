@@ -1,0 +1,102 @@
+{
+  "code": "pt",
+  "nativeName": "Português",
+  "entries": [
+    {
+      "key": "library.embedded.inspector",
+      "value": "Inspetor"
+    },
+    {
+      "key": "inspector.scene",
+      "value": "Cena: {0}"
+    },
+    {
+      "key": "inspector.scene.count",
+      "value": "Cena: {0} ({1}/{2})"
+    },
+    {
+      "key": "inspector.sceneEmpty",
+      "value": "Esta cena não tem objetos."
+    },
+    {
+      "key": "inspector.selectPrompt",
+      "value": "Selecione um objeto na hierarquia para ver os seus componentes."
+    },
+    {
+      "key": "inspector.path",
+      "value": "Caminho"
+    },
+    {
+      "key": "inspector.enabled",
+      "value": "Ativado"
+    },
+    {
+      "key": "inspector.disabled",
+      "value": "Desativado"
+    },
+    {
+      "key": "inspector.missingScript",
+      "value": "Script em falta"
+    },
+    {
+      "key": "inspector.hidden",
+      "value": "Oculto"
+    },
+    {
+      "key": "inspector.unreadable",
+      "value": "Ilegível"
+    },
+    {
+      "key": "inspector.none",
+      "value": "Nenhum"
+    },
+    {
+      "key": "inspector.missing",
+      "value": "Em falta"
+    },
+    {
+      "key": "inspector.true",
+      "value": "Verdadeiro"
+    },
+    {
+      "key": "inspector.false",
+      "value": "Falso"
+    },
+    {
+      "key": "inspector.gizmo.axes",
+      "value": "Eixos"
+    },
+    {
+      "key": "inspector.gizmo.bounds",
+      "value": "Limites"
+    },
+    {
+      "key": "inspector.gizmo.colliders",
+      "value": "Colisores"
+    },
+    {
+      "key": "inspector.gizmo.ranges",
+      "value": "Alcances"
+    },
+    {
+      "key": "inspector.gizmo.camera",
+      "value": "Câmara"
+    },
+    {
+      "key": "inspector.gizmo.children",
+      "value": "Filhos"
+    },
+    {
+      "key": "inspector.gizmo.label",
+      "value": "Nome"
+    },
+    {
+      "key": "inspector.shaderProperties",
+      "value": "Propriedades do shader"
+    },
+    {
+      "key": "inspector.noPreview",
+      "value": "Sem pré-visualização para este tipo de textura."
+    }
+  ]
+}

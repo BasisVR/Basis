@@ -249,8 +249,10 @@ namespace Basis.Tests.UI
         {
             EmbeddedItemsCatalogAsset catalog = AssetDatabase.LoadAssetAtPath<EmbeddedItemsCatalogAsset>(EmbeddedItemsCatalogPath);
             Assert.That(catalog, Is.Not.Null, $"catalog not found: {EmbeddedItemsCatalogPath}");
+            Dictionary<string, HashSet<string>> packageKeys = PackageLanguageKeysByCode();
             foreach ((string path, HashSet<string> keys) in FrameworkLanguageKeySets())
             {
+                if (packageKeys.TryGetValue(System.IO.Path.GetFileNameWithoutExtension(path), out HashSet<string> merged)) keys.UnionWith(merged);
                 foreach (EmbeddedItemDefinition definition in catalog.Entries)
                 {
                     if (!definition.Key.EmbeddedSettings.IsEmbedded) continue;
@@ -299,6 +301,22 @@ namespace Basis.Tests.UI
                 sets.Add((path, keys));
             }
             return sets;
+        }
+
+        private static Dictionary<string, HashSet<string>> PackageLanguageKeysByCode()
+        {
+            Dictionary<string, HashSet<string>> byCode = new Dictionary<string, HashSet<string>>();
+            foreach (string guid in AssetDatabase.FindAssets("t:TextAsset", new[] { "Packages" }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                if (!path.Contains("/Localization/Languages/") || !path.EndsWith(".json") || path.StartsWith(FrameworkLanguagesFolder) || path.StartsWith(EditorLanguagesFolder)) continue;
+                BasisLanguageTable table = JsonUtility.FromJson<BasisLanguageTable>(AssetDatabase.LoadAssetAtPath<TextAsset>(path).text);
+                if (table?.entries == null) continue;
+                string code = System.IO.Path.GetFileNameWithoutExtension(path);
+                if (!byCode.TryGetValue(code, out HashSet<string> keys)) byCode[code] = keys = new HashSet<string>();
+                foreach (BasisLanguageEntry entry in table.entries) if (!string.IsNullOrEmpty(entry.value)) keys.Add(entry.key);
+            }
+            return byCode;
         }
 
         private static string LowerFirst(string value) => char.ToLowerInvariant(value[0]) + value.Substring(1);
