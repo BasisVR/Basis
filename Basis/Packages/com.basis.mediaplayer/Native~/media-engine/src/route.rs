@@ -338,11 +338,31 @@ fn route_video_decoder(
                 decode_device: None,
             })
         }
+        #[cfg(target_os = "linux")]
+        VideoCodec::H264 | VideoCodec::H265 | VideoCodec::Vp9 | VideoCodec::Vp8 => {
+            use decode_ffmpeg::{FfCodec, FfVideoDecoder};
+            software_cap_check(coded_width, coded_height)?;
+            let codec = match codec {
+                VideoCodec::H264 => FfCodec::H264,
+                VideoCodec::H265 => FfCodec::H265,
+                VideoCodec::Vp9 => FfCodec::Vp9,
+                _ => FfCodec::Vp8,
+            };
+            let decoder = FfVideoDecoder::new(codec, _live)?;
+            Ok(VideoRoute {
+                label: decoder.label(),
+                decoder: Box::new(decoder),
+                fallback: None,
+                decode_device: None,
+            })
+        }
+        #[cfg(not(target_os = "linux"))]
         VideoCodec::H264 | VideoCodec::H265 => Err(media_decode::DecodeError(
-            "no platform decode path on this platform yet (VAAPI adapter pending)".into(),
+            "no platform decode path on this platform yet".into(),
         )),
+        #[cfg(not(target_os = "linux"))]
         VideoCodec::Vp9 | VideoCodec::Vp8 => Err(media_decode::DecodeError(
-            "no VP9/VP8 decode path (platform ceiling; VAAPI adapter pending)".into(),
+            "no VP9/VP8 decode path (platform ceiling)".into(),
         )),
     }
 }
@@ -412,6 +432,21 @@ pub fn open_audio_decoder(
     Ok(match codec {
         AudioCodec::Flac => Box::new(FlacDecoder::new(codec_private)?),
         AudioCodec::Opus => Box::new(OpusDecoder::new(codec_private)?),
+        #[cfg(target_os = "linux")]
+        AudioCodec::Aac => Box::new(decode_ffmpeg::FfAudioDecoder::new(
+            decode_ffmpeg::FfCodec::Aac,
+            sample_rate,
+            channels,
+            codec_private,
+        )?),
+        #[cfg(target_os = "linux")]
+        AudioCodec::Mp3 => Box::new(decode_ffmpeg::FfAudioDecoder::new(
+            decode_ffmpeg::FfCodec::Mp3,
+            sample_rate,
+            channels,
+            &[],
+        )?),
+        #[cfg(not(target_os = "linux"))]
         AudioCodec::Aac | AudioCodec::Mp3 => {
             return Err(media_decode::DecodeError(
                 "no AAC/MP3 decode path on this platform (platform decoders only)".into(),

@@ -396,7 +396,10 @@ pub(crate) fn video_buffers(data_types: u32) -> Vec<u8> {
     Pod::Object(Object {
         type_: OBJECT_PARAM_BUFFERS,
         id: PARAM_BUFFERS,
-        props: vec![prop(BUFFERS_DATA_TYPE, Pod::Int(data_types as i32))],
+        props: vec![prop(
+            BUFFERS_DATA_TYPE,
+            Pod::Choice(ChoiceKind::Flags, 0, vec![Pod::Int(data_types as i32)]),
+        )],
     })
     .encode()
 }
@@ -625,7 +628,7 @@ mod tests {
     fn buffers_param_bytes() {
         assert_eq!(
             video_buffers((1 << DATA_MEM_PTR) | (1 << DATA_MEM_FD)),
-            words(&[32, 15, 0x40004, 5, 6, 0, 4, 4, 6, 0])
+            words(&[48, 15, 0x40004, 5, 6, 0, 20, 19, 4, 0, 4, 4, 6, 0])
         );
     }
 

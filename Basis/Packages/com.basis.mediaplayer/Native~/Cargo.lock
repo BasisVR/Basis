@@ -781,6 +781,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4583a4551df46e2792f82ceeac45e850d2e2d5debba0b91f102385cda5b11f06"
 
 [[package]]
+name = "decode-ffmpeg"
+version = "0.1.0"
+dependencies = [
+ "libloading",
+ "media-clock",
+ "media-decode",
+ "media-demux",
+]
+
+[[package]]
 name = "decode-mediacodec"
 version = "0.1.0"
 dependencies = [
@@ -1860,9 +1870,11 @@ name = "media-capture"
 version = "0.1.0"
 dependencies = [
  "audiopus_sys",
+ "decode-ffmpeg",
  "libc",
  "libloading",
  "media-clock",
+ "media-decode",
  "media-diag",
  "media-engine",
  "serde",
@@ -1905,6 +1917,7 @@ dependencies = [
 name = "media-engine"
 version = "0.1.0"
 dependencies = [
+ "decode-ffmpeg",
  "decode-mediacodec",
  "decode-mf",
  "decode-sw",

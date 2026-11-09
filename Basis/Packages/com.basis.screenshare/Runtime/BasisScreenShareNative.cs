@@ -71,6 +71,7 @@ public static class BasisScreenShareNative
     public static bool IsWindows => Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
     public static bool IsLinux => Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
     public const string PortalSource = "portal";
+    public static string UnsupportedKey => IsLinux ? "screenShare.error.unsupportedLinux" : "screenShare.error.unsupported";
 
     public static bool PluginCurrent
     {

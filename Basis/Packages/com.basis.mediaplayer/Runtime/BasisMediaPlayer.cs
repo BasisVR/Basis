@@ -187,6 +187,10 @@ public partial class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
     /// the session is still buffering, but holds nothing to show until the
     /// first present.
     bool _textureShown;
+    /// CPU present only: the size of the frames the engine actually hands
+    /// back, once it differs from the stated display size (anamorphic or odd
+    /// sources, a size change ahead of the format update).
+    Vector2Int _cpuFrameSize;
     CommandBuffer _commandBuffer;
     long _audioFramesPulled;
     int _engineChannels;
@@ -1945,6 +1949,7 @@ public partial class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
         SetOutputTexture(null);
         _textureIsArtwork = false;
         _textureShown = false;
+        _cpuFrameSize = Vector2Int.zero;
         _artworkRead = false;
         if (_artwork != null)
         {
@@ -2242,8 +2247,14 @@ public partial class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
         // Art shown before the frame size was known makes way for the video at
         // its first frame.
         bool engineTexture = _texture != null && !ReferenceEquals(_texture, _artwork);
+        int outputWidth = (int)snapshot.Width, outputHeight = (int)snapshot.Height;
+        if (BasisMediaNative.CpuPresent && _cpuFrameSize.x > 0)
+        {
+            outputWidth = _cpuFrameSize.x;
+            outputHeight = _cpuFrameSize.y;
+        }
         bool resized = engineTexture && snapshot.Width > 0
-            && (_texture.width != (int)snapshot.Width || _texture.height != (int)snapshot.Height);
+            && (_texture.width != outputWidth || _texture.height != outputHeight);
         if (!engineTexture && snapshot.Width > 0)
             _textureShown = false;
         if ((!engineTexture || resized) && snapshot.Width > 0)
@@ -2261,7 +2272,7 @@ public partial class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
             SetOutputTexture(target);
             BasisMediaNative.bm_session_set_output_texture(_handle, target.GetNativeTexturePtr());
 #else
-            var texture = new Texture2D((int)snapshot.Width, (int)snapshot.Height, TextureFormat.BGRA32, false);
+            var texture = new Texture2D(outputWidth, outputHeight, TextureFormat.BGRA32, false);
             SetOutputTexture(texture);
             if (!BasisMediaNative.CpuPresent) BasisMediaNative.bm_session_set_output_texture(_handle, texture.GetNativeTexturePtr());
 #endif
@@ -2323,12 +2334,21 @@ public partial class BasisMediaPlayer : MonoBehaviour, IBasisPcmSource
         if (!(_texture is Texture2D texture)) return;
         var pixels = texture.GetPixelData<byte>(0);
         int got;
+        uint width, height;
         try
         {
-            got = BasisMediaNative.bm_session_take_bgra(_handle, (byte*)Unity.Collections.LowLevel.Unsafe.NativeArrayUnsafeUtility.GetUnsafePtr(pixels), (UIntPtr)pixels.Length, out _, out _);
+            got = BasisMediaNative.bm_session_take_bgra(_handle, (byte*)Unity.Collections.LowLevel.Unsafe.NativeArrayUnsafeUtility.GetUnsafePtr(pixels), (UIntPtr)pixels.Length, out width, out height);
         }
         catch (EntryPointNotFoundException)
         {
+            return;
+        }
+        // A frame of another size was written short or not at all: the
+        // texture follows it on the next tick and this frame is dropped.
+        if ((got == 1 || got == BasisMediaNative.BmErrSize) && width > 0 && height > 0
+            && (width != (uint)texture.width || height != (uint)texture.height))
+        {
+            _cpuFrameSize = new Vector2Int((int)width, (int)height);
             return;
         }
         if (got == 1) texture.Apply(false, false);

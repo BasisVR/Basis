@@ -359,7 +359,7 @@ connection. Set **Liveness** to Live for those.
 
 | Row | What it checks | How to run | Runs in |
 | --- | --- | --- | --- |
-| Linux headless lane | Headless on linux-x64, the engine decodes AV1, FLAC and Opus in software and gives typed errors for platform-only codecs. | `tools/ci.sh` (on a Linux host) | CI (Linux) |
+| Linux headless lane | Headless on linux-x64, the engine decodes AV1, FLAC and Opus in software, H.264/HEVC/VP9/AAC/MP3 through the host's FFmpeg when one loads (`decode-ffmpeg`, libavcodec 58 to 63), and gives typed errors otherwise. | `tools/ci.sh` (on a Linux host) | CI (Linux) |
 
 ### Harness and instrumentation
 

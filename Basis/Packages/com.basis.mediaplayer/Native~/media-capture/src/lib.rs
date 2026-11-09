@@ -2,6 +2,12 @@ mod convert;
 mod h264_bitstream;
 #[cfg(target_os = "linux")]
 mod linux;
+#[cfg(all(windows, test))]
+#[allow(dead_code)]
+#[path = "linux/openh264.rs"]
+mod openh264;
+#[cfg(all(windows, test))]
+mod openh264_roundtrip;
 mod opus;
 #[cfg(any(windows, target_os = "linux"))]
 mod pack;

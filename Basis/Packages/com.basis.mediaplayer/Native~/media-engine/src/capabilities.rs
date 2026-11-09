@@ -162,9 +162,27 @@ fn platform_video_caps() -> Vec<VideoCap> {
         .collect()
 }
 
-/// Headless platforms: the only video route is AV1 on rav1d, under the
-/// software policy ceiling.
-#[cfg(not(any(windows, target_os = "android")))]
+/// Linux: AV1 on rav1d, plus whatever the system FFmpeg decodes, all under
+/// the software policy ceiling.
+#[cfg(target_os = "linux")]
+fn platform_video_caps() -> Vec<VideoCap> {
+    use decode_ffmpeg::{FfCodec, has_decoder};
+    let mut caps: Vec<VideoCap> = [
+        (FfCodec::H264, "h264"),
+        (FfCodec::H265, "h265"),
+        (FfCodec::Vp9, "vp9"),
+    ]
+    .into_iter()
+    .filter(|(c, _)| has_decoder(*c))
+    .map(|(_, name)| software_video(name))
+    .collect();
+    caps.push(software_video("av1"));
+    caps
+}
+
+/// Other headless platforms: the only video route is AV1 on rav1d, under
+/// the software policy ceiling.
+#[cfg(not(any(windows, target_os = "android", target_os = "linux")))]
 fn platform_video_caps() -> Vec<VideoCap> {
     vec![software_video("av1")]
 }
@@ -201,7 +219,20 @@ pub fn capabilities() -> CapabilitySet {
         audio("flac", 8),
         audio("pcm", 8),
     ];
-    #[cfg(not(any(windows, target_os = "android")))]
+    #[cfg(target_os = "linux")]
+    let audio_caps = {
+        use decode_ffmpeg::{FfCodec, has_decoder};
+        let mut caps = Vec::new();
+        if has_decoder(FfCodec::Aac) {
+            caps.push(audio("aac", 6));
+        }
+        if has_decoder(FfCodec::Mp3) {
+            caps.push(audio("mp3", 2));
+        }
+        caps.extend([audio("opus", 8), audio("flac", 8), audio("pcm", 8)]);
+        caps
+    };
+    #[cfg(not(any(windows, target_os = "android", target_os = "linux")))]
     let audio_caps = vec![audio("opus", 8), audio("flac", 8), audio("pcm", 8)];
 
     // `rist` appears only when the feature is compiled in; without it the

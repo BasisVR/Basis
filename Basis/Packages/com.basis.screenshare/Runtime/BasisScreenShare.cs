@@ -232,7 +232,7 @@ public class BasisScreenShare : MonoBehaviour
     bool OpenCapture(BasisScreenShareNative.Source source, long ptsBase)
     {
         if (BasisScreenShareNative.CanCapture && !BasisScreenShareNative.PluginCurrent) return Fail(BasisLocalization.Get(Application.isEditor ? "screenShare.error.restart" : "screenShare.error.pluginMissing"));
-        if (source == null || !BasisScreenShareNative.CanCapture) return Fail(BasisLocalization.Get("screenShare.error.unsupported"));
+        if (source == null || !BasisScreenShareNative.CanCapture) return Fail(BasisLocalization.Get(BasisScreenShareNative.UnsupportedKey));
         if (BasisScreenShareClient.LockedForMe) return Fail(BasisLocalization.Get("screenShare.error.locked"));
         Vector2Int max = BasisScreenShareSettings.MaxSize(BasisScreenShareSettings.Resolution.RawValue, new Vector2Int(source.width, source.height));
         int fps = BasisScreenShareSettings.Fps(BasisScreenShareSettings.FrameRate.RawValue);
@@ -407,7 +407,7 @@ public class BasisScreenShare : MonoBehaviour
 
     void UpdatePreview()
     {
-        bool want = CaptureStatus != null && CaptureStatus.Running && Player != null && !BasisScreenShareNative.IsLinux && Near();
+        bool want = CaptureStatus != null && CaptureStatus.Running && Player != null && Near();
         if (want && !previewOpen) previewOpen = Player.LoadPushStream("local");
         else if (!want && previewOpen)
         {

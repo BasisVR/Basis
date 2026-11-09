@@ -2,7 +2,7 @@ use std::ffi::{CStr, c_char, c_int, c_void};
 use std::os::fd::{IntoRawFd, OwnedFd};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::ptr::{null, null_mut};
-use std::sync::atomic::{AtomicI32, AtomicPtr, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicPtr, AtomicU32, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -244,6 +244,7 @@ struct Common {
     api: &'static Api,
     stream: AtomicPtr<c_void>,
     state: AtomicI32,
+    reached: AtomicBool,
     error: Mutex<String>,
 }
 
@@ -253,9 +254,27 @@ impl Common {
             api,
             stream: AtomicPtr::new(null_mut()),
             state: AtomicI32::new(PW_STREAM_STATE_UNCONNECTED),
+            reached: AtomicBool::new(false),
             error: Mutex::new(String::new()),
         }
     }
+
+    fn failure(&self) -> Option<String> {
+        match self.state.load(Ordering::Acquire) {
+            PW_STREAM_STATE_ERROR => Some(format!(
+                "PipeWire stream failed: {}",
+                self.error.lock().unwrap_or_else(|e| e.into_inner())
+            )),
+            PW_STREAM_STATE_UNCONNECTED if self.reached.load(Ordering::Acquire) => {
+                Some("the PipeWire stream was disconnected".into())
+            }
+            _ => None,
+        }
+    }
+}
+
+fn guarded(f: impl FnOnce()) {
+    let _ = catch_unwind(AssertUnwindSafe(f));
 }
 
 trait Listener: Send + 'static {
@@ -268,20 +287,25 @@ unsafe extern "C" fn on_state_changed<T: Listener>(
     state: c_int,
     error: *const c_char,
 ) {
-    // SAFETY: data is the listener registered with this stream, freed only after the stream.
-    let common = unsafe { &*data.cast::<T>() }.common();
-    if state == PW_STREAM_STATE_ERROR {
-        let message = if error.is_null() {
-            "unknown error".to_string()
-        } else {
-            // SAFETY: PipeWire passes a NUL-terminated message valid for this call.
-            unsafe { CStr::from_ptr(error) }
-                .to_string_lossy()
-                .into_owned()
-        };
-        *common.error.lock().unwrap_or_else(|e| e.into_inner()) = message;
-    }
-    common.state.store(state, Ordering::Release);
+    guarded(|| {
+        // SAFETY: data is the listener registered with this stream, freed only after the stream.
+        let common = unsafe { &*data.cast::<T>() }.common();
+        if state == PW_STREAM_STATE_ERROR {
+            let message = if error.is_null() {
+                "unknown error".to_string()
+            } else {
+                // SAFETY: PipeWire passes a NUL-terminated message valid for this call.
+                unsafe { CStr::from_ptr(error) }
+                    .to_string_lossy()
+                    .into_owned()
+            };
+            *common.error.lock().unwrap_or_else(|e| e.into_inner()) = message;
+        }
+        if state >= PW_STREAM_STATE_PAUSED {
+            common.reached.store(true, Ordering::Release);
+        }
+        common.state.store(state, Ordering::Release);
+    });
 }
 
 unsafe fn pod_bytes<'a>(pod: *const SpaPod) -> &'a [u8] {
@@ -505,6 +529,11 @@ impl Listener for VideoData {
 }
 
 unsafe extern "C" fn video_param_changed(data: *mut c_void, id: u32, param: *const SpaPod) {
+    // SAFETY: forwarded from PipeWire's param_changed callback unchanged.
+    guarded(|| unsafe { video_format_changed(data, id, param) });
+}
+
+unsafe fn video_format_changed(data: *mut c_void, id: u32, param: *const SpaPod) {
     if id != PARAM_FORMAT {
         return;
     }
@@ -531,6 +560,11 @@ unsafe extern "C" fn video_param_changed(data: *mut c_void, id: u32, param: *con
 }
 
 unsafe extern "C" fn video_process(data: *mut c_void) {
+    // SAFETY: forwarded from PipeWire's process callback unchanged.
+    guarded(|| unsafe { video_frames(data) });
+}
+
+unsafe fn video_frames(data: *mut c_void) {
     // SAFETY: data is the VideoData registered with this stream.
     let video = unsafe { &*data.cast::<VideoData>() };
     let api = video.common.api;
@@ -563,7 +597,7 @@ unsafe extern "C" fn video_process(data: *mut c_void) {
             data: bytes,
         };
         let mut on_frame = video.on_frame.lock().unwrap_or_else(|e| e.into_inner());
-        let _ = catch_unwind(AssertUnwindSafe(|| on_frame(frame)));
+        guarded(|| on_frame(frame));
     }
     // SAFETY: buffer was dequeued from this stream and is returned exactly once.
     unsafe { (api.stream_queue_buffer)(stream, buffer) };
@@ -585,7 +619,7 @@ static VIDEO_EVENTS: PwStreamEvents = PwStreamEvents {
 };
 
 pub(crate) struct VideoStream {
-    _conn: Connection<VideoData>,
+    conn: Connection<VideoData>,
 }
 
 // SAFETY: the raw PipeWire handles are only touched in Drop, under the thread loop lock or
@@ -634,7 +668,11 @@ impl VideoStream {
                 params: &params,
             },
         )?;
-        Ok(Self { _conn: conn })
+        Ok(Self { conn })
+    }
+
+    pub(crate) fn failure(&self) -> Option<String> {
+        self.conn.data().common.failure()
     }
 }
 
@@ -652,6 +690,11 @@ impl Listener for AudioData {
 }
 
 unsafe extern "C" fn audio_param_changed(data: *mut c_void, id: u32, param: *const SpaPod) {
+    // SAFETY: forwarded from PipeWire's param_changed callback unchanged.
+    guarded(|| unsafe { audio_format_changed(data, id, param) });
+}
+
+unsafe fn audio_format_changed(data: *mut c_void, id: u32, param: *const SpaPod) {
     if id != PARAM_FORMAT || param.is_null() {
         return;
     }
@@ -666,6 +709,11 @@ unsafe extern "C" fn audio_param_changed(data: *mut c_void, id: u32, param: *con
 }
 
 unsafe extern "C" fn audio_process(data: *mut c_void) {
+    // SAFETY: forwarded from PipeWire's process callback unchanged.
+    guarded(|| unsafe { audio_samples(data) });
+}
+
+unsafe fn audio_samples(data: *mut c_void) {
     // SAFETY: data is the AudioData registered with this stream.
     let audio = unsafe { &*data.cast::<AudioData>() };
     let api = audio.common.api;
@@ -691,7 +739,7 @@ unsafe extern "C" fn audio_process(data: *mut c_void) {
             let whole = scratch.len() - scratch.len() % channels;
             if whole > 0 {
                 let mut on_samples = audio.on_samples.lock().unwrap_or_else(|e| e.into_inner());
-                let _ = catch_unwind(AssertUnwindSafe(|| on_samples(&scratch[..whole])));
+                guarded(|| on_samples(&scratch[..whole]));
             }
         }
         // SAFETY: buffer was dequeued from this stream and is returned exactly once.
@@ -715,7 +763,7 @@ static AUDIO_EVENTS: PwStreamEvents = PwStreamEvents {
 };
 
 pub(crate) struct AudioStream {
-    _conn: Connection<AudioData>,
+    conn: Connection<AudioData>,
 }
 
 // SAFETY: the raw PipeWire handles are only touched in Drop, under the thread loop lock or
@@ -752,7 +800,11 @@ impl AudioStream {
                 params: &params,
             },
         )?;
-        Ok(Self { _conn: conn })
+        Ok(Self { conn })
+    }
+
+    pub(crate) fn failure(&self) -> Option<String> {
+        self.conn.data().common.failure()
     }
 }
 

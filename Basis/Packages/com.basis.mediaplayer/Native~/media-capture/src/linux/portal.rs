@@ -47,7 +47,26 @@ pub(crate) struct PortalCast {
     pub fd: OwnedFd,
     pub width: u32,
     pub height: u32,
-    _session: Session,
+    closed: Signals,
+    session: Session,
+}
+
+impl PortalCast {
+    pub(crate) fn closed(&mut self) -> bool {
+        while let Some(msg) = self.closed.poll() {
+            let Ok(msg) = msg else {
+                return true;
+            };
+            if msg
+                .header()
+                .path()
+                .is_some_and(|p| p.as_str() == self.session.path.as_str())
+            {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 type Options<'a> = HashMap<&'static str, Value<'a>>;
@@ -137,20 +156,28 @@ fn source_types(available: Option<u32>) -> u32 {
     }
 }
 
-struct Responses {
+struct Signals {
     stream: MessageStream,
 }
 
-impl Responses {
+impl Signals {
     fn subscribe(conn: &Connection) -> Result<Self, CaptureError> {
+        Self::subscribe_to(conn, REQUEST, "Response")
+    }
+
+    fn subscribe_to(
+        conn: &Connection,
+        interface: &'static str,
+        member: &'static str,
+    ) -> Result<Self, CaptureError> {
         let rule = MatchRule::builder()
             .msg_type(Type::Signal)
-            .interface(REQUEST)
-            .and_then(|b| b.member("Response"))
+            .interface(interface)
+            .and_then(|b| b.member(member))
             .map_err(err("portal match rule"))?
             .build();
         let stream = zbus::block_on(MessageStream::for_match_rule(rule, conn.inner(), Some(64)))
-            .map_err(err("subscribe to portal responses"))?;
+            .map_err(err("subscribe to portal signals"))?;
         Ok(Self { stream })
     }
 
@@ -203,7 +230,7 @@ impl Responses {
 
 fn call_request(
     conn: &Connection,
-    responses: &mut Responses,
+    responses: &mut Signals,
     sender: &str,
     method: &str,
     body: &(impl serde::Serialize + zbus::zvariant::DynamicType),
@@ -288,7 +315,7 @@ pub(crate) fn request_screencast(
             .ok_or_else(|| CaptureError("session bus gave no unique name".into()))?
             .as_str(),
     );
-    let mut responses = Responses::subscribe(&conn)?;
+    let mut responses = Signals::subscribe(&conn)?;
 
     let request_token = token();
     let session_token = token();
@@ -312,6 +339,7 @@ pub(crate) fn request_screencast(
         conn: conn.clone(),
         path,
     };
+    let closed = Signals::subscribe_to(&conn, SESSION, "Closed")?;
     let session_ref: &ObjectPath<'_> = &session.path;
 
     let request_token = token();
@@ -374,7 +402,8 @@ pub(crate) fn request_screencast(
         fd: fd.into(),
         width,
         height,
-        _session: session,
+        closed,
+        session,
     })
 }
 

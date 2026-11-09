@@ -588,6 +588,13 @@ impl VaapiEncoder {
             if !std::path::Path::new(&path).exists() {
                 continue;
             }
+            let driver = std::fs::read_link(format!("/sys/class/drm/renderD{n}/device/driver"))
+                .ok()
+                .and_then(|p| Some(p.file_name()?.to_string_lossy().into_owned()));
+            if driver.as_deref() == Some("nvidia") {
+                errors.push(format!("{path}: the NVIDIA driver has no VAAPI encoder"));
+                continue;
+            }
             match Self::open_node(
                 &path,
                 width,

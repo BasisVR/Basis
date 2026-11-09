@@ -253,7 +253,7 @@ public partial class BasisScreenSharePanelProvider : BasisMenuActionProvider<Bas
     string Describe(BasisScreenShare local)
     {
         if (local == null) return BasisLocalization.Get("screenShare.status.none");
-        if (!BasisScreenShareNative.CanCapture) return BasisLocalization.Get("screenShare.error.unsupported");
+        if (!BasisScreenShareNative.CanCapture) return BasisLocalization.Get(BasisScreenShareNative.UnsupportedKey);
         if (!BasisScreenShareNative.PluginCurrent) return BasisLocalization.Get(Application.isEditor ? "screenShare.error.restart" : "screenShare.error.pluginMissing");
         switch (local.State)
         {

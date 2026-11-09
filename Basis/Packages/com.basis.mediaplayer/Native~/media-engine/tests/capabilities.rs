@@ -131,9 +131,29 @@ fn built_set_matches_this_build() {
     }
 }
 
-/// Headless builds route only the in-process decoders. Every entry is a
-/// will-decode claim for a decoder compiled into this binary, so the
-/// platform codecs (H.264/AAC/MP3) must be absent.
+/// Whether the host's FFmpeg decodes the Nth of H.264, H.265, VP9, AAC, MP3.
+#[cfg(target_os = "linux")]
+fn decode_ffmpeg_present(index: usize) -> bool {
+    use decode_ffmpeg::{FfCodec, has_decoder};
+    has_decoder(
+        [
+            FfCodec::H264,
+            FfCodec::H265,
+            FfCodec::Vp9,
+            FfCodec::Aac,
+            FfCodec::Mp3,
+        ][index],
+    )
+}
+
+#[cfg(not(any(windows, target_os = "android", target_os = "linux")))]
+fn decode_ffmpeg_present(_index: usize) -> bool {
+    false
+}
+
+/// Headless builds route the in-process decoders, plus on Linux whatever
+/// the host's FFmpeg decodes. Every entry is a will-decode claim, so a
+/// platform codec is listed exactly when its decoder loads.
 #[cfg(not(any(windows, target_os = "android")))]
 #[test]
 fn built_set_matches_this_build() {
@@ -145,9 +165,11 @@ fn built_set_matches_this_build() {
 
     let codec = |c: &str| set.video.iter().find(|v| v.codec == c);
     assert!(codec("av1").is_some());
-    for absent in ["h264", "h265", "vp8", "vp9"] {
-        assert!(codec(absent).is_none(), "{absent}");
+    let system = |c| cfg!(target_os = "linux") && decode_ffmpeg_present(c);
+    for (name, platform) in [("h264", 0), ("h265", 1), ("vp9", 2)] {
+        assert_eq!(codec(name).is_some(), system(platform), "{name}");
     }
+    assert!(codec("vp8").is_none());
     for cap in &set.video {
         assert_eq!(cap.route, Route::Software, "{}", cap.codec);
         // Software entries state the enforced ceiling.
@@ -167,8 +189,8 @@ fn built_set_matches_this_build() {
     assert_eq!(channels("flac"), Some(8));
     // PCM needs no platform decoder, so it is present here too.
     assert_eq!(channels("pcm"), Some(8));
-    for absent in ["aac", "mp3"] {
-        assert_eq!(channels(absent), None, "{absent}");
+    for (name, platform, max) in [("aac", 3, 6), ("mp3", 4, 2)] {
+        assert_eq!(channels(name), system(platform).then_some(max), "{name}");
     }
 
     let scheme = |s: &str| set.transports.iter().any(|t| t.scheme == s);

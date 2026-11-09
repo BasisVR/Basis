@@ -203,6 +203,10 @@
       "value": "Sharing your screen needs Windows 10 version 2004 or later. You can still watch other people's screens."
     },
     {
+      "key": "screenShare.error.unsupportedLinux",
+      "value": "Sharing your screen on Linux needs PipeWire and xdg-desktop-portal with a ScreenCast backend (xdg-desktop-portal-gnome, -kde or -wlr). You can still watch other people's screens."
+    },
+    {
       "key": "screenShare.error.open",
       "value": "The screen could not be captured."
     },

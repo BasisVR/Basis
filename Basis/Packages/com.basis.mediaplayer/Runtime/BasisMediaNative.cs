@@ -131,6 +131,7 @@ public static class BasisMediaNative
 
     public const string PushScheme = "basis-push://";
     [DllImport(Dll)] public static extern uint bm_push_version();
+    public const int BmErrSize = -6;
     [DllImport(Dll)] public static extern unsafe int bm_session_take_bgra(ulong handle, byte* dst, UIntPtr capacity, out uint width, out uint height);
 
     public static bool CpuPresent
