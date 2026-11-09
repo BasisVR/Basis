@@ -245,7 +245,26 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
     private BasisGlobalIlluminationCaptureOverride? captureOverride;
 
     /// <summary>Canonical option strings for <see cref="BasisGlobalIlluminationCaptureOverride.Mode"/>, index-matched to the live Mode dropdown. Parsed by <see cref="ReadMode"/>.</summary>
-    [NoAutoStaticsCleanup] public static readonly string[] ModeOptions = { "Radiance Cascades", "Ray Traced" };
+    [NoAutoStaticsCleanup] public static readonly string[] ModeOptions = { "Radiance Cascades", "Ray Traced", "Path Traced", "Path Traced (Baked)" };
+    [NoAutoStaticsCleanup] private static readonly string[] ModeLocalizationKeys = { "settings.graphics.gi.mode.radianceCascades", "settings.graphics.gi.mode.rayTraced", "settings.graphics.gi.mode.pathTraced", "settings.graphics.gi.mode.pathTracedBaked" };
+    public static bool RayTracedModeOffered => SystemInfo.graphicsDeviceType != GraphicsDeviceType.Direct3D11;
+
+    public static void AssignModeEntries(PanelDropdown dropdown)
+    {
+        List<string> entries = new List<string>(ModeOptions.Length), keys = new List<string>(ModeOptions.Length);
+        for (int i = 0; i < ModeOptions.Length; i++)
+        {
+            if (i == 1 && !RayTracedModeOffered) { continue; }
+            entries.Add(ModeOptions[i]);
+            keys.Add(ModeLocalizationKeys[i]);
+        }
+        dropdown.AssignLocalizedEntries(entries, keys);
+    }
+
+    public static void ShowRunningMode(PanelDropdown dropdown)
+    {
+        if (!RayTracedModeOffered && dropdown.Index < 0) { dropdown.SetValueWithoutNotify(ModeOptions[0]); }
+    }
     [NoAutoStaticsCleanup] public static readonly string[] CascadeSpacingOptions = { "1", "2", "4", "8" };
     /// <summary>See <see cref="ModeOptions"/>. Parsed by <see cref="ReadSkinnedMode"/>.</summary>
     [NoAutoStaticsCleanup] public static readonly string[] SkinnedMeshesOptions = { "Off", "Proxy" };
@@ -255,6 +274,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
     [NoAutoStaticsCleanup] public static readonly string[] QualityOptions = { "Low", "Medium", "High", "Ultra" };
     /// <summary>See <see cref="ModeOptions"/>. Parsed by <see cref="ReadFallback"/>.</summary>
     [NoAutoStaticsCleanup] public static readonly string[] FallbackOptions = { "None", "Sky", "Reflection Probe" };
+    [NoAutoStaticsCleanup] public static readonly string[] PathTracerBackendOptions = { "DirectX", "Vulkan" };
 
     /// <summary>What the effect is rendering with. The settings provider writes straight into this.</summary>
     public BasisGlobalIlluminationSettings GlobalIllumination => BasisGlobalIlluminationSettings.Current;
@@ -283,6 +303,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
     private static string K_GI_QUALITY => BasisSettingsDefaults.GlobalIlluminationQuality.BindingKey;
     private static string K_GI_RESOLUTION => BasisSettingsDefaults.GlobalIlluminationResolution.BindingKey;
     private static string K_GI_FALLBACK => BasisSettingsDefaults.GlobalIlluminationFallback.BindingKey;
+    private static string K_GI_PATH_TRACER_BACKEND => BasisSettingsDefaults.GlobalIlluminationPathTracerBackend.BindingKey;
     private static string K_GI_IGNORE_BAKED_EMISSION => BasisSettingsDefaults.GlobalIlluminationIgnoreBakedEmission.BindingKey;
     private static string K_GI_LIGHTMAPPED_RECEIVE => BasisSettingsDefaults.GlobalIlluminationLightmappedReceive.BindingKey;
     private static string K_GI_INTENSITY => BasisSettingsDefaults.GlobalIlluminationIntensity.BindingKey;
@@ -318,6 +339,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
         BasisGlobalIlluminationPass.WorldAnchor = IsWorldAnchor;
         BasisReflectionFeature.CameraFilter = AcceptsCamera;
         BasisGlobalIlluminationFeature.KeepRenderingWithDebugger = true;
+        BasisExternalRayTracer.SetBackend(ReadPathTracerVulkan(BasisSettingsDefaults.GlobalIlluminationPathTracerBackend.RawValue));
         ApplyOverride();
     }
 
@@ -496,6 +518,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
         else if (matchedSettingName == K_GI_QUALITY) { state.Quality = ReadQuality(optionValue); }
         else if (matchedSettingName == K_GI_RESOLUTION) { state.Resolution = ReadResolution(optionValue); }
         else if (matchedSettingName == K_GI_FALLBACK) { state.Fallback = ReadFallback(optionValue); }
+        else if (matchedSettingName == K_GI_PATH_TRACER_BACKEND) { BasisExternalRayTracer.SetBackend(ReadPathTracerVulkan(optionValue)); }
         else if (matchedSettingName == K_GI_IGNORE_BAKED_EMISSION) { state.IgnoreBakedEmission = optionValue == "true"; }
         else if (matchedSettingName == K_GI_LIGHTMAPPED_RECEIVE)
         {
@@ -598,6 +621,9 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
     /// </summary>
     public static BasisGlobalIlluminationDiffuseMode ReadDiffuseMode(string optionValue)
     {
+        string lowered = optionValue?.ToLowerInvariant();
+        if (lowered == "path traced" || lowered == "pathtraced") { return BasisGlobalIlluminationDiffuseMode.PathTracedExternal; }
+        if (lowered == "path traced (baked)" || lowered == "pathtracedbaked") { return BasisGlobalIlluminationDiffuseMode.PathTracedBaked; }
         return ReadMode(optionValue) == BasisGlobalIlluminationMode.RayTraced ? BasisGlobalIlluminationDiffuseMode.RayTraced : BasisGlobalIlluminationDiffuseMode.RadianceCascades;
     }
 
@@ -675,6 +701,8 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
         }
     }
 
+    public static bool ReadPathTracerVulkan(string optionValue) => string.Equals(optionValue, "vulkan", System.StringComparison.OrdinalIgnoreCase);
+
     public static BasisGlobalIlluminationFallback ReadFallback(string optionValue)
     {
         switch (optionValue?.ToLowerInvariant())
@@ -694,6 +722,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
             case "normals": return BasisGlobalIlluminationDebugView.Normals;
             case "ray hits": return BasisGlobalIlluminationDebugView.RayHits;
             case "indirect only": return BasisGlobalIlluminationDebugView.IndirectOnly;
+            case "surface colour": return BasisGlobalIlluminationDebugView.SurfaceColour;
             default: return BasisGlobalIlluminationDebugView.None;
         }
     }

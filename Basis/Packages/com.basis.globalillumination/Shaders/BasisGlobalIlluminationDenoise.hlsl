@@ -356,6 +356,20 @@ BasisGITemporalOutput BasisGITemporal(float2 uv)
     float rare = BASISGI_TEMPORAL_CLIP_RARE / sampleCount;
     float4 ceiling = float4(BASISGI_FIREFLY_CLAMP.xxx, max(BASISGI_OBSCURANCE, BASISGI_EPSILON));
     float4 halfWidth = max(deviation * BASISGI_TEMPORAL_CLIP_SIGMA, rare * ceiling);
+    // The 3x3 above cannot see noise that a whole probe shares: every pixel under one probe carries the same
+    // error, the spread comes out tiny, and the box dragged the history onto that frame's error every frame -
+    // a static of probe sized cells, strongest around small bright sources. The history's own accumulated
+    // variance does see it, so the box is never narrower than that, carried into colour by the mean's hue.
+    if (!specular)
+    {
+        // Capped at a tenth of the local level and only trusted once the pixel has settled: the static is a
+        // percent or two, while a light switching or a leak through a wall is far more than a tenth and has
+        // to keep being clipped at once.
+        float settled = saturate((historyStats.g - 4.0) / 4.0);
+        float temporalSigma = min(sqrt(max(historyStats.a, 0.0)) * BASISGI_TEMPORAL_CLIP_SIGMA, 0.1 * Luminance(max(mean.rgb, 0.0))) * settled;
+        float3 hue = max(mean.rgb, 0.0) / max(Luminance(max(mean.rgb, 0.0)), 1e-3);
+        halfWidth.rgb = max(halfWidth.rgb, temporalSigma * hue);
+    }
     history = clamp(history, mean - halfWidth, mean + halfWidth);
 #endif
 

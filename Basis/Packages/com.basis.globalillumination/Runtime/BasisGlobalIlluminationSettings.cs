@@ -20,7 +20,9 @@ public enum BasisGlobalIlluminationMode
 public enum BasisGlobalIlluminationDiffuseMode
 {
     RadianceCascades,
-    RayTraced
+    RayTraced,
+    PathTracedExternal,
+    PathTracedBaked
 }
 
 public enum BasisGlobalIlluminationResolution
@@ -229,6 +231,8 @@ public sealed partial class BasisGlobalIlluminationSettings
     public bool rayTracedShadowCastersOnly = false;
     public float rayTracedRescanInterval = 2f;
     public float rayTracedNormalBias = 0.02f;
+    public bool externalSameFrame = true;
+    public bool externalProbes = false;
     /// <summary>
     /// Added to the ray origin offset per metre of view distance. The position a ray starts from is
     /// reconstructed from a half precision depth buffer, so its error grows with distance; without this a
@@ -499,6 +503,8 @@ public sealed partial class BasisGlobalIlluminationSettings
     }
 
     public bool IsRayTraced() => mode == BasisGlobalIlluminationDiffuseMode.RayTraced;
+    public bool IsExternal() => mode == BasisGlobalIlluminationDiffuseMode.PathTracedExternal || mode == BasisGlobalIlluminationDiffuseMode.PathTracedBaked;
+    public bool IsExternalBaked() => mode == BasisGlobalIlluminationDiffuseMode.PathTracedBaked;
     public bool IsSpecularRayTraced() => specularMode == BasisGlobalIlluminationMode.RayTraced;
     public bool UsesRayTracer() => (DiffuseActive() && IsRayTraced()) || (SpecularActive() && IsSpecularRayTraced());
 

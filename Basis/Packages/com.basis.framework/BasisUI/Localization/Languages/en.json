@@ -9183,6 +9183,22 @@
       "value": "Reflection Probe"
     },
     {
+      "key": "settings.graphics.gi.pathTracerBackend",
+      "value": "Path Tracer Backend"
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerBackend.tooltip",
+      "value": "Which graphics API the path tracer process uses. DirectX is the default on Windows; Vulkan is the same tracer that runs on Linux, and gives the same picture."
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerBackend.directx",
+      "value": "DirectX"
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerBackend.vulkan",
+      "value": "Vulkan"
+    },
+    {
       "key": "settings.graphics.gi.ignoreBakedEmission",
       "value": "Double Baked Emission"
     },
@@ -9309,6 +9325,22 @@
     {
       "key": "settings.graphics.gi.mode.rayTraced.tooltip",
       "value": "Traces the world itself, including what is off screen. Needs DirectX 12 and a graphics card with hardware ray tracing, such as NVIDIA RTX; anywhere else it runs as Screen Space."
+    },
+    {
+      "key": "settings.graphics.gi.mode.pathTraced",
+      "value": "Path Traced (DX12)"
+    },
+    {
+      "key": "settings.graphics.gi.mode.pathTraced.tooltip",
+      "value": "Hands the trace to a separate DirectX 12 path tracer that follows real avatar meshes, emission, transparency and textures, on screen and off. Needs Windows and a graphics card with hardware ray tracing; Unity can run on DirectX 11 or 12. Falls back to Radiance Cascades if the tracer cannot start."
+    },
+    {
+      "key": "settings.graphics.gi.mode.pathTracedBaked",
+      "value": "Path Traced + Baked (DX12)"
+    },
+    {
+      "key": "settings.graphics.gi.mode.pathTracedBaked.tooltip",
+      "value": "Keeps the world's baked lighting and path traces only what the bake can't know: avatars, moving objects, avatar glow and realtime lights. Much cheaper than full path tracing in lightmapped worlds. Works like Path Traced in worlds without baked lighting."
     },
     {
       "key": "settings.graphics.rtao.mode.screenSpace.tooltip",

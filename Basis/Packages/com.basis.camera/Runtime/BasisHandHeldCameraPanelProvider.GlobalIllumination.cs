@@ -69,13 +69,11 @@ namespace Basis.BasisUI.HandHeldCamera
             _giModeDropdown = PanelDropdown.CreateNewEntry(content);
             _giModeDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.mode"));
             _giModeDropdown.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.mode.tooltip"));
-            _giModeDropdown.AssignLocalizedEntries(
-                new List<string>(SMModuleGlobalIlluminationURP.ModeOptions),
-                new List<string> { "settings.graphics.gi.mode.radianceCascades", "settings.graphics.gi.mode.rayTraced" });
+            SMModuleGlobalIlluminationURP.AssignModeEntries(_giModeDropdown);
             _giModeDropdown.OnValueChanged = _ =>
             {
                 if (_activeCamera == null || _giModeDropdown == null) return;
-                _activeCamera.SetGlobalIlluminationOverrideMode(_giModeDropdown.Index);
+                _activeCamera.SetGlobalIlluminationOverrideMode(Mathf.Max(0, System.Array.IndexOf(SMModuleGlobalIlluminationURP.ModeOptions, _giModeDropdown.Value)));
                 RefreshGlobalIlluminationModeGating();
             };
 
@@ -258,6 +256,7 @@ namespace Basis.BasisUI.HandHeldCamera
 
             BasisGlobalIlluminationCaptureOverride gi = _activeCamera.GlobalIlluminationOverride;
             _giModeDropdown?.SetValueWithoutNotify(gi.Mode);
+            if (_giModeDropdown != null) { SMModuleGlobalIlluminationURP.ShowRunningMode(_giModeDropdown); }
             _giLayersDropdown?.SetValueWithoutNotify(gi.Layers);
             _giSkinnedMeshesDropdown?.SetValueWithoutNotify(gi.SkinnedMeshes);
             _giQualityDropdown?.SetValueWithoutNotify(gi.Quality);
@@ -332,7 +331,7 @@ namespace Basis.BasisUI.HandHeldCamera
         {
             bool overriding = _activeCamera != null && _activeCamera.OverrideGlobalIllumination;
             bool rayTraced = overriding && _giModeDropdown != null &&
-                _giModeDropdown.Index == System.Array.IndexOf(SMModuleGlobalIlluminationURP.ModeOptions, "Ray Traced");
+                _giModeDropdown.Value == SMModuleGlobalIlluminationURP.ModeOptions[1];
 
             _giSkinnedMeshesDropdown?.gameObject.SetActive(overriding && rayTraced);
             _giLayersDropdown?.gameObject.SetActive(overriding && rayTraced);

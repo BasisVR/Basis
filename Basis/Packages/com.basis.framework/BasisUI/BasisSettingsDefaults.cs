@@ -396,6 +396,7 @@ namespace Basis.BasisUI
         // for people who would rather spend the frame on it.
         public static BasisSettingsBinding<string> GlobalIlluminationResolution = new("globalilluminationresolution", new BasisPlatformDefault<string>("Half"));
         public static BasisSettingsBinding<string> GlobalIlluminationFallback = new("globalilluminationfallback", new BasisPlatformDefault<string>("Reflection Probe"));
+        public static BasisSettingsBinding<string> GlobalIlluminationPathTracerBackend = new("globalilluminationpathtracerbackend", new BasisPlatformDefault<string>("DirectX"));
         // Ray traced skips a baked-emissive surface's light by default, because that light already sits in
         // the lightmap and injecting it again lights the room twice from one lamp. Turning this on trades
         // that correctness for a stronger bounce - useful in a world with no lightmap to speak of, or when
@@ -2415,6 +2416,7 @@ namespace Basis.BasisUI
             GlobalIlluminationQuality.LoadBindingValue();
             GlobalIlluminationResolution.LoadBindingValue();
             GlobalIlluminationFallback.LoadBindingValue();
+            GlobalIlluminationPathTracerBackend.LoadBindingValue();
             GlobalIlluminationIgnoreBakedEmission.LoadBindingValue();
             GlobalIlluminationLightmappedReceive.LoadBindingValue();
             GlobalIlluminationIntensity.LoadBindingValue();

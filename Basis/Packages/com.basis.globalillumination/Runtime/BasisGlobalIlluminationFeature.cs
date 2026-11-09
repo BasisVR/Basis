@@ -32,6 +32,7 @@ public sealed partial class BasisGlobalIlluminationFeature : ScriptableRendererF
     [SerializeField, HideInInspector] private Shader m_RayStagesShader;
     [SerializeField, HideInInspector] private RayTracingShader m_RayTraceShader;
     [SerializeField, HideInInspector] private ComputeShader m_RayTraceCompute;
+    [SerializeField, HideInInspector] private ComputeShader m_ExternalCompute;
     [Tooltip("Run the ray traced mode on the compute ray tracing backend when the GPU has no hardware ray tracing. It is a software BVH traversal, so it is much slower - off means the mode falls back to screen space instead.")]
     [SerializeField] private bool m_RayTracingComputeFallback = false;
     [Tooltip("Render in reflection probe captures. Realtime probes pay for the effect once per face.")]
@@ -108,6 +109,7 @@ public sealed partial class BasisGlobalIlluminationFeature : ScriptableRendererF
         m_RayStagesMaterial = m_RayStagesShader != null ? CoreUtils.CreateEngineMaterial(m_RayStagesShader) : null;
         m_Pass = new BasisGlobalIlluminationPass(m_Material);
         m_Pass.SetWorld(m_WorldCompute, m_VoxelizeShader);
+        m_Pass.SetExternal(m_ExternalCompute);
         m_Pass.SetSurface(m_SurfaceShader);
         m_Pass.SetRayTracing(m_RayStagesMaterial, m_RayTraceShader, m_RayTraceCompute, m_RayTracingComputeFallback);
         m_Pass.DebugView = m_DebugView;
@@ -132,13 +134,16 @@ public sealed partial class BasisGlobalIlluminationFeature : ScriptableRendererF
         bool wantsMotion = settings.temporalFilter && settings.motionVectors;
         ScriptableRenderPassInput inputs = ScriptableRenderPassInput.Depth;
         if (wantsNormals) { inputs |= ScriptableRenderPassInput.Normal; }
-        if (wantsMotion) { inputs |= ScriptableRenderPassInput.Motion; }
+        bool externalMotion = settings.IsExternal();
+        if (wantsMotion || externalMotion) { inputs |= ScriptableRenderPassInput.Motion; }
 
         m_Pass.UseNormalsTexture = wantsNormals;
         m_Pass.UseMotionVectors = wantsMotion;
+        m_Pass.UseExternalMotion = externalMotion;
         m_Pass.DebugView = m_DebugView;
         m_Pass.SetMaterial(m_Material);
         m_Pass.SetWorld(m_WorldCompute, m_VoxelizeShader);
+        m_Pass.SetExternal(m_ExternalCompute);
         m_Pass.SetSurface(m_SurfaceShader);
         m_Pass.SetRayTracing(m_RayStagesMaterial, m_RayTraceShader, m_RayTraceCompute, m_RayTracingComputeFallback);
         m_Pass.RayTracingAvailable = RayTracingAvailable;
@@ -212,6 +217,11 @@ public sealed partial class BasisGlobalIlluminationFeature : ScriptableRendererF
         {
             m_WorldCompute = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(ShaderRoot + "BasisGlobalIlluminationWorld.compute");
             resolved |= m_WorldCompute != null;
+        }
+        if (m_ExternalCompute == null)
+        {
+            m_ExternalCompute = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(ShaderRoot + "BasisGlobalIlluminationExternal.compute");
+            resolved |= m_ExternalCompute != null;
         }
         if (resolved && !UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode) { UnityEditor.EditorUtility.SetDirty(this); }
 #endif

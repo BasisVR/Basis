@@ -1,0 +1,12 @@
+[package]
+name = "basis-rt-harness"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+basis-rt-protocol = { path = "../protocol" }
+basis-rt-bridge = { path = "../bridge" }
+ash = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true }

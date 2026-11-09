@@ -17,9 +17,9 @@ public sealed partial class BasisGlobalIlluminationPass
     public const int WorldMaxLights = 32;
     public const int WorldShadowSteps = 20;
     public const int WorldSpecularBins = 8;
-    public const float WorldTemporalBlend = 0.05f;
+    public const float WorldTemporalBlend = 0.15f;
     public const float WorldSpecularBlend = 0.015f;
-    public const float WorldSeenDecay = 0.996f;
+    public const float WorldSeenDecay = 0.9995f;
     public const int PassVoxelCapture = 14;
     private const int WorldThreads = 4;
     private const int WorldBlock = 4;
@@ -68,6 +68,7 @@ public sealed partial class BasisGlobalIlluminationPass
         public int interval;
         public float bounceFeedback;
         public float firefly;
+        public float intensity;
         public float firstInterval;
         public int frame;
         public bool fresh;
@@ -162,6 +163,7 @@ public sealed partial class BasisGlobalIlluminationPass
     private static readonly int idWorldInterval = Shader.PropertyToID("_BasisGIWorldInterval");
     private static readonly int idWorldInject = Shader.PropertyToID("_BasisGIWorldInject");
     private static readonly int idWorldFirefly = Shader.PropertyToID("_BasisGIWorldFirefly");
+    private static readonly int idWorldIntensity = Shader.PropertyToID("_BasisGIWorldIntensity");
     private static readonly int idWorldResolve = Shader.PropertyToID("_BasisGIWorldResolve");
     private static readonly int idWorldSpecularBlend = Shader.PropertyToID("_BasisGIWorldSpecularBlend");
     private static readonly int idWorldRotation = Shader.PropertyToID("_BasisGIWorldRotation");
@@ -224,7 +226,6 @@ public sealed partial class BasisGlobalIlluminationPass
     public static bool WorldBinarySchedule = true;
     /// <summary>How many lights the last world cull saw, for diagnostics; the inject takes the brightest WorldMaxLights.</summary>
     public static int WorldLightsVisible;
-    public static bool ExperimentPeriodicVoxelize = true;
 
     /// <summary>One draw per level with a geometry shader picking each triangle's dominant axis, instead of
     /// three draws of the whole scene. Measured on a 0.5 M triangle world: a level went from about 3 ms to
@@ -266,7 +267,7 @@ public sealed partial class BasisGlobalIlluminationPass
         worldPlan.culled = false;
         BasisGlobalIlluminationSettings settings = BasisGlobalIlluminationSettings.Current;
         if (!settings.DiffuseActive() || !settings.worldSpace || !IsWorldAnchor(camera)) { return; }
-        if (settings.IsRayTraced() && worldRayTraced) { return; }
+        if ((settings.IsRayTraced() || settings.IsExternal()) && worldRayTraced) { return; }
 
         int levels = Mathf.Clamp(settings.worldLevels, 1, WorldMaxLevels);
         float voxelSize = settings.worldVoxelSize;
@@ -297,7 +298,7 @@ public sealed partial class BasisGlobalIlluminationPass
             worldPlan.boxes[level] = box;
             bool moved = reallocated || box != worldLastBoxes[level];
             worldPlan.moved[level] = moved;
-            worldPlan.voxelize[level] = moved || (ExperimentPeriodicVoxelize && voxelizeDue && level == voxelizeTurn);
+            worldPlan.voxelize[level] = moved || (voxelizeDue && level == voxelizeTurn);
             any |= worldPlan.voxelize[level];
         }
 
@@ -593,6 +594,7 @@ public sealed partial class BasisGlobalIlluminationPass
             data.xr = cameraData.xr;
             data.bounceFeedback = settings.temporalFilter ? settings.bounceFeedback : 0f;
             data.firefly = settings.fireflyClamp * WorldFireflyScale;
+            data.intensity = settings.intensity;
             data.interval = settings.ResolvedWorldInterval();
             data.hasRenderers = false;
             data.hasEmission = false;
@@ -813,6 +815,7 @@ public sealed partial class BasisGlobalIlluminationPass
         ProfilingScope cascadesScope = new ProfilingScope(cmd, samplerWorldCascades);
         cmd.SetComputeBufferParam(compute, inject, idWorldLights, worldLightBuffer);
         cmd.SetComputeVectorParam(compute, idWorldInject, new Vector4(data.bounceFeedback, data.lightCount, WorldShadowSteps, data.fresh ? 0f : 1f));
+        cmd.SetComputeFloatParam(compute, idWorldIntensity, data.intensity);
         cmd.SetComputeTextureParam(compute, inject, idVoxAlbedo, worldAlbedo);
         cmd.SetComputeTextureParam(compute, inject, idVoxNormal, worldNormal);
         cmd.SetComputeTextureParam(compute, inject, idVoxSeenRW, worldSeen);

@@ -2387,11 +2387,22 @@ namespace Basis.BasisUI
                 PanelDropdown dropdownGiMode = PanelDropdown.CreateNewEntry(giGroup.ContentParent);
                 dropdownGiMode.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.mode"));
                 dropdownGiMode.Descriptor.SetTooltip(WithRayTracingNote(BasisLocalization.Get("settings.graphics.gi.mode.tooltip"), giCanTrace));
-                dropdownGiMode.AssignLocalizedEntries(
-                    new List<string>(SMModuleGlobalIlluminationURP.ModeOptions),
-                    new List<string> { "settings.graphics.gi.mode.radianceCascades", "settings.graphics.gi.mode.rayTraced" });
+                SMModuleGlobalIlluminationURP.AssignModeEntries(dropdownGiMode);
                 dropdownGiMode.AssignBinding(BasisSettingsDefaults.GlobalIlluminationMode);
+                SMModuleGlobalIlluminationURP.ShowRunningMode(dropdownGiMode);
                 SettingsProviderBottleneckHints.Mark(dropdownGiMode, BasisFrameCostSide.Gpu);
+
+                PanelDropdown dropdownGiPathTracerBackend = null;
+                if (BasisExternalRayTracer.BackendSelectable)
+                {
+                    dropdownGiPathTracerBackend = PanelDropdown.CreateNewEntry(giGroup.ContentParent);
+                    dropdownGiPathTracerBackend.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.pathTracerBackend"));
+                    dropdownGiPathTracerBackend.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.pathTracerBackend.tooltip"));
+                    dropdownGiPathTracerBackend.AssignLocalizedEntries(
+                        new List<string>(SMModuleGlobalIlluminationURP.PathTracerBackendOptions),
+                        new List<string> { "settings.graphics.gi.pathTracerBackend.directx", "settings.graphics.gi.pathTracerBackend.vulkan" });
+                    dropdownGiPathTracerBackend.AssignBinding(BasisSettingsDefaults.GlobalIlluminationPathTracerBackend);
+                }
 
                 PanelSlider sliderGiBounceFeedback = PanelSlider.CreateEntryAndBind(
                     giGroup.ContentParent,
@@ -2737,6 +2748,8 @@ namespace Basis.BasisUI
                     showUnityGi(val && !basis);
                     dropdownGiPreset.Descriptor.SetActive(basis);
                     dropdownGiMode.Descriptor.SetActive(basis);
+                    bool pathTraced = basis && (dropdownGiMode.Value == "Path Traced" || dropdownGiMode.Value == "Path Traced (Baked)");
+                    if (dropdownGiPathTracerBackend != null) { dropdownGiPathTracerBackend.Descriptor.SetActive(pathTraced); }
                     bool cascades = basis && !rayTraced;
                     sliderGiBounceFeedback.Descriptor.SetActive(cascades && toggleGiTemporal.Value);
                     toggleGiWorldSpace.Descriptor.SetActive(cascades);
@@ -4196,6 +4209,7 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.GlobalIlluminationQuality.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationResolution.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationFallback.ResetToDefault();
+            BasisSettingsDefaults.GlobalIlluminationPathTracerBackend.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationIgnoreBakedEmission.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationLightmappedReceive.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationIntensity.ResetToDefault();

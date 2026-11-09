@@ -143,7 +143,6 @@ float4 _BasisGIEmitterRadiance[BASISGI_MAX_EMITTERS];
 #define BASISGI_TEMPORAL_RESPONSE  _BasisGIParams3.y
 #define BASISGI_DEPTH_REJECTION    _BasisGIParams3.z
 #define BASISGI_EMITTER_INTENSITY  _BasisGIParams3.w
-
 float4x4 BasisGIPreviousViewProjection()
 {
 #if defined(UNITY_STEREO_INSTANCING_ENABLED) || defined(UNITY_STEREO_MULTIVIEW_ENABLED)
@@ -203,7 +202,7 @@ float3 BasisGIReconstructNormal(float2 uv, float3 viewPosition, float rawDepth)
 {
 #if defined(_BASISGI_NORMALS_TEXTURE)
     float3 packed = SAMPLE_TEXTURE2D_X_LOD(_BasisGINormals, sampler_PointClamp, UnityStereoTransformScreenSpaceTex(uv), 0).xyz;
-    return normalize(packed * 2.0 - 1.0);
+    return normalize(packed);
 #else
     float2 texel = _BasisGISourceTexelSize.xy;
     float2 uvRight = uv + float2(texel.x, 0.0);

@@ -16,6 +16,7 @@
 #define BASISGI_WORLD_BLOCK_SHIFT 2
 #define BASISGI_WORLD_COARSE_SHIFT 4
 #define BASISGI_WORLD_SPECULAR_BINS 8
+#define BASISGI_WORLD_LOOP_GAIN 0.85
 
 SamplerState sampler_LinearClamp;
 
@@ -82,6 +83,9 @@ float _BasisGIWorldSpecularBlend;
 /// probe's directions on one update and missed on the next, and without a ceiling that probe swung by tens
 /// of percent and the patch of wall it lights flashed with it.
 float _BasisGIWorldFirefly;
+/// Intensity drives how much a bounce hands on, up to the loop gain ceiling, so a higher Intensity buys more
+/// multi bounce while the loop still converges.
+float _BasisGIWorldIntensity;
 float4x4 _BasisGIWorldRotation;
 float _BasisGIRCSolidAngle[16];
 
@@ -315,14 +319,19 @@ void Inject(uint3 id : SV_DispatchThreadID)
         if (shLevel >= 0)
         {
             BasisGIWorldSH sh = BasisGIWorldSampleSH(origin, shLevel);
-            bounce = min(BasisGIWorldIrradianceSH(sh, normal) * _BasisGIWorldInject.x, 4.0);
+            bounce = min(BasisGIWorldIrradianceSH(sh, normal), 4.0);
         }
     }
 
     uint knownAlbedo = _BasisGIVoxSeenAlbedo[seenSlot];
     float3 surfaceAlbedo = knownAlbedo != 0u ? UnpackFromR11G11B10f(knownAlbedo) : albedo.rgb;
-    float3 computed = surfaceAlbedo * (direct + bounce) + _BasisGIVoxEmission[texel].rgb;
-    float3 seen = UnpackFromR11G11B10f(_BasisGIVoxSeenRW[seenSlot]) + surfaceAlbedo * bounce;
+    // The bounce a surface hands back is held under BASISGI_WORLD_LOOP_GAIN of what reached it, per channel:
+    // at full feedback a bright surface returned all of it and the loop only settled against the clamps,
+    // overshooting every time motion reset history. The captured colour no longer carries the screen's own
+    // bounce (the capture reads the frame before the bounce copy), so this is the world's only loop.
+    float3 reflected = min(surfaceAlbedo * _BasisGIWorldInject.x * max(_BasisGIWorldIntensity, 1.0), BASISGI_WORLD_LOOP_GAIN) * bounce;
+    float3 computed = surfaceAlbedo * direct + reflected + _BasisGIVoxEmission[texel].rgb;
+    float3 seen = UnpackFromR11G11B10f(_BasisGIVoxSeenRW[seenSlot]) + reflected;
     float3 radiance = lerp(computed, seen, seenShare);
     _BasisGIVoxRadianceRW[texel] = float4(radiance * albedo.a, albedo.a);
 }

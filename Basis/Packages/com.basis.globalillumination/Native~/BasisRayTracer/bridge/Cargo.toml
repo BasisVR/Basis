@@ -1,0 +1,18 @@
+[package]
+name = "basis-rt-bridge"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "BasisRayTracingBridge"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+basis-rt-protocol = { path = "../protocol" }
+ash = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+libc = { workspace = true }

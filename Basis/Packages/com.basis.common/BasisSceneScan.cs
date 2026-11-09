@@ -59,7 +59,9 @@ public static partial class BasisSceneScan
         float now = Time.unscaledTime;
         // NegativeInfinity as the initial stamp makes the first call scan without needing a separate
         // "never taken" flag, and makes an empty scene cache its emptiness rather than re-walking for it.
-        if (!Application.isPlaying || Slot<T>.Generation != generation || now - Slot<T>.TakenAt > Mathf.Max(0f, maxAge))
+        // now < TakenAt: the stamp is from an earlier play session (statics survive entering play mode without
+        // a domain reload, the clock does not), so the cached walk holds that session's destroyed objects.
+        if (!Application.isPlaying || Slot<T>.Generation != generation || now < Slot<T>.TakenAt || now - Slot<T>.TakenAt > Mathf.Max(0f, maxAge))
         {
             Slot<T>.Items = Object.FindObjectsByType<T>(FindObjectsInactive.Exclude);
             Slot<T>.TakenAt = now;

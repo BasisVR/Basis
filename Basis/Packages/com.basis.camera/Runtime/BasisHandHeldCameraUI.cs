@@ -951,7 +951,7 @@ public partial class BasisHandHeldCameraUI
         {
             settings.overrideGlobalIllumination = HHC.OverrideGlobalIllumination;
             BasisGlobalIlluminationCaptureOverride gi = HHC.GlobalIlluminationOverride;
-            settings.giMode = System.Array.IndexOf(SMModuleGlobalIlluminationURP.ModeOptions, gi.Mode);
+            settings.giMode = Mathf.Max(0, System.Array.IndexOf(SMModuleGlobalIlluminationURP.ModeOptions, gi.Mode));
             settings.giSkinnedMeshes = System.Array.IndexOf(SMModuleGlobalIlluminationURP.SkinnedMeshesOptions, gi.SkinnedMeshes);
             settings.giLayers = System.Array.IndexOf(SMModuleGlobalIlluminationURP.LayersOptions, gi.Layers);
             settings.giQuality = System.Array.IndexOf(SMModuleGlobalIlluminationURP.QualityOptions, gi.Quality);

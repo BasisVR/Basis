@@ -257,7 +257,7 @@ MonoBehaviour:
   - {fileID: 3288210218380458405}
   - {fileID: -7063844235592078018}
   - {fileID: -1640418879555851032}
-  m_RendererFeatureMap: 55b0addaf1e53e732c1a306845c91e69b11515bbd932d0aa9378a8b27ba967e783d087cbac20019e610bb3e4df69824e0bc9b864e0e160f53c0ede33002ba0bb9e158b4e02ac9f6da579609dc511a22d3eedd7f4172ff89de8ac3a69b80f3ce9
+  m_RendererFeatureMap: 55b0addaf1e53e732c1a306845c91e69b11515bbd932d0aa9378a8b27ba967e783d087cbac20019e610bb3e4df69824e0bc9b864e0e160f53c0ede33002ba0bb9e158b4e02ac9f6da579609dc511a22d3eedd7f4172ff89de8ac3a69b80f3ce9l
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
   m_AssetVersion: 3
@@ -327,6 +327,29 @@ MonoBehaviour:
   m_Name: ScreenSpaceAmbientOcclusion
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.ScreenSpaceAmbientOcclusion
   m_Active: 0
+  m_Settings:
+    AOMethod: 0
+    Downsample: 0
+    AfterOpaque: 0
+    Source: 1
+    NormalSamples: 1
+    Intensity: 3
+    DirectLightingStrength: 0.25
+    Radius: 0.035
+    Samples: 1
+    BlurQuality: 0
+    Falloff: 100
+    SampleCount: -1
+    Mode: 0
+    GTAOMinimumRadiusInPixels: 40
+    UseComputeShader: 0
+    GTAOTemporalFilterEnabled: 0
+    GTAOGhostingMitigation: 0.5
+    GTAOHistoryLength: 0.9
+    GTAODirectionCount: 2
+    GTAOStepCount: 4
+    GTAOSpatialFilter: 0
+    GTAODepthSampling: 0
 --- !u!114 &5657200492266326881
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -347,6 +370,7 @@ MonoBehaviour:
   m_RayStagesShader: {fileID: 4800000, guid: d844523f25c598748831a41b5572ff82, type: 3}
   m_RayTraceShader: {fileID: 4807578003741378534, guid: 4d1b09960d174e54eb42461cb8005e17, type: 3}
   m_RayTraceCompute: {fileID: 7200000, guid: 3324c9bab86b6b44db2a1d4f0479c2ed, type: 3}
+  m_ExternalCompute: {fileID: 7200000, guid: 75fdb93f14fd4df6b1a7b08c5ead7f66, type: 3}
   m_RayTracingComputeFallback: 0
   m_ReflectionProbes: 0
   m_Mirrors: 1
@@ -455,6 +479,7 @@ MonoBehaviour:
   m_RayStagesShader: {fileID: 4800000, guid: d844523f25c598748831a41b5572ff82, type: 3}
   m_RayTraceShader: {fileID: 4807578003741378534, guid: 4d1b09960d174e54eb42461cb8005e17, type: 3}
   m_RayTraceCompute: {fileID: 7200000, guid: 3324c9bab86b6b44db2a1d4f0479c2ed, type: 3}
+  m_ExternalCompute: {fileID: 7200000, guid: 75fdb93f14fd4df6b1a7b08c5ead7f66, type: 3}
   m_RayTracingComputeFallback: 0
   m_ReflectionProbes: 1
   m_Mirrors: 1

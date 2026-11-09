@@ -1,0 +1,253 @@
+#pragma kernel PackGBuffer
+#pragma kernel PackVertices
+#pragma kernel PackIndices
+#pragma kernel PackTexture
+#pragma kernel Unpack
+#pragma multi_compile_local _ BASIS_RT_ARRAY
+
+#define UPLOAD_WIDTH 2048
+
+#if defined(BASIS_RT_ARRAY)
+Texture2DArray<float> _Depth;
+Texture2DArray<float4> _Normals;
+Texture2DArray<float4> _Surface;
+Texture2DArray<float4> _Color;
+Texture2DArray<float4> _LightmapMask;
+Texture2DArray<float4> _Motion;
+RWTexture2DArray<float4> _Traced;
+#define LOAD(t, p, v) t.Load(int4(p, v, 0))
+#else
+Texture2D<float> _Depth;
+Texture2D<float4> _Normals;
+Texture2D<float4> _Surface;
+Texture2D<float4> _Color;
+Texture2D<float4> _LightmapMask;
+Texture2D<float4> _Motion;
+RWTexture2D<float4> _Traced;
+#define LOAD(t, p, v) t.Load(int3(p, 0))
+#endif
+
+RWTexture2D<uint4> _GBuffer;
+RWTexture2D<uint4> _Upload;
+Texture2D<float4> _Result;
+Texture2D<float4> _Source;
+ByteAddressBuffer _Stream0;
+ByteAddressBuffer _Stream1;
+ByteAddressBuffer _Indices;
+
+float4x4 _InvViewProj[2];
+float4 _CameraPosition[2];
+uint4 _Size;
+uint4 _Flags;
+uint4 _Layout0;
+uint4 _Layout1;
+uint4 _Job;
+
+uint2 UploadCoord(uint texel) { return uint2(texel % UPLOAD_WIDTH, texel / UPLOAD_WIDTH); }
+
+void StoreGBuffer(uint2 logical, uint4 v)
+{
+    _GBuffer[uint2(logical.x, logical.y * 2)] = uint4(v.x & 0xffff, v.x >> 16, v.y & 0xffff, v.y >> 16);
+    _GBuffer[uint2(logical.x, logical.y * 2 + 1)] = uint4(v.z & 0xffff, v.z >> 16, v.w & 0xffff, v.w >> 16);
+}
+
+void StoreUpload(uint texel, uint4 v)
+{
+    uint2 logical = UploadCoord(texel);
+    _Upload[uint2(logical.x, logical.y * 2)] = uint4(v.x & 0xffff, v.x >> 16, v.y & 0xffff, v.y >> 16);
+    _Upload[uint2(logical.x, logical.y * 2 + 1)] = uint4(v.z & 0xffff, v.z >> 16, v.w & 0xffff, v.w >> 16);
+}
+
+uint PackNormal(float3 n)
+{
+    n /= max(abs(n.x) + abs(n.y) + abs(n.z), 1e-6);
+    float2 o = n.xy;
+    if (n.z < 0.0) { o = (1.0 - abs(n.yx)) * (n.xy >= 0.0 ? 1.0 : -1.0); }
+    int2 q = int2(round(clamp(o, -1.0, 1.0) * 32767.0));
+    return (uint(q.x) & 0xffff) | (uint(q.y) << 16);
+}
+
+uint PackRGBA8(float3 c) { uint3 q = uint3(saturate(c) * 255.0 + 0.5); return q.x | (q.y << 8) | (q.z << 16) | (255u << 24); }
+
+uint PackRGB9E5(float3 c)
+{
+    c = clamp(c, 0.0, 65408.0);
+    float m = max(max(c.r, c.g), max(c.b, 1e-9));
+    int e = max(int(floor(log2(m))), -16) + 1;
+    float scale = exp2(float(e - 9));
+    if (uint(m / scale + 0.5) >= 512) { e++; scale *= 2.0; }
+    uint3 q = min(uint3(c / scale + 0.5), 511u);
+    return q.x | (q.y << 9) | (q.z << 18) | (uint(clamp(e + 15, 0, 31)) << 27);
+}
+
+float LinearToSrgb(float c) { c = max(c, 0.0); return c <= 0.0031308 ? c * 12.92 : 1.055 * pow(c, 1.0 / 2.4) - 0.055; }
+
+float3 WorldAtNdc(float2 ndc, float raw, uint view)
+{
+    float4 p = mul(_InvViewProj[view], float4(ndc, raw, 1.0));
+    return p.xyz / p.w;
+}
+
+float3 WorldAt(uint2 source, float raw, uint view)
+{
+    float2 ndc = (float2(source) + 0.5) / float2(_Size.zw) * 2.0 - 1.0;
+    float4 p = mul(_InvViewProj[view], float4(ndc, raw, 1.0));
+    return p.xyz / p.w;
+}
+
+[numthreads(8, 8, 1)]
+void PackGBuffer(uint3 id : SV_DispatchThreadID)
+{
+    uint width = _Size.x, height = _Size.y;
+    if (id.x >= width * _Flags.z || id.y >= height) { return; }
+    uint view = id.x / width;
+    uint2 local = uint2(id.x - view * width, id.y);
+    uint2 source = min(uint2((float2(local) + 0.5) * float2(_Size.zw) / float2(width, height)), _Size.zw - 1);
+    float raw = LOAD(_Depth, source, view);
+    bool sky = _Flags.w != 0 ? raw <= 0.0 : raw >= 1.0;
+    if (sky)
+    {
+        StoreGBuffer(uint2(id.x * 2, id.y), 0);
+        StoreGBuffer(uint2(id.x * 2 + 1, id.y), 0);
+        return;
+    }
+    float3 world = WorldAtNdc((float2(local) + 0.5) / float2(width, height) * 2.0 - 1.0, raw, view);
+    float3 normal;
+    if (_Flags.x != 0)
+    {
+        normal = LOAD(_Normals, source, view).xyz;
+        if (dot(normal, normal) < 1e-6) { normal = float3(0, 1, 0); }
+        normal = normalize(normal);
+        if (dot(normal, _CameraPosition[view].xyz - world) < 0.0) { normal = -normal; }
+    }
+    else
+    {
+        float centre = length(world - _CameraPosition[view].xyz);
+        uint2 sr = uint2(min(source.x + 1, _Size.z - 1), source.y), sl = uint2(source.x > 0 ? source.x - 1 : 0, source.y);
+        uint2 su = uint2(source.x, min(source.y + 1, _Size.w - 1)), sd = uint2(source.x, source.y > 0 ? source.y - 1 : 0);
+        float3 pr = WorldAt(sr, LOAD(_Depth, sr, view), view), pl = WorldAt(sl, LOAD(_Depth, sl, view), view);
+        float3 pu = WorldAt(su, LOAD(_Depth, su, view), view), pd = WorldAt(sd, LOAD(_Depth, sd, view), view);
+        float3 dx = abs(length(pr - _CameraPosition[view].xyz) - centre) <= abs(length(pl - _CameraPosition[view].xyz) - centre) ? pr - world : world - pl;
+        float3 dy = abs(length(pu - _CameraPosition[view].xyz) - centre) <= abs(length(pd - _CameraPosition[view].xyz) - centre) ? pu - world : world - pd;
+        normal = cross(dx, dy);
+        normal = dot(normal, normal) > 1e-14 ? normalize(normal) : float3(0, 1, 0);
+        if (dot(normal, _CameraPosition[view].xyz - world) < 0.0) { normal = -normal; }
+    }
+    float3 albedo = 0.5;
+    if (_Flags.y != 0)
+    {
+        float4 s = LOAD(_Surface, source, view);
+        if (s.a < 0.5) { albedo = s.rgb; }
+    }
+    float3 color = max(0.0, LOAD(_Color, source, view).rgb);
+    float3 relative = world - _CameraPosition[view].xyz;
+    StoreGBuffer(uint2(id.x * 2, id.y), uint4(asuint(relative), PackNormal(normal)));
+    float receive = _Layout1.x != 0 ? LOAD(_LightmapMask, local, view).r : 1.0;
+    uint motion = 0u;
+    if (_Layout1.y != 0)
+    {
+        float2 m = LOAD(_Motion, source, view).xy * float2(width, height);
+        motion = all(isfinite(m)) ? f32tof16(m.x) | (f32tof16(m.y) << 16) : 0u;
+    }
+    StoreGBuffer(uint2(id.x * 2 + 1, id.y), uint4(PackRGBA8(albedo), PackRGB9E5(color), asuint(receive), motion));
+}
+
+float ReadComponent(ByteAddressBuffer b, uint address, uint format, uint index)
+{
+    if (format == 1) { return asfloat(b.Load(address + index * 4)); }
+    if (format == 2)
+    {
+        uint word = b.Load((address + index * 2) & ~3u);
+        return f16tof32(((address + index * 2) & 2) != 0 ? word >> 16 : word & 0xffff);
+    }
+    if (format == 3 || format == 4)
+    {
+        uint a = address + index;
+        uint byteValue = (b.Load(a & ~3u) >> ((a & 3) * 8)) & 0xff;
+        return format == 3 ? byteValue / 255.0 : max(float(int(byteValue << 24) >> 24) / 127.0, -1.0);
+    }
+    if (format == 5 || format == 6)
+    {
+        uint a = address + index * 2;
+        uint w = (b.Load(a & ~3u) >> ((a & 2) * 8)) & 0xffff;
+        return format == 5 ? w / 65535.0 : max(float(int(w << 16) >> 16) / 32767.0, -1.0);
+    }
+    return 0.0;
+}
+
+uint PackHalf2(float2 v) { return f32tof16(v.x) | (f32tof16(v.y) << 16); }
+
+[numthreads(64, 1, 1)]
+void PackVertices(uint3 id : SV_DispatchThreadID)
+{
+    uint vertex = _Job.x + id.x;
+    if (id.x >= _Job.y) { return; }
+    uint base0 = vertex * _Layout0.x;
+    float3 position = float3(ReadComponent(_Stream0, base0 + _Layout0.y, _Layout0.w & 0xff, 0), ReadComponent(_Stream0, base0 + _Layout0.y, _Layout0.w & 0xff, 1), ReadComponent(_Stream0, base0 + _Layout0.y, _Layout0.w & 0xff, 2));
+    uint normalFormat = (_Layout0.w >> 8) & 0xff;
+    float3 normal = float3(0, 1, 0);
+    if (normalFormat != 0) { normal = float3(ReadComponent(_Stream0, base0 + _Layout0.z, normalFormat, 0), ReadComponent(_Stream0, base0 + _Layout0.z, normalFormat, 1), ReadComponent(_Stream0, base0 + _Layout0.z, normalFormat, 2)); }
+    bool positionsOnly = _Job.w != 0;
+    uint texel = _Job.z + id.x * (positionsOnly ? 1 : 2);
+    StoreUpload(texel, uint4(asuint(position), PackNormal(normal)));
+    if (positionsOnly) { return; }
+    uint base1 = vertex * _Layout1.x;
+    uint uv0Format = _Layout1.w & 0xff, uv1Format = (_Layout1.w >> 8) & 0xff;
+    float2 uv0 = uv0Format != 0 ? float2(ReadComponent(_Stream1, base1 + _Layout1.y, uv0Format, 0), ReadComponent(_Stream1, base1 + _Layout1.y, uv0Format, 1)) : 0.0;
+    float2 uv1 = uv1Format != 0 ? float2(ReadComponent(_Stream1, base1 + _Layout1.z, uv1Format, 0), ReadComponent(_Stream1, base1 + _Layout1.z, uv1Format, 1)) : uv0;
+    StoreUpload(texel + 1, uint4(PackHalf2(uv0), PackHalf2(uv1), 0, 0));
+}
+
+[numthreads(64, 1, 1)]
+void PackIndices(uint3 id : SV_DispatchThreadID)
+{
+    uint first = id.x * 4;
+    if (first >= _Job.y) { return; }
+    uint4 v = 0;
+    [unroll] for (uint k = 0; k < 4; k++)
+    {
+        uint i = _Job.x + first + k;
+        if (first + k >= _Job.y) { break; }
+        uint index;
+        if (_Layout0.x == 2)
+        {
+            uint word = _Indices.Load((i * 2) & ~3u);
+            index = (i & 1) != 0 ? word >> 16 : word & 0xffff;
+        }
+        else { index = _Indices.Load(i * 4); }
+        v[k] = index + _Layout0.y;
+    }
+    StoreUpload(_Job.z + id.x, v);
+}
+
+[numthreads(64, 1, 1)]
+void PackTexture(uint3 id : SV_DispatchThreadID)
+{
+    uint width = _Job.x, count = _Job.y;
+    uint first = id.x * 4;
+    if (first >= count) { return; }
+    uint4 v = 0;
+    [unroll] for (uint k = 0; k < 4; k++)
+    {
+        uint p = first + k;
+        if (p >= count) { break; }
+        uint2 coord = uint2(p % width, _Job.w + p / width);
+        float4 c = _Source.Load(int3(coord, 0));
+        v[k] = _Flags.x != 0 ? PackRGB9E5(c.rgb) : (uint(saturate(LinearToSrgb(c.r)) * 255.0 + 0.5) | (uint(saturate(LinearToSrgb(c.g)) * 255.0 + 0.5) << 8) | (uint(saturate(LinearToSrgb(c.b)) * 255.0 + 0.5) << 16) | (uint(saturate(c.a) * 255.0 + 0.5) << 24));
+    }
+    StoreUpload(_Job.z + id.x, v);
+}
+
+[numthreads(8, 8, 1)]
+void Unpack(uint3 id : SV_DispatchThreadID)
+{
+    uint width = _Size.x, height = _Size.y;
+    if (id.x >= width || id.y >= height || id.z >= _Flags.z) { return; }
+    float4 c = _Result.Load(int3(id.x + id.z * width, id.y, 0));
+    if (any(!isfinite(c))) { c = float4(0, 0, 0, 1); }
+#if defined(BASIS_RT_ARRAY)
+    _Traced[uint3(id.xy, id.z)] = c;
+#else
+    _Traced[id.xy] = c;
+#endif
+}

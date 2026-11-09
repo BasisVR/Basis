@@ -71,6 +71,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         public RendererListHandle lightmapRenderers;
         public TextureHandle surface;
         public bool surfaceValid;
+        public bool sharedConstants;
         public float skipEye;
         public RendererListHandle surfaceBatched;
         public bool surfaceBatchedValid;
@@ -145,8 +146,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     private static readonly int idParams0 = Shader.PropertyToID("_BasisGIParams0");
     private static readonly int idParams1 = Shader.PropertyToID("_BasisGIParams1");
     private static readonly int idParams2 = Shader.PropertyToID("_BasisGIParams2");
-    private static readonly int idParams3 = Shader.PropertyToID("_BasisGIParams3");
-    private static readonly int idTint = Shader.PropertyToID("_BasisGITint");
+    private static readonly int idParams3 = Shader.PropertyToID("_BasisGIParams3");    private static readonly int idTint = Shader.PropertyToID("_BasisGITint");
     private static readonly int idTracedTexelSize = Shader.PropertyToID("_BasisGITracedTexelSize");
     private static readonly int idSourceTexelSize = Shader.PropertyToID("_BasisGISourceTexelSize");
     private static readonly int idSkyCube = Shader.PropertyToID("_BasisGISkyCube");
@@ -254,6 +254,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     public BasisGlobalIlluminationDebugView DebugView;
     public bool UseNormalsTexture;
     public bool UseMotionVectors;
+    public bool UseExternalMotion;
     public bool RayTracingAvailable;
     private bool loggedRayTracingFallback;
     private bool loggedComputeBackend;
@@ -406,7 +407,9 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         TextureHandle normals = UseNormalsTexture && resourceData.cameraNormalsTexture.IsValid() ? resourceData.cameraNormalsTexture : TextureHandle.nullHandle;
 
         // bilateral blur and the composite downstream read the same traced texture either way. A GPU or a
-        bool rayTraced = settings.IsRayTraced() && PrepareRayTracing(settings, camera, CameraPosition, frame);
+        TextureHandle externalMotion = UseExternalMotion && resourceData.motionVectorColor.IsValid() ? resourceData.motionVectorColor : TextureHandle.nullHandle;
+        bool external = settings.IsExternal() && PrepareExternal(settings, cameraData, tracedWidth, tracedHeight, externalMotion.IsValid());
+        bool rayTraced = !external && settings.IsRayTraced() && PrepareRayTracing(settings, camera, CameraPosition, frame);
         float obscuranceIntensity = BasisGlobalIlluminationFeature.ExternalAmbientOcclusionActive?.Invoke(camera) == true
             ? 0f
             : settings.obscuranceIntensity;
@@ -416,7 +419,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         // handle rather than the intent: with the keyword on and no texture bound the sample reads zero,
         // which is full suppression everywhere - exactly the fail-dangerous direction the mask's clear-to-
         // one polarity exists to rule out.
-        TextureHandle lightmapMask = settings.lightmappedReceive < 1f && (SceneHasLightmaps() || LightmapMaskForcedValue >= 0f)
+        TextureHandle lightmapMask = (settings.lightmappedReceive < 1f || settings.IsExternalBaked()) && (SceneHasLightmaps() || LightmapMaskForcedValue >= 0f)
             ? RecordLightmapMask(renderGraph, frameData, resourceData, cameraData, descriptor, tracedWidth, tracedHeight)
             : TextureHandle.nullHandle;
         CoreUtils.SetKeyword(material, "_BASISGI_LIGHTMAP_MASK", lightmapMask.IsValid());
@@ -458,8 +461,13 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         FillConstants(settings, frame, rayTraced, rayCount, obscuranceIntensity);
         int emitterCount = settings.emitters ? GatherEmitters(camera, settings.ResolvedMaxEmitters()) : 0;
 
-        worldRayTraced = rayTraced;
-        if (rayTraced)
+        worldRayTraced = rayTraced || external;
+        if (external)
+        {
+            ReleaseWorldIfAllocated();
+            traced = RecordExternal(renderGraph, resourceData, cameraData, surface, normals, lightmapMask, externalMotion, tracedWidth, tracedHeight, descriptor, indirectDescriptor);
+        }
+        else if (rayTraced)
         {
             ReleaseWorldIfAllocated();
             RecordRayTraced(renderGraph, resourceData, cameraData, settings, traced, tracedWidth, tracedHeight, descriptor, frame, emitterCount, rayCount, bounces, lightSamples, sky, obscuranceIntensity);
@@ -503,7 +511,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
                 builder.SetRenderFunc((PassData data, RasterGraphContext context) => Execute(data, context));
             }
 
-            RecordWorldCapture(renderGraph, resourceData, camera, sceneColor, surface, tracedWidth, tracedHeight);
+            RecordWorldCapture(renderGraph, resourceData, camera, resourceData.cameraColor, surface, tracedWidth, tracedHeight);
 
             RecordDepthPyramid(renderGraph, resourceData, descriptor, tracedWidth, tracedHeight, divisor,
                 false, true, out tracedDepth, out TextureHandle coarse);
@@ -517,7 +525,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         }
 
         TextureHandle denoiseSource = traced;
-        if (settings.temporalFilter)
+        if (settings.temporalFilter && !external)
         {
             using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass("Basis GI Temporal", out PassData passData, samplerTemporal))
             {
@@ -557,8 +565,8 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         // The filter reads the statistics the temporal pass just wrote, so it knows how many frames each
         // pixel has behind it and how far its own luminance has been swinging. Where the temporal filter is
         // switched off there are none, and the filter falls back to treating every pixel as unresolved.
-        bool statsValid = settings.temporalFilter;
-        int taps = Mathf.Clamp(Mathf.RoundToInt(settings.smoothing * 2f), 0, 4);
+        bool statsValid = settings.temporalFilter && !external;
+        int taps = external ? 0 : Mathf.Clamp(Mathf.RoundToInt(settings.smoothing * 2f), 0, 4);
         if (taps > 0)
         {
             int levels = rayTraced ? (settings.wideBlur ? BlurLevels : BlurLevels - 1) : 1;
@@ -574,6 +582,8 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         {
             passData.stage = Stage.Composite;
             passData.material = material;
+            passData.sharedConstants = external;
+            if (external) { Configure(passData, settings, tracedWidth, tracedHeight, descriptor, emitterCount, sky); }
             passData.materialPass = DebugView != BasisGlobalIlluminationDebugView.None ? PassDebug : (surface.IsValid() ? PassCompositeSurface : PassComposite);
             passData.surface = surface;
             passData.surfaceValid = surface.IsValid();
@@ -589,7 +599,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
             passData.statsValid = statsValid;
             passData.lightmapMask = lightmapMask;
             passData.lightmapMaskValid = lightmapMask.IsValid();
-            passData.lightmapParams = new Vector4(settings.lightmappedReceive, 0f, 0f, 0f);
+            passData.lightmapParams = new Vector4(external && settings.IsExternalBaked() ? 1f : settings.lightmappedReceive, 0f, 0f, 0f);
             builder.SetRenderAttachment(resourceData.cameraColor, 0, AccessFlags.ReadWrite);
             builder.UseTexture(denoiseSource);
             builder.UseTexture(historyWriteStats);
@@ -602,7 +612,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
 
         StoreViewProjection(cameraData, history.PreviousViewProjection);
         history.Write = history.Read;
-        history.Valid = settings.temporalFilter;
+        history.Valid = settings.temporalFilter && !external;
         history.RecordFrame(frame);
         BasisGlobalIlluminationHistory.PruneStale(frame, HistoryMaxAge);
     }
@@ -1216,8 +1226,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         // cubemap it applies to comes from.
         constants[2] = new Vector4(rayCount, settings.ResolvedRaySteps(), settings.fireflyClamp, settings.bounceFeedback);
         float temporalResponse = settings.temporalResponse * RayTemporalResponseScale;
-        constants[3] = new Vector4(frame % 64, temporalResponse, settings.depthRejection, settings.emitterIntensity);
-    }
+        constants[3] = new Vector4(frame % 64, temporalResponse, settings.depthRejection, settings.emitterIntensity);    }
 
     /// <summary>The emitter position and radius the shader would read at this slot.</summary>
     public static Vector4 EmitterSphereAt(int slot)
@@ -1347,6 +1356,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
                 cmd.SetGlobalVector(idBlurAxis, data.blurAxis);
                 break;
             case Stage.Composite:
+                if (data.sharedConstants) { SetSharedConstants(cmd, data); }
                 BindSurface(cmd, data);
                 cmd.SetGlobalTexture(idIndirect, data.indirect);
                 cmd.SetGlobalTexture(idStats, data.stats);
@@ -1382,8 +1392,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         cmd.SetGlobalVector(idParams0, data.constants[0]);
         cmd.SetGlobalVector(idParams1, data.constants[1]);
         cmd.SetGlobalVector(idParams2, data.constants[2]);
-        cmd.SetGlobalVector(idParams3, data.constants[3]);
-        cmd.SetGlobalVector(idTint, data.tint);
+        cmd.SetGlobalVector(idParams3, data.constants[3]);        cmd.SetGlobalVector(idTint, data.tint);
         cmd.SetGlobalVector(idTracedTexelSize, data.tracedTexelSize);
         cmd.SetGlobalVector(idSourceTexelSize, data.sourceTexelSize);
         cmd.SetGlobalVector(idSky, data.sky);
