@@ -73,7 +73,7 @@ jobs:
 
   # The Linux gate, verbatim ci.sh: the Windows steps bar Android, which has
   # its own job below. RIST skips here because no librist is built; impairment
-  # and split source skip because Linux has no H.264 or AAC decoder.
+  # and split source run on H.264 and AAC through the apt FFmpeg it installs.
   linux-x64:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -144,6 +144,69 @@ jobs:
         with:
           name: bm-android-arm64
           path: ${{ env.NATIVE_DIR }}/target/aarch64-linux-android/release/libbasis_media.stripped.so
+
+  # The macOS gate, verbatim ci.sh, on the arm64 runner. The runner's VM has
+  # no media engine, so the VideoToolbox and AudioToolbox rows run on Apple's
+  # software decoders, and impairment and split source run here as well.
+  # librist is built for both architectures first; if that build fails, the
+  # gate and the plugin go ahead without RIST and the run says so. Then the
+  # universal plugin: both slices in release, joined with lipo, stripped,
+  # signed ad hoc (strip drops the linker's signature) and uploaded.
+  macos-universal:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Add both Apple targets to the pinned toolchain
+        working-directory: ${{ env.NATIVE_DIR }}
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ env.NATIVE_DIR }}
+          key: macos-universal
+      - name: Install NASM (rav1d x86 assembly), meson, ninja and ffmpeg (conformance oracle)
+        run: brew install nasm meson ninja ffmpeg
+      - name: Install cargo-deny + cargo-vet
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny@0.20.2,cargo-vet@0.10.2
+      - name: Build librist (RIST steps, both architectures)
+        id: librist
+        continue-on-error: true
+        working-directory: ${{ env.NATIVE_DIR }}
+        run: bash tools/build-librist.sh
+      - name: Alias 127.0.0.2 on lo0 (macOS only answers 127.0.0.1; the redirect gate tests need a second loopback host)
+        run: sudo ifconfig lo0 alias 127.0.0.2 up
+      - name: Run the gate (tools/ci.sh)
+        working-directory: ${{ env.NATIVE_DIR }}
+        run: bash tools/ci.sh
+      - name: Build the universal cdylib
+        working-directory: ${{ env.NATIVE_DIR }}
+        run: |
+          features=""
+          if [ -f third_party/librist/macos-arm64/librist.a ] && [ -f third_party/librist/macos-x64/librist.a ]; then
+            features="--features rist"
+          else
+            echo "::warning::librist did not build, so this macOS plugin has no RIST"
+          fi
+          for t in aarch64-apple-darwin x86_64-apple-darwin; do
+            cargo build --release -p media-ffi --target "$t" $features
+          done
+          mkdir -p target/universal
+          lipo -create -output target/universal/libbasis_media.dylib             target/aarch64-apple-darwin/release/libbasis_media.dylib             target/x86_64-apple-darwin/release/libbasis_media.dylib
+          strip -x target/universal/libbasis_media.dylib
+          codesign --force --sign - target/universal/libbasis_media.dylib
+          lipo -info target/universal/libbasis_media.dylib
+          otool -L target/universal/libbasis_media.dylib
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bm-macos-universal
+          path: ${{ env.NATIVE_DIR }}/target/universal/libbasis_media.dylib
 
   # Deterministic fuzz gate: replay every seed corpus under ASan with -runs=0.
   # Fast and stable by construction — no coverage growing here. The pinned

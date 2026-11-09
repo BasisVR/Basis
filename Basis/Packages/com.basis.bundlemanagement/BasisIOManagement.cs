@@ -831,6 +831,13 @@ public static partial class BasisIOManagement
         }
         return ValidateUrl(url, out normalizedUrl, out error);
     }
+    public static async Task<(byte[] Data, string Error)> DownloadRangeAsync(string url, long start, int length, CancellationToken ct)
+    {
+        if (length <= 0 || start < 0) return (null, "Invalid byte range.");
+        BeeResult<DownloadPayload> result = await DownloadRangeInternal(url, start, start + length - 1, toFilePath: null, progress: null, ct).ConfigureAwait(false);
+        if (!result.IsSuccess || result.Value?.Data == null) return (null, result.Error ?? "No data");
+        return result.Value.Data.Length == length ? (result.Value.Data, null) : (null, $"Expected {length} bytes, got {result.Value.Data.Length}.");
+    }
     private static async Task<BeeResult<DownloadPayload>> DownloadRangeInternal(string url, long startByte, long? endByteInclusive, string toFilePath, BasisProgressReport progress, CancellationToken ct, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024, int redirectsRemaining = MaxValidatedRedirects)
     {
         if (BasisServerHostedBee.TryParse(url, out string hostedId))

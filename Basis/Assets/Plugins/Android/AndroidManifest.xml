@@ -14,9 +14,30 @@
         <category android:name="android.intent.category.BROWSABLE" />
         <data android:scheme="basisdemo" />
       </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.SEND" />
+        <action android:name="android.intent.action.SEND_MULTIPLE" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <data android:mimeType="image/*" />
+        <data android:mimeType="video/*" />
+        <data android:mimeType="audio/*" />
+        <data android:mimeType="application/octet-stream" />
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <data android:scheme="content" />
+        <data android:mimeType="image/*" />
+        <data android:mimeType="video/*" />
+        <data android:mimeType="audio/*" />
+        <data android:mimeType="application/octet-stream" />
+      </intent-filter>
       <meta-data android:name="unityplayer.UnityActivity" android:value="true" />
       <meta-data android:name="com.oculus.vr.focusaware" android:value="true" />
     </activity>
+    <activity android:name="com.basis.platform.BasisFilePickerActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:exported="false" android:excludeFromRecents="true" />
+    <activity android:name="com.basis.screenshare.BasisScreenCaptureActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:exported="false" android:excludeFromRecents="true" android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode" />
+    <service android:name="com.basis.screenshare.BasisScreenCaptureService" android:exported="false" android:foregroundServiceType="mediaProjection" />
     <meta-data android:name="unityplayer.SkipPermissionsDialog" android:value="false" />
     <meta-data android:name="com.oculus.handtracking.frequency" android:value="HIGH" />
     <meta-data android:name="com.oculus.handtracking.version" android:value="V2.0" />
@@ -36,4 +57,6 @@
   <uses-permission android:name="com.oculus.permission.BODY_TRACKING" />
   <uses-permission android:name="com.picovr.permission.HAND_TRACKING" />
   <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
 </manifest>

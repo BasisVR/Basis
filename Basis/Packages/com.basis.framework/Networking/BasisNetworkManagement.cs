@@ -56,6 +56,8 @@ namespace Basis.Scripts.Networking
         /// </summary>
         public static string NetworkStackId = string.Empty;
         public static bool LegacyLogin = false;
+        public static ushort ProtocolVersion = 0;
+        public static bool SendsUnlockPasswords => BasisNetworkVersion.SendsUnlockPasswords(LegacyLogin, ProtocolVersion);
 
         public static string HostServerName = "Basis Server";
 
@@ -161,7 +163,7 @@ namespace Basis.Scripts.Networking
         /// <summary>
         /// Connects to the server using the configured <see cref="Ip"/>, <see cref="Port"/>, and <see cref="Password"/>.
         /// </summary>
-        public static void Connect() => BasisNetworkConnection.Connect(Port, Ip, Password, IsHostMode, NetworkStackId, LegacyLogin);
+        public static void Connect() => BasisNetworkConnection.Connect(Port, Ip, Password, IsHostMode, NetworkStackId, LegacyLogin, ProtocolVersion);
 
         #endregion
 

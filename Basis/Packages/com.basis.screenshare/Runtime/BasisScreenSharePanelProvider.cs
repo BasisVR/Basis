@@ -183,7 +183,7 @@ public partial class BasisScreenSharePanelProvider : BasisMenuActionProvider<Bas
         foreach (BasisScreenShareNative.Source source in sources)
         {
             ids.Add(source.id);
-            string label = source.IsPortal ? BasisLocalization.Get("screenShare.source.portal") : source.IsMonitor ? BasisLocalization.Get("screenShare.source.display", source.name, source.width, source.height) : source.name;
+            string label = source.IsPortal ? BasisLocalization.Get(BasisScreenShareNative.IsWeb ? "screenShare.source.browser" : "screenShare.source.portal") : source.IsMonitor ? BasisLocalization.Get("screenShare.source.display", source.name, source.width, source.height) : source.name;
             labels.Add(label.Length > 60 ? label.Substring(0, 57) + "..." : label);
         }
         if (ids.Count == 0)
@@ -253,12 +253,12 @@ public partial class BasisScreenSharePanelProvider : BasisMenuActionProvider<Bas
     string Describe(BasisScreenShare local)
     {
         if (local == null) return BasisLocalization.Get("screenShare.status.none");
-        if (!BasisScreenShareNative.CanCapture) return BasisLocalization.Get("screenShare.error.unsupported");
+        if (!BasisScreenShareNative.CanCapture) return BasisLocalization.Get(BasisScreenShareNative.UnsupportedKey);
         if (!BasisScreenShareNative.PluginCurrent) return BasisLocalization.Get(Application.isEditor ? "screenShare.error.restart" : "screenShare.error.pluginMissing");
         switch (local.State)
         {
             case BasisScreenShare.ShareState.Error: return BasisLocalization.Get("screenShare.status.error", local.StatusError);
-            case BasisScreenShare.ShareState.Starting: return BasisLocalization.Get(!BasisScreenShareClient.Available && Basis.Scripts.Networking.BasisNetworkConnection.LocalPlayerIsConnected ? "screenShare.status.unsupportedServer" : BasisScreenShareNative.IsLinux && local.CaptureStatus != null && !local.CaptureStatus.Running ? "screenShare.status.choose" : "screenShare.status.starting");
+            case BasisScreenShare.ShareState.Starting: return BasisLocalization.Get(!BasisScreenShareClient.Available && Basis.Scripts.Networking.BasisNetworkConnection.LocalPlayerIsConnected ? "screenShare.status.unsupportedServer" : local.CaptureStatus != null && local.CaptureStatus.awaiting ? "screenShare.status.webClick" : (BasisScreenShareNative.IsLinux || BasisScreenShareNative.IsAndroid || BasisScreenShareNative.IsWeb) && local.CaptureStatus != null && !local.CaptureStatus.Running ? "screenShare.status.choose" : "screenShare.status.starting");
             case BasisScreenShare.ShareState.Idle when BasisScreenShareClient.LockedForMe: return BasisLocalization.Get("screenShare.status.locked");
             case BasisScreenShare.ShareState.Idle: return BasisLocalization.Get(BasisScreenShareClient.Available ? "screenShare.status.idle" : Basis.Scripts.Networking.BasisNetworkConnection.LocalPlayerIsConnected ? "screenShare.status.unsupportedServer" : "screenShare.status.offline");
         }
@@ -270,7 +270,7 @@ public partial class BasisScreenSharePanelProvider : BasisMenuActionProvider<Bas
             builder.Append('\n').Append(status.width.ToString(CultureInfo.InvariantCulture)).Append('×').Append(status.height.ToString(CultureInfo.InvariantCulture));
             builder.Append(" · ").Append((local.CurrentKbps / 1000f).ToString("0.0", CultureInfo.InvariantCulture)).Append(" Mb/s");
             builder.Append(" · ").Append(status.encoder);
-            if (!status.audio && BasisScreenShareSettings.ShareAudio.RawValue && !string.IsNullOrEmpty(status.audio_error)) builder.Append('\n').Append(BasisLocalization.Get("screenShare.status.noAudio", status.audio_error));
+            if (!status.audio && BasisScreenShareSettings.ShareAudio.RawValue && !string.IsNullOrEmpty(status.audio_error)) builder.Append('\n').Append(BasisLocalization.Get("screenShare.status.noAudio", BasisScreenShareNative.Localize(status.audio_error)));
         }
         return builder.ToString();
     }
@@ -280,6 +280,7 @@ public partial class BasisScreenSharePanelProvider : BasisMenuActionProvider<Bas
         int count = BasisScreenShareClient.RemoteCount, hidden = BasisScreenShareClient.HiddenCount;
         if (count == 0) return BasisLocalization.Get("screenShare.viewing.none");
         string text = BasisLocalization.Get("screenShare.viewing.count", count);
+        if (!BasisScreenShareNative.CanView) text += "\n" + BasisLocalization.Get("screenShare.error.viewUnsupportedWeb");
         return hidden > 0 ? text + "\n" + BasisLocalization.Get("screenShare.viewing.hidden", hidden) : text;
     }
 

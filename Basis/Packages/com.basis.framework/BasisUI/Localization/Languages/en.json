@@ -5139,6 +5139,14 @@
       "value": "This server is running an older version of Basis (network protocol v{0}). You joined in compatibility mode, which uses its older, less secure login. Ask the server owner to update."
     },
     {
+      "key": "network.passwordServer.title",
+      "value": "Older Server"
+    },
+    {
+      "key": "network.passwordServer.body",
+      "value": "This server runs an older version of Basis (network protocol v{0}), so you joined it as v{0}. On this server the passwords that unlock avatars, props and worlds go through the server the old way, so the server and anyone watching the connection can read them. On v{1} servers a password is never sent over the network: other players only get the keys for the file they load, encrypted for them alone. Ask the server owner to update."
+    },
+    {
       "key": "menu.servers.list.default",
       "value": "Default Basis Server"
     },
@@ -6449,6 +6457,10 @@
     {
       "key": "library.addNewContent",
       "value": "Add New Content"
+    },
+    {
+      "key": "library.openFile",
+      "value": "Open File"
     },
     {
       "key": "library.folder.new",

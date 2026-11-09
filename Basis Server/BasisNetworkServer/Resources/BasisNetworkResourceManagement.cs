@@ -180,6 +180,7 @@ public static class BasisNetworkResourceManagement
     // never replayed to late joiners by SendOutAllResources and never spawns anything.
     public static void PredownloadResource(LocalLoadResource LocalLoadResource)
     {
+        Basis.Network.Server.Generic.BasisContentKeyRelay.TakeCustody(ref LocalLoadResource);
         NetDataWriter Writer = NetworkServer.RentWriter();
         LocalLoadResource.Serialize(Writer);
         BNL.Log("Broadcasting predownload for " + LocalLoadResource.CombinedURL);
@@ -195,6 +196,7 @@ public static class BasisNetworkResourceManagement
         }
         if (UshortNetworkDatabase.ContainsKey(LocalLoadResource.LoadedNetID) == false)
         {
+            Basis.Network.Server.Generic.BasisContentKeyRelay.TakeCustody(ref LocalLoadResource);
             NetDataWriter Writer = NetworkServer.RentWriter();
             LocalLoadResource.Serialize(Writer);
             if (UshortNetworkDatabase.TryAdd(LocalLoadResource.LoadedNetID, LocalLoadResource))

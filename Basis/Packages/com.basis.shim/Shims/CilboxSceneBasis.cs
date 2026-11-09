@@ -404,7 +404,6 @@ namespace Cilbox
 				nameof(Basis.Scripts.Drivers.BasisLocalCameraDriver.RightEyeWorldPosition),
 				} },
 			{ typeof(Basis.Shims.BasisPlayspaceInputShim), new HashSet<string>() },
-			{ typeof(Basis.Shims.BasisVixxyShim), new HashSet<string>() },
 			{ typeof(BasisLocalPlayer), new HashSet<string>{
 				nameof(BasisLocalPlayer.GetPositionAndRotation),
 				nameof(BasisLocalPlayer.Teleport),
@@ -446,7 +445,8 @@ namespace Cilbox
 				"ToString", "ToBase64String", "FromBase64String",
 				"ToDateTime", "ToDecimal" } },
 			// UnityEngine.Camera: limit to query/transform helpers + property accessors.
-			// Block Render(), CopyFrom(), SetTargetBuffers(), AddCommandBuffer*(),
+			// Render() is redirected to CilboxCameras (own cameras, target texture, budget).
+			// Block CopyFrom(), SetTargetBuffers(), AddCommandBuffer*(),
 			// RenderToCubemap(), SetReplacementShader(), SetStereoView/ProjectionMatrix.
 			{ typeof(UnityEngine.Camera), new HashSet<string>{
 				"CalculateFrustumCorners",

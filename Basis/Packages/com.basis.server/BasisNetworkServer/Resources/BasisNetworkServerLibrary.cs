@@ -78,7 +78,7 @@ public static class BasisNetworkServerLibrary
                 var src = loaded[i];
                 raw.Put(src.Mode);
                 raw.Put(src.Url ?? string.Empty);
-                raw.Put(src.Password ?? string.Empty);
+                raw.Put(Basis.Network.Server.Generic.BasisContentKeyRelay.ServeFromServer(src.Url, src.Password) ?? string.Empty);
             }
             int rawLen = raw.Length;
             if (rawLen <= 0 || rawLen > ushort.MaxValue)

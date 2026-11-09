@@ -127,6 +127,7 @@ public static partial class BasisContentShareManager
             BasisDebug.LogError($"No handler is registered for content share type {contentType}.", BasisDebug.LogTag.Networking);
             return;
         }
+        if (contentType == ContentShareType.Folder) payload = BasisContentShareFolder.ForShare(payload);
         if (string.IsNullOrEmpty(payload) || payload.Length > ContentSharePayload.MaxLengthFor(contentType))
         {
             BasisDebug.LogError($"Content share payload is {payload?.Length ?? -1} characters; the ceiling is {ContentSharePayload.MaxLengthFor(contentType)}.", BasisDebug.LogTag.Networking);
@@ -173,7 +174,7 @@ public static partial class BasisContentShareManager
         {
             SphereNetID = BasisGenerateUniqueID.GenerateUniqueID(),
             ContentURL = contentURL,
-            UnlockPassword = unlockPassword,
+            UnlockPassword = ContentShareFolder.IsItemType(contentType) ? BasisContentKeyClient.Share(contentURL, string.Empty, contentURL, unlockPassword) : unlockPassword,
             ContentType = contentType,
             PositionX = finalPos.x,
             PositionY = finalPos.y,
@@ -322,8 +323,8 @@ public static partial class BasisContentShareManager
         {
             Sphere.Initialize(
                 msg.SphereNetID,
-                msg.ContentURL,
-                msg.UnlockPassword,
+                msg.ContentType == ContentShareType.Folder ? BasisContentShareFolder.FromSharer(msg.ContentURL, serverMsg.playerIdMessage.playerID) : msg.ContentURL,
+                ContentShareFolder.IsItemType(msg.ContentType) ? BasisContentKeyClient.Tagged(msg.UnlockPassword, serverMsg.playerIdMessage.playerID) : msg.UnlockPassword,
                 msg.ContentType,
                 serverMsg.playerIdMessage.playerID,
                 serverMsg.SharerUUID,

@@ -1488,6 +1488,8 @@
     { "key": "network.avatarShare.failed.generic", "value": "Das Teilen dieses Avatars über den Server hat nicht funktioniert." },
     { "key": "network.legacyServer.title", "value": "Server veraltet" },
     { "key": "network.legacyServer.body", "value": "Dieser Server läuft mit einer älteren Basis-Version (Netzwerkprotokoll v{0}). Du bist im Kompatibilitätsmodus beigetreten, der die ältere, weniger sichere Anmeldung des Servers verwendet. Bitte den Serverbetreiber, ihn zu aktualisieren." },
+    { "key": "network.passwordServer.title", "value": "Älterer Server" },
+    { "key": "network.passwordServer.body", "value": "Dieser Server läuft mit einer älteren Basis-Version (Netzwerkprotokoll v{0}), daher bist du als v{0} beigetreten. Auf diesem Server gehen die Passwörter, die Avatare, Props und Welten entsperren, wie früher über den Server, sodass der Server und jeder, der die Verbindung mitliest, sie lesen kann. Auf v{1}-Servern wird ein Passwort nie über das Netzwerk gesendet: Andere Spieler erhalten nur die Schlüssel für die Datei, die sie laden, nur für sie verschlüsselt. Bitte den Serverbetreiber, ihn zu aktualisieren." },
     { "key": "menu.servers.list.default", "value": "Standard-Basis-Server" },
     { "key": "menu.players.search.byNameOrUuid", "value": "Nach Anzeigename oder UUID filtern." },
 

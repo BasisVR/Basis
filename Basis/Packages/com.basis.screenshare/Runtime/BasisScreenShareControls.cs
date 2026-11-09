@@ -195,7 +195,7 @@ public sealed class BasisScreenShareControls : MonoBehaviour
             ? (share.Remote != null && !string.IsNullOrEmpty(share.Remote.Info.Title) ? share.Remote.Info.Title : BasisLocalization.Get("screenShare.back.sharedBy", BasisScreenShareClient.SharerName(share.Remote != null ? share.Remote.Sharer : (ushort)0)))
             : (!string.IsNullOrEmpty(share.SourceName) ? share.SourceName : BasisLocalization.Get("screenShare.back.yours"));
         string status;
-        if (remote) status = title;
+        if (remote) status = BasisScreenShareNative.CanView ? title : BasisLocalization.Get("screenShare.error.viewUnsupportedWeb");
         else if (share.State == BasisScreenShare.ShareState.Error) status = share.StatusError ?? title;
         else if (share.State == BasisScreenShare.ShareState.Live) status = BasisLocalization.Get("screenShare.panel.watching", share.TotalViewers);
         else if (share.State == BasisScreenShare.ShareState.Idle) status = title;

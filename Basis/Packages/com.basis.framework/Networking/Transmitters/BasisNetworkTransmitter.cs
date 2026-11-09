@@ -87,7 +87,7 @@ namespace Basis.Scripts.Networking.Transmitters
             Basis.IK.BasisBodyFitResult fit = Basis.Scripts.Drivers.BasisLocalRigDriver.AppliedBodyFit;
             ClientAvatarChangeMessage ClientAvatarChangeMessage = new ClientAvatarChangeMessage
             {
-                byteArray = BasisAvatarHostClient.OutboundAvatarBytes(Player.AvatarMetaData),
+                byteArray = BasisAvatarHostClient.OutboundAvatarBytes(Player.AvatarMetaData, Player.AvatarLoadMode),
                 loadMode = Player.AvatarLoadMode,
                 LocalAvatarIndex = LastLinkedAvatarIndex,
                 // The fit for the avatar being swapped IN is not known until it loads and the rig

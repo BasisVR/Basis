@@ -240,6 +240,10 @@ public partial class BasisBundleConnector
     {
         return platformMappings.TryGetValue(platformRequest, out var validPlatforms) && validPlatforms.Contains(Application.platform);
     }
+    public static bool PlatformMatch(string platformRequest, RuntimePlatform platform)
+    {
+        return platformRequest != null && platformMappings.TryGetValue(platformRequest, out var validPlatforms) && validPlatforms.Contains(platform);
+    }
 }
 
 [System.Serializable]

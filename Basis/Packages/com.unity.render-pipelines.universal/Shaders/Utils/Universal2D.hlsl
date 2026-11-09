@@ -14,6 +14,7 @@ struct Varyings
     float2 uv        : TEXCOORD0;
     float4 vertex : SV_POSITION;
     UNITY_VERTEX_INPUT_INSTANCE_ID
+    UNITY_VERTEX_OUTPUT_STEREO
 };
 
 Varyings vert(Attributes input)
@@ -22,6 +23,7 @@ Varyings vert(Attributes input)
 
     UNITY_SETUP_INSTANCE_ID(input);
     UNITY_TRANSFER_INSTANCE_ID(input, output);
+    UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
 
     VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS.xyz);
     output.vertex = vertexInput.positionCS;
@@ -33,6 +35,7 @@ Varyings vert(Attributes input)
 half4 frag(Varyings input) : SV_Target
 {
     UNITY_SETUP_INSTANCE_ID(input);
+    UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
     half2 uv = input.uv;
     half4 texColor = SampleBaseMap(uv);
     half3 color = texColor.rgb * _BaseColor.rgb;

@@ -60,6 +60,7 @@ public static class BasisNetworkPreloadResourceManagement
             return;
         }
 
+        Basis.Network.Server.Generic.BasisContentKeyRelay.TakeCustody(ref resource);
         var peerSnapshot = NetworkServer.PeerSnapshot;
         int peerCount = peerSnapshot.Length;
 

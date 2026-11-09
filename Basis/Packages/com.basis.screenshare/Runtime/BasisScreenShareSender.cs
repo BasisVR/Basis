@@ -27,9 +27,30 @@ public sealed class BasisScreenShareSender : IDisposable
 
     public BasisScreenShareSender()
     {
+#if !UNITY_WEBGL || UNITY_EDITOR
         thread = new Thread(Run) { Name = "Basis Screen Share Sender", IsBackground = true, Priority = ThreadPriority.AboveNormal };
         thread.Start();
+#else
+        thread = null;
+#endif
     }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+    public void Tick()
+    {
+        ulong handle = (ulong)Interlocked.Read(ref capture);
+        if (!running || handle == 0) return;
+        try
+        {
+            if (BasisScreenShareNative.bm_capture_wait(handle, 0) > 0) Pump(handle);
+            Maintain();
+        }
+        catch (Exception e)
+        {
+            BasisDebug.LogError($"[ScreenShare] sender: {e}");
+        }
+    }
+#endif
 
     public void SetCapture(ulong handle, int target)
     {
@@ -192,6 +213,6 @@ public sealed class BasisScreenShareSender : IDisposable
     {
         running = false;
         Interlocked.Exchange(ref capture, 0);
-        if (thread.IsAlive && !thread.Join(500)) BasisDebug.LogWarning("[ScreenShare] sender thread did not stop in time");
+        if (thread != null && thread.IsAlive && !thread.Join(500)) BasisDebug.LogWarning("[ScreenShare] sender thread did not stop in time");
     }
 }

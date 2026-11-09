@@ -86,6 +86,7 @@ public static partial class BasisNetworkPreloadManager
             CancellationToken cancel = loadCancel.Token;
 
             await BasisLoadHandler.EnsureInitializationComplete();
+            await BasisBeeKeyGrant.EnsureResolvedAsync(loadBundle, cancel);
 
             // Check if the full BEE file is already on disk
             var (isOnDisc, metaInfo) = await BasisLoadHandler.IsMetaDataOnDiscAsync(resource.CombinedURL);

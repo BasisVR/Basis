@@ -53,6 +53,7 @@ public static class BasisServerMessageRegistry
     {
         RegisterCoreHandlers();
         Basis.Network.Server.Generic.BasisAvatarHostRelay.Register();
+        Basis.Network.Server.Generic.BasisContentKeyRelay.Register();
         Basis.Network.Server.Generic.BasisNetworkScreenShare.Register();
     }
 

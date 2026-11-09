@@ -439,6 +439,7 @@ namespace BasisServerHandle
             BasisNetworkImageCache.RemovePlayerImages(id);
             BasisNetworkClipCache.RemovePlayer(id);
             BasisAvatarHostRelay.RemovePeer(id);
+            BasisContentKeyRelay.RemovePeer(id);
             // Drops this peer's egress bucket and any replay still queued for it. Without this a
             // recycled player id would inherit the previous holder's spent budget.
             BasisImageBandwidthGovernor.RemovePeer(id);
@@ -1600,6 +1601,7 @@ namespace BasisServerHandle
                 LocalLoadResource.StaticAdminLocked = false;
             }
             Reader.Recycle();
+            BasisContentKeyRelay.StampFromPeer(ref LocalLoadResource, Peer.Id);
 
             switch (LocalLoadResource.Mode)
             {

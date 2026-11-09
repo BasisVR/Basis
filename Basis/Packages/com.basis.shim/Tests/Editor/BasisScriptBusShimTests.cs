@@ -202,6 +202,16 @@ namespace Basis.Tests.Sync
                 Assert.IsFalse(Method(box, typeof(BasisScriptMessage), ".ctor"), boxType.Name + " must not forge a message.");
                 Assert.IsFalse(Method(box, typeof(BasisScriptMessage), "set_" + nameof(BasisScriptMessage.Sender)), boxType.Name + " must not rewrite who sent a message.");
                 Assert.IsFalse(Method(box, typeof(BasisScriptBus), "Reset"), boxType.Name);
+                Assert.IsTrue(Method(box, typeof(BasisScriptBus), nameof(BasisScriptBus.SendToScript)), boxType.Name);
+                Assert.IsTrue(Method(box, typeof(BasisScriptMessage), nameof(BasisScriptMessage.GetSharedTransform)), boxType.Name);
+                Assert.IsTrue(Method(box, typeof(BasisSharedTransform), nameof(BasisSharedTransform.SetPosition)), boxType.Name);
+                Assert.IsTrue(Method(box, typeof(BasisScriptBus), nameof(BasisScriptBus.Share)), boxType.Name);
+                Assert.IsFalse(Method(box, typeof(BasisSharedTransform), ".ctor"), boxType.Name + " must not forge a shared transform.");
+                Assert.IsTrue(Method(box, typeof(BasisScriptMessage), "get_" + nameof(BasisScriptMessage.SenderScript)), boxType.Name);
+                Assert.IsTrue(Method(box, typeof(BasisScriptTarget), nameof(BasisScriptTarget.GetScript)), boxType.Name);
+                Assert.IsTrue(Method(box, typeof(BasisScriptReference), nameof(BasisScriptReference.Resolve)), boxType.Name);
+                Assert.IsTrue(Method(box, typeof(BasisScriptReference), "get_" + nameof(BasisScriptReference.ClassName)), boxType.Name);
+                Assert.IsFalse(Method(box, typeof(BasisScriptReference), ".ctor"), boxType.Name + " must not forge a script reference.");
             }
         }
 
@@ -522,6 +532,168 @@ namespace Basis.Tests.Sync
             Assert.AreEqual(before + 1, (int)requests.GetValue(null));
             Tick();
             Assert.AreEqual(before, (int)requests.GetValue(null));
+        }
+
+        static BasisScriptMessage Peek(int index)
+        {
+            object pending = ((System.Collections.IList)Bus.GetField("queue", Hidden).GetValue(null))[index];
+            return (BasisScriptMessage)pending.GetType().GetField("Message", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(pending);
+        }
+
+        [Test]
+        public void ASharedTransform_IsAHandle_ReadOnlyUnlessTheOwnerSaysSo()
+        {
+            CilboxSceneBasis worldBox = Box<CilboxSceneBasis>("World script");
+            CilboxPropBasis propBox = Box<CilboxPropBasis>("Prop script");
+            BasisProp content = propBox.gameObject.AddComponent<BasisProp>();
+            CilboxProxy world = Proxy(worldBox), prop = Proxy(propBox);
+            Transform handle = new GameObject("Handle").transform;
+            handle.SetParent(propBox.transform, false);
+            Assert.IsTrue(Listen(world, "share", "OnMessage"));
+            BasisScriptTarget worldTarget = Running(worldBox, () => BasisScriptBus.Self(world));
+            BasisScriptTarget propTarget = Running(propBox, () => BasisScriptBus.Self(prop));
+
+            foreach (MemberInfo member in typeof(BasisSharedTransform).GetMembers(BindingFlags.Public | BindingFlags.Instance))
+            {
+                Type type = member is PropertyInfo property ? property.PropertyType : member is MethodInfo method ? method.ReturnType : null;
+                Assert.IsFalse(type != null && typeof(UnityEngine.Object).IsAssignableFrom(type), member.Name + " must not hand out a Unity object");
+            }
+
+            Assert.Greater(Running(propBox, () => BasisScriptBus.Send(prop, worldTarget, "share", "handle", handle)), 0);
+            BasisScriptMessage message = Peek(0);
+            Assert.AreEqual(BasisScriptBus.TypeTransform, message.ValueType);
+            BasisSharedTransform readOnly = message.GetSharedTransform();
+            Assert.IsNotNull(readOnly);
+            Assert.IsFalse(readOnly.Writable, "a raw Transform crosses read-only");
+            Assert.AreEqual("Handle", readOnly.Name);
+            Assert.AreSame(propTarget, readOnly.Owner);
+            Assert.IsFalse(readOnly.SetPosition(new Vector3(5f, 0f, 0f)));
+            Assert.IsFalse(readOnly.SetActive(false));
+            Assert.AreEqual(Vector3.zero, handle.localPosition);
+            Tick();
+            Assert.Greater(Running(propBox, () => BasisScriptBus.Send(prop, worldTarget, "share", "go", handle.gameObject)), 0);
+            Assert.AreSame(readOnly, Peek(0).GetSharedTransform(), "one read-only handle per Transform");
+            Tick();
+
+            BasisSharedTransform writable = Running(propBox, () => BasisScriptBus.Share(prop, handle, true));
+            Assert.IsNotNull(writable);
+            Assert.IsTrue(writable.Writable);
+            Assert.AreNotSame(readOnly, writable);
+            Assert.IsTrue(writable.SetPosition(new Vector3(1f, 2f, 3f)));
+            Assert.AreEqual(new Vector3(1f, 2f, 3f), handle.position);
+            Assert.AreEqual(new Vector3(1f, 2f, 3f), readOnly.Position);
+            Assert.IsTrue(writable.SetLocalRotation(new Quaternion(0f, 0f, 0f, 2f)), "rotations are normalised");
+            Assert.AreEqual(Quaternion.identity, handle.localRotation);
+            Assert.IsFalse(writable.SetPosition(new Vector3(float.NaN, 0f, 0f)));
+            Assert.IsFalse(writable.SetRotation(new Quaternion(0f, 0f, 0f, 0f)));
+            Assert.IsFalse(writable.SetLocalScale(new Vector3(float.PositiveInfinity, 1f, 1f)));
+            Assert.IsTrue(writable.SetActive(false));
+            Assert.IsTrue(handle.gameObject.activeSelf, "SetActive waits for the next tick so the owner's OnDisable never runs inside the caller");
+            Tick();
+            Assert.IsFalse(handle.gameObject.activeSelf);
+            Assert.IsFalse(readOnly.ActiveSelf);
+
+            Assert.AreEqual(0, Running(propBox, () => BasisScriptBus.Send(prop, worldTarget, "share", "theirs", worldBox.transform)), "a prop cannot share a Transform it does not own");
+            Assert.IsNull(Running(propBox, () => BasisScriptBus.Share(prop, worldBox.transform, true)));
+            Assert.IsNull(Running(worldBox, () => BasisScriptBus.Share(world, handle, true)), "the world cannot share the prop's Transform");
+            Assert.IsNull(BasisScriptBus.Share(prop, handle, true), "only a running script can share");
+            ScriptableObject asset = ScriptableObject.CreateInstance<ScriptableObject>();
+            Assert.AreEqual(0, Running(propBox, () => BasisScriptBus.Send(prop, worldTarget, "share", "asset", asset)), "only scene objects can be shared");
+            UnityEngine.Object.DestroyImmediate(asset);
+            Assert.Greater(Running(propBox, () => BasisScriptBus.Send(prop, worldTarget, "share", "root", content)), 0, "a component shares its Transform, never itself");
+            Assert.AreEqual(propBox.transform.position, Peek(0).GetSharedTransform().Position);
+            Tick();
+
+            Running(propBox, () => { BasisScriptBus.Unshare(prop, handle); return 0; });
+            Assert.IsFalse(writable.IsValid);
+            Assert.IsFalse(readOnly.IsValid);
+            Assert.IsFalse(writable.SetPosition(Vector3.zero), "the owner can take a share back");
+
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Publish(prop, "handle", handle)));
+            BasisSharedTransform published = propTarget.GetSharedTransform("handle");
+            Assert.IsNotNull(published);
+            Assert.IsFalse(published.Writable);
+            Assert.AreEqual(BasisScriptBus.TypeTransform, propTarget.TypeOf("handle"));
+            UnityEngine.Object.DestroyImmediate(handle.gameObject);
+            Assert.IsNull(propTarget.GetSharedTransform("handle"), "a destroyed Transform reads back as null");
+            Assert.IsFalse(published.IsValid);
+        }
+
+        [Test]
+        public void AnAvatar_CanShareItsBones_EvenUnderAPlayerRig()
+        {
+            CilboxSceneBasis worldBox = Box<CilboxSceneBasis>("World script");
+            CilboxAvatarBasis avatarBox = Box<CilboxAvatarBasis>("Avatar script");
+            avatarBox.gameObject.AddComponent<BasisAvatar>();
+            GameObject rig = new GameObject("Player rig");
+            hosts.Add(rig);
+            avatarBox.transform.SetParent(rig.transform, false);
+            Transform hand = new GameObject("Hand").transform;
+            hand.SetParent(avatarBox.transform, false);
+            CilboxProxy world = Proxy(worldBox), avatar = Proxy(avatarBox);
+            Assert.IsTrue(Listen(world, "bone", "OnMessage"));
+            BasisScriptTarget worldTarget = Running(worldBox, () => BasisScriptBus.Self(world));
+
+            BasisSharedTransform shared = Running(avatarBox, () => BasisScriptBus.Share(avatar, hand, true));
+            Assert.IsNotNull(shared, "an avatar's own bone is the avatar's to share");
+            Assert.AreEqual(BasisScriptBus.KindAvatar, shared.Owner.Kind);
+            Assert.Greater(Running(avatarBox, () => BasisScriptBus.Send(avatar, worldTarget, "bone", "hand", shared)), 0);
+            Assert.AreSame(shared, Peek(0).GetSharedTransform());
+            Tick();
+            Assert.IsTrue(shared.SetLocalPosition(new Vector3(0f, 1f, 0f)));
+            Assert.AreEqual(new Vector3(0f, 1f, 0f), hand.localPosition);
+            Assert.IsNull(Running(avatarBox, () => BasisScriptBus.Share(avatar, rig.transform, false)), "the rig above the avatar is not the avatar's");
+        }
+
+        [Test]
+        public void AScriptReference_ResolvesOnlyInItsOwnBox_AndTargetsJustThatScript()
+        {
+            CilboxSceneBasis worldBox = Box<CilboxSceneBasis>("World script");
+            CilboxPropBasis propBox = Box<CilboxPropBasis>("Prop script");
+            propBox.gameObject.AddComponent<BasisProp>();
+            CilboxProxy world = Proxy(worldBox), first = Proxy(propBox), second = Proxy(propBox);
+            Assert.IsTrue(Listen(world, "share", "OnMessage"));
+            Assert.IsTrue(Listen(first, "ping", "OnMessage"));
+            Assert.IsTrue(Listen(second, "ping", "OnMessage"));
+            BasisScriptTarget worldTarget = Running(worldBox, () => BasisScriptBus.Self(world));
+            BasisScriptTarget propTarget = Running(propBox, () => BasisScriptBus.Self(first));
+
+            Assert.Greater(Running(propBox, () => BasisScriptBus.Send(second, worldTarget, "share", "here", first)), 0);
+            BasisScriptMessage message = Peek(0);
+            Assert.AreEqual(BasisScriptBus.TypeScript, message.ValueType);
+            BasisScriptReference script = message.GetScript();
+            Assert.IsNotNull(script);
+            Assert.IsTrue(script.IsValid);
+            Assert.AreEqual(Probe, script.ClassName);
+            Assert.AreSame(propTarget, script.Target);
+            Assert.IsTrue(script.Listens("ping"));
+            Assert.AreNotSame(script, message.SenderScript, "the sender is the second script, the value is the first");
+            Assert.IsNull(Running(worldBox, () => script.Resolve(world)), "another box only ever sees the handle");
+            Assert.AreSame(first, Running(propBox, () => script.Resolve(second)), "the script's own box gets the real object back");
+            Assert.IsNull(script.Resolve(second), "only a running script can resolve");
+            Tick();
+
+            Assert.Greater(Running(worldBox, () => BasisScriptBus.SendToScript(world, script, "ping", "just you")), 0);
+            Tick();
+            Assert.AreEqual(1, Clicks(first));
+            Assert.AreEqual("just you", Last(first));
+            Assert.AreEqual(0, Clicks(second), "SendToScript skips the content's other listeners");
+            Assert.AreEqual(0, Running(worldBox, () => BasisScriptBus.SendToScript(world, script, "nothing", "x")), "no listener on that channel");
+
+            Assert.AreEqual(0, Running(worldBox, () => BasisScriptBus.Send(world, propTarget, "ping", "steal", first)), "a box cannot share another box's script as its own");
+            Assert.Greater(Running(worldBox, () => BasisScriptBus.Send(world, propTarget, "ping", "forward", script)), 0, "a handle it was given can be passed on");
+            Assert.AreSame(script, Peek(0).GetScript());
+            Tick();
+            Assert.Greater(Running(propBox, () => BasisScriptBus.Send(second, worldTarget, "share", "again", first)), 0);
+            Assert.AreSame(script, Peek(0).GetScript(), "one handle per script, so == works");
+            Assert.AreSame(Peek(0).SenderScript, message.SenderScript);
+            Tick();
+
+            first.DisableProxy();
+            Assert.IsFalse(script.IsValid);
+            Assert.AreEqual(string.Empty, script.ClassName);
+            Assert.IsNull(script.Target);
+            Assert.AreEqual(0, Running(worldBox, () => BasisScriptBus.SendToScript(world, script, "ping", "gone")));
         }
     }
 }

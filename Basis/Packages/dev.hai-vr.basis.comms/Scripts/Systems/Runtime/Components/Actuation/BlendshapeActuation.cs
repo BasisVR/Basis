@@ -476,6 +476,7 @@ namespace HVR.Basis.Comms
             {
                 comms.VariableStore.SubmitOrDefineDefaultValue(addressId, 0f);
             }
+            SubmitDefaultOverridesToNetwork();
         }
 
         private void ResetAllBlendshapesToZero()

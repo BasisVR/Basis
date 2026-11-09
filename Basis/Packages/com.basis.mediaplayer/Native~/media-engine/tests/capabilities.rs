@@ -131,10 +131,91 @@ fn built_set_matches_this_build() {
     }
 }
 
-/// Headless builds route only the in-process decoders. Every entry is a
-/// will-decode claim for a decoder compiled into this binary, so the
-/// platform codecs (H.264/AAC/MP3) must be absent.
-#[cfg(not(any(windows, target_os = "android")))]
+/// Whether the host's FFmpeg decodes the Nth of H.264, H.265, VP9, AAC, MP3.
+#[cfg(target_os = "linux")]
+fn decode_ffmpeg_present(index: usize) -> bool {
+    use decode_ffmpeg::{FfCodec, has_decoder};
+    has_decoder(
+        [
+            FfCodec::H264,
+            FfCodec::H265,
+            FfCodec::Vp9,
+            FfCodec::Aac,
+            FfCodec::Mp3,
+        ][index],
+    )
+}
+
+#[cfg(not(any(
+    windows,
+    target_os = "android",
+    target_os = "linux",
+    target_os = "macos"
+)))]
+fn decode_ffmpeg_present(_index: usize) -> bool {
+    false
+}
+
+/// macOS: VideoToolbox H.264 and HEVC, always as software entries under the
+/// policy ceiling and as hardware entries exactly where the Mac decodes the
+/// codec on its media engine; AV1 on rav1d; AAC and MP3 on AudioToolbox.
+#[cfg(target_os = "macos")]
+#[test]
+fn built_set_matches_this_build() {
+    use decode_vt::{VtCodec, hardware_decode_supported};
+    let set = capabilities();
+    assert_eq!(set.version, media_engine::CAPABILITIES_VERSION);
+    assert_eq!(
+        set.platform,
+        if cfg!(target_arch = "aarch64") {
+            "macos-arm64"
+        } else {
+            "macos-x64"
+        }
+    );
+    let entry = |c: &str, r: Route| set.video.iter().find(|v| v.codec == c && v.route == r);
+    for (codec, vt) in [("h264", VtCodec::H264), ("h265", VtCodec::H265)] {
+        assert!(entry(codec, Route::Software).is_some(), "{codec}");
+        assert_eq!(
+            entry(codec, Route::Hardware).is_some(),
+            hardware_decode_supported(vt),
+            "{codec}"
+        );
+    }
+    assert!(entry("av1", Route::Software).is_some());
+    assert!(
+        set.video
+            .iter()
+            .all(|v| v.codec != "vp9" && v.codec != "vp8")
+    );
+    for cap in set.video.iter().filter(|v| v.route == Route::Software) {
+        assert_eq!(
+            (cap.max_width, cap.max_height, cap.max_fps),
+            (1920, 1088, 60),
+            "{}",
+            cap.codec
+        );
+    }
+    let channels = |c: &str| {
+        set.audio
+            .iter()
+            .find(|a| a.codec == c)
+            .map(|a| a.max_channels)
+    };
+    for (codec, max) in [("aac", 6), ("mp3", 2), ("opus", 8), ("flac", 8), ("pcm", 8)] {
+        assert_eq!(channels(codec), Some(max), "{codec}");
+    }
+    let scheme = |s: &str| set.transports.iter().any(|t| t.scheme == s);
+    for s in ["file", "http", "https", "rtsp", "rtspt", "whep", "wheps"] {
+        assert!(scheme(s), "{s}");
+    }
+    assert_eq!(scheme("rist"), cfg!(feature = "rist"));
+}
+
+/// Headless builds route the in-process decoders, plus on Linux whatever
+/// the host's FFmpeg decodes. Every entry is a will-decode claim, so a
+/// platform codec is listed exactly when its decoder loads.
+#[cfg(not(any(windows, target_os = "android", target_os = "macos")))]
 #[test]
 fn built_set_matches_this_build() {
     let set = capabilities();
@@ -145,9 +226,11 @@ fn built_set_matches_this_build() {
 
     let codec = |c: &str| set.video.iter().find(|v| v.codec == c);
     assert!(codec("av1").is_some());
-    for absent in ["h264", "h265", "vp8", "vp9"] {
-        assert!(codec(absent).is_none(), "{absent}");
+    let system = |c| cfg!(target_os = "linux") && decode_ffmpeg_present(c);
+    for (name, platform) in [("h264", 0), ("h265", 1), ("vp9", 2)] {
+        assert_eq!(codec(name).is_some(), system(platform), "{name}");
     }
+    assert!(codec("vp8").is_none());
     for cap in &set.video {
         assert_eq!(cap.route, Route::Software, "{}", cap.codec);
         // Software entries state the enforced ceiling.
@@ -167,8 +250,8 @@ fn built_set_matches_this_build() {
     assert_eq!(channels("flac"), Some(8));
     // PCM needs no platform decoder, so it is present here too.
     assert_eq!(channels("pcm"), Some(8));
-    for absent in ["aac", "mp3"] {
-        assert_eq!(channels(absent), None, "{absent}");
+    for (name, platform, max) in [("aac", 3, 6), ("mp3", 4, 2)] {
+        assert_eq!(channels(name), system(platform).then_some(max), "{name}");
     }
 
     let scheme = |s: &str| set.transports.iter().any(|t| t.scheme == s);

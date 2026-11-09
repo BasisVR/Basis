@@ -314,7 +314,8 @@ namespace BasisRestApi.Tests
 
             Assert.True(BasisNetworkResourceManagement.UshortNetworkDatabase.TryGetValue(netId, out var r));
             Assert.Equal(cleanUrl, r!.CombinedURL);
-            Assert.Equal("secretpassword", r.UnlockPassword);
+            Assert.Equal("secretpassword", Basis.Network.Server.Generic.BasisContentKeyRelay.SecretFor(r));
+            Assert.True(Basis.Network.Core.BasisContentKeyProtocol.TryParseMarker(r.UnlockPassword, out ushort origin, out _) && origin == Basis.Network.Core.BasisContentKeyProtocol.ServerOrigin);
         }
 
         [Fact]
@@ -328,7 +329,8 @@ namespace BasisRestApi.Tests
                 .RootElement.GetProperty("netId").GetString()!;
 
             Assert.True(BasisNetworkResourceManagement.UshortNetworkDatabase.TryGetValue(netId, out var r));
-            Assert.Equal("explicit", r!.UnlockPassword);
+            Assert.Equal("explicit", Basis.Network.Server.Generic.BasisContentKeyRelay.SecretFor(r!));
+            Assert.True(Basis.Network.Core.BasisContentKeyProtocol.IsMarker(r.UnlockPassword));
         }
 
         // ── POST /api/worlds/switch ───────────────────────────────────────────
@@ -377,7 +379,8 @@ namespace BasisRestApi.Tests
             Assert.Equal(cleanUrl, r!.CombinedURL);
             // Fragment passwords are base64-encoded; server decodes them before storing.
             string decoded = Encoding.UTF8.GetString(Convert.FromBase64String(password));
-            Assert.Equal(decoded, r.UnlockPassword);
+            Assert.Equal(decoded, Basis.Network.Server.Generic.BasisContentKeyRelay.SecretFor(r));
+            Assert.True(Basis.Network.Core.BasisContentKeyProtocol.IsMarker(r.UnlockPassword));
         }
 
         [Fact]

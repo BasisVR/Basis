@@ -309,7 +309,7 @@ namespace Basis.Scripts.Networking
             {
                 try
                 {
-                    prepared.InitialAvatar = BasisBundleConversionNetwork.ConvertNetworkBytesToBasisLoadableBundle(avatar.byteArray);
+                    prepared.InitialAvatar = BasisBundleConversionNetwork.ConvertNetworkBytesToBasisLoadableBundle(avatar.byteArray, playerId);
                 }
                 catch (Exception ex)
                 {

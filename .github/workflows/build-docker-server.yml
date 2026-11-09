@@ -208,6 +208,7 @@ jobs:
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
+          cliVersion: v0.1.72
           customImage: ${{ steps.unity-image.outputs.image }}
           dockerShmSize: 2g
           buildName: ${{ matrix.buildName }}
@@ -233,6 +234,7 @@ jobs:
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
+          cliVersion: v0.1.72
           customImage: ${{ steps.unity-image.outputs.image }}
           dockerShmSize: 2g
           buildName: ${{ matrix.buildName }}

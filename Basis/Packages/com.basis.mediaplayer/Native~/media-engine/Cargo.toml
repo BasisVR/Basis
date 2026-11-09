@@ -35,5 +35,11 @@ decode-mf = { workspace = true }
 [target.'cfg(target_os = "android")'.dependencies]
 decode-mediacodec = { workspace = true }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+decode-ffmpeg = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+decode-vt = { workspace = true }
+
 [lints]
 workspace = true

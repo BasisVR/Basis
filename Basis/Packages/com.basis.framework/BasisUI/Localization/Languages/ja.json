@@ -1488,6 +1488,8 @@
     { "key": "network.avatarShare.failed.generic", "value": "サーバー経由でアバターを共有できませんでした。" },
     { "key": "network.legacyServer.title", "value": "サーバーが古いバージョンです" },
     { "key": "network.legacyServer.body", "value": "このサーバーは古いバージョンの Basis（ネットワークプロトコル v{0}）で動作しています。互換モードで参加したため、古く安全性の低いログイン方式が使われています。サーバーの管理者に更新を依頼してください。" },
+    { "key": "network.passwordServer.title", "value": "古いサーバー" },
+    { "key": "network.passwordServer.body", "value": "このサーバーは古いバージョンの Basis(ネットワークプロトコル v{0})で動作しているため、v{0} として参加しました。このサーバーでは、アバター・プロップ・ワールドを開くパスワードが従来どおりサーバーを経由するため、サーバーや通信を見ている人が読み取れます。v{1} サーバーではパスワードがネットワークに送られることはなく、他のプレイヤーは読み込むファイルの鍵だけを、その人専用に暗号化された形で受け取ります。サーバーの管理者に更新を依頼してください。" },
     { "key": "menu.servers.list.default", "value": "既定の Basis サーバー" },
     { "key": "menu.players.search.byNameOrUuid", "value": "表示名またはUUIDでフィルターします。" },
 

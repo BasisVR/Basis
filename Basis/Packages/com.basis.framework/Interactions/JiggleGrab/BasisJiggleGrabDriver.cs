@@ -171,6 +171,11 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 RecordAttempt("that hand is already grabbing");
                 return false;
             }
+            if (LocalGrabBlocked != null && LocalGrabBlocked(hand))
+            {
+                RecordAttempt("content blocked grabbing with that hand");
+                return false;
+            }
 
             JiggleRig bestRig = null;
             BasisRemotePlayer bestTarget = null;
@@ -574,6 +579,54 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 }
             }
             return false;
+        }
+
+        public static System.Func<byte, bool> LocalGrabBlocked;
+
+        public static bool TryGetLocalGrab(byte hand, out ushort targetId, out Transform rigRoot, out Transform bone)
+        {
+            targetId = 0;
+            rigRoot = null;
+            bone = null;
+            TryGetLocalPlayerId(out ushort localId);
+            int count = allGrabs.Count;
+            for (int Index = 0; Index < count; Index++)
+            {
+                GrabState state = allGrabs[Index];
+                if (!state.isLocalGrab || state.isEditorGrab || state.grabberId != localId || state.hand != hand)
+                {
+                    continue;
+                }
+                targetId = state.targetId;
+                if (TryResolveRig(state.targetId, localId, state.rigIndex, out JiggleRig rig))
+                {
+                    Transform root = rig.GetJiggleRigData().rootBone;
+                    rigRoot = root != null ? root : rig.transform;
+                    if (TryResolvePoint(state, rig))
+                    {
+                        bone = state.tree.bones[state.resolvedPointIndex];
+                    }
+                }
+                return true;
+            }
+            return false;
+        }
+
+        public static bool ReleaseLocalGrab(byte hand)
+        {
+            TryGetLocalPlayerId(out ushort localId);
+            bool released = false;
+            RemoveMatching(state =>
+            {
+                if (!state.isLocalGrab || state.isEditorGrab || state.grabberId != localId || state.hand != hand)
+                {
+                    return false;
+                }
+                BasisNetworkHandleJiggleGrab.SendGrabStop(state.targetId, state.rigIndex, state.pointIndex);
+                released = true;
+                return true;
+            });
+            return released;
         }
 
         private static bool IsHandBusy(ushort localId, byte hand)

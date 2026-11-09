@@ -21,6 +21,8 @@ fn size_then_fill_round_trips() {
     assert_eq!(json["platform"], "windows-x64");
     #[cfg(target_os = "linux")]
     assert_eq!(json["platform"], "linux-x64");
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    assert_eq!(json["platform"], "macos-arm64");
     assert!(json["video"].as_array().is_some_and(|v| !v.is_empty()));
 }
 

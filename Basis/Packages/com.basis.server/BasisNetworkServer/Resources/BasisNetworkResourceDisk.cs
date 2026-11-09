@@ -56,6 +56,12 @@ public static class BasisNetworkResourceDisk
             resource.ScaleX = request.ScaleX; resource.ScaleY = request.ScaleY; resource.ScaleZ = request.ScaleZ;
             resource.ModifyScale = true;
         }
+        if (Basis.Network.Server.Generic.BasisContentKeyRelay.NeedsKeysToSave(resource))
+        {
+            string url = resource.CombinedURL;
+            Basis.Network.Server.Generic.BasisContentKeyRelay.FetchKeysToSave(resource, ok => BNL.Log(ok ? Save(request) : $"Could not save {url}: nobody still here could share its keys with the server."));
+            return $"Getting the keys for {url} from the players who have it, then saving it.";
+        }
         resource.Persist = true;
         resource.IsAdminLocked = true;
         string file = SavedFiles.TryGetValue(resource.LoadedNetID, out string existing) ? existing : Path.Combine(Folder, FileNameFor(resource.LoadedNetID));
@@ -108,6 +114,7 @@ public static class BasisNetworkResourceDisk
     /// <summary>Called after a resource is unloaded: removing saved content also removes its file, or it would come back on restart.</summary>
     public static void OnUnloaded(string loadedNetId)
     {
+        Basis.Network.Server.Generic.BasisContentKeyRelay.Forget(loadedNetId);
         if (!SavedFiles.TryRemove(loadedNetId ?? string.Empty, out string file)) return;
         try
         {
@@ -151,7 +158,7 @@ public static class BasisNetworkResourceDisk
     {
         Mode = resource.Mode,
         LoadedNetID = resource.LoadedNetID,
-        UnlockPassword = resource.UnlockPassword ?? string.Empty,
+        UnlockPassword = Basis.Network.Server.Generic.BasisContentKeyRelay.SecretFor(resource) ?? string.Empty,
         CombinedURL = resource.CombinedURL ?? string.Empty,
         PositionX = resource.PositionX, PositionY = resource.PositionY, PositionZ = resource.PositionZ,
         QuaternionX = resource.QuaternionX, QuaternionY = resource.QuaternionY, QuaternionZ = resource.QuaternionZ, QuaternionW = resource.QuaternionW,

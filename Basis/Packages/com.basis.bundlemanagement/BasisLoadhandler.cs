@@ -194,6 +194,7 @@ public static partial class BasisLoadHandler
     public static async Task<GameObject> LoadGameObjectBundle(GameObject DisabledGameobject,BasisLoadableBundle loadableBundle, bool useContentRemoval, BasisProgressReport report, CancellationToken cancellationToken, Vector3 Position, Quaternion Rotation, Vector3 Scale, bool ModifyScale, Selector Selector, Transform Parent = null, bool DestroyColliders = false,bool ChangeColidersToCorrectLayer = false, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024, List<BasisHeadChop.HeadChopTarget> HarvestedHeadChop = null)
     {
         await EnsureInitializationComplete();
+        await BasisBeeKeyGrant.EnsureResolvedAsync(loadableBundle, cancellationToken);
 
         string Key = GetBundleKey(loadableBundle);
         if (LoadedBundles.TryGetValue(Key, out BasisTrackedBundleWrapper wrapper))
@@ -287,6 +288,7 @@ public static partial class BasisLoadHandler
     private static async Task<Scene> LoadSceneBundleStaged(bool makeActiveScene, BasisLoadableBundle loadableBundle, BasisProgressReport fetch, BasisProgressReport activate, CancellationToken cancellationToken, long MaxDownloadSizeInMB)
     {
         await EnsureInitializationComplete();
+        await BasisBeeKeyGrant.EnsureResolvedAsync(loadableBundle, cancellationToken);
 
         string Key = GetBundleKey(loadableBundle);
         if (LoadedBundles.TryGetValue(Key, out BasisTrackedBundleWrapper wrapper) && wrapper.IsUnloaded)

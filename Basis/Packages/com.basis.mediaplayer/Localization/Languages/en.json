@@ -229,6 +229,38 @@
     {
       "key": "settings.media.clips.volume.tooltip",
       "value": "Starting volume for each shared clip. The volume slider under a clip changes that clip for you only."
+    },
+    {
+      "key": "mediaPlayer.web.unsupportedTransport",
+      "value": "This kind of stream (RTSP, RIST, SRT and similar) cannot be played in the web player. Use an http(s) video, an HLS playlist or a WHEP stream, or watch in the desktop app."
+    },
+    {
+      "key": "mediaPlayer.web.localFile",
+      "value": "Files on this computer cannot be opened by address in the web player."
+    },
+    {
+      "key": "mediaPlayer.web.localAddress",
+      "value": "This video is on a local network address, which the web player does not open."
+    },
+    {
+      "key": "mediaPlayer.web.cors",
+      "value": "The server hosting this video does not allow it to be shown in the web player (it sends no CORS headers). The host has to allow cross-origin requests, or you can watch in the desktop app."
+    },
+    {
+      "key": "mediaPlayer.web.network",
+      "value": "The video could not be loaded. Check the address and your connection."
+    },
+    {
+      "key": "mediaPlayer.web.format",
+      "value": "This browser cannot play this video format."
+    },
+    {
+      "key": "mediaPlayer.web.decode",
+      "value": "This browser could not decode the video."
+    },
+    {
+      "key": "mediaPlayer.web.hls",
+      "value": "This browser cannot play HLS streams."
     }
   ]
 }

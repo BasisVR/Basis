@@ -1,5 +1,5 @@
 #!/bin/sh
-# The engine's gate on Linux: run it before committing, and every step must
+# The engine's gate on Linux and macOS: run it before committing, and every step must
 # pass. The RIST, conformance, impairment and split-source steps print
 # SKIPPED when what they need is missing and the run still ends green, so
 # look for those lines; any other missing tool fails the run. TESTING.md
@@ -19,7 +19,12 @@ echo "== cargo test"
 cargo test --workspace
 # RIST is an optional transport linked against librist, so its steps run
 # only once tools/build-librist.sh has built the library.
-if [ -f third_party/librist/linux-x64/librist.a ]; then
+case "$(uname -s)-$(uname -m)" in
+    Darwin-arm64) rist_rid=macos-arm64 ;;
+    Darwin-x86_64) rist_rid=macos-x64 ;;
+    *) rist_rid=linux-x64 ;;
+esac
+if [ -f "third_party/librist/$rist_rid/librist.a" ]; then
     echo "== RIST clippy"
     cargo clippy -p media-rist -p media-engine --features media-engine/rist --all-targets -- -D warnings
     echo "== RIST tests"

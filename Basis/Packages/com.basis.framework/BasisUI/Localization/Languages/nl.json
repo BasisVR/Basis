@@ -1488,6 +1488,8 @@
     { "key": "network.avatarShare.failed.generic", "value": "Het delen van deze avatar via de server is niet gelukt." },
     { "key": "network.legacyServer.title", "value": "Server Verouderd" },
     { "key": "network.legacyServer.body", "value": "Deze server draait een oudere versie van Basis (netwerkprotocol v{0}). Je bent verbonden in compatibiliteitsmodus, die de oudere, minder veilige aanmelding van de server gebruikt. Vraag de eigenaar van de server om deze bij te werken." },
+    { "key": "network.passwordServer.title", "value": "Oudere Server" },
+    { "key": "network.passwordServer.body", "value": "Deze server draait een oudere versie van Basis (netwerkprotocol v{0}), dus je bent als v{0} verbonden. Op deze server gaan de wachtwoorden die avatars, props en werelden ontgrendelen zoals vroeger via de server, dus de server en iedereen die de verbinding meeleest kan ze lezen. Op v{1}-servers wordt een wachtwoord nooit over het netwerk verstuurd: andere spelers krijgen alleen de sleutels voor het bestand dat ze laden, alleen voor hen versleuteld. Vraag de servereigenaar om bij te werken." },
     { "key": "menu.servers.list.default", "value": "Standaard Basis-server" },
     { "key": "menu.players.search.byNameOrUuid", "value": "Filter op weergavenaam of UUID." },
 

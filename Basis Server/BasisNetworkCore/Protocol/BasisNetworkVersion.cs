@@ -26,8 +26,21 @@ namespace Basis.Network.Core
         // 57: GlobalGetLockState ends with the shared image resolution limit (after VideoClipsLocked),
         // alongside the video clip, avatar hosting and screen share messages. The capability byte above
         // still applies.
-        public static ushort ServerVersion = 57;
+        // 58: avatar, prop, world and share records no longer carry the unlock password. Receivers ask
+        // through the basis.contentkeys plugin and get the file's keys from anyone holding them, sealed
+        // to the requester and checked against the hash the content's origin published.
+        public static ushort ServerVersion = 58;
         public static ushort LegacyLoginVersion = 55;
+        // Newest protocol whose records still carry unlock passwords. A current client joins a server
+        // on it with the current login, asks for this version, and sends passwords the old way.
+        public static ushort PasswordRecordsVersion = 57;
+        public static bool TryGetFallback(ushort serverVersion, out bool legacyLogin, out ushort protocolVersion)
+        {
+            legacyLogin = serverVersion == LegacyLoginVersion;
+            protocolVersion = serverVersion == PasswordRecordsVersion ? serverVersion : (ushort)0;
+            return legacyLogin || protocolVersion != 0;
+        }
+        public static bool SendsUnlockPasswords(bool legacyLogin, ushort protocolVersion) => legacyLogin || (protocolVersion != 0 && protocolVersion <= PasswordRecordsVersion);
         public const byte CapabilityBatchedOwnership = 1, CapabilityProtectionSettings = 2;
         public const byte ClientCapabilities = CapabilityBatchedOwnership | CapabilityProtectionSettings;
         public static byte ReadCapabilities(NetDataReader reader) => reader != null && reader.TryGetByte(out byte flags) ? flags : (byte)0;

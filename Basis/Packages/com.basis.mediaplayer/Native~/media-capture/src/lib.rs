@@ -1,9 +1,24 @@
+#[cfg(target_os = "android")]
+mod android;
 mod convert;
 mod h264_bitstream;
 #[cfg(target_os = "linux")]
 mod linux;
+#[cfg(target_os = "macos")]
+mod mac;
+#[cfg(all(windows, test))]
+#[allow(dead_code)]
+#[path = "linux/openh264.rs"]
+mod openh264;
+#[cfg(all(windows, test))]
+mod openh264_roundtrip;
 mod opus;
-#[cfg(any(windows, target_os = "linux"))]
+#[cfg(any(
+    windows,
+    target_os = "linux",
+    target_os = "android",
+    target_os = "macos"
+))]
 mod pack;
 mod queue;
 mod spa_pod;
@@ -19,6 +34,9 @@ use serde::{Deserialize, Serialize};
 
 pub use opus::OpusEncoder;
 pub use queue::Queue;
+
+#[cfg(target_os = "android")]
+pub use android::set_java_vm;
 
 pub const AUDIO_RATE: u32 = 48_000;
 pub const AUDIO_CHANNELS: u32 = 2;
@@ -339,7 +357,20 @@ pub fn sources() -> Vec<SourceInfo> {
     {
         linux::sources()
     }
-    #[cfg(not(any(windows, target_os = "linux")))]
+    #[cfg(target_os = "android")]
+    {
+        android::sources()
+    }
+    #[cfg(target_os = "macos")]
+    {
+        mac::sources()
+    }
+    #[cfg(not(any(
+        windows,
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos"
+    )))]
     {
         Vec::new()
     }
@@ -354,7 +385,20 @@ pub fn supported() -> bool {
     {
         linux::supported()
     }
-    #[cfg(not(any(windows, target_os = "linux")))]
+    #[cfg(target_os = "android")]
+    {
+        android::supported()
+    }
+    #[cfg(target_os = "macos")]
+    {
+        mac::supported()
+    }
+    #[cfg(not(any(
+        windows,
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos"
+    )))]
     {
         false
     }
@@ -369,7 +413,20 @@ fn platform_open(shared: &Arc<Shared>) -> Result<Vec<JoinHandle<()>>, CaptureErr
     {
         linux::open(shared)
     }
-    #[cfg(not(any(windows, target_os = "linux")))]
+    #[cfg(target_os = "android")]
+    {
+        android::open(shared)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        mac::open(shared)
+    }
+    #[cfg(not(any(
+        windows,
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos"
+    )))]
     {
         let _ = shared;
         Err(CaptureError(

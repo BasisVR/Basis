@@ -265,6 +265,7 @@ namespace Basis.BasisUI
             // add our extra menu button items, this is the buttons below the panel content
             addNewContentButton = tabGroup.AddExtraAction(BasisLocalization.Get("library.addNewContent"), async () => await LibraryProviderDialogAdd.PromptUserForNewContent(panel), new Vector2(70, 80));
             newFolderButton = tabGroup.AddExtraAction(BasisLocalization.Get("library.folder.new"), async () => await PromptCreateFolder(), new Vector2(70, 80));
+            if (Basis.Scripts.Platform.BasisDesktopFileDrop.CanPickFiles) tabGroup.AddExtraAction(BasisLocalization.Get("library.openFile"), Basis.Scripts.Platform.BasisDesktopFileDrop.PickFiles, new Vector2(70, 80));
 
             if (!SyncFoldersTab() && _currentPage == Page.Folders) _currentPage = Page.Avatar;
 

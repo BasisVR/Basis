@@ -438,12 +438,18 @@ public partial class BasisContentSphere : BasisInteractableObject
                 return;
         }
 
+        string pass = await BasisContentKeyClient.ResolvePasswordAsync(ContentURL, string.Empty, UnlockPassword, CancellationToken.None);
+        if (string.IsNullOrEmpty(pass))
+        {
+            BasisDebug.LogWarning($"Shared {GetContentTypeName()} could not be saved: nobody still here could share its keys.", BasisDebug.LogTag.Networking);
+            return;
+        }
         BasisDataStoreItemKeys.ItemKey key = new BasisDataStoreItemKeys.ItemKey
         {
             Mode = mode,
             PlacementType = BundledContentHolder.PlacementType.SpawnAtRaycast,
             Url = ContentURL,
-            Pass = UnlockPassword,
+            Pass = pass,
         };
 
         await BasisDataStoreItemKeys.AddNewKey(key);

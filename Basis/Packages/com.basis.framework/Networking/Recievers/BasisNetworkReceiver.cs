@@ -931,7 +931,7 @@ namespace Basis.Scripts.Networking.Receivers
                 RemotePlayer.AvatarLoadErrorMessage = null;
                 RemotePlayer.OnAvatarFailedStateChanged?.Invoke();
 
-                BasisLoadableBundle bundle = BasisBundleConversionNetwork.ConvertNetworkBytesToBasisLoadableBundle(SACM.clientAvatarChangeMessage.byteArray);
+                BasisLoadableBundle bundle = BasisBundleConversionNetwork.ConvertNetworkBytesToBasisLoadableBundle(SACM.clientAvatarChangeMessage.byteArray, playerId);
                 await RemotePlayer.CreateAvatar(SACM.clientAvatarChangeMessage.loadMode, bundle);
             }
             catch (Exception ex)

@@ -179,7 +179,6 @@ namespace Cilbox
 			// Scripted player input is an AVATAR-box feature; Basis.Shims.* is type-whitelisted here, so
 			// block every method to keep prop scripts out of the local player's locomotion.
 			{ typeof(Basis.Shims.BasisPlayspaceInputShim), new HashSet<string>() },
-			{ typeof(Basis.Shims.BasisVixxyShim), new HashSet<string>() },
 			{ typeof(Basis.Shims.BasisDesktopInputShim), new HashSet<string>() },
 			{ typeof(Basis.Shims.BasisControllerInputShim), new HashSet<string>() },
 			{ typeof(Basis.Shims.BasisInputShim), new HashSet<string>() },
@@ -250,6 +249,7 @@ namespace Cilbox
 				"WorldToViewportPoint",
 				"get_aspect",
 				"get_cameraToWorldMatrix",
+				"get_cullingMask",
 				"get_farClipPlane",
 				"get_fieldOfView",
 				"get_main",

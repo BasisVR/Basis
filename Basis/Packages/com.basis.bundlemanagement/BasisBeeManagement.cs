@@ -510,6 +510,7 @@ public static class BasisBeeManagement
     /// and if not, whether the failure was transient (network/cancel) or fatal (missing/corrupt).</returns>
     public static async Task<BasisMetaLoadResult> HandleMetaOnlyLoad(BasisTrackedBundleWrapper wrapper, BasisProgressReport report, CancellationToken cancellationToken)
     {
+        await BasisBeeKeyGrant.EnsureResolvedAsync(wrapper?.LoadableBundle, cancellationToken);
         string beeLocation = wrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
         bool networkSourced = wrapper.LoadableBundle.BasisRemoteBundleEncrypted.IsNetworkSourced;
         if (networkSourced && !BasisServerHostedBee.IsHostedUrl(beeLocation) && !Basis.Scripts.Common.BasisUrlSecurity.IsHttpUrlAllowed(beeLocation, out string locationError))

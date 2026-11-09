@@ -203,6 +203,22 @@
       "value": "Sharing your screen needs Windows 10 version 2004 or later. You can still watch other people's screens."
     },
     {
+      "key": "screenShare.error.unsupportedLinux",
+      "value": "Sharing your screen on Linux needs PipeWire and xdg-desktop-portal with a ScreenCast backend (xdg-desktop-portal-gnome, -kde or -wlr). You can still watch other people's screens."
+    },
+    {
+      "key": "screenShare.error.unsupportedMac",
+      "value": "Sharing your screen on macOS needs macOS 12.3 or later and the Screen Recording permission. Turn Basis on in System Settings > Privacy & Security > Screen Recording, then restart Basis. You can still watch other people's screens."
+    },
+    {
+      "key": "screenShare.error.macPermission",
+      "value": "Basis is not allowed to record the screen. Turn Basis on in System Settings > Privacy & Security > Screen Recording, then restart Basis."
+    },
+    {
+      "key": "screenShare.error.macAudioVersion",
+      "value": "sharing computer audio on macOS needs macOS 13 or later"
+    },
+    {
       "key": "screenShare.error.open",
       "value": "The screen could not be captured."
     },
@@ -305,6 +321,78 @@
     {
       "key": "screenShare.error.pluginMissing",
       "value": "This build's media plugin can't share screens. Rebuild the plugin for this platform."
+    },
+    {
+      "key": "screenShare.error.unsupportedAndroid",
+      "value": "This device does not let apps share the screen. You can still watch other people's screens."
+    },
+    {
+      "key": "screenShare.error.androidDenied",
+      "value": "Screen sharing was not allowed. Start again and choose to allow it in the system prompt."
+    },
+    {
+      "key": "screenShare.error.androidUnavailable",
+      "value": "This device does not let apps share the screen. Headsets such as Quest may not offer it."
+    },
+    {
+      "key": "screenShare.error.androidNoAnswer",
+      "value": "The system prompt to share your screen was not answered. Take off the headset or check the device screen, then start again."
+    },
+    {
+      "key": "screenShare.error.androidNoFrames",
+      "value": "Screen sharing was allowed but the device sent no picture. This device may not support screen sharing."
+    },
+    {
+      "key": "screenShare.error.androidStopped",
+      "value": "Screen sharing was stopped by the system or from the notification."
+    },
+    {
+      "key": "screenShare.error.androidEncoder",
+      "value": "This device's video encoder could not start."
+    },
+    {
+      "key": "screenShare.error.androidAudioPermission",
+      "value": "Basis needs microphone permission to capture other apps' sound"
+    },
+    {
+      "key": "screenShare.error.androidAudio",
+      "value": "this device could not capture other apps' sound"
+    },
+    {
+      "key": "screenShare.error.unsupportedWeb",
+      "value": "This browser cannot share its screen. Screen sharing in the web player needs a desktop browser with screen capture and WebCodecs video encoding, such as a recent Chrome, Edge or Firefox. You can still watch other people's screens if the browser can decode them."
+    },
+    {
+      "key": "screenShare.error.viewUnsupportedWeb",
+      "value": "This browser cannot show screen shares: it has no WebCodecs video decoder."
+    },
+    {
+      "key": "screenShare.error.webDenied",
+      "value": "Screen sharing was not allowed. Start again and choose what to share in the browser's prompt."
+    },
+    {
+      "key": "screenShare.error.webStopped",
+      "value": "Sharing was stopped from the browser."
+    },
+    {
+      "key": "screenShare.error.webEncoder",
+      "value": "This browser's video encoder could not start."
+    },
+    {
+      "key": "screenShare.error.webNoAudio",
+      "value": "the browser did not share any sound. Tick the option to share audio in the browser's prompt (only some browsers and sources offer it)"
+    },
+    {
+      "key": "screenShare.error.webNoAudioEncoder",
+      "value": "this browser cannot encode the shared sound"
+    },
+    {
+      "key": "screenShare.status.webClick",
+      "value": "Click or press a key in this page to choose what to share…"
+    },
+    {
+      "key": "screenShare.source.browser",
+      "value": "Tab, window or screen (chosen in the browser prompt)"
     }
   ]
 }

@@ -1,0 +1,21 @@
+[package]
+name = "decode-ffmpeg"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+# Linux decode through the system's own FFmpeg, loaded at runtime. Nothing is
+# linked or bundled: the codecs are whatever the distribution ships, the
+# same way Media Foundation and MediaCodec are the platform's on Windows
+# and Android.
+[dependencies]
+media-decode = { workspace = true }
+libloading = "0.8"
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+media-clock = { path = "../../media-clock" }
+media-demux = { path = "../../media-demux" }

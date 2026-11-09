@@ -7,7 +7,7 @@ using System.Text;
 using UnityEngine;
 
 [NoAutoStaticsCleanup]
-public static class BasisScreenShareNative
+public static partial class BasisScreenShareNative
 {
     const string Dll = "basis_media";
     public const int TooSmall = -4;
@@ -40,7 +40,7 @@ public static class BasisScreenShareNative
     {
         public string state, error, encoder, audio_error;
         public int width, height, bitrate_kbps;
-        public bool hardware, audio;
+        public bool hardware, audio, awaiting;
         public long captured, encoded, dropped;
         public bool Running => state == "running";
         public bool Failed => state == "error" || state == "ended";
@@ -55,6 +55,7 @@ public static class BasisScreenShareNative
         public bool Cursor, Audio;
     }
 
+#if !UNITY_WEBGL || UNITY_EDITOR
     [DllImport(Dll)] static extern uint bm_capture_supported();
     [DllImport(Dll)] static extern unsafe int bm_capture_sources(byte* buffer, UIntPtr capacity);
     [DllImport(Dll)] static extern int bm_capture_open(byte[] descriptor, UIntPtr length, out ulong handle);
@@ -66,11 +67,21 @@ public static class BasisScreenShareNative
     [DllImport(Dll)] public static extern int bm_capture_set_bitrate(ulong handle, uint kbps);
     [DllImport(Dll)] public static extern int bm_capture_set_preview(ulong handle, ulong session);
     [DllImport(Dll)] public static extern int bm_capture_wait(ulong handle, uint timeoutMs);
+#endif
 
     static int supported = -1, current = -1;
     public static bool IsWindows => Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
     public static bool IsLinux => Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+    public static bool IsAndroid => Application.platform == RuntimePlatform.Android;
+    public static bool IsMac => Application.platform == RuntimePlatform.OSXPlayer || Application.platform == RuntimePlatform.OSXEditor;
+    public static bool IsWeb => Application.platform == RuntimePlatform.WebGLPlayer;
+#if UNITY_WEBGL && !UNITY_EDITOR
+    public static bool CanView => BasisMediaNative.PushSupported;
+#else
+    public static bool CanView => true;
+#endif
     public const string PortalSource = "portal";
+    public static string UnsupportedKey => IsWeb ? "screenShare.error.unsupportedWeb" : IsAndroid ? "screenShare.error.unsupportedAndroid" : IsLinux ? "screenShare.error.unsupportedLinux" : IsMac ? "screenShare.error.unsupportedMac" : "screenShare.error.unsupported";
 
     public static bool PluginCurrent
     {
@@ -99,7 +110,7 @@ public static class BasisScreenShareNative
             if (supported < 0)
             {
                 supported = 0;
-                if (IsWindows || IsLinux)
+                if (IsWindows || IsLinux || IsAndroid || IsMac || IsWeb)
                 {
                     try { supported = bm_capture_supported() != 0 ? 1 : 0; }
                     catch (EntryPointNotFoundException) { }
@@ -109,6 +120,8 @@ public static class BasisScreenShareNative
             return supported > 0;
         }
     }
+
+    public static string Localize(string detail) => !string.IsNullOrEmpty(detail) && detail.StartsWith("screenShare.", StringComparison.Ordinal) ? Basis.BasisUI.BasisLocalization.Get(detail) : detail;
 
     static unsafe string ReadJson(Func<IntPtr, UIntPtr, int> call)
     {

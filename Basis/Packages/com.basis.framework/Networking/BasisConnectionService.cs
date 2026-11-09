@@ -71,13 +71,13 @@ namespace Basis.Scripts.Networking
         /// <summary>
         /// Re-issues the last connection, used by <see cref="BasisNetworkConnectionWatchdog"/>.
         /// </summary>
-        public static Task ReconnectAsync(bool legacyLogin = false)
+        public static Task ReconnectAsync(bool legacyLogin = false, ushort protocolVersion = 0)
         {
             if (!HasReconnectTarget)
             {
                 return Task.CompletedTask;
             }
-            return ConnectAsync(_lastTarget, _lastUserName, false, legacyLogin);
+            return ConnectAsync(_lastTarget, _lastUserName, false, legacyLogin, protocolVersion);
         }
 
         public static void ReportConnectionProgress(float progress, string message) =>
@@ -125,7 +125,7 @@ namespace Basis.Scripts.Networking
         /// before invoking this; both the Servers panel Connect button and the
         /// <c>--connection=</c> CLI bootstrap call this directly.
         /// </summary>
-        public static async Task ConnectAsync(ServerDirectoryEntry entry, string userName, bool isHostMode = false, bool legacyLogin = false)
+        public static async Task ConnectAsync(ServerDirectoryEntry entry, string userName, bool isHostMode = false, bool legacyLogin = false, ushort protocolVersion = 0)
         {
             if (ConnectInProgress)
             {
@@ -169,6 +169,7 @@ namespace Basis.Scripts.Networking
                 BasisNetworkManagement.IsHostMode = isHostMode;
                 BasisNetworkManagement.NetworkStackId = stackId;
                 BasisNetworkManagement.LegacyLogin = legacyLogin;
+                BasisNetworkManagement.ProtocolVersion = protocolVersion;
 
                 ReportConnectionProgress(60f, BasisLocalization.Get("menu.servers.status.loadingBundle"));
 

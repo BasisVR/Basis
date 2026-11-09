@@ -1488,6 +1488,8 @@
     { "key": "network.avatarShare.failed.generic", "value": "无法通过服务器共享此头像。" },
     { "key": "network.legacyServer.title", "value": "服务器版本过旧" },
     { "key": "network.legacyServer.body", "value": "此服务器运行的是较旧版本的 Basis（网络协议 v{0}）。你是以兼容模式加入的，该模式使用其较旧且安全性较低的登录方式。请让服务器所有者进行更新。" },
+    { "key": "network.passwordServer.title", "value": "旧版服务器" },
+    { "key": "network.passwordServer.body", "value": "此服务器运行的是旧版 Basis(网络协议 v{0}),因此你以 v{0} 加入。在此服务器上,解锁头像、道具和世界的密码会像以前一样经过服务器,服务器和任何监视连接的人都能读取。在 v{1} 服务器上,密码绝不会通过网络发送:其他玩家只会收到他们加载的文件的密钥,并且只为他们加密。请让服务器所有者更新。" },
     { "key": "menu.servers.list.default", "value": "默认 Basis 服务器" },
     { "key": "menu.players.search.byNameOrUuid", "value": "按显示名称或 UUID 筛选。" },
 

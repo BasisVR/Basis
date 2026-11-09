@@ -17,6 +17,8 @@ namespace Basis.Scripts.Drivers
         readonly Dictionary<string, int> exact = new Dictionary<string, int>(StringComparer.Ordinal), ordered = new Dictionary<string, int>(StringComparer.Ordinal), sorted = new Dictionary<string, int>(StringComparer.Ordinal);
         readonly List<string> lastTokens = new List<string>();
         readonly List<int> tokenCounts = new List<int>();
+        readonly List<bool> eyeRegion = new List<bool>();
+        static readonly HashSet<string> eyeRegionTokens = new HashSet<string>(StringComparer.Ordinal) { "eye", "eyes", "eyelid", "eyelids", "lid", "lids", "blink", "wink", "all" };
         public readonly Mesh Mesh;
         static readonly ConditionalWeakTable<Mesh, BasisBlendshapeNameMatcher> cache = new ConditionalWeakTable<Mesh, BasisBlendshapeNameMatcher>();
         public static BasisBlendshapeNameMatcher For(Mesh mesh) => mesh == null ? new BasisBlendshapeNameMatcher(null) : cache.GetValue(mesh, key => new BasisBlendshapeNameMatcher(key));
@@ -32,6 +34,9 @@ namespace Basis.Scripts.Drivers
                 Tokenize(name, tokens);
                 lastTokens.Add(tokens.Count > 0 ? tokens[tokens.Count - 1] : string.Empty);
                 tokenCounts.Add(tokens.Count);
+                bool eyes = false;
+                for (int t = 0; t < tokens.Count && !eyes; t++) eyes = eyeRegionTokens.Contains(tokens[t]);
+                eyeRegion.Add(eyes);
                 if (tokens.Count == 0) continue;
                 ordered.TryAdd(string.Join("|", tokens), index);
                 tokens.Sort(StringComparer.Ordinal);
@@ -74,7 +79,7 @@ namespace Basis.Scripts.Drivers
         {
             for (int index = 0; index < lastTokens.Count; index++)
             {
-                if (tokenCounts[index] > maxTokens) continue;
+                if (tokenCounts[index] > maxTokens || eyeRegion[index]) continue;
                 string last = lastTokens[index];
                 for (int keyword = 0; keyword < keywords.Length; keyword++) if (last == keywords[keyword]) return index;
             }

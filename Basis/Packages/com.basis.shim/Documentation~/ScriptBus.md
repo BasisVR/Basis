@@ -18,7 +18,7 @@ The bus takes the Resonite split between events and published values, and the br
 
 ## Model
 
-The unit of addressing is the content instance: one world, one prop instance, one avatar. Scripts never get a reference to another box's objects. They get a `BasisScriptTarget`, an opaque handle owned by Basis.
+The unit of addressing is the content instance: one world, one prop instance, one avatar. Scripts get a `BasisScriptTarget`, an opaque handle owned by Basis. A single script can be addressed too, through a `BasisScriptReference` its own content hands out. Content can also share one of its own Transforms as a `BasisSharedTransform`, a handle that reads and, if the owner allows it, moves that one Transform.
 
 There are four parts.
 
@@ -38,7 +38,7 @@ namespace Basis.Shims
     {
         public const int KindWorld = 0, KindProp = 1, KindAvatar = 2;
         public const int FromWorld = 1, FromProps = 2, FromAvatars = 4, FromAnyone = 7;
-        public const int TypeNone = 0, TypeText = 1, TypeNumber = 2, TypeBool = 3, TypeBytes = 4, TypeVector2 = 5, TypeVector3 = 6, TypeVector4 = 7, TypeQuaternion = 8, TypeColor = 9, TypeInts = 10, TypeFloats = 11, TypeStrings = 12, TypeVector3s = 13;
+        public const int TypeNone = 0, TypeText = 1, TypeNumber = 2, TypeBool = 3, TypeBytes = 4, TypeVector2 = 5, TypeVector3 = 6, TypeVector4 = 7, TypeQuaternion = 8, TypeColor = 9, TypeInts = 10, TypeFloats = 11, TypeStrings = 12, TypeVector3s = 13, TypeTransform = 14, TypeScript = 15, TypeTarget = 16;
 
         // Finding content
         public static BasisScriptTarget Self(object self);
@@ -57,6 +57,8 @@ namespace Basis.Shims
         public static void Unlisten(object self, string channel);
         public static int Send(object self, BasisScriptTarget target, string channel, string text);
         public static int Send(object self, BasisScriptTarget target, string channel, string text, object value);
+        public static int SendToScript(object self, BasisScriptReference script, string channel, string text);
+        public static int SendToScript(object self, BasisScriptReference script, string channel, string text, object value);
         public static int Broadcast(object self, string channel, string text);
         public static int Broadcast(object self, string channel, string text, object value);
 
@@ -69,6 +71,10 @@ namespace Basis.Shims
         public static bool Untag(object self, string tag);
         public static bool Describe(object self, string description);
         public static bool Describe(object self, string name, string description);
+
+        // Shared transforms
+        public static BasisSharedTransform Share(object self, Transform transform, bool writable);
+        public static void Unshare(object self, Transform transform);
     }
 
     public sealed class BasisScriptTarget
@@ -107,6 +113,9 @@ namespace Basis.Shims
         public float[] GetFloats(string key);
         public string[] GetStrings(string key);
         public Vector3[] GetVector3s(string key);
+        public BasisSharedTransform GetSharedTransform(string key);
+        public BasisScriptReference GetScript(string key);
+        public BasisScriptTarget GetTarget(string key);
     }
 
     public sealed class BasisScriptMessage
@@ -116,6 +125,7 @@ namespace Basis.Shims
         public string Channel { get; }
         public string Text { get; }
         public BasisScriptTarget Sender { get; }
+        public BasisScriptReference SenderScript { get; }
         public int ValueType { get; }
         public byte[] Data { get; }                 // same as GetBytes()
         public string GetString(string fallback);
@@ -132,8 +142,50 @@ namespace Basis.Shims
         public float[] GetFloats();
         public string[] GetStrings();
         public Vector3[] GetVector3s();
+        public BasisSharedTransform GetSharedTransform();
+        public BasisScriptReference GetScript();
+        public BasisScriptTarget GetTarget();
         public int Reply(string text);
         public int Reply(string text, object value);
+    }
+
+    public sealed class BasisScriptReference
+    {
+        public bool IsValid { get; }
+        public string ClassName { get; }
+        public BasisScriptTarget Target { get; }
+        public bool Listens(string channel);
+        public object Resolve(object self);
+    }
+
+    public sealed class BasisSharedTransform
+    {
+        public bool IsValid { get; }
+        public bool Writable { get; }
+        public string Name { get; }
+        public BasisScriptTarget Owner { get; }
+        public Vector3 Position { get; }
+        public Quaternion Rotation { get; }
+        public Vector3 LocalPosition { get; }
+        public Quaternion LocalRotation { get; }
+        public Vector3 LocalScale { get; }
+        public Vector3 LossyScale { get; }
+        public Vector3 Forward { get; }
+        public Vector3 Up { get; }
+        public Vector3 Right { get; }
+        public bool ActiveSelf { get; }
+        public bool ActiveInHierarchy { get; }
+        public Vector3 TransformPoint(Vector3 point);
+        public Vector3 InverseTransformPoint(Vector3 point);
+        public Vector3 TransformDirection(Vector3 direction);
+        public Vector3 InverseTransformDirection(Vector3 direction);
+        public bool SetPosition(Vector3 position);
+        public bool SetRotation(Quaternion rotation);
+        public bool SetPositionAndRotation(Vector3 position, Quaternion rotation);
+        public bool SetLocalPosition(Vector3 position);
+        public bool SetLocalRotation(Quaternion rotation);
+        public bool SetLocalScale(Vector3 scale);
+        public bool SetActive(bool active);
     }
 }
 ```
@@ -174,10 +226,36 @@ Published values and message values share one set of types. Anything else is ref
 | `TypeFloats` | `float[]` (up to 4096) | `GetFloats` |
 | `TypeStrings` | `string[]` (up to 4096, 32768 chars in total, null becomes "") | `GetStrings` |
 | `TypeVector3s` | `Vector3[]` (up to 4096) | `GetVector3s` |
+| `TypeTransform` | a `BasisSharedTransform`, or a `Transform`, `GameObject` or component of the sender's own content (shared read-only) | `GetSharedTransform` |
+| `TypeScript` | one of the sender's own scripts (`this` or another script in the same content), or a `BasisScriptReference` it was given | `GetScript` |
+| `TypeTarget` | a `BasisScriptTarget` | `GetTarget` |
 
 NaN and infinity are refused everywhere. A getter for the wrong type returns its fallback, or null for arrays. Numbers come back as `GetString` in invariant culture. Use `TypeOf` or `ValueType` when a script needs to branch on what arrived.
 
 Values are copied on the way in, so changing your array after `Publish` or `Send` changes nothing. Arrays are copied on the way out of a published value, so one reader cannot spoil it for the next. A message's arrays belong to that receiver alone. For anything richer, pack it into `byte[]` with `BasisBinaryShim`.
+
+### Shared transforms
+
+A content can let other content see or move one of its own Transforms. The receiver never gets the Transform. It gets a `BasisSharedTransform`, a handle with position, rotation, scale, active state and point conversion, and nothing else: no parent, children, `Find`, `SetParent` or `GetComponent`, so it cannot walk from the shared object to anything around it.
+
+- Passing a `Transform`, `GameObject` or component as a value shares that Transform read-only: `Send(this, world, "lid", "", lidTransform)`.
+- `Share(this, transform, true)` returns a writable handle to send or publish instead. `Share(this, transform, false)` returns the read-only one. There is one handle of each kind per Transform, so `==` works.
+- `Unshare(this, transform)` takes both handles back. They go invalid for everyone who holds them.
+- Setters return false on a read-only or dead handle, and refuse NaN and infinity. Rotations are normalised, a zero quaternion is refused.
+- `SetActive` is applied on the next bus tick, so the owner's `OnEnable` and `OnDisable` never run inside the caller's script.
+- A handle can be passed on as a value. Writable means writable for whoever ends up with it, so only share writable with content you trust, and prefer `Send` over `Publish`, since published values are readable by every content on the client.
+
+A content can only share its own Transforms: the nearest `BasisContentBase` above it must be the sender's content, or, for a world, a loose scene object with no content above it and not under a player. Anything else is refused along with the whole call. Assets and script proxies are refused too; scripts go through `TypeScript`. A handle dies with its Transform or its content.
+
+### Script references
+
+`BasisScriptReference` is a handle to one script. Send your own script with `Send(this, target, "hello", "", this)`, or publish it. There is one handle per script, so `==` works, and `message.SenderScript` is the handle of whichever script sent the message.
+
+- `SendToScript(this, script, channel, text[, value])` delivers only to that script's listener on the channel, skipping the other scripts in its content.
+- `ClassName`, `Target` (the content it lives in) and `Listens(channel)` describe it.
+- `Resolve(this)` returns the real script object, but only when the caller runs in the same box. Cast it to your own class. From any other box it returns null.
+
+The handle never hands another box the object itself. Cilbox matches interpreted classes by name, so a raw script object in another box could be cast to an unrelated class with the same name and have its fields read and written as the wrong layout. A received handle can be passed on as a value; a raw script object from another box cannot.
 
 ### Labels
 
@@ -236,7 +314,7 @@ The interpreter's own per-frame time budget still applies to handlers.
 - Only a running script can call `Self`, `Listen`, `Unlisten`, `Send`, `Broadcast`, `Publish`, `Unpublish`, `Tag`, `Untag` and `Describe` (its box must be inside interpreted code). This is the same check `BasisMenuShim` uses.
 - The handler must be a method of the calling script's own box. Host delegates and methods from another box are refused, so a script cannot get another box's code run under its listener.
 - The sender identity is attached by Basis from the calling box. Scripts cannot construct a `BasisScriptTarget` or `BasisScriptMessage`, and every setter and internal member is a floor deny in `CilboxBasisCommon.CheckMethodAllowed` that consent cannot unlock.
-- Only the value types listed above, strings and Basis handles cross the boundary. No interpreted object, Transform, component or other Unity object from one box ever reaches another.
+- Only the value types listed above, strings and Basis handles cross the boundary. No Unity object crosses. Transforms the sender owns cross only as `BasisSharedTransform` handles (see Shared transforms). No interpreted object reaches another box; scripts cross as `BasisScriptReference` handles, which resolve to the object only inside their own box.
 - No consent prompt. The bus reaches nothing outside the content that chose to listen or publish, so it sits in the default sandbox for worlds, props and avatars.
 
 ## What receivers should check
@@ -286,13 +364,12 @@ void OnGoal(BasisScriptMessage message)
 
 ## Box whitelists
 
-Prop and scene boxes already allow `Basis.Shims.*`. The avatar box enumerates its shims, so `BasisScriptBus`, `BasisScriptTarget` and `BasisScriptMessage` are listed in `CilboxAvatarBasis`. `System.Action`1` is already in the common whitelist.
+Prop and scene boxes already allow `Basis.Shims.*`. The avatar box enumerates its shims, so `BasisScriptBus`, `BasisScriptTarget`, `BasisScriptMessage`, `BasisScriptReference` and `BasisSharedTransform` are listed in `CilboxAvatarBasis`. `System.Action`1` is already in the common whitelist.
 
 ## Not covered
 
 - Networking. Use `BasisNetworkShim`; a script can relay what it hears.
 - Synchronous calls into another box. The bus is asynchronous on purpose: it keeps one box's time budget and faults from landing in another, and it stops two boxes recursing into each other inside one frame.
-- Addressing a single script inside another content. Channels do that job.
 - A shared tag registry or a debug panel listing labels. The data is all there for one.
 
 ## Known gap outside the bus

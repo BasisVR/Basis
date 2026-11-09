@@ -22,6 +22,7 @@ namespace Basis.Network
         public NetworkClient[] FinalClients;
         public static int Size;
         public static bool UseLegacyLogin;
+        public static ushort UseProtocolVersion;
 
         // Cached once — config doesn't change at runtime
         private byte[] _cachedPasswordBytes;
@@ -168,7 +169,7 @@ namespace Basis.Network
                 };
                 var netClient = new NetworkClient();
                 identity.Client = netClient;
-                var peer = netClient.StartClient(ConfigManager.Ip, ConfigManager.Port, readyMessage, _cachedPasswordBytes, ConfigManager.CompanyName, ConfigManager.ProductName, CreateConfig(), manualMode: true, legacyLogin: UseLegacyLogin);
+                var peer = netClient.StartClient(ConfigManager.Ip, ConfigManager.Port, readyMessage, _cachedPasswordBytes, ConfigManager.CompanyName, ConfigManager.ProductName, CreateConfig(), manualMode: true, legacyLogin: UseLegacyLogin, protocolVersion: UseProtocolVersion);
 
                 if (peer != null)
                 {
@@ -242,7 +243,7 @@ namespace Basis.Network
 
             var netClient = new NetworkClient();
             identity.Client = netClient;
-            var peer = netClient.StartClient(ConfigManager.Ip, ConfigManager.Port, readyMessage, _cachedPasswordBytes, ConfigManager.CompanyName, ConfigManager.ProductName, CreateConfig(), manualMode: true, legacyLogin: UseLegacyLogin);
+            var peer = netClient.StartClient(ConfigManager.Ip, ConfigManager.Port, readyMessage, _cachedPasswordBytes, ConfigManager.CompanyName, ConfigManager.ProductName, CreateConfig(), manualMode: true, legacyLogin: UseLegacyLogin, protocolVersion: UseProtocolVersion);
 
             if (peer != null)
             {
@@ -263,19 +264,22 @@ namespace Basis.Network
         }
         private void RetryIfLegacyServer(int index, NetworkClient client, DisconnectInfo info)
         {
-            if (client.LegacyLogin || !IsLegacyServerReject(info))
+            if (client.ProtocolVersion != BasisNetworkVersion.ServerVersion || !IsOlderServerReject(info, out bool legacy, out ushort protocol))
             {
                 return;
             }
-            if (!UseLegacyLogin)
+            if (UseLegacyLogin != legacy || UseProtocolVersion != protocol)
             {
-                UseLegacyLogin = true;
-                BNL.LogWarning($"Server is out of date (network protocol v{BasisNetworkVersion.LegacyLoginVersion}); connecting with its older login.");
+                UseLegacyLogin = legacy;
+                UseProtocolVersion = protocol;
+                BNL.LogWarning(legacy ? $"Server is out of date (network protocol v{BasisNetworkVersion.LegacyLoginVersion}); connecting with its older login." : $"Server is on network protocol v{protocol}; connecting as v{protocol} and sending unlock passwords the old way.");
             }
             _ = Task.Run(() => ReconnectClientAsync(index));
         }
-        private static bool IsLegacyServerReject(DisconnectInfo info)
+        private static bool IsOlderServerReject(DisconnectInfo info, out bool legacyLogin, out ushort protocolVersion)
         {
+            legacyLogin = false;
+            protocolVersion = 0;
             NetDataReader data = info.AdditionalData;
             if (info.Reason != DisconnectReason.ConnectionRejected || data == null || data.AvailableBytes < 9)
             {
@@ -284,7 +288,7 @@ namespace Basis.Network
             byte[] raw = data.RawData;
             int p = data.Position;
             uint magic = (uint)(raw[p] | (raw[p + 1] << 8) | (raw[p + 2] << 16) | (raw[p + 3] << 24));
-            return magic == BasisNetworkCommons.RejectMagic && raw[p + 4] == BasisNetworkCommons.RejectKind_VersionMismatch && (ushort)(raw[p + 5] | (raw[p + 6] << 8)) == BasisNetworkVersion.LegacyLoginVersion;
+            return magic == BasisNetworkCommons.RejectMagic && raw[p + 4] == BasisNetworkCommons.RejectKind_VersionMismatch && BasisNetworkVersion.TryGetFallback((ushort)(raw[p + 5] | (raw[p + 6] << 8)), out legacyLogin, out protocolVersion);
         }
         /// <summary>
         /// Leaves the server cleanly, then tears down.

@@ -85,6 +85,8 @@ namespace Basis.BasisUI
             new Rule("Basis.Scripts.BasisSdk.Players.BasisLocalPlayer", null, "yourPlayer", true),
             new Rule("Basis.Shims.BasisVelocityShim", null, "yourPlayer", true),
             new Rule("Basis.Shims.BasisPoseOverrideShim", null, "yourPlayer", true),
+            new Rule("Basis.Shims.BasisGrabShim", null, "yourPlayer", true),
+            new Rule("HVR.Vixxy.HVRVixxyMenuItem", "ApplyValue", "yourPlayer", true),
             new Rule("Basis.Shims.BasisRemotePoseShim", null, "otherPlayersPose", false),
             new Rule("BasisMediaPlayer", "LoadLocalPath", "localMedia", true),
             new Rule("BasisMediaPlayer", "LoadSource", "localMedia", true),

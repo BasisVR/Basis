@@ -232,7 +232,7 @@ public class BasisScreenShare : MonoBehaviour
     bool OpenCapture(BasisScreenShareNative.Source source, long ptsBase)
     {
         if (BasisScreenShareNative.CanCapture && !BasisScreenShareNative.PluginCurrent) return Fail(BasisLocalization.Get(Application.isEditor ? "screenShare.error.restart" : "screenShare.error.pluginMissing"));
-        if (source == null || !BasisScreenShareNative.CanCapture) return Fail(BasisLocalization.Get("screenShare.error.unsupported"));
+        if (source == null || !BasisScreenShareNative.CanCapture) return Fail(BasisLocalization.Get(BasisScreenShareNative.UnsupportedKey));
         if (BasisScreenShareClient.LockedForMe) return Fail(BasisLocalization.Get("screenShare.error.locked"));
         Vector2Int max = BasisScreenShareSettings.MaxSize(BasisScreenShareSettings.Resolution.RawValue, new Vector2Int(source.width, source.height));
         int fps = BasisScreenShareSettings.Fps(BasisScreenShareSettings.FrameRate.RawValue);
@@ -352,6 +352,9 @@ public class BasisScreenShare : MonoBehaviour
     void UpdateLocal()
     {
         if (capture == 0) return;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        sender?.Tick();
+#endif
         float now = Time.unscaledTime;
         if (now >= nextStatus)
         {
@@ -359,7 +362,7 @@ public class BasisScreenShare : MonoBehaviour
             CaptureStatus = BasisScreenShareNative.ReadStatus(capture);
             if (CaptureStatus == null || CaptureStatus.Failed)
             {
-                string error = CaptureStatus != null && !string.IsNullOrEmpty(CaptureStatus.error) ? CaptureStatus.error : BasisLocalization.Get("screenShare.error.ended");
+                string error = CaptureStatus != null && !string.IsNullOrEmpty(CaptureStatus.error) ? BasisScreenShareNative.Localize(CaptureStatus.error) : BasisLocalization.Get("screenShare.error.ended");
                 StopCapture(true);
                 Fail(error);
                 return;
@@ -407,7 +410,7 @@ public class BasisScreenShare : MonoBehaviour
 
     void UpdatePreview()
     {
-        bool want = CaptureStatus != null && CaptureStatus.Running && Player != null && !BasisScreenShareNative.IsLinux && Near();
+        bool want = CaptureStatus != null && CaptureStatus.Running && Player != null && Near();
         if (want && !previewOpen) previewOpen = Player.LoadPushStream("local");
         else if (!want && previewOpen)
         {
@@ -439,7 +442,7 @@ public class BasisScreenShare : MonoBehaviour
         if (remote == null || remote.Ended) return;
         FollowPlacement(remote, false);
         if (PoseDue(Time.unscaledTime)) BasisScreenShareClient.SendMove(remote.Sharer, CurrentPose());
-        bool want = BasisScreenShareSettings.Receive.RawValue && Near();
+        bool want = BasisScreenShareSettings.Receive.RawValue && BasisScreenShareNative.CanView && Near();
         int route = !want ? BasisScreenShareClient.RouteNone : BasisScreenShareClient.HasDirectLink(remote.Sharer) ? BasisScreenShareClient.RouteDirect : BasisScreenShareClient.RouteServer;
         if (route != remote.Route)
         {

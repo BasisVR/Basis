@@ -72,11 +72,11 @@ namespace Basis.Scripts.Networking
             }
             return false;
         }
-        public static byte[] OutboundAvatarBytes(BasisLoadableBundle bundle)
+        public static byte[] OutboundAvatarBytes(BasisLoadableBundle bundle, byte loadMode)
         {
             string localUrl = bundle?.BasisRemoteBundleEncrypted?.RemoteBeeFileLocation;
-            if (!TryGetHostedUrl(localUrl, out string hostedUrl)) return BasisBundleConversionNetwork.ConvertBasisLoadableBundleToBytes(bundle);
-            BasisAvatarNetworkLoad load = new BasisAvatarNetworkLoad { URL = hostedUrl, UnlockPassword = bundle.UnlockPassword, VersionTag = string.Empty };
+            BasisAvatarNetworkLoad load = TryGetHostedUrl(localUrl, out string hostedUrl) ? new BasisAvatarNetworkLoad { URL = hostedUrl, UnlockPassword = bundle.UnlockPassword, VersionTag = string.Empty } : BasisBundleConversionNetwork.ConvertToNetwork(bundle);
+            if (loadMode == Basis.Scripts.BasisSdk.Players.BasisPlayer.LoadModeNetworkDownloadable) load.UnlockPassword = BasisContentKeyClient.Share(load.URL, load.VersionTag, bundle?.BasisRemoteBundleEncrypted?.RemoteBeeFileLocation, bundle?.UnlockPassword);
             return load.EncodeToBytes();
         }
         public static async Task<(bool Shared, byte Reason, string Error)> ShareAsync(string localUrl, string password)

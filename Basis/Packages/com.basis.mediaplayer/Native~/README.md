@@ -21,9 +21,9 @@ the built binaries are committed in `../Runtime/Plugins/`.
 | `media-rtp`, `media-rtsp` | RTP and RTSP |
 | `media-whep` | WHEP (WebRTC receive) |
 | `media-rist` | RIST, through librist |
-| `media-decode` | The decoder trait, with `decode-mf` (Windows), `decode-mediacodec` (Android) and `decode-sw` (FLAC, Opus, AV1, PCM) |
+| `media-decode` | The decoder trait, with `decode-mf` (Windows), `decode-mediacodec` (Android), `decode-ffmpeg` (Linux, the system's FFmpeg), `decode-vt` (macOS, VideoToolbox and AudioToolbox) and `decode-sw` (FLAC, Opus, AV1, PCM) |
 | `media-present` | Frame hand-off to Unity: Direct3D 11 and 12 on Windows, Vulkan on Android |
-| `media-capture` | Screen and system-audio capture for screen sharing: Windows Graphics Capture, the Direct3D 11 video processor and Media Foundation H.264 encoders (hardware first, Microsoft's software encoder as fallback), WASAPI process loopback without the host's own sound, Opus |
+| `media-capture` | Screen and system-audio capture for screen sharing: Windows Graphics Capture, the Direct3D 11 video processor and Media Foundation H.264 encoders (hardware first, Microsoft's software encoder as fallback), WASAPI process loopback without the host's own sound, Opus. On macOS, ScreenCaptureKit (12.3 and later; audio from 13) and the VideoToolbox H.264 encoder |
 | `media-diag` | Counters, the event log and the capture writer |
 | `media-testkit` | Recorded network-delay profiles for tests |
 | `bm-probe` | A command-line player for running the engine without Unity |
@@ -35,8 +35,10 @@ cargo run -p bm-probe -- probe fixtures/h264-640x360-30fps.mp4 --decode
 
 The built plugins are committed under `../Runtime/Plugins/`: copy
 `basis_media.dll` to `x86_64/` on Windows, run `tools/stage-android-plugin.ps1`
-for `Android/arm64-v8a/`, and on a Linux host copy `libbasis_media.so`, stripped,
-to `Linux/x86_64/`. Each needs librist staged first (see
+for `Android/arm64-v8a/`, on a Linux host copy `libbasis_media.so`, stripped,
+to `Linux/x86_64/`, and on a Mac copy the universal `libbasis_media.dylib` (the
+`bm-macos-universal` artefact of the `media-engine` workflow, or both release
+slices joined with `lipo`) to `macOS/`. Each needs librist staged first (see
 [`third_party/librist/`](third_party/librist/README.md)).
 
 | Tool | Does |

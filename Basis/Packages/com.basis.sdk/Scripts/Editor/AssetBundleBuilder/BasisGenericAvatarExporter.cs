@@ -112,7 +112,7 @@ public static class BasisGenericAvatarExporter
                 clone.name + ".glb",
                 0,
                 true,
-                password,
+                string.Empty,
                 BasisBundleConnector.GenericPlatform,
                 encrypted.LongLength)
             {

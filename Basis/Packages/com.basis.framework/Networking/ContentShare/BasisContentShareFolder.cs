@@ -116,8 +116,48 @@ public static partial class BasisContentShareFolder
         return keys;
     }
 
+    public static string ForShare(string payload)
+    {
+        if (!ContentShareFolder.TryRead(payload, out ContentShareFolder.Contents folder)) return payload;
+        for (int i = 0; i < folder.Items.Count; i++)
+        {
+            ContentShareFolder.Item item = folder.Items[i];
+            item.Password = BasisContentKeyClient.Share(item.Url, string.Empty, item.Url, item.Password);
+            folder.Items[i] = item;
+        }
+        return ContentShareFolder.Write(folder.Id, folder.Name, folder.Items);
+    }
+
+    public static string FromSharer(string payload, ushort sharer)
+    {
+        if (!ContentShareFolder.TryRead(payload, out ContentShareFolder.Contents folder)) return payload;
+        for (int i = 0; i < folder.Items.Count; i++)
+        {
+            ContentShareFolder.Item item = folder.Items[i];
+            item.Password = BasisContentKeyClient.Tagged(item.Password, sharer);
+            folder.Items[i] = item;
+        }
+        return ContentShareFolder.Write(folder.Id, folder.Name, folder.Items);
+    }
+
     public static async Task<int> Save(ContentShareFolder.Contents folder)
     {
+        int unresolved = 0;
+        for (int i = folder.Items.Count - 1; i >= 0; i--)
+        {
+            ContentShareFolder.Item item = folder.Items[i];
+            string pass = await BasisContentKeyClient.ResolvePasswordAsync(item.Url, string.Empty, item.Password, System.Threading.CancellationToken.None);
+            if (string.IsNullOrEmpty(pass))
+            {
+                folder.Items.RemoveAt(i);
+                unresolved++;
+                continue;
+            }
+            item.Password = pass;
+            folder.Items[i] = item;
+        }
+        if (unresolved > 0) BasisDebug.LogWarning($"{unresolved} item(s) in a shared folder were skipped: nobody still here could share their keys.", BasisDebug.LogTag.Networking);
+        if (folder.Items.Count == 0) return 0;
         List<BasisDataStoreItemKeys.ItemKey> keys = ToItemKeys(folder);
         string name = DisplayName(folder);
         int added;

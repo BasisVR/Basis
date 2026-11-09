@@ -628,7 +628,7 @@ namespace Basis.Scripts.BasisSdk.Players
                 // DeflateStream + BinaryReader round trip per joiner, which is the single most
                 // allocating step left on the spawn path. Fall back for callers that have none.
                 BasisLoadableBundle BasisLoadedBundle = PreparedBundle
-                    ?? BasisBundleConversionNetwork.ConvertNetworkBytesToBasisLoadableBundle(CACM.byteArray);
+                    ?? (NetworkReceiver != null ? BasisBundleConversionNetwork.ConvertNetworkBytesToBasisLoadableBundle(CACM.byteArray, NetworkReceiver.playerId) : BasisBundleConversionNetwork.ConvertNetworkBytesToBasisLoadableBundle(CACM.byteArray));
 
                 InAvatarRange = false;
 

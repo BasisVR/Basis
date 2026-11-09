@@ -1488,6 +1488,8 @@
     { "key": "network.avatarShare.failed.generic", "value": "無法透過伺服器分享此虛擬形象。" },
     { "key": "network.legacyServer.title", "value": "伺服器版本過舊" },
     { "key": "network.legacyServer.body", "value": "此伺服器執行的是較舊版本的 Basis（網路協定 v{0}）。你是以相容模式加入的，此模式使用其較舊且安全性較低的登入方式。請讓伺服器擁有者進行更新。" },
+    { "key": "network.passwordServer.title", "value": "舊版伺服器" },
+    { "key": "network.passwordServer.body", "value": "此伺服器執行的是舊版 Basis(網路協定 v{0}),因此你以 v{0} 加入。在此伺服器上,解鎖頭像、道具和世界的密碼會像以前一樣經過伺服器,伺服器和任何監看連線的人都能讀取。在 v{1} 伺服器上,密碼絕不會透過網路傳送:其他玩家只會收到他們載入的檔案的金鑰,並且只為他們加密。請讓伺服器擁有者更新。" },
     { "key": "menu.servers.list.default", "value": "預設 Basis 伺服器" },
     { "key": "menu.players.search.byNameOrUuid", "value": "依顯示名稱或 UUID 過濾。" },
 

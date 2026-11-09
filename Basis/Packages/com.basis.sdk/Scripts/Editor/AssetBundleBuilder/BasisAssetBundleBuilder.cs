@@ -62,7 +62,7 @@ public static class AssetBundleBuilder
         {
             Hash = await ProcessAssetBundles(targetDirectory, settings, manifest, password, isEncrypted);
             string[] graphicsAPIs = ResolveGraphicsAPIs(buildTarget);
-            BasisBundleGenerated = new BasisBundleGenerated(Hash.bundleHash.ToString(), mode, assetBundleName, Hash.CRC, true, password, buildTarget.ToString(), Hash.Length, graphicsAPIs);
+            BasisBundleGenerated = new BasisBundleGenerated(Hash.bundleHash.ToString(), mode, assetBundleName, Hash.CRC, true, string.Empty, buildTarget.ToString(), Hash.Length, graphicsAPIs);
             BasisBundleGenerated.AssetBundleEndByte = Hash.Length;
             BasisBundleGenerated.GraphicsStatePayloads = await BasisBundleGraphicsStateBuilder.AppendPayloads(
                 Hash.EncyptedPath, password, buildTarget, graphicsStateInputs);

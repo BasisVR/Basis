@@ -43,7 +43,7 @@ namespace Basis.Scripts.Networking
             localId = (ushort)LocalPlayerPeer.RemoteId;
             return true;
         }
-        public static void Connect(ushort port, string ipString, string primitivePassword, bool isHostMode, string networkStackId = "", bool legacyLogin = false)
+        public static void Connect(ushort port, string ipString, string primitivePassword, bool isHostMode, string networkStackId = "", bool legacyLogin = false, ushort protocolVersion = 0)
         {
             BNL.LogOutput -= LogOutput;
             BNL.LogOutput += LogOutput;
@@ -102,7 +102,7 @@ namespace Basis.Scripts.Networking
             var basisLocalPlayer = BasisLocalPlayer.Instance;
             basisLocalPlayer.UUID = uuid;
 
-            byte[] avatarBytes = BasisAvatarHostClient.OutboundAvatarBytes(basisLocalPlayer.AvatarMetaData);
+            byte[] avatarBytes = BasisAvatarHostClient.OutboundAvatarBytes(basisLocalPlayer.AvatarMetaData, basisLocalPlayer.AvatarLoadMode);
 
             // Calibration usually happens before ever connecting, so the body fit has to ride the very
             // first record — otherwise the server stores identity for us and nobody sees the fitted
@@ -158,7 +158,7 @@ namespace Basis.Scripts.Networking
                     // Pass the token into anything that supports cancellation
                     LocalPlayerPeer = NetworkClient.StartClient(
                         ipString, port, readyMessage,
-                        Encoding.UTF8.GetBytes(primitivePassword), companyName, productName, serverConfig, legacyLogin: legacyLogin);
+                        Encoding.UTF8.GetBytes(primitivePassword), companyName, productName, serverConfig, legacyLogin: legacyLogin, protocolVersion: protocolVersion);
 
                     NetworkClient.listener.PeerConnectedEvent -= PeerConnectedEvent;
                     NetworkClient.listener.PeerConnectedEvent += PeerConnectedEvent;
@@ -277,28 +277,44 @@ namespace Basis.Scripts.Networking
         }
         private static void NotifyIfLegacyServer()
         {
-            if (NetworkClient == null || !NetworkClient.LegacyLogin)
+            if (NetworkClient == null)
             {
                 return;
             }
-            BasisDebug.LogWarning($"Joined a server on network protocol v{BasisNetworkVersion.LegacyLoginVersion} using its older login.", BasisDebug.LogTag.Networking);
+            string title, body;
+            if (NetworkClient.LegacyLogin)
+            {
+                BasisDebug.LogWarning($"Joined a server on network protocol v{BasisNetworkVersion.LegacyLoginVersion} using its older login.", BasisDebug.LogTag.Networking);
+                title = BasisLocalization.Get("network.legacyServer.title");
+                body = BasisLocalization.Get("network.legacyServer.body", BasisNetworkVersion.LegacyLoginVersion);
+            }
+            else if (BasisNetworkVersion.SendsUnlockPasswords(false, NetworkClient.ProtocolVersion))
+            {
+                BasisDebug.LogWarning($"Joined a server on network protocol v{NetworkClient.ProtocolVersion} as v{NetworkClient.ProtocolVersion}; unlock passwords go through this server the old way.", BasisDebug.LogTag.Networking);
+                title = BasisLocalization.Get("network.passwordServer.title");
+                body = BasisLocalization.Get("network.passwordServer.body", NetworkClient.ProtocolVersion, BasisNetworkVersion.ServerVersion);
+            }
+            else
+            {
+                return;
+            }
             if (!BasisNotificationCenter.RouteToNotifications && !BasisMainMenu.Instance)
             {
                 BasisMainMenu.Open();
             }
-            BasisMenuDialoguePanel.CreateNew(BasisLocalization.Get("network.legacyServer.title"), BasisLocalization.Get("network.legacyServer.body", BasisNetworkVersion.LegacyLoginVersion), BasisLocalization.Get("ui.ok"), (Action<bool>)null, true, BasisPanelSeverity.Caution);
+            BasisMenuDialoguePanel.CreateNew(title, body, BasisLocalization.Get("ui.ok"), (Action<bool>)null, true, BasisPanelSeverity.Caution);
         }
         public static bool TryRetryWithLegacyLogin(ushort serverVersion)
         {
-            if (serverVersion != BasisNetworkVersion.LegacyLoginVersion || NetworkClient == null || NetworkClient.LegacyLogin || !BasisConnectionService.HasReconnectTarget)
+            if (!BasisNetworkVersion.TryGetFallback(serverVersion, out bool legacyLogin, out ushort protocolVersion) || NetworkClient == null || NetworkClient.ProtocolVersion != BasisNetworkVersion.ServerVersion || !BasisConnectionService.HasReconnectTarget)
             {
                 return false;
             }
-            BasisDebug.LogWarning($"Server is out of date (network protocol v{serverVersion}); reconnecting with its older login.", BasisDebug.LogTag.Networking);
-            _ = ReconnectWithLegacyLoginAsync(serverVersion);
+            BasisDebug.LogWarning(legacyLogin ? $"Server is out of date (network protocol v{serverVersion}); reconnecting with its older login." : $"Server is on network protocol v{serverVersion}; reconnecting as v{serverVersion}, which shares unlock passwords the old way.", BasisDebug.LogTag.Networking);
+            _ = ReconnectWithLegacyLoginAsync(serverVersion, legacyLogin, protocolVersion);
             return true;
         }
-        private static async Task ReconnectWithLegacyLoginAsync(ushort serverVersion)
+        private static async Task ReconnectWithLegacyLoginAsync(ushort serverVersion, bool legacyLogin, ushort protocolVersion)
         {
             using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             try
@@ -310,7 +326,7 @@ namespace Basis.Scripts.Networking
                 BasisConnectionService.ReportConnectionError(BasisLocalization.Get("menu.servers.reject.updateServer.body", serverVersion, BasisNetworkVersion.ServerVersion));
                 return;
             }
-            await BasisConnectionService.ReconnectAsync(legacyLogin: true);
+            await BasisConnectionService.ReconnectAsync(legacyLogin, protocolVersion);
         }
         public static Action OnRebootComplete;
         public static void HandleDisconnection(NetPeer peer, DisconnectInfo disconnectInfo)

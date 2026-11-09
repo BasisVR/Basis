@@ -28,7 +28,7 @@ side has its own guide at [`../TESTING.md`](../TESTING.md), and
 
 ```
 .\tools\ci.ps1        # Windows
-tools/ci.sh           # Linux
+tools/ci.sh           # Linux and macOS
 ```
 
 This is the gate: run it before every commit. It runs these steps in order and
@@ -58,8 +58,8 @@ tool is missing.
 Rust on Linux or WSL (see [`fuzz/`](fuzz/README.md)).
 
 GitHub runs the same gate on every push and pull request that touches the
-package (`.github/workflows/media-engine.yml`), on Windows and Linux, with a
-separate Android build and a job that replays the fuzz corpora under
+package (`.github/workflows/media-engine.yml`), on Windows, Linux and macOS
+(which also builds the universal macOS plugin), with a separate Android build and a job that replays the fuzz corpora under
 AddressSanitizer. Its runners have no GPU. The session tests take the
 software decode route there, and the hardware decode tests find no decoder,
 return early and pass. They print `SKIPPED:`, but `cargo test` hides a passing
@@ -359,7 +359,7 @@ connection. Set **Liveness** to Live for those.
 
 | Row | What it checks | How to run | Runs in |
 | --- | --- | --- | --- |
-| Linux headless lane | Headless on linux-x64, the engine decodes AV1, FLAC and Opus in software and gives typed errors for platform-only codecs. | `tools/ci.sh` (on a Linux host) | CI (Linux) |
+| Linux headless lane | Headless on linux-x64, the engine decodes AV1, FLAC and Opus in software, H.264/HEVC/VP9/AAC/MP3 through the host's FFmpeg when one loads (`decode-ffmpeg`, libavcodec 58 to 63), and gives typed errors otherwise. | `tools/ci.sh` (on a Linux host) | CI (Linux) |
 
 ### Harness and instrumentation
 

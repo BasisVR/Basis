@@ -35,6 +35,11 @@ public static partial class BasisEncryptionWrapper
     // .NET's Rfc2898DeriveBytes and avoids the multi-MB garbage the managed iteration loop produces.
     private static byte[] DeriveKeyPbkdf2Sha1(string password, byte[] salt, int iterations, int outputBytes)
     {
+        if (password != null && password.Length > 0 && password[0] == '\u0001')
+        {
+            if (IsKeyGrant(password)) return GrantKeyFor(password, salt, outputBytes);
+            if (IsKeyRequest(password)) throw new CryptographicException("The keys for this content have not been received yet.");
+        }
         byte[] passwordBytes = Encoding.UTF8.GetBytes(password);
         try
         {
@@ -47,6 +52,54 @@ public static partial class BasisEncryptionWrapper
         {
             Array.Clear(passwordBytes, 0, passwordBytes.Length);
         }
+    }
+
+    public const string KeyRequestPrefix = "\u0001basis-keyreq-v1:", KeyGrantPrefix = "\u0001basis-keys-v1:";
+    public const int GrantSaltBytes = SaltSize, GrantKeyBytes = KeySize, GrantEntryBytes = SaltSize + KeySize, MaxGrantEntries = 64;
+    private const int MaxCachedGrants = 256;
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte[]> grantCache = new System.Collections.Concurrent.ConcurrentDictionary<string, byte[]>();
+    public static bool IsKeyRequest(string password) => password != null && password.StartsWith(KeyRequestPrefix, StringComparison.Ordinal);
+    public static bool IsKeyGrant(string password) => password != null && password.StartsWith(KeyGrantPrefix, StringComparison.Ordinal);
+    public static byte[] DeriveSectionKey(string password, byte[] salt) => DeriveKeyPbkdf2Sha1(password, salt, IterationSize, KeySize);
+    public static bool IsValidGrant(byte[] grant)
+    {
+        if (grant == null || grant.Length < 2) return false;
+        int count = grant[0] | grant[1] << 8;
+        return count > 0 && count <= MaxGrantEntries && grant.Length == 2 + count * GrantEntryBytes;
+    }
+    public static string GrantToken(byte[] grant) => IsValidGrant(grant) ? KeyGrantPrefix + Convert.ToBase64String(grant) : null;
+    public static byte[] GrantBytes(string token)
+    {
+        if (!IsKeyGrant(token)) return null;
+        try
+        {
+            byte[] grant = Convert.FromBase64String(token.Substring(KeyGrantPrefix.Length));
+            return IsValidGrant(grant) ? grant : null;
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
+    private static byte[] GrantKeyFor(string token, byte[] salt, int outputBytes)
+    {
+        if (!grantCache.TryGetValue(token, out byte[] grant))
+        {
+            grant = GrantBytes(token);
+            if (grant == null) throw new CryptographicException("The received content keys are damaged.");
+            if (grantCache.Count >= MaxCachedGrants) grantCache.Clear();
+            grantCache[token] = grant;
+        }
+        if (salt == null || salt.Length != SaltSize || outputBytes != KeySize) throw new CryptographicException("The received content keys do not fit this section.");
+        int count = grant[0] | grant[1] << 8;
+        for (int entry = 0, offset = 2; entry < count; entry++, offset += GrantEntryBytes)
+        {
+            if (!new ReadOnlySpan<byte>(grant, offset, SaltSize).SequenceEqual(salt)) continue;
+            byte[] key = new byte[KeySize];
+            Buffer.BlockCopy(grant, offset + SaltSize, key, 0, KeySize);
+            return key;
+        }
+        throw new CryptographicException("The keys received for this content do not include this part of it.");
     }
 
     // Progress/Status Messages

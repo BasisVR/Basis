@@ -44,6 +44,12 @@ public static class BasisBundleConversionNetwork
         BasisAvatarNetworkLoad ANLI = BasisAvatarNetworkLoad.DecodeFromBytes(BasisLoadableBundle);
         return ConvertFromNetwork(ANLI);
     }
+    public static BasisLoadableBundle ConvertNetworkBytesToBasisLoadableBundle(byte[] BasisLoadableBundle, ushort senderId)
+    {
+        BasisLoadableBundle bundle = ConvertNetworkBytesToBasisLoadableBundle(BasisLoadableBundle);
+        Basis.Scripts.Networking.BasisContentKeyClient.TagSender(bundle, senderId);
+        return bundle;
+    }
 
     // Converts AvatarNetworkLoadInformation to byte array (serialization)
     public static byte[] ConvertNetworkToByte(BasisAvatarNetworkLoad AvatarNetworkLoadInformation)

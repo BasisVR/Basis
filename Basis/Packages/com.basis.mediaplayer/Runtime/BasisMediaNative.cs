@@ -14,10 +14,11 @@ using UnityEngine;
 /// <see cref="bm_session_set_output_texture"/>.
 /// </summary>
 [NoAutoStaticsCleanup]
-public static class BasisMediaNative
+public static partial class BasisMediaNative
 {
     public const uint AbiVersion = 4;
     const string Dll = "basis_media";
+#if !UNITY_WEBGL || UNITY_EDITOR
 
     [DllImport(Dll)] public static extern uint bm_abi_version();
 
@@ -128,24 +129,26 @@ public static class BasisMediaNative
     /// </summary>
     [DllImport(Dll)] public static extern int bm_session_set_output_texture(ulong handle, IntPtr texture);
     [DllImport(Dll)] public static extern IntPtr bm_render_event_func();
-
-    public const string PushScheme = "basis-push://";
     [DllImport(Dll)] public static extern uint bm_push_version();
     [DllImport(Dll)] public static extern unsafe int bm_session_take_bgra(ulong handle, byte* dst, UIntPtr capacity, out uint width, out uint height);
+    [DllImport(Dll)] public static extern unsafe int bm_session_push_video(ulong handle, byte* data, UIntPtr length, long ptsUs, uint key, uint width, uint height);
+    [DllImport(Dll)] public static extern unsafe int bm_session_push_audio(ulong handle, byte* data, UIntPtr length, long ptsUs, uint sampleRate, uint channels);
+#endif
+
+    public const string PushScheme = "basis-push://";
+    public const int BmErrSize = -6;
 
     public static bool CpuPresent
     {
         get
         {
-#if UNITY_ANDROID && !UNITY_EDITOR
+#if (UNITY_ANDROID || UNITY_WEBGL) && !UNITY_EDITOR
             return false;
 #else
             return Application.platform != RuntimePlatform.WindowsPlayer && Application.platform != RuntimePlatform.WindowsEditor;
 #endif
         }
     }
-    [DllImport(Dll)] public static extern unsafe int bm_session_push_video(ulong handle, byte* data, UIntPtr length, long ptsUs, uint key, uint width, uint height);
-    [DllImport(Dll)] public static extern unsafe int bm_session_push_audio(ulong handle, byte* data, UIntPtr length, long ptsUs, uint sampleRate, uint channels);
     static int pushVersion = -1;
 
     public static bool PushSupported

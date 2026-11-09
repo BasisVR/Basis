@@ -14,13 +14,14 @@ public class NetworkClient
     public byte[] ConnectionPublicKey;
     public byte[] ConnectionPayloadHash;
     public bool LegacyLogin;
+    public ushort ProtocolVersion;
     /// <summary>
     /// initial data is typically the 
     /// </summary> 
     /// <param name="IP"></param>
     /// <param name="port"></param>
     /// <param name="ReadyMessage"></param>
-    public NetPeer StartClient(string IP, int port, ReadyMessage ReadyMessage, byte[] AuthenticationMessage, string CompanyName, string ProductName, Configuration Configuration, bool manualMode = false, bool legacyLogin = false)
+    public NetPeer StartClient(string IP, int port, ReadyMessage ReadyMessage, byte[] AuthenticationMessage, string CompanyName, string ProductName, Configuration Configuration, bool manualMode = false, bool legacyLogin = false, ushort protocolVersion = 0)
     {
         if (IsInUse == false)
         {
@@ -33,7 +34,8 @@ public class NetworkClient
             NetDataWriter Writer = new NetDataWriter(true,12);
             //this is the only time we dont put key!
             LegacyLogin = legacyLogin;
-            Writer.Put(legacyLogin ? BasisNetworkVersion.LegacyLoginVersion : BasisNetworkVersion.ServerVersion);
+            ProtocolVersion = legacyLogin ? BasisNetworkVersion.LegacyLoginVersion : protocolVersion != 0 ? protocolVersion : BasisNetworkVersion.ServerVersion;
+            Writer.Put(ProtocolVersion);
             BasisNetworkApplication.Write(Writer, CompanyName, ProductName);
             BytesMessage AuthBytes = new BytesMessage();
             AuthBytes.Serialize(Writer, AuthenticationMessage);

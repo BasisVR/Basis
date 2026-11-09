@@ -1,0 +1,21 @@
+[package]
+name = "decode-vt"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+# macOS decode through the system frameworks (VideoToolbox, AudioToolbox,
+# CoreMedia, CoreVideo). Nothing is linked beyond what ships with macOS.
+[dependencies]
+media-decode = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation-sys = "0.8"
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+media-clock = { path = "../../media-clock" }
+media-demux = { path = "../../media-demux" }

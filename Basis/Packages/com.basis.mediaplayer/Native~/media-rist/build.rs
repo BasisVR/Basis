@@ -24,6 +24,8 @@ fn main() {
         (Ok("windows"), Ok("x86_64")) => "win-x64",
         (Ok("linux"), Ok("x86_64")) => "linux-x64",
         (Ok("android"), Ok("aarch64")) => "android-arm64",
+        (Ok("macos"), Ok("aarch64")) => "macos-arm64",
+        (Ok("macos"), Ok("x86_64")) => "macos-x64",
         (os, arch) => panic!("media-rist/librist: no staged librist for {os:?}/{arch:?}"),
     };
 

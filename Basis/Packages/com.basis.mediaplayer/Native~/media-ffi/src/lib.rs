@@ -1448,6 +1448,8 @@ pub unsafe extern "C" fn JNI_OnLoad(vm: *mut c_void, _reserved: *mut c_void) -> 
         // SAFETY: `vm` is the runtime's own JavaVM*, which is exactly
         // what this entry point is called with.
         unsafe { decode_mediacodec::set_java_vm(vm) };
+        // SAFETY: as above; screen capture keeps the same JavaVM*.
+        unsafe { media_capture::set_java_vm(vm) };
     }));
     // JNI_VERSION_1_6
     0x0001_0006

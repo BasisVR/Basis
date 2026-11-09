@@ -1470,6 +1470,8 @@
     { "key": "network.avatarShare.failed.generic", "value": "Não foi possível partilhar este avatar através do servidor." },
     { "key": "network.legacyServer.title", "value": "Servidor Desatualizado" },
     { "key": "network.legacyServer.body", "value": "Este servidor está rodando uma versão mais antiga do Basis (protocolo de rede v{0}). Você entrou no modo de compatibilidade, que usa o login mais antigo e menos seguro dele. Peça ao dono do servidor para atualizá-lo." },
+    { "key": "network.passwordServer.title", "value": "Servidor Anterior" },
+    { "key": "network.passwordServer.body", "value": "Este servidor usa uma versão anterior do Basis (protocolo de rede v{0}), então você entrou como v{0}. Neste servidor, as senhas que desbloqueiam avatares, objetos e mundos passam pelo servidor como antes, então o servidor e qualquer pessoa que observe a conexão podem lê-las. Em servidores v{1}, uma senha nunca é enviada pela rede: os outros jogadores recebem apenas as chaves do arquivo que carregam, criptografadas só para eles. Peça ao dono do servidor para atualizá-lo." },
     { "key": "menu.servers.list.default", "value": "Servidor Basis padrão" },
     { "key": "menu.players.search.byNameOrUuid", "value": "Filtrar por nome de exibição ou UUID." },
     { "key": "menu.players.sortMode", "value": "Ordenar por" },

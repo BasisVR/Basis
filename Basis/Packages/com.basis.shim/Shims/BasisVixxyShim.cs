@@ -1,15 +1,14 @@
+using System;
+using Basis.Scripts.BasisSdk.Players;
 using HVR.Vixxy;
 
 namespace Basis.Shims
 {
     /// <summary>
-    /// Read-only metadata bridge for HVR Vixxy menu items. `HVRVixxyMenuItem` is whitelisted for avatar
-    /// cilbox scripts pinned to GetValue/ApplyValue, which on its own is a bare float port — a script
-    /// cannot tell a toggle from a slider, nor learn the valid range or the choice list.
-    ///
-    /// This exposes that metadata as primitives so `HVR.Vixxy.HVRVixxyControl` never has to be
-    /// whitelisted: the control type stays host-side and only flattened values cross the sandbox
-    /// boundary. Everything here is a read; writes still go through HVRVixxyMenuItem.ApplyValue.
+    /// Metadata bridge for HVR Vixxy menu items, for avatar, prop and world scripts. `HVRVixxyMenuItem`
+    /// is pinned to GetValue/ApplyValue/ResolveTitle/ResolveDescription/Control/Presentation and
+    /// `HVRVixxyControl` to its read members; this flattens the rest to primitives and finds the
+    /// local player's items for props and worlds. Writes still go through HVRVixxyMenuItem.ApplyValue.
     ///
     /// Vixxy menu items are wearer-only by design — on a remote avatar the control is never resolved and
     /// the value is meaningless. Scripts should gate on BasisAvatarShim.IsOwnedLocally before using any
@@ -17,6 +16,23 @@ namespace Basis.Shims
     /// </summary>
     public static class BasisVixxyShim
     {
+        public static HVRVixxyMenuItem[] GetLocalMenuItems()
+        {
+            BasisLocalPlayer player = BasisLocalPlayer.Instance;
+            return player != null && player.BasisAvatar != null ? player.BasisAvatar.GetComponentsInChildren<HVRVixxyMenuItem>(true) : Array.Empty<HVRVixxyMenuItem>();
+        }
+
+        public static HVRVixxyMenuItem FindLocalMenuItem(string title)
+        {
+            if (string.IsNullOrEmpty(title)) return null;
+            HVRVixxyMenuItem[] items = GetLocalMenuItems();
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (items[i] != null && (items[i].name == title || items[i].ResolveTitle() == title)) return items[i];
+            }
+            return null;
+        }
+
         public static bool HasControl(HVRVixxyMenuItem item)
         {
             return item != null && item.Control != null;

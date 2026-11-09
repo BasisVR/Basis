@@ -16,6 +16,8 @@ members = [
     "media-decode/decode-mf",
     "media-decode/decode-mediacodec",
     "media-decode/decode-sw",
+    "media-decode/decode-ffmpeg",
+    "media-decode/decode-vt",
     "media-diag",
     "media-testkit",
     "media-engine",
@@ -46,6 +48,8 @@ media-decode = { path = "media-decode" }
 decode-mf = { path = "media-decode/decode-mf" }
 decode-mediacodec = { path = "media-decode/decode-mediacodec" }
 decode-sw = { path = "media-decode/decode-sw" }
+decode-ffmpeg = { path = "media-decode/decode-ffmpeg" }
+decode-vt = { path = "media-decode/decode-vt" }
 media-diag = { path = "media-diag" }
 media-testkit = { path = "media-testkit" }
 media-engine = { path = "media-engine" }

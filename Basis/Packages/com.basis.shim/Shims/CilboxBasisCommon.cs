@@ -25,6 +25,11 @@ namespace Cilbox
 			"Basis.Scripts.Device_Management.Devices.BasisInput", // Restrictive, only used as a type.
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable", // Restrictive (See below), only access field.
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject", // Restrictive (See below), only access field.
+			"Basis.Shims.BasisVixxyShim",
+			"HVR.Vixxy.HVRVixxyMenuItem", // Restrictive, see method whitelist.
+			"HVR.Vixxy.HVRVixxyControl", // Restrictive, see method whitelist.
+			"HVR.Vixxy.HVRVixxyChoiceControl",
+			"HVR.Vixxy.HVRVixxyControlPresentation",
 			"Basis.BasisNetworkBehaviour",
 			"Basis.BasisNetworkShim*",
 			"BasisNetworkCommon+EventTiming",
@@ -500,6 +505,11 @@ namespace Cilbox
 			"UnityEngine.EventSystems.EventTriggerType.*",
 			"UnityEngine.EventSystems.PointerEventData+InputButton.*",
 			"UnityEngine.EventSystems.RaycastResult.*",
+
+			"HVR.Vixxy.HVRVixxyControl.defaultValue",
+			"HVR.Vixxy.HVRVixxyControl.choices",
+			"HVR.Vixxy.HVRVixxyChoiceControl.title",
+			"HVR.Vixxy.HVRVixxyChoiceControl.value",
 		};
 
 		protected static readonly Dictionary<Type, HashSet<string>> commonMethodWhitelist = new Dictionary<Type, HashSet<string>>()
@@ -510,6 +520,38 @@ namespace Cilbox
 			{ typeof(Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable), new HashSet<string> { } },
 			{ typeof(Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject), new HashSet<string> { } },
 			{ typeof(Basis.Scripts.Device_Management.Devices.BasisInput), new HashSet<string> { } },
+			{ typeof(HVR.Vixxy.HVRVixxyMenuItem), new HashSet<string>{
+				nameof(HVR.Vixxy.HVRVixxyMenuItem.GetValue),
+				nameof(HVR.Vixxy.HVRVixxyMenuItem.ApplyValue),
+				nameof(HVR.Vixxy.HVRVixxyMenuItem.ResolveTitle),
+				nameof(HVR.Vixxy.HVRVixxyMenuItem.ResolveDescription),
+				"get_Control",
+				"get_Presentation",
+				} },
+			{ typeof(HVR.Vixxy.HVRVixxyControl), new HashSet<string>{
+				nameof(HVR.Vixxy.HVRVixxyControl.Min),
+				nameof(HVR.Vixxy.HVRVixxyControl.Max),
+				nameof(HVR.Vixxy.HVRVixxyControl.CalculateAddress),
+				"get_NumberOfChoices",
+				"get_HasThreeOrMoreChoices",
+				"get_IsRegularToggle",
+				} },
+			{ typeof(HVR.Vixxy.HVRVixxyChoiceControl), new HashSet<string>{ } },
+			{ typeof(Basis.Shims.BasisVixxyShim), new HashSet<string>{
+				nameof(Basis.Shims.BasisVixxyShim.HasControl),
+				nameof(Basis.Shims.BasisVixxyShim.DefaultValue),
+				nameof(Basis.Shims.BasisVixxyShim.MinValue),
+				nameof(Basis.Shims.BasisVixxyShim.MaxValue),
+				nameof(Basis.Shims.BasisVixxyShim.ChoiceCount),
+				nameof(Basis.Shims.BasisVixxyShim.ChoiceValue),
+				nameof(Basis.Shims.BasisVixxyShim.ChoiceTitle),
+				nameof(Basis.Shims.BasisVixxyShim.IsToggle),
+				nameof(Basis.Shims.BasisVixxyShim.IsSlider),
+				nameof(Basis.Shims.BasisVixxyShim.Title),
+				nameof(Basis.Shims.BasisVixxyShim.Description),
+				nameof(Basis.Shims.BasisVixxyShim.GetLocalMenuItems),
+				nameof(Basis.Shims.BasisVixxyShim.FindLocalMenuItem),
+				} },
 #if BASIS_HAS_EXAMPLES
 			{ typeof(global::BasisPlatformSwitch), new HashSet<string> { nameof(global::BasisPlatformSwitch.Apply) } },
 #endif
@@ -789,6 +831,11 @@ namespace Cilbox
 		internal CilboxBasisConsent.Scan consentScan;
 		internal BasisContentBase ownerContent;
 		internal bool ownerRecorded;
+		internal static T NativeArrayItem<T>(Unity.Collections.NativeArray<T> array, int index) where T : struct
+		{
+			if (!array.IsCreated || (uint)index >= (uint)array.Length) throw new IndexOutOfRangeException();
+			return array[index];
+		}
 		internal string saveContentKey;
 		internal HashSet<string> saveStores;
 		internal HashSet<string> saveReadStores;
@@ -927,6 +974,14 @@ namespace Cilbox
 				return mi != null || Beyond(MethodItem(declaringType, name), true);
 			}
 
+			if (CilboxProtectedObjects.IsRedirect(declaringType, name))
+			{
+				if (!CuratedMethodAllowed(declaringType, name) && !Beyond(MethodItem(declaringType, name), false)) return false;
+				if (parametersIn == null) return true;
+				mi = CilboxProtectedObjects.Resolve(usage, declaringType, name, parametersIn);
+				return mi != null || Beyond(MethodItem(declaringType, name), true);
+			}
+
 			if (declaringType == typeof(UnityEngine.Object) &&
 				(name == "Instantiate" || name == "InstantiateAsync"))
 			{
@@ -943,10 +998,17 @@ namespace Cilbox
 			}
 
 			// NativeArray<T> only bounds-checks its indexer under ENABLE_UNITY_COLLECTIONS_CHECKS,
-			// which release players do not define. Restricted to the members that copy out.
+			// which release players do not define. Restricted to the members that copy out; the
+			// read indexer is redirected to a bounds-checked copy.
 			if (declaringType != null && declaringType.IsGenericType &&
 				declaringType.GetGenericTypeDefinition().FullName == "Unity.Collections.NativeArray`1")
 			{
+				if (name == "get_Item")
+				{
+					if (parametersIn == null) return true;
+					mi = typeof(CilboxBasisCommon).GetMethod(nameof(NativeArrayItem), BindingFlags.Static | BindingFlags.NonPublic).MakeGenericMethod(declaringType.GetGenericArguments()[0]);
+					return true;
+				}
 				return name == "get_Length" || name == "get_IsCreated" ||
 					   name == "ToArray" || name == "CopyTo" ||
 					   name == "Equals" || name == "GetHashCode" || name == "ToString" ||
@@ -988,6 +1050,13 @@ namespace Cilbox
 			if (declaringType == typeof(Basis.Scripts.Networking.BasisNetworkConnection) && !CuratedMethodAllowed(declaringType, name)) return Beyond(MethodItem(declaringType, name), true);
 
 			if (declaringType == typeof(Basis.Shims.BasisConnectionShim) && (this is CilboxAvatarBasis || !CilboxConnection.IsEntryPoint(name))) return Beyond(MethodItem(declaringType, name), true);
+
+			if (CilboxCameras.IsRedirect(this, declaringType, name))
+			{
+				if (parametersIn == null) return true;
+				mi = CilboxCameras.Resolve(this, name, parametersIn);
+				return mi != null || Beyond(MethodItem(declaringType, name), true);
+			}
 
 			if (CilboxCompute.IsRedirect(declaringType, name))
 			{
