@@ -185,6 +185,7 @@ var BasisWebScreenShareLibrary = {
       }
       var audio = stream.getAudioTracks()[0];
       if (c.cfg.audio) {
+        if (audio && !c.audioContext && typeof AudioContext !== 'undefined') try { c.audioContext = new AudioContext({ sampleRate: 48000 }); } catch (e) {}
         if (!audio) c.audioError = 'screenShare.error.webNoAudio';
         else if (typeof AudioEncoder === 'undefined' || typeof AudioData === 'undefined' || !c.audioContext || !c.audioContext.audioWorklet) c.audioError = 'screenShare.error.webNoAudioEncoder';
         else BasisWebShare.audio(c, audio);

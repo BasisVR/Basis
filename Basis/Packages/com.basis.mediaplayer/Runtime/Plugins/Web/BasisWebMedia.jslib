@@ -150,9 +150,9 @@ var BasisWebMediaLibrary = {
       var abort = typeof AbortController !== 'undefined' ? new AbortController() : null;
       var options = { mode: 'cors', credentials: 'omit', cache: 'no-store' };
       if (abort) options.signal = abort.signal;
-      return fetch(url, options).then(function () {
+      return fetch(url, options).then(function (response) {
         if (abort) abort.abort();
-        return 'ok';
+        return response.ok ? 'ok' : 'network';
       }, function () {
         return fetch(url, { mode: 'no-cors', credentials: 'omit', cache: 'no-store' }).then(function () { return 'cors'; }, function () { return 'network'; });
       });
@@ -363,7 +363,8 @@ var BasisWebMediaLibrary = {
       var v = s.video, rate = 1;
       if (s.syncTarget >= 0 && !s.live && !v.paused && !v.seeking && v.readyState >= 3) {
         var target = s.syncTarget + (now - s.syncAt) / 1000, drift = target - v.currentTime;
-        if (Math.abs(drift) > 2 && isFinite(v.duration) && target < v.duration) {
+        if (Math.abs(drift) > 2 && isFinite(v.duration) && target < v.duration && now - s.syncSeekAt >= 3000) {
+          s.syncSeekAt = now;
           v.currentTime = target;
           BasisWebMedia.event(s, 17, 7, 'sync seek to ' + Math.round(target * 1e6) + 'us, drift ' + Math.round(drift * 1000) + 'ms');
         } else if (Math.abs(drift) > (s.slewing ? 0.03 : 0.08)) {
@@ -581,7 +582,7 @@ var BasisWebMediaLibrary = {
     var d;
     try { d = JSON.parse(new TextDecoder().decode(BasisWebMedia.bytes(descriptor, length))); } catch (e) { return -2; }
     var id = BasisWebMedia.next++;
-    var s = { id: id, kind: 'element', state: 1, want: true, errorCode: 0, category: 0, events: [], opened: performance.now(), video: null, hls: null, pc: null, stream: null, resource: null, texture: 0, dirty: false, rvfc: false, lastTime: -1, presented: 0, decoded: 0, width: 0, height: 0, live: false, hlsLive: false, liveHint: d.liveness === 'live' ? 1 : d.liveness === 'vod' ? 2 : 0, allowLocal: !!d.allow_local_addresses, seekUs: -1, syncTarget: -1, syncAt: 0, slewing: false, ppm: 0, gain: 1, gainNode: null, audioNode: null, direct: false, routedStream: false, autoMuted: false, cors: true, playPending: false, waiting: false, frame: null, decoder: null, codec: '', codedWidth: 0, codedHeight: 0, needKey: true, audioDecoder: null, audioAt: 0, firstPts: -1, lastPts: 0 };
+    var s = { id: id, kind: 'element', state: 1, want: true, errorCode: 0, category: 0, events: [], opened: performance.now(), video: null, hls: null, pc: null, stream: null, resource: null, texture: 0, dirty: false, rvfc: false, lastTime: -1, presented: 0, decoded: 0, width: 0, height: 0, live: false, hlsLive: false, liveHint: d.liveness === 'live' ? 1 : d.liveness === 'vod' ? 2 : 0, allowLocal: !!d.allow_local_addresses, seekUs: -1, syncTarget: -1, syncAt: 0, syncSeekAt: -1e9, slewing: false, ppm: 0, gain: 1, gainNode: null, audioNode: null, direct: false, routedStream: false, autoMuted: false, cors: true, playPending: false, waiting: false, frame: null, decoder: null, codec: '', codedWidth: 0, codedHeight: 0, needKey: true, audioDecoder: null, audioAt: 0, firstPts: -1, lastPts: 0 };
     BasisWebMedia.sessions[id] = s;
     var url = String(d.url || '');
     if (/^basis-push:\/\//i.test(url)) {
