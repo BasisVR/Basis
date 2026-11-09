@@ -90,8 +90,13 @@ half4 BasisWorldReflection(float3 positionWS, half3 normalWS, half3 reflectVecto
         float3 probeWS = ((float3)probe + 0.5) * spacing;
         weight *= Sq(dot(normalize(probeWS - origin), normal) * 0.5 + 0.5) + 0.05;
         float3 midpoint = (origin + probeWS) * 0.5;
-        int3 voxel = (int3)floor((midpoint - box.xyz) * inverseVoxel);
-        if (all(voxel >= 0) && all(voxel < (int)voxels) && _BasisGIVoxAlbedo.Load(int4(voxel + int3(0, 0, level * (int)voxels), 0)).a > 0.5) { continue; }
+        float3 voxel = (midpoint - box.xyz) * inverseVoxel;
+        if (all(voxel >= 0.0) && all(voxel < voxels))
+        {
+            float3 uvw = clamp(voxel, 0.5, voxels - 0.5) + float3(0.0, 0.0, level * voxels);
+            weight *= saturate((0.6 - _BasisGIVoxAlbedo.SampleLevel(sampler_LinearClamp, uvw / float3(voxels, voxels, voxels * levels), 0).a) * 5.0);
+            if (weight <= 1e-5) { continue; }
+        }
 
         UNITY_BRANCH
         if (roughBlend < 1.0)

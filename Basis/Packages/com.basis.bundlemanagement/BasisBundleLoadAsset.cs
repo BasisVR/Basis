@@ -8,7 +8,7 @@ using UnityEngine.SceneManagement;
 using static BundledContentHolder;
 public static class BasisBundleLoadAsset
 {
-    public static async Task<GameObject> LoadFromWrapper(GameObject DisabledGameobject, BasisTrackedBundleWrapper BasisLoadableBundle, bool UseContentRemoval, Vector3 Position, Quaternion Rotation, bool ModifyScale, Vector3 Scale, Selector Selector, Transform Parent = null, bool DestroyColliders = false, bool ChangeColidersToCorrectLayer = false, List<BasisHeadChop.HeadChopTarget> HarvestedHeadChop = null)
+    public static async Task<GameObject> LoadFromWrapper(GameObject DisabledGameobject, BasisTrackedBundleWrapper BasisLoadableBundle, bool UseContentRemoval, Vector3 Position, Quaternion Rotation, bool ModifyScale, Vector3 Scale, Selector Selector, Transform Parent = null, bool DestroyColliders = false, bool ChangeColidersToCorrectLayer = false, List<BasisHeadChop.HeadChopTarget> HarvestedHeadChop = null, int RendererLayer = -1)
     {
         if (BasisLoadableBundle.AssetBundle != null || BasisLoadableBundle.HasGltfTemplate)
         {
@@ -38,7 +38,7 @@ public static class BasisBundleLoadAsset
                             // GraphicsStateCollection resolves Shader references at load time, so
                             // parse the sidecar only after this prefab and its shaders are resident.
                             await BasisLoadableBundle.EnsureEmbeddedGraphicsStatesLoaded();
-                            return await InstantiateContentControlled(DisabledGameobject, BasisLoadableBundle, loadedObject, UseContentRemoval, Position, Rotation, ModifyScale, Scale, Selector, Parent, DestroyColliders, ChangeColidersToCorrectLayer, HarvestedHeadChop);
+                            return await InstantiateContentControlled(DisabledGameobject, BasisLoadableBundle, loadedObject, UseContentRemoval, Position, Rotation, ModifyScale, Scale, Selector, Parent, DestroyColliders, ChangeColidersToCorrectLayer, HarvestedHeadChop, RendererLayer);
                         }
                     case BasisBundleConnector.GltfAssetMode:
                         {
@@ -51,7 +51,7 @@ public static class BasisBundleLoadAsset
                                 BasisLoadableBundle.DidErrorOccur = true;
                                 return null;
                             }
-                            return await InstantiateContentControlled(DisabledGameobject, BasisLoadableBundle, template, UseContentRemoval, Position, Rotation, ModifyScale, Scale, Selector, Parent, DestroyColliders, ChangeColidersToCorrectLayer, HarvestedHeadChop);
+                            return await InstantiateContentControlled(DisabledGameobject, BasisLoadableBundle, template, UseContentRemoval, Position, Rotation, ModifyScale, Scale, Selector, Parent, DestroyColliders, ChangeColidersToCorrectLayer, HarvestedHeadChop, RendererLayer);
                         }
                     default:
                         BasisDebug.LogError("Requested type " + Generated.AssetMode + " has no handler");
@@ -71,7 +71,7 @@ public static class BasisBundleLoadAsset
         return null;
     }
 
-    private static async Task<GameObject> InstantiateContentControlled(GameObject DisabledGameobject, BasisTrackedBundleWrapper BasisLoadableBundle, GameObject loadedObject, bool UseContentRemoval, Vector3 Position, Quaternion Rotation, bool ModifyScale, Vector3 Scale, Selector Selector, Transform Parent, bool DestroyColliders, bool ChangeColidersToCorrectLayer, List<BasisHeadChop.HeadChopTarget> HarvestedHeadChop)
+    private static async Task<GameObject> InstantiateContentControlled(GameObject DisabledGameobject, BasisTrackedBundleWrapper BasisLoadableBundle, GameObject loadedObject, bool UseContentRemoval, Vector3 Position, Quaternion Rotation, bool ModifyScale, Vector3 Scale, Selector Selector, Transform Parent, bool DestroyColliders, bool ChangeColidersToCorrectLayer, List<BasisHeadChop.HeadChopTarget> HarvestedHeadChop, int RendererLayer)
     {
         ChecksRequired ChecksRequired = new ChecksRequired();
         if (loadedObject.TryGetComponent<BasisAvatar>(out BasisAvatar BasisAvatar))
@@ -89,7 +89,7 @@ public static class BasisBundleLoadAsset
             BasisLegacyMaterialCompatibility.RequiresLegacyEmissionUpgrade(BasisLoadableBundle.BuiltWithUnityVersion)
                 ? renderers => BasisLegacyMaterialCompatibility.UpgradeEmission(renderers, BasisLoadableBundle.BuiltWithUnityVersion)
                 : null;
-        ContentPoliceControl.ContentControlState scrubState = ContentPoliceControl.BeginContentControl(DisabledGameobject, loadedObject, ChecksRequired, Position, Rotation, ModifyScale, Scale, Selector, Parent, LayerMask.NameToLayer("IgnoredByInteractable"), HarvestedHeadChop, harvest, BasisLoadableBundle.EmbeddedGraphicsStates, emissionPostprocessor);
+        ContentPoliceControl.ContentControlState scrubState = ContentPoliceControl.BeginContentControl(DisabledGameobject, loadedObject, ChecksRequired, Position, Rotation, ModifyScale, Scale, Selector, Parent, LayerMask.NameToLayer("IgnoredByInteractable"), HarvestedHeadChop, harvest, BasisLoadableBundle.EmbeddedGraphicsStates, emissionPostprocessor, RendererLayer);
         GameObject CreatedCopy = ContentPoliceControl.PrepareContentControl(scrubState, out BasisGraphicsStatePrewarm.WarmupRequest warmup);
         while (!warmup.IsCompleted)
         {

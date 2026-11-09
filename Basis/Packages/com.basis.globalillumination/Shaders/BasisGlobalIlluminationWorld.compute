@@ -78,6 +78,10 @@ float4 _BasisGIWorldInject;
 float4 _BasisGIWorldSeen;
 float4 _BasisGIWorldResolve;
 float _BasisGIWorldSpecularBlend;
+/// The same per sample ceiling the screen trace applies. A small, very bright emitter is hit by one of a
+/// probe's directions on one update and missed on the next, and without a ceiling that probe swung by tens
+/// of percent and the patch of wall it lights flashed with it.
+float _BasisGIWorldFirefly;
 float4x4 _BasisGIWorldRotation;
 float _BasisGIRCSolidAngle[16];
 
@@ -485,7 +489,10 @@ void Cascade(uint3 id : SV_DispatchThreadID)
         }
     }
 
-    _BasisGIWorldCascadeOut[outTexel] = float4(segment.radiance + beyond * segment.transmittance, cascade == 0 ? segment.transmittance : 1.0);
+    float3 gathered = max(0.0, segment.radiance + beyond * segment.transmittance);
+    float peak = max(gathered.r, max(gathered.g, gathered.b));
+    if (_BasisGIWorldFirefly > 0.0 && peak > _BasisGIWorldFirefly) { gathered *= _BasisGIWorldFirefly / peak; }
+    _BasisGIWorldCascadeOut[outTexel] = float4(gathered, cascade == 0 ? segment.transmittance : 1.0);
 }
 
 [numthreads(8, 8, 1)]
@@ -670,9 +677,16 @@ void Resolve(uint3 id : SV_DispatchThreadID)
     float previousLevel = dot(previous0.rgb, float3(0.2126, 0.7152, 0.0722));
     float currentLevel = dot(c0, float3(0.2126, 0.7152, 0.0722));
     float shift = abs(currentLevel - previousLevel) / (max(previousLevel, currentLevel) + 1e-3);
-    blend = max(blend, saturate((shift - 0.3) * 2.0));
-    float rise = owned ? saturate((shift - 0.15) * 3.0) : 0.0;
-    float confirmed = min(rise, _BasisGIWorldSHPrev2[slot].a);
+    float lastRaw = owned ? max(0.0, _BasisGIWorldSHPrev2[slot].a) : currentLevel;
+    float lastShift = (lastRaw - previousLevel) / (max(previousLevel, lastRaw) + 1e-3);
+    bool sameWay = (currentLevel >= previousLevel) == (lastShift >= 0.0);
+    float rise = owned && sameWay ? min(saturate((shift - 0.15) * 3.0), saturate((abs(lastShift) - 0.15) * 3.0)) : 0.0;
+    float confirmed = max(rise, owned ? saturate((shift - 0.6) * 2.5) : 0.0);
+    // DDGI's brightness threshold: a single update that jumps brighter is let in at a quarter of the usual
+    // rate, so one direction catching a small bright emitter nudges the probe instead of flashing it.
+    // Darkening and a rise confirmed over two updates go through as before.
+    if (owned && currentLevel > previousLevel && shift > 0.25 && confirmed <= 0.0) { blend *= 0.25; }
+    blend = max(blend, min(saturate((shift - 0.3) * 2.0), confirmed));
     float change = owned ? max(confirmed, _BasisGIWorldSHPrev1[slot].a * 0.5) : 0.0;
     blend = max(blend, change);
     float3 previousX = owned ? _BasisGIWorldSHPrev1[slot].rgb : float3(0.0, 0.0, 0.0);
@@ -681,7 +695,7 @@ void Resolve(uint3 id : SV_DispatchThreadID)
 
     _BasisGIWorldSHOut0[slot] = lerp(previous0, float4(c0, validity), blend);
     _BasisGIWorldSHOut1[slot] = float4(lerp(previousX, cx, blend), change);
-    _BasisGIWorldSHOut2[slot] = float4(lerp(previousY, cy, blend), rise);
+    _BasisGIWorldSHOut2[slot] = float4(lerp(previousY, cy, blend), currentLevel);
     float specularKept = 0.0;
     _BasisGIWorldStamp[slot] = stamp;
 

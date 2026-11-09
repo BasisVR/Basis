@@ -214,6 +214,10 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         samplerCoarse.enableRecording = enabled;
         samplerCascades.enableRecording = enabled;
         samplerWorld.enableRecording = enabled;
+        samplerWorldVoxelize.enableRecording = enabled;
+        foreach (ProfilingSampler level in samplerWorldVoxelizeLevel) { level.enableRecording = enabled; }
+        samplerWorldCascades.enableRecording = enabled;
+        samplerWorldResolve.enableRecording = enabled;
         samplerTemporal.enableRecording = enabled;
         samplerBlur.enableRecording = enabled;
         samplerComposite.enableRecording = enabled;

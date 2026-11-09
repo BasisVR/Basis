@@ -162,6 +162,11 @@ namespace Basis.Shims
 				ChangeCollidersToCorrectLayer = false,
 			};
 
+			BundledContentHolder.Selector selector = SelectorFor( CilboxBasisConsent.TryRunning( out CilboxBasisCommon box ) ? box : null );
+			int rendererLayer = -1;
+			if( box is CilboxAvatarBasis && selector == BundledContentHolder.Selector.Avatar )
+				rendererLayer = CilboxBasisConsent.ForLocalPlayer( box, box.gameObject ) ? BasisLayerMapper.LocalAvatarLayer : BasisLayerMapper.RemoteAvatarLayer;
+
 			GameObject sanitizedClone = ContentPoliceControl.ContentControl(
 				mgmt.CreationGameobject,
 				rootPrefab,
@@ -170,8 +175,9 @@ namespace Basis.Shims
 				spawnRot,
 				false,
 				Vector3.zero,
-				RunningSelector(),
-				parent );
+				selector,
+				parent,
+				rendererLayer: rendererLayer );
 
 			if( sanitizedClone == null ) return null;
 

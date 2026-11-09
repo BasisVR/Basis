@@ -658,9 +658,31 @@ namespace Basis.BasisUI
             return DateTime.MinValue;
         }
 
+        private static PanelTextField _loadingCard;
+
+        private static void ShowLoadingCard(PanelTabPage tab)
+        {
+            RectTransform container = tab.Descriptor.ContentParent;
+            if (_loadingCard != null && _loadingCard.transform.parent == container) return;
+            HideLoadingCard();
+            if (container.childCount > 0) return;
+            _loadingCard = PanelTextField.CreateNew(TextFieldStyles.Entry, container);
+            _loadingCard._inputField.gameObject.SetActive(false);
+            _loadingCard.Descriptor.SetTitle(BasisLocalization.Get("library.loading"));
+            _loadingCard.Descriptor.ForceRebuild();
+            tab.Descriptor.ForceRebuild();
+        }
+
+        private static void HideLoadingCard()
+        {
+            if (_loadingCard != null) UnityEngine.Object.Destroy(_loadingCard.gameObject);
+            _loadingCard = null;
+        }
+
         internal static void ClearTabContent(RectTransform container)
         {
             if (container == null) return;
+            if (_loadingCard != null && _loadingCard.transform.parent == container) _loadingCard = null;
             // Destroy all child gameobjects under the content parent
             for (int i = container.childCount - 1; i >= 0; i--)
             {
@@ -695,6 +717,7 @@ namespace Basis.BasisUI
             PanelTabPage tab = page == Page.Instantiated ? EnsureInstantiatedTab() : GetTabFromPage(page);
             //BasisDebug.Log($"RefreshTabAsync() was invoked -> for page = {page}, tab = {tab} _currentTab = {_currentTab}, ");
             if (tab == null) return;
+            if (page != Page.Instantiated) ShowLoadingCard(tab);
 
             // Ensure keys are loaded
             await BasisDataStoreItemKeys.LoadKeys();
@@ -704,10 +727,12 @@ namespace Basis.BasisUI
             if (!PanelAlive) return;
             if (!SyncFoldersTab() && page == Page.Folders)
             {
+                HideLoadingCard();
                 page = Page.Avatar;
                 tab = GetTabFromPage(page);
                 if (tab == null) return;
                 tabGroup.SetValue((int)page);
+                ShowLoadingCard(tab);
             }
 
             if(clearSearch)
@@ -862,6 +887,7 @@ namespace Basis.BasisUI
                 }
                 catch (Exception e)
                 {
+                    HideLoadingCard();
                     BasisDebug.LogError(e);
                 }
             }

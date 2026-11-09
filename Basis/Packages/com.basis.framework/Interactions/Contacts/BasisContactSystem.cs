@@ -130,6 +130,26 @@ namespace Basis.Scripts.Contacts
         }
 
         [BurstCompile]
+        public struct ReadBodyTransformsJob : IJobParallelForTransform
+        {
+            [ReadOnly] public NativeArray<byte> Assigned;
+            public byte ReadLocal, ReadRemote;
+            [WriteOnly] public NativeArray<float4x4> Matrices;
+            [WriteOnly] public NativeArray<byte> Valid;
+
+            public void Execute(int index, TransformAccess transform)
+            {
+                if (Assigned[index] == 0 || (index < BonesPerSlot ? ReadLocal : ReadRemote) == 0 || !transform.isValid)
+                {
+                    Valid[index] = 0;
+                    return;
+                }
+                Valid[index] = 1;
+                Matrices[index] = transform.localToWorldMatrix;
+            }
+        }
+
+        [BurstCompile]
         public struct BuildShapesJob : IJobParallelFor
         {
             [ReadOnly] public NativeArray<ShapeDesc> Descs;
@@ -549,8 +569,16 @@ namespace Basis.Scripts.Contacts
         private static NativeArray<Probe> nearProbes;
         private static NativeArray<float> nearGaps;
         private static JobHandle readHandle, evaluateHandle, nearHandle;
+        private static readonly HashSet<string> builtinTags = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            BasisContactTags.Head, BasisContactTags.Torso, BasisContactTags.Hand, BasisContactTags.HandLeft, BasisContactTags.HandRight, BasisContactTags.Finger,
+            BasisContactTags.FingerLeft, BasisContactTags.FingerRight, BasisContactTags.Foot, BasisContactTags.FootLeft, BasisContactTags.FootRight,
+        };
+        private static readonly List<BasisContactReceiver> worldProbeReceivers = new List<BasisContactReceiver>();
         private static bool scheduled, readPending, nearPending, active, layoutDirty, authoredDirty, builtHaptics;
-        private static int builtVersion = -1;
+        private static bool wantsSelfBody, wantsWorldOthersBody, wantsAvatarOthersBody, wantsAvatarOthers, hasRemoteAuthored, bodySelf, bodyOthers, relevantCached;
+        private static int builtVersion = -1, relevantVersion = -1;
+        private static BasisAvatar relevantAvatar;
         private static int nearCount, slotCapacity, authoredReceiverCount, hapticCount, unresolvedOwners;
         private static float nearRefreshAt, authoredRetryAt;
         private static GameObject dummyObject;
@@ -577,7 +605,7 @@ namespace Basis.Scripts.Contacts
                     }
                 }
                 bool haptics = BasisBodyHaptics.Enabled;
-                if (BasisContacts.Receivers.Count == 0 && !haptics)
+                if (!haptics && !HasRelevantReceivers())
                 {
                     if (active)
                     {
@@ -610,6 +638,9 @@ namespace Basis.Scripts.Contacts
                     authoredRetryAt = now + AuthoredRetrySeconds;
                     layoutDirty = true;
                 }
+                bool hapticOthers = haptics && BasisBodyHaptics.FromOthers;
+                bodySelf = (haptics && BasisBodyHaptics.FromSelf) || wantsSelfBody;
+                bodyOthers = hapticOthers || wantsWorldOthersBody || (wantsAvatarOthersBody && ContactsFromOthers);
                 if (now >= nearRefreshAt)
                 {
                     nearRefreshAt = now + NearRefreshSeconds;
@@ -617,7 +648,7 @@ namespace Basis.Scripts.Contacts
                     {
                         RefreshLocalSlot();
                         RefreshSlotBindings();
-                        ScheduleNear(haptics);
+                        ScheduleNear(hapticOthers);
                     }
                 }
                 if (layoutDirty)
@@ -678,15 +709,20 @@ namespace Basis.Scripts.Contacts
                 HapticsFromOthers = BasisBodyHaptics.FromOthers ? (byte)1 : (byte)0,
                 HapticsFromSelf = BasisBodyHaptics.FromSelf ? (byte)1 : (byte)0,
             };
-            JobHandle bodyRead = new ReadTransformsJob { Matrices = bodyMatrices, Valid = bodyValid }.ScheduleReadOnly(bodyAccess, 32);
-            JobHandle bodyBuild = new BuildShapesJob { Descs = bodyDescs, Matrices = bodyMatrices, Valid = bodyValid, Assigned = bodyAssigned, Shapes = bodyShapes }.Schedule(bodyDescs.Length, 16, bodyRead);
-            JobHandle read = bodyRead, build = bodyBuild;
+            bool readLocal = hapticCount > 0 || bodySelf, readRemote = bodyOthers && slotById.Count > (slots[0].Used ? 1 : 0);
+            JobHandle read = default, build = default;
+            if (readLocal || readRemote)
+            {
+                int descCount = readRemote ? bodyDescs.Length : BodyShapeIndex(1, 0);
+                read = new ReadBodyTransformsJob { Assigned = bodyAssigned, ReadLocal = readLocal ? (byte)1 : (byte)0, ReadRemote = readRemote ? (byte)1 : (byte)0, Matrices = bodyMatrices, Valid = bodyValid }.ScheduleReadOnly(bodyAccess, 32);
+                build = new BuildShapesJob { Descs = bodyDescs, Matrices = bodyMatrices, Valid = bodyValid, Assigned = bodyAssigned, Shapes = bodyShapes }.Schedule(descCount, 16, read);
+            }
             if (authoredTransforms.Count > 0)
             {
                 JobHandle authoredRead = new ReadTransformsJob { Matrices = authoredMatrices, Valid = authoredValid }.ScheduleReadOnly(authoredAccess, 32);
                 JobHandle authoredBuild = new BuildShapesJob { Descs = nativeAuthoredDescs, Matrices = authoredMatrices, Valid = authoredValid, Assigned = authoredValid, Shapes = authoredShapes }.Schedule(authoredDescs.Count, 16, authoredRead);
-                read = JobHandle.CombineDependencies(bodyRead, authoredRead);
-                build = JobHandle.CombineDependencies(bodyBuild, authoredBuild);
+                read = JobHandle.CombineDependencies(read, authoredRead);
+                build = JobHandle.CombineDependencies(build, authoredBuild);
             }
             JobHandle bound = new GroupBoundsJob { Groups = nativeGroups, Senders = nativeSenders, BodyShapes = bodyShapes, AuthoredShapes = authoredShapes, Bounds = bounds }.Schedule(groupList.Count, 8, build);
             evaluateHandle = new EvaluateJob
@@ -812,19 +848,18 @@ namespace Basis.Scripts.Contacts
             }
         }
 
-        private static void ScheduleNear(bool haptics)
+        private static void ScheduleNear(bool hapticOthers)
         {
             probeList.Clear();
             Slot local = slots[0];
-            if (local.Used && local.Hips != null && (haptics || HasLocalAvatarReceivers(local.Avatar)))
+            if (local.Used && local.Hips != null && (hapticOthers || (ContactsFromOthers && (wantsAvatarOthersBody || (wantsAvatarOthers && hasRemoteAuthored)))))
             {
                 probeList.Add(new Probe { Center = local.Hips.position, Radius = BasisPlayerInteract.AvatarScaledRange(NearRadius) });
             }
-            List<BasisContactReceiver> receivers = BasisContacts.Receivers;
-            for (int index = 0; index < receivers.Count; index++)
+            for (int index = 0; index < worldProbeReceivers.Count; index++)
             {
-                BasisContactReceiver receiver = receivers[index];
-                if (receiver == null || receiver.OwnerAvatar != null || !receiver.allowOthers || !receiver.isActiveAndEnabled)
+                BasisContactReceiver receiver = worldProbeReceivers[index];
+                if (receiver == null || !receiver.isActiveAndEnabled)
                 {
                     continue;
                 }
@@ -878,21 +913,55 @@ namespace Basis.Scripts.Contacts
             nearPending = true;
         }
 
-        private static bool HasLocalAvatarReceivers(BasisAvatar avatar)
+        private static bool HasRelevantReceivers()
         {
-            if (avatar == null)
+            List<BasisContactReceiver> receivers = BasisContacts.Receivers;
+            if (receivers.Count == 0)
             {
                 return false;
             }
-            List<BasisContactReceiver> receivers = BasisContacts.Receivers;
+            BasisLocalPlayer local = BasisLocalPlayer.Instance;
+            BasisAvatar avatar = local != null && !local.IsDestroyed ? local.BasisAvatar : null;
+            if (relevantVersion == BasisContacts.Version && ReferenceEquals(relevantAvatar, avatar))
+            {
+                return relevantCached;
+            }
+            relevantVersion = BasisContacts.Version;
+            relevantAvatar = avatar;
+            relevantCached = false;
             for (int index = 0; index < receivers.Count; index++)
             {
-                if (receivers[index] != null && receivers[index].OwnerAvatar == avatar)
+                BasisContactReceiver receiver = receivers[index];
+                if (receiver != null && (receiver.OwnerAvatar == null || receiver.OwnerAvatar == avatar))
+                {
+                    relevantCached = true;
+                    break;
+                }
+            }
+            return relevantCached;
+        }
+
+        private static bool AcceptsBody(string[] tags)
+        {
+            if (tags == null)
+            {
+                return true;
+            }
+            int count = 0;
+            for (int index = 0; index < tags.Length && count < BasisContacts.MaxTagsPerComponent; index++)
+            {
+                string tag = tags[index];
+                if (string.IsNullOrWhiteSpace(tag))
+                {
+                    continue;
+                }
+                if (builtinTags.Contains(tag.Trim()))
                 {
                     return true;
                 }
+                count++;
             }
-            return false;
+            return count == 0;
         }
 
         private static void ApplyNear()
@@ -1108,7 +1177,7 @@ namespace Basis.Scripts.Contacts
             {
                 Slot slot = slots[index];
                 Group group = nativeGroups[index];
-                group.Count = slot.Used ? ShapesPerSlot : 0;
+                group.Count = slot.Used && (index == 0 ? bodySelf : bodyOthers) ? ShapesPerSlot : 0;
                 group.OwnerId = slot.Used ? slot.Id : WorldOwner;
                 nativeGroups[index] = group;
                 if (!slot.Used)
@@ -1301,6 +1370,8 @@ namespace Basis.Scripts.Contacts
             }
             sendersByOwner.Clear();
             unresolvedOwners = 0;
+            worldProbeReceivers.Clear();
+            wantsSelfBody = wantsWorldOthersBody = wantsAvatarOthersBody = wantsAvatarOthers = hasRemoteAuthored = false;
             BasisLocalPlayer local = BasisLocalPlayer.Instance;
             BasisAvatar localAvatar = local != null && !local.IsDestroyed ? local.BasisAvatar : null;
             int localId = LocalId();
@@ -1344,6 +1415,7 @@ namespace Basis.Scripts.Contacts
                 if (authoredSenders.Count > start)
                 {
                     authoredGroups.Add(new AuthoredGroup { OwnerId = pair.Key, Start = start, Count = authoredSenders.Count - start });
+                    hasRemoteAuthored |= pair.Key != WorldOwner && pair.Key != localId;
                 }
             }
 
@@ -1372,6 +1444,24 @@ namespace Basis.Scripts.Contacts
                 if (receiver.allowSelf) flags |= ReceiverAllowSelf;
                 if (receiver.allowOthers) flags |= ReceiverAllowOthers;
                 if (receiver.allowWorld) flags |= ReceiverAllowWorld;
+                bool body = AcceptsBody(receiver.tags), onAvatar = (flags & ReceiverOnAvatar) != 0;
+                wantsSelfBody |= receiver.allowSelf && body;
+                if (receiver.allowOthers)
+                {
+                    if (onAvatar)
+                    {
+                        wantsAvatarOthers = true;
+                        wantsAvatarOthersBody |= body;
+                    }
+                    else
+                    {
+                        wantsWorldOthersBody |= body;
+                        if (body || hasRemoteAuthored)
+                        {
+                            worldProbeReceivers.Add(receiver);
+                        }
+                    }
+                }
                 int tagOffset = authoredTags.Count;
                 int tagCount = AddTags(receiver.tags);
                 receiverList.Add(new ReceiverMeta { Shape = shape, Source = SourceAuthored, Flags = flags, TagOffset = tagOffset, TagCount = tagCount });
@@ -1655,6 +1745,8 @@ namespace Basis.Scripts.Contacts
             pulseUntil.Clear();
             candidates.Clear();
             probeList.Clear();
+            worldProbeReceivers.Clear();
+            wantsSelfBody = wantsWorldOthersBody = wantsAvatarOthersBody = wantsAvatarOthers = hasRemoteAuthored = bodySelf = bodyOthers = false;
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -1668,6 +1760,9 @@ namespace Basis.Scripts.Contacts
             nearHandle = default;
             nearRefreshAt = 0f;
             authoredRetryAt = 0f;
+            relevantVersion = -1;
+            relevantAvatar = null;
+            relevantCached = false;
         }
     }
 }

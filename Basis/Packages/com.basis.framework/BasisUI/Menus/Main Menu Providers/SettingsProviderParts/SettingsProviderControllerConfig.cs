@@ -104,7 +104,7 @@ public static class SettingsProviderControllerConfig
             container, BasisLocalization.Get("settings.controls.actionBindings.title"),
             BasisLocalization.Get("settings.controls.actionBindings.description"), group =>
         {
-            BuildBindingsUI(group.ContentParent);
+            BuildBindingsUI(group);
         });
 
         // Grid Snap (placement snapping for held objects)
@@ -548,8 +548,9 @@ public static class SettingsProviderControllerConfig
             binding);
         slider.Descriptor.SetTooltip(BasisLocalization.Get(localizationKey + ".tooltip"));
     }
-    private static void BuildBindingsUI(RectTransform container)
+    private static void BuildBindingsUI(PanelElementDescriptor section)
     {
+        RectTransform container = section.ContentParent;
         var roles = (BasisBoneTrackedRole[])Enum.GetValues(typeof(BasisBoneTrackedRole));
         var roleNames = roles.Select(BodyRoleLabel).ToArray();
 
@@ -577,7 +578,6 @@ public static class SettingsProviderControllerConfig
         }
 
         var selectorGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-        selectorGroup.SetDescription(BasisLocalization.Get("settings.controls.actionBindings.description"));
 
         PanelDropdown modeDropdown = PanelDropdown.CreateNewEntry(selectorGroup.ContentParent);
         modeDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.platform.deviceMode"));
@@ -629,7 +629,27 @@ public static class SettingsProviderControllerConfig
             }
             editMode = mode;
             detached = loaded;
+            int modeIndex = modes.IndexOf(mode);
+            string modeLabel = modeIndex >= 0 ? modeLabels[modeIndex] : mode;
+            selectorGroup.SetDescription(detached != null ? BasisLocalization.Get("settings.controls.actionBindings.otherMode", modeLabel) : null);
             RefreshRoleToggles();
+        }
+
+        // What the selected action is bound to, readable without scrolling the whole role list.
+        void RefreshSummary()
+        {
+            var bound = new List<string>();
+            for (int i = 0; i < roles.Length; i++)
+            {
+                if (roleToggles[i] != null && roleToggles[i].Value)
+                {
+                    bound.Add(roleNames[i]);
+                }
+            }
+            rolesGroup.SetDescription(bound.Count > 0
+                ? BasisLocalization.Get("settings.controls.roles.boundTo", string.Join(", ", bound))
+                : BasisLocalization.Get("settings.controls.roles.none"));
+            section.ForceRebuild();
         }
 
         void RefreshRoleToggles()
@@ -643,6 +663,7 @@ public static class SettingsProviderControllerConfig
                 roleToggles[i].SetValueWithoutNotify(bound);
             }
             updatingUI = false;
+            RefreshSummary();
         }
 
         for (int i = 0; i < roles.Length; i++)
@@ -660,6 +681,7 @@ public static class SettingsProviderControllerConfig
                     return;
                 }
 
+                RefreshSummary();
                 string mode = editMode;
                 var map = detached;
                 if (map == null)

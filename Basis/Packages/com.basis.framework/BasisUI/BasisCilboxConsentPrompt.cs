@@ -71,6 +71,8 @@ namespace Basis.BasisUI
                 answered = true;
                 onAnswer?.Invoke(Answer.AllowAndRemember);
             });
+            BasisPromptArming.Arm(panel.AcceptButton);
+            BasisPromptArming.Arm(panel.AlternateButton);
             panel.ShowDetails(Rows(lines, false));
             PanelButton moreInfo = null;
             moreInfo = panel.AddOption(BasisLocalization.Get("settings.cilboxPermissions.prompt.moreInfo"), () =>

@@ -391,6 +391,12 @@ namespace Basis.Scripts.Drivers
             }
             if (CameraInstance.stereoEnabled)
             {
+                if (HasEyeLocalOffsets)
+                {
+                    CameraInstance.transform.GetPositionAndRotation(out Vector3 position, out Quaternion rotation);
+                    TryGetEyeWorldPosition(eye, position, rotation, out Vector3 eyePosition);
+                    return eyePosition;
+                }
                 return CameraInstance.GetStereoViewMatrix(eye).inverse.MultiplyPoint(Vector3.zero);
             }
             return SelfTransform.position;
@@ -912,10 +918,60 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         private void EndCameraRendering(ScriptableRenderContext context, Camera renderingCamera)
         {
-            if (ReferenceEquals(renderingCamera, CameraInstance) && BasisLocalAvatarDriver.Mapping.Hashead)
+            if (!ReferenceEquals(renderingCamera, CameraInstance)) return;
+            CaptureEyeLocalOffsets();
+            if (BasisLocalAvatarDriver.Mapping.Hashead)
             {
                 BasisLocalAvatarDriver.ScaleHeadToNormal();
             }
+        }
+
+        private static bool HasEyeLocalOffsets;
+        private static Vector3 LeftEyeLocalOffset;
+        private static Vector3 RightEyeLocalOffset;
+
+        /// <summary>
+        /// URP writes the stereo view matrices only inside the main camera render, so reading them before
+        /// the render (onBeforeRender, mirrors, gaze) returns LAST frame's eyes. Storing them relative to the
+        /// camera pose (rotation only, no scale) lets <see cref="EyeWorldPosition"/> rebuild them from this frame's pose.
+        /// </summary>
+        private static void CaptureEyeLocalOffsets()
+        {
+            Camera camera = CameraInstance;
+            if (camera == null || !camera.stereoEnabled) return;
+            if (camera.GetStereoProjectionMatrix(Camera.StereoscopicEye.Left).m33 != 0f) return;
+            camera.transform.GetPositionAndRotation(out Vector3 position, out Quaternion rotation);
+            Quaternion inverse = Quaternion.Inverse(rotation);
+            Vector3 left = inverse * (RigidViewOrigin(camera.GetStereoViewMatrix(Camera.StereoscopicEye.Left)) - position);
+            Vector3 right = inverse * (RigidViewOrigin(camera.GetStereoViewMatrix(Camera.StereoscopicEye.Right)) - position);
+            if (!float.IsFinite(left.x + left.y + left.z + right.x + right.y + right.z)) return;
+            LeftEyeLocalOffset = left;
+            RightEyeLocalOffset = right;
+            HasEyeLocalOffsets = true;
+        }
+
+        /// <summary>World origin of a rigid view matrix (-R^T t), without a general 4x4 inverse.</summary>
+        private static Vector3 RigidViewOrigin(in UnityEngine.Matrix4x4 v)
+        {
+            return new Vector3(
+                -(v.m00 * v.m03 + v.m10 * v.m13 + v.m20 * v.m23),
+                -(v.m01 * v.m03 + v.m11 * v.m13 + v.m21 * v.m23),
+                -(v.m02 * v.m03 + v.m12 * v.m13 + v.m22 * v.m23));
+        }
+
+        /// <summary>
+        /// Current-frame eye position for a camera pose the caller already read, so per-eye users (mirrors)
+        /// pay no extra transform or matrix reads. False until the first stereo render has been captured.
+        /// </summary>
+        public static bool TryGetEyeWorldPosition(Camera.StereoscopicEye eye, Vector3 cameraPosition, Quaternion cameraRotation, out Vector3 eyePosition)
+        {
+            if (!HasEyeLocalOffsets)
+            {
+                eyePosition = cameraPosition;
+                return false;
+            }
+            eyePosition = cameraPosition + cameraRotation * (eye == Camera.StereoscopicEye.Left ? LeftEyeLocalOffset : RightEyeLocalOffset);
+            return true;
         }
         /// <summary>
         /// URP callback before camera render: sets the local head's visibility for the main

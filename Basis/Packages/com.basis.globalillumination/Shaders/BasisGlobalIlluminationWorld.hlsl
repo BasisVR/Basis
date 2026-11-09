@@ -66,6 +66,23 @@ bool BasisGIWorldBlocked(float3 positionWS, int level)
     return _BasisGIVoxAlbedo.Load(int4(voxel, 0)).a > 0.5;
 }
 
+SamplerState sampler_basisgi_world_linear_clamp;
+
+/// <summary>How open the space at a point is, from the filtered voxel occupancy rather than one voxel.
+/// A single voxel lookup switched a probe fully on or off as the point stepped from voxel to voxel,
+/// and every surface sampling the probes showed that as a grid of blocks.</summary>
+float BasisGIWorldOpen(float3 positionWS, int level)
+{
+    float4 box = _BasisGIWorldLevel[level];
+    float voxels = _BasisGIWorldParams.y;
+    float3 local = (positionWS - box.xyz) / box.w;
+    if (any(local < 0.0) || any(local >= voxels)) { return 1.0; }
+    local = clamp(local, 0.5, voxels - 0.5);
+    local.z += level * voxels;
+    float occupancy = _BasisGIVoxAlbedo.SampleLevel(sampler_basisgi_world_linear_clamp, local / float3(voxels, voxels, voxels * BasisGIWorldLevels()), 0).a;
+    return saturate((0.6 - occupancy) * 5.0);
+}
+
 struct BasisGIWorldSH
 {
     float4 c0;
@@ -104,11 +121,10 @@ BasisGIWorldSH BasisGIWorldSampleSH(float3 positionWS, int level)
         float weight = trilinear.x * trilinear.y * trilinear.z * c0.a;
         if (weight <= 1e-5) { continue; }
         float3 probeWS = ((float3)probe + 0.5) * spacing;
-        if (BasisGIWorldBlocked((positionWS + probeWS) * 0.5, level))
-        {
-            anyHidden = true;
-            continue;
-        }
+        float open = BasisGIWorldOpen((positionWS + probeWS) * 0.5, level);
+        if (open < 1.0) { anyHidden = true; }
+        weight *= open;
+        if (weight <= 1e-5) { continue; }
         sh.c0 += float4(c0.rgb, 1.0) * weight;
         sh.cx += LOAD_TEXTURE3D(_BasisGIWorldSH1, slot).rgb * weight;
         sh.cy += LOAD_TEXTURE3D(_BasisGIWorldSH2, slot).rgb * weight;

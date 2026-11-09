@@ -304,6 +304,10 @@ public static partial class BasisSceneFactory
     /// Fired after the player has been spawned into the scene.
     /// </summary>
     public static Action OnSpawnedEvent;
+    /// <summary>
+    /// Fired when the player asks to respawn from the menu, before the respawn runs.
+    /// </summary>
+    public static Action OnUserRespawn;
     public delegate bool SpawnResolver(BasisScene scene, bool respawn, out Vector3 position, out Quaternion rotation);
     [NoAutoStaticsCleanup] public static SpawnResolver ScriptedSpawn;
     public static void SpawnPlayer(BasisLocalPlayer localPlayer) => SpawnPlayer(localPlayer, false);

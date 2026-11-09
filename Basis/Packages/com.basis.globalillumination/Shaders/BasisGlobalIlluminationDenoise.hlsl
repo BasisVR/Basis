@@ -6,6 +6,11 @@
 
 float4 _BasisGIBlurAxis;
 
+/// The most light a surface may hand back into the next bounce, per channel, as a share of the light that
+/// arrived on it. Under one the feedback converges; Intensity and Saturation above one used to push it past,
+/// and the bounce grew until it sat on the clamps.
+#define BASISGI_BOUNCE_LOOP_GAIN 0.85
+
 struct BasisGITemporalOutput
 {
     float4 indirect : SV_Target0;
@@ -17,10 +22,25 @@ float BasisGIWorldChangeAt(float3 positionWS)
     if (!BasisGIWorldValid()) { return 0.0; }
     int level = BasisGIWorldLevelAt(positionWS, 1.0);
     if (level < 0) { return 0.0; }
+    // Blended across the eight surrounding probes like the lighting itself. Reading only the nearest probe
+    // reset the history over a whole probe cell with hard edges, and that box was what lit up.
     int probes = (int)_BasisGIWorldParams.z;
-    int3 slot = BasisGIWorldWrap((int3)floor(positionWS / (_BasisGIWorldLevel[level].w * 2.0)), probes);
-    slot.z += (int)(_BasisGIWorldSHParams.x * _BasisGIWorldSHParams.y) + level * probes;
-    return LOAD_TEXTURE3D(_BasisGIWorldSH1, slot).a;
+    float spacing = _BasisGIWorldLevel[level].w * 2.0;
+    float3 grid = positionWS / spacing - 0.5;
+    int3 cell = (int3)floor(grid);
+    float3 fraction = grid - (float3)cell;
+    int slab = (int)(_BasisGIWorldSHParams.x * _BasisGIWorldSHParams.y) + level * probes;
+    float change = 0.0;
+    UNITY_UNROLL
+    for (int index = 0; index < 8; index++)
+    {
+        int3 offset = int3(index & 1, (index >> 1) & 1, index >> 2);
+        int3 slot = BasisGIWorldWrap(cell + offset, probes);
+        slot.z += slab;
+        float3 trilinear = lerp(1.0 - fraction, fraction, (float3)offset);
+        change += LOAD_TEXTURE3D(_BasisGIWorldSH1, slot).a * trilinear.x * trilinear.y * trilinear.z;
+    }
+    return change;
 }
 
 float4 BasisGILoadIndirect(float2 uv)
@@ -482,8 +502,8 @@ float3 BasisGIBounceCopy(float2 uv)
     float settledDepth = BasisGILoadHistoryStats(previousUv).r;
     if (settledDepth <= 0.0 || abs(settledDepth - eyeDepth) / max(eyeDepth, BASISGI_EPSILON) > BASISGI_DEPTH_REJECTION) { return colour; }
 
-    float3 bounce = max(0.0, BasisGILoadHistory(previousUv).rgb);
-    bounce = max(0.0, lerp(Luminance(bounce).xxx, bounce, BASISGI_SATURATION)) * _BasisGITint.rgb * BASISGI_INTENSITY;
+    float3 arriving = max(0.0, BasisGILoadHistory(previousUv).rgb);
+    float3 bounce = max(0.0, lerp(Luminance(arriving).xxx, arriving, BASISGI_SATURATION)) * _BasisGITint.rgb * BASISGI_INTENSITY;
 #if defined(_BASISGI_LIGHTMAP_MASK)
     float mask = SAMPLE_TEXTURE2D_X_LOD(_BasisGILightmapMask, sampler_BasisGILightmapMask, UnityStereoTransformScreenSpaceTex(uv), 0).r;
     bounce *= lerp(_BasisGILightmapParams.x, 1.0, mask);
@@ -492,6 +512,7 @@ float3 BasisGIBounceCopy(float2 uv)
     if (_BasisGISurfaceValid > 0.5)
     {
         float4 surface = SAMPLE_TEXTURE2D_X_LOD(_BasisGISurface, sampler_PointClamp, UnityStereoTransformScreenSpaceTex(uv), 0);
+        bounce = min(bounce, BASISGI_BOUNCE_LOOP_GAIN * arriving / max(surface.rgb, 1.0 / 255.0));
         return colour * (1.0 + Luminance(bounce) * surface.a) + bounce * surface.rgb * (1.0 - surface.a);
     }
     colour *= 1.0 + bounce;

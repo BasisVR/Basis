@@ -83,6 +83,28 @@ namespace Basis.BasisUI
 
         public override void RequestReset() => OnResetRequested?.Invoke();
 
+        /// <summary>
+        /// Writes the default straight in for a section or page reset that has already asked.
+        /// Without it a section reset reaches this button and does nothing.
+        /// </summary>
+        public Action OnApplyResetToDefault;
+
+        public override void ApplyResetToDefault() => OnApplyResetToDefault?.Invoke();
+
+        public delegate bool SettingChangeDescriber(out string label, out string currentText, out string defaultText);
+
+        /// <summary>Lets a reset dialogue list what this button would put back.</summary>
+        public SettingChangeDescriber DescribeSettingChange;
+
+        public override bool TryDescribeSettingChange(out string label, out string currentText, out string defaultText)
+        {
+            if (DescribeSettingChange != null)
+            {
+                return DescribeSettingChange(out label, out currentText, out defaultText);
+            }
+            return base.TryDescribeSettingChange(out label, out currentText, out defaultText);
+        }
+
 
         public static PanelButton CreateNew(Component parent)
             => CreateNew<PanelButton>(ButtonStyles.Default, parent);

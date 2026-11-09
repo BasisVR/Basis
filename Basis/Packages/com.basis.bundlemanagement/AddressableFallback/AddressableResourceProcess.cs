@@ -9,7 +9,7 @@ namespace Basis.Scripts.Addressable_Driver.Resource
 {
     public static class AddressableResourceProcess
     {
-        public static async Task<GameObject> LoadAsGameObjectsAsync(GameObject TempSpawnDisableGameobject,string loadstring,InstantiationParameters instantiationParameters, ChecksRequired Required, Selector Selector, List<BasisHeadChop.HeadChopTarget> HarvestedHeadChop = null)
+        public static async Task<GameObject> LoadAsGameObjectsAsync(GameObject TempSpawnDisableGameobject,string loadstring,InstantiationParameters instantiationParameters, ChecksRequired Required, Selector Selector, List<BasisHeadChop.HeadChopTarget> HarvestedHeadChop = null, int RendererLayer = -1)
         {
             UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<GameObject> data = Addressables.LoadAssetAsync<GameObject>(loadstring);
 
@@ -17,7 +17,7 @@ namespace Basis.Scripts.Addressable_Driver.Resource
 
             if (result is GameObject resource)
             {
-                GameObject spawned = ContentPoliceControl.ContentControl(TempSpawnDisableGameobject, resource, Required, instantiationParameters.Position, instantiationParameters.Rotation, false, Vector3.zero, Selector, instantiationParameters.Parent, LayerMask.NameToLayer("IgnoredByInteractable"), HarvestedHeadChop);
+                GameObject spawned = ContentPoliceControl.ContentControl(TempSpawnDisableGameobject, resource, Required, instantiationParameters.Position, instantiationParameters.Rotation, false, Vector3.zero, Selector, instantiationParameters.Parent, LayerMask.NameToLayer("IgnoredByInteractable"), HarvestedHeadChop, null, null, RendererLayer);
                 return spawned;
             }
 

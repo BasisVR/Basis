@@ -809,6 +809,7 @@ public partial class BasisSDKMirror : MonoBehaviour
     {
         return rotation * pointLocal + position;
     }
+    [BeforeRenderOrder(int.MaxValue - 1)]
     private void OnBeforeRender()
     {
         UpdatePersonalMirrorPlayspace();
@@ -1030,7 +1031,10 @@ public partial class BasisSDKMirror : MonoBehaviour
         else
         {
             var e = (StereoscopicEye)eye;
-            eyeOriginWS = sourceCamera.GetStereoViewMatrix(e).inverse.MultiplyPoint(Vector3.zero);
+            // GetStereoViewMatrix still holds last frame's eyes here (URP writes it inside the main render).
+            if (!ReferenceEquals(sourceCamera, BasisLocalCameraDriver.CameraInstance)
+                || !BasisLocalCameraDriver.TryGetEyeWorldPosition(e, srcPos, srcRot, out eyeOriginWS))
+                eyeOriginWS = sourceCamera.GetStereoViewMatrix(e).inverse.MultiplyPoint(Vector3.zero);
             proj = sourceCamera.GetStereoProjectionMatrix(e);
             // Stereo projections are identity for the first frames until the XR display subsystem
             // is up (documented Unity behavior); a real perspective matrix always has m33 == 0.

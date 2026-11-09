@@ -21061,6 +21061,42 @@
       "value": "({0} is already in use)"
     },
     {
+      "key": "settings.controls.keyboard.keyInUseBy",
+      "value": "({0} is already used by {1})"
+    },
+    {
+      "key": "settings.controls.keyboard.row.tooltip",
+      "value": "Click, then press the new key. Escape or a second click cancels."
+    },
+    {
+      "key": "settings.controls.keyboard.resetKey.body",
+      "value": "Set {0} back to {1}?"
+    },
+    {
+      "key": "settings.controls.keyboard.resetAll",
+      "value": "Reset All Keys"
+    },
+    {
+      "key": "settings.controls.keyboard.resetAll.tooltip",
+      "value": "Put every key back to its default."
+    },
+    {
+      "key": "settings.controls.keyboard.resetAll.none",
+      "value": "Every key is already at its default."
+    },
+    {
+      "key": "settings.controls.roles.boundTo",
+      "value": "Bound to: {0}"
+    },
+    {
+      "key": "settings.controls.roles.none",
+      "value": "Not bound to any role."
+    },
+    {
+      "key": "settings.controls.actionBindings.otherMode",
+      "value": "Editing {0}. Changes are saved now and used the next time that mode starts."
+    },
+    {
       "key": "ui.bodyRole.centerEye",
       "value": "Center Eye"
     },
@@ -22303,6 +22339,38 @@
     {
       "key": "serverRequests.prompt.server",
       "value": "Server"
+    },
+    {
+      "key": "playerLocks.title",
+      "value": "Allow Lock?"
+    },
+    {
+      "key": "playerLocks.body",
+      "value": "\"{0}\" ({1}) from {2} wants to lock your {3}. You can break free any time by respawning from the menu."
+    },
+    {
+      "key": "playerLocks.accept",
+      "value": "Allow"
+    },
+    {
+      "key": "playerLocks.kind.avatar",
+      "value": "Avatar"
+    },
+    {
+      "key": "playerLocks.movement",
+      "value": "movement"
+    },
+    {
+      "key": "playerLocks.look",
+      "value": "view"
+    },
+    {
+      "key": "playerLocks.crouch",
+      "value": "crouching"
+    },
+    {
+      "key": "prompt.armWait",
+      "value": "Read this first. This button turns on in a moment."
     },
     {
       "key": "settings.general.externalLinkRequests",

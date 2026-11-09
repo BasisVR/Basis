@@ -21,6 +21,7 @@ namespace Basis.BasisUI
         {
             if (BasisLocalPlayer.Instance)
             {
+                BasisSceneFactory.OnUserRespawn?.Invoke();
                 BasisSceneFactory.RespawnPlayer(BasisLocalPlayer.Instance);
                 BasisMainMenu.Close();
             }

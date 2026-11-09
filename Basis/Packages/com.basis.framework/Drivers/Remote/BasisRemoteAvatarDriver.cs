@@ -246,7 +246,7 @@ namespace Basis.Scripts.Drivers
             using (BasisAvatarMarkers.CalibrateRenderers.Auto())
             {
                 // Renderer perf flags
-                RemoteRenderMeshSettings(BasisLayerMapper.RemoteAvatarLayer, SkinnedMeshRendererLength, SkinnedMeshRenderer);
+                RemoteRenderMeshSettings(SkinnedMeshRendererLength, SkinnedMeshRenderer);
                 // Seed the skin LOD for the distance this avatar loaded at — ChangeMeshLOD is only
                 // edge-triggered on LOD boundary crossings, so a reload at a stable distance never
                 // reaches these fresh renderers.

@@ -42,6 +42,40 @@ VoxelVaryings VoxelVert(VoxelAttributes input)
     return output;
 }
 
+/// <summary>Where a vertex lands when its triangle is drawn down one axis of the level box: the same
+/// projection VoxelAxisMatrix builds on the CPU, picked per triangle instead of per draw.</summary>
+float4 BasisGIVoxelProject(float3 positionWS, int axis)
+{
+    float half = _BasisGIVoxLevel.w * _BasisGIVoxParams.x * 0.5;
+    float3 local = (positionWS - (_BasisGIVoxLevel.xyz + half)) / half;
+    float2 flat = axis == 0 ? local.zy : (axis == 1 ? local.xz : local.xy);
+    return float4(flat, 0.5, 1.0);
+}
+
+/// <summary>The axis a triangle covers the most pixels down. Drawing every triangle down all three axes
+/// was three passes over the whole scene; drawing each down the one it faces covers the same voxels in
+/// one.</summary>
+int BasisGIVoxelAxis(float3 a, float3 b, float3 c)
+{
+    float3 facing = abs(cross(b - a, c - a));
+    return facing.x >= facing.y && facing.x >= facing.z ? 0 : (facing.y >= facing.z ? 1 : 2);
+}
+
+#if defined(BASISGI_VOXEL_GEOMETRY)
+[maxvertexcount(3)]
+void VoxelGeom(triangle VoxelVaryings input[3], inout TriangleStream<VoxelVaryings> stream)
+{
+    int axis = BasisGIVoxelAxis(input[0].positionWS, input[1].positionWS, input[2].positionWS);
+    UNITY_UNROLL
+    for (int corner = 0; corner < 3; corner++)
+    {
+        VoxelVaryings output = input[corner];
+        output.positionCS = BasisGIVoxelProject(output.positionWS, axis);
+        stream.Append(output);
+    }
+}
+#endif
+
 #define BASISGI_VOXEL_UNSEEN_ALBEDO 0.5
 
 float VoxelFrag(VoxelVaryings input) : SV_Target
@@ -86,6 +120,21 @@ VoxelEmissionVaryings VoxelEmissionVert(VoxelEmissionAttributes input)
     output.uv = input.uv;
     return output;
 }
+
+#if defined(BASISGI_VOXEL_GEOMETRY)
+[maxvertexcount(3)]
+void VoxelEmissionGeom(triangle VoxelEmissionVaryings input[3], inout TriangleStream<VoxelEmissionVaryings> stream)
+{
+    int axis = BasisGIVoxelAxis(input[0].positionWS, input[1].positionWS, input[2].positionWS);
+    UNITY_UNROLL
+    for (int corner = 0; corner < 3; corner++)
+    {
+        VoxelEmissionVaryings output = input[corner];
+        output.positionCS = BasisGIVoxelProject(output.positionWS, axis);
+        stream.Append(output);
+    }
+}
+#endif
 
 float VoxelEmissionFrag(VoxelEmissionVaryings input) : SV_Target
 {

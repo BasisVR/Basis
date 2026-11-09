@@ -5,6 +5,7 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Jobs;
 using static Basis.Scripts.Contacts.BasisContactSystem;
 
 namespace Basis.Tests.Contacts
@@ -354,6 +355,41 @@ namespace Basis.Tests.Contacts
             descs[0] = new ShapeDesc { Kind = 2, T0 = 0, T1 = -1, T2 = -1, T3 = -1, T4 = -1, ScaleHead = -1, ScaleHips = -1, Radius = 0.1f };
             new BuildShapesJob { Descs = descs, Matrices = matrices, Valid = valid, Assigned = valid, Shapes = shapes }.Run(1);
             Assert.Less(shapes[0].Radius, 0f);
+        }
+
+        [Test]
+        public void ReadBodyTransforms_SkipsUnassignedAndUnwantedSides()
+        {
+            int count = BonesPerSlot * 2;
+            GameObject root = new GameObject("ContactsReadTest");
+            try
+            {
+                Transform[] bones = new Transform[count];
+                for (int i = 0; i < count; i++)
+                {
+                    bones[i] = new GameObject("Bone" + i).transform;
+                    bones[i].SetParent(root.transform);
+                    bones[i].position = new Vector3(i, 0, 0);
+                }
+                var access = Track(new TransformAccessArray(bones));
+                var assigned = Track(new NativeArray<byte>(count, Allocator.TempJob));
+                var matrices = Track(new NativeArray<float4x4>(count, Allocator.TempJob));
+                var valid = Track(new NativeArray<byte>(count, Allocator.TempJob));
+                for (int i = 0; i < count; i++) assigned[i] = i == 1 ? (byte)0 : (byte)1;
+                new ReadBodyTransformsJob { Assigned = assigned, ReadLocal = 1, ReadRemote = 0, Matrices = matrices, Valid = valid }.ScheduleReadOnly(access, 8).Complete();
+                Assert.AreEqual(1, valid[0]);
+                Assert.AreEqual(0, valid[1]);
+                Assert.AreEqual(0, valid[BonesPerSlot]);
+                Assert.AreEqual(0f, matrices[0].c3.x, Tolerance);
+                new ReadBodyTransformsJob { Assigned = assigned, ReadLocal = 0, ReadRemote = 1, Matrices = matrices, Valid = valid }.ScheduleReadOnly(access, 8).Complete();
+                Assert.AreEqual(0, valid[0]);
+                Assert.AreEqual(1, valid[BonesPerSlot]);
+                Assert.AreEqual(BonesPerSlot, matrices[BonesPerSlot].c3.x, Tolerance);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
         }
 
         [Test]

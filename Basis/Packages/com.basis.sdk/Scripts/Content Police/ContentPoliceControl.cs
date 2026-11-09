@@ -178,9 +178,9 @@ public static partial class ContentPoliceControl
     /// <param name="Rotation">The rotation to instantiate the cleaned copy.</param>
     /// <param name="Parent">The parent transform for the instantiated copy. Defaults to null.</param>
     /// <returns>A copy of the GameObject with unapproved scripts removed.</returns>
-    public static GameObject ContentControl(GameObject DisabledGameobject, GameObject SearchAndDestroy, ChecksRequired ChecksRequired, Vector3 Position, Quaternion Rotation, bool ModifyScale, Vector3 Scale, BundledContentHolder.Selector Selector, Transform Parent = null,int colliderlayer = -1, List<BasisHeadChop.HeadChopTarget> HarvestedHeadChop = null, BasisContentHarvest harvest = null, GraphicsStateCollection contentGraphicsStates = null)
+    public static GameObject ContentControl(GameObject DisabledGameobject, GameObject SearchAndDestroy, ChecksRequired ChecksRequired, Vector3 Position, Quaternion Rotation, bool ModifyScale, Vector3 Scale, BundledContentHolder.Selector Selector, Transform Parent = null,int colliderlayer = -1, List<BasisHeadChop.HeadChopTarget> HarvestedHeadChop = null, BasisContentHarvest harvest = null, GraphicsStateCollection contentGraphicsStates = null, int rendererLayer = -1)
     {
-        ContentControlState state = BeginContentControl(DisabledGameobject, SearchAndDestroy, ChecksRequired, Position, Rotation, ModifyScale, Scale, Selector, Parent, colliderlayer, HarvestedHeadChop, harvest, contentGraphicsStates);
+        ContentControlState state = BeginContentControl(DisabledGameobject, SearchAndDestroy, ChecksRequired, Position, Rotation, ModifyScale, Scale, Selector, Parent, colliderlayer, HarvestedHeadChop, harvest, contentGraphicsStates, null, rendererLayer);
         GameObject result = PrepareContentControl(state, out BasisGraphicsStatePrewarm.WarmupRequest warmup);
         warmup.CompleteAndDispose();
         ActivateContentControl(state, result);
@@ -192,7 +192,7 @@ public static partial class ContentPoliceControl
     // inactive host, so it stays dormant — no Awake/OnEnable/event fires — until FinishContentControl
     // runs the strip/scrub and activates it. That dormancy is what lets the heavy component walk run
     // on a later frame: deferring it is as safe as the original single-frame walk. Main-thread only.
-    public static ContentControlState BeginContentControl(GameObject DisabledGameobject, GameObject SearchAndDestroy, ChecksRequired ChecksRequired, Vector3 Position, Quaternion Rotation, bool ModifyScale, Vector3 Scale, BundledContentHolder.Selector Selector, Transform Parent = null, int colliderlayer = -1, List<BasisHeadChop.HeadChopTarget> HarvestedHeadChop = null, BasisContentHarvest harvest = null, GraphicsStateCollection contentGraphicsStates = null, Action<IList<Renderer>> rendererPostprocessor = null)
+    public static ContentControlState BeginContentControl(GameObject DisabledGameobject, GameObject SearchAndDestroy, ChecksRequired ChecksRequired, Vector3 Position, Quaternion Rotation, bool ModifyScale, Vector3 Scale, BundledContentHolder.Selector Selector, Transform Parent = null, int colliderlayer = -1, List<BasisHeadChop.HeadChopTarget> HarvestedHeadChop = null, BasisContentHarvest harvest = null, GraphicsStateCollection contentGraphicsStates = null, Action<IList<Renderer>> rendererPostprocessor = null, int rendererLayer = -1)
     {
         ContentControlState state = default;
         state.Checks = ChecksRequired;
@@ -202,6 +202,7 @@ public static partial class ContentPoliceControl
         state.HarvestedHeadChop = HarvestedHeadChop;
         state.ContentGraphicsStates = contentGraphicsStates;
         state.RendererPostprocessor = rendererPostprocessor;
+        state.RendererLayer = rendererLayer;
         if (ChecksRequired.UseContentRemoval)
         {
             if (DisabledGameobject == null)
@@ -266,6 +267,7 @@ public static partial class ContentPoliceControl
                 rawRenderers = new List<Renderer>(64);
             }
             SearchAndDestroy.GetComponentsInChildren(true, rawRenderers);
+            SetRendererLayer(rawRenderers, rendererLayer);
             bool blockShaders = ShaderBlocklistEnabled && BasisShaderFallback.HasBlocklist;
             if (MaterialCorrectionEnabled || blockShaders)
             {
@@ -476,6 +478,7 @@ public static partial class ContentPoliceControl
                     }
                 }
                 DestroyUnapprovedComponents();
+                SetRendererLayer(renderersForPrewarm, state.RendererLayer);
 
                 bool blockShaders = ShaderBlocklistEnabled && BasisShaderFallback.HasBlocklist;
                 // One line per load, never per component: a busy instance converts hundreds of these
@@ -569,6 +572,23 @@ public static partial class ContentPoliceControl
         UnapprovedRemovalScratch.Clear();
     }
 
+    public static void SetRendererLayer(IList<Renderer> renderers, int layer)
+    {
+        if (layer < 0 || renderers == null)
+        {
+            return;
+        }
+        int count = renderers.Count;
+        for (int Index = 0; Index < count; Index++)
+        {
+            Renderer renderer = renderers[Index];
+            if (renderer != null)
+            {
+                renderer.gameObject.layer = layer;
+            }
+        }
+    }
+
     // Carries the parked clone plus the inputs the deferred strip/scrub pass needs, so the loader
     // can put a frame between BeginContentControl and FinishContentControl. Treat as an opaque handle.
     public struct ContentControlState
@@ -580,6 +600,7 @@ public static partial class ContentPoliceControl
         public BundledContentHolder.Selector Selector;
         public Transform Parent;
         public int ColliderLayer;
+        public int RendererLayer;
         public List<BasisHeadChop.HeadChopTarget> HarvestedHeadChop;
         public BasisContentHarvest Harvest;
         public List<Renderer> RenderersForPrewarm;

@@ -626,7 +626,6 @@ namespace Basis.Scripts.Drivers
                 //  Render.shadowCastingMode = ShadowCastingMode.On;
                 Render.updateWhenOffscreen = true;
                 Render.forceMatrixRecalculationPerRender = true;
-                Render.gameObject.layer = layer;
                 Render.forceMeshLod = 0;
             }
 
@@ -702,14 +701,13 @@ namespace Basis.Scripts.Drivers
         /// <summary>
         /// Applies per-renderer flags for remote-avatar SkinnedMeshRenderers.
         /// </summary>
-        public static void RemoteRenderMeshSettings(int layer, int skinnedMeshRendererLength, SkinnedMeshRenderer[] skinnedMeshRenderers)
+        public static void RemoteRenderMeshSettings(int skinnedMeshRendererLength, SkinnedMeshRenderer[] skinnedMeshRenderers)
         {
             for (int index = 0; index < skinnedMeshRendererLength; index++)
             {
                 var r = skinnedMeshRenderers[index];
                 r.updateWhenOffscreen = false;
                 r.forceMatrixRecalculationPerRender = false;
-                r.gameObject.layer = layer;
             }
         }
         private static List<BasisShadowCloneBlendshapeSync> ShadowCloneSyncs = new();

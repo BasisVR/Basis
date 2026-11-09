@@ -203,6 +203,7 @@ namespace Basis.Scripts.Avatar
                         // harvest+strip here — this is the only path where a dedicated walk
                         // is needed. The strip keeps BasisHeadChop from persisting at runtime.
                         HarvestAndStripHeadChop(Output, harvestedHeadChop);
+                        ContentPoliceControl.SetRendererLayer(Output.GetComponentsInChildren<Renderer>(true), BasisLayerMapper.LocalAvatarLayer);
                         break;
 
                     case 0:
@@ -230,7 +231,7 @@ namespace Basis.Scripts.Avatar
 
                                 // If LoadAsGameObjectsAsync doesn't accept a token, we still check before/after.
                                 Output = await AddressableResourceProcess.LoadAsGameObjectsAsync(BasisDeviceManagement.Instance.CreationGameobject,
-                                    BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, Para, Required, BundledContentHolder.Selector.Avatar, harvestedHeadChop);
+                                    BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, Para, Required, BundledContentHolder.Selector.Avatar, harvestedHeadChop, BasisLayerMapper.LocalAvatarLayer);
 
                                 token.ThrowIfCancellationRequested();
                             }
@@ -330,6 +331,7 @@ namespace Basis.Scripts.Avatar
                         // authoring component never persists on a remote avatar. Pass null
                         // for the destination — remotes never harvest first-person targets.
                         HarvestAndStripHeadChop(Output, null);
+                        ContentPoliceControl.SetRendererLayer(Output.GetComponentsInChildren<Renderer>(true), BasisLayerMapper.RemoteAvatarLayer);
                         break;
 
                     case 0:
@@ -363,7 +365,7 @@ namespace Basis.Scripts.Avatar
                                 InstantiationParameters Para = InstantiationParameters(Player, Position, Rotation);
 
                                 Output = await AddressableResourceProcess.LoadAsGameObjectsAsync(BasisDeviceManagement.Instance.CreationGameobject,
-                                    BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, Para, Required, BundledContentHolder.Selector.Avatar);
+                                    BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, Para, Required, BundledContentHolder.Selector.Avatar, null, BasisLayerMapper.RemoteAvatarLayer);
 
                                 token.ThrowIfCancellationRequested();
                             }
@@ -466,7 +468,7 @@ namespace Basis.Scripts.Avatar
             string UniqueID = BasisGenerateUniqueID.GenerateUniqueID();
             GameObject Output = await BasisLoadHandler.LoadGameObjectBundle(BasisDeviceManagement.Instance.CreationGameobject,
                 BasisLoadableBundle, true, BasisPlayer.ProgressReportAvatarLoad, Token,
-                Position, Rotation, Vector3.one, false, BundledContentHolder.Selector.Avatar, BasisPlayer.AvatarParent, false, true, MaxDownloadSizeInMB, HarvestedHeadChop);
+                Position, Rotation, Vector3.one, false, BundledContentHolder.Selector.Avatar, BasisPlayer.AvatarParent, false, true, MaxDownloadSizeInMB, HarvestedHeadChop, AvatarLayer(BasisPlayer));
 
             BasisPlayer.ProgressReportAvatarLoad.ReportProgress(UniqueID, 100, "Avatar ready");
             return Output;
@@ -499,6 +501,10 @@ namespace Basis.Scripts.Avatar
             }
         }
 
+        public static int AvatarLayer(IBasisPlayer Player)
+        {
+            return Player.IsLocal ? BasisLayerMapper.LocalAvatarLayer : BasisLayerMapper.RemoteAvatarLayer;
+        }
         /// <summary>
         /// Loads a fallback avatar if the requested one fails or is invalid.
         /// </summary>
@@ -517,6 +523,7 @@ namespace Basis.Scripts.Avatar
             if (inSceneLoadingAvatar.TryGetComponent(out BasisAvatar avatar))
             {
                 SetupPlayerAvatar(Player, avatar, isFallback: true, headChop: null);
+                ContentPoliceControl.SetRendererLayer(avatar.Renders, AvatarLayer(Player));
             }
             else
             {
