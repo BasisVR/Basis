@@ -309,7 +309,7 @@ namespace Basis.BasisUI
             return false;
         }
 
-        public static async Task LoadProp(BasisDataStoreItemKeys.ItemKey item, BundledContentHolder.NetworkType desiredNetworkType, bool persistent = false, bool admin = false, bool modifyScale = false)
+        public static async Task LoadProp(BasisDataStoreItemKeys.ItemKey item, BundledContentHolder.NetworkType desiredNetworkType, bool persistent = false, bool admin = false, bool modifyScale = false, bool saveToServer = false)
         {
             if (PropSpawnClaimed(item.Url)) return;
 
@@ -567,6 +567,7 @@ namespace Basis.BasisUI
                                     {
                                         BasisSpawnedHandGrab.Request(loadedProp.LoadedNetID, spawnMeta.Hand);
                                     }
+                                    if (saveToServer) BasisNetworkSpawnItem.SaveToDiskOnceSpawned(loadedProp.LoadedNetID, 0);
                                     BasisDebug.Log($"Requested networked load for {item.Url}, NetID={loadedProp.LoadedNetID}", BasisDebug.LogTag.Networking);
                                 }
                                 else
@@ -593,7 +594,7 @@ namespace Basis.BasisUI
             }
         }
 
-        public static async Task LoadWorld(BasisDataStoreItemKeys.ItemKey item, BundledContentHolder.NetworkType desiredNetworkType, bool persistent = false, bool admin = false)
+        public static async Task LoadWorld(BasisDataStoreItemKeys.ItemKey item, BundledContentHolder.NetworkType desiredNetworkType, bool persistent = false, bool admin = false, bool saveToServer = false)
         {
             if (CachedMetaData.TryGetMeta(item.Url, out var cached))
             {
@@ -688,6 +689,7 @@ namespace Basis.BasisUI
 
                             if (ok && !string.IsNullOrEmpty(loadedProp.LoadedNetID))
                             {
+                                if (saveToServer) BasisNetworkSpawnItem.SaveToDiskOnceSpawned(loadedProp.LoadedNetID, 1);
                                 BasisDebug.Log($"Requested networked SceneLoad for {item.Url}, NetID={loadedProp.LoadedNetID}", BasisDebug.LogTag.Networking);
                             }
                             else

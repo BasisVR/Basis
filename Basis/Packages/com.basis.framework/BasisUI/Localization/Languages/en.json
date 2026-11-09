@@ -6751,6 +6751,18 @@
       "value": "Saved to server: this item loads again after a restart. Click to stop saving it; it stays until removed."
     },
     {
+      "key": "library.saveToServer",
+      "value": "Save to Server"
+    },
+    {
+      "key": "library.saveToServer.description",
+      "value": "Keep this item on the server so it loads again after a restart, where it spawns. Admins only."
+    },
+    {
+      "key": "library.saveToServer.networkedOnly",
+      "value": "Only networked spawns can be saved to the server."
+    },
+    {
       "key": "library.instantiated.static.noPermission",
       "value": "Only the item's creator or a moderator can lock this item."
     },

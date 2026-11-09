@@ -341,7 +341,7 @@ namespace Basis.Scripts.BasisSdk.Players
         }
         public void Respawn()
         {
-            BasisSceneFactory.SpawnPlayer(this);
+            BasisSceneFactory.RespawnPlayer(this);
         }
         public void OnSceneLoadedCallback(Scene scene, LoadSceneMode mode)
         {

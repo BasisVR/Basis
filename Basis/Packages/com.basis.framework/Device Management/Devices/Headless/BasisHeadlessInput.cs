@@ -640,7 +640,7 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
             while (true)
             {
                 yield return new WaitForSeconds(respawnInterval);
-                BasisSceneFactory.SpawnPlayer(BasisLocalPlayer.Instance);
+                BasisSceneFactory.RespawnPlayer(BasisLocalPlayer.Instance);
             }
         }
     }

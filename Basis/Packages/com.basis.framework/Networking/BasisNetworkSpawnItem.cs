@@ -447,8 +447,36 @@ public static partial class BasisNetworkSpawnItem
       await  BasisRuntimeSpawnRegistry.RemoveByLoadedNetId(resource.LoadedNetID);
     }
 
+    private static readonly Dictionary<string, byte> _saveToDiskOnSpawn = new Dictionary<string, byte>();
+
+    /// <summary>
+    /// Saves a network spawn this client just requested to the server's disk once it has spawned here,
+    /// so the server already knows the item. Ignored without basis.resource.savetodisk; the server checks again.
+    /// </summary>
+    public static void SaveToDiskOnceSpawned(string LoadedNetID, byte Mode)
+    {
+        if (string.IsNullOrEmpty(LoadedNetID) || !BasisNetworkModeration.LocalPlayerHasNode(BasisPermissions.PermNodes.ResourceSaveToDisk)) return;
+        if (BasisRuntimeSpawnRegistry.TryGetByLoadedNetId(LoadedNetID, out _))
+        {
+            RequestSaveToDisk(LoadedNetID, Mode, true);
+            return;
+        }
+        if (_saveToDiskOnSpawn.Count == 0) BasisRuntimeSpawnRegistry.OnRegistryChanged += SaveToDiskOnRegistryChanged;
+        _saveToDiskOnSpawn[LoadedNetID] = Mode;
+    }
+
+    private static void SaveToDiskOnRegistryChanged(BasisRuntimeSpawnRegistry.RegistryChangeType changeType, BasisRuntimeSpawnRegistry.SpawnInstance instance)
+    {
+        if (changeType == BasisRuntimeSpawnRegistry.RegistryChangeType.ClearedAll) _saveToDiskOnSpawn.Clear();
+        else if (changeType == BasisRuntimeSpawnRegistry.RegistryChangeType.Added && instance != null && instance.LoadedNetID != null && _saveToDiskOnSpawn.Remove(instance.LoadedNetID, out byte mode))
+            RequestSaveToDisk(instance.LoadedNetID, mode, true);
+        if (_saveToDiskOnSpawn.Count == 0) BasisRuntimeSpawnRegistry.OnRegistryChanged -= SaveToDiskOnRegistryChanged;
+    }
+
     public static async Task Reset()
     {
+        _saveToDiskOnSpawn.Clear();
+        BasisRuntimeSpawnRegistry.OnRegistryChanged -= SaveToDiskOnRegistryChanged;
         _loadCts.Cancel();
         _loadCts.Dispose();
         _loadCts = new CancellationTokenSource();

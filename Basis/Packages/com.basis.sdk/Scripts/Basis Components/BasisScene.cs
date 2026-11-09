@@ -5,6 +5,11 @@ using UnityEngine.SceneManagement;
 
 namespace Basis.Scripts.BasisSdk
 {
+    public enum BasisSceneSpawnMode : byte
+    {
+        SpawnPoint = 0,
+        CilboxCallback = 1,
+    }
     /// <summary>
     /// Represents a scene within the Basis system, managing spawn points, respawn behavior,
     /// and lifecycle events for scene readiness and destruction.
@@ -16,6 +21,7 @@ namespace Basis.Scripts.BasisSdk
         /// Default spawn point for players or objects in the scene.
         /// </summary>
         public Transform SpawnPoint;
+        public BasisSceneSpawnMode SpawnMode = BasisSceneSpawnMode.SpawnPoint;
 
         /// <summary>
         /// Height threshold below which respawn is triggered.

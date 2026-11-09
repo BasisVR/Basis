@@ -17,7 +17,8 @@ namespace Basis.BasisUI
             BasisDataStoreItemKeys.ItemKey item,
             BundledContentHolder.NetworkType networkType = BundledContentHolder.NetworkType.Local,
             bool persistence = false,
-            bool modifyScale = false
+            bool modifyScale = false,
+            bool saveToServer = false
         )
         {
             DialogBox<bool> contentLoadingDialogBox = DialogBox<bool>.Create(panel, new Vector2(830, 150),
@@ -42,7 +43,7 @@ namespace Basis.BasisUI
             BasisUILoadingBar.SetDisplaySuppressed(true);
             try
             {
-                Task loadTask = LoadSelectedItem(item, networkType, persistence, modifyScale);
+                Task loadTask = LoadSelectedItem(item, networkType, persistence, modifyScale, saveToServer);
                 await Task.WhenAny(loadTask, contentLoadingDialogBox.WaitAsync());
                 BasisUILoadingBar.SetDisplaySuppressed(false);
                 await loadTask;

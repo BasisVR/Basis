@@ -304,10 +304,14 @@ public static partial class BasisSceneFactory
     /// Fired after the player has been spawned into the scene.
     /// </summary>
     public static Action OnSpawnedEvent;
-    public static void SpawnPlayer(BasisLocalPlayer localPlayer)
+    public delegate bool SpawnResolver(BasisScene scene, bool respawn, out Vector3 position, out Quaternion rotation);
+    [NoAutoStaticsCleanup] public static SpawnResolver ScriptedSpawn;
+    public static void SpawnPlayer(BasisLocalPlayer localPlayer) => SpawnPlayer(localPlayer, false);
+    public static void RespawnPlayer(BasisLocalPlayer localPlayer) => SpawnPlayer(localPlayer, true);
+    public static void SpawnPlayer(BasisLocalPlayer localPlayer, bool respawn)
     {
-        BasisDebug.Log("Spawning Player");
-        if (RequestSpawnPoint(out Vector3 position, out Quaternion rotation))
+        BasisDebug.Log(respawn ? "Respawning Player" : "Spawning Player");
+        if (RequestSpawnPoint(respawn, out Vector3 position, out Quaternion rotation))
         {
             if (localPlayer != null)
             {
@@ -337,14 +341,29 @@ public static partial class BasisSceneFactory
             }
             if (BasisLocalPlayer.PlayerSelf.position.y < RespawnHeight)
             {
-                SpawnPlayer(BasisLocalPlayer);
+                RespawnPlayer(BasisLocalPlayer);
             }
         }
     }
-    public static bool RequestSpawnPoint(out Vector3 Position, out Quaternion Rotation)
+    public static bool RequestSpawnPoint(out Vector3 Position, out Quaternion Rotation) => RequestSpawnPoint(false, out Position, out Rotation);
+    public static bool RequestSpawnPoint(bool respawn, out Vector3 Position, out Quaternion Rotation)
     {
         if (BasisScene != null)
         {
+            if (BasisScene.SpawnMode == BasisSceneSpawnMode.CilboxCallback && ScriptedSpawn != null)
+            {
+                try
+                {
+                    if (ScriptedSpawn(BasisScene, respawn, out Position, out Rotation))
+                    {
+                        return true;
+                    }
+                }
+                catch (Exception e)
+                {
+                    BasisDebug.LogError($"Scripted spawn failed, using the spawn point: {e}", BasisDebug.LogTag.Scene);
+                }
+            }
             if (BasisScene.SpawnPoint == null)
             {
                 Position = Vector3.zero;

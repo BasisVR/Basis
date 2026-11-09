@@ -86,6 +86,7 @@ public class BasisSceneSDKInspector : Editor
             ObjectField SpawnPointField = uiElementsRoot.Q<ObjectField>(BasisSDKConstants.SpawnPointField);
             SpawnPointField.allowSceneObjects = true;
             SpawnPointField.BindProperty(serializedObject.FindProperty("SpawnPoint"));
+            CreateSpawnModeField(SpawnPointField);
 
             // Main camera field
             ObjectField MainCameraField = uiElementsRoot.Q<ObjectField>(BasisSDKConstants.MainCameraField);
@@ -166,6 +167,35 @@ public class BasisSceneSDKInspector : Editor
         Undo.RecordObject(BasisScene, "Change Main Camera");
         BasisScene.MainCamera = evt.newValue as Camera;
         EditorUtility.SetDirty(BasisScene);
+    }
+
+    private void CreateSpawnModeField(VisualElement after)
+    {
+        List<BasisSceneSpawnMode> choices = new List<BasisSceneSpawnMode> { BasisSceneSpawnMode.SpawnPoint, BasisSceneSpawnMode.CilboxCallback };
+        PopupField<BasisSceneSpawnMode> spawnModeField = new PopupField<BasisSceneSpawnMode>(BasisEditorLocalization.Get("sdk.scene.spawnMode.label"), choices, BasisScene.SpawnMode, SpawnModeName, SpawnModeName);
+        spawnModeField.tooltip = BasisEditorLocalization.Get("sdk.scene.spawnMode.tooltip");
+        Label spawnModeHelp = new Label(BasisEditorLocalization.Get("sdk.scene.spawnMode.cilboxHelp"));
+        spawnModeHelp.style.whiteSpace = WhiteSpace.Normal;
+        spawnModeHelp.style.opacity = 0.7f;
+        spawnModeHelp.style.marginLeft = 4;
+        spawnModeHelp.style.marginBottom = 6;
+        spawnModeHelp.style.display = BasisScene.SpawnMode == BasisSceneSpawnMode.CilboxCallback ? DisplayStyle.Flex : DisplayStyle.None;
+        spawnModeField.RegisterValueChangedCallback(evt =>
+        {
+            Undo.RecordObject(BasisScene, "Change Spawn Mode");
+            BasisScene.SpawnMode = evt.newValue;
+            EditorUtility.SetDirty(BasisScene);
+            spawnModeHelp.style.display = evt.newValue == BasisSceneSpawnMode.CilboxCallback ? DisplayStyle.Flex : DisplayStyle.None;
+        });
+        VisualElement parent = after.parent ?? uiElementsRoot;
+        int index = after.parent != null ? parent.IndexOf(after) + 1 : parent.childCount;
+        parent.Insert(index, spawnModeField);
+        parent.Insert(index + 1, spawnModeHelp);
+    }
+
+    private static string SpawnModeName(BasisSceneSpawnMode mode)
+    {
+        return mode == BasisSceneSpawnMode.CilboxCallback ? BasisEditorLocalization.Get("sdk.scene.spawnMode.cilbox") : BasisEditorLocalization.Get("sdk.scene.spawnMode.spawnPoint");
     }
 
     private void OnRespawnHeightChanged(ChangeEvent<float> evt)

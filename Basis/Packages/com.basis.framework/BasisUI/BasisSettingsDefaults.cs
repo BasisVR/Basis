@@ -1342,7 +1342,7 @@ namespace Basis.BasisUI
         public const string DesktopInputInVR_AlwaysOn = "Always On";
         public const string DesktopInputInVR_Off = "Off";
         // Letting go of movement coasts to a stop. Desktop only by default: in VR an uncommanded glide moves the view with nothing matching it in the inner ear.
-        public static BasisSettingsBinding<string> MovementSettle = new("movementsettle", new BasisPlatformDefault<string>(MovementSettle_DesktopOnly));
+        public static BasisSettingsBinding<string> MovementSettle = new("movementsettle", new BasisPlatformDefault<string>(MovementSettle_Always));
         public static BasisSettingsBinding<float> MovementSettleTime = new("movementsettletime", new BasisPlatformDefault<float>(0.35f));
         public const string MovementSettle_Off = "Off";
         public const string MovementSettle_DesktopOnly = "Desktop Only";
