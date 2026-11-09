@@ -13,7 +13,9 @@ namespace Basis.Scripts.Platform
 {
     /// <summary>
     /// The client's single OS file-drop bridge. On Windows players it subclasses the player window
-    /// to intercept WM_DROPFILES; every dropped batch is queued and replayed from
+    /// to intercept WM_DROPFILES, on Linux it answers XDND through a proxy window, on macOS it
+    /// registers the player view as a dragging destination, and on Android files shared or opened
+    /// with the app (or chosen through <see cref="PickFiles"/>) are copied to the cache and queued; every dropped batch is queued and replayed from
     /// <see cref="Dispatch"/> on the main thread, where <see cref="OnFilesDropped"/> hands the raw
     /// paths to whoever wants them. Subscribers filter by extension themselves — images go to the
     /// image pickup manager, BEE files go to the library.
@@ -23,7 +25,7 @@ namespace Basis.Scripts.Platform
     /// That is why this lives in the framework rather than in whichever package wanted drops first.
     ///
     /// The native callbacks are static because IL2CPP cannot marshal instance-method delegates.
-    /// Off Windows (and in the editor, where the player window hook cannot run) the install is a
+    /// Elsewhere (and in the editor, where the player window hook cannot run) the install is a
     /// no-op, but the queue still works — the editor scene-view bridge feeds it through
     /// <see cref="SubmitDroppedFiles"/> so play-mode drops behave the same as shipped ones.
     /// </summary>
@@ -96,6 +98,9 @@ namespace Basis.Scripts.Platform
         /// </summary>
         public static void Dispatch()
         {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            PollPlatform();
+#endif
             int batchCount = _pendingBatches.Count;
             if (batchCount == 0) return;
 
@@ -147,6 +152,22 @@ namespace Basis.Scripts.Platform
         private static bool _installed;
 #endif
 
+        /// <summary>True where the player can open the system file picker in place of a drag and drop.</summary>
+        public static bool CanPickFiles =>
+#if UNITY_ANDROID && !UNITY_EDITOR
+            true;
+#else
+            false;
+#endif
+
+        /// <summary>Opens the system file picker; chosen files arrive through <see cref="OnFilesDropped"/> like a drop.</summary>
+        public static void PickFiles()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            PickPlatform();
+#endif
+        }
+
         /// <summary>
         /// Arms the window hook. Runs itself at startup so drops work regardless of which optional
         /// packages are installed; calling it again is harmless.
@@ -178,6 +199,8 @@ namespace Basis.Scripts.Platform
             _installed = true;
             DragAcceptFiles(_windowHandle, true);
             Application.quitting += Uninstall;
+#elif (UNITY_STANDALONE_LINUX || UNITY_STANDALONE_OSX) && !UNITY_EDITOR
+            InstallPlatform();
 #endif
         }
 
@@ -197,6 +220,8 @@ namespace Basis.Scripts.Platform
             }
             _windowHandle = IntPtr.Zero;
             _previousWndProc = IntPtr.Zero;
+#elif (UNITY_STANDALONE_LINUX || UNITY_STANDALONE_OSX) && !UNITY_EDITOR
+            UninstallPlatform();
 #endif
             while (_pendingBatches.TryDequeue(out _)) { }
         }

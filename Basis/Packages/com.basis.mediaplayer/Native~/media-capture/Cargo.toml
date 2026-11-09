@@ -23,6 +23,15 @@ libloading = "0.8"
 libc = "0.2"
 zbus = { version = "5", default-features = false, features = ["blocking-api", "async-io"] }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+block2 = "0.6"
+core-foundation-sys = "0.8"
+libloading = "0.8"
+objc2 = "0.6"
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+
 [target.'cfg(windows)'.dependencies]
 windows-core = "0.62.2"
 windows = { version = "0.62.2", features = [

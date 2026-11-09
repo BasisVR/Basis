@@ -22,6 +22,7 @@ support; with it, the build stops until the library is staged.
   | --- | --- | --- |
   | Windows x64 | `win-x64/rist.lib` | `tools/build-librist.ps1` |
   | Linux x64 | `linux-x64/librist.a` | `tools/build-librist.sh` |
+  | macOS arm64, x86_64 | `macos-arm64/librist.a`, `macos-x64/librist.a` | `tools/build-librist.sh` on a Mac |
   | Android arm64 | `android-arm64/librist.a` | `tools/build-librist-android.sh` |
 
 To move the pin, pass the new tag to the scripts (`-LibristRef`, or

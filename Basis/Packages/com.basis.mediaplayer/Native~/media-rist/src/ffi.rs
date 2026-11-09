@@ -21,7 +21,9 @@ pub const RIST_MAX_STRING_LONG: usize = 256;
 pub const AF_INET: c_int = 2;
 #[cfg(windows)]
 pub const AF_INET6: c_int = 23;
-#[cfg(not(windows))]
+#[cfg(target_vendor = "apple")]
+pub const AF_INET6: c_int = 30;
+#[cfg(not(any(windows, target_vendor = "apple")))]
 pub const AF_INET6: c_int = 10;
 
 #[repr(C)]

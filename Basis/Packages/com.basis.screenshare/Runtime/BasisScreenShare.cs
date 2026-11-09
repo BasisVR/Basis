@@ -359,7 +359,7 @@ public class BasisScreenShare : MonoBehaviour
             CaptureStatus = BasisScreenShareNative.ReadStatus(capture);
             if (CaptureStatus == null || CaptureStatus.Failed)
             {
-                string error = CaptureStatus != null && !string.IsNullOrEmpty(CaptureStatus.error) ? CaptureStatus.error : BasisLocalization.Get("screenShare.error.ended");
+                string error = CaptureStatus != null && !string.IsNullOrEmpty(CaptureStatus.error) ? BasisScreenShareNative.Localize(CaptureStatus.error) : BasisLocalization.Get("screenShare.error.ended");
                 StopCapture(true);
                 Fail(error);
                 return;

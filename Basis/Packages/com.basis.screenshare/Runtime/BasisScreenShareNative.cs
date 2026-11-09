@@ -70,8 +70,10 @@ public static class BasisScreenShareNative
     static int supported = -1, current = -1;
     public static bool IsWindows => Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
     public static bool IsLinux => Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+    public static bool IsAndroid => Application.platform == RuntimePlatform.Android;
+    public static bool IsMac => Application.platform == RuntimePlatform.OSXPlayer || Application.platform == RuntimePlatform.OSXEditor;
     public const string PortalSource = "portal";
-    public static string UnsupportedKey => IsLinux ? "screenShare.error.unsupportedLinux" : "screenShare.error.unsupported";
+    public static string UnsupportedKey => IsAndroid ? "screenShare.error.unsupportedAndroid" : IsLinux ? "screenShare.error.unsupportedLinux" : IsMac ? "screenShare.error.unsupportedMac" : "screenShare.error.unsupported";
 
     public static bool PluginCurrent
     {
@@ -100,7 +102,7 @@ public static class BasisScreenShareNative
             if (supported < 0)
             {
                 supported = 0;
-                if (IsWindows || IsLinux)
+                if (IsWindows || IsLinux || IsAndroid || IsMac)
                 {
                     try { supported = bm_capture_supported() != 0 ? 1 : 0; }
                     catch (EntryPointNotFoundException) { }
@@ -110,6 +112,8 @@ public static class BasisScreenShareNative
             return supported > 0;
         }
     }
+
+    public static string Localize(string detail) => !string.IsNullOrEmpty(detail) && detail.StartsWith("screenShare.", StringComparison.Ordinal) ? Basis.BasisUI.BasisLocalization.Get(detail) : detail;
 
     static unsafe string ReadJson(Func<IntPtr, UIntPtr, int> call)
     {

@@ -6451,6 +6451,10 @@
       "value": "Add New Content"
     },
     {
+      "key": "library.openFile",
+      "value": "Open File"
+    },
+    {
       "key": "library.folder.new",
       "value": "New Folder"
     },

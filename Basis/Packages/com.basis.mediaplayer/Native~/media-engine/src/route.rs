@@ -308,11 +308,71 @@ fn route_video_decoder(
     })
 }
 
+/// macOS: H.264 and HEVC on VideoToolbox, hardware where the Mac has it
+/// and Apple's software decoder otherwise (a reported fallback, under the
+/// software cap). AV1 is rav1d. VP9 and VP8 have no route.
+#[cfg(target_os = "macos")]
+fn route_video_decoder(
+    codec: media_demux::VideoCodec,
+    coded_width: u32,
+    coded_height: u32,
+    live: bool,
+    preference: DecodePreference,
+    _codec_private: &[u8],
+) -> Result<VideoRoute, media_decode::DecodeError> {
+    use decode_sw::SwAv1Decoder;
+    use decode_vt::{VtAcceleration, VtCodec, VtVideoDecoder, hardware_decode_supported};
+    use media_demux::VideoCodec;
+    let vt = match codec {
+        VideoCodec::H264 => VtCodec::H264,
+        VideoCodec::H265 => VtCodec::H265,
+        VideoCodec::Av1 if preference != DecodePreference::HardwareOnly => {
+            software_cap_check(coded_width, coded_height)?;
+            return Ok(VideoRoute {
+                decoder: Box::new(SwAv1Decoder::new(SOFTWARE_CAP_WIDTH * SOFTWARE_CAP_HEIGHT)?),
+                label: "rav1d",
+                fallback: None,
+                decode_device: None,
+            });
+        }
+        VideoCodec::Av1 => {
+            return Err(media_decode::DecodeError(
+                "hardware-only decode preference: no hardware AV1 route on this platform".into(),
+            ));
+        }
+        VideoCodec::Vp9 | VideoCodec::Vp8 => {
+            return Err(media_decode::DecodeError(
+                "no VP9/VP8 decode path (platform ceiling)".into(),
+            ));
+        }
+    };
+    let hardware = hardware_decode_supported(vt);
+    let acceleration = match preference {
+        DecodePreference::HardwareOnly => VtAcceleration::Require,
+        DecodePreference::SoftwareOnly => VtAcceleration::Software,
+        _ if hardware => VtAcceleration::Prefer,
+        _ => VtAcceleration::Software,
+    };
+    if acceleration == VtAcceleration::Software {
+        software_cap_check(coded_width, coded_height)?;
+    }
+    let decoder = VtVideoDecoder::new(vt, acceleration, live)?;
+    let fallback = (preference == DecodePreference::HardwareWithFallback && !hardware).then(|| {
+        format!("hardware decode unavailable (no VideoToolbox hardware {codec:?} decoder)")
+    });
+    Ok(VideoRoute {
+        label: decoder.label(),
+        decoder: Box::new(decoder),
+        fallback,
+        decode_device: None,
+    })
+}
+
 /// Headless platforms (Linux and anything else without a platform decoder
 /// adapter): only AV1 on rav1d routes. Patented codecs are never bundled,
 /// so H.264/H.265/VP9/VP8 are typed refusals. The hardware-only preference
 /// has no route.
-#[cfg(not(any(windows, target_os = "android")))]
+#[cfg(not(any(windows, target_os = "android", target_os = "macos")))]
 fn route_video_decoder(
     codec: media_demux::VideoCodec,
     coded_width: u32,
@@ -418,9 +478,39 @@ pub fn open_audio_decoder(
     })
 }
 
+/// macOS: AAC and MP3 on AudioToolbox; FLAC, Opus and PCM in process.
+#[cfg(target_os = "macos")]
+pub fn open_audio_decoder(
+    codec: media_demux::AudioCodec,
+    sample_rate: u32,
+    channels: u32,
+    codec_private: &[u8],
+) -> Result<Box<dyn AudioDecoder>, media_decode::DecodeError> {
+    use decode_sw::{FlacDecoder, OpusDecoder, PcmDecoder};
+    use decode_vt::{AtAudioDecoder, AtCodec};
+    use media_demux::AudioCodec;
+    Ok(match codec {
+        AudioCodec::Aac => Box::new(AtAudioDecoder::new(
+            AtCodec::Aac,
+            sample_rate,
+            channels,
+            codec_private,
+        )?),
+        AudioCodec::Mp3 => Box::new(AtAudioDecoder::new(
+            AtCodec::Mp3,
+            sample_rate,
+            channels,
+            &[],
+        )?),
+        AudioCodec::Flac => Box::new(FlacDecoder::new(codec_private)?),
+        AudioCodec::Opus => Box::new(OpusDecoder::new(codec_private)?),
+        AudioCodec::Pcm => Box::new(PcmDecoder::new(sample_rate, channels, codec_private)?),
+    })
+}
+
 /// Headless platforms: FLAC, Opus and PCM use the in-process decoders. AAC
 /// and MP3 have no platform decoder here and are typed refusals.
-#[cfg(not(any(windows, target_os = "android")))]
+#[cfg(not(any(windows, target_os = "android", target_os = "macos")))]
 pub fn open_audio_decoder(
     codec: media_demux::AudioCodec,
     sample_rate: u32,

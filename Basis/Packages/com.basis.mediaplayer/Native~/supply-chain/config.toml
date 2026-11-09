@@ -156,6 +156,10 @@ criteria = "safe-to-deploy"
 version = "0.10.4"
 criteria = "safe-to-deploy"
 
+[[exemptions.block2]]
+version = "0.6.2"
+criteria = "safe-to-deploy"
+
 [[exemptions.blocking]]
 version = "1.7.0"
 criteria = "safe-to-deploy"
@@ -678,6 +682,14 @@ criteria = "safe-to-deploy"
 
 [[exemptions.num-integer]]
 version = "0.1.47"
+criteria = "safe-to-deploy"
+
+[[exemptions.objc2]]
+version = "0.6.5"
+criteria = "safe-to-deploy"
+
+[[exemptions.objc2-encode]]
+version = "4.1.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.ogg]]

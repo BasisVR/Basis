@@ -28,7 +28,7 @@ side has its own guide at [`../TESTING.md`](../TESTING.md), and
 
 ```
 .\tools\ci.ps1        # Windows
-tools/ci.sh           # Linux
+tools/ci.sh           # Linux and macOS
 ```
 
 This is the gate: run it before every commit. It runs these steps in order and
@@ -58,8 +58,8 @@ tool is missing.
 Rust on Linux or WSL (see [`fuzz/`](fuzz/README.md)).
 
 GitHub runs the same gate on every push and pull request that touches the
-package (`.github/workflows/media-engine.yml`), on Windows and Linux, with a
-separate Android build and a job that replays the fuzz corpora under
+package (`.github/workflows/media-engine.yml`), on Windows, Linux and macOS
+(which also builds the universal macOS plugin), with a separate Android build and a job that replays the fuzz corpora under
 AddressSanitizer. Its runners have no GPU. The session tests take the
 software decode route there, and the hardware decode tests find no decoder,
 return early and pass. They print `SKIPPED:`, but `cargo test` hides a passing
