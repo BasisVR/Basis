@@ -367,7 +367,10 @@ impl VtVideoDecoder {
             codec,
             acceleration,
             live,
-            outputs: Box::default(),
+            outputs: Box::new(Mutex::new(Outputs {
+                depth: if live { 0 } else { MAX_REORDER },
+                ..Outputs::default()
+            })),
             session: null_mut(),
             format: null_mut(),
             full_range: false,
@@ -757,6 +760,22 @@ mod tests {
         let order: Vec<i64> = out.ready.iter().map(|f| f.pts_us).collect();
         assert_eq!(order, vec![0, 1, 2, 3, 4, 5, 6]);
         assert_eq!(out.depth, 2);
+    }
+
+    #[test]
+    fn full_depth_keeps_late_frames_the_consumer_already_drained_past() {
+        let mut out = Outputs {
+            depth: MAX_REORDER,
+            ..Outputs::default()
+        };
+        let mut order = Vec::new();
+        for pts in [0, 4, 2, 1, 3, 8, 6, 5, 7] {
+            out.push(frame(pts));
+            order.extend(out.ready.drain(..).map(|f| f.pts_us));
+        }
+        out.flush();
+        order.extend(out.ready.drain(..).map(|f| f.pts_us));
+        assert_eq!(order, (0..9).collect::<Vec<i64>>());
     }
 
     #[test]
