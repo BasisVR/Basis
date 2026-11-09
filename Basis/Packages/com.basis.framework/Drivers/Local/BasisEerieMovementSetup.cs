@@ -150,6 +150,11 @@ namespace Basis.Scripts.Drivers
             job.legDiagnostics = new NativeArray<BasisLegDiagnostics>(2, Allocator.Persistent);
             job.solvedPositions = new NativeArray<Vector3>(BasisEerieMovement.Count, Allocator.Persistent);
             job.solvedRotations = new NativeArray<Quaternion>(BasisEerieMovement.Count, Allocator.Persistent);
+            job.unoverriddenPositions = new NativeArray<Vector3>(BasisEerieMovement.Count, Allocator.Persistent);
+            job.unoverriddenRotations = new NativeArray<Quaternion>(BasisEerieMovement.Count, Allocator.Persistent);
+            job.unoverriddenArmState = new NativeArray<BasisArmState>(BasisEerieMovement.armCount, Allocator.Persistent);
+            job.anchorCachePositions = new NativeArray<Vector3>(BasisEerieMovement.Count, Allocator.Persistent);
+            job.anchorCacheRotations = new NativeArray<Quaternion>(BasisEerieMovement.Count, Allocator.Persistent);
             // Raliv initialization reads the bound pose just like SpineTest.Awake.
             // The stream must be assigned before that cache is built.
             job.poseStream = skeleton.Stream;

@@ -62,7 +62,7 @@ namespace Basis.Tests.Sync
         [Test]
         public void PoseOverride_EveryBox()
         {
-            string[] calls = { nameof(BasisPoseOverrideShim.Claim), nameof(BasisPoseOverrideShim.Release), nameof(BasisPoseOverrideShim.ReleaseAll), nameof(BasisPoseOverrideShim.IsClaimed), nameof(BasisPoseOverrideShim.Set), nameof(BasisPoseOverrideShim.SetRotation), nameof(BasisPoseOverrideShim.SetBlend), nameof(BasisPoseOverrideShim.TryGetUnoverridden), nameof(BasisPoseOverrideShim.ClaimEffector), nameof(BasisPoseOverrideShim.ReleaseEffector), nameof(BasisPoseOverrideShim.IsEffectorClaimed), nameof(BasisPoseOverrideShim.SetEffector), nameof(BasisPoseOverrideShim.SetEffectorBlend), nameof(BasisPoseOverrideShim.TryGetTracked) };
+            string[] calls = { nameof(BasisPoseOverrideShim.Claim), nameof(BasisPoseOverrideShim.Release), nameof(BasisPoseOverrideShim.ReleaseAll), nameof(BasisPoseOverrideShim.IsClaimed), nameof(BasisPoseOverrideShim.Set), nameof(BasisPoseOverrideShim.SetRotation), nameof(BasisPoseOverrideShim.SetBlend), nameof(BasisPoseOverrideShim.TryGetUnoverridden), nameof(BasisPoseOverrideShim.ClaimEffector), nameof(BasisPoseOverrideShim.ReleaseEffector), nameof(BasisPoseOverrideShim.IsEffectorClaimed), nameof(BasisPoseOverrideShim.SetEffector), nameof(BasisPoseOverrideShim.SetEffectorAnchored), nameof(BasisPoseOverrideShim.SetEffectorBlend), nameof(BasisPoseOverrideShim.TryGetTracked) };
             foreach (Type boxType in new[] { typeof(CilboxSceneBasis), typeof(CilboxPropBasis), typeof(CilboxAvatarBasis) })
             {
                 foreach (string call in calls) Assert.IsTrue(Method(Box(boxType), typeof(BasisPoseOverrideShim), call), boxType.Name + "." + call);

@@ -23,6 +23,7 @@ namespace Basis.Shims
 		public static void ReleaseEffector(object self, HumanBodyBones bone) => CilboxPoseOverrides.Release(self, bone, true);
 		public static bool IsEffectorClaimed(object self, HumanBodyBones bone) => CilboxPoseOverrides.IsClaimed(self, bone, true);
 		public static bool SetEffector(object self, HumanBodyBones bone, Vector3 position, Quaternion rotation) => CilboxPoseOverrides.Set(self, bone, position, rotation, true, true);
+		public static bool SetEffectorAnchored(object self, HumanBodyBones bone, HumanBodyBones anchor, Vector3 localPosition, Quaternion localRotation) => CilboxPoseOverrides.SetAnchored(self, bone, anchor, localPosition, localRotation);
 		public static bool SetEffectorBlend(object self, HumanBodyBones bone, float blend) => CilboxPoseOverrides.SetBlend(self, bone, blend, true);
 		public static bool TryGetTracked(object self, HumanBodyBones bone, out Vector3 position, out Quaternion rotation) => CilboxPoseOverrides.TryGetTracked(self, bone, out position, out rotation);
 	}
@@ -38,7 +39,8 @@ namespace Cilbox
 		internal Vector3 position;
 		internal Quaternion rotation = Quaternion.identity;
 		internal float blend = 1f;
-		internal bool effector, hasData, hasPosition;
+		internal bool effector, hasData, hasPosition, anchored;
+		internal HumanBodyBones anchor;
 	}
 
 	[AutoStaticsCleanup]
@@ -122,10 +124,9 @@ namespace Cilbox
 		internal static bool Set(object self, HumanBodyBones bone, Vector3 position, Quaternion rotation, bool withPosition, bool effector)
 		{
 			CilboxPoseClaim claim = Owned(self, bone, effector);
-			if (claim == null || !Finite(rotation) || (withPosition && !Finite(position))) return false;
-			float length = Mathf.Sqrt(rotation.x * rotation.x + rotation.y * rotation.y + rotation.z * rotation.z + rotation.w * rotation.w);
-			if (length < 1e-4f) return false;
-			claim.rotation = new Quaternion(rotation.x / length, rotation.y / length, rotation.z / length, rotation.w / length);
+			if (claim == null || (withPosition && !Finite(position)) || !Unit(rotation, out Quaternion unit)) return false;
+			claim.rotation = unit;
+			claim.anchored = false;
 			if (withPosition)
 			{
 				claim.position = position;
@@ -133,6 +134,28 @@ namespace Cilbox
 			}
 			claim.hasData = true;
 			Push(claim);
+			return true;
+		}
+		internal static bool SetAnchored(object self, HumanBodyBones bone, HumanBodyBones anchor, Vector3 localPosition, Quaternion localRotation)
+		{
+			CilboxPoseClaim claim = Owned(self, bone, true);
+			if (claim == null || !BasisLocalRigDriver.CanAnchorEffector(bone, anchor) || !Finite(localPosition) || !Unit(localRotation, out Quaternion unit)) return false;
+			BasisLocalRigDriver rig = Rig();
+			if (rig == null || !rig.SetEffectorAnchor(bone, anchor, localPosition, unit)) return false;
+			claim.rotation = unit;
+			claim.position = localPosition;
+			claim.anchor = anchor;
+			claim.anchored = claim.hasPosition = claim.hasData = true;
+			Push(claim);
+			return true;
+		}
+		private static bool Unit(Quaternion rotation, out Quaternion unit)
+		{
+			unit = Quaternion.identity;
+			if (!Finite(rotation)) return false;
+			float length = Mathf.Sqrt(rotation.x * rotation.x + rotation.y * rotation.y + rotation.z * rotation.z + rotation.w * rotation.w);
+			if (length < 1e-4f) return false;
+			unit = new Quaternion(rotation.x / length, rotation.y / length, rotation.z / length, rotation.w / length);
 			return true;
 		}
 		internal static bool SetBlend(object self, HumanBodyBones bone, float blend, bool effector)
@@ -168,7 +191,8 @@ namespace Cilbox
 			if (claim.effector)
 			{
 				rig.SetEffectorBlend(claim.bone, claim.blend);
-				if (claim.hasData) rig.SetEffectorOverride(claim.bone, claim.position, claim.rotation);
+				if (claim.hasData && claim.anchored) rig.SetEffectorAnchor(claim.bone, claim.anchor, claim.position, claim.rotation);
+				else if (claim.hasData) rig.SetEffectorOverride(claim.bone, claim.position, claim.rotation);
 				rig.SetEffectorUsage(claim.bone, claim.hasData);
 				return;
 			}

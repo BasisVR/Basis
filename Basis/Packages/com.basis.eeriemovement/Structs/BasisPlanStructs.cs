@@ -13,6 +13,14 @@ namespace Basis.IK
         public bool has, hasUpperTwist, hasLowerTwist, solve, trackerHint, hintRoll, upperTwist, lowerTwist, elbowProtect;
         public float weight;
     }
+    public struct BasisEerieAnchoredEffector
+    {
+        public int anchorSlot;
+        public UnityEngine.Vector3 localPosition;
+        public UnityEngine.Quaternion localRotation;
+        public float blend;
+        public bool blendPosition, blendRotation;
+    }
     public struct BasisEerieLegPlan
     {
         public bool has, solve, tracked, kneeTracked, preserveTip, hintRoll;

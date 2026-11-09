@@ -96,6 +96,8 @@ The bone does nothing until the first `Set` or `SetRotation`, so claiming early 
 
 `TryGetUnoverridden` comes from the previous frame's solve, which is enough to tell whether the player moved their real hand away or how bent their arm is. Lerp with `SetBlend`, which takes effect in the same frame, rather than mixing that pose yourself.
 
+Hips, spine, chest, neck and head claims are applied before the arms and legs are solved, so tracked hands and feet still reach their targets from the turned body. A claimed arm or leg bone is applied right after that limb is solved.
+
 ### Hand and foot targets
 
 `Claim` turns a bone after the body is solved. To move a hand or foot somewhere instead, claim it as an effector. The IK then bends the whole arm or leg to reach your position and rotation in place of the player's controller or tracker, and this works on desktop too, where there is no controller.
@@ -122,9 +124,23 @@ void Update()
 | --- | --- |
 | `ClaimEffector(this, bone)` | Takes the left or right hand or foot as a target |
 | `SetEffector(this, bone, position, rotation)` | Where the hand or foot goes, and the world rotation it ends up with |
+| `SetEffectorAnchored(this, bone, anchor, localPosition, localRotation)` | Holds the hand or foot on another bone of the same player, at a pose relative to that bone. False for a bone of the same limb |
 | `SetEffectorBlend(this, bone, 0..1)` | Mixes from the controller (0) to your target (1). With no controller it fades in from the animated pose |
 | `TryGetTracked(this, bone, out position, out rotation)` | Where the controller or tracker is this frame. False when there isn't one |
 | `ReleaseEffector(this, bone)` | Gives the hand or foot back to the player |
+
+To make a hand hold another part of the body, work out the offset once when it grabs and leave it there. The solve reads the anchor bone after it has been posed this frame, so chains like a hand on a forearm whose hand holds a knee line up without any ordering on your side, and they follow a turned head or chest.
+
+```csharp
+public void Grab(HumanBodyBones held, Transform heldBone, Transform hand)
+{
+    BasisPoseOverrideShim.ClaimEffector(this, HumanBodyBones.RightHand);
+    Quaternion inverse = Quaternion.Inverse(heldBone.rotation);
+    BasisPoseOverrideShim.SetEffectorAnchored(this, HumanBodyBones.RightHand, held, inverse * (hand.position - heldBone.position), inverse * hand.rotation);
+}
+```
+
+When two limbs hold each other, one of them reads where the other was last frame.
 
 Effector and bone claims are separate, so one script can move the hand with an effector while another turns it with `Claim`. A target the arm can't reach leaves the arm stretched toward it. Feet can't be claimed while seated.
 

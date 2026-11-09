@@ -235,6 +235,27 @@ namespace Basis.Tests.Sync
         }
 
         [Test]
+        public void AnchoredEffector_LeavesTheTargetToTheSolve()
+        {
+            CilboxProxy script = Script(typeof(CilboxSceneBasis), null);
+            Assert.IsTrue(BasisPoseOverrideShim.ClaimEffector(script, HumanBodyBones.RightHand));
+            Assert.IsFalse(BasisPoseOverrideShim.SetEffectorAnchored(script, HumanBodyBones.RightHand, HumanBodyBones.RightLowerArm, Vector3.zero, Quaternion.identity), "a hand can't hold its own arm");
+            Assert.IsFalse(BasisPoseOverrideShim.SetEffectorAnchored(script, HumanBodyBones.LeftHand, HumanBodyBones.Head, Vector3.zero, Quaternion.identity), "not claimed");
+            Assert.IsTrue(BasisPoseOverrideShim.SetEffectorAnchored(script, HumanBodyBones.RightHand, HumanBodyBones.LeftLowerArm, new Vector3(0f, 0.1f, 0f), Quaternion.identity));
+            Solve(false);
+            Assert.IsTrue(rig.IKJob.plan.rightArm.solve);
+            Assert.AreEqual(1f, rig.IKJob.plan.rightArm.weight);
+            Assert.AreEqual(2, rig.IKJob.anchoredLimbs);
+            Assert.AreEqual((int)HumanBodyBones.LeftLowerArm, rig.IKJob.anchorRightHand.anchorSlot);
+            Assert.AreEqual(new Vector3(0f, 0.1f, 0f), rig.IKJob.anchorRightHand.localPosition);
+            Assert.AreEqual(new Vector3(0f, 1f, 0f), rig.IKJob.targetPositionRightHand, "the anchored target is resolved inside the solve");
+            Assert.IsTrue(BasisPoseOverrideShim.SetEffector(script, HumanBodyBones.RightHand, new Vector3(0.5f, 1.2f, 0.3f), Quaternion.identity));
+            Solve(false);
+            Assert.AreEqual(0, rig.IKJob.anchoredLimbs, "a world target replaces the anchor");
+            Assert.AreEqual(new Vector3(0.5f, 1.2f, 0.3f), rig.IKJob.targetPositionRightHand);
+        }
+
+        [Test]
         public void EffectorAndBoneClaims_AreSeparate()
         {
             CilboxProxy mine = Script(typeof(CilboxSceneBasis), null), other = Script(typeof(CilboxPropBasis), Prop(true));
