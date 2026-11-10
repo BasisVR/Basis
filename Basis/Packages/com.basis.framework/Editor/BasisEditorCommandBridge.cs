@@ -216,6 +216,19 @@ public static class BasisEditorCommandBridge
             case "rtstats":
                 RayTracerStats();
                 break;
+            case "where":
+                {
+                    string needle = parts.Length > 1 ? (parts[1] + (parts.Length > 2 ? " " + parts[2] : string.Empty)).ToLowerInvariant() : string.Empty;
+                    int shown = 0;
+                    foreach (Renderer r in UnityEngine.Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude))
+                    {
+                        if (needle.Length > 0 && !r.name.ToLowerInvariant().Contains(needle)) { continue; }
+                        Write("where " + r.name + " " + r.bounds.center.ToString("F2") + " size " + r.bounds.size.ToString("F2"));
+                        if (++shown >= 40) { break; }
+                    }
+                    Write("where found " + shown);
+                }
+                break;
             case "eval":
                 Write(parts[1] + " = " + Evaluate(parts[1]));
                 break;
