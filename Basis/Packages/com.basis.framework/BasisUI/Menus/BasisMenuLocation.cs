@@ -1,8 +1,8 @@
 using Unity.Scripting.LifecycleManagement;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using static SerializableBasis;
@@ -160,32 +160,50 @@ namespace Basis.BasisUI
                 onMissing?.Invoke();
                 return;
             }
-            panel.StartCoroutine(RevealWhenBuilt(provider, places, place, tab, match, onShown, onMissing));
+            _ = RevealWhenBuilt(panel, provider, places, place, tab, match, onShown, onMissing);
         }
 
-        private static IEnumerator RevealWhenBuilt(BasisMenuActionProvider<BasisMainMenu> provider, IBasisMenuSharePlace places, string place, string tab, Predicate<PanelComponent> match, Action<PanelComponent, string> onShown, Action onMissing)
+        private static async Task RevealWhenBuilt(BasisMenuPanel panel, BasisMenuActionProvider<BasisMainMenu> provider, IBasisMenuSharePlace places, string place, string tab, Predicate<PanelComponent> match, Action<PanelComponent, string> onShown, Action onMissing)
         {
-            float giveUp = Time.unscaledTime + BuildPatienceSeconds;
-            PanelComponent control = null;
-            while (control == null)
+            try
             {
-                if (BasisMainMenu.ActivePanelProvider != provider) yield break;
-                if (places == null && provider.Hidden)
+                float giveUp = Time.unscaledTime + BuildPatienceSeconds;
+                PanelComponent control = null;
+                while (control == null)
                 {
-                    yield return new WaitForSecondsRealtime(RetrySeconds);
-                    continue;
+                    if (!panel || BasisMainMenu.ActivePanelProvider != provider) return;
+                    if (places == null && provider.Hidden)
+                    {
+                        await WaitRealtime(RetrySeconds);
+                        continue;
+                    }
+                    RectTransform page = SelectTabs(places != null ? places.SharePlaceRoot(place) : OpenContent(), tab);
+                    control = page != null ? BasisPanelSearch.RevealControl(page, match) : null;
+                    if (control != null) break;
+                    if (places == null || Time.unscaledTime >= giveUp)
+                    {
+                        onMissing?.Invoke();
+                        return;
+                    }
+                    await WaitRealtime(RetrySeconds);
                 }
-                RectTransform page = SelectTabs(places != null ? places.SharePlaceRoot(place) : OpenContent(), tab);
-                control = page != null ? BasisPanelSearch.RevealControl(page, match) : null;
-                if (control != null) break;
-                if (places == null || Time.unscaledTime >= giveUp)
-                {
-                    onMissing?.Invoke();
-                    yield break;
-                }
-                yield return new WaitForSecondsRealtime(RetrySeconds);
+                PanelComponent shown = await ShowControl(control);
+                if (shown != null) onShown?.Invoke(shown, TryLocate(shown, out _, out _, out string path) ? path : null);
+                else onMissing?.Invoke();
             }
-            yield return ShowRevealed(control, onShown, onMissing);
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception e)
+            {
+                BasisDebug.LogError($"[MenuLocation] Revealing a menu location failed: {e}");
+            }
+        }
+
+        private static async Task WaitRealtime(float seconds)
+        {
+            float until = Time.unscaledTime + seconds;
+            while (Time.unscaledTime < until) await Awaitable.NextFrameAsync();
         }
 
         internal static string JoinPlace(string place, string tab)
@@ -308,18 +326,15 @@ namespace Basis.BasisUI
             return panel != null && panel.Descriptor != null ? panel.Descriptor.ContentParent : null;
         }
 
-        private static IEnumerator ShowRevealed(PanelComponent control, Action<PanelComponent, string> onShown, Action onMissing)
+        public static async Task<PanelComponent> ShowControl(PanelComponent control)
         {
-            yield return null;
-            yield return null;
-            if (control == null)
-            {
-                onMissing?.Invoke();
-                yield break;
-            }
+            if (control == null) return null;
+            await Awaitable.NextFrameAsync();
+            await Awaitable.NextFrameAsync();
+            if (control == null) return null;
             ScrollRect scroll = control.GetComponentInParent<ScrollRect>(true);
             BasisPanelSearch.ScrollToRow(scroll != null && scroll.content != null ? scroll.content : control.rectTransform, control.rectTransform, RevealViewFraction);
-            onShown?.Invoke(control, TryLocate(control, out _, out _, out string path) ? path : null);
+            return control;
         }
     }
 }

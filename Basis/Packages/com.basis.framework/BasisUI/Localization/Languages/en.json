@@ -22429,6 +22429,26 @@
       "value": "crouching"
     },
     {
+      "key": "settingRequests.title",
+      "value": "Show a Setting?"
+    },
+    {
+      "key": "settingRequests.body",
+      "value": "\"{0}\" ({1}) wants to show you a setting in your menu. Nothing changes unless you change it yourself."
+    },
+    {
+      "key": "settingRequests.from",
+      "value": "{0} from {1}"
+    },
+    {
+      "key": "settingRequests.says",
+      "value": "It says: \"{0}\""
+    },
+    {
+      "key": "settingRequests.missing",
+      "value": "This setting could not be found in your menu. It may be on a tab you can't see right now, only on another device, or from a different version of Basis."
+    },
+    {
       "key": "prompt.armWait",
       "value": "Read this first. This button turns on in a moment."
     },

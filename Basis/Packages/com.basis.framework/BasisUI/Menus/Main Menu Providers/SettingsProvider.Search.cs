@@ -1,6 +1,8 @@
 using Unity.Scripting.LifecycleManagement;
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace Basis.BasisUI
@@ -227,6 +229,56 @@ namespace Basis.BasisUI
             BasisPanelSearch.RevealSection(section);
 
             FindTabSearch(tabKey)?.Search?.ScrollTo(title);
+        }
+
+        public static async Task<PanelComponent> RevealSetting(string bindingKey)
+        {
+            if (string.IsNullOrEmpty(bindingKey)) return null;
+            try
+            {
+                BasisMainMenu.Open();
+                await Awaitable.NextFrameAsync();
+                BasisMenuActionProvider<BasisMainMenu> provider = BasisMainMenu.FindProvider(StaticTitle);
+                if (!BasisMainMenu.Instance || provider == null) return null;
+                BasisMenuPromptRestore.Clear();
+                if (BasisMainMenu.ActiveMenuTitle != StaticTitle) provider.RunAction();
+                await Awaitable.NextFrameAsync();
+                PanelTabGroup group = _searchTabGroup;
+                if (group == null || BasisMainMenu.ActiveMenuTitle != StaticTitle) return null;
+                Predicate<PanelComponent> match = control => control != null && control.BoundSettingKey == bindingKey;
+                for (int i = 0; i < _tabSearches.Count; i++)
+                {
+                    if (_searchTabGroup != group) return null;
+                    if (TryRevealOnTab(group, _tabSearches[i].Key, match, out PanelComponent found)) return await BasisMenuLocation.ShowControl(found);
+                }
+                for (int i = 0; i < _lazyTabs.Count; i++)
+                {
+                    if (_searchTabGroup != group) return null;
+                    LazyTab lazy = _lazyTabs[i];
+                    if (lazy.Built || !IsTabButtonActive(lazy.Index)) continue;
+                    RealizeTab(group, lazy, forSearch: true);
+                    await Awaitable.NextFrameAsync();
+                    if (_searchTabGroup != group) return null;
+                    if (TryRevealOnTab(group, lazy.Key, match, out PanelComponent found)) return await BasisMenuLocation.ShowControl(found);
+                }
+                return null;
+            }
+            catch (OperationCanceledException)
+            {
+                return null;
+            }
+        }
+
+        private static bool TryRevealOnTab(PanelTabGroup group, string tabKey, Predicate<PanelComponent> match, out PanelComponent found)
+        {
+            found = null;
+            TabSearch tab = FindTabSearch(tabKey);
+            if (tab == null || tab.Page == null || !IsTabButtonActive(tab.Index)) return false;
+            RectTransform content = tab.Page.Descriptor.ContentParent;
+            if (BasisPanelSearch.RevealControl(content, match) == null) return false;
+            NavigateToTab(group, tabKey);
+            found = BasisPanelSearch.RevealControl(content, match);
+            return true;
         }
     }
 }
