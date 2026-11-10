@@ -402,39 +402,6 @@ public static partial class SettingsProviderIK
             strength?.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.headSwing.strength.tooltip"));
         });
 
-        // ============== Spine: Bend Distribution ==============
-        CreateCollapsibleSection(tabDesc, colliderGroup,
-            BasisLocalization.Get("settings.bodyTracking.section.spineBend.title"),
-            BasisLocalization.Get("settings.bodyTracking.section.spineBend.description"), false, bendParent =>
-        {
-            var vspineGazeSwingRemoval = PanelSlider.CreateAndBind(
-                bendParent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.vspineGazeSwingRemoval.title"), 0f, 1f, false, 2, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.VSpineGazeSwingRemoval);
-            if (vspineGazeSwingRemoval != null)
-            {
-                vspineGazeSwingRemoval.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.vspineGazeSwingRemoval.title.tooltip"));
-            }
-
-            var neckExtensionDamp = PanelSlider.CreateAndBind(
-                bendParent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.neckExtensionDamp.title"), 0f, 1f, false, 2, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.FBIKNeckExtensionDamp);
-            if (neckExtensionDamp != null)
-            {
-                neckExtensionDamp.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.neckExtensionDamp.title.tooltip"));
-            }
-
-            var neckFlexionDamp = PanelSlider.CreateAndBind(
-                bendParent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.neckFlexionDamp.title"), 0f, 1f, false, 2, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.FBIKNeckFlexionDamp);
-            if (neckFlexionDamp != null)
-            {
-                neckFlexionDamp.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.neckFlexionDamp.title.tooltip"));
-            }
-        });
-
         // ============== Spine: Dynamics ==============
         CreateCollapsibleSection(tabDesc, colliderGroup,
             BasisLocalization.Get("settings.bodyTracking.section.spineDynamics.title"),
@@ -456,87 +423,6 @@ public static partial class SettingsProviderIK
             BasisLocalization.Get("settings.bodyTracking.section.virtualSpine.title"),
             BasisLocalization.Get("settings.bodyTracking.section.virtualSpine.description"), false, vspineParent =>
         {
-            var vspineChestPitch = PanelSlider.CreateAndBind(
-                vspineParent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.vspineChestPitchFrac.title"), 0f, 1f, false, 2, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.VSpineChestPitchFrac);
-            if (vspineChestPitch != null)
-            {
-                vspineChestPitch.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.vspineChestPitchFrac.title.tooltip"));
-            }
-
-            var vspineChestRoll = PanelSlider.CreateAndBind(
-                vspineParent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.vspineChestRollFrac.title"), 0f, 1f, false, 2, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.VSpineChestRollFrac);
-            if (vspineChestRoll != null)
-            {
-                vspineChestRoll.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.vspineChestRollFrac.title.tooltip"));
-            }
-
-            var vspineSpinePitch = PanelSlider.CreateAndBind(
-                vspineParent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.vspineSpinePitchFrac.title"), 0f, 1f, false, 2, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.VSpineSpinePitchFrac);
-            if (vspineSpinePitch != null)
-            {
-                vspineSpinePitch.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.vspineSpinePitchFrac.title.tooltip"));
-            }
-
-            var vspineSpineRoll = PanelSlider.CreateAndBind(
-                vspineParent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.vspineSpineRollFrac.title"), 0f, 1f, false, 2, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.VSpineSpineRollFrac);
-            if (vspineSpineRoll != null)
-            {
-                vspineSpineRoll.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.vspineSpineRollFrac.title.tooltip"));
-            }
-
-            var vspineNeckRotSpeed = PanelSlider.CreateAndBind(
-                vspineParent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.vspineNeckRotationSpeed.title"), 0f, 100f, false, 1, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.VSpineNeckRotationSpeed);
-            if (vspineNeckRotSpeed != null)
-            {
-                vspineNeckRotSpeed.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.vspineNeckRotationSpeed.title.tooltip"));
-            }
-
-            var vspineChestRotSpeed = PanelSlider.CreateAndBind(
-                vspineParent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.vspineChestRotationSpeed.title"), 0f, 100f, false, 1, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.VSpineChestRotationSpeed);
-            if (vspineChestRotSpeed != null)
-            {
-                vspineChestRotSpeed.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.vspineChestRotationSpeed.title.tooltip"));
-            }
-
-            var vspineSpineRotSpeed = PanelSlider.CreateAndBind(
-                vspineParent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.vspineSpineRotationSpeed.title"), 0f, 100f, false, 1, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.VSpineSpineRotationSpeed);
-            if (vspineSpineRotSpeed != null)
-            {
-                vspineSpineRotSpeed.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.vspineSpineRotationSpeed.title.tooltip"));
-            }
-
-            var vspineHipsRotSpeed = PanelSlider.CreateAndBind(
-                vspineParent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.vspineHipsRotationSpeed.title"), 0f, 100f, false, 1, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.VSpineHipsRotationSpeed);
-            if (vspineHipsRotSpeed != null)
-            {
-                vspineHipsRotSpeed.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.vspineHipsRotationSpeed.title.tooltip"));
-            }
-
-            var vspineHipsFwd = PanelSlider.CreateAndBind(
-                vspineParent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.vspineHipsForwardBias.title"), -0.1f, 0.1f, false, 3, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.VSpineHipsForwardBias);
-            if (vspineHipsFwd != null)
-            {
-                vspineHipsFwd.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.vspineHipsForwardBias.title.tooltip"));
-            }
-
             var vspineTorsoYawDeadzone = PanelSlider.CreateAndBind(
                 vspineParent,
                 PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.vspineTorsoYawDeadzone.title"), 0f, 90f, false, 1, ValueDisplayMode.Raw),
@@ -572,42 +458,6 @@ public static partial class SettingsProviderIK
             {
                 vspineTorsoYawBlend.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.vspineTorsoYawBlend.title.tooltip"));
             }
-
-            var vspineNodPivotEstimate = PanelToggle.CreateNewEntry(vspineParent);
-            vspineNodPivotEstimate.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.vspineNodPivotEstimate.title"));
-            vspineNodPivotEstimate.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.vspineNodPivotEstimate.title.tooltip"));
-            vspineNodPivotEstimate.AssignBinding(BasisSettingsDefaults.VSpineNodPivotEstimate);
-
-            var vspinePostureModel = PanelToggle.CreateNewEntry(vspineParent);
-            vspinePostureModel.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.vspinePostureModel.title"));
-            vspinePostureModel.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.vspinePostureModel.title.tooltip"));
-            vspinePostureModel.AssignBinding(BasisSettingsDefaults.VSpinePostureModel);
-
-            var vspineHipsCompression = PanelSlider.CreateAndBind(
-                vspineParent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.vspineHipsCompression.title"), 0f, 1f, false, 2, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.VSpineHipsCompressionStrength);
-            vspineHipsCompression?.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.vspineHipsCompression.title.tooltip"));
-
-            var vspineHipsMaxDrop = PanelSlider.CreateAndBind(
-                vspineParent,
-                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.vspineHipsMaxDrop.title"), 0.05f, 1f, false, 2, ValueDisplayMode.Meters),
-                BasisSettingsDefaults.VSpineHipsMaxDropMeters);
-            vspineHipsMaxDrop?.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.vspineHipsMaxDrop.title.tooltip"));
-
-            void SyncVSpineCompressionVisibility()
-            {
-                bool legacyLaw = !BasisSettingsDefaults.VSpinePostureModel.RawValue;
-                vspineHipsCompression?.Descriptor.SetActive(legacyLaw);
-                vspineHipsMaxDrop?.Descriptor.SetActive(legacyLaw);
-            }
-
-            SyncVSpineCompressionVisibility();
-            vspinePostureModel.OnValueChanged += _ =>
-            {
-                SyncVSpineCompressionVisibility();
-                RebuildLayoutChain(vspineParent, tabDesc);
-            };
         });
 
         // ============== Smoothing (One Euro) ==============
