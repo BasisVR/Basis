@@ -64,6 +64,9 @@ public static partial class BasisMediaClipShare
         public bool FromServer;
         public int NeedRounds;
         public bool[] Relayed;
+        public bool Deferred;
+        public bool Pulled;
+        public int PullTarget;
     }
 
     private sealed class Job
@@ -426,7 +429,7 @@ public static partial class BasisMediaClipShare
         int count = 0;
         foreach (Clip clip in clips.Values)
         {
-            if (clip.IsLocalSharer) count++;
+            if (clip.IsLocalSharer && !playlisted.Contains(clip.Id)) count++;
         }
         return count;
     }
@@ -533,20 +536,27 @@ public static partial class BasisMediaClipShare
             BasisDebug.Log($"[BasisMedia] ignored a clip from {senderId}: shared clips are turned off in settings.", LogTag);
             return;
         }
-        int fromSender = 0;
-        foreach (Clip clip in clips.Values)
+        bool listed = playlisted.Contains(offer.Id);
+        int fromSender = CountFromSender(senderId, listed);
+        if (fromSender >= (listed ? MaxPlaylistedPerSender : MaxClipsPerSender))
         {
-            if (clip.SharerId == senderId) fromSender++;
-        }
-        if (fromSender >= MaxClipsPerSender)
-        {
+            if (!listed && TryPark(senderId, buffer, fromServer, offer.Id)) return;
             BasisDebug.LogWarning($"[BasisMedia] refused a clip from {senderId}: they already share {fromSender}.", LogTag);
             return;
         }
-        if (inboundBytes + offer.TotalBytes > MaxInboundBytes)
+        bool deferred = listed && !wanted.Contains(offer.Id);
+        if (!deferred && inboundBytes + offer.TotalBytes > MaxInboundBytes)
         {
-            BasisDebug.LogWarning($"[BasisMedia] refused a clip from {senderId}: {FormatMegabytes(inboundBytes)} of clips already held.", LogTag);
-            return;
+            if (listed)
+            {
+                deferred = true;
+                pendingActivation.Add(offer.Id);
+            }
+            else
+            {
+                BasisDebug.LogWarning($"[BasisMedia] refused a clip from {senderId}: {FormatMegabytes(inboundBytes)} of clips already held.", LogTag);
+                return;
+            }
         }
         string sharerName = BasisNetworkPlayers.GetPlayerById(senderId, out BasisNetworkPlayer sharer) && sharer != null ? sharer.SafeDisplayName : string.Empty;
         float now = Time.realtimeSinceStartup;
@@ -561,13 +571,21 @@ public static partial class BasisMediaClipShare
             Name = offer.Name,
             TotalBytes = offer.TotalBytes,
             TotalChunks = BasisMediaClipProtocol.ChunkCount(offer.TotalBytes),
-            Received = new bool[BasisMediaClipProtocol.ChunkCount(offer.TotalBytes)],
+            Received = deferred ? null : new bool[BasisMediaClipProtocol.ChunkCount(offer.TotalBytes)],
             LastProgressTime = now,
             LastNeedTime = now,
             CreatedTime = now,
             UrlAnnounced = true,
             FromServer = fromServer,
+            Deferred = deferred,
+            Pulled = listed,
         };
+        if (deferred)
+        {
+            clips[created.Id] = created;
+            RegisterShareable(created);
+            return;
+        }
         string partPath = Path.Combine(cacheDirectory, offer.Id.ToString("N") + ".part");
         try
         {
@@ -583,12 +601,10 @@ public static partial class BasisMediaClipShare
         created.OwnsFile = true;
         inboundBytes += created.TotalBytes;
         clips[created.Id] = created;
-        created.View = BasisMediaClipObject.Build(created.Id, created.Name, offer.Position, offer.Rotation, offer.Scale, BasisMediaClipProtocol.IsAudio(created.Container));
-        RefreshBackInfo(created);
-        UpdateReceiveStatus(created);
-        if (panelsVisible) created.View.SetPanelVisible(true);
+        if (!listed) BuildView(created, offer.Position, offer.Rotation, offer.Scale);
         RegisterShareable(created);
         if (fromServer) SendToServer(BasisMediaClipProtocol.EncodeId(BasisMediaClipProtocol.OpServerCacheRequest, created.Id));
+        else if (listed) RequestMissing(created);
     }
 
     private static void HandleChunk(ushort senderId, byte[] buffer)
@@ -611,7 +627,11 @@ public static partial class BasisMediaClipShare
         clip.ReceivedCount++;
         clip.LastProgressTime = Time.realtimeSinceStartup;
         if (clip.ReceivedCount >= clip.TotalChunks) FinishReceive(clip);
-        else UpdateReceiveStatus(clip);
+        else
+        {
+            UpdateReceiveStatus(clip);
+            ContinuePull(clip);
+        }
     }
 
     private static async void FinishReceive(Clip clip)
@@ -743,7 +763,7 @@ public static partial class BasisMediaClipShare
             if (!clip.IsLocalSharer || clip.Storage == null || clip.ServerState == BasisMediaClipProtocol.ServerStateHeld) continue;
             var recipients = new[] { player.playerId };
             Send(BasisMediaClipProtocol.EncodeOffer(BuildOffer(clip)), DeliveryMethod.ReliableOrdered, recipients);
-            jobs.Add(new Job { Clip = clip, Recipients = recipients });
+            if (!playlisted.Contains(clip.Id)) jobs.Add(new Job { Clip = clip, Recipients = recipients });
         }
     }
 
@@ -774,6 +794,7 @@ public static partial class BasisMediaClipShare
         }
         for (int i = 0; i < scratchIds.Count; i++) RemoveClip(scratchIds[i]);
         scratchIds.Clear();
+        DropParkedFrom(leftId);
     }
 
     public static bool CanLocalPlayerRemove(Guid id)
@@ -816,15 +837,13 @@ public static partial class BasisMediaClipShare
             if (jobs[i].Clip == clip) jobs.RemoveAt(i);
         }
         ReleaseInbound(clip);
-        if (clip.View != null)
-        {
-            if (clip.View.Player != null) clip.View.Player.Stop();
-            UnityEngine.Object.Destroy(clip.View.gameObject);
-            clip.View = null;
-        }
+        DestroyView(clip);
         BasisMediaClipStore.Forget(id);
         BasisShareableRegistry.Unregister(ShareableId(id));
         if (clip.OwnsFile && !string.IsNullOrEmpty(clip.FilePath)) DeleteFileLater(clip.FilePath);
+        wanted.Remove(id);
+        pendingActivation.Remove(id);
+        OnClipRemoved?.Invoke(id);
     }
 
     private static void RemoveAll()
@@ -835,6 +854,7 @@ public static partial class BasisMediaClipShare
         scratchIds.Clear();
         jobs.Clear();
         dismissed.Clear();
+        ClearPlaylistLinks();
         inboundBytes = 0;
     }
 
@@ -860,6 +880,7 @@ public static partial class BasisMediaClipShare
     {
         if (!initialized) return;
         if (!hasNetworkId) EnsureNetworkIdentity();
+        TickPlaylistLinks();
         if (clips.Count == 0)
         {
             relayBudget = 0d;
@@ -879,6 +900,12 @@ public static partial class BasisMediaClipShare
         panelsVisible = menuOpen;
         foreach (Clip clip in clips.Values)
         {
+            float stall = clip.Pulled ? PullStallSeconds : StallSeconds;
+            if (!clip.IsLocalSharer && !clip.Complete && !clip.Failed && clip.Received != null && now - clip.LastProgressTime > stall && now - clip.LastNeedTime > stall)
+            {
+                clip.LastNeedTime = now;
+                RequestMissing(clip);
+            }
             BasisMediaClipObject view = clip.View;
             if (view == null) continue;
             if (togglePanels) view.SetPanelVisible(menuOpen);
@@ -896,11 +923,6 @@ public static partial class BasisMediaClipShare
                     clip.PoseTimer = PoseIntervalSeconds;
                     SendPose(view, false);
                 }
-            }
-            if (!clip.IsLocalSharer && !clip.Complete && !clip.Failed && clip.Received != null && now - clip.LastProgressTime > StallSeconds && now - clip.LastNeedTime > StallSeconds)
-            {
-                clip.LastNeedTime = now;
-                RequestMissing(clip);
             }
         }
         PumpJobs(deltaTime);
@@ -920,6 +942,7 @@ public static partial class BasisMediaClipShare
             if (!clip.Received[i]) scratchIndices.Add(i);
         }
         if (scratchIndices.Count == 0) return;
+        clip.PullTarget = clip.ReceivedCount + scratchIndices.Count;
         byte[] need = BasisMediaClipProtocol.EncodeNeed(clip.Id, scratchIndices);
         if (clip.FromServer && (!sharerHere || clip.NeedRounds++ % 2 == 0)) SendToServer(need);
         else Send(need, DeliveryMethod.ReliableOrdered, new[] { clip.SharerId });

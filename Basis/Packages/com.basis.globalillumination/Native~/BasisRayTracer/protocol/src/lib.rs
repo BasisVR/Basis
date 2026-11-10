@@ -270,6 +270,15 @@ const _: () = assert!(std::mem::size_of::<Command>() == 32);
 const _: () = assert!(std::mem::size_of::<View>() == 272);
 const _: () = assert!(std::mem::size_of::<FrameParams>() == 224 + 544);
 
+#[derive(Default, Clone, Copy)]
+pub struct IdHasher(u64);
+impl std::hash::Hasher for IdHasher {
+    fn finish(&self) -> u64 { self.0 }
+    fn write(&mut self, bytes: &[u8]) { for b in bytes { self.0 = (self.0 ^ *b as u64).wrapping_mul(0x0000_0100_0000_01b3); } }
+    fn write_u32(&mut self, v: u32) { self.0 = (v as u64).wrapping_mul(0x9e37_79b9_7f4a_7c15); }
+}
+pub type IdMap<V> = std::collections::HashMap<u32, V, std::hash::BuildHasherDefault<IdHasher>>;
+
 pub fn mapping_name(unity_pid: u32) -> String { format!("Local\\BasisRayTracer.{unity_pid}") }
 pub fn wake_tracer_name(unity_pid: u32) -> String { format!("Local\\BasisRayTracer.{unity_pid}.wake") }
 

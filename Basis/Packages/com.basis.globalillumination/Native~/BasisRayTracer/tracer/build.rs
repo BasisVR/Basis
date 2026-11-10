@@ -4,7 +4,9 @@ use std::process::Command;
 fn compile(dxc: &PathBuf, shaders: &PathBuf, out: &PathBuf, file: &str, profile: &str, entry: &str, extension: &str, flags: &[&str]) {
     let name = if entry.is_empty() { file.trim_end_matches(".hlsl").to_string() } else { entry.to_string() };
     let mut c = Command::new(dxc);
-    c.arg("-T").arg(profile).arg("-HV").arg("2021").arg("-O3").args(flags).arg("-Fo").arg(out.join(format!("{name}.{extension}"))).arg(shaders.join(file));
+    c.arg("-T").arg(profile).arg("-HV").arg("2021").arg("-O3").args(flags);
+    for define in std::env::var("BASIS_RT_DEFINES").unwrap_or_default().split_whitespace() { c.arg("-D").arg(define); }
+    c.arg("-Fo").arg(out.join(format!("{name}.{extension}"))).arg(shaders.join(file));
     if !entry.is_empty() { c.arg("-E").arg(entry); }
     let output = c.output().unwrap_or_else(|e| panic!("run dxc at {}: {e}", dxc.display()));
     if !output.status.success() { panic!("dxc failed for {name}.{extension}:\n{}", String::from_utf8_lossy(&output.stderr)); }
@@ -19,6 +21,7 @@ fn main() {
     let shaders = root.join("shaders");
     for f in ["common.hlsli", "cache.hlsli", "hitobject.hlsli", "trace.hlsl", "upload.hlsl", "denoise.hlsl", "resolve.hlsl", "probe.hlsl", "probe.hlsli", "bounds.hlsl"] { println!("cargo:rerun-if-changed=shaders/{f}"); }
     println!("cargo:rerun-if-env-changed=BASIS_RT_DXC");
+    println!("cargo:rerun-if-env-changed=BASIS_RT_DEFINES");
     let compute: &[(&str, &str)] = &[
         ("upload.hlsl", "CopyVertices"),
         ("upload.hlsl", "CopyIndices"),

@@ -2,6 +2,10 @@
 
 struct Dirty { float4 sphere; };
 
+#ifndef CACHE_EVICT_AGE
+#define CACHE_EVICT_AGE 20000u
+#endif
+
 void ClearAccum(RWByteAddressBuffer accum, uint o)
 {
     accum.Store4(o, uint4(0, 0, 0, 0));
@@ -24,7 +28,13 @@ void CacheMaintain(uint3 id : SV_DispatchThreadID)
     uint i = id.x + pass.a;
     if (i >= CACHE_SIZE) { return; }
     RWByteAddressBuffer keys = ResourceDescriptorHeap[HEAP_CACHE_KEYS];
-    if (keys.Load(i * 8) == 0u) { return; }
+    uint key = keys.Load(i * 8);
+    if (key == 0u) { return; }
+    if (key == CACHE_TOMBSTONE)
+    {
+        if (keys.Load(((i + 1u) & CACHE_MASK) * 8) == 0u) { keys.Store(i * 8, 0u); }
+        return;
+    }
     RWByteAddressBuffer accum = ResourceDescriptorHeap[HEAP_CACHE_ACCUM];
     RWByteAddressBuffer resolved = ResourceDescriptorHeap[HEAP_CACHE_RESOLVED];
     uint o = i * CACHE_STRIDE;
@@ -64,9 +74,9 @@ void CacheMaintain(uint3 id : SV_DispatchThreadID)
     if (accum.Load(o + 48) == 0u)
     {
         RWByteAddressBuffer touched = ResourceDescriptorHeap[HEAP_CACHE_TOUCHED];
-        if (frame.frameIndex - touched.Load(i * 4) > 20000u)
+        if (frame.frameIndex - touched.Load(i * 4) > CACHE_EVICT_AGE)
         {
-            keys.Store2(i * 8, uint2(0u, 0u));
+            keys.Store2(i * 8, uint2(keys.Load(((i + 1u) & CACHE_MASK) * 8) == 0u ? 0u : CACHE_TOMBSTONE, 0u));
             CacheStoreSH(resolved, o, ShZero(), 0.0);
         }
     }

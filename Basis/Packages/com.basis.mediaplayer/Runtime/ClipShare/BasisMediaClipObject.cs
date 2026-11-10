@@ -43,6 +43,7 @@ public sealed partial class BasisMediaClipObject : MonoBehaviour
     public bool HeldLocally { get; private set; }
     public bool HiddenLocally { get; private set; }
     public bool IsAudio { get; private set; }
+    public Bounds DropBounds => box != null && box.enabled ? box.bounds : new Bounds(transform.position, Vector3.one * 0.1f);
 
     private Transform screen;
     private GameObject audioCard;
@@ -305,6 +306,7 @@ public sealed partial class BasisMediaClipObject : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (HeldLocally) BasisMediaPlaylistShare.UpdateHover(null);
         if (languageHooked)
         {
             languageHooked = false;
@@ -379,6 +381,7 @@ public sealed partial class BasisMediaClipObject : MonoBehaviour
     private void OnReleased(BasisInput input)
     {
         HeldLocally = false;
+        if (BasisMediaPlaylistShare.TryDrop(this)) return;
         BasisMediaClipShare.SendPose(this, true);
     }
 
@@ -404,6 +407,7 @@ public sealed partial class BasisMediaClipObject : MonoBehaviour
             nextUiRefresh = Time.unscaledTime + UiRefreshSeconds;
             RefreshTransport();
         }
+        if (HeldLocally) BasisMediaPlaylistShare.UpdateHover(this);
         if (HeldLocally || !hasRemoteTarget) return;
         Transform t = transform;
         t.GetPositionAndRotation(out Vector3 position, out Quaternion rotation);

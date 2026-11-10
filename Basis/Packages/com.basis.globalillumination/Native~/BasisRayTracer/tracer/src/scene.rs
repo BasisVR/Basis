@@ -1,6 +1,5 @@
 use crate::gpu::*;
 use basis_rt_protocol::*;
-use std::collections::HashMap;
 use windows::Win32::Graphics::Direct3D12::*;
 use windows::Win32::Graphics::Dxgi::Common::*;
 use windows::core::*;
@@ -70,8 +69,8 @@ pub struct Scene {
     pub vertex_alloc: RangeAllocator,
     pub index_alloc: RangeAllocator,
     pub submesh_alloc: RangeAllocator,
-    pub meshes: HashMap<u32, MeshEntry>,
-    pub textures: HashMap<u32, TextureEntry>,
+    pub meshes: IdMap<MeshEntry>,
+    pub textures: IdMap<TextureEntry>,
     pub mesh_cpu: Vec<GpuMesh>,
     pub submesh_cpu: Vec<GpuSubmesh>,
     pub tables_dirty: bool,
@@ -121,7 +120,7 @@ impl Scene {
         Ok(Scene {
             vertices, indices, mesh_table, submesh_table, scratch, tlas, tlas_scratch,
             vertex_alloc: RangeAllocator::new(VERTEX_CAPACITY), index_alloc: RangeAllocator::new(INDEX_CAPACITY), submesh_alloc: RangeAllocator::new(SUBMESH_CAPACITY),
-            meshes: HashMap::new(), textures: HashMap::new(), mesh_cpu: vec![GpuMesh::default(); MAX_MESHES as usize], submesh_cpu: vec![GpuSubmesh::default(); SUBMESH_CAPACITY as usize],
+            meshes: IdMap::default(), textures: IdMap::default(), mesh_cpu: vec![GpuMesh::default(); MAX_MESHES as usize], submesh_cpu: vec![GpuSubmesh::default(); SUBMESH_CAPACITY as usize],
             tables_dirty: true, retired: Vec::new(), bounds, bounds_valid: vec![false; SUBMESH_CAPACITY as usize], scratch_cursor: 0, tlas_count: 0, tlas_age: 0,
             postbuild, postbuild_readback, postbuild_mapped: mapped as *const u64, compact_free: (0..COMPACT_SLOTS).rev().collect(), compacting: Vec::new(), completed: 0, compacted_bytes: 0,
         })

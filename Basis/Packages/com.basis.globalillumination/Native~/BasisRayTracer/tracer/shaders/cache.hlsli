@@ -14,6 +14,7 @@
 #define CACHE_SIZE (1u << 20)
 #define CACHE_MASK (CACHE_SIZE - 1u)
 #define CACHE_PROBES 12
+#define CACHE_TOMBSTONE 0xffffffffu
 #define CACHE_FIXED 512.0
 #define CACHE_SETTLED 256.0
 #define CACHE_STRIDE 64u
@@ -97,7 +98,7 @@ CacheCell CacheKey(int3 q, uint level, uint axis)
     h = Hash(h ^ asuint(q.x));
     h = Hash(h ^ asuint(q.y) * 0x85ebca6bu);
     h = Hash(h ^ asuint(q.z) * 0xc2b2ae35u);
-    c.a = max(h, 1u);
+    c.a = clamp(h, 1u, 0xfffffffeu);
     c.b = Hash(h ^ 0x9e3779b9u ^ asuint(q.x) * 31u ^ asuint(q.z) * 17u) | 1u;
     return c;
 }
@@ -116,35 +117,49 @@ int CacheFind(CacheCell c)
     return -1;
 }
 
+bool CacheClaim(RWByteAddressBuffer keys, uint index, uint expected, CacheCell c, float3 centre, float size)
+{
+    uint original;
+    keys.InterlockedCompareExchange(index * 8, expected, c.a, original);
+    if (original == expected)
+    {
+        keys.Store(index * 8 + 4, c.b);
+        RWByteAddressBuffer positions = ResourceDescriptorHeap[HEAP_CACHE_POSITIONS];
+        positions.Store4(index * 16, asuint(float4(centre, size)));
+        return true;
+    }
+    if (original != c.a) { return false; }
+    uint check = keys.Load(index * 8 + 4);
+    return check == c.b || check == 0u;
+}
+
 int CacheInsert(CacheCell c, float3 centre, float size)
 {
     RWByteAddressBuffer keys = ResourceDescriptorHeap[HEAP_CACHE_KEYS];
     uint index = c.a & CACHE_MASK;
+    int reuse = -1;
     [loop] for (uint i = 0; i < CACHE_PROBES; i++)
     {
         uint original = keys.Load(index * 8);
-        if (original == 0u)
-        {
-            keys.InterlockedCompareExchange(index * 8, 0u, c.a, original);
-            if (original == 0u)
-            {
-                keys.Store(index * 8 + 4, c.b);
-                RWByteAddressBuffer positions = ResourceDescriptorHeap[HEAP_CACHE_POSITIONS];
-                positions.Store4(index * 16, asuint(float4(centre, size)));
-                return int(index);
-            }
-        }
         if (original == c.a)
         {
             uint check = keys.Load(index * 8 + 4);
             if (check == c.b || check == 0u) { return int(index); }
         }
+        else if (original == CACHE_TOMBSTONE) { if (reuse < 0) { reuse = int(index); } }
+        else if (original == 0u)
+        {
+            if (reuse >= 0 && CacheClaim(keys, uint(reuse), CACHE_TOMBSTONE, c, centre, size)) { return reuse; }
+            reuse = -1;
+            if (CacheClaim(keys, index, 0u, c, centre, size)) { return int(index); }
+        }
         index = (index + 1u) & CACHE_MASK;
     }
+    if (reuse >= 0 && CacheClaim(keys, uint(reuse), CACHE_TOMBSTONE, c, centre, size)) { return reuse; }
     return -1;
 }
 
-int3 Fixed(float3 v) { return int3(clamp(v * CACHE_FIXED, -2.0e9, 2.0e9)); }
+int3 Fixed(float3 v, float3 dither) { return int3(floor(clamp(v * CACHE_FIXED, -2.0e9, 2.0e9) + dither)); }
 
 void AddFixed(RWByteAddressBuffer b, uint offset, int3 q)
 {
@@ -167,8 +182,10 @@ void CacheAccumulate(float3 p, float3 n, float3 viewer, SH value, float rnd, flo
     int3 q = int3(floor((p + offset) / f.size));
     int index = CacheInsert(CacheKey(q, f.level, f.axis), (float3(q) + 0.5) * f.size, f.size);
     if (index < 0) { return; }
-    int3 r = Fixed(float3(value.c0.r, value.cx.r, value.cy.r)), g = Fixed(float3(value.c0.g, value.cx.g, value.cy.g)), b = Fixed(float3(value.c0.b, value.cx.b, value.cy.b));
-    int3 z = Fixed(value.cz), m = Fixed(value.mean);
+    uint seed = Hash(asuint(jitter.x) ^ (asuint(jitter.y) * 0x9e3779b9u) ^ asuint(rnd));
+    float3 dither = float3(Random(seed), Random(seed), Random(seed));
+    int3 r = Fixed(float3(value.c0.r, value.cx.r, value.cy.r), dither), g = Fixed(float3(value.c0.g, value.cx.g, value.cy.g), dither.yzx), b = Fixed(float3(value.c0.b, value.cx.b, value.cy.b), dither.zxy);
+    int3 z = Fixed(value.cz, dither), m = Fixed(value.mean, dither.zyx);
     RWByteAddressBuffer accum = ResourceDescriptorHeap[HEAP_CACHE_ACCUM];
     uint o = uint(index) * CACHE_STRIDE;
     AddFixed(accum, o + 0, r);

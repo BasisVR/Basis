@@ -89,9 +89,11 @@ Hit ResolveHit(HitObj hitObject, float coneSpread)
     float3 p0 = mul(o2w, float4(asfloat(a0.xyz), 1.0)), p1 = mul(o2w, float4(asfloat(a1.xyz), 1.0)), p2 = mul(o2w, float4(asfloat(a2.xyz), 1.0));
     hit.position = p0 * w.x + p1 * w.y + p2 * w.z;
     float3 objectNormal = UnpackNormal(a0.w) * w.x + UnpackNormal(a1.w) * w.y + UnpackNormal(a2.w) * w.z;
-    hit.normal = normalize(mul(objectNormal, (float3x3)w2o));
+    float3 smooth = mul(objectNormal, (float3x3)w2o);
+    float3 direction = hitObject.GetWorldRayDirection();
     float3 cr = cross(p1 - p0, p2 - p0);
     float area = length(cr);
+    hit.normal = dot(smooth, smooth) > 0.0 && all(isfinite(smooth)) ? normalize(smooth) : (area > 0.0 ? cr / area : -direction);
     hit.geometricNormal = area > 0.0 ? cr / area : hit.normal;
     float2 t0 = f16tof32(uint2(b0.x, b0.x >> 16)), t1 = f16tof32(uint2(b1.x, b1.x >> 16)), t2 = f16tof32(uint2(b2.x, b2.x >> 16));
     hit.uv0 = t0 * w.x + t1 * w.y + t2 * w.z;
@@ -100,7 +102,6 @@ Hit ResolveHit(HitObj hitObject, float coneSpread)
     float uvArea = abs((t1.x - t0.x) * (t2.y - t0.y) - (t2.x - t0.x) * (t1.y - t0.y));
     float footprint = hitObject.GetRayTCurrent() * coneSpread;
     hit.lod = 0.5 * log2(max(footprint * footprint * uvArea / max(area, 1e-12), 1e-12));
-    float3 direction = hitObject.GetWorldRayDirection();
     if (dot(hit.geometricNormal, direction) > 0.0) { hit.geometricNormal = -hit.geometricNormal; }
     if (dot(hit.normal, hit.geometricNormal) < 0.0) { hit.normal = reflect(hit.normal, hit.geometricNormal); }
     return hit;
@@ -537,6 +538,12 @@ void GatherFarLight(RaytracingAccelerationStructure tlas, float3 position, float
     }
 }
 
+float3 FarLight(RaytracingAccelerationStructure tlas, float3 position, float3 normal, float nearRadius, inout uint rng)
+{
+    if ((frame.flags & FLAG_BAKED_HYBRID) != 0 || frame.emitterCount == 0) { return 0.0; }
+    return ClampFirefly(SampleLights(tlas, position, normal, false, rng, 2u, nearRadius).value);
+}
+
 SH GatherSH(RaytracingAccelerationStructure tlas, Texture2D<uint4> gbuffer, float3 position, float3 normal, float3 plane, float3 viewer, uint rays, float2 rotation, bool reorder, inout uint rng, out Bounce firstBounce)
 {
     SH sh = ShZero();
@@ -903,10 +910,10 @@ void RayGen()
             Bounce b = TraceRadiance(tlas, gbuffer, origin, direction, viewer, false, rng);
             traced += ClampFirefly(b.radiance);
         }
-        irradiance = lerp(traced / fresh, cached.rgb, saturate(cached.a * 2.0));
+        irradiance = lerp(traced / fresh + FarLight(tlas, origin, surface.normal, nearRadius, rng), cached.rgb, saturate(cached.a * 2.0));
     }
     uint avatarRays = frame.bounces >> 8;
-    if (avatarPixel && avatarRays > 0u && ((local.x + local.y + frame.frameIndex) & 1u) == 0u)
+    if (avatarPixel && avatarRays > 0u && ((local.x + local.y + frame.parity) & 1u) == 0u)
     {
         float3 traced = 0.0;
         for (uint ar = 0; ar < avatarRays; ar++)
@@ -916,7 +923,7 @@ void RayGen()
             Bounce b = TraceRadiance(tlas, gbuffer, origin, direction, viewer, false, rng);
             traced += ClampFirefly(b.radiance);
         }
-        irradiance = lerp(irradiance, traced / avatarRays, min(2.0 * float(avatarRays) / float(avatarRays + 2u), 1.0));
+        irradiance = lerp(irradiance, traced / avatarRays + FarLight(tlas, origin, surface.normal, nearRadius, rng), min(2.0 * float(avatarRays) / float(avatarRays + 2u), 1.0));
     }
 
     if ((frame.flags & FLAG_PROBES) != 0)
@@ -959,11 +966,11 @@ void RayGen()
             RayDesc ray;
             ray.Origin = origin;
             ray.Direction = direction;
-            ray.TMin = 0.0;
+            ray.TMin = bias * 4.0;
             ray.TMax = frame.aoRadius;
             Payload payload = (Payload)0;
             HitObj h = TraceHit(tlas, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_OPAQUE, 0xFF, ray, payload);
-            if (h.IsHit() && h.GetRayTCurrent() > bias * 4.0) { float o = 1.0 - h.GetRayTCurrent() / frame.aoRadius; occlusion += o * o; }
+            if (h.IsHit()) { float o = 1.0 - h.GetRayTCurrent() / frame.aoRadius; occlusion += o * o; }
         }
         occlusion /= aoRays;
     }

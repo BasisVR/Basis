@@ -417,20 +417,20 @@ public static partial class BasisMediaClipProtocol
         return true;
     }
 
-    private static void WriteGuid(byte[] buffer, ref int offset, Guid id)
+    internal static void WriteGuid(byte[] buffer, ref int offset, Guid id)
     {
         id.TryWriteBytes(buffer.AsSpan(offset, GuidBytes));
         offset += GuidBytes;
     }
 
-    private static Guid ReadGuid(byte[] buffer, ref int offset)
+    internal static Guid ReadGuid(byte[] buffer, ref int offset)
     {
         var id = new Guid(new ReadOnlySpan<byte>(buffer, offset, GuidBytes));
         offset += GuidBytes;
         return id;
     }
 
-    private static void WritePose(byte[] buffer, ref int offset, Vector3 position, Quaternion rotation, float scale)
+    internal static void WritePose(byte[] buffer, ref int offset, Vector3 position, Quaternion rotation, float scale)
     {
         WriteFloat(buffer, ref offset, position.x);
         WriteFloat(buffer, ref offset, position.y);
@@ -442,7 +442,7 @@ public static partial class BasisMediaClipProtocol
         WriteFloat(buffer, ref offset, scale);
     }
 
-    private static bool ReadPose(byte[] buffer, ref int offset, out Vector3 position, out Quaternion rotation, out float scale)
+    internal static bool ReadPose(byte[] buffer, ref int offset, out Vector3 position, out Quaternion rotation, out float scale)
     {
         position = new Vector3(ReadFloat(buffer, ref offset), ReadFloat(buffer, ref offset), ReadFloat(buffer, ref offset));
         rotation = new Quaternion(ReadFloat(buffer, ref offset), ReadFloat(buffer, ref offset), ReadFloat(buffer, ref offset), ReadFloat(buffer, ref offset));

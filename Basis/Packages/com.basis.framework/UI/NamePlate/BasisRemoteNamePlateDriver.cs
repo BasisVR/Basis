@@ -551,6 +551,7 @@ namespace Basis.Scripts.UI.NamePlate
                 if (plate.Self != null)
                 {
                     plate.Self.localScale = scale;
+                    Basis.Scripts.BasisSdk.Interactions.BasisPhysicsSyncGate.MarkColliderMoved();
                 }
 
                 plate.InteractRange = NamePlateSelectDistance;
@@ -1102,6 +1103,7 @@ namespace Basis.Scripts.UI.NamePlate
                         var sp = scaleArr[i];
                         if (sp != null && sp.Self != null) sp.Self.localScale = scaleVec;
                     }
+                    Basis.Scripts.BasisSdk.Interactions.BasisPhysicsSyncGate.MarkColliderMoved();
                 }
             }
 

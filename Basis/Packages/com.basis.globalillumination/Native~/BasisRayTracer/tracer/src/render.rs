@@ -119,6 +119,7 @@ pub struct Renderer {
     pub ring: UploadRing,
     pub slot_fences: [u64; RING],
     pub contexts: Vec<Option<Context>>,
+    pub eligible: Vec<u32>,
 }
 
 fn compute_pso(gpu: &Gpu, root: &ID3D12RootSignature, code: &[u8]) -> Result<ID3D12PipelineState> {
@@ -201,7 +202,7 @@ impl Renderer {
             Ok(Renderer {
                 copy_vertices: compute_pso(gpu, &root, COPY_VERTICES)?, copy_indices: compute_pso(gpu, &root, COPY_INDICES)?, copy_positions: compute_pso(gpu, &root, COPY_POSITIONS)?, texture_pixels: compute_pso(gpu, &root, TEXTURE_PIXELS)?,
                 downsample: compute_pso(gpu, &root, DOWNSAMPLE)?, temporal: compute_pso(gpu, &root, TEMPORAL)?, wavelet: compute_pso(gpu, &root, WAVELET)?, resolve: compute_pso(gpu, &root, RESOLVE)?, maintain: compute_pso(gpu, &root, MAINTAIN)?, resolve_signature, cache_args, probe_resolve: compute_pso(gpu, &root, PROBE_RESOLVE)?, submesh_bounds: compute_pso(gpu, &root, SUBMESH_BOUNDS)?, submesh_bounds_clear: compute_pso(gpu, &root, SUBMESH_BOUNDS_CLEAR)?, cache, blue_noise, queries, readback, frequency, timings: [0; 8],
-                root, state, table, table_address, allocators, list, ring, slot_fences: [0; RING], contexts: (0..MAX_CONTEXTS).map(|_| None).collect(),
+                root, state, table, table_address, allocators, list, ring, slot_fences: [0; RING], contexts: (0..MAX_CONTEXTS).map(|_| None).collect(), eligible: Vec::new(),
             })
         }
     }
@@ -265,17 +266,13 @@ impl Renderer {
         }
         let commands: Vec<Command> = unsafe { (&(*slot_ptr).commands)[..(params.command_count as usize).min(MAX_COMMANDS)].to_vec() };
         let mut tlas_count = 0u32;
+        let mut eligible = std::mem::take(&mut self.eligible);
+        eligible.clear();
         unsafe {
-            let descs = mapped.add(TLAS_OFFSET as usize) as *mut D3D12_RAYTRACING_INSTANCE_DESC;
             for (i, inst) in (&(*slot_ptr).instances)[..instance_count].iter().enumerate() {
                 let Some(m) = scene.meshes.get(&inst.mesh) else { continue; };
                 if m.blas_address == 0 && !m.needs_build { continue; }
-                let d = &mut *descs.add(tlas_count as usize);
-                d.Transform = inst.transform;
-                d._bitfield1 = (i as u32 & 0x00ff_ffff) | ((inst.mask & 0xff) << 24);
-                d._bitfield2 = (D3D12_RAYTRACING_INSTANCE_FLAG_TRIANGLE_CULL_DISABLE.0 as u32) << 24;
-                d.AccelerationStructure = 0;
-                tlas_count += 1;
+                eligible.push(i as u32);
             }
         }
         let _ = commands.len();
@@ -341,20 +338,15 @@ impl Renderer {
         scene.build(gpu, &list, fence_hint)?;
         unsafe {
             let descs = mapped.add(TLAS_OFFSET as usize) as *mut D3D12_RAYTRACING_INSTANCE_DESC;
-            let mut write = 0u32;
-            for read in 0..tlas_count {
-                let d = *descs.add(read as usize);
-                let index = (d._bitfield1 & 0x00ff_ffff) as usize;
-                let mesh = (*slot_ptr).instances[index].mesh;
-                let Some(m) = scene.meshes.get(&mesh) else { continue; };
+            for &i in &eligible {
+                let inst = &(*slot_ptr).instances[i as usize];
+                let Some(m) = scene.meshes.get(&inst.mesh) else { continue; };
                 if m.blas_address == 0 { continue; }
-                let mut d = d;
-                d.AccelerationStructure = m.blas_address;
-                *descs.add(write as usize) = d;
-                write += 1;
+                descs.add(tlas_count as usize).write(D3D12_RAYTRACING_INSTANCE_DESC { Transform: inst.transform, _bitfield1: (i & 0x00ff_ffff) | ((inst.mask & 0xff) << 24), _bitfield2: (D3D12_RAYTRACING_INSTANCE_FLAG_TRIANGLE_CULL_DISABLE.0 as u32) << 24, AccelerationStructure: m.blas_address });
+                tlas_count += 1;
             }
-            tlas_count = write;
         }
+        self.eligible = eligible;
         scene.build_tlas(&list, address + TLAS_OFFSET, tlas_count);
         let stamp = |list: &ID3D12GraphicsCommandList4, i: u32| unsafe { list.EndQuery(&self.queries, D3D12_QUERY_TYPE_TIMESTAMP, slot as u32 * TIMESTAMPS + i); };
         stamp(&list, 1);

@@ -125,6 +125,7 @@ pub struct Renderer {
     pub commands: Vec<vk::CommandBuffer>,
     pub ring: Buffer,
     pub slot_fences: [u64; RING],
+    pub eligible: Vec<u32>,
     pub contexts: Vec<Option<Context>>,
     pub upload: [SharedImage; 2],
     pub fence_unity: SharedSemaphore,
@@ -282,7 +283,7 @@ impl Renderer {
             image_barrier(gpu, cmd, &[(upload[0].image, vk::ImageLayout::UNDEFINED, vk::ImageLayout::GENERAL, vk::QUEUE_FAMILY_IGNORED, vk::QUEUE_FAMILY_IGNORED), (upload[1].image, vk::ImageLayout::UNDEFINED, vk::ImageLayout::GENERAL, vk::QUEUE_FAMILY_IGNORED, vk::QUEUE_FAMILY_IGNORED)]);
             gpu.finish_now(cmd)?;
             Ok(Renderer {
-                layout, set_layouts, sets: [set0, set1], pools: [pool0, pool1], samplers, rt, sbt, regions, compute, cache, cache_args, blue_noise, queries, timings: [0; 8], commands, ring, slot_fences: [0; RING],
+                layout, set_layouts, sets: [set0, set1], pools: [pool0, pool1], samplers, rt, sbt, regions, compute, cache, cache_args, blue_noise, queries, timings: [0; 8], commands, ring, slot_fences: [0; RING], eligible: Vec::new(),
                 contexts: (0..MAX_CONTEXTS).map(|_| None).collect(), upload, fence_unity, fence_tracer, scratch: std::cell::Cell::new((SCRATCH_DESCRIPTORS, 0)),
             })
         }
@@ -350,13 +351,13 @@ impl Renderer {
         }
         let commands: Vec<Command> = unsafe { (&(*slot_ptr).commands)[..(params.command_count as usize).min(MAX_COMMANDS)].to_vec() };
         let mut tlas_count = 0u32;
+        let mut eligible = std::mem::take(&mut self.eligible);
+        eligible.clear();
         unsafe {
-            let descs = mapped.add(TLAS_OFFSET as usize) as *mut InstanceDesc;
             for (i, inst) in (&(*slot_ptr).instances)[..instance_count].iter().enumerate() {
                 let Some(m) = scene.meshes.get(&inst.mesh) else { continue; };
                 if m.blas_address == 0 && !m.needs_build { continue; }
-                *descs.add(tlas_count as usize) = InstanceDesc { transform: inst.transform, index_mask: (i as u32 & 0x00ff_ffff) | ((inst.mask & 0xff) << 24), sbt_flags: (vk::GeometryInstanceFlagsKHR::TRIANGLE_FACING_CULL_DISABLE.as_raw()) << 24, reference: 0 };
-                tlas_count += 1;
+                eligible.push(i as u32);
             }
         }
 
@@ -423,20 +424,15 @@ impl Renderer {
         scene.build(gpu, cmd, fence_hint)?;
         unsafe {
             let descs = mapped.add(TLAS_OFFSET as usize) as *mut InstanceDesc;
-            let mut write = 0u32;
-            for read in 0..tlas_count {
-                let d = *descs.add(read as usize);
-                let index = (d.index_mask & 0x00ff_ffff) as usize;
-                let mesh = (*slot_ptr).instances[index].mesh;
-                let Some(m) = scene.meshes.get(&mesh) else { continue; };
+            for &i in &eligible {
+                let inst = &(*slot_ptr).instances[i as usize];
+                let Some(m) = scene.meshes.get(&inst.mesh) else { continue; };
                 if m.blas_address == 0 { continue; }
-                let mut d = d;
-                d.reference = m.blas_address;
-                *descs.add(write as usize) = d;
-                write += 1;
+                descs.add(tlas_count as usize).write(InstanceDesc { transform: inst.transform, index_mask: (i & 0x00ff_ffff) | ((inst.mask & 0xff) << 24), sbt_flags: (vk::GeometryInstanceFlagsKHR::TRIANGLE_FACING_CULL_DISABLE.as_raw()) << 24, reference: m.blas_address });
+                tlas_count += 1;
             }
-            tlas_count = write;
         }
+        self.eligible = eligible;
         scene.build_tlas(gpu, cmd, address + TLAS_OFFSET, tlas_count);
         let stamp = |i: u32| unsafe { gpu.device.cmd_write_timestamp2(cmd, vk::PipelineStageFlags2::ALL_COMMANDS, self.queries, slot as u32 * TIMESTAMPS + i); };
         stamp(1);

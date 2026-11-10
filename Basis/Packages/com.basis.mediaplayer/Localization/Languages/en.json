@@ -261,6 +261,78 @@
     {
       "key": "mediaPlayer.web.hls",
       "value": "This browser cannot play HLS streams."
+    },
+    {
+      "key": "mediaPlaylist.owned",
+      "value": "{0}'s playlist"
+    },
+    {
+      "key": "mediaPlaylist.count",
+      "value": "{0} of {1} clips"
+    },
+    {
+      "key": "mediaPlaylist.countOne",
+      "value": "1 clip"
+    },
+    {
+      "key": "mediaPlaylist.insert",
+      "value": "Insert"
+    },
+    {
+      "key": "mediaPlaylist.insertRelease",
+      "value": "Let go to add"
+    },
+    {
+      "key": "mediaPlaylist.insertHint",
+      "value": "Drag a shared video or audio clip onto this button"
+    },
+    {
+      "key": "mediaPlaylist.insertReleaseHint",
+      "value": "It goes to the end of the playlist"
+    },
+    {
+      "key": "mediaPlaylist.insertHelp",
+      "value": "Pick up a shared video or audio clip and let go of it over this button."
+    },
+    {
+      "key": "mediaPlaylist.full",
+      "value": "This playlist is full ({0} clips)."
+    },
+    {
+      "key": "mediaPlaylist.empty",
+      "value": "The playlist is empty. Drop a video or audio clip on Insert to add it."
+    },
+    {
+      "key": "mediaPlaylist.repeatOn",
+      "value": "Repeat on"
+    },
+    {
+      "key": "mediaPlaylist.repeatOff",
+      "value": "Repeat off"
+    },
+    {
+      "key": "mediaPlaylist.nowPlaying",
+      "value": "{0}/{1} · {2}"
+    },
+    {
+      "key": "mediaPlaylist.nothingPlaying",
+      "value": "Nothing playing"
+    },
+    {
+      "key": "mediaPlaylist.pressPlay",
+      "value": "Press play to start the playlist"
+    },
+    {
+      "key": "mediaPlaylist.finished",
+      "value": "Reached the end of the playlist"
+    },
+    {
+      "key": "mediaPlaylist.queued",
+      "value": "Downloads before it plays"
+    },
+    {
+      "key": "mediaPlaylist.unavailable",
+      "value": "No longer shared"
     }
   ]
 }

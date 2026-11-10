@@ -721,5 +721,41 @@ namespace Basis.Scripts.Avatar
             if (v >= 1_000) return (v / 1_000d).ToString("0.##") + "k";
             return v.ToString("0.##");
         }
+
+        /// <summary>
+        /// Relative cost of an avatar as it is actually running, for ranking players against each
+        /// other. Each term is a count from the bundle metadata, less whatever the trim pass removed,
+        /// divided by the amount that makes that category a heavy load on its own, so one avatar with
+        /// a dozen lights and another with half a million triangles both land near the top. Covers the
+        /// same work the performance breakdown splits out: draws and skinning (render), jiggle, animators
+        /// and scripts. 0 when the connector is missing.
+        /// </summary>
+        public static float EstimateCost(BasisBundleConnector connector, in PerformanceInfo trimmed)
+        {
+            if (connector == null) return 0f;
+            BasisBundleConnector.BasisMetaData meta = connector.MetaData;
+            BasisBundleConnector.BasisComponentName[] names = meta.ComponentNames;
+
+            float cost = meta.TrianglesCount / 70000f
+                + meta.MaterialCount / 32f
+                + meta.BonesCount / 400f
+                + meta.TextureMemoryBytes / (256f * 1024f * 1024f)
+                + GetComponentCount(names, CompSkinnedMeshRenderer) / 16f
+                + GetComponentCount(names, CompMeshFilter) / 24f
+                + Kept(names, "Light", trimmed.LightsTrimmed) / 1f
+                + Kept(names, "ParticleSystem", trimmed.ParticleSystemsTrimmed) / 16f
+                + Kept(names, "TrailRenderer", trimmed.TrailRenderersTrimmed) / 8f
+                + Kept(names, "LineRenderer", trimmed.LineRenderersTrimmed) / 8f
+                + Kept(names, "Cloth", trimmed.ClothTrimmed) / 1f
+                + Mathf.Max(0, GetUnityColliderCount(names) - trimmed.CollidersTrimmed) / 32f
+                + Kept(names, "JiggleRig", trimmed.JiggleRigsTrimmed) / 16f
+                + Kept(names, CompJiggleColliderExample, trimmed.JiggleCollidersTrimmed) / 32f
+                + Mathf.Max(0, Kept(names, "Animator", trimmed.AnimatorsTrimmed) - 1) / 16f
+                + Kept(names, CompCilboxProxy, trimmed.CilboxBehavioursTrimmed) / 8f;
+            return cost;
+        }
+
+        private static int Kept(BasisBundleConnector.BasisComponentName[] names, string typeName, int trimmedCount) =>
+            Mathf.Max(0, GetComponentCount(names, typeName) - trimmedCount);
     }
 }

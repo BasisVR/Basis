@@ -134,7 +134,7 @@ public partial class BasisGlobalIlluminationPass
         externalFrame = frame;
         externalSubmit = true;
         uint parity = context.Parity;
-        externalBehind = !settings.externalSameFrame;
+        externalBehind = !settings.externalSameFrame && context.LastFrame != 0;
         externalFetchFrame = externalBehind ? context.LastFrame : frame;
         externalFetchParity = externalBehind ? context.LastParity : parity;
         BasisExternalRayTracer.Commit(context, frame);

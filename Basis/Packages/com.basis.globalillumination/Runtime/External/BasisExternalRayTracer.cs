@@ -329,6 +329,7 @@ public static unsafe partial class BasisExternalRayTracer
             BasisRT_SetSize(index, (uint)width, (uint)height, (uint)views);
             context.ResultValid = false;
             context.Reset = true;
+            context.LastFrame = 0;
         }
         return context;
     }

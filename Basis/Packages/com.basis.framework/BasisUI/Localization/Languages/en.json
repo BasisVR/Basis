@@ -5175,6 +5175,14 @@
       "value": "Platform"
     },
     {
+      "key": "menu.players.sortMode.performance",
+      "value": "Performance"
+    },
+    {
+      "key": "menu.players.avatarCost",
+      "value": "Avatar: {0} triangles, {1} materials, {2} textures"
+    },
+    {
       "key": "menu.players.sortMode.joinTime",
       "value": "Join Time"
     },
@@ -6529,6 +6537,10 @@
     {
       "key": "library.embedded.personalMirror",
       "value": "Personal Mirror"
+    },
+    {
+      "key": "library.embedded.mediaPlaylist",
+      "value": "Media Playlist"
     },
     {
       "key": "library.noDescription",

@@ -225,6 +225,11 @@ fn main() {
         let fov = 70f32.to_radians();
         let projection = perspective(fov, w as f32 / h as f32, 0.05, 100.0);
 
+        let light_scale: f32 = std::env::var("LIGHT").ok().and_then(|v| v.parse().ok()).unwrap_or(1.0);
+        let instances: usize = std::env::var("INSTANCES").ok().and_then(|v| v.parse().ok()).unwrap_or(2).clamp(2, MAX_INSTANCES);
+        let mut record_us = 0u64;
+        let freeze = std::env::var("FREEZE").map_or(false, |v| !v.is_empty());
+        let avatar_rays: u32 = std::env::var("AVATARRAYS").ok().and_then(|v| v.parse().ok()).unwrap_or(0);
         let room_quads = room();
         let mut times = Vec::new();
 
@@ -233,7 +238,7 @@ fn main() {
             let iteration = frame;
             let frame = protocol;
             while header.frame_submitted.load(Ordering::Acquire) + 2 < frame { std::thread::yield_now(); }
-            let t = frame as f32 * 0.1;
+            let t = if freeze { 0.0 } else { frame as f32 * 0.1 };
             if sway { camera[0] = 0.4 * (frame as f32 * 0.25).sin(); }
             let view = view_from(camera);
             let vp = mat_mul(&projection, &view);
@@ -271,9 +276,10 @@ fn main() {
             let identity = [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0];
             slot.instances[0] = Instance { transform: identity, mesh: 1, material_base: 0, mask: 0xff, flags: 0, lightmap: -1, ..Default::default() };
             slot.instances[1] = Instance { transform: identity, mesh: 2, material_base: 7, mask: 0xff, flags: INSTANCE_AVATAR | INSTANCE_EMITTER, lightmap: -1, ..Default::default() };
+            for i in 2..instances { slot.instances[i] = Instance { transform: [1.0, 0.0, 0.0, 500.0 + (i % 128) as f32 * 2.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 500.0 + (i / 128) as f32 * 2.0], mesh: 2, material_base: 7, mask: 0xff, flags: 0, lightmap: -1, ..Default::default() }; }
             let light_off_at = std::env::var("LIGHTOFF").ok().and_then(|v| v.parse::<u64>().ok());
-            let lit = if light_off_at.map_or(false, |n| iteration as u64 >= n) { 0.0f32 } else { 1.0f32 };
-            for (i, q) in room_quads.iter().enumerate() { slot.materials[i] = Material { base_color: [q.albedo[0], q.albedo[1], q.albedo[2], 1.0], emission: [q.emission[0] * lit, q.emission[1] * lit, q.emission[2] * lit, 0.0], base_st: [1.0, 1.0, 0.0, 0.0], emission_st: [1.0, 1.0, 0.0, 0.0], base_texture: -1, emission_texture: -1, flags: if i == 3 { MATERIAL_EMITTER } else { 0 }, ..Default::default() }; }
+            let lit = if light_off_at.map_or(false, |n| iteration as u64 >= n) { 0.0f32 } else { 1.0f32 } * light_scale;
+            for (i, q) in room_quads.iter().enumerate() { slot.materials[i] = Material { base_color: [q.albedo[0], q.albedo[1], q.albedo[2], 1.0], emission: [q.emission[0] * lit, q.emission[1] * lit, q.emission[2] * lit, 0.0], base_st: [1.0, 1.0, 0.0, 0.0], emission_st: [1.0, 1.0, 0.0, 0.0], base_texture: -1, emission_texture: -1, flags: if i == 6 { MATERIAL_EMITTER } else { 0 }, ..Default::default() }; }
             let c0 = &cube_quads[0];
             slot.materials[7] = Material { base_color: [c0.albedo[0], c0.albedo[1], c0.albedo[2], 1.0], emission: [c0.emission[0] * lit, c0.emission[1] * lit, c0.emission[2] * lit, 0.0], base_st: [1.0, 1.0, 0.0, 0.0], emission_st: [1.0, 1.0, 0.0, 0.0], base_texture: -1, emission_texture: -1, flags: MATERIAL_EMITTER, ..Default::default() };
             slot.lights[0] = Light { position: [0.0, 2.5, -1.0, f32::from_bits(LIGHT_POINT)], direction: [0.0, -1.0, 0.0, 8.0], color: [3.0 * lit, 2.7 * lit, 2.4 * lit, 1.0], spot: [0.0; 4] };
@@ -283,15 +289,15 @@ fn main() {
             slot.emitters[1] = Emitter { instance: 1, geometry: 0, triangle_count: 12, cdf: 1.0 };
             let v = View { view, projection, inverse_view_projection: [0.0; 16], previous_view_projection: prev_vp, position: [camera[0], camera[1], camera[2], 0.0] };
             slot.params = FrameParams {
-                frame, instance_count: 2, material_count: 8, light_count: 1, command_count: commands.len() as u32, upload_texels: texels.len() as u32,
-                flags: FLAG_SCREEN_REUSE | FLAG_SHADOWS | if std::env::var("NODENOISE").is_ok() { 0 } else { FLAG_DENOISE } | FLAG_REORDER | if std::env::var("NOPROBES").map_or(false, |v| !v.is_empty()) { 0 } else { FLAG_PROBES }, width: w, height: h, view_count: views, samples: 2, bounces: 2,
+                frame, instance_count: instances as u32, material_count: 8, light_count: 1, command_count: commands.len() as u32, upload_texels: texels.len() as u32,
+                flags: FLAG_SCREEN_REUSE | FLAG_SHADOWS | if std::env::var("NODENOISE").is_ok() { 0 } else { FLAG_DENOISE } | FLAG_REORDER | if std::env::var("NOPROBES").map_or(false, |v| !v.is_empty()) { 0 } else { FLAG_PROBES }, width: w, height: h, view_count: views, samples: 2, bounces: 2 | (avatar_rays << 8),
                 max_distance: 100.0, ao_radius: 0.5, emission_scale: 1.0, sky_intensity: 1.0, time: t, firefly_clamp: 30.0, temporal_response: 0.05,
                 light_intensity: 1.0, normal_bias: 0.005, emitter_count: 2, ao_intensity: 0.5, context: 0, parity: (iteration & 1) as u32, cache_cell_size: 0.2, dirty_count: std::env::var("DIRTY").ok().and_then(|v| v.parse().ok()).unwrap_or(1), ambient: [[0.0; 4]; 7], views: [v, v],
             };
 
             let all: Vec<Quad> = room().into_iter().chain(cube(cube_center, 0.6)).collect();
             let tanf = (fov * 0.5).tan();
-            for y in 0..h {
+            for y in 0..(if freeze && iteration > 2 { 0 } else { h }) {
                 for x in 0..w {
                     let ndc = [((x as f32 + 0.5) / w as f32) * 2.0 - 1.0, ((y as f32 + 0.5) / h as f32) * 2.0 - 1.0];
                     let dir = normalize([ndc[0] * tanf * w as f32 / h as f32, ndc[1] * tanf, 1.0]);
@@ -300,7 +306,7 @@ fn main() {
                             let q = &all[i];
                             let rel = mul(dir, t);
                             for vi in 0..views { store128(gptr, (pw * 2 * 8) as usize, (x + vi * w) * 2, y, [rel[0].to_bits(), rel[1].to_bits(), rel[2].to_bits(), pack_normal(q.normal)]); }
-                            let lit = add(q.emission, mul(q.albedo, 0.3));
+                            let lit = mul(add(q.emission, mul(q.albedo, 0.3)), light_scale);
                             for vi in 0..views { store128(gptr, (pw * 2 * 8) as usize, (x + vi * w) * 2 + 1, y, [pack_rgba8(q.albedo), pack_rgb9e5(lit), 0, 0]); }
                         }
                         None => { for vi in 0..views { store128(gptr, (pw * 2 * 8) as usize, (x + vi * w) * 2, y, [0; 4]); store128(gptr, (pw * 2 * 8) as usize, (x + vi * w) * 2 + 1, y, [0; 4]); } }
@@ -337,7 +343,7 @@ fn main() {
             #[cfg(windows)]
             if let Some(c) = d3c.as_mut() { c.read(); }
             times.push(started.elapsed().as_secs_f64() * 1000.0);
-            if iteration > 16 { for i in 0..8 { gpu_sum[i] += header.reserved[i] as u64; } gpu_n += 1; }
+            if iteration > 16 { for i in 0..8 { gpu_sum[i] += header.reserved[i] as u64; } gpu_n += 1; record_us += header.build_time_us.load(Ordering::Relaxed) as u64; }
             prev_vp = vp;
             let mut current = Vec::with_capacity((pw * h) as usize);
             for y in 0..h { for x in 0..pw { let p = rptr.add((y * rpitch + x * 8) as usize) as *const u16; current.push(f16(*p) * 0.2126 + f16(*p.add(1)) * 0.7152 + f16(*p.add(2)) * 0.0722); } }
@@ -392,7 +398,7 @@ fn main() {
         println!("gpu us: total {} | scene {} update {} resolve {} probes {} gather {} denoise {}", r[0], r[1], r[2], r[3], r[4], r[5], r[6]);
         let a = gpu_sum.map(|v| v as f64 / gpu_n.max(1) as f64);
         println!("gpu us mean over {gpu_n}: total {:.0} | scene {:.0} update {:.0} resolve {:.0} probes {:.0} gather {:.0} temporal {:.0} wavelet {:.0}", a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
-        println!("round trip ms median {:.3}, p90 {:.3}; tracer cpu record {} us; meshes {}", times[times.len() / 2], times[times.len() * 9 / 10], header.build_time_us.load(Ordering::Relaxed), header.mesh_count.load(Ordering::Relaxed));
+        println!("round trip ms median {:.3}, p90 {:.3}; tracer cpu record mean {} us; meshes {}", times[times.len() / 2], times[times.len() * 9 / 10], record_us / gpu_n.max(1), header.mesh_count.load(Ordering::Relaxed));
         if contexts > 1 { println!("second context fetched {second_ok}/{frames} frames"); }
         if !flicker.is_empty() { println!("frame-to-frame change {:.2}% (mean over {} frames, sway {})", 100.0 * flicker.iter().sum::<f64>() / flicker.len() as f64, flicker.len(), sway); }
         println!("wrote {out}");

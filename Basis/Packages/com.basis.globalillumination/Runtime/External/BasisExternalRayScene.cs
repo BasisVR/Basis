@@ -818,6 +818,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
 
         emitterScratch.Sort((a, b) => b.power.CompareTo(a.power));
         int emitterCount = Mathf.Min(emitterScratch.Count, BasisExternalRayTracer.MaxEmitters);
+        for (int i = emitterCount; i < emitterScratch.Count; i++) { materials[instances[emitterScratch[i].instance].materialBase + emitterScratch[i].geometry].flags &= ~BasisExternalRayTracer.MaterialEmitter; }
         float total = 0f;
         for (int i = 0; i < emitterCount; i++) { total += emitterScratch[i].power; }
         float running = 0f;

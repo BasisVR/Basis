@@ -455,6 +455,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ce8b57f26933a3069318c67c0922a0d5
+    m_Address: Media Playlist
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ceea3a86a31c4774399e1ca523bf6850
     m_Address: Packages/com.basis.sdk/Fonts/NamePlate LiberationSans SDF.asset
     m_ReadOnly: 0

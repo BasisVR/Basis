@@ -2,7 +2,6 @@ use super::device::*;
 use crate::Fallible;
 use ash::vk;
 use basis_rt_protocol::*;
-use std::collections::HashMap;
 
 pub const VERTEX_CAPACITY: u64 = 8 * 1024 * 1024;
 pub const INDEX_CAPACITY: u64 = 64 * 1024 * 1024;
@@ -75,8 +74,8 @@ pub struct Scene {
     pub vertex_alloc: Vec<(u64, u64)>,
     pub index_alloc: Vec<(u64, u64)>,
     pub submesh_alloc: Vec<(u64, u64)>,
-    pub meshes: HashMap<u32, MeshEntry>,
-    pub textures: HashMap<u32, TextureEntry>,
+    pub meshes: IdMap<MeshEntry>,
+    pub textures: IdMap<TextureEntry>,
     pub mesh_cpu: Vec<GpuMesh>,
     pub submesh_cpu: Vec<GpuSubmesh>,
     pub tables_dirty: bool,
@@ -128,7 +127,7 @@ impl Scene {
         Ok(Scene {
             vertices, indices, mesh_table, submesh_table, scratch, tlas_buffer, tlas, tlas_scratch,
             vertex_alloc: vec![(0, VERTEX_CAPACITY)], index_alloc: vec![(0, INDEX_CAPACITY)], submesh_alloc: vec![(0, SUBMESH_CAPACITY)],
-            meshes: HashMap::new(), textures: HashMap::new(), mesh_cpu: vec![GpuMesh::default(); MAX_MESHES as usize], submesh_cpu: vec![GpuSubmesh::default(); SUBMESH_CAPACITY as usize],
+            meshes: IdMap::default(), textures: IdMap::default(), mesh_cpu: vec![GpuMesh::default(); MAX_MESHES as usize], submesh_cpu: vec![GpuSubmesh::default(); SUBMESH_CAPACITY as usize],
             tables_dirty: true, retired: Vec::new(), bounds, bounds_valid: vec![false; SUBMESH_CAPACITY as usize], dummy: (image, allocation, view), scratch_cursor: 0,
             compact_pool, compact_free: (0..COMPACT_SLOTS).rev().collect(), compacting: Vec::new(), completed: 0, compacted_bytes: 0,
         })

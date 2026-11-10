@@ -1,4 +1,5 @@
 using Unity.Scripting.LifecycleManagement;
+using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
@@ -66,8 +67,8 @@ namespace Basis.BasisUI
             sortDropdown.Descriptor.SetTitle(BasisLocalization.Get("menu.players.sortMode"));
             sortDropdown.Descriptor.SetDescription(BasisLocalization.Get("menu.players.sortMode.description"));
             sortDropdown.AssignLocalizedEntries(
-                new List<string> { "Join Time", "Distance", "Name", "Platform" },
-                new List<string> { "menu.players.sortMode.joinTime", "menu.players.sortMode.distance", "menu.players.sortMode.name", "menu.players.sortMode.platform" });
+                new List<string> { "Join Time", "Distance", "Name", "Platform", "Performance" },
+                new List<string> { "menu.players.sortMode.joinTime", "menu.players.sortMode.distance", "menu.players.sortMode.name", "menu.players.sortMode.platform", "menu.players.sortMode.performance" });
             sortDropdown.SetValueWithoutNotify("Join Time");
 
             // Player count header
@@ -227,7 +228,7 @@ namespace Basis.BasisUI
 
         // ======== Types ========
 
-        private enum SortMode { JoinTime, Distance, Name, Platform }
+        private enum SortMode { JoinTime, Distance, Name, Platform, Performance }
 
         /// <summary>
         /// One card and everything the refresh tick would otherwise have to re-derive.
@@ -357,9 +358,9 @@ namespace Basis.BasisUI
 
                 RefreshCardInfo();
 
-                // Join time is fixed once a player is in the list, so only distance can change
-                // the running order on its own.
-                if (_sortMode == SortMode.Distance) _orderDirty = true;
+                // Join time is fixed once a player is in the list, so only distance and avatar
+                // cost (a load, a swap, a trim) can change the running order on their own.
+                if (_sortMode == SortMode.Distance || _sortMode == SortMode.Performance) _orderDirty = true;
             }
 
             /// <summary>
@@ -431,6 +432,7 @@ namespace Basis.BasisUI
                     "Distance" => SortMode.Distance,
                     "Name" => SortMode.Name,
                     "Platform" => SortMode.Platform,
+                    "Performance" => SortMode.Performance,
                     _ => SortMode.JoinTime,
                 };
                 _orderDirty = true;
@@ -719,6 +721,14 @@ namespace Basis.BasisUI
                     AppendPart(FormatJoinedAgo(netPlayer.JoinTime));
                 }
 
+                BasisBundleConnector connector = LoadedAvatarConnector(p);
+                if (connector != null)
+                {
+                    BasisBundleConnector.BasisMetaData meta = connector.MetaData;
+                    AppendPart(BasisLocalization.Get("menu.players.avatarCost",
+                        meta.TrianglesCount.ToString("N0"), meta.MaterialCount, BasisAvatarTextureStats.FormatBytes(meta.TextureMemoryBytes)));
+                }
+
                 return _descriptionBuilder.ToString();
             }
 
@@ -827,6 +837,28 @@ namespace Basis.BasisUI
 
             private readonly Dictionary<int, float> _sortDistanceKeys = new Dictionary<int, float>();
             private readonly Dictionary<int, string> _sortPlatformKeys = new Dictionary<int, string>();
+            private readonly Dictionary<int, float> _sortCostKeys = new Dictionary<int, float>();
+
+            /// <summary>
+            /// Connector of the avatar this player is really running, or null while they are on the
+            /// loading or fallback avatar (out of range, blocked, hidden, still downloading), which
+            /// costs the same for everyone and should not rank against real avatars.
+            /// </summary>
+            private static BasisBundleConnector LoadedAvatarConnector(IBasisPlayer p)
+            {
+                if (p == null || p.IsConsideredFallBackAvatar || p.AvatarMetaData == null) return null;
+                if (p is BasisRemotePlayer remote && remote.IsBlockedByPerformance) return null;
+                return p.AvatarMetaData.BasisBundleConnector;
+            }
+
+            private static float AvatarCost(IBasisPlayer p)
+            {
+                BasisBundleConnector connector = LoadedAvatarConnector(p);
+                if (connector == null) return 0f;
+                BasisAvatarPerformanceLimits.PerformanceInfo trimmed =
+                    p is BasisRemotePlayer remote ? remote.LastPerformanceInfo : default;
+                return BasisAvatarPerformanceLimits.EstimateCost(connector, trimmed);
+            }
 
             /// <summary>
             /// Computes each player's sort key once before a sort. The comparator used to
@@ -851,6 +883,15 @@ namespace Basis.BasisUI
                     {
                         BasisNetworkPlayer player = _orderBuffer[i];
                         _sortPlatformKeys[player.playerId] = player.Player != null ? GetPlatformLabel(player.Player.PlayerPlatform) : "";
+                    }
+                }
+                else if (_sortMode == SortMode.Performance)
+                {
+                    _sortCostKeys.Clear();
+                    for (int i = 0; i < _orderBuffer.Count; i++)
+                    {
+                        BasisNetworkPlayer player = _orderBuffer[i];
+                        _sortCostKeys[player.playerId] = AvatarCost(player.Player);
                     }
                 }
             }
@@ -884,6 +925,18 @@ namespace Basis.BasisUI
                         if (!_sortPlatformKeys.TryGetValue(a.playerId, out string pa)) pa = a.Player != null ? GetPlatformLabel(a.Player.PlayerPlatform) : "";
                         if (!_sortPlatformKeys.TryGetValue(b.playerId, out string pb)) pb = b.Player != null ? GetPlatformLabel(b.Player.PlayerPlatform) : "";
                         int cmp = string.Compare(pa, pb, StringComparison.OrdinalIgnoreCase);
+                        if (cmp != 0) return cmp;
+                        return string.Compare(
+                            a.SafeDisplayName ?? "",
+                            b.SafeDisplayName ?? "",
+                            StringComparison.OrdinalIgnoreCase);
+                    }
+                    case SortMode.Performance:
+                    {
+                        // Heaviest avatar first.
+                        if (!_sortCostKeys.TryGetValue(a.playerId, out float ca)) ca = AvatarCost(a.Player);
+                        if (!_sortCostKeys.TryGetValue(b.playerId, out float cb)) cb = AvatarCost(b.Player);
+                        int cmp = cb.CompareTo(ca);
                         if (cmp != 0) return cmp;
                         return string.Compare(
                             a.SafeDisplayName ?? "",
