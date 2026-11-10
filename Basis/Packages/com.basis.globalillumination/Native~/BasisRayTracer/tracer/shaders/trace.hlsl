@@ -113,6 +113,14 @@ float4 SampleTexture(int index, float2 uv, float4 st, float lod, float size)
     return t.SampleLevel(linearWrap, uv * st.xy + st.zw, max(0.0, lod + log2(size)));
 }
 
+float EmissionMask(Material material, float2 uv, float lod, float size)
+{
+    uint packed = asuint(material.emission.w);
+    if ((packed & 0x40000000u) == 0u) { return 1.0; }
+    float v = SampleTexture(int((packed >> 8) & 0xfffu), uv, material.emissionST, lod, size)[packed & 3u];
+    return (packed & 4u) != 0u ? saturate(1.0 - v) : v;
+}
+
 bool Occluded(RaytracingAccelerationStructure tlas, float3 origin, float3 direction, float distance)
 {
     RayDesc ray;
@@ -170,15 +178,19 @@ LightCandidate EvaluateEmitterPoint(Instance instance, uint geometry, uint primi
     c.direction = d / max(c.distance, 1e-5);
     float cosReceiver = dot(normal, c.direction);
     float cosLight = abs(dot(lightNormal, c.direction));
-    if (cosReceiver <= 0.0 || cosLight <= 1e-4) { return c; }
+    if (cosReceiver <= 0.0 || cosLight <= 1e-4 || c.distance < frame.normalBias) { return c; }
     if ((part == 1 && c.distance >= nearRadius) || (part == 2 && c.distance < nearRadius)) { return c; }
     Material material = LoadMaterial(instance.materialBase + geometry);
     float3 emission = material.emission.rgb * frame.emissionScale;
-    if (material.emissionTexture >= 0)
+    if (material.emissionTexture >= 0 || (asuint(material.emission.w) & 0x40000000u) != 0u)
     {
         float2 uv = LoadUv0(vi.x) * w.x + LoadUv0(vi.y) * w.y + LoadUv0(vi.z) * w.z;
-        Texture2D<float4> t = ResourceDescriptorHeap[HEAP_TEXTURES + material.emissionTexture];
-        emission *= t.SampleLevel(linearWrap, uv * material.emissionST.xy + material.emissionST.zw, 2.0).rgb;
+        if (material.emissionTexture >= 0)
+        {
+            Texture2D<float4> t = ResourceDescriptorHeap[HEAP_TEXTURES + material.emissionTexture];
+            emission *= t.SampleLevel(linearWrap, uv * material.emissionST.xy + material.emissionST.zw, 2.0).rgb;
+        }
+        emission *= EmissionMask(material, uv, 2.0, 1.0);
     }
     if (material.emissionBase > 0.0)
     {
@@ -191,7 +203,7 @@ LightCandidate EvaluateEmitterPoint(Instance instance, uint geometry, uint primi
         }
         emission *= lerp(1.0, saturate(tint), material.emissionBase);
     }
-    c.value = emission * cosReceiver * cosLight / (PI * max(distance2, 1e-6));
+    c.value = emission * min(cosReceiver * cosLight / max(distance2, 1e-6), PI / area) / PI;
     c.shadow = true;
     c.id = uint4(0u, geometry, primitive, f32tof16(r1) | (f32tof16(r2) << 16));
     return c;
@@ -408,6 +420,7 @@ Bounce TraceRadiance(RaytracingAccelerationStructure tlas, Texture2D<uint4> gbuf
         float3 albedo = saturate(baseColor.rgb) * (1.0 - material.metallic * 0.75);
         float3 emission = material.emission.rgb * frame.emissionScale;
         if (material.emissionTexture >= 0) { emission *= SampleTexture(material.emissionTexture, hit.uv0, material.emissionST, hit.lod, 512.0).rgb; }
+        emission *= EmissionMask(material, hit.uv0, hit.lod, 512.0);
         emission *= lerp(1.0, saturate(baseColor.rgb), material.emissionBase);
         float3 hitOrigin = hit.position + hit.geometricNormal * frame.normalBias;
         if (segment == 0)
@@ -808,6 +821,7 @@ void RayGen()
             {
                 own = material.emission.rgb * frame.emissionScale;
                 if (material.emissionTexture >= 0) { own *= SampleTexture(material.emissionTexture, hit.uv0, material.emissionST, hit.lod, 512.0).rgb; }
+                own *= EmissionMask(material, hit.uv0, hit.lod, 512.0);
                 own *= lerp(1.0, saturate(baseColor.rgb), material.emissionBase);
             }
             float3 hitOrigin = hit.position + hit.geometricNormal * frame.normalBias;
@@ -830,10 +844,16 @@ void RayGen()
     float3 irradiance = cached.rgb;
     if (cached.a < 0.5)
     {
-        float3 direction = CosineSample(surface.normal, float2(Random(rng), Random(rng)));
-        if (dot(direction, geometric) <= 0.0) { direction = normalize(direction - 2.0 * dot(direction, geometric) * geometric); }
-        Bounce b = TraceRadiance(tlas, gbuffer, origin, direction, viewer, false, rng);
-        irradiance = lerp(ClampFirefly(b.radiance), cached.rgb, saturate(cached.a * 2.0));
+        uint fresh = clamp(frame.samples / 2u, 1u, 4u);
+        float3 traced = 0.0;
+        for (uint ri = 0; ri < fresh; ri++)
+        {
+            float3 direction = CosineSample(surface.normal, float2(Random(rng), Random(rng)));
+            if (dot(direction, geometric) <= 0.0) { direction = normalize(direction - 2.0 * dot(direction, geometric) * geometric); }
+            Bounce b = TraceRadiance(tlas, gbuffer, origin, direction, viewer, false, rng);
+            traced += ClampFirefly(b.radiance);
+        }
+        irradiance = lerp(traced / fresh, cached.rgb, saturate(cached.a * 2.0));
     }
 
     if ((frame.flags & FLAG_PROBES) != 0)

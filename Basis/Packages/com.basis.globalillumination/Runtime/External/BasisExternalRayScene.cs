@@ -51,6 +51,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         public Material[] materials = Array.Empty<Material>();
         public int materialCount;
         public bool avatar, seen;
+        public RendererRecord shadowSource, shadowClone;
         public Matrix4x4 lastMatrix;
         public Bounds lastBounds;
         public float[] lastEmission = Array.Empty<float>();
@@ -102,6 +103,15 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     private static readonly int idEmissionColor = Shader.PropertyToID("_EmissionColor"), idEmissionMap = Shader.PropertyToID("_EmissionMap");
     private static readonly int idEmissionStrength = Shader.PropertyToID("_EmissionStrength"), idEnableEmission = Shader.PropertyToID("_EnableEmission"), idUseEmission = Shader.PropertyToID("_UseEmission");
     private static readonly int idEmissionBlend = Shader.PropertyToID("_EmissionBlend");
+    private static readonly int idEnableEmission1 = Shader.PropertyToID("_EnableEmission1"), idEmissionColor1 = Shader.PropertyToID("_EmissionColor1"), idEmissionMap1 = Shader.PropertyToID("_EmissionMap1");
+    private static readonly int idEmissionStrength1 = Shader.PropertyToID("_EmissionStrength1"), idEmissionBaseColorAsMap1 = Shader.PropertyToID("_EmissionBaseColorAsMap1");
+    private static readonly int idGlobalMasksEnable = Shader.PropertyToID("_GlobalMaskTexturesEnable");
+    private static readonly int[] idEmissionGlobalMask = { Shader.PropertyToID("_EmissionMask0GlobalMask"), Shader.PropertyToID("_EmissionMask1GlobalMask") };
+    private static readonly int[] idEmissionGlobalMaskBlend = { Shader.PropertyToID("_EmissionMask0GlobalMaskBlendType"), Shader.PropertyToID("_EmissionMask1GlobalMaskBlendType") };
+    private static readonly int[] idGlobalMaskTexture = { Shader.PropertyToID("_GlobalMaskTexture0"), Shader.PropertyToID("_GlobalMaskTexture1"), Shader.PropertyToID("_GlobalMaskTexture2"), Shader.PropertyToID("_GlobalMaskTexture3") };
+    private static readonly int[] idGlobalMaskUV = { Shader.PropertyToID("_GlobalMaskTexture0UV"), Shader.PropertyToID("_GlobalMaskTexture1UV"), Shader.PropertyToID("_GlobalMaskTexture2UV"), Shader.PropertyToID("_GlobalMaskTexture3UV") };
+    private static readonly int[] idGlobalMaskSplit = { Shader.PropertyToID("_GlobalMaskTexture0Split"), Shader.PropertyToID("_GlobalMaskTexture1Split"), Shader.PropertyToID("_GlobalMaskTexture2Split"), Shader.PropertyToID("_GlobalMaskTexture3Split") };
+    private static readonly string[] channelNames = { "R", "G", "B", "A" };
     private static readonly int idEmissionBaseColorAsMap = Shader.PropertyToID("_EmissionBaseColorAsMap"), idEmissionMainStrength = Shader.PropertyToID("_EmissionMainStrength");
     private static readonly int idCutoff = Shader.PropertyToID("_Cutoff"), idAlphaClip = Shader.PropertyToID("_AlphaClip"), idSurface = Shader.PropertyToID("_Surface");
     private static readonly int idMetallic = Shader.PropertyToID("_Metallic"), idSmoothness = Shader.PropertyToID("_Smoothness"), idGlossiness = Shader.PropertyToID("_Glossiness");
@@ -453,17 +463,22 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         result.baseST = ReadST(m, baseId);
         bool baked = respectBaked && !avatar && lightmapped && (m.globalIlluminationFlags & MaterialGlobalIlluminationFlags.BakedEmission) != 0;
         bool emissionOn = !baked && (m.IsKeywordEnabled("_EMISSION") || ReadFloat(m, hasBlock, idEnableEmission, 0f) > 0.5f || ReadFloat(m, hasBlock, idUseEmission, 0f) > 0.5f);
-        if (emissionOn && Has(m, idEmissionColor))
+        int slot = 0;
+        if (!emissionOn && !baked && Has(m, idEnableEmission1) && ReadFloat(m, hasBlock, idEnableEmission1, 0f) > 0.5f) { emissionOn = true; slot = 1; }
+        int colorProperty = slot == 0 ? idEmissionColor : idEmissionColor1, mapProperty = slot == 0 ? idEmissionMap : idEmissionMap1;
+        int strengthProperty = slot == 0 ? idEmissionStrength : idEmissionStrength1, baseAsMapProperty = slot == 0 ? idEmissionBaseColorAsMap : idEmissionBaseColorAsMap1;
+        if (emissionOn && Has(m, colorProperty))
         {
-            Color e = ReadColor(m, hasBlock, idEmissionColor, Color.black);
-            float strength = Has(m, idEmissionStrength) ? ReadFloat(m, hasBlock, idEmissionStrength, 1f) : 1f;
+            Color e = ReadColor(m, hasBlock, colorProperty, Color.black);
+            float strength = Has(m, strengthProperty) ? ReadFloat(m, hasBlock, strengthProperty, 1f) : 1f;
             Vector4 linear = (Vector4)e.linear * strength * emissionScale;
             result.emission = new Vector4(linear.x, linear.y, linear.z, 0f);
-            Texture emissionMap = ReadTexture(m, hasBlock, idEmissionMap);
+            Texture emissionMap = ReadTexture(m, hasBlock, mapProperty);
             result.emissionTexture = TextureFor(emissionMap, false);
-            result.emissionST = Has(m, idEmissionMap) && !SharesBaseTransform(m.shader) ? ReadST(m, idEmissionMap) : result.baseST;
-            if (Has(m, idEmissionBaseColorAsMap) && ReadFloat(m, hasBlock, idEmissionBaseColorAsMap, 0f) > 0.5f) { result.emissionBase = 1f; }
+            result.emissionST = Has(m, mapProperty) && !SharesBaseTransform(m.shader) ? ReadST(m, mapProperty) : result.baseST;
+            if (Has(m, baseAsMapProperty) && ReadFloat(m, hasBlock, baseAsMapProperty, 0f) > 0.5f) { result.emissionBase = 1f; }
             else if (Has(m, idEmissionMainStrength)) { result.emissionBase = Mathf.Clamp01(ReadFloat(m, hasBlock, idEmissionMainStrength, 0f)); }
+            ReadGlobalMask(m, hasBlock, slot, ref result);
             emissionPower = Mathf.Max(linear.x, Mathf.Max(linear.y, linear.z));
         }
         int queue = m.renderQueue;
@@ -476,6 +491,27 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         result.smoothness = Has(m, idSmoothness) ? ReadFloat(m, hasBlock, idSmoothness, 0.5f) : ReadFloat(m, hasBlock, idGlossiness, 0.5f);
         if (avatar) { result.flags |= BasisExternalRayTracer.MaterialAnimated; }
         return result;
+    }
+
+    private void ReadGlobalMask(Material m, bool hasBlock, int slot, ref BasisExternalRayMaterial result)
+    {
+        if (!Has(m, idEmissionGlobalMask[slot]) || ReadFloat(m, hasBlock, idGlobalMasksEnable, 1f) < 0.5f) { return; }
+        int index = Mathf.RoundToInt(ReadFloat(m, hasBlock, idEmissionGlobalMask[slot], 0f)) - 1;
+        if (index < 0 || index > 15) { return; }
+        int blend = Mathf.RoundToInt(ReadFloat(m, hasBlock, idEmissionGlobalMaskBlend[slot], 2f));
+        if (blend != 0 && blend != 1 && blend != 2 && blend != 4) { return; }
+        int texture = index >> 2, channel = index & 3;
+        if (Mathf.RoundToInt(ReadFloat(m, hasBlock, idGlobalMaskUV[texture], 0f)) != 0) { return; }
+        int id = TextureFor(ReadTexture(m, hasBlock, idGlobalMaskTexture[texture]), false);
+        if (id < 0) { return; }
+        Vector4 st = ReadST(m, idGlobalMaskTexture[texture]);
+        if (ReadFloat(m, hasBlock, idGlobalMaskSplit[texture], 0f) > 0.5f)
+        {
+            string split = "_GlobalMaskTexture" + texture + "SplitTilingOffset_" + channelNames[channel];
+            if (m.HasProperty(split)) { st = m.GetVector(split); }
+        }
+        if (result.emissionTexture < 0) { result.emissionST = st; }
+        result.emission.w = BitConverter.Int32BitsToSingle(0x40000000 | channel | (blend == 1 ? 4 : 0) | (id << 8));
     }
 
     private void Scan(LayerMask mask)
@@ -507,6 +543,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
             }
             renderers.RemoveAt(i);
         }
+        PairShadowClones();
         List<Mesh> dead = null;
         foreach (KeyValuePair<Mesh, MeshRecord> kv in staticMeshes) { if (kv.Key == null || frameCount - kv.Value.lastSeen > 600) { (dead ??= new List<Mesh>()).Add(kv.Key); } }
         if (dead != null) { foreach (Mesh m in dead) { Release(staticMeshes[m]); staticMeshes.Remove(m); } }
@@ -523,6 +560,28 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
             }
         }
     }
+
+    private readonly Dictionary<(Mesh, Transform), RendererRecord> cloneKeys = new Dictionary<(Mesh, Transform), RendererRecord>();
+
+    private void PairShadowClones()
+    {
+        cloneKeys.Clear();
+        foreach (RendererRecord r in renderers)
+        {
+            r.shadowSource = r.shadowClone = null;
+            if (r.renderer is SkinnedMeshRenderer s && s.shadowCastingMode == ShadowCastingMode.ShadowsOnly && s.sharedMesh != null) { cloneKeys[(s.sharedMesh, s.rootBone)] = r; }
+        }
+        if (cloneKeys.Count == 0) { return; }
+        foreach (RendererRecord r in renderers)
+        {
+            if (!(r.renderer is SkinnedMeshRenderer s) || s.shadowCastingMode == ShadowCastingMode.ShadowsOnly || s.sharedMesh == null) { continue; }
+            if (!cloneKeys.TryGetValue((s.sharedMesh, s.rootBone), out RendererRecord clone) || clone.shadowSource != null) { continue; }
+            clone.shadowSource = r;
+            r.shadowClone = clone;
+        }
+    }
+
+    private static bool Drawn(Renderer r) => r != null && r.enabled && r.gameObject.activeInHierarchy && !r.forceRenderingOff;
 
     private static void Rows(in Matrix4x4 m, out Vector4 r0, out Vector4 r1, out Vector4 r2)
     {
@@ -576,6 +635,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
             Renderer renderer = record.renderer;
             if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy) { continue; }
             if (renderer.forceRenderingOff) { continue; }
+            if (record.shadowSource != null && Drawn(record.shadowSource.renderer)) { continue; }
             MeshRecord mesh = record.mesh = MeshFor(record);
             if (mesh == null) { continue; }
             mesh.lastSeen = frameCount;
@@ -595,11 +655,12 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
             if (!mesh.committed && !UploadMesh(mesh)) { continue; }
             uint materialBase = materialCount;
             float emissivePower = 0f;
+            bool unposed = mesh.skinned != null && !mesh.posed;
             for (int s = 0; s < submeshes; s++)
             {
                 BasisExternalRayMaterial mat = pendingMaterials[s];
                 if (settings.emitters && pendingPower[s] > 0.001f) { emissivePower += pendingPower[s]; }
-                if (pendingPower[s] > 0.001f && settings.emitters && mesh.submeshCounts[s] > 0)
+                if (pendingPower[s] > 0.001f && settings.emitters && mesh.submeshCounts[s] > 0 && !unposed)
                 {
                     Vector3 size = renderer.bounds.size;
                     float area = Mathf.Max(0.01f, size.x * size.y + size.y * size.z + size.x * size.z);
@@ -646,11 +707,12 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
                 lightmapST = renderer.lightmapScaleOffset;
             }
             bool dynamic = record.avatar || lightmap < 0;
+            bool noShadow = renderer.shadowCastingMode == ShadowCastingMode.Off && !(record.shadowClone != null && Drawn(record.shadowClone.renderer));
             instances[instanceCount++] = new BasisExternalRayInstance
             {
                 row0 = r0, row1 = r1, row2 = r2, mesh = mesh.id, materialBase = materialBase,
-                mask = (renderer.shadowCastingMode == ShadowCastingMode.Off ? 0x01u : 0xFDu) | (dynamic ? BasisExternalRayTracer.MaskDynamic : 0u),
-                flags = (record.avatar ? BasisExternalRayTracer.InstanceAvatar : 0u) | (renderer.shadowCastingMode == ShadowCastingMode.Off ? BasisExternalRayTracer.InstanceNoShadow : 0u) | (dynamic ? BasisExternalRayTracer.InstanceDynamic : 0u),
+                mask = unposed ? 0u : (noShadow ? 0x01u : 0xFDu) | (dynamic ? BasisExternalRayTracer.MaskDynamic : 0u),
+                flags = (record.avatar ? BasisExternalRayTracer.InstanceAvatar : 0u) | (noShadow ? BasisExternalRayTracer.InstanceNoShadow : 0u) | (dynamic ? BasisExternalRayTracer.InstanceDynamic : 0u),
                 lightmap = lightmap, lightmapST = lightmapST,
             };
         }

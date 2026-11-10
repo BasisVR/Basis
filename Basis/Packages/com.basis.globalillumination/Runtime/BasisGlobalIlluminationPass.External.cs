@@ -78,7 +78,7 @@ public partial class BasisGlobalIlluminationPass
         parameters.width = (uint)tracedWidth;
         parameters.height = (uint)tracedHeight;
         parameters.viewCount = (uint)views;
-        parameters.samples = (uint)Mathf.Max(1, settings.ResolvedRayCount());
+        parameters.samples = (uint)Mathf.Clamp(settings.ResolvedRayCount() * 2, 2, 16);
         parameters.bounces = (uint)Mathf.Clamp(settings.ResolvedBounces(), 0, 8);
         parameters.maxDistance = Mathf.Max(1f, settings.maxRayLength * 4f);
         parameters.aoRadius = settings.obscuranceRadius;

@@ -139,6 +139,9 @@ public static class BasisEditorCommandBridge
             case "skincheck":
                 SkinCheck();
                 break;
+            case "matcheck":
+                MatCheck();
+                break;
             case "hideui":
                 {
                     int ui = 0;
@@ -210,6 +213,53 @@ public static class BasisEditorCommandBridge
                 Write("unknown command: " + command);
                 break;
         }
+    }
+
+    private static void MatCheck()
+    {
+        foreach (SkinnedMeshRenderer smr in UnityEngine.Object.FindObjectsByType<SkinnedMeshRenderer>(FindObjectsInactive.Exclude))
+        {
+            Material[] mats = smr.sharedMaterials;
+            for (int i = 0; i < mats.Length; i++)
+            {
+                Material m = mats[i];
+                if (m == null || m.shader == null) { continue; }
+                System.Text.StringBuilder line = new System.Text.StringBuilder(smr.name + "[" + i + "] " + m.shader.name + " q" + m.renderQueue + " kw:" + string.Join(",", m.shaderKeywords));
+                Shader sh = m.shader;
+                for (int p = 0; p < sh.GetPropertyCount(); p++)
+                {
+                    string n = sh.GetPropertyName(p);
+                    if (n.IndexOf("Emission", StringComparison.OrdinalIgnoreCase) < 0 && n.IndexOf("Glow", StringComparison.OrdinalIgnoreCase) < 0 && n.IndexOf("Mask", StringComparison.OrdinalIgnoreCase) < 0) { continue; }
+                    if (i == 0 && smr.name == "Body" && n.IndexOf("GlobalMask", StringComparison.OrdinalIgnoreCase) < 0 && (n.StartsWith("_EmissionMask") || n.StartsWith("_EmissionMap") || n.StartsWith("_EmissionUV") || n.StartsWith("_EmissionStrength") || n.StartsWith("_EmissionBaseColorAsMap") || n.StartsWith("_EmissionReplace") || n.StartsWith("_EnableEmission"))) { Write("attr " + n + " : " + string.Join(" | ", sh.GetPropertyAttributes(p))); }
+                    switch (sh.GetPropertyType(p))
+                    {
+                        case UnityEngine.Rendering.ShaderPropertyType.Color: line.Append(" " + n + "=" + m.GetColor(n).ToString("F2")); break;
+                        case UnityEngine.Rendering.ShaderPropertyType.Float:
+                        case UnityEngine.Rendering.ShaderPropertyType.Range: { float v = m.GetFloat(n); if (v != 0f) { line.Append(" " + n + "=" + v.ToString("G3", CultureInfo.InvariantCulture)); } break; }
+                        case UnityEngine.Rendering.ShaderPropertyType.Texture: { Texture t = m.GetTexture(n); if (t != null) { line.Append(" " + n + "=" + t.name + "(" + t.width + ") st" + m.GetTextureScale(n).ToString("F2") + m.GetTextureOffset(n).ToString("F2") + " " + TextureStats(t)); } break; }
+                    }
+                }
+                Write(line.ToString());
+            }
+        }
+    }
+
+    private static string TextureStats(Texture t)
+    {
+        RenderTexture rt = RenderTexture.GetTemporary(64, 64, 0, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
+        Graphics.Blit(t, rt);
+        RenderTexture previous = RenderTexture.active;
+        RenderTexture.active = rt;
+        Texture2D read = new Texture2D(64, 64, TextureFormat.RGBAFloat, false, true);
+        read.ReadPixels(new Rect(0, 0, 64, 64), 0, 0);
+        RenderTexture.active = previous;
+        RenderTexture.ReleaseTemporary(rt);
+        Color[] px = read.GetPixels();
+        UnityEngine.Object.DestroyImmediate(read);
+        Vector4 mean = Vector4.zero, max = Vector4.zero, lit = Vector4.zero;
+        foreach (Color c in px) { Vector4 v = c; mean += v; max = Vector4.Max(max, v); lit += new Vector4(c.r > 0.1f ? 1 : 0, c.g > 0.1f ? 1 : 0, c.b > 0.1f ? 1 : 0, c.a > 0.1f ? 1 : 0); }
+        mean /= px.Length; lit /= px.Length;
+        return "mean" + mean.ToString("F3") + " max" + max.ToString("F2") + " cover" + lit.ToString("F3");
     }
 
     private static void SkinCheck()
