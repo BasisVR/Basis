@@ -73,9 +73,25 @@ namespace Basis.Network.Server.Generic
         public static void TakeCustody(ref LocalLoadResource resource)
         {
             string password = resource.UnlockPassword;
-            if (string.IsNullOrEmpty(password) || IsMarker(password) || string.IsNullOrEmpty(resource.CombinedURL)) return;
+            if (string.IsNullOrEmpty(password) || string.IsNullOrEmpty(resource.CombinedURL)) return;
+            if (IsMarker(password))
+            {
+                KeepKeys(resource);
+                return;
+            }
             if (!string.IsNullOrEmpty(resource.LoadedNetID)) custody[resource.LoadedNetID] = password;
             resource.UnlockPassword = ServeFromServer(resource.CombinedURL, password);
+        }
+        private static void KeepKeys(LocalLoadResource resource)
+        {
+            if (!TryParseMarker(resource.UnlockPassword, out ushort origin, out byte[] contentId) || origin == ServerOrigin) return;
+            contentId ??= ContentId(resource.CombinedURL, string.Empty);
+            if (Ledger.HeldByServer(contentId) != null) return;
+            string url = resource.CombinedURL;
+            Ledger.Fetch(origin, contentId, grant =>
+            {
+                if (grant == null) BNL.LogWarning($"Could not keep the keys for {url}: players joining after its loader leaves will not be able to open it.");
+            });
         }
         public static string ServeFromServer(string url, string password)
         {

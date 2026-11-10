@@ -164,9 +164,12 @@ Emitter LoadEmitter(uint index) { StructuredBuffer<Emitter> b = ResourceDescript
 #define GRID_X 32
 #define GRID_Y 16
 #define GRID_Z 32
-#define GRID_K 24
+#define GRID_CELLS (GRID_X * GRID_Y * GRID_Z)
 #define GRID_HEADER_BYTES 64u
-#define GRID_ENTRIES_BYTES (GRID_HEADER_BYTES + GRID_X * GRID_Y * GRID_Z * 4u)
+#define COARSE_X 16
+#define COARSE_Y 8
+#define COARSE_Z 16
+#define GRID_ENTRIES_BYTES (GRID_HEADER_BYTES + (GRID_CELLS + COARSE_X * COARSE_Y * COARSE_Z) * 8u)
 #define GRID_CDF_ONE 1048576.0
 #define GRID_EMITTER_ID 64u
 #define GRID_MIX 0.8
@@ -175,9 +178,8 @@ struct GridCell
 {
     uint base;
     uint lightEnd;
-    uint count;
-    bool lightsComplete;
-    bool emittersComplete;
+    uint counts;
+    uint flags;
     bool valid;
 };
 
@@ -186,22 +188,46 @@ GridCell LoadGridCell(float3 position)
     GridCell g = (GridCell)0;
 #if LIGHT_GRID
     ByteAddressBuffer grid = ResourceDescriptorHeap[HEAP_LIGHT_GRID + frame.slot];
-    uint4 h = grid.Load4(0);
-    if (grid.Load(16) == 0u) { return g; }
-    float3 f = (position - asfloat(h.xyz)) / asfloat(h.w);
-    if (any(f < 0.0) || any(f >= float3(GRID_X, GRID_Y, GRID_Z)) || any(!isfinite(f))) { return g; }
+    uint4 h0 = grid.Load4(0);
+    uint4 h1 = grid.Load4(16);
+    if (h1.x == 0u) { return g; }
+    float3 f = (position - asfloat(h0.xyz)) / asfloat(h0.w);
+    uint level = 0u;
+    if (any(f < 0.0) || any(f >= float3(GRID_X, GRID_Y, GRID_Z)) || any(!isfinite(f)))
+    {
+        f = (position - asfloat(uint3(h1.yzw))) / asfloat(grid.Load(32));
+        if (any(f < 0.0) || any(f >= float3(COARSE_X, COARSE_Y, COARSE_Z)) || any(!isfinite(f))) { return g; }
+        level = 1u;
+    }
     uint3 c = uint3(f);
     uint3 b = c >> 2, l = c & 3u;
-    uint index = ((b.z * (GRID_Y / 4) + b.y) * (GRID_X / 4) + b.x) * 64u + (l.z * 4u + l.y) * 4u + l.x;
-    uint word = grid.Load(GRID_HEADER_BYTES + index * 4u);
-    g.base = GRID_ENTRIES_BYTES + (word >> 11) * 4u;
-    g.count = word & 31u;
-    g.lightEnd = (word >> 5) & 15u;
-    g.lightsComplete = (word & 0x200u) != 0u;
-    g.emittersComplete = (word & 0x400u) != 0u;
+    uint2 blocks = level == 0u ? uint2(GRID_X / 4, GRID_Y / 4) : uint2(COARSE_X / 4, COARSE_Y / 4);
+    uint index = level * GRID_CELLS + ((b.z * blocks.y + b.y) * blocks.x + b.x) * 64u + (l.z * 4u + l.y) * 4u + l.x;
+    uint2 word = grid.Load2(GRID_HEADER_BYTES + index * 8u);
+    g.base = GRID_ENTRIES_BYTES + (word.x & 0x3fffffu) * 4u;
+    g.flags = word.x >> 22;
+    g.lightEnd = word.y & 15u;
+    g.counts = word.y;
     g.valid = true;
 #endif
     return g;
+}
+
+void GridEmitterRange(GridCell g, uint part, out uint start, out uint end, out bool complete)
+{
+    uint all = (g.counts >> 4) & 31u, near = (g.counts >> 9) & 31u, far = (g.counts >> 14) & 31u;
+    if ((g.flags & 16u) != 0u) { part = 0u; }
+    start = g.lightEnd + (part >= 1u ? all : 0u) + (part >= 2u ? near : 0u);
+    end = start + (part == 0u ? all : (part == 1u ? near : far));
+    complete = g.valid && ((g.flags >> (1u + min(part, 2u))) & 1u) != 0u;
+}
+
+bool GridNoEmitters(GridCell g, uint part)
+{
+    uint start, end;
+    bool complete;
+    GridEmitterRange(g, part, start, end, complete);
+    return complete && end == start;
 }
 
 float GridCdf(ByteAddressBuffer grid, GridCell g, uint i) { return float((grid.Load(g.base + i * 4u) >> 12) + 1u); }
@@ -323,13 +349,17 @@ LightCandidate EmitterCandidate(GridCell g, float3 position, float3 normal, inou
 {
     LightCandidate c = (LightCandidate)0;
     uint count = frame.emitterCount;
-    float q = g.count > g.lightEnd ? (g.emittersComplete ? 1.0 : GRID_MIX) : 0.0;
+    uint start, end;
+    bool complete;
+    GridEmitterRange(g, part, start, end, complete);
+    if (complete && end == start) { return c; }
+    float q = end > start ? (complete ? 1.0 : GRID_MIX) : 0.0;
     float u = Random(rng);
     uint lo = 0;
     float cell = 0.0;
     if (u < q)
     {
-        lo = GridPick(g, g.lightEnd, g.count, u / q, cell) - GRID_EMITTER_ID;
+        lo = GridPick(g, start, end, u / q, cell) - GRID_EMITTER_ID;
         if (lo >= count) { return c; }
     }
     else
@@ -341,7 +371,7 @@ LightCandidate EmitterCandidate(GridCell g, float3 position, float3 normal, inou
             uint mid = (lo + hi) >> 1;
             if (LoadEmitter(mid).cdf < u) { lo = mid + 1; } else { hi = mid; }
         }
-        if (q > 0.0) { cell = GridProbability(g, g.lightEnd, g.count, lo + GRID_EMITTER_ID); }
+        if (q > 0.0) { cell = GridProbability(g, start, end, lo + GRID_EMITTER_ID); }
     }
     Emitter e = LoadEmitter(lo);
     float selection = q * cell + (1.0 - q) * (e.cdf - (lo > 0 ? LoadEmitter(lo - 1).cdf : 0.0));
@@ -374,10 +404,11 @@ LightCandidate SampleLights(RaytracingAccelerationStructure tlas, float3 positio
 {
     LightCandidate chosen = (LightCandidate)0;
     GridCell g = LoadGridCell(position);
-    uint lights = punctual && !(g.valid && g.lightsComplete && g.lightEnd == 0u) ? frame.lightCount : 0u;
-    uint emitters = frame.emitterCount;
+    bool lightsComplete = g.valid && (g.flags & 1u) != 0u;
+    uint lights = punctual && !(lightsComplete && g.lightEnd == 0u) ? frame.lightCount : 0u;
+    uint emitters = GridNoEmitters(g, part) ? 0u : frame.emitterCount;
     if (lights + emitters == 0) { return chosen; }
-    float qLights = g.lightEnd > 0u ? (g.lightsComplete ? 1.0 : GRID_MIX) : 0.0;
+    float qLights = g.lightEnd > 0u ? (lightsComplete ? 1.0 : GRID_MIX) : 0.0;
     float pPunctual = lights == 0 ? 0.0 : (emitters == 0 ? 1.0 : 0.5);
     float total = 0.0, chosenTarget = 0.0;
     const uint candidates = 4;
@@ -776,7 +807,7 @@ void RayGen()
             output[pixel] = value;
         }
         history.Store4(ho, chosen.id);
-        history.Store2(ho + 16u, asuint(float2(isfinite(W) ? W : 0.0, min(count, RESERVOIR_HISTORY * RESERVOIR_INITIAL))));
+        history.Store2(ho + 16u, asuint(float2(isfinite(W) ? W : 0.0, min(chosenTarget > 0.0 ? z : count, RESERVOIR_HISTORY * RESERVOIR_INITIAL))));
         return;
     }
 
@@ -909,7 +940,8 @@ void RayGen()
         if (frame.emitterCount > 0)
         {
             GridCell g = LoadGridCell(origin);
-            [loop] for (uint i = 0; i < RESERVOIR_INITIAL; i++)
+            if (GridNoEmitters(g, 1u)) { count += RESERVOIR_INITIAL; }
+            else [loop] for (uint i = 0; i < RESERVOIR_INITIAL; i++)
             {
                 LightCandidate c = EmitterCandidate(g, origin, surface.normal, rng, 1u, nearRadius);
                 count += 1.0;
@@ -933,14 +965,14 @@ void RayGen()
                     uint o = (q.y * frame.width * frame.viewCount + q.x) * RESERVOIR_STRIDE;
                     uint4 id = previous.Load4(o);
                     float2 wm = asfloat(previous.Load2(o + 16u));
-                    if (wm.x > 0.0 && wm.y > 0.0 && isfinite(wm.x) && id.x < frame.instanceCount)
+                    if (wm.y > 0.0)
                     {
+                        count += min(wm.y, RESERVOIR_HISTORY * RESERVOIR_INITIAL);
+                        if (wm.x > 0.0 && isfinite(wm.x) && id.x < frame.instanceCount)
                         {
                             LightCandidate p = EvaluateStored(id, origin, surface.normal, nearRadius);
                             float t = Luminance(p.value);
-                            float m = min(wm.y, RESERVOIR_HISTORY * RESERVOIR_INITIAL);
-                            float w = t * wm.x * m;
-                            count += m;
+                            float w = t * wm.x * min(wm.y, RESERVOIR_HISTORY * RESERVOIR_INITIAL);
                             if (w > 0.0 && isfinite(w))
                             {
                                 wsum += w;

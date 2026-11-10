@@ -341,6 +341,23 @@ public sealed class ContentKeyExchangeTests
     }
 
     [Fact]
+    public async Task KeysFetchedBeforeTheLoaderOwnsThemOutliveEveryHolder()
+    {
+        using SimNet net = new(3);
+        byte[] grant = MakeGrant(4), worldId = ContentId("https://example.invalid/admin-world.bee", string.Empty);
+        TaskCompletionSource<byte[]> fetched = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        net.Ledger.Fetch(0, worldId, result => fetched.TrySetResult(result));
+        await Task.Delay(50);
+        await net.Peers[0].Own(worldId, () => Task.FromResult(grant));
+        Assert.Equal(grant, await fetched.Task.WaitAsync(TimeSpan.FromSeconds(10)));
+        Assert.Equal(grant, await net.Peers[1].ResolveAsync(0, worldId).WaitAsync(TimeSpan.FromSeconds(10)));
+        net.Leave(0);
+        net.Leave(1);
+        await Task.Delay(50);
+        Assert.Equal(grant, await net.Peers[2].ResolveAsync(0, worldId).WaitAsync(TimeSpan.FromSeconds(10)));
+    }
+
+    [Fact]
     public void SealedKeysOpenOnlyForTheirRequestAndContent()
     {
         NewKeyPair(out byte[] requesterPrivate, out byte[] requesterPublic);

@@ -63,6 +63,7 @@ const TABLES_OFFSET: u64 = TLAS_OFFSET + (MAX_INSTANCES * 64) as u64;
 const BOUNDS_LIST_OFFSET: u64 = TABLES_OFFSET + MAX_MESHES as u64 * 16 + SUBMESH_CAPACITY * 16;
 const GRID_OFFSET: u64 = align(BOUNDS_LIST_OFFSET + MAX_EMITTERS as u64 * 16, 256);
 const SLOT_STRIDE: u64 = align(GRID_OFFSET + GRID_BYTES, 65536 * 3);
+const GRID_BUFFERS: usize = 3;
 const _: () = assert!(BOUNDS_CAPACITY as u64 == SUBMESH_CAPACITY);
 const _: () = assert!(INSTANCES_OFFSET % 96 == 0 && MATERIALS_OFFSET % 96 == 0 && LIGHTS_OFFSET % 64 == 0 && EMITTERS_OFFSET % 16 == 0 && DIRTY_OFFSET % 16 == 0 && SLOT_STRIDE % 96 == 0 && SLOT_STRIDE % 65536 == 0);
 
@@ -130,8 +131,12 @@ pub struct Renderer {
     pub bounds_dirty: Option<(usize, usize)>,
     pub prepared: u64,
     pub grid_gpu: Vec<ID3D12Resource>,
-    pub grid_allocators: Vec<ID3D12CommandAllocator>,
-    pub grid_list: ID3D12GraphicsCommandList,
+    pub grid_read: [u64; GRID_BUFFERS],
+    pub copy_queue: ID3D12CommandQueue,
+    pub copy_fence: ID3D12Fence,
+    pub copy_value: u64,
+    pub copy_allocators: Vec<ID3D12CommandAllocator>,
+    pub copy_list: ID3D12GraphicsCommandList,
 }
 
 fn compute_pso(gpu: &Gpu, root: &ID3D12RootSignature, code: &[u8]) -> Result<ID3D12PipelineState> {
@@ -191,9 +196,11 @@ impl Renderer {
 
             let allocators = (0..RING).map(|_| gpu.device.CreateCommandAllocator::<ID3D12CommandAllocator>(D3D12_COMMAND_LIST_TYPE_DIRECT)).collect::<Result<Vec<_>>>()?;
             let list: ID3D12GraphicsCommandList4 = gpu.device.CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, &allocators[0], None)?;
-            let grid_allocators = (0..RING).map(|_| gpu.device.CreateCommandAllocator::<ID3D12CommandAllocator>(D3D12_COMMAND_LIST_TYPE_DIRECT)).collect::<Result<Vec<_>>>()?;
-            let grid_list: ID3D12GraphicsCommandList = gpu.device.CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, &grid_allocators[0], None)?;
-            grid_list.Close()?;
+            let copy_queue: ID3D12CommandQueue = gpu.device.CreateCommandQueue(&D3D12_COMMAND_QUEUE_DESC { Type: D3D12_COMMAND_LIST_TYPE_COPY, ..Default::default() })?;
+            let copy_fence: ID3D12Fence = gpu.device.CreateFence(0, D3D12_FENCE_FLAG_NONE)?;
+            let copy_allocators = (0..RING).map(|_| gpu.device.CreateCommandAllocator::<ID3D12CommandAllocator>(D3D12_COMMAND_LIST_TYPE_COPY)).collect::<Result<Vec<_>>>()?;
+            let copy_list: ID3D12GraphicsCommandList = gpu.device.CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COPY, &copy_allocators[0], None)?;
+            copy_list.Close()?;
             list.Close()?;
             let ring = UploadRing::new(gpu, SLOT_STRIDE * RING as u64)?;
             gpu.srv_raw(&ring.resource, SLOT_STRIDE * RING as u64, HEAP_RING);
@@ -219,8 +226,8 @@ impl Renderer {
                 downsample: compute_pso(gpu, &root, DOWNSAMPLE)?, temporal: compute_pso(gpu, &root, TEMPORAL)?, wavelet: compute_pso(gpu, &root, WAVELET)?, resolve: compute_pso(gpu, &root, RESOLVE)?, maintain: compute_pso(gpu, &root, MAINTAIN)?, resolve_signature, cache_args, probe_resolve: compute_pso(gpu, &root, PROBE_RESOLVE)?, submesh_bounds: compute_pso(gpu, &root, SUBMESH_BOUNDS)?, submesh_bounds_clear: compute_pso(gpu, &root, SUBMESH_BOUNDS_CLEAR)?, cache, blue_noise, queries, readback, frequency, timings: [0; 8],
                 root, state, table, table_address, allocators, list, ring, slot_fences: [0; RING], contexts: (0..MAX_CONTEXTS).map(|_| None).collect(), eligible: Vec::new(),
                 grid: LightGrid::new(), bounds_readback: gpu.buffer(SUBMESH_CAPACITY * 32, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST)?, bounds_pending: None, bounds_dirty: None, prepared: 0,
-                grid_gpu: (0..RING).map(|i| { let b = gpu.buffer(GRID_BYTES, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COMMON)?; gpu.srv_raw(&b, GRID_BYTES, HEAP_LIGHT_GRID + i as u32); Ok(b) }).collect::<Result<Vec<_>>>()?,
-                grid_allocators, grid_list,
+                grid_gpu: (0..GRID_BUFFERS).map(|_| gpu.buffer(GRID_BYTES, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COMMON)).collect::<Result<Vec<_>>>()?,
+                grid_read: [0; GRID_BUFFERS], copy_queue, copy_fence, copy_value: 0, copy_allocators, copy_list,
             })
         }
     }
@@ -247,7 +254,7 @@ impl Renderer {
                 unsafe {
                     let mut raw = std::ptr::null_mut();
                     if self.bounds_readback.Map(0, Some(&D3D12_RANGE { Begin: first * 32, End: end * 32 }), Some(&mut raw)).is_ok() {
-                        self.grid.absorb_bounds(raw as *const u8, first, end);
+                        self.grid.absorb_bounds(raw as *const u8, first, end, frame);
                         self.bounds_readback.Unmap(0, Some(&D3D12_RANGE { Begin: 0, End: 0 }));
                     }
                 }
@@ -330,6 +337,8 @@ impl Renderer {
             list.EndQuery(&self.queries, D3D12_QUERY_TYPE_TIMESTAMP, slot as u32 * TIMESTAMPS);
         }
         self.bind_slot(gpu, slot);
+        let grid_index = (frame % GRID_BUFFERS as u64) as usize;
+        gpu.srv_raw(&self.grid_gpu[grid_index], GRID_BYTES, HEAP_LIGHT_GRID + slot as u32);
         let mut vertices_written = false;
         let mut indices_written = false;
         let mut pending_error = None;
@@ -479,18 +488,22 @@ impl Renderer {
             list.ResolveQueryData(&self.queries, D3D12_QUERY_TYPE_TIMESTAMP, slot as u32 * TIMESTAMPS, TIMESTAMPS, &self.readback, slot as u64 * TIMESTAMPS as u64 * 8);
             list.Close()?;
             self.grid.finish();
-            let g = &self.grid_gpu[slot];
-            self.grid_allocators[slot].Reset()?;
-            self.grid_list.Reset(&self.grid_allocators[slot], None)?;
-            self.grid_list.ResourceBarrier(&[transition(g, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST)]);
-            self.grid_list.CopyBufferRegion(g, 0, &self.ring.resource, base + GRID_OFFSET, self.grid.used_bytes);
-            self.grid_list.ResourceBarrier(&[transition(g, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON)]);
-            self.grid_list.Close()?;
-            gpu.queue.ExecuteCommandLists(&[Some(self.grid_list.cast()?), Some(list.cast()?)]);
+            let g = &self.grid_gpu[grid_index];
+            if self.grid_read[grid_index] > 0 { self.copy_queue.Wait(&gpu.fence, self.grid_read[grid_index])?; }
+            self.copy_allocators[slot].Reset()?;
+            self.copy_list.Reset(&self.copy_allocators[slot], None)?;
+            self.copy_list.CopyBufferRegion(g, 0, &self.ring.resource, base + GRID_OFFSET, self.grid.used_bytes);
+            self.copy_list.Close()?;
+            self.copy_queue.ExecuteCommandLists(&[Some(self.copy_list.cast()?)]);
+            self.copy_value += 1;
+            self.copy_queue.Signal(&self.copy_fence, self.copy_value)?;
+            gpu.queue.Wait(&self.copy_fence, self.copy_value)?;
+            gpu.queue.ExecuteCommandLists(&[Some(list.cast()?)]);
             gpu.queue.Signal(tracer_fence, frame)?;
         }
         let value = gpu.signal()?;
         self.slot_fences[slot] = value;
+        self.grid_read[grid_index] = value;
         if let Some((first, end)) = bounds_copy { self.bounds_pending = Some((value, first, end)); }
         if let Some(ctx) = self.contexts[context].as_mut() { ctx.history_index = history_write; ctx.history_valid = true; ctx.last_time = params.time; }
         *flags_out = tlas_count;

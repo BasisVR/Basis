@@ -78,6 +78,7 @@ const TABLES_OFFSET: u64 = TLAS_OFFSET + (MAX_INSTANCES * 64) as u64;
 const BOUNDS_LIST_OFFSET: u64 = TABLES_OFFSET + MAX_MESHES as u64 * 16 + SUBMESH_CAPACITY * 16;
 const GRID_OFFSET: u64 = align(BOUNDS_LIST_OFFSET + MAX_EMITTERS as u64 * 16, 256);
 const SLOT_STRIDE: u64 = align(GRID_OFFSET + GRID_BYTES, 65536);
+const GRID_BUFFERS: usize = 2;
 const _: () = assert!(BOUNDS_CAPACITY as u64 == SUBMESH_CAPACITY);
 const _: () = assert!(SLOT_STRIDE <= u32::MAX as u64 / RING as u64);
 
@@ -294,11 +295,8 @@ impl Renderer {
             image_barrier(gpu, cmd, &[(upload[0].image, vk::ImageLayout::UNDEFINED, vk::ImageLayout::GENERAL, vk::QUEUE_FAMILY_IGNORED, vk::QUEUE_FAMILY_IGNORED), (upload[1].image, vk::ImageLayout::UNDEFINED, vk::ImageLayout::GENERAL, vk::QUEUE_FAMILY_IGNORED, vk::QUEUE_FAMILY_IGNORED)]);
             gpu.finish_now(cmd)?;
             let mut grid_gpu = Vec::new();
-            for s in 0..RING as u32 {
-                let b = gpu.buffer(GRID_BYTES, vk::BufferUsageFlags::STORAGE_BUFFER, vk::MemoryPropertyFlags::DEVICE_LOCAL)?;
-                heap.buffer(gpu, HEAP_LIGHT_GRID + s, b.buffer, 0, GRID_BYTES);
-                grid_gpu.push(b);
-            }
+            for _ in 0..GRID_BUFFERS { grid_gpu.push(gpu.buffer(GRID_BYTES, vk::BufferUsageFlags::STORAGE_BUFFER, vk::MemoryPropertyFlags::DEVICE_LOCAL)?); }
+            for s in 0..RING as u32 { heap.buffer(gpu, HEAP_LIGHT_GRID + s, grid_gpu[0].buffer, 0, GRID_BYTES); }
             let grid_commands = gpu.device.allocate_command_buffers(&vk::CommandBufferAllocateInfo::default().command_pool(gpu.command_pool).level(vk::CommandBufferLevel::PRIMARY).command_buffer_count(RING as u32)).map_err(err("allocate grid command buffers"))?;
             let host = vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT;
             let bounds_readback = match gpu.buffer(SUBMESH_CAPACITY * 32, vk::BufferUsageFlags::STORAGE_BUFFER, host | vk::MemoryPropertyFlags::HOST_CACHED) { Ok(b) => b, Err(_) => gpu.buffer(SUBMESH_CAPACITY * 32, vk::BufferUsageFlags::STORAGE_BUFFER, host)? };
@@ -335,7 +333,7 @@ impl Renderer {
         gpu.wait(self.slot_fences[slot])?;
         if let Some((value, first, end)) = self.bounds_pending {
             if gpu.completed() >= value {
-                self.grid.absorb_bounds(self.bounds_readback.mapped as *const u8, first, end);
+                self.grid.absorb_bounds(self.bounds_readback.mapped as *const u8, first, end, frame);
                 self.bounds_pending = None;
             }
         }
@@ -559,7 +557,10 @@ impl Renderer {
             let copy = self.grid_commands[slot];
             gpu.device.reset_command_buffer(copy, vk::CommandBufferResetFlags::empty()).map_err(err("reset grid command buffer"))?;
             gpu.device.begin_command_buffer(copy, &vk::CommandBufferBeginInfo::default().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)).map_err(err("begin grid command buffer"))?;
-            gpu.device.cmd_copy_buffer(copy, self.ring.buffer, self.grid_gpu[slot].buffer, &[vk::BufferCopy { src_offset: base + GRID_OFFSET, dst_offset: 0, size: self.grid.used_bytes }]);
+            let grid_index = (frame % GRID_BUFFERS as u64) as usize;
+            self.heap().buffer(gpu, HEAP_LIGHT_GRID + slot as u32, self.grid_gpu[grid_index].buffer, 0, GRID_BYTES);
+            barrier(gpu, copy);
+            gpu.device.cmd_copy_buffer(copy, self.ring.buffer, self.grid_gpu[grid_index].buffer, &[vk::BufferCopy { src_offset: base + GRID_OFFSET, dst_offset: 0, size: self.grid.used_bytes }]);
             barrier(gpu, copy);
             gpu.device.end_command_buffer(copy).map_err(err("end grid command buffer"))?;
             let cmds = [vk::CommandBufferSubmitInfo::default().command_buffer(copy), vk::CommandBufferSubmitInfo::default().command_buffer(cmd)];
