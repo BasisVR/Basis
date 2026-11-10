@@ -869,7 +869,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         foreach (KeyValuePair<Light, Vector4> kv in lightReach)
         {
             Light l = kv.Key;
-            if (l == null || !l.isActiveAndEnabled || l.intensity <= 0f || l.lightmapBakeType == LightmapBakeType.Baked) { lightsGone.Add(l); }
+            if (l == null || !l.isActiveAndEnabled || l.intensity <= 0f || (l.bakingOutput.isBaked && l.bakingOutput.lightmapBakeType == LightmapBakeType.Baked)) { lightsGone.Add(l); }
         }
         foreach (Light l in lightsGone)
         {
@@ -884,7 +884,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         foreach (Light l in lights)
         {
             if (count >= BasisExternalRayTracer.MaxLights) { break; }
-            if (l == null || !l.isActiveAndEnabled || l.intensity <= 0f || l.lightmapBakeType == LightmapBakeType.Baked) { continue; }
+            if (l == null || !l.isActiveAndEnabled || l.intensity <= 0f || (l.bakingOutput.isBaked && l.bakingOutput.lightmapBakeType == LightmapBakeType.Baked)) { continue; }
             Color c = l.color.linear * l.intensity;
             if (GraphicsSettings.lightsUseColorTemperature && l.useColorTemperature) { c *= Mathf.CorrelatedColorTemperatureToRGB(l.colorTemperature); }
             Vector3 p = l.transform.position, f = l.transform.forward;
