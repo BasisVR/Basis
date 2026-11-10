@@ -704,6 +704,10 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
         switch (optionValue?.ToLowerInvariant())
         {
             case "full": return BasisGlobalIlluminationResolution.Full;
+            case "85": return BasisGlobalIlluminationResolution.Percent85;
+            case "75": return BasisGlobalIlluminationResolution.Percent75;
+            case "67": return BasisGlobalIlluminationResolution.Percent67;
+            case "third": return BasisGlobalIlluminationResolution.Third;
             case "quarter": return BasisGlobalIlluminationResolution.Quarter;
             default: return BasisGlobalIlluminationResolution.Half;
         }

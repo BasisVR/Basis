@@ -17,6 +17,21 @@ namespace Basis.BasisUI
 {
     public partial class SettingsProvider : BasisMenuActionProvider<BasisMainMenu>
     {
+        private static readonly List<string> GiResolutionValues = new List<string> { "Full", "85", "75", "67", "Half", "Third", "Quarter" };
+
+        private static List<string> GiResolutionLabels(bool pathTraced)
+        {
+            Vector2Int source = BasisGlobalIlluminationPass.LastSourceSize;
+            if (source.x <= 0) { source = UnityEngine.XR.XRSettings.enabled && UnityEngine.XR.XRSettings.eyeTextureWidth > 0 ? new Vector2Int(UnityEngine.XR.XRSettings.eyeTextureWidth, UnityEngine.XR.XRSettings.eyeTextureHeight) : new Vector2Int(Screen.width, Screen.height); }
+            List<string> labels = new List<string>(GiResolutionValues.Count);
+            foreach (string value in GiResolutionValues)
+            {
+                Vector2Int size = BasisGlobalIlluminationSettings.TracedSize(SMModuleGlobalIlluminationURP.ReadResolution(value), pathTraced, source.x, source.y);
+                labels.Add(size.x + " x " + size.y);
+            }
+            return labels;
+        }
+
         /// <summary>Tab key of the Chat &amp; UI page, for packages that add to its reset via <see cref="AddPageResetAction"/>.</summary>
         public const string ChatTabKey = "settings.tab.chatui";
         private static string _pendingTabKey;
@@ -2468,9 +2483,7 @@ namespace Basis.BasisUI
                 PanelDropdown dropdownGiResolution = PanelDropdown.CreateNewEntry(giGroup.ContentParent);
                 dropdownGiResolution.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.resolution"));
                 dropdownGiResolution.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.resolution.tooltip"));
-                dropdownGiResolution.AssignLocalizedEntries(
-                    new List<string> { "Full", "Half", "Quarter" },
-                    new List<string> { "settings.graphics.gi.resolution.full", "settings.graphics.gi.resolution.half", "settings.graphics.gi.resolution.quarter" });
+                dropdownGiResolution.AssignEntries(GiResolutionValues, GiResolutionLabels(false));
                 dropdownGiResolution.AssignBinding(BasisSettingsDefaults.GlobalIlluminationResolution);
                 SettingsProviderBottleneckHints.Mark(dropdownGiResolution, BasisFrameCostSide.Gpu);
 
@@ -2787,6 +2800,7 @@ namespace Basis.BasisUI
                     dropdownGiSkinned.Descriptor.SetActive(rayTraced);
                     dropdownGiQuality.Descriptor.SetActive(basis);
                     dropdownGiResolution.Descriptor.SetActive(basis);
+                    if (basis) { dropdownGiResolution.AssignEntries(GiResolutionValues, GiResolutionLabels(pathTraced)); }
                     sliderGiIntensity.Descriptor.SetActive(basis);
                     sliderGiSaturation.Descriptor.SetActive(basis);
                     sliderGiObscurance.Descriptor.SetActive(basis);

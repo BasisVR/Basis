@@ -29,7 +29,11 @@ public enum BasisGlobalIlluminationResolution
 {
     Full = 1,
     Half = 2,
-    Quarter = 4
+    Third = 3,
+    Quarter = 4,
+    Percent67 = 67,
+    Percent75 = 75,
+    Percent85 = 85
 }
 
 public enum BasisGlobalIlluminationNormalSource
@@ -496,11 +500,24 @@ public sealed partial class BasisGlobalIlluminationSettings
         }
     }
 
-    public int ResolvedResolutionDivisor()
+    public int ResolvedResolutionDivisor() => ResolutionDivisor(resolution);
+
+    public static int ResolutionDivisor(BasisGlobalIlluminationResolution value)
     {
-        int divisor = (int)resolution;
-        return divisor < 1 ? 1 : divisor;
+        int raw = (int)value;
+        if (raw > 4) { return raw >= 75 ? 1 : 2; }
+        return raw < 1 ? 1 : raw;
     }
+
+    public static Vector2Int TracedSize(BasisGlobalIlluminationResolution value, bool fractional, int width, int height)
+    {
+        int raw = (int)value;
+        if (fractional && raw > 4) { float scale = raw / 100f; return new Vector2Int(Mathf.Max(1, Mathf.RoundToInt(width * scale)), Mathf.Max(1, Mathf.RoundToInt(height * scale))); }
+        int divisor = ResolutionDivisor(value);
+        return new Vector2Int(Mathf.Max(1, width / divisor), Mathf.Max(1, height / divisor));
+    }
+
+    public Vector2Int ResolvedTracedSize(int width, int height) => TracedSize(resolution, IsExternal(), width, height);
 
     public bool IsRayTraced() => mode == BasisGlobalIlluminationDiffuseMode.RayTraced;
     public bool IsExternal() => mode == BasisGlobalIlluminationDiffuseMode.PathTracedExternal || mode == BasisGlobalIlluminationDiffuseMode.PathTracedBaked;

@@ -9076,19 +9076,7 @@
     },
     {
       "key": "settings.graphics.gi.resolution.tooltip",
-      "value": "Resolution the bounce is traced at. Bounce light is soft, so Half looks near identical to Full for a quarter of the cost. Photos are always taken at Full."
-    },
-    {
-      "key": "settings.graphics.gi.resolution.full",
-      "value": "Full"
-    },
-    {
-      "key": "settings.graphics.gi.resolution.half",
-      "value": "Half"
-    },
-    {
-      "key": "settings.graphics.gi.resolution.quarter",
-      "value": "Quarter"
+      "value": "Resolution the bounce is traced at, shown in pixels. Bounce light is soft, so lower steps look close to Full for a fraction of the cost. The steps between Full and Half need the path tracer; other modes round them to the nearest whole step. Photos are always taken at Full."
     },
     {
       "key": "settings.graphics.gi.intensity",

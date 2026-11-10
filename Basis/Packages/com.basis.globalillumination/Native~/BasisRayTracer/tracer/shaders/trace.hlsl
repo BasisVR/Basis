@@ -142,7 +142,7 @@ float3 MaterialEmission(Material material, float2 uv, float lod, float size, flo
     return emission;
 }
 
-bool Occluded(RaytracingAccelerationStructure tlas, float3 origin, float3 direction, float distance)
+bool Occluded(RaytracingAccelerationStructure tlas, float3 origin, float3 direction, float distance, bool opaque = false)
 {
     RayDesc ray;
     ray.Origin = origin;
@@ -150,7 +150,7 @@ bool Occluded(RaytracingAccelerationStructure tlas, float3 origin, float3 direct
     ray.TMin = 0.0;
     ray.TMax = distance;
     Payload payload = (Payload)0;
-    HitObj h = TraceHit(tlas, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER, 0xFE, ray, payload);
+    HitObj h = TraceHit(tlas, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | (opaque ? RAY_FLAG_FORCE_OPAQUE : RAY_FLAG_NONE), 0xFE, ray, payload);
     return h.IsHit();
 }
 
@@ -306,7 +306,7 @@ LightCandidate SampleLights(RaytracingAccelerationStructure tlas, float3 positio
         if (Random(rng) * total < w) { chosen = c; chosenTarget = target; }
     }
     if (total <= 0.0 || chosenTarget <= 0.0) { return (LightCandidate)0; }
-    if (chosen.shadow && Occluded(tlas, position, chosen.direction, max(chosen.distance * 0.999 - frame.normalBias * 2.0, 0.0))) { return (LightCandidate)0; }
+    if (chosen.shadow && Occluded(tlas, position, chosen.direction, max(chosen.distance * 0.999 - frame.normalBias * 2.0, 0.0), part == 2u)) { return (LightCandidate)0; }
     chosen.value *= total / (candidates * chosenTarget);
     return chosen;
 }
@@ -371,6 +371,18 @@ float3 PrimaryGeometric(Texture2D<uint4> gbuffer, uint2 pixel, uint2 local, uint
     return geometric;
 }
 
+bool ReusePrimary(uint2 pixel, inout Surface surface, float3 geometric, float3 origin)
+{
+    if ((frame.flags & FLAG_RESET_HISTORY) != 0) { return false; }
+    RWByteAddressBuffer scratch = ResourceDescriptorHeap[frame.contextBase + CTX_RESERVOIR_SCRATCH];
+    float4 at = asfloat(scratch.Load4((pixel.y * frame.width * frame.viewCount + pixel.x) * RESERVOIR_SCRATCH_STRIDE + 32u));
+    if (!all(isfinite(at.xyz)) || distance(at.xyz, origin) > max(0.005, surface.distance * 0.002)) { return false; }
+    float3 n = UnpackNormal(asuint(at.w));
+    if (dot(n, surface.normal) < 0.9) { return false; }
+    surface.normal = n;
+    return true;
+}
+
 bool PrimarySurface(RaytracingAccelerationStructure tlas, float3 viewer, inout Surface surface, float3 geometric)
 {
     float3 d = surface.position - viewer;
@@ -386,9 +398,8 @@ bool PrimarySurface(RaytracingAccelerationStructure tlas, float3 viewer, inout S
     HitObj h = TraceHit(tlas, RAY_FLAG_NONE, 0xFF, ray, payload);
     if (!h.IsHit()) { return false; }
     bool avatar = (LoadInstance(h.GetInstanceID()).flags & INSTANCE_AVATAR) != 0u;
-    if (dot(surface.normal, geometric) < 0.995) { return avatar; }
     Hit hit = ResolveHit(h, 0.0);
-    if (dot(hit.geometricNormal, geometric) < 0.9 || dot(hit.normal, geometric) < 0.2) { return avatar; }
+    if (dot(hit.geometricNormal, surface.normal) < 0.99 || dot(hit.normal, geometric) < 0.2) { return avatar; }
     surface.normal = hit.normal;
     return avatar;
 }
@@ -734,11 +745,13 @@ void RayGen()
     }
     float3 viewer = frame.views[viewIndex].position.xyz;
     float3 geometric = PrimaryGeometric(gbuffer, pixel, local, viewIndex, surface);
-    bool avatarPixel = PrimarySurface(tlas, viewer, surface, geometric);
     uint rng = Hash(pixel.x + pixel.y * 65536u) ^ Hash(frame.frameIndex * 7919u + (mode == 0 ? 17u : 91u));
     float3 toViewer = normalize(viewer - surface.position);
     float bias = frame.normalBias * (1.0 + surface.distance * 0.01);
     float3 origin = surface.position + (geometric + toViewer) * bias;
+    bool avatarPixel = false;
+    if (mode != 0) { avatarPixel = PrimarySurface(tlas, viewer, surface, geometric); }
+    else if (!ReusePrimary(pixel, surface, geometric, origin)) { PrimarySurface(tlas, viewer, surface, geometric); }
 
     bool baked = (frame.flags & FLAG_BAKED_HYBRID) != 0 && surface.receive < 0.5;
     if (mode == 0)
@@ -877,7 +890,7 @@ void RayGen()
         irradiance = lerp(traced / fresh, cached.rgb, saturate(cached.a * 2.0));
     }
     uint avatarRays = frame.bounces >> 8;
-    if (avatarPixel && avatarRays > 0u)
+    if (avatarPixel && avatarRays > 0u && ((local.x + local.y + frame.frameIndex) & 1u) == 0u)
     {
         float3 traced = 0.0;
         for (uint ar = 0; ar < avatarRays; ar++)
@@ -887,7 +900,7 @@ void RayGen()
             Bounce b = TraceRadiance(tlas, gbuffer, origin, direction, viewer, false, rng);
             traced += ClampFirefly(b.radiance);
         }
-        irradiance = lerp(irradiance, traced / avatarRays, float(avatarRays) / float(avatarRays + 2u));
+        irradiance = lerp(irradiance, traced / avatarRays, min(2.0 * float(avatarRays) / float(avatarRays + 2u), 1.0));
     }
 
     if ((frame.flags & FLAG_PROBES) != 0)
@@ -933,7 +946,7 @@ void RayGen()
             ray.TMin = 0.0;
             ray.TMax = frame.aoRadius;
             Payload payload = (Payload)0;
-            HitObj h = TraceHit(tlas, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER, 0xFF, ray, payload);
+            HitObj h = TraceHit(tlas, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_OPAQUE, 0xFF, ray, payload);
             if (h.IsHit() && h.GetRayTCurrent() > bias * 4.0) { float o = 1.0 - h.GetRayTCurrent() / frame.aoRadius; occlusion += o * o; }
         }
         occlusion /= aoRays;

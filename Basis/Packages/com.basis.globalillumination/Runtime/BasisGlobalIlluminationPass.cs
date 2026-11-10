@@ -14,6 +14,7 @@ using UnityEngine.Rendering.Universal;
 [AutoStaticsCleanup]
 public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
 {
+    public static Vector2Int LastSourceSize;
     public const int PassTemporal = 0, PassBlur = 1, PassComposite = 2, PassDebug = 3, PassCopyColor = 4, PassCompositeSurface = 15, PassSurfaceDepth = 16, PassCompositeUnknownSurface = 17;
     public const int PassSpecularUpsample = 5;
     public const int PassCoarseSeed = 6, PassCoarseReduce = 7;
@@ -363,8 +364,10 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         Vector3 CameraPosition = camera.transform.position;
         RenderTextureDescriptor descriptor = cameraData.cameraTargetDescriptor;
         int divisor = settings.ResolvedResolutionDivisor();
-        int tracedWidth = Mathf.Max(1, descriptor.width / divisor);
-        int tracedHeight = Mathf.Max(1, descriptor.height / divisor);
+        Vector2Int tracedSize = settings.ResolvedTracedSize(descriptor.width, descriptor.height);
+        int tracedWidth = tracedSize.x;
+        int tracedHeight = tracedSize.y;
+        if (camera.cameraType == CameraType.Game && camera.targetTexture == null) { LastSourceSize = new Vector2Int(descriptor.width, descriptor.height); }
 
         int frame = Time.renderedFrameCount + FrameOffset;
         BasisGlobalIlluminationHistory.Key historyKey = BasisGlobalIlluminationHistory.ComputeKey(camera, cameraData.xr);
@@ -1215,7 +1218,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         CoreUtils.SetKeyword(material, "_BASISGI_RC_MERGE_FIX", settings.ResolvedMergeFix());
         CoreUtils.SetKeyword(material, "_BASISGI_HIERARCHICAL_MARCH", settings.hierarchicalMarch);
         CoreUtils.SetKeyword(material, "_BASISGI_NEIGHBOURHOOD_CLAMP", settings.neighbourhoodClamp);
-        CoreUtils.SetKeyword(material, "_BASISGI_BILATERAL_UPSAMPLE", settings.bilateralUpsample && settings.ResolvedResolutionDivisor() > 1);
+        CoreUtils.SetKeyword(material, "_BASISGI_BILATERAL_UPSAMPLE", settings.bilateralUpsample && (settings.ResolvedResolutionDivisor() > 1 || (settings.IsExternal() && (int)settings.resolution > 4)));
     }
 
     private void FillConstants(BasisGlobalIlluminationSettings settings, int frame, bool rayTraced, int rayCount, float obscuranceIntensity)
