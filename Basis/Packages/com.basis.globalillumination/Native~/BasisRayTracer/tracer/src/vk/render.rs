@@ -59,6 +59,7 @@ pub const CTX_PROBES: u32 = 11;
 pub const CTX_PROBE_RAYS: u32 = 13;
 pub const CTX_RESERVOIRS: u32 = 14;
 pub const CTX_RESERVOIR_SCRATCH: u32 = 16;
+pub const CTX_COMPACT_UAV: u32 = 17;
 pub const PROBE_RAYS: u32 = 16;
 pub const PROBE_STRIDE: u64 = 96;
 pub const TIMESTAMPS: u32 = 8;
@@ -621,6 +622,7 @@ impl Renderer {
             make(gpu, vk::Format::R32G32B32A32_SFLOAT, base + CTX_GEOMETRY_UAV + k)?;
             make(gpu, vk::Format::R16G16B16A16_SFLOAT, base + CTX_FILTER_UAV + k)?;
         }
+        make(gpu, vk::Format::R16G16B16A16_UINT, base + CTX_COMPACT_UAV)?;
         let (tiles_x, tiles_y) = tiles(width, height, views);
         let probe_bytes = ((tiles_x * tiles_y) as u64 * PROBE_STRIDE).max(256);
         let probes = [gpu.buffer(probe_bytes, vk::BufferUsageFlags::STORAGE_BUFFER, vk::MemoryPropertyFlags::DEVICE_LOCAL)?, gpu.buffer(probe_bytes, vk::BufferUsageFlags::STORAGE_BUFFER, vk::MemoryPropertyFlags::DEVICE_LOCAL)?];

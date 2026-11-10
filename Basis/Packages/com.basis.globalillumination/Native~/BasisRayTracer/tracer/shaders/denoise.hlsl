@@ -4,6 +4,23 @@
 
 float4 PackGeometry(Surface s) { return float4(s.position, asfloat(PackNormal(s.normal))); }
 
+uint4 PackCompact(float3 offset, float3 n)
+{
+    n /= abs(n.x) + abs(n.y) + abs(n.z);
+    float2 o = n.z >= 0.0 ? n.xy : OctWrap(n.xy);
+    uint2 q = uint2(round(saturate(o * 0.5 + 0.5) * 254.0)) + 1u;
+    return uint4(f32tof16(clamp(offset, -60000.0, 60000.0)), q.x | (q.y << 8));
+}
+
+float3 CompactNormal(uint p)
+{
+    float2 o = (float2(p & 0xffu, p >> 8) - 1.0) / 127.0 - 1.0;
+    float3 n = float3(o, 1.0 - abs(o.x) - abs(o.y));
+    float t = saturate(-n.z);
+    n.xy += select(n.xy >= 0.0, -t, t);
+    return normalize(n);
+}
+
 [numthreads(8, 8, 1)]
 void Temporal(uint3 id : SV_DispatchThreadID)
 {
@@ -19,6 +36,7 @@ void Temporal(uint3 id : SV_DispatchThreadID)
     RWTexture2D<float4> historyOut = ResourceDescriptorHeap[pass.a];
     RWTexture2D<float4> momentsOut = ResourceDescriptorHeap[HEAP_MOMENTS_UAV + frame.historyWrite];
     RWTexture2D<float4> geometryOut = ResourceDescriptorHeap[HEAP_GEOMETRY_UAV + frame.historyWrite];
+    RWTexture2D<uint4> compactOut = ResourceDescriptorHeap[HEAP_COMPACT_UAV];
 
     Surface s = LoadSurface(gbuffer, pixel, viewIndex);
     if (s.valid)
@@ -31,6 +49,7 @@ void Temporal(uint3 id : SV_DispatchThreadID)
     float4 current = radiance[pixel];
     if (!all(isfinite(current))) { current = float4(0.0, 0.0, 0.0, 1.0); }
     geometryOut[pixel] = s.valid ? PackGeometry(s) : float4(0.0, 0.0, 0.0, 0.0);
+    compactOut[pixel] = s.valid ? PackCompact(s.position - frame.views[viewIndex].position.xyz, s.normal) : uint4(0u, 0u, 0u, 0u);
     if (!s.valid)
     {
         historyOut[pixel] = float4(0.0, 0.0, 0.0, 1.0);
@@ -122,21 +141,22 @@ void Wavelet(uint3 id : SV_DispatchThreadID)
     uint2 local = ViewPixel(pixel, viewIndex);
     RWTexture2D<float4> source = ResourceDescriptorHeap[pass.a];
     RWTexture2D<float4> moments = ResourceDescriptorHeap[HEAP_MOMENTS_UAV + frame.historyWrite];
-    RWTexture2D<float4> geometry = ResourceDescriptorHeap[HEAP_GEOMETRY_UAV + frame.historyWrite];
+    RWTexture2D<uint4> geometry = ResourceDescriptorHeap[HEAP_COMPACT_UAV];
     RWTexture2D<float4> target = ResourceDescriptorHeap[pass.b];
     int step = int(pass.c);
 
-    float4 g = geometry[pixel];
+    uint4 g = geometry[pixel];
     float4 centre = source[pixel];
-    if (all(g == 0.0)) { target[pixel] = centre; return; }
-    float3 position = g.xyz;
-    float3 normal = UnpackNormal(asuint(g.w));
+    if (g.w == 0u) { target[pixel] = centre; return; }
+    float3 position = f16tof32(g.xyz);
+    float3 normal = CompactNormal(g.w);
     float4 mo = moments[pixel];
     float variance = mo.w / float(1u << min(pass.d * 2u, 6u));
     float lc = Luminance(centre.rgb);
     float sigmaL = 4.0 * sqrt(variance) + 1e-3;
-    float distance = length(position - frame.views[viewIndex].position.xyz);
+    float distance = length(position);
     float planeScale = max(0.02, distance * 0.015) * step;
+    float inversePlane = 1.0 / planeScale, inverseSigma = 1.0 / sigmaL;
 
     float4 sum = centre;
     float weightSum = 1.0;
@@ -149,13 +169,12 @@ void Wavelet(uint3 id : SV_DispatchThreadID)
             int2 local2 = int2(local) + int2(x, y) * step;
             if (any(local2 < 0) || local2.x >= int(frame.width) || local2.y >= int(frame.height)) { continue; }
             int2 tap = local2 + int2(viewIndex * frame.width, 0);
-            float4 tg = geometry[tap];
-            if (all(tg == 0.0)) { continue; }
+            uint4 tg = geometry[tap];
+            if (tg.w == 0u) { continue; }
             float4 c = source[tap];
-            float wn = pow(saturate(dot(normal, UnpackNormal(asuint(tg.w)))), 32.0);
-            float wp = exp(-abs(dot(tg.xyz - position, normal)) / planeScale);
-            float wl = exp(-abs(Luminance(c.rgb) - lc) / sigmaL);
-            float w = kernel[abs(x)] * kernel[abs(y)] * wn * wp * wl;
+            float wn = saturate(dot(normal, CompactNormal(tg.w)));
+            wn *= wn; wn *= wn; wn *= wn; wn *= wn; wn *= wn;
+            float w = kernel[abs(x)] * kernel[abs(y)] * wn * exp(-abs(dot(f16tof32(tg.xyz) - position, normal)) * inversePlane - abs(Luminance(c.rgb) - lc) * inverseSigma);
             sum += c * w;
             weightSum += w;
         }

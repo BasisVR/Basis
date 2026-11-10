@@ -19,6 +19,7 @@
 #define HEAP_MOMENTS_UAV (frame.contextBase + 5)
 #define HEAP_GEOMETRY_UAV (frame.contextBase + 7)
 #define HEAP_FILTER_UAV (frame.contextBase + 9)
+#define HEAP_COMPACT_UAV (frame.contextBase + 17)
 #define HEAP_TEXTURES 1024
 #define HEAP_TEXTURE_UAVS (1024 + 4096)
 #define MAX_TEXTURES 4096
