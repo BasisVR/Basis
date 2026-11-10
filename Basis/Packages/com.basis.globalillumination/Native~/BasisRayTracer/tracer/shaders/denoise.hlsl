@@ -21,6 +21,20 @@ float3 CompactNormal(uint p)
     return normalize(n);
 }
 
+float4 Half(float4 v, uint seed)
+{
+    float4 a = abs(v);
+    uint4 h = f32tof16(a);
+    float4 low = f16tof32(h);
+    h -= uint4(low > a);
+    low = f16tof32(h);
+    float4 high = f16tof32(h + 1u);
+    uint r = Hash(seed);
+    float4 u = float4(r & 0xffu, (r >> 8) & 0xffu, (r >> 16) & 0xffu, r >> 24) * (1.0 / 256.0) + (0.5 / 256.0);
+    float4 q = select((a - low) > u * (high - low), high, low);
+    return select(v < 0.0, -q, q);
+}
+
 [numthreads(8, 8, 1)]
 void Temporal(uint3 id : SV_DispatchThreadID)
 {
@@ -107,7 +121,7 @@ void Temporal(uint3 id : SV_DispatchThreadID)
     float3 nSigma = sqrt(max(nSq / max(nCount, 1.0) - nMean * nMean, 0.0));
     float nLum = Luminance(nMean), nLumSigma = Luminance(nSigma);
 
-    float length = 0.0;
+    float length = 0.0, drift = 1.0;
     if (weightSum > 1e-3)
     {
         previous /= weightSum;
@@ -120,15 +134,20 @@ void Temporal(uint3 id : SV_DispatchThreadID)
         float scale = max(max(previousMoments.x, nLum), 0.01);
         float gradient = saturate((abs(nLum - previousMoments.x) - noise - 0.05 * scale - 0.005) / scale);
         length = lerp(length, 1.0, gradient);
+        float around = nCount > 1.5 ? (nLum * nCount - l) / (nCount - 1.0) : previousMoments.x;
+        drift = saturate(abs(around - previousMoments.x) / (noise + 0.02 * scale + 0.002) - 1.0);
     }
     length = min(length + 1.0, 64.0);
     float timeAlpha = 1.0 - exp(-max(frame.deltaTime, 0.001) * 90.0 * frame.temporalResponse);
-    float alpha = max(1.0 / length, timeAlpha);
+    float alpha = max(1.0 / length, timeAlpha * max(drift, 0.25));
     float2 m = lerp(previousMoments.xy, float2(l, l * l), weightSum > 1e-3 ? alpha : 1.0);
     float4 blended = weightSum > 1e-3 ? lerp(previous, current, alpha) : current;
     float variance = max(m.y - m.x * m.x, 0.0);
     if (length < 4.0) { variance = max(variance, nLumSigma * nLumSigma * (4.0 / length)); }
-    historyOut[pixel] = blended;
+#ifdef REFERENCE
+    blended = radiance[pixel];
+#endif
+    historyOut[pixel] = all(isfinite(blended)) ? Half(min(blended, 60000.0), pixel.x + pixel.y * 8192u + frame.frameIndex * 0x9e3779b9u) : blended;
     momentsOut[pixel] = float4(m, length, variance);
 }
 
@@ -152,6 +171,25 @@ void Wavelet(uint3 id : SV_DispatchThreadID)
     float3 normal = CompactNormal(g.w);
     float4 mo = moments[pixel];
     float variance = mo.w / float(1u << min(pass.d * 2u, 6u));
+    if (pass.e != 0u && pass.d == 0u)
+    {
+        float s1 = 0.0, s2 = 0.0, n = 0.0;
+        float near = max(0.02, length(position) * 0.015);
+        [unroll] for (int sy = -1; sy <= 1; sy++)
+        {
+            [unroll] for (int sx = -1; sx <= 1; sx++)
+            {
+                int2 q = int2(local) + int2(sx, sy);
+                if (any(q < 0) || q.x >= int(frame.width) || q.y >= int(frame.height)) { continue; }
+                int2 t = q + int2(viewIndex * frame.width, 0);
+                uint4 tg = geometry[t];
+                if (tg.w == 0u || abs(dot(f16tof32(tg.xyz) - position, normal)) > near || dot(normal, CompactNormal(tg.w)) < 0.9) { continue; }
+                float l = Luminance(source[t].rgb);
+                s1 += l; s2 += l * l; n += 1.0;
+            }
+        }
+        if (n > 1.5) { float m = s1 / n; variance = max(variance, max(s2 / n - m * m, 0.0)); }
+    }
     float lc = Luminance(centre.rgb);
     float sigmaL = 4.0 * sqrt(variance) + 1e-3;
     float distance = length(position);

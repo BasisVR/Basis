@@ -124,7 +124,7 @@ void PackGBuffer(uint3 id : SV_DispatchThreadID)
         StoreGBuffer(uint2(id.x * 2 + 1, id.y), 0);
         return;
     }
-    float3 world = WorldAtNdc((float2(local) + 0.5) / float2(width, height) * 2.0 - 1.0, raw, view);
+    float3 world = WorldAt(source, raw, view);
     if (_Layout1.z != 0 && OnMirror(world))
     {
         StoreGBuffer(uint2(id.x * 2, id.y), 0);

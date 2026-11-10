@@ -133,7 +133,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         public Vector4 mapST, maskST;
     }
     private static readonly int idEmissionBaseColorAsMap = Shader.PropertyToID("_EmissionBaseColorAsMap"), idEmissionMainStrength = Shader.PropertyToID("_EmissionMainStrength");
-    private static readonly int idCutoff = Shader.PropertyToID("_Cutoff"), idAlphaClip = Shader.PropertyToID("_AlphaClip"), idSurface = Shader.PropertyToID("_Surface");
+    private static readonly int idCutoff = Shader.PropertyToID("_Cutoff"), idCull = Shader.PropertyToID("_Cull"), idAlphaClip = Shader.PropertyToID("_AlphaClip"), idSurface = Shader.PropertyToID("_Surface");
     private static readonly int idMetallic = Shader.PropertyToID("_Metallic"), idSmoothness = Shader.PropertyToID("_Smoothness"), idGlossiness = Shader.PropertyToID("_Glossiness");
     private static readonly Vector3[] ambientDirections = { Vector3.right, Vector3.left, Vector3.up, Vector3.down, Vector3.forward, Vector3.back };
     private readonly Color[] ambientResults = new Color[6];
@@ -514,6 +514,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         result.cutoff = ReadFloat(m, hasBlock, idCutoff, 0.5f);
         result.metallic = ReadFloat(m, hasBlock, idMetallic, 0f);
         if (avatar) { result.flags |= BasisExternalRayTracer.MaterialAnimated; }
+        if (m.doubleSidedGI || (Has(m, idCull) && ReadFloat(m, hasBlock, idCull, 2f) < 0.5f)) { result.flags |= BasisExternalRayTracer.MaterialDoubleSided; }
         return result;
     }
 
@@ -753,11 +754,12 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
             uint materialBase = materialCount;
             float emissivePower = 0f;
             bool unposed = mesh.skinned != null && !mesh.posed;
+            bool shadowOnly = renderer.shadowCastingMode == ShadowCastingMode.ShadowsOnly;
             for (int s = 0; s < submeshes; s++)
             {
                 BasisExternalRayMaterial mat = pendingMaterials[s];
-                if (settings.emitters && pendingPower[s] > 0.001f) { emissivePower += pendingPower[s]; }
-                if (pendingPower[s] > 0.001f && settings.emitters && mesh.submeshCounts[s] > 0 && !unposed)
+                if (settings.emitters && pendingPower[s] > 0.001f && !shadowOnly) { emissivePower += pendingPower[s]; }
+                if (pendingPower[s] > 0.001f && settings.emitters && mesh.submeshCounts[s] > 0 && !unposed && !shadowOnly)
                 {
                     Vector3 size = renderer.bounds.size;
                     float area = Mathf.Max(0.01f, size.x * size.y + size.y * size.z + size.x * size.z);
@@ -808,7 +810,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
             instances[instanceCount++] = new BasisExternalRayInstance
             {
                 row0 = r0, row1 = r1, row2 = r2, mesh = mesh.id, materialBase = materialBase,
-                mask = unposed ? 0u : (noShadow ? 0x01u : 0xFDu) | (dynamic ? BasisExternalRayTracer.MaskDynamic : 0u),
+                mask = unposed ? 0u : shadowOnly ? 0x04u : (noShadow ? 0x01u : 0xFDu) | (dynamic ? BasisExternalRayTracer.MaskDynamic : 0u),
                 flags = (record.avatar ? BasisExternalRayTracer.InstanceAvatar : 0u) | (noShadow ? BasisExternalRayTracer.InstanceNoShadow : 0u) | (dynamic ? BasisExternalRayTracer.InstanceDynamic : 0u),
                 lightmap = lightmap, lightmapST = lightmapST,
             };

@@ -34,6 +34,7 @@
 #define FLAG_MOTION 512
 #define FLAG_BAKED_HYBRID 256
 #define MASK_DYNAMIC 2
+#define MASK_VISIBLE 0xFB
 #define HEAP_DIRTY 56
 #define HEAP_RING 9
 #define HEAP_BOUNDS 54

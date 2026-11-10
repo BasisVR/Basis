@@ -2,6 +2,10 @@
 
 struct Dirty { float4 sphere; };
 
+#ifndef CACHE_DRIFT_RUN
+#define CACHE_DRIFT_RUN 8u
+#endif
+
 #ifndef CACHE_EVICT_AGE
 #define CACHE_EVICT_AGE 20000u
 #endif
@@ -74,7 +78,7 @@ void CacheMaintain(uint3 id : SV_DispatchThreadID)
     if (accum.Load(o + 48) == 0u)
     {
         RWByteAddressBuffer touched = ResourceDescriptorHeap[HEAP_CACHE_TOUCHED];
-        if (frame.frameIndex - touched.Load(i * 4) > CACHE_EVICT_AGE)
+        if (((frame.frameIndex - touched.Load(i * 4)) & 0xffffffu) > CACHE_EVICT_AGE)
         {
             keys.Store2(i * 8, uint2(keys.Load(((i + 1u) & CACHE_MASK) * 8) == 0u ? 0u : CACHE_TOMBSTONE, 0u));
             CacheStoreSH(resolved, o, ShZero(), 0.0);
@@ -99,10 +103,18 @@ void CacheResolve(uint3 id : SV_DispatchThreadID)
     SH r = CacheLoadSH(resolved, o, samples);
     SH average = ShScale(added, 1.0 / float(count));
     float weight = float(count);
+    uint run = touched.Load(i * 4) >> 24;
+    if (samples >= 16.0)
+    {
+        uint side = Luminance(average.mean) > Luminance(r.mean) ? 0x80u : 0u;
+        run = (run & 0x80u) == side ? side | min((run & 0x7fu) + 1u, 127u) : side | 1u;
+        if ((run & 0x7fu) >= CACHE_DRIFT_RUN) { samples = max(samples * 0.7, 16.0); }
+    }
+    else { run = 0u; }
     float alpha = samples <= 0.0 ? 1.0 : weight / (samples + weight);
     r = ShLerp(r, average, alpha);
     samples = min(samples + weight, 1024.0);
     ClearAccum(accum, o);
-    touched.Store(i * 4, frame.frameIndex);
+    touched.Store(i * 4, (frame.frameIndex & 0xffffffu) | (run << 24));
     CacheStoreSH(resolved, o, r, samples);
 }

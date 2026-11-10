@@ -86,21 +86,78 @@ fn room() -> Vec<Quad> {
     ]
 }
 
-fn cube(center: V3, size: f32) -> Vec<Quad> {
-    let h = size * 0.5;
-    let c = sub(center, [h, h, h]);
-    let s = size;
-    let e = [0.2, 0.4, 3.0];
-    let a = [0.2, 0.3, 0.9];
-    let q = |corner: V3, u: V3, v: V3| { let n = normalize(cross(u, v)); Quad { corner, u, v, normal: n, albedo: a, emission: e, material: 4 } };
+#[derive(Clone, Copy)]
+struct Block { centre: V3, size: V3, albedo: V3, emission: V3 }
+
+fn block_quads(b: &Block) -> Vec<Quad> {
+    let c = sub(b.centre, mul(b.size, 0.5));
+    let [sx, sy, sz] = b.size;
+    let q = |corner: V3, u: V3, v: V3| { let n = normalize(cross(u, v)); Quad { corner, u, v, normal: n, albedo: b.albedo, emission: b.emission, material: 4 } };
     vec![
-        q(c, [0.0, s, 0.0], [s, 0.0, 0.0]),
-        q(add(c, [0.0, 0.0, s]), [s, 0.0, 0.0], [0.0, s, 0.0]),
-        q(c, [0.0, 0.0, s], [0.0, s, 0.0]),
-        q(add(c, [s, 0.0, 0.0]), [0.0, s, 0.0], [0.0, 0.0, s]),
-        q(c, [s, 0.0, 0.0], [0.0, 0.0, s]),
-        q(add(c, [0.0, s, 0.0]), [0.0, 0.0, s], [s, 0.0, 0.0]),
+        q(c, [0.0, sy, 0.0], [sx, 0.0, 0.0]),
+        q(add(c, [0.0, 0.0, sz]), [sx, 0.0, 0.0], [0.0, sy, 0.0]),
+        q(c, [0.0, 0.0, sz], [0.0, sy, 0.0]),
+        q(add(c, [sx, 0.0, 0.0]), [0.0, sy, 0.0], [0.0, 0.0, sz]),
+        q(c, [sx, 0.0, 0.0], [0.0, 0.0, sz]),
+        q(add(c, [0.0, sy, 0.0]), [0.0, 0.0, sz], [sx, 0.0, 0.0]),
     ]
+}
+
+struct World { quads: Vec<Quad>, blocks: Vec<Block>, lights: Vec<Light>, camera: V3 }
+
+fn rect(corner: V3, u: V3, v: V3, albedo: V3, emission: V3) -> Quad { Quad { corner, u, v, normal: normalize(cross(u, v)), albedo, emission, material: 0 } }
+
+fn world(scene: u32, t: f32, lit: f32) -> World {
+    let grey = [0.6, 0.6, 0.6];
+    let none = [0.0; 3];
+    let point = |p: V3, c: V3, range: f32| Light { position: [p[0], p[1], p[2], f32::from_bits(LIGHT_POINT)], direction: [0.0, -1.0, 0.0, range], color: [c[0] * lit, c[1] * lit, c[2] * lit, 1.0], spot: [0.0; 4] };
+    let mut w = World { quads: room(), blocks: Vec::new(), lights: Vec::new(), camera: [0.0, 1.5, -2.5] };
+    if scene == 0 {
+        w.blocks.push(Block { centre: [1.2, 0.6 + 0.3 * t.sin(), 1.0], size: [0.6; 3], albedo: [0.2, 0.3, 0.9], emission: [0.2, 0.4, 3.0] });
+        w.lights.push(point([0.0, 2.5, -1.0], [3.0, 2.7, 2.4], 8.0));
+        return w;
+    }
+    if scene != 4 { w.quads.truncate(6); }
+    let pillar = Block { centre: [-1.0, 0.75, 1.0], size: [0.5, 1.5, 0.5], albedo: grey, emission: none };
+    let slider = Block { centre: [1.8 * (t * 1.5).sin(), 1.3, 0.8], size: [1.0, 0.3, 1.6], albedo: grey, emission: none };
+    match scene {
+        1 => { w.quads.push(rect([-2.0, 2.98, -1.5], [4.0, 0.0, 0.0], [0.0, 0.0, 4.0], [1.0; 3], [1.5, 1.5, 1.5])); w.blocks.push(pillar); }
+        2 => { w.quads.push(rect([-2.5, 2.6, 2.98], [0.0, 0.03, 0.0], [5.0, 0.0, 0.0], [1.0; 3], [60.0, 50.0, 40.0])); w.blocks.push(pillar); }
+        3 => {
+            w.blocks.push(Block { centre: [0.0, 0.4, 0.8], size: [0.8; 3], albedo: grey, emission: none });
+            for j in 0..32usize {
+                let (gx, gz) = ((j % 8) as f32, (j / 8) as f32);
+                let hue = j as f32 * 2.4;
+                let colour = [0.5 + 0.5 * hue.cos(), 0.5 + 0.5 * (hue + 2.1).cos(), 0.5 + 0.5 * (hue + 4.2).cos()];
+                w.blocks.push(Block { centre: [-2.45 + gx * 0.7, 0.3 + ((j * 5) % 7) as f32 * 0.38, -0.6 + gz * 1.05], size: [0.12; 3], albedo: [0.5; 3], emission: mul(colour, 20.0) });
+            }
+            w.lights.push(point([2.0, 1.0, 2.0], [1.5, 0.3, 0.3], 5.0));
+            w.lights.push(point([-2.0, 2.0, -2.0], [0.3, 0.3, 1.5], 5.0));
+        }
+        4 => { w.blocks.push(slider); }
+        5 => { w.blocks.push(Block { centre: [2.2 * (t * 1.2).sin(), 1.0, 0.5], size: [0.4; 3], albedo: [0.5; 3], emission: [8.0, 6.0, 3.0] }); w.blocks.push(pillar); }
+        6 => {
+            let wall = [0.75, 0.75, 0.75];
+            for (z, front) in [(0.5f32, true), (0.55, false)] {
+                for (x0, y0, sx, sy) in [(-3.0f32, 0.0f32, 2.5f32, 3.0f32), (0.5, 0.0, 2.5, 3.0), (-0.5, 2.0, 1.0, 1.0)] {
+                    w.quads.push(if front { rect([x0, y0, z], [0.0, sy, 0.0], [sx, 0.0, 0.0], wall, none) } else { rect([x0, y0, z], [sx, 0.0, 0.0], [0.0, sy, 0.0], wall, none) });
+                }
+            }
+            w.quads.push(rect([-0.5, 0.0, 0.5], [0.0, 0.0, 0.05], [0.0, 2.0, 0.0], wall, none));
+            w.quads.push(rect([0.5, 0.0, 0.5], [0.0, 2.0, 0.0], [0.0, 0.0, 0.05], wall, none));
+            w.quads.push(rect([-0.5, 2.0, 0.5], [1.0, 0.0, 0.0], [0.0, 0.0, 0.05], wall, none));
+            w.quads.push(rect([-1.0, 2.98, 1.2], [2.0, 0.0, 0.0], [0.0, 0.0, 1.5], [1.0; 3], [8.0, 7.5, 6.5]));
+            w.blocks.push(Block { centre: [1.5, 0.4, -0.5], size: [0.8; 3], albedo: grey, emission: none });
+        }
+        _ => {
+            let spot = |p: V3, c: V3| Light { position: [p[0], p[1], p[2], f32::from_bits(LIGHT_SPOT)], direction: [0.0, -1.0, 0.0, 10.0], color: [c[0] * lit, c[1] * lit, c[2] * lit, 1.0], spot: [5.0, -4.0, 0.0, 0.0] };
+            w.lights.push(spot([-1.2, 2.9, 0.8], [30.0, 26.0, 20.0]));
+            w.lights.push(spot([1.4, 2.9, 0.2], [10.0, 20.0, 30.0]));
+            w.blocks.push(slider);
+            w.blocks.push(pillar);
+        }
+    }
+    w
 }
 
 fn intersect(quads: &[Quad], origin: V3, dir: V3) -> Option<(f32, usize)> {
@@ -218,7 +275,13 @@ fn main() {
         let (gptr, uptr, rptr) = { let c = vkc.as_ref().unwrap(); (c.gstage.mapped, c.ustage.mapped, c.readback.mapped) };
 
         let sway = std::env::var("SWAY").map_or(false, |v| !v.is_empty());
-        let mut camera = [0.0f32, 1.5, -2.5];
+        let env_f = |name: &str| std::env::var(name).ok().and_then(|v| v.parse::<f32>().ok());
+        let scene: u32 = env_f("SCENE").unwrap_or(0.0) as u32;
+        let (time_fixed, stop_at) = (env_f("TFIX"), env_f("STOPAT"));
+        let acc_from: u64 = std::env::var("ACC").ok().and_then(|v| v.parse().ok()).unwrap_or(u64::MAX);
+        let (mut acc, mut acc_n) = (Vec::<f64>::new(), 0u64);
+        let mut last_centres: Vec<V3> = Vec::new();
+        let mut camera = world(scene, 0.0, 1.0).camera;
         let mut previous_frame: Vec<f32> = Vec::new();
         let mut frame_log = String::new();
         let mut flicker = Vec::new();
@@ -239,7 +302,6 @@ fn main() {
         let mut parity_sum = [[0u64; 8]; 2];
         let mut parity_n = [0u64; 2];
         let spot = |j: usize| -> V3 { let a = j as f32 * 2.39996; let r = 5.0 + ((j * 7) % 25) as f32; [r * a.cos(), 0.5 + (j % 3) as f32, r * a.sin()] };
-        let room_quads = room();
         let mut times = Vec::new();
 
         for frame in 1..=frames {
@@ -250,16 +312,26 @@ fn main() {
             let t = if freeze { 0.0 } else { frame as f32 * 0.1 };
             if sway { camera[0] = 0.4 * (frame as f32 * 0.25).sin(); }
             let view = view_from(camera);
+            let halton = |i: u32, b: u32| { let (mut f, mut r, mut i) = (1.0f32, 0.0f32, i); while i > 0 { f /= b as f32; r += f * (i % b) as f32; i /= b; } r };
+            let jitter = if std::env::var("JITTER").is_ok() { [(halton(iteration as u32 % 8 + 1, 2) - 0.5) * 2.0 / w as f32, (halton(iteration as u32 % 8 + 1, 3) - 0.5) * 2.0 / h as f32] } else { [0.0, 0.0] };
+            let mut projection = projection;
+            for c in 0..4 { projection[c * 4] += jitter[0] * projection[c * 4 + 3]; projection[c * 4 + 1] += jitter[1] * projection[c * 4 + 3]; }
             let vp = mat_mul(&projection, &view);
             if frame == 1 { prev_vp = vp; }
-            let cube_center = [1.2, 0.6 + 0.3 * t.sin(), 1.0];
-            let cube_quads = cube(cube_center, 0.6);
+            let light_off_at = std::env::var("LIGHTOFF").ok().and_then(|v| v.parse::<u64>().ok());
+            let lit = if light_off_at.map_or(false, |n| iteration as u64 >= n) { 0.0f32 } else { 1.0f32 } * light_scale;
+            let scene_time = if scene == 0 { t } else { time_fixed.unwrap_or((iteration as f32).min(stop_at.unwrap_or(f32::MAX)) / 60.0) };
+            let wd = world(scene, scene_time, lit);
+            let room_quads = &wd.quads;
+            let (statics, blocks) = (wd.quads.len(), wd.blocks.len());
+            let cube_center = wd.blocks[0].centre;
+            let cube_quads: Vec<Quad> = wd.blocks.iter().flat_map(block_quads).collect();
             let slot = &mut *slot(bridge.base, frame as usize);
             let mut texels: Vec<[u32; 4]> = Vec::new();
             let mut commands: Vec<Command> = Vec::new();
             let mut push = |texels: &mut Vec<[u32; 4]>, data: &[[u32; 4]]| -> u32 { let at = texels.len() as u32; texels.extend_from_slice(data); at };
             if iteration == 1 {
-                let (rv, ri) = mesh_texels(&room_quads, |_| true);
+                let (rv, ri) = mesh_texels(room_quads, |_| true);
                 let mut index_texels: Vec<[u32; 4]> = ri.chunks(4).map(|c| [c[0], *c.get(1).unwrap_or(&0), *c.get(2).unwrap_or(&0), *c.get(3).unwrap_or(&0)]).collect();
                 let vc = (rv.len() / 2) as u32;
                 commands.push(Command { op: OP_MESH_DEFINE, id: 1, a: vc, b: ri.len() as u32, c: room_quads.len() as u32, ..Default::default() });
@@ -271,32 +343,57 @@ fn main() {
                 commands.push(Command { op: OP_MESH_COMMIT, id: 1, a: 0, ..Default::default() });
                 let (_, ci) = mesh_texels(&cube_quads, |_| true);
                 index_texels = ci.chunks(4).map(|c| [c[0], *c.get(1).unwrap_or(&0), *c.get(2).unwrap_or(&0), *c.get(3).unwrap_or(&0)]).collect();
-                commands.push(Command { op: OP_MESH_DEFINE, id: 2, a: 24, b: 36, c: 1, ..Default::default() });
-                commands.push(Command { op: OP_MESH_SUBMESH, id: 2, a: 0, b: 36, c: SUBMESH_OPAQUE, ..Default::default() });
+                commands.push(Command { op: OP_MESH_DEFINE, id: 2, a: 24 * blocks as u32, b: 36 * blocks as u32, c: blocks as u32, ..Default::default() });
+                for b in 0..blocks as u32 { commands.push(Command { op: OP_MESH_SUBMESH, id: 2, a: b * 36, b: 36, c: SUBMESH_OPAQUE, ..Default::default() }); }
                 let at = push(&mut texels, &index_texels);
-                commands.push(Command { op: OP_MESH_INDICES, id: 2, a: 0, b: 36, c: at, ..Default::default() });
+                commands.push(Command { op: OP_MESH_INDICES, id: 2, a: 0, b: 36 * blocks as u32, c: at, ..Default::default() });
             }
             let (cv, _) = mesh_texels(&cube_quads, |_| true);
             let at = push(&mut texels, &cv);
-            commands.push(Command { op: OP_MESH_VERTICES, id: 2, a: 0, b: 24, c: at, ..Default::default() });
+            commands.push(Command { op: OP_MESH_VERTICES, id: 2, a: 0, b: 24 * blocks as u32, c: at, ..Default::default() });
             commands.push(Command { op: if iteration == 1 { OP_MESH_COMMIT } else { OP_MESH_REFIT }, id: 2, a: MESH_DYNAMIC, ..Default::default() });
             for (i, c) in commands.iter().enumerate() { slot.commands[i] = *c; }
 
             let identity = [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0];
             slot.instances[0] = Instance { transform: identity, mesh: 1, material_base: 0, mask: 0xff, flags: 0, lightmap: -1, ..Default::default() };
-            slot.instances[1] = Instance { transform: identity, mesh: 2, material_base: 7, mask: 0xff, flags: INSTANCE_AVATAR | INSTANCE_EMITTER, lightmap: -1, ..Default::default() };
+            slot.instances[1] = Instance { transform: identity, mesh: 2, material_base: statics as u32, mask: 0xff, flags: if scene == 0 { INSTANCE_AVATAR | INSTANCE_EMITTER } else { INSTANCE_EMITTER }, lightmap: -1, ..Default::default() };
             for j in 0..many { let p = spot(j); slot.instances[2 + j] = Instance { transform: [1.0, 0.0, 0.0, p[0] - 1.2, 0.0, 1.0, 0.0, p[1] - 0.6, 0.0, 0.0, 1.0, p[2] - 1.0], mesh: 2, material_base: 7, mask: 0xff, flags: 0, lightmap: -1, ..Default::default() }; }
             for i in (2 + many)..instances { slot.instances[i] = Instance { transform: [1.0, 0.0, 0.0, 500.0 + (i % 128) as f32 * 2.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 500.0 + (i / 128) as f32 * 2.0], mesh: 2, material_base: 7, mask: 0xff, flags: 0, lightmap: -1, ..Default::default() }; }
-            let light_off_at = std::env::var("LIGHTOFF").ok().and_then(|v| v.parse::<u64>().ok());
-            let lit = if light_off_at.map_or(false, |n| iteration as u64 >= n) { 0.0f32 } else { 1.0f32 } * light_scale;
-            for (i, q) in room_quads.iter().enumerate() { slot.materials[i] = Material { base_color: [q.albedo[0], q.albedo[1], q.albedo[2], 1.0], emission: [q.emission[0] * lit, q.emission[1] * lit, q.emission[2] * lit, 0.0], base_st: [1.0, 1.0, 0.0, 0.0], emission_st: [1.0, 1.0, 0.0, 0.0], base_texture: -1, emission_texture: -1, flags: if i == 6 { MATERIAL_EMITTER } else { 0 }, ..Default::default() }; }
-            let c0 = &cube_quads[0];
-            slot.materials[7] = Material { base_color: [c0.albedo[0], c0.albedo[1], c0.albedo[2], 1.0], emission: [c0.emission[0] * lit, c0.emission[1] * lit, c0.emission[2] * lit, 0.0], base_st: [1.0, 1.0, 0.0, 0.0], emission_st: [1.0, 1.0, 0.0, 0.0], base_texture: -1, emission_texture: -1, flags: MATERIAL_EMITTER, ..Default::default() };
-            slot.lights[0] = Light { position: [0.0, 2.5, -1.0, f32::from_bits(LIGHT_POINT)], direction: [0.0, -1.0, 0.0, 8.0], color: [3.0 * lit, 2.7 * lit, 2.4 * lit, 1.0], spot: [0.0; 4] };
-            slot.dirty[0] = [cube_center[0], cube_center[1], cube_center[2], if std::env::var("SOFT").is_ok() { -1.5 } else { 1.5 }];
-            if light_off_at == Some(iteration as u64) { slot.dirty[0] = [0.0, 2.5, -1.0, if std::env::var("HARDOFF").is_ok() { 13.0 } else { 100013.0 }]; }
-            slot.emitters[0] = Emitter { instance: 0, geometry: 6, triangle_count: 2, cdf: 0.7 };
-            slot.emitters[1] = Emitter { instance: 1, geometry: 0, triangle_count: 12, cdf: 1.0 };
+            for (i, q) in room_quads.iter().enumerate() { slot.materials[i] = Material { base_color: [q.albedo[0], q.albedo[1], q.albedo[2], 1.0], emission: [q.emission[0] * lit, q.emission[1] * lit, q.emission[2] * lit, 0.0], base_st: [1.0, 1.0, 0.0, 0.0], emission_st: [1.0, 1.0, 0.0, 0.0], base_texture: -1, emission_texture: -1, flags: if q.emission.iter().any(|v| *v > 0.0) { MATERIAL_EMITTER } else { 0 }, ..Default::default() }; }
+            for (b, k) in wd.blocks.iter().enumerate() { slot.materials[statics + b] = Material { base_color: [k.albedo[0], k.albedo[1], k.albedo[2], 1.0], emission: [k.emission[0] * lit, k.emission[1] * lit, k.emission[2] * lit, 0.0], base_st: [1.0, 1.0, 0.0, 0.0], emission_st: [1.0, 1.0, 0.0, 0.0], base_texture: -1, emission_texture: -1, flags: if k.emission.iter().any(|v| *v > 0.0) { MATERIAL_EMITTER } else { 0 }, ..Default::default() }; }
+            for (i, l) in wd.lights.iter().enumerate() { slot.lights[i] = *l; }
+            let mut dirty_count = 0usize;
+            let mut emitter_count = 2usize;
+            if scene == 0 {
+                slot.dirty[0] = [cube_center[0], cube_center[1], cube_center[2], if std::env::var("SOFT").is_ok() { -1.5 } else { 1.5 }];
+                dirty_count = 1;
+                slot.emitters[0] = Emitter { instance: 0, geometry: 6, triangle_count: 2, cdf: 0.7 };
+                slot.emitters[1] = Emitter { instance: 1, geometry: 0, triangle_count: 12, cdf: 1.0 };
+            } else {
+                let lum = |c: V3| c[0] * 0.2126 + c[1] * 0.7152 + c[2] * 0.0722;
+                let mut found: Vec<(u32, u32, u32, f32)> = Vec::new();
+                for (i, q) in wd.quads.iter().enumerate() { let p = lum(q.emission) * dot(cross(q.u, q.v), q.normal).abs(); if p > 0.0 { let d = sub(add(q.corner, mul(add(q.u, q.v), 0.5)), camera); found.push((0, i as u32, 2, p / dot(d, d).max(1.0))); } }
+                for (b, k) in wd.blocks.iter().enumerate() {
+                    let area = 2.0 * (k.size[0] * k.size[1] + k.size[1] * k.size[2] + k.size[0] * k.size[2]);
+                    let power = lum(k.emission) * area;
+                    if power > 0.0 { let d = sub(k.centre, camera); found.push((1, b as u32, 12, power / dot(d, d).max(1.0))); }
+                    if let Some(last) = last_centres.get(b) {
+                        if *last != k.centre && dirty_count + 2 <= MAX_DIRTY {
+                            let reach = dot(k.size, k.size).sqrt() * 0.5 + 1.5 + if power > 0.0 { (power.sqrt() * 2.0).min(8.0) } else { 0.0 };
+                            let w = if power > 0.0 { reach } else { -reach };
+                            slot.dirty[dirty_count] = [k.centre[0], k.centre[1], k.centre[2], w];
+                            slot.dirty[dirty_count + 1] = [last[0], last[1], last[2], w];
+                            dirty_count += 2;
+                        }
+                    }
+                }
+                last_centres = wd.blocks.iter().map(|k| k.centre).collect();
+                let total: f32 = found.iter().map(|f| f.3).sum();
+                let mut running = 0.0;
+                emitter_count = found.len();
+                for (k, f) in found.iter().enumerate() { running += f.3; slot.emitters[k] = Emitter { instance: f.0, geometry: f.1, triangle_count: f.2, cdf: if k + 1 == found.len() { 1.0 } else { running / total } }; }
+            }
+            if light_off_at == Some(iteration as u64) { slot.dirty[0] = [0.0, 2.5, -1.0, if std::env::var("HARDOFF").is_ok() { 13.0 } else { 100013.0 }]; dirty_count = dirty_count.max(1); }
             if many > 0 {
                 let weights: Vec<f32> = [0.7f32, 0.3].into_iter().chain((0..many).map(|j| { let p = spot(j); let d = sub(p, camera); 1.2 / dot(d, d).max(1.0) })).collect();
                 let total: f32 = weights.iter().sum();
@@ -309,17 +406,17 @@ fn main() {
             }
             let v = View { view, projection, inverse_view_projection: [0.0; 16], previous_view_projection: prev_vp, position: [camera[0], camera[1], camera[2], 0.0] };
             slot.params = FrameParams {
-                frame, instance_count: instances as u32, material_count: 8, light_count: 1 + many as u32, command_count: commands.len() as u32, upload_texels: texels.len() as u32,
-                flags: FLAG_SCREEN_REUSE | FLAG_SHADOWS | if std::env::var("NODENOISE").is_ok() { 0 } else { FLAG_DENOISE } | FLAG_REORDER | if std::env::var("NOPROBES").map_or(false, |v| !v.is_empty()) { 0 } else { FLAG_PROBES }, width: w, height: h, view_count: views, samples: 2, bounces: 2 | (avatar_rays << 8),
-                max_distance: 100.0, ao_radius: 0.5, emission_scale: 1.0, sky_intensity: 1.0, time: t, firefly_clamp: 30.0, temporal_response: 0.05,
-                light_intensity: 1.0, normal_bias: 0.005, emitter_count: 2 + many as u32, ao_intensity: 0.5, context: 0, parity: (iteration & 1) as u32, cache_cell_size: 0.2, dirty_count: std::env::var("DIRTY").ok().and_then(|v| v.parse().ok()).unwrap_or(1), ambient: [[0.0; 4]; 7], views: [v, v],
+                frame, instance_count: instances as u32, material_count: (statics + blocks) as u32, light_count: (wd.lights.len() + many) as u32, command_count: commands.len() as u32, upload_texels: texels.len() as u32,
+                flags: if scene == 0 || std::env::var("SCREEN").is_ok() { FLAG_SCREEN_REUSE } else { 0 } | FLAG_SHADOWS | if std::env::var("NODENOISE").is_ok() { 0 } else { FLAG_DENOISE } | FLAG_REORDER | if std::env::var("NOPROBES").map_or(false, |v| !v.is_empty()) { 0 } else { FLAG_PROBES }, width: w, height: h, view_count: views, samples: std::env::var("SAMPLES").ok().and_then(|v| v.parse().ok()).unwrap_or(2), bounces: 2 | (avatar_rays << 8),
+                max_distance: 100.0, ao_radius: env_f("AORADIUS").unwrap_or(if scene == 0 { 0.5 } else { 0.0 }), emission_scale: 1.0, sky_intensity: 1.0, time: t, firefly_clamp: 30.0, temporal_response: 0.05,
+                light_intensity: 1.0, normal_bias: 0.005, emitter_count: (emitter_count + many) as u32, ao_intensity: 0.5, context: 0, parity: (iteration & 1) as u32, cache_cell_size: 0.2, dirty_count: std::env::var("DIRTY").ok().and_then(|v| v.parse().ok()).unwrap_or(dirty_count as u32), ambient: [[0.0; 4]; 7], views: [v, v],
             };
 
-            let all: Vec<Quad> = room().into_iter().chain(cube(cube_center, 0.6)).collect();
+            let all: Vec<Quad> = world(scene, scene_time, 1.0).quads.into_iter().chain(wd.blocks.iter().flat_map(block_quads)).collect();
             let tanf = (fov * 0.5).tan();
             for y in 0..(if freeze && iteration > 2 { 0 } else { h }) {
                 for x in 0..w {
-                    let ndc = [((x as f32 + 0.5) / w as f32) * 2.0 - 1.0, ((y as f32 + 0.5) / h as f32) * 2.0 - 1.0];
+                    let ndc = [((x as f32 + 0.5) / w as f32) * 2.0 - 1.0 - jitter[0], ((y as f32 + 0.5) / h as f32) * 2.0 - 1.0 - jitter[1]];
                     let dir = normalize([ndc[0] * tanf * w as f32 / h as f32, ndc[1] * tanf, 1.0]);
                     match intersect(&all, camera, dir) {
                         Some((t, i)) => {
@@ -365,12 +462,18 @@ fn main() {
             times.push(started.elapsed().as_secs_f64() * 1000.0);
             if iteration > 16 { for i in 0..8 { gpu_sum[i] += header.reserved[i] as u64; } gpu_n += 1; record_us += header.build_time_us.load(Ordering::Relaxed) as u64; grid_us += header.reserved[8] as u64; grid_wait += header.reserved[9] as u64; let lag = header.frame_submitted.load(Ordering::Acquire); let p = (lag & 1) as usize; for i in 0..8 { parity_sum[p][i] += header.reserved[i] as u64; } parity_n[p] += 1; }
             prev_vp = vp;
+            if iteration as u64 >= acc_from {
+                if acc.is_empty() { acc = vec![0.0; (pw * h * 3) as usize]; }
+                for y in 0..h { for x in 0..pw { let p = rptr.add((y * rpitch + x * 8) as usize) as *const u16; for k in 0..3 { let v = f16(*p.add(k)); if v.is_finite() { acc[((y * pw + x) * 3) as usize + k] += v as f64; } } } }
+                acc_n += 1;
+            }
             let mut current = Vec::with_capacity((pw * h) as usize);
             for y in 0..h { for x in 0..pw { let p = rptr.add((y * rpitch + x * 8) as usize) as *const u16; current.push(f16(*p) * 0.2126 + f16(*p.add(1)) * 0.7152 + f16(*p.add(2)) * 0.0722); } }
             if iteration as u64 >= noise_from {
                 if noise_sum.len() != current.len() { noise_sum = vec![0.0; current.len()]; noise_sq = vec![0.0; current.len()]; }
                 for i in 0..current.len() { let v = current[i] as f64; noise_sum[i] += v; noise_sq[i] += v * v; }
                 noise_n += 1;
+                if let Ok(path) = std::env::var("LUMDUMP") { use std::io::Write; let mut f = std::fs::OpenOptions::new().create(true).append(true).open(path).unwrap(); let bytes: Vec<u8> = current.iter().flat_map(|v| v.to_le_bytes()).collect(); f.write_all(&bytes).unwrap(); }
             }
             if frame > 24 && previous_frame.len() == current.len() {
                 let (mut d, mut m) = (0f64, 0f64);
@@ -416,6 +519,7 @@ fn main() {
         let mut raw = Vec::with_capacity((pw * h * 8) as usize);
         for y in 0..h { raw.extend_from_slice(std::slice::from_raw_parts(rptr.add((y * rpitch) as usize), (pw * 8) as usize)); }
         std::fs::write(format!("{out}.raw"), raw).unwrap();
+        if acc_n > 0 { let bytes: Vec<u8> = acc.iter().flat_map(|v| ((*v / acc_n as f64) as f32).to_le_bytes()).collect(); std::fs::write(format!("{out}.acc"), bytes).unwrap(); println!("accumulated {acc_n} frames"); }
         times.sort_by(|a, b| a.partial_cmp(b).unwrap());
         let n = floor_n.max(1) as f64;
         println!("floor irradiance avg ({:.3}, {:.3}, {:.3}); red bleed left {:.4}, green bleed right {:.4}; non-finite {nan}; min ao {ao_min:.3}", floor[0] / n, floor[1] / n, floor[2] / n, red_side / n, green_side / n);

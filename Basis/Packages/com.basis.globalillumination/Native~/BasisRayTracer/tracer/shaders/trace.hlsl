@@ -13,6 +13,8 @@ struct Hit
     float lod;
     uint materialIndex;
     uint instanceIndex;
+    float area;
+    bool front;
 };
 
 Instance LoadInstance(uint index) { StructuredBuffer<Instance> b = ResourceDescriptorHeap[HEAP_INSTANCES + frame.slot]; return b[index]; }
@@ -95,6 +97,8 @@ Hit ResolveHit(HitObj hitObject, float coneSpread)
     float area = length(cr);
     hit.normal = dot(smooth, smooth) > 0.0 && all(isfinite(smooth)) ? normalize(smooth) : (area > 0.0 ? cr / area : -direction);
     hit.geometricNormal = area > 0.0 ? cr / area : hit.normal;
+    hit.area = area * 0.5;
+    hit.front = dot(hit.geometricNormal, direction) * determinant((float3x3)o2w) <= 0.0;
     float2 t0 = f16tof32(uint2(b0.x, b0.x >> 16)), t1 = f16tof32(uint2(b1.x, b1.x >> 16)), t2 = f16tof32(uint2(b2.x, b2.x >> 16));
     hit.uv0 = t0 * w.x + t1 * w.y + t2 * w.z;
     float2 l0 = f16tof32(uint2(b0.y, b0.y >> 16)), l1 = f16tof32(uint2(b1.y, b1.y >> 16)), l2 = f16tof32(uint2(b2.y, b2.y >> 16));
@@ -270,7 +274,7 @@ struct LightCandidate
     float3 direction;
     float distance;
     float pdf;
-    bool shadow;
+    bool shadow, emitter;
     uint4 id;
 };
 
@@ -304,16 +308,19 @@ LightCandidate EvaluateEmitterPoint(Instance instance, uint geometry, uint primi
     c.distance = sqrt(distance2);
     c.direction = d / max(c.distance, 1e-5);
     float cosReceiver = dot(normal, c.direction);
-    float cosLight = abs(dot(lightNormal, c.direction));
+    Material material = LoadMaterial(instance.materialBase + geometry);
+    float cosLight = -dot(lightNormal, c.direction);
+    if (dot(instance.row0.xyz, cross(instance.row1.xyz, instance.row2.xyz)) < 0.0) { cosLight = -cosLight; }
+    if ((material.flags & MATERIAL_DOUBLE_SIDED) != 0u) { cosLight = abs(cosLight); }
     if (cosReceiver <= 0.0 || cosLight <= 1e-4 || c.distance < frame.normalBias) { return c; }
     if ((part == 1 && c.distance >= nearRadius) || (part == 2 && c.distance < nearRadius)) { return c; }
-    Material material = LoadMaterial(instance.materialBase + geometry);
     float2 uv = LoadUv0(vi.x) * w.x + LoadUv0(vi.y) * w.y + LoadUv0(vi.z) * w.z;
     float3 tint = material.baseColor.rgb;
     if (material.emissionBase > 0.0 || (material.alphaMode & 0x8000u) != 0u) { tint *= SampleTexture(material.baseTexture, uv, material.baseST, 2.0, 1.0).rgb; }
     float3 emission = MaterialEmission(material, uv, 2.0, 1.0, tint) * frame.emissionScale;
     c.value = emission * min(cosReceiver * cosLight / max(distance2, 1e-6), PI / area) / PI;
     c.shadow = true;
+    c.emitter = true;
     c.id = uint4(0u, geometry, primitive, f32tof16(r1) | (f32tof16(r2) << 16));
     return c;
 }
@@ -530,14 +537,30 @@ bool PrimarySurface(RaytracingAccelerationStructure tlas, float3 viewer, inout S
     ray.TMin = max(distance - tolerance, 0.0);
     ray.TMax = distance + tolerance;
     Payload payload = (Payload)0;
-    HitObj h = TraceHit(tlas, RAY_FLAG_NONE, 0xFF, ray, payload);
+    HitObj h = TraceHit(tlas, RAY_FLAG_NONE, MASK_VISIBLE, ray, payload);
     if (!h.IsHit()) { return false; }
     bool avatar = (LoadInstance(h.GetInstanceID()).flags & INSTANCE_AVATAR) != 0u;
     Hit hit = ResolveHit(h, 0.0);
-    if (dot(hit.geometricNormal, surface.normal) < 0.99 || dot(hit.normal, geometric) < 0.2) { return avatar; }
+    if (dot(hit.geometricNormal, surface.normal) < 0.9 || dot(hit.normal, geometric) < 0.2) { return avatar; }
     surface.normal = hit.normal;
     return avatar;
 }
+
+float3 HitLighting(RaytracingAccelerationStructure tlas, float3 origin, float3 position, float3 normal, float3 geometric, float3 viewer, bool cache, inout uint rng, out float coverage)
+{
+    float nearRadius = CacheCellSize(position, viewer) * 3.0;
+    float4 cached = cache ? CacheLookup(position, geometric, viewer, Random(rng)) : 0.0;
+    coverage = saturate(cached.a * 2.0);
+    bool far = (frame.flags & FLAG_BAKED_HYBRID) == 0;
+    bool split = coverage >= 1.0 && far;
+    LightCandidate light = SampleLights(tlas, origin, normal, true, rng, split ? 1u : 0u, nearRadius);
+    if (!split && far && light.emitter && light.distance >= nearRadius) { light.value *= 1.0 - coverage; }
+    return light.value + cached.rgb * coverage;
+}
+
+#ifndef PATH_SEGMENTS
+#define PATH_SEGMENTS 12
+#endif
 
 struct Bounce
 {
@@ -554,11 +577,19 @@ float3 UniformHemisphere(float3 n, float2 u)
     return normalize(t * (r * cos(phi)) + b * (r * sin(phi)) + n * z);
 }
 
-Bounce TraceRadiance(RaytracingAccelerationStructure tlas, Texture2D<uint4> gbuffer, float3 origin, float3 direction, float3 viewer, bool reorder, inout uint rng)
+float3 SurfaceEmission(Material material, Hit hit, float3 emission, float3 fromNormal, float3 direction, float t)
+{
+    if (!hit.front && (material.flags & MATERIAL_DOUBLE_SIDED) == 0u) { return 0.0; }
+    if ((material.flags & MATERIAL_EMITTER) == 0u) { return emission; }
+    float g = max(dot(fromNormal, direction), 0.0) * abs(dot(hit.geometricNormal, direction)) / max(t * t, 1e-6);
+    return emission * saturate(1.0 - PI / max(hit.area * g, 1e-12));
+}
+
+Bounce TraceRadiance(RaytracingAccelerationStructure tlas, Texture2D<uint4> gbuffer, float3 origin, float3 direction, float3 fromNormal, float3 viewer, bool reorder, inout uint rng)
 {
     Bounce first = (Bounce)0;
     float3 radiance = 0.0, throughput = 1.0;
-    [loop] for (uint segment = 0; segment < 3; segment++)
+    [loop] for (uint segment = 0; segment < PATH_SEGMENTS; segment++)
     {
         RayDesc ray;
         ray.Origin = origin;
@@ -566,7 +597,7 @@ Bounce TraceRadiance(RaytracingAccelerationStructure tlas, Texture2D<uint4> gbuf
         ray.TMin = 0.0;
         ray.TMax = frame.maxDistance;
         Payload payload = (Payload)0;
-        HitObj hitObject = TraceHit(tlas, RAY_FLAG_NONE, 0xFF, ray, payload);
+        HitObj hitObject = TraceHit(tlas, RAY_FLAG_NONE, MASK_VISIBLE, ray, payload);
         if (reorder && segment == 0)
         {
             uint hint = 0;
@@ -598,8 +629,8 @@ Bounce TraceRadiance(RaytracingAccelerationStructure tlas, Texture2D<uint4> gbuf
             first.normal = hit.normal;
             first.geometric = hit.geometricNormal;
         }
-        if ((material.flags & MATERIAL_EMITTER) == 0) { radiance += throughput * emission; }
-        bool trusted = t > CacheCellSize(hit.position, viewer) * 1.5 || segment == 2;
+        radiance += throughput * SurfaceEmission(material, hit, emission, fromNormal, direction, t);
+        bool trusted = t > CacheCellSize(hit.position, viewer) * 1.5 || segment >= 2;
         float3 screen;
         if ((frame.flags & FLAG_SCREEN_REUSE) != 0 && ScreenRadiance(gbuffer, hit.position, hit.normal, screen))
         {
@@ -614,24 +645,27 @@ Bounce TraceRadiance(RaytracingAccelerationStructure tlas, Texture2D<uint4> gbuf
             if (segment == 0) { first.terminal = true; }
             break;
         }
-        LightCandidate light = SampleLights(tlas, hitOrigin, hit.normal, true, rng);
         if (instance.lightmap >= 0)
         {
             Texture2D<float4> lm = ResourceDescriptorHeap[HEAP_TEXTURES + instance.lightmap];
             float3 baked = lm.SampleLevel(linearClamp, hit.uv1 * instance.lightmapST.xy + instance.lightmapST.zw, 0).rgb;
-            radiance += throughput * albedo * (baked + light.value);
+            radiance += throughput * albedo * (baked + SampleLights(tlas, hitOrigin, hit.normal, true, rng).value);
             if (segment == 0) { first.terminal = true; }
             break;
         }
-        radiance += throughput * albedo * light.value;
-        if (trusted)
+        float coverage;
+        radiance += throughput * albedo * HitLighting(tlas, hitOrigin, hit.position, hit.normal, hit.geometricNormal, viewer, trusted, rng, coverage);
+        if (coverage >= 1.0) { break; }
+        throughput *= albedo * (1.0 - coverage);
+        if (segment >= 2)
         {
-            radiance += throughput * albedo * CacheLookup(hit.position, hit.geometricNormal, viewer, Random(rng)).rgb;
-            break;
+            float survive = min(max(throughput.r, max(throughput.g, throughput.b)), 0.95);
+            if (Random(rng) >= survive) { break; }
+            throughput /= survive;
         }
-        throughput *= albedo;
         if (all(throughput < 0.01)) { break; }
         origin = hitOrigin;
+        fromNormal = hit.normal;
         direction = CosineSample(hit.normal, float2(Random(rng), Random(rng)));
         if (dot(direction, hit.geometricNormal) <= 0.0) { direction = normalize(direction - 2.0 * dot(direction, hit.geometricNormal) * hit.geometricNormal); }
     }
@@ -653,7 +687,7 @@ void GatherRay(RaytracingAccelerationStructure tlas, Texture2D<uint4> gbuffer, f
     float2 u = frac((float2(i % columns, i / columns) + float2(Random(rng), Random(rng))) / float2(columns, rows) + rotation);
     float3 direction = CosineSample(normal, u);
     if (dot(direction, plane) <= 0.0) { direction = normalize(direction - 2.0 * dot(direction, plane) * plane); }
-    b = TraceRadiance(tlas, gbuffer, position, direction, viewer, reorder, rng);
+    b = TraceRadiance(tlas, gbuffer, position, direction, normal, viewer, reorder, rng);
     float3 sample = ClampFirefly(b.radiance);
     ShAdd(sh, direction, sample * (PI / (max(dot(direction, normal), 0.2) * rays)));
     sh.mean += sample / rays;
@@ -717,11 +751,77 @@ LightCandidate EvaluateStored(uint4 id, float3 position, float3 normal, float ne
     return c;
 }
 
+#ifdef REFERENCE
+void ReferenceRayGen(uint mode, uint2 pixel)
+{
+    if (mode != 1u || pixel.x >= frame.width * frame.viewCount || pixel.y >= frame.height) { return; }
+    Texture2D<uint4> gbuffer = ResourceDescriptorHeap[HEAP_GBUFFER + frame.gbufferIndex];
+    RaytracingAccelerationStructure tlas = LOAD_TLAS();
+    RWTexture2D<float4> output = ResourceDescriptorHeap[HEAP_RADIANCE_UAV];
+    uint viewIndex;
+    uint2 local = ViewPixel(pixel, viewIndex);
+    Surface surface = LoadSurface(gbuffer, pixel, viewIndex);
+    if (!surface.valid) { output[pixel] = float4(0.0, 0.0, 0.0, 1.0); return; }
+    float3 viewer = frame.views[viewIndex].position.xyz;
+    float3 geometric = PrimaryGeometric(gbuffer, pixel, local, viewIndex, surface);
+    float3 toViewer = normalize(viewer - surface.position);
+    float3 start = surface.position + (geometric + toViewer) * frame.normalBias * (1.0 + surface.distance * 0.01);
+    PrimarySurface(tlas, viewer, surface, geometric);
+    uint rng = Hash(pixel.x + pixel.y * 65536u) ^ Hash(frame.frameIndex * 7919u + 91u);
+    uint paths = max(frame.samples, 1u);
+    float3 total = 0.0;
+    for (uint p = 0; p < paths; p++)
+    {
+        float3 origin = start, normal = surface.normal, plane = geometric, throughput = 1.0, radiance = 0.0;
+        [loop] for (uint segment = 0; segment < 24; segment++)
+        {
+            float3 direction = CosineSample(normal, float2(Random(rng), Random(rng)));
+            if (dot(direction, plane) <= 0.0) { direction = normalize(direction - 2.0 * dot(direction, plane) * plane); }
+            RayDesc ray;
+            ray.Origin = origin;
+            ray.Direction = direction;
+            ray.TMin = 0.0;
+            ray.TMax = frame.maxDistance;
+            Payload payload = (Payload)0;
+            HitObj h = TraceHit(tlas, RAY_FLAG_NONE, MASK_VISIBLE, ray, payload);
+            if (!h.IsHit()) { radiance += throughput * SampleAmbient(direction); break; }
+            Hit hit = ResolveHit(h, 0.35);
+            Material material = LoadMaterial(hit.materialIndex);
+            float4 baseColor = material.baseColor * SampleTexture(material.baseTexture, hit.uv0, material.baseST, hit.lod, 512.0);
+            float3 albedo = saturate(baseColor.rgb) * (1.0 - material.metallic * 0.75);
+            if (hit.front || (material.flags & MATERIAL_DOUBLE_SIDED) != 0u) { radiance += throughput * MaterialEmission(material, hit.uv0, hit.lod, 512.0, baseColor.rgb) * frame.emissionScale; }
+            if ((material.flags & MATERIAL_UNLIT) != 0) { radiance += throughput * baseColor.rgb; break; }
+            origin = hit.position + hit.geometricNormal * frame.normalBias;
+            for (uint l = 0; l < frame.lightCount; l++)
+            {
+                LightCandidate c = PunctualCandidate(origin, hit.normal, l);
+                if (any(c.value > 0.0) && !(c.shadow && Occluded(tlas, origin, c.direction, max(c.distance * 0.999 - frame.normalBias * 2.0, 0.0)))) { radiance += throughput * albedo * c.value; }
+            }
+            throughput *= albedo;
+            if (segment >= 3u)
+            {
+                float survive = clamp(max(throughput.r, max(throughput.g, throughput.b)), 0.05, 0.95);
+                if (Random(rng) >= survive) { break; }
+                throughput /= survive;
+            }
+            normal = hit.normal;
+            plane = hit.geometricNormal;
+        }
+        if (all(isfinite(radiance))) { total += radiance; }
+    }
+    output[pixel] = float4(total / paths, 1.0);
+}
+#endif
+
 [shader("raygeneration")]
 void RayGen()
 {
     uint mode = pass.a;
     uint2 index = DispatchRaysIndex().xy;
+#ifdef REFERENCE
+    ReferenceRayGen(mode, index);
+    return;
+#endif
     if (mode == 0u && index.y >= pass.b)
     {
         uint k = (index.y - pass.b) * DispatchRaysDimensions().x + index.x;
@@ -823,7 +923,7 @@ void RayGen()
         ray.TMin = 0.05;
         ray.TMax = frame.maxDistance;
         Payload payload = (Payload)0;
-        HitObj h = TraceHit(tlas, RAY_FLAG_NONE, 0xFF, ray, payload);
+        HitObj h = TraceHit(tlas, RAY_FLAG_NONE, MASK_VISIBLE, ray, payload);
         if (!h.IsHit()) { return; }
         Hit hit = ResolveHit(h, 0.35);
         if ((frame.flags & FLAG_BAKED_HYBRID) != 0 && LoadInstance(hit.instanceIndex).lightmap >= 0) { return; }
@@ -932,7 +1032,10 @@ void RayGen()
     }
 
     float3 emitted = 0.0;
-    float nearRadius = baked ? 1e9 : CacheCellSize(surface.position, viewer) * 3.0;
+    uint avatarRays = frame.bounces >> 8;
+    bool direct = avatarPixel && avatarRays > 0u && !baked;
+    float nearRadius = baked || direct ? 1e9 : CacheCellSize(surface.position, viewer) * 3.0;
+    uint part = direct ? 0u : 1u;
     {
         RWByteAddressBuffer reservoirs = ResourceDescriptorHeap[frame.contextBase + CTX_RESERVOIR_SCRATCH];
         LightCandidate chosen = (LightCandidate)0;
@@ -940,10 +1043,10 @@ void RayGen()
         if (frame.emitterCount > 0)
         {
             GridCell g = LoadGridCell(origin);
-            if (GridNoEmitters(g, 1u)) { count += RESERVOIR_INITIAL; }
+            if (GridNoEmitters(g, part)) { count += RESERVOIR_INITIAL; }
             else [loop] for (uint i = 0; i < RESERVOIR_INITIAL; i++)
             {
-                LightCandidate c = EmitterCandidate(g, origin, surface.normal, rng, 1u, nearRadius);
+                LightCandidate c = EmitterCandidate(g, origin, surface.normal, rng, part, nearRadius);
                 count += 1.0;
                 float t = Luminance(c.value);
                 if (t <= 0.0 || c.pdf <= 0.0) { continue; }
@@ -1012,12 +1115,13 @@ void RayGen()
             float4 baseColor = material.baseColor * SampleTexture(material.baseTexture, hit.uv0, material.baseST, hit.lod, 512.0);
             float3 albedo = saturate(baseColor.rgb) * (1.0 - material.metallic * 0.75);
             float3 own = 0.0;
-            if ((material.flags & MATERIAL_EMITTER) == 0)
+            if ((material.flags & MATERIAL_EMITTER) == 0 && (hit.front || (material.flags & MATERIAL_DOUBLE_SIDED) != 0u))
             {
                 own = MaterialEmission(material, hit.uv0, hit.lod, 512.0, baseColor.rgb) * frame.emissionScale;
             }
             float3 hitOrigin = hit.position + hit.geometricNormal * frame.normalBias;
-            float3 lit = SampleLights(tlas, hitOrigin, hit.normal, true, rng).value + CacheLookup(hit.position, hit.geometricNormal, viewer, Random(rng)).rgb;
+            float coverage;
+            float3 lit = HitLighting(tlas, hitOrigin, hit.position, hit.normal, hit.geometricNormal, viewer, true, rng, coverage);
             added += ClampFirefly(own + albedo * lit);
             blocked += saturate(1.0 - h.GetRayTCurrent() / 6.0);
         }
@@ -1032,7 +1136,7 @@ void RayGen()
         return;
     }
 
-    float4 cached = CacheLookup(surface.position, geometric, viewer, BlueNoise1(pixel, 0u, frame.frameIndex));
+    float4 cached = direct ? float4(0.0, 0.0, 0.0, 1.0) : CacheLookup(surface.position, geometric, viewer, BlueNoise1(pixel, 0u, frame.frameIndex));
     float3 irradiance = cached.rgb;
     if (cached.a < 0.5)
     {
@@ -1042,26 +1146,25 @@ void RayGen()
         {
             float3 direction = CosineSample(surface.normal, BlueNoise2(pixel, 1u, frame.frameIndex * fresh + ri));
             if (dot(direction, geometric) <= 0.0) { direction = normalize(direction - 2.0 * dot(direction, geometric) * geometric); }
-            Bounce b = TraceRadiance(tlas, gbuffer, origin, direction, viewer, false, rng);
+            Bounce b = TraceRadiance(tlas, gbuffer, origin, direction, surface.normal, viewer, false, rng);
             traced += ClampFirefly(b.radiance);
         }
         irradiance = lerp(traced / fresh + FarLight(tlas, origin, surface.normal, nearRadius, rng), cached.rgb, saturate(cached.a * 2.0));
     }
-    uint avatarRays = frame.bounces >> 8;
-    if (avatarPixel && avatarRays > 0u && ((local.x + local.y + frame.parity) & 1u) == 0u)
+    if (direct)
     {
         float3 traced = 0.0;
         for (uint ar = 0; ar < avatarRays; ar++)
         {
             float3 direction = CosineSample(surface.normal, BlueNoise2(pixel, 2u, frame.frameIndex * avatarRays + ar));
             if (dot(direction, geometric) <= 0.0) { direction = normalize(direction - 2.0 * dot(direction, geometric) * geometric); }
-            Bounce b = TraceRadiance(tlas, gbuffer, origin, direction, viewer, false, rng);
+            Bounce b = TraceRadiance(tlas, gbuffer, origin, direction, surface.normal, viewer, false, rng);
             traced += ClampFirefly(b.radiance);
         }
-        irradiance = lerp(irradiance, traced / avatarRays + FarLight(tlas, origin, surface.normal, nearRadius, rng), min(2.0 * float(avatarRays) / float(avatarRays + 2u), 1.0));
+        irradiance = traced / avatarRays;
     }
 
-    if ((frame.flags & FLAG_PROBES) != 0)
+    if ((frame.flags & FLAG_PROBES) != 0 && !direct)
     {
         RWByteAddressBuffer probes = ResourceDescriptorHeap[frame.contextBase + CTX_PROBES + frame.historyWrite];
         uint tilesPerView = (frame.width + PROBE_TILE - 1u) / PROBE_TILE, tilesY = (frame.height + PROBE_TILE - 1u) / PROBE_TILE;
@@ -1104,7 +1207,7 @@ void RayGen()
             ray.TMin = bias * 4.0;
             ray.TMax = frame.aoRadius;
             Payload payload = (Payload)0;
-            HitObj h = TraceHit(tlas, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_OPAQUE, 0xFF, ray, payload);
+            HitObj h = TraceHit(tlas, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_OPAQUE, MASK_VISIBLE, ray, payload);
             if (h.IsHit()) { float o = 1.0 - h.GetRayTCurrent() / frame.aoRadius; occlusion += o * o; }
         }
         occlusion /= aoRays;
