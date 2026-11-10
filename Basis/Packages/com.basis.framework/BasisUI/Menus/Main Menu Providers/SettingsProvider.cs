@@ -2389,14 +2389,6 @@ namespace Basis.BasisUI
                 SettingsProviderBottleneckHints.Mark(dropdownGiSolution, BasisFrameCostSide.Gpu);
                 Action<bool> showUnityGi = SettingsProviderUnityLighting.BuildGlobalIllumination(giGroup.ContentParent, RebuildGiLayout);
 
-                PanelDropdown dropdownGiPreset = PanelDropdown.CreateNewEntry(giGroup.ContentParent);
-                dropdownGiPreset.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.preset"));
-                dropdownGiPreset.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.preset.tooltip"));
-                dropdownGiPreset.AssignLocalizedEntries(
-                    new List<string> { "Natural", "Unnatural" },
-                    new List<string> { "settings.graphics.gi.preset.natural", "settings.graphics.gi.preset.unnatural" });
-                dropdownGiPreset.AssignBinding(BasisSettingsDefaults.GlobalIlluminationPreset);
-
                 bool giCanTrace = BasisGlobalIlluminationRayContext.HardwareSupported;
 
                 PanelDropdown dropdownGiMode = PanelDropdown.CreateNewEntry(giGroup.ContentParent);
@@ -2751,33 +2743,12 @@ namespace Basis.BasisUI
                 PanelSectionToggleHelpers.FinalizeCollapsibleGroup(giAdvancedToggle, giAdvanced, false,
                     _ => RebuildGiLayout());
 
-                // Snaps the three sliders below to a look rather than a value: Natural is each at its
-                // own default, Unnatural is each at the extreme end of its own range. ApplyDrivenValue
-                // rather than SetValue, because SetValue never touches the Slider component itself -
-                // only ApplyDrivenValue (via SetValueWithoutNotify) moves the handle and fill to match,
-                // the same way a thumbstick bind or a reset drives a control it does not own.
-                void ApplyGiPreset(string preset)
-                {
-                    bool unnatural = preset == "Unnatural";
-                    sliderGiIntensity.ApplyDrivenValue(unnatural
-                        ? BasisSettingsDefaults.GI_INTENSITY_MAX
-                        : BasisSettingsDefaults.GlobalIlluminationIntensity.DefaultValue.GetDefault());
-                    sliderGiSaturation.ApplyDrivenValue(unnatural
-                        ? BasisSettingsDefaults.GI_SATURATION_MAX
-                        : BasisSettingsDefaults.GlobalIlluminationSaturation.DefaultValue.GetDefault());
-                    sliderGiEmitterIntensity.ApplyDrivenValue(unnatural
-                        ? BasisSettingsDefaults.GI_EMITTER_INTENSITY_MAX
-                        : BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.DefaultValue.GetDefault());
-                }
-                dropdownGiPreset.OnValueChanged += ApplyGiPreset;
-
                 void SetGiRowsActive(bool val)
                 {
                     bool basis = val && !BasisLightingSolutions.PicksUnityGlobalIllumination(dropdownGiSolution.Value);
                     bool rayTraced = basis && giCanTrace && dropdownGiMode.Value == "Ray Traced";
                     dropdownGiSolution.Descriptor.SetActive(val);
                     showUnityGi(val && !basis);
-                    dropdownGiPreset.Descriptor.SetActive(basis);
                     dropdownGiMode.Descriptor.SetActive(basis);
                     bool pathTraced = basis && (dropdownGiMode.Value == "Path Traced" || dropdownGiMode.Value == "Path Traced (Baked)");
                     if (dropdownGiPathTracerBackend != null) { dropdownGiPathTracerBackend.Descriptor.SetActive(pathTraced); }
@@ -4231,7 +4202,6 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.UseGlobalIllumination.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationSolution.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationMode.ResetToDefault();
-            BasisSettingsDefaults.GlobalIlluminationPreset.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationLayers.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationObscuranceRadius.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationFadeDistance.ResetToDefault();

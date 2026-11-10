@@ -263,7 +263,14 @@ void Unpack(uint3 id : SV_DispatchThreadID)
 {
     uint width = _Size.x, height = _Size.y;
     if (id.x >= width || id.y >= height || id.z >= _Flags.z) { return; }
-    float4 c = _Result.Load(int3(id.x + id.z * width, id.y, 0));
+    int2 from = int2(id.xy);
+    if (_Flags.y != 0)
+    {
+        uint2 source = min(uint2((float2(id.xy) + 0.5) * float2(_Size.zw) / float2(width, height)), _Size.zw - 1);
+        float2 m = LOAD(_Motion, source, id.z).xy * float2(width, height);
+        from = clamp(int2(floor(float2(id.xy) + 0.5 - m)), int2(0, 0), int2(width, height) - 1);
+    }
+    float4 c = _Result.Load(int3(from.x + id.z * width, from.y, 0));
     if (any(!isfinite(c))) { c = float4(0, 0, 0, 1); }
 #if defined(BASIS_RT_ARRAY)
     _Traced[uint3(id.xy, id.z)] = c;

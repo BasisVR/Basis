@@ -118,7 +118,8 @@ public static unsafe partial class BasisExternalRayTracer
         public Camera Camera;
         public RenderTexture GBuffer, Result;
         public int Width, Height, Views, LastUsed;
-        public uint Parity;
+        public uint Parity, LastParity;
+        public ulong LastFrame;
         public bool ResultValid, Reset = true;
         public readonly Matrix4x4[] Previous = new Matrix4x4[2];
     }

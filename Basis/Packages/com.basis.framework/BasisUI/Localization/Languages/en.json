@@ -8863,22 +8863,6 @@
       "value": "Bounce light from everything on screen, avatars included, onto everything else. Expensive, especially in VR, so it is off by default. When off, worlds cannot switch it on for you."
     },
     {
-      "key": "settings.graphics.gi.preset",
-      "value": "GI Preset"
-    },
-    {
-      "key": "settings.graphics.gi.preset.tooltip",
-      "value": "Sets Intensity, Saturation and Emitter Intensity together. Natural is each at its own default; Unnatural pushes all three to the extreme end of their range for a stylised look."
-    },
-    {
-      "key": "settings.graphics.gi.preset.natural",
-      "value": "Natural"
-    },
-    {
-      "key": "settings.graphics.gi.preset.unnatural",
-      "value": "Unnatural"
-    },
-    {
       "key": "settings.graphics.gi.mode",
       "value": "GI Mode"
     },

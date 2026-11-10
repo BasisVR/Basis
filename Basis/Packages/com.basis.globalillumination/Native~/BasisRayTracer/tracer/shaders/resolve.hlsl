@@ -42,10 +42,15 @@ void CacheMaintain(uint3 id : SV_DispatchThreadID)
             float4 s = dirty[d].sphere;
             bool clear = s.w >= 100000.0;
             float radius = clear ? s.w - 100000.0 : abs(s.w);
-            if (distance(cell.xyz, s.xyz) < radius + cell.w)
+            float reach = distance(cell.xyz, s.xyz);
+            if (reach < radius + cell.w)
             {
                 if (clear) { cleared = true; }
-                else { capped = min(capped, s.w < 0.0 ? 64.0 : 8.0); }
+                else
+                {
+                    float edge = saturate((reach - cell.w) / max(radius, 1e-3));
+                    capped = min(capped, lerp(s.w < 0.0 ? 64.0 : 8.0, 512.0, edge * edge));
+                }
             }
         }
         if (cleared)

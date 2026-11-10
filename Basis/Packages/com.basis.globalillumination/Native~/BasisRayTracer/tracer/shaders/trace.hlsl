@@ -286,10 +286,11 @@ LightCandidate SampleLights(RaytracingAccelerationStructure tlas, float3 positio
     float pPunctual = lights == 0 ? 0.0 : (emitters == 0 ? 1.0 : 0.5);
     float total = 0.0, chosenTarget = 0.0;
     const uint candidates = 4;
+    uint flip = Random(rng) < 0.5 ? 1u : 0u;
     [loop] for (uint i = 0; i < candidates; i++)
     {
         LightCandidate c;
-        if (Random(rng) < pPunctual)
+        if (pPunctual >= 1.0 || (pPunctual > 0.0 && ((i + flip) & 1u) == 0u))
         {
             c = PunctualCandidate(position, normal, min(uint(Random(rng) * lights), lights - 1));
             c.pdf = pPunctual / lights;

@@ -235,7 +235,7 @@ public sealed partial class BasisGlobalIlluminationSettings
     public bool rayTracedShadowCastersOnly = false;
     public float rayTracedRescanInterval = 2f;
     public float rayTracedNormalBias = 0.02f;
-    public bool externalSameFrame = true;
+    public bool externalSameFrame = false;
     public bool externalProbes = false;
     /// <summary>
     /// Added to the ray origin offset per metre of view distance. The position a ray starts from is

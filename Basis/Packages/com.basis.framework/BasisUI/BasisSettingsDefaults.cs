@@ -383,11 +383,6 @@ namespace Basis.BasisUI
         // camera and shades what it hits with the real lights and emissive materials - and it needs a GPU
         // with ray tracing, falling back to Screen Space on one that has none.
         public static BasisSettingsBinding<string> GlobalIlluminationMode = new("globalilluminationmode", new BasisPlatformDefault<string>("Radiance Cascades"));
-        // A quick way to snap Intensity, Saturation and Emitter Intensity together rather than one at a
-        // time: Natural is each at its own default, Unnatural pushes all three to an exaggerated,
-        // stylised look. Only ever written by the preset dropdown - nothing reads it to decide how to
-        // render, so it never needs to agree with where the three sliders actually sit.
-        public static BasisSettingsBinding<string> GlobalIlluminationPreset = new("globalilluminationpreset", new BasisPlatformDefault<string>("Natural"));
         // Avatars are skinned meshes, so this is what decides whether the people in the room bounce and
         // occlude light in the pose they are standing in. Dynamic re-bakes them on a per-frame budget.
         public static BasisSettingsBinding<string> GlobalIlluminationSkinnedMeshes = new("globalilluminationskinnedmeshes", new BasisPlatformDefault<string>("Proxy"));
@@ -2413,7 +2408,6 @@ namespace Basis.BasisUI
             UseGlobalIllumination.LoadBindingValue();
             GlobalIlluminationSolution.LoadBindingValue();
             GlobalIlluminationMode.LoadBindingValue();
-            GlobalIlluminationPreset.LoadBindingValue();
             GlobalIlluminationSkinnedMeshes.LoadBindingValue();
             GlobalIlluminationQuality.LoadBindingValue();
             GlobalIlluminationResolution.LoadBindingValue();

@@ -13,7 +13,9 @@ public partial class BasisGlobalIlluminationPass
     private ulong externalFrame;
     private BasisExternalRayTracer.Context externalContext;
     private float externalEmissionScale = -1f;
-    private uint externalParity;
+    private uint externalParity, externalFetchParity;
+    private ulong externalFetchFrame;
+    private bool externalBehind;
     private static readonly int idExLightmapMask = Shader.PropertyToID("_LightmapMask");
     private static readonly int idExMotion = Shader.PropertyToID("_Motion");
     private const uint FlagMotion = 512;
@@ -31,8 +33,9 @@ public partial class BasisGlobalIlluminationPass
         public ComputeShader compute;
         public int kernelGBuffer, kernelVertices, kernelIndices, kernelTexture, kernelUnpack;
         public bool array, submit, hasNormals, hasSurface, reversedZ;
-        public ulong frame;
-        public uint rows, parity;
+        public ulong frame, fetchFrame;
+        public uint rows, parity, fetchParity;
+        public bool behind;
         public int context;
         public RenderTexture gbuffer, result;
         public int width, height, views, sourceWidth, sourceHeight;
@@ -131,7 +134,12 @@ public partial class BasisGlobalIlluminationPass
         externalFrame = frame;
         externalSubmit = true;
         uint parity = context.Parity;
+        externalBehind = !settings.externalSameFrame;
+        externalFetchFrame = externalBehind ? context.LastFrame : frame;
+        externalFetchParity = externalBehind ? context.LastParity : parity;
         BasisExternalRayTracer.Commit(context, frame);
+        context.LastFrame = frame;
+        context.LastParity = parity;
         externalParity = parity;
         return true;
     }
@@ -154,6 +162,9 @@ public partial class BasisGlobalIlluminationPass
             data.submit = externalSubmit;
             data.frame = externalFrame;
             data.parity = externalParity;
+            data.fetchFrame = externalFetchFrame;
+            data.fetchParity = externalFetchParity;
+            data.behind = externalBehind;
             data.context = externalContext.Id;
             data.gbuffer = externalContext.GBuffer;
             data.result = externalContext.Result;
@@ -212,6 +223,7 @@ public partial class BasisGlobalIlluminationPass
         if (upload == null || gbuffer == null || result == null) { return; }
         if (d.submit)
         {
+            if (d.behind && d.fetchFrame != 0) { cmd.IssuePluginEventAndData(BasisExternalRayTracer.EventFunc, BasisExternalRayTracer.EventBase + 1, BasisExternalRayTracer.EventData(d.fetchFrame, d.context, d.fetchParity, 0)); }
             for (int i = 0; i < d.jobCount; i++)
             {
                 BasisExternalRayScene.Job job = d.jobs[i];
@@ -263,12 +275,13 @@ public partial class BasisGlobalIlluminationPass
             cmd.SetComputeIntParams(cs, idExFlags, d.hasNormals ? 1 : 0, d.hasSurface ? 1 : 0, d.views, d.reversedZ ? 1 : 0);
             cmd.DispatchCompute(cs, d.kernelGBuffer, (d.width * d.views + 7) / 8, (d.height + 7) / 8, 1);
             cmd.IssuePluginEventAndData(BasisExternalRayTracer.EventFunc, BasisExternalRayTracer.EventBase + 0, BasisExternalRayTracer.EventData(d.frame, d.context, d.parity, d.rows));
-            cmd.IssuePluginEventAndData(BasisExternalRayTracer.EventFunc, BasisExternalRayTracer.EventBase + 1, BasisExternalRayTracer.EventData(d.frame, d.context, d.parity, 0));
+            if (!d.behind) { cmd.IssuePluginEventAndData(BasisExternalRayTracer.EventFunc, BasisExternalRayTracer.EventBase + 1, BasisExternalRayTracer.EventData(d.frame, d.context, d.parity, 0)); }
         }
         cmd.SetComputeTextureParam(cs, d.kernelUnpack, idExResult, result);
         cmd.SetComputeTextureParam(cs, d.kernelUnpack, idExTraced, d.traced);
+        cmd.SetComputeTextureParam(cs, d.kernelUnpack, idExMotion, d.hasMotion ? d.motion : d.color);
         cmd.SetComputeIntParams(cs, idExSize, d.width, d.height, d.sourceWidth, d.sourceHeight);
-        cmd.SetComputeIntParams(cs, idExFlags, 0, 0, d.views, 0);
+        cmd.SetComputeIntParams(cs, idExFlags, 0, d.behind && d.hasMotion ? 1 : 0, d.views, 0);
         cmd.DispatchCompute(cs, d.kernelUnpack, (d.width + 7) / 8, (d.height + 7) / 8, d.views);
     }
 }
