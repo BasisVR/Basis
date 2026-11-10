@@ -42,6 +42,19 @@ uint4 _Flags;
 uint4 _Layout0;
 uint4 _Layout1;
 uint4 _Job;
+float4x4 _MirrorToLocal[8];
+float4 _MirrorBounds[16];
+
+bool OnMirror(float3 world)
+{
+    for (uint i = 0; i < min(_Layout1.z, 8u); i++)
+    {
+        float3 local = mul(_MirrorToLocal[i], float4(world, 1.0)).xyz - _MirrorBounds[i * 2].xyz;
+        float3 extent = _MirrorBounds[i * 2 + 1].xyz;
+        if (all(abs(local) <= extent + max(extent * 0.01, 0.003))) { return true; }
+    }
+    return false;
+}
 
 uint2 UploadCoord(uint texel) { return uint2(texel % UPLOAD_WIDTH, texel / UPLOAD_WIDTH); }
 
@@ -112,6 +125,12 @@ void PackGBuffer(uint3 id : SV_DispatchThreadID)
         return;
     }
     float3 world = WorldAtNdc((float2(local) + 0.5) / float2(width, height) * 2.0 - 1.0, raw, view);
+    if (_Layout1.z != 0 && OnMirror(world))
+    {
+        StoreGBuffer(uint2(id.x * 2, id.y), 0);
+        StoreGBuffer(uint2(id.x * 2 + 1, id.y), 0);
+        return;
+    }
     float3 normal;
     if (_Flags.x != 0)
     {

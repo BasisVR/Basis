@@ -42,7 +42,12 @@ public partial class BasisGlobalIlluminationPass
         public Vector4[] positions;
         public BasisExternalRayScene.Job[] jobs;
         public int jobCount;
+        public readonly Matrix4x4[] mirrors = new Matrix4x4[BasisExternalRayScene.MaxMirrors];
+        public readonly Vector4[] mirrorBounds = new Vector4[BasisExternalRayScene.MaxMirrors * 2];
+        public int mirrorCount;
     }
+
+    private static readonly int idExMirrorToLocal = Shader.PropertyToID("_MirrorToLocal"), idExMirrorBounds = Shader.PropertyToID("_MirrorBounds");
 
     private BasisExternalRayScene.Job[] externalJobs = new BasisExternalRayScene.Job[64];
 
@@ -173,6 +178,12 @@ public partial class BasisGlobalIlluminationPass
             for (int i = 0; i < data.jobCount; i++) { externalJobs[i] = scene.Jobs[i]; }
             data.jobs = externalJobs;
             data.rows = externalSubmit && scene != null ? scene.UploadRows : 0;
+            data.mirrorCount = scene != null ? scene.MirrorCount : 0;
+            if (data.mirrorCount > 0)
+            {
+                System.Array.Copy(scene.MirrorToLocal, data.mirrors, data.mirrorCount);
+                System.Array.Copy(scene.MirrorBounds, data.mirrorBounds, data.mirrorCount * 2);
+            }
             builder.UseTexture(resourceData.cameraDepthTexture);
             builder.UseTexture(resourceData.cameraColor);
             if (data.hasNormals) { builder.UseTexture(normals); }
@@ -242,7 +253,9 @@ public partial class BasisGlobalIlluminationPass
             cmd.SetComputeTextureParam(cs, d.kernelGBuffer, idExSurface, d.hasSurface ? d.surface : d.color);
             cmd.SetComputeTextureParam(cs, d.kernelGBuffer, idExLightmapMask, d.hasLightmapMask ? d.lightmapMask : d.color);
             cmd.SetComputeTextureParam(cs, d.kernelGBuffer, idExMotion, d.hasMotion ? d.motion : d.color);
-            cmd.SetComputeIntParams(cs, idExLayout1, d.hasLightmapMask ? 1 : 0, d.hasMotion ? 1 : 0, 0, 0);
+            cmd.SetComputeIntParams(cs, idExLayout1, d.hasLightmapMask ? 1 : 0, d.hasMotion ? 1 : 0, d.mirrorCount, 0);
+            cmd.SetComputeMatrixArrayParam(cs, idExMirrorToLocal, d.mirrors);
+            cmd.SetComputeVectorArrayParam(cs, idExMirrorBounds, d.mirrorBounds);
             cmd.SetComputeTextureParam(cs, d.kernelGBuffer, idExGBuffer, gbuffer);
             cmd.SetComputeMatrixArrayParam(cs, idExInvViewProj, d.inverse);
             cmd.SetComputeVectorArrayParam(cs, idExCameraPosition, d.positions);

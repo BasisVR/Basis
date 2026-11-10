@@ -50,7 +50,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         public MeshRecord mesh;
         public Material[] materials = Array.Empty<Material>();
         public int materialCount;
-        public bool avatar, seen;
+        public bool avatar, seen, mirror;
         public RendererRecord shadowSource, shadowClone;
         public Matrix4x4 lastMatrix;
         public Bounds lastBounds;
@@ -74,6 +74,8 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     private Light[] lights = Array.Empty<Light>();
     private bool respectBaked = true;
     private readonly Dictionary<Light, Vector4> lightStates = new Dictionary<Light, Vector4>();
+    private readonly Dictionary<Light, Vector4> lightReach = new Dictionary<Light, Vector4>();
+    private readonly List<Light> lightsGone = new List<Light>();
     private readonly List<Vector4> dirty = new List<Vector4>();
     private bool resetCache = true;
     private int statHard, statSoft, statResets, statEmission, statLights, statAmbient, statAppear, statRemoved;
@@ -97,6 +99,11 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     private readonly Dictionary<(Material, bool, bool), (BasisExternalRayMaterial, uint, float)> materialCache = new Dictionary<(Material, bool, bool), (BasisExternalRayMaterial, uint, float)>();
     private LightmapData[] frameLightmaps = System.Array.Empty<LightmapData>();
     private readonly Dictionary<Shader, bool> sharedTransformShaders = new Dictionary<Shader, bool>();
+    public const int MaxMirrors = 8;
+    public readonly Matrix4x4[] MirrorToLocal = new Matrix4x4[MaxMirrors];
+    public readonly Vector4[] MirrorBounds = new Vector4[MaxMirrors * 2];
+    public int MirrorCount;
+    private static readonly int[] idMirrorTextures = { Shader.PropertyToID("_ReflectionTexLeft"), Shader.PropertyToID("_ReflectionTexRight"), Shader.PropertyToID("_ReflectionTex0"), Shader.PropertyToID("_ReflectionTex") };
 
     private static readonly int idBaseMap = Shader.PropertyToID("_BaseMap"), idMainTex = Shader.PropertyToID("_MainTex");
     private static readonly int idBaseColor = Shader.PropertyToID("_BaseColor"), idColor = Shader.PropertyToID("_Color");
@@ -583,8 +590,8 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
             int bit = 1 << r.gameObject.layer;
             if ((mask & bit) == 0 || (interfaceMask & bit) == 0) { continue; }
             seen.Add(r);
-            if (rendererLookup.ContainsKey(r)) { continue; }
-            RendererRecord record = new RendererRecord { renderer = r, transform = r.transform, avatar = r is SkinnedMeshRenderer };
+            if (rendererLookup.TryGetValue(r, out RendererRecord known)) { known.mirror = IsMirror(r); continue; }
+            RendererRecord record = new RendererRecord { renderer = r, transform = r.transform, avatar = r is SkinnedMeshRenderer, mirror = IsMirror(r) };
             rendererLookup[r] = record;
             renderers.Add(record);
         }
@@ -639,6 +646,27 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         }
     }
 
+    private bool IsMirror(Renderer r)
+    {
+        r.GetSharedMaterials(materialScratch);
+        foreach (Material m in materialScratch)
+        {
+            if (m == null) { continue; }
+            foreach (int id in idMirrorTextures) { if (m.HasProperty(id)) { return true; } }
+        }
+        return false;
+    }
+
+    private void AddMirror(Renderer r)
+    {
+        if (MirrorCount >= MaxMirrors) { return; }
+        Bounds local = r.localBounds;
+        MirrorToLocal[MirrorCount] = r.transform.worldToLocalMatrix;
+        MirrorBounds[MirrorCount * 2] = local.center;
+        MirrorBounds[MirrorCount * 2 + 1] = local.extents;
+        MirrorCount++;
+    }
+
     private static bool Drawn(Renderer r) => r != null && r.enabled && r.gameObject.activeInHierarchy && !r.forceRenderingOff;
 
     private static void Rows(in Matrix4x4 m, out Vector4 r0, out Vector4 r1, out Vector4 r2)
@@ -681,6 +709,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         uint instanceCount = 0, materialCount = 0;
         skinnedQueue.Clear();
         emitterScratch.Clear();
+        MirrorCount = 0;
         materialCache.Clear();
         frameLightmaps = LightmapSettings.lightmaps ?? System.Array.Empty<LightmapData>();
         float avatarScale = settings.avatarEmissionScale;
@@ -691,9 +720,19 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         {
             RendererRecord record = renderers[i];
             Renderer renderer = record.renderer;
-            if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy) { continue; }
-            if (renderer.forceRenderingOff) { continue; }
+            if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy || renderer.forceRenderingOff)
+            {
+                if (record.seen)
+                {
+                    float glow = 0f;
+                    foreach (float e in record.lastEmission) { glow = Mathf.Max(glow, e); }
+                    if (!record.avatar || glow > 0.001f) { statRemoved++; MarkDirty(record.lastBounds.center, record.lastBounds.extents.magnitude + 2f + Mathf.Min(Mathf.Sqrt(glow) * 2f, 8f), glow <= 0.001f); }
+                    record.seen = false;
+                }
+                continue;
+            }
             if (record.shadowSource != null && Drawn(record.shadowSource.renderer)) { continue; }
+            if (record.mirror) { AddMirror(renderer); continue; }
             MeshRecord mesh = record.mesh = MeshFor(record);
             if (mesh == null) { continue; }
             mesh.lastSeen = frameCount;
@@ -826,6 +865,21 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     private int FillLights(BasisExternalRayLight* outLights, Vector3 viewer, BasisGlobalIlluminationSettings settings)
     {
         if (!settings.rayTracedLights) { return 0; }
+        lightsGone.Clear();
+        foreach (KeyValuePair<Light, Vector4> kv in lightReach)
+        {
+            Light l = kv.Key;
+            if (l == null || !l.isActiveAndEnabled || l.intensity <= 0f || l.lightmapBakeType == LightmapBakeType.Baked) { lightsGone.Add(l); }
+        }
+        foreach (Light l in lightsGone)
+        {
+            Vector4 reach = lightReach[l];
+            statLights++;
+            if (reach.w < 0f) { resetCache = true; resetReason = "directional light off"; }
+            else { MarkDirty(reach, reach.w * 1.5f + 1f); }
+            lightReach.Remove(l);
+            lightStates.Remove(l);
+        }
         int count = 0;
         foreach (Light l in lights)
         {
@@ -845,6 +899,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
                 else { MarkDirty(p, l.range, !large); }
                 lightStates[l] = state;
             }
+            lightReach[l] = new Vector4(p.x, p.y, p.z, l.type == LightType.Directional ? -1f : l.range);
             uint type = l.type == LightType.Directional ? 0u : l.type == LightType.Spot ? 2u : 1u;
             if (l.type != LightType.Directional && l.type != LightType.Point && l.type != LightType.Spot) { continue; }
             if (type != 0 && (p - viewer).sqrMagnitude > (l.range + settings.maxRayLength) * (l.range + settings.maxRayLength)) { continue; }
