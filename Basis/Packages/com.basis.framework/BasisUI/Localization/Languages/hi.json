@@ -5764,6 +5764,8 @@
     { "key": "settingRequests.from", "value": "{1} का {0}" },
     { "key": "settingRequests.says", "value": "संदेश: \"{0}\"" },
     { "key": "settingRequests.missing", "value": "यह सेटिंग आपके मेनू में नहीं मिली। हो सकता है यह किसी ऐसे टैब पर हो जो अभी नहीं दिख रहा, केवल किसी दूसरे डिवाइस पर हो, या Basis के किसी अलग संस्करण की हो।" },
+    { "key": "settings.favourites.add", "value": "पसंदीदा में जोड़ें" },
+    { "key": "settings.favourites.remove", "value": "पसंदीदा से हटाएँ" },
     { "key": "prompt.armWait", "value": "पहले इसे पढ़ें। यह बटन कुछ ही पल में चालू हो जाएगा।" },
     { "key": "settings.general.externalLinkRequests", "value": "वेब पेज अनुरोध" },
     { "key": "settings.general.externalLinkRequests.tooltip", "value": "वर्ल्ड और प्रॉप को आपके ब्राउज़र में वेब पेज खोलने का अनुरोध करने दें। आपको हमेशा पता दिखता है और आप ही तय करते हैं कि उसे खोलना है या नहीं। हर अनुरोध अस्वीकार करने के लिए बंद करें।" },

@@ -5764,6 +5764,8 @@
     { "key": "settingRequests.from", "value": "{0} von {1}" },
     { "key": "settingRequests.says", "value": "Nachricht: „{0}“" },
     { "key": "settingRequests.missing", "value": "Diese Einstellung wurde in deinem Menü nicht gefunden. Sie liegt vielleicht auf einem Tab, den du gerade nicht sehen kannst, gibt es nur auf einem anderen Gerät oder stammt aus einer anderen Basis-Version." },
+    { "key": "settings.favourites.add", "value": "Zu Favoriten hinzufügen" },
+    { "key": "settings.favourites.remove", "value": "Aus Favoriten entfernen" },
     { "key": "prompt.armWait", "value": "Lies das zuerst. Diese Schaltfläche wird gleich aktiv." },
     { "key": "settings.general.externalLinkRequests", "value": "Webseiten-Anfragen" },
     { "key": "settings.general.externalLinkRequests.tooltip", "value": "Erlaubt Welten und Props, das Öffnen von Webseiten in deinem Browser anzufragen. Du siehst immer die Adresse und entscheidest, ob du sie öffnest. Ausschalten, um jede Anfrage abzulehnen." },

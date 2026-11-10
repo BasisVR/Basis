@@ -5764,6 +5764,8 @@
     { "key": "settingRequests.from", "value": "{0} van {1}" },
     { "key": "settingRequests.says", "value": "Bericht: ‘{0}’" },
     { "key": "settingRequests.missing", "value": "Deze instelling is niet gevonden in je menu. Misschien staat ze op een tabblad dat je nu niet kunt zien, alleen op een ander apparaat, of komt ze uit een andere versie van Basis." },
+    { "key": "settings.favourites.add", "value": "Toevoegen aan favorieten" },
+    { "key": "settings.favourites.remove", "value": "Verwijderen uit favorieten" },
     { "key": "prompt.armWait", "value": "Lees dit eerst. Deze knop wordt zo meteen actief." },
     { "key": "settings.general.externalLinkRequests", "value": "Verzoeken voor webpagina's" },
     { "key": "settings.general.externalLinkRequests.tooltip", "value": "Laat werelden en props vragen om webpagina's in je browser te openen. Je ziet altijd het adres en beslist zelf of je het opent. Zet uit om elk verzoek te weigeren." },

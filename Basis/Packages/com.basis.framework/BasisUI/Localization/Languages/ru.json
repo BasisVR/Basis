@@ -5764,6 +5764,8 @@
     { "key": "settingRequests.from", "value": "{0} от {1}" },
     { "key": "settingRequests.says", "value": "Сообщение: «{0}»" },
     { "key": "settingRequests.missing", "value": "Эта настройка не найдена в вашем меню. Возможно, она на вкладке, которую вы сейчас не видите, есть только на другом устройстве или относится к другой версии Basis." },
+    { "key": "settings.favourites.add", "value": "Добавить в избранное" },
+    { "key": "settings.favourites.remove", "value": "Убрать из избранного" },
     { "key": "prompt.armWait", "value": "Сначала прочитайте это. Кнопка станет активной через мгновение." },
     { "key": "settings.general.externalLinkRequests", "value": "Запросы на открытие веб-страниц" },
     { "key": "settings.general.externalLinkRequests.tooltip", "value": "Разрешить мирам и пропам просить открыть веб-страницы в вашем браузере. Вы всегда видите адрес и сами решаете, открывать ли его. Выключите, чтобы отклонять все запросы." },

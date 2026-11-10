@@ -5764,6 +5764,8 @@
     { "key": "settingRequests.from", "value": "{1} の{0}" },
     { "key": "settingRequests.says", "value": "メッセージ：「{0}」" },
     { "key": "settingRequests.missing", "value": "この設定はメニュー内に見つかりませんでした。今は見られないタブにあるか、別のデバイスにしかないか、別のバージョンの Basis のものかもしれません。" },
+    { "key": "settings.favourites.add", "value": "お気に入りに追加" },
+    { "key": "settings.favourites.remove", "value": "お気に入りから削除" },
     { "key": "prompt.armWait", "value": "まず内容を確認してください。このボタンはまもなく押せるようになります。" },
     { "key": "settings.general.externalLinkRequests", "value": "ウェブページのリクエスト" },
     { "key": "settings.general.externalLinkRequests.tooltip", "value": "ワールドやプロップがブラウザーでウェブページを開くよう求めることを許可します。アドレスは必ず表示され、開くかどうかはあなたが決めます。オフにするとすべてのリクエストを拒否します。" },

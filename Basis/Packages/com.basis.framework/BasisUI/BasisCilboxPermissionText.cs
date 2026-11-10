@@ -88,6 +88,7 @@ namespace Basis.BasisUI
             new Rule("Basis.Shims.BasisGrabShim", null, "yourPlayer", true),
             new Rule("Basis.Shims.BasisLockShim", "Lock", "yourPlayer", true),
             new Rule("Basis.Shims.BasisHandBlockShim", "Block", "yourPlayer", false),
+            new Rule("Basis.Shims.BasisSettingFavouritesShim", "SetOn", "yourPlayer", false),
             new Rule("HVR.Vixxy.HVRVixxyMenuItem", "ApplyValue", "yourPlayer", true),
             new Rule("Basis.Shims.BasisRemotePoseShim", null, "otherPlayersPose", false),
             new Rule("BasisMediaPlayer", "LoadLocalPath", "localMedia", true),

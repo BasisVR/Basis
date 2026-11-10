@@ -5764,6 +5764,8 @@
     { "key": "settingRequests.from", "value": "{1}-এর {0}" },
     { "key": "settingRequests.says", "value": "বার্তা: \"{0}\"" },
     { "key": "settingRequests.missing", "value": "এই সেটিংটি আপনার মেনুতে পাওয়া যায়নি। এটি এমন কোনো ট্যাবে থাকতে পারে যা এখন দেখা যাচ্ছে না, শুধু অন্য কোনো ডিভাইসে, অথবা Basis-এর অন্য সংস্করণের।" },
+    { "key": "settings.favourites.add", "value": "প্রিয়তে যোগ করুন" },
+    { "key": "settings.favourites.remove", "value": "প্রিয় থেকে সরান" },
     { "key": "prompt.armWait", "value": "আগে এটি পড়ুন। বোতামটি একটু পরেই চালু হবে।" },
     { "key": "settings.general.externalLinkRequests", "value": "ওয়েব পেজের অনুরোধ" },
     { "key": "settings.general.externalLinkRequests.tooltip", "value": "জগৎ ও প্রপগুলোকে আপনার ব্রাউজারে ওয়েব পেজ খোলার অনুরোধ করতে দিন। আপনি সবসময় ঠিকানাটি দেখতে পাবেন এবং খুলবেন কি না তা নিজেই ঠিক করবেন। সব অনুরোধ প্রত্যাখ্যান করতে বন্ধ করুন।" },

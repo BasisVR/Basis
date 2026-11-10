@@ -5,8 +5,8 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GA_ROOT, GWL_EXSTYLE, GetAncestor, GetClientRect, GetWindowLongPtrW,
-    GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindow, IsWindowVisible,
-    WS_EX_TOOLWINDOW,
+    GetWindowPlacement, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindow,
+    IsWindowVisible, WINDOWPLACEMENT, WS_EX_TOOLWINDOW,
 };
 use windows::core::BOOL;
 
@@ -70,10 +70,7 @@ fn shareable_window(hwnd: HWND, own_pid: u32) -> Option<(String, u32, u32)> {
     // SAFETY: read-only queries on a window handle handed to the enum
     // callback; a stale handle only makes them fail.
     unsafe {
-        if !IsWindowVisible(hwnd).as_bool()
-            || IsIconic(hwnd).as_bool()
-            || GetAncestor(hwnd, GA_ROOT) != hwnd
-        {
+        if !IsWindowVisible(hwnd).as_bool() || GetAncestor(hwnd, GA_ROOT) != hwnd {
             return None;
         }
         if GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32 & WS_EX_TOOLWINDOW.0 != 0 {
@@ -94,14 +91,30 @@ fn shareable_window(hwnd: HWND, own_pid: u32) -> Option<(String, u32, u32)> {
         if title.trim().is_empty() {
             return None;
         }
-        let mut rect = RECT::default();
-        GetClientRect(hwnd, &mut rect).ok()?;
-        let (w, h) = (
-            (rect.right - rect.left).max(0) as u32,
-            (rect.bottom - rect.top).max(0) as u32,
-        );
+        let (w, h) = window_size(hwnd)?;
         (w >= 64 && h >= 64).then_some((title, w, h))
     }
+}
+
+pub(crate) fn window_size(hwnd: HWND) -> Option<(u32, u32)> {
+    let mut rect = RECT::default();
+    // SAFETY: read-only queries on a window handle; a stale one only fails.
+    unsafe {
+        if IsIconic(hwnd).as_bool() {
+            let mut placement = WINDOWPLACEMENT {
+                length: size_of::<WINDOWPLACEMENT>() as u32,
+                ..Default::default()
+            };
+            GetWindowPlacement(hwnd, &mut placement).ok()?;
+            rect = placement.rcNormalPosition;
+        } else {
+            GetClientRect(hwnd, &mut rect).ok()?;
+        }
+    }
+    Some((
+        (rect.right - rect.left).max(0) as u32,
+        (rect.bottom - rect.top).max(0) as u32,
+    ))
 }
 
 pub fn list() -> Vec<SourceInfo> {

@@ -5764,6 +5764,8 @@
     { "key": "settingRequests.from", "value": "{0} من {1}" },
     { "key": "settingRequests.says", "value": "الرسالة: \"{0}\"" },
     { "key": "settingRequests.missing", "value": "تعذّر العثور على هذا الإعداد في قائمتك. قد يكون في علامة تبويب لا يمكنك رؤيتها الآن، أو موجودًا على جهاز آخر فقط، أو من إصدار مختلف من Basis." },
+    { "key": "settings.favourites.add", "value": "إضافة إلى المفضلة" },
+    { "key": "settings.favourites.remove", "value": "إزالة من المفضلة" },
     { "key": "prompt.armWait", "value": "اقرأ هذا أولاً. سيصبح هذا الزر متاحًا بعد لحظة." },
     { "key": "settings.general.externalLinkRequests", "value": "طلبات صفحات الويب" },
     { "key": "settings.general.externalLinkRequests.tooltip", "value": "السماح للعوالم والمجسمات بطلب فتح صفحات ويب في متصفحك. سترى العنوان دائمًا وتقرر بنفسك ما إذا كنت ستفتحه. أوقف التشغيل لرفض كل الطلبات." },

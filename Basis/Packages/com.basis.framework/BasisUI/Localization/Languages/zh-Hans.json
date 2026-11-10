@@ -5764,6 +5764,8 @@
     { "key": "settingRequests.from", "value": "{1} 的{0}" },
     { "key": "settingRequests.says", "value": "留言：“{0}”" },
     { "key": "settingRequests.missing", "value": "在你的菜单中找不到此设置。它可能位于你当前看不到的标签页，只存在于其他设备上，或来自其他版本的 Basis。" },
+    { "key": "settings.favourites.add", "value": "添加到收藏" },
+    { "key": "settings.favourites.remove", "value": "从收藏中移除" },
     { "key": "prompt.armWait", "value": "请先阅读此内容。此按钮稍后即可使用。" },
     { "key": "settings.general.externalLinkRequests", "value": "网页请求" },
     { "key": "settings.general.externalLinkRequests.tooltip", "value": "允许世界和道具请求在你的浏览器中打开网页。你总能看到地址，并自行决定是否打开。关闭后将拒绝所有请求。" },

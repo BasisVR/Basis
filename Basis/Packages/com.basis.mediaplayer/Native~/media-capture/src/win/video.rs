@@ -455,6 +455,17 @@ fn capture(shared: &Arc<Shared>, target: Target) -> Result<(), CaptureError> {
     )?;
     let item = capture_item(target)?;
     let mut pool_size = ok(item.Size(), "capture size")?;
+    if let Target::Window(handle) = target
+        && (pool_size.Width < 64 || pool_size.Height < 64)
+        && let Some((w, h)) = super::sources::window_size(HWND(handle as *mut _))
+        && w >= 64
+        && h >= 64
+    {
+        pool_size = SizeInt32 {
+            Width: w as i32,
+            Height: h as i32,
+        };
+    }
     let source = size_of_item(pool_size);
     let out = fit_size(source.0, source.1, config.max_width, config.max_height);
     let pool = ok(

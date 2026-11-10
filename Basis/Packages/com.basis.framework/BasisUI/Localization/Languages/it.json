@@ -5764,6 +5764,8 @@
     { "key": "settingRequests.from", "value": "{0} di {1}" },
     { "key": "settingRequests.says", "value": "Dice: «{0}»" },
     { "key": "settingRequests.missing", "value": "Questa impostazione non è stata trovata nel tuo menu. Potrebbe essere in una scheda che ora non vedi, solo su un altro dispositivo o in un'altra versione di Basis." },
+    { "key": "settings.favourites.add", "value": "Aggiungi ai preferiti" },
+    { "key": "settings.favourites.remove", "value": "Rimuovi dai preferiti" },
     { "key": "prompt.armWait", "value": "Leggi prima questo. Il pulsante si attiverà tra un attimo." },
     { "key": "settings.general.externalLinkRequests", "value": "Richieste di pagine web" },
     { "key": "settings.general.externalLinkRequests.tooltip", "value": "Consente a mondi e prop di chiedere di aprire pagine web nel tuo browser. Vedi sempre l'indirizzo e decidi tu se aprirlo. Disattiva per rifiutare ogni richiesta." },

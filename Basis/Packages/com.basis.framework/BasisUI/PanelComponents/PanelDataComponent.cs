@@ -111,6 +111,7 @@ namespace Basis.BasisUI
             if (menu.Dialogue == null) return;
             AddPanelOptions(menu.Dialogue);
             BasisContentShareSetting.AddShareOption(this, menu.Dialogue);
+            BasisSettingFavourites.AddOption(this, menu.Dialogue);
         }
 
         public override void ApplyResetToDefault()

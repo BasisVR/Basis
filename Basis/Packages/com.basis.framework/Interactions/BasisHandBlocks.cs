@@ -26,7 +26,12 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public static bool ValidKinds(BasisHandBlockKind kinds) => kinds != BasisHandBlockKind.None && (kinds & ~BasisHandBlockKind.All) == 0;
         public static BasisHandBlockKind Of(int hand) => (BasisHandBlockKind)(hand == Left ? left : hand == Right ? right : 0);
         public static bool IsBlocked(int hand, BasisHandBlockKind kinds) => (Of(hand) & kinds) != 0;
-        public static bool IsBlocked(BasisInput input, BasisHandBlockKind kinds) => (left | right) != 0 && IsBlocked(HandOf(input), kinds);
+        public static bool IsBlocked(BasisInput input, BasisHandBlockKind kinds)
+        {
+            if ((left | right) == 0 || input == null) return false;
+            if (BasisPlayerInteract.IsDesktopCenterEye(input)) return ((BasisHandBlockKind)(left | right) & kinds) != 0;
+            return IsBlocked(HandOf(input), kinds);
+        }
         public static bool Holds(string owner) => owner != null && owners.ContainsKey(owner);
         public static BasisHandBlockKind HeldBy(string owner, int hand) => owner != null && ValidHand(hand) && owners.TryGetValue(owner, out ushort packed) ? (BasisHandBlockKind)(byte)(packed >> (hand * 8)) : BasisHandBlockKind.None;
         public static bool Add(string owner, int hand, BasisHandBlockKind kinds) => Change(owner, hand, kinds, true);

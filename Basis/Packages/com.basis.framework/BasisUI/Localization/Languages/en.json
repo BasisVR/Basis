@@ -22449,6 +22449,14 @@
       "value": "This setting could not be found in your menu. It may be on a tab you can't see right now, only on another device, or from a different version of Basis."
     },
     {
+      "key": "settings.favourites.add",
+      "value": "Add to Favourites"
+    },
+    {
+      "key": "settings.favourites.remove",
+      "value": "Remove from Favourites"
+    },
+    {
       "key": "prompt.armWait",
       "value": "Read this first. This button turns on in a moment."
     },

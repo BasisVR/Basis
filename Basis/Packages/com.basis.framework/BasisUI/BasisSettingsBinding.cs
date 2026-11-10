@@ -12,6 +12,26 @@ namespace Basis
         void ReloadAndNotify();
     }
 
+    public static class BasisSettingsBindings
+    {
+        private static readonly Dictionary<string, IBasisSettingsBinding> byKey = new Dictionary<string, IBasisSettingsBinding>(StringComparer.Ordinal);
+        public static void Register(IBasisSettingsBinding binding)
+        {
+            if (binding == null || string.IsNullOrEmpty(binding.BindingKey)) return;
+            lock (byKey) byKey.TryAdd(binding.BindingKey, binding);
+        }
+        public static bool TryGet<T>(string key, out BasisSettingsBinding<T> binding)
+        {
+            binding = null;
+            if (string.IsNullOrEmpty(key)) return false;
+            lock (byKey)
+            {
+                if (byKey.TryGetValue(key, out IBasisSettingsBinding found)) binding = found as BasisSettingsBinding<T>;
+            }
+            return binding != null;
+        }
+    }
+
     /// <summary>
     /// Re-loads a settings class's bindings once the settings file has been read. Binding
     /// constructors self-load, but static init triggered from any RuntimeInitializeOnLoadMethod
@@ -65,6 +85,7 @@ namespace Basis
             BindingKey = bindingPath;
             DefaultValue = new BasisPlatformDefault<T>();
             LoadBindingValue();
+            BasisSettingsBindings.Register(this);
         }
 
         public BasisSettingsBinding(string bindingPath, BasisPlatformDefault<T> defaultValue)
@@ -72,6 +93,7 @@ namespace Basis
             BindingKey = bindingPath;
             DefaultValue = defaultValue;
             LoadBindingValue();
+            BasisSettingsBindings.Register(this);
         }
 
         public void ResetToDefault()

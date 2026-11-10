@@ -45,7 +45,7 @@ Blocks from every script and every Basis system add up per hand. A hand is block
 
 ## Hands
 
-`Left` and `Right` are the tracked hands. On desktop the camera pointer counts as the dominant hand, the same way `BasisGrabShim` treats it. `Both` covers both hands in one call.
+`Left` and `Right` are the tracked hands, and `Both` covers both in one call. On desktop the mouse pointer does the work of both hands, so a block on either hand blocks the pointer. Content written for VR that blocks only the hand holding a menu still stops desktop players grabbing through it.
 
 ## Who can block
 

@@ -5764,6 +5764,8 @@
     { "key": "settingRequests.from", "value": "{0} de {1}" },
     { "key": "settingRequests.says", "value": "Message : « {0} »" },
     { "key": "settingRequests.missing", "value": "Ce paramètre est introuvable dans votre menu. Il se trouve peut-être dans un onglet que vous ne voyez pas pour l'instant, seulement sur un autre appareil, ou dans une autre version de Basis." },
+    { "key": "settings.favourites.add", "value": "Ajouter aux favoris" },
+    { "key": "settings.favourites.remove", "value": "Retirer des favoris" },
     { "key": "prompt.armWait", "value": "Lisez d'abord ceci. Ce bouton s'activera dans un instant." },
     { "key": "settings.general.externalLinkRequests", "value": "Demandes de pages web" },
     { "key": "settings.general.externalLinkRequests.tooltip", "value": "Permet aux mondes et aux props de demander l'ouverture de pages web dans votre navigateur. Vous voyez toujours l'adresse et décidez de l'ouvrir ou non. Désactivez pour refuser toutes les demandes." },

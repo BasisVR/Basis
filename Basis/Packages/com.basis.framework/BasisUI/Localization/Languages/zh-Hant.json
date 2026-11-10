@@ -5764,6 +5764,8 @@
     { "key": "settingRequests.from", "value": "{1} 的{0}" },
     { "key": "settingRequests.says", "value": "留言：「{0}」" },
     { "key": "settingRequests.missing", "value": "在你的選單中找不到此設定。它可能位於你目前看不到的分頁，只存在於其他裝置上，或來自其他版本的 Basis。" },
+    { "key": "settings.favourites.add", "value": "加入最愛" },
+    { "key": "settings.favourites.remove", "value": "從最愛移除" },
     { "key": "prompt.armWait", "value": "請先閱讀此內容。此按鈕稍後即可使用。" },
     { "key": "settings.general.externalLinkRequests", "value": "網頁請求" },
     { "key": "settings.general.externalLinkRequests.tooltip", "value": "允許世界和道具請求在你的瀏覽器中開啟網頁。你總能看到位址，並自行決定是否開啟。關閉後將拒絕所有請求。" },

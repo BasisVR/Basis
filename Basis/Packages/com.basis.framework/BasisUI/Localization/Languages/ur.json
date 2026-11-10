@@ -5764,6 +5764,8 @@
     { "key": "settingRequests.from", "value": "{1} کا {0}" },
     { "key": "settingRequests.says", "value": "پیغام: \"{0}\"" },
     { "key": "settingRequests.missing", "value": "یہ سیٹنگ آپ کے مینو میں نہیں ملی۔ ہو سکتا ہے یہ کسی ایسے ٹیب پر ہو جو ابھی نظر نہیں آ رہا، صرف کسی دوسرے آلے پر ہو، یا Basis کے کسی مختلف ورژن کی ہو۔" },
+    { "key": "settings.favourites.add", "value": "پسندیدہ میں شامل کریں" },
+    { "key": "settings.favourites.remove", "value": "پسندیدہ سے ہٹائیں" },
     { "key": "prompt.armWait", "value": "پہلے اسے پڑھیں۔ یہ بٹن ایک لمحے میں فعال ہو جائے گا۔" },
     { "key": "settings.general.externalLinkRequests", "value": "ویب صفحات کی درخواستیں" },
     { "key": "settings.general.externalLinkRequests.tooltip", "value": "دنیاؤں اور پراپس کو آپ کے براؤزر میں ویب صفحات کھولنے کی درخواست کرنے دیں۔ آپ کو ہمیشہ پتہ نظر آتا ہے اور آپ ہی فیصلہ کرتے ہیں کہ اسے کھولنا ہے یا نہیں۔ ہر درخواست رد کرنے کے لیے بند کریں۔" },

@@ -1383,6 +1383,7 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<float> RaycastLineWidth = new("raycastlinewidth", new BasisPlatformDefault<float>(1f));
         public static BasisSettingsBinding<string> RaycastLineColor = new("raycastlinecolor", new BasisPlatformDefault<string>(""));
         public static BasisSettingsBinding<string> HighlightColor = new("highlightcolor", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> FavouriteSettings = new("favouritesettings", new BasisPlatformDefault<string>(""));
         public static BasisSettingsBinding<string> PickupLineColor = new("pickuplinecolor", new BasisPlatformDefault<string>(""));
 
         // ---------------- GLOBAL ONE EURO PARAMS ----------------

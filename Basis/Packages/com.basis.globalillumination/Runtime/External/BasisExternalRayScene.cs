@@ -331,7 +331,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         return true;
     }
 
-    private static Matrix4x4? SkinnedSpace(MeshRecord mesh) => mesh.skinned != null && mesh.posed && mesh.skinned.rootBone != null ? mesh.skinned.rootBone.localToWorldMatrix : (Matrix4x4?)null;
+    private static Matrix4x4? SkinnedSpace(MeshRecord mesh) => mesh.skinned != null && mesh.posed && mesh.skinned.rootBone != null ? Matrix4x4.TRS(mesh.skinned.rootBone.position, mesh.skinned.rootBone.rotation, Vector3.one) : (Matrix4x4?)null;
 
     private unsafe void PoseSkinned(BasisExternalRayInstance* instances)
     {
