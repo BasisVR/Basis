@@ -112,6 +112,19 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     private static readonly int[] idGlobalMaskUV = { Shader.PropertyToID("_GlobalMaskTexture0UV"), Shader.PropertyToID("_GlobalMaskTexture1UV"), Shader.PropertyToID("_GlobalMaskTexture2UV"), Shader.PropertyToID("_GlobalMaskTexture3UV") };
     private static readonly int[] idGlobalMaskSplit = { Shader.PropertyToID("_GlobalMaskTexture0Split"), Shader.PropertyToID("_GlobalMaskTexture1Split"), Shader.PropertyToID("_GlobalMaskTexture2Split"), Shader.PropertyToID("_GlobalMaskTexture3Split") };
     private static readonly string[] channelNames = { "R", "G", "B", "A" };
+    private static readonly int[] idEmissionMapUV = { Shader.PropertyToID("_EmissionMapUV"), Shader.PropertyToID("_EmissionMap1UV") };
+    private static readonly int[] idEmissionMaskTexture = { Shader.PropertyToID("_EmissionMask"), Shader.PropertyToID("_EmissionMask1") };
+    private static readonly int[] idEmissionMaskUV = { Shader.PropertyToID("_EmissionMaskUV"), Shader.PropertyToID("_EmissionMask1UV") };
+    private static readonly int[] idEmissionMaskChannel = { Shader.PropertyToID("_EmissionMaskChannel"), Shader.PropertyToID("_EmissionMask1Channel") };
+    private static readonly int[] idEmissionMaskInvert = { Shader.PropertyToID("_EmissionMaskInvert"), Shader.PropertyToID("_EmissionMaskInvert1") };
+
+    private struct EmissionSlot
+    {
+        public Vector3 color;
+        public int map, mask, channel;
+        public bool invert, baseAsMap;
+        public Vector4 mapST, maskST;
+    }
     private static readonly int idEmissionBaseColorAsMap = Shader.PropertyToID("_EmissionBaseColorAsMap"), idEmissionMainStrength = Shader.PropertyToID("_EmissionMainStrength");
     private static readonly int idCutoff = Shader.PropertyToID("_Cutoff"), idAlphaClip = Shader.PropertyToID("_AlphaClip"), idSurface = Shader.PropertyToID("_Surface");
     private static readonly int idMetallic = Shader.PropertyToID("_Metallic"), idSmoothness = Shader.PropertyToID("_Smoothness"), idGlossiness = Shader.PropertyToID("_Glossiness");
@@ -462,38 +475,71 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         result.baseTexture = TextureFor(ReadTexture(m, hasBlock, baseId), false);
         result.baseST = ReadST(m, baseId);
         bool baked = respectBaked && !avatar && lightmapped && (m.globalIlluminationFlags & MaterialGlobalIlluminationFlags.BakedEmission) != 0;
-        bool emissionOn = !baked && (m.IsKeywordEnabled("_EMISSION") || ReadFloat(m, hasBlock, idEnableEmission, 0f) > 0.5f || ReadFloat(m, hasBlock, idUseEmission, 0f) > 0.5f);
-        int slot = 0;
-        if (!emissionOn && !baked && Has(m, idEnableEmission1) && ReadFloat(m, hasBlock, idEnableEmission1, 0f) > 0.5f) { emissionOn = true; slot = 1; }
-        int colorProperty = slot == 0 ? idEmissionColor : idEmissionColor1, mapProperty = slot == 0 ? idEmissionMap : idEmissionMap1;
-        int strengthProperty = slot == 0 ? idEmissionStrength : idEmissionStrength1, baseAsMapProperty = slot == 0 ? idEmissionBaseColorAsMap : idEmissionBaseColorAsMap1;
-        if (emissionOn && Has(m, colorProperty))
+        bool on0 = !baked && (m.IsKeywordEnabled("_EMISSION") || ReadFloat(m, hasBlock, idEnableEmission, 0f) > 0.5f || ReadFloat(m, hasBlock, idUseEmission, 0f) > 0.5f);
+        bool on1 = !baked && Has(m, idEnableEmission1) && ReadFloat(m, hasBlock, idEnableEmission1, 0f) > 0.5f;
+        EmissionSlot slot0 = default, slot1 = default;
+        bool has0 = on0 && ReadEmissionSlot(m, hasBlock, 0, emissionScale, result.baseST, out slot0);
+        bool has1 = on1 && ReadEmissionSlot(m, hasBlock, 1, emissionScale, result.baseST, out slot1);
+        if (!has0 && has1) { slot0 = slot1; has0 = true; has1 = false; }
+        if (has0)
         {
-            Color e = ReadColor(m, hasBlock, colorProperty, Color.black);
-            float strength = Has(m, strengthProperty) ? ReadFloat(m, hasBlock, strengthProperty, 1f) : 1f;
-            Vector4 linear = (Vector4)e.linear * strength * emissionScale;
-            result.emission = new Vector4(linear.x, linear.y, linear.z, 0f);
-            Texture emissionMap = ReadTexture(m, hasBlock, mapProperty);
-            result.emissionTexture = TextureFor(emissionMap, false);
-            result.emissionST = Has(m, mapProperty) && !SharesBaseTransform(m.shader) ? ReadST(m, mapProperty) : result.baseST;
-            if (Has(m, baseAsMapProperty) && ReadFloat(m, hasBlock, baseAsMapProperty, 0f) > 0.5f) { result.emissionBase = 1f; }
+            result.emission = new Vector4(slot0.color.x, slot0.color.y, slot0.color.z, 0f);
+            result.emissionTexture = slot0.map;
+            result.emissionST = slot0.map >= 0 ? slot0.mapST : slot0.mask >= 0 ? slot0.maskST : result.baseST;
+            if (slot0.mask >= 0) { result.emission.w = BitConverter.Int32BitsToSingle(0x40000000 | slot0.channel | (slot0.invert ? 4 : 0) | (slot0.mask << 8)); }
+            if (slot0.baseAsMap) { result.emissionBase = 1f; }
             else if (Has(m, idEmissionMainStrength)) { result.emissionBase = Mathf.Clamp01(ReadFloat(m, hasBlock, idEmissionMainStrength, 0f)); }
-            ReadGlobalMask(m, hasBlock, slot, ref result);
-            emissionPower = Mathf.Max(linear.x, Mathf.Max(linear.y, linear.z));
+            emissionPower = Mathf.Max(slot0.color.x, Mathf.Max(slot0.color.y, slot0.color.z));
+        }
+        uint secondary = 0;
+        if (has1)
+        {
+            result.emission2 = PackRGB9E5(slot1.color);
+            secondary = (uint)(slot1.map + 1) << 2 | (slot1.baseAsMap ? 0x8000u : 0u) | (uint)(slot1.mask + 1) << 16 | (uint)slot1.channel << 29 | (slot1.invert ? 0x80000000u : 0u);
+            emissionPower += Mathf.Max(slot1.color.x, Mathf.Max(slot1.color.y, slot1.color.z));
         }
         int queue = m.renderQueue;
         bool clip = ReadFloat(m, hasBlock, idAlphaClip, 0f) > 0.5f || m.IsKeywordEnabled("_ALPHATEST_ON") || (queue >= 2450 && queue < 3000);
         bool blend = ReadFloat(m, hasBlock, idSurface, 0f) > 0.5f || queue >= 3000;
         if (blend) { result.alphaMode = BasisExternalRayTracer.AlphaBlend; submeshFlags = BasisExternalRayTracer.SubmeshBlend; }
         else if (clip) { result.alphaMode = BasisExternalRayTracer.AlphaCutout; submeshFlags = BasisExternalRayTracer.SubmeshAlphaTest; }
+        result.alphaMode |= secondary;
         result.cutoff = ReadFloat(m, hasBlock, idCutoff, 0.5f);
         result.metallic = ReadFloat(m, hasBlock, idMetallic, 0f);
-        result.smoothness = Has(m, idSmoothness) ? ReadFloat(m, hasBlock, idSmoothness, 0.5f) : ReadFloat(m, hasBlock, idGlossiness, 0.5f);
         if (avatar) { result.flags |= BasisExternalRayTracer.MaterialAnimated; }
         return result;
     }
 
-    private void ReadGlobalMask(Material m, bool hasBlock, int slot, ref BasisExternalRayMaterial result)
+    private bool ReadEmissionSlot(Material m, bool hasBlock, int slot, float emissionScale, Vector4 baseST, out EmissionSlot result)
+    {
+        result = new EmissionSlot { map = -1, mask = -1, mapST = baseST, maskST = new Vector4(1, 1, 0, 0) };
+        int colorProperty = slot == 0 ? idEmissionColor : idEmissionColor1, mapProperty = slot == 0 ? idEmissionMap : idEmissionMap1;
+        int strengthProperty = slot == 0 ? idEmissionStrength : idEmissionStrength1, baseAsMapProperty = slot == 0 ? idEmissionBaseColorAsMap : idEmissionBaseColorAsMap1;
+        if (!Has(m, colorProperty)) { return false; }
+        Color e = ReadColor(m, hasBlock, colorProperty, Color.black);
+        float strength = Has(m, strengthProperty) ? ReadFloat(m, hasBlock, strengthProperty, 1f) : 1f;
+        Vector4 linear = (Vector4)e.linear * strength * emissionScale;
+        result.color = new Vector3(Mathf.Max(linear.x, 0f), Mathf.Max(linear.y, 0f), Mathf.Max(linear.z, 0f));
+        if (result.color.x + result.color.y + result.color.z <= 0f) { return false; }
+        if (Mathf.RoundToInt(ReadFloat(m, hasBlock, idEmissionMapUV[slot], 0f)) == 0)
+        {
+            result.map = TextureFor(ReadTexture(m, hasBlock, mapProperty), false);
+            if (Has(m, mapProperty) && !SharesBaseTransform(m.shader)) { result.mapST = ReadST(m, mapProperty); }
+        }
+        result.baseAsMap = Has(m, baseAsMapProperty) && ReadFloat(m, hasBlock, baseAsMapProperty, 0f) > 0.5f;
+        Texture localMask = Has(m, idEmissionMaskTexture[slot]) && Mathf.RoundToInt(ReadFloat(m, hasBlock, idEmissionMaskUV[slot], 0f)) == 0 ? ReadTexture(m, hasBlock, idEmissionMaskTexture[slot]) : null;
+        if (localMask != null && (result.mask = TextureFor(localMask, false)) >= 0)
+        {
+            result.channel = Mathf.Clamp(Mathf.RoundToInt(ReadFloat(m, hasBlock, idEmissionMaskChannel[slot], 0f)), 0, 3);
+            result.invert = ReadFloat(m, hasBlock, idEmissionMaskInvert[slot], 0f) > 0.5f;
+            result.maskST = ReadST(m, idEmissionMaskTexture[slot]);
+            return true;
+        }
+        ReadGlobalMask(m, hasBlock, slot, ref result);
+        return true;
+    }
+
+    private void ReadGlobalMask(Material m, bool hasBlock, int slot, ref EmissionSlot result)
     {
         if (!Has(m, idEmissionGlobalMask[slot]) || ReadFloat(m, hasBlock, idGlobalMasksEnable, 1f) < 0.5f) { return; }
         int index = Mathf.RoundToInt(ReadFloat(m, hasBlock, idEmissionGlobalMask[slot], 0f)) - 1;
@@ -510,8 +556,20 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
             string split = "_GlobalMaskTexture" + texture + "SplitTilingOffset_" + channelNames[channel];
             if (m.HasProperty(split)) { st = m.GetVector(split); }
         }
-        if (result.emissionTexture < 0) { result.emissionST = st; }
-        result.emission.w = BitConverter.Int32BitsToSingle(0x40000000 | channel | (blend == 1 ? 4 : 0) | (id << 8));
+        result.mask = id;
+        result.channel = channel;
+        result.invert = blend == 1;
+        result.maskST = st;
+    }
+
+    private static uint PackRGB9E5(Vector3 c)
+    {
+        float m = Mathf.Max(Mathf.Max(Mathf.Min(c.x, 65408f), Mathf.Min(c.y, 65408f)), Mathf.Max(Mathf.Min(c.z, 65408f), 1e-9f));
+        int e = Mathf.Max(Mathf.FloorToInt(Mathf.Log(m, 2f)), -16) + 1;
+        float scale = Mathf.Pow(2f, e - 9);
+        if ((uint)(m / scale + 0.5f) >= 512) { e++; scale *= 2f; }
+        uint r = (uint)Mathf.Min(Mathf.Min(c.x, 65408f) / scale + 0.5f, 511f), g = (uint)Mathf.Min(Mathf.Min(c.y, 65408f) / scale + 0.5f, 511f), b = (uint)Mathf.Min(Mathf.Min(c.z, 65408f) / scale + 0.5f, 511f);
+        return r | (g << 9) | (b << 18) | ((uint)Mathf.Clamp(e + 15, 0, 31) << 27);
     }
 
     private void Scan(LayerMask mask)

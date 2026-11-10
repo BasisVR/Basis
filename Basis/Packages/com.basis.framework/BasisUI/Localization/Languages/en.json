@@ -9199,6 +9199,38 @@
       "value": "Vulkan"
     },
     {
+      "key": "settings.graphics.gi.pathTracerRays",
+      "value": "Path Tracer Rays"
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerRays.tooltip",
+      "value": "Rays traced per pixel by the path tracer. More rays give smoother, more stable lighting and cost more GPU time. Auto follows the quality preset."
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerRays.auto",
+      "value": "Auto"
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerRays.2",
+      "value": "2"
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerRays.4",
+      "value": "4"
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerRays.8",
+      "value": "8"
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerRays.16",
+      "value": "16"
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerRays.32",
+      "value": "32"
+    },
+    {
       "key": "settings.graphics.gi.ignoreBakedEmission",
       "value": "Double Baked Emission"
     },

@@ -12,6 +12,7 @@ public partial class BasisGlobalIlluminationPass
     private bool externalSubmit;
     private ulong externalFrame;
     private BasisExternalRayTracer.Context externalContext;
+    private float externalEmissionScale = -1f;
     private uint externalParity;
     private static readonly int idExLightmapMask = Shader.PropertyToID("_LightmapMask");
     private static readonly int idExMotion = Shader.PropertyToID("_Motion");
@@ -78,18 +79,19 @@ public partial class BasisGlobalIlluminationPass
         parameters.width = (uint)tracedWidth;
         parameters.height = (uint)tracedHeight;
         parameters.viewCount = (uint)views;
-        parameters.samples = (uint)Mathf.Clamp(settings.ResolvedRayCount() * 2, 2, 16);
+        parameters.samples = (uint)(BasisExternalRayTracer.RayCount > 0 ? Mathf.Clamp(BasisExternalRayTracer.RayCount, 1, 64) : Mathf.Clamp(settings.ResolvedRayCount() * 2, 2, 16));
         parameters.bounces = (uint)Mathf.Clamp(settings.ResolvedBounces(), 0, 8);
         parameters.maxDistance = Mathf.Max(1f, settings.maxRayLength * 4f);
         parameters.aoRadius = settings.obscuranceRadius;
         parameters.aoIntensity = settings.obscuranceIntensity;
-        parameters.emissionScale = 1f;
+        parameters.emissionScale = settings.emitterIntensity;
         parameters.time = Time.time;
         parameters.fireflyClamp = settings.fireflyClamp * 4f;
         parameters.temporalResponse = Mathf.Clamp(settings.temporalResponse * 0.35f, 0.02f, 1f);
         parameters.lightIntensity = settings.rayTracedLightIntensity;
         parameters.normalBias = Mathf.Max(0.002f, settings.rayTracedNormalBias * 0.5f);
         parameters.flags = BasisExternalRayTracer.FlagScreenReuse | BasisExternalRayTracer.FlagDenoise | BasisExternalRayTracer.FlagReorder | BasisExternalRayTracer.ConsumeResetFlag(context);
+        if (externalEmissionScale != parameters.emissionScale) { if (externalEmissionScale >= 0f) { parameters.flags |= BasisExternalRayTracer.FlagCacheReset; } externalEmissionScale = parameters.emissionScale; }
         if (settings.rayTracedShadows) { parameters.flags |= BasisExternalRayTracer.FlagShadows; }
         if (settings.externalSameFrame) { parameters.flags |= BasisExternalRayTracer.FlagSameFrame; }
         if (settings.externalProbes) { parameters.flags |= BasisExternalRayTracer.FlagProbes; }

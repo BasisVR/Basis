@@ -53,7 +53,7 @@ void AnyHit(inout Payload payload, BuiltInTriangleIntersectionAttributes attribu
     Instance instance = LoadInstance(InstanceID());
     Material material;
     float alpha = AlphaAt(instance, GeometryIndex(), PrimitiveIndex(), attributes.barycentrics, material);
-    if (material.alphaMode == ALPHA_CUTOUT)
+    if ((material.alphaMode & 3u) == ALPHA_CUTOUT)
     {
         if (alpha < material.cutoff) { IgnoreHit(); }
         return;
@@ -121,6 +121,27 @@ float EmissionMask(Material material, float2 uv, float lod, float size)
     return (packed & 4u) != 0u ? saturate(1.0 - v) : v;
 }
 
+float3 MaterialEmission(Material material, float2 uv, float lod, float size, float3 tint)
+{
+    float3 emission = material.emission.rgb;
+    if (any(emission > 0.0))
+    {
+        if (material.emissionTexture >= 0) { emission *= SampleTexture(material.emissionTexture, uv, material.emissionST, lod, size).rgb; }
+        emission *= EmissionMask(material, uv, lod, size) * lerp(1.0, saturate(tint), material.emissionBase);
+    }
+    if (material.emission2 != 0u)
+    {
+        uint bits = material.alphaMode;
+        float3 second = UnpackRGB9E5(material.emission2);
+        int map = int((bits >> 2) & 0x1fffu) - 1, mask = int((bits >> 16) & 0x1fffu) - 1;
+        if (map >= 0) { second *= SampleTexture(map, uv, float4(1, 1, 0, 0), lod, size).rgb; }
+        if (mask >= 0) { float v = SampleTexture(mask, uv, float4(1, 1, 0, 0), lod, size)[(bits >> 29) & 3u]; second *= (bits >> 31) != 0u ? saturate(1.0 - v) : v; }
+        if ((bits & 0x8000u) != 0u) { second *= saturate(tint); }
+        emission += second;
+    }
+    return emission;
+}
+
 bool Occluded(RaytracingAccelerationStructure tlas, float3 origin, float3 direction, float distance)
 {
     RayDesc ray;
@@ -181,28 +202,10 @@ LightCandidate EvaluateEmitterPoint(Instance instance, uint geometry, uint primi
     if (cosReceiver <= 0.0 || cosLight <= 1e-4 || c.distance < frame.normalBias) { return c; }
     if ((part == 1 && c.distance >= nearRadius) || (part == 2 && c.distance < nearRadius)) { return c; }
     Material material = LoadMaterial(instance.materialBase + geometry);
-    float3 emission = material.emission.rgb * frame.emissionScale;
-    if (material.emissionTexture >= 0 || (asuint(material.emission.w) & 0x40000000u) != 0u)
-    {
-        float2 uv = LoadUv0(vi.x) * w.x + LoadUv0(vi.y) * w.y + LoadUv0(vi.z) * w.z;
-        if (material.emissionTexture >= 0)
-        {
-            Texture2D<float4> t = ResourceDescriptorHeap[HEAP_TEXTURES + material.emissionTexture];
-            emission *= t.SampleLevel(linearWrap, uv * material.emissionST.xy + material.emissionST.zw, 2.0).rgb;
-        }
-        emission *= EmissionMask(material, uv, 2.0, 1.0);
-    }
-    if (material.emissionBase > 0.0)
-    {
-        float3 tint = material.baseColor.rgb;
-        if (material.baseTexture >= 0)
-        {
-            float2 uv = LoadUv0(vi.x) * w.x + LoadUv0(vi.y) * w.y + LoadUv0(vi.z) * w.z;
-            Texture2D<float4> bt = ResourceDescriptorHeap[HEAP_TEXTURES + material.baseTexture];
-            tint *= bt.SampleLevel(linearWrap, uv * material.baseST.xy + material.baseST.zw, 2.0).rgb;
-        }
-        emission *= lerp(1.0, saturate(tint), material.emissionBase);
-    }
+    float2 uv = LoadUv0(vi.x) * w.x + LoadUv0(vi.y) * w.y + LoadUv0(vi.z) * w.z;
+    float3 tint = material.baseColor.rgb;
+    if (material.emissionBase > 0.0 || (material.alphaMode & 0x8000u) != 0u) { tint *= SampleTexture(material.baseTexture, uv, material.baseST, 2.0, 1.0).rgb; }
+    float3 emission = MaterialEmission(material, uv, 2.0, 1.0, tint) * frame.emissionScale;
     c.value = emission * min(cosReceiver * cosLight / max(distance2, 1e-6), PI / area) / PI;
     c.shadow = true;
     c.id = uint4(0u, geometry, primitive, f32tof16(r1) | (f32tof16(r2) << 16));
@@ -418,10 +421,7 @@ Bounce TraceRadiance(RaytracingAccelerationStructure tlas, Texture2D<uint4> gbuf
         Instance instance = LoadInstance(hit.instanceIndex);
         float4 baseColor = material.baseColor * SampleTexture(material.baseTexture, hit.uv0, material.baseST, hit.lod, 512.0);
         float3 albedo = saturate(baseColor.rgb) * (1.0 - material.metallic * 0.75);
-        float3 emission = material.emission.rgb * frame.emissionScale;
-        if (material.emissionTexture >= 0) { emission *= SampleTexture(material.emissionTexture, hit.uv0, material.emissionST, hit.lod, 512.0).rgb; }
-        emission *= EmissionMask(material, hit.uv0, hit.lod, 512.0);
-        emission *= lerp(1.0, saturate(baseColor.rgb), material.emissionBase);
+        float3 emission = MaterialEmission(material, hit.uv0, hit.lod, 512.0, baseColor.rgb) * frame.emissionScale;
         float3 hitOrigin = hit.position + hit.geometricNormal * frame.normalBias;
         if (segment == 0)
         {
@@ -819,10 +819,7 @@ void RayGen()
             float3 own = 0.0;
             if ((material.flags & MATERIAL_EMITTER) == 0)
             {
-                own = material.emission.rgb * frame.emissionScale;
-                if (material.emissionTexture >= 0) { own *= SampleTexture(material.emissionTexture, hit.uv0, material.emissionST, hit.lod, 512.0).rgb; }
-                own *= EmissionMask(material, hit.uv0, hit.lod, 512.0);
-                own *= lerp(1.0, saturate(baseColor.rgb), material.emissionBase);
+                own = MaterialEmission(material, hit.uv0, hit.lod, 512.0, baseColor.rgb) * frame.emissionScale;
             }
             float3 hitOrigin = hit.position + hit.geometricNormal * frame.normalBias;
             float3 lit = SampleLights(tlas, hitOrigin, hit.normal, true, rng).value + CacheLookup(hit.position, hit.geometricNormal, viewer, Random(rng)).rgb;
@@ -844,7 +841,7 @@ void RayGen()
     float3 irradiance = cached.rgb;
     if (cached.a < 0.5)
     {
-        uint fresh = clamp(frame.samples / 2u, 1u, 4u);
+        uint fresh = clamp(frame.samples / 2u, 1u, 8u);
         float3 traced = 0.0;
         for (uint ri = 0; ri < fresh; ri++)
         {

@@ -100,7 +100,8 @@ struct Material
     float4 emissionST;
     int baseTexture, emissionTexture;
     uint alphaMode;
-    float cutoff, metallic, smoothness;
+    float cutoff, metallic;
+    uint emission2;
     uint flags;
     float emissionBase;
 };

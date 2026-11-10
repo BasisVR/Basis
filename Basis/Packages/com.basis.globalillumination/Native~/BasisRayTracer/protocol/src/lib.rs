@@ -210,7 +210,7 @@ pub struct Material {
     pub alpha_mode: u32,
     pub cutoff: f32,
     pub metallic: f32,
-    pub smoothness: f32,
+    pub emission2: u32,
     pub flags: u32,
     pub emission_base: f32,
 }

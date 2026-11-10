@@ -44,7 +44,8 @@ public struct BasisExternalRayMaterial
     public Vector4 baseColor, emission, baseST, emissionST;
     public int baseTexture, emissionTexture;
     public uint alphaMode;
-    public float cutoff, metallic, smoothness;
+    public float cutoff, metallic;
+    public uint emission2;
     public uint flags;
     public float emissionBase;
 }
@@ -151,6 +152,7 @@ public static unsafe partial class BasisExternalRayTracer
     }
 
     public static bool BackendSelectable => IsWindows;
+    public static int RayCount;
     public static bool PreferVulkan { get; private set; }
     public static int RequestedApi => IsWindows && !PreferVulkan ? ApiDirectX : ApiVulkan;
     public static int RunningApi => Started ? (int)BasisRT_Stat(7) : 0;
