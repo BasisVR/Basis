@@ -14,7 +14,7 @@ using UnityEngine.Rendering.Universal;
 [AutoStaticsCleanup]
 public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
 {
-    public const int PassTemporal = 0, PassBlur = 1, PassComposite = 2, PassDebug = 3, PassCopyColor = 4, PassCompositeSurface = 15, PassSurfaceDepth = 16;
+    public const int PassTemporal = 0, PassBlur = 1, PassComposite = 2, PassDebug = 3, PassCopyColor = 4, PassCompositeSurface = 15, PassSurfaceDepth = 16, PassCompositeUnknownSurface = 17;
     public const int PassSpecularUpsample = 5;
     public const int PassCoarseSeed = 6, PassCoarseReduce = 7;
     public const int PassLightmapMask = 8;
@@ -1371,6 +1371,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         }
 
         Blitter.BlitTexture(cmd, data.source, new Vector4(1f, 1f, 0f, 0f), data.material, data.materialPass);
+        if (data.stage == Stage.Composite && data.materialPass == PassCompositeSurface) { Blitter.BlitTexture(cmd, data.source, new Vector4(1f, 1f, 0f, 0f), data.material, PassCompositeUnknownSurface); }
     }
 
     /// <summary>

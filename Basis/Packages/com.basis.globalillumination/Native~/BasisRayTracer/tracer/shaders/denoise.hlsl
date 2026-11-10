@@ -1,5 +1,7 @@
 #include "common.hlsli"
 
+#define DENOISE_RESERVOIR_SCRATCH 16
+
 float4 PackGeometry(Surface s) { return float4(s.position, asfloat(PackNormal(s.normal))); }
 
 [numthreads(8, 8, 1)]
@@ -19,6 +21,13 @@ void Temporal(uint3 id : SV_DispatchThreadID)
     RWTexture2D<float4> geometryOut = ResourceDescriptorHeap[HEAP_GEOMETRY_UAV + frame.historyWrite];
 
     Surface s = LoadSurface(gbuffer, pixel, viewIndex);
+    if (s.valid)
+    {
+        RWByteAddressBuffer reservoirs = ResourceDescriptorHeap[frame.contextBase + DENOISE_RESERVOIR_SCRATCH];
+        uint packed = reservoirs.Load((pixel.y * frame.width * frame.viewCount + pixel.x) * 64u + 44u);
+        float3 shading = UnpackNormal(packed);
+        if (packed != 0u && dot(shading, s.normal) > 0.2) { s.normal = shading; }
+    }
     float4 current = radiance[pixel];
     if (!all(isfinite(current))) { current = float4(0.0, 0.0, 0.0, 1.0); }
     geometryOut[pixel] = s.valid ? PackGeometry(s) : float4(0.0, 0.0, 0.0, 0.0);

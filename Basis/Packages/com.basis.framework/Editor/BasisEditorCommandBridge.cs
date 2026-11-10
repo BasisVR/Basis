@@ -21,6 +21,9 @@ public static class BasisEditorCommandBridge
     private static Camera pinned;
     private static Vector3 pinnedPosition;
     private static Quaternion pinnedRotation;
+    private static Camera restoreCamera;
+    private static Vector3 restoreLocalPosition;
+    private static Quaternion restoreLocalRotation;
     private static float spinRate;
     private static int spinFrame = -1;
 
@@ -111,6 +114,12 @@ public static class BasisEditorCommandBridge
             case "pin":
                 pinned = Camera.main;
                 if (pinned == null) { foreach (Camera c in Camera.allCameras) { if (c.cameraType == CameraType.Game && c.targetTexture == null) { pinned = c; break; } } }
+                if (pinned != null && restoreCamera != pinned)
+                {
+                    RestorePinnedCamera();
+                    restoreCamera = pinned;
+                    pinned.transform.GetLocalPositionAndRotation(out restoreLocalPosition, out restoreLocalRotation);
+                }
                 if (pinned != null)
                 {
                     pinnedPosition = pinned.transform.position;
@@ -133,6 +142,7 @@ public static class BasisEditorCommandBridge
                 break;
             case "unpin":
                 pinned = null;
+                RestorePinnedCamera();
                 spinRate = 0f;
                 Write("unpinned");
                 break;
@@ -213,6 +223,12 @@ public static class BasisEditorCommandBridge
                 Write("unknown command: " + command);
                 break;
         }
+    }
+
+    private static void RestorePinnedCamera()
+    {
+        if (restoreCamera != null) { restoreCamera.transform.SetLocalPositionAndRotation(restoreLocalPosition, restoreLocalRotation); }
+        restoreCamera = null;
     }
 
     private static void MatCheck()

@@ -303,9 +303,10 @@ float3 BasisGIStats(float2 uv)
 /// </summary>
 float3 BasisGIPlaneNormal(float3 worldPosition)
 {
-    float3 normal = cross(ddy(worldPosition), ddx(worldPosition));
+    float3 tangentY = ddy(worldPosition), tangentX = ddx(worldPosition);
+    float3 normal = cross(tangentY, tangentX);
     float lengthSquared = dot(normal, normal);
-    if (lengthSquared < 1e-12)
+    if (lengthSquared <= 1e-12 * dot(tangentX, tangentX) * dot(tangentY, tangentY) || lengthSquared <= 0.0)
     {
         float3 toCamera = GetCameraPositionWS() - worldPosition;
         float toCameraLengthSquared = dot(toCamera, toCamera);

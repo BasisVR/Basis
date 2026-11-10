@@ -140,7 +140,16 @@ float4 BasisGICompositeSurface(float2 uv)
     float obscurance, rawDepth;
     BasisGIResolve(uv, indirect, obscurance, rawDepth);
     float4 surface = SAMPLE_TEXTURE2D_X_LOD(_BasisGISurface, sampler_PointClamp, UnityStereoTransformScreenSpaceTex(uv), 0);
-    return float4(indirect * surface.rgb * (1.0 - surface.a), obscurance + Luminance(indirect) * surface.a);
+    return float4(indirect * surface.rgb * (1.0 - surface.a), lerp(obscurance, 1.0, surface.a));
+}
+
+float4 BasisGICompositeUnknownSurface(float2 uv)
+{
+    float3 indirect;
+    float obscurance, rawDepth;
+    BasisGIResolve(uv, indirect, obscurance, rawDepth);
+    float unknown = SAMPLE_TEXTURE2D_X_LOD(_BasisGISurface, sampler_PointClamp, UnityStereoTransformScreenSpaceTex(uv), 0).a;
+    return float4(lerp(float3(1.0, 1.0, 1.0), obscurance + indirect, unknown), 1.0);
 }
 
 float3 BasisGIHeat(float value)

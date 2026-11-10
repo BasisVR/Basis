@@ -707,7 +707,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
             for (int s = 0; s < submeshes; s++)
             {
                 Material m = s < materialScratch.Count ? materialScratch[s] : (materialScratch.Count > 0 ? materialScratch[materialScratch.Count - 1] : null);
-                pendingMaterials[s] = ReadMaterialCached(renderer, hasBlock, lightmapped, s, m, record.avatar, record.avatar ? avatarScale : worldScale, out uint submeshFlags, out pendingPower[s]);
+                pendingMaterials[s] = ReadMaterialCached(renderer, hasBlock, lightmapped, Mathf.Min(s, Mathf.Max(materialScratch.Count - 1, 0)), m, record.avatar, record.avatar ? avatarScale : worldScale, out uint submeshFlags, out pendingPower[s]);
                 if (!mesh.defined) { mesh.submeshFlags[s] = submeshFlags; }
             }
             if (!mesh.committed && !UploadMesh(mesh)) { continue; }

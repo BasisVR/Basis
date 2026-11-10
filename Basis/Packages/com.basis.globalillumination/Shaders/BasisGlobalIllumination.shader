@@ -473,6 +473,29 @@ Shader "Hidden/Basis/GlobalIllumination"
             }
             ENDHLSL
         }
+
+        Pass
+        {
+            Name "BasisGICompositeUnknownSurface"
+            Blend DstColor Zero, Zero One
+
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment Frag
+            #pragma target 3.5
+            #pragma multi_compile_local_fragment _ _BASISGI_NORMALS_TEXTURE
+            #pragma multi_compile_local_fragment _ _BASISGI_BILATERAL_UPSAMPLE
+            #pragma multi_compile_local_fragment _ _BASISGI_LIGHTMAP_MASK
+
+            #include "./BasisGlobalIlluminationComposite.hlsl"
+
+            float4 Frag(Varyings input) : SV_Target
+            {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+                return BasisGICompositeUnknownSurface(input.texcoord);
+            }
+            ENDHLSL
+        }
     }
 
     Fallback Off

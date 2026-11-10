@@ -360,7 +360,7 @@ float3 PrimaryGeometric(Texture2D<uint4> gbuffer, uint2 pixel, uint2 local, uint
         float3 dy = du <= dd ? u.position - surface.position : surface.position - d.position;
         float3 g = cross(dx, dy);
         float limit = max(0.25, surface.distance * 0.25);
-        if (dot(g, g) > 1e-14 && min(dr, dl) < limit && min(du, dd) < limit)
+        if (dot(g, g) > 1e-12 * dot(dx, dx) * dot(dy, dy) && dot(g, g) > 0.0 && min(dr, dl) < limit && min(du, dd) < limit)
         {
             g = normalize(g);
             if (dot(g, toViewer) < 0.0) { g = -g; }
@@ -369,6 +369,26 @@ float3 PrimaryGeometric(Texture2D<uint4> gbuffer, uint2 pixel, uint2 local, uint
     }
     if (dot(surface.normal, geometric) < 0.2) { surface.normal = geometric; }
     return geometric;
+}
+
+void SmoothSurfaceNormal(RaytracingAccelerationStructure tlas, float3 viewer, inout Surface surface, float3 geometric)
+{
+    if (dot(surface.normal, geometric) < 0.995) { return; }
+    float3 d = surface.position - viewer;
+    float distance = length(d);
+    if (distance <= 1e-4) { return; }
+    float tolerance = max(0.02, distance * 0.02);
+    RayDesc ray;
+    ray.Origin = viewer;
+    ray.Direction = d / distance;
+    ray.TMin = max(distance - tolerance, 0.0);
+    ray.TMax = distance + tolerance;
+    Payload payload = (Payload)0;
+    HitObj h = TraceHit(tlas, RAY_FLAG_NONE, 0xFF, ray, payload);
+    if (!h.IsHit()) { return; }
+    Hit hit = ResolveHit(h, 0.0);
+    if (dot(hit.geometricNormal, geometric) < 0.9 || dot(hit.normal, geometric) < 0.2) { return; }
+    surface.normal = hit.normal;
 }
 
 struct Bounce
@@ -712,6 +732,7 @@ void RayGen()
     }
     float3 viewer = frame.views[viewIndex].position.xyz;
     float3 geometric = PrimaryGeometric(gbuffer, pixel, local, viewIndex, surface);
+    SmoothSurfaceNormal(tlas, viewer, surface, geometric);
     uint rng = Hash(pixel.x + pixel.y * 65536u) ^ Hash(frame.frameIndex * 7919u + (mode == 0 ? 17u : 91u));
     float3 toViewer = normalize(viewer - surface.position);
     float bias = frame.normalBias * (1.0 + surface.distance * 0.01);

@@ -130,7 +130,8 @@ void PackGBuffer(uint3 id : SV_DispatchThreadID)
         float3 dx = abs(length(pr - _CameraPosition[view].xyz) - centre) <= abs(length(pl - _CameraPosition[view].xyz) - centre) ? pr - world : world - pl;
         float3 dy = abs(length(pu - _CameraPosition[view].xyz) - centre) <= abs(length(pd - _CameraPosition[view].xyz) - centre) ? pu - world : world - pd;
         normal = cross(dx, dy);
-        normal = dot(normal, normal) > 1e-14 ? normalize(normal) : float3(0, 1, 0);
+        float lengthSquared = dot(normal, normal);
+        normal = lengthSquared > 1e-12 * dot(dx, dx) * dot(dy, dy) && lengthSquared > 0.0 ? normal * rsqrt(lengthSquared) : normalize(_CameraPosition[view].xyz - world);
         if (dot(normal, _CameraPosition[view].xyz - world) < 0.0) { normal = -normal; }
     }
     float3 albedo = 0.5;
