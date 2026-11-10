@@ -3,6 +3,25 @@
 
 #include "./BasisGlobalIlluminationCommon.hlsl"
 
+float BasisGIUpsampleWeight(BasisGIPlaneBasis basis, float2 uv, float2 sampleUv, float2 tapUv, float3 centrePosition, float3 centreNormal)
+{
+    UNITY_BRANCH
+    if (basis.statsUsable)
+    {
+        float tapEye = BasisGIStats(sampleUv).x;
+        return tapEye > 0.0 ? exp(-BasisGIPlaneDistance(basis, tapUv - uv, tapEye) / basis.scale) : 0.0;
+    }
+    float sampleRaw = BasisGISampleRawDepth(tapUv);
+    float plane = abs(dot(centreNormal, BasisGIWorldPosition(tapUv, sampleRaw) - centrePosition));
+    return BasisGIIsSky(sampleRaw) ? 0.0 : exp(-plane / basis.scale);
+}
+
+float2 BasisGIUpsampleTapUv(float2 coord, float2 texel)
+{
+    if (_BasisGIUpsampleParams.x < 0.5) { return (coord + 0.5) * texel; }
+    return (floor((coord + 0.5) * _BasisGISourceTexelSize.zw * texel) + 0.5) * _BasisGISourceTexelSize.xy;
+}
+
 /// <summary>
 /// Half resolution back up to full, weighted so a traced texel only contributes to a pixel on the same
 /// surface. The plane test is the same one the spatial filter uses, and it is what stops the bounce from
@@ -25,37 +44,50 @@ float4 BasisGIUpsample(float2 uv, float centreRaw, float centreEye, bool isSky)
 
     float4 total = float4(0.0, 0.0, 0.0, 0.0);
     float weightSum = 0.0;
+    float bestDepthWeight = 0.0;
 
+    // This runs at full resolution, so the four taps below are the most repeated work in the whole
+    // effect. Taking the parent's depth from the statistics it already wrote costs one traced
+    // resolution fetch where the depth texture costs a full resolution one, and the plane test then
+    // needs no inverse view projection per tap at all.
     UNITY_UNROLL
     for (int y = 0; y < 2; y++)
     {
         UNITY_UNROLL
         for (int x = 0; x < 2; x++)
         {
-            float2 sampleUv = (baseCoord + float2(x, y) + 0.5) * texel;
+            float2 coord = baseCoord + float2(x, y);
+            float2 sampleUv = (coord + 0.5) * texel;
             float bilinear = (x == 0 ? 1.0 - fraction.x : fraction.x) * (y == 0 ? 1.0 - fraction.y : fraction.y);
-
-            // This runs at full resolution, so the four taps below are the most repeated work in the whole
-            // effect. Taking the parent's depth from the statistics it already wrote costs one traced
-            // resolution fetch where the depth texture costs a full resolution one, and the plane test then
-            // needs no inverse view projection per tap at all.
-            float depthWeight;
-
-            UNITY_BRANCH
-            if (basis.statsUsable)
-            {
-                float tapEye = BasisGIStats(sampleUv).x;
-                depthWeight = tapEye > 0.0 ? exp(-BasisGIPlaneDistance(basis, sampleUv - uv, tapEye) / basis.scale) : 0.0;
-            }
-            else
-            {
-                float sampleRaw = BasisGISampleRawDepth(sampleUv);
-                float plane = abs(dot(centreNormal, BasisGIWorldPosition(sampleUv, sampleRaw) - centrePosition));
-                depthWeight = BasisGIIsSky(sampleRaw) ? 0.0 : exp(-plane / basis.scale);
-            }
+            float depthWeight = BasisGIUpsampleWeight(basis, uv, sampleUv, BasisGIUpsampleTapUv(coord, texel), centrePosition, centreNormal);
+            bestDepthWeight = max(bestDepthWeight, depthWeight);
             float weight = bilinear * depthWeight + 1e-4;
             total += SAMPLE_TEXTURE2D_X_LOD(_BasisGIIndirect, sampler_PointClamp, UnityStereoTransformScreenSpaceTex(saturate(sampleUv)), 0) * weight;
             weightSum += weight;
+        }
+    }
+
+    // A silhouette pixel whose four nearest texels all sit on another surface would otherwise take their
+    // bilinear average, which is the blocky edge a low trace resolution shows. The ring around them almost
+    // always holds a texel from this pixel's own surface, and only edge pixels pay for looking.
+    UNITY_BRANCH
+    if (bestDepthWeight < 0.25)
+    {
+        UNITY_LOOP
+        for (int ry = -1; ry <= 2; ry++)
+        {
+            UNITY_LOOP
+            for (int rx = -1; rx <= 2; rx++)
+            {
+                if (rx >= 0 && rx <= 1 && ry >= 0 && ry <= 1) { continue; }
+                float2 coord = baseCoord + float2(rx, ry);
+                float2 sampleUv = (coord + 0.5) * texel;
+                float2 d = coord + 0.5 - (tracedCoord + 0.5);
+                float depthWeight = BasisGIUpsampleWeight(basis, uv, sampleUv, BasisGIUpsampleTapUv(coord, texel), centrePosition, centreNormal);
+                float weight = depthWeight * depthWeight * exp(-0.5 * dot(d, d));
+                total += SAMPLE_TEXTURE2D_X_LOD(_BasisGIIndirect, sampler_PointClamp, UnityStereoTransformScreenSpaceTex(saturate(sampleUv)), 0) * weight;
+                weightSum += weight;
+            }
         }
     }
 

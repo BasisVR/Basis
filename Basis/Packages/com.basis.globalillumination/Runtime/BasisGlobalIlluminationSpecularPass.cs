@@ -660,6 +660,7 @@ public sealed partial class BasisGlobalIlluminationPass
             passData.tint = Color.white;
             passData.tracedTexelSize = new Vector4(1f / tracedWidth, 1f / tracedHeight, tracedWidth, tracedHeight);
             passData.sourceTexelSize = new Vector4(1f / descriptor.width, 1f / descriptor.height, descriptor.width, descriptor.height);
+            passData.upsampleParams = Vector4.zero;
             passData.debugView = 0;
             passData.emitterCount = emitterCount;
             passData.emitterSpheres = emitterSpheres;

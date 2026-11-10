@@ -55,7 +55,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         public bool historyValid, statsValid;
         public Matrix4x4[] previousViewProjection;
         public Vector4[] constants;
-        public Vector4 tint, tracedTexelSize, sourceTexelSize;
+        public Vector4 tint, tracedTexelSize, sourceTexelSize, upsampleParams;
         public Vector4 sky, skyDecode;
         public int debugView, emitterCount;
         public Vector4[] emitterSpheres, emitterRadiance;
@@ -149,6 +149,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     private static readonly int idParams2 = Shader.PropertyToID("_BasisGIParams2");
     private static readonly int idParams3 = Shader.PropertyToID("_BasisGIParams3");    private static readonly int idTint = Shader.PropertyToID("_BasisGITint");
     private static readonly int idTracedTexelSize = Shader.PropertyToID("_BasisGITracedTexelSize");
+    private static readonly int idUpsampleParams = Shader.PropertyToID("_BasisGIUpsampleParams");
     private static readonly int idSourceTexelSize = Shader.PropertyToID("_BasisGISourceTexelSize");
     private static readonly int idSkyCube = Shader.PropertyToID("_BasisGISkyCube");
     private static readonly int idSky = Shader.PropertyToID("_BasisGISky");
@@ -586,7 +587,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
             passData.stage = Stage.Composite;
             passData.material = material;
             passData.sharedConstants = external;
-            if (external) { Configure(passData, settings, tracedWidth, tracedHeight, descriptor, emitterCount, sky); }
+            if (external) { Configure(passData, settings, tracedWidth, tracedHeight, descriptor, emitterCount, sky); passData.upsampleParams = new Vector4(1f, 0f, 0f, 0f); }
             passData.materialPass = DebugView != BasisGlobalIlluminationDebugView.None ? PassDebug : (surface.IsValid() ? PassCompositeSurface : PassComposite);
             passData.surface = surface;
             passData.surfaceValid = surface.IsValid();
@@ -629,6 +630,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         passData.tint = settings.tint.linear;
         passData.tracedTexelSize = new Vector4(1f / tracedWidth, 1f / tracedHeight, tracedWidth, tracedHeight);
         passData.sourceTexelSize = new Vector4(1f / descriptor.width, 1f / descriptor.height, descriptor.width, descriptor.height);
+        passData.upsampleParams = Vector4.zero;
         passData.debugView = (int)DebugView;
         passData.emitterCount = emitterCount;
         passData.emitterSpheres = emitterSpheres;
@@ -1399,6 +1401,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         cmd.SetGlobalVector(idParams3, data.constants[3]);        cmd.SetGlobalVector(idTint, data.tint);
         cmd.SetGlobalVector(idTracedTexelSize, data.tracedTexelSize);
         cmd.SetGlobalVector(idSourceTexelSize, data.sourceTexelSize);
+        cmd.SetGlobalVector(idUpsampleParams, data.upsampleParams);
         cmd.SetGlobalVector(idSky, data.sky);
         cmd.SetGlobalVector(idSkyDecode, data.skyDecode);
         cmd.SetGlobalInteger(idDebugView, data.debugView);

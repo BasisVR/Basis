@@ -613,6 +613,9 @@ void RayGen()
         uint rng = Hash(pixel.x * 7919u + pixel.y * 6271u) ^ Hash(frame.frameIndex * 104729u + 7u);
         LightCandidate chosen = (LightCandidate)0;
         float chosenTarget = 0.0, wsum = 0.0, count = meta.y;
+        float4 partAt[SPATIAL_NEIGHBOURS];
+        float partRadius[SPATIAL_NEIGHBOURS], partM[SPATIAL_NEIGHBOURS];
+        uint parts = 0;
         if (meta.x > 0.0)
         {
             LightCandidate own = EvaluateStored(id, origin, normal, nearRadius);
@@ -631,6 +634,10 @@ void RayGen()
             float4 neighbourAt = asfloat(scratch.Load4(no + 32u));
             if (dot(UnpackNormal(asuint(neighbourAt.w)), normal) < 0.9 || abs(dot(neighbourAt.xyz - origin, normal)) > tolerance) { continue; }
             count += neighbourMeta.y;
+            partAt[parts] = neighbourAt;
+            partRadius[parts] = neighbourMeta.z;
+            partM[parts] = neighbourMeta.y;
+            parts++;
             if (!(neighbourMeta.x > 0.0)) { continue; }
             LightCandidate c = EvaluateStored(scratch.Load4(no), origin, normal, nearRadius);
             float t = Luminance(c.value);
@@ -641,7 +648,15 @@ void RayGen()
                 if (Random(rng) * wsum < w) { chosen = c; chosenTarget = t; }
             }
         }
-        float W = chosenTarget > 0.0 && count > 0.0 ? wsum / (count * chosenTarget) : 0.0;
+        float z = meta.y;
+        if (chosenTarget > 0.0)
+        {
+            [loop] for (uint k = 0; k < parts; k++)
+            {
+                if (Luminance(EvaluateStored(chosen.id, partAt[k].xyz, UnpackNormal(asuint(partAt[k].w)), partRadius[k]).value) > 0.0) { z += partM[k]; }
+            }
+        }
+        float W = chosenTarget > 0.0 && z > 0.0 ? wsum / (z * chosenTarget) : 0.0;
         if (W > 0.0 && chosen.shadow && Occluded(tlas, origin, chosen.direction, max(chosen.distance * 0.999 - frame.normalBias * 2.0, 0.0))) { W = 0.0; }
         if (W > 0.0 && isfinite(W))
         {

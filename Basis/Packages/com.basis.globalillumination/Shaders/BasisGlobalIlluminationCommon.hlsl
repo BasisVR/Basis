@@ -115,6 +115,7 @@ float4 _BasisGIParams3;
 float4 _BasisGITint;
 float4 _BasisGITracedTexelSize;
 float4 _BasisGISourceTexelSize;
+float4 _BasisGIUpsampleParams;
 /// Mip to read in x, and how much of it to let through in y - zero when the fallback is off or
 /// there is no environment bound at all.
 float4 _BasisGISky;
