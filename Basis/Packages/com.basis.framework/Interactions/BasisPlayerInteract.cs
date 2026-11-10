@@ -265,7 +265,9 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 // here instead — down in the chain a hand ray that merely crossed an interactable
                 // would swallow a press that was meant for a chain. Desktop keeps both in the chain:
                 // there the trigger IS the pickup button.
-                if (!desktopEye && triggerPressedAgain)
+                bool pickupBlocked = BasisHandBlocks.IsBlocked(interactInput.input, BasisHandBlockKind.Pickup)
+                    && (interactInput.lastTarget == null || !interactInput.lastTarget.IsInteractingWith(interactInput.input));
+                if (!desktopEye && triggerPressedAgain && !pickupBlocked)
                 {
                     BasisJiggleGrabDriver.TryBeginGrab(interactInput.input, true);
                 }
@@ -277,8 +279,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 hoverSphere.OnlySortClosest = OnlySortClosest;
                 hoverSphere.PollSystem(interactInput.input.RaycastCoord.position);
 
-                BasisInteractableObject hitInteractable = SelectTarget(interactInput, hoverSphere);
-                if (desktopEye) DiagnoseNamePlateMiss(interactInput, hitInteractable);
+                BasisInteractableObject hitInteractable = pickupBlocked ? null : SelectTarget(interactInput, hoverSphere);
+                if (desktopEye && !pickupBlocked) DiagnoseNamePlateMiss(interactInput, hitInteractable);
 
                 if (hitInteractable != null)
                 {
@@ -287,7 +289,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     UpdatePickupState(hitInteractable, ref interactInput);
                 }
                 // Direct grab detection: hand-proximity grab for VR hands
-                else if (TryDetectDirectGrab(interactInput, gripPressedAgain, out BasisInteractableObject grabTarget))
+                else if (!pickupBlocked && TryDetectDirectGrab(interactInput, gripPressedAgain, out BasisInteractableObject grabTarget))
                 {
                     HandleDirectGrab(grabTarget, ref interactInput);
                 }
@@ -295,7 +297,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 // missed, and never touches lastTarget, so pickup priority and the interact state
                 // machine hold. A trigger press in VR was already offered a grab above; if it took
                 // one, the hand reads as busy here and this is a no-op.
-                else if (BasisJiggleGrabDriver.TryBeginGrab(interactInput.input,
+                else if (!pickupBlocked && BasisJiggleGrabDriver.TryBeginGrab(interactInput.input,
                     desktopEye ? triggerPressedAgain : gripPressedAgain))
                 {
                 }
@@ -554,7 +556,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             point = Vector3.zero;
 
             BasisPointRaycaster caster = interactInput.input.BasisPointRaycaster;
-            if (caster == null || caster.BlocksOtherControl)
+            if (caster == null || caster.BlocksOtherControl || BasisHandBlocks.IsBlocked(interactInput.input, BasisHandBlockKind.Raycast))
             {
                 return false;
             }
@@ -1201,7 +1203,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// <returns><c>true</c> when the grab was started.</returns>
         public bool TryDirectGrab(BasisInteractableObject target, BasisInput input)
         {
-            if (target == null || input == null || !target.CanDirectGrab(input))
+            if (target == null || input == null || BasisHandBlocks.IsBlocked(input, BasisHandBlockKind.Pickup) || !target.CanDirectGrab(input))
             {
                 return false;
             }

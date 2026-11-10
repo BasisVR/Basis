@@ -955,16 +955,24 @@ namespace Basis.Scripts.Device_Management.Devices
                 return;
             }
             bool pointerActive = PointerActive;
-            if (pointerActive)
+            bool rayBlocked = pointerActive && BasisHandBlocks.IsBlocked(this, BasisHandBlockKind.Raycast);
+            if (pointerActive && !rayBlocked)
             {
                 BasisPointRaycaster.UpdateRaycast();
                 BasisUIRaycast.HandleUIRaycast();
             }
-            else if (pointerWasActive)
+            else
             {
-                HidePointer();
+                if (pointerWasActive)
+                {
+                    HidePointer();
+                }
+                if (rayBlocked)
+                {
+                    BasisPointRaycaster.UpdateRay();
+                }
             }
-            pointerWasActive = pointerActive;
+            pointerWasActive = pointerActive && !rayBlocked;
         }
 
         /// <summary>

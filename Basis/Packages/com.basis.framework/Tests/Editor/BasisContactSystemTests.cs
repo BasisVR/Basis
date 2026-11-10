@@ -41,7 +41,7 @@ namespace Basis.Tests.Contacts
             public byte Side, Flags;
         }
 
-        private Result EvaluateOne(Shape receiver, byte flags, int[] receiverTags, SenderSpec[] senders, byte allowedRemote = 1, byte contactsFromOthers = 1, byte hapticsFromOthers = 1, byte hapticsFromSelf = 1, byte side = 0)
+        private Result EvaluateOne(Shape receiver, byte flags, int[] receiverTags, SenderSpec[] senders, byte allowedRemote = 1, byte contactsFromOthers = 1, byte hapticsFromOthers = 1, byte hapticsFromSelf = 1, byte side = 0, byte blockedHandSides = 0)
         {
             int shapeCount = senders.Length + 1;
             var shapes = Track(new NativeArray<Shape>(shapeCount, Allocator.TempJob));
@@ -94,7 +94,7 @@ namespace Basis.Tests.Contacts
                 Tags = tags,
                 IdToSlot = idToSlot,
                 SlotStates = players,
-                Settings = new Settings { ContactsFromOthers = contactsFromOthers, HapticsFromOthers = hapticsFromOthers, HapticsFromSelf = hapticsFromSelf },
+                Settings = new Settings { ContactsFromOthers = contactsFromOthers, HapticsFromOthers = hapticsFromOthers, HapticsFromSelf = hapticsFromSelf, BlockedHandSides = blockedHandSides },
                 GroupCount = groupList.Count,
                 Results = results,
             }.Run(1);
@@ -149,6 +149,33 @@ namespace Basis.Tests.Contacts
         {
             Result r = EvaluateOne(Sphere(0, 0.1f), AllowAll | OnAvatar, null, new[] { Sender(0, 0.05f, RemoteIndex) }, allowedRemote: 0);
             Assert.AreEqual(0, r.Touched);
+        }
+
+        [Test]
+        public void BlockedHand_SkipsWorldReceiversOnly()
+        {
+            SenderSpec[] left = { Sender(0, 0.05f, LocalIndex, side: SideLeft, flags: SenderBody | SenderHand) };
+            Assert.AreEqual(0, EvaluateOne(Sphere(0, 0.1f), AllowAll, null, left, blockedHandSides: SideLeft).Touched);
+            Assert.AreEqual(1, EvaluateOne(Sphere(0, 0.1f), AllowAll, null, left, blockedHandSides: SideRight).Touched);
+            Assert.AreEqual(1, EvaluateOne(Sphere(0, 0.1f), AllowAll | OnAvatar, null, left, blockedHandSides: SideLeft).Touched);
+        }
+
+        [Test]
+        public void BlockedHand_LeavesFeetAndOtherPlayersAlone()
+        {
+            SenderSpec[] foot = { Sender(0, 0.05f, LocalIndex, side: SideLeft, flags: SenderBody) };
+            Assert.AreEqual(1, EvaluateOne(Sphere(0, 0.1f), AllowAll, null, foot, blockedHandSides: SideLeft | SideRight).Touched);
+            SenderSpec[] remote = { Sender(0, 0.05f, RemoteIndex, side: SideLeft, flags: SenderBody | SenderHand) };
+            Assert.AreEqual(1, EvaluateOne(Sphere(0, 0.1f), AllowAll, null, remote, blockedHandSides: SideLeft | SideRight).Touched);
+        }
+
+        [Test]
+        public void BlockedHand_OtherHandStillTouches()
+        {
+            SenderSpec[] both = { Sender(0, 0.05f, LocalIndex, side: SideLeft, flags: SenderBody | SenderHand), Sender(new float3(0.02f, 0, 0), 0.05f, LocalIndex, side: SideRight, flags: SenderBody | SenderHand) };
+            Result r = EvaluateOne(Sphere(0, 0.1f), AllowAll, null, both, blockedHandSides: SideLeft);
+            Assert.AreEqual(1, r.Touched);
+            Assert.AreEqual(1f - 0.02f / 0.15f, r.Value, Tolerance);
         }
 
         [Test]

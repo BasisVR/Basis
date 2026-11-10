@@ -82,7 +82,7 @@ namespace Basis.Scripts.UI
                     continue;
                 }
 
-                if (input.HasRaycaster && !input.PointerActive)
+                if (input.HasRaycaster && (!input.PointerActive || BasisHandBlocks.IsBlocked(input, BasisHandBlockKind.Raycast)))
                 {
                     var staleEventData = input.BasisUIRaycast.CurrentEventData;
                     if (staleEventData != null && staleEventData.WasLastDown)

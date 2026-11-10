@@ -30,6 +30,8 @@ namespace Cilbox
 			"Basis.Shims.BasisLockShim",
 			"Basis.Shims.BasisPlayerLock",
 			"Basis.Shims.BasisLockResult",
+			"Basis.Shims.BasisHandBlockShim",
+			"Basis.Shims.BasisHandBlock",
 			// Bulk transform / blendshape get-set-copy. The prop and scene boxes pick these up
 			// from their blanket "Basis.Shims.*"; the avatar box enumerates, so they need naming.
 			// They grant no authority a script does not already have on a Transform or a

@@ -37,7 +37,7 @@ namespace Basis.Scripts.Contacts
         public static bool ContactsFromOthers = true;
         public const byte SourceBody = 0, SourceAuthored = 1;
         public const byte KindAuthoredSphere = 0, KindAuthoredCapsule = 1, KindBoneSphere = 2, KindBoneCapsule = 3, KindPalm = 4, KindTorsoZone = 5;
-        public const byte SenderBody = 1, SenderSelfHapticOk = 2;
+        public const byte SenderBody = 1, SenderSelfHapticOk = 2, SenderHand = 4;
         public const byte ReceiverAllowSelf = 1, ReceiverAllowOthers = 2, ReceiverAllowWorld = 4, ReceiverOnAvatar = 8, ReceiverHapticZone = 16;
         public const byte SideNone = 0, SideLeft = 1, SideRight = 2;
         public const int WorldOwner = -1;
@@ -101,7 +101,7 @@ namespace Basis.Scripts.Contacts
 
         public struct Settings
         {
-            public byte ContactsFromOthers, HapticsFromOthers, HapticsFromSelf;
+            public byte ContactsFromOthers, HapticsFromOthers, HapticsFromSelf, BlockedHandSides;
         }
 
         public struct Probe
@@ -376,6 +376,10 @@ namespace Basis.Scripts.Contacts
                             {
                                 continue;
                             }
+                        }
+                        if (local && !onAvatar && (sender.Flags & SenderHand) != 0 && (sender.Side & Settings.BlockedHandSides) != 0)
+                        {
+                            continue;
                         }
                         if (!TagsMatch(receiver, sender))
                         {
@@ -708,6 +712,7 @@ namespace Basis.Scripts.Contacts
                 ContactsFromOthers = ContactsFromOthers ? (byte)1 : (byte)0,
                 HapticsFromOthers = BasisBodyHaptics.FromOthers ? (byte)1 : (byte)0,
                 HapticsFromSelf = BasisBodyHaptics.FromSelf ? (byte)1 : (byte)0,
+                BlockedHandSides = (byte)((BasisHandBlocks.IsBlocked(BasisHandBlocks.Left, BasisHandBlockKind.Touch) ? SideLeft : 0) | (BasisHandBlocks.IsBlocked(BasisHandBlocks.Right, BasisHandBlockKind.Touch) ? SideRight : 0)),
             };
             bool readLocal = hapticCount > 0 || bodySelf, readRemote = bodyOthers && slotById.Count > (slots[0].Used ? 1 : 0);
             JobHandle read = default, build = default;
@@ -1530,10 +1535,10 @@ namespace Basis.Scripts.Contacts
                 int d = BodyShapeIndex(slot, 0);
                 senderList.Add(new SenderMeta { Shape = d + 0, TagOffset = 0, TagCount = 1, Source = SourceBody, Side = SideNone, Flags = SenderBody });
                 senderList.Add(new SenderMeta { Shape = d + 1, TagOffset = 1, TagCount = 1, Source = SourceBody, Side = SideNone, Flags = SenderBody });
-                senderList.Add(new SenderMeta { Shape = d + 2, TagOffset = 2, TagCount = 2, Source = SourceBody, Side = SideLeft, Flags = SenderBody | SenderSelfHapticOk });
-                senderList.Add(new SenderMeta { Shape = d + 3, TagOffset = 4, TagCount = 2, Source = SourceBody, Side = SideLeft, Flags = SenderBody | SenderSelfHapticOk });
-                senderList.Add(new SenderMeta { Shape = d + 4, TagOffset = 6, TagCount = 2, Source = SourceBody, Side = SideRight, Flags = SenderBody | SenderSelfHapticOk });
-                senderList.Add(new SenderMeta { Shape = d + 5, TagOffset = 8, TagCount = 2, Source = SourceBody, Side = SideRight, Flags = SenderBody | SenderSelfHapticOk });
+                senderList.Add(new SenderMeta { Shape = d + 2, TagOffset = 2, TagCount = 2, Source = SourceBody, Side = SideLeft, Flags = SenderBody | SenderSelfHapticOk | SenderHand });
+                senderList.Add(new SenderMeta { Shape = d + 3, TagOffset = 4, TagCount = 2, Source = SourceBody, Side = SideLeft, Flags = SenderBody | SenderSelfHapticOk | SenderHand });
+                senderList.Add(new SenderMeta { Shape = d + 4, TagOffset = 6, TagCount = 2, Source = SourceBody, Side = SideRight, Flags = SenderBody | SenderSelfHapticOk | SenderHand });
+                senderList.Add(new SenderMeta { Shape = d + 5, TagOffset = 8, TagCount = 2, Source = SourceBody, Side = SideRight, Flags = SenderBody | SenderSelfHapticOk | SenderHand });
                 senderList.Add(new SenderMeta { Shape = d + 6, TagOffset = 10, TagCount = 2, Source = SourceBody, Side = SideLeft, Flags = SenderBody });
                 senderList.Add(new SenderMeta { Shape = d + 7, TagOffset = 12, TagCount = 2, Source = SourceBody, Side = SideRight, Flags = SenderBody });
                 groupList.Add(new Group { Start = slot * ShapesPerSlot, Count = 0, OwnerId = WorldOwner });
