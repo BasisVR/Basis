@@ -546,6 +546,24 @@ public static partial class SettingsProviderIK
                 vspineTorsoYawDeadzone.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.vspineTorsoYawDeadzone.title.tooltip"));
             }
 
+            var vspineTorsoYawSoftZone = PanelSlider.CreateAndBind(
+                vspineParent,
+                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.vspineTorsoYawSoftZone.title"), 0f, 90f, false, 1, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.VSpineTorsoYawSoftZoneDeg);
+            if (vspineTorsoYawSoftZone != null)
+            {
+                vspineTorsoYawSoftZone.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.vspineTorsoYawSoftZone.title.tooltip"));
+            }
+
+            var vspineTorsoYawSoftFollow = PanelSlider.CreateAndBind(
+                vspineParent,
+                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.vspineTorsoYawSoftFollow.title"), 0f, 20f, false, 1, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.VSpineTorsoYawSoftFollowSpeed);
+            if (vspineTorsoYawSoftFollow != null)
+            {
+                vspineTorsoYawSoftFollow.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.vspineTorsoYawSoftFollow.title.tooltip"));
+            }
+
             var vspineTorsoYawBlend = PanelSlider.CreateAndBind(
                 vspineParent,
                 PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.vspineTorsoYawBlend.title"), 1f, 60f, false, 1, ValueDisplayMode.Raw),
@@ -1120,6 +1138,8 @@ public static partial class SettingsProviderIK
         BasisSettingsDefaults.VSpineHipsRotationSpeed.ResetToDefault();
         BasisSettingsDefaults.VSpineHipsForwardBias.ResetToDefault();
         BasisSettingsDefaults.VSpineTorsoYawDeadzoneDeg.ResetToDefault();
+        BasisSettingsDefaults.VSpineTorsoYawSoftZoneDeg.ResetToDefault();
+        BasisSettingsDefaults.VSpineTorsoYawSoftFollowSpeed.ResetToDefault();
         BasisSettingsDefaults.VSpineTorsoYawBlendSpeed.ResetToDefault();
         BasisSettingsDefaults.VSpinePostureModel.ResetToDefault();
         BasisSettingsDefaults.VSpineHipsCompressionStrength.ResetToDefault();

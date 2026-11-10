@@ -3215,6 +3215,14 @@
       "value": "How far you can turn your head before the torso follows."
     },
     {
+      "key": "settings.bodyTracking.vspineTorsoYawSoftZone.title.tooltip",
+      "value": "How far you can turn your head before the torso starts gently turning with it."
+    },
+    {
+      "key": "settings.bodyTracking.vspineTorsoYawSoftFollow.title.tooltip",
+      "value": "How quickly the torso gently turns with your head before the hard limit."
+    },
+    {
       "key": "settings.bodyTracking.vspineTorsoYawBlend.title.tooltip",
       "value": "How quickly the torso turns to catch up with your head."
     },
@@ -11560,7 +11568,23 @@
     },
     {
       "key": "settings.bodyTracking.vspineTorsoYawDeadzone.description",
-      "value": "Degrees the head can turn before the chest/spine/hips start following. The torso holds inside this cone, then catches up to the head; the cone re-centers when the head stops, so reversing must re-cross it. 0 = follow immediately. Default: 45"
+      "value": "Hard limit, in degrees, on how far the head can turn away from the chest/spine/hips. Past this the torso is dragged along so it stays exactly this far behind the head. 0 = follow immediately. Default: 50"
+    },
+    {
+      "key": "settings.bodyTracking.vspineTorsoYawSoftZone.title",
+      "value": "Torso Yaw Soft Zone (°)"
+    },
+    {
+      "key": "settings.bodyTracking.vspineTorsoYawSoftZone.description",
+      "value": "Degrees the head can turn before the torso starts easing after it. Between this and Torso Yaw Play the torso turns smoothly, settling this far behind the head. Set at or above Torso Yaw Play to turn the easing off. Default: 35"
+    },
+    {
+      "key": "settings.bodyTracking.vspineTorsoYawSoftFollow.title",
+      "value": "Torso Yaw Soft Follow Speed"
+    },
+    {
+      "key": "settings.bodyTracking.vspineTorsoYawSoftFollow.description",
+      "value": "How quickly the torso eases after the head inside the soft zone. It speeds up as the head nears the hard limit. 0 = no easing. Default: 3"
     },
     {
       "key": "settings.bodyTracking.vspineTorsoYawBlend.title",

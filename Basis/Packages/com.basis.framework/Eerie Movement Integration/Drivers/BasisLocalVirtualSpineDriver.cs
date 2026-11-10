@@ -186,6 +186,8 @@ namespace Basis.IK
                 NeckExtensionDamp = Basis.BasisUI.BasisSettingsDefaults.FBIKNeckExtensionDamp.RawValue,
                 NeckFlexionDamp = Basis.BasisUI.BasisSettingsDefaults.FBIKNeckFlexionDamp.RawValue,
                 TorsoYawDeadzoneDeg = torsoYawDeadzoneDeg,
+                TorsoYawSoftZoneDeg = Basis.BasisUI.BasisSettingsDefaults.VSpineTorsoYawSoftZoneDeg.RawValue,
+                TorsoYawSoftFollowSpeed = Basis.BasisUI.BasisSettingsDefaults.VSpineTorsoYawSoftFollowSpeed.RawValue,
                 TorsoYawBlendSpeed = Basis.BasisUI.BasisSettingsDefaults.VSpineTorsoYawBlendSpeed.RawValue,
 
                 HipsFreeze = (byte)(HipsFreezeToTpose ? 1 : 0),

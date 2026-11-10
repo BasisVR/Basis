@@ -20,6 +20,8 @@ namespace Basis.IK
         // With no hips/chest tracker the hips hang below the head at the T-pose offset. This is how much of the head's
         // pitch/roll tips that offset, pushing the hips out the other way. 0 = hips stay straight below, 1 = rigid with the head.
         private const float HipsTiltWeight = 0.2f;
+        // How much faster the torso eases at the hard edge of the yaw band than at the soft edge.
+        private const float SoftBandEdgeSpeedMul = 4f;
         public struct SpineSolveParams
         {
             public float Dt, Scale, TrackingLiftY;
@@ -41,7 +43,7 @@ namespace Basis.IK
             public float ChestRotationSpeed, SpineRotationSpeed, HipsRotationSpeed;
             public float3 GazeSwingLever;
             public float TposeNeckMinusEyeY, GazeSwingRemoval, HipsForwardBias, NeckExtensionDamp, NeckFlexionDamp;
-            public float TorsoYawDeadzoneDeg, TorsoYawBlendSpeed;
+            public float TorsoYawDeadzoneDeg, TorsoYawSoftZoneDeg, TorsoYawSoftFollowSpeed, TorsoYawBlendSpeed;
             public byte HipsFreeze, IsLocomoting;
             public float LenTotal, TChest, TSpine, StandingHipsLocalY, StandingHeadLocalY;
             public float3 EyePos, HipsAnchorOffsetLocal, HeadRestFromEyeLocal, YawPivotFromEyeLocal;
@@ -104,7 +106,7 @@ namespace Basis.IK
                 ExtractYawBurst(in eyeRot, out quaternion headYawFromEye);
 
                 bool isLocomoting = P.IsLocomoting != 0;
-                quaternion torsoYawTarget = ComputeTorsoYawTargetBurst(ref s, in headYawFromEye, P.TorsoYawDeadzoneDeg, P.TorsoYawBlendSpeed, isLocomoting, dt);
+                quaternion torsoYawTarget = ComputeTorsoYawTargetBurst(ref s, in headYawFromEye, P.TorsoYawDeadzoneDeg, P.TorsoYawSoftZoneDeg, P.TorsoYawSoftFollowSpeed, P.TorsoYawBlendSpeed, isLocomoting, dt);
 
                 float3 hipsPos;
                 quaternion hipsRot;
@@ -295,7 +297,10 @@ namespace Basis.IK
             }
             result = math.normalize(new quaternion(new float4(axis, 1f + d)));
         }
-        private static quaternion ComputeTorsoYawTargetBurst(ref SpineSolveState s, in quaternion headYawOnly, float deadzoneDeg, float blendSpeed, bool moving, float dt)
+        // Three zones by head-to-torso yaw: inside softZone the torso holds; between softZone and deadzone it eases toward
+        // softZone behind the head (faster the closer it gets to deadzone); past deadzone it is dragged rigidly. softZone >=
+        // deadzone turns the easing band off and gives the plain hard-drag behaviour.
+        private static quaternion ComputeTorsoYawTargetBurst(ref SpineSolveState s, in quaternion headYawOnly, float deadzoneDeg, float softZoneDeg, float softFollowSpeed, float blendSpeed, bool moving, float dt)
         {
             YawDegrees(in headYawOnly, out float headYawDeg);
 
@@ -311,8 +316,21 @@ namespace Basis.IK
                 s.TorsoYawDeg += DeltaAngleDeg(s.TorsoYawDeg, headYawDeg) * BasisSmoothingProfiles.FramerateIndependentAlpha(blendSpeed, dt);
             }
 
-            // The head turns freely inside the deadzone. Past it, the head drags the torso along so it stays exactly deadzone behind.
-            float deadzone = math.max(0f, deadzoneDeg), delta = DeltaAngleDeg(s.TorsoYawDeg, headYawDeg);
+            float deadzone = math.max(0f, deadzoneDeg), softZone = math.max(0f, softZoneDeg), delta = DeltaAngleDeg(s.TorsoYawDeg, headYawDeg);
+
+            // Easing band: close the gap down to softZone. The step is proportional to how far past softZone the head is,
+            // so the torso starts from zero speed at the soft edge, and the rate ramps up toward the hard edge so reaching
+            // the hard clamp during a fast turn is less of a jolt.
+            float absDelta = math.abs(delta);
+            if (softZone < deadzone && softFollowSpeed > 0f && absDelta > softZone)
+            {
+                float edgeRamp = math.smoothstep(softZone, deadzone, absDelta);
+                float rate = softFollowSpeed * math.lerp(1f, SoftBandEdgeSpeedMul, edgeRamp);
+                s.TorsoYawDeg += math.sign(delta) * (absDelta - softZone) * BasisSmoothingProfiles.FramerateIndependentAlpha(rate, dt);
+                delta = DeltaAngleDeg(s.TorsoYawDeg, headYawDeg);
+            }
+
+            // Hard limit: past the deadzone the head drags the torso along so it stays exactly deadzone behind.
             if (delta > deadzone) s.TorsoYawDeg = headYawDeg - deadzone;
             else if (delta < -deadzone) s.TorsoYawDeg = headYawDeg + deadzone;
 

@@ -1998,10 +1998,17 @@ namespace Basis.BasisUI
         // The two knobs above are consulted ONLY when this is off.
         public static BasisSettingsBinding<bool> VSpinePostureModel = new("vspineposturemodel", new BasisPlatformDefault<bool>(true));
 
-        // Torso yaw "play": degrees the head can turn freely before it starts dragging the synthesized
-        // chest/spine/hips along with it. Past this, the torso stays exactly this far behind the head.
+        // Torso yaw "play": the hard limit. Past this many degrees of head turn the synthesized
+        // chest/spine/hips are dragged rigidly so they stay exactly this far behind the head.
         // Applies to desktop and VR alike. 0 = torso follows the head immediately.
-        public static BasisSettingsBinding<float> VSpineTorsoYawDeadzoneDeg = new("vspinetorsoyawdeadzonedeg", new BasisPlatformDefault<float>(45f));
+        public static BasisSettingsBinding<float> VSpineTorsoYawDeadzoneDeg = new("vspinetorsoyawdeadzonedeg", new BasisPlatformDefault<float>(50f));
+
+        // Torso yaw soft zone: past this many degrees (but before the hard limit above) the torso starts
+        // easing toward the head, settling this far behind it. Set it at or above the hard limit to disable.
+        public static BasisSettingsBinding<float> VSpineTorsoYawSoftZoneDeg = new("vspinetorsoyawsoftzonedeg", new BasisPlatformDefault<float>(35f));
+
+        // How quickly the torso eases inside the soft band (same speed scale as the rotation speeds).
+        public static BasisSettingsBinding<float> VSpineTorsoYawSoftFollowSpeed = new("vspinetorsoyawsoftfollowspeed", new BasisPlatformDefault<float>(3f));
 
         // How quickly the torso eases back to face the head while locomoting (slerp dt scaling, like
         // the rotation speeds). Lower = softer, higher = snappier.
@@ -2960,6 +2967,8 @@ namespace Basis.BasisUI
             VSpineHipsMaxDropMeters.LoadBindingValue();
             VSpinePostureModel.LoadBindingValue();
             VSpineTorsoYawDeadzoneDeg.LoadBindingValue();
+            VSpineTorsoYawSoftZoneDeg.LoadBindingValue();
+            VSpineTorsoYawSoftFollowSpeed.LoadBindingValue();
             VSpineTorsoYawBlendSpeed.LoadBindingValue();
 
             // Tracker pairing
