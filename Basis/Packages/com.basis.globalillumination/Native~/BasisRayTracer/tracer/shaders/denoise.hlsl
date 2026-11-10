@@ -160,6 +160,7 @@ void Wavelet(uint3 id : SV_DispatchThreadID)
 
     float4 sum = centre;
     float weightSum = 1.0;
+    float support = 0.0, around = -1.0;
     static const float kernel[3] = { 1.0, 2.0 / 3.0, 1.0 / 6.0 };
     [unroll] for (int y = -2; y <= 2; y++)
     {
@@ -174,10 +175,22 @@ void Wavelet(uint3 id : SV_DispatchThreadID)
             float4 c = source[tap];
             float wn = saturate(dot(normal, CompactNormal(tg.w)));
             wn *= wn; wn *= wn; wn *= wn; wn *= wn; wn *= wn;
-            float w = kernel[abs(x)] * kernel[abs(y)] * wn * exp(-abs(dot(f16tof32(tg.xyz) - position, normal)) * inversePlane - abs(Luminance(c.rgb) - lc) * inverseSigma);
+            float plane = abs(dot(f16tof32(tg.xyz) - position, normal)) * inversePlane;
+            float tl = Luminance(c.rgb);
+            float k = kernel[abs(x)] * kernel[abs(y)];
+            float w = k * wn * exp(-plane - abs(tl - lc) * inverseSigma);
             sum += c * w;
             weightSum += w;
+            float same = plane < 2.0 ? k * wn : 0.0;
+            support += same;
+            if (abs(x) <= 1 && abs(y) <= 1 && same < 0.5 * k) { around = max(around, tl); }
         }
     }
-    target[pixel] = sum / weightSum;
+    float4 result = sum / weightSum;
+    if (pass.d == 0u && support < 1.5 && around >= 0.0)
+    {
+        float l = Luminance(result.rgb);
+        if (l > around) { result.rgb *= around / l; }
+    }
+    target[pixel] = result;
 }

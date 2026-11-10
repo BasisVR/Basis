@@ -73,6 +73,7 @@ struct Quad { corner: V3, u: V3, v: V3, normal: V3, albedo: V3, emission: V3, ma
 
 fn room() -> Vec<Quad> {
     let white = [0.75, 0.75, 0.75];
+    let ls: f32 = std::env::var("LIGHTSIZE").ok().and_then(|v| v.parse().ok()).unwrap_or(1.0);
     let q = |corner: V3, u: V3, v: V3, albedo: V3, emission: V3, material: u32| { let n = normalize(cross(u, v)); Quad { corner, u, v, normal: n, albedo, emission, material } };
     vec![
         q([-3.0, 0.0, -3.0], [0.0, 0.0, 6.0], [6.0, 0.0, 0.0], white, [0.0; 3], 0),
@@ -81,7 +82,7 @@ fn room() -> Vec<Quad> {
         q([-3.0, 0.0, -3.0], [6.0, 0.0, 0.0], [0.0, 3.0, 0.0], white, [0.0; 3], 0),
         q([-3.0, 0.0, -3.0], [0.0, 3.0, 0.0], [0.0, 0.0, 6.0], [0.8, 0.1, 0.1], [0.0; 3], 1),
         q([3.0, 0.0, -3.0], [0.0, 0.0, 6.0], [0.0, 3.0, 0.0], [0.1, 0.8, 0.1], [0.0; 3], 2),
-        q([-0.6, 2.98, 0.4], [1.2, 0.0, 0.0], [0.0, 0.0, 1.2], [1.0; 3], [12.0, 11.0, 9.0], 3),
+        q([-0.6 * ls, 2.98, 1.0 - 0.6 * ls], [1.2 * ls, 0.0, 0.0], [0.0, 0.0, 1.2 * ls], [1.0; 3], [12.0 / (ls * ls), 11.0 / (ls * ls), 9.0 / (ls * ls)], 3),
     ]
 }
 
@@ -230,6 +231,14 @@ fn main() {
         let mut record_us = 0u64;
         let freeze = std::env::var("FREEZE").map_or(false, |v| !v.is_empty());
         let avatar_rays: u32 = std::env::var("AVATARRAYS").ok().and_then(|v| v.parse().ok()).unwrap_or(0);
+        let many: usize = std::env::var("MANY").ok().and_then(|v| v.parse().ok()).unwrap_or(0usize).min(MAX_EMITTERS - 2).min(MAX_LIGHTS - 1);
+        let instances = if many > 0 { 2 + many } else { instances };
+        let noise_from: u64 = std::env::var("NOISE_FROM").ok().and_then(|v| v.parse().ok()).unwrap_or(u64::MAX);
+        let (mut noise_sum, mut noise_sq, mut noise_n) = (Vec::<f64>::new(), Vec::<f64>::new(), 0u64);
+        let (mut grid_us, mut grid_wait) = (0u64, 0u64);
+        let mut parity_sum = [[0u64; 8]; 2];
+        let mut parity_n = [0u64; 2];
+        let spot = |j: usize| -> V3 { let a = j as f32 * 2.39996; let r = 5.0 + ((j * 7) % 25) as f32; [r * a.cos(), 0.5 + (j % 3) as f32, r * a.sin()] };
         let room_quads = room();
         let mut times = Vec::new();
 
@@ -276,7 +285,8 @@ fn main() {
             let identity = [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0];
             slot.instances[0] = Instance { transform: identity, mesh: 1, material_base: 0, mask: 0xff, flags: 0, lightmap: -1, ..Default::default() };
             slot.instances[1] = Instance { transform: identity, mesh: 2, material_base: 7, mask: 0xff, flags: INSTANCE_AVATAR | INSTANCE_EMITTER, lightmap: -1, ..Default::default() };
-            for i in 2..instances { slot.instances[i] = Instance { transform: [1.0, 0.0, 0.0, 500.0 + (i % 128) as f32 * 2.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 500.0 + (i / 128) as f32 * 2.0], mesh: 2, material_base: 7, mask: 0xff, flags: 0, lightmap: -1, ..Default::default() }; }
+            for j in 0..many { let p = spot(j); slot.instances[2 + j] = Instance { transform: [1.0, 0.0, 0.0, p[0] - 1.2, 0.0, 1.0, 0.0, p[1] - 0.6, 0.0, 0.0, 1.0, p[2] - 1.0], mesh: 2, material_base: 7, mask: 0xff, flags: 0, lightmap: -1, ..Default::default() }; }
+            for i in (2 + many)..instances { slot.instances[i] = Instance { transform: [1.0, 0.0, 0.0, 500.0 + (i % 128) as f32 * 2.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 500.0 + (i / 128) as f32 * 2.0], mesh: 2, material_base: 7, mask: 0xff, flags: 0, lightmap: -1, ..Default::default() }; }
             let light_off_at = std::env::var("LIGHTOFF").ok().and_then(|v| v.parse::<u64>().ok());
             let lit = if light_off_at.map_or(false, |n| iteration as u64 >= n) { 0.0f32 } else { 1.0f32 } * light_scale;
             for (i, q) in room_quads.iter().enumerate() { slot.materials[i] = Material { base_color: [q.albedo[0], q.albedo[1], q.albedo[2], 1.0], emission: [q.emission[0] * lit, q.emission[1] * lit, q.emission[2] * lit, 0.0], base_st: [1.0, 1.0, 0.0, 0.0], emission_st: [1.0, 1.0, 0.0, 0.0], base_texture: -1, emission_texture: -1, flags: if i == 6 { MATERIAL_EMITTER } else { 0 }, ..Default::default() }; }
@@ -287,12 +297,22 @@ fn main() {
             if light_off_at == Some(iteration as u64) { slot.dirty[0] = [0.0, 2.5, -1.0, if std::env::var("HARDOFF").is_ok() { 13.0 } else { 100013.0 }]; }
             slot.emitters[0] = Emitter { instance: 0, geometry: 6, triangle_count: 2, cdf: 0.7 };
             slot.emitters[1] = Emitter { instance: 1, geometry: 0, triangle_count: 12, cdf: 1.0 };
+            if many > 0 {
+                let weights: Vec<f32> = [0.7f32, 0.3].into_iter().chain((0..many).map(|j| { let p = spot(j); let d = sub(p, camera); 1.2 / dot(d, d).max(1.0) })).collect();
+                let total: f32 = weights.iter().sum();
+                let mut running = 0.0;
+                for (k, w) in weights.iter().enumerate() {
+                    running += w;
+                    slot.emitters[k] = Emitter { instance: if k == 0 { 0 } else { k as u32 }, geometry: if k == 0 { 6 } else { 0 }, triangle_count: if k == 0 { 2 } else { 12 }, cdf: if k + 1 == weights.len() { 1.0 } else { running / total } };
+                }
+                for j in 0..many { let p = spot(j); slot.lights[1 + j] = Light { position: [p[0], p[1] + 1.0, p[2], f32::from_bits(LIGHT_POINT)], direction: [0.0, -1.0, 0.0, 8.0], color: [3.0 * lit, 2.7 * lit, 2.4 * lit, 1.0], spot: [0.0; 4] }; }
+            }
             let v = View { view, projection, inverse_view_projection: [0.0; 16], previous_view_projection: prev_vp, position: [camera[0], camera[1], camera[2], 0.0] };
             slot.params = FrameParams {
-                frame, instance_count: instances as u32, material_count: 8, light_count: 1, command_count: commands.len() as u32, upload_texels: texels.len() as u32,
+                frame, instance_count: instances as u32, material_count: 8, light_count: 1 + many as u32, command_count: commands.len() as u32, upload_texels: texels.len() as u32,
                 flags: FLAG_SCREEN_REUSE | FLAG_SHADOWS | if std::env::var("NODENOISE").is_ok() { 0 } else { FLAG_DENOISE } | FLAG_REORDER | if std::env::var("NOPROBES").map_or(false, |v| !v.is_empty()) { 0 } else { FLAG_PROBES }, width: w, height: h, view_count: views, samples: 2, bounces: 2 | (avatar_rays << 8),
                 max_distance: 100.0, ao_radius: 0.5, emission_scale: 1.0, sky_intensity: 1.0, time: t, firefly_clamp: 30.0, temporal_response: 0.05,
-                light_intensity: 1.0, normal_bias: 0.005, emitter_count: 2, ao_intensity: 0.5, context: 0, parity: (iteration & 1) as u32, cache_cell_size: 0.2, dirty_count: std::env::var("DIRTY").ok().and_then(|v| v.parse().ok()).unwrap_or(1), ambient: [[0.0; 4]; 7], views: [v, v],
+                light_intensity: 1.0, normal_bias: 0.005, emitter_count: 2 + many as u32, ao_intensity: 0.5, context: 0, parity: (iteration & 1) as u32, cache_cell_size: 0.2, dirty_count: std::env::var("DIRTY").ok().and_then(|v| v.parse().ok()).unwrap_or(1), ambient: [[0.0; 4]; 7], views: [v, v],
             };
 
             let all: Vec<Quad> = room().into_iter().chain(cube(cube_center, 0.6)).collect();
@@ -343,10 +363,15 @@ fn main() {
             #[cfg(windows)]
             if let Some(c) = d3c.as_mut() { c.read(); }
             times.push(started.elapsed().as_secs_f64() * 1000.0);
-            if iteration > 16 { for i in 0..8 { gpu_sum[i] += header.reserved[i] as u64; } gpu_n += 1; record_us += header.build_time_us.load(Ordering::Relaxed) as u64; }
+            if iteration > 16 { for i in 0..8 { gpu_sum[i] += header.reserved[i] as u64; } gpu_n += 1; record_us += header.build_time_us.load(Ordering::Relaxed) as u64; grid_us += header.reserved[8] as u64; grid_wait += header.reserved[9] as u64; let lag = header.frame_submitted.load(Ordering::Acquire); let p = (lag & 1) as usize; for i in 0..8 { parity_sum[p][i] += header.reserved[i] as u64; } parity_n[p] += 1; }
             prev_vp = vp;
             let mut current = Vec::with_capacity((pw * h) as usize);
             for y in 0..h { for x in 0..pw { let p = rptr.add((y * rpitch + x * 8) as usize) as *const u16; current.push(f16(*p) * 0.2126 + f16(*p.add(1)) * 0.7152 + f16(*p.add(2)) * 0.0722); } }
+            if iteration as u64 >= noise_from {
+                if noise_sum.len() != current.len() { noise_sum = vec![0.0; current.len()]; noise_sq = vec![0.0; current.len()]; }
+                for i in 0..current.len() { let v = current[i] as f64; noise_sum[i] += v; noise_sq[i] += v * v; }
+                noise_n += 1;
+            }
             if frame > 24 && previous_frame.len() == current.len() {
                 let (mut d, mut m) = (0f64, 0f64);
                 for i in 0..current.len() { d += (current[i] - previous_frame[i]).abs() as f64; m += current[i] as f64; }
@@ -399,6 +424,16 @@ fn main() {
         let a = gpu_sum.map(|v| v as f64 / gpu_n.max(1) as f64);
         println!("gpu us mean over {gpu_n}: total {:.0} | scene {:.0} update {:.0} resolve {:.0} probes {:.0} gather {:.0} temporal {:.0} wavelet {:.0}", a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
         println!("round trip ms median {:.3}, p90 {:.3}; tracer cpu record mean {} us; meshes {}", times[times.len() / 2], times[times.len() * 9 / 10], record_us / gpu_n.max(1), header.mesh_count.load(Ordering::Relaxed));
+        if std::env::var("BASIS_RT_GRID_ALTERNATE").is_ok() {
+            for p in 0..2 { let a = parity_sum[p].map(|v| v as f64 / parity_n[p].max(1) as f64); println!("frames ending {} ({}): total {:.0} | update {:.0} probes {:.0} gather {:.0} temporal {:.0} wavelet {:.0}", p, if p == 0 { "grid" } else { "no grid" }, a[0], a[2], a[4], a[5], a[6], a[7]); }
+        }
+        println!("light grid cpu build mean {} us, record blocked on it {} us", grid_us / gpu_n.max(1), grid_wait / gpu_n.max(1));
+        if noise_n > 1 {
+            let n = noise_n as f64;
+            let (mut std_sum, mut mean_sum) = (0f64, 0f64);
+            for i in 0..noise_sum.len() { let m = noise_sum[i] / n; std_sum += (noise_sq[i] / n - m * m).max(0.0).sqrt(); mean_sum += m; }
+            println!("temporal noise (mean per-pixel std / mean luminance) {:.3}% over {noise_n} frames; mean luminance {:.5}", 100.0 * std_sum / mean_sum.max(1e-12), mean_sum / noise_sum.len() as f64);
+        }
         if contexts > 1 { println!("second context fetched {second_ok}/{frames} frames"); }
         if !flicker.is_empty() { println!("frame-to-frame change {:.2}% (mean over {} frames, sway {})", 100.0 * flicker.iter().sum::<f64>() / flicker.len() as f64, flicker.len(), sway); }
         println!("wrote {out}");

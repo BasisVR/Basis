@@ -46,5 +46,7 @@ impl Backend for Tracer {
 
     fn record(&mut self, slot: *mut Slot) -> Fallible<()> { self.renderer.record(&mut self.gpu, &mut self.scene, slot).map(|_| ()) }
     fn timings(&self) -> [u32; 8] { self.renderer.timings }
+    fn prepare(&mut self, slot: *mut Slot) -> Fallible<()> { self.renderer.prepare(&self.gpu, &self.scene, slot) }
+    fn grid_us(&self) -> (u32, u32) { (self.renderer.grid.build_us, self.renderer.grid.wait_us) }
     fn counts(&self) -> (u32, u32) { (self.scene.meshes.len() as u32, self.scene.textures.len() as u32) }
 }

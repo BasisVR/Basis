@@ -1,6 +1,7 @@
 use super::device::*;
 use super::interop::*;
 use super::scene::*;
+use crate::lightgrid::*;
 use crate::{Fallible, os};
 use ash::vk;
 use basis_rt_protocol::*;
@@ -75,7 +76,9 @@ const DIRTY_OFFSET: u64 = align(EMITTERS_OFFSET + (MAX_EMITTERS * 16) as u64, 25
 const TLAS_OFFSET: u64 = align(DIRTY_OFFSET + (MAX_DIRTY * 16) as u64, 256);
 const TABLES_OFFSET: u64 = TLAS_OFFSET + (MAX_INSTANCES * 64) as u64;
 const BOUNDS_LIST_OFFSET: u64 = TABLES_OFFSET + MAX_MESHES as u64 * 16 + SUBMESH_CAPACITY * 16;
-const SLOT_STRIDE: u64 = align(BOUNDS_LIST_OFFSET + MAX_EMITTERS as u64 * 16, 65536);
+const GRID_OFFSET: u64 = align(BOUNDS_LIST_OFFSET + MAX_EMITTERS as u64 * 16, 256);
+const SLOT_STRIDE: u64 = align(GRID_OFFSET + GRID_BYTES, 65536);
+const _: () = assert!(BOUNDS_CAPACITY as u64 == SUBMESH_CAPACITY);
 const _: () = assert!(SLOT_STRIDE <= u32::MAX as u64 / RING as u64);
 
 #[repr(C)]
@@ -132,6 +135,13 @@ pub struct Renderer {
     pub fence_unity: SharedSemaphore,
     pub fence_tracer: SharedSemaphore,
     pub scratch: std::cell::Cell<(u32, u32)>,
+    pub grid: LightGrid,
+    pub bounds_readback: Buffer,
+    pub bounds_pending: Option<(u64, usize, usize)>,
+    pub bounds_dirty: Option<(usize, usize)>,
+    pub prepared: u64,
+    pub grid_gpu: Vec<Buffer>,
+    pub grid_commands: Vec<vk::CommandBuffer>,
 }
 
 fn module(gpu: &Gpu, code: &[u8]) -> Fallible<vk::ShaderModule> {
@@ -283,9 +293,19 @@ impl Renderer {
             for b in cache.iter().chain(std::iter::once(&cache_args)) { gpu.device.cmd_fill_buffer(cmd, b.buffer, 0, vk::WHOLE_SIZE, 0); }
             image_barrier(gpu, cmd, &[(upload[0].image, vk::ImageLayout::UNDEFINED, vk::ImageLayout::GENERAL, vk::QUEUE_FAMILY_IGNORED, vk::QUEUE_FAMILY_IGNORED), (upload[1].image, vk::ImageLayout::UNDEFINED, vk::ImageLayout::GENERAL, vk::QUEUE_FAMILY_IGNORED, vk::QUEUE_FAMILY_IGNORED)]);
             gpu.finish_now(cmd)?;
+            let mut grid_gpu = Vec::new();
+            for s in 0..RING as u32 {
+                let b = gpu.buffer(GRID_BYTES, vk::BufferUsageFlags::STORAGE_BUFFER, vk::MemoryPropertyFlags::DEVICE_LOCAL)?;
+                heap.buffer(gpu, HEAP_LIGHT_GRID + s, b.buffer, 0, GRID_BYTES);
+                grid_gpu.push(b);
+            }
+            let grid_commands = gpu.device.allocate_command_buffers(&vk::CommandBufferAllocateInfo::default().command_pool(gpu.command_pool).level(vk::CommandBufferLevel::PRIMARY).command_buffer_count(RING as u32)).map_err(err("allocate grid command buffers"))?;
+            let host = vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT;
+            let bounds_readback = match gpu.buffer(SUBMESH_CAPACITY * 32, vk::BufferUsageFlags::STORAGE_BUFFER, host | vk::MemoryPropertyFlags::HOST_CACHED) { Ok(b) => b, Err(_) => gpu.buffer(SUBMESH_CAPACITY * 32, vk::BufferUsageFlags::STORAGE_BUFFER, host)? };
             Ok(Renderer {
                 layout, set_layouts, sets: [set0, set1], pools: [pool0, pool1], samplers, rt, sbt, regions, compute, cache, cache_args, blue_noise, queries, timings: [0; 8], commands, ring, slot_fences: [0; RING], eligible: Vec::new(),
                 contexts: (0..MAX_CONTEXTS).map(|_| None).collect(), upload, fence_unity, fence_tracer, scratch: std::cell::Cell::new((SCRATCH_DESCRIPTORS, 0)),
+                grid: LightGrid::new(), bounds_readback, bounds_pending: None, bounds_dirty: None, prepared: 0, grid_gpu, grid_commands,
             })
         }
     }
@@ -309,7 +329,24 @@ impl Renderer {
         }
     }
 
+    pub fn prepare(&mut self, gpu: &Gpu, scene: &Scene, slot_ptr: *const Slot) -> Fallible<()> {
+        let frame = unsafe { (*slot_ptr).params.frame };
+        let slot = (frame % RING as u64) as usize;
+        gpu.wait(self.slot_fences[slot])?;
+        if let Some((value, first, end)) = self.bounds_pending {
+            if gpu.completed() >= value {
+                self.grid.absorb_bounds(self.bounds_readback.mapped as *const u8, first, end);
+                self.bounds_pending = None;
+            }
+        }
+        let out = unsafe { self.ring.mapped.add((SLOT_STRIDE * slot as u64 + GRID_OFFSET) as usize) };
+        self.grid.begin(slot_ptr, out, |mesh| scene.meshes.get(&mesh).map(|m| m.submesh_offset as usize));
+        self.prepared = frame;
+        Ok(())
+    }
+
     pub fn record(&mut self, gpu: &mut Gpu, scene: &mut Scene, slot_ptr: *const Slot) -> Fallible<u32> {
+        if self.prepared != unsafe { (*slot_ptr).params.frame } { self.prepare(gpu, scene, slot_ptr)?; }
         let params = unsafe { (*slot_ptr).params };
         let context = (params.context as usize).min(MAX_CONTEXTS - 1);
         let Some(ctx) = self.contexts[context].as_ref() else { return Err("frame for an unallocated context".into()); };
@@ -381,6 +418,7 @@ impl Renderer {
         let mut vertices_written = false;
         let mut indices_written = false;
         let mut pending_error = None;
+        let mut bounds_copy = None;
         let fence_hint = gpu.timeline_value + 1;
         for c in &commands {
             if let Err(e) = self.command(gpu, scene, cmd, c, upload_index, &mut vertices_written, &mut indices_written, fence_hint) { pending_error = Some(e); }
@@ -410,6 +448,7 @@ impl Renderer {
                 *list_ptr.add(bounds_count as usize) = [at as u32, m.vertex_offset as u32, (m.index_offset + s.index_start as u64) as u32, s.index_count];
                 bounds_count += 1;
                 bounds_chunks = bounds_chunks.max(s.index_count.div_ceil(1024));
+                self.bounds_dirty = Some(self.bounds_dirty.map_or((at, at + 1), |(a, b)| (a.min(at), b.max(at + 1))));
             }
             if bounds_count > 0 {
                 self.pipeline(gpu, cmd, P_SUBMESH_BOUNDS_CLEAR);
@@ -420,6 +459,15 @@ impl Renderer {
                 self.push(gpu, cmd, [(base + BOUNDS_LIST_OFFSET) as u32, bounds_count, 0, 0, 0, 0, 0, 0]);
                 self.dispatch(gpu, cmd, bounds_chunks.max(1), bounds_count);
                 barrier(gpu, cmd);
+            }
+            if self.bounds_pending.is_none() {
+                if let Some((first, end)) = self.bounds_dirty.take() {
+                    gpu.device.cmd_copy_buffer(cmd, scene.bounds.buffer, self.bounds_readback.buffer, &[vk::BufferCopy { src_offset: first as u64 * 32, dst_offset: first as u64 * 32, size: (end - first) as u64 * 32 }]);
+                    let host = [vk::MemoryBarrier2::default().src_stage_mask(vk::PipelineStageFlags2::ALL_TRANSFER).src_access_mask(vk::AccessFlags2::TRANSFER_WRITE).dst_stage_mask(vk::PipelineStageFlags2::HOST).dst_access_mask(vk::AccessFlags2::HOST_READ)];
+                    gpu.device.cmd_pipeline_barrier2(cmd, &vk::DependencyInfo::default().memory_barriers(&host));
+                    barrier(gpu, cmd);
+                    bounds_copy = Some((first, end));
+                }
             }
         }
         scene.build(gpu, cmd, fence_hint)?;
@@ -505,14 +553,22 @@ impl Renderer {
         }
         stamp(7);
         let value = gpu.signal_value();
+        self.grid.finish();
         unsafe {
             gpu.device.end_command_buffer(cmd).map_err(err("end command buffer"))?;
-            let cmds = [vk::CommandBufferSubmitInfo::default().command_buffer(cmd)];
+            let copy = self.grid_commands[slot];
+            gpu.device.reset_command_buffer(copy, vk::CommandBufferResetFlags::empty()).map_err(err("reset grid command buffer"))?;
+            gpu.device.begin_command_buffer(copy, &vk::CommandBufferBeginInfo::default().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)).map_err(err("begin grid command buffer"))?;
+            gpu.device.cmd_copy_buffer(copy, self.ring.buffer, self.grid_gpu[slot].buffer, &[vk::BufferCopy { src_offset: base + GRID_OFFSET, dst_offset: 0, size: self.grid.used_bytes }]);
+            barrier(gpu, copy);
+            gpu.device.end_command_buffer(copy).map_err(err("end grid command buffer"))?;
+            let cmds = [vk::CommandBufferSubmitInfo::default().command_buffer(copy), vk::CommandBufferSubmitInfo::default().command_buffer(cmd)];
             let waits = [vk::SemaphoreSubmitInfo::default().semaphore(self.fence_unity.semaphore).value(frame).stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)];
             let signals = [vk::SemaphoreSubmitInfo::default().semaphore(self.fence_tracer.semaphore).value(frame).stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS), vk::SemaphoreSubmitInfo::default().semaphore(gpu.timeline).value(value).stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)];
             gpu.device.queue_submit2(gpu.queue, &[vk::SubmitInfo2::default().wait_semaphore_infos(&waits).command_buffer_infos(&cmds).signal_semaphore_infos(&signals)], vk::Fence::null()).map_err(err("submit frame"))?;
         }
         self.slot_fences[slot] = value;
+        if let Some((first, end)) = bounds_copy { self.bounds_pending = Some((value, first, end)); }
         if let Some(ctx) = self.contexts[context].as_mut() { ctx.history_index = history_write; ctx.history_valid = true; ctx.last_time = params.time; }
         if let Some(e) = pending_error { eprintln!("{e}"); }
         Ok(tlas_count)

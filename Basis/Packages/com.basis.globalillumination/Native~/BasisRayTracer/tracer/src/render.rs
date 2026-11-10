@@ -1,4 +1,5 @@
 use crate::gpu::*;
+use crate::lightgrid::*;
 use crate::scene::*;
 use basis_rt_protocol::*;
 use windows::Win32::Foundation::*;
@@ -60,7 +61,9 @@ const DIRTY_OFFSET: u64 = align(EMITTERS_OFFSET + (MAX_EMITTERS * 16) as u64, 16
 const TLAS_OFFSET: u64 = align(DIRTY_OFFSET + (MAX_DIRTY * 16) as u64, 256);
 const TABLES_OFFSET: u64 = TLAS_OFFSET + (MAX_INSTANCES * 64) as u64;
 const BOUNDS_LIST_OFFSET: u64 = TABLES_OFFSET + MAX_MESHES as u64 * 16 + SUBMESH_CAPACITY * 16;
-const SLOT_STRIDE: u64 = align(BOUNDS_LIST_OFFSET + MAX_EMITTERS as u64 * 16, 65536 * 3);
+const GRID_OFFSET: u64 = align(BOUNDS_LIST_OFFSET + MAX_EMITTERS as u64 * 16, 256);
+const SLOT_STRIDE: u64 = align(GRID_OFFSET + GRID_BYTES, 65536 * 3);
+const _: () = assert!(BOUNDS_CAPACITY as u64 == SUBMESH_CAPACITY);
 const _: () = assert!(INSTANCES_OFFSET % 96 == 0 && MATERIALS_OFFSET % 96 == 0 && LIGHTS_OFFSET % 64 == 0 && EMITTERS_OFFSET % 16 == 0 && DIRTY_OFFSET % 16 == 0 && SLOT_STRIDE % 96 == 0 && SLOT_STRIDE % 65536 == 0);
 
 #[repr(C)]
@@ -121,6 +124,14 @@ pub struct Renderer {
     pub slot_fences: [u64; RING],
     pub contexts: Vec<Option<Context>>,
     pub eligible: Vec<u32>,
+    pub grid: LightGrid,
+    pub bounds_readback: ID3D12Resource,
+    pub bounds_pending: Option<(u64, usize, usize)>,
+    pub bounds_dirty: Option<(usize, usize)>,
+    pub prepared: u64,
+    pub grid_gpu: Vec<ID3D12Resource>,
+    pub grid_allocators: Vec<ID3D12CommandAllocator>,
+    pub grid_list: ID3D12GraphicsCommandList,
 }
 
 fn compute_pso(gpu: &Gpu, root: &ID3D12RootSignature, code: &[u8]) -> Result<ID3D12PipelineState> {
@@ -180,6 +191,9 @@ impl Renderer {
 
             let allocators = (0..RING).map(|_| gpu.device.CreateCommandAllocator::<ID3D12CommandAllocator>(D3D12_COMMAND_LIST_TYPE_DIRECT)).collect::<Result<Vec<_>>>()?;
             let list: ID3D12GraphicsCommandList4 = gpu.device.CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, &allocators[0], None)?;
+            let grid_allocators = (0..RING).map(|_| gpu.device.CreateCommandAllocator::<ID3D12CommandAllocator>(D3D12_COMMAND_LIST_TYPE_DIRECT)).collect::<Result<Vec<_>>>()?;
+            let grid_list: ID3D12GraphicsCommandList = gpu.device.CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, &grid_allocators[0], None)?;
+            grid_list.Close()?;
             list.Close()?;
             let ring = UploadRing::new(gpu, SLOT_STRIDE * RING as u64)?;
             gpu.srv_raw(&ring.resource, SLOT_STRIDE * RING as u64, HEAP_RING);
@@ -204,6 +218,9 @@ impl Renderer {
                 copy_vertices: compute_pso(gpu, &root, COPY_VERTICES)?, copy_indices: compute_pso(gpu, &root, COPY_INDICES)?, copy_positions: compute_pso(gpu, &root, COPY_POSITIONS)?, texture_pixels: compute_pso(gpu, &root, TEXTURE_PIXELS)?,
                 downsample: compute_pso(gpu, &root, DOWNSAMPLE)?, temporal: compute_pso(gpu, &root, TEMPORAL)?, wavelet: compute_pso(gpu, &root, WAVELET)?, resolve: compute_pso(gpu, &root, RESOLVE)?, maintain: compute_pso(gpu, &root, MAINTAIN)?, resolve_signature, cache_args, probe_resolve: compute_pso(gpu, &root, PROBE_RESOLVE)?, submesh_bounds: compute_pso(gpu, &root, SUBMESH_BOUNDS)?, submesh_bounds_clear: compute_pso(gpu, &root, SUBMESH_BOUNDS_CLEAR)?, cache, blue_noise, queries, readback, frequency, timings: [0; 8],
                 root, state, table, table_address, allocators, list, ring, slot_fences: [0; RING], contexts: (0..MAX_CONTEXTS).map(|_| None).collect(), eligible: Vec::new(),
+                grid: LightGrid::new(), bounds_readback: gpu.buffer(SUBMESH_CAPACITY * 32, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST)?, bounds_pending: None, bounds_dirty: None, prepared: 0,
+                grid_gpu: (0..RING).map(|i| { let b = gpu.buffer(GRID_BYTES, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COMMON)?; gpu.srv_raw(&b, GRID_BYTES, HEAP_LIGHT_GRID + i as u32); Ok(b) }).collect::<Result<Vec<_>>>()?,
+                grid_allocators, grid_list,
             })
         }
     }
@@ -220,7 +237,31 @@ impl Renderer {
         gpu.srv_structured(r, (base + DIRTY_OFFSET) / 16, MAX_DIRTY as u32, 16, HEAP_DIRTY + slot as u32);
     }
 
+    pub fn prepare(&mut self, gpu: &Gpu, scene: &Scene, slot_ptr: *const Slot) -> Result<()> {
+        let frame = unsafe { (*slot_ptr).params.frame };
+        let slot = (frame % RING as u64) as usize;
+        gpu.wait(self.slot_fences[slot])?;
+        let completed = unsafe { gpu.fence.GetCompletedValue() };
+        if let Some((value, first, end)) = self.bounds_pending {
+            if completed >= value {
+                unsafe {
+                    let mut raw = std::ptr::null_mut();
+                    if self.bounds_readback.Map(0, Some(&D3D12_RANGE { Begin: first * 32, End: end * 32 }), Some(&mut raw)).is_ok() {
+                        self.grid.absorb_bounds(raw as *const u8, first, end);
+                        self.bounds_readback.Unmap(0, Some(&D3D12_RANGE { Begin: 0, End: 0 }));
+                    }
+                }
+                self.bounds_pending = None;
+            }
+        }
+        let out = unsafe { self.ring.mapped.add((self.slot_base(slot) + GRID_OFFSET) as usize) };
+        self.grid.begin(slot_ptr, out, |mesh| scene.meshes.get(&mesh).map(|m| m.submesh_offset as usize));
+        self.prepared = frame;
+        Ok(())
+    }
+
     pub fn record(&mut self, gpu: &mut Gpu, scene: &mut Scene, slot_ptr: *const Slot, unity_fence: &ID3D12Fence, tracer_fence: &ID3D12Fence, flags_out: &mut u32) -> Result<u64> {
+        if self.prepared != unsafe { (*slot_ptr).params.frame } { self.prepare(gpu, scene, slot_ptr)?; }
         let params = unsafe { (*slot_ptr).params };
         let context = (params.context as usize).min(MAX_CONTEXTS - 1);
         let Some(ctx) = self.contexts[context].as_ref() else { return Err(Error::new(E_FAIL, "frame for an unallocated context")); };
@@ -292,6 +333,7 @@ impl Renderer {
         let mut vertices_written = false;
         let mut indices_written = false;
         let mut pending_error = None;
+        let mut bounds_copy = None;
         for c in &commands {
             if let Err(e) = self.command(gpu, scene, &list, c, upload_index, &mut vertices_written, &mut indices_written, slot_fence_value(gpu)) { pending_error = Some(e); }
         }
@@ -323,6 +365,7 @@ impl Renderer {
                 *list_ptr.add(bounds_count as usize) = [at as u32, m.vertex_offset as u32, (m.index_offset + s.index_start as u64) as u32, s.index_count];
                 bounds_count += 1;
                 bounds_chunks = bounds_chunks.max(s.index_count.div_ceil(1024));
+                self.bounds_dirty = Some(self.bounds_dirty.map_or((at, at + 1), |(a, b)| (a.min(at), b.max(at + 1))));
             }
             if bounds_count > 0 {
                 let constants = [(base + BOUNDS_LIST_OFFSET) as u32, bounds_count, 0, 0, 0, 0, 0, 0];
@@ -333,6 +376,14 @@ impl Renderer {
                 list.SetPipelineState(&self.submesh_bounds);
                 list.Dispatch(bounds_chunks.max(1), bounds_count, 1);
                 list.ResourceBarrier(&[uav_barrier(Some(&scene.bounds))]);
+            }
+            if self.bounds_pending.is_none() {
+                if let Some((first, end)) = self.bounds_dirty.take() {
+                    list.ResourceBarrier(&[transition(&scene.bounds, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE)]);
+                    list.CopyBufferRegion(&self.bounds_readback, first as u64 * 32, &scene.bounds, first as u64 * 32, (end - first) as u64 * 32);
+                    list.ResourceBarrier(&[transition(&scene.bounds, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)]);
+                    bounds_copy = Some((first, end));
+                }
             }
         }
         let fence_hint = gpu.fence_value + 1;
@@ -427,11 +478,20 @@ impl Renderer {
             stamp(&list, 7);
             list.ResolveQueryData(&self.queries, D3D12_QUERY_TYPE_TIMESTAMP, slot as u32 * TIMESTAMPS, TIMESTAMPS, &self.readback, slot as u64 * TIMESTAMPS as u64 * 8);
             list.Close()?;
-            gpu.queue.ExecuteCommandLists(&[Some(list.cast()?)]);
+            self.grid.finish();
+            let g = &self.grid_gpu[slot];
+            self.grid_allocators[slot].Reset()?;
+            self.grid_list.Reset(&self.grid_allocators[slot], None)?;
+            self.grid_list.ResourceBarrier(&[transition(g, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST)]);
+            self.grid_list.CopyBufferRegion(g, 0, &self.ring.resource, base + GRID_OFFSET, self.grid.used_bytes);
+            self.grid_list.ResourceBarrier(&[transition(g, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON)]);
+            self.grid_list.Close()?;
+            gpu.queue.ExecuteCommandLists(&[Some(self.grid_list.cast()?), Some(list.cast()?)]);
             gpu.queue.Signal(tracer_fence, frame)?;
         }
         let value = gpu.signal()?;
         self.slot_fences[slot] = value;
+        if let Some((first, end)) = bounds_copy { self.bounds_pending = Some((value, first, end)); }
         if let Some(ctx) = self.contexts[context].as_mut() { ctx.history_index = history_write; ctx.history_valid = true; ctx.last_time = params.time; }
         *flags_out = tlas_count;
         if let Some(e) = pending_error { eprintln!("{e}"); }

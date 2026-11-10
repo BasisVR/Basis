@@ -5,6 +5,7 @@ mod dx;
 mod ffi;
 #[cfg(windows)]
 mod gpu;
+mod lightgrid;
 mod os;
 #[cfg(windows)]
 mod render;
@@ -41,6 +42,8 @@ pub trait Backend {
     fn create_context(&mut self, link: &os::Link, context: usize, width: u32, height: u32, views: u32) -> Fallible<[u64; 4]>;
     fn record(&mut self, slot: *mut Slot) -> Fallible<()>;
     fn timings(&self) -> [u32; 8];
+    fn grid_us(&self) -> (u32, u32);
+    fn prepare(&mut self, slot: *mut Slot) -> Fallible<()>;
     fn counts(&self) -> (u32, u32);
 }
 
@@ -92,6 +95,7 @@ fn run(link: &mut os::Link, args: &os::Args) -> Fallible<()> {
         if unsafe { (*slot).params.frame } != frame { last = frame; header.frame_consumed.store(frame, Ordering::Release); continue; }
         let context = unsafe { (*slot).params.context } as usize;
         if context >= MAX_CONTEXTS || backend.context_size(context).is_none() { link.wait_wake(1); continue; }
+        backend.prepare(slot).map_err(|e| format!("frame {frame}: {e}"))?;
         let deadline = Instant::now() + Duration::from_millis(250);
         while header.frame_queued.load(Ordering::Acquire) < frame {
             if Instant::now() > deadline { break; }
@@ -104,6 +108,9 @@ fn run(link: &mut os::Link, args: &os::Args) -> Fallible<()> {
         header.build_time_us.store(started.elapsed().as_micros() as u32, Ordering::Relaxed);
         header.gpu_time_us.store(timings[0], Ordering::Relaxed);
         for (i, t) in timings.iter().enumerate() { header.reserved[i] = *t; }
+        let (grid_build, grid_wait) = backend.grid_us();
+        header.reserved[8] = grid_build;
+        header.reserved[9] = grid_wait;
         header.frame_consumed.store(frame, Ordering::Release);
         header.frame_submitted.store(frame, Ordering::Release);
         let (meshes, textures) = backend.counts();
