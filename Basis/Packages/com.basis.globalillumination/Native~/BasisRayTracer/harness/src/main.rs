@@ -271,11 +271,14 @@ fn main() {
             let identity = [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0];
             slot.instances[0] = Instance { transform: identity, mesh: 1, material_base: 0, mask: 0xff, flags: 0, lightmap: -1, ..Default::default() };
             slot.instances[1] = Instance { transform: identity, mesh: 2, material_base: 7, mask: 0xff, flags: INSTANCE_AVATAR | INSTANCE_EMITTER, lightmap: -1, ..Default::default() };
-            for (i, q) in room_quads.iter().enumerate() { slot.materials[i] = Material { base_color: [q.albedo[0], q.albedo[1], q.albedo[2], 1.0], emission: [q.emission[0], q.emission[1], q.emission[2], 0.0], base_st: [1.0, 1.0, 0.0, 0.0], emission_st: [1.0, 1.0, 0.0, 0.0], base_texture: -1, emission_texture: -1, flags: if i == 3 { MATERIAL_EMITTER } else { 0 }, ..Default::default() }; }
+            let light_off_at = std::env::var("LIGHTOFF").ok().and_then(|v| v.parse::<u64>().ok());
+            let lit = if light_off_at.map_or(false, |n| iteration as u64 >= n) { 0.0f32 } else { 1.0f32 };
+            for (i, q) in room_quads.iter().enumerate() { slot.materials[i] = Material { base_color: [q.albedo[0], q.albedo[1], q.albedo[2], 1.0], emission: [q.emission[0] * lit, q.emission[1] * lit, q.emission[2] * lit, 0.0], base_st: [1.0, 1.0, 0.0, 0.0], emission_st: [1.0, 1.0, 0.0, 0.0], base_texture: -1, emission_texture: -1, flags: if i == 3 { MATERIAL_EMITTER } else { 0 }, ..Default::default() }; }
             let c0 = &cube_quads[0];
-            slot.materials[7] = Material { base_color: [c0.albedo[0], c0.albedo[1], c0.albedo[2], 1.0], emission: [c0.emission[0], c0.emission[1], c0.emission[2], 0.0], base_st: [1.0, 1.0, 0.0, 0.0], emission_st: [1.0, 1.0, 0.0, 0.0], base_texture: -1, emission_texture: -1, flags: MATERIAL_EMITTER, ..Default::default() };
-            slot.lights[0] = Light { position: [0.0, 2.5, -1.0, f32::from_bits(LIGHT_POINT)], direction: [0.0, -1.0, 0.0, 8.0], color: [3.0, 2.7, 2.4, 1.0], spot: [0.0; 4] };
+            slot.materials[7] = Material { base_color: [c0.albedo[0], c0.albedo[1], c0.albedo[2], 1.0], emission: [c0.emission[0] * lit, c0.emission[1] * lit, c0.emission[2] * lit, 0.0], base_st: [1.0, 1.0, 0.0, 0.0], emission_st: [1.0, 1.0, 0.0, 0.0], base_texture: -1, emission_texture: -1, flags: MATERIAL_EMITTER, ..Default::default() };
+            slot.lights[0] = Light { position: [0.0, 2.5, -1.0, f32::from_bits(LIGHT_POINT)], direction: [0.0, -1.0, 0.0, 8.0], color: [3.0 * lit, 2.7 * lit, 2.4 * lit, 1.0], spot: [0.0; 4] };
             slot.dirty[0] = [cube_center[0], cube_center[1], cube_center[2], if std::env::var("SOFT").is_ok() { -1.5 } else { 1.5 }];
+            if light_off_at == Some(iteration as u64) { slot.dirty[0] = [0.0, 2.5, -1.0, if std::env::var("HARDOFF").is_ok() { 13.0 } else { 100013.0 }]; }
             slot.emitters[0] = Emitter { instance: 0, geometry: 6, triangle_count: 2, cdf: 0.7 };
             slot.emitters[1] = Emitter { instance: 1, geometry: 0, triangle_count: 12, cdf: 1.0 };
             let v = View { view, projection, inverse_view_projection: [0.0; 16], previous_view_projection: prev_vp, position: [camera[0], camera[1], camera[2], 0.0] };

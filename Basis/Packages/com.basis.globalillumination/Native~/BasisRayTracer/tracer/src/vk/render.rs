@@ -36,6 +36,8 @@ pub const HEAP_SIZE: u32 = SCRATCH_DESCRIPTORS + SCRATCH_PER_SLOT * RING as u32;
 pub const SCRATCH_DESCRIPTORS: u32 = 1024 + 4096 * 2;
 pub const HEAP_UPLOAD: u32 = 7;
 pub const HEAP_RING: u32 = 9;
+pub const HEAP_BLUE_NOISE: u32 = 10;
+const BLUE_NOISE: &[u8] = include_bytes!("../bluenoise.bin");
 pub const HEAP_INSTANCES: u32 = 16;
 pub const HEAP_MATERIALS: u32 = 24;
 pub const HEAP_LIGHTS: u32 = 32;
@@ -112,6 +114,7 @@ pub struct Renderer {
     pub regions: [vk::StridedDeviceAddressRegionKHR; 4],
     pub compute: Vec<vk::Pipeline>,
     pub cache: Vec<Buffer>,
+    pub blue_noise: Buffer,
     pub queries: vk::QueryPool,
     pub timings: [u32; 8],
     pub commands: Vec<vk::CommandBuffer>,
@@ -249,6 +252,9 @@ impl Renderer {
             heap.buffer(gpu, HEAP_BOUNDS, scene.bounds.buffer, 0, SUBMESH_CAPACITY * 32);
             heap.buffer(gpu, HEAP_RING, ring.buffer, 0, SLOT_STRIDE * RING as u64);
             for (i, b) in cache.iter().enumerate() { heap.buffer(gpu, HEAP_CACHE + i as u32, b.buffer, 0, b.size); }
+            let blue_noise = gpu.buffer(BLUE_NOISE.len() as u64, vk::BufferUsageFlags::STORAGE_BUFFER, vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT)?;
+            std::ptr::copy_nonoverlapping(BLUE_NOISE.as_ptr(), blue_noise.mapped, BLUE_NOISE.len());
+            heap.buffer(gpu, HEAP_BLUE_NOISE, blue_noise.buffer, 0, blue_noise.size);
             for slot in 0..RING as u64 {
                 let base = SLOT_STRIDE * slot;
                 let s = slot as u32;
@@ -269,7 +275,7 @@ impl Renderer {
             image_barrier(gpu, cmd, &[(upload[0].image, vk::ImageLayout::UNDEFINED, vk::ImageLayout::GENERAL, vk::QUEUE_FAMILY_IGNORED, vk::QUEUE_FAMILY_IGNORED), (upload[1].image, vk::ImageLayout::UNDEFINED, vk::ImageLayout::GENERAL, vk::QUEUE_FAMILY_IGNORED, vk::QUEUE_FAMILY_IGNORED)]);
             gpu.finish_now(cmd)?;
             Ok(Renderer {
-                layout, set_layouts, sets: [set0, set1], pools: [pool0, pool1], samplers, rt, sbt, regions, compute, cache, queries, timings: [0; 8], commands, ring, slot_fences: [0; RING],
+                layout, set_layouts, sets: [set0, set1], pools: [pool0, pool1], samplers, rt, sbt, regions, compute, cache, blue_noise, queries, timings: [0; 8], commands, ring, slot_fences: [0; RING],
                 contexts: (0..MAX_CONTEXTS).map(|_| None).collect(), upload, fence_unity, fence_tracer, scratch: std::cell::Cell::new((SCRATCH_DESCRIPTORS, 0)),
             })
         }

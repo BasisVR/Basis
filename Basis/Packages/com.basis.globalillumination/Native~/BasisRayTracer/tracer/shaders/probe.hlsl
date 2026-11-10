@@ -36,7 +36,8 @@ void ProbeResolve(uint3 id : SV_DispatchThreadID)
             for (uint d = 0; d < frame.dirtyCount; d++)
             {
                 float4 s = dirty[d];
-                if (distance(position, s.xyz) < abs(s.w)) { age = min(age, s.w < 0.0 ? 16.0 : 3.0); }
+                bool clear = s.w >= 100000.0;
+                if (distance(position, s.xyz) < (clear ? s.w - 100000.0 : abs(s.w))) { age = min(age, clear ? 1.0 : (s.w < 0.0 ? 16.0 : 3.0)); }
             }
             sh = ShLerp(ps, sh, 1.0 / age);
         }

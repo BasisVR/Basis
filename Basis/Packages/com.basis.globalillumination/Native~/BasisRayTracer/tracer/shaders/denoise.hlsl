@@ -71,17 +71,36 @@ void Temporal(uint3 id : SV_DispatchThreadID)
         }
     }
 
+    float3 nSum = 0.0, nSq = 0.0;
+    float nCount = 0.0;
+    [unroll] for (int y = -1; y <= 1; y++)
+    {
+        [unroll] for (int x = -1; x <= 1; x++)
+        {
+            int2 q = int2(local) + int2(x, y);
+            if (any(q < 0) || q.x >= int(frame.width) || q.y >= int(frame.height)) { continue; }
+            float4 c = (x == 0 && y == 0) ? current : radiance[uint2(q.x + viewIndex * frame.width, q.y)];
+            if (!all(isfinite(c)) || (all(c.rgb == 0.0) && c.a == 1.0 && (x != 0 || y != 0))) { continue; }
+            nSum += c.rgb; nSq += c.rgb * c.rgb; nCount += 1.0;
+        }
+    }
+    float3 nMean = nSum / max(nCount, 1.0);
+    float3 nSigma = sqrt(max(nSq / max(nCount, 1.0) - nMean * nMean, 0.0));
+    float nLum = Luminance(nMean), nLumSigma = Luminance(nSigma);
+
     float length = 0.0;
     if (weightSum > 1e-3)
     {
         previous /= weightSum;
         previousMoments /= weightSum;
         length = previousMoments.z;
-    }
-    if (weightSum > 1e-3)
-    {
         float spread = sqrt(max(previousMoments.y - previousMoments.x * previousMoments.x, 0.0));
-        if (abs(l - previousMoments.x) > 3.0 * spread + 0.1 * previousMoments.x + 0.02) { length = min(length, 3.0); }
+        float ceiling = previousMoments.x + 4.0 * spread + 0.25 * previousMoments.x + 0.02;
+        if (length >= 4.0 && l > ceiling && l > 2.0 * nLum) { current.rgb *= ceiling / l; l = ceiling; }
+        float noise = (2.0 * spread + nLumSigma) / sqrt(max(nCount, 1.0));
+        float scale = max(max(previousMoments.x, nLum), 0.01);
+        float gradient = saturate((abs(nLum - previousMoments.x) - noise - 0.05 * scale - 0.005) / scale);
+        length = lerp(length, 1.0, gradient);
     }
     length = min(length + 1.0, 64.0);
     float timeAlpha = 1.0 - exp(-max(frame.deltaTime, 0.001) * 90.0 * frame.temporalResponse);
@@ -89,22 +108,7 @@ void Temporal(uint3 id : SV_DispatchThreadID)
     float2 m = lerp(previousMoments.xy, float2(l, l * l), weightSum > 1e-3 ? alpha : 1.0);
     float4 blended = weightSum > 1e-3 ? lerp(previous, current, alpha) : current;
     float variance = max(m.y - m.x * m.x, 0.0);
-    if (length < 4.0)
-    {
-        float s1 = 0.0, s2 = 0.0, n = 0.0;
-        [unroll] for (int y = -1; y <= 1; y++)
-        {
-            [unroll] for (int x = -1; x <= 1; x++)
-            {
-                int2 q = int2(local) + int2(x, y);
-                if (any(q < 0) || q.x >= int(frame.width) || q.y >= int(frame.height)) { continue; }
-                float lq = Luminance(radiance[uint2(q.x + viewIndex * frame.width, q.y)].rgb);
-                s1 += lq; s2 += lq * lq; n += 1.0;
-            }
-        }
-        s1 /= n; s2 /= n;
-        variance = max(variance, max(s2 - s1 * s1, 0.0) * (4.0 / length));
-    }
+    if (length < 4.0) { variance = max(variance, nLumSigma * nLumSigma * (4.0 / length)); }
     historyOut[pixel] = blended;
     momentsOut[pixel] = float4(m, length, variance);
 }

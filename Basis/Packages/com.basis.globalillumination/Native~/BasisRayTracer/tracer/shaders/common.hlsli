@@ -155,6 +155,27 @@ float Random(inout uint state)
     return ((word >> 22u) ^ word) * (1.0 / 4294967296.0);
 }
 
+#define HEAP_BLUE_NOISE 10
+
+uint2 BlueNoiseBits(uint2 pixel, uint dimension)
+{
+    ByteAddressBuffer b = ResourceDescriptorHeap[HEAP_BLUE_NOISE];
+    uint2 q = (pixel + uint2(dimension * 37u, dimension * 71u)) & 127u;
+    uint v = b.Load((q.y * 128u + q.x) * 4u);
+    return uint2(v << 16, v & 0xffff0000u);
+}
+
+float2 BlueNoise2(uint2 pixel, uint dimension, uint index)
+{
+    uint2 v = BlueNoiseBits(pixel, dimension) + index * uint2(3242174889u, 2447445413u);
+    return float2(v >> 8) * (1.0 / 16777216.0);
+}
+
+float BlueNoise1(uint2 pixel, uint dimension, uint index)
+{
+    return float((BlueNoiseBits(pixel, dimension).x + index * 2654435769u) >> 8) * (1.0 / 16777216.0);
+}
+
 float2 OctWrap(float2 v) { return (1.0 - abs(v.yx)) * select(v.xy >= 0.0, 1.0, -1.0); }
 
 uint PackNormal(float3 n)

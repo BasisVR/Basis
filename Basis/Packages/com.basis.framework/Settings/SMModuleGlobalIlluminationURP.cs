@@ -276,6 +276,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
     [NoAutoStaticsCleanup] public static readonly string[] FallbackOptions = { "None", "Sky", "Reflection Probe" };
     [NoAutoStaticsCleanup] public static readonly string[] PathTracerBackendOptions = { "DirectX", "Vulkan" };
     [NoAutoStaticsCleanup] public static readonly string[] PathTracerRayOptions = { "Auto", "2", "4", "8", "16", "32" };
+    [NoAutoStaticsCleanup] public static readonly string[] PathTracerAvatarRayOptions = { "Off", "2", "4", "8", "16" };
 
     /// <summary>What the effect is rendering with. The settings provider writes straight into this.</summary>
     public BasisGlobalIlluminationSettings GlobalIllumination => BasisGlobalIlluminationSettings.Current;
@@ -306,6 +307,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
     private static string K_GI_FALLBACK => BasisSettingsDefaults.GlobalIlluminationFallback.BindingKey;
     private static string K_GI_PATH_TRACER_BACKEND => BasisSettingsDefaults.GlobalIlluminationPathTracerBackend.BindingKey;
     private static string K_GI_PATH_TRACER_RAYS => BasisSettingsDefaults.GlobalIlluminationPathTracerRays.BindingKey;
+    private static string K_GI_PATH_TRACER_AVATAR_RAYS => BasisSettingsDefaults.GlobalIlluminationPathTracerAvatarRays.BindingKey;
     private static string K_GI_IGNORE_BAKED_EMISSION => BasisSettingsDefaults.GlobalIlluminationIgnoreBakedEmission.BindingKey;
     private static string K_GI_LIGHTMAPPED_RECEIVE => BasisSettingsDefaults.GlobalIlluminationLightmappedReceive.BindingKey;
     private static string K_GI_INTENSITY => BasisSettingsDefaults.GlobalIlluminationIntensity.BindingKey;
@@ -343,6 +345,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
         BasisGlobalIlluminationFeature.KeepRenderingWithDebugger = true;
         BasisExternalRayTracer.SetBackend(ReadPathTracerVulkan(BasisSettingsDefaults.GlobalIlluminationPathTracerBackend.RawValue));
         BasisExternalRayTracer.RayCount = ReadPathTracerRays(BasisSettingsDefaults.GlobalIlluminationPathTracerRays.RawValue);
+        BasisExternalRayTracer.AvatarRayCount = ReadPathTracerRays(BasisSettingsDefaults.GlobalIlluminationPathTracerAvatarRays.RawValue);
         ApplyOverride();
     }
 
@@ -523,6 +526,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
         else if (matchedSettingName == K_GI_FALLBACK) { state.Fallback = ReadFallback(optionValue); }
         else if (matchedSettingName == K_GI_PATH_TRACER_BACKEND) { BasisExternalRayTracer.SetBackend(ReadPathTracerVulkan(optionValue)); }
         else if (matchedSettingName == K_GI_PATH_TRACER_RAYS) { BasisExternalRayTracer.RayCount = ReadPathTracerRays(optionValue); }
+        else if (matchedSettingName == K_GI_PATH_TRACER_AVATAR_RAYS) { BasisExternalRayTracer.AvatarRayCount = ReadPathTracerRays(optionValue); }
         else if (matchedSettingName == K_GI_IGNORE_BAKED_EMISSION) { state.IgnoreBakedEmission = optionValue == "true"; }
         else if (matchedSettingName == K_GI_LIGHTMAPPED_RECEIVE)
         {

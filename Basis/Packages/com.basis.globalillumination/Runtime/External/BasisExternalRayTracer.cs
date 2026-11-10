@@ -153,6 +153,7 @@ public static unsafe partial class BasisExternalRayTracer
 
     public static bool BackendSelectable => IsWindows;
     public static int RayCount;
+    public static int AvatarRayCount = 4;
     public static bool PreferVulkan { get; private set; }
     public static int RequestedApi => IsWindows && !PreferVulkan ? ApiDirectX : ApiVulkan;
     public static int RunningApi => Started ? (int)BasisRT_Stat(7) : 0;

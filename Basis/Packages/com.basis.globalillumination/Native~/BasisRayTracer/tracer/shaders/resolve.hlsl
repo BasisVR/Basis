@@ -17,6 +17,7 @@ void CacheResolve(uint3 id : SV_DispatchThreadID)
     uint o = i * CACHE_STRIDE;
     float samples;
     SH r = CacheLoadSH(resolved, o, samples);
+    bool cleared = false;
     if ((frame.flags & FLAG_CACHE_RESET) != 0) { r = ShZero(); samples = 0.0; }
     else if (frame.dirtyCount > 0)
     {
@@ -25,12 +26,25 @@ void CacheResolve(uint3 id : SV_DispatchThreadID)
         for (uint d = 0; d < frame.dirtyCount; d++)
         {
             float4 s = dirty[d].sphere;
-            if (distance(cell.xyz, s.xyz) < abs(s.w) + cell.w) { samples = min(samples, s.w < 0.0 ? 64.0 : 8.0); }
+            bool clear = s.w >= 100000.0;
+            float radius = clear ? s.w - 100000.0 : abs(s.w);
+            if (distance(cell.xyz, s.xyz) < radius + cell.w)
+            {
+                if (clear) { r = ShZero(); samples = 0.0; cleared = true; }
+                else { samples = min(samples, s.w < 0.0 ? 64.0 : 8.0); }
+            }
         }
     }
     uint count;
     SH added = CacheLoadAccum(accum, o, count);
-    if (count > 0u)
+    if (cleared && count > 0u)
+    {
+        accum.Store4(o, uint4(0, 0, 0, 0));
+        accum.Store4(o + 16, uint4(0, 0, 0, 0));
+        accum.Store4(o + 32, uint4(0, 0, 0, 0));
+        accum.Store4(o + 48, uint4(0, 0, 0, 0));
+    }
+    else if (count > 0u)
     {
         SH average = ShScale(added, 1.0 / float(count));
         float weight = float(count);

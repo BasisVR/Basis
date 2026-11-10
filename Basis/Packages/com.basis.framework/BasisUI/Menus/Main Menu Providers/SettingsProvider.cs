@@ -2413,6 +2413,15 @@ namespace Basis.BasisUI
                 dropdownGiPathTracerRays.AssignBinding(BasisSettingsDefaults.GlobalIlluminationPathTracerRays);
                 SettingsProviderBottleneckHints.Mark(dropdownGiPathTracerRays, BasisFrameCostSide.Gpu);
 
+                PanelDropdown dropdownGiPathTracerAvatarRays = PanelDropdown.CreateNewEntry(giGroup.ContentParent);
+                dropdownGiPathTracerAvatarRays.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.pathTracerAvatarRays"));
+                dropdownGiPathTracerAvatarRays.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.pathTracerAvatarRays.tooltip"));
+                dropdownGiPathTracerAvatarRays.AssignLocalizedEntries(
+                    new List<string>(SMModuleGlobalIlluminationURP.PathTracerAvatarRayOptions),
+                    new List<string> { "settings.graphics.gi.pathTracerAvatarRays.off", "settings.graphics.gi.pathTracerRays.2", "settings.graphics.gi.pathTracerRays.4", "settings.graphics.gi.pathTracerRays.8", "settings.graphics.gi.pathTracerRays.16" });
+                dropdownGiPathTracerAvatarRays.AssignBinding(BasisSettingsDefaults.GlobalIlluminationPathTracerAvatarRays);
+                SettingsProviderBottleneckHints.Mark(dropdownGiPathTracerAvatarRays, BasisFrameCostSide.Gpu);
+
                 PanelSlider sliderGiBounceFeedback = PanelSlider.CreateEntryAndBind(
                     giGroup.ContentParent,
                     new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.gi.bounceFeedback"),
@@ -2760,6 +2769,7 @@ namespace Basis.BasisUI
                     bool pathTraced = basis && (dropdownGiMode.Value == "Path Traced" || dropdownGiMode.Value == "Path Traced (Baked)");
                     if (dropdownGiPathTracerBackend != null) { dropdownGiPathTracerBackend.Descriptor.SetActive(pathTraced); }
                     dropdownGiPathTracerRays.Descriptor.SetActive(pathTraced);
+                    dropdownGiPathTracerAvatarRays.Descriptor.SetActive(pathTraced);
                     bool cascades = basis && !rayTraced;
                     sliderGiBounceFeedback.Descriptor.SetActive(cascades && toggleGiTemporal.Value);
                     toggleGiWorldSpace.Descriptor.SetActive(cascades);
@@ -4221,6 +4231,7 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.GlobalIlluminationFallback.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationPathTracerBackend.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationPathTracerRays.ResetToDefault();
+            BasisSettingsDefaults.GlobalIlluminationPathTracerAvatarRays.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationIgnoreBakedEmission.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationLightmappedReceive.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationIntensity.ResetToDefault();

@@ -20,6 +20,8 @@ const PROBE_RESOLVE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/ProbeReso
 const SUBMESH_BOUNDS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/SubmeshBounds.dxil"));
 const SUBMESH_BOUNDS_CLEAR: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/SubmeshBoundsClear.dxil"));
 pub const HEAP_RING: u32 = 9;
+pub const HEAP_BLUE_NOISE: u32 = 10;
+pub const BLUE_NOISE: &[u8] = include_bytes!("bluenoise.bin");
 pub const CACHE_SIZE: u64 = 1 << 20;
 pub const CTX_PROBES: u32 = 11;
 pub const CTX_PROBE_RAYS: u32 = 13;
@@ -101,6 +103,7 @@ pub struct Renderer {
     pub submesh_bounds: ID3D12PipelineState,
     pub submesh_bounds_clear: ID3D12PipelineState,
     pub cache: Vec<ID3D12Resource>,
+    pub blue_noise: UploadRing,
     pub queries: ID3D12QueryHeap,
     pub readback: ID3D12Resource,
     pub frequency: u64,
@@ -181,9 +184,12 @@ impl Renderer {
                 gpu.uav_raw(&b, CACHE_SIZE * stride, HEAP_CACHE + i as u32);
                 cache.push(b);
             }
+            let blue_noise = UploadRing::new(gpu, BLUE_NOISE.len() as u64)?;
+            std::ptr::copy_nonoverlapping(BLUE_NOISE.as_ptr(), blue_noise.mapped, BLUE_NOISE.len());
+            gpu.srv_raw(&blue_noise.resource, BLUE_NOISE.len() as u64, HEAP_BLUE_NOISE);
             Ok(Renderer {
                 copy_vertices: compute_pso(gpu, &root, COPY_VERTICES)?, copy_indices: compute_pso(gpu, &root, COPY_INDICES)?, copy_positions: compute_pso(gpu, &root, COPY_POSITIONS)?, texture_pixels: compute_pso(gpu, &root, TEXTURE_PIXELS)?,
-                downsample: compute_pso(gpu, &root, DOWNSAMPLE)?, temporal: compute_pso(gpu, &root, TEMPORAL)?, wavelet: compute_pso(gpu, &root, WAVELET)?, resolve: compute_pso(gpu, &root, RESOLVE)?, probe_resolve: compute_pso(gpu, &root, PROBE_RESOLVE)?, submesh_bounds: compute_pso(gpu, &root, SUBMESH_BOUNDS)?, submesh_bounds_clear: compute_pso(gpu, &root, SUBMESH_BOUNDS_CLEAR)?, cache, queries, readback, frequency, timings: [0; 8],
+                downsample: compute_pso(gpu, &root, DOWNSAMPLE)?, temporal: compute_pso(gpu, &root, TEMPORAL)?, wavelet: compute_pso(gpu, &root, WAVELET)?, resolve: compute_pso(gpu, &root, RESOLVE)?, probe_resolve: compute_pso(gpu, &root, PROBE_RESOLVE)?, submesh_bounds: compute_pso(gpu, &root, SUBMESH_BOUNDS)?, submesh_bounds_clear: compute_pso(gpu, &root, SUBMESH_BOUNDS_CLEAR)?, cache, blue_noise, queries, readback, frequency, timings: [0; 8],
                 root, state, table, table_address, allocators, list, ring, slot_fences: [0; RING], contexts: (0..MAX_CONTEXTS).map(|_| None).collect(),
             })
         }

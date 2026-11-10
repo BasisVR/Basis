@@ -156,11 +156,11 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
 
     private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode) { resetCache = true; resetReason = "scene load " + scene.name; }
 
-    private void MarkDirty(Vector3 centre, float radius, bool soft = false)
+    private void MarkDirty(Vector3 centre, float radius, bool soft = false, bool clear = false)
     {
         if (soft) { statSoft++; } else { statHard++; }
         if (dirty.Count >= BasisExternalRayTracer.MaxDirty) { if (!soft) { resetCache = true; } return; }
-        dirty.Add(new Vector4(centre.x, centre.y, centre.z, soft ? -radius : radius));
+        dirty.Add(new Vector4(centre.x, centre.y, centre.z, clear ? radius + 100000f : soft ? -radius : radius));
     }
 
     public void Dispose()
@@ -726,7 +726,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
                 {
                     float glow = 0f;
                     foreach (float e in record.lastEmission) { glow = Mathf.Max(glow, e); }
-                    if (!record.avatar || glow > 0.001f) { statRemoved++; MarkDirty(record.lastBounds.center, record.lastBounds.extents.magnitude + 2f + Mathf.Min(Mathf.Sqrt(glow) * 2f, 8f), glow <= 0.001f); }
+                    if (!record.avatar || glow > 0.001f) { statRemoved++; MarkDirty(record.lastBounds.center, record.lastBounds.extents.magnitude + 2f + Mathf.Min(Mathf.Sqrt(glow) * 2f, 8f), glow <= 0.001f, glow > 0.001f); }
                     record.seen = false;
                 }
                 continue;
@@ -876,7 +876,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
             Vector4 reach = lightReach[l];
             statLights++;
             if (reach.w < 0f) { resetCache = true; resetReason = "directional light off"; }
-            else { MarkDirty(reach, reach.w * 1.5f + 1f); }
+            else { MarkDirty(reach, reach.w * 1.5f + 1f, false, true); }
             lightReach.Remove(l);
             lightStates.Remove(l);
         }

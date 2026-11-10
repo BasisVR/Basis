@@ -371,12 +371,11 @@ float3 PrimaryGeometric(Texture2D<uint4> gbuffer, uint2 pixel, uint2 local, uint
     return geometric;
 }
 
-void SmoothSurfaceNormal(RaytracingAccelerationStructure tlas, float3 viewer, inout Surface surface, float3 geometric)
+bool PrimarySurface(RaytracingAccelerationStructure tlas, float3 viewer, inout Surface surface, float3 geometric)
 {
-    if (dot(surface.normal, geometric) < 0.995) { return; }
     float3 d = surface.position - viewer;
     float distance = length(d);
-    if (distance <= 1e-4) { return; }
+    if (distance <= 1e-4) { return false; }
     float tolerance = max(0.02, distance * 0.02);
     RayDesc ray;
     ray.Origin = viewer;
@@ -385,10 +384,13 @@ void SmoothSurfaceNormal(RaytracingAccelerationStructure tlas, float3 viewer, in
     ray.TMax = distance + tolerance;
     Payload payload = (Payload)0;
     HitObj h = TraceHit(tlas, RAY_FLAG_NONE, 0xFF, ray, payload);
-    if (!h.IsHit()) { return; }
+    if (!h.IsHit()) { return false; }
+    bool avatar = (LoadInstance(h.GetInstanceID()).flags & INSTANCE_AVATAR) != 0u;
+    if (dot(surface.normal, geometric) < 0.995) { return avatar; }
     Hit hit = ResolveHit(h, 0.0);
-    if (dot(hit.geometricNormal, geometric) < 0.9 || dot(hit.normal, geometric) < 0.2) { return; }
+    if (dot(hit.geometricNormal, geometric) < 0.9 || dot(hit.normal, geometric) < 0.2) { return avatar; }
     surface.normal = hit.normal;
+    return avatar;
 }
 
 struct Bounce
@@ -523,11 +525,10 @@ void GatherFarLight(RaytracingAccelerationStructure tlas, float3 position, float
     }
 }
 
-SH GatherSH(RaytracingAccelerationStructure tlas, Texture2D<uint4> gbuffer, float3 position, float3 normal, float3 plane, float3 viewer, uint rays, bool reorder, inout uint rng, out Bounce firstBounce)
+SH GatherSH(RaytracingAccelerationStructure tlas, Texture2D<uint4> gbuffer, float3 position, float3 normal, float3 plane, float3 viewer, uint rays, float2 rotation, bool reorder, inout uint rng, out Bounce firstBounce)
 {
     SH sh = ShZero();
     firstBounce = (Bounce)0;
-    float2 rotation = float2(Random(rng), Random(rng));
     for (uint i = 0; i < rays; i++)
     {
         Bounce b;
@@ -663,7 +664,8 @@ void RayGen()
         float levelRandom = Random(rng);
         if (CacheSettled(position, hit.geometricNormal, viewer, levelRandom) && (Hash(index.x + index.y * 64u + frame.frameIndex) & 15u) != 0u) { return; }
         Bounce ignored;
-        SH sh = GatherSH(tlas, gbuffer, position, hit.normal, hit.geometricNormal, viewer, 2u, reorder, rng, ignored);
+        float2 rotation = float2(Random(rng), Random(rng));
+        SH sh = GatherSH(tlas, gbuffer, position, hit.normal, hit.geometricNormal, viewer, 2u, rotation, reorder, rng, ignored);
         CacheAccumulate(position, hit.geometricNormal, viewer, sh, levelRandom, float2(Random(rng), Random(rng)));
         return;
     }
@@ -732,7 +734,7 @@ void RayGen()
     }
     float3 viewer = frame.views[viewIndex].position.xyz;
     float3 geometric = PrimaryGeometric(gbuffer, pixel, local, viewIndex, surface);
-    SmoothSurfaceNormal(tlas, viewer, surface, geometric);
+    bool avatarPixel = PrimarySurface(tlas, viewer, surface, geometric);
     uint rng = Hash(pixel.x + pixel.y * 65536u) ^ Hash(frame.frameIndex * 7919u + (mode == 0 ? 17u : 91u));
     float3 toViewer = normalize(viewer - surface.position);
     float bias = frame.normalBias * (1.0 + surface.distance * 0.01);
@@ -743,13 +745,14 @@ void RayGen()
     {
         if (baked) { return; }
         float3 position = origin, normal = surface.normal, plane = geometric;
-        uint vertices = clamp(frame.bounces, 1u, 4u);
+        uint vertices = clamp(frame.bounces & 0xffu, 1u, 4u);
         for (uint v = 0; v < vertices; v++)
         {
             float levelRandom = Random(rng);
             if (CacheSettled(position, plane, viewer, levelRandom) && (Hash(pixel.x * 31u + pixel.y * 17u + frame.frameIndex) & 15u) != 0u) { break; }
             Bounce next;
-            SH sh = GatherSH(tlas, gbuffer, position, normal, plane, viewer, v == 0 ? max(frame.samples, 2u) : 2u, reorder, rng, next);
+            float2 rotation = v == 0 ? BlueNoise2(index, 4u, frame.frameIndex) : float2(Random(rng), Random(rng));
+            SH sh = GatherSH(tlas, gbuffer, position, normal, plane, viewer, v == 0 ? max(frame.samples, 2u) : 2u, rotation, reorder, rng, next);
             CacheAccumulate(position, plane, viewer, sh, levelRandom, float2(Random(rng), Random(rng)));
             if (!next.hit || next.terminal) { break; }
             position = next.position;
@@ -858,7 +861,7 @@ void RayGen()
         return;
     }
 
-    float4 cached = CacheLookup(surface.position, geometric, viewer, (Hash(pixel.x * 2654435761u ^ pixel.y * 40503u ^ frame.frameIndex * 9973u) & 0xffffu) * (1.0 / 65536.0));
+    float4 cached = CacheLookup(surface.position, geometric, viewer, BlueNoise1(pixel, 0u, frame.frameIndex));
     float3 irradiance = cached.rgb;
     if (cached.a < 0.5)
     {
@@ -866,12 +869,25 @@ void RayGen()
         float3 traced = 0.0;
         for (uint ri = 0; ri < fresh; ri++)
         {
-            float3 direction = CosineSample(surface.normal, float2(Random(rng), Random(rng)));
+            float3 direction = CosineSample(surface.normal, BlueNoise2(pixel, 1u, frame.frameIndex * fresh + ri));
             if (dot(direction, geometric) <= 0.0) { direction = normalize(direction - 2.0 * dot(direction, geometric) * geometric); }
             Bounce b = TraceRadiance(tlas, gbuffer, origin, direction, viewer, false, rng);
             traced += ClampFirefly(b.radiance);
         }
         irradiance = lerp(traced / fresh, cached.rgb, saturate(cached.a * 2.0));
+    }
+    uint avatarRays = frame.bounces >> 8;
+    if (avatarPixel && avatarRays > 0u)
+    {
+        float3 traced = 0.0;
+        for (uint ar = 0; ar < avatarRays; ar++)
+        {
+            float3 direction = CosineSample(surface.normal, BlueNoise2(pixel, 2u, frame.frameIndex * avatarRays + ar));
+            if (dot(direction, geometric) <= 0.0) { direction = normalize(direction - 2.0 * dot(direction, geometric) * geometric); }
+            Bounce b = TraceRadiance(tlas, gbuffer, origin, direction, viewer, false, rng);
+            traced += ClampFirefly(b.radiance);
+        }
+        irradiance = lerp(irradiance, traced / avatarRays, float(avatarRays) / float(avatarRays + 2u));
     }
 
     if ((frame.flags & FLAG_PROBES) != 0)
@@ -907,11 +923,9 @@ void RayGen()
     uint aoRays = 2;
     if (frame.aoRadius > 0.0)
     {
-        float2 jitter = float2(Hash(pixel.x * 73856093u ^ pixel.y * 19349663u), Hash(pixel.x * 83492791u ^ pixel.y * 2654435761u)) * (1.0 / 4294967296.0);
         for (uint s = 0; s < aoRays; s++)
         {
-            float2 u = frac(float2(0.7548776662, 0.5698402910) * float((frame.frameIndex % 4096u) * aoRays + s) + jitter);
-            float3 direction = CosineSample(surface.normal, u);
+            float3 direction = CosineSample(surface.normal, BlueNoise2(pixel, 3u, frame.frameIndex * aoRays + s));
             if (dot(direction, geometric) <= 0.0) { direction = normalize(direction - 2.0 * dot(direction, geometric) * geometric); }
             RayDesc ray;
             ray.Origin = origin;

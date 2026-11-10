@@ -9231,6 +9231,18 @@
       "value": "32"
     },
     {
+      "key": "settings.graphics.gi.pathTracerAvatarRays",
+      "value": "Path Tracer Avatar Rays"
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerAvatarRays.tooltip",
+      "value": "Extra rays traced for every pixel on an avatar. Avatars move, so the shared lighting cache is a poor fit for them; more rays give them cleaner, more accurate bounce light and cost GPU time only where avatars are on screen."
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerAvatarRays.off",
+      "value": "Off"
+    },
+    {
       "key": "settings.graphics.gi.ignoreBakedEmission",
       "value": "Double Baked Emission"
     },

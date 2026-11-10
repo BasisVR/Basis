@@ -85,7 +85,7 @@ public partial class BasisGlobalIlluminationPass
         parameters.height = (uint)tracedHeight;
         parameters.viewCount = (uint)views;
         parameters.samples = (uint)(BasisExternalRayTracer.RayCount > 0 ? Mathf.Clamp(BasisExternalRayTracer.RayCount, 1, 64) : Mathf.Clamp(settings.ResolvedRayCount() * 2, 2, 16));
-        parameters.bounces = (uint)Mathf.Clamp(settings.ResolvedBounces(), 0, 8);
+        parameters.bounces = (uint)Mathf.Clamp(settings.ResolvedBounces(), 0, 8) | ((uint)Mathf.Clamp(BasisExternalRayTracer.AvatarRayCount, 0, 64) << 8);
         parameters.maxDistance = Mathf.Max(1f, settings.maxRayLength * 4f);
         parameters.aoRadius = settings.obscuranceRadius;
         parameters.aoIntensity = settings.obscuranceIntensity;
