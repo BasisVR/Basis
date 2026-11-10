@@ -6,7 +6,7 @@ use ash::vk;
 use basis_rt_protocol::*;
 
 const TRACE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/trace.spv"));
-const COMPUTE: [(&str, &[u8]); 11] = [
+const COMPUTE: [(&str, &[u8]); 12] = [
     ("CopyVertices", include_bytes!(concat!(env!("OUT_DIR"), "/CopyVertices.spv"))),
     ("CopyIndices", include_bytes!(concat!(env!("OUT_DIR"), "/CopyIndices.spv"))),
     ("CopyPositions", include_bytes!(concat!(env!("OUT_DIR"), "/CopyPositions.spv"))),
@@ -18,6 +18,7 @@ const COMPUTE: [(&str, &[u8]); 11] = [
     ("ProbeResolve", include_bytes!(concat!(env!("OUT_DIR"), "/ProbeResolve.spv"))),
     ("SubmeshBounds", include_bytes!(concat!(env!("OUT_DIR"), "/SubmeshBounds.spv"))),
     ("SubmeshBoundsClear", include_bytes!(concat!(env!("OUT_DIR"), "/SubmeshBoundsClear.spv"))),
+    ("CacheMaintain", include_bytes!(concat!(env!("OUT_DIR"), "/CacheMaintain.spv"))),
 ];
 const P_COPY_VERTICES: usize = 0;
 const P_COPY_INDICES: usize = 1;
@@ -30,6 +31,7 @@ const P_RESOLVE: usize = 7;
 const P_PROBE_RESOLVE: usize = 8;
 const P_SUBMESH_BOUNDS: usize = 9;
 const P_SUBMESH_BOUNDS_CLEAR: usize = 10;
+const P_MAINTAIN: usize = 11;
 
 pub const SCRATCH_PER_SLOT: u32 = 4096;
 pub const HEAP_SIZE: u32 = SCRATCH_DESCRIPTORS + SCRATCH_PER_SLOT * RING as u32;
@@ -43,6 +45,8 @@ pub const HEAP_MATERIALS: u32 = 24;
 pub const HEAP_LIGHTS: u32 = 32;
 pub const HEAP_EMITTERS: u32 = 40;
 pub const HEAP_CACHE: u32 = 48;
+pub const HEAP_CACHE_ARGS: u32 = 55;
+pub const CACHE_SLICES: u64 = 16;
 pub const HEAP_DIRTY: u32 = 56;
 pub const CACHE_SIZE: u64 = 1 << 20;
 pub const CTX_GBUFFER: u32 = 0;
@@ -114,6 +118,7 @@ pub struct Renderer {
     pub regions: [vk::StridedDeviceAddressRegionKHR; 4],
     pub compute: Vec<vk::Pipeline>,
     pub cache: Vec<Buffer>,
+    pub cache_args: Buffer,
     pub blue_noise: Buffer,
     pub queries: vk::QueryPool,
     pub timings: [u32; 8],
@@ -232,7 +237,8 @@ impl Renderer {
             let queries = gpu.device.create_query_pool(&vk::QueryPoolCreateInfo::default().query_type(vk::QueryType::TIMESTAMP).query_count(TIMESTAMPS * RING as u32), None).map_err(err("create query pool"))?;
             gpu.device.reset_query_pool(queries, 0, TIMESTAMPS * RING as u32);
             let mut cache = Vec::new();
-            for stride in [4u64, 4, 64, 64, 4, 16] { cache.push(gpu.buffer(CACHE_SIZE * stride, vk::BufferUsageFlags::STORAGE_BUFFER, vk::MemoryPropertyFlags::DEVICE_LOCAL)?); }
+            for (i, stride) in [8u64, 4, 64, 64, 4, 16].iter().enumerate() { cache.push(gpu.buffer(CACHE_SIZE * stride + if i == 1 { 256 } else { 0 }, vk::BufferUsageFlags::STORAGE_BUFFER, vk::MemoryPropertyFlags::DEVICE_LOCAL)?); }
+            let cache_args = gpu.buffer(256, vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::INDIRECT_BUFFER, vk::MemoryPropertyFlags::DEVICE_LOCAL)?;
 
             let ubo = [vk::DescriptorBufferInfo { buffer: ring.buffer, offset: 0, range: CONSTANTS_BYTES }];
             let structures = [scene.tlas];
@@ -252,6 +258,7 @@ impl Renderer {
             heap.buffer(gpu, HEAP_BOUNDS, scene.bounds.buffer, 0, SUBMESH_CAPACITY * 32);
             heap.buffer(gpu, HEAP_RING, ring.buffer, 0, SLOT_STRIDE * RING as u64);
             for (i, b) in cache.iter().enumerate() { heap.buffer(gpu, HEAP_CACHE + i as u32, b.buffer, 0, b.size); }
+            heap.buffer(gpu, HEAP_CACHE_ARGS, cache_args.buffer, 0, cache_args.size);
             let blue_noise = gpu.buffer(BLUE_NOISE.len() as u64, vk::BufferUsageFlags::STORAGE_BUFFER, vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT)?;
             std::ptr::copy_nonoverlapping(BLUE_NOISE.as_ptr(), blue_noise.mapped, BLUE_NOISE.len());
             heap.buffer(gpu, HEAP_BLUE_NOISE, blue_noise.buffer, 0, blue_noise.size);
@@ -271,11 +278,11 @@ impl Renderer {
             let fence_unity = interop.semaphore(gpu, link)?;
             let fence_tracer = interop.semaphore(gpu, link)?;
             let cmd = gpu.begin()?;
-            for b in &cache { gpu.device.cmd_fill_buffer(cmd, b.buffer, 0, vk::WHOLE_SIZE, 0); }
+            for b in cache.iter().chain(std::iter::once(&cache_args)) { gpu.device.cmd_fill_buffer(cmd, b.buffer, 0, vk::WHOLE_SIZE, 0); }
             image_barrier(gpu, cmd, &[(upload[0].image, vk::ImageLayout::UNDEFINED, vk::ImageLayout::GENERAL, vk::QUEUE_FAMILY_IGNORED, vk::QUEUE_FAMILY_IGNORED), (upload[1].image, vk::ImageLayout::UNDEFINED, vk::ImageLayout::GENERAL, vk::QUEUE_FAMILY_IGNORED, vk::QUEUE_FAMILY_IGNORED)]);
             gpu.finish_now(cmd)?;
             Ok(Renderer {
-                layout, set_layouts, sets: [set0, set1], pools: [pool0, pool1], samplers, rt, sbt, regions, compute, cache, blue_noise, queries, timings: [0; 8], commands, ring, slot_fences: [0; RING],
+                layout, set_layouts, sets: [set0, set1], pools: [pool0, pool1], samplers, rt, sbt, regions, compute, cache, cache_args, blue_noise, queries, timings: [0; 8], commands, ring, slot_fences: [0; RING],
                 contexts: (0..MAX_CONTEXTS).map(|_| None).collect(), upload, fence_unity, fence_tracer, scratch: std::cell::Cell::new((SCRATCH_DESCRIPTORS, 0)),
             })
         }
@@ -444,8 +451,14 @@ impl Renderer {
         }
         barrier(gpu, cmd);
         stamp(2);
+        let full_scan = params.flags & FLAG_CACHE_RESET != 0 || params.dirty_count > 0;
+        let (scan_base, scan_count) = if full_scan { (0, CACHE_SIZE) } else { ((params.frame % CACHE_SLICES) * (CACHE_SIZE / CACHE_SLICES), CACHE_SIZE / CACHE_SLICES) };
+        self.pipeline(gpu, cmd, P_MAINTAIN);
+        self.push(gpu, cmd, [scan_base as u32, 0, 0, 0, 0, 0, 0, 0]);
+        self.dispatch(gpu, cmd, (scan_count / 64) as u32, 1);
+        barrier(gpu, cmd);
         self.pipeline(gpu, cmd, P_RESOLVE);
-        self.dispatch(gpu, cmd, (CACHE_SIZE / 64) as u32, 1);
+        unsafe { gpu.device.cmd_dispatch_indirect(cmd, self.cache_args.buffer, 0); }
         barrier(gpu, cmd);
         stamp(3);
         let (tiles_x, tiles_y) = tiles(width, height, views);

@@ -26,6 +26,7 @@ fn main() {
         ("upload.hlsl", "TexturePixels"),
         ("upload.hlsl", "Downsample"),
         ("resolve.hlsl", "CacheResolve"),
+        ("resolve.hlsl", "CacheMaintain"),
         ("probe.hlsl", "ProbeResolve"),
         ("bounds.hlsl", "SubmeshBounds"),
         ("bounds.hlsl", "SubmeshBoundsClear"),

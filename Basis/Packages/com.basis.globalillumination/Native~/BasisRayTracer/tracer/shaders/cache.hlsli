@@ -4,7 +4,9 @@
 #include "common.hlsli"
 
 #define HEAP_CACHE_KEYS 48
-#define HEAP_CACHE_CHECKS 49
+#define HEAP_CACHE_LIST 49
+#define HEAP_CACHE_ARGS 55
+#define CACHE_LIST_HEADER 16u
 #define HEAP_CACHE_ACCUM 50
 #define HEAP_CACHE_RESOLVED 51
 #define HEAP_CACHE_TOUCHED 52
@@ -103,13 +105,12 @@ CacheCell CacheKey(int3 q, uint level, uint axis)
 int CacheFind(CacheCell c)
 {
     RWByteAddressBuffer keys = ResourceDescriptorHeap[HEAP_CACHE_KEYS];
-    RWByteAddressBuffer checks = ResourceDescriptorHeap[HEAP_CACHE_CHECKS];
     uint index = c.a & CACHE_MASK;
     [loop] for (uint i = 0; i < CACHE_PROBES; i++)
     {
-        uint k = keys.Load(index * 4);
-        if (k == 0) { return -1; }
-        if (k == c.a && checks.Load(index * 4) == c.b) { return int(index); }
+        uint2 k = keys.Load2(index * 8);
+        if (k.x == 0) { return -1; }
+        if (k.x == c.a && k.y == c.b) { return int(index); }
         index = (index + 1u) & CACHE_MASK;
     }
     return -1;
@@ -118,17 +119,16 @@ int CacheFind(CacheCell c)
 int CacheInsert(CacheCell c, float3 centre, float size)
 {
     RWByteAddressBuffer keys = ResourceDescriptorHeap[HEAP_CACHE_KEYS];
-    RWByteAddressBuffer checks = ResourceDescriptorHeap[HEAP_CACHE_CHECKS];
     uint index = c.a & CACHE_MASK;
     [loop] for (uint i = 0; i < CACHE_PROBES; i++)
     {
-        uint original = keys.Load(index * 4);
+        uint original = keys.Load(index * 8);
         if (original == 0u)
         {
-            keys.InterlockedCompareExchange(index * 4, 0u, c.a, original);
+            keys.InterlockedCompareExchange(index * 8, 0u, c.a, original);
             if (original == 0u)
             {
-                checks.Store(index * 4, c.b);
+                keys.Store(index * 8 + 4, c.b);
                 RWByteAddressBuffer positions = ResourceDescriptorHeap[HEAP_CACHE_POSITIONS];
                 positions.Store4(index * 16, asuint(float4(centre, size)));
                 return int(index);
@@ -136,7 +136,7 @@ int CacheInsert(CacheCell c, float3 centre, float size)
         }
         if (original == c.a)
         {
-            uint check = checks.Load(index * 4);
+            uint check = keys.Load(index * 8 + 4);
             if (check == c.b || check == 0u) { return int(index); }
         }
         index = (index + 1u) & CACHE_MASK;
@@ -175,8 +175,15 @@ void CacheAccumulate(float3 p, float3 n, float3 viewer, SH value, float rnd, flo
     AddFixed(accum, o + 12, g);
     AddFixed(accum, o + 24, b);
     AddFixed(accum, o + 36, z);
-    uint ignored;
-    accum.InterlockedAdd(o + 48, 1u, ignored);
+    uint previous;
+    accum.InterlockedAdd(o + 48, 1u, previous);
+    if (previous == 0u)
+    {
+        RWByteAddressBuffer list = ResourceDescriptorHeap[HEAP_CACHE_LIST];
+        uint at;
+        list.InterlockedAdd(0, 1u, at);
+        if (at < CACHE_SIZE) { list.Store(CACHE_LIST_HEADER + at * 4, uint(index)); }
+    }
     AddFixed(accum, o + 52, m);
 }
 

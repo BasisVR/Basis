@@ -16,6 +16,7 @@ const DOWNSAMPLE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/Downsample.d
 const TEMPORAL: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/Temporal.dxil"));
 const WAVELET: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/Wavelet.dxil"));
 const RESOLVE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/CacheResolve.dxil"));
+const MAINTAIN: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/CacheMaintain.dxil"));
 const PROBE_RESOLVE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/ProbeResolve.dxil"));
 const SUBMESH_BOUNDS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/SubmeshBounds.dxil"));
 const SUBMESH_BOUNDS_CLEAR: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/SubmeshBoundsClear.dxil"));
@@ -31,6 +32,8 @@ pub const PROBE_RAYS: u32 = 16;
 pub const PROBE_STRIDE: u64 = 96;
 pub const TIMESTAMPS: u32 = 8;
 pub const HEAP_CACHE: u32 = 48;
+pub const HEAP_CACHE_ARGS: u32 = 55;
+pub const CACHE_SLICES: u64 = 16;
 pub const HEAP_DIRTY: u32 = 56;
 
 pub const HEAP_UPLOAD: u32 = 7;
@@ -99,6 +102,9 @@ pub struct Renderer {
     pub temporal: ID3D12PipelineState,
     pub wavelet: ID3D12PipelineState,
     pub resolve: ID3D12PipelineState,
+    pub maintain: ID3D12PipelineState,
+    pub resolve_signature: ID3D12CommandSignature,
+    pub cache_args: ID3D12Resource,
     pub probe_resolve: ID3D12PipelineState,
     pub submesh_bounds: ID3D12PipelineState,
     pub submesh_bounds_clear: ID3D12PipelineState,
@@ -179,17 +185,22 @@ impl Renderer {
             let readback = gpu.buffer(TIMESTAMPS as u64 * RING as u64 * 8, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST)?;
             let frequency = gpu.queue.GetTimestampFrequency().unwrap_or(1).max(1);
             let mut cache = Vec::new();
-            for (i, stride) in [4u64, 4, 64, 64, 4, 16].iter().enumerate() {
-                let b = gpu.buffer(CACHE_SIZE * stride, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)?;
-                gpu.uav_raw(&b, CACHE_SIZE * stride, HEAP_CACHE + i as u32);
+            for (i, stride) in [8u64, 4, 64, 64, 4, 16].iter().enumerate() {
+                let bytes = CACHE_SIZE * stride + if i == 1 { 256 } else { 0 };
+                let b = gpu.buffer(bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)?;
+                gpu.uav_raw(&b, bytes, HEAP_CACHE + i as u32);
                 cache.push(b);
             }
+            let cache_args = gpu.buffer(256, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)?;
+            gpu.uav_raw(&cache_args, 256, HEAP_CACHE_ARGS);
+            let dispatch_arg = [D3D12_INDIRECT_ARGUMENT_DESC { Type: D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH, ..Default::default() }];
+            let resolve_signature: ID3D12CommandSignature = { let mut s: Option<ID3D12CommandSignature> = None; gpu.device.CreateCommandSignature(&D3D12_COMMAND_SIGNATURE_DESC { ByteStride: 16, NumArgumentDescs: 1, pArgumentDescs: dispatch_arg.as_ptr(), NodeMask: 0 }, None::<&ID3D12RootSignature>, &mut s)?; s.unwrap() };
             let blue_noise = UploadRing::new(gpu, BLUE_NOISE.len() as u64)?;
             std::ptr::copy_nonoverlapping(BLUE_NOISE.as_ptr(), blue_noise.mapped, BLUE_NOISE.len());
             gpu.srv_raw(&blue_noise.resource, BLUE_NOISE.len() as u64, HEAP_BLUE_NOISE);
             Ok(Renderer {
                 copy_vertices: compute_pso(gpu, &root, COPY_VERTICES)?, copy_indices: compute_pso(gpu, &root, COPY_INDICES)?, copy_positions: compute_pso(gpu, &root, COPY_POSITIONS)?, texture_pixels: compute_pso(gpu, &root, TEXTURE_PIXELS)?,
-                downsample: compute_pso(gpu, &root, DOWNSAMPLE)?, temporal: compute_pso(gpu, &root, TEMPORAL)?, wavelet: compute_pso(gpu, &root, WAVELET)?, resolve: compute_pso(gpu, &root, RESOLVE)?, probe_resolve: compute_pso(gpu, &root, PROBE_RESOLVE)?, submesh_bounds: compute_pso(gpu, &root, SUBMESH_BOUNDS)?, submesh_bounds_clear: compute_pso(gpu, &root, SUBMESH_BOUNDS_CLEAR)?, cache, blue_noise, queries, readback, frequency, timings: [0; 8],
+                downsample: compute_pso(gpu, &root, DOWNSAMPLE)?, temporal: compute_pso(gpu, &root, TEMPORAL)?, wavelet: compute_pso(gpu, &root, WAVELET)?, resolve: compute_pso(gpu, &root, RESOLVE)?, maintain: compute_pso(gpu, &root, MAINTAIN)?, resolve_signature, cache_args, probe_resolve: compute_pso(gpu, &root, PROBE_RESOLVE)?, submesh_bounds: compute_pso(gpu, &root, SUBMESH_BOUNDS)?, submesh_bounds_clear: compute_pso(gpu, &root, SUBMESH_BOUNDS_CLEAR)?, cache, blue_noise, queries, readback, frequency, timings: [0; 8],
                 root, state, table, table_address, allocators, list, ring, slot_fences: [0; RING], contexts: (0..MAX_CONTEXTS).map(|_| None).collect(),
             })
         }
@@ -367,9 +378,15 @@ impl Renderer {
             }
             list.ResourceBarrier(&[uav_barrier(None)]);
             stamp(&list, 2);
+            let full_scan = params.flags & FLAG_CACHE_RESET != 0 || params.dirty_count > 0;
+            let (scan_base, scan_count) = if full_scan { (0, CACHE_SIZE) } else { ((params.frame % CACHE_SLICES) * (CACHE_SIZE / CACHE_SLICES), CACHE_SIZE / CACHE_SLICES) };
+            list.SetPipelineState(&self.maintain);
+            list.SetComputeRoot32BitConstants(1, 8, [scan_base as u32, 0, 0, 0, 0, 0, 0, 0].as_ptr() as _, 0);
+            list.Dispatch((scan_count / 64) as u32, 1, 1);
+            list.ResourceBarrier(&[uav_barrier(None), transition(&self.cache_args, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT)]);
             list.SetPipelineState(&self.resolve);
-            list.Dispatch((CACHE_SIZE / 64) as u32, 1, 1);
-            list.ResourceBarrier(&[uav_barrier(None)]);
+            list.ExecuteIndirect(&self.resolve_signature, 1, &self.cache_args, 0, None::<&ID3D12Resource>, 0);
+            list.ResourceBarrier(&[uav_barrier(None), transition(&self.cache_args, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)]);
             stamp(&list, 3);
             let (tiles_x, tiles_y) = tiles(width, height, views);
             if tlas_count > 0 && params.flags & FLAG_PROBES != 0 {
