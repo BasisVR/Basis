@@ -9,6 +9,7 @@ pub const INDEX_CAPACITY: u64 = 64 * 1024 * 1024;
 pub const SUBMESH_CAPACITY: u64 = 65536;
 pub const SCRATCH_BYTES: u64 = 256 * 1024 * 1024;
 pub const REBUILD_INTERVAL: u32 = 60;
+pub const COMPACT_SLOTS: u32 = 1024;
 
 pub const HEAP_VERTICES: u32 = 1;
 pub const HEAP_INDICES: u32 = 2;
@@ -84,6 +85,11 @@ pub struct Scene {
     pub bounds_valid: Vec<bool>,
     pub dummy: (vk::Image, Allocation, vk::ImageView),
     scratch_cursor: u64,
+    compact_pool: vk::QueryPool,
+    compact_free: Vec<u32>,
+    compacting: Vec<(u32, u64, u32, u64)>,
+    completed: u64,
+    pub compacted_bytes: u64,
 }
 
 fn alloc(free: &mut Vec<(u64, u64)>, size: u64, align: u64) -> Option<u64> { take(free, size, align) }
@@ -116,12 +122,15 @@ impl Scene {
             let range = vk::ImageSubresourceRange { aspect_mask: vk::ImageAspectFlags::COLOR, base_mip_level: 0, level_count: 1, base_array_layer: 0, layer_count: 1 };
             gpu.device.cmd_clear_color_image(cmd, image, vk::ImageLayout::GENERAL, &vk::ClearColorValue { float32: [0.0; 4] }, &[range]);
         }
+        let compact_pool = unsafe { gpu.device.create_query_pool(&vk::QueryPoolCreateInfo::default().query_type(vk::QueryType::ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR).query_count(COMPACT_SLOTS), None).map_err(err("create compaction query pool"))? };
+        unsafe { gpu.device.cmd_reset_query_pool(cmd, compact_pool, 0, COMPACT_SLOTS); }
         gpu.finish_now(cmd)?;
         Ok(Scene {
             vertices, indices, mesh_table, submesh_table, scratch, tlas_buffer, tlas, tlas_scratch,
             vertex_alloc: vec![(0, VERTEX_CAPACITY)], index_alloc: vec![(0, INDEX_CAPACITY)], submesh_alloc: vec![(0, SUBMESH_CAPACITY)],
             meshes: HashMap::new(), textures: HashMap::new(), mesh_cpu: vec![GpuMesh::default(); MAX_MESHES as usize], submesh_cpu: vec![GpuSubmesh::default(); SUBMESH_CAPACITY as usize],
             tables_dirty: true, retired: Vec::new(), bounds, bounds_valid: vec![false; SUBMESH_CAPACITY as usize], dummy: (image, allocation, view), scratch_cursor: 0,
+            compact_pool, compact_free: (0..COMPACT_SLOTS).rev().collect(), compacting: Vec::new(), completed: 0, compacted_bytes: 0,
         })
     }
 
@@ -179,7 +188,7 @@ impl Scene {
         if let Some(m) = self.meshes.get_mut(&id) {
             if !m.committed { return; }
             m.refits += 1;
-            if m.blas.is_none() || m.refits >= REBUILD_INTERVAL { m.needs_build = true; m.refits = 0; } else { m.needs_refit = true; }
+            if m.blas.is_none() || !m.dynamic || m.refits >= REBUILD_INTERVAL { m.needs_build = true; m.refits = 0; } else { m.needs_refit = true; }
         }
     }
 
@@ -210,14 +219,47 @@ impl Scene {
         Some((self.scratch.address + at).div_ceil(align) * align)
     }
 
+    fn compact(&mut self, gpu: &mut Gpu, cmd: vk::CommandBuffer, fence: u64) -> Fallible<u32> {
+        let mut copied = 0;
+        let mut i = 0;
+        while i < self.compacting.len() {
+            let (id, done, slot, address) = self.compacting[i];
+            if done > self.completed { i += 1; continue; }
+            self.compacting.swap_remove(i);
+            self.compact_free.push(slot);
+            let mut size = [0u64];
+            if unsafe { gpu.device.get_query_pool_results(self.compact_pool, slot, &mut size, vk::QueryResultFlags::TYPE_64) }.is_err() { continue; }
+            let Some(m) = self.meshes.get_mut(&id) else { continue; };
+            if m.blas_address != address || m.dynamic || m.needs_build || size[0] == 0 { continue; }
+            let Some(old) = m.blas.as_ref() else { continue; };
+            let current = old.buffer.size;
+            let size = (size[0] + 255) & !255;
+            if size >= current { continue; }
+            let source = old.structure;
+            let buffer = gpu.buffer(size, vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR, vk::MemoryPropertyFlags::DEVICE_LOCAL)?;
+            let structure = unsafe { gpu.accel.create_acceleration_structure(&vk::AccelerationStructureCreateInfoKHR::default().buffer(buffer.buffer).size(size).ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL), None).map_err(err("create compacted BLAS"))? };
+            unsafe { gpu.accel.cmd_copy_acceleration_structure(cmd, &vk::CopyAccelerationStructureInfoKHR::default().src(source).dst(structure).mode(vk::CopyAccelerationStructureModeKHR::COMPACT)); }
+            let target = unsafe { gpu.accel.get_acceleration_structure_device_address(&vk::AccelerationStructureDeviceAddressInfoKHR::default().acceleration_structure(structure)) };
+            if let Some(old) = m.blas.replace(Blas { buffer, structure }) { self.retired.push((fence, Retired::Blas(old))); }
+            m.blas_address = target;
+            m.build_scratch = 0;
+            m.update_scratch = 0;
+            self.compacted_bytes += current - size;
+            copied += 1;
+        }
+        Ok(copied)
+    }
+
     pub fn build(&mut self, gpu: &mut Gpu, cmd: vk::CommandBuffer, fence: u64) -> Fallible<u32> {
         self.scratch_cursor = 0;
+        let mut built = self.compact(gpu, cmd, fence)?;
         let ids: Vec<u32> = self.meshes.iter().filter(|(_, m)| m.committed && (m.needs_build || m.needs_refit)).map(|(k, _)| *k).collect();
-        let mut built = 0;
+        let mut queried: Vec<(u32, vk::AccelerationStructureKHR)> = Vec::new();
         for id in ids {
             let (geometry, ranges, counts, dynamic, rebuild) = { let m = &self.meshes[&id]; let (g, r, c) = self.geometry(m); (g, r, c, m.dynamic, m.needs_build) };
             if geometry.is_empty() { continue; }
-            let flags = if dynamic { vk::BuildAccelerationStructureFlagsKHR::ALLOW_UPDATE | vk::BuildAccelerationStructureFlagsKHR::PREFER_FAST_BUILD } else { vk::BuildAccelerationStructureFlagsKHR::PREFER_FAST_TRACE };
+            let compactable = !dynamic && rebuild;
+            let flags = if dynamic { vk::BuildAccelerationStructureFlagsKHR::ALLOW_UPDATE | vk::BuildAccelerationStructureFlagsKHR::PREFER_FAST_BUILD } else { vk::BuildAccelerationStructureFlagsKHR::PREFER_FAST_TRACE | vk::BuildAccelerationStructureFlagsKHR::ALLOW_COMPACTION };
             let mut info = vk::AccelerationStructureBuildGeometryInfoKHR::default().ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL).flags(flags).geometries(&geometry);
             let scratch_size;
             if rebuild && self.meshes[&id].blas.is_some() && self.meshes[&id].build_scratch > 0 {
@@ -251,8 +293,24 @@ impl Scene {
             m.needs_build = false;
             m.needs_refit = false;
             built += 1;
+            if compactable {
+                let (address, structure) = (m.blas_address, m.blas.as_ref().unwrap().structure);
+                let stale: Vec<u32> = self.compacting.iter().filter(|c| c.0 == id).map(|c| c.2).collect();
+                self.compacting.retain(|c| c.0 != id);
+                self.compact_free.extend(stale);
+                if let Some(slot) = self.compact_free.pop() {
+                    self.compacting.push((id, fence, slot, address));
+                    queried.push((slot, structure));
+                }
+            }
         }
         if built > 0 { barrier(gpu, cmd); }
+        for (slot, structure) in queried {
+            unsafe {
+                gpu.device.cmd_reset_query_pool(cmd, self.compact_pool, slot, 1);
+                gpu.accel.cmd_write_acceleration_structures_properties(cmd, &[structure], vk::QueryType::ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR, self.compact_pool, slot);
+            }
+        }
         Ok(built)
     }
 
@@ -292,6 +350,7 @@ impl Scene {
     }
 
     pub fn collect(&mut self, gpu: &mut Gpu, completed: u64) {
+        self.completed = completed;
         let mut keep = Vec::new();
         for (f, r) in self.retired.drain(..) {
             if f > completed { keep.push((f, r)); continue; }

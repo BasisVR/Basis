@@ -11,6 +11,7 @@ pub const SUBMESH_CAPACITY: u64 = 65536;
 pub const SCRATCH_BYTES: u64 = 256 * 1024 * 1024;
 pub const REBUILD_INTERVAL: u32 = 60;
 pub const TLAS_REBUILD_INTERVAL: u32 = 30;
+pub const COMPACT_SLOTS: u32 = 1024;
 const TLAS_FLAGS: D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS(D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE.0 | D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE.0);
 
 pub const HEAP_TLAS: u32 = 0;
@@ -80,6 +81,13 @@ pub struct Scene {
     scratch_cursor: u64,
     tlas_count: u32,
     tlas_age: u32,
+    postbuild: ID3D12Resource,
+    postbuild_readback: ID3D12Resource,
+    postbuild_mapped: *const u64,
+    compact_free: Vec<u32>,
+    compacting: Vec<(u32, u64, u32, u64)>,
+    completed: u64,
+    pub compacted_bytes: u64,
 }
 
 impl Scene {
@@ -106,11 +114,16 @@ impl Scene {
         gpu.uav_raw(&bounds, SUBMESH_CAPACITY * 32, HEAP_BOUNDS);
         let null = D3D12_SHADER_RESOURCE_VIEW_DESC { Format: DXGI_FORMAT_R8G8B8A8_UNORM, ViewDimension: D3D12_SRV_DIMENSION_TEXTURE2D, Shader4ComponentMapping: D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING, Anonymous: D3D12_SHADER_RESOURCE_VIEW_DESC_0 { Texture2D: D3D12_TEX2D_SRV { MipLevels: 1, ..Default::default() } } };
         for i in 0..MAX_TEXTURES { unsafe { gpu.device.CreateShaderResourceView(None::<&ID3D12Resource>, Some(&null), gpu.cpu(HEAP_TEXTURES + i)); } }
+        let postbuild = gpu.buffer(COMPACT_SLOTS as u64 * 8, D3D12_HEAP_TYPE_DEFAULT, uav, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)?;
+        let postbuild_readback = gpu.buffer(COMPACT_SLOTS as u64 * 8, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST)?;
+        let mut mapped = std::ptr::null_mut();
+        unsafe { postbuild_readback.Map(0, Some(&D3D12_RANGE { Begin: 0, End: COMPACT_SLOTS as usize * 8 }), Some(&mut mapped))?; }
         Ok(Scene {
             vertices, indices, mesh_table, submesh_table, scratch, tlas, tlas_scratch,
             vertex_alloc: RangeAllocator::new(VERTEX_CAPACITY), index_alloc: RangeAllocator::new(INDEX_CAPACITY), submesh_alloc: RangeAllocator::new(SUBMESH_CAPACITY),
             meshes: HashMap::new(), textures: HashMap::new(), mesh_cpu: vec![GpuMesh::default(); MAX_MESHES as usize], submesh_cpu: vec![GpuSubmesh::default(); SUBMESH_CAPACITY as usize],
             tables_dirty: true, retired: Vec::new(), bounds, bounds_valid: vec![false; SUBMESH_CAPACITY as usize], scratch_cursor: 0, tlas_count: 0, tlas_age: 0,
+            postbuild, postbuild_readback, postbuild_mapped: mapped as *const u64, compact_free: (0..COMPACT_SLOTS).rev().collect(), compacting: Vec::new(), completed: 0, compacted_bytes: 0,
         })
     }
 
@@ -166,7 +179,7 @@ impl Scene {
         if let Some(m) = self.meshes.get_mut(&id) {
             if !m.committed { return; }
             m.refits += 1;
-            if m.blas.is_none() || m.refits >= REBUILD_INTERVAL { m.needs_build = true; m.refits = 0; } else { m.needs_refit = true; }
+            if m.blas.is_none() || !m.dynamic || m.refits >= REBUILD_INTERVAL { m.needs_build = true; m.refits = 0; } else { m.needs_refit = true; }
         }
     }
 
@@ -195,14 +208,44 @@ impl Scene {
         Some(unsafe { self.scratch.GetGPUVirtualAddress() } + at)
     }
 
+    fn compact(&mut self, gpu: &Gpu, list: &ID3D12GraphicsCommandList4, fence: u64) -> Result<u32> {
+        let mut copied = 0;
+        let mut i = 0;
+        while i < self.compacting.len() {
+            let (id, done, slot, address) = self.compacting[i];
+            if done > self.completed { i += 1; continue; }
+            self.compacting.swap_remove(i);
+            self.compact_free.push(slot);
+            let size = unsafe { std::ptr::read_volatile(self.postbuild_mapped.add(slot as usize)) };
+            let Some(m) = self.meshes.get_mut(&id) else { continue; };
+            if m.blas_address != address || m.dynamic || m.needs_build || size == 0 { continue; }
+            let Some(old) = m.blas.as_ref() else { continue; };
+            let current = unsafe { old.GetDesc().Width };
+            let size = (size + 255) & !255;
+            if size >= current { continue; }
+            let blas = gpu.buffer(size, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE)?;
+            let target = unsafe { blas.GetGPUVirtualAddress() };
+            unsafe { list.CopyRaytracingAccelerationStructure(target, address, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE_COMPACT); }
+            if let Some(old) = m.blas.replace(blas) { self.retired.push((fence, old)); }
+            m.blas_address = target;
+            m.build_scratch = 0;
+            m.update_scratch = 0;
+            self.compacted_bytes += current - size;
+            copied += 1;
+        }
+        Ok(copied)
+    }
+
     pub fn build(&mut self, gpu: &Gpu, list: &ID3D12GraphicsCommandList4, fence: u64) -> Result<u32> {
         self.scratch_cursor = 0;
+        let mut built = self.compact(gpu, list, fence)?;
         let ids: Vec<u32> = self.meshes.iter().filter(|(_, m)| m.committed && (m.needs_build || m.needs_refit)).map(|(k, _)| *k).collect();
-        let mut built = 0;
+        let mut queried: Vec<u32> = Vec::new();
         for id in ids {
             let (geometry, dynamic, rebuild) = { let m = &self.meshes[&id]; (self.geometry(m), m.dynamic, m.needs_build) };
             if geometry.is_empty() { continue; }
-            let mut flags = if dynamic { D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE | D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD } else { D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE };
+            let compactable = !dynamic && rebuild;
+            let mut flags = if dynamic { D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE | D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD } else { D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE | D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_COMPACTION };
             let mut inputs = D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS { Type: D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL, Flags: flags, NumDescs: geometry.len() as u32, DescsLayout: D3D12_ELEMENTS_LAYOUT_ARRAY, Anonymous: D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS_0 { pGeometryDescs: geometry.as_ptr() } };
             let mut source = 0u64;
             let scratch_size;
@@ -229,12 +272,35 @@ impl Scene {
             let Some(scratch) = self.scratch_alloc(list, scratch_size) else { continue; };
             let m = self.meshes.get_mut(&id).unwrap();
             let desc = D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC { DestAccelerationStructureData: m.blas_address, Inputs: inputs, SourceAccelerationStructureData: source, ScratchAccelerationStructureData: scratch };
-            unsafe { list.BuildRaytracingAccelerationStructure(&desc, None); }
+            let address = m.blas_address;
             m.needs_build = false;
             m.needs_refit = false;
             built += 1;
+            let mut slot = None;
+            if compactable {
+                let stale: Vec<u32> = self.compacting.iter().filter(|c| c.0 == id).map(|c| c.2).collect();
+                self.compacting.retain(|c| c.0 != id);
+                self.compact_free.extend(stale);
+                slot = self.compact_free.pop();
+            }
+            match slot {
+                Some(slot) => {
+                    let info = [D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC { DestBuffer: unsafe { self.postbuild.GetGPUVirtualAddress() } + slot as u64 * 8, InfoType: D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_COMPACTED_SIZE }];
+                    unsafe { list.BuildRaytracingAccelerationStructure(&desc, Some(&info)); }
+                    self.compacting.push((id, fence, slot, address));
+                    queried.push(slot);
+                }
+                None => unsafe { list.BuildRaytracingAccelerationStructure(&desc, None) },
+            }
         }
         if built > 0 { unsafe { list.ResourceBarrier(&[uav_barrier(None)]); } }
+        if !queried.is_empty() {
+            unsafe {
+                list.ResourceBarrier(&[transition(&self.postbuild, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE)]);
+                for slot in queried { list.CopyBufferRegion(&self.postbuild_readback, slot as u64 * 8, &self.postbuild, slot as u64 * 8, 8); }
+                list.ResourceBarrier(&[transition(&self.postbuild, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)]);
+            }
+        }
         Ok(built)
     }
 
@@ -276,5 +342,5 @@ impl Scene {
         }
     }
 
-    pub fn collect(&mut self, completed: u64) { self.retired.retain(|(f, _)| *f > completed); }
+    pub fn collect(&mut self, completed: u64) { self.completed = completed; self.retired.retain(|(f, _)| *f > completed); }
 }
