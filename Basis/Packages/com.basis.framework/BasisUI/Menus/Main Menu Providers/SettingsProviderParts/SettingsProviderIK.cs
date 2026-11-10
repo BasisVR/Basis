@@ -362,6 +362,8 @@ public static partial class SettingsProviderIK
         {
             ArmSlider(armParent, "settings.bodyTracking.armSwivelSmoothTime.title", 0f, 0.3f, 3, BasisSettingsDefaults.FBIKArmSwivelSmoothTime);
             ArmSlider(armParent, "settings.bodyTracking.armSwivelMaxRate.title", 0f, 3600f, 0, BasisSettingsDefaults.FBIKArmSwivelMaxRate);
+            ArmSlider(armParent, "settings.bodyTracking.elbowReachSoftness.title", 0f, 1f, 2, BasisSettingsDefaults.FBIKElbowReachSoftness);
+            ArmSlider(armParent, "settings.bodyTracking.kneeReachSoftness.title", 0f, 1f, 2, BasisSettingsDefaults.FBIKKneeReachSoftness);
         });
 
         // ============== Body Fit ==============
@@ -976,6 +978,8 @@ public static partial class SettingsProviderIK
         BasisSettingsDefaults.FBIKShoulderTrackerBlend.ResetToDefault();
         BasisSettingsDefaults.FBIKArmSwivelSmoothTime.ResetToDefault();
         BasisSettingsDefaults.FBIKArmSwivelMaxRate.ResetToDefault();
+        BasisSettingsDefaults.FBIKElbowReachSoftness.ResetToDefault();
+        BasisSettingsDefaults.FBIKKneeReachSoftness.ResetToDefault();
         BasisSettingsDefaults.ArmRatio.ResetToDefault();
         BasisSettingsDefaults.FBIKMoveBodyBackWhenCrouching.ResetToDefault();
         BasisSettingsDefaults.VSpineChestPitchFrac.ResetToDefault();

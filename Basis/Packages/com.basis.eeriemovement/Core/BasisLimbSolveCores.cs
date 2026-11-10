@@ -5,6 +5,14 @@ namespace Basis.IK
     {
         const float epsilon = 1e-5f, sqrEpsilon = 1e-8f;
         public static float Saturate(float v) => v < 0f ? 0f : (v > 1f ? 1f : v);
+        public const float MaxReachSoftFraction = 0.1f;
+        public static float SoftCap(float d, float cap, float softSpan)
+        {
+            if (!(softSpan > epsilon)) return d < cap ? d : cap;
+            float start = cap - softSpan;
+            if (d <= start) return d;
+            return cap - softSpan * Mathf.Exp(-(d - start) / softSpan);
+        }
         public static float SignedAngleRad(Vector3 from, Vector3 to, Vector3 axis)
         {
             float denom = Mathf.Sqrt(from.sqrMagnitude * to.sqrMagnitude);

@@ -94,6 +94,7 @@ namespace Basis.IK
             input.TargetRotation = tRot;
             input.HintPosition = hint;
             input.HintWeight = hintIsTracker ? 1f : 0f;
+            input.ReachSoftness = kneeReachSoftness;
             input.TargetOffset = targetOffset;
             input.BendNormal = bendNormal;
             input.AnteriorNormal = kneeAnteriorRef;

@@ -3079,6 +3079,22 @@
       "value": "Fastest the elbow may swing around the arm, in degrees per second."
     },
     {
+      "key": "settings.bodyTracking.elbowReachSoftness.title",
+      "value": "Elbow Reach Easing"
+    },
+    {
+      "key": "settings.bodyTracking.elbowReachSoftness.title.tooltip",
+      "value": "How gently the elbow eases into full extension as you reach out. Higher starts easing earlier; the hand stops slightly short of the controller near full reach. 0 = off."
+    },
+    {
+      "key": "settings.bodyTracking.kneeReachSoftness.title",
+      "value": "Knee Reach Easing"
+    },
+    {
+      "key": "settings.bodyTracking.kneeReachSoftness.title.tooltip",
+      "value": "How gently the knee eases into full extension. Higher starts easing earlier; the foot stops slightly short of its target near full reach. 0 = off."
+    },
+    {
       "key": "settings.bodyTracking.armPriorWeight.title",
       "value": "Natural Pose Weight"
     },

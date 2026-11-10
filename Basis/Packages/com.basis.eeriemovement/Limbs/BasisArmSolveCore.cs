@@ -43,12 +43,6 @@ namespace Basis.IK
             return ex * Mathf.Cos(r) + ey * Mathf.Sin(r);
         }
         public static float Wrap(float deg) => deg - 360f * Mathf.Floor((deg + 180f) / 360f);
-        public static float SoftReach(float d, float upper, float lower, float softness)
-        {
-            float full = upper + lower, s = Mathf.Clamp(softness, 0.005f, 0.3f), start = full * (1f - s);
-            if (d <= start) return d;
-            return full * (1f - s * Mathf.Exp(-(d - start) / (s * full)));
-        }
         public static float MinReach(float upper, float lower)
         {
             float c = Mathf.Cos(MinElbowInteriorDeg * Mathf.Deg2Rad), d2 = upper * upper + lower * lower - 2f * upper * lower * c;
@@ -87,7 +81,7 @@ namespace Basis.IK
 
             // The tracked hand is a hard endpoint. Only move it off the controller
             // when the target is outside the arm's anatomical reach interval.
-            float dEff = Mathf.Max(SoftMaxReach(reachDistance, upper + lower), minReach);
+            float dEff = Mathf.Max(SoftMaxReach(reachDistance, upper + lower, i.ReachSoftness), minReach);
             r.ReachRatio = reachDistance / (upper + lower);
             float cosAlpha = Mathf.Clamp((upper * upper + dEff * dEff - lower * lower) / (2f * upper * dEff), -1f, 1f), sinAlpha = Mathf.Sqrt(Mathf.Max(0f, 1f - cosAlpha * cosAlpha));
             Vector3 center = i.Shoulder + axis * (upper * cosAlpha);
@@ -258,12 +252,11 @@ namespace Basis.IK
             }
             return DegToDir(BodyPrior(i, axis, ex, ey), ex, ey);
         }
-        // Identity below a knee near full reach, then eases (slope-continuous) toward full * (1 - MaxReachBendFraction) without ever reaching it.
-        static float SoftMaxReach(float d, float full)
+        static float SoftMaxReach(float d, float full, float softness)
         {
-            float cap = full * (1f - MaxReachBendFraction), start = full * (1f - 3f * MaxReachBendFraction), span = cap - start;
-            if (d <= start || span <= epsilon) return Mathf.Min(d, cap);
-            return cap - span * Mathf.Exp(-(d - start) / span);
+            float cap = full * (1f - MaxReachBendFraction);
+            float span = Mathf.Max(full * 2f * MaxReachBendFraction, full * BasisIKMath.MaxReachSoftFraction * BasisIKMath.Saturate(softness));
+            return BasisIKMath.SoftCap(d, cap, span);
         }
         static float RestPrior(in BasisArmSolveInput i, Vector3 axis, Vector3 ex, Vector3 ey)
         {

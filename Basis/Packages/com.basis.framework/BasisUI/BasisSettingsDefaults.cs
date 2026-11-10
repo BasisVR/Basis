@@ -1887,6 +1887,9 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<float> FBIKArmSwivelSmoothTime = new("fbikarmswivelsmoothtime", new BasisPlatformDefault<float>(0.08f));
         public static BasisSettingsBinding<float> FBIKArmSwivelMaxRate = new("fbikarmswivelmaxrate", new BasisPlatformDefault<float>(720f));
 
+        public static BasisSettingsBinding<float> FBIKElbowReachSoftness = new("fbikelbowreachsoftness", new BasisPlatformDefault<float>(0.2f));
+        public static BasisSettingsBinding<float> FBIKKneeReachSoftness = new("fbikkneereachsoftness", new BasisPlatformDefault<float>(0.1f));
+
         // How much of a look-UP's lever swing to REMOVE, when the torso is estimated by re-attaching the T-pose
         // head->neck lever to the head (BasisNeckCueCore -- the virtual spine's neck bone). Swinging that lever
         // by the WHOLE gaze assumes a nod pivots at the neck bone; cervical extension is short and a look-up is
@@ -2943,6 +2946,8 @@ namespace Basis.BasisUI
             FBIKShoulderTrackerBlend.LoadBindingValue();
             FBIKArmSwivelSmoothTime.LoadBindingValue();
             FBIKArmSwivelMaxRate.LoadBindingValue();
+            FBIKElbowReachSoftness.LoadBindingValue();
+            FBIKKneeReachSoftness.LoadBindingValue();
             FBIKBodyFit.LoadBindingValue();
             FBIKJobLocomotion.LoadBindingValue();
             FBIKBodyFitMaxDeviation.LoadBindingValue();

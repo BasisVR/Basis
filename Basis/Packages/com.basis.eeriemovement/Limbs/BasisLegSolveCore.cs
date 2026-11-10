@@ -115,7 +115,7 @@ namespace Basis.IK
             if (atCorrectedLen < minFlexReach) atCorrectedLen = minFlexReach;
 
             float maxExtReach = MaxExtensionReach(abLen, bcLen);
-            if (atCorrectedLen > maxExtReach) atCorrectedLen = maxExtReach;
+            atCorrectedLen = BasisIKMath.SoftCap(atCorrectedLen, maxExtReach, maxExtReach * BasisIKMath.MaxReachSoftFraction * BasisIKMath.Saturate(i.ReachSoftness));
 
             float newAbcAngle = BasisIKMath.TriangleAngle(atCorrectedLen, abLen, bcLen);
             byte axisSource = 0;

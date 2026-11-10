@@ -703,6 +703,8 @@ namespace Basis.Scripts.Drivers
             data.shoulderTrackerBlendTime = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderTrackerBlend.RawValue;
             data.armSwivelSmoothTime = Basis.BasisUI.BasisSettingsDefaults.FBIKArmSwivelSmoothTime.RawValue;
             data.armSwivelMaxRateDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKArmSwivelMaxRate.RawValue;
+            data.elbowReachSoftness = Basis.BasisUI.BasisSettingsDefaults.FBIKElbowReachSoftness.RawValue;
+            data.kneeReachSoftness = Basis.BasisUI.BasisSettingsDefaults.FBIKKneeReachSoftness.RawValue;
 
             data.handRadius = Basis.BasisUI.BasisSettingsDefaults.FBIKHandRadius.RawValue * collisionScale;
             data.handSkin = Basis.BasisUI.BasisSettingsDefaults.FBIKHandSkin.RawValue * collisionScale;

@@ -70,6 +70,7 @@ namespace Basis.IK
         public Quaternion TargetRotation, RestHandRotation, RestMidRotation, HintRotation;
         public bool HasHead, HasTrackerHint, HasHintRotation, IsLeft, TorsoCapsule;
         public float TorsoRadius, Dt, SmoothTime, MaxRateDeg;
+        public float ReachSoftness;
         public static BasisArmSolveInput Defaults(bool isLeft) => new BasisArmSolveInput { TorsoUp = Vector3.up, TorsoForward = Vector3.forward, TorsoOut = isLeft ? Vector3.left : Vector3.right, IsLeft = isLeft, Dt = 1f / 90f, SmoothTime = 0.08f, MaxRateDeg = 720f, TargetRotation = Quaternion.identity, RestHandRotation = Quaternion.identity, RestMidRotation = Quaternion.identity, HintRotation = Quaternion.identity };
     }
     public struct BasisArmSolveResult
@@ -103,6 +104,7 @@ namespace Basis.IK
         public Quaternion TargetRotation;
         public Vector3 HintPosition;
         public float HintWeight;
+        public float ReachSoftness;
         public Quaternion TargetOffset;
         public Vector3 BendNormal, AnteriorNormal;
         public Quaternion HintRotation;

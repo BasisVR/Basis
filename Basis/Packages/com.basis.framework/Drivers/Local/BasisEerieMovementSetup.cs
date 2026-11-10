@@ -54,6 +54,8 @@ namespace Basis.Scripts.Drivers
             job.shoulderTrackerBlendTime = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderTrackerBlend.RawValue;
             job.armSwivelSmoothTime = Basis.BasisUI.BasisSettingsDefaults.FBIKArmSwivelSmoothTime.RawValue;
             job.armSwivelMaxRateDeg = Basis.BasisUI.BasisSettingsDefaults.FBIKArmSwivelMaxRate.RawValue;
+            job.elbowReachSoftness = Basis.BasisUI.BasisSettingsDefaults.FBIKElbowReachSoftness.RawValue;
+            job.kneeReachSoftness = Basis.BasisUI.BasisSettingsDefaults.FBIKKneeReachSoftness.RawValue;
 
             job.moveBodyBackWhenCrouching = Basis.BasisUI.BasisSettingsDefaults.FBIKMoveBodyBackWhenCrouching.RawValue;
             job.crouchDepth = 0f;

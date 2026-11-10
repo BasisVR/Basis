@@ -147,6 +147,7 @@ namespace Basis.IK
             input.Dt = poseStream.deltaTime;
             input.SmoothTime = armSwivelSmoothTime;
             input.MaxRateDeg = armSwivelMaxRateDeg;
+            input.ReachSoftness = elbowReachSoftness;
             BasisArmState scratch = default;
             ref BasisArmState state = ref (plan.hasArmState ? ref Ref(armState, slot) : ref scratch);
             BasisArmSolveCore.Solve(input, ref state, out BasisArmSolveResult result);
