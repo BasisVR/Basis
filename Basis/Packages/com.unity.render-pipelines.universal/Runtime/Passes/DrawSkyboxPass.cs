@@ -34,7 +34,15 @@ namespace UnityEngine.Rendering.Universal
             if (cameraData.xr.enabled)
             {
                 // Setup Legacy XR buffer states
-                if (cameraData.xr.singlePassEnabled)
+                if (cameraData.xr.singlePassEnabled && cameraData.xrUniversal.hasSkyboxProjections)
+                {
+                    // Basis: stereo mirror requests carry an oblique clip in their scene projections,
+                    // which must not be applied to an infinitely distant skybox.
+                    skyRendererListHandle = renderGraph.CreateSkyboxRendererList(cameraData.camera,
+                        cameraData.xrUniversal.skyboxProjection0, cameraData.GetViewMatrix(0),
+                        cameraData.xrUniversal.skyboxProjection1, cameraData.GetViewMatrix(1));
+                }
+                else if (cameraData.xr.singlePassEnabled)
                 {
                     skyRendererListHandle = renderGraph.CreateSkyboxRendererList(cameraData.camera,
                         cameraData.GetProjectionMatrix(0), cameraData.GetViewMatrix(0),

@@ -17,9 +17,19 @@ namespace UnityEngine.Rendering.Universal
             pass.canFoveateIntermediatePasses = true;
             pass.stackCullingResults.Clear();
             pass.stackCameraIndex = 0;
+            pass.cullFromCamera = false;
+            pass.hasSkyboxProjections = false;
 
             return pass;
         }
+
+        /// Basis: set by StereoCameraRequest. Culling comes from the camera's own culling matrix instead of the XR display.
+        internal bool cullFromCamera { get; set; }
+
+        /// Basis: set by StereoCameraRequest. Per-view projections for the skybox, free of the oblique clip the scene projections carry.
+        internal bool hasSkyboxProjections { get; set; }
+        internal Matrix4x4 skyboxProjection0;
+        internal Matrix4x4 skyboxProjection1;
 
         override public void Release()
         {

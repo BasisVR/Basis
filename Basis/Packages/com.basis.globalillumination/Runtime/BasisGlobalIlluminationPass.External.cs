@@ -9,7 +9,7 @@ public partial class BasisGlobalIlluminationPass
 {
     private ComputeShader externalCompute;
     private int kernelPackGBuffer = -1, kernelPackVertices, kernelPackIndices, kernelPackTexture, kernelUnpack;
-    private bool externalSubmit;
+    private bool externalSubmit, externalMirror;
     private ulong externalFrame;
     private BasisExternalRayTracer.Context externalContext;
     private float externalEmissionScale = -1f;
@@ -57,6 +57,7 @@ public partial class BasisGlobalIlluminationPass
         public readonly Matrix4x4[] mirrors = new Matrix4x4[BasisExternalRayScene.MaxMirrors];
         public readonly Vector4[] mirrorBounds = new Vector4[BasisExternalRayScene.MaxMirrors * 2];
         public int mirrorCount;
+        public bool mirrorView;
     }
 
     private static readonly int idExMirrorToLocal = Shader.PropertyToID("_MirrorToLocal"), idExMirrorBounds = Shader.PropertyToID("_MirrorBounds");
@@ -83,6 +84,7 @@ public partial class BasisGlobalIlluminationPass
         if (externalCompute == null || kernelPackGBuffer < 0 || !SystemInfo.supportsComputeShaders || camera == null) { return false; }
         bool mirror = BasisGlobalIlluminationFeature.IsMirrorReflection(camera);
         if (!mirror && camera.cameraType != CameraType.Game) { return false; }
+        externalMirror = mirror;
         int views = ViewCountOf(cameraData);
         BasisExternalRayTracer.Context context = BasisExternalRayTracer.Prepare(camera, tracedWidth, tracedHeight, views, settings.externalSameFrame);
         if (context == null) { return false; }
@@ -204,6 +206,7 @@ public partial class BasisGlobalIlluminationPass
             data.jobs = externalJobs;
             data.rows = externalSubmit && scene != null ? scene.UploadRows : 0;
             data.mirrorCount = scene != null ? scene.MirrorCount : 0;
+            data.mirrorView = externalMirror;
             if (data.mirrorCount > 0)
             {
                 System.Array.Copy(scene.MirrorToLocal, data.mirrors, data.mirrorCount);
@@ -283,7 +286,7 @@ public partial class BasisGlobalIlluminationPass
             cmd.SetComputeTextureParam(cs, d.kernelGBuffer, idExSurface, d.hasSurface ? d.surface : d.color);
             cmd.SetComputeTextureParam(cs, d.kernelGBuffer, idExLightmapMask, d.hasLightmapMask ? d.lightmapMask : d.color);
             cmd.SetComputeTextureParam(cs, d.kernelGBuffer, idExMotion, d.hasMotion ? d.motion : d.color);
-            cmd.SetComputeIntParams(cs, idExLayout1, d.hasLightmapMask ? 1 : 0, d.hasMotion ? 1 : 0, d.mirrorCount, 0);
+            cmd.SetComputeIntParams(cs, idExLayout1, d.hasLightmapMask ? 1 : 0, d.hasMotion ? 1 : 0, d.mirrorCount, d.mirrorView && MirrorFootprint ? 1 : 0);
             cmd.SetComputeMatrixArrayParam(cs, idExMirrorToLocal, d.mirrors);
             cmd.SetComputeVectorArrayParam(cs, idExMirrorBounds, d.mirrorBounds);
             cmd.SetComputeTextureParam(cs, d.kernelGBuffer, idExGBuffer, gbuffer);

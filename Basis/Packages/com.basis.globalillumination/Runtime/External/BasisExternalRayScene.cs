@@ -257,6 +257,12 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
             if (smr == null || !r.committed || !smr.forceMatrixRecalculationPerRender) { continue; }
             GraphicsBuffer live = smr.GetVertexBuffer();
             if (live == null) { continue; }
+            if ((live.target & GraphicsBuffer.Target.CopySource) == 0)
+            {
+                live.Dispose();
+                smr.vertexBufferTarget |= GraphicsBuffer.Target.Raw | GraphicsBuffer.Target.CopySource;
+                continue;
+            }
             if (r.poseCopy == null || r.poseCopy.count != live.count || r.poseCopy.stride != live.stride)
             {
                 r.poseCopy?.Dispose();

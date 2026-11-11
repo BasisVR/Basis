@@ -4040,37 +4040,6 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Common.BasisPersistentDataMigration
-    MemberName: BasisPersistentDataMigration
-    Kind: Type
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    BaseTypeName: 
-    Interfaces: []
-    IsAbstract: 0
-    IsSealed: 0
-    IsStatic: 1
-    IsPartial: 1
-    IsMemberStatic: 0
-    IsMemberReadOnly: 0
-    IsMemberConst: 0
-    IsMemberVirtual: 0
-    IsMemberOverride: 0
-    Summary: "One-time migration of user-owned persistent data from the old \"Basis Unity\" location to\n the current Application.persistentDataPath. Cache and diagnostic data are\n intentionally left behind so a product-name migration does not drag many gigabytes of\n disposable data into the new install."
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
   - TypeFullName: BasisSafeTeleportUtil
     MemberName: maxDownProbe
     Kind: Field
@@ -14838,37 +14807,6 @@ MonoBehaviour:
     IsMemberVirtual: 0
     IsMemberOverride: 0
     Summary: Headline values a level resolves to right now, for prompt and status copy.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.BasisUI.BasisPersistentDataMigrationPrompt
-    MemberName: BasisPersistentDataMigrationPrompt
-    Kind: Type
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    BaseTypeName: 
-    Interfaces: []
-    IsAbstract: 0
-    IsSealed: 0
-    IsStatic: 1
-    IsPartial: 0
-    IsMemberStatic: 0
-    IsMemberReadOnly: 0
-    IsMemberConst: 0
-    IsMemberVirtual: 0
-    IsMemberOverride: 0
-    Summary: "Asks the user before moving persistent data from the previous Basis storage location.\n The check only runs after Basis has initialized settings and only when that initialization\n had to create a fresh settings file. No files are moved until the user accepts this prompt."
     Remarks: 
     Returns: 
     Value: 

@@ -65,7 +65,7 @@ namespace Basis.Editor.Identity
     [NoAutoStaticsCleanup]
     public static class BasisIdentitySettings
     {
-        public static readonly string[] Groups = { "product", "network", "files", "migration", "links" };
+        public static readonly string[] Groups = { "product", "network", "files", "links" };
         public static string RepoRoot => System.IO.Path.GetFullPath(System.IO.Path.Combine(Application.dataPath, "..", ".."));
 
         const string Unity = "Basis/";
@@ -86,7 +86,6 @@ namespace Basis.Editor.Identity
             const string NetManagement = Framework + "Networking/BasisNetworkManagement.cs";
             const string DeepLink = Framework + "Networking/BasisDeepLinkProvider.cs";
             const string BeeFiles = Framework + "Networking/BasisDeepLinkProvider.BeeFiles.cs";
-            const string Migration = Unity + "Packages/com.basis.common/BasisPersistentDataMigration.cs";
             return new List<BasisIdentityEntry>
             {
                 new BasisIdentityEntry("companyName", "product", BasisIdentityKind.Name).Setting(() => PlayerSettings.companyName, v => PlayerSettings.companyName = v),
@@ -108,10 +107,6 @@ namespace Basis.Editor.Identity
                 new BasisIdentityEntry("beeProgId", "files", BasisIdentityKind.ProgId).Const(BeeFiles, "BeeFileProgId"),
                 new BasisIdentityEntry("beeMimeType", "files", BasisIdentityKind.Mime).Const(BeeFiles, "BeeFileMimeType"),
                 new BasisIdentityEntry("backupExtension", "files", BasisIdentityKind.Extension).Const(Framework + "Settings/BasisUserDataBackup.cs", "ArchiveExtension"),
-
-                new BasisIdentityEntry("migrationCompany", "migration", BasisIdentityKind.Name).Const(Migration, "OldCompany"),
-                new BasisIdentityEntry("migrationProduct", "migration", BasisIdentityKind.Name).Const(Migration, "OldProduct"),
-                new BasisIdentityEntry("migrationMarker", "migration", BasisIdentityKind.Name).Const(Migration, "MarkerName"),
 
                 new BasisIdentityEntry("websiteUrl", "links", BasisIdentityKind.Url).Const(SetupWindow + "BasisProjectSetup.cs", "BASIS_SITE"),
                 new BasisIdentityEntry("docsUrl", "links", BasisIdentityKind.Url).Const(SetupWindow + "BasisProjectSetup.cs", "BASIS_GETTING_STARTED"),

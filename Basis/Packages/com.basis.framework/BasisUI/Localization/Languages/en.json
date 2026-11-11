@@ -14251,22 +14251,6 @@
       "value": "OK"
     },
     {
-      "key": "migration.persistent.title",
-      "value": "Move {0} user data?"
-    },
-    {
-      "key": "migration.persistent.description",
-      "value": "{0} found user data in its previous storage directory. Would you like to move your core user data to the new location? This includes settings, avatar/item stores, saved servers, trust data, player/input settings, recordings, backups, and other user-owned files. Cache, temporary, and diagnostic data will stay in the old directory.\n\n<b>From:</b>\n{1}\n\n<b>To:</b>\n{2}\n\n{0} had to create fresh defaults in the new location during this startup. Those defaults will be replaced by your previous data.\n\nThe old directory itself will not be deleted. After migration, you can review that path and delete it if you no longer need the older {0} data.{3}"
-    },
-    {
-      "key": "migration.persistent.restartAutomatic",
-      "value": " {0} will restart after the move so the migrated settings are loaded."
-    },
-    {
-      "key": "migration.persistent.restartManual",
-      "value": " Restart {0} after the move so the migrated settings are loaded."
-    },
-    {
       "key": "ui.unknown",
       "value": "Unknown"
     },

@@ -59,6 +59,22 @@ bool OnMirror(float3 world)
     return false;
 }
 
+bool ThroughMirror(float3 eye, float3 world)
+{
+    for (uint i = 0; i < min(_Layout1.z, 8u); i++)
+    {
+        float3 centre = _MirrorBounds[i * 2].xyz;
+        float3 extent = _MirrorBounds[i * 2 + 1].xyz * 1.15 + 0.1;
+        float3 origin = mul(_MirrorToLocal[i], float4(eye, 1.0)).xyz - centre;
+        float3 step = mul(_MirrorToLocal[i], float4(world, 1.0)).xyz - centre - origin;
+        float3 inverse = 1.0 / (abs(step) > 1e-6 ? step : (step >= 0.0 ? 1e-6 : -1e-6));
+        float3 a = (-extent - origin) * inverse, b = (extent - origin) * inverse;
+        float3 lo = min(a, b), hi = max(a, b);
+        if (max(max(lo.x, lo.y), max(lo.z, 0.0)) <= min(min(hi.x, hi.y), min(hi.z, 1.0))) { return true; }
+    }
+    return false;
+}
+
 uint2 UploadCoord(uint texel) { return uint2(texel % UPLOAD_WIDTH, texel / UPLOAD_WIDTH); }
 
 void StoreGBuffer(uint2 logical, uint4 v)
@@ -128,7 +144,7 @@ void PackGBuffer(uint3 id : SV_DispatchThreadID)
         return;
     }
     float3 world = WorldAt(source, raw, view);
-    if (_Layout1.z != 0 && OnMirror(world))
+    if (_Layout1.z != 0 && (OnMirror(world) || (_Layout1.w != 0 && !ThroughMirror(_CameraPosition[view].xyz, world))))
     {
         StoreGBuffer(uint2(id.x * 2, id.y), 0);
         StoreGBuffer(uint2(id.x * 2 + 1, id.y), 0);

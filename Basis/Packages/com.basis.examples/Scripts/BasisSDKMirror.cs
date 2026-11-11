@@ -82,6 +82,18 @@ public partial class BasisSDKMirror : MonoBehaviour
     public Camera RightCamera;
     public RenderTexture PortalTextureLeft;
     public RenderTexture PortalTextureRight;
+    [NonSerialized] public RenderTexture PortalTextureStereo;
+    public static bool StereoSinglePass = true;
+    [NonSerialized] private bool stereoSinglePassLayout;
+    [NonSerialized] private UniversalRenderPipeline.StereoCameraRequest stereoRequest;
+    public bool StereoSinglePassActive => stereoSinglePassLayout;
+    public static bool StereoDirectSampling = true;
+    public const string StereoShaderName = "BasisMirrorStereo";
+    public const string CutoutStereoShaderName = "BasisMirrorCutoutStereo";
+    [NonSerialized] private bool stereoDirectLayout;
+    [NonSerialized] private Material stereoMaterial;
+    [NonSerialized] private Material stereoMaterialSource;
+    public bool StereoDirectSamplingActive => stereoDirectLayout;
 
     // Keep original event name (typo preserved) to avoid breaking external subscriptions.
     public Action OnCamerasRenderering;
@@ -446,6 +458,7 @@ public partial class BasisSDKMirror : MonoBehaviour
 
         ReplacePortalTexture(StereoscopicEye.Left, ref PortalTextureLeft, LeftCamera);
         ReplacePortalTexture(StereoscopicEye.Right, ref PortalTextureRight, RightCamera);
+        ReplaceStereoTexture();
         ReleaseSecondaryViewerTextures();
         SeedCutoutTextures();
 
@@ -459,6 +472,116 @@ public partial class BasisSDKMirror : MonoBehaviour
         texture = CreatePortalTexture(eye);
         if (portalCamera) portalCamera.targetTexture = texture;
         DestroyTexture(previous);
+    }
+
+    private void ReplaceStereoTexture()
+    {
+        RenderTexture previous = PortalTextureStereo;
+        PortalTextureStereo = stereoSinglePassLayout ? CreateStereoTexture() : null;
+        DestroyTexture(previous);
+    }
+
+    private void SetStereoSinglePassLayout(bool singlePass, Camera sourceCamera)
+    {
+        if (singlePass == stereoSinglePassLayout) return;
+        stereoSinglePassLayout = singlePass;
+
+        if (singlePass)
+        {
+            if (RightCamera) Destroy(RightCamera.gameObject);
+            RightCamera = null;
+            rightCameraData = null;
+        }
+        else if (!RightCamera)
+        {
+            CreateNewCamera(sourceCamera, out RightCamera, out rightCameraData);
+        }
+
+        if (!singlePass)
+        {
+            ReleaseStereoMaterial();
+            stereoDirectLayout = false;
+        }
+
+        ReplacePortalTexture(StereoscopicEye.Left, ref PortalTextureLeft, LeftCamera);
+        ReplacePortalTexture(StereoscopicEye.Right, ref PortalTextureRight, RightCamera);
+        ReplaceStereoTexture();
+        SeedCutoutTextures();
+
+        BindReflectionTextures(PortalTextureLeft, PortalTextureRight);
+        primaryBound = true;
+    }
+
+    private static Shader StereoShaderFor(Shader source)
+    {
+        if (source == null) return null;
+        string sourceName = source.name;
+        string resource = sourceName == "Shader Graphs/MirrorShader" ? StereoShaderName : sourceName == "Shader Graphs/" + CutoutShaderName ? CutoutStereoShaderName : null;
+        if (resource == null) return null;
+        Shader shader = Resources.Load<Shader>(resource);
+        return shader != null && shader.isSupported ? shader : null;
+    }
+
+    private void ReleaseStereoMaterial()
+    {
+        if (stereoMaterial == null)
+        {
+            stereoMaterialSource = null;
+            return;
+        }
+        if (Renderer != null && Renderer.sharedMaterial == stereoMaterial && stereoMaterialSource != null) Renderer.sharedMaterial = stereoMaterialSource;
+        Destroy(stereoMaterial);
+        stereoMaterial = null;
+        stereoMaterialSource = null;
+    }
+
+    private bool RefreshStereoMaterial()
+    {
+        if (!StereoDirectSampling || Renderer == null)
+        {
+            ReleaseStereoMaterial();
+            return false;
+        }
+        Material current = Renderer.sharedMaterial;
+        if (stereoMaterial != null && (current == stereoMaterial || current == stereoMaterialSource)) return true;
+        ReleaseStereoMaterial();
+        if (current == null) return false;
+        Shader shader = StereoShaderFor(current.shader);
+        if (shader == null) return false;
+
+        stereoMaterial = new Material(shader) { name = $"{current.name} Stereo" };
+        stereoMaterial.CopyPropertiesFromMaterial(current);
+        stereoMaterial.renderQueue = current.renderQueue;
+        ShaderTagId LightModeTagId = new ShaderTagId("LightMode");
+        int passCount = shader.passCount;
+        for (int Index = 0; Index < passCount; Index++)
+        {
+            string lightMode = shader.FindPassTagValue(Index, LightModeTagId).name;
+            if (!string.IsNullOrEmpty(lightMode)) stereoMaterial.SetShaderPassEnabled(lightMode, current.GetShaderPassEnabled(lightMode));
+        }
+        stereoMaterialSource = current;
+        Renderer.sharedMaterial = stereoMaterial;
+        return true;
+    }
+
+    private void SetStereoDirectLayout(bool direct)
+    {
+        if (direct == stereoDirectLayout) return;
+        stereoDirectLayout = direct;
+        ReplacePortalTexture(StereoscopicEye.Left, ref PortalTextureLeft, null);
+        ReplacePortalTexture(StereoscopicEye.Right, ref PortalTextureRight, null);
+        SeedCutoutTextures();
+        BindReflectionTextures(PortalTextureLeft, PortalTextureRight);
+        primaryBound = true;
+    }
+
+    private void ApplyStereoSurface(bool direct)
+    {
+        if (stereoMaterial == null || stereoMaterialSource == null) return;
+        Material current = Renderer.sharedMaterial;
+        if (current != stereoMaterial && current != stereoMaterialSource) return;
+        Material wanted = direct ? stereoMaterial : stereoMaterialSource;
+        if (current != wanted) Renderer.sharedMaterial = wanted;
     }
 
     private void ReleaseSecondaryViewerTextures()
@@ -538,6 +661,7 @@ public partial class BasisSDKMirror : MonoBehaviour
     private static readonly List<Camera> PruneScratch = new List<Camera>(4);
     private static readonly int ReflectionTexLeftId = Shader.PropertyToID("_ReflectionTexLeft");
     private static readonly int ReflectionTexRightId = Shader.PropertyToID("_ReflectionTexRight");
+    private static readonly int ReflectionTexStereoId = Shader.PropertyToID("_ReflectionTexStereo");
     /// <summary>Frames a secondary viewer may go uncaptured before its texture is released.</summary>
     private const int ViewerStaleFrames = 300;
 
@@ -700,6 +824,9 @@ public partial class BasisSDKMirror : MonoBehaviour
     {
         DestroyTexture(PortalTextureLeft);
         DestroyTexture(PortalTextureRight);
+        DestroyTexture(PortalTextureStereo);
+        ReleaseStereoMaterial();
+        stereoDirectLayout = false;
 
         BasisCullingCameraRegistry.Unregister(LeftCamera);
         if (LeftCamera) Destroy(LeftCamera.gameObject);
@@ -707,6 +834,8 @@ public partial class BasisSDKMirror : MonoBehaviour
 
         PortalTextureLeft = null;
         PortalTextureRight = null;
+        PortalTextureStereo = null;
+        stereoSinglePassLayout = false;
         LeftCamera = RightCamera = null;
         leftCameraData = rightCameraData = null;
 
@@ -996,7 +1125,14 @@ public partial class BasisSDKMirror : MonoBehaviour
 
         camera.transform.GetPositionAndRotation(out Vector3 srcPos, out Quaternion srcRot);
 
-        if (camera.stereoEnabled)
+        bool stereo = camera.stereoEnabled;
+        SetStereoSinglePassLayout(stereo && StereoSinglePass && UniversalRenderPipeline.SupportsStereoCameraRequest, camera);
+
+        if (stereoSinglePassLayout)
+        {
+            RenderStereo(camera, srcPos, srcRot);
+        }
+        else if (stereo)
         {
             RenderEye(camera, MonoOrStereoscopicEye.Left, srcPos, srcRot, PortalTextureLeft);
             RenderEye(camera, MonoOrStereoscopicEye.Right, srcPos, srcRot, PortalTextureRight);
@@ -1009,6 +1145,115 @@ public partial class BasisSDKMirror : MonoBehaviour
         InsideRendering = false;
     }
 
+    private static Matrix4x4 WorldToCamera(Vector3 position, Quaternion rotation)
+    {
+        Matrix4x4 m = Matrix4x4.Rotate(Quaternion.Inverse(rotation));
+        Vector3 t = m.MultiplyVector(position);
+        m.m03 = -t.x; m.m13 = -t.y; m.m23 = t.z;
+        m.m20 = -m.m20; m.m21 = -m.m21; m.m22 = -m.m22;
+        return m;
+    }
+
+    private static bool TryGetEyeOrigin(Camera sourceCamera, StereoscopicEye eye, Vector3 srcPos, Quaternion srcRot, out Vector3 eyeOriginWS)
+    {
+        if (!ReferenceEquals(sourceCamera, BasisLocalCameraDriver.CameraInstance) || !BasisLocalCameraDriver.TryGetEyeWorldPosition(eye, srcPos, srcRot, out eyeOriginWS))
+            eyeOriginWS = sourceCamera.GetStereoViewMatrix(eye).inverse.MultiplyPoint(Vector3.zero);
+        return !(float.IsNaN(eyeOriginWS.x) || float.IsNaN(eyeOriginWS.y) || float.IsNaN(eyeOriginWS.z));
+    }
+
+    private void StereoEye(Matrix4x4 proj, Vector3 eyeOriginWS, Vector3 planePosWS, Vector3 planeNormal, Quaternion reflRotWS, out Matrix4x4 view, out Matrix4x4 projection, out Matrix4x4 skyboxProjection)
+    {
+        Vector3 reflPosWS = eyeOriginWS - 2f * Vector3.Dot(eyeOriginWS - planePosWS, planeNormal) * planeNormal;
+        view = WorldToCamera(reflPosWS, reflRotWS);
+        skyboxProjection = xFlip * proj * xFlip;
+
+        Vector3 clipNormal = planeNormal * Mathf.Sign(Vector3.Dot(eyeOriginWS - planePosWS, planeNormal));
+        Vector4 clipPlaneCamSpace = BasisHelpers.CameraSpacePlane(view, planePosWS, clipNormal, EffectiveClipPlaneOffset());
+        clipPlaneCamSpace.x *= -1f;
+        CalculateObliqueMatrix(ref proj, clipPlaneCamSpace);
+        projection = xFlip * proj * xFlip;
+    }
+
+    private static void StereoCullFrustum(Matrix4x4 projLeft, Matrix4x4 projRight, Vector3 offsetLeft, Vector3 offsetRight, out Matrix4x4 projection, out float pullBack)
+    {
+        FrustumPlanes left = projLeft.decomposeProjection, right = projRight.decomposeProjection;
+        float tanLeft = Mathf.Min(Mathf.Min(left.left / left.zNear, right.left / right.zNear), -0.05f);
+        float tanRight = Mathf.Max(Mathf.Max(left.right / left.zNear, right.right / right.zNear), 0.05f);
+        float tanBottom = Mathf.Min(Mathf.Min(left.bottom / left.zNear, right.bottom / right.zNear), -0.05f);
+        float tanTop = Mathf.Max(Mathf.Max(left.top / left.zNear, right.top / right.zNear), 0.05f);
+
+        pullBack = Mathf.Max(0f, Mathf.Max(StereoPullBack(offsetLeft, tanLeft, tanRight, tanBottom, tanTop), StereoPullBack(offsetRight, tanLeft, tanRight, tanBottom, tanTop)));
+        float near = Mathf.Min(left.zNear, right.zNear), far = Mathf.Max(left.zFar, right.zFar) + pullBack;
+        if (!(far > near) || float.IsInfinity(far)) far = Mathf.Max(near * 2f, 100000f);
+        projection = Matrix4x4.Frustum(tanLeft * near, tanRight * near, tanBottom * near, tanTop * near, near, far);
+    }
+
+    private static float StereoPullBack(Vector3 offset, float tanLeft, float tanRight, float tanBottom, float tanTop)
+    {
+        float horizontal = offset.x / (offset.x < 0f ? tanLeft : tanRight);
+        float vertical = offset.y / (offset.y < 0f ? tanBottom : tanTop);
+        return Mathf.Max(horizontal, vertical) - offset.z;
+    }
+
+    private void RenderStereo(Camera sourceCamera, Vector3 srcPos, Quaternion srcRot)
+    {
+        Camera portalCamera = LeftCamera;
+        if (!portalCamera || PortalTextureStereo == null || PortalTextureLeft == null || PortalTextureRight == null) return;
+        SetStereoDirectLayout(RefreshStereoMaterial());
+
+        Matrix4x4 projLeft = sourceCamera.GetStereoProjectionMatrix(StereoscopicEye.Left), projRight = sourceCamera.GetStereoProjectionMatrix(StereoscopicEye.Right);
+        if (projLeft.m33 != 0f || projRight.m33 != 0f) return;
+        if (!TryGetEyeOrigin(sourceCamera, StereoscopicEye.Left, srcPos, srcRot, out Vector3 eyeLeftWS)) return;
+        if (!TryGetEyeOrigin(sourceCamera, StereoscopicEye.Right, srcPos, srcRot, out Vector3 eyeRightWS)) return;
+
+        Renderer.transform.GetPositionAndRotation(out Vector3 planePosWS, out Quaternion planeRotWS);
+        Vector3 planeNormal = planeRotWS * Vector3.forward;
+        Vector3 fwd = srcRot * Vector3.forward, up = srcRot * Vector3.up;
+        Vector3 reflFwdWS = fwd - 2f * Vector3.Dot(fwd, planeNormal) * planeNormal;
+        Vector3 reflUpWS = up - 2f * Vector3.Dot(up, planeNormal) * planeNormal;
+        if (reflFwdWS.sqrMagnitude < 1e-6f || reflUpWS.sqrMagnitude < 1e-6f) return;
+        Quaternion reflRotWS = Quaternion.LookRotation(reflFwdWS, reflUpWS);
+
+        updateCameraClearFlags(portalCamera, sourceCamera);
+        int samples = EffectiveMsaa();
+        UpdateAttachmentRequirement(leftCameraData, samples);
+
+        if (BasisSettingsDefaults.UseCameraClipOverride.RawValue)
+        {
+            portalCamera.nearClipPlane = Mathf.Max(0.001f, BasisSettingsDefaults.CameraClipNear.RawValue);
+            portalCamera.farClipPlane = BasisSettingsDefaults.CameraClipFar.RawValue;
+        }
+        else
+        {
+            portalCamera.nearClipPlane = Mathf.Max(0.001f, nearClipLimit);
+            portalCamera.farClipPlane = FarClipPlane;
+        }
+
+        if (stereoRequest == null) stereoRequest = new UniversalRenderPipeline.StereoCameraRequest();
+        stereoRequest.destination = PortalTextureStereo;
+        stereoRequest.msaaSamples = samples;
+        StereoEye(projLeft, eyeLeftWS, planePosWS, planeNormal, reflRotWS, out stereoRequest.viewLeft, out stereoRequest.projectionLeft, out stereoRequest.skyboxProjectionLeft);
+        StereoEye(projRight, eyeRightWS, planePosWS, planeNormal, reflRotWS, out stereoRequest.viewRight, out stereoRequest.projectionRight, out stereoRequest.skyboxProjectionRight);
+
+        Quaternion srcRotInverse = Quaternion.Inverse(srcRot);
+        StereoCullFrustum(projLeft, projRight, srcRotInverse * (eyeLeftWS - srcPos), srcRotInverse * (eyeRightWS - srcPos), out Matrix4x4 cullProjection, out float pullBack);
+        Vector3 cullOriginWS = srcPos - fwd * pullBack;
+        Vector3 reflCullOriginWS = cullOriginWS - 2f * Vector3.Dot(cullOriginWS - planePosWS, planeNormal) * planeNormal;
+        portalCamera.transform.SetPositionAndRotation(reflCullOriginWS, reflRotWS);
+        cullProjection = xFlip * cullProjection * xFlip;
+        portalCamera.projectionMatrix = cullProjection;
+        portalCamera.nonJitteredProjectionMatrix = cullProjection;
+        portalCamera.cullingMatrix = cullProjection * WorldToCamera(reflCullOriginWS, reflRotWS);
+
+        if (!UniversalRenderPipeline.SupportsRenderRequest(portalCamera, stereoRequest)) return;
+        if (cutoutEnabled && cutoutCoveragePass != null) cutoutCoveragePass.Enqueue(portalCamera);
+        UniversalRenderPipeline.SubmitRenderRequest(portalCamera, stereoRequest);
+
+        if (stereoDirectLayout) return;
+        Graphics.CopyTexture(PortalTextureStereo, 0, 0, PortalTextureLeft, 0, 0);
+        Graphics.CopyTexture(PortalTextureStereo, 1, 0, PortalTextureRight, 0, 0);
+    }
+
     private void RenderEye(Camera sourceCamera, MonoOrStereoscopicEye eye, Vector3 srcPos, Quaternion srcRot, RenderTexture destination)
     {
         Camera portalCamera = (eye == MonoOrStereoscopicEye.Right) ? RightCamera : LeftCamera;
@@ -1017,7 +1262,7 @@ public partial class BasisSDKMirror : MonoBehaviour
 
         // Portal cameras are shared by every viewer now, so per-render state must be refreshed.
         updateCameraClearFlags(portalCamera, sourceCamera);
-        UpdateAttachmentRequirement((eye == MonoOrStereoscopicEye.Right) ? rightCameraData : leftCameraData, destination);
+        UpdateAttachmentRequirement((eye == MonoOrStereoscopicEye.Right) ? rightCameraData : leftCameraData, destination.antiAliasing);
 
         // --- Eye pose/projection from source camera ---
         Vector3 eyeOriginWS;
@@ -1137,11 +1382,13 @@ public partial class BasisSDKMirror : MonoBehaviour
             state.Texture != null)
         {
             BindReflectionTextures(state.Texture, state.Texture);
+            ApplyStereoSurface(false);
             primaryBound = false;
         }
         else if (!primaryBound)
         {
             BindReflectionTextures(PortalTextureLeft, PortalTextureRight);
+            ApplyStereoSurface(true);
             primaryBound = true;
         }
     }
@@ -1155,6 +1402,7 @@ public partial class BasisSDKMirror : MonoBehaviour
 
         reflectionBlock.SetTexture(ReflectionTexLeftId, left);
         reflectionBlock.SetTexture(ReflectionTexRightId, right);
+        if (PortalTextureStereo != null) reflectionBlock.SetTexture(ReflectionTexStereoId, PortalTextureStereo);
         Renderer.SetPropertyBlock(reflectionBlock);
     }
 
@@ -1211,12 +1459,11 @@ public partial class BasisSDKMirror : MonoBehaviour
     private RenderTexture CreatePortalTexture(StereoscopicEye eye)
     {
         GetEffectiveResolution(out int effectiveWidth, out int effectiveHeight);
+        if (stereoSinglePassLayout && stereoDirectLayout) effectiveWidth = effectiveHeight = 4;
         // 16-bit depth is plenty for a 25 m far plane at half the tile bandwidth; 4x MSAA resolves
         // on-tile on Adreno (Meta-recommended) and keeps edges clean at the reduced resolution.
-        int effectiveDepth = SettingOrAuto(BasisSettingsDefaults.MirrorDepthBits.RawValue, depth);
-        int effectiveMsaa = Mathf.Max(1, Antialiasing);
-        int msaaFloor = SettingOrAuto(BasisSettingsDefaults.MirrorMsaaFloor.RawValue, 0);
-        effectiveMsaa = BasisCameraTargetMsaa.Clamp(Mathf.Max(effectiveMsaa, msaaFloor));
+        int effectiveDepth = stereoSinglePassLayout ? 0 : SettingOrAuto(BasisSettingsDefaults.MirrorDepthBits.RawValue, depth);
+        int effectiveMsaa = stereoSinglePassLayout ? 1 : EffectiveMsaa();
 
         var desc = new RenderTextureDescriptor(effectiveWidth, effectiveHeight, RenderTextureFormat.Default, effectiveDepth)
         {
@@ -1231,6 +1478,35 @@ public partial class BasisSDKMirror : MonoBehaviour
         var texture = new RenderTexture(desc)
         {
             name = $"__MirrorReflection{eye}_{GetEntityId()}",
+            anisoLevel = 0
+        };
+        texture.Create();
+        return texture;
+    }
+
+    private int EffectiveMsaa()
+    {
+        int msaaFloor = SettingOrAuto(BasisSettingsDefaults.MirrorMsaaFloor.RawValue, 0);
+        return BasisCameraTargetMsaa.Clamp(Mathf.Max(Mathf.Max(1, Antialiasing), msaaFloor));
+    }
+
+    private RenderTexture CreateStereoTexture()
+    {
+        GetEffectiveResolution(out int effectiveWidth, out int effectiveHeight);
+        var desc = new RenderTextureDescriptor(effectiveWidth, effectiveHeight, RenderTextureFormat.Default, SettingOrAuto(BasisSettingsDefaults.MirrorDepthBits.RawValue, depth))
+        {
+            msaaSamples = 1,
+            sRGB = QualitySettings.activeColorSpace == ColorSpace.Linear,
+            useMipMap = false,
+            autoGenerateMips = false,
+            vrUsage = VRTextureUsage.None,
+            dimension = TextureDimension.Tex2DArray,
+            volumeDepth = 2
+        };
+
+        var texture = new RenderTexture(desc)
+        {
+            name = $"__MirrorReflectionStereo_{GetEntityId()}",
             anisoLevel = 0
         };
         texture.Create();
@@ -1282,11 +1558,11 @@ public partial class BasisSDKMirror : MonoBehaviour
     /// clear. Asking for the depth texture restores the attachments — the same graph the mirror runs
     /// at every MSAA level — for one depth copy on the renders that would otherwise be empty.
     /// </summary>
-    private static void UpdateAttachmentRequirement(UniversalAdditionalCameraData cameraData, RenderTexture destination)
+    private static void UpdateAttachmentRequirement(UniversalAdditionalCameraData cameraData, int samples)
     {
         if (cameraData == null) return;
 
-        cameraData.requiresDepthOption = BasisCameraTargetMsaa.ClampsToSingleSample(destination.antiAliasing)
+        cameraData.requiresDepthOption = BasisCameraTargetMsaa.ClampsToSingleSample(samples)
             ? CameraOverrideOption.On
             : CameraOverrideOption.Off;
     }

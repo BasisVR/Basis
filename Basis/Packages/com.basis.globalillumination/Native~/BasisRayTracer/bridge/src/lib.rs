@@ -85,6 +85,7 @@ pub struct Bridge {
     pub budget_us: u32,
     pub fetched: u64,
     pub fetch_failures: u64,
+    pub resize_skips: u64,
 }
 unsafe impl Send for Bridge {}
 
@@ -129,7 +130,7 @@ impl Bridge {
         h.luid_high = i32::from_le_bytes(adapter.luid[4..8].try_into().unwrap());
         h.device_uuid = adapter.uuid;
         let none = UnityTextures { gbuffer: std::ptr::null_mut(), result: std::ptr::null_mut() };
-        Ok(Bridge { backend, host, base, global: None, shared: Default::default(), unity: [none; MAX_CONTEXTS], unity_upload: std::ptr::null_mut(), used: [[0; 2]; MAX_CONTEXTS], same_frame: true, budget_us: 50_000, fetched: 0, fetch_failures: 0 })
+        Ok(Bridge { backend, host, base, global: None, shared: Default::default(), unity: [none; MAX_CONTEXTS], unity_upload: std::ptr::null_mut(), used: [[0; 2]; MAX_CONTEXTS], same_frame: true, budget_us: 50_000, fetched: 0, fetch_failures: 0, resize_skips: 0 })
     }
 
     pub fn launch(&mut self, exe: &str) -> Result<()> { self.launch_api(exe, if cfg!(windows) { TRACER_DXR } else { TRACER_VULKAN }) }
@@ -254,6 +255,21 @@ impl Bridge {
         }
     }
 
+    fn extent(res: &Res) -> Option<(u32, u32)> {
+        unsafe {
+            match res {
+                #[cfg(windows)]
+                Res::D11(t) => { let mut d = D3D11_TEXTURE2D_DESC::default(); t.GetDesc(&mut d); Some((d.Width, d.Height)) }
+                #[cfg(windows)]
+                Res::D12(r) => { let d = r.GetDesc(); Some((d.Width as u32, d.Height)) }
+                Res::Vk { shared: true, width, height, .. } => Some((*width, *height)),
+                Res::Vk { .. } => None,
+            }
+        }
+    }
+
+    fn same_extent(a: &Res, b: &Res) -> bool { match (Self::extent(a), Self::extent(b)) { (Some(x), Some(y)) => x == y, _ => true } }
+
     fn unity_res(&self, pointer: *mut c_void) -> Option<Res> {
         if pointer.is_null() { return None; }
         match &self.backend {
@@ -281,6 +297,8 @@ impl Bridge {
         let upload_previous = frame.saturating_sub(2);
         let wait_for = previous.max(upload_previous).min(submitted);
         let rows = upload_rows.min(UPLOAD_HEIGHT);
+        let fits = Self::same_extent(&gbuffer_dst, &gbuffer_src);
+        if !fits { self.resize_skips += 1; }
         let upload_src = if rows > 0 { self.unity_res(self.unity_upload) } else { None };
         if let Backend::Vulkan(vk) = &mut self.backend {
             let (Fence::Vk(unity_sem), Fence::Vk(tracer_sem)) = (&fence_unity, &fence_tracer) else { return Ok(false); };
@@ -295,7 +313,7 @@ impl Bridge {
             {
                 if wait_for > 0 { self.wait(&fence_tracer, wait_for)?; }
                 let states = Self::states(&gbuffer_src, D3D12_RESOURCE_STATE_COPY_SOURCE);
-                self.copy(&gbuffer_dst, &gbuffer_src, None, &states)?;
+                if fits { self.copy(&gbuffer_dst, &gbuffer_src, None, &states)?; }
                 if let Some(up) = &upload_src {
                     let states = Self::states(up, D3D12_RESOURCE_STATE_COPY_SOURCE);
                     self.copy(&upload_dst, up, Some(rows * 2), &states)?;
@@ -343,6 +361,7 @@ impl Bridge {
         if h.frame_submitted.load(Ordering::Acquire) < frame { self.fetch_failures += 1; return Ok(0); }
         let fence_tracer = self.global.as_ref().unwrap().fence_tracer.clone();
         let output = self.shared[context].as_ref().unwrap().output[parity & 1].clone();
+        if !Self::same_extent(&result, &output) { self.resize_skips += 1; return Ok(0); }
         if let Backend::Vulkan(vk) = &mut self.backend {
             let Fence::Vk(tracer_sem) = fence_tracer else { return Ok(0); };
             let family = vk.family;
@@ -652,6 +671,7 @@ pub extern "C" fn BasisRT_Stat(index: i32) -> u32 {
         2 => h.mesh_count.load(Ordering::Relaxed),
         3 => h.texture_count.load(Ordering::Relaxed),
         4 => b.fetch_failures as u32,
+        9 => b.resize_skips as u32,
         5 => h.generation.load(Ordering::Relaxed),
         6 => MAX_CONTEXTS as u32,
         7 => h.tracer_api,

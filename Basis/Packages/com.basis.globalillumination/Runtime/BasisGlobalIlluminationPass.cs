@@ -45,6 +45,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     public static int FrameOffset;
     private enum Stage { CopyColor, Trace, Temporal, Blur, Composite, RayPrepass, RayResolve, Coarse, LightmapMask, Cascade, Surface, Upscale }
     public static bool TemporalUpsample = true;
+    public static bool MirrorFootprint = true;
 
     private static Vector2 UpsampleJitter(int index, int divisor)
     {

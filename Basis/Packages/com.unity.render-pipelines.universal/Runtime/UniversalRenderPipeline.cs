@@ -883,6 +883,8 @@ namespace UnityEngine.Rendering.Universal
                 return true;
             else if (data is SingleCameraRequest)
                 return true;
+            else if (data is StereoCameraRequest)
+                return SupportsStereoCameraRequest;
 
             return false;
         }
@@ -896,6 +898,12 @@ namespace UnityEngine.Rendering.Universal
         /// <typeparam name="RequestData"></typeparam>
         protected override void ProcessRenderRequests<RequestData>(ScriptableRenderContext context, Camera camera, RequestData renderRequest)
         {
+            if (renderRequest is StereoCameraRequest stereoRequest)
+            {
+                RenderStereoCameraRequest(context, camera, stereoRequest);
+                return;
+            }
+
             StandardRequest standardRequest = renderRequest as StandardRequest;
             SingleCameraRequest singleRequest = renderRequest as SingleCameraRequest;
 
@@ -1089,6 +1097,9 @@ namespace UnityEngine.Rendering.Universal
         static bool TryGetCullingParameters(UniversalCameraData cameraData, out ScriptableCullingParameters cullingParams)
         {
 #if ENABLE_VR && ENABLE_XR_MODULE
+            if (cameraData.xr.enabled && cameraData.xrUniversal.cullFromCamera)
+                return cameraData.camera.TryGetCullingParameters(false, out cullingParams);
+
             if (cameraData.xr.enabled)
             {
                 cullingParams = cameraData.xr.cullingParams;

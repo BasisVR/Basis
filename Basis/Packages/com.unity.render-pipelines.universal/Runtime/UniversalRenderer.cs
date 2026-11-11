@@ -918,6 +918,13 @@ namespace UnityEngine.Rendering.Universal
 
             bool requiresBlitForOffscreenCamera = applyPostProcessing || renderPassInputs.requiresColorTexture || requiresExplicitMsaaResolve || !cameraData.isDefaultViewport || requestedColorHistory;
 
+#if ENABLE_VR && ENABLE_XR_MODULE
+            // Basis: a StereoCameraRequest renders multisampled into a single-sampled texture array,
+            // so the samples have to live in the intermediate attachments.
+            if (cameraData.xr.enabled && isOffscreenRender && msaaSamples != cameraData.backbufferColor.msaaSamples)
+                requiresBlitForOffscreenCamera = true;
+#endif
+
             if (isOffscreenRender)
                 return requiresBlitForOffscreenCamera;
 

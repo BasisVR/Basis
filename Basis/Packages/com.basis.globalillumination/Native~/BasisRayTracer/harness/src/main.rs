@@ -289,6 +289,7 @@ fn main() {
         let fov = 70f32.to_radians();
         let projection = perspective(fov, w as f32 / h as f32, 0.05, 100.0);
 
+        let light_step: Option<Vec<f32>> = std::env::var("LIGHTSTEP").ok().map(|v| v.split(',').filter_map(|p| p.parse().ok()).collect());
         let light_scale: f32 = std::env::var("LIGHT").ok().and_then(|v| v.parse().ok()).unwrap_or(1.0);
         let instances: usize = std::env::var("INSTANCES").ok().and_then(|v| v.parse().ok()).unwrap_or(2).clamp(2, MAX_INSTANCES);
         let mut record_us = 0u64;
@@ -320,6 +321,7 @@ fn main() {
             if frame == 1 { prev_vp = vp; }
             let light_off_at = std::env::var("LIGHTOFF").ok().and_then(|v| v.parse::<u64>().ok());
             let lit = if light_off_at.map_or(false, |n| iteration as u64 >= n) { 0.0f32 } else { 1.0f32 } * light_scale;
+            let lit = match &light_step { Some(v) if v.len() == 3 => lit * if iteration as f32 >= v[0] { v[2] } else { v[1] }, _ => lit };
             let scene_time = if scene == 0 { t } else { time_fixed.unwrap_or((iteration as f32).min(stop_at.unwrap_or(f32::MAX)) / 60.0) };
             let wd = world(scene, scene_time, lit);
             let room_quads = &wd.quads;

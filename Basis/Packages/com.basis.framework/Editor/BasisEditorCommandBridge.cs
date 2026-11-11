@@ -274,6 +274,21 @@ public static class BasisEditorCommandBridge
                     Write(scene == null ? "no scene" : (string)scene.GetType().GetMethod("DescribeAvatars", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(scene, null));
                 }
                 break;
+            case "mirrorlayers":
+                {
+                    Type mirrorType = FindType("BasisSDKMirror");
+                    int changed = 0;
+                    if (mirrorType != null)
+                    {
+                        foreach (UnityEngine.Object m in UnityEngine.Object.FindObjectsByType(mirrorType, FindObjectsInactive.Exclude))
+                        {
+                            mirrorType.GetProperty("ReflectionLayers", BindingFlags.Public | BindingFlags.Instance)?.SetValue(m, (LayerMask)int.Parse(parts[1], CultureInfo.InvariantCulture));
+                            changed++;
+                        }
+                    }
+                    Write("mirrorlayers set on " + changed);
+                }
+                break;
             case "rtstats":
                 RayTracerStats();
                 break;
