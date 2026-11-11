@@ -8,6 +8,11 @@ namespace Basis.Network.Core
         public const string MediaMessage = "basis.screenshare.media";
         public const DeliveryMethod ControlDelivery = DeliveryMethod.ReliableOrdered;
         public const DeliveryMethod MediaDelivery = DeliveryMethod.ReliableOrdered;
+        public const DeliveryMethod VideoDelivery = DeliveryMethod.ReliableUnordered;
+        public const DeliveryMethod AudioDelivery = DeliveryMethod.ReliableOrdered;
+        public const byte AudioChannel = BasisNetworkCommons.PluginUnreliableChannel;
+        public static readonly byte[] VideoLanes = { BasisNetworkCommons.PluginReliableChannel, BasisNetworkCommons.PluginSequencedChannel, BasisNetworkCommons.PluginUnreliableChannel };
+        public const int ReorderFrames = 64;
         public const int MaxChunkPayload = 1100;
         public const int MaxFrameBytes = 4 * 1024 * 1024;
         public const int MaxChunksPerFrame = (MaxFrameBytes + MaxChunkPayload - 1) / MaxChunkPayload;
@@ -28,6 +33,7 @@ namespace Basis.Network.Core
         public const byte EndedSub = 13;
         public const byte ViewersSub = 16;
         public const byte PolicySub = 17;
+        public const byte CongestionSub = 18;
 
         public const byte RefusedNoPermission = 1;
         public const byte RefusedTooMany = 2;
@@ -139,5 +145,25 @@ namespace Basis.Network.Core
         }
 
         public static int ChunkCount(int length) => (length + MaxChunkPayload - 1) / MaxChunkPayload;
+
+        public static byte VideoLane(int index) => VideoLanes[index % VideoLanes.Length];
+
+        public static byte LaneFor(ChunkHeader header, out DeliveryMethod delivery)
+        {
+            if (header.Kind == KindAudio)
+            {
+                delivery = AudioDelivery;
+                return AudioChannel;
+            }
+            delivery = VideoDelivery;
+            return VideoLane(header.Index);
+        }
+
+        public static int MediaBacklog(NetPeer peer)
+        {
+            int total = peer.GetPacketsCountInQueue(AudioChannel, AudioDelivery);
+            for (int i = 0; i < VideoLanes.Length; i++) total += peer.GetPacketsCountInQueue(VideoLanes[i], VideoDelivery);
+            return total;
+        }
     }
 }

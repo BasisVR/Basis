@@ -304,6 +304,10 @@ fn main() {
         let mut parity_n = [0u64; 2];
         let spot = |j: usize| -> V3 { let a = j as f32 * 2.39996; let r = 5.0 + ((j * 7) % 25) as f32; [r * a.cos(), 0.5 + (j % 3) as f32, r * a.sin()] };
         let mut times = Vec::new();
+        let alpha_cfg: Option<Vec<f32>> = std::env::var("ALPHA").ok().map(|v| v.split(',').filter_map(|p| p.parse().ok()).collect()).filter(|v: &Vec<f32>| v.len() == 3);
+        let world_space = std::env::var("WORLD").map_or(false, |v| !v.is_empty());
+        let hide_blocks = std::env::var("HIDE").map_or(false, |v| !v.is_empty());
+        let clear = |b: &Block| b.emission.iter().all(|v| *v <= 0.0);
 
         for frame in 1..=frames {
             protocol += 1;
@@ -323,7 +327,8 @@ fn main() {
             let lit = if light_off_at.map_or(false, |n| iteration as u64 >= n) { 0.0f32 } else { 1.0f32 } * light_scale;
             let lit = match &light_step { Some(v) if v.len() == 3 => lit * if iteration as f32 >= v[0] { v[2] } else { v[1] }, _ => lit };
             let scene_time = if scene == 0 { t } else { time_fixed.unwrap_or((iteration as f32).min(stop_at.unwrap_or(f32::MAX)) / 60.0) };
-            let wd = world(scene, scene_time, lit);
+            let mut wd = world(scene, scene_time, lit);
+            if hide_blocks { for b in wd.blocks.iter_mut().filter(|b| clear(b)) { b.size = [0.0; 3]; } }
             let room_quads = &wd.quads;
             let (statics, blocks) = (wd.quads.len(), wd.blocks.len());
             let cube_center = wd.blocks[0].centre;
@@ -346,7 +351,7 @@ fn main() {
                 let (_, ci) = mesh_texels(&cube_quads, |_| true);
                 index_texels = ci.chunks(4).map(|c| [c[0], *c.get(1).unwrap_or(&0), *c.get(2).unwrap_or(&0), *c.get(3).unwrap_or(&0)]).collect();
                 commands.push(Command { op: OP_MESH_DEFINE, id: 2, a: 24 * blocks as u32, b: 36 * blocks as u32, c: blocks as u32, ..Default::default() });
-                for b in 0..blocks as u32 { commands.push(Command { op: OP_MESH_SUBMESH, id: 2, a: b * 36, b: 36, c: SUBMESH_OPAQUE, ..Default::default() }); }
+                for b in 0..blocks as u32 { commands.push(Command { op: OP_MESH_SUBMESH, id: 2, a: b * 36, b: 36, c: if alpha_cfg.is_some() && clear(&wd.blocks[b as usize]) { SUBMESH_ALPHA_TEST } else { SUBMESH_OPAQUE }, ..Default::default() }); }
                 let at = push(&mut texels, &index_texels);
                 commands.push(Command { op: OP_MESH_INDICES, id: 2, a: 0, b: 36 * blocks as u32, c: at, ..Default::default() });
             }
@@ -363,6 +368,7 @@ fn main() {
             for i in (2 + many)..instances { slot.instances[i] = Instance { transform: [1.0, 0.0, 0.0, 500.0 + (i % 128) as f32 * 2.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 500.0 + (i / 128) as f32 * 2.0], mesh: 2, material_base: 7, mask: 0xff, flags: 0, lightmap: -1, ..Default::default() }; }
             for (i, q) in room_quads.iter().enumerate() { slot.materials[i] = Material { base_color: [q.albedo[0], q.albedo[1], q.albedo[2], 1.0], emission: [q.emission[0] * lit, q.emission[1] * lit, q.emission[2] * lit, 0.0], base_st: [1.0, 1.0, 0.0, 0.0], emission_st: [1.0, 1.0, 0.0, 0.0], base_texture: -1, emission_texture: -1, flags: if q.emission.iter().any(|v| *v > 0.0) { MATERIAL_EMITTER } else { 0 }, ..Default::default() }; }
             for (b, k) in wd.blocks.iter().enumerate() { slot.materials[statics + b] = Material { base_color: [k.albedo[0], k.albedo[1], k.albedo[2], 1.0], emission: [k.emission[0] * lit, k.emission[1] * lit, k.emission[2] * lit, 0.0], base_st: [1.0, 1.0, 0.0, 0.0], emission_st: [1.0, 1.0, 0.0, 0.0], base_texture: -1, emission_texture: -1, flags: if k.emission.iter().any(|v| *v > 0.0) { MATERIAL_EMITTER } else { 0 }, ..Default::default() }; }
+            if let Some(a) = &alpha_cfg { for (b, k) in wd.blocks.iter().enumerate() { if clear(k) { let m = &mut slot.materials[statics + b]; m.alpha_mode = a[0] as u32; m.base_color[3] = a[1]; m.cutoff = a[2]; } } }
             for (i, l) in wd.lights.iter().enumerate() { slot.lights[i] = *l; }
             let mut dirty_count = 0usize;
             let mut emitter_count = 2usize;
@@ -409,7 +415,7 @@ fn main() {
             let v = View { view, projection, inverse_view_projection: [0.0; 16], previous_view_projection: prev_vp, position: [camera[0], camera[1], camera[2], 0.0] };
             slot.params = FrameParams {
                 frame, instance_count: instances as u32, material_count: (statics + blocks) as u32, light_count: (wd.lights.len() + many) as u32, command_count: commands.len() as u32, upload_texels: texels.len() as u32,
-                flags: if scene == 0 || std::env::var("SCREEN").is_ok() { FLAG_SCREEN_REUSE } else { 0 } | FLAG_SHADOWS | if std::env::var("NODENOISE").is_ok() { 0 } else { FLAG_DENOISE } | FLAG_REORDER | if std::env::var("NOPROBES").map_or(false, |v| !v.is_empty()) { 0 } else { FLAG_PROBES }, width: w, height: h, view_count: views, samples: std::env::var("SAMPLES").ok().and_then(|v| v.parse().ok()).unwrap_or(2), bounces: 2 | (avatar_rays << 8),
+                flags: if scene == 0 || std::env::var("SCREEN").is_ok() { FLAG_SCREEN_REUSE } else { 0 } | FLAG_SHADOWS | if std::env::var("NODENOISE").is_ok() || world_space { 0 } else { FLAG_DENOISE } | FLAG_REORDER | if std::env::var("NOPROBES").map_or(false, |v| !v.is_empty()) || world_space { 0 } else { FLAG_PROBES } | if world_space { FLAG_WORLD_SPACE } else { 0 }, width: w, height: h, view_count: views, samples: std::env::var("SAMPLES").ok().and_then(|v| v.parse().ok()).unwrap_or(2), bounces: 2 | (avatar_rays << 8),
                 max_distance: 100.0, ao_radius: env_f("AORADIUS").unwrap_or(if scene == 0 { 0.5 } else { 0.0 }), emission_scale: 1.0, sky_intensity: 1.0, time: t, firefly_clamp: 30.0, temporal_response: 0.05,
                 light_intensity: 1.0, normal_bias: 0.005, emitter_count: (emitter_count + many) as u32, ao_intensity: 0.5, context: 0, parity: (iteration & 1) as u32, cache_cell_size: 0.2, dirty_count: std::env::var("DIRTY").ok().and_then(|v| v.parse().ok()).unwrap_or(dirty_count as u32), ambient: [[0.0; 4]; 7], views: [v, v],
             };

@@ -76,11 +76,12 @@ public class ScreenShareRelayTests
         });
     }
 
-    private static void Frame(FakeNetPeer sharer, uint sequence, bool key, int length, byte kind = KindVideo)
+    private static void Frame(FakeNetPeer sharer, uint sequence, bool key, int length, byte kind = KindVideo, bool reversed = false)
     {
         int count = ChunkCount(length);
-        for (int i = 0; i < count; i++)
+        for (int n = 0; n < count; n++)
         {
+            int i = reversed ? count - 1 - n : n;
             int size = Math.Min(MaxChunkPayload, length - i * MaxChunkPayload);
             Deliver(sharer, MediaMessage, w =>
             {
@@ -200,6 +201,41 @@ public class ScreenShareRelayTests
         finally
         {
             Remove(sharer, early);
+        }
+    }
+
+    [Fact]
+    public void Media_ChunksArrivingOutOfOrderAreRoutedPerFrameOnTheirLanes()
+    {
+        FakeNetPeer sharer = NewPeer();
+        FakeNetPeer viewer = NewPeer();
+        try
+        {
+            Start(sharer);
+            Watch(viewer, sharer);
+            Frame(sharer, 10, true, 3000, reversed: true);
+            Frame(sharer, 12, false, 2500, reversed: true);
+            Frame(sharer, 11, false, 1200);
+            Frame(sharer, 13, false, 40, KindAudio);
+            List<(uint Sequence, ushort Index)> chunks = MediaChunks(viewer);
+            Assert.Equal(new[] { (10u, (ushort)2), (10u, (ushort)1), (10u, (ushort)0), (12u, (ushort)2), (12u, (ushort)1), (12u, (ushort)0), (11u, (ushort)0), (11u, (ushort)1), (13u, (ushort)0) }, chunks);
+            ushort media = Id(MediaMessage);
+            List<(byte[] Data, byte Channel, DeliveryMethod Method)> sent;
+            lock (viewer.Sent) sent = viewer.Sent.Where(x => x.Data.Length >= 2 && BitConverter.ToUInt16(x.Data, 0) == media).ToList();
+            for (int i = 0; i < chunks.Count - 1; i++)
+            {
+                Assert.Equal(VideoLane(chunks[i].Index), sent[i].Channel);
+                Assert.Equal(VideoDelivery, sent[i].Method);
+            }
+            Assert.Equal(AudioChannel, sent[^1].Channel);
+            Assert.Equal(AudioDelivery, sent[^1].Method);
+
+            Frame(sharer, unchecked(10u - (uint)ReorderFrames), false, 500);
+            Assert.Equal(chunks.Count, MediaChunks(viewer).Count);
+        }
+        finally
+        {
+            Remove(sharer, viewer);
         }
     }
 

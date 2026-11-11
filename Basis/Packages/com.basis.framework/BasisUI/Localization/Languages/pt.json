@@ -5173,6 +5173,8 @@
     { "key": "settings.graphics.gi.mode.rayTraced.tooltip", "value": "Traça o próprio mundo, incluindo o que está fora da tela. Requer DirectX 12 e uma placa de vídeo com traçado de raios por hardware, como NVIDIA RTX; em qualquer outro caso, funciona como Espaço de Tela." },
     { "key": "settings.graphics.gi.mode.pathTracedBaked", "value": "Traçado de caminhos + pré-calculado (DX12)" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked.tooltip", "value": "Mantém a iluminação pré-calculada do mundo e traça só o que o bake não conhece: avatares, objetos em movimento, brilho dos avatares e luzes em tempo real. Bem mais barato que o traçado completo em mundos com lightmaps. Sem iluminação pré-calculada funciona como Traçado de caminhos." },
+    { "key": "settings.graphics.gi.mode.pathTracedWorld", "value": "Traçado de caminhos (espaço do mundo, DX12)" },
+    { "key": "settings.graphics.gi.mode.pathTracedWorld.tooltip", "value": "Traça o mundo e guarda o resultado nas próprias superfícies, assim os dois olhos veem a mesma luz e nada borra ao virar a cabeça. Sombras de contato finas ficam mais suaves e objetos rápidos podem levar um instante para pegar sua luz." },
     { "key": "settings.graphics.gi.mode.screenSpace.tooltip", "value": "Trabalha a partir do que a câmera já desenhou. Funciona em qualquer placa de vídeo, inclusive com DirectX 11." },
     { "key": "settings.graphics.gi.solution", "value": "Solução" },
     { "key": "settings.graphics.gi.solution.tooltip", "value": "Basis executa a iluminação global do Basis com as configurações abaixo. Unity executa a iluminação global Surface Cache da Unity, que substitui a iluminação pré-calculada do mundo nos materiais Unity Lit e obtém suas configurações dos volumes do mundo." },

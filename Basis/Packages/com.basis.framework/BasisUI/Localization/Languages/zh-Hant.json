@@ -5284,6 +5284,8 @@
     { "key": "settings.graphics.gi.mode.rayTraced.tooltip", "value": "直接追蹤世界本身，包括畫面外的內容。需要 DirectX 12 與支援硬體光線追蹤的顯示卡（例如 NVIDIA RTX）；在其他環境下則以「螢幕空間」模式執行。" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked", "value": "路徑追蹤 + 烘焙 (DX12)" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked.tooltip", "value": "保留世界的烘焙光照，只追蹤烘焙無法得知的部分：虛擬形象、移動物件、虛擬形象發光與即時光源。在有光照貼圖的世界中比完整路徑追蹤便宜許多。沒有烘焙光照時與路徑追蹤相同。" },
+    { "key": "settings.graphics.gi.mode.pathTracedWorld", "value": "路徑追蹤 (世界空間, DX12)" },
+    { "key": "settings.graphics.gi.mode.pathTracedWorld.tooltip", "value": "追蹤整個世界並把結果保存在表面上，兩隻眼睛看到相同的光照，轉頭時不會拖影。細小的接觸陰影會更柔和，快速移動的物體可能需要片刻才能得到正確光照。" },
     { "key": "settings.graphics.gi.mode.screenSpace.tooltip", "value": "以相機已繪製的畫面為基礎進行計算。可在任何顯示卡上執行，包括 DirectX 11。" },
     { "key": "settings.graphics.gi.solution", "value": "方案" },
     { "key": "settings.graphics.gi.solution.tooltip", "value": "「Basis」使用下方設定執行 Basis 的全域光照。「Unity」執行 Unity 的 Surface Cache 全域光照，它會在 Unity Lit 材質上取代世界的烘焙光照，並從世界的體積（Volume）中讀取設定。" },

@@ -17,7 +17,6 @@
 #define CACHE_TOMBSTONE 0xffffffffu
 #define CACHE_FIXED 512.0
 #define CACHE_SETTLED 256.0
-#define CACHE_SUSPECT_RUN 8u
 #define CACHE_STRIDE 64u
 #define SH_Y0 0.282095
 #define SH_Y1 0.488603
@@ -78,11 +77,11 @@ float CacheCellSize(float3 p, float3 viewer)
     return max(frame.cacheCellSize, 0.02) * exp2(levelF);
 }
 
-CacheFrame CacheLocate(float3 p, float3 n, float3 viewer, float rnd)
+CacheFrame CacheLocate(float3 p, float3 n, float3 viewer, float rnd, float levelBias = 0.0)
 {
     CacheFrame f;
     float distance = length(p - viewer);
-    float levelF = log2(1.0 + distance / max(frame.cacheCellSize * 40.0, 0.5));
+    float levelF = log2(1.0 + distance / max(frame.cacheCellSize * 40.0, 0.5)) + levelBias;
     f.level = min(uint(levelF) + (rnd < frac(levelF) ? 1u : 0u), 12u);
     f.size = max(frame.cacheCellSize, 0.02) * exp2(float(f.level));
     float3 scaled = p / f.size;
@@ -172,10 +171,10 @@ void AddFixed(RWByteAddressBuffer b, uint offset, int3 q)
 
 bool ShFinite(SH s) { return all(isfinite(s.c0)) && all(isfinite(s.cx)) && all(isfinite(s.cy)) && all(isfinite(s.cz)) && all(isfinite(s.mean)); }
 
-void CacheAccumulate(float3 p, float3 n, float3 viewer, SH value, float rnd, float2 jitter)
+void CacheAccumulate(float3 p, float3 n, float3 viewer, SH value, float rnd, float2 jitter, float levelBias = 0.0)
 {
     if (!ShFinite(value)) { return; }
-    CacheFrame f = CacheLocate(p, n, viewer, rnd);
+    CacheFrame f = CacheLocate(p, n, viewer, rnd, levelBias);
     uint axis = f.axis >> 1;
     float3 offset = 0.0;
     offset[axis == 0 ? 1u : 0u] = (jitter.x - 0.5) * 0.5 * f.size;
@@ -263,6 +262,54 @@ float4 CacheLookup(float3 p, float3 n, float3 viewer, float rnd)
         coverage += w;
     }
     return float4(weight > 1e-5 ? sum / weight : 0.0, saturate(weight / max(coverage, 1e-5)) * saturate(coverage * 2.0));
+}
+
+float4 CacheLookupLevel(float3 p, float3 geometric, float3 shading, uint level)
+{
+    float size = max(frame.cacheCellSize, 0.02) * exp2(float(level));
+    float3 scaled = p / size;
+    int3 base = int3(floor(scaled - 0.5));
+    float3 fraction = scaled - 0.5 - float3(base);
+    uint axis = CacheAxis(geometric);
+    RWByteAddressBuffer resolved = ResourceDescriptorHeap[HEAP_CACHE_RESOLVED];
+    float3 sum = 0.0;
+    float weight = 0.0;
+    [loop] for (uint k = 0; k < 8; k++)
+    {
+        int3 o = int3(k & 1u, (k >> 1) & 1u, k >> 2);
+        float3 t = select(o != 0, fraction, 1.0 - fraction);
+        float w = t.x * t.y * t.z;
+        if (w <= 1e-4) { continue; }
+        int index = CacheFind(CacheKey(base + o, level, axis));
+        if (index < 0) { continue; }
+        float samples;
+        SH s = CacheLoadSH(resolved, uint(index) * CACHE_STRIDE, samples);
+        if (samples <= 0.0) { continue; }
+        w *= saturate(samples / 32.0);
+        sum += ShIrradiance(s, shading, AxisNormal(axis)) * w;
+        weight += w;
+    }
+    return float4(weight > 1e-5 ? sum / weight : 0.0, saturate(weight));
+}
+
+float3 CacheViewer(float3 viewer)
+{
+    return (frame.flags & FLAG_WORLD_SPACE) != 0 && frame.viewCount > 1u ? (frame.views[0].position.xyz + frame.views[1].position.xyz) * 0.5 : viewer;
+}
+
+float4 CacheLookupSmooth(float3 p, float3 geometric, float3 shading, float3 viewer, float levelBias)
+{
+    float3 toViewer = viewer - p;
+    float facing = abs(dot(geometric, toViewer)) * rsqrt(max(dot(toViewer, toViewer), 1e-8));
+    levelBias += clamp(log2(1.0 / max(facing, 0.25)) - 0.5, 0.0, 1.5);
+    float levelF = min(log2(1.0 + length(p - viewer) / max(frame.cacheCellSize * 40.0, 0.5)) + levelBias, 12.0);
+    uint level = min(uint(levelF), 11u);
+    float t = levelF - float(level);
+    float4 fine = CacheLookupLevel(p, geometric, shading, level);
+    float4 coarse = CacheLookupLevel(p, geometric, shading, level + 1u);
+    float wf = (1.0 - t) * fine.a, wc = (t + (1.0 - t) * (1.0 - fine.a)) * coarse.a;
+    float w = wf + wc;
+    return float4(w > 1e-5 ? (fine.rgb * wf + coarse.rgb * wc) / w : 0.0, saturate(max(fine.a, coarse.a)));
 }
 
 #endif

@@ -95,6 +95,7 @@ pub const FLAG_CACHE_RESET: u32 = 64;
 pub const FLAG_PROBES: u32 = 128;
 pub const FLAG_BAKED_HYBRID: u32 = 256;
 pub const FLAG_MOTION: u32 = 512;
+pub const FLAG_WORLD_SPACE: u32 = 1024;
 
 #[repr(C)]
 pub struct Header {

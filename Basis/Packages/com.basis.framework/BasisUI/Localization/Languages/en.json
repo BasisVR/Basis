@@ -9403,6 +9403,14 @@
       "value": "Keeps the world's baked lighting and path traces only what the bake can't know: avatars, moving objects, avatar glow and realtime lights. Much cheaper than full path tracing in lightmapped worlds. Works like Path Traced in worlds without baked lighting."
     },
     {
+      "key": "settings.graphics.gi.mode.pathTracedWorld",
+      "value": "Path Traced (World Space, DX12)"
+    },
+    {
+      "key": "settings.graphics.gi.mode.pathTracedWorld.tooltip",
+      "value": "Path traces the world and keeps the result on the surfaces themselves, so both eyes see the same light and nothing smears when you turn your head. Skips the screen-space history blending the other path traced mode uses. Fine contact shadows are softer, and objects that move fast can take a moment to pick up their light."
+    },
+    {
       "key": "settings.graphics.rtao.mode.screenSpace.tooltip",
       "value": "Estimates occlusion from what the camera already drew. Runs on any graphics card, DirectX 11 included."
     },

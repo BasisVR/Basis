@@ -10,20 +10,32 @@ struct Dirty { float4 sphere; };
 #define CACHE_DRIFT_SIGMA 3.0
 #endif
 
-#ifndef CACHE_DRIFT_RUN
-#define CACHE_DRIFT_RUN 160.0
-#endif
-
-#ifndef CACHE_DRIFT_STREAK_SIGMA
-#define CACHE_DRIFT_STREAK_SIGMA 3.0
-#endif
-
 #ifndef CACHE_DRIFT_FLOOR
 #define CACHE_DRIFT_FLOOR 0.05
 #endif
 
+#ifndef CACHE_DRIFT_BITS
+#define CACHE_DRIFT_BITS 8.0
+#endif
+
+#ifndef CACHE_ALERT_BITS
+#define CACHE_ALERT_BITS 4.0
+#endif
+
+#ifndef CACHE_ALERT_REACH
+#define CACHE_ALERT_REACH 8.0
+#endif
+
+#ifndef CACHE_ALERT_FRAMES
+#define CACHE_ALERT_FRAMES 30u
+#endif
+
 #ifndef CACHE_DIRTY_CEILING
 #define CACHE_DIRTY_CEILING 192.0
+#endif
+
+#ifndef CACHE_SAMPLE_CAP
+#define CACHE_SAMPLE_CAP 1024.0
 #endif
 
 #ifndef CACHE_EVICT_AGE
@@ -70,13 +82,14 @@ void CacheMaintain(uint3 id : SV_DispatchThreadID)
         StructuredBuffer<Dirty> dirty = ResourceDescriptorHeap[HEAP_DIRTY + frame.slot];
         float samples = asfloat(resolved.Load(o + 48));
         float capped = samples;
-        bool cleared = false;
+        bool cleared = false, alert = false;
         for (uint d = 0; d < frame.dirtyCount; d++)
         {
             float4 s = dirty[d].sphere;
             bool clear = s.w >= 100000.0;
             float radius = clear ? s.w - 100000.0 : abs(s.w);
             float reach = distance(cell.xyz, s.xyz);
+            if (reach < radius * CACHE_ALERT_REACH + cell.w) { alert = true; }
             if (reach < radius + cell.w)
             {
                 if (clear) { cleared = true; }
@@ -94,11 +107,16 @@ void CacheMaintain(uint3 id : SV_DispatchThreadID)
             return;
         }
         if (capped < samples) { resolved.Store(o + 48, asuint(capped)); }
+        if (alert)
+        {
+            RWByteAddressBuffer stamps = ResourceDescriptorHeap[HEAP_CACHE_TOUCHED];
+            stamps.Store(i * 12 + 8, (stamps.Load(i * 12 + 8) & 0xffffu) | (max(frame.frameIndex & 0xffffu, 1u) << 16));
+        }
     }
     if (accum.Load(o + 48) == 0u)
     {
         RWByteAddressBuffer touched = ResourceDescriptorHeap[HEAP_CACHE_TOUCHED];
-        if (((frame.frameIndex - touched.Load(i * 16)) & 0xffffffu) > CACHE_EVICT_AGE)
+        if (((frame.frameIndex - touched.Load(i * 12)) & 0xffffffu) > CACHE_EVICT_AGE)
         {
             keys.Store2(i * 8, uint2(keys.Load(((i + 1u) & CACHE_MASK) * 8) == 0u ? 0u : CACHE_TOMBSTONE, 0u));
             CacheStoreSH(resolved, o, ShZero(), 0.0);
@@ -123,39 +141,38 @@ void CacheResolve(uint3 id : SV_DispatchThreadID)
     SH r = CacheLoadSH(resolved, o, samples);
     SH average = ShScale(added, 1.0 / float(count));
     float weight = float(count);
-    uint4 stamp = touched.Load4(i * 16);
-    float streak = f16tof32(stamp.w & 0xffffu), streakWeight = float(stamp.w >> 16);
-    uint packed = stamp.y, suspect = stamp.x >> 24;
-    float run = float(stamp.z & 0xffffu);
-    bool above = (stamp.z >> 16) != 0u;
-    float fast = f16tof32(packed & 0xffffu), spread = f16tof32(packed >> 16);
+    uint3 stamp = touched.Load3(i * 12);
+    uint run = stamp.x >> 24;
+    float fast = f16tof32(stamp.y & 0xffffu), spread = f16tof32(stamp.y >> 16), below = float(stamp.z & 0xffu) / 255.0;
     float l = Luminance(average.mean), slow = Luminance(r.mean);
+    bool suspect = false;
     if (samples > 0.0)
     {
-        float deviation = l - fast;
-        float square = deviation * deviation * weight;
-        if (samples >= CACHE_DRIFT_WINDOW * 2.0) { square = min(square, spread * 9.0 + 1e-6); }
+        float deviation = l - fast, level = max(fast, 1e-3);
+        float square = deviation * deviation * weight / (level * level);
+        if (samples >= CACHE_DRIFT_WINDOW * 2.0) { square = min(square, spread * 9.0 + 1e-4); }
         spread = lerp(spread, square, weight / (min(samples, CACHE_DRIFT_WINDOW * 4.0) + weight));
         fast = samples >= CACHE_DRIFT_WINDOW ? lerp(fast, l, weight / (CACHE_DRIFT_WINDOW + weight)) : lerp(slow, l, weight / (samples + weight));
-        uint side = l > slow ? 0x80u : 0u;
-        if ((suspect & 0x80u) != side) { suspect = side; streak = 0.0; streakWeight = 0.0; }
-        suspect = side | min((suspect & 0x7fu) + 1u, 127u);
-        streakWeight = min(streakWeight + weight, 60000.0);
-        streak = lerp(streak, l, weight / streakWeight);
-        run = (fast > slow) == above ? min(run + weight, 60000.0) : weight;
-        above = fast > slow;
-        if (samples >= CACHE_DRIFT_WINDOW * 2.0)
+        bool under = l <= slow;
+        uint side = under ? 0x80u : 0u;
+        run = (run & 0x80u) == side ? side | min((run & 0x7fu) + 1u, 127u) : side | 1u;
+        uint alerted = stamp.z >> 16;
+        bool alert = alerted != 0u && ((frame.frameIndex - alerted) & 0xffffu) < CACHE_ALERT_FRAMES;
+        float need = clamp(ceil((alert ? CACHE_ALERT_BITS : CACHE_DRIFT_BITS) * -0.6931472 / log(clamp(under ? below : 1.0 - below, 0.05, 0.95))), 3.0, 120.0);
+        float length = float(run & 0x7fu);
+        suspect = length >= max(need * 0.5, 2.0);
+        if (samples >= 16.0)
         {
-            if (abs(fast - slow) > CACHE_DRIFT_SIGMA * sqrt(spread / CACHE_DRIFT_WINDOW) + CACHE_DRIFT_FLOOR * slow + 1e-4) { samples = max(samples * 0.5, CACHE_DRIFT_WINDOW); run = 0.0; }
-            else if ((suspect & 0x7fu) >= 4u && abs(streak - slow) > CACHE_DRIFT_STREAK_SIGMA * sqrt(spread / streakWeight) + CACHE_DRIFT_FLOOR * slow + 1e-4) { samples = max(samples * 0.5, CACHE_DRIFT_WINDOW); }
-            else if (run >= CACHE_DRIFT_RUN) { samples = max(samples * 0.7, CACHE_DRIFT_WINDOW); run *= 0.5; }
+            if (samples >= CACHE_DRIFT_WINDOW * 2.0 && abs(fast - slow) > CACHE_DRIFT_SIGMA * sqrt(spread * fast * slow / CACHE_DRIFT_WINDOW) + CACHE_DRIFT_FLOOR * slow + 1e-4) { samples = max(samples * 0.5, CACHE_DRIFT_WINDOW); }
+            else if (length >= need) { samples = max(samples * 0.7, 16.0); }
         }
+        below = lerp(below, under ? 1.0 : 0.0, 1.0 / 64.0);
     }
-    else { fast = l; spread = 0.0; run = 0.0; suspect = 0u; streak = 0.0; streakWeight = 0.0; }
+    else { fast = l; spread = 0.0; run = 0u; below = 0.5; }
     float alpha = samples <= 0.0 ? 1.0 : weight / (samples + weight);
     r = ShLerp(r, average, alpha);
-    samples = min(samples + weight, 1024.0);
+    samples = min(samples + weight, CACHE_SAMPLE_CAP);
     ClearAccum(accum, o);
-    touched.Store4(i * 16, uint4((frame.frameIndex & 0xffffffu) | (suspect << 24), f32tof16(min(fast, 60000.0)) | (f32tof16(min(spread, 60000.0)) << 16), uint(run) | (above ? 0x10000u : 0u), f32tof16(min(streak, 60000.0)) | (uint(streakWeight) << 16)));
+    touched.Store3(i * 12, uint3((frame.frameIndex & 0xffffffu) | (run << 24), f32tof16(min(fast, 60000.0)) | (f32tof16(min(spread, 60000.0)) << 16), uint(round(saturate(below) * 255.0)) | (suspect ? 0x100u : 0u) | (stamp.z & 0xffff0000u)));
     CacheStoreSH(resolved, o, r, samples);
 }

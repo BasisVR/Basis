@@ -31,6 +31,9 @@ public class BasisScreenShare : MonoBehaviour
     public BasisScreenShareClient.Remote Remote { get; private set; }
     public event Action Changed;
     const float PoseInterval = 0.1f, StatusInterval = 0.5f, KeyRequestInterval = 1f;
+    const int StallFrames = 12;
+    int stallReceived;
+    ulong stallDecoded;
     ulong capture, attachedPreview, attachedCapture;
     bool accepted, previewOpen, awaitingStart;
     volatile bool directChanged;
@@ -44,6 +47,7 @@ public class BasisScreenShare : MonoBehaviour
     ScreenPose followTarget;
     StreamInfo info;
     bool infoPending;
+    Vector2Int bitrateSize;
     BasisScreenShareNative.Source source;
     BasisScreenShareControls controls;
     Bounds screenBounds = new Bounds(Vector3.zero, new Vector3(14.46f, 8.14f, 0f));
@@ -236,7 +240,8 @@ public class BasisScreenShare : MonoBehaviour
         if (BasisScreenShareClient.LockedForMe) return Fail(BasisLocalization.Get("screenShare.error.locked"));
         Vector2Int max = BasisScreenShareSettings.MaxSize(BasisScreenShareSettings.Resolution.RawValue, new Vector2Int(source.width, source.height));
         int fps = BasisScreenShareSettings.Fps(BasisScreenShareSettings.FrameRate.RawValue);
-        TargetKbps = BasisScreenShareSettings.Bitrate(BasisScreenShareSettings.Quality.RawValue, max, fps, BasisScreenShareClient.ServerMaxKbps);
+        bitrateSize = BasisScreenShareSettings.EncodedSize(max, new Vector2Int(source.width, source.height));
+        TargetKbps = BasisScreenShareSettings.Bitrate(BasisScreenShareSettings.Quality.RawValue, bitrateSize, fps, BasisScreenShareClient.ServerMaxKbps);
         BasisScreenShareNative.Config config = new BasisScreenShareNative.Config { AudioSource = BasisScreenShareSettings.AudioSource.RawValue, PtsBaseUs = ptsBase, SourceId = source.id, MaxWidth = max.x, MaxHeight = max.y, Fps = fps, BitrateKbps = TargetKbps, KeyframeIntervalMs = 10000, AudioBitrateKbps = BasisScreenShareSettings.AudioBitrateKbps, Cursor = BasisScreenShareSettings.ShowCursor.RawValue, Audio = BasisScreenShareSettings.ShareAudio.RawValue };
         if (!BasisScreenShareNative.Open(config, out capture)) return Fail(BasisLocalization.Get("screenShare.error.open"));
         sender?.SetCapture(capture, TargetKbps);
@@ -367,6 +372,7 @@ public class BasisScreenShare : MonoBehaviour
                 Fail(error);
                 return;
             }
+            if (CaptureStatus.Running && CaptureStatus.width > 0 && (CaptureStatus.width != bitrateSize.x || CaptureStatus.height != bitrateSize.y)) RetargetBitrate(new Vector2Int(CaptureStatus.width, CaptureStatus.height));
             if (CaptureStatus.Running && infoPending)
             {
                 infoPending = false;
@@ -404,6 +410,15 @@ public class BasisScreenShare : MonoBehaviour
         if (!accepted) return;
         FollowPlacement(null, false);
         if (PoseDue(now)) BasisScreenShareClient.SendPose(CurrentPose());
+    }
+
+    void RetargetBitrate(Vector2Int size)
+    {
+        bitrateSize = size;
+        int target = BasisScreenShareSettings.Bitrate(BasisScreenShareSettings.Quality.RawValue, size, BasisScreenShareSettings.Fps(BasisScreenShareSettings.FrameRate.RawValue), BasisScreenShareClient.ServerMaxKbps);
+        if (target == TargetKbps) return;
+        TargetKbps = target;
+        sender?.SetTarget(target);
     }
 
     StreamInfo CurrentInfo() => new StreamInfo { Width = (ushort)CaptureStatus.width, Height = (ushort)CaptureStatus.height, Fps = (byte)BasisScreenShareSettings.Fps(BasisScreenShareSettings.FrameRate.RawValue), HasAudio = CaptureStatus.audio, Title = SourceName ?? string.Empty };
@@ -484,11 +499,28 @@ public class BasisScreenShare : MonoBehaviour
         }
         if (!previewOpen) previewOpen = Player.LoadPushStream("share/" + remote.Sharer);
         SetPushHandle(remote, previewOpen ? Player.PushHandle : 0);
+        DetectDecoderStall(remote);
         if (remote.NeedKeyframe && Time.unscaledTime >= nextKeyRequest)
         {
             nextKeyRequest = Time.unscaledTime + KeyRequestInterval;
             BasisScreenShareClient.RequestKeyframe(remote);
         }
+    }
+
+    void DetectDecoderStall(BasisScreenShareClient.Remote remote)
+    {
+        int received = remote.FramesReceived;
+        ulong decoded = Player.FramesDecoded;
+        if (decoded != stallDecoded || received < stallReceived)
+        {
+            stallDecoded = decoded;
+            stallReceived = received;
+            return;
+        }
+        if (received - stallReceived < StallFrames) return;
+        stallReceived = received;
+        if (!remote.NeedKeyframe) nextKeyRequest = 0f;
+        remote.NeedKeyframe = true;
     }
 
     static float Sq(float v) => v * v;

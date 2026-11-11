@@ -12,14 +12,19 @@ namespace Basis.Network.Server.Generic
 {
     public static class BasisNetworkScreenShare
     {
-        public const int ViewerQueueLimit = 900;
+        public const int ViewerQueueLimit = 400;
         const double BurstSeconds = 2.0;
         const double KilobitsToBytes = 125.0;
-        static readonly long KeyRequestInterval = Stopwatch.Frequency / 2;
+        static readonly long KeyRequestInterval = Stopwatch.Frequency / 2, CongestionInterval = Stopwatch.Frequency / 4;
         sealed class Viewer
         {
-            public bool NeedsKey = true, Forwarding;
+            public bool NeedsKey = true;
+        }
+        sealed class FrameRoute
+        {
             public uint Sequence = uint.MaxValue;
+            public bool Cancelled;
+            public readonly List<NetPeer> Targets = new List<NetPeer>();
         }
         sealed class Bucket
         {
@@ -46,8 +51,11 @@ namespace Basis.Network.Server.Generic
             public readonly Bucket Ingress = new Bucket(), Egress = new Bucket();
             public long LastKeyRequest;
             public bool DroppingVideo;
-            public readonly List<NetPeer> FrameTargets = new List<NetPeer>();
-            public uint FrameSequence = uint.MaxValue;
+            public readonly FrameRoute[] Frames = new FrameRoute[ReorderFrames];
+            public uint NewestSequence;
+            public bool HasNewest;
+            public long LastCongestionReport;
+            public int ReportedCongestion = -1;
         }
         static readonly ConcurrentDictionary<ushort, Session> Sessions = new ConcurrentDictionary<ushort, Session>();
         static ushort controlId, mediaId;
@@ -247,6 +255,8 @@ namespace Basis.Network.Server.Generic
                 session.Info = info;
                 session.Placement = pose;
                 foreach (Viewer viewer in session.Viewers.Values) viewer.NeedsKey = true;
+                session.HasNewest = false;
+                foreach (FrameRoute route in session.Frames) if (route != null) route.Sequence = uint.MaxValue;
                 int kbps = MaxKilobitsPerSecond;
                 int viewers = session.Viewers.Count;
                 BNL.Log($"Screen share started by player {from}: {info.Width}x{info.Height} {info.Fps} fps, audio {info.HasAudio}");
@@ -370,42 +380,34 @@ namespace Basis.Network.Server.Generic
                 ReadOnlySpan<byte> chunk = new ReadOnlySpan<byte>(reader.RawData, start, length);
                 lock (session)
                 {
+                    ReportCongestion(session);
+                    FrameRoute route = null;
+                    if (header.Kind == KindVideo)
+                    {
+                        route = RouteFor(session, header);
+                        if (route == null || route.Cancelled) return;
+                    }
                     if (!session.Ingress.TryTake(MaxKilobitsPerSecond * KilobitsToBytes * 1.5, length))
                     {
-                        Drop(session, header);
+                        Drop(session, route);
                         return;
                     }
                     if (session.Viewers.Count == 0) return;
-                    List<NetPeer> targets;
-                    if (header.Kind == KindVideo && !header.IsFirst)
-                    {
-                        if (header.Sequence != session.FrameSequence) return;
-                        targets = session.FrameTargets;
-                    }
-                    else
-                    {
-                        targets = TargetsFor(session, header);
-                        if (header.Kind == KindVideo)
-                        {
-                            session.FrameSequence = header.Sequence;
-                            session.FrameTargets.Clear();
-                            session.FrameTargets.AddRange(targets);
-                        }
-                    }
+                    List<NetPeer> targets = route != null ? route.Targets : AudioTargets(session);
                     if (targets.Count == 0) return;
                     double egressRate = (NetworkServer.Configuration?.ScreenShareEgressMegabitsPerSecond ?? 200) * 125_000.0;
                     if (!session.Egress.TryTake(egressRate, (long)(length + 4) * targets.Count))
                     {
-                        Drop(session, header);
+                        Drop(session, route);
                         return;
                     }
-                    if (header.Kind == KindVideo && header.IsFirst) session.DroppingVideo = false;
+                    if (route != null) session.DroppingVideo = false;
                     NetDataWriter writer = NetworkServer.RentWriter(length + 8);
                     writer.Put(mediaId);
                     writer.Put(from);
                     writer.Put(chunk);
-                    byte mediaChannel = BasisNetworkCommons.GetPluginChannelForDelivery(MediaDelivery);
-                    for (int i = 0; i < targets.Count; i++) NetworkServer.TrySend(targets[i], writer, mediaChannel, MediaDelivery);
+                    byte lane = LaneFor(header, out DeliveryMethod laneDelivery);
+                    for (int i = 0; i < targets.Count; i++) NetworkServer.TrySend(targets[i], writer, lane, laneDelivery);
                     NetworkServer.ReturnWriter(writer);
                 }
             }
@@ -416,20 +418,34 @@ namespace Basis.Network.Server.Generic
             }
         }
 
-        static void Drop(Session session, ChunkHeader header)
+        static FrameRoute RouteFor(Session session, ChunkHeader header)
+        {
+            uint sequence = header.Sequence;
+            if (session.HasNewest && (int)(session.NewestSequence - sequence) >= ReorderFrames) return null;
+            FrameRoute route = session.Frames[sequence % ReorderFrames] ??= new FrameRoute();
+            if (route.Sequence == sequence) return route;
+            if (!session.HasNewest || (int)(sequence - session.NewestSequence) > 0)
+            {
+                session.NewestSequence = sequence;
+                session.HasNewest = true;
+            }
+            route.Sequence = sequence;
+            route.Cancelled = false;
+            route.Targets.Clear();
+            ChooseVideoTargets(session, header.IsKey, route.Targets);
+            return route;
+        }
+
+        static void Drop(Session session, FrameRoute route)
         {
             System.Threading.Interlocked.Increment(ref droppedChunks);
-            if (header.Kind != KindVideo) return;
-            session.FrameSequence = uint.MaxValue;
-            session.FrameTargets.Clear();
-            foreach (Viewer viewer in session.Viewers.Values)
+            if (route == null) return;
+            route.Cancelled = true;
+            foreach (NetPeer target in route.Targets)
             {
-                if (viewer.Forwarding && viewer.Sequence == header.Sequence)
-                {
-                    viewer.Forwarding = false;
-                    viewer.NeedsKey = true;
-                }
+                if (session.Viewers.TryGetValue((ushort)target.Id, out Viewer viewer)) viewer.NeedsKey = true;
             }
+            route.Targets.Clear();
             if (!session.DroppingVideo)
             {
                 session.DroppingVideo = true;
@@ -437,48 +453,62 @@ namespace Basis.Network.Server.Generic
             }
         }
 
-        [ThreadStatic] static List<NetPeer> targetScratch;
+        [ThreadStatic] static List<NetPeer> audioScratch;
 
-        static List<NetPeer> TargetsFor(Session session, ChunkHeader header)
+        static List<NetPeer> AudioTargets(Session session)
         {
-            List<NetPeer> targets = targetScratch ??= new List<NetPeer>();
+            List<NetPeer> targets = audioScratch ??= new List<NetPeer>();
             targets.Clear();
-            byte mediaChannel = BasisNetworkCommons.GetPluginChannelForDelivery(MediaDelivery);
+            foreach (KeyValuePair<ushort, Viewer> pair in session.Viewers)
+            {
+                if (!NetworkServer.AuthenticatedPeers.TryGetValue(pair.Key, out NetPeer target) || !BasisServerMessageRegistry.IsSubscribed(target.Id, mediaId)) continue;
+                if (MediaBacklog(target) <= ViewerQueueLimit) targets.Add(target);
+            }
+            return targets;
+        }
+
+        static void ChooseVideoTargets(Session session, bool key, List<NetPeer> targets)
+        {
             bool requestKey = false;
             foreach (KeyValuePair<ushort, Viewer> pair in session.Viewers)
             {
                 Viewer viewer = pair.Value;
                 if (!NetworkServer.AuthenticatedPeers.TryGetValue(pair.Key, out NetPeer target) || !BasisServerMessageRegistry.IsSubscribed(target.Id, mediaId)) continue;
-                bool backlogged = target.GetPacketsCountInQueue(mediaChannel, MediaDelivery) > ViewerQueueLimit;
-                if (header.Kind == KindAudio)
+                if (MediaBacklog(target) > ViewerQueueLimit)
                 {
-                    if (!backlogged) targets.Add(target);
+                    viewer.NeedsKey = true;
+                    requestKey = true;
                     continue;
                 }
-                if (header.IsFirst)
+                if (viewer.NeedsKey && !key)
                 {
-                    viewer.Sequence = header.Sequence;
-                    if (backlogged)
-                    {
-                        viewer.Forwarding = false;
-                        viewer.NeedsKey = true;
-                        requestKey = true;
-                    }
-                    else if (viewer.NeedsKey && !header.IsKey)
-                    {
-                        viewer.Forwarding = false;
-                        requestKey = true;
-                    }
-                    else
-                    {
-                        viewer.Forwarding = true;
-                        if (header.IsKey) viewer.NeedsKey = false;
-                    }
+                    requestKey = true;
+                    continue;
                 }
-                if (viewer.Forwarding && viewer.Sequence == header.Sequence) targets.Add(target);
+                if (key) viewer.NeedsKey = false;
+                targets.Add(target);
             }
             if (requestKey) RequestKeyframe(session, false);
-            return targets;
+        }
+
+        static void ReportCongestion(Session session)
+        {
+            long now = Stopwatch.GetTimestamp();
+            if (now - session.LastCongestionReport < CongestionInterval) return;
+            session.LastCongestionReport = now;
+            int worst = 0;
+            foreach (ushort viewer in session.Viewers.Keys)
+            {
+                if (NetworkServer.AuthenticatedPeers.TryGetValue(viewer, out NetPeer target)) worst = Math.Max(worst, MediaBacklog(target));
+            }
+            worst = Math.Min(worst, ushort.MaxValue);
+            if (worst == 0 && session.ReportedCongestion == 0) return;
+            session.ReportedCongestion = worst;
+            SendControl(session.Sharer, w =>
+            {
+                w.Put(CongestionSub);
+                w.Put((ushort)worst);
+            });
         }
 
         public static void Reset()

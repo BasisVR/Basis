@@ -52,6 +52,13 @@ public static class BasisScreenShareSettings
         return new Vector2Int(Math.Min(width, 4096), Math.Min(height, 4096));
     }
 
+    public static Vector2Int EncodedSize(Vector2Int max, Vector2Int source)
+    {
+        if (source.x <= 0 || source.y <= 0) return max;
+        float scale = Mathf.Min(1f, Mathf.Min(max.x / (float)source.x, max.y / (float)source.y));
+        return new Vector2Int(Mathf.Max(2, Mathf.RoundToInt(source.x * scale)), Mathf.Max(2, Mathf.RoundToInt(source.y * scale)));
+    }
+
     public static int Fps(string value) => int.TryParse(value, out int fps) ? Mathf.Clamp(fps, 1, 120) : 30;
 
     public static int Bitrate(string quality, Vector2Int size, int fps, int serverMaxKbps)

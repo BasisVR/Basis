@@ -33,20 +33,34 @@ void LoadTriangle(Instance instance, uint geometry, uint primitive, out uint3 ve
 
 float2 LoadUv0(uint v) { ByteAddressBuffer b = ResourceDescriptorHeap[HEAP_VERTICES]; uint p = b.Load(v * 32 + 16); return f16tof32(uint2(p, p >> 16)); }
 
-float AlphaAt(Instance instance, uint geometry, uint primitive, float2 barycentrics, out Material material)
+float AlphaAtUv(Material material, float2 uv)
 {
-    material = LoadMaterial(instance.materialBase + geometry);
     float alpha = material.baseColor.a;
     if (material.baseTexture >= 0)
     {
-        uint3 vi; Mesh mesh;
-        LoadTriangle(instance, geometry, primitive, vi, mesh);
-        float3 w = float3(1.0 - barycentrics.x - barycentrics.y, barycentrics);
-        float2 uv = LoadUv0(vi.x) * w.x + LoadUv0(vi.y) * w.y + LoadUv0(vi.z) * w.z;
         Texture2D<float4> t = ResourceDescriptorHeap[HEAP_TEXTURES + material.baseTexture];
-        alpha *= t.SampleLevel(linearWrap, uv * material.baseST.xy + material.baseST.zw, 1.0).a;
+        alpha *= t.SampleLevel(linearWrap, uv * material.baseST.xy + material.baseST.zw, (material.alphaMode & 3u) == ALPHA_CUTOUT ? 1.0 : 0.0).a;
     }
     return alpha;
+}
+
+float AlphaAt(Instance instance, uint geometry, uint primitive, float2 barycentrics, out Material material)
+{
+    material = LoadMaterial(instance.materialBase + geometry);
+    if (material.baseTexture < 0) { return material.baseColor.a; }
+    uint3 vi; Mesh mesh;
+    LoadTriangle(instance, geometry, primitive, vi, mesh);
+    float3 w = float3(1.0 - barycentrics.x - barycentrics.y, barycentrics);
+    return AlphaAtUv(material, LoadUv0(vi.x) * w.x + LoadUv0(vi.y) * w.y + LoadUv0(vi.z) * w.z);
+}
+
+float AlphaCoverage(Material material, float2 uv)
+{
+    uint mode = material.alphaMode & 3u;
+    if (mode == ALPHA_OPAQUE) { return 1.0; }
+    float alpha = AlphaAtUv(material, uv);
+    if (material.cutoff <= 1.0 && alpha < material.cutoff) { return 0.0; }
+    return mode == ALPHA_CUTOUT ? 1.0 : saturate(alpha);
 }
 
 [shader("anyhit")]
@@ -55,11 +69,8 @@ void AnyHit(inout Payload payload, BuiltInTriangleIntersectionAttributes attribu
     Instance instance = LoadInstance(InstanceID());
     Material material;
     float alpha = AlphaAt(instance, GeometryIndex(), PrimitiveIndex(), attributes.barycentrics, material);
-    if ((material.alphaMode & 3u) == ALPHA_CUTOUT)
-    {
-        if (alpha < material.cutoff) { IgnoreHit(); }
-        return;
-    }
+    if (alpha < material.cutoff) { IgnoreHit(); return; }
+    if ((material.alphaMode & 3u) == ALPHA_CUTOUT) { return; }
     uint2 p = DispatchRaysIndex().xy;
     uint h = Hash(p.x * 9781u + p.y * 6271u + PrimitiveIndex() * 26699u + frame.frameIndex * 1973u + asuint(RayTCurrent()));
     if ((h & 0xffff) * (1.0 / 65536.0) >= alpha) { IgnoreHit(); }
@@ -147,7 +158,7 @@ float3 MaterialEmission(Material material, float2 uv, float lod, float size, flo
     return emission;
 }
 
-bool Occluded(RaytracingAccelerationStructure tlas, float3 origin, float3 direction, float distance, bool opaque = false)
+bool Occluded(RaytracingAccelerationStructure tlas, float3 origin, float3 direction, float distance)
 {
     RayDesc ray;
     ray.Origin = origin;
@@ -155,7 +166,7 @@ bool Occluded(RaytracingAccelerationStructure tlas, float3 origin, float3 direct
     ray.TMin = 0.0;
     ray.TMax = distance;
     Payload payload = (Payload)0;
-    HitObj h = TraceHit(tlas, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | (opaque ? RAY_FLAG_FORCE_OPAQUE : RAY_FLAG_NONE), 0xFE, ray, payload);
+    HitObj h = TraceHit(tlas, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER, 0xFE, ray, payload);
     return h.IsHit();
 }
 
@@ -333,7 +344,7 @@ LightCandidate EvaluateEmitterPoint(Instance instance, uint geometry, uint primi
     float2 uv = LoadUv0(vi.x) * w.x + LoadUv0(vi.y) * w.y + LoadUv0(vi.z) * w.z;
     float3 tint = material.baseColor.rgb;
     if (material.emissionBase > 0.0 || (material.alphaMode & 0x8000u) != 0u) { tint *= SampleTexture(material.baseTexture, uv, material.baseST, 2.0, 1.0).rgb; }
-    float3 emission = MaterialEmission(material, uv, 2.0, 1.0, tint) * frame.emissionScale;
+    float3 emission = MaterialEmission(material, uv, 2.0, 1.0, tint) * frame.emissionScale * AlphaCoverage(material, uv);
     c.value = emission * min(cosReceiver * cosLight / max(distance2, 1e-6), PI / area) / PI;
     c.scatterPdf = cosReceiver * cosLight / (PI * max(distance2, 1e-6));
     c.shadow = true;
@@ -507,7 +518,7 @@ LightCandidate SampleLights(RaytracingAccelerationStructure tlas, float3 positio
         if (Random(rng) * total < w) { chosen = c; chosenTarget = target; }
     }
     if (total <= 0.0 || chosenTarget <= 0.0) { return (LightCandidate)0; }
-    if (chosen.shadow && Occluded(tlas, position, chosen.direction, max(chosen.distance * 0.999 - frame.normalBias * 2.0, 0.0), part == 2u)) { return (LightCandidate)0; }
+    if (chosen.shadow && Occluded(tlas, position, chosen.direction, max(chosen.distance * 0.999 - frame.normalBias * 2.0, 0.0))) { return (LightCandidate)0; }
     chosen.value *= total / (candidates * chosenTarget);
     return chosen;
 }
@@ -607,7 +618,7 @@ bool PrimarySurface(RaytracingAccelerationStructure tlas, float3 viewer, inout S
 
 float3 HitLighting(RaytracingAccelerationStructure tlas, float3 origin, float3 position, float3 normal, float3 geometric, float3 viewer, bool cache, inout uint rng, out float coverage)
 {
-    float nearRadius = CacheCellSize(position, viewer) * 3.0;
+    float nearRadius = (frame.flags & FLAG_WORLD_SPACE) != 0 ? 0.0 : CacheCellSize(position, viewer) * 3.0;
     float4 cached = cache ? CacheLookup(position, geometric, viewer, Random(rng)) : 0.0;
     coverage = saturate(cached.a * 2.0);
     bool far = (frame.flags & FLAG_BAKED_HYBRID) == 0;
@@ -755,7 +766,7 @@ void GatherRay(RaytracingAccelerationStructure tlas, Texture2D<uint4> gbuffer, f
 void GatherFarLight(RaytracingAccelerationStructure tlas, float3 position, float3 normal, float3 viewer, inout uint rng, inout SH sh)
 {
     if ((frame.flags & FLAG_BAKED_HYBRID) != 0) { return; }
-    LightCandidate light = SampleLights(tlas, position, normal, false, rng, 2u, CacheCellSize(position, viewer) * 3.0);
+    LightCandidate light = SampleLights(tlas, position, normal, false, rng, 2u, (frame.flags & FLAG_WORLD_SPACE) != 0 ? 0.0 : CacheCellSize(position, viewer) * 3.0);
     if (any(light.value > 0.0))
     {
         float3 v = ClampFirefly(light.value);
@@ -794,7 +805,7 @@ bool CacheSettled(float3 p, float3 n, float3 viewer, float rnd)
     CacheLoadSH(resolved, uint(index) * CACHE_STRIDE, samples);
     if (samples < CACHE_SETTLED) { return false; }
     RWByteAddressBuffer touched = ResourceDescriptorHeap[HEAP_CACHE_TOUCHED];
-    return ((touched.Load(uint(index) * 16u) >> 24) & 0x7fu) < CACHE_SUSPECT_RUN;
+    return (touched.Load(uint(index) * 12u + 8u) & 0x100u) == 0u;
 }
 
 #include "probe.hlsli"
@@ -1076,21 +1087,53 @@ void RayGen()
     if (mode == 0)
     {
         if (baked) { return; }
-        float3 position = origin, normal = surface.normal, plane = geometric;
+        float3 position = origin, normal = surface.normal, plane = geometric, cacheViewer = CacheViewer(viewer);
         uint vertices = clamp(frame.bounces & 0xffu, 1u, 4u);
         for (uint v = 0; v < vertices; v++)
         {
             float levelRandom = Random(rng);
-            if (CacheSettled(position, plane, viewer, levelRandom) && (Hash(pixel.x * 31u + pixel.y * 17u + frame.frameIndex) & 15u) != 0u) { break; }
+            if (CacheSettled(position, plane, cacheViewer, levelRandom) && (Hash(pixel.x * 31u + pixel.y * 17u + frame.frameIndex) & 15u) != 0u) { break; }
             Bounce next;
             float2 rotation = v == 0 ? BlueNoise2(index, 4u, frame.frameIndex) : float2(Random(rng), Random(rng));
             SH sh = GatherSH(tlas, gbuffer, position, normal, plane, viewer, v == 0 ? max(frame.samples, 2u) : 2u, rotation, reorder, rng, next);
-            CacheAccumulate(position, plane, viewer, sh, levelRandom, float2(Random(rng), Random(rng)));
+            CacheAccumulate(position, plane, cacheViewer, sh, levelRandom, float2(Random(rng), Random(rng)));
+            if ((frame.flags & FLAG_WORLD_SPACE) != 0) { CacheAccumulate(position, plane, cacheViewer, sh, levelRandom, float2(Random(rng), Random(rng)), 2.0); }
             if (!next.hit || next.terminal) { break; }
             position = next.position;
             normal = next.normal;
             plane = next.geometric;
         }
+        return;
+    }
+
+    if ((frame.flags & FLAG_WORLD_SPACE) != 0 && !baked)
+    {
+        RWByteAddressBuffer reservoirs = ResourceDescriptorHeap[frame.contextBase + CTX_RESERVOIR_SCRATCH];
+        reservoirs.Store4((pixel.y * frame.width * frame.viewCount + pixel.x) * RESERVOIR_SCRATCH_STRIDE + 16u, uint4(0u, 0u, 0u, 0u));
+        float bias = avatarPixel ? 2.0 : 0.0;
+        float3 cacheViewer = CacheViewer(viewer);
+        float4 world = CacheLookupSmooth(surface.position, geometric, surface.normal, cacheViewer, bias);
+        [loop] for (uint step = 0; step < (avatarPixel ? 5u : 3u) && world.a < 0.99; step++)
+        {
+            bias += 2.0;
+            float4 coarse = CacheLookupSmooth(surface.position, geometric, surface.normal, cacheViewer, bias);
+            float wc = (1.0 - world.a) * coarse.a;
+            world = float4(world.a + wc > 1e-5 ? (world.rgb * world.a + coarse.rgb * wc) / (world.a + wc) : 0.0, world.a + wc);
+        }
+        float3 irradiance = world.rgb;
+        if (world.a < 0.05)
+        {
+            uint fresh = clamp(frame.samples / 2u, 1u, 8u);
+            float3 traced = 0.0;
+            for (uint ri = 0; ri < fresh; ri++)
+            {
+                float3 direction = CosineSample(surface.normal, BlueNoise2(pixel, 1u, frame.frameIndex * fresh + ri));
+                if (dot(direction, geometric) <= 0.0) { direction = normalize(direction - 2.0 * dot(direction, geometric) * geometric); }
+                traced += ClampFirefly(TraceRadiance(tlas, gbuffer, origin, direction, surface.normal, viewer, false, rng).radiance);
+            }
+            irradiance = lerp(traced / fresh + FarLight(tlas, origin, surface.normal, 0.0, rng), world.rgb, saturate(world.a * 20.0));
+        }
+        output[pixel] = float4(all(isfinite(irradiance)) ? irradiance : 0.0, 1.0);
         return;
     }
 
@@ -1292,7 +1335,7 @@ void RayGen()
             ray.TMin = bias * 4.0;
             ray.TMax = frame.aoRadius;
             Payload payload = (Payload)0;
-            HitObj h = TraceHit(tlas, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_OPAQUE, MASK_VISIBLE, ray, payload);
+            HitObj h = TraceHit(tlas, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER, MASK_VISIBLE, ray, payload);
             if (h.IsHit()) { float o = 1.0 - h.GetRayTCurrent() / frame.aoRadius; occlusion += o * o; }
         }
         occlusion /= aoRays;

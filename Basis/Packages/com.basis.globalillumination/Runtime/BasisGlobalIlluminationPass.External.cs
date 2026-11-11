@@ -48,6 +48,7 @@ public partial class BasisGlobalIlluminationPass
         public int width, height, views, sourceWidth, sourceHeight;
         public TextureHandle depth, normals, surface, color, traced, lightmapMask, motion;
         public bool hasLightmapMask, hasMotion;
+        public UnityEngine.Experimental.Rendering.XRPass xr;
         public Vector4 jitter, displayJitter;
         public Matrix4x4[] inverse;
         public Vector4[] positions;
@@ -115,6 +116,7 @@ public partial class BasisGlobalIlluminationPass
         if (settings.externalSameFrame) { parameters.flags |= BasisExternalRayTracer.FlagSameFrame; }
         if (settings.externalProbes) { parameters.flags |= BasisExternalRayTracer.FlagProbes; }
         if (settings.IsExternalBaked()) { parameters.flags |= BasisExternalRayTracer.FlagBakedHybrid; }
+        if (settings.IsExternalWorld()) { parameters.flags = (parameters.flags & ~(BasisExternalRayTracer.FlagDenoise | BasisExternalRayTracer.FlagProbes)) | BasisExternalRayTracer.FlagWorldSpace; }
         if (motion) { parameters.flags |= FlagMotion; }
         for (int v = 0; v < 2; v++)
         {
@@ -168,6 +170,7 @@ public partial class BasisGlobalIlluminationPass
         using (IUnsafeRenderGraphBuilder builder = renderGraph.AddUnsafePass("Basis GI Path Traced (External)", out ExternalData data, samplerExternal))
         {
             data.compute = externalCompute;
+            data.xr = cameraData.xr;
             data.kernelGBuffer = kernelPackGBuffer;
             data.kernelVertices = kernelPackVertices;
             data.kernelIndices = kernelPackIndices;
@@ -246,6 +249,7 @@ public partial class BasisGlobalIlluminationPass
         {
             if (d.behind && d.fetchFrame != 0) { cmd.IssuePluginEventAndData(BasisExternalRayTracer.EventFunc, BasisExternalRayTracer.EventBase + 1, BasisExternalRayTracer.EventData(d.fetchFrame, d.context, d.fetchParity, 0)); }
             if (validate) { DispatchUnpack(cmd, d, gbuffer, result, true); }
+            bool stereoStopped = false;
             for (int i = 0; i < d.jobCount; i++)
             {
                 BasisExternalRayScene.Job job = d.jobs[i];
@@ -272,6 +276,7 @@ public partial class BasisGlobalIlluminationPass
                         break;
                     case BasisExternalRayScene.JobKind.Texture:
                         if (job.source == null || job.scratch == null) { break; }
+                        if (!stereoStopped && d.xr != null) { d.xr.StopSinglePass(cmd); stereoStopped = true; }
                         cmd.Blit(job.source, job.scratch);
                         cmd.SetComputeTextureParam(cs, d.kernelTexture, idExSource, job.scratch);
                         cmd.SetComputeTextureParam(cs, d.kernelTexture, idExUpload, upload);
@@ -281,6 +286,7 @@ public partial class BasisGlobalIlluminationPass
                         break;
                 }
             }
+            if (stereoStopped) { d.xr.StartSinglePass(cmd); }
             cmd.SetComputeTextureParam(cs, d.kernelGBuffer, idExDepth, d.depth);
             cmd.SetComputeTextureParam(cs, d.kernelGBuffer, idExColor, d.color);
             cmd.SetComputeTextureParam(cs, d.kernelGBuffer, idExNormals, d.hasNormals ? d.normals : d.color);

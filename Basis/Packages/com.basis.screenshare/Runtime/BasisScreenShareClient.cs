@@ -25,20 +25,63 @@ public static partial class BasisScreenShareClient
         public long PushHandle;
         public volatile bool ReopenRequested;
         public BasisScreenShare Screen;
-        internal byte[] Assembly;
-        internal int AssemblyLength, AssemblyExpected;
-        internal uint AssemblySequence, LastVideoSequence = uint.MaxValue;
-        internal ushort NextIndex;
-        internal long AssemblyPts;
-        internal bool AssemblyKey, Assembling;
+        internal readonly PendingFrame[] Frames = new PendingFrame[ReorderFrames];
+        internal uint NextSequence, NewestComplete;
+        internal bool HasNext, HasNewestComplete;
+        internal volatile bool ResetPending;
+        internal readonly Queue<HeldAudio> HeldAudio = new Queue<HeldAudio>();
+        internal long LastVideoPtsUs = long.MinValue;
         public volatile bool NeedKeyframe = true;
+        public int FramesReceived, FramesBroken, KeyframeRequests;
+        public long TransitMinUs = long.MaxValue, TransitExcessMaxUs;
 
         public void ResetAssembly()
         {
-            Assembling = false;
-            LastVideoSequence = uint.MaxValue;
+            ResetPending = true;
             NeedKeyframe = true;
         }
+    }
+
+    internal sealed class PendingFrame
+    {
+        public uint Sequence = uint.MaxValue;
+        public byte[] Data, Got;
+        public int Count, Received, Length, Expected;
+        public long PtsUs;
+        public bool Key, Complete;
+
+        public void Begin(uint sequence, int count)
+        {
+            Release();
+            Sequence = sequence;
+            Count = count;
+            Received = Length = 0;
+            Expected = -1;
+            PtsUs = 0;
+            Key = Complete = false;
+            Data = System.Buffers.ArrayPool<byte>.Shared.Rent(count * MaxChunkPayload);
+            Got = System.Buffers.ArrayPool<byte>.Shared.Rent(count);
+            Array.Clear(Got, 0, count);
+        }
+
+        public void Release()
+        {
+            if (Data != null) System.Buffers.ArrayPool<byte>.Shared.Return(Data);
+            if (Got != null) System.Buffers.ArrayPool<byte>.Shared.Return(Got);
+            Data = Got = null;
+            Sequence = uint.MaxValue;
+            Complete = false;
+        }
+    }
+
+    public const int StuckFrames = 30;
+    public const long AudioLeadUs = 150_000, AudioHoldMaxUs = 1_000_000;
+
+    internal struct HeldAudio
+    {
+        public byte[] Data;
+        public int Length;
+        public long PtsUs, ArrivedUs;
     }
 
     public const int RouteNone = 0, RouteServer = 1, RouteDirect = 2;
@@ -54,6 +97,7 @@ public static partial class BasisScreenShareClient
     public static bool Locked { get; private set; }
     public static bool LockedForMe => Locked && !BasisNetworkModeration.LocalPlayerHasGlobalLockBypass();
     public static int ServerMaxKbps { get; private set; }
+    public static volatile int ServerCongestion;
     public static readonly Dictionary<ushort, Remote> Remotes = new Dictionary<ushort, Remote>();
     static readonly ConcurrentQueue<Action> MainThread = new ConcurrentQueue<Action>();
     [NoAutoStaticsCleanup] static readonly object RemotesLock = new object();
@@ -239,7 +283,8 @@ public static partial class BasisScreenShareClient
         for (int i = 0; i < count; i++)
         {
             WriteChunkTo(writer, id, sequence, kind, key, ptsUs, i, count, length, data);
-            peer.Send(writer, BasisNetworkCommons.PluginReliableChannel, MediaDelivery);
+            byte lane = kind == KindAudio ? AudioChannel : VideoLane(i);
+            peer.Send(writer, lane, kind == KindAudio ? AudioDelivery : VideoDelivery);
         }
         return true;
     }
@@ -317,6 +362,7 @@ public static partial class BasisScreenShareClient
 
     public static void RequestKeyframe(Remote remote)
     {
+        Interlocked.Increment(ref remote.KeyframeRequests);
         if (remote.Route == RouteDirect) SendDirectKeyframeRequest(remote.Sharer);
         else if (remote.Route == RouteServer) SendKeyframeRequest(remote.Sharer);
     }
@@ -324,7 +370,7 @@ public static partial class BasisScreenShareClient
     public static int PendingUplink()
     {
         NetPeer peer = BasisNetworkConnection.LocalPlayerPeer;
-        return peer == null ? 0 : peer.GetPacketsCountInQueue(BasisNetworkCommons.GetPluginChannelForDelivery(MediaDelivery), MediaDelivery);
+        return peer == null ? 0 : MediaBacklog(peer);
     }
 
     static void OnControl(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod delivery)
@@ -335,6 +381,7 @@ public static partial class BasisScreenShareClient
             switch (sub)
             {
                 case AcceptedSub:
+                    ServerCongestion = 0;
                     if (reader.TryGetUInt(out uint kbps) && reader.TryGetUShort(out ushort viewers)) MainThread.Enqueue(() =>
                     {
                         BasisDebug.Log($"[ScreenShare] accepted by server: max {kbps} kb/s, {viewers} viewers", BasisDebug.LogTag.Video);
@@ -351,6 +398,9 @@ public static partial class BasisScreenShareClient
                     break;
                 case KeyframeSub:
                     MainThread.Enqueue(() => { if (Local != null) Local.RequestKeyframe(); });
+                    break;
+                case CongestionSub:
+                    if (reader.TryGetUShort(out ushort backlog)) ServerCongestion = backlog;
                     break;
                 case ViewersSub:
                     if (reader.TryGetUShort(out ushort count)) MainThread.Enqueue(() => { if (Local != null) Local.SetViewers(count); });
@@ -558,50 +608,149 @@ public static partial class BasisScreenShareClient
 
     internal static void Accept(Remote remote, ChunkHeader header, ReadOnlySpan<byte> payload)
     {
+        if (remote.ResetPending) ResetFrames(remote);
         if (header.Kind == KindAudio)
         {
-            if (header.Count != 1) return;
-            Enqueue(remote, payload, header.PtsUs, true, KindAudio);
+            if (header.Count != 1 || !remote.Watching) return;
+            byte[] copy = System.Buffers.ArrayPool<byte>.Shared.Rent(payload.Length);
+            payload.CopyTo(copy);
+            remote.HeldAudio.Enqueue(new HeldAudio { Data = copy, Length = payload.Length, PtsUs = header.PtsUs, ArrivedUs = NowUs() });
+            ReleaseAudio(remote);
             return;
         }
+        uint sequence = header.Sequence;
+        if (remote.HasNext && (int)(sequence - remote.NextSequence) < 0) return;
+        if (remote.HasNext && (int)(sequence - remote.NextSequence) >= ReorderFrames)
+        {
+            Interlocked.Increment(ref remote.FramesBroken);
+            ResetFrames(remote);
+        }
+        PendingFrame frame = remote.Frames[sequence % ReorderFrames] ??= new PendingFrame();
+        if (frame.Sequence != sequence)
+        {
+            if (frame.Data != null && !frame.Complete) Interlocked.Increment(ref remote.FramesBroken);
+            frame.Begin(sequence, header.Count);
+        }
+        if (frame.Complete || header.Count != frame.Count || frame.Got[header.Index] != 0) return;
+        bool last = header.Index == header.Count - 1;
+        if (payload.Length > MaxChunkPayload || (!last && payload.Length != MaxChunkPayload))
+        {
+            Interlocked.Increment(ref remote.FramesBroken);
+            frame.Release();
+            return;
+        }
+        payload.CopyTo(new Span<byte>(frame.Data, header.Index * MaxChunkPayload, payload.Length));
+        frame.Got[header.Index] = 1;
+        frame.Received++;
+        if (header.IsKey) frame.Key = true;
+        if (last) frame.Length = header.Index * MaxChunkPayload + payload.Length;
         if (header.IsFirst)
         {
-            if (remote.Assembling) remote.NeedKeyframe = true;
-            bool continuous = remote.LastVideoSequence != uint.MaxValue && header.Sequence == unchecked(remote.LastVideoSequence + 1);
-            if (!header.IsKey && (remote.NeedKeyframe || !continuous))
+            frame.PtsUs = header.PtsUs;
+            frame.Expected = header.TotalLength;
+        }
+        if (frame.Received < frame.Count) return;
+        if (frame.Expected >= 0 && frame.Expected != frame.Length)
+        {
+            Interlocked.Increment(ref remote.FramesBroken);
+            frame.Release();
+            return;
+        }
+        frame.Complete = true;
+        if (!remote.HasNewestComplete || (int)(sequence - remote.NewestComplete) > 0)
+        {
+            remote.NewestComplete = sequence;
+            remote.HasNewestComplete = true;
+        }
+        Deliver(remote);
+    }
+
+    static void Deliver(Remote remote)
+    {
+        while (true)
+        {
+            PendingFrame next = remote.HasNext ? remote.Frames[remote.NextSequence % ReorderFrames] : null;
+            if (next != null && next.Sequence == remote.NextSequence && next.Complete)
             {
-                remote.NeedKeyframe = true;
-                remote.Assembling = false;
+                Emit(remote, next);
+                continue;
+            }
+            PendingFrame key = OldestCompleteKey(remote);
+            if (key == null)
+            {
+                if (!remote.HasNext || (remote.HasNewestComplete && (int)(remote.NewestComplete - remote.NextSequence) >= StuckFrames)) remote.NeedKeyframe = true;
                 return;
             }
-            if (remote.Assembly == null || remote.Assembly.Length < header.TotalLength) remote.Assembly = new byte[Mathf.NextPowerOfTwo(header.TotalLength)];
-            remote.Assembling = true;
-            remote.AssemblySequence = header.Sequence;
-            remote.AssemblyExpected = header.TotalLength;
-            remote.AssemblyLength = 0;
-            remote.AssemblyPts = header.PtsUs;
-            remote.AssemblyKey = header.IsKey;
-            remote.NextIndex = 0;
+            remote.NextSequence = key.Sequence;
+            remote.HasNext = true;
+            foreach (PendingFrame stale in remote.Frames)
+            {
+                if (stale == null || stale.Data == null || (int)(stale.Sequence - key.Sequence) >= 0) continue;
+                if (!stale.Complete) Interlocked.Increment(ref remote.FramesBroken);
+                stale.Release();
+            }
         }
-        if (!remote.Assembling || header.Sequence != remote.AssemblySequence || header.Index != remote.NextIndex || remote.AssemblyLength + payload.Length > remote.AssemblyExpected)
+    }
+
+    static PendingFrame OldestCompleteKey(Remote remote)
+    {
+        PendingFrame best = null;
+        foreach (PendingFrame frame in remote.Frames)
         {
-            remote.Assembling = false;
-            remote.NeedKeyframe = true;
-            return;
+            if (frame == null || !frame.Complete || !frame.Key) continue;
+            if (remote.HasNext && (int)(frame.Sequence - remote.NextSequence) <= 0) continue;
+            if (best == null || (int)(frame.Sequence - best.Sequence) < 0) best = frame;
         }
-        payload.CopyTo(new Span<byte>(remote.Assembly, remote.AssemblyLength, payload.Length));
-        remote.AssemblyLength += payload.Length;
-        remote.NextIndex++;
-        if (remote.NextIndex < header.Count) return;
-        remote.Assembling = false;
-        if (remote.AssemblyLength != remote.AssemblyExpected)
+        return best;
+    }
+
+    static void Emit(Remote remote, PendingFrame frame)
+    {
+        remote.NextSequence = frame.Sequence + 1;
+        remote.HasNext = true;
+        Interlocked.Increment(ref remote.FramesReceived);
+        TrackTransit(remote, frame.PtsUs);
+        if (frame.Key) remote.NeedKeyframe = false;
+        if (frame.PtsUs > remote.LastVideoPtsUs) remote.LastVideoPtsUs = frame.PtsUs;
+        Enqueue(remote, new ReadOnlySpan<byte>(frame.Data, 0, frame.Length), frame.PtsUs, frame.Key, KindVideo);
+        frame.Release();
+        ReleaseAudio(remote);
+    }
+
+    static long NowUs() => (long)(System.Diagnostics.Stopwatch.GetTimestamp() * TicksToUs);
+
+    static void ReleaseAudio(Remote remote)
+    {
+        long now = NowUs();
+        while (remote.HeldAudio.Count > 0)
         {
-            remote.NeedKeyframe = true;
-            return;
+            HeldAudio held = remote.HeldAudio.Peek();
+            bool videoCaughtUp = remote.LastVideoPtsUs != long.MinValue && held.PtsUs <= remote.LastVideoPtsUs + AudioLeadUs;
+            if (!videoCaughtUp && now - held.ArrivedUs < AudioHoldMaxUs) return;
+            remote.HeldAudio.Dequeue();
+            Enqueue(remote, new ReadOnlySpan<byte>(held.Data, 0, held.Length), held.PtsUs, true, KindAudio);
+            System.Buffers.ArrayPool<byte>.Shared.Return(held.Data);
         }
-        remote.LastVideoSequence = remote.AssemblySequence;
-        if (remote.AssemblyKey) remote.NeedKeyframe = false;
-        Enqueue(remote, new ReadOnlySpan<byte>(remote.Assembly, 0, remote.AssemblyLength), remote.AssemblyPts, remote.AssemblyKey, KindVideo);
+    }
+
+    static void ResetFrames(Remote remote)
+    {
+        remote.ResetPending = false;
+        foreach (PendingFrame frame in remote.Frames) frame?.Release();
+        remote.HasNext = remote.HasNewestComplete = false;
+        remote.LastVideoPtsUs = long.MinValue;
+        while (remote.HeldAudio.Count > 0) System.Buffers.ArrayPool<byte>.Shared.Return(remote.HeldAudio.Dequeue().Data);
+    }
+
+    static readonly double TicksToUs = 1_000_000.0 / System.Diagnostics.Stopwatch.Frequency;
+
+    static void TrackTransit(Remote remote, long ptsUs)
+    {
+        long transit = (long)(System.Diagnostics.Stopwatch.GetTimestamp() * TicksToUs) - ptsUs;
+        long min = Interlocked.Read(ref remote.TransitMinUs);
+        if (transit < min) Interlocked.Exchange(ref remote.TransitMinUs, min = transit);
+        long excess = transit - min;
+        if (excess > Interlocked.Read(ref remote.TransitExcessMaxUs)) Interlocked.Exchange(ref remote.TransitExcessMaxUs, excess);
     }
 
     static void Enqueue(Remote remote, ReadOnlySpan<byte> data, long ptsUs, bool key, byte kind)

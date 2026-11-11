@@ -52,6 +52,8 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         public Material[] materials = Array.Empty<Material>();
         public int materialCount;
         public bool avatar, seen, mirror;
+        public uint lastMask = uint.MaxValue;
+        public string skip = "new";
         public RendererRecord shadowSource, shadowClone;
         public Matrix4x4 lastMatrix;
         public Bounds lastBounds;
@@ -135,6 +137,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     }
     private static readonly int idEmissionBaseColorAsMap = Shader.PropertyToID("_EmissionBaseColorAsMap"), idEmissionMainStrength = Shader.PropertyToID("_EmissionMainStrength");
     private static readonly int idCutoff = Shader.PropertyToID("_Cutoff"), idCull = Shader.PropertyToID("_Cull"), idAlphaClip = Shader.PropertyToID("_AlphaClip"), idSurface = Shader.PropertyToID("_Surface");
+    private static readonly int idSrcBlend = Shader.PropertyToID("_SrcBlend"), idDstBlend = Shader.PropertyToID("_DstBlend"), idBlend = Shader.PropertyToID("_Blend");
     private static readonly int idMetallic = Shader.PropertyToID("_Metallic"), idSmoothness = Shader.PropertyToID("_Smoothness"), idGlossiness = Shader.PropertyToID("_Glossiness");
     private static readonly Vector3[] ambientDirections = { Vector3.right, Vector3.left, Vector3.up, Vector3.down, Vector3.forward, Vector3.back };
     private readonly Color[] ambientResults = new Color[6];
@@ -549,14 +552,29 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         int queue = m.renderQueue;
         bool clip = ReadFloat(m, hasBlock, idAlphaClip, 0f) > 0.5f || m.IsKeywordEnabled("_ALPHATEST_ON") || (queue >= 2450 && queue < 3000);
         bool blend = ReadFloat(m, hasBlock, idSurface, 0f) > 0.5f || queue >= 3000;
-        if (blend) { result.alphaMode = BasisExternalRayTracer.AlphaBlend; submeshFlags = BasisExternalRayTracer.SubmeshBlend; }
+        result.cutoff = clip ? ReadFloat(m, hasBlock, idCutoff, 0.5f) : 0f;
+        if (blend)
+        {
+            result.alphaMode = BasisExternalRayTracer.AlphaBlend;
+            submeshFlags = BasisExternalRayTracer.SubmeshBlend;
+            if (LightPassesThrough(m, hasBlock)) { result.cutoff = 2f; }
+        }
         else if (clip) { result.alphaMode = BasisExternalRayTracer.AlphaCutout; submeshFlags = BasisExternalRayTracer.SubmeshAlphaTest; }
         result.alphaMode |= secondary;
-        result.cutoff = ReadFloat(m, hasBlock, idCutoff, 0.5f);
         result.metallic = ReadFloat(m, hasBlock, idMetallic, 0f);
         if (avatar) { result.flags |= BasisExternalRayTracer.MaterialAnimated; }
         if (m.doubleSidedGI || (Has(m, idCull) && ReadFloat(m, hasBlock, idCull, 2f) < 0.5f)) { result.flags |= BasisExternalRayTracer.MaterialDoubleSided; }
         return result;
+    }
+
+    private bool LightPassesThrough(Material m, bool hasBlock)
+    {
+        if (Has(m, idSrcBlend) && Has(m, idDstBlend))
+        {
+            BlendMode src = (BlendMode)Mathf.RoundToInt(ReadFloat(m, hasBlock, idSrcBlend, 5f)), dst = (BlendMode)Mathf.RoundToInt(ReadFloat(m, hasBlock, idDstBlend, 10f));
+            return dst == BlendMode.One || src == BlendMode.DstColor || dst == BlendMode.SrcColor;
+        }
+        return Has(m, idBlend) && Mathf.RoundToInt(ReadFloat(m, hasBlock, idBlend, 0f)) >= 2;
     }
 
     private bool ReadEmissionSlot(Material m, bool hasBlock, int slot, float emissionScale, Vector4 baseST, out EmissionSlot result)
@@ -741,15 +759,22 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         foreach (KeyValuePair<Texture, TextureRecord> kv in textures) { if (kv.Value.defined) { definedTextures++; } }
         System.Text.StringBuilder text = new System.Text.StringBuilder(512);
         text.Append("[BasisGI] Path traced scene: tracer meshes ").Append(BasisExternalRayTracer.Stat(2)).Append(" of ").Append(definedMeshes).Append(", textures ").Append(BasisExternalRayTracer.Stat(3)).Append(" of ").Append(definedTextures).Append(", free ids ").Append(freeMeshIds.Count).Append('/').Append(freeTextureIds.Count).Append(", bridge '").Append(BasisExternalRayTracer.ReadError()).Append("', avatars:");
-        int listed = 0;
-        foreach (RendererRecord r in renderers)
+        int listed = 0, total = 0, healthy = 0;
+        for (int pass = 0; pass < 2; pass++)
         {
-            if (!r.avatar || r.renderer == null || listed >= 24) { continue; }
-            listed++;
-            float glow = 0f;
-            foreach (float e in r.lastEmission) { glow += e; }
-            MeshRecord m = r.mesh;
-            text.Append(' ').Append(r.renderer.name).Append('[').Append(m == null ? "no mesh" : $"id {m.id} v{m.vertexCount} {(m.defined ? 'd' : '-')}{(m.committed ? 'c' : '-')}{(m.posed ? 'p' : '-')} posed {frameCount - m.lastPosed} ago").Append(r.seen ? " seen" : " unseen").Append(Drawn(r.renderer) ? "" : " off").Append(r.shadowSource != null ? " clone" : "").Append(r.renderer.shadowCastingMode == ShadowCastingMode.ShadowsOnly ? " shadowonly" : "").Append(" glow ").Append(glow.ToString("0.##")).Append(']');
+            foreach (RendererRecord r in renderers)
+            {
+                if (!r.avatar || r.renderer == null) { continue; }
+                MeshRecord m = r.mesh;
+                bool ok = r.skip.Length == 0 && m != null && m.posed && r.lastMask != 0u && frameCount - m.lastPosed < 30;
+                if (pass == 0) { total++; if (ok) { healthy++; } }
+                if ((pass == 0) == ok || listed >= 24) { continue; }
+                listed++;
+                float glow = 0f;
+                foreach (float e in r.lastEmission) { glow += e; }
+                text.Append(' ').Append(r.renderer.name).Append('[').Append(m == null ? "no mesh" : $"id {m.id} v{m.vertexCount} {(m.defined ? 'd' : '-')}{(m.committed ? 'c' : '-')}{(m.posed ? 'p' : '-')} posed {frameCount - m.lastPosed} ago").Append(" mask ").Append(r.lastMask.ToString("X")).Append(r.skip.Length > 0 ? " skip " + r.skip : "").Append(r.seen ? " seen" : " unseen").Append(Drawn(r.renderer) ? "" : " off").Append(r.shadowSource != null ? " clone" : "").Append(r.renderer.shadowCastingMode == ShadowCastingMode.ShadowsOnly ? " shadowonly" : "").Append(r.renderer.isVisible ? "" : " invisible").Append(" glow ").Append(glow.ToString("0.##")).Append(']');
+            }
+            if (pass == 0) { text.Append(" | healthy ").Append(healthy).Append(" of ").Append(total).Append(':'); }
         }
         return text.ToString();
     }
@@ -806,12 +831,14 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
                     if (!record.avatar || glow > 0.001f) { statRemoved++; MarkDirty(record.lastBounds.center, record.lastBounds.extents.magnitude + 2f + Mathf.Min(Mathf.Sqrt(glow) * 2f, 8f), glow <= 0.001f, glow > 0.001f); }
                     record.seen = false;
                 }
+                record.skip = "off";
                 continue;
             }
-            if (record.shadowSource != null && Drawn(record.shadowSource.renderer)) { continue; }
-            if (record.mirror) { AddMirror(renderer); continue; }
+            if (record.shadowSource != null && Drawn(record.shadowSource.renderer)) { record.skip = "clone"; continue; }
+            if (record.mirror) { AddMirror(renderer); record.skip = "mirror"; continue; }
             MeshRecord mesh = record.mesh = MeshFor(record);
-            if (mesh == null) { continue; }
+            if (mesh == null) { record.skip = "nomesh"; continue; }
+            record.skip = "upload";
             mesh.lastSeen = frameCount;
             renderer.GetSharedMaterials(materialScratch);
             bool hasBlock = renderer.HasPropertyBlock();
@@ -890,6 +917,8 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
                 flags = (record.avatar ? BasisExternalRayTracer.InstanceAvatar : 0u) | (noShadow ? BasisExternalRayTracer.InstanceNoShadow : 0u) | (dynamic ? BasisExternalRayTracer.InstanceDynamic : 0u),
                 lightmap = lightmap, lightmapST = lightmapST,
             };
+            record.lastMask = instances[instanceCount - 1].mask;
+            record.skip = string.Empty;
         }
 
         PoseSkinned(instances);

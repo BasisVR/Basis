@@ -80,6 +80,12 @@ void Temporal(uint3 id : SV_DispatchThreadID)
         momentsOut[pixel] = 0.0;
         return;
     }
+    if ((frame.flags & FLAG_WORLD_SPACE) != 0)
+    {
+        historyOut[pixel] = current;
+        momentsOut[pixel] = float4(Luminance(current.rgb), Luminance(current.rgb) * Luminance(current.rgb), 0.0, 1.0);
+        return;
+    }
 
     float l = Luminance(current.rgb);
     float4 previous = 0.0;

@@ -211,7 +211,7 @@ impl Renderer {
             let readback = gpu.buffer(TIMESTAMPS as u64 * RING as u64 * 8, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST)?;
             let frequency = gpu.queue.GetTimestampFrequency().unwrap_or(1).max(1);
             let mut cache = Vec::new();
-            for (i, stride) in [8u64, 4, 64, 64, 16, 16].iter().enumerate() {
+            for (i, stride) in [8u64, 4, 64, 64, 12, 16].iter().enumerate() {
                 let bytes = CACHE_SIZE * stride + if i == 1 { 256 } else { 0 };
                 let b = gpu.buffer(bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)?;
                 gpu.uav_raw(&b, bytes, HEAP_CACHE + i as u32);

@@ -28,7 +28,7 @@ public sealed class BasisScreenShareControls : MonoBehaviour
     private TextMeshProUGUI backDetails;
     private BasisWorldPanelKit.WorldButton backButton;
     private float nextRefresh;
-    private string shownTitle;
+    private string shownTitle, shownHeader;
     private string shownStatus;
     private string shownDetails;
     private bool shownLive;
@@ -221,12 +221,14 @@ public sealed class BasisScreenShareControls : MonoBehaviour
         if (force && stopButton != null) stopButton.SetText(BasisLocalization.Get("screenShare.stop"));
 
         if (back == null || !back.activeSelf) return;
-        if (force || title != shownTitle)
+        string header = remote
+            ? BasisLocalization.Get("screenShare.back.sharedBy", BasisScreenShareClient.SharerName(share.Remote != null ? share.Remote.Sharer : (ushort)0))
+            : BasisLocalization.Get("screenShare.back.yours");
+        if (force || title != shownTitle || header != shownHeader)
         {
             shownTitle = title;
-            if (backHeader != null) backHeader.text = remote
-                ? BasisLocalization.Get("screenShare.back.sharedBy", BasisScreenShareClient.SharerName(share.Remote != null ? share.Remote.Sharer : (ushort)0))
-                : BasisLocalization.Get("screenShare.back.yours");
+            shownHeader = header;
+            if (backHeader != null) backHeader.text = header;
             if (backTitle != null) backTitle.text = title;
         }
         string details = Details(remote);

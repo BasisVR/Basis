@@ -2748,15 +2748,16 @@ namespace Basis.BasisUI
                     dropdownGiSolution.Descriptor.SetActive(false);
                     showUnityGi(val && !basis);
                     dropdownGiMode.Descriptor.SetActive(basis);
-                    bool pathTraced = basis && dropdownGiMode.Value == "Path Traced (Baked)";
+                    bool worldTraced = basis && dropdownGiMode.Value == "Path Traced (World Space)";
+                    bool pathTraced = worldTraced || (basis && dropdownGiMode.Value == "Path Traced (Baked)");
                     if (dropdownGiPathTracerBackend != null) { dropdownGiPathTracerBackend.Descriptor.SetActive(pathTraced); }
                     if (dropdownGiPathTracerGpu != null) { dropdownGiPathTracerGpu.Descriptor.SetActive(pathTraced); }
                     dropdownGiPathTracerRays.Descriptor.SetActive(pathTraced);
-                    dropdownGiPathTracerAvatarRays.Descriptor.SetActive(pathTraced);
+                    dropdownGiPathTracerAvatarRays.Descriptor.SetActive(pathTraced && !worldTraced);
                     bool cascades = basis && !rayTraced;
                     toggleGiWorldSpace.Descriptor.SetActive(cascades);
                     sliderGiWorldLevels.Descriptor.SetActive(cascades && toggleGiWorldSpace.Value);
-                    sliderGiWorldVoxelSize.Descriptor.SetActive(cascades && toggleGiWorldSpace.Value);
+                    sliderGiWorldVoxelSize.Descriptor.SetActive((cascades && toggleGiWorldSpace.Value) || worldTraced);
                     toggleGiCascadeOverride.Descriptor.SetActive(cascades);
                     dropdownGiCascadeSpacing.Descriptor.SetActive(cascades && toggleGiCascadeOverride.Value);
                     sliderGiCascadeCount.Descriptor.SetActive(cascades && toggleGiCascadeOverride.Value);

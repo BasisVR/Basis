@@ -7,7 +7,7 @@ using static Basis.Network.Core.BasisScreenShareProtocol;
 
 public sealed class BasisScreenShareSender : IDisposable
 {
-    const int UplinkHigh = 400, UplinkLow = 60, WaitMs = 50;
+    const int UplinkHigh = 150, UplinkLow = 30, WaitMs = 50;
     static readonly long AdaptTicks = Stopwatch.Frequency, PruneTicks = Stopwatch.Frequency / 4;
     readonly ConcurrentDictionary<ushort, bool> direct = new ConcurrentDictionary<ushort, bool>();
     readonly List<ushort> targets = new List<ushort>(), dropped = new List<ushort>();
@@ -201,7 +201,7 @@ public sealed class BasisScreenShareSender : IDisposable
         }
         if (now < nextAdapt || (!relay && direct.IsEmpty)) return;
         nextAdapt = now + AdaptTicks;
-        int pending = relay ? BasisScreenShareClient.PendingUplink() : 0;
+        int pending = relay ? Math.Max(BasisScreenShareClient.PendingUplink(), BasisScreenShareClient.ServerCongestion) : 0;
         foreach (ushort viewer in direct.Keys) pending = Math.Max(pending, Math.Min(BasisScreenShareClient.DirectBacklog(viewer), 100000));
         int current = CurrentKbps, target = Volatile.Read(ref targetKbps), next = current;
         if (pending > UplinkHigh) next = Math.Max(BasisScreenShareSettings.MinBitrateKbps, (int)(current * 0.75f));
