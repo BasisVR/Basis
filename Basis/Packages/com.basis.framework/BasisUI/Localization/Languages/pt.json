@@ -3887,6 +3887,8 @@
     { "key": "settings.mediapipe.rejectGlitches.description", "value": "Ignora um salto repentino que dura apenas um quadro da câmera. Movimentos rápidos reais chegam um quadro depois; picos de um único quadro nunca chegam ao avatar." },
     { "key": "settings.mediapipe.preview", "value": "Pré-visualização da câmera" },
     { "key": "settings.mediapipe.preview.description", "value": "Mostra a imagem da webcam com os pontos rastreados desenhados por cima. Só é renderizada enquanto esta página está aberta." },
+    { "key": "settings.mediapipe.preview.show", "value": "Mostrar pré-visualização da câmera" },
+    { "key": "settings.mediapipe.preview.hide", "value": "Ocultar pré-visualização da câmera" },
     { "key": "settings.mediapipe.poseModel", "value": "Modelo corporal" },
     { "key": "settings.mediapipe.poseModel.description", "value": "Qual modelo de pose rastreia seus braços e torso. Modelos mais pesados são mais precisos e consomem mais CPU." },
     { "key": "settings.mediapipe.poseModel.lite", "value": "Leve (mais rápido)" },

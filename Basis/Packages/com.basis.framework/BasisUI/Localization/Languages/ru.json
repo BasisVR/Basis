@@ -3971,6 +3971,8 @@
     { "key": "settings.mediapipe.rejectGlitches.description", "value": "Игнорирует резкий скачок, который длится всего один кадр камеры. Настоящие быстрые движения приходят на кадр позже; одиночные выбросы никогда не доходят до аватара." },
     { "key": "settings.mediapipe.preview", "value": "Предпросмотр камеры" },
     { "key": "settings.mediapipe.preview.description", "value": "Показывает изображение с веб-камеры с нанесёнными точками трекинга. Отрисовывается только пока открыта эта страница." },
+    { "key": "settings.mediapipe.preview.show", "value": "Показать предпросмотр камеры" },
+    { "key": "settings.mediapipe.preview.hide", "value": "Скрыть предпросмотр камеры" },
     { "key": "settings.mediapipe.poseModel", "value": "Модель тела" },
     { "key": "settings.mediapipe.poseModel.description", "value": "Какая модель позы отслеживает руки и торс. Более тяжёлые модели точнее и сильнее нагружают процессор." },
     { "key": "settings.mediapipe.poseModel.lite", "value": "Лёгкая (самая быстрая)" },

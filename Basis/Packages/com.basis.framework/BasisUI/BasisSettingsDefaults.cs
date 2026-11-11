@@ -3080,6 +3080,7 @@ namespace Basis.BasisUI
             RaycastLineWidth.LoadBindingValue();
             RaycastLineColor.LoadBindingValue();
             HighlightColor.LoadBindingValue();
+            FavouriteSettings.LoadBindingValue();
             PickupLineColor.LoadBindingValue();
             PerformanceBarDetailed.LoadBindingValue();
             GraphicsApi.LoadBindingValue();

@@ -1,3 +1,4 @@
+using Basis.BasisUI;
 using Basis.Scripts.Drivers;
 using UnityEngine;
 using UnityEngine.UI;
@@ -5,10 +6,11 @@ namespace Basis.MediaPipe
 {
     public sealed class MediaPipePreviewView : MonoBehaviour
     {
-        public const float DefaultHeight = 240f, StatusInterval = 0.5f;
+        public const float DefaultHeight = 420f, StatusInterval = 0.5f;
         public event System.Action<string> StatusChanged;
         private static readonly Color Blank = new Color(0.08f, 0.08f, 0.08f, 1f);
         private RawImage image;
+        private AspectRatioFitter fitter;
         private MediaPipePreviewOverlay overlay;
         private float statusTimer;
         private string lastStatus;
@@ -27,21 +29,35 @@ namespace Basis.MediaPipe
             layout.preferredHeight = height;
             layout.minHeight = height;
             layout.flexibleWidth = 1f;
-            RawImage raw = hosting.GetComponent<RawImage>();
+            RawImage backing = hosting.GetComponent<RawImage>();
+            backing.raycastTarget = false;
+            backing.color = Blank;
+            backing.material = BasisWaveformGraphic.ResolveOverlayMaterial();
+            GameObject feed = new GameObject("Feed", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage), typeof(AspectRatioFitter));
+            feed.layer = hosting.layer;
+            RectTransform feedRect = (RectTransform)feed.transform;
+            feedRect.SetParent(rect, false);
+            AspectRatioFitter fitter = feed.GetComponent<AspectRatioFitter>();
+            fitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            fitter.aspectRatio = 4f / 3f;
+            RawImage raw = feed.GetComponent<RawImage>();
             raw.raycastTarget = false;
             raw.color = Blank;
+            raw.material = backing.material;
             GameObject marks = new GameObject("Landmarks", typeof(RectTransform), typeof(CanvasRenderer), typeof(MediaPipePreviewOverlay));
             marks.layer = hosting.layer;
             RectTransform marksRect = (RectTransform)marks.transform;
-            marksRect.SetParent(rect, false);
+            marksRect.SetParent(feedRect, false);
             marksRect.anchorMin = Vector2.zero;
             marksRect.anchorMax = Vector2.one;
             marksRect.offsetMin = Vector2.zero;
             marksRect.offsetMax = Vector2.zero;
             MediaPipePreviewView view = hosting.AddComponent<MediaPipePreviewView>();
             view.image = raw;
+            view.fitter = fitter;
             view.overlay = marks.GetComponent<MediaPipePreviewOverlay>();
             view.overlay.raycastTarget = false;
+            view.overlay.material = raw.material;
             return view;
         }
         private void OnEnable()
@@ -67,6 +83,11 @@ namespace Basis.MediaPipe
             Texture shown = live ? texture : null;
             if (image.texture != shown) image.texture = shown;
             image.color = live ? Color.white : Blank;
+            if (live)
+            {
+                float aspect = (float)texture.width / texture.height;
+                if (!Mathf.Approximately(fitter.aspectRatio, aspect)) fitter.aspectRatio = aspect;
+            }
             bool mirror = manager != null && manager.MirrorPreview, flipVertical = live && texture.videoVerticallyMirrored;
             image.uvRect = new Rect(mirror ? 1f : 0f, flipVertical ? 1f : 0f, mirror ? -1f : 1f, flipVertical ? -1f : 1f);
             overlay.Show(manager, mirror, flipVertical);

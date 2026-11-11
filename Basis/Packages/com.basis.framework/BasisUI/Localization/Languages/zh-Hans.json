@@ -3971,6 +3971,8 @@
     { "key": "settings.mediapipe.rejectGlitches.description", "value": "忽略仅持续一个摄像头帧的突然跳变。真实的快速动作会延迟一帧到达；单帧尖峰永远不会传到模型。" },
     { "key": "settings.mediapipe.preview", "value": "摄像头预览" },
     { "key": "settings.mediapipe.preview.description", "value": "显示摄像头画面并叠加追踪到的关键点。仅在此页面打开时渲染。" },
+    { "key": "settings.mediapipe.preview.show", "value": "显示摄像头预览" },
+    { "key": "settings.mediapipe.preview.hide", "value": "隐藏摄像头预览" },
     { "key": "settings.mediapipe.poseModel", "value": "身体模型" },
     { "key": "settings.mediapipe.poseModel.description", "value": "用于追踪手臂和躯干的姿态模型。越重的模型越精确，但占用更多 CPU。" },
     { "key": "settings.mediapipe.poseModel.lite", "value": "轻量（最快）" },

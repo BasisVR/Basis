@@ -628,6 +628,10 @@ float3 HitLighting(RaytracingAccelerationStructure tlas, float3 origin, float3 p
     return light.value + cached.rgb * coverage;
 }
 
+#ifndef WORLD_LOOKUP_BIAS
+#define WORLD_LOOKUP_BIAS 1.0
+#endif
+
 #ifndef PATH_SEGMENTS
 #define PATH_SEGMENTS 12
 #endif
@@ -1110,7 +1114,7 @@ void RayGen()
     {
         RWByteAddressBuffer reservoirs = ResourceDescriptorHeap[frame.contextBase + CTX_RESERVOIR_SCRATCH];
         reservoirs.Store4((pixel.y * frame.width * frame.viewCount + pixel.x) * RESERVOIR_SCRATCH_STRIDE + 16u, uint4(0u, 0u, 0u, 0u));
-        float bias = avatarPixel ? 2.0 : 0.0;
+        float bias = WORLD_LOOKUP_BIAS + (avatarPixel ? 2.0 : 0.0);
         float3 cacheViewer = CacheViewer(viewer);
         float4 world = CacheLookupSmooth(surface.position, geometric, surface.normal, cacheViewer, bias);
         [loop] for (uint step = 0; step < (avatarPixel ? 5u : 3u) && world.a < 0.99; step++)
@@ -1121,6 +1125,7 @@ void RayGen()
             world = float4(world.a + wc > 1e-5 ? (world.rgb * world.a + coarse.rgb * wc) / (world.a + wc) : 0.0, world.a + wc);
         }
         float3 irradiance = world.rgb;
+#ifndef WORLD_NO_FALLBACK
         if (world.a < 0.05)
         {
             uint fresh = clamp(frame.samples / 2u, 1u, 8u);
@@ -1133,6 +1138,7 @@ void RayGen()
             }
             irradiance = lerp(traced / fresh + FarLight(tlas, origin, surface.normal, 0.0, rng), world.rgb, saturate(world.a * 20.0));
         }
+#endif
         output[pixel] = float4(all(isfinite(irradiance)) ? irradiance : 0.0, 1.0);
         return;
     }

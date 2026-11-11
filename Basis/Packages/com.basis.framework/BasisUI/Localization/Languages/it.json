@@ -3971,6 +3971,8 @@
     { "key": "settings.mediapipe.rejectGlitches.description", "value": "Ignora un salto improvviso che dura un solo fotogramma della camera. I movimenti rapidi reali arrivano un fotogramma dopo; i picchi di un solo fotogramma non raggiungono mai l'avatar." },
     { "key": "settings.mediapipe.preview", "value": "Anteprima della camera" },
     { "key": "settings.mediapipe.preview.description", "value": "Mostra il flusso della webcam con i punti di tracciamento disegnati sopra. Viene renderizzata solo mentre questa pagina è aperta." },
+    { "key": "settings.mediapipe.preview.show", "value": "Mostra anteprima della camera" },
+    { "key": "settings.mediapipe.preview.hide", "value": "Nascondi anteprima della camera" },
     { "key": "settings.mediapipe.poseModel", "value": "Modello del corpo" },
     { "key": "settings.mediapipe.poseModel.description", "value": "Quale modello di posa traccia braccia e busto. I modelli più pesanti sono più precisi e consumano più CPU." },
     { "key": "settings.mediapipe.poseModel.lite", "value": "Leggero (il più veloce)" },

@@ -3971,6 +3971,8 @@
     { "key": "settings.mediapipe.rejectGlitches.description", "value": "শুধু এক ক্যামেরা ফ্রেম স্থায়ী আকস্মিক লাফ উপেক্ষা করে। আসল দ্রুত নড়াচড়া এক ফ্রেম পরে পৌঁছায়; এক ফ্রেমের ঝাঁকুনি কখনো অবতারে পৌঁছায় না।" },
     { "key": "settings.mediapipe.preview", "value": "ক্যামেরা প্রিভিউ" },
     { "key": "settings.mediapipe.preview.description", "value": "ওয়েবক্যামের ফিড তার উপর আঁকা ট্র্যাকিং বিন্দুসহ দেখায়। এই পাতা খোলা থাকলেই কেবল রেন্ডার হয়।" },
+    { "key": "settings.mediapipe.preview.show", "value": "ক্যামেরা প্রিভিউ দেখান" },
+    { "key": "settings.mediapipe.preview.hide", "value": "ক্যামেরা প্রিভিউ লুকান" },
     { "key": "settings.mediapipe.poseModel", "value": "শরীরের মডেল" },
     { "key": "settings.mediapipe.poseModel.description", "value": "কোন পোজ মডেল আপনার বাহু ও ধড় ট্র্যাক করবে। ভারী মডেল বেশি নির্ভুল কিন্তু বেশি CPU নেয়।" },
     { "key": "settings.mediapipe.poseModel.lite", "value": "লাইট (দ্রুততম)" },

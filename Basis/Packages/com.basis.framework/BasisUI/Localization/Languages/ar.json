@@ -3971,6 +3971,8 @@
     { "key": "settings.mediapipe.rejectGlitches.description", "value": "يتجاهل القفزة المفاجئة التي لا تدوم سوى إطار كاميرا واحد. تصل الحركات السريعة الحقيقية متأخرة إطارًا واحدًا؛ ولا تصل نتوءات الإطار الواحد إلى الأفاتار أبدًا." },
     { "key": "settings.mediapipe.preview", "value": "معاينة الكاميرا" },
     { "key": "settings.mediapipe.preview.description", "value": "يعرض صورة كاميرا الويب مع رسم نقاط التتبع فوقها. لا يُرسم إلا أثناء فتح هذه الصفحة." },
+    { "key": "settings.mediapipe.preview.show", "value": "إظهار معاينة الكاميرا" },
+    { "key": "settings.mediapipe.preview.hide", "value": "إخفاء معاينة الكاميرا" },
     { "key": "settings.mediapipe.poseModel", "value": "نموذج الجسم" },
     { "key": "settings.mediapipe.poseModel.description", "value": "نموذج الوضعية الذي يتتبع ذراعيك وجذعك. النماذج الأثقل أدق وتستهلك معالجًا أكثر." },
     { "key": "settings.mediapipe.poseModel.lite", "value": "خفيف (الأسرع)" },

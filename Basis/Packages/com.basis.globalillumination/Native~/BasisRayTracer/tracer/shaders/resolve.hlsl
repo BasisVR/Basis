@@ -34,6 +34,18 @@ struct Dirty { float4 sphere; };
 #define CACHE_DIRTY_CEILING 192.0
 #endif
 
+#ifndef CACHE_WORLD_CAP
+#define CACHE_WORLD_CAP 16384.0
+#endif
+
+#ifndef CACHE_WORLD_SIGMA
+#define CACHE_WORLD_SIGMA 5.0
+#endif
+
+#ifndef CACHE_WORLD_BITS
+#define CACHE_WORLD_BITS 24.0
+#endif
+
 #ifndef CACHE_SAMPLE_CAP
 #define CACHE_SAMPLE_CAP 1024.0
 #endif
@@ -145,7 +157,7 @@ void CacheResolve(uint3 id : SV_DispatchThreadID)
     uint run = stamp.x >> 24;
     float fast = f16tof32(stamp.y & 0xffffu), spread = f16tof32(stamp.y >> 16), below = float(stamp.z & 0xffu) / 255.0;
     float l = Luminance(average.mean), slow = Luminance(r.mean);
-    bool suspect = false;
+    bool suspect = false, world = (frame.flags & FLAG_WORLD_SPACE) != 0;
     if (samples > 0.0)
     {
         float deviation = l - fast, level = max(fast, 1e-3);
@@ -158,12 +170,12 @@ void CacheResolve(uint3 id : SV_DispatchThreadID)
         run = (run & 0x80u) == side ? side | min((run & 0x7fu) + 1u, 127u) : side | 1u;
         uint alerted = stamp.z >> 16;
         bool alert = alerted != 0u && ((frame.frameIndex - alerted) & 0xffffu) < CACHE_ALERT_FRAMES;
-        float need = clamp(ceil((alert ? CACHE_ALERT_BITS : CACHE_DRIFT_BITS) * -0.6931472 / log(clamp(under ? below : 1.0 - below, 0.05, 0.95))), 3.0, 120.0);
+        float need = clamp(ceil((alert ? CACHE_ALERT_BITS : world ? CACHE_WORLD_BITS : CACHE_DRIFT_BITS) * -0.6931472 / log(clamp(under ? below : 1.0 - below, 0.05, 0.95))), 3.0, 120.0);
         float length = float(run & 0x7fu);
         suspect = length >= max(need * 0.5, 2.0);
         if (samples >= 16.0)
         {
-            if (samples >= CACHE_DRIFT_WINDOW * 2.0 && abs(fast - slow) > CACHE_DRIFT_SIGMA * sqrt(spread * fast * slow / CACHE_DRIFT_WINDOW) + CACHE_DRIFT_FLOOR * slow + 1e-4) { samples = max(samples * 0.5, CACHE_DRIFT_WINDOW); }
+            if (samples >= CACHE_DRIFT_WINDOW * 2.0 && abs(fast - slow) > (world ? CACHE_WORLD_SIGMA : CACHE_DRIFT_SIGMA) * sqrt(spread * fast * slow / CACHE_DRIFT_WINDOW) + CACHE_DRIFT_FLOOR * slow + 1e-4) { samples = max(samples * 0.5, CACHE_DRIFT_WINDOW); }
             else if (length >= need) { samples = max(samples * 0.7, 16.0); }
         }
         below = lerp(below, under ? 1.0 : 0.0, 1.0 / 64.0);
@@ -171,7 +183,7 @@ void CacheResolve(uint3 id : SV_DispatchThreadID)
     else { fast = l; spread = 0.0; run = 0u; below = 0.5; }
     float alpha = samples <= 0.0 ? 1.0 : weight / (samples + weight);
     r = ShLerp(r, average, alpha);
-    samples = min(samples + weight, CACHE_SAMPLE_CAP);
+    samples = min(samples + weight, world ? CACHE_WORLD_CAP : CACHE_SAMPLE_CAP);
     ClearAccum(accum, o);
     touched.Store3(i * 12, uint3((frame.frameIndex & 0xffffffu) | (run << 24), f32tof16(min(fast, 60000.0)) | (f32tof16(min(spread, 60000.0)) << 16), uint(round(saturate(below) * 255.0)) | (suspect ? 0x100u : 0u) | (stamp.z & 0xffff0000u)));
     CacheStoreSH(resolved, o, r, samples);

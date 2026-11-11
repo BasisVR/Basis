@@ -13179,6 +13179,14 @@
       "value": "Shows the webcam feed with the tracked landmarks drawn over it. Only rendered while this page is open."
     },
     {
+      "key": "settings.mediapipe.preview.show",
+      "value": "Show Camera Preview"
+    },
+    {
+      "key": "settings.mediapipe.preview.hide",
+      "value": "Hide Camera Preview"
+    },
+    {
       "key": "settings.mediapipe.poseModel",
       "value": "Body Model"
     },

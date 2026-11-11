@@ -3971,6 +3971,8 @@
     { "key": "settings.mediapipe.rejectGlitches.description", "value": "ایسی اچانک چھلانگ کو نظرانداز کرتا ہے جو صرف ایک کیمرا فریم تک رہتی ہے۔ حقیقی تیز حرکتیں ایک فریم دیر سے پہنچتی ہیں؛ ایک فریم کی اچھال کبھی اوتار تک نہیں پہنچتی۔" },
     { "key": "settings.mediapipe.preview", "value": "کیمرا پیش نظارہ" },
     { "key": "settings.mediapipe.preview.description", "value": "ویب کیم کی فیڈ کو اس پر بنے ٹریکنگ نقاط کے ساتھ دکھاتا ہے۔ صرف اس وقت رینڈر ہوتا ہے جب یہ صفحہ کھلا ہو۔" },
+    { "key": "settings.mediapipe.preview.show", "value": "کیمرا پیش نظارہ دکھائیں" },
+    { "key": "settings.mediapipe.preview.hide", "value": "کیمرا پیش نظارہ چھپائیں" },
     { "key": "settings.mediapipe.poseModel", "value": "جسم کا ماڈل" },
     { "key": "settings.mediapipe.poseModel.description", "value": "کون سا پوز ماڈل آپ کے بازوؤں اور دھڑ کو ٹریک کرتا ہے۔ بھاری ماڈل زیادہ درست ہوتے ہیں اور زیادہ CPU لیتے ہیں۔" },
     { "key": "settings.mediapipe.poseModel.lite", "value": "لائٹ (تیز ترین)" },

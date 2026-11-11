@@ -3971,6 +3971,8 @@
     { "key": "settings.mediapipe.rejectGlitches.description", "value": "Negeert een plotselinge sprong die maar één camerabeeld duurt. Echte snelle bewegingen komen één beeld later aan; pieken van één beeld bereiken de avatar nooit." },
     { "key": "settings.mediapipe.preview", "value": "Cameravoorbeeld" },
     { "key": "settings.mediapipe.preview.description", "value": "Toont het webcambeeld met de gevolgde punten eroverheen. Wordt alleen gerenderd zolang deze pagina open is." },
+    { "key": "settings.mediapipe.preview.show", "value": "Cameravoorbeeld tonen" },
+    { "key": "settings.mediapipe.preview.hide", "value": "Cameravoorbeeld verbergen" },
     { "key": "settings.mediapipe.poseModel", "value": "Lichaamsmodel" },
     { "key": "settings.mediapipe.poseModel.description", "value": "Welk posemodel je armen en romp volgt. Zwaardere modellen zijn nauwkeuriger en kosten meer CPU." },
     { "key": "settings.mediapipe.poseModel.lite", "value": "Licht (snelst)" },

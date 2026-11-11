@@ -3971,6 +3971,8 @@
     { "key": "settings.mediapipe.rejectGlitches.description", "value": "カメラ1フレームだけ続く急な飛びを無視します。実際の速い動きは1フレーム遅れて反映され、1フレームだけのスパイクはアバターに届きません。" },
     { "key": "settings.mediapipe.preview", "value": "カメラプレビュー" },
     { "key": "settings.mediapipe.preview.description", "value": "ウェブカメラの映像に、検出したランドマークを重ねて表示します。このページを開いている間だけ描画されます。" },
+    { "key": "settings.mediapipe.preview.show", "value": "カメラプレビューを表示" },
+    { "key": "settings.mediapipe.preview.hide", "value": "カメラプレビューを隠す" },
     { "key": "settings.mediapipe.poseModel", "value": "体のモデル" },
     { "key": "settings.mediapipe.poseModel.description", "value": "腕と胴体を追跡するポーズモデルです。重いモデルほど正確ですが、CPU負荷が高くなります。" },
     { "key": "settings.mediapipe.poseModel.lite", "value": "ライト（最速）" },

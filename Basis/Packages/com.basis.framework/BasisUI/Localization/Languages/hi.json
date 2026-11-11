@@ -3971,6 +3971,8 @@
     { "key": "settings.mediapipe.rejectGlitches.description", "value": "ऐसी अचानक छलांग को अनदेखा करता है जो केवल एक कैमरा फ़्रेम तक रहती है। असली तेज़ हरकतें एक फ़्रेम देर से पहुँचती हैं; एक-फ़्रेम की उछाल कभी अवतार तक नहीं पहुँचती।" },
     { "key": "settings.mediapipe.preview", "value": "कैमरा पूर्वावलोकन" },
     { "key": "settings.mediapipe.preview.description", "value": "वेबकैम की फ़ीड को उस पर बने ट्रैकिंग बिंदुओं के साथ दिखाता है। केवल तभी रेंडर होता है जब यह पेज खुला हो।" },
+    { "key": "settings.mediapipe.preview.show", "value": "कैमरा पूर्वावलोकन दिखाएँ" },
+    { "key": "settings.mediapipe.preview.hide", "value": "कैमरा पूर्वावलोकन छिपाएँ" },
     { "key": "settings.mediapipe.poseModel", "value": "शरीर का मॉडल" },
     { "key": "settings.mediapipe.poseModel.description", "value": "कौन सा पोज़ मॉडल आपकी बाँहों और धड़ को ट्रैक करता है। भारी मॉडल अधिक सटीक होते हैं और अधिक CPU लेते हैं।" },
     { "key": "settings.mediapipe.poseModel.lite", "value": "लाइट (सबसे तेज़)" },

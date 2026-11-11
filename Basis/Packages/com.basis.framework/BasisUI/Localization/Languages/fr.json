@@ -3971,6 +3971,8 @@
     { "key": "settings.mediapipe.rejectGlitches.description", "value": "Ignore un saut brusque qui ne dure qu'une seule image de la caméra. Les vrais mouvements rapides arrivent une image plus tard ; les pics d'une seule image n'atteignent jamais l'avatar." },
     { "key": "settings.mediapipe.preview", "value": "Aperçu de la caméra" },
     { "key": "settings.mediapipe.preview.description", "value": "Affiche le flux de la webcam avec les points de suivi dessinés par-dessus. Rendu uniquement tant que cette page est ouverte." },
+    { "key": "settings.mediapipe.preview.show", "value": "Afficher l'aperçu de la caméra" },
+    { "key": "settings.mediapipe.preview.hide", "value": "Masquer l'aperçu de la caméra" },
     { "key": "settings.mediapipe.poseModel", "value": "Modèle du corps" },
     { "key": "settings.mediapipe.poseModel.description", "value": "Quel modèle de pose suit vos bras et votre torse. Les modèles plus lourds sont plus précis et coûtent plus de CPU." },
     { "key": "settings.mediapipe.poseModel.lite", "value": "Léger (le plus rapide)" },

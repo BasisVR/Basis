@@ -3971,6 +3971,8 @@
     { "key": "settings.mediapipe.rejectGlitches.description", "value": "Ignoriert einen plötzlichen Sprung, der nur ein einziges Kamerabild lang anhält. Echte schnelle Bewegungen kommen ein Bild später an; Ausreißer von einem Bild erreichen den Avatar nie." },
     { "key": "settings.mediapipe.preview", "value": "Kameravorschau" },
     { "key": "settings.mediapipe.preview.description", "value": "Zeigt das Webcam-Bild mit den erkannten Landmarken darüber. Wird nur gerendert, solange diese Seite geöffnet ist." },
+    { "key": "settings.mediapipe.preview.show", "value": "Kameravorschau anzeigen" },
+    { "key": "settings.mediapipe.preview.hide", "value": "Kameravorschau ausblenden" },
     { "key": "settings.mediapipe.poseModel", "value": "Körpermodell" },
     { "key": "settings.mediapipe.poseModel.description", "value": "Welches Posenmodell deine Arme und deinen Oberkörper verfolgt. Schwerere Modelle sind genauer und kosten mehr CPU." },
     { "key": "settings.mediapipe.poseModel.lite", "value": "Lite (am schnellsten)" },

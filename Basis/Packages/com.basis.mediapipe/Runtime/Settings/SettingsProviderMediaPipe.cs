@@ -93,6 +93,18 @@ namespace Basis.MediaPipe
             cameraState.SetTitle(BasisLocalization.Get("settings.mediapipe.status"));
             cameraState.SetDescription(BasisLocalization.Get(BasisMediaPipeManagement.Instance != null ? BasisMediaPipeManagement.Instance.StatusKey : "settings.mediapipe.status.off"));
 
+            PanelButton previewButton = PanelButton.CreateNew(content);
+            previewButton.Descriptor.SetTooltip(BasisLocalization.Get("settings.mediapipe.preview.description"));
+            void RefreshPreviewButton() => previewButton.Descriptor.SetTitle(BasisLocalization.Get(BasisMediaPipeSettings.ShowPreview.RawValue ? "settings.mediapipe.preview.hide" : "settings.mediapipe.preview.show"));
+            RefreshPreviewButton();
+            previewButton.OnClicked += () =>
+            {
+                BasisMediaPipeSettings.ShowPreview.SetValue(!BasisMediaPipeSettings.ShowPreview.RawValue);
+                preview.gameObject.SetActive(BasisMediaPipeSettings.ShowPreview.RawValue);
+                RefreshPreviewButton();
+                RebuildFrom(content);
+            };
+
             PanelDropdown cameraDropdown = PanelDropdown.CreateNewEntry(content);
             cameraDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.mediapipe.camera"));
             cameraDropdown.Descriptor.SetTooltip(BasisLocalization.Get("settings.mediapipe.camera.description"));
@@ -160,16 +172,6 @@ namespace Basis.MediaPipe
             PanelSectionToggle cameraSection = null, headFaceSection = null, armsBodySection = null, diagnosticsSection = null;
             cameraSection = PanelSectionToggleHelpers.CreateCollapsibleBoxedSection(advanced, BasisLocalization.Get("settings.mediapipe.camera"), () =>
             {
-                PanelToggle previewToggle = PanelToggle.CreateNewEntry(advanced);
-                previewToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.mediapipe.preview"));
-                previewToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.mediapipe.preview.description"));
-                previewToggle.AssignBinding(BasisMediaPipeSettings.ShowPreview);
-                previewToggle.OnValueChanged += value =>
-                {
-                    preview.gameObject.SetActive(value);
-                    RebuildFrom(content);
-                };
-
                 AddDropdown(advanced, "settings.mediapipe.cameraResolution", new List<string> { "320 x 240", "640 x 480", "960 x 540", "1280 x 720" },
                     $"{BasisMediaPipeSettings.ResolutionWidth.RawValue} x {BasisMediaPipeSettings.ResolutionHeight.RawValue}",
                     $"{BasisMediaPipeSettings.ResolutionWidth.DefaultValue.GetDefault()} x {BasisMediaPipeSettings.ResolutionHeight.DefaultValue.GetDefault()}", choice =>
@@ -273,6 +275,7 @@ namespace Basis.MediaPipe
                 if (visible)
                 {
                     preview.gameObject.SetActive(BasisMediaPipeSettings.ShowPreview.RawValue);
+                    RefreshPreviewButton();
                     RefreshWebcamSettingsVisibility(BasisMediaPipeSettings.Enable.RawValue);
                 }
                 else
