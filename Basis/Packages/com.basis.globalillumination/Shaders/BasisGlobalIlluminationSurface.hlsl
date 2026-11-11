@@ -42,7 +42,7 @@ SurfaceVaryings SurfaceVert(SurfaceAttributes input)
     return output;
 }
 
-float4 SurfaceFrag(SurfaceVaryings input, out float closeness : SV_Depth) : SV_Target
+float4 SurfaceFrag(SurfaceVaryings input) : SV_Target
 {
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
     float2 screenUv = input.positionCS.xy * _BasisGISurfaceTexelSize.xy;
@@ -50,11 +50,6 @@ float4 SurfaceFrag(SurfaceVaryings input, out float closeness : SV_Depth) : SV_T
     float fragmentEye = BasisGILinearEyeDepth(input.positionCS.z);
     float mismatch = abs(fragmentEye - sceneEye) / (sceneEye * 0.002 + 0.003);
     if (mismatch > 1.0) { discard; }
-#if UNITY_REVERSED_Z
-    closeness = 1.0 - mismatch;
-#else
-    closeness = mismatch;
-#endif
 
     float3 texel = float3(1.0, 1.0, 1.0);
     bool mainPresent = any(_MainTex_ST.xy != 0.0);
