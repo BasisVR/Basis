@@ -112,8 +112,8 @@ namespace Basis.MediaPipe
             _faceConverter.EyeLidIsOpenness = !BasisMediaPipeSettings.InvertBlink.RawValue;
             _headConverter.InvertYaw = BasisMediaPipeSettings.InvertHeadYaw.RawValue;
             _headConverter.InvertPitch = BasisMediaPipeSettings.InvertHeadPitch.RawValue;
-            _faceConverter.InvertEyeX = BasisMediaPipeSettings.InvertHeadYaw.RawValue;
-            _faceConverter.InvertEyeY = BasisMediaPipeSettings.InvertHeadPitch.RawValue;
+            _faceConverter.InvertEyeX = !BasisMediaPipeSettings.InvertHeadYaw.RawValue;
+            _faceConverter.InvertEyeY = !BasisMediaPipeSettings.InvertHeadPitch.RawValue;
             _faceConverter.GazeStrength = BasisMediaPipeSettings.GazeStrength.RawValue;
             _faceConverter.TongueGain = BasisMediaPipeSettings.EnableTongue.RawValue
                 ? BasisMediaPipeSettings.TongueStrength.RawValue
@@ -630,7 +630,7 @@ namespace Basis.MediaPipe
 
                     Vector3 lean = Config.EnableHeadPosition ? new Vector3(headPositionOffset.x, 0f, headPositionOffset.z) : Vector3.zero;
                     if (TryViewYaw(out Quaternion viewYaw)) lean = viewYaw * lean;
-                    Vector3 headPosition = eye.OutGoingData.position + lean + Vector3.up * headPositionOffset.y + headRotation * eyeToHead;
+                    Vector3 headPosition = eye.OutGoingData.position + lean + Vector3.up * headPositionOffset.y + eye.OutGoingData.rotation * eyeToHead;
                     WriteTracker(BasisBoneTrackedRole.Head, headPosition, headRotation);
                 }
                 else

@@ -24,6 +24,8 @@ namespace Basis.IK
         private bool lengthsDirty = true;
         private NativeArray<BasisVirtualSpineCore.SpineSolveState> solveState;
         public bool HipsFreezeToTpose = false;
+        private bool headDriven;
+        private BasisCalibratedCoords freshHead;
         public void Initialize()
         {
             if (initialized) return;
@@ -97,6 +99,12 @@ namespace Basis.IK
             else
             {
                 freshEye = eye.OutGoingData;
+            }
+
+            bool headDriven = !BasisDeviceManagement.IsCurrentModeVR() && TryGetTrackedHead(head, out freshHead);
+            if (headDriven)
+            {
+                freshEye = EyeFromHead(in freshHead, head.ScaledOffset);
             }
 
             if (lengthsDirty)
@@ -241,15 +249,48 @@ namespace Basis.IK
         {
             return (byte)(c.HasTracked == BasisHasTracked.HasTracker ? 1 : 0);
         }
-        private static float3 ResolveTargetPos(BasisLocalBoneControl c, BasisLocalBoneControl eye, in BasisCalibratedCoords freshEye)
+        private static bool TryGetTrackedHead(BasisLocalBoneControl head, out BasisCalibratedCoords pose)
         {
-            BasisLocalBoneControl target = ResolveTarget(c);
-            return ReferenceEquals(target, eye) ? (float3)freshEye.position : (float3)target.OutGoingData.position;
+            pose = default;
+            if (head == null || head.HasTracked != BasisHasTracked.HasTracker) return false;
+
+            pose = head.IncomingData;
+            if (head.UseInverseOffset)
+            {
+                var off = head.InverseOffsetFromBone;
+                pose.position += pose.rotation * off.position;
+                pose.rotation *= off.rotation;
+            }
+            Quaternion q = pose.rotation;
+            float sqr = q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w;
+            if (!(sqr > 0.5f) || !float.IsFinite(pose.position.x) || !float.IsFinite(pose.position.y) || !float.IsFinite(pose.position.z))
+            {
+                return false;
+            }
+            pose.rotation = q.normalized;
+            return true;
         }
-        private static quaternion ResolveTargetRot(BasisLocalBoneControl c, BasisLocalBoneControl eye, in BasisCalibratedCoords freshEye)
+        public static BasisCalibratedCoords EyeFromHead(in BasisCalibratedCoords head, float3 headScaledOffset)
+        {
+            return new BasisCalibratedCoords
+            {
+                position = head.position - head.rotation * (Vector3)headScaledOffset,
+                rotation = head.rotation,
+            };
+        }
+        private float3 ResolveTargetPos(BasisLocalBoneControl c, BasisLocalBoneControl eye, in BasisCalibratedCoords freshEye)
         {
             BasisLocalBoneControl target = ResolveTarget(c);
-            return ReferenceEquals(target, eye) ? (quaternion)freshEye.rotation : (quaternion)target.OutGoingData.rotation;
+            if (ReferenceEquals(target, eye)) return freshEye.position;
+            if (headDriven && ReferenceEquals(target, BasisLocalBoneDriver.HeadControl)) return freshHead.position;
+            return target.OutGoingData.position;
+        }
+        private quaternion ResolveTargetRot(BasisLocalBoneControl c, BasisLocalBoneControl eye, in BasisCalibratedCoords freshEye)
+        {
+            BasisLocalBoneControl target = ResolveTarget(c);
+            if (ReferenceEquals(target, eye)) return freshEye.rotation;
+            if (headDriven && ReferenceEquals(target, BasisLocalBoneDriver.HeadControl)) return freshHead.rotation;
+            return target.OutGoingData.rotation;
         }
         private static BasisLocalBoneControl ResolveTarget(BasisLocalBoneControl c)
         {

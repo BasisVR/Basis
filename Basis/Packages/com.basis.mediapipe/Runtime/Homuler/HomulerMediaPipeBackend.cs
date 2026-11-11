@@ -768,21 +768,26 @@ namespace Basis.MediaPipe.Homuler
             output.PoseSidesSwapped = swapped;
         }
 
-        // Tongue isn't a landmark; estimate it from pink/red pixels filling the lower mouth
-        // interior (a tongue protruding past the lower lip), gated on the mouth being open.
+        // Tongue isn't a landmark; estimate it from pink/red pixels filling the upper-middle of the
+        // mouth opening (where a resting tongue never reaches), gated on the mouth being open.
         private float ComputeTongueOut(FaceLandmarkerResult faceResult, int w, int h)
         {
             if (!_native.IsCreated || faceResult.faceLandmarks == null || faceResult.faceLandmarks.Count == 0) return 0f;
             var lm = faceResult.faceLandmarks[0].landmarks;
             if (lm == null || lm.Count < 468) return 0f;
 
+            float faceHeight = Mathf.Abs(lm[152].y - lm[10].y);
+            if (faceHeight < 1e-3f) return 0f;
+            float top = Mathf.Min(lm[13].y, lm[14].y);
             float openAmount = Mathf.Abs(lm[14].y - lm[13].y);
-            if (openAmount < 0.02f) return 0f;
+            if (openAmount / faceHeight < 0.05f) return 0f;
 
-            float x0 = Mathf.Min(lm[78].x, lm[308].x);
-            float x1 = Mathf.Max(lm[78].x, lm[308].x);
-            float y0 = (lm[13].y + lm[14].y) * 0.5f;
-            float y1 = lm[14].y + openAmount * 0.5f;
+            float left = Mathf.Min(lm[78].x, lm[308].x);
+            float width = Mathf.Abs(lm[308].x - lm[78].x);
+            float x0 = left + width * 0.25f;
+            float x1 = left + width * 0.75f;
+            float y0 = top + openAmount * 0.15f;
+            float y1 = top + openAmount * 0.6f;
 
             int px0 = Mathf.Clamp((int)(x0 * w), 0, w - 1);
             int px1 = Mathf.Clamp((int)(x1 * w), 0, w - 1);
@@ -805,7 +810,7 @@ namespace Basis.MediaPipe.Homuler
                     byte b = _native[idx + 2];
                     total++;
                     // pink/red, not too dark, not white (teeth)
-                    if (r > 60 && r > g + 12 && r > b + 12 && r + g + b < 600)
+                    if (r > 70 && r > g * 1.45f && r > b * 1.2f && r + g + b < 600)
                     {
                         tongue++;
                     }
@@ -813,7 +818,7 @@ namespace Basis.MediaPipe.Homuler
             }
             float fraction = total == 0 ? 0f : (float)tongue / total;
             // Subtract a baseline so lip/gum edges inside the ROI don't read as tongue.
-            return Mathf.Clamp01((fraction - 0.25f) / 0.75f);
+            return Mathf.Clamp01((fraction - 0.35f) / 0.65f);
         }
 
         private void MeterLight(int w, int h)

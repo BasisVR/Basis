@@ -24,7 +24,7 @@ namespace Basis.MediaPipe
         public bool EyeLidIsOpenness = true;
         public float TongueGain = 1f;
 
-        private const float IrisGainX = 1.5f, IrisGainY = 2f, HoldSeconds = 0.5f, RelaxHz = 3f;
+        private const float IrisGainX = 1.5f, IrisGainY = 2f, HoldSeconds = 0.5f, RelaxHz = 3f, TongueCutoff = 0.5f;
         private const int LeftGazeX = 0, LeftGazeY = 1, RightGazeX = 2, RightGazeY = 3;
         private MediaPipeScalarFilter[] _shapes;
         private readonly MediaPipeScalarFilter[] _gaze = new MediaPipeScalarFilter[4];
@@ -253,7 +253,7 @@ namespace Basis.MediaPipe
             SubmitIfChanged(acquisition, _idEyeLidLeft, EyeLid(Get(bs, MediaPipeArkitBlendshape.EyeBlinkLeft)));
             SubmitIfChanged(acquisition, _idEyeLidRight, EyeLid(Get(bs, MediaPipeArkitBlendshape.EyeBlinkRight)));
 
-            SubmitIfChanged(acquisition, _idTongueOut, _tongueValue);
+            SubmitIfChanged(acquisition, _idTongueOut, Mathf.InverseLerp(TongueCutoff, 1f, _tongueValue));
         }
 
         // Skip submitting near-unchanged values: avoids redundant local SetBlendShapeWeight
