@@ -1,4 +1,6 @@
 using Basis.Network.Core;
+using BasisPermissions;
+using static BasisPermissions.PermissionManager;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -14,210 +16,273 @@ using static SerializableBasis;
 /// </summary>
 public static class BasisNetworkPreloadResourceManagement
 {
-    /// <summary>
-    /// Timeout for synchronized loads. After this duration the server sends
-    /// the spawn signal regardless of how many clients have reported.
-    /// </summary>
     public static readonly TimeSpan SynchronizedTimeout = TimeSpan.FromMinutes(5);
-
-    /// <summary>
-    /// Active synchronized load sessions, keyed by LoadedNetID.
-    /// </summary>
-    public static readonly ConcurrentDictionary<string, SyncLoadSession> ActiveSessions = new();
-
-    public class SyncLoadSession
+    public static TimeSpan StatusTimeout = TimeSpan.FromSeconds(20);
+    public static Func<DateTime> Clock = () => DateTime.UtcNow;
+    public sealed class SyncLoadSession
     {
         public LocalLoadResource Resource;
-        public HashSet<int> ReadyPeers = new();
-        public HashSet<int> FailedPeers = new();
+        public ushort Requester;
+        public byte Swap;
         public DateTime StartTimeUtc;
-        public CancellationTokenSource TimeoutCts;
-
-        /// <summary>
-        /// Total number of connected peers when this session started.
-        /// </summary>
-        public int TotalPeerCount;
-        public bool IsComplete => ReadyPeers.Count + FailedPeers.Count >= TotalPeerCount;
+        public bool Dirty;
+        public readonly Dictionary<int, DateTime> Waiting = new Dictionary<int, DateTime>();
+        public readonly HashSet<int> ReadyPeers = new HashSet<int>(), FailedPeers = new HashSet<int>(), SkippedPeers = new HashSet<int>();
+        public int Tracked => Waiting.Count + ReadyPeers.Count + FailedPeers.Count + SkippedPeers.Count;
+        public bool Drop(int peerId) => Waiting.Remove(peerId) | ReadyPeers.Remove(peerId) | FailedPeers.Remove(peerId) | SkippedPeers.Remove(peerId);
     }
-
-    /// <summary>
-    /// Called when the server receives a LoadResource with LoadStrategy = 2 (Synchronized).
-    /// Broadcasts the preload request to all clients and starts tracking readiness.
-    /// </summary>
-    public static void StartSynchronizedLoad(LocalLoadResource resource)
+    static readonly object gate = new object();
+    static readonly Dictionary<string, SyncLoadSession> sessions = new Dictionary<string, SyncLoadSession>();
+    public static bool IsActive(string loadedNetId)
+    {
+        lock (gate) return sessions.ContainsKey(loadedNetId);
+    }
+    public static bool TryGetCounts(string loadedNetId, out int ready, out int failed, out int waiting, out int skipped)
+    {
+        lock (gate)
+        {
+            bool found = sessions.TryGetValue(loadedNetId, out SyncLoadSession session);
+            ready = found ? session.ReadyPeers.Count : 0;
+            failed = found ? session.FailedPeers.Count : 0;
+            waiting = found ? session.Waiting.Count : 0;
+            skipped = found ? session.SkippedPeers.Count : 0;
+            return found;
+        }
+    }
+    public static void StartSynchronizedLoad(LocalLoadResource resource, int requesterPeerId = -1, byte swap = BasisPredownloadProtocol.SwapReplaceWorlds)
     {
         string netId = resource.LoadedNetID;
-
-        if (ActiveSessions.ContainsKey(netId))
+        if (IsActive(netId))
         {
             BNL.LogError($"PreloadResourceManagement: Session already exists for {netId}");
             return;
         }
-
         if (!BasisNetworkResourceManagement.CanCreatorLoadMore(resource.UUIDOfCreator))
         {
             BNL.LogError($"PreloadResourceManagement: Creator {resource.UUIDOfCreator} reached the per-player loaded-object limit; dropping synchronized load {netId}.");
             return;
         }
-
+        resource.LoadStrategy = 2;
         Basis.Network.Server.Generic.BasisContentKeyRelay.TakeCustody(ref resource);
-        var peerSnapshot = NetworkServer.PeerSnapshot;
-        int peerCount = peerSnapshot.Length;
-
-        var session = new SyncLoadSession
+        NetPeer[] peerSnapshot = NetworkServer.PeerSnapshot;
+        DateTime now = Clock();
+        SyncLoadSession session = new SyncLoadSession
         {
             Resource = resource,
-            StartTimeUtc = DateTime.UtcNow,
-            TotalPeerCount = peerCount,
-            TimeoutCts = new CancellationTokenSource(),
+            Requester = requesterPeerId < 0 ? BasisPredownloadProtocol.ServerRequester : (ushort)requesterPeerId,
+            Swap = swap,
+            StartTimeUtc = now,
+            Dirty = true,
         };
-
-        if (!ActiveSessions.TryAdd(netId, session))
+        for (int index = 0; index < peerSnapshot.Length; index++)
         {
-            BNL.LogError($"PreloadResourceManagement: Failed to add session for {netId}");
-            return;
+            if (peerSnapshot[index] != null) session.Waiting[peerSnapshot[index].Id] = now;
         }
-
-        BNL.Log($"PreloadResourceManagement: Starting synchronized load for {netId}, {peerCount} peers");
+        lock (gate)
+        {
+            if (!sessions.TryAdd(netId, session))
+            {
+                BNL.LogError($"PreloadResourceManagement: Failed to add session for {netId}");
+                return;
+            }
+        }
+        BNL.Log($"PreloadResourceManagement: Starting synchronized load for {netId}, {session.Waiting.Count} peers");
         BasisNetworkPredownloadManagement.Fulfil(resource.CombinedURL, resource.Mode);
-
-        // Store in the main resource database too
         if (BasisNetworkResourceManagement.UshortNetworkDatabase.TryAdd(netId, resource))
         {
             BasisNetworkResourceManagement.NoteResourceAdded(resource.UUIDOfCreator);
         }
-
-        // Broadcast the load resource to all clients (they will see LoadStrategy = 2
-        // and handle it as a synchronized preload)
         NetDataWriter writer = NetworkServer.RentWriter();
         resource.Serialize(writer);
         NetworkServer.BroadcastMessageToClients(writer, BasisNetworkCommons.LoadResourceChannel, peerSnapshot, DeliveryMethod.ReliableOrdered);
         NetworkServer.ReturnWriter(writer);
-
-        // No peers: complete immediately rather than waiting for the 5-minute timeout
-        if (peerCount == 0)
-        {
-            BNL.Log($"PreloadResourceManagement: No peers connected, completing {netId} immediately");
-            session.TimeoutCts.Cancel();
-            BroadcastSpawnSignal(netId);
-            return;
-        }
-
-        // Start timeout task
-        _ = RunTimeoutAsync(netId, session);
+        if (session.Waiting.Count == 0) Finish(netId, "no peers connected");
     }
-
-    /// <summary>
-    /// Called when the server receives a PreloadReady message from a client.
-    /// </summary>
+    public static bool AddLateJoiner(string loadedNetId, int peerId)
+    {
+        lock (gate)
+        {
+            if (!sessions.TryGetValue(loadedNetId, out SyncLoadSession session)) return false;
+            session.Drop(peerId);
+            session.Waiting[peerId] = Clock();
+            session.Dirty = true;
+            return true;
+        }
+    }
     public static void HandleClientReady(string loadedNetId, int peerId, bool isReady)
     {
-        if (!ActiveSessions.TryGetValue(loadedNetId, out SyncLoadSession session))
+        bool complete;
+        lock (gate)
         {
-            BNL.LogError($"PreloadResourceManagement: Received ready from peer {peerId} for unknown session {loadedNetId}");
-            return;
+            if (!sessions.TryGetValue(loadedNetId, out SyncLoadSession session)) return;
+            session.Drop(peerId);
+            (isReady ? session.ReadyPeers : session.FailedPeers).Add(peerId);
+            session.Dirty = true;
+            complete = session.Waiting.Count == 0;
+            BNL.Log($"PreloadResourceManagement: Peer {peerId} {(isReady ? "ready" : "FAILED")} for {loadedNetId} ({session.ReadyPeers.Count} ready, {session.FailedPeers.Count} failed, {session.Waiting.Count} waiting, {session.SkippedPeers.Count} skipped)");
         }
-
-        if (isReady)
+        if (complete) Finish(loadedNetId, "everyone still required has reported");
+    }
+    public static void HandleStatus(int peerId, string loadedNetId)
+    {
+        lock (gate)
         {
-            session.ReadyPeers.Add(peerId);
-            BNL.Log($"PreloadResourceManagement: Peer {peerId} ready for {loadedNetId} ({session.ReadyPeers.Count + session.FailedPeers.Count}/{session.TotalPeerCount})");
-        }
-        else
-        {
-            session.FailedPeers.Add(peerId);
-            BNL.Log($"PreloadResourceManagement: Peer {peerId} FAILED for {loadedNetId} ({session.ReadyPeers.Count + session.FailedPeers.Count}/{session.TotalPeerCount})");
-        }
-
-        if (session.IsComplete)
-        {
-            BNL.Log($"PreloadResourceManagement: All peers reported for {loadedNetId}, sending spawn signal");
-            session.TimeoutCts.Cancel();
-            BroadcastSpawnSignal(loadedNetId);
+            if (!sessions.TryGetValue(loadedNetId, out SyncLoadSession session)) return;
+            if (session.SkippedPeers.Remove(peerId))
+            {
+                session.Dirty = true;
+                BNL.Log($"PreloadResourceManagement: Peer {peerId} is responding again for {loadedNetId}, waiting for them");
+            }
+            else if (!session.Waiting.ContainsKey(peerId)) return;
+            session.Waiting[peerId] = Clock();
         }
     }
-
-    /// <summary>
-    /// Runs the timeout for a synchronized load session.
-    /// If not all clients have reported by the timeout, sends the spawn signal anyway.
-    /// </summary>
-    private static async Task RunTimeoutAsync(string netId, SyncLoadSession session)
+    public static void Touch(int peerId)
     {
-        try
+        lock (gate)
         {
-            await Task.Delay(SynchronizedTimeout, session.TimeoutCts.Token);
-
-            // Timeout reached - send spawn signal regardless
-            BNL.Log($"PreloadResourceManagement: Timeout reached for {netId}. Ready: {session.ReadyPeers.Count}, Failed: {session.FailedPeers.Count}, Total: {session.TotalPeerCount}");
-            BroadcastSpawnSignal(netId);
-        }
-        catch (TaskCanceledException)
-        {
-            // Session completed before timeout - normal
+            DateTime now = Clock();
+            foreach (SyncLoadSession session in sessions.Values)
+            {
+                if (session.Waiting.ContainsKey(peerId)) session.Waiting[peerId] = now;
+            }
         }
     }
-
-    /// <summary>
-    /// Broadcasts the spawn signal to all connected clients for a synchronized load.
-    /// Also broadcasts unload messages for existing scenes through the normal unload path
-    /// so the server tracking stays consistent. The client-side HandleSpawnPreloaded
-    /// also unloads scenes locally as a safety net against message ordering races.
-    /// </summary>
-    private static void BroadcastSpawnSignal(string loadedNetId)
+    public static void Tick()
     {
-        if (!ActiveSessions.TryRemove(loadedNetId, out SyncLoadSession session))
+        List<(string netId, string reason)> finished = null;
+        lock (gate)
         {
-            return;
+            if (sessions.Count == 0) return;
+            DateTime now = Clock();
+            List<int> silent = null;
+            foreach (KeyValuePair<string, SyncLoadSession> pair in sessions)
+            {
+                SyncLoadSession session = pair.Value;
+                if (now - session.StartTimeUtc >= SynchronizedTimeout)
+                {
+                    finished ??= new List<(string, string)>();
+                    finished.Add((pair.Key, "timeout reached"));
+                    continue;
+                }
+                silent?.Clear();
+                foreach (KeyValuePair<int, DateTime> waiting in session.Waiting)
+                {
+                    if (now - waiting.Value < StatusTimeout || !BasisNetworkPredownloadManagement.Supports(waiting.Key)) continue;
+                    silent ??= new List<int>();
+                    silent.Add(waiting.Key);
+                }
+                for (int index = 0; silent != null && index < silent.Count; index++)
+                {
+                    session.Waiting.Remove(silent[index]);
+                    session.SkippedPeers.Add(silent[index]);
+                    session.Dirty = true;
+                    BNL.Log($"PreloadResourceManagement: Peer {silent[index]} sent no status for {StatusTimeout.TotalSeconds:0}s, no longer waiting for them on {pair.Key}");
+                }
+                if (session.Waiting.Count == 0)
+                {
+                    finished ??= new List<(string, string)>();
+                    finished.Add((pair.Key, "everyone still required has reported"));
+                }
+                else if (session.Dirty)
+                {
+                    session.Dirty = false;
+                    BasisNetworkPredownloadManagement.Enqueue(Snapshot(session));
+                }
+            }
         }
-
-        session.TimeoutCts.Dispose();
-
-        var peerSnapshot = NetworkServer.PeerSnapshot;
-
-        // Only unload existing scenes when the synchronized resource is itself a scene.
-        // Props (Mode == 0) should never cause scene unloads.
-        // Exclude loadedNetId — that is the scene being switched TO; removing it would
-        // race against the SpawnPreloaded signal on the client.
-        if (session.Resource.Mode == 1)
+        for (int index = 0; finished != null && index < finished.Count; index++) Finish(finished[index].netId, finished[index].reason);
+    }
+    public static void Cancel(string loadedNetId)
+    {
+        lock (gate)
+        {
+            if (!sessions.Remove(loadedNetId)) return;
+            BasisNetworkPredownloadManagement.Enqueue(new BasisNetworkPredownloadManagement.Outgoing { NetId = loadedNetId, Closed = true });
+        }
+        BNL.Log($"PreloadResourceManagement: Synchronized load {loadedNetId} was removed before it spawned");
+    }
+    static void Finish(string loadedNetId, string reason)
+    {
+        SyncLoadSession session;
+        lock (gate)
+        {
+            if (!sessions.Remove(loadedNetId, out session)) return;
+            session.SkippedPeers.UnionWith(session.Waiting.Keys);
+            session.Waiting.Clear();
+            BasisNetworkPredownloadManagement.Enqueue(Snapshot(session));
+            BasisNetworkPredownloadManagement.Enqueue(new BasisNetworkPredownloadManagement.Outgoing { NetId = loadedNetId, Closed = true });
+        }
+        BNL.Log($"PreloadResourceManagement: Spawning {loadedNetId}, {reason}. Ready: {session.ReadyPeers.Count}, Failed: {session.FailedPeers.Count}, Skipped: {session.SkippedPeers.Count}");
+        BroadcastSpawnSignal(session);
+    }
+    static BasisNetworkPredownloadManagement.Outgoing Snapshot(SyncLoadSession session)
+    {
+        int ready = session.ReadyPeers.Count, failed = session.FailedPeers.Count;
+        return new BasisNetworkPredownloadManagement.Outgoing
+        {
+            NetId = session.Resource.LoadedNetID,
+            Requester = session.Requester,
+            Ready = (ushort)Math.Min(ready, ushort.MaxValue),
+            Failed = (ushort)Math.Min(failed, ushort.MaxValue),
+            Total = (ushort)Math.Min(ready + failed + session.Waiting.Count, ushort.MaxValue),
+            Skipped = (ushort)Math.Min(session.SkippedPeers.Count, ushort.MaxValue),
+        };
+    }
+    static void BroadcastSpawnSignal(SyncLoadSession session)
+    {
+        string loadedNetId = session.Resource.LoadedNetID;
+        NetPeer[] peerSnapshot = NetworkServer.PeerSnapshot;
+        if (session.Swap == BasisPredownloadProtocol.SwapClearAll)
+        {
+            UnloadAllContent(session);
+        }
+        else if (session.Swap == BasisPredownloadProtocol.SwapReplaceWorlds && session.Resource.Mode == 1)
         {
             UnloadAllSceneResources(peerSnapshot, loadedNetId);
         }
-
         SpawnPreloadedMessage spawnMsg = new SpawnPreloadedMessage
         {
             LoadedNetID = loadedNetId,
+            Swap = session.Swap,
         };
-
         NetDataWriter writer = NetworkServer.RentWriter();
         spawnMsg.Serialize(writer);
         NetworkServer.BroadcastMessageToClients(writer, BasisNetworkCommons.SpawnPreloadedChannel, peerSnapshot, DeliveryMethod.ReliableOrdered);
         NetworkServer.ReturnWriter(writer);
-
         BNL.Log($"PreloadResourceManagement: Spawn signal sent for {loadedNetId}");
     }
-
-    /// <summary>
-    /// Unloads all scene-type resources (Mode == 1) from the server database
-    /// and broadcasts unload messages to all clients through the normal unload channel.
-    /// </summary>
-    private static void UnloadAllSceneResources(NetPeer[] peerSnapshot, string excludeNetId = null)
+    static void UnloadAllContent(SyncLoadSession session)
     {
-        var sceneResources = BasisNetworkResourceManagement.UshortNetworkDatabase.Values
-            .Where(r => r.Mode == 1 && r.LoadedNetID != excludeNetId)
-            .ToArray();
-
+        string requester = session.Resource.UUIDOfCreator;
+        bool moderator = !string.IsNullOrEmpty(requester) && PermissionIntegration.HasValidRequirement(requester, PermNodes.protection);
+        bool removalLocked = BasisNetworkServer.Security.BasisGlobalLockManager.ContentRemovalLocked;
+        int removed = 0, kept = 0;
+        foreach (LocalLoadResource resource in BasisNetworkResourceManagement.UshortNetworkDatabase.Values.ToArray())
+        {
+            if (resource.Mode > 1 || resource.LoadedNetID == session.Resource.LoadedNetID) continue;
+            if (!moderator && (resource.IsAdminLocked || (removalLocked && resource.UUIDOfCreator != requester)))
+            {
+                kept++;
+                continue;
+            }
+            if (BasisNetworkResourceManagement.UnloadResource(new UnLoadResource { LoadedNetID = resource.LoadedNetID, Mode = resource.Mode })) removed++;
+        }
+        BNL.Log($"PreloadResourceManagement: Cleared {removed} loaded item(s) before spawning {session.Resource.LoadedNetID}, {kept} protected item(s) kept");
+    }
+    static void UnloadAllSceneResources(NetPeer[] peerSnapshot, string excludeNetId = null)
+    {
+        LocalLoadResource[] sceneResources = BasisNetworkResourceManagement.UshortNetworkDatabase.Values.Where(r => r.Mode == 1 && r.LoadedNetID != excludeNetId).ToArray();
         if (sceneResources.Length == 0) return;
-
         BNL.Log($"PreloadResourceManagement: Unloading {sceneResources.Length} existing scene(s) before synchronized spawn");
-
         NetDataWriter writer = NetworkServer.RentWriter();
-        foreach (var scene in sceneResources)
+        foreach (LocalLoadResource scene in sceneResources)
         {
             if (BasisNetworkResourceManagement.UshortNetworkDatabase.TryRemove(scene.LoadedNetID, out _))
             {
                 BasisNetworkResourceManagement.NoteResourceRemoved(scene.UUIDOfCreator);
             }
-
+            Cancel(scene.LoadedNetID);
             UnLoadResource unload = new UnLoadResource
             {
                 LoadedNetID = scene.LoadedNetID,
@@ -226,71 +291,39 @@ public static class BasisNetworkPreloadResourceManagement
             writer.Reset();
             unload.Serialize(writer);
             NetworkServer.BroadcastMessageToClients(writer, BasisNetworkCommons.UnloadResourceChannel, peerSnapshot, DeliveryMethod.ReliableOrdered);
-
             BNL.Log($"PreloadResourceManagement: Unloaded scene {scene.LoadedNetID}");
         }
         NetworkServer.ReturnWriter(writer);
     }
-
-    /// <summary>
-    /// Removes a disconnected peer from all active synchronized load sessions.
-    /// Decrements the expected peer count and triggers the spawn signal if
-    /// all remaining peers have already reported.
-    /// </summary>
     public static void RemovePeer(int peerId)
     {
-        List<string> completedSessions = null;
-
-        foreach (var kvp in ActiveSessions)
+        List<string> completed = null;
+        lock (gate)
         {
-            var session = kvp.Value;
-            session.ReadyPeers.Remove(peerId);
-            session.FailedPeers.Remove(peerId);
-
-            if (session.TotalPeerCount > 0)
+            List<string> empty = null;
+            foreach (KeyValuePair<string, SyncLoadSession> pair in sessions)
             {
-                session.TotalPeerCount--;
-            }
-
-            if (session.TotalPeerCount <= 0)
-            {
-                // No peers left, just clean up
-                session.TimeoutCts?.Cancel();
-                session.TimeoutCts?.Dispose();
-                ActiveSessions.TryRemove(kvp.Key, out _);
-            }
-            else if (session.IsComplete)
-            {
-                completedSessions ??= new List<string>();
-                completedSessions.Add(kvp.Key);
-            }
-        }
-
-        if (completedSessions != null)
-        {
-            foreach (var netId in completedSessions)
-            {
-                if (ActiveSessions.TryGetValue(netId, out var session))
+                SyncLoadSession session = pair.Value;
+                if (!session.Drop(peerId)) continue;
+                session.Dirty = true;
+                if (session.Tracked == 0)
                 {
-                    BNL.Log($"PreloadResourceManagement: All remaining peers reported for {netId} after peer {peerId} disconnected, sending spawn signal");
-                    session.TimeoutCts.Cancel();
-                    BroadcastSpawnSignal(netId);
+                    empty ??= new List<string>();
+                    empty.Add(pair.Key);
+                }
+                else if (session.Waiting.Count == 0)
+                {
+                    completed ??= new List<string>();
+                    completed.Add(pair.Key);
                 }
             }
+            for (int index = 0; empty != null && index < empty.Count; index++) sessions.Remove(empty[index]);
         }
+        for (int index = 0; completed != null && index < completed.Count; index++) Finish(completed[index], $"everyone still required has reported after peer {peerId} left");
     }
-
-    /// <summary>
-    /// Cleans up all active sessions. Called on server reset.
-    /// </summary>
     public static void Reset()
     {
-        foreach (var kvp in ActiveSessions)
-        {
-            kvp.Value.TimeoutCts?.Cancel();
-            kvp.Value.TimeoutCts?.Dispose();
-        }
-        ActiveSessions.Clear();
+        lock (gate) sessions.Clear();
     }
 }
 
@@ -309,10 +342,10 @@ public static class BasisNetworkPredownloadManagement
         public bool Has(int peerId) => Pending.Contains(peerId) || Ready.Contains(peerId) || Failed.Contains(peerId);
         public bool Drop(int peerId) => Pending.Remove(peerId) | Ready.Remove(peerId) | Failed.Remove(peerId);
     }
-    struct Outgoing
+    internal struct Outgoing
     {
         public string NetId;
-        public ushort Requester, Ready, Failed, Total;
+        public ushort Requester, Ready, Failed, Total, Skipped;
         public bool Closed;
     }
     static readonly object gate = new object();
@@ -335,6 +368,11 @@ public static class BasisNetworkPredownloadManagement
         messageId = BasisServerMessageRegistry.RegisterServerPlugin(BasisPredownloadProtocol.MessageName, DeliveryMethod.ReliableOrdered, Handle);
         BasisServerMessageRegistry.PeerSubscribed += OnSubscribed;
         ticker ??= new Timer(_ => Flush(), null, 250, 250);
+    }
+    internal static bool Supports(int peerId) => registered && BasisServerMessageRegistry.HasSubscribed(peerId, messageId);
+    internal static void Enqueue(Outgoing message)
+    {
+        lock (gate) closing.Add(message);
     }
     public static bool TryGetCounts(string loadedNetId, out int ready, out int failed, out int total)
     {
@@ -415,6 +453,7 @@ public static class BasisNetworkPredownloadManagement
     }
     public static void Flush()
     {
+        BasisNetworkPreloadResourceManagement.Tick();
         List<Outgoing> outgoing = null;
         lock (gate)
         {
@@ -455,6 +494,7 @@ public static class BasisNetworkPredownloadManagement
     static void OnSubscribed(NetPeer peer)
     {
         if (peer == null || !BasisServerMessageRegistry.HasSubscribed(peer.Id, messageId)) return;
+        BasisNetworkPreloadResourceManagement.Touch(peer.Id);
         List<LocalLoadResource> replay = null;
         List<Outgoing> known = null;
         lock (gate)
@@ -494,7 +534,9 @@ public static class BasisNetworkPredownloadManagement
     {
         try
         {
-            if (reader.TryGetByte(out byte op) && op == BasisPredownloadProtocol.OpDone && reader.TryGetString(out string loadedNetId) && reader.TryGetBool(out bool ready)) Report(peer.Id, loadedNetId, ready);
+            if (!reader.TryGetByte(out byte op) || !reader.TryGetString(out string loadedNetId)) return;
+            if (op == BasisPredownloadProtocol.OpStatus) BasisNetworkPreloadResourceManagement.HandleStatus(peer.Id, loadedNetId);
+            else if (op == BasisPredownloadProtocol.OpDone && reader.TryGetBool(out bool ready)) Report(peer.Id, loadedNetId, ready);
         }
         finally
         {
@@ -529,5 +571,6 @@ public static class BasisNetworkPredownloadManagement
         writer.Put(message.Ready);
         writer.Put(message.Failed);
         writer.Put(message.Total);
+        writer.Put(message.Skipped);
     }
 }

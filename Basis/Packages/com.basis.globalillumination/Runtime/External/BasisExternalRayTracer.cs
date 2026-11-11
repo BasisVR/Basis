@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using Unity.Scripting.LifecycleManagement;
@@ -170,6 +171,76 @@ public static unsafe partial class BasisExternalRayTracer
         }
     }
 
+    public const string AdapterDefault = "Same As Game";
+    public static string PreferredAdapter { get; private set; } = AdapterDefault;
+    [NoAutoStaticsCleanup] private static readonly List<string> adapterNames = new List<string>();
+    [NoAutoStaticsCleanup] private static readonly List<string> adapterLuids = new List<string>();
+    private static System.Threading.Tasks.Task adapterQuery;
+
+    public static void QueryAdapters()
+    {
+        if (adapterQuery != null || !IsWindows) { return; }
+        string exe = ExecutablePath;
+        string output = Path.Combine(Application.temporaryCachePath, "BasisRayTracerAdapters.txt");
+        adapterQuery = System.Threading.Tasks.Task.Run(() => ReadAdapters(exe, output));
+    }
+
+    private static void ReadAdapters(string exe, string output)
+    {
+        try
+        {
+            if (!File.Exists(exe)) { return; }
+            File.Delete(output);
+            using (System.Diagnostics.Process process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe, $"--list-adapters \"{output}\"") { UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = Path.GetDirectoryName(exe) }))
+            {
+                if (process == null || !process.WaitForExit(10000) || !File.Exists(output)) { return; }
+            }
+            foreach (string line in File.ReadAllLines(output))
+            {
+                string[] parts = line.Split('\t');
+                if (parts.Length < 4 || parts[1] != "1") { continue; }
+                string name = parts[3].Trim();
+                string label = name;
+                for (int copy = 2; adapterNames.Contains(label); copy++) { label = name + " #" + copy; }
+                adapterNames.Add(label);
+                adapterLuids.Add(parts[0]);
+            }
+        }
+        catch (Exception e) { Debug.LogWarning($"[BasisGI] Could not list the GPUs for the path tracer: {e.Message}"); }
+    }
+
+    public static IReadOnlyList<string> Adapters
+    {
+        get
+        {
+            QueryAdapters();
+            adapterQuery?.Wait(10000);
+            return adapterQuery != null && adapterQuery.IsCompleted ? adapterNames : Array.Empty<string>();
+        }
+    }
+
+    public static bool AdapterSelectable => IsWindows && Adapters.Count > 1;
+
+    public static void SetAdapter(string name)
+    {
+        if (string.IsNullOrEmpty(name)) { name = AdapterDefault; }
+        if (PreferredAdapter == name) { return; }
+        PreferredAdapter = name;
+        if (Started || Failed)
+        {
+            Retry();
+            retries = 0;
+        }
+    }
+
+    private static string RequestedAdapterLuid()
+    {
+        if (PreferredAdapter == AdapterDefault || RequestedApi != ApiDirectX) { return null; }
+        IReadOnlyList<string> names = Adapters;
+        for (int i = 0; i < names.Count; i++) { if (names[i] == PreferredAdapter) { return adapterLuids[i]; } }
+        return null;
+    }
+
     public static string ExecutablePath
     {
         get
@@ -220,6 +291,7 @@ public static unsafe partial class BasisExternalRayTracer
         try
         {
             if (BasisRT_Layout(8) != ProtocolVersion) { Fail("the bridge plugin does not match this protocol version"); return false; }
+            Environment.SetEnvironmentVariable("BASIS_RT_ADAPTER", RequestedAdapterLuid());
             if (BasisRT_StartApi(exe, RequestedApi) == 0) { Fail(ReadError()); return false; }
         }
         catch (DllNotFoundException) { Fail(IsLinux ? "the bridge plugin libBasisRayTracingBridge2.so is missing" : "the bridge plugin BasisRayTracingBridge2.dll is missing"); return false; }

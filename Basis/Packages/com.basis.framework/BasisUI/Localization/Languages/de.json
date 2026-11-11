@@ -2375,6 +2375,7 @@
     { "key": "library.predownload.progress", "value": "{0}: {1} von {2} bereit, {3} übrig" },
     { "key": "library.predownload.done", "value": "{0}: alle {1} bereit" },
     { "key": "library.predownload.failed", "value": "{0}: {1} von {2} bereit, {3} fehlgeschlagen" },
+    { "key": "library.predownload.skipped", "value": "{0}: {1} bereit, {2} antworten nicht" },
     { "key": "library.spawnedCount", "value": "({0} gespawnt)" },
     { "key": "library.stack.versions", "value": "{0} Versionen" },
     { "key": "library.stack.latestEntry", "value": "{0} – Neueste" },
@@ -2403,11 +2404,12 @@
     { "key": "library.networkType.local", "value": "Nur ich" },
     { "key": "library.networkType.networked", "value": "Alle (Sofort)" },
     { "key": "library.networkType.predownload", "value": "Alle (Vorab-Download)" },
+    { "key": "library.networkType.synchronized", "value": "Alle (Laden, wenn bereit)" },
     { "key": "library.networkType.loadOnBoot", "value": "Beim Start laden" },
     { "key": "library.networkType.local.description", "value": "Wenn das Element auf lokal gesetzt ist, ist es nur für dich sichtbar und interaktiv." },
     { "key": "library.networkType.networked.description", "value": "Das Element wird sofort bei allen verbundenen Spielern gespawnt." },
     { "key": "library.networkType.predownload.description", "value": "Lädt dies für alle aktuell Anwesenden herunter, ohne es zu erzeugen, sodass ein späteres Laden für sie sofort erfolgt." },
-    { "key": "library.networkType.synchronized.description", "value": "Wird an alle Spieler heruntergeladen und dann gleichzeitig gespawnt, sobald alle bereit sind. Hat ein 5-Minuten-Timeout für langsame Verbindungen." },
+    { "key": "library.networkType.synchronized.description", "value": "Lädt bei allen Spielern herunter und lädt es dann für alle gleichzeitig, sobald alle bereit sind. Spieler, die nicht mehr antworten, werden übersprungen, und es wird nie länger als 5 Minuten gewartet." },
     { "key": "library.networkType.loadOnBoot.description", "value": "Lädt dies jetzt und automatisch bei jedem Start für dich. Entferne es aus dem Tab „Instanziiert“, damit es nicht mehr beim Start geladen wird." },
     { "key": "library.networkType.unknown.description", "value": "Unbekannter Netzwerk-Typ." },
     { "key": "library.instantiated.createdAgoBy", "value": "Erstellt vor {0} von {1}" },
@@ -5778,6 +5780,38 @@
     { "key": "content.share.portal.online", "value": "Online: {0} / {1} Spieler, {2} ms" },
     { "key": "content.share.portal.name", "value": "Name" },
     { "key": "content.share.portal.motd", "value": "Nachricht" },
-    { "key": "content.share.portal.invalid", "value": "Das Ziel dieses Portals konnte nicht gelesen werden." }
+    { "key": "content.share.portal.invalid", "value": "Das Ziel dieses Portals konnte nicht gelesen werden." },
+    {
+      "key": "settings.admin.joinRestriction.banList",
+      "value": "Sperrliste"
+    },
+    {
+      "key": "settings.admin.joinRestriction.banList.tooltip",
+      "value": "Jeder darf beitreten, außer Spielern in BasisBanList.txt."
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries",
+      "value": "Zulassungsliste"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.count",
+      "value": "Zulassungsliste ({0})"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.tooltip",
+      "value": "Spieler, die derzeit auf der Zulassungsliste stehen. Wähle einen aus, um seine Kennung in das Feld darunter zu übernehmen."
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList",
+      "value": "Alle Anwesenden hinzufügen"
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList.tooltip",
+      "value": "Fügt alle gerade verbundenen Spieler zur Zulassungsliste hinzu."
+    },
+    {
+      "key": "settings.admin.confirm.addEveryoneToAllowList.body",
+      "value": "Alle gerade verbundenen Spieler werden zur Zulassungsliste hinzugefügt und können weiter beitreten, solange der Server nur die Zulassungsliste zulässt."
+    }
   ]
 }

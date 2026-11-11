@@ -2022,7 +2022,12 @@ namespace Basis.BasisUI
 
                 try
                 {
-                    if (item.Mode == BundledContentHolder.Mode.World && desiredNetworkType != BundledContentHolder.NetworkType.Predownload && BasisRuntimeSpawnRegistry.CountWorldsAndProps() > 0)
+                    if (item.Mode == BundledContentHolder.Mode.World && desiredNetworkType == BundledContentHolder.NetworkType.Synchronized)
+                    {
+                        bool clearAtSwap = BasisRuntimeSpawnRegistry.CountWorldsAndProps() > 0 && await LibraryProviderDialogUnloadContent.PromptUserToUnloadExistingContent(panel);
+                        BasisNetworkPreloadManager.NextSynchronizedStrategy = clearAtSwap ? BasisPredownloadProtocol.StrategySynchronizedClearAll : BasisPredownloadProtocol.StrategySynchronizedKeepAll;
+                    }
+                    else if (item.Mode == BundledContentHolder.Mode.World && desiredNetworkType != BundledContentHolder.NetworkType.Predownload && BasisRuntimeSpawnRegistry.CountWorldsAndProps() > 0)
                     {
                         bool unloadExisting = await LibraryProviderDialogUnloadContent.PromptUserToUnloadExistingContent(panel);
                         if (unloadExisting)
@@ -2078,8 +2083,7 @@ namespace Basis.BasisUI
             [BundledContentHolder.NetworkType.Networked] = BasisLocalization.Get("library.networkType.networked"),
             [BundledContentHolder.NetworkType.Predownload] = BasisLocalization.Get("library.networkType.predownload"),
             [BundledContentHolder.NetworkType.LoadOnBoot] = BasisLocalization.Get("library.networkType.loadOnBoot"),
-            // TODO: Re-enable once synchronized loading is fully working (late joiner + prop unload bugs)
-            // [BundledContentHolder.NetworkType.Synchronized] = "Everyone (Wait & Spawn Together)",
+            [BundledContentHolder.NetworkType.Synchronized] = BasisLocalization.Get("library.networkType.synchronized"),
         };
 
         /// <summary>
@@ -2170,6 +2174,7 @@ namespace Basis.BasisUI
             {
                 types.Add(BundledContentHolder.NetworkType.Networked);
                 types.Add(BundledContentHolder.NetworkType.Predownload);
+                types.Add(BundledContentHolder.NetworkType.Synchronized);
             }
             types.Add(BundledContentHolder.NetworkType.LoadOnBoot);
             return types;

@@ -2375,6 +2375,7 @@
     { "key": "library.predownload.progress", "value": "{0}: {1} من {2} جاهزون، بقي {3}" },
     { "key": "library.predownload.done", "value": "{0}: الجميع جاهزون ({1})" },
     { "key": "library.predownload.failed", "value": "{0}: {1} من {2} جاهزون، فشل {3}" },
+    { "key": "library.predownload.skipped", "value": "{0}: {1} جاهزون، {2} لا يستجيبون" },
     { "key": "library.spawnedCount", "value": "({0} تم إظهاره)" },
     { "key": "library.stack.versions", "value": "{0} إصدارات" },
     { "key": "library.stack.latestEntry", "value": "{0} — الأحدث" },
@@ -2403,11 +2404,12 @@
     { "key": "library.networkType.local", "value": "أنا فقط" },
     { "key": "library.networkType.networked", "value": "الجميع (فوري)" },
     { "key": "library.networkType.predownload", "value": "الجميع (تنزيل مسبق)" },
+    { "key": "library.networkType.synchronized", "value": "الجميع (التحميل عند الجاهزية)" },
     { "key": "library.networkType.loadOnBoot", "value": "التحميل عند الإقلاع" },
     { "key": "library.networkType.local.description", "value": "إذا تم تعيين العنصر كمحلي، فسيكون مرئيًا وتفاعليًا لك فقط." },
     { "key": "library.networkType.networked.description", "value": "سيتم إظهار العنصر لجميع اللاعبين المتصلين فورًا." },
     { "key": "library.networkType.predownload.description", "value": "ينزّل هذا إلى كل الموجودين هنا حاليًا دون إنشائه، ليكون تحميله لاحقًا فوريًا لهم." },
-    { "key": "library.networkType.synchronized.description", "value": "يتم التنزيل لجميع اللاعبين، ثم يظهر بشكل متزامن عندما يكون الجميع جاهزين. مهلة 5 دقائق للاتصالات البطيئة." },
+    { "key": "library.networkType.synchronized.description", "value": "يُنزَّل لجميع اللاعبين ثم يُحمَّل للجميع في الوقت نفسه عندما يصبحون جاهزين. يُتخطى اللاعبون الذين يتوقفون عن الاستجابة، ولا يتجاوز الانتظار 5 دقائق." },
     { "key": "library.networkType.loadOnBoot.description", "value": "يحمّل هذا لك الآن وتلقائيًا في كل مرة تشغّل فيها. أزله من علامة تبويب المُنشأة لإيقاف تحميله عند بدء التشغيل." },
     { "key": "library.networkType.unknown.description", "value": "نوع شبكة غير معروف." },
     { "key": "library.instantiated.createdAgoBy", "value": "تم إنشاؤه منذ {0} بواسطة {1}" },
@@ -5778,6 +5780,38 @@
     { "key": "content.share.portal.online", "value": "متصل: {0} / {1} لاعب، {2} مللي ثانية" },
     { "key": "content.share.portal.name", "value": "الاسم" },
     { "key": "content.share.portal.motd", "value": "الرسالة" },
-    { "key": "content.share.portal.invalid", "value": "تعذرت قراءة وجهة هذه البوابة." }
+    { "key": "content.share.portal.invalid", "value": "تعذرت قراءة وجهة هذه البوابة." },
+    {
+      "key": "settings.admin.joinRestriction.banList",
+      "value": "قائمة الحظر"
+    },
+    {
+      "key": "settings.admin.joinRestriction.banList.tooltip",
+      "value": "يمكن لأي شخص الانضمام ما عدا اللاعبين المدرجين في BasisBanList.txt."
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries",
+      "value": "قائمة السماح"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.count",
+      "value": "قائمة السماح ({0})"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.tooltip",
+      "value": "اللاعبون الموجودون حاليًا في قائمة السماح. اختر واحدًا لوضع معرّفه في الحقل أدناه."
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList",
+      "value": "إضافة جميع الحاضرين"
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList.tooltip",
+      "value": "يضيف كل لاعب متصل الآن إلى قائمة السماح."
+    },
+    {
+      "key": "settings.admin.confirm.addEveryoneToAllowList.body",
+      "value": "ستتم إضافة كل لاعب متصل الآن إلى قائمة السماح، وسيتمكن من الانضمام ما دام الخادم مقتصرًا على قائمة السماح."
+    }
   ]
 }

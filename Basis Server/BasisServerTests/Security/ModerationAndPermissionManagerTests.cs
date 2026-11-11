@@ -1479,6 +1479,151 @@ public class BasisPlayerModerationTests
         return req.GetAdminRequestMode();
     }
 
+    private static List<(string Uuid, string Name)> ReadAllowlistPages(FakeNetPeer peer, int firstIndex)
+    {
+        var entries = new List<(string, string)>();
+        int total = -1;
+        for (int i = firstIndex; i < peer.Sent.Count; i++)
+        {
+            NetDataReader r = new NetDataReader(peer.Sent[i].Data);
+            AdminRequest req = new AdminRequest();
+            req.Deserialize(r);
+            Assert.Equal(AdminRequestMode.AllowlistResult, req.GetAdminRequestMode());
+            total = r.GetInt();
+            int offset = r.GetInt();
+            if (offset == 0) entries.Clear();
+            Assert.Equal(entries.Count, offset);
+            ushort count = r.GetUShort();
+            for (int e = 0; e < count; e++) entries.Add((r.GetString(), r.GetString()));
+        }
+        Assert.Equal(total, entries.Count);
+        return entries;
+    }
+
+    [Fact]
+    public void OnAdminMessage_Allowlist_AddListRemove_ReportsWhatActuallyHappened()
+    {
+        BasisPlayerModeration.UseFileOnDisc = false;
+        Configuration previousConfig = NetworkServer.Configuration;
+        BasisAllowList previousList = NetworkServer.AllowList;
+        NetworkServer.Configuration = new Configuration { BasisUserRestrictionMode = BasisNetworkCore.Security.BasisUserRestrictionMode.AllowList };
+        NetworkServer.AllowList = new BasisAllowList();
+        var (adminUuid, adminPeer) = ConnectPlayer();
+        var (guestUuid, guestPeer) = ConnectPlayer();
+        PermissionManager perms = PermissionManager.PermissionIntegration.Manager;
+        try
+        {
+            BasisPlayerModeration.OnAdminMessage(adminPeer, BuildAdminPayload(AdminRequestMode.GetAllowlist));
+            Assert.Equal($"No permission: {PermNodes.ModerationAllowlist}", ReadAdminMessage(adminPeer));
+            adminPeer.Sent.Clear();
+
+            perms.AddUserNode(adminUuid, PermNodes.ModerationAllowlist);
+            string outsider = $"outsider-{Guid.NewGuid():N}";
+
+            BasisPlayerModeration.OnAdminMessage(adminPeer, BuildAdminPayload(AdminRequestMode.AddAllowlist, w => w.Put("  " + outsider + "\n")));
+            Assert.Equal($"Added {outsider} to allowlist.", ReadAdminMessage(adminPeer));
+            Assert.Equal(new[] { (outsider, string.Empty) }, ReadAllowlistPages(adminPeer, 1));
+            adminPeer.Sent.Clear();
+
+            BasisPlayerModeration.OnAdminMessage(adminPeer, BuildAdminPayload(AdminRequestMode.AddAllowlist, w => w.Put(outsider)));
+            Assert.Equal($"{outsider} is already on the allowlist.", ReadAdminMessage(adminPeer));
+            adminPeer.Sent.Clear();
+
+            BasisPlayerModeration.OnAdminMessage(adminPeer, BuildAdminPayload(AdminRequestMode.AddAllowlistEveryone));
+            Assert.Contains("(3 total)", ReadAdminMessage(adminPeer));
+            Assert.True(NetworkServer.AllowList.IsAllowed(adminUuid));
+            Assert.True(NetworkServer.AllowList.IsAllowed(guestUuid));
+            adminPeer.Sent.Clear();
+
+            BasisPlayerModeration.OnAdminMessage(adminPeer, BuildAdminPayload(AdminRequestMode.RemoveAllowlist, w => w.Put(guestUuid)));
+            Assert.StartsWith($"Removed {guestUuid} from allowlist. They are connected now", ReadAdminMessage(adminPeer));
+            Assert.False(NetworkServer.AllowList.IsAllowed(guestUuid));
+            Assert.Equal(0, guestPeer.DisconnectCalls);
+            adminPeer.Sent.Clear();
+
+            BasisPlayerModeration.OnAdminMessage(adminPeer, BuildAdminPayload(AdminRequestMode.RemoveAllowlist, w => w.Put(guestUuid)));
+            Assert.Equal($"{guestUuid} is not on the allowlist.", ReadAdminMessage(adminPeer));
+        }
+        finally
+        {
+            perms.RemoveUserNode(adminUuid, PermNodes.ModerationAllowlist);
+            RemovePlayer(adminPeer);
+            RemovePlayer(guestPeer);
+            NetworkServer.AllowList = previousList;
+            NetworkServer.Configuration = previousConfig;
+        }
+    }
+
+    [Fact]
+    public void OnAdminMessage_GetAllowlist_PagesALongList_AndAnEmptyOneStillAnswers()
+    {
+        BasisPlayerModeration.UseFileOnDisc = false;
+        Configuration previousConfig = NetworkServer.Configuration;
+        BasisAllowList previousList = NetworkServer.AllowList;
+        NetworkServer.Configuration = new Configuration { BasisUserRestrictionMode = BasisNetworkCore.Security.BasisUserRestrictionMode.Normal };
+        NetworkServer.AllowList = new BasisAllowList();
+        var (adminUuid, adminPeer) = ConnectPlayer();
+        PermissionManager perms = PermissionManager.PermissionIntegration.Manager;
+        perms.AddUserNode(adminUuid, PermNodes.ModerationAllowlist);
+        try
+        {
+            BasisPlayerModeration.OnAdminMessage(adminPeer, BuildAdminPayload(AdminRequestMode.GetAllowlist));
+            Assert.Single(adminPeer.Sent);
+            Assert.Empty(ReadAllowlistPages(adminPeer, 0));
+            adminPeer.Sent.Clear();
+
+            var expected = new List<string>();
+            for (int i = 0; i < 70; i++)
+            {
+                expected.Add($"listed-{i}-{Guid.NewGuid():N}");
+                NetworkServer.AllowList.Add(expected[i]);
+            }
+
+            BasisPlayerModeration.OnAdminMessage(adminPeer, BuildAdminPayload(AdminRequestMode.GetAllowlist));
+            Assert.Equal(3, adminPeer.Sent.Count);
+            Assert.Equal(expected, ReadAllowlistPages(adminPeer, 0).ConvertAll(e => e.Uuid));
+        }
+        finally
+        {
+            perms.RemoveUserNode(adminUuid, PermNodes.ModerationAllowlist);
+            RemovePlayer(adminPeer);
+            NetworkServer.AllowList = previousList;
+            NetworkServer.Configuration = previousConfig;
+        }
+    }
+
+    [Fact]
+    public void OnAdminMessage_AddAllowlist_DuringRejoinOnly_LetsThatPlayerThroughTheLockdown()
+    {
+        BasisPlayerModeration.UseFileOnDisc = false;
+        Configuration previousConfig = NetworkServer.Configuration;
+        BasisAllowList previousList = NetworkServer.AllowList;
+        NetworkServer.Configuration = new Configuration { BasisUserRestrictionMode = BasisNetworkCore.Security.BasisUserRestrictionMode.RejoinOnly };
+        NetworkServer.AllowList = new BasisAllowList();
+        var (adminUuid, adminPeer) = ConnectPlayer();
+        PermissionManager perms = PermissionManager.PermissionIntegration.Manager;
+        perms.AddUserNode(adminUuid, PermNodes.ModerationAllowlist);
+        BasisRejoinLockManager.Clear();
+        try
+        {
+            string friend = $"friend-{Guid.NewGuid():N}";
+            Assert.False(BasisRejoinLockManager.IsAllowed(friend));
+
+            BasisPlayerModeration.OnAdminMessage(adminPeer, BuildAdminPayload(AdminRequestMode.AddAllowlist, w => w.Put(friend)));
+
+            Assert.Equal($"Added {friend} to allowlist and let through the current lockdown.", ReadAdminMessage(adminPeer));
+            Assert.True(BasisRejoinLockManager.IsAllowed(friend));
+        }
+        finally
+        {
+            BasisRejoinLockManager.Clear();
+            perms.RemoveUserNode(adminUuid, PermNodes.ModerationAllowlist);
+            RemovePlayer(adminPeer);
+            NetworkServer.AllowList = previousList;
+            NetworkServer.Configuration = previousConfig;
+        }
+    }
+
     [Fact]
     public void OnAdminMessage_LocomotionOverride_ProtectedModerator_CanTargetThemselves()
     {

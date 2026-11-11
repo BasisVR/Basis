@@ -2375,6 +2375,7 @@
     { "key": "library.predownload.progress", "value": "{0}: {2} में से {1} तैयार, {3} बाकी" },
     { "key": "library.predownload.done", "value": "{0}: सभी {1} तैयार" },
     { "key": "library.predownload.failed", "value": "{0}: {2} में से {1} तैयार, {3} विफल" },
+    { "key": "library.predownload.skipped", "value": "{0}: {1} तैयार, {2} जवाब नहीं दे रहे" },
     { "key": "library.spawnedCount", "value": "({0} स्पॉन किया गया)" },
     { "key": "library.stack.versions", "value": "{0} वर्शन" },
     { "key": "library.stack.latestEntry", "value": "{0} — नवीनतम" },
@@ -2403,11 +2404,12 @@
     { "key": "library.networkType.local", "value": "केवल मैं" },
     { "key": "library.networkType.networked", "value": "सभी (तुरंत)" },
     { "key": "library.networkType.predownload", "value": "सभी (प्री-डाउनलोड)" },
+    { "key": "library.networkType.synchronized", "value": "सभी (तैयार होने पर लोड)" },
     { "key": "library.networkType.loadOnBoot", "value": "बूट पर लोड करें" },
     { "key": "library.networkType.local.description", "value": "यदि आइटम लोकल पर सेट है, तो यह केवल आपको दिखाई देगा और केवल आप ही इसके साथ इंटरैक्ट कर पाएँगे।" },
     { "key": "library.networkType.networked.description", "value": "आइटम सभी कनेक्टेड खिलाड़ियों पर तुरंत स्पॉन होगा।" },
     { "key": "library.networkType.predownload.description", "value": "इसे प्रकट किए बिना यहाँ मौजूद सभी को डाउनलोड करता है, ताकि बाद में उनके लिए लोड होना तुरंत हो।" },
-    { "key": "library.networkType.synchronized.description", "value": "सभी खिलाड़ियों को डाउनलोड होता है, फिर सभी तैयार होने पर एक साथ स्पॉन होता है। धीमे कनेक्शन के लिए 5 मिनट का टाइमआउट है।" },
+    { "key": "library.networkType.synchronized.description", "value": "सभी खिलाड़ियों के लिए डाउनलोड करता है, फिर सबके तैयार होने पर सभी के लिए एक साथ लोड करता है। जवाब देना बंद करने वाले खिलाड़ियों को छोड़ दिया जाता है और प्रतीक्षा कभी 5 मिनट से अधिक नहीं होती।" },
     { "key": "library.networkType.loadOnBoot.description", "value": "इसे अभी और हर बार लॉन्च पर स्वचालित रूप से आपके लिए लोड करता है। स्टार्टअप पर इसे लोड होने से रोकने के लिए इसे इंस्टैंशिएटेड टैब से हटाएँ।" },
     { "key": "library.networkType.unknown.description", "value": "अज्ञात नेटवर्क प्रकार।" },
     { "key": "library.instantiated.createdAgoBy", "value": "{1} द्वारा {0} पहले बनाया गया" },
@@ -5778,6 +5780,38 @@
     { "key": "content.share.portal.online", "value": "ऑनलाइन: {0} / {1} खिलाड़ी, {2} ms" },
     { "key": "content.share.portal.name", "value": "नाम" },
     { "key": "content.share.portal.motd", "value": "संदेश" },
-    { "key": "content.share.portal.invalid", "value": "इस पोर्टल का गंतव्य पढ़ा नहीं जा सका।" }
+    { "key": "content.share.portal.invalid", "value": "इस पोर्टल का गंतव्य पढ़ा नहीं जा सका।" },
+    {
+      "key": "settings.admin.joinRestriction.banList",
+      "value": "प्रतिबंध सूची"
+    },
+    {
+      "key": "settings.admin.joinRestriction.banList.tooltip",
+      "value": "BasisBanList.txt में दर्ज खिलाड़ियों को छोड़कर कोई भी शामिल हो सकता है।"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries",
+      "value": "अनुमति सूची"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.count",
+      "value": "अनुमति सूची ({0})"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.tooltip",
+      "value": "वे खिलाड़ी जो अभी अनुमति सूची में हैं। किसी एक को चुनें ताकि उसका पहचानकर्ता नीचे के फ़ील्ड में आ जाए।"
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList",
+      "value": "यहाँ मौजूद सभी को जोड़ें"
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList.tooltip",
+      "value": "अभी जुड़े हर खिलाड़ी को अनुमति सूची में जोड़ता है।"
+    },
+    {
+      "key": "settings.admin.confirm.addEveryoneToAllowList.body",
+      "value": "अभी जुड़ा हर खिलाड़ी अनुमति सूची में जोड़ दिया जाएगा और जब तक सर्वर केवल अनुमति सूची पर है, वह शामिल होता रह सकेगा।"
+    }
   ]
 }

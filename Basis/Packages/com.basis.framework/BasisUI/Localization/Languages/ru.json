@@ -2375,6 +2375,7 @@
     { "key": "library.predownload.progress", "value": "{0}: готово {1} из {2}, осталось {3}" },
     { "key": "library.predownload.done", "value": "{0}: готовы все {1}" },
     { "key": "library.predownload.failed", "value": "{0}: готово {1} из {2}, ошибок: {3}" },
+    { "key": "library.predownload.skipped", "value": "{0}: готово {1}, не отвечают: {2}" },
     { "key": "library.spawnedCount", "value": "({0} создано)" },
     { "key": "library.stack.versions", "value": "{0} версий" },
     { "key": "library.stack.latestEntry", "value": "{0} — последняя" },
@@ -2403,11 +2404,12 @@
     { "key": "library.networkType.local", "value": "Только я" },
     { "key": "library.networkType.networked", "value": "Все (мгновенно)" },
     { "key": "library.networkType.predownload", "value": "Все (предзагрузка)" },
+    { "key": "library.networkType.synchronized", "value": "Все (загрузить по готовности)" },
     { "key": "library.networkType.loadOnBoot", "value": "Загружать при запуске" },
     { "key": "library.networkType.local.description", "value": "Если элемент установлен как локальный, он будет виден и интерактивен только для вас." },
     { "key": "library.networkType.networked.description", "value": "Элемент будет создан у всех подключённых игроков мгновенно." },
     { "key": "library.networkType.predownload.description", "value": "Загружает это всем, кто сейчас здесь, не создавая его, так что последующая загрузка будет для них мгновенной." },
-    { "key": "library.networkType.synchronized.description", "value": "Загружается у всех игроков, затем создаётся одновременно, когда все будут готовы. Тайм-аут 5 минут для медленных соединений." },
+    { "key": "library.networkType.synchronized.description", "value": "Скачивается у всех игроков, затем загружается у всех одновременно, когда все готовы. Игроки, переставшие отвечать, пропускаются, ожидание не превышает 5 минут." },
     { "key": "library.networkType.loadOnBoot.description", "value": "Загружает это для вас сейчас и автоматически при каждом запуске. Удалите это со вкладки «Созданные», чтобы прекратить загрузку при старте." },
     { "key": "library.networkType.unknown.description", "value": "Неизвестный тип сети." },
     { "key": "library.instantiated.createdAgoBy", "value": "Создано {0} назад пользователем {1}" },
@@ -5778,6 +5780,38 @@
     { "key": "content.share.portal.online", "value": "В сети: {0} / {1} игроков, {2} мс" },
     { "key": "content.share.portal.name", "value": "Название" },
     { "key": "content.share.portal.motd", "value": "Сообщение" },
-    { "key": "content.share.portal.invalid", "value": "Не удалось прочитать назначение этого портала." }
+    { "key": "content.share.portal.invalid", "value": "Не удалось прочитать назначение этого портала." },
+    {
+      "key": "settings.admin.joinRestriction.banList",
+      "value": "Чёрный список"
+    },
+    {
+      "key": "settings.admin.joinRestriction.banList.tooltip",
+      "value": "Войти может любой, кроме игроков из BasisBanList.txt."
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries",
+      "value": "Белый список"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.count",
+      "value": "Белый список ({0})"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.tooltip",
+      "value": "Игроки, которые сейчас в белом списке. Выберите одного, чтобы подставить его идентификатор в поле ниже."
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList",
+      "value": "Добавить всех присутствующих"
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList.tooltip",
+      "value": "Добавляет в белый список всех игроков, подключённых прямо сейчас."
+    },
+    {
+      "key": "settings.admin.confirm.addEveryoneToAllowList.body",
+      "value": "Все игроки, подключённые прямо сейчас, будут добавлены в белый список и смогут заходить, пока сервер пускает только по белому списку."
+    }
   ]
 }

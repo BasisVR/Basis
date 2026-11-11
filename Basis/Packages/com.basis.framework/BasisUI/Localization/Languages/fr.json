@@ -2375,6 +2375,7 @@
     { "key": "library.predownload.progress", "value": "{0} : {1} sur {2} prêts, {3} restants" },
     { "key": "library.predownload.done", "value": "{0} : les {1} sont prêts" },
     { "key": "library.predownload.failed", "value": "{0} : {1} sur {2} prêts, {3} en échec" },
+    { "key": "library.predownload.skipped", "value": "{0} : {1} prêts, {2} sans réponse" },
     { "key": "library.spawnedCount", "value": "({0} apparu(s))" },
     { "key": "library.stack.versions", "value": "{0} versions" },
     { "key": "library.stack.latestEntry", "value": "{0} — Dernière" },
@@ -2403,11 +2404,12 @@
     { "key": "library.networkType.local", "value": "Moi uniquement" },
     { "key": "library.networkType.networked", "value": "Tout le monde (instantané)" },
     { "key": "library.networkType.predownload", "value": "Tout le monde (pré-téléchargement)" },
+    { "key": "library.networkType.synchronized", "value": "Tout le monde (charger quand prêts)" },
     { "key": "library.networkType.loadOnBoot", "value": "Charger au démarrage" },
     { "key": "library.networkType.local.description", "value": "Si l'élément est défini en local, il ne sera visible et interactif que pour vous." },
     { "key": "library.networkType.networked.description", "value": "L'élément apparaîtra immédiatement chez tous les joueurs connectés." },
     { "key": "library.networkType.predownload.description", "value": "Télécharge ceci pour toutes les personnes présentes sans le faire apparaître, afin qu'un chargement ultérieur soit instantané pour elles." },
-    { "key": "library.networkType.synchronized.description", "value": "Téléchargé chez tous les joueurs, puis apparaît simultanément une fois que tout le monde est prêt. Délai d'expiration de 5 minutes pour les connexions lentes." },
+    { "key": "library.networkType.synchronized.description", "value": "Télécharge chez tous les joueurs, puis charge pour tout le monde en même temps quand tous sont prêts. Les joueurs qui ne répondent plus sont ignorés et l'attente ne dépasse jamais 5 minutes." },
     { "key": "library.networkType.loadOnBoot.description", "value": "Charge ceci pour vous maintenant et automatiquement à chaque lancement. Retirez-le de l'onglet Instancié pour qu'il ne se charge plus au démarrage." },
     { "key": "library.networkType.unknown.description", "value": "Type de réseau inconnu." },
     { "key": "library.instantiated.createdAgoBy", "value": "Créé il y a {0} par {1}" },
@@ -5778,6 +5780,38 @@
     { "key": "content.share.portal.online", "value": "En ligne : {0} / {1} joueurs, {2} ms" },
     { "key": "content.share.portal.name", "value": "Nom" },
     { "key": "content.share.portal.motd", "value": "Message" },
-    { "key": "content.share.portal.invalid", "value": "La destination de ce portail est illisible." }
+    { "key": "content.share.portal.invalid", "value": "La destination de ce portail est illisible." },
+    {
+      "key": "settings.admin.joinRestriction.banList",
+      "value": "Liste de bannissement"
+    },
+    {
+      "key": "settings.admin.joinRestriction.banList.tooltip",
+      "value": "Tout le monde peut rejoindre, sauf les joueurs de BasisBanList.txt."
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries",
+      "value": "Liste d'autorisation"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.count",
+      "value": "Liste d'autorisation ({0})"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.tooltip",
+      "value": "Joueurs actuellement sur la liste d'autorisation. Choisissez-en un pour placer son identifiant dans le champ ci-dessous."
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList",
+      "value": "Ajouter tous les présents"
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList.tooltip",
+      "value": "Ajoute à la liste d'autorisation tous les joueurs connectés en ce moment."
+    },
+    {
+      "key": "settings.admin.confirm.addEveryoneToAllowList.body",
+      "value": "Tous les joueurs connectés en ce moment seront ajoutés à la liste d'autorisation et pourront continuer à rejoindre tant que le serveur n'accepte que cette liste."
+    }
   ]
 }

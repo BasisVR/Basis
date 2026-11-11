@@ -321,6 +321,9 @@ namespace BasisNetworkCore.Serializable
             SetGlobalImageMaxResolution, // admin: largest shared image side in units of 1024 px, persisted and rebroadcast in GlobalGetLockState. Payload: [byte k] (1-16)
             SetGlobalVideoClipMaxSize, // admin: largest shared video/audio clip in megabytes, persisted and rebroadcast in GlobalGetLockState. Payload: [ushort megabytes] (16-1024)
             SetGlobalVideoClipMaxPerPlayer, // admin: how many video/audio clips one player may share at once, persisted and rebroadcast in GlobalGetLockState. Payload: [byte count] (1-16)
+            GetAllowlist,         // moderator: ask for the allowlist. Gated by basis.moderation.whitelist. No payload.
+            AllowlistResult,      // server→moderator: one page of the allowlist; offset 0 replaces the client's copy, displayName is empty unless connected. Payload: [int total][int offset][ushort count]{[string uuid][string displayName]}
+            AddAllowlistEveryone, // moderator: add every connected player to the allowlist. Gated by basis.moderation.whitelist. No payload.
         }
 
         /// <summary>

@@ -6635,6 +6635,10 @@
       "value": "{0}: {1} of {2} ready, {3} failed"
     },
     {
+      "key": "library.predownload.skipped",
+      "value": "{0}: {1} ready, {2} not responding"
+    },
+    {
       "key": "library.spawnedCount",
       "value": "({0} spawned)"
     },
@@ -6747,6 +6751,10 @@
       "value": "Everyone (Pre-Download)"
     },
     {
+      "key": "library.networkType.synchronized",
+      "value": "Everyone (Load When Ready)"
+    },
+    {
       "key": "library.networkType.loadOnBoot",
       "value": "Load on Boot"
     },
@@ -6764,7 +6772,7 @@
     },
     {
       "key": "library.networkType.synchronized.description",
-      "value": "Downloads to all players, then spawns simultaneously once everyone is ready. Has a 5 minute timeout for slow connections."
+      "value": "Downloads to all players, then loads it for everyone at once when they are all ready. Players who stop responding are skipped, and it never waits longer than 5 minutes."
     },
     {
       "key": "library.networkType.loadOnBoot.description",
@@ -9201,6 +9209,18 @@
     {
       "key": "settings.graphics.gi.pathTracerBackend.vulkan",
       "value": "Vulkan"
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerGpu",
+      "value": "Path Tracer GPU"
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerGpu.tooltip",
+      "value": "Which graphics card runs the path tracer. A second card takes the tracing work off the card that draws the game, at the cost of copying each frame between them, which adds a little delay to lighting changes. DirectX backend only."
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerGpu.sameAsGame",
+      "value": "Same As Game"
     },
     {
       "key": "settings.graphics.gi.pathTracerRays",
@@ -18350,7 +18370,7 @@
     },
     {
       "key": "settings.admin.title.joinRestriction.description",
-      "value": "Normal lets anyone who is not banned join. Allow list admits only UUIDs on BasisAllowList.txt. Rejoin only admits the players who were present when the mode was set, so a running event stays closed without banning anyone."
+      "value": "Normal lets anyone who is not banned join. Allow list admits only UUIDs on BasisAllowList.txt. Rejoin only admits the players who were present when the mode was set, so a running event stays closed without banning anyone. Ban list admits everyone except UUIDs on BasisBanList.txt. Staff who can edit the server configuration or the allow list can always join."
     },
     {
       "key": "settings.admin.joinRestriction.normal",
@@ -19778,11 +19798,11 @@
     },
     {
       "key": "settings.admin.joinRestriction.allowList.tooltip",
-      "value": "Only players on the allow list may join."
+      "value": "Only players on the allow list may join; staff may still join."
     },
     {
       "key": "settings.admin.joinRestriction.rejoinOnly.tooltip",
-      "value": "Locks the server to the players connected when this was set; admins may still join. Resets to Normal on restart."
+      "value": "Locks the server to the players connected when this was set; staff may still join, and adding someone to the allow list lets them in too. Resets to Normal on restart."
     },
     {
       "key": "settings.performanceMode.level.off.tooltip",
@@ -22571,6 +22591,38 @@
     {
       "key": "content.share.portal.invalid",
       "value": "This portal's destination could not be read."
+    },
+    {
+      "key": "settings.admin.joinRestriction.banList",
+      "value": "Ban list"
+    },
+    {
+      "key": "settings.admin.joinRestriction.banList.tooltip",
+      "value": "Anyone may join except players on BasisBanList.txt."
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries",
+      "value": "Allow list"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.count",
+      "value": "Allow list ({0})"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.tooltip",
+      "value": "Players currently on the allow list. Pick one to put their identifier in the field below."
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList",
+      "value": "Add Everyone Here"
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList.tooltip",
+      "value": "Add every player connected right now to the allow list."
+    },
+    {
+      "key": "settings.admin.confirm.addEveryoneToAllowList.body",
+      "value": "Every player connected right now will be added to the allow list and can keep joining while the server is set to allow list only."
     }
   ]
 }

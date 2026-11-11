@@ -2325,6 +2325,7 @@
     { "key": "library.predownload.progress", "value": "{0}: {1} de {2} listos, faltan {3}" },
     { "key": "library.predownload.done", "value": "{0}: los {1} están listos" },
     { "key": "library.predownload.failed", "value": "{0}: {1} de {2} listos, {3} fallaron" },
+    { "key": "library.predownload.skipped", "value": "{0}: {1} listos, {2} sin respuesta" },
     { "key": "library.spawnedCount", "value": "({0} aparecidos)" },
     { "key": "library.stack.versions", "value": "{0} versiones" },
     { "key": "library.stack.latestEntry", "value": "{0} — Más reciente" },
@@ -2353,11 +2354,12 @@
     { "key": "library.networkType.local", "value": "Solo yo" },
     { "key": "library.networkType.networked", "value": "Todos (instantáneo)" },
     { "key": "library.networkType.predownload", "value": "Todos (predescarga)" },
+    { "key": "library.networkType.synchronized", "value": "Todos (cargar cuando estén listos)" },
     { "key": "library.networkType.loadOnBoot", "value": "Cargar al iniciar" },
     { "key": "library.networkType.local.description", "value": "Si el elemento está configurado como local, solo será visible e interactivo para ti." },
     { "key": "library.networkType.networked.description", "value": "El elemento aparecerá en todos los jugadores conectados de forma inmediata." },
     { "key": "library.networkType.predownload.description", "value": "Descarga esto a todos los presentes sin generarlo, para que una carga posterior sea instantánea para ellos." },
-    { "key": "library.networkType.synchronized.description", "value": "Se descarga a todos los jugadores y aparece simultáneamente cuando todos estén listos. Tiene un tiempo límite de 5 minutos para conexiones lentas." },
+    { "key": "library.networkType.synchronized.description", "value": "Se descarga para todos los jugadores y luego se carga para todos a la vez cuando están listos. Se omite a quienes dejan de responder y nunca se espera más de 5 minutos." },
     { "key": "library.networkType.loadOnBoot.description", "value": "Carga esto para ti ahora y automáticamente cada vez que inicias. Quítalo de la pestaña Instanciados para que deje de cargarse al arrancar." },
     { "key": "library.networkType.unknown.description", "value": "Tipo de red desconocido." },
     { "key": "library.instantiated.createdAgoBy", "value": "Creado hace {0} por {1}" },
@@ -5667,6 +5669,38 @@
     { "key": "content.share.portal.online", "value": "En línea: {0} / {1} jugadores, {2} ms" },
     { "key": "content.share.portal.name", "value": "Nombre" },
     { "key": "content.share.portal.motd", "value": "Mensaje" },
-    { "key": "content.share.portal.invalid", "value": "No se pudo leer el destino de este portal." }
+    { "key": "content.share.portal.invalid", "value": "No se pudo leer el destino de este portal." },
+    {
+      "key": "settings.admin.joinRestriction.banList",
+      "value": "Lista de bloqueados"
+    },
+    {
+      "key": "settings.admin.joinRestriction.banList.tooltip",
+      "value": "Cualquiera puede unirse salvo los jugadores de BasisBanList.txt."
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries",
+      "value": "Lista de permitidos"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.count",
+      "value": "Lista de permitidos ({0})"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.tooltip",
+      "value": "Jugadores que están ahora en la lista de permitidos. Elige uno para poner su identificador en el campo de abajo."
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList",
+      "value": "Añadir a todos los presentes"
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList.tooltip",
+      "value": "Añade a la lista de permitidos a todos los jugadores conectados ahora mismo."
+    },
+    {
+      "key": "settings.admin.confirm.addEveryoneToAllowList.body",
+      "value": "Todos los jugadores conectados ahora mismo se añadirán a la lista de permitidos y podrán seguir entrando mientras el servidor solo admita la lista de permitidos."
+    }
   ]
 }

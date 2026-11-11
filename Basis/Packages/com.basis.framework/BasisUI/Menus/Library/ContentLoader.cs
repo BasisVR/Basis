@@ -705,9 +705,11 @@ namespace Basis.BasisUI
                     case BundledContentHolder.NetworkType.Synchronized:
                         try
                         {
-                            bool ok = BasisNetworkSpawnItem.RequestSceneLoad(item.Pass, item.Url, persistent, admin, out LocalLoadResource syncResource, loadStrategy: 2);
+                            byte syncStrategy = BasisNetworkPreloadManager.TakeSynchronizedStrategy();
+                            bool ok = BasisNetworkSpawnItem.RequestSceneLoad(item.Pass, item.Url, persistent, admin, out LocalLoadResource syncResource, loadStrategy: syncStrategy);
                             if (ok)
                             {
+                                if (syncStrategy == BasisPredownloadProtocol.StrategySynchronizedClearAll) BasisNetworkPreloadManager.ClearLocalContentOnSpawn(syncResource.LoadedNetID);
                                 BasisDebug.Log($"Requested synchronized SceneLoad for {item.Url}, NetID={syncResource.LoadedNetID}", BasisDebug.LogTag.Networking);
                             }
                             else

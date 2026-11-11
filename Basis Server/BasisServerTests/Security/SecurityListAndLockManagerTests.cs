@@ -147,6 +147,83 @@ public class BasisAllowListTests
     }
 
     [Fact]
+    public void NullId_IsNeverAllowed()
+    {
+        var list = new BasisAllowList();
+        Assert.False(list.IsAllowed(null));
+        Assert.False(list.Add(null));
+        Assert.False(list.Remove(null));
+    }
+
+    [Fact]
+    public void NoPath_KeepsTheListInMemoryOnly()
+    {
+        var list = new BasisAllowList();
+        string id = NewId();
+        Assert.True(list.Add(id));
+        Assert.False(list.Add(id));
+        Assert.True(list.IsAllowed(id));
+        Assert.Equal(1, list.Count);
+    }
+
+    [Fact]
+    public void Snapshot_KeepsInsertionOrder_AndRemoveTrimsLikeAdd()
+    {
+        var list = new BasisAllowList();
+        string a = NewId("a");
+        string b = NewId("b");
+        string c = NewId("c");
+        list.Add(a);
+        list.Add(" " + b + "\r\n");
+        list.Add(c);
+
+        Assert.Equal(new[] { a, b, c }, list.Snapshot());
+        Assert.True(list.Remove("  " + b + " "));
+        Assert.Equal(new[] { a, c }, list.Snapshot());
+    }
+
+    [Fact]
+    public void OverlongId_IsRefused()
+    {
+        var list = new BasisAllowList();
+        Assert.False(list.Add(new string('x', BasisAllowList.MaxIdLength + 1)));
+        Assert.True(list.Add(new string('x', BasisAllowList.MaxIdLength)));
+    }
+
+    [Fact]
+    public async Task ConcurrentAddsAndRemoves_LeaveTheFileMatchingTheList()
+    {
+        string path = NewPath();
+        try
+        {
+            var list = new BasisAllowList(path);
+            string[] ids = new string[40];
+            for (int i = 0; i < ids.Length; i++) ids[i] = NewId("p" + i);
+
+            var work = new List<Task>();
+            foreach (string id in ids) work.Add(Task.Run(() => list.AddToAllowlistAsync(id)));
+            await Task.WhenAll(work);
+            work.Clear();
+            for (int i = 0; i < ids.Length; i += 2)
+            {
+                string id = ids[i];
+                work.Add(Task.Run(() => list.RemoveFromAllowlistAsync(id)));
+            }
+            await Task.WhenAll(work);
+            await list.SaveAllowlistAsync();
+
+            string[] onDisk = await File.ReadAllLinesAsync(path);
+            Assert.Equal(list.Snapshot(), onDisk);
+            Assert.Equal(ids.Length / 2, onDisk.Length);
+            Assert.False(File.Exists(path + ".tmp"));
+        }
+        finally
+        {
+            TryDelete(path);
+        }
+    }
+
+    [Fact]
     public async Task Remove_UnknownId_IsANoOp()
     {
         string path = NewPath();

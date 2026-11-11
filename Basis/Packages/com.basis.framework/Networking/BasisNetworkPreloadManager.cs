@@ -41,7 +41,8 @@ public static partial class BasisNetworkPreloadManager
     {
         public LocalLoadResource LoadResource;
         public BasisTrackedBundleWrapper BundleWrapper;
-        public bool IsReady;
+        public bool IsReady, Downloading, SpawnRequested;
+        public byte Swap;
         public DateTime PreloadStartUtc;
     }
 
@@ -54,12 +55,14 @@ public static partial class BasisNetworkPreloadManager
         {
             LoadResource = resource,
             IsReady = false,
+            Downloading = true,
             PreloadStartUtc = DateTime.UtcNow,
         };
         PreloadedResources[netId] = preloaded;
         BasisTrackedBundleWrapper wrapper = await DownloadShared(resource);
         preloaded.BundleWrapper = wrapper;
         preloaded.IsReady = wrapper != null;
+        preloaded.Downloading = false;
     }
     private static async Task<BasisTrackedBundleWrapper> DownloadShared(LocalLoadResource resource)
     {
@@ -125,22 +128,26 @@ public static partial class BasisNetworkPreloadManager
 
     /// <summary>
     /// Called when the client receives a LoadResource message with LoadStrategy = 2 (Synchronized).
-    /// Downloads content, then reports readiness to the server. Spawning happens later
-    /// when the server sends a SpawnPreloaded signal.
+    /// Downloads content while sending status to the server, then reports readiness. Spawning happens
+    /// when the server sends a SpawnPreloaded signal, or right after the download if that signal came first.
     /// </summary>
     public static async Task HandleSynchronizedPreload(LocalLoadResource resource)
     {
         string netId = resource.LoadedNetID;
+        CancellationToken session = _cts.Token;
+        PredownloadStatus status = TrackPredownload(netId);
+        status.Url = resource.CombinedURL;
+        status.Mode = resource.Mode;
+        status.Local = PredownloadLocalState.Downloading;
+        if (CachedMetaData.TryGetMeta(resource.CombinedURL, out CachedMetaData.CachedContent cached)) status.Name = CleanName(cached?.BasisBundleConnector?.BasisBundleDescription?.AssetBundleName);
+        PublishPredownload(status);
         BasisDebug.Log($"PreloadManager: Beginning synchronized preload for {resource.CombinedURL} (NetID={netId})", BasisDebug.LogTag.Networking);
-
-        // First preload the content
-        await HandlePreload(resource);
-
-        bool isReady = PreloadedResources.TryGetValue(netId, out var preloaded) && preloaded.IsReady;
-
-        // Report readiness to the server
+        Task download = HandlePreload(resource);
+        _ = SendStatusWhileDownloading(netId, session);
+        await download;
+        if (session.IsCancellationRequested || !PreloadedResources.TryGetValue(netId, out PreloadedResource preloaded)) return;
+        bool isReady = preloaded.IsReady;
         SendReadyMessage(netId, isReady);
-
         if (!isReady)
         {
             BasisDebug.LogError($"PreloadManager: Synchronized preload failed for {resource.CombinedURL} (NetID={netId}), reported failure to server");
@@ -149,6 +156,61 @@ public static partial class BasisNetworkPreloadManager
         {
             BasisDebug.Log($"PreloadManager: Synchronized preload ready for {resource.CombinedURL} (NetID={netId}), reported ready to server");
         }
+        if (predownloads.TryGetValue(netId, out PredownloadStatus current) && current == status)
+        {
+            string name = CleanName(preloaded.BundleWrapper?.LoadableBundle?.BasisBundleConnector?.BasisBundleDescription?.AssetBundleName);
+            if (!string.IsNullOrEmpty(name)) status.Name = name;
+            status.Local = isReady ? PredownloadLocalState.Ready : PredownloadLocalState.Failed;
+            PublishPredownload(status);
+        }
+        if (preloaded.SpawnRequested)
+        {
+            BasisDebug.Log($"PreloadManager: Everyone else already loaded {netId}, spawning it now", BasisDebug.LogTag.Networking);
+            await HandleSpawnPreloaded(new SpawnPreloadedMessage { LoadedNetID = netId, Swap = preloaded.Swap });
+        }
+    }
+    public const int StatusIntervalMilliseconds = 3000;
+    public static byte NextSynchronizedStrategy = BasisPredownloadProtocol.StrategySynchronized;
+    private static readonly HashSet<string> clearLocalOnSpawn = new HashSet<string>();
+    public static byte TakeSynchronizedStrategy()
+    {
+        byte strategy = NextSynchronizedStrategy;
+        NextSynchronizedStrategy = BasisPredownloadProtocol.StrategySynchronized;
+        return strategy;
+    }
+    public static void ClearLocalContentOnSpawn(string netId) => clearLocalOnSpawn.Add(netId);
+    private static async Task RemoveLocalWorldsAndProps()
+    {
+        List<string> local = new List<string>();
+        foreach (BasisRuntimeSpawnRegistry.SpawnInstance instance in BasisRuntimeSpawnRegistry.GetAll())
+        {
+            if (instance != null && instance.SpawnMethod != BasisRuntimeSpawnRegistry.SpawnMethod.Network && (instance.SpawnMode == BasisRuntimeSpawnRegistry.SpawnMode.Scene || instance.SpawnMode == BasisRuntimeSpawnRegistry.SpawnMode.GameObject)) local.Add(instance.LoadedNetID);
+        }
+        for (int index = 0; index < local.Count; index++) await BasisRuntimeSpawnRegistry.RemoveByLoadedNetId(local[index]);
+    }
+    private static async Task SendStatusWhileDownloading(string netId, CancellationToken session)
+    {
+        try
+        {
+            while (!session.IsCancellationRequested && PreloadedResources.TryGetValue(netId, out PreloadedResource preloaded) && preloaded.Downloading)
+            {
+                BasisClientMessageRegistry.Send(BasisPredownloadProtocol.MessageName, netId, static (writer, id) =>
+                {
+                    writer.Put(BasisPredownloadProtocol.OpStatus);
+                    writer.Put(id);
+                });
+                await Task.Delay(StatusIntervalMilliseconds, session);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+    public static bool Forget(string netId)
+    {
+        if (!PreloadedResources.TryRemove(netId, out _)) return false;
+        ClosePredownload(netId);
+        return true;
     }
 
     /// <summary>
@@ -194,7 +256,7 @@ public static partial class BasisNetworkPreloadManager
         public string LoadedNetID, Url, Name;
         public byte Mode;
         public ushort Requester;
-        public int Ready, Failed, Total;
+        public int Ready, Failed, Total, Skipped;
         public bool HasCounts, Announced, Closed;
         public PredownloadLocalState Local;
         public int Left => Math.Max(0, Total - Ready - Failed);
@@ -219,7 +281,8 @@ public static partial class BasisNetworkPreloadManager
         string name = string.IsNullOrEmpty(status.Name) ? BasisLocalization.Get("library.downloadForEveryone") : status.Name;
         if (!status.HasCounts) return name;
         if (status.Left > 0) return BasisLocalization.Get("library.predownload.progress", name, status.Ready, status.Total, status.Left);
-        return status.Failed > 0 ? BasisLocalization.Get("library.predownload.failed", name, status.Ready, status.Total, status.Failed) : BasisLocalization.Get("library.predownload.done", name, status.Total);
+        if (status.Failed > 0) return BasisLocalization.Get("library.predownload.failed", name, status.Ready, status.Total, status.Failed);
+        return status.Skipped > 0 ? BasisLocalization.Get("library.predownload.skipped", name, status.Ready, status.Skipped) : BasisLocalization.Get("library.predownload.done", name, status.Total);
     }
     private static string CleanName(string name)
     {
@@ -247,9 +310,11 @@ public static partial class BasisNetworkPreloadManager
                 return;
             }
             if (op != BasisPredownloadProtocol.OpProgress || !reader.TryGetUShort(out ushort requester) || !reader.TryGetUShort(out ushort ready) || !reader.TryGetUShort(out ushort failed) || !reader.TryGetUShort(out ushort total)) return;
+            if (!reader.TryGetUShort(out ushort skipped)) skipped = 0;
             BasisDeviceManagement.EnqueueOnMainThread(() =>
             {
                 PredownloadStatus status = TrackPredownload(netId);
+                status.Skipped = skipped;
                 status.Requester = requester;
                 status.Ready = ready;
                 status.Failed = failed;
@@ -274,7 +339,12 @@ public static partial class BasisNetworkPreloadManager
     private static void PublishPredownload(PredownloadStatus status)
     {
         OnPredownloadChanged?.Invoke(status);
-        if (!status.HasCounts || status.Total <= 0) return;
+        if (!status.HasCounts) return;
+        if (status.Total <= 0)
+        {
+            BasisUILoadingBar.RemoveDisplay(PredownloadHudKey(status.LoadedNetID));
+            return;
+        }
         if (status.Left > 0)
         {
             status.Announced = false;
@@ -314,11 +384,19 @@ public static partial class BasisNetworkPreloadManager
     {
         string netId = spawnMsg.LoadedNetID;
 
-        if (!PreloadedResources.TryRemove(netId, out PreloadedResource preloaded))
+        if (!PreloadedResources.TryGetValue(netId, out PreloadedResource preloaded))
         {
             BasisDebug.LogError($"PreloadManager: Received spawn signal for {netId} but no preloaded resource found");
             return;
         }
+        if (preloaded.Downloading)
+        {
+            preloaded.SpawnRequested = true;
+            preloaded.Swap = spawnMsg.Swap;
+            BasisDebug.Log($"PreloadManager: Spawn signal for {netId} arrived while still downloading, it will spawn when the download finishes", BasisDebug.LogTag.Networking);
+            return;
+        }
+        PreloadedResources.TryRemove(netId, out _);
 
         if (!preloaded.IsReady || preloaded.BundleWrapper == null)
         {
@@ -328,7 +406,11 @@ public static partial class BasisNetworkPreloadManager
 
         // Only unload existing scene content when the synchronized resource is a scene.
         // Props (Mode == 0) should never cause scene unloads.
-        if (preloaded.LoadResource.Mode == 1)
+        if (clearLocalOnSpawn.Remove(netId) && spawnMsg.Swap == BasisPredownloadProtocol.SwapClearAll)
+        {
+            await RemoveLocalWorldsAndProps();
+        }
+        if (preloaded.LoadResource.Mode == 1 && spawnMsg.Swap != BasisPredownloadProtocol.SwapKeepAll)
         {
             await UnloadAllSceneContent();
         }
@@ -392,6 +474,8 @@ public static partial class BasisNetworkPreloadManager
         _cts = new CancellationTokenSource();
         PreloadedResources.Clear();
         inFlight.Clear();
+        clearLocalOnSpawn.Clear();
+        NextSynchronizedStrategy = BasisPredownloadProtocol.StrategySynchronized;
         foreach (string netId in predownloads.Keys) BasisUILoadingBar.RemoveDisplay(PredownloadHudKey(netId));
         predownloads.Clear();
     }

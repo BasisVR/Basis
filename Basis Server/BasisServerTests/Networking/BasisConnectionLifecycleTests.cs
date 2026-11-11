@@ -576,6 +576,76 @@ public class BasisAdmissionGateTests
         Assert.Equal(0, peer.DisconnectCalls);
     }
 
+    [Theory]
+    [InlineData(BasisPermissions.PermNodes.ConfigurationEditor)]
+    [InlineData(BasisPermissions.PermNodes.ModerationAllowlist)]
+    public void AllowListMode_UnlistedStaff_IsRegistered(string node)
+    {
+        using var scope = new ServerStaticsScope();
+        Install(scope, BasisUserRestrictionMode.AllowList);
+
+        int id = LifecycleSupport.NextPeerId();
+        string uuid = LifecycleSupport.NewUuid();
+        FakeNetPeer peer = LifecycleSupport.Peer(id);
+        BasisPermissions.PermissionManager.PermissionIntegration.Manager.AddUserNode(uuid, node);
+        try
+        {
+            BasisServerHandleEvents.OnNetworkAccepted(peer, LifecycleSupport.MakeReady(uuid, "Staff"), uuid);
+
+            Assert.True(NetworkServer.AuthenticatedPeers.ContainsKey(id));
+            Assert.Equal(0, peer.DisconnectCalls);
+        }
+        finally
+        {
+            BasisPermissions.PermissionManager.PermissionIntegration.Manager.RemoveUserNode(uuid, node);
+        }
+    }
+
+    [Fact]
+    public void AllowListMode_MissingList_RejectsInsteadOfAdmittingEveryone()
+    {
+        using var scope = new ServerStaticsScope();
+        Install(scope, BasisUserRestrictionMode.AllowList);
+        NetworkServer.AllowList = null;
+
+        int id = LifecycleSupport.NextPeerId();
+        string uuid = LifecycleSupport.NewUuid();
+        FakeNetPeer peer = LifecycleSupport.Peer(id);
+
+        BasisServerHandleEvents.OnNetworkAccepted(peer, LifecycleSupport.MakeReady(uuid, "Stranger"), uuid);
+
+        Assert.False(NetworkServer.AuthenticatedPeers.ContainsKey(id));
+        Assert.Equal(1, peer.DisconnectCalls);
+    }
+
+    [Fact]
+    public void RejoinOnlyMode_AdmittedUuid_IsRegistered_AndClearDropsIt()
+    {
+        using var scope = new ServerStaticsScope();
+        Install(scope, BasisUserRestrictionMode.RejoinOnly);
+        BasisRejoinLockManager.Clear();
+
+        int id = LifecycleSupport.NextPeerId();
+        string uuid = LifecycleSupport.NewUuid();
+        FakeNetPeer peer = LifecycleSupport.Peer(id);
+        try
+        {
+            Assert.True(BasisRejoinLockManager.Admit(uuid));
+            Assert.False(BasisRejoinLockManager.Admit(uuid));
+
+            BasisServerHandleEvents.OnNetworkAccepted(peer, LifecycleSupport.MakeReady(uuid, "Invited"), uuid);
+
+            Assert.True(NetworkServer.AuthenticatedPeers.ContainsKey(id));
+            Assert.Equal(0, peer.DisconnectCalls);
+        }
+        finally
+        {
+            BasisRejoinLockManager.Clear();
+        }
+        Assert.False(BasisRejoinLockManager.IsAllowed(uuid));
+        Assert.False(BasisRejoinLockManager.Captured);
+    }
+
     [Fact]
     public async Task BanListMode_BannedUuid_IsRejected()
     {

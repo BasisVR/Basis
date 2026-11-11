@@ -81,7 +81,7 @@ impl Client {
     pub unsafe fn new(w: u32, h: u32, rpitch: u32) -> (Client, Bridge) {
         unsafe {
             let factory: IDXGIFactory6 = CreateDXGIFactory2(DXGI_CREATE_FACTORY_FLAGS(0)).unwrap();
-            let adapter: IDXGIAdapter1 = factory.EnumAdapterByGpuPreference(0, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE).unwrap();
+            let adapter: IDXGIAdapter1 = if std::env::var("CLIENT_ADAPTER").map_or(false, |v| v.eq_ignore_ascii_case("warp")) { factory.EnumWarpAdapter().unwrap() } else { factory.EnumAdapterByGpuPreference(0, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE).unwrap() };
             let mut device: Option<ID3D12Device> = None;
             D3D12CreateDevice(&adapter, D3D_FEATURE_LEVEL_12_0, &mut device).unwrap();
             let device = device.unwrap();

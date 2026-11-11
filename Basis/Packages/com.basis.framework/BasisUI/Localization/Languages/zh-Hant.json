@@ -2375,6 +2375,7 @@
     { "key": "library.predownload.progress", "value": "{0}：{1}/{2} 人已就緒，還剩 {3} 人" },
     { "key": "library.predownload.done", "value": "{0}：全部 {1} 人已就緒" },
     { "key": "library.predownload.failed", "value": "{0}：{1}/{2} 人已就緒，{3} 人失敗" },
+    { "key": "library.predownload.skipped", "value": "{0}：{1} 人已就緒，{2} 人無回應" },
     { "key": "library.spawnedCount", "value": "（已生成 {0} 個）" },
     { "key": "library.stack.versions", "value": "{0} 個版本" },
     { "key": "library.stack.latestEntry", "value": "{0} — 最新" },
@@ -2403,11 +2404,12 @@
     { "key": "library.networkType.local", "value": "僅自己" },
     { "key": "library.networkType.networked", "value": "所有人（即時）" },
     { "key": "library.networkType.predownload", "value": "所有人（預先下載）" },
+    { "key": "library.networkType.synchronized", "value": "所有人（就緒後載入）" },
     { "key": "library.networkType.loadOnBoot", "value": "啟動時載入" },
     { "key": "library.networkType.local.description", "value": "若項目設為本地，則僅對你自己可見且可互動。" },
     { "key": "library.networkType.networked.description", "value": "項目將立即在所有已連線的玩家上生成。" },
     { "key": "library.networkType.predownload.description", "value": "將此項目下載給目前在場的所有人但不生成，讓他們稍後載入時能夠即時完成。" },
-    { "key": "library.networkType.synchronized.description", "value": "下載至所有玩家，待所有人準備就緒後同時生成。低速連線有 5 分鐘逾時。" },
+    { "key": "library.networkType.synchronized.description", "value": "為所有玩家下載，待全部就緒後同時載入。停止回應的玩家會被略過，最多等待 5 分鐘。" },
     { "key": "library.networkType.loadOnBoot.description", "value": "立即為您載入此項目，並在您每次啟動時自動載入。從「已實例化」分頁移除它，即可讓它不再於啟動時載入。" },
     { "key": "library.networkType.unknown.description", "value": "未知的網路類型。" },
     { "key": "library.instantiated.createdAgoBy", "value": "由 {1} 於 {0} 前建立" },
@@ -5778,6 +5780,38 @@
     { "key": "content.share.portal.online", "value": "線上：{0} / {1} 名玩家，{2} 毫秒" },
     { "key": "content.share.portal.name", "value": "名稱" },
     { "key": "content.share.portal.motd", "value": "訊息" },
-    { "key": "content.share.portal.invalid", "value": "無法讀取此傳送門的目的地。" }
+    { "key": "content.share.portal.invalid", "value": "無法讀取此傳送門的目的地。" },
+    {
+      "key": "settings.admin.joinRestriction.banList",
+      "value": "封鎖清單"
+    },
+    {
+      "key": "settings.admin.joinRestriction.banList.tooltip",
+      "value": "除了 BasisBanList.txt 中的玩家外,任何人都可以加入。"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries",
+      "value": "允許清單"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.count",
+      "value": "允許清單 ({0})"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.tooltip",
+      "value": "目前在允許清單中的玩家。選擇一位即可將其識別碼填入下方的欄位。"
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList",
+      "value": "加入目前所有人"
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList.tooltip",
+      "value": "將目前連線的所有玩家加入允許清單。"
+    },
+    {
+      "key": "settings.admin.confirm.addEveryoneToAllowList.body",
+      "value": "目前連線的所有玩家都會被加入允許清單,在伺服器僅限允許清單期間仍可繼續加入。"
+    }
   ]
 }

@@ -8,6 +8,8 @@ mod gpu;
 mod lightgrid;
 mod os;
 #[cfg(windows)]
+mod relay;
+#[cfg(windows)]
 mod render;
 #[cfg(windows)]
 mod scene;
@@ -126,8 +128,19 @@ fn new_dx(link: &os::Link) -> Fallible<Box<dyn Backend>> { Ok(Box::new(dx::Trace
 #[cfg(not(windows))]
 fn new_dx(_link: &os::Link) -> Fallible<Box<dyn Backend>> { Err("DirectX ray tracing is only available on Windows".into()) }
 
+#[cfg(windows)]
+fn list_adapters(path: &str) {
+    let mut text = String::new();
+    for a in gpu::adapters() { text.push_str(&format!("{:08x}:{:08x}\t{}\t{}\t{}\n", a.high as u32, a.low, a.usable as u32, a.memory_mb, a.name)); }
+    let _ = std::fs::write(path, text);
+}
+
+#[cfg(not(windows))]
+fn list_adapters(path: &str) { let _ = std::fs::write(path, ""); }
+
 fn main() {
     let args = os::Args::parse();
+    if let Some(path) = &args.list_adapters { list_adapters(path); return; }
     if args.parent == 0 { std::process::exit(2); }
     let mut link = match os::Link::open_mapping(&args) { Ok(l) => l, Err(_) => std::process::exit(3) };
     let base = link.base as usize;

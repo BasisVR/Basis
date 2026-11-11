@@ -1063,9 +1063,20 @@ namespace Basis.BasisUI
             controller.CrashReportingToggle = crashReportingToggle;
             controller.MaxPlayersField = maxPlayersField;
 
+            PanelDropdown allowlistDropdown = PanelDropdown.CreateNewEntry(container);
+            allowlistDropdown.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.allowlistEntries.tooltip"));
+
             PanelTextField allowlistUuidField = PanelTextField.CreateNewEntry(container);
             allowlistUuidField.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.allowlistUuid"));
             allowlistUuidField.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.allowlistUuid.tooltip"));
+
+            allowlistDropdown.OnValueChanged += uuid =>
+            {
+                if (!string.IsNullOrEmpty(uuid)) allowlistUuidField.SetValueWithoutNotify(uuid);
+            };
+            controller.AllowlistDropdown = allowlistDropdown;
+            controller.AllowlistUuidField = allowlistUuidField;
+            controller.RefreshAllowlist();
 
             PanelButton addAllowListButton = PanelButton.CreateNew(container);
             addAllowListButton.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.addToAllowList"));
@@ -1086,6 +1097,16 @@ namespace Basis.BasisUI
                 if (string.IsNullOrEmpty(uuid)) return;
                 BasisNetworkModeration.RemoveAllowlist(uuid);
             };
+
+            PanelButton addEveryoneAllowListButton = PanelButton.CreateNew(container);
+            addEveryoneAllowListButton.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.addEveryoneToAllowList"));
+            addEveryoneAllowListButton.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.addEveryoneToAllowList.tooltip"));
+            addEveryoneAllowListButton.OnClicked += () => WithConfirm(
+                BasisLocalization.Get("settings.admin.title.addEveryoneToAllowList"),
+                BasisLocalization.Get("settings.admin.confirm.addEveryoneToAllowList.body"),
+                BasisLocalization.Get("settings.admin.title.addToAllowList"),
+                BasisLocalization.Get("ui.cancel"),
+                () => BasisNetworkModeration.AddAllowlistEveryone());
 
             PanelButton serverApply = MakeApplyButton(container, serverDirty);
             serverApply.OnClicked += ApplyServerConfiguration;
@@ -1144,18 +1165,20 @@ namespace Basis.BasisUI
         private static int NameToFrameDuration(string name) => name == OpusFrameDurationNames[1] ? 40 : 20;
 
         // Stable wire-order names for BasisUserRestrictionMode plus the keys their labels come from.
-        [NoAutoStaticsCleanup] private static readonly string[] RestrictionModeNames = { "Normal", "AllowList", "RejoinOnly" };
+        [NoAutoStaticsCleanup] private static readonly string[] RestrictionModeNames = { "Normal", "AllowList", "RejoinOnly", "BanList" };
         [NoAutoStaticsCleanup] private static readonly string[] RestrictionModeLocalizationKeys =
         {
             "settings.admin.joinRestriction.normal",
             "settings.admin.joinRestriction.allowList",
             "settings.admin.joinRestriction.rejoinOnly",
+            "settings.admin.joinRestriction.banList",
         };
 
         private static string RestrictionModeToName(BasisUserRestrictionMode mode) => mode switch
         {
             BasisUserRestrictionMode.AllowList => RestrictionModeNames[1],
             BasisUserRestrictionMode.RejoinOnly => RestrictionModeNames[2],
+            BasisUserRestrictionMode.BanList => RestrictionModeNames[3],
             _ => RestrictionModeNames[0],
         };
 
@@ -1163,6 +1186,7 @@ namespace Basis.BasisUI
         {
             "AllowList" => BasisUserRestrictionMode.AllowList,
             "RejoinOnly" => BasisUserRestrictionMode.RejoinOnly,
+            "BanList" => BasisUserRestrictionMode.BanList,
             _ => BasisUserRestrictionMode.Normal,
         };
 
@@ -1403,6 +1427,30 @@ namespace Basis.BasisUI
             public PanelToggle HeadlessAudioToggle;
             public PanelToggle HeadlessDisallowToggle;
             public PanelDropdown RestrictionDropdown;
+            public PanelDropdown AllowlistDropdown;
+            public PanelTextField AllowlistUuidField;
+
+            public void RefreshAllowlist()
+            {
+                if (AllowlistDropdown == null) return;
+                List<BasisNetworkModeration.AllowlistEntry> list = BasisNetworkModeration.ServerAllowlist;
+                List<string> uuids = new List<string>(list.Count);
+                List<string> labels = new List<string>(list.Count);
+                for (int i = 0; i < list.Count; i++)
+                {
+                    uuids.Add(list[i].Uuid);
+                    labels.Add(string.IsNullOrEmpty(list[i].DisplayName) ? list[i].Uuid : $"{Basis.Scripts.BasisSdk.Players.BasisRemotePlayer.BuildSafeDisplayName(list[i].DisplayName)} ({list[i].Uuid})");
+                }
+                AllowlistDropdown.AssignEntries(uuids, labels);
+                AllowlistDropdown.Descriptor.SetTitle(BasisNetworkModeration.ServerAllowlistKnown
+                    ? BasisLocalization.Get("settings.admin.title.allowlistEntries.count", list.Count)
+                    : BasisLocalization.Get("settings.admin.title.allowlistEntries"));
+            }
+
+            private void OnAllowlistPlayerSelected(string uuid)
+            {
+                if (AllowlistUuidField != null && !string.IsNullOrEmpty(uuid)) AllowlistUuidField.SetValueWithoutNotify(uuid);
+            }
             public PanelToggle CrashReportingToggle;
             public PanelTextField MaxPlayersField;
             public PanelSlider OpusPacketLossSlider;
@@ -1511,6 +1559,12 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalCameraPolicyChanged += OnGlobalCameraPolicyChanged;
                 BasisNetworkModeration.OnGlobalRestrictionModeChanged -= OnGlobalRestrictionModeChanged;
                 BasisNetworkModeration.OnGlobalRestrictionModeChanged += OnGlobalRestrictionModeChanged;
+                BasisNetworkModeration.OnAllowlistChanged -= RefreshAllowlist;
+                BasisNetworkModeration.OnAllowlistChanged += RefreshAllowlist;
+                OnPlayerUuidSelected -= OnAllowlistPlayerSelected;
+                OnPlayerUuidSelected += OnAllowlistPlayerSelected;
+                RefreshAllowlist();
+                if (BasisNetworkModeration.LocalPlayerCanEditAllowlist()) BasisNetworkModeration.RequestAllowlist();
                 BasisNetworkModeration.OnGlobalPlayspaceMoverLockedChanged -= OnGlobalPlayspaceMoverLockedChanged;
                 BasisNetworkModeration.OnGlobalPlayspaceMoverLockedChanged += OnGlobalPlayspaceMoverLockedChanged;
                 BasisNetworkModeration.OnGlobalDirectConnectLockedChanged -= OnGlobalDirectConnectLockedChanged;
@@ -1581,6 +1635,8 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnAudioRangeLimitsChanged -= OnAudioRangeLimitsChanged;
                 BasisNetworkModeration.OnGlobalCameraPolicyChanged -= OnGlobalCameraPolicyChanged;
                 BasisNetworkModeration.OnGlobalRestrictionModeChanged -= OnGlobalRestrictionModeChanged;
+                BasisNetworkModeration.OnAllowlistChanged -= RefreshAllowlist;
+                OnPlayerUuidSelected -= OnAllowlistPlayerSelected;
                 BasisNetworkModeration.OnGlobalPlayspaceMoverLockedChanged -= OnGlobalPlayspaceMoverLockedChanged;
                 BasisNetworkModeration.OnGlobalDirectConnectLockedChanged -= OnGlobalDirectConnectLockedChanged;
                 BasisNetworkModeration.OnGlobalCilboxLockChanged -= OnGlobalCilboxLockChanged;
@@ -1623,6 +1679,8 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnAudioRangeLimitsChanged -= OnAudioRangeLimitsChanged;
                 BasisNetworkModeration.OnGlobalCameraPolicyChanged -= OnGlobalCameraPolicyChanged;
                 BasisNetworkModeration.OnGlobalRestrictionModeChanged -= OnGlobalRestrictionModeChanged;
+                BasisNetworkModeration.OnAllowlistChanged -= RefreshAllowlist;
+                OnPlayerUuidSelected -= OnAllowlistPlayerSelected;
                 BasisNetworkModeration.OnGlobalPlayspaceMoverLockedChanged -= OnGlobalPlayspaceMoverLockedChanged;
                 BasisNetworkModeration.OnGlobalDirectConnectLockedChanged -= OnGlobalDirectConnectLockedChanged;
                 BasisNetworkModeration.OnGlobalCilboxLockChanged -= OnGlobalCilboxLockChanged;

@@ -506,6 +506,7 @@ public static partial class BasisNetworkGenericMessages
     {
         UnLoadResource UnLoadResource = new UnLoadResource();
         UnLoadResource.Deserialize(reader);
+        if (BasisNetworkPreloadManager.Forget(UnLoadResource.LoadedNetID)) return;
         switch (UnLoadResource.Mode)
         {
             case 0:

@@ -8,8 +8,25 @@ float4 _BasisGIVoxLevel;
 float4 _BasisGIVoxParams;
 
 RWTexture3D<float4> _BasisGIVoxAlbedoWrite : register(u1);
-RWTexture3D<float4> _BasisGIVoxNormalWrite : register(u2);
+RWTexture3D<uint> _BasisGIVoxNormalWrite : register(u2);
 RWTexture3D<uint> _BasisGIVoxFacesWrite : register(u3);
+
+uint BasisGIVoxelPackNormal(float3 normal)
+{
+    uint3 quantized = (uint3)round(saturate(normal * 0.5 + 0.5) * 1023.0);
+    return 0x80000000u | (quantized.x << 20) | (quantized.y << 10) | quantized.z;
+}
+
+uint BasisGIVoxelPackEmission(float3 emission, float3 within)
+{
+    float peak = max(emission.r, max(emission.g, emission.b));
+    if (peak <= 1.0 / 65536.0) { return 0u; }
+    float exponent = clamp(ceil(log2(peak)) + 15.0, 0.0, 31.0);
+    float3 mantissa = saturate(emission / exp2(exponent - 15.0));
+    uint3 cell = (uint3)(saturate(within) * 7.999);
+    uint key = ((cell.x * 73856093u) ^ (cell.y * 19349663u) ^ (cell.z * 83492791u)) >> 7;
+    return ((key & 15u) << 28) | ((uint)exponent << 23) | ((uint)round(mantissa.r * 255.0) << 15) | ((uint)round(mantissa.g * 255.0) << 7) | (uint)round(mantissa.b * 127.0);
+}
 
 TEXTURE2D(_EmissionMap);
 SAMPLER(sampler_EmissionMap);
@@ -88,14 +105,14 @@ float VoxelFrag(VoxelVaryings input) : SV_Target
 
     float3 normal = normalize(input.normalWS);
     _BasisGIVoxAlbedoWrite[voxel] = float4(BASISGI_VOXEL_UNSEEN_ALBEDO.xxx, 1.0);
-    _BasisGIVoxNormalWrite[voxel] = float4(normal * 0.5 + 0.5, 1.0);
+    InterlockedMax(_BasisGIVoxNormalWrite[voxel], BasisGIVoxelPackNormal(normal));
     uint faces = (normal.x > 0.3 ? 1u : 0u) | (normal.x < -0.3 ? 2u : 0u) | (normal.y > 0.3 ? 4u : 0u) | (normal.y < -0.3 ? 8u : 0u) | (normal.z > 0.3 ? 16u : 0u) | (normal.z < -0.3 ? 32u : 0u);
     InterlockedOr(_BasisGIVoxFacesWrite[voxel], faces);
     return 0.0;
 }
 
 #if defined(BASISGI_VOXEL_EMISSION)
-RWTexture3D<float4> _BasisGIVoxEmissionWrite : register(u4);
+RWTexture3D<uint> _BasisGIVoxEmissionWrite : register(u4);
 
 struct VoxelEmissionAttributes
 {
@@ -145,7 +162,8 @@ float VoxelEmissionFrag(VoxelEmissionVaryings input) : SV_Target
     voxel.z += (int)_BasisGIVoxParams.y;
     float3 emission = max(0.0, _EmissionColor.rgb);
     if (any(_EmissionMap_ST.xy != 0.0)) { emission *= SAMPLE_TEXTURE2D(_EmissionMap, sampler_EmissionMap, input.uv * _EmissionMap_ST.xy + _EmissionMap_ST.zw).rgb; }
-    _BasisGIVoxEmissionWrite[voxel] = float4(min(emission, 60000.0), 1.0);
+    uint encoded = BasisGIVoxelPackEmission(min(emission, 60000.0), frac(local));
+    if (encoded != 0u) { InterlockedMax(_BasisGIVoxEmissionWrite[voxel], encoded); }
     return 0.0;
 }
 #endif

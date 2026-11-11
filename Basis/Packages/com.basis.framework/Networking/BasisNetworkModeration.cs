@@ -65,7 +65,7 @@ public static partial class BasisNetworkModeration
         BasisNetworkConnection.LocalPlayerPeer.Send(
             writer,
             BasisNetworkCommons.AdminChannel,
-            Basis.Network.Core.DeliveryMethod.ReliableSequenced
+            Basis.Network.Core.DeliveryMethod.ReliableOrdered
         );
     }
 
@@ -290,6 +290,51 @@ public static partial class BasisNetworkModeration
         SendAdminRequest(AdminRequestMode.RemoveAllowlist, w => w.Put(uuid));
     }
 
+    public static void RequestAllowlist()
+    {
+        SendAdminRequest(AdminRequestMode.GetAllowlist);
+    }
+
+    public static void AddAllowlistEveryone()
+    {
+        SendAdminRequest(AdminRequestMode.AddAllowlistEveryone);
+    }
+
+    public static bool LocalPlayerCanEditAllowlist() => LocalPlayerHasNode(BasisPermissions.PermNodes.ModerationAllowlist);
+
+    public struct AllowlistEntry
+    {
+        public string Uuid;
+        public string DisplayName;
+    }
+
+    public static List<AllowlistEntry> ServerAllowlist { get; private set; } = new List<AllowlistEntry>();
+    public static bool ServerAllowlistKnown { get; private set; }
+    public static event Action OnAllowlistChanged;
+    private static List<AllowlistEntry> _pendingAllowlist;
+
+    private static void HandleAllowlistResult(NetDataReader reader)
+    {
+        int total = reader.GetInt();
+        int offset = reader.GetInt();
+        int count = reader.GetUShort();
+        if (offset == 0 || _pendingAllowlist == null) _pendingAllowlist = new List<AllowlistEntry>(Math.Max(0, Math.Min(total, 4096)));
+        if (offset != _pendingAllowlist.Count)
+        {
+            _pendingAllowlist = null;
+            return;
+        }
+        for (int i = 0; i < count; i++)
+        {
+            _pendingAllowlist.Add(new AllowlistEntry { Uuid = reader.GetString(), DisplayName = reader.GetString() });
+        }
+        if (_pendingAllowlist.Count < total) return;
+        ServerAllowlist = _pendingAllowlist;
+        _pendingAllowlist = null;
+        ServerAllowlistKnown = true;
+        OnAllowlistChanged?.Invoke();
+    }
+
     /// <summary>
     /// Ask the server to persist a new default-library entry to disk and broadcast
     /// it to every connected client. Mode follows BundledContentHolder.Mode:
@@ -512,6 +557,10 @@ public static partial class BasisNetworkModeration
 
             case AdminRequestMode.MuteStateResult:
                 HandleMuteStateResult(reader);
+                break;
+
+            case AdminRequestMode.AllowlistResult:
+                HandleAllowlistResult(reader);
                 break;
 
             case AdminRequestMode.RenamePlayer:
@@ -1789,6 +1838,14 @@ public static partial class BasisNetworkModeration
         {
             GlobalUserRestrictionMode = BasisUserRestrictionMode.Normal;
             OnGlobalRestrictionModeChanged?.Invoke(GlobalUserRestrictionMode);
+        }
+
+        _pendingAllowlist = null;
+        if (ServerAllowlistKnown || ServerAllowlist.Count != 0)
+        {
+            ServerAllowlist = new List<AllowlistEntry>();
+            ServerAllowlistKnown = false;
+            OnAllowlistChanged?.Invoke();
         }
 
         // Moderation mutes are per-server state exactly like the locks above.

@@ -2375,6 +2375,7 @@
     { "key": "library.predownload.progress", "value": "{0}: {2} میں سے {1} تیار، {3} باقی" },
     { "key": "library.predownload.done", "value": "{0}: تمام {1} تیار" },
     { "key": "library.predownload.failed", "value": "{0}: {2} میں سے {1} تیار، {3} ناکام" },
+    { "key": "library.predownload.skipped", "value": "{0}: {1} تیار، {2} جواب نہیں دے رہے" },
     { "key": "library.spawnedCount", "value": "({0} بنائے گئے)" },
     { "key": "library.stack.versions", "value": "{0} ورژنز" },
     { "key": "library.stack.latestEntry", "value": "{0} — تازہ ترین" },
@@ -2403,11 +2404,12 @@
     { "key": "library.networkType.local", "value": "صرف میں" },
     { "key": "library.networkType.networked", "value": "سب (فوری)" },
     { "key": "library.networkType.predownload", "value": "سب (پہلے سے ڈاؤن لوڈ)" },
+    { "key": "library.networkType.synchronized", "value": "سب (تیار ہونے پر لوڈ)" },
     { "key": "library.networkType.loadOnBoot", "value": "بوٹ پر لوڈ کریں" },
     { "key": "library.networkType.local.description", "value": "اگر آئٹم مقامی پر سیٹ ہے، تو یہ صرف آپ کو نظر آئے گا اور صرف آپ تعامل کر سکیں گے۔" },
     { "key": "library.networkType.networked.description", "value": "آئٹم تمام منسلک کھلاڑیوں پر فوری طور پر بنایا جائے گا۔" },
     { "key": "library.networkType.predownload.description", "value": "اسے ابھی یہاں موجود سب کو ڈاؤن لوڈ کرتا ہے بغیر اسپان کیے، تاکہ بعد میں لوڈ ان کے لیے فوری ہو۔" },
-    { "key": "library.networkType.synchronized.description", "value": "تمام کھلاڑیوں کو ڈاؤن لوڈ ہوتا ہے، پھر سب کے تیار ہونے پر بیک وقت بنایا جاتا ہے۔ سست کنکشنز کے لیے 5 منٹ کا ٹائم آؤٹ ہے۔" },
+    { "key": "library.networkType.synchronized.description", "value": "تمام کھلاڑیوں کے لیے ڈاؤن لوڈ کرتا ہے، پھر سب کے تیار ہونے پر سب کے لیے ایک ساتھ لوڈ کرتا ہے۔ جواب دینا بند کرنے والے کھلاڑیوں کو چھوڑ دیا جاتا ہے اور انتظار کبھی 5 منٹ سے زیادہ نہیں ہوتا۔" },
     { "key": "library.networkType.loadOnBoot.description", "value": "اسے ابھی آپ کے لیے اور ہر بار جب آپ لانچ کرتے ہیں خودکار طور پر لوڈ کرتا ہے۔ اسے اسٹارٹ اپ پر لوڈ ہونے سے روکنے کے لیے اسپان کردہ ٹیب سے ہٹا دیں۔" },
     { "key": "library.networkType.unknown.description", "value": "نامعلوم نیٹ ورک قسم۔" },
     { "key": "library.instantiated.createdAgoBy", "value": "{0} پہلے {1} نے بنایا" },
@@ -5778,6 +5780,38 @@
     { "key": "content.share.portal.online", "value": "آن لائن: {0} / {1} کھلاڑی، {2} ms" },
     { "key": "content.share.portal.name", "value": "نام" },
     { "key": "content.share.portal.motd", "value": "پیغام" },
-    { "key": "content.share.portal.invalid", "value": "اس پورٹل کی منزل نہیں پڑھی جا سکی۔" }
+    { "key": "content.share.portal.invalid", "value": "اس پورٹل کی منزل نہیں پڑھی جا سکی۔" },
+    {
+      "key": "settings.admin.joinRestriction.banList",
+      "value": "پابندی کی فہرست"
+    },
+    {
+      "key": "settings.admin.joinRestriction.banList.tooltip",
+      "value": "BasisBanList.txt میں درج کھلاڑیوں کے سوا کوئی بھی شامل ہو سکتا ہے۔"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries",
+      "value": "اجازت کی فہرست"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.count",
+      "value": "اجازت کی فہرست ({0})"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.tooltip",
+      "value": "وہ کھلاڑی جو اس وقت اجازت کی فہرست میں ہیں۔ کسی ایک کو منتخب کریں تاکہ اس کا شناخت کنندہ نیچے والے خانے میں آ جائے۔"
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList",
+      "value": "یہاں موجود سب کو شامل کریں"
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList.tooltip",
+      "value": "اس وقت جڑے ہر کھلاڑی کو اجازت کی فہرست میں شامل کرتا ہے۔"
+    },
+    {
+      "key": "settings.admin.confirm.addEveryoneToAllowList.body",
+      "value": "اس وقت جڑا ہر کھلاڑی اجازت کی فہرست میں شامل کر دیا جائے گا اور جب تک سرور صرف اجازت کی فہرست تک محدود ہے، وہ شامل ہوتا رہ سکے گا۔"
+    }
   ]
 }

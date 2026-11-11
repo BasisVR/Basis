@@ -2325,6 +2325,7 @@
     { "key": "library.predownload.progress", "value": "{0}: {1} de {2} prontos, faltam {3}" },
     { "key": "library.predownload.done", "value": "{0}: todos os {1} prontos" },
     { "key": "library.predownload.failed", "value": "{0}: {1} de {2} prontos, {3} falharam" },
+    { "key": "library.predownload.skipped", "value": "{0}: {1} prontos, {2} sem resposta" },
     { "key": "library.spawnedCount", "value": "({0} spawnados)" },
     { "key": "library.stack.versions", "value": "{0} versões" },
     { "key": "library.stack.latestEntry", "value": "{0} — Mais Recente" },
@@ -2353,11 +2354,12 @@
     { "key": "library.networkType.local", "value": "Apenas Eu" },
     { "key": "library.networkType.networked", "value": "Todos (Instantâneo)" },
     { "key": "library.networkType.predownload", "value": "Todos (Pré-Download)" },
+    { "key": "library.networkType.synchronized", "value": "Todos (carregar quando prontos)" },
     { "key": "library.networkType.loadOnBoot", "value": "Carregar na Inicialização" },
     { "key": "library.networkType.local.description", "value": "Se o item estiver definido como local, ele só será visível e interativo para você." },
     { "key": "library.networkType.networked.description", "value": "O item será spawnado em todos os jogadores conectados imediatamente." },
     { "key": "library.networkType.predownload.description", "value": "Baixa isto para todos que estão aqui agora sem instanciá-lo, para que um carregamento posterior seja instantâneo para eles." },
-    { "key": "library.networkType.synchronized.description", "value": "Faz download para todos os jogadores e depois spawna simultaneamente quando todos estiverem prontos. Tem um tempo limite de 5 minutos para conexões lentas." },
+    { "key": "library.networkType.synchronized.description", "value": "Transfere para todos os jogadores e depois carrega para todos ao mesmo tempo quando estiverem prontos. Quem deixar de responder é ignorado e a espera nunca passa de 5 minutos." },
     { "key": "library.networkType.loadOnBoot.description", "value": "Carrega isto para você agora e automaticamente toda vez que você inicia. Remova-o da aba Instanciados para que ele pare de carregar na inicialização." },
     { "key": "library.networkType.unknown.description", "value": "Tipo de rede desconhecido." },
     { "key": "library.instantiated.createdAgoBy", "value": "Criado há {0} por {1}" },
@@ -5667,6 +5669,38 @@
     { "key": "content.share.portal.online", "value": "Online: {0} / {1} jogadores, {2} ms" },
     { "key": "content.share.portal.name", "value": "Nome" },
     { "key": "content.share.portal.motd", "value": "Mensagem" },
-    { "key": "content.share.portal.invalid", "value": "Não foi possível ler o destino deste portal." }
+    { "key": "content.share.portal.invalid", "value": "Não foi possível ler o destino deste portal." },
+    {
+      "key": "settings.admin.joinRestriction.banList",
+      "value": "Lista de banidos"
+    },
+    {
+      "key": "settings.admin.joinRestriction.banList.tooltip",
+      "value": "Qualquer pessoa pode entrar, exceto os jogadores em BasisBanList.txt."
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries",
+      "value": "Lista de permitidos"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.count",
+      "value": "Lista de permitidos ({0})"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.tooltip",
+      "value": "Jogadores que estão agora na lista de permitidos. Escolha um para colocar o identificador no campo abaixo."
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList",
+      "value": "Adicionar todos os presentes"
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList.tooltip",
+      "value": "Adiciona à lista de permitidos todos os jogadores conectados neste momento."
+    },
+    {
+      "key": "settings.admin.confirm.addEveryoneToAllowList.body",
+      "value": "Todos os jogadores conectados neste momento serão adicionados à lista de permitidos e poderão continuar entrando enquanto o servidor aceitar apenas a lista de permitidos."
+    }
   ]
 }

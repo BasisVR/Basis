@@ -2375,6 +2375,7 @@
     { "key": "library.predownload.progress", "value": "{0}: {2}人中{1}人が準備完了、残り{3}人" },
     { "key": "library.predownload.done", "value": "{0}: {1}人全員が準備完了" },
     { "key": "library.predownload.failed", "value": "{0}: {2}人中{1}人が準備完了、{3}人が失敗" },
+    { "key": "library.predownload.skipped", "value": "{0}: {1}人が準備完了、{2}人が応答なし" },
     { "key": "library.spawnedCount", "value": "({0}スポーン済み)" },
     { "key": "library.stack.versions", "value": "{0} 個のバージョン" },
     { "key": "library.stack.latestEntry", "value": "{0} — 最新" },
@@ -2403,11 +2404,12 @@
     { "key": "library.networkType.local", "value": "自分のみ" },
     { "key": "library.networkType.networked", "value": "全員（即時）" },
     { "key": "library.networkType.predownload", "value": "全員（事前ダウンロード）" },
+    { "key": "library.networkType.synchronized", "value": "全員（準備完了後に読み込み）" },
     { "key": "library.networkType.loadOnBoot", "value": "起動時に読み込む" },
     { "key": "library.networkType.local.description", "value": "ローカルに設定されたアイテムは、あなただけに表示・操作可能です。" },
     { "key": "library.networkType.networked.description", "value": "接続中のすべてのプレイヤーに即座にスポーンされます。" },
     { "key": "library.networkType.predownload.description", "value": "これをスポーンせずに現在ここにいる全員にダウンロードするため、後で読み込む際に即座に読み込まれます。" },
-    { "key": "library.networkType.synchronized.description", "value": "全プレイヤーにダウンロードされ、全員の準備が整うと同時にスポーンします。低速接続には5分のタイムアウトがあります。" },
+    { "key": "library.networkType.synchronized.description", "value": "全プレイヤーにダウンロードし、全員の準備ができたら同時に読み込みます。応答がなくなったプレイヤーは待たずに進み、最長でも5分しか待ちません。" },
     { "key": "library.networkType.loadOnBoot.description", "value": "これを今すぐ、および起動するたびに自動的に読み込みます。起動時の読み込みを停止するには、「インスタンス化」タブから削除してください。" },
     { "key": "library.networkType.unknown.description", "value": "不明なネットワーク種別です。" },
     { "key": "library.instantiated.createdAgoBy", "value": "{0}前に{1}が作成" },
@@ -5778,6 +5780,38 @@
     { "key": "content.share.portal.online", "value": "オンライン: {0} / {1} 人、{2} ms" },
     { "key": "content.share.portal.name", "value": "名前" },
     { "key": "content.share.portal.motd", "value": "メッセージ" },
-    { "key": "content.share.portal.invalid", "value": "このポータルの行き先を読み取れませんでした。" }
+    { "key": "content.share.portal.invalid", "value": "このポータルの行き先を読み取れませんでした。" },
+    {
+      "key": "settings.admin.joinRestriction.banList",
+      "value": "禁止リスト"
+    },
+    {
+      "key": "settings.admin.joinRestriction.banList.tooltip",
+      "value": "BasisBanList.txt に載っているプレイヤー以外は誰でも参加できます。"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries",
+      "value": "許可リスト"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.count",
+      "value": "許可リスト ({0})"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.tooltip",
+      "value": "現在許可リストに載っているプレイヤーです。選ぶと、その識別子が下の欄に入ります。"
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList",
+      "value": "今いる全員を追加"
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList.tooltip",
+      "value": "現在接続しているすべてのプレイヤーを許可リストに追加します。"
+    },
+    {
+      "key": "settings.admin.confirm.addEveryoneToAllowList.body",
+      "value": "現在接続しているすべてのプレイヤーが許可リストに追加され、サーバーが許可リスト限定の間も参加し続けられます。"
+    }
   ]
 }

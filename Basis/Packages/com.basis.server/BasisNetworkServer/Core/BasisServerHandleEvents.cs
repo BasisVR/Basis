@@ -728,8 +728,8 @@ namespace BasisServerHandle
             // BasisUserRestrictionMode.AllowList on entry. Banlist is enforced separately
             // at HandleConnectionRequest / BasisDIDAuthIdentity.ProcessConnection.
             if (NetworkServer.Configuration.BasisUserRestrictionMode == BasisUserRestrictionMode.AllowList
-                && NetworkServer.AllowList != null
-                && !NetworkServer.AllowList.IsAllowed(UUID))
+                && (NetworkServer.AllowList == null || !NetworkServer.AllowList.IsAllowed(UUID))
+                && !BasisRejoinLockManager.IsStaff(UUID))
             {
                 BNL.Log($"Rejecting peer {PeerId} (UUID {UUID}) — not on allowlist.");
                 RejectWithReason(newPeer, "You are not on the allowlist.");
@@ -746,10 +746,10 @@ namespace BasisServerHandle
             }
 
             // Rejoin-only lockdown: only UUIDs captured when the mode was enabled may (re)connect.
-            // Config-editor admins always bypass so an admin can't lock themselves out.
+            // Staff always bypass so an admin can't lock themselves out.
             if (NetworkServer.Configuration.BasisUserRestrictionMode == BasisUserRestrictionMode.RejoinOnly
                 && !BasisRejoinLockManager.IsAllowed(UUID)
-                && !PermissionIntegration.HasValidRequirement(UUID, PermNodes.ConfigurationEditor))
+                && !BasisRejoinLockManager.IsStaff(UUID))
             {
                 BNL.Log($"Rejecting peer {PeerId} (UUID {UUID}) — server locked to current players (rejoin-only).");
                 RejectWithReason(newPeer, "The server is locked — only players already here may rejoin.");
@@ -1644,8 +1644,14 @@ namespace BasisServerHandle
                 case 0:
                     BasisNetworkResourceManagement.LoadResource(LocalLoadResource);
                     break;
-                case 2: // Synchronized
-                    BasisNetworkPreloadResourceManagement.StartSynchronizedLoad(LocalLoadResource);
+                case BasisPredownloadProtocol.StrategySynchronized:
+                    BasisNetworkPreloadResourceManagement.StartSynchronizedLoad(LocalLoadResource, Peer.Id);
+                    break;
+                case BasisPredownloadProtocol.StrategySynchronizedClearAll:
+                    BasisNetworkPreloadResourceManagement.StartSynchronizedLoad(LocalLoadResource, Peer.Id, BasisPredownloadProtocol.SwapClearAll);
+                    break;
+                case BasisPredownloadProtocol.StrategySynchronizedKeepAll:
+                    BasisNetworkPreloadResourceManagement.StartSynchronizedLoad(LocalLoadResource, Peer.Id, BasisPredownloadProtocol.SwapKeepAll);
                     break;
                 case 3: // Predownload only - tell everyone to cache it; do not register or spawn
                     BasisNetworkResourceManagement.PredownloadResource(LocalLoadResource, Peer.Id);

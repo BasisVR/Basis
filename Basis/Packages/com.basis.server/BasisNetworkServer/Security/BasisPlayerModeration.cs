@@ -692,12 +692,30 @@ namespace BasisNetworkServer.Security
 
                 case AdminRequestMode.AddAllowlist:
                     Require(peer, PermNodes.ModerationAllowlist, () =>
-                        SendBackMessage(peer, ApplyAllowlistAdd(reader.GetString())));
+                    {
+                        SendBackMessage(peer, ApplyAllowlistAdd(reader.GetString()));
+                        SendAllowlist(peer);
+                    });
                     break;
 
                 case AdminRequestMode.RemoveAllowlist:
                     Require(peer, PermNodes.ModerationAllowlist, () =>
-                        SendBackMessage(peer, ApplyAllowlistRemove(reader.GetString())));
+                    {
+                        SendBackMessage(peer, ApplyAllowlistRemove(reader.GetString()));
+                        SendAllowlist(peer);
+                    });
+                    break;
+
+                case AdminRequestMode.GetAllowlist:
+                    Require(peer, PermNodes.ModerationAllowlist, () => SendAllowlist(peer));
+                    break;
+
+                case AdminRequestMode.AddAllowlistEveryone:
+                    Require(peer, PermNodes.ModerationAllowlist, () =>
+                    {
+                        SendBackMessage(peer, ApplyAllowlistAddEveryone());
+                        SendAllowlist(peer);
+                    });
                     break;
 
                 case AdminRequestMode.AddDefaultLibraryItem:
@@ -758,33 +776,104 @@ namespace BasisNetworkServer.Security
                 return $"Unknown restriction mode value {mode}.";
             NetworkServer.Configuration.BasisUserRestrictionMode = parsed;
 
-            if (parsed == BasisUserRestrictionMode.RejoinOnly)
-                BasisRejoinLockManager.CaptureCurrentPopulation();
-            else
+            if (parsed != BasisUserRestrictionMode.RejoinOnly)
                 BasisRejoinLockManager.Clear();
+            else if (!BasisRejoinLockManager.Captured)
+                BasisRejoinLockManager.CaptureCurrentPopulation();
 
             SaveConfig();
             // Restriction mode rides on the lock-state payload; push it so connected clients refresh.
             BasisGlobalLockManager.BroadcastLockState();
-            return $"Restriction mode set to {parsed}.";
+            switch (parsed)
+            {
+                case BasisUserRestrictionMode.AllowList:
+                    int outside = CountConnectedOutsideAllowlist();
+                    return outside == 0
+                        ? $"Restriction mode set to AllowList ({NetworkServer.AllowList?.Count ?? 0} on the list). Staff can always join."
+                        : $"Restriction mode set to AllowList ({NetworkServer.AllowList?.Count ?? 0} on the list). {outside} player(s) here now are not on it: they stay connected but cannot rejoin until added.";
+                case BasisUserRestrictionMode.RejoinOnly:
+                    return $"Restriction mode set to RejoinOnly. {BasisRejoinLockManager.Count} player(s) here now may rejoin; staff can always join.";
+                default:
+                    return $"Restriction mode set to {parsed}.";
+            }
+        }
+
+        private static int CountConnectedOutsideAllowlist()
+        {
+            if (NetworkServer.AllowList == null || NetworkServer.AuthIdentity == null) return 0;
+            int outside = 0;
+            foreach (NetPeer connected in NetworkServer.AuthenticatedPeers.Values)
+            {
+                if (NetworkServer.AuthIdentity.NetIDToUUID(connected, out string uuid) && !string.IsNullOrEmpty(uuid)
+                    && !NetworkServer.AllowList.IsAllowed(uuid) && !BasisRejoinLockManager.IsStaff(uuid))
+                    outside++;
+            }
+            return outside;
         }
 
         private static string ApplyAllowlistAdd(string uuid)
         {
-            if (string.IsNullOrWhiteSpace(uuid)) return "UUID was empty.";
             if (NetworkServer.AllowList == null) return "AllowList not initialized.";
-            // Fire-and-forget: BasisAllowList.AddToAllowlistAsync appends one line and
-            // is safe to leave running while we report the operation back to the admin.
-            _ = NetworkServer.AllowList.AddToAllowlistAsync(uuid);
-            return $"Added {uuid} to allowlist.";
+            string id = BasisAllowList.Sanitize(uuid);
+            if (id == null) return string.IsNullOrWhiteSpace(uuid) ? "UUID was empty." : $"UUID is longer than {BasisAllowList.MaxIdLength} characters.";
+            bool admitted = NetworkServer.Configuration.BasisUserRestrictionMode == BasisUserRestrictionMode.RejoinOnly && BasisRejoinLockManager.Admit(id);
+            if (!NetworkServer.AllowList.Add(id))
+                return admitted ? $"{id} was already on the allowlist; let through the current lockdown." : $"{id} is already on the allowlist.";
+            _ = NetworkServer.AllowList.SaveAllowlistAsync();
+            return admitted ? $"Added {id} to allowlist and let through the current lockdown." : $"Added {id} to allowlist.";
         }
 
         private static string ApplyAllowlistRemove(string uuid)
         {
-            if (string.IsNullOrWhiteSpace(uuid)) return "UUID was empty.";
             if (NetworkServer.AllowList == null) return "AllowList not initialized.";
-            _ = NetworkServer.AllowList.RemoveFromAllowlistAsync(uuid);
-            return $"Removed {uuid} from allowlist.";
+            string id = BasisAllowList.Sanitize(uuid);
+            if (id == null) return "UUID was empty.";
+            if (!NetworkServer.AllowList.Remove(id)) return $"{id} is not on the allowlist.";
+            _ = NetworkServer.AllowList.SaveAllowlistAsync();
+            bool connected = NetworkServer.AuthIdentity != null && NetworkServer.AuthIdentity.UUIDToNetID(id, out _);
+            return connected
+                ? $"Removed {id} from allowlist. They are connected now and stay until they leave or are kicked."
+                : $"Removed {id} from allowlist.";
+        }
+
+        private static string ApplyAllowlistAddEveryone()
+        {
+            if (NetworkServer.AllowList == null) return "AllowList not initialized.";
+            if (NetworkServer.AuthIdentity == null) return "Player identities are not available on this server.";
+            int added = 0;
+            foreach (NetPeer connected in NetworkServer.AuthenticatedPeers.Values)
+            {
+                if (NetworkServer.AuthIdentity.NetIDToUUID(connected, out string uuid) && NetworkServer.AllowList.Add(uuid))
+                    added++;
+            }
+            if (added > 0) _ = NetworkServer.AllowList.SaveAllowlistAsync();
+            return $"Added {added} connected player(s) to the allowlist ({NetworkServer.AllowList.Count} total).";
+        }
+
+        private const int AllowlistPageSize = 32;
+
+        private static void SendAllowlist(NetPeer peer)
+        {
+            string[] entries = NetworkServer.AllowList?.Snapshot() ?? Array.Empty<string>();
+            int offset = 0;
+            do
+            {
+                int count = Math.Min(AllowlistPageSize, entries.Length - offset);
+                NetDataWriter writer = NetworkServer.RentWriter();
+                new AdminRequest().Serialize(writer, AdminRequestMode.AllowlistResult);
+                writer.Put(entries.Length);
+                writer.Put(offset);
+                writer.Put((ushort)count);
+                for (int i = offset; i < offset + count; i++)
+                {
+                    writer.Put(entries[i]);
+                    writer.Put(PermissionIntegration.TryGetPlayerMeta(entries[i], out var meta) ? meta.playerDisplayName ?? string.Empty : string.Empty);
+                }
+                NetworkServer.TrySend(peer, writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
+                NetworkServer.ReturnWriter(writer);
+                offset += count;
+            }
+            while (offset < entries.Length);
         }
 
         private static string ApplyAddDefaultLibraryItem(byte mode, string url, string password)

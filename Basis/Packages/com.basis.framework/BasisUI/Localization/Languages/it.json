@@ -2375,6 +2375,7 @@
     { "key": "library.predownload.progress", "value": "{0}: {1} su {2} pronti, {3} rimanenti" },
     { "key": "library.predownload.done", "value": "{0}: tutti e {1} pronti" },
     { "key": "library.predownload.failed", "value": "{0}: {1} su {2} pronti, {3} non riusciti" },
+    { "key": "library.predownload.skipped", "value": "{0}: {1} pronti, {2} senza risposta" },
     { "key": "library.spawnedCount", "value": "({0} generati)" },
     { "key": "library.stack.versions", "value": "{0} versioni" },
     { "key": "library.stack.latestEntry", "value": "{0} — Più recente" },
@@ -2403,11 +2404,12 @@
     { "key": "library.networkType.local", "value": "Solo io" },
     { "key": "library.networkType.networked", "value": "Tutti (istantaneo)" },
     { "key": "library.networkType.predownload", "value": "Tutti (pre-download)" },
+    { "key": "library.networkType.synchronized", "value": "Tutti (carica quando pronti)" },
     { "key": "library.networkType.loadOnBoot", "value": "Carica all'avvio" },
     { "key": "library.networkType.local.description", "value": "Se l'elemento è impostato su locale, sarà visibile e interattivo solo per te." },
     { "key": "library.networkType.networked.description", "value": "L'elemento apparirà immediatamente per tutti i giocatori connessi." },
     { "key": "library.networkType.predownload.description", "value": "Scarica questo per tutti i presenti senza generarlo, così un caricamento successivo sarà istantaneo per loro." },
-    { "key": "library.networkType.synchronized.description", "value": "Scaricato da tutti i giocatori, poi generato simultaneamente quando tutti sono pronti. Timeout di 5 minuti per le connessioni lente." },
+    { "key": "library.networkType.synchronized.description", "value": "Scarica per tutti i giocatori, poi carica per tutti insieme quando sono pronti. Chi smette di rispondere viene saltato e l'attesa non supera mai i 5 minuti." },
     { "key": "library.networkType.loadOnBoot.description", "value": "Carica questo per te ora e automaticamente ogni volta che avvii. Rimuovilo dalla scheda Istanziati per impedirne il caricamento all'avvio." },
     { "key": "library.networkType.unknown.description", "value": "Tipo di rete sconosciuto." },
     { "key": "library.instantiated.createdAgoBy", "value": "Creato {0} fa da {1}" },
@@ -5778,6 +5780,38 @@
     { "key": "content.share.portal.online", "value": "Online: {0} / {1} giocatori, {2} ms" },
     { "key": "content.share.portal.name", "value": "Nome" },
     { "key": "content.share.portal.motd", "value": "Messaggio" },
-    { "key": "content.share.portal.invalid", "value": "Impossibile leggere la destinazione di questo portale." }
+    { "key": "content.share.portal.invalid", "value": "Impossibile leggere la destinazione di questo portale." },
+    {
+      "key": "settings.admin.joinRestriction.banList",
+      "value": "Lista dei bannati"
+    },
+    {
+      "key": "settings.admin.joinRestriction.banList.tooltip",
+      "value": "Chiunque può entrare tranne i giocatori in BasisBanList.txt."
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries",
+      "value": "Lista consentiti"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.count",
+      "value": "Lista consentiti ({0})"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.tooltip",
+      "value": "Giocatori attualmente nella lista consentiti. Scegline uno per inserire il suo identificatore nel campo sottostante."
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList",
+      "value": "Aggiungi tutti i presenti"
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList.tooltip",
+      "value": "Aggiunge alla lista consentiti tutti i giocatori connessi in questo momento."
+    },
+    {
+      "key": "settings.admin.confirm.addEveryoneToAllowList.body",
+      "value": "Tutti i giocatori connessi in questo momento verranno aggiunti alla lista consentiti e potranno continuare a entrare finché il server accetta solo la lista consentiti."
+    }
   ]
 }

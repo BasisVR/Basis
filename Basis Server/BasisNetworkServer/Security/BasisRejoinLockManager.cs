@@ -22,6 +22,7 @@ namespace BasisNetworkServer.Security
         /// </summary>
         public static void CaptureCurrentPopulation()
         {
+            Captured = true;
             _allowed.Clear();
             if (NetworkServer.AuthIdentity == null) return;
 
@@ -37,9 +38,21 @@ namespace BasisNetworkServer.Security
         }
 
         /// <summary>Drop the captured set (mode changed away from RejoinOnly).</summary>
-        public static void Clear() => _allowed.Clear();
+        public static void Clear()
+        {
+            Captured = false;
+            _allowed.Clear();
+        }
+
+        public static bool Captured { get; private set; }
+
+        public static bool Admit(string uuid) => !string.IsNullOrEmpty(uuid) && _allowed.TryAdd(uuid, 0);
 
         /// <summary>True if this UUID was connected when the lockdown was enabled.</summary>
         public static bool IsAllowed(string uuid) => !string.IsNullOrEmpty(uuid) && _allowed.ContainsKey(uuid);
+
+        public static bool IsStaff(string uuid) => !string.IsNullOrEmpty(uuid)
+            && (BasisPermissions.PermissionManager.PermissionIntegration.HasValidRequirement(uuid, BasisPermissions.PermNodes.ConfigurationEditor)
+            || BasisPermissions.PermissionManager.PermissionIntegration.HasValidRequirement(uuid, BasisPermissions.PermNodes.ModerationAllowlist));
     }
 }

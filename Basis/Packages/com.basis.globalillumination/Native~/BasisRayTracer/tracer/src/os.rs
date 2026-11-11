@@ -3,6 +3,7 @@ use basis_rt_protocol::*;
 pub struct Args {
     pub parent: u32,
     pub vulkan: bool,
+    pub list_adapters: Option<String>,
     #[cfg(unix)]
     pub shm: i32,
     #[cfg(unix)]
@@ -19,6 +20,7 @@ impl Args {
         Args {
             parent: number("--parent").unwrap_or(0) as u32,
             vulkan: cfg!(not(windows)) || value("--api").is_some_and(|v| v.eq_ignore_ascii_case("vulkan")),
+            list_adapters: value("--list-adapters"),
             #[cfg(unix)]
             shm: number("--shm").unwrap_or(-1) as i32,
             #[cfg(unix)]

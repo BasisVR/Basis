@@ -2375,6 +2375,7 @@
     { "key": "library.predownload.progress", "value": "{0}：{1}/{2} 人已就绪，还剩 {3} 人" },
     { "key": "library.predownload.done", "value": "{0}：全部 {1} 人已就绪" },
     { "key": "library.predownload.failed", "value": "{0}：{1}/{2} 人已就绪，{3} 人失败" },
+    { "key": "library.predownload.skipped", "value": "{0}：{1} 人已就绪，{2} 人无响应" },
     { "key": "library.spawnedCount", "value": "（已生成 {0} 个）" },
     { "key": "library.stack.versions", "value": "{0} 个版本" },
     { "key": "library.stack.latestEntry", "value": "{0} — 最新" },
@@ -2403,11 +2404,12 @@
     { "key": "library.networkType.local", "value": "仅自己" },
     { "key": "library.networkType.networked", "value": "所有人（即时）" },
     { "key": "library.networkType.predownload", "value": "所有人（预下载）" },
+    { "key": "library.networkType.synchronized", "value": "所有人（就绪后加载）" },
     { "key": "library.networkType.loadOnBoot", "value": "启动时加载" },
     { "key": "library.networkType.local.description", "value": "若项目设为本地，则仅对你自己可见且可交互。" },
     { "key": "library.networkType.networked.description", "value": "项目将立即在所有已连接的玩家上生成。" },
     { "key": "library.networkType.predownload.description", "value": "将此项目下载给当前在场的所有人但不生成它，以便他们之后加载时能即时完成。" },
-    { "key": "library.networkType.synchronized.description", "value": "下载至所有玩家，待所有人准备就绪后同时生成。低速连接有 5 分钟超时。" },
+    { "key": "library.networkType.synchronized.description", "value": "为所有玩家下载，待全部就绪后同时加载。停止响应的玩家会被跳过，最多等待 5 分钟。" },
     { "key": "library.networkType.loadOnBoot.description", "value": "现在为你加载此项目，并在每次启动时自动加载。从“已生成”选项卡中移除它即可停止启动时加载。" },
     { "key": "library.networkType.unknown.description", "value": "未知的网络类型。" },
     { "key": "library.instantiated.createdAgoBy", "value": "由 {1} 于 {0} 前创建" },
@@ -5778,6 +5780,38 @@
     { "key": "content.share.portal.online", "value": "在线：{0} / {1} 名玩家，{2} 毫秒" },
     { "key": "content.share.portal.name", "value": "名称" },
     { "key": "content.share.portal.motd", "value": "消息" },
-    { "key": "content.share.portal.invalid", "value": "无法读取此传送门的目的地。" }
+    { "key": "content.share.portal.invalid", "value": "无法读取此传送门的目的地。" },
+    {
+      "key": "settings.admin.joinRestriction.banList",
+      "value": "封禁列表"
+    },
+    {
+      "key": "settings.admin.joinRestriction.banList.tooltip",
+      "value": "除 BasisBanList.txt 中的玩家外,任何人都可以加入。"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries",
+      "value": "允许列表"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.count",
+      "value": "允许列表 ({0})"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.tooltip",
+      "value": "当前在允许列表中的玩家。选择一位即可将其标识符填入下方的输入框。"
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList",
+      "value": "添加当前所有人"
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList.tooltip",
+      "value": "将当前连接的所有玩家添加到允许列表。"
+    },
+    {
+      "key": "settings.admin.confirm.addEveryoneToAllowList.body",
+      "value": "当前连接的所有玩家都会被添加到允许列表,在服务器仅限允许列表期间仍可继续加入。"
+    }
   ]
 }

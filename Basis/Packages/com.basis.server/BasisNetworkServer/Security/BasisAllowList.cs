@@ -2,77 +2,129 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace BasisNetworkServer.Security
 {
     public class BasisAllowList
     {
-        private readonly ConcurrentDictionary<string, byte> allowlistedPlayers = new ConcurrentDictionary<string, byte>();
+        public const int MaxIdLength = 256;
+
+        private readonly ConcurrentDictionary<string, byte> allowlistedPlayers = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
+        private readonly List<string> ordered = new List<string>();
+        private readonly SemaphoreSlim writeLock = new SemaphoreSlim(1, 1);
         private readonly string filePath;
 
-        public BasisAllowList(string path = "BasisAllowList.txt")
+        public BasisAllowList(string path = null)
         {
             filePath = path;
-            _ = LoadAllowlistAsync(); // Fire and forget
+            Load();
         }
 
-        private async Task LoadAllowlistAsync()
+        public int Count => allowlistedPlayers.Count;
+
+        public static string Sanitize(string playerId)
         {
-            allowlistedPlayers.Clear();
-            if (File.Exists(filePath))
+            if (playerId == null) return null;
+            playerId = playerId.Replace("\r", string.Empty).Replace("\n", string.Empty).Trim();
+            return playerId.Length == 0 || playerId.Length > MaxIdLength ? null : playerId;
+        }
+
+        private void Load()
+        {
+            string[] lines = Array.Empty<string>();
+            if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
             {
-                string[] lines = await File.ReadAllLinesAsync(filePath);
+                try { lines = File.ReadAllLines(filePath); }
+                catch (Exception e) { Console.WriteLine($"Allowlist could not be read from {filePath}: {e.Message}"); }
+            }
+            lock (ordered)
+            {
+                allowlistedPlayers.Clear();
+                ordered.Clear();
                 foreach (string line in lines)
                 {
-                    string trimmedLine = line.Trim();
-                    if (!string.IsNullOrEmpty(trimmedLine))
-                    {
-                        allowlistedPlayers.TryAdd(trimmedLine, 0);
-                    }
+                    string id = Sanitize(line);
+                    if (id != null && allowlistedPlayers.TryAdd(id, 0)) ordered.Add(id);
                 }
             }
         }
 
-        public bool IsAllowed(string playerId) => allowlistedPlayers.ContainsKey(playerId);
+        public bool IsAllowed(string playerId) => !string.IsNullOrEmpty(playerId) && allowlistedPlayers.ContainsKey(playerId);
+
+        public string[] Snapshot()
+        {
+            lock (ordered) return ordered.ToArray();
+        }
 
         public async Task ReloadAllowlistAsync()
         {
-            await LoadAllowlistAsync();
+            await writeLock.WaitAsync();
+            try { Load(); }
+            finally { writeLock.Release(); }
             Console.WriteLine("Allowlist reloaded.");
         }
 
-        public async Task AddToAllowlistAsync(string playerId)
+        public bool Add(string playerId)
         {
-            // The store is line-delimited, so an embedded newline would turn one requested entry
-            // into several while the admin UI still reports one.
-            playerId = playerId?.Replace("\r", string.Empty).Replace("\n", string.Empty).Trim();
-            if (string.IsNullOrEmpty(playerId))
+            playerId = Sanitize(playerId);
+            if (playerId == null) return false;
+            lock (ordered)
             {
-                return;
+                if (!allowlistedPlayers.TryAdd(playerId, 0)) return false;
+                ordered.Add(playerId);
             }
-
-            if (!allowlistedPlayers.ContainsKey(playerId))
-            {
-                allowlistedPlayers.TryAdd(playerId, 0);
-                await File.AppendAllTextAsync(filePath, playerId + Environment.NewLine);
-                Console.WriteLine($"{playerId} added to allowlist.");
-            }
+            return true;
         }
 
-        public async Task RemoveFromAllowlistAsync(string playerId)
+        public bool Remove(string playerId)
         {
-            if (allowlistedPlayers.TryRemove(playerId, out _))
+            playerId = Sanitize(playerId);
+            if (playerId == null) return false;
+            lock (ordered)
             {
-                await SaveAllowlistAsync();
-                Console.WriteLine($"{playerId} removed from allowlist.");
+                if (!allowlistedPlayers.TryRemove(playerId, out _)) return false;
+                ordered.Remove(playerId);
             }
+            return true;
         }
 
-        private async Task SaveAllowlistAsync()
+        public async Task<bool> AddToAllowlistAsync(string playerId)
         {
-            await File.WriteAllLinesAsync(filePath, allowlistedPlayers.Keys);
+            if (!Add(playerId)) return false;
+            await SaveAllowlistAsync();
+            Console.WriteLine($"{Sanitize(playerId)} added to allowlist.");
+            return true;
+        }
+
+        public async Task<bool> RemoveFromAllowlistAsync(string playerId)
+        {
+            if (!Remove(playerId)) return false;
+            await SaveAllowlistAsync();
+            Console.WriteLine($"{Sanitize(playerId)} removed from allowlist.");
+            return true;
+        }
+
+        public async Task SaveAllowlistAsync()
+        {
+            if (string.IsNullOrEmpty(filePath)) return;
+            await writeLock.WaitAsync();
+            try
+            {
+                string temp = filePath + ".tmp";
+                await File.WriteAllLinesAsync(temp, Snapshot());
+                if (File.Exists(filePath)) File.Replace(temp, filePath, null);
+                else File.Move(temp, filePath);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Allowlist could not be saved to {filePath}: {e.Message}");
+            }
+            finally
+            {
+                writeLock.Release();
+            }
         }
     }
 }

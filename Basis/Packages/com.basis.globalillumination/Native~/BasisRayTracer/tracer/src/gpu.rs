@@ -52,6 +52,31 @@ pub fn uav_barrier(resource: Option<&ID3D12Resource>) -> D3D12_RESOURCE_BARRIER 
     }
 }
 
+pub struct AdapterInfo { pub low: u32, pub high: i32, pub name: String, pub memory_mb: u64, pub usable: bool }
+
+pub fn adapters() -> Vec<AdapterInfo> {
+    let mut list = Vec::new();
+    unsafe {
+        let Ok(factory) = CreateDXGIFactory2::<IDXGIFactory6>(DXGI_CREATE_FACTORY_FLAGS(0)) else { return list; };
+        let mut index = 0;
+        while let Ok(adapter) = factory.EnumAdapterByGpuPreference::<IDXGIAdapter1>(index, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE) {
+            index += 1;
+            let Ok(desc) = adapter.GetDesc1() else { continue; };
+            if desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE.0 as u32 != 0 { continue; }
+            let end = desc.Description.iter().position(|c| *c == 0).unwrap_or(desc.Description.len());
+            let (low, high) = (desc.AdapterLuid.LowPart, desc.AdapterLuid.HighPart);
+            list.push(AdapterInfo { low, high, name: String::from_utf16_lossy(&desc.Description[..end]), memory_mb: desc.DedicatedVideoMemory as u64 >> 20, usable: Gpu::new(low, high).is_ok() });
+        }
+    }
+    list
+}
+
+pub fn selected_adapter() -> Option<(u32, i32)> {
+    let value = std::env::var("BASIS_RT_ADAPTER").ok()?;
+    let (high, low) = value.trim().split_once(':')?;
+    Some((u32::from_str_radix(low, 16).ok()?, u32::from_str_radix(high, 16).ok()? as i32))
+}
+
 impl Gpu {
     pub fn new(luid_low: u32, luid_high: i32) -> Result<Gpu> {
         unsafe {

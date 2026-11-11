@@ -298,6 +298,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
     private static string K_GI_RESOLUTION => BasisSettingsDefaults.GlobalIlluminationResolution.BindingKey;
     private static string K_GI_FALLBACK => BasisSettingsDefaults.GlobalIlluminationFallback.BindingKey;
     private static string K_GI_PATH_TRACER_BACKEND => BasisSettingsDefaults.GlobalIlluminationPathTracerBackend.BindingKey;
+    private static string K_GI_PATH_TRACER_GPU => BasisSettingsDefaults.GlobalIlluminationPathTracerGpu.BindingKey;
     private static string K_GI_PATH_TRACER_RAYS => BasisSettingsDefaults.GlobalIlluminationPathTracerRays.BindingKey;
     private static string K_GI_PATH_TRACER_AVATAR_RAYS => BasisSettingsDefaults.GlobalIlluminationPathTracerAvatarRays.BindingKey;
     private static string K_GI_IGNORE_BAKED_EMISSION => BasisSettingsDefaults.GlobalIlluminationIgnoreBakedEmission.BindingKey;
@@ -335,6 +336,8 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
         BasisReflectionFeature.CameraFilter = AcceptsCamera;
         BasisGlobalIlluminationFeature.KeepRenderingWithDebugger = true;
         BasisExternalRayTracer.SetBackend(ReadPathTracerVulkan(BasisSettingsDefaults.GlobalIlluminationPathTracerBackend.RawValue));
+        BasisExternalRayTracer.SetAdapter(BasisSettingsDefaults.GlobalIlluminationPathTracerGpu.RawValue);
+        BasisExternalRayTracer.QueryAdapters();
         BasisExternalRayTracer.RayCount = ReadPathTracerRays(BasisSettingsDefaults.GlobalIlluminationPathTracerRays.RawValue);
         BasisExternalRayTracer.AvatarRayCount = ReadPathTracerRays(BasisSettingsDefaults.GlobalIlluminationPathTracerAvatarRays.RawValue);
         ApplyOverride();
@@ -511,6 +514,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
         else if (matchedSettingName == K_GI_RESOLUTION) { state.Resolution = ReadResolution(optionValue); }
         else if (matchedSettingName == K_GI_FALLBACK) { state.Fallback = ReadFallback(optionValue); }
         else if (matchedSettingName == K_GI_PATH_TRACER_BACKEND) { BasisExternalRayTracer.SetBackend(ReadPathTracerVulkan(optionValue)); }
+        else if (matchedSettingName == K_GI_PATH_TRACER_GPU) { BasisExternalRayTracer.SetAdapter(optionValue); }
         else if (matchedSettingName == K_GI_PATH_TRACER_RAYS) { BasisExternalRayTracer.RayCount = ReadPathTracerRays(optionValue); }
         else if (matchedSettingName == K_GI_PATH_TRACER_AVATAR_RAYS) { BasisExternalRayTracer.AvatarRayCount = ReadPathTracerRays(optionValue); }
         else if (matchedSettingName == K_GI_IGNORE_BAKED_EMISSION) { state.IgnoreBakedEmission = optionValue == "true"; }

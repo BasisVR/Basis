@@ -2375,6 +2375,7 @@
     { "key": "library.predownload.progress", "value": "{0}: {2} জনের মধ্যে {1} জন প্রস্তুত, {3} জন বাকি" },
     { "key": "library.predownload.done", "value": "{0}: {1} জনই প্রস্তুত" },
     { "key": "library.predownload.failed", "value": "{0}: {2} জনের মধ্যে {1} জন প্রস্তুত, {3} জন ব্যর্থ" },
+    { "key": "library.predownload.skipped", "value": "{0}: {1} জন প্রস্তুত, {2} জন সাড়া দিচ্ছে না" },
     { "key": "library.spawnedCount", "value": "({0} স্পন করা হয়েছে)" },
     { "key": "library.stack.versions", "value": "{0}টি ভার্সন" },
     { "key": "library.stack.latestEntry", "value": "{0} — সর্বশেষ" },
@@ -2403,11 +2404,12 @@
     { "key": "library.networkType.local", "value": "শুধুমাত্র আমি" },
     { "key": "library.networkType.networked", "value": "সবাই (তাৎক্ষণিক)" },
     { "key": "library.networkType.predownload", "value": "সবাই (প্রি-ডাউনলোড)" },
+    { "key": "library.networkType.synchronized", "value": "সবাই (প্রস্তুত হলে লোড)" },
     { "key": "library.networkType.loadOnBoot", "value": "বুটে লোড করুন" },
     { "key": "library.networkType.local.description", "value": "যদি আইটেমটি লোকাল সেট করা থাকে, এটি শুধুমাত্র আপনার কাছে দৃশ্যমান এবং ইন্টারেক্টিভ হবে।" },
     { "key": "library.networkType.networked.description", "value": "আইটেমটি সমস্ত সংযুক্ত খেলোয়াড়দের কাছে অবিলম্বে স্পন করা হবে।" },
     { "key": "library.networkType.predownload.description", "value": "এটি স্পন না করেই এখানে বর্তমানে থাকা সবার কাছে ডাউনলোড করে, যাতে পরবর্তীতে তাদের জন্য লোড তাৎক্ষণিক হয়।" },
-    { "key": "library.networkType.synchronized.description", "value": "সমস্ত খেলোয়াড়দের কাছে ডাউনলোড হয়, তারপর সবাই প্রস্তুত হলে একসাথে স্পন হয়। ধীর সংযোগের জন্য ৫ মিনিটের টাইমআউট আছে।" },
+    { "key": "library.networkType.synchronized.description", "value": "সব খেলোয়াড়ের জন্য ডাউনলোড করে, তারপর সবাই প্রস্তুত হলে সবার জন্য একসাথে লোড করে। যারা সাড়া দেওয়া বন্ধ করে তাদের বাদ দেওয়া হয় এবং অপেক্ষা কখনও ৫ মিনিটের বেশি হয় না।" },
     { "key": "library.networkType.loadOnBoot.description", "value": "এটি এখন এবং প্রতিবার আপনি চালু করলে স্বয়ংক্রিয়ভাবে আপনার জন্য লোড করে। স্টার্টআপে এটি লোড হওয়া বন্ধ করতে Instantiated ট্যাব থেকে এটি সরান।" },
     { "key": "library.networkType.unknown.description", "value": "অজানা নেটওয়ার্ক ধরন।" },
     { "key": "library.instantiated.createdAgoBy", "value": "{1} দ্বারা {0} আগে তৈরি করা হয়েছে" },
@@ -5778,6 +5780,38 @@
     { "key": "content.share.portal.online", "value": "অনলাইন: {0} / {1} খেলোয়াড়, {2} ms" },
     { "key": "content.share.portal.name", "value": "নাম" },
     { "key": "content.share.portal.motd", "value": "বার্তা" },
-    { "key": "content.share.portal.invalid", "value": "এই পোর্টালের গন্তব্য পড়া যায়নি।" }
+    { "key": "content.share.portal.invalid", "value": "এই পোর্টালের গন্তব্য পড়া যায়নি।" },
+    {
+      "key": "settings.admin.joinRestriction.banList",
+      "value": "নিষিদ্ধ তালিকা"
+    },
+    {
+      "key": "settings.admin.joinRestriction.banList.tooltip",
+      "value": "BasisBanList.txt-এ থাকা খেলোয়াড় ছাড়া যে কেউ যোগ দিতে পারে।"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries",
+      "value": "অনুমতি তালিকা"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.count",
+      "value": "অনুমতি তালিকা ({0})"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.tooltip",
+      "value": "যে খেলোয়াড়রা এখন অনুমতি তালিকায় আছে। একজনকে বেছে নিলে তার শনাক্তকারী নিচের ঘরে বসে যাবে।"
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList",
+      "value": "এখানে থাকা সবাইকে যোগ করুন"
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList.tooltip",
+      "value": "এই মুহূর্তে সংযুক্ত প্রত্যেক খেলোয়াড়কে অনুমতি তালিকায় যোগ করে।"
+    },
+    {
+      "key": "settings.admin.confirm.addEveryoneToAllowList.body",
+      "value": "এই মুহূর্তে সংযুক্ত প্রত্যেক খেলোয়াড়কে অনুমতি তালিকায় যোগ করা হবে এবং সার্ভার শুধু অনুমতি তালিকায় সীমিত থাকাকালীন তারা যোগ দিতে পারবে।"
+    }
   ]
 }

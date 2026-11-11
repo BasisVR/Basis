@@ -2413,6 +2413,21 @@ namespace Basis.BasisUI
                     dropdownGiPathTracerBackend.AssignBinding(BasisSettingsDefaults.GlobalIlluminationPathTracerBackend);
                 }
 
+                PanelDropdown dropdownGiPathTracerGpu = null;
+                if (BasisExternalRayTracer.AdapterSelectable)
+                {
+                    List<string> gpuEntries = new List<string> { BasisExternalRayTracer.AdapterDefault };
+                    List<string> gpuLabels = new List<string> { BasisLocalization.Get("settings.graphics.gi.pathTracerGpu.sameAsGame") };
+                    foreach (string gpu in BasisExternalRayTracer.Adapters) { gpuEntries.Add(gpu); gpuLabels.Add(gpu); }
+                    string savedGpu = BasisSettingsDefaults.GlobalIlluminationPathTracerGpu.RawValue;
+                    if (!string.IsNullOrEmpty(savedGpu) && !gpuEntries.Contains(savedGpu)) { gpuEntries.Add(savedGpu); gpuLabels.Add(savedGpu); }
+                    dropdownGiPathTracerGpu = PanelDropdown.CreateNewEntry(giGroup.ContentParent);
+                    dropdownGiPathTracerGpu.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.pathTracerGpu"));
+                    dropdownGiPathTracerGpu.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.pathTracerGpu.tooltip"));
+                    dropdownGiPathTracerGpu.AssignEntries(gpuEntries, gpuLabels);
+                    dropdownGiPathTracerGpu.AssignBinding(BasisSettingsDefaults.GlobalIlluminationPathTracerGpu);
+                }
+
                 PanelDropdown dropdownGiPathTracerRays = PanelDropdown.CreateNewEntry(giGroup.ContentParent);
                 dropdownGiPathTracerRays.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.pathTracerRays"));
                 dropdownGiPathTracerRays.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.pathTracerRays.tooltip"));
@@ -2735,6 +2750,7 @@ namespace Basis.BasisUI
                     dropdownGiMode.Descriptor.SetActive(basis);
                     bool pathTraced = basis && dropdownGiMode.Value == "Path Traced (Baked)";
                     if (dropdownGiPathTracerBackend != null) { dropdownGiPathTracerBackend.Descriptor.SetActive(pathTraced); }
+                    if (dropdownGiPathTracerGpu != null) { dropdownGiPathTracerGpu.Descriptor.SetActive(pathTraced); }
                     dropdownGiPathTracerRays.Descriptor.SetActive(pathTraced);
                     dropdownGiPathTracerAvatarRays.Descriptor.SetActive(pathTraced);
                     bool cascades = basis && !rayTraced;
@@ -4195,6 +4211,7 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.GlobalIlluminationResolution.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationFallback.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationPathTracerBackend.ResetToDefault();
+            BasisSettingsDefaults.GlobalIlluminationPathTracerGpu.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationPathTracerRays.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationPathTracerAvatarRays.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationIgnoreBakedEmission.ResetToDefault();

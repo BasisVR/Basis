@@ -2375,6 +2375,7 @@
     { "key": "library.predownload.progress", "value": "{0}: {1} van {2} klaar, nog {3}" },
     { "key": "library.predownload.done", "value": "{0}: alle {1} klaar" },
     { "key": "library.predownload.failed", "value": "{0}: {1} van {2} klaar, {3} mislukt" },
+    { "key": "library.predownload.skipped", "value": "{0}: {1} klaar, {2} reageren niet" },
     { "key": "library.spawnedCount", "value": "({0} gespawnd)" },
     { "key": "library.stack.versions", "value": "{0} versies" },
     { "key": "library.stack.latestEntry", "value": "{0} — Nieuwste" },
@@ -2403,11 +2404,12 @@
     { "key": "library.networkType.local", "value": "Alleen Ik" },
     { "key": "library.networkType.networked", "value": "Iedereen (Direct)" },
     { "key": "library.networkType.predownload", "value": "Iedereen (Vooraf Downloaden)" },
+    { "key": "library.networkType.synchronized", "value": "Iedereen (laden wanneer klaar)" },
     { "key": "library.networkType.loadOnBoot", "value": "Laden bij Opstarten" },
     { "key": "library.networkType.local.description", "value": "Als het item op lokaal staat, is het alleen zichtbaar en interactief voor jou." },
     { "key": "library.networkType.networked.description", "value": "Het item wordt onmiddellijk bij alle verbonden spelers gespawnd." },
     { "key": "library.networkType.predownload.description", "value": "Downloadt dit naar iedereen die nu aanwezig is zonder het te spawnen, zodat een latere lading voor hen direct is." },
-    { "key": "library.networkType.synchronized.description", "value": "Wordt gedownload naar alle spelers en vervolgens gelijktijdig gespawnd zodra iedereen klaar is. Heeft een timeout van 5 minuten voor trage verbindingen." },
+    { "key": "library.networkType.synchronized.description", "value": "Downloadt bij alle spelers en laadt daarna voor iedereen tegelijk zodra iedereen klaar is. Spelers die niet meer reageren worden overgeslagen en er wordt nooit langer dan 5 minuten gewacht." },
     { "key": "library.networkType.loadOnBoot.description", "value": "Laadt dit nu voor jou en automatisch elke keer dat je opstart. Verwijder het van het tabblad Geïnstantieerd om te voorkomen dat het bij het opstarten laadt." },
     { "key": "library.networkType.unknown.description", "value": "Onbekend netwerktype." },
     { "key": "library.instantiated.createdAgoBy", "value": "{0} geleden aangemaakt door {1}" },
@@ -5778,6 +5780,38 @@
     { "key": "content.share.portal.online", "value": "Online: {0} / {1} spelers, {2} ms" },
     { "key": "content.share.portal.name", "value": "Naam" },
     { "key": "content.share.portal.motd", "value": "Bericht" },
-    { "key": "content.share.portal.invalid", "value": "De bestemming van dit portaal kon niet worden gelezen." }
+    { "key": "content.share.portal.invalid", "value": "De bestemming van dit portaal kon niet worden gelezen." },
+    {
+      "key": "settings.admin.joinRestriction.banList",
+      "value": "Banlijst"
+    },
+    {
+      "key": "settings.admin.joinRestriction.banList.tooltip",
+      "value": "Iedereen mag meedoen behalve spelers in BasisBanList.txt."
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries",
+      "value": "Toegangslijst"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.count",
+      "value": "Toegangslijst ({0})"
+    },
+    {
+      "key": "settings.admin.title.allowlistEntries.tooltip",
+      "value": "Spelers die nu op de toegangslijst staan. Kies er een om de id in het veld hieronder te zetten."
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList",
+      "value": "Iedereen hier toevoegen"
+    },
+    {
+      "key": "settings.admin.title.addEveryoneToAllowList.tooltip",
+      "value": "Voegt elke speler die nu verbonden is toe aan de toegangslijst."
+    },
+    {
+      "key": "settings.admin.confirm.addEveryoneToAllowList.body",
+      "value": "Elke speler die nu verbonden is wordt aan de toegangslijst toegevoegd en kan blijven meedoen zolang de server alleen de toegangslijst toelaat."
+    }
   ]
 }

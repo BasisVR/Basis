@@ -28,15 +28,15 @@ struct BasisGIWorldLight
     float4 attenuation;
 };
 
-Texture3D<float4> _BasisGIVoxNormal;
+Texture3D<uint> _BasisGIVoxNormal;
 Texture3D<float4> _BasisGIVoxRadiance;
 RWTexture3D<float4> _BasisGIVoxAlbedoRW;
-RWTexture3D<float4> _BasisGIVoxNormalRW;
+RWTexture3D<uint> _BasisGIVoxNormalRW;
 RWTexture3D<uint> _BasisGIVoxFacesRW;
 Texture3D<uint> _BasisGIVoxFaces;
 RWTexture3D<float4> _BasisGIVoxRadianceRW;
-RWTexture3D<float4> _BasisGIVoxEmissionRW;
-Texture3D<float4> _BasisGIVoxEmission;
+RWTexture3D<uint> _BasisGIVoxEmissionRW;
+Texture3D<uint> _BasisGIVoxEmission;
 RWTexture3D<uint> _BasisGIVoxSeenRW;
 RWTexture3D<float> _BasisGIVoxSeenWeightRW;
 RWTexture3D<uint> _BasisGIVoxSeenAlbedoRW;
@@ -95,6 +95,8 @@ float3 BasisGIWorldSky(float3 direction)
     float4 encoded = SAMPLE_TEXTURECUBE_LOD(_BasisGISkyCube, sampler_BasisGISkyCube, direction, _BasisGISky.x);
     return max(0.0, DecodeHDREnvironment(encoded, _BasisGISkyDecode)) * _BasisGISky.y;
 }
+
+#define BASISGI_WORLD_NOISE_GATE 2.5
 
 float BasisGIWorldHash(uint3 value)
 {
@@ -205,9 +207,9 @@ void ClearVoxels(uint3 id : SV_DispatchThreadID)
     if (any(id >= voxels)) { return; }
     uint3 texel = uint3(id.xy, id.z + (uint)_BasisGIWorldDispatch.x * voxels);
     _BasisGIVoxAlbedoRW[texel] = float4(0.0, 0.0, 0.0, 0.0);
-    _BasisGIVoxNormalRW[texel] = float4(0.5, 0.5, 0.5, 0.0);
+    _BasisGIVoxNormalRW[texel] = 0u;
     _BasisGIVoxFacesRW[texel] = 0u;
-    _BasisGIVoxEmissionRW[texel] = float4(0.0, 0.0, 0.0, 0.0);
+    _BasisGIVoxEmissionRW[texel] = 0u;
     if (_BasisGIWorldDispatch.y > 0.5)
     {
         int level = (int)_BasisGIWorldDispatch.x;
@@ -222,6 +224,19 @@ void ClearVoxels(uint3 id : SV_DispatchThreadID)
             _BasisGIVoxSeenAlbedoRW[slot] = 0u;
         }
     }
+}
+
+float3 BasisGIVoxelUnpackNormal(uint encoded)
+{
+    if (encoded == 0u) { return float3(0.0, 0.0, 0.0); }
+    return float3((encoded >> 20) & 1023u, (encoded >> 10) & 1023u, encoded & 1023u) * (2.0 / 1023.0) - 1.0;
+}
+
+float3 BasisGIVoxelUnpackEmission(uint encoded)
+{
+    if (encoded == 0u) { return float3(0.0, 0.0, 0.0); }
+    float scale = exp2((float)((encoded >> 23) & 31u) - 15.0);
+    return float3(((encoded >> 15) & 255u) / 255.0, ((encoded >> 7) & 255u) / 255.0, (encoded & 127u) / 127.0) * scale;
 }
 
 float BasisGIWorldShadow(float3 origin, float3 direction, float distance, float voxelSize)
@@ -271,7 +286,7 @@ void Inject(uint3 id : SV_DispatchThreadID)
         return;
     }
 
-    float3 normal = _BasisGIVoxNormal[texel].xyz * 2.0 - 1.0;
+    float3 normal = BasisGIVoxelUnpackNormal(_BasisGIVoxNormal[texel]);
     float normalLength = length(normal);
     bool oriented = normalLength > 0.2;
     normal = oriented ? normal / normalLength : float3(0.0, 1.0, 0.0);
@@ -330,7 +345,7 @@ void Inject(uint3 id : SV_DispatchThreadID)
     // overshooting every time motion reset history. The captured colour no longer carries the screen's own
     // bounce (the capture reads the frame before the bounce copy), so this is the world's only loop.
     float3 reflected = min(surfaceAlbedo * _BasisGIWorldInject.x * max(_BasisGIWorldIntensity, 1.0), BASISGI_WORLD_LOOP_GAIN) * bounce;
-    float3 computed = surfaceAlbedo * direct + reflected + _BasisGIVoxEmission[texel].rgb;
+    float3 computed = surfaceAlbedo * direct + reflected + BasisGIVoxelUnpackEmission(_BasisGIVoxEmission[texel]);
     float3 seen = UnpackFromR11G11B10f(_BasisGIVoxSeenRW[seenSlot]) + reflected;
     float3 radiance = lerp(computed, seen, seenShare);
     _BasisGIVoxRadianceRW[texel] = float4(radiance * albedo.a, albedo.a);
@@ -451,7 +466,7 @@ void Cascade(uint3 id : SV_DispatchThreadID)
 
     bool top = cascade >= cascades - 1;
     float end = _BasisGIWorldInterval.y + (top ? 0.0 : min(_BasisGIWorldInterval.y - _BasisGIWorldInterval.x, spacing * 2.0 * 1.7320508));
-    float noise = BasisGIWorldHash(uint3(id.xy, id.z + (uint)_BasisGIWorldDispatch.w * 131u));
+    float noise = frac(BasisGIWorldHash(id) + _BasisGIWorldDispatch.w);
     BasisGIWorldSegment segment = BasisGIWorldMarch(position, direction, _BasisGIWorldInterval.x, end, _BasisGIWorldInterval.z, noise);
 
     float3 beyond = float3(0.0, 0.0, 0.0);
@@ -689,13 +704,18 @@ void Resolve(uint3 id : SV_DispatchThreadID)
     float lastRaw = owned ? max(0.0, _BasisGIWorldSHPrev2[slot].a) : currentLevel;
     float lastShift = (lastRaw - previousLevel) / (max(previousLevel, lastRaw) + 1e-3);
     bool sameWay = (currentLevel >= previousLevel) == (lastShift >= 0.0);
-    float rise = owned && sameWay ? min(saturate((shift - 0.15) * 3.0), saturate((abs(lastShift) - 0.15) * 3.0)) : 0.0;
-    float confirmed = max(rise, owned ? saturate((shift - 0.6) * 2.5) : 0.0);
+    float keptBefore = owned ? _BasisGIWorldSHPrev3[slot].a : 0.0;
+    float noise = saturate((keptBefore - (keptBefore > 0.5 ? 1.0 : 0.0)) * 2.5);
+    float gate = noise * BASISGI_WORLD_NOISE_GATE;
+    float clear = max(0.0, shift - gate), lastClear = max(0.0, abs(lastShift) - gate);
+    float rise = owned && sameWay ? min(saturate((clear - 0.15) * 3.0), saturate((lastClear - 0.15) * 3.0)) : 0.0;
+    float confirmed = max(rise, owned ? saturate((clear - 0.6) * 2.5) : 0.0);
+    noise = owned ? lerp(noise, min(shift, 1.0), 0.1) : 0.0;
     // DDGI's brightness threshold: a single update that jumps brighter is let in at a quarter of the usual
     // rate, so one direction catching a small bright emitter nudges the probe instead of flashing it.
     // Darkening and a rise confirmed over two updates go through as before.
     if (owned && currentLevel > previousLevel && shift > 0.25 && confirmed <= 0.0) { blend *= 0.25; }
-    blend = max(blend, min(saturate((shift - 0.3) * 2.0), confirmed));
+    blend = max(blend, min(saturate((clear - 0.3) * 2.0), confirmed));
     float change = owned ? max(confirmed, _BasisGIWorldSHPrev1[slot].a * 0.5) : 0.0;
     blend = max(blend, change);
     float3 previousX = owned ? _BasisGIWorldSHPrev1[slot].rgb : float3(0.0, 0.0, 0.0);
@@ -717,5 +737,5 @@ void Resolve(uint3 id : SV_DispatchThreadID)
         else if (near) { BasisGIWorldKeepSpecular(slot, blend); }
         specularKept = near ? 1.0 : 0.0;
     }
-    _BasisGIWorldSHOut3[slot] = float4(lerp(previousZ, cz, blend), specularKept);
+    _BasisGIWorldSHOut3[slot] = float4(lerp(previousZ, cz, blend), specularKept + noise * 0.4);
 }

@@ -64,6 +64,8 @@ public sealed partial class BasisGlobalIlluminationPass
         public readonly bool[] moved = new bool[WorldMaxLevels];
         public readonly bool[] cascades = new bool[WorldMaxLevels];
         public readonly Vector4[] previousBoxes = new Vector4[WorldMaxLevels];
+        public readonly float[] phase = new float[WorldMaxLevels];
+        public readonly float[] elapsed = new float[WorldMaxLevels];
         public int lightCount;
         public int interval;
         public float bounceFeedback;
@@ -102,6 +104,11 @@ public sealed partial class BasisGlobalIlluminationPass
     [NoAutoStaticsCleanup] private static GraphicsBuffer worldLightBuffer;
     [NoAutoStaticsCleanup] private static readonly Vector4[] worldLastBoxes = new Vector4[WorldMaxLevels];
     [NoAutoStaticsCleanup] private static readonly Matrix4x4[] worldRotations = new Matrix4x4[WorldMaxLevels];
+    [NoAutoStaticsCleanup] private static readonly int[] worldUpdates = new int[WorldMaxLevels];
+    [NoAutoStaticsCleanup] private static readonly float[] worldUpdateTime = new float[WorldMaxLevels];
+    public static int WorldJitterCycle = 4;
+    public static float WorldSeenHalfLife = 15f;
+    public static float WorldSmoothingSeconds = 0.1f;
     private static GameObject worldCullerObject;
     private static Camera worldCuller;
     private static int worldSerial;
@@ -352,13 +359,13 @@ public sealed partial class BasisGlobalIlluminationPass
         ReleaseWorld();
         int depth = WorldVoxels * levels;
         worldAlbedo = AllocateVolume(WorldVoxels, WorldVoxels, depth, GraphicsFormat.R8G8B8A8_UNorm, "_BasisGIVoxAlbedo");
-        worldNormal = AllocateVolume(WorldVoxels, WorldVoxels, depth, GraphicsFormat.R8G8B8A8_UNorm, "_BasisGIVoxNormal");
+        worldNormal = AllocateVolume(WorldVoxels, WorldVoxels, depth, GraphicsFormat.R32_UInt, "_BasisGIVoxNormal");
         worldFaces = AllocateVolume(WorldVoxels, WorldVoxels, depth, GraphicsFormat.R32_UInt, "_BasisGIVoxFaces");
         worldSeen = AllocateVolume(WorldVoxels, WorldVoxels, depth, GraphicsFormat.R32_UInt, "_BasisGIVoxSeen");
         worldSeenWeight = AllocateVolume(WorldVoxels, WorldVoxels, depth, GraphicsFormat.R32_SFloat, "_BasisGIVoxSeenWeight");
         worldSeenAlbedo = AllocateVolume(WorldVoxels, WorldVoxels, depth, GraphicsFormat.R32_UInt, "_BasisGIVoxSeenAlbedo");
         worldRadiance = AllocateVolume(WorldVoxels, WorldVoxels, depth, GraphicsFormat.R16G16B16A16_SFloat, "_BasisGIVoxRadiance");
-        worldEmission = AllocateVolume(WorldVoxels, WorldVoxels, depth, GraphicsFormat.R16G16B16A16_SFloat, "_BasisGIVoxEmission");
+        worldEmission = AllocateVolume(WorldVoxels, WorldVoxels, depth, GraphicsFormat.R32_UInt, "_BasisGIVoxEmission");
         int blockSide = WorldVoxels / WorldBlock, coarseSide = WorldVoxels / WorldCoarse;
         worldBlocks = AllocateVolume(blockSide, blockSide, blockSide * levels, GraphicsFormat.R32_SFloat, "_BasisGIVoxBlocks");
         worldCoarse = AllocateVolume(coarseSide, coarseSide, coarseSide * levels, GraphicsFormat.R32_SFloat, "_BasisGIVoxCoarse");
@@ -605,10 +612,19 @@ public sealed partial class BasisGlobalIlluminationPass
                 data.moved[level] = data.voxelize[level] && worldPlan.moved[level];
                 data.previousBoxes[level] = worldFresh ? new Vector4(1e7f, 1e7f, 1e7f, data.boxes[level].w) : worldLastBoxes[level];
                 data.cascades[level] = level < levels && (worldFresh || worldPlan.voxelize[level] || (worldPlan.due && level == worldPlan.turn));
+                data.phase[level] = 0.5f;
+                data.elapsed[level] = 0f;
                 if (data.cascades[level])
                 {
-                    CascadeJitter(worldPlan.serial + level * 7, settings.temporalFilter ? settings.jitter : 0f, 1, out _, out Quaternion rotation);
+                    float amount = settings.temporalFilter ? settings.jitter : 0f;
+                    int cycle = Mathf.Max(1, WorldJitterCycle), turn = ++worldUpdates[level] % cycle, order = 0;
+                    for (int bit = 1, mirror = cycle >> 1; mirror > 0; bit <<= 1, mirror >>= 1) { if ((turn & bit) != 0) { order |= mirror; } }
+                    CascadeJitter(order + 1 + level * 3, amount, 1, out _, out Quaternion rotation);
+                    if (amount > 0f) { data.phase[level] = (order + 0.5f) / cycle; }
                     worldRotations[level] = Matrix4x4.Rotate(rotation);
+                    float now = Time.realtimeSinceStartup;
+                    if (Application.isPlaying && !worldFresh) { data.elapsed[level] = now - worldUpdateTime[level]; }
+                    worldUpdateTime[level] = now;
                 }
             }
 
@@ -831,7 +847,7 @@ public sealed partial class BasisGlobalIlluminationPass
         {
             if (!data.cascades[level]) { continue; }
             anyCascade = true;
-            cmd.SetComputeVectorParam(compute, idWorldSeen, new Vector4(Mathf.Pow(WorldSeenDecay, WorldLevelPeriod(level, levels, data.interval)), 0f, 0f, 0f));
+            cmd.SetComputeVectorParam(compute, idWorldSeen, new Vector4(data.elapsed[level] > 0f && WorldSeenHalfLife > 0f ? Mathf.Pow(0.5f, data.elapsed[level] / WorldSeenHalfLife) : Mathf.Pow(WorldSeenDecay, WorldLevelPeriod(level, levels, data.interval)), 0f, 0f, 0f));
             cmd.SetComputeVectorParam(compute, idWorldDispatch, new Vector4(level, 0f, WorldCascades, data.frame));
             cmd.DispatchCompute(compute, inject, voxelGroups, voxelGroups, voxelGroups);
         }
@@ -848,7 +864,7 @@ public sealed partial class BasisGlobalIlluminationPass
                 float coarsest = data.boxes[levels - 1].w;
                 float marchStep = Mathf.Min(data.boxes[level].w * (1 << cascade), coarsest);
                 int probes = WorldProbes >> cascade;
-                cmd.SetComputeVectorParam(compute, idWorldDispatch, new Vector4(level, cascade, WorldCascades, data.frame));
+                cmd.SetComputeVectorParam(compute, idWorldDispatch, new Vector4(level, cascade, WorldCascades, data.phase[level]));
                 cmd.SetComputeVectorParam(compute, idWorldInterval, new Vector4(interval.x, interval.y, marchStep, CascadeDirections << cascade));
                 cmd.SetComputeTextureParam(compute, cascadeKernel, idVoxRadiance, worldRadiance);
                 cmd.SetComputeTextureParam(compute, cascadeKernel, idVoxFaces, worldFaces);
@@ -894,6 +910,7 @@ public sealed partial class BasisGlobalIlluminationPass
         for (int level = 0; level < levels; level++)
         {
             float resolveBlend = 1f - Mathf.Pow(1f - WorldTemporalBlend, WorldLevelPeriod(level, levels, data.interval));
+            if (data.elapsed[level] > 0f && WorldSmoothingSeconds > 0f) { resolveBlend = Mathf.Min(resolveBlend, 1f - Mathf.Exp(-data.elapsed[level] / WorldSmoothingSeconds)); }
             cmd.SetComputeFloatParam(compute, idWorldSpecularBlend, 1f - Mathf.Pow(1f - WorldSpecularBlend, 2 * WorldLevelPeriod(level, levels, data.interval)));
             cmd.SetComputeVectorParam(compute, idWorldResolve, new Vector4(resolveBlend, data.fresh ? 1f : 0f, data.cascades[level] ? 0f : 1f, data.specular ? 1f + (worldSpecularTurn[level] & 1) : 0f));
             if (data.cascades[level]) { worldSpecularTurn[level]++; }

@@ -92,6 +92,7 @@ pub struct Context {
     pub reservoirs: [ID3D12Resource; 2],
     pub reservoir_scratch: ID3D12Resource,
     pub last_time: f32,
+    pub cross: Option<crate::relay::Cross>,
 }
 
 pub struct Renderer {
@@ -137,6 +138,7 @@ pub struct Renderer {
     pub copy_value: u64,
     pub copy_allocators: Vec<ID3D12CommandAllocator>,
     pub copy_list: ID3D12GraphicsCommandList,
+    pub cross_upload: Option<[(ID3D12Resource, ID3D12Resource); 2]>,
 }
 
 fn compute_pso(gpu: &Gpu, root: &ID3D12RootSignature, code: &[u8]) -> Result<ID3D12PipelineState> {
@@ -227,7 +229,7 @@ impl Renderer {
                 root, state, table, table_address, allocators, list, ring, slot_fences: [0; RING], contexts: (0..MAX_CONTEXTS).map(|_| None).collect(), eligible: Vec::new(),
                 grid: LightGrid::new(), bounds_readback: gpu.buffer(SUBMESH_CAPACITY * 32, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST)?, bounds_pending: None, bounds_dirty: None, prepared: 0,
                 grid_gpu: (0..GRID_BUFFERS).map(|_| gpu.buffer(GRID_BYTES, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COMMON)).collect::<Result<Vec<_>>>()?,
-                grid_read: [0; GRID_BUFFERS], copy_queue, copy_fence, copy_value: 0, copy_allocators, copy_list,
+                grid_read: [0; GRID_BUFFERS], copy_queue, copy_fence, copy_value: 0, copy_allocators, copy_list, cross_upload: None,
             })
         }
     }
@@ -341,6 +343,17 @@ impl Renderer {
             list.SetComputeRootConstantBufferView(0, address);
             gpu.queue.Wait(unity_fence, frame)?;
             list.EndQuery(&self.queries, D3D12_QUERY_TYPE_TIMESTAMP, slot as u32 * TIMESTAMPS);
+            if let Some(cross) = &ctx.cross {
+                let g = &ctx.gbuffer[k as usize];
+                list.CopyTextureRegion(&crate::relay::subresource(g), 0, 0, 0, &crate::relay::footprint(&cross.gbuffer[k as usize], ctx.width * ctx.views * 2, ctx.height * 2, DXGI_FORMAT_R16G16B16A16_UINT), None);
+                list.ResourceBarrier(&[transition(g, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE)]);
+            }
+            let rows = crate::relay::upload_rows(params.upload_texels);
+            if let (Some(cross), true) = (&self.cross_upload, rows > 0) {
+                let (u, source) = &cross[upload_index as usize];
+                list.CopyTextureRegion(&crate::relay::subresource(u), 0, 0, 0, &crate::relay::footprint(source, UPLOAD_WIDTH, rows, DXGI_FORMAT_R16G16B16A16_UINT), None);
+                list.ResourceBarrier(&[transition(u, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE)]);
+            }
         }
         self.bind_slot(gpu, slot);
         let grid_index = (frame % GRID_BUFFERS as u64) as usize;
@@ -488,7 +501,10 @@ impl Renderer {
             let local = source - cb;
             let final_texture = &ctx.textures[if local >= CTX_FILTER_UAV { 4 + (local - CTX_FILTER_UAV) as usize * 4 } else { 1 + (local - CTX_HISTORY_UAV) as usize * 4 }];
             list.ResourceBarrier(&[transition(final_texture, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE)]);
-            list.CopyResource(&ctx.output[k as usize], final_texture);
+            match &ctx.cross {
+                Some(cross) => list.CopyTextureRegion(&crate::relay::footprint(&cross.output[k as usize], ctx.width * ctx.views, ctx.height, DXGI_FORMAT_R16G16B16A16_FLOAT), 0, 0, 0, &crate::relay::subresource(final_texture), None),
+                None => list.CopyResource(&ctx.output[k as usize], final_texture),
+            }
             list.ResourceBarrier(&[transition(final_texture, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)]);
             stamp(&list, 7);
             list.ResolveQueryData(&self.queries, D3D12_QUERY_TYPE_TIMESTAMP, slot as u32 * TIMESTAMPS, TIMESTAMPS, &self.readback, slot as u64 * TIMESTAMPS as u64 * 8);
@@ -639,5 +655,5 @@ pub fn create_context(gpu: &Gpu, context: usize, width: u32, height: u32, views:
     let scratch_bytes = full as u64 * height as u64 * 64;
     let reservoir_scratch = gpu.buffer(scratch_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)?;
     gpu.uav_raw(&reservoir_scratch, scratch_bytes, base + CTX_RESERVOIR_SCRATCH);
-    Ok(Context { gbuffer, output, textures, width, height, views, base, history_index: 0, history_valid: false, probes, probe_rays, reservoirs, reservoir_scratch, last_time: 0.0 })
+    Ok(Context { gbuffer, output, textures, width, height, views, base, history_index: 0, history_valid: false, probes, probe_rays, reservoirs, reservoir_scratch, last_time: 0.0, cross: None })
 }
