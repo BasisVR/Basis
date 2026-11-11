@@ -2251,6 +2251,12 @@ namespace Basis.BasisUI
                 networkType = BundledContentHolder.NetworkType.Local;
             }
 
+            if (networkType != BundledContentHolder.NetworkType.Local && networkType != BundledContentHolder.NetworkType.LoadOnBoot && IsEmbeddedAddressable(item))
+            {
+                BasisDebug.LogWarning($"Built-in item {item.Url} is not a downloadable bundle and cannot be networked; loading it locally instead.");
+                networkType = BundledContentHolder.NetworkType.Local;
+            }
+
             // Load-on-Boot loads the item now (locally) and records it so it auto-loads next launch.
             // Worlds are recorded here; props are recorded after load so the placed transform is captured.
             bool persistBoot = networkType == BundledContentHolder.NetworkType.LoadOnBoot;

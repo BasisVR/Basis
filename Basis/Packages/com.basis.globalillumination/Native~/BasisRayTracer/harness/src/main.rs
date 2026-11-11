@@ -437,6 +437,11 @@ fn main() {
             if let Some(c) = &vkc { c.upload(rows); }
             #[cfg(windows)]
             if let Some(c) = d3c.as_mut() { c.upload(rows); }
+            if let Some(every) = std::env::var("RESIZE").ok().and_then(|v| v.parse::<u64>().ok()) {
+                let phase = iteration as u64 % every.max(2);
+                let scale = if phase == 0 { std::env::var("RESIZE_SCALE").ok().and_then(|v| v.parse::<u32>().ok()).unwrap_or(1186) } else if phase == 1 { 1000 } else { 0 };
+                if scale != 0 && iteration > 8 { header.contexts[0].requested_width.store(w * scale / 1000, Ordering::Release); header.contexts[0].requested_height.store(h * scale / 1000, Ordering::Release); }
+            }
             header.frame_requested.store(frame, Ordering::Release);
             bridge.wake();
             let started = Instant::now();

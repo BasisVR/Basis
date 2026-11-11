@@ -24,7 +24,8 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
     /// instead of being written to <c>XRSettings.eyeTextureResolutionScale</c> here, so the two
     /// never fight over the same property.
     /// </summary>
-    public static bool ExternalXRScaleOwner;
+    public static bool ExternalXRScaleOwner { get => externalXRScaleOwner; set { externalXRScaleOwner = value; if (value) { UniversalRenderPipeline.XRRenderScaleExternallyOwned = true; } } }
+    private static bool externalXRScaleOwner;
 
     public static event System.Action<float> UserRenderScaleChanged;
 
@@ -135,6 +136,7 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
 
         if (XRSettings.enabled && BasisDeviceManagement.IsCurrentModeVR())
         {
+            UniversalRenderPipeline.XRRenderScaleExternallyOwned = true;
             if (asset != null && !Mathf.Approximately(asset.renderScale, 1f))
             {
                 asset.renderScale = 1f;
@@ -152,6 +154,7 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
             return;
         }
 
+        UniversalRenderPipeline.XRRenderScaleExternallyOwned = false;
         if (!Mathf.Approximately(XRSettings.eyeTextureResolutionScale, 1f))
         {
             XRSettings.eyeTextureResolutionScale = 1f;

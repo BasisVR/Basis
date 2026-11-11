@@ -429,6 +429,16 @@ public static unsafe partial class BasisExternalRayTracer
     public static Vector4* Dirty(ulong frame) => (Vector4*)((byte*)Params(frame) + dirtyOffset);
 
     public static uint Stat(int index) => Started ? BasisRT_Stat(index) : 0u;
+    public static int DropSubmits;
+    private static uint uploadLostSeen;
+
+    public static bool UploadLost()
+    {
+        uint lost = Stat(18);
+        if (lost == uploadLostSeen) { return false; }
+        uploadLostSeen = lost;
+        return true;
+    }
     public static uint GpuMicroseconds(int pass) => Stat(10 + pass);
 
     public static Context Prepare(Camera camera, int width, int height, int views, bool sameFrame)

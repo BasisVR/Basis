@@ -17,6 +17,7 @@
 #define CACHE_TOMBSTONE 0xffffffffu
 #define CACHE_FIXED 512.0
 #define CACHE_SETTLED 256.0
+#define CACHE_SUSPECT_RUN 8u
 #define CACHE_STRIDE 64u
 #define SH_Y0 0.282095
 #define SH_Y1 0.488603

@@ -104,6 +104,10 @@ fn run(link: &mut os::Link, args: &os::Args) -> Fallible<()> {
             link.wait_wake(1);
         }
         if header.frame_queued.load(Ordering::Acquire) < frame { continue; }
+        if header.reserved[RESERVED_UPLOAD_TRACKED] != 0 && header.reserved[RESERVED_UPLOAD_MARK + (frame & 1) as usize] != frame as u32 && unsafe { (*slot).params.command_count } != 0 {
+            unsafe { let p = &mut (*(slot as *mut Slot)).params; p.command_count = 0; p.upload_texels = 0; }
+            header.reserved[RESERVED_UPLOAD_LOST] = header.reserved[RESERVED_UPLOAD_LOST].wrapping_add(1);
+        }
         let started = Instant::now();
         backend.record(slot).map_err(|e| format!("frame {frame}: {e}"))?;
         let timings = backend.timings();

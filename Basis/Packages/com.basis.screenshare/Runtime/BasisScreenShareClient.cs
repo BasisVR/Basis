@@ -8,6 +8,7 @@ using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
 using static Basis.Network.Core.BasisScreenShareProtocol;
 
 [AutoStaticsCleanup]
@@ -82,10 +83,11 @@ public static partial class BasisScreenShareClient
 
     static void OnSupplyApplied()
     {
+        List<Remote> released = TakeRemotes();
         MainThread.Enqueue(() =>
         {
             Locked = false;
-            ClearRemotes();
+            ReleaseAll(released);
             if (Local != null) Local.OnReconnected();
         });
     }
@@ -447,7 +449,7 @@ public static partial class BasisScreenShareClient
         Interlocked.Exchange(ref remote.PushHandle, 0);
     }
 
-    static void ClearRemotes()
+    static List<Remote> TakeRemotes()
     {
         List<Remote> released;
         lock (RemotesLock)
@@ -455,11 +457,13 @@ public static partial class BasisScreenShareClient
             released = new List<Remote>(Remotes.Values);
             Remotes.Clear();
         }
-        foreach (Remote remote in released)
-        {
-            remote.Ended = true;
-            Release(remote);
-        }
+        foreach (Remote remote in released) remote.Ended = true;
+        return released;
+    }
+
+    static void ReleaseAll(List<Remote> released)
+    {
+        foreach (Remote remote in released) Release(remote);
         if (released.Count > 0) RaiseChanged();
     }
 
@@ -504,23 +508,26 @@ public static partial class BasisScreenShareClient
     {
         if (remote.Ended || remote.Hidden || remote.Screen != null) return;
         var handle = Addressables.InstantiateAsync(BasisScreenShare.SpawnUrl);
-        handle.Completed += op =>
+        if (handle.IsDone) OnSpawned(remote, handle);
+        else handle.Completed += op => OnSpawned(remote, op);
+    }
+
+    static void OnSpawned(Remote remote, AsyncOperationHandle<GameObject> op)
+    {
+        GameObject go = op.Result;
+        if (go == null)
         {
-            GameObject go = op.Result;
-            if (go == null)
-            {
-                BasisDebug.LogError($"[ScreenShare] could not spawn the screen for {SharerName(remote.Sharer)}: {op.OperationException?.Message}", BasisDebug.LogTag.Video);
-                return;
-            }
-            if (remote.Ended || remote.Hidden || remote.Screen != null || !go.TryGetComponent(out BasisScreenShare screen))
-            {
-                Addressables.ReleaseInstance(go);
-                return;
-            }
-            screen.ConfigureRemote(remote);
-            remote.Screen = screen;
-            RaiseChanged();
-        };
+            BasisDebug.LogError($"[ScreenShare] could not spawn the screen for {SharerName(remote.Sharer)}: {op.OperationException?.Message}", BasisDebug.LogTag.Video);
+            return;
+        }
+        if (remote.Ended || remote.Hidden || remote.Screen != null || !go.TryGetComponent(out BasisScreenShare screen))
+        {
+            Addressables.ReleaseInstance(go);
+            return;
+        }
+        screen.ConfigureRemote(remote);
+        remote.Screen = screen;
+        RaiseChanged();
     }
 
     static void OnMedia(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod delivery)

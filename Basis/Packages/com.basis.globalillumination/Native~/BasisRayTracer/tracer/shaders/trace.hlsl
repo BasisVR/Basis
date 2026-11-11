@@ -800,7 +800,9 @@ bool CacheSettled(float3 p, float3 n, float3 viewer, float rnd)
     RWByteAddressBuffer resolved = ResourceDescriptorHeap[HEAP_CACHE_RESOLVED];
     float samples;
     CacheLoadSH(resolved, uint(index) * CACHE_STRIDE, samples);
-    return samples >= CACHE_SETTLED;
+    if (samples < CACHE_SETTLED) { return false; }
+    RWByteAddressBuffer touched = ResourceDescriptorHeap[HEAP_CACHE_TOUCHED];
+    return ((touched.Load(uint(index) * 16u) >> 24) & 0x7fu) < CACHE_SUSPECT_RUN;
 }
 
 #include "probe.hlsli"

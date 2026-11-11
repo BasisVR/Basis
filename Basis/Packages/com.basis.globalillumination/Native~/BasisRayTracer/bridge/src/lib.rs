@@ -322,6 +322,8 @@ impl Bridge {
             }
         }
         self.used[context][parity & 1] = frame;
+        h.reserved[RESERVED_UPLOAD_TRACKED] = 1;
+        h.reserved[RESERVED_UPLOAD_MARK + (frame & 1) as usize] = frame as u32;
         h.frame_queued.store(frame, Ordering::Release);
         self.host.wake();
         Ok(true)
@@ -672,6 +674,7 @@ pub extern "C" fn BasisRT_Stat(index: i32) -> u32 {
         3 => h.texture_count.load(Ordering::Relaxed),
         4 => b.fetch_failures as u32,
         9 => b.resize_skips as u32,
+        18 => h.reserved[RESERVED_UPLOAD_LOST],
         5 => h.generation.load(Ordering::Relaxed),
         6 => MAX_CONTEXTS as u32,
         7 => h.tracer_api,

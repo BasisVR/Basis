@@ -211,7 +211,7 @@ impl Renderer {
             let readback = gpu.buffer(TIMESTAMPS as u64 * RING as u64 * 8, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST)?;
             let frequency = gpu.queue.GetTimestampFrequency().unwrap_or(1).max(1);
             let mut cache = Vec::new();
-            for (i, stride) in [8u64, 4, 64, 64, 4, 16].iter().enumerate() {
+            for (i, stride) in [8u64, 4, 64, 64, 16, 16].iter().enumerate() {
                 let bytes = CACHE_SIZE * stride + if i == 1 { 256 } else { 0 };
                 let b = gpu.buffer(bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)?;
                 gpu.uav_raw(&b, bytes, HEAP_CACHE + i as u32);
@@ -348,6 +348,9 @@ impl Renderer {
         unsafe {
             let src = &*slot_ptr;
             let mut p = params;
+            p.width = p.width.min(ctx.width);
+            p.height = p.height.min(ctx.height);
+            p.view_count = p.view_count.clamp(1, 2).min(ctx.views);
             if reset { p.flags |= FLAG_RESET_HISTORY; }
             std::ptr::copy_nonoverlapping(&p as *const FrameParams as *const u8, mapped, std::mem::size_of::<FrameParams>());
             let extra = Extra { slot: slot as u32, gbuffer_index: k, history_read, history_write, delta_time, debug_view: 0, frame_index: frame as u32, context_base: cb };

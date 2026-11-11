@@ -720,6 +720,19 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
 
     public void ClearUpload() { texelCursor = 0; commands.Clear(); }
 
+    public void Reupload()
+    {
+        foreach (KeyValuePair<Mesh, MeshRecord> kv in staticMeshes) { Forget(kv.Value); }
+        foreach (KeyValuePair<SkinnedMeshRenderer, MeshRecord> kv in skinnedMeshes) { Forget(kv.Value); }
+        foreach (KeyValuePair<Texture, TextureRecord> kv in textures) { kv.Value.uploadedRows = 0; kv.Value.defined = kv.Value.committed = false; }
+    }
+
+    private static void Forget(MeshRecord r)
+    {
+        r.uploadedVertices = r.uploadedIndices = r.submeshCursor = 0;
+        r.defined = r.committed = r.posed = false;
+    }
+
     private string DescribeAvatars()
     {
         int definedMeshes = 0, definedTextures = 0;

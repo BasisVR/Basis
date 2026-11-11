@@ -44,6 +44,9 @@ pub const CAP_SER_REORDERS: u32 = 2;
 pub const CAP_OMM: u32 = 4;
 pub const CAP_TIER_1_2: u32 = 8;
 
+pub const RESERVED_UPLOAD_MARK: usize = 26;
+pub const RESERVED_UPLOAD_LOST: usize = 28;
+pub const RESERVED_UPLOAD_TRACKED: usize = 29;
 pub const OP_MESH_DEFINE: u32 = 1;
 pub const OP_MESH_SUBMESH: u32 = 2;
 pub const OP_MESH_VERTICES: u32 = 3;

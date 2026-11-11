@@ -30,6 +30,8 @@ namespace UnityEngine.Rendering.Universal
         /// </summary>
         public const string k_ShaderTagName = "UniversalPipeline";
 
+        public static bool XRRenderScaleExternallyOwned;
+
         // Display names for the builtin spatial upscalers.
         internal const string k_UpscalerName_Auto = "Auto (Bilinear or Nearest-Neighbor)";
         internal const string k_UpscalerName_Point = "Nearest-Neighbor";
@@ -2123,7 +2125,7 @@ namespace UnityEngine.Rendering.Universal
             cameraData.xr = XRSystem.emptyPass;
             var renderScaleXR = cameraData.renderScale;
 
-            XRSystem.SetRenderScale(renderScaleXR);
+            if (!XRRenderScaleExternallyOwned) { XRSystem.SetRenderScale(renderScaleXR); }
 
             var commonOpaqueFlags = SortingCriteria.CommonOpaque;
             var noFrontToBackOpaqueFlags = SortingCriteria.SortingLayer | SortingCriteria.RenderQueue | SortingCriteria.OptimizeStateChanges | SortingCriteria.CanvasOrder;

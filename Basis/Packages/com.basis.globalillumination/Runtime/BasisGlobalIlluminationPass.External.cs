@@ -140,6 +140,7 @@ public partial class BasisGlobalIlluminationPass
         }
         else
         {
+            if (BasisExternalRayTracer.UploadLost()) { scene.Reupload(); Debug.LogWarning("[BasisGI] Path tracer lost an upload frame, sending the scene again"); }
             scene.BeginFrame(BasisExternalRayTracer.UploadFree(frame));
             scene.Fill(frame, settings, externalPositions[0], ref parameters);
             BasisExternalRayTracer.MarkSceneFilled(frame);
@@ -296,7 +297,7 @@ public partial class BasisGlobalIlluminationPass
             cmd.SetComputeIntParams(cs, idExFlags, d.hasNormals ? 1 : 0, d.hasSurface ? 1 : 0, d.views, d.reversedZ ? 1 : 0);
             cmd.SetComputeVectorParam(cs, idExJitter, d.jitter);
             cmd.DispatchCompute(cs, d.kernelGBuffer, (d.width * d.views + 7) / 8, (d.height + 7) / 8, 1);
-            cmd.IssuePluginEventAndData(BasisExternalRayTracer.EventFunc, BasisExternalRayTracer.EventBase + 0, BasisExternalRayTracer.EventData(d.frame, d.context, d.parity, d.rows));
+            if (BasisExternalRayTracer.DropSubmits > 0 && d.rows > 0) { BasisExternalRayTracer.DropSubmits--; } else { cmd.IssuePluginEventAndData(BasisExternalRayTracer.EventFunc, BasisExternalRayTracer.EventBase + 0, BasisExternalRayTracer.EventData(d.frame, d.context, d.parity, d.rows)); }
             if (!d.behind) { cmd.IssuePluginEventAndData(BasisExternalRayTracer.EventFunc, BasisExternalRayTracer.EventBase + 1, BasisExternalRayTracer.EventData(d.frame, d.context, d.parity, 0)); }
         }
         if (!validate) { DispatchUnpack(cmd, d, gbuffer, result, false); }

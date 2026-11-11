@@ -250,7 +250,7 @@ impl Renderer {
             let queries = gpu.device.create_query_pool(&vk::QueryPoolCreateInfo::default().query_type(vk::QueryType::TIMESTAMP).query_count(TIMESTAMPS * RING as u32), None).map_err(err("create query pool"))?;
             gpu.device.reset_query_pool(queries, 0, TIMESTAMPS * RING as u32);
             let mut cache = Vec::new();
-            for (i, stride) in [8u64, 4, 64, 64, 4, 16].iter().enumerate() { cache.push(gpu.buffer(CACHE_SIZE * stride + if i == 1 { 256 } else { 0 }, vk::BufferUsageFlags::STORAGE_BUFFER, vk::MemoryPropertyFlags::DEVICE_LOCAL)?); }
+            for (i, stride) in [8u64, 4, 64, 64, 16, 16].iter().enumerate() { cache.push(gpu.buffer(CACHE_SIZE * stride + if i == 1 { 256 } else { 0 }, vk::BufferUsageFlags::STORAGE_BUFFER, vk::MemoryPropertyFlags::DEVICE_LOCAL)?); }
             let cache_args = gpu.buffer(256, vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::INDIRECT_BUFFER, vk::MemoryPropertyFlags::DEVICE_LOCAL)?;
 
             let ubo = [vk::DescriptorBufferInfo { buffer: ring.buffer, offset: 0, range: CONSTANTS_BYTES }];
@@ -375,6 +375,9 @@ impl Renderer {
         unsafe {
             let src = &*slot_ptr;
             let mut p = params;
+            p.width = p.width.min(ctx.width);
+            p.height = p.height.min(ctx.height);
+            p.view_count = p.view_count.clamp(1, 2).min(ctx.views);
             if reset { p.flags |= FLAG_RESET_HISTORY; }
             std::ptr::copy_nonoverlapping(&p as *const FrameParams as *const u8, mapped, std::mem::size_of::<FrameParams>());
             let extra = Extra { slot: slot as u32, gbuffer_index: k, history_read, history_write, delta_time, debug_view: 0, frame_index: frame as u32, context_base: cb };
