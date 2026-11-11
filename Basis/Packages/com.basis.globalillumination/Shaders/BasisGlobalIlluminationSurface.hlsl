@@ -48,7 +48,7 @@ float4 SurfaceFrag(SurfaceVaryings input) : SV_Target
     float2 screenUv = input.positionCS.xy * _BasisGISurfaceTexelSize.xy;
     float sceneEye = BasisGISampleEyeDepth(screenUv);
     float fragmentEye = BasisGILinearEyeDepth(input.positionCS.z);
-    float mismatch = abs(fragmentEye - sceneEye) / (sceneEye * 0.002 + 0.003);
+    float mismatch = abs(fragmentEye - sceneEye) / (sceneEye * 0.002 + 0.003 + fwidth(fragmentEye));
     if (mismatch > 1.0) { discard; }
 
     float3 texel = float3(1.0, 1.0, 1.0);
