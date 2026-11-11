@@ -1112,7 +1112,7 @@ void RayGen()
                 uint2 q = uint2(previousPixel) + uint2(viewIndex * frame.width, 0);
                 RWTexture2D<float4> previousGeometry = ResourceDescriptorHeap[HEAP_GEOMETRY_UAV + frame.historyRead];
                 float4 g = previousGeometry[q];
-                if (!all(g == 0.0) && abs(dot(g.xyz - surface.position, surface.normal)) < max(0.03, surface.distance * 0.02) && dot(UnpackNormal(asuint(g.w)), surface.normal) > 0.8)
+                if (!all(g == 0.0) && abs(dot(g.xyz - surface.position, surface.normal)) < HistoryTolerance(surface.position, surface.distance, previousPixel, viewIndex) && dot(UnpackNormal(asuint(g.w)), surface.normal) > 0.8)
                 {
                     RWByteAddressBuffer previous = ResourceDescriptorHeap[frame.contextBase + CTX_RESERVOIRS + frame.historyRead];
                     uint o = (q.y * frame.width * frame.viewCount + q.x) * RESERVOIR_STRIDE;

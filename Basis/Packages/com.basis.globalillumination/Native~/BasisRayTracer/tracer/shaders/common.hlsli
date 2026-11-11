@@ -242,6 +242,17 @@ bool ProjectToPixel(float4x4 viewProjection, float3 world, out float2 pixel)
     return all(ndc > -1.0) && all(ndc < 1.0);
 }
 
+float HistoryTolerance(float3 position, float range, float2 previousPixel, uint viewIndex)
+{
+    float tolerance = max(0.03, range * 0.02);
+    if ((frame.flags & FLAG_MOTION) == 0) { return tolerance; }
+    float4 clip = mul(frame.views[viewIndex].previousViewProjection, float4(position, 1.0));
+    if (clip.w <= 1e-4) { return tolerance; }
+    float2 still = (clip.xy / clip.w * 0.5 + 0.5) * float2(frame.width, frame.height);
+    float slip = max(length(previousPixel - still) - 1.0, 0.0) * range * 2.0 / (abs(frame.views[viewIndex].projection[1][1]) * float(frame.height));
+    return tolerance + 2.0 * slip;
+}
+
 struct Surface
 {
     float3 position;

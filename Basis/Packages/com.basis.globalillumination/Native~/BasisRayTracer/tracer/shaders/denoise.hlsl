@@ -84,7 +84,7 @@ void Temporal(uint3 id : SV_DispatchThreadID)
             float2 coord = p - 0.5;
             int2 base = int2(floor(coord));
             float2 f = coord - base;
-            float tolerance = max(0.03, s.distance * 0.02);
+            float tolerance = HistoryTolerance(s.position, s.distance, p, viewIndex);
             [unroll] for (uint k = 0; k < 4; k++)
             {
                 int2 o = int2(k & 1, k >> 1);

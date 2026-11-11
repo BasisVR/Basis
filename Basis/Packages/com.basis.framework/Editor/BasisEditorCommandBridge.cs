@@ -19,7 +19,6 @@ public static class BasisEditorCommandBridge
     private static int captureCount, captureIndex;
     private static readonly List<string> log = new List<string>();
     private static Camera pinned;
-    private static float lookPitch = float.NaN;
     private static Vector3 pinnedPosition;
     private static Quaternion pinnedRotation;
     private static Camera restoreCamera;
@@ -39,7 +38,6 @@ public static class BasisEditorCommandBridge
 
     private static void Pin(UnityEngine.Rendering.ScriptableRenderContext context, Camera camera)
     {
-        if (pinned == null && !float.IsNaN(lookPitch) && camera == Camera.main) { camera.transform.rotation = Quaternion.Euler(lookPitch, camera.transform.eulerAngles.y, 0f); return; }
         if (pinned == null || camera != pinned) { return; }
         if (spinRate != 0f && spinFrame != Time.frameCount) { spinFrame = Time.frameCount; pinnedRotation = Quaternion.Euler(0f, spinRate, 0f) * pinnedRotation; }
         camera.transform.SetPositionAndRotation(pinnedPosition, pinnedRotation);
@@ -209,17 +207,54 @@ public static class BasisEditorCommandBridge
                 break;
             case "walk":
                 {
-                    Type driverType = FindType("BasisLocalCharacterDriver");
-                    UnityEngine.Object driver = driverType != null ? UnityEngine.Object.FindFirstObjectByType(driverType) : null;
+                    Type playerType = FindType("BasisLocalPlayer");
+                    object player = playerType?.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
+                    if (player == null) { Write("no local player"); break; }
+                    const BindingFlags any = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+                    object driver = playerType.GetField("LocalCharacterDriver", any)?.GetValue(player) ?? playerType.GetProperty("LocalCharacterDriver", any)?.GetValue(player);
                     if (driver == null) { Write("no character driver"); break; }
                     Vector2 move = new Vector2(float.Parse(parts[1], CultureInfo.InvariantCulture), float.Parse(parts[2], CultureInfo.InvariantCulture));
-                    driverType.GetMethod("SetMovementVector", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance).Invoke(driver, new object[] { move });
-                    Write("walk " + move + " at " + ((Component)driver).transform.position.ToString("F2"));
+                    driver.GetType().GetMethod("SetMovementVector", any).Invoke(driver, new object[] { move });
+                    Write("walk " + move + " at " + ((Component)player).transform.position.ToString("F2"));
+                }
+                break;
+            case "teleport":
+                {
+                    Type playerType = FindType("BasisLocalPlayer");
+                    object player = playerType?.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
+                    if (player == null) { Write("no local player"); break; }
+                    string[] v = (parts[1] + " " + parts[2]).Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
+                    Vector3 position = new Vector3(float.Parse(v[0], CultureInfo.InvariantCulture), float.Parse(v[1], CultureInfo.InvariantCulture), float.Parse(v[2], CultureInfo.InvariantCulture));
+                    MethodInfo teleport = playerType.GetMethod("Teleport", BindingFlags.Public | BindingFlags.Instance);
+                    ParameterInfo[] ps = teleport.GetParameters();
+                    object[] args = new object[ps.Length];
+                    for (int i = 0; i < ps.Length; i++) { args[i] = ps[i].HasDefaultValue ? ps[i].DefaultValue : null; }
+                    args[0] = position;
+                    args[1] = Quaternion.Euler(0f, v.Length > 3 ? float.Parse(v[3], CultureInfo.InvariantCulture) : 0f, 0f);
+                    teleport.Invoke(player, args);
+                    Write("teleported to " + ((Component)player).transform.position.ToString("F2"));
                 }
                 break;
             case "look":
-                lookPitch = parts.Length > 1 ? float.Parse(parts[1], CultureInfo.InvariantCulture) : float.NaN;
-                Write("look pitch " + lookPitch);
+                {
+                    Type eyeType = FindType("BasisDesktopEye");
+                    UnityEngine.Object eye = eyeType != null && typeof(UnityEngine.Object).IsAssignableFrom(eyeType) ? UnityEngine.Object.FindFirstObjectByType(eyeType) : null;
+                    if (eye == null) { Write("no desktop eye"); break; }
+                    FieldInfo pitch = eyeType.GetField("rotationPitch", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                    FieldInfo yaw = eyeType.GetField("rotationYaw", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                    pitch.SetValue(eye, float.Parse(parts[1], CultureInfo.InvariantCulture));
+                    if (parts.Length > 2 && yaw != null) { yaw.SetValue(eye, float.Parse(parts[2], CultureInfo.InvariantCulture)); }
+                    Write("look pitch " + pitch.GetValue(eye) + " yaw " + yaw?.GetValue(eye));
+                }
+                break;
+            case "setprop":
+                {
+                    int dot = parts[1].LastIndexOf('.');
+                    PropertyInfo property = FindType(parts[1].Substring(0, dot))?.GetProperty(parts[1].Substring(dot + 1), BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+                    if (property == null) { Write("no static property " + parts[1]); break; }
+                    property.SetValue(null, Convert.ChangeType(parts[2], property.PropertyType, CultureInfo.InvariantCulture));
+                    Write("set " + parts[1] + " = " + property.GetValue(null));
+                }
                 break;
             case "emissive":
                 EmissiveCheck();
