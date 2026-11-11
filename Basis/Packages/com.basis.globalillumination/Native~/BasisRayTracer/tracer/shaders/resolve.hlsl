@@ -15,7 +15,7 @@ struct Dirty { float4 sphere; };
 #endif
 
 #ifndef CACHE_DRIFT_STREAK_SIGMA
-#define CACHE_DRIFT_STREAK_SIGMA 4.0
+#define CACHE_DRIFT_STREAK_SIGMA 3.0
 #endif
 
 #ifndef CACHE_DRIFT_FLOOR

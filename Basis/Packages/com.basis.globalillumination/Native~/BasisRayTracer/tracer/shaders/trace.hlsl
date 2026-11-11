@@ -280,20 +280,12 @@ struct LightCandidate
 
 #define CTX_RESERVOIRS 14
 #define RESERVOIR_STRIDE 32u
-#ifndef RESERVOIR_INITIAL
 #define RESERVOIR_INITIAL 4u
-#endif
-#ifndef RESERVOIR_HISTORY
 #define RESERVOIR_HISTORY 4.0
-#endif
 #define CTX_RESERVOIR_SCRATCH 16
 #define RESERVOIR_SCRATCH_STRIDE 64u
-#ifndef SPATIAL_NEIGHBOURS
 #define SPATIAL_NEIGHBOURS 2u
-#endif
-#ifndef SPATIAL_RADIUS
 #define SPATIAL_RADIUS 16.0
-#endif
 #ifndef EMITTER_CONTACT
 #define EMITTER_CONTACT 1.0
 #endif
@@ -969,9 +961,6 @@ void RayGen()
         }
         float W = chosenTarget > 0.0 && z > 0.0 ? wsum / (z * chosenTarget) : 0.0;
         bool counted = chosen.distance < nearRadius;
-#ifdef T_NONEAR
-        counted = false;
-#endif
         if (counted && W > 0.0 && chosen.shadow && Occluded(tlas, origin, chosen.direction, max(chosen.distance * 0.999 - frame.normalBias * 2.0, 0.0))) { W = 0.0; }
         if (counted && W > 0.0 && isfinite(W))
         {
@@ -1233,9 +1222,6 @@ void RayGen()
     }
 
     float4 cached = direct ? float4(0.0, 0.0, 0.0, 1.0) : CacheLookup(surface.position, geometric, viewer, BlueNoise1(pixel, 0u, frame.frameIndex));
-#ifdef T_NOFAR
-    cached = float4(0.0, 0.0, 0.0, 1.0);
-#endif
     float3 irradiance = cached.rgb;
     if (cached.a < 0.5)
     {
