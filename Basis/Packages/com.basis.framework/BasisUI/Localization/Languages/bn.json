@@ -2372,6 +2372,9 @@
     { "key": "library.spawn", "value": "স্পন" },
     { "key": "library.syncSpawn", "value": "সিঙ্ক স্পন" },
     { "key": "library.downloadForEveryone", "value": "সবার জন্য ডাউনলোড করুন" },
+    { "key": "library.predownload.progress", "value": "{0}: {2} জনের মধ্যে {1} জন প্রস্তুত, {3} জন বাকি" },
+    { "key": "library.predownload.done", "value": "{0}: {1} জনই প্রস্তুত" },
+    { "key": "library.predownload.failed", "value": "{0}: {2} জনের মধ্যে {1} জন প্রস্তুত, {3} জন ব্যর্থ" },
     { "key": "library.spawnedCount", "value": "({0} স্পন করা হয়েছে)" },
     { "key": "library.stack.versions", "value": "{0}টি ভার্সন" },
     { "key": "library.stack.latestEntry", "value": "{0} — সর্বশেষ" },
@@ -2924,14 +2927,6 @@
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "স্ক্রিন স্পেস" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "রে ট্রেসড" },
     {
-      "key": "settings.graphics.gi.bounceFeedback",
-      "value": "বাউন্সের শক্তি"
-    },
-    {
-      "key": "settings.graphics.gi.bounceFeedback.tooltip",
-      "value": "যে আলো ইতিমধ্যে বাউন্স করেছে তার কতটা আবার বাউন্স করতে পারবে। শূন্যে প্রতিটি পৃষ্ঠ একবার বাউন্স পায়; বেশি হলে আলো কোণে ও দরজার চারপাশে আরও দূরে যায় এবং কয়েক ফ্রেমে স্থির হয়। টেম্পোরাল ফিল্টার প্রয়োজন।"
-    },
-    {
       "key": "settings.graphics.gi.worldSpace",
       "value": "ওয়ার্ল্ড স্পেস GI"
     },
@@ -3037,8 +3032,6 @@
     { "key": "settings.graphics.gi.obscurance.tooltip", "value": "বাউন্সের মতো একই রে থেকে সংগৃহীত অ্যাম্বিয়েন্ট অক্লুশন, তাই এতে অতিরিক্ত কোনো খরচ হয় না। ভাঁজ ও স্পর্শবিন্দু গাঢ় করে।" },
     { "key": "settings.graphics.gi.rayLength", "value": "রে দৈর্ঘ্য" },
     { "key": "settings.graphics.gi.rayLength.tooltip", "value": "একটি রে কত মিটার দূর পর্যন্ত বাউন্স করার মতো কিছু খোঁজে। বেশি দৈর্ঘ্য পুরো ঘর জুড়ে আলো তুলে আনে এবং প্রতি রে-তে বেশি খরচ করে।" },
-    { "key": "settings.graphics.gi.smoothing", "value": "স্মুথিং" },
-    { "key": "settings.graphics.gi.smoothing.tooltip", "value": "বাউন্সে প্রয়োগ করা এজ-অ্যাওয়্যার ব্লারের প্রস্থ। বেশি হলে স্যাম্পলিং প্যাটার্ন আরও লুকায় এবং বিস্তারিততা নরম করে।" },
     { "key": "settings.graphics.gi.wideBlur", "value": "ওয়াইড ব্লার" },
     { "key": "settings.graphics.gi.wideBlur.tooltip", "value": "একটি দ্বিতীয়, আরও প্রশস্ত ব্লার পাস। ছোট ব্লার যে লো-ফ্রিকোয়েন্সি দাগ রেখে যায় তা ট্রেস করা বাফারের ওপর আরেকটি পাসের মাধ্যমে সরিয়ে দেয়।" },
     { "key": "settings.graphics.gi.alternateEyes", "value": "পালাক্রমে চোখ আপডেট করুন" },
@@ -5291,8 +5284,6 @@
     { "key": "settings.graphics.dlssModel.m.tooltip", "value": "গতির জন্য টিউন করা দ্বিতীয় প্রজন্মের ট্রান্সফর্মার মডেল। K-এর চেয়ে বেশি শার্প, তবে সূক্ষ্ম বিবরণ K বা L-এর তুলনায় বেশি ঝিকমিক করে।" },
     { "key": "settings.graphics.dlssModel.tooltip", "value": "কোন DLSS AI মডেল ছবিটি পুনর্গঠন করে। নতুন মডেলগুলো বেশি শার্প এবং কম ঘোস্টিং করে, তবে GPU-র একটু বেশি সময় নেয়।" },
     { "key": "settings.graphics.gi.mode.rayTraced.tooltip", "value": "স্ক্রিনের বাইরের অংশসহ বিশ্বকেই ট্রেস করে। DirectX 12 এবং হার্ডওয়্যার রে ট্রেসিং সমর্থিত গ্রাফিক্স কার্ড প্রয়োজন, যেমন NVIDIA RTX; অন্য যেকোনো ক্ষেত্রে এটি স্ক্রিন স্পেস হিসেবে চলে।" },
-    { "key": "settings.graphics.gi.mode.pathTraced", "value": "পাথ ট্রেসড (DX12)" },
-    { "key": "settings.graphics.gi.mode.pathTraced.tooltip", "value": "ট্রেসিং একটি আলাদা DirectX 12 পাথ ট্রেসারের হাতে দেয়, যা পর্দার ভেতরে ও বাইরে আসল অবতার মেশ, নির্গমন, স্বচ্ছতা ও টেক্সচার অনুসরণ করে। Windows এবং হার্ডওয়্যার রে ট্রেসিংসহ গ্রাফিক্স কার্ড প্রয়োজন; Unity DirectX 11 বা 12-এ চলতে পারে। ট্রেসার চালু না হলে Radiance Cascades-এ ফিরে যায়।" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked", "value": "পাথ ট্রেসড + বেকড (DX12)" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked.tooltip", "value": "জগতের বেক করা আলো রাখে এবং শুধু যা বেক জানে না তা ট্রেস করে: অবতার, চলমান বস্তু, অবতারের দীপ্তি ও রিয়েলটাইম আলো। লাইটম্যাপযুক্ত জগতে পূর্ণ পাথ ট্রেসিংয়ের চেয়ে অনেক সস্তা। বেকড আলো না থাকলে পাথ ট্রেসডের মতো কাজ করে।" },
     { "key": "settings.graphics.gi.mode.screenSpace.tooltip", "value": "ক্যামেরা যা আগেই এঁকেছে তা থেকে কাজ করে। যেকোনো গ্রাফিক্স কার্ডে চলে, DirectX 11 সহ।" },

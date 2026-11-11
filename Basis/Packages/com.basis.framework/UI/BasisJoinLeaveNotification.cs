@@ -310,7 +310,7 @@ namespace Basis.Scripts.UI
             ShowNotification(name + " left", Color.white);
         }
 
-        private static void ShowNotification(string message, Color color)
+        public static void ShowNotification(string message, Color color)
         {
             if (!initialized)
             {

@@ -392,8 +392,8 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<string> GlobalIlluminationResolution = new("globalilluminationresolution", new BasisPlatformDefault<string>("Half"));
         public static BasisSettingsBinding<string> GlobalIlluminationFallback = new("globalilluminationfallback", new BasisPlatformDefault<string>("Reflection Probe"));
         public static BasisSettingsBinding<string> GlobalIlluminationPathTracerBackend = new("globalilluminationpathtracerbackend", new BasisPlatformDefault<string>("DirectX"));
-        public static BasisSettingsBinding<string> GlobalIlluminationPathTracerRays = new("globalilluminationpathtracerrays", new BasisPlatformDefault<string>("Auto"));
-        public static BasisSettingsBinding<string> GlobalIlluminationPathTracerAvatarRays = new("globalilluminationpathtraceravatarrays", new BasisPlatformDefault<string>("4"));
+        public static BasisSettingsBinding<string> GlobalIlluminationPathTracerRays = new("globalilluminationpathtracerrays", new BasisPlatformDefault<string>("2"));
+        public static BasisSettingsBinding<string> GlobalIlluminationPathTracerAvatarRays = new("globalilluminationpathtraceravatarrays", new BasisPlatformDefault<string>("2"));
         // Ray traced skips a baked-emissive surface's light by default, because that light already sits in
         // the lightmap and injecting it again lights the room twice from one lamp. Turning this on trades
         // that correctness for a stronger bounce - useful in a world with no lightmap to speak of, or when
@@ -404,7 +404,7 @@ namespace Basis.BasisUI
         // lightmap, so the composite re-applying both is double counting - the reason a carefully baked
         // world reads blown out and crushed at once with the effect on. This is how much such a surface
         // still receives; dynamic surfaces always receive in full, and 1 restores the old behaviour.
-        public static BasisSettingsBinding<float> GlobalIlluminationLightmappedReceive = new("globalilluminationlightmappedreceive", new BasisPlatformDefault<float>(0.25f));
+        public static BasisSettingsBinding<float> GlobalIlluminationLightmappedReceive = new("globalilluminationlightmappedreceive", new BasisPlatformDefault<float>(1f));
         // The bottom is not zero by the same rule as every other slider - and here the "off" of this
         // setting is the TOP anyway: 1 restores the old un-masked behaviour.
         public const float GI_LIGHTMAPPED_RECEIVE_MIN = 0.05f;
@@ -423,9 +423,6 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<float> GlobalIlluminationRayLength = new("globalilluminationraylength", new BasisPlatformDefault<float>(16f));
         public const float GI_RAY_LENGTH_MIN = 1f;
         public const float GI_RAY_LENGTH_MAX = 64f;
-        public static BasisSettingsBinding<float> GlobalIlluminationBounceFeedback = new("globalilluminationbouncefeedback", new BasisPlatformDefault<float>(0.6f));
-        public const float GI_BOUNCE_FEEDBACK_MIN = 0f;
-        public const float GI_BOUNCE_FEEDBACK_MAX = 1f;
         public static BasisSettingsBinding<bool> GlobalIlluminationCascadeOverride = new("globalilluminationcascadeoverride", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<float> GlobalIlluminationCascadeCount = new("globalilluminationcascadecount", new BasisPlatformDefault<float>(6f));
         public const float GI_CASCADE_COUNT_MIN = 2f;
@@ -442,9 +439,6 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<float> GlobalIlluminationWorldVoxelSize = new("globalilluminationworldvoxelsize", new BasisPlatformDefault<float>(0.2f));
         public const float GI_WORLD_VOXEL_SIZE_MIN = 0.1f;
         public const float GI_WORLD_VOXEL_SIZE_MAX = 0.5f;
-        public static BasisSettingsBinding<float> GlobalIlluminationSmoothing = new("globalilluminationsmoothing", new BasisPlatformDefault<float>(1f));
-        public const float GI_SMOOTHING_MIN = 0.25f;
-        public const float GI_SMOOTHING_MAX = 2f;
         // How much of this frame's trace replaces the accumulated bounce. Low keeps the image stillest but
         // smears the bounce behind anything that moves, which is a comfort question in VR, so it is the
         // player's call rather than the world's.
@@ -459,7 +453,7 @@ namespace Basis.BasisUI
         // Emitters carry light from sources the trace cannot see: a sign or a strip light is under one
         // texel at traced resolution, and anything behind the camera is off screen entirely.
         public static BasisSettingsBinding<bool> GlobalIlluminationEmitters = new("globalilluminationemitters", new BasisPlatformDefault<bool>(true));
-        public static BasisSettingsBinding<float> GlobalIlluminationEmitterIntensity = new("globalilluminationemitterintensity", new BasisPlatformDefault<float>(3f));
+        public static BasisSettingsBinding<float> GlobalIlluminationEmitterIntensity = new("globalilluminationemitterintensity", new BasisPlatformDefault<float>(1f));
         public const float GI_EMITTER_INTENSITY_MIN = 0.1f;
         public const float GI_EMITTER_INTENSITY_MAX = 8f;
         // Off by default: a realtime reflection probe pays for the whole effect once per face.
@@ -2432,7 +2426,6 @@ namespace Basis.BasisUI
             GlobalIlluminationSaturation.LoadBindingValue();
             GlobalIlluminationObscurance.LoadBindingValue();
             GlobalIlluminationRayLength.LoadBindingValue();
-            GlobalIlluminationBounceFeedback.LoadBindingValue();
             GlobalIlluminationCascadeOverride.LoadBindingValue();
             GlobalIlluminationCascadeCount.LoadBindingValue();
             GlobalIlluminationCascadeSpacing.LoadBindingValue();
@@ -2441,7 +2434,6 @@ namespace Basis.BasisUI
             GlobalIlluminationWorldSpace.LoadBindingValue();
             GlobalIlluminationWorldLevels.LoadBindingValue();
             GlobalIlluminationWorldVoxelSize.LoadBindingValue();
-            GlobalIlluminationSmoothing.LoadBindingValue();
             GlobalIlluminationTemporalResponse.LoadBindingValue();
             GlobalIlluminationTemporalFilter.LoadBindingValue();
             GlobalIlluminationWideBlur.LoadBindingValue();

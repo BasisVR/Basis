@@ -2372,6 +2372,9 @@
     { "key": "library.spawn", "value": "Genera" },
     { "key": "library.syncSpawn", "value": "Generazione sincronizzata" },
     { "key": "library.downloadForEveryone", "value": "Scarica per tutti" },
+    { "key": "library.predownload.progress", "value": "{0}: {1} su {2} pronti, {3} rimanenti" },
+    { "key": "library.predownload.done", "value": "{0}: tutti e {1} pronti" },
+    { "key": "library.predownload.failed", "value": "{0}: {1} su {2} pronti, {3} non riusciti" },
     { "key": "library.spawnedCount", "value": "({0} generati)" },
     { "key": "library.stack.versions", "value": "{0} versioni" },
     { "key": "library.stack.latestEntry", "value": "{0} — Più recente" },
@@ -2924,14 +2927,6 @@
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "Screen Space" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "Ray Tracing" },
     {
-      "key": "settings.graphics.gi.bounceFeedback",
-      "value": "Intensità del rimbalzo"
-    },
-    {
-      "key": "settings.graphics.gi.bounceFeedback.tooltip",
-      "value": "Quanta della luce già rimbalzata può rimbalzare di nuovo. A zero ogni superficie riceve un solo rimbalzo; valori più alti portano la luce più lontano negli angoli e intorno alle porte, stabilizzandosi in pochi fotogrammi. Richiede il filtro temporale."
-    },
-    {
       "key": "settings.graphics.gi.worldSpace",
       "value": "GI nello spazio mondo"
     },
@@ -3037,8 +3032,6 @@
     { "key": "settings.graphics.gi.obscurance.tooltip", "value": "Occlusione ambientale raccolta dagli stessi raggi del rimbalzo, quindi non costa nulla in più. Scurisce pieghe e punti di contatto." },
     { "key": "settings.graphics.gi.rayLength", "value": "Lunghezza raggio" },
     { "key": "settings.graphics.gi.rayLength.tooltip", "value": "Quanto lontano, in metri, un raggio cerca qualcosa su cui rimbalzare. Valori maggiori raccolgono luce dall'altro capo della stanza e costano di più per raggio." },
-    { "key": "settings.graphics.gi.smoothing", "value": "Smoothing" },
-    { "key": "settings.graphics.gi.smoothing.tooltip", "value": "Ampiezza della sfocatura sensibile ai bordi applicata al rimbalzo. Valori più alti nascondono meglio il pattern di campionamento e ammorbidiscono i dettagli." },
     { "key": "settings.graphics.gi.wideBlur", "value": "Sfocatura ampia" },
     { "key": "settings.graphics.gi.wideBlur.tooltip", "value": "Un secondo passaggio di sfocatura più ampio. Rimuove le macchie a bassa frequenza che una sfocatura ridotta lascia dietro di sé, con un ulteriore passaggio sul buffer tracciato." },
     { "key": "settings.graphics.gi.alternateEyes", "value": "Aggiorna gli occhi a turno" },
@@ -5291,8 +5284,6 @@
     { "key": "settings.graphics.dlssModel.m.tooltip", "value": "Modello transformer di seconda generazione ottimizzato per la velocità. Più nitido di K, ma i dettagli fini sfarfallano più che con K o L." },
     { "key": "settings.graphics.dlssModel.tooltip", "value": "Quale modello IA di DLSS ricostruisce l'immagine. I modelli più recenti sono più nitidi e producono meno ghosting, ma richiedono un po' più di tempo GPU." },
     { "key": "settings.graphics.gi.mode.rayTraced.tooltip", "value": "Traccia il mondo stesso, compreso ciò che è fuori schermo. Richiede DirectX 12 e una scheda grafica con ray tracing hardware, come NVIDIA RTX; altrimenti funziona come Screen Space." },
-    { "key": "settings.graphics.gi.mode.pathTraced", "value": "Path tracing (DX12)" },
-    { "key": "settings.graphics.gi.mode.pathTraced.tooltip", "value": "Affida il calcolo a un path tracer DirectX 12 separato che segue le mesh reali degli avatar, l'emissione, la trasparenza e le texture, dentro e fuori dallo schermo. Richiede Windows e una scheda grafica con ray tracing hardware; Unity può usare DirectX 11 o 12. Se il tracer non si avvia, torna a Radiance Cascades." },
     { "key": "settings.graphics.gi.mode.pathTracedBaked", "value": "Path tracing + baked (DX12)" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked.tooltip", "value": "Mantiene l'illuminazione precalcolata del mondo e traccia solo ciò che il bake non conosce: avatar, oggetti in movimento, bagliore degli avatar e luci in tempo reale. Molto più economico del path tracing completo nei mondi con lightmap. Senza illuminazione precalcolata funziona come Path tracing." },
     { "key": "settings.graphics.gi.mode.screenSpace.tooltip", "value": "Lavora su ciò che la fotocamera ha già disegnato. Funziona su qualsiasi scheda grafica, DirectX 11 compreso." },

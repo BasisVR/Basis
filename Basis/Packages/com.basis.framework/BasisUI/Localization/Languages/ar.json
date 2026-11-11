@@ -2372,6 +2372,9 @@
     { "key": "library.spawn", "value": "إظهار" },
     { "key": "library.syncSpawn", "value": "إظهار متزامن" },
     { "key": "library.downloadForEveryone", "value": "تنزيل للجميع" },
+    { "key": "library.predownload.progress", "value": "{0}: {1} من {2} جاهزون، بقي {3}" },
+    { "key": "library.predownload.done", "value": "{0}: الجميع جاهزون ({1})" },
+    { "key": "library.predownload.failed", "value": "{0}: {1} من {2} جاهزون، فشل {3}" },
     { "key": "library.spawnedCount", "value": "({0} تم إظهاره)" },
     { "key": "library.stack.versions", "value": "{0} إصدارات" },
     { "key": "library.stack.latestEntry", "value": "{0} — الأحدث" },
@@ -2924,14 +2927,6 @@
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "مساحة الشاشة" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "تتبع الأشعة" },
     {
-      "key": "settings.graphics.gi.bounceFeedback",
-      "value": "قوة الارتداد"
-    },
-    {
-      "key": "settings.graphics.gi.bounceFeedback.tooltip",
-      "value": "مقدار الضوء الذي ارتد بالفعل والمسموح له بالارتداد مرة أخرى. عند الصفر يحصل كل سطح على ارتداد واحد؛ والقيم الأعلى تحمل الضوء أبعد إلى الزوايا وحول المداخل، ويستقر خلال بضعة إطارات. يتطلب المرشِّح الزمني."
-    },
-    {
       "key": "settings.graphics.gi.worldSpace",
       "value": "إضاءة شاملة في فضاء العالم"
     },
@@ -3037,8 +3032,6 @@
     { "key": "settings.graphics.gi.obscurance.tooltip", "value": "انسداد محيطي يُجمَع من الأشعة نفسها المستخدمة في الارتداد، فلا يكلف شيئًا إضافيًا. يُعتِّم الطيات ونقاط التلامس." },
     { "key": "settings.graphics.gi.rayLength", "value": "طول الشعاع" },
     { "key": "settings.graphics.gi.rayLength.tooltip", "value": "إلى أي مسافة، بالأمتار، يبحث الشعاع عن شيء يرتد عنه. الطول الأكبر يلتقط الضوء من عبر الغرفة ويكلف أكثر لكل شعاع." },
-    { "key": "settings.graphics.gi.smoothing", "value": "التنعيم" },
-    { "key": "settings.graphics.gi.smoothing.tooltip", "value": "عرض التمويه المراعي للحواف المطبَّق على الارتداد. القيمة الأعلى تُخفي المزيد من نمط أخذ العيّنات وتُلطِّف التفاصيل." },
     { "key": "settings.graphics.gi.wideBlur", "value": "تمويه واسع" },
     { "key": "settings.graphics.gi.wideBlur.tooltip", "value": "تمريرة تمويه ثانية وأوسع. تُزيل التبقُّع منخفض التردد الذي يتركه التمويه الصغير، في تمريرة إضافية واحدة على المخزن المؤقت المتتبَّع." },
     { "key": "settings.graphics.gi.alternateEyes", "value": "تحديث العينين بالتناوب" },
@@ -5291,8 +5284,6 @@
     { "key": "settings.graphics.dlssModel.m.tooltip", "value": "نموذج ترانسفورمر من الجيل الثاني مضبوط للسرعة. أكثر حدة من K، لكن التفاصيل الدقيقة تتلألأ أكثر مما في K أو L." },
     { "key": "settings.graphics.dlssModel.tooltip", "value": "أي نموذج ذكاء اصطناعي من DLSS يعيد بناء الصورة. النماذج الأحدث أكثر حدة وتترك آثارًا شبحية أقل، لكنها تستهلك وقتًا أطول قليلًا من GPU." },
     { "key": "settings.graphics.gi.mode.rayTraced.tooltip", "value": "يتتبع العالم نفسه، بما في ذلك ما هو خارج الشاشة. يتطلب DirectX 12 وبطاقة رسومات تدعم تتبع الأشعة بالعتاد، مثل NVIDIA RTX؛ وفي أي حالة أخرى يعمل بوضع مساحة الشاشة." },
-    { "key": "settings.graphics.gi.mode.pathTraced", "value": "تتبع المسارات (DX12)" },
-    { "key": "settings.graphics.gi.mode.pathTraced.tooltip", "value": "يسلّم التتبع إلى متتبع مسارات منفصل يعمل بـ DirectX 12 ويأخذ في الحسبان شبكات الأفاتار الحقيقية والانبعاث والشفافية والخامات داخل الشاشة وخارجها. يحتاج إلى Windows وبطاقة رسوميات تدعم تتبع الأشعة عتاديًا؛ ويمكن أن يعمل Unity على DirectX 11 أو 12. يعود إلى Radiance Cascades إذا تعذّر تشغيل المتتبع." },
     { "key": "settings.graphics.gi.mode.pathTracedBaked", "value": "تتبع المسارات + المخبوز (DX12)" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked.tooltip", "value": "يحتفظ بالإضاءة المخبوزة للعالم ويتتبع فقط ما لا يعرفه الخبز: الأفاتارات والأجسام المتحركة وتوهج الأفاتار والأضواء الفورية. أرخص بكثير من التتبع الكامل في العوالم ذات خرائط الإضاءة. بدون إضاءة مخبوزة يعمل مثل تتبع المسارات." },
     { "key": "settings.graphics.gi.mode.screenSpace.tooltip", "value": "يعمل انطلاقًا مما رسمته الكاميرا بالفعل. يعمل على أي بطاقة رسومات، بما في ذلك DirectX 11." },

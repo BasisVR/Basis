@@ -2372,6 +2372,9 @@
     { "key": "library.spawn", "value": "Создать" },
     { "key": "library.syncSpawn", "value": "Синхронное создание" },
     { "key": "library.downloadForEveryone", "value": "Загрузить для всех" },
+    { "key": "library.predownload.progress", "value": "{0}: готово {1} из {2}, осталось {3}" },
+    { "key": "library.predownload.done", "value": "{0}: готовы все {1}" },
+    { "key": "library.predownload.failed", "value": "{0}: готово {1} из {2}, ошибок: {3}" },
     { "key": "library.spawnedCount", "value": "({0} создано)" },
     { "key": "library.stack.versions", "value": "{0} версий" },
     { "key": "library.stack.latestEntry", "value": "{0} — последняя" },
@@ -2924,14 +2927,6 @@
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "Экранное пространство" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "Трассировка лучей" },
     {
-      "key": "settings.graphics.gi.bounceFeedback",
-      "value": "Сила переотражения"
-    },
-    {
-      "key": "settings.graphics.gi.bounceFeedback.tooltip",
-      "value": "Какая часть уже отражённого света может отразиться снова. При нуле каждая поверхность получает одно отражение; выше значения уводят свет дальше в углы и вокруг дверных проёмов и устанавливаются за несколько кадров. Требуется временной фильтр."
-    },
-    {
       "key": "settings.graphics.gi.worldSpace",
       "value": "GI в мировом пространстве"
     },
@@ -3037,8 +3032,6 @@
     { "key": "settings.graphics.gi.obscurance.tooltip", "value": "Окружающее затенение, получаемое из тех же лучей, что и переотражение, поэтому не требует дополнительных затрат. Затемняет складки и точки контакта." },
     { "key": "settings.graphics.gi.rayLength", "value": "Длина луча" },
     { "key": "settings.graphics.gi.rayLength.tooltip", "value": "На каком расстоянии, в метрах, луч ищет, от чего отразиться. Большее значение улавливает свет через всю комнату и стоит дороже на каждый луч." },
-    { "key": "settings.graphics.gi.smoothing", "value": "Сглаживание" },
-    { "key": "settings.graphics.gi.smoothing.tooltip", "value": "Ширина учитывающего границы размытия, применяемого к переотражению. Выше — сильнее скрывает паттерн сэмплирования и смягчает детализацию." },
     { "key": "settings.graphics.gi.wideBlur", "value": "Широкое размытие" },
     { "key": "settings.graphics.gi.wideBlur.tooltip", "value": "Дополнительный, более широкий проход размытия. Убирает низкочастотные пятна, которые оставляет небольшое размытие, ценой ещё одного прохода по трассируемому буферу." },
     { "key": "settings.graphics.gi.alternateEyes", "value": "Обновлять глаза по очереди" },
@@ -5291,8 +5284,6 @@
     { "key": "settings.graphics.dlssModel.m.tooltip", "value": "Трансформерная модель второго поколения, настроенная на скорость. Чётче, чем K, но мелкие детали мерцают сильнее, чем с K или L." },
     { "key": "settings.graphics.dlssModel.tooltip", "value": "Какая ИИ-модель DLSS восстанавливает изображение. Новые модели чётче и дают меньше шлейфов, но требуют чуть больше времени GPU." },
     { "key": "settings.graphics.gi.mode.rayTraced.tooltip", "value": "Трассирует сам мир, включая то, что за пределами экрана. Требуются DirectX 12 и видеокарта с аппаратной трассировкой лучей, например NVIDIA RTX; в остальных случаях работает как «Экранное пространство»." },
-    { "key": "settings.graphics.gi.mode.pathTraced", "value": "Трассировка путей (DX12)" },
-    { "key": "settings.graphics.gi.mode.pathTraced.tooltip", "value": "Передаёт расчёт отдельному трассировщику путей на DirectX 12, который учитывает настоящие меши аватаров, свечение, прозрачность и текстуры, в кадре и за его пределами. Нужны Windows и видеокарта с аппаратной трассировкой лучей; Unity может работать на DirectX 11 или 12. Если трассировщик не запустится, используется Radiance Cascades." },
     { "key": "settings.graphics.gi.mode.pathTracedBaked", "value": "Трассировка путей + запечённый (DX12)" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked.tooltip", "value": "Сохраняет запечённое освещение мира и трассирует только то, чего нет в запечке: аватары, движущиеся объекты, свечение аватаров и освещение в реальном времени. Гораздо дешевле полной трассировки в мирах с лайтмапами. Без запечённого освещения работает как трассировка путей." },
     { "key": "settings.graphics.gi.mode.screenSpace.tooltip", "value": "Использует то, что камера уже отрисовала. Работает на любой видеокарте, в том числе с DirectX 11." },

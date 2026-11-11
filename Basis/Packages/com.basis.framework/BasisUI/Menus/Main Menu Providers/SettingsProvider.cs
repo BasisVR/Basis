@@ -2385,7 +2385,9 @@ namespace Basis.BasisUI
                 PanelDropdown dropdownGiSolution = PanelDropdown.CreateNewEntry(giGroup.ContentParent);
                 dropdownGiSolution.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.solution"));
                 dropdownGiSolution.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.solution.tooltip"));
-                AssignLightingSolutionEntries(dropdownGiSolution, BasisLightingSolutions.HasUnityGlobalIllumination, BasisSettingsDefaults.GlobalIlluminationSolution);
+                // AssignLightingSolutionEntries(dropdownGiSolution, BasisLightingSolutions.HasUnityGlobalIllumination, BasisSettingsDefaults.GlobalIlluminationSolution);
+                if (BasisLightingSolutions.PicksUnityGlobalIllumination(BasisSettingsDefaults.GlobalIlluminationSolution.RawValue)) { BasisSettingsDefaults.GlobalIlluminationSolution.SetValue(BasisLightingSolutions.SolutionBasis); }
+                AssignLightingSolutionEntries(dropdownGiSolution, false, BasisSettingsDefaults.GlobalIlluminationSolution);
                 SettingsProviderBottleneckHints.Mark(dropdownGiSolution, BasisFrameCostSide.Gpu);
                 Action<bool> showUnityGi = SettingsProviderUnityLighting.BuildGlobalIllumination(giGroup.ContentParent, RebuildGiLayout);
 
@@ -2428,16 +2430,6 @@ namespace Basis.BasisUI
                     new List<string> { "settings.graphics.gi.pathTracerAvatarRays.off", "settings.graphics.gi.pathTracerRays.2", "settings.graphics.gi.pathTracerRays.4", "settings.graphics.gi.pathTracerRays.8", "settings.graphics.gi.pathTracerRays.16" });
                 dropdownGiPathTracerAvatarRays.AssignBinding(BasisSettingsDefaults.GlobalIlluminationPathTracerAvatarRays);
                 SettingsProviderBottleneckHints.Mark(dropdownGiPathTracerAvatarRays, BasisFrameCostSide.Gpu);
-
-                PanelSlider sliderGiBounceFeedback = PanelSlider.CreateEntryAndBind(
-                    giGroup.ContentParent,
-                    new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.gi.bounceFeedback"),
-                        "",
-                        BasisSettingsDefaults.GI_BOUNCE_FEEDBACK_MIN,
-                        BasisSettingsDefaults.GI_BOUNCE_FEEDBACK_MAX,
-                        false, 2, ValueDisplayMode.Raw),
-                    BasisSettingsDefaults.GlobalIlluminationBounceFeedback);
-                sliderGiBounceFeedback.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.bounceFeedback.tooltip"));
 
                 PanelToggle toggleGiWorldSpace = PanelToggle.CreateNewEntry(giGroup.ContentParent);
                 toggleGiWorldSpace.AssignBinding(BasisSettingsDefaults.GlobalIlluminationWorldSpace);
@@ -2592,16 +2584,6 @@ namespace Basis.BasisUI
                 toggleGiCascadeMergeFix.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.cascadeMergeFix.tooltip"));
                 SettingsProviderBottleneckHints.Mark(toggleGiCascadeMergeFix, BasisFrameCostSide.Gpu);
 
-                PanelSlider sliderGiSmoothing = PanelSlider.CreateEntryAndBind(
-                    giAdvanced.ContentParent,
-                    new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.gi.smoothing"),
-                        "",
-                        BasisSettingsDefaults.GI_SMOOTHING_MIN,
-                        BasisSettingsDefaults.GI_SMOOTHING_MAX,
-                        false, 2, ValueDisplayMode.Raw),
-                    BasisSettingsDefaults.GlobalIlluminationSmoothing);
-                sliderGiSmoothing.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.smoothing.tooltip"));
-
                 PanelToggle toggleGiWideBlur = PanelToggle.CreateNewEntry(giAdvanced.ContentParent);
                 toggleGiWideBlur.AssignBinding(BasisSettingsDefaults.GlobalIlluminationWideBlur);
                 toggleGiWideBlur.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.wideBlur"));
@@ -2747,15 +2729,15 @@ namespace Basis.BasisUI
                 {
                     bool basis = val && !BasisLightingSolutions.PicksUnityGlobalIllumination(dropdownGiSolution.Value);
                     bool rayTraced = basis && giCanTrace && dropdownGiMode.Value == "Ray Traced";
-                    dropdownGiSolution.Descriptor.SetActive(val);
+                    // dropdownGiSolution.Descriptor.SetActive(val);
+                    dropdownGiSolution.Descriptor.SetActive(false);
                     showUnityGi(val && !basis);
                     dropdownGiMode.Descriptor.SetActive(basis);
-                    bool pathTraced = basis && (dropdownGiMode.Value == "Path Traced" || dropdownGiMode.Value == "Path Traced (Baked)");
+                    bool pathTraced = basis && dropdownGiMode.Value == "Path Traced (Baked)";
                     if (dropdownGiPathTracerBackend != null) { dropdownGiPathTracerBackend.Descriptor.SetActive(pathTraced); }
                     dropdownGiPathTracerRays.Descriptor.SetActive(pathTraced);
                     dropdownGiPathTracerAvatarRays.Descriptor.SetActive(pathTraced);
                     bool cascades = basis && !rayTraced;
-                    sliderGiBounceFeedback.Descriptor.SetActive(cascades && toggleGiTemporal.Value);
                     toggleGiWorldSpace.Descriptor.SetActive(cascades);
                     sliderGiWorldLevels.Descriptor.SetActive(cascades && toggleGiWorldSpace.Value);
                     sliderGiWorldVoxelSize.Descriptor.SetActive(cascades && toggleGiWorldSpace.Value);
@@ -2776,7 +2758,6 @@ namespace Basis.BasisUI
                     sliderGiSaturation.Descriptor.SetActive(basis);
                     sliderGiObscurance.Descriptor.SetActive(basis);
                     sliderGiRayLength.Descriptor.SetActive(basis);
-                    sliderGiSmoothing.Descriptor.SetActive(basis);
                     toggleGiWideBlur.Descriptor.SetActive(basis);
                     toggleGiAlternateEyes.Descriptor.SetActive(cascades);
                     toggleGiTemporal.Descriptor.SetActive(basis);
@@ -4222,7 +4203,6 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.GlobalIlluminationSaturation.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationObscurance.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationRayLength.ResetToDefault();
-            BasisSettingsDefaults.GlobalIlluminationBounceFeedback.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationCascadeOverride.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationCascadeCount.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationCascadeSpacing.ResetToDefault();
@@ -4231,7 +4211,6 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.GlobalIlluminationWorldSpace.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationWorldLevels.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationWorldVoxelSize.ResetToDefault();
-            BasisSettingsDefaults.GlobalIlluminationSmoothing.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationTemporalResponse.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationTemporalFilter.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationWideBlur.ResetToDefault();

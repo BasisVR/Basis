@@ -798,7 +798,6 @@ public partial class BasisHandHeldCameraUI
             giSaturation = baseline.giSaturation,
             giObscurance = baseline.giObscurance,
             giRayLength = baseline.giRayLength,
-            giSmoothing = baseline.giSmoothing,
             giWideBlur = baseline.giWideBlur,
             giRayReuse = baseline.giRayReuse,
             giEmitters = baseline.giEmitters,
@@ -961,7 +960,6 @@ public partial class BasisHandHeldCameraUI
             settings.giSaturation = gi.Saturation;
             settings.giObscurance = gi.Obscurance;
             settings.giRayLength = gi.RayLength;
-            settings.giSmoothing = gi.Smoothing;
             settings.giWideBlur = gi.WideBlur;
             settings.giRayReuse = gi.RayReuse;
             settings.giEmitters = gi.Emitters;
@@ -1502,7 +1500,6 @@ public partial class BasisHandHeldCameraUI
         HHC.SetGlobalIlluminationOverrideSaturation(settings.giSaturation);
         HHC.SetGlobalIlluminationOverrideObscurance(settings.giObscurance);
         HHC.SetGlobalIlluminationOverrideRayLength(settings.giRayLength);
-        HHC.SetGlobalIlluminationOverrideSmoothing(settings.giSmoothing);
         HHC.SetGlobalIlluminationOverrideWideBlur(settings.giWideBlur);
         HHC.SetGlobalIlluminationOverrideRayReuse(settings.giRayReuse);
         HHC.SetGlobalIlluminationOverrideEmitters(settings.giEmitters);

@@ -165,7 +165,7 @@ public sealed partial class BasisGlobalIlluminationSettings
     public float emitterIntensity = 1f;
     public bool emitterOcclusion = true;
 
-    public float bounceFeedback = 0.6f;
+    public float bounceFeedback = 1f;
     public bool cascadeOverride = false;
     public int cascadeCount = 6;
     public int cascadeSpacing = 2;
@@ -206,7 +206,7 @@ public sealed partial class BasisGlobalIlluminationSettings
     /// for it whatever this is set to. Applied at composite time in both modes; the gather still reads
     /// lightmapped surfaces as light sources either way.
     /// </summary>
-    public float lightmappedReceive = 0.25f;
+    public float lightmappedReceive = 1f;
 
     /// <summary>
     /// How much of an emissive surface's brightness is allowed into the bounce, split by what the surface

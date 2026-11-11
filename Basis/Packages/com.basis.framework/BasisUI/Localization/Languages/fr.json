@@ -2372,6 +2372,9 @@
     { "key": "library.spawn", "value": "Faire apparaître" },
     { "key": "library.syncSpawn", "value": "Apparition synchronisée" },
     { "key": "library.downloadForEveryone", "value": "Télécharger pour tout le monde" },
+    { "key": "library.predownload.progress", "value": "{0} : {1} sur {2} prêts, {3} restants" },
+    { "key": "library.predownload.done", "value": "{0} : les {1} sont prêts" },
+    { "key": "library.predownload.failed", "value": "{0} : {1} sur {2} prêts, {3} en échec" },
     { "key": "library.spawnedCount", "value": "({0} apparu(s))" },
     { "key": "library.stack.versions", "value": "{0} versions" },
     { "key": "library.stack.latestEntry", "value": "{0} — Dernière" },
@@ -2924,14 +2927,6 @@
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "Espace écran" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "Lancer de rayons" },
     {
-      "key": "settings.graphics.gi.bounceFeedback",
-      "value": "Force du rebond"
-    },
-    {
-      "key": "settings.graphics.gi.bounceFeedback.tooltip",
-      "value": "Quelle part de la lumière ayant déjà rebondi peut rebondir à nouveau. À zéro, chaque surface reçoit un seul rebond ; plus haut, la lumière va plus loin dans les coins et autour des portes, et se stabilise en quelques images. Nécessite le filtre temporel."
-    },
-    {
       "key": "settings.graphics.gi.worldSpace",
       "value": "IG en espace monde"
     },
@@ -3037,8 +3032,6 @@
     { "key": "settings.graphics.gi.obscurance.tooltip", "value": "Occlusion ambiante recueillie à partir des mêmes rayons que le rebond, donc elle ne coûte rien de plus. Assombrit les plis et les points de contact." },
     { "key": "settings.graphics.gi.rayLength", "value": "Longueur du rayon" },
     { "key": "settings.graphics.gi.rayLength.tooltip", "value": "Jusqu'à quelle distance, en mètres, un rayon cherche quelque chose sur quoi rebondir. Une plus grande longueur capte la lumière depuis l'autre bout de la pièce et coûte plus cher par rayon." },
-    { "key": "settings.graphics.gi.smoothing", "value": "Lissage" },
-    { "key": "settings.graphics.gi.smoothing.tooltip", "value": "Largeur du flou respectant les contours appliqué au rebond. Plus élevé masque davantage le motif d'échantillonnage et adoucit les détails." },
     { "key": "settings.graphics.gi.wideBlur", "value": "Flou large" },
     { "key": "settings.graphics.gi.wideBlur.tooltip", "value": "Une seconde passe de flou, plus large. Élimine les taches basse fréquence qu'un petit flou laisse derrière lui, pour une passe supplémentaire sur le tampon tracé." },
     { "key": "settings.graphics.gi.alternateEyes", "value": "Mettre à jour les yeux à tour de rôle" },
@@ -5291,8 +5284,6 @@
     { "key": "settings.graphics.dlssModel.m.tooltip", "value": "Modèle transformer de deuxième génération optimisé pour la vitesse. Plus net que K, mais les détails fins scintillent davantage qu'avec K ou L." },
     { "key": "settings.graphics.dlssModel.tooltip", "value": "Le modèle d'IA de DLSS qui reconstruit l'image. Les modèles plus récents sont plus nets et produisent moins d'images fantômes, mais demandent un peu plus de temps GPU." },
     { "key": "settings.graphics.gi.mode.rayTraced.tooltip", "value": "Trace le monde lui-même, y compris ce qui est hors champ. Nécessite DirectX 12 et une carte graphique avec lancer de rayons matériel, comme NVIDIA RTX ; partout ailleurs, il fonctionne en Espace écran." },
-    { "key": "settings.graphics.gi.mode.pathTraced", "value": "Tracé de chemins (DX12)" },
-    { "key": "settings.graphics.gi.mode.pathTraced.tooltip", "value": "Confie le calcul à un traceur de chemins DirectX 12 séparé qui suit les vrais maillages des avatars, l'émission, la transparence et les textures, à l'écran comme hors champ. Nécessite Windows et une carte graphique avec ray tracing matériel ; Unity peut tourner en DirectX 11 ou 12. Repasse en Radiance Cascades si le traceur ne démarre pas." },
     { "key": "settings.graphics.gi.mode.pathTracedBaked", "value": "Tracé de chemins + précalculé (DX12)" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked.tooltip", "value": "Garde l'éclairage précalculé du monde et ne trace que ce que le précalcul ignore : avatars, objets en mouvement, lueur des avatars et lumières en temps réel. Bien moins coûteux que le tracé complet dans les mondes avec lightmaps. Sans éclairage précalculé, se comporte comme Tracé de chemins." },
     { "key": "settings.graphics.gi.mode.screenSpace.tooltip", "value": "Travaille à partir de ce que la caméra a déjà dessiné. Fonctionne sur n'importe quelle carte graphique, DirectX 11 compris." },

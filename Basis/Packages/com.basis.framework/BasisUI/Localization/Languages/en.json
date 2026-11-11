@@ -6623,6 +6623,18 @@
       "value": "Download for Everyone"
     },
     {
+      "key": "library.predownload.progress",
+      "value": "{0}: {1} of {2} ready, {3} left"
+    },
+    {
+      "key": "library.predownload.done",
+      "value": "{0}: all {1} ready"
+    },
+    {
+      "key": "library.predownload.failed",
+      "value": "{0}: {1} of {2} ready, {3} failed"
+    },
+    {
       "key": "library.spawnedCount",
       "value": "({0} spawned)"
     },
@@ -8915,14 +8927,6 @@
       "value": "Ray Traced"
     },
     {
-      "key": "settings.graphics.gi.bounceFeedback",
-      "value": "Bounce Strength"
-    },
-    {
-      "key": "settings.graphics.gi.bounceFeedback.tooltip",
-      "value": "How much of the light that has already bounced may bounce again. At zero every surface gets a single bounce; higher carries light further into corners and around doorways, settling over a few frames. Needs the temporal filter."
-    },
-    {
       "key": "settings.graphics.gi.worldSpace",
       "value": "World Space GI"
     },
@@ -9129,14 +9133,6 @@
     {
       "key": "settings.graphics.gi.rayLength.tooltip",
       "value": "How far, in metres, a ray looks for something to bounce off. Longer picks up light from across a room and costs more per ray."
-    },
-    {
-      "key": "settings.graphics.gi.smoothing",
-      "value": "Smoothing"
-    },
-    {
-      "key": "settings.graphics.gi.smoothing.tooltip",
-      "value": "Width of the edge-aware blur applied to the bounce. Higher hides more of the sampling pattern and softens detail."
     },
     {
       "key": "settings.graphics.gi.wideBlur",
@@ -9377,14 +9373,6 @@
     {
       "key": "settings.graphics.gi.mode.rayTraced.tooltip",
       "value": "Traces the world itself, including what is off screen. Needs DirectX 12 and a graphics card with hardware ray tracing, such as NVIDIA RTX; anywhere else it runs as Screen Space."
-    },
-    {
-      "key": "settings.graphics.gi.mode.pathTraced",
-      "value": "Path Traced (DX12)"
-    },
-    {
-      "key": "settings.graphics.gi.mode.pathTraced.tooltip",
-      "value": "Hands the trace to a separate DirectX 12 path tracer that follows real avatar meshes, emission, transparency and textures, on screen and off. Needs Windows and a graphics card with hardware ray tracing; Unity can run on DirectX 11 or 12. Falls back to Radiance Cascades if the tracer cannot start."
     },
     {
       "key": "settings.graphics.gi.mode.pathTracedBaked",

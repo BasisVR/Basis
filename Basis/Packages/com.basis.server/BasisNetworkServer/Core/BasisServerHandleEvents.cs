@@ -445,6 +445,7 @@ namespace BasisServerHandle
             BasisImageBandwidthGovernor.RemovePeer(id);
             BasisNetworkScreenShare.RemovePeer(id);
             BasisNetworkPreloadResourceManagement.RemovePeer(id);
+            BasisNetworkPredownloadManagement.RemovePeer(id);
             BasisNetworkServer.Security.BasisUserOpusBitrateStateManager.ClearForPeer(id);
             BasisServerP2PBroker.RemovePeer(id);
             BasisNetworkIDDatabase.RemovePeer(id);
@@ -1647,7 +1648,7 @@ namespace BasisServerHandle
                     BasisNetworkPreloadResourceManagement.StartSynchronizedLoad(LocalLoadResource);
                     break;
                 case 3: // Predownload only - tell everyone to cache it; do not register or spawn
-                    BasisNetworkResourceManagement.PredownloadResource(LocalLoadResource);
+                    BasisNetworkResourceManagement.PredownloadResource(LocalLoadResource, Peer.Id);
                     break;
                 default:
                     BNL.LogError("Falling Back to Resource Load, Unsupported Load Strategy");

@@ -195,11 +195,10 @@ public partial class BasisHandHeldCameraUI
             giSaturation = 1f;
             giObscurance = 0.5f;
             giRayLength = 16f;
-            giSmoothing = 1f;
             giWideBlur = true;
             giRayReuse = true;
             giEmitters = true;
-            giEmitterIntensity = 3f;
+            giEmitterIntensity = 1f;
             giSpecular = false;
             giObscuranceRadius = 0.5f;
             giFadeDistance = 120f;
@@ -640,7 +639,6 @@ public partial class BasisHandHeldCameraUI
         public float giSaturation;
         public float giObscurance;
         public float giRayLength;
-        public float giSmoothing;
         public bool giWideBlur;
         /// <summary>Screen space only.</summary>
         public bool giRayReuse;

@@ -273,7 +273,7 @@ struct LightCandidate
     float3 value;
     float3 direction;
     float distance;
-    float pdf;
+    float pdf, scatterPdf;
     bool shadow, emitter;
     uint4 id;
 };
@@ -286,6 +286,9 @@ struct LightCandidate
 #define RESERVOIR_SCRATCH_STRIDE 64u
 #define SPATIAL_NEIGHBOURS 2u
 #define SPATIAL_RADIUS 16.0
+#ifndef EMITTER_CONTACT
+#define EMITTER_CONTACT 1.0
+#endif
 
 LightCandidate EvaluateEmitterPoint(Instance instance, uint geometry, uint primitive, float r1, float r2, float3 position, float3 normal, uint part, float nearRadius, out float area)
 {
@@ -319,6 +322,7 @@ LightCandidate EvaluateEmitterPoint(Instance instance, uint geometry, uint primi
     if (material.emissionBase > 0.0 || (material.alphaMode & 0x8000u) != 0u) { tint *= SampleTexture(material.baseTexture, uv, material.baseST, 2.0, 1.0).rgb; }
     float3 emission = MaterialEmission(material, uv, 2.0, 1.0, tint) * frame.emissionScale;
     c.value = emission * min(cosReceiver * cosLight / max(distance2, 1e-6), PI / area) / PI;
+    c.scatterPdf = cosReceiver * cosLight / (PI * max(distance2, 1e-6));
     c.shadow = true;
     c.emitter = true;
     c.id = uint4(0u, geometry, primitive, f32tof16(r1) | (f32tof16(r2) << 16));
@@ -349,6 +353,48 @@ LightCandidate PunctualCandidate(float3 position, float3 normal, uint index)
     float ndl = dot(normal, c.direction);
     if (ndl > 0.0 && attenuation > 0.0) { c.value = light.color.rgb * (ndl * attenuation * frame.lightIntensity); }
     c.shadow = (frame.flags & FLAG_SHADOWS) != 0 && light.color.w > 0.0;
+    return c;
+}
+
+float EmitterSelection(GridCell g, uint part, uint index)
+{
+    uint start, end;
+    bool complete;
+    GridEmitterRange(g, part, start, end, complete);
+    if (complete && end == start) { return 0.0; }
+    float q = end > start ? (complete ? 1.0 : GRID_MIX) : 0.0;
+    float cell = q > 0.0 ? GridProbability(g, start, end, index + GRID_EMITTER_ID) : 0.0;
+    return q * cell + (1.0 - q) * (LoadEmitter(index).cdf - (index > 0u ? LoadEmitter(index - 1u).cdf : 0.0));
+}
+
+LightCandidate ContactCandidate(RaytracingAccelerationStructure tlas, GridCell g, float3 position, float3 normal, float3 plane, inout uint rng, uint part, float nearRadius, float reach)
+{
+    LightCandidate c = (LightCandidate)0;
+    float3 direction = CosineSample(normal, float2(Random(rng), Random(rng)));
+    if (dot(direction, plane) <= 0.0) { return c; }
+    RayDesc ray;
+    ray.Origin = position;
+    ray.Direction = direction;
+    ray.TMin = 0.0;
+    ray.TMax = reach;
+    Payload payload = (Payload)0;
+    HitObj h = TraceHit(tlas, RAY_FLAG_NONE, MASK_VISIBLE, ray, payload);
+    if (!h.IsHit()) { return c; }
+    uint instanceIndex = h.GetInstanceID(), geometry = h.GetGeometryIndex();
+    Instance instance = LoadInstance(instanceIndex);
+    uint flags = LoadMaterial(instance.materialBase + geometry).flags;
+    if ((flags & MATERIAL_EMITTER) == 0u) { return c; }
+    uint index = flags >> 16;
+    if (index >= frame.emitterCount) { return c; }
+    Emitter e = LoadEmitter(index);
+    if (e.instance != instanceIndex || e.geometry != geometry || e.triangleCount == 0) { return c; }
+    BuiltInTriangleIntersectionAttributes attributes;
+    h.GetAttributes(attributes);
+    float r1 = saturate(attributes.barycentrics.x + attributes.barycentrics.y), r2 = r1 > 1e-6 ? saturate(attributes.barycentrics.y / r1) : 0.0;
+    float area;
+    c = EvaluateEmitterPoint(instance, geometry, h.GetPrimitiveIndex(), r1, r2, position, normal, part, nearRadius, area);
+    c.id.x = instanceIndex;
+    if (area > 1e-10) { c.pdf = EmitterSelection(g, part, index) / (e.triangleCount * area); }
     return c;
 }
 
@@ -1043,14 +1089,18 @@ void RayGen()
         if (frame.emitterCount > 0)
         {
             GridCell g = LoadGridCell(origin);
-            if (GridNoEmitters(g, part)) { count += RESERVOIR_INITIAL; }
-            else [loop] for (uint i = 0; i < RESERVOIR_INITIAL; i++)
+            float reach = min(nearRadius, EMITTER_CONTACT);
+            if (GridNoEmitters(g, part)) { count += RESERVOIR_INITIAL + 1.0; }
+            else [loop] for (uint i = 0; i <= RESERVOIR_INITIAL; i++)
             {
-                LightCandidate c = EmitterCandidate(g, origin, surface.normal, rng, part, nearRadius);
+                LightCandidate c;
+                if (i < RESERVOIR_INITIAL) { c = EmitterCandidate(g, origin, surface.normal, rng, part, nearRadius); }
+                else { c = ContactCandidate(tlas, g, origin, surface.normal, geometric, rng, part, nearRadius, reach); }
                 count += 1.0;
                 float t = Luminance(c.value);
-                if (t <= 0.0 || c.pdf <= 0.0) { continue; }
-                float w = t / c.pdf;
+                float density = RESERVOIR_INITIAL * c.pdf + (c.distance < reach ? c.scatterPdf : 0.0);
+                if (t <= 0.0 || density <= 0.0) { continue; }
+                float w = t * (RESERVOIR_INITIAL + 1.0) / density;
                 wsum += w;
                 if (Random(rng) * wsum < w) { chosen = c; chosenTarget = t; }
             }

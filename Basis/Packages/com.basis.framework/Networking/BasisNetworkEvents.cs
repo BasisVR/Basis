@@ -789,6 +789,7 @@ public static partial class BasisNetworkEvents
         BasisClientMessageRegistry.RegisterCore(BasisNetworkCommons.StorageChannel, BasisServerStorageClient.HandleReply);
         BasisAvatarHostClient.Initialize();
         BasisContentKeyClient.Initialize();
+        BasisNetworkPreloadManager.Initialize();
     }
     [AutoStaticsCleanup] public static Action<BasisNetworkStatistics.Snapshot> Snapshotdata;
     public static void IncomingData(NetPacketReader Reader)

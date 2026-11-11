@@ -20,7 +20,6 @@ public struct BasisGlobalIlluminationState
 {
     public bool Enabled;
     public BasisGlobalIlluminationDiffuseMode Mode;
-    public float BounceFeedback;
     public bool CascadeOverride;
     public float CascadeCount;
     public string CascadeSpacing;
@@ -51,7 +50,6 @@ public struct BasisGlobalIlluminationState
     public float Saturation;
     public float Obscurance;
     public float RayLength;
-    public float Smoothing;
     public float TemporalResponse;
     public bool TemporalFilter;
     public bool WideBlur;
@@ -83,7 +81,6 @@ public struct BasisGlobalIlluminationState
         {
             Enabled = BasisSettingsDefaults.UseGlobalIllumination.DefaultValue.GetDefault() && !BasisLightingSolutions.IsUnity(BasisSettingsDefaults.GlobalIlluminationSolution.DefaultValue.GetDefault()),
             Mode = SMModuleGlobalIlluminationURP.ReadDiffuseMode(BasisSettingsDefaults.GlobalIlluminationMode.DefaultValue.GetDefault()),
-            BounceFeedback = BasisSettingsDefaults.GlobalIlluminationBounceFeedback.DefaultValue.GetDefault(),
             CascadeOverride = BasisSettingsDefaults.GlobalIlluminationCascadeOverride.DefaultValue.GetDefault(),
             CascadeCount = BasisSettingsDefaults.GlobalIlluminationCascadeCount.DefaultValue.GetDefault(),
             CascadeSpacing = BasisSettingsDefaults.GlobalIlluminationCascadeSpacing.DefaultValue.GetDefault(),
@@ -103,7 +100,6 @@ public struct BasisGlobalIlluminationState
             Saturation = BasisSettingsDefaults.GlobalIlluminationSaturation.DefaultValue.GetDefault(),
             Obscurance = BasisSettingsDefaults.GlobalIlluminationObscurance.DefaultValue.GetDefault(),
             RayLength = BasisSettingsDefaults.GlobalIlluminationRayLength.DefaultValue.GetDefault(),
-            Smoothing = BasisSettingsDefaults.GlobalIlluminationSmoothing.DefaultValue.GetDefault(),
             TemporalResponse = BasisSettingsDefaults.GlobalIlluminationTemporalResponse.DefaultValue.GetDefault(),
             TemporalFilter = BasisSettingsDefaults.GlobalIlluminationTemporalFilter.DefaultValue.GetDefault(),
             WideBlur = BasisSettingsDefaults.GlobalIlluminationWideBlur.DefaultValue.GetDefault(),
@@ -136,7 +132,6 @@ public struct BasisGlobalIlluminationState
         {
             Enabled = BasisLightingSolutions.BasisGlobalIllumination,
             Mode = SMModuleGlobalIlluminationURP.ReadDiffuseMode(BasisSettingsDefaults.GlobalIlluminationMode.RawValue),
-            BounceFeedback = BasisSettingsDefaults.GlobalIlluminationBounceFeedback.RawValue,
             CascadeOverride = BasisSettingsDefaults.GlobalIlluminationCascadeOverride.RawValue,
             CascadeCount = BasisSettingsDefaults.GlobalIlluminationCascadeCount.RawValue,
             CascadeSpacing = BasisSettingsDefaults.GlobalIlluminationCascadeSpacing.RawValue,
@@ -156,7 +151,6 @@ public struct BasisGlobalIlluminationState
             Saturation = BasisSettingsDefaults.GlobalIlluminationSaturation.RawValue,
             Obscurance = BasisSettingsDefaults.GlobalIlluminationObscurance.RawValue,
             RayLength = BasisSettingsDefaults.GlobalIlluminationRayLength.RawValue,
-            Smoothing = BasisSettingsDefaults.GlobalIlluminationSmoothing.RawValue,
             TemporalResponse = BasisSettingsDefaults.GlobalIlluminationTemporalResponse.RawValue,
             TemporalFilter = BasisSettingsDefaults.GlobalIlluminationTemporalFilter.RawValue,
             WideBlur = BasisSettingsDefaults.GlobalIlluminationWideBlur.RawValue,
@@ -211,7 +205,6 @@ public struct BasisGlobalIlluminationCaptureOverride
     public float Saturation;
     public float Obscurance;
     public float RayLength;
-    public float Smoothing;
     public bool WideBlur;
     public bool AlternateEyes;
     public bool WorldReflections;
@@ -245,8 +238,8 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
     private BasisGlobalIlluminationCaptureOverride? captureOverride;
 
     /// <summary>Canonical option strings for <see cref="BasisGlobalIlluminationCaptureOverride.Mode"/>, index-matched to the live Mode dropdown. Parsed by <see cref="ReadMode"/>.</summary>
-    [NoAutoStaticsCleanup] public static readonly string[] ModeOptions = { "Radiance Cascades", "Ray Traced", "Path Traced", "Path Traced (Baked)" };
-    [NoAutoStaticsCleanup] private static readonly string[] ModeLocalizationKeys = { "settings.graphics.gi.mode.radianceCascades", "settings.graphics.gi.mode.rayTraced", "settings.graphics.gi.mode.pathTraced", "settings.graphics.gi.mode.pathTracedBaked" };
+    [NoAutoStaticsCleanup] public static readonly string[] ModeOptions = { "Radiance Cascades", "Ray Traced", "Path Traced (Baked)" };
+    [NoAutoStaticsCleanup] private static readonly string[] ModeLocalizationKeys = { "settings.graphics.gi.mode.radianceCascades", "settings.graphics.gi.mode.rayTraced", "settings.graphics.gi.mode.pathTracedBaked" };
     public static bool RayTracedModeOffered => SystemInfo.graphicsDeviceType != GraphicsDeviceType.Direct3D11;
 
     public static void AssignModeEntries(PanelDropdown dropdown)
@@ -285,7 +278,6 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
 
     private static string K_USE_GI => BasisSettingsDefaults.UseGlobalIllumination.BindingKey;
     private static string K_GI_MODE => BasisSettingsDefaults.GlobalIlluminationMode.BindingKey;
-    private static string K_GI_BOUNCE_FEEDBACK => BasisSettingsDefaults.GlobalIlluminationBounceFeedback.BindingKey;
     private static string K_GI_CASCADE_OVERRIDE => BasisSettingsDefaults.GlobalIlluminationCascadeOverride.BindingKey;
     private static string K_GI_CASCADE_COUNT => BasisSettingsDefaults.GlobalIlluminationCascadeCount.BindingKey;
     private static string K_GI_CASCADE_SPACING => BasisSettingsDefaults.GlobalIlluminationCascadeSpacing.BindingKey;
@@ -314,7 +306,6 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
     private static string K_GI_SATURATION => BasisSettingsDefaults.GlobalIlluminationSaturation.BindingKey;
     private static string K_GI_OBSCURANCE => BasisSettingsDefaults.GlobalIlluminationObscurance.BindingKey;
     private static string K_GI_RAY_LENGTH => BasisSettingsDefaults.GlobalIlluminationRayLength.BindingKey;
-    private static string K_GI_SMOOTHING => BasisSettingsDefaults.GlobalIlluminationSmoothing.BindingKey;
     private static string K_GI_TEMPORAL_RESPONSE => BasisSettingsDefaults.GlobalIlluminationTemporalResponse.BindingKey;
     private static string K_GI_TEMPORAL_FILTER => BasisSettingsDefaults.GlobalIlluminationTemporalFilter.BindingKey;
     private static string K_GI_WIDE_BLUR => BasisSettingsDefaults.GlobalIlluminationWideBlur.BindingKey;
@@ -460,11 +451,6 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
         else if (matchedSettingName == K_REFLECTIONS_SOLUTION) { state.Specular = BasisSettingsDefaults.GlobalIlluminationSpecular.RawValue && !BasisLightingSolutions.PicksUnityReflections(optionValue); }
         else if (matchedSettingName == K_REFLECTIONS_MODE) { state.ReflectionsMode = ReadMode(optionValue); }
         else if (matchedSettingName == K_GI_MODE) { state.Mode = ReadDiffuseMode(optionValue); }
-        else if (matchedSettingName == K_GI_BOUNCE_FEEDBACK)
-        {
-            if (!SliderReadOption(optionValue, out float value)) { return; }
-            state.BounceFeedback = value;
-        }
         else if (matchedSettingName == K_GI_CASCADE_OVERRIDE) { state.CascadeOverride = optionValue == "true"; }
         else if (matchedSettingName == K_GI_CASCADE_COUNT)
         {
@@ -588,11 +574,6 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
             if (!SliderReadOption(optionValue, out float value)) { return; }
             state.RayLength = value;
         }
-        else if (matchedSettingName == K_GI_SMOOTHING)
-        {
-            if (!SliderReadOption(optionValue, out float value)) { return; }
-            state.Smoothing = value;
-        }
         else if (matchedSettingName == K_GI_TEMPORAL_RESPONSE)
         {
             if (!SliderReadOption(optionValue, out float value)) { return; }
@@ -630,8 +611,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
     public static BasisGlobalIlluminationDiffuseMode ReadDiffuseMode(string optionValue)
     {
         string lowered = optionValue?.ToLowerInvariant();
-        if (lowered == "path traced" || lowered == "pathtraced") { return BasisGlobalIlluminationDiffuseMode.PathTracedExternal; }
-        if (lowered == "path traced (baked)" || lowered == "pathtracedbaked") { return BasisGlobalIlluminationDiffuseMode.PathTracedBaked; }
+        if (lowered == "path traced (baked)" || lowered == "pathtracedbaked" || lowered == "path traced" || lowered == "pathtraced" || lowered == "path traced (avatars)" || lowered == "pathtracedavatars") { return BasisGlobalIlluminationDiffuseMode.PathTracedBaked; }
         return ReadMode(optionValue) == BasisGlobalIlluminationMode.RayTraced ? BasisGlobalIlluminationDiffuseMode.RayTraced : BasisGlobalIlluminationDiffuseMode.RadianceCascades;
     }
 
@@ -757,7 +737,6 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
             effective.Saturation = o.Saturation;
             effective.Obscurance = o.Obscurance;
             effective.RayLength = o.RayLength;
-            effective.Smoothing = o.Smoothing;
             effective.WideBlur = o.WideBlur;
             effective.AlternateEyes = o.AlternateEyes;
             effective.WorldReflections = o.WorldReflections;
@@ -926,7 +905,6 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
         // into the acceleration structure is what makes it cost that on a busy instance, so both are the
         // player's call.
         target.mode = state.Mode;
-        target.bounceFeedback = Mathf.Clamp(state.BounceFeedback, BasisSettingsDefaults.GI_BOUNCE_FEEDBACK_MIN, BasisSettingsDefaults.GI_BOUNCE_FEEDBACK_MAX);
         target.cascadeOverride = state.CascadeOverride;
         target.cascadeCount = Mathf.RoundToInt(Mathf.Clamp(state.CascadeCount, BasisSettingsDefaults.GI_CASCADE_COUNT_MIN, BasisSettingsDefaults.GI_CASCADE_COUNT_MAX));
         target.cascadeSpacing = ReadCascadeSpacing(state.CascadeSpacing);
@@ -983,7 +961,6 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
         target.saturation = Mathf.Clamp(state.Saturation, BasisSettingsDefaults.GI_SATURATION_MIN, BasisSettingsDefaults.GI_SATURATION_MAX);
         target.obscuranceIntensity = Mathf.Clamp(state.Obscurance, BasisSettingsDefaults.GI_OBSCURANCE_MIN, BasisSettingsDefaults.GI_OBSCURANCE_MAX);
         target.maxRayLength = Mathf.Clamp(state.RayLength, BasisSettingsDefaults.GI_RAY_LENGTH_MIN, BasisSettingsDefaults.GI_RAY_LENGTH_MAX);
-        target.smoothing = Mathf.Clamp(state.Smoothing, BasisSettingsDefaults.GI_SMOOTHING_MIN, BasisSettingsDefaults.GI_SMOOTHING_MAX);
 
         // Temporal accumulation is a comfort setting: at a low response the bounce trails behind anything
         // that moves, so the player's choice is what drives it.

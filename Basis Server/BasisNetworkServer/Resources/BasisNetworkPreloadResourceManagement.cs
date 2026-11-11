@@ -79,6 +79,7 @@ public static class BasisNetworkPreloadResourceManagement
         }
 
         BNL.Log($"PreloadResourceManagement: Starting synchronized load for {netId}, {peerCount} peers");
+        BasisNetworkPredownloadManagement.Fulfil(resource.CombinedURL, resource.Mode);
 
         // Store in the main resource database too
         if (BasisNetworkResourceManagement.UshortNetworkDatabase.TryAdd(netId, resource))
@@ -290,5 +291,243 @@ public static class BasisNetworkPreloadResourceManagement
             kvp.Value.TimeoutCts?.Dispose();
         }
         ActiveSessions.Clear();
+    }
+}
+
+public static class BasisNetworkPredownloadManagement
+{
+    public const int MaxSessions = 16;
+    public static readonly TimeSpan SessionLifetime = TimeSpan.FromMinutes(15);
+    public static Func<DateTime> Clock = () => DateTime.UtcNow;
+    sealed class Session
+    {
+        public LocalLoadResource Resource;
+        public ushort Requester;
+        public DateTime StartedUtc;
+        public bool Dirty;
+        public readonly HashSet<int> Pending = new HashSet<int>(), Ready = new HashSet<int>(), Failed = new HashSet<int>();
+        public bool Has(int peerId) => Pending.Contains(peerId) || Ready.Contains(peerId) || Failed.Contains(peerId);
+        public bool Drop(int peerId) => Pending.Remove(peerId) | Ready.Remove(peerId) | Failed.Remove(peerId);
+    }
+    struct Outgoing
+    {
+        public string NetId;
+        public ushort Requester, Ready, Failed, Total;
+        public bool Closed;
+    }
+    static readonly object gate = new object();
+    static readonly List<Session> sessions = new List<Session>();
+    static readonly List<Outgoing> closing = new List<Outgoing>();
+    static ushort messageId;
+    static bool registered;
+    static Timer ticker;
+    public static int SessionCount
+    {
+        get
+        {
+            lock (gate) return sessions.Count;
+        }
+    }
+    public static void Register()
+    {
+        if (registered) return;
+        registered = true;
+        messageId = BasisServerMessageRegistry.RegisterServerPlugin(BasisPredownloadProtocol.MessageName, DeliveryMethod.ReliableOrdered, Handle);
+        BasisServerMessageRegistry.PeerSubscribed += OnSubscribed;
+        ticker ??= new Timer(_ => Flush(), null, 250, 250);
+    }
+    public static bool TryGetCounts(string loadedNetId, out int ready, out int failed, out int total)
+    {
+        lock (gate)
+        {
+            Session session = Find(loadedNetId);
+            ready = session?.Ready.Count ?? 0;
+            failed = session?.Failed.Count ?? 0;
+            total = session == null ? 0 : ready + failed + session.Pending.Count;
+            return session != null;
+        }
+    }
+    public static void Start(LocalLoadResource resource, int requesterPeerId, NetPeer[] peers)
+    {
+        if (!registered || string.IsNullOrEmpty(resource.LoadedNetID)) return;
+        Session session = new Session
+        {
+            Resource = resource,
+            Requester = requesterPeerId < 0 ? BasisPredownloadProtocol.ServerRequester : (ushort)requesterPeerId,
+            StartedUtc = Clock(),
+            Dirty = true,
+        };
+        for (int index = 0; index < peers.Length; index++)
+        {
+            NetPeer peer = peers[index];
+            if (peer != null && BasisServerMessageRegistry.HasSubscribed(peer.Id, messageId)) session.Pending.Add(peer.Id);
+        }
+        lock (gate)
+        {
+            for (int index = sessions.Count - 1; index >= 0; index--)
+            {
+                Session existing = sessions[index];
+                if (existing.Resource.LoadedNetID == resource.LoadedNetID || (existing.Resource.Mode == resource.Mode && existing.Resource.CombinedURL == resource.CombinedURL)) Close(index);
+            }
+            while (sessions.Count >= MaxSessions) Close(0);
+            sessions.Add(session);
+        }
+    }
+    public static void Fulfil(string url, byte mode)
+    {
+        if (string.IsNullOrEmpty(url)) return;
+        lock (gate)
+        {
+            for (int index = sessions.Count - 1; index >= 0; index--)
+            {
+                if (sessions[index].Resource.Mode == mode && sessions[index].Resource.CombinedURL == url) Close(index);
+            }
+        }
+    }
+    public static void Report(int peerId, string loadedNetId, bool ready)
+    {
+        lock (gate)
+        {
+            Session session = Find(loadedNetId);
+            if (session == null || !session.Has(peerId)) return;
+            session.Drop(peerId);
+            (ready ? session.Ready : session.Failed).Add(peerId);
+            session.Dirty = true;
+        }
+    }
+    public static void RemovePeer(int peerId)
+    {
+        lock (gate)
+        {
+            for (int index = 0; index < sessions.Count; index++)
+            {
+                if (sessions[index].Drop(peerId)) sessions[index].Dirty = true;
+            }
+        }
+    }
+    public static void Reset()
+    {
+        lock (gate)
+        {
+            for (int index = sessions.Count - 1; index >= 0; index--) Close(index);
+        }
+        Flush();
+    }
+    public static void Flush()
+    {
+        List<Outgoing> outgoing = null;
+        lock (gate)
+        {
+            DateTime now = Clock();
+            for (int index = sessions.Count - 1; index >= 0; index--)
+            {
+                if (now - sessions[index].StartedUtc >= SessionLifetime) Close(index);
+            }
+            if (closing.Count > 0)
+            {
+                outgoing = new List<Outgoing>(closing);
+                closing.Clear();
+            }
+            for (int index = 0; index < sessions.Count; index++)
+            {
+                Session session = sessions[index];
+                if (!session.Dirty) continue;
+                session.Dirty = false;
+                outgoing ??= new List<Outgoing>();
+                outgoing.Add(Snapshot(session));
+            }
+        }
+        if (outgoing == null) return;
+        NetPeer[] peers = NetworkServer.PeerSnapshot;
+        NetDataWriter writer = NetworkServer.RentWriter();
+        for (int index = 0; index < outgoing.Count; index++)
+        {
+            writer.Reset();
+            Write(writer, outgoing[index]);
+            for (int peerIndex = 0; peerIndex < peers.Length; peerIndex++)
+            {
+                NetPeer peer = peers[peerIndex];
+                if (peer != null && BasisServerMessageRegistry.HasSubscribed(peer.Id, messageId)) NetworkServer.TrySend(peer, writer, BasisNetworkCommons.GetPluginChannelForDelivery(DeliveryMethod.ReliableOrdered), DeliveryMethod.ReliableOrdered);
+            }
+        }
+        NetworkServer.ReturnWriter(writer);
+    }
+    static void OnSubscribed(NetPeer peer)
+    {
+        if (peer == null || !BasisServerMessageRegistry.HasSubscribed(peer.Id, messageId)) return;
+        List<LocalLoadResource> replay = null;
+        List<Outgoing> known = null;
+        lock (gate)
+        {
+            for (int index = 0; index < sessions.Count; index++)
+            {
+                Session session = sessions[index];
+                if (session.Has(peer.Id))
+                {
+                    known ??= new List<Outgoing>();
+                    known.Add(Snapshot(session));
+                    continue;
+                }
+                session.Pending.Add(peer.Id);
+                session.Dirty = true;
+                replay ??= new List<LocalLoadResource>();
+                replay.Add(session.Resource);
+            }
+        }
+        if (replay == null && known == null) return;
+        NetDataWriter writer = NetworkServer.RentWriter();
+        for (int index = 0; replay != null && index < replay.Count; index++)
+        {
+            writer.Reset();
+            replay[index].Serialize(writer);
+            NetworkServer.TrySend(peer, writer, BasisNetworkCommons.LoadResourceChannel, DeliveryMethod.ReliableOrdered);
+        }
+        for (int index = 0; known != null && index < known.Count; index++)
+        {
+            writer.Reset();
+            Write(writer, known[index]);
+            NetworkServer.TrySend(peer, writer, BasisNetworkCommons.GetPluginChannelForDelivery(DeliveryMethod.ReliableOrdered), DeliveryMethod.ReliableOrdered);
+        }
+        NetworkServer.ReturnWriter(writer);
+    }
+    static void Handle(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
+    {
+        try
+        {
+            if (reader.TryGetByte(out byte op) && op == BasisPredownloadProtocol.OpDone && reader.TryGetString(out string loadedNetId) && reader.TryGetBool(out bool ready)) Report(peer.Id, loadedNetId, ready);
+        }
+        finally
+        {
+            reader.Recycle();
+        }
+    }
+    static Session Find(string loadedNetId)
+    {
+        for (int index = 0; index < sessions.Count; index++)
+        {
+            if (sessions[index].Resource.LoadedNetID == loadedNetId) return sessions[index];
+        }
+        return null;
+    }
+    static void Close(int index)
+    {
+        closing.Add(new Outgoing { NetId = sessions[index].Resource.LoadedNetID, Closed = true });
+        sessions.RemoveAt(index);
+    }
+    static Outgoing Snapshot(Session session)
+    {
+        int ready = session.Ready.Count, failed = session.Failed.Count, total = ready + failed + session.Pending.Count;
+        return new Outgoing { NetId = session.Resource.LoadedNetID, Requester = session.Requester, Ready = (ushort)Math.Min(ready, ushort.MaxValue), Failed = (ushort)Math.Min(failed, ushort.MaxValue), Total = (ushort)Math.Min(total, ushort.MaxValue) };
+    }
+    static void Write(NetDataWriter writer, Outgoing message)
+    {
+        writer.Put(messageId);
+        writer.Put(message.Closed ? BasisPredownloadProtocol.OpClosed : BasisPredownloadProtocol.OpProgress);
+        writer.Put(message.NetId);
+        if (message.Closed) return;
+        writer.Put(message.Requester);
+        writer.Put(message.Ready);
+        writer.Put(message.Failed);
+        writer.Put(message.Total);
     }
 }

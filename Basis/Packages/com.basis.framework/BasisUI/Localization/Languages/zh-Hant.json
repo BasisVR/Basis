@@ -2372,6 +2372,9 @@
     { "key": "library.spawn", "value": "生成" },
     { "key": "library.syncSpawn", "value": "同步生成" },
     { "key": "library.downloadForEveryone", "value": "為所有人下載" },
+    { "key": "library.predownload.progress", "value": "{0}：{1}/{2} 人已就緒，還剩 {3} 人" },
+    { "key": "library.predownload.done", "value": "{0}：全部 {1} 人已就緒" },
+    { "key": "library.predownload.failed", "value": "{0}：{1}/{2} 人已就緒，{3} 人失敗" },
     { "key": "library.spawnedCount", "value": "（已生成 {0} 個）" },
     { "key": "library.stack.versions", "value": "{0} 個版本" },
     { "key": "library.stack.latestEntry", "value": "{0} — 最新" },
@@ -2924,14 +2927,6 @@
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "螢幕空間" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "光線追蹤" },
     {
-      "key": "settings.graphics.gi.bounceFeedback",
-      "value": "反彈強度"
-    },
-    {
-      "key": "settings.graphics.gi.bounceFeedback.tooltip",
-      "value": "已經反彈過的光有多少可以再次反彈。為零時每個表面只得到一次反彈；更高時光線會更深入角落、繞過門口，並在幾個影格內穩定下來。需要開啟時間濾波。"
-    },
-    {
       "key": "settings.graphics.gi.worldSpace",
       "value": "世界空間全域光照"
     },
@@ -3037,8 +3032,6 @@
     { "key": "settings.graphics.gi.obscurance.tooltip", "value": "利用與反彈光相同的光線一併計算出的環境光遮蔽，因此不會產生額外效能消耗。可加深皺摺與接觸點的陰影。" },
     { "key": "settings.graphics.gi.rayLength", "value": "光線長度" },
     { "key": "settings.graphics.gi.rayLength.tooltip", "value": "光線搜尋反彈物體的距離，單位為公尺。距離越長，越能取得房間對側的光線，但每道光線的效能消耗也越高。" },
-    { "key": "settings.graphics.gi.smoothing", "value": "平滑" },
-    { "key": "settings.graphics.gi.smoothing.tooltip", "value": "套用於反彈光的邊緣感知模糊寬度。數值越高，越能隱藏取樣圖案的痕跡，但細節也會變得較柔和。" },
     { "key": "settings.graphics.gi.wideBlur", "value": "大範圍模糊" },
     { "key": "settings.graphics.gi.wideBlur.tooltip", "value": "額外一次範圍更大的模糊處理。可消除小範圍模糊處理後殘留的低頻斑塊，等於對追蹤緩衝多做一次處理。" },
     { "key": "settings.graphics.gi.alternateEyes", "value": "輪流更新雙眼" },
@@ -5291,8 +5284,6 @@
     { "key": "settings.graphics.dlssModel.m.tooltip", "value": "針對速度調校的第二代 Transformer 模型。比 K 更銳利，但細節閃爍比 K 或 L 更明顯。" },
     { "key": "settings.graphics.dlssModel.tooltip", "value": "使用哪個 DLSS AI 模型來重建畫面。較新的模型更銳利、殘影更少，但會多佔用一點 GPU 時間。" },
     { "key": "settings.graphics.gi.mode.rayTraced.tooltip", "value": "直接追蹤世界本身，包括畫面外的內容。需要 DirectX 12 與支援硬體光線追蹤的顯示卡（例如 NVIDIA RTX）；在其他環境下則以「螢幕空間」模式執行。" },
-    { "key": "settings.graphics.gi.mode.pathTraced", "value": "路徑追蹤 (DX12)" },
-    { "key": "settings.graphics.gi.mode.pathTraced.tooltip", "value": "將追蹤交給獨立的 DirectX 12 路徑追蹤器，它會追蹤真實的虛擬形象網格、自發光、透明與材質貼圖，畫面內外皆然。需要 Windows 與支援硬體光線追蹤的顯示卡；Unity 可執行於 DirectX 11 或 12。追蹤器無法啟動時會改用 Radiance Cascades。" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked", "value": "路徑追蹤 + 烘焙 (DX12)" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked.tooltip", "value": "保留世界的烘焙光照，只追蹤烘焙無法得知的部分：虛擬形象、移動物件、虛擬形象發光與即時光源。在有光照貼圖的世界中比完整路徑追蹤便宜許多。沒有烘焙光照時與路徑追蹤相同。" },
     { "key": "settings.graphics.gi.mode.screenSpace.tooltip", "value": "以相機已繪製的畫面為基礎進行計算。可在任何顯示卡上執行，包括 DirectX 11。" },

@@ -2372,6 +2372,9 @@
     { "key": "library.spawn", "value": "Spawnen" },
     { "key": "library.syncSpawn", "value": "Synchron spawnen" },
     { "key": "library.downloadForEveryone", "value": "Für alle herunterladen" },
+    { "key": "library.predownload.progress", "value": "{0}: {1} von {2} bereit, {3} übrig" },
+    { "key": "library.predownload.done", "value": "{0}: alle {1} bereit" },
+    { "key": "library.predownload.failed", "value": "{0}: {1} von {2} bereit, {3} fehlgeschlagen" },
     { "key": "library.spawnedCount", "value": "({0} gespawnt)" },
     { "key": "library.stack.versions", "value": "{0} Versionen" },
     { "key": "library.stack.latestEntry", "value": "{0} – Neueste" },
@@ -2924,14 +2927,6 @@
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "Bildschirmraum" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "Raytracing" },
     {
-      "key": "settings.graphics.gi.bounceFeedback",
-      "value": "Abprallstärke"
-    },
-    {
-      "key": "settings.graphics.gi.bounceFeedback.tooltip",
-      "value": "Wie viel des bereits abgeprallten Lichts erneut abprallen darf. Bei null erhält jede Fläche einen einzigen Abprall; höhere Werte tragen das Licht weiter in Ecken und um Türöffnungen und pendeln sich über einige Frames ein. Benötigt den zeitlichen Filter."
-    },
-    {
       "key": "settings.graphics.gi.worldSpace",
       "value": "GI im Weltraum"
     },
@@ -3037,8 +3032,6 @@
     { "key": "settings.graphics.gi.obscurance.tooltip", "value": "Ambient Occlusion, die aus denselben Strahlen wie der Abprall gewonnen wird und daher nichts zusätzlich kostet. Verdunkelt Falten und Kontaktstellen." },
     { "key": "settings.graphics.gi.rayLength", "value": "Strahllänge" },
     { "key": "settings.graphics.gi.rayLength.tooltip", "value": "Wie weit ein Strahl, in Metern, nach etwas sucht, von dem er abprallen kann. Länger erfasst Licht aus dem ganzen Raum und kostet mehr pro Strahl." },
-    { "key": "settings.graphics.gi.smoothing", "value": "Glättung" },
-    { "key": "settings.graphics.gi.smoothing.tooltip", "value": "Breite der kantenerhaltenden Weichzeichnung, die auf den Abprall angewendet wird. Höher verdeckt mehr vom Sampling-Muster und weicht Details stärker auf." },
     { "key": "settings.graphics.gi.wideBlur", "value": "Breite Weichzeichnung" },
     { "key": "settings.graphics.gi.wideBlur.tooltip", "value": "Ein zweiter, breiterer Weichzeichnungsdurchgang. Entfernt die niederfrequenten Flecken, die eine kleine Weichzeichnung hinterlässt, für einen weiteren Durchgang über den verfolgten Puffer." },
     { "key": "settings.graphics.gi.alternateEyes", "value": "Augen abwechselnd aktualisieren" },
@@ -5291,8 +5284,6 @@
     { "key": "settings.graphics.dlssModel.m.tooltip", "value": "Auf Geschwindigkeit abgestimmtes Transformer-Modell der zweiten Generation. Schärfer als K, aber feine Details flimmern stärker als mit K oder L." },
     { "key": "settings.graphics.dlssModel.tooltip", "value": "Welches KI-Modell von DLSS das Bild rekonstruiert. Neuere Modelle sind schärfer und erzeugen weniger Geisterbilder, brauchen aber etwas mehr GPU-Zeit." },
     { "key": "settings.graphics.gi.mode.rayTraced.tooltip", "value": "Verfolgt die Welt selbst, auch was außerhalb des Bildschirms liegt. Erfordert DirectX 12 und eine Grafikkarte mit Hardware-Raytracing, etwa NVIDIA RTX; überall sonst läuft es als Bildschirmraum." },
-    { "key": "settings.graphics.gi.mode.pathTraced", "value": "Pfadverfolgung (DX12)" },
-    { "key": "settings.graphics.gi.mode.pathTraced.tooltip", "value": "Überlässt die Berechnung einem separaten DirectX-12-Pfadverfolger, der echte Avatar-Meshes, Emission, Transparenz und Texturen berücksichtigt, auch außerhalb des Bildes. Benötigt Windows und eine Grafikkarte mit Hardware-Raytracing; Unity kann mit DirectX 11 oder 12 laufen. Fällt auf Radiance Cascades zurück, wenn der Verfolger nicht startet." },
     { "key": "settings.graphics.gi.mode.pathTracedBaked", "value": "Pfadverfolgung + Gebacken (DX12)" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked.tooltip", "value": "Behält die gebackene Beleuchtung der Welt und verfolgt nur, was die Vorberechnung nicht kennt: Avatare, bewegte Objekte, Avatar-Leuchten und Echtzeitlichter. Deutlich günstiger als volle Pfadverfolgung in Welten mit Lightmaps. Ohne gebackene Beleuchtung verhält es sich wie Pfadverfolgung." },
     { "key": "settings.graphics.gi.mode.screenSpace.tooltip", "value": "Arbeitet mit dem, was die Kamera bereits gezeichnet hat. Läuft auf jeder Grafikkarte, auch unter DirectX 11." },

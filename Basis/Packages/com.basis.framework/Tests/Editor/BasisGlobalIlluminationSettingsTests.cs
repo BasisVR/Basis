@@ -86,7 +86,6 @@ namespace Basis.Tests.Graphics
             AssertSliderRange(BasisSettingsDefaults.GI_SATURATION_MIN, BasisSettingsDefaults.GI_SATURATION_MAX, BasisSettingsDefaults.GlobalIlluminationSaturation.DefaultValue.GetDefault());
             AssertSliderRange(BasisSettingsDefaults.GI_OBSCURANCE_MIN, BasisSettingsDefaults.GI_OBSCURANCE_MAX, BasisSettingsDefaults.GlobalIlluminationObscurance.DefaultValue.GetDefault());
             AssertSliderRange(BasisSettingsDefaults.GI_RAY_LENGTH_MIN, BasisSettingsDefaults.GI_RAY_LENGTH_MAX, BasisSettingsDefaults.GlobalIlluminationRayLength.DefaultValue.GetDefault());
-            AssertSliderRange(BasisSettingsDefaults.GI_SMOOTHING_MIN, BasisSettingsDefaults.GI_SMOOTHING_MAX, BasisSettingsDefaults.GlobalIlluminationSmoothing.DefaultValue.GetDefault());
             AssertSliderRange(BasisSettingsDefaults.GI_TEMPORAL_RESPONSE_MIN, BasisSettingsDefaults.GI_TEMPORAL_RESPONSE_MAX, BasisSettingsDefaults.GlobalIlluminationTemporalResponse.DefaultValue.GetDefault());
             AssertSliderRange(BasisSettingsDefaults.GI_EMITTER_INTENSITY_MIN, BasisSettingsDefaults.GI_EMITTER_INTENSITY_MAX, BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.DefaultValue.GetDefault());
             AssertSliderRange(BasisSettingsDefaults.GI_LIGHTMAPPED_RECEIVE_MIN, BasisSettingsDefaults.GI_LIGHTMAPPED_RECEIVE_MAX, BasisSettingsDefaults.GlobalIlluminationLightmappedReceive.DefaultValue.GetDefault());
@@ -118,8 +117,6 @@ namespace Basis.Tests.Graphics
             Assert.LessOrEqual(BasisSettingsDefaults.GI_OBSCURANCE_MAX, BasisGlobalIlluminationSettings.ObscuranceMax);
             Assert.GreaterOrEqual(BasisSettingsDefaults.GI_RAY_LENGTH_MIN, BasisGlobalIlluminationSettings.RayLengthMin);
             Assert.LessOrEqual(BasisSettingsDefaults.GI_RAY_LENGTH_MAX, BasisGlobalIlluminationSettings.RayLengthMax);
-            Assert.GreaterOrEqual(BasisSettingsDefaults.GI_SMOOTHING_MIN, BasisGlobalIlluminationSettings.SmoothingMin);
-            Assert.LessOrEqual(BasisSettingsDefaults.GI_SMOOTHING_MAX, BasisGlobalIlluminationSettings.SmoothingMax);
             Assert.GreaterOrEqual(BasisSettingsDefaults.GI_TEMPORAL_RESPONSE_MIN, BasisGlobalIlluminationSettings.TemporalResponseMin);
             Assert.LessOrEqual(BasisSettingsDefaults.GI_TEMPORAL_RESPONSE_MAX, BasisGlobalIlluminationSettings.TemporalResponseMax);
             Assert.GreaterOrEqual(BasisSettingsDefaults.GI_EMITTER_INTENSITY_MIN, BasisGlobalIlluminationSettings.EmitterIntensityMin);
@@ -282,7 +279,6 @@ namespace Basis.Tests.Graphics
                 state.Saturation = 0.5f;
                 state.Obscurance = 0.75f;
                 state.RayLength = 32f;
-                state.Smoothing = 1.5f;
                 state.TemporalResponse = 0.4f;
                 state.EmitterIntensity = 2f;
                 state.Specular = true;
@@ -300,7 +296,6 @@ namespace Basis.Tests.Graphics
                 Assert.AreEqual(0.5f, gi.saturation, 0.0001f);
                 Assert.AreEqual(0.75f, gi.obscuranceIntensity, 0.0001f);
                 Assert.AreEqual(32f, gi.maxRayLength, 0.0001f);
-                Assert.AreEqual(1.5f, gi.smoothing, 0.0001f);
                 Assert.AreEqual(0.4f, gi.temporalResponse, 0.0001f);
                 Assert.AreEqual(2f, gi.emitterIntensity, 0.0001f);
                 Assert.IsTrue(gi.specular);
@@ -328,7 +323,6 @@ namespace Basis.Tests.Graphics
                 high.Saturation = 999f;
                 high.Obscurance = 999f;
                 high.RayLength = 999f;
-                high.Smoothing = 999f;
                 high.TemporalResponse = 999f;
                 high.EmitterIntensity = 999f;
                 high.SpecularIntensity = 999f;
@@ -341,7 +335,6 @@ namespace Basis.Tests.Graphics
                 Assert.AreEqual(BasisSettingsDefaults.GI_SATURATION_MAX, gi.saturation, 0.0001f);
                 Assert.AreEqual(BasisSettingsDefaults.GI_OBSCURANCE_MAX, gi.obscuranceIntensity, 0.0001f);
                 Assert.AreEqual(BasisSettingsDefaults.GI_RAY_LENGTH_MAX, gi.maxRayLength, 0.0001f);
-                Assert.AreEqual(BasisSettingsDefaults.GI_SMOOTHING_MAX, gi.smoothing, 0.0001f);
                 Assert.AreEqual(BasisSettingsDefaults.GI_TEMPORAL_RESPONSE_MAX, gi.temporalResponse, 0.0001f);
                 Assert.AreEqual(BasisSettingsDefaults.GI_EMITTER_INTENSITY_MAX, gi.emitterIntensity, 0.0001f);
                 Assert.AreEqual(BasisSettingsDefaults.GI_SPECULAR_INTENSITY_MAX, gi.specularIntensity, 0.0001f);
@@ -355,7 +348,6 @@ namespace Basis.Tests.Graphics
                 low.Saturation = -5f;
                 low.Obscurance = -5f;
                 low.RayLength = -5f;
-                low.Smoothing = -5f;
                 low.TemporalResponse = -5f;
                 low.EmitterIntensity = -5f;
                 low.SpecularIntensity = -5f;
@@ -368,7 +360,6 @@ namespace Basis.Tests.Graphics
                 Assert.AreEqual(BasisSettingsDefaults.GI_SATURATION_MIN, gi.saturation, 0.0001f);
                 Assert.AreEqual(BasisSettingsDefaults.GI_OBSCURANCE_MIN, gi.obscuranceIntensity, 0.0001f);
                 Assert.AreEqual(BasisSettingsDefaults.GI_RAY_LENGTH_MIN, gi.maxRayLength, 0.0001f);
-                Assert.AreEqual(BasisSettingsDefaults.GI_SMOOTHING_MIN, gi.smoothing, 0.0001f);
                 Assert.AreEqual(BasisSettingsDefaults.GI_TEMPORAL_RESPONSE_MIN, gi.temporalResponse, 0.0001f);
                 Assert.AreEqual(BasisSettingsDefaults.GI_EMITTER_INTENSITY_MIN, gi.emitterIntensity, 0.0001f);
                 Assert.AreEqual(BasisSettingsDefaults.GI_SPECULAR_INTENSITY_MIN, gi.specularIntensity, 0.0001f);
@@ -637,9 +628,6 @@ namespace Basis.Tests.Graphics
 
             module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationRayLength.BindingKey, Invariant(BasisSettingsDefaults.GI_RAY_LENGTH_MAX));
             Assert.AreEqual(BasisSettingsDefaults.GI_RAY_LENGTH_MAX, module.GlobalIllumination.maxRayLength, 0.0001f);
-
-            module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationSmoothing.BindingKey, Invariant(BasisSettingsDefaults.GI_SMOOTHING_MIN));
-            Assert.AreEqual(BasisSettingsDefaults.GI_SMOOTHING_MIN, module.GlobalIllumination.smoothing, 0.0001f);
 
             module.ValidSettingsChange(BasisSettingsDefaults.GlobalIlluminationTemporalResponse.BindingKey, Invariant(BasisSettingsDefaults.GI_TEMPORAL_RESPONSE_MAX));
             Assert.AreEqual(BasisSettingsDefaults.GI_TEMPORAL_RESPONSE_MAX, module.GlobalIllumination.temporalResponse, 0.0001f);

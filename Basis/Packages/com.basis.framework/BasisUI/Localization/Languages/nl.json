@@ -2372,6 +2372,9 @@
     { "key": "library.spawn", "value": "Spawnen" },
     { "key": "library.syncSpawn", "value": "Synchroon Spawnen" },
     { "key": "library.downloadForEveryone", "value": "Voor Iedereen Downloaden" },
+    { "key": "library.predownload.progress", "value": "{0}: {1} van {2} klaar, nog {3}" },
+    { "key": "library.predownload.done", "value": "{0}: alle {1} klaar" },
+    { "key": "library.predownload.failed", "value": "{0}: {1} van {2} klaar, {3} mislukt" },
     { "key": "library.spawnedCount", "value": "({0} gespawnd)" },
     { "key": "library.stack.versions", "value": "{0} versies" },
     { "key": "library.stack.latestEntry", "value": "{0} — Nieuwste" },
@@ -2924,14 +2927,6 @@
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "Screen Space" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "Ray Traced" },
     {
-      "key": "settings.graphics.gi.bounceFeedback",
-      "value": "Kaatssterkte"
-    },
-    {
-      "key": "settings.graphics.gi.bounceFeedback.tooltip",
-      "value": "Hoeveel van het licht dat al is weerkaatst opnieuw mag weerkaatsen. Op nul krijgt elk oppervlak één keer kaatslicht; hoger draagt het licht verder hoeken in en om deuropeningen heen, en komt binnen een paar frames tot rust. Vereist het temporele filter."
-    },
-    {
       "key": "settings.graphics.gi.worldSpace",
       "value": "GI in wereldruimte"
     },
@@ -3037,8 +3032,6 @@
     { "key": "settings.graphics.gi.obscurance.tooltip", "value": "Ambient occlusion verzameld uit dezelfde stralen als de kaatsing, dus kost niets extra. Verdonkert plooien en contactpunten." },
     { "key": "settings.graphics.gi.rayLength", "value": "Straallengte" },
     { "key": "settings.graphics.gi.rayLength.tooltip", "value": "Hoe ver, in meter, een straal zoekt naar iets om vanaf te kaatsen. Langer pikt licht op van door de hele ruimte en kost meer per straal." },
-    { "key": "settings.graphics.gi.smoothing", "value": "Afvlakking" },
-    { "key": "settings.graphics.gi.smoothing.tooltip", "value": "Breedte van de randbewuste vervaging die op de kaatsing wordt toegepast. Hoger verbergt meer van het samplingpatroon en verzacht detail." },
     { "key": "settings.graphics.gi.wideBlur", "value": "Brede Vervaging" },
     { "key": "settings.graphics.gi.wideBlur.tooltip", "value": "Een tweede, bredere vervagingspas. Verwijdert de laagfrequente vlekken die een kleine vervaging achterlaat, voor nog een extra pas over de getraceerde buffer." },
     { "key": "settings.graphics.gi.alternateEyes", "value": "Ogen om de beurt bijwerken" },
@@ -5291,8 +5284,6 @@
     { "key": "settings.graphics.dlssModel.m.tooltip", "value": "Transformermodel van de tweede generatie, afgestemd op snelheid. Scherper dan K, maar fijne details flikkeren meer dan met K of L." },
     { "key": "settings.graphics.dlssModel.tooltip", "value": "Welk AI-model van DLSS het beeld opnieuw opbouwt. Nieuwere modellen zijn scherper en geven minder ghosting, maar kosten iets meer GPU-tijd." },
     { "key": "settings.graphics.gi.mode.rayTraced.tooltip", "value": "Traceert de wereld zelf, inclusief wat buiten beeld is. Vereist DirectX 12 en een grafische kaart met hardwarematige ray tracing, zoals NVIDIA RTX; overal elders draait het als Screen Space." },
-    { "key": "settings.graphics.gi.mode.pathTraced", "value": "Path tracing (DX12)" },
-    { "key": "settings.graphics.gi.mode.pathTraced.tooltip", "value": "Laat het traceren over aan een aparte DirectX 12-pathtracer die echte avatar-meshes, emissie, transparantie en textures volgt, op en buiten het scherm. Vereist Windows en een videokaart met hardware-raytracing; Unity kan op DirectX 11 of 12 draaien. Valt terug op Radiance Cascades als de tracer niet start." },
     { "key": "settings.graphics.gi.mode.pathTracedBaked", "value": "Path tracing + gebakken (DX12)" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked.tooltip", "value": "Behoudt de gebakken belichting van de wereld en traceert alleen wat de bake niet kent: avatars, bewegende objecten, avatargloed en realtime lampen. Veel goedkoper dan volledige path tracing in werelden met lightmaps. Zonder gebakken belichting werkt het als Path tracing." },
     { "key": "settings.graphics.gi.mode.screenSpace.tooltip", "value": "Werkt met wat de camera al heeft getekend. Draait op elke grafische kaart, ook met DirectX 11." },

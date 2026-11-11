@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.UI;
 using static Basis.BasisUI.PanelButton;
 using static SerializableBasis;
 
@@ -110,18 +111,27 @@ namespace Basis.BasisUI
             icon.rectTransform.sizeDelta = new Vector2(40, 40);
         }
 
+        internal static void SetCardFace(PanelButton card, Sprite sprite, bool isAddressable = false)
+        {
+            PanelElementDescriptor desc = card.Descriptor;
+            card.SetIcon(sprite, isAddressable);
+            RectTransform backdrop = desc.ContentParent;
+            if (backdrop == null || backdrop == desc.rectTransform) return;
+            if (backdrop.TryGetComponent(out Image fallback) && fallback != desc.IconImage) fallback.enabled = sprite == null;
+        }
+
         internal static async void ApplyItemFace(PanelButton card, BasisDataStoreItemKeys.ItemKey item)
         {
             if (IsEmbeddedAddressable(item))
             {
                 Sprite embedded = EmbeddedItems.GetSpriteForEmbeddedItem(item);
-                if (embedded != null) card.SetIcon(embedded, false);
+                if (embedded != null) SetCardFace(card, embedded, true);
                 return;
             }
             if (!CachedMetaData.TryGetMeta(item.Url ?? string.Empty, out CachedMetaData.CachedContent meta) || meta?.BasisBundleConnector == null) return;
             Sprite sprite = meta.CachedSprite != null ? meta.CachedSprite : await CachedMetaData.CreateSpriteFromMetaDataAsync(meta, item.Url);
             if (card == null || sprite == null) return;
-            card.SetIcon(sprite, false);
+            SetCardFace(card, sprite);
         }
 
         private static async void NotifyWhenClosed<T>(DialogBox<T> dialog, Action onClosed)
@@ -183,7 +193,7 @@ namespace Basis.BasisUI
             card.Descriptor.ForceRebuild();
             if (items.Count == 0)
             {
-                card.SetIcon(AddressableAssets.Sprites.FileTray);
+                SetCardFace(card, AddressableAssets.GetSprite(AddressableAssets.Sprites.FileTray), true);
             }
             else
             {

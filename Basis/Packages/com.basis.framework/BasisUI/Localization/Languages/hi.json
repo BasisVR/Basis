@@ -2372,6 +2372,9 @@
     { "key": "library.spawn", "value": "स्पॉन" },
     { "key": "library.syncSpawn", "value": "सिंक स्पॉन" },
     { "key": "library.downloadForEveryone", "value": "सभी के लिए डाउनलोड करें" },
+    { "key": "library.predownload.progress", "value": "{0}: {2} में से {1} तैयार, {3} बाकी" },
+    { "key": "library.predownload.done", "value": "{0}: सभी {1} तैयार" },
+    { "key": "library.predownload.failed", "value": "{0}: {2} में से {1} तैयार, {3} विफल" },
     { "key": "library.spawnedCount", "value": "({0} स्पॉन किया गया)" },
     { "key": "library.stack.versions", "value": "{0} वर्शन" },
     { "key": "library.stack.latestEntry", "value": "{0} — नवीनतम" },
@@ -2924,14 +2927,6 @@
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "स्क्रीन स्पेस" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "रे ट्रेस्ड" },
     {
-      "key": "settings.graphics.gi.bounceFeedback",
-      "value": "बाउंस की ताकत"
-    },
-    {
-      "key": "settings.graphics.gi.bounceFeedback.tooltip",
-      "value": "जो रोशनी पहले ही बाउंस हो चुकी है उसका कितना हिस्सा फिर से बाउंस हो सकता है। शून्य पर हर सतह को एक बाउंस मिलता है; ज़्यादा होने पर रोशनी कोनों और दरवाज़ों के आसपास और दूर तक जाती है और कुछ फ़्रेम में स्थिर हो जाती है। टेम्पोरल फ़िल्टर ज़रूरी है।"
-    },
-    {
       "key": "settings.graphics.gi.worldSpace",
       "value": "वर्ल्ड स्पेस GI"
     },
@@ -3037,8 +3032,6 @@
     { "key": "settings.graphics.gi.obscurance.tooltip", "value": "बाउंस जैसी ही किरणों से इकट्ठा किया गया एम्बिएंट ऑक्लूज़न, इसलिए इसकी कोई अतिरिक्त कीमत नहीं है। सलवटों और संपर्क बिंदुओं को गहरा करता है।" },
     { "key": "settings.graphics.gi.rayLength", "value": "रे लंबाई" },
     { "key": "settings.graphics.gi.rayLength.tooltip", "value": "एक किरण मीटर में कितनी दूर तक किसी ऐसी चीज़ को खोजती है जिससे वह बाउंस हो सके। लंबी किरण पूरे कमरे से रोशनी उठाती है और प्रति किरण ज़्यादा खर्च करती है।" },
-    { "key": "settings.graphics.gi.smoothing", "value": "स्मूथिंग" },
-    { "key": "settings.graphics.gi.smoothing.tooltip", "value": "बाउंस पर लगाए गए एज-अवेयर ब्लर की चौड़ाई। ज़्यादा होने पर यह सैंपलिंग पैटर्न को ज़्यादा छुपाता है और डिटेल को मुलायम करता है।" },
     { "key": "settings.graphics.gi.wideBlur", "value": "वाइड ब्लर" },
     { "key": "settings.graphics.gi.wideBlur.tooltip", "value": "एक दूसरा, चौड़ा ब्लर पास। ट्रेस किए गए बफ़र पर एक और पास के ज़रिए, छोटे ब्लर से बचे लो-फ़्रीक्वेंसी धब्बों को हटाता है।" },
     { "key": "settings.graphics.gi.alternateEyes", "value": "आँखों को बारी-बारी से अपडेट करें" },
@@ -5291,8 +5284,6 @@
     { "key": "settings.graphics.dlssModel.m.tooltip", "value": "गति के लिए ट्यून किया गया दूसरी पीढ़ी का ट्रांसफ़ॉर्मर मॉडल। K से ज़्यादा शार्प, लेकिन बारीक डिटेल K या L की तुलना में ज़्यादा झिलमिलाती है।" },
     { "key": "settings.graphics.dlssModel.tooltip", "value": "कौन-सा DLSS AI मॉडल इमेज को दोबारा बनाता है। नए मॉडल ज़्यादा शार्प होते हैं और कम घोस्टिंग करते हैं, लेकिन थोड़ा ज़्यादा GPU समय लेते हैं।" },
     { "key": "settings.graphics.gi.mode.rayTraced.tooltip", "value": "दुनिया को खुद ट्रेस करता है, स्क्रीन से बाहर की चीज़ों सहित। DirectX 12 और हार्डवेयर रे ट्रेसिंग वाला ग्राफ़िक्स कार्ड चाहिए, जैसे NVIDIA RTX; बाकी हर जगह यह स्क्रीन स्पेस के रूप में चलता है।" },
-    { "key": "settings.graphics.gi.mode.pathTraced", "value": "पाथ ट्रेस्ड (DX12)" },
-    { "key": "settings.graphics.gi.mode.pathTraced.tooltip", "value": "ट्रेसिंग को एक अलग DirectX 12 पाथ ट्रेसर को सौंपता है, जो स्क्रीन पर और उसके बाहर असली अवतार मेश, उत्सर्जन, पारदर्शिता और टेक्सचर को ध्यान में रखता है। Windows और हार्डवेयर रे ट्रेसिंग वाला ग्राफ़िक्स कार्ड चाहिए; Unity DirectX 11 या 12 पर चल सकता है। ट्रेसर शुरू न हो तो Radiance Cascades पर लौट आता है।" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked", "value": "पाथ ट्रेस्ड + बेक्ड (DX12)" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked.tooltip", "value": "दुनिया की बेक की गई रोशनी रखता है और केवल वही ट्रेस करता है जो बेक नहीं जानता: अवतार, चलती वस्तुएँ, अवतार की चमक और रीयलटाइम लाइटें। लाइटमैप वाली दुनिया में पूरे पाथ ट्रेसिंग से कहीं सस्ता। बेक्ड रोशनी न हो तो पाथ ट्रेस्ड जैसा काम करता है।" },
     { "key": "settings.graphics.gi.mode.screenSpace.tooltip", "value": "कैमरे ने जो पहले से बनाया है उसी से काम करता है। किसी भी ग्राफ़िक्स कार्ड पर चलता है, DirectX 11 सहित।" },

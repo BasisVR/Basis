@@ -104,7 +104,7 @@ namespace Basis.BasisUI
                 Sprite thumbnail = meta != null ? CachedMetaData.CreateSpriteFromMetaData(meta) : null;
                 if (thumbnail != null)
                 {
-                    card.SetIcon(thumbnail, false);
+                    LibraryProvider.SetCardFace(card, thumbnail);
                 }
 
                 bool isActive;

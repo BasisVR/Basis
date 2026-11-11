@@ -187,7 +187,6 @@ namespace Basis.Tests.Camera
                 giSaturation = 1.6f,
                 giObscurance = 0.85f,
                 giRayLength = 32f,
-                giSmoothing = 1.5f,
                 giWideBlur = false,
                 giRayReuse = false,
                 giEmitters = false,

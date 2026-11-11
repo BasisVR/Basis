@@ -178,13 +178,16 @@ public static class BasisNetworkResourceManagement
     // Predownload broadcast: tell every connected client to cache the bundle to disc now.
     // Deliberately NOT added to UshortNetworkDatabase - it is not a loaded resource, so it is
     // never replayed to late joiners by SendOutAllResources and never spawns anything.
-    public static void PredownloadResource(LocalLoadResource LocalLoadResource)
+    public static void PredownloadResource(LocalLoadResource LocalLoadResource, int requesterPeerId = -1)
     {
+        LocalLoadResource.LoadStrategy = 3;
         Basis.Network.Server.Generic.BasisContentKeyRelay.TakeCustody(ref LocalLoadResource);
+        NetPeer[] peers = NetworkServer.PeerSnapshot;
+        BasisNetworkPredownloadManagement.Start(LocalLoadResource, requesterPeerId, peers);
         NetDataWriter Writer = NetworkServer.RentWriter();
         LocalLoadResource.Serialize(Writer);
-        BNL.Log("Broadcasting predownload for " + LocalLoadResource.CombinedURL);
-        NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.LoadResourceChannel, NetworkServer.PeerSnapshot, DeliveryMethod.ReliableOrdered);
+        BNL.Log("Broadcasting predownload for " + LocalLoadResource.CombinedURL + " to " + peers.Length + " peers");
+        NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.LoadResourceChannel, peers, DeliveryMethod.ReliableOrdered);
         NetworkServer.ReturnWriter(Writer);
     }
     public static void LoadResource(LocalLoadResource LocalLoadResource)
@@ -203,6 +206,7 @@ public static class BasisNetworkResourceManagement
             {
                 NoteResourceAdded(LocalLoadResource.UUIDOfCreator);
                 BNL.Log("Adding Object " + LocalLoadResource.LoadedNetID);
+                BasisNetworkPredownloadManagement.Fulfil(LocalLoadResource.CombinedURL, LocalLoadResource.Mode);
                 NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.LoadResourceChannel, NetworkServer.PeerSnapshot, DeliveryMethod.ReliableOrdered);
             }
             else

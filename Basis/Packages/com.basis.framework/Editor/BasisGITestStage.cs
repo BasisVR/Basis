@@ -62,6 +62,15 @@ public static class BasisGITestStage
         orbiters.Add((Add(PrimitiveType.Sphere, "Stage Orb Warm", chest, Vector3.one * 0.16f, Color.white, new Color(12f, 7f, 2.5f)), chest, 0.55f, 0.9f, 0f));
         orbiters.Add((Add(PrimitiveType.Sphere, "Stage Orb Blue", chest, Vector3.one * 0.1f, Color.white, new Color(2f, 5f, 14f)), chest + new Vector3(0f, -0.5f, 0f), 0.45f, -1.4f, 2f));
         orbiters.Add((Add(PrimitiveType.Cube, "Stage Blocker", chest, new Vector3(0.6f, 1.2f, 0.1f), wall, Color.black), feet + new Vector3(0f, 0.6f, 0f), 1.6f, 0.5f, 1f));
+        Shader odd = ShaderUtil.CreateShaderAsset("Shader \"Hidden/BasisGITestOddProperties\" { Properties { _BaseColor (\"Base\", 2D) = \"white\" {} _BaseMap (\"Map\", Color) = (1,1,1,1) _EmissionColor (\"E\", Float) = 1 _Cull (\"C\", Color) = (0,0,0,0) } SubShader { Tags { \"RenderType\" = \"Opaque\" } Pass { Tags { \"LightMode\" = \"UniversalForward\" } } } }", false);
+        Transform glass = Add(PrimitiveType.Cube, "Stage Odd Material", feet + new Vector3(2.5f, 0.5f, -2.5f), Vector3.one, wall, Color.black);
+        Material oddMaterial = new Material(odd);
+        oddMaterial.EnableKeyword("_EMISSION");
+        glass.GetComponent<Renderer>().sharedMaterial = oddMaterial;
+        MaterialPropertyBlock oddBlock = new MaterialPropertyBlock();
+        oddBlock.SetFloat("_Unused", 1f);
+        glass.GetComponent<Renderer>().SetPropertyBlock(oddBlock);
+        Debug.Log("[BasisGITestStage] odd material HasProperty(_BaseColor) " + oddMaterial.HasProperty("_BaseColor") + " HasColor " + oddMaterial.HasColor("_BaseColor"));
         EditorApplication.update -= Tick;
         EditorApplication.update += Tick;
         Tick();

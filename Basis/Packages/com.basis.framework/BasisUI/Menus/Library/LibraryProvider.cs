@@ -2003,6 +2003,17 @@ namespace Basis.BasisUI
 
             loadPanelButton.Descriptor.SetWidth(340);
             loadPanelButton.Descriptor.SetHeight(60);
+            bool predownloadTooltipShown = false;
+            void ShowPredownloadTooltip(BasisNetworkPreloadManager.PredownloadStatus changed)
+            {
+                if (loadPanelButton == null || (changed != null && changed.Url != item.Url)) return;
+                bool known = BasisNetworkPreloadManager.TryGetPredownloadForUrl(item.Url, out BasisNetworkPreloadManager.PredownloadStatus current);
+                if (known || predownloadTooltipShown) loadPanelButton.Descriptor.SetTooltip(known ? BasisNetworkPreloadManager.DescribePredownload(current) : null);
+                predownloadTooltipShown = known;
+            }
+            ShowPredownloadTooltip(null);
+            BasisNetworkPreloadManager.OnPredownloadChanged += ShowPredownloadTooltip;
+            NotifyWhenClosed(existingItemDialog, () => BasisNetworkPreloadManager.OnPredownloadChanged -= ShowPredownloadTooltip);
             // on load of a item we do these actions
             loadPanelButton.OnClicked += async () =>
             {
@@ -2011,7 +2022,7 @@ namespace Basis.BasisUI
 
                 try
                 {
-                    if (item.Mode == BundledContentHolder.Mode.World && BasisRuntimeSpawnRegistry.CountWorldsAndProps() > 0)
+                    if (item.Mode == BundledContentHolder.Mode.World && desiredNetworkType != BundledContentHolder.NetworkType.Predownload && BasisRuntimeSpawnRegistry.CountWorldsAndProps() > 0)
                     {
                         bool unloadExisting = await LibraryProviderDialogUnloadContent.PromptUserToUnloadExistingContent(panel);
                         if (unloadExisting)
@@ -2054,7 +2065,7 @@ namespace Basis.BasisUI
                 ? cachedMeta.CachedSprite
                 : await CachedMetaData.CreateSpriteFromMetaDataAsync(cachedMeta, urlKey);
             if (buttonPanel == null) return;
-            buttonPanel.SetIcon(iconSprite, false);
+            SetCardFace(buttonPanel, iconSprite);
         }
 
         #endregion

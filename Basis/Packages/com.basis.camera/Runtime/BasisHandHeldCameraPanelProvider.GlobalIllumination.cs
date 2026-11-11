@@ -35,7 +35,6 @@ namespace Basis.BasisUI.HandHeldCamera
         private PanelSlider _giSaturationSlider;
         private PanelSlider _giObscuranceSlider;
         private PanelSlider _giRayLengthSlider;
-        private PanelSlider _giSmoothingSlider;
         private PanelToggle _giWideBlurToggle;
         private PanelToggle _giRayReuseToggle;
         private PanelToggle _giEmittersToggle;
@@ -158,13 +157,6 @@ namespace Basis.BasisUI.HandHeldCamera
             _giRayLengthSlider.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.rayLength.tooltip"));
             _giRayLengthSlider.OnValueChanged = v => _activeCamera?.SetGlobalIlluminationOverrideRayLength(v);
 
-            _giSmoothingSlider = PanelSlider.CreateNew(content);
-            _giSmoothingSlider.SetSliderSettings(PanelSlider.SliderSettings.Advanced(
-                BasisLocalization.Get("settings.graphics.gi.smoothing"),
-                BasisSettingsDefaults.GI_SMOOTHING_MIN, BasisSettingsDefaults.GI_SMOOTHING_MAX, false, 2, ValueDisplayMode.Raw));
-            _giSmoothingSlider.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.smoothing.tooltip"));
-            _giSmoothingSlider.OnValueChanged = v => _activeCamera?.SetGlobalIlluminationOverrideSmoothing(v);
-
             _giWideBlurToggle = PanelToggle.CreateNewEntry(content);
             _giWideBlurToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.wideBlur"));
             _giWideBlurToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.wideBlur.tooltip"));
@@ -266,7 +258,6 @@ namespace Basis.BasisUI.HandHeldCamera
             _giSaturationSlider?.SetValueWithoutNotify(gi.Saturation);
             _giObscuranceSlider?.SetValueWithoutNotify(gi.Obscurance);
             _giRayLengthSlider?.SetValueWithoutNotify(gi.RayLength);
-            _giSmoothingSlider?.SetValueWithoutNotify(gi.Smoothing);
             _giWideBlurToggle?.SetValueWithoutNotify(gi.WideBlur);
             _giRayReuseToggle?.SetValueWithoutNotify(gi.RayReuse);
             _giEmittersToggle?.SetValueWithoutNotify(gi.Emitters);
@@ -299,7 +290,6 @@ namespace Basis.BasisUI.HandHeldCamera
             _giSaturationSlider?.gameObject.SetActive(overriding);
             _giObscuranceSlider?.gameObject.SetActive(overriding);
             _giRayLengthSlider?.gameObject.SetActive(overriding);
-            _giSmoothingSlider?.gameObject.SetActive(overriding);
             _giWideBlurToggle?.gameObject.SetActive(overriding);
             _giRayReuseToggle?.gameObject.SetActive(overriding);
             _giEmittersToggle?.gameObject.SetActive(overriding);

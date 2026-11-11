@@ -2372,6 +2372,9 @@
     { "key": "library.spawn", "value": "スポーン" },
     { "key": "library.syncSpawn", "value": "同期スポーン" },
     { "key": "library.downloadForEveryone", "value": "全員にダウンロード" },
+    { "key": "library.predownload.progress", "value": "{0}: {2}人中{1}人が準備完了、残り{3}人" },
+    { "key": "library.predownload.done", "value": "{0}: {1}人全員が準備完了" },
+    { "key": "library.predownload.failed", "value": "{0}: {2}人中{1}人が準備完了、{3}人が失敗" },
     { "key": "library.spawnedCount", "value": "({0}スポーン済み)" },
     { "key": "library.stack.versions", "value": "{0} 個のバージョン" },
     { "key": "library.stack.latestEntry", "value": "{0} — 最新" },
@@ -2924,14 +2927,6 @@
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "スクリーンスペース" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "レイトレーシング" },
     {
-      "key": "settings.graphics.gi.bounceFeedback",
-      "value": "バウンス強度"
-    },
-    {
-      "key": "settings.graphics.gi.bounceFeedback.tooltip",
-      "value": "すでに反射した光をどれだけ再び反射させるか。0 ではすべての面が 1 回だけバウンスし、高くすると光が隅や出入口の周りまで届き、数フレームで落ち着きます。テンポラルフィルタが必要です。"
-    },
-    {
       "key": "settings.graphics.gi.worldSpace",
       "value": "ワールド空間 GI"
     },
@@ -3037,8 +3032,6 @@
     { "key": "settings.graphics.gi.obscurance.tooltip", "value": "バウンスと同じレイから得られるアンビエントオクルージョンで、追加コストはかかりません。しわや接触点を暗くします。" },
     { "key": "settings.graphics.gi.rayLength", "value": "レイ長" },
     { "key": "settings.graphics.gi.rayLength.tooltip", "value": "レイが跳ね返る対象を探す距離をメートル単位で指定します。長くすると部屋の反対側からも光を拾えますが、レイ1本あたりのコストが増えます。" },
-    { "key": "settings.graphics.gi.smoothing", "value": "スムージング" },
-    { "key": "settings.graphics.gi.smoothing.tooltip", "value": "バウンスに適用される、エッジを考慮したぼかしの幅です。高くするとサンプリングパターンがより目立たなくなりますが、細部も柔らかくなります。" },
     { "key": "settings.graphics.gi.wideBlur", "value": "ワイドブラー" },
     { "key": "settings.graphics.gi.wideBlur.tooltip", "value": "2回目の、より広範囲なぼかしパスです。小さなぼかしでは残ってしまう低周波のムラを、トレース済みバッファへのもう一段のパスで取り除きます。" },
     { "key": "settings.graphics.gi.alternateEyes", "value": "両目を交互に更新" },
@@ -5291,8 +5284,6 @@
     { "key": "settings.graphics.dlssModel.m.tooltip", "value": "速度重視に調整された第 2 世代の Transformer モデルです。K よりシャープですが、細部のちらつきは K や L より多くなります。" },
     { "key": "settings.graphics.dlssModel.tooltip", "value": "画像の再構築に使う DLSS の AI モデルです。新しいモデルほどシャープで残像も少なくなりますが、GPU 時間が少し多くかかります。" },
     { "key": "settings.graphics.gi.mode.rayTraced.tooltip", "value": "画面外も含め、ワールドそのものをトレースします。DirectX 12 と、NVIDIA RTX などのハードウェアレイトレーシング対応グラフィックカードが必要です。それ以外の環境では「スクリーンスペース」として動作します。" },
-    { "key": "settings.graphics.gi.mode.pathTraced", "value": "パストレーシング (DX12)" },
-    { "key": "settings.graphics.gi.mode.pathTraced.tooltip", "value": "トレースを別プロセスの DirectX 12 パストレーサーに任せます。アバターの実際のメッシュ、発光、透明度、テクスチャを画面内外で追跡します。Windows とハードウェアレイトレーシング対応 GPU が必要です。Unity は DirectX 11 でも 12 でも動作します。トレーサーが起動できない場合は Radiance Cascades に戻ります。" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked", "value": "パストレーシング + ベイク (DX12)" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked.tooltip", "value": "ワールドのベイク済みライティングを保ち、ベイクが知らないものだけをトレースします：アバター、動くオブジェクト、アバターの発光、リアルタイムライト。ライトマップのあるワールドではフルのパストレーシングよりはるかに軽量です。ベイクがないワールドではパストレーシングと同じ動作です。" },
     { "key": "settings.graphics.gi.mode.screenSpace.tooltip", "value": "カメラがすでに描画した内容を元に処理します。DirectX 11 を含め、どのグラフィックカードでも動作します。" },

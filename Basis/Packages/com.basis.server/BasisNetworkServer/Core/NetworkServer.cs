@@ -175,6 +175,7 @@ public static class NetworkServer
         BasisNetworkCore.BasisNetworkIDDatabase.Reset();
         BasisNetworkResourceManagement.Reset();
         BasisNetworkPreloadResourceManagement.Reset();
+        BasisNetworkPredownloadManagement.Reset();
         BasisNetworkContentShare.Reset();
         BasisNetworkPIPCamera.Reset();
         Basis.Network.Server.Generic.BasisNetworkImageCache.Reset();

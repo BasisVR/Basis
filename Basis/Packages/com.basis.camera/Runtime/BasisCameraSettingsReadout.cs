@@ -158,7 +158,6 @@ public static partial class BasisCameraSettingsReadout
             Row("settings.graphics.gi.saturation", Number(settings.giSaturation));
             Row("settings.graphics.gi.obscurance", Number(settings.giObscurance));
             Row("settings.graphics.gi.rayLength", Number(settings.giRayLength));
-            Row("settings.graphics.gi.smoothing", Number(settings.giSmoothing));
             Row("settings.graphics.gi.wideBlur", OnOff(settings.giWideBlur));
             Row("settings.graphics.gi.rayReuse", OnOff(settings.giRayReuse));
             Row("settings.graphics.gi.emitters", OnOff(settings.giEmitters));
@@ -445,7 +444,7 @@ public static partial class BasisCameraSettingsReadout
     }
 
     private static string GiModeLabel(int mode) =>
-        BasisLocalization.Get(mode == 3 ? "settings.graphics.gi.mode.pathTracedBaked" : mode == 2 ? "settings.graphics.gi.mode.pathTraced" : mode == 1 ? "settings.graphics.gi.mode.rayTraced" : "settings.graphics.gi.mode.radianceCascades");
+        BasisLocalization.Get(mode == 2 ? "settings.graphics.gi.mode.pathTracedBaked" : mode == 1 ? "settings.graphics.gi.mode.rayTraced" : "settings.graphics.gi.mode.radianceCascades");
 
     private static string GiLayersLabel(int layers)
     {

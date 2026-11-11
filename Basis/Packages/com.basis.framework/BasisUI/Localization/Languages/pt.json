@@ -2322,6 +2322,9 @@
     { "key": "library.spawn", "value": "Spawn" },
     { "key": "library.syncSpawn", "value": "Spawn Sincronizado" },
     { "key": "library.downloadForEveryone", "value": "Baixar para Todos" },
+    { "key": "library.predownload.progress", "value": "{0}: {1} de {2} prontos, faltam {3}" },
+    { "key": "library.predownload.done", "value": "{0}: todos os {1} prontos" },
+    { "key": "library.predownload.failed", "value": "{0}: {1} de {2} prontos, {3} falharam" },
     { "key": "library.spawnedCount", "value": "({0} spawnados)" },
     { "key": "library.stack.versions", "value": "{0} versões" },
     { "key": "library.stack.latestEntry", "value": "{0} — Mais Recente" },
@@ -2869,14 +2872,6 @@
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "Espaço de Tela" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "Traçado de Raios" },
     {
-      "key": "settings.graphics.gi.bounceFeedback",
-      "value": "Força do Rebote"
-    },
-    {
-      "key": "settings.graphics.gi.bounceFeedback.tooltip",
-      "value": "Quanto da luz que já ricocheteou pode ricochetear de novo. Em zero cada superfície recebe um único rebote; valores maiores levam a luz mais longe para os cantos e ao redor das portas, estabilizando em poucos quadros. Requer o filtro temporal."
-    },
-    {
       "key": "settings.graphics.gi.worldSpace",
       "value": "GI no Espaço do Mundo"
     },
@@ -2982,8 +2977,6 @@
     { "key": "settings.graphics.gi.obscurance.tooltip", "value": "Oclusão ambiental obtida dos mesmos raios do rebote, então não custa nada extra. Escurece dobras e pontos de contato." },
     { "key": "settings.graphics.gi.rayLength", "value": "Comprimento do Raio" },
     { "key": "settings.graphics.gi.rayLength.tooltip", "value": "A que distância, em metros, um raio procura por algo para refletir. Mais longo capta luz do outro lado de uma sala e custa mais por raio." },
-    { "key": "settings.graphics.gi.smoothing", "value": "Suavização" },
-    { "key": "settings.graphics.gi.smoothing.tooltip", "value": "Largura do desfoque sensível a bordas aplicado ao rebote. Mais alto esconde mais do padrão de amostragem e suaviza o detalhe." },
     { "key": "settings.graphics.gi.wideBlur", "value": "Desfoque Amplo" },
     { "key": "settings.graphics.gi.wideBlur.tooltip", "value": "Uma segunda passagem de desfoque, mais ampla. Remove as manchas de baixa frequência que um desfoque pequeno deixa para trás, com mais uma passagem sobre o buffer traçado." },
     { "key": "settings.graphics.gi.alternateEyes", "value": "Atualizar os olhos alternadamente" },
@@ -5180,8 +5173,6 @@
     { "key": "settings.graphics.dlssModel.m.tooltip", "value": "Modelo transformer de segunda geração ajustado para velocidade. Mais nítido que o K, mas os detalhes finos cintilam mais do que com o K ou o L." },
     { "key": "settings.graphics.dlssModel.tooltip", "value": "Qual modelo de IA do DLSS reconstrói a imagem. Modelos mais novos são mais nítidos e deixam menos rastros, mas consomem um pouco mais de tempo de GPU." },
     { "key": "settings.graphics.gi.mode.rayTraced.tooltip", "value": "Traça o próprio mundo, incluindo o que está fora da tela. Requer DirectX 12 e uma placa de vídeo com traçado de raios por hardware, como NVIDIA RTX; em qualquer outro caso, funciona como Espaço de Tela." },
-    { "key": "settings.graphics.gi.mode.pathTraced", "value": "Traçado de caminhos (DX12)" },
-    { "key": "settings.graphics.gi.mode.pathTraced.tooltip", "value": "Entrega o traçado a um traçador de caminhos DirectX 12 separado que segue as malhas reais dos avatares, emissão, transparência e texturas, dentro e fora da tela. Requer Windows e uma placa de vídeo com ray tracing por hardware; o Unity pode usar DirectX 11 ou 12. Volta para Radiance Cascades se o traçador não iniciar." },
     { "key": "settings.graphics.gi.mode.pathTracedBaked", "value": "Traçado de caminhos + pré-calculado (DX12)" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked.tooltip", "value": "Mantém a iluminação pré-calculada do mundo e traça só o que o bake não conhece: avatares, objetos em movimento, brilho dos avatares e luzes em tempo real. Bem mais barato que o traçado completo em mundos com lightmaps. Sem iluminação pré-calculada funciona como Traçado de caminhos." },
     { "key": "settings.graphics.gi.mode.screenSpace.tooltip", "value": "Trabalha a partir do que a câmera já desenhou. Funciona em qualquer placa de vídeo, inclusive com DirectX 11." },

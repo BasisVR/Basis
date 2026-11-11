@@ -55,6 +55,7 @@ public static class BasisServerMessageRegistry
         Basis.Network.Server.Generic.BasisAvatarHostRelay.Register();
         Basis.Network.Server.Generic.BasisContentKeyRelay.Register();
         Basis.Network.Server.Generic.BasisNetworkScreenShare.Register();
+        BasisNetworkPredownloadManagement.Register();
     }
 
     public static event Action<NetPeer> PeerSubscribed;
@@ -213,6 +214,12 @@ public static class BasisServerMessageRegistry
     public static bool IsSubscribed(int peerId, ushort id)
     {
         return !Subscriptions.TryGetValue(peerId, out HashSet<ushort> set) || set.Contains(id);
+    }
+
+    /// <summary>True only once the peer has sent a subscription that names this message id.</summary>
+    public static bool HasSubscribed(int peerId, ushort id)
+    {
+        return Subscriptions.TryGetValue(peerId, out HashSet<ushort> set) && set.Contains(id);
     }
 
     /// <summary>Drop a peer's subscription record on disconnect.</summary>

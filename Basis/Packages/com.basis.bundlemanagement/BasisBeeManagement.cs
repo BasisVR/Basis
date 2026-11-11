@@ -336,6 +336,49 @@ public static class BasisBeeManagement
             throw;
         }
     }
+    public static async Task<string> DownloadToCache(BasisTrackedBundleWrapper wrapper, BasisProgressReport report, CancellationToken cancellationToken, long MaxDownloadSizeInBytes = 4L * 1024 * 1024 * 1024)
+    {
+        string beeLocation = wrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
+        if (wrapper.LoadableBundle.BasisRemoteBundleEncrypted.IsNetworkSourced && !BasisServerHostedBee.IsHostedUrl(beeLocation) && !Basis.Scripts.Common.BasisUrlSecurity.IsHttpUrlAllowed(beeLocation, out string locationError))
+        {
+            return $"Refusing networked content location: {locationError}";
+        }
+        var (isMetaOnDisc, metaInfo) = await BasisLoadHandler.IsMetaDataOnDiscAsync(beeLocation);
+        bool useDisc = isMetaOnDisc;
+        if (useDisc && !HasCompatibleDownloadedPlatform(metaInfo) && !string.IsNullOrEmpty(metaInfo.DownloadedPlatform))
+        {
+            useDisc = false;
+        }
+        if (useDisc && !await CacheIsCurrentForRequestedVersionAsync(wrapper, metaInfo, beeLocation, evictStaleCache: false, cancellationToken))
+        {
+            useDisc = false;
+        }
+        BasisBundleGenerated generated = null;
+        string error = string.Empty;
+        bool hasPayload = false, downloaded = false;
+        if (useDisc)
+        {
+            var verified = await BasisBundleManagement.LocalVerifyBundleConnector(wrapper, metaInfo.StoredLocal, report, cancellationToken);
+            generated = verified.Generated;
+            hasPayload = verified.SectionLength > 0;
+            error = verified.ErrorMessage;
+        }
+        if (generated == null || !hasPayload)
+        {
+            var output = await BasisBundleManagement.DownloadLoadBundleConnector(wrapper, report, cancellationToken, MaxDownloadSizeInBytes);
+            generated = output.Generated;
+            hasPayload = output.Section.HasPayload;
+            error = output.ErrorMessage;
+            downloaded = true;
+        }
+        if (cancellationToken.IsCancellationRequested) throw new OperationCanceledException(cancellationToken);
+        if (generated == null || !hasPayload || !string.IsNullOrEmpty(error))
+        {
+            return string.IsNullOrEmpty(error) ? "The download came back empty." : error;
+        }
+        await SaveMetaIfNeeded(wrapper, useDisc, downloaded, generated.Platform);
+        return string.Empty;
+    }
     /// <summary>
     /// Loads a BEE that lives on the local filesystem (no download, no on-disc cache copy).
     /// Reads connector + platform section directly and generates the asset bundle.

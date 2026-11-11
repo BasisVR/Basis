@@ -2372,6 +2372,9 @@
     { "key": "library.spawn", "value": "بنائیں" },
     { "key": "library.syncSpawn", "value": "ہم وقت بنائیں" },
     { "key": "library.downloadForEveryone", "value": "سب کے لیے ڈاؤن لوڈ کریں" },
+    { "key": "library.predownload.progress", "value": "{0}: {2} میں سے {1} تیار، {3} باقی" },
+    { "key": "library.predownload.done", "value": "{0}: تمام {1} تیار" },
+    { "key": "library.predownload.failed", "value": "{0}: {2} میں سے {1} تیار، {3} ناکام" },
     { "key": "library.spawnedCount", "value": "({0} بنائے گئے)" },
     { "key": "library.stack.versions", "value": "{0} ورژنز" },
     { "key": "library.stack.latestEntry", "value": "{0} — تازہ ترین" },
@@ -2924,14 +2927,6 @@
     { "key": "settings.graphics.gi.mode.screenSpace", "value": "اسکرین اسپیس" },
     { "key": "settings.graphics.gi.mode.rayTraced", "value": "رے ٹریسڈ" },
     {
-      "key": "settings.graphics.gi.bounceFeedback",
-      "value": "باؤنس کی طاقت"
-    },
-    {
-      "key": "settings.graphics.gi.bounceFeedback.tooltip",
-      "value": "جو روشنی پہلے ہی باؤنس ہو چکی ہے اس کا کتنا حصہ دوبارہ باؤنس ہو سکتا ہے۔ صفر پر ہر سطح کو ایک باؤنس ملتا ہے؛ زیادہ ہونے پر روشنی کونوں اور دروازوں کے گرد مزید دور تک جاتی ہے اور چند فریم میں ٹھہر جاتی ہے۔ وقتی فلٹر درکار ہے۔"
-    },
-    {
       "key": "settings.graphics.gi.worldSpace",
       "value": "ورلڈ اسپیس GI"
     },
@@ -3037,8 +3032,6 @@
     { "key": "settings.graphics.gi.obscurance.tooltip", "value": "وہی شعاعیں استعمال کر کے حاصل کی گئی ایمبیئنٹ اوکلوژن جو باؤنس کے لیے استعمال ہوتی ہیں، اس لیے یہ کچھ اضافی خرچ نہیں کرتی۔ تہوں اور رابطے کے مقامات کو تاریک کرتی ہے۔" },
     { "key": "settings.graphics.gi.rayLength", "value": "رے کی لمبائی" },
     { "key": "settings.graphics.gi.rayLength.tooltip", "value": "ایک شعاع میٹرز میں کتنی دور تک کسی چیز سے ٹکرانے کے لیے تلاش کرتی ہے۔ زیادہ لمبائی پورے کمرے سے روشنی حاصل کرتی ہے اور فی شعاع زیادہ خرچ کرتی ہے۔" },
-    { "key": "settings.graphics.gi.smoothing", "value": "ہمواری" },
-    { "key": "settings.graphics.gi.smoothing.tooltip", "value": "باؤنس پر لگائے گئے ایج ایویئر بلر کی چوڑائی۔ زیادہ قدر سیمپلنگ پیٹرن کو زیادہ چھپاتی ہے اور تفصیل کو نرم کرتی ہے۔" },
     { "key": "settings.graphics.gi.wideBlur", "value": "وائیڈ بلر" },
     { "key": "settings.graphics.gi.wideBlur.tooltip", "value": "ایک دوسرا، زیادہ وسیع بلر پاس۔ ٹریس شدہ بفر پر ایک اور پاس کے ذریعے وہ لو فریکوئنسی دھبے دور کرتا ہے جو ایک چھوٹا بلر پیچھے چھوڑ دیتا ہے۔" },
     { "key": "settings.graphics.gi.alternateEyes", "value": "آنکھوں کو باری باری اپ ڈیٹ کریں" },
@@ -5291,8 +5284,6 @@
     { "key": "settings.graphics.dlssModel.m.tooltip", "value": "رفتار کے لیے ٹیون کیا گیا دوسری نسل کا ٹرانسفارمر ماڈل۔ K سے زیادہ واضح، لیکن باریک تفصیل K یا L کے مقابلے میں زیادہ جھلملاتی ہے۔" },
     { "key": "settings.graphics.dlssModel.tooltip", "value": "کون سا DLSS AI ماڈل تصویر کو دوبارہ بناتا ہے۔ نئے ماڈل زیادہ واضح ہوتے ہیں اور کم گھوسٹنگ کرتے ہیں، لیکن GPU کا تھوڑا زیادہ وقت لیتے ہیں۔" },
     { "key": "settings.graphics.gi.mode.rayTraced.tooltip", "value": "خود دنیا کو ٹریس کرتا ہے، بشمول اس کے جو اسکرین سے باہر ہے۔ DirectX 12 اور ہارڈویئر رے ٹریسنگ والا گرافکس کارڈ درکار ہے، جیسے NVIDIA RTX؛ اس کے علاوہ ہر جگہ یہ اسکرین اسپیس کے طور پر چلتا ہے۔" },
-    { "key": "settings.graphics.gi.mode.pathTraced", "value": "پاتھ ٹریسڈ (DX12)" },
-    { "key": "settings.graphics.gi.mode.pathTraced.tooltip", "value": "ٹریسنگ ایک الگ DirectX 12 پاتھ ٹریسر کے حوالے کرتا ہے جو اسکرین کے اندر اور باہر اصل اوتار میش، اخراج، شفافیت اور ٹیکسچرز کو مدنظر رکھتا ہے۔ Windows اور ہارڈویئر رے ٹریسنگ والا گرافکس کارڈ درکار ہے؛ Unity DirectX 11 یا 12 پر چل سکتا ہے۔ ٹریسر شروع نہ ہو تو Radiance Cascades پر واپس آ جاتا ہے۔" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked", "value": "پاتھ ٹریسڈ + بیکڈ (DX12)" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked.tooltip", "value": "دنیا کی بیک شدہ روشنی رکھتا ہے اور صرف وہی ٹریس کرتا ہے جو بیک نہیں جانتا: اوتار، حرکت کرتی اشیاء، اوتار کی چمک اور ریئل ٹائم روشنیاں۔ لائٹ میپ والی دنیا میں مکمل پاتھ ٹریسنگ سے کہیں سستا۔ بیکڈ روشنی نہ ہو تو پاتھ ٹریسڈ کی طرح کام کرتا ہے۔" },
     { "key": "settings.graphics.gi.mode.screenSpace.tooltip", "value": "کیمرے کے پہلے سے بنائے ہوئے منظر سے کام کرتا ہے۔ کسی بھی گرافکس کارڈ پر چلتا ہے، DirectX 11 سمیت۔" },

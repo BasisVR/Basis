@@ -384,6 +384,12 @@ impl Renderer {
             std::ptr::copy_nonoverlapping(src.lights.as_ptr() as *const u8, mapped.add(LIGHTS_OFFSET as usize), (params.light_count as usize).min(MAX_LIGHTS) * 64);
             std::ptr::copy_nonoverlapping(src.emitters.as_ptr() as *const u8, mapped.add(EMITTERS_OFFSET as usize), (params.emitter_count as usize).min(MAX_EMITTERS) * 16);
             std::ptr::copy_nonoverlapping(src.dirty.as_ptr() as *const u8, mapped.add(DIRTY_OFFSET as usize), (params.dirty_count as usize).min(MAX_DIRTY) * 16);
+            for (i, e) in src.emitters[..(params.emitter_count as usize).min(MAX_EMITTERS)].iter().enumerate() {
+                if e.instance as usize >= instance_count { continue; }
+                let m = src.instances[e.instance as usize].material_base as usize + e.geometry as usize;
+                if m >= (params.material_count as usize).min(MAX_MATERIALS) { continue; }
+                (mapped.add(MATERIALS_OFFSET as usize + m * 96 + 88) as *mut u32).write_unaligned((src.materials[m].flags & 0xffff) | ((i as u32) << 16));
+            }
         }
         let commands: Vec<Command> = unsafe { (&(*slot_ptr).commands)[..(params.command_count as usize).min(MAX_COMMANDS)].to_vec() };
         let mut tlas_count = 0u32;

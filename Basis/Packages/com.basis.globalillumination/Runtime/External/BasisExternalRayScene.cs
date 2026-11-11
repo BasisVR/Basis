@@ -437,24 +437,24 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     {
         if (hasBlock && block.HasColor(id)) { return block.GetColor(id); }
         if (hasBlock && block.HasVector(id)) { return block.GetVector(id); }
-        return Has(m, id) ? m.GetColor(id) : fallback;
+        return m.HasColor(id) || m.HasVector(id) ? m.GetColor(id) : fallback;
     }
 
     private float ReadFloat(Material m, bool hasBlock, int id, float fallback)
     {
         if (hasBlock && block.HasFloat(id)) { return block.GetFloat(id); }
-        return Has(m, id) ? m.GetFloat(id) : fallback;
+        return m.HasFloat(id) ? m.GetFloat(id) : fallback;
     }
 
     private Texture ReadTexture(Material m, bool hasBlock, int id)
     {
         if (hasBlock && block.HasTexture(id)) { return block.GetTexture(id); }
-        return Has(m, id) ? m.GetTexture(id) : null;
+        return m.HasTexture(id) ? m.GetTexture(id) : null;
     }
 
     private Vector4 ReadST(Material m, int id)
     {
-        if (!Has(m, id)) { return new Vector4(1, 1, 0, 0); }
+        if (!m.HasTexture(id)) { return new Vector4(1, 1, 0, 0); }
         Vector2 s = m.GetTextureScale(id), o = m.GetTextureOffset(id);
         return new Vector4(s.x, s.y, o.x, o.y);
     }
@@ -476,8 +476,8 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         BasisExternalRayMaterial result = new BasisExternalRayMaterial { baseColor = Vector4.one, baseST = new Vector4(1, 1, 0, 0), emissionST = new Vector4(1, 1, 0, 0), baseTexture = -1, emissionTexture = -1, cutoff = 0.5f };
         if (m == null) { return result; }
         if (hasBlock) { renderer.GetPropertyBlock(block, index); }
-        int baseId = Has(m, idBaseMap) ? idBaseMap : idMainTex;
-        int colorId = Has(m, idBaseColor) ? idBaseColor : idColor;
+        int baseId = m.HasTexture(idBaseMap) ? idBaseMap : idMainTex;
+        int colorId = m.HasColor(idBaseColor) ? idBaseColor : idColor;
         result.baseColor = ReadColor(m, hasBlock, colorId, Color.white).linear;
         result.baseTexture = TextureFor(ReadTexture(m, hasBlock, baseId), false);
         result.baseST = ReadST(m, baseId);
@@ -562,7 +562,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         if (ReadFloat(m, hasBlock, idGlobalMaskSplit[texture], 0f) > 0.5f)
         {
             string split = "_GlobalMaskTexture" + texture + "SplitTilingOffset_" + channelNames[channel];
-            if (m.HasProperty(split)) { st = m.GetVector(split); }
+            if (m.HasVector(split)) { st = m.GetVector(split); }
         }
         result.mask = id;
         result.channel = channel;

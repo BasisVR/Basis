@@ -457,7 +457,7 @@ public static partial class BasisNetworkGenericMessages
                 case 2: // Synchronized - download, report readiness, wait for spawn signal
                     await BasisNetworkPreloadManager.HandleSynchronizedPreload(LocalLoadResource);
                     return;
-                case 3: // Predownload only - cache to disc, never spawn, never report readiness
+                case 3: // Predownload only - cache to disc, never spawn, tell the server how it went
                     await BasisNetworkPreloadManager.HandlePredownload(LocalLoadResource);
                     return;
             }

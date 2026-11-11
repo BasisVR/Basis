@@ -1,4 +1,10 @@
 using Basis.Network.Core;
+public static class BasisPredownloadProtocol
+{
+    public const string MessageName = "basis.core.resource.predownload";
+    public const byte OpDone = 0, OpProgress = 1, OpClosed = 2;
+    public const ushort ServerRequester = ushort.MaxValue;
+}
 public static partial class SerializableBasis
 {
     /// <summary>

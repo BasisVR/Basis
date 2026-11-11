@@ -2,7 +2,10 @@ using Unity.Scripting.LifecycleManagement;
 using Basis;
 using Basis.BasisUI;
 using Basis.Network.Core;
+using Basis.Scripts.Device_Management;
 using Basis.Scripts.Networking;
+using Basis.Scripts.UI;
+using Basis.Scripts.UI.UI_Panels;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -42,26 +45,36 @@ public static partial class BasisNetworkPreloadManager
         public DateTime PreloadStartUtc;
     }
 
-    /// <summary>
-    /// Downloads the full BEE file to disk so it is ready to be loaded from disc later.
-    /// Does NOT create an AssetBundle - that happens when the spawn signal arrives
-    /// through the normal load path which will find the file already on disk.
-    /// Used internally by HandleSynchronizedPreload.
-    /// </summary>
+    private static readonly ConcurrentDictionary<string, Task<BasisTrackedBundleWrapper>> inFlight = new ConcurrentDictionary<string, Task<BasisTrackedBundleWrapper>>();
     private static async Task HandlePreload(LocalLoadResource resource)
     {
         string netId = resource.LoadedNetID;
         BasisDebug.Log($"PreloadManager: Beginning preload for {resource.CombinedURL} (NetID={netId})", BasisDebug.LogTag.Networking);
-
         var preloaded = new PreloadedResource
         {
             LoadResource = resource,
             IsReady = false,
             PreloadStartUtc = DateTime.UtcNow,
         };
-
         PreloadedResources[netId] = preloaded;
-
+        BasisTrackedBundleWrapper wrapper = await DownloadShared(resource);
+        preloaded.BundleWrapper = wrapper;
+        preloaded.IsReady = wrapper != null;
+    }
+    private static async Task<BasisTrackedBundleWrapper> DownloadShared(LocalLoadResource resource)
+    {
+        string key = BasisIOManagement.CanonicalizeRemoteUrl(resource.CombinedURL);
+        if (!inFlight.TryGetValue(key, out Task<BasisTrackedBundleWrapper> download) || download.IsCompleted)
+        {
+            download = DownloadToDisc(resource);
+            inFlight[key] = download;
+        }
+        BasisTrackedBundleWrapper wrapper = await download;
+        ((ICollection<KeyValuePair<string, Task<BasisTrackedBundleWrapper>>>)inFlight).Remove(new KeyValuePair<string, Task<BasisTrackedBundleWrapper>>(key, download));
+        return wrapper;
+    }
+    private static async Task<BasisTrackedBundleWrapper> DownloadToDisc(LocalLoadResource resource)
+    {
         using CancellationTokenSource loadCancel = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
         BasisDownload download = null;
         try
@@ -75,94 +88,34 @@ public static partial class BasisNetworkPreloadManager
                 },
                 UnlockPassword = resource.UnlockPassword,
             };
-
             BasisTrackedBundleWrapper wrapper = new BasisTrackedBundleWrapper
             {
                 LoadableBundle = loadBundle,
             };
-
             BasisProgressReport report = new BasisProgressReport();
             download = BasisDownloadCenter.Begin(resource.Mode == 1 ? BasisDownloadKind.World : BasisDownloadKind.Prop, resource.CombinedURL, loadBundle, loadCancel, report);
             CancellationToken cancel = loadCancel.Token;
-
             await BasisLoadHandler.EnsureInitializationComplete();
             await BasisBeeKeyGrant.EnsureResolvedAsync(loadBundle, cancel);
-
-            // Check if the full BEE file is already on disk
-            var (isOnDisc, metaInfo) = await BasisLoadHandler.IsMetaDataOnDiscAsync(resource.CombinedURL);
-
-            BasisBundleGenerated generated;
-            long sectionLength;
-            string errorMessage;
-
-            if (isOnDisc)
+            string error = await BasisBeeManagement.DownloadToCache(wrapper, report, cancel);
+            if (!string.IsNullOrEmpty(error))
             {
-                // Already downloaded - confirm the connector parses and the section is present.
-                // This never spawns an AssetBundle, so reading the encrypted section only to
-                // length-check it would allocate the whole bundle on the LOH for nothing.
-                var verified = await BasisBundleManagement.LocalVerifyBundleConnector(wrapper, metaInfo.StoredLocal, report, cancel);
-                generated = verified.Generated;
-                sectionLength = verified.SectionLength;
-                errorMessage = verified.ErrorMessage;
+                throw new Exception($"Failed to download BEE file: {error}");
             }
-            else
-            {
-                // Download the full BEE file to disk
-                var downloaded = await BasisBundleManagement.DownloadLoadBundleConnector(wrapper, report, cancel);
-                generated = downloaded.Generated;
-                sectionLength = downloaded.Section.Length;
-                errorMessage = downloaded.ErrorMessage;
-            }
-
-            // Retry if local read returned empty data
-            if (sectionLength == 0)
-            {
-                var downloaded = await BasisBundleManagement.DownloadLoadBundleConnector(wrapper, report, cancel);
-                generated = downloaded.Generated;
-                sectionLength = downloaded.Section.Length;
-                errorMessage = downloaded.ErrorMessage;
-                isOnDisc = false; // was re-downloaded
-            }
-
-            if (generated == null || errorMessage != string.Empty)
-            {
-                throw new Exception($"Failed to download BEE file: {errorMessage}");
-            }
-
-            // Save metadata to disk so the normal load path finds the file later
-            if (!isOnDisc)
-            {
-                BasisBEEExtensionMeta newDiscInfo = new BasisBEEExtensionMeta
-                {
-                    // Cloned: the meta cache is handed to consumers that write the version tag
-                    // into it, and that tag is part of the bundle registry key.
-                    StoredRemote = wrapper.LoadableBundle.BasisRemoteBundleEncrypted.Clone(),
-                    StoredLocal = wrapper.LoadableBundle.BasisLocalEncryptedBundle,
-                    UniqueVersion = wrapper.LoadableBundle.BasisBundleConnector.UniqueVersion,
-                };
-                await BasisLoadHandler.AddDiscInfo(newDiscInfo);
-                BasisStorageManagement.EnforceCacheSizeLimit();
-            }
-
-            // Do NOT create an AssetBundle here - the file is on disk and ready.
-            // The normal load path will find it and load from disk when spawn signal arrives.
-
-            preloaded.BundleWrapper = wrapper;
-            preloaded.IsReady = true;
-
-            BasisDebug.Log($"PreloadManager: Successfully downloaded {resource.CombinedURL} to disk (NetID={netId})", BasisDebug.LogTag.Networking);
+            BasisDebug.Log($"PreloadManager: {resource.CombinedURL} is on disk (NetID={resource.LoadedNetID})", BasisDebug.LogTag.Networking);
+            return wrapper;
         }
         catch (Exception ex)
         {
             if (loadCancel.IsCancellationRequested)
             {
-                BasisDebug.Log($"PreloadManager: Preload of {resource.CombinedURL} (NetID={netId}) was cancelled", BasisDebug.LogTag.Networking);
+                BasisDebug.Log($"PreloadManager: Preload of {resource.CombinedURL} (NetID={resource.LoadedNetID}) was cancelled", BasisDebug.LogTag.Networking);
             }
             else
             {
-                BasisDebug.LogError($"PreloadManager: Failed to preload {resource.CombinedURL} (NetID={netId}): {ex.Message}");
+                BasisDebug.LogError($"PreloadManager: Failed to preload {resource.CombinedURL} (NetID={resource.LoadedNetID}): {ex.Message}");
             }
-            preloaded.IsReady = false;
+            return null;
         }
         finally
         {
@@ -200,14 +153,138 @@ public static partial class BasisNetworkPreloadManager
 
     /// <summary>
     /// Called when the client receives a LoadResource message with LoadStrategy = 3 (Predownload).
-    /// Downloads the content to disc so a later normal load is instant, but never spawns it and
-    /// never reports readiness. The on-disc cache is the durable result, so the in-memory tracking
-    /// entry is dropped immediately (no spawn signal will ever arrive for it).
+    /// Downloads the content to disc so a later normal load is instant, but never spawns it.
+    /// Reports the outcome to the server, which shares how many players are ready with everyone.
     /// </summary>
     public static async Task HandlePredownload(LocalLoadResource resource)
     {
-        await HandlePreload(resource);
-        PreloadedResources.TryRemove(resource.LoadedNetID, out _);
+        string netId = resource.LoadedNetID;
+        CancellationToken session = _cts.Token;
+        PredownloadStatus status = TrackPredownload(netId);
+        status.Url = resource.CombinedURL;
+        status.Mode = resource.Mode;
+        status.Local = PredownloadLocalState.Downloading;
+        if (CachedMetaData.TryGetMeta(resource.CombinedURL, out CachedMetaData.CachedContent cached)) status.Name = CleanName(cached?.BasisBundleConnector?.BasisBundleDescription?.AssetBundleName);
+        PublishPredownload(status);
+        BasisDebug.Log($"PreloadManager: Beginning predownload for {resource.CombinedURL} (NetID={netId})", BasisDebug.LogTag.Networking);
+        BasisTrackedBundleWrapper wrapper = await DownloadShared(resource);
+        bool ready = wrapper != null;
+        if (session.IsCancellationRequested) return;
+        BasisClientMessageRegistry.Send(BasisPredownloadProtocol.MessageName, (netId, ready), static (writer, state) =>
+        {
+            writer.Put(BasisPredownloadProtocol.OpDone);
+            writer.Put(state.netId);
+            writer.Put(state.ready);
+        });
+        if (!predownloads.TryGetValue(netId, out PredownloadStatus current) || current != status) return;
+        string name = CleanName(wrapper?.LoadableBundle?.BasisBundleConnector?.BasisBundleDescription?.AssetBundleName);
+        if (!string.IsNullOrEmpty(name)) status.Name = name;
+        status.Local = ready ? PredownloadLocalState.Ready : PredownloadLocalState.Failed;
+        PublishPredownload(status);
+    }
+    public enum PredownloadLocalState : byte
+    {
+        Waiting,
+        Downloading,
+        Ready,
+        Failed,
+    }
+    public sealed class PredownloadStatus
+    {
+        public string LoadedNetID, Url, Name;
+        public byte Mode;
+        public ushort Requester;
+        public int Ready, Failed, Total;
+        public bool HasCounts, Announced, Closed;
+        public PredownloadLocalState Local;
+        public int Left => Math.Max(0, Total - Ready - Failed);
+    }
+    public const float PredownloadHudSeconds = 60f;
+    public const int PredownloadNameLength = 40;
+    public static event Action<PredownloadStatus> OnPredownloadChanged;
+    private static readonly Dictionary<string, PredownloadStatus> predownloads = new Dictionary<string, PredownloadStatus>();
+    public static void Initialize() => BasisClientMessageRegistry.RegisterClientPlugin(BasisPredownloadProtocol.MessageName, HandlePredownloadMessage);
+    public static bool TryGetPredownloadForUrl(string url, out PredownloadStatus status)
+    {
+        status = null;
+        if (string.IsNullOrEmpty(url)) return false;
+        foreach (PredownloadStatus candidate in predownloads.Values)
+        {
+            if (candidate.Url == url) status = candidate;
+        }
+        return status != null;
+    }
+    public static string DescribePredownload(PredownloadStatus status)
+    {
+        string name = string.IsNullOrEmpty(status.Name) ? BasisLocalization.Get("library.downloadForEveryone") : status.Name;
+        if (!status.HasCounts) return name;
+        if (status.Left > 0) return BasisLocalization.Get("library.predownload.progress", name, status.Ready, status.Total, status.Left);
+        return status.Failed > 0 ? BasisLocalization.Get("library.predownload.failed", name, status.Ready, status.Total, status.Failed) : BasisLocalization.Get("library.predownload.done", name, status.Total);
+    }
+    private static string CleanName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        name = name.Replace("<", string.Empty).Replace(">", string.Empty).Trim();
+        return name.Length > PredownloadNameLength ? name.Substring(0, PredownloadNameLength) : name;
+    }
+    private static PredownloadStatus TrackPredownload(string netId)
+    {
+        if (!predownloads.TryGetValue(netId, out PredownloadStatus status))
+        {
+            status = new PredownloadStatus { LoadedNetID = netId };
+            predownloads[netId] = status;
+        }
+        return status;
+    }
+    private static void HandlePredownloadMessage(NetPeer sender, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
+    {
+        try
+        {
+            if (!reader.TryGetByte(out byte op) || !reader.TryGetString(out string netId) || string.IsNullOrEmpty(netId)) return;
+            if (op == BasisPredownloadProtocol.OpClosed)
+            {
+                BasisDeviceManagement.EnqueueOnMainThread(() => ClosePredownload(netId));
+                return;
+            }
+            if (op != BasisPredownloadProtocol.OpProgress || !reader.TryGetUShort(out ushort requester) || !reader.TryGetUShort(out ushort ready) || !reader.TryGetUShort(out ushort failed) || !reader.TryGetUShort(out ushort total)) return;
+            BasisDeviceManagement.EnqueueOnMainThread(() =>
+            {
+                PredownloadStatus status = TrackPredownload(netId);
+                status.Requester = requester;
+                status.Ready = ready;
+                status.Failed = failed;
+                status.Total = total;
+                status.HasCounts = true;
+                PublishPredownload(status);
+            });
+        }
+        finally
+        {
+            reader.Recycle();
+        }
+    }
+    private static void ClosePredownload(string netId)
+    {
+        if (!predownloads.Remove(netId, out PredownloadStatus status)) return;
+        status.Closed = true;
+        BasisUILoadingBar.RemoveDisplay(PredownloadHudKey(netId));
+        OnPredownloadChanged?.Invoke(status);
+    }
+    private static string PredownloadHudKey(string netId) => "predownload." + netId;
+    private static void PublishPredownload(PredownloadStatus status)
+    {
+        OnPredownloadChanged?.Invoke(status);
+        if (!status.HasCounts || status.Total <= 0) return;
+        if (status.Left > 0)
+        {
+            status.Announced = false;
+            BasisUILoadingBar.ProgressReportTransient(PredownloadHudKey(status.LoadedNetID), Mathf.Min(99f, 100f * (status.Ready + status.Failed) / status.Total), DescribePredownload(status), PredownloadHudSeconds);
+            return;
+        }
+        BasisUILoadingBar.RemoveDisplay(PredownloadHudKey(status.LoadedNetID));
+        if (status.Announced) return;
+        status.Announced = true;
+        BasisJoinLeaveNotification.ShowNotification(DescribePredownload(status), status.Failed > 0 ? new Color(1f, 0.6f, 0.2f) : new Color(0.5f, 1f, 0.5f));
     }
 
     /// <summary>
@@ -314,5 +391,8 @@ public static partial class BasisNetworkPreloadManager
         _cts.Dispose();
         _cts = new CancellationTokenSource();
         PreloadedResources.Clear();
+        inFlight.Clear();
+        foreach (string netId in predownloads.Keys) BasisUILoadingBar.RemoveDisplay(PredownloadHudKey(netId));
+        predownloads.Clear();
     }
 }

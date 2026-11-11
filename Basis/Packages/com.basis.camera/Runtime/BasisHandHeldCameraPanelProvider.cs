@@ -857,7 +857,6 @@ namespace Basis.BasisUI.HandHeldCamera
             _giSaturationSlider?.SetResetDefault(defaults.giSaturation);
             _giObscuranceSlider?.SetResetDefault(defaults.giObscurance);
             _giRayLengthSlider?.SetResetDefault(defaults.giRayLength);
-            _giSmoothingSlider?.SetResetDefault(defaults.giSmoothing);
             _giEmitterIntensitySlider?.SetResetDefault(defaults.giEmitterIntensity);
             _giObscuranceRadiusSlider?.SetResetDefault(defaults.giObscuranceRadius);
             _giFadeDistanceSlider?.SetResetDefault(defaults.giFadeDistance);
@@ -1063,7 +1062,6 @@ namespace Basis.BasisUI.HandHeldCamera
             _giSaturationSlider = null;
             _giObscuranceSlider = null;
             _giRayLengthSlider = null;
-            _giSmoothingSlider = null;
             _giWideBlurToggle = null;
             _giRayReuseToggle = null;
             _giEmittersToggle = null;

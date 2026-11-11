@@ -17,7 +17,6 @@ public partial class BasisHandHeldCamera
     public void SetGlobalIlluminationOverrideSaturation(float value) => giOverride.Saturation = value;
     public void SetGlobalIlluminationOverrideObscurance(float value) => giOverride.Obscurance = value;
     public void SetGlobalIlluminationOverrideRayLength(float value) => giOverride.RayLength = value;
-    public void SetGlobalIlluminationOverrideSmoothing(float value) => giOverride.Smoothing = value;
     public void SetGlobalIlluminationOverrideWideBlur(bool value) => giOverride.WideBlur = value;
     public void SetGlobalIlluminationOverrideRayReuse(bool value) => giOverride.RayReuse = value;
     public void SetGlobalIlluminationOverrideEmitters(bool value) => giOverride.Emitters = value;

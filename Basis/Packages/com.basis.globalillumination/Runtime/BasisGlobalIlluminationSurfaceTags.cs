@@ -58,7 +58,7 @@ public static class BasisGlobalIlluminationSurfaceTags
     {
         return material.IsKeywordEnabled("_EMISSION")
             && (material.globalIlluminationFlags & MaterialGlobalIlluminationFlags.EmissiveIsBlack) == 0
-            && material.HasProperty(emissionColorId)
+            && material.HasColor(emissionColorId)
             && material.GetColor(emissionColorId).maxColorComponent > 0.001f;
     }
 
