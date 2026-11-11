@@ -15,7 +15,7 @@ using UnityEngine.Rendering.Universal;
 public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
 {
     public static Vector2Int LastSourceSize;
-    public const int PassTemporal = 0, PassBlur = 1, PassComposite = 2, PassDebug = 3, PassCopyColor = 4, PassCompositeSurface = 15, PassSurfaceDepth = 16, PassCompositeUnknownSurface = 17;
+    public const int PassTemporal = 0, PassBlur = 1, PassComposite = 2, PassDebug = 3, PassCopyColor = 4, PassCompositeSurface = 15, PassSurfaceDepth = 16, PassCompositeUnknownSurface = 17, PassUpscale = 18;
     public const int PassSpecularUpsample = 5;
     public const int PassCoarseSeed = 6, PassCoarseReduce = 7;
     public const int PassLightmapMask = 8;
@@ -43,7 +43,14 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     public const float RayTemporalResponseScale = 0.35f;
 
     public static int FrameOffset;
-    private enum Stage { CopyColor, Trace, Temporal, Blur, Composite, RayPrepass, RayResolve, Coarse, LightmapMask, Cascade, Surface }
+    private enum Stage { CopyColor, Trace, Temporal, Blur, Composite, RayPrepass, RayResolve, Coarse, LightmapMask, Cascade, Surface, Upscale }
+    public static bool TemporalUpsample = true;
+
+    private static Vector2 UpsampleJitter(int index, int divisor)
+    {
+        int count = divisor * divisor, step = divisor == 2 ? 3 : divisor == 3 ? 4 : 7, cell = (int)((long)index * step % count);
+        return new Vector2((cell % divisor + 0.5f) / divisor - 0.5f, (cell / divisor + 0.5f) / divisor - 0.5f);
+    }
 
     private sealed class PassData
     {
@@ -202,10 +209,11 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerTemporal = new ProfilingSampler("Basis GI Temporal");
     [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerBlur = new ProfilingSampler("Basis GI Blur");
     [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerComposite = new ProfilingSampler("Basis GI Composite");
+    [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerUpscale = new ProfilingSampler("Basis GI Upscale");
 
     public static float GpuMs =>
         samplerCopy.gpuElapsedTime + samplerLightmapMask.gpuElapsedTime + samplerSurface.gpuElapsedTime + samplerCoarse.gpuElapsedTime + samplerCascades.gpuElapsedTime + samplerWorld.gpuElapsedTime + samplerWorldCapture.gpuElapsedTime +
-        samplerTemporal.gpuElapsedTime + samplerBlur.gpuElapsedTime + samplerComposite.gpuElapsedTime +
+        samplerTemporal.gpuElapsedTime + samplerBlur.gpuElapsedTime + samplerComposite.gpuElapsedTime + samplerUpscale.gpuElapsedTime +
         samplerRayPrepass.gpuElapsedTime + samplerRayTrace.gpuElapsedTime + samplerRayResolve.gpuElapsedTime;
 
     public static void SetProfilingEnabled(bool enabled)
@@ -223,6 +231,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         samplerTemporal.enableRecording = enabled;
         samplerBlur.enableRecording = enabled;
         samplerComposite.enableRecording = enabled;
+        samplerUpscale.enableRecording = enabled;
         samplerRayPrepass.enableRecording = enabled;
         samplerRayTrace.enableRecording = enabled;
         samplerRayResolve.enableRecording = enabled;
@@ -236,7 +245,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     public static float GpuMsTrace => samplerCascades.gpuElapsedTime + samplerWorld.gpuElapsedTime;
     public static float GpuMsTemporal => samplerTemporal.gpuElapsedTime;
     public static float GpuMsBlur => samplerBlur.gpuElapsedTime;
-    public static float GpuMsComposite => samplerComposite.gpuElapsedTime;
+    public static float GpuMsComposite => samplerComposite.gpuElapsedTime + samplerUpscale.gpuElapsedTime;
 
     private static int invocationFrame = -1, invocationCount;
     public static int InvocationsThisFrame => invocationCount;
@@ -412,7 +421,20 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
 
         // bilateral blur and the composite downstream read the same traced texture either way. A GPU or a
         TextureHandle externalMotion = UseExternalMotion && resourceData.motionVectorColor.IsValid() ? resourceData.motionVectorColor : TextureHandle.nullHandle;
+        int upscaleDivisor = Mathf.Clamp(settings.ResolvedResolutionDivisor(), 1, 4);
+        bool upscale = TemporalUpsample && settings.IsExternal() && externalMotion.IsValid() && upscaleDivisor > 1 && tracedWidth < descriptor.width && DebugView == BasisGlobalIlluminationDebugView.None;
+        Vector2 nextJitter = upscale ? UpsampleJitter(history.JitterIndex + 1, upscaleDivisor) : Vector2.zero;
+        externalJitter = new Vector4(nextJitter.x, nextJitter.y, history.SubmitJitter.x, history.SubmitJitter.y);
         bool external = settings.IsExternal() && PrepareExternal(settings, cameraData, tracedWidth, tracedHeight, externalMotion.IsValid());
+        if (external && externalSubmit)
+        {
+            history.DisplayJitter = externalBehind ? history.SubmitJitter : nextJitter;
+            history.SubmitJitter = nextJitter;
+            history.JitterIndex = (history.JitterIndex + 1) & 0xffff;
+        }
+        else if (!external) { history.SubmitJitter = history.DisplayJitter = Vector2.zero; }
+        externalDisplayJitter = history.DisplayJitter;
+        upscale &= external;
         bool rayTraced = !external && settings.IsRayTraced() && PrepareRayTracing(settings, camera, CameraPosition, frame);
         float obscuranceIntensity = BasisGlobalIlluminationFeature.ExternalAmbientOcclusionActive?.Invoke(camera) == true
             ? 0f
@@ -582,12 +604,50 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
             }
         }
 
+        bool upscaled = false;
+        if (upscale)
+        {
+            bool fresh = history.EnsureUpscale(descriptor);
+            bool upscaleHistory = history.UpscaleValid && !fresh && contiguous && history.UpscaleFrame >= 0 && frame - history.UpscaleFrame <= BasisGlobalIlluminationHistory.AllowedGap(history.Stride);
+            TextureHandle upscaleRead = renderGraph.ImportTexture(history.Upscale[1 - history.UpscaleWrite]);
+            TextureHandle upscaleWrite = renderGraph.ImportTexture(history.Upscale[history.UpscaleWrite]);
+            using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass("Basis GI Upscale", out PassData passData, samplerUpscale))
+            {
+                passData.stage = Stage.Upscale;
+                passData.material = material;
+                passData.materialPass = PassUpscale;
+                passData.sharedConstants = true;
+                Configure(passData, settings, tracedWidth, tracedHeight, descriptor, emitterCount, sky);
+                passData.upsampleParams = new Vector4(1f, 0f, externalDisplayJitter.x, externalDisplayJitter.y);
+                passData.source = denoiseSource;
+                passData.indirect = denoiseSource;
+                passData.history = upscaleRead;
+                passData.historyValid = upscaleHistory;
+                passData.motion = externalMotion;
+                passData.normals = normals;
+                builder.SetRenderAttachment(upscaleWrite, 0, AccessFlags.WriteAll);
+                builder.UseTexture(denoiseSource);
+                builder.UseTexture(upscaleRead);
+                builder.UseTexture(externalMotion);
+                builder.UseTexture(resourceData.cameraDepthTexture);
+                if (normals.IsValid()) { builder.UseTexture(normals); }
+                builder.AllowGlobalStateModification(true);
+                builder.SetRenderFunc((PassData data, RasterGraphContext context) => Execute(data, context));
+            }
+            denoiseSource = upscaleWrite;
+            history.UpscaleWrite = 1 - history.UpscaleWrite;
+            history.UpscaleValid = true;
+            history.UpscaleFrame = frame;
+            upscaled = true;
+        }
+        else { history.UpscaleValid = false; }
+
         using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass("Basis GI Composite", out PassData passData, samplerComposite))
         {
             passData.stage = Stage.Composite;
             passData.material = material;
             passData.sharedConstants = external;
-            if (external) { Configure(passData, settings, tracedWidth, tracedHeight, descriptor, emitterCount, sky); passData.upsampleParams = new Vector4(1f, 0f, 0f, 0f); }
+            if (external) { Configure(passData, settings, tracedWidth, tracedHeight, descriptor, emitterCount, sky); passData.upsampleParams = new Vector4(1f, upscaled ? 1f : 0f, externalDisplayJitter.x, externalDisplayJitter.y); }
             passData.materialPass = DebugView != BasisGlobalIlluminationDebugView.None ? PassDebug : (surface.IsValid() ? PassCompositeSurface : PassComposite);
             passData.surface = surface;
             passData.surfaceValid = surface.IsValid();
@@ -1359,6 +1419,15 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
                 cmd.SetGlobalTexture(idStats, data.stats);
                 cmd.SetGlobalFloat(idStatsValid, data.statsValid ? 1f : 0f);
                 cmd.SetGlobalVector(idBlurAxis, data.blurAxis);
+                break;
+            case Stage.Upscale:
+                SetSharedConstants(cmd, data);
+                cmd.SetGlobalTexture(idIndirect, data.indirect);
+                cmd.SetGlobalTexture(idHistory, data.history);
+                cmd.SetGlobalFloat(idHistoryValid, data.historyValid ? 1f : 0f);
+                cmd.SetGlobalTexture(idMotion, data.motion);
+                cmd.SetGlobalFloat(idStatsValid, 0f);
+                if (data.normals.IsValid()) { cmd.SetGlobalTexture(idNormals, data.normals); }
                 break;
             case Stage.Composite:
                 if (data.sharedConstants) { SetSharedConstants(cmd, data); }

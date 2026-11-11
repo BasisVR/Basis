@@ -42,6 +42,7 @@ uint4 _Flags;
 uint4 _Layout0;
 uint4 _Layout1;
 uint4 _Job;
+float4 _Jitter;
 float4x4 _MirrorToLocal[8];
 float4 _MirrorBounds[16];
 
@@ -115,7 +116,7 @@ void PackGBuffer(uint3 id : SV_DispatchThreadID)
     if (id.x >= width * _Flags.z || id.y >= height) { return; }
     uint view = id.x / width;
     uint2 local = uint2(id.x - view * width, id.y);
-    uint2 source = min(uint2((float2(local) + 0.5) * float2(_Size.zw) / float2(width, height)), _Size.zw - 1);
+    uint2 source = min(uint2((float2(local) + 0.5 + _Jitter.xy) * float2(_Size.zw) / float2(width, height)), _Size.zw - 1);
     float raw = LOAD(_Depth, source, view);
     bool sky = _Flags.w != 0 ? raw <= 0.0 : raw >= 1.0;
     if (sky)
@@ -166,7 +167,7 @@ void PackGBuffer(uint3 id : SV_DispatchThreadID)
     uint motion = 0u;
     if (_Layout1.y != 0)
     {
-        float2 m = LOAD(_Motion, source, view).xy * float2(width, height);
+        float2 m = LOAD(_Motion, source, view).xy * float2(width, height) + _Jitter.zw - _Jitter.xy;
         motion = all(isfinite(m)) ? f32tof16(m.x) | (f32tof16(m.y) << 16) : 0u;
     }
     StoreGBuffer(uint2(id.x * 2 + 1, id.y), uint4(PackRGBA8(albedo), PackRGB9E5(color), asuint(receive), motion));
@@ -266,7 +267,7 @@ void Unpack(uint3 id : SV_DispatchThreadID)
     int2 from = int2(id.xy);
     if (_Flags.y != 0)
     {
-        uint2 source = min(uint2((float2(id.xy) + 0.5) * float2(_Size.zw) / float2(width, height)), _Size.zw - 1);
+        uint2 source = min(uint2((float2(id.xy) + 0.5 + _Jitter.xy) * float2(_Size.zw) / float2(width, height)), _Size.zw - 1);
         float2 m = LOAD(_Motion, source, id.z).xy * float2(width, height);
         from = clamp(int2(floor(float2(id.xy) + 0.5 - m)), int2(0, 0), int2(width, height) - 1);
     }

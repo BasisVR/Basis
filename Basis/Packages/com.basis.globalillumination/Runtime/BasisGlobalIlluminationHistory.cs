@@ -27,6 +27,7 @@ public sealed partial class BasisGlobalIlluminationHistory
     private static readonly Dictionary<Key, BasisGlobalIlluminationHistory> stores = new Dictionary<Key, BasisGlobalIlluminationHistory>();
     private static readonly List<Key> pruneScratch = new List<Key>();
     [NoAutoStaticsCleanup] private static readonly string[] indirectNames = { "_BasisGIHistoryIndirect0", "_BasisGIHistoryIndirect1" };
+    [NoAutoStaticsCleanup] private static readonly string[] upscaleNames = { "_BasisGIHistoryUpscale0", "_BasisGIHistoryUpscale1" };
     [NoAutoStaticsCleanup] private static readonly string[] statsNames = { "_BasisGIHistoryStats0", "_BasisGIHistoryStats1" };
     [NoAutoStaticsCleanup] private static readonly string[] specularNames = { "_BasisGIHistorySpecular0", "_BasisGIHistorySpecular1" };
     [NoAutoStaticsCleanup] private static readonly string[] specularStatsNames = { "_BasisGIHistorySpecularStats0", "_BasisGIHistorySpecularStats1" };
@@ -34,6 +35,10 @@ public sealed partial class BasisGlobalIlluminationHistory
 
     public RTHandle[] Indirect = new RTHandle[2];
     public RTHandle[] Stats = new RTHandle[2];
+    public RTHandle[] Upscale = new RTHandle[2];
+    public bool UpscaleValid;
+    public int UpscaleWrite, UpscaleFrame = -1, JitterIndex;
+    public Vector2 SubmitJitter, DisplayJitter;
     // Reflections accumulate separately from the diffuse bounce and only exist while they are switched on,
     // so a world that never asked for them never pays the two extra targets.
     public RTHandle[] Specular = new RTHandle[2];
@@ -149,6 +154,27 @@ public sealed partial class BasisGlobalIlluminationHistory
     /// the capture pass writes it, and a trace that read it before then would reflect an uninitialised
     /// texture rather than a stale frame.
     /// </summary>
+    public bool EnsureUpscale(in RenderTextureDescriptor cameraDescriptor)
+    {
+        RenderTextureDescriptor descriptor = cameraDescriptor;
+        descriptor.msaaSamples = 1;
+        descriptor.depthStencilFormat = GraphicsFormat.None;
+        descriptor.depthBufferBits = 0;
+        descriptor.useMipMap = false;
+        descriptor.autoGenerateMips = false;
+        descriptor.graphicsFormat = GraphicsFormat.R16G16B16A16_SFloat;
+        bool reallocated = false;
+        for (int slot = 0; slot < 2; slot++) { reallocated |= RenderingUtils.ReAllocateHandleIfNeeded(ref Upscale[slot], in descriptor, FilterMode.Bilinear, TextureWrapMode.Clamp, name: upscaleNames[slot]); }
+        if (reallocated) { UpscaleValid = false; }
+        return reallocated;
+    }
+
+    public void ReleaseUpscale()
+    {
+        for (int slot = 0; slot < 2; slot++) { Upscale[slot]?.Release(); Upscale[slot] = null; }
+        UpscaleValid = false;
+    }
+
     public bool EnsurePriorColor(in RenderTextureDescriptor cameraDescriptor)
     {
         RenderTextureDescriptor descriptor = cameraDescriptor;
@@ -317,6 +343,7 @@ public sealed partial class BasisGlobalIlluminationHistory
             Stats[slot] = null;
         }
         ReleaseSpecular();
+        ReleaseUpscale();
         Width = Height = 0;
         Valid = false;
         Stride = 0;

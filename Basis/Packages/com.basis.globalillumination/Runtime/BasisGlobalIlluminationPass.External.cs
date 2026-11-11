@@ -18,6 +18,9 @@ public partial class BasisGlobalIlluminationPass
     private bool externalBehind;
     private static readonly int idExLightmapMask = Shader.PropertyToID("_LightmapMask");
     private static readonly int idExMotion = Shader.PropertyToID("_Motion");
+    private static readonly int idExJitter = Shader.PropertyToID("_Jitter");
+    private Vector4 externalJitter;
+    private Vector2 externalDisplayJitter;
     private const uint FlagMotion = 512;
     private static readonly int idExDepth = Shader.PropertyToID("_Depth"), idExNormals = Shader.PropertyToID("_Normals"), idExSurface = Shader.PropertyToID("_Surface"), idExColor = Shader.PropertyToID("_Color");
     private static readonly int idExTraced = Shader.PropertyToID("_Traced"), idExGBuffer = Shader.PropertyToID("_GBuffer"), idExUpload = Shader.PropertyToID("_Upload"), idExResult = Shader.PropertyToID("_Result");
@@ -41,6 +44,7 @@ public partial class BasisGlobalIlluminationPass
         public int width, height, views, sourceWidth, sourceHeight;
         public TextureHandle depth, normals, surface, color, traced, lightmapMask, motion;
         public bool hasLightmapMask, hasMotion;
+        public Vector4 jitter, displayJitter;
         public Matrix4x4[] inverse;
         public Vector4[] positions;
         public BasisExternalRayScene.Job[] jobs;
@@ -204,6 +208,8 @@ public partial class BasisGlobalIlluminationPass
             if (data.hasLightmapMask) { builder.UseTexture(lightmapMask); }
             data.motion = motion;
             data.hasMotion = motion.IsValid();
+            data.jitter = externalJitter;
+            data.displayJitter = externalDisplayJitter;
             if (data.hasMotion) { builder.UseTexture(motion); }
             builder.UseTexture(traced, AccessFlags.WriteAll);
             builder.AllowPassCulling(false);
@@ -273,6 +279,7 @@ public partial class BasisGlobalIlluminationPass
             cmd.SetComputeVectorArrayParam(cs, idExCameraPosition, d.positions);
             cmd.SetComputeIntParams(cs, idExSize, d.width, d.height, d.sourceWidth, d.sourceHeight);
             cmd.SetComputeIntParams(cs, idExFlags, d.hasNormals ? 1 : 0, d.hasSurface ? 1 : 0, d.views, d.reversedZ ? 1 : 0);
+            cmd.SetComputeVectorParam(cs, idExJitter, d.jitter);
             cmd.DispatchCompute(cs, d.kernelGBuffer, (d.width * d.views + 7) / 8, (d.height + 7) / 8, 1);
             cmd.IssuePluginEventAndData(BasisExternalRayTracer.EventFunc, BasisExternalRayTracer.EventBase + 0, BasisExternalRayTracer.EventData(d.frame, d.context, d.parity, d.rows));
             if (!d.behind) { cmd.IssuePluginEventAndData(BasisExternalRayTracer.EventFunc, BasisExternalRayTracer.EventBase + 1, BasisExternalRayTracer.EventData(d.frame, d.context, d.parity, 0)); }
@@ -282,6 +289,7 @@ public partial class BasisGlobalIlluminationPass
         cmd.SetComputeTextureParam(cs, d.kernelUnpack, idExMotion, d.hasMotion ? d.motion : d.color);
         cmd.SetComputeIntParams(cs, idExSize, d.width, d.height, d.sourceWidth, d.sourceHeight);
         cmd.SetComputeIntParams(cs, idExFlags, 0, d.behind && d.hasMotion ? 1 : 0, d.views, 0);
+        cmd.SetComputeVectorParam(cs, idExJitter, d.displayJitter);
         cmd.DispatchCompute(cs, d.kernelUnpack, (d.width + 7) / 8, (d.height + 7) / 8, d.views);
     }
 }
