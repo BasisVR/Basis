@@ -701,8 +701,9 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     {
         BasisGlobalIlluminationRaySceneSettings sceneSettings = settings.ResolvedSceneSettings();
         float now = Time.realtimeSinceStartup;
-        if (now >= nextScan) { Scan(sceneSettings.layerMask); nextScan = now + Mathf.Max(0.25f, sceneSettings.rescanInterval); }
-        if (now >= nextLightScan) { lights = UnityEngine.Object.FindObjectsByType<Light>(FindObjectsInactive.Exclude); nextLightScan = now + 1f; }
+        float scanEvery = Mathf.Max(0.25f, sceneSettings.rescanInterval);
+        if (now >= nextScan || nextScan - now > scanEvery) { Scan(sceneSettings.layerMask); nextScan = now + scanEvery; }
+        if (now >= nextLightScan || nextLightScan - now > 1f) { lights = UnityEngine.Object.FindObjectsByType<Light>(FindObjectsInactive.Exclude); nextLightScan = now + 1f; }
 
         BasisExternalRayInstance* instances = BasisExternalRayTracer.Instances(frame);
         BasisExternalRayMaterial* materials = BasisExternalRayTracer.Materials(frame);
@@ -843,7 +844,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         dirty.Clear();
         if (resetCache) { statResets++; }
         resetCache = false;
-        if (Time.realtimeSinceStartup >= statNext)
+        if (Time.realtimeSinceStartup >= statNext || statNext - Time.realtimeSinceStartup > 5f)
         {
             if (statNext > 0f) { Debug.Log($"[BasisGI] Path traced cache, last 5 s: hard dirty {statHard} (emission {statEmission}, lights {statLights}, appeared {statAppear}, removed {statRemoved}), soft dirty {statSoft}, full resets {statResets} (last: {resetReason}), instances {instanceCount}, emitters {emitterCount}, lights {lightCount}, gpu {BasisExternalRayTracer.GpuMicroseconds(0)} us"); }
             statNext = Time.realtimeSinceStartup + 5f;

@@ -125,7 +125,7 @@ public static class BasisGlobalIlluminationSurfaceTags
     {
         if ((Mask | EmissiveMask) == 0u) { return; }
         float now = Time.realtimeSinceStartup;
-        if (snapshot == null || (cursor >= snapshot.Length && now - snapshotTime >= RescanSeconds))
+        if (snapshot == null || now < snapshotTime || (cursor >= snapshot.Length && now - snapshotTime >= RescanSeconds))
         {
             snapshot = Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             snapshotTime = now;

@@ -280,7 +280,7 @@ public static unsafe partial class BasisExternalRayTracer
         if (Started) { return true; }
         if (Failed)
         {
-            if (retries >= 20 || Time.realtimeSinceStartup < retryAt || !Supported) { return false; }
+            if (retries >= 20 || (Time.realtimeSinceStartup < retryAt && retryAt - Time.realtimeSinceStartup <= 3f) || !Supported) { return false; }
             retries++;
             Failed = false;
             loggedFailure = false;

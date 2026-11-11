@@ -19,6 +19,7 @@ public static class BasisEditorCommandBridge
     private static int captureCount, captureIndex;
     private static readonly List<string> log = new List<string>();
     private static Camera pinned;
+    private static float lookPitch = float.NaN;
     private static Vector3 pinnedPosition;
     private static Quaternion pinnedRotation;
     private static Camera restoreCamera;
@@ -38,6 +39,7 @@ public static class BasisEditorCommandBridge
 
     private static void Pin(UnityEngine.Rendering.ScriptableRenderContext context, Camera camera)
     {
+        if (pinned == null && !float.IsNaN(lookPitch) && camera == Camera.main) { camera.transform.rotation = Quaternion.Euler(lookPitch, camera.transform.eulerAngles.y, 0f); return; }
         if (pinned == null || camera != pinned) { return; }
         if (spinRate != 0f && spinFrame != Time.frameCount) { spinFrame = Time.frameCount; pinnedRotation = Quaternion.Euler(0f, spinRate, 0f) * pinnedRotation; }
         camera.transform.SetPositionAndRotation(pinnedPosition, pinnedRotation);
@@ -205,6 +207,23 @@ public static class BasisEditorCommandBridge
                     Write("set " + parts[1] + " = " + field.GetValue(null));
                 }
                 break;
+            case "walk":
+                {
+                    Type driverType = FindType("BasisLocalCharacterDriver");
+                    UnityEngine.Object driver = driverType != null ? UnityEngine.Object.FindFirstObjectByType(driverType) : null;
+                    if (driver == null) { Write("no character driver"); break; }
+                    Vector2 move = new Vector2(float.Parse(parts[1], CultureInfo.InvariantCulture), float.Parse(parts[2], CultureInfo.InvariantCulture));
+                    driverType.GetMethod("SetMovementVector", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance).Invoke(driver, new object[] { move });
+                    Write("walk " + move + " at " + ((Component)driver).transform.position.ToString("F2"));
+                }
+                break;
+            case "look":
+                lookPitch = parts.Length > 1 ? float.Parse(parts[1], CultureInfo.InvariantCulture) : float.NaN;
+                Write("look pitch " + lookPitch);
+                break;
+            case "emissive":
+                EmissiveCheck();
+                break;
             case "lightmaps":
                 {
                     LightmapData[] maps = LightmapSettings.lightmaps;
@@ -242,6 +261,35 @@ public static class BasisEditorCommandBridge
     {
         if (restoreCamera != null) { restoreCamera.transform.SetLocalPositionAndRotation(restoreLocalPosition, restoreLocalRotation); }
         restoreCamera = null;
+    }
+
+    private static void EmissiveCheck()
+    {
+        Renderer[] all = UnityEngine.Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude);
+        int tagged = 0, keyword = 0, coloured = 0, listed = 0;
+        int id = Shader.PropertyToID("_EmissionColor");
+        foreach (Renderer r in all)
+        {
+            bool bit = (r.renderingLayerMask & (1u << 30)) != 0u;
+            if (bit) { tagged++; }
+            foreach (Material m in r.sharedMaterials)
+            {
+                if (m == null) { continue; }
+                bool key = m.IsKeywordEnabled("_EMISSION");
+                bool colour = m.HasColor(id) && m.GetColor(id).maxColorComponent > 0.001f;
+                if (key) { keyword++; }
+                if (colour) { coloured++; }
+                if ((key || colour || bit) && listed < 14)
+                {
+                    listed++;
+                    Write("emissive " + r.name + " | " + r.GetType().Name + " | " + m.name + " | " + m.shader.name + " | keyword " + key + " | colour " + (m.HasColor(id) ? m.GetColor(id).ToString() : "none") + " | flags " + m.globalIlluminationFlags + " | bit " + bit + " | mask " + r.renderingLayerMask.ToString("X") + " | static " + r.isPartOfStaticBatch + " | queue " + m.renderQueue);
+                }
+            }
+        }
+        Light[] lights = UnityEngine.Object.FindObjectsByType<Light>(FindObjectsInactive.Include);
+        int active = 0;
+        foreach (Light l in lights) { if (l.isActiveAndEnabled) { active++; } }
+        Write("emissive renderers " + all.Length + " tagged " + tagged + " keyword materials " + keyword + " coloured materials " + coloured + " | lights " + lights.Length + " active " + active);
     }
 
     private static void MatCheck()
