@@ -1105,11 +1105,10 @@ void RayGen()
                 if (Random(rng) * wsum < w) { chosen = c; chosenTarget = t; }
             }
             float2 previousPixel;
-            bool reproject = (frame.flags & FLAG_RESET_HISTORY) == 0 && ((frame.flags & FLAG_MOTION) != 0 ? true : ProjectToPixel(frame.views[viewIndex].previousViewProjection, surface.position, previousPixel));
-            if ((frame.flags & FLAG_MOTION) != 0) { previousPixel = float2(local) + 0.5 - surface.motion; }
-            if (reproject && all(previousPixel >= 0.0) && previousPixel.x < float(frame.width) && previousPixel.y < float(frame.height))
+            bool previousInside;
+            if (PreviousPixel(surface.position, surface.motion, local, viewIndex, previousPixel, previousInside))
             {
-                uint2 q = uint2(previousPixel) + uint2(viewIndex * frame.width, 0);
+                uint2 q = uint2(clamp(previousPixel, 0.5, float2(frame.width, frame.height) - 0.5)) + uint2(viewIndex * frame.width, 0);
                 RWTexture2D<float4> previousGeometry = ResourceDescriptorHeap[HEAP_GEOMETRY_UAV + frame.historyRead];
                 float4 g = previousGeometry[q];
                 if (!all(g == 0.0) && abs(dot(g.xyz - surface.position, surface.normal)) < HistoryTolerance(surface.position, surface.distance, previousPixel, viewIndex) && dot(UnpackNormal(asuint(g.w)), surface.normal) > 0.8)

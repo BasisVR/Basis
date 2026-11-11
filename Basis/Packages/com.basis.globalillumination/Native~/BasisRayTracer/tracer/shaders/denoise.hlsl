@@ -2,6 +2,16 @@
 
 #define DENOISE_RESERVOIR_SCRATCH 16
 
+#ifndef HISTORY_BORROW_REACH
+#define HISTORY_BORROW_REACH 0.5
+#endif
+#ifndef HISTORY_BORROW_LENGTH
+#define HISTORY_BORROW_LENGTH 3.0
+#endif
+#ifndef HISTORY_FRESH_CEILING
+#define HISTORY_FRESH_CEILING 4.0
+#endif
+
 float4 PackGeometry(Surface s) { return float4(s.position, asfloat(PackNormal(s.normal))); }
 
 uint4 PackCompact(float3 offset, float3 n)
@@ -75,10 +85,10 @@ void Temporal(uint3 id : SV_DispatchThreadID)
     float4 previous = 0.0;
     float4 previousMoments = 0.0;
     float weightSum = 0.0;
-    if ((frame.flags & FLAG_RESET_HISTORY) == 0)
+    float2 p;
+    bool onScreen, borrowed = false;
+    if (PreviousPixel(s.position, s.motion, local, viewIndex, p, onScreen))
     {
-        float2 p = float2(local) + 0.5 - s.motion;
-        bool onScreen = (frame.flags & FLAG_MOTION) != 0 ? all(p > 0.0) && p.x < float(frame.width) && p.y < float(frame.height) : ProjectToPixel(frame.views[viewIndex].previousViewProjection, s.position, p);
         if (onScreen)
         {
             float2 coord = p - 0.5;
@@ -100,6 +110,20 @@ void Temporal(uint3 id : SV_DispatchThreadID)
                 previous += history[tap] * w;
                 previousMoments += moments[tap] * w;
                 weightSum += w;
+            }
+        }
+        else
+        {
+            int2 tap = int2(clamp(p, 0.5, float2(frame.width, frame.height) - 0.5));
+            float reach = length(float2(tap) + 0.5 - p) / float(frame.height);
+            tap.x += viewIndex * frame.width;
+            float4 g = geometry[tap];
+            if (reach < HISTORY_BORROW_REACH && !all(g == 0.0) && abs(dot(g.xyz - s.position, s.normal)) < HistoryTolerance(s.position, s.distance, p, viewIndex) && dot(UnpackNormal(asuint(g.w)), s.normal) >= 0.8)
+            {
+                previous = history[tap];
+                previousMoments = moments[tap];
+                weightSum = 1.0;
+                borrowed = true;
             }
         }
     }
@@ -126,7 +150,7 @@ void Temporal(uint3 id : SV_DispatchThreadID)
     {
         previous /= weightSum;
         previousMoments /= weightSum;
-        length = previousMoments.z;
+        length = borrowed ? min(previousMoments.z, HISTORY_BORROW_LENGTH) : previousMoments.z;
         float spread = sqrt(max(previousMoments.y - previousMoments.x * previousMoments.x, 0.0));
         float ceiling = previousMoments.x + 4.0 * spread + 0.25 * previousMoments.x + 0.02;
         if (length >= 4.0 && l > ceiling && l > 2.0 * nLum) { current.rgb *= ceiling / l; l = ceiling; }
@@ -136,6 +160,12 @@ void Temporal(uint3 id : SV_DispatchThreadID)
         length = lerp(length, 1.0, gradient);
         float around = nCount > 1.5 ? (nLum * nCount - l) / (nCount - 1.0) : previousMoments.x;
         drift = saturate(abs(around - previousMoments.x) / (noise + 0.02 * scale + 0.002) - 1.0);
+    }
+    if (length < 4.0 && nCount > 1.5)
+    {
+        float others = (nLum * nCount - l) / (nCount - 1.0);
+        float ceiling = HISTORY_FRESH_CEILING * others + 0.02;
+        if (l > ceiling) { current.rgb *= ceiling / l; l = ceiling; }
     }
     length = min(length + 1.0, 64.0);
     float timeAlpha = 1.0 - exp(-max(frame.deltaTime, 0.001) * 90.0 * frame.temporalResponse);

@@ -242,6 +242,23 @@ bool ProjectToPixel(float4x4 viewProjection, float3 world, out float2 pixel)
     return all(ndc > -1.0) && all(ndc < 1.0);
 }
 
+bool PreviousPixel(float3 position, float2 motion, uint2 local, uint viewIndex, out float2 pixel, out bool inside)
+{
+    pixel = 0.0;
+    inside = false;
+    if ((frame.flags & FLAG_RESET_HISTORY) != 0) { return false; }
+    if ((frame.flags & FLAG_MOTION) != 0) { pixel = float2(local) + 0.5 - motion; }
+    else
+    {
+        float4 clip = mul(frame.views[viewIndex].previousViewProjection, float4(position, 1.0));
+        if (clip.w <= 1e-4) { return false; }
+        pixel = (clip.xy / clip.w * 0.5 + 0.5) * float2(frame.width, frame.height);
+    }
+    if (!all(isfinite(pixel))) { return false; }
+    inside = all(pixel > 0.0) && pixel.x < float(frame.width) && pixel.y < float(frame.height);
+    return true;
+}
+
 float HistoryTolerance(float3 position, float range, float2 previousPixel, uint viewIndex)
 {
     float tolerance = max(0.03, range * 0.02);
