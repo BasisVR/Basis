@@ -30,7 +30,8 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         public int[] submeshStarts, submeshCounts;
         public int uploadedVertices, uploadedIndices, submeshCursor;
         public bool defined, committed, posed;
-        public int lastSeen, lastPosed;
+        public int lastSeen, lastPosed, poseCopyFrame;
+        public GraphicsBuffer poseCopy;
     }
 
     private sealed class TextureRecord
@@ -152,7 +153,8 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         }
     }
 
-    public BasisExternalRayScene() { UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded; }
+    public BasisExternalRayScene() { UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
+        RenderPipelineManager.beginContextRendering += OnBeginContext; }
 
     private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode) { resetCache = true; resetReason = "scene load " + scene.name; }
 
@@ -166,6 +168,8 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     public void Dispose()
     {
         UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+        RenderPipelineManager.beginContextRendering -= OnBeginContext;
+        foreach (KeyValuePair<SkinnedMeshRenderer, MeshRecord> kv in skinnedMeshes) { kv.Value.poseCopy?.Dispose(); kv.Value.poseCopy = null; }
         foreach (GraphicsBuffer b in disposeNow) { b?.Dispose(); }
         foreach (GraphicsBuffer b in disposeNextFrame) { b?.Dispose(); }
         foreach (RenderTexture rt in scratchNow) { RenderTexture.ReleaseTemporary(rt); }
@@ -199,7 +203,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
             if (!skinnedMeshes.TryGetValue(skinned, out MeshRecord r) || r.mesh != shared)
             {
                 if (r != null) { Release(r); }
-                skinned.vertexBufferTarget |= GraphicsBuffer.Target.Raw;
+                skinned.vertexBufferTarget |= GraphicsBuffer.Target.Raw | GraphicsBuffer.Target.CopySource;
                 r = Describe(shared);
                 r.skinned = skinned;
                 skinnedMeshes[skinned] = r;
@@ -239,8 +243,37 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
 
     private const uint SubmeshOpaqueDefault = BasisExternalRayTracer.SubmeshOpaque;
 
+    private void OnBeginContext(ScriptableRenderContext context, List<Camera> cameras) => SnapshotPoses();
+
+    private void SnapshotPoses()
+    {
+        int now = Time.frameCount;
+        if (snapshotFrame == now) { return; }
+        snapshotFrame = now;
+        foreach (KeyValuePair<SkinnedMeshRenderer, MeshRecord> kv in skinnedMeshes)
+        {
+            MeshRecord r = kv.Value;
+            SkinnedMeshRenderer smr = r.skinned;
+            if (smr == null || !r.committed || !smr.forceMatrixRecalculationPerRender) { continue; }
+            GraphicsBuffer live = smr.GetVertexBuffer();
+            if (live == null) { continue; }
+            if (r.poseCopy == null || r.poseCopy.count != live.count || r.poseCopy.stride != live.stride)
+            {
+                r.poseCopy?.Dispose();
+                r.poseCopy = new GraphicsBuffer(GraphicsBuffer.Target.Raw | GraphicsBuffer.Target.CopyDestination, live.count, live.stride);
+            }
+            Graphics.CopyBuffer(live, r.poseCopy);
+            live.Dispose();
+            r.poseCopyFrame = now;
+        }
+    }
+
+    private int snapshotFrame = -1;
+
     private void Release(MeshRecord r)
     {
+        r.poseCopy?.Dispose();
+        r.poseCopy = null;
         if (r.defined) { Push(BasisExternalRayTracer.OpMeshRelease, r.id); }
         freeMeshIds.Push(r.id);
     }
@@ -336,6 +369,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     private unsafe void PoseSkinned(BasisExternalRayInstance* instances)
     {
         if (byPriority == null) { byPriority = (a, b) => Priority(b).CompareTo(Priority(a)); }
+        SnapshotPoses();
         skinnedQueue.Sort(byPriority);
         int budget = MaxSkinnedVerticesPerFrame;
         bool first = true;
@@ -370,11 +404,12 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     {
         SkinnedMeshRenderer smr = r.skinned;
         if (smr == null || !r.committed) { return false; }
-        GraphicsBuffer skinned = smr.GetVertexBuffer();
+        bool copied = r.poseCopy != null && r.poseCopyFrame == Time.frameCount;
+        GraphicsBuffer skinned = copied ? r.poseCopy : smr.GetVertexBuffer();
         if (skinned == null) { return false; }
         uint count = (uint)r.vertexCount;
-        if (!Reserve(count, out uint at)) { skinned.Dispose(); return false; }
-        disposeNow.Add(skinned);
+        if (!Reserve(count, out uint at)) { if (!copied) { skinned.Dispose(); } return false; }
+        if (!copied) { disposeNow.Add(skinned); }
         Mesh mesh = r.mesh;
         int normalOffset = mesh.HasVertexAttribute(VertexAttribute.Normal) ? 12 : 0;
         uint normalFormat = mesh.HasVertexAttribute(VertexAttribute.Normal) ? 1u : 0u;
@@ -602,10 +637,10 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
             if (r != null && seen.Contains(r)) { continue; }
             if (renderers[i].seen) { statRemoved++; MarkDirty(renderers[i].lastBounds.center, renderers[i].lastBounds.extents.magnitude + 2f); }
             rendererLookup.Remove(renderers[i].renderer);
-            if (renderers[i].mesh != null && renderers[i].mesh.skinned != null)
+            if (renderers[i].mesh != null && renderers[i].mesh.skinned is SkinnedMeshRenderer s)
             {
                 Release(renderers[i].mesh);
-                if (renderers[i].renderer is SkinnedMeshRenderer s) { skinnedMeshes.Remove(s); }
+                skinnedMeshes.Remove(s);
             }
             renderers.RemoveAt(i);
         }
@@ -678,6 +713,27 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     }
 
     public void ClearUpload() { texelCursor = 0; commands.Clear(); }
+
+    private string DescribeAvatars()
+    {
+        int definedMeshes = 0, definedTextures = 0;
+        foreach (KeyValuePair<Mesh, MeshRecord> kv in staticMeshes) { if (kv.Value.defined) { definedMeshes++; } }
+        foreach (KeyValuePair<SkinnedMeshRenderer, MeshRecord> kv in skinnedMeshes) { if (kv.Value.defined) { definedMeshes++; } }
+        foreach (KeyValuePair<Texture, TextureRecord> kv in textures) { if (kv.Value.defined) { definedTextures++; } }
+        System.Text.StringBuilder text = new System.Text.StringBuilder(512);
+        text.Append("[BasisGI] Path traced scene: tracer meshes ").Append(BasisExternalRayTracer.Stat(2)).Append(" of ").Append(definedMeshes).Append(", textures ").Append(BasisExternalRayTracer.Stat(3)).Append(" of ").Append(definedTextures).Append(", free ids ").Append(freeMeshIds.Count).Append('/').Append(freeTextureIds.Count).Append(", bridge '").Append(BasisExternalRayTracer.ReadError()).Append("', avatars:");
+        int listed = 0;
+        foreach (RendererRecord r in renderers)
+        {
+            if (!r.avatar || r.renderer == null || listed >= 24) { continue; }
+            listed++;
+            float glow = 0f;
+            foreach (float e in r.lastEmission) { glow += e; }
+            MeshRecord m = r.mesh;
+            text.Append(' ').Append(r.renderer.name).Append('[').Append(m == null ? "no mesh" : $"id {m.id} v{m.vertexCount} {(m.defined ? 'd' : '-')}{(m.committed ? 'c' : '-')}{(m.posed ? 'p' : '-')} posed {frameCount - m.lastPosed} ago").Append(r.seen ? " seen" : " unseen").Append(Drawn(r.renderer) ? "" : " off").Append(r.shadowSource != null ? " clone" : "").Append(r.renderer.shadowCastingMode == ShadowCastingMode.ShadowsOnly ? " shadowonly" : "").Append(" glow ").Append(glow.ToString("0.##")).Append(']');
+        }
+        return text.ToString();
+    }
 
     public void BeginFrame(bool uploadFree)
     {
@@ -847,6 +903,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         if (Time.realtimeSinceStartup >= statNext || statNext - Time.realtimeSinceStartup > 5f)
         {
             if (statNext > 0f) { Debug.Log($"[BasisGI] Path traced cache, last 5 s: hard dirty {statHard} (emission {statEmission}, lights {statLights}, appeared {statAppear}, removed {statRemoved}), soft dirty {statSoft}, full resets {statResets} (last: {resetReason}), instances {instanceCount}, emitters {emitterCount}, lights {lightCount}, gpu {BasisExternalRayTracer.GpuMicroseconds(0)} us"); }
+            if (statNext > 0f) { Debug.Log(DescribeAvatars()); }
             statNext = Time.realtimeSinceStartup + 5f;
             statHard = statSoft = statResets = statEmission = statLights = statAmbient = statAppear = statRemoved = 0;
         }

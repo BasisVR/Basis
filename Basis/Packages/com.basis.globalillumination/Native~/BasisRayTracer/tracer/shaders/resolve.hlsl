@@ -6,6 +6,10 @@ struct Dirty { float4 sphere; };
 #define CACHE_DRIFT_RUN 8u
 #endif
 
+#ifndef CACHE_DIRTY_CEILING
+#define CACHE_DIRTY_CEILING 192.0
+#endif
+
 #ifndef CACHE_EVICT_AGE
 #define CACHE_EVICT_AGE 20000u
 #endif
@@ -63,7 +67,7 @@ void CacheMaintain(uint3 id : SV_DispatchThreadID)
                 else
                 {
                     float edge = saturate((reach - cell.w) / max(radius, 1e-3));
-                    capped = min(capped, lerp(s.w < 0.0 ? 64.0 : 8.0, 512.0, edge * edge));
+                    capped = min(capped, lerp(s.w < 0.0 ? 64.0 : 8.0, CACHE_DIRTY_CEILING, edge * edge));
                 }
             }
         }

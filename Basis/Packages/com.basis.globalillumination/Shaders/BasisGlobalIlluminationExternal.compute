@@ -30,6 +30,7 @@ RWTexture2D<float4> _Traced;
 RWTexture2D<uint4> _GBuffer;
 RWTexture2D<uint4> _Upload;
 Texture2D<float4> _Result;
+Texture2D<uint4> _Previous;
 Texture2D<float4> _Source;
 ByteAddressBuffer _Stream0;
 ByteAddressBuffer _Stream1;
@@ -43,6 +44,7 @@ uint4 _Layout0;
 uint4 _Layout1;
 uint4 _Job;
 float4 _Jitter;
+float4 _PreviousCameraPosition[2];
 float4x4 _MirrorToLocal[8];
 float4 _MirrorBounds[16];
 
@@ -259,20 +261,140 @@ void PackTexture(uint3 id : SV_DispatchThreadID)
     StoreUpload(_Job.z + id.x, v);
 }
 
+float3 UnpackNormal(uint p)
+{
+    float2 o = float2(int(p << 16) >> 16, int(p) >> 16) / 32767.0;
+    float3 n = float3(o, 1.0 - abs(o.x) - abs(o.y));
+    float t = saturate(-n.z);
+    n.xy += float2(n.x >= 0.0 ? -t : t, n.y >= 0.0 ? -t : t);
+    return normalize(n);
+}
+
+float PreviousMismatch(int2 tap, uint view, float3 world, float range, float tolerance, float3 normal, bool hasNormal)
+{
+    int2 t = int2((tap.x + int(view * _Size.x)) * 2, tap.y * 2);
+    uint4 lo = _Previous.Load(int3(t, 0)), hi = _Previous.Load(int3(t.x, t.y + 1, 0));
+    float3 relative = asfloat(uint3(lo.x | (lo.y << 16), lo.z | (lo.w << 16), hi.x | (hi.y << 16)));
+    float previousRange = length(relative);
+    if (!(previousRange > 0.0)) { return 1e9; }
+    float apart = abs(previousRange - range);
+    if (apart <= tolerance) { return 0.0; }
+    float3 previousNormal = UnpackNormal(hi.z | (hi.w << 16));
+    float plane = abs(dot(_PreviousCameraPosition[view].xyz + relative - world, hasNormal ? normal : previousNormal));
+    if (plane <= tolerance && (!hasNormal || dot(previousNormal, normal) > 0.5)) { return 0.0; }
+    return apart / range;
+}
+
 [numthreads(8, 8, 1)]
 void Unpack(uint3 id : SV_DispatchThreadID)
 {
     uint width = _Size.x, height = _Size.y;
     if (id.x >= width || id.y >= height || id.z >= _Flags.z) { return; }
     int2 from = int2(id.xy);
+    int2 spread = int2(0, 0);
     if (_Flags.y != 0)
     {
         uint2 source = min(uint2((float2(id.xy) + 0.5 + _Jitter.xy) * float2(_Size.zw) / float2(width, height)), _Size.zw - 1);
         float2 m = LOAD(_Motion, source, id.z).xy * float2(width, height);
-        from = clamp(int2(floor(float2(id.xy) + 0.5 - m)), int2(0, 0), int2(width, height) - 1);
+        float2 exact = float2(id.xy) + 0.5 - m;
+        if (!all(isfinite(exact))) { exact = float2(id.xy) + 0.5; }
+        from = clamp(int2(floor(exact)), int2(0, 0), int2(width, height) - 1);
+        if (exact.y < 0.0 || exact.y >= float(height)) { spread = int2(1, 0); }
+        else if (exact.x < 0.0 || exact.x >= float(width)) { spread = int2(0, 1); }
+        if (_Flags.x != 0)
+        {
+            float raw = LOAD(_Depth, source, id.z);
+            if (_Flags.w != 0 ? raw <= 0.0 : raw >= 1.0)
+            {
+#if defined(BASIS_RT_ARRAY)
+                _Traced[uint3(id.xy, id.z)] = float4(0, 0, 0, 1);
+#else
+                _Traced[id.xy] = float4(0, 0, 0, 1);
+#endif
+                return;
+            }
+            float3 world = WorldAt(source, raw, id.z);
+            float3 toCamera = _CameraPosition[id.z].xyz - world;
+            float range = length(toCamera);
+            bool hasNormal = _Layout0.x != 0;
+            float3 normal = float3(0, 1, 0);
+            if (hasNormal)
+            {
+                normal = LOAD(_Normals, source, id.z).xyz;
+                hasNormal = dot(normal, normal) > 1e-6;
+                normal = hasNormal ? normalize(normal) : float3(0, 1, 0);
+                if (dot(normal, toCamera) < 0.0) { normal = -normal; }
+            }
+            float tolerance = max(0.03, range * 0.02) + length(m) * range * _PreviousCameraPosition[id.z].w;
+            float best = PreviousMismatch(from, id.z, world, range, tolerance, normal, hasNormal);
+            if (spread.x + spread.y != 0)
+            {
+                float4 sum = 0.0;
+                float count = 0.0;
+                [loop] for (int k = -3; k <= 3; k++)
+                {
+                    int2 tap = from + spread * (k * 2);
+                    if (any(tap < 0) || tap.x >= int(width) || tap.y >= int(height)) { continue; }
+                    if (PreviousMismatch(tap, id.z, world, range, tolerance, normal, hasNormal) > 0.0) { continue; }
+                    float4 t = _Result.Load(int3(tap.x + id.z * width, tap.y, 0));
+                    if (any(!isfinite(t))) { continue; }
+                    float w = 1.0 / (1.0 + abs(float(k)));
+                    sum += t * w;
+                    count += w;
+                }
+                spread = int2(0, 0);
+                if (count > 0.0)
+                {
+#if defined(BASIS_RT_ARRAY)
+                    _Traced[uint3(id.xy, id.z)] = sum / count;
+#else
+                    _Traced[id.xy] = sum / count;
+#endif
+                    return;
+                }
+            }
+            if (best > 0.0)
+            {
+                int2 chosen = from;
+                float2 back = float2(id.xy) + 0.5 - exact;
+                [loop] for (uint n = 0; n < 65 && best > 0.0; n++)
+                {
+                    int2 tap = int2(id.xy);
+                    if (n > 0 && n <= 16) { tap = int2(floor(exact + back * (float(n) * 0.125))); }
+                    else if (n > 16)
+                    {
+                        uint k = n - 17;
+                        float radius = k < 16 ? 2.0 : k < 32 ? 5.0 : 10.0;
+                        float angle = float(k & 7) * 0.7853982 + (k >= 16 && k < 32 ? 0.3926991 : 0.0);
+                        float2 centre = (k & 8) != 0 ? float2(id.xy) + 0.5 : exact;
+                        tap = int2(floor(centre + radius * float2(cos(angle), sin(angle))));
+                    }
+                    if (any(tap < 0) || tap.x >= int(width) || tap.y >= int(height)) { continue; }
+                    float mismatch = PreviousMismatch(tap, id.z, world, range, tolerance, normal, hasNormal);
+                    if (mismatch < best) { best = mismatch; chosen = tap; }
+                }
+                from = chosen;
+            }
+        }
     }
     float4 c = _Result.Load(int3(from.x + id.z * width, from.y, 0));
     if (any(!isfinite(c))) { c = float4(0, 0, 0, 1); }
+    if (spread.x + spread.y != 0)
+    {
+        float4 sum = c;
+        float count = 1.0;
+        [unroll] for (int k = -2; k <= 2; k++)
+        {
+            int2 tap = from + spread * (k * 2);
+            if (k == 0 || any(tap < 0) || tap.x >= int(width) || tap.y >= int(height)) { continue; }
+            float4 t = _Result.Load(int3(tap.x + id.z * width, tap.y, 0));
+            if (any(!isfinite(t)) || abs(t.a - c.a) > 0.5) { continue; }
+            float w = 1.0 / (1.0 + abs(float(k)));
+            sum += t * w;
+            count += w;
+        }
+        c = sum / count;
+    }
 #if defined(BASIS_RT_ARRAY)
     _Traced[uint3(id.xy, id.z)] = c;
 #else

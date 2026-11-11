@@ -43,6 +43,7 @@ pub const HEAP_INSTANCES: u32 = 16;
 pub const HEAP_MATERIALS: u32 = 24;
 pub const HEAP_LIGHTS: u32 = 32;
 pub const HEAP_EMITTERS: u32 = 40;
+static LAST_COMMAND_ERROR: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
 pub const CTX_GBUFFER: u32 = 0;
 pub const CTX_RADIANCE_UAV: u32 = 2;
 pub const CTX_HISTORY_UAV: u32 = 3;
@@ -246,6 +247,47 @@ impl Renderer {
         gpu.srv_structured(r, (base + DIRTY_OFFSET) / 16, MAX_DIRTY as u32, 16, HEAP_DIRTY + slot as u32);
     }
 
+    fn dump(&self, scene: &Scene, slot_ptr: *const Slot) {
+        static NEXT: std::sync::Mutex<Option<std::time::Instant>> = std::sync::Mutex::new(None);
+        let mut next = NEXT.lock().unwrap();
+        let now = std::time::Instant::now();
+        if next.is_some_and(|t| now < t) { return; }
+        *next = Some(now + std::time::Duration::from_secs(5));
+        let slot = unsafe { &*slot_ptr };
+        let p = &slot.params;
+        let instances = (p.instance_count as usize).min(MAX_INSTANCES);
+        let materials = (p.material_count as usize).min(MAX_MATERIALS);
+        let texture = |id: i64| if id < 0 { "none".to_string() } else { match scene.textures.get(&(id as u32)) { Some(t) => format!("{}:{}x{}{}", id, t.width, t.height, if t.readable { "" } else { " UNCOMMITTED" }), None => format!("{id}:MISSING") } };
+        let mut text = format!("instances {} materials {} emitters {} meshes {} textures {} last error '{}'
+", instances, materials, p.emitter_count, scene.meshes.len(), scene.textures.len(), LAST_COMMAND_ERROR.lock().unwrap());
+        for (i, e) in slot.emitters[..(p.emitter_count as usize).min(MAX_EMITTERS)].iter().enumerate() {
+            if e.instance as usize >= instances { text.push_str(&format!("emitter {i}: instance {} out of range
+", e.instance)); continue; }
+            let inst = &slot.instances[e.instance as usize];
+            let m = inst.material_base as usize + e.geometry as usize;
+            let material = if m < materials { let mat = &slot.materials[m]; let bits = mat.emission[3].to_bits(); format!("emission {:.2} {:.2} {:.2} map {} mask {} flags {:x} alpha {:x}", mat.emission[0], mat.emission[1], mat.emission[2], texture(mat.emission_texture as i64), if bits & 0x40000000 != 0 { texture(((bits >> 8) & 0xffff) as i64) } else { "none".to_string() }, mat.flags, mat.alpha_mode) } else { "material out of range".to_string() };
+            let mesh = match scene.meshes.get(&inst.mesh) {
+                Some(mesh) => {
+                    let at = mesh.submesh_offset as usize + e.geometry as usize;
+                    let indices = mesh.submeshes.get(e.geometry as usize).map_or(-1, |s| s.index_count as i64);
+                    format!("mesh {} v{} submesh {}/{} indices {} {}{}{} bounds {:?}", inst.mesh, mesh.vertex_count, e.geometry, mesh.submeshes.len(), indices, if mesh.committed { "committed" } else { "UNCOMMITTED" }, if mesh.blas.is_some() { "" } else { " NO BLAS" }, if mesh.dynamic { " dynamic" } else { "" }, self.grid.bound(at))
+                }
+                None => format!("mesh {} MISSING", inst.mesh),
+            };
+            text.push_str(&format!("emitter {i}: instance {} mask {:x} flags {:x} triangles {} cdf {:.4} | {mesh} | {material}
+", e.instance, inst.mask, inst.flags, e.triangle_count, e.cdf));
+        }
+        static LAST: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+        let mut last = LAST.lock().unwrap();
+        if *last == text { return; }
+        let path = std::env::temp_dir().join("BasisRayTracer.log");
+        let fresh = last.is_empty() || std::fs::metadata(&path).map_or(true, |m| m.len() > 4 << 20);
+        let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+        if let Ok(mut file) = std::fs::OpenOptions::new().create(true).write(true).append(!fresh).truncate(fresh).open(&path) { use std::io::Write; let _ = write!(file, "=== unix {} frame {} pid {}
+{}", stamp, p.frame, std::process::id(), text); }
+        *last = text;
+    }
+
     pub fn prepare(&mut self, gpu: &Gpu, scene: &Scene, slot_ptr: *const Slot) -> Result<()> {
         let frame = unsafe { (*slot_ptr).params.frame };
         let slot = (frame % RING as u64) as usize;
@@ -266,6 +308,7 @@ impl Renderer {
         let out = unsafe { self.ring.mapped.add((self.slot_base(slot) + GRID_OFFSET) as usize) };
         self.grid.begin(slot_ptr, out, |mesh| scene.meshes.get(&mesh).map(|m| m.submesh_offset as usize));
         self.prepared = frame;
+        self.dump(scene, slot_ptr);
         Ok(())
     }
 
@@ -529,7 +572,7 @@ impl Renderer {
         if let Some((first, end)) = bounds_copy { self.bounds_pending = Some((value, first, end)); }
         if let Some(ctx) = self.contexts[context].as_mut() { ctx.history_index = history_write; ctx.history_valid = true; ctx.last_time = params.time; }
         *flags_out = tlas_count;
-        if let Some(e) = pending_error { eprintln!("{e}"); }
+        if let Some(e) = pending_error { eprintln!("{e}"); *LAST_COMMAND_ERROR.lock().unwrap() = format!("frame {}: {e}", params.frame); }
         Ok(value)
     }
 

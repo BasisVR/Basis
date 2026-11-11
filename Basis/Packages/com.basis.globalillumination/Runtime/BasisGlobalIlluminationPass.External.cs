@@ -19,6 +19,10 @@ public partial class BasisGlobalIlluminationPass
     private static readonly int idExLightmapMask = Shader.PropertyToID("_LightmapMask");
     private static readonly int idExMotion = Shader.PropertyToID("_Motion");
     private static readonly int idExJitter = Shader.PropertyToID("_Jitter");
+    private static readonly int idExPrevious = Shader.PropertyToID("_Previous"), idExPreviousCameraPosition = Shader.PropertyToID("_PreviousCameraPosition");
+    private readonly Vector4[] externalPreviousPositions = new Vector4[2];
+    public static bool ValidateReprojection = true;
+    public static bool ReprojectResult = true;
     private Vector4 externalJitter;
     private Vector2 externalDisplayJitter;
     private const uint FlagMotion = 512;
@@ -47,6 +51,7 @@ public partial class BasisGlobalIlluminationPass
         public Vector4 jitter, displayJitter;
         public Matrix4x4[] inverse;
         public Vector4[] positions;
+        public readonly Vector4[] previousPositions = new Vector4[2];
         public BasisExternalRayScene.Job[] jobs;
         public int jobCount;
         public readonly Matrix4x4[] mirrors = new Matrix4x4[BasisExternalRayScene.MaxMirrors];
@@ -120,6 +125,9 @@ public partial class BasisGlobalIlluminationPass
             if (v == 0) { parameters.view0 = ev; } else { parameters.view1 = ev; }
             externalInverse[v] = (GL.GetGPUProjectionMatrix(projection, false) * view).inverse;
             externalPositions[v] = position;
+            externalPreviousPositions[v] = context.Position[v];
+            externalPreviousPositions[v].w = 2f / (Mathf.Max(Mathf.Abs(projection.m11), 1e-4f) * tracedHeight);
+            context.Position[v] = position;
         }
         BasisExternalRayScene scene = BasisExternalRayTracer.Scene;
         if (BasisExternalRayTracer.SceneFilledThisFrame(out ulong source))
@@ -187,6 +195,8 @@ public partial class BasisGlobalIlluminationPass
             data.traced = traced;
             data.inverse = externalInverse;
             data.positions = externalPositions;
+            data.previousPositions[0] = externalPreviousPositions[0];
+            data.previousPositions[1] = externalPreviousPositions[1];
             BasisExternalRayScene scene = BasisExternalRayTracer.Scene;
             data.jobCount = externalSubmit && scene != null ? scene.Jobs.Count : 0;
             if (externalJobs.Length < data.jobCount) { externalJobs = new BasisExternalRayScene.Job[Mathf.NextPowerOfTwo(data.jobCount)]; }
@@ -227,9 +237,11 @@ public partial class BasisGlobalIlluminationPass
         if (d.array) { cmd.EnableKeyword(cs, arrayKeyword); } else { cmd.DisableKeyword(cs, arrayKeyword); }
         RenderTexture upload = BasisExternalRayTracer.Upload, gbuffer = d.gbuffer, result = d.result;
         if (upload == null || gbuffer == null || result == null) { return; }
+        bool validate = ValidateReprojection && d.submit && d.behind && d.fetchFrame != 0 && d.hasMotion;
         if (d.submit)
         {
             if (d.behind && d.fetchFrame != 0) { cmd.IssuePluginEventAndData(BasisExternalRayTracer.EventFunc, BasisExternalRayTracer.EventBase + 1, BasisExternalRayTracer.EventData(d.fetchFrame, d.context, d.fetchParity, 0)); }
+            if (validate) { DispatchUnpack(cmd, d, gbuffer, result, true); }
             for (int i = 0; i < d.jobCount; i++)
             {
                 BasisExternalRayScene.Job job = d.jobs[i];
@@ -284,11 +296,24 @@ public partial class BasisGlobalIlluminationPass
             cmd.IssuePluginEventAndData(BasisExternalRayTracer.EventFunc, BasisExternalRayTracer.EventBase + 0, BasisExternalRayTracer.EventData(d.frame, d.context, d.parity, d.rows));
             if (!d.behind) { cmd.IssuePluginEventAndData(BasisExternalRayTracer.EventFunc, BasisExternalRayTracer.EventBase + 1, BasisExternalRayTracer.EventData(d.frame, d.context, d.parity, 0)); }
         }
+        if (!validate) { DispatchUnpack(cmd, d, gbuffer, result, false); }
+    }
+
+    private static void DispatchUnpack(CommandBuffer cmd, ExternalData d, RenderTexture gbuffer, RenderTexture result, bool validate)
+    {
+        ComputeShader cs = d.compute;
         cmd.SetComputeTextureParam(cs, d.kernelUnpack, idExResult, result);
         cmd.SetComputeTextureParam(cs, d.kernelUnpack, idExTraced, d.traced);
         cmd.SetComputeTextureParam(cs, d.kernelUnpack, idExMotion, d.hasMotion ? d.motion : d.color);
+        cmd.SetComputeTextureParam(cs, d.kernelUnpack, idExDepth, d.depth);
+        cmd.SetComputeTextureParam(cs, d.kernelUnpack, idExNormals, d.hasNormals ? d.normals : d.color);
+        cmd.SetComputeTextureParam(cs, d.kernelUnpack, idExPrevious, gbuffer);
+        cmd.SetComputeMatrixArrayParam(cs, idExInvViewProj, d.inverse);
+        cmd.SetComputeVectorArrayParam(cs, idExCameraPosition, d.positions);
+        cmd.SetComputeVectorArrayParam(cs, idExPreviousCameraPosition, d.previousPositions);
         cmd.SetComputeIntParams(cs, idExSize, d.width, d.height, d.sourceWidth, d.sourceHeight);
-        cmd.SetComputeIntParams(cs, idExFlags, 0, d.behind && d.hasMotion ? 1 : 0, d.views, 0);
+        cmd.SetComputeIntParams(cs, idExFlags, validate ? 1 : 0, ReprojectResult && d.behind && d.hasMotion ? 1 : 0, d.views, d.reversedZ ? 1 : 0);
+        cmd.SetComputeIntParams(cs, idExLayout0, d.hasNormals ? 1 : 0, 0, 0, 0);
         cmd.SetComputeVectorParam(cs, idExJitter, d.displayJitter);
         cmd.DispatchCompute(cs, d.kernelUnpack, (d.width + 7) / 8, (d.height + 7) / 8, d.views);
     }

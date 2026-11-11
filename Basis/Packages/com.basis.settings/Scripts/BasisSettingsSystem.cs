@@ -89,6 +89,34 @@ namespace Basis.Scripts.Settings
         public static event Action<string, string> OnSettingChanged;
         [NoAutoStaticsCleanup] public static event Action OnSettingsFinishedChanges;
         private static int _batchDepth;
+        [NoAutoStaticsCleanup] private static Action<string, string> _changedFor;
+        [NoAutoStaticsCleanup] private static Delegate[] _changedList = Array.Empty<Delegate>();
+        [NoAutoStaticsCleanup] private static Action _finishedFor;
+        [NoAutoStaticsCleanup] private static Delegate[] _finishedList = Array.Empty<Delegate>();
+
+        private static void RaiseSettingChanged(string key, string value)
+        {
+            Action<string, string> handlers = OnSettingChanged;
+            if (!ReferenceEquals(handlers, _changedFor)) { _changedFor = handlers; _changedList = handlers == null ? Array.Empty<Delegate>() : handlers.GetInvocationList(); }
+            Delegate[] list = _changedList;
+            for (int index = 0; index < list.Length; index++)
+            {
+                try { ((Action<string, string>)list[index])(key, value); }
+                catch (Exception exception) { BasisDebug.LogError($"Settings listener {list[index].Method.DeclaringType}.{list[index].Method.Name} threw on '{key}': {exception}"); }
+            }
+        }
+
+        private static void RaiseFinishedChanges()
+        {
+            Action handlers = OnSettingsFinishedChanges;
+            if (!ReferenceEquals(handlers, _finishedFor)) { _finishedFor = handlers; _finishedList = handlers == null ? Array.Empty<Delegate>() : handlers.GetInvocationList(); }
+            Delegate[] list = _finishedList;
+            for (int index = 0; index < list.Length; index++)
+            {
+                try { ((Action)list[index])(); }
+                catch (Exception exception) { BasisDebug.LogError($"Settings listener {list[index].Method.DeclaringType}.{list[index].Method.Name} threw on finished changes: {exception}"); }
+            }
+        }
         [NoAutoStaticsCleanup] private static bool _batchSavePending;
         private static bool _batchFinishPending;
 
@@ -139,7 +167,7 @@ namespace Basis.Scripts.Settings
             }
             if (finish)
             {
-                OnSettingsFinishedChanges?.Invoke();
+                RaiseFinishedChanges();
                 ForceQualityRefresh();
             }
         }
@@ -204,11 +232,11 @@ namespace Basis.Scripts.Settings
                 KeyValuePair<string, string>[] array = settings.ToArray();
                 foreach (KeyValuePair<string, string> kv in array)
                 {
-                    OnSettingChanged?.Invoke(kv.Key, kv.Value);
+                    RaiseSettingChanged(kv.Key, kv.Value);
                 }
             }
 
-            OnSettingsFinishedChanges?.Invoke();
+            RaiseFinishedChanges();
             ForceQualityRefresh();
         }
         /// <summary>
@@ -228,17 +256,36 @@ namespace Basis.Scripts.Settings
         /// </summary>
         public static void NotifyFinishedChanges()
         {
-            OnSettingsFinishedChanges?.Invoke();
+            RaiseFinishedChanges();
             ForceQualityRefresh();
         }
         /// <summary>Re-applies current settings to live targets without forcing a quality refresh.</summary>
         public static void ReapplySettings()
         {
-            OnSettingsFinishedChanges?.Invoke();
+            RaiseFinishedChanges();
         }
         public static bool HasSaveData(string uniqueSettingsName)
         {
             return settingsData.settings.TryGetValue(uniqueSettingsName, out var existing);
+        }
+        public static bool TryLoadString(string uniqueSettingsName, out string value)
+        {
+            return settingsData.settings.TryGetValue(uniqueSettingsName, out value);
+        }
+        public static void NotifySettingChanged(string uniqueSettingsName)
+        {
+            if (!_settingsLoaded || !settingsData.settings.TryGetValue(uniqueSettingsName, out string value))
+            {
+                return;
+            }
+            RaiseSettingChanged(uniqueSettingsName, value);
+            if (_batchDepth > 0)
+            {
+                _batchFinishPending = true;
+                return;
+            }
+            RaiseFinishedChanges();
+            ForceQualityRefresh();
         }
         /// <summary>
         /// returns true when we save to disc the change, false does not mean a failure read the code!
@@ -285,13 +332,13 @@ namespace Basis.Scripts.Settings
                     // of them depend on it (the quality level re-clamps shadows and HDR behind it).
                     _batchSavePending = true;
                     _batchFinishPending = true;
-                    OnSettingChanged?.Invoke(uniqueSettingsName, value);
+                    RaiseSettingChanged(uniqueSettingsName, value);
                 }
                 else
                 {
                     SaveAllSettings();
-                    OnSettingChanged?.Invoke(uniqueSettingsName, value);
-                    OnSettingsFinishedChanges?.Invoke();
+                    RaiseSettingChanged(uniqueSettingsName, value);
+                    RaiseFinishedChanges();
                     ForceQualityRefresh();
                     return true;
                 }
@@ -421,7 +468,7 @@ namespace Basis.Scripts.Settings
                 BasisDebug.LogError("Settings file not found, creating new settings file.");
                 _settingsLoaded = true;
                 SaveAllSettings();
-                OnSettingsFinishedChanges?.Invoke();
+                RaiseFinishedChanges();
                 ForceQualityRefresh();
                 return;
             }
@@ -458,7 +505,7 @@ namespace Basis.Scripts.Settings
                 settingsData.RebuildDictionary();
                 _settingsLoaded = true;
                 SaveAllSettings();
-                OnSettingsFinishedChanges?.Invoke();
+                RaiseFinishedChanges();
                 ForceQualityRefresh();
                 return;
             }
@@ -472,10 +519,10 @@ namespace Basis.Scripts.Settings
             KeyValuePair<string, string>[] array = settings.ToArray();
             foreach (KeyValuePair<string, string> kv in array)
             {
-                OnSettingChanged?.Invoke(kv.Key, kv.Value);
+                RaiseSettingChanged(kv.Key, kv.Value);
             }
 
-            OnSettingsFinishedChanges?.Invoke();
+            RaiseFinishedChanges();
             // Persist rewritten version + normalized list/dict
             SaveAllSettings();
             ForceQualityRefresh();

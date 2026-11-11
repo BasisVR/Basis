@@ -267,6 +267,13 @@ public static class BasisEditorCommandBridge
                     Write(line);
                 }
                 break;
+            case "rtscene":
+                {
+                    Type tracer = FindType("BasisExternalRayTracer");
+                    object scene = tracer?.GetProperty("Scene", BindingFlags.Public | BindingFlags.Static)?.GetValue(null) ?? tracer?.GetField("Scene", BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
+                    Write(scene == null ? "no scene" : (string)scene.GetType().GetMethod("DescribeAvatars", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(scene, null));
+                }
+                break;
             case "rtstats":
                 RayTracerStats();
                 break;

@@ -289,6 +289,19 @@ struct LightCandidate
 #ifndef EMITTER_CONTACT
 #define EMITTER_CONTACT 1.0
 #endif
+#ifndef NEAR_SHELL
+#define NEAR_SHELL 2.0
+#endif
+#ifndef NEAR_SHELL_WEIGHT
+#define NEAR_SHELL_WEIGHT 0.25
+#endif
+
+float NearSample(float nearRadius) { return nearRadius * NEAR_SHELL; }
+
+void NearShell(inout LightCandidate c, float nearRadius)
+{
+    if (c.distance >= nearRadius) { c.value *= NEAR_SHELL_WEIGHT * saturate((nearRadius * NEAR_SHELL - c.distance) / (nearRadius * (NEAR_SHELL - 1.0))); }
+}
 
 LightCandidate EvaluateEmitterPoint(Instance instance, uint geometry, uint primitive, float r1, float r2, float3 position, float3 normal, uint part, float nearRadius, out float area)
 {
@@ -792,8 +805,9 @@ LightCandidate EvaluateStored(uint4 id, float3 position, float3 normal, float ne
     Mesh mesh = LoadMesh(instance.mesh);
     if ((LoadMaterial(instance.materialBase + id.y).flags & MATERIAL_EMITTER) == 0 || id.y >= mesh.submeshCount || id.z * 3u >= LoadSubmesh(mesh.submeshOffset + id.y).indexCount) { return c; }
     float area;
-    c = EvaluateEmitterPoint(instance, id.y, id.z, f16tof32(id.w), f16tof32(id.w >> 16), position, normal, 1u, nearRadius, area);
+    c = EvaluateEmitterPoint(instance, id.y, id.z, f16tof32(id.w), f16tof32(id.w >> 16), position, normal, 1u, NearSample(nearRadius), area);
     c.id.x = id.x;
+    NearShell(c, nearRadius);
     return c;
 }
 
@@ -944,8 +958,9 @@ void RayGen()
             }
         }
         float W = chosenTarget > 0.0 && z > 0.0 ? wsum / (z * chosenTarget) : 0.0;
-        if (W > 0.0 && chosen.shadow && Occluded(tlas, origin, chosen.direction, max(chosen.distance * 0.999 - frame.normalBias * 2.0, 0.0))) { W = 0.0; }
-        if (W > 0.0 && isfinite(W))
+        bool counted = chosen.distance < nearRadius;
+        if (counted && W > 0.0 && chosen.shadow && Occluded(tlas, origin, chosen.direction, max(chosen.distance * 0.999 - frame.normalBias * 2.0, 0.0))) { W = 0.0; }
+        if (counted && W > 0.0 && isfinite(W))
         {
             RWTexture2D<float4> output = ResourceDescriptorHeap[HEAP_RADIANCE_UAV];
             float4 value = output[pixel];
@@ -1094,8 +1109,9 @@ void RayGen()
             else [loop] for (uint i = 0; i <= RESERVOIR_INITIAL; i++)
             {
                 LightCandidate c;
-                if (i < RESERVOIR_INITIAL) { c = EmitterCandidate(g, origin, surface.normal, rng, part, nearRadius); }
-                else { c = ContactCandidate(tlas, g, origin, surface.normal, geometric, rng, part, nearRadius, reach); }
+                if (i < RESERVOIR_INITIAL) { c = EmitterCandidate(g, origin, surface.normal, rng, part, NearSample(nearRadius)); }
+                else { c = ContactCandidate(tlas, g, origin, surface.normal, geometric, rng, part, NearSample(nearRadius), reach); }
+                NearShell(c, nearRadius);
                 count += 1.0;
                 float t = Luminance(c.value);
                 float density = RESERVOIR_INITIAL * c.pdf + (c.distance < reach ? c.scatterPdf : 0.0);
@@ -1115,11 +1131,14 @@ void RayGen()
                 bool matched = !all(g == 0.0) && abs(dot(g.xyz - surface.position, surface.normal)) < tolerance && dot(UnpackNormal(asuint(g.w)), surface.normal) > 0.8;
                 if (!matched && previousInside)
                 {
-                    [loop] for (uint n = 0; n < 24; n++)
+                    float2 back = float2(local) + 0.5 - previousPixel;
+                    float span = length(back);
+                    [loop] for (uint n = 0; n < 40; n++)
                     {
+                        if (n >= 24 && span < 1.0) { break; }
                         float radius = n < 8 ? 2.0 : n < 16 ? 5.0 : 10.0;
                         float angle = float(n & 7u) * 0.7853982 + (n < 8 ? 0.0 : n < 16 ? 0.3926991 : 0.0);
-                        int2 tap = int2(floor(previousPixel + radius * float2(cos(angle), sin(angle))));
+                        int2 tap = int2(floor(previousPixel + (n < 24 ? radius * float2(cos(angle), sin(angle)) : back * (float(n - 23u) * 0.125))));
                         if (any(tap < 0) || tap.x >= int(frame.width) || tap.y >= int(frame.height)) { continue; }
                         uint2 c = uint2(tap) + uint2(viewIndex * frame.width, 0);
                         float4 h = previousGeometry[c];

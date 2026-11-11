@@ -123,6 +123,7 @@ public static unsafe partial class BasisExternalRayTracer
         public ulong LastFrame;
         public bool ResultValid, Reset = true;
         public readonly Matrix4x4[] Previous = new Matrix4x4[2];
+        public readonly Vector4[] Position = new Vector4[2];
     }
 
     public static RenderTexture Upload { get; private set; }

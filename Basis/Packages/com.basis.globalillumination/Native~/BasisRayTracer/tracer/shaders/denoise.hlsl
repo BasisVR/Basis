@@ -113,38 +113,49 @@ void Temporal(uint3 id : SV_DispatchThreadID)
             }
             if (weightSum <= 1e-3)
             {
-                [loop] for (uint n = 0; n < 24; n++)
+                float2 back = float2(local) + 0.5 - p;
+                float span = length(back);
+                [loop] for (uint n = 0; n < 40; n++)
                 {
-                    float radius = n < 8 ? 2.0 : n < 16 ? 5.0 : 10.0;
+                    if (n >= 24 && span < 1.0) { break; }
+                    float radius = n < 8 ? 2.0 : n < 16 ? 5.0 : n < 24 ? 10.0 : span * float(n - 23u) * 0.125;
                     float angle = float(n & 7u) * 0.7853982 + (n < 8 ? 0.0 : n < 16 ? 0.3926991 : 0.0);
-                    int2 tap = int2(floor(p + radius * float2(cos(angle), sin(angle))));
+                    int2 tap = int2(floor(p + (n < 24 ? radius * float2(cos(angle), sin(angle)) : back * (float(n - 23u) * 0.125))));
                     if (any(tap < 0) || tap.x >= int(frame.width) || tap.y >= int(frame.height)) { continue; }
                     tap.x += viewIndex * frame.width;
                     float4 g = geometry[tap];
                     if (all(g == 0.0)) { continue; }
                     float plane = abs(dot(g.xyz - s.position, s.normal));
                     if (plane > tolerance || dot(UnpackNormal(asuint(g.w)), s.normal) < 0.8) { continue; }
-                    float w = 1.0 / (radius * (1.0 + 4.0 * plane / tolerance));
+                    float w = 1.0 / (max(radius, 1.0) * (1.0 + 4.0 * plane / tolerance));
                     previous += history[tap] * w;
                     previousMoments += moments[tap] * w;
                     weightSum += w;
-                    if (n == 7 || n == 15) { if (weightSum > 1e-3) { break; } }
+                    if (n == 7 || n == 15 || n >= 23) { if (weightSum > 1e-3) { break; } }
                 }
                 borrowed = weightSum > 1e-3;
             }
         }
         else
         {
-            int2 tap = int2(clamp(p, 0.5, float2(frame.width, frame.height) - 0.5));
-            float reach = length(float2(tap) + 0.5 - p) / float(frame.height);
-            tap.x += viewIndex * frame.width;
-            float4 g = geometry[tap];
-            if (reach < HISTORY_BORROW_REACH && !all(g == 0.0) && abs(dot(g.xyz - s.position, s.normal)) < HistoryTolerance(s.position, s.distance, p, viewIndex) && dot(UnpackNormal(asuint(g.w)), s.normal) >= 0.8)
+            int2 edge = int2(clamp(p, 0.5, float2(frame.width, frame.height) - 0.5));
+            if (length(float2(edge) + 0.5 - p) / float(frame.height) < HISTORY_BORROW_REACH)
             {
-                previous = history[tap];
-                previousMoments = moments[tap];
-                weightSum = 1.0;
-                borrowed = true;
+                float tolerance = HistoryTolerance(s.position, s.distance, p, viewIndex);
+                int2 along = p.y <= 0.0 || p.y >= float(frame.height) ? int2(1, 0) : int2(0, 1);
+                [unroll] for (int k = -2; k <= 2; k++)
+                {
+                    int2 tap = edge + along * (k * 3);
+                    if (any(tap < 0) || tap.x >= int(frame.width) || tap.y >= int(frame.height)) { continue; }
+                    tap.x += viewIndex * frame.width;
+                    float4 g = geometry[tap];
+                    if (all(g == 0.0) || abs(dot(g.xyz - s.position, s.normal)) >= tolerance || dot(UnpackNormal(asuint(g.w)), s.normal) < 0.8) { continue; }
+                    float w = 1.0 / (1.0 + abs(float(k)));
+                    previous += history[tap] * w;
+                    previousMoments += moments[tap] * w;
+                    weightSum += w;
+                }
+                borrowed = weightSum > 1e-3;
             }
         }
     }

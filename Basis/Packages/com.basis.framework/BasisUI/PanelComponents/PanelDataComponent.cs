@@ -11,8 +11,25 @@ namespace Basis.BasisUI
         public BasisSettingsBinding<T> SettingsBinding { get; private set; }
         public virtual void AssignBinding(BasisSettingsBinding<T> binding)
         {
+            if (SettingsBinding != null && _followBinding != null) SettingsBinding.OnChanged -= _followBinding;
             SettingsBinding = binding;
+            _followBinding ??= FollowBinding;
+            SettingsBinding.OnChanged += _followBinding;
             SetValueWithoutNotify(SettingsBinding.RawValue);
+        }
+
+        private Action<T> _followBinding;
+
+        private void FollowBinding(T value)
+        {
+            if (this == null)
+            {
+                if (SettingsBinding != null) SettingsBinding.OnChanged -= _followBinding;
+                return;
+            }
+            if (!BasisSettingsModeScope.Applying || EqualityComparer<T>.Default.Equals(Value, value)) return;
+            SetValueWithoutNotify(value);
+            OnValueChanged?.Invoke(value);
         }
 
         public T Value { get; protected set; }

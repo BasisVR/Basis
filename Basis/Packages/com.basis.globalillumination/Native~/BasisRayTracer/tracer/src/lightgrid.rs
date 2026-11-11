@@ -35,6 +35,7 @@ const COMPLETE_NEAR: u32 = 1 << 24;
 const COMPLETE_FAR: u32 = 1 << 25;
 const SHARED_LIST: u32 = 1 << 26;
 const STABLE_FRAMES: u64 = 16;
+const NEAR_SHELL: f32 = 2.0;
 const _: () = assert!(GRID_CELLS == LEVEL_BLOCKS[0] * BLOCK_CELLS && LEVEL_DIMS[1][0] % BLOCK == 0 && LEVEL_DIMS[1][1] % BLOCK == 0 && LEVEL_DIMS[1][2] % BLOCK == 0 && MAX_LIGHTS + MAX_EMITTERS <= 4096 && K_LIGHTS < 16 && K_ALL < 32 && K_NEAR < 32 && K_FAR < 32 && ENTRY_CAPACITY < 1 << 22);
 
 #[derive(Clone, Copy, Default)]
@@ -206,7 +207,7 @@ fn build_block(inputs: &Inputs, unit: usize, t: &mut Scratch, out: &mut BlockOut
         let w = e.power / d2.max(near * near);
         t.all.push((w, i as u32));
         if !level.split { continue; }
-        if box_box_distance2(&blo, &bhi, &e.safe_lo, &e.safe_hi) < block_near_max * block_near_max { t.near.push((w, i as u32)); }
+        if box_box_distance2(&blo, &bhi, &e.safe_lo, &e.safe_hi) < block_near_max * block_near_max * NEAR_SHELL * NEAR_SHELL { t.near.push((w, i as u32)); }
         if !(box_box_far2(&blo, &bhi, &e.safe_lo, &e.safe_hi) < block_near_min * block_near_min) { t.far.push((e.power / d2.max(block_near_min * block_near_min).max(near * near), i as u32)); }
     }
     let all_complete = t.all.len() <= K_ALL && t.all.len() == inputs.positive_emitters;
@@ -266,7 +267,7 @@ fn build_block(inputs: &Inputs, unit: usize, t: &mut Scratch, out: &mut BlockOut
                 if t.mask[j] & (1 << k) == 0 { continue; }
                 let w = match k {
                     0 => t.power[j] / t.d2[j].max(near2),
-                    1 => { if t.smin2[j] >= near_max2 { continue; } t.power[j] / t.d2[j].max(near2) }
+                    1 => { if t.smin2[j] >= near_max2 * NEAR_SHELL * NEAR_SHELL { continue; } t.power[j] / t.d2[j].max(near2) }
                     _ => { if t.smax2[j] < near_min2 { continue; } t.power[j] / t.d2[j].max(far_floor2) }
                 };
                 if w > 0.0 && w.is_finite() { t.list.push((w, t.ids[j] + EMITTER_ID)); }
@@ -345,6 +346,8 @@ impl LightGrid {
             running: false, begun_at: 0, bounds: vec![[f32::NAN; 6]; BOUNDS_CAPACITY], changed: vec![0; BOUNDS_CAPACITY], build_us: 0, wait_us: 0, used_bytes: GRID_HEADER_BYTES as u64,
         }
     }
+
+    pub fn bound(&self, at: usize) -> Option<[f32; 6]> { self.bounds.get(at).copied() }
 
     pub fn absorb_bounds(&mut self, raw: *const u8, first: usize, end: usize, frame: u64) {
         let end = end.min(self.bounds.len());

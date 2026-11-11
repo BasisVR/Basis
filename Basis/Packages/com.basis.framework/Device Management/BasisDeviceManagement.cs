@@ -268,6 +268,7 @@ namespace Basis.Scripts.Device_Management
                 {
                     BasisSettingsDefaults.LoadAll();
                 }
+                BasisSettingsModeScope.Initialize();
                 Basis.BasisUI.BasisLocalization.Initialize();
                 Basis.BasisUI.BasisTMPFontFallbacks.RefreshJapanesePriority();
                 // First thing after the settings land: a renderer swap can only happen by
