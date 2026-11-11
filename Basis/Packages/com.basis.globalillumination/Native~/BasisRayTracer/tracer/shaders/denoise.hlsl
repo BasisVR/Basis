@@ -111,6 +111,27 @@ void Temporal(uint3 id : SV_DispatchThreadID)
                 previousMoments += moments[tap] * w;
                 weightSum += w;
             }
+            if (weightSum <= 1e-3)
+            {
+                [loop] for (uint n = 0; n < 24; n++)
+                {
+                    float radius = n < 8 ? 2.0 : n < 16 ? 5.0 : 10.0;
+                    float angle = float(n & 7u) * 0.7853982 + (n < 8 ? 0.0 : n < 16 ? 0.3926991 : 0.0);
+                    int2 tap = int2(floor(p + radius * float2(cos(angle), sin(angle))));
+                    if (any(tap < 0) || tap.x >= int(frame.width) || tap.y >= int(frame.height)) { continue; }
+                    tap.x += viewIndex * frame.width;
+                    float4 g = geometry[tap];
+                    if (all(g == 0.0)) { continue; }
+                    float plane = abs(dot(g.xyz - s.position, s.normal));
+                    if (plane > tolerance || dot(UnpackNormal(asuint(g.w)), s.normal) < 0.8) { continue; }
+                    float w = 1.0 / (radius * (1.0 + 4.0 * plane / tolerance));
+                    previous += history[tap] * w;
+                    previousMoments += moments[tap] * w;
+                    weightSum += w;
+                    if (n == 7 || n == 15) { if (weightSum > 1e-3) { break; } }
+                }
+                borrowed = weightSum > 1e-3;
+            }
         }
         else
         {

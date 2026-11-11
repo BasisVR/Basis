@@ -1111,7 +1111,22 @@ void RayGen()
                 uint2 q = uint2(clamp(previousPixel, 0.5, float2(frame.width, frame.height) - 0.5)) + uint2(viewIndex * frame.width, 0);
                 RWTexture2D<float4> previousGeometry = ResourceDescriptorHeap[HEAP_GEOMETRY_UAV + frame.historyRead];
                 float4 g = previousGeometry[q];
-                if (!all(g == 0.0) && abs(dot(g.xyz - surface.position, surface.normal)) < HistoryTolerance(surface.position, surface.distance, previousPixel, viewIndex) && dot(UnpackNormal(asuint(g.w)), surface.normal) > 0.8)
+                float tolerance = HistoryTolerance(surface.position, surface.distance, previousPixel, viewIndex);
+                bool matched = !all(g == 0.0) && abs(dot(g.xyz - surface.position, surface.normal)) < tolerance && dot(UnpackNormal(asuint(g.w)), surface.normal) > 0.8;
+                if (!matched && previousInside)
+                {
+                    [loop] for (uint n = 0; n < 24; n++)
+                    {
+                        float radius = n < 8 ? 2.0 : n < 16 ? 5.0 : 10.0;
+                        float angle = float(n & 7u) * 0.7853982 + (n < 8 ? 0.0 : n < 16 ? 0.3926991 : 0.0);
+                        int2 tap = int2(floor(previousPixel + radius * float2(cos(angle), sin(angle))));
+                        if (any(tap < 0) || tap.x >= int(frame.width) || tap.y >= int(frame.height)) { continue; }
+                        uint2 c = uint2(tap) + uint2(viewIndex * frame.width, 0);
+                        float4 h = previousGeometry[c];
+                        if (!all(h == 0.0) && abs(dot(h.xyz - surface.position, surface.normal)) < tolerance && dot(UnpackNormal(asuint(h.w)), surface.normal) > 0.8) { q = c; matched = true; break; }
+                    }
+                }
+                if (matched)
                 {
                     RWByteAddressBuffer previous = ResourceDescriptorHeap[frame.contextBase + CTX_RESERVOIRS + frame.historyRead];
                     uint o = (q.y * frame.width * frame.viewCount + q.x) * RESERVOIR_STRIDE;
