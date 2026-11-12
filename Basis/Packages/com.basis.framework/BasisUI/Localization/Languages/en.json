@@ -9319,22 +9319,6 @@
       "value": "How much light registered emitters contribute."
     },
     {
-      "key": "settings.graphics.gi.localAvatarEmitterIntensity",
-      "value": "Local Avatar Emitter Intensity"
-    },
-    {
-      "key": "settings.graphics.gi.localAvatarEmitterIntensity.tooltip",
-      "value": "How much light emissive materials on your own avatar contribute. Path Traced and Ray Traced modes only."
-    },
-    {
-      "key": "settings.graphics.gi.remoteAvatarEmitterIntensity",
-      "value": "Remote Avatar Emitter Intensity"
-    },
-    {
-      "key": "settings.graphics.gi.remoteAvatarEmitterIntensity.tooltip",
-      "value": "How much light emissive materials on other players' avatars contribute. Path Traced and Ray Traced modes only."
-    },
-    {
       "key": "settings.graphics.gi.reflectionProbes",
       "value": "GI In Reflection Probes"
     },

@@ -224,8 +224,7 @@ public sealed partial class BasisGlobalIlluminationSettings
     /// from whom. A change lands on the next material refresh rather than the next frame.
     /// </summary>
     public float emissionScale = 2f;
-    public float localAvatarEmitterIntensity = 1f;
-    public float remoteAvatarEmitterIntensity = 1f;
+    public float avatarEmissionScale = 1f;
 
     public bool rayTracedTextureAlbedo = true;
     public bool surfaceColour = true;
@@ -327,8 +326,7 @@ public sealed partial class BasisGlobalIlluminationSettings
         fallbackIntensity = Mathf.Clamp(fallbackIntensity, FallbackIntensityMin, FallbackIntensityMax);
         emitterIntensity = Mathf.Clamp(emitterIntensity, EmitterIntensityMin, EmitterIntensityMax);
         emissionScale = Mathf.Clamp(emissionScale, EmissionScaleMin, EmissionScaleMax);
-        localAvatarEmitterIntensity = Mathf.Clamp(localAvatarEmitterIntensity, EmitterIntensityMin, EmitterIntensityMax);
-        remoteAvatarEmitterIntensity = Mathf.Clamp(remoteAvatarEmitterIntensity, EmitterIntensityMin, EmitterIntensityMax);
+        avatarEmissionScale = Mathf.Clamp(avatarEmissionScale, EmissionScaleMin, EmissionScaleMax);
         bounces = Mathf.Clamp(bounces, BouncesMin, BouncesMax);
         bounceFeedback = Mathf.Clamp(bounceFeedback, BounceFeedbackMin, BounceFeedbackMax);
         cascadeCount = Mathf.Clamp(cascadeCount, CascadeCountMin, CascadeCountMax);
@@ -372,7 +370,7 @@ public sealed partial class BasisGlobalIlluminationSettings
         rayTracedLightIntensity = other.rayTracedLightIntensity; rayTracedShadows = other.rayTracedShadows;
         rayTracedEmissiveSurfaces = other.rayTracedEmissiveSurfaces; respectBakedEmission = other.respectBakedEmission;
         lightmappedReceive = other.lightmappedReceive;
-        emissionScale = other.emissionScale; localAvatarEmitterIntensity = other.localAvatarEmitterIntensity; remoteAvatarEmitterIntensity = other.remoteAvatarEmitterIntensity;
+        emissionScale = other.emissionScale; avatarEmissionScale = other.avatarEmissionScale;
         surfaceColour = other.surfaceColour;
         worldReflections = other.worldReflections;
         alternateEyes = other.alternateEyes;
@@ -547,14 +545,8 @@ public sealed partial class BasisGlobalIlluminationSettings
         return mask;
     }
 
-    private static int avatarLayers, localAvatarLayer = -1, remoteAvatarLayer = -1;
+    private static int avatarLayers;
     private static bool avatarLayersResolved;
-
-    public static float EmitterIntensityForLayer(int layer, float world, float local, float remote)
-    {
-        AvatarLayers();
-        return layer == localAvatarLayer ? local : layer == remoteAvatarLayer ? remote : world;
-    }
 
     /// <summary>
     /// The layers an avatar's renderers live on. Deliberately the LAYER rather than "is it a skinned
@@ -573,8 +565,6 @@ public sealed partial class BasisGlobalIlluminationSettings
             if (layer >= 0) { mask |= 1 << layer; }
         }
 
-        localAvatarLayer = LayerMask.NameToLayer(names[0]);
-        remoteAvatarLayer = LayerMask.NameToLayer(names[1]);
         avatarLayers = mask;
         avatarLayersResolved = true;
         return mask;
@@ -677,9 +667,7 @@ public sealed partial class BasisGlobalIlluminationSettings
             emissiveSurfaces = rayTracedEmissiveSurfaces,
             respectBakedEmission = respectBakedEmission,
             emissionScale = emissionScale,
-            emitterIntensity = emitterIntensity,
-            localAvatarEmission = localAvatarEmitterIntensity,
-            remoteAvatarEmission = remoteAvatarEmitterIntensity
+            avatarEmissionScale = avatarEmissionScale
         };
     }
 

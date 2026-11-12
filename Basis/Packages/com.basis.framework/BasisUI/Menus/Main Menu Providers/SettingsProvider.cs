@@ -2680,26 +2680,6 @@ namespace Basis.BasisUI
                     BasisSettingsDefaults.GlobalIlluminationEmitterIntensity);
                 sliderGiEmitterIntensity.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.emitterIntensity.tooltip"));
 
-                PanelSlider sliderGiLocalAvatarEmitterIntensity = PanelSlider.CreateEntryAndBind(
-                    giAdvanced.ContentParent,
-                    new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.gi.localAvatarEmitterIntensity"),
-                        "",
-                        BasisSettingsDefaults.GI_EMITTER_INTENSITY_MIN,
-                        BasisSettingsDefaults.GI_EMITTER_INTENSITY_MAX,
-                        false, 2, ValueDisplayMode.Raw),
-                    BasisSettingsDefaults.GlobalIlluminationLocalAvatarEmitterIntensity);
-                sliderGiLocalAvatarEmitterIntensity.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.localAvatarEmitterIntensity.tooltip"));
-
-                PanelSlider sliderGiRemoteAvatarEmitterIntensity = PanelSlider.CreateEntryAndBind(
-                    giAdvanced.ContentParent,
-                    new PanelSlider.SliderSettings(BasisLocalization.Get("settings.graphics.gi.remoteAvatarEmitterIntensity"),
-                        "",
-                        BasisSettingsDefaults.GI_EMITTER_INTENSITY_MIN,
-                        BasisSettingsDefaults.GI_EMITTER_INTENSITY_MAX,
-                        false, 2, ValueDisplayMode.Raw),
-                    BasisSettingsDefaults.GlobalIlluminationRemoteAvatarEmitterIntensity);
-                sliderGiRemoteAvatarEmitterIntensity.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.remoteAvatarEmitterIntensity.tooltip"));
-
                 PanelToggle toggleGiReflectionProbes = PanelToggle.CreateNewEntry(giAdvanced.ContentParent);
                 toggleGiReflectionProbes.AssignBinding(BasisSettingsDefaults.GlobalIlluminationReflectionProbes);
                 toggleGiReflectionProbes.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.reflectionProbes"));
@@ -2813,8 +2793,6 @@ namespace Basis.BasisUI
                     toggleGiRayReuse.Descriptor.SetActive(basis && !rayTraced);
                     toggleGiEmitters.Descriptor.SetActive(basis);
                     sliderGiEmitterIntensity.Descriptor.SetActive(basis && toggleGiEmitters.Value);
-                    sliderGiLocalAvatarEmitterIntensity.Descriptor.SetActive((rayTraced || pathTraced) && toggleGiEmitters.Value);
-                    sliderGiRemoteAvatarEmitterIntensity.Descriptor.SetActive((rayTraced || pathTraced) && toggleGiEmitters.Value);
                     toggleGiReflectionProbes.Descriptor.SetActive(basis);
 
                     // The fold itself goes with the effect, so turning global illumination off does not
@@ -4268,8 +4246,6 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.GlobalIlluminationRayReuse.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationEmitters.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.ResetToDefault();
-            BasisSettingsDefaults.GlobalIlluminationLocalAvatarEmitterIntensity.ResetToDefault();
-            BasisSettingsDefaults.GlobalIlluminationRemoteAvatarEmitterIntensity.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationReflectionProbes.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationSpecular.ResetToDefault();
             BasisSettingsDefaults.ReflectionsSolution.ResetToDefault();

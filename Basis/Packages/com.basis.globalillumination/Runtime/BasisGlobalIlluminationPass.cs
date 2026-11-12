@@ -801,7 +801,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
             data.reference = reference;
             data.size = new Vector4(tracedWidth, tracedHeight, 1f / tracedWidth, 1f / tracedHeight);
             data.trace = new Vector4(settings.maxRayLength, settings.obscuranceRadius, obscuranceIntensity, settings.fadeDistance);
-            data.bias = new Vector4(settings.rayTracedNormalBias, settings.rayDistanceBias, 1f, settings.rayTracedLightIntensity);
+            data.bias = new Vector4(settings.rayTracedNormalBias, settings.rayDistanceBias, settings.emitterIntensity, settings.rayTracedLightIntensity);
             data.options = new Vector4(settings.fireflyClamp, settings.rayBounceThreshold, settings.rayTracedShadows ? 1f : 0f, 0f);
             data.sky = new Vector4(sky.Mip, sky.IsValid ? sky.Intensity : 0f, 0f, 0f);
             data.skyDecode = sky.Decode;

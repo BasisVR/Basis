@@ -12,7 +12,7 @@ public partial class BasisGlobalIlluminationPass
     private bool externalSubmit, externalMirror;
     private ulong externalFrame;
     private BasisExternalRayTracer.Context externalContext;
-    private Vector3 externalEmitterScales = new Vector3(-1f, -1f, -1f);
+    private float externalEmissionScale = -1f;
     private uint externalParity, externalFetchParity;
     private ulong externalFetchFrame;
     private bool externalBehind;
@@ -104,15 +104,14 @@ public partial class BasisGlobalIlluminationPass
         parameters.maxDistance = Mathf.Max(1f, settings.maxRayLength * 4f);
         parameters.aoRadius = settings.obscuranceRadius;
         parameters.aoIntensity = settings.obscuranceIntensity;
-        parameters.emissionScale = 1f;
+        parameters.emissionScale = settings.emitterIntensity;
         parameters.time = Time.time;
         parameters.fireflyClamp = settings.fireflyClamp * 4f;
         parameters.temporalResponse = Mathf.Clamp(settings.temporalResponse * 0.35f, 0.02f, 1f);
         parameters.lightIntensity = settings.rayTracedLightIntensity;
         parameters.normalBias = Mathf.Max(0.002f, settings.rayTracedNormalBias * 0.5f);
         parameters.flags = BasisExternalRayTracer.FlagScreenReuse | BasisExternalRayTracer.FlagDenoise | BasisExternalRayTracer.ConsumeResetFlag(context);
-        Vector3 emitterScales = new Vector3(settings.emitterIntensity, settings.localAvatarEmitterIntensity, settings.remoteAvatarEmitterIntensity);
-        if (externalEmitterScales != emitterScales) { if (externalEmitterScales.x >= 0f) { parameters.flags |= BasisExternalRayTracer.FlagCacheReset; BasisExternalRayTracer.Scene?.InvalidateEmission(); } externalEmitterScales = emitterScales; }
+        if (externalEmissionScale != parameters.emissionScale) { if (externalEmissionScale >= 0f) { parameters.flags |= BasisExternalRayTracer.FlagCacheReset; } externalEmissionScale = parameters.emissionScale; }
         if (settings.rayTracedShadows) { parameters.flags |= BasisExternalRayTracer.FlagShadows; }
         if (settings.externalSameFrame) { parameters.flags |= BasisExternalRayTracer.FlagSameFrame; }
         if (settings.externalProbes) { parameters.flags |= BasisExternalRayTracer.FlagProbes; }

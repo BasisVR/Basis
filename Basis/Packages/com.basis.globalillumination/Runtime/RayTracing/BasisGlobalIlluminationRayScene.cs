@@ -47,7 +47,7 @@ public struct BasisGlobalIlluminationRaySceneSettings
     public bool respectBakedEmission;
     /// <summary>Emission multiplier for world geometry, and for anything on an avatar layer.</summary>
     public float emissionScale;
-    public float emitterIntensity, localAvatarEmission, remoteAvatarEmission;
+    public float avatarEmissionScale;
 
     public static BasisGlobalIlluminationRaySceneSettings Default => new BasisGlobalIlluminationRaySceneSettings
     {
@@ -59,9 +59,7 @@ public struct BasisGlobalIlluminationRaySceneSettings
         emissiveSurfaces = true,
         respectBakedEmission = true,
         emissionScale = 2f,
-        emitterIntensity = 1f,
-        localAvatarEmission = 1f,
-        remoteAvatarEmission = 1f
+        avatarEmissionScale = 1f
     };
 }
 
@@ -444,8 +442,6 @@ public sealed partial class BasisGlobalIlluminationRayScene : IDisposable
         return mesh != null && mesh.subMeshCount > 0 && mesh.vertexCount > 0 && mesh.HasVertexAttribute(VertexAttribute.Position);
     }
 
-    private Vector4 appliedScales = new Vector4(-1f, -1f, -1f, -1f);
-
     public void Refresh(in BasisGlobalIlluminationRaySceneSettings settings, in BasisGlobalIlluminationRayViewers viewers, float time, int frameCount)
     {
         if (accelStruct == null) { return; }
@@ -463,14 +459,7 @@ public sealed partial class BasisGlobalIlluminationRayScene : IDisposable
         // every entry it walks and running the whole-scene re-read alongside it would put back exactly the
         // per frame full walk this is here to remove. The version is taken when the pass FINISHES, so an
         // average that lands during one is caught by the frame after it ends rather than lost.
-        Vector4 scales = new Vector4(settings.emissionScale * settings.emitterIntensity, settings.localAvatarEmission, settings.remoteAvatarEmission, 0f);
-        if (scales != appliedScales)
-        {
-            appliedScales = scales;
-            RefreshMaterials(settings);
-            foreach (KeyValuePair<EntityId, ProxyEntry> pair in proxies) { ApplyProxyMaterials(pair.Value, settings); }
-        }
-        else if (!scanning && textureVersion != textures.Version)
+        if (!scanning && textureVersion != textures.Version)
         {
             RefreshMaterials(settings);
         }
@@ -873,7 +862,7 @@ public sealed partial class BasisGlobalIlluminationRayScene : IDisposable
 
         materialScratch.Clear();
         entry.renderer.GetSharedMaterials(materialScratch);
-        float emissionScale = BasisGlobalIlluminationSettings.EmitterIntensityForLayer(entry.renderer.gameObject.layer, settings.emissionScale * settings.emitterIntensity, settings.localAvatarEmission, settings.remoteAvatarEmission);
+        bool avatarEntry = (BasisGlobalIlluminationSettings.AvatarLayers() & (1 << entry.renderer.gameObject.layer)) != 0;
         // Shared across every sub-mesh of this entry, so the renderer's block state is answered once for
         // the whole walk rather than once per sub-mesh. See RendererBlocks.
         RendererBlocks blocks = RendererBlocks.For(entry.renderer);
@@ -894,6 +883,7 @@ public sealed partial class BasisGlobalIlluminationRayScene : IDisposable
                 structureDirty = true;
             }
             Vector4 packedAlbedo = new Vector4(albedo.r, albedo.g, albedo.b, 1f);
+            float emissionScale = avatarEntry ? settings.avatarEmissionScale : settings.emissionScale;
             Vector4 packedEmission = new Vector4(emission.r * emissionScale, emission.g * emissionScale, emission.b * emissionScale, 0f);
             if (instances[instanceId].albedo == packedAlbedo && instances[instanceId].emission == packedEmission) { continue; }
 
@@ -1289,7 +1279,7 @@ public sealed partial class BasisGlobalIlluminationRayScene : IDisposable
             ReadSurface(material, renderer, 0, settings, textures, out albedo, out emission);
         }
 
-        float scale = renderer != null ? BasisGlobalIlluminationSettings.EmitterIntensityForLayer(renderer.gameObject.layer, settings.remoteAvatarEmission, settings.localAvatarEmission, settings.remoteAvatarEmission) : settings.remoteAvatarEmission;
+        float scale = settings.avatarEmissionScale;
         Vector4 packedAlbedo = new Vector4(albedo.r, albedo.g, albedo.b, 1f);
         Vector4 packedEmission = new Vector4(emission.r * scale, emission.g * scale, emission.b * scale, 0f);
 
