@@ -85,7 +85,6 @@ namespace Basis.MediaPipe.Tests
 
         private static MediaPipeArmConverter.AvatarArmRig Rig()
         {
-            Vector3 shoulderCenter = new Vector3(0f, AvatarShoulderY, 0f);
             Vector3 head = new Vector3(0f, AvatarHeadY, 0f);
             return new MediaPipeArmConverter.AvatarArmRig
             {
@@ -99,7 +98,6 @@ namespace Basis.MediaPipe.Tests
                 Up = Vector3.up,
                 Forward = Vector3.forward,
                 HeadLocal = head,
-                HeadMetric = Vector3.Distance(head, shoulderCenter),
                 Valid = true,
             };
         }

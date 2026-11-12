@@ -4,7 +4,7 @@ namespace Basis.MediaPipe
 {
     public sealed class MediaPipeArmConverter
     {
-        public float HeadAnchor = 1f, MaxReach = 0.98f, HandReachGain = 1.1f;
+        public float HeadAnchor = 1f, MaxReach = 0.98f;
         public bool RejectGlitches = true;
         private const float ElbowOutward = 0.3f, BendTrustStart = 0.15f, BendTrustFull = 0.5f, MaxElbowTrust = 0.5f, ElbowTrustHz = 2f;
         // Asymmetric, because the measurement error is asymmetric — see TrackUserArm.
@@ -12,6 +12,8 @@ namespace Basis.MediaPipe
         private const float ArmLengthFallHz = 0.1f;      // ~10s to let go: only for a bad initial lock or a new user
         private const float ArmLengthMaxJump = 1.25f;    // an arm cannot grow 25% between samples; that is a blown landmark
         private const float FocalHeight = 0.8156f, MinDepth = 0.1f, MaxDepth = 5f, MinHandImage = 0.01f;
+        public const float MinPoseWristVisibility = 0.5f;
+        private const float TypicalUserArm = 0.6f, PoseAgreementPalms = 2f;
         private const float FaceBlendHz = 5f, FaceMinCutoff = 1.5f, FaceDepthMinCutoff = 0.7f, FaceSpeedBeta = 8f, FaceSpeedCutoff = 1f;
         private static readonly (int from, int to)[] HandSpans = { (0, 5), (0, 9), (0, 13), (0, 17), (5, 9), (9, 13), (13, 17) };
         private static readonly int[] PalmPoints = { 0, 5, 9, 13, 17 };
@@ -20,8 +22,9 @@ namespace Basis.MediaPipe
         public struct HandFaceInput
         {
             public Vector3[] HandImage, HandWorld;
-            public Vector2 FaceImage;
+            public Vector2 FaceImage, PoseWristImage;
             public float FaceDepth, Aspect;
+            public bool HasPoseWrist;
         }
         private struct FaceRelativeHand
         {
@@ -54,7 +57,6 @@ namespace Basis.MediaPipe
             public float RightUpperLen, RightForeLen;
             public Vector3 Right, Up, Forward;
             public Vector3 HeadLocal, FaceLocal;
-            public float HeadMetric;
             public bool Valid;
         }
         public int RejectedSamples => leftWrist.Rejected + leftElbow.Rejected + rightWrist.Rejected + rightElbow.Rejected;
@@ -108,20 +110,26 @@ namespace Basis.MediaPipe
             wristRotation = LookFrom(wristLocal - elbowLocal, rig.Up);
             return true;
         }
-        public bool TryGetArmFromHand(Vector3 handWrist, Vector2 headImage, float faceSize, float aspect, in AvatarArmRig rig, bool avatarLeft, in MediaPipeTiming timing, out Vector3 wristLocal, out Quaternion wristRotation)
+        public bool TryGetArmFromFace(in HandFaceInput handFace, in AvatarArmRig rig, bool avatarLeft, in MediaPipeTiming timing, out Vector3 wristLocal, out Quaternion wristRotation)
         {
             wristLocal = Vector3.zero;
             wristRotation = Quaternion.identity;
-            if (!rig.Valid || faceSize <= 1e-4f || rig.HeadMetric <= 1e-4f) return false;
-
-            float metric = rig.HeadMetric * HandReachGain / faceSize;
-            float h = -(handWrist.x - headImage.x) * aspect * metric, v = (handWrist.y - headImage.y) * metric;
-            Vector3 anchor = avatarLeft ? rig.LeftAnchor : rig.RightAnchor;
+            ref FaceRelativeHand face = ref avatarLeft ? ref leftFace : ref rightFace;
             float avatarArm = avatarLeft ? rig.LeftUpperLen + rig.LeftForeLen : rig.RightUpperLen + rig.RightForeLen;
-            Vector3 offset = new Vector3(h, v, 0f);
-            offset = avatarLeft ? leftWrist.Apply(offset, in timing, MaxSpeed) : rightWrist.Apply(offset, in timing, MaxSpeed);
+            float userArm = avatarLeft ? leftUserArm : rightUserArm;
+            float reach = avatarArm / (userArm > 1e-4f ? userArm : TypicalUserArm);
+            if (!rig.Valid || !(avatarArm > 1e-4f) || !TryUpdateFaceTarget(ref face, in handFace, in rig, reach, in timing))
+            {
+                face = default;
+                return false;
+            }
 
-            wristLocal = ClampReach(anchor, rig.HeadLocal + offset.x * rig.Right + offset.y * rig.Up, avatarArm);
+            face.Weight = 1f;
+            if (avatarLeft) { leftWrist.Reset(); leftElbow.Reset(); }
+            else { rightWrist.Reset(); rightElbow.Reset(); }
+
+            Vector3 anchor = avatarLeft ? rig.LeftAnchor : rig.RightAnchor;
+            wristLocal = ClampReach(anchor, face.Target, avatarArm);
             wristRotation = LookFrom(wristLocal - anchor, rig.Up);
             return true;
         }
@@ -137,13 +145,8 @@ namespace Basis.MediaPipe
         private Vector3 BlendFaceWrist(in HandFaceInput handFace, in AvatarArmRig rig, bool avatarLeft, float reach, Vector3 poseTarget, in MediaPipeTiming timing)
         {
             ref FaceRelativeHand face = ref avatarLeft ? ref leftFace : ref rightFace;
-            bool measured = TryMeasureHandFromFace(in handFace, out Vector3 offset);
-            if (measured)
-            {
-                offset = face.Smooth(face.Filter.Apply(offset, in timing, MaxSpeed), timing.RenderDelta);
-                face.Target = rig.FaceLocal + (offset.x * rig.Right + offset.y * rig.Up + offset.z * rig.Forward) * reach;
-            }
-            else if (face.Weight <= 0f)
+            bool measured = TryUpdateFaceTarget(ref face, in handFace, in rig, reach, in timing);
+            if (!measured && face.Weight <= 0f)
             {
                 face = default;
                 return poseTarget;
@@ -153,6 +156,13 @@ namespace Basis.MediaPipe
             else if (face.Weight > 0.999f) face.Weight = 1f;
             return Vector3.Lerp(poseTarget, face.Target, face.Weight);
         }
+        private bool TryUpdateFaceTarget(ref FaceRelativeHand face, in HandFaceInput handFace, in AvatarArmRig rig, float reach, in MediaPipeTiming timing)
+        {
+            if (!TryMeasureHandFromFace(in handFace, out Vector3 offset)) return false;
+            offset = face.Smooth(face.Filter.Apply(offset, in timing, MaxSpeed), timing.RenderDelta);
+            face.Target = rig.FaceLocal + (offset.x * rig.Right + offset.y * rig.Up + offset.z * rig.Forward) * reach;
+            return true;
+        }
         public static bool TryMeasureHandFromFace(in HandFaceInput input, out Vector3 offset)
         {
             offset = Vector3.zero;
@@ -161,6 +171,7 @@ namespace Basis.MediaPipe
             {
                 return false;
             }
+            if (!AgreesWithPoseWrist(in input)) return false;
 
             float metric = 0f, image = 0f;
             foreach ((int from, int to) in HandSpans)
@@ -187,6 +198,14 @@ namespace Basis.MediaPipe
             Vector2 face = ImageToMetric(input.FaceImage, input.Aspect, input.FaceDepth / FocalHeight);
             offset = new Vector3(face.x - hand.x, hand.y - face.y, input.FaceDepth - handDepth);
             return MediaPipeSpace.IsFinite(offset);
+        }
+        private static bool AgreesWithPoseWrist(in HandFaceInput input)
+        {
+            if (!input.HasPoseWrist) return true;
+            Vector2 wrist = input.HandImage[MediaPipeSpace.HandWrist];
+            float palm = Vector2.Scale((Vector2)input.HandImage[MediaPipeSpace.HandMiddleMcp] - wrist, new Vector2(input.Aspect, 1f)).magnitude;
+            float gap = Vector2.Scale(input.PoseWristImage - wrist, new Vector2(input.Aspect, 1f)).magnitude;
+            return gap <= PoseAgreementPalms * palm;
         }
         private static bool InDepthRange(float depth) => depth > MinDepth && depth < MaxDepth;
         private static Vector2 ImageToMetric(Vector2 image, float aspect, float scale) => new Vector2((image.x - 0.5f) * aspect, image.y - 0.5f) * scale;

@@ -452,7 +452,6 @@ namespace Basis.MediaPipe
                 Forward = forward,
                 HeadLocal = headLocal,
                 FaceLocal = headLocal + right * eyeFromHead.x + up * eyeFromHead.y + forward * eyeFromHead.z,
-                HeadMetric = Vector3.Distance(headLocal, shoulderCenter),
                 Valid = true,
             };
             return true;
@@ -944,11 +943,9 @@ namespace Basis.MediaPipe
                 return;
             }
 
-            // No body pose: place the wrist from the hand landmarker, anchored to the head (face) when present.
-            float faceSize = result.HasFace ? result.FaceImageSize : 0f;
             if (TryBuildArmRig(out MediaPipeArmConverter.AvatarArmRig handOnlyRig)
-                && _armConverter.TryGetArmFromHand(landmarks[MediaPipeSpace.HandWrist], result.HeadImagePosition,
-                    faceSize, CameraAspect(), in handOnlyRig, left, in timing, out Vector3 handWrist, out Quaternion handWristRotation))
+                && _armConverter.TryGetArmFromFace(BuildHandFaceInput(in result, left), in handOnlyRig, left, in timing,
+                    out Vector3 handWrist, out Quaternion handWristRotation))
             {
                 WriteTracker(handRole, handWrist, handWristRotation);
                 return;
@@ -961,11 +958,18 @@ namespace Basis.MediaPipe
         {
             bool hand = left ? result.HasLeftHand : result.HasRightHand;
             if (!hand || !result.HasFace || !MediaPipeSpace.IsUsable(result.FaceTransform)) return default;
+            int poseWrist = left ? MediaPipeSpace.LeftWrist : MediaPipeSpace.RightWrist;
+            bool hasPoseWrist = result.HasPose && result.PoseLandmarks != null && result.PoseLandmarks.Length >= MediaPipeSpace.PoseCount
+                && MediaPipeSpace.IsFinite(result.PoseLandmarks[poseWrist])
+                && (result.PoseVisibility == null || result.PoseVisibility.Length < MediaPipeSpace.PoseCount
+                    || result.PoseVisibility[poseWrist] >= MediaPipeArmConverter.MinPoseWristVisibility);
             return new MediaPipeArmConverter.HandFaceInput
             {
                 HandImage = left ? result.LeftHandLandmarks : result.RightHandLandmarks,
                 HandWorld = left ? result.LeftHandWorldLandmarks : result.RightHandWorldLandmarks,
                 FaceImage = result.HeadImagePosition,
+                PoseWristImage = hasPoseWrist ? (Vector2)result.PoseLandmarks[poseWrist] : Vector2.zero,
+                HasPoseWrist = hasPoseWrist,
                 FaceDepth = Mathf.Abs(result.FaceTransform.m23) * 0.01f,
                 Aspect = result.ImageAspect > 0f ? result.ImageAspect : CameraAspect(),
             };
