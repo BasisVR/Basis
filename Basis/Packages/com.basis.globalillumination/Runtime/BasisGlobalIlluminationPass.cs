@@ -423,7 +423,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         // bilateral blur and the composite downstream read the same traced texture either way. A GPU or a
         TextureHandle externalMotion = UseExternalMotion && resourceData.motionVectorColor.IsValid() ? resourceData.motionVectorColor : TextureHandle.nullHandle;
         int upscaleDivisor = Mathf.Clamp(settings.ResolvedResolutionDivisor(), 1, 4);
-        bool upscale = TemporalUpsample && settings.IsExternal() && !settings.IsExternalWorld() && externalMotion.IsValid() && upscaleDivisor > 1 && tracedWidth < descriptor.width && DebugView == BasisGlobalIlluminationDebugView.None;
+        bool upscale = TemporalUpsample && settings.IsExternal() && externalMotion.IsValid() && upscaleDivisor > 1 && tracedWidth < descriptor.width && DebugView == BasisGlobalIlluminationDebugView.None;
         Vector2 nextJitter = upscale ? UpsampleJitter(history.JitterIndex + 1, upscaleDivisor) : Vector2.zero;
         externalJitter = new Vector4(nextJitter.x, nextJitter.y, history.SubmitJitter.x, history.SubmitJitter.y);
         bool external = settings.IsExternal() && PrepareExternal(settings, cameraData, tracedWidth, tracedHeight, externalMotion.IsValid());

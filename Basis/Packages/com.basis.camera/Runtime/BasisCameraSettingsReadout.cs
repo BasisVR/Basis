@@ -444,7 +444,7 @@ public static partial class BasisCameraSettingsReadout
     }
 
     private static string GiModeLabel(int mode) =>
-        BasisLocalization.Get(mode == 3 ? "settings.graphics.gi.mode.pathTracedWorld" : mode == 2 ? "settings.graphics.gi.mode.pathTracedBaked" : mode == 1 ? "settings.graphics.gi.mode.rayTraced" : "settings.graphics.gi.mode.radianceCascades");
+        BasisLocalization.Get(mode == 2 ? "settings.graphics.gi.mode.pathTracedBaked" : mode == 1 ? "settings.graphics.gi.mode.rayTraced" : "settings.graphics.gi.mode.radianceCascades");
 
     private static string GiLayersLabel(int layers)
     {

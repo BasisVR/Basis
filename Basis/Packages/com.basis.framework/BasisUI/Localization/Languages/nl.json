@@ -5289,8 +5289,6 @@
     { "key": "settings.graphics.gi.mode.rayTraced.tooltip", "value": "Traceert de wereld zelf, inclusief wat buiten beeld is. Vereist DirectX 12 en een grafische kaart met hardwarematige ray tracing, zoals NVIDIA RTX; overal elders draait het als Screen Space." },
     { "key": "settings.graphics.gi.mode.pathTracedBaked", "value": "Path tracing + gebakken (DX12)" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked.tooltip", "value": "Behoudt de gebakken belichting van de wereld en traceert alleen wat de bake niet kent: avatars, bewegende objecten, avatargloed en realtime lampen. Veel goedkoper dan volledige path tracing in werelden met lightmaps. Zonder gebakken belichting werkt het als Path tracing." },
-    { "key": "settings.graphics.gi.mode.pathTracedWorld", "value": "Path tracing (wereldruimte, DX12)" },
-    { "key": "settings.graphics.gi.mode.pathTracedWorld.tooltip", "value": "Traceert de wereld en bewaart het resultaat op de oppervlakken zelf, zodat beide ogen hetzelfde licht zien en niets uitsmeert als je je hoofd draait. Fijne contactschaduwen zijn zachter en snel bewegende objecten hebben even nodig om hun licht te krijgen." },
     { "key": "settings.graphics.gi.mode.screenSpace.tooltip", "value": "Werkt met wat de camera al heeft getekend. Draait op elke grafische kaart, ook met DirectX 11." },
     { "key": "settings.graphics.gi.solution", "value": "Implementatie" },
     { "key": "settings.graphics.gi.solution.tooltip", "value": "Basis gebruikt de globale verlichting van Basis met de instellingen hieronder. Unity gebruikt de globale verlichting van Unity's Surface Cache, die op Unity Lit-materialen de gebakken verlichting van de wereld vervangt en de instellingen uit de volumes van de wereld haalt." },

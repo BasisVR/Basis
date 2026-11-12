@@ -5289,8 +5289,6 @@
     { "key": "settings.graphics.gi.mode.rayTraced.tooltip", "value": "दुनिया को खुद ट्रेस करता है, स्क्रीन से बाहर की चीज़ों सहित। DirectX 12 और हार्डवेयर रे ट्रेसिंग वाला ग्राफ़िक्स कार्ड चाहिए, जैसे NVIDIA RTX; बाकी हर जगह यह स्क्रीन स्पेस के रूप में चलता है।" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked", "value": "पाथ ट्रेस्ड + बेक्ड (DX12)" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked.tooltip", "value": "दुनिया की बेक की गई रोशनी रखता है और केवल वही ट्रेस करता है जो बेक नहीं जानता: अवतार, चलती वस्तुएँ, अवतार की चमक और रीयलटाइम लाइटें। लाइटमैप वाली दुनिया में पूरे पाथ ट्रेसिंग से कहीं सस्ता। बेक्ड रोशनी न हो तो पाथ ट्रेस्ड जैसा काम करता है।" },
-    { "key": "settings.graphics.gi.mode.pathTracedWorld", "value": "पाथ ट्रेस्ड (वर्ल्ड स्पेस, DX12)" },
-    { "key": "settings.graphics.gi.mode.pathTracedWorld.tooltip", "value": "दुनिया में रोशनी के पथ ट्रेस करता है और परिणाम सतहों पर ही रखता है, इसलिए दोनों आँखें एक जैसी रोशनी देखती हैं और सिर घुमाने पर कुछ धुंधला नहीं होता। बारीक छायाएँ थोड़ी नरम होती हैं, और तेज़ चलने वाली चीज़ों को रोशनी पकड़ने में पल भर लग सकता है।" },
     { "key": "settings.graphics.gi.mode.screenSpace.tooltip", "value": "कैमरे ने जो पहले से बनाया है उसी से काम करता है। किसी भी ग्राफ़िक्स कार्ड पर चलता है, DirectX 11 सहित।" },
     { "key": "settings.graphics.gi.solution", "value": "सॉल्यूशन" },
     { "key": "settings.graphics.gi.solution.tooltip", "value": "Basis चुनने पर Basis की ग्लोबल इल्यूमिनेशन नीचे दी गई सेटिंग्स के साथ चलती है। Unity चुनने पर Unity की Surface Cache ग्लोबल इल्यूमिनेशन चलती है, जो Unity Lit मटीरियल पर वर्ल्ड की बेक्ड लाइटिंग की जगह लेती है और अपनी सेटिंग्स वर्ल्ड के Volume से लेती है।" },

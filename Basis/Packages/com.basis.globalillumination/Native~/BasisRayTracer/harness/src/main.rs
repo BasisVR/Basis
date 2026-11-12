@@ -305,7 +305,6 @@ fn main() {
         let spot = |j: usize| -> V3 { let a = j as f32 * 2.39996; let r = 5.0 + ((j * 7) % 25) as f32; [r * a.cos(), 0.5 + (j % 3) as f32, r * a.sin()] };
         let mut times = Vec::new();
         let alpha_cfg: Option<Vec<f32>> = std::env::var("ALPHA").ok().map(|v| v.split(',').filter_map(|p| p.parse().ok()).collect()).filter(|v: &Vec<f32>| v.len() == 3);
-        let world_space = std::env::var("WORLD").map_or(false, |v| !v.is_empty());
         let hide_blocks = std::env::var("HIDE").map_or(false, |v| !v.is_empty());
         let clear = |b: &Block| b.emission.iter().all(|v| *v <= 0.0);
 
@@ -415,7 +414,7 @@ fn main() {
             let v = View { view, projection, inverse_view_projection: [0.0; 16], previous_view_projection: prev_vp, position: [camera[0], camera[1], camera[2], 0.0] };
             slot.params = FrameParams {
                 frame, instance_count: instances as u32, material_count: (statics + blocks) as u32, light_count: (wd.lights.len() + many) as u32, command_count: commands.len() as u32, upload_texels: texels.len() as u32,
-                flags: if scene == 0 || std::env::var("SCREEN").is_ok() { FLAG_SCREEN_REUSE } else { 0 } | FLAG_SHADOWS | if std::env::var("NODENOISE").is_ok() || world_space { 0 } else { FLAG_DENOISE } | FLAG_REORDER | if std::env::var("NOPROBES").map_or(false, |v| !v.is_empty()) || world_space { 0 } else { FLAG_PROBES } | if world_space { FLAG_WORLD_SPACE } else { 0 }, width: w, height: h, view_count: views, samples: std::env::var("SAMPLES").ok().and_then(|v| v.parse().ok()).unwrap_or(2), bounces: 2 | (avatar_rays << 8),
+                flags: if scene == 0 || std::env::var("SCREEN").is_ok() { FLAG_SCREEN_REUSE } else { 0 } | FLAG_SHADOWS | if std::env::var("NODENOISE").is_ok() { 0 } else { FLAG_DENOISE } | FLAG_REORDER | if std::env::var("NOPROBES").map_or(false, |v| !v.is_empty()) { 0 } else { FLAG_PROBES }, width: w, height: h, view_count: views, samples: std::env::var("SAMPLES").ok().and_then(|v| v.parse().ok()).unwrap_or(2), bounces: 2 | (avatar_rays << 8),
                 max_distance: 100.0, ao_radius: env_f("AORADIUS").unwrap_or(if scene == 0 { 0.5 } else { 0.0 }), emission_scale: 1.0, sky_intensity: 1.0, time: t, firefly_clamp: 30.0, temporal_response: 0.05,
                 light_intensity: 1.0, normal_bias: 0.005, emitter_count: (emitter_count + many) as u32, ao_intensity: 0.5, context: 0, parity: (iteration & 1) as u32, cache_cell_size: 0.2, dirty_count: std::env::var("DIRTY").ok().and_then(|v| v.parse().ok()).unwrap_or(dirty_count as u32), ambient: [[0.0; 4]; 7], views: [v, v],
             };

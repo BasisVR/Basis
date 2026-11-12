@@ -5289,8 +5289,6 @@
     { "key": "settings.graphics.gi.mode.rayTraced.tooltip", "value": "خود دنیا کو ٹریس کرتا ہے، بشمول اس کے جو اسکرین سے باہر ہے۔ DirectX 12 اور ہارڈویئر رے ٹریسنگ والا گرافکس کارڈ درکار ہے، جیسے NVIDIA RTX؛ اس کے علاوہ ہر جگہ یہ اسکرین اسپیس کے طور پر چلتا ہے۔" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked", "value": "پاتھ ٹریسڈ + بیکڈ (DX12)" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked.tooltip", "value": "دنیا کی بیک شدہ روشنی رکھتا ہے اور صرف وہی ٹریس کرتا ہے جو بیک نہیں جانتا: اوتار، حرکت کرتی اشیاء، اوتار کی چمک اور ریئل ٹائم روشنیاں۔ لائٹ میپ والی دنیا میں مکمل پاتھ ٹریسنگ سے کہیں سستا۔ بیکڈ روشنی نہ ہو تو پاتھ ٹریسڈ کی طرح کام کرتا ہے۔" },
-    { "key": "settings.graphics.gi.mode.pathTracedWorld", "value": "پاتھ ٹریسڈ (ورلڈ اسپیس، DX12)" },
-    { "key": "settings.graphics.gi.mode.pathTracedWorld.tooltip", "value": "دنیا میں روشنی کے راستے ٹریس کرتا ہے اور نتیجہ سطحوں پر ہی رکھتا ہے، اس لیے دونوں آنکھیں ایک جیسی روشنی دیکھتی ہیں اور سر گھمانے پر کچھ دھندلا نہیں ہوتا۔ باریک سائے کچھ نرم ہوتے ہیں، اور تیز چلنے والی چیزوں کو روشنی پکڑنے میں ایک لمحہ لگ سکتا ہے۔" },
     { "key": "settings.graphics.gi.mode.screenSpace.tooltip", "value": "کیمرے کے پہلے سے بنائے ہوئے منظر سے کام کرتا ہے۔ کسی بھی گرافکس کارڈ پر چلتا ہے، DirectX 11 سمیت۔" },
     { "key": "settings.graphics.gi.solution", "value": "سلوشن" },
     { "key": "settings.graphics.gi.solution.tooltip", "value": "Basis منتخب ہونے پر Basis کی گلوبل الیومینیشن نیچے دی گئی ترتیبات کے ساتھ چلتی ہے۔ Unity منتخب ہونے پر Unity کی Surface Cache گلوبل الیومینیشن چلتی ہے، جو Unity Lit میٹریلز پر دنیا کی بیکڈ لائٹنگ کی جگہ لیتی ہے اور اپنی ترتیبات دنیا کے Volumes سے لیتی ہے۔" },

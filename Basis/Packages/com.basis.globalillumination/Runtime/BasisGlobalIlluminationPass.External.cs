@@ -116,7 +116,6 @@ public partial class BasisGlobalIlluminationPass
         if (settings.externalSameFrame) { parameters.flags |= BasisExternalRayTracer.FlagSameFrame; }
         if (settings.externalProbes) { parameters.flags |= BasisExternalRayTracer.FlagProbes; }
         if (settings.IsExternalBaked()) { parameters.flags |= BasisExternalRayTracer.FlagBakedHybrid; }
-        if (settings.IsExternalWorld()) { parameters.flags = (parameters.flags & ~(BasisExternalRayTracer.FlagDenoise | BasisExternalRayTracer.FlagProbes)) | BasisExternalRayTracer.FlagWorldSpace; }
         if (motion) { parameters.flags |= FlagMotion; }
         for (int v = 0; v < 2; v++)
         {

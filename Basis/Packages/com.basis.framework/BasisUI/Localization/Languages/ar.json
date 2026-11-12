@@ -5289,8 +5289,6 @@
     { "key": "settings.graphics.gi.mode.rayTraced.tooltip", "value": "يتتبع العالم نفسه، بما في ذلك ما هو خارج الشاشة. يتطلب DirectX 12 وبطاقة رسومات تدعم تتبع الأشعة بالعتاد، مثل NVIDIA RTX؛ وفي أي حالة أخرى يعمل بوضع مساحة الشاشة." },
     { "key": "settings.graphics.gi.mode.pathTracedBaked", "value": "تتبع المسارات + المخبوز (DX12)" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked.tooltip", "value": "يحتفظ بالإضاءة المخبوزة للعالم ويتتبع فقط ما لا يعرفه الخبز: الأفاتارات والأجسام المتحركة وتوهج الأفاتار والأضواء الفورية. أرخص بكثير من التتبع الكامل في العوالم ذات خرائط الإضاءة. بدون إضاءة مخبوزة يعمل مثل تتبع المسارات." },
-    { "key": "settings.graphics.gi.mode.pathTracedWorld", "value": "تتبع المسارات (فضاء العالم، DX12)" },
-    { "key": "settings.graphics.gi.mode.pathTracedWorld.tooltip", "value": "يتتبع مسارات الضوء في العالم ويحفظ النتيجة على الأسطح نفسها، فترى العينان الضوء نفسه ولا يحدث تلطيخ عند إدارة الرأس. الظلال الدقيقة أنعم، وقد تحتاج الأجسام السريعة لحظة لالتقاط إضاءتها." },
     { "key": "settings.graphics.gi.mode.screenSpace.tooltip", "value": "يعمل انطلاقًا مما رسمته الكاميرا بالفعل. يعمل على أي بطاقة رسومات، بما في ذلك DirectX 11." },
     { "key": "settings.graphics.gi.solution", "value": "التنفيذ" },
     { "key": "settings.graphics.gi.solution.tooltip", "value": "عند اختيار Basis تعمل الإضاءة الشاملة الخاصة بـ Basis بالإعدادات أدناه. وعند اختيار Unity تعمل الإضاءة الشاملة Surface Cache من Unity، التي تحل محل الإضاءة المخبوزة للعالم على مواد Unity Lit وتأخذ إعداداتها من مكوّنات Volume في العالم." },

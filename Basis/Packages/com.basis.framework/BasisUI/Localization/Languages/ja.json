@@ -5289,8 +5289,6 @@
     { "key": "settings.graphics.gi.mode.rayTraced.tooltip", "value": "画面外も含め、ワールドそのものをトレースします。DirectX 12 と、NVIDIA RTX などのハードウェアレイトレーシング対応グラフィックカードが必要です。それ以外の環境では「スクリーンスペース」として動作します。" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked", "value": "パストレーシング + ベイク (DX12)" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked.tooltip", "value": "ワールドのベイク済みライティングを保ち、ベイクが知らないものだけをトレースします：アバター、動くオブジェクト、アバターの発光、リアルタイムライト。ライトマップのあるワールドではフルのパストレーシングよりはるかに軽量です。ベイクがないワールドではパストレーシングと同じ動作です。" },
-    { "key": "settings.graphics.gi.mode.pathTracedWorld", "value": "パストレーシング (ワールド空間, DX12)" },
-    { "key": "settings.graphics.gi.mode.pathTracedWorld.tooltip", "value": "ワールドをパストレースし、結果を表面そのものに保持します。両目が同じ光を見て、頭を動かしても残像が出ません。細かい接触影はやわらかくなり、速く動く物体は光がなじむまで少し時間がかかることがあります。" },
     { "key": "settings.graphics.gi.mode.screenSpace.tooltip", "value": "カメラがすでに描画した内容を元に処理します。DirectX 11 を含め、どのグラフィックカードでも動作します。" },
     { "key": "settings.graphics.gi.solution", "value": "実装" },
     { "key": "settings.graphics.gi.solution.tooltip", "value": "「Basis」は下の設定で Basis のグローバルイルミネーションを使用します。「Unity」は Unity の Surface Cache グローバルイルミネーションを使用します。これは Unity Lit マテリアル上でワールドのベイク済みライティングを置き換え、設定はワールドのボリュームから取得します。" },

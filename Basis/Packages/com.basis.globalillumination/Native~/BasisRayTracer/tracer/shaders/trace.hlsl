@@ -618,7 +618,7 @@ bool PrimarySurface(RaytracingAccelerationStructure tlas, float3 viewer, inout S
 
 float3 HitLighting(RaytracingAccelerationStructure tlas, float3 origin, float3 position, float3 normal, float3 geometric, float3 viewer, bool cache, inout uint rng, out float coverage)
 {
-    float nearRadius = (frame.flags & FLAG_WORLD_SPACE) != 0 ? 0.0 : CacheCellSize(position, viewer) * 3.0;
+    float nearRadius = CacheCellSize(position, viewer) * 3.0;
     float4 cached = cache ? CacheLookup(position, geometric, viewer, Random(rng)) : 0.0;
     coverage = saturate(cached.a * 2.0);
     bool far = (frame.flags & FLAG_BAKED_HYBRID) == 0;
@@ -627,10 +627,6 @@ float3 HitLighting(RaytracingAccelerationStructure tlas, float3 origin, float3 p
     if (!split && far && light.emitter && light.distance >= nearRadius) { light.value *= 1.0 - coverage; }
     return light.value + cached.rgb * coverage;
 }
-
-#ifndef WORLD_LOOKUP_BIAS
-#define WORLD_LOOKUP_BIAS 1.0
-#endif
 
 #ifndef PATH_SEGMENTS
 #define PATH_SEGMENTS 12
@@ -770,7 +766,7 @@ void GatherRay(RaytracingAccelerationStructure tlas, Texture2D<uint4> gbuffer, f
 void GatherFarLight(RaytracingAccelerationStructure tlas, float3 position, float3 normal, float3 viewer, inout uint rng, inout SH sh)
 {
     if ((frame.flags & FLAG_BAKED_HYBRID) != 0) { return; }
-    LightCandidate light = SampleLights(tlas, position, normal, false, rng, 2u, (frame.flags & FLAG_WORLD_SPACE) != 0 ? 0.0 : CacheCellSize(position, viewer) * 3.0);
+    LightCandidate light = SampleLights(tlas, position, normal, false, rng, 2u, CacheCellSize(position, viewer) * 3.0);
     if (any(light.value > 0.0))
     {
         float3 v = ClampFirefly(light.value);
@@ -1091,55 +1087,21 @@ void RayGen()
     if (mode == 0)
     {
         if (baked) { return; }
-        float3 position = origin, normal = surface.normal, plane = geometric, cacheViewer = CacheViewer(viewer);
+        float3 position = origin, normal = surface.normal, plane = geometric;
         uint vertices = clamp(frame.bounces & 0xffu, 1u, 4u);
         for (uint v = 0; v < vertices; v++)
         {
             float levelRandom = Random(rng);
-            if (CacheSettled(position, plane, cacheViewer, levelRandom) && (Hash(pixel.x * 31u + pixel.y * 17u + frame.frameIndex) & 15u) != 0u) { break; }
+            if (CacheSettled(position, plane, viewer, levelRandom) && (Hash(pixel.x * 31u + pixel.y * 17u + frame.frameIndex) & 15u) != 0u) { break; }
             Bounce next;
             float2 rotation = v == 0 ? BlueNoise2(index, 4u, frame.frameIndex) : float2(Random(rng), Random(rng));
             SH sh = GatherSH(tlas, gbuffer, position, normal, plane, viewer, v == 0 ? max(frame.samples, 2u) : 2u, rotation, reorder, rng, next);
-            CacheAccumulate(position, plane, cacheViewer, sh, levelRandom, float2(Random(rng), Random(rng)));
-            if ((frame.flags & FLAG_WORLD_SPACE) != 0) { CacheAccumulate(position, plane, cacheViewer, sh, levelRandom, float2(Random(rng), Random(rng)), 2.0); }
+            CacheAccumulate(position, plane, viewer, sh, levelRandom, float2(Random(rng), Random(rng)));
             if (!next.hit || next.terminal) { break; }
             position = next.position;
             normal = next.normal;
             plane = next.geometric;
         }
-        return;
-    }
-
-    if ((frame.flags & FLAG_WORLD_SPACE) != 0 && !baked)
-    {
-        RWByteAddressBuffer reservoirs = ResourceDescriptorHeap[frame.contextBase + CTX_RESERVOIR_SCRATCH];
-        reservoirs.Store4((pixel.y * frame.width * frame.viewCount + pixel.x) * RESERVOIR_SCRATCH_STRIDE + 16u, uint4(0u, 0u, 0u, 0u));
-        float bias = WORLD_LOOKUP_BIAS + (avatarPixel ? 2.0 : 0.0);
-        float3 cacheViewer = CacheViewer(viewer);
-        float4 world = CacheLookupSmooth(surface.position, geometric, surface.normal, cacheViewer, bias);
-        [loop] for (uint step = 0; step < (avatarPixel ? 5u : 3u) && world.a < 0.99; step++)
-        {
-            bias += 2.0;
-            float4 coarse = CacheLookupSmooth(surface.position, geometric, surface.normal, cacheViewer, bias);
-            float wc = (1.0 - world.a) * coarse.a;
-            world = float4(world.a + wc > 1e-5 ? (world.rgb * world.a + coarse.rgb * wc) / (world.a + wc) : 0.0, world.a + wc);
-        }
-        float3 irradiance = world.rgb;
-#ifndef WORLD_NO_FALLBACK
-        if (world.a < 0.05)
-        {
-            uint fresh = clamp(frame.samples / 2u, 1u, 8u);
-            float3 traced = 0.0;
-            for (uint ri = 0; ri < fresh; ri++)
-            {
-                float3 direction = CosineSample(surface.normal, BlueNoise2(pixel, 1u, frame.frameIndex * fresh + ri));
-                if (dot(direction, geometric) <= 0.0) { direction = normalize(direction - 2.0 * dot(direction, geometric) * geometric); }
-                traced += ClampFirefly(TraceRadiance(tlas, gbuffer, origin, direction, surface.normal, viewer, false, rng).radiance);
-            }
-            irradiance = lerp(traced / fresh + FarLight(tlas, origin, surface.normal, 0.0, rng), world.rgb, saturate(world.a * 20.0));
-        }
-#endif
-        output[pixel] = float4(all(isfinite(irradiance)) ? irradiance : 0.0, 1.0);
         return;
     }
 

@@ -22,8 +22,7 @@ public enum BasisGlobalIlluminationDiffuseMode
     RadianceCascades,
     RayTraced,
     PathTracedExternal,
-    PathTracedBaked,
-    PathTracedWorld
+    PathTracedBaked
 }
 
 public enum BasisGlobalIlluminationResolution
@@ -521,9 +520,8 @@ public sealed partial class BasisGlobalIlluminationSettings
     public Vector2Int ResolvedTracedSize(int width, int height) => TracedSize(resolution, IsExternal(), width, height);
 
     public bool IsRayTraced() => mode == BasisGlobalIlluminationDiffuseMode.RayTraced;
-    public bool IsExternal() => mode == BasisGlobalIlluminationDiffuseMode.PathTracedExternal || mode == BasisGlobalIlluminationDiffuseMode.PathTracedBaked || mode == BasisGlobalIlluminationDiffuseMode.PathTracedWorld;
+    public bool IsExternal() => mode == BasisGlobalIlluminationDiffuseMode.PathTracedExternal || mode == BasisGlobalIlluminationDiffuseMode.PathTracedBaked;
     public bool IsExternalBaked() => mode == BasisGlobalIlluminationDiffuseMode.PathTracedBaked;
-    public bool IsExternalWorld() => mode == BasisGlobalIlluminationDiffuseMode.PathTracedWorld;
     public bool IsSpecularRayTraced() => specularMode == BasisGlobalIlluminationMode.RayTraced;
     public bool UsesRayTracer() => (DiffuseActive() && IsRayTraced()) || (SpecularActive() && IsSpecularRayTraced());
 

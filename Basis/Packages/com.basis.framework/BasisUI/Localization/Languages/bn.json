@@ -5289,8 +5289,6 @@
     { "key": "settings.graphics.gi.mode.rayTraced.tooltip", "value": "স্ক্রিনের বাইরের অংশসহ বিশ্বকেই ট্রেস করে। DirectX 12 এবং হার্ডওয়্যার রে ট্রেসিং সমর্থিত গ্রাফিক্স কার্ড প্রয়োজন, যেমন NVIDIA RTX; অন্য যেকোনো ক্ষেত্রে এটি স্ক্রিন স্পেস হিসেবে চলে।" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked", "value": "পাথ ট্রেসড + বেকড (DX12)" },
     { "key": "settings.graphics.gi.mode.pathTracedBaked.tooltip", "value": "জগতের বেক করা আলো রাখে এবং শুধু যা বেক জানে না তা ট্রেস করে: অবতার, চলমান বস্তু, অবতারের দীপ্তি ও রিয়েলটাইম আলো। লাইটম্যাপযুক্ত জগতে পূর্ণ পাথ ট্রেসিংয়ের চেয়ে অনেক সস্তা। বেকড আলো না থাকলে পাথ ট্রেসডের মতো কাজ করে।" },
-    { "key": "settings.graphics.gi.mode.pathTracedWorld", "value": "পাথ ট্রেসড (ওয়ার্ল্ড স্পেস, DX12)" },
-    { "key": "settings.graphics.gi.mode.pathTracedWorld.tooltip", "value": "জগতে আলোর পথ ট্রেস করে ফলাফল পৃষ্ঠগুলোতেই রাখে, তাই দুই চোখ একই আলো দেখে এবং মাথা ঘোরালে কিছু ঝাপসা হয় না। সূক্ষ্ম ছায়া কিছুটা নরম, আর দ্রুত চলা বস্তু আলো পেতে একটু সময় নিতে পারে।" },
     { "key": "settings.graphics.gi.mode.screenSpace.tooltip", "value": "ক্যামেরা যা আগেই এঁকেছে তা থেকে কাজ করে। যেকোনো গ্রাফিক্স কার্ডে চলে, DirectX 11 সহ।" },
     { "key": "settings.graphics.gi.solution", "value": "সলিউশন" },
     { "key": "settings.graphics.gi.solution.tooltip", "value": "Basis বেছে নিলে নিচের সেটিংস দিয়ে Basis-এর গ্লোবাল ইলুমিনেশন চলে। Unity বেছে নিলে Unity-র Surface Cache গ্লোবাল ইলুমিনেশন চলে, যা Unity Lit ম্যাটেরিয়ালে ওয়ার্ল্ডের বেকড লাইটিং প্রতিস্থাপন করে এবং ওয়ার্ল্ডের Volume থেকে সেটিংস নেয়।" },

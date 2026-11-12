@@ -238,8 +238,8 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
     private BasisGlobalIlluminationCaptureOverride? captureOverride;
 
     /// <summary>Canonical option strings for <see cref="BasisGlobalIlluminationCaptureOverride.Mode"/>, index-matched to the live Mode dropdown. Parsed by <see cref="ReadMode"/>.</summary>
-    [NoAutoStaticsCleanup] public static readonly string[] ModeOptions = { "Radiance Cascades", "Ray Traced", "Path Traced (Baked)", "Path Traced (World Space)" };
-    [NoAutoStaticsCleanup] private static readonly string[] ModeLocalizationKeys = { "settings.graphics.gi.mode.radianceCascades", "settings.graphics.gi.mode.rayTraced", "settings.graphics.gi.mode.pathTracedBaked", "settings.graphics.gi.mode.pathTracedWorld" };
+    [NoAutoStaticsCleanup] public static readonly string[] ModeOptions = { "Radiance Cascades", "Ray Traced", "Path Traced (Baked)" };
+    [NoAutoStaticsCleanup] private static readonly string[] ModeLocalizationKeys = { "settings.graphics.gi.mode.radianceCascades", "settings.graphics.gi.mode.rayTraced", "settings.graphics.gi.mode.pathTracedBaked" };
     public static bool RayTracedModeOffered => SystemInfo.graphicsDeviceType != GraphicsDeviceType.Direct3D11;
 
     public static void AssignModeEntries(PanelDropdown dropdown)
@@ -615,7 +615,6 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
     public static BasisGlobalIlluminationDiffuseMode ReadDiffuseMode(string optionValue)
     {
         string lowered = optionValue?.ToLowerInvariant();
-        if (lowered == "path traced (world space)" || lowered == "pathtracedworld") { return BasisGlobalIlluminationDiffuseMode.PathTracedWorld; }
         if (lowered == "path traced (baked)" || lowered == "pathtracedbaked" || lowered == "path traced" || lowered == "pathtraced" || lowered == "path traced (avatars)" || lowered == "pathtracedavatars") { return BasisGlobalIlluminationDiffuseMode.PathTracedBaked; }
         return ReadMode(optionValue) == BasisGlobalIlluminationMode.RayTraced ? BasisGlobalIlluminationDiffuseMode.RayTraced : BasisGlobalIlluminationDiffuseMode.RadianceCascades;
     }
