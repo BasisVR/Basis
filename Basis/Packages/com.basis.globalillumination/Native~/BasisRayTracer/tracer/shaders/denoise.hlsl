@@ -2,6 +2,9 @@
 
 #define DENOISE_RESERVOIR_SCRATCH 16
 
+#ifndef HISTORY_FACING
+#define HISTORY_FACING 0.3
+#endif
 #ifndef HISTORY_BORROW_REACH
 #define HISTORY_BORROW_REACH 0.5
 #endif
@@ -105,7 +108,7 @@ void Temporal(uint3 id : SV_DispatchThreadID)
                 if (all(g == 0.0)) { continue; }
                 float plane = abs(dot(g.xyz - s.position, s.normal));
                 float facing = dot(UnpackNormal(asuint(g.w)), s.normal);
-                if (plane > tolerance || facing < 0.8) { continue; }
+                if (plane > tolerance || facing < HISTORY_FACING) { continue; }
                 float w = (o.x ? f.x : 1.0 - f.x) * (o.y ? f.y : 1.0 - f.y);
                 previous += history[tap] * w;
                 previousMoments += moments[tap] * w;
@@ -126,7 +129,7 @@ void Temporal(uint3 id : SV_DispatchThreadID)
                     float4 g = geometry[tap];
                     if (all(g == 0.0)) { continue; }
                     float plane = abs(dot(g.xyz - s.position, s.normal));
-                    if (plane > tolerance || dot(UnpackNormal(asuint(g.w)), s.normal) < 0.8) { continue; }
+                    if (plane > tolerance || dot(UnpackNormal(asuint(g.w)), s.normal) < HISTORY_FACING) { continue; }
                     float w = 1.0 / (max(radius, 1.0) * (1.0 + 4.0 * plane / tolerance));
                     previous += history[tap] * w;
                     previousMoments += moments[tap] * w;
@@ -149,7 +152,7 @@ void Temporal(uint3 id : SV_DispatchThreadID)
                     if (any(tap < 0) || tap.x >= int(frame.width) || tap.y >= int(frame.height)) { continue; }
                     tap.x += viewIndex * frame.width;
                     float4 g = geometry[tap];
-                    if (all(g == 0.0) || abs(dot(g.xyz - s.position, s.normal)) >= tolerance || dot(UnpackNormal(asuint(g.w)), s.normal) < 0.8) { continue; }
+                    if (all(g == 0.0) || abs(dot(g.xyz - s.position, s.normal)) >= tolerance || dot(UnpackNormal(asuint(g.w)), s.normal) < HISTORY_FACING) { continue; }
                     float w = 1.0 / (1.0 + abs(float(k)));
                     previous += history[tap] * w;
                     previousMoments += moments[tap] * w;

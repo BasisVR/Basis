@@ -1688,7 +1688,6 @@ namespace Basis.BasisUI
             {
                 // Advanced Settings
                 PanelTabGroup advancedActionsPanel = PanelTabGroup.CreateNew(PanelTabGroup.TabGroupStyles.VerticalStackedNoBackground, existingItemDialog.Descriptor.ContentParent);
-                advancedActionsPanel.Descriptor.SetHeight(160);
 
                 // content sync mode dropdown determines whether the new item is flagged as networked or local, which affects filtering and how the item is loaded later
                 PanelDropdown contentSyncModeDropDown = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.Entry, advancedActionsPanel.TabButtonParent);
@@ -1776,15 +1775,12 @@ namespace Basis.BasisUI
                     saveToServerToggle.Descriptor.SetSize(new Vector2(700, 80));
                     saveToServerToggle.SetInteractable(desiredNetworkType == BundledContentHolder.NetworkType.Networked, BasisLocalization.Get("library.saveToServer.networkedOnly"));
                     saveToServerToggle.OnValueChanged = (val) => saveToServer = val;
-                    advancedActionsPanel.Descriptor.SetHeight(240);
                 }
 
                 // where a prop lands when spawned. Automatic defers to whatever the prop itself asks
                 // for, so this only needs touching to override the creator's choice.
                 if (item.Mode == BundledContentHolder.Mode.Prop)
                 {
-                    advancedActionsPanel.Descriptor.SetHeight(saveToServerToggle != null ? 320 : 240);
-
                     PanelDropdown placementDropDown = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.Entry, advancedActionsPanel.TabButtonParent);
                     placementDropDown.Descriptor.SetTitle(BasisLocalization.Get("library.placement"));
                     placementDropDown.Descriptor.SetDescription(GetPlacementDescription(item.PlacementOverride));
@@ -1805,6 +1801,10 @@ namespace Basis.BasisUI
                         await BasisDataStoreItemKeys.UpdatePlacementOverride(item, selectedPlacement);
                     };
                 }
+
+                int advancedRows = advancedActionsPanel.TabButtonParent.childCount;
+                float advancedSpacing = advancedActionsPanel.TabButtonParent.TryGetComponent(out VerticalLayoutGroup advancedLayout) ? advancedLayout.spacing : 16f;
+                advancedActionsPanel.Descriptor.SetHeight(advancedRows * 80 + Mathf.Max(0, advancedRows - 1) * advancedSpacing);
             }
 
             #endregion

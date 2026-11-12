@@ -523,6 +523,16 @@ float4 BasisGIBilateralBlur(float2 uv)
 float3 BasisGIBounceCopy(float2 uv)
 {
     float3 colour = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_LinearClamp, UnityStereoTransformScreenSpaceTex(uv), 0).rgb;
+    float2 footprint = _BasisGISourceTexelSize.zw * _BasisGITracedTexelSize.xy;
+    UNITY_BRANCH
+    if (footprint.x > 2.5)
+    {
+        float2 reach = footprint * 0.25 * _BasisGISourceTexelSize.xy;
+        colour = 0.25 * (SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_LinearClamp, UnityStereoTransformScreenSpaceTex(uv + float2(-reach.x, -reach.y)), 0).rgb
+            + SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_LinearClamp, UnityStereoTransformScreenSpaceTex(uv + float2(reach.x, -reach.y)), 0).rgb
+            + SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_LinearClamp, UnityStereoTransformScreenSpaceTex(uv + float2(-reach.x, reach.y)), 0).rgb
+            + SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_LinearClamp, UnityStereoTransformScreenSpaceTex(uv + float2(reach.x, reach.y)), 0).rgb);
+    }
 #if defined(_BASISGI_BOUNCE_FEEDBACK)
     float rawDepth = BasisGISampleRawDepth(uv);
     if (BasisGIIsSky(rawDepth) || _BasisGIHistoryValid < 0.5) { return colour; }

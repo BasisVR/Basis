@@ -31,8 +31,8 @@
 #define BASISGI_BLUR_LUMINANCE_FLOOR 0.02
 // How far off a pixel's own surface plane a neighbour may sit before it stops being the same surface,
 // as a fraction of the distance to it, with a floor for anything close to the camera.
-#define BASISGI_BLUR_PLANE 0.03
-#define BASISGI_BLUR_PLANE_FLOOR 0.02
+#define BASISGI_BLUR_PLANE 0.004
+#define BASISGI_BLUR_PLANE_FLOOR 0.003
 
 TEXTURE2D_X(_BasisGISceneColor);
 SAMPLER(sampler_BasisGISceneColor);

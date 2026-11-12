@@ -19,7 +19,7 @@ public sealed partial class BasisGlobalIlluminationPass
     public const int WorldSpecularBins = 8;
     public const float WorldTemporalBlend = 0.15f;
     public const float WorldSpecularBlend = 0.015f;
-    public const float WorldSeenDecay = 0.9995f;
+    public const float WorldSeenDecay = 0.99994f;
     public const int PassVoxelCapture = 14;
     private const int WorldThreads = 4;
     private const int WorldBlock = 4;
@@ -90,7 +90,7 @@ public sealed partial class BasisGlobalIlluminationPass
     [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerWorldResolve = new ProfilingSampler("Basis GI World Resolve");
 
     private static RTHandle worldFaces, worldBlocks, worldCoarse, worldEmission;
-    private static RTHandle worldAlbedo, worldNormal, worldSeen, worldSeenWeight, worldSeenAlbedo, worldRadiance, worldStamp;
+    private static RTHandle worldAlbedo, worldNormal, worldSeen, worldSeenWeight, worldSeenBase, worldSeenAlbedo, worldRadiance, worldStamp;
     private static Camera worldCaptureCamera;
     [NoAutoStaticsCleanup] private static readonly RTHandle[] worldCascadeAtlas = new RTHandle[WorldCascades];
     [NoAutoStaticsCleanup] private static readonly RTHandle[][] worldHarmonics = { new RTHandle[4], new RTHandle[4] };
@@ -107,7 +107,7 @@ public sealed partial class BasisGlobalIlluminationPass
     [NoAutoStaticsCleanup] private static readonly int[] worldUpdates = new int[WorldMaxLevels];
     [NoAutoStaticsCleanup] private static readonly float[] worldUpdateTime = new float[WorldMaxLevels];
     public static int WorldJitterCycle = 4;
-    public static float WorldSeenHalfLife = 15f;
+    public static float WorldSeenHalfLife = 120f;
     public static float WorldSmoothingSeconds = 0.1f;
     private static GameObject worldCullerObject;
     private static Camera worldCuller;
@@ -146,6 +146,7 @@ public sealed partial class BasisGlobalIlluminationPass
     private static readonly int idVoxFacesRW = Shader.PropertyToID("_BasisGIVoxFacesRW");
     private static readonly int idVoxSeenRW = Shader.PropertyToID("_BasisGIVoxSeenRW");
     private static readonly int idVoxSeenWeightRW = Shader.PropertyToID("_BasisGIVoxSeenWeightRW");
+    private static readonly int idVoxSeenBaseRW = Shader.PropertyToID("_BasisGIVoxSeenBaseRW");
     private static readonly int idVoxSeenAlbedoRW = Shader.PropertyToID("_BasisGIVoxSeenAlbedoRW");
     private static readonly int idVoxSeenAlbedo = Shader.PropertyToID("_BasisGIVoxSeenAlbedo");
     private static readonly int idWorldSeen = Shader.PropertyToID("_BasisGIWorldSeen");
@@ -363,6 +364,7 @@ public sealed partial class BasisGlobalIlluminationPass
         worldFaces = AllocateVolume(WorldVoxels, WorldVoxels, depth, GraphicsFormat.R32_UInt, "_BasisGIVoxFaces");
         worldSeen = AllocateVolume(WorldVoxels, WorldVoxels, depth, GraphicsFormat.R32_UInt, "_BasisGIVoxSeen");
         worldSeenWeight = AllocateVolume(WorldVoxels, WorldVoxels, depth, GraphicsFormat.R32_SFloat, "_BasisGIVoxSeenWeight");
+        worldSeenBase = AllocateVolume(WorldVoxels, WorldVoxels, depth, GraphicsFormat.R32_UInt, "_BasisGIVoxSeenBase");
         worldSeenAlbedo = AllocateVolume(WorldVoxels, WorldVoxels, depth, GraphicsFormat.R32_UInt, "_BasisGIVoxSeenAlbedo");
         worldRadiance = AllocateVolume(WorldVoxels, WorldVoxels, depth, GraphicsFormat.R16G16B16A16_SFloat, "_BasisGIVoxRadiance");
         worldEmission = AllocateVolume(WorldVoxels, WorldVoxels, depth, GraphicsFormat.R32_UInt, "_BasisGIVoxEmission");
@@ -420,6 +422,7 @@ public sealed partial class BasisGlobalIlluminationPass
         RTHandles.Release(worldCoarse); worldCoarse = null;
         RTHandles.Release(worldSeen); worldSeen = null;
         RTHandles.Release(worldSeenWeight); worldSeenWeight = null;
+        RTHandles.Release(worldSeenBase); worldSeenBase = null;
         RTHandles.Release(worldSeenAlbedo); worldSeenAlbedo = null;
         RTHandles.Release(worldRadiance); worldRadiance = null;
         RTHandles.Release(worldEmission); worldEmission = null;
@@ -790,6 +793,7 @@ public sealed partial class BasisGlobalIlluminationPass
                 cmd.SetComputeTextureParam(compute, clear, idVoxEmissionRW, worldEmission);
                 cmd.SetComputeTextureParam(compute, clear, idVoxSeenRW, worldSeen);
                 cmd.SetComputeTextureParam(compute, clear, idVoxSeenWeightRW, worldSeenWeight);
+                cmd.SetComputeTextureParam(compute, clear, idVoxSeenBaseRW, worldSeenBase);
                 cmd.SetComputeTextureParam(compute, clear, idVoxSeenAlbedoRW, worldSeenAlbedo);
                 cmd.DispatchCompute(compute, clear, voxelGroups, voxelGroups, voxelGroups);
 
@@ -836,6 +840,7 @@ public sealed partial class BasisGlobalIlluminationPass
         cmd.SetComputeTextureParam(compute, inject, idVoxNormal, worldNormal);
         cmd.SetComputeTextureParam(compute, inject, idVoxSeenRW, worldSeen);
         cmd.SetComputeTextureParam(compute, inject, idVoxSeenWeightRW, worldSeenWeight);
+        cmd.SetComputeTextureParam(compute, inject, idVoxSeenBaseRW, worldSeenBase);
         cmd.SetComputeTextureParam(compute, inject, idVoxSeenAlbedo, worldSeenAlbedo);
         cmd.SetComputeTextureParam(compute, inject, idVoxBlocks, worldBlocks);
         cmd.SetComputeTextureParam(compute, inject, idVoxCoarse, worldCoarse);

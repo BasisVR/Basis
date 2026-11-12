@@ -350,6 +350,9 @@ struct LightCandidate
 #ifndef EMITTER_CONTACT
 #define EMITTER_CONTACT 1.0
 #endif
+#ifndef INITIAL_VISIBILITY
+#define INITIAL_VISIBILITY 1
+#endif
 #ifndef NEAR_SHELL
 #define NEAR_SHELL 2.0
 #endif
@@ -1167,6 +1170,9 @@ void RayGen()
                 wsum += w;
                 if (Random(rng) * wsum < w) { chosen = c; chosenTarget = t; }
             }
+#if INITIAL_VISIBILITY
+            if (chosenTarget > 0.0 && chosen.shadow && Occluded(tlas, origin, chosen.direction, max(chosen.distance * 0.999 - frame.normalBias * 2.0, 0.0))) { chosen = (LightCandidate)0; chosenTarget = 0.0; wsum = 0.0; }
+#endif
             float2 previousPixel;
             bool previousInside;
             if (PreviousPixel(surface.position, surface.motion, local, viewIndex, previousPixel, previousInside))

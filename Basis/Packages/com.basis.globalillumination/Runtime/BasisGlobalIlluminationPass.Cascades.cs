@@ -277,6 +277,7 @@ public sealed partial class BasisGlobalIlluminationPass
                 builder.UseTexture(color1); builder.UseTexture(color2); builder.UseTexture(color3);
                 builder.UseTexture(depth1); builder.UseTexture(depth2); builder.UseTexture(depth3);
                 builder.UseTexture(cascadeProbes[cascade]);
+                builder.UseTexture(resourceData.cameraDepthTexture);
                 if (hasUpper) { builder.UseTexture(cascadeProbes[cascade + 1]); builder.UseTexture(upper); }
                 builder.AllowGlobalStateModification(true);
                 builder.SetRenderFunc((PassData data, RasterGraphContext context) => Execute(data, context));

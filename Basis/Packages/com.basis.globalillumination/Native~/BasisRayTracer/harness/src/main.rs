@@ -311,6 +311,7 @@ fn main() {
         let unit = |k: u32| { let mut x = k.wrapping_add(1).wrapping_mul(0x9e3779b9); x ^= x >> 16; x = x.wrapping_mul(0x7feb352d); x ^= x >> 15; x = x.wrapping_mul(0x846ca68b); x ^= x >> 16; (x >> 8) as f32 / 16777216.0 };
         let spheres: Vec<(V3, f32, V3)> = (0..clutter as u32).map(|j| ([-2.7 + 5.4 * unit(j * 3 + 1), 0.2 + 2.4 * unit(j * 3 + 2), -1.5 + 4.2 * unit(j * 3 + 3)], 0.06 + 0.12 * unit(j * 7 + 5), [0.2 + 0.7 * unit(j * 11 + 4), 0.2 + 0.7 * unit(j * 13 + 6), 0.2 + 0.7 * unit(j * 17 + 8)])).collect();
         let mut pass_samples: Vec<[u32; 8]> = Vec::new();
+        let clutter_alpha = std::env::var("CLUTTERALPHA").map_or(false, |v| !v.is_empty());
         let textures: u32 = std::env::var("TEXTURES").ok().and_then(|v| v.parse().ok()).unwrap_or(0u32).min(48);
 
         for frame in 1..=frames {
@@ -380,7 +381,7 @@ fn main() {
                     for y in 0..sv { for x in 0..su { let i = y * (su + 1) + x; si.extend_from_slice(&[i, i + 1, i + su + 1, i + 1, i + su + 2, i + su + 1]); } }
                     let svc = (sphere.len() / 2) as u32;
                     commands.push(Command { op: OP_MESH_DEFINE, id: 3, a: svc, b: si.len() as u32, c: 1, ..Default::default() });
-                    commands.push(Command { op: OP_MESH_SUBMESH, id: 3, a: 0, b: si.len() as u32, c: SUBMESH_OPAQUE, ..Default::default() });
+                    commands.push(Command { op: OP_MESH_SUBMESH, id: 3, a: 0, b: si.len() as u32, c: if clutter_alpha { SUBMESH_ALPHA_TEST } else { SUBMESH_OPAQUE }, ..Default::default() });
                     let at = push(&mut texels, &sphere);
                     commands.push(Command { op: OP_MESH_VERTICES, id: 3, a: 0, b: svc, c: at, ..Default::default() });
                     let st: Vec<[u32; 4]> = si.chunks(4).map(|c| [c[0], *c.get(1).unwrap_or(&0), *c.get(2).unwrap_or(&0), *c.get(3).unwrap_or(&0)]).collect();
@@ -401,7 +402,7 @@ fn main() {
             for j in 0..many { let p = spot(j); slot.instances[2 + j] = Instance { transform: [1.0, 0.0, 0.0, p[0] - 1.2, 0.0, 1.0, 0.0, p[1] - 0.6, 0.0, 0.0, 1.0, p[2] - 1.0], mesh: 2, material_base: 7, mask: 0xff, flags: 0, lightmap: -1, ..Default::default() }; }
             for i in (2 + many)..instances { slot.instances[i] = Instance { transform: [1.0, 0.0, 0.0, 500.0 + (i % 128) as f32 * 2.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 500.0 + (i / 128) as f32 * 2.0], mesh: 2, material_base: 7, mask: 0xff, flags: 0, lightmap: -1, ..Default::default() }; }
             for (j, (c, r, _)) in spheres.iter().enumerate() { slot.instances[instances + j] = Instance { transform: [*r, 0.0, 0.0, c[0], 0.0, *r, 0.0, c[1], 0.0, 0.0, *r, c[2]], mesh: 3, material_base: (statics + blocks + j) as u32, mask: 0xff, flags: 0, lightmap: -1, ..Default::default() }; }
-            for (j, (_, _, a)) in spheres.iter().enumerate() { slot.materials[statics + blocks + j] = Material { base_color: [a[0], a[1], a[2], 1.0], base_st: [3.0, 3.0, 0.0, 0.0], emission_st: [1.0, 1.0, 0.0, 0.0], base_texture: if textures > 0 { (j as u32 % textures) as i32 } else { -1 }, emission_texture: -1, ..Default::default() }; }
+            for (j, (_, _, a)) in spheres.iter().enumerate() { slot.materials[statics + blocks + j] = Material { base_color: [a[0], a[1], a[2], 1.0], base_st: [3.0, 3.0, 0.0, 0.0], emission_st: [1.0, 1.0, 0.0, 0.0], base_texture: if textures > 0 { (j as u32 % textures) as i32 } else { -1 }, emission_texture: -1, alpha_mode: if clutter_alpha { 1 } else { 0 }, cutoff: if clutter_alpha { 0.5 } else { 0.0 }, ..Default::default() }; }
             for (i, q) in room_quads.iter().enumerate() { slot.materials[i] = Material { base_color: [q.albedo[0], q.albedo[1], q.albedo[2], 1.0], emission: [q.emission[0] * lit, q.emission[1] * lit, q.emission[2] * lit, 0.0], base_st: [1.0, 1.0, 0.0, 0.0], emission_st: [1.0, 1.0, 0.0, 0.0], base_texture: if textures > 0 && iteration > 3 { (i as u32 % textures) as i32 } else { -1 }, emission_texture: -1, flags: if q.emission.iter().any(|v| *v > 0.0) { MATERIAL_EMITTER } else { 0 }, ..Default::default() }; }
             for (b, k) in wd.blocks.iter().enumerate() { slot.materials[statics + b] = Material { base_color: [k.albedo[0], k.albedo[1], k.albedo[2], 1.0], emission: [k.emission[0] * lit, k.emission[1] * lit, k.emission[2] * lit, 0.0], base_st: [1.0, 1.0, 0.0, 0.0], emission_st: [1.0, 1.0, 0.0, 0.0], base_texture: -1, emission_texture: -1, flags: if k.emission.iter().any(|v| *v > 0.0) { MATERIAL_EMITTER } else { 0 }, ..Default::default() }; }
             if let Some(a) = &alpha_cfg { for (b, k) in wd.blocks.iter().enumerate() { if clear(k) { let m = &mut slot.materials[statics + b]; m.alpha_mode = a[0] as u32; m.base_color[3] = a[1]; m.cutoff = a[2]; } } }

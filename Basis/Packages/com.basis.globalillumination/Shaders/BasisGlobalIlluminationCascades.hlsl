@@ -233,6 +233,9 @@ BasisGIRCSegment BasisGIRCMarch(float3 originWS, float3 directionWS, float start
     int ceiling = (int)_BasisGIRCInterval.z;
     int level = (int)clamp(floor(log2(max(pixels / (float)ceiling, 1.0))), 0.0, (float)(BASISGI_RC_LEVELS - 1));
     int steps = clamp((int)ceil(pixels / exp2((float)level)), 1, ceiling);
+    float sourceScale = _BasisGISourceTexelSize.z * _BasisGITracedTexelSize.x;
+    bool fine = level == 0 && sourceScale > 1.5;
+    if (fine) { steps = clamp((int)ceil(pixels * sourceScale), 1, ceiling); }
 
     float invFirst = 1.0 / first.w;
     float invLast = 1.0 / last.w;
@@ -253,7 +256,14 @@ BasisGIRCSegment BasisGIRCMarch(float3 originWS, float3 directionWS, float start
         }
 
         float rayEye = 1.0 / max(BASISGI_EPSILON, invEye);
-        float2 depth = BasisGIRCLoadDepth(level, uv);
+        float2 depth;
+        UNITY_BRANCH
+        if (fine)
+        {
+            float fineRaw = BasisGISampleRawDepth(uv);
+            depth = BasisGIIsSky(fineRaw) ? float2(0.0, 0.0) : BasisGILinearEyeDepth(fineRaw).xx;
+        }
+        else { depth = BasisGIRCLoadDepth(level, uv); }
         float distanceAlong = (along * invLast / max(BASISGI_EPSILON, invEye));
         if (depth.g <= 0.0) { verified = distanceAlong; continue; }
 

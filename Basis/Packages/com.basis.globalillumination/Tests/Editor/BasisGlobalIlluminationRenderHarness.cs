@@ -219,6 +219,7 @@ namespace Basis.Tests.GlobalIllumination
             Settings = BasisGlobalIlluminationSettings.Current;
             authoredSettings = Settings.Clone();
             Settings.enable = true;
+            Settings.motionVectors = false;
             Settings.mode = BasisGlobalIlluminationDiffuseMode.RadianceCascades;
         }
 

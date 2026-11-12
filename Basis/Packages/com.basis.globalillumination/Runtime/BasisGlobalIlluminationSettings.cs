@@ -281,15 +281,11 @@ public sealed partial class BasisGlobalIlluminationSettings
     /// view-projection alone. The matrix carries the CAMERA's motion and nothing else, so it is only
     /// correct where the world stood still.
     ///
-    /// ⚠️ OFF BY DEFAULT BECAUSE IT IS UNVERIFIED. URP advances the previous-frame matrix that feeds the
-    /// motion vector pass once per ENGINE frame, and an EditMode test drives the camera with
-    /// Camera.Render() in a loop, which never advances that counter - measured 2026-08-27:
-    /// `Time.frameCount` moved by zero across a twelve frame run, and in a scene where nothing moved the
-    /// motion texture still read about 1.5 pixels where every vector had to be exactly zero. So every
-    /// number the render harness produces about this setting measures that broken input, not the
-    /// reprojection. What would settle it: play mode, or a headset, with a person walking across the view.
+    /// An EditMode Camera.Render() loop never advances the engine's motion vector frame index, so the
+    /// render harness switches this off; a test that needs real vectors has to repaint a scene view
+    /// between renders with the camera armed for DepthTextureMode.MotionVectors.
     /// </summary>
-    public bool motionVectors = false;
+    public bool motionVectors = true;
     public float depthRejection = 0.1f;
 
     /// <summary>

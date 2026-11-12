@@ -39,6 +39,7 @@ RWTexture3D<uint> _BasisGIVoxEmissionRW;
 Texture3D<uint> _BasisGIVoxEmission;
 RWTexture3D<uint> _BasisGIVoxSeenRW;
 RWTexture3D<float> _BasisGIVoxSeenWeightRW;
+RWTexture3D<uint> _BasisGIVoxSeenBaseRW;
 RWTexture3D<uint> _BasisGIVoxSeenAlbedoRW;
 Texture3D<uint> _BasisGIVoxSeenAlbedo;
 Texture3D<float> _BasisGIVoxBlocks;
@@ -221,6 +222,7 @@ void ClearVoxels(uint3 id : SV_DispatchThreadID)
             int3 slot = BasisGIWorldSeenSlot(centre, level);
             _BasisGIVoxSeenRW[slot] = 0u;
             _BasisGIVoxSeenWeightRW[slot] = 0.0;
+            _BasisGIVoxSeenBaseRW[slot] = 0u;
             _BasisGIVoxSeenAlbedoRW[slot] = 0u;
         }
     }
@@ -292,9 +294,12 @@ void Inject(uint3 id : SV_DispatchThreadID)
     normal = oriented ? normal / normalLength : float3(0.0, 1.0, 0.0);
     float3 origin = positionWS + (oriented ? normal * box.w * 0.75 : float3(0.0, 0.0, 0.0));
 
-    float seenShare = saturate(seenWeight / 0.9);
+    float seenShare = saturate(seenWeight * 2.0);
+    uint seenBase = _BasisGIVoxSeenBaseRW[seenSlot];
+    bool current = seenWeight > 0.99999;
+    bool rebase = current && (seenBase == 0u || BasisGIWorldHash(id + (uint)_BasisGIWorldDispatch.w * 7919u) < 0.125);
     float3 direct = float3(0.0, 0.0, 0.0);
-    int lights = seenShare < 1.0 ? (int)_BasisGIWorldInject.y : 0;
+    int lights = !current || rebase ? (int)_BasisGIWorldInject.y : 0;
     UNITY_LOOP
     for (int index = 0; index < lights; index++)
     {
@@ -345,8 +350,12 @@ void Inject(uint3 id : SV_DispatchThreadID)
     // overshooting every time motion reset history. The captured colour no longer carries the screen's own
     // bounce (the capture reads the frame before the bounce copy), so this is the world's only loop.
     float3 reflected = min(surfaceAlbedo * _BasisGIWorldInject.x * max(_BasisGIWorldIntensity, 1.0), BASISGI_WORLD_LOOP_GAIN) * bounce;
-    float3 computed = surfaceAlbedo * direct + reflected + BasisGIVoxelUnpackEmission(_BasisGIVoxEmission[texel]);
+    float3 analytic = surfaceAlbedo * direct + BasisGIVoxelUnpackEmission(_BasisGIVoxEmission[texel]);
+    float3 computed = analytic + reflected;
     float3 seen = UnpackFromR11G11B10f(_BasisGIVoxSeenRW[seenSlot]) + reflected;
+    uint analyticPacked = PackToR11G11B10f(max(analytic, 1e-3));
+    if (rebase) { _BasisGIVoxSeenBaseRW[seenSlot] = analyticPacked; }
+    else if (!current && seenBase != 0u) { seen = max(0.0, seen + UnpackFromR11G11B10f(analyticPacked) - UnpackFromR11G11B10f(seenBase)); }
     float3 radiance = lerp(computed, seen, seenShare);
     _BasisGIVoxRadianceRW[texel] = float4(radiance * albedo.a, albedo.a);
 }
