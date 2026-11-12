@@ -90,7 +90,7 @@ public static partial class BasisMediaClipShare
     private static readonly HashSet<Guid> dismissed = new HashSet<Guid>();
     private const float OrphanGraceSeconds = 30f;
     private static readonly Dictionary<Guid, (ushort Leaver, float Deadline)> orphaned = new Dictionary<Guid, (ushort, float)>();
-    private static readonly string[] Extensions = { ".mp4", ".m4v", ".mov", ".webm", ".mkv", ".mp3", ".m4a", ".flac", ".wav", ".opus", ".aac" };
+    private static readonly string[] Extensions = { ".mp4", ".m4v", ".mov", ".webm", ".mkv", ".mp3", ".m4a", ".flac", ".wav", ".opus", ".aac", ".ogg", ".oga", ".aif", ".aiff", ".aifc" };
     private static bool initialized;
     private static bool hasNetworkId;
     private static ushort networkId;

@@ -435,7 +435,7 @@ pub fn open_audio_decoder(
     codec_private: &[u8],
 ) -> Result<Box<dyn AudioDecoder>, media_decode::DecodeError> {
     use decode_mf::{AacDecoder, Mp3Decoder};
-    use decode_sw::{FlacDecoder, OpusDecoder, PcmDecoder};
+    use decode_sw::{AlacDecoder, FlacDecoder, OpusDecoder, PcmDecoder, VorbisDecoder};
     use media_demux::AudioCodec;
     Ok(match codec {
         AudioCodec::Aac => Box::new(AacDecoder::new(sample_rate, channels, codec_private)?),
@@ -443,12 +443,14 @@ pub fn open_audio_decoder(
         AudioCodec::Flac => Box::new(FlacDecoder::new(codec_private)?),
         AudioCodec::Opus => Box::new(OpusDecoder::new(codec_private)?),
         AudioCodec::Pcm => Box::new(PcmDecoder::new(sample_rate, channels, codec_private)?),
+        AudioCodec::Vorbis => Box::new(VorbisDecoder::new(codec_private)?),
+        AudioCodec::Alac => Box::new(AlacDecoder::new(codec_private)?),
     })
 }
 
 /// Android: AAC and MP3 decode on the platform, since patented codecs are
-/// never bundled. FLAC, Opus and PCM use the in-process decoders for the
-/// same behaviour on every platform.
+/// never bundled. FLAC, Opus, Vorbis, ALAC and PCM use the in-process
+/// decoders for the same behaviour on every platform.
 #[cfg(target_os = "android")]
 pub fn open_audio_decoder(
     codec: media_demux::AudioCodec,
@@ -457,7 +459,7 @@ pub fn open_audio_decoder(
     codec_private: &[u8],
 ) -> Result<Box<dyn AudioDecoder>, media_decode::DecodeError> {
     use decode_mediacodec::{AudioMime, McAudioDecoder};
-    use decode_sw::{FlacDecoder, OpusDecoder, PcmDecoder};
+    use decode_sw::{AlacDecoder, FlacDecoder, OpusDecoder, PcmDecoder, VorbisDecoder};
     use media_demux::AudioCodec;
     Ok(match codec {
         AudioCodec::Aac => Box::new(McAudioDecoder::new(
@@ -475,10 +477,13 @@ pub fn open_audio_decoder(
         AudioCodec::Flac => Box::new(FlacDecoder::new(codec_private)?),
         AudioCodec::Opus => Box::new(OpusDecoder::new(codec_private)?),
         AudioCodec::Pcm => Box::new(PcmDecoder::new(sample_rate, channels, codec_private)?),
+        AudioCodec::Vorbis => Box::new(VorbisDecoder::new(codec_private)?),
+        AudioCodec::Alac => Box::new(AlacDecoder::new(codec_private)?),
     })
 }
 
-/// macOS: AAC and MP3 on AudioToolbox; FLAC, Opus and PCM in process.
+/// macOS: AAC and MP3 on AudioToolbox; FLAC, Opus, Vorbis, ALAC and PCM
+/// in process.
 #[cfg(target_os = "macos")]
 pub fn open_audio_decoder(
     codec: media_demux::AudioCodec,
@@ -486,7 +491,7 @@ pub fn open_audio_decoder(
     channels: u32,
     codec_private: &[u8],
 ) -> Result<Box<dyn AudioDecoder>, media_decode::DecodeError> {
-    use decode_sw::{FlacDecoder, OpusDecoder, PcmDecoder};
+    use decode_sw::{AlacDecoder, FlacDecoder, OpusDecoder, PcmDecoder, VorbisDecoder};
     use decode_vt::{AtAudioDecoder, AtCodec};
     use media_demux::AudioCodec;
     Ok(match codec {
@@ -505,11 +510,14 @@ pub fn open_audio_decoder(
         AudioCodec::Flac => Box::new(FlacDecoder::new(codec_private)?),
         AudioCodec::Opus => Box::new(OpusDecoder::new(codec_private)?),
         AudioCodec::Pcm => Box::new(PcmDecoder::new(sample_rate, channels, codec_private)?),
+        AudioCodec::Vorbis => Box::new(VorbisDecoder::new(codec_private)?),
+        AudioCodec::Alac => Box::new(AlacDecoder::new(codec_private)?),
     })
 }
 
-/// Headless platforms: FLAC, Opus and PCM use the in-process decoders. AAC
-/// and MP3 have no platform decoder here and are typed refusals.
+/// Headless platforms: FLAC, Opus, Vorbis, ALAC and PCM use the in-process
+/// decoders. AAC and MP3 have no platform decoder here and are typed
+/// refusals.
 #[cfg(not(any(windows, target_os = "android", target_os = "macos")))]
 pub fn open_audio_decoder(
     codec: media_demux::AudioCodec,
@@ -517,7 +525,7 @@ pub fn open_audio_decoder(
     channels: u32,
     codec_private: &[u8],
 ) -> Result<Box<dyn AudioDecoder>, media_decode::DecodeError> {
-    use decode_sw::{FlacDecoder, OpusDecoder, PcmDecoder};
+    use decode_sw::{AlacDecoder, FlacDecoder, OpusDecoder, PcmDecoder, VorbisDecoder};
     use media_demux::AudioCodec;
     Ok(match codec {
         AudioCodec::Flac => Box::new(FlacDecoder::new(codec_private)?),
@@ -543,6 +551,8 @@ pub fn open_audio_decoder(
             ));
         }
         AudioCodec::Pcm => Box::new(PcmDecoder::new(sample_rate, channels, codec_private)?),
+        AudioCodec::Vorbis => Box::new(VorbisDecoder::new(codec_private)?),
+        AudioCodec::Alac => Box::new(AlacDecoder::new(codec_private)?),
     })
 }
 

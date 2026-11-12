@@ -49,6 +49,7 @@ pub fn run(
             Some(ContainerKind::Mp3) => "mp3",
             Some(ContainerKind::Adts) => "adts",
             Some(ContainerKind::Wav) => "wav",
+            Some(ContainerKind::Aiff) => "aiff",
             None => "unknown",
         }
     );

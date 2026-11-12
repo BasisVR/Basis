@@ -72,6 +72,12 @@ struct FrameHeader {
     chan_bits: u8,
 }
 
+/// Block size of the frame whose header starts `data`, for a container
+/// (Ogg) that carries whole frames but states no per-frame duration.
+pub(crate) fn frame_block_size(data: &[u8]) -> Option<u32> {
+    parse_frame_header(data).map(|header| header.block_size)
+}
+
 /// Parse a frame header at the start of `data`, validating everything the
 /// format pins down plus the CRC-8. `None` = not a frame header here.
 fn parse_frame_header(data: &[u8]) -> Option<FrameHeader> {

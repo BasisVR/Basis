@@ -13,7 +13,8 @@ Rust crates
 Apache License 2.0
 Used by:
   aead 0.5.2 (MIT OR Apache-2.0), aes 0.8.4 (MIT OR Apache-2.0),
-  aes-gcm 0.10.3 (Apache-2.0 OR MIT), arrayvec 0.7.8 (MIT OR Apache-2.0),
+  aes-gcm 0.10.3 (Apache-2.0 OR MIT), alac 0.5.0 (MIT/Apache-2.0),
+  arrayvec 0.7.8 (MIT OR Apache-2.0),
   assert_matches 1.5.0 (MIT OR Apache-2.0),
   async-trait 0.1.92 (MIT OR Apache-2.0),
   atomic-waker 1.1.2 (Apache-2.0 OR MIT), atomig 0.4.3 (MIT OR Apache-2.0),
@@ -63,7 +64,8 @@ Used by:
   jni 0.21.1 (MIT OR Apache-2.0), jni-sys 0.3.1 (MIT OR Apache-2.0),
   jni-sys 0.4.1 (MIT OR Apache-2.0),
   jni-sys-macros 0.4.1 (MIT OR Apache-2.0),
-  lazy_static 1.5.0 (MIT OR Apache-2.0), libc 0.2.189 (MIT OR Apache-2.0),
+  lazy_static 1.5.0 (MIT OR Apache-2.0), lewton 0.10.2 (MIT OR Apache-2.0),
+  libc 0.2.189 (MIT OR Apache-2.0),
   lock_api 0.4.14 (MIT OR Apache-2.0), log 0.4.33 (MIT OR Apache-2.0),
   matroska-demuxer 0.8.1 (Zlib OR MIT OR Apache-2.0),
   md-5 0.10.6 (MIT OR Apache-2.0), minimal-lexical 0.2.1 (MIT OR Apache-2.0),
@@ -175,6 +177,7 @@ Copyright notices in these crates' copies of the licence:
   http 1.5.0: Copyright 2017 http-rs authors
   http-auth 0.1.10: Copyright 2021 Scott Lamb <slamb@slamb.org>
   ipnet 2.12.1: Copyright 2017 Juniper Networks, Inc.
+  lewton 0.10.2: Copyright (c) 2016 est31 <MTest31@outlook.com> and contributors
   pin-utils 0.1.0: Copyright 2018 The pin-utils authors
   powerfmt 0.2.0: Copyright 2023 Jacob Pratt et al.
   ppv-lite86 0.2.21: Copyright 2019 The CryptoCorrosion Contributors

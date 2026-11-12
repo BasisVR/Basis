@@ -8,6 +8,11 @@ license.workspace = true
 [dependencies]
 media-decode = { workspace = true }
 claxon = "0.4.3"
+# Without default features: lewton's `ogg` feature is not needed (whole
+# packets arrive from the demuxers), and alac's `mp4` feature pulls in
+# mp4parse, which is MPL licensed.
+lewton = { version = "0.10.2", default-features = false }
+alac = { version = "0.5.0", default-features = false }
 audiopus_sys = "0.2.2"
 
 # The AV1 software decoder sits out the Android graph: the published rav1d

@@ -40,6 +40,10 @@ criteria = "safe-to-deploy"
 version = "0.10.3"
 criteria = "safe-to-deploy"
 
+[[exemptions.alac]]
+version = "0.5.0"
+criteria = "safe-to-deploy"
+
 [[exemptions.anstream]]
 version = "1.0.0"
 criteria = "safe-to-deploy"
@@ -590,6 +594,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.js-sys]]
 version = "0.3.104"
+criteria = "safe-to-deploy"
+
+[[exemptions.lewton]]
+version = "0.10.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.libc]]

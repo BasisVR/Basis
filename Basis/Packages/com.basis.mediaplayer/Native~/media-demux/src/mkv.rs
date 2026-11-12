@@ -231,6 +231,7 @@ fn map_audio_codec(codec_id: &str) -> Option<AudioCodec> {
         "A_OPUS" => Some(AudioCodec::Opus),
         "A_FLAC" => Some(AudioCodec::Flac),
         "A_MPEG/L3" => Some(AudioCodec::Mp3),
+        "A_VORBIS" => Some(AudioCodec::Vorbis),
         _ => None,
     }
 }

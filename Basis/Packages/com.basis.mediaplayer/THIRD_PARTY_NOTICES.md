@@ -65,6 +65,8 @@ lifting, or whose licence differs from the MIT/Apache norm:
 | **rav1d** | BSD-2-Clause | AV1 video decoding in software. A Rust port of dav1d |
 | **libopus** (via `audiopus_sys`, ISC) | BSD-3-Clause | Opus audio decoding. Built from vendored C source and linked statically |
 | **claxon** | Apache-2.0 | FLAC audio decoding |
+| **lewton** | MIT or Apache-2.0 | Vorbis audio decoding |
+| **alac** | MIT or Apache-2.0 | Apple Lossless (ALAC) audio decoding. Built without its MPL-licensed `mp4parse` feature |
 | **retina** | MIT or Apache-2.0 | RTSP client and RTP depacketisation. Vendored, see below |
 | **matroska-demuxer** | Zlib, or MIT, or Apache-2.0 | Matroska/WebM parsing. Vendored, see below |
 | **re_mp4** | MIT | MP4 and fragmented-MP4 parsing. Vendored, see below |

@@ -4,6 +4,10 @@
 //! configuration: for HE-AAC that is the SBR rate and the core's object
 //! type, without which a decoder refuses the stream. This walks back
 //! down to the `esds` for the bytes themselves.
+//!
+//! The box parser keeps nothing at all of an `alac` entry, so the same
+//! walk returns an ALAC track's magic cookie (its ALACSpecificConfig) in
+//! the AudioSpecificConfig's place.
 
 use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom};
@@ -25,7 +29,8 @@ struct Child {
 }
 
 /// Configs by track id, for every track whose first sample entry is
-/// `mp4a` and states one. A track the walk cannot reach is left out.
+/// `mp4a` or `alac` and states one. A track the walk cannot reach is left
+/// out.
 pub(crate) fn audio_configs(reader: &mut SourceReader<'_>, len: u64) -> HashMap<u32, Vec<u8>> {
     let mut configs = HashMap::new();
     let top = children(reader, 0, len, MAX_TOP_LEVEL, Some(b"moov"));
@@ -61,7 +66,7 @@ fn track_config(reader: &mut SourceReader<'_>, trak: &Child) -> Option<(u32, Vec
     // The first sample entry follows the full-box header and the count.
     let entry = children(reader, container.body + 8, container.end, 1, None)
         .pop()
-        .filter(|entry| &entry.kind == b"mp4a")?;
+        .filter(|entry| matches!(&entry.kind, b"mp4a" | b"alac"))?;
     // SampleEntry and AudioSampleEntry are 28 bytes; a QuickTime sound
     // description of version 1 or 2 adds 16 or 36.
     let mut version = [0u8; 2];
@@ -76,6 +81,21 @@ fn track_config(reader: &mut SourceReader<'_>, trak: &Child) -> Option<(u32, Vec
         && let Some(wave) = find(&inside, b"wave").cloned()
     {
         inside = children(reader, wave.body, wave.end, MAX_CHILDREN, None);
+    }
+    if &entry.kind == b"alac" {
+        if find(&inside, b"alac").is_none()
+            && let Some(wave) = find(&inside, b"wave").cloned()
+        {
+            inside = children(reader, wave.body, wave.end, MAX_CHILDREN, None);
+        }
+        // A full box: version and flags, then the 24-byte config.
+        let alac = find(&inside, b"alac")?;
+        if alac.end - alac.body < 28 {
+            return None;
+        }
+        let mut cookie = vec![0u8; 24];
+        read_at(reader, alac.body + 4, &mut cookie)?;
+        return Some((u32::from_be_bytes(id), cookie));
     }
     let esds = find(&inside, b"esds")?;
     let size = esds.end - esds.body;

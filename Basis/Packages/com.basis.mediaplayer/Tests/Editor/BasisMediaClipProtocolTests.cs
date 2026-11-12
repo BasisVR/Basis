@@ -246,14 +246,21 @@ public class BasisMediaClipProtocolTests
         Assert.AreEqual(BasisMediaClipContainer.Mp3, mp3);
         Assert.IsTrue(BasisMediaClipProtocol.IsAudio(mp3));
         Assert.IsFalse(BasisMediaClipProtocol.IsAudio(BasisMediaClipContainer.Mp4));
-        string[] names = { "b.m4a", "c.flac", "d.wav", "e.opus", "f.aac" };
+        string[] names = { "b.m4a", "c.flac", "d.wav", "e.opus", "f.aac", "g.ogg", "h.aiff" };
         foreach (string name in names)
         {
             Assert.IsTrue(BasisMediaClipProtocol.TryGetContainer(name, out BasisMediaClipContainer container), name);
             Assert.IsTrue(BasisMediaClipProtocol.IsAudio(container), name);
             Assert.AreEqual(System.IO.Path.GetExtension(name), BasisMediaClipProtocol.Extension(container));
         }
-        Assert.IsFalse(BasisMediaClipProtocol.TryGetContainer("g.ogg", out _));
+        Assert.IsTrue(BasisMediaClipProtocol.TryGetContainer("i.OGA", out BasisMediaClipContainer oga));
+        Assert.AreEqual(BasisMediaClipContainer.Ogg, oga);
+        foreach (string name in new[] { "j.aif", "k.AIFC" })
+        {
+            Assert.IsTrue(BasisMediaClipProtocol.TryGetContainer(name, out BasisMediaClipContainer iff), name);
+            Assert.AreEqual(BasisMediaClipContainer.Aiff, iff, name);
+        }
+        Assert.IsFalse(BasisMediaClipProtocol.TryGetContainer("l.wma", out _));
 
         byte[] id3 = { (byte)'I', (byte)'D', (byte)'3', 4, 0 };
         byte[] frame = { 0xFF, 0xFB, 0x90, 0x64 };
@@ -268,6 +275,14 @@ public class BasisMediaClipProtocolTests
         Assert.IsTrue(BasisMediaClipProtocol.SignatureMatches(flac, BasisMediaClipContainer.Flac));
         Assert.IsTrue(BasisMediaClipProtocol.SignatureMatches(wav, BasisMediaClipContainer.Wav));
         Assert.IsTrue(BasisMediaClipProtocol.SignatureMatches(ogg, BasisMediaClipContainer.Opus));
+        Assert.IsTrue(BasisMediaClipProtocol.SignatureMatches(ogg, BasisMediaClipContainer.Ogg));
+        byte[] aiff = { (byte)'F', (byte)'O', (byte)'R', (byte)'M', 0, 0, 0, 0, (byte)'A', (byte)'I', (byte)'F', (byte)'F' };
+        byte[] aifc = { (byte)'F', (byte)'O', (byte)'R', (byte)'M', 0, 0, 0, 0, (byte)'A', (byte)'I', (byte)'F', (byte)'C' };
+        byte[] ilbm = { (byte)'F', (byte)'O', (byte)'R', (byte)'M', 0, 0, 0, 0, (byte)'I', (byte)'L', (byte)'B', (byte)'M' };
+        Assert.IsTrue(BasisMediaClipProtocol.SignatureMatches(aiff, BasisMediaClipContainer.Aiff));
+        Assert.IsTrue(BasisMediaClipProtocol.SignatureMatches(aifc, BasisMediaClipContainer.Aiff));
+        Assert.IsFalse(BasisMediaClipProtocol.SignatureMatches(ilbm, BasisMediaClipContainer.Aiff));
+        Assert.IsFalse(BasisMediaClipProtocol.SignatureMatches(wav, BasisMediaClipContainer.Aiff));
         Assert.IsTrue(BasisMediaClipProtocol.SignatureMatches(ftyp, BasisMediaClipContainer.M4a));
         Assert.IsFalse(BasisMediaClipProtocol.SignatureMatches(wav, BasisMediaClipContainer.Mp3));
         Assert.IsFalse(BasisMediaClipProtocol.SignatureMatches(ogg, BasisMediaClipContainer.Wav));

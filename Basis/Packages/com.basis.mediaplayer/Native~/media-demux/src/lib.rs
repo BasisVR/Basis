@@ -5,6 +5,7 @@
 #![forbid(unsafe_code)]
 
 mod adts;
+mod aiff;
 mod artwork;
 mod avc;
 mod demuxer;
@@ -18,12 +19,14 @@ mod mp4_esds;
 mod mp4_fragment;
 mod mp4_index;
 mod mp4_runs;
-mod ogg_opus;
+mod ogg;
 mod source;
 mod ts;
+mod vorbis_timing;
 mod wav;
 
 pub use adts::AdtsDemuxer;
+pub use aiff::AiffDemuxer;
 pub use artwork::Artwork;
 pub use demuxer::{AudioTrackInfo, DemuxLimits, DemuxOptions, Demuxer, MAX_NOTES, push_note};
 pub use event::{
@@ -34,7 +37,7 @@ pub use flac::FlacDemuxer;
 pub use mkv::MkvDemuxer;
 pub use mp3::Mp3Demuxer;
 pub use mp4::Mp4Demuxer;
-pub use ogg_opus::OggOpusDemuxer;
+pub use ogg::OggDemuxer;
 pub use source::{ByteSource, MemSource, SourceError};
 pub use ts::TsDemuxer;
 pub use wav::WavDemuxer;
@@ -53,6 +56,7 @@ pub enum ContainerKind {
     Mp3,
     Adts,
     Wav,
+    Aiff,
 }
 
 /// Sniff the container from the first bytes of the stream. MP4 announces
@@ -66,6 +70,10 @@ pub fn sniff_container(head: &[u8]) -> Option<ContainerKind> {
     // RIFF is a container family; only the WAVE form is ours.
     if head.len() >= 12 && &head[..4] == b"RIFF" && &head[8..12] == b"WAVE" {
         return Some(ContainerKind::Wav);
+    }
+    // IFF likewise: only the AIFF and AIFF-C forms.
+    if head.len() >= 12 && &head[..4] == b"FORM" && matches!(&head[8..12], b"AIFF" | b"AIFC") {
+        return Some(ContainerKind::Aiff);
     }
     if head.len() >= 8
         && matches!(
@@ -157,12 +165,13 @@ pub fn open_auto_with(
             src, limits, generation, options,
         )?)),
         Some(ContainerKind::Flac) => Ok(Box::new(FlacDemuxer::open(src, limits, generation)?)),
-        Some(ContainerKind::Ogg) => Ok(Box::new(OggOpusDemuxer::open(src, limits, generation)?)),
+        Some(ContainerKind::Ogg) => Ok(Box::new(OggDemuxer::open(src, limits, generation)?)),
         Some(ContainerKind::Mp3) => Ok(Box::new(Mp3Demuxer::open(src, limits, generation)?)),
         Some(ContainerKind::Adts) => Ok(Box::new(AdtsDemuxer::open(src, limits, generation)?)),
         Some(ContainerKind::Wav) => Ok(Box::new(WavDemuxer::open(src, limits, generation)?)),
+        Some(ContainerKind::Aiff) => Ok(Box::new(AiffDemuxer::open(src, limits, generation)?)),
         None => Err(DemuxError::Unsupported(
-            "unrecognised container (expected MP4, MPEG-TS, Matroska, WAV, FLAC, Ogg, MP3 or ADTS)",
+            "unrecognised container (expected MP4, MPEG-TS, Matroska, WAV, AIFF, FLAC, Ogg, MP3 or ADTS)",
         )),
     }
 }

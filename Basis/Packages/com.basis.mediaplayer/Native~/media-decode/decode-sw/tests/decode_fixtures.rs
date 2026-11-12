@@ -2,12 +2,15 @@
 //! AUs its real demuxer produces from a committed sine fixture, and the PCM
 //! out is checked for count and content.
 
-use decode_sw::{FlacDecoder, OpusDecoder};
+use decode_sw::{AlacDecoder, FlacDecoder, OpusDecoder, PcmDecoder, VorbisDecoder};
 use media_clock::Generation;
 use media_decode::{AudioDecoder, PcmChunk, SubmitOutcome};
-use media_demux::{DemuxLimits, Format, MemSource, StreamEvent, open_auto};
+use media_demux::{AudioCodec, DemuxLimits, Format, MemSource, StreamEvent, open_auto};
 
 struct Demuxed {
+    codec: AudioCodec,
+    sample_rate: u32,
+    channels: u32,
     codec_private: Vec<u8>,
     aus: Vec<(Vec<u8>, i64)>,
 }
@@ -23,20 +26,33 @@ fn demux(name: &str) -> Demuxed {
     .expect("open");
     let mut codec_private = Vec::new();
     let mut aus = Vec::new();
+    let mut format = (AudioCodec::Pcm, 0, 0);
     loop {
         match demuxer.next_event().expect("event") {
             StreamEvent::Format(
                 _,
                 Format::Audio {
-                    codec_private: p, ..
+                    codec,
+                    sample_rate,
+                    channels,
+                    codec_private: p,
                 },
-            ) => codec_private = p,
+            ) => {
+                format = (codec, sample_rate, channels);
+                codec_private = p;
+            }
             StreamEvent::Au(au) => aus.push((au.data, au.pts.as_micros())),
             StreamEvent::Eos(_) => break,
             _ => {}
         }
     }
-    Demuxed { codec_private, aus }
+    Demuxed {
+        codec: format.0,
+        sample_rate: format.1,
+        channels: format.2,
+        codec_private,
+        aus,
+    }
 }
 
 fn decode_all(decoder: &mut dyn AudioDecoder, aus: &[(Vec<u8>, i64)]) -> Vec<PcmChunk> {
@@ -394,4 +410,304 @@ fn av1_refuses_a_frame_past_the_size_limit() {
             || std::iter::from_fn(|| decoder.try_output().transpose()).any(|r| r.is_err())
     });
     assert!(refused, "a frame past the limit decoded");
+}
+
+/// The sine WAV a fixture was encoded from, as the PCM adapter reads it:
+/// the reference every other lane's output is held to.
+fn reference(name: &str) -> Vec<f32> {
+    let demuxed = demux(name);
+    let mut decoder = PcmDecoder::new(
+        demuxed.sample_rate,
+        demuxed.channels,
+        &demuxed.codec_private,
+    )
+    .expect("reference decoder");
+    decode_all(&mut decoder, &demuxed.aus)
+        .into_iter()
+        .flat_map(|chunk| chunk.data)
+        .collect()
+}
+
+/// Decode a fixture through the decoder its codec routes to, checking the
+/// chunk timeline is continuous: each chunk starts where the last ended.
+/// Returns the output as interleaved samples, and the sample frame the
+/// first chunk starts on. That is zero wherever the container counts in
+/// samples; Matroska counts in milliseconds and states the encoder delay
+/// in nanoseconds, so its first block can land a fraction of a
+/// millisecond in.
+fn decode_fixture(name: &str) -> (Demuxed, Vec<f32>, usize) {
+    let demuxed = demux(name);
+    let mut decoder: Box<dyn AudioDecoder> = match demuxed.codec {
+        AudioCodec::Alac => Box::new(AlacDecoder::new(&demuxed.codec_private).expect("alac")),
+        AudioCodec::Vorbis => Box::new(VorbisDecoder::new(&demuxed.codec_private).expect("vorbis")),
+        AudioCodec::Flac => Box::new(FlacDecoder::new(&demuxed.codec_private).expect("flac")),
+        AudioCodec::Pcm => Box::new(
+            PcmDecoder::new(
+                demuxed.sample_rate,
+                demuxed.channels,
+                &demuxed.codec_private,
+            )
+            .expect("pcm"),
+        ),
+        other => panic!("{name}: unexpected codec {other:?}"),
+    };
+    assert_eq!(
+        decoder.output_format(),
+        (demuxed.sample_rate, demuxed.channels),
+        "{name}: decoder format matches the announce"
+    );
+    let chunks = decode_all(decoder.as_mut(), &demuxed.aus);
+    let channels = demuxed.channels as usize;
+    let rate = i64::from(demuxed.sample_rate);
+    let mut out = Vec::new();
+    let start = chunks.first().map_or(0, |c| c.pts_us * rate / 1_000_000);
+    assert!(
+        (0..=48).contains(&start),
+        "{name}: output starts at sample {start}"
+    );
+    let mut next = start;
+    for chunk in &chunks {
+        let at = chunk.pts_us * rate / 1_000_000;
+        assert!(
+            (at - next).abs() <= 1,
+            "{name}: chunk at sample {at}, expected {next}"
+        );
+        next += (chunk.data.len() / channels) as i64;
+        out.extend_from_slice(&chunk.data);
+    }
+    (demuxed, out, start as usize)
+}
+
+/// Signal-to-noise of `got` against `want`, per channel, in dB.
+fn snr_per_channel(got: &[f32], want: &[f32], channels: usize) -> Vec<f64> {
+    let frames = got.len().min(want.len()) / channels;
+    (0..channels)
+        .map(|c| {
+            let (mut signal, mut noise) = (0.0f64, 0.0f64);
+            for f in 0..frames {
+                let w = f64::from(want[f * channels + c]);
+                let g = f64::from(got[f * channels + c]);
+                signal += w * w;
+                noise += (w - g) * (w - g);
+            }
+            10.0 * (signal / noise.max(1e-20)).log10()
+        })
+        .collect()
+}
+
+/// Lossless lanes reproduce the source WAV sample for sample, in WAVE
+/// channel order, on a continuous timeline from zero.
+#[test]
+fn lossless_lanes_match_their_source_exactly() {
+    let stereo = reference("sine-48k-stereo.wav");
+    let surround = reference("sine-48k-51-distinct.wav");
+    let surround_frames = surround.len() / 6;
+    for (name, want, frames) in [
+        ("sine-48k-stereo-alac.m4a", &stereo, 96_000usize),
+        ("sine-48k-51-alac.m4a", &surround, surround_frames),
+        ("sine-48k-stereo.oga", &stereo, 96_000),
+        ("sine-48k-stereo.aiff", &stereo, 24_000),
+        ("sine-48k-stereo-sowt.aifc", &stereo, 24_000),
+        ("sine-48k-stereo-f32.aifc", &stereo, 12_000),
+        ("sine-48k-stereo-f32.wav", &stereo, 12_000),
+    ] {
+        let (demuxed, got, start) = decode_fixture(name);
+        let channels = demuxed.channels as usize;
+        assert_eq!(start, 0, "{name}: output starts at the origin");
+        assert_eq!(demuxed.sample_rate, 48_000, "{name}");
+        assert_eq!(got.len(), frames * channels, "{name}: frame count");
+        assert!(
+            got == want[..frames * channels],
+            "{name}: output differs from the source"
+        );
+    }
+}
+
+/// Vorbis is lossy, so it is held to the source by SNR on every channel,
+/// which also pins the channel order and the timeline: the 5.1 source has
+/// a different tone on every channel, so a channel in the wrong slot or a
+/// timeline off by a block lands below 0 dB. The bar is 10 dB because
+/// libvorbis codes the LFE coarsely (ffmpeg's own decode of that fixture
+/// reaches 14 dB there; every other channel clears 30).
+#[test]
+fn vorbis_lanes_track_their_source() {
+    let stereo = reference("sine-48k-stereo.wav");
+    let surround = reference("sine-48k-51-distinct.wav");
+    let surround_frames = surround.len() / 6;
+    for (name, want, frames) in [
+        ("sine-48k-stereo.ogg", &stereo, 96_000usize),
+        ("sine-48k-51-vorbis.ogg", &surround, surround_frames),
+        ("mkv/vorbis-stereo.webm", &stereo, 96_000),
+    ] {
+        let (demuxed, got, start) = decode_fixture(name);
+        let channels = demuxed.channels as usize;
+        assert_eq!(demuxed.codec, AudioCodec::Vorbis, "{name}");
+        if name.ends_with(".ogg") {
+            assert_eq!(start, 0, "{name}: Ogg counts in samples, so starts exactly");
+        }
+        let decoded = got.len() / channels;
+        // Without end trimming the last block's padding plays too.
+        assert!(
+            (frames..=frames + 2048).contains(&decoded),
+            "{name}: decoded {decoded} frames, expected about {frames}"
+        );
+        for (c, snr) in snr_per_channel(&got, want, channels).iter().enumerate() {
+            assert!(*snr > 10.0, "{name}: channel {c} SNR {snr:.1} dB");
+        }
+    }
+}
+
+/// Clips arrive from other players, so every added lane meets damaged
+/// input: each fixture is cut short and has bytes overwritten across its
+/// length, then demuxed and decoded to the end. Errors are expected; a
+/// panic is the failure.
+#[test]
+fn added_lanes_survive_damaged_files() {
+    use std::panic::{AssertUnwindSafe, catch_unwind};
+
+    fn run(bytes: Vec<u8>) {
+        let Ok(mut demuxer) = open_auto(
+            Box::new(MemSource(bytes)),
+            DemuxLimits::default(),
+            Generation::default(),
+        ) else {
+            return;
+        };
+        let mut decoder: Option<Box<dyn AudioDecoder>> = None;
+        for _ in 0..20_000 {
+            match demuxer.next_event() {
+                Ok(StreamEvent::Format(
+                    _,
+                    Format::Audio {
+                        codec,
+                        sample_rate,
+                        channels,
+                        codec_private,
+                    },
+                )) => {
+                    decoder = match codec {
+                        AudioCodec::Alac => AlacDecoder::new(&codec_private)
+                            .ok()
+                            .map(|d| Box::new(d) as Box<dyn AudioDecoder>),
+                        AudioCodec::Vorbis => VorbisDecoder::new(&codec_private)
+                            .ok()
+                            .map(|d| Box::new(d) as Box<dyn AudioDecoder>),
+                        AudioCodec::Flac => FlacDecoder::new(&codec_private)
+                            .ok()
+                            .map(|d| Box::new(d) as Box<dyn AudioDecoder>),
+                        AudioCodec::Pcm => PcmDecoder::new(sample_rate, channels, &codec_private)
+                            .ok()
+                            .map(|d| Box::new(d) as Box<dyn AudioDecoder>),
+                        _ => None,
+                    };
+                }
+                Ok(StreamEvent::Au(au)) => {
+                    if let Some(decoder) = decoder.as_mut() {
+                        let _ = decoder.submit(&au.data, au.pts.as_micros());
+                        while let Ok(Some(_)) = decoder.try_output() {}
+                    }
+                }
+                Ok(StreamEvent::Eos(_)) | Err(_) => return,
+                Ok(_) => {}
+            }
+        }
+    }
+
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/");
+    for name in [
+        "sine-48k-stereo.ogg",
+        "sine-48k-51-vorbis.ogg",
+        "sine-48k-stereo.oga",
+        "sine-48k-stereo.aiff",
+        "sine-48k-stereo-sowt.aifc",
+        "sine-48k-stereo-f32.aifc",
+        "sine-48k-stereo-f32.wav",
+        "sine-48k-stereo-alac.m4a",
+        "sine-48k-51-alac.m4a",
+        "mkv/vorbis-stereo.webm",
+    ] {
+        let clean = std::fs::read(format!("{path}{name}")).expect("fixture readable");
+        let mut cases: Vec<Vec<u8>> = Vec::new();
+        for cut in [
+            8usize,
+            40,
+            200,
+            1_000,
+            4_500,
+            clean.len() / 2,
+            clean.len() - 1,
+        ] {
+            cases.push(clean[..cut.min(clean.len())].to_vec());
+        }
+        // A cheap deterministic generator: positions spread through the
+        // headers and the payload alike, values that include the field
+        // extremes a parser is most likely to trust.
+        let mut state = 0x9E37_79B9u32;
+        for round in 0..48 {
+            let mut bytes = clean.clone();
+            for _ in 0..(1 + round % 6) {
+                state ^= state << 13;
+                state ^= state >> 17;
+                state ^= state << 5;
+                let at = if round % 2 == 0 {
+                    state as usize % bytes.len().min(512)
+                } else {
+                    state as usize % bytes.len()
+                };
+                bytes[at] = [0x00, 0xFF, 0x7F, 0x80, (state >> 8) as u8][(state % 5) as usize];
+            }
+            cases.push(bytes);
+        }
+        for (i, bytes) in cases.into_iter().enumerate() {
+            let outcome = catch_unwind(AssertUnwindSafe(|| run(bytes)));
+            assert!(outcome.is_ok(), "{name}: damaged case {i} panicked");
+        }
+    }
+}
+
+/// The Ogg demuxer times each Vorbis packet itself, from its block size and
+/// the one before, and a seek anchors on those times. They have to agree
+/// with what the decoder outputs packet by packet, with no help from the
+/// decoder's own clock: the clicks fixture switches between short and
+/// long blocks around every transient, where a count that ignores the
+/// neighbouring block goes wrong.
+#[test]
+fn ogg_vorbis_packet_times_match_decoded_output() {
+    for name in [
+        "clicks-48k-stereo.ogg",
+        "sine-48k-stereo.ogg",
+        "sine-48k-51-vorbis.ogg",
+    ] {
+        let demuxed = demux(name);
+        let rate = i64::from(demuxed.sample_rate);
+        let channels = demuxed.channels as usize;
+        let mut decoder = VorbisDecoder::new(&demuxed.codec_private).expect("decoder");
+        let mut decoded = 0i64;
+        let mut sizes = std::collections::BTreeSet::new();
+        for (au, pts) in &demuxed.aus {
+            assert_eq!(
+                decoder.submit(au, *pts).expect("submit"),
+                SubmitOutcome::Accepted
+            );
+            let mut frames = 0i64;
+            while let Some(chunk) = decoder.try_output().expect("output") {
+                frames += (chunk.data.len() / channels) as i64;
+            }
+            if frames > 0 {
+                // Microsecond stamps round, so one frame either way.
+                assert!(
+                    (pts * rate / 1_000_000 - decoded).abs() <= 1,
+                    "{name}: packet stamped at {pts} us after {decoded} decoded frames"
+                );
+                sizes.insert(frames);
+            }
+            decoded += frames;
+        }
+        if name.starts_with("clicks") {
+            assert!(
+                sizes.len() >= 3,
+                "{name}: the fixture must switch block sizes, saw {sizes:?}"
+            );
+        }
+    }
 }

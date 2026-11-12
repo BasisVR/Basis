@@ -8,7 +8,7 @@
 
 use libfuzzer_sys::fuzz_target;
 use media_clock::Generation;
-use media_demux::{DemuxLimits, Demuxer, MemSource, OggOpusDemuxer, StreamEvent};
+use media_demux::{DemuxLimits, Demuxer, MemSource, OggDemuxer, StreamEvent};
 
 fuzz_target!(|data: &[u8]| {
     let limits = DemuxLimits {
@@ -16,7 +16,7 @@ fuzz_target!(|data: &[u8]| {
         max_au_bytes: 4 * 1024 * 1024,
     };
     let Ok(mut demux) =
-        OggOpusDemuxer::open(Box::new(MemSource(data.to_vec())), limits, Generation(1))
+        OggDemuxer::open(Box::new(MemSource(data.to_vec())), limits, Generation(1))
     else {
         return;
     };

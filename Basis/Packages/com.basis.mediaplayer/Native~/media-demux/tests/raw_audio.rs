@@ -350,18 +350,18 @@ fn wav_seeks_to_the_exact_frame() {
 
 #[test]
 fn wav_refuses_what_the_pcm_adapter_cannot_play() {
-    // 32-bit float is a valid WAV and deliberately outside the supported
-    // set; it must refuse at open rather than half-decode.
+    // A-law is a valid WAV and deliberately outside the supported set; it
+    // must refuse at open rather than half-decode.
     let mut wav = b"RIFF".to_vec();
     wav.extend_from_slice(&36u32.to_le_bytes());
     wav.extend_from_slice(b"WAVEfmt ");
     wav.extend_from_slice(&16u32.to_le_bytes());
-    wav.extend_from_slice(&3u16.to_le_bytes()); // WAVE_FORMAT_IEEE_FLOAT
+    wav.extend_from_slice(&6u16.to_le_bytes()); // WAVE_FORMAT_ALAW
     wav.extend_from_slice(&2u16.to_le_bytes());
     wav.extend_from_slice(&48_000u32.to_le_bytes());
-    wav.extend_from_slice(&384_000u32.to_le_bytes());
+    wav.extend_from_slice(&96_000u32.to_le_bytes());
+    wav.extend_from_slice(&2u16.to_le_bytes());
     wav.extend_from_slice(&8u16.to_le_bytes());
-    wav.extend_from_slice(&32u16.to_le_bytes());
     wav.extend_from_slice(b"data");
     wav.extend_from_slice(&8u32.to_le_bytes());
     wav.extend_from_slice(&[0u8; 8]);
@@ -373,7 +373,7 @@ fn wav_refuses_what_the_pcm_adapter_cannot_play() {
         Generation::default(),
     )
     .err()
-    .expect("float PCM refuses");
+    .expect("A-law refuses");
     assert!(
         matches!(err, media_demux::DemuxError::Unsupported(_)),
         "typed refusal, got {err}"
@@ -1075,7 +1075,10 @@ fn ogg_opus_seeks_by_granule_bisection() {
         let landed = demuxer
             .seek(target, Generation::default().next())
             .expect("Ogg seeks");
-        assert_eq!(landed, target, "the landing is reported at the request");
+        // The bisection lands on a page at or before the request, and the
+        // landing is reported where that page's first packet starts, as
+        // its granule and the packet durations place it.
+        assert!(landed <= target, "landed at {landed:?} past {target:?}");
 
         let au = loop {
             match demuxer.next_event().expect("event") {
@@ -1084,7 +1087,7 @@ fn ogg_opus_seeks_by_granule_bisection() {
                 other => panic!("unexpected {other:?} after seeking to {target_ms} ms"),
             }
         };
-        assert_eq!(au.pts, target);
+        assert_eq!(au.pts, landed);
         assert!(!au.data.is_empty());
     }
 
@@ -1095,4 +1098,236 @@ fn ogg_opus_seeks_by_granule_bisection() {
         Generation::default().next(),
     );
     assert!(past.is_ok() || matches!(past, Err(DemuxError::Parse(_))));
+}
+
+/// The containers added for the clip drop path sniff to their own
+/// demuxers, announce the codec the decoder routes on, and state the
+/// duration ffprobe reports.
+#[test]
+fn added_audio_containers_route_and_state_their_duration() {
+    for (name, kind, codec, rate, channels, duration_us) in [
+        (
+            "sine-48k-stereo.ogg",
+            ContainerKind::Ogg,
+            AudioCodec::Vorbis,
+            48_000,
+            2,
+            2_000_000,
+        ),
+        (
+            "sine-48k-stereo.oga",
+            ContainerKind::Ogg,
+            AudioCodec::Flac,
+            48_000,
+            2,
+            2_000_000,
+        ),
+        (
+            "sine-48k-stereo.aiff",
+            ContainerKind::Aiff,
+            AudioCodec::Pcm,
+            48_000,
+            2,
+            500_000,
+        ),
+        (
+            "sine-48k-stereo-sowt.aifc",
+            ContainerKind::Aiff,
+            AudioCodec::Pcm,
+            48_000,
+            2,
+            500_000,
+        ),
+        (
+            "sine-48k-stereo-f32.aifc",
+            ContainerKind::Aiff,
+            AudioCodec::Pcm,
+            48_000,
+            2,
+            250_000,
+        ),
+        (
+            "sine-48k-stereo-f32.wav",
+            ContainerKind::Wav,
+            AudioCodec::Pcm,
+            48_000,
+            2,
+            250_000,
+        ),
+        (
+            "sine-48k-stereo-alac.m4a",
+            ContainerKind::Mp4,
+            AudioCodec::Alac,
+            48_000,
+            2,
+            2_000_000,
+        ),
+        (
+            "sine-48k-51-alac.m4a",
+            ContainerKind::Mp4,
+            AudioCodec::Alac,
+            48_000,
+            6,
+            0,
+        ),
+    ] {
+        let bytes = fixture(name);
+        assert_eq!(sniff_container(&bytes[..64]), Some(kind), "{name} sniff");
+        let mut demuxer = open_auto(
+            Box::new(MemSource(bytes)),
+            DemuxLimits::default(),
+            Generation::default(),
+        )
+        .expect(name);
+        if duration_us > 0 {
+            assert_eq!(
+                demuxer.duration(),
+                Some(MediaTime::from_micros(duration_us)),
+                "{name} duration"
+            );
+        }
+        match demuxer.next_event().expect("event") {
+            StreamEvent::Format(
+                _,
+                Format::Audio {
+                    codec: c,
+                    sample_rate,
+                    channels: ch,
+                    ..
+                },
+            ) => {
+                assert_eq!(
+                    (c, sample_rate, ch),
+                    (codec, rate, channels),
+                    "{name} format"
+                );
+            }
+            other => panic!("{name}: expected the format first, got {other:?}"),
+        }
+    }
+}
+
+/// An Ogg seek lands on a page at or before the request and reports where
+/// playback resumes; the packets after it run on a timeline that still
+/// ends where the stream does, which an anchor placed at the request
+/// rather than at the landing page would push late.
+#[test]
+fn ogg_seeks_mid_stream_keep_the_timeline() {
+    for (name, end_us) in [
+        ("sine-48k-stereo.ogg", 2_000_000i64),
+        ("sine-48k-stereo.oga", 2_000_000),
+        ("sine-48k-stereo.opus", 6_000_000),
+    ] {
+        let mut demuxer = open_auto(
+            Box::new(MemSource(fixture(name))),
+            DemuxLimits::default(),
+            Generation::default(),
+        )
+        .expect("open");
+        let landed = demuxer
+            .seek(
+                MediaTime::from_micros(1_000_000),
+                Generation::default().next(),
+            )
+            .expect("seek");
+        assert!(
+            landed <= MediaTime::from_micros(1_000_000),
+            "{name}: landed at {landed:?}"
+        );
+        let mut last: Option<MediaTime> = None;
+        let mut aus = 0;
+        loop {
+            match demuxer.next_event().expect("event") {
+                StreamEvent::Au(au) => {
+                    if last.is_none() {
+                        assert_eq!(au.pts, landed, "{name}: resumes where reported");
+                    }
+                    if let Some(last) = last {
+                        assert!(au.pts >= last, "{name}: timestamps went backwards");
+                    }
+                    last = Some(au.pts);
+                    aus += 1;
+                }
+                StreamEvent::Eos(_) => break,
+                _ => {}
+            }
+        }
+        assert!(aus > 10, "{name}: only {aus} packets after the seek");
+        let last = last.expect("packets").as_micros();
+        assert!(
+            (end_us - 100_000..=end_us).contains(&last),
+            "{name}: last packet at {last} us"
+        );
+    }
+}
+
+/// AIFF seeks exactly, like WAV: the same block server serves both.
+#[test]
+fn aiff_seeks_to_the_exact_frame() {
+    let raw = fixture("sine-48k-stereo.aiff");
+    let mut demuxer = open_auto(
+        Box::new(MemSource(raw.clone())),
+        DemuxLimits::default(),
+        Generation::default(),
+    )
+    .expect("open");
+    let landed = demuxer
+        .seek(
+            MediaTime::from_micros(250_000),
+            Generation::default().next(),
+        )
+        .expect("PCM seeks");
+    assert_eq!(landed, MediaTime::from_micros(250_000));
+    let au = loop {
+        match demuxer.next_event().expect("event") {
+            StreamEvent::Au(au) => break au,
+            StreamEvent::Format(..) => continue,
+            other => panic!("unexpected {other:?} after the seek"),
+        }
+    };
+    assert_eq!(au.pts, MediaTime::from_micros(250_000));
+    // 0.25 s in at 192 000 bytes/s; the sample data runs to the file end.
+    let data_start = raw.len() - 96_000;
+    assert_eq!(
+        au.data,
+        raw[data_start + 48_000..data_start + 48_000 + 3_840]
+    );
+}
+
+/// An audio-only MP4 seek lands on the packet before the one that holds
+/// the target and reports where it starts, so nothing of the target's own
+/// packet is skipped: the engine decodes forward from the landing. ALAC's
+/// 4096-frame packets would otherwise lose up to 85 ms.
+#[test]
+fn audio_only_mp4_seeks_land_on_the_packet_before_the_target() {
+    for (name, packet_us) in [
+        ("sine-48k-stereo-alac.m4a", 4096 * 1_000_000 / 48_000),
+        ("aac-48k-stereo.m4a", 1024 * 1_000_000 / 48_000),
+    ] {
+        let mut demuxer = open_auto(
+            Box::new(MemSource(fixture(name))),
+            DemuxLimits::default(),
+            Generation::default(),
+        )
+        .expect("open");
+        for target_us in [700_000i64, 1_000_000, 1_234_567] {
+            let target = MediaTime::from_micros(target_us);
+            let landed = demuxer
+                .seek(target, Generation::default().next())
+                .expect("seek");
+            let au = loop {
+                match demuxer.next_event().expect("event") {
+                    StreamEvent::Au(au) => break au,
+                    StreamEvent::Format(..) => continue,
+                    other => panic!("{name}: unexpected {other:?} after the seek"),
+                }
+            };
+            assert_eq!(au.pts, landed, "{name}: resumes where reported");
+            let short = target_us - landed.as_micros();
+            assert!(
+                short > 0 && short <= 2 * packet_us + 1,
+                "{name}: seek to {target_us} us landed {short} us short"
+            );
+        }
+    }
 }

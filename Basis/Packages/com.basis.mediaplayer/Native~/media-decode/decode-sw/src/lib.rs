@@ -6,14 +6,18 @@
 //! the published crate), and the Vulkan present path has no CPU-frame
 //! upload. Android AV1 is the platform decoder or a typed refusal.
 
+mod alac;
 #[cfg(not(target_os = "android"))]
 mod av1;
 mod flac;
 mod opus;
 mod pcm;
+mod vorbis;
 
+pub use self::alac::AlacDecoder;
 pub use self::opus::{OpusDecoder, OpusHead};
 #[cfg(not(target_os = "android"))]
 pub use av1::SwAv1Decoder;
 pub use flac::FlacDecoder;
 pub use pcm::PcmDecoder;
+pub use vorbis::{VorbisDecoder, split_xiph_headers};

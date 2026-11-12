@@ -29,7 +29,7 @@ const MAX_CHANNELS: u32 = 8;
 /// For each WAVE output channel, its index in family 1's Vorbis order,
 /// by channel count (RFC 7845 §5.1.1.2). Mono, stereo and quad already
 /// coincide.
-const VORBIS_TO_WAVE: [&[usize]; 9] = [
+pub(crate) const VORBIS_TO_WAVE: [&[usize]; 9] = [
     &[],
     &[0],
     &[0, 1],

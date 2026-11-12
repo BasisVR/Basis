@@ -395,8 +395,9 @@ impl Mp4Demuxer {
                 .iter()
                 .filter_map(|id| {
                     let track = mp4.tracks().get(id)?;
-                    let config = configs.get(id).and_then(|raw| parse_asc(raw));
-                    Some(describe_audio(mp4, track, TrackId(*id), config))
+                    let raw = configs.get(id).map(Vec::as_slice);
+                    let config = raw.and_then(parse_asc);
+                    Some(describe_audio(mp4, track, TrackId(*id), config, raw))
                 })
                 .collect();
         }
@@ -443,7 +444,7 @@ impl Mp4Demuxer {
                     let refusal = match (track.kind, &trak.mdia.hdlr.handler_type.value) {
                         (None, b"vide") if self.video.is_none() => Some(unsupported_video(&entry)),
                         (None, b"soun") if self.audio.is_none() && !audio => Some(format!(
-                            "audio codec '{entry}' is not supported (supported: AAC, MP3)"
+                            "audio codec '{entry}' is not supported (supported: AAC, MP3, ALAC)"
                         )),
                         _ => None,
                     };
@@ -606,10 +607,28 @@ impl Mp4Demuxer {
         walked: Option<&[FragmentSample]>,
     ) -> Option<()> {
         let trak = track.trak(mp4);
-        let mp3 = mp3_entry(&trak.mdia.minf.stbl.stsd.contents);
-        let aac = match mp3 {
-            Some(_) => None,
-            None => Some(self.aac_config(trak, track_id, config)?),
+        let contents = &trak.mdia.minf.stbl.stsd.contents;
+        let alac = if is_alac_entry(contents) {
+            match config.and_then(alac_format) {
+                Some(format) => Some((format, config.unwrap_or_default().to_vec())),
+                None => {
+                    push_note(&mut self.refusals, || {
+                        format!("track {}: ALAC without a usable magic cookie", track_id.0)
+                    });
+                    return None;
+                }
+            }
+        } else {
+            None
+        };
+        let mp3 = if alac.is_some() {
+            None
+        } else {
+            mp3_entry(contents)
+        };
+        let aac = match (mp3, &alac) {
+            (None, None) => Some(self.aac_config(trak, track_id, config)?),
+            _ => None,
         };
 
         // re_mp4 parses the edit list but does not apply it. For audio the
@@ -632,9 +651,14 @@ impl Mp4Demuxer {
                 }
             };
 
-        let (codec, sample_rate, channels, codec_private) = match aac {
-            Some((sample_rate, channels, asc)) => (AudioCodec::Aac, sample_rate, channels, asc),
-            None => {
+        let (codec, sample_rate, channels, codec_private) = match (aac, alac) {
+            (Some((sample_rate, channels, asc)), _) => {
+                (AudioCodec::Aac, sample_rate, channels, asc)
+            }
+            (None, Some(((sample_rate, channels), cookie))) => {
+                (AudioCodec::Alac, sample_rate, channels, cookie)
+            }
+            (None, None) => {
                 let stated = mp3.unwrap_or_default();
                 let first = match samples.first() {
                     Some(sample) => Some((sample.offset, sample.size)),
@@ -1465,13 +1489,11 @@ fn audio_configs(
     upto: u64,
     budget: &mut u64,
 ) -> HashMap<u32, Vec<u8>> {
-    let has_mp4a = mp4.tracks().values().any(|track| {
-        matches!(
-            track.trak(mp4).mdia.minf.stbl.stsd.contents,
-            re_mp4::StsdBoxContent::Mp4a(_)
-        )
+    let has_config = mp4.tracks().values().any(|track| {
+        let contents = &track.trak(mp4).mdia.minf.stbl.stsd.contents;
+        matches!(contents, re_mp4::StsdBoxContent::Mp4a(_)) || is_alac_entry(contents)
     });
-    if !has_mp4a {
+    if !has_config {
         return HashMap::new();
     }
     let mut reader = SourceReader::new(src, upto, *budget);
@@ -1522,10 +1544,26 @@ fn sample_entry(contents: &re_mp4::StsdBoxContent) -> String {
 }
 
 /// Whether a track holds sound. The box parser gives QuickTime's MP3
-/// entries no kind of their own.
+/// entries, and ALAC's, no kind of their own.
 fn is_audio(mp4: &re_mp4::Mp4, track: &re_mp4::Track) -> bool {
+    let contents = &track.trak(mp4).mdia.minf.stbl.stsd.contents;
     track.kind == Some(re_mp4::TrackKind::Audio)
-        || mp3_entry(&track.trak(mp4).mdia.minf.stbl.stsd.contents).is_some()
+        || mp3_entry(contents).is_some()
+        || is_alac_entry(contents)
+}
+
+/// Whether a sample entry is Apple Lossless.
+fn is_alac_entry(contents: &re_mp4::StsdBoxContent) -> bool {
+    matches!(contents, re_mp4::StsdBoxContent::Unknown(code) if &code.value == b"alac")
+}
+
+/// The output rate and channel count an ALAC magic cookie (the bare
+/// 24-byte ALACSpecificConfig the config walk returns) states.
+fn alac_format(cookie: &[u8]) -> Option<(u32, u32)> {
+    let cookie = cookie.get(..24)?;
+    let channels = u32::from(cookie[9]);
+    let sample_rate = u32::from_be_bytes(cookie[20..24].try_into().ok()?);
+    ((1..=8).contains(&channels) && sample_rate > 0).then_some((sample_rate, channels))
 }
 
 /// For an entry that carries MP3, the sample rate and channel count it
@@ -1906,6 +1944,7 @@ fn describe_audio(
     track: &re_mp4::Track,
     id: TrackId,
     config: Option<AudioSpecificConfig>,
+    alac_cookie: Option<&[u8]>,
 ) -> AudioTrackInfo {
     let trak = track.trak(mp4);
     // ISO 639-2/T, with the unset marker spelled out rather than shown.
@@ -1914,6 +1953,17 @@ fn describe_audio(
         other => Some(other.to_string()),
     };
     let contents = &trak.mdia.minf.stbl.stsd.contents;
+    if is_alac_entry(contents) {
+        let (sample_rate, channels) = alac_cookie.and_then(alac_format).unwrap_or((0, 0));
+        return AudioTrackInfo {
+            id,
+            language,
+            label: None,
+            codec: AudioCodec::Alac,
+            sample_rate,
+            channels,
+        };
+    }
     if let Some((sample_rate, channels)) = mp3_entry(contents) {
         return AudioTrackInfo {
             id,
@@ -2043,6 +2093,20 @@ impl Demuxer for Mp4Demuxer {
             let key = landing(all, target).unwrap_or(0);
             *next = key;
             all.get(key).map(|s| s.pts).unwrap_or(target)
+        } else if let Some(AudioTrack {
+            samples: Samples::Whole { all, .. },
+            ..
+        }) = &self.audio
+        {
+            // Audio alone lands on the packet before the one that holds
+            // the target and reports where it starts. Landing at the target
+            // itself would skip the packet straddling it, a whole ALAC
+            // packet (85 ms) or AAC frame; the engine instead decodes from
+            // here unseen and presents from the target. The packet ahead
+            // primes a decoder whose frames overlap, as AAC's do.
+            let holding = all.partition_point(|s| s.pts <= target).saturating_sub(1);
+            all.get(holding.saturating_sub(1))
+                .map_or(target, |s| s.pts.min(target))
         } else {
             target
         };

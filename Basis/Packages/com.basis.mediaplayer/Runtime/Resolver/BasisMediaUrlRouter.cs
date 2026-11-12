@@ -143,16 +143,16 @@ public static partial class BasisMediaUrlRouter
     }
 
     // Containers the engine demuxes from a plain byte stream. No .mpd: with no DASH
-    // demuxer, a raw manifest goes through a resolver. .opus but not .ogg:
-    // .opus is Opus by convention, while .ogg is a generic container that may carry
-    // codecs the engine does not decode.
+    // demuxer, a raw manifest goes through a resolver. .ogg and .oga carry Opus,
+    // Vorbis or FLAC, all of which the engine decodes; an Ogg holding only video is
+    // refused by the engine rather than here.
     [NoAutoStaticsCleanup] private static readonly string[] DirectExtensions =
     {
         ".mp4", ".m4v", ".m4a", ".m4s", ".mov",
         ".ts", ".m2ts", ".mts",
         ".m3u8",
         ".mkv", ".webm",
-        ".opus", ".mp3", ".flac", ".aac", ".wav",
+        ".opus", ".ogg", ".oga", ".mp3", ".flac", ".aac", ".wav", ".aif", ".aiff", ".aifc",
     };
 
     /// <summary>

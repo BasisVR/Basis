@@ -11,9 +11,56 @@ use media_decode::{AudioDecoder, DecodeError, PcmChunk, SubmitOutcome};
 /// Format announce private data: `[channel_assignment, bits_code, flags]`.
 /// Assignment 0 means the channels already arrive in WAVE order; otherwise
 /// it is the Blu-ray `channel_assignment`. Bits code 1 = 16-bit, 3 = 24-bit
-/// (the Blu-ray coding, reused for WAV). Flags bit 0 marks little-endian
-/// samples.
+/// (the Blu-ray coding, reused for WAV and AIFF); the codes past the
+/// Blu-ray range are the file lanes' other sample types, below. Flags bit
+/// 0 marks little-endian samples.
 const CONFIG_LEN: usize = 3;
+
+pub const BITS_16: u8 = 1;
+pub const BITS_24: u8 = 3;
+pub const BITS_32: u8 = 4;
+/// 8-bit with a 128 bias, as WAV stores it.
+pub const BITS_8_UNSIGNED: u8 = 5;
+/// 8-bit two's complement, as AIFF stores it.
+pub const BITS_8_SIGNED: u8 = 6;
+pub const FLOAT_32: u8 = 7;
+pub const FLOAT_64: u8 = 8;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Sample {
+    U8,
+    I8,
+    I16,
+    I24,
+    I32,
+    F32,
+    F64,
+}
+
+impl Sample {
+    fn from_code(code: u8) -> Option<Self> {
+        Some(match code {
+            BITS_16 => Self::I16,
+            BITS_24 => Self::I24,
+            BITS_32 => Self::I32,
+            BITS_8_UNSIGNED => Self::U8,
+            BITS_8_SIGNED => Self::I8,
+            FLOAT_32 => Self::F32,
+            FLOAT_64 => Self::F64,
+            _ => return None,
+        })
+    }
+
+    fn bytes(self) -> usize {
+        match self {
+            Self::U8 | Self::I8 => 1,
+            Self::I16 => 2,
+            Self::I24 => 3,
+            Self::I32 | Self::F32 => 4,
+            Self::F64 => 8,
+        }
+    }
+}
 
 /// Stream order to WAVE order for the Blu-ray assignments whose order
 /// differs: Blu-ray puts the LFE last and the side pair ahead of the rears.
@@ -34,6 +81,7 @@ fn bluray_remap(assignment: u8) -> Option<&'static [usize]> {
 pub struct PcmDecoder {
     sample_rate: u32,
     channels: usize,
+    kind: Sample,
     bytes_per_sample: usize,
     little_endian: bool,
     remap: Option<&'static [usize]>,
@@ -48,14 +96,11 @@ impl PcmDecoder {
             ));
         }
         let assignment = codec_private[0];
-        let bytes_per_sample = match codec_private[1] {
-            1 => 2,
-            3 => 3,
-            other => {
-                return Err(DecodeError(format!(
-                    "PCM bits code {other} unsupported (16- and 24-bit only)"
-                )));
-            }
+        let Some(kind) = Sample::from_code(codec_private[1]) else {
+            return Err(DecodeError(format!(
+                "PCM bits code {} unsupported",
+                codec_private[1]
+            )));
         };
         let channels = channels as usize;
         if !(1..=8).contains(&channels) {
@@ -77,7 +122,8 @@ impl PcmDecoder {
         Ok(Self {
             sample_rate,
             channels,
-            bytes_per_sample,
+            kind,
+            bytes_per_sample: kind.bytes(),
             little_endian: codec_private[2] & 1 != 0,
             remap,
             pending: None,
@@ -85,25 +131,70 @@ impl PcmDecoder {
     }
 
     fn sample(&self, s: &[u8]) -> f32 {
-        if self.bytes_per_sample == 2 {
-            let v = if self.little_endian {
-                i16::from_le_bytes([s[0], s[1]])
-            } else {
-                i16::from_be_bytes([s[0], s[1]])
-            };
-            f32::from(v) / 32768.0
-        } else {
-            let (hi, mid, lo) = if self.little_endian {
-                (s[2], s[1], s[0])
-            } else {
-                (s[0], s[1], s[2])
-            };
-            let mut v = (i32::from(hi) << 16) | (i32::from(mid) << 8) | i32::from(lo);
-            if v & 0x0080_0000 != 0 {
-                v -= 0x0100_0000;
+        let le = self.little_endian;
+        match self.kind {
+            Sample::U8 => (f32::from(s[0]) - 128.0) / 128.0,
+            Sample::I8 => f32::from(s[0] as i8) / 128.0,
+            Sample::I16 => {
+                let b = [s[0], s[1]];
+                let v = if le {
+                    i16::from_le_bytes(b)
+                } else {
+                    i16::from_be_bytes(b)
+                };
+                f32::from(v) / 32768.0
             }
-            v as f32 / 8_388_608.0
+            Sample::I24 => {
+                let (hi, mid, lo) = if le {
+                    (s[2], s[1], s[0])
+                } else {
+                    (s[0], s[1], s[2])
+                };
+                let mut v = (i32::from(hi) << 16) | (i32::from(mid) << 8) | i32::from(lo);
+                if v & 0x0080_0000 != 0 {
+                    v -= 0x0100_0000;
+                }
+                v as f32 / 8_388_608.0
+            }
+            Sample::I32 => {
+                let b = [s[0], s[1], s[2], s[3]];
+                let v = if le {
+                    i32::from_le_bytes(b)
+                } else {
+                    i32::from_be_bytes(b)
+                };
+                v as f32 / 2_147_483_648.0
+            }
+            Sample::F32 => {
+                let b = [s[0], s[1], s[2], s[3]];
+                let v = if le {
+                    f32::from_le_bytes(b)
+                } else {
+                    f32::from_be_bytes(b)
+                };
+                finite(v)
+            }
+            Sample::F64 => {
+                let b: [u8; 8] = s[..8].try_into().expect("sliced 8");
+                let v = if le {
+                    f64::from_le_bytes(b)
+                } else {
+                    f64::from_be_bytes(b)
+                };
+                finite(v as f32)
+            }
         }
+    }
+}
+
+/// Float files can hold anything, NaN and infinities included; neither may
+/// reach the mixer, and a sample far past full scale is clipped there
+/// anyway, so it is clipped here where the reason is plain.
+fn finite(v: f32) -> f32 {
+    if v.is_finite() {
+        v.clamp(-1.0, 1.0)
+    } else {
+        0.0
     }
 }
 
@@ -211,6 +302,27 @@ mod tests {
             out.iter().map(|v| slot(*v)).collect::<Vec<_>>(),
             vec![1, 2, 3, 4, 5, 6]
         );
+    }
+
+    #[test]
+    fn reads_the_file_lane_sample_types() {
+        assert_eq!(
+            decode(&[0, BITS_8_UNSIGNED, 1], 2, &[0, 192]),
+            vec![-1.0, 0.5]
+        );
+        assert_eq!(
+            decode(&[0, BITS_8_SIGNED, 0], 2, &[0x80, 64]),
+            vec![-1.0, 0.5]
+        );
+        let le32 = decode(&[0, BITS_32, 1], 1, &i32::MIN.to_le_bytes());
+        let be32 = decode(&[0, BITS_32, 0], 1, &i32::MIN.to_be_bytes());
+        assert_eq!((le32, be32), (vec![-1.0], vec![-1.0]));
+        let mut f = 0.25f32.to_le_bytes().to_vec();
+        f.extend_from_slice(&f32::NAN.to_le_bytes());
+        assert_eq!(decode(&[0, FLOAT_32, 1], 2, &f), vec![0.25, 0.0]);
+        let mut d = (-0.5f64).to_be_bytes().to_vec();
+        d.extend_from_slice(&4.0f64.to_be_bytes());
+        assert_eq!(decode(&[0, FLOAT_64, 0], 2, &d), vec![-0.5, 1.0]);
     }
 
     #[test]

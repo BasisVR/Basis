@@ -19,6 +19,8 @@ public enum BasisMediaClipContainer : byte
     Wav = 8,
     Opus = 9,
     Aac = 10,
+    Ogg = 11,
+    Aiff = 12,
 }
 
 public struct BasisMediaClipOffer
@@ -137,11 +139,20 @@ public static partial class BasisMediaClipProtocol
             case ".aac":
                 container = BasisMediaClipContainer.Aac;
                 return true;
+            case ".ogg":
+            case ".oga":
+                container = BasisMediaClipContainer.Ogg;
+                return true;
+            case ".aif":
+            case ".aiff":
+            case ".aifc":
+                container = BasisMediaClipContainer.Aiff;
+                return true;
         }
         return false;
     }
 
-    public static bool IsAudio(BasisMediaClipContainer container) => container >= BasisMediaClipContainer.Mp3 && container <= BasisMediaClipContainer.Aac;
+    public static bool IsAudio(BasisMediaClipContainer container) => container >= BasisMediaClipContainer.Mp3 && container <= BasisMediaClipContainer.Aiff;
 
     public static string Extension(BasisMediaClipContainer container)
     {
@@ -157,6 +168,8 @@ public static partial class BasisMediaClipProtocol
             case BasisMediaClipContainer.Wav: return ".wav";
             case BasisMediaClipContainer.Opus: return ".opus";
             case BasisMediaClipContainer.Aac: return ".aac";
+            case BasisMediaClipContainer.Ogg: return ".ogg";
+            case BasisMediaClipContainer.Aiff: return ".aiff";
         }
         return null;
     }
@@ -174,7 +187,10 @@ public static partial class BasisMediaClipProtocol
             case BasisMediaClipContainer.Wav:
                 return head.Length >= 12 && (IsAscii(head.Slice(0, 4), "RIFF") || IsAscii(head.Slice(0, 4), "RF64")) && IsAscii(head.Slice(8, 4), "WAVE");
             case BasisMediaClipContainer.Opus:
+            case BasisMediaClipContainer.Ogg:
                 return head.Length >= 4 && IsAscii(head.Slice(0, 4), "OggS");
+            case BasisMediaClipContainer.Aiff:
+                return head.Length >= 12 && IsAscii(head.Slice(0, 4), "FORM") && (IsAscii(head.Slice(8, 4), "AIFF") || IsAscii(head.Slice(8, 4), "AIFC"));
             case BasisMediaClipContainer.Mp4:
             case BasisMediaClipContainer.Mov:
             case BasisMediaClipContainer.M4a:

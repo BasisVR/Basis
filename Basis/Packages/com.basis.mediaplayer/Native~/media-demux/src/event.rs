@@ -23,6 +23,8 @@ pub enum AudioCodec {
     Flac,
     Mp3,
     Pcm,
+    Vorbis,
+    Alac,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
