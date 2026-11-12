@@ -213,6 +213,24 @@ impl Bridge {
         Ok(true)
     }
 
+    fn reached(&self, fence: &Fence, value: u64, deadline: Instant) -> bool {
+        loop {
+            let done = unsafe {
+                match (&self.backend, fence) {
+                    #[cfg(windows)]
+                    (_, Fence::D11(f)) => f.GetCompletedValue(),
+                    #[cfg(windows)]
+                    (_, Fence::D12(f)) => f.GetCompletedValue(),
+                    (Backend::Vulkan(vk), Fence::Vk(s)) => vk.device.get_semaphore_counter_value(*s).unwrap_or(0),
+                    _ => u64::MAX,
+                }
+            };
+            if done >= value { return true; }
+            if self.status() != STATUS_READY || Instant::now() >= deadline { return false; }
+            std::thread::yield_now();
+        }
+    }
+
     #[cfg(windows)]
     fn wait(&mut self, fence: &Fence, value: u64) -> Result<()> {
         unsafe {
@@ -296,6 +314,7 @@ impl Bridge {
         let previous = self.used[context][parity & 1];
         let upload_previous = frame.saturating_sub(2);
         let wait_for = previous.max(upload_previous).min(submitted);
+        if wait_for > 0 && !self.reached(&fence_tracer, wait_for, Instant::now() + Duration::from_micros(self.budget_us as u64)) { return Ok(false); }
         let rows = upload_rows.min(UPLOAD_HEIGHT);
         let fits = Self::same_extent(&gbuffer_dst, &gbuffer_src);
         if !fits { self.resize_skips += 1; }
@@ -362,6 +381,7 @@ impl Bridge {
         }
         if h.frame_submitted.load(Ordering::Acquire) < frame { self.fetch_failures += 1; return Ok(0); }
         let fence_tracer = self.global.as_ref().unwrap().fence_tracer.clone();
+        if !self.reached(&fence_tracer, frame, deadline) { self.fetch_failures += 1; return Ok(0); }
         let output = self.shared[context].as_ref().unwrap().output[parity & 1].clone();
         if !Self::same_extent(&result, &output) { self.resize_skips += 1; return Ok(0); }
         if let Backend::Vulkan(vk) = &mut self.backend {

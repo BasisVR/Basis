@@ -184,6 +184,7 @@ namespace Basis.BasisUI
 
         private static void Capture(PanelSlider slider, BasisBoneTrackedRole role)
         {
+            if (_sweeping) Commit();
             _slider = slider;
             _binding = slider.SettingsBinding;
             _role = role;
@@ -197,6 +198,7 @@ namespace Basis.BasisUI
 
         private static void Drop()
         {
+            if (_sweeping) Commit();
             _slider = null;
             _binding = null;
             _label = null;
@@ -285,7 +287,11 @@ namespace Basis.BasisUI
             return _slider != null ? Mathf.Clamp(_slider.Value, _min, _max) : _min;
         }
 
-        private static float Quantized(float value) => _wholeNumbers ? Mathf.Round(value) : value;
+        private static float Quantized(float value)
+        {
+            if (_slider != null) value = _slider.Snap(value);
+            return _wholeNumbers ? Mathf.Round(value) : value;
+        }
 
         /// <summary>
         /// Moves the handle and the value in force without saving. A dragged slider behaves the
@@ -295,7 +301,11 @@ namespace Basis.BasisUI
         private static void ApplyLive()
         {
             float value = Quantized(_liveValue);
-            if (_slider != null) _slider.SetValueWithoutNotify(value);
+            if (_slider != null && value != _slider.Value)
+            {
+                _slider.SetValueWithoutNotify(value);
+                _slider.ReportDriven(value, _binding == null);
+            }
             if (_binding == null) return;
 
             _binding.SetValueWithoutNotify(value);
@@ -307,7 +317,8 @@ namespace Basis.BasisUI
             float now = Time.unscaledTime;
             if (now < _nextLiveApply) return;
             _nextLiveApply = now + LiveApplyInterval;
-            _binding.OnChanged?.Invoke(value);
+            if (_slider != null && _slider.AppliesWhileDragging) _binding.PreviewValue(value);
+            else _binding.OnChanged?.Invoke(value);
         }
 
         /// <summary>
@@ -323,6 +334,7 @@ namespace Basis.BasisUI
             {
                 _slider.SetExternalDrive(false);
                 _slider.ApplyDrivenValue(value);
+                _slider.CloseDrag();
                 return;
             }
             _binding?.SetValue(value);

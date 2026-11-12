@@ -34,6 +34,7 @@ namespace BasisNetworkServer.Security
         private static int _externalLinksLocked;
         private static int _avatarHostingLocked;
         private static int _videoClipsLocked;
+        private static int _keepSharedMediaOnLeave;
         private static int _imageMaxResolutionK = DefaultImageMaxResolutionK;
         public const int MinImageMaxResolutionK = 1;
         public const int MaxImageMaxResolutionK = 16;
@@ -71,6 +72,11 @@ namespace BasisNetworkServer.Security
         public static bool ExternalLinksLocked => Interlocked.CompareExchange(ref _externalLinksLocked, 0, 0) == 1;
         public static bool AvatarHostingLocked => Interlocked.CompareExchange(ref _avatarHostingLocked, 0, 0) == 1;
         public static bool VideoClipsLocked => Interlocked.CompareExchange(ref _videoClipsLocked, 0, 0) == 1;
+        /// <summary>
+        /// When set, a leaving player's shared images and video/audio clips stay in the instance and are
+        /// handed to the longest-connected remaining player instead of being removed.
+        /// </summary>
+        public static bool KeepSharedMediaOnLeave => Interlocked.CompareExchange(ref _keepSharedMediaOnLeave, 0, 0) == 1;
         public static byte ImageMaxResolutionK => (byte)Interlocked.CompareExchange(ref _imageMaxResolutionK, 0, 0);
         public static ushort VideoClipMaxMegabytes => (ushort)Interlocked.CompareExchange(ref _videoClipMaxMegabytes, 0, 0);
         public static byte VideoClipMaxPerPlayer => (byte)Interlocked.CompareExchange(ref _videoClipMaxPerPlayer, 0, 0);
@@ -104,6 +110,7 @@ namespace BasisNetworkServer.Security
             Interlocked.Exchange(ref _externalLinksLocked, config.ExternalLinksLocked ? 1 : 0);
             Interlocked.Exchange(ref _avatarHostingLocked, config.AvatarHostingLocked ? 1 : 0);
             Interlocked.Exchange(ref _videoClipsLocked, config.VideoClipsLocked ? 1 : 0);
+            Interlocked.Exchange(ref _keepSharedMediaOnLeave, config.KeepSharedMediaOnLeave ? 1 : 0);
             SetImageMaxResolutionK(config.ImageMaxResolutionK);
             SetVideoClipMaxMegabytes(config.VideoClipMaxMegabytes);
             SetVideoClipMaxPerPlayer(config.VideoClipMaxPerPlayer);
@@ -144,6 +151,7 @@ namespace BasisNetworkServer.Security
             config.ExternalLinksLocked = ExternalLinksLocked;
             config.AvatarHostingLocked = AvatarHostingLocked;
             config.VideoClipsLocked = VideoClipsLocked;
+            config.KeepSharedMediaOnLeave = KeepSharedMediaOnLeave;
             config.ImageMaxResolutionK = ImageMaxResolutionK;
             config.VideoClipMaxMegabytes = VideoClipMaxMegabytes;
             config.VideoClipMaxPerPlayer = VideoClipMaxPerPlayer;
@@ -253,6 +261,8 @@ namespace BasisNetworkServer.Security
 
         public static bool ToggleVideoClips() => Toggle(ref _videoClipsLocked);
 
+        public static bool ToggleKeepSharedMediaOnLeave() => Toggle(ref _keepSharedMediaOnLeave);
+
         /// <summary>
         /// Toggle the global remote end-effector IK disable. Returns the new state (true = disabled;
         /// clients fall back to pure-FK playback for remote hands/feet). Enforced client-side.
@@ -352,6 +362,7 @@ namespace BasisNetworkServer.Security
             writer.Put(ImageMaxResolutionK);
             writer.Put(VideoClipMaxMegabytes);
             writer.Put(VideoClipMaxPerPlayer);
+            writer.Put(KeepSharedMediaOnLeave);
             NetworkServer.TrySend(peer, writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
             NetworkServer.ReturnWriter(writer);
         }
@@ -401,6 +412,7 @@ namespace BasisNetworkServer.Security
             writer.Put(ImageMaxResolutionK);
             writer.Put(VideoClipMaxMegabytes);
             writer.Put(VideoClipMaxPerPlayer);
+            writer.Put(KeepSharedMediaOnLeave);
             NetworkServer.BroadcastMessageToClients(
                 writer,
                 BasisNetworkCommons.AdminChannel,

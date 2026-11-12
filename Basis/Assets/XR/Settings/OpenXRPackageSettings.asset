@@ -22,6 +22,50 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
+--- !u!114 &-8722821171176222645
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dd51bcce6c4135c4aa362a8ca1c29508, type: 3}
+  m_Name: HTCViveTrackerProfile Standalone
+  m_EditorClassIdentifier: BasisOpenXR::UnityEngine.XR.OpenXR.Features.Interactions.HTCViveTrackerProfile
+  m_enabled: 0
+  nameUi: HTC Vive Tracker Profile
+  version: 0.0.2
+  featureIdInternal: com.basis.openxr.feature.input.htcvivetracker
+  openxrExtensionStrings: XR_HTCX_vive_tracker_interaction
+  company: Basis Framework
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
+--- !u!114 &-8638724109430721121
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2c957456531ec6a4e84cfaadc0cc8033, type: 3}
+  m_Name: ValveOpenXRSystemInfoFeature Standalone
+  m_EditorClassIdentifier: Valve.OpenXR.Utils::Valve.OpenXR.Utils.ValveOpenXRSystemInfoFeature
+  m_enabled: 0
+  nameUi: 'Valve Utils: System Info'
+  version: 1.0.0
+  featureIdInternal: com.valvesoftware.openxr.utils.sysinfo
+  openxrExtensionStrings: 
+  company: Valve Software
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
 --- !u!114 &-8573264130738293855
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -106,6 +150,28 @@ MonoBehaviour:
   featureIdInternal: com.unity.openxr.feature.input.handinteraction
   openxrExtensionStrings: XR_EXT_hand_interaction
   company: Unity
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
+--- !u!114 &-7582329269633013603
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee936f3faf78e2a48bbd83d49ab272b0, type: 3}
+  m_Name: BasisPassthroughFeature Android
+  m_EditorClassIdentifier: BasisOpenXR::Basis.OpenXR.BasisPassthroughFeature
+  m_enabled: 0
+  nameUi: Basis Passthrough
+  version: 1.0.0
+  featureIdInternal: com.basis.openxr.feature.passthrough
+  openxrExtensionStrings: XR_FB_passthrough
+  company: Basis
   priority: 0
   targetOpenXRApiVersion: 
   required: 0
@@ -262,7 +328,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Valve.OpenXR.Utils::ValveOpenXRRefreshRateFeature
   m_enabled: 1
   nameUi: 'Valve Utils: Refresh Rate'
-  version: 1
+  version: 1.1.0
   featureIdInternal: com.valve.openxr.refreshrate
   openxrExtensionStrings: XR_FB_display_refresh_rate
   company: Valve Software
@@ -543,6 +609,28 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
+--- !u!114 &-4692300244068740869
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b4a56c6d5c174b54adc1aa638f8a793c, type: 3}
+  m_Name: ValveRenderModelFeature Android
+  m_EditorClassIdentifier: BasisOpenXR::ValveRenderModelFeature
+  m_enabled: 0
+  nameUi: 'Valve Utils: Render Model Sample'
+  version: 0.1.0
+  featureIdInternal: com.valve.openxr.feature.render_models
+  openxrExtensionStrings: XR_EXT_render_model XR_EXT_interaction_render_model XR_EXT_uuid
+  company: Valve
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
 --- !u!114 &-4148702767030345292
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -786,6 +874,28 @@ MonoBehaviour:
   featureIdInternal: com.unity.openxr.feature.input.handtracking
   openxrExtensionStrings: XR_MSFT_hand_interaction
   company: Unity
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
+--- !u!114 &-2983444702512454151
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 494177e5549bfa144a1dc45218231d1f, type: 3}
+  m_Name: FixNoVisibleAreaMesh Standalone
+  m_EditorClassIdentifier: BasisOpenXR::UnityEngine.XR.OpenXR.Features.FixNoVisibleAreaMesh
+  m_enabled: 0
+  nameUi: Fix No Visible Area Mesh
+  version: 0.0.1
+  featureIdInternal: com.stresslevelzero.fixnovisiblemesh
+  openxrExtensionStrings: XR_KHR_visibility_mask
+  company: Stress Level Zero
   priority: 0
   targetOpenXRApiVersion: 
   required: 0
@@ -1151,8 +1261,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Valve.OpenXR.Utils::UnityEngine.XR.OpenXR.Features.Interactions.SteamFrameControllerProfile
   m_enabled: 1
   nameUi: Steam Frame Controller Profile
-  version: 0.0.3
-  featureIdInternal: com.unity.openxr.feature.input.frame_controller
+  version: 0.0.4
+  featureIdInternal: com.valvesoftware.openxr.utils.frame_controller
   openxrExtensionStrings: XR_VALVE_frame_controller_interaction
   company: Valve
   priority: 0
@@ -1280,6 +1390,28 @@ MonoBehaviour:
   m_XrSessionEnding: 0
   m_XrSessionNewState: 0
   m_XrSessionOldState: 0
+--- !u!114 &-695460530999557501
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95f309fdc0607444ea36f89da2c4b55c, type: 3}
+  m_Name: ValveOpenXRRenderModelFeature Standalone
+  m_EditorClassIdentifier: Valve.OpenXR.Utils::Valve.OpenXR.Utils.ValveOpenXRRenderModelFeature
+  m_enabled: 0
+  nameUi: 'Valve Utils: Render Models'
+  version: 1.0.0
+  featureIdInternal: com.valvesoftware.openxr.utils.render_models
+  openxrExtensionStrings: XR_EXT_render_model XR_EXT_interaction_render_model XR_EXT_uuid
+  company: Valve Software
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
 --- !u!114 &-537972378157693835
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1390,13 +1522,10 @@ MonoBehaviour:
   - {fileID: 6814664173189161179}
   - {fileID: -6839859109901797412}
   - {fileID: 6719199143533333913}
-  - {fileID: 1368011072859452178}
-  - {fileID: -8377521960917039191}
   - {fileID: -5306176883744656445}
   - {fileID: -5613220336340229018}
   - {fileID: -3753664232341013626}
   - {fileID: 5806727535284400695}
-  - {fileID: -2018307807013111431}
   - {fileID: 1037941242733295319}
   - {fileID: -8806581250835264744}
   - {fileID: -7821391695787243210}
@@ -1417,7 +1546,6 @@ MonoBehaviour:
   - {fileID: -1427781558322410069}
   - {fileID: 2404985651251156825}
   - {fileID: -6722046496185307810}
-  - {fileID: -6051968370470617284}
   - {fileID: -7266700244491604345}
   - {fileID: 5114516646116427477}
   - {fileID: 4438077085720265041}
@@ -1427,6 +1555,13 @@ MonoBehaviour:
   - {fileID: -4148702767030345292}
   - {fileID: -2354888520993758764}
   - {fileID: -3726446428451588314}
+  - {fileID: 1902649487102909011}
+  - {fileID: 8804531205131375447}
+  - {fileID: 6844761052120751290}
+  - {fileID: -7582329269633013603}
+  - {fileID: 1605229275498707606}
+  - {fileID: -4692300244068740869}
+  - {fileID: 3530917015374028387}
   customLoaderName: 
   m_renderMode: 1
   m_latencyOptimization: 0
@@ -1570,6 +1705,28 @@ MonoBehaviour:
   openxrExtensionStrings: XR_META_hand_tracking_unextrapolated_poses
   company: Unity
   priority: -101
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
+--- !u!114 &573327330105468062
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1c80bfd1462740179afb9e888f2ab95b, type: 3}
+  m_Name: ValveOpenXRDisplayTimeFeature Standalone
+  m_EditorClassIdentifier: Valve.OpenXR.Utils::Valve.OpenXR.Utils.ValveOpenXRDisplayTimeFeature
+  m_enabled: 0
+  nameUi: 'Valve Utils: Display Time'
+  version: 0.1.0
+  featureIdInternal: com.valvesoftware.openxr.utils.display_time
+  openxrExtensionStrings: 
+  company: Valve Software
+  priority: 0
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
@@ -1759,6 +1916,28 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
+--- !u!114 &1605229275498707606
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 494177e5549bfa144a1dc45218231d1f, type: 3}
+  m_Name: FixNoVisibleAreaMesh Android
+  m_EditorClassIdentifier: BasisOpenXR::UnityEngine.XR.OpenXR.Features.FixNoVisibleAreaMesh
+  m_enabled: 0
+  nameUi: Fix No Visible Area Mesh
+  version: 0.0.1
+  featureIdInternal: com.stresslevelzero.fixnovisiblemesh
+  openxrExtensionStrings: XR_KHR_visibility_mask
+  company: Stress Level Zero
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
 --- !u!114 &1818262454267888816
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1794,6 +1973,28 @@ MonoBehaviour:
   extensionStrings:
   - XR_KHR_binding_modification
   - XR_EXT_dpad_binding
+--- !u!114 &1902649487102909011
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95f309fdc0607444ea36f89da2c4b55c, type: 3}
+  m_Name: ValveOpenXRRenderModelFeature Android
+  m_EditorClassIdentifier: Valve.OpenXR.Utils::Valve.OpenXR.Utils.ValveOpenXRRenderModelFeature
+  m_enabled: 0
+  nameUi: 'Valve Utils: Render Models'
+  version: 1.0.0
+  featureIdInternal: com.valvesoftware.openxr.utils.render_models
+  openxrExtensionStrings: XR_EXT_render_model XR_EXT_interaction_render_model XR_EXT_uuid
+  company: Valve Software
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
 --- !u!114 &1981983295813178899
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1975,6 +2176,28 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
+--- !u!114 &2831433334673402095
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1dd64057c785437297711b76aff2a2e1, type: 3}
+  m_Name: BasisMetaBodyTrackingFeature Standalone
+  m_EditorClassIdentifier: Basis.Integration.MetaBodyTracking::Basis.Integration.MetaBodyTracking.BasisMetaBodyTrackingFeature
+  m_enabled: 0
+  nameUi: Basis Meta Body Tracking
+  version: 1.0.0
+  featureIdInternal: com.basis.openxr.feature.metabodytracking
+  openxrExtensionStrings: XR_FB_body_tracking XR_META_body_tracking_full_body XR_META_body_tracking_fidelity XR_META_body_tracking_calibration
+  company: Basis
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
 --- !u!114 &3515228608243786626
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1993,6 +2216,28 @@ MonoBehaviour:
   featureIdInternal: com.valve.openxr.feature.render_models
   openxrExtensionStrings: XR_EXT_render_model XR_EXT_interaction_render_model XR_EXT_uuid
   company: Valve
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
+--- !u!114 &3530917015374028387
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1dd64057c785437297711b76aff2a2e1, type: 3}
+  m_Name: BasisMetaBodyTrackingFeature Android
+  m_EditorClassIdentifier: Basis.Integration.MetaBodyTracking::Basis.Integration.MetaBodyTracking.BasisMetaBodyTrackingFeature
+  m_enabled: 0
+  nameUi: Basis Meta Body Tracking
+  version: 1.0.0
+  featureIdInternal: com.basis.openxr.feature.metabodytracking
+  openxrExtensionStrings: XR_FB_body_tracking XR_META_body_tracking_full_body XR_META_body_tracking_fidelity XR_META_body_tracking_calibration
+  company: Basis
   priority: 0
   targetOpenXRApiVersion: 
   required: 0
@@ -2061,6 +2306,28 @@ MonoBehaviour:
   featureIdInternal: com.meta.openxr.feature.subsampledLayout
   openxrExtensionStrings: XR_META_vulkan_swapchain_create_info
   company: Meta
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
+--- !u!114 &3880354030763762589
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b4a56c6d5c174b54adc1aa638f8a793c, type: 3}
+  m_Name: ValveRenderModelFeature Standalone
+  m_EditorClassIdentifier: BasisOpenXR::ValveRenderModelFeature
+  m_enabled: 0
+  nameUi: 'Valve Utils: Render Model Sample'
+  version: 0.1.0
+  featureIdInternal: com.valve.openxr.feature.render_models
+  openxrExtensionStrings: XR_EXT_render_model XR_EXT_interaction_render_model XR_EXT_uuid
+  company: Valve
   priority: 0
   targetOpenXRApiVersion: 
   required: 0
@@ -2167,7 +2434,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Valve.OpenXR.Utils::ValveOpenXRRefreshRateFeature
   m_enabled: 1
   nameUi: 'Valve Utils: Refresh Rate'
-  version: 1
+  version: 1.1.0
   featureIdInternal: com.valve.openxr.refreshrate
   openxrExtensionStrings: XR_FB_display_refresh_rate
   company: Valve Software
@@ -2189,12 +2456,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   features:
   - {fileID: 3564320416034451987}
-  - {fileID: 4021891731233699907}
   - {fileID: -4823766194161132787}
   - {fileID: -4043191770439387137}
   - {fileID: 1818262454267888816}
   - {fileID: 2776206606949624213}
-  - {fileID: -2656986249713310751}
   - {fileID: -3764107326657577408}
   - {fileID: -7502029321421986309}
   - {fileID: -537972378157693835}
@@ -2202,7 +2467,6 @@ MonoBehaviour:
   - {fileID: -1879928609052751685}
   - {fileID: 8439728548421286831}
   - {fileID: -7329309301638610648}
-  - {fileID: -1591660320658234261}
   - {fileID: -5895914430912560921}
   - {fileID: 3999078036332178412}
   - {fileID: -1833818701715182339}
@@ -2217,13 +2481,19 @@ MonoBehaviour:
   - {fileID: 5205117698541507489}
   - {fileID: -6227126262682780105}
   - {fileID: 4173483422715456260}
-  - {fileID: 3515228608243786626}
   - {fileID: 2231758598234634398}
   - {fileID: -2546553118739243343}
   - {fileID: 638815009775519648}
   - {fileID: 569210618942339098}
   - {fileID: -8573264130738293855}
   - {fileID: 9082714065171438442}
+  - {fileID: -695460530999557501}
+  - {fileID: -8638724109430721121}
+  - {fileID: 573327330105468062}
+  - {fileID: -8722821171176222645}
+  - {fileID: -2983444702512454151}
+  - {fileID: 3880354030763762589}
+  - {fileID: 2831433334673402095}
   customLoaderName: 
   m_renderMode: 1
   m_latencyOptimization: 0
@@ -2421,8 +2691,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Valve.OpenXR.Utils::UnityEngine.XR.OpenXR.Features.Interactions.SteamFrameControllerProfile
   m_enabled: 1
   nameUi: Steam Frame Controller Profile
-  version: 0.0.3
-  featureIdInternal: com.unity.openxr.feature.input.frame_controller
+  version: 0.0.4
+  featureIdInternal: com.valvesoftware.openxr.utils.frame_controller
   openxrExtensionStrings: XR_VALVE_frame_controller_interaction
   company: Valve
   priority: 0
@@ -2725,6 +2995,28 @@ MonoBehaviour:
   customRuntimeLoaderName: 
   m_ApiLayers:
     m_Collection: []
+--- !u!114 &6844761052120751290
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1c80bfd1462740179afb9e888f2ab95b, type: 3}
+  m_Name: ValveOpenXRDisplayTimeFeature Android
+  m_EditorClassIdentifier: Valve.OpenXR.Utils::Valve.OpenXR.Utils.ValveOpenXRDisplayTimeFeature
+  m_enabled: 0
+  nameUi: 'Valve Utils: Display Time'
+  version: 0.1.0
+  featureIdInternal: com.valvesoftware.openxr.utils.display_time
+  openxrExtensionStrings: 
+  company: Valve Software
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
 --- !u!114 &7214262051846087116
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2903,6 +3195,28 @@ MonoBehaviour:
   customRuntimeLoaderName: 
   m_LeftHandPreference: 2
   m_RightHandPreference: 2
+--- !u!114 &8804531205131375447
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2c957456531ec6a4e84cfaadc0cc8033, type: 3}
+  m_Name: ValveOpenXRSystemInfoFeature Android
+  m_EditorClassIdentifier: Valve.OpenXR.Utils::Valve.OpenXR.Utils.ValveOpenXRSystemInfoFeature
+  m_enabled: 0
+  nameUi: 'Valve Utils: System Info'
+  version: 1.0.0
+  featureIdInternal: com.valvesoftware.openxr.utils.sysinfo
+  openxrExtensionStrings: 
+  company: Valve Software
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
 --- !u!114 &9056897859945040911
 MonoBehaviour:
   m_ObjectHideFlags: 0

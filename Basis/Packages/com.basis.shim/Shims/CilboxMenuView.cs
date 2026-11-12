@@ -174,6 +174,19 @@ namespace Cilbox
 			else if (item.Control is PanelDropdown dropdown && dropdown != null) dropdown.SetValueWithoutNotify(Id((int)item.Value));
 		}
 
+		internal static void ShowFormat(CilboxMenuItem item)
+		{
+			if (item.Control is PanelSlider slider && slider != null) Format(item, slider);
+		}
+
+		static void Format(CilboxMenuItem item, PanelSlider slider)
+		{
+			slider.SetSliderSettings(PanelSlider.SliderSettings.Advanced(item.Text, item.Min, item.Max, item.Whole, CilboxMenus.DecimalsOf(item), CilboxMenus.DisplayMode(item)));
+			slider.Step = item.Step;
+			slider.SetValueWithoutNotify(item.Value);
+			slider.SetResetDefault(item.Initial);
+		}
+
 		internal static void ShowOptions(CilboxMenuItem item)
 		{
 			if (item.Control is PanelDropdown dropdown && dropdown != null) Entries(dropdown, item);
@@ -283,10 +296,13 @@ namespace Cilbox
 				{
 					PanelSlider slider = PanelSlider.CreateNew(PanelSlider.SliderStyles.Entry, parent);
 					if (slider == null) return;
-					slider.SetSliderSettings(PanelSlider.SliderSettings.Advanced(item.Text, item.Min, item.Max, item.Whole, item.Whole ? 0 : 2, ValueDisplayMode.Raw));
-					slider.SetValueWithoutNotify(item.Value);
-					slider.SetResetDefault(item.Initial);
+					item.Control = slider;
+					Format(item, slider);
+					slider.ApplyMode = item.WhileDragging ? PanelSlider.ApplyModes.WhileDragging : PanelSlider.ApplyModes.OnRelease;
 					slider.OnValueChanged += value => CilboxMenus.Changed(item, value);
+					slider.OnValueDragged += value => CilboxMenus.Dragging(item, value);
+					slider.OnDragBegan += () => CilboxMenus.DragEdge(item, true);
+					slider.OnDragEnded += () => CilboxMenus.DragEdge(item, false);
 					item.Control = slider;
 					break;
 				}

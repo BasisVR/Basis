@@ -79,6 +79,25 @@ namespace Basis.ImagePickup
         /// </summary>
         private const byte OpServerCacheRequest = 10;
 
+        /// <summary>
+        /// Server to everyone left in the room: "this player left and that one owns their images now".
+        /// Sent only while <see cref="BasisNetworkModeration.GlobalKeepSharedMediaOnLeave"/> is on, and
+        /// trusted only under our own player id, like the cache notices.
+        /// </summary>
+        private const byte OpServerHandover = 11;
+
+        /// <summary>
+        /// How long a kept image waits for the server to name its new owner before it is removed after
+        /// all. The notice normally lands within a round trip of the leave.
+        /// </summary>
+        private const float OrphanGraceSeconds = 30f;
+
+        /// <summary>
+        /// Us telling the server our Media Persistence choice: [op][16 unused][byte enabled], addressed
+        /// to ourselves like a cache request so nobody else receives it.
+        /// </summary>
+        private const byte OpPersistence = 12;
+
         // Values 0 and 1 were used by pre-release animation transport experiments and remain
         // reserved so stale clients cannot misinterpret the production V2 native-LZ4 payload.
         private const byte AnimationFormatNativeLz4 = BasisNativeAnimationPayload.FormatNativeLz4;
@@ -111,6 +130,8 @@ namespace Basis.ImagePickup
             public string OwnerName;
             public BasisNativeAnimationPayload AnimationPayload;
             public long PlaybackEpochUtcTicks;
+            /// <summary>The departed sharer's name when this image was taken over rather than shared by us.</summary>
+            public string AdoptedFrom;
             public readonly HashSet<ushort> SentRecipients = new();
             public readonly HashSet<ushort> AnimationRecipients = new();
         }
@@ -368,6 +389,15 @@ namespace Basis.ImagePickup
         /// holding one and we resume providing from the next pass.
         /// </summary>
         private static readonly HashSet<Guid> _serverHeldImages = new();
+
+        private struct OrphanedImage
+        {
+            public ushort Leaver;
+            public float Deadline;
+        }
+
+        /// <summary>Images kept after their owner left, waiting for the server's handover notice.</summary>
+        private static readonly Dictionary<Guid, OrphanedImage> _orphanedImages = new();
         private static bool _initialized;
 
         /// <summary>
@@ -433,6 +463,7 @@ namespace Basis.ImagePickup
             BasisNetworkPlayer.OnLocalPlayerJoined += HandleLocalPlayerJoined;
             BasisNetworkPlayer.OnPlayerJoined += OnPlayerJoined;
             BasisNetworkPlayer.OnPlayerLeft += OnPlayerLeft;
+            BasisMediaPersistence.Enabled.OnChanged += OnMediaPersistenceChanged;
             Application.quitting += Shutdown;
 
             if (BasisNetworkConnection.LocalPlayerIsConnected)
@@ -457,6 +488,7 @@ namespace Basis.ImagePickup
             BasisNetworkPlayer.OnLocalPlayerJoined -= HandleLocalPlayerJoined;
             BasisNetworkPlayer.OnPlayerJoined -= OnPlayerJoined;
             BasisNetworkPlayer.OnPlayerLeft -= OnPlayerLeft;
+            BasisMediaPersistence.Enabled.OnChanged -= OnMediaPersistenceChanged;
             Application.quitting -= Shutdown;
 
             ReleaseNetworkIdentity();
@@ -523,6 +555,7 @@ namespace Basis.ImagePickup
             _serverHeldImages.Clear();
             ReleaseOfferRangeResources();
             _pendingOffers.Clear();
+            _orphanedImages.Clear();
             _nextOfferRangeCheckTime = 0f;
             _lastReportedRangeMeters = float.NaN;
             foreach (BasisNativeAnimationPayload payload in _remoteAnimationPayloads.Values)
@@ -578,6 +611,8 @@ namespace Basis.ImagePickup
             BasisNetworkPlayer.OnLocalPlayerLeft -= HandleLocalPlayerLeft;
             BasisNetworkPlayer.OnLocalPlayerLeft += HandleLocalPlayerLeft;
             BasisDebug.Log($"Image pickup manager ready (network id {NetworkID}).", LogTag);
+            if (BasisMediaPersistence.Enabled.RawValue)
+                SendPersistence(true);
         }
 
         /// <summary>
@@ -622,6 +657,7 @@ namespace Basis.ImagePickup
                 DisposeOutboundAnimationTransfer(_outboundAnimations.Dequeue());
             _spawnRateBySender.Clear();
             _pendingOffers.Clear();
+            _orphanedImages.Clear();
             BasisImagePickupProgressGizmos.Shutdown();
             BasisImagePickupLinkProbe.Reset();
             BasisImagePickupBandwidth.Reset();
@@ -1655,6 +1691,7 @@ namespace Basis.ImagePickup
         private static void SimulateUpdateBody()
         {
             RefreshServerRelayBudget();
+            ExpireOrphanedImages();
             bool gifsBlocked = BasisNetworkModeration.GifsBlockedLocally;
             if (gifsBlocked != _gifsBlocked)
             {
@@ -2245,16 +2282,28 @@ namespace Basis.ImagePickup
                     _scratchIds.Add(entry.Key);
             }
             int ownedImageCount = _scratchIds.Count;
+            bool keep = BasisNetworkModeration.ServerAnnouncesMediaHandover;
+            float orphanDeadline = Time.unscaledTime + OrphanGraceSeconds;
+            int keptCount = 0;
+            for (int i = 0; i < ownedImageCount; i++)
+            {
+                Guid id = _scratchIds[i];
+                if (keep && _images.TryGetValue(id, out BasisImagePickupObject kept) && kept != null && !kept.IsLoading && !_inbound.ContainsKey(id))
+                {
+                    _orphanedImages[id] = new OrphanedImage { Leaver = left, Deadline = orphanDeadline };
+                    keptCount++;
+                    continue;
+                }
+                RemoveImage(id);
+            }
             if (ownedImageCount > 0)
             {
                 BasisDebug.Log(
-                    $"Image pickup removed {ownedImageCount:N0} image(s) because their owner "
-                        + $"({left}) left.",
+                    $"Image pickup removed {ownedImageCount - keptCount:N0} image(s) because their owner ({left}) left; "
+                        + $"{keptCount:N0} wait for the server to say who takes them over.",
                     LogTag
                 );
             }
-            for (int i = 0; i < ownedImageCount; i++)
-                RemoveImage(_scratchIds[i]);
 
             _scratchIds.Clear();
             foreach (KeyValuePair<Guid, InboundTransfer> entry in _inbound)
@@ -2365,6 +2414,9 @@ namespace Basis.ImagePickup
                         break;
                     case OpServerCacheOffer:
                         HandleServerCacheOffer(senderId, reader);
+                        break;
+                    case OpServerHandover:
+                        HandleServerHandover(senderId, reader);
                         break;
                 }
             }
@@ -3215,6 +3267,7 @@ namespace Basis.ImagePickup
                 _serverHeldImages.Add(id);
             else
                 _serverHeldImages.Remove(id);
+            RefreshAdoptedNote(id);
         }
 
         /// <summary>
@@ -3243,6 +3296,150 @@ namespace Basis.ImagePickup
                 return;
 
             _pendingOffers[id] = position;
+        }
+
+        /// <summary>
+        /// The server naming who owns a departed player's images now. Same unforgeable stamp as the
+        /// cache notices. Anything still arriving from the leaver is dropped, since the server re-offers
+        /// whatever it holds under the new owner straight after this notice.
+        /// </summary>
+        private static void HandleServerHandover(ushort senderId, BinaryReader reader)
+        {
+            if (!BasisNetworkConnection.TryGetLocalPlayerID(out ushort localId) || senderId != localId)
+                return;
+
+            ushort leaver = reader.ReadUInt16();
+            ushort successor = reader.ReadUInt16();
+            if (leaver == localId)
+                return;
+            bool removeAll = successor == UnownedPlayerId;
+
+            _scratchIds.Clear();
+            foreach (KeyValuePair<Guid, BasisImagePickupObject> entry in _images)
+            {
+                if (entry.Value != null && entry.Value.OwnerId == leaver)
+                    _scratchIds.Add(entry.Key);
+            }
+            int handed = 0;
+            int count = _scratchIds.Count;
+            for (int i = 0; i < count; i++)
+            {
+                Guid id = _scratchIds[i];
+                _orphanedImages.Remove(id);
+                BasisImagePickupObject pickup = _images[id];
+                if (removeAll || pickup.IsLoading || _inbound.ContainsKey(id))
+                {
+                    RemoveImage(id);
+                    continue;
+                }
+                string leaverName = string.IsNullOrEmpty(pickup.OwnerName) || pickup.OwnerName == "Unknown"
+                    ? BasisLocalization.Get("imagePickup.panel.unknownOwner")
+                    : pickup.OwnerName;
+                pickup.OwnerId = successor;
+                handed++;
+                if (successor != localId)
+                {
+                    pickup.HandoverNote = BasisLocalization.Get("imagePickup.panel.keptBy", ResolveOwnerName(successor), leaverName);
+                    pickup.RefreshPanelLabels();
+                }
+                else if (!AdoptImage(id, pickup, leaverName))
+                {
+                    pickup.HandoverNote = BasisLocalization.Get("imagePickup.panel.adoptFailed");
+                    pickup.RefreshPanelLabels();
+                }
+            }
+            _scratchIds.Clear();
+
+            if (handed > 0)
+            {
+                BasisDebug.Log(
+                    $"Image pickup: {handed:N0} image(s) from player {leaver} now belong to player {successor}"
+                        + (successor == localId ? " (us)." : "."),
+                    LogTag
+                );
+            }
+        }
+
+        /// <summary>
+        /// Takes over serving an image another player shared. Only the still is carried over: the
+        /// server keeps replaying any animation it holds, and the poster is enough for anyone it does not.
+        /// </summary>
+        private static bool AdoptImage(Guid id, BasisImagePickupObject pickup, string leaverName)
+        {
+            if (_owned.ContainsKey(id))
+                return true;
+            byte[] png = pickup.CleanPng;
+            if (png == null || png.Length == 0 || pickup.PosterWidth <= 0 || pickup.PosterHeight <= 0)
+            {
+                BasisDebug.LogWarning($"Image pickup: could not take over image {id}; its poster is not available here.", LogTag);
+                return false;
+            }
+            _owned[id] = new OwnedImage
+            {
+                Object = pickup,
+                CleanPng = png,
+                Width = pickup.PosterWidth,
+                Height = pickup.PosterHeight,
+                OwnerName = NormalizeOwnerNameForNetwork(pickup.OwnerName),
+                AdoptedFrom = leaverName,
+            };
+            _nextRecipientRangeRefreshTime = 0f;
+            RefreshAdoptedNote(id);
+            return true;
+        }
+
+        /// <summary>
+        /// The back of an image we took over says so, and warns while new arrivals can only get its
+        /// still: we never had its animation data to pass on, and the server is not holding a copy.
+        /// </summary>
+        private static void RefreshAdoptedNote(Guid id)
+        {
+            if (!_owned.TryGetValue(id, out OwnedImage owned) || owned.AdoptedFrom == null || owned.Object == null)
+                return;
+            string note = BasisLocalization.Get("imagePickup.panel.keptByYou", owned.AdoptedFrom);
+            if (owned.Object.AnimatedImagePlayer != null && !_serverHeldImages.Contains(id))
+                note += "\n" + BasisLocalization.Get("imagePickup.panel.stillOnly");
+            owned.Object.HandoverNote = note;
+            owned.Object.RefreshPanelLabels();
+        }
+
+        private static void OnMediaPersistenceChanged(bool enabled)
+        {
+            SendPersistence(enabled);
+        }
+
+        private static void SendPersistence(bool enabled)
+        {
+            if (!HasNetworkID || !BasisNetworkConnection.TryGetLocalPlayerID(out ushort localId))
+                return;
+            byte[] payload = new byte[1 + 16 + 1];
+            payload[0] = OpPersistence;
+            payload[1 + 16] = enabled ? (byte)1 : (byte)0;
+            _selfRecipient[0] = localId;
+            SendCustomNetworkEventDirect(payload, DeliveryMethod.ReliableOrdered, _selfRecipient);
+        }
+
+        private static void ExpireOrphanedImages()
+        {
+            if (_orphanedImages.Count == 0)
+                return;
+            float now = Time.unscaledTime;
+            _scratchIds.Clear();
+            foreach (KeyValuePair<Guid, OrphanedImage> entry in _orphanedImages)
+            {
+                if (now >= entry.Value.Deadline)
+                    _scratchIds.Add(entry.Key);
+            }
+            int count = _scratchIds.Count;
+            for (int i = 0; i < count; i++)
+            {
+                Guid id = _scratchIds[i];
+                ushort leaver = _orphanedImages[id].Leaver;
+                _orphanedImages.Remove(id);
+                if (_images.TryGetValue(id, out BasisImagePickupObject pickup) && pickup != null && pickup.OwnerId == leaver)
+                    RemoveImage(id);
+            }
+            _scratchIds.Clear();
         }
 
         private static void SendServerCacheRequest(Guid id)
@@ -3969,6 +4166,7 @@ namespace Basis.ImagePickup
             _owned.Remove(id);
             _serverHeldImages.Remove(id);
             _pendingOffers.Remove(id);
+            _orphanedImages.Remove(id);
             if (_remoteAnimationPayloads.TryGetValue(id, out BasisNativeAnimationPayload remotePayload))
                 remotePayload?.Dispose();
             _remoteAnimationPayloads.Remove(id);

@@ -154,8 +154,8 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
             return;
         }
 
-        UniversalRenderPipeline.XRRenderScaleExternallyOwned = false;
-        if (!Mathf.Approximately(XRSettings.eyeTextureResolutionScale, 1f))
+        UniversalRenderPipeline.XRRenderScaleExternallyOwned = ExternalXRScaleOwner;
+        if (!ExternalXRScaleOwner && !Mathf.Approximately(XRSettings.eyeTextureResolutionScale, 1f))
         {
             XRSettings.eyeTextureResolutionScale = 1f;
         }

@@ -70,6 +70,18 @@ namespace Basis.Network.Server.Generic
         /// </summary>
         private const byte OpServerCacheRequest = 10;
 
+        /// <summary>
+        /// Server to client: "player A left and player B owns their images now". Payload
+        /// [ushort leaver][ushort successor], stamped with the recipient's own id.
+        /// </summary>
+        private const byte OpServerHandover = 11;
+
+        /// <summary>
+        /// Client to server, addressed to itself: [op][16 unused][byte enabled], the sender's Media
+        /// Persistence choice. Read even while the cache itself is turned off.
+        /// </summary>
+        private const byte OpPersistence = 12;
+
         private const int OpcodeBytes = 1;
         private const int GuidBytes = 16;
         private const int HeaderBytes = OpcodeBytes + GuidBytes;
@@ -302,7 +314,19 @@ namespace Basis.Network.Server.Generic
             int recipientsSize = 0
         )
         {
-            if (!Enabled || payload == null || payloadLength < HeaderBytes)
+            if (payload == null || payloadLength < HeaderBytes)
+            {
+                return;
+            }
+            if (payload[0] == OpPersistence)
+            {
+                if (payloadLength > HeaderBytes && recipientsSize == 1 && recipients != null && recipients[0] == senderId)
+                {
+                    BasisMediaPersistenceRegistry.Set(senderId, payload[HeaderBytes] != 0);
+                }
+                return;
+            }
+            if (!Enabled)
             {
                 return;
             }
@@ -726,19 +750,36 @@ namespace Basis.Network.Server.Generic
         /// <summary>
         /// Drops everything a departing player shared. Clients already destroy that player's images
         /// on disconnect, so keeping them cached would hand a joiner pictures nobody else can see.
+        /// With <see cref="BasisGlobalLockManager.KeepSharedMediaOnLeave"/> on, clients keep them
+        /// instead, so every complete image is handed to the successor and re-offered to the room,
+        /// and only half-received ones are dropped.
         /// </summary>
         public static void RemovePlayerImages(int peerId)
         {
             ushort ownerId = (ushort)peerId;
+            bool found = Basis.Network.Server.Ownership.BasisNetworkOwnership.TrySelectSuccessor(peerId, out ushort successor, out List<NetPeer> recipients);
+            bool handOver = found && BasisMediaPersistenceRegistry.ShouldKeep(peerId);
+            List<Guid> handed = new List<Guid>();
             lock (Gate)
             {
                 List<Guid> doomed = new List<Guid>();
                 foreach (KeyValuePair<Guid, CachedImage> pair in Images)
                 {
-                    if (pair.Value.OwnerId == ownerId)
+                    if (pair.Value.OwnerId != ownerId)
                     {
-                        doomed.Add(pair.Key);
+                        continue;
                     }
+                    if (handOver && pair.Value.StillComplete)
+                    {
+                        CachedImage entry = pair.Value;
+                        entry.OwnerId = successor;
+                        entry.Offered.Clear();
+                        entry.Delivered.Clear();
+                        entry.AnimationDelivered.Clear();
+                        handed.Add(pair.Key);
+                        continue;
+                    }
+                    doomed.Add(pair.Key);
                 }
 
                 for (int index = 0; index < doomed.Count; index++)
@@ -752,6 +793,81 @@ namespace Basis.Network.Server.Generic
                     pair.Value.Delivered.Remove(ownerId);
                     pair.Value.AnimationDelivered.Remove(ownerId);
                 }
+            }
+
+            SendHandover(ownerId, handOver ? successor : BasisMediaPersistenceRegistry.NoSuccessor, recipients, handed);
+        }
+
+        /// <summary>
+        /// Tells every remaining player who owns the leaver's images now, or that nobody does
+        /// (<see cref="BasisMediaPersistenceRegistry.NoSuccessor"/>) and they should go. On a handover
+        /// it then tells the successor which of them the server is holding and re-offers those to the
+        /// room. The notice goes out even when nothing was cached, because clients also hold images the
+        /// server never did. Each copy is stamped with its recipient's own id, which only the server can do.
+        /// </summary>
+        private static void SendHandover(ushort leaverId, ushort successor, List<NetPeer> recipients, List<Guid> handed)
+        {
+            int managerNetId = System.Threading.Volatile.Read(ref _managerNetId);
+            if (managerNetId < 0)
+            {
+                if (!BasisNetworkIDDatabase.UshortNetworkDatabase.TryGetValue(ImageManagerIdentifier, out ushort resolved))
+                {
+                    return;
+                }
+                System.Threading.Volatile.Write(ref _managerNetId, resolved);
+                managerNetId = resolved;
+            }
+
+            byte[] notice = new byte[OpcodeBytes + sizeof(ushort) * 2];
+            notice[0] = OpServerHandover;
+            BitConverter.TryWriteBytes(new Span<byte>(notice, OpcodeBytes, sizeof(ushort)), leaverId);
+            BitConverter.TryWriteBytes(new Span<byte>(notice, OpcodeBytes + sizeof(ushort), sizeof(ushort)), successor);
+
+            NetDataWriter writer = NetworkServer.RentWriter();
+            for (int index = 0; index < recipients.Count; index++)
+            {
+                NetPeer peer = recipients[index];
+                if (peer != null)
+                {
+                    SendPayload(peer, writer, (ushort)managerNetId, (ushort)peer.Id, notice);
+                }
+            }
+            NetworkServer.ReturnWriter(writer);
+
+            for (int index = 0; index < handed.Count; index++)
+            {
+                NotifyOwner(successor, handed[index], held: true);
+            }
+
+            if (handed.Count > 0 && Enabled)
+            {
+                for (int index = 0; index < recipients.Count; index++)
+                {
+                    NetPeer peer = recipients[index];
+                    if (peer == null || peer.Id < 0 || peer.Id > ushort.MaxValue)
+                    {
+                        continue;
+                    }
+                    ushort recipient = (ushort)peer.Id;
+                    List<byte[]> offers = new List<byte[]>();
+                    lock (Gate)
+                    {
+                        for (int item = 0; item < handed.Count; item++)
+                        {
+                            if (Images.TryGetValue(handed[item], out CachedImage entry) && ShouldOfferLocked(entry, recipient))
+                            {
+                                entry.Offered.Add(recipient);
+                                offers.Add(BuildOffer(entry));
+                            }
+                        }
+                    }
+                    SendOffers(peer, (ushort)managerNetId, offers);
+                }
+            }
+
+            if (successor != BasisMediaPersistenceRegistry.NoSuccessor)
+            {
+                BNL.Log($"Player {leaverId} left; their shared images now belong to player {successor} ({handed.Count} held by the server).");
             }
         }
 

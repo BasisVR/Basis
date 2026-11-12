@@ -16,7 +16,8 @@ namespace Basis.Shims
 {
 	public static class BasisMenuShim
 	{
-		public const int MaxSettingsTabs = 4, MaxPanelTabs = 8, MaxItems = 64, MaxOptions = 32, MaxTitleLength = 48, MaxTextLength = 512;
+		public const int MaxSettingsTabs = 4, MaxPanelTabs = 8, MaxItems = 64, MaxOptions = 32, MaxTitleLength = 48, MaxTextLength = 512, MaxDecimals = 4;
+		public const int DisplayNumber = 0, DisplayPercent = 1, DisplayDegrees = 2, DisplayMeters = 3, DisplayHertz = 4;
 		public static BasisMenuPage AddSettingsTab(object self, string title) => CilboxMenus.AddSettingsTab(self, title);
 		public static BasisMenuPage AddPanel(object self, string title) => CilboxMenus.AddPanel(self, title);
 	}
@@ -33,6 +34,8 @@ namespace Basis.Shims
 		public BasisMenuItem AddToggle(string title, bool value, Action<bool> onChanged) => CilboxMenus.Add(this, CilboxMenus.Toggle, title, value ? 1f : 0f, 0f, 1f, true, null, onChanged);
 		public BasisMenuItem AddSlider(string title, float min, float max, float value, Action<float> onChanged) => CilboxMenus.Add(this, CilboxMenus.Slider, title, value, min, max, false, null, onChanged);
 		public BasisMenuItem AddSlider(string title, float min, float max, float value, bool wholeNumbers, Action<float> onChanged) => CilboxMenus.Add(this, CilboxMenus.Slider, title, value, min, max, wholeNumbers, null, onChanged);
+		public BasisMenuItem AddSlider(string title, float min, float max, float value, bool wholeNumbers, bool whileDragging, Action<float> onChanged) => CilboxMenus.AddSlider(this, title, value, min, max, wholeNumbers, whileDragging, onChanged, null);
+		public BasisMenuItem AddSlider(string title, float min, float max, float value, bool wholeNumbers, Action<float> onChanged, Action<float> onDragged) => CilboxMenus.AddSlider(this, title, value, min, max, wholeNumbers, false, onChanged, onDragged);
 		public BasisMenuItem AddDropdown(string title, string[] options, int selected, Action<int> onChanged) => CilboxMenus.Add(this, CilboxMenus.Dropdown, title, selected, 0f, 0f, true, options, onChanged);
 		public void SetTitle(string title) => CilboxMenus.SetTitle(this, title);
 		public void SetVisible(bool visible) => CilboxMenus.SetVisible(this, visible);
@@ -52,6 +55,9 @@ namespace Basis.Shims
 		public void SetOptions(string[] options) => CilboxMenus.SetOptions(this, options);
 		public void SetVisible(bool visible) => CilboxMenus.SetVisible(this, visible);
 		public void SetInteractable(bool interactable) => CilboxMenus.SetInteractable(this, interactable);
+		public void SetDisplay(int display, int decimals) => CilboxMenus.SetDisplay(this, display, decimals);
+		public void SetStep(float step) => CilboxMenus.SetStep(this, step);
+		public void SetDragHandlers(Action onDragStart, Action onDragEnd) => CilboxMenus.SetDragHandlers(this, onDragStart, onDragEnd);
 		public void Remove() => CilboxMenus.Remove(this);
 	}
 }
@@ -89,10 +95,11 @@ namespace Cilbox
 		internal CilboxMenuPage Page;
 		internal int Type;
 		internal string Text, Tooltip;
-		internal float Value, Initial, Min, Max;
-		internal bool Whole, Visible = true, Interactable = true, Layout;
+		internal float Value, Initial, Min, Max, Step;
+		internal int Display, Decimals = -1;
+		internal bool Whole, Visible = true, Interactable = true, Layout, WhileDragging;
 		internal string[] Options;
-		internal Delegate Callback;
+		internal Delegate Callback, Dragged, DragStart, DragEnd;
 		internal PanelElementDescriptor Element;
 		internal PanelComponent Control;
 	}
@@ -155,6 +162,9 @@ namespace Cilbox
 					case nameof(BasisMenuItem.SetOptions):
 					case nameof(BasisMenuItem.SetVisible):
 					case nameof(BasisMenuItem.SetInteractable):
+					case nameof(BasisMenuItem.SetDisplay):
+					case nameof(BasisMenuItem.SetStep):
+					case nameof(BasisMenuItem.SetDragHandlers):
 					case nameof(BasisMenuItem.Remove):
 						return false;
 				}
@@ -230,6 +240,18 @@ namespace Cilbox
 			byItem[item.Handle] = item;
 			page.Dirty = true;
 			return item.Handle;
+		}
+
+		internal static BasisMenuItem AddSlider(BasisMenuPage handle, string title, float value, float min, float max, bool whole, bool whileDragging, Delegate onChanged, Delegate onDragged)
+		{
+			CilboxMenuPage page = Mine(handle);
+			if (page == null || !Accepts(page, onDragged)) return null;
+			BasisMenuItem made = Add(handle, Slider, title, value, min, max, whole, null, onChanged);
+			CilboxMenuItem item = Find(made);
+			if (item == null) return made;
+			item.WhileDragging = whileDragging;
+			item.Dragged = onDragged;
+			return made;
 		}
 
 		internal static CilboxMenuPage Find(BasisMenuPage handle) => handle != null && byPage.TryGetValue(handle, out CilboxMenuPage page) && !page.Removed ? page : null;
@@ -364,6 +386,33 @@ namespace Cilbox
 			CilboxMenuView.ShowInteractable(item);
 		}
 
+		internal static void SetDisplay(BasisMenuItem handle, int display, int decimals)
+		{
+			CilboxMenuItem item = Mine(handle);
+			if (item == null || item.Type != Slider || display < BasisMenuShim.DisplayNumber || display > BasisMenuShim.DisplayHertz) return;
+			item.Display = display;
+			item.Decimals = Mathf.Clamp(decimals, 0, BasisMenuShim.MaxDecimals);
+			CilboxMenuView.ShowFormat(item);
+		}
+
+		internal static void SetStep(BasisMenuItem handle, float step)
+		{
+			CilboxMenuItem item = Mine(handle);
+			if (item == null || item.Type != Slider || !Finite(step) || step > item.Max - item.Min) return;
+			item.Step = step > 0f ? step : 0f;
+			item.Value = Clamp(item, item.Value);
+			item.Initial = Clamp(item, item.Initial);
+			CilboxMenuView.ShowFormat(item);
+		}
+
+		internal static void SetDragHandlers(BasisMenuItem handle, Delegate onDragStart, Delegate onDragEnd)
+		{
+			CilboxMenuItem item = Mine(handle);
+			if (item == null || item.Type != Slider || !Accepts(item.Page, onDragStart) || !Accepts(item.Page, onDragEnd)) return;
+			item.DragStart = onDragStart;
+			item.DragEnd = onDragEnd;
+		}
+
 		internal static void Remove(BasisMenuItem handle)
 		{
 			CilboxMenuItem item = Mine(handle);
@@ -384,6 +433,47 @@ namespace Cilbox
 			item.Value = item.Type == Slider ? Clamp(item, value) : item.Type == Dropdown ? Index(item, value) : value != 0f ? 1f : 0f;
 			Run(item);
 		}
+
+		internal static void Dragging(CilboxMenuItem item, float value)
+		{
+			if (item.Dragged == null || Find(item.Handle) != item || !Alive(item.Page)) return;
+			try
+			{
+				((Action<float>)item.Dragged).Invoke(Clamp(item, value));
+			}
+			catch (Exception e)
+			{
+				Debug.LogException(e);
+			}
+		}
+
+		internal static void DragEdge(CilboxMenuItem item, bool start)
+		{
+			Delegate callback = start ? item.DragStart : item.DragEnd;
+			if (callback == null || Find(item.Handle) != item || !Alive(item.Page)) return;
+			try
+			{
+				((Action)callback).Invoke();
+			}
+			catch (Exception e)
+			{
+				Debug.LogException(e);
+			}
+		}
+
+		internal static ValueDisplayMode DisplayMode(CilboxMenuItem item)
+		{
+			switch (item.Display)
+			{
+				case BasisMenuShim.DisplayPercent: return ValueDisplayMode.Percentage;
+				case BasisMenuShim.DisplayDegrees: return ValueDisplayMode.Degrees;
+				case BasisMenuShim.DisplayMeters: return ValueDisplayMode.Meters;
+				case BasisMenuShim.DisplayHertz: return ValueDisplayMode.Hz;
+				default: return ValueDisplayMode.Raw;
+			}
+		}
+
+		internal static int DecimalsOf(CilboxMenuItem item) => item.Decimals >= 0 ? item.Decimals : item.Whole ? 0 : 2;
 
 		internal static bool AnyVisible(CilboxMenuPanel panel)
 		{
@@ -679,6 +769,12 @@ namespace Cilbox
 		{
 			if (!Finite(value)) value = item.Min;
 			value = Mathf.Clamp(value, item.Min, item.Max);
+			if (item.Step > 0f)
+			{
+				value = item.Min + Mathf.Round((value - item.Min) / item.Step) * item.Step;
+				if (value > item.Max + item.Step * 0.001f) value -= item.Step;
+				value = Mathf.Clamp(value, item.Min, item.Max);
+			}
 			return item.Whole ? Mathf.Clamp(Mathf.Round(value), Mathf.Ceil(item.Min), Mathf.Floor(item.Max)) : value;
 		}
 

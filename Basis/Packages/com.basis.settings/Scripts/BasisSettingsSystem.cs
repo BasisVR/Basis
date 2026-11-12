@@ -94,6 +94,22 @@ namespace Basis.Scripts.Settings
         [NoAutoStaticsCleanup] private static Action _finishedFor;
         [NoAutoStaticsCleanup] private static Delegate[] _finishedList = Array.Empty<Delegate>();
 
+        private static readonly HashSet<string> _previewed = new HashSet<string>(StringComparer.Ordinal);
+
+        /// <summary>
+        /// Tells every <see cref="OnSettingChanged"/> listener about a value without storing it:
+        /// no dictionary write, no disk save, no finished-changes broadcast, no quality refresh. A
+        /// slider applying while it is dragged calls this, then commits through
+        /// <see cref="SaveString"/> on release. A commit back onto the stored value still notifies,
+        /// so listeners leave the last previewed value.
+        /// </summary>
+        public static void PreviewString(string uniqueSettingsName, string value)
+        {
+            if (!_settingsLoaded || string.IsNullOrEmpty(uniqueSettingsName) || value == null) return;
+            _previewed.Add(uniqueSettingsName);
+            RaiseSettingChanged(uniqueSettingsName, value);
+        }
+
         private static void RaiseSettingChanged(string key, string value)
         {
             Action<string, string> handlers = OnSettingChanged;
@@ -305,6 +321,10 @@ namespace Basis.Scripts.Settings
                     settingsData.settings[uniqueSettingsName] = value;
                     changed = true;
                 }
+                else if (_previewed.Remove(uniqueSettingsName))
+                {
+                    RaiseSettingChanged(uniqueSettingsName, value);
+                }
                 else
                 {
                     BasisDebug.Log($"{uniqueSettingsName} is already set to {value}");
@@ -315,6 +335,7 @@ namespace Basis.Scripts.Settings
                 settingsData.settings[uniqueSettingsName] = value;
                 changed = true;
             }
+            if (changed) _previewed.Remove(uniqueSettingsName);
 
             // Saving before LoadAllSettings has read the file would clobber user-saved
             // values with the static-init binding defaults sitting in the dict. Update

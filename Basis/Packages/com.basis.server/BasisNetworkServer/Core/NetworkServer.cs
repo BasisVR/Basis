@@ -180,6 +180,7 @@ public static class NetworkServer
         BasisNetworkPIPCamera.Reset();
         Basis.Network.Server.Generic.BasisNetworkImageCache.Reset();
         Basis.Network.Server.Generic.BasisNetworkClipCache.Reset();
+        Basis.Network.Server.Generic.BasisMediaPersistenceRegistry.Reset();
         Basis.Network.Server.Generic.BasisImageBandwidthGovernor.Reset();
         BasisNetworkServer.BasisServerP2PBroker.Reset();
     }

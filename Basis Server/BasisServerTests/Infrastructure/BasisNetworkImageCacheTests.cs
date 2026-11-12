@@ -989,4 +989,142 @@ public class BasisNetworkImageCacheTests : IDisposable
 
         Assert.Equal(0, BasisNetworkImageCache.Count);
     }
+
+    // ---- handover on leave -------------------------------------------------------------------
+
+    private const byte OpServerHandover = 11;
+    private const byte OpPersistence = 12;
+
+    private (ImageCacheRecordingPeer Leaver, ImageCacheRecordingPeer Oldest, ImageCacheRecordingPeer Newer) RegisterHandoverRoom()
+    {
+        ImageCacheRecordingPeer leaver = RegisterPeer(41100);
+        ImageCacheRecordingPeer oldest = RegisterPeer(41101);
+        ImageCacheRecordingPeer newer = RegisterPeer(41102);
+        BasisServerHandle.BasisServerHandleEvents.JoinBroadcast.RegisterPeer(leaver.Id, -1003);
+        BasisServerHandle.BasisServerHandleEvents.JoinBroadcast.RegisterPeer(oldest.Id, -1002);
+        BasisServerHandle.BasisServerHandleEvents.JoinBroadcast.RegisterPeer(newer.Id, -1001);
+        return (leaver, oldest, newer);
+    }
+
+    private static void ReleaseHandoverRoom()
+    {
+        for (int id = 41100; id <= 41102; id++)
+        {
+            BasisServerHandle.BasisServerHandleEvents.JoinBroadcast.UnregisterPeer(id);
+            BasisMediaPersistenceRegistry.RemovePeer(id);
+        }
+    }
+
+    private static (ushort Stamp, ushort Leaver, ushort Successor) SingleHandover(ImageCacheRecordingPeer peer)
+    {
+        var notices = peer.Sent.Where(s => PayloadOpcode(s) == OpServerHandover).ToList();
+        var notice = Assert.Single(notices);
+        byte[] payload = PayloadOf(notice);
+        return (BitConverter.ToUInt16(notice.Data, 0), BitConverter.ToUInt16(payload, 1), BitConverter.ToUInt16(payload, 3));
+    }
+
+    [Fact]
+    public void RemovePlayerImages_WithPersistence_HandsCompleteImagesToTheLongestConnectedPeer()
+    {
+        var (leaver, oldest, newer) = RegisterHandoverRoom();
+        try
+        {
+            BasisMediaPersistenceRegistry.Set((ushort)leaver.Id, true);
+            ShareImage(owner: (ushort)leaver.Id);
+            Observe((ushort)leaver.Id, EncodeSpawn(Guid.NewGuid(), (ushort)leaver.Id, "Sharer", 2, 0f, 0f, 0f));
+
+            BasisNetworkImageCache.RemovePlayerImages(leaver.Id);
+
+            Assert.Equal(1, BasisNetworkImageCache.Count);
+            Assert.Equal(0, BasisNetworkImageCache.BytesHeldFor((ushort)leaver.Id));
+            Assert.True(BasisNetworkImageCache.BytesHeldFor((ushort)oldest.Id) > 0);
+            foreach (var peer in new[] { oldest, newer })
+            {
+                var (stamp, left, successor) = SingleHandover(peer);
+                Assert.Equal((ushort)peer.Id, stamp);
+                Assert.Equal((ushort)leaver.Id, left);
+                Assert.Equal((ushort)oldest.Id, successor);
+            }
+            Assert.Contains(newer.Sent, s => PayloadOpcode(s) == OpServerCacheOffer);
+            Assert.DoesNotContain(oldest.Sent, s => PayloadOpcode(s) == OpServerCacheOffer);
+            Assert.Empty(leaver.Sent.Where(s => PayloadOpcode(s) == OpServerHandover));
+        }
+        finally
+        {
+            ReleaseHandoverRoom();
+        }
+    }
+
+    [Fact]
+    public void RemovePlayerImages_WithoutPersistence_DropsEverythingAndSaysNobodyTakesOver()
+    {
+        var (leaver, oldest, newer) = RegisterHandoverRoom();
+        try
+        {
+            ShareImage(owner: (ushort)leaver.Id);
+
+            BasisNetworkImageCache.RemovePlayerImages(leaver.Id);
+
+            Assert.Equal(0, BasisNetworkImageCache.Count);
+            foreach (var peer in new[] { oldest, newer })
+            {
+                Assert.Equal(BasisMediaPersistenceRegistry.NoSuccessor, SingleHandover(peer).Successor);
+            }
+        }
+        finally
+        {
+            ReleaseHandoverRoom();
+        }
+    }
+
+    [Fact]
+    public void RemovePlayerImages_AfterAKick_DropsEverythingEvenWithPersistenceAndTheAdminToggle()
+    {
+        var (leaver, oldest, _) = RegisterHandoverRoom();
+        bool toggled = false;
+        try
+        {
+            BasisMediaPersistenceRegistry.Set((ushort)leaver.Id, true);
+            if (!BasisGlobalLockManager.KeepSharedMediaOnLeave) toggled = BasisGlobalLockManager.ToggleKeepSharedMediaOnLeave();
+            ShareImage(owner: (ushort)leaver.Id);
+            BasisMediaPersistenceRegistry.MarkRemoved(leaver.Id);
+
+            BasisNetworkImageCache.RemovePlayerImages(leaver.Id);
+
+            Assert.Equal(0, BasisNetworkImageCache.Count);
+            Assert.Equal(BasisMediaPersistenceRegistry.NoSuccessor, SingleHandover(oldest).Successor);
+        }
+        finally
+        {
+            if (toggled) BasisGlobalLockManager.ToggleKeepSharedMediaOnLeave();
+            ReleaseHandoverRoom();
+        }
+    }
+
+    [Fact]
+    public void PersistenceMessage_AddressedToSelf_RecordsTheChoice_EvenWithTheCacheOff()
+    {
+        NetworkServer.Configuration.ImageCacheEnabled = false;
+        try
+        {
+            byte[] on = new byte[18];
+            on[0] = OpPersistence;
+            on[17] = 1;
+            ObserveTargeted(41103, on, new ushort[] { 41103 });
+            Assert.True(BasisMediaPersistenceRegistry.IsPersistent(41103));
+
+            ObserveTargeted(41104, on, new ushort[] { 41103 });
+            Assert.False(BasisMediaPersistenceRegistry.IsPersistent(41104));
+
+            byte[] off = new byte[18];
+            off[0] = OpPersistence;
+            ObserveTargeted(41103, off, new ushort[] { 41103 });
+            Assert.False(BasisMediaPersistenceRegistry.IsPersistent(41103));
+        }
+        finally
+        {
+            BasisMediaPersistenceRegistry.RemovePeer(41103);
+            BasisMediaPersistenceRegistry.RemovePeer(41104);
+        }
+    }
 }

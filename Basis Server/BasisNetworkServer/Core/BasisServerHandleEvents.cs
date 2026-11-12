@@ -438,6 +438,7 @@ namespace BasisServerHandle
             BasisNetworkContentShare.RemovePlayerSpheres(id);
             BasisNetworkImageCache.RemovePlayerImages(id);
             BasisNetworkClipCache.RemovePlayer(id);
+            BasisMediaPersistenceRegistry.RemovePeer(id);
             BasisAvatarHostRelay.RemovePeer(id);
             BasisContentKeyRelay.RemovePeer(id);
             // Drops this peer's egress bucket and any replay still queued for it. Without this a

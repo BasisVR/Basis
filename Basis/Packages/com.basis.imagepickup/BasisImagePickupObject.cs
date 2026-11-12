@@ -27,6 +27,8 @@ namespace Basis.ImagePickup
         public ushort OwnerId;
         public string OwnerName;
         public bool IsOwner;
+        /// <summary>Shown under the spawner line once a departed player's image is handed over.</summary>
+        [NonSerialized] public string HandoverNote;
 
         public TextMeshProUGUI HideLabel;
         public TextMeshProUGUI DeleteLabel;
@@ -70,6 +72,8 @@ namespace Basis.ImagePickup
 
         public byte[] CleanPng => _cleanPng;
         internal long PosterPixelCount => _posterTexture != null ? (long)_posterTexture.width * _posterTexture.height : 0L;
+        internal int PosterWidth => _posterTexture != null ? _posterTexture.width : 0;
+        internal int PosterHeight => _posterTexture != null ? _posterTexture.height : 0;
         public bool IsHidden => _hidden;
         /// <summary>
         /// True between <see cref="Build"/> and <see cref="ApplyLoadedImage"/>: the card is showing the
@@ -780,9 +784,13 @@ namespace Basis.ImagePickup
                 BasisLocalization.OnLanguageChanged += RefreshPanelLabels;
             }
             bool localUnknown = IsOwner && (string.IsNullOrEmpty(OwnerName) || OwnerName == "Unknown");
-            if (SpawnerLabel != null) SpawnerLabel.text = localUnknown
-                ? BasisLocalization.Get("imagePickup.panel.spawnedLocally")
-                : BasisLocalization.Get("imagePickup.panel.spawnedBy", OwnerName == "Unknown" ? BasisLocalization.Get("imagePickup.panel.unknownOwner") : OwnerName);
+            if (SpawnerLabel != null)
+            {
+                string spawner = localUnknown
+                    ? BasisLocalization.Get("imagePickup.panel.spawnedLocally")
+                    : BasisLocalization.Get("imagePickup.panel.spawnedBy", OwnerName == "Unknown" ? BasisLocalization.Get("imagePickup.panel.unknownOwner") : OwnerName);
+                SpawnerLabel.text = string.IsNullOrEmpty(HandoverNote) ? spawner : spawner + "\n" + HandoverNote;
+            }
             if (HideLabel != null) HideLabel.text = BasisLocalization.Get(_hidden ? "imagePickup.panel.show" : "imagePickup.panel.hide");
             if (SaveLabel != null) SaveLabel.text = BasisLocalization.Get("imagePickup.panel.save");
             if (CopyLabel != null) CopyLabel.text = BasisLocalization.Get("imagePickup.panel.copy");

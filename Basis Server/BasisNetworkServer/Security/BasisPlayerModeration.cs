@@ -60,6 +60,7 @@ namespace BasisNetworkServer.Security
             if (IsProtected(UUID))
                 return "Target is protected";
 
+            Basis.Network.Server.Generic.BasisMediaPersistenceRegistry.MarkRemoved(peer.Id);
             peer.Disconnect(Encoding.UTF8.GetBytes(reason));
 
             BannedPlayer bannedPlayer = new()
@@ -87,6 +88,7 @@ namespace BasisNetworkServer.Security
                 return "Target is protected";
 
             string ip = peer.Address.ToString();
+            Basis.Network.Server.Generic.BasisMediaPersistenceRegistry.MarkRemoved(peer.Id);
             peer.Disconnect(Encoding.UTF8.GetBytes(reason));
 
             BannedPlayer bannedPlayer = new()
@@ -113,6 +115,7 @@ namespace BasisNetworkServer.Security
             if (IsProtected(UUID))
                 return "Target is protected";
 
+            Basis.Network.Server.Generic.BasisMediaPersistenceRegistry.MarkRemoved(peer.Id);
             peer.Disconnect(Encoding.UTF8.GetBytes(reason));
             return $"Player {UUID} kicked.";
         }
@@ -568,6 +571,11 @@ namespace BasisNetworkServer.Security
                 case AdminRequestMode.GlobalToggleVideoClips:
                     Require(peer, PermNodes.ModerationGlobalLock, () =>
                         HandleGlobalFeatureToggle(peer, "Sharing video clips", BasisGlobalLockManager.ToggleVideoClips()));
+                    break;
+
+                case AdminRequestMode.GlobalToggleKeepSharedMediaOnLeave:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleGlobalProtectionToggle(peer, "Keeping shared images and clips after their sharer leaves", BasisGlobalLockManager.ToggleKeepSharedMediaOnLeave()));
                     break;
 
                 case AdminRequestMode.SetGlobalImageMaxResolution:

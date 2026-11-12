@@ -112,6 +112,26 @@ namespace Basis
             RawValue = value;
         }
 
+        /// <summary>
+        /// Puts a value in force without saving it: <see cref="RawValue"/>, <see cref="OnChanged"/>
+        /// and the per-key settings event all see it, the file does not. Follow with
+        /// <see cref="SetValue"/> to keep it.
+        /// </summary>
+        public void PreviewValue(T value)
+        {
+            RawValue = value;
+            OnChanged?.Invoke(value);
+            switch (value)
+            {
+                case int intValue:
+                    BasisSettingsSystem.PreviewString(BindingKey, intValue.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    break;
+                case float floatValue:
+                    BasisSettingsSystem.PreviewString(BindingKey, floatValue.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    break;
+            }
+        }
+
         public void ReloadAndNotify()
         {
             T previous = RawValue;

@@ -22369,6 +22369,14 @@
       "value": "Only the player who shared or spawned something can remove it. When off, anyone can remove anything except what a protected player shared or spawned. Admins are unaffected."
     },
     {
+      "key": "settings.admin.title.keepSharedMediaOnLeave",
+      "value": "Keep Shared Media When Players Leave"
+    },
+    {
+      "key": "settings.admin.title.keepSharedMediaOnLeave.tooltip",
+      "value": "Images and video or audio clips stay when the player who shared them leaves, and another player in the instance takes them over. When off, they disappear for everyone as their sharer leaves."
+    },
+    {
       "key": "library.disabled.removalLocked",
       "value": "An admin has locked removing other players' content."
     },

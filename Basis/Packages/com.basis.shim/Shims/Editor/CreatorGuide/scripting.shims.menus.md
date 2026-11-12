@@ -31,6 +31,34 @@ void OnMode(int index) { }
 void OnSkip() { status.SetText("Playing: next"); }
 ```
 
+## When a slider reports
+
+A slider calls back once, when the player lets it go. Two overloads change that:
+
+```csharp
+// Calls OnBrightness as the handle moves, and once more on release.
+page.AddSlider("Brightness", 0f, 1f, 0.5f, false, true, OnBrightness);
+
+// OnSize on release only, OnSizePreview on every move while dragging.
+page.AddSlider("Size", 1f, 10f, 4f, true, OnSize, OnSizePreview);
+```
+
+The second form suits work that is expensive or networked: show the change locally while dragging, and send or save it once on release.
+
+A thumbstick bound to the slider reports the same way a pointer drag does.
+
+## Slider options
+
+```csharp
+size.SetStep(0.5f);                                // snap to 1, 1.5, 2 ... counted from the minimum
+volume.SetDisplay(BasisMenuShim.DisplayPercent, 0); // 0 to 1 shows as 0% to 100%
+size.SetDragHandlers(OnGrab, OnDrop);               // the player took the handle / let go
+```
+
+Displays: `DisplayNumber` (default), `DisplayPercent` (position within the range), `DisplayDegrees`, `DisplayMeters`, `DisplayHertz`. Decimals go up to 4. A step of 0 turns snapping off, and a step wider than the range is ignored.
+
+`OnDrop` runs after the release value has reached `onChanged`, so a script that takes ownership in `OnGrab` can send the final value and hand ownership back in `OnDrop`.
+
 ## Changing items later
 
 ```csharp

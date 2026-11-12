@@ -223,6 +223,30 @@
       "value": "Download and play video and audio clips other players share. When off, new clips are ignored and clips already here stay."
     },
     {
+      "key": "mediaClip.panel.keptBy",
+      "value": "Kept by {0} after {1} left"
+    },
+    {
+      "key": "mediaClip.panel.keptByYou",
+      "value": "You keep this now that {0} has left"
+    },
+    {
+      "key": "mediaClip.panel.adoptFailed",
+      "value": "Could not take this over ({0}), so new arrivals will not get it"
+    },
+    {
+      "key": "mediaClip.panel.adoptFailed.missingFile",
+      "value": "the file is no longer here"
+    },
+    {
+      "key": "settings.media.clips.persistence",
+      "value": "Media Persistence"
+    },
+    {
+      "key": "settings.media.clips.persistence.tooltip",
+      "value": "Leave the images and video or audio clips you shared behind when you leave. Another player takes them over and they stay until everyone has left. When off, they leave with you."
+    },
+    {
       "key": "settings.media.clips.volume",
       "value": "Shared clip volume"
     },

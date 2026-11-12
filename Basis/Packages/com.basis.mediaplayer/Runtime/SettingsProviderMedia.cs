@@ -96,6 +96,11 @@ public static class SettingsProviderMedia
         acceptClips.Descriptor.SetTooltip(BasisLocalization.Get("settings.media.clips.accept.tooltip"));
         acceptClips.AssignBinding(BasisMediaSettings.ClipAcceptShared);
 
+        PanelToggle persistence = PanelToggle.CreateNewEntry(clips.ContentParent);
+        persistence.Descriptor.SetTitle(BasisLocalization.Get("settings.media.clips.persistence"));
+        persistence.Descriptor.SetTooltip(BasisLocalization.Get("settings.media.clips.persistence.tooltip"));
+        persistence.AssignBinding(Basis.Scripts.Networking.BasisMediaPersistence.Enabled);
+
         PanelSlider clipVolume = PanelSlider.CreateNew(clips.ContentParent);
         clipVolume.SetSliderSettings(PanelSlider.SliderSettings.Percentage(
             BasisLocalization.Get("settings.media.clips.volume")));
@@ -143,6 +148,7 @@ public static class SettingsProviderMedia
         BasisMediaSettings.MaxActivePlayers.ResetToDefault();
         BasisMediaSettings.BufferDepthMs.ResetToDefault();
         BasisMediaSettings.ClipAcceptShared.ResetToDefault();
+        Basis.Scripts.Networking.BasisMediaPersistence.Enabled.ResetToDefault();
         BasisMediaSettings.ClipVolume.ResetToDefault();
     }
 }

@@ -86,6 +86,49 @@ namespace Basis.BasisUI
 
         }
 
+        /// <summary>When a drag reaches the setting or callback.</summary>
+        public enum ApplyModes
+        {
+            /// <summary>Applies once, when the slider is let go.</summary>
+            OnRelease,
+            /// <summary>Applies as the handle moves, then saves when the slider is let go.</summary>
+            WhileDragging,
+        }
+
+        public ApplyModes ApplyMode = ApplyModes.OnRelease;
+
+        /// <summary>Every move of the handle under a drag, whatever <see cref="ApplyMode"/> is.</summary>
+        public Action<float> OnValueDragged;
+
+        public bool AppliesWhileDragging => ApplyMode == ApplyModes.WhileDragging;
+
+        /// <summary>A pointer or thumbstick took the handle.</summary>
+        public Action OnDragBegan;
+
+        /// <summary>The handle was let go, after the release value has been applied.</summary>
+        public Action OnDragEnded;
+
+        /// <summary>
+        /// Snap interval counted from <see cref="SliderSettings.SliderMin"/>; zero or less is off.
+        /// The top of the range stays reachable only when the range is a whole number of steps.
+        /// </summary>
+        public float Step;
+
+        public float Snap(float value)
+        {
+            if (!(Step > 0f) || SliderComponent == null) return value;
+            float min = SliderComponent.minValue, max = SliderComponent.maxValue;
+            float snapped = min + Mathf.Round((value - min) / Step) * Step;
+            if (snapped > max + Step * 0.001f) snapped -= Step;
+            return Mathf.Clamp(snapped, min, max);
+        }
+
+        /// <summary>
+        /// A bound setting previews at most this often. Some listeners rebuild real resources, the
+        /// same reason the thumbstick drive is held to this rate.
+        /// </summary>
+        public const float LivePreviewInterval = 0.1f;
+
         public TextMeshProUGUI CurrentValueLabel;
         public TextMeshProUGUI MinValueLabel;
         public TextMeshProUGUI MaxValueLabel;
@@ -118,6 +161,10 @@ namespace Basis.BasisUI
         private TweenScale _labelPunchTween;
         private bool _isDragging;
         private bool _fillPainted;
+        private bool _previewed;
+        private float _nextPreview;
+        private bool _dragOpen;
+        private bool _committed;
 
         protected override bool SupportsResetGesture => true;
 
@@ -203,7 +250,7 @@ namespace Basis.BasisUI
         protected override bool TryConformShareValue(ref float value)
         {
             if (SliderComponent == null) return false;
-            value = Mathf.Clamp(value, SliderComponent.minValue, SliderComponent.maxValue);
+            value = Snap(Mathf.Clamp(value, SliderComponent.minValue, SliderComponent.maxValue));
             if (SliderComponent.wholeNumbers) value = Mathf.Round(value);
             return true;
         }
@@ -249,6 +296,11 @@ namespace Basis.BasisUI
         private void BeginDragVisual()
         {
             _isDragging = true;
+            if (!_dragOpen)
+            {
+                _dragOpen = true;
+                OnDragBegan?.Invoke();
+            }
             if (_handleRect != null)
             {
                 if (_handleScaleTween != null && _handleScaleTween.Active && _handleScaleTween.Target == _handleRect) _handleScaleTween.Reset();
@@ -269,17 +321,89 @@ namespace Basis.BasisUI
             }
         }
 
-        // Applies visually, does not write to settings.
+        // Applies visually. Writes to settings only on release, unless applying while dragging.
         private void OnSliderValueChanged(float value)
         {
+            float snapped = Snap(value);
+            if (snapped != value)
+            {
+                SliderComponent.SetValueWithoutNotify(snapped);
+                value = SliderComponent.value;
+            }
+            bool moved = value != Value;
             Value = value;
             ApplyValue();
+            if (!moved) return;
+            _committed = false;
+            if (_isDragging) ReportDriven(value, true);
         }
 
-        // Applies to settings once the user is done moving the slider.
+        /// <summary>
+        /// A move made under a drag: the pointer's own, or a thumbstick's through
+        /// <see cref="BasisPanelJoystickBind"/>. The stick previews a bound setting itself, so it
+        /// passes <paramref name="preview"/> false for one.
+        /// </summary>
+        public void ReportDriven(float value, bool preview)
+        {
+            OnValueDragged?.Invoke(value);
+            if (preview && AppliesWhileDragging) PreviewLive(value);
+        }
+
+        /// <summary>Ends the drag <see cref="OnDragBegan"/> opened, once.</summary>
+        public void CloseDrag()
+        {
+            if (!_dragOpen) return;
+            _dragOpen = false;
+            OnDragEnded?.Invoke();
+        }
+
+        /// <summary>
+        /// Puts a dragged value in force without saving it. A bound setting goes through
+        /// <see cref="BasisSettingsBinding{T}.PreviewValue"/> at <see cref="LivePreviewInterval"/>;
+        /// a callback-driven slider hears every move. Release still commits through
+        /// <see cref="SetValue"/>, so the save happens once per drag.
+        /// </summary>
+        private void PreviewLive(float value)
+        {
+            if (SettingsBinding != null)
+            {
+                float now = Time.unscaledTime;
+                if (now < _nextPreview) return;
+                _nextPreview = now + LivePreviewInterval;
+                SettingsBinding.PreviewValue(value);
+            }
+            _previewed = true;
+            OnValueChanged?.Invoke(value);
+        }
+
+        // A menu closing under a drag gets no pointer up. Keep what was previewed rather than
+        // leave it in force but unsaved.
+        protected override void OnDisable()
+        {
+            base.OnDisable();
+            _isDragging = false;
+            if (_previewed && SliderComponent != null)
+            {
+                _previewed = false;
+                _committed = true;
+                SetValue(SliderComponent.value);
+            }
+            CloseDrag();
+        }
+
+        // Applies to settings once the user is done moving the slider. Pointer up and end drag
+        // both confirm; only the first commits a release.
         private void OnSliderConfirmed()
         {
+            if (_committed)
+            {
+                CloseDrag();
+                return;
+            }
+            _committed = true;
+            _previewed = false;
             SetValue(SliderComponent.value);
+            CloseDrag();
 
             // Punch the value label when user confirms
             if (Application.isPlaying && CurrentValueLabel != null)

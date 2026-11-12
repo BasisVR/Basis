@@ -144,7 +144,7 @@ namespace UnityEngine.Rendering.Universal
         /// </summary>
         public static readonly ProfilingSampler DrawSkybox = ProfilingSampler.Create(nameof(DrawSkybox), MarkerFlags.Default);
 
-        // PostProcessPass â€” top-level pass markers
+        // PostProcessPass — top-level pass markers
 
         /// <summary>
         /// Replaces NaN and infinity pixel values with black to prevent visual artifacts
@@ -224,7 +224,7 @@ namespace UnityEngine.Rendering.Universal
         /// </summary>
         public static readonly ProfilingSampler LensFlareScreenSpace = ProfilingSampler.Create(nameof(LensFlareScreenSpace), MarkerFlags.Default);
 
-        // PostProcessPass RenderGraph â€” hidden from Rendering Debugger Detailed Stats
+        // PostProcessPass RenderGraph — hidden from Rendering Debugger Detailed Stats
 
         /// <summary>
         /// Prepares SMAA material properties and keywords for the render graph SMAA passes.

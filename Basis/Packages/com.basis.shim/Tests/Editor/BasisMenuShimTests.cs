@@ -519,6 +519,86 @@ namespace Basis.Tests.Sync
         }
 
         [Test]
+        public void Sliders_ReportOnRelease_WhileDragging_OrBoth()
+        {
+            CilboxSceneBasis box = Box<CilboxSceneBasis>(true);
+            CilboxProxy proxy = Proxy(box);
+            CilboxProxy stranger = Proxy(Box<CilboxSceneBasis>(true));
+            BasisMenuPage page = Running(box, () => BasisMenuShim.AddSettingsTab(proxy, "Slider Modes"));
+            Assert.IsNull(Running(box, () => page.AddSlider("Stranger", 0f, 10f, 3f, false, null, Callback<Action<float>>(stranger, "OnSlide"))), "Another box's method must not be bound as the drag callback.");
+            Running(box, () => page.AddSlider("Laps", 0f, 10f, 3f, Callback<Action<float>>(proxy, "OnSlide")));
+            BasisMenuItem liveItem = Running(box, () => page.AddSlider("Brightness", 0f, 10f, 3f, false, true, Callback<Action<float>>(proxy, "OnSlide")));
+            BasisMenuItem previewItem = Running(box, () => page.AddSlider("Size", 0f, 10f, 3f, true, null, Callback<Action<float>>(proxy, "OnSlide")));
+            Assert.IsNotNull(liveItem);
+            Assert.IsNotNull(previewItem);
+
+            PanelTabPage tab = Built(page);
+            PanelSlider plain = Titled<PanelSlider>(tab, "Laps");
+            PanelSlider live = Titled<PanelSlider>(tab, "Brightness");
+            PanelSlider preview = Titled<PanelSlider>(tab, "Size");
+            Assert.AreEqual(PanelSlider.ApplyModes.OnRelease, plain.ApplyMode);
+            Assert.AreEqual(PanelSlider.ApplyModes.WhileDragging, live.ApplyMode);
+            Assert.AreEqual(PanelSlider.ApplyModes.OnRelease, preview.ApplyMode);
+
+            proxy.fields[2].f = -1f;
+            plain.SetExternalDrive(true);
+            plain.SliderComponent.value = 5f;
+            plain.SetExternalDrive(false);
+            Assert.AreEqual(-1f, proxy.fields[2].f, "A plain slider must wait for release.");
+
+            live.SetExternalDrive(true);
+            live.SliderComponent.value = 6f;
+            live.SetExternalDrive(false);
+            Assert.AreEqual(6f, proxy.fields[2].f, "A while-dragging slider must reach the script mid-drag.");
+            Assert.AreEqual(6f, liveItem.Value);
+
+            preview.SetExternalDrive(true);
+            preview.SliderComponent.value = 4f;
+            preview.SetExternalDrive(false);
+            Assert.AreEqual(4f, proxy.fields[2].f, "The drag callback must hear the move.");
+            Assert.AreEqual(3f, previewItem.Value, "A drag callback must not commit the value.");
+        }
+
+        [Test]
+        public void Sliders_TakeAStep_ADisplayFormat_AndDragHandlers()
+        {
+            CilboxSceneBasis box = Box<CilboxSceneBasis>(true);
+            CilboxProxy proxy = Proxy(box);
+            CilboxProxy stranger = Proxy(Box<CilboxSceneBasis>(true));
+            BasisMenuPage page = Running(box, () => BasisMenuShim.AddSettingsTab(proxy, "Slider Options"));
+            BasisMenuItem item = Running(box, () => page.AddSlider("Volume", 0f, 10f, 3f, Callback<Action<float>>(proxy, "OnSlide")));
+            BasisMenuItem toggle = Running(box, () => page.AddToggle("Lights", false, null));
+            Running(box, () => item.SetStep(2.5f));
+            Assert.AreEqual(2.5f, item.Value, "A step snaps the current value.");
+            Running(box, () => item.SetStep(20f));
+            Running(box, () => item.SetStep(float.NaN));
+            Running(box, () => item.SetDisplay(BasisMenuShim.DisplayPercent, 0));
+            Running(box, () => item.SetDisplay(99, 0));
+            Running(box, () => toggle.SetDisplay(BasisMenuShim.DisplayDegrees, 1));
+            Running(box, () => item.SetDragHandlers(Callback<Action>(proxy, "OnClick"), Callback<Action>(proxy, "OnClick")));
+            Running(box, () => item.SetDragHandlers(Callback<Action>(stranger, "OnClick"), null));
+
+            PanelTabPage tab = Built(page);
+            PanelSlider slider = Titled<PanelSlider>(tab, "Volume");
+            Assert.AreEqual(2.5f, slider.Step, "A step wider than the range or not finite is refused.");
+            Assert.AreEqual(ValueDisplayMode.Percentage, slider.Settings.DisplayMode, "An unknown display is refused.");
+            Assert.AreEqual(2.5f, slider.Value);
+
+            int clicks = proxy.fields[0].i;
+            slider.SetExternalDrive(true);
+            Assert.AreEqual(clicks + 1, proxy.fields[0].i,"Taking the handle reports the drag start, and another box's handler must not replace it.");
+            slider.SliderComponent.value = 6f;
+            Assert.AreEqual(5f, slider.Value, "A dragged value lands on a step.");
+            slider.SetExternalDrive(false);
+            slider.ApplyDrivenValue(slider.Value);
+            slider.CloseDrag();
+            slider.CloseDrag();
+            Assert.AreEqual(clicks + 2, proxy.fields[0].i, "Letting go reports the drag end once.");
+            Assert.AreEqual(5f, proxy.fields[2].f);
+            Assert.AreEqual(5f, item.Value);
+        }
+
+        [Test]
         public void ChangesWhileShown_RebuildOnTheNextTick_AndTheTabGoesWithTheScript()
         {
             CilboxSceneBasis box = Box<CilboxSceneBasis>(true);

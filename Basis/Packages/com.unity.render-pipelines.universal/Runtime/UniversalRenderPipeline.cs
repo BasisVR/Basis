@@ -493,7 +493,7 @@ namespace UnityEngine.Rendering.Universal
             MSAASamples msaaSamples = (MSAASamples)Mathf.Clamp(Mathf.NextPowerOfTwo(QualitySettings.antiAliasing), (int)MSAASamples.None, (int)MSAASamples.MSAA8x);
             XRSystem.SetDisplayMSAASamples(msaaSamples);
             m_XRDisplayMSAARequest.ResetDowngradeDelay();
-            XRSystem.SetRenderScale(asset.renderScale);
+            if (!XRRenderScaleExternallyOwned) { XRSystem.SetRenderScale(asset.renderScale); }
 
             Lightmapping.SetDelegate(s_LightsDelegate);
 
@@ -944,6 +944,10 @@ namespace UnityEngine.Rendering.Universal
                 RTDesc.height = destination.height / (int)Math.Pow(2, mipLevel);
                 RTDesc.width = Mathf.Max(1, RTDesc.width);
                 RTDesc.height = Mathf.Max(1, RTDesc.height);
+
+                RTDesc.depthStencilFormat = destination.depthStencilFormat;
+                if (RTDesc.depthStencilFormat == GraphicsFormat.None)
+                    RTDesc.depthStencilFormat = CoreUtils.GetDefaultDepthStencilFormat();
 
                 //if mip is 0 and target is Texture2D we can immediately render to the requested destination
                 if(destination.dimension != TextureDimension.Tex2D || mipLevel != 0)

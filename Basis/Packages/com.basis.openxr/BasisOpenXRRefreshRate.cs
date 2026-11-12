@@ -5,6 +5,7 @@ using System.Globalization;
 using Basis.BasisUI;
 using Basis.Scripts.Settings;
 using UnityEngine.XR.OpenXR;
+using Valve.OpenXR.Utils;
 
 namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
 {

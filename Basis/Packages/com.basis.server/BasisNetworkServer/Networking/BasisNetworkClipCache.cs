@@ -24,6 +24,8 @@ namespace Basis.Network.Server.Generic
         public const byte OpServerCacheOffer = 7;
         public const byte OpServerCacheRequest = 8;
         public const byte OpServerCacheCatalog = 9;
+        public const byte OpServerHandover = 10;
+        public const byte OpPersistence = 11;
         public const byte StateNotHeld = 0;
         public const byte StateUpload = 1;
         public const byte StateHeld = 2;
@@ -184,6 +186,9 @@ namespace Basis.Network.Server.Generic
                         break;
                     case OpServerCacheCatalog:
                         if (toServer) SendCatalog(senderId);
+                        break;
+                    case OpPersistence:
+                        if (toServer && payloadLength > 1 + GuidBytes) BasisMediaPersistenceRegistry.Set(senderId, payload[1 + GuidBytes] != 0);
                         break;
                 }
             }
@@ -478,17 +483,42 @@ namespace Basis.Network.Server.Generic
         {
             if (peerId < 0 || peerId > ushort.MaxValue) return;
             ushort id = (ushort)peerId;
+            bool found = Basis.Network.Server.Ownership.BasisNetworkOwnership.TrySelectSuccessor(peerId, out ushort successor, out List<NetPeer> recipients);
+            bool handOver = found && BasisMediaPersistenceRegistry.ShouldKeep(peerId);
+            List<Entry> handed = new List<Entry>();
             lock (Gate)
             {
                 List<Entry> doomed = new List<Entry>();
                 foreach (Entry entry in Entries.Values)
                 {
-                    if (entry.OwnerId == id) doomed.Add(entry);
+                    if (entry.OwnerId != id) continue;
+                    if (handOver && entry.Complete)
+                    {
+                        entry.OwnerId = successor;
+                        handed.Add(entry);
+                    }
+                    else doomed.Add(entry);
                 }
                 foreach (Entry entry in doomed) DropLocked(entry, notifyOwner: false);
                 Deliveries.RemoveAll(delivery => delivery.PeerId == id);
                 ReadyPeers.Remove(id);
             }
+            if (!handOver) successor = BasisMediaPersistenceRegistry.NoSuccessor;
+            byte[] notice = new byte[1 + sizeof(ushort) * 2];
+            notice[0] = OpServerHandover;
+            BitConverter.TryWriteBytes(new Span<byte>(notice, 1, sizeof(ushort)), id);
+            BitConverter.TryWriteBytes(new Span<byte>(notice, 1 + sizeof(ushort), sizeof(ushort)), successor);
+            if (Volatile.Read(ref _clipNetId) < 0 && BasisNetworkIDDatabase.UshortNetworkDatabase.TryGetValue(ClipShareIdentifier, out ushort resolved)) Volatile.Write(ref _clipNetId, resolved);
+            foreach (NetPeer peer in recipients)
+            {
+                if (peer != null && peer.Id >= 0 && peer.Id <= ushort.MaxValue) SendPayload(peer, (ushort)peer.Id, notice, notice.Length);
+            }
+            foreach (Entry entry in handed)
+            {
+                NotifyOwner(successor, entry.Id, StateHeld);
+                OfferToReadyPeers(entry);
+            }
+            if (handOver) BNL.Log($"Player {id} left; their shared clips now belong to player {successor} ({handed.Count} held by the server).");
         }
 
         public static void Reset()

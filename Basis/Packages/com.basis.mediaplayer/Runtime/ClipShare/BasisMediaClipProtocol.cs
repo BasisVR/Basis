@@ -46,6 +46,8 @@ public static partial class BasisMediaClipProtocol
     public const byte OpServerCacheOffer = 7;
     public const byte OpServerCacheRequest = 8;
     public const byte OpServerCacheCatalog = 9;
+    public const byte OpServerHandover = 10;
+    public const byte OpPersistence = 11;
     public const byte ServerStateNotHeld = 0;
     public const byte ServerStateUpload = 1;
     public const byte ServerStateHeld = 2;
