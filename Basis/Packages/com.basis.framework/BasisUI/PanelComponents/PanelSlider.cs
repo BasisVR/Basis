@@ -469,14 +469,22 @@ namespace Basis.BasisUI
         /// A value written the way this slider's value label writes it — same display mode, same
         /// unit suffix — or null for a display mode with no text form.
         /// </summary>
-        private string FormatDisplayValue(float value)
+        private string FormatDisplayValue(float value) => FormatValue(value, Settings, _cachedDecimalPlaces == Settings.DecimalPlaces ? _cachedDecimalFormat : null);
+
+        /// <summary>
+        /// A value written the way a slider with these settings labels it, or null for a display
+        /// mode with no text form. Lets a copy of a slider elsewhere (a favourite) read the same.
+        /// </summary>
+        public static string FormatValue(float value, SliderSettings settings) => FormatValue(value, settings, null);
+
+        private static string FormatValue(float value, SliderSettings settings, string decimalFormat)
         {
-            string decimalFormat = _cachedDecimalFormat ?? "0." + new string('#', Mathf.Max(0, Settings.DecimalPlaces));
-            switch (Settings.DisplayMode)
+            decimalFormat ??= "0." + new string('#', Mathf.Max(0, settings.DecimalPlaces));
+            switch (settings.DisplayMode)
             {
                 case ValueDisplayMode.Percentage:
-                    float range = Settings.SliderMax - Settings.SliderMin;
-                    float normalized = (range > 0f) ? (value - Settings.SliderMin) / range : 0f;
+                    float range = settings.SliderMax - settings.SliderMin;
+                    float normalized = (range > 0f) ? (value - settings.SliderMin) / range : 0f;
                     return $"{Mathf.RoundToInt(normalized * 100f)}%";
                 case ValueDisplayMode.percentageFromZero:
                     return $"{Mathf.RoundToInt(value * 100f)}%";
@@ -487,7 +495,7 @@ namespace Basis.BasisUI
                 case ValueDisplayMode.Degrees:
                     return value.ToString(decimalFormat) + "°";
                 case ValueDisplayMode.MemorySize:
-                    return FormatMemorySize(value * 1024 * 1024, Settings.DecimalPlaces);
+                    return FormatMemorySize(value * 1024 * 1024, settings.DecimalPlaces);
                 case ValueDisplayMode.Compact:
                     return FormatCompact(value);
                 case ValueDisplayMode.Hz:

@@ -35,6 +35,8 @@ namespace Cilbox
 			"Basis.Shims.BasisSettingRequestShim",
 			"Basis.Shims.BasisSettingRequestResult",
 			"Basis.Shims.BasisSettingFavouritesShim",
+			"Basis.Shims.BasisKeyboardShim", // Only opens for the player wearing the avatar.
+			"Basis.Shims.BasisKeyboardContent",
 			// Bulk transform / blendshape get-set-copy. The prop and scene boxes pick these up
 			// from their blanket "Basis.Shims.*"; the avatar box enumerates, so they need naming.
 			// They grant no authority a script does not already have on a Transform or a

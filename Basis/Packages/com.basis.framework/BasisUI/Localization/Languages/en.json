@@ -4343,6 +4343,18 @@
       "value": "Not allowed in this field"
     },
     {
+      "key": "keyboard.request.title",
+      "value": "Text request from {0}"
+    },
+    {
+      "key": "keyboard.request.warning.title",
+      "value": "A script is asking for text"
+    },
+    {
+      "key": "keyboard.request.warning",
+      "value": "{0} is asking, not Basis. Never type or paste a password here."
+    },
+    {
       "key": "menu.provider.calibration",
       "value": "Calibration"
     },

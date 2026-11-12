@@ -1,28 +1,47 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using Unity.Scripting.LifecycleManagement;
+using UnityEngine;
 
 namespace Basis.BasisUI
 {
     [AutoStaticsCleanup]
     public static partial class BasisSettingFavourites
     {
-        public const int MaxFavourites = 32, MaxTitleLength = 64;
+        public const int MaxFavourites = 32, MaxTitleLength = 64, MaxOptions = 32;
+        public enum Kind
+        {
+            Toggle = 0,
+            Slider = 1,
+            Choice = 2,
+        }
         public readonly struct Entry
         {
             public readonly string Key, TitleKey, Title;
-            public Entry(string key, string titleKey, string title)
+            public readonly Kind Kind;
+            public readonly PanelSlider.SliderSettings Slider;
+            public readonly string[] OptionValues, OptionKeys, OptionLabels;
+            public Entry(string key, string titleKey, string title, Kind kind, PanelSlider.SliderSettings slider, string[] optionValues, string[] optionKeys, string[] optionLabels)
             {
                 Key = key;
                 TitleKey = titleKey;
                 Title = title;
+                Kind = kind;
+                Slider = slider;
+                OptionValues = optionValues;
+                OptionKeys = optionKeys;
+                OptionLabels = optionLabels;
             }
+            public int OptionCount => OptionValues != null ? OptionValues.Length : 0;
         }
         private static readonly List<Entry> entries = new List<Entry>();
         private static string parsedFrom;
         private static int version;
-        [NoAutoStaticsCleanup] private static readonly Action<bool> valueChanged = ValueChanged;
+        [NoAutoStaticsCleanup] private static readonly Action<bool> boolChanged = _ => ValueChanged();
+        [NoAutoStaticsCleanup] private static readonly Action<float> floatChanged = _ => ValueChanged();
+        [NoAutoStaticsCleanup] private static readonly Action<string> stringChanged = _ => ValueChanged();
         public static event Action Changed;
         public static int Version
         {
@@ -46,17 +65,34 @@ namespace Basis.BasisUI
             entry = index >= 0 && index < entries.Count ? entries[index] : default;
             return index >= 0 && index < entries.Count;
         }
-        public static string DisplayTitle(Entry entry)
+        public static string DisplayTitle(Entry entry) => Localized(entry.TitleKey, entry.Title, entry.Key);
+        public static string OptionLabel(Entry entry, int option)
         {
-            if (!string.IsNullOrEmpty(entry.TitleKey) && BasisLocalization.TryGet(entry.TitleKey, out string text) && !string.IsNullOrEmpty(text)) return text;
-            return string.IsNullOrEmpty(entry.Title) ? entry.Key : entry.Title;
+            if (option < 0 || option >= entry.OptionCount) return string.Empty;
+            return Localized(entry.OptionKeys[option], entry.OptionLabels[option], entry.OptionValues[option]);
         }
         public static bool Contains(string key)
         {
             Sync();
             return IndexOf(key) >= 0;
         }
-        public static bool CanFavourite(PanelComponent control) => control is PanelDataComponent<bool> toggle && toggle.SettingsBinding != null && BasisSettingsBindings.TryGet(toggle.SettingsBinding.BindingKey, out BasisSettingsBinding<bool> _);
+        public static bool CanFavourite(PanelComponent control)
+        {
+            switch (control)
+            {
+                case PanelDataComponent<bool> toggle:
+                    return toggle.SettingsBinding != null && BasisSettingsBindings.TryGet(toggle.SettingsBinding.BindingKey, out BasisSettingsBinding<bool> _);
+                case PanelSlider slider:
+                    return slider.SettingsBinding != null && slider.Settings.SliderMax > slider.Settings.SliderMin && BasisSettingsBindings.TryGet(slider.SettingsBinding.BindingKey, out BasisSettingsBinding<float> _);
+                case PanelDropdown dropdown:
+                    if (dropdown.SettingsBinding == null || !BasisSettingsBindings.TryGet(dropdown.SettingsBinding.BindingKey, out BasisSettingsBinding<string> _)) return false;
+                    if (dropdown.Entries == null || dropdown.Entries.Count < 2 || dropdown.Entries.Count > MaxOptions) return false;
+                    for (int i = 0; i < dropdown.Entries.Count; i++) if (!Storable(dropdown.Entries[i])) return false;
+                    return true;
+                default:
+                    return false;
+            }
+        }
         public static bool Add(PanelComponent control)
         {
             if (!CanFavourite(control)) return false;
@@ -65,8 +101,27 @@ namespace Basis.BasisUI
             if (IndexOf(key) >= 0) return true;
             if (entries.Count >= MaxFavourites) return false;
             string title = Clean(BasisMenuLocation.TitleOf(control));
-            string titleKey = !string.IsNullOrEmpty(title) && BasisLocalization.TryFindKey(title, out string found) ? found : string.Empty;
-            entries.Add(new Entry(key, titleKey, title));
+            string titleKey = FindKey(title);
+            switch (control)
+            {
+                case PanelSlider slider:
+                    entries.Add(new Entry(key, titleKey, title, Kind.Slider, slider.Settings, null, null, null));
+                    break;
+                case PanelDropdown dropdown:
+                    int count = dropdown.Entries.Count;
+                    string[] values = new string[count], keys = new string[count], labels = new string[count];
+                    for (int i = 0; i < count; i++)
+                    {
+                        values[i] = dropdown.Entries[i];
+                        labels[i] = Clean(dropdown.DropdownComponent != null && dropdown.DropdownComponent.options.Count == count ? dropdown.DropdownComponent.options[i].text : values[i]);
+                        keys[i] = FindKey(labels[i]);
+                    }
+                    entries.Add(new Entry(key, titleKey, title, Kind.Choice, default, values, keys, labels));
+                    break;
+                default:
+                    entries.Add(new Entry(key, titleKey, title, Kind.Toggle, default, null, null, null));
+                    break;
+            }
             Save();
             return true;
         }
@@ -82,17 +137,71 @@ namespace Basis.BasisUI
         public static bool TryGetValue(string key, out bool on)
         {
             on = false;
-            if (!Contains(key) || !BasisSettingsBindings.TryGet(key, out BasisSettingsBinding<bool> binding)) return false;
+            if (!TryFind(key, Kind.Toggle, out _) || !BasisSettingsBindings.TryGet(key, out BasisSettingsBinding<bool> binding)) return false;
             on = binding.RawValue;
             return true;
         }
         public static bool SetValue(string key, bool on)
         {
-            if (!Contains(key) || !BasisSettingsBindings.TryGet(key, out BasisSettingsBinding<bool> binding)) return false;
+            if (!TryFind(key, Kind.Toggle, out _) || !BasisSettingsBindings.TryGet(key, out BasisSettingsBinding<bool> binding)) return false;
             if (binding.RawValue != on)
             {
                 binding.SetValue(on);
                 RefreshOpenControls(key, on);
+            }
+            return true;
+        }
+        public static bool TryGetSlider(string key, out float value)
+        {
+            value = 0f;
+            if (!TryFind(key, Kind.Slider, out _) || !BasisSettingsBindings.TryGet(key, out BasisSettingsBinding<float> binding)) return false;
+            value = binding.RawValue;
+            return true;
+        }
+        public static bool SetSlider(string key, float value)
+        {
+            if (!TryFind(key, Kind.Slider, out Entry entry) || !BasisSettingsBindings.TryGet(key, out BasisSettingsBinding<float> binding)) return false;
+            if (float.IsNaN(value) || float.IsInfinity(value)) return false;
+            value = Conform(entry, value);
+            if (binding.RawValue != value)
+            {
+                binding.SetValue(value);
+                RefreshOpenControls(key, value);
+            }
+            return true;
+        }
+        public static float Conform(Entry entry, float value)
+        {
+            value = Mathf.Clamp(value, entry.Slider.SliderMin, entry.Slider.SliderMax);
+            return entry.Slider.UseWholeNumbers ? Mathf.Round(value) : value;
+        }
+        public static string FormatSlider(Entry entry, float value)
+        {
+            if (entry.Kind != Kind.Slider) return string.Empty;
+            return PanelSlider.FormatValue(value, entry.Slider) ?? value.ToString(CultureInfo.InvariantCulture);
+        }
+        public static bool TryGetChoice(string key, out int option)
+        {
+            option = -1;
+            if (!TryFind(key, Kind.Choice, out Entry entry) || !BasisSettingsBindings.TryGet(key, out BasisSettingsBinding<string> binding)) return false;
+            for (int i = 0; i < entry.OptionCount; i++)
+            {
+                if (string.Equals(entry.OptionValues[i], binding.RawValue, StringComparison.OrdinalIgnoreCase))
+                {
+                    option = i;
+                    break;
+                }
+            }
+            return true;
+        }
+        public static bool SetChoice(string key, int option)
+        {
+            if (!TryFind(key, Kind.Choice, out Entry entry) || option < 0 || option >= entry.OptionCount || !BasisSettingsBindings.TryGet(key, out BasisSettingsBinding<string> binding)) return false;
+            string value = entry.OptionValues[option];
+            if (!string.Equals(binding.RawValue, value, StringComparison.Ordinal))
+            {
+                binding.SetValue(value);
+                RefreshOpenControls(key, value);
             }
             return true;
         }
@@ -113,20 +222,27 @@ namespace Basis.BasisUI
                 }
             }, false);
         }
+        private static bool TryFind(string key, Kind kind, out Entry entry)
+        {
+            Sync();
+            int index = IndexOf(key);
+            entry = index >= 0 ? entries[index] : default;
+            return index >= 0 && entry.Kind == kind;
+        }
         private static int IndexOf(string key)
         {
             if (string.IsNullOrEmpty(key)) return -1;
             for (int i = 0; i < entries.Count; i++) if (entries[i].Key == key) return i;
             return -1;
         }
-        private static void RefreshOpenControls(string key, bool on)
+        private static void RefreshOpenControls<T>(string key, T value)
         {
             BasisMenuBase<BasisMainMenu> menu = BasisMenuBase<BasisMainMenu>.Instance;
             BasisMenuPanel panel = menu ? menu.ActiveMenu : null;
             if (panel == null) return;
-            foreach (PanelDataComponent<bool> toggle in panel.GetComponentsInChildren<PanelDataComponent<bool>>(true))
+            foreach (PanelDataComponent<T> control in panel.GetComponentsInChildren<PanelDataComponent<T>>(true))
             {
-                if (toggle != null && toggle.BoundSettingKey == key) toggle.SetValueWithoutNotify(on);
+                if (control != null && control.BoundSettingKey == key) control.SetValueWithoutNotify(value);
             }
         }
         private static void Sync()
@@ -138,22 +254,68 @@ namespace Basis.BasisUI
             string[] lines = raw.Split('\n');
             for (int i = 0; i < lines.Length && entries.Count < MaxFavourites; i++)
             {
-                string[] fields = lines[i].Split('\t');
-                string key = fields[0].Trim();
-                if (key.Length == 0 || !BasisSettingRequests.ValidKey(key) || IndexOf(key) >= 0) continue;
-                entries.Add(new Entry(key, fields.Length > 1 ? fields[1].Trim() : string.Empty, fields.Length > 2 ? Clean(fields[2]) : string.Empty));
+                if (TryParse(lines[i], out Entry entry) && IndexOf(entry.Key) < 0) entries.Add(entry);
             }
             Watch();
             version++;
             Notify();
+        }
+        private static bool TryParse(string line, out Entry entry)
+        {
+            entry = default;
+            string[] fields = line.Split('\t');
+            string key = fields[0].Trim();
+            if (key.Length == 0 || !BasisSettingRequests.ValidKey(key)) return false;
+            string titleKey = fields.Length > 1 ? fields[1].Trim() : string.Empty;
+            string title = fields.Length > 2 ? Clean(fields[2]) : string.Empty;
+            string kind = fields.Length > 3 ? fields[3].Trim() : "t";
+            if (kind == "s")
+            {
+                if (fields.Length < 9 || !Number(fields[4], out float min) || !Number(fields[5], out float max) || !(max > min)) return false;
+                if (!int.TryParse(fields[7], NumberStyles.Integer, CultureInfo.InvariantCulture, out int decimals) || !int.TryParse(fields[8], NumberStyles.Integer, CultureInfo.InvariantCulture, out int mode)) return false;
+                if (!Enum.IsDefined(typeof(ValueDisplayMode), mode)) return false;
+                PanelSlider.SliderSettings slider = PanelSlider.SliderSettings.Advanced(title, min, max, fields[6].Trim() == "1", Mathf.Clamp(decimals, 0, 6), (ValueDisplayMode)mode);
+                entry = new Entry(key, titleKey, title, Kind.Slider, slider, null, null, null);
+                return true;
+            }
+            if (kind == "c")
+            {
+                if (fields.Length < 5 || !int.TryParse(fields[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out int count) || count < 2 || count > MaxOptions || fields.Length < 5 + count * 3) return false;
+                string[] values = new string[count], keys = new string[count], labels = new string[count];
+                for (int i = 0; i < count; i++)
+                {
+                    values[i] = fields[5 + i * 3];
+                    keys[i] = fields[6 + i * 3].Trim();
+                    labels[i] = Clean(fields[7 + i * 3]);
+                }
+                entry = new Entry(key, titleKey, title, Kind.Choice, default, values, keys, labels);
+                return true;
+            }
+            entry = new Entry(key, titleKey, title, Kind.Toggle, default, null, null, null);
+            return true;
         }
         private static void Save()
         {
             StringBuilder builder = new StringBuilder();
             for (int i = 0; i < entries.Count; i++)
             {
+                Entry entry = entries[i];
                 if (i > 0) builder.Append('\n');
-                builder.Append(entries[i].Key).Append('\t').Append(entries[i].TitleKey).Append('\t').Append(entries[i].Title);
+                builder.Append(entry.Key).Append('\t').Append(entry.TitleKey).Append('\t').Append(entry.Title);
+                switch (entry.Kind)
+                {
+                    case Kind.Slider:
+                        builder.Append("\ts\t").Append(entry.Slider.SliderMin.ToString("R", CultureInfo.InvariantCulture))
+                            .Append('\t').Append(entry.Slider.SliderMax.ToString("R", CultureInfo.InvariantCulture))
+                            .Append('\t').Append(entry.Slider.UseWholeNumbers ? '1' : '0')
+                            .Append('\t').Append(entry.Slider.DecimalPlaces.ToString(CultureInfo.InvariantCulture))
+                            .Append('\t').Append(((int)entry.Slider.DisplayMode).ToString(CultureInfo.InvariantCulture));
+                        break;
+                    case Kind.Choice:
+                        builder.Append("\tc\t").Append(entry.OptionCount.ToString(CultureInfo.InvariantCulture));
+                        for (int o = 0; o < entry.OptionCount; o++) builder.Append('\t').Append(entry.OptionValues[o]).Append('\t').Append(entry.OptionKeys[o]).Append('\t').Append(entry.OptionLabels[o]);
+                        break;
+                }
             }
             string raw = builder.ToString();
             parsedFrom = raw;
@@ -166,12 +328,28 @@ namespace Basis.BasisUI
         {
             for (int i = 0; i < entries.Count; i++)
             {
-                if (!BasisSettingsBindings.TryGet(entries[i].Key, out BasisSettingsBinding<bool> binding)) continue;
-                binding.OnChanged -= valueChanged;
-                binding.OnChanged += valueChanged;
+                string key = entries[i].Key;
+                switch (entries[i].Kind)
+                {
+                    case Kind.Slider:
+                        if (!BasisSettingsBindings.TryGet(key, out BasisSettingsBinding<float> slider)) break;
+                        slider.OnChanged -= floatChanged;
+                        slider.OnChanged += floatChanged;
+                        break;
+                    case Kind.Choice:
+                        if (!BasisSettingsBindings.TryGet(key, out BasisSettingsBinding<string> choice)) break;
+                        choice.OnChanged -= stringChanged;
+                        choice.OnChanged += stringChanged;
+                        break;
+                    default:
+                        if (!BasisSettingsBindings.TryGet(key, out BasisSettingsBinding<bool> toggle)) break;
+                        toggle.OnChanged -= boolChanged;
+                        toggle.OnChanged += boolChanged;
+                        break;
+                }
             }
         }
-        private static void ValueChanged(bool _)
+        private static void ValueChanged()
         {
             version++;
             Notify();
@@ -186,6 +364,19 @@ namespace Basis.BasisUI
             {
                 BasisDebug.LogErrorUnreported($"[SettingFavourites] A change listener threw: {e}");
             }
+        }
+        private static string Localized(string key, string text, string fallback)
+        {
+            if (!string.IsNullOrEmpty(key) && BasisLocalization.TryGet(key, out string found) && !string.IsNullOrEmpty(found)) return found;
+            return string.IsNullOrEmpty(text) ? fallback : text;
+        }
+        private static string FindKey(string text) => !string.IsNullOrEmpty(text) && BasisLocalization.TryFindKey(text, out string found) ? found : string.Empty;
+        private static bool Number(string text, out float value) => float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) && !float.IsNaN(value) && !float.IsInfinity(value);
+        private static bool Storable(string value)
+        {
+            if (value == null) return false;
+            for (int i = 0; i < value.Length; i++) if (char.IsControl(value[i])) return false;
+            return true;
         }
         private static string Clean(string title)
         {

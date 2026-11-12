@@ -157,6 +157,7 @@ namespace Basis.BasisUI
 
         private void HandleReleased()
         {
+            EndTextRequest(false, true);
             StopDeleteHold();
             if (Instance == this) Instance = null;
             BasisLocalization.OnLanguageChanged -= HandleLocaleChanged;
@@ -274,6 +275,7 @@ namespace Basis.BasisUI
         /// </summary>
         public void RetargetInput(InputField inputField, TMP_InputField tmpInputField)
         {
+            if (requestOwner != null && (inputField != null || tmpInputField != RequestField)) EndTextRequest(true, true);
             InputField = inputField;
             TMPInputField = tmpInputField;
             UpdateDisplay();
@@ -818,6 +820,7 @@ namespace Basis.BasisUI
 
         private void SubmitTarget()
         {
+            if (SubmitTextRequest()) return;
             if (TMPInputField)
             {
                 string text = TMPInputField.text;
