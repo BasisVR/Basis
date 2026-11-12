@@ -43,6 +43,8 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.GlobalIlluminationRayReuse,
             BasisSettingsDefaults.GlobalIlluminationEmitters,
             BasisSettingsDefaults.GlobalIlluminationEmitterIntensity,
+            BasisSettingsDefaults.GlobalIlluminationLocalAvatarEmitterIntensity,
+            BasisSettingsDefaults.GlobalIlluminationRemoteAvatarEmitterIntensity,
             BasisSettingsDefaults.GlobalIlluminationReflectionProbes,
             BasisSettingsDefaults.GlobalIlluminationMirrors,
             BasisSettingsDefaults.GlobalIlluminationSpecular,

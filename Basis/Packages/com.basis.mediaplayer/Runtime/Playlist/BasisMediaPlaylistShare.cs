@@ -16,6 +16,8 @@ public static partial class BasisMediaPlaylistShare
     private const BasisDebug.LogTag LogTag = BasisDebug.LogTag.Video;
     private const float DropConfirmSeconds = 5f;
     private const int PrefetchAhead = 2;
+    // Disabled: needs more work before shipping (never run in Unity or with a peer). Also re-add the EmbeddedItemsCatalog entry.
+    public static readonly bool Enabled = false;
 
     private struct PendingDrop
     {
@@ -42,7 +44,7 @@ public static partial class BasisMediaPlaylistShare
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Initialize()
     {
-        if (initialized) return;
+        if (!Enabled || initialized) return;
         initialized = true;
         BasisNetworkPlayer.OnLocalPlayerJoined -= HandleLocalPlayerJoined;
         BasisNetworkPlayer.OnLocalPlayerJoined += HandleLocalPlayerJoined;
@@ -321,6 +323,7 @@ public static partial class BasisMediaPlaylistShare
 
     public static void UpdateHover(BasisMediaClipObject clip)
     {
+        if (!Enabled) return;
         BasisMediaPlaylist target = FindDropTarget(clip);
         if (target == hovered) return;
         if (hovered != null) hovered.SetDropHover(false);
@@ -330,6 +333,7 @@ public static partial class BasisMediaPlaylistShare
 
     public static bool TryDrop(BasisMediaClipObject clip)
     {
+        if (!Enabled) return false;
         if (hovered != null)
         {
             hovered.SetDropHover(false);

@@ -59,7 +59,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         public MeshRecord mesh;
         public Transform rootBone;
         public Material[] materialRefs = Array.Empty<Material>();
-        public int id, phase, slot = -1;
+        public int id, phase, slot = -1, layer;
         public ShadowCastingMode shadowMode;
         public bool stale = true, hasBlock, avatar, seen, mirror, drawn, dead;
         public string skip = "new";
@@ -539,7 +539,8 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     private BasisExternalRayMaterial ReadMaterialCached(Renderer renderer, bool hasBlock, bool lightmapped, int index, Material m, bool avatar, float emissionScale, out uint submeshFlags, out float emissionPower)
     {
         if (hasBlock || m == null) { return ReadMaterial(renderer, hasBlock, lightmapped, index, m, avatar, emissionScale, out submeshFlags, out emissionPower); }
-        long key = ((long)m.GetHashCode() << 2) | (avatar ? 2L : 0L) | (lightmapped ? 1L : 0L);
+        long group = emissionScale == worldScale ? 0L : emissionScale == localScale ? 1L : 2L;
+        long key = ((long)m.GetHashCode() << 4) | (group << 2) | (avatar ? 2L : 0L) | (lightmapped ? 1L : 0L);
         if (materialCache.TryGetValue(key, out (BasisExternalRayMaterial material, uint flags, float power, int frame) hit) && frameCount - hit.frame <= RefreshMask) { submeshFlags = hit.flags; emissionPower = hit.power; return hit.material; }
         int misses = textureMisses;
         BasisExternalRayMaterial read = ReadMaterial(renderer, hasBlock, lightmapped, index, m, avatar, emissionScale, out submeshFlags, out emissionPower);
@@ -681,8 +682,8 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         foreach (Material m in changedMaterials)
         {
             if (ReferenceEquals(m, null)) { continue; }
-            long key = (long)m.GetHashCode() << 2;
-            for (long f = 0; f < 4; f++) { materialCache.Remove(key | f); }
+            long key = (long)m.GetHashCode() << 4;
+            for (long f = 0; f < 16; f++) { materialCache.Remove(key | f); }
             changedMaterialIds.Add(m.GetHashCode());
         }
         foreach (int id in changedMaterialIds) { if (materialUsers.TryGetValue(id, out List<RendererRecord> users)) { foreach (RendererRecord r in users) { r.stale = true; } } }
@@ -709,6 +710,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
             layoutChanged = true;
         }
         record.drawn = Drawn(record);
+        record.layer = record.gameObject.layer;
         record.stale = true;
     }
 
@@ -1109,7 +1111,15 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         return frameLightmaps;
     }
 
-    private bool Refresh(RendererRecord record, Slot* slot, float avatarScale)
+    private float worldScale = 1f, localScale = 1f, remoteScale = 1f;
+
+    public void InvalidateEmission()
+    {
+        materialCache.Clear();
+        foreach (RendererRecord r in renderers) { r.stale = true; }
+    }
+
+    private bool Refresh(RendererRecord record, Slot* slot)
     {
         Renderer renderer = record.renderer;
         renderer.GetSharedMaterials(materialScratch);
@@ -1134,7 +1144,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         for (int s = 0; s < submeshes; s++)
         {
             Material m = s < materialScratch.Count ? materialScratch[s] : (materialScratch.Count > 0 ? materialScratch[materialScratch.Count - 1] : null);
-            entries[s].material = ReadMaterialCached(renderer, record.hasBlock, lightmapped, Mathf.Min(s, last), m, record.avatar, record.avatar ? avatarScale : 1f, out uint submeshFlags, out entries[s].power);
+            entries[s].material = ReadMaterialCached(renderer, record.hasBlock, lightmapped, Mathf.Min(s, last), m, record.avatar, BasisGlobalIlluminationSettings.EmitterIntensityForLayer(record.layer, worldScale, localScale, remoteScale), out uint submeshFlags, out entries[s].power);
             entries[s].triangles = (uint)(mesh.submeshCounts[s] / 3);
             uint merged = MergeSubmeshFlags(mesh.submeshFlags[s], submeshFlags);
             if (merged == mesh.submeshFlags[s]) { continue; }
@@ -1182,7 +1192,9 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         skinnedQueue.Clear();
         emitterScratch.Clear();
         MirrorCount = 0;
-        float avatarScale = settings.avatarEmissionScale;
+        worldScale = settings.emitterIntensity;
+        localScale = settings.localAvatarEmitterIntensity;
+        remoteScale = settings.remoteAvatarEmitterIntensity;
         respectBaked = settings.respectBakedEmission;
         Slot* slotBase = (Slot*)slots.GetUnsafePtr();
         SpatialOut* spatialBase = spatial ? (SpatialOut*)spatialOut.GetUnsafeReadOnlyPtr() : null;
@@ -1210,7 +1222,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
             MeshRecord mesh = record.mesh;
             bool exact = record.stale;
             bool refresh = record.stale || record.hasBlock || ((frameCount + record.phase) & RefreshMask) == 0 || (mesh != null && (mesh.released || !mesh.committed));
-            if (refresh && !Refresh(record, slot, avatarScale)) { continue; }
+            if (refresh && !Refresh(record, slot)) { continue; }
             if (record.mirror) { AddMirror(renderer); record.skip = "mirror"; continue; }
             mesh = record.mesh;
             record.skip = "upload";

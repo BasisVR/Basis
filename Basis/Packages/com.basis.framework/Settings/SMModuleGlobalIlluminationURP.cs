@@ -58,6 +58,8 @@ public struct BasisGlobalIlluminationState
     public bool RayReuse;
     public bool Emitters;
     public float EmitterIntensity;
+    public float LocalAvatarEmitterIntensity;
+    public float RemoteAvatarEmitterIntensity;
     public bool ReflectionProbes;
     public bool Mirrors;
     public bool Specular;
@@ -108,6 +110,8 @@ public struct BasisGlobalIlluminationState
             RayReuse = BasisSettingsDefaults.GlobalIlluminationRayReuse.DefaultValue.GetDefault(),
             Emitters = BasisSettingsDefaults.GlobalIlluminationEmitters.DefaultValue.GetDefault(),
             EmitterIntensity = BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.DefaultValue.GetDefault(),
+            LocalAvatarEmitterIntensity = BasisSettingsDefaults.GlobalIlluminationLocalAvatarEmitterIntensity.DefaultValue.GetDefault(),
+            RemoteAvatarEmitterIntensity = BasisSettingsDefaults.GlobalIlluminationRemoteAvatarEmitterIntensity.DefaultValue.GetDefault(),
             ReflectionProbes = BasisSettingsDefaults.GlobalIlluminationReflectionProbes.DefaultValue.GetDefault(),
             Mirrors = BasisSettingsDefaults.GlobalIlluminationMirrors.DefaultValue.GetDefault(),
             Specular = BasisSettingsDefaults.GlobalIlluminationSpecular.DefaultValue.GetDefault() && !BasisLightingSolutions.IsUnity(BasisSettingsDefaults.ReflectionsSolution.DefaultValue.GetDefault()),
@@ -159,6 +163,8 @@ public struct BasisGlobalIlluminationState
             RayReuse = BasisSettingsDefaults.GlobalIlluminationRayReuse.RawValue,
             Emitters = BasisSettingsDefaults.GlobalIlluminationEmitters.RawValue,
             EmitterIntensity = BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.RawValue,
+            LocalAvatarEmitterIntensity = BasisSettingsDefaults.GlobalIlluminationLocalAvatarEmitterIntensity.RawValue,
+            RemoteAvatarEmitterIntensity = BasisSettingsDefaults.GlobalIlluminationRemoteAvatarEmitterIntensity.RawValue,
             ReflectionProbes = BasisSettingsDefaults.GlobalIlluminationReflectionProbes.RawValue,
             Mirrors = BasisSettingsDefaults.GlobalIlluminationMirrors.RawValue,
             Specular = BasisLightingSolutions.BasisReflections,
@@ -315,6 +321,8 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
     private static string K_GI_RAY_REUSE => BasisSettingsDefaults.GlobalIlluminationRayReuse.BindingKey;
     private static string K_GI_EMITTERS => BasisSettingsDefaults.GlobalIlluminationEmitters.BindingKey;
     private static string K_GI_EMITTER_INTENSITY => BasisSettingsDefaults.GlobalIlluminationEmitterIntensity.BindingKey;
+    private static string K_GI_LOCAL_AVATAR_EMITTER_INTENSITY => BasisSettingsDefaults.GlobalIlluminationLocalAvatarEmitterIntensity.BindingKey;
+    private static string K_GI_REMOTE_AVATAR_EMITTER_INTENSITY => BasisSettingsDefaults.GlobalIlluminationRemoteAvatarEmitterIntensity.BindingKey;
     private static string K_GI_REFLECTION_PROBES => BasisSettingsDefaults.GlobalIlluminationReflectionProbes.BindingKey;
     private static string K_GI_MIRRORS => BasisSettingsDefaults.GlobalIlluminationMirrors.BindingKey;
     private static string K_GI_SPECULAR => BasisSettingsDefaults.GlobalIlluminationSpecular.BindingKey;
@@ -587,6 +595,16 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
         {
             if (!SliderReadOption(optionValue, out float value)) { return; }
             state.EmitterIntensity = value;
+        }
+        else if (matchedSettingName == K_GI_LOCAL_AVATAR_EMITTER_INTENSITY)
+        {
+            if (!SliderReadOption(optionValue, out float value)) { return; }
+            state.LocalAvatarEmitterIntensity = value;
+        }
+        else if (matchedSettingName == K_GI_REMOTE_AVATAR_EMITTER_INTENSITY)
+        {
+            if (!SliderReadOption(optionValue, out float value)) { return; }
+            state.RemoteAvatarEmitterIntensity = value;
         }
         else
         {
@@ -978,6 +996,8 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
 
         target.emitters = state.Emitters;
         target.emitterIntensity = Mathf.Clamp(state.EmitterIntensity, BasisSettingsDefaults.GI_EMITTER_INTENSITY_MIN, BasisSettingsDefaults.GI_EMITTER_INTENSITY_MAX);
+        target.localAvatarEmitterIntensity = Mathf.Clamp(state.LocalAvatarEmitterIntensity, BasisSettingsDefaults.GI_EMITTER_INTENSITY_MIN, BasisSettingsDefaults.GI_EMITTER_INTENSITY_MAX);
+        target.remoteAvatarEmitterIntensity = Mathf.Clamp(state.RemoteAvatarEmitterIntensity, BasisSettingsDefaults.GI_EMITTER_INTENSITY_MIN, BasisSettingsDefaults.GI_EMITTER_INTENSITY_MAX);
 
         // The sliders carry their own ranges, but a persisted settings file is just text on disk and a
         // hand-edited one reaches here unchecked. One call holds the whole object inside its documented
