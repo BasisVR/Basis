@@ -263,6 +263,20 @@ namespace Basis.BasisUI
             other = "64bit"
         });
 
+        /// <summary>
+        /// Resolution of the opaque texture (_CameraOpaqueTexture) that refraction and frosted
+        /// glass shaders sample. "None" keeps it at full resolution.
+        /// </summary>
+        public static BasisSettingsBinding<string> OpaqueDownsampling = new("opaquedownsampling", new BasisPlatformDefault<string>
+        {
+            windows = "None",
+            lowEnd = "2x Bilinear",
+            android = "4x Bilinear",
+            ios = "4x Bilinear",
+            linux = "None",
+            other = "None"
+        });
+
         // ---------------- ACCESSIBILITY ----------------
         /// <summary>
         /// When enabled, the bloom intensity override is applied via a high-priority global Volume.
@@ -2383,6 +2397,7 @@ namespace Basis.BasisUI
             QualityLevel.LoadBindingValue();
             ShadowQuality.LoadBindingValue();
             HDRSupport.LoadBindingValue();
+            OpaqueDownsampling.LoadBindingValue();
             Antialiasing.LoadBindingValue();
             UpscalerQuality.LoadBindingValue();
             UpscalerSharpness.LoadBindingValue();

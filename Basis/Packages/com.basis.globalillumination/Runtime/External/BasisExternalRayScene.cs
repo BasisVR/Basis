@@ -1,6 +1,12 @@
 using System;
 using System.Collections.Generic;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
+using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Jobs;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 
@@ -29,7 +35,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         public uint[] submeshFlags;
         public int[] submeshStarts, submeshCounts;
         public int uploadedVertices, uploadedIndices, submeshCursor;
-        public bool defined, committed, posed;
+        public bool defined, committed, posed, released;
         public int lastSeen, lastPosed, poseCopyFrame;
         public GraphicsBuffer poseCopy;
     }
@@ -49,13 +55,21 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         public Transform transform;
         public MeshFilter filter;
         public MeshRecord mesh;
-        public Material[] materials = Array.Empty<Material>();
-        public int materialCount;
+        public BasisExternalRayMaterial[] cached = Array.Empty<BasisExternalRayMaterial>();
+        public float[] power = Array.Empty<float>();
+        public Transform rootBone;
+        public GameObject gameObject;
+        public Material[] materialRefs = Array.Empty<Material>();
+        public int lightmap = -1, phase;
+        public Vector4 lightmapST;
+        public ShadowCastingMode shadowMode;
+        public Bounds localBounds;
+        public bool stale = true, hasBlock;
         public bool avatar, seen, mirror;
         public uint lastMask = uint.MaxValue;
         public string skip = "new";
         public RendererRecord shadowSource, shadowClone;
-        public Matrix4x4 lastMatrix;
+        public Vector4 last0, last1, last2;
         public Bounds lastBounds;
         public float[] lastEmission = Array.Empty<float>();
     }
@@ -81,12 +95,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     private readonly List<Light> lightsGone = new List<Light>();
     private readonly List<Vector4> dirty = new List<Vector4>();
     private bool resetCache = true;
-    private int statHard, statSoft, statResets, statEmission, statLights, statAmbient, statAppear, statRemoved;
-    private float statNext;
-    private string resetReason = "start";
     private Vector4 lastAmbient;
-    private BasisExternalRayMaterial[] pendingMaterials = new BasisExternalRayMaterial[16];
-    private float[] pendingPower = new float[16];
     private float nextScan, nextLightScan;
     private int frameCount;
     private uint texelCursor;
@@ -99,7 +108,8 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     private const float AvatarMoveThreshold = 0.03f * 0.03f;
     private readonly List<(MeshRecord mesh, uint instance, bool visible)> skinnedQueue = new List<(MeshRecord, uint, bool)>();
     private Comparison<(MeshRecord mesh, uint instance, bool visible)> byPriority;
-    private readonly Dictionary<(Material, bool, bool), (BasisExternalRayMaterial, uint, float)> materialCache = new Dictionary<(Material, bool, bool), (BasisExternalRayMaterial, uint, float)>();
+    private readonly Dictionary<long, (BasisExternalRayMaterial, uint, float, int)> materialCache = new Dictionary<long, (BasisExternalRayMaterial, uint, float, int)>();
+    private readonly List<long> materialsGone = new List<long>();
     private LightmapData[] frameLightmaps = System.Array.Empty<LightmapData>();
     private readonly Dictionary<Shader, bool> sharedTransformShaders = new Dictionary<Shader, bool>();
     public const int MaxMirrors = 8;
@@ -157,13 +167,12 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     }
 
     public BasisExternalRayScene() { UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
-        RenderPipelineManager.beginContextRendering += OnBeginContext; }
+        RenderPipelineManager.beginContextRendering += OnBeginContext; Application.onBeforeRender += ScheduleSpatial; }
 
-    private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode) { resetCache = true; resetReason = "scene load " + scene.name; }
+    private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode) { resetCache = true; }
 
     private void MarkDirty(Vector3 centre, float radius, bool soft = false, bool clear = false)
     {
-        if (soft) { statSoft++; } else { statHard++; }
         if (dirty.Count >= BasisExternalRayTracer.MaxDirty) { if (!soft) { resetCache = true; } return; }
         dirty.Add(new Vector4(centre.x, centre.y, centre.z, clear ? radius + 100000f : soft ? -radius : radius));
     }
@@ -172,6 +181,8 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     {
         UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
         RenderPipelineManager.beginContextRendering -= OnBeginContext;
+        Application.onBeforeRender -= ScheduleSpatial;
+        DisposeSpatial();
         foreach (KeyValuePair<SkinnedMeshRenderer, MeshRecord> kv in skinnedMeshes) { kv.Value.poseCopy?.Dispose(); kv.Value.poseCopy = null; }
         foreach (GraphicsBuffer b in disposeNow) { b?.Dispose(); }
         foreach (GraphicsBuffer b in disposeNextFrame) { b?.Dispose(); }
@@ -203,6 +214,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         {
             Mesh shared = skinned.sharedMesh;
             if (shared == null) { return null; }
+            if (owner.mesh != null && !owner.mesh.released && ReferenceEquals(owner.mesh.mesh, shared) && ReferenceEquals(owner.mesh.skinned, skinned)) { return owner.mesh; }
             if (!skinnedMeshes.TryGetValue(skinned, out MeshRecord r) || r.mesh != shared)
             {
                 if (r != null) { Release(r); }
@@ -216,6 +228,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         if (owner.filter == null && !renderer.TryGetComponent(out owner.filter)) { return null; }
         Mesh mesh = owner.filter.sharedMesh;
         if (mesh == null) { return null; }
+        if (owner.mesh != null && !owner.mesh.released && owner.mesh.skinned == null && ReferenceEquals(owner.mesh.mesh, mesh)) { return owner.mesh; }
         if (!staticMeshes.TryGetValue(mesh, out MeshRecord record))
         {
             record = Describe(mesh);
@@ -283,6 +296,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     {
         r.poseCopy?.Dispose();
         r.poseCopy = null;
+        r.released = true;
         if (r.defined) { Push(BasisExternalRayTracer.OpMeshRelease, r.id); }
         freeMeshIds.Push(r.id);
     }
@@ -453,7 +467,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
             uint rowsLeft = (uint)(r.height - r.uploadedRows);
             uint available = (BasisExternalRayTracer.UploadTexels - texelCursor) * 4 / (uint)r.width;
             uint rows = Math.Min(rowsLeft, available);
-            if (rows == 0 || !Reserve((rows * (uint)r.width + 3) / 4, out uint at)) { return -1; }
+            if (rows == 0 || !Reserve((rows * (uint)r.width + 3) / 4, out uint at)) { textureMisses++; return -1; }
             if (scratch == null)
             {
                 scratch = RenderTexture.GetTemporary(new RenderTextureDescriptor(r.width, r.height, r.hdr ? GraphicsFormat.R16G16B16A16_SFloat : GraphicsFormat.R8G8B8A8_SRGB, GraphicsFormat.None) { msaaSamples = 1, useMipMap = false });
@@ -506,10 +520,11 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     private BasisExternalRayMaterial ReadMaterialCached(Renderer renderer, bool hasBlock, bool lightmapped, int index, Material m, bool avatar, float emissionScale, out uint submeshFlags, out float emissionPower)
     {
         if (hasBlock || m == null) { return ReadMaterial(renderer, hasBlock, lightmapped, index, m, avatar, emissionScale, out submeshFlags, out emissionPower); }
-        (Material, bool, bool) key = (m, avatar, lightmapped);
-        if (materialCache.TryGetValue(key, out (BasisExternalRayMaterial material, uint flags, float power) hit)) { submeshFlags = hit.flags; emissionPower = hit.power; return hit.material; }
+        long key = ((long)m.GetHashCode() << 2) | (avatar ? 2L : 0L) | (lightmapped ? 1L : 0L);
+        if (materialCache.TryGetValue(key, out (BasisExternalRayMaterial material, uint flags, float power, int frame) hit) && frameCount - hit.frame <= RefreshMask) { submeshFlags = hit.flags; emissionPower = hit.power; return hit.material; }
+        int misses = textureMisses;
         BasisExternalRayMaterial read = ReadMaterial(renderer, hasBlock, lightmapped, index, m, avatar, emissionScale, out submeshFlags, out emissionPower);
-        materialCache[key] = (read, submeshFlags, emissionPower);
+        if (textureMisses == misses) { materialCache[key] = (read, submeshFlags, emissionPower, frameCount); }
         return read;
     }
 
@@ -642,7 +657,8 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     private void Scan(LayerMask mask)
     {
         Renderer[] found = UnityEngine.Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude);
-        HashSet<Renderer> seen = new HashSet<Renderer>();
+        HashSet<Renderer> seen = scanSeen;
+        seen.Clear();
         int interfaceMask = BasisGlobalIlluminationSettings.DefaultRayTracedLayers();
         foreach (Renderer r in found)
         {
@@ -650,16 +666,18 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
             int bit = 1 << r.gameObject.layer;
             if ((mask & bit) == 0 || (interfaceMask & bit) == 0) { continue; }
             seen.Add(r);
-            if (rendererLookup.TryGetValue(r, out RendererRecord known)) { known.mirror = IsMirror(r); continue; }
-            RendererRecord record = new RendererRecord { renderer = r, transform = r.transform, avatar = r is SkinnedMeshRenderer, mirror = IsMirror(r) };
+            if (rendererLookup.ContainsKey(r)) { continue; }
+            RendererRecord record = new RendererRecord { renderer = r, transform = r.transform, gameObject = r.gameObject, avatar = r is SkinnedMeshRenderer, phase = nextPhase++ };
             rendererLookup[r] = record;
             renderers.Add(record);
+            layoutChanged = true;
         }
         for (int i = renderers.Count - 1; i >= 0; i--)
         {
             Renderer r = renderers[i].renderer;
             if (r != null && seen.Contains(r)) { continue; }
-            if (renderers[i].seen) { statRemoved++; MarkDirty(renderers[i].lastBounds.center, renderers[i].lastBounds.extents.magnitude + 2f); }
+            layoutChanged = true;
+            if (renderers[i].seen) { MarkDirty(renderers[i].lastBounds.center, renderers[i].lastBounds.extents.magnitude + 2f); }
             rendererLookup.Remove(renderers[i].renderer);
             if (renderers[i].mesh != null && renderers[i].mesh.skinned is SkinnedMeshRenderer s)
             {
@@ -669,6 +687,9 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
             renderers.RemoveAt(i);
         }
         PairShadowClones();
+        materialsGone.Clear();
+        foreach (KeyValuePair<long, (BasisExternalRayMaterial, uint, float, int)> kv in materialCache) { if (frameCount - kv.Value.Item4 > 600) { materialsGone.Add(kv.Key); } }
+        foreach (long key in materialsGone) { materialCache.Remove(key); }
         List<Mesh> dead = null;
         foreach (KeyValuePair<Mesh, MeshRecord> kv in staticMeshes) { if (kv.Key == null || frameCount - kv.Value.lastSeen > 600) { (dead ??= new List<Mesh>()).Add(kv.Key); } }
         if (dead != null) { foreach (Mesh m in dead) { Release(staticMeshes[m]); staticMeshes.Remove(m); } }
@@ -706,15 +727,21 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         }
     }
 
-    private bool IsMirror(Renderer r)
+    private static bool IsMirror(RendererRecord record, List<Material> list)
     {
-        r.GetSharedMaterials(materialScratch);
-        foreach (Material m in materialScratch)
+        Material[] known = record.materialRefs;
+        bool same = known.Length == list.Count;
+        for (int i = 0; same && i < known.Length; i++) { same = ReferenceEquals(known[i], list[i]); }
+        if (same) { return record.mirror; }
+        if (known.Length != list.Count) { record.materialRefs = known = new Material[list.Count]; }
+        bool mirror = false;
+        for (int i = 0; i < known.Length; i++)
         {
-            if (m == null) { continue; }
-            foreach (int id in idMirrorTextures) { if (m.HasProperty(id)) { return true; } }
+            Material m = known[i] = list[i];
+            if (mirror || m == null) { continue; }
+            foreach (int id in idMirrorTextures) { if (m.HasProperty(id)) { mirror = true; break; } }
         }
-        return false;
+        return mirror;
     }
 
     private void AddMirror(Renderer r)
@@ -743,6 +770,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         foreach (KeyValuePair<Mesh, MeshRecord> kv in staticMeshes) { Forget(kv.Value); }
         foreach (KeyValuePair<SkinnedMeshRenderer, MeshRecord> kv in skinnedMeshes) { Forget(kv.Value); }
         foreach (KeyValuePair<Texture, TextureRecord> kv in textures) { kv.Value.uploadedRows = 0; kv.Value.defined = kv.Value.committed = false; }
+        materialCache.Clear();
     }
 
     private static void Forget(MeshRecord r)
@@ -797,9 +825,131 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         frameCount++;
     }
 
+    private struct SpatialIn { public float3 center, extents; public float4 last0, last1, last2; }
+    private struct SpatialOut { public float4 row0, row1, row2; public float3 center, extents; public int flags; }
+
+    [BurstCompile]
+    private struct SpatialJob : IJobParallelForTransform
+    {
+        [ReadOnly] public NativeArray<SpatialIn> Input;
+        [WriteOnly] public NativeArray<SpatialOut> Output;
+
+        public void Execute(int index, TransformAccess transform)
+        {
+            if (!transform.isValid) { Output[index] = default; return; }
+            float4x4 m = transform.localToWorldMatrix;
+            SpatialIn i = Input[index];
+            float4 r0 = new float4(m.c0.x, m.c1.x, m.c2.x, m.c3.x), r1 = new float4(m.c0.y, m.c1.y, m.c2.y, m.c3.y), r2 = new float4(m.c0.z, m.c1.z, m.c2.z, m.c3.z);
+            bool changed = math.any(math.abs(r0 - i.last0) > 1e-4f) || math.any(math.abs(r1 - i.last1) > 1e-4f) || math.any(math.abs(r2 - i.last2) > 1e-4f);
+            float3 centre = math.mul(m, new float4(i.center, 1f)).xyz;
+            float3 extents = math.abs(m.c0.xyz) * i.extents.x + math.abs(m.c1.xyz) * i.extents.y + math.abs(m.c2.xyz) * i.extents.z;
+            Output[index] = new SpatialOut { row0 = r0, row1 = r1, row2 = r2, center = centre, extents = extents, flags = 1 | (changed ? 2 : 0) };
+        }
+    }
+
+    private const int RefreshMask = 7;
+    private TransformAccessArray spatialAccess;
+    private NativeArray<SpatialIn> spatialIn;
+    private NativeArray<SpatialOut> spatialOut;
+    private JobHandle spatialHandle;
+    private bool spatialScheduled, layoutChanged = true;
+    private int spatialFrame = -1, nextPhase, textureMisses, lightmapsFrame = -1;
+    private readonly HashSet<Renderer> scanSeen = new HashSet<Renderer>();
+
+    [BeforeRenderOrder(int.MaxValue)]
+    private void ScheduleSpatial()
+    {
+        CompleteSpatial();
+        if (layoutChanged || !spatialAccess.isCreated || spatialAccess.length == 0) { return; }
+        spatialHandle = new SpatialJob { Input = spatialIn, Output = spatialOut }.ScheduleReadOnly(spatialAccess, 32);
+        spatialScheduled = true;
+        spatialFrame = Time.frameCount;
+        JobHandle.ScheduleBatchedJobs();
+    }
+
+    private bool CompleteSpatial()
+    {
+        if (!spatialScheduled) { return false; }
+        spatialHandle.Complete();
+        spatialScheduled = false;
+        return spatialFrame == Time.frameCount;
+    }
+
+    private void DisposeSpatial()
+    {
+        CompleteSpatial();
+        if (spatialAccess.isCreated) { spatialAccess.Dispose(); }
+        if (spatialIn.IsCreated) { spatialIn.Dispose(); }
+        if (spatialOut.IsCreated) { spatialOut.Dispose(); }
+    }
+
+    private void RebuildSpatial()
+    {
+        DisposeSpatial();
+        int n = renderers.Count;
+        Transform[] transforms = new Transform[n];
+        for (int i = 0; i < n; i++) { transforms[i] = renderers[i].transform; }
+        spatialAccess = new TransformAccessArray(transforms);
+        spatialIn = new NativeArray<SpatialIn>(Mathf.Max(n, 1), Allocator.Persistent);
+        spatialOut = new NativeArray<SpatialOut>(Mathf.Max(n, 1), Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        SpatialIn* input = (SpatialIn*)spatialIn.GetUnsafePtr();
+        for (int i = 0; i < n; i++)
+        {
+            RendererRecord r = renderers[i];
+            input[i] = new SpatialIn { center = r.localBounds.center, extents = r.localBounds.extents, last0 = r.last0, last1 = r.last1, last2 = r.last2 };
+        }
+        layoutChanged = false;
+    }
+
+    private LightmapData[] Lightmaps()
+    {
+        if (lightmapsFrame != frameCount) { frameLightmaps = LightmapSettings.lightmaps ?? System.Array.Empty<LightmapData>(); lightmapsFrame = frameCount; }
+        return frameLightmaps;
+    }
+
+    private bool Refresh(RendererRecord record, SpatialIn* input, float avatarScale)
+    {
+        Renderer renderer = record.renderer;
+        renderer.GetSharedMaterials(materialScratch);
+        record.mirror = IsMirror(record, materialScratch);
+        if (record.mirror) { record.stale = false; return true; }
+        MeshRecord mesh = record.mesh = MeshFor(record);
+        if (mesh == null) { record.skip = "nomesh"; record.stale = true; return false; }
+        record.hasBlock = renderer.HasPropertyBlock();
+        LightmapData[] maps = Lightmaps();
+        int lightmapIndex = renderer.lightmapIndex;
+        bool lightmapped = lightmapIndex >= 0 && lightmapIndex < maps.Length;
+        int submeshes = mesh.submeshFlags.Length;
+        if (record.cached.Length != submeshes) { record.cached = new BasisExternalRayMaterial[submeshes]; record.power = new float[submeshes]; }
+        int misses = textureMisses, last = Mathf.Max(materialScratch.Count - 1, 0);
+        for (int s = 0; s < submeshes; s++)
+        {
+            Material m = s < materialScratch.Count ? materialScratch[s] : (materialScratch.Count > 0 ? materialScratch[materialScratch.Count - 1] : null);
+            record.cached[s] = ReadMaterialCached(renderer, record.hasBlock, lightmapped, Mathf.Min(s, last), m, record.avatar, record.avatar ? avatarScale : 1f, out uint submeshFlags, out record.power[s]);
+            if (!mesh.defined) { mesh.submeshFlags[s] = submeshFlags; }
+        }
+        record.lightmap = -1;
+        record.lightmapST = Vector4.zero;
+        if (lightmapped && lightmapIndex < 0xFFFE)
+        {
+            record.lightmap = TextureFor(maps[lightmapIndex].lightmapColor, true);
+            record.lightmapST = renderer.lightmapScaleOffset;
+        }
+        record.shadowMode = renderer.shadowCastingMode;
+        if (renderer is SkinnedMeshRenderer smr) { record.rootBone = smr.rootBone; }
+        else
+        {
+            record.localBounds = renderer.localBounds;
+            if (input != null) { input->center = record.localBounds.center; input->extents = record.localBounds.extents; }
+        }
+        record.stale = textureMisses != misses;
+        return true;
+    }
+
     public void Fill(ulong frame, BasisGlobalIlluminationSettings settings, Vector3 viewer, ref BasisExternalRayFrame parameters)
     {
         BasisGlobalIlluminationRaySceneSettings sceneSettings = settings.ResolvedSceneSettings();
+        bool spatial = CompleteSpatial() && !layoutChanged;
         float now = Time.realtimeSinceStartup;
         float scanEvery = Mathf.Max(0.25f, sceneSettings.rescanInterval);
         if (now >= nextScan || nextScan - now > scanEvery) { Scan(sceneSettings.layerMask); nextScan = now + scanEvery; }
@@ -812,86 +962,111 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         skinnedQueue.Clear();
         emitterScratch.Clear();
         MirrorCount = 0;
-        materialCache.Clear();
-        frameLightmaps = LightmapSettings.lightmaps ?? System.Array.Empty<LightmapData>();
         float avatarScale = settings.avatarEmissionScale;
-        float worldScale = 1f;
         respectBaked = settings.respectBakedEmission;
+        if (layoutChanged) { spatial = false; }
+        SpatialIn* spatialInput = spatial ? (SpatialIn*)spatialIn.GetUnsafePtr() : null;
+        SpatialOut* spatialResult = spatial ? (SpatialOut*)spatialOut.GetUnsafeReadOnlyPtr() : null;
+        bool emittersOn = settings.emitters;
 
         for (int i = 0; i < renderers.Count && instanceCount < BasisExternalRayTracer.MaxInstances; i++)
         {
             RendererRecord record = renderers[i];
             Renderer renderer = record.renderer;
-            if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy || renderer.forceRenderingOff)
+            if (renderer == null || !renderer.enabled || !record.gameObject.activeInHierarchy || renderer.forceRenderingOff)
             {
                 if (record.seen)
                 {
                     float glow = 0f;
                     foreach (float e in record.lastEmission) { glow = Mathf.Max(glow, e); }
-                    if (!record.avatar || glow > 0.001f) { statRemoved++; MarkDirty(record.lastBounds.center, record.lastBounds.extents.magnitude + 2f + Mathf.Min(Mathf.Sqrt(glow) * 2f, 8f), glow <= 0.001f, glow > 0.001f); }
+                    if (!record.avatar || glow > 0.001f) { MarkDirty(record.lastBounds.center, record.lastBounds.extents.magnitude + 2f + Mathf.Min(Mathf.Sqrt(glow) * 2f, 8f), glow <= 0.001f, glow > 0.001f); }
                     record.seen = false;
                 }
                 record.skip = "off";
                 continue;
             }
             if (record.shadowSource != null && Drawn(record.shadowSource.renderer)) { record.skip = "clone"; continue; }
+            MeshRecord mesh = record.mesh;
+            bool exact = record.stale;
+            bool refresh = record.stale || record.hasBlock || ((frameCount + record.phase) & RefreshMask) == 0 || (mesh != null && (mesh.released || !mesh.committed));
+            if (refresh && !Refresh(record, spatialInput != null ? spatialInput + i : null, avatarScale)) { continue; }
             if (record.mirror) { AddMirror(renderer); record.skip = "mirror"; continue; }
-            MeshRecord mesh = record.mesh = MeshFor(record);
-            if (mesh == null) { record.skip = "nomesh"; continue; }
+            mesh = record.mesh;
             record.skip = "upload";
             mesh.lastSeen = frameCount;
-            renderer.GetSharedMaterials(materialScratch);
-            bool hasBlock = renderer.HasPropertyBlock();
-            int lightmapIndex = renderer.lightmapIndex;
-            bool lightmapped = lightmapIndex >= 0 && lightmapIndex < frameLightmaps.Length;
             int submeshes = mesh.submeshFlags.Length;
             if (materialCount + submeshes > BasisExternalRayTracer.MaxMaterials) { break; }
-            if (pendingMaterials.Length < submeshes) { pendingMaterials = new BasisExternalRayMaterial[Mathf.NextPowerOfTwo(submeshes)]; pendingPower = new float[pendingMaterials.Length]; }
-            for (int s = 0; s < submeshes; s++)
+            if (!mesh.committed && !UploadMesh(mesh)) { record.stale = true; continue; }
+
+            Vector4 r0, r1, r2;
+            Bounds bounds;
+            bool changed;
+            SpatialOut* result = spatialResult != null ? spatialResult + i : null;
+            if (result != null && (result->flags & 1) != 0)
             {
-                Material m = s < materialScratch.Count ? materialScratch[s] : (materialScratch.Count > 0 ? materialScratch[materialScratch.Count - 1] : null);
-                pendingMaterials[s] = ReadMaterialCached(renderer, hasBlock, lightmapped, Mathf.Min(s, Mathf.Max(materialScratch.Count - 1, 0)), m, record.avatar, record.avatar ? avatarScale : worldScale, out uint submeshFlags, out pendingPower[s]);
-                if (!mesh.defined) { mesh.submeshFlags[s] = submeshFlags; }
+                r0 = result->row0; r1 = result->row1; r2 = result->row2;
+                changed = (result->flags & 2) != 0;
+                bounds = record.avatar || exact ? renderer.bounds : new Bounds { center = result->center, extents = result->extents };
             }
-            if (!mesh.committed && !UploadMesh(mesh)) { continue; }
+            else
+            {
+                Rows(record.transform.localToWorldMatrix, out r0, out r1, out r2);
+                changed = !Approximately(r0, record.last0) || !Approximately(r1, record.last1) || !Approximately(r2, record.last2);
+                bounds = renderer.bounds;
+            }
+            if (!record.avatar)
+            {
+                record.last0 = r0; record.last1 = r1; record.last2 = r2;
+                if (spatialInput != null) { SpatialIn* input = spatialInput + i; input->last0 = r0; input->last1 = r1; input->last2 = r2; }
+            }
+            else if (mesh.skinned != null && mesh.posed && record.rootBone != null)
+            {
+                record.rootBone.GetPositionAndRotation(out Vector3 rootPosition, out Quaternion rootRotation);
+                Rows(Matrix4x4.TRS(rootPosition, rootRotation, Vector3.one), out r0, out r1, out r2);
+            }
+
             uint materialBase = materialCount;
             float emissivePower = 0f;
             bool unposed = mesh.skinned != null && !mesh.posed;
-            bool shadowOnly = renderer.shadowCastingMode == ShadowCastingMode.ShadowsOnly;
+            bool shadowOnly = record.shadowMode == ShadowCastingMode.ShadowsOnly;
+            BasisExternalRayMaterial[] cached = record.cached;
+            float[] power = record.power;
             for (int s = 0; s < submeshes; s++)
             {
-                BasisExternalRayMaterial mat = pendingMaterials[s];
-                if (settings.emitters && pendingPower[s] > 0.001f && !shadowOnly) { emissivePower += pendingPower[s]; }
-                if (pendingPower[s] > 0.001f && settings.emitters && mesh.submeshCounts[s] > 0 && !unposed && !shadowOnly)
+                BasisExternalRayMaterial mat = cached[s];
+                if (emittersOn && power[s] > 0.001f && !shadowOnly)
                 {
-                    Vector3 size = renderer.bounds.size;
-                    float area = Mathf.Max(0.01f, size.x * size.y + size.y * size.z + size.x * size.z);
-                    float distance = Mathf.Max(1f, (renderer.bounds.center - viewer).sqrMagnitude);
-                    emitterScratch.Add((pendingPower[s] * area / distance, instanceCount, (uint)s, (uint)(mesh.submeshCounts[s] / 3)));
-                    mat.flags |= BasisExternalRayTracer.MaterialEmitter;
+                    emissivePower += power[s];
+                    if (mesh.submeshCounts[s] > 0 && !unposed)
+                    {
+                        Vector3 size = bounds.size;
+                        float area = Mathf.Max(0.01f, size.x * size.y + size.y * size.z + size.x * size.z);
+                        float distance = Mathf.Max(1f, (bounds.center - viewer).sqrMagnitude);
+                        emitterScratch.Add((power[s] * area / distance, instanceCount, (uint)s, (uint)(mesh.submeshCounts[s] / 3)));
+                        mat.flags |= BasisExternalRayTracer.MaterialEmitter;
+                    }
                 }
                 materials[materialCount++] = mat;
             }
-            Bounds bounds = renderer.bounds;
-            if (record.lastEmission.Length != submeshes) { record.lastEmission = new float[submeshes]; }
-            for (int s = 0; s < submeshes; s++)
+            if (refresh)
             {
-                float before = record.lastEmission[s], power = pendingPower[s];
-                if (record.seen && Mathf.Abs(power - before) > 0.1f * Mathf.Max(power, before) + 0.01f)
+                if (record.lastEmission.Length != submeshes) { record.lastEmission = new float[submeshes]; }
+                for (int s = 0; s < submeshes; s++)
                 {
-                    bool large = Mathf.Max(power, before) > 2f * Mathf.Max(Mathf.Min(power, before), 0.01f);
-                    statEmission++;
-                    MarkDirty(bounds.center, bounds.extents.magnitude + 2f + Mathf.Min(Mathf.Sqrt(Mathf.Max(power, before)) * 2f, 8f), !large);
+                    float before = record.lastEmission[s], current = power[s];
+                    if (record.seen && Mathf.Abs(current - before) > 0.1f * Mathf.Max(current, before) + 0.01f)
+                    {
+                        bool large = Mathf.Max(current, before) > 2f * Mathf.Max(Mathf.Min(current, before), 0.01f);
+                        MarkDirty(bounds.center, bounds.extents.magnitude + 2f + Mathf.Min(Mathf.Sqrt(Mathf.Max(current, before)) * 2f, 8f), !large);
+                    }
+                    record.lastEmission[s] = current;
                 }
-                record.lastEmission[s] = power;
             }
             if (mesh.skinned != null) { skinnedQueue.Add((mesh, instanceCount, renderer.isVisible)); }
-            Matrix4x4 matrix = SkinnedSpace(mesh) ?? record.transform.localToWorldMatrix;
-            Rows(matrix, out Vector4 r0, out Vector4 r1, out Vector4 r2);
             bool moved = record.avatar && ((bounds.center - record.lastBounds.center).sqrMagnitude > AvatarMoveThreshold || (bounds.extents - record.lastBounds.extents).sqrMagnitude > AvatarMoveThreshold);
             bool referenceBounds = !record.seen || !record.avatar || moved;
-            if (!record.seen) { statAppear++; MarkDirty(bounds.center, bounds.extents.magnitude + 2f); }
-            else if (moved || (!record.avatar && !Approximately(matrix, record.lastMatrix)))
+            if (!record.seen) { MarkDirty(bounds.center, bounds.extents.magnitude + 2f); }
+            else if (moved || (!record.avatar && changed))
             {
                 bool emissive = emissivePower > 0.001f;
                 float reach = 1.5f + (emissive ? Mathf.Min(Mathf.Sqrt(emissivePower) * 2f, 8f) : 0f);
@@ -899,27 +1074,20 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
                 MarkDirty(record.lastBounds.center, record.lastBounds.extents.magnitude + reach, !emissive);
             }
             record.seen = true;
-            record.lastMatrix = matrix;
             if (referenceBounds) { record.lastBounds = bounds; }
-            int lightmap = -1;
-            Vector4 lightmapST = Vector4.zero;
-            if (lightmapIndex >= 0 && lightmapIndex < 0xFFFE && lightmapIndex < frameLightmaps.Length)
-            {
-                lightmap = TextureFor(frameLightmaps[lightmapIndex].lightmapColor, true);
-                lightmapST = renderer.lightmapScaleOffset;
-            }
-            bool dynamic = record.avatar || lightmap < 0;
-            bool noShadow = renderer.shadowCastingMode == ShadowCastingMode.Off && !(record.shadowClone != null && Drawn(record.shadowClone.renderer));
+            bool dynamic = record.avatar || record.lightmap < 0;
+            bool noShadow = record.shadowMode == ShadowCastingMode.Off && !(record.shadowClone != null && Drawn(record.shadowClone.renderer));
+            uint mask = unposed ? 0u : shadowOnly ? 0x04u : (noShadow ? 0x01u : 0xFDu) | (dynamic ? BasisExternalRayTracer.MaskDynamic : 0u);
             instances[instanceCount++] = new BasisExternalRayInstance
             {
-                row0 = r0, row1 = r1, row2 = r2, mesh = mesh.id, materialBase = materialBase,
-                mask = unposed ? 0u : shadowOnly ? 0x04u : (noShadow ? 0x01u : 0xFDu) | (dynamic ? BasisExternalRayTracer.MaskDynamic : 0u),
+                row0 = r0, row1 = r1, row2 = r2, mesh = mesh.id, materialBase = materialBase, mask = mask,
                 flags = (record.avatar ? BasisExternalRayTracer.InstanceAvatar : 0u) | (noShadow ? BasisExternalRayTracer.InstanceNoShadow : 0u) | (dynamic ? BasisExternalRayTracer.InstanceDynamic : 0u),
-                lightmap = lightmap, lightmapST = lightmapST,
+                lightmap = record.lightmap, lightmapST = record.lightmapST,
             };
-            record.lastMask = instances[instanceCount - 1].mask;
+            record.lastMask = mask;
             record.skip = string.Empty;
         }
+        if (layoutChanged) { RebuildSpatial(); }
 
         PoseSkinned(instances);
 
@@ -939,22 +1107,14 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         FillAmbient(ref parameters, settings);
         Vector4 ambient = parameters.ambient0 + parameters.ambient1 * 3.1f + parameters.ambient2 * 7.3f;
         float ambientNow = ambient.magnitude, ambientBefore = lastAmbient.magnitude;
-        if (Mathf.Abs(ambientNow - ambientBefore) > 0.25f * Mathf.Max(ambientBefore, 0.05f)) { resetCache = true; resetReason = "ambient"; statAmbient++; }
+        if (Mathf.Abs(ambientNow - ambientBefore) > 0.25f * Mathf.Max(ambientBefore, 0.05f)) { resetCache = true; }
         lastAmbient = ambient;
         if (resetCache) { parameters.flags |= BasisExternalRayTracer.FlagCacheReset; dirty.Clear(); }
         Vector4* outDirty = BasisExternalRayTracer.Dirty(frame);
         for (int i = 0; i < dirty.Count; i++) { outDirty[i] = dirty[i]; }
         parameters.dirtyCount = (uint)dirty.Count;
         dirty.Clear();
-        if (resetCache) { statResets++; }
         resetCache = false;
-        if (Time.realtimeSinceStartup >= statNext || statNext - Time.realtimeSinceStartup > 5f)
-        {
-            if (statNext > 0f) { Debug.Log($"[BasisGI] Path traced cache, last 5 s: hard dirty {statHard} (emission {statEmission}, lights {statLights}, appeared {statAppear}, removed {statRemoved}), soft dirty {statSoft}, full resets {statResets} (last: {resetReason}), instances {instanceCount}, emitters {emitterCount}, lights {lightCount}, gpu {BasisExternalRayTracer.GpuMicroseconds(0)} us"); }
-            if (statNext > 0f) { Debug.Log(DescribeAvatars()); }
-            statNext = Time.realtimeSinceStartup + 5f;
-            statHard = statSoft = statResets = statEmission = statLights = statAmbient = statAppear = statRemoved = 0;
-        }
         BasisExternalRayCommand* outCommands = BasisExternalRayTracer.Commands(frame);
         for (int i = 0; i < commands.Count; i++) { outCommands[i] = commands[i]; }
         parameters.instanceCount = instanceCount;
@@ -965,11 +1125,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         parameters.uploadTexels = texelCursor;
     }
 
-    private static bool Approximately(in Matrix4x4 a, in Matrix4x4 b)
-    {
-        for (int i = 0; i < 16; i++) { if (Mathf.Abs(a[i] - b[i]) > 1e-4f) { return false; } }
-        return true;
-    }
+    private static bool Approximately(in Vector4 a, in Vector4 b) => Mathf.Abs(a.x - b.x) <= 1e-4f && Mathf.Abs(a.y - b.y) <= 1e-4f && Mathf.Abs(a.z - b.z) <= 1e-4f && Mathf.Abs(a.w - b.w) <= 1e-4f;
 
     private int FillLights(BasisExternalRayLight* outLights, Vector3 viewer, BasisGlobalIlluminationSettings settings)
     {
@@ -983,8 +1139,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         foreach (Light l in lightsGone)
         {
             Vector4 reach = lightReach[l];
-            statLights++;
-            if (reach.w < 0f) { resetCache = true; resetReason = "directional light off"; }
+            if (reach.w < 0f) { resetCache = true; }
             else { MarkDirty(reach, reach.w * 1.5f + 1f, false, true); }
             lightReach.Remove(l);
             lightStates.Remove(l);
@@ -1003,8 +1158,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
                 bool known = lightStates.ContainsKey(l);
                 float before = known ? previous.w : 0f, now = state.w;
                 bool large = !known || Mathf.Max(now, before) > 2f * Mathf.Max(Mathf.Min(now, before), 0.01f) || (new Vector3(previous.x, previous.y, previous.z) - new Vector3(state.x, state.y, state.z)).magnitude > 0.5f;
-                statLights++;
-                if (l.type == LightType.Directional) { if (large) { resetCache = true; resetReason = "directional light " + l.name; } else { MarkDirty(p, 1e4f, true); } }
+                    if (l.type == LightType.Directional) { if (large) { resetCache = true; } else { MarkDirty(p, 1e4f, true); } }
                 else { MarkDirty(p, l.range, !large); }
                 lightStates[l] = state;
             }

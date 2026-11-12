@@ -2233,6 +2233,15 @@ namespace Basis.BasisUI
                 new List<string> { "settings.graphics.quality.veryLow", "settings.graphics.quality.low", "settings.graphics.quality.medium", "settings.graphics.quality.high", "settings.graphics.quality.ultra" });
             dropdownQualityLevel.AssignBinding(BasisSettingsDefaults.QualityLevel);
 
+            PanelDropdown dropdownOpaqueDownsampling = PanelDropdown.CreateNewEntry(qualityGroup.ContentParent);
+            dropdownOpaqueDownsampling.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.opaqueDownsampling"));
+            dropdownOpaqueDownsampling.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.opaqueDownsampling.tooltip"));
+            dropdownOpaqueDownsampling.AssignLocalizedEntries(
+                new List<string> { "None", "2x Bilinear", "4x Box", "4x Bilinear" },
+                new List<string> { "settings.graphics.opaqueDownsampling.none", "settings.graphics.opaqueDownsampling.2xBilinear", "settings.graphics.opaqueDownsampling.4xBox", "settings.graphics.opaqueDownsampling.4xBilinear" },
+                new List<string> { "settings.graphics.opaqueDownsampling.none.tooltip", "settings.graphics.opaqueDownsampling.2xBilinear.tooltip", "settings.graphics.opaqueDownsampling.4xBox.tooltip", "settings.graphics.opaqueDownsampling.4xBilinear.tooltip" });
+            dropdownOpaqueDownsampling.AssignBinding(BasisSettingsDefaults.OpaqueDownsampling);
+
             PanelDropdown dropdownShadowQuality = PanelDropdown.CreateNewEntry(qualityGroup.ContentParent);
             dropdownShadowQuality.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.shadowQuality"));
             dropdownShadowQuality.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.shadowQuality.tooltip"));
@@ -4143,6 +4152,7 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.VrsFovealOuterRadius.ResetToDefault();
 
             BasisSettingsDefaults.HDRSupport.ResetToDefault();
+            BasisSettingsDefaults.OpaqueDownsampling.ResetToDefault();
             BasisSettingsDefaults.MemoryAllocation.ResetToDefault();
             BasisSettingsDefaults.RenderResolution.ResetToDefault();
             BasisSettingsDefaults.DynamicResolutionEnabled.ResetToDefault();

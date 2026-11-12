@@ -10167,6 +10167,46 @@
       "value": "HDR Support"
     },
     {
+      "key": "settings.graphics.opaqueDownsampling",
+      "value": "Opaque Downsampling"
+    },
+    {
+      "key": "settings.graphics.opaqueDownsampling.tooltip",
+      "value": "Resolution of the scene copy that refraction and frosted glass materials sample. Less downsampling looks sharper and uses more memory bandwidth."
+    },
+    {
+      "key": "settings.graphics.opaqueDownsampling.none",
+      "value": "None (Full Resolution)"
+    },
+    {
+      "key": "settings.graphics.opaqueDownsampling.none.tooltip",
+      "value": "Full resolution copy. Sharpest refraction and glass effects, highest cost."
+    },
+    {
+      "key": "settings.graphics.opaqueDownsampling.2xBilinear",
+      "value": "2x Bilinear"
+    },
+    {
+      "key": "settings.graphics.opaqueDownsampling.2xBilinear.tooltip",
+      "value": "Half resolution copy. Softer glass effects for a quarter of the memory."
+    },
+    {
+      "key": "settings.graphics.opaqueDownsampling.4xBox",
+      "value": "4x Box"
+    },
+    {
+      "key": "settings.graphics.opaqueDownsampling.4xBox.tooltip",
+      "value": "Quarter resolution copy with a box filter. Smoother than 4x Bilinear at a similar cost."
+    },
+    {
+      "key": "settings.graphics.opaqueDownsampling.4xBilinear",
+      "value": "4x Bilinear"
+    },
+    {
+      "key": "settings.graphics.opaqueDownsampling.4xBilinear.tooltip",
+      "value": "Quarter resolution copy with a bilinear filter. Cheapest and blurriest."
+    },
+    {
       "key": "settings.graphics.foveated",
       "value": "Foveation Strength"
     },

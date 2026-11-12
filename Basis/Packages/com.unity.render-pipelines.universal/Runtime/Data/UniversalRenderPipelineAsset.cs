@@ -1110,7 +1110,11 @@ namespace UnityEngine.Rendering.Universal
         /// <summary>
         /// Returns the downsampling method used when copying the camera color texture after rendering opaques.
         /// </summary>
-        public Downsampling opaqueDownsampling => m_OpaqueDownsampling;
+        public Downsampling opaqueDownsampling
+        {
+            get => m_OpaqueDownsampling;
+            set => m_OpaqueDownsampling = value;
+        }
 
         /// <summary>
         /// This settings controls if the asset <c>UniversalRenderPipelineAsset</c> supports terrain holes.

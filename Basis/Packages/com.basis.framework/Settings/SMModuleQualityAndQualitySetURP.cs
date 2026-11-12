@@ -17,6 +17,7 @@ namespace BattlePhaze.SettingsManager.Integrations
 
         // --- Canonical setting key (from defaults) ---
         private static string K_QUALITY_LEVEL => BasisSettingsDefaults.QualityLevel.BindingKey; // "quality level"
+        private static string K_OPAQUE_DOWNSAMPLING => BasisSettingsDefaults.OpaqueDownsampling.BindingKey;
 
         // Profiles you can tune in Inspector
         [System.Serializable]
@@ -129,6 +130,11 @@ namespace BattlePhaze.SettingsManager.Integrations
 
         public override void ValidSettingsChange(string matchedSettingName, string optionValue)
         {
+            if (matchedSettingName == K_OPAQUE_DOWNSAMPLING)
+            {
+                ApplyOpaqueDownsampling(optionValue);
+                return;
+            }
             if (matchedSettingName != K_QUALITY_LEVEL)
                 return;
 
@@ -232,6 +238,8 @@ namespace BattlePhaze.SettingsManager.Integrations
         private static SoftShadowQuality _ceilSoftShadowQuality;
         private static LightRenderingMode _ceilAdditionalLights;
         private static DepthPrimingMode _ceilDepthPriming;
+        private static bool _opaqueDownsamplingCaptured;
+        private static Downsampling _authoredOpaqueDownsampling;
 
         private static void CaptureCeilings(UniversalRenderPipelineAsset asset, UniversalRendererData renderer)
         {
@@ -276,6 +284,8 @@ namespace BattlePhaze.SettingsManager.Integrations
         {
             UnityEditor.EditorApplication.playModeStateChanged -= OnEditorPlayModeStateChanged;
             UnityEditor.EditorApplication.playModeStateChanged += OnEditorPlayModeStateChanged;
+            UnityEditor.EditorApplication.playModeStateChanged -= RestoreOpaqueDownsampling;
+            UnityEditor.EditorApplication.playModeStateChanged += RestoreOpaqueDownsampling;
         }
 
         private static void OnEditorPlayModeStateChanged(UnityEditor.PlayModeStateChange change)
@@ -307,7 +317,36 @@ namespace BattlePhaze.SettingsManager.Integrations
 
             _ceilingsCaptured = false;
         }
+
+        private static void RestoreOpaqueDownsampling(UnityEditor.PlayModeStateChange change)
+        {
+            if (change != UnityEditor.PlayModeStateChange.ExitingPlayMode || !_opaqueDownsamplingCaptured)
+                return;
+            UniversalRenderPipelineAsset asset = QualitySettings.renderPipeline as UniversalRenderPipelineAsset;
+            if (asset != null)
+                asset.opaqueDownsampling = _authoredOpaqueDownsampling;
+            _opaqueDownsamplingCaptured = false;
+        }
 #endif
+
+        public static void ApplyOpaqueDownsampling(string optionValue)
+        {
+            UniversalRenderPipelineAsset asset = QualitySettings.renderPipeline as UniversalRenderPipelineAsset;
+            if (asset == null)
+                return;
+            if (!_opaqueDownsamplingCaptured)
+            {
+                _opaqueDownsamplingCaptured = true;
+                _authoredOpaqueDownsampling = asset.opaqueDownsampling;
+            }
+            switch (optionValue == null ? string.Empty : optionValue.ToLowerInvariant())
+            {
+                case "none": asset.opaqueDownsampling = Downsampling.None; break;
+                case "2x bilinear": asset.opaqueDownsampling = Downsampling._2xBilinear; break;
+                case "4x box": asset.opaqueDownsampling = Downsampling._4xBox; break;
+                case "4x bilinear": asset.opaqueDownsampling = Downsampling._4xBilinear; break;
+            }
+        }
 
         /// <summary>
         /// Cost rank for <see cref="LightRenderingMode"/>. The enum is not ordered by cost —
