@@ -74,6 +74,8 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         public bool coarseValid;
         public TextureHandle tracedDepth;
         public bool tracedDepthValid;
+        public TextureHandle tracedNormal;
+        public bool tracedNormalValid;
         public TextureHandle lightmapMask;
         public bool lightmapMaskValid;
         public Vector4 lightmapParams;
@@ -136,6 +138,8 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     private static readonly int idSeedConservative = Shader.PropertyToID("_BasisGIDepthSeedConservative");
     private static readonly int idStats = Shader.PropertyToID("_BasisGIStats");
     private static readonly int idStatsValid = Shader.PropertyToID("_BasisGIStatsValid");
+    private static readonly int idTracedNormal = Shader.PropertyToID("_BasisGITracedNormal");
+    private static readonly int idTracedNormalValid = Shader.PropertyToID("_BasisGITracedNormalValid");
     private static readonly int idNormals = Shader.PropertyToID("_BasisGINormals");
     private static readonly int idSurface = Shader.PropertyToID("_BasisGISurface");
     private static readonly int idSurfaceValid = Shader.PropertyToID("_BasisGISurfaceValid");
@@ -456,6 +460,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         // Declared out here because the temporal filter runs in both modes and wants it whenever the screen
         // space gather built it. The ray traced mode reconstructs its own positions and never asks.
         TextureHandle tracedDepth = TextureHandle.nullHandle;
+        TextureHandle tracedNormal = TextureHandle.nullHandle;
 
         // The ray budget is resolved before anything reads it, because the denoiser is driven by how many
         // samples a pixel actually paid for: a ceiling applied further down would leave the filter
@@ -548,7 +553,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
             SharedTracedDepthCamera = camera;
 
             RecordRadianceCascades(renderGraph, resourceData, settings, sceneColorDescriptor, descriptor, sceneColor, tracedDepth,
-                normals, traced, tracedWidth, tracedHeight, frame, emitterCount, sky, alternateEyes);
+                normals, traced, tracedWidth, tracedHeight, frame, emitterCount, sky, alternateEyes, out tracedNormal);
         }
 
         TextureHandle denoiseSource = traced;
@@ -568,6 +573,8 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
                 passData.previousViewProjection = previousViewProjection;
                 passData.tracedDepth = tracedDepth;
                 passData.tracedDepthValid = tracedDepth.IsValid();
+                passData.tracedNormal = tracedNormal;
+                passData.tracedNormalValid = tracedNormal.IsValid();
                 // Pooled PassData: the reflection temporal sets these, so this pass has to unset them or
                 // inherit a dead graph's handle and run the diffuse accumulation as a reflection.
                 passData.specularHitDistance = TextureHandle.nullHandle;
@@ -582,6 +589,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
                 builder.UseTexture(historyReadStats);
                 builder.UseTexture(resourceData.cameraDepthTexture);
                 if (tracedDepth.IsValid()) { builder.UseTexture(tracedDepth); }
+                if (tracedNormal.IsValid()) { builder.UseTexture(tracedNormal); }
                 if (motionValid) { builder.UseTexture(motion); }
                 builder.AllowGlobalStateModification(true);
                 builder.SetRenderFunc((PassData data, RasterGraphContext context) => Execute(data, context));
@@ -600,8 +608,8 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
             for (int level = 0; level < levels; level++)
             {
                 float stride = 1 << level;
-                denoiseSource = RecordBlur(renderGraph, resourceData, denoiseSource, blurA, historyWriteStats, statsValid, new Vector4(stride / tracedWidth, 0f, taps, 0f));
-                denoiseSource = RecordBlur(renderGraph, resourceData, denoiseSource, blurB, historyWriteStats, statsValid, new Vector4(0f, stride / tracedHeight, taps, 0f));
+                denoiseSource = RecordBlur(renderGraph, resourceData, denoiseSource, blurA, historyWriteStats, statsValid, tracedNormal, new Vector4(stride / tracedWidth, 0f, taps, 0f));
+                denoiseSource = RecordBlur(renderGraph, resourceData, denoiseSource, blurB, historyWriteStats, statsValid, tracedNormal, new Vector4(0f, stride / tracedHeight, taps, 0f));
             }
         }
 
@@ -662,6 +670,9 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
             // clear, but not when it is left set by whichever pass ran before it.
             passData.stats = historyWriteStats;
             passData.statsValid = statsValid;
+            passData.tracedNormal = tracedNormal;
+            passData.tracedNormalValid = tracedNormal.IsValid();
+            if (tracedNormal.IsValid()) { builder.UseTexture(tracedNormal); }
             passData.lightmapMask = lightmapMask;
             passData.lightmapMaskValid = lightmapMask.IsValid();
             passData.lightmapParams = new Vector4(external && settings.IsExternalBaked() ? 1f : settings.lightmappedReceive, 0f, 0f, 0f);
@@ -1233,7 +1244,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     }
 
     private TextureHandle RecordBlur(RenderGraph renderGraph, UniversalResourceData resourceData, TextureHandle source, TextureHandle target,
-        TextureHandle stats, bool statsValid, Vector4 axis)
+        TextureHandle stats, bool statsValid, TextureHandle tracedNormal, Vector4 axis)
     {
         using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass("Basis GI Blur", out PassData passData, samplerBlur))
         {
@@ -1245,9 +1256,12 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
             passData.blurAxis = axis;
             passData.stats = stats;
             passData.statsValid = statsValid;
+            passData.tracedNormal = tracedNormal;
+            passData.tracedNormalValid = tracedNormal.IsValid();
             builder.SetRenderAttachment(target, 0, AccessFlags.WriteAll);
             builder.UseTexture(source);
             builder.UseTexture(stats);
+            if (tracedNormal.IsValid()) { builder.UseTexture(tracedNormal); }
             builder.UseTexture(resourceData.cameraDepthTexture);
             builder.AllowGlobalStateModification(true);
             builder.SetRenderFunc((PassData data, RasterGraphContext context) => Execute(data, context));
@@ -1404,6 +1418,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
             case Stage.Temporal:
                 cmd.SetGlobalFloat(idSkipEye, data.skipEye);
                 BindTracedDepth(cmd, data);
+                BindTracedNormal(cmd, data);
                 cmd.SetGlobalTexture(idIndirect, data.indirect);
                 cmd.SetGlobalTexture(idHistory, data.history);
                 cmd.SetGlobalTexture(idHistoryStats, data.historyStats);
@@ -1419,6 +1434,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
                 cmd.SetGlobalTexture(idIndirect, data.indirect);
                 cmd.SetGlobalTexture(idStats, data.stats);
                 cmd.SetGlobalFloat(idStatsValid, data.statsValid ? 1f : 0f);
+                BindTracedNormal(cmd, data);
                 cmd.SetGlobalVector(idBlurAxis, data.blurAxis);
                 break;
             case Stage.Upscale:
@@ -1428,6 +1444,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
                 cmd.SetGlobalFloat(idHistoryValid, data.historyValid ? 1f : 0f);
                 cmd.SetGlobalTexture(idMotion, data.motion);
                 cmd.SetGlobalFloat(idStatsValid, 0f);
+                cmd.SetGlobalFloat(idTracedNormalValid, 0f);
                 if (data.normals.IsValid()) { cmd.SetGlobalTexture(idNormals, data.normals); }
                 break;
             case Stage.Composite:
@@ -1436,6 +1453,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
                 cmd.SetGlobalTexture(idIndirect, data.indirect);
                 cmd.SetGlobalTexture(idStats, data.stats);
                 cmd.SetGlobalFloat(idStatsValid, data.statsValid ? 1f : 0f);
+                BindTracedNormal(cmd, data);
                 if (data.lightmapMaskValid)
                 {
                     cmd.SetGlobalTexture(idLightmapMask, data.lightmapMask);
@@ -1461,6 +1479,12 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     {
         cmd.SetGlobalFloat(idTracedDepthValid, data.tracedDepthValid ? 1f : 0f);
         if (data.tracedDepthValid) { cmd.SetGlobalTexture(idTracedDepth, data.tracedDepth); }
+    }
+
+    private static void BindTracedNormal(RasterCommandBuffer cmd, PassData data)
+    {
+        cmd.SetGlobalFloat(idTracedNormalValid, data.tracedNormalValid ? 1f : 0f);
+        if (data.tracedNormalValid) { cmd.SetGlobalTexture(idTracedNormal, data.tracedNormal); }
     }
 
     private static void SetSharedConstants(RasterCommandBuffer cmd, PassData data)

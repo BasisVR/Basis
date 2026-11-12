@@ -90,7 +90,6 @@ pub const FLAG_SCREEN_REUSE: u32 = 2;
 pub const FLAG_SHADOWS: u32 = 4;
 pub const FLAG_DENOISE: u32 = 8;
 pub const FLAG_SAME_FRAME: u32 = 16;
-pub const FLAG_REORDER: u32 = 32;
 pub const FLAG_CACHE_RESET: u32 = 64;
 pub const FLAG_PROBES: u32 = 128;
 pub const FLAG_BAKED_HYBRID: u32 = 256;

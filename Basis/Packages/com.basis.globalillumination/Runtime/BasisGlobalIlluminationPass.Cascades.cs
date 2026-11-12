@@ -134,8 +134,11 @@ public sealed partial class BasisGlobalIlluminationPass
 
     private void RecordRadianceCascades(RenderGraph renderGraph, UniversalResourceData resourceData, BasisGlobalIlluminationSettings settings,
         in RenderTextureDescriptor tracedDescriptor, in RenderTextureDescriptor descriptor, TextureHandle sceneColor, TextureHandle tracedDepth,
-        TextureHandle normals, TextureHandle traced, int tracedWidth, int tracedHeight, int frame, int emitterCount, in BasisGlobalIlluminationRayTracer.SkyBinding sky, bool alternateEyes)
+        TextureHandle normals, TextureHandle traced, int tracedWidth, int tracedHeight, int frame, int emitterCount, in BasisGlobalIlluminationRayTracer.SkyBinding sky, bool alternateEyes, out TextureHandle tracedNormal)
     {
+        RenderTextureDescriptor tracedNormalDescriptor = tracedDescriptor;
+        tracedNormalDescriptor.graphicsFormat = GraphicsFormat.R8G8B8A8_UNorm;
+        tracedNormal = UniversalRenderer.CreateRenderGraphTexture(renderGraph, tracedNormalDescriptor, "_BasisGITracedNormal", false, FilterMode.Point, TextureWrapMode.Clamp);
         int spacing = Mathf.Max(1, settings.ResolvedCascadeSpacing());
         bool nearField = settings.worldSpace && worldAlbedo != null;
         int requested = nearField && !settings.cascadeOverride ? Mathf.Max(2, settings.ResolvedCascadeCount() - 1) : settings.ResolvedCascadeCount();
@@ -330,6 +333,7 @@ public sealed partial class BasisGlobalIlluminationPass
             passData.rcJitter = new Vector4(jitter.x, jitter.y, 0f, 0f);
             passData.skipEye = skipEye;
             builder.SetRenderAttachment(traced, 0, AccessFlags.WriteAll);
+            builder.SetRenderAttachment(tracedNormal, 1, AccessFlags.WriteAll);
             builder.UseTexture(cascadeProbes[0]);
             builder.UseTexture(sh0); builder.UseTexture(sh1); builder.UseTexture(sh2); builder.UseTexture(sh3);
             builder.UseTexture(resourceData.cameraDepthTexture);

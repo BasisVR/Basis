@@ -113,7 +113,9 @@ namespace Basis.Tests.GlobalIllumination
             Assert.AreEqual("BasisGIVoxelCapture", material.GetPassName(BasisGlobalIlluminationPass.PassVoxelCapture));
             Assert.AreEqual("BasisGICompositeSurface", material.GetPassName(BasisGlobalIlluminationPass.PassCompositeSurface));
             Assert.AreEqual("BasisGISurfaceDepth", material.GetPassName(BasisGlobalIlluminationPass.PassSurfaceDepth));
-            Assert.AreEqual(BasisGlobalIlluminationPass.PassSurfaceDepth + 1, material.passCount);
+            Assert.AreEqual("BasisGICompositeUnknownSurface", material.GetPassName(BasisGlobalIlluminationPass.PassCompositeUnknownSurface));
+            Assert.AreEqual("BasisGIUpscale", material.GetPassName(BasisGlobalIlluminationPass.PassUpscale));
+            Assert.AreEqual(BasisGlobalIlluminationPass.PassUpscale + 1, material.passCount);
         }
     }
 }

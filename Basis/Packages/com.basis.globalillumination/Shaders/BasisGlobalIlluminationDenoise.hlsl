@@ -154,6 +154,8 @@ BasisGINeighbourhood BasisGIGather(float2 uv, float3 centrePosition, float3 cent
     bool fast = basis.usable && _BasisGITracedDepthValid >= 0.5;
 
     float4 centre = BasisGILoadIndirect(uv);
+    bool facingUsable = _BasisGITracedNormalValid >= 0.5;
+    float3 facingNormal = facingUsable ? BasisGITracedNormal(uv) : float3(0.0, 0.0, 0.0);
     float4 weighted = centre;
     float4 weightedSquares = centre * centre;
     float weightSum = 1.0;
@@ -176,15 +178,25 @@ BasisGINeighbourhood BasisGIGather(float2 uv, float3 centrePosition, float3 cent
             {
                 float2 sampleDepth = BasisGISampleTracedDepth(sampleUv);
                 if (BasisGITracedIsSky(sampleDepth)) { continue; }
-                plane = BasisGIPlaneDistance(basis, uvOffset, sampleDepth.r);
+                float sampleEye = sampleDepth.r;
+                UNITY_BRANCH
+                if (sampleDepth.g - sampleDepth.r > planeScale * 0.25)
+                {
+                    float anchorRaw = BasisGISampleRawDepth(BasisGITracedAnchorUv(sampleUv));
+                    if (BasisGIIsSky(anchorRaw)) { continue; }
+                    sampleEye = BasisGILinearEyeDepth(anchorRaw);
+                }
+                plane = BasisGIPlaneDistance(basis, uvOffset, sampleEye);
             }
             else
             {
-                float sampleRaw = BasisGISampleRawDepth(sampleUv);
+                float sampleRaw = BasisGISampleRawDepth(BasisGITracedAnchorUv(sampleUv));
                 if (BasisGIIsSky(sampleRaw)) { continue; }
                 plane = abs(dot(centreNormal, BasisGIWorldPosition(sampleUv, sampleRaw) - centrePosition));
             }
             float weight = exp(-plane / planeScale);
+            UNITY_BRANCH
+            if (facingUsable) { weight *= BasisGITracedFacing(facingNormal, sampleUv); }
 
             float4 neighbour = BasisGILoadIndirect(sampleUv);
             weighted += neighbour * weight;
@@ -206,13 +218,15 @@ BasisGITemporalOutput BasisGITemporal(float2 uv)
 {
     BasisGITemporalOutput output;
 
-    float rawDepth = BasisGISampleRawDepth(uv);
+    float rawDepth = BasisGISampleRawDepth(BasisGITracedAnchorUv(uv));
     float eyeDepth = BasisGILinearEyeDepth(rawDepth);
     float3 worldPosition = BasisGIWorldPosition(uv, rawDepth);
     // Taken before any early out: screen space derivatives are only meaningful where the whole quad agrees
     // on whether to take them.
-    float3 planeNormal = BasisGIPlaneNormal(worldPosition);
-    float depthSlope = max(abs(ddx(eyeDepth)), abs(ddy(eyeDepth)));
+    float3 planeNormal = BasisGITracedPlaneNormal(uv, worldPosition, rawDepth, eyeDepth);
+    float planeFacing = max(abs(dot(planeNormal, normalize(worldPosition - UNITY_MATRIX_I_V._m03_m13_m23))), 0.1);
+    float planeSlope = eyeDepth * _BasisGITracedTexelSize.y * 2.0 / abs(UNITY_MATRIX_P._m11) * sqrt(1.0 - planeFacing * planeFacing) / planeFacing;
+    float depthSlope = min(max(abs(ddx(eyeDepth)), abs(ddy(eyeDepth))), planeSlope * 1.5);
 
     // The reconstruction has to happen up here, above every early out, because the pixels that need it
     // most are the ones that take those exits - a pixel with no history behind it is handed straight to
@@ -426,11 +440,11 @@ BasisGITemporalOutput BasisGITemporal(float2 uv)
 /// </summary>
 float4 BasisGIBilateralBlur(float2 uv)
 {
-    float centreRaw = BasisGISampleRawDepth(uv);
+    float centreRaw = BasisGISampleRawDepth(BasisGITracedAnchorUv(uv));
     float centreEye = BasisGILinearEyeDepth(centreRaw);
     float3 centrePosition = BasisGIWorldPosition(uv, centreRaw);
     // Taken before any branch: screen space derivatives are only meaningful where the whole quad agrees.
-    float3 centreNormal = BasisGIPlaneNormal(centrePosition);
+    float3 centreNormal = BasisGITracedPlaneNormal(uv, centrePosition, centreRaw, centreEye);
     BasisGIPlaneBasis basis = BasisGIBuildPlaneBasis(centrePosition, centreNormal, centreEye, _BasisGITracedTexelSize.xy);
     float4 centre = BasisGILoadIndirect(uv);
 
@@ -444,6 +458,8 @@ float4 BasisGIBilateralBlur(float2 uv)
     float3 centreStats = BasisGIStats(uv);
     float unresolved = BASISGI_FIREFLY_CLAMP / max(1.0, BASISGI_RAY_COUNT);
 
+    bool facingUsable = _BasisGITracedNormalValid >= 0.5;
+    float3 facingNormal = facingUsable ? BasisGITracedNormal(uv) : float3(0.0, 0.0, 0.0);
     float4 total = centre;
     float weightSum = 1.0;
     int count = (int)taps;
@@ -494,6 +510,8 @@ float4 BasisGIBilateralBlur(float2 uv)
             float luminanceExponent = abs(Luminance(max(0.0, sampleValue.rgb)) - centreLuminance) / luminanceScale;
 
             float weight = exp(-(spatialExponent + plane / basis.scale + luminanceExponent));
+            UNITY_BRANCH
+            if (facingUsable) { weight *= BasisGITracedFacing(facingNormal, sampleUv); }
             total += sampleValue * weight;
             weightSum += weight;
         }

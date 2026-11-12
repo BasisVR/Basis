@@ -42,6 +42,7 @@ TEXTURE2D_X(_BasisGIHistory);
 SAMPLER(sampler_BasisGIHistory);
 TEXTURE2D_X(_BasisGIHistoryStats);
 TEXTURE2D_X(_BasisGIStats);
+TEXTURE2D_X(_BasisGITracedNormal);
 TEXTURE2D_X(_BasisGINormals);
 /// URP's motion vectors: a FORWARD vector in screen UV space, current minus previous, with the platform's
 /// v flip and the NDC to UV halving already folded in by CalcNdcMotionVectorFromCsPositions. URP draws a
@@ -123,6 +124,7 @@ float4 _BasisGISkyDecode;
 float4x4 _BasisGIPrevViewProjection[2];
 float _BasisGIHistoryValid;
 float _BasisGIStatsValid;
+float _BasisGITracedNormalValid;
 int _BasisGIDebugView;
 int _BasisGIEmitterCount;
 float4 _BasisGIEmitterSpheres[BASISGI_MAX_EMITTERS];
@@ -169,6 +171,12 @@ float4x4 BasisGIPreviousViewProjection()
 float2 BasisGISampleTracedDepth(float2 uv)
 {
     return SAMPLE_TEXTURE2D_X_LOD(_BasisGITracedDepth, sampler_PointClamp, UnityStereoTransformScreenSpaceTex(uv), 0).rg;
+}
+
+float2 BasisGITracedAnchorUv(float2 uv)
+{
+    float2 size = _BasisGISourceTexelSize.zw;
+    return (floor(max(saturate(uv) * size - 0.001, 0.0)) + 0.5) / size;
 }
 
 /// <summary>Whether a traced depth texel saw any real surface at all.</summary>
@@ -225,8 +233,8 @@ float3 BasisGIReconstructNormal(float2 uv, float3 viewPosition, float rawDepth)
     // Pick the side FIRST, then reconstruct it. A ternary between two BasisGIViewPosition calls looks
     // like a choice but is not one: HLSL evaluates both arms, so four positions were being unprojected
     // to answer a question about two. Each one is an inverse view projection and a divide followed by a
-    bool useRight = diffRight < diffLeft;
-    bool useUp = diffUp < diffDown;
+    bool useRight = uvLeft.x < 0.0 || (uvRight.x <= 1.0 && diffRight < diffLeft);
+    bool useUp = uvDown.y < 0.0 || (uvUp.y <= 1.0 && diffUp < diffDown);
     float3 horizontalPosition = BasisGIViewPosition(useRight ? uvRight : uvLeft, useRight ? depthRight : depthLeft);
     float3 verticalPosition = BasisGIViewPosition(useUp ? uvUp : uvDown, useUp ? depthUp : depthDown);
     float3 horizontal = useRight ? horizontalPosition - viewPosition : viewPosition - horizontalPosition;
@@ -320,6 +328,33 @@ float3 BasisGIPlaneNormal(float3 worldPosition)
 float BasisGIPlaneTolerance(float eyeDepth)
 {
     return max(BASISGI_BLUR_PLANE_FLOOR, eyeDepth * BASISGI_BLUR_PLANE);
+}
+
+float3 BasisGITracedNormal(float2 uv)
+{
+    float4 packed = SAMPLE_TEXTURE2D_X_LOD(_BasisGITracedNormal, sampler_PointClamp, UnityStereoTransformScreenSpaceTex(saturate(uv)), 0);
+    return packed.a > 0.5 ? packed.xyz * 2.0 - 1.0 : float3(0.0, 0.0, 0.0);
+}
+
+float BasisGITracedFacing(float3 centreNormal, float2 tapUv)
+{
+    float3 tapNormal = BasisGITracedNormal(tapUv);
+    float facing = saturate(dot(centreNormal, tapNormal));
+    facing *= facing; facing *= facing; facing *= facing;
+    return dot(centreNormal, centreNormal) > 0.25 && dot(tapNormal, tapNormal) > 0.25 ? 0.05 + 0.95 * facing : 1.0;
+}
+
+float3 BasisGITracedPlaneNormal(float2 uv, float3 worldPosition, float rawDepth, float eyeDepth)
+{
+    float3 normal = BasisGIPlaneNormal(worldPosition);
+    float slope = max(abs(ddx(eyeDepth)), abs(ddy(eyeDepth)));
+    UNITY_BRANCH
+    if (slope > 0.5 * BasisGIPlaneTolerance(eyeDepth) && !BasisGIIsSky(rawDepth))
+    {
+        float2 anchor = BasisGITracedAnchorUv(uv);
+        normal = BasisGIReconstructNormal(anchor, BasisGIViewPosition(anchor, rawDepth), rawDepth);
+    }
+    return normal;
 }
 
 /// <summary>

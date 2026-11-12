@@ -35,8 +35,7 @@ float _BasisGIRCPhase;
 
 float2 BasisGIRCSnapToDepthTexel(float2 uv)
 {
-    float2 size = _BasisGISourceTexelSize.zw;
-    return (floor(max(saturate(uv) * size - 0.001, 0.0)) + 0.5) / size;
+    return BasisGITracedAnchorUv(uv);
 }
 
 struct BasisGIRCProbe
@@ -71,9 +70,7 @@ BasisGIRCProbe BasisGIRCDecodeProbe(float4 data)
 
 float3x3 BasisGIRCBasisFor(int2 probe, float3 normal)
 {
-    int2 cell = probe & 3;
-    int bayer = ((cell.x ^ cell.y) & 1) * 8 + (cell.y & 1) * 4 + ((cell.x ^ cell.y) & 2) + ((cell.y & 2) >> 1);
-    float angle = (float)((bayer + (int)_BasisGIRCPhase) & 15) * (PI / 8.0) * _BasisGIRCSpin;
+    float angle = (float)(((int)_BasisGIRCPhase * 3) & 7) * (PI / 8.0) * _BasisGIRCSpin;
     float sign = normal.z >= 0.0 ? 1.0 : -1.0;
     float a = -1.0 / (sign + normal.z);
     float b = normal.x * normal.y * a;
@@ -506,20 +503,29 @@ BasisGIRCHarmonics BasisGIRCResolve(float2 positionCS)
     return output;
 }
 
-float4 BasisGIRCGather(float2 traceUv, float2 positionSS)
+struct BasisGIRCGatherOutput
 {
-    if (BasisGISkippedEye()) { return float4(0.0, 0.0, 0.0, 1.0); }
+    float4 indirect : SV_Target0;
+    float4 normal : SV_Target1;
+};
+
+BasisGIRCGatherOutput BasisGIRCGather(float2 traceUv, float2 positionSS)
+{
+    BasisGIRCGatherOutput output;
+    output.indirect = float4(0.0, 0.0, 0.0, 1.0);
+    output.normal = float4(0.0, 0.0, 0.0, 0.0);
+    if (BasisGISkippedEye()) { return output; }
     float2 uv = BasisGIRCSnapToDepthTexel(traceUv);
     float rawDepth = BasisGISampleRawDepth(uv);
-    if (BasisGIIsSky(rawDepth)) { return float4(0.0, 0.0, 0.0, 1.0); }
+    if (BasisGIIsSky(rawDepth)) { return output; }
 
     float eyeDepth = BasisGILinearEyeDepth(rawDepth);
     float fade = BasisGIDistanceFade(eyeDepth);
-    if (fade <= 0.0) { return float4(0.0, 0.0, 0.0, 1.0); }
-
     float3 viewPosition = BasisGIViewPosition(uv, rawDepth);
     float3 worldPosition = BasisGIWorldPosition(uv, rawDepth);
     float3 normalWS = BasisGIReconstructNormal(uv, viewPosition, rawDepth);
+    output.normal = float4(normalWS * 0.5 + 0.5, dot(normalWS, normalWS) > 0.5 ? 1.0 : 0.0);
+    if (fade <= 0.0) { return output; }
 
     float spacing = _BasisGIRCCascade.y;
     int2 probeGrid = int2(_BasisGIRCGrid.xy);
@@ -541,6 +547,7 @@ float4 BasisGIRCGather(float2 traceUv, float2 positionSS)
         if (!probe.valid) { continue; }
 
         float3 bend = normalWS - probe.normal;
+        bend *= min(1.0, 0.75 * rsqrt(max(dot(bend, bend), 1e-6)));
         float4 value = LOAD_TEXTURE2D_X(_BasisGIRCSH0, probeIndex)
             + LOAD_TEXTURE2D_X(_BasisGIRCSH1, probeIndex) * bend.x
             + LOAD_TEXTURE2D_X(_BasisGIRCSH2, probeIndex) * bend.y
@@ -564,7 +571,8 @@ float4 BasisGIRCGather(float2 traceUv, float2 positionSS)
     float noise = BasisGIInterleavedGradientNoise(positionSS, BASISGI_FRAME_INDEX);
     float3 indirect = max(0.0, resolved.rgb) + BasisGIEmitters(worldPosition + normalWS * normalBias, normalWS, noise);
     float obscurance = 1.0 - saturate(resolved.a) * BASISGI_OBSCURANCE;
-    return float4(indirect * fade, lerp(1.0, obscurance, fade));
+    output.indirect = float4(indirect * fade, lerp(1.0, obscurance, fade));
+    return output;
 }
 
 #endif

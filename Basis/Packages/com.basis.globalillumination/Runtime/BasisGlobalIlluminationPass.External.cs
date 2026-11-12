@@ -110,7 +110,7 @@ public partial class BasisGlobalIlluminationPass
         parameters.temporalResponse = Mathf.Clamp(settings.temporalResponse * 0.35f, 0.02f, 1f);
         parameters.lightIntensity = settings.rayTracedLightIntensity;
         parameters.normalBias = Mathf.Max(0.002f, settings.rayTracedNormalBias * 0.5f);
-        parameters.flags = BasisExternalRayTracer.FlagScreenReuse | BasisExternalRayTracer.FlagDenoise | BasisExternalRayTracer.FlagReorder | BasisExternalRayTracer.ConsumeResetFlag(context);
+        parameters.flags = BasisExternalRayTracer.FlagScreenReuse | BasisExternalRayTracer.FlagDenoise | BasisExternalRayTracer.ConsumeResetFlag(context);
         if (externalEmissionScale != parameters.emissionScale) { if (externalEmissionScale >= 0f) { parameters.flags |= BasisExternalRayTracer.FlagCacheReset; } externalEmissionScale = parameters.emissionScale; }
         if (settings.rayTracedShadows) { parameters.flags |= BasisExternalRayTracer.FlagShadows; }
         if (settings.externalSameFrame) { parameters.flags |= BasisExternalRayTracer.FlagSameFrame; }

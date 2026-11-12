@@ -63,17 +63,62 @@ float AlphaCoverage(Material material, float2 uv)
     return mode == ALPHA_CUTOUT ? 1.0 : saturate(alpha);
 }
 
+bool AlphaAccept(uint instanceIndex, uint geometry, uint primitive, float2 barycentrics, float t)
+{
+    Instance instance = LoadInstance(instanceIndex);
+    Material material;
+    float alpha = AlphaAt(instance, geometry, primitive, barycentrics, material);
+    if (alpha < material.cutoff) { return false; }
+    if ((material.alphaMode & 3u) == ALPHA_CUTOUT) { return true; }
+    uint2 p = DispatchRaysIndex().xy;
+    uint h = Hash(p.x * 9781u + p.y * 6271u + primitive * 26699u + frame.frameIndex * 1973u + asuint(t));
+    return (h & 0xffff) * (1.0 / 65536.0) < alpha;
+}
+
 [shader("anyhit")]
 void AnyHit(inout Payload payload, BuiltInTriangleIntersectionAttributes attributes)
 {
-    Instance instance = LoadInstance(InstanceID());
-    Material material;
-    float alpha = AlphaAt(instance, GeometryIndex(), PrimitiveIndex(), attributes.barycentrics, material);
-    if (alpha < material.cutoff) { IgnoreHit(); return; }
-    if ((material.alphaMode & 3u) == ALPHA_CUTOUT) { return; }
-    uint2 p = DispatchRaysIndex().xy;
-    uint h = Hash(p.x * 9781u + p.y * 6271u + PrimitiveIndex() * 26699u + frame.frameIndex * 1973u + asuint(RayTCurrent()));
-    if ((h & 0xffff) * (1.0 / 65536.0) >= alpha) { IgnoreHit(); }
+    if (!AlphaAccept(InstanceID(), GeometryIndex(), PrimitiveIndex(), attributes.barycentrics, RayTCurrent())) { IgnoreHit(); }
+}
+
+bool AnyOccluder(RaytracingAccelerationStructure tlas, RayDesc ray, uint mask, out float t)
+{
+    RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH> q;
+    q.TraceRayInline(tlas, RAY_FLAG_NONE, mask, ray);
+    while (q.Proceed())
+    {
+        if (q.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE && AlphaAccept(q.CandidateInstanceID(), q.CandidateGeometryIndex(), q.CandidatePrimitiveIndex(), q.CandidateTriangleBarycentrics(), q.CandidateTriangleRayT())) { q.CommitNonOpaqueTriangleHit(); }
+    }
+    t = q.CommittedRayT();
+    return q.CommittedStatus() == COMMITTED_TRIANGLE_HIT;
+}
+
+HitObj TraceClosest(RaytracingAccelerationStructure tlas, uint mask, RayDesc ray)
+{
+#ifdef PIPELINE_RAYS
+    Payload payload = (Payload)0;
+    return TraceHit(tlas, RAY_FLAG_NONE, mask, ray, payload);
+#else
+    RayQuery<RAY_FLAG_NONE> q;
+    q.TraceRayInline(tlas, RAY_FLAG_NONE, mask, ray);
+    while (q.Proceed())
+    {
+        if (q.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE && AlphaAccept(q.CandidateInstanceID(), q.CandidateGeometryIndex(), q.CandidatePrimitiveIndex(), q.CandidateTriangleBarycentrics(), q.CandidateTriangleRayT())) { q.CommitNonOpaqueTriangleHit(); }
+    }
+#ifdef BASIS_SPIRV
+    HitObj h;
+    h.p = (Payload)0;
+    h.direction = ray.Direction;
+    if (q.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
+    {
+        h.p.hit = 1u; h.p.instance = q.CommittedInstanceID(); h.p.geometry = q.CommittedGeometryIndex(); h.p.primitive = q.CommittedPrimitiveIndex();
+        h.p.barycentrics = q.CommittedTriangleBarycentrics(); h.p.t = q.CommittedRayT(); h.p.objectToWorld = q.CommittedObjectToWorld3x4(); h.p.worldToObject = q.CommittedWorldToObject3x4();
+    }
+    return h;
+#else
+    return dx::HitObject::FromRayQuery(q);
+#endif
+#endif
 }
 
 [shader("miss")]
@@ -165,9 +210,14 @@ bool Occluded(RaytracingAccelerationStructure tlas, float3 origin, float3 direct
     ray.Direction = direction;
     ray.TMin = 0.0;
     ray.TMax = distance;
+#ifdef PIPELINE_RAYS
     Payload payload = (Payload)0;
     HitObj h = TraceHit(tlas, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER, 0xFE, ray, payload);
     return h.IsHit();
+#else
+    float t;
+    return AnyOccluder(tlas, ray, 0xFE, t);
+#endif
 }
 
 Emitter LoadEmitter(uint index) { StructuredBuffer<Emitter> b = ResourceDescriptorHeap[HEAP_EMITTERS + frame.slot]; return b[index]; }
@@ -401,8 +451,7 @@ LightCandidate ContactCandidate(RaytracingAccelerationStructure tlas, GridCell g
     ray.Direction = direction;
     ray.TMin = 0.0;
     ray.TMax = reach;
-    Payload payload = (Payload)0;
-    HitObj h = TraceHit(tlas, RAY_FLAG_NONE, MASK_VISIBLE, ray, payload);
+    HitObj h = TraceClosest(tlas, MASK_VISIBLE, ray);
     if (!h.IsHit()) { return c; }
     uint instanceIndex = h.GetInstanceID(), geometry = h.GetGeometryIndex();
     Instance instance = LoadInstance(instanceIndex);
@@ -606,8 +655,7 @@ bool PrimarySurface(RaytracingAccelerationStructure tlas, float3 viewer, inout S
     ray.Direction = d / distance;
     ray.TMin = max(distance - tolerance, 0.0);
     ray.TMax = distance + tolerance;
-    Payload payload = (Payload)0;
-    HitObj h = TraceHit(tlas, RAY_FLAG_NONE, MASK_VISIBLE, ray, payload);
+    HitObj h = TraceClosest(tlas, MASK_VISIBLE, ray);
     if (!h.IsHit()) { return false; }
     bool avatar = (LoadInstance(h.GetInstanceID()).flags & INSTANCE_AVATAR) != 0u;
     Hit hit = ResolveHit(h, 0.0);
@@ -655,7 +703,7 @@ float3 SurfaceEmission(Material material, Hit hit, float3 emission, float3 fromN
     return emission * saturate(1.0 - PI / max(hit.area * g, 1e-12));
 }
 
-Bounce TraceRadiance(RaytracingAccelerationStructure tlas, Texture2D<uint4> gbuffer, float3 origin, float3 direction, float3 fromNormal, float3 viewer, bool reorder, inout uint rng)
+Bounce TraceRadiance(RaytracingAccelerationStructure tlas, Texture2D<uint4> gbuffer, float3 origin, float3 direction, float3 fromNormal, float3 viewer, inout uint rng)
 {
     Bounce first = (Bounce)0;
     float3 radiance = 0.0, throughput = 1.0;
@@ -666,18 +714,7 @@ Bounce TraceRadiance(RaytracingAccelerationStructure tlas, Texture2D<uint4> gbuf
         ray.Direction = direction;
         ray.TMin = 0.0;
         ray.TMax = frame.maxDistance;
-        Payload payload = (Payload)0;
-        HitObj hitObject = TraceHit(tlas, RAY_FLAG_NONE, MASK_VISIBLE, ray, payload);
-        if (reorder && segment == 0)
-        {
-            uint hint = 0;
-            if (hitObject.IsHit())
-            {
-                Instance i = LoadInstance(hitObject.GetInstanceID());
-                hint = ((i.materialBase + hitObject.GetGeometryIndex()) & 0x3ff) | (i.lightmap >= 0 ? 0x400u : 0u) | 0x800u;
-            }
-            ReorderHit(hitObject, hint, 12);
-        }
+        HitObj hitObject = TraceClosest(tlas, MASK_VISIBLE, ray);
         if (!hitObject.IsHit())
         {
             radiance += throughput * SampleAmbient(direction);
@@ -750,14 +787,14 @@ float3 ClampFirefly(float3 v)
     return frame.fireflyClamp > 0.0 && l > frame.fireflyClamp ? v * (frame.fireflyClamp / l) : v;
 }
 
-void GatherRay(RaytracingAccelerationStructure tlas, Texture2D<uint4> gbuffer, float3 position, float3 normal, float3 plane, float3 viewer, uint i, uint rays, float2 rotation, bool reorder, inout uint rng, inout SH sh, out Bounce b)
+void GatherRay(RaytracingAccelerationStructure tlas, Texture2D<uint4> gbuffer, float3 position, float3 normal, float3 plane, float3 viewer, uint i, uint rays, float2 rotation, inout uint rng, inout SH sh, out Bounce b)
 {
     uint columns = rays >= 16 ? 8u : rays;
     uint rows = max(rays / columns, 1u);
     float2 u = frac((float2(i % columns, i / columns) + float2(Random(rng), Random(rng))) / float2(columns, rows) + rotation);
     float3 direction = CosineSample(normal, u);
     if (dot(direction, plane) <= 0.0) { direction = normalize(direction - 2.0 * dot(direction, plane) * plane); }
-    b = TraceRadiance(tlas, gbuffer, position, direction, normal, viewer, reorder, rng);
+    b = TraceRadiance(tlas, gbuffer, position, direction, normal, viewer, rng);
     float3 sample = ClampFirefly(b.radiance);
     ShAdd(sh, direction, sample * (PI / (max(dot(direction, normal), 0.2) * rays)));
     sh.mean += sample / rays;
@@ -781,14 +818,14 @@ float3 FarLight(RaytracingAccelerationStructure tlas, float3 position, float3 no
     return ClampFirefly(SampleLights(tlas, position, normal, false, rng, 2u, nearRadius).value);
 }
 
-SH GatherSH(RaytracingAccelerationStructure tlas, Texture2D<uint4> gbuffer, float3 position, float3 normal, float3 plane, float3 viewer, uint rays, float2 rotation, bool reorder, inout uint rng, out Bounce firstBounce)
+SH GatherSH(RaytracingAccelerationStructure tlas, Texture2D<uint4> gbuffer, float3 position, float3 normal, float3 plane, float3 viewer, uint rays, float2 rotation, inout uint rng, out Bounce firstBounce)
 {
     SH sh = ShZero();
     firstBounce = (Bounce)0;
     for (uint i = 0; i < rays; i++)
     {
         Bounce b;
-        GatherRay(tlas, gbuffer, position, normal, plane, viewer, i, rays, rotation, reorder, rng, sh, b);
+        GatherRay(tlas, gbuffer, position, normal, plane, viewer, i, rays, rotation, rng, sh, b);
         if (i == 0) { firstBounce = b; }
     }
     GatherFarLight(tlas, position, normal, viewer, rng, sh);
@@ -855,8 +892,7 @@ void ReferenceRayGen(uint mode, uint2 pixel)
             ray.Direction = direction;
             ray.TMin = 0.0;
             ray.TMax = frame.maxDistance;
-            Payload payload = (Payload)0;
-            HitObj h = TraceHit(tlas, RAY_FLAG_NONE, MASK_VISIBLE, ray, payload);
+            HitObj h = TraceClosest(tlas, MASK_VISIBLE, ray);
             if (!h.IsHit()) { radiance += throughput * SampleAmbient(direction); break; }
             Hit hit = ResolveHit(h, 0.35);
             Material material = LoadMaterial(hit.materialIndex);
@@ -904,7 +940,6 @@ void RayGen()
     }
     Texture2D<uint4> gbuffer = ResourceDescriptorHeap[HEAP_GBUFFER + frame.gbufferIndex];
     RaytracingAccelerationStructure tlas = LOAD_TLAS();
-    bool reorder = (frame.flags & FLAG_REORDER) != 0;
 
     if (mode == 4)
     {
@@ -996,8 +1031,7 @@ void RayGen()
         ray.Direction = float3(r * cos(phi), r * sin(phi), z);
         ray.TMin = 0.05;
         ray.TMax = frame.maxDistance;
-        Payload payload = (Payload)0;
-        HitObj h = TraceHit(tlas, RAY_FLAG_NONE, MASK_VISIBLE, ray, payload);
+        HitObj h = TraceClosest(tlas, MASK_VISIBLE, ray);
         if (!h.IsHit()) { return; }
         Hit hit = ResolveHit(h, 0.35);
         if ((frame.flags & FLAG_BAKED_HYBRID) != 0 && LoadInstance(hit.instanceIndex).lightmap >= 0) { return; }
@@ -1006,7 +1040,7 @@ void RayGen()
         if (CacheSettled(position, hit.geometricNormal, viewer, levelRandom) && (Hash(index.x + index.y * 64u + frame.frameIndex) & 15u) != 0u) { return; }
         Bounce ignored;
         float2 rotation = float2(Random(rng), Random(rng));
-        SH sh = GatherSH(tlas, gbuffer, position, hit.normal, hit.geometricNormal, viewer, 2u, rotation, reorder, rng, ignored);
+        SH sh = GatherSH(tlas, gbuffer, position, hit.normal, hit.geometricNormal, viewer, 2u, rotation, rng, ignored);
         CacheAccumulate(position, hit.geometricNormal, viewer, sh, levelRandom, float2(Random(rng), Random(rng)));
         return;
     }
@@ -1040,7 +1074,7 @@ void RayGen()
         rng = Hash(rng ^ ((ray + 1u) * 0x9e3779b9u));
         SH sh = ShZero();
         Bounce ignored;
-        GatherRay(tlas, gbuffer, origin, surface.normal, geometric, viewer, ray, PROBE_RAYS, rotation, reorder, rng, sh, ignored);
+        GatherRay(tlas, gbuffer, origin, surface.normal, geometric, viewer, ray, PROBE_RAYS, rotation, rng, sh, ignored);
         if (ray == 0u)
         {
             GatherFarLight(tlas, origin, surface.normal, viewer, rng, sh);
@@ -1095,7 +1129,7 @@ void RayGen()
             if (CacheSettled(position, plane, viewer, levelRandom) && (Hash(pixel.x * 31u + pixel.y * 17u + frame.frameIndex) & 15u) != 0u) { break; }
             Bounce next;
             float2 rotation = v == 0 ? BlueNoise2(index, 4u, frame.frameIndex) : float2(Random(rng), Random(rng));
-            SH sh = GatherSH(tlas, gbuffer, position, normal, plane, viewer, v == 0 ? max(frame.samples, 2u) : 2u, rotation, reorder, rng, next);
+            SH sh = GatherSH(tlas, gbuffer, position, normal, plane, viewer, v == 0 ? max(frame.samples, 2u) : 2u, rotation, rng, next);
             CacheAccumulate(position, plane, viewer, sh, levelRandom, float2(Random(rng), Random(rng)));
             if (!next.hit || next.terminal) { break; }
             position = next.position;
@@ -1203,8 +1237,7 @@ void RayGen()
             ray.Direction = direction;
             ray.TMin = 0.0;
             ray.TMax = min(frame.maxDistance, 6.0);
-            Payload payload = (Payload)0;
-            HitObj h = TraceHit(tlas, RAY_FLAG_NONE, MASK_DYNAMIC, ray, payload);
+            HitObj h = TraceClosest(tlas, MASK_DYNAMIC, ray);
             if (!h.IsHit()) { continue; }
             Hit hit = ResolveHit(h, 0.35);
             Material material = LoadMaterial(hit.materialIndex);
@@ -1242,7 +1275,7 @@ void RayGen()
         {
             float3 direction = CosineSample(surface.normal, BlueNoise2(pixel, 1u, frame.frameIndex * fresh + ri));
             if (dot(direction, geometric) <= 0.0) { direction = normalize(direction - 2.0 * dot(direction, geometric) * geometric); }
-            Bounce b = TraceRadiance(tlas, gbuffer, origin, direction, surface.normal, viewer, false, rng);
+            Bounce b = TraceRadiance(tlas, gbuffer, origin, direction, surface.normal, viewer, rng);
             traced += ClampFirefly(b.radiance);
         }
         irradiance = lerp(traced / fresh + FarLight(tlas, origin, surface.normal, nearRadius, rng), cached.rgb, saturate(cached.a * 2.0));
@@ -1254,7 +1287,7 @@ void RayGen()
         {
             float3 direction = CosineSample(surface.normal, BlueNoise2(pixel, 2u, frame.frameIndex * avatarRays + ar));
             if (dot(direction, geometric) <= 0.0) { direction = normalize(direction - 2.0 * dot(direction, geometric) * geometric); }
-            Bounce b = TraceRadiance(tlas, gbuffer, origin, direction, surface.normal, viewer, false, rng);
+            Bounce b = TraceRadiance(tlas, gbuffer, origin, direction, surface.normal, viewer, rng);
             traced += ClampFirefly(b.radiance);
         }
         irradiance = traced / avatarRays;
@@ -1302,9 +1335,8 @@ void RayGen()
             ray.Direction = direction;
             ray.TMin = bias * 4.0;
             ray.TMax = frame.aoRadius;
-            Payload payload = (Payload)0;
-            HitObj h = TraceHit(tlas, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER, MASK_VISIBLE, ray, payload);
-            if (h.IsHit()) { float o = 1.0 - h.GetRayTCurrent() / frame.aoRadius; occlusion += o * o; }
+            float t;
+            if (AnyOccluder(tlas, ray, MASK_VISIBLE, t)) { float o = 1.0 - t / frame.aoRadius; occlusion += o * o; }
         }
         occlusion /= aoRays;
     }

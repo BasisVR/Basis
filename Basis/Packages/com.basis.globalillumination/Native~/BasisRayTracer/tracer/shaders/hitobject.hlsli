@@ -40,14 +40,12 @@ HitObj TraceHitObject(RaytracingAccelerationStructure tlas, uint flags, uint mas
 
 #define LOAD_TLAS() basisTlas
 #define TraceHit(tlas, flags, mask, ray, payload) TraceHitObject(tlas, flags, mask, ray)
-#define ReorderHit(hitObject, hint, bits)
 #define STORE_HIT(payload, attributes) payload.hit = 1u; payload.instance = InstanceID(); payload.geometry = GeometryIndex(); payload.primitive = PrimitiveIndex(); payload.barycentrics = attributes.barycentrics; payload.t = RayTCurrent(); payload.objectToWorld = ObjectToWorld3x4(); payload.worldToObject = WorldToObject3x4()
 #else
 struct [raypayload] Payload { uint unused : read(caller, anyhit, closesthit, miss) : write(caller, anyhit, closesthit, miss); };
 #define HitObj dx::HitObject
 #define LOAD_TLAS() ResourceDescriptorHeap[HEAP_TLAS]
 #define TraceHit(tlas, flags, mask, ray, payload) dx::HitObject::TraceRay(tlas, flags, mask, 0, 0, 0, ray, payload)
-#define ReorderHit(hitObject, hint, bits) dx::MaybeReorderThread(hitObject, hint, bits)
 #define STORE_HIT(payload, attributes)
 #endif
 

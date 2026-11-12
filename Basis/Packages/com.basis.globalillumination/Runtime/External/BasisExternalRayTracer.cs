@@ -84,7 +84,7 @@ public static unsafe partial class BasisExternalRayTracer
     public const uint AlphaOpaque = 0, AlphaCutout = 1, AlphaBlend = 2;
     public const uint MaterialDoubleSided = 1, MaterialUnlit = 2, MaterialAnimated = 4, MaterialEmitter = 8;
     public const uint InstanceAvatar = 1, InstanceNoShadow = 2, InstanceDynamic = 8, MaskDynamic = 2;
-    public const uint FlagResetHistory = 1, FlagScreenReuse = 2, FlagShadows = 4, FlagDenoise = 8, FlagSameFrame = 16, FlagReorder = 32, FlagCacheReset = 64, FlagProbes = 128, FlagBakedHybrid = 256;
+    public const uint FlagResetHistory = 1, FlagScreenReuse = 2, FlagShadows = 4, FlagDenoise = 8, FlagSameFrame = 16, FlagCacheReset = 64, FlagProbes = 128, FlagBakedHybrid = 256;
     public const int StatusStarting = 0, StatusReady = 1, StatusFailed = 2, StatusExited = 3;
     public const uint CapSer = 1, CapSerReorders = 2, CapOmm = 4;
     public const int ApiDirectX = 1, ApiVulkan = 2;

@@ -307,6 +307,11 @@ fn main() {
         let alpha_cfg: Option<Vec<f32>> = std::env::var("ALPHA").ok().map(|v| v.split(',').filter_map(|p| p.parse().ok()).collect()).filter(|v: &Vec<f32>| v.len() == 3);
         let hide_blocks = std::env::var("HIDE").map_or(false, |v| !v.is_empty());
         let clear = |b: &Block| b.emission.iter().all(|v| *v <= 0.0);
+        let clutter: usize = std::env::var("CLUTTER").ok().and_then(|v| v.parse().ok()).unwrap_or(0usize).min(4096);
+        let unit = |k: u32| { let mut x = k.wrapping_add(1).wrapping_mul(0x9e3779b9); x ^= x >> 16; x = x.wrapping_mul(0x7feb352d); x ^= x >> 15; x = x.wrapping_mul(0x846ca68b); x ^= x >> 16; (x >> 8) as f32 / 16777216.0 };
+        let spheres: Vec<(V3, f32, V3)> = (0..clutter as u32).map(|j| ([-2.7 + 5.4 * unit(j * 3 + 1), 0.2 + 2.4 * unit(j * 3 + 2), -1.5 + 4.2 * unit(j * 3 + 3)], 0.06 + 0.12 * unit(j * 7 + 5), [0.2 + 0.7 * unit(j * 11 + 4), 0.2 + 0.7 * unit(j * 13 + 6), 0.2 + 0.7 * unit(j * 17 + 8)])).collect();
+        let mut pass_samples: Vec<[u32; 8]> = Vec::new();
+        let textures: u32 = std::env::var("TEXTURES").ok().and_then(|v| v.parse().ok()).unwrap_or(0u32).min(48);
 
         for frame in 1..=frames {
             protocol += 1;
@@ -353,6 +358,36 @@ fn main() {
                 for b in 0..blocks as u32 { commands.push(Command { op: OP_MESH_SUBMESH, id: 2, a: b * 36, b: 36, c: if alpha_cfg.is_some() && clear(&wd.blocks[b as usize]) { SUBMESH_ALPHA_TEST } else { SUBMESH_OPAQUE }, ..Default::default() }); }
                 let at = push(&mut texels, &index_texels);
                 commands.push(Command { op: OP_MESH_INDICES, id: 2, a: 0, b: 36 * blocks as u32, c: at, ..Default::default() });
+                for id in 0..textures {
+                    let tint = [unit(id * 5 + 900), unit(id * 5 + 901), unit(id * 5 + 902)];
+                    let pixels: Vec<u32> = (0..256u32 * 256).map(|i| { let (x, y) = (i % 256, i / 256); let n = unit((x / (1 + id % 7)) * 977 + (y / (1 + id % 5)) * 131 + id * 7919); pack_rgba8([0.25 + 0.6 * tint[0] * n, 0.25 + 0.6 * tint[1] * n, 0.25 + 0.6 * tint[2] * n]) }).collect();
+                    let packed: Vec<[u32; 4]> = pixels.chunks(4).map(|c| [c[0], c[1], c[2], c[3]]).collect();
+                    commands.push(Command { op: OP_TEXTURE_DEFINE, id, a: 256, b: 256, c: 0, ..Default::default() });
+                    let at = push(&mut texels, &packed);
+                    commands.push(Command { op: OP_TEXTURE_PIXELS, id, a: 0, b: 256, c: at, ..Default::default() });
+                    commands.push(Command { op: OP_TEXTURE_COMMIT, id, ..Default::default() });
+                }
+                if clutter > 0 {
+                    let (su, sv) = (48u32, 24u32);
+                    let mut sphere: Vec<[u32; 4]> = Vec::new();
+                    let mut si: Vec<u32> = Vec::new();
+                    for y in 0..=sv { for x in 0..=su {
+                        let (a, b) = (x as f32 / su as f32 * std::f32::consts::TAU, y as f32 / sv as f32 * std::f32::consts::PI);
+                        let n = [b.sin() * a.cos(), b.cos(), b.sin() * a.sin()];
+                        sphere.push([n[0].to_bits(), n[1].to_bits(), n[2].to_bits(), pack_normal(n)]);
+                        sphere.push([half(x as f32 / su as f32) as u32 | ((half(y as f32 / sv as f32) as u32) << 16), 0, 0, 0]);
+                    } }
+                    for y in 0..sv { for x in 0..su { let i = y * (su + 1) + x; si.extend_from_slice(&[i, i + 1, i + su + 1, i + 1, i + su + 2, i + su + 1]); } }
+                    let svc = (sphere.len() / 2) as u32;
+                    commands.push(Command { op: OP_MESH_DEFINE, id: 3, a: svc, b: si.len() as u32, c: 1, ..Default::default() });
+                    commands.push(Command { op: OP_MESH_SUBMESH, id: 3, a: 0, b: si.len() as u32, c: SUBMESH_OPAQUE, ..Default::default() });
+                    let at = push(&mut texels, &sphere);
+                    commands.push(Command { op: OP_MESH_VERTICES, id: 3, a: 0, b: svc, c: at, ..Default::default() });
+                    let st: Vec<[u32; 4]> = si.chunks(4).map(|c| [c[0], *c.get(1).unwrap_or(&0), *c.get(2).unwrap_or(&0), *c.get(3).unwrap_or(&0)]).collect();
+                    let at = push(&mut texels, &st);
+                    commands.push(Command { op: OP_MESH_INDICES, id: 3, a: 0, b: si.len() as u32, c: at, ..Default::default() });
+                    commands.push(Command { op: OP_MESH_COMMIT, id: 3, a: 0, ..Default::default() });
+                }
             }
             let (cv, _) = mesh_texels(&cube_quads, |_| true);
             let at = push(&mut texels, &cv);
@@ -365,7 +400,9 @@ fn main() {
             slot.instances[1] = Instance { transform: identity, mesh: 2, material_base: statics as u32, mask: 0xff, flags: if scene == 0 { INSTANCE_AVATAR | INSTANCE_EMITTER } else { INSTANCE_EMITTER }, lightmap: -1, ..Default::default() };
             for j in 0..many { let p = spot(j); slot.instances[2 + j] = Instance { transform: [1.0, 0.0, 0.0, p[0] - 1.2, 0.0, 1.0, 0.0, p[1] - 0.6, 0.0, 0.0, 1.0, p[2] - 1.0], mesh: 2, material_base: 7, mask: 0xff, flags: 0, lightmap: -1, ..Default::default() }; }
             for i in (2 + many)..instances { slot.instances[i] = Instance { transform: [1.0, 0.0, 0.0, 500.0 + (i % 128) as f32 * 2.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 500.0 + (i / 128) as f32 * 2.0], mesh: 2, material_base: 7, mask: 0xff, flags: 0, lightmap: -1, ..Default::default() }; }
-            for (i, q) in room_quads.iter().enumerate() { slot.materials[i] = Material { base_color: [q.albedo[0], q.albedo[1], q.albedo[2], 1.0], emission: [q.emission[0] * lit, q.emission[1] * lit, q.emission[2] * lit, 0.0], base_st: [1.0, 1.0, 0.0, 0.0], emission_st: [1.0, 1.0, 0.0, 0.0], base_texture: -1, emission_texture: -1, flags: if q.emission.iter().any(|v| *v > 0.0) { MATERIAL_EMITTER } else { 0 }, ..Default::default() }; }
+            for (j, (c, r, _)) in spheres.iter().enumerate() { slot.instances[instances + j] = Instance { transform: [*r, 0.0, 0.0, c[0], 0.0, *r, 0.0, c[1], 0.0, 0.0, *r, c[2]], mesh: 3, material_base: (statics + blocks + j) as u32, mask: 0xff, flags: 0, lightmap: -1, ..Default::default() }; }
+            for (j, (_, _, a)) in spheres.iter().enumerate() { slot.materials[statics + blocks + j] = Material { base_color: [a[0], a[1], a[2], 1.0], base_st: [3.0, 3.0, 0.0, 0.0], emission_st: [1.0, 1.0, 0.0, 0.0], base_texture: if textures > 0 { (j as u32 % textures) as i32 } else { -1 }, emission_texture: -1, ..Default::default() }; }
+            for (i, q) in room_quads.iter().enumerate() { slot.materials[i] = Material { base_color: [q.albedo[0], q.albedo[1], q.albedo[2], 1.0], emission: [q.emission[0] * lit, q.emission[1] * lit, q.emission[2] * lit, 0.0], base_st: [1.0, 1.0, 0.0, 0.0], emission_st: [1.0, 1.0, 0.0, 0.0], base_texture: if textures > 0 && iteration > 3 { (i as u32 % textures) as i32 } else { -1 }, emission_texture: -1, flags: if q.emission.iter().any(|v| *v > 0.0) { MATERIAL_EMITTER } else { 0 }, ..Default::default() }; }
             for (b, k) in wd.blocks.iter().enumerate() { slot.materials[statics + b] = Material { base_color: [k.albedo[0], k.albedo[1], k.albedo[2], 1.0], emission: [k.emission[0] * lit, k.emission[1] * lit, k.emission[2] * lit, 0.0], base_st: [1.0, 1.0, 0.0, 0.0], emission_st: [1.0, 1.0, 0.0, 0.0], base_texture: -1, emission_texture: -1, flags: if k.emission.iter().any(|v| *v > 0.0) { MATERIAL_EMITTER } else { 0 }, ..Default::default() }; }
             if let Some(a) = &alpha_cfg { for (b, k) in wd.blocks.iter().enumerate() { if clear(k) { let m = &mut slot.materials[statics + b]; m.alpha_mode = a[0] as u32; m.base_color[3] = a[1]; m.cutoff = a[2]; } } }
             for (i, l) in wd.lights.iter().enumerate() { slot.lights[i] = *l; }
@@ -413,8 +450,8 @@ fn main() {
             }
             let v = View { view, projection, inverse_view_projection: [0.0; 16], previous_view_projection: prev_vp, position: [camera[0], camera[1], camera[2], 0.0] };
             slot.params = FrameParams {
-                frame, instance_count: instances as u32, material_count: (statics + blocks) as u32, light_count: (wd.lights.len() + many) as u32, command_count: commands.len() as u32, upload_texels: texels.len() as u32,
-                flags: if scene == 0 || std::env::var("SCREEN").is_ok() { FLAG_SCREEN_REUSE } else { 0 } | FLAG_SHADOWS | if std::env::var("NODENOISE").is_ok() { 0 } else { FLAG_DENOISE } | FLAG_REORDER | if std::env::var("NOPROBES").map_or(false, |v| !v.is_empty()) { 0 } else { FLAG_PROBES }, width: w, height: h, view_count: views, samples: std::env::var("SAMPLES").ok().and_then(|v| v.parse().ok()).unwrap_or(2), bounces: 2 | (avatar_rays << 8),
+                frame, instance_count: (instances + clutter) as u32, material_count: (statics + blocks + clutter) as u32, light_count: (wd.lights.len() + many) as u32, command_count: commands.len() as u32, upload_texels: texels.len() as u32,
+                flags: if scene == 0 || std::env::var("SCREEN").is_ok() { FLAG_SCREEN_REUSE } else { 0 } | FLAG_SHADOWS | if std::env::var("NODENOISE").is_ok() { 0 } else { FLAG_DENOISE } | if std::env::var("NOPROBES").map_or(false, |v| !v.is_empty()) { 0 } else { FLAG_PROBES }, width: w, height: h, view_count: views, samples: std::env::var("SAMPLES").ok().and_then(|v| v.parse().ok()).unwrap_or(2), bounces: 2 | (avatar_rays << 8),
                 max_distance: 100.0, ao_radius: env_f("AORADIUS").unwrap_or(if scene == 0 { 0.5 } else { 0.0 }), emission_scale: 1.0, sky_intensity: 1.0, time: t, firefly_clamp: 30.0, temporal_response: 0.05,
                 light_intensity: 1.0, normal_bias: 0.005, emitter_count: (emitter_count + many) as u32, ao_intensity: 0.5, context: 0, parity: (iteration & 1) as u32, cache_cell_size: 0.2, dirty_count: std::env::var("DIRTY").ok().and_then(|v| v.parse().ok()).unwrap_or(dirty_count as u32), ambient: [[0.0; 4]; 7], views: [v, v],
             };
@@ -425,9 +462,18 @@ fn main() {
                 for x in 0..w {
                     let ndc = [((x as f32 + 0.5) / w as f32) * 2.0 - 1.0 - jitter[0], ((y as f32 + 0.5) / h as f32) * 2.0 - 1.0 - jitter[1]];
                     let dir = normalize([ndc[0] * tanf * w as f32 / h as f32, ndc[1] * tanf, 1.0]);
-                    match intersect(&all, camera, dir) {
-                        Some((t, i)) => {
-                            let q = &all[i];
+                    let mut found = intersect(&all, camera, dir).map(|(t, i)| (t, all[i].normal, all[i].albedo, all[i].emission));
+                    for (c, r, a) in &spheres {
+                        let oc = sub(camera, *c);
+                        let b = dot(oc, dir);
+                        let disc = b * b - (dot(oc, oc) - r * r);
+                        if disc <= 0.0 { continue; }
+                        let t = -b - disc.sqrt();
+                        if t > 1e-4 && found.map_or(true, |f| t < f.0) { found = Some((t, normalize(sub(add(camera, mul(dir, t)), *c)), *a, [0.0; 3])); }
+                    }
+                    struct Px { normal: V3, albedo: V3, emission: V3 }
+                    match found.map(|f| (f.0, Px { normal: f.1, albedo: f.2, emission: f.3 })) {
+                        Some((t, q)) => {
                             let rel = mul(dir, t);
                             for vi in 0..views { store128(gptr, (pw * 2 * 8) as usize, (x + vi * w) * 2, y, [rel[0].to_bits(), rel[1].to_bits(), rel[2].to_bits(), pack_normal(q.normal)]); }
                             let lit = mul(add(q.emission, mul(q.albedo, 0.3)), light_scale);
@@ -472,7 +518,7 @@ fn main() {
             #[cfg(windows)]
             if let Some(c) = d3c.as_mut() { c.read(); }
             times.push(started.elapsed().as_secs_f64() * 1000.0);
-            if iteration > 16 { for i in 0..8 { gpu_sum[i] += header.reserved[i] as u64; } gpu_n += 1; record_us += header.build_time_us.load(Ordering::Relaxed) as u64; grid_us += header.reserved[8] as u64; grid_wait += header.reserved[9] as u64; let lag = header.frame_submitted.load(Ordering::Acquire); let p = (lag & 1) as usize; for i in 0..8 { parity_sum[p][i] += header.reserved[i] as u64; } parity_n[p] += 1; }
+            if iteration > 16 { let mut ps = [0u32; 8]; for i in 0..8 { ps[i] = header.reserved[i]; } pass_samples.push(ps); for i in 0..8 { gpu_sum[i] += header.reserved[i] as u64; } gpu_n += 1; record_us += header.build_time_us.load(Ordering::Relaxed) as u64; grid_us += header.reserved[8] as u64; grid_wait += header.reserved[9] as u64; let lag = header.frame_submitted.load(Ordering::Acquire); let p = (lag & 1) as usize; for i in 0..8 { parity_sum[p][i] += header.reserved[i] as u64; } parity_n[p] += 1; }
             prev_vp = vp;
             if iteration as u64 >= acc_from {
                 if acc.is_empty() { acc = vec![0.0; (pw * h * 3) as usize]; }
@@ -539,6 +585,10 @@ fn main() {
         println!("gpu us: total {} | scene {} update {} resolve {} probes {} gather {} denoise {}", r[0], r[1], r[2], r[3], r[4], r[5], r[6]);
         let a = gpu_sum.map(|v| v as f64 / gpu_n.max(1) as f64);
         println!("gpu us mean over {gpu_n}: total {:.0} | scene {:.0} update {:.0} resolve {:.0} probes {:.0} gather {:.0} temporal {:.0} wavelet {:.0}", a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
+        if !pass_samples.is_empty() {
+            let pick = |i: usize, q: usize| { let mut v: Vec<u32> = pass_samples.iter().map(|s| s[i]).collect(); v.sort_unstable(); v[(v.len() - 1) * q / 100] };
+            for (name, q) in [("p10", 10usize), ("p50", 50)] { println!("gpu us {name}: total {} | scene {} update {} resolve {} probes {} gather {} temporal {} wavelet {}", pick(0, q), pick(1, q), pick(2, q), pick(3, q), pick(4, q), pick(5, q), pick(6, q), pick(7, q)); }
+        }
         println!("round trip ms median {:.3}, p90 {:.3}; tracer cpu record mean {} us; meshes {}", times[times.len() / 2], times[times.len() * 9 / 10], record_us / gpu_n.max(1), header.mesh_count.load(Ordering::Relaxed));
         if std::env::var("BASIS_RT_GRID_ALTERNATE").is_ok() {
             for p in 0..2 { let a = parity_sum[p].map(|v| v as f64 / parity_n[p].max(1) as f64); println!("frames ending {} ({}): total {:.0} | update {:.0} probes {:.0} gather {:.0} temporal {:.0} wavelet {:.0}", p, if p == 0 { "grid" } else { "no grid" }, a[0], a[2], a[4], a[5], a[6], a[7]); }

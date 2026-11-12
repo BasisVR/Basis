@@ -400,7 +400,7 @@ Shader "Hidden/Basis/GlobalIllumination"
 
             #include "./BasisGlobalIlluminationCascades.hlsl"
 
-            float4 Frag(Varyings input) : SV_Target
+            BasisGIRCGatherOutput Frag(Varyings input)
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
                 return BasisGIRCGather(input.texcoord, input.positionCS.xy);

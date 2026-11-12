@@ -13,14 +13,16 @@ float3 BasisGIUpsampleNormal(float2 uv)
 #endif
 }
 
-float BasisGIUpsampleFacing(float3 shading, float2 tapUv)
+float BasisGIUpsampleFacing(float3 shading, float3 centreNormal, float2 tapUv, float2 sampleUv)
 {
 #if defined(_BASISGI_NORMALS_TEXTURE)
     float facing = saturate(dot(shading, BasisGIUpsampleNormal(tapUv)));
     facing *= facing; facing *= facing; facing *= facing;
     return dot(shading, shading) > 0.5 ? 0.05 + 0.95 * facing : 1.0;
 #else
-    return 1.0;
+    UNITY_BRANCH
+    if (_BasisGITracedNormalValid < 0.5) { return 1.0; }
+    return BasisGITracedFacing(centreNormal, sampleUv);
 #endif
 }
 
@@ -39,7 +41,7 @@ float BasisGIUpsampleWeight(BasisGIPlaneBasis basis, float2 uv, float2 sampleUv,
 
 float2 BasisGIUpsampleTapUv(float2 coord, float2 texel)
 {
-    if (_BasisGIUpsampleParams.x < 0.5) { return (coord + 0.5) * texel; }
+    if (_BasisGIUpsampleParams.x < 0.5) { return BasisGITracedAnchorUv((coord + 0.5) * texel); }
     return (floor((coord + 0.5 + _BasisGIUpsampleParams.zw) * _BasisGISourceTexelSize.zw * texel) + 0.5) * _BasisGISourceTexelSize.xy;
 }
 
@@ -55,7 +57,9 @@ float4 BasisGIUpsample(float2 uv, float centreRaw, float centreEye, bool isSky, 
     if (_BasisGIUpsampleParams.y > 0.5) { return SAMPLE_TEXTURE2D_X_LOD(_BasisGIIndirect, sampler_PointClamp, UnityStereoTransformScreenSpaceTex(uv), 0); }
 #if defined(_BASISGI_BILATERAL_UPSAMPLE)
     float3 centrePosition = BasisGIWorldPosition(uv, centreRaw);
-    float3 centreNormal = BasisGIPlaneNormal(centrePosition);
+    float3 centreNormal = BasisGITracedPlaneNormal(uv, centrePosition, centreRaw, centreEye);
+    float3 toCamera = GetCameraPositionWS() - centrePosition;
+    float3 facingNormal = dot(centreNormal, toCamera) < 0.0 ? -centreNormal : centreNormal;
     // Built next to the normal for the same reason it is: both are screen space derivatives, and both are
     // only meaningful where the whole quad agreed to take them.
     BasisGIPlaneBasis basis = BasisGIBuildPlaneBasis(centrePosition, centreNormal, centreEye, _BasisGISourceTexelSize.xy);
@@ -89,7 +93,7 @@ float4 BasisGIUpsample(float2 uv, float centreRaw, float centreEye, bool isSky, 
             float2 tapUv = BasisGIUpsampleTapUv(coord, texel);
             float depthWeight = BasisGIUpsampleWeight(basis, uv, sampleUv, tapUv, centrePosition, centreNormal);
             bestDepthWeight = max(bestDepthWeight, depthWeight);
-            float weight = bilinear * depthWeight * BasisGIUpsampleFacing(shading, tapUv) + 1e-4;
+            float weight = bilinear * depthWeight * BasisGIUpsampleFacing(shading, facingNormal, tapUv, sampleUv) + 1e-4;
             float4 tap = SAMPLE_TEXTURE2D_X_LOD(_BasisGIIndirect, sampler_PointClamp, UnityStereoTransformScreenSpaceTex(saturate(sampleUv)), 0);
             if (depthWeight > 0.1) { low = min(low, tap); high = max(high, tap); }
             total += tap * weight;
@@ -115,7 +119,7 @@ float4 BasisGIUpsample(float2 uv, float centreRaw, float centreEye, bool isSky, 
                 float2 d = coord + 0.5 - (tracedCoord + 0.5);
                 float2 tapUv = BasisGIUpsampleTapUv(coord, texel);
                 float depthWeight = BasisGIUpsampleWeight(basis, uv, sampleUv, tapUv, centrePosition, centreNormal);
-                float weight = depthWeight * depthWeight * exp(-0.5 * dot(d, d)) * BasisGIUpsampleFacing(shading, tapUv);
+                float weight = depthWeight * depthWeight * exp(-0.5 * dot(d, d)) * BasisGIUpsampleFacing(shading, facingNormal, tapUv, sampleUv);
                 total += SAMPLE_TEXTURE2D_X_LOD(_BasisGIIndirect, sampler_PointClamp, UnityStereoTransformScreenSpaceTex(saturate(sampleUv)), 0) * weight;
                 weightSum += weight;
             }

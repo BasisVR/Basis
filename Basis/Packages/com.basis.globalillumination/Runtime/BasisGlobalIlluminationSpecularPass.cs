@@ -286,6 +286,8 @@ public sealed partial class BasisGlobalIlluminationPass
                     passData.motion = TextureHandle.nullHandle;
                     passData.tracedDepth = tracedDepth;
                     passData.tracedDepthValid = tracedDepth.IsValid();
+                    passData.tracedNormal = TextureHandle.nullHandle;
+                    passData.tracedNormalValid = false;
                     passData.specularHitDistance = hitDistance;
                     passData.specularHitDistanceValid = hitDistance.IsValid();
                     builder.SetRenderAttachment(historyWrite, 0, AccessFlags.WriteAll);
@@ -330,6 +332,8 @@ public sealed partial class BasisGlobalIlluminationPass
                 // statistics, so a stale handle here is a stale depth for every weight it computes.
                 passData.stats = historyWriteStats;
                 passData.statsValid = statsValid;
+                passData.tracedNormal = TextureHandle.nullHandle;
+                passData.tracedNormalValid = false;
                 // Same reason a third time, for the fields the lightmap mask added to the Composite stage:
                 // this pass shares that stage and must not inherit the diffuse composite's mask handle.
                 passData.lightmapMask = TextureHandle.nullHandle;
@@ -620,6 +624,8 @@ public sealed partial class BasisGlobalIlluminationPass
                 passData.indirect = source;
                 passData.stats = stats;
                 passData.statsValid = statsValid;
+                passData.tracedNormal = TextureHandle.nullHandle;
+                passData.tracedNormalValid = false;
                 passData.blurAxis = axis;
                 builder.SetRenderAttachment(target, 0, AccessFlags.WriteAll);
                 builder.UseTexture(source);
