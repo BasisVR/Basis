@@ -435,6 +435,9 @@ namespace Basis.MediaPipe
 
             Vector3 shoulderCenter = (leftAnchor + rightAnchor) * 0.5f;
             Vector3 headLocal = _headBone != null ? root.InverseTransformPoint(_headBone.position) : shoulderCenter + up * 0.2f;
+            Vector3 eyeFromHead = BasisLocalBoneDriver.EyeControl != null && BasisLocalBoneDriver.HeadControl != null
+                ? BasisLocalBoneDriver.EyeControl.TposeLocalScaled.position - BasisLocalBoneDriver.HeadControl.TposeLocalScaled.position
+                : Vector3.zero;
 
             rig = new MediaPipeArmConverter.AvatarArmRig
             {
@@ -448,6 +451,7 @@ namespace Basis.MediaPipe
                 Up = up,
                 Forward = forward,
                 HeadLocal = headLocal,
+                FaceLocal = headLocal + right * eyeFromHead.x + up * eyeFromHead.y + forward * eyeFromHead.z,
                 HeadMetric = Vector3.Distance(headLocal, shoulderCenter),
                 Valid = true,
             };
@@ -910,7 +914,7 @@ namespace Basis.MediaPipe
             }
 
             if (Config.EnablePose && result.HasPose && TryBuildArmRig(out MediaPipeArmConverter.AvatarArmRig rig)
-                && _armConverter.TryGetArm(result.PoseWorldLandmarks, result.PoseVisibility, in rig, left, in timing,
+                && _armConverter.TryGetArm(result.PoseWorldLandmarks, result.PoseVisibility, BuildHandFaceInput(in result, left), in rig, left, in timing,
                     out Vector3 wristLocal, out Vector3 elbowLocal, out Quaternion forearmRotation))
             {
                 Quaternion wristRotation = forearmRotation;
@@ -951,6 +955,20 @@ namespace Basis.MediaPipe
             }
 
             RemoveTracker(handRole);
+        }
+
+        private MediaPipeArmConverter.HandFaceInput BuildHandFaceInput(in BasisMediaPipeResult result, bool left)
+        {
+            bool hand = left ? result.HasLeftHand : result.HasRightHand;
+            if (!hand || !result.HasFace || !MediaPipeSpace.IsUsable(result.FaceTransform)) return default;
+            return new MediaPipeArmConverter.HandFaceInput
+            {
+                HandImage = left ? result.LeftHandLandmarks : result.RightHandLandmarks,
+                HandWorld = left ? result.LeftHandWorldLandmarks : result.RightHandWorldLandmarks,
+                FaceImage = result.HeadImagePosition,
+                FaceDepth = Mathf.Abs(result.FaceTransform.m23) * 0.01f,
+                Aspect = result.ImageAspect > 0f ? result.ImageAspect : CameraAspect(),
+            };
         }
 
         public string StatusKey

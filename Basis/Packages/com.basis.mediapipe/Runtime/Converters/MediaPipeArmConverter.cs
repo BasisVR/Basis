@@ -11,7 +11,41 @@ namespace Basis.MediaPipe
         private const float ArmLengthRiseHz = 3f;        // a straight side-on arm locks in within ~a third of a second
         private const float ArmLengthFallHz = 0.1f;      // ~10s to let go: only for a bad initial lock or a new user
         private const float ArmLengthMaxJump = 1.25f;    // an arm cannot grow 25% between samples; that is a blown landmark
+        private const float FocalHeight = 0.8156f, MinDepth = 0.1f, MaxDepth = 5f, MinHandImage = 0.01f;
+        private const float FaceBlendHz = 5f, FaceMinCutoff = 1.5f, FaceDepthMinCutoff = 0.7f, FaceSpeedBeta = 8f, FaceSpeedCutoff = 1f;
+        private static readonly (int from, int to)[] HandSpans = { (0, 5), (0, 9), (0, 13), (0, 17), (5, 9), (9, 13), (13, 17) };
+        private static readonly int[] PalmPoints = { 0, 5, 9, 13, 17 };
         private MediaPipePositionFilter leftWrist, leftElbow, rightWrist, rightElbow;
+        private FaceRelativeHand leftFace, rightFace;
+        public struct HandFaceInput
+        {
+            public Vector3[] HandImage, HandWorld;
+            public Vector2 FaceImage;
+            public float FaceDepth, Aspect;
+        }
+        private struct FaceRelativeHand
+        {
+            public MediaPipePositionFilter Filter;
+            public Vector3 Smoothed, Speed, Target;
+            public float Weight;
+            public bool HasSmoothed;
+            public Vector3 Smooth(Vector3 x, float dt)
+            {
+                if (!HasSmoothed || !MediaPipeSpace.IsFinite(Smoothed))
+                {
+                    Smoothed = x;
+                    Speed = Vector3.zero;
+                    HasSmoothed = true;
+                    return x;
+                }
+                dt = Mathf.Max(dt, 1e-4f);
+                Speed = Vector3.Lerp(Speed, (x - Smoothed) / dt, CutoffAlpha(FaceSpeedCutoff, dt));
+                float planar = CutoffAlpha(FaceMinCutoff + FaceSpeedBeta * new Vector2(Speed.x, Speed.y).magnitude, dt);
+                float depth = CutoffAlpha(FaceDepthMinCutoff + FaceSpeedBeta * Mathf.Abs(Speed.z), dt);
+                Smoothed = new Vector3(Mathf.Lerp(Smoothed.x, x.x, planar), Mathf.Lerp(Smoothed.y, x.y, planar), Mathf.Lerp(Smoothed.z, x.z, depth));
+                return Smoothed;
+            }
+        }
         private float leftUserArm, rightUserArm, leftElbowTrust, rightElbowTrust;
         public struct AvatarArmRig
         {
@@ -19,13 +53,15 @@ namespace Basis.MediaPipe
             public float LeftUpperLen, LeftForeLen;
             public float RightUpperLen, RightForeLen;
             public Vector3 Right, Up, Forward;
-            public Vector3 HeadLocal;
+            public Vector3 HeadLocal, FaceLocal;
             public float HeadMetric;
             public bool Valid;
         }
         public int RejectedSamples => leftWrist.Rejected + leftElbow.Rejected + rightWrist.Rejected + rightElbow.Rejected;
         private float MaxSpeed => RejectGlitches ? MediaPipeFilterMath.MaxHandSpeed : 0f;
         public bool TryGetArm(Vector3[] pose, float[] visibility, in AvatarArmRig rig, bool avatarLeft, in MediaPipeTiming timing, out Vector3 wristLocal, out Vector3 elbowLocal, out Quaternion wristRotation)
+            => TryGetArm(pose, visibility, default, in rig, avatarLeft, in timing, out wristLocal, out elbowLocal, out wristRotation);
+        public bool TryGetArm(Vector3[] pose, float[] visibility, in HandFaceInput handFace, in AvatarArmRig rig, bool avatarLeft, in MediaPipeTiming timing, out Vector3 wristLocal, out Vector3 elbowLocal, out Quaternion wristRotation)
         {
             wristLocal = Vector3.zero;
             elbowLocal = Vector3.zero;
@@ -57,7 +93,8 @@ namespace Basis.MediaPipe
             Vector3 anchor = avatarLeft ? rig.LeftAnchor : rig.RightAnchor;
             float reach = avatarArm / userArm;
             float lift = VerticalScale(headBody, Vector3.Dot(rig.HeadLocal - anchor, rig.Up), wristBody.y, reach);
-            Vector3 wristTarget = ClampReach(anchor, Place(anchor, wristBody, reach, lift, in rig), avatarArm);
+            Vector3 wristTarget = Place(anchor, wristBody, reach, lift, in rig);
+            wristTarget = ClampReach(anchor, BlendFaceWrist(in handFace, in rig, avatarLeft, reach, wristTarget, in timing), avatarArm);
 
             // The elbow scales UNIFORMLY by reach — never by lift. lift is the head-anchor scale derived from the
             // WRIST's height; it exists to pull the HAND up to the avatar's face and means nothing for the elbow.
@@ -94,12 +131,71 @@ namespace Basis.MediaPipe
             leftElbow.Reset();
             rightWrist.Reset();
             rightElbow.Reset();
+            leftFace = rightFace = default;
             leftUserArm = rightUserArm = leftElbowTrust = rightElbowTrust = 0f;
         }
+        private Vector3 BlendFaceWrist(in HandFaceInput handFace, in AvatarArmRig rig, bool avatarLeft, float reach, Vector3 poseTarget, in MediaPipeTiming timing)
+        {
+            ref FaceRelativeHand face = ref avatarLeft ? ref leftFace : ref rightFace;
+            bool measured = TryMeasureHandFromFace(in handFace, out Vector3 offset);
+            if (measured)
+            {
+                offset = face.Smooth(face.Filter.Apply(offset, in timing, MaxSpeed), timing.RenderDelta);
+                face.Target = rig.FaceLocal + (offset.x * rig.Right + offset.y * rig.Up + offset.z * rig.Forward) * reach;
+            }
+            else if (face.Weight <= 0f)
+            {
+                face = default;
+                return poseTarget;
+            }
+            face.Weight = Approach(face.Weight, measured ? 1f : 0f, FaceBlendHz, timing.RenderDelta);
+            if (face.Weight < 0.001f) face.Weight = 0f;
+            else if (face.Weight > 0.999f) face.Weight = 1f;
+            return Vector3.Lerp(poseTarget, face.Target, face.Weight);
+        }
+        public static bool TryMeasureHandFromFace(in HandFaceInput input, out Vector3 offset)
+        {
+            offset = Vector3.zero;
+            if (input.HandImage == null || input.HandWorld == null || input.HandImage.Length < MediaPipeSpace.HandCount
+                || input.HandWorld.Length < MediaPipeSpace.HandCount || !(input.Aspect > 0f) || !InDepthRange(input.FaceDepth))
+            {
+                return false;
+            }
+
+            float metric = 0f, image = 0f;
+            foreach ((int from, int to) in HandSpans)
+            {
+                Vector3 w = input.HandWorld[to] - input.HandWorld[from], p = input.HandImage[to] - input.HandImage[from];
+                metric += new Vector2(w.x, w.y).magnitude;
+                image += new Vector2(p.x * input.Aspect, p.y).magnitude;
+            }
+            if (!(image > MinHandImage) || !(metric > 0f)) return false;
+
+            float handScale = metric / image, handDepth = FocalHeight * handScale;
+            if (!InDepthRange(handDepth)) return false;
+
+            Vector3 palmImage = Vector3.zero, palmWorld = Vector3.zero;
+            foreach (int i in PalmPoints)
+            {
+                palmImage += input.HandImage[i];
+                palmWorld += input.HandWorld[i];
+            }
+            palmImage /= PalmPoints.Length;
+            palmWorld /= PalmPoints.Length;
+
+            Vector2 hand = ImageToMetric(palmImage, input.Aspect, handScale) + (Vector2)(input.HandWorld[MediaPipeSpace.HandWrist] - palmWorld);
+            Vector2 face = ImageToMetric(input.FaceImage, input.Aspect, input.FaceDepth / FocalHeight);
+            offset = new Vector3(face.x - hand.x, hand.y - face.y, input.FaceDepth - handDepth);
+            return MediaPipeSpace.IsFinite(offset);
+        }
+        private static bool InDepthRange(float depth) => depth > MinDepth && depth < MaxDepth;
+        private static Vector2 ImageToMetric(Vector2 image, float aspect, float scale) => new Vector2((image.x - 0.5f) * aspect, image.y - 0.5f) * scale;
+        private static float CutoffAlpha(float cutoff, float dt) => 1f / (1f + 1f / (2f * Mathf.PI * cutoff * dt));
+        private static float Approach(float current, float target, float hz, float dt) => Mathf.Lerp(current, target, 1f - Mathf.Exp(-hz * Mathf.Max(dt, 1e-4f)));
         private float SmoothElbowTrust(bool avatarLeft, float target, float dt)
         {
             float trust = avatarLeft ? leftElbowTrust : rightElbowTrust;
-            trust = Mathf.Lerp(trust, target, 1f - Mathf.Exp(-ElbowTrustHz * Mathf.Max(dt, 1e-4f)));
+            trust = Approach(trust, target, ElbowTrustHz, dt);
             if (avatarLeft) leftElbowTrust = trust;
             else rightElbowTrust = trust;
             return trust;
