@@ -6,7 +6,7 @@ namespace Basis.Shims
 {
 	public static class BasisSettingFavouritesShim
 	{
-		public const int Toggle = 0, Slider = 1, Choice = 2;
+		public const int Toggle = 0, Slider = 1, Choice = 2, Button = 3;
 		public static int GetCount(object self) => CilboxSettingFavourites.Allowed(self) ? BasisSettingFavourites.Count : 0;
 		public static int GetVersion(object self) => CilboxSettingFavourites.Allowed(self) ? BasisSettingFavourites.Version : 0;
 		public static string GetKey(object self, int index) => CilboxSettingFavourites.Get(self, index, out BasisSettingFavourites.Entry entry) ? entry.Key : string.Empty;
@@ -15,6 +15,7 @@ namespace Basis.Shims
 
 		public static bool IsOn(object self, int index) => CilboxSettingFavourites.Get(self, index, out BasisSettingFavourites.Entry entry) && BasisSettingFavourites.TryGetValue(entry.Key, out bool on) && on;
 		public static bool SetOn(object self, int index, bool on) => CilboxSettingFavourites.Get(self, index, out BasisSettingFavourites.Entry entry) && BasisSettingFavourites.SetValue(entry.Key, on);
+		public static bool Press(object self, int index) => CilboxSettingFavourites.Get(self, index, out BasisSettingFavourites.Entry entry) && BasisSettingFavourites.Press(entry.Key);
 
 		public static float GetValue(object self, int index) => CilboxSettingFavourites.Get(self, index, out BasisSettingFavourites.Entry entry) && BasisSettingFavourites.TryGetSlider(entry.Key, out float value) ? value : 0f;
 		public static float GetMin(object self, int index) => CilboxSettingFavourites.Get(self, index, out BasisSettingFavourites.Entry entry) ? entry.Slider.SliderMin : 0f;

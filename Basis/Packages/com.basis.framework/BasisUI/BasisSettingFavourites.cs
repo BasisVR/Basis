@@ -16,6 +16,7 @@ namespace Basis.BasisUI
             Toggle = 0,
             Slider = 1,
             Choice = 2,
+            Button = 3,
         }
         public readonly struct Entry
         {
@@ -23,8 +24,10 @@ namespace Basis.BasisUI
             public readonly Kind Kind;
             public readonly PanelSlider.SliderSettings Slider;
             public readonly string[] OptionValues, OptionKeys, OptionLabels;
-            public Entry(string key, string titleKey, string title, Kind kind, PanelSlider.SliderSettings slider, string[] optionValues, string[] optionKeys, string[] optionLabels)
+            public readonly bool Menu;
+            public Entry(string key, string titleKey, string title, Kind kind, PanelSlider.SliderSettings slider, string[] optionValues, string[] optionKeys, string[] optionLabels, bool menu = false)
             {
+                Menu = menu;
                 Key = key;
                 TitleKey = titleKey;
                 Title = title;
@@ -137,13 +140,29 @@ namespace Basis.BasisUI
         public static bool TryGetValue(string key, out bool on)
         {
             on = false;
-            if (!TryFind(key, Kind.Toggle, out _) || !BasisSettingsBindings.TryGet(key, out BasisSettingsBinding<bool> binding)) return false;
+            if (!TryFind(key, Kind.Toggle, out Entry entry)) return false;
+            if (entry.Menu)
+            {
+                BasisMenuActionProvider<BasisMainMenu> provider = FindProvider(key);
+                if (provider == null || !provider.FavouriteIsToggle) return false;
+                on = provider.FavouriteOn;
+                return true;
+            }
+            if (!BasisSettingsBindings.TryGet(key, out BasisSettingsBinding<bool> binding)) return false;
             on = binding.RawValue;
             return true;
         }
         public static bool SetValue(string key, bool on)
         {
-            if (!TryFind(key, Kind.Toggle, out _) || !BasisSettingsBindings.TryGet(key, out BasisSettingsBinding<bool> binding)) return false;
+            if (!TryFind(key, Kind.Toggle, out Entry entry)) return false;
+            if (entry.Menu)
+            {
+                BasisMenuActionProvider<BasisMainMenu> provider = FindProvider(key);
+                if (provider == null || !provider.FavouriteIsToggle) return false;
+                if (provider.FavouriteOn != on) provider.SetFavouriteOn(on);
+                return true;
+            }
+            if (!BasisSettingsBindings.TryGet(key, out BasisSettingsBinding<bool> binding)) return false;
             if (binding.RawValue != on)
             {
                 binding.SetValue(on);
@@ -204,6 +223,78 @@ namespace Basis.BasisUI
                 RefreshOpenControls(key, value);
             }
             return true;
+        }
+        public static bool Press(string key)
+        {
+            if (!TryFind(key, Kind.Button, out _)) return false;
+            BasisMenuActionProvider<BasisMainMenu> provider = FindProvider(key);
+            if (provider == null) return false;
+            BasisMainMenu.OpenWithProvider(provider);
+            return true;
+        }
+        public static bool CanFavourite(BasisMenuActionProvider<BasisMainMenu> provider) => provider != null && BasisSettingRequests.ValidKey(provider.FavouriteKey) && !string.IsNullOrEmpty(Clean(provider.FavouriteTitle));
+        public static bool Add(BasisMenuActionProvider<BasisMainMenu> provider)
+        {
+            if (!CanFavourite(provider)) return false;
+            Sync();
+            string key = provider.FavouriteKey;
+            if (IndexOf(key) >= 0) return true;
+            if (entries.Count >= MaxFavourites) return false;
+            string title = Clean(provider.FavouriteTitle);
+            entries.Add(new Entry(key, FindKey(title), title, provider.FavouriteIsToggle ? Kind.Toggle : Kind.Button, default, null, null, null, true));
+            Save();
+            return true;
+        }
+        public static void MenuChanged() => ValueChanged();
+        public static void BindMenuOptions(BasisMenuActionProvider<BasisMainMenu> provider, PanelButton button)
+        {
+            if (button == null || provider == null || (!provider.CanRemoveFromMenu && !CanFavourite(provider))) return;
+            button.OnResetRequested = () => OfferMenuOptions(provider);
+        }
+        public static void OfferMenuOptions(BasisMenuActionProvider<BasisMainMenu> provider)
+        {
+            BasisMenuBase<BasisMainMenu> menu = BasisMenuBase<BasisMainMenu>.Instance;
+            if (provider == null || menu == null || (menu.Dialogue != null && !menu.Dialogue.IsReleased)) return;
+            List<(string Label, Action Run)> options = new List<(string Label, Action Run)>(2);
+            if (CanFavourite(provider))
+            {
+                string key = provider.FavouriteKey;
+                bool favourite = Contains(key);
+                if (favourite || Count < MaxFavourites) options.Add((BasisLocalization.Get(favourite ? "settings.favourites.remove" : "settings.favourites.add"), () =>
+                {
+                    if (favourite) Remove(key);
+                    else Add(provider);
+                }));
+            }
+            if (provider.CanRemoveFromMenu) options.Add((BasisLocalization.Get("menu.removeFromMenu"), provider.RemoveFromMenu));
+            if (options.Count == 0) return;
+            string label = Clean(provider.FavouriteTitle);
+            menu.OpenDialogue(BasisLocalization.Get("ui.panelOptions.title"), string.Format(BasisLocalization.Get("ui.panelOptions.body"), string.IsNullOrEmpty(label) ? provider.Title : label), options[0].Label, BasisLocalization.Get("ui.cancel"), confirmed =>
+            {
+                if (confirmed) options[0].Run();
+            });
+            BasisMenuDialoguePanel dialogue = menu.Dialogue;
+            if (dialogue == null) return;
+            dialogue.CaptureOnClose = false;
+            for (int i = 1; i < options.Count; i++)
+            {
+                Action run = options[i].Run;
+                dialogue.AddOption(options[i].Label, () =>
+                {
+                    run();
+                    if (dialogue != null && !dialogue.IsReleased) dialogue.ReleaseInstance();
+                }, false);
+            }
+        }
+        private static BasisMenuActionProvider<BasisMainMenu> FindProvider(string key)
+        {
+            List<BasisMenuActionProvider<BasisMainMenu>> providers = BasisMenuBase<BasisMainMenu>.Providers;
+            for (int i = 0; i < providers.Count; i++)
+            {
+                BasisMenuActionProvider<BasisMainMenu> provider = providers[i];
+                if (provider != null && !provider.Hidden && provider.FavouriteKey == key) return provider;
+            }
+            return null;
         }
         public static void AddOption(PanelComponent control, BasisMenuDialoguePanel dialogue)
         {
@@ -269,6 +360,11 @@ namespace Basis.BasisUI
             string titleKey = fields.Length > 1 ? fields[1].Trim() : string.Empty;
             string title = fields.Length > 2 ? Clean(fields[2]) : string.Empty;
             string kind = fields.Length > 3 ? fields[3].Trim() : "t";
+            if (kind == "m" || kind == "b")
+            {
+                entry = new Entry(key, titleKey, title, kind == "m" ? Kind.Toggle : Kind.Button, default, null, null, null, true);
+                return true;
+            }
             if (kind == "s")
             {
                 if (fields.Length < 9 || !Number(fields[4], out float min) || !Number(fields[5], out float max) || !(max > min)) return false;
@@ -302,6 +398,11 @@ namespace Basis.BasisUI
                 Entry entry = entries[i];
                 if (i > 0) builder.Append('\n');
                 builder.Append(entry.Key).Append('\t').Append(entry.TitleKey).Append('\t').Append(entry.Title);
+                if (entry.Menu)
+                {
+                    builder.Append(entry.Kind == Kind.Toggle ? "\tm" : "\tb");
+                    continue;
+                }
                 switch (entry.Kind)
                 {
                     case Kind.Slider:
@@ -329,6 +430,7 @@ namespace Basis.BasisUI
             for (int i = 0; i < entries.Count; i++)
             {
                 string key = entries[i].Key;
+                if (entries[i].Menu) continue;
                 switch (entries[i].Kind)
                 {
                     case Kind.Slider:

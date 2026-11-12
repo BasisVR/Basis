@@ -167,7 +167,7 @@ namespace Basis.BasisUI
                 if (string.IsNullOrEmpty(hint))
                 {
                     if (!HasPanelOptions) return text;
-                    hint = BasisPanelResetGesture.HintText;
+                    hint = BasisPanelResetGesture.Hint(this is PanelButton);
                 }
                 if (string.IsNullOrEmpty(hint)) return text;
                 return string.IsNullOrEmpty(text) ? hint : $"{text} — {hint}";

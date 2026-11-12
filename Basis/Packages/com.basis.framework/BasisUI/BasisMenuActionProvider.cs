@@ -31,6 +31,18 @@ namespace Basis.BasisUI
             {
                 if (!BoundMenu.Dialogue || !BoundMenu.Dialogue.BlocksOtherActions) RunAction();
             };
+            if (this is BasisMenuActionProvider<BasisMainMenu> main) BasisSettingFavourites.BindMenuOptions(main, button);
+        }
+        public virtual string FavouriteKey => "menu." + GetType().Name;
+        public virtual string FavouriteTitle => Title;
+        public virtual bool FavouriteIsToggle => false;
+        public virtual bool FavouriteOn => false;
+        public virtual void SetFavouriteOn(bool on)
+        {
+        }
+        public virtual bool CanRemoveFromMenu => false;
+        public virtual void RemoveFromMenu()
+        {
         }
 
         public virtual void OnButtonCreated(PanelButton button)

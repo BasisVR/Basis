@@ -10,6 +10,7 @@ using Basis.Shims;
 using Cilbox;
 using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 
 namespace Basis.Shims
 {
@@ -17,9 +18,11 @@ namespace Basis.Shims
 	{
 		public const int KindWorld = 0, KindProp = 1, KindAvatar = 2;
 		public const int FromWorld = 1, FromProps = 2, FromAvatars = 4, FromAnyone = 7;
-		public const int TypeNone = 0, TypeText = 1, TypeNumber = 2, TypeBool = 3, TypeBytes = 4, TypeVector2 = 5, TypeVector3 = 6, TypeVector4 = 7, TypeQuaternion = 8, TypeColor = 9, TypeInts = 10, TypeFloats = 11, TypeStrings = 12, TypeVector3s = 13, TypeTransform = 14, TypeScript = 15, TypeTarget = 16;
+		public const int TypeNone = 0, TypeText = 1, TypeNumber = 2, TypeBool = 3, TypeBytes = 4, TypeVector2 = 5, TypeVector3 = 6, TypeVector4 = 7, TypeQuaternion = 8, TypeColor = 9, TypeInts = 10, TypeFloats = 11, TypeStrings = 12, TypeVector3s = 13, TypeTransform = 14, TypeScript = 15, TypeTarget = 16, TypeTexture = 17, TypeMatrix = 18, TypeVector2s = 19, TypeVector4s = 20, TypeQuaternions = 21, TypeColors = 22;
 		public const int MaxNameLength = 64, MaxTextLength = 4096, MaxDataLength = 65536, MaxArrayLength = 4096, MaxValues = 64, MaxPublishedBytes = 262144, MaxListeners = 32, MaxQueued = 256, MaxSendsPerSecond = 120, MaxBytesPerSecond = 1048576;
 		public const int MaxTags = 16, MaxTagLength = 32, MaxDescriptionLength = 256;
+		public const int MaxTextureSize = 4096, MaxTextureCopies = 16;
+		public const long MaxTextureCopyBytes = 134217728, MaxTotalTextureCopyBytes = 536870912;
 		public static BasisScriptTarget Self(object self) => CilboxScriptBus.Self(self);
 		public static BasisScriptTarget World => CilboxScriptBus.Target(BasisScene.Instance);
 		public static BasisScriptTarget LocalAvatar => CilboxScriptBus.Target(BasisLocalPlayer.Instance != null ? BasisLocalPlayer.Instance.BasisAvatar : null);
@@ -46,6 +49,8 @@ namespace Basis.Shims
 		public static bool Describe(object self, string name, string description) => CilboxScriptBus.Describe(self, name, description);
 		public static BasisSharedTransform Share(object self, Transform transform, bool writable) => CilboxScriptBus.Share(self, transform, writable);
 		public static void Unshare(object self, Transform transform) => CilboxScriptBus.Unshare(self, transform);
+		public static BasisSharedTexture Share(object self, Texture texture) => CilboxScriptBus.Share(self, texture);
+		public static void Unshare(object self, Texture texture) => CilboxScriptBus.Unshare(self, texture);
 	}
 
 	public sealed class BasisScriptTarget
@@ -73,17 +78,24 @@ namespace Basis.Shims
 		public string GetString(string key, string fallback) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.AsString(value, fallback) : fallback;
 		public float GetFloat(string key, float fallback) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.AsFloat(value, fallback) : fallback;
 		public int GetInt(string key, int fallback) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.AsInt(value, fallback) : fallback;
+		public double GetDouble(string key, double fallback) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.AsDouble(value, fallback) : fallback;
 		public bool GetBool(string key, bool fallback) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.AsBool(value, fallback) : fallback;
 		public Vector2 GetVector2(string key, Vector2 fallback) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.As(value, BasisScriptBus.TypeVector2, fallback) : fallback;
 		public Vector3 GetVector3(string key, Vector3 fallback) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.As(value, BasisScriptBus.TypeVector3, fallback) : fallback;
 		public Vector4 GetVector4(string key, Vector4 fallback) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.As(value, BasisScriptBus.TypeVector4, fallback) : fallback;
 		public Quaternion GetQuaternion(string key, Quaternion fallback) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.As(value, BasisScriptBus.TypeQuaternion, fallback) : fallback;
 		public Color GetColor(string key, Color fallback) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.As(value, BasisScriptBus.TypeColor, fallback) : fallback;
+		public Matrix4x4 GetMatrix(string key, Matrix4x4 fallback) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.As(value, BasisScriptBus.TypeMatrix, fallback) : fallback;
 		public byte[] GetBytes(string key) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.Array<byte>(value, BasisScriptBus.TypeBytes, true) : null;
 		public int[] GetInts(string key) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.Array<int>(value, BasisScriptBus.TypeInts, true) : null;
 		public float[] GetFloats(string key) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.Array<float>(value, BasisScriptBus.TypeFloats, true) : null;
 		public string[] GetStrings(string key) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.Array<string>(value, BasisScriptBus.TypeStrings, true) : null;
 		public Vector3[] GetVector3s(string key) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.Array<Vector3>(value, BasisScriptBus.TypeVector3s, true) : null;
+		public Vector2[] GetVector2s(string key) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.Array<Vector2>(value, BasisScriptBus.TypeVector2s, true) : null;
+		public Vector4[] GetVector4s(string key) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.Array<Vector4>(value, BasisScriptBus.TypeVector4s, true) : null;
+		public Quaternion[] GetQuaternions(string key) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.Array<Quaternion>(value, BasisScriptBus.TypeQuaternions, true) : null;
+		public Color[] GetColors(string key) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.Array<Color>(value, BasisScriptBus.TypeColors, true) : null;
+		public BasisSharedTexture GetSharedTexture(string key) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.AsTexture(value) : null;
 		public BasisSharedTransform GetSharedTransform(string key) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.AsShared(value) : null;
 		public BasisScriptReference GetScript(string key) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.AsScript(value) : null;
 		public BasisScriptTarget GetTarget(string key) => Find(key, out CilboxScriptBus.Value value) ? CilboxScriptBus.AsTarget(value) : null;
@@ -110,17 +122,24 @@ namespace Basis.Shims
 		public string GetString(string fallback) => CilboxScriptBus.AsString(Value, fallback);
 		public float GetFloat(float fallback) => CilboxScriptBus.AsFloat(Value, fallback);
 		public int GetInt(int fallback) => CilboxScriptBus.AsInt(Value, fallback);
+		public double GetDouble(double fallback) => CilboxScriptBus.AsDouble(Value, fallback);
 		public bool GetBool(bool fallback) => CilboxScriptBus.AsBool(Value, fallback);
 		public Vector2 GetVector2(Vector2 fallback) => CilboxScriptBus.As(Value, BasisScriptBus.TypeVector2, fallback);
 		public Vector3 GetVector3(Vector3 fallback) => CilboxScriptBus.As(Value, BasisScriptBus.TypeVector3, fallback);
 		public Vector4 GetVector4(Vector4 fallback) => CilboxScriptBus.As(Value, BasisScriptBus.TypeVector4, fallback);
 		public Quaternion GetQuaternion(Quaternion fallback) => CilboxScriptBus.As(Value, BasisScriptBus.TypeQuaternion, fallback);
 		public Color GetColor(Color fallback) => CilboxScriptBus.As(Value, BasisScriptBus.TypeColor, fallback);
+		public Matrix4x4 GetMatrix(Matrix4x4 fallback) => CilboxScriptBus.As(Value, BasisScriptBus.TypeMatrix, fallback);
 		public byte[] GetBytes() => CilboxScriptBus.Array<byte>(Value, BasisScriptBus.TypeBytes, false);
 		public int[] GetInts() => CilboxScriptBus.Array<int>(Value, BasisScriptBus.TypeInts, false);
 		public float[] GetFloats() => CilboxScriptBus.Array<float>(Value, BasisScriptBus.TypeFloats, false);
 		public string[] GetStrings() => CilboxScriptBus.Array<string>(Value, BasisScriptBus.TypeStrings, false);
 		public Vector3[] GetVector3s() => CilboxScriptBus.Array<Vector3>(Value, BasisScriptBus.TypeVector3s, false);
+		public Vector2[] GetVector2s() => CilboxScriptBus.Array<Vector2>(Value, BasisScriptBus.TypeVector2s, false);
+		public Vector4[] GetVector4s() => CilboxScriptBus.Array<Vector4>(Value, BasisScriptBus.TypeVector4s, false);
+		public Quaternion[] GetQuaternions() => CilboxScriptBus.Array<Quaternion>(Value, BasisScriptBus.TypeQuaternions, false);
+		public Color[] GetColors() => CilboxScriptBus.Array<Color>(Value, BasisScriptBus.TypeColors, false);
+		public BasisSharedTexture GetSharedTexture() => CilboxScriptBus.AsTexture(Value);
 		public BasisSharedTransform GetSharedTransform() => CilboxScriptBus.AsShared(Value);
 		public BasisScriptReference GetScript() => CilboxScriptBus.AsScript(Value);
 		public BasisScriptTarget GetTarget() => CilboxScriptBus.AsTarget(Value);
@@ -207,6 +226,24 @@ namespace Basis.Shims
 		}
 		public bool SetActive(bool active) => CanEdit && CilboxScriptBus.QueueActive(this, active);
 	}
+
+	public sealed class BasisSharedTexture
+	{
+		internal Texture Source;
+		internal CilboxScriptBus.Entry From;
+		internal string Label;
+		internal bool Removed;
+		internal readonly List<CilboxScriptBus.Mirror> Copies = new List<CilboxScriptBus.Mirror>();
+		internal BasisSharedTexture() { }
+		public bool IsValid => CilboxScriptBus.Live(this);
+		public string Name => IsValid ? Label : string.Empty;
+		public BasisScriptTarget Owner => IsValid ? From.Handle : null;
+		public int Width => IsValid ? Source.width : 0;
+		public int Height => IsValid ? Source.height : 0;
+		public bool IsRenderTexture => IsValid && Source is RenderTexture;
+		public Texture GetTexture(object self) => CilboxScriptBus.CopyFor(self, this);
+		public void Release(object self) => CilboxScriptBus.ReleaseCopy(self, this);
+	}
 }
 
 namespace Cilbox
@@ -215,6 +252,7 @@ namespace Cilbox
 	internal static partial class CilboxScriptBus
 	{
 		internal const int MaxDeliveriesPerTick = 1024, MaxClassNameLength = 128, MaxPendingActives = 1024, MaxDescriptions = BasisScriptBus.MaxValues + BasisScriptBus.MaxListeners;
+		internal const long MaxCopyPixelsPerTick = 16777216;
 		internal struct Value
 		{
 			internal int Type;
@@ -249,6 +287,15 @@ namespace Cilbox
 			internal Action<BasisScriptMessage> Handler;
 			internal bool Removed;
 		}
+		internal sealed class Mirror
+		{
+			internal BasisSharedTexture Share;
+			internal Entry For;
+			internal RenderTexture Copy;
+			internal uint Seen;
+			internal bool Fresh;
+			internal long Bytes;
+		}
 		struct PendingActive
 		{
 			internal BasisSharedTransform Share;
@@ -266,6 +313,10 @@ namespace Cilbox
 		static readonly List<CilboxProxy> deadScripts = new List<CilboxProxy>();
 		static readonly Dictionary<Transform, BasisSharedTransform> readShares = new Dictionary<Transform, BasisSharedTransform>(), writeShares = new Dictionary<Transform, BasisSharedTransform>();
 		static readonly List<Transform> deadShares = new List<Transform>();
+		static readonly Dictionary<(Texture, Entry), BasisSharedTexture> textureShares = new Dictionary<(Texture, Entry), BasisSharedTexture>();
+		static readonly List<(Texture, Entry)> deadTextures = new List<(Texture, Entry)>();
+		static readonly List<Mirror> mirrors = new List<Mirror>();
+		static int mirrorCursor;
 		static readonly List<PendingActive> actives = new List<PendingActive>();
 		static List<Pending> queue = new List<Pending>(), working = new List<Pending>();
 		static int nextId;
@@ -274,6 +325,7 @@ namespace Cilbox
 		internal static int EntryCount => order.Count;
 		internal static int ListenerCount => listeners.Count;
 		internal static int QueuedCount => queue.Count;
+		internal static int CopyCount => mirrors.Count;
 
 		internal static bool Blocks(Type type, string name)
 		{
@@ -330,6 +382,13 @@ namespace Cilbox
 					case nameof(BasisScriptTarget.GetString):
 					case nameof(BasisScriptTarget.GetFloat):
 					case nameof(BasisScriptTarget.GetInt):
+					case nameof(BasisScriptTarget.GetDouble):
+					case nameof(BasisScriptTarget.GetMatrix):
+					case nameof(BasisScriptTarget.GetVector2s):
+					case nameof(BasisScriptTarget.GetVector4s):
+					case nameof(BasisScriptTarget.GetQuaternions):
+					case nameof(BasisScriptTarget.GetColors):
+					case nameof(BasisScriptTarget.GetSharedTexture):
 					case nameof(BasisScriptTarget.GetBool):
 					case nameof(BasisScriptTarget.GetVector2):
 					case nameof(BasisScriptTarget.GetVector3):
@@ -382,6 +441,22 @@ namespace Cilbox
 				}
 				return true;
 			}
+			if (type == typeof(BasisSharedTexture))
+			{
+				switch (name)
+				{
+					case "get_" + nameof(BasisSharedTexture.IsValid):
+					case "get_" + nameof(BasisSharedTexture.Name):
+					case "get_" + nameof(BasisSharedTexture.Owner):
+					case "get_" + nameof(BasisSharedTexture.Width):
+					case "get_" + nameof(BasisSharedTexture.Height):
+					case "get_" + nameof(BasisSharedTexture.IsRenderTexture):
+					case nameof(BasisSharedTexture.GetTexture):
+					case nameof(BasisSharedTexture.Release):
+						return false;
+				}
+				return true;
+			}
 			if (type == typeof(BasisScriptReference))
 			{
 				switch (name)
@@ -410,6 +485,13 @@ namespace Cilbox
 					case nameof(BasisScriptMessage.GetString):
 					case nameof(BasisScriptMessage.GetFloat):
 					case nameof(BasisScriptMessage.GetInt):
+					case nameof(BasisScriptMessage.GetDouble):
+					case nameof(BasisScriptMessage.GetMatrix):
+					case nameof(BasisScriptMessage.GetVector2s):
+					case nameof(BasisScriptMessage.GetVector4s):
+					case nameof(BasisScriptMessage.GetQuaternions):
+					case nameof(BasisScriptMessage.GetColors):
+					case nameof(BasisScriptMessage.GetSharedTexture):
 					case nameof(BasisScriptMessage.GetBool):
 					case nameof(BasisScriptMessage.GetVector2):
 					case nameof(BasisScriptMessage.GetVector3):
@@ -726,6 +808,54 @@ namespace Cilbox
 					if (!Finite(c.r) || !Finite(c.g) || !Finite(c.b) || !Finite(c.a)) return false;
 					value = new Value { Type = BasisScriptBus.TypeColor, Item = c, Size = 16 };
 					return true;
+				case Color32 c32:
+					value = new Value { Type = BasisScriptBus.TypeColor, Item = (Color)c32, Size = 16 };
+					return true;
+				case Matrix4x4 matrix:
+					for (int i = 0; i < 16; i++)
+					{
+						if (!Finite(matrix[i])) return false;
+					}
+					value = new Value { Type = BasisScriptBus.TypeMatrix, Item = matrix, Size = 64 };
+					return true;
+				case Vector2[] pairs:
+					if (pairs.Length > BasisScriptBus.MaxArrayLength) return false;
+					for (int i = 0; i < pairs.Length; i++)
+					{
+						if (!Finite(pairs[i].x) || !Finite(pairs[i].y)) return false;
+					}
+					value = new Value { Type = BasisScriptBus.TypeVector2s, Item = pairs.Clone(), Size = 16 + 8L * pairs.Length };
+					return true;
+				case Vector4[] quads:
+					if (quads.Length > BasisScriptBus.MaxArrayLength) return false;
+					for (int i = 0; i < quads.Length; i++)
+					{
+						if (!Finite(quads[i].x) || !Finite(quads[i].y) || !Finite(quads[i].z) || !Finite(quads[i].w)) return false;
+					}
+					value = new Value { Type = BasisScriptBus.TypeVector4s, Item = quads.Clone(), Size = 16 + 16L * quads.Length };
+					return true;
+				case Quaternion[] rotations:
+					if (rotations.Length > BasisScriptBus.MaxArrayLength) return false;
+					for (int i = 0; i < rotations.Length; i++)
+					{
+						if (!Finite(rotations[i].x) || !Finite(rotations[i].y) || !Finite(rotations[i].z) || !Finite(rotations[i].w)) return false;
+					}
+					value = new Value { Type = BasisScriptBus.TypeQuaternions, Item = rotations.Clone(), Size = 16 + 16L * rotations.Length };
+					return true;
+				case Color[] colors:
+					if (colors.Length > BasisScriptBus.MaxArrayLength) return false;
+					for (int i = 0; i < colors.Length; i++)
+					{
+						if (!Finite(colors[i].r) || !Finite(colors[i].g) || !Finite(colors[i].b) || !Finite(colors[i].a)) return false;
+					}
+					value = new Value { Type = BasisScriptBus.TypeColors, Item = colors.Clone(), Size = 16 + 16L * colors.Length };
+					return true;
+				case Color32[] colors32:
+					if (colors32.Length > BasisScriptBus.MaxArrayLength) return false;
+					Color[] widened = new Color[colors32.Length];
+					for (int i = 0; i < colors32.Length; i++) widened[i] = colors32[i];
+					value = new Value { Type = BasisScriptBus.TypeColors, Item = widened, Size = 16 + 16L * widened.Length };
+					return true;
 				case int[] ints:
 					if (ints.Length > BasisScriptBus.MaxArrayLength) return false;
 					value = new Value { Type = BasisScriptBus.TypeInts, Item = ints.Clone(), Size = 16 + 4L * ints.Length };
@@ -775,6 +905,15 @@ namespace Cilbox
 					if (!Live(shared)) return false;
 					value = new Value { Type = BasisScriptBus.TypeTransform, Item = shared, Size = 16 };
 					return true;
+				case BasisSharedTexture sharedTexture:
+					if (!Live(sharedTexture)) return false;
+					value = new Value { Type = BasisScriptBus.TypeTexture, Item = sharedTexture, Size = 16 };
+					return true;
+				case Texture texture:
+					BasisSharedTexture image = from != null ? TextureOf(texture, from) : null;
+					if (image == null) return false;
+					value = new Value { Type = BasisScriptBus.TypeTexture, Item = image, Size = 16 };
+					return true;
 				case UnityEngine.Object unityObject:
 					Transform node = unityObject is GameObject gameObject ? gameObject.transform : unityObject is Component component ? component.transform : null;
 					BasisSharedTransform readOnly = from != null ? ShareOf(node, from, false) : null;
@@ -811,6 +950,8 @@ namespace Cilbox
 
 		internal static int AsInt(Value value, int fallback) => (value.Type == BasisScriptBus.TypeNumber || value.Type == BasisScriptBus.TypeBool) && value.Number >= int.MinValue && value.Number <= int.MaxValue ? (int)Math.Round(value.Number) : fallback;
 
+		internal static double AsDouble(Value value, double fallback) => value.Type == BasisScriptBus.TypeNumber || value.Type == BasisScriptBus.TypeBool ? value.Number : fallback;
+
 		internal static bool AsBool(Value value, bool fallback) => value.Type == BasisScriptBus.TypeNumber || value.Type == BasisScriptBus.TypeBool ? value.Number != 0d : fallback;
 
 		internal static T As<T>(Value value, int type, T fallback) where T : struct => value.Type == type && value.Item is T item ? item : fallback;
@@ -824,6 +965,214 @@ namespace Cilbox
 		internal static BasisScriptTarget AsTarget(Value value) => value.Type == BasisScriptBus.TypeTarget && value.Item is BasisScriptTarget target && Live(target.Entry) ? target : null;
 
 		internal static bool Live(BasisSharedTransform shared) => shared != null && !shared.Removed && shared.Node != null && Live(shared.From);
+
+		internal static BasisSharedTexture AsTexture(Value value) => value.Type == BasisScriptBus.TypeTexture && value.Item is BasisSharedTexture shared && Live(shared) ? shared : null;
+
+		internal static bool Live(BasisSharedTexture shared) => shared != null && !shared.Removed && shared.Source != null && Live(shared.From);
+
+		internal static BasisSharedTexture Share(object self, Texture texture)
+		{
+			CilboxBasisCommon box = Running(self, out CilboxProxy proxy);
+			return box != null ? TextureOf(texture, EntryOf(box, proxy)) : null;
+		}
+
+		internal static void Unshare(object self, Texture texture)
+		{
+			Entry entry = Owned(self);
+			if (entry == null || ReferenceEquals(texture, null) || !textureShares.TryGetValue((texture, entry), out BasisSharedTexture known)) return;
+			textureShares.Remove((texture, entry));
+			Revoke(known);
+		}
+
+		internal static Texture CopyFor(object self, BasisSharedTexture shared)
+		{
+			CilboxBasisCommon box = Running(self, out CilboxProxy proxy);
+			if (box == null || !Live(shared)) return null;
+			Entry entry = EntryOf(box, proxy);
+			if (entry == null) return null;
+			if (entry == shared.From) return shared.Source;
+			for (int i = 0; i < shared.Copies.Count; i++)
+			{
+				Mirror known = shared.Copies[i];
+				if (known.For != entry) continue;
+				if (known.Copy != null) return known.Copy;
+				Forget(known);
+				break;
+			}
+			if (!Copyable(shared.Source)) return null;
+			RenderTextureDescriptor descriptor = Layout(shared.Source);
+			long bytes = Bytes(descriptor), mine = 0, total = 0;
+			int count = 0;
+			for (int i = 0; i < mirrors.Count; i++)
+			{
+				total += mirrors[i].Bytes;
+				if (mirrors[i].For != entry) continue;
+				mine += mirrors[i].Bytes;
+				count++;
+			}
+			if (count >= BasisScriptBus.MaxTextureCopies || mine + bytes > BasisScriptBus.MaxTextureCopyBytes || total + bytes > BasisScriptBus.MaxTotalTextureCopyBytes) return null;
+			RenderTexture copy = new RenderTexture(descriptor) { name = shared.Label, hideFlags = HideFlags.DontSave, filterMode = shared.Source.filterMode, wrapModeU = shared.Source.wrapModeU, wrapModeV = shared.Source.wrapModeV, anisoLevel = shared.Source.anisoLevel };
+			Mirror mirror = new Mirror { Share = shared, For = entry, Copy = copy, Bytes = bytes };
+			shared.Copies.Add(mirror);
+			mirrors.Add(mirror);
+			Refresh(mirror);
+			Start();
+			return copy;
+		}
+
+		internal static void ReleaseCopy(object self, BasisSharedTexture shared)
+		{
+			Entry entry = Owned(self);
+			if (entry == null || shared == null) return;
+			for (int i = shared.Copies.Count - 1; i >= 0; i--)
+			{
+				if (shared.Copies[i].For == entry) Forget(shared.Copies[i]);
+			}
+		}
+
+		static BasisSharedTexture TextureOf(Texture texture, Entry from)
+		{
+			if (texture == null || from == null || !Live(from) || !Copyable(texture)) return null;
+			if (textureShares.TryGetValue((texture, from), out BasisSharedTexture known))
+			{
+				if (Live(known)) return known;
+				Revoke(known);
+			}
+			BasisSharedTexture shared = new BasisSharedTexture { Source = texture, From = from, Label = CilboxMenus.Clean(texture.name, BasisScriptBus.MaxNameLength, false) };
+			textureShares[(texture, from)] = shared;
+			return shared;
+		}
+
+		static bool Copyable(Texture texture)
+		{
+			if (texture == null || texture.width < 1 || texture.height < 1 || texture.width > BasisScriptBus.MaxTextureSize || texture.height > BasisScriptBus.MaxTextureSize) return false;
+			if (texture is RenderTexture rt) return rt.dimension == UnityEngine.Rendering.TextureDimension.Tex2D && rt.graphicsFormat != GraphicsFormat.None;
+			return texture is Texture2D;
+		}
+
+		static RenderTextureDescriptor Layout(Texture source)
+		{
+			GraphicsFormat format = source.graphicsFormat;
+			bool mips = source.mipmapCount > 1;
+			if (!(source is RenderTexture) || !SystemInfo.IsFormatSupported(format, GraphicsFormatUsage.Render))
+			{
+				bool srgb = GraphicsFormatUtility.IsSRGBFormat(format);
+				format = GraphicsFormatUtility.IsHDRFormat(format) || GraphicsFormatUtility.IsHalfFormat(format) || GraphicsFormatUtility.IsIEEE754Format(format) ? GraphicsFormat.R16G16B16A16_SFloat : srgb ? GraphicsFormat.R8G8B8A8_SRGB : GraphicsFormat.R8G8B8A8_UNorm;
+			}
+			return new RenderTextureDescriptor(source.width, source.height, format, 0) { msaaSamples = 1, useMipMap = mips, autoGenerateMips = mips };
+		}
+
+		static long Bytes(RenderTextureDescriptor descriptor)
+		{
+			long bytes = (long)descriptor.width * descriptor.height * Math.Max(1, (int)GraphicsFormatUtility.GetBlockSize(descriptor.graphicsFormat));
+			return descriptor.useMipMap ? bytes * 4 / 3 : bytes;
+		}
+
+		static void Refresh(Mirror mirror)
+		{
+			Texture source = mirror.Share.Source;
+			RenderTexture copy = mirror.Copy;
+			if (source is Texture2D && mirror.Fresh && mirror.Seen == source.updateCount && copy.IsCreated()) return;
+			if (source is RenderTexture live && !live.IsCreated()) return;
+			RenderTextureDescriptor wanted = Layout(source);
+			if (copy.width != wanted.width || copy.height != wanted.height || copy.graphicsFormat != wanted.graphicsFormat || copy.useMipMap != wanted.useMipMap || copy.antiAliasing != 1 || copy.enableRandomWrite || copy.depthStencilFormat != GraphicsFormat.None)
+			{
+				long bytes = Bytes(wanted);
+				if (bytes > mirror.Bytes && Spent(mirror.For) - mirror.Bytes + bytes > BasisScriptBus.MaxTextureCopyBytes)
+				{
+					Forget(mirror);
+					return;
+				}
+				copy.Release();
+				copy.descriptor = wanted;
+				mirror.Bytes = bytes;
+			}
+			if (!copy.IsCreated() && !copy.Create()) return;
+			try
+			{
+				if (source is RenderTexture rt && rt.antiAliasing <= 1 && !wanted.useMipMap && rt.graphicsFormat == copy.graphicsFormat && SystemInfo.copyTextureSupport != UnityEngine.Rendering.CopyTextureSupport.None) Graphics.CopyTexture(rt, 0, 0, copy, 0, 0);
+				else
+				{
+					RenderTexture active = RenderTexture.active;
+					Graphics.Blit(source, copy);
+					RenderTexture.active = active;
+				}
+			}
+			catch (Exception e)
+			{
+				Debug.LogException(e);
+			}
+			mirror.Seen = source.updateCount;
+			mirror.Fresh = true;
+		}
+
+		static long Spent(Entry entry)
+		{
+			long bytes = 0;
+			for (int i = 0; i < mirrors.Count; i++)
+			{
+				if (mirrors[i].For == entry) bytes += mirrors[i].Bytes;
+			}
+			return bytes;
+		}
+
+		static void RefreshCopies()
+		{
+			long pixels = 0;
+			int count = mirrors.Count;
+			if (mirrorCursor >= count) mirrorCursor = 0;
+			for (int n = 0; n < count && pixels < MaxCopyPixelsPerTick; n++)
+			{
+				int index = (mirrorCursor + n) % count;
+				if (index >= mirrors.Count) break;
+				Mirror mirror = mirrors[index];
+				if (mirror.Copy == null || !Live(mirror.Share) || !Live(mirror.For)) continue;
+				uint before = mirror.Seen;
+				bool fresh = mirror.Fresh;
+				Refresh(mirror);
+				if (!fresh || before != mirror.Seen || mirror.Share.Source is RenderTexture) pixels += (long)mirror.Share.Source.width * mirror.Share.Source.height;
+				mirrorCursor = index + 1;
+			}
+		}
+
+		static void Revoke(BasisSharedTexture shared)
+		{
+			shared.Removed = true;
+			for (int i = shared.Copies.Count - 1; i >= 0; i--) Forget(shared.Copies[i]);
+		}
+
+		static void Forget(Mirror mirror)
+		{
+			mirror.Share.Copies.Remove(mirror);
+			mirrors.Remove(mirror);
+			RenderTexture copy = mirror.Copy;
+			mirror.Copy = null;
+			if (copy == null) return;
+			copy.Release();
+			if (Application.isPlaying) UnityEngine.Object.Destroy(copy);
+			else UnityEngine.Object.DestroyImmediate(copy);
+		}
+
+		static void PurgeTextures()
+		{
+			for (int i = mirrors.Count - 1; i >= 0; i--)
+			{
+				if (i >= mirrors.Count) continue;
+				Mirror mirror = mirrors[i];
+				if (mirror.Copy == null || !Live(mirror.For) || !Live(mirror.Share)) Forget(mirror);
+			}
+			if (textureShares.Count == 0) return;
+			foreach (KeyValuePair<(Texture, Entry), BasisSharedTexture> pair in textureShares)
+			{
+				if (!Live(pair.Value)) deadTextures.Add(pair.Key);
+			}
+			for (int i = 0; i < deadTextures.Count; i++)
+			{
+				Revoke(textureShares[deadTextures[i]]);
+				textureShares.Remove(deadTextures[i]);
+			}
+			deadTextures.Clear();
+		}
 
 		internal static BasisSharedTransform Share(object self, Transform transform, bool writable)
 		{
@@ -920,6 +1269,7 @@ namespace Cilbox
 		internal static void Tick()
 		{
 			if (actives.Count > 0) ApplyActives();
+			if (mirrors.Count > 0) RefreshCopies();
 			List<Pending> batch = queue;
 			queue = working;
 			working = batch;
@@ -942,7 +1292,7 @@ namespace Cilbox
 			if (i < batch.Count) queue.InsertRange(0, batch.GetRange(i, batch.Count - i));
 			batch.Clear();
 			Purge();
-			if (queue.Count == 0 && actives.Count == 0) Stop();
+			if (queue.Count == 0 && actives.Count == 0 && mirrors.Count == 0) Stop();
 		}
 
 		internal static void Reset()
@@ -956,6 +1306,11 @@ namespace Cilbox
 			writeShares.Clear();
 			deadShares.Clear();
 			actives.Clear();
+			while (mirrors.Count > 0) Forget(mirrors[mirrors.Count - 1]);
+			foreach (BasisSharedTexture shared in textureShares.Values) shared.Removed = true;
+			textureShares.Clear();
+			deadTextures.Clear();
+			mirrorCursor = 0;
 			queue.Clear();
 			working.Clear();
 			nextId = 0;
@@ -1062,6 +1417,7 @@ namespace Cilbox
 			}
 			if (readShares.Count > 0) PurgeShares(readShares);
 			if (writeShares.Count > 0) PurgeShares(writeShares);
+			if (mirrors.Count > 0 || textureShares.Count > 0) PurgeTextures();
 			for (int i = order.Count - 1; i >= 0; i--)
 			{
 				Entry entry = order[i];

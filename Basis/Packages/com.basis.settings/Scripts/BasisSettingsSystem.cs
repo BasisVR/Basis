@@ -482,6 +482,18 @@ namespace Basis.Scripts.Settings
             // Default blank (will fill from file or remain empty)
             settingsData.RebuildDictionary();
 
+            if (!File.Exists(FilePath) && File.Exists(FilePath + LastGoodSuffix))
+            {
+                try
+                {
+                    File.Copy(FilePath + LastGoodSuffix, FilePath, false);
+                    BasisDebug.LogError("Settings file was missing. Restored it from the last good copy.");
+                }
+                catch (Exception e)
+                {
+                    BasisDebug.LogError($"Settings file was missing and the last good copy could not be restored: {e.Message}");
+                }
+            }
             _freshSettingsFile = !File.Exists(FilePath);
             if (_freshSettingsFile)
             {
@@ -494,42 +506,51 @@ namespace Basis.Scripts.Settings
                 return;
             }
 
-            string json = null;
-            SettingsData loaded = null;
-
-            try
+            FlushPendingSaves();
+            if (!TryReadFile(FilePath, out string json, out Exception readError))
             {
-                json = File.ReadAllText(FilePath);
-                loaded = JsonUtility.FromJson<SettingsData>(json);
-            }
-            catch (Exception e)
-            {
-                BasisDebug.LogError($"Failed to read/parse settings file. Creating a fresh one. Exception: {e}");
-                // If parsing failed, we fall through to writing a fresh file.
-            }
-
-            if (loaded == null)
-            {
-                // Corrupt or unreadable file. OPTIONAL: backup the bad file for debugging.
-                try
+                if (_settingsLoaded)
                 {
-                    string backupPath = FilePath + ".corrupt_backup";
-                    File.Copy(FilePath, backupPath, true);
+                    BasisDebug.LogError($"Settings file is in use by something else, keeping the settings already loaded and leaving the file alone. {readError.Message}");
+                    return;
                 }
-                catch (Exception e)
-                {
-                    BasisDebug.LogError($"Failed to backup corrupt settings file: {e}");
-                }
-
-                BasisDebug.LogError("Settings file corrupt/unreadable. Rebuilding empty settings.");
-                settingsData = new SettingsData { };// version = currentVersion
-                settingsData.RebuildDictionary();
+                _diskWritesBlocked = true;
+                BasisDebug.LogError($"Settings file is in use by something else. Running on defaults this session without saving, so the file is not overwritten. {readError}");
                 _settingsLoaded = true;
-                SaveAllSettings();
                 RaiseFinishedChanges();
                 ForceQualityRefresh();
                 return;
             }
+
+            SettingsData loaded = Parse(json, out string parseError);
+            if (loaded == null)
+            {
+                string kept = KeepCorruptCopy();
+                BasisDebug.LogError($"Settings file could not be parsed ({parseError}). The broken file was kept as {kept ?? "nothing (copy failed)"}.");
+                if (TryReadFile(FilePath + LastGoodSuffix, out string goodJson, out _) && (loaded = Parse(goodJson, out _)) != null)
+                {
+                    BasisDebug.LogError($"Restored settings from the last good copy ({loaded.settingsList.Count} entries).");
+                }
+                else if (kept == null)
+                {
+                    _diskWritesBlocked = true;
+                    BasisDebug.LogError("No usable last good copy and the broken file could not be kept. Running on defaults without saving.");
+                    _settingsLoaded = true;
+                    RaiseFinishedChanges();
+                    ForceQualityRefresh();
+                    return;
+                }
+                else
+                {
+                    BasisDebug.LogError("No usable last good copy. Starting with empty settings.");
+                    loaded = new SettingsData();
+                }
+            }
+            else
+            {
+                KeepLastGood(json);
+            }
+            _diskWritesBlocked = false;
 
             // Rebuild dictionary WITH normalization
             loaded.RebuildDictionary();
@@ -593,8 +614,98 @@ namespace Basis.Scripts.Settings
 
         // Latest-wins snapshot handed to a single-flight background writer: a burst of saves costs
         // one serialize each but at most one disk write is ever queued behind the one in progress.
+        private const string LastGoodSuffix = ".lastgood";
+        private const int ReadAttempts = 10;
+        private const int ReadRetryMilliseconds = 30;
+        private static volatile bool _diskWritesBlocked;
+
+        private static bool TryReadFile(string path, out string text, out Exception error)
+        {
+            text = null;
+            error = null;
+            for (int attempt = 0; attempt < ReadAttempts; attempt++)
+            {
+                try
+                {
+                    using (FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                    using (StreamReader reader = new StreamReader(stream))
+                    {
+                        text = reader.ReadToEnd();
+                    }
+                    return true;
+                }
+                catch (FileNotFoundException e) { error = e; return false; }
+                catch (DirectoryNotFoundException e) { error = e; return false; }
+                catch (IOException e) { error = e; }
+                catch (UnauthorizedAccessException e) { error = e; }
+                System.Threading.Thread.Sleep(ReadRetryMilliseconds);
+            }
+            return false;
+        }
+
+        private static SettingsData Parse(string json, out string error)
+        {
+            error = null;
+            try
+            {
+                SettingsData data = string.IsNullOrWhiteSpace(json) ? null : JsonUtility.FromJson<SettingsData>(json);
+                if (data == null || data.settingsList == null) { error = "empty or not settings json"; return null; }
+                if (data.settingsList.Count == 0 && json.Contains("\"key\"")) { error = "entries present but none parsed"; return null; }
+                data.settings ??= new Dictionary<string, string>();
+                return data;
+            }
+            catch (Exception e)
+            {
+                error = e.Message;
+                return null;
+            }
+        }
+
+        private static string KeepCorruptCopy()
+        {
+            try
+            {
+                string path = FilePath + ".corrupt-" + DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+                File.Copy(FilePath, path, false);
+                return path;
+            }
+            catch (Exception e)
+            {
+                BasisDebug.LogError($"Failed to keep a copy of the broken settings file: {e.Message}");
+                return null;
+            }
+        }
+
+        private static void KeepLastGood(string json)
+        {
+            try
+            {
+                string path = FilePath + LastGoodSuffix;
+                if (TryReadFile(path, out string existing, out _) && existing == json) return;
+                WriteDurable(path + ".tmp", json);
+                if (File.Exists(path)) File.Replace(path + ".tmp", path, null);
+                else File.Move(path + ".tmp", path);
+            }
+            catch (Exception e)
+            {
+                BasisDebug.LogError($"Failed to update the last good settings copy: {e.Message}");
+            }
+        }
+
+        private static void WriteDurable(string path, string text)
+        {
+            using (FileStream stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (StreamWriter writer = new StreamWriter(stream))
+            {
+                writer.Write(text);
+                writer.Flush();
+                stream.Flush(true);
+            }
+        }
+
         private static void QueueSave(string json)
         {
+            if (_diskWritesBlocked) return;
             lock (_saveLock)
             {
                 _pendingSaveJson = json;
@@ -624,8 +735,9 @@ namespace Basis.Scripts.Settings
                 }
                 try
                 {
+                    if (_diskWritesBlocked) continue;
                     string tmp = FilePath + ".tmp";
-                    File.WriteAllText(tmp, json);
+                    WriteDurable(tmp, json);
                     if (File.Exists(FilePath))
                     {
                         File.Replace(tmp, FilePath, null);

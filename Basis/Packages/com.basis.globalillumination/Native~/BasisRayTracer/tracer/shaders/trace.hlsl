@@ -66,6 +66,7 @@ float AlphaCoverage(Material material, float2 uv)
 bool AlphaAccept(uint instanceIndex, uint geometry, uint primitive, float2 barycentrics, float t)
 {
     Instance instance = LoadInstance(instanceIndex);
+    if ((LoadMaterial(instance.materialBase + geometry).alphaMode & 3u) == ALPHA_OPAQUE) { return true; }
     Material material;
     float alpha = AlphaAt(instance, geometry, primitive, barycentrics, material);
     if (alpha < material.cutoff) { return false; }

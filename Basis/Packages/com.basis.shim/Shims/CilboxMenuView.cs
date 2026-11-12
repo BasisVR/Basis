@@ -18,6 +18,9 @@ namespace Cilbox
 		public override void RunAction() => CilboxMenuView.Open(Panel);
 		public override void OnButtonCreated(PanelButton button) => button.Descriptor.DisableRichText();
 		public override void OnReleaseEvent() => CilboxMenuView.Closed(Panel);
+		public override string FavouriteKey => null;
+		public override bool CanRemoveFromMenu => true;
+		public override void RemoveFromMenu() => CilboxMenus.Dismiss(Panel);
 		public string DescribeSharePlace(PanelComponent control, out string label)
 		{
 			label = null;

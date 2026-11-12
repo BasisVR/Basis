@@ -7,6 +7,33 @@ Shader "Hidden/Basis/GlobalIlluminationSurface"
         _BaseColor("", Color) = (-1, -1, -1, -1)
         _Color("", Color) = (1, 1, 1, 1)
         _Metallic("", Float) = 0
+        _Cutoff("", Float) = -1
+        _Surface("", Float) = 0
+        _SrcBlend("", Float) = 1
+        _DstBlend("", Float) = 0
+        _AlphaClip("", Float) = 0
+        _AlphaToMask("", Float) = 0
+        _AlphaToCoverage("", Float) = 0
+        _Mode("", Float) = -1
+        _EnableUDIMDiscardOptions("", Float) = 0
+        _UDIMDiscardCompile("", Float) = 0
+        _UDIMDiscardUV("", Float) = 0
+        _UDIMDiscardRow0_0("", Float) = 0
+        _UDIMDiscardRow0_1("", Float) = 0
+        _UDIMDiscardRow0_2("", Float) = 0
+        _UDIMDiscardRow0_3("", Float) = 0
+        _UDIMDiscardRow1_0("", Float) = 0
+        _UDIMDiscardRow1_1("", Float) = 0
+        _UDIMDiscardRow1_2("", Float) = 0
+        _UDIMDiscardRow1_3("", Float) = 0
+        _UDIMDiscardRow2_0("", Float) = 0
+        _UDIMDiscardRow2_1("", Float) = 0
+        _UDIMDiscardRow2_2("", Float) = 0
+        _UDIMDiscardRow2_3("", Float) = 0
+        _UDIMDiscardRow3_0("", Float) = 0
+        _UDIMDiscardRow3_1("", Float) = 0
+        _UDIMDiscardRow3_2("", Float) = 0
+        _UDIMDiscardRow3_3("", Float) = 0
     }
 
     SubShader

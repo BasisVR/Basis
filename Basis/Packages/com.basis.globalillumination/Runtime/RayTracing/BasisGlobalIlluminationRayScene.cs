@@ -148,6 +148,7 @@ public sealed partial class BasisGlobalIlluminationRayScene : IDisposable
         public Matrix4x4 matrix;
         public int[] handles;
         public int[] instanceIds;
+        public uint[] masks;
         public bool isStatic, seen;
         /// <summary>
         /// Which half of the room this is, remembered rather than re-derived because the renderer it came
@@ -658,6 +659,7 @@ public sealed partial class BasisGlobalIlluminationRayScene : IDisposable
         int subMeshCount = mesh.subMeshCount;
         entry.handles = new int[subMeshCount];
         entry.instanceIds = new int[subMeshCount];
+        entry.masks = new uint[subMeshCount];
         for (int index = 0; index < subMeshCount; index++)
         {
             entry.handles[index] = -1;
@@ -682,6 +684,7 @@ public sealed partial class BasisGlobalIlluminationRayScene : IDisposable
                     opaqueGeometry = true
                 };
                 entry.handles[index] = accelStruct.AddInstance(desc);
+                entry.masks[index] = entry.category;
             }
             catch (Exception)
             {
@@ -871,6 +874,14 @@ public sealed partial class BasisGlobalIlluminationRayScene : IDisposable
             Material material = index < materialScratch.Count ? materialScratch[index] : null;
             int blockIndex = index < materialScratch.Count ? index : -1;
             ReadSurface(material, entry.renderer, blockIndex, ref blocks, settings, textures, out Color albedo, out Color emission);
+            bool passesLight = emission.maxColorComponent <= 0.001f && BasisGlobalIlluminationMaterialAlpha.IsBlend(BasisGlobalIlluminationMaterialAlpha.Classify(material, null, out _));
+            uint mask = passesLight ? 0u : entry.category;
+            if (entry.masks != null && entry.handles[index] >= 0 && entry.masks[index] != mask)
+            {
+                entry.masks[index] = mask;
+                accelStruct.UpdateInstanceMask(entry.handles[index], mask);
+                structureDirty = true;
+            }
             Vector4 packedAlbedo = new Vector4(albedo.r, albedo.g, albedo.b, 1f);
             float emissionScale = avatarEntry ? settings.avatarEmissionScale : settings.emissionScale;
             Vector4 packedEmission = new Vector4(emission.r * emissionScale, emission.g * emissionScale, emission.b * emissionScale, 0f);

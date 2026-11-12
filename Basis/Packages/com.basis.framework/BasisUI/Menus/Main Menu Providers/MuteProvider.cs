@@ -11,6 +11,16 @@ namespace Basis.BasisUI
         public static void AddToMenu()
         {
             BasisMenuBase<BasisMainMenu>.AddProvider(new MuteProvider());
+            BasisLocalMicrophoneDriver.OnPausedAction -= OnFavouriteChanged;
+            BasisLocalMicrophoneDriver.OnPausedAction += OnFavouriteChanged;
+        }
+        private static void OnFavouriteChanged(bool isMuted) => BasisSettingFavourites.MenuChanged();
+        public override string FavouriteTitle => BasisLocalization.Get("menu.provider.mute");
+        public override bool FavouriteIsToggle => true;
+        public override bool FavouriteOn => BasisLocalMicrophoneDriver.isPaused;
+        public override void SetFavouriteOn(bool on)
+        {
+            if (BasisLocalMicrophoneDriver.isPaused != on) BasisLocalMicrophoneDriver.ToggleIsPaused();
         }
 
         public override string Title => BasisLocalization.Get(BasisLocalMicrophoneDriver.isPaused ? "menu.provider.unmute" : "menu.provider.mute");

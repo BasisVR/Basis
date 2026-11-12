@@ -10,7 +10,7 @@ using UnityEngine.InputSystem;
 namespace Basis.BasisUI
 {
     /// <summary>
-    /// Options gesture for panel elements: while hovering a control, a right-click (desktop) or a
+    /// Options gesture for panel elements: while hovering a control, a middle or right click (desktop) or a
     /// thumbstick click (VR) opens what can be done with it — a reset to default, and for a slider
     /// the offer of this hand's thumbstick. Both are polled rather than handled
     /// as pointer buttons, because <c>BasisUIInput</c> never fills its right-button state (so a
@@ -62,9 +62,9 @@ namespace Basis.BasisUI
         /// One-line reminder of the gesture, for the hover tooltip of any control that offers it.
         /// Worded for the pointer the player is holding, since the two are nothing alike.
         /// </summary>
-        public static string HintText => BasisDeviceManagement.IsUserInDesktop()
-            ? BasisLocalization.Get("ui.resetValue.hint.desktop")
-            : BasisLocalization.Get("ui.resetValue.hint.vr");
+        public static string HintText => Hint(false);
+
+        public static string Hint(bool button) => BasisLocalization.Get((button ? "ui.resetValue.hint.button." : "ui.resetValue.hint.") + (BasisDeviceManagement.IsUserInDesktop() ? "desktop" : "vr"));
 
         /// <summary>
         /// Takes the hover, along with the pointer event that carried it — that event identifies
@@ -167,10 +167,9 @@ namespace Basis.BasisUI
                 return input.CurrentInputState.Primary2DAxisClick || input.CurrentInputState.Secondary2DAxisClick;
             }
 
-            // Desktop, and any pointer we could not trace to a hand. Read the mouse directly rather
-            // than the device's input state: the desktop eye fills Secondary2DAxisClick from the
-            // scroll-wheel click, which is a different button and not this gesture.
-            return Mouse.current != null && Mouse.current.rightButton.isPressed;
+            // Desktop, and any pointer we could not trace to a hand: middle or right click, read
+            // from the mouse directly.
+            return Mouse.current != null && (Mouse.current.middleButton.isPressed || Mouse.current.rightButton.isPressed);
         }
 
         /// <summary>

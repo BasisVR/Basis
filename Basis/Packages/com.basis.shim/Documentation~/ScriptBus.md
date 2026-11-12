@@ -38,7 +38,7 @@ namespace Basis.Shims
     {
         public const int KindWorld = 0, KindProp = 1, KindAvatar = 2;
         public const int FromWorld = 1, FromProps = 2, FromAvatars = 4, FromAnyone = 7;
-        public const int TypeNone = 0, TypeText = 1, TypeNumber = 2, TypeBool = 3, TypeBytes = 4, TypeVector2 = 5, TypeVector3 = 6, TypeVector4 = 7, TypeQuaternion = 8, TypeColor = 9, TypeInts = 10, TypeFloats = 11, TypeStrings = 12, TypeVector3s = 13, TypeTransform = 14, TypeScript = 15, TypeTarget = 16;
+        public const int TypeNone = 0, TypeText = 1, TypeNumber = 2, TypeBool = 3, TypeBytes = 4, TypeVector2 = 5, TypeVector3 = 6, TypeVector4 = 7, TypeQuaternion = 8, TypeColor = 9, TypeInts = 10, TypeFloats = 11, TypeStrings = 12, TypeVector3s = 13, TypeTransform = 14, TypeScript = 15, TypeTarget = 16, TypeTexture = 17, TypeMatrix = 18, TypeVector2s = 19, TypeVector4s = 20, TypeQuaternions = 21, TypeColors = 22;
 
         // Finding content
         public static BasisScriptTarget Self(object self);
@@ -75,6 +75,10 @@ namespace Basis.Shims
         // Shared transforms
         public static BasisSharedTransform Share(object self, Transform transform, bool writable);
         public static void Unshare(object self, Transform transform);
+
+        // Shared textures
+        public static BasisSharedTexture Share(object self, Texture texture);
+        public static void Unshare(object self, Texture texture);
     }
 
     public sealed class BasisScriptTarget
@@ -102,17 +106,24 @@ namespace Basis.Shims
         public string GetString(string key, string fallback);
         public float GetFloat(string key, float fallback);
         public int GetInt(string key, int fallback);
+        public double GetDouble(string key, double fallback);
         public bool GetBool(string key, bool fallback);
         public Vector2 GetVector2(string key, Vector2 fallback);
         public Vector3 GetVector3(string key, Vector3 fallback);
         public Vector4 GetVector4(string key, Vector4 fallback);
         public Quaternion GetQuaternion(string key, Quaternion fallback);
         public Color GetColor(string key, Color fallback);
+        public Matrix4x4 GetMatrix(string key, Matrix4x4 fallback);
         public byte[] GetBytes(string key);
         public int[] GetInts(string key);
         public float[] GetFloats(string key);
         public string[] GetStrings(string key);
         public Vector3[] GetVector3s(string key);
+        public Vector2[] GetVector2s(string key);
+        public Vector4[] GetVector4s(string key);
+        public Quaternion[] GetQuaternions(string key);
+        public Color[] GetColors(string key);
+        public BasisSharedTexture GetSharedTexture(string key);
         public BasisSharedTransform GetSharedTransform(string key);
         public BasisScriptReference GetScript(string key);
         public BasisScriptTarget GetTarget(string key);
@@ -131,17 +142,24 @@ namespace Basis.Shims
         public string GetString(string fallback);
         public float GetFloat(float fallback);
         public int GetInt(int fallback);
+        public double GetDouble(double fallback);
         public bool GetBool(bool fallback);
         public Vector2 GetVector2(Vector2 fallback);
         public Vector3 GetVector3(Vector3 fallback);
         public Vector4 GetVector4(Vector4 fallback);
         public Quaternion GetQuaternion(Quaternion fallback);
         public Color GetColor(Color fallback);
+        public Matrix4x4 GetMatrix(Matrix4x4 fallback);
         public byte[] GetBytes();
         public int[] GetInts();
         public float[] GetFloats();
         public string[] GetStrings();
         public Vector3[] GetVector3s();
+        public Vector2[] GetVector2s();
+        public Vector4[] GetVector4s();
+        public Quaternion[] GetQuaternions();
+        public Color[] GetColors();
+        public BasisSharedTexture GetSharedTexture();
         public BasisSharedTransform GetSharedTransform();
         public BasisScriptReference GetScript();
         public BasisScriptTarget GetTarget();
@@ -187,6 +205,18 @@ namespace Basis.Shims
         public bool SetLocalScale(Vector3 scale);
         public bool SetActive(bool active);
     }
+
+    public sealed class BasisSharedTexture
+    {
+        public bool IsValid { get; }
+        public string Name { get; }
+        public BasisScriptTarget Owner { get; }
+        public int Width { get; }
+        public int Height { get; }
+        public bool IsRenderTexture { get; }
+        public Texture GetTexture(object self);
+        public void Release(object self);
+    }
 }
 ```
 
@@ -216,16 +246,21 @@ Published values and message values share one set of types. Anything else is ref
 | Type constant | C# types accepted | Read with |
 | --- | --- | --- |
 | `TypeText` | `string` (up to 4096 chars) | `GetString` |
-| `TypeNumber` | any primitive number (`int`, `float`, `double`, `long`, `byte`, ...) | `GetFloat`, `GetInt` (rounds), `GetString` |
+| `TypeNumber` | any primitive number (`int`, `float`, `double`, `long`, `byte`, ...) | `GetFloat`, `GetInt` (rounds), `GetDouble` (full precision), `GetString` |
 | `TypeBool` | `bool` | `GetBool`, also `GetInt` and `GetFloat` as 0 or 1 |
 | `TypeBytes` | `byte[]` (up to 65536 bytes) | `GetBytes`, `Data` |
 | `TypeVector2`, `TypeVector3`, `TypeVector4` | `Vector2`, `Vector3`, `Vector4` | matching getter |
 | `TypeQuaternion` | `Quaternion` | `GetQuaternion` |
-| `TypeColor` | `Color` | `GetColor` |
+| `TypeColor` | `Color`, `Color32` | `GetColor` |
+| `TypeMatrix` | `Matrix4x4` | `GetMatrix` |
 | `TypeInts` | `int[]` (up to 4096) | `GetInts` |
 | `TypeFloats` | `float[]` (up to 4096) | `GetFloats` |
 | `TypeStrings` | `string[]` (up to 4096, 32768 chars in total, null becomes "") | `GetStrings` |
 | `TypeVector3s` | `Vector3[]` (up to 4096) | `GetVector3s` |
+| `TypeVector2s`, `TypeVector4s` | `Vector2[]`, `Vector4[]` (up to 4096) | `GetVector2s`, `GetVector4s` |
+| `TypeQuaternions` | `Quaternion[]` (up to 4096) | `GetQuaternions` |
+| `TypeColors` | `Color[]` or `Color32[]` (up to 4096) | `GetColors` |
+| `TypeTexture` | a `Texture2D` or 2D `RenderTexture` up to 4096 x 4096, or a `BasisSharedTexture` | `GetSharedTexture` |
 | `TypeTransform` | a `BasisSharedTransform`, or a `Transform`, `GameObject` or component of the sender's own content (shared read-only) | `GetSharedTransform` |
 | `TypeScript` | one of the sender's own scripts (`this` or another script in the same content), or a `BasisScriptReference` it was given | `GetScript` |
 | `TypeTarget` | a `BasisScriptTarget` | `GetTarget` |
@@ -246,6 +281,24 @@ A content can let other content see or move one of its own Transforms. The recei
 - A handle can be passed on as a value. Writable means writable for whoever ends up with it, so only share writable with content you trust, and prefer `Send` over `Publish`, since published values are readable by every content on the client.
 
 A content can only share its own Transforms: the nearest `BasisContentBase` above it must be the sender's content, or, for a world, a loose scene object with no content above it and not under a player. Anything else is refused along with the whole call. Assets and script proxies are refused too; scripts go through `TypeScript`. A handle dies with its Transform or its content.
+
+### Shared textures
+
+A content can show other content one of its textures: a camera feed on a world screen, a drawing from a whiteboard prop, an avatar's badge picture. Pass a `Texture2D` or a 2D `RenderTexture` as a value, or call `Share(this, texture)` for the handle. The receiver gets a `BasisSharedTexture` with `Name`, `Owner`, `Width`, `Height` and `IsRenderTexture`.
+
+`GetTexture(this)` returns a texture the receiver can put on its own materials, `RawImage`s and sprites. It is the receiver's own copy, a `RenderTexture` that Basis keeps in step with the source:
+
+- A `RenderTexture` source is copied every bus tick, so camera feeds stay live.
+- A `Texture2D` source is copied again whenever its `updateCount` changes, which is every `Apply`.
+- One copy per receiving content. Calling `GetTexture` again returns the same object. The owner gets its own texture back, with no copy.
+- A receiver can do what it likes with its copy (render into it, change its filter mode, destroy it). That only touches its copy, and the next refresh paints it over. Nothing a receiver does reaches the sender's texture or another receiver's copy.
+- `Release(this)` frees the caller's copy early. `Unshare(this, texture)` takes the share back: the handle goes invalid and every copy is destroyed, so receivers' materials lose the texture. Copies also go when the sender or the receiver content goes, or the source texture is destroyed.
+
+Copies keep the source's size, filter and wrap modes and mipmaps. A `RenderTexture` keeps its format. A `Texture2D` copy is RGBA8 (sRGB when the source is sRGB) or RGBA16F for HDR sources, which also unpacks compressed textures. Copies are GPU-only, so `GetPixels` on them needs `ReadPixels` like any `RenderTexture`.
+
+`GetTexture` returns null when the caller is not running, the share is dead, or a copy limit is hit. Each receiving content can hold 16 copies and 128 MB of them, and all content together 512 MB. At most 16 million pixels are refreshed per tick, round robin, so many live feeds share the GPU time. Sharing a texture counts 16 bytes against the send rate like any other handle; the copying is paid out of the copy limits instead.
+
+A content can share any texture it can reach. A receiver could already put that texture on its own material if it had it, so the bus hands out nothing new; what it adds is a way to pass it without exposing the original object.
 
 ### Script references
 
@@ -306,6 +359,9 @@ Delivery rules:
 | Queued messages per receiving content | 256, extra messages to that content are dropped |
 | Sends per content | 120 per second, broadcast counts once |
 | Bytes per content | 1 MB per second, counted per receiver |
+| Shared textures | 4096 x 4096, `Texture2D` or 2D `RenderTexture` |
+| Texture copies per receiving content | 16, 128 MB |
+| Texture copies in total | 512 MB, 16 million pixels refreshed per tick |
 
 The interpreter's own per-frame time budget still applies to handlers.
 
@@ -314,7 +370,7 @@ The interpreter's own per-frame time budget still applies to handlers.
 - Only a running script can call `Self`, `Listen`, `Unlisten`, `Send`, `Broadcast`, `Publish`, `Unpublish`, `Tag`, `Untag` and `Describe` (its box must be inside interpreted code). This is the same check `BasisMenuShim` uses.
 - The handler must be a method of the calling script's own box. Host delegates and methods from another box are refused, so a script cannot get another box's code run under its listener.
 - The sender identity is attached by Basis from the calling box. Scripts cannot construct a `BasisScriptTarget` or `BasisScriptMessage`, and every setter and internal member is a floor deny in `CilboxBasisCommon.CheckMethodAllowed` that consent cannot unlock.
-- Only the value types listed above, strings and Basis handles cross the boundary. No Unity object crosses. Transforms the sender owns cross only as `BasisSharedTransform` handles (see Shared transforms). No interpreted object reaches another box; scripts cross as `BasisScriptReference` handles, which resolve to the object only inside their own box.
+- Only the value types listed above, strings and Basis handles cross the boundary. Transforms the sender owns cross only as `BasisSharedTransform` handles (see Shared transforms). The only Unity object a receiver can get is its own copy of a shared texture, which Basis creates for it and which is not the sender's object. No interpreted object reaches another box; scripts cross as `BasisScriptReference` handles, which resolve to the object only inside their own box.
 - No consent prompt. The bus reaches nothing outside the content that chose to listen or publish, so it sits in the default sandbox for worlds, props and avatars.
 
 ## What receivers should check
@@ -364,7 +420,7 @@ void OnGoal(BasisScriptMessage message)
 
 ## Box whitelists
 
-Prop and scene boxes already allow `Basis.Shims.*`. The avatar box enumerates its shims, so `BasisScriptBus`, `BasisScriptTarget`, `BasisScriptMessage`, `BasisScriptReference` and `BasisSharedTransform` are listed in `CilboxAvatarBasis`. `System.Action`1` is already in the common whitelist.
+Prop and scene boxes already allow `Basis.Shims.*`. The avatar box enumerates its shims, so `BasisScriptBus`, `BasisScriptTarget`, `BasisScriptMessage`, `BasisScriptReference`, `BasisSharedTransform` and `BasisSharedTexture` are listed in `CilboxAvatarBasis`. `System.Action`1` is already in the common whitelist.
 
 ## Not covered
 

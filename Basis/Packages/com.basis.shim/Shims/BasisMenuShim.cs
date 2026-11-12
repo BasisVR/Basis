@@ -119,6 +119,7 @@ namespace Cilbox
 		static readonly Dictionary<BasisMenuPage, CilboxMenuPage> byPage = new Dictionary<BasisMenuPage, CilboxMenuPage>();
 		static readonly Dictionary<BasisMenuItem, CilboxMenuItem> byItem = new Dictionary<BasisMenuItem, CilboxMenuItem>();
 		static readonly List<(BasisContentBase Content, float At)> opens = new List<(BasisContentBase Content, float At)>();
+		static readonly List<object> dismissed = new List<object>();
 		static readonly StringBuilder text = new StringBuilder(64);
 		static bool ticking;
 
@@ -186,7 +187,7 @@ namespace Cilbox
 			string name = Clean(title, BasisMenuShim.MaxTitleLength, false);
 			if (name.Length == 0) return null;
 			Purge();
-			if (panels.Count >= MaxPanels || HasPanel(WorldOwned(box, content), content) || PanelTitleTaken(name) || !Spend(box)) return null;
+			if (panels.Count >= MaxPanels || HasPanel(WorldOwned(box, content), content) || Dismissed(box, content) || PanelTitleTaken(name) || !Spend(box)) return null;
 			CilboxMenuPanel panel = new CilboxMenuPanel { Title = name };
 			CilboxMenuPage page = NewPage(box, proxy, content, name);
 			page.Panel = panel;
@@ -562,6 +563,28 @@ namespace Cilbox
 			}
 		}
 
+		internal static void Dismiss(CilboxMenuPanel panel)
+		{
+			if (panel == null || !panels.Contains(panel)) return;
+			for (int i = panel.Pages.Count - 1; i >= 0; i--)
+			{
+				if (i >= panel.Pages.Count) continue;
+				CilboxMenuPage page = panel.Pages[i];
+				object owner = (object)page.Content ?? page.Box;
+				if (owner != null && !dismissed.Contains(owner)) dismissed.Add(owner);
+				Remove(page);
+			}
+		}
+
+		static bool Dismissed(CilboxBasisCommon box, BasisContentBase content)
+		{
+			for (int i = dismissed.Count - 1; i >= 0; i--)
+			{
+				if (dismissed[i] is UnityEngine.Object alive && alive == null) dismissed.RemoveAt(i);
+			}
+			return dismissed.Contains((object)content ?? box);
+		}
+
 		internal static void Reset()
 		{
 			for (int i = pages.Count - 1; i >= 0; i--)
@@ -569,6 +592,7 @@ namespace Cilbox
 				if (i < pages.Count) Remove(pages[i]);
 			}
 			opens.Clear();
+			dismissed.Clear();
 		}
 
 		static void Purge()

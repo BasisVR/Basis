@@ -32,6 +32,8 @@ namespace Cilbox
 			"Basis.Shims.BasisLockResult",
 			"Basis.Shims.BasisHandBlockShim",
 			"Basis.Shims.BasisHandBlock",
+			"Basis.Shims.BasisEyeTrackingShim", // Only reads the gaze of the player wearing the avatar.
+			"Basis.Shims.BasisEyeGazeSource",
 			"Basis.Shims.BasisSettingRequestShim",
 			"Basis.Shims.BasisSettingRequestResult",
 			"Basis.Shims.BasisSettingFavouritesShim",
@@ -68,6 +70,7 @@ namespace Cilbox
 			"Basis.Shims.BasisScriptMessage",
 			"Basis.Shims.BasisScriptReference",
 			"Basis.Shims.BasisSharedTransform",
+			"Basis.Shims.BasisSharedTexture",
 		};
 
 		static readonly HashSet<string> extraWhiteListFields = new HashSet<string>(){

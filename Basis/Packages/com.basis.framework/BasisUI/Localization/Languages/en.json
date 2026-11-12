@@ -14344,11 +14344,19 @@
     },
     {
       "key": "ui.resetValue.hint.desktop",
-      "value": "Right-click for its options."
+      "value": "Middle-click for options."
     },
     {
       "key": "ui.resetValue.hint.vr",
       "value": "Click this hand's thumbstick for its options."
+    },
+    {
+      "key": "ui.resetValue.hint.button.desktop",
+      "value": "Middle-click for button options."
+    },
+    {
+      "key": "ui.resetValue.hint.button.vr",
+      "value": "Click this hand's thumbstick for button options."
     },
     {
       "key": "ui.textPreview.title",
@@ -15183,6 +15191,10 @@
       "value": "Change how other players' bodies look on your screen"
     },
     {
+      "key": "settings.cilboxPermissions.cap.eyeTracking",
+      "value": "See where you are looking"
+    },
+    {
       "key": "settings.cilboxPermissions.cap.localMedia",
       "value": "Open video or audio files on your computer"
     },
@@ -15341,6 +15353,10 @@
     {
       "key": "settings.cilboxPermissions.why.yourPlayer",
       "value": "Can take direct control of your own player, such as moving, teleporting or freezing you."
+    },
+    {
+      "key": "settings.cilboxPermissions.why.eyeTracking",
+      "value": "Can read where your eyes are looking and how open they are, from your headset or face tracking."
     },
     {
       "key": "settings.cilboxPermissions.why.localMedia",
@@ -22555,6 +22571,10 @@
     {
       "key": "settings.favourites.remove",
       "value": "Remove from Favourites"
+    },
+    {
+      "key": "menu.removeFromMenu",
+      "value": "Remove from Menu"
     },
     {
       "key": "prompt.armWait",

@@ -212,6 +212,11 @@ namespace Basis.Tests.Sync
                 Assert.IsTrue(Method(box, typeof(BasisScriptReference), nameof(BasisScriptReference.Resolve)), boxType.Name);
                 Assert.IsTrue(Method(box, typeof(BasisScriptReference), "get_" + nameof(BasisScriptReference.ClassName)), boxType.Name);
                 Assert.IsFalse(Method(box, typeof(BasisScriptReference), ".ctor"), boxType.Name + " must not forge a script reference.");
+                Assert.IsTrue(Method(box, typeof(BasisSharedTexture), nameof(BasisSharedTexture.GetTexture)), boxType.Name);
+                Assert.IsTrue(Method(box, typeof(BasisSharedTexture), "get_" + nameof(BasisSharedTexture.Width)), boxType.Name);
+                Assert.IsTrue(Method(box, typeof(BasisScriptMessage), nameof(BasisScriptMessage.GetSharedTexture)), boxType.Name);
+                Assert.IsTrue(Method(box, typeof(BasisScriptTarget), nameof(BasisScriptTarget.GetMatrix)), boxType.Name);
+                Assert.IsFalse(Method(box, typeof(BasisSharedTexture), ".ctor"), boxType.Name + " must not forge a shared texture.");
             }
         }
 
@@ -617,6 +622,184 @@ namespace Basis.Tests.Sync
             UnityEngine.Object.DestroyImmediate(handle.gameObject);
             Assert.IsNull(propTarget.GetSharedTransform("handle"), "a destroyed Transform reads back as null");
             Assert.IsFalse(published.IsValid);
+        }
+
+        [Test]
+        public void MoreValueTypes_CrossAndComeBackTyped()
+        {
+            CilboxPropBasis propBox = Box<CilboxPropBasis>("Prop script");
+            propBox.gameObject.AddComponent<BasisProp>();
+            CilboxProxy prop = Proxy(propBox);
+            Matrix4x4 matrix = Matrix4x4.TRS(new Vector3(1f, 2f, 3f), Quaternion.Euler(0f, 45f, 0f), Vector3.one * 2f);
+            Vector2[] uvs = { new Vector2(0f, 1f), new Vector2(0.5f, 0.25f) };
+            Color32[] palette = { new Color32(255, 0, 0, 255) };
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Publish(prop, "pose", matrix)));
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Publish(prop, "uvs", uvs)));
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Publish(prop, "planes", new[] { new Vector4(0f, 1f, 0f, -2f) })));
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Publish(prop, "turns", new[] { Quaternion.identity })));
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Publish(prop, "palette", palette)));
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Publish(prop, "tint", new Color32(0, 255, 0, 255))));
+            Assert.IsTrue(Running(propBox, () => BasisScriptBus.Publish(prop, "time", 1234567.890123d)));
+            Matrix4x4 broken = Matrix4x4.identity;
+            broken[5] = float.NaN;
+            Assert.IsFalse(Running(propBox, () => BasisScriptBus.Publish(prop, "broken", broken)));
+            Assert.IsFalse(Running(propBox, () => BasisScriptBus.Publish(prop, "far", new[] { new Vector2(float.PositiveInfinity, 0f) })));
+            Assert.IsFalse(Running(propBox, () => BasisScriptBus.Publish(prop, "long", new Vector2[BasisScriptBus.MaxArrayLength + 1])));
+            uvs[0] = Vector2.zero;
+
+            BasisScriptTarget target = BasisScriptBus.Of(propBox.gameObject);
+            Assert.AreEqual(BasisScriptBus.TypeMatrix, target.TypeOf("pose"));
+            Assert.AreEqual(matrix, target.GetMatrix("pose", Matrix4x4.identity));
+            Assert.AreEqual(Matrix4x4.identity, target.GetMatrix("uvs", Matrix4x4.identity), "wrong type gives the fallback");
+            CollectionAssert.AreEqual(new[] { new Vector2(0f, 1f), new Vector2(0.5f, 0.25f) }, target.GetVector2s("uvs"), "publisher edits after Publish must not leak in");
+            Assert.AreEqual(new Vector4(0f, 1f, 0f, -2f), target.GetVector4s("planes")[0]);
+            Assert.AreEqual(Quaternion.identity, target.GetQuaternions("turns")[0]);
+            Assert.AreEqual(BasisScriptBus.TypeColors, target.TypeOf("palette"), "Color32 arrays arrive as Color arrays");
+            Assert.AreEqual(Color.red, target.GetColors("palette")[0]);
+            Assert.AreEqual(Color.green, target.GetColor("tint", Color.clear));
+            Assert.AreEqual(1234567.890123d, target.GetDouble("time", 0d), "GetDouble keeps full precision");
+            target.GetColors("palette")[0] = Color.blue;
+            Assert.AreEqual(Color.red, target.GetColors("palette")[0], "one reader's edits must not reach the next");
+        }
+
+        static Color ReadPixel(Texture texture)
+        {
+            RenderTexture active = RenderTexture.active;
+            RenderTexture rt = texture as RenderTexture;
+            Assert.IsNotNull(rt, "a copy is a RenderTexture");
+            Texture2D read = new Texture2D(rt.width, rt.height, TextureFormat.RGBA32, false);
+            try
+            {
+                RenderTexture.active = rt;
+                read.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
+                read.Apply();
+                return read.GetPixel(0, 0);
+            }
+            finally
+            {
+                RenderTexture.active = active;
+                UnityEngine.Object.DestroyImmediate(read);
+            }
+        }
+
+        static Texture2D Solid(string name, Color color)
+        {
+            Texture2D texture = new Texture2D(4, 4, TextureFormat.RGBA32, false) { name = name };
+            Color[] pixels = new Color[16];
+            for (int i = 0; i < pixels.Length; i++) pixels[i] = color;
+            texture.SetPixels(pixels);
+            texture.Apply();
+            return texture;
+        }
+
+        [Test]
+        public void ASharedTexture_GivesEachReceiverItsOwnLiveCopy()
+        {
+            CilboxSceneBasis worldBox = Box<CilboxSceneBasis>("World script");
+            CilboxPropBasis propBox = Box<CilboxPropBasis>("Prop script");
+            CilboxPropBasis otherBox = Box<CilboxPropBasis>("Other prop");
+            BasisProp content = propBox.gameObject.AddComponent<BasisProp>();
+            otherBox.gameObject.AddComponent<BasisProp>();
+            CilboxProxy world = Proxy(worldBox), prop = Proxy(propBox), other = Proxy(otherBox);
+            Texture2D source = Solid("Screen", Color.red);
+            try
+            {
+                Assert.IsTrue(Listen(world, "screen", "OnMessage"));
+                BasisScriptTarget worldTarget = Running(worldBox, () => BasisScriptBus.Self(world));
+                BasisScriptTarget propTarget = Running(propBox, () => BasisScriptBus.Self(prop));
+
+                Assert.Greater(Running(propBox, () => BasisScriptBus.Send(prop, worldTarget, "screen", "tv", source)), 0);
+                BasisScriptMessage message = Peek(0);
+                Assert.AreEqual(BasisScriptBus.TypeTexture, message.ValueType);
+                BasisSharedTexture shared = message.GetSharedTexture();
+                Assert.IsNotNull(shared);
+                Assert.AreEqual("Screen", shared.Name);
+                Assert.AreEqual(4, shared.Width);
+                Assert.AreEqual(4, shared.Height);
+                Assert.IsFalse(shared.IsRenderTexture);
+                Assert.AreSame(propTarget, shared.Owner);
+                Assert.AreSame(shared, Running(propBox, () => BasisScriptBus.Share(prop, source)), "one handle per texture and owner, so == works");
+                Assert.IsNull(shared.GetTexture(world), "only a running script can ask for its copy");
+                Tick();
+
+                Assert.AreSame(source, Running(propBox, () => shared.GetTexture(prop)), "the owner gets its own texture back, no copy");
+                Texture worldCopy = Running(worldBox, () => shared.GetTexture(world));
+                Assert.IsNotNull(worldCopy);
+                Assert.AreNotSame(source, worldCopy, "a receiver never holds the sender's texture");
+                Assert.AreSame(worldCopy, Running(worldBox, () => shared.GetTexture(world)), "one copy per receiving content");
+                Texture otherCopy = Running(otherBox, () => shared.GetTexture(other));
+                Assert.AreNotSame(worldCopy, otherCopy, "each receiver spoils only its own copy");
+                Assert.AreEqual(2, (int)Call("get_CopyCount"));
+                Assert.AreEqual(Color.red, ReadPixel(worldCopy));
+
+                Color[] blue = new Color[16];
+                for (int i = 0; i < blue.Length; i++) blue[i] = Color.blue;
+                source.SetPixels(blue);
+                source.Apply();
+                Tick();
+                Assert.AreEqual(Color.blue, ReadPixel(worldCopy), "copies follow the sender's texture");
+
+                Running(otherBox, () => { shared.Release(other); return 0; });
+                Assert.IsTrue(otherCopy == null, "Release frees the caller's copy");
+                Assert.AreEqual(1, (int)Call("get_CopyCount"));
+
+                Running(propBox, () => { BasisScriptBus.Unshare(prop, source); return 0; });
+                Assert.IsFalse(shared.IsValid);
+                Assert.IsTrue(worldCopy == null, "taking the share back frees every copy");
+                Assert.AreEqual(0, (int)Call("get_CopyCount"));
+                Assert.IsNull(Running(worldBox, () => shared.GetTexture(world)));
+
+                Assert.IsTrue(Running(propBox, () => BasisScriptBus.Publish(prop, "screen", source)));
+                BasisSharedTexture published = propTarget.GetSharedTexture("screen");
+                Assert.IsNotNull(published);
+                Texture publishedCopy = Running(worldBox, () => published.GetTexture(world));
+                Assert.IsNotNull(publishedCopy);
+                UnityEngine.Object.DestroyImmediate(content);
+                Tick();
+                Assert.IsFalse(published.IsValid, "a share dies with its content");
+                Assert.IsTrue(publishedCopy == null);
+                Assert.AreEqual(0, (int)Call("get_CopyCount"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(source);
+            }
+        }
+
+        [Test]
+        public void TextureShares_RefuseWhatTheyCannotCopy_AndCopiesAreCapped()
+        {
+            CilboxSceneBasis worldBox = Box<CilboxSceneBasis>("World script");
+            CilboxPropBasis propBox = Box<CilboxPropBasis>("Prop script");
+            propBox.gameObject.AddComponent<BasisProp>();
+            CilboxProxy world = Proxy(worldBox), prop = Proxy(propBox);
+            Texture2D wide = new Texture2D(BasisScriptBus.MaxTextureSize + 1, 1, TextureFormat.RGBA32, false);
+            Cubemap cube = new Cubemap(4, TextureFormat.RGBA32, false);
+            List<Texture2D> many = new List<Texture2D>();
+            try
+            {
+                Assert.IsNull(Running(propBox, () => BasisScriptBus.Share(prop, wide)), "too big to copy");
+                Assert.IsNull(Running(propBox, () => BasisScriptBus.Share(prop, cube)), "only 2D textures cross");
+                Assert.IsFalse(Running(propBox, () => BasisScriptBus.Publish(prop, "cube", cube)), "a refused texture refuses the whole call");
+                Assert.IsNull(BasisScriptBus.Share(prop, wide), "only a running script can share");
+
+                for (int i = 0; i <= BasisScriptBus.MaxTextureCopies; i++) many.Add(Solid("Tile " + i, Color.white));
+                int copied = 0;
+                foreach (Texture2D tile in many)
+                {
+                    BasisSharedTexture shared = Running(propBox, () => BasisScriptBus.Share(prop, tile));
+                    Assert.IsNotNull(shared);
+                    if (Running(worldBox, () => shared.GetTexture(world)) != null) copied++;
+                }
+                Assert.AreEqual(BasisScriptBus.MaxTextureCopies, copied, "a receiving content holds a capped number of copies");
+            }
+            finally
+            {
+                Call("Reset");
+                UnityEngine.Object.DestroyImmediate(wide);
+                UnityEngine.Object.DestroyImmediate(cube);
+                foreach (Texture2D tile in many) UnityEngine.Object.DestroyImmediate(tile);
+            }
         }
 
         [Test]
