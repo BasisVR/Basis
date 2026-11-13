@@ -202,4 +202,34 @@ public class P2PBrokerOffloadTests
         Assert.False(BasisServerP2PBroker.IsP2POffloaded(3, 5));
         Assert.False(BasisServerP2PBroker.IsP2POffloaded(5, 7));
     }
+
+    [Fact]
+    public void RepeatedIntroduceFromOnePeer_DoesNotFillBothSlots()
+    {
+        BasisServerP2PBroker.RegisterSessionForTests("burst", 3, 5);
+        var aInternal = new System.Net.IPEndPoint(System.Net.IPAddress.Parse("192.168.1.10"), 40000);
+        var aExternal = new System.Net.IPEndPoint(System.Net.IPAddress.Parse("203.0.113.7"), 51000);
+        var aRemapped = new System.Net.IPEndPoint(System.Net.IPAddress.Parse("203.0.113.7"), 51002);
+        var bInternal = new System.Net.IPEndPoint(System.Net.IPAddress.Parse("10.0.0.4"), 40100);
+        var bExternal = new System.Net.IPEndPoint(System.Net.IPAddress.Parse("198.51.100.9"), 62000);
+
+        BasisServerP2PBroker.IntroductionRequestForTests(aInternal, aExternal, "burst");
+        BasisServerP2PBroker.IntroductionRequestForTests(aInternal, aExternal, "burst");
+        BasisServerP2PBroker.IntroductionRequestForTests(aInternal, aRemapped, "burst");
+        Assert.False(BasisServerP2PBroker.HasBothEndpointsForTests("burst"));
+
+        BasisServerP2PBroker.IntroductionRequestForTests(bInternal, bExternal, "burst");
+        Assert.True(BasisServerP2PBroker.HasBothEndpointsForTests("burst"));
+    }
+
+    [Fact]
+    public void RemovingStaleTokenForPair_KeepsLiveOffload()
+    {
+        BasisServerP2PBroker.RegisterSessionForTests("old", 3, 5);
+        Offload(3, 5, "new");
+
+        BasisServerP2PBroker.RemoveSessionForTests("old");
+
+        Assert.True(BasisServerP2PBroker.IsP2POffloaded(3, 5));
+    }
 }

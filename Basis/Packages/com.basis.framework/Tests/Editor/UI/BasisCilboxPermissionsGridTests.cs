@@ -159,6 +159,29 @@ namespace Basis.Tests.UI
         }
 
         [Test]
+        public void ScrollViewPassMatchesContentPass()
+        {
+            LogAssert.ignoreFailingMessages = true;
+            _section.SetExpanded(true);
+            AssertSettled("after expanding");
+
+            RectTransform scroll = (RectTransform)_content.GetComponentInParent<ScrollRect>().transform;
+            List<RectTransform> tracked = new List<RectTransform>(_content.GetComponentsInChildren<RectTransform>(false));
+            for (int round = 0; round < 3; round++)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(scroll);
+                Vector2[] framed = new Vector2[tracked.Count];
+                for (int Index = 0; Index < tracked.Count; Index++) framed[Index] = Extent(tracked[Index]);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(_content);
+                for (int Index = 0; Index < tracked.Count; Index++)
+                {
+                    Vector2 settled = Extent(tracked[Index]);
+                    Assert.That(framed[Index].x - framed[Index].y, Is.EqualTo(settled.x - settled.y).Within(Tolerance), $"round {round}: the scroll view pass left '{tracked[Index].name}' {framed[Index].x - framed[Index].y - (settled.x - settled.y):0.#} px off its settled height");
+                }
+            }
+        }
+
+        [Test]
         public void ApprovalKeepsWhoWhatWhenWhere()
         {
             const string hash = "grid-test-record";

@@ -35,9 +35,23 @@ namespace Basis.Network.Core
             manager.Stop();
         }
 
+        private System.Tuple<string, IPEndPoint> introducer;
+
+        // Introduce over IPv4 whenever the server has an A record: a name that also resolves to IPv6
+        // would otherwise send dual-stack clients over v6 and v4-only clients over v4, and a v6 peer
+        // cannot punch a v4 peer. Resolved once per server instead of on every burst packet.
         public void RequestIntroduction(string serverHost, int serverPort, string token)
         {
-            manager.NatPunchModule.SendNatIntroduceRequest(serverHost, serverPort, token);
+            System.Tuple<string, IPEndPoint> cached = introducer;
+            if (cached == null || cached.Item1 != serverHost || cached.Item2.Port != serverPort)
+            {
+                IPAddress address;
+                if (serverHost == "localhost") address = IPAddress.Loopback;
+                else if (!IPAddress.TryParse(serverHost, out address))
+                    address = LiteNetLib.NetUtils.ResolveAddress(serverHost, System.Net.Sockets.AddressFamily.InterNetwork) ?? LiteNetLib.NetUtils.ResolveAddress(serverHost);
+                introducer = cached = System.Tuple.Create(serverHost, new IPEndPoint(address, serverPort));
+            }
+            manager.NatPunchModule.SendNatIntroduceRequest(cached.Item2, token);
         }
 
         public NetPeer Connect(IPEndPoint endPoint, NetDataWriter connectData)

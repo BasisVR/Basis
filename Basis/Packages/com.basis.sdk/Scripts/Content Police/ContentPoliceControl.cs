@@ -513,7 +513,11 @@ public static partial class ContentPoliceControl
                     ScrubDangerousPersistentListeners(components, PoliceCheck);
                 }
 
-                // Instantiate the cleaned GameObject copy
+                // Leaving the disabled host would activate the clone here, and on DX12/Vulkan the
+                // caller waits frames for the PSO warm-up before ActivateContentControl, so Start
+                // (Cilbox proxies included) ran before the pre-activation hooks. Stay inactive
+                // until ActivateContentControl, like the no-removal path.
+                SearchAndDestroy.SetActive(false);
                 if (Parent == null)
                 {
                     SearchAndDestroy.transform.parent = null;

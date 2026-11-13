@@ -983,9 +983,25 @@ namespace Basis.BasisUI
                         return "menu.individualPlayer.directConnection.partial";
                     case P2PState.Failed:
                         return "menu.individualPlayer.directConnection.failed";
+                    case P2PState.Idle:
+                        if (!Basis.Scripts.Networking.BasisP2PManager.TryGetLastFailure(directConnPlayerId, out var idleFailure)) return null;
+                        if (idleFailure.Reason == Basis.Scripts.Networking.BasisP2PManager.P2PFailureReason.Declined) return "menu.individualPlayer.directConnection.declined";
+                        if (idleFailure.Reason == Basis.Scripts.Networking.BasisP2PManager.P2PFailureReason.ServerRefused) return "menu.individualPlayer.directConnection.serverRefused";
+                        return null;
                     default:
                         return null;
                 }
+            }
+            string DirectConnWhy(P2PState st)
+            {
+                if (!Basis.Scripts.Networking.BasisP2PManager.TryGetLastFailure(directConnPlayerId, out var failure) || failure.Reason == Basis.Scripts.Networking.BasisP2PManager.P2PFailureReason.None) return null;
+                string reasonName = failure.Reason.ToString();
+                string why = BasisLocalization.Get("menu.individualPlayer.directConnection.why." + char.ToLowerInvariant(reasonName[0]) + reasonName.Substring(1), failure.Detail);
+                if (st == P2PState.Failed || st == P2PState.PartialConnection)
+                {
+                    why += "\n<size=80%><color=#888888>" + BasisLocalization.Get("menu.individualPlayer.directConnection.details", failure.Attempts, failure.Introductions, failure.LocalPort, failure.Server) + "</color></size>";
+                }
+                return why;
             }
 
             BasisPanelSeverity DirectConnSeverity(P2PState st)
@@ -1003,6 +1019,8 @@ namespace Basis.BasisUI
                     case P2PState.PartialConnection:
                     case P2PState.Failed:
                         return BasisPanelSeverity.Hot;
+                    case P2PState.Idle:
+                        return BasisPanelSeverity.Caution;
                     default:
                         return BasisPanelSeverity.None;
                 }
@@ -1026,9 +1044,12 @@ namespace Basis.BasisUI
                     if (showStatus)
                     {
                         string status = BasisLocalization.Get(statusKey);
-                        // Partial is the one state that needs explaining: the server is carrying
-                        // this player, and Try Again re-establishes the direct link.
-                        if (st == P2PState.PartialConnection)
+                        string why = st == P2PState.Idle || st == P2PState.Failed || st == P2PState.PartialConnection ? DirectConnWhy(st) : null;
+                        if (why != null)
+                        {
+                            status += "\n" + why;
+                        }
+                        else if (st == P2PState.PartialConnection)
                         {
                             status += "\n" + BasisLocalization.Get("menu.individualPlayer.directConnection.partial.description");
                         }

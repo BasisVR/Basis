@@ -194,6 +194,39 @@ namespace Basis.Scripts.BasisSdk
             loadVisibilityPreviousForceOff = null;
         }
 
+        public bool AuthoredForceRenderingOff(Renderer renderer)
+        {
+            if (loadVisibilityRenderers != null)
+            {
+                for (int i = 0; i < loadVisibilityRenderers.Length; i++)
+                {
+                    if (loadVisibilityRenderers[i] == renderer)
+                    {
+                        return loadVisibilityPreviousForceOff[i];
+                    }
+                }
+            }
+            return renderer.forceRenderingOff;
+        }
+
+        public bool ReplaceLoadVisibilityRenderer(Renderer from, Renderer to)
+        {
+            if (loadVisibilityRenderers == null)
+            {
+                return false;
+            }
+            for (int i = 0; i < loadVisibilityRenderers.Length; i++)
+            {
+                if (loadVisibilityRenderers[i] == from)
+                {
+                    loadVisibilityRenderers[i] = to;
+                    to.forceRenderingOff = true;
+                    return true;
+                }
+            }
+            return false;
+        }
+
         /// <summary>
         /// True when this avatar is a runtime-built far LOD proxy standing in for the real
         /// avatar (out of range, downloading, or platform-missing). It goes through the exact

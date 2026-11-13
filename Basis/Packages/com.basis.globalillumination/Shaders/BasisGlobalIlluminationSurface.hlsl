@@ -118,7 +118,7 @@ float4 SurfaceFrag(SurfaceVaryings input) : SV_Target
     {
         texel = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv * _MainTex_ST.xy + _MainTex_ST.zw);
     }
-    float4 tint = _BaseColor.r >= 0.0 ? _BaseColor : _Color;
+    float4 tint = _BaseColor.a > 0.0 ? _BaseColor : (_Color.a > 0.0 ? _Color : float4(1.0, 1.0, 1.0, 1.0));
     float alpha = texel.a * tint.a;
     if (clip && alpha < (_Cutoff >= 0.0 ? _Cutoff : 0.5)) { discard; }
     if (blend && alpha < 0.9) { discard; }

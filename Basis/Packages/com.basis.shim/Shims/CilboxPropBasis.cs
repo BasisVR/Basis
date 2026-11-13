@@ -16,6 +16,7 @@ namespace Cilbox
 			"Basis.BasisImageDownloader",
 			"Basis.IBasisImageDownload",
 			"Basis.BasisStringDownloader",
+			"Basis.BasisUrl",
 			// Basis media-player components. Playback control, status and events are open to a
 			// prop; every route that opens a URL is blocked in CheckMethodAllowed until the player
 			// itself asks the user before opening one.

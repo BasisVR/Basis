@@ -71,6 +71,9 @@ namespace Cilbox
 			"Basis.Shims.BasisScriptReference",
 			"Basis.Shims.BasisSharedTransform",
 			"Basis.Shims.BasisSharedTexture",
+			"Basis.Shims.BasisJson",
+			"Basis.Shims.BasisJsonNode",
+			"Basis.Shims.BasisUIExtensions",
 		};
 
 		static readonly HashSet<string> extraWhiteListFields = new HashSet<string>(){

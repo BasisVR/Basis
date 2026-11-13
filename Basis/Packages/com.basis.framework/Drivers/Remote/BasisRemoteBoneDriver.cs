@@ -357,7 +357,8 @@ public struct MappedNameplateApplyJob : IJobParallelForTransform
         float2 xz = new float2(toCam.x, toCam.z);
         float yaw = math.lengthsq(xz) > 1e-12f ? math.atan2(xz.x, xz.y) : 0f;
         float4 last = LastPose[key];
-        if ((state & 2) == 0 && math.lengthsq(nameplatePos - last.xyz) < 4e-6f)
+        bool unwritten = (math.asuint(last.x) & 0x7F800000u) == 0x7F800000u;
+        if ((state & 2) == 0 && !unwritten && math.lengthsq(nameplatePos - last.xyz) < 4e-6f)
         {
             float yawDelta = math.abs(yaw - last.w);
             if (math.min(yawDelta, 2f * math.PI - yawDelta) < 0.00436f) return;

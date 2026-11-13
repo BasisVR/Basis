@@ -268,13 +268,18 @@ namespace BasisNetworkServer
             // Re-arm session + clear offload so relay resumes during re-punch window.
             if (_sessions.TryGetValue(sessionToken, out Session s))
             {
-                bool wasOffloaded = _offloadedPairs.ContainsKey(PackPair(s.InitiatorPeerId, s.TargetPeerId));
-                s.HasA = false;
-                s.HasB = false;
-                s.InitiatorLinkUp = false;
-                s.TargetLinkUp = false;
-                s.State = SessionState.ReadyForPunch;
-                if (_offloadedPairs.TryRemove(PackPair(s.InitiatorPeerId, s.TargetPeerId), out _))
+                if (senderId != s.InitiatorPeerId && senderId != s.TargetPeerId) return;
+                bool wasOffloaded;
+                lock (s)
+                {
+                    wasOffloaded = s.InitiatorLinkUp && s.TargetLinkUp;
+                    s.HasA = false;
+                    s.HasB = false;
+                    s.InitiatorLinkUp = false;
+                    s.TargetLinkUp = false;
+                    s.State = SessionState.ReadyForPunch;
+                }
+                if (wasOffloaded && _offloadedPairs.TryRemove(PackPair(s.InitiatorPeerId, s.TargetPeerId), out _))
                 {
                     Interlocked.Decrement(ref _offloadedPairCount);
                 }
@@ -313,9 +318,21 @@ namespace BasisNetworkServer
             BNLThrottle.Log("p2p.introduce", $"[P2P] NatIntroduceRequest token={Preview(token)}; HasA={s.HasA} HasB={s.HasB}.");
 
             // Arrival order labels the slots; NatIntroduce is symmetric so it doesn't matter which is which.
+            // Each client repeats its request, so a repeat from the peer already in a slot refreshes that
+            // slot; filling B with it would introduce the peer to itself and the punch could never land.
             lock (s)
             {
-                if (!s.HasA)
+                if (s.HasA && SameClient(s.EndpointA_Internal, s.EndpointA_External, localEndPoint, remoteEndPoint))
+                {
+                    s.EndpointA_Internal = localEndPoint;
+                    s.EndpointA_External = remoteEndPoint;
+                }
+                else if (s.HasB && SameClient(s.EndpointB_Internal, s.EndpointB_External, localEndPoint, remoteEndPoint))
+                {
+                    s.EndpointB_Internal = localEndPoint;
+                    s.EndpointB_External = remoteEndPoint;
+                }
+                else if (!s.HasA)
                 {
                     s.EndpointA_Internal = localEndPoint;
                     s.EndpointA_External = remoteEndPoint;
@@ -326,6 +343,11 @@ namespace BasisNetworkServer
                     s.EndpointB_Internal = localEndPoint;
                     s.EndpointB_External = remoteEndPoint;
                     s.HasB = true;
+                }
+                else
+                {
+                    BNLThrottle.LogWarning("p2p.thirdEndpoint", $"[P2P] NatIntroduceRequest for token {Preview(token)} from a third endpoint {remoteEndPoint}; ignoring.");
+                    return;
                 }
 
                 if (s.HasA && s.HasB)
@@ -375,6 +397,15 @@ namespace BasisNetworkServer
             }
         }
 
+        // The external endpoint is the client's P2P socket as the server sees it; the internal one is
+        // its LAN address + local port, which survives a NAT remapping the external port between bursts.
+        private static bool SameClient(IPEndPoint slotInternal, IPEndPoint slotExternal, IPEndPoint requestInternal, IPEndPoint requestExternal)
+        {
+            if (slotExternal != null && slotExternal.Equals(requestExternal)) return true;
+            return slotInternal != null && requestInternal != null && slotInternal.Equals(requestInternal)
+                && slotExternal != null && requestExternal != null && slotExternal.Address.Equals(requestExternal.Address);
+        }
+
         private static string Preview(string token)
         {
             if (string.IsNullOrEmpty(token)) return "(empty)";
@@ -404,7 +435,8 @@ namespace BasisNetworkServer
             if (!_sessions.TryRemove(token, out Session s)) return;
             UntrackPeerSession(s.InitiatorPeerId, token);
             UntrackPeerSession(s.TargetPeerId, token);
-            if (_offloadedPairs.TryRemove(PackPair(s.InitiatorPeerId, s.TargetPeerId), out _))
+            // A stale token for the same pair (a replaced request) must not end the live session's offload.
+            if (s.InitiatorLinkUp && s.TargetLinkUp && _offloadedPairs.TryRemove(PackPair(s.InitiatorPeerId, s.TargetPeerId), out _))
             {
                 Interlocked.Decrement(ref _offloadedPairCount);
             }
@@ -474,5 +506,9 @@ namespace BasisNetworkServer
         // True if the broker currently holds a session under this token (used by tests to assert
         // that disconnect/cancel fully tore the session down, not just the offload flag).
         internal static bool HasSessionForTests(string token) => _sessions.ContainsKey(token);
+
+        internal static void IntroductionRequestForTests(IPEndPoint localEndPoint, IPEndPoint remoteEndPoint, string token) => OnNatIntroductionRequest(localEndPoint, remoteEndPoint, token);
+        internal static bool HasBothEndpointsForTests(string token) => _sessions.TryGetValue(token, out Session s) && s.HasA && s.HasB;
+        internal static void RemoveSessionForTests(string token) => RemoveSession(token);
     }
 }

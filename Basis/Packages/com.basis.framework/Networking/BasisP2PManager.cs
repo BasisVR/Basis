@@ -32,10 +32,51 @@ namespace Basis.Scripts.Networking
             // auto-retry, then a manual "Try Again", re-punches the link.
             PartialConnection,
         }
+        public enum P2PFailureReason : byte
+        {
+            None,
+            ServerRefused,
+            Declined,
+            TransportUnsupported,
+            SocketUnavailable,
+            NoServerEndpoint,
+            NoIntroduction,
+            HandshakeTimedOut,
+            LanHandshakeTimedOut,
+            BlockedAddress,
+            Encryption,
+            LinkStale,
+            PeerNeverConfirmed,
+            ReconnectExhausted,
+        }
+        public struct P2PFailureInfo
+        {
+            public P2PFailureReason Reason;
+            public int Attempts, Introductions, LocalPort;
+            public string Server, Detail;
+        }
+        private static readonly ConcurrentDictionary<ushort, P2PFailureInfo> _lastFailure = new();
+        private static string _socketFailure;
+        public static bool TryGetLastFailure(ushort otherPlayerId, out P2PFailureInfo info) => _lastFailure.TryGetValue(otherPlayerId, out info);
+        private static void RecordFailure(Session s, P2PFailureReason reason, string detail = null)
+        {
+            var info = new P2PFailureInfo
+            {
+                Reason = reason,
+                Attempts = s.PunchAttempts,
+                Introductions = s.Introductions,
+                LocalPort = _p2pSocket?.LocalPort ?? 0,
+                Server = string.IsNullOrEmpty(ServerHost) ? string.Empty : $"{ServerHost}:{ServerPort}",
+                Detail = detail ?? string.Empty,
+            };
+            _lastFailure[s.OtherPlayerId] = info;
+            BasisDebug.LogWarning($"[P2P] Direct connection to player {s.OtherPlayerId} failed: {reason} (attempts {info.Attempts}, introductions {info.Introductions}, sameNetwork {s.SameNetwork}, local UDP port {info.LocalPort}, server {info.Server}{(string.IsNullOrEmpty(detail) ? "" : ", " + detail)}).");
+        }
 
         private const int MaxPunchAttempts = 5;
         private const int PunchRequestSends = 4;
         private const int PunchRequestIntervalMs = 300;
+        private const int ExternalGraceMs = 250;
 
         // --- Direct-link health / partial-connection detection ---
         // The server stops relaying a pair once both sides report LinkUp. If the UDP data
@@ -79,8 +120,13 @@ namespace Basis.Scripts.Networking
             public bool LocalIsInitiator;
             public P2PSessionState State;
             public NetPeer P2PPeer;
+            public NetPeer PendingPeer;
+            public bool ConnectInternal;
+            public IPEndPoint DeferredExternal;
+            public readonly object ConnectLock = new object();
+            public string RejectedTargetReason;
             public IPAddress ExpectedRemoteAddress;
-            public int PunchAttempts;
+            public int PunchAttempts, Introductions;
             public bool SameNetwork;
             public bool ConnectIssued;
             public byte[] LocalEphemeralPrivate;
@@ -105,6 +151,7 @@ namespace Basis.Scripts.Networking
         }
 
         private static readonly ConcurrentDictionary<string, Session> _sessionsByToken = new();
+        [ThreadStatic] private static Session _acceptingSession;
         private static readonly ConcurrentDictionary<ushort, Session> _sessionsByOtherId = new();
         private static int _connectedSessionCount;
 
@@ -127,10 +174,13 @@ namespace Basis.Scripts.Networking
         public static event Action<ushort, string> OnIncomingRequest;
         public static event Action<ushort, P2PSessionState> OnSessionStateChanged;
 
+        private static bool _serverOnPrivateNetwork;
+
         public static void StampServerEndpoint(string host, int port)
         {
             ServerHost = host;
             ServerPort = port;
+            _serverOnPrivateNetwork = host == "localhost" || (IPAddress.TryParse(host, out IPAddress serverIp) && (IPAddress.IsLoopback(serverIp) || IsLanAddress(serverIp)));
             BasisNetworkProfiler.ConnectedSessionsProvider = GetConnectedSessionCount;
 
             BasisNetworkPlayer.OnRemotePlayerLeft -= HandleRemotePlayerLeft;
@@ -145,6 +195,7 @@ namespace Basis.Scripts.Networking
                 BasisDebug.Log($"[P2P] Player {player.playerId} left the server; dropping direct session (state {s.State}, token {Preview(s.Token)}).");
                 DropSession(s, P2PSessionState.Idle);
             }
+            _lastFailure.TryRemove(player.playerId, out _);
         }
 
         public static int GetConnectedSessionCount()
@@ -163,6 +214,8 @@ namespace Basis.Scripts.Networking
             }
             _sessionsByOtherId.Clear();
             _sessionsByToken.Clear();
+            _lastFailure.Clear();
+            _socketFailure = null;
 
             lock (_initLock)
             {
@@ -202,6 +255,7 @@ namespace Basis.Scripts.Networking
                 return null;
             }
 
+            _lastFailure.TryRemove(targetPlayerId, out _);
             string token = Guid.NewGuid().ToString("N");
             var session = new Session
             {
@@ -230,6 +284,7 @@ namespace Basis.Scripts.Networking
 
         public static void CancelSession(ushort otherPlayerId)
         {
+            _lastFailure.TryRemove(otherPlayerId, out _);
             if (!_sessionsByOtherId.TryGetValue(otherPlayerId, out Session s)) return;
 
             BasisDebug.Log($"[P2P] CancelSession with player {otherPlayerId} (state was {s.State}, token {Preview(s.Token)}).");
@@ -537,6 +592,11 @@ namespace Basis.Scripts.Networking
                     if (_sessionsByToken.TryGetValue(msg.sessionToken, out Session s1))
                     {
                         BasisDebug.Log($"[P2P] Remote sent {(sub == BasisNetworkCommons.P2PSub_Decline ? "Decline" : "Cancel")} for player {s1.OtherPlayerId}; tearing down session (token {Preview(msg.sessionToken)}).");
+                        if (s1.LocalIsInitiator && BasisNetworkPlayers.Players.ContainsKey(s1.OtherPlayerId))
+                        {
+                            if (s1.State == P2PSessionState.OutgoingRequested && sub == BasisNetworkCommons.P2PSub_Cancel) RecordFailure(s1, P2PFailureReason.ServerRefused);
+                            else if (s1.State == P2PSessionState.OutgoingRequested || s1.State == P2PSessionState.OutgoingArmed) RecordFailure(s1, P2PFailureReason.Declined);
+                        }
                         DropSession(s1, P2PSessionState.Idle);
                     }
                     break;
@@ -544,6 +604,15 @@ namespace Basis.Scripts.Networking
                     if (_sessionsByToken.TryGetValue(msg.sessionToken, out Session s2))
                     {
                         BasisDebug.Log($"[P2P] Remote reported LinkLost for player {s2.OtherPlayerId} (token {Preview(msg.sessionToken)}); scheduling reconnect.");
+                        if (s2.State == P2PSessionState.PartialConnection)
+                        {
+                            // The peer re-armed the broker (its Try Again or auto-retry); a session resting
+                            // here after exhausting its attempts must punch again, not give up on the spot.
+                            _lastFailure.TryRemove(s2.OtherPlayerId, out _);
+                            s2.PunchAttempts = 0;
+                            s2.Introductions = 0;
+                            s2.RejectedTargetReason = null;
+                        }
                         ScheduleReconnect(s2);
                     }
                     break;
@@ -577,13 +646,33 @@ namespace Basis.Scripts.Networking
                 SendSubToServer(BasisNetworkCommons.P2PSub_Decline, msg.otherPlayerId, msg.sessionToken);
                 return;
             }
-            if (_sessionsByOtherId.ContainsKey(msg.otherPlayerId))
+            bool autoAccept = false;
+            if (_sessionsByOtherId.TryGetValue(msg.otherPlayerId, out Session existing))
             {
-                BasisDebug.LogWarning($"[P2P] Auto-declining: already have a session with player {msg.otherPlayerId}.");
-                SendSubToServer(BasisNetworkCommons.P2PSub_Decline, msg.otherPlayerId, msg.sessionToken);
-                return;
+                // Both sides asked at once: the lower player id's request wins on both ends, so the
+                // loser drops its own request and takes the winner's instead of both declining.
+                bool glare = existing.LocalIsInitiator && (existing.State == P2PSessionState.OutgoingRequested || existing.State == P2PSessionState.OutgoingArmed);
+                if (glare && BasisNetworkConnection.TryGetLocalPlayerID(out ushort localId) && localId > msg.otherPlayerId)
+                {
+                    BasisDebug.Log($"[P2P] Crossed requests with player {msg.otherPlayerId}; taking theirs (token {Preview(msg.sessionToken)}).");
+                    DropSession(existing, P2PSessionState.Idle);
+                    autoAccept = true;
+                }
+                else if (existing.State == P2PSessionState.PartialConnection)
+                {
+                    // A fresh request means the peer no longer holds the old session; ours would only auto-decline it forever.
+                    BasisDebug.Log($"[P2P] Player {msg.otherPlayerId} started a new request while our link rested on the server; replacing the old session.");
+                    SendSubToServer(BasisNetworkCommons.P2PSub_Cancel, msg.otherPlayerId, existing.Token);
+                    DropSession(existing, P2PSessionState.Idle);
+                }
+                else
+                {
+                    BasisDebug.LogWarning($"[P2P] Auto-declining: already have a session with player {msg.otherPlayerId} (state {existing.State}).");
+                    SendSubToServer(BasisNetworkCommons.P2PSub_Decline, msg.otherPlayerId, msg.sessionToken);
+                    return;
+                }
             }
-
+            _lastFailure.TryRemove(msg.otherPlayerId, out _);
             var session = new Session
             {
                 Token = msg.sessionToken,
@@ -599,6 +688,11 @@ namespace Basis.Scripts.Networking
             _sessionsByOtherId[msg.otherPlayerId] = session;
             NotifyStateChanged(msg.otherPlayerId, session.State);
 
+            if (autoAccept)
+            {
+                AcceptIncoming(msg.otherPlayerId, msg.sessionToken);
+                return;
+            }
             OnIncomingRequest?.Invoke(msg.otherPlayerId, msg.sessionToken);
         }
 
@@ -630,6 +724,8 @@ namespace Basis.Scripts.Networking
             if (_p2pSocket == null || string.IsNullOrEmpty(ServerHost) || ServerPort == 0)
             {
                 BasisDebug.LogError("[P2P] P2P NetManager or server endpoint missing — cannot punch.");
+                if (_p2pSocket != null) RecordFailure(s, P2PFailureReason.NoServerEndpoint);
+                else RecordFailure(s, _socketFailure == null ? P2PFailureReason.SocketUnavailable : P2PFailureReason.TransportUnsupported, _socketFailure);
                 DropSession(s, P2PSessionState.Failed);
                 return;
             }
@@ -692,15 +788,18 @@ namespace Basis.Scripts.Networking
                 if (socket == null)
                 {
                     BasisDebug.LogError($"[P2P] The '{stackId}' transport cannot open direct connections.");
+                    _socketFailure = $"transport {stackId}";
                     _p2pListener = null;
                     return;
                 }
                 if (!socket.Start())
                 {
                     BasisDebug.LogError("[P2P] Failed to start P2P NetManager.");
+                    _socketFailure = null;
                     _p2pListener = null;
                     return;
                 }
+                _socketFailure = null;
                 _p2pSocket = socket;
 
                 BasisDebug.Log($"[P2P] P2P NetManager listening on port {socket.LocalPort}.");
@@ -729,7 +828,9 @@ namespace Basis.Scripts.Networking
             {
                 return true;
             }
-            if (sameNetwork && (IsLanAddress(ip) || IPAddress.IsLoopback(ip)))
+            // A server on loopback / a LAN / a private overlay (Tailscale, ZeroTier) only ever sees
+            // private addresses, so its "external" candidates are private too; it can reach them anyway.
+            if ((sameNetwork || _serverOnPrivateNetwork) && (IsLanAddress(ip) || IPAddress.IsLoopback(ip)))
             {
                 return true;
             }
@@ -739,12 +840,16 @@ namespace Basis.Scripts.Networking
 
         private static bool IsLanAddress(IPAddress ip)
         {
+            if (ip.IsIPv4MappedToIPv6) ip = ip.MapToIPv4();
             byte[] b = ip.GetAddressBytes();
             if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork && b.Length == 4)
             {
+                if (b[0] == 127) return true;
                 if (b[0] == 10) return true;
                 if (b[0] == 172 && b[1] >= 16 && b[1] <= 31) return true;
                 if (b[0] == 192 && b[1] == 168) return true;
+                if (b[0] == 100 && (b[1] & 0xC0) == 64) return true;
+                if (b[0] == 169 && b[1] == 254) return true;
                 return false;
             }
             if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 && b.Length == 16)
@@ -762,37 +867,81 @@ namespace Basis.Scripts.Networking
                 BasisDebug.LogWarning($"[P2P] NatIntroductionSuccess for unknown token {Preview(token)}.");
                 return;
             }
-            if (s.State == P2PSessionState.Connected)
+            // A late punch (broker re-fire, spray) can land after the session connected or went to
+            // rest on the server; connecting then would open a link nothing is waiting for.
+            if (s.State != P2PSessionState.Punching)
             {
                 return;
             }
-
             if (!IsAcceptablePunchTarget(targetEndPoint, sameNetwork, out string targetReason))
             {
-                BasisDebug.LogError($"[P2P] Refusing punch target for player {s.OtherPlayerId}: {targetReason}");
-                DropSession(s, P2PSessionState.Failed);
+                // Only this candidate is refused; another (the Internal one, a later External) may
+                // still work, and the punch timeout reports BlockedAddress if none ever does.
+                BasisDebug.LogWarning($"[P2P] Ignoring punch target for player {s.OtherPlayerId}: {targetReason}");
+                s.RejectedTargetReason = targetReason;
                 return;
             }
-
-            // First success wins — Internal arrives before External on same-LAN pairs.
-            bool firstSuccess = s.ExpectedRemoteAddress == null;
-            if (firstSuccess)
-            {
-                s.ExpectedRemoteAddress = targetEndPoint.Address;
-                s.SameNetwork = sameNetwork;
-                BasisDebug.Log($"[P2P] NatIntroductionSuccess: player {s.OtherPlayerId} reachable ({(sameNetwork ? "Internal — same LAN" : "External")}).");
-            }
+            Interlocked.Increment(ref s.Introductions);
 
             // Both sides connect to the discovered endpoint; LiteNetLib's simultaneous-open
             // tiebreak (P2PLose) collapses the two attempts into one link. A symmetric-NAT
-            // peer's real port is only knowable here, so it must connect too — not just wait.
-            if (s.ConnectIssued) return;
+            // peer's real port is only knowable here, so it must connect too, not just wait.
+            // Internal always wins: on a same-LAN pair the External path needs the router to
+            // hairpin, which many don't, so an External punch that lands first waits briefly for
+            // the Internal one and a later Internal punch replaces an External attempt still in
+            // flight. Both peers apply the same rule, so they settle on the same path.
+            NetPeer abandoned = null;
+            lock (s.ConnectLock)
+            {
+                if (s.State != P2PSessionState.Punching || s.P2PPeer != null) return;
+                if (s.ConnectIssued)
+                {
+                    if (!sameNetwork || s.ConnectInternal) return;
+                    abandoned = s.PendingPeer;
+                    s.PendingPeer = null;
+                    BasisDebug.Log($"[P2P] Internal punch from player {s.OtherPlayerId} arrived after the External one; switching to the LAN path.");
+                }
+                else if (!sameNetwork)
+                {
+                    if (s.DeferredExternal != null) return;
+                    s.DeferredExternal = targetEndPoint;
+                    BasisDebug.Log($"[P2P] NatIntroductionSuccess: player {s.OtherPlayerId} reachable (External); waiting {ExternalGraceMs}ms for an Internal punch.");
+                    Session deferredFor = s;
+                    Timer t = null;
+                    t = new Timer(_ =>
+                    {
+                        t?.Dispose();
+                        if (!_sessionsByToken.TryGetValue(deferredFor.Token, out var cur) || !ReferenceEquals(cur, deferredFor)) return;
+                        lock (deferredFor.ConnectLock)
+                        {
+                            IPEndPoint target = deferredFor.DeferredExternal;
+                            deferredFor.DeferredExternal = null;
+                            if (target == null || deferredFor.ConnectIssued || deferredFor.State != P2PSessionState.Punching || deferredFor.P2PPeer != null) return;
+                            IssueConnect(deferredFor, target, false);
+                        }
+                    }, null, ExternalGraceMs, Timeout.Infinite);
+                    return;
+                }
+                IssueConnect(s, targetEndPoint, sameNetwork);
+            }
+            if (abandoned != null) { try { abandoned.Disconnect(); } catch { } }
+        }
+
+        // Caller holds s.ConnectLock.
+        private static void IssueConnect(Session s, IPEndPoint targetEndPoint, bool internalPath)
+        {
             s.ConnectIssued = true;
+            s.ConnectInternal = internalPath;
+            s.DeferredExternal = null;
+            s.ExpectedRemoteAddress = targetEndPoint.Address;
+            s.SameNetwork = internalPath;
+            BasisDebug.Log($"[P2P] Connecting to player {s.OtherPlayerId} ({(internalPath ? "Internal, same LAN" : "External")}).");
 
             if (!InstallSessionKeys(s, targetEndPoint))
             {
                 BasisDebug.LogError($"[P2P] Refusing to open an unencrypted direct link to player {s.OtherPlayerId}.");
                 s.ConnectIssued = false;
+                RecordFailure(s, P2PFailureReason.Encryption);
                 DropSession(s, P2PSessionState.Failed);
                 return;
             }
@@ -802,8 +951,8 @@ namespace Basis.Scripts.Networking
                 // Give the handshake its own timeout window (distinct from the introduce burst).
                 Interlocked.Exchange(ref s.PunchStartedTicks, System.Diagnostics.Stopwatch.GetTimestamp());
                 var connectData = new NetDataWriter();
-                connectData.Put(token);
-                _p2pSocket.Connect(targetEndPoint, connectData);
+                connectData.Put(s.Token);
+                s.PendingPeer = _p2pSocket.Connect(targetEndPoint, connectData);
             }
             catch (Exception ex)
             {
@@ -827,7 +976,11 @@ namespace Basis.Scripts.Networking
                         return;
                     }
                     BasisDebug.Log($"[P2P] Inbound P2P connect for token {Preview(token)} (player {s.OtherPlayerId}) — accepting.");
-                    s.P2PPeer = request.Accept();
+                    // With unsynced events LiteNetLib raises PeerConnected inside Accept(), before
+                    // P2PPeer is assigned, so name the session being accepted for that callback.
+                    _acceptingSession = s;
+                    try { s.P2PPeer = request.Accept() ?? s.P2PPeer; }
+                    finally { _acceptingSession = null; }
                 }
                 else
                 {
@@ -846,8 +999,9 @@ namespace Basis.Scripts.Networking
         {
             // Inbound match: P2PPeer already set in OnP2PConnectionRequest, fresh wrapper here equals
             // by underlying LiteNetLib peer. Outbound match: compare against ExpectedRemoteAddress.
-            Session matched = null;
-            foreach (var kvp in _sessionsByToken)
+            Session matched = _acceptingSession;
+            if (matched != null) matched.P2PPeer = peer;
+            else foreach (var kvp in _sessionsByToken)
             {
                 var s = kvp.Value;
                 if (s.P2PPeer != null && s.P2PPeer.Equals(peer))
@@ -856,11 +1010,12 @@ namespace Basis.Scripts.Networking
                     matched = s;
                     break;
                 }
+                // Outbound: the exact peer our Connect() returned. Matching by address alone pairs
+                // the wrong session when two people share a public IP or one PC runs several clients.
                 if (s.P2PPeer == null &&
                     s.State == P2PSessionState.Punching &&
-                    s.ExpectedRemoteAddress != null &&
-                    peer.Address != null &&
-                    peer.Address.Equals(s.ExpectedRemoteAddress))
+                    s.PendingPeer != null &&
+                    s.PendingPeer.Equals(peer))
                 {
                     s.P2PPeer = peer;
                     matched = s;
@@ -870,9 +1025,15 @@ namespace Basis.Scripts.Networking
 
             if (matched == null)
             {
-                BasisDebug.LogWarning($"[P2P] PeerConnected did not match any pending session.");
+                // A candidate that lost to another path (an abandoned External attempt, or our outbound
+                // attempt after the peer's inbound one was accepted); nothing will ever send on it.
+                BasisDebug.LogWarning($"[P2P] PeerConnected did not match any pending session; closing it.");
+                try { peer.Disconnect(); } catch { }
                 return;
             }
+            NetPeer losingCandidate = matched.PendingPeer;
+            matched.PendingPeer = null;
+            if (losingCandidate != null && !losingCandidate.Equals(peer)) { try { losingCandidate.Disconnect(); } catch { } }
 
             // Seed the health timestamps BEFORE flipping to Connected so the watchdog, once
             // it observes Connected, always sees a fresh window (never an instant stale).
@@ -884,6 +1045,8 @@ namespace Basis.Scripts.Networking
 
             ApplyState(matched, P2PSessionState.Connected);
             matched.PunchAttempts = 0;
+            matched.Introductions = 0;
+            _lastFailure.TryRemove(matched.OtherPlayerId, out _);
             NotifyStateChanged(matched.OtherPlayerId, matched.State);
             BasisDebug.Log($"[P2P] CONNECTED to player {matched.OtherPlayerId} via {(matched.SameNetwork ? "LAN" : "Internet")} (token {Preview(matched.Token)}); sending LinkUp to server.");
 
@@ -1074,6 +1237,7 @@ namespace Basis.Scripts.Networking
             s.P2PPeer = null;
             s.ExpectedRemoteAddress = null;
             s.ConnectIssued = false;
+            s.DeferredExternal = null;
             s.OffloadConfirmed = false;
 
             if (s.PunchAttempts >= MaxPunchAttempts)
@@ -1085,11 +1249,14 @@ namespace Basis.Scripts.Networking
                     // re-establish it, and both sides stay symmetric — neither is torn down,
                     // so a later request can't be auto-declined as "already have a session".
                     BasisDebug.LogWarning($"[P2P] Could not re-establish the direct link to player {s.OtherPlayerId} after {s.PunchAttempts} attempts; resting on server relay (Partial).");
+                    RecordFailure(s, P2PFailureReason.ReconnectExhausted);
                     RestInPartial(s);
                 }
                 else
                 {
                     BasisDebug.LogWarning($"[P2P] Giving up on player {s.OtherPlayerId} after {s.PunchAttempts} punch attempts (never connected).");
+                    if (s.Introductions == 0 && s.RejectedTargetReason != null) RecordFailure(s, P2PFailureReason.BlockedAddress, s.RejectedTargetReason);
+                    else RecordFailure(s, s.Introductions == 0 ? P2PFailureReason.NoIntroduction : s.SameNetwork ? P2PFailureReason.LanHandshakeTimedOut : P2PFailureReason.HandshakeTimedOut);
                     DropSession(s, P2PSessionState.Failed);
                 }
                 return;
@@ -1102,7 +1269,7 @@ namespace Basis.Scripts.Networking
         // carrying this peer over it. Fall back to the server (the state change alone does
         // that), tell the server to stop offloading (which also forwards LinkLost to the
         // peer so it falls back too), then auto-retry a bounded number of times.
-        private static void EnterPartial(Session s, string reason)
+        private static void EnterPartial(Session s, P2PFailureReason why, string reason)
         {
             NetPeer deadPeer;
             lock (s.Gate)
@@ -1113,10 +1280,12 @@ namespace Basis.Scripts.Networking
                 s.P2PPeer = null;
                 s.ExpectedRemoteAddress = null;
                 s.ConnectIssued = false;
+                s.DeferredExternal = null;
                 s.OffloadConfirmed = false;
             }
 
             BasisDebug.LogWarning($"[P2P] Direct link to player {s.OtherPlayerId} degraded ({reason}); falling back to the server relay (token {Preview(s.Token)}).");
+            RecordFailure(s, why, reason);
             RemoveSessionKeys(s);
             if (deadPeer != null) { try { deadPeer.Disconnect(); } catch { } }
 
@@ -1152,6 +1321,7 @@ namespace Basis.Scripts.Networking
             s.P2PPeer = null;
             s.ExpectedRemoteAddress = null;
             s.ConnectIssued = false;
+            s.DeferredExternal = null;
             s.OffloadConfirmed = false;
             RemoveSessionKeys(s);
             BasisTransmissionResults.ForceVoiceRecipientResend = true;
@@ -1170,8 +1340,11 @@ namespace Basis.Scripts.Networking
                 if (s.State != P2PSessionState.PartialConnection) return;
                 BasisDebug.Log($"[P2P] Re-punching direct link to player {s.OtherPlayerId} (token {Preview(s.Token)}).");
                 s.PunchAttempts = 0;
+                s.Introductions = 0;
+                s.RejectedTargetReason = null;
                 s.ExpectedRemoteAddress = null;
                 s.ConnectIssued = false;
+                s.DeferredExternal = null;
                 s.OffloadConfirmed = false;
                 StartPunch(s);
             }, null, delayMs, Timeout.Infinite);
@@ -1185,10 +1358,14 @@ namespace Basis.Scripts.Networking
             if (_sessionsByOtherId.TryGetValue(otherPlayerId, out Session s))
             {
                 BasisDebug.Log($"[P2P] Manual retry for player {otherPlayerId} (state {s.State}, token {Preview(s.Token)}).");
+                _lastFailure.TryRemove(otherPlayerId, out _);
                 s.PartialRecoveryAttempts = 0;
                 s.PunchAttempts = 0;
+                s.Introductions = 0;
+                s.RejectedTargetReason = null;
                 s.ExpectedRemoteAddress = null;
                 s.ConnectIssued = false;
+                s.DeferredExternal = null;
                 s.OffloadConfirmed = false;
                 // Re-arm the broker session + poke the peer to re-punch, then punch ourselves.
                 SendSubToServer(BasisNetworkCommons.P2PSub_LinkLost, s.OtherPlayerId, s.Token);
@@ -1226,10 +1403,10 @@ namespace Basis.Scripts.Networking
                                         ConnectedGracePeriodMs, StaleTimeoutMs, ConfirmTimeoutMs, HealthyDwellResetMs))
                             {
                                 case BasisP2PLinkHealth.ConnectedVerdict.DemoteStale:
-                                    EnterPartial(s, $"no inbound for {sinceInbound}ms");
+                                    EnterPartial(s, P2PFailureReason.LinkStale, $"no inbound for {sinceInbound}ms");
                                     break;
                                 case BasisP2PLinkHealth.ConnectedVerdict.DemoteUnconfirmed:
-                                    EnterPartial(s, "peer never confirmed");
+                                    EnterPartial(s, P2PFailureReason.PeerNeverConfirmed, "peer never confirmed");
                                     break;
                                 case BasisP2PLinkHealth.ConnectedVerdict.ClearFlapCounter:
                                     s.PartialRecoveryAttempts = 0;
@@ -1319,6 +1496,11 @@ namespace Basis.Scripts.Networking
                 try { s.P2PPeer.Disconnect(); } catch { }
                 s.P2PPeer = null;
             }
+            else if (s.PendingPeer != null)
+            {
+                try { s.PendingPeer.Disconnect(); } catch { }
+            }
+            s.PendingPeer = null;
             NotifyStateChanged(s.OtherPlayerId, finalState);
 
             // Force the voice recipient list to be recomputed so the peer is put back onto the server

@@ -243,6 +243,14 @@ namespace LiteNetLib
         //We got introduce and must punch
         private static long NowMs() => (long)(System.Diagnostics.Stopwatch.GetTimestamp() * (1000.0 / System.Diagnostics.Stopwatch.Frequency));
         private static IPEndPoint Normalize(IPEndPoint endPoint) => endPoint.Address.IsIPv4MappedToIPv6 ? new IPEndPoint(endPoint.Address.MapToIPv4(), endPoint.Port) : endPoint;
+        private static bool IsPrivate(IPAddress ip)
+        {
+            if (IPAddress.IsLoopback(ip)) return true;
+            byte[] b = ip.GetAddressBytes();
+            if (ip.AddressFamily == AddressFamily.InterNetwork)
+                return b[0] == 10 || (b[0] == 172 && b[1] >= 16 && b[1] <= 31) || (b[0] == 192 && b[1] == 168) || (b[0] == 100 && (b[1] & 0xC0) == 64) || (b[0] == 169 && b[1] == 254);
+            return (b[0] & 0xFE) == 0xFC || (b[0] == 0xFE && (b[1] & 0xC0) == 0x80);
+        }
         private bool FromIntroducer(IPEndPoint sender) => sender != null && _introducers.TryGetValue(Normalize(sender), out long sent) && NowMs() - sent <= IntroducerTrustMs;
         private bool ExpectingPunch()
         {
@@ -255,6 +263,13 @@ namespace LiteNetLib
             if (!FromIntroducer(senderEndPoint) || req.Internal == null || req.External == null)
                 return;
             //NetDebug.Write(NetLogLevel.Trace, "[NAT] introduction received");
+
+            // A peer on the server's own machine or LAN (a host-mode client, a home server) reaches the
+            // server from a private address, so that is all the introducer can tell us. From outside, that
+            // peer sits behind the server's public address; port-preserving NATs keep its local port.
+            IPEndPoint introducer = Normalize(senderEndPoint);
+            if (IsPrivate(Normalize(req.External).Address) && !IsPrivate(introducer.Address))
+                req.External = new IPEndPoint(introducer.Address, req.External.Port);
 
             // send internal punch
             var punchPacket = new NatPunchPacket {Token = req.Token};

@@ -5735,6 +5735,70 @@
       "value": "Try Again"
     },
     {
+      "key": "menu.individualPlayer.directConnection.declined",
+      "value": "Request Declined"
+    },
+    {
+      "key": "menu.individualPlayer.directConnection.serverRefused",
+      "value": "Server Refused the Request"
+    },
+    {
+      "key": "menu.individualPlayer.directConnection.why.declined",
+      "value": "They declined, or their game turned the request down for them. That happens when they have direct connections switched off, have you set to Always decline, or already had a request open with you. Voice and avatar still reach you through the server."
+    },
+    {
+      "key": "menu.individualPlayer.directConnection.why.serverRefused",
+      "value": "The server turned the request down before it reached them. An admin may have locked direct connections on this server, one of you may be connected through something that can't make direct links (such as the web version), or too many requests are open at once. Voice and avatar still go through the server."
+    },
+    {
+      "key": "menu.individualPlayer.directConnection.why.transportUnsupported",
+      "value": "Your connection to this server ({0}) can't open direct links. Nothing on your network needs fixing. Voice and avatar go through the server instead."
+    },
+    {
+      "key": "menu.individualPlayer.directConnection.why.socketUnavailable",
+      "value": "Basis couldn't open a UDP port for the direct link on your computer. Something on your machine is blocking it.\nThings to try:\n• Allow Basis through your firewall and antivirus\n• Restart Basis, or close other apps that might be holding network ports\n• Work and school devices often don't allow this at all"
+    },
+    {
+      "key": "menu.individualPlayer.directConnection.why.noServerEndpoint",
+      "value": "Basis lost track of the server address it needs to introduce you. Rejoin the server and try again."
+    },
+    {
+      "key": "menu.individualPlayer.directConnection.why.noIntroduction",
+      "value": "The server never heard from both of you, which it needs before it can introduce you. Your attempt didn't leave your network, or theirs didn't leave theirs.\nThings to try:\n• Allow Basis through your firewall and antivirus, and ask them to do the same\n• Turn off any VPN or proxy on both ends\n• Try with someone else. If that works, the problem is on the other player's side"
+    },
+    {
+      "key": "menu.individualPlayer.directConnection.why.handshakeTimedOut",
+      "value": "The server introduced you both, but traffic between your two networks never got through. The usual cause is a strict router (NAT) on one side. Mobile hotspots, providers that share one address between many customers (CGNAT), and work, school or university networks all behave like this.\nThings to try:\n• Turn on UPnP in your router settings, on both ends if you can\n• Turn off any VPN\n• Allow Basis through your firewall\n• Test with a third person. Whoever fails with everyone has the strict network"
+    },
+    {
+      "key": "menu.individualPlayer.directConnection.why.lanHandshakeTimedOut",
+      "value": "You're on the same network and the server introduced you, but the two devices couldn't reach each other. A firewall on one of them is usually blocking it, or the Wi-Fi keeps devices apart (guest networks and client isolation do this).\nThings to try:\n• In Windows, set the network to Private and allow Basis through the firewall\n• Put both devices on the main network rather than a guest one\n• Try again with one device on a cable"
+    },
+    {
+      "key": "menu.individualPlayer.directConnection.why.blockedAddress",
+      "value": "The server gave an address for the other player that Basis won't connect to ({0}). One of you is probably behind a provider that shares addresses between customers, or the server is reporting local addresses. Direct links won't work for this pair. The server keeps carrying voice and avatar."
+    },
+    {
+      "key": "menu.individualPlayer.directConnection.why.encryption",
+      "value": "The two of you couldn't agree on encryption keys for the link. Usually one of you is on an older or newer version of Basis. Update both and try again."
+    },
+    {
+      "key": "menu.individualPlayer.directConnection.why.linkStale",
+      "value": "The direct link connected, then traffic stopped arriving from the other player. Some routers close a link after a while, and some only let it work in one direction. The server is carrying this player's voice and avatar now. Try Again rebuilds the direct link."
+    },
+    {
+      "key": "menu.individualPlayer.directConnection.why.peerNeverConfirmed",
+      "value": "You reached the other player, but their side never saw the link working. It probably works in one direction only, which points at a firewall or strict router on their end. The server is carrying this player's voice and avatar now."
+    },
+    {
+      "key": "menu.individualPlayer.directConnection.why.reconnectExhausted",
+      "value": "The direct link worked earlier but couldn't be rebuilt after it dropped. One of your networks may have changed (a different Wi-Fi, a VPN turned on, a new address). The server is carrying this player now. Try Again once things have settled."
+    },
+    {
+      "key": "menu.individualPlayer.directConnection.details",
+      "value": "Details: {0} tries, {1} replies from the server, your direct port UDP {2}, server {3}. Every step is in your log file; search it for [P2P]."
+    },
+    {
       "key": "menu.individualPlayer.mute",
       "value": "Mute"
     },

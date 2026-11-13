@@ -137,6 +137,11 @@ namespace Basis.BasisUI
             public void Settle()
             {
                 if (List == null) return;
+                RectTransform stopAt = TabDescriptor != null ? TabDescriptor.ContentParent : null;
+                for (Transform current = transform; current != null && current != stopAt; current = current.parent)
+                {
+                    if (current.TryGetComponent(out ContentSizeFitter _) && !current.TryGetComponent(out MeasuredHeight _)) current.gameObject.AddComponent<MeasuredHeight>();
+                }
                 PanelElementDescriptor.RebuildLayoutChain(List.ContentParent, TabDescriptor != null ? TabDescriptor.ContentParent : null);
             }
 
@@ -149,6 +154,12 @@ namespace Basis.BasisUI
                 gridRect.anchorMin = new Vector2(0f, 1f);
                 gridRect.anchorMax = new Vector2(1f, 1f);
                 gridRect.pivot = new Vector2(0.5f, 1f);
+
+                if (parent.TryGetComponent(out VerticalLayoutGroup parentGroup))
+                {
+                    parentGroup.childControlHeight = true;
+                    parentGroup.childForceExpandHeight = false;
+                }
 
                 VerticalLayoutGroup group = gridGO.AddComponent<VerticalLayoutGroup>();
                 group.spacing = 15f;
@@ -256,6 +267,37 @@ namespace Basis.BasisUI
                     BasisLocalization.Get("settings.cilboxPermissions.remove.confirm", name),
                     () => BasisCilboxPermissions.Remove(hash));
             }
+        }
+
+        /// <summary>
+        /// Sizes the list card while heights are being measured instead of afterwards, so the section box
+        /// (whose group does not control child height) reads the new height in the same layout pass.
+        /// Without it the card rewraps when the scroll view toggles its scrollbar and the box lags a pass behind.
+        /// </summary>
+        private sealed class MeasuredHeight : MonoBehaviour, ILayoutElement
+        {
+            private VerticalLayoutGroup group;
+
+            public void CalculateLayoutInputHorizontal() { }
+
+            public void CalculateLayoutInputVertical()
+            {
+                if (group == null && !TryGetComponent(out group)) return;
+                group.CalculateLayoutInputVertical();
+                RectTransform rect = (RectTransform)transform;
+                float height = LayoutUtility.GetPreferredHeight(rect);
+                if (Mathf.Abs(rect.rect.height - height) > 0.01f) rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+            }
+
+            public float minWidth => -1f;
+            public float preferredWidth => -1f;
+            public float flexibleWidth => -1f;
+            public float minHeight => -1f;
+            public float preferredHeight => -1f;
+            public float flexibleHeight => -1f;
+            public float maxWidth => -1f;
+            public float maxHeight => -1f;
+            public int layoutPriority => -1;
         }
     }
 }

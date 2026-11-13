@@ -907,6 +907,10 @@ namespace Cilbox
 		{
 			if (t == null || t.FullName == null) return false;
 			if (t.IsPointer) return Beyond(CilboxItems.TypePrefix + t.FullName, true);
+			// GetSanitizedTypeName strips one array level, so string[][] reached the matchers as
+			// "System.String[]". An array grants nothing its element type does not.
+			while (t.IsArray && t.GetElementType() != null && t.GetElementType().FullName != null) t = t.GetElementType();
+			if (t.IsPointer) return Beyond(CilboxItems.TypePrefix + t.FullName, true);
 			return CheckTypeAllowed(GetSanitizedTypeName(t));
 		}
 
