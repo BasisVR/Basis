@@ -24,14 +24,24 @@ float Frag(Varyings input) : SV_Target
     // above, so the far raw plane is used directly instead of running it through the formula.
     bool isSky = closestFurthest.g <= 0.0;
     float closestRaw = RawDepthFromLinearEyeDepth(closestFurthest.r);
-    float furthestRaw = isSky ? (UNITY_REVERSED_Z ? 0.0 : 1.0) : RawDepthFromLinearEyeDepth(closestFurthest.g);
+#if UNITY_REVERSED_Z
+    float farRaw = 0.0;
+#else
+    float farRaw = 1.0;
+#endif
+    float furthestRaw = isSky ? farRaw : RawDepthFromLinearEyeDepth(closestFurthest.g);
 
     // Raw depth inverts the ordering linear eye depth has: under reversed-Z the nearer surface (closest,
     // the smaller eye depth) is the LARGER raw value, so it is what Min3/Max3 over raw samples in the
     // ordinary pass would have called "max" - and the reverse under a standard [0,1] buffer. Matching that
     // parity is what makes this pass's output interchangeable with the ordinary one to every reader.
-    float minRaw = UNITY_REVERSED_Z ? furthestRaw : closestRaw;
-    float maxRaw = UNITY_REVERSED_Z ? closestRaw : furthestRaw;
+#if UNITY_REVERSED_Z
+    float minRaw = furthestRaw;
+    float maxRaw = closestRaw;
+#else
+    float minRaw = closestRaw;
+    float maxRaw = furthestRaw;
+#endif
 
     return (uint(input.positionCS.x + input.positionCS.y) & 1) > 0 ? minRaw : maxRaw;
 }

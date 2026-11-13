@@ -17,6 +17,7 @@ namespace Basis.BasisUI
 {
     public partial class SettingsProvider : BasisMenuActionProvider<BasisMainMenu>
     {
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
         private static readonly List<string> GiResolutionValues = new List<string> { "Full", "85", "75", "67", "Half", "Third", "Quarter" };
 
         private static List<string> GiResolutionLabels(bool pathTraced)
@@ -31,6 +32,7 @@ namespace Basis.BasisUI
             }
             return labels;
         }
+#endif
 
         /// <summary>Tab key of the Chat &amp; UI page, for packages that add to its reset via <see cref="AddPageResetAction"/>.</summary>
         public const string ChatTabKey = "settings.tab.chatui";

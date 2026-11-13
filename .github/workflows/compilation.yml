@@ -47,7 +47,7 @@ jobs:
 
   build-client:
     name: Build client for ${{ matrix.targetPlatform }}
-    timeout-minutes: 180
+    timeout-minutes: 340
     runs-on: ubuntu-latest
     permissions:
       actions: write # to allow us to manage cache
@@ -108,7 +108,7 @@ jobs:
           modules: ${{ matrix.unityModules }}
       - name: "Build Unity project"
         id: unity-build
-        timeout-minutes: 100
+        timeout-minutes: 170
         continue-on-error: true
         uses: BasisVR/unity-builder@main
         env:
@@ -134,7 +134,7 @@ jobs:
           sudo rm -rf "${projectPath}/Library" "build/${{ matrix.targetPlatform }}"
       - name: "Build Unity project (cold retry)"
         if: steps.unity-build.outcome == 'failure'
-        timeout-minutes: 120
+        timeout-minutes: 150
         uses: BasisVR/unity-builder@main
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
@@ -215,7 +215,7 @@ jobs:
             ${{ github.workspace }}/BasisVR ${{ matrix.targetPlatform }} Symbols.zip
   build-client-android:
     name: Build client for Android
-    timeout-minutes: 150
+    timeout-minutes: 240
     runs-on: ubuntu-latest
     permissions:
       actions: write # to allow us to manage cache
@@ -263,7 +263,7 @@ jobs:
           projectPath: ${{ env.projectPath }}
           modules: android
       - name: "Build Unity project"
-        timeout-minutes: 100
+        timeout-minutes: 170
         uses: BasisVR/unity-builder@main
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
