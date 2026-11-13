@@ -323,6 +323,7 @@ fn main() {
         let mut parity_n = [0u64; 2];
         let spot = |j: usize| -> V3 { let a = j as f32 * 2.39996; let r = 5.0 + ((j * 7) % 25) as f32; [r * a.cos(), 0.5 + (j % 3) as f32, r * a.sin()] };
         let mut times = Vec::new();
+        let mut fetch_misses = 0u32;
         let alpha_cfg: Option<Vec<f32>> = std::env::var("ALPHA").ok().map(|v| v.split(',').filter_map(|p| p.parse().ok()).collect()).filter(|v: &Vec<f32>| v.len() == 3);
         let hide_blocks = std::env::var("HIDE").map_or(false, |v| !v.is_empty());
         let clear = |b: &Block| b.emission.iter().all(|v| *v <= 0.0);
@@ -581,7 +582,7 @@ fn main() {
             frame_log.push_str(&format!("{frame} {fetched} {:.9}
 ", current.iter().map(|v| *v as f64).sum::<f64>() / current.len().max(1) as f64));
             previous_frame = current;
-            if fetched != frame { println!("frame {frame}: fetched {fetched}"); }
+            if fetched != frame { fetch_misses += 1; println!("frame {frame}: fetched {fetched}"); }
             if bridge.status() != STATUS_READY {
                 let end = header.error.iter().position(|c| *c == 0).unwrap_or(0);
                 eprintln!("tracer stopped at frame {frame}: {}", String::from_utf8_lossy(&header.error[..end]));
@@ -645,8 +646,38 @@ fn main() {
         if contexts > 1 { println!("second context fetched {second_ok}/{frames} frames"); }
         if !flicker.is_empty() { println!("frame-to-frame change {:.2}% (mean over {} frames, sway {})", 100.0 * flicker.iter().sum::<f64>() / flicker.len() as f64, flicker.len(), sway); }
         println!("unity gpu waits that could block: {}; late frames skipped: {late}", bridge.blocked_waits);
+        {
+            // One machine readable line for Tools/GpuTests: stutters are frames over twice the median
+            // (and at least 8 ms over it), on both the render thread cost and the full round trip.
+            let pick = |v: &Vec<f64>, q: f64| if v.is_empty() { 0.0 } else { v[((v.len() - 1) as f64 * q).round() as usize] };
+            let stutters = |v: &Vec<f64>| { let m = pick(v, 0.5); v.iter().filter(|t| **t > (m * 2.0).max(m + 8.0)).count() };
+            let mean_lum = if previous_frame.is_empty() { 0.0 } else { previous_frame.iter().map(|v| *v as f64).sum::<f64>() / previous_frame.len() as f64 };
+            let flick = if flicker.is_empty() { 0.0 } else { 100.0 * flicker.iter().sum::<f64>() / flicker.len() as f64 };
+            println!("RESULT frames={frames} fetch_misses={fetch_misses} rt_med={:.3} rt_p99={:.3} rt_max={:.3} rt_stutters={} trip_med={:.3} trip_p99={:.3} trip_max={:.3} trip_stutters={} blocked_waits={} unfinished_skips={} late={late} nonfinite={nan} mean_lum={:.6} flicker={:.4} retargets={retargets}",
+                pick(&render_thread, 0.5), pick(&render_thread, 0.99), pick(&render_thread, 1.0), stutters(&render_thread),
+                pick(&times, 0.5), pick(&times, 0.99), pick(&times, 1.0), stutters(&times),
+                bridge.blocked_waits, bridge.unfinished_skips, mean_lum, flick);
+        }
         if retargets > 0 { println!("retargeted {retargets} times, open handles {}", handle_count()); }
         println!("wrote {out}");
+        if std::env::var("STOPTEST").is_ok() {
+            // A mode swap (built in <-> separate process) stops the tracer from Unity's main thread while
+            // the render thread still runs the bridge events already queued for the frame in flight. Replay
+            // those after the stop: the client's GPU queue must still drain, not wait on a dead tracer.
+            let last = protocol;
+            let parity = (last & 1) as usize;
+            bridge.stop();
+            let begin = Instant::now();
+            let _ = bridge.acquire(0, parity ^ 1);
+            let _ = bridge.submit(last + 1, 0, parity ^ 1, 0);
+            let _ = bridge.fetch(last, 0, parity);
+            let stale_ms = begin.elapsed().as_secs_f64() * 1000.0;
+            #[cfg(windows)]
+            let idle_ms = d3c.as_ref().map_or(-2.0, |c| c.wait_idle_ms(3000));
+            #[cfg(not(windows))]
+            let idle_ms = -2.0f64;
+            println!("RESULT stop_stale_events_ms={stale_ms:.1} stop_client_idle_ms={idle_ms:.1}");
+        }
         if std::env::var("ABANDON").is_ok() {
             let next = header.frame_submitted.load(Ordering::Acquire) + 1;
             std::ptr::copy_nonoverlapping(slot(bridge.base, (next - 1) as usize), slot(bridge.base, next as usize), 1);

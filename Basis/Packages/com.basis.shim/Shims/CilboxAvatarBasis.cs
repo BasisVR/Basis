@@ -40,14 +40,13 @@ namespace Cilbox
 			"Basis.Shims.BasisKeyboardShim", // Only opens for the player wearing the avatar.
 			"Basis.Shims.BasisKeyboardContent",
 			// Input reads only reach the player wearing the avatar; remote copies read nothing.
-			// The desktop and controller shims are limited to their self overloads, see CilboxBasisCommon.
+			// The desktop and controller shims stay world only; BasisLocalInputShim is the gated door.
 			"Basis.Shims.BasisInputShim",
 			"Basis.Shims.BasisInputRequest",
 			"Basis.Shims.BasisInputMouseAxis",
 			"Basis.Shims.BasisInputGamepadControl",
 			"Basis.Shims.BasisInputControllerAxis",
-			"Basis.Shims.BasisDesktopInputShim",
-			"Basis.Shims.BasisControllerInputShim",
+			"Basis.Shims.BasisLocalInputShim",
 			"Basis.Shims.BasisControllerHand",
 			"Basis.Shims.BasisControllerButton",
 			"UnityEngine.InputSystem.Key",

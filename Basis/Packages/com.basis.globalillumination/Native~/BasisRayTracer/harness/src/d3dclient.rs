@@ -219,6 +219,27 @@ impl Client {
         }
     }
 
+    /// Milliseconds until the D3D11 client's queue drains, or -1 if it is still busy after timeout_ms:
+    /// a queue stuck on a fence nobody will signal, which in Unity ends in a TDR. -2 without a D3D11 client.
+    pub fn wait_idle_ms(&self, timeout_ms: u64) -> f64 {
+        unsafe {
+            let (Some(device), Some((context, ..))) = (&self.device11, &self.d11) else { return -2.0; };
+            let mut query: Option<ID3D11Query> = None;
+            if device.CreateQuery(&D3D11_QUERY_DESC { Query: D3D11_QUERY_EVENT, MiscFlags: 0 }, Some(&mut query)).is_err() { return -2.0; }
+            let query = query.unwrap();
+            context.End(&query);
+            context.Flush();
+            let start = std::time::Instant::now();
+            loop {
+                let mut done = BOOL(0);
+                let ok = context.GetData(&query, Some(&mut done as *mut BOOL as *mut core::ffi::c_void), std::mem::size_of::<BOOL>() as u32, 0).is_ok();
+                if ok && done.as_bool() { return start.elapsed().as_secs_f64() * 1000.0; }
+                if start.elapsed().as_millis() as u64 >= timeout_ms { return -1.0; }
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
+        }
+    }
+
     pub fn read(&mut self, parity: usize) {
         let (w, h, rpitch, rptr) = (self.w, self.h, self.rpitch, self.rptr);
         unsafe {

@@ -65,6 +65,27 @@ fn run(link: &mut os::Link, args: &os::Args) -> Fallible<()> {
     result
 }
 
+/// Test only: makes tracer frames late on purpose so the GPU test pipeline can check that Unity never
+/// blocks on unfinished tracer work, without a heavy scene (and its GPU reset risk). Off unless set.
+/// BASIS_RT_TEST_DELAY_MS delays every frame; BASIS_RT_TEST_SPIKE="every:ms" adds a spike every Nth frame.
+struct TestDelay { every_ms: u64, spike_every: u64, spike_ms: u64 }
+
+impl TestDelay {
+    fn from_env() -> TestDelay {
+        let every_ms = std::env::var("BASIS_RT_TEST_DELAY_MS").ok().and_then(|v| v.parse().ok()).unwrap_or(0);
+        let (spike_every, spike_ms) = std::env::var("BASIS_RT_TEST_SPIKE").ok()
+            .and_then(|v| { let mut p = v.split(':'); Some((p.next()?.parse().ok()?, p.next()?.parse().ok()?)) })
+            .unwrap_or((0, 0));
+        TestDelay { every_ms, spike_every, spike_ms }
+    }
+
+    fn apply(&self, frame: u64) {
+        let mut ms = self.every_ms;
+        if self.spike_every > 0 && frame % self.spike_every == 0 { ms += self.spike_ms; }
+        if ms > 0 { std::thread::sleep(Duration::from_millis(ms)); }
+    }
+}
+
 fn serve(link: &mut os::Link, backend: &mut dyn Backend) -> Fallible<()> {
     let header = link.header();
     header.caps = backend.caps();
@@ -78,6 +99,7 @@ fn serve(link: &mut os::Link, backend: &mut dyn Backend) -> Fallible<()> {
     let mut last = header.frame_submitted.load(Ordering::Acquire);
     let mut opened = [0u32; MAX_CONTEXTS];
     let mut target_failures = [0u32; MAX_CONTEXTS];
+    let test_delay = TestDelay::from_env();
     header.status.store(STATUS_READY, Ordering::Release);
 
     loop {
@@ -134,6 +156,7 @@ fn serve(link: &mut os::Link, backend: &mut dyn Backend) -> Fallible<()> {
             unsafe { let p = &mut (*(slot as *mut Slot)).params; p.command_count = 0; p.upload_texels = 0; }
             header.reserved[RESERVED_UPLOAD_LOST] = header.reserved[RESERVED_UPLOAD_LOST].wrapping_add(1);
         }
+        test_delay.apply(frame);
         let started = Instant::now();
         backend.record(slot).map_err(|e| format!("frame {frame}: {e}"))?;
         let timings = backend.timings();

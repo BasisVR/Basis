@@ -999,20 +999,41 @@ BasisHapticsShim.Play(this, BasisHapticHand.Both, 0.8f, 0.2f);",
                 Example =
 @"using Basis.Shims;
 
-// Reads the same hand state that drives the player, so device overrides apply. Pass this:
-// props and avatars only read the player who spawned the prop or wears the avatar (worlds
-// may also call the overloads without it). Everything reads released while the menu is
-// open or a pointer is over UI.
+// Worlds only. Reads the same hand state that drives the player, so device overrides
+// apply. Everything reads released while the menu is open or a pointer is over UI.
 void Update()
 {
-    if (!BasisControllerInputShim.IsAvailable(this, BasisControllerHand.Right)) return; // desktop
+    if (!BasisControllerInputShim.IsAvailable(BasisControllerHand.Right)) return; // desktop
 
-    if (BasisControllerInputShim.GetButtonDown(this, BasisControllerHand.Right, BasisControllerButton.Trigger))
+    if (BasisControllerInputShim.GetButtonDown(BasisControllerHand.Right, BasisControllerButton.Trigger))
         Fire();
 
-    float squeeze = BasisControllerInputShim.GetTrigger(this, BasisControllerHand.Left);
-    Vector2 stick = BasisControllerInputShim.GetStick(this, BasisControllerHand.Left);
-    bool gripping = BasisControllerInputShim.GetButton(this, BasisControllerHand.Left, BasisControllerButton.Grip);
+    float squeeze = BasisControllerInputShim.GetTrigger(BasisControllerHand.Left);
+    Vector2 stick = BasisControllerInputShim.GetStick(BasisControllerHand.Left);
+    bool gripping = BasisControllerInputShim.GetButton(BasisControllerHand.Left, BasisControllerButton.Grip);
+}",
+            },
+            new CilboxApiEntry
+            {
+                GroupKey = GroupInteraction,
+                TitleKey = "sdk.cilbox.api.localInput.title",
+                SummaryKey = "sdk.cilbox.api.localInput.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.Shims.BasisLocalInputShim", "GetButtonDown") },
+                Example =
+@"using Basis.Shims;
+
+// Props and avatars. Pass this: only the player who spawned the prop or wears the avatar
+// is read, every other copy reads nothing. Same reads as the world controller and desktop
+// shims, released while the menu is open or a pointer is over UI.
+void Update()
+{
+    bool fire = BasisLocalInputShim.IsAvailable(this, BasisControllerHand.Right)
+        ? BasisLocalInputShim.GetButtonDown(this, BasisControllerHand.Right, BasisControllerButton.Trigger)
+        : BasisLocalInputShim.GetMouseButtonDown(this, 0);
+    if (fire) Fire();
+
+    Vector2 stick = BasisLocalInputShim.GetStick(this, BasisControllerHand.Left);
+    Vector2 look = BasisLocalInputShim.GetMouseDelta(this);
 }",
             },
             new CilboxApiEntry

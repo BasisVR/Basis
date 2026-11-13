@@ -18,6 +18,7 @@ Shims come in three shapes:
 | `BasisPermissionsShim` | Admin, moderator and permission checks | [Players](/en/docs/scripting/shims/players) |
 | `BasisControllerInputShim` | VR controller buttons, triggers, sticks | [Input](/en/docs/scripting/shims/input) |
 | `BasisDesktopInputShim` | Mouse buttons, movement and scroll | [Input](/en/docs/scripting/shims/input) |
+| `BasisLocalInputShim` | Mouse and controller reads for props and avatars | [Input](/en/docs/scripting/shims/input) |
 | `BasisInputShim` | Requested input from any device, delivered on change | [Input](/en/docs/scripting/shims/input) |
 | `BasisHapticsShim` | Controller vibration | [Input](/en/docs/scripting/shims/input) |
 | `BasisInteractableShim` | Pressable objects | [Input](/en/docs/scripting/shims/input) |

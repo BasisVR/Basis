@@ -20,7 +20,7 @@ Buttons: `Trigger`, `Grip`, `Primary`, `Secondary`, `StickClick`, `Menu`.
 
 ## BasisDesktopInputShim
 
-Mouse input on desktop. Button 0 is left, 1 right, 2 middle.
+Worlds only. Mouse input on desktop. Button 0 is left, 1 right, 2 middle.
 
 ```csharp
 if (!BasisDesktopInputShim.HasMouse) return;
@@ -28,6 +28,25 @@ if (BasisDesktopInputShim.GetMouseButtonDown(0)) Shoot();
 Vector2 delta = BasisDesktopInputShim.MouseDelta;
 float scroll = BasisDesktopInputShim.MouseScroll.y;
 Vector2 screen = BasisDesktopInputShim.MousePosition;
+```
+
+## BasisLocalInputShim
+
+The same mouse and controller reads for props and avatars. Pass `this` on every call. Only the player who spawned the prop or wears the avatar is read; on everyone else's copy every call returns released and zero.
+
+```csharp
+using Basis.Shims;
+
+void Update()
+{
+    if (BasisLocalInputShim.IsAvailable(this, BasisControllerHand.Right))
+    {
+        if (BasisLocalInputShim.GetButtonDown(this, BasisControllerHand.Right, BasisControllerButton.Trigger)) Shoot();
+        Vector2 stick = BasisLocalInputShim.GetStick(this, BasisControllerHand.Left);
+    }
+    else if (BasisLocalInputShim.GetMouseButtonDown(this, 0)) Shoot();
+    Vector2 delta = BasisLocalInputShim.GetMouseDelta(this);
+}
 ```
 
 ## BasisInputShim

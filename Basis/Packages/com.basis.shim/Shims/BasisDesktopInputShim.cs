@@ -29,13 +29,6 @@ namespace Basis.Shims
 			return control != null && control.wasReleasedThisFrame;
 		}
 
-		public static Vector2 GetMouseDelta(object self) => Cilbox.CilboxInputRequests.Local(self) ? MouseDelta : Vector2.zero;
-		public static Vector2 GetMouseScroll(object self) => Cilbox.CilboxInputRequests.Local(self) ? MouseScroll : Vector2.zero;
-		public static Vector2 GetMousePosition(object self) => Cilbox.CilboxInputRequests.Local(self) ? MousePosition : Vector2.zero;
-		public static bool GetMouseButton(object self, int button) => Cilbox.CilboxInputRequests.Local(self) && GetMouseButton(button);
-		public static bool GetMouseButtonDown(object self, int button) => Cilbox.CilboxInputRequests.Local(self) && GetMouseButtonDown(button);
-		public static bool GetMouseButtonUp(object self, int button) => Cilbox.CilboxInputRequests.Local(self) && GetMouseButtonUp(button);
-
 		static ButtonControl Button(int button)
 		{
 			Mouse mouse = Mouse.current;

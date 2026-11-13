@@ -2,7 +2,10 @@
 // instanced, slice from SV_RenderTargetArrayIndex), eye size flipping 2644 <-> 3136 like the OpenVR
 // stage swap, the shading rate image recreated one frame late the way the C# pass does on a resize,
 // and IDXGIDevice3::Trim forced every frame (the driver path the editor crashed in).
-// Usage: harness_stereo <plugin.dll> [frames]. Exit 0 = device alive, VRS checks passed.
+// Also covers misuse (nothing bound, null image, depth only passes, release while enabled, trim
+// mid enable) and times every frame to the GPU so stalls show as stutters. Prints one RESULT line.
+// Usage: harness_stereo <plugin.dll> [frames]. Exit 0 = every check passed.
+#define NOMINMAX
 #include <windows.h>
 #include <d3d11_3.h>
 #include <dxgi1_3.h>
@@ -10,6 +13,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <vector>
+#include <algorithm>
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3dcompiler.lib")
@@ -55,6 +60,17 @@ static const char* kShader =
     "V VS(uint id : SV_VertexID, uint inst : SV_InstanceID) { V o; float2 uv = float2((id << 1) & 2, id & 2); o.p = float4(uv * float2(2, -2) + float2(-1, 1), 0, 1); o.slice = inst; return o; }\n"
     "float4 PS(V i) : SV_Target { uint2 q = (uint2)i.p.xy; return float4((q.x % 251) / 255.0, (q.y % 241) / 255.0, ((q.x * 7 + q.y * 13 + i.slice * 97) % 256) / 255.0, 1); }\n";
 
+// Every creation is checked: on a GPU still releasing another process's work (or a reset device) a
+// failed call must report itself, not surface later as an access violation with no output.
+static void Check(HRESULT hr, const char* what)
+{
+    if (SUCCEEDED(hr)) return;
+    printf("FAIL %s: hr %08lx, device removed reason %08lx
+", what, (unsigned long)hr, g_Device ? (unsigned long)g_Device->GetDeviceRemovedReason() : 0ul);
+    fflush(stdout);
+    exit(20);
+}
+
 struct Eye { ID3D11Texture2D* rt = nullptr; ID3D11RenderTargetView* rtv = nullptr; UINT size = 0; };
 struct Image { ID3D11Texture2D* tex = nullptr; UINT tiles = 0; };
 
@@ -63,8 +79,8 @@ static void MakeEye(Eye& e, UINT size)
     if (e.rtv) e.rtv->Release();
     if (e.rt) e.rt->Release();
     D3D11_TEXTURE2D_DESC td = {}; td.Width = size; td.Height = size; td.MipLevels = 1; td.ArraySize = 2; td.Format = DXGI_FORMAT_R8G8B8A8_UNORM; td.SampleDesc.Count = 1; td.BindFlags = D3D11_BIND_RENDER_TARGET;
-    g_Device->CreateTexture2D(&td, nullptr, &e.rt);
-    g_Device->CreateRenderTargetView(e.rt, nullptr, &e.rtv);
+    Check(g_Device->CreateTexture2D(&td, nullptr, &e.rt), "eye texture");
+    Check(g_Device->CreateRenderTargetView(e.rt, nullptr, &e.rtv), "eye rtv");
     e.size = size;
 }
 
@@ -72,8 +88,8 @@ static void MakeImage(ID3D11DeviceContext* ctx, Image& img, UINT tiles)
 {
     if (img.tex) img.tex->Release();
     D3D11_TEXTURE2D_DESC sd = {}; sd.Width = tiles; sd.Height = tiles; sd.MipLevels = 1; sd.ArraySize = 1; sd.Format = DXGI_FORMAT_R8_UINT; sd.SampleDesc.Count = 1; sd.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
-    g_Device->CreateTexture2D(&sd, nullptr, &img.tex);
-    ID3D11UnorderedAccessView* uav; g_Device->CreateUnorderedAccessView(img.tex, nullptr, &uav);
+    Check(g_Device->CreateTexture2D(&sd, nullptr, &img.tex), "shading rate image");
+    ID3D11UnorderedAccessView* uav = nullptr; Check(g_Device->CreateUnorderedAccessView(img.tex, nullptr, &uav), "image uav");
     UINT v[4] = { 10, 10, 10, 10 }; ctx->ClearUnorderedAccessViewUint(uav, v); uav->Release();
     img.tiles = tiles;
 }
@@ -82,10 +98,10 @@ static void MakeImage(ID3D11DeviceContext* ctx, Image& img, UINT tiles)
 static float UniformFraction(ID3D11DeviceContext* ctx, Eye& e, UINT slice)
 {
     D3D11_TEXTURE2D_DESC td = {}; td.Width = 256; td.Height = 256; td.MipLevels = 1; td.ArraySize = 1; td.Format = DXGI_FORMAT_R8G8B8A8_UNORM; td.SampleDesc.Count = 1; td.Usage = D3D11_USAGE_STAGING; td.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-    ID3D11Texture2D* staging; g_Device->CreateTexture2D(&td, nullptr, &staging);
+    ID3D11Texture2D* staging = nullptr; Check(g_Device->CreateTexture2D(&td, nullptr, &staging), "staging");
     D3D11_BOX box = { 0, 0, 0, 256, 256, 1 };
     ctx->CopySubresourceRegion(staging, 0, 0, 0, 0, e.rt, D3D11CalcSubresource(0, slice, 1), &box);
-    D3D11_MAPPED_SUBRESOURCE m; ctx->Map(staging, 0, D3D11_MAP_READ, 0, &m);
+    D3D11_MAPPED_SUBRESOURCE m; Check(ctx->Map(staging, 0, D3D11_MAP_READ, 0, &m), "map staging");
     int uniform = 0, total = 0;
     for (UINT by = 0; by < 256; by += 4)
         for (UINT bx = 0; bx < 256; bx += 4)
@@ -102,6 +118,7 @@ static float UniformFraction(ID3D11DeviceContext* ctx, Eye& e, UINT slice)
 
 int main(int argc, char** argv)
 {
+    setvbuf(stdout, nullptr, _IONBF, 0);
     if (argc < 2) { printf("usage: harness_stereo plugin.dll [frames]\n"); return 2; }
     int frames = argc > 2 ? atoi(argv[2]) : 600;
     IDXGIFactory1* factory = nullptr;
@@ -135,8 +152,8 @@ int main(int argc, char** argv)
     if (FAILED(D3DCompile(kShader, strlen(kShader), nullptr, nullptr, nullptr, "VS", "vs_5_0", 0, 0, &vsb, &err))) { printf("vs: %s\n", (char*)err->GetBufferPointer()); return 7; }
     if (FAILED(D3DCompile(kShader, strlen(kShader), nullptr, nullptr, nullptr, "PS", "ps_5_0", 0, 0, &psb, &err))) { printf("ps: %s\n", (char*)err->GetBufferPointer()); return 7; }
     ID3D11VertexShader* vs; ID3D11PixelShader* ps;
-    g_Device->CreateVertexShader(vsb->GetBufferPointer(), vsb->GetBufferSize(), nullptr, &vs);
-    g_Device->CreatePixelShader(psb->GetBufferPointer(), psb->GetBufferSize(), nullptr, &ps);
+    Check(g_Device->CreateVertexShader(vsb->GetBufferPointer(), vsb->GetBufferSize(), nullptr, &vs), "vertex shader");
+    Check(g_Device->CreatePixelShader(psb->GetBufferPointer(), psb->GetBufferSize(), nullptr, &ps), "pixel shader");
 
     Eye eye; Image image;
     auto drawEyes = [&](bool vrs)
@@ -153,44 +170,97 @@ int main(int argc, char** argv)
         if (vrs) onEvent(2, nullptr);
     };
 
-    // 1) Covered stereo: both eye slices must come out in uniform 4x4 blocks.
+    // Waits for the GPU so a frame's cost (and any stall the plugin causes) is measured, not queued.
+    ID3D11Query* idle = nullptr; { D3D11_QUERY_DESC qd = { D3D11_QUERY_EVENT, 0 }; Check(g_Device->CreateQuery(&qd, &idle), "event query"); }
+    auto finish = [&]() { ctx->End(idle); BOOL done = FALSE; while (ctx->GetData(idle, &done, sizeof(done), 0) == S_FALSE) { SwitchToThread(); } };
+    int failures = 0;
+    auto check = [&](bool ok, const char* name) { printf("%s %s\n", ok ? "ok  " : "FAIL", name); if (!ok) failures++; };
+    auto alive = [&]() { return g_Device->GetDeviceRemovedReason() == S_OK; };
+
+    // 1) Covered stereo: both eye slices must come out in uniform 4x4 blocks, and nothing without VRS.
     MakeEye(eye, 2644); MakeImage(ctx, image, (2644 + 15) / 16);
     drawEyes(true);
     float left = UniformFraction(ctx, eye, 0), right = UniformFraction(ctx, eye, 1);
-    printf("stereo covered: uniform 4x4 left %.3f right %.3f\n", left, right);
     drawEyes(false);
     float plainLeft = UniformFraction(ctx, eye, 0);
-    printf("stereo plain: uniform 4x4 left %.3f\n", plainLeft);
+    printf("stereo covered: uniform 4x4 left %.3f right %.3f, plain %.3f\n", left, right, plainLeft);
+    check(left > 0.99f && right > 0.99f, "vrs applies to both eye slices");
+    check(plainLeft < 0.01f, "no vrs leaks into a pass that did not enable it");
 
-    // 2) Stale image after a grow: 166 tiles over a 3136 eye. Fixed plugin leaves VRS off.
+    // 2) Stale image after a grow: 166 tiles over a 3136 eye must leave VRS off (no out of bounds read).
     MakeEye(eye, 3136);
     int before = uncovered ? uncovered() : 0;
     drawEyes(true);
     float stale = UniformFraction(ctx, eye, 0);
-    printf("stale image 166 tiles on 3136 eye: uniform 4x4 %.3f, skipped %d\n", stale, (uncovered ? uncovered() : 0) - before);
+    int staleSkipped = (uncovered ? uncovered() : 0) - before;
+    printf("stale image 166 tiles on 3136 eye: uniform 4x4 %.3f, skipped %d\n", stale, staleSkipped);
+    check(uncovered != nullptr && stale < 0.01f && staleSkipped == 1, "stale shading rate image is refused");
 
-    // 3) Stress: flip the eye size every 7 frames, recreate the image one frame late, trim every frame.
+    // 3) Misuse a plugin user (or a pass ordering bug) could produce. None may crash, error or leak VRS.
+    MakeImage(ctx, image, (3136 + 15) / 16);
+    ctx->OMSetRenderTargets(0, nullptr, nullptr);
+    onEvent(1, image.tex); onEvent(2, nullptr);
+    check(alive() && lastError() == 0, "enable with nothing bound");
+    onEvent(1, nullptr); onEvent(2, nullptr);
+    check(alive() && lastError() == 0, "enable with a null image");
+    {
+        D3D11_TEXTURE2D_DESC dd = {}; dd.Width = 3136; dd.Height = 3136; dd.MipLevels = 1; dd.ArraySize = 2; dd.Format = DXGI_FORMAT_D32_FLOAT; dd.SampleDesc.Count = 1; dd.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+        ID3D11Texture2D* depth = nullptr; Check(g_Device->CreateTexture2D(&dd, nullptr, &depth), "depth texture");
+        ID3D11DepthStencilView* dsv = nullptr; Check(g_Device->CreateDepthStencilView(depth, nullptr, &dsv), "dsv");
+        ctx->OMSetRenderTargets(0, nullptr, dsv);
+        int e0 = enables();
+        onEvent(1, image.tex);
+        ctx->ClearDepthStencilView(dsv, D3D11_CLEAR_DEPTH, 1.0f, 0);
+        onEvent(2, nullptr);
+        check(alive() && enables() == e0 + 1, "depth only pass with a covering image enables");
+        MakeImage(ctx, image, (2644 + 15) / 16);
+        int u0 = uncovered ? uncovered() : 0;
+        onEvent(1, image.tex); onEvent(2, nullptr);
+        check(uncovered && uncovered() == u0 + 1, "depth only pass with a small image is refused");
+        dsv->Release(); depth->Release();
+    }
+    MakeImage(ctx, image, (3136 + 15) / 16);
+    ctx->OMSetRenderTargets(1, &eye.rtv, nullptr);
+    onEvent(1, image.tex);
+    onEvent(3, nullptr);
+    drawEyes(false);
+    check(alive() && UniformFraction(ctx, eye, 0) < 0.01f, "release while enabled leaves vrs off");
+    onEvent(1, image.tex);
+    if (dxgi3) dxgi3->Trim();
+    ctx->DrawInstanced(3, 2, 0, 0);
+    onEvent(2, nullptr);
+    finish();
+    check(alive(), "driver trim between enable and draw");
+
+    // 4) Stress: eye size flipping every 7 frames like the OpenVR stage swap, image recreated one frame
+    // late, driver trim every frame. Every frame is waited on so a stall shows as a stutter.
     UINT sizes[2] = { 2644, 3136 };
     UINT pendingTiles = image.tiles;
     int resizes = 0;
-    for (int f = 0; f < frames; f++)
+    std::vector<double> frameMs;
+    LARGE_INTEGER freq, t0, t1; QueryPerformanceFrequency(&freq);
+    for (int f = 0; f < frames && alive(); f++)
     {
+        QueryPerformanceCounter(&t0);
         if (f % 7 == 0) { MakeEye(eye, sizes[(f / 7) & 1]); resizes++; }
         UINT want = (eye.size + 15) / 16;
         if (image.tiles != pendingTiles) { onEvent(3, nullptr); MakeImage(ctx, image, pendingTiles); }
         pendingTiles = want;
         drawEyes(true);
-        ctx->Flush();
         if (dxgi3) dxgi3->Trim();
-        hr = g_Device->GetDeviceRemovedReason();
-        if (hr != S_OK) { printf("DEVICE REMOVED at frame %d: %08lx\n", f, (unsigned long)hr); return 10; }
+        finish();
+        QueryPerformanceCounter(&t1);
+        frameMs.push_back(1000.0 * (t1.QuadPart - t0.QuadPart) / freq.QuadPart);
     }
-    ctx->Flush();
-    ID3D11Query* q; D3D11_QUERY_DESC qd = { D3D11_QUERY_EVENT, 0 }; g_Device->CreateQuery(&qd, &q); ctx->End(q);
-    BOOL done = FALSE; while (ctx->GetData(q, &done, sizeof(done), 0) == S_FALSE) Sleep(1);
-    hr = g_Device->GetDeviceRemovedReason();
-    printf("stress: %d frames, %d resizes, device %s, enables %d, skipped %d, last error %d\n", frames, resizes, hr == S_OK ? "alive" : "REMOVED", enables(), uncovered ? uncovered() : -1, lastError());
-    bool pass = hr == S_OK && left > 0.99f && right > 0.99f && plainLeft < 0.01f && (!uncovered || stale < 0.01f);
-    printf(pass ? "PASS\n" : "FAIL\n");
-    return pass ? 0 : 1;
+    bool device = alive();
+    check(device, "device alive after resize and trim stress");
+    check(lastError() == 0, "no nvapi errors");
+    std::sort(frameMs.begin(), frameMs.end());
+    auto pick = [&](double q) { return frameMs.empty() ? 0.0 : frameMs[(size_t)((frameMs.size() - 1) * q + 0.5)]; };
+    double med = pick(0.5);
+    int stutters = 0; for (double t : frameMs) if (t > std::max(med * 2.0, med + 8.0)) stutters++;
+    printf("RESULT frames=%d resizes=%d enables=%d uncovered=%d last_error=%d device=%s covered_left=%.3f covered_right=%.3f plain=%.3f stale=%.3f frame_med=%.3f frame_p99=%.3f frame_max=%.3f frame_stutters=%d failures=%d\n",
+        (int)frameMs.size(), resizes, enables(), uncovered ? uncovered() : -1, lastError(), device ? "alive" : "removed", left, right, plainLeft, stale, med, pick(0.99), pick(1.0), stutters, failures);
+    printf(failures == 0 ? "PASS\n" : "FAIL\n");
+    return failures == 0 ? 0 : 1;
 }

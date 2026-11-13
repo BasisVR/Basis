@@ -180,9 +180,11 @@ namespace Cilbox
 			{ typeof(UnityEngine.Graphics), new HashSet<string>{ "Blit" } },
 			// Scripted player locomotion is an AVATAR-box feature; Basis.Shims.* is type-whitelisted here, so
 			// block every method to keep prop scripts out of the local player's locomotion. Reading input
-			// (BasisInputShim, and the self overloads of the desktop and controller shims) only reaches the
-			// player who spawned the prop; every other viewer reads nothing.
+			// (BasisInputShim, BasisLocalInputShim) only reaches the player who spawned the prop; every other
+			// viewer reads nothing. The desktop and controller shims stay world only.
 			{ typeof(Basis.Shims.BasisPlayspaceInputShim), new HashSet<string>() },
+			{ typeof(Basis.Shims.BasisDesktopInputShim), new HashSet<string>() },
+			{ typeof(Basis.Shims.BasisControllerInputShim), new HashSet<string>() },
 			{ typeof(Basis.Shims.BasisRemotePlayerAudioShim), new HashSet<string>() },
 			{ typeof(Basis.Shims.BasisSpawnShim), new HashSet<string>() },
 			// Props may ask whether the local player sits; the seat itself is a world object.

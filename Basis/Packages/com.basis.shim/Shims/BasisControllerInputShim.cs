@@ -78,13 +78,6 @@ namespace Basis.Shims
 			return state != null && !Pressed(state.Current, button) && Pressed(state.Last, button);
 		}
 
-		public static bool IsAvailable(object self, BasisControllerHand hand) => Cilbox.CilboxInputRequests.Local(self) && IsAvailable(hand);
-		public static float GetTrigger(object self, BasisControllerHand hand) => Cilbox.CilboxInputRequests.Local(self) ? GetTrigger(hand) : 0f;
-		public static Vector2 GetStick(object self, BasisControllerHand hand) => Cilbox.CilboxInputRequests.Local(self) ? GetStick(hand) : Vector2.zero;
-		public static bool GetButton(object self, BasisControllerHand hand, BasisControllerButton button) => Cilbox.CilboxInputRequests.Local(self) && GetButton(hand, button);
-		public static bool GetButtonDown(object self, BasisControllerHand hand, BasisControllerButton button) => Cilbox.CilboxInputRequests.Local(self) && GetButtonDown(hand, button);
-		public static bool GetButtonUp(object self, BasisControllerHand hand, BasisControllerButton button) => Cilbox.CilboxInputRequests.Local(self) && GetButtonUp(hand, button);
-
 		private static HandState Live(BasisControllerHand hand) => IsBlocked ? null : Read(hand);
 
 		private static HandState Read(BasisControllerHand hand)
