@@ -110,6 +110,43 @@ static EVENT_BASE: AtomicU64 = AtomicU64::new(0);
 static LAST_ERROR: Mutex<String> = Mutex::new(String::new());
 static FETCHED: AtomicU64 = AtomicU64::new(0);
 
+#[cfg(windows)]
+struct Buried(Instant, Vec<windows::core::IUnknown>);
+#[cfg(windows)]
+unsafe impl Send for Buried {}
+#[cfg(windows)]
+static GRAVE: Mutex<Vec<Buried>> = Mutex::new(Vec::new());
+
+#[cfg(windows)]
+fn bury(items: Vec<windows::core::IUnknown>) {
+    if items.is_empty() { return; }
+    GRAVE.lock().unwrap().push(Buried(Instant::now(), items));
+    let _ = std::thread::Builder::new().name("Basis Ray Tracer release".into()).spawn(|| { std::thread::sleep(Duration::from_millis(2100)); drain_grave(); });
+}
+
+fn drain_grave() {
+    #[cfg(windows)]
+    { if let Ok(mut g) = GRAVE.try_lock() { if !g.is_empty() { g.retain(|b| b.0.elapsed() < Duration::from_secs(2)); } } }
+}
+
+#[cfg(windows)]
+fn unknown_res(r: &Res) -> Option<windows::core::IUnknown> {
+    match r {
+        Res::D11(t) => t.cast().ok(),
+        Res::D12(t) => t.cast().ok(),
+        Res::Vk { .. } => None,
+    }
+}
+
+#[cfg(windows)]
+fn unknown_fence(f: &Fence) -> Option<windows::core::IUnknown> {
+    match f {
+        Fence::D11(x) => x.cast().ok(),
+        Fence::D12(x) => x.cast().ok(),
+        Fence::Vk(_) => None,
+    }
+}
+
 pub fn set_error(message: impl Into<String>) { *LAST_ERROR.lock().unwrap() = message.into(); }
 
 fn header<'a>(base: *mut u8) -> &'a mut Header { unsafe { &mut *(base as *mut Header) } }
@@ -210,6 +247,8 @@ impl Bridge {
     fn idle(&self) { if let Backend::Vulkan(vk) = &self.backend { unsafe { let _ = vk.device.queue_wait_idle(vk.queue); } } }
 
     fn release_shared(&mut self, shared: Shared) {
+        #[cfg(windows)]
+        bury(shared.gbuffer.iter().chain(shared.output.iter()).filter_map(unknown_res).collect());
         if shared.imported.is_empty() { return; }
         self.idle();
         if let Backend::Vulkan(vk) = &self.backend { for i in shared.imported { vk.release_image(i); } }
@@ -598,6 +637,21 @@ impl Drop for Bridge {
         self.host.stop();
         for c in 0..MAX_CONTEXTS { if let Some(d) = self.direct[c].take() { self.retired.push((c, d)); } }
         self.reap(true);
+        #[cfg(windows)]
+        {
+            let mut items: Vec<windows::core::IUnknown> = Vec::new();
+            if let Some(g) = &self.global {
+                items.extend(g.upload.iter().filter_map(unknown_res));
+                items.extend([&g.fence_unity, &g.fence_tracer].into_iter().filter_map(unknown_fence));
+            }
+            for s in self.shared.iter().flatten() { items.extend(s.gbuffer.iter().chain(s.output.iter()).filter_map(unknown_res)); }
+            if let Backend::D3D12 { allocators, list, fence, .. } = &self.backend {
+                items.extend(allocators.iter().filter_map(|(a, _)| a.cast().ok()));
+                items.extend(list.cast().ok());
+                items.extend(fence.cast().ok());
+            }
+            bury(items);
+        }
         if let Backend::Vulkan(_) = &self.backend {
             self.idle();
             let shared: Vec<Shared> = self.shared.iter_mut().filter_map(|s| s.take()).collect();
@@ -741,6 +795,7 @@ unsafe fn wide(text: *const u16) -> String {
 fn start(path: String, api: u32, embedded: bool) -> i32 {
     let mut guard = BRIDGE.lock().unwrap();
     *guard = None;
+    drain_grave();
     match create_from_unity().and_then(|mut b| { b.launch_mode(&path, api, embedded)?; Ok(b) }) {
         Ok(b) => { *guard = Some(b); set_error(""); 1 }
         Err(e) => { set_error(e); 0 }
@@ -850,6 +905,7 @@ pub extern "C" fn BasisRT_Configure(same_frame: i32, budget_us: i32) {
 }
 
 unsafe extern "system" fn on_render_event(event: i32, data: *mut c_void) {
+    drain_grave();
     let base = EVENT_BASE.load(Ordering::Acquire) as i32;
     let value = data as u64;
     let frame = value & 0xff_ffff_ffff;
