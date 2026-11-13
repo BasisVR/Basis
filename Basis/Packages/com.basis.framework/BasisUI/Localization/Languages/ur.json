@@ -3827,7 +3827,7 @@
     { "key": "settings.developer.calibrationSpheres", "value": "کیلیبریشن کرے" },
     { "key": "settings.developer.calibrationSpheres.description", "value": "ہر کیلیبریٹ شدہ ہڈی پر کرے بناتا ہے، فی ہڈی کیلیبریشن کرہ پیمانے کے مطابق سائز کیے گئے۔" },
     { "key": "settings.developer.jiggleVisuals", "value": "جگل بصری" },
-    { "key": "settings.developer.avatarProxy", "value": "اوتار پراکسی کیپسول" },
+    { "key": "settings.developer.avatarProxy", "value": "اوتار پراکسی کیپسول گزموز" },
     { "key": "settings.developer.jiggleVisuals.description", "value": "جگل فزکس سمولیشن کے پوائنٹس کو رینڈر کرتا ہے تاکہ آپ دیکھ سکیں کہ سالور کیا کر رہا ہے۔" },
     { "key": "settings.developer.trackerGizmos", "value": "ٹریکر گزموز" },
     { "key": "settings.developer.trackerGizmos.description", "value": "جسم کے کردار سے بندھے ہر ٹریکر کی جسمانی پوزیشن پر کرہ گزمو دکھاتا ہے۔" },

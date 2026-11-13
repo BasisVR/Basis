@@ -61,10 +61,17 @@ public sealed partial class BasisAvatarProxyGizmo : MonoBehaviour
 
     private readonly List<Animator> humanoids = new List<Animator>();
     private readonly List<int> gizmoIds = new List<int>();
-    private readonly List<BasisAvatarProxy.ResolvedLimb> limbScratch = new List<BasisAvatarProxy.ResolvedLimb>();
+    private readonly Dictionary<Transform, bool> legByBone = new Dictionary<Transform, bool>();
+    private readonly Vector3[] ring = new Vector3[BasisAvatarProxy.CapsuleSides];
+    private readonly Vector3[] segment = new Vector3[2];
     private float nextScan;
     private int used;
+    private int active;
     private BasisAvatarProxyGizmoMode drawn = BasisAvatarProxyGizmoMode.Off;
+
+    private static Mesh ringSource;
+    private static Vector3[] ringLocal;
+    private static int ringRows;
 
     private static BasisAvatarProxyGizmo instance;
 
@@ -117,6 +124,8 @@ public sealed partial class BasisAvatarProxyGizmo : MonoBehaviour
             Rescan();
         }
 
+        if (drawn != BasisAvatarProxyGizmoMode.Bones && !EnsureRing()) { return; }
+
         used = 0;
         for (int index = 0; index < humanoids.Count; index++)
         {
@@ -125,25 +134,26 @@ public sealed partial class BasisAvatarProxyGizmo : MonoBehaviour
             BasisAvatarProxyPose pose = BasisAvatarProxy.PoseFor(animator);
             if (pose == null) { continue; }
 
-            limbScratch.Clear();
-            limbScratch.AddRange(pose.Limbs);
-            for (int limbIndex = 0; limbIndex < limbScratch.Count; limbIndex++)
+            List<BasisAvatarProxy.ResolvedLimb> limbs = pose.Limbs;
+            for (int limbIndex = 0; limbIndex < limbs.Count; limbIndex++)
             {
-                DrawLimb(limbScratch[limbIndex]);
+                DrawLimb(limbs[limbIndex]);
             }
         }
 
         // Anything left from a frame with more avatars in it is parked rather than destroyed, so a player
         // walking in and out does not churn the gizmo pool.
-        for (int index = used; index < gizmoIds.Count; index++)
+        for (int index = used; index < active; index++)
         {
             BasisGizmoManager.SetGizmoActive(gizmoIds[index], false);
         }
+        active = used;
     }
 
     private void Rescan()
     {
         humanoids.Clear();
+        legByBone.Clear();
         Animator[] found = FindObjectsByType<Animator>(FindObjectsInactive.Exclude);
         for (int index = 0; index < found.Length; index++)
         {
@@ -151,32 +161,62 @@ public sealed partial class BasisAvatarProxyGizmo : MonoBehaviour
         }
     }
 
-    private static bool IsLeg(in BasisAvatarProxy.ResolvedLimb limb)
+    private static bool EnsureRing()
+    {
+        Mesh capsule = BasisAvatarProxy.SharedCapsule();
+        if (capsule == null) { ringSource = null; ringLocal = null; ringRows = 0; return false; }
+        if (capsule == ringSource) { return ringRows > 0; }
+
+        ringSource = capsule;
+        ringLocal = null;
+        ringRows = 0;
+        if (!capsule.isReadable) { return false; }
+
+        Vector3[] vertices = capsule.vertices;
+        int stride = BasisAvatarProxy.CapsuleStride;
+        int sides = BasisAvatarProxy.CapsuleSides;
+        if (sides < 2 || vertices.Length < stride) { return false; }
+        int rows = vertices.Length / stride;
+
+        ringLocal = new Vector3[rows * sides];
+        for (int row = 0; row < rows; row++)
+        {
+            Vector3 first = vertices[row * stride];
+            if (first.x * first.x + first.z * first.z < 1e-8f) { continue; }
+            System.Array.Copy(vertices, row * stride, ringLocal, ringRows * sides, sides);
+            ringRows++;
+        }
+        return ringRows > 0;
+    }
+
+    private bool IsLeg(Transform bone)
     {
         // By name, because a ResolvedLimb has already forgotten which HumanBodyBones it came from - it holds
         // transforms so a per-frame update is two position reads and no lookup.
-        if (limb.From == null) { return false; }
-        string name = limb.From.name;
-        return name.IndexOf("Leg", System.StringComparison.OrdinalIgnoreCase) >= 0
+        if (legByBone.TryGetValue(bone, out bool leg)) { return leg; }
+        string name = bone.name;
+        leg = name.IndexOf("Leg", System.StringComparison.OrdinalIgnoreCase) >= 0
             || name.IndexOf("Foot", System.StringComparison.OrdinalIgnoreCase) >= 0
             || name.IndexOf("Knee", System.StringComparison.OrdinalIgnoreCase) >= 0
             || name.IndexOf("Shin", System.StringComparison.OrdinalIgnoreCase) >= 0
             || name.IndexOf("Calf", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        legByBone.Add(bone, leg);
+        return leg;
     }
 
     private void DrawLimb(in BasisAvatarProxy.ResolvedLimb limb)
     {
         if (!limb.IsValid) { return; }
 
-        Color colour = IsLeg(limb) ? LegColour : LimbColour;
-
         if (drawn == BasisAvatarProxyGizmoMode.Bones)
         {
-            DrawPolyline(new[] { limb.From.position, limb.To.position }, BoneColour, false);
+            segment[0] = limb.From.position;
+            segment[1] = limb.To.position;
+            DrawPolyline(segment, BoneColour, false);
             return;
         }
 
-        DrawCapsule(BasisAvatarProxy.MatrixFor(limb), colour);
+        DrawCapsule(BasisAvatarProxy.MatrixFor(limb), IsLeg(limb.From) ? LegColour : LimbColour);
 
         if (drawn == BasisAvatarProxyGizmoMode.FitAgainstPlan
             && !Mathf.Approximately(limb.Radius, limb.PlanRadius))
@@ -191,23 +231,16 @@ public sealed partial class BasisAvatarProxyGizmo : MonoBehaviour
 
     private void DrawCapsule(Matrix4x4 matrix, Color colour)
     {
-        Mesh capsule = BasisAvatarProxy.SharedCapsule();
-        if (capsule == null || !capsule.isReadable) { return; }
-
-        Vector3[] vertices = capsule.vertices;
-        int stride = BasisAvatarProxy.CapsuleStride;
-        if (stride <= 1 || vertices.Length < stride) { return; }
-        int rows = vertices.Length / stride;
-
         // One looped polyline per ring row. The rows ARE the capsule's silhouette, so this reads as the
         // shape without drawing every triangle edge - which at sixteen limbs an avatar would be thousands
         // of lines for no more information.
-        Vector3[] ring = new Vector3[stride];
-        for (int row = 0; row < rows; row++)
+        int sides = ring.Length;
+        for (int row = 0; row < ringRows; row++)
         {
-            for (int side = 0; side < stride; side++)
+            int offset = row * sides;
+            for (int side = 0; side < sides; side++)
             {
-                ring[side] = matrix.MultiplyPoint3x4(vertices[row * stride + side]);
+                ring[side] = matrix.MultiplyPoint3x4(ringLocal[offset + side]);
             }
             DrawPolyline(ring, colour, true);
         }
@@ -217,9 +250,7 @@ public sealed partial class BasisAvatarProxyGizmo : MonoBehaviour
     {
         if (used < gizmoIds.Count)
         {
-            int existing = gizmoIds[used];
-            BasisGizmoManager.SetGizmoActive(existing, true);
-            BasisGizmoManager.UpdateLineGizmo(existing, points);
+            BasisGizmoManager.UpdateLineGizmo(gizmoIds[used], points, colour);
             used++;
             return;
         }
@@ -239,5 +270,6 @@ public sealed partial class BasisAvatarProxyGizmo : MonoBehaviour
         }
         gizmoIds.Clear();
         used = 0;
+        active = 0;
     }
 }

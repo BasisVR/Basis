@@ -3827,7 +3827,7 @@
     { "key": "settings.developer.calibrationSpheres", "value": "कैलिब्रेशन स्फियर्स" },
     { "key": "settings.developer.calibrationSpheres.description", "value": "प्रत्येक कैलिब्रेटेड हड्डी पर गोले बनाता है, प्रति-हड्डी कैलिब्रेशन स्फियर पैमाने के अनुसार आकार में।" },
     { "key": "settings.developer.jiggleVisuals", "value": "जिगल विज़ुअल्स" },
-    { "key": "settings.developer.avatarProxy", "value": "अवतार प्रॉक्सी कैप्सूल" },
+    { "key": "settings.developer.avatarProxy", "value": "अवतार प्रॉक्सी कैप्सूल गिज़्मोज़" },
     { "key": "settings.developer.jiggleVisuals.description", "value": "जिगल फ़िज़िक्स सिमुलेशन के बिंदुओं को रेंडर करता है ताकि आप देख सकें सॉल्वर क्या कर रहा है।" },
     { "key": "settings.developer.trackerGizmos", "value": "ट्रैकर गिज़्मोज़" },
     { "key": "settings.developer.trackerGizmos.description", "value": "शरीर भूमिका से बंधे प्रत्येक ट्रैकर की भौतिक स्थिति पर गोला गिज़्मो दिखाता है।" },

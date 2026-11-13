@@ -156,9 +156,9 @@ public static unsafe partial class BasisExternalRayTracer
     private static int retries;
     private static bool loggedFailure;
     private static bool startedInProcess, inProcessFailed;
-    // Off by default: in process the bridge has Unity's GPU wait on the tracer's fence whenever a frame is
-    // late (no budget, unlike the separate process), which stutters. The separate process skips a late result.
-    public static bool InProcess = false;
+    // In process the bridge has Unity's GPU wait on the tracer's fence whenever a frame is late (no budget,
+    // unlike the separate process), which stutters. The separate process skips a late result.
+    public static bool InProcess = true;
 
     public static void SetInProcess(bool inProcess)
     {
@@ -171,7 +171,7 @@ public static unsafe partial class BasisExternalRayTracer
             retries = 0;
         }
     }
-    public static bool DirectTargets = true;
+    public static bool DirectTargets = false;
     private static bool pairedGBuffers = true;
     public static bool RunningInProcess => Started && startedInProcess;
 

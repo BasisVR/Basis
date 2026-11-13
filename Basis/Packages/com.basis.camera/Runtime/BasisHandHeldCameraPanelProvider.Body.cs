@@ -54,7 +54,7 @@ namespace Basis.BasisUI.HandHeldCamera
             ReleaseControlSlot(_bodyStatus);
             _bodyStatus.SetDescription(BasisLocalization.Get("camera.body.help"));
 
-            _bodyFlashToggle = PanelToggle.CreateNewEntry(content);
+            _bodyFlashToggle = Favouritable(PanelToggle.CreateNewEntry(content), "camera.body.flash");
             _bodyFlashToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.body.flash"));
             _bodyFlashToggle.Descriptor.SetTooltip(BasisLocalization.Get("camera.body.flash.tooltip"));
             _bodyFlashToggle.OnValueChanged = v =>

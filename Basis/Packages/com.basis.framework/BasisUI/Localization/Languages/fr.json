@@ -3827,7 +3827,7 @@
     { "key": "settings.developer.calibrationSpheres", "value": "Sphères de calibration" },
     { "key": "settings.developer.calibrationSpheres.description", "value": "Dessine une sphère sur chaque os calibré, dimensionnée par l'échelle de sphère de calibration de l'os." },
     { "key": "settings.developer.jiggleVisuals", "value": "Visuels Jiggle" },
-    { "key": "settings.developer.avatarProxy", "value": "Capsules de proxy d'avatar" },
+    { "key": "settings.developer.avatarProxy", "value": "Gizmos des capsules de proxy d'avatar" },
     { "key": "settings.developer.jiggleVisuals.description", "value": "Affiche les points de simulation physique de jiggle pour visualiser le travail du solveur." },
     { "key": "settings.developer.trackerGizmos", "value": "Gizmos des trackers" },
     { "key": "settings.developer.trackerGizmos.description", "value": "Affiche un gizmo sphère à la position physique de chaque tracker assigné à un rôle corporel." },

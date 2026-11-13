@@ -3743,7 +3743,7 @@
     { "key": "settings.developer.calibrationSpheres", "value": "Regiones de calibración" },
     { "key": "settings.developer.calibrationSpheres.description", "value": "Elipsoide por rol que muestra la región de aceptación del clasificador FBT, anclado al marco corporal del HMD." },
     { "key": "settings.developer.jiggleVisuals", "value": "Visualización jiggle" },
-    { "key": "settings.developer.avatarProxy", "value": "Cápsulas de proxy de avatar" },
+    { "key": "settings.developer.avatarProxy", "value": "Gizmos de cápsulas de proxy de avatar" },
     { "key": "settings.developer.jiggleVisuals.description", "value": "Renderiza los puntos de la simulación física jiggle para ver lo que está haciendo el solver." },
     { "key": "settings.developer.trackerGizmos", "value": "Gizmos de tracker" },
     { "key": "settings.developer.trackerGizmos.description", "value": "Muestra gizmos esfera en la posición física de cada tracker asignado a un rol corporal." },

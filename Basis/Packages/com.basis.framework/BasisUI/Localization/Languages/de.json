@@ -3827,7 +3827,7 @@
     { "key": "settings.developer.calibrationSpheres", "value": "Kalibrierungsbereiche" },
     { "key": "settings.developer.calibrationSpheres.description", "value": "Ellipsoid pro Rolle, das den Akzeptanzbereich des FBT-Klassifizierers zeigt, am HMD-Körperrahmen verankert." },
     { "key": "settings.developer.jiggleVisuals", "value": "Jiggle-Visualisierung" },
-    { "key": "settings.developer.avatarProxy", "value": "Avatar-Proxy-Kapseln" },
+    { "key": "settings.developer.avatarProxy", "value": "Avatar-Proxy-Kapsel-Gizmos" },
     { "key": "settings.developer.jiggleVisuals.description", "value": "Rendert die Simulationspunkte der Jiggle-Physik, damit du sehen kannst, was der Solver macht." },
     { "key": "settings.developer.trackerGizmos", "value": "Tracker-Gizmos" },
     { "key": "settings.developer.trackerGizmos.description", "value": "Zeigt Kugel-Gizmos an der physischen Position jedes Trackers, der einer Körperrolle zugeordnet ist." },

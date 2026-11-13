@@ -47,7 +47,7 @@ namespace Basis.BasisUI.HandHeldCamera
 
             BasisHandHeldCameraUI.CameraSettings defaults = new BasisHandHeldCameraUI.CameraSettings();
 
-            _videoTimeLimitToggle = PanelToggle.CreateNewEntry(content);
+            _videoTimeLimitToggle = Favouritable(PanelToggle.CreateNewEntry(content), "camera.video.timeLimit");
             _videoTimeLimitToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.video.timeLimit"));
             _videoTimeLimitToggle.Descriptor.SetTooltip(BasisLocalization.Get("camera.video.timeLimit.description"));
             _videoTimeLimitToggle.OnValueChanged = v =>
@@ -65,7 +65,7 @@ namespace Basis.BasisUI.HandHeldCamera
             _videoDurationSlider.SetResetDefault(defaults.videoDurationSeconds);
             _videoDurationSlider.OnValueChanged = v => _activeCamera?.SetVideoRecordingDuration(v);
 
-            _videoAutoNewClipToggle = PanelToggle.CreateNewEntry(content);
+            _videoAutoNewClipToggle = Favouritable(PanelToggle.CreateNewEntry(content), "camera.video.autoNewClip");
             _videoAutoNewClipToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.video.autoNewClip"));
             _videoAutoNewClipToggle.Descriptor.SetTooltip(BasisLocalization.Get("camera.video.autoNewClip.description"));
             _videoAutoNewClipToggle.OnValueChanged = v =>

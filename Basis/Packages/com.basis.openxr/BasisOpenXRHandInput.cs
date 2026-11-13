@@ -1,6 +1,7 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
+using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System.Collections.Generic;
 using Unity.Mathematics;
@@ -436,6 +437,41 @@ public class BasisOpenXRHandInput : BasisInputController
         Hand.MiddlePercentage[0] = Remap01ToMinus1To1(CurrentInputState.SecondaryTrigger);
         Hand.RingPercentage[0] = Remap01ToMinus1To1(CurrentInputState.SecondaryTrigger);
         Hand.LittlePercentage[0] = Remap01ToMinus1To1(CurrentInputState.SecondaryTrigger);
+        BasisFingerTipRetarget retarget = BasisLocalPlayer.Instance.LocalHandDriver.TipRetarget;
+        if (!retarget.IsCreated) return;
+        bool left = Hand == BasisLocalPlayer.Instance.LocalHandDriver.LeftHand;
+        BasisFingerTipRetarget.ThumbTouch touch = CurrentInputState.PrimaryButtonTouch ? BasisFingerTipRetarget.ThumbTouch.Primary : CurrentInputState.SecondaryButtonTouch ? BasisFingerTipRetarget.ThumbTouch.Secondary : CurrentInputState.Primary2DAxisTouch ? BasisFingerTipRetarget.ThumbTouch.Stick : CurrentInputState.ThumbrestTouch ? BasisFingerTipRetarget.ThumbTouch.Thumbrest : BasisFingerTipRetarget.ThumbTouch.Lifted;
+        Vector3 target = BasisFingerTipRetarget.ControllerThumb(touch, left);
+        controllerThumbDirection = controllerThumbSet ? Vector3.Slerp(controllerThumbDirection, target, 1f - Mathf.Exp(-ControllerThumbSpeed * Time.deltaTime)) : target;
+        controllerThumbSet = true;
+        controllerThumbSolved = retarget.Solve(left ? 0 : 5, controllerThumbDirection, controllerThumbSolved);
+        Hand.ThumbPercentage = controllerThumbSolved;
+    }
+    public float ControllerThumbSpeed = 18f;
+    private Vector3 controllerThumbDirection;
+    private bool controllerThumbSet;
+    private Vector2 controllerThumbSolved = new Vector2(0.75f, 0f);
+    private readonly Vector2[] handSolved = BasisFingerTipRetarget.NewState();
+    private static readonly XRHandJointID[] handBaseJoints = { XRHandJointID.ThumbMetacarpal, XRHandJointID.IndexProximal, XRHandJointID.MiddleProximal, XRHandJointID.RingProximal, XRHandJointID.LittleProximal }, handTipJoints = { XRHandJointID.ThumbTip, XRHandJointID.IndexTip, XRHandJointID.MiddleTip, XRHandJointID.RingTip, XRHandJointID.LittleTip };
+    private static readonly Vector3[] handBases = new Vector3[5], handTips = new Vector3[5];
+    private static bool TryJointPosition(XRHand hand, XRHandJointID id, out Vector3 position)
+    {
+        position = default;
+        if (!hand.GetJoint(id).TryGetPose(out Pose pose)) return false;
+        position = pose.position;
+        return true;
+    }
+    private bool TrySolveJoints(XRHand hand, BasisFingerPose fingerPose)
+    {
+        BasisFingerTipRetarget retarget = BasisLocalPlayer.Instance.LocalHandDriver.TipRetarget;
+        if (!retarget.IsCreated || !TryJointPosition(hand, XRHandJointID.Wrist, out Vector3 wrist) || !TryJointPosition(hand, XRHandJointID.IndexProximal, out Vector3 indexMcp) || !TryJointPosition(hand, XRHandJointID.MiddleProximal, out Vector3 middleMcp) || !TryJointPosition(hand, XRHandJointID.LittleProximal, out Vector3 littleMcp)) return false;
+        for (int f = 0; f < 5; f++)
+        {
+            if (!TryJointPosition(hand, handBaseJoints[f], out handBases[f]) || !TryJointPosition(hand, handTipJoints[f], out handTips[f])) return false;
+        }
+        if (!retarget.SolveHand(hand.handedness == Handedness.Left ? 0 : 5, wrist, indexMcp, middleMcp, littleMcp, handBases, handTips, handSolved)) return false;
+        BasisFingerTipRetarget.Write(fingerPose, handSolved);
+        return true;
     }
     private bool UpdateHandPose(XRHand hand, BasisFingerPose fingerPose, bool writeFingers, out Vector3 position, out Quaternion rotation)
     {
@@ -449,7 +485,7 @@ public class BasisOpenXRHandInput : BasisInputController
             rotation = pose.rotation;
             valid = true;
         }
-        if (!writeFingers)
+        if (!writeFingers || TrySolveJoints(hand, fingerPose))
         {
             return valid;
         }

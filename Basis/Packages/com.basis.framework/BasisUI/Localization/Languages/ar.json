@@ -3827,7 +3827,7 @@
     { "key": "settings.developer.calibrationSpheres", "value": "كرات المعايرة" },
     { "key": "settings.developer.calibrationSpheres.description", "value": "ترسم كرات على كل عظمة معايَرة، يحدد حجمها مقياس كرة المعايرة لكل عظمة." },
     { "key": "settings.developer.jiggleVisuals", "value": "مرئيات الاهتزاز" },
-    { "key": "settings.developer.avatarProxy", "value": "كبسولات وكيل الأفاتار" },
+    { "key": "settings.developer.avatarProxy", "value": "أدوات كبسولات وكيل الأفاتار" },
     { "key": "settings.developer.jiggleVisuals.description", "value": "يعرض نقاط محاكاة فيزياء الاهتزاز لترى ما يفعله المُحَلِّل." },
     { "key": "settings.developer.trackerGizmos", "value": "أدوات المتتبعات" },
     { "key": "settings.developer.trackerGizmos.description", "value": "يُظهر أدوات كروية في الموضع الفيزيائي لكل متتبع مرتبط بدور جسدي." },

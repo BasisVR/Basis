@@ -25,6 +25,12 @@ namespace Basis.BasisUI
         public override int Order => 50; // after static items
         public override bool Hidden => false;
         public override string FavouriteKey => PinnedFavouriteKey(_key.Url);
+        public override bool FavouriteIsToggle => true;
+        public override bool FavouriteOn => IsSpawned;
+        public override void SetFavouriteOn(bool on)
+        {
+            if (on != IsSpawned) RunAction();
+        }
 
         public static string PinnedFavouriteKey(string url)
         {
@@ -68,7 +74,11 @@ namespace Basis.BasisUI
         {
             if (_registryHooked) return;
             _registryHooked = true;
-            BasisRuntimeSpawnRegistry.OnRegistryChanged += (_, __) => RefreshAllIndicators();
+            BasisRuntimeSpawnRegistry.OnRegistryChanged += (_, __) =>
+            {
+                RefreshAllIndicators();
+                BasisSettingFavourites.MenuChanged();
+            };
         }
 
         private static void RefreshAllIndicators()

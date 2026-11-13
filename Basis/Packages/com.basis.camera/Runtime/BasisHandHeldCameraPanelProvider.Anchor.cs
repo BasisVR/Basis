@@ -75,7 +75,7 @@ namespace Basis.BasisUI.HandHeldCamera
                 RefreshAnchorVisibility();
             };
 
-            _anchorFollowsBodyToggle = PanelToggle.CreateNewEntry(content);
+            _anchorFollowsBodyToggle = Favouritable(PanelToggle.CreateNewEntry(content), "camera.anchorFollowsBody");
             _anchorFollowsBodyToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.anchorFollowsBody"));
             _anchorFollowsBodyToggle.Descriptor.SetTooltip(
                 BasisLocalization.Get("camera.anchorFollowsBody.description"));

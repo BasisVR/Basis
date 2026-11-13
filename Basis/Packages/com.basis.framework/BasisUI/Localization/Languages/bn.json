@@ -3827,7 +3827,7 @@
     { "key": "settings.developer.calibrationSpheres", "value": "ক্যালিব্রেশন গোলক" },
     { "key": "settings.developer.calibrationSpheres.description", "value": "প্রতিটি ক্যালিব্রেটেড হাড়ে গোলক আঁকে, প্রতি-হাড় ক্যালিব্রেশন গোলক স্কেল অনুসারে আকার নির্ধারিত।" },
     { "key": "settings.developer.jiggleVisuals", "value": "জিগল ভিজ্যুয়াল" },
-    { "key": "settings.developer.avatarProxy", "value": "অবতার প্রক্সি ক্যাপসুল" },
+    { "key": "settings.developer.avatarProxy", "value": "অবতার প্রক্সি ক্যাপসুল গিজমো" },
     { "key": "settings.developer.jiggleVisuals.description", "value": "জিগল ফিজিক্স সিমুলেশনের পয়েন্ট রেন্ডার করে যাতে আপনি সলভার কী করছে দেখতে পারেন।" },
     { "key": "settings.developer.trackerGizmos", "value": "ট্র্যাকার গিজমো" },
     { "key": "settings.developer.trackerGizmos.description", "value": "শরীরের ভূমিকার সাথে আবদ্ধ প্রতিটি ট্র্যাকারের ভৌত অবস্থানে গোলক গিজমো দেখায়।" },

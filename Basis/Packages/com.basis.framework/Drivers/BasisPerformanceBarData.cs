@@ -283,7 +283,7 @@ namespace Basis.Scripts.Drivers
         //   DeviceManagement.BaseTypes     â€” loops BaseTypes[i].Simulate() over every registered device-type
         //                                     handler; the OpenVR one (BasisOpenVRManagment.Simulate()) fires
         //                                     DeviceManagement.HMDPresence from inside that loop (JoinInput now
-        //                                     fires from SimulateJoin at the top of LateUpdate, ahead of the eye block).
+        //                                     fires from SimulateJoin at the start of the device block, just before this loop).
         //   Avatar.Install                 â€” Install.UnregisterOld/DeleteLast/Harvest/PerfTrim (BasisAvatarFactory).
         //   Avatar.Calibrate               â€” Calibrate.Tpose/DetectReferences/BoneData/BodyFit/Face/Renderers/
         //                                     Jiggle/BoneJobRegister (BasisRemoteAvatarDriver.RemoteCalibration).

@@ -381,10 +381,12 @@ namespace Basis.BasisUI.HandHeldCamera
             // this runs again each play session and would stack up duplicate handlers.
             BasisHandHeldCameraRegistry.OnChanged -= RefreshMainMenu;
             BasisHandHeldCameraRegistry.OnChanged += RefreshMainMenu;
+            RegisterFavourites();
         }
 
         private static void RefreshMainMenu()
         {
+            NotifyFavourites();
             if (BasisMenuBase<BasisMainMenu>.Instance != null)
             {
                 BasisMenuBase<BasisMainMenu>.Instance.BindProvidersToButtons();
@@ -1673,7 +1675,7 @@ namespace Basis.BasisUI.HandHeldCamera
                 _activeCamera.SetCaptureTonemapping(_captureTonemappingDropdown.Index);
             };
 
-            _exposureOnCameraToggle = PanelToggle.CreateNewEntry(content);
+            _exposureOnCameraToggle = Favouritable(PanelToggle.CreateNewEntry(content), "camera.exposureOnCamera");
             _exposureOnCameraToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.exposureOnCamera"));
             _exposureOnCameraToggle.Descriptor.SetTooltip(BasisLocalization.Get("camera.exposureOnCamera.description"));
             _exposureOnCameraToggle.OnValueChanged = v =>
@@ -1942,7 +1944,7 @@ namespace Basis.BasisUI.HandHeldCamera
                 _outputSection, parent, BasisLocalization.Get("camera.whileStreaming"), false);
             RectTransform content = _outputGroup.ContentParent;
 
-            _hideCameraToggle = PanelToggle.CreateNewEntry(content);
+            _hideCameraToggle = Favouritable(PanelToggle.CreateNewEntry(content), "camera.hideCamera");
             _hideCameraToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.hideCamera"));
             _hideCameraToggle.Descriptor.SetTooltip(BasisLocalization.Get("camera.hideCamera.description"));
             _hideCameraToggle.OnValueChanged = v =>
@@ -1951,7 +1953,7 @@ namespace Basis.BasisUI.HandHeldCamera
                 _lastCameraHidden = v;
             };
 
-            _closeHidesToggle = PanelToggle.CreateNewEntry(content);
+            _closeHidesToggle = Favouritable(PanelToggle.CreateNewEntry(content), "camera.closeHidesInstead");
             _closeHidesToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.closeHidesInstead"));
             _closeHidesToggle.Descriptor.SetTooltip(BasisLocalization.Get("camera.closeHidesInstead.description"));
             _closeHidesToggle.OnValueChanged = v =>
@@ -1960,7 +1962,7 @@ namespace Basis.BasisUI.HandHeldCamera
                 _lastCloseHides = v;
             };
 
-            _audioListenerToggle = PanelToggle.CreateNewEntry(content);
+            _audioListenerToggle = Favouritable(PanelToggle.CreateNewEntry(content), "camera.hearFromCamera");
             _audioListenerToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.hearFromCamera"));
             _audioListenerToggle.Descriptor.SetTooltip(BasisLocalization.Get("camera.hearFromCamera.description"));
             _audioListenerToggle.OnValueChanged = v =>
@@ -2023,7 +2025,7 @@ namespace Basis.BasisUI.HandHeldCamera
             // offered where there is no monitor: a standalone headset's window is the headset.
             if (BasisCameraDirectToScreen.IsSupported)
             {
-                _directToScreenToggle = PanelToggle.CreateNewEntry(parent);
+                _directToScreenToggle = Favouritable(PanelToggle.CreateNewEntry(parent), "camera.directToScreen");
                 _directToScreenToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.directToScreen"));
                 _directToScreenToggle.Descriptor.SetTooltip(BasisLocalization.Get("camera.directToScreen.description"));
                 _directToScreenToggle.OnValueChanged = v =>
@@ -2244,14 +2246,14 @@ namespace Basis.BasisUI.HandHeldCamera
             // control VR already has in hand.
             _markerScaleSlider.OnValueChanged = v => _activeCamera?.SetDetachedMarkerScale(v / 100f);
 
-            _puckPreviewToggle = PanelToggle.CreateNewEntry(content);
+            _puckPreviewToggle = Favouritable(PanelToggle.CreateNewEntry(content), "camera.puckPreview");
             _puckPreviewToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.puckPreview"));
             _puckPreviewToggle.Descriptor.SetTooltip(BasisLocalization.Get("camera.puckPreview.description"));
             _puckPreviewToggle.OnValueChanged = v => _activeCamera?.SetPuckLookAtPreview(v);
 
             // With the marker, because it is the marker's grab handle that carries the roll: take
             // hold of the puck with this on and twisting your wrist tips the shot with it.
-            _rollToggle = PanelToggle.CreateNewEntry(content);
+            _rollToggle = Favouritable(PanelToggle.CreateNewEntry(content), "camera.rollControl");
             _rollToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.rollControl"));
             _rollToggle.Descriptor.SetTooltip(BasisLocalization.Get("camera.rollControl.description"));
             _rollToggle.OnValueChanged = v => _activeCamera?.SetCameraRollEnabled(v);
@@ -2372,14 +2374,14 @@ namespace Basis.BasisUI.HandHeldCamera
             // the camera is flying, and this is the switch that puts it there. Until now flight
             // was reachable only by holding middle click or clicking the VR thumbstick, neither of
             // which is written down anywhere the user can find.
-            _flyToggle = PanelToggle.CreateNewEntry(content);
+            _flyToggle = Favouritable(PanelToggle.CreateNewEntry(content), "camera.flyMode");
             _flyToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.flyMode"));
             _flyToggle.Descriptor.SetTooltip(BasisLocalization.Get("camera.flyMode.description"));
             _flyToggle.OnValueChanged = v => _activeCamera?.SetFlyModeEnabled(v);
 
             // Sits under the switch it copies: flight is most often wanted while the camera is out
             // in the world and this panel is not, and the hotbar is reachable from anywhere.
-            _flyOnMenuToggle = PanelToggle.CreateNewEntry(content);
+            _flyOnMenuToggle = Favouritable(PanelToggle.CreateNewEntry(content), "camera.flyOnMenu");
             _flyOnMenuToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.flyOnMenu"));
             _flyOnMenuToggle.Descriptor.SetTooltip(BasisLocalization.Get("camera.flyOnMenu.description"));
             _flyOnMenuToggle.OnValueChanged = v => _activeCamera?.SetShowFlyOnMainMenu(v);
@@ -2429,7 +2431,7 @@ namespace Basis.BasisUI.HandHeldCamera
             _flyMouseSensitivitySlider.Descriptor.SetTooltip(BasisLocalization.Get("camera.flyMouseSensitivity.description"));
             _flyMouseSensitivitySlider.OnValueChanged = v => _activeCamera?.SetFlyMouseSensitivity(v);
 
-            _flyMomentumToggle = PanelToggle.CreateNewEntry(content);
+            _flyMomentumToggle = Favouritable(PanelToggle.CreateNewEntry(content), "camera.flyMomentum");
             _flyMomentumToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.flyMomentum"));
             _flyMomentumToggle.Descriptor.SetTooltip(BasisLocalization.Get("camera.flyMomentum.description"));
             _flyMomentumToggle.OnValueChanged = v =>
@@ -2439,14 +2441,14 @@ namespace Basis.BasisUI.HandHeldCamera
 
             // VR-only: desktop's WASD has always moved relative to the full look direction, so this
             // is purely the VR stick catching up to that. Hidden on desktop by RefreshPlatformVisibility.
-            _movementFollowsPitchToggle = PanelToggle.CreateNewEntry(content);
+            _movementFollowsPitchToggle = Favouritable(PanelToggle.CreateNewEntry(content), "camera.flyMovementFollowsPitch");
             _movementFollowsPitchToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.flyMovementFollowsPitch"));
             _movementFollowsPitchToggle.Descriptor.SetTooltip(BasisLocalization.Get("camera.flyMovementFollowsPitch.description"));
             _movementFollowsPitchToggle.OnValueChanged = v => _activeCamera?.SetVRFlyMovementFollowsPitch(v);
 
             // VR-only: physically move/turn a hand to fly instead of the sticks. Hidden on desktop
             // by RefreshPlatformVisibility, same as the stabilizer toggle just below.
-            _leftHandFlyToggle = PanelToggle.CreateNewEntry(content);
+            _leftHandFlyToggle = Favouritable(PanelToggle.CreateNewEntry(content), "camera.leftHandFly");
             _leftHandFlyToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.leftHandFly"));
             _leftHandFlyToggle.Descriptor.SetTooltip(BasisLocalization.Get("camera.leftHandFly.description"));
             _leftHandFlyToggle.OnValueChanged = v =>
@@ -2455,7 +2457,7 @@ namespace Basis.BasisUI.HandHeldCamera
                 RefreshHandFlyVisibility();
             };
 
-            _rightHandFlyRotateToggle = PanelToggle.CreateNewEntry(content);
+            _rightHandFlyRotateToggle = Favouritable(PanelToggle.CreateNewEntry(content), "camera.rightHandFlyRotate");
             _rightHandFlyRotateToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.rightHandFlyRotate"));
             _rightHandFlyRotateToggle.Descriptor.SetTooltip(BasisLocalization.Get("camera.rightHandFlyRotate.description"));
             _rightHandFlyRotateToggle.OnValueChanged = v =>
@@ -2522,7 +2524,7 @@ namespace Basis.BasisUI.HandHeldCamera
             _handFlyTurnSensitivitySlider.Descriptor.SetTooltip(BasisLocalization.Get("camera.handFlyTurnSensitivity.description"));
             _handFlyTurnSensitivitySlider.OnValueChanged = v => _activeCamera?.SetHandFlyTurnSensitivity(v);
 
-            _autoLevelToggle = PanelToggle.CreateNewEntry(content);
+            _autoLevelToggle = Favouritable(PanelToggle.CreateNewEntry(content), "camera.autoLevel");
             _autoLevelToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.autoLevel"));
             _autoLevelToggle.Descriptor.SetTooltip(BasisLocalization.Get("camera.autoLevel.description"));
             _autoLevelToggle.OnValueChanged = v =>
@@ -2649,7 +2651,7 @@ namespace Basis.BasisUI.HandHeldCamera
             _smoothDragLeashSlider.Descriptor.SetTooltip(BasisLocalization.Get("camera.smoothDrag.leash.description"));
             _smoothDragLeashSlider.OnValueChanged = v => _activeCamera?.SetSmoothDragMaxDistance(v);
 
-            _resizeToggle = PanelToggle.CreateNewEntry(content);
+            _resizeToggle = Favouritable(PanelToggle.CreateNewEntry(content), "camera.resize");
             _resizeToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.resize"));
             _resizeToggle.Descriptor.SetTooltip(BasisLocalization.Get("camera.resize.description"));
             _resizeToggle.OnValueChanged = v => _activeCamera?.SetResizeWithGesture(v);
@@ -2697,7 +2699,7 @@ namespace Basis.BasisUI.HandHeldCamera
                 if (_activeCamera != null) _activeCamera.printPhotoEnabled = v;
             };
 
-            _selfieToggle = PanelToggle.CreateNewEntry(content);
+            _selfieToggle = Favouritable(PanelToggle.CreateNewEntry(content), "camera.selfie");
             _selfieToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.selfie"));
             _selfieToggle.Descriptor.SetTooltip(BasisLocalization.Get("camera.selfie.description"));
             _selfieToggle.OnValueChanged = v =>

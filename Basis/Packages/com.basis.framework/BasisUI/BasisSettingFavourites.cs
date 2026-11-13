@@ -40,6 +40,17 @@ namespace Basis.BasisUI
             public int OptionCount => OptionValues != null ? OptionValues.Length : 0;
         }
         private static readonly List<Entry> entries = new List<Entry>();
+        private readonly struct LiveToggle
+        {
+            public readonly Func<bool?> Get;
+            public readonly Action<bool> Set;
+            public LiveToggle(Func<bool?> get, Action<bool> set)
+            {
+                Get = get;
+                Set = set;
+            }
+        }
+        private static readonly Dictionary<string, LiveToggle> liveToggles = new Dictionary<string, LiveToggle>();
         private static string parsedFrom;
         private static int version;
         [NoAutoStaticsCleanup] private static readonly Action<bool> boolChanged = _ => ValueChanged();
@@ -65,9 +76,21 @@ namespace Basis.BasisUI
         public static bool TryGet(int index, out Entry entry)
         {
             Sync();
-            entry = index >= 0 && index < entries.Count ? entries[index] : default;
+            entry = index >= 0 && index < entries.Count ? Resolve(entries[index]) : default;
             return index >= 0 && index < entries.Count;
         }
+        public static void RegisterLive(string key, Func<bool?> get, Action<bool> set)
+        {
+            if (!BasisSettingRequests.ValidKey(key) || get == null || set == null) return;
+            liveToggles[key] = new LiveToggle(get, set);
+            LiveChanged(key);
+        }
+        public static bool IsLive(string key) => !string.IsNullOrEmpty(key) && liveToggles.ContainsKey(key);
+        public static void LiveChanged(string key)
+        {
+            if (Contains(key)) ValueChanged();
+        }
+        public static string KeyOf(PanelComponent control) => control == null ? null : control.BoundSettingKey ?? control.LiveFavouriteKey;
         public static string DisplayTitle(Entry entry) => Localized(entry.TitleKey, entry.Title, entry.Key);
         public static string OptionLabel(Entry entry, int option)
         {
@@ -84,7 +107,8 @@ namespace Basis.BasisUI
             switch (control)
             {
                 case PanelDataComponent<bool> toggle:
-                    return toggle.SettingsBinding != null && BasisSettingsBindings.TryGet(toggle.SettingsBinding.BindingKey, out BasisSettingsBinding<bool> _);
+                    if (toggle.SettingsBinding == null) return IsLive(toggle.LiveFavouriteKey);
+                    return BasisSettingsBindings.TryGet(toggle.SettingsBinding.BindingKey, out BasisSettingsBinding<bool> _);
                 case PanelSlider slider:
                     return slider.SettingsBinding != null && slider.Settings.SliderMax > slider.Settings.SliderMin && BasisSettingsBindings.TryGet(slider.SettingsBinding.BindingKey, out BasisSettingsBinding<float> _);
                 case PanelDropdown dropdown:
@@ -100,7 +124,7 @@ namespace Basis.BasisUI
         {
             if (!CanFavourite(control)) return false;
             Sync();
-            string key = control.BoundSettingKey;
+            string key = KeyOf(control);
             if (IndexOf(key) >= 0) return true;
             if (entries.Count >= MaxFavourites) return false;
             string title = Clean(BasisMenuLocation.TitleOf(control));
@@ -148,6 +172,12 @@ namespace Basis.BasisUI
                 on = provider.FavouriteOn;
                 return true;
             }
+            if (liveToggles.TryGetValue(key, out LiveToggle live))
+            {
+                bool? current = live.Get();
+                on = current == true;
+                return current.HasValue;
+            }
             if (!BasisSettingsBindings.TryGet(key, out BasisSettingsBinding<bool> binding)) return false;
             on = binding.RawValue;
             return true;
@@ -160,6 +190,18 @@ namespace Basis.BasisUI
                 BasisMenuActionProvider<BasisMainMenu> provider = FindProvider(key);
                 if (provider == null || !provider.FavouriteIsToggle) return false;
                 if (provider.FavouriteOn != on) provider.SetFavouriteOn(on);
+                return true;
+            }
+            if (liveToggles.TryGetValue(key, out LiveToggle live))
+            {
+                bool? current = live.Get();
+                if (!current.HasValue) return false;
+                if (current.Value != on)
+                {
+                    live.Set(on);
+                    RefreshOpenControls(key, on);
+                    ValueChanged();
+                }
                 return true;
             }
             if (!BasisSettingsBindings.TryGet(key, out BasisSettingsBinding<bool> binding)) return false;
@@ -229,7 +271,8 @@ namespace Basis.BasisUI
             if (!TryFind(key, Kind.Button, out _)) return false;
             BasisMenuActionProvider<BasisMainMenu> provider = FindProvider(key);
             if (provider == null) return false;
-            BasisMainMenu.OpenWithProvider(provider);
+            if (provider.FavouriteIsToggle) provider.SetFavouriteOn(!provider.FavouriteOn);
+            else BasisMainMenu.OpenWithProvider(provider);
             return true;
         }
         public static bool CanFavourite(BasisMenuActionProvider<BasisMainMenu> provider) => provider != null && BasisSettingRequests.ValidKey(provider.FavouriteKey) && !string.IsNullOrEmpty(Clean(provider.FavouriteTitle));
@@ -299,7 +342,7 @@ namespace Basis.BasisUI
         public static void AddOption(PanelComponent control, BasisMenuDialoguePanel dialogue)
         {
             if (dialogue == null || !CanFavourite(control)) return;
-            string key = control.BoundSettingKey;
+            string key = KeyOf(control);
             bool favourite = Contains(key);
             if (!favourite && Count >= MaxFavourites) return;
             dialogue.AddOption(BasisLocalization.Get(favourite ? "settings.favourites.remove" : "settings.favourites.add"), () =>
@@ -313,11 +356,35 @@ namespace Basis.BasisUI
                 }
             }, false);
         }
+        public static bool OfferOptions(PanelComponent control)
+        {
+            BasisMenuBase<BasisMainMenu> menu = BasisMenuBase<BasisMainMenu>.Instance;
+            if (!CanFavourite(control) || menu == null || menu.Dialogue != null) return false;
+            string key = KeyOf(control);
+            bool favourite = Contains(key);
+            if (!favourite && Count >= MaxFavourites) return false;
+            string label = Clean(BasisMenuLocation.TitleOf(control));
+            menu.OpenDialogue(BasisLocalization.Get("ui.panelOptions.title"), string.Format(BasisLocalization.Get("ui.panelOptions.body"), string.IsNullOrEmpty(label) ? key : label), BasisLocalization.Get(favourite ? "settings.favourites.remove" : "settings.favourites.add"), BasisLocalization.Get("ui.cancel"), confirmed =>
+            {
+                if (!confirmed) return;
+                if (favourite) Remove(key);
+                else Add(control);
+            });
+            if (menu.Dialogue == null) return true;
+            BasisContentShareSetting.AddShareOption(control, menu.Dialogue);
+            return true;
+        }
+        private static Entry Resolve(Entry entry)
+        {
+            if (!entry.Menu || entry.Kind != Kind.Button) return entry;
+            BasisMenuActionProvider<BasisMainMenu> provider = FindProvider(entry.Key);
+            return provider != null && provider.FavouriteIsToggle ? new Entry(entry.Key, entry.TitleKey, entry.Title, Kind.Toggle, default, null, null, null, true) : entry;
+        }
         private static bool TryFind(string key, Kind kind, out Entry entry)
         {
             Sync();
             int index = IndexOf(key);
-            entry = index >= 0 ? entries[index] : default;
+            entry = index >= 0 ? Resolve(entries[index]) : default;
             return index >= 0 && entry.Kind == kind;
         }
         private static int IndexOf(string key)
@@ -333,7 +400,7 @@ namespace Basis.BasisUI
             if (panel == null) return;
             foreach (PanelDataComponent<T> control in panel.GetComponentsInChildren<PanelDataComponent<T>>(true))
             {
-                if (control != null && control.BoundSettingKey == key) control.SetValueWithoutNotify(value);
+                if (control != null && KeyOf(control) == key) control.SetValueWithoutNotify(value);
             }
         }
         private static void Sync()

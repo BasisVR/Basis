@@ -5,6 +5,9 @@
         "BasisMediaPipe",
         "Basis Framework",
         "BasisSDK",
+        "Basis.Framework.Sync.Tests",
+        "Unity.Mathematics",
+        "Unity.Collections",
         "UnityEngine.TestRunner"
     ],
     "includePlatforms": [

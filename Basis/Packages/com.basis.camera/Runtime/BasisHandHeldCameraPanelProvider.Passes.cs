@@ -52,7 +52,7 @@ namespace Basis.BasisUI.HandHeldCamera
                 _lastPassDepthRange = _activeCamera.PassDepthRange;
             };
 
-            _separatePassesToggle = PanelToggle.CreateNewEntry(content);
+            _separatePassesToggle = Favouritable(PanelToggle.CreateNewEntry(content), "camera.passes.separate");
             _separatePassesToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.passes.separate"));
             _separatePassesToggle.Descriptor.SetTooltip(BasisLocalization.Get("camera.passes.separate.tooltip"));
             _separatePassesToggle.SetResetDefault(defaults.separatePasses);

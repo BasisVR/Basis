@@ -57,6 +57,9 @@ namespace Basis.BasisUI
 
         public string ShareTitleKey { get; set; }
 
+        /// <summary>Key of a toggle registered with <see cref="BasisSettingFavourites.RegisterLive"/>, so a control with no settings binding can still be favourited.</summary>
+        public string LiveFavouriteKey { get; set; }
+
         public virtual bool CanShareSetting => false;
 
         public virtual bool TryGetShareValue(out string type, out string value, out string display)

@@ -79,7 +79,7 @@ namespace Basis.BasisUI.HandHeldCamera
                 }
             };
 
-            _gifLoopToggle = PanelToggle.CreateNewEntry(content);
+            _gifLoopToggle = Favouritable(PanelToggle.CreateNewEntry(content), "camera.gif.loop");
             _gifLoopToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.gif.loop"));
             _gifLoopToggle.Descriptor.SetTooltip(BasisLocalization.Get("camera.gif.loop.description"));
             _gifLoopToggle.OnValueChanged = v =>
@@ -87,7 +87,7 @@ namespace Basis.BasisUI.HandHeldCamera
                 if (_activeCamera != null) _activeCamera.GifLoop = v;
             };
 
-            _gifDitherToggle = PanelToggle.CreateNewEntry(content);
+            _gifDitherToggle = Favouritable(PanelToggle.CreateNewEntry(content), "camera.gif.dither");
             _gifDitherToggle.Descriptor.SetTitle(BasisLocalization.Get("camera.gif.dither"));
             _gifDitherToggle.Descriptor.SetTooltip(BasisLocalization.Get("camera.gif.dither.description"));
             _gifDitherToggle.OnValueChanged = v =>

@@ -340,7 +340,11 @@ impl Bridge {
 
     pub fn direct_available(&self) -> bool {
         #[cfg(windows)]
-        if let Backend::D3D11 { .. } = &self.backend { return hook::installed() && self.host.embedded() && self.status() == STATUS_READY && header(self.base).caps & CAP_DIRECT != 0; }
+        if let Backend::D3D11 { device, .. } = &self.backend {
+            if !self.host.embedded() || self.status() != STATUS_READY || header(self.base).caps & CAP_DIRECT == 0 { return false; }
+            if let Ok(d) = device.cast::<ID3D11Device>() { hook::install(&d); }
+            return hook::installed();
+        }
         false
     }
 
@@ -639,7 +643,6 @@ fn create_from_unity() -> Result<Bridge> {
                 let d = ((*interfaces).get_interface_split)(GUID_D3D11.0, GUID_D3D11.1) as *const UnityGraphicsD3D11;
                 let raw = ((*d).get_device)();
                 let device: ID3D11Device = ID3D11Device::from_raw_borrowed(&raw).ok_or("no Direct3D 11 device")?.clone();
-                hook::install(&device);
                 let device: ID3D11Device5 = device.cast().map_err(|_| "Direct3D 11.4 shared fences are not available".to_string())?;
                 let context: ID3D11DeviceContext4 = device.GetImmediateContext().msg()?.cast().msg()?;
                 let luid = adapter_luid_d3d11(&device)?;

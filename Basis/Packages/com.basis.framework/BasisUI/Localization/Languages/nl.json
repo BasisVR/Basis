@@ -3827,7 +3827,7 @@
     { "key": "settings.developer.calibrationSpheres", "value": "Calibratiesferen" },
     { "key": "settings.developer.calibrationSpheres.description", "value": "Tekent sferen bij elk gekalibreerd bot, geschaald per bot via de calibratiesfeer-schaal." },
     { "key": "settings.developer.jiggleVisuals", "value": "Jiggle-visuals" },
-    { "key": "settings.developer.avatarProxy", "value": "Avatar-proxycapsules" },
+    { "key": "settings.developer.avatarProxy", "value": "Avatar-proxycapsule-gizmos" },
     { "key": "settings.developer.jiggleVisuals.description", "value": "Toont de simulatiepunten van de jiggle-fysica zodat je kunt zien wat de solver doet." },
     { "key": "settings.developer.trackerGizmos", "value": "Tracker-gizmos" },
     { "key": "settings.developer.trackerGizmos.description", "value": "Toont sfeer-gizmos op de fysieke positie van elke tracker die aan een lichaamsrol is gebonden." },

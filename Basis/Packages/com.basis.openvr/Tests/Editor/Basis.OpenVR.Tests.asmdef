@@ -3,6 +3,12 @@
     "rootNamespace": "",
     "references": [
         "BasisOpenVR",
+        "Basis Framework",
+        "Basis.Framework.Sync.Tests",
+        "Unity.Mathematics",
+        "Unity.Collections",
+        "BasisBundleManagement",
+        "BasisSDK",
         "UnityEngine.TestRunner"
     ],
     "includePlatforms": [

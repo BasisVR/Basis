@@ -714,10 +714,11 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         /// When true the SteamVR action-state update (UpdateActionState + button/axis/skeleton
         /// reads — the bulk of the per-frame input cost) runs on a worker thread, kicked from
         /// <see cref="SimulateKick"/> in the driver's Update and joined in <see cref="SimulateJoin"/>
-        /// at the top of LateUpdate, so it overlaps the engine's Update and animation phases.
+        /// just before device management in LateUpdate, so it overlaps the engine's Update and animation phases
+        /// and the eye, comms and network apply stages.
         /// OpenVR interfaces are thread-safe, the update path reads main-thread state only via
         /// SteamVR_Input.CaptureMainThreadState, and no Basis code touches action state between
-        /// kick and join (the eye driver and the device polls both run after the join).
+        /// kick and join (the device loop, event pump and input polls all run after the join).
         /// </summary>
         public static bool ThreadedInputUpdate = true;
         private System.Threading.Thread inputThread;

@@ -5,13 +5,16 @@ namespace Basis.MediaPipe
 {
     public sealed class MediaPipeHandConverter
     {
-        public float CurlGain = 1f, ThumbMaxAngle = 100f, FingerMaxAngle = 160f, MaxSplayDegrees = 20f, SplayGain = 1f;
+        public float CurlGain = 1f, ThumbMaxAngle = 100f, FingerMaxAngle = 220f, MaxSplayDegrees = 20f, SplayGain = 1f, ThumbSpreadMinDegrees = 10f, ThumbSpreadMaxDegrees = 70f, ThumbAcrossStart = 0.1f, ThumbAcrossEnd = -0.8f;
         public bool UseRotation = true, RejectGlitches = true;
         private const float HoldSeconds = 0.5f, RelaxHz = 3f, RelaxedCurl = 0.6f;
         private const int FingerChannels = 10;
         private MediaPipeRotationFilter leftRot, rightRot;
         private readonly MediaPipeScalarFilter[] leftFingers = new MediaPipeScalarFilter[FingerChannels], rightFingers = new MediaPipeScalarFilter[FingerChannels];
         private float leftLost, rightLost;
+        private static readonly int[] fingerBase = { 1, 5, 9, 13, 17 }, fingerTip = { 4, 8, 12, 16, 20 };
+        private static readonly Vector3[] solveBases = new Vector3[5], solveTips = new Vector3[5];
+        private readonly Vector2[] leftSolved = BasisFingerTipRetarget.NewState(), rightSolved = BasisFingerTipRetarget.NewState();
         public int RejectedSamples => leftRot.Rejected + rightRot.Rejected;
         public struct AvatarHandRig
         {
@@ -28,6 +31,7 @@ namespace Basis.MediaPipe
                 rightFingers[i].Reset();
             }
             leftLost = rightLost = 0f;
+            for (int i = 0; i < 5; i++) leftSolved[i] = rightSolved[i] = new Vector2(0.75f, 0f);
         }
         public bool TryGetHandRotation(in BasisMediaPipeResult result, in AvatarHandRig rig, bool left, in MediaPipeTiming timing, out Quaternion rotation)
         {
@@ -74,7 +78,7 @@ namespace Basis.MediaPipe
             if (result.HasLeftHand && left != null)
             {
                 leftLost = 0f;
-                ApplyHand(left, driver.LeftHand, true, leftFingers, in timing);
+                ApplyHand(left, driver.LeftHand, driver.TipRetarget, 0, leftSolved, leftFingers, in timing);
             }
             else leftLost = RelaxHand(driver.LeftHand, leftFingers, leftLost, in timing);
 
@@ -82,7 +86,7 @@ namespace Basis.MediaPipe
             if (result.HasRightHand && right != null)
             {
                 rightLost = 0f;
-                ApplyHand(right, driver.RightHand, false, rightFingers, in timing);
+                ApplyHand(right, driver.RightHand, driver.TipRetarget, 5, rightSolved, rightFingers, in timing);
             }
             else rightLost = RelaxHand(driver.RightHand, rightFingers, rightLost, in timing);
         }
@@ -91,13 +95,53 @@ namespace Basis.MediaPipe
             if (world != null && world.Length >= MediaPipeSpace.HandCount) return world;
             return image != null && image.Length >= MediaPipeSpace.HandCount ? image : null;
         }
-        private void ApplyHand(Vector3[] lm, BasisFingerPose pose, bool isLeft, MediaPipeScalarFilter[] filters, in MediaPipeTiming timing)
+        public bool TryMeasure(Vector3[] lm, out Vector2 thumb, out Vector2 index, out Vector2 middle, out Vector2 ring, out Vector2 little)
         {
-            pose.ThumbPercentage = Finger(filters, 0, Curl(lm, 1, 2, 3, 4, ThumbMaxAngle), Splay(lm, 2, 3, 5, 6, isLeft), in timing);
-            pose.IndexPercentage = Finger(filters, 2, Curl(lm, 5, 6, 7, 8, FingerMaxAngle), Splay(lm, 5, 6, 9, 10, isLeft), in timing);
-            pose.MiddlePercentage = Finger(filters, 4, Curl(lm, 9, 10, 11, 12, FingerMaxAngle), 0f, in timing);
-            pose.RingPercentage = Finger(filters, 6, Curl(lm, 13, 14, 15, 16, FingerMaxAngle), Splay(lm, 13, 14, 9, 10, isLeft), in timing);
-            pose.LittlePercentage = Finger(filters, 8, Curl(lm, 17, 18, 19, 20, FingerMaxAngle), Splay(lm, 17, 18, 13, 14, isLeft), in timing);
+            thumb = index = middle = ring = little = default;
+            Vector3 radial = lm[MediaPipeSpace.HandIndexMcp] - lm[MediaPipeSpace.HandPinkyMcp];
+            float palmWidth = radial.magnitude;
+            if (palmWidth < 1e-5f) return false;
+            radial /= palmWidth;
+            Vector3 normal = Vector3.Cross(lm[MediaPipeSpace.HandMiddleMcp] - lm[MediaPipeSpace.HandWrist], radial);
+            float normalLength = normal.magnitude;
+            if (normalLength < 1e-6f) return false;
+            normal /= normalLength;
+            float thumbCurl = ThumbCurl(lm, radial, palmWidth, out float across);
+            thumb = new Vector2(thumbCurl, ThumbSpread(lm, across));
+            index = new Vector2(Curl(lm, 5, 6, 7, 8, radial), Splay(lm, 5, 6, 9, 10, -radial, normal));
+            middle = new Vector2(Curl(lm, 9, 10, 11, 12, radial), 0f);
+            ring = new Vector2(Curl(lm, 13, 14, 15, 16, radial), Splay(lm, 13, 14, 9, 10, -radial, normal));
+            little = new Vector2(Curl(lm, 17, 18, 19, 20, radial), Splay(lm, 17, 18, 13, 14, -radial, normal));
+            return true;
+        }
+        public static bool TrySolve(Vector3[] lm, BasisFingerTipRetarget retarget, int fingerOffset, Vector2[] solved)
+        {
+            if (retarget == null || !retarget.IsCreated) return false;
+            for (int f = 0; f < 5; f++)
+            {
+                solveBases[f] = lm[fingerBase[f]];
+                solveTips[f] = lm[fingerTip[f]];
+            }
+            return retarget.SolveHand(fingerOffset, lm[MediaPipeSpace.HandWrist], lm[MediaPipeSpace.HandIndexMcp], lm[MediaPipeSpace.HandMiddleMcp], lm[MediaPipeSpace.HandPinkyMcp], solveBases, solveTips, solved);
+        }
+        private void ApplyHand(Vector3[] lm, BasisFingerPose pose, BasisFingerTipRetarget retarget, int fingerOffset, Vector2[] solved, MediaPipeScalarFilter[] filters, in MediaPipeTiming timing)
+        {
+            if (pose == null) return;
+            Vector2 thumb, index, middle, ring, little;
+            if (TrySolve(lm, retarget, fingerOffset, solved))
+            {
+                thumb = solved[0];
+                index = solved[1];
+                middle = solved[2];
+                ring = solved[3];
+                little = solved[4];
+            }
+            else if (!TryMeasure(lm, out thumb, out index, out middle, out ring, out little)) return;
+            pose.ThumbPercentage = Finger(filters, 0, thumb.x, thumb.y, in timing);
+            pose.IndexPercentage = Finger(filters, 2, index.x, index.y, in timing);
+            pose.MiddlePercentage = Finger(filters, 4, middle.x, middle.y, in timing);
+            pose.RingPercentage = Finger(filters, 6, ring.x, ring.y, in timing);
+            pose.LittlePercentage = Finger(filters, 8, little.x, little.y, in timing);
         }
         // A hand that has left the frame holds briefly, then eases to a relaxed pose instead of freezing mid-gesture.
         private static float RelaxHand(BasisFingerPose pose, MediaPipeScalarFilter[] filters, float lost, in MediaPipeTiming timing)
@@ -122,20 +166,32 @@ namespace Basis.MediaPipe
             return lost;
         }
         private static Vector2 Finger(MediaPipeScalarFilter[] filters, int slot, float curl, float splay, in MediaPipeTiming timing) => new Vector2(filters[slot].Apply(curl, in timing), filters[slot + 1].Apply(splay, in timing));
-        private float Curl(Vector3[] lm, int a, int b, int c, int d, float maxAngle)
+        private float Curl(Vector3[] lm, int mcp, int pip, int dip, int tip, Vector3 radial)
         {
-            Vector3 s1 = lm[b] - lm[a], s2 = lm[c] - lm[b], s3 = lm[d] - lm[c];
-            float angle = Vector3.Angle(s1, s2) + Vector3.Angle(s2, s3);
-            float curl01 = Mathf.Clamp01(angle / maxAngle * CurlGain);
-            return 1f - curl01 * 2f;
+            Vector3 s0 = lm[mcp] - lm[MediaPipeSpace.HandWrist], s1 = lm[pip] - lm[mcp], s2 = lm[dip] - lm[pip], s3 = lm[tip] - lm[dip];
+            float angle = Vector3.Angle(Vector3.ProjectOnPlane(s0, radial), Vector3.ProjectOnPlane(s1, radial)) + Vector3.Angle(s1, s2) + Vector3.Angle(s2, s3);
+            return 1f - Mathf.Clamp01(angle / FingerMaxAngle * CurlGain) * 2f;
         }
-        private float Splay(Vector3[] lm, int baseMcp, int basePip, int refMcp, int refPip, bool isLeft)
+        private float ThumbCurl(Vector3[] lm, Vector3 radial, float palmWidth, out float across)
         {
-            Vector3 dir = lm[basePip] - lm[baseMcp], refDir = lm[refPip] - lm[refMcp];
-            Vector3 palmNormal = Vector3.Cross(lm[MediaPipeSpace.HandIndexMcp] - lm[MediaPipeSpace.HandWrist], lm[MediaPipeSpace.HandPinkyMcp] - lm[MediaPipeSpace.HandWrist]);
-            float signed = Vector3.SignedAngle(refDir, dir, palmNormal);
-            float splay = Mathf.Clamp(signed / MaxSplayDegrees * SplayGain, -1f, 1f);
-            return isLeft ? splay : -splay;
+            float lateral = Vector3.Dot(lm[4] - lm[MediaPipeSpace.HandIndexMcp], radial) / palmWidth;
+            across = Mathf.Clamp01((lateral - ThumbAcrossStart) / (ThumbAcrossEnd - ThumbAcrossStart));
+            float bend = Mathf.Clamp01((Vector3.Angle(lm[2] - lm[1], lm[3] - lm[2]) + Vector3.Angle(lm[3] - lm[2], lm[4] - lm[3])) / ThumbMaxAngle * CurlGain);
+            return (1f - bend) * (1f - across) * 2f - 1f;
+        }
+        private float ThumbSpread(Vector3[] lm, float across)
+        {
+            float angle = Vector3.Angle(lm[3] - lm[2], lm[MediaPipeSpace.HandIndexMcp] - lm[MediaPipeSpace.HandWrist]);
+            float spread = Mathf.Clamp(((angle - ThumbSpreadMinDegrees) / (ThumbSpreadMaxDegrees - ThumbSpreadMinDegrees) * 2f - 1f) * SplayGain, -1f, 1f);
+            return Mathf.Lerp(spread, -1f, across);
+        }
+        private float Splay(Vector3[] lm, int baseMcp, int basePip, int refMcp, int refPip, Vector3 outward, Vector3 normal)
+        {
+            Vector3 raw = lm[basePip] - lm[baseMcp], dir = Vector3.ProjectOnPlane(raw, normal), refDir = Vector3.ProjectOnPlane(lm[refPip] - lm[refMcp], normal);
+            float rawLength = raw.magnitude;
+            if (rawLength < 1e-6f) return 0f;
+            float signed = Vector3.SignedAngle(refDir, dir, normal) * Mathf.Sign(Vector3.Dot(Vector3.Cross(refDir, outward), normal));
+            return Mathf.Clamp(signed / MaxSplayDegrees * SplayGain, -1f, 1f) * (dir.magnitude / rawLength);
         }
     }
 }

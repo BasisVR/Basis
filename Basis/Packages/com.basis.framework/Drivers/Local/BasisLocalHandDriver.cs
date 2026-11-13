@@ -55,6 +55,7 @@ public class BasisLocalHandDriver
 
     /// <summary>Baked curl/splay → joint rotation map for the currently worn avatar.</summary>
     public readonly BasisHandPoseGrid Grid = new BasisHandPoseGrid();
+    public readonly BasisFingerTipRetarget TipRetarget = new BasisFingerTipRetarget();
 
     /// <summary>
     /// Which of the thirty joints (finger*3+joint) this driver actually writes. A joint the rig has
@@ -129,10 +130,12 @@ public class BasisLocalHandDriver
 
         EntityId cacheKey = BasisAvatarModelCache.GetKey(OriginalAnimator);
 
+        TipRetarget.Clear();
         if (cacheKey != EntityId.None && BasisAvatarModelCache.TryGet(cacheKey, out var entry) && entry.HandPoseGrid != null)
         {
             RestoreFromCache(entry.HandPoseGrid);
             RebuildTransformAccess();
+            TipRetarget.Build(OriginalAnimator, Grid);
             return;
         }
 
@@ -154,6 +157,7 @@ public class BasisLocalHandDriver
         Current = bake.RestPose;
 
         RebuildTransformAccess();
+        TipRetarget.Build(OriginalAnimator, Grid);
 
         if (cacheKey != EntityId.None)
         {

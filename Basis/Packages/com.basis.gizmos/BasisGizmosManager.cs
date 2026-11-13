@@ -478,6 +478,29 @@ public static partial class BasisGizmoManager
     }
 
     /// <summary>
+    /// Updates a multi-point line gizmo's points and uniform colour, and marks it active. For pooled
+    /// gizmos whose slot can be handed to a differently coloured shape from one frame to the next.
+    /// </summary>
+    public static bool UpdateLineGizmo(int linkedID, Vector3[] positions, Color32 color)
+    {
+        if (!_linesByID.TryGetValue(linkedID, out LineSlot slot))
+        {
+            BasisDebug.LogError($"No LineGizmo found with ID {linkedID}. Use CreateLineGizmo first.", BasisDebug.LogTag.Gizmo);
+            return false;
+        }
+        if (slot.Count != positions.Length)
+        {
+            slot.Points = new Vector3[positions.Length];
+            slot.Count = positions.Length;
+            RefreshGradientColors(slot);
+        }
+        Array.Copy(positions, slot.Points, positions.Length);
+        slot.UniformColor = color;
+        slot.Active = true;
+        return true;
+    }
+
+    /// <summary>
     /// Replaces the line gizmo's color sampling with a Gradient — points interpolate
     /// across it by their normalized position. Use for multi-point lines that should
     /// fade through per-segment colors (skeleton chains with one stop per bone).

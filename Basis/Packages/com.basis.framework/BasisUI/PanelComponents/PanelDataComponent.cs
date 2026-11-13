@@ -42,6 +42,7 @@ namespace Basis.BasisUI
             SettingsBinding?.SetValue(value);
             OnValueChanged?.Invoke(value);
             ApplyValue();
+            if (LiveFavouriteKey != null) BasisSettingFavourites.LiveChanged(LiveFavouriteKey);
         }
 
         public virtual void SetValueWithoutNotify(T value)
@@ -77,7 +78,7 @@ namespace Basis.BasisUI
         public override bool HasResetDefault =>
             SupportsResetGesture && (SettingsBinding != null || _hasExplicitResetDefault);
 
-        public override bool HasPanelOptions => HasResetDefault || BasisContentShareSetting.CanOffer(this);
+        public override bool HasPanelOptions => HasResetDefault || BasisContentShareSetting.CanOffer(this) || (LiveFavouriteKey != null && BasisSettingFavourites.CanFavourite(this));
 
         public override string BoundSettingKey => SettingsBinding?.BindingKey;
 
@@ -96,7 +97,7 @@ namespace Basis.BasisUI
         {
             if (!HasResetDefault)
             {
-                BasisContentShareSetting.OfferShare(this);
+                if (!BasisSettingFavourites.OfferOptions(this)) BasisContentShareSetting.OfferShare(this);
                 return;
             }
 
@@ -157,6 +158,7 @@ namespace Basis.BasisUI
             SetValueWithoutNotify(target);
             SettingsBinding?.SetValue(target);
             OnValueChanged?.Invoke(target);
+            if (LiveFavouriteKey != null) BasisSettingFavourites.LiveChanged(LiveFavouriteKey);
         }
 
         /// <summary>

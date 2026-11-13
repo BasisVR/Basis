@@ -144,9 +144,49 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                 default:
                     return;
             }
+            if (skeleton.rangeOfMotion != EVRSkeletalMotionRange.WithoutController) skeleton.rangeOfMotion = EVRSkeletalMotionRange.WithoutController;
             bool isLeft = TryGetRole(out BasisBoneTrackedRole role) ? role == BasisBoneTrackedRole.LeftHand : inputSource == SteamVR_Input_Sources.LeftHand;
             var handDriver = BasisLocalPlayer.Instance.LocalHandDriver;
             UpdateHandPose(isLeft ? handDriver.LeftHand : handDriver.RightHand, skeleton, isLeft);
+        }
+        static readonly int[] boneParents = { -1, 0, 1, 2, 3, 4, 1, 6, 7, 8, 9, 1, 11, 12, 13, 14, 1, 16, 17, 18, 19, 1, 21, 22, 23, 24, 0, 0, 0, 0, 0 };
+        static readonly int[] fingerBaseBones = { 2, 7, 12, 17, 22 }, fingerTipBones = { 5, 10, 15, 20, 25 };
+        static readonly Vector3[] chainPositions = new Vector3[31];
+        static readonly Quaternion[] chainRotations = new Quaternion[31];
+        static readonly Vector3[] chainBases = new Vector3[5], chainTips = new Vector3[5];
+        private readonly Vector2[] solvedFingers = BasisFingerTipRetarget.NewState();
+        public static bool ApplySkeletalBones(BasisFingerPose hand, Vector3[] bonePositions, Quaternion[] boneRotations, BasisFingerTipRetarget retarget, bool isLeft, Vector2[] previous)
+        {
+            if (retarget == null || !retarget.IsCreated || bonePositions == null || boneRotations == null || bonePositions.Length < 26 || boneRotations.Length < 26) return false;
+            chainPositions[0] = Vector3.zero;
+            chainRotations[0] = Quaternion.identity;
+            for (int i = 1; i < 26; i++)
+            {
+                int p = boneParents[i];
+                chainPositions[i] = chainPositions[p] + chainRotations[p] * bonePositions[i];
+                chainRotations[i] = chainRotations[p] * boneRotations[i];
+            }
+            for (int f = 0; f < 5; f++)
+            {
+                chainBases[f] = chainPositions[fingerBaseBones[f]];
+                chainTips[f] = chainPositions[fingerTipBones[f]];
+            }
+            if (!retarget.SolveHand(isLeft ? 0 : 5, chainPositions[1], chainPositions[7], chainPositions[12], chainPositions[22], chainBases, chainTips, previous)) return false;
+            BasisFingerTipRetarget.Write(hand, previous);
+            return true;
+        }
+        public static void ApplySkeletalSummary(BasisFingerPose hand, float[] curls, float thumbIndex, float indexMiddle, float middleRing, float ringPinky, float splayBias)
+        {
+            hand.ThumbPercentage[0] = 0.75f - curls[0] * 1.75f;
+            hand.IndexPercentage[0] = 0.75f - curls[1] * 1.75f;
+            hand.MiddlePercentage[0] = 0.75f - curls[2] * 1.75f;
+            hand.RingPercentage[0] = 0.75f - curls[3] * 1.75f;
+            hand.LittlePercentage[0] = 0.75f - curls[4] * 1.75f;
+            hand.ThumbPercentage[1] = thumbIndex * 2f - 1f;
+            hand.IndexPercentage[1] = -(indexMiddle * 2f - 1f + splayBias);
+            hand.MiddlePercentage[1] = 0.5f * (indexMiddle + middleRing) * 2f - 1f + splayBias;
+            hand.RingPercentage[1] = 0.5f * (middleRing + ringPinky) * 2f - 1f + splayBias;
+            hand.LittlePercentage[1] = ringPinky * 2f - 1f + splayBias;
         }
         private void UpdateHandPose(BasisFingerPose hand, SteamVR_Action_Skeleton skeletonAction, bool isLeft)
         {
@@ -167,36 +207,15 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             // ------- SPLAY (pairwise 0..1) -> per-finger [-1..1] with your bias
             float[] pairSplays = skeletonAction.GetFingerSplays();
 
-            if (hasRoleAssigned && !IgnoresFingers && pairSplays != null && pairSplays.Length == SteamVR_Skeleton_FingerSplayIndexes.enumArray.Length &&
-                curls != null && curls.Length == SteamVR_Skeleton_FingerIndexes.enumArray.Length)
-            {
-                float thumbIndex = pairSplays[SteamVR_Skeleton_FingerSplayIndexes.thumbIndex];
-                float indexMiddle = pairSplays[SteamVR_Skeleton_FingerSplayIndexes.indexMiddle];
-                float middleRing = pairSplays[SteamVR_Skeleton_FingerSplayIndexes.middleRing];
-                float ringPinky = pairSplays[SteamVR_Skeleton_FingerSplayIndexes.ringPinky];
-
-                float thumbSplay01 = thumbIndex;
-                float indexSplay01 = 0.5f * (thumbIndex + indexMiddle);
-                float middleSplay01 = 0.5f * (indexMiddle + middleRing);
-                float ringSplay01 = 0.5f * (middleRing + ringPinky);
-                float littleSplay01 = ringPinky;
-
-                hand.ThumbPercentage[0] = Remap01ToMinus1To1(curls[0]);
-                hand.IndexPercentage[0] = Remap01ToMinus1To1(curls[1]);
-                hand.MiddlePercentage[0] = Remap01ToMinus1To1(curls[2]);
-                hand.RingPercentage[0] = Remap01ToMinus1To1(curls[3]);
-                hand.LittlePercentage[0] = Remap01ToMinus1To1(curls[4]);
-
-                hand.ThumbPercentage[1] = SplayConversion(thumbSplay01);
-                hand.IndexPercentage[1] = SplayConversion(indexSplay01);
-                hand.MiddlePercentage[1] = SplayConversion(middleSplay01);
-                hand.RingPercentage[1] = SplayConversion(ringSplay01);
-                hand.LittlePercentage[1] = SplayConversion(littleSplay01);
-            }
-
             // ------- raw bone arrays (local to skeleton root)
             BonePositions = skeletonAction.bonePositions;
             BoneRotations = skeletonAction.boneRotations;
+
+            if (hasRoleAssigned && !IgnoresFingers && !(skeletonAction.activeBinding && ApplySkeletalBones(hand, BonePositions, BoneRotations, BasisLocalPlayer.Instance.LocalHandDriver.TipRetarget, isLeft, solvedFingers)) && pairSplays != null && pairSplays.Length == SteamVR_Skeleton_FingerSplayIndexes.enumArray.Length &&
+                curls != null && curls.Length == SteamVR_Skeleton_FingerIndexes.enumArray.Length)
+            {
+                ApplySkeletalSummary(hand, curls, pairSplays[SteamVR_Skeleton_FingerSplayIndexes.thumbIndex], pairSplays[SteamVR_Skeleton_FingerSplayIndexes.indexMiddle], pairSplays[SteamVR_Skeleton_FingerSplayIndexes.middleRing], pairSplays[SteamVR_Skeleton_FingerSplayIndexes.ringPinky], HandBiasSplay);
+            }
 
             // Raw device pose in *unscaled* world space
             ComputeUnscaledDeviceCoord(ref PhysicalDeviceCoord, devicePose.mDeviceToAbsoluteTracking.GetPosition());

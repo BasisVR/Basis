@@ -317,7 +317,7 @@ namespace Basis.Scripts.Device_Management
         /// <summary>
         /// Starts asynchronous per-frame device work (e.g. the SteamVR input update on a worker
         /// thread). Called by the driver in Update; <see cref="SimulateJoin"/> joins that work at
-        /// the top of LateUpdate before any main-thread reader consumes it.
+        /// the start of the LateUpdate device block, before any main-thread reader consumes it.
         /// </summary>
         public void SimulateKick()
         {

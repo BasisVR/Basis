@@ -3827,7 +3827,7 @@
     { "key": "settings.developer.calibrationSpheres", "value": "校準球體" },
     { "key": "settings.developer.calibrationSpheres.description", "value": "在每個已校準的骨骼上繪製球體，大小由每骨骼校準球體比例決定。" },
     { "key": "settings.developer.jiggleVisuals", "value": "擺動視覺化" },
-    { "key": "settings.developer.avatarProxy", "value": "化身代理膠囊體" },
+    { "key": "settings.developer.avatarProxy", "value": "化身代理膠囊體 Gizmos" },
     { "key": "settings.developer.jiggleVisuals.description", "value": "渲染擺動物理模擬點，方便查看求解器的執行情況。" },
     { "key": "settings.developer.trackerGizmos", "value": "追蹤器 Gizmos" },
     { "key": "settings.developer.trackerGizmos.description", "value": "在每個繫結到身體角色的追蹤器的實體位置顯示球形 Gizmo。" },

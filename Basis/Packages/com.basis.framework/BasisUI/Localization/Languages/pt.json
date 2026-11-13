@@ -3743,7 +3743,7 @@
     { "key": "settings.developer.calibrationSpheres", "value": "Esferas de calibração" },
     { "key": "settings.developer.calibrationSpheres.description", "value": "Desenha esferas em cada osso calibrado, dimensionadas pela escala da esfera de calibração de cada osso." },
     { "key": "settings.developer.jiggleVisuals", "value": "Visuais Jiggle" },
-    { "key": "settings.developer.avatarProxy", "value": "Cápsulas de proxy de avatar" },
+    { "key": "settings.developer.avatarProxy", "value": "Gizmos de cápsulas de proxy de avatar" },
     { "key": "settings.developer.jiggleVisuals.description", "value": "Renderiza os pontos da simulação física jiggle para você ver o que o solver está fazendo." },
     { "key": "settings.developer.trackerGizmos", "value": "Gizmos de tracker" },
     { "key": "settings.developer.trackerGizmos.description", "value": "Mostra gizmos esféricos na posição física de cada tracker vinculado a um papel corporal." },

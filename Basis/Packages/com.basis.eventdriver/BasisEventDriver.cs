@@ -499,12 +499,6 @@ namespace Basis.EventDriver
                 Basis.Scripts.Networking.Sync.BasisSyncDriver.ScheduleRemote(DeltaTime);
             }
 
-            // The SteamVR input worker kicked in Update is joined here, ahead of the eye block
-            // (the first main-thread reader of action state this frame).
-            if (BasisDeviceManagement.HasEvents)
-            {
-                BasisDeviceManagement.Instance.SimulateJoin();
-            }
             using (Prof.EyeTrackingSimulate.Auto())
             {
                 Basis.Scripts.Device_Management.EyeTracking.BasisEyeTrackingManager.Simulate();
@@ -556,6 +550,11 @@ namespace Basis.EventDriver
             ProfileBegin(PROF_DEVICE_MANAGEMENT);
             if (BasisDeviceManagement.HasEvents)
             {
+                // The SteamVR input worker kicked in Update is joined here, not at the top of LateUpdate:
+                // the eye, comms and network apply stages above never read SteamVR action state (eye
+                // providers hand back gaze cached by the previous device poll), so they overlap the
+                // worker. The device loop and event pump below are the first that may touch it.
+                BasisDeviceManagement.Instance.SimulateJoin();
                 using (Prof.DeviceManagement.Auto())
                 {
                     BasisDeviceManagement.Instance.Simulate();

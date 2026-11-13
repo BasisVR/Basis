@@ -3827,7 +3827,7 @@
     { "key": "settings.developer.calibrationSpheres", "value": "Сферы калибровки" },
     { "key": "settings.developer.calibrationSpheres.description", "value": "Рисует сферы на каждой откалиброванной кости с размером, заданным масштабом сферы калибровки кости." },
     { "key": "settings.developer.jiggleVisuals", "value": "Визуализация jiggle" },
-    { "key": "settings.developer.avatarProxy", "value": "Капсулы прокси аватара" },
+    { "key": "settings.developer.avatarProxy", "value": "Гизмо капсул прокси аватара" },
     { "key": "settings.developer.jiggleVisuals.description", "value": "Отображает точки симуляции физики jiggle, чтобы видеть, что делает решатель." },
     { "key": "settings.developer.trackerGizmos", "value": "Гизмо трекеров" },
     { "key": "settings.developer.trackerGizmos.description", "value": "Показывает сферические гизмо в физическом положении каждого трекера, привязанного к роли тела." },

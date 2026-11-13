@@ -84,6 +84,40 @@ namespace Basis.BasisUI.Mirrors
             BasisMirrorRegistry.OnChanged += RefreshMainMenu;
             Application.quitting -= OnQuitting;
             Application.quitting += OnQuitting;
+
+            BasisSettingFavourites.RegisterLive(GrabbableFavourite,
+                () => FavouriteMirror(out BasisSDKMirror mirror) ? BasisMirrorSettingsStore.PersonalMirrorGrabbable(mirror) : null,
+                v =>
+                {
+                    if (!FavouriteMirror(out BasisSDKMirror mirror)) return;
+                    BasisMirrorSettingsStore.SetPersonalMirrorGrabbable(mirror, v);
+                    BasisMirrorSettingsStore.CaptureFrom(mirror);
+                });
+            BasisSettingFavourites.RegisterLive(MoveWithPlayspaceFavourite,
+                () => FavouriteMirror(out BasisSDKMirror mirror) ? BasisMirrorSettingsStore.PersonalMirrorMovesWithPlayspace(mirror) : null,
+                v =>
+                {
+                    if (!FavouriteMirror(out BasisSDKMirror mirror)) return;
+                    BasisMirrorSettingsStore.SetPersonalMirrorMovesWithPlayspace(mirror, v);
+                    BasisMirrorSettingsStore.CaptureFrom(mirror);
+                });
+        }
+
+        private const string GrabbableFavourite = "mirror.grabbable", MoveWithPlayspaceFavourite = "mirror.moveWithPlayspace";
+
+        /// <summary>The personal mirror a favourite acts on: the one open in the panel, else the first one spawned.</summary>
+        private static bool FavouriteMirror(out BasisSDKMirror mirror)
+        {
+            mirror = _instance != null ? _instance._activeMirror : null;
+            if (mirror != null && BasisMirrorSettingsStore.IsPersonalMirror(mirror)) return true;
+            IReadOnlyList<BasisSDKMirror> mirrors = BasisMirrorRegistry.Mirrors;
+            for (int Index = 0; Index < mirrors.Count; Index++)
+            {
+                mirror = mirrors[Index];
+                if (mirror != null && BasisMirrorSettingsStore.IsPersonalMirror(mirror)) return true;
+            }
+            mirror = null;
+            return false;
         }
 
         private static void OnQuitting()
@@ -95,6 +129,8 @@ namespace Basis.BasisUI.Mirrors
         private static void RefreshMainMenu()
         {
             if (_quitting) return;
+            BasisSettingFavourites.LiveChanged(GrabbableFavourite);
+            BasisSettingFavourites.LiveChanged(MoveWithPlayspaceFavourite);
             if (BasisMenuBase<BasisMainMenu>.Instance) BasisMenuBase<BasisMainMenu>.Instance.BindProvidersToButtons();
             if (BasisMainMenu.ActiveMenuTitle != StaticTitle || _instance == null) return;
             if (BasisMirrorRegistry.Count == 0)
@@ -319,6 +355,7 @@ namespace Basis.BasisUI.Mirrors
             RectTransform placementContent = _placementGroup.ContentParent;
 
             _grabbableToggle = PanelToggle.CreateNewEntry(placementContent);
+            _grabbableToggle.LiveFavouriteKey = GrabbableFavourite;
             _grabbableToggle.Descriptor.SetTitle(BasisLocalization.Get("mirror.grabbable"));
             _grabbableToggle.Descriptor.SetDescription(BasisLocalization.Get("mirror.grabbable.description"));
             _grabbableToggle.OnValueChanged = v =>
@@ -329,6 +366,7 @@ namespace Basis.BasisUI.Mirrors
             };
 
             _moveWithPlayspaceToggle = PanelToggle.CreateNewEntry(placementContent);
+            _moveWithPlayspaceToggle.LiveFavouriteKey = MoveWithPlayspaceFavourite;
             _moveWithPlayspaceToggle.Descriptor.SetTitle(BasisLocalization.Get("mirror.moveWithPlayspace"));
             _moveWithPlayspaceToggle.Descriptor.SetDescription(BasisLocalization.Get("mirror.moveWithPlayspace.description"));
             _moveWithPlayspaceToggle.OnValueChanged = v =>

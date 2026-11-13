@@ -3827,7 +3827,7 @@
     { "key": "settings.developer.calibrationSpheres", "value": "キャリブレーションスフィア" },
     { "key": "settings.developer.calibrationSpheres.description", "value": "キャリブレーション済みボーンごとに、ボーン単位のキャリブレーションスフィアスケールに応じたサイズの球を描画します。" },
     { "key": "settings.developer.jiggleVisuals", "value": "ジグルビジュアル" },
-    { "key": "settings.developer.avatarProxy", "value": "アバタープロキシカプセル" },
+    { "key": "settings.developer.avatarProxy", "value": "アバタープロキシカプセルギズモ" },
     { "key": "settings.developer.jiggleVisuals.description", "value": "ジグル物理シミュレーションのポイントを描画し、ソルバーの動作を可視化します。" },
     { "key": "settings.developer.trackerGizmos", "value": "トラッカーギズモ" },
     { "key": "settings.developer.trackerGizmos.description", "value": "ボディロールに割り当てられた各トラッカーの物理位置に球ギズモを表示します。" },
