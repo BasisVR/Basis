@@ -18,6 +18,9 @@ namespace Basis.MediaPipe
         public static readonly BasisSettingsBinding<bool> Enable =
             new BasisSettingsBinding<bool>("mediapipe_enable", new BasisPlatformDefault<bool>(false));
 
+        public static readonly BasisSettingsBinding<bool> AutoPrompt =
+            new BasisSettingsBinding<bool>("mediapipe_autoprompt", new BasisPlatformDefault<bool>(true));
+
         public static readonly BasisSettingsBinding<string> Camera =
             new BasisSettingsBinding<string>("mediapipe_camera", new BasisPlatformDefault<string>(string.Empty));
 
@@ -81,7 +84,7 @@ namespace Basis.MediaPipe
             new BasisSettingsBinding<bool>("mediapipe_camerafpsauto", new BasisPlatformDefault<bool>(true));
 
         public static readonly BasisSettingsBinding<bool> ShowPreview =
-            new BasisSettingsBinding<bool>("mediapipe_preview", new BasisPlatformDefault<bool>(true));
+            new BasisSettingsBinding<bool>("mediapipe_preview_v2", new BasisPlatformDefault<bool>(false));
 
         public static readonly BasisSettingsBinding<float> GazeStrength =
             new BasisSettingsBinding<float>("mediapipe_gazestrength", new BasisPlatformDefault<float>(1f));
@@ -121,6 +124,7 @@ namespace Basis.MediaPipe
         public static void LoadAll()
         {
             Enable.LoadBindingValue();
+            AutoPrompt.LoadBindingValue();
             Camera.LoadBindingValue();
             EnableFace.LoadBindingValue();
             EnableHands.LoadBindingValue();

@@ -128,7 +128,7 @@ namespace Basis.MediaPipe
             return true;
         }
 
-        private static string ResolveDeviceName(WebCamDevice[] devices, string requested)
+        internal static string ResolveDeviceName(WebCamDevice[] devices, string requested)
         {
             if (!string.IsNullOrEmpty(requested))
             {

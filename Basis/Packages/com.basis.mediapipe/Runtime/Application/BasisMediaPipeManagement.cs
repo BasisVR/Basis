@@ -187,6 +187,7 @@ namespace Basis.MediaPipe
 
             if (!BasisMediaPipeSettings.Enable.RawValue)
             {
+                QueueWebcamPrompt();
                 return;
             }
 
@@ -475,11 +476,16 @@ namespace Basis.MediaPipe
         {
             if (mode != BasisConstants.Desktop)
             {
+                EndWebcamPromptDesktopStint();
                 if (_backend != null) StopSDK();
             }
             else if (_backend == null && BasisMediaPipeSettings.Enable.RawValue)
             {
                 StartSDK();
+            }
+            else if (!BasisMediaPipeSettings.Enable.RawValue)
+            {
+                QueueWebcamPrompt();
             }
         }
 
@@ -507,6 +513,10 @@ namespace Basis.MediaPipe
 
         public override void Simulate()
         {
+            if (_webcamPromptPending)
+            {
+                TickWebcamPrompt();
+            }
             if (IsDeviceBooted == false)
             {
                 return;

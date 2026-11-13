@@ -27,6 +27,7 @@ namespace Basis.MediaPipe
         {
             bool wasEnabled = BasisMediaPipeSettings.Enable.RawValue;
             BasisMediaPipeSettings.Enable.ResetToDefault();
+            BasisMediaPipeSettings.AutoPrompt.ResetToDefault();
             BasisMediaPipeSettings.EnableFace.ResetToDefault();
             BasisMediaPipeSettings.EnableHands.ResetToDefault();
             BasisMediaPipeSettings.EnableHeadRotation.ResetToDefault();
@@ -78,6 +79,11 @@ namespace Basis.MediaPipe
             enableToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.mediapipe.enableWebcamTracking.description"));
             enableToggle.AssignBinding(BasisMediaPipeSettings.Enable);
             enableToggle.OnValueChanged += value => BasisMediaPipeManagement.Instance.SetEnabled(value);
+
+            PanelToggle autoPromptToggle = PanelToggle.CreateNewEntry(webcamContent);
+            autoPromptToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.mediapipe.autoPrompt"));
+            autoPromptToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.mediapipe.autoPrompt.description"));
+            autoPromptToggle.AssignBinding(BasisMediaPipeSettings.AutoPrompt);
 
             PanelElementDescriptor enabledGroup = PanelElementDescriptor.CreateNew(
                 PanelElementDescriptor.ElementStyles.Group, webcamContent);

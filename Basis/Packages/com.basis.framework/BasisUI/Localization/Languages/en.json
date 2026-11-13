@@ -13279,6 +13279,26 @@
       "value": "Turn webcam tracking on or off."
     },
     {
+      "key": "settings.mediapipe.prompt.title",
+      "value": "Webcam Detected"
+    },
+    {
+      "key": "settings.mediapipe.prompt.detected",
+      "value": "{0} is connected."
+    },
+    {
+      "key": "settings.mediapipe.prompt.body",
+      "value": "Turn on webcam tracking to drive your avatar's head, face, eyes and hands from your camera? You can change this anytime in Settings → Tracker Settings → Webcam Tracking."
+    },
+    {
+      "key": "settings.mediapipe.autoPrompt",
+      "value": "Ask When a Webcam Is Found"
+    },
+    {
+      "key": "settings.mediapipe.autoPrompt.description",
+      "value": "In Desktop mode, ask once per webcam whether to turn on webcam tracking."
+    },
+    {
       "key": "settings.mediapipe.camera",
       "value": "Camera"
     },

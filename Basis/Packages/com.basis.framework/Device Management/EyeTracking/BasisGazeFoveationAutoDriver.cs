@@ -85,11 +85,11 @@ namespace Basis.Scripts.Device_Management.EyeTracking
                 onDecided: choice =>
                 {
                     _promptOpen = false;
-                    if (choice == BasisGazeFoveationPrompt.Choice.No)
+                    if (choice == BasisFeatureDetectedPrompt.Choice.No)
                     {
                         return;
                     }
-                    bool enabled = choice == BasisGazeFoveationPrompt.Choice.Enable;
+                    bool enabled = choice == BasisFeatureDetectedPrompt.Choice.Enable;
                     BasisSettingsSystem.SaveBool(DecidedKey(deviceId), true);
                     BasisSettingsSystem.SaveBool(EnabledKey(deviceId), enabled);
                     if (enabled)

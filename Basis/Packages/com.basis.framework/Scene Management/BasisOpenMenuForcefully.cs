@@ -24,7 +24,11 @@ public class BasisOpenMenuForcefully : MonoBehaviour
     }
     public void OpenMenu()
     {
-        if (BasisConnectionService.HasBootstrapConnection) return;
+        BasisStartupPrompts.Run(OpenServerMenuAfterPrompts);
+    }
+    private void OpenServerMenuAfterPrompts()
+    {
+        if (this == null || BasisConnectionService.HasBootstrapConnection) return;
         BasisMainMenu.Open();
         if (OpenServerMenu)
         {

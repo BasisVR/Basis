@@ -15,6 +15,8 @@ namespace Basis.MediaPipe
 
         public static void Register(Func<IBasisMediaPipeBackend> factory) => _factory = factory;
 
+        public static bool HasBackend => _factory != null;
+
         public static IBasisMediaPipeBackend Create() =>
             _factory != null ? _factory() : new BasisMediaPipeNullBackend();
     }
