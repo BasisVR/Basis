@@ -85,6 +85,9 @@ SCENARIOS = [
          note="built in <-> external swap: tracer stopped with a frame in flight, then the render thread's queued bridge events run; Unity's GPU must still drain"),
     dict(name="rt_copy_swap_stop", kind="rt", tier="full", frames=40, gpu_risk=True, env={"API": "11", **STEREO, "STOPTEST": "1", "SAMPLES": "8"},
          expect=[("stop_client_idle_ms", ">=", 0), ("stop_client_idle_ms", "<", 500)], note="same swap from the separate process side"),
+    dict(name="vrs_view_swap_in_flight", kind="vrs", tier="full", frames=30, repeat=20, env={"VRS_ONLY": "depth,release", "VRS_DEPTH_NOSMALL": "1"},
+         expect=[("failures", "==", 0)],
+         note="shading rate view replaced or released while GPU work still reads it (eye resize); the old plugin lost the device in about 16 of 20 runs"),
     dict(name="vrs_long", kind="vrs", tier="full", frames=3000, expect=[("failures", "==", 0), ("frame_stutters", "<=", 10)]),
 
     # stress: realistic VR sizes and loads that reset the GPU on a broken build
@@ -198,6 +201,19 @@ def capture_stacks(pid, path):
     path.write_text(r.stdout)
 
 
+def capture_crash(cmd, cwd, env, path, timeout):
+    """Reruns a crashed command under cdb and keeps the faulting thread's stack."""
+    cdb = next((c for c in CDB_CANDIDATES if c.exists()), None)
+    if cdb is None:
+        path.write_text("cdb not found; install WinDbg to capture crash stacks\n")
+        return
+    try:
+        r = subprocess.run([str(cdb), "-G", "-c", "g; .lastevent; .ecxr; kc 40; lm m Basis*; q"] + cmd, cwd=cwd, env=env, capture_output=True, text=True, timeout=timeout)
+        path.write_text(r.stdout)
+    except subprocess.TimeoutExpired:
+        path.write_text("crash rerun under cdb timed out\n")
+
+
 def kill_tree(pid):
     subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True)
 
@@ -236,7 +252,7 @@ def run_scenario(s, build_dir, run_dir, label):
     log_path = run_dir / f"{s['name']}.{label}.log"
     env = dict(os.environ)
     for k in list(env):
-        if k in ("STOPTEST", "NOSTALL", "EMBED", "DIRECT", "API", "VIEWS", "W", "H", "RESIZE", "RETARGET", "RETARGETFLIP", "TEXTURES", "CONTEXTS", "TRACER", "SAMPLES") or k.startswith("BASIS_RT_TEST_"):
+        if k.startswith("VRS_") or k in ( "STOPTEST", "NOSTALL", "EMBED", "DIRECT", "API", "VIEWS", "W", "H", "RESIZE", "RETARGET", "RETARGETFLIP", "TEXTURES", "CONTEXTS", "TRACER", "SAMPLES") or k.startswith("BASIS_RT_TEST_"):
             del env[k]
     env.update(s.get("env", {}))
     if s["kind"] == "rt":
@@ -268,7 +284,11 @@ def run_scenario(s, build_dir, run_dir, label):
     if hung:
         issues.append(f"HANG after {timeout}s (stacks saved)")
     elif proc.returncode != 0:
-        issues.append(f"exit code {proc.returncode:#x}" if proc.returncode < 0 or proc.returncode > 255 else f"exit code {proc.returncode}")
+        code = proc.returncode & 0xFFFFFFFF
+        issues.append(f"exit code {code:#x}" if code > 255 else f"exit code {code}")
+        if code in (0xC0000005, 0xC0000409, 0xC000001D, 0xC0000374):
+            capture_crash(cmd, cwd, env, run_dir / f"{s['name']}.{label}.crash.txt", timeout)
+            issues.append("crash stack saved")
     for name, rx in BAD_TEXT:
         if rx.search(text):
             issues.append(name)
@@ -330,11 +350,11 @@ def run(args):
             log(f"SKIP {s['name']}: GPU reset risk while {', '.join(risky)} running (use --allow-gpu-risk)")
             rows.append(dict(scenario=s["name"], build=args.build, status="SKIP", seconds=0, issues=[f"gpu risk with {', '.join(risky)} open"], result={}, gpu_events=[], log=""))
             continue
-        for rep in range(args.repeat):
+        for rep in range(max(args.repeat, s.get("repeat", 1))):
             targets = [(args.build, build_dir)] + ([(args.baseline, base_dir)] if base_dir else [])
             by_label = {}
             for label, d in targets:
-                r = run_scenario(s, d, run_dir, label + (f"-{rep}" if args.repeat > 1 else ""))
+                r = run_scenario(s, d, run_dir, label + (f"-{rep}" if max(args.repeat, s.get("repeat", 1)) > 1 else ""))
                 r["build"] = label
                 by_label[label] = r
                 rows.append(r)

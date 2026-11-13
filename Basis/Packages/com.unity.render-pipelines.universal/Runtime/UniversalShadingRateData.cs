@@ -50,6 +50,8 @@ namespace UnityEngine.Rendering.Universal
             return IntPtr.Zero;
         }
 
+        // D3D11 (NVAPI): always pair BeginNative with EndNative in the same render function; a pass that
+        // returns between them leaves VRS on for whatever the render thread runs next.
         public static void BeginNative(RasterCommandBuffer cmd, IntPtr nativeImage)
         {
             if (nativeImage != IntPtr.Zero) cmd.IssuePluginEventAndData(nativeRenderEvent, NativeEventEnable, nativeImage);

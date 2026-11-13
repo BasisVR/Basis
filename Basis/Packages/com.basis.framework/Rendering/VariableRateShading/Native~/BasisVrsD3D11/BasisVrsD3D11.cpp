@@ -100,10 +100,57 @@ static volatile LONG s_EnableCount;
 static volatile LONG s_UncoveredCount;
 static bool s_Enabled;
 
+// A shading rate view may still be read by GPU work already submitted when it is replaced (a resized
+// image) or released. NVAPI does not defer that destruction the way D3D11 does for its own views:
+// releasing it straight away intermittently removed the device or crashed the driver a few calls
+// later (Tools/GpuTests vrs_stereo, depth then release). Retired views wait behind an event query.
+struct Retired { IUnknown* view; ID3D11Query* done; };
+static const int MaxRetired = 16;
+static Retired s_Retired[MaxRetired];
+static int s_RetiredCount;
+
+static void ReapRetired(ID3D11DeviceContext* ctx, bool all)
+{
+    int keep = 0;
+    for (int i = 0; i < s_RetiredCount; i++)
+    {
+        Retired r = s_Retired[i];
+        bool done = all || r.done == nullptr || (ctx && ctx->GetData(r.done, nullptr, 0, D3D11_ASYNC_GETDATA_DONOTFLUSH) == S_OK);
+        if (done) { r.view->Release(); if (r.done) { r.done->Release(); } }
+        else { s_Retired[keep++] = r; }
+    }
+    s_RetiredCount = keep;
+}
+
+// Without a context (device startup or shutdown) nothing of ours is in flight, so the view goes now.
+static void RetireView(ID3D11DeviceContext* ctx)
+{
+    if (s_View)
+    {
+        if (ctx == nullptr || s_Device == nullptr) { s_View->Release(); }
+        else
+        {
+            if (s_RetiredCount == MaxRetired)
+            {
+                Retired oldest = s_Retired[0];
+                if (oldest.done) { while (ctx->GetData(oldest.done, nullptr, 0, 0) == S_FALSE) { SwitchToThread(); } }
+                ReapRetired(ctx, false);
+                if (s_RetiredCount == MaxRetired) { ReapRetired(ctx, true); }
+            }
+            ID3D11Query* done = nullptr;
+            D3D11_QUERY_DESC qd = { D3D11_QUERY_EVENT, 0 };
+            if (SUCCEEDED(s_Device->CreateQuery(&qd, &done))) { ctx->End(done); }
+            s_Retired[s_RetiredCount++] = { s_View, done };
+        }
+        s_View = nullptr;
+    }
+    s_ViewResource = nullptr;
+}
+
 static void ReleaseView()
 {
-    if (s_View) { s_View->Release(); s_View = nullptr; }
-    s_ViewResource = nullptr;
+    RetireView(nullptr);
+    ReapRetired(nullptr, true);
 }
 
 // Table index = the D3D12/Vulkan rate code the build compute writes: (log2(w) << 2) | log2(h).
@@ -214,12 +261,13 @@ static void __stdcall OnRenderEvent(int eventId, void* data)
     ID3D11DeviceContext* ctx = nullptr;
     s_Device->GetImmediateContext(&ctx);
     if (ctx == nullptr) { return; }
+    if (s_RetiredCount > 0) { ReapRetired(ctx, false); }
     if (eventId == EventEnable && data != nullptr)
     {
         ID3D11Resource* resource = (ID3D11Resource*)data;
         if (resource != s_ViewResource)
         {
-            ReleaseView();
+            RetireView(ctx);
             NV_D3D11_SHADING_RATE_RESOURCE_VIEW_DESC_V1 desc = {};
             desc.version = NV_VERSION(NV_D3D11_SHADING_RATE_RESOURCE_VIEW_DESC_V1, 1);
             desc.Format = DXGI_FORMAT_R8_UINT;
@@ -243,7 +291,7 @@ static void __stdcall OnRenderEvent(int eventId, void* data)
         }
     }
     else if (eventId == EventDisable) { if (s_Enabled) { Disable(ctx); } }
-    else if (eventId == EventRelease) { if (s_Enabled) { Disable(ctx); } ReleaseView(); }
+    else if (eventId == EventRelease) { if (s_Enabled) { Disable(ctx); } RetireView(ctx); }
     ctx->Release();
 }
 

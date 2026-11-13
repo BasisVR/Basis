@@ -65,10 +65,16 @@ static const char* kShader =
 static void Check(HRESULT hr, const char* what)
 {
     if (SUCCEEDED(hr)) return;
-    printf("FAIL %s: hr %08lx, device removed reason %08lx
-", what, (unsigned long)hr, g_Device ? (unsigned long)g_Device->GetDeviceRemovedReason() : 0ul);
+    printf("FAIL %s: hr %08lx, device removed reason %08lx\n", what, (unsigned long)hr, g_Device ? (unsigned long)g_Device->GetDeviceRemovedReason() : 0ul);
     fflush(stdout);
     exit(20);
+}
+
+// VRS_ONLY=name,name runs only those misuse cases (nothing, null, depth, release, trim), to bisect.
+static bool Case(const char* name)
+{
+    const char* only = getenv("VRS_ONLY");
+    return only == nullptr || *only == 0 || strstr(only, name) != nullptr;
 }
 
 struct Eye { ID3D11Texture2D* rt = nullptr; ID3D11RenderTargetView* rtv = nullptr; UINT size = 0; };
@@ -146,7 +152,10 @@ int main(int argc, char** argv)
     load(&g_Interfaces);
     printf("plugin status %d, uncovered export %s\n", status(), uncovered ? "yes" : "no (old plugin)");
     if (status() != 1) return 6;
-    auto onEvent = (void (__stdcall*)(int, void*))eventFunc();
+    auto pluginEvent = (void (__stdcall*)(int, void*))eventFunc();
+    // VRS_NONE=1: the plugin is loaded but never called, a control for crashes that are not VRS's.
+    bool noPlugin = getenv("VRS_NONE") != nullptr;
+    auto onEvent = [&](int id, void* data) { if (!noPlugin) pluginEvent(id, data); };
 
     ID3DBlob *vsb, *psb, *err = nullptr;
     if (FAILED(D3DCompile(kShader, strlen(kShader), nullptr, nullptr, nullptr, "VS", "vs_5_0", 0, 0, &vsb, &err))) { printf("vs: %s\n", (char*)err->GetBufferPointer()); return 7; }
@@ -166,6 +175,7 @@ int main(int argc, char** argv)
         ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         ctx->VSSetShader(vs, nullptr, 0); ctx->PSSetShader(ps, nullptr, 0);
         if (vrs) onEvent(1, image.tex);
+        if (vrs && getenv("VRS_RTV_CLEAR_INSIDE")) ctx->ClearRenderTargetView(eye.rtv, clear);
         ctx->DrawInstanced(3, 2, 0, 0);
         if (vrs) onEvent(2, nullptr);
     };
@@ -198,39 +208,68 @@ int main(int argc, char** argv)
 
     // 3) Misuse a plugin user (or a pass ordering bug) could produce. None may crash, error or leak VRS.
     MakeImage(ctx, image, (3136 + 15) / 16);
-    ctx->OMSetRenderTargets(0, nullptr, nullptr);
-    onEvent(1, image.tex); onEvent(2, nullptr);
-    check(alive() && lastError() == 0, "enable with nothing bound");
-    onEvent(1, nullptr); onEvent(2, nullptr);
-    check(alive() && lastError() == 0, "enable with a null image");
+    if (Case("nothing"))
     {
-        D3D11_TEXTURE2D_DESC dd = {}; dd.Width = 3136; dd.Height = 3136; dd.MipLevels = 1; dd.ArraySize = 2; dd.Format = DXGI_FORMAT_D32_FLOAT; dd.SampleDesc.Count = 1; dd.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+        ctx->OMSetRenderTargets(0, nullptr, nullptr);
+        onEvent(1, image.tex); onEvent(2, nullptr);
+        check(alive() && lastError() == 0, "enable with nothing bound");
+    }
+    if (Case("null"))
+    {
+        onEvent(1, nullptr); onEvent(2, nullptr);
+        check(alive() && lastError() == 0, "enable with a null image");
+    }
+    if (Case("depth"))
+    {
+        // Bisect knobs: VRS_DEPTH_SLICES (default 2), VRS_DEPTH_CLEAR_INSIDE, VRS_DEPTH_UNBIND, VRS_DEPTH_NOSMALL.
+        UINT slices = getenv("VRS_DEPTH_SLICES") ? (UINT)atoi(getenv("VRS_DEPTH_SLICES")) : 2u;
+        D3D11_TEXTURE2D_DESC dd = {}; dd.Width = 3136; dd.Height = 3136; dd.MipLevels = 1; dd.ArraySize = slices; dd.Format = DXGI_FORMAT_D32_FLOAT; dd.SampleDesc.Count = 1; dd.BindFlags = D3D11_BIND_DEPTH_STENCIL;
         ID3D11Texture2D* depth = nullptr; Check(g_Device->CreateTexture2D(&dd, nullptr, &depth), "depth texture");
         ID3D11DepthStencilView* dsv = nullptr; Check(g_Device->CreateDepthStencilView(depth, nullptr, &dsv), "dsv");
-        ctx->OMSetRenderTargets(0, nullptr, dsv);
+        // VRS_DEPTH_WITH_RTV=1 binds the eye colour target too: the opaque pass shape (colour + depth).
+        bool withRtv = getenv("VRS_DEPTH_WITH_RTV") != nullptr;
+        if (withRtv) ctx->OMSetRenderTargets(1, &eye.rtv, dsv); else ctx->OMSetRenderTargets(0, nullptr, dsv);
         int e0 = enables();
-        onEvent(1, image.tex);
-        ctx->ClearDepthStencilView(dsv, D3D11_CLEAR_DEPTH, 1.0f, 0);
-        onEvent(2, nullptr);
+        // Unity clears when the pass binds its targets, before the plugin enables VRS (VRS_DEPTH_CLEAR_INSIDE
+        // moves the clear inside). The clear also keeps the GPU busy, which is what exposed the plugin
+        // releasing a shading rate view still in use by the GPU in the release case below.
+        bool clearInside = getenv("VRS_DEPTH_CLEAR_INSIDE") != nullptr;
+        bool noVrs = getenv("VRS_DEPTH_NOVRS") != nullptr;  // control: same calls, no VRS events
+        if (!clearInside) ctx->ClearDepthStencilView(dsv, D3D11_CLEAR_DEPTH, 1.0f, 0);
+        if (!noVrs) onEvent(1, image.tex);
+        if (clearInside) ctx->ClearDepthStencilView(dsv, D3D11_CLEAR_DEPTH, 1.0f, 0);
+        if (!noVrs) onEvent(2, nullptr);
         check(alive() && enables() == e0 + 1, "depth only pass with a covering image enables");
-        MakeImage(ctx, image, (2644 + 15) / 16);
-        int u0 = uncovered ? uncovered() : 0;
-        onEvent(1, image.tex); onEvent(2, nullptr);
-        check(uncovered && uncovered() == u0 + 1, "depth only pass with a small image is refused");
-        dsv->Release(); depth->Release();
+        if (!getenv("VRS_DEPTH_NOSMALL"))
+        {
+            MakeImage(ctx, image, (2644 + 15) / 16);
+            int u0 = uncovered ? uncovered() : 0;
+            onEvent(1, image.tex); onEvent(2, nullptr);
+            check(uncovered && uncovered() == u0 + 1, "depth only pass with a small image is refused");
+        }
+        if (getenv("VRS_DEPTH_UNBIND")) ctx->OMSetRenderTargets(0, nullptr, nullptr);
+        if (!getenv("VRS_DEPTH_KEEP")) { dsv->Release(); depth->Release(); }  // KEEP: leak it, control for destruction
     }
     MakeImage(ctx, image, (3136 + 15) / 16);
     ctx->OMSetRenderTargets(1, &eye.rtv, nullptr);
-    onEvent(1, image.tex);
-    onEvent(3, nullptr);
-    drawEyes(false);
-    check(alive() && UniformFraction(ctx, eye, 0) < 0.01f, "release while enabled leaves vrs off");
-    onEvent(1, image.tex);
-    if (dxgi3) dxgi3->Trim();
-    ctx->DrawInstanced(3, 2, 0, 0);
-    onEvent(2, nullptr);
-    finish();
-    check(alive(), "driver trim between enable and draw");
+    if (Case("release"))
+    {
+        if (getenv("VRS_IDLE_BEFORE_RELEASE")) finish();  // control: nothing in flight when the view goes
+        onEvent(1, image.tex);
+        if (getenv("VRS_IDLE_MID")) finish();  // control: idle between the enable and the release
+        onEvent(3, nullptr);
+        drawEyes(false);
+        check(alive() && UniformFraction(ctx, eye, 0) < 0.01f, "release while enabled leaves vrs off");
+    }
+    if (Case("trim"))
+    {
+        onEvent(1, image.tex);
+        if (dxgi3) dxgi3->Trim();
+        ctx->DrawInstanced(3, 2, 0, 0);
+        onEvent(2, nullptr);
+        finish();
+        check(alive(), "driver trim between enable and draw");
+    }
 
     // 4) Stress: eye size flipping every 7 frames like the OpenVR stage swap, image recreated one frame
     // late, driver trim every frame. Every frame is waited on so a stall shows as a stutter.

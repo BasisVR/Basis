@@ -630,8 +630,7 @@ namespace BasisNetworkConsole
         /// </summary>
         public static void WaitForPredecessorExit(string[] args)
         {
-            string argument = Array.Find(args ?? Array.Empty<string>(),
-                a => a.StartsWith(AwaitPidArgument, StringComparison.OrdinalIgnoreCase));
+            string? argument = Array.Find(args, a => a.StartsWith(AwaitPidArgument, StringComparison.OrdinalIgnoreCase));
             if (argument == null) return;
 
             if (!int.TryParse(argument.Substring(AwaitPidArgument.Length), out int pid)) return;
