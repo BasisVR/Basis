@@ -94,6 +94,7 @@ public static unsafe partial class BasisExternalRayTracer
     [DllImport(Dll)] private static extern int BasisRT_Embedded();
     [DllImport(Dll)] private static extern int BasisRT_DirectAvailable();
     [DllImport(Dll)] private static extern ulong BasisRT_Completed();
+    [DllImport(Dll)] private static extern void BasisRT_SetContextGBuffer1(int context, IntPtr gbuffer1);
     [DllImport(Dll)] private static extern void BasisRT_ArmTexture(uint width, uint height);
     [DllImport(Dll)] private static extern void BasisRT_DisarmTargets();
     [DllImport(Dll)] private static extern int BasisRT_SetContextTargets(int context, IntPtr gbuffer0, IntPtr gbuffer1, IntPtr result0, IntPtr result1, uint width, uint height, uint views);
@@ -127,7 +128,11 @@ public static unsafe partial class BasisExternalRayTracer
         public RenderTexture GBuffer, Result, GBuffer1, Result1;
         public bool Direct;
         public uint PackedParity, ResultParity;
-        public RenderTexture GBufferAt(uint parity) => Direct && (parity & 1) == 1 ? GBuffer1 : GBuffer;
+        public RenderTexture GBufferAt(uint parity) => (parity & 1) == 1 && GBuffer1 != null ? GBuffer1 : GBuffer;
+        public readonly Matrix4x4[] FrameViewProjection = new Matrix4x4[4];
+        public readonly Vector4[] FramePosition = new Vector4[4];
+        public readonly int[] FrameUnity = new int[2];
+        public float SubmitTime;
         public RenderTexture ResultAt(uint parity) => Direct && (parity & 1) == 1 ? Result1 : Result;
         public int Width, Height, Views, LastUsed;
         public uint Parity, LastParity;
@@ -151,8 +156,23 @@ public static unsafe partial class BasisExternalRayTracer
     private static int retries;
     private static bool loggedFailure;
     private static bool startedInProcess, inProcessFailed;
-    public static bool InProcess = true;
+    // Off by default: in process the bridge has Unity's GPU wait on the tracer's fence whenever a frame is
+    // late (no budget, unlike the separate process), which stutters. The separate process skips a late result.
+    public static bool InProcess = false;
+
+    public static void SetInProcess(bool inProcess)
+    {
+        if (InProcess == inProcess) { return; }
+        InProcess = inProcess;
+        if (inProcess) { inProcessFailed = false; }
+        if (Started || Failed)
+        {
+            Retry();
+            retries = 0;
+        }
+    }
     public static bool DirectTargets = true;
+    private static bool pairedGBuffers = true;
     public static bool RunningInProcess => Started && startedInProcess;
 
     public static bool IsWindows => Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
@@ -436,7 +456,7 @@ public static unsafe partial class BasisExternalRayTracer
         if (context != null && !ReferenceEquals(context.Camera, camera)) { ReleaseContext(index); context = null; }
         if (context == null) { context = contexts[index] = new Context { Id = index, Camera = camera }; }
         context.LastUsed = frame;
-        bool lost = context.Direct && (context.GBuffer1 == null || !context.GBuffer1.IsCreated() || !context.Result1.IsCreated());
+        bool lost = (context.Direct && (context.GBuffer1 == null || context.Result1 == null || !context.Result1.IsCreated())) || (context.GBuffer1 != null && !context.GBuffer1.IsCreated());
         if (context.GBuffer == null || context.Width != width || context.Height != height || context.Views != views || !context.GBuffer.IsCreated() || !context.Result.IsCreated() || lost)
         {
             if (context.Direct) { BasisRT_SetContextTargets(index, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, 0, 0, 0); }
@@ -457,12 +477,18 @@ public static unsafe partial class BasisExternalRayTracer
                 context.GBuffer1 = CreateTarget("BasisRT GBuffer B " + index, width * views * 2, height * 2, GraphicsFormat.R16G16B16A16_UInt, true, out IntPtr gbuffer1);
                 context.Result1 = CreateTarget("BasisRT Result B " + index, width * views, height, GraphicsFormat.R16G16B16A16_SFloat, true, out IntPtr result1);
                 context.Direct = BasisRT_SetContextTargets(index, gbuffer, gbuffer1, result, result1, (uint)width, (uint)height, (uint)views) != 0;
-                if (!context.Direct) { Destroy(context.GBuffer1); Destroy(context.Result1); context.GBuffer1 = context.Result1 = null; }
+                if (!context.Direct) { Destroy(context.Result1); context.Result1 = null; }
             }
             context.PackedParity = context.ResultParity = 0;
             if (!context.Direct)
             {
                 BasisRT_SetContextTextures(index, gbuffer, result);
+                if (pairedGBuffers)
+                {
+                    if (context.GBuffer1 == null) { context.GBuffer1 = Create("BasisRT GBuffer B " + index, width * views * 2, height * 2, GraphicsFormat.R16G16B16A16_UInt); }
+                    try { BasisRT_SetContextGBuffer1(index, context.GBuffer1.GetNativeTexturePtr()); }
+                    catch (EntryPointNotFoundException) { pairedGBuffers = false; Destroy(context.GBuffer1); context.GBuffer1 = null; }
+                }
                 BasisRT_SetSize(index, (uint)width, (uint)height, (uint)views);
             }
             context.ResultValid = false;

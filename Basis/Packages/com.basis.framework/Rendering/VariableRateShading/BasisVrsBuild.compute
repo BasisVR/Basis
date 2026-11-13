@@ -1,6 +1,10 @@
 #pragma kernel CSMain
+#pragma kernel Analyze2D
+#pragma kernel AnalyzeArray
 
 RWTexture2D<uint> _BasisSri;
+RWTexture2D<uint> _BasisVrsRateOut;   // rate written this frame, read back by the analysis pass
+Texture2D<float4> _BasisVrsDetail;    // last frame per tile: x = max 2x2 block step, y = max 4x4 block step, z = rate it was shaded at
 
 float4 _BasisVrsTile;       // x,y = tile counts, z = yFlip
 float4 _BasisVrsGazeL;      // xyz = view-space gaze dir (eye 0), w = aspect
@@ -12,11 +16,20 @@ float4 _BasisVrsCosR;
 float4 _BasisVrsCenterLR;   // per-eye gaze uv: xy = eye 0, zw = eye 1 (aniso axis pick)
 float4 _BasisVrsRates;      // x = near 1x1, y = mid 2x2, z = far 4x4
 float4 _BasisVrsRatesAniso; // x = wide 4x2 (coarser in x), y = tall 2x4 (coarser in y)
+float4 _BasisVrsAdaptive;   // x = 2x2 step threshold, y = 4x4 step threshold, z = 1 when last frame's detail is usable, w = 1 when content adaptive is on
+float4x4 _BasisVrsReprojL;  // current view -> previous view rotation, eye 0
+float4x4 _BasisVrsReprojR;
+float4 _BasisVrsPrevUnprojL;
+float4 _BasisVrsPrevUnprojR;
 
-uint RateForEye(float2 uv, float4 unproj, float3 gazeDir, float3 cosBands, float2 center, float aspect)
+float3 TileDir(float2 uv, float4 unproj)
 {
     float2 ndc = uv * 2.0 - 1.0;
-    float3 dir = normalize(float3((ndc.x + unproj.x) * unproj.z, (ndc.y + unproj.y) * unproj.w, -1.0));
+    return normalize(float3((ndc.x + unproj.x) * unproj.z, (ndc.y + unproj.y) * unproj.w, -1.0));
+}
+
+uint RateForDir(float3 dir, float2 uv, float3 gazeDir, float3 cosBands, float2 center, float aspect)
+{
     float c = dot(dir, gazeDir);
     if (c >= cosBands.x) return (uint)_BasisVrsRates.x;
     if (c >= cosBands.y) return (uint)_BasisVrsRates.y;
@@ -28,6 +41,32 @@ uint RateForEye(float2 uv, float4 unproj, float3 gazeDir, float3 cosBands, float
         return abs(d.x) >= abs(d.y) ? (uint)_BasisVrsRatesAniso.x : (uint)_BasisVrsRatesAniso.y;
     }
     return (uint)_BasisVrsRates.z;
+}
+
+bool PrevTile(float3 dir, float4x4 reproj, float4 prevUnproj, out int2 tile)
+{
+    tile = 0;
+    float3 p = mul((float3x3)reproj, dir);
+    if (p.z > -1e-4)
+        return false;
+    float2 ndc = p.xy / -p.z / prevUnproj.zw - prevUnproj.xy;
+    float2 uv = ndc * 0.5 + 0.5;
+    if (any(uv < 0.0) || any(uv >= 1.0))
+        return false;
+    if (_BasisVrsTile.z > 0.5)
+        uv.y = 1.0 - uv.y;
+    tile = min((int2)(uv * _BasisVrsTile.xy), (int2)_BasisVrsTile.xy - 1);
+    return true;
+}
+
+float3 GatherDetail(int2 center)
+{
+    int2 last = (int2)_BasisVrsTile.xy - 1;
+    float3 m = 0;
+    [unroll] for (int y = -1; y <= 1; y++)
+        [unroll] for (int x = -1; x <= 1; x++)
+            m = max(m, _BasisVrsDetail[clamp(center + int2(x, y), 0, last)].xyz);
+    return m;
 }
 
 [numthreads(8, 8, 1)]
@@ -42,9 +81,144 @@ void CSMain(uint3 id : SV_DispatchThreadID)
         uv.y = 1.0 - uv.y;
 
     float aspect = _BasisVrsGazeL.w;
-    uint rateL = RateForEye(uv, _BasisVrsUnprojL, _BasisVrsGazeL.xyz, _BasisVrsCosL.xyz, _BasisVrsCenterLR.xy, aspect);
-    uint rateR = RateForEye(uv, _BasisVrsUnprojR, _BasisVrsGazeR.xyz, _BasisVrsCosR.xyz, _BasisVrsCenterLR.zw, aspect);
+    float3 dirL = TileDir(uv, _BasisVrsUnprojL);
+    float3 dirR = TileDir(uv, _BasisVrsUnprojR);
+    uint rateL = RateForDir(dirL, uv, _BasisVrsGazeL.xyz, _BasisVrsCosL.xyz, _BasisVrsCenterLR.xy, aspect);
+    uint rateR = RateForDir(dirR, uv, _BasisVrsGazeR.xyz, _BasisVrsCosR.xyz, _BasisVrsCenterLR.zw, aspect);
 
     // 2D SRI is shared by both eyes: keep the finest (lowest-coded) rate = union of sharp regions.
-    _BasisSri[id.xy] = min(rateL, rateR);
+    uint rate = min(rateL, rateR);
+
+    // Content adaptive: a tile that was flat last frame drops one step. The 2x2 measure is only
+    // trusted when the tile was shaded at 2x2 or finer, since coarser shading hides that detail.
+    uint coarsest = (uint)_BasisVrsRates.z;
+    if (_BasisVrsAdaptive.z > 0.5 && rate != coarsest)
+    {
+        int2 tL, tR;
+        if (PrevTile(dirL, _BasisVrsReprojL, _BasisVrsPrevUnprojL, tL) && PrevTile(dirR, _BasisVrsReprojR, _BasisVrsPrevUnprojR, tR))
+        {
+            float3 d = max(GatherDetail(tL), GatherDetail(tR));
+            uint half2 = (uint)_BasisVrsRates.y;
+            if (rate == (uint)_BasisVrsRates.x)
+            {
+                if (d.z <= (float)half2 + 0.5 && d.x < _BasisVrsAdaptive.x)
+                    rate = half2;
+            }
+            else if (d.y < _BasisVrsAdaptive.y)
+            {
+                rate = coarsest;
+            }
+        }
+    }
+
+    _BasisSri[id.xy] = rate;
+    if (_BasisVrsAdaptive.w > 0.5)
+        _BasisVrsRateOut[id.xy] = rate;
+}
+
+// ---- Analysis: one group per shading tile, measuring how much shading at 2x2 / 4x4 would change it ----
+
+Texture2D<float4> _BasisVrsColor;
+Texture2DArray<float4> _BasisVrsColorArray;
+Texture2D<uint> _BasisVrsRateIn;
+RWTexture2D<float4> _BasisVrsDetailOut;
+float4 _BasisVrsAnalyze;    // x = tile size in pixels, yz = color size, w = slice count
+
+groupshared float gB2[16][16];
+groupshared float gB4[8][8];
+groupshared uint gMax2;
+groupshared uint gMax4;
+
+float Perceptual(float3 c)
+{
+    float l = dot(c, float3(0.2126, 0.7152, 0.0722));
+    if (!(l > 0.0) || !(l < 65504.0))
+        l = l >= 65504.0 ? 65504.0 : 0.0;
+    return sqrt(l / (1.0 + l));
+}
+
+void Reduce(uint2 tid, uint nb)
+{
+    GroupMemoryBarrierWithGroupSync();
+    uint nb4 = nb >> 1;
+    for (uint y4 = tid.y; y4 < nb4; y4 += 8)
+        for (uint x4 = tid.x; x4 < nb4; x4 += 8)
+            gB4[y4][x4] = 0.25 * (gB2[2 * y4][2 * x4] + gB2[2 * y4][2 * x4 + 1] + gB2[2 * y4 + 1][2 * x4] + gB2[2 * y4 + 1][2 * x4 + 1]);
+
+    float m2 = 0;
+    for (uint y = tid.y; y < nb; y += 8)
+        for (uint x = tid.x; x < nb; x += 8)
+        {
+            float v = gB2[y][x];
+            if (x + 1 < nb) m2 = max(m2, abs(v - gB2[y][x + 1]));
+            if (y + 1 < nb) m2 = max(m2, abs(v - gB2[y + 1][x]));
+        }
+    GroupMemoryBarrierWithGroupSync();
+
+    float m4 = 0;
+    for (uint b = tid.y; b < nb4; b += 8)
+        for (uint a = tid.x; a < nb4; a += 8)
+        {
+            float v = gB4[b][a];
+            if (a + 1 < nb4) m4 = max(m4, abs(v - gB4[b][a + 1]));
+            if (b + 1 < nb4) m4 = max(m4, abs(v - gB4[b + 1][a]));
+        }
+    InterlockedMax(gMax2, asuint(m2));
+    InterlockedMax(gMax4, asuint(m4));
+    GroupMemoryBarrierWithGroupSync();
+}
+
+void Begin(uint gi)
+{
+    if (gi == 0)
+    {
+        gMax2 = 0;
+        gMax4 = 0;
+    }
+}
+
+void Finish(uint2 tile, uint gi)
+{
+    if (gi == 0)
+        _BasisVrsDetailOut[tile] = float4(asfloat(gMax2), asfloat(gMax4), (float)_BasisVrsRateIn[tile], 1.0);
+}
+
+[numthreads(8, 8, 1)]
+void Analyze2D(uint3 gid : SV_GroupID, uint3 tid : SV_GroupThreadID, uint gi : SV_GroupIndex)
+{
+    uint nb = (uint)_BasisVrsAnalyze.x >> 1;
+    int2 origin = int2(gid.xy) * (int)_BasisVrsAnalyze.x;
+    int2 last = (int2)_BasisVrsAnalyze.yz - 1;
+    Begin(gi);
+    for (uint y = tid.y; y < nb; y += 8)
+        for (uint x = tid.x; x < nb; x += 8)
+        {
+            int2 p = origin + int2(x, y) * 2;
+            gB2[y][x] = 0.25 * (Perceptual(_BasisVrsColor[min(p, last)].rgb) + Perceptual(_BasisVrsColor[min(p + int2(1, 0), last)].rgb)
+                + Perceptual(_BasisVrsColor[min(p + int2(0, 1), last)].rgb) + Perceptual(_BasisVrsColor[min(p + int2(1, 1), last)].rgb));
+        }
+    Reduce(tid.xy, nb);
+    Finish(gid.xy, gi);
+}
+
+[numthreads(8, 8, 1)]
+void AnalyzeArray(uint3 gid : SV_GroupID, uint3 tid : SV_GroupThreadID, uint gi : SV_GroupIndex)
+{
+    uint nb = (uint)_BasisVrsAnalyze.x >> 1;
+    int2 origin = int2(gid.xy) * (int)_BasisVrsAnalyze.x;
+    int2 last = (int2)_BasisVrsAnalyze.yz - 1;
+    uint slices = (uint)_BasisVrsAnalyze.w;
+    Begin(gi);
+    for (uint s = 0; s < slices; s++)
+    {
+        for (uint y = tid.y; y < nb; y += 8)
+            for (uint x = tid.x; x < nb; x += 8)
+            {
+                int2 p = origin + int2(x, y) * 2;
+                gB2[y][x] = 0.25 * (Perceptual(_BasisVrsColorArray[int3(min(p, last), s)].rgb) + Perceptual(_BasisVrsColorArray[int3(min(p + int2(1, 0), last), s)].rgb)
+                    + Perceptual(_BasisVrsColorArray[int3(min(p + int2(0, 1), last), s)].rgb) + Perceptual(_BasisVrsColorArray[int3(min(p + int2(1, 1), last), s)].rgb));
+            }
+        Reduce(tid.xy, nb);
+    }
+    Finish(gid.xy, gi);
 }

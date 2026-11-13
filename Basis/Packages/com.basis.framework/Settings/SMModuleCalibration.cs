@@ -281,12 +281,21 @@ public partial class SMModuleCalibration : BasisSettingsBase
                 }
 
             case var s when s == K_FBIK_BODY_FIT:
-            case var s2 when s2 == K_FBIK_BODY_FIT_MAX_DEVIATION:
-                BasisHeightDriver.ApplyScaleAndHeight();
+                if (_lastBodyFit != null && optionValue == _lastBodyFit) break;
+                _pendingBodyFit = optionValue;
+                _bodyFitPending = true;
+                break;
+
+            case var s when s == K_FBIK_BODY_FIT_MAX_DEVIATION:
+                if (_lastBodyFitDeviation != null && optionValue == _lastBodyFitDeviation) break;
+                _pendingBodyFitDeviation = optionValue;
+                _bodyFitPending = true;
                 break;
 
             case var s when s == K_ARM_SPAN_ESTIMATE_RATIO:
-                BasisHeightDriver.OnArmSpanRatioChanged();
+                if (_lastArmRatio != null && optionValue == _lastArmRatio) break;
+                _pendingArmRatio = optionValue;
+                _armRatioPending = true;
                 break;
 
             // ---------- GLOBAL ONE EURO PARAMS ----------
@@ -624,10 +633,29 @@ public partial class SMModuleCalibration : BasisSettingsBase
         }
     }
 
+    private static bool _bodyFitPending, _armRatioPending;
+    private static string _lastBodyFit, _lastBodyFitDeviation, _lastArmRatio, _pendingBodyFit, _pendingBodyFitDeviation, _pendingArmRatio;
+
     public override void ChangedSettings()
     {
+        bool bodyFit = _bodyFitPending, armRatio = _armRatioPending;
+        _bodyFitPending = false;
+        _armRatioPending = false;
+        if (BasisLocalPlayer.Instance != null && BasisLocalPlayer.PlayerReady)
+        {
+            if (_pendingBodyFit != null) _lastBodyFit = _pendingBodyFit;
+            if (_pendingBodyFitDeviation != null) _lastBodyFitDeviation = _pendingBodyFitDeviation;
+            if (_pendingArmRatio != null) _lastArmRatio = _pendingArmRatio;
+        }
+        if (ApplyHeightSettings()) return;
+        if (bodyFit) BasisHeightDriver.ApplyScaleAndHeight();
+        else if (armRatio) BasisHeightDriver.OnArmSpanRatioChanged();
+    }
+
+    private static bool ApplyHeightSettings()
+    {
         if (!_dirty && _hasApplied)
-            return;
+            return false;
 
         bool sameAsLast =
             _hasApplied &&
@@ -638,13 +666,15 @@ public partial class SMModuleCalibration : BasisSettingsBase
         if (sameAsLast)
         {
             _dirty = false;
-            return;
+            return false;
         }
 
         bool modeChanged = _hasApplied && _lastHeightMode != HeightMode;
+        bool applied = false;
         if ((ApplyCustomScale || _lastApplyCustomScale || modeChanged) && BasisLocalPlayer.Instance != null && BasisLocalPlayer.PlayerReady)
         {
             BasisHeightDriver.ApplyScaleAndHeight();
+            applied = true;
         }
 
         _hasApplied = true;
@@ -658,6 +688,7 @@ public partial class SMModuleCalibration : BasisSettingsBase
             $"Applied height settings. HeightMode {HeightMode} " +
             $"SelectedScale {SelectedScale}, ApplyCustomScale {ApplyCustomScale}"
         );
+        return applied;
     }
 
     private delegate void IKDataAction(ref BasisEerieMovement data);

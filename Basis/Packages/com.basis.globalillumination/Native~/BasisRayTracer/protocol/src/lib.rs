@@ -138,7 +138,8 @@ pub struct Targets {
     pub width: u32,
     pub height: u32,
     pub views: u32,
-    pub pad: [u32; 3],
+    pub sequence: AtomicU32,
+    pub pad: [u32; 2],
 }
 
 #[repr(C)]

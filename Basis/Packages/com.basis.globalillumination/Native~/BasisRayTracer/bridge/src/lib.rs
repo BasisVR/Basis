@@ -70,7 +70,7 @@ pub struct Global { pub upload: [Res; 2], pub fence_unity: Fence, pub fence_trac
 pub struct Shared { pub gbuffer: [Res; 2], pub output: [Res; 2], pub generation: u32, imported: Vec<vulkan::Imported> }
 
 #[derive(Clone, Copy)]
-pub struct UnityTextures { pub gbuffer: *mut c_void, pub result: *mut c_void }
+pub struct UnityTextures { pub gbuffer: *mut c_void, pub result: *mut c_void, pub gbuffer1: *mut c_void }
 
 #[derive(Clone, Copy, Default)]
 pub struct Adapter { pub luid: [u8; 8], pub uuid: [u8; 16] }
@@ -93,6 +93,9 @@ pub struct Bridge {
     pub target_counter: u32,
     retired: Vec<(usize, Direct)>,
     pub blocked_waits: u64,
+    // GPU waits skipped because the tracer frame had not finished within the budget. Unity's queue never
+    // waits on unfinished tracer work: a wait past the TDR limit resets the device.
+    pub unfinished_skips: u64,
 }
 
 pub struct Direct {
@@ -141,8 +144,8 @@ impl Bridge {
         h.luid_low = u32::from_le_bytes(adapter.luid[0..4].try_into().unwrap());
         h.luid_high = i32::from_le_bytes(adapter.luid[4..8].try_into().unwrap());
         h.device_uuid = adapter.uuid;
-        let none = UnityTextures { gbuffer: std::ptr::null_mut(), result: std::ptr::null_mut() };
-        Ok(Bridge { backend, host, base, global: None, shared: Default::default(), unity: [none; MAX_CONTEXTS], unity_upload: std::ptr::null_mut(), used: [[0; 2]; MAX_CONTEXTS], same_frame: true, budget_us: 50_000, fetched: 0, fetch_failures: 0, resize_skips: 0, direct: Default::default(), target_counter: 0, retired: Vec::new(), blocked_waits: 0 })
+        let none = UnityTextures { gbuffer: std::ptr::null_mut(), result: std::ptr::null_mut(), gbuffer1: std::ptr::null_mut() };
+        Ok(Bridge { backend, host, base, global: None, shared: Default::default(), unity: [none; MAX_CONTEXTS], unity_upload: std::ptr::null_mut(), used: [[0; 2]; MAX_CONTEXTS], same_frame: true, budget_us: 50_000, fetched: 0, fetch_failures: 0, resize_skips: 0, direct: Default::default(), target_counter: 0, retired: Vec::new(), blocked_waits: 0, unfinished_skips: 0 })
     }
 
     pub fn launch(&mut self, exe: &str) -> Result<()> { self.launch_api(exe, if cfg!(windows) { TRACER_DXR } else { TRACER_VULKAN }) }
@@ -344,7 +347,10 @@ impl Bridge {
     pub fn clear_targets(&mut self, context: usize) {
         if context >= MAX_CONTEXTS { return; }
         if let Some(d) = self.direct[context].take() {
-            header(self.base).targets[context].generation.store(0, Ordering::Release);
+            let t = &header(self.base).targets[context];
+            t.sequence.fetch_add(1, Ordering::AcqRel);
+            t.generation.store(0, Ordering::Release);
+            t.sequence.fetch_add(1, Ordering::Release);
             self.retired.push((context, d));
             self.used[context] = [0; 2];
             self.host.wake();
@@ -380,12 +386,14 @@ impl Bridge {
         ch.requested_height.store(height, Ordering::Release);
         ch.requested_views.store(views.clamp(1, 2), Ordering::Release);
         let t = &mut h.targets[context];
+        t.sequence.fetch_add(1, Ordering::AcqRel);
         t.handles = [handles[0].0 as u64, handles[1].0 as u64, handles[2].0 as u64, handles[3].0 as u64];
         t.width = width;
         t.height = height;
         t.views = views.clamp(1, 2);
         t.opened.store(0, Ordering::Release);
         t.generation.store(self.target_counter, Ordering::Release);
+        t.sequence.fetch_add(1, Ordering::Release);
         self.direct[context] = Some(Direct { handles: [handles[0], handles[1], handles[2], handles[3]] });
         self.used[context] = [0; 2];
         self.host.wake();
@@ -407,7 +415,14 @@ impl Bridge {
         while h.frame_submitted.load(Ordering::Acquire) < previous && Instant::now() < deadline && self.status() == STATUS_READY { std::thread::yield_now(); }
         let wait_for = previous.min(h.frame_submitted.load(Ordering::Acquire));
         #[cfg(windows)]
-        if wait_for > 0 { let fence = self.global.as_ref().unwrap().fence_tracer.clone(); self.wait(&fence, wait_for)?; }
+        if wait_for > 0
+        {
+            let fence = self.global.as_ref().unwrap().fence_tracer.clone();
+            // Still unfinished: Unity writes this target pair while the tracer may read it, one torn frame
+            // at worst, rather than its queue stalling on the tracer.
+            if !self.reached(&fence, wait_for, deadline) { self.unfinished_skips += 1; return Ok(()); }
+            self.wait(&fence, wait_for)?;
+        }
         let _ = wait_for;
         Ok(())
     }
@@ -420,15 +435,23 @@ impl Bridge {
         let (fence_unity, fence_tracer) = (global.fence_unity.clone(), global.fence_tracer.clone());
         let upload_dst = global.upload[(frame & 1) as usize].clone();
         let rows = upload_rows.min(UPLOAD_HEIGHT);
+        let mut uploaded = true;
         if let Some(up) = if rows > 0 { self.unity_res(self.unity_upload) } else { None } {
             let wait_for = frame.saturating_sub(2).min(h.frame_submitted.load(Ordering::Acquire));
-            if wait_for > 0 { self.wait(&fence_tracer, wait_for)?; }
-            self.copy(&upload_dst, &up, Some(rows * 2), &[])?;
+            if wait_for > 0 && !self.reached(&fence_tracer, wait_for, Instant::now() + Duration::from_micros(self.budget_us as u64)) {
+                // The upload buffer is still being read: skip the copy and leave its mark stale, which the
+                // tracer reports as a lost upload and Unity answers by sending the scene again.
+                uploaded = false;
+                self.unfinished_skips += 1;
+            } else {
+                if wait_for > 0 { self.wait(&fence_tracer, wait_for)?; }
+                self.copy(&upload_dst, &up, Some(rows * 2), &[])?;
+            }
         }
         self.signal(&fence_unity, frame)?;
         self.used[context][parity & 1] = frame;
         h.reserved[RESERVED_UPLOAD_TRACKED] = 1;
-        h.reserved[RESERVED_UPLOAD_MARK + (frame & 1) as usize] = frame as u32;
+        if uploaded { h.reserved[RESERVED_UPLOAD_MARK + (frame & 1) as usize] = frame as u32; }
         h.frame_queued.store(frame, Ordering::Release);
         self.host.wake();
         Ok(true)
@@ -442,6 +465,7 @@ impl Bridge {
         while h.frame_submitted.load(Ordering::Acquire) < frame && Instant::now() < deadline && self.status() == STATUS_READY { std::thread::yield_now(); }
         if h.frame_submitted.load(Ordering::Acquire) < frame { self.fetch_failures += 1; return Ok(0); }
         let fence = self.global.as_ref().unwrap().fence_tracer.clone();
+        if !self.reached(&fence, frame, deadline) { self.fetch_failures += 1; self.unfinished_skips += 1; return Ok(0); }
         self.wait(&fence, frame)?;
         self.fetched = frame;
         FETCHED.store(frame, Ordering::Release);
@@ -452,7 +476,8 @@ impl Bridge {
         #[cfg(windows)]
         if context < MAX_CONTEXTS && self.direct[context].is_some() { return self.submit_direct(frame, context, parity, upload_rows); }
         if context >= MAX_CONTEXTS || !self.reopen(context)? { return Ok(false); }
-        let Some(gbuffer_src) = self.unity_res(self.unity[context].gbuffer) else { return Ok(false); };
+        let source = if parity & 1 == 1 && !self.unity[context].gbuffer1.is_null() { self.unity[context].gbuffer1 } else { self.unity[context].gbuffer };
+        let Some(gbuffer_src) = self.unity_res(source) else { return Ok(false); };
         let h = header(self.base);
         let global = self.global.as_ref().unwrap();
         let (fence_unity, fence_tracer) = (global.fence_unity.clone(), global.fence_tracer.clone());
@@ -462,7 +487,7 @@ impl Bridge {
         let previous = self.used[context][parity & 1];
         let upload_previous = frame.saturating_sub(2);
         let wait_for = previous.max(upload_previous).min(submitted);
-        if wait_for > 0 && !self.host.embedded() && !self.reached(&fence_tracer, wait_for, Instant::now() + Duration::from_micros(self.budget_us as u64)) { return Ok(false); }
+        if wait_for > 0 && !self.reached(&fence_tracer, wait_for, Instant::now() + Duration::from_micros(self.budget_us as u64)) { return Ok(false); }
         let rows = upload_rows.min(UPLOAD_HEIGHT);
         let fits = Self::same_extent(&gbuffer_dst, &gbuffer_src);
         if !fits { self.resize_skips += 1; }
@@ -531,7 +556,7 @@ impl Bridge {
         }
         if h.frame_submitted.load(Ordering::Acquire) < frame { self.fetch_failures += 1; return Ok(0); }
         let fence_tracer = self.global.as_ref().unwrap().fence_tracer.clone();
-        if !self.host.embedded() && !self.reached(&fence_tracer, frame, deadline) { self.fetch_failures += 1; return Ok(0); }
+        if !self.reached(&fence_tracer, frame, deadline) { self.fetch_failures += 1; return Ok(0); }
         let output = self.shared[context].as_ref().unwrap().output[parity & 1].clone();
         if !Self::same_extent(&result, &output) { self.resize_skips += 1; return Ok(0); }
         if let Backend::Vulkan(vk) = &mut self.backend {
@@ -802,7 +827,14 @@ pub extern "C" fn BasisRT_SetContextTargets(context: i32, gbuffer0: *mut c_void,
 #[unsafe(no_mangle)]
 pub extern "C" fn BasisRT_SetContextTextures(context: i32, gbuffer: *mut c_void, result: *mut c_void) {
     if let Some(b) = BRIDGE.lock().unwrap().as_mut() {
-        if (0..MAX_CONTEXTS as i32).contains(&context) { b.unity[context as usize] = UnityTextures { gbuffer, result }; }
+        if (0..MAX_CONTEXTS as i32).contains(&context) { b.unity[context as usize] = UnityTextures { gbuffer, result, gbuffer1: std::ptr::null_mut() }; }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn BasisRT_SetContextGBuffer1(context: i32, gbuffer1: *mut c_void) {
+    if let Some(b) = BRIDGE.lock().unwrap().as_mut() {
+        if (0..MAX_CONTEXTS as i32).contains(&context) { b.unity[context as usize].gbuffer1 = gbuffer1; }
     }
 }
 
@@ -891,6 +923,7 @@ pub extern "C" fn BasisRT_Stat(index: i32) -> u32 {
         9 => b.resize_skips as u32,
         18 => h.reserved[RESERVED_UPLOAD_LOST],
         19 => b.blocked_waits as u32,
+        20 => b.unfinished_skips as u32,
         5 => h.generation.load(Ordering::Relaxed),
         6 => MAX_CONTEXTS as u32,
         7 => h.tracer_api,

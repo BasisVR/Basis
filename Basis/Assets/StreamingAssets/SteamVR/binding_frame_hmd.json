@@ -1,0 +1,26 @@
+{
+  "app_key": "application.generated.unity.basisunity.exe",
+  "bindings": {
+    "/actions/default": {
+      "chords": [],
+      "poses": [
+        {
+          "output": "/actions/default/in/pose",
+          "path": "/user/head/pose/raw"
+        }
+      ],
+      "eyetracking": [
+        {
+          "output": "/actions/default/in/eyetracking",
+          "path": "/user/head/eyetracking"
+        }
+      ],
+      "haptics": [],
+      "sources": [],
+      "skeleton": []
+    }
+  },
+  "controller_type": "frame_hmd",
+  "description": "",
+  "name": "frame hmd defaults"
+}

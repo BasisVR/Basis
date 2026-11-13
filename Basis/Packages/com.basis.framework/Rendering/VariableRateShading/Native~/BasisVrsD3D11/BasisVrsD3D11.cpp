@@ -97,6 +97,7 @@ static NV_D3D11_VIEWPORT_SHADING_RATE_DESC_V1 s_Viewports[NV_MAX_NUM_VIEWPORTS];
 static volatile LONG s_Status = StatusNotLoaded;
 static volatile LONG s_LastError;
 static volatile LONG s_EnableCount;
+static volatile LONG s_UncoveredCount;
 static bool s_Enabled;
 
 static void ReleaseView()
@@ -164,6 +165,41 @@ static void Initialize()
     s_Status = StatusSupported;
 }
 
+// NVAPI does not bounds check the shading rate image: a target larger than the image covers (an eye
+// texture resized while the old image is still bound) makes the GPU read past its end, which faults the
+// device and later takes down the driver. Only enable when every pixel of the bound target has a tile.
+static bool CoversBoundTarget(ID3D11DeviceContext* ctx, ID3D11Resource* sri)
+{
+    ID3D11Texture2D* image = nullptr;
+    if (FAILED(sri->QueryInterface(__uuidof(ID3D11Texture2D), (void**)&image)) || image == nullptr) { return false; }
+    D3D11_TEXTURE2D_DESC imageDesc = {};
+    image->GetDesc(&imageDesc);
+    image->Release();
+    ID3D11RenderTargetView* rtv = nullptr;
+    ID3D11DepthStencilView* dsv = nullptr;
+    ctx->OMGetRenderTargets(1, &rtv, &dsv);
+    ID3D11View* view = rtv ? (ID3D11View*)rtv : (ID3D11View*)dsv;
+    bool covered = true;
+    if (view)
+    {
+        ID3D11Resource* target = nullptr;
+        view->GetResource(&target);
+        ID3D11Texture2D* texture = nullptr;
+        if (target && SUCCEEDED(target->QueryInterface(__uuidof(ID3D11Texture2D), (void**)&texture)) && texture)
+        {
+            D3D11_TEXTURE2D_DESC targetDesc = {};
+            texture->GetDesc(&targetDesc);
+            covered = targetDesc.Width <= imageDesc.Width * 16 && targetDesc.Height <= imageDesc.Height * 16;
+            texture->Release();
+        }
+        else { covered = false; }
+        if (target) { target->Release(); }
+    }
+    if (rtv) { rtv->Release(); }
+    if (dsv) { dsv->Release(); }
+    return covered;
+}
+
 static void Disable(ID3D11DeviceContext* ctx)
 {
     NV_D3D11_VIEWPORTS_SHADING_RATE_DESC_V1 off = { NV_VERSION(NV_D3D11_VIEWPORTS_SHADING_RATE_DESC_V1, 1), 0, s_Viewports };
@@ -192,7 +228,12 @@ static void __stdcall OnRenderEvent(int eventId, void* data)
             if (st != 0) { s_LastError = st; s_View = nullptr; }
             else { s_ViewResource = resource; }
         }
-        if (s_View)
+        if (s_View && !CoversBoundTarget(ctx, resource))
+        {
+            InterlockedIncrement(&s_UncoveredCount);
+            if (s_Enabled) { Disable(ctx); }
+        }
+        else if (s_View)
         {
             NvAPI_Status st = s_SetView(ctx, s_View);
             NV_D3D11_VIEWPORTS_SHADING_RATE_DESC_V1 on = { NV_VERSION(NV_D3D11_VIEWPORTS_SHADING_RATE_DESC_V1, 1), NV_MAX_NUM_VIEWPORTS, s_Viewports };
@@ -231,6 +272,7 @@ extern "C"
     __declspec(dllexport) int __stdcall BasisVrsD3D11_Status() { return s_Status; }
     __declspec(dllexport) int __stdcall BasisVrsD3D11_LastError() { return s_LastError; }
     __declspec(dllexport) int __stdcall BasisVrsD3D11_EnableCount() { return s_EnableCount; }
+    __declspec(dllexport) int __stdcall BasisVrsD3D11_UncoveredCount() { return s_UncoveredCount; }
     __declspec(dllexport) int __stdcall BasisVrsD3D11_TileSize() { return 16; }
     __declspec(dllexport) void* __stdcall BasisVrsD3D11_GetRenderEventFunc() { return (void*)OnRenderEvent; }
 }

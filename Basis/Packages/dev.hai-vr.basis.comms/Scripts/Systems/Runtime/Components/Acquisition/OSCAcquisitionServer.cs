@@ -28,9 +28,28 @@ namespace HVR.Basis.Comms
         private static int _loopbackDepth;
         private static bool _loopbackLimitWarned;
 
+        private const float BindRetrySeconds = 5f;
+        private const float RediscoverSeconds = 10f;
+
+        public static bool NativeFaceData = true;
+
         private bool _settingSubscribed;
         private bool _running;
         private string _lastWakeUp;
+        private float _retryAt;
+        private bool _bindFailureLogged;
+        private float _nextRediscoverAt;
+        private int _lastVrcftOscPort;
+        private BasisVrcftNativeFaceDecoder _nativeFace;
+        private float _lastNativeFaceTime = float.NegativeInfinity;
+        private readonly BasisEyeLidPlausibility _eyeLids = new BasisEyeLidPlausibility();
+        private const string EyeLidLeftPath = FaceTrackingParameterPrefix + "EyeLidLeft", EyeLidRightPath = FaceTrackingParameterPrefix + "EyeLidRight", EyeLidPath = FaceTrackingParameterPrefix + "EyeLid";
+        public static bool OscEyeLidsValid;
+        [NoAutoStaticsCleanup] private static readonly Predicate<SimpleOSC.OSCMessage> IsEyeLidParameter = m => m.path == EyeLidLeftPath || m.path == EyeLidRightPath || m.path == EyeLidPath;
+        private const float NativeFacePrioritySeconds = 1f;
+        private const string FaceTrackingParameterPrefix = "/avatar/parameters/FT/v2/";
+        [NoAutoStaticsCleanup] private static readonly Predicate<SimpleOSC.OSCMessage> IsFaceTrackingParameter =
+            m => m.path != null && m.path.StartsWith(FaceTrackingParameterPrefix, StringComparison.Ordinal);
         private readonly object _queryLock = new object();
         private OsushiNode _oscQueryRoot;
         private readonly Dictionary<EntityId, SubscriptionSnapshot> _subscriptionSnapshots = new Dictionary<EntityId, SubscriptionSnapshot>();
@@ -82,11 +101,16 @@ namespace HVR.Basis.Comms
                 lock (_queryLock)
                 {
                     EnsureOscQueryRoot();
-                    _osushi = new OsushiQuery(GetOscQueryResponse);
+                    _osushi = new OsushiQuery(GetOscQueryResponse, OurFakeServerPort);
                 }
 
                 _osushi.Start();
                 _running = true;
+                _retryAt = 0f;
+                _lastVrcftOscPort = 0;
+                _nextRediscoverAt = Time.unscaledTime + RediscoverSeconds;
+                _nativeFace?.Reset();
+                _bindFailureLogged = false;
 
                 if (_lastWakeUp != null)
                 {
@@ -95,8 +119,13 @@ namespace HVR.Basis.Comms
             }
             catch (Exception e)
             {
-                BasisDebug.LogWarning($"Failed to start OSC client ({e.Message})", BasisDebug.LogTag.LocalNetwork);
+                if (!_bindFailureLogged)
+                {
+                    _bindFailureLogged = true;
+                    BasisDebug.LogWarning($"Failed to start OSC on UDP port {OurFakeServerPort} ({e.Message}). Face and eye tracking over OSC stay off until the port is free; retrying every {BindRetrySeconds:0} s.", BasisDebug.LogTag.LocalNetwork);
+                }
                 StopClient();
+                _retryAt = Time.unscaledTime + BindRetrySeconds;
             }
         }
 
@@ -110,21 +139,113 @@ namespace HVR.Basis.Comms
             }
             else
             {
+                _retryAt = 0f;
                 StopClient();
             }
         }
 
         private void SimulateInstance()
         {
-            if (_client == null) return;
+            if (_client == null)
+            {
+                if (_retryAt > 0f && Time.unscaledTime >= _retryAt && isActiveAndEnabled && BasisSettingsDefaults.EnableOSC.RawValue)
+                {
+                    StartClient();
+                }
+                return;
+            }
+
+            TrackVrcftEndpoint();
 
             // Hybrid design: background thread receives/decodes UDP, main thread routes callbacks.
             var messages = _client.DrainReceivedMessages();
+            ExpandNativeFaceData(messages);
+            FilterUnsupportedEyeLids(messages);
             BasisOscService.SubmitRawMessages(messages);
+        }
+
+        private void TrackVrcftEndpoint()
+        {
+            if (_osushi == null) return;
+
+            if (Time.unscaledTime >= _nextRediscoverAt)
+            {
+                _nextRediscoverAt = Time.unscaledTime + RediscoverSeconds;
+                _osushi.Rediscover();
+            }
+
+            int port = _osushi.VrcftOscPort;
+            if (port == _lastVrcftOscPort) return;
+            _lastVrcftOscPort = port;
+            if (port != 0 && _lastWakeUp != null)
+            {
+                SendWakeUpMessage(_lastWakeUp);
+            }
+        }
+
+        private void FilterUnsupportedEyeLids(List<SimpleOSC.OSCMessage> messages)
+        {
+            bool hasLid = false;
+            float now = Time.unscaledTime;
+            int count = messages.Count;
+            for (int i = 0; i < count; i++)
+            {
+                SimpleOSC.OSCMessage message = messages[i];
+                if (message.path == null || !message.path.StartsWith(FaceTrackingParameterPrefix, StringComparison.Ordinal)) continue;
+                if (!IsEyeLidParameter(message))
+                {
+                    _eyeLids.FaceSample(now);
+                    continue;
+                }
+                hasLid = true;
+                if (message.arguments != null && message.arguments.Length > 0 && message.arguments[0] is float lid)
+                {
+                    _eyeLids.LidSample(now, message.path != EyeLidRightPath, message.path != EyeLidLeftPath, lid);
+                }
+                else
+                {
+                    _eyeLids.FaceSample(now);
+                }
+            }
+
+            OscEyeLidsValid = _eyeLids.Tick(now, Time.unscaledDeltaTime);
+
+            if (hasLid && !OscEyeLidsValid)
+            {
+                messages.RemoveAll(IsEyeLidParameter);
+            }
+        }
+
+        private void ExpandNativeFaceData(List<SimpleOSC.OSCMessage> messages)
+        {
+            int count = messages.Count;
+            byte[] latest = null;
+            for (int i = 0; i < count; i++)
+            {
+                if (BasisVrcftNativeFaceDecoder.TryGetBlob(messages[i], out byte[] blob))
+                {
+                    latest = blob;
+                }
+            }
+
+            if (latest == null)
+            {
+                if (Time.unscaledTime - _lastNativeFaceTime < NativeFacePrioritySeconds)
+                {
+                    messages.RemoveAll(IsFaceTrackingParameter);
+                }
+                return;
+            }
+
+            _lastNativeFaceTime = Time.unscaledTime;
+            messages.RemoveAll(IsFaceTrackingParameter);
+            _nativeFace ??= new BasisVrcftNativeFaceDecoder(OsushiUtil.FaceTrackingParameterNames);
+            _nativeFace.Decode(latest, messages);
         }
 
         private void OnDisable()
         {
+            _retryAt = 0f;
             StopClient();
         }
 
@@ -177,6 +298,11 @@ namespace HVR.Basis.Comms
             try
             {
                 _client.SendOsc("/avatar/change", wakeUp);
+                int vrcftPort = _osushi != null ? _osushi.VrcftOscPort : 0;
+                if (vrcftPort != 0 && vrcftPort != ExternalProgramReceiverPort)
+                {
+                    _client.SendOscTo(vrcftPort, "/avatar/change", wakeUp);
+                }
             }
             catch (Exception e)
             {
@@ -306,19 +432,49 @@ namespace HVR.Basis.Comms
 
         private string GetOscQueryResponse(string rawUrl)
         {
+            if (rawUrl != null && rawUrl.IndexOf("HOST_INFO", StringComparison.Ordinal) >= 0)
+            {
+                return HostInfoJson;
+            }
+
             lock (_queryLock)
             {
                 EnsureOscQueryRoot();
-                OsushiNode payload = ResolveQueryNode(rawUrl) ?? _oscQueryRoot;
-                return JsonConvert.SerializeObject(payload, Formatting.Indented);
+                OsushiNode payload = ResolveExactQueryNode(rawUrl);
+                return payload == null ? null : JsonConvert.SerializeObject(payload, Formatting.Indented);
             }
+        }
+
+        private static readonly string HostInfoJson = JsonConvert.SerializeObject(new Dictionary<string, object>
+        {
+            ["NAME"] = "Basis",
+            ["EXTENSIONS"] = new Dictionary<string, bool> { ["ACCESS"] = true, ["CLIPMODE"] = false, ["RANGE"] = true, ["TYPE"] = true, ["VALUE"] = true },
+            ["OSC_IP"] = "127.0.0.1",
+            ["OSC_PORT"] = OurFakeServerPort,
+            ["OSC_TRANSPORT"] = "UDP",
+        });
+
+        private OsushiNode ResolveExactQueryNode(string rawUrl)
+        {
+            string requestPath = NormalizeRequestPath(rawUrl);
+            OsushiNode current = _oscQueryRoot;
+            string[] segments = requestPath.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < segments.Length; i++)
+            {
+                if (current.CONTENTS == null || !current.CONTENTS.TryGetValue(Uri.UnescapeDataString(segments[i]), out current))
+                {
+                    return null;
+                }
+            }
+
+            return current;
         }
 
         private void EnsureOscQueryRoot()
         {
             if (_oscQueryRoot == null)
             {
-                _oscQueryRoot = OsushiUtil.CreateFaceTrackingNodes();
+                _oscQueryRoot = OsushiUtil.CreateFaceTrackingNodes(NativeFaceData);
             }
         }
 

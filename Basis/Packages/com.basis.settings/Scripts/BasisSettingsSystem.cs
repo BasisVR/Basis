@@ -260,7 +260,51 @@ namespace Basis.Scripts.Settings
         /// </summary>
         public static void ForceQualityRefresh()
         {
+            if (_qualityDeferDepth > 0)
+            {
+                _qualityRefreshPending = true;
+                return;
+            }
             QualitySettings.SetQualityLevel(QualitySettings.GetQualityLevel(), true);
+        }
+        private static int _qualityDeferDepth = 0;
+        private static bool _qualityRefreshPending = false;
+        public static QualityDeferScope DeferQualityRefresh()
+        {
+            _qualityDeferDepth++;
+            return new QualityDeferScope(true);
+        }
+        public readonly struct QualityDeferScope : IDisposable
+        {
+            private readonly bool _open;
+            internal QualityDeferScope(bool open)
+            {
+                _open = open;
+            }
+            public void Dispose()
+            {
+                if (!_open || _qualityDeferDepth == 0) return;
+                _qualityDeferDepth--;
+                if (_qualityDeferDepth != 0 || !_qualityRefreshPending) return;
+                _qualityRefreshPending = false;
+                ForceQualityRefresh();
+            }
+        }
+        public static void ReapplyAllSettings()
+        {
+            if (!_settingsLoaded || _freshSettingsFile || _diskWritesBlocked)
+            {
+                LoadAllSettings();
+                return;
+            }
+            FlushPendingSaves();
+            KeyValuePair<string, string>[] array = settingsData.settings.ToArray();
+            foreach (KeyValuePair<string, string> kv in array)
+            {
+                RaiseSettingChanged(kv.Key, kv.Value);
+            }
+            RaiseFinishedChanges();
+            ForceQualityRefresh();
         }
         /// <summary>
         /// Re-fires <see cref="OnSettingsFinishedChanges"/> so subscribers that read

@@ -165,10 +165,12 @@
     <assembly fullname="atomig_macro-323c07a09190a0e8" preserve="all" />
     <assembly fullname="atomig_macro-489d1b1f67fad903" preserve="all" />
     <assembly fullname="atomig_macro-8f63e1877df150b5" preserve="all" />
+    <assembly fullname="atomig_macro-9d8a7ec9be9afd3f" preserve="all" />
     <assembly fullname="audioplugin_phonon" preserve="all" />
     <assembly fullname="basis_media" preserve="all" />
     <assembly fullname="clap_derive-3e204d6b461a1f31" preserve="all" />
     <assembly fullname="clap_derive-b0ae48c49055e1d7" preserve="all" />
+    <assembly fullname="clap_derive-e2d0396cac415c82" preserve="all" />
     <assembly fullname="clap_derive-f2bbb9b3196fd2a2" preserve="all" />
     <assembly fullname="com.cqf.urpvolumetricfog.runtime" preserve="all" />
     <assembly fullname="com.gator-dragon-games.jigglephysics" preserve="all" />
@@ -234,6 +236,7 @@
     <assembly fullname="serde_repr-15a8ba06f34752f1" preserve="all" />
     <assembly fullname="serde_repr-614d2fd925a6f608" preserve="all" />
     <assembly fullname="strum_macros-01e847554a53226a" preserve="all" />
+    <assembly fullname="strum_macros-3bbcfa7dd5e8ba1e" preserve="all" />
     <assembly fullname="strum_macros-5b6a615d0ee55ada" preserve="all" />
     <assembly fullname="strum_macros-db95f6ea5f3ed3f0" preserve="all" />
     <assembly fullname="strum_macros-e1b669140a8f30c6" preserve="all" />
@@ -276,6 +279,7 @@
     <assembly fullname="zbus_macros-00ba31ca8a1d6fa6" preserve="all" />
     <assembly fullname="zbus_macros-164d9aa756dcf3e8" preserve="all" />
     <assembly fullname="zbus_macros-f8aee06ee9c1c9e1" preserve="all" />
+    <assembly fullname="zerocopy_derive-246ed8c1e1200200" preserve="all" />
     <assembly fullname="zerocopy_derive-444ce6847b694bfb" preserve="all" />
     <assembly fullname="zerocopy_derive-c8e376cb4aa83a95" preserve="all" />
     <assembly fullname="zerocopy_derive-c9de28813474d36b" preserve="all" />

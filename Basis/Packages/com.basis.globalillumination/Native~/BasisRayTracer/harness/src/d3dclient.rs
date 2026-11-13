@@ -125,12 +125,12 @@ impl Client {
             let second = unity.texture(w, h, DXGI_FORMAT_R16G16B16A16_FLOAT);
             if let Some((_, g, u, r, _, s2)) = &d11 {
                 bridge.unity_upload = u.as_raw();
-                bridge.unity[0] = UnityTextures { gbuffer: g.as_raw(), result: r.as_raw() };
-                bridge.unity[1] = UnityTextures { gbuffer: g.as_raw(), result: s2.as_raw() };
+                bridge.unity[0] = UnityTextures { gbuffer: g.as_raw(), result: r.as_raw(), gbuffer1: std::ptr::null_mut() };
+                bridge.unity[1] = UnityTextures { gbuffer: g.as_raw(), result: s2.as_raw(), gbuffer1: std::ptr::null_mut() };
             } else {
                 bridge.unity_upload = upload.as_raw();
-                bridge.unity[0] = UnityTextures { gbuffer: gbuffer.as_raw(), result: result.as_raw() };
-                bridge.unity[1] = UnityTextures { gbuffer: gbuffer.as_raw(), result: second.as_raw() };
+                bridge.unity[0] = UnityTextures { gbuffer: gbuffer.as_raw(), result: result.as_raw(), gbuffer1: std::ptr::null_mut() };
+                bridge.unity[1] = UnityTextures { gbuffer: gbuffer.as_raw(), result: second.as_raw(), gbuffer1: std::ptr::null_mut() };
             }
             let (gstage, gptr) = unity.buffer((w * 2 * 16) as u64 * h as u64, D3D12_HEAP_TYPE_UPLOAD);
             let (ustage, uptr) = unity.buffer(UPLOAD_WIDTH as u64 * 16 * UPLOAD_HEIGHT as u64, D3D12_HEAP_TYPE_UPLOAD);
@@ -151,6 +151,14 @@ impl Client {
             unsafe { device.CreateTexture2D(&desc, None, Some(&mut t)).unwrap(); }
             t.unwrap()
         };
+        if std::env::var("RETARGETFLIP").is_ok() {
+            let hh = (h * 3 / 4).max(8);
+            hook::arm(&[(w * 2, hh * 2), (w * 2, hh * 2), (w, hh), (w, hh)]);
+            let g = [make(w * 2, hh * 2, DXGI_FORMAT_R16G16B16A16_TYPELESS), make(w * 2, hh * 2, DXGI_FORMAT_R16G16B16A16_TYPELESS)];
+            let r = [make(w, hh, DXGI_FORMAT_R16G16B16A16_TYPELESS), make(w, hh, DXGI_FORMAT_R16G16B16A16_TYPELESS)];
+            let _ = bridge.set_targets(0, [g[0].as_raw(), g[1].as_raw(), r[0].as_raw(), r[1].as_raw()], width, hh, views);
+            hook::arm(&[(w * 2, h * 2), (w * 2, h * 2), (w, h), (w, h)]);
+        }
         let g = [make(w * 2, h * 2, DXGI_FORMAT_R16G16B16A16_TYPELESS), make(w * 2, h * 2, DXGI_FORMAT_R16G16B16A16_TYPELESS)];
         let r = [make(w, h, DXGI_FORMAT_R16G16B16A16_TYPELESS), make(w, h, DXGI_FORMAT_R16G16B16A16_TYPELESS)];
         hook::disarm();

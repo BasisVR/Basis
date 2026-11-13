@@ -43,18 +43,18 @@ namespace Basis.Tests.Sync
             box.CheckMethodAllowed(out MethodInfo _, type, name, Array.ConvertAll(parameters, SerializedTypeDescriptorBuilder.FromNativeType), Array.Empty<SerializedTypeDescriptor>(), name);
 
         [Test]
-        public void ControllerInput_WorldAny_OthersSelfOnly()
+        public void ControllerInput_EveryBox()
         {
             Assert.IsTrue(Method(Box(typeof(CilboxSceneBasis)), typeof(BasisControllerInputShim), nameof(BasisControllerInputShim.GetButtonDown)));
             Assert.IsTrue(Method(Box(typeof(CilboxSceneBasis)), typeof(BasisControllerInputShim), "get_" + nameof(BasisControllerInputShim.IsBlocked)));
             foreach (Type boxType in new[] { typeof(CilboxPropBasis), typeof(CilboxAvatarBasis) })
             {
-                Assert.IsFalse(Method(Box(boxType), typeof(BasisControllerInputShim), nameof(BasisControllerInputShim.GetButtonDown), typeof(BasisControllerHand), typeof(BasisControllerButton)), boxType.Name);
+                Assert.IsTrue(Method(Box(boxType), typeof(BasisControllerInputShim), nameof(BasisControllerInputShim.GetButtonDown), typeof(BasisControllerHand), typeof(BasisControllerButton)), boxType.Name + " old bundles keep the overload without self, gated to the local player");
                 Assert.IsTrue(Method(Box(boxType), typeof(BasisControllerInputShim), nameof(BasisControllerInputShim.GetButtonDown), typeof(object), typeof(BasisControllerHand), typeof(BasisControllerButton)), boxType.Name);
                 Assert.IsTrue(Method(Box(boxType), typeof(BasisControllerInputShim), "get_" + nameof(BasisControllerInputShim.IsBlocked)), boxType.Name);
-                Assert.IsFalse(Method(Box(boxType), typeof(BasisDesktopInputShim), "get_" + nameof(BasisDesktopInputShim.MouseDelta)), boxType.Name);
+                Assert.IsTrue(Method(Box(boxType), typeof(BasisDesktopInputShim), "get_" + nameof(BasisDesktopInputShim.MouseDelta)), boxType.Name);
                 Assert.IsTrue(Method(Box(boxType), typeof(BasisDesktopInputShim), nameof(BasisDesktopInputShim.GetMouseDelta), typeof(object)), boxType.Name);
-                Assert.IsFalse(Method(Box(boxType), typeof(BasisDesktopInputShim), nameof(BasisDesktopInputShim.GetMouseButton), typeof(int)), boxType.Name);
+                Assert.IsTrue(Method(Box(boxType), typeof(BasisDesktopInputShim), nameof(BasisDesktopInputShim.GetMouseButton), typeof(int)), boxType.Name);
                 Assert.IsTrue(Method(Box(boxType), typeof(BasisDesktopInputShim), nameof(BasisDesktopInputShim.GetMouseButton), typeof(object), typeof(int)), boxType.Name);
             }
         }

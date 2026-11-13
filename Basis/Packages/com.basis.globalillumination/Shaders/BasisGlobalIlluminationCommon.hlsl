@@ -8,6 +8,11 @@
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/ImageBasedLighting.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/BasisGazeFoveation.hlsl"
+
+// Per-pixel share of the march budget, lowered away from the player's gaze by the passes that opt in
+// (see BasisGazeEffectScale). Stays 1 everywhere else.
+static float gBasisGIGazeStepScale = 1.0;
 
 #define BASISGI_MAX_EMITTERS 48
 // How long a still pixel is allowed to keep accumulating, and how far a history sample may sit from the
@@ -138,10 +143,22 @@ float4 _BasisGIEmitterRadiance[BASISGI_MAX_EMITTERS];
 #define BASISGI_THICKNESS          _BasisGIParams1.y
 #define BASISGI_JITTER             _BasisGIParams1.z
 #define BASISGI_FADE_DISTANCE      _BasisGIParams1.w
-#define BASISGI_RAY_COUNT          _BasisGIParams2.x
-#define BASISGI_RAY_STEPS          _BasisGIParams2.y
+#define BASISGI_RAY_COUNT          abs(_BasisGIParams2.x)
+#define BASISGI_RAY_STEPS          max(min(_BasisGIParams2.y, 4.0), floor(_BasisGIParams2.y * gBasisGIGazeStepScale))
 #define BASISGI_FIREFLY_CLAMP      _BasisGIParams2.z
 #define BASISGI_BOUNCE_FEEDBACK    _BasisGIParams2.w
+
+// The ray traced gather's real ray count at this pixel. Matches RayGenExecute: the same gaze scale from the
+// viewer to the pixel, rounded, never below one. Only differs from the global count when the gather was
+// foveated, which the pass flags by sending the count negative.
+float BasisGIPixelRayCount(float3 positionWS)
+{
+    float rays = max(1.0, abs(_BasisGIParams2.x));
+    if (_BasisGIParams2.x >= 0.0)
+        return rays;
+    float3 viewer = GetCameraPositionWS();
+    return max(1.0, round(rays * BasisGazeEffectScale(viewer, positionWS - viewer, 1.0)));
+}
 #define BASISGI_FRAME_INDEX        _BasisGIParams3.x
 #define BASISGI_TEMPORAL_RESPONSE  _BasisGIParams3.y
 #define BASISGI_DEPTH_REJECTION    _BasisGIParams3.z

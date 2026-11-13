@@ -36,7 +36,9 @@ namespace HVR.Osushi
             "TongueOut", "TongueRoll", "TongueShape", "TongueTwistLeft", "TongueTwistRight", "TongueX", "TongueY",
         };
 
-        internal static OsushiNode CreateFaceTrackingNodes()
+        internal static IReadOnlyList<string> FaceTrackingParameterNames => paths;
+
+        internal static OsushiNode CreateFaceTrackingNodes(bool nativeFaceTracking)
         {
             return new OsushiNode
             {
@@ -61,6 +63,20 @@ namespace HVR.Osushi
                                 {
                                     "avtr_00000000-89b1-4313-aa2d-000000000000"
                                 }
+                            },
+                            ["name"] = new()
+                            {
+                                FULL_PATH = "/avatar/name",
+                                ACCESS = 1,
+                                TYPE = "s",
+                                VALUE = new List<object> { "Basis" }
+                            },
+                            ["avatarfullfacetracking"] = new()
+                            {
+                                FULL_PATH = "/avatar/avatarfullfacetracking",
+                                ACCESS = 1,
+                                TYPE = nativeFaceTracking ? "T" : "F",
+                                VALUE = new List<object> { nativeFaceTracking }
                             },
                             ["parameters"] = new()
                             {

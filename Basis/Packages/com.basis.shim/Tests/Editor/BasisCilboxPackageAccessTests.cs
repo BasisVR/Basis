@@ -4,10 +4,12 @@ using System.Reflection;
 using Basis.Scripts.BasisSdk.Cilbox;
 using Cilbox;
 using NUnit.Framework;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Basis.Tests.Sync
 {
+    [NoAutoStaticsCleanup]
     [BasisCilboxAllow(BasisCilboxBoxes.World | BasisCilboxBoxes.Prop)]
     public static class BasisCilboxPackageAccessProbe
     {

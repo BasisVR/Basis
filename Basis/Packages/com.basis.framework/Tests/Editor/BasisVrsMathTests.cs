@@ -202,5 +202,36 @@ namespace Basis.Tests.Rendering
             Assert.AreEqual(0f, aniso.x);
             Assert.AreEqual(0f, aniso.y);
         }
+
+        static Matrix4x4 View(float yawDeg, float pitchDeg, Vector3 position, float scale)
+        {
+            float y = yawDeg * Mathf.Deg2Rad, x = pitchDeg * Mathf.Deg2Rad;
+            Matrix4x4 yaw = Matrix4x4.identity;
+            yaw.m00 = Mathf.Cos(y); yaw.m02 = Mathf.Sin(y); yaw.m20 = -Mathf.Sin(y); yaw.m22 = Mathf.Cos(y);
+            Matrix4x4 pitch = Matrix4x4.identity;
+            pitch.m11 = Mathf.Cos(x); pitch.m12 = -Mathf.Sin(x); pitch.m21 = Mathf.Sin(x); pitch.m22 = Mathf.Cos(x);
+            Matrix4x4 camToWorld = yaw * pitch;
+            camToWorld.SetColumn(3, new Vector4(position.x, position.y, position.z, 1f));
+            Matrix4x4 flipZ = Matrix4x4.identity;
+            flipZ.m22 = -1f;
+            Matrix4x4 s = Matrix4x4.identity;
+            s.m00 = s.m11 = s.m22 = scale;
+            return flipZ * (camToWorld * s).inverse;
+        }
+
+        [Test]
+        public void ViewReprojectionMapsCurrentViewDirectionToPreviousView()
+        {
+            Matrix4x4 prev = View(10f, -5f, new Vector3(1f, 1.6f, -2f), 1.3f);
+            Matrix4x4 cur = View(17f, 3f, new Vector3(1.1f, 1.55f, -2.2f), 1.3f);
+            Matrix4x4 reproj = BasisVrsMath.ViewReprojection(prev, cur);
+            Vector3[] worldDirs = { new Vector3(0.2f, -0.1f, 1f), new Vector3(-0.6f, 0.3f, 0.8f), new Vector3(0f, 0.9f, 0.4f) };
+            foreach (Vector3 w in worldDirs)
+            {
+                Vector3 a = reproj.MultiplyVector(cur.MultiplyVector(w)).normalized;
+                Vector3 b = prev.MultiplyVector(w).normalized;
+                Assert.Less((a - b).magnitude, Eps);
+            }
+        }
     }
 }

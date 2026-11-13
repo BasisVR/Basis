@@ -19,6 +19,7 @@ public static partial class BasisLoadHandler
     public static ConcurrentDictionary<string, BasisTrackedBundleWrapper> LoadedBundles = new ConcurrentDictionary<string, BasisTrackedBundleWrapper>();
     public static ConcurrentDictionary<string, BasisBEEExtensionMeta> OnDiscData = new ConcurrentDictionary<string, BasisBEEExtensionMeta>();
     public static SemaphoreSlim _initSemaphore = new SemaphoreSlim(1, 1);
+    private static readonly Dictionary<string, Dictionary<string, BasisBEEExtensionMeta>> discInfoByUrl = new Dictionary<string, Dictionary<string, BasisBEEExtensionMeta>>(StringComparer.Ordinal);
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static async void Initialization()
     {
@@ -727,14 +728,64 @@ public static partial class BasisLoadHandler
         return false;
     }
 
+    private static void IndexDiscInfo(BasisBEEExtensionMeta discInfo)
+    {
+        string url = BasisIOManagement.CanonicalizeRemoteUrl(discInfo?.StoredRemote?.RemoteBeeFileLocation);
+        if (url.Length == 0) return;
+        string version = $"{discInfo.DownloadedPlatform}|{discInfo.UniqueVersion}";
+        lock (discInfoByUrl)
+        {
+            if (!discInfoByUrl.TryGetValue(url, out Dictionary<string, BasisBEEExtensionMeta> versions))
+            {
+                versions = new Dictionary<string, BasisBEEExtensionMeta>(StringComparer.Ordinal);
+                discInfoByUrl[url] = versions;
+            }
+            versions[version] = discInfo;
+        }
+    }
+
+    private static bool TryFindIndexedDiscInfo(string metaUrl, out BasisBEEExtensionMeta info)
+    {
+        info = null;
+        string canonicalUrl = BasisIOManagement.CanonicalizeRemoteUrl(metaUrl);
+        BasisBEEExtensionMeta[] candidates;
+        lock (discInfoByUrl)
+        {
+            if (!discInfoByUrl.TryGetValue(canonicalUrl, out Dictionary<string, BasisBEEExtensionMeta> versions)) return false;
+            candidates = new BasisBEEExtensionMeta[versions.Count];
+            versions.Values.CopyTo(candidates, 0);
+        }
+        BasisBEEExtensionMeta legacyCandidate = null;
+        foreach (BasisBEEExtensionMeta discInfo in candidates)
+        {
+            if (!HasAnyCachedPayload(discInfo)) continue;
+            OnDiscData[GetDiscInfoKey(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo.DownloadedPlatform)] = discInfo;
+            if (BasisIOManagement.CachePlatformMatchesCurrent(discInfo.DownloadedPlatform))
+            {
+                info = discInfo;
+                return true;
+            }
+            if (string.IsNullOrWhiteSpace(discInfo.DownloadedPlatform) && legacyCandidate == null) legacyCandidate = discInfo;
+        }
+        info = legacyCandidate;
+        return info != null;
+    }
+
     private static bool TryGetInMemoryDiscInfo(string MetaURL, out BasisBEEExtensionMeta info)
     {
         BasisBEEExtensionMeta legacyCandidate = null;
         string canonicalUrl = BasisIOManagement.CanonicalizeRemoteUrl(MetaURL);
-
-        foreach (var discInfo in OnDiscData.Values)
+        if (OnDiscData.TryGetValue(GetDiscInfoKey(canonicalUrl, BasisIOManagement.GetCurrentCachePlatform()), out BasisBEEExtensionMeta direct) && direct?.StoredRemote != null && BasisIOManagement.CachePlatformMatchesCurrent(direct.DownloadedPlatform) && HasAnyCachedPayload(direct))
         {
-            if (BasisIOManagement.CanonicalizeRemoteUrl(discInfo.StoredRemote.RemoteBeeFileLocation) == canonicalUrl)
+            info = direct;
+            return true;
+        }
+        string keySuffix = "|" + canonicalUrl;
+
+        foreach (var pair in OnDiscData)
+        {
+            BasisBEEExtensionMeta discInfo = pair.Value;
+            if (pair.Key.EndsWith(keySuffix, StringComparison.Ordinal) && BasisIOManagement.CanonicalizeRemoteUrl(discInfo.StoredRemote.RemoteBeeFileLocation) == canonicalUrl)
             {
                 if (!string.IsNullOrWhiteSpace(discInfo.DownloadedPlatform) &&
                     !BasisIOManagement.CachePlatformMatchesCurrent(discInfo.DownloadedPlatform))
@@ -783,28 +834,25 @@ public static partial class BasisLoadHandler
         return false;
     }
 
-    public static Task<(bool found, BasisBEEExtensionMeta info)> IsMetaDataOnDiscAsync(string MetaURL)
+    public static async Task<(bool found, BasisBEEExtensionMeta info)> IsMetaDataOnDiscAsync(string MetaURL)
     {
         if (TryGetInMemoryDiscInfo(MetaURL, out BasisBEEExtensionMeta inMemory))
         {
-            return Task.FromResult((true, inMemory));
+            return (true, inMemory);
         }
-
-        return BasisTasks.Run<(bool, BasisBEEExtensionMeta)>(() =>
+        await EnsureInitializationComplete();
+        if (TryGetInMemoryDiscInfo(MetaURL, out inMemory) || TryFindIndexedDiscInfo(MetaURL, out inMemory))
         {
-            string currentPlatform = BasisIOManagement.GetCurrentCachePlatform();
-            if (TryLazyLoadDiscInfo(MetaURL, currentPlatform, out BasisBEEExtensionMeta lazyInfo))
-            {
-                return (true, lazyInfo);
-            }
-            return (false, new BasisBEEExtensionMeta());
-        });
+            return (true, inMemory);
+        }
+        return (false, new BasisBEEExtensionMeta());
     }
 
     public static async Task AddDiscInfo(BasisBEEExtensionMeta discInfo)
     {
         string discKey = GetDiscInfoKey(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo.DownloadedPlatform);
         OnDiscData[discKey] = discInfo;
+        IndexDiscInfo(discInfo);
         byte[] serializedData = BasisSerialization.SerializeValue(discInfo);
 
         try
@@ -847,6 +895,7 @@ public static partial class BasisLoadHandler
                 {
                     await LoadAllDiscData();
                     IsInitialized = true;
+                    _ = BasisTasks.Run(() => { try { SweepUnreferencedCacheFiles(BasisIOManagement.SessionStartUtc); } catch (Exception ex) { BasisDebug.LogWarning($"Cache sweep failed: {ex.Message}", BasisDebug.LogTag.Event); } });
                 }
             }
             finally
@@ -874,6 +923,7 @@ public static partial class BasisLoadHandler
                     byte[] fileData = await BasisFiles.ReadAllBytesAsync(file);
                     BasisBEEExtensionMeta discInfo = MigrateToSourceScopedFiles(file, BasisSerialization.DeserializeValue<BasisBEEExtensionMeta>(fileData));
                     OnDiscData[GetDiscInfoKey(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo.DownloadedPlatform)] = discInfo;
+                    IndexDiscInfo(discInfo);
                 }
                 catch (Exception ex)
                 {
@@ -884,7 +934,6 @@ public static partial class BasisLoadHandler
         }
 
         await Task.WhenAll(loadTasks);
-        await BasisTasks.Run(() => SweepUnreferencedCacheFiles(BasisIOManagement.SessionStartUtc));
 
         BasisDebug.Log("Completed loading all disc data.");
     }

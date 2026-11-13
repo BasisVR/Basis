@@ -20,6 +20,17 @@ namespace Basis.Scripts.Rendering
             return new Vector4(gpuProj.m02, gpuProj.m12, 1f / gpuProj.m00, 1f / gpuProj.m11);
         }
 
+        /// <summary>
+        /// Rotation taking a direction in the current view space to the previous frame's view
+        /// space, translation dropped. Used to find where a shading tile was last frame.
+        /// </summary>
+        public static Matrix4x4 ViewReprojection(Matrix4x4 previousView, Matrix4x4 currentView)
+        {
+            previousView.SetColumn(3, new Vector4(0f, 0f, 0f, 1f));
+            currentView.SetColumn(3, new Vector4(0f, 0f, 0f, 1f));
+            return previousView * currentView.inverse;
+        }
+
         /// <summary>View-space ray direction through an NDC point. Mirrors the compute shader.</summary>
         public static Vector3 ViewDirForNdc(Vector4 unproj, Vector2 ndc)
         {

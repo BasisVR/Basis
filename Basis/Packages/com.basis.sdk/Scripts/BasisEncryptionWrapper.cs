@@ -43,14 +43,32 @@ public static partial class BasisEncryptionWrapper
         byte[] passwordBytes = Encoding.UTF8.GetBytes(password);
         try
         {
+            string cacheKey = DerivedKeyCacheKey(passwordBytes, salt, iterations, outputBytes);
+            if (derivedKeyCache.TryGetValue(cacheKey, out byte[] cached)) return (byte[])cached.Clone();
             var gen = new Pkcs5S2ParametersGenerator(new Sha1Digest());
             gen.Init(passwordBytes, salt, iterations);
             var keyParam = (KeyParameter)gen.GenerateDerivedMacParameters(outputBytes * 8);
-            return keyParam.GetKey();
+            byte[] derived = keyParam.GetKey();
+            if (derivedKeyCache.Count >= MaxCachedDerivedKeys) derivedKeyCache.Clear();
+            derivedKeyCache[cacheKey] = (byte[])derived.Clone();
+            return derived;
         }
         finally
         {
             Array.Clear(passwordBytes, 0, passwordBytes.Length);
+        }
+    }
+    private const int MaxCachedDerivedKeys = 512;
+    [Unity.Scripting.LifecycleManagement.NoAutoStaticsCleanup] private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte[]> derivedKeyCache = new System.Collections.Concurrent.ConcurrentDictionary<string, byte[]>(StringComparer.Ordinal);
+    private static string DerivedKeyCacheKey(byte[] passwordBytes, byte[] salt, int iterations, int outputBytes)
+    {
+        using (SHA256 sha = SHA256.Create())
+        {
+            sha.TransformBlock(passwordBytes, 0, passwordBytes.Length, null, 0);
+            byte[] separator = BitConverter.GetBytes(passwordBytes.Length);
+            sha.TransformBlock(separator, 0, separator.Length, null, 0);
+            sha.TransformFinalBlock(salt ?? Array.Empty<byte>(), 0, salt?.Length ?? 0);
+            return Convert.ToBase64String(sha.Hash) + ":" + iterations + ":" + outputBytes;
         }
     }
 

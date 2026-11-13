@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Basis.Scripts.BasisSdk.Cilbox;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Cilbox
@@ -11,6 +12,7 @@ namespace Cilbox
 	/// every loaded assembly that references BasisSDK. Content cannot add to this: scripts are
 	/// interpreted, so only assemblies built into the client carry attributes.
 	/// </summary>
+	[NoAutoStaticsCleanup]
 	internal static class CilboxPackageAccess
 	{
 		private const BindingFlags Members = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
@@ -53,7 +55,7 @@ namespace Cilbox
 				var foundFields = new Dictionary<string, BasisCilboxBoxes>(StringComparer.Ordinal);
 				var foundBlocks = new Dictionary<Type, Dictionary<string, BasisCilboxBoxes>>();
 				string sdk = typeof(BasisCilboxAllowAttribute).Assembly.GetName().Name;
-				foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+				foreach (Assembly assembly in UnityEngine.Assemblies.CurrentAssemblies.GetLoadedAssemblies())
 				{
 					if (assembly.IsDynamic || !References(assembly, sdk)) continue;
 					Type[] defined;

@@ -77,6 +77,7 @@ fn serve(link: &mut os::Link, backend: &mut dyn Backend) -> Fallible<()> {
     header.generation.store(1, Ordering::Release);
     let mut last = header.frame_submitted.load(Ordering::Acquire);
     let mut opened = [0u32; MAX_CONTEXTS];
+    let mut target_failures = [0u32; MAX_CONTEXTS];
     header.status.store(STATUS_READY, Ordering::Release);
 
     loop {
@@ -85,8 +86,12 @@ fn serve(link: &mut os::Link, backend: &mut dyn Backend) -> Fallible<()> {
         for c in 0..MAX_CONTEXTS {
             let ch = &header.contexts[c];
             let t = &header.targets[c];
+            let sequence = t.sequence.load(Ordering::Acquire);
             let target = t.generation.load(Ordering::Acquire);
-            let (w, h, v) = if target != 0 { (t.width, t.height, t.views.clamp(1, 2)) } else { (ch.requested_width.load(Ordering::Acquire), ch.requested_height.load(Ordering::Acquire), ch.requested_views.load(Ordering::Acquire).clamp(1, 2)) };
+            let (tw, th, tv, handles) = unsafe { (std::ptr::read_volatile(&t.width), std::ptr::read_volatile(&t.height), std::ptr::read_volatile(&t.views), std::ptr::read_volatile(&t.handles)) };
+            std::sync::atomic::fence(Ordering::Acquire);
+            if sequence & 1 != 0 || t.sequence.load(Ordering::Acquire) != sequence { continue; }
+            let (w, h, v) = if target != 0 { (tw, th, tv.clamp(1, 2)) } else { (ch.requested_width.load(Ordering::Acquire), ch.requested_height.load(Ordering::Acquire), ch.requested_views.load(Ordering::Acquire).clamp(1, 2)) };
             let current = backend.context_size(c);
             if w == 0 || h == 0 {
                 if current.is_some() { backend.release_context(c)?; }
@@ -96,7 +101,11 @@ fn serve(link: &mut os::Link, backend: &mut dyn Backend) -> Fallible<()> {
             }
             if current == Some((w, h, v)) && opened[c] == target { continue; }
             backend.release_context(c)?;
-            let handles = backend.create_context(link, c, w, h, v, if target != 0 { Some(t.handles) } else { None }).map_err(|e| format!("allocate context {c}: {e}"))?;
+            let handles = match backend.create_context(link, c, w, h, v, if target != 0 { Some(handles) } else { None }) {
+                Ok(h) => { target_failures[c] = 0; h }
+                Err(e) if target != 0 && target_failures[c] < 200 => { target_failures[c] += 1; let _ = e; continue; }
+                Err(e) => return Err(format!("allocate context {c}: {e}")),
+            };
             opened[c] = target;
             header.targets[c].opened.store(target, Ordering::Release);
             let ch = &mut header.contexts[c];

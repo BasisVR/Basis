@@ -375,7 +375,7 @@ BasisGITemporalOutput BasisGITemporal(float2 uv)
     // samples are really behind the mean rather than how many taps were offered: where the plane gate
     // threw most of the neighbourhood away - a corner, a silhouette - the pixel is still carrying close
     // to one tap's worth of noise, and the floor has to stay as wide as that admits.
-    float sampleCount = max(1.0, hood.samples) * max(1.0, BASISGI_RAY_COUNT);
+    float sampleCount = max(1.0, hood.samples) * (specular ? max(1.0, BASISGI_RAY_COUNT) : BasisGIPixelRayCount(worldPosition));
     float rare = BASISGI_TEMPORAL_CLIP_RARE / sampleCount;
     float4 ceiling = float4(BASISGI_FIREFLY_CLAMP.xxx, max(BASISGI_OBSCURANCE, BASISGI_EPSILON));
     float4 halfWidth = max(deviation * BASISGI_TEMPORAL_CLIP_SIGMA, rare * ceiling);
@@ -465,7 +465,7 @@ float4 BasisGIBilateralBlur(float2 uv)
 
     float centreLuminance = Luminance(max(0.0, centre.rgb));
     float3 centreStats = BasisGIStats(uv);
-    float unresolved = BASISGI_FIREFLY_CLAMP / max(1.0, BASISGI_RAY_COUNT);
+    float unresolved = BASISGI_FIREFLY_CLAMP / BasisGIPixelRayCount(centrePosition);
 
     bool facingUsable = _BasisGITracedNormalValid >= 0.5;
     float3 facingNormal = facingUsable ? BasisGITracedNormal(uv) : float3(0.0, 0.0, 0.0);

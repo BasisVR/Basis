@@ -23,6 +23,7 @@ namespace Basis.Scripts.Rendering
         [DllImport(Plugin)] private static extern int BasisVrsD3D11_Status();
         [DllImport(Plugin)] private static extern int BasisVrsD3D11_LastError();
         [DllImport(Plugin)] private static extern int BasisVrsD3D11_EnableCount();
+        [DllImport(Plugin)] private static extern int BasisVrsD3D11_UncoveredCount();
         [DllImport(Plugin)] private static extern IntPtr BasisVrsD3D11_GetRenderEventFunc();
 
         private static bool sQueried;
@@ -34,6 +35,8 @@ namespace Basis.Scripts.Rendering
         public static IntPtr RenderEvent { get { Query(); return sRenderEvent; } }
         public static int LastError { get { try { return BasisVrsD3D11_LastError(); } catch (Exception) { return 0; } } }
         public static int EnableCount { get { try { return BasisVrsD3D11_EnableCount(); } catch (Exception) { return 0; } } }
+        // Passes where the plugin left VRS off because the shading rate image did not cover the bound target.
+        public static int UncoveredCount { get { try { return BasisVrsD3D11_UncoveredCount(); } catch (Exception) { return 0; } } }
 
         private static void Query()
         {

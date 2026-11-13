@@ -23,6 +23,8 @@ namespace Basis.Scripts.Rendering
         [SerializeField] private bool debugVisualize;
 
         private BasisVariableRateShadingPass _pass;
+        private BasisVrsAnalyzePass _analyzePass;
+        private BasisGazeEffectsResetPass _gazeResetPass;
         private BasisVariableRateShadingDebugPass _debugPass;
 
         public static bool IsSupported => SystemInfo.graphicsDeviceType == GraphicsDeviceType.Direct3D12 || UsesD3D11Plugin;
@@ -42,6 +44,15 @@ namespace Basis.Scripts.Rendering
                 renderPassEvent = RenderPassEvent.BeforeRendering,
             };
             _pass.Configure(gazeProjectDistance, yFlip);
+            _analyzePass = new BasisVrsAnalyzePass(_pass)
+            {
+                renderPassEvent = RenderPassEvent.BeforeRenderingPostProcessing,
+            };
+
+            _gazeResetPass = new BasisGazeEffectsResetPass
+            {
+                renderPassEvent = RenderPassEvent.AfterRendering + 50,
+            };
 
             _debugPass = new BasisVariableRateShadingDebugPass
             {
@@ -68,6 +79,10 @@ namespace Basis.Scripts.Rendering
 
             _pass.Configure(gazeProjectDistance, yFlip);
             renderer.EnqueuePass(_pass);
+            if (BasisSettingsDefaults.VrsContentAdaptive.RawValue && _analyzePass != null)
+                renderer.EnqueuePass(_analyzePass);
+            if (_gazeResetPass != null)
+                renderer.EnqueuePass(_gazeResetPass);
 
             if (debugVisualize && _debugPass != null && !UsesD3D11Plugin)
                 renderer.EnqueuePass(_debugPass);
@@ -77,6 +92,8 @@ namespace Basis.Scripts.Rendering
         {
             _pass?.Dispose();
             _pass = null;
+            _analyzePass = null;
+            _gazeResetPass = null;
             _debugPass = null;
         }
     }

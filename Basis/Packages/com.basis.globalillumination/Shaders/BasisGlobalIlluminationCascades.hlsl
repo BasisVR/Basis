@@ -230,7 +230,7 @@ BasisGIRCSegment BasisGIRCMarch(float3 originWS, float3 directionWS, float start
 
     float2 size = _BasisGITracedTexelSize.zw;
     float pixels = length((last.xy - first.xy) * size);
-    int ceiling = (int)_BasisGIRCInterval.z;
+    int ceiling = (int)max(min(_BasisGIRCInterval.z, 2.0), floor(_BasisGIRCInterval.z * gBasisGIGazeStepScale));
     int level = (int)clamp(floor(log2(max(pixels / (float)ceiling, 1.0))), 0.0, (float)(BASISGI_RC_LEVELS - 1));
     int steps = clamp((int)ceil(pixels / exp2((float)level)), 1, ceiling);
     float sourceScale = _BasisGISourceTexelSize.z * _BasisGITracedTexelSize.x;
@@ -431,6 +431,7 @@ float4 BasisGIRCCascade(float2 positionCS)
 
     BasisGIRCProbe probe = BasisGIRCDecodeProbe(LOAD_TEXTURE2D_X(_BasisGIRCProbes, probeIndex));
     if (!probe.valid) { return float4(0.0, 0.0, 0.0, 0.0); }
+    gBasisGIGazeStepScale = BasisGazeEffectScale(GetCameraPositionWS(), probe.position - GetCameraPositionWS(), _BasisGazeEffects.w);
 
     float3 direction = BasisGIRCDirection(directionTexel, resolution, BasisGIRCBasisFor(probeIndex, probe.normal));
     if (dot(direction, probe.normal) < BASISGI_RC_BELOW) { return float4(0.0, 0.0, 0.0, 0.0); }

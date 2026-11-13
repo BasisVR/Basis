@@ -1,16 +1,28 @@
+using Unity.Scripting.LifecycleManagement;
 using System;
 using System.IO;
+using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using MeaMod.DNS.Model;
 using MeaMod.DNS.Multicast;
+using Newtonsoft.Json.Linq;
 
 namespace HVR.Osushi
 {
     internal class OsushiQuery
     {
+        private const string OscJsonService = "_oscjson._tcp";
+        private const string OscService = "_osc._udp";
+        private const string VrcftInstancePrefix = "VRCFT-";
         private readonly Func<string, string> _responseResolver;
+        private readonly int _oscPort;
+        [NoAutoStaticsCleanup] private static readonly HttpClient VrcftHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+        private volatile int _vrcftOscPort;
+        private int _vrcftHttpPort;
         private bool _isStarted;
         private volatile bool _isStopping;
         private ServiceDiscovery _serviceDiscovery;
@@ -18,9 +30,12 @@ namespace HVR.Osushi
         private HttpListener _listener;
         private readonly object _serverLock = new object();
 
-        public OsushiQuery(Func<string, string> responseResolver)
+        public int VrcftOscPort => _vrcftOscPort;
+
+        public OsushiQuery(Func<string, string> responseResolver, int oscPort)
         {
             _responseResolver = responseResolver ?? throw new ArgumentNullException(nameof(responseResolver));
+            _oscPort = oscPort;
         }
 
         public void Start()
@@ -59,19 +74,81 @@ namespace HVR.Osushi
             _httpThread.IsBackground = true;
             _httpThread.Start();
 
-            var oscQueryService = new ServiceProfile(
-                instanceName: $"VRChat-Client-{new Random().Next(100_000, 999_999)}",
-                serviceName: "_oscjson._tcp",
-                port: (ushort)httpPort,
-                addresses: new[] { IPAddress.Loopback }
-            );
-
+            string instanceName = $"VRChat-Client-{new Random().Next(100_000, 999_999)}";
             _serviceDiscovery = new ServiceDiscovery();
-            _serviceDiscovery.Advertise(oscQueryService);
+            _serviceDiscovery.ServiceInstanceDiscovered += OnServiceInstanceDiscovered;
+            _serviceDiscovery.Advertise(new ServiceProfile(instanceName, OscJsonService, (ushort)httpPort, new[] { IPAddress.Loopback }));
+            _serviceDiscovery.Advertise(new ServiceProfile(instanceName, OscService, (ushort)_oscPort, new[] { IPAddress.Loopback }));
 
             // The code above is enough so that VRCFaceTracking can detect us if we started before VRCFaceTracking.
             // We need this so that VRCFaceTracking can detect us if our code runs AFTER VRCFaceTracking has already started.
-            _serviceDiscovery.QueryServiceInstances("_oscjson._tcp");
+            Rediscover();
+        }
+
+        public void Rediscover()
+        {
+            try
+            {
+                _serviceDiscovery?.QueryServiceInstances(OscJsonService);
+                _serviceDiscovery?.QueryServiceInstances(OscService);
+            }
+            catch (Exception e)
+            {
+                BasisDebug.LogWarning($"OSCQuery discovery query failed: {e.Message}", BasisDebug.LogTag.LocalNetwork);
+            }
+        }
+
+        private void OnServiceInstanceDiscovered(object sender, ServiceInstanceDiscoveryEventArgs e)
+        {
+            try
+            {
+                var labels = e.ServiceInstanceName?.Labels;
+                if (labels == null || labels.Count < 3 || !labels[0].StartsWith(VrcftInstancePrefix, StringComparison.Ordinal)) return;
+
+                var records = e.Message?.AdditionalRecords;
+                var srv = records?.OfType<SRVRecord>().FirstOrDefault(r => r.Name == e.ServiceInstanceName) ?? records?.OfType<SRVRecord>().FirstOrDefault();
+                if (srv == null || srv.Port == 0) return;
+
+                if (labels[1] == "_osc" && labels[2] == "_udp")
+                {
+                    SetVrcftOscPort(srv.Port);
+                }
+                else if (labels[1] == "_oscjson" && labels[2] == "_tcp" && Interlocked.Exchange(ref _vrcftHttpPort, srv.Port) != srv.Port)
+                {
+                    _ = QueryVrcftHostInfoAsync(srv.Port);
+                }
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogWarning($"OSCQuery discovery answer ignored: {ex.Message}", BasisDebug.LogTag.LocalNetwork);
+            }
+        }
+
+        private void SetVrcftOscPort(int port)
+        {
+            if (port <= 0 || port > 65535) return;
+            _vrcftOscPort = port;
+        }
+
+        // VRChat queries the HOST_INFO of every OSCQuery peer it finds; VRCFaceTracking re-reads our avatar when that happens.
+        private async System.Threading.Tasks.Task QueryVrcftHostInfoAsync(int httpPort)
+        {
+            try
+            {
+                string json = await VrcftHttp.GetStringAsync($"http://127.0.0.1:{httpPort}/?HOST_INFO").ConfigureAwait(false);
+                if (JObject.Parse(json).TryGetValue("OSC_PORT", out JToken port) && port.Type == JTokenType.Integer)
+                {
+                    SetVrcftOscPort(port.Value<int>());
+                }
+            }
+            catch (Exception e)
+            {
+                Interlocked.CompareExchange(ref _vrcftHttpPort, 0, httpPort);
+                if (!_isStopping)
+                {
+                    BasisDebug.LogWarning($"VRCFaceTracking HOST_INFO query failed: {e.Message}", BasisDebug.LogTag.LocalNetwork);
+                }
+            }
         }
 
         public void Stop()
@@ -107,7 +184,13 @@ namespace HVR.Osushi
 
             _httpThread = null;
 
-            _serviceDiscovery?.Dispose();
+            if (_serviceDiscovery != null)
+            {
+                _serviceDiscovery.ServiceInstanceDiscovered -= OnServiceInstanceDiscovered;
+                _serviceDiscovery.Dispose();
+            }
+            _vrcftOscPort = 0;
+            _vrcftHttpPort = 0;
             _serviceDiscovery = null;
             _isStopping = false;
         }
@@ -152,9 +235,15 @@ namespace HVR.Osushi
                         {
                             using (var res = ctx.Response)
                             {
-                                var json = _responseResolver(ctx.Request.RawUrl) ?? "{}";
+                                var json = _responseResolver(ctx.Request.RawUrl);
+                                if (json == null)
+                                {
+                                    res.StatusCode = 404;
+                                    json = "{}";
+                                }
                                 var buffer = Encoding.UTF8.GetBytes(json);
                                 res.ContentType = "application/json";
+                                res.AddHeader("Pragma", "no-cache");
                                 res.ContentLength64 = buffer.Length;
                                 res.OutputStream.Write(buffer, 0, buffer.Length);
                             }

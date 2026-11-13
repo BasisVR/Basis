@@ -291,6 +291,34 @@ namespace HVR.Basis.Comms
                 {
                     SubmitHmdGazeToStore(data);
                 }
+
+                if (applyGaze && !data.HasOpenness)
+                {
+                    MirrorBlinkToStore();
+                }
+                else
+                {
+                    _lastMirroredLid = -1f;
+                }
+            }
+
+            private void MirrorBlinkToStore()
+            {
+                var localPlayer = BasisLocalPlayer.Instance;
+                var blink = localPlayer != null ? localPlayer.FacialBlinkDriver : null;
+                float lid = 0.75f * (1f - Mathf.Clamp01(blink != null && blink.IsEnabled ? blink.CurrentWeight / 100f : 0f));
+                if (lid == _lastMirroredLid) return;
+                _lastMirroredLid = lid;
+                _suppressStoreEcho = true;
+                try
+                {
+                    our.comms.VariableStore.Submit(EyeLidLeftId, lid);
+                    our.comms.VariableStore.Submit(EyeLidRightId, lid);
+                }
+                finally
+                {
+                    _suppressStoreEcho = false;
+                }
             }
 
             private float2 ClampAngles(float2 angles)
@@ -329,18 +357,6 @@ namespace HVR.Basis.Comms
                     store.Submit(our._eyeLeftXAddress, xLeft);
                     store.Submit(our._eyeRightXAddress, xRight);
                     store.Submit(our._eyeYAddress, y);
-                    if (!data.HasOpenness)
-                    {
-                        var localPlayer = BasisLocalPlayer.Instance;
-                        var blink = localPlayer != null ? localPlayer.FacialBlinkDriver : null;
-                        float lid = 0.75f * (1f - Mathf.Clamp01(blink != null && blink.IsEnabled ? blink.CurrentWeight / 100f : 0f));
-                        if (lid != _lastMirroredLid)
-                        {
-                            _lastMirroredLid = lid;
-                            store.Submit(EyeLidLeftId, lid);
-                            store.Submit(EyeLidRightId, lid);
-                        }
-                    }
                 }
                 finally
                 {

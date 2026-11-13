@@ -235,8 +235,8 @@ fn main() {
             println!("unity side: Vulkan");
             let mut bridge = Bridge::new(backend, adapter, API_VULKAN).unwrap();
             bridge.unity_upload = client.upload.pointer();
-            bridge.unity[0] = UnityTextures { gbuffer: client.gbuffer.pointer(), result: client.result.pointer() };
-            bridge.unity[1] = UnityTextures { gbuffer: client.gbuffer.pointer(), result: client.second.pointer() };
+            bridge.unity[0] = UnityTextures { gbuffer: client.gbuffer.pointer(), result: client.result.pointer(), gbuffer1: std::ptr::null_mut() };
+            bridge.unity[1] = UnityTextures { gbuffer: client.gbuffer.pointer(), result: client.second.pointer(), gbuffer1: std::ptr::null_mut() };
             vkc = Some(client);
             bridge
         } else {

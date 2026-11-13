@@ -4,6 +4,7 @@
 #include "./VolumetricFogCommon.hlsl"
 #include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
 #include "./DeclareDownsampledDepthTexture.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/BasisGazeFoveation.hlsl"
 
 // Computes the ray origin, direction, and returns the reconstructed world position for orthographic projection.
 float3 ComputeOrthographicParams(float2 uv, float depth, out float3 ro, out float3 rd)
@@ -166,7 +167,8 @@ float4 VolumetricFog(float2 uv, float2 positionCS)
     // per world unit) stays constant instead of always spending all _MaxSteps. Short crossings then
     // use far fewer iterations - and shadow samples - for the same quality.
     float fogSpan = max(1e-4, _Distance - iniOffsetToNearPlane);
-    int stepCount = (int)clamp(ceil((float)_MaxSteps * (marchLength / fogSpan)), 1.0, (float)_MaxSteps);
+    float gazeScale = BasisGazeEffectScale(ro, rd, _BasisGazeEffects.y);
+    int stepCount = (int)clamp(ceil((float)_MaxSteps * gazeScale * (marchLength / fogSpan)), 1.0, (float)_MaxSteps);
 
     // Geometric step distribution over [tEnter, tExit]: ds grows by 'growth' each step so the far/near
     // step length ratio is VF_STEP_GROWTH_RATIO, while the lengths still sum exactly to marchLength.

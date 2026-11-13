@@ -2060,6 +2060,15 @@ namespace Basis.BasisUI
                     toggle, container, BasisLocalization.Get(titleKey), showGroupTitle: false);
             }
 
+            PanelToggle CreateGazeEffectToggle(PanelElementDescriptor group, string key, BasisSettingsBinding<bool> binding)
+            {
+                PanelToggle toggle = PanelToggle.CreateNewEntry(group.ContentParent);
+                toggle.Descriptor.SetTitle(BasisLocalization.Get(key));
+                toggle.Descriptor.SetTooltip(BasisLocalization.Get(key + ".tooltip"));
+                toggle.AssignBinding(binding);
+                return toggle;
+            }
+
             // --- Display: what reaches the screen, and how often ---
             PanelElementDescriptor displayGroup = CreateSection("settings.graphics.group.display", out PanelSectionToggle displayToggle);
 
@@ -2435,6 +2444,15 @@ namespace Basis.BasisUI
                     dropdownGiPathTracerGpu.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.pathTracerGpu.tooltip"));
                     dropdownGiPathTracerGpu.AssignEntries(gpuEntries, gpuLabels);
                     dropdownGiPathTracerGpu.AssignBinding(BasisSettingsDefaults.GlobalIlluminationPathTracerGpu);
+                }
+
+                PanelToggle toggleGiPathTracerInProcess = null;
+                if (BasisExternalRayTracer.IsWindows)
+                {
+                    toggleGiPathTracerInProcess = PanelToggle.CreateNewEntry(giGroup.ContentParent);
+                    toggleGiPathTracerInProcess.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.pathTracerInProcess"));
+                    toggleGiPathTracerInProcess.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.pathTracerInProcess.tooltip"));
+                    toggleGiPathTracerInProcess.AssignBinding(BasisSettingsDefaults.GlobalIlluminationPathTracerInProcess);
                 }
 
                 PanelDropdown dropdownGiPathTracerRays = PanelDropdown.CreateNewEntry(giGroup.ContentParent);
@@ -3364,12 +3382,29 @@ namespace Basis.BasisUI
                         BasisSettingsDefaults.VrsFovealOuterRadius);
                     sliderVrsOuter.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.vrs.outer.tooltip"));
 
+                    PanelToggle toggleVrsAdaptive = PanelToggle.CreateNewEntry(foveatedGroup.ContentParent);
+                    toggleVrsAdaptive.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.vrs.adaptive"));
+                    toggleVrsAdaptive.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.vrs.adaptive.tooltip"));
+                    toggleVrsAdaptive.AssignBinding(BasisSettingsDefaults.VrsContentAdaptive);
+
+                    PanelToggle[] gazeEffectToggles =
+                    {
+                        CreateGazeEffectToggle(foveatedGroup, "settings.graphics.vrs.gazeReflections", BasisSettingsDefaults.GazeFoveateReflections),
+                        CreateGazeEffectToggle(foveatedGroup, "settings.graphics.vrs.gazeFog", BasisSettingsDefaults.GazeFoveateFog),
+                        CreateGazeEffectToggle(foveatedGroup, "settings.graphics.vrs.gazeGI", BasisSettingsDefaults.GazeFoveateGI),
+                        CreateGazeEffectToggle(foveatedGroup, "settings.graphics.vrs.gazeRtGI", BasisSettingsDefaults.GazeFoveateRayTracedGI),
+                    };
+
                     sliderVrsInner.Descriptor.SetActive(toggleVrsVr.Value);
                     sliderVrsOuter.Descriptor.SetActive(toggleVrsVr.Value);
+                    toggleVrsAdaptive.Descriptor.SetActive(toggleVrsVr.Value);
+                    foreach (PanelToggle t in gazeEffectToggles) t.Descriptor.SetActive(toggleVrsVr.Value);
                     toggleVrsVr.OnValueChanged += (val) =>
                     {
                         sliderVrsInner.Descriptor.SetActive(val);
                         sliderVrsOuter.Descriptor.SetActive(val);
+                        toggleVrsAdaptive.Descriptor.SetActive(val);
+                        foreach (PanelToggle t in gazeEffectToggles) t.Descriptor.SetActive(val);
                         RebuildGroup(foveatedGroup);
                     };
                 }
@@ -4150,6 +4185,11 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.DevVariableRateShading.ResetToDefault();
             BasisSettingsDefaults.VrsFovealInnerRadius.ResetToDefault();
             BasisSettingsDefaults.VrsFovealOuterRadius.ResetToDefault();
+            BasisSettingsDefaults.VrsContentAdaptive.ResetToDefault();
+            BasisSettingsDefaults.GazeFoveateReflections.ResetToDefault();
+            BasisSettingsDefaults.GazeFoveateFog.ResetToDefault();
+            BasisSettingsDefaults.GazeFoveateGI.ResetToDefault();
+            BasisSettingsDefaults.GazeFoveateRayTracedGI.ResetToDefault();
 
             BasisSettingsDefaults.HDRSupport.ResetToDefault();
             BasisSettingsDefaults.OpaqueDownsampling.ResetToDefault();
@@ -4222,6 +4262,7 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.GlobalIlluminationFallback.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationPathTracerBackend.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationPathTracerGpu.ResetToDefault();
+            BasisSettingsDefaults.GlobalIlluminationPathTracerInProcess.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationPathTracerRays.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationPathTracerAvatarRays.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationIgnoreBakedEmission.ResetToDefault();

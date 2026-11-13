@@ -38,6 +38,7 @@ namespace Basis.BasisUI
             // load all the keys
             await BasisDataStoreItemKeys.LoadKeys();
             await BasisDataStoreItemFolders.EnsureLoaded();
+            await WhenDevicesInitialized();
 
             // cache all items into the meta data
             // build data to be used
@@ -47,7 +48,7 @@ namespace Basis.BasisUI
             // Preload metadata for all items
             try
             {
-                await CachedMetaData.PreloadMetaForItems(data);
+                await CachedMetaData.PreloadMetaForItems(data, background: true);
             }
             catch (Exception ex)
             {
@@ -61,6 +62,20 @@ namespace Basis.BasisUI
             // changes (push on connect, clear on disconnect).
             BasisServerProvidedItems.OnChanged -= OnServerLibraryChanged;
             BasisServerProvidedItems.OnChanged += OnServerLibraryChanged;
+        }
+
+        private static Task WhenDevicesInitialized()
+        {
+            if (Basis.Scripts.Device_Management.BasisDeviceManagement.OnInitializationComplete) return Task.CompletedTask;
+            TaskCompletionSource<bool> ready = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            void Done()
+            {
+                Basis.Scripts.Device_Management.BasisDeviceManagement.OnInitializationCompleted -= Done;
+                ready.TrySetResult(true);
+            }
+            Basis.Scripts.Device_Management.BasisDeviceManagement.OnInitializationCompleted += Done;
+            if (Basis.Scripts.Device_Management.BasisDeviceManagement.OnInitializationComplete) Done();
+            return ready.Task;
         }
 
         private static async void OnServerLibraryChanged()

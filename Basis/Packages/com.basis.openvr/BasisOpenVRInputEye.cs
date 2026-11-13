@@ -10,6 +10,9 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
     {
         private SteamVR_Action_Pose _gazeAction;
         private SteamVR_Input_Sources _gazeSource = SteamVR_Input_Sources.Any;
+        private ulong _eyeTrackingAction;
+        private VREyeTrackingData_t _eyeTrackingData;
+        private static readonly uint EyeTrackingDataSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf<VREyeTrackingData_t>();
 
         private TrackedDevicePose_t _hmdPose;
         private TrackedDevicePose_t _hmdGamePose;
@@ -40,6 +43,11 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         public override void Initialize()
         {
             _gazeAction = SteamVR_Input.GetAction<SteamVR_Action_Pose>("EyeGaze");
+            _eyeTrackingAction = 0;
+            if (Valve.VR.OpenVR.Input == null || Valve.VR.OpenVR.Input.GetActionHandle("/actions/default/in/EyeTracking", ref _eyeTrackingAction) != EVRInputError.None)
+            {
+                _eyeTrackingAction = 0;
+            }
             CVRSystem system = Valve.VR.OpenVR.System;
             if (system != null)
             {
@@ -60,6 +68,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             _hasGaze = false;
             BasisEyeGazeGizmo.Shutdown();
             _gazeAction = null;
+            _eyeTrackingAction = 0;
         }
 
         public override void Simulate()
@@ -83,9 +92,11 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                 return;
             }
 
-            if (_gazeAction == null
+            bool useEyeTracking = TryReadEyeTracking(out Vector3 gazeTrackingPos, out Quaternion gazeTrackingRot);
+            if (!useEyeTracking
+                && (_gazeAction == null
                 || !_gazeAction.GetActive(_gazeSource)
-                || !_gazeAction.GetPoseIsValid(_gazeSource))
+                || !_gazeAction.GetPoseIsValid(_gazeSource)))
             {
                 MarkUntracked();
                 return;
@@ -110,8 +121,11 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             Vector3 hmdTrackingPos = _hmdPose.mDeviceToAbsoluteTracking.GetPosition();
             Quaternion hmdTrackingRot = _hmdPose.mDeviceToAbsoluteTracking.GetRotation();
 
-            Vector3 gazeTrackingPos = _gazeAction.GetLocalPosition(_gazeSource);
-            Quaternion gazeTrackingRot = _gazeAction.GetLocalRotation(_gazeSource);
+            if (!useEyeTracking)
+            {
+                gazeTrackingPos = _gazeAction.GetLocalPosition(_gazeSource);
+                gazeTrackingRot = _gazeAction.GetLocalRotation(_gazeSource);
+            }
 
             BasisEyeMath.HmdRelativeGazeToWorld(
                 hmdTrackingPos, hmdTrackingRot, gazeTrackingPos, gazeTrackingRot,
@@ -124,6 +138,33 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
 
             bool gizmoVisible = SMModuleDebugOptions.UseGizmos && SMModuleDebugOptions.UseEyeGazeGizmo;
             BasisEyeGazeGizmo.Tick(gizmoVisible, worldGazeOrigin, worldGazeDir);
+        }
+
+        private bool TryReadEyeTracking(out Vector3 origin, out Quaternion rotation)
+        {
+            origin = default;
+            rotation = Quaternion.identity;
+            CVRInput input = Valve.VR.OpenVR.Input;
+            CVRCompositor compositor = Valve.VR.OpenVR.Compositor;
+            if (_eyeTrackingAction == 0 || input == null || compositor == null)
+            {
+                return false;
+            }
+            if (input.GetEyeTrackingDataForNextFrame(_eyeTrackingAction, compositor.GetTrackingSpace(), ref _eyeTrackingData, EyeTrackingDataSize) != EVRInputError.None
+                || !_eyeTrackingData.bActive || !_eyeTrackingData.bValid || !_eyeTrackingData.bTracked)
+            {
+                return false;
+            }
+            HmdVector3_t o = _eyeTrackingData.vGazeOrigin;
+            HmdVector3_t t = _eyeTrackingData.vGazeTarget;
+            origin = new Vector3(o.v0, o.v1, -o.v2);
+            Vector3 direction = new Vector3(t.v0, t.v1, -t.v2) - origin;
+            if (direction.sqrMagnitude < 1e-8f)
+            {
+                return false;
+            }
+            rotation = Quaternion.LookRotation(direction);
+            return true;
         }
 
         private void MarkUntracked()

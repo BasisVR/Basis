@@ -831,6 +831,7 @@ namespace Cilbox
 		internal CilboxBasisConsent.Scan consentScan;
 		internal BasisContentBase ownerContent;
 		internal bool ownerRecorded;
+		internal bool inputNoted, inputWarned;
 		internal static T NativeArrayItem<T>(Unity.Collections.NativeArray<T> array, int index) where T : struct
 		{
 			if (!array.IsCreated || (uint)index >= (uint)array.Length) throw new IndexOutOfRangeException();
@@ -855,7 +856,11 @@ namespace Cilbox
 		internal int computeBlockingFrames;
 		internal bool computeBlockingWarned;
 
-		void OnDestroy() => CilboxCompute.Release(this);
+		void OnDestroy()
+		{
+			CilboxCompute.Release(this);
+			CilboxInputLegacy.Forget(this);
+		}
 
 		protected bool Beyond(string item, bool floor)
 		{
@@ -965,6 +970,7 @@ namespace Cilbox
 		{
 			mi = null;
 			CilboxProfiler.Resolving(this);
+			CilboxInputLegacy.Note(this);
 
 			if (fullSignature != null && fullSignature.IndexOf('*') >= 0) return Beyond(MethodItem(declaringType, name), true);
 
@@ -1051,7 +1057,12 @@ namespace Cilbox
 
 			if (declaringType == typeof(Basis.Shims.BasisHapticsShim) && !CilboxHaptics.IsEntryPoint(name)) return Beyond(MethodItem(declaringType, name), true);
 
-			if (!(this is CilboxSceneBasis) && (declaringType == typeof(Basis.Shims.BasisDesktopInputShim) || declaringType == typeof(Basis.Shims.BasisControllerInputShim)) && name != "get_" + nameof(Basis.Shims.BasisDesktopInputShim.HasMouse) && name != "get_" + nameof(Basis.Shims.BasisControllerInputShim.IsBlocked) && !TakesSelf(parametersIn, fullSignature)) return Beyond(MethodItem(declaringType, name), true);
+			if (!(this is CilboxSceneBasis) && (declaringType == typeof(Basis.Shims.BasisDesktopInputShim) || declaringType == typeof(Basis.Shims.BasisControllerInputShim)) && name != "get_" + nameof(Basis.Shims.BasisDesktopInputShim.HasMouse) && name != "get_" + nameof(Basis.Shims.BasisControllerInputShim.IsBlocked) && !TakesSelf(parametersIn, fullSignature))
+			{
+				if (parametersIn == null) return true;
+				mi = CilboxInputLegacy.Resolve(usage, declaringType, name, parametersIn);
+				return mi != null || Beyond(MethodItem(declaringType, name), true);
+			}
 
 			if (CilboxMenus.Blocks(declaringType, name)) return Beyond(MethodItem(declaringType, name), true);
 

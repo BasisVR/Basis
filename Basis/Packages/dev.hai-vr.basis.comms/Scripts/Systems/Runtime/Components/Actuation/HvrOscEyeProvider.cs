@@ -37,9 +37,12 @@ namespace HVR.Basis.Comms
             data.RightAngles = _rightAngles;
             data.HasPerEyeAngles = true;
 
-            data.LeftOpenness = 1f;
-            data.RightOpenness = 1f;
-            data.HasOpenness = true;
+            if (OSCAcquisitionServer.OscEyeLidsValid)
+            {
+                data.LeftOpenness = 1f;
+                data.RightOpenness = 1f;
+                data.HasOpenness = true;
+            }
 
             return true;
         }

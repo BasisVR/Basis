@@ -9295,6 +9295,14 @@
       "value": "Which graphics card runs the path tracer. A second card takes the tracing work off the card that draws the game, at the cost of copying each frame between them, which adds a little delay to lighting changes. DirectX backend only."
     },
     {
+      "key": "settings.graphics.gi.pathTracerInProcess",
+      "value": "Run Path Tracer Inside Basis"
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerInProcess.tooltip",
+      "value": "DirectX only. Runs the path tracer inside the game process and shares its textures directly instead of copying them from a separate tracer process. Saves a copy, but stutters when the tracer falls behind. Off uses the separate process."
+    },
+    {
       "key": "settings.graphics.gi.pathTracerGpu.sameAsGame",
       "value": "Same As Game"
     },
@@ -12481,6 +12489,46 @@
     {
       "key": "settings.graphics.vrs.outer.tooltip",
       "value": "Where the periphery begins. Between the sharp center and this point renders at half rate (2x2); beyond it the rate steps down through a transition band to the lowest rate (4x4)."
+    },
+    {
+      "key": "settings.graphics.vrs.adaptive",
+      "value": "Content Adaptive Shading"
+    },
+    {
+      "key": "settings.graphics.vrs.adaptive.tooltip",
+      "value": "Also shades flat, low-detail areas (sky, plain walls, dark corners) one step coarser, even inside the sharp center. Measured from the previous frame, so detailed areas keep full rate. Saves GPU time with no visible change on most scenes."
+    },
+    {
+      "key": "settings.graphics.vrs.gazeReflections",
+      "value": "Foveate Reflections"
+    },
+    {
+      "key": "settings.graphics.vrs.gazeReflections.tooltip",
+      "value": "With eye tracking, screen space reflections take fewer march steps away from where you look (half at the 4x4 band). Full quality where you look."
+    },
+    {
+      "key": "settings.graphics.vrs.gazeFog",
+      "value": "Foveate Volumetric Fog"
+    },
+    {
+      "key": "settings.graphics.vrs.gazeFog.tooltip",
+      "value": "With eye tracking, volumetric fog takes fewer samples away from where you look (half at the 4x4 band). Full quality where you look."
+    },
+    {
+      "key": "settings.graphics.vrs.gazeGI",
+      "value": "Foveate Global Illumination"
+    },
+    {
+      "key": "settings.graphics.vrs.gazeGI.tooltip",
+      "value": "With eye tracking, the radiance cascade march takes fewer steps away from where you look (half at the 4x4 band). Full quality where you look."
+    },
+    {
+      "key": "settings.graphics.vrs.gazeRtGI",
+      "value": "Foveate Ray Traced GI"
+    },
+    {
+      "key": "settings.graphics.vrs.gazeRtGI.tooltip",
+      "value": "With eye tracking, ray traced global illumination casts fewer rays away from where you look (half at the 4x4 band). The denoiser accounts for the lower count. Full quality where you look."
     },
     {
       "key": "settings.developer.featureSections.title",

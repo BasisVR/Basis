@@ -5,6 +5,7 @@
 #include "Packages/com.unity.render-pipelines.core/Runtime/UnifiedRayTracing/Common.hlsl"
 #include "Packages/com.unity.render-pipelines.core/Runtime/UnifiedRayTracing/TraceRayAndQueryHit.hlsl"
 #include "Packages/com.basis.globalillumination/Shaders/BasisGlobalIlluminationRTCommon.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/BasisGazeFoveation.hlsl"
 
 UNIFIED_RT_DECLARE_ACCEL_STRUCT(_BasisGIRtAccel);
 
@@ -543,7 +544,10 @@ void RayGenExecute(UnifiedRT::DispatchInfo dispatchInfo)
     float2 jitter = frac(float2(gradient, lattice) + float(_BasisGIRtFrameIndex) * float2(0.7548776662, 0.5698402909));
 
     UnifiedRT::RayTracingAccelStruct accelStruct = UNIFIED_RT_GET_ACCEL_STRUCT(_BasisGIRtAccel);
-    uint rayCount = (uint)max(1, _BasisGIRtRayCount);
+    // Away from the gaze the pixel pays for fewer rays; the denoiser rebuilds this same count per pixel
+    // (BasisGIPixelRayCount) so its confidence matches what was actually traced.
+    float gazeScale = BasisGazeEffectScale(_BasisGIRtReference.xyz, packed.xyz, _BasisGazeEffects.z);
+    uint rayCount = (uint)max(1.0, round((float)max(1, _BasisGIRtRayCount) * gazeScale));
     uint bounces = (uint)clamp(_BasisGIRtBounces, 1, 4);
 
     float3 gathered = float3(0.0, 0.0, 0.0);

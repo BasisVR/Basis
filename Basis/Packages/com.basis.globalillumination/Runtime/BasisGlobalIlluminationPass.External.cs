@@ -17,6 +17,9 @@ public partial class BasisGlobalIlluminationPass
     private ulong externalFetchFrame;
     private bool externalBehind;
     private uint externalPackedBefore;
+    private bool externalStale, externalAged;
+    private readonly Matrix4x4[] externalResultViewProjection = new Matrix4x4[2];
+    private static readonly int idExResultViewProj = Shader.PropertyToID("_ResultViewProj");
     private static readonly int idExLightmapMask = Shader.PropertyToID("_LightmapMask");
     private static readonly int idExMotion = Shader.PropertyToID("_Motion");
     private static readonly int idExJitter = Shader.PropertyToID("_Jitter");
@@ -46,7 +49,8 @@ public partial class BasisGlobalIlluminationPass
         public bool behind;
         public int context;
         public RenderTexture gbuffer, result, gbufferBefore, resultRead;
-        public bool direct;
+        public bool direct, stale, paired, aged;
+        public readonly Matrix4x4[] resultViewProjection = new Matrix4x4[2];
         public int width, height, views, sourceWidth, sourceHeight;
         public TextureHandle depth, normals, surface, color, traced, lightmapMask, motion;
         public bool hasLightmapMask, hasMotion;
@@ -82,6 +86,8 @@ public partial class BasisGlobalIlluminationPass
     private bool PrepareExternal(BasisGlobalIlluminationSettings settings, UniversalCameraData cameraData, int tracedWidth, int tracedHeight, bool motion)
     {
         externalSubmit = false;
+        externalStale = false;
+        externalAged = false;
         externalContext = null;
         Camera camera = cameraData.camera;
         if (externalCompute == null || kernelPackGBuffer < 0 || !SystemInfo.supportsComputeShaders || camera == null) { return false; }
@@ -93,8 +99,14 @@ public partial class BasisGlobalIlluminationPass
         BasisExternalRayTracer.Context context = BasisExternalRayTracer.Prepare(camera, tracedWidth, tracedHeight, views, sameFrame);
         if (context == null) { return false; }
         externalContext = context;
-        if (!BasisExternalRayTracer.CanSubmit(out ulong frame)) { return context.ResultValid; }
-        if (!sameFrame && !BasisExternalRayTracer.Finished(context.LastFrame)) { return context.ResultValid; }
+        if (!BasisExternalRayTracer.CanSubmit(out ulong frame)) { return PrepareStale(cameraData, context, views); }
+        // In process the tracer writes straight into Unity's textures and the fetch makes Unity's GPU wait on
+        // the tracer's fence, so a frame is only handed over once the last one is done; until then the newest
+        // finished result is shown, reprojected by its own camera (PrepareStale). The separate process copies
+        // under a time budget instead and takes every frame.
+        // Bounded: the bridge drops a submit rather than block on an unfinished tracer frame, so a frame that
+        // never reaches the tracer would otherwise hold this gate shut for good.
+        if (!sameFrame && context.Direct && !BasisExternalRayTracer.Finished(context.LastFrame) && Time.realtimeSinceStartup - context.SubmitTime < DirectSubmitTimeout) { return PrepareStale(cameraData, context, views); }
         BasisExternalRayFrame parameters = default;
         parameters.frame = frame;
         parameters.context = (uint)context.Id;
@@ -120,7 +132,11 @@ public partial class BasisGlobalIlluminationPass
         if (sameFrame) { parameters.flags |= BasisExternalRayTracer.FlagSameFrame; }
         if (settings.externalProbes) { parameters.flags |= BasisExternalRayTracer.FlagProbes; }
         if (settings.IsExternalBaked()) { parameters.flags |= BasisExternalRayTracer.FlagBakedHybrid; }
-        if (motion) { parameters.flags |= FlagMotion; }
+        // Unity's motion vectors cover one frame. When the tracer's previous frame is older than that (frames
+        // were skipped), its history and reservoir reuse follow previousViewProjection instead, which is only
+        // advanced on submit and so always points at the frame it actually traced last.
+        bool consecutive = context.LastFrame == 0 || Time.frameCount - context.FrameUnity[context.LastParity & 1] == 1;
+        if (motion && consecutive) { parameters.flags |= FlagMotion; }
         for (int v = 0; v < 2; v++)
         {
             int eye = Mathf.Min(v, views - 1);
@@ -135,6 +151,9 @@ public partial class BasisGlobalIlluminationPass
             externalPreviousPositions[v] = context.Position[v];
             externalPreviousPositions[v].w = 2f / (Mathf.Max(Mathf.Abs(projection.m11), 1e-4f) * tracedHeight);
             context.Position[v] = position;
+            context.FrameViewProjection[(context.Parity & 1) * 2 + v] = GL.GetGPUProjectionMatrix(projection, false) * view;
+            context.FramePosition[(context.Parity & 1) * 2 + v] = new Vector4(position.x, position.y, position.z, externalPreviousPositions[v].w);
+            context.FrameUnity[context.Parity & 1] = Time.frameCount;
         }
         BasisExternalRayScene scene = BasisExternalRayTracer.Scene;
         if (BasisExternalRayTracer.SceneFilledThisFrame(out ulong source))
@@ -157,13 +176,36 @@ public partial class BasisGlobalIlluminationPass
         externalBehind = !sameFrame && context.LastFrame != 0;
         externalFetchFrame = externalBehind ? context.LastFrame : frame;
         externalFetchParity = externalBehind ? context.LastParity : parity;
+        externalAged = externalBehind && Time.frameCount - context.FrameUnity[externalFetchParity & 1] > 1;
+        if (externalAged) { for (int v = 0; v < 2; v++) { externalResultViewProjection[v] = context.FrameViewProjection[(externalFetchParity & 1) * 2 + v]; } }
         externalPackedBefore = context.PackedParity;
         context.PackedParity = parity;
         context.ResultParity = externalFetchParity;
         BasisExternalRayTracer.Commit(context, frame);
         context.LastFrame = frame;
         context.LastParity = parity;
+        context.SubmitTime = Time.realtimeSinceStartup;
         externalParity = parity;
+        return true;
+    }
+
+    private const float DirectSubmitTimeout = 0.5f;
+
+    private bool PrepareStale(UniversalCameraData cameraData, BasisExternalRayTracer.Context context, int views)
+    {
+        if (!context.ResultValid) { return false; }
+        if (context.LastFrame == 0) { return true; }
+        externalStale = true;
+        uint p = context.ResultParity & 1;
+        for (int v = 0; v < 2; v++)
+        {
+            int eye = Mathf.Min(v, views - 1);
+            Matrix4x4 view = cameraData.GetViewMatrix(eye);
+            externalInverse[v] = (GL.GetGPUProjectionMatrix(cameraData.GetProjectionMatrix(eye), false) * view).inverse;
+            externalPositions[v] = view.inverse.GetColumn(3);
+            externalPreviousPositions[v] = context.FramePosition[p * 2 + v];
+            externalResultViewProjection[v] = context.FrameViewProjection[p * 2 + v];
+        }
         return true;
     }
 
@@ -196,6 +238,12 @@ public partial class BasisGlobalIlluminationPass
             data.gbufferBefore = ec.GBufferAt(externalSubmit ? externalPackedBefore : ec.PackedParity);
             data.result = ec.ResultAt(ec.ResultParity);
             data.resultRead = data.result;
+            data.stale = externalStale && !externalSubmit;
+            data.aged = externalAged && externalSubmit;
+            data.paired = ec.GBuffer1 != null;
+            if (data.stale) { data.gbufferBefore = ec.GBufferAt(ec.ResultParity); }
+            data.resultViewProjection[0] = externalResultViewProjection[0];
+            data.resultViewProjection[1] = externalResultViewProjection[1];
             data.width = tracedWidth;
             data.height = tracedHeight;
             data.views = views;
@@ -258,7 +306,7 @@ public partial class BasisGlobalIlluminationPass
         if (d.submit)
         {
             if (d.behind && d.fetchFrame != 0) { cmd.IssuePluginEventAndData(BasisExternalRayTracer.EventFunc, BasisExternalRayTracer.EventBase + 1, BasisExternalRayTracer.EventData(d.fetchFrame, d.context, d.fetchParity, 0)); }
-            if (validate) { DispatchUnpack(cmd, d, d.gbufferBefore, result, true); }
+            if (validate) { DispatchUnpack(cmd, d, d.gbufferBefore, result, true, d.aged); }
             bool stereoStopped = false;
             for (int i = 0; i < d.jobCount; i++)
             {
@@ -317,11 +365,13 @@ public partial class BasisGlobalIlluminationPass
             if (BasisExternalRayTracer.DropSubmits > 0 && d.rows > 0) { BasisExternalRayTracer.DropSubmits--; } else { cmd.IssuePluginEventAndData(BasisExternalRayTracer.EventFunc, BasisExternalRayTracer.EventBase + 0, BasisExternalRayTracer.EventData(d.frame, d.context, d.parity, d.rows)); }
             if (!d.behind) { cmd.IssuePluginEventAndData(BasisExternalRayTracer.EventFunc, BasisExternalRayTracer.EventBase + 1, BasisExternalRayTracer.EventData(d.frame, d.context, d.parity, 0)); }
         }
-        if (!validate) { DispatchUnpack(cmd, d, gbuffer, result, false); }
+        if (d.stale) { DispatchUnpack(cmd, d, d.gbufferBefore, result, d.paired && ValidateReprojection, true); }
+        else if (!validate) { DispatchUnpack(cmd, d, gbuffer, result, false, d.aged); }
     }
 
-    private static void DispatchUnpack(CommandBuffer cmd, ExternalData d, RenderTexture gbuffer, RenderTexture result, bool validate)
+    private static void DispatchUnpack(CommandBuffer cmd, ExternalData d, RenderTexture gbuffer, RenderTexture result, bool validate, bool projected = false)
     {
+        cmd.SetComputeMatrixArrayParam(d.compute, idExResultViewProj, d.resultViewProjection);
         ComputeShader cs = d.compute;
         cmd.SetComputeTextureParam(cs, d.kernelUnpack, idExResult, result);
         cmd.SetComputeTextureParam(cs, d.kernelUnpack, idExTraced, d.traced);
@@ -333,8 +383,8 @@ public partial class BasisGlobalIlluminationPass
         cmd.SetComputeVectorArrayParam(cs, idExCameraPosition, d.positions);
         cmd.SetComputeVectorArrayParam(cs, idExPreviousCameraPosition, d.previousPositions);
         cmd.SetComputeIntParams(cs, idExSize, d.width, d.height, d.sourceWidth, d.sourceHeight);
-        cmd.SetComputeIntParams(cs, idExFlags, validate ? 1 : 0, ReprojectResult && d.behind && d.hasMotion ? 1 : 0, d.views, d.reversedZ ? 1 : 0);
-        cmd.SetComputeIntParams(cs, idExLayout0, d.hasNormals ? 1 : 0, 0, 0, 0);
+        cmd.SetComputeIntParams(cs, idExFlags, validate ? 1 : 0, projected || (ReprojectResult && d.behind && d.hasMotion) ? 1 : 0, d.views, d.reversedZ ? 1 : 0);
+        cmd.SetComputeIntParams(cs, idExLayout0, d.hasNormals ? 1 : 0, projected ? 1 : 0, 0, 0);
         cmd.SetComputeVectorParam(cs, idExJitter, d.displayJitter);
         cmd.DispatchCompute(cs, d.kernelUnpack, (d.width + 7) / 8, (d.height + 7) / 8, d.views);
     }

@@ -51,6 +51,19 @@ namespace HVR.Basis.Comms.OSC
             }, _byteBuffer);
         }
 
+        public void SendOscTo(int port, string oscItemKey, object x)
+        {
+            _client.SetUnconnectedEndpoint(new IPEndPoint(IPAddress.Loopback, port));
+            try
+            {
+                SendOsc(oscItemKey, x);
+            }
+            finally
+            {
+                _client.SetUnconnectedEndpoint(new IPEndPoint(IPAddress.Loopback, _currentReceiverPort));
+            }
+        }
+
         public void SendOscMultivalue(string oscItemKey, object[] objects)
         {
             _client.SendOSCPacket(new SimpleOSC.OSCMessage

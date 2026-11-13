@@ -407,6 +407,7 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<string> GlobalIlluminationFallback = new("globalilluminationfallback", new BasisPlatformDefault<string>("Reflection Probe"));
         public static BasisSettingsBinding<string> GlobalIlluminationPathTracerBackend = new("globalilluminationpathtracerbackend", new BasisPlatformDefault<string>("DirectX"));
         public static BasisSettingsBinding<string> GlobalIlluminationPathTracerGpu = new("globalilluminationpathtracergpu", new BasisPlatformDefault<string>("Same As Game"));
+        public static BasisSettingsBinding<bool> GlobalIlluminationPathTracerInProcess = new("globalilluminationpathtracerinprocess", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<string> GlobalIlluminationPathTracerRays = new("globalilluminationpathtracerrays", new BasisPlatformDefault<string>("2"));
         public static BasisSettingsBinding<string> GlobalIlluminationPathTracerAvatarRays = new("globalilluminationpathtraceravatarrays", new BasisPlatformDefault<string>("2"));
         // Ray traced skips a baked-emissive surface's light by default, because that light already sits in
@@ -690,6 +691,11 @@ namespace Basis.BasisUI
         public const float VRS_RADIUS_MAX = 1f;
         public static BasisSettingsBinding<float> VrsFovealInnerRadius = new("vrsfovealinner_v2", new BasisPlatformDefault<float>(0.25f));
         public static BasisSettingsBinding<float> VrsFovealOuterRadius = new("vrsfovealouter_v2", new BasisPlatformDefault<float>(0.31f));
+        public static BasisSettingsBinding<bool> VrsContentAdaptive = new("vrscontentadaptive", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> GazeFoveateReflections = new("gazefoveatereflections", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> GazeFoveateFog = new("gazefoveatefog", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> GazeFoveateGI = new("gazefoveategi", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> GazeFoveateRayTracedGI = new("gazefoveateraytracedgi", new BasisPlatformDefault<bool>(true));
 
         // Legacy master gizmo gate. The Developer UI no longer exposes this — gizmo
         // rendering now turns on whenever any individual gizmo toggle below is enabled
@@ -2407,6 +2413,11 @@ namespace Basis.BasisUI
             DevGiDebugView.LoadBindingValue();
             VrsFovealInnerRadius.LoadBindingValue();
             VrsFovealOuterRadius.LoadBindingValue();
+            VrsContentAdaptive.LoadBindingValue();
+            GazeFoveateReflections.LoadBindingValue();
+            GazeFoveateFog.LoadBindingValue();
+            GazeFoveateGI.LoadBindingValue();
+            GazeFoveateRayTracedGI.LoadBindingValue();
             UseBloomOverride.LoadBindingValue();
             BloomIntensity.LoadBindingValue();
             UseVolumetricFogOverride.LoadBindingValue();
@@ -2435,6 +2446,7 @@ namespace Basis.BasisUI
             GlobalIlluminationFallback.LoadBindingValue();
             GlobalIlluminationPathTracerBackend.LoadBindingValue();
             GlobalIlluminationPathTracerGpu.LoadBindingValue();
+            GlobalIlluminationPathTracerInProcess.LoadBindingValue();
             GlobalIlluminationPathTracerRays.LoadBindingValue();
             GlobalIlluminationPathTracerAvatarRays.LoadBindingValue();
             GlobalIlluminationIgnoreBakedEmission.LoadBindingValue();

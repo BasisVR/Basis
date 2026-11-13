@@ -768,7 +768,6 @@ public static partial class BasisIOManagement
         if (!Path.GetFullPath(localPath).StartsWith(fullFolder, StringComparison.Ordinal))
             throw new ArgumentException($"GenerateFilePath: resolved path escapes cache folder: {fileName}", nameof(fileName));
 
-        BasisDebug.Log($"Generated folder path: {localPath}");
         return localPath;
     }
 

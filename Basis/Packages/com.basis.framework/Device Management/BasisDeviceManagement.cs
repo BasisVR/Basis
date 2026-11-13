@@ -260,6 +260,7 @@ namespace Basis.Scripts.Device_Management
             BasisGpuDetection.Initialize();
 
             StaticCurrentMode = BasisConstants.None;
+            using BasisSettingsSystem.QualityDeferScope bootQuality = BasisSettingsSystem.DeferQualityRefresh();
             try
             {
                 BasisSettingsSystem.Initialize();
@@ -531,7 +532,7 @@ namespace Basis.Scripts.Device_Management
                 }
             }
 
-            BasisSettingsSystem.LoadAllSettings();
+            BasisSettingsSystem.ReapplyAllSettings();
 #if !BASIS_DISABLE_MICROPHONE
             SMDMicrophone.LoadInMicrophoneData(mode);
 #endif
@@ -1229,7 +1230,7 @@ namespace Basis.Scripts.Device_Management
                 }
             }
 
-            BasisSettingsSystem.LoadAllSettings();
+            BasisSettingsSystem.ReapplyAllSettings();
 #if !BASIS_DISABLE_MICROPHONE
             SMDMicrophone.LoadInMicrophoneData(vrMode);
 #endif

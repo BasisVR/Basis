@@ -401,23 +401,26 @@ namespace Basis.BasisUI
             BasisDebug.LogError(ex);
         }
         [NoAutoStaticsCleanup] private static readonly SemaphoreSlim _preloadGate = new SemaphoreSlim(4);
+        [NoAutoStaticsCleanup] private static readonly SemaphoreSlim _backgroundPreloadGate = new SemaphoreSlim(2);
 
-        public static async Task PreloadMetaForItems(IEnumerable<BasisDataStoreItemKeys.ItemKey> items)
+        public static async Task PreloadMetaForItems(IEnumerable<BasisDataStoreItemKeys.ItemKey> items, bool background = false)
         {
             if (items == null) return;
+            SemaphoreSlim gate = background ? _backgroundPreloadGate : _preloadGate;
 
             try
             {
                 await Task.WhenAll(items.Select(async item =>
                 {
-                    await _preloadGate.WaitAsync();
+                    if (item == null || ContainsMetaData(item.Url)) return;
+                    await gate.WaitAsync();
                     try
                     {
                         await PreloadMetaDataForItem(item);
                     }
                     finally
                     {
-                        _preloadGate.Release();
+                        gate.Release();
                     }
                 }));
             }

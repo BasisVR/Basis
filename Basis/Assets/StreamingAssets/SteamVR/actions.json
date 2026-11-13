@@ -10,6 +10,11 @@
       "requirement": "optional"
     },
     {
+      "name": "/actions/default/in/EyeTracking",
+      "type": "eyetracking",
+      "requirement": "optional"
+    },
+    {
       "name": "/actions/default/in/SkeletonLeftHand",
       "type": "skeleton",
       "skeleton": "/skeleton/hand/left",
@@ -150,6 +155,10 @@
     {
       "controller_type": "vive_tracker_camera",
       "binding_url": "binding_vive_tracker_camera.json"
+    },
+    {
+      "controller_type": "frame_hmd",
+      "binding_url": "binding_frame_hmd.json"
     }
   ],
   "localization": [
@@ -157,6 +166,7 @@
       "language_tag": "en_US",
       "/actions/default/in/Pose": "Pose",
       "/actions/default/in/EyeGaze": "Eye Gaze",
+      "/actions/default/in/EyeTracking": "Eye Tracking",
       "/actions/default/in/SkeletonLeftHand": "Skeleton (Left)",
       "/actions/default/in/SkeletonRightHand": "Skeleton (Right)",
       "/actions/default/out/Haptic": "Haptic"

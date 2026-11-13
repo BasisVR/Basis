@@ -212,6 +212,7 @@ float4 BasisGISSRTrace(float2 uv, float2 positionSS, out float hitDistance)
     float3 viewPosition = BasisGIViewPosition(uv, rawDepth);
     float3 worldPosition = BasisGIWorldPosition(uv, rawDepth);
     float3 normalWS = BasisGIReconstructNormal(uv, viewPosition, rawDepth);
+    gBasisGIGazeStepScale = BasisGazeEffectScale(GetCameraPositionWS(), worldPosition - GetCameraPositionWS(), _BasisGazeEffects.x);
 
     float3 viewDirection = normalize(worldPosition - GetCameraPositionWS());
     float3 direction = reflect(viewDirection, normalWS);

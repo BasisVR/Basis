@@ -112,6 +112,7 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         public Texture skyCube;
         public Vector4 reference, size, trace, bias, options, sky, skyDecode, specularParams;
         public int rayCount, bounces, lightCount, lightSamples, viewCount, frameIndex;
+        public Vector4 gazeFocal, gazeBands, gazeEffects;
         // Which halves of the structure this trace may hit. The structure can hold more than this effect
         // asked for - it is shared with ambient occlusion, which answers the same question differently -
         // so the ray narrows it rather than the contents.
@@ -193,6 +194,9 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
     private static readonly int idRtBias = Shader.PropertyToID("_BasisGIRtBias");
     private static readonly int idRtOptions = Shader.PropertyToID("_BasisGIRtOptions");
     private static readonly int idRtRayCount = Shader.PropertyToID("_BasisGIRtRayCount");
+    private static readonly int idGazeFocal = Shader.PropertyToID("_BasisGazeFocal");
+    private static readonly int idGazeBands = Shader.PropertyToID("_BasisGazeBands");
+    private static readonly int idGazeEffects = Shader.PropertyToID("_BasisGazeEffects");
     private static readonly int idRtBounces = Shader.PropertyToID("_BasisGIRtBounces");
     private static readonly int idRtLightCount = Shader.PropertyToID("_BasisGIRtLightCount");
     private static readonly int idRtLightSamples = Shader.PropertyToID("_BasisGIRtLightSamples");
@@ -810,6 +814,9 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
             data.diffuseEnabled = true;
             data.specularEnabled = false;
             data.rayCount = rayCount;
+            data.gazeFocal = BasisGazeFoveationState.Focal;
+            data.gazeBands = BasisGazeFoveationState.Bands;
+            data.gazeEffects = BasisGazeFoveationState.Effects;
             data.bounces = bounces;
             data.lightCount = tracer.Lights.Count;
             data.lightSamples = lightSamples;
@@ -891,6 +898,9 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         shader.SetIntParam(cmd, idRtDiffuseEnabled, data.diffuseEnabled ? 1 : 0);
         shader.SetIntParam(cmd, idRtSpecularEnabled, data.specularEnabled ? 1 : 0);
         shader.SetIntParam(cmd, idRtRayCount, data.rayCount);
+        shader.SetVectorParam(cmd, idGazeFocal, data.gazeFocal);
+        shader.SetVectorParam(cmd, idGazeBands, data.gazeBands);
+        shader.SetVectorParam(cmd, idGazeEffects, data.gazeEffects);
         shader.SetIntParam(cmd, idRtBounces, data.bounces);
         shader.SetIntParam(cmd, idRtLightCount, data.lightCount);
         shader.SetIntParam(cmd, idRtLightSamples, data.lightSamples);
@@ -1304,7 +1314,10 @@ public sealed partial class BasisGlobalIlluminationPass : ScriptableRenderPass
         constants[1] = new Vector4(settings.maxRayLength, settings.thickness, settings.jitter, settings.fadeDistance);
         // The fallback's intensity rides with the sky binding rather than here, because that is where the
         // cubemap it applies to comes from.
-        constants[2] = new Vector4(rayCount, settings.ResolvedRaySteps(), settings.fireflyClamp, settings.bounceFeedback);
+        // A negative ray count tells the denoiser the ray traced gather thinned its rays away from the
+        // gaze, so it rebuilds each pixel's real count (BasisGIPixelRayCount) instead of trusting this one.
+        bool gazeRays = rayTraced && BasisGazeFoveationState.Focal.w > 0f && BasisGazeFoveationState.Effects.z > 0.5f;
+        constants[2] = new Vector4(gazeRays ? -rayCount : rayCount, settings.ResolvedRaySteps(), settings.fireflyClamp, settings.bounceFeedback);
         float temporalResponse = settings.temporalResponse * RayTemporalResponseScale;
         constants[3] = new Vector4(frame % 64, temporalResponse, settings.depthRejection, settings.emitterIntensity);    }
 
