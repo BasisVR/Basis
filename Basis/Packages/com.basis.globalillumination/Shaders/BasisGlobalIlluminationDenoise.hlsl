@@ -17,11 +17,8 @@ struct BasisGITemporalOutput
     float4 stats : SV_Target1;
 };
 
-float BasisGIWorldChangeAt(float3 positionWS)
+float BasisGIWorldChangeInLevel(float3 positionWS, int level)
 {
-    if (!BasisGIWorldValid()) { return 0.0; }
-    int level = BasisGIWorldLevelAt(positionWS, 1.0);
-    if (level < 0) { return 0.0; }
     // Blended across the eight surrounding probes like the lighting itself. Reading only the nearest probe
     // reset the history over a whole probe cell with hard edges, and that box was what lit up.
     int probes = (int)_BasisGIWorldParams.z;
@@ -40,6 +37,18 @@ float BasisGIWorldChangeAt(float3 positionWS)
         float3 trilinear = lerp(1.0 - fraction, fraction, (float3)offset);
         change += LOAD_TEXTURE3D(_BasisGIWorldSH1, slot).a * trilinear.x * trilinear.y * trilinear.z;
     }
+    return change;
+}
+
+float BasisGIWorldChangeAt(float3 positionWS)
+{
+    if (!BasisGIWorldValid()) { return 0.0; }
+    int level = BasisGIWorldLevelAt(positionWS, 1.0);
+    if (level < 0) { return 0.0; }
+    float change = BasisGIWorldChangeInLevel(positionWS, level);
+    float keep = BasisGIWorldLevelKeep(positionWS, 1.0, level);
+    UNITY_BRANCH
+    if (keep < 1.0) { change = lerp(BasisGIWorldChangeInLevel(positionWS, level + 1), change, keep); }
     return change;
 }
 

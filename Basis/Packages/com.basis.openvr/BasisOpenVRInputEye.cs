@@ -19,6 +19,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         private float3 _gazeDirection;
 
         public BasisEyeSource Source => BasisEyeSource.Hmd;
+        public string DisplayName { get; private set; } = "SteamVR";
         public bool IsActive => _hasGaze;
 
         public bool TryGetEyeData(ref BasisEyeTrackingData data)
@@ -39,6 +40,17 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         public override void Initialize()
         {
             _gazeAction = SteamVR_Input.GetAction<SteamVR_Action_Pose>("EyeGaze");
+            CVRSystem system = Valve.VR.OpenVR.System;
+            if (system != null)
+            {
+                ETrackedPropertyError error = ETrackedPropertyError.TrackedProp_Success;
+                System.Text.StringBuilder model = new System.Text.StringBuilder(64);
+                system.GetStringTrackedDeviceProperty(Valve.VR.OpenVR.k_unTrackedDeviceIndex_Hmd, ETrackedDeviceProperty.Prop_ModelNumber_String, model, 64, ref error);
+                if (error == ETrackedPropertyError.TrackedProp_Success && model.Length > 0)
+                {
+                    DisplayName = model.ToString();
+                }
+            }
             BasisEyeTrackingManager.Register(this);
         }
 

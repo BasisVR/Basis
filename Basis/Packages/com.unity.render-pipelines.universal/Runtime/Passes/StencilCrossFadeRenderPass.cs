@@ -49,6 +49,7 @@ namespace UnityEngine.Rendering.Universal
         /// </summary>
         private class PassData
         {
+            internal System.IntPtr basisVrs;
             public TextureHandle depthTarget;
             public Material[] stencilDitherMaskSeedMaterials;
         }
@@ -56,7 +57,7 @@ namespace UnityEngine.Rendering.Universal
         /// <summary>
         /// Set render graph pass
         /// </summary>
-        public void Render(RenderGraph renderGraph, ScriptableRenderContext context, in TextureHandle depthTarget)
+        public void Render(RenderGraph renderGraph, ContextContainer frameData, ScriptableRenderContext context, in TextureHandle depthTarget)
         {
             using (var builder = renderGraph.AddRasterRenderPass<PassData>("Prepare Cross Fade Stencil", out var passData, m_ProfilingSampler))
             {
@@ -64,9 +65,13 @@ namespace UnityEngine.Rendering.Universal
                 passData.stencilDitherMaskSeedMaterials = m_StencilDitherMaskSeedMaterials;
                 passData.depthTarget = depthTarget;
 
+                passData.basisVrs = UniversalShadingRateData.TryBind(builder, frameData);
+
                 builder.SetRenderFunc(static (PassData data, RasterGraphContext context) =>
                 {
+                    UniversalShadingRateData.BeginNative(context.cmd, data.basisVrs);
                     ExecutePass(context.cmd, data.depthTarget, data.stencilDitherMaskSeedMaterials);
+                    UniversalShadingRateData.EndNative(context.cmd, data.basisVrs);
                 });
             }
         }

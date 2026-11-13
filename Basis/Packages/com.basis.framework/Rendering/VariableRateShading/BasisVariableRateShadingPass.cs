@@ -1,3 +1,4 @@
+using System;
 using Unity.Scripting.LifecycleManagement;
 using Basis.BasisUI;
 using Basis.Scripts.Drivers;
@@ -46,6 +47,16 @@ namespace Basis.Scripts.Rendering
         private static Vector4 sRates;
         private static Vector4 sRatesAniso;
 
+        public static bool HardwareUsable
+        {
+            get
+            {
+                if (!BasisVariableRateShadingFeature.IsSupported) return false;
+                CacheHardwareCaps();
+                return sSriUsable;
+            }
+        }
+
         private readonly ComputeShader _buildShader;
         private readonly int _kernel;
 
@@ -53,6 +64,11 @@ namespace Basis.Scripts.Rendering
         private bool _yFlip;
 
         private Vector3 _lastFocalWorld;
+        // D3D11 plugin path: the native view wraps a fixed texture, so the image is persistent
+        // instead of a transient graph texture that could move between frames.
+        private RenderTexture _nativeImage;
+        private RTHandle _nativeImageHandle;
+        private IntPtr _nativeImagePtr;
         private float _lastGazeTime = float.NegativeInfinity;
         private bool _activeLogged;
 
@@ -118,7 +134,10 @@ namespace Basis.Scripts.Rendering
             if (camDesc.width <= 0 || camDesc.height <= 0)
                 return;
 
-            Vector2Int tiles = ShadingRateImage.GetAllocTileSize(camDesc.width, camDesc.height);
+            bool d3d11 = BasisVariableRateShadingFeature.UsesD3D11Plugin;
+            Vector2Int tiles = d3d11
+                ? new Vector2Int((camDesc.width + BasisVrsD3D11.TileSize - 1) / BasisVrsD3D11.TileSize, (camDesc.height + BasisVrsD3D11.TileSize - 1) / BasisVrsD3D11.TileSize)
+                : ShadingRateImage.GetAllocTileSize(camDesc.width, camDesc.height);
             if (tiles.x <= 0 || tiles.y <= 0)
             {
                 BasisDebug.LogWarningOnce("VRS enabled but ShadingRateImage.GetAllocTileSize returned an empty tile grid — the driver refused a shading rate image, gaze foveation stays off.", BasisDebug.LogTag.Device);
@@ -153,16 +172,18 @@ namespace Basis.Scripts.Rendering
             ComputeEyeParams(cameraData, rightEye, gazeWeight, inner, outer, farStart,
                 out Vector4 unprojR, out Vector3 gazeDirR, out Vector4 cosR, out Vector2 centerR);
 
-            RenderTextureDescriptor sriDesc = new RenderTextureDescriptor(tiles.x, tiles.y, ShadingRateInfo.graphicsFormat, GraphicsFormat.None, 0)
+            RenderTextureDescriptor sriDesc = new RenderTextureDescriptor(tiles.x, tiles.y, d3d11 ? GraphicsFormat.R8_UInt : ShadingRateInfo.graphicsFormat, GraphicsFormat.None, 0)
             {
                 msaaSamples = 1,
                 useMipMap = false,
                 autoGenerateMips = false,
                 dimension = TextureDimension.Tex2D,
                 enableRandomWrite = true,
-                enableShadingRate = true,
+                enableShadingRate = !d3d11,
             };
-            TextureHandle sri = UniversalRenderer.CreateRenderGraphTexture(renderGraph, sriDesc, "_BasisShadingRateImage", clear: false);
+            TextureHandle sri = d3d11
+                ? renderGraph.ImportTexture(NativeImage(tiles))
+                : UniversalRenderer.CreateRenderGraphTexture(renderGraph, sriDesc, "_BasisShadingRateImage", clear: false);
 
             using (var builder = renderGraph.AddComputePass<BuildPassData>("BasisVRS Build", out BuildPassData data, samplerVrs))
             {
@@ -203,7 +224,9 @@ namespace Basis.Scripts.Rendering
 
             UniversalShadingRateData vrsData = frameData.GetOrCreate<UniversalShadingRateData>();
             vrsData.shadingRateImage = sri;
+            vrsData.nativeShadingRateImage = d3d11 ? _nativeImagePtr : IntPtr.Zero;
             vrsData.isValid = true;
+            if (d3d11) UniversalShadingRateData.nativeRenderEvent = BasisVrsD3D11.RenderEvent;
 
             BasisVariableRateShadingFeature.LastDispatchFrame = Time.frameCount;
             BasisVariableRateShadingFeature.LastTiles = tiles;
@@ -233,11 +256,52 @@ namespace Basis.Scripts.Rendering
                 0f);
         }
 
+        private RTHandle NativeImage(Vector2Int tiles)
+        {
+            if (_nativeImage != null && _nativeImage.width == tiles.x && _nativeImage.height == tiles.y && _nativeImage.IsCreated())
+                return _nativeImageHandle;
+            ReleaseNativeImage();
+            _nativeImage = new RenderTexture(new RenderTextureDescriptor(tiles.x, tiles.y, GraphicsFormat.R8_UInt, GraphicsFormat.None, 0) { enableRandomWrite = true, useMipMap = false, autoGenerateMips = false, msaaSamples = 1 })
+            {
+                name = "_BasisShadingRateImageD3D11",
+                filterMode = FilterMode.Point,
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+            _nativeImage.Create();
+            _nativeImagePtr = _nativeImage.GetNativeTexturePtr();
+            _nativeImageHandle = RTHandles.Alloc(_nativeImage);
+            return _nativeImageHandle;
+        }
+
+        private void ReleaseNativeImage()
+        {
+            if (_nativeImage == null)
+                return;
+            IntPtr renderEvent = BasisVrsD3D11.RenderEvent;
+            if (renderEvent != IntPtr.Zero) GL.IssuePluginEvent(renderEvent, BasisVrsD3D11.EventRelease);
+            _nativeImageHandle?.Release();
+            _nativeImageHandle = null;
+            _nativeImage.Release();
+            UnityEngine.Object.DestroyImmediate(_nativeImage);
+            _nativeImage = null;
+            _nativeImagePtr = IntPtr.Zero;
+        }
+
+        public void Dispose() => ReleaseNativeImage();
+
         private static void CacheHardwareCaps()
         {
             if (sCapsCached)
                 return;
             sCapsCached = true;
+
+            if (BasisVariableRateShadingFeature.UsesD3D11Plugin)
+            {
+                // NVAPI covers every rate the build writes; the plugin maps the D3D12 codes through its lookup table.
+                sSriUsable = true;
+                BasisVrsMath.ResolveRates(true, true, true, true, 5u, 9u, 6u, 10u, out sRates, out sRatesAniso);
+                return;
+            }
 
             bool has2x2 = false, hasWide = false, hasTall = false, has4x4 = false;
             foreach (ShadingRateFragmentSize size in ShadingRateInfo.availableFragmentSizes)

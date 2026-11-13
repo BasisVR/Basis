@@ -80,15 +80,10 @@ pub fn selected_adapter() -> Option<(u32, i32)> {
 impl Gpu {
     pub fn new(luid_low: u32, luid_high: i32) -> Result<Gpu> {
         unsafe {
-            if std::env::var_os("BASIS_RT_DEBUG").is_some() {
-                let mut debug: Option<ID3D12Debug> = None;
-                if D3D12GetDebugInterface(&mut debug).is_ok() { if let Some(d) = debug { d.EnableDebugLayer(); } }
-            }
+            if std::env::var_os("BASIS_RT_DEBUG").is_some() { crate::d3d::enable_debug(); }
             let factory: IDXGIFactory6 = CreateDXGIFactory2(DXGI_CREATE_FACTORY_FLAGS(0))?;
             let adapter: IDXGIAdapter1 = if luid_low != 0 || luid_high != 0 { factory.EnumAdapterByLuid(LUID { LowPart: luid_low, HighPart: luid_high })? } else { factory.EnumAdapterByGpuPreference(0, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE)? };
-            let mut device: Option<ID3D12Device5> = None;
-            D3D12CreateDevice(&adapter, D3D_FEATURE_LEVEL_12_1, &mut device)?;
-            let device = device.ok_or_else(|| Error::from(E_FAIL))?;
+            let device: ID3D12Device5 = crate::d3d::create_device(&adapter.cast()?, D3D_FEATURE_LEVEL_12_1)?;
             let mut options5 = D3D12_FEATURE_DATA_D3D12_OPTIONS5::default();
             device.CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &mut options5 as *mut _ as _, std::mem::size_of_val(&options5) as u32)?;
             if options5.RaytracingTier.0 < 11 { return Err(Error::new(E_NOTIMPL, "this GPU does not support DXR 1.1")); }

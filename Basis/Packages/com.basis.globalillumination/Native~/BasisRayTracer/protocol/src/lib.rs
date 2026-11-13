@@ -43,6 +43,7 @@ pub const CAP_SER: u32 = 1;
 pub const CAP_SER_REORDERS: u32 = 2;
 pub const CAP_OMM: u32 = 4;
 pub const CAP_TIER_1_2: u32 = 8;
+pub const CAP_DIRECT: u32 = 16;
 
 pub const RESERVED_UPLOAD_MARK: usize = 26;
 pub const RESERVED_UPLOAD_LOST: usize = 28;
@@ -126,6 +127,18 @@ pub struct Header {
     pub tracer_api: u32,
     pub interop: u32,
     pub device_uuid: [u8; 16],
+    pub targets: [Targets; MAX_CONTEXTS],
+}
+
+#[repr(C)]
+pub struct Targets {
+    pub handles: [u64; 4],
+    pub generation: AtomicU32,
+    pub opened: AtomicU32,
+    pub width: u32,
+    pub height: u32,
+    pub views: u32,
+    pub pad: [u32; 3],
 }
 
 #[repr(C)]
@@ -265,6 +278,7 @@ pub const MAPPING_BYTES: usize = HEADER_BYTES + SLOT_BYTES * RING;
 
 const _: () = assert!(std::mem::size_of::<Header>() <= HEADER_BYTES);
 const _: () = assert!(std::mem::size_of::<ContextHeader>() == 64);
+const _: () = assert!(std::mem::size_of::<Targets>() == 64);
 const _: () = assert!(std::mem::size_of::<Instance>() == 96);
 const _: () = assert!(std::mem::size_of::<Material>() == 96);
 const _: () = assert!(std::mem::size_of::<Light>() == 64);

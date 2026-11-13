@@ -90,6 +90,13 @@ public static unsafe partial class BasisExternalRayTracer
     public const int ApiDirectX = 1, ApiVulkan = 2;
 
     [DllImport(Dll)] private static extern int BasisRT_StartApi([MarshalAs(UnmanagedType.LPWStr)] string exe, int api);
+    [DllImport(Dll)] private static extern int BasisRT_StartMode([MarshalAs(UnmanagedType.LPWStr)] string exe, int api, int embedded);
+    [DllImport(Dll)] private static extern int BasisRT_Embedded();
+    [DllImport(Dll)] private static extern int BasisRT_DirectAvailable();
+    [DllImport(Dll)] private static extern ulong BasisRT_Completed();
+    [DllImport(Dll)] private static extern void BasisRT_ArmTexture(uint width, uint height);
+    [DllImport(Dll)] private static extern void BasisRT_DisarmTargets();
+    [DllImport(Dll)] private static extern int BasisRT_SetContextTargets(int context, IntPtr gbuffer0, IntPtr gbuffer1, IntPtr result0, IntPtr result1, uint width, uint height, uint views);
     [DllImport(Dll)] private static extern void BasisRT_Stop();
     [DllImport(Dll)] private static extern IntPtr BasisRT_Shared();
     [DllImport(Dll)] private static extern int BasisRT_Status();
@@ -117,7 +124,11 @@ public static unsafe partial class BasisExternalRayTracer
     {
         public int Id;
         public Camera Camera;
-        public RenderTexture GBuffer, Result;
+        public RenderTexture GBuffer, Result, GBuffer1, Result1;
+        public bool Direct;
+        public uint PackedParity, ResultParity;
+        public RenderTexture GBufferAt(uint parity) => Direct && (parity & 1) == 1 ? GBuffer1 : GBuffer;
+        public RenderTexture ResultAt(uint parity) => Direct && (parity & 1) == 1 ? Result1 : Result;
         public int Width, Height, Views, LastUsed;
         public uint Parity, LastParity;
         public ulong LastFrame;
@@ -139,6 +150,10 @@ public static unsafe partial class BasisExternalRayTracer
     private static float retryAt;
     private static int retries;
     private static bool loggedFailure;
+    private static bool startedInProcess, inProcessFailed;
+    public static bool InProcess = true;
+    public static bool DirectTargets = true;
+    public static bool RunningInProcess => Started && startedInProcess;
 
     public static bool IsWindows => Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
     public static bool IsLinux => Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
@@ -268,6 +283,15 @@ public static unsafe partial class BasisExternalRayTracer
         Failed = true;
         retryAt = Time.realtimeSinceStartup + 3f;
         Failure = reason;
+        if (startedInProcess && !inProcessFailed)
+        {
+            inProcessFailed = true;
+            startedInProcess = false;
+            retryAt = Time.realtimeSinceStartup;
+            Debug.LogWarning($"[BasisGI] The in-process path tracer failed, switching to the separate tracer process: {reason}");
+            Stop();
+            return;
+        }
         if (!loggedFailure)
         {
             loggedFailure = true;
@@ -293,7 +317,12 @@ public static unsafe partial class BasisExternalRayTracer
         {
             if (BasisRT_Layout(8) != ProtocolVersion) { Fail("the bridge plugin does not match this protocol version"); return false; }
             Environment.SetEnvironmentVariable("BASIS_RT_ADAPTER", RequestedAdapterLuid());
-            if (BasisRT_StartApi(exe, RequestedApi) == 0) { Fail(ReadError()); return false; }
+            bool inProcess = InProcess && !inProcessFailed && RequestedApi == ApiDirectX;
+            int started;
+            try { started = BasisRT_StartMode(exe, RequestedApi, inProcess ? 1 : 0); }
+            catch (EntryPointNotFoundException) { inProcess = false; started = BasisRT_StartApi(exe, RequestedApi); }
+            startedInProcess = inProcess && started != 0 && BasisRT_Embedded() != 0;
+            if (started == 0) { Fail(ReadError()); return false; }
         }
         catch (DllNotFoundException) { Fail(IsLinux ? "the bridge plugin libBasisRayTracingBridge2.so is missing" : "the bridge plugin BasisRayTracingBridge2.dll is missing"); return false; }
         catch (EntryPointNotFoundException) { Fail("the bridge plugin is out of date"); return false; }
@@ -350,9 +379,11 @@ public static unsafe partial class BasisExternalRayTracer
     {
         Context c = contexts[index];
         if (c == null) { return; }
-        if (Started) { BasisRT_SetContextTextures(index, IntPtr.Zero, IntPtr.Zero); BasisRT_SetSize(index, 0, 0, 0); }
+        if (Started) { if (c.Direct) { BasisRT_SetContextTargets(index, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, 0, 0, 0); } BasisRT_SetContextTextures(index, IntPtr.Zero, IntPtr.Zero); BasisRT_SetSize(index, 0, 0, 0); }
         Destroy(c.GBuffer);
         Destroy(c.Result);
+        Destroy(c.GBuffer1);
+        Destroy(c.Result1);
         contexts[index] = null;
     }
 
@@ -367,6 +398,22 @@ public static unsafe partial class BasisExternalRayTracer
     {
         RenderTexture rt = new RenderTexture(new RenderTextureDescriptor(width, height, format, GraphicsFormat.None) { enableRandomWrite = true, msaaSamples = 1, useMipMap = false }) { name = name, hideFlags = HideFlags.HideAndDontSave, filterMode = FilterMode.Point };
         rt.Create();
+        return rt;
+    }
+
+    private static bool DirectAvailable()
+    {
+        if (!DirectTargets) { return false; }
+        try { return BasisRT_DirectAvailable() != 0; }
+        catch (EntryPointNotFoundException) { DirectTargets = false; return false; }
+    }
+
+    private static RenderTexture CreateTarget(string name, int width, int height, GraphicsFormat format, bool shared, out IntPtr native)
+    {
+        if (shared) { BasisRT_ArmTexture((uint)width, (uint)height); }
+        RenderTexture rt = Create(name, width, height, format);
+        native = rt.GetNativeTexturePtr();
+        if (shared) { BasisRT_DisarmTargets(); }
         return rt;
     }
 
@@ -389,17 +436,35 @@ public static unsafe partial class BasisExternalRayTracer
         if (context != null && !ReferenceEquals(context.Camera, camera)) { ReleaseContext(index); context = null; }
         if (context == null) { context = contexts[index] = new Context { Id = index, Camera = camera }; }
         context.LastUsed = frame;
-        if (context.GBuffer == null || context.Width != width || context.Height != height || context.Views != views || !context.GBuffer.IsCreated() || !context.Result.IsCreated())
+        bool lost = context.Direct && (context.GBuffer1 == null || !context.GBuffer1.IsCreated() || !context.Result1.IsCreated());
+        if (context.GBuffer == null || context.Width != width || context.Height != height || context.Views != views || !context.GBuffer.IsCreated() || !context.Result.IsCreated() || lost)
         {
+            if (context.Direct) { BasisRT_SetContextTargets(index, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, 0, 0, 0); }
             Destroy(context.GBuffer);
             Destroy(context.Result);
+            Destroy(context.GBuffer1);
+            Destroy(context.Result1);
+            context.GBuffer1 = context.Result1 = null;
+            context.Direct = false;
             context.Width = width;
             context.Height = height;
             context.Views = views;
-            context.GBuffer = Create("BasisRT GBuffer " + index, width * views * 2, height * 2, GraphicsFormat.R16G16B16A16_UInt);
-            context.Result = Create("BasisRT Result " + index, width * views, height, GraphicsFormat.R16G16B16A16_SFloat);
-            BasisRT_SetContextTextures(index, context.GBuffer.GetNativeTexturePtr(), context.Result.GetNativeTexturePtr());
-            BasisRT_SetSize(index, (uint)width, (uint)height, (uint)views);
+            bool direct = DirectAvailable();
+            context.GBuffer = CreateTarget("BasisRT GBuffer " + index, width * views * 2, height * 2, GraphicsFormat.R16G16B16A16_UInt, direct, out IntPtr gbuffer);
+            context.Result = CreateTarget("BasisRT Result " + index, width * views, height, GraphicsFormat.R16G16B16A16_SFloat, direct, out IntPtr result);
+            if (direct)
+            {
+                context.GBuffer1 = CreateTarget("BasisRT GBuffer B " + index, width * views * 2, height * 2, GraphicsFormat.R16G16B16A16_UInt, true, out IntPtr gbuffer1);
+                context.Result1 = CreateTarget("BasisRT Result B " + index, width * views, height, GraphicsFormat.R16G16B16A16_SFloat, true, out IntPtr result1);
+                context.Direct = BasisRT_SetContextTargets(index, gbuffer, gbuffer1, result, result1, (uint)width, (uint)height, (uint)views) != 0;
+                if (!context.Direct) { Destroy(context.GBuffer1); Destroy(context.Result1); context.GBuffer1 = context.Result1 = null; }
+            }
+            context.PackedParity = context.ResultParity = 0;
+            if (!context.Direct)
+            {
+                BasisRT_SetContextTextures(index, gbuffer, result);
+                BasisRT_SetSize(index, (uint)width, (uint)height, (uint)views);
+            }
             context.ResultValid = false;
             context.Reset = true;
             context.LastFrame = 0;
@@ -450,8 +515,9 @@ public static unsafe partial class BasisExternalRayTracer
             Upload = Create("BasisRT Upload", UploadWidth, UploadHeight * 2, GraphicsFormat.R16G16B16A16_UInt);
             BasisRT_SetUpload(Upload.GetNativeTexturePtr());
         }
+        if (!Poll()) { return null; }
         Context context = ContextFor(camera, width, height, views);
-        if (context == null || !Poll()) { return null; }
+        if (context == null) { return null; }
         BasisRT_Configure(sameFrame ? 1 : 0, 50000);
         return BasisRT_Ready(context.Id) != 0 ? context : null;
     }
@@ -465,6 +531,21 @@ public static unsafe partial class BasisExternalRayTracer
     }
 
     public static bool UploadFree(ulong frame) => BasisRT_Consumed() + 2 >= frame;
+
+    public static int LateFrames;
+    private static bool completionKnown = true;
+
+    public static bool Finished(ulong frame)
+    {
+        if (frame == 0 || !completionKnown) { return true; }
+        ulong completed;
+        try { completed = BasisRT_Completed(); }
+        catch (EntryPointNotFoundException) { completionKnown = false; return true; }
+        if (completed >= frame) { return true; }
+        if (BasisRT_Consumed() >= frame && BasisRT_Submitted() < frame) { return true; }
+        LateFrames++;
+        return false;
+    }
 
     public static bool SceneFilledThisFrame(out ulong source)
     {

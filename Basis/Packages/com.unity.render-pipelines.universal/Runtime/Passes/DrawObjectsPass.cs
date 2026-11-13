@@ -154,6 +154,7 @@ namespace UnityEngine.Rendering.Universal.Internal
         /// </summary>
         internal class PassData
         {
+            internal System.IntPtr basisVrs;
             internal TextureHandle albedoHdl;
             internal TextureHandle depthHdl;
             internal TextureHandle screenSpaceIrradianceHdl;
@@ -354,23 +355,11 @@ namespace UnityEngine.Rendering.Universal.Internal
 #endif
                 }
 
-#if !UNITY_ANDROID
-                // Basis VRS injection: bind a custom shading rate image when one was produced this frame.
-                // Desktop only; skipped on XR hardware foveation so we never override native foveated rendering.
-                if (frameData.Contains<UniversalShadingRateData>())
-                {
-                    var basisVrs = frameData.Get<UniversalShadingRateData>();
-                    bool xrFoveated = cameraData.xr.enabled && cameraData.xr.supportsFoveatedRendering;
-                    if (basisVrs.isValid && basisVrs.shadingRateImage.IsValid() && !xrFoveated)
-                    {
-                        builder.SetShadingRateImageAttachment(basisVrs.shadingRateImage);
-                        builder.SetShadingRateCombiner(ShadingRateCombinerStage.Fragment, ShadingRateCombiner.Override);
-                    }
-                }
-#endif
+                passData.basisVrs = UniversalShadingRateData.TryBind(builder, frameData);
 
                 builder.SetRenderFunc(static (PassData data, RasterGraphContext context) =>
                 {
+                    UniversalShadingRateData.BeginNative(context.cmd, data.basisVrs);
                     // Currently we only need to call this when the user doesn't want transparent objects to receive shadows
                     if (!data.isOpaque && !data.shouldTransparentsReceiveShadows)
                     {
@@ -402,6 +391,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                     ExecutePass(context.cmd, data, data.rendererListHdl, data.objectsWithErrorRendererListHdl, yFlip);
 
                     if (data.basisSurface) { context.cmd.SetKeyword(BasisSurfaceKeyword, false); }
+                    UniversalShadingRateData.EndNative(context.cmd, data.basisVrs);
                 });
             }
         }
@@ -430,6 +420,7 @@ namespace UnityEngine.Rendering.Universal.Internal
 
         private class RenderingLayersPassData
         {
+            internal System.IntPtr basisVrs;
             internal PassData basePassData;
             internal RenderingLayerUtils.MaskSize maskSize;
 
@@ -512,23 +503,11 @@ namespace UnityEngine.Rendering.Universal.Internal
                     }
                 }
 
-#if !UNITY_ANDROID
-                // Basis VRS injection: same shading rate as the prepass/opaque paths so depth
-                // priming stays consistent. Desktop only; skipped on XR hardware foveation.
-                if (frameData.Contains<UniversalShadingRateData>())
-                {
-                    var basisVrs = frameData.Get<UniversalShadingRateData>();
-                    bool xrFoveated = cameraData.xr.enabled && cameraData.xr.supportsFoveatedRendering;
-                    if (basisVrs.isValid && basisVrs.shadingRateImage.IsValid() && !xrFoveated)
-                    {
-                        builder.SetShadingRateImageAttachment(basisVrs.shadingRateImage);
-                        builder.SetShadingRateCombiner(ShadingRateCombinerStage.Fragment, ShadingRateCombiner.Override);
-                    }
-                }
-#endif
+                passData.basisVrs = UniversalShadingRateData.TryBind(builder, frameData);
 
                 builder.SetRenderFunc(static (RenderingLayersPassData data, RasterGraphContext context) =>
                 {
+                    UniversalShadingRateData.BeginNative(context.cmd, data.basisVrs);
                     // Enable Rendering Layers
                     context.cmd.SetKeyword(ShaderGlobalKeywords.WriteRenderingLayers, true);
                     if (data.basePassData.basisSurface) { context.cmd.SetKeyword(BasisSurfaceKeyword, true); }
@@ -551,6 +530,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                     // Clean up
                     context.cmd.SetKeyword(ShaderGlobalKeywords.WriteRenderingLayers, false);
                     if (data.basePassData.basisSurface) { context.cmd.SetKeyword(BasisSurfaceKeyword, false); }
+                    UniversalShadingRateData.EndNative(context.cmd, data.basisVrs);
                 });
             }
         }

@@ -16,6 +16,7 @@ public partial class BasisGlobalIlluminationPass
     private uint externalParity, externalFetchParity;
     private ulong externalFetchFrame;
     private bool externalBehind;
+    private uint externalPackedBefore;
     private static readonly int idExLightmapMask = Shader.PropertyToID("_LightmapMask");
     private static readonly int idExMotion = Shader.PropertyToID("_Motion");
     private static readonly int idExJitter = Shader.PropertyToID("_Jitter");
@@ -44,7 +45,8 @@ public partial class BasisGlobalIlluminationPass
         public uint rows, parity, fetchParity;
         public bool behind;
         public int context;
-        public RenderTexture gbuffer, result;
+        public RenderTexture gbuffer, result, gbufferBefore, resultRead;
+        public bool direct;
         public int width, height, views, sourceWidth, sourceHeight;
         public TextureHandle depth, normals, surface, color, traced, lightmapMask, motion;
         public bool hasLightmapMask, hasMotion;
@@ -87,10 +89,12 @@ public partial class BasisGlobalIlluminationPass
         if (!mirror && camera.cameraType != CameraType.Game) { return false; }
         externalMirror = mirror;
         int views = ViewCountOf(cameraData);
-        BasisExternalRayTracer.Context context = BasisExternalRayTracer.Prepare(camera, tracedWidth, tracedHeight, views, settings.externalSameFrame);
+        bool sameFrame = settings.externalSameFrame && !cameraData.xr.enabled;
+        BasisExternalRayTracer.Context context = BasisExternalRayTracer.Prepare(camera, tracedWidth, tracedHeight, views, sameFrame);
         if (context == null) { return false; }
         externalContext = context;
         if (!BasisExternalRayTracer.CanSubmit(out ulong frame)) { return context.ResultValid; }
+        if (!sameFrame && !BasisExternalRayTracer.Finished(context.LastFrame)) { return context.ResultValid; }
         BasisExternalRayFrame parameters = default;
         parameters.frame = frame;
         parameters.context = (uint)context.Id;
@@ -113,7 +117,7 @@ public partial class BasisGlobalIlluminationPass
         parameters.flags = BasisExternalRayTracer.FlagScreenReuse | BasisExternalRayTracer.FlagDenoise | BasisExternalRayTracer.ConsumeResetFlag(context);
         if (externalEmissionScale != parameters.emissionScale) { if (externalEmissionScale >= 0f) { parameters.flags |= BasisExternalRayTracer.FlagCacheReset; } externalEmissionScale = parameters.emissionScale; }
         if (settings.rayTracedShadows) { parameters.flags |= BasisExternalRayTracer.FlagShadows; }
-        if (settings.externalSameFrame) { parameters.flags |= BasisExternalRayTracer.FlagSameFrame; }
+        if (sameFrame) { parameters.flags |= BasisExternalRayTracer.FlagSameFrame; }
         if (settings.externalProbes) { parameters.flags |= BasisExternalRayTracer.FlagProbes; }
         if (settings.IsExternalBaked()) { parameters.flags |= BasisExternalRayTracer.FlagBakedHybrid; }
         if (motion) { parameters.flags |= FlagMotion; }
@@ -150,9 +154,12 @@ public partial class BasisGlobalIlluminationPass
         externalFrame = frame;
         externalSubmit = true;
         uint parity = context.Parity;
-        externalBehind = !settings.externalSameFrame && context.LastFrame != 0;
+        externalBehind = !sameFrame && context.LastFrame != 0;
         externalFetchFrame = externalBehind ? context.LastFrame : frame;
         externalFetchParity = externalBehind ? context.LastParity : parity;
+        externalPackedBefore = context.PackedParity;
+        context.PackedParity = parity;
+        context.ResultParity = externalFetchParity;
         BasisExternalRayTracer.Commit(context, frame);
         context.LastFrame = frame;
         context.LastParity = parity;
@@ -183,8 +190,12 @@ public partial class BasisGlobalIlluminationPass
             data.fetchParity = externalFetchParity;
             data.behind = externalBehind;
             data.context = externalContext.Id;
-            data.gbuffer = externalContext.GBuffer;
-            data.result = externalContext.Result;
+            BasisExternalRayTracer.Context ec = externalContext;
+            data.direct = ec.Direct;
+            data.gbuffer = ec.GBufferAt(externalSubmit ? externalParity : ec.PackedParity);
+            data.gbufferBefore = ec.GBufferAt(externalSubmit ? externalPackedBefore : ec.PackedParity);
+            data.result = ec.ResultAt(ec.ResultParity);
+            data.resultRead = data.result;
             data.width = tracedWidth;
             data.height = tracedHeight;
             data.views = views;
@@ -247,7 +258,7 @@ public partial class BasisGlobalIlluminationPass
         if (d.submit)
         {
             if (d.behind && d.fetchFrame != 0) { cmd.IssuePluginEventAndData(BasisExternalRayTracer.EventFunc, BasisExternalRayTracer.EventBase + 1, BasisExternalRayTracer.EventData(d.fetchFrame, d.context, d.fetchParity, 0)); }
-            if (validate) { DispatchUnpack(cmd, d, gbuffer, result, true); }
+            if (validate) { DispatchUnpack(cmd, d, d.gbufferBefore, result, true); }
             bool stereoStopped = false;
             for (int i = 0; i < d.jobCount; i++)
             {
@@ -286,6 +297,7 @@ public partial class BasisGlobalIlluminationPass
                 }
             }
             if (stereoStopped) { d.xr.StartSinglePass(cmd); }
+            if (d.direct) { cmd.IssuePluginEventAndData(BasisExternalRayTracer.EventFunc, BasisExternalRayTracer.EventBase + 2, BasisExternalRayTracer.EventData(d.frame, d.context, d.parity, 0)); }
             cmd.SetComputeTextureParam(cs, d.kernelGBuffer, idExDepth, d.depth);
             cmd.SetComputeTextureParam(cs, d.kernelGBuffer, idExColor, d.color);
             cmd.SetComputeTextureParam(cs, d.kernelGBuffer, idExNormals, d.hasNormals ? d.normals : d.color);

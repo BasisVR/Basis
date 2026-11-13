@@ -218,7 +218,7 @@ namespace Basis.Scripts.Device_Management.EyeTracking.Editor
                 return;
             }
 
-            bool perTile = ShadingRateInfo.supportsPerImageTile;
+            bool perTile = ShadingRateInfo.supportsPerImageTile || BasisVariableRateShadingFeature.UsesD3D11Plugin;
             Dot(BasisEditorLocalization.Get("editor.eyePipeline.perTileRate"), perTile);
             Field(BasisEditorLocalization.Get("editor.eyePipeline.hardwareRates"), RateListLabel());
 

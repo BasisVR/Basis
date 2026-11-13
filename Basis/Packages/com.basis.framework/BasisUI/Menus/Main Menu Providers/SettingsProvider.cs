@@ -3340,7 +3340,7 @@ namespace Basis.BasisUI
                     sliderFoveatedRendering.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.foveated.tooltip"));
                 }
 
-                // Gaze-foveated variable rate shading: Direct3D12 only, the rows are not built elsewhere.
+                // Gaze-foveated variable rate shading: Direct3D12, or Direct3D11 on NVIDIA; the rows are not built elsewhere.
                 if (BasisVariableRateShadingFeature.IsSupported)
                 {
                     PanelToggle toggleVrsVr = PanelToggle.CreateNewEntry(foveatedGroup.ContentParent);
@@ -3728,7 +3728,7 @@ namespace Basis.BasisUI
             renderingToggle.SetTitle(BasisLocalization.Get("settings.developer.group.rendering"));
             int renderingStart = container.childCount;
 
-            // Only Direct3D12 can do VRS at all, so on DX11/Vulkan/Metal the row is not built
+            // Only Direct3D12, and Direct3D11 on NVIDIA, can do VRS here, so elsewhere the row is not built
             // rather than shown greyed out.
             if (BasisVariableRateShadingFeature.IsSupported)
             {

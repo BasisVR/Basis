@@ -39,7 +39,7 @@ mod imp {
     use windows::Win32::System::Threading::*;
     use windows::core::*;
 
-    pub struct Link { pub base: *mut u8, _mapping: HANDLE, pub parent: HANDLE, wake: HANDLE }
+    pub struct Link { pub base: *mut u8, _mapping: HANDLE, pub parent: HANDLE, wake: HANDLE, pub stop: Option<std::sync::Arc<crate::Stop>> }
 
     impl Link {
         pub fn open_mapping(args: &Args) -> std::result::Result<Link, String> {
@@ -48,11 +48,14 @@ mod imp {
                 let mapping = OpenFileMappingW(FILE_MAP_ALL_ACCESS.0, false, &name).map_err(|e| format!("open shared memory: {e}"))?;
                 let view = MapViewOfFile(mapping, FILE_MAP_ALL_ACCESS, 0, 0, MAPPING_BYTES);
                 if view.Value.is_null() { return Err(format!("open shared memory: {}", Error::from_thread())); }
-                Ok(Link { base: view.Value as *mut u8, _mapping: mapping, parent: HANDLE::default(), wake: HANDLE::default() })
+                Ok(Link { base: view.Value as *mut u8, _mapping: mapping, parent: HANDLE::default(), wake: HANDLE::default(), stop: None })
             }
         }
 
+        pub fn embedded(base: *mut u8, wake: *mut core::ffi::c_void, stop: std::sync::Arc<crate::Stop>) -> Link { Link { base, _mapping: HANDLE::default(), parent: unsafe { GetCurrentProcess() }, wake: HANDLE(wake), stop: Some(stop) } }
+
         pub fn connect(&mut self, args: &Args) -> std::result::Result<(), String> {
+            if self.stop.is_some() { return Ok(()); }
             unsafe {
                 self.parent = OpenProcess(PROCESS_DUP_HANDLE | PROCESS_SYNCHRONIZE, false, args.parent).map_err(|e| format!("open Unity process: {e}"))?;
                 self.wake = OpenEventW(EVENT_ALL_ACCESS, false, &HSTRING::from(wake_tracer_name(args.parent))).map_err(|e| format!("open wake event: {e}"))?;
@@ -60,7 +63,7 @@ mod imp {
             Ok(())
         }
 
-        pub fn parent_alive(&self) -> bool { unsafe { WaitForSingleObject(self.parent, 0) != WAIT_OBJECT_0 } }
+        pub fn parent_alive(&self) -> bool { match &self.stop { Some(s) => !s.stopping(), None => unsafe { WaitForSingleObject(self.parent, 0) != WAIT_OBJECT_0 } } }
 
         pub fn wait_wake(&self, ms: u32) { unsafe { WaitForSingleObject(self.wake, ms); } }
 

@@ -12791,6 +12791,10 @@
       "value": "Eye Tracking Detected"
     },
     {
+      "key": "settings.eyeFoveation.prompt.detected",
+      "value": "{0} has gaze working."
+    },
+    {
       "key": "settings.eyeFoveation.prompt.body",
       "value": "Your headset reports eye tracking. Enable gaze foveation (Variable Rate Shading) to render in full detail where you look and save GPU elsewhere? You can change this anytime in Settings → Tracker Settings → Eye & Face."
     },
@@ -12801,6 +12805,10 @@
     {
       "key": "settings.eyeFoveation.prompt.no",
       "value": "No"
+    },
+    {
+      "key": "settings.eyeFoveation.prompt.never",
+      "value": "Don't Remind Me Again"
     },
     {
       "key": "settings.highPlayerCap.prompt.title",

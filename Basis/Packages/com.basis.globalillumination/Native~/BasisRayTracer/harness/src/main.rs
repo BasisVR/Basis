@@ -208,6 +208,11 @@ fn f16(h: u16) -> f32 {
     s * (1.0 + m / 1024.0) * 2f32.powi(e - 15)
 }
 
+#[cfg(windows)]
+fn handle_count() -> u32 { let mut n = 0u32; unsafe { let _ = windows::Win32::System::Threading::GetProcessHandleCount(windows::Win32::System::Threading::GetCurrentProcess(), &mut n); } n }
+#[cfg(not(windows))]
+fn handle_count() -> u32 { 0 }
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let exe = args.get(1).cloned().unwrap_or_else(|| std::env::current_exe().unwrap().with_file_name(if cfg!(windows) { "BasisRayTracer.exe" } else { "BasisRayTracer" }).to_string_lossy().into_owned());
@@ -245,7 +250,7 @@ fn main() {
             unreachable!()
         };
         let tracer_api = if std::env::var("TRACER").map_or(false, |v| v.eq_ignore_ascii_case("vulkan")) { TRACER_VULKAN } else { TRACER_DXR };
-        bridge.launch_api(&exe, tracer_api).unwrap();
+        bridge.launch_mode(&exe, tracer_api, std::env::var("EMBED").map_or(false, |v| v == "1")).unwrap();
         bridge.same_frame = true;
         bridge.budget_us = 200_000;
         let header = &*(bridge.base as *const Header);
@@ -256,6 +261,7 @@ fn main() {
             header.contexts[c].requested_views.store(views, Ordering::Release);
         }
         let start = Instant::now();
+        let mut render_thread: Vec<f64> = Vec::new();
         while (0..contexts).any(|c| header.contexts[c].generation.load(Ordering::Acquire) == 0) {
             let s = bridge.status();
             if s == STATUS_FAILED || s == STATUS_EXITED || start.elapsed() > Duration::from_secs(20) {
@@ -267,7 +273,20 @@ fn main() {
         }
         println!("tracer {} ready in {:?}, caps {:#x} (SER {}, reorders {}, OMM tier {})", if header.tracer_api == TRACER_VULKAN { "vulkan" } else { "dxr" }, start.elapsed(), header.caps, header.caps & CAP_SER != 0, header.caps & CAP_SER_REORDERS != 0, header.caps & CAP_OMM != 0);
 
+        #[cfg(windows)]
+        let direct = std::env::var("DIRECT").map_or(false, |v| v == "1") && d3c.as_mut().is_some_and(|c| c.enable_direct(&mut bridge, w, views));
+        #[cfg(not(windows))]
+        let direct = false;
+        #[cfg(windows)]
+        if std::env::var("COPYBENCH").is_ok() { if let Some(c) = &d3c { c.copy_bench(); } }
+        if std::env::var("DIRECT").is_ok() {
+            println!("direct targets {}", if direct { "on" } else { "unavailable" });
+            let begin = Instant::now();
+            while direct && !bridge.direct_ready(0) && begin.elapsed() < Duration::from_secs(5) { std::thread::sleep(Duration::from_millis(1)); }
+            if direct && !bridge.direct_ready(0) { eprintln!("tracer did not open the direct targets"); std::process::exit(1); }
+        }
         let mut protocol = 0u64;
+        let mut retargets = 0u32;
         let mut second_ok = 0u32;
         #[cfg(windows)]
         let (gptr, uptr, rptr) = match (&vkc, &d3c) { (Some(c), _) => (c.gstage.mapped, c.ustage.mapped, c.readback.mapped), (_, Some(c)) => (c.gptr, c.uptr, c.rptr), _ => unreachable!() };
@@ -314,10 +333,18 @@ fn main() {
         let clutter_alpha = std::env::var("CLUTTERALPHA").map_or(false, |v| !v.is_empty());
         let textures: u32 = std::env::var("TEXTURES").ok().and_then(|v| v.parse().ok()).unwrap_or(0u32).min(48);
 
+        let nostall = std::env::var("NOSTALL").is_ok();
+        let (mut last, mut last_parity, mut late) = (0u64, 0usize, 0u32);
         for frame in 1..=frames {
             protocol += 1;
             let iteration = frame;
             let frame = protocol;
+            if nostall && last != 0 && bridge.completed() < last && !(header.frame_consumed.load(Ordering::Acquire) >= last && header.frame_submitted.load(Ordering::Acquire) < last) {
+                protocol -= 1;
+                late += 1;
+                std::thread::sleep(Duration::from_millis(11));
+                continue;
+            }
             while header.frame_submitted.load(Ordering::Acquire) + 2 < frame { std::thread::yield_now(); }
             let t = if freeze { 0.0 } else { frame as f32 * 0.1 };
             if sway { camera[0] = 0.4 * (frame as f32 * 0.25).sin(); }
@@ -488,7 +515,18 @@ fn main() {
             let rows = (texels.len() as u32).div_ceil(UPLOAD_WIDTH);
             if let Some(c) = &vkc { c.upload(rows); }
             #[cfg(windows)]
-            if let Some(c) = d3c.as_mut() { c.upload(rows); }
+            if direct && std::env::var("RETARGET").ok().and_then(|v| v.parse::<u64>().ok()).is_some_and(|n| iteration > 0 && iteration % n == 0) {
+                let c = d3c.as_mut().unwrap();
+                if !c.enable_direct(&mut bridge, w, views) { eprintln!("retarget failed at {iteration}"); std::process::exit(1); }
+                let begin = Instant::now();
+                while !bridge.direct_ready(0) && begin.elapsed() < Duration::from_secs(5) { std::thread::sleep(Duration::from_millis(1)); }
+                if !bridge.direct_ready(0) { eprintln!("tracer did not open retargeted textures at {iteration}"); std::process::exit(1); }
+                retargets += 1;
+            }
+            #[cfg(windows)]
+            if direct { bridge.acquire(0, (iteration & 1) as usize).unwrap(); }
+            #[cfg(windows)]
+            if let Some(c) = d3c.as_mut() { c.upload(rows, (iteration & 1) as usize); }
             if let Some(every) = std::env::var("RESIZE").ok().and_then(|v| v.parse::<u64>().ok()) {
                 let phase = iteration as u64 % every.max(2);
                 let scale = if phase == 0 { std::env::var("RESIZE_SCALE").ok().and_then(|v| v.parse::<u32>().ok()).unwrap_or(1186) } else if phase == 1 { 1000 } else { 0 };
@@ -497,8 +535,9 @@ fn main() {
             header.frame_requested.store(frame, Ordering::Release);
             bridge.wake();
             let started = Instant::now();
-            bridge.submit(frame, 0, (iteration & 1) as usize, rows).unwrap();
-            let fetched = bridge.fetch(frame, 0, (iteration & 1) as usize).unwrap();
+            let fetched = if nostall { let f = if last != 0 { bridge.fetch(last, 0, last_parity).unwrap() } else { 0 }; bridge.submit(frame, 0, (iteration & 1) as usize, rows).unwrap(); f } else { bridge.submit(frame, 0, (iteration & 1) as usize, rows).unwrap(); bridge.fetch(frame, 0, (iteration & 1) as usize).unwrap() };
+            let fetched = if nostall { let f = if fetched == last && last != 0 { frame } else { fetched }; last = frame; last_parity = (iteration & 1) as usize; f } else { fetched };
+            render_thread.push(started.elapsed().as_secs_f64() * 1000.0);
             if contexts > 1 {
                 protocol += 1;
                 let next = protocol;
@@ -517,7 +556,7 @@ fn main() {
             }
             if let Some(c) = &vkc { c.read(); }
             #[cfg(windows)]
-            if let Some(c) = d3c.as_mut() { c.read(); }
+            if let Some(c) = d3c.as_mut() { c.read((iteration & 1) as usize); }
             times.push(started.elapsed().as_secs_f64() * 1000.0);
             if iteration > 16 { let mut ps = [0u32; 8]; for i in 0..8 { ps[i] = header.reserved[i]; } pass_samples.push(ps); for i in 0..8 { gpu_sum[i] += header.reserved[i] as u64; } gpu_n += 1; record_us += header.build_time_us.load(Ordering::Relaxed) as u64; grid_us += header.reserved[8] as u64; grid_wait += header.reserved[9] as u64; let lag = header.frame_submitted.load(Ordering::Acquire); let p = (lag & 1) as usize; for i in 0..8 { parity_sum[p][i] += header.reserved[i] as u64; } parity_n[p] += 1; }
             prev_vp = vp;
@@ -590,6 +629,8 @@ fn main() {
             let pick = |i: usize, q: usize| { let mut v: Vec<u32> = pass_samples.iter().map(|s| s[i]).collect(); v.sort_unstable(); v[(v.len() - 1) * q / 100] };
             for (name, q) in [("p10", 10usize), ("p50", 50)] { println!("gpu us {name}: total {} | scene {} update {} resolve {} probes {} gather {} temporal {} wavelet {}", pick(0, q), pick(1, q), pick(2, q), pick(3, q), pick(4, q), pick(5, q), pick(6, q), pick(7, q)); }
         }
+        render_thread.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        if !render_thread.is_empty() { println!("render thread in submit+fetch ms median {:.3}, p90 {:.3}", render_thread[render_thread.len() / 2], render_thread[render_thread.len() * 9 / 10]); }
         println!("round trip ms median {:.3}, p90 {:.3}; tracer cpu record mean {} us; meshes {}", times[times.len() / 2], times[times.len() * 9 / 10], record_us / gpu_n.max(1), header.mesh_count.load(Ordering::Relaxed));
         if std::env::var("BASIS_RT_GRID_ALTERNATE").is_ok() {
             for p in 0..2 { let a = parity_sum[p].map(|v| v as f64 / parity_n[p].max(1) as f64); println!("frames ending {} ({}): total {:.0} | update {:.0} probes {:.0} gather {:.0} temporal {:.0} wavelet {:.0}", p, if p == 0 { "grid" } else { "no grid" }, a[0], a[2], a[4], a[5], a[6], a[7]); }
@@ -603,6 +644,20 @@ fn main() {
         }
         if contexts > 1 { println!("second context fetched {second_ok}/{frames} frames"); }
         if !flicker.is_empty() { println!("frame-to-frame change {:.2}% (mean over {} frames, sway {})", 100.0 * flicker.iter().sum::<f64>() / flicker.len() as f64, flicker.len(), sway); }
+        println!("unity gpu waits that could block: {}; late frames skipped: {late}", bridge.blocked_waits);
+        if retargets > 0 { println!("retargeted {retargets} times, open handles {}", handle_count()); }
         println!("wrote {out}");
+        if std::env::var("ABANDON").is_ok() {
+            let next = header.frame_submitted.load(Ordering::Acquire) + 1;
+            std::ptr::copy_nonoverlapping(slot(bridge.base, (next - 1) as usize), slot(bridge.base, next as usize), 1);
+            (*slot(bridge.base, next as usize)).params.frame = next;
+            header.frame_requested.store(next, Ordering::Release);
+            header.frame_queued.store(next, Ordering::Release);
+            bridge.wake();
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            let t = Instant::now();
+            drop(bridge);
+            println!("abandoned frame {next}; stop took {:?}", t.elapsed());
+        }
     }
 }

@@ -486,6 +486,7 @@ public static class BasisEditorCommandBridge
             type = assembly.GetType(path[0]);
             if (type != null) { break; }
         }
+        if (type == null) { type = FindType(path[0]); }
         if (type == null) { return "<no type>"; }
         object current = null;
         for (int i = 1; i < path.Length; i++)

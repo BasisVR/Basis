@@ -17,6 +17,7 @@ version = "0.1.0"
 dependencies = [
  "ash",
  "basis-rt-protocol",
+ "basis-rt-tracer",
  "libc",
  "windows",
 ]

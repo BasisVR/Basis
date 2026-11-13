@@ -20,40 +20,14 @@ float4 _BasisGIWorldSpecularParams;
 #endif
 static half3 basisWorldReflectionNormal = half3(0.0, 0.0, 0.0);
 
-half4 BasisWorldReflection(float3 positionWS, half3 normalWS, half3 reflectVector, half perceptualRoughness)
+#if !defined(SHADER_API_GLES3)
+float4 BasisWorldReflectionLevel(float3 positionWS, float3 normal, half3 reflectVector, half perceptualRoughness, int level)
 {
-#if defined(SHADER_API_GLES3)
-    return half4(0.0, 0.0, 0.0, 0.0);
-#else
-    UNITY_BRANCH
-    if (_BasisGIWorldSpecularParams.x <= 0.0 || _BasisGIWorldParams.w < 0.5 || dot(normalWS, normalWS) < 0.25) { return half4(0.0, 0.0, 0.0, 0.0); }
-
     int levels = (int)_BasisGIWorldParams.x;
     float voxels = _BasisGIWorldParams.y;
     int probes = (int)_BasisGIWorldParams.z;
-    float3 normal = normalize((float3)normalWS);
-    float3 origin = positionWS + normal * _BasisGIWorldLevel[0].w;
-    int level = -1;
-    float edge = 1.0;
-    UNITY_LOOP
-    for (int candidate = 0; candidate < levels; candidate++)
-    {
-        float4 bounds = _BasisGIWorldLevel[candidate];
-        float size = bounds.w * voxels;
-        float margin = bounds.w * 2.0;
-        float3 local = origin - bounds.xyz;
-        if (all(local >= margin) && all(local <= size - margin))
-        {
-            level = candidate;
-            float3 inner = min(local - margin, size - margin - local) / (bounds.w * 8.0);
-            edge = candidate == levels - 1 ? saturate(min(inner.x, min(inner.y, inner.z))) : 1.0;
-            break;
-        }
-    }
-    if (level < 0) { return half4(0.0, 0.0, 0.0, 0.0); }
-
     float4 box = _BasisGIWorldLevel[level];
-    origin = positionWS + normal * box.w;
+    float3 origin = positionWS + normal * box.w;
     float spacing = box.w * 2.0;
     float3 grid = origin / spacing - 0.5;
     int3 cell = (int3)floor(grid);
@@ -112,10 +86,62 @@ half4 BasisWorldReflection(float3 positionWS, half3 normalWS, half3 reflectVecto
         }
         weightSum += weight;
     }
-    if (weightSum <= 1e-5) { return half4(0.0, 0.0, 0.0, 0.0); }
+    if (weightSum <= 1e-5) { return float4(0.0, 0.0, 0.0, 0.0); }
+    return float4(max(0.0, lerp(glossy, diffuse, roughBlend) / weightSum), 1.0);
+}
+#endif
 
-    float3 world = max(0.0, lerp(glossy, diffuse, roughBlend) / weightSum) * _BasisGIWorldSpecularParams.z;
-    return half4((half3)world, (half)edge);
+half4 BasisWorldReflection(float3 positionWS, half3 normalWS, half3 reflectVector, half perceptualRoughness)
+{
+#if defined(SHADER_API_GLES3)
+    return half4(0.0, 0.0, 0.0, 0.0);
+#else
+    UNITY_BRANCH
+    if (_BasisGIWorldSpecularParams.x <= 0.0 || _BasisGIWorldParams.w < 0.5 || dot(normalWS, normalWS) < 0.25) { return half4(0.0, 0.0, 0.0, 0.0); }
+
+    int levels = (int)_BasisGIWorldParams.x;
+    float voxels = _BasisGIWorldParams.y;
+    float3 normal = normalize((float3)normalWS);
+    float3 origin = positionWS + normal * _BasisGIWorldLevel[0].w;
+    int level = -1;
+    float edge = 1.0;
+    float keep = 1.0;
+    UNITY_LOOP
+    for (int candidate = 0; candidate < levels; candidate++)
+    {
+        float4 bounds = _BasisGIWorldLevel[candidate];
+        float size = bounds.w * voxels;
+        float margin = bounds.w * 2.0;
+        float3 local = origin - bounds.xyz;
+        if (all(local >= margin) && all(local <= size - margin))
+        {
+            level = candidate;
+            float3 inner = min(local - margin, size - margin - local) / (bounds.w * 8.0);
+            float fade = saturate(min(inner.x, min(inner.y, inner.z)));
+            if (candidate == levels - 1) { edge = fade; }
+            else
+            {
+                float4 next = _BasisGIWorldLevel[candidate + 1];
+                float3 nextLocal = origin - next.xyz;
+                float nextMargin = next.w * 2.0;
+                if (all(nextLocal >= nextMargin) && all(nextLocal <= next.w * voxels - nextMargin)) { keep = fade; }
+            }
+            break;
+        }
+    }
+    if (level < 0) { return half4(0.0, 0.0, 0.0, 0.0); }
+
+    float4 world = BasisWorldReflectionLevel(positionWS, normal, reflectVector, perceptualRoughness, level);
+    UNITY_BRANCH
+    if (keep < 1.0)
+    {
+        float4 coarse = BasisWorldReflectionLevel(positionWS, normal, reflectVector, perceptualRoughness, level + 1);
+        if (world.a <= 0.0) { keep = 0.0; }
+        else if (coarse.a <= 0.0) { keep = 1.0; }
+        world = lerp(coarse, world, keep);
+    }
+    if (world.a <= 0.0) { return half4(0.0, 0.0, 0.0, 0.0); }
+    return half4((half3)(world.rgb * _BasisGIWorldSpecularParams.z), (half)edge);
 #endif
 }
 

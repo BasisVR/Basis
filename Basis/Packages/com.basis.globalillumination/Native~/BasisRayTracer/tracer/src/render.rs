@@ -94,6 +94,7 @@ pub struct Context {
     pub reservoir_scratch: ID3D12Resource,
     pub last_time: f32,
     pub cross: Option<crate::relay::Cross>,
+    pub output_common: bool,
 }
 
 pub struct Renderer {
@@ -549,7 +550,7 @@ impl Renderer {
             list.ResourceBarrier(&[transition(final_texture, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE)]);
             match &ctx.cross {
                 Some(cross) => list.CopyTextureRegion(&crate::relay::footprint(&cross.output[k as usize], ctx.width * ctx.views, ctx.height, DXGI_FORMAT_R16G16B16A16_FLOAT), 0, 0, 0, &crate::relay::subresource(final_texture), None),
-                None => list.CopyResource(&ctx.output[k as usize], final_texture),
+                None => { list.CopyResource(&ctx.output[k as usize], final_texture); if ctx.output_common { list.ResourceBarrier(&[transition(&ctx.output[k as usize], D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON)]); } }
             }
             list.ResourceBarrier(&[transition(final_texture, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)]);
             stamp(&list, 7);
@@ -662,15 +663,15 @@ pub fn create_upload(gpu: &Gpu) -> Result<Upload> {
     Ok(upload)
 }
 
-pub fn create_context(gpu: &Gpu, context: usize, width: u32, height: u32, views: u32) -> Result<Context> {
+pub fn create_context(gpu: &Gpu, context: usize, width: u32, height: u32, views: u32, targets: Option<([ID3D12Resource; 2], [ID3D12Resource; 2])>) -> Result<Context> {
     let shared = D3D12_HEAP_FLAG_SHARED;
     let sim = D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
     let full = width * views;
     let base = context_base(context);
     let g = |_: u32| gpu.texture(&texture_desc(full * 2, height * 2, 1, DXGI_FORMAT_R16G16B16A16_UINT, sim), shared, D3D12_RESOURCE_STATE_COMMON);
     let o = |_: u32| gpu.texture(&texture_desc(full, height, 1, DXGI_FORMAT_R16G16B16A16_FLOAT, sim), shared, D3D12_RESOURCE_STATE_COMMON);
-    let gbuffer = [g(0)?, g(1)?];
-    let output = [o(0)?, o(1)?];
+    let output_common = targets.as_ref().is_some_and(|(_, o)| unsafe { o[0].GetDesc() }.Flags & D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS != D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS);
+    let (gbuffer, output) = match targets { Some(t) => t, None => ([g(0)?, g(1)?], [o(0)?, o(1)?]) };
     for i in 0..2 { gpu.srv_texture(&gbuffer[i], DXGI_FORMAT_R16G16B16A16_UINT, 1, base + CTX_GBUFFER + i as u32); }
     let uav = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
     let mut textures = Vec::new();
@@ -701,5 +702,5 @@ pub fn create_context(gpu: &Gpu, context: usize, width: u32, height: u32, views:
     let scratch_bytes = full as u64 * height as u64 * 64;
     let reservoir_scratch = gpu.buffer(scratch_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)?;
     gpu.uav_raw(&reservoir_scratch, scratch_bytes, base + CTX_RESERVOIR_SCRATCH);
-    Ok(Context { gbuffer, output, textures, width, height, views, base, history_index: 0, history_valid: false, probes, probe_rays, reservoirs, reservoir_scratch, last_time: 0.0, cross: None })
+    Ok(Context { gbuffer, output, textures, width, height, views, base, history_index: 0, history_valid: false, probes, probe_rays, reservoirs, reservoir_scratch, last_time: 0.0, cross: None, output_common })
 }

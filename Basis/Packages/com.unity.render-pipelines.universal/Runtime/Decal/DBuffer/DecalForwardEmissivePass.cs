@@ -33,6 +33,7 @@ namespace UnityEngine.Rendering.Universal
 
         private class PassData
         {
+            internal System.IntPtr basisVrs;
             internal DecalDrawFowardEmissiveSystem drawSystem;
 
             internal RendererListHandle rendererList;
@@ -79,9 +80,13 @@ namespace UnityEngine.Rendering.Universal
                 builder.SetRenderAttachment(resourceData.activeColorTexture, 0, AccessFlags.Write);
                 builder.SetRenderAttachmentDepth(resourceData.activeDepthTexture, AccessFlags.Read);
 
+                passData.basisVrs = UniversalShadingRateData.TryBind(builder, frameData);
+
                 builder.SetRenderFunc(static (PassData data, RasterGraphContext rgContext) =>
                 {
+                    UniversalShadingRateData.BeginNative(rgContext.cmd, data.basisVrs);
                     ExecutePass(rgContext.cmd, data, data.rendererList);
+                    UniversalShadingRateData.EndNative(rgContext.cmd, data.basisVrs);
                 });
             }
         }

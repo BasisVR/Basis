@@ -29,6 +29,7 @@ namespace UnityEngine.Rendering.Universal
 
         private class PassData
         {
+            internal System.IntPtr basisVrs;
             internal XRPass xr;
             internal bool isActiveTargetBackBuffer;
             internal bool shouldYFlip;
@@ -61,10 +62,14 @@ namespace UnityEngine.Rendering.Universal
                     }
                 }
 
+                passData.basisVrs = UniversalShadingRateData.TryBind(builder, frameData);
+
                 builder.SetRenderFunc((PassData data, RasterGraphContext context) =>
                 {
+                    UniversalShadingRateData.BeginNative(context.cmd, data.basisVrs);
                     passData.shouldYFlip = RenderingUtils.IsHandleYFlipped(context, in data.cameraColorAttachment);
                     ExecutePass(context.cmd, data);
+                    UniversalShadingRateData.EndNative(context.cmd, data.basisVrs);
                 });
 
                 return;

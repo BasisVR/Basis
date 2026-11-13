@@ -11,6 +11,7 @@ namespace HVR.Basis.Comms
         private bool _active;
 
         public BasisEyeSource Source => BasisEyeSource.Osc;
+        public string DisplayName => "OSC";
         public bool IsActive => _active;
 
         public void SetActive(bool active) => _active = active;

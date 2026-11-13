@@ -1,4 +1,6 @@
 #![allow(non_snake_case)]
+#[cfg(windows)]
+pub mod hook;
 pub mod host;
 pub mod unity;
 pub mod vulkan;
@@ -26,6 +28,7 @@ use windows::core::Interface;
 
 pub const EVENT_SUBMIT: i32 = 0;
 pub const EVENT_FETCH: i32 = 1;
+pub const EVENT_ACQUIRE: i32 = 2;
 
 #[cfg(windows)]
 pub type Execute12 = Box<dyn Fn(&ID3D12GraphicsCommandList, &[(ID3D12Resource, D3D12_RESOURCE_STATES)]) + Send>;
@@ -86,6 +89,15 @@ pub struct Bridge {
     pub fetched: u64,
     pub fetch_failures: u64,
     pub resize_skips: u64,
+    pub direct: [Option<Direct>; MAX_CONTEXTS],
+    pub target_counter: u32,
+    retired: Vec<(usize, Direct)>,
+    pub blocked_waits: u64,
+}
+
+pub struct Direct {
+    #[cfg(windows)]
+    handles: [HANDLE; 4],
 }
 unsafe impl Send for Bridge {}
 
@@ -130,12 +142,19 @@ impl Bridge {
         h.luid_high = i32::from_le_bytes(adapter.luid[4..8].try_into().unwrap());
         h.device_uuid = adapter.uuid;
         let none = UnityTextures { gbuffer: std::ptr::null_mut(), result: std::ptr::null_mut() };
-        Ok(Bridge { backend, host, base, global: None, shared: Default::default(), unity: [none; MAX_CONTEXTS], unity_upload: std::ptr::null_mut(), used: [[0; 2]; MAX_CONTEXTS], same_frame: true, budget_us: 50_000, fetched: 0, fetch_failures: 0, resize_skips: 0 })
+        Ok(Bridge { backend, host, base, global: None, shared: Default::default(), unity: [none; MAX_CONTEXTS], unity_upload: std::ptr::null_mut(), used: [[0; 2]; MAX_CONTEXTS], same_frame: true, budget_us: 50_000, fetched: 0, fetch_failures: 0, resize_skips: 0, direct: Default::default(), target_counter: 0, retired: Vec::new(), blocked_waits: 0 })
     }
 
     pub fn launch(&mut self, exe: &str) -> Result<()> { self.launch_api(exe, if cfg!(windows) { TRACER_DXR } else { TRACER_VULKAN }) }
 
     pub fn launch_api(&mut self, exe: &str, api: u32) -> Result<()> { self.host.launch(exe, api == TRACER_VULKAN) }
+
+    pub fn launch_mode(&mut self, exe: &str, api: u32, embedded: bool) -> Result<()> {
+        #[cfg(windows)]
+        if embedded && api == TRACER_DXR { return self.host.launch_embedded(exe); }
+        let _ = embedded;
+        self.launch_api(exe, api)
+    }
 
     pub fn wake(&self) { self.host.wake(); }
 
@@ -150,12 +169,15 @@ impl Bridge {
         let interop = header(self.base).interop;
         match &self.backend {
             #[cfg(windows)]
-            Backend::D3D11 { device, .. } => unsafe { Ok(Res::D11(device.OpenSharedResource1(handle(v)).map_err(|e| format!("open shared texture: {}", e.message()))?)) },
+            Backend::D3D11 { device, .. } => unsafe { let r = device.OpenSharedResource1(handle(v)); Host::close_handle(handle(v)); Ok(Res::D11(r.map_err(|e| format!("open shared texture: {}", e.message()))?)) },
             #[cfg(windows)]
-            Backend::D3D12 { device, .. } => unsafe { let mut r: Option<ID3D12Resource> = None; device.OpenSharedHandle(handle(v), &mut r).msg()?; Ok(Res::D12(r.ok_or("open shared texture")?)) },
+            Backend::D3D12 { device, .. } => unsafe { let mut r: Option<ID3D12Resource> = None; let opened = device.OpenSharedHandle(handle(v), &mut r); Host::close_handle(handle(v)); opened.msg()?; Ok(Res::D12(r.ok_or("open shared texture")?)) },
             Backend::Vulkan(vk) => {
                 let h = self.host.take_handle(v).ok_or("the tracer's texture handle has not arrived")?;
-                let i = vk.import_image(h, interop, width, height, format)?;
+                let i = vk.import_image(h, interop, width, height, format);
+                #[cfg(windows)]
+                Host::close_handle(h);
+                let i = i?;
                 let res = Res::Vk { image: i.image, layout: vk::ImageLayout::GENERAL, shared: true, width, height };
                 imported.push(i);
                 Ok(res)
@@ -167,12 +189,15 @@ impl Bridge {
         let interop = header(self.base).interop;
         match &self.backend {
             #[cfg(windows)]
-            Backend::D3D11 { device, .. } => unsafe { let mut r: Option<ID3D11Fence> = None; device.OpenSharedFence(handle(v), &mut r).map_err(|e| format!("open shared fence: {}", e.message()))?; Ok(Fence::D11(r.ok_or("open shared fence")?)) },
+            Backend::D3D11 { device, .. } => unsafe { let mut r: Option<ID3D11Fence> = None; let opened = device.OpenSharedFence(handle(v), &mut r); Host::close_handle(handle(v)); opened.map_err(|e| format!("open shared fence: {}", e.message()))?; Ok(Fence::D11(r.ok_or("open shared fence")?)) },
             #[cfg(windows)]
-            Backend::D3D12 { device, .. } => unsafe { let mut r: Option<ID3D12Fence> = None; device.OpenSharedHandle(handle(v), &mut r).msg()?; Ok(Fence::D12(r.ok_or("open shared fence")?)) },
+            Backend::D3D12 { device, .. } => unsafe { let mut r: Option<ID3D12Fence> = None; let opened = device.OpenSharedHandle(handle(v), &mut r); Host::close_handle(handle(v)); opened.msg()?; Ok(Fence::D12(r.ok_or("open shared fence")?)) },
             Backend::Vulkan(vk) => {
                 let h = self.host.take_handle(v).ok_or("the tracer's fence handle has not arrived")?;
-                let s = vk.import_semaphore(h, interop)?;
+                let s = vk.import_semaphore(h, interop);
+                #[cfg(windows)]
+                Host::close_handle(h);
+                let s = s?;
                 semaphores.push(s);
                 Ok(Fence::Vk(s))
             }
@@ -201,6 +226,7 @@ impl Bridge {
         let ch = &h.contexts[context];
         let generation = ch.generation.load(Ordering::Acquire);
         if generation == 0 { return Ok(false); }
+        if self.direct[context].is_some() { return Ok(h.targets[context].opened.load(Ordering::Acquire) == h.targets[context].generation.load(Ordering::Acquire)); }
         if self.shared[context].as_ref().map_or(true, |s| s.generation != generation) {
             if let Some(old) = self.shared[context].take() { self.release_shared(old); }
             let full = ch.width * ch.views;
@@ -213,18 +239,24 @@ impl Bridge {
         Ok(true)
     }
 
+    fn completed_of(&self, fence: &Fence) -> u64 {
+        unsafe {
+            match (&self.backend, fence) {
+                #[cfg(windows)]
+                (_, Fence::D11(f)) => f.GetCompletedValue(),
+                #[cfg(windows)]
+                (_, Fence::D12(f)) => f.GetCompletedValue(),
+                (Backend::Vulkan(vk), Fence::Vk(s)) => vk.device.get_semaphore_counter_value(*s).unwrap_or(0),
+                _ => u64::MAX,
+            }
+        }
+    }
+
+    pub fn completed(&self) -> u64 { self.global.as_ref().map_or(0, |g| self.completed_of(&g.fence_tracer)) }
+
     fn reached(&self, fence: &Fence, value: u64, deadline: Instant) -> bool {
         loop {
-            let done = unsafe {
-                match (&self.backend, fence) {
-                    #[cfg(windows)]
-                    (_, Fence::D11(f)) => f.GetCompletedValue(),
-                    #[cfg(windows)]
-                    (_, Fence::D12(f)) => f.GetCompletedValue(),
-                    (Backend::Vulkan(vk), Fence::Vk(s)) => vk.device.get_semaphore_counter_value(*s).unwrap_or(0),
-                    _ => u64::MAX,
-                }
-            };
+            let done = self.completed_of(fence);
             if done >= value { return true; }
             if self.status() != STATUS_READY || Instant::now() >= deadline { return false; }
             std::thread::yield_now();
@@ -233,6 +265,7 @@ impl Bridge {
 
     #[cfg(windows)]
     fn wait(&mut self, fence: &Fence, value: u64) -> Result<()> {
+        if self.completed_of(fence) < value { self.blocked_waits += 1; }
         unsafe {
             match (&self.backend, fence) {
                 (Backend::D3D11 { context, .. }, Fence::D11(f)) => context.Wait(f, value).msg(),
@@ -302,7 +335,122 @@ impl Bridge {
     #[cfg(windows)]
     fn states(res: &Res, state: D3D12_RESOURCE_STATES) -> Vec<(ID3D12Resource, D3D12_RESOURCE_STATES)> { match res { Res::D12(r) => vec![(r.clone(), state)], _ => Vec::new() } }
 
+    pub fn direct_available(&self) -> bool {
+        #[cfg(windows)]
+        if let Backend::D3D11 { .. } = &self.backend { return hook::installed() && self.host.embedded() && self.status() == STATUS_READY && header(self.base).caps & CAP_DIRECT != 0; }
+        false
+    }
+
+    pub fn clear_targets(&mut self, context: usize) {
+        if context >= MAX_CONTEXTS { return; }
+        if let Some(d) = self.direct[context].take() {
+            header(self.base).targets[context].generation.store(0, Ordering::Release);
+            self.retired.push((context, d));
+            self.used[context] = [0; 2];
+            self.host.wake();
+        }
+        self.reap(false);
+    }
+
+    fn reap(&mut self, all: bool) {
+        let h = header(self.base);
+        self.retired.retain(|(c, _d)| {
+            let t = &h.targets[*c];
+            if !all && t.opened.load(Ordering::Acquire) != t.generation.load(Ordering::Acquire) { return true; }
+            #[cfg(windows)]
+            for handle in _d.handles { Host::close_handle(handle); }
+            false
+        });
+    }
+
+    #[cfg(windows)]
+    pub fn set_targets(&mut self, context: usize, targets: [*mut c_void; 4], width: u32, height: u32, views: u32) -> Result<bool> {
+        if context >= MAX_CONTEXTS { return Ok(false); }
+        if targets.iter().any(|t| t.is_null()) || !self.direct_available() { self.clear_targets(context); return Ok(false); }
+        if let Some(old) = self.direct[context].take() { self.retired.push((context, old)); }
+        let mut handles = Vec::new();
+        for t in targets {
+            let made = unsafe { ID3D11Texture2D::from_raw_borrowed(&t).and_then(|t| t.cast::<IDXGIResource1>().ok()).and_then(|r| r.CreateSharedHandle(None, DXGI_SHARED_RESOURCE_READ.0 | DXGI_SHARED_RESOURCE_WRITE.0, windows::core::PCWSTR::null()).ok()) };
+            match made { Some(h) => handles.push(h), None => { for h in handles { Host::close_handle(h); } return Ok(false); } }
+        }
+        self.target_counter = self.target_counter.wrapping_add(1).max(1);
+        let h = header(self.base);
+        let ch = &h.contexts[context];
+        ch.requested_width.store(width, Ordering::Release);
+        ch.requested_height.store(height, Ordering::Release);
+        ch.requested_views.store(views.clamp(1, 2), Ordering::Release);
+        let t = &mut h.targets[context];
+        t.handles = [handles[0].0 as u64, handles[1].0 as u64, handles[2].0 as u64, handles[3].0 as u64];
+        t.width = width;
+        t.height = height;
+        t.views = views.clamp(1, 2);
+        t.opened.store(0, Ordering::Release);
+        t.generation.store(self.target_counter, Ordering::Release);
+        self.direct[context] = Some(Direct { handles: [handles[0], handles[1], handles[2], handles[3]] });
+        self.used[context] = [0; 2];
+        self.host.wake();
+        Ok(true)
+    }
+
+    pub fn direct_ready(&self, context: usize) -> bool {
+        let h = header(self.base);
+        context < MAX_CONTEXTS && self.direct[context].is_some() && h.contexts[context].generation.load(Ordering::Acquire) > 0 && h.targets[context].opened.load(Ordering::Acquire) == h.targets[context].generation.load(Ordering::Acquire)
+    }
+
+    pub fn acquire(&mut self, context: usize, parity: usize) -> Result<()> {
+        if !self.retired.is_empty() { self.reap(false); }
+        if context >= MAX_CONTEXTS || self.direct[context].is_none() || !self.reopen(context)? { return Ok(()); }
+        let previous = self.used[context][parity & 1];
+        if previous == 0 { return Ok(()); }
+        let h = header(self.base);
+        let deadline = Instant::now() + Duration::from_micros(self.budget_us as u64);
+        while h.frame_submitted.load(Ordering::Acquire) < previous && Instant::now() < deadline && self.status() == STATUS_READY { std::thread::yield_now(); }
+        let wait_for = previous.min(h.frame_submitted.load(Ordering::Acquire));
+        #[cfg(windows)]
+        if wait_for > 0 { let fence = self.global.as_ref().unwrap().fence_tracer.clone(); self.wait(&fence, wait_for)?; }
+        let _ = wait_for;
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    fn submit_direct(&mut self, frame: u64, context: usize, parity: usize, upload_rows: u32) -> Result<bool> {
+        if !self.reopen(context)? { return Ok(false); }
+        let h = header(self.base);
+        let global = self.global.as_ref().unwrap();
+        let (fence_unity, fence_tracer) = (global.fence_unity.clone(), global.fence_tracer.clone());
+        let upload_dst = global.upload[(frame & 1) as usize].clone();
+        let rows = upload_rows.min(UPLOAD_HEIGHT);
+        if let Some(up) = if rows > 0 { self.unity_res(self.unity_upload) } else { None } {
+            let wait_for = frame.saturating_sub(2).min(h.frame_submitted.load(Ordering::Acquire));
+            if wait_for > 0 { self.wait(&fence_tracer, wait_for)?; }
+            self.copy(&upload_dst, &up, Some(rows * 2), &[])?;
+        }
+        self.signal(&fence_unity, frame)?;
+        self.used[context][parity & 1] = frame;
+        h.reserved[RESERVED_UPLOAD_TRACKED] = 1;
+        h.reserved[RESERVED_UPLOAD_MARK + (frame & 1) as usize] = frame as u32;
+        h.frame_queued.store(frame, Ordering::Release);
+        self.host.wake();
+        Ok(true)
+    }
+
+    #[cfg(windows)]
+    fn fetch_direct(&mut self, frame: u64) -> Result<u64> {
+        if self.global.is_none() { return Ok(0); }
+        let h = header(self.base);
+        let deadline = Instant::now() + Duration::from_micros(self.budget_us as u64);
+        while h.frame_submitted.load(Ordering::Acquire) < frame && Instant::now() < deadline && self.status() == STATUS_READY { std::thread::yield_now(); }
+        if h.frame_submitted.load(Ordering::Acquire) < frame { self.fetch_failures += 1; return Ok(0); }
+        let fence = self.global.as_ref().unwrap().fence_tracer.clone();
+        self.wait(&fence, frame)?;
+        self.fetched = frame;
+        FETCHED.store(frame, Ordering::Release);
+        Ok(frame)
+    }
+
     pub fn submit(&mut self, frame: u64, context: usize, parity: usize, upload_rows: u32) -> Result<bool> {
+        #[cfg(windows)]
+        if context < MAX_CONTEXTS && self.direct[context].is_some() { return self.submit_direct(frame, context, parity, upload_rows); }
         if context >= MAX_CONTEXTS || !self.reopen(context)? { return Ok(false); }
         let Some(gbuffer_src) = self.unity_res(self.unity[context].gbuffer) else { return Ok(false); };
         let h = header(self.base);
@@ -314,7 +462,7 @@ impl Bridge {
         let previous = self.used[context][parity & 1];
         let upload_previous = frame.saturating_sub(2);
         let wait_for = previous.max(upload_previous).min(submitted);
-        if wait_for > 0 && !self.reached(&fence_tracer, wait_for, Instant::now() + Duration::from_micros(self.budget_us as u64)) { return Ok(false); }
+        if wait_for > 0 && !self.host.embedded() && !self.reached(&fence_tracer, wait_for, Instant::now() + Duration::from_micros(self.budget_us as u64)) { return Ok(false); }
         let rows = upload_rows.min(UPLOAD_HEIGHT);
         let fits = Self::same_extent(&gbuffer_dst, &gbuffer_src);
         if !fits { self.resize_skips += 1; }
@@ -371,6 +519,8 @@ impl Bridge {
     }
 
     pub fn fetch(&mut self, frame: u64, context: usize, parity: usize) -> Result<u64> {
+        #[cfg(windows)]
+        if context < MAX_CONTEXTS && self.direct[context].is_some() { return self.fetch_direct(frame); }
         if context >= MAX_CONTEXTS || self.shared[context].is_none() { return Ok(0); }
         let Some(result) = self.unity_res(self.unity[context].result) else { return Ok(0); };
         let h = header(self.base);
@@ -381,7 +531,7 @@ impl Bridge {
         }
         if h.frame_submitted.load(Ordering::Acquire) < frame { self.fetch_failures += 1; return Ok(0); }
         let fence_tracer = self.global.as_ref().unwrap().fence_tracer.clone();
-        if !self.reached(&fence_tracer, frame, deadline) { self.fetch_failures += 1; return Ok(0); }
+        if !self.host.embedded() && !self.reached(&fence_tracer, frame, deadline) { self.fetch_failures += 1; return Ok(0); }
         let output = self.shared[context].as_ref().unwrap().output[parity & 1].clone();
         if !Self::same_extent(&result, &output) { self.resize_skips += 1; return Ok(0); }
         if let Backend::Vulkan(vk) = &mut self.backend {
@@ -417,6 +567,8 @@ unsafe fn copy_rows12(list: &ID3D12GraphicsCommandList, dst: &ID3D12Resource, sr
 impl Drop for Bridge {
     fn drop(&mut self) {
         self.host.stop();
+        for c in 0..MAX_CONTEXTS { if let Some(d) = self.direct[c].take() { self.retired.push((c, d)); } }
+        self.reap(true);
         if let Backend::Vulkan(_) = &self.backend {
             self.idle();
             let shared: Vec<Shared> = self.shared.iter_mut().filter_map(|s| s.take()).collect();
@@ -462,6 +614,7 @@ fn create_from_unity() -> Result<Bridge> {
                 let d = ((*interfaces).get_interface_split)(GUID_D3D11.0, GUID_D3D11.1) as *const UnityGraphicsD3D11;
                 let raw = ((*d).get_device)();
                 let device: ID3D11Device = ID3D11Device::from_raw_borrowed(&raw).ok_or("no Direct3D 11 device")?.clone();
+                hook::install(&device);
                 let device: ID3D11Device5 = device.cast().map_err(|_| "Direct3D 11.4 shared fences are not available".to_string())?;
                 let context: ID3D11DeviceContext4 = device.GetImmediateContext().msg()?.cast().msg()?;
                 let luid = adapter_luid_d3d11(&device)?;
@@ -505,6 +658,7 @@ fn create_from_unity() -> Result<Bridge> {
                 let config = UnityEventConfig { queue_access: 1, flags: 2 | 4, ensure_bound: false };
                 ((*d).configure_event)(base + EVENT_SUBMIT, &config);
                 ((*d).configure_event)(base + EVENT_FETCH, &config);
+                ((*d).configure_event)(base + EVENT_ACQUIRE, &config);
                 Bridge::new(backend_d3d12(device, queue, execute)?, Adapter { luid: luid_bytes(luid), uuid: [0; 16] }, API_D3D12)
             }
             RENDERER_VULKAN => {
@@ -524,6 +678,7 @@ fn create_from_unity() -> Result<Bridge> {
                 let config = UnityVulkanPluginEventConfig { render_pass_precondition: 2, graphics_queue_access: 1, flags: 2 | 4 };
                 ((*v).configure_event)(base + EVENT_SUBMIT, &config);
                 ((*v).configure_event)(base + EVENT_FETCH, &config);
+                ((*v).configure_event)(base + EVENT_ACQUIRE, &config);
                 let (backend, adapter) = backend_vulkan(instance, inst.physical, device, inst.queue, inst.family, resolve)?;
                 Bridge::new(backend, adapter, API_VULKAN)
             }
@@ -537,7 +692,7 @@ pub unsafe extern "system" fn UnityPluginLoad(interfaces: *const UnityInterfaces
     INTERFACES.store(interfaces as u64, Ordering::Release);
     unsafe {
         let graphics = ((*interfaces).get_interface_split)(GUID_GRAPHICS.0, GUID_GRAPHICS.1) as *const UnityGraphics;
-        if !graphics.is_null() { EVENT_BASE.store(((*graphics).reserve_event_id_range)(2) as u64, Ordering::Release); }
+        if !graphics.is_null() { EVENT_BASE.store(((*graphics).reserve_event_id_range)(3) as u64, Ordering::Release); }
         install_vulkan_hook(interfaces);
     }
 }
@@ -555,23 +710,32 @@ unsafe fn wide(text: *const u16) -> String {
     String::from_utf16_lossy(unsafe { std::slice::from_raw_parts(text, n) })
 }
 
-fn start(path: String, api: u32) -> i32 {
+fn start(path: String, api: u32, embedded: bool) -> i32 {
     let mut guard = BRIDGE.lock().unwrap();
     *guard = None;
-    match create_from_unity().and_then(|mut b| { b.launch_api(&path, api)?; Ok(b) }) {
+    match create_from_unity().and_then(|mut b| { b.launch_mode(&path, api, embedded)?; Ok(b) }) {
         Ok(b) => { *guard = Some(b); set_error(""); 1 }
         Err(e) => { set_error(e); 0 }
     }
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn BasisRT_Start(exe: *const u16) -> i32 { start(unsafe { wide(exe) }, if cfg!(windows) { TRACER_DXR } else { TRACER_VULKAN }) }
+pub unsafe extern "C" fn BasisRT_Start(exe: *const u16) -> i32 { start(unsafe { wide(exe) }, if cfg!(windows) { TRACER_DXR } else { TRACER_VULKAN }, false) }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn BasisRT_StartApi(exe: *const u16, api: i32) -> i32 {
     let api = if api as u32 == TRACER_VULKAN || cfg!(not(windows)) { TRACER_VULKAN } else { TRACER_DXR };
-    start(unsafe { wide(exe) }, api)
+    start(unsafe { wide(exe) }, api, false)
 }
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn BasisRT_StartMode(exe: *const u16, api: i32, embedded: i32) -> i32 {
+    let api = if api as u32 == TRACER_VULKAN || cfg!(not(windows)) { TRACER_VULKAN } else { TRACER_DXR };
+    start(unsafe { wide(exe) }, api, embedded != 0)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn BasisRT_Embedded() -> i32 { BRIDGE.lock().unwrap().as_ref().map_or(0, |b| b.host.embedded() as i32) }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn BasisRT_Stop() { *BRIDGE.lock().unwrap() = None; }
@@ -606,6 +770,36 @@ pub unsafe extern "C" fn BasisRT_Error(buffer: *mut u16, length: i32) -> i32 {
 pub extern "C" fn BasisRT_SetUpload(upload: *mut c_void) { if let Some(b) = BRIDGE.lock().unwrap().as_mut() { b.unity_upload = upload; } }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn BasisRT_Completed() -> u64 { BRIDGE.lock().unwrap().as_ref().map_or(0, |b| b.completed()) }
+
+#[unsafe(no_mangle)]
+pub extern "C" fn BasisRT_DirectAvailable() -> i32 { BRIDGE.lock().unwrap().as_ref().map_or(0, |b| b.direct_available() as i32) }
+
+#[unsafe(no_mangle)]
+pub extern "C" fn BasisRT_ArmTexture(width: u32, height: u32) {
+    #[cfg(windows)]
+    { hook::disarm(); hook::arm(&[(width, height)]); }
+    let _ = (width, height);
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn BasisRT_DisarmTargets() {
+    #[cfg(windows)]
+    hook::disarm();
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn BasisRT_SetContextTargets(context: i32, gbuffer0: *mut c_void, gbuffer1: *mut c_void, result0: *mut c_void, result1: *mut c_void, width: u32, height: u32, views: u32) -> i32 {
+    let mut guard = BRIDGE.lock().unwrap();
+    let Some(b) = guard.as_mut() else { return 0; };
+    if !(0..MAX_CONTEXTS as i32).contains(&context) { return 0; }
+    #[cfg(windows)]
+    return match b.set_targets(context as usize, [gbuffer0, gbuffer1, result0, result1], width, height, views) { Ok(ok) => ok as i32, Err(e) => { set_error(e); 0 } };
+    #[cfg(not(windows))]
+    { let _ = (gbuffer0, gbuffer1, result0, result1, width, height, views); b.clear_targets(context as usize); 0 }
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn BasisRT_SetContextTextures(context: i32, gbuffer: *mut c_void, result: *mut c_void) {
     if let Some(b) = BRIDGE.lock().unwrap().as_mut() {
         if (0..MAX_CONTEXTS as i32).contains(&context) { b.unity[context as usize] = UnityTextures { gbuffer, result }; }
@@ -632,6 +826,7 @@ unsafe extern "system" fn on_render_event(event: i32, data: *mut c_void) {
     let result = match event - base {
         EVENT_SUBMIT => b.submit(frame, context, parity, rows).map(|_| ()),
         EVENT_FETCH => b.fetch(frame, context, parity).map(|_| ()),
+        EVENT_ACQUIRE => b.acquire(context, parity),
         _ => Ok(()),
     };
     if let Err(e) = result { set_error(format!("render event {}: {e}", event - base)); }
@@ -679,7 +874,7 @@ pub extern "C" fn BasisRT_Consumed() -> u64 { with_header(0, |h, _| h.frame_cons
 #[unsafe(no_mangle)]
 pub extern "C" fn BasisRT_Ready(context: i32) -> i32 {
     if !(0..MAX_CONTEXTS as i32).contains(&context) { return 0; }
-    with_header(0, |h, b| { let c = &h.contexts[context as usize]; (b.status() == STATUS_READY && h.generation.load(Ordering::Acquire) > 0 && c.generation.load(Ordering::Acquire) > 0 && c.width == c.requested_width.load(Ordering::Acquire) && c.height == c.requested_height.load(Ordering::Acquire) && c.views == c.requested_views.load(Ordering::Acquire)) as i32 })
+    with_header(0, |h, b| { let c = &h.contexts[context as usize]; (b.status() == STATUS_READY && (b.direct[context as usize].is_none() || b.direct_ready(context as usize)) && h.generation.load(Ordering::Acquire) > 0 && c.generation.load(Ordering::Acquire) > 0 && c.width == c.requested_width.load(Ordering::Acquire) && c.height == c.requested_height.load(Ordering::Acquire) && c.views == c.requested_views.load(Ordering::Acquire)) as i32 })
 }
 
 #[unsafe(no_mangle)]
@@ -695,6 +890,7 @@ pub extern "C" fn BasisRT_Stat(index: i32) -> u32 {
         4 => b.fetch_failures as u32,
         9 => b.resize_skips as u32,
         18 => h.reserved[RESERVED_UPLOAD_LOST],
+        19 => b.blocked_waits as u32,
         5 => h.generation.load(Ordering::Relaxed),
         6 => MAX_CONTEXTS as u32,
         7 => h.tracer_api,

@@ -27,7 +27,7 @@ namespace Basis.Scripts.Device_Management.EyeTracking
 
         public static void Simulate()
         {
-            if (!BasisVariableRateShadingFeature.IsSupported)
+            if (!BasisVariableRateShadingPass.HardwareUsable)
             {
                 return;
             }
@@ -81,11 +81,21 @@ namespace Basis.Scripts.Device_Management.EyeTracking
             _promptOpen = true;
 
             BasisGazeFoveationPrompt.Show(
-                onDecided: enabled =>
+                BasisEyeTrackingManager.HmdSourceName,
+                onDecided: choice =>
                 {
                     _promptOpen = false;
+                    if (choice == BasisGazeFoveationPrompt.Choice.No)
+                    {
+                        return;
+                    }
+                    bool enabled = choice == BasisGazeFoveationPrompt.Choice.Enable;
                     BasisSettingsSystem.SaveBool(DecidedKey(deviceId), true);
                     BasisSettingsSystem.SaveBool(EnabledKey(deviceId), enabled);
+                    if (enabled)
+                    {
+                        ApplyRecommendedRadii();
+                    }
                     SetVrVrs(enabled && BasisEyeTrackingManager.HmdEyeTrackingPresent);
                 },
                 onDismissed: () =>
@@ -93,6 +103,17 @@ namespace Basis.Scripts.Device_Management.EyeTracking
                     // Left undecided — re-ask the next time the headset is detected.
                     _promptOpen = false;
                 });
+        }
+
+        private static void ApplyRecommendedRadii()
+        {
+            BasisSettingsBinding<float> inner = BasisSettingsDefaults.VrsFovealInnerRadius;
+            BasisSettingsBinding<float> outer = BasisSettingsDefaults.VrsFovealOuterRadius;
+            if (inner.RawValue < inner.DefaultValue.GetDefault() || outer.RawValue < outer.DefaultValue.GetDefault() || outer.RawValue < inner.RawValue)
+            {
+                inner.ResetToDefault();
+                outer.ResetToDefault();
+            }
         }
 
         private static void SetVrVrs(bool on)

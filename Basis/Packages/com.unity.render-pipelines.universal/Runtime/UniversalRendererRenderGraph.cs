@@ -1275,7 +1275,7 @@ namespace UnityEngine.Rendering.Universal
             UniversalPostProcessingData postProcessingData = frameData.Get<UniversalPostProcessingData>();
 
             if (renderingData.stencilLodCrossFadeEnabled)
-                m_StencilCrossFadeRenderPass.Render(renderGraph, context, resourceData.activeDepthTexture);
+                m_StencilCrossFadeRenderPass.Render(renderGraph, frameData, context, resourceData.activeDepthTexture);
 
             RecordCustomRenderGraphPasses(renderGraph, RenderPassEvent.BeforeRenderingPrePasses);
 
@@ -1319,7 +1319,7 @@ namespace UnityEngine.Rendering.Universal
 
                 // Prepare stencil buffer for stencil-based cross-fade lod in depth normal prepass. Depth prepass doesn't use stencil test (same as shadow).
                 if (renderingData.stencilLodCrossFadeEnabled && isDepthNormalPrepass && !renderToAttachment)
-                    m_StencilCrossFadeRenderPass.Render(renderGraph, context, resourceData.cameraDepthTexture);
+                    m_StencilCrossFadeRenderPass.Render(renderGraph, frameData, context, resourceData.cameraDepthTexture);
 
                 bool needsOccluderUpdate = occluderPass == OccluderPass.DepthPrepass;
                 var passCount = needsOccluderUpdate ? 2 : 1;

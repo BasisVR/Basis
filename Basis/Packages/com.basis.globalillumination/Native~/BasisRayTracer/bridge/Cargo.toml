@@ -13,6 +13,7 @@ ash = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 windows = { workspace = true }
+basis-rt-tracer = { path = "../tracer" }
 
 [target.'cfg(unix)'.dependencies]
 libc = { workspace = true }

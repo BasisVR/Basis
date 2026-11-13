@@ -32,6 +32,8 @@ namespace Basis.Scripts.Device_Management.EyeTracking
         private const float HmdPresenceTimeoutSeconds = 2f;
         private static float _lastHmdActiveTime = float.NegativeInfinity;
 
+        public static string HmdSourceName;
+
         /// <summary>
         /// True when an HMD eye source has delivered valid gaze recently (blink/dropout tolerant).
         /// This is the reliable "eye-tracking-capable headset present and working" signal — a
@@ -71,6 +73,7 @@ namespace Basis.Scripts.Device_Management.EyeTracking
         {
             BasisEyeTrackingData hmdData = default;
             BasisEyeTrackingData oscData = default;
+            string hmdName = null;
             bool hmdHas = false;
             bool oscHas = false;
             bool hmdActive = false;
@@ -92,6 +95,7 @@ namespace Basis.Scripts.Device_Management.EyeTracking
                         BasisEyeTrackingData d = default;
                         hmdHas = provider.TryGetEyeData(ref d);
                         hmdData = d;
+                        if (hmdHas) hmdName = provider.DisplayName;
                     }
                 }
                 else
@@ -107,7 +111,11 @@ namespace Basis.Scripts.Device_Management.EyeTracking
             }
 
             bool hmdGaze = hmdHas && (hmdData.HasWorldRay || hmdData.HasPerEyeAngles);
-            if (hmdGaze) _lastHmdActiveTime = Time.unscaledTime;
+            if (hmdGaze)
+            {
+                _lastHmdActiveTime = Time.unscaledTime;
+                HmdSourceName = hmdName;
+            }
             bool oscGaze = oscHas && (oscData.HasWorldRay || oscData.HasPerEyeAngles);
 
             BasisEyeTrackingData merged = default;

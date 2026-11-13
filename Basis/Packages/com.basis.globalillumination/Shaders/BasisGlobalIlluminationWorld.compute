@@ -338,7 +338,7 @@ void Inject(uint3 id : SV_DispatchThreadID)
         int shLevel = BasisGIWorldLevelAt(origin, 1.0);
         if (shLevel >= 0)
         {
-            BasisGIWorldSH sh = BasisGIWorldSampleSH(origin, shLevel);
+            BasisGIWorldSH sh = BasisGIWorldSampleSHSeamless(origin, shLevel, 1.0);
             bounce = min(BasisGIWorldIrradianceSH(sh, normal), 4.0);
         }
     }

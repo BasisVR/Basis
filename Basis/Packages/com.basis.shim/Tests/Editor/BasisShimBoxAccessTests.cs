@@ -38,24 +38,36 @@ namespace Basis.Tests.Sync
             box.CheckTypeAllowed(type) &&
             box.CheckMethodAllowed(out MethodInfo _, type, name, Array.Empty<SerializedTypeDescriptor>(), Array.Empty<SerializedTypeDescriptor>(), name + "()");
 
+        static bool Method(CilboxBasisCommon box, Type type, string name, params Type[] parameters) =>
+            box.CheckTypeAllowed(type) &&
+            box.CheckMethodAllowed(out MethodInfo _, type, name, Array.ConvertAll(parameters, SerializedTypeDescriptorBuilder.FromNativeType), Array.Empty<SerializedTypeDescriptor>(), name);
+
         [Test]
-        public void ControllerInput_WorldOnly()
+        public void ControllerInput_WorldAny_OthersSelfOnly()
         {
             Assert.IsTrue(Method(Box(typeof(CilboxSceneBasis)), typeof(BasisControllerInputShim), nameof(BasisControllerInputShim.GetButtonDown)));
             Assert.IsTrue(Method(Box(typeof(CilboxSceneBasis)), typeof(BasisControllerInputShim), "get_" + nameof(BasisControllerInputShim.IsBlocked)));
-            Assert.IsFalse(Method(Box(typeof(CilboxPropBasis)), typeof(BasisControllerInputShim), nameof(BasisControllerInputShim.GetButtonDown)));
-            Assert.IsFalse(Method(Box(typeof(CilboxAvatarBasis)), typeof(BasisControllerInputShim), nameof(BasisControllerInputShim.GetButtonDown)));
+            foreach (Type boxType in new[] { typeof(CilboxPropBasis), typeof(CilboxAvatarBasis) })
+            {
+                Assert.IsFalse(Method(Box(boxType), typeof(BasisControllerInputShim), nameof(BasisControllerInputShim.GetButtonDown), typeof(BasisControllerHand), typeof(BasisControllerButton)), boxType.Name);
+                Assert.IsTrue(Method(Box(boxType), typeof(BasisControllerInputShim), nameof(BasisControllerInputShim.GetButtonDown), typeof(object), typeof(BasisControllerHand), typeof(BasisControllerButton)), boxType.Name);
+                Assert.IsTrue(Method(Box(boxType), typeof(BasisControllerInputShim), "get_" + nameof(BasisControllerInputShim.IsBlocked)), boxType.Name);
+                Assert.IsFalse(Method(Box(boxType), typeof(BasisDesktopInputShim), "get_" + nameof(BasisDesktopInputShim.MouseDelta)), boxType.Name);
+                Assert.IsTrue(Method(Box(boxType), typeof(BasisDesktopInputShim), nameof(BasisDesktopInputShim.GetMouseDelta), typeof(object)), boxType.Name);
+                Assert.IsFalse(Method(Box(boxType), typeof(BasisDesktopInputShim), nameof(BasisDesktopInputShim.GetMouseButton), typeof(int)), boxType.Name);
+                Assert.IsTrue(Method(Box(boxType), typeof(BasisDesktopInputShim), nameof(BasisDesktopInputShim.GetMouseButton), typeof(object), typeof(int)), boxType.Name);
+            }
         }
 
         [Test]
-        public void InputRequest_WorldOnly()
+        public void InputRequest_EveryBox()
         {
-            Assert.IsTrue(Method(Box(typeof(CilboxSceneBasis)), typeof(BasisInputShim), nameof(BasisInputShim.Request)));
-            Assert.IsTrue(Method(Box(typeof(CilboxSceneBasis)), typeof(BasisInputRequest), nameof(BasisInputRequest.Read)));
-            foreach (Type boxType in new[] { typeof(CilboxPropBasis), typeof(CilboxAvatarBasis) })
+            foreach (Type boxType in new[] { typeof(CilboxSceneBasis), typeof(CilboxPropBasis), typeof(CilboxAvatarBasis) })
             {
-                Assert.IsFalse(Method(Box(boxType), typeof(BasisInputShim), nameof(BasisInputShim.Request)), boxType.Name);
-                Assert.IsFalse(Method(Box(boxType), typeof(BasisInputRequest), nameof(BasisInputRequest.Read)), boxType.Name);
+                Assert.IsTrue(Method(Box(boxType), typeof(BasisInputShim), nameof(BasisInputShim.Request)), boxType.Name);
+                Assert.IsTrue(Method(Box(boxType), typeof(BasisInputRequest), nameof(BasisInputRequest.Read)), boxType.Name);
+                Assert.IsTrue(Box(boxType).CheckTypeAllowed(typeof(UnityEngine.InputSystem.Key)), boxType.Name);
+                Assert.IsTrue(Box(boxType).CheckTypeAllowed(typeof(BasisInputGamepadControl)), boxType.Name);
             }
         }
 

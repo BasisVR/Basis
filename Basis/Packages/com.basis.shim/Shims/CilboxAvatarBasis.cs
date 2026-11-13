@@ -39,6 +39,18 @@ namespace Cilbox
 			"Basis.Shims.BasisSettingFavouritesShim",
 			"Basis.Shims.BasisKeyboardShim", // Only opens for the player wearing the avatar.
 			"Basis.Shims.BasisKeyboardContent",
+			// Input reads only reach the player wearing the avatar; remote copies read nothing.
+			// The desktop and controller shims are limited to their self overloads, see CilboxBasisCommon.
+			"Basis.Shims.BasisInputShim",
+			"Basis.Shims.BasisInputRequest",
+			"Basis.Shims.BasisInputMouseAxis",
+			"Basis.Shims.BasisInputGamepadControl",
+			"Basis.Shims.BasisInputControllerAxis",
+			"Basis.Shims.BasisDesktopInputShim",
+			"Basis.Shims.BasisControllerInputShim",
+			"Basis.Shims.BasisControllerHand",
+			"Basis.Shims.BasisControllerButton",
+			"UnityEngine.InputSystem.Key",
 			// Bulk transform / blendshape get-set-copy. The prop and scene boxes pick these up
 			// from their blanket "Basis.Shims.*"; the avatar box enumerates, so they need naming.
 			// They grant no authority a script does not already have on a Transform or a

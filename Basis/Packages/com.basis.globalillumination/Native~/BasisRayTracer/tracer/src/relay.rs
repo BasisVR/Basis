@@ -98,9 +98,7 @@ impl Relay {
         unsafe {
             let factory: IDXGIFactory6 = CreateDXGIFactory2(DXGI_CREATE_FACTORY_FLAGS(0))?;
             let adapter: IDXGIAdapter1 = factory.EnumAdapterByLuid(LUID { LowPart: luid_low, HighPart: luid_high })?;
-            let mut device: Option<ID3D12Device> = None;
-            D3D12CreateDevice(&adapter, D3D_FEATURE_LEVEL_11_0, &mut device)?;
-            let device = device.ok_or_else(|| Error::from(E_FAIL))?;
+            let device: ID3D12Device = crate::d3d::create_device(&adapter.cast()?, D3D_FEATURE_LEVEL_11_0)?;
             let queue = || device.CreateCommandQueue::<ID3D12CommandQueue>(&D3D12_COMMAND_QUEUE_DESC { Type: D3D12_COMMAND_LIST_TYPE_DIRECT, Priority: D3D12_COMMAND_QUEUE_PRIORITY_HIGH.0, ..Default::default() });
             let (queue_in, queue_out) = (queue()?, queue()?);
             let allocators = || (0..RING).map(|_| device.CreateCommandAllocator::<ID3D12CommandAllocator>(D3D12_COMMAND_LIST_TYPE_DIRECT)).collect::<Result<Vec<_>>>();

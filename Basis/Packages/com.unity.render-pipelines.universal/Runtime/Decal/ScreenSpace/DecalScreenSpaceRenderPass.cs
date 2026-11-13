@@ -50,6 +50,7 @@ namespace UnityEngine.Rendering.Universal
 
         private class PassData
         {
+            internal System.IntPtr basisVrs;
             internal DecalDrawScreenSpaceSystem drawSystem;
             internal DecalScreenSpaceSettings settings;
             internal bool decalLayers;
@@ -128,10 +129,14 @@ namespace UnityEngine.Rendering.Universal
 
                 builder.AllowGlobalStateModification(true);
 
+                passData.basisVrs = UniversalShadingRateData.TryBind(builder, frameData);
+
                 builder.SetRenderFunc(static (PassData data, RasterGraphContext rgContext) =>
                 {
+                    UniversalShadingRateData.BeginNative(rgContext.cmd, data.basisVrs);
                     RenderingUtils.SetScaleBiasRt(rgContext.cmd, in data.cameraData, data.colorTarget);
                     ExecutePass(rgContext.cmd, data, data.rendererList);
+                    UniversalShadingRateData.EndNative(rgContext.cmd, data.basisVrs);
                 });
             }
         }

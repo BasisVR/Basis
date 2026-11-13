@@ -24,6 +24,18 @@ namespace Basis.Scripts.Device_Management.Devices.OpenXR
         private float3 _gazeDirection;
 
         public BasisEyeSource Source => BasisEyeSource.Hmd;
+        public string DisplayName
+        {
+            get
+            {
+                if (Application.platform == RuntimePlatform.Android && !string.IsNullOrEmpty(SystemInfo.deviceModel))
+                {
+                    return SystemInfo.deviceModel;
+                }
+                string runtime = UnityEngine.XR.OpenXR.OpenXRRuntime.name;
+                return string.IsNullOrEmpty(runtime) ? "OpenXR" : runtime;
+            }
+        }
         public bool IsActive => _hasGaze;
 
         public bool TryGetEyeData(ref BasisEyeTrackingData data)

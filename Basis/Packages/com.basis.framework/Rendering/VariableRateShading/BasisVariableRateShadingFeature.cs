@@ -8,10 +8,10 @@ using UnityEngine.Rendering.Universal;
 namespace Basis.Scripts.Rendering
 {
     /// <summary>
-    /// Gaze-driven Variable Rate Shading for desktop (DirectX 12). Builds a per-frame
-    /// shading rate image that keeps each eye's foveal region sharp and coarsens the
-    /// periphery, then binds it onto URP's depth, depth-normals, opaque, skybox and
-    /// transparent passes. Desktop only; Quest keeps its native OpenXR foveation.
+    /// Gaze-driven Variable Rate Shading for desktop (DirectX 12, or DirectX 11 on NVIDIA through
+    /// the BasisVrsD3D11 plugin). Builds a per-frame shading rate image that keeps each eye's
+    /// foveal region sharp and coarsens the periphery, then binds it onto every camera-resolution
+    /// URP pass that draws with depth. Desktop only; Quest keeps its native OpenXR foveation.
     /// </summary>
     [AutoStaticsCleanup]
     [DisallowMultipleRendererFeature("BasisVariableRateShading")]
@@ -25,7 +25,8 @@ namespace Basis.Scripts.Rendering
         private BasisVariableRateShadingPass _pass;
         private BasisVariableRateShadingDebugPass _debugPass;
 
-        public static bool IsSupported => SystemInfo.graphicsDeviceType == GraphicsDeviceType.Direct3D12;
+        public static bool IsSupported => SystemInfo.graphicsDeviceType == GraphicsDeviceType.Direct3D12 || UsesD3D11Plugin;
+        public static bool UsesD3D11Plugin => SystemInfo.graphicsDeviceType == GraphicsDeviceType.Direct3D11 && BasisVrsD3D11.Supported;
 
         // Liveness/status for diagnostics (Basis eye pipeline window).
         public static int LastDispatchFrame;
@@ -35,6 +36,7 @@ namespace Basis.Scripts.Rendering
 
         public override void Create()
         {
+            _pass?.Dispose();
             _pass = new BasisVariableRateShadingPass(buildShader)
             {
                 renderPassEvent = RenderPassEvent.BeforeRendering,
@@ -67,12 +69,13 @@ namespace Basis.Scripts.Rendering
             _pass.Configure(gazeProjectDistance, yFlip);
             renderer.EnqueuePass(_pass);
 
-            if (debugVisualize && _debugPass != null)
+            if (debugVisualize && _debugPass != null && !UsesD3D11Plugin)
                 renderer.EnqueuePass(_debugPass);
         }
 
         protected override void Dispose(bool disposing)
         {
+            _pass?.Dispose();
             _pass = null;
             _debugPass = null;
         }

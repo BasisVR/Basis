@@ -5,22 +5,27 @@ using UnityEngine;
 namespace Basis.BasisUI
 {
     /// <summary>
-    /// One-time, per-headset prompt offering to enable gaze-foveated Variable Rate Shading
-    /// when an eye-tracking headset is first detected. <paramref name="onDecided"/> fires with
-    /// the user's explicit choice (remembered by the caller); <paramref name="onDismissed"/>
-    /// fires if the prompt is closed without answering (left undecided, re-asked next time).
+    /// Per-headset prompt offering to enable gaze-foveated Variable Rate Shading when an
+    /// eye-tracking headset is detected. Enable and DontRemind are remembered by the caller;
+    /// No and closing without answering leave it undecided, so it is asked again next time.
     /// </summary>
     public static class BasisGazeFoveationPrompt
     {
-        public static void Show(Action<bool> onDecided, Action onDismissed, bool forceShow = false)
+        public enum Choice { Enable, No, DontRemind }
+
+        public static void Show(string deviceName, Action<Choice> onDecided, Action onDismissed, bool forceShow = false)
         {
             string title = BasisLocalization.Get("settings.eyeFoveation.prompt.title");
             string body = BasisLocalization.Get("settings.eyeFoveation.prompt.body");
+            if (!string.IsNullOrEmpty(deviceName))
+            {
+                body = BasisLocalization.Get("settings.eyeFoveation.prompt.detected", deviceName) + "\n\n" + body;
+            }
 
             if (!forceShow && BasisNotificationCenter.RouteToNotifications)
             {
                 BasisNotificationCenter.AddPending(title, body, AddressableAssets.Sprites.Information,
-                    reopen: () => Show(onDecided, onDismissed, true),
+                    reopen: () => Show(deviceName, onDecided, onDismissed, true),
                     onDismiss: () => onDismissed?.Invoke());
                 return;
             }
@@ -51,7 +56,7 @@ namespace Basis.BasisUI
             info.SetDescription(body);
 
             bool answered = false;
-            void Decide(bool value)
+            void Decide(Choice value)
             {
                 if (answered) return;
                 answered = true;
@@ -64,11 +69,15 @@ namespace Basis.BasisUI
 
             PanelButton enable = PanelButton.CreateNew(PanelButton.ButtonStyles.AcceptButton, actionGroup.TabButtonParent);
             enable.Descriptor.SetTitle(BasisLocalization.Get("settings.eyeFoveation.prompt.enable"));
-            enable.OnClicked += () => Decide(true);
+            enable.OnClicked += () => Decide(Choice.Enable);
 
             PanelButton no = PanelButton.CreateNew(PanelButton.ButtonStyles.CancelButton, actionGroup.TabButtonParent);
             no.Descriptor.SetTitle(BasisLocalization.Get("settings.eyeFoveation.prompt.no"));
-            no.OnClicked += () => Decide(false);
+            no.OnClicked += () => Decide(Choice.No);
+
+            PanelButton never = PanelButton.CreateNew(PanelButton.ButtonStyles.CancelButton, actionGroup.TabButtonParent);
+            never.Descriptor.SetTitle(BasisLocalization.Get("settings.eyeFoveation.prompt.never"));
+            never.OnClicked += () => Decide(Choice.DontRemind);
 
             panel.OnInstanceReleased += () =>
             {

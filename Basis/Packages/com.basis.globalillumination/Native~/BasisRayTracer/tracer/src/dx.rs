@@ -50,12 +50,16 @@ impl Tracer {
             }
         };
         let global = publish().map_err(|e| format!("share handles: {e}"))?;
+        if let Some(stop) = &link.stop {
+            for f in &fences { stop.register(f); }
+            if let Some(r) = &relay { for f in [&r.fence_unity, &r.fence_tracer, &r.trace_in, &r.trace_out] { stop.register(f); } }
+        }
         Ok(Tracer { gpu, scene, renderer, fences, _upload: upload, global, relay })
     }
 }
 
 impl Backend for Tracer {
-    fn caps(&self) -> u32 { self.gpu.caps }
+    fn caps(&self) -> u32 { self.gpu.caps | if self.relay.is_none() { CAP_DIRECT } else { 0 } }
     fn api(&self) -> u32 { TRACER_DXR }
     fn interop(&self) -> u32 { INTEROP_D3D12 }
     fn global_handles(&self) -> [u64; 4] { self.global }
@@ -68,9 +72,22 @@ impl Backend for Tracer {
         Ok(())
     }
 
-    fn create_context(&mut self, link: &os::Link, context: usize, width: u32, height: u32, views: u32) -> Fallible<[u64; 4]> {
-        let mut ctx = render::create_context(&self.gpu, context, width, height, views).map_err(|e| e.to_string())?;
+    fn create_context(&mut self, link: &os::Link, context: usize, width: u32, height: u32, views: u32, targets: Option<[u64; 4]>) -> Fallible<[u64; 4]> {
         let device: ID3D12Device = self.gpu.device.cast().map_err(|e: Error| e.to_string())?;
+        if let Some(t) = targets {
+            if self.relay.is_some() { return Err("Unity-owned targets cannot be used with a second GPU".into()); }
+            let open = |h: u64| -> Fallible<ID3D12Resource> { let mut r: Option<ID3D12Resource> = None; unsafe { device.OpenSharedHandle(HANDLE(h as *mut core::ffi::c_void), &mut r).map_err(|e| format!("open a Unity target: {}", e.message()))?; } r.ok_or_else(|| "open a Unity target".to_string()) };
+            let opened = ([open(t[0])?, open(t[1])?], [open(t[2])?, open(t[3])?]);
+            let full = width * views;
+            for (r, w, h) in [(&opened.0[0], full * 2, height * 2), (&opened.0[1], full * 2, height * 2), (&opened.1[0], full, height), (&opened.1[1], full, height)] {
+                let d = unsafe { r.GetDesc() };
+                if d.Width != w as u64 || d.Height != h { return Err(format!("Unity target is {}x{}, expected {w}x{h}", d.Width, d.Height)); }
+            }
+            let ctx = render::create_context(&self.gpu, context, width, height, views, Some(opened)).map_err(|e| e.to_string())?;
+            self.renderer.contexts[context] = Some(ctx);
+            return Ok([0; 4]);
+        }
+        let mut ctx = render::create_context(&self.gpu, context, width, height, views, None).map_err(|e| e.to_string())?;
         let mut handles = [0u64; 4];
         if let Some(r) = self.relay.as_mut() {
             let (shared, cross) = r.create_context(&device, context, width, height, views).map_err(|e| format!("link the two GPUs: {}", e.message()))?;
@@ -103,4 +120,5 @@ impl Backend for Tracer {
     fn prepare(&mut self, slot: *mut Slot) -> Fallible<()> { self.renderer.prepare(&self.gpu, &self.scene, slot).map_err(|e| e.message()) }
     fn grid_us(&self) -> (u32, u32) { (self.renderer.grid.build_us, self.renderer.grid.wait_us) }
     fn counts(&self) -> (u32, u32) { (self.scene.meshes.len() as u32, self.scene.textures.len() as u32) }
+    fn idle(&mut self) { let _ = self.gpu.flush(); }
 }

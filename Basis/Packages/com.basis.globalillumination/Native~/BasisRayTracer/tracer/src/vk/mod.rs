@@ -40,7 +40,8 @@ impl Backend for Tracer {
         Ok(())
     }
 
-    fn create_context(&mut self, link: &os::Link, context: usize, width: u32, height: u32, views: u32) -> Fallible<[u64; 4]> {
+    fn create_context(&mut self, link: &os::Link, context: usize, width: u32, height: u32, views: u32, targets: Option<[u64; 4]>) -> Fallible<[u64; 4]> {
+        if targets.is_some() { return Err("Unity-owned targets need the DXR tracer".into()); }
         self.renderer.create_context(&mut self.gpu, &self.interop, link, context, width, height, views)
     }
 
@@ -49,4 +50,5 @@ impl Backend for Tracer {
     fn prepare(&mut self, slot: *mut Slot) -> Fallible<()> { self.renderer.prepare(&self.gpu, &self.scene, slot) }
     fn grid_us(&self) -> (u32, u32) { (self.renderer.grid.build_us, self.renderer.grid.wait_us) }
     fn counts(&self) -> (u32, u32) { (self.scene.meshes.len() as u32, self.scene.textures.len() as u32) }
+    fn idle(&mut self) { let _ = self.gpu.flush(); }
 }

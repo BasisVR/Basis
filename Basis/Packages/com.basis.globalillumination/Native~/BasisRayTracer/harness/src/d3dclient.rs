@@ -61,6 +61,8 @@ fn subresource(texture: &ID3D12Resource) -> D3D12_TEXTURE_COPY_LOCATION {
 
 pub struct Client {
     unity: Unity,
+    device11: Option<ID3D11Device>,
+    direct: Option<([ID3D11Texture2D; 2], [ID3D11Texture2D; 2])>,
     d11: Option<(ID3D11DeviceContext, ID3D11Texture2D, ID3D11Texture2D, ID3D11Texture2D, ID3D11Texture2D, ID3D11Texture2D)>,
     gbuffer: ID3D12Resource,
     upload: ID3D12Resource,
@@ -95,6 +97,7 @@ impl Client {
             let d3d11 = std::env::var("API").map(|v| v == "11").unwrap_or(false);
             let adapter_id = Adapter { luid: luid_bytes(device.GetAdapterLuid()), uuid: [0; 16] };
             let mut d11 = None;
+            let mut device11_keep: Option<ID3D11Device> = None;
             let mut bridge = if d3d11 {
                 let mut device11: Option<ID3D11Device> = None;
                 let mut context11: Option<ID3D11DeviceContext> = None;
@@ -110,6 +113,7 @@ impl Client {
                 let bind = (D3D11_BIND_SHADER_RESOURCE.0 | D3D11_BIND_UNORDERED_ACCESS.0) as u32;
                 d11 = Some((context11.clone().unwrap(), tex11(w * 2, h * 2, DXGI_FORMAT_R16G16B16A16_UINT, D3D11_USAGE_DEFAULT, bind, 0), tex11(UPLOAD_WIDTH, UPLOAD_PHYSICAL_HEIGHT, DXGI_FORMAT_R16G16B16A16_UINT, D3D11_USAGE_DEFAULT, bind, 0), tex11(w, h, DXGI_FORMAT_R16G16B16A16_FLOAT, D3D11_USAGE_DEFAULT, bind, 0), tex11(w, h, DXGI_FORMAT_R16G16B16A16_FLOAT, D3D11_USAGE_STAGING, 0, D3D11_CPU_ACCESS_READ.0 as u32), tex11(w, h, DXGI_FORMAT_R16G16B16A16_FLOAT, D3D11_USAGE_DEFAULT, bind, 0)));
                 println!("unity side: Direct3D 11");
+                device11_keep = device11.clone();
                 Bridge::new(Backend::D3D11 { device: d5, context: c4 }, adapter_id, API_D3D11).unwrap()
             } else {
                 println!("unity side: Direct3D 12");
@@ -131,14 +135,70 @@ impl Client {
             let (gstage, gptr) = unity.buffer((w * 2 * 16) as u64 * h as u64, D3D12_HEAP_TYPE_UPLOAD);
             let (ustage, uptr) = unity.buffer(UPLOAD_WIDTH as u64 * 16 * UPLOAD_HEIGHT as u64, D3D12_HEAP_TYPE_UPLOAD);
             let (readback, rptr) = unity.buffer(rpitch as u64 * h as u64, D3D12_HEAP_TYPE_READBACK);
-            (Client { unity, d11, gbuffer, upload, result, _second: second, gstage, ustage, readback, gptr, uptr, rptr, w, h, rpitch }, bridge)
+            (Client { unity, device11: if d3d11 { device11_keep } else { None }, direct: None, d11, gbuffer, upload, result, _second: second, gstage, ustage, readback, gptr, uptr, rptr, w, h, rpitch }, bridge)
         }
     }
 
-    pub fn upload(&mut self, rows: u32) {
+    pub fn enable_direct(&mut self, bridge: &mut Bridge, width: u32, views: u32) -> bool {
+        let (Some(device), true) = (self.device11.clone(), self.d11.is_some()) else { return false; };
+        hook::install(&device);
+        let (w, h) = (self.w, self.h);
+        hook::arm(&[(w * 2, h * 2), (w * 2, h * 2), (w, h), (w, h)]);
+        let bind = (D3D11_BIND_SHADER_RESOURCE.0 | D3D11_BIND_UNORDERED_ACCESS.0) as u32;
+        let make = |w: u32, h: u32, format: DXGI_FORMAT| -> ID3D11Texture2D {
+            let desc = D3D11_TEXTURE2D_DESC { Width: w, Height: h, MipLevels: 1, ArraySize: 1, Format: format, SampleDesc: DXGI_SAMPLE_DESC { Count: 1, Quality: 0 }, Usage: D3D11_USAGE_DEFAULT, BindFlags: bind, CPUAccessFlags: 0, MiscFlags: 0 };
+            let mut t: Option<ID3D11Texture2D> = None;
+            unsafe { device.CreateTexture2D(&desc, None, Some(&mut t)).unwrap(); }
+            t.unwrap()
+        };
+        let g = [make(w * 2, h * 2, DXGI_FORMAT_R16G16B16A16_TYPELESS), make(w * 2, h * 2, DXGI_FORMAT_R16G16B16A16_TYPELESS)];
+        let r = [make(w, h, DXGI_FORMAT_R16G16B16A16_TYPELESS), make(w, h, DXGI_FORMAT_R16G16B16A16_TYPELESS)];
+        hook::disarm();
+        let ok = bridge.set_targets(0, [g[0].as_raw(), g[1].as_raw(), r[0].as_raw(), r[1].as_raw()], width, h, views).unwrap_or(false);
+        if ok { self.direct = Some((g, r)); }
+        ok
+    }
+
+    pub fn copy_bench(&self) {
+        let (Some(device), Some((c, _, _, _, _, _))) = (self.device11.clone(), self.d11.as_ref()) else { return; };
+        let (w, h) = (self.w, self.h);
+        let bind = (D3D11_BIND_SHADER_RESOURCE.0 | D3D11_BIND_UNORDERED_ACCESS.0) as u32;
+        let make = |w: u32, h: u32| -> ID3D11Texture2D {
+            let desc = D3D11_TEXTURE2D_DESC { Width: w, Height: h, MipLevels: 1, ArraySize: 1, Format: DXGI_FORMAT_R16G16B16A16_UINT, SampleDesc: DXGI_SAMPLE_DESC { Count: 1, Quality: 0 }, Usage: D3D11_USAGE_DEFAULT, BindFlags: bind, CPUAccessFlags: 0, MiscFlags: 0 };
+            let mut t: Option<ID3D11Texture2D> = None;
+            unsafe { device.CreateTexture2D(&desc, None, Some(&mut t)).unwrap(); }
+            t.unwrap()
+        };
+        unsafe {
+            let query = |kind: D3D11_QUERY| -> ID3D11Query { let mut q: Option<ID3D11Query> = None; device.CreateQuery(&D3D11_QUERY_DESC { Query: kind, MiscFlags: 0 }, Some(&mut q)).unwrap(); q.unwrap() };
+            for (name, w, h) in [("gbuffer", w * 2, h * 2), ("output", w, h)] {
+                let (a, b) = (make(w, h), make(w, h));
+                let mut samples = Vec::new();
+                for _ in 0..60 {
+                    let (disjoint, t0, t1) = (query(D3D11_QUERY_TIMESTAMP_DISJOINT), query(D3D11_QUERY_TIMESTAMP), query(D3D11_QUERY_TIMESTAMP));
+                    c.Begin(&disjoint);
+                    c.End(&t0);
+                    c.CopyResource(&b, &a);
+                    c.End(&t1);
+                    c.End(&disjoint);
+                    let mut d = D3D11_QUERY_DATA_TIMESTAMP_DISJOINT::default();
+                    while { let _ = c.GetData(&disjoint, Some(&mut d as *mut _ as _), std::mem::size_of_val(&d) as u32, 0); d.Frequency == 0 } {}
+                    let (mut v0, mut v1) = (0u64, 0u64);
+                    while { let _ = c.GetData(&t0, Some(&mut v0 as *mut _ as _), 8, 0); v0 == 0 } {}
+                    while { let _ = c.GetData(&t1, Some(&mut v1 as *mut _ as _), 8, 0); v1 == 0 } {}
+                    if d.Disjoint.as_bool() == false { samples.push((v1 - v0) as f64 * 1e6 / d.Frequency as f64); }
+                }
+                samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                println!("copy bench {name} {w}x{h}: gpu us p10 {:.1} median {:.1}", samples[samples.len() / 10], samples[samples.len() / 2]);
+            }
+        }
+    }
+
+    pub fn upload(&mut self, rows: u32, parity: usize) {
         let (w, h) = (self.w, self.h);
         unsafe {
             if let Some((c, g, u, _, _, _)) = &self.d11 {
+                let g = self.direct.as_ref().map_or(g, |d| &d.0[parity & 1]);
                 c.UpdateSubresource(g, 0, None, self.gptr as _, w * 2 * 8, 0);
                 if rows > 0 { c.UpdateSubresource(u, 0, Some(&D3D11_BOX { left: 0, top: 0, front: 0, right: UPLOAD_WIDTH, bottom: rows * 2, back: 1 }), self.uptr as _, UPLOAD_WIDTH * 8, 0); }
             } else {
@@ -151,10 +211,11 @@ impl Client {
         }
     }
 
-    pub fn read(&mut self) {
+    pub fn read(&mut self, parity: usize) {
         let (w, h, rpitch, rptr) = (self.w, self.h, self.rpitch, self.rptr);
         unsafe {
             if let Some((c, _, _, r, staging, _)) = &self.d11 {
+                let r = self.direct.as_ref().map_or(r, |d| &d.1[parity & 1]);
                 c.CopyResource(staging, r);
                 let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
                 c.Map(staging, 0, D3D11_MAP_READ, 0, Some(&mut mapped)).unwrap();

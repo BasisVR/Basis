@@ -24,6 +24,21 @@ namespace Basis.BasisUI
         public override string IconAddress => _iconAddress;
         public override int Order => 50; // after static items
         public override bool Hidden => false;
+        public override string FavouriteKey => PinnedFavouriteKey(_key.Url);
+
+        public static string PinnedFavouriteKey(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return null;
+            uint hash = 2166136261;
+            var chars = new System.Text.StringBuilder("menu.pinned.", 12 + System.Math.Min(url.Length, 96) + 9);
+            for (int i = 0; i < url.Length; i++)
+            {
+                char c = url[i];
+                hash = (hash ^ c) * 16777619;
+                if (i < 96) chars.Append((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '.' || c == '-' ? c : '_');
+            }
+            return chars.Append('.').Append(hash.ToString("x8")).ToString();
+        }
 
         private PanelButton _boundButton;
         private static bool _registryHooked;

@@ -24,6 +24,7 @@ namespace UnityEngine.Rendering.Universal.Internal
 
         private class PassData
         {
+            internal System.IntPtr basisVrs;
             internal UniversalCameraData cameraData;
             internal UniversalLightData lightData;
             internal UniversalShadowData shadowData;
@@ -77,9 +78,13 @@ namespace UnityEngine.Rendering.Universal.Internal
                 }
 #endif
 
+                passData.basisVrs = UniversalShadingRateData.TryBind(builder, frameData);
+
                 builder.SetRenderFunc(static (PassData data, RasterGraphContext context) =>
                 {
+                    UniversalShadingRateData.BeginNative(context.cmd, data.basisVrs);
                     data.deferredLights.ExecuteDeferredPass(context.cmd, data.cameraData, data.lightData, data.shadowData, data.gbuffer, context);
+                    UniversalShadingRateData.EndNative(context.cmd, data.basisVrs);
                 });
             }
         }

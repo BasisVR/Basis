@@ -42,6 +42,26 @@ int BasisGIWorldLevelAt(float3 positionWS, float marginProbes)
     return -1;
 }
 
+#define BASISGI_WORLD_SEAM_PROBES 3.0
+
+float BasisGIWorldLevelKeep(float3 positionWS, float marginProbes, int level)
+{
+    int levels = BasisGIWorldLevels();
+    if (level < 0 || level >= levels - 1) { return 1.0; }
+    float voxels = _BasisGIWorldParams.y;
+    float4 box = _BasisGIWorldLevel[level];
+    float margin = box.w * 2.0 * marginProbes;
+    float3 local = positionWS - box.xyz;
+    float3 inner = min(local - margin, box.w * voxels - margin - local);
+    float keep = saturate(min(inner.x, min(inner.y, inner.z)) / (box.w * 2.0 * BASISGI_WORLD_SEAM_PROBES));
+    if (keep >= 1.0) { return 1.0; }
+    float4 next = _BasisGIWorldLevel[level + 1];
+    float nextMargin = next.w * 2.0 * marginProbes;
+    float3 nextLocal = positionWS - next.xyz;
+    if (any(nextLocal < nextMargin) || any(nextLocal > next.w * voxels - nextMargin)) { return 1.0; }
+    return keep;
+}
+
 int3 BasisGIWorldWrap(int3 index, int count)
 {
     return index & (count - 1);
@@ -149,6 +169,24 @@ BasisGIWorldSH BasisGIWorldSampleSH(float3 positionWS, int level)
     return sh;
 }
 
+BasisGIWorldSH BasisGIWorldSampleSHSeamless(float3 positionWS, int level, float marginProbes)
+{
+    BasisGIWorldSH sh = BasisGIWorldSampleSH(positionWS, level);
+    float keep = BasisGIWorldLevelKeep(positionWS, marginProbes, level);
+    UNITY_BRANCH
+    if (keep < 1.0)
+    {
+        BasisGIWorldSH coarse = BasisGIWorldSampleSH(positionWS, level + 1);
+        if (sh.c0.a <= 0.0) { keep = 0.0; }
+        else if (coarse.c0.a <= 0.0) { keep = 1.0; }
+        sh.c0 = lerp(coarse.c0, sh.c0, keep);
+        sh.cx = lerp(coarse.cx, sh.cx, keep);
+        sh.cy = lerp(coarse.cy, sh.cy, keep);
+        sh.cz = lerp(coarse.cz, sh.cz, keep);
+    }
+    return sh;
+}
+
 float3 BasisGIWorldRadianceSH(BasisGIWorldSH sh, float3 direction)
 {
     float3 value = sh.c0.rgb * BASISGI_WORLD_SH_Y0 + (sh.cx * direction.x + sh.cy * direction.y + sh.cz * direction.z) * BASISGI_WORLD_SH_Y1;
@@ -166,7 +204,7 @@ float4 BasisGIWorldRadiance(float3 positionWS, float3 direction)
     if (!BasisGIWorldValid()) { return float4(0.0, 0.0, 0.0, 0.0); }
     int level = BasisGIWorldLevelAt(positionWS, 1.0);
     if (level < 0) { return float4(0.0, 0.0, 0.0, 0.0); }
-    BasisGIWorldSH sh = BasisGIWorldSampleSH(positionWS, level);
+    BasisGIWorldSH sh = BasisGIWorldSampleSHSeamless(positionWS, level, 1.0);
     return float4(BasisGIWorldRadianceSH(sh, direction), sh.c0.a);
 }
 

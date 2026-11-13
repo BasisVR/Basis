@@ -217,6 +217,7 @@ namespace UnityEngine.Rendering.Universal
 
         private class PassData
         {
+            internal System.IntPtr basisVrs;
             internal RenderObjects.CustomCameraSettings cameraSettings;
             internal RenderPassEvent renderPassEvent;
 
@@ -344,8 +345,11 @@ namespace UnityEngine.Rendering.Universal
                     }
                 }
 
+                passData.basisVrs = cameraData.imageScalingMode != ImageScalingMode.Upscaling || passData.renderPassEvent < RenderPassEvent.AfterRenderingPostProcessing ? UniversalShadingRateData.TryBind(builder, frameData) : System.IntPtr.Zero;
+
                 builder.SetRenderFunc(static (PassData data, RasterGraphContext rgContext) =>
                 {
+                    UniversalShadingRateData.BeginNative(rgContext.cmd, data.basisVrs);
                     var isYFlipped = RenderingUtils.IsHandleYFlipped(rgContext, in data.color);
 
                     // Set shader keywords for depth input attachment
@@ -374,6 +378,7 @@ namespace UnityEngine.Rendering.Universal
                     }
 
                     ExecutePass(data, rgContext.cmd, data.rendererListHdl, isYFlipped);
+                    UniversalShadingRateData.EndNative(rgContext.cmd, data.basisVrs);
                 });
             }
         }

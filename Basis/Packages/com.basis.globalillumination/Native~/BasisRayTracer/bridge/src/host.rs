@@ -12,7 +12,7 @@ mod imp {
 
     pub type Handle = HANDLE;
 
-    pub struct Host { pub base: *mut u8, mapping: HANDLE, wake: HANDLE, process: Option<HANDLE> }
+    pub struct Host { pub base: *mut u8, mapping: HANDLE, wake: HANDLE, process: Option<HANDLE>, thread: Option<(std::thread::JoinHandle<()>, std::sync::Arc<basis_rt_tracer::Stop>)>, stranded: bool }
 
     impl Host {
         pub fn new() -> super::Result<Host> {
@@ -23,7 +23,7 @@ mod imp {
                 let view = MapViewOfFile(mapping, FILE_MAP_ALL_ACCESS, 0, 0, MAPPING_BYTES);
                 if view.Value.is_null() { return Err(Error::from_thread().message()); }
                 let wake = CreateEventW(None, false, false, &HSTRING::from(wake_tracer_name(pid))).map_err(|e| e.message())?;
-                Ok(Host { base: view.Value as *mut u8, mapping, wake, process: None })
+                Ok(Host { base: view.Value as *mut u8, mapping, wake, process: None, thread: None, stranded: false })
             }
         }
 
@@ -44,7 +44,19 @@ mod imp {
             Ok(())
         }
 
-        pub fn exited(&self) -> bool { self.process.is_some_and(|p| unsafe { WaitForSingleObject(p, 0) } == WAIT_OBJECT_0) }
+        pub fn launch_embedded(&mut self, exe: &str) -> super::Result<()> {
+            let directory = std::path::Path::new(exe).parent().map(|p| p.join("D3D12")).ok_or("no tracer folder")?;
+            let sdk = format!("{}\\", directory.to_string_lossy());
+            let stop = std::sync::Arc::new(basis_rt_tracer::Stop::default());
+            let e = basis_rt_tracer::Embedded { base: self.base, wake: self.wake.0, sdk, stop: stop.clone() };
+            let thread = std::thread::Builder::new().name("Basis Ray Tracer".into()).spawn(move || basis_rt_tracer::run_embedded(e)).map_err(|e| format!("start the tracer thread: {e}"))?;
+            self.thread = Some((thread, stop));
+            Ok(())
+        }
+
+        pub fn embedded(&self) -> bool { self.thread.is_some() }
+
+        pub fn exited(&self) -> bool { self.process.is_some_and(|p| unsafe { WaitForSingleObject(p, 0) } == WAIT_OBJECT_0) || self.thread.as_ref().is_some_and(|(t, _)| t.is_finished()) }
 
         pub fn wake(&self) { unsafe { let _ = SetEvent(self.wake); } }
 
@@ -53,6 +65,13 @@ mod imp {
         pub fn close_handle(handle: Handle) { unsafe { let _ = CloseHandle(handle); } }
 
         pub fn stop(&mut self) {
+            if let Some((thread, stop)) = self.thread.take() {
+                stop.trigger();
+                self.wake();
+                let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+                while !thread.is_finished() && std::time::Instant::now() < deadline { std::thread::sleep(std::time::Duration::from_millis(1)); stop.trigger(); }
+                if thread.is_finished() { let _ = thread.join(); } else { self.stranded = true; }
+            }
             if let Some(p) = self.process.take() {
                 unsafe {
                     if WaitForSingleObject(p, 0) != WAIT_OBJECT_0 { let _ = TerminateProcess(p, 0); WaitForSingleObject(p, 2000); }
@@ -65,6 +84,7 @@ mod imp {
     impl Drop for Host {
         fn drop(&mut self) {
             self.stop();
+            if self.stranded { return; }
             unsafe {
                 let _ = UnmapViewOfFile(MEMORY_MAPPED_VIEW_ADDRESS { Value: self.base as _ });
                 let _ = CloseHandle(self.mapping);
@@ -101,6 +121,8 @@ mod imp {
         }
 
         pub fn pid() -> u32 { std::process::id() }
+
+        pub fn embedded(&self) -> bool { false }
 
         pub fn launch(&mut self, exe: &str, _vulkan: bool) -> super::Result<()> {
             use std::os::unix::fs::PermissionsExt;

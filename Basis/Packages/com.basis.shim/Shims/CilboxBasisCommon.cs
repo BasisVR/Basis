@@ -937,6 +937,7 @@ namespace Cilbox
 			{
 				if (MatchesWildcard(allowedType, sType)) return true;
 			}
+			if (CilboxPackageAccess.AllowsType(sType, CilboxPackageAccess.KindOf(this))) return true;
 			return Beyond(CilboxItems.TypePrefix + sType, sType.StartsWith("Cilbox.", StringComparison.Ordinal));
 		}
 
@@ -956,6 +957,7 @@ namespace Cilbox
 			{
 				if (MatchesWildcard(allowedField, fullField)) return true;
 			}
+			if (CilboxPackageAccess.AllowsField(sType, sFieldName, CilboxPackageAccess.KindOf(this))) return true;
 			return Beyond(CilboxItems.FieldPrefix + fullField, false);
 		}
 
@@ -965,6 +967,8 @@ namespace Cilbox
 			CilboxProfiler.Resolving(this);
 
 			if (fullSignature != null && fullSignature.IndexOf('*') >= 0) return Beyond(MethodItem(declaringType, name), true);
+
+			if (CilboxPackageAccess.Blocks(declaringType, name, CilboxPackageAccess.KindOf(this))) return Beyond(MethodItem(declaringType, name), true);
 
 			// Redirect every UnityEngine.Object.Instantiate variant through the sanitizing
 			// shim so spawned prefabs are scrubbed (disallowed components destroyed,
@@ -1047,6 +1051,8 @@ namespace Cilbox
 
 			if (declaringType == typeof(Basis.Shims.BasisHapticsShim) && !CilboxHaptics.IsEntryPoint(name)) return Beyond(MethodItem(declaringType, name), true);
 
+			if (!(this is CilboxSceneBasis) && (declaringType == typeof(Basis.Shims.BasisDesktopInputShim) || declaringType == typeof(Basis.Shims.BasisControllerInputShim)) && name != "get_" + nameof(Basis.Shims.BasisDesktopInputShim.HasMouse) && name != "get_" + nameof(Basis.Shims.BasisControllerInputShim.IsBlocked) && !TakesSelf(parametersIn, fullSignature)) return Beyond(MethodItem(declaringType, name), true);
+
 			if (CilboxMenus.Blocks(declaringType, name)) return Beyond(MethodItem(declaringType, name), true);
 
 			if (CilboxScriptBus.Blocks(declaringType, name)) return Beyond(MethodItem(declaringType, name), true);
@@ -1072,6 +1078,21 @@ namespace Cilbox
 			if (declaringType == typeof(Basis.Shims.BasisComputeShim) && !CilboxCompute.IsEntryPoint(name)) return Beyond(MethodItem(declaringType, name), true);
 
 			return CuratedMethodAllowed(declaringType, name) || Beyond(MethodItem(declaringType, name), false);
+		}
+
+		private bool TakesSelf(SerializedTypeDescriptor[] parametersIn, string fullSignature)
+		{
+			if (parametersIn == null) return fullSignature != null && fullSignature.Contains("(System.Object");
+			if (parametersIn.Length == 0) return false;
+			try
+			{
+				Type[] parameters = usage.DescriptorsToArrayOfNativeTypes(parametersIn);
+				return parameters.Length > 0 && parameters[0] == typeof(object);
+			}
+			catch (Exception)
+			{
+				return false;
+			}
 		}
 
 		private static bool PublicOnly(Type type)

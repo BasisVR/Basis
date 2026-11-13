@@ -97,6 +97,7 @@ namespace UnityEngine.Rendering.Universal.Internal
         /// </summary>
         private class PassData
         {
+            internal System.IntPtr basisVrs;
             internal DeferredLights deferredLights;
             internal RendererListHandle rendererListHdl;
             internal RendererListHandle objectsWithErrorRendererListHdl;
@@ -217,9 +218,13 @@ namespace UnityEngine.Rendering.Universal.Internal
 
             builder.AllowGlobalStateModification(true);
 
+            passData.basisVrs = UniversalShadingRateData.TryBind(builder, frameData);
+
             builder.SetRenderFunc(static (PassData data, RasterGraphContext context) =>
             {
+                UniversalShadingRateData.BeginNative(context.cmd, data.basisVrs);
                 ExecutePass(context.cmd, data, data.rendererListHdl, data.objectsWithErrorRendererListHdl);
+                UniversalShadingRateData.EndNative(context.cmd, data.basisVrs);
             });
         }
     }

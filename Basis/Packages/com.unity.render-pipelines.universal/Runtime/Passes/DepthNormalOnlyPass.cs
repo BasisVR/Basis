@@ -120,6 +120,7 @@ namespace UnityEngine.Rendering.Universal.Internal
         /// </summary>
         private class PassData
         {
+            internal System.IntPtr basisVrs;
             internal bool enableRenderingLayers;
             internal bool outputSmoothness;
             internal RenderingLayerUtils.MaskSize maskSize;
@@ -176,21 +177,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                     }
                 }
 
-#if !UNITY_ANDROID
-                // Basis VRS injection: match the opaque pass's shading rate so depth priming
-                // stays consistent for cutout / per-fragment-depth shaders. Skipped on XR
-                // hardware foveation so we never override native foveated rendering.
-                if (frameData.Contains<UniversalShadingRateData>())
-                {
-                    var basisVrs = frameData.Get<UniversalShadingRateData>();
-                    bool xrFoveated = cameraData.xr.enabled && cameraData.xr.supportsFoveatedRendering;
-                    if (basisVrs.isValid && basisVrs.shadingRateImage.IsValid() && !xrFoveated)
-                    {
-                        builder.SetShadingRateImageAttachment(basisVrs.shadingRateImage);
-                        builder.SetShadingRateCombiner(ShadingRateCombinerStage.Fragment, ShadingRateCombiner.Override);
-                    }
-                }
-#endif
+                passData.basisVrs = UniversalShadingRateData.TryBind(builder, frameData);
 
                 if (setGlobalNormalAndRenderingLayers)
                 {
@@ -209,9 +196,11 @@ namespace UnityEngine.Rendering.Universal.Internal
 
                 builder.SetRenderFunc(static (PassData data, RasterGraphContext context) =>
                 {
+                    UniversalShadingRateData.BeginNative(context.cmd, data.basisVrs);
                     if (data.enableRenderingLayers)
                         RenderingLayerUtils.SetupProperties(context.cmd, data.maskSize);
                     ExecutePass(context.cmd, data, data.rendererList);
+                    UniversalShadingRateData.EndNative(context.cmd, data.basisVrs);
                 });
             }
         }

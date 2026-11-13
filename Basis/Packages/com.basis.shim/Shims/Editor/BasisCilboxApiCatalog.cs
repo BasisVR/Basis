@@ -999,18 +999,20 @@ BasisHapticsShim.Play(this, BasisHapticHand.Both, 0.8f, 0.2f);",
                 Example =
 @"using Basis.Shims;
 
-// Worlds only. Reads the same hand state that drives the player, so device overrides
-// apply. Everything reads released while the menu is open or a pointer is over UI.
+// Reads the same hand state that drives the player, so device overrides apply. Pass this:
+// props and avatars only read the player who spawned the prop or wears the avatar (worlds
+// may also call the overloads without it). Everything reads released while the menu is
+// open or a pointer is over UI.
 void Update()
 {
-    if (!BasisControllerInputShim.IsAvailable(BasisControllerHand.Right)) return; // desktop
+    if (!BasisControllerInputShim.IsAvailable(this, BasisControllerHand.Right)) return; // desktop
 
-    if (BasisControllerInputShim.GetButtonDown(BasisControllerHand.Right, BasisControllerButton.Trigger))
+    if (BasisControllerInputShim.GetButtonDown(this, BasisControllerHand.Right, BasisControllerButton.Trigger))
         Fire();
 
-    float squeeze = BasisControllerInputShim.GetTrigger(BasisControllerHand.Left);
-    Vector2 stick = BasisControllerInputShim.GetStick(BasisControllerHand.Left);
-    bool gripping = BasisControllerInputShim.GetButton(BasisControllerHand.Left, BasisControllerButton.Grip);
+    float squeeze = BasisControllerInputShim.GetTrigger(this, BasisControllerHand.Left);
+    Vector2 stick = BasisControllerInputShim.GetStick(this, BasisControllerHand.Left);
+    bool gripping = BasisControllerInputShim.GetButton(this, BasisControllerHand.Left, BasisControllerButton.Grip);
 }",
             },
             new CilboxApiEntry
@@ -1023,8 +1025,10 @@ void Update()
 @"using Basis.Shims;
 using UnityEngine.InputSystem;
 
-// Worlds only. Ask once for the inputs you need. Basis polls each one once a frame for
-// every script and only calls this script when one of them changed, so no Update is needed.
+// Ask once for the inputs you need. Basis polls each one once a frame for every script
+// and only calls this script when one of them changed, so no Update is needed. In props
+// and avatars only the player who spawned the prop or wears the avatar is read; everyone
+// else gets a request that reads nothing.
 BasisInputRequest input;
 float[] values = new float[BasisInputShim.MaxSlots];
 int jump, fire, stickX, stickY;
