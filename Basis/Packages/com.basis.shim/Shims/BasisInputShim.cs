@@ -264,7 +264,7 @@ namespace Cilbox
 		internal static BasisInputRequest Request(object self)
 		{
 			if (!(self is CilboxProxy proxy) || proxy == null || proxy.disabled || !(proxy.box is CilboxBasisCommon box) || box == null || box.disabled || box.interpreterAccountingDepth == 0) return null;
-			if (!CilboxBasisConsent.ForLocalPlayer(box, proxy.gameObject)) return new CilboxInputLease(proxy, box, null, true).handle;
+			if (!CilboxBasisConsent.ForInput(box, proxy.gameObject)) return new CilboxInputLease(proxy, box, null, true).handle;
 			int held = 0;
 			for (int i = 0; i < leases.Count; i++) if (ReferenceEquals(leases[i].box, box)) held++;
 			if (held >= BasisInputShim.MaxRequestsPerContent) return null;
@@ -273,7 +273,7 @@ namespace Cilbox
 			Hook();
 			return lease.handle;
 		}
-		internal static bool Local(object self) => self is CilboxProxy proxy && proxy != null && !proxy.disabled && proxy.box is CilboxBasisCommon box && box != null && !box.disabled && CilboxBasisConsent.ForLocalPlayer(box, proxy.gameObject);
+		internal static bool Local(object self) => self is CilboxProxy proxy && proxy != null && !proxy.disabled && proxy.box is CilboxBasisCommon box && box != null && !box.disabled && CilboxBasisConsent.ForInput(box, proxy.gameObject);
 		internal static void Release(CilboxInputLease lease)
 		{
 			if (lease == null || lease.Released) return;

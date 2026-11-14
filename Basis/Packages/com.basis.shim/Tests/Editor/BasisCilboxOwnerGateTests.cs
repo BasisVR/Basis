@@ -93,6 +93,13 @@ namespace Basis.Tests.Sync
             return (bool)gate.Invoke(null, new object[] { script.box, script.gameObject });
         }
 
+        static bool ForInput(CilboxProxy script)
+        {
+            MethodInfo gate = Consent.GetMethod("ForInput", Hidden);
+            Assert.IsNotNull(gate, "CilboxBasisConsent.ForInput moved; this test cannot ask the gate.");
+            return (bool)gate.Invoke(null, new object[] { script.box, script.gameObject });
+        }
+
         static int Pulses(CilboxProxy script)
         {
             script.box.interpreterAccountingDepth = 1;
@@ -120,6 +127,15 @@ namespace Basis.Tests.Sync
             Assert.IsFalse(ForLocalPlayer(Script(typeof(CilboxPropBasis), Prop(false))), "another player's prop runs its scripts on every client");
             Assert.IsTrue(ForLocalPlayer(Script(typeof(CilboxPropBasis), Prop(true))));
             Assert.IsTrue(ForLocalPlayer(Script(typeof(CilboxPropBasis), Content<BasisScene>())), "a prop box that belongs to the world");
+        }
+
+        [Test]
+        public void Input_ReachesEveryPropButOnlyTheWornAvatar()
+        {
+            Assert.IsTrue(ForInput(Script(typeof(CilboxPropBasis), Prop(false))), "another player's prop reads this player's input");
+            Assert.IsTrue(ForInput(Script(typeof(CilboxPropBasis), Prop(true))));
+            Assert.IsFalse(ForInput(Script(typeof(CilboxAvatarBasis), Avatar(RemoteId))), "another player's avatar still reads nothing");
+            Assert.IsTrue(ForInput(Script(typeof(CilboxAvatarBasis), Avatar(LocalId))));
         }
 
         [Test]
