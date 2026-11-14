@@ -1276,6 +1276,12 @@ namespace Basis.Scripts.Device_Management.Devices
             return false;
         }
 
+        public virtual bool TryGetInputDisplayName(Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.BasisInputKey key, out string name)
+        {
+            name = null;
+            return false;
+        }
+
         /// <summary>
         /// Transform a device visual should attach to so it sits at the device's true tracked pose.
         /// Defaults to this device node (correct for trackers/HMD, whose node is the tracked pose).

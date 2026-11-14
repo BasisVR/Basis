@@ -1,6 +1,8 @@
 using Basis;
 using Basis.BasisUI;
+using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.Device_Management;
+using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System;
@@ -487,6 +489,7 @@ public static class SettingsProviderControllerConfig
         BasisSettingsDefaults.DominantHand.ResetToDefault();
         BasisSettingsDefaults.DesktopInputInVR.ResetToDefault();
         BasisSettingsDefaults.QuestControllerFix.ResetToDefault();
+        BasisSettingsDefaults.DevGenericInputNames.ResetToDefault();
         BasisSettingsDefaults.InvertMouse.ResetToDefault();
         BasisSettingsDefaults.mousesensitivty.ResetToDefault();
         BasisSettingsDefaults.usesnapturn.ResetToDefault();
@@ -587,9 +590,9 @@ public static class SettingsProviderControllerConfig
         PanelDropdown actionDropdown = PanelDropdown.CreateNewEntry(selectorGroup.ContentParent);
         actionDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.controls.action"));
         actionDropdown.Descriptor.SetTooltip(BasisLocalization.Get("settings.controls.action.tooltip"));
-        actionDropdown.AssignLocalizedEntries(actionNames, actionKeys);
         if (actionNames.Count > 0)
         {
+            actionDropdown.AssignEntries(actionNames, ActionLabels(actions, actionKeys, roles, BasisSettingsDefaults.DevGenericInputNames.RawValue || currentMode != BasisActionDriver.BindingsMode), ActionTooltips(actionKeys));
             actionDropdown.SetValueWithoutNotify(actionNames[0]);
         }
 
@@ -609,6 +612,21 @@ public static class SettingsProviderControllerConfig
         bool IsLive(string mode) => mode != null && string.Equals(mode, BasisActionDriver.BindingsMode, StringComparison.Ordinal);
 
         bool IsGone() => rolesGroup == null || rolesGroup.IsReleased;
+
+        // Runtime names only describe the controllers in hand, so another mode's bindings keep the generic labels.
+        void RefreshActionLabels(bool generic)
+        {
+            actionDropdown.AssignEntries(actionNames, ActionLabels(actions, actionKeys, roles, generic || detached != null || !IsLive(editMode)), ActionTooltips(actionKeys));
+        }
+
+        if (BasisSettingsDefaults.ShowDeveloperTab.RawValue)
+        {
+            PanelToggle genericNamesToggle = PanelToggle.CreateNewEntry(selectorGroup.ContentParent);
+            genericNamesToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.controls.genericInputNames"));
+            genericNamesToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.controls.genericInputNames.tooltip"));
+            genericNamesToggle.AssignBinding(BasisSettingsDefaults.DevGenericInputNames);
+            genericNamesToggle.OnValueChanged += RefreshActionLabels;
+        }
 
         async void ShowMode(string mode)
         {
@@ -632,6 +650,7 @@ public static class SettingsProviderControllerConfig
             int modeIndex = modes.IndexOf(mode);
             string modeLabel = modeIndex >= 0 ? modeLabels[modeIndex] : mode;
             selectorGroup.SetDescription(detached != null ? BasisLocalization.Get("settings.controls.actionBindings.otherMode", modeLabel) : null);
+            RefreshActionLabels(BasisSettingsDefaults.DevGenericInputNames.RawValue);
             RefreshRoleToggles();
         }
 
@@ -758,6 +777,65 @@ public static class SettingsProviderControllerConfig
         rolesGroup.OnInstanceReleased += Unsubscribe;
 
         ShowMode(currentMode);
+    }
+    private static List<string> ActionTooltips(List<string> actionKeys)
+    {
+        var tooltips = new List<string>(actionKeys.Count);
+        bool any = false;
+        for (int i = 0; i < actionKeys.Count; i++)
+        {
+            bool found = BasisLocalization.TryGet(actionKeys[i] + ".tooltip", out string tooltip);
+            tooltips.Add(found ? tooltip : null);
+            any |= found;
+        }
+        return any ? tooltips : null;
+    }
+    private static List<string> ActionLabels(ActionId[] actions, List<string> actionKeys, BasisBoneTrackedRole[] roles, bool generic)
+    {
+        var labels = new List<string>(actions.Length);
+        for (int i = 0; i < actions.Length; i++)
+        {
+            string inputName = generic ? null : RuntimeInputName(actions[i], roles);
+            labels.Add(inputName != null
+                ? BasisLocalization.Get("settings.controls.actionIdNamed." + LowerFirst(actions[i].ToString()), inputName)
+                : BasisLocalization.Get(actionKeys[i]));
+        }
+        return labels;
+    }
+    // The name each runtime gives the input behind an action, read from the devices on the roles the action is
+    // bound to (both hands when it is unbound). Left and right differ on some controllers (X / A), so both show.
+    private static string RuntimeInputName(ActionId action, BasisBoneTrackedRole[] roles)
+    {
+        if (!TryGetActionInputKey(action, out BasisInteractableObject.BasisInputKey key))
+        {
+            return null;
+        }
+        IReadOnlyList<BasisBoneTrackedRole> bound = BasisActionDriver.GetBindings(action);
+        var names = new List<string>(2);
+        for (int i = 0; i < roles.Length; i++)
+        {
+            BasisBoneTrackedRole role = roles[i];
+            bool wanted = bound.Count > 0 ? bound.Contains(role) : role == BasisBoneTrackedRole.LeftHand || role == BasisBoneTrackedRole.RightHand;
+            if (wanted && BasisInputDisplayNames.TryGet(role, key, out string name) && !names.Contains(name))
+            {
+                names.Add(name);
+            }
+        }
+        return names.Count > 0 ? string.Join(" / ", names) : null;
+    }
+    public static bool TryGetActionInputKey(ActionId action, out BasisInteractableObject.BasisInputKey key)
+    {
+        switch (action)
+        {
+            case ActionId.JumpOnPrimaryButton:
+            case ActionId.ToggleMicOnPrimaryReleaseIfNoHover: key = BasisInteractableObject.BasisInputKey.PrimaryButtonGetState; return true;
+            case ActionId.ToggleHamburgerOnSecondaryRelease: key = BasisInteractableObject.BasisInputKey.SecondaryButtonGetState; return true;
+            case ActionId.DescendOnGripButton: key = BasisInteractableObject.BasisInputKey.GripButton; return true;
+            case ActionId.RotateFromPrimary2DAxis:
+            case ActionId.SetMovementVectorFromPrimary2DAxis:
+            case ActionId.SetMovementSpeedMultiplierFromPrimary2DAxis: key = BasisInteractableObject.BasisInputKey.Primary2DAxis; return true;
+            default: key = default; return false;
+        }
     }
     public static string BodyRoleLabel(BasisBoneTrackedRole role) => BasisLocalization.Get("ui.bodyRole." + LowerFirst(role.ToString()));
     private static string LowerFirst(string value) => string.IsNullOrEmpty(value) ? value : char.ToLowerInvariant(value[0]) + value.Substring(1);

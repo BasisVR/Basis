@@ -1,4 +1,5 @@
 using Basis.BasisUI;
+using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.TransformBinders.BoneControl;
 using Basis.Scripts.UI;
@@ -76,6 +77,25 @@ namespace Basis.Shims
 		{
 			HandState state = Live(hand);
 			return state != null && !Pressed(state.Current, button) && Pressed(state.Last, button);
+		}
+
+		public static string GetButtonName(BasisControllerHand hand, BasisControllerButton button) => BasisInputDisplayNames.Get(Role(hand), Key(button));
+
+		public static string GetStickName(BasisControllerHand hand) => BasisInputDisplayNames.Get(Role(hand), BasisInteractableObject.BasisInputKey.Primary2DAxis);
+
+		private static BasisBoneTrackedRole Role(BasisControllerHand hand) => hand == BasisControllerHand.Left ? BasisBoneTrackedRole.LeftHand : BasisBoneTrackedRole.RightHand;
+
+		private static BasisInteractableObject.BasisInputKey Key(BasisControllerButton button)
+		{
+			switch (button)
+			{
+				case BasisControllerButton.Grip: return BasisInteractableObject.BasisInputKey.GripButton;
+				case BasisControllerButton.Primary: return BasisInteractableObject.BasisInputKey.PrimaryButtonGetState;
+				case BasisControllerButton.Secondary: return BasisInteractableObject.BasisInputKey.SecondaryButtonGetState;
+				case BasisControllerButton.StickClick: return BasisInteractableObject.BasisInputKey.Primary2DAxisClick;
+				case BasisControllerButton.Menu: return BasisInteractableObject.BasisInputKey.SystemOrMenuButton;
+				default: return BasisInteractableObject.BasisInputKey.Trigger;
+			}
 		}
 
 		private static HandState Live(BasisControllerHand hand) => IsBlocked ? null : Read(hand);

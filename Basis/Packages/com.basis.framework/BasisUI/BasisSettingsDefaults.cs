@@ -810,6 +810,10 @@ namespace Basis.BasisUI
         // desktop users can reach the calibration panel — height recapture works without trackers.
         public static BasisSettingsBinding<bool> DevAlwaysShowCalibration = new("devalwaysshowcalibration", new BasisPlatformDefault<bool>(false));
 
+        // Action labels in Settings name each input the way the controller's runtime does (A Button, Trigger);
+        // this developer switch puts back the generic names (Primary Button, Grip).
+        public static BasisSettingsBinding<bool> DevGenericInputNames = new("devgenericinputnames", new BasisPlatformDefault<bool>(false));
+
         // When on, the local avatar calibration pipeline dumps every stage's scales/positions/
         // rotation eulers + offsets to a CSV under persistentDataPath/CalibrationDebug. Read once
         // at the start of each calibration; leave off in normal play.
@@ -2409,6 +2413,7 @@ namespace Basis.BasisUI
             UpscalerSharpness.LoadBindingValue();
             DlssModel.LoadBindingValue();
             DevVariableRateShading.LoadBindingValue();
+            DevGenericInputNames.LoadBindingValue();
             DevVariableRateShadingDesktop.LoadBindingValue();
             DevGiDebugView.LoadBindingValue();
             VrsFovealInnerRadius.LoadBindingValue();

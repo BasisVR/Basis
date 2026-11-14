@@ -216,6 +216,7 @@ public partial class SMModuleDebugOptions : BasisSettingsBase
         BasisIKSolveGizmos.Shutdown();
         BasisHandGripGizmos.Shutdown();
         BasisMouthEyeGizmos.Shutdown();
+        BasisEyePositionGizmo.Shutdown();
         base.OnDestroy();
     }
 
@@ -472,6 +473,7 @@ public partial class SMModuleDebugOptions : BasisSettingsBase
     // Derived gizmo render gate: on whenever any individual gizmo toggle is enabled.
     // Replaces the old master ShowGizmos switch. Gizmo labels are intentionally
     // excluded — they only adorn other gizmos and can't render anything on their own.
+    public static void RefreshGizmoGate() => Instance?.RecomputeUseGizmos();
     private void RecomputeUseGizmos()
     {
         bool anyOn =
@@ -495,6 +497,7 @@ public partial class SMModuleDebugOptions : BasisSettingsBase
             BasisJiggleGrabGizmos.Show ||
             BasisHandGripGizmos.Show ||
             BasisMouthEyeGizmos.Show ||
+            BasisEyePositionGizmo.Show ||
             BasisSyncGizmos.Show ||
             BasisSyncGizmos.ShowBandwidth ||
             BasisPlayerNetworkGizmos.Show ||
@@ -665,6 +668,7 @@ public partial class SMModuleDebugOptions : BasisSettingsBase
         BasisJiggleGrabGizmos.Tick(scale);
         BasisHandGripGizmos.Tick(scale);
         BasisMouthEyeGizmos.Tick(scale);
+        BasisEyePositionGizmo.Tick(scale);
         BasisAudioGizmos.Tick(scale);
         BasisSyncGizmos.Tick(scale);
         BasisPlayerNetworkGizmos.Tick(scale);

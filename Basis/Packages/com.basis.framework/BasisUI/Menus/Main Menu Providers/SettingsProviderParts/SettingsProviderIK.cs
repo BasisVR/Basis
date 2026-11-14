@@ -41,6 +41,51 @@ public static partial class SettingsProviderIK
         "settings.bodyTracking.playspaceMover.input.menu",
     };
 
+    [NoAutoStaticsCleanup] private static readonly Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.BasisInputKey[] PlayspaceMoverInputKeysByInput =
+    {
+        Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.BasisInputKey.GripButton,
+        Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.BasisInputKey.Trigger,
+        Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.BasisInputKey.SecondaryTrigger,
+        Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.BasisInputKey.PrimaryButtonGetState,
+        Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.BasisInputKey.SecondaryButtonGetState,
+        Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.BasisInputKey.Primary2DAxisClick,
+        Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.BasisInputKey.Secondary2DAxisClick,
+        Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.BasisInputKey.SystemOrMenuButton,
+    };
+
+    // Options read as the controller's own names (A Button, Grip) for the chosen hand. Two options can land on
+    // the same control (Grip and Secondary Trigger are both the grip on OpenXR), so those keep the generic name too.
+    private static void AssignPlayspaceMoverInputEntries(PanelDropdown dropdown, string hand = null)
+    {
+        hand ??= BasisSettingsDefaults.PlayspaceMoverHand.RawValue;
+        bool left = hand != BasisLocalPlayspaceMover.HandRight, right = hand != BasisLocalPlayspaceMover.HandLeft;
+        bool generic = BasisSettingsDefaults.DevGenericInputNames.RawValue;
+        int count = PlayspaceMoverInputValues.Length;
+        var labels = new List<string>(count);
+        var runtime = new string[count];
+        for (int i = 0; i < count; i++)
+        {
+            if (!generic && BasisInputDisplayNames.TryGetHands(PlayspaceMoverInputKeysByInput[i], left, right, out string name)) { runtime[i] = name; }
+        }
+        for (int i = 0; i < count; i++)
+        {
+            string genericLabel = BasisLocalization.Get(PlayspaceMoverInputKeys[i]);
+            if (runtime[i] == null) { labels.Add(genericLabel); continue; }
+            bool shared = false;
+            for (int j = 0; j < count && !shared; j++) { shared = j != i && runtime[j] == runtime[i]; }
+            labels.Add(shared ? $"{runtime[i]} ({genericLabel})" : runtime[i]);
+        }
+        var tooltips = new List<string>(count);
+        bool anyTooltip = false;
+        for (int i = 0; i < count; i++)
+        {
+            bool found = BasisLocalization.TryGet(PlayspaceMoverInputKeys[i] + ".tooltip", out string tooltip);
+            tooltips.Add(found ? tooltip : null);
+            anyTooltip |= found;
+        }
+        dropdown.AssignEntries(new List<string>(PlayspaceMoverInputValues), labels, anyTooltip ? tooltips : null);
+    }
+
     private static PanelDropdown _boneDropdown;
 
     private static PanelToggle _uiUseCalibration;
@@ -151,9 +196,7 @@ public static partial class SettingsProviderIK
             var inputDropdown = PanelDropdown.CreateNewEntry(moverParent);
             inputDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.playspaceMover.input"));
             inputDropdown.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.playspaceMover.input.tooltip"));
-            inputDropdown.AssignLocalizedEntries(
-                new List<string>(PlayspaceMoverInputValues),
-                new List<string>(PlayspaceMoverInputKeys));
+            AssignPlayspaceMoverInputEntries(inputDropdown);
             inputDropdown.AssignBinding(BasisSettingsDefaults.PlayspaceMoverInput);
 
             var handDropdown = PanelDropdown.CreateNewEntry(moverParent);
@@ -172,10 +215,13 @@ public static partial class SettingsProviderIK
             var rotateInputDropdown = PanelDropdown.CreateNewEntry(moverParent);
             rotateInputDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.playspaceMover.rotateInput"));
             rotateInputDropdown.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.playspaceMover.rotateInput.tooltip"));
-            rotateInputDropdown.AssignLocalizedEntries(
-                new List<string>(PlayspaceMoverInputValues),
-                new List<string>(PlayspaceMoverInputKeys));
+            AssignPlayspaceMoverInputEntries(rotateInputDropdown);
             rotateInputDropdown.AssignBinding(BasisSettingsDefaults.PlayspaceMoverRotateInput);
+            handDropdown.OnValueChanged += hand =>
+            {
+                AssignPlayspaceMoverInputEntries(inputDropdown, hand);
+                AssignPlayspaceMoverInputEntries(rotateInputDropdown, hand);
+            };
 
             var scaleToggle = PanelToggle.CreateNewEntry(moverParent);
             scaleToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.playspaceMover.scale"));

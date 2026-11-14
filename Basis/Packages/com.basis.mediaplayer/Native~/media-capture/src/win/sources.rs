@@ -5,7 +5,7 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GA_ROOT, GWL_EXSTYLE, GetAncestor, GetClientRect, GetWindowLongPtrW,
-    GetWindowPlacement, GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindow,
+    GetWindowPlacement, GetWindowTextW, IsIconic, IsWindow,
     IsWindowVisible, WINDOWPLACEMENT, WS_EX_TOOLWINDOW,
 };
 use windows::core::BOOL;
@@ -66,7 +66,7 @@ fn window_title(hwnd: HWND) -> String {
     String::from_utf16_lossy(&buf[..n.max(0) as usize])
 }
 
-fn shareable_window(hwnd: HWND, own_pid: u32) -> Option<(String, u32, u32)> {
+fn shareable_window(hwnd: HWND) -> Option<(String, u32, u32)> {
     // SAFETY: read-only queries on a window handle handed to the enum
     // callback; a stale handle only makes them fail.
     unsafe {
@@ -80,11 +80,6 @@ fn shareable_window(hwnd: HWND, own_pid: u32) -> Option<(String, u32, u32)> {
         if DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &mut cloaked as *mut u32 as *mut _, 4).is_ok()
             && cloaked != 0
         {
-            return None;
-        }
-        let mut pid = 0u32;
-        GetWindowThreadProcessId(hwnd, Some(&mut pid));
-        if pid == own_pid {
             return None;
         }
         let title = window_title(hwnd);
@@ -150,9 +145,8 @@ pub fn list() -> Vec<SourceInfo> {
     unsafe {
         let _ = EnumWindows(Some(collect), LPARAM(&mut windows as *mut _ as isize));
     }
-    let own_pid = std::process::id();
     for hwnd in windows {
-        if let Some((title, width, height)) = shareable_window(hwnd, own_pid) {
+        if let Some((title, width, height)) = shareable_window(hwnd) {
             out.push(SourceInfo {
                 id: format!("window:{}", hwnd.0 as isize),
                 kind: SourceKind::Window,

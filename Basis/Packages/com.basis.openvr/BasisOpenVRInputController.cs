@@ -6,6 +6,7 @@ using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
 using UnityEngine;
 using Valve.VR;
+using BasisInputKey = Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.BasisInputKey;
 namespace Basis.Scripts.Device_Management.Devices.OpenVR
 {
     [DefaultExecutionOrder(15001)]
@@ -350,6 +351,38 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         public override void PlaySoundEffect(string SoundEffectName, float Volume)
         {
             PlaySoundEffectDefaultImplementation(SoundEffectName, Volume);
+        }
+
+        public override bool TryGetInputDisplayName(BasisInputKey key, out string name)
+        {
+            ISteamVR_Action_In action = ActionFor(key);
+            name = action != null ? action.GetLocalizedOriginPart(inputSource, EVRInputStringBits.VRInputString_InputSource) : null;
+            return !string.IsNullOrWhiteSpace(name);
+        }
+
+        private static ISteamVR_Action_In ActionFor(BasisInputKey key)
+        {
+            var actions = SteamVR_Actions._default;
+            switch (key)
+            {
+                case BasisInputKey.Trigger: return actions.Trigger;
+                case BasisInputKey.SecondaryTrigger: return actions.HandTrigger;
+                case BasisInputKey.GripButton: return actions.Grip;
+                case BasisInputKey.SystemOrMenuButton: return actions.System;
+                case BasisInputKey.PrimaryButtonGetState: return actions.A_Button;
+                case BasisInputKey.SecondaryButtonGetState: return actions.B_Button;
+                case BasisInputKey.Primary2DAxis: return actions.Joystick;
+                case BasisInputKey.Primary2DAxisClick: return actions.JoyStickClick;
+                case BasisInputKey.Secondary2DAxis: return actions.TrackPad;
+                case BasisInputKey.Secondary2DAxisClick:
+                case BasisInputKey.Secondary2DAxisTouch: return actions.TrackPadTouched;
+                case BasisInputKey.PrimaryButtonTouch: return actions.A_Touch;
+                case BasisInputKey.SecondaryButtonTouch: return actions.B_Touch;
+                case BasisInputKey.Primary2DAxisTouch: return actions.JoystickTouch;
+                case BasisInputKey.TriggerTouch: return actions.TriggerTouch;
+                case BasisInputKey.ThumbrestTouch: return actions.ThumbrestTouch;
+                default: return null;
+            }
         }
     }
 }

@@ -23,6 +23,7 @@ namespace Basis.BasisUI
             descriptor.ForceRebuild();
 
             RectTransform content = tab.Descriptor.ContentParent;
+            BuildEyePositionSection(content);
             SettingsProvider.AvatarCustomizationBuilder?.Invoke(content);
 
             if (content.childCount == 0)
@@ -48,6 +49,46 @@ namespace Basis.BasisUI
             }
 
             return tab;
+        }
+
+        static void BuildEyePositionSection(RectTransform content)
+        {
+            if (!BasisPerAvatarEyeOffset.CanEditCurrent())
+            {
+                return;
+            }
+            PanelSectionToggle sectionToggle = PanelSectionToggle.CreateNewEntry(content);
+            PanelElementDescriptor group = PanelSectionToggleHelpers.CreateCollapsibleContentGroup(sectionToggle, content, BasisLocalization.Get("settings.myAvatar.eyePosition"));
+            group.SetDescription(BasisLocalization.Get("settings.myAvatar.eyePosition.description"));
+            PanelToggle gizmoToggle = PanelToggle.CreateNewEntry(group.ContentParent);
+            gizmoToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.myAvatar.eyePosition.gizmo"));
+            gizmoToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.myAvatar.eyePosition.gizmo.tooltip"));
+            gizmoToggle.SetValueWithoutNotify(BasisEyePositionGizmo.Show);
+            gizmoToggle.OnValueChanged += BasisEyePositionGizmo.SetShow;
+            Vector2 current = BasisPerAvatarEyeOffset.Current;
+            PanelSlider heightSlider = EyeOffsetSlider(group, "settings.myAvatar.eyePosition.height", BasisPerAvatarEyeOffset.MinHeight, BasisPerAvatarEyeOffset.MaxHeight, current.x);
+            PanelSlider forwardSlider = EyeOffsetSlider(group, "settings.myAvatar.eyePosition.forward", BasisPerAvatarEyeOffset.MinForward, BasisPerAvatarEyeOffset.MaxForward, current.y);
+            heightSlider.OnValueChanged += value => BasisPerAvatarEyeOffset.SetForCurrentAvatar(new Vector2(value, BasisPerAvatarEyeOffset.Current.y));
+            forwardSlider.OnValueChanged += value => BasisPerAvatarEyeOffset.SetForCurrentAvatar(new Vector2(BasisPerAvatarEyeOffset.Current.x, value));
+            PanelButton resetButton = PanelButton.CreateNew(group.ContentParent);
+            resetButton.Descriptor.SetTitle(BasisLocalization.Get("settings.myAvatar.eyePosition.reset"));
+            resetButton.OnClicked += () =>
+            {
+                BasisPerAvatarEyeOffset.ClearForCurrentAvatar();
+                heightSlider.SetValueWithoutNotify(BasisPerAvatarEyeOffset.Current.x);
+                forwardSlider.SetValueWithoutNotify(BasisPerAvatarEyeOffset.Current.y);
+            };
+            PanelSectionToggleHelpers.FinalizeCollapsibleGroup(sectionToggle, group, true);
+        }
+
+        static PanelSlider EyeOffsetSlider(PanelElementDescriptor group, string key, float min, float max, float value)
+        {
+            PanelSlider slider = PanelSlider.CreateNew(group.ContentParent);
+            slider.SetSliderSettings(PanelSlider.SliderSettings.Advanced(BasisLocalization.Get(key), min, max, false, 3, ValueDisplayMode.Meters));
+            slider.Descriptor.SetTooltip(BasisLocalization.Get(key + ".tooltip"));
+            slider.SetValueWithoutNotify(value);
+            slider.SetResetDefault(0f);
+            return slider;
         }
 
         public static void PopulateTrackerRoles(PanelElementDescriptor group)

@@ -725,6 +725,10 @@ namespace Basis.Scripts.Avatar
                 loadHarvest.ReturnToPool();
             }
             Player.BasisAvatar.IsOwnedLocally = Player.IsLocal;
+            if (Player.IsLocal && !avatar.IsFarLodAvatar)
+            {
+                BasisPerAvatarEyeOffset.ApplyOnLoad(avatar, isFallback);
+            }
             if (OnAvatarPreCalibration != null && !avatar.IsFarLodAvatar)
             {
                 try

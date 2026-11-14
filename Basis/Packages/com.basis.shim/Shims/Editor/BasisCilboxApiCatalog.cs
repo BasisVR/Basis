@@ -1011,6 +1011,9 @@ void Update()
     float squeeze = BasisControllerInputShim.GetTrigger(BasisControllerHand.Left);
     Vector2 stick = BasisControllerInputShim.GetStick(BasisControllerHand.Left);
     bool gripping = BasisControllerInputShim.GetButton(BasisControllerHand.Left, BasisControllerButton.Grip);
+
+    // The runtime's name for the button on the controller in use (""A Button"", ""Trigger"", ""Menu"").
+    string fireLabel = BasisControllerInputShim.GetButtonName(BasisControllerHand.Right, BasisControllerButton.Trigger);
 }",
             },
             new CilboxApiEntry

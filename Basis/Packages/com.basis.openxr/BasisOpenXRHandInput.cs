@@ -11,6 +11,8 @@ using UnityEngine.InputSystem.Controls;
 using UnityEngine.UIElements;
 using UnityEngine.XR.Hands;
 using UnityEngine.XR.Hands.Gestures;
+using Basis.Scripts.Device_Management.Devices;
+using BasisInputKey = Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.BasisInputKey;
 public class BasisOpenXRHandInput : BasisInputController
 {
     public Vector3 LeftHandPalmCorrection;
@@ -566,5 +568,37 @@ public class BasisOpenXRHandInput : BasisInputController
     public override void PlaySoundEffect(string SoundEffectName, float Volume)
     {
         PlaySoundEffectDefaultImplementation(SoundEffectName, Volume);
+    }
+    public override bool TryGetInputDisplayName(BasisInputKey key, out string name)
+    {
+        InputAction action = ActionFor(key);
+        name = null;
+        if (action == null || action.controls.Count == 0) { return false; }
+        if (UnityEngine.XR.OpenXR.Input.OpenXRInput.TryGetInputSourceName(action, 0, out name, UnityEngine.XR.OpenXR.Input.OpenXRInput.InputSourceNameFlags.Component) && !string.IsNullOrWhiteSpace(name)) { return true; }
+        name = BasisInputDisplayNames.FromControls(action);
+        return !string.IsNullOrWhiteSpace(name);
+    }
+    private InputAction ActionFor(BasisInputKey key)
+    {
+        switch (key)
+        {
+            case BasisInputKey.Trigger: return _triggerAction;
+            case BasisInputKey.SecondaryTrigger:
+            case BasisInputKey.GripButton: return _gripAction;
+            case BasisInputKey.SystemOrMenuButton: return _menuButtonAction;
+            case BasisInputKey.PrimaryButtonGetState: return _primaryButtonAction;
+            case BasisInputKey.SecondaryButtonGetState: return _secondaryButtonAction;
+            case BasisInputKey.Primary2DAxis: return _primary2DAxisAction;
+            case BasisInputKey.Secondary2DAxis: return _secondary2DAxisAction;
+            case BasisInputKey.Primary2DAxisClick: return _primary2DAxisClickAction;
+            case BasisInputKey.Secondary2DAxisClick: return _secondary2DAxisClickAction;
+            case BasisInputKey.PrimaryButtonTouch: return _primaryTouchAction;
+            case BasisInputKey.SecondaryButtonTouch: return _secondaryTouchAction;
+            case BasisInputKey.Primary2DAxisTouch: return _primary2DAxisTouchAction;
+            case BasisInputKey.Secondary2DAxisTouch: return _secondary2DAxisTouchAction;
+            case BasisInputKey.TriggerTouch: return _triggerTouchAction;
+            case BasisInputKey.ThumbrestTouch: return _thumbrestTouchAction;
+            default: return null;
+        }
     }
 }

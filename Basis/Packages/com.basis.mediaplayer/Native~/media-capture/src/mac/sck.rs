@@ -251,20 +251,14 @@ impl Content {
     }
 
     /// A window worth offering: on screen, at the normal level, titled, of
-    /// a useful size, and not one of Basis's own.
+    /// a useful size.
     fn window_info(window: *mut AnyObject, scale: f64) -> Option<(u32, String, u32, u32)> {
-        // SAFETY: window is an SCWindow; its application may be nil.
+        // SAFETY: window is an SCWindow.
         unsafe {
             let on_screen: Bool = msg_send![window, isOnScreen];
             let layer: isize = msg_send![window, windowLayer];
             let frame: CGRect = msg_send![window, frame];
-            let app: *mut AnyObject = msg_send![window, owningApplication];
-            let pid: i32 = if app.is_null() {
-                0
-            } else {
-                msg_send![app, processID]
-            };
-            if !on_screen.as_bool() || layer != 0 || pid as u32 == std::process::id() {
+            if !on_screen.as_bool() || layer != 0 {
                 return None;
             }
             if frame.size.width < 64.0 || frame.size.height < 64.0 {

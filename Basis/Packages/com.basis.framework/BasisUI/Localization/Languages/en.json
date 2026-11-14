@@ -11895,6 +11895,42 @@
       "value": "This avatar does not support any Avatar Customization."
     },
     {
+      "key": "settings.myAvatar.eyePosition",
+      "value": "Eye Position"
+    },
+    {
+      "key": "settings.myAvatar.eyePosition.description",
+      "value": "Moves where your view sits on this avatar. Saved for this avatar only, as an offset from the eye position it was made with."
+    },
+    {
+      "key": "settings.myAvatar.eyePosition.height",
+      "value": "Eye Height Offset"
+    },
+    {
+      "key": "settings.myAvatar.eyePosition.height.tooltip",
+      "value": "Raises or lowers your view on this avatar. Your avatar is rescaled so the new eye height matches your real eye height."
+    },
+    {
+      "key": "settings.myAvatar.eyePosition.forward",
+      "value": "Eye Forward Offset"
+    },
+    {
+      "key": "settings.myAvatar.eyePosition.forward.tooltip",
+      "value": "Moves your view forward or back on this avatar's head."
+    },
+    {
+      "key": "settings.myAvatar.eyePosition.reset",
+      "value": "Reset Eye Position"
+    },
+    {
+      "key": "settings.myAvatar.eyePosition.gizmo",
+      "value": "Show Eye Gizmo"
+    },
+    {
+      "key": "settings.myAvatar.eyePosition.gizmo.tooltip",
+      "value": "Draws the eye position with its up (green) and forward (blue) axes, plus a grey marker at the avatar's original eye position."
+    },
+    {
       "key": "settings.myAvatar.face",
       "value": "Face Tracking"
     },
@@ -21535,6 +21571,42 @@
     {
       "key": "settings.controls.actionId.descendOnGripButton",
       "value": "Descend On Grip Button"
+    },
+    {
+      "key": "settings.controls.actionIdNamed.jumpOnPrimaryButton",
+      "value": "Jump On {0}"
+    },
+    {
+      "key": "settings.controls.actionIdNamed.toggleHamburgerOnSecondaryRelease",
+      "value": "Toggle Hamburger On {0} Release"
+    },
+    {
+      "key": "settings.controls.actionIdNamed.toggleMicOnPrimaryReleaseIfNoHover",
+      "value": "Toggle Mic On {0} Release If No Hover"
+    },
+    {
+      "key": "settings.controls.actionIdNamed.descendOnGripButton",
+      "value": "Descend On {0}"
+    },
+    {
+      "key": "settings.controls.actionIdNamed.rotateFromPrimary2DAxis",
+      "value": "Rotate From {0}"
+    },
+    {
+      "key": "settings.controls.actionIdNamed.setMovementVectorFromPrimary2DAxis",
+      "value": "Set Movement Vector From {0}"
+    },
+    {
+      "key": "settings.controls.actionIdNamed.setMovementSpeedMultiplierFromPrimary2DAxis",
+      "value": "Set Movement Speed Multiplier From {0}"
+    },
+    {
+      "key": "settings.controls.genericInputNames",
+      "value": "Generic Input Names"
+    },
+    {
+      "key": "settings.controls.genericInputNames.tooltip",
+      "value": "Developer: name each action's input generically (Primary Button, Grip) instead of using the name your controller's runtime gives it."
     },
     {
       "key": "calibration.report.trackers",
