@@ -329,7 +329,7 @@ public partial class BasisLocalEyeDriver
             state = _state
         };
 
-        JobHandle computeHandle = computeJob.Schedule();
+        computeJob.Run();
 
         BasisEyeApplyJob applyJob = new BasisEyeApplyJob
         {
@@ -337,7 +337,7 @@ public partial class BasisLocalEyeDriver
             calLeftInitial = calLeft.initialRotation,
             calRightInitial = calRight.initialRotation
         };
-        handle = applyJob.Schedule(_eyeTransforms, computeHandle);
+        handle = applyJob.Schedule(_eyeTransforms);
 
         HasEyeSchedule = true;
     }

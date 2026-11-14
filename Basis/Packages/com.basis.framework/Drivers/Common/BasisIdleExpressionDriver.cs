@@ -646,12 +646,19 @@ namespace Basis.Scripts.Drivers
         }
         void Write()
         {
+            SkinnedMeshRenderer checkedRenderer = null;
+            bool alive = false;
             for (int t = 0; t < renderers.Length; t++)
             {
                 float add = contribution[t];
                 if (add <= 0f && float.IsNaN(lastWritten[t])) continue;
                 SkinnedMeshRenderer smr = renderers[t];
-                if (smr == null) continue;
+                if (!ReferenceEquals(smr, checkedRenderer))
+                {
+                    checkedRenderer = smr;
+                    alive = smr != null;
+                }
+                if (!alive) continue;
                 int index = indices[t];
                 float weight = smr.GetBlendShapeWeight(index);
                 if (add <= 0f)
