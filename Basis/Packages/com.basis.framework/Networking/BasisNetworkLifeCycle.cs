@@ -104,6 +104,7 @@ public static partial class BasisNetworkLifeCycle
             BasisNetworkConnection.LocalPlayerIsConnected = false;
             Basis.Scripts.Avatar.BasisLocalAvatarNetworkNotice.Reset();//the next server warns for itself
             BasisContentKeyClient.Reset();
+            BasisClientMessageRegistry.ResetSupply();
             BasisNetworkManagement.LocalAccessTransmitter = null;
             BasisNetworkConnection.LocalPlayerPeer = null;
             if (DisplayReason)
@@ -171,6 +172,7 @@ public static partial class BasisNetworkLifeCycle
         BasisNetworkConnection.LocalPlayerIsConnected = false;
         Basis.Scripts.Avatar.BasisLocalAvatarNetworkNotice.Reset();//the next server warns for itself
         BasisContentKeyClient.Reset();
+        BasisClientMessageRegistry.ResetSupply();
         BasisNetworkManagement.NetworkRunning = false;
         BasisNetworkManagement.IsInitialized = false;
         BasisDebug.Log("BasisNetworkManagement has been successfully shutdown.", BasisDebug.LogTag.Networking);

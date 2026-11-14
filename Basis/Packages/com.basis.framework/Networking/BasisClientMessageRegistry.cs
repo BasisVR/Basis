@@ -99,6 +99,14 @@ public static partial class BasisClientMessageRegistry
 
     public static event System.Action OnSupplyApplied;
 
+    public static void ResetSupply()
+    {
+        lastSupplyPeer = null;
+        LastSupply = null;
+        PluginDescriptorsByName.Clear();
+        PluginHandlers.Clear();
+    }
+
     public static bool IsPluginSupplied(string name)
     {
         NetPeer peer = BasisNetworkConnection.LocalPlayerPeer;
@@ -152,7 +160,7 @@ public static partial class BasisClientMessageRegistry
             return false;
         }
         NetPeer peer = BasisNetworkConnection.LocalPlayerPeer;
-        if (peer == null)
+        if (!SamePeer(lastSupplyPeer, peer))
         {
             return false;
         }
@@ -172,7 +180,7 @@ public static partial class BasisClientMessageRegistry
             return false;
         }
         NetPeer peer = BasisNetworkConnection.LocalPlayerPeer;
-        if (peer == null)
+        if (!SamePeer(lastSupplyPeer, peer))
         {
             return false;
         }
