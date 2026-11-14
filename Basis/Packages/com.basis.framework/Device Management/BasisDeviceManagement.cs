@@ -257,7 +257,9 @@ namespace Basis.Scripts.Device_Management
 
             // Detect Wine/Proton once up front so any subsystem can branch on it.
             BasisProtonDetection.Initialize();
+            BasisSafeBoot.Begin();
             BasisGpuDetection.Initialize();
+            BasisSafeBoot.Step("gpu detected");
 
             StaticCurrentMode = BasisConstants.None;
             using BasisSettingsSystem.QualityDeferScope bootQuality = BasisSettingsSystem.DeferQualityRefresh();
@@ -269,16 +271,20 @@ namespace Basis.Scripts.Device_Management
                 {
                     BasisSettingsDefaults.LoadAll();
                 }
+                BasisSafeBoot.ApplySettings();
+                BasisSafeBoot.Step("settings loaded");
                 BasisSettingsModeScope.Initialize();
                 Basis.BasisUI.BasisLocalization.Initialize();
                 Basis.BasisUI.BasisTMPFontFallbacks.RefreshJapanesePriority();
                 // First thing after the settings land: a renderer swap can only happen by
                 // relaunching, so it has to be decided before anything is built to throw away.
-                Basis.Scripts.Rendering.BasisGraphicsApiSelection.ApplyStartupSetting();
+                if (!BasisSafeBoot.SafeMode) { Basis.Scripts.Rendering.BasisGraphicsApiSelection.ApplyStartupSetting(); }
+                BasisSafeBoot.Step("graphics api");
                 Basis.BasisUI.SettingsProvider.ApplyJiggleStartupSettings();
                 // Applied here and nowhere else: the GPU Resident Drawer rebuild this triggers is only
                 // cheap while the loading scene is the whole scene.
                 Basis.Scripts.Rendering.BasisGpuOcclusionCulling.ApplyStartupSetting();
+                BasisSafeBoot.Step("startup settings applied");
             }
             catch (Exception e)
             {
@@ -288,6 +294,7 @@ namespace Basis.Scripts.Device_Management
             try
             {
                 await Initialize();
+                BasisSafeBoot.FinishLater();
             }
             catch (Exception e)
             {
@@ -365,6 +372,7 @@ namespace Basis.Scripts.Device_Management
             BasisAvatarFactory.Initialize();
             BasisPlayerFactory.Initialize();
             BasisXRManagement.Initialize();
+            BasisSafeBoot.Step("xr management");
             BasisCommandLineArgs.Initialize(BakedInCommandLineArgs, out ForcedDefault);
 
             //legacy!!! delete in a few months!
@@ -394,13 +402,18 @@ namespace Basis.Scripts.Device_Management
                 }
             }
 
+            BasisSafeBoot.Step("creating local player");
             await BasisPlayerFactory.CreateLocalPlayer(new InstantiationParameters(transform, true));
+            BasisSafeBoot.Step("starting permanent devices");
             StartAllStartIfPermanentlyExists();
+            BasisSafeBoot.Step("switching to default mode");
             await SwitchSetModeToDefault();
+            BasisSafeBoot.Step($"mode {StaticCurrentMode}");
 
             SubscribeEvents();
 
             await BasisActionDriver.LoadBindings();
+            BasisSafeBoot.Step("bindings loaded");
 
             SetupAutoSwap();
             OnInitializationCompleted?.Invoke();

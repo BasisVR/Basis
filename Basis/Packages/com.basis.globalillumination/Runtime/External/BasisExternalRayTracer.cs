@@ -118,6 +118,7 @@ public static unsafe partial class BasisExternalRayTracer
 
     public static bool Started { get; private set; }
     public static bool Failed { get; private set; }
+    public static bool Blocked;
     public static string Failure { get; private set; } = string.Empty;
     public static ulong Frame { get; private set; }
     public static uint Caps => Started ? BasisRT_Caps() : 0u;
@@ -323,6 +324,7 @@ public static unsafe partial class BasisExternalRayTracer
     public static bool EnsureStarted()
     {
         if (Started) { return true; }
+        if (Blocked) { if (!Failed) { Fail("safe boot turned it off for this launch after the previous one did not finish starting"); } return false; }
         if (Failed)
         {
             if (retries >= 20 || (Time.realtimeSinceStartup < retryAt && retryAt - Time.realtimeSinceStartup <= 3f) || !Supported) { return false; }

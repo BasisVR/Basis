@@ -52,7 +52,7 @@ namespace Basis.MediaPipe
 
         private static bool TryShowWebcamPrompt(Action onClosed)
         {
-            if (_webcamPromptOpen || _webcamAskedThisDesktopStint || BasisDeviceManagement.StaticCurrentMode != BasisConstants.Desktop)
+            if (_webcamPromptOpen || _webcamAskedThisDesktopStint || BasisSafeBoot.SafeMode || BasisDeviceManagement.StaticCurrentMode != BasisConstants.Desktop)
             {
                 return false;
             }

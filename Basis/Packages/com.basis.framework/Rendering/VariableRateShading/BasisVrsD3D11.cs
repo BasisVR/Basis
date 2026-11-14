@@ -26,6 +26,7 @@ namespace Basis.Scripts.Rendering
         [DllImport(Plugin)] private static extern int BasisVrsD3D11_UncoveredCount();
         [DllImport(Plugin)] private static extern IntPtr BasisVrsD3D11_GetRenderEventFunc();
 
+        public static bool Blocked;
         private static bool sQueried;
         private static PluginStatus sStatus;
         private static IntPtr sRenderEvent;
@@ -42,7 +43,7 @@ namespace Basis.Scripts.Rendering
         {
             if (sQueried && sStatus != PluginStatus.NotLoaded) return;
             sQueried = true;
-            if (SystemInfo.graphicsDeviceType != GraphicsDeviceType.Direct3D11 || Application.platform != RuntimePlatform.WindowsPlayer && Application.platform != RuntimePlatform.WindowsEditor)
+            if (Blocked || SystemInfo.graphicsDeviceType != GraphicsDeviceType.Direct3D11 || Application.platform != RuntimePlatform.WindowsPlayer && Application.platform != RuntimePlatform.WindowsEditor)
             {
                 sStatus = PluginStatus.NotD3D11;
                 return;
