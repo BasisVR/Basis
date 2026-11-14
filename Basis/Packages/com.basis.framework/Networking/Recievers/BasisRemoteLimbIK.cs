@@ -31,8 +31,12 @@ public static class BasisRemoteLimbIK
         input.TorsoForward = frame.Forward;
         input.TorsoOut = isLeft ? -frame.Right : frame.Right;
         input.IsLeft = isLeft;
+        input.RestMidRotation = restLower;
+        Quaternion upperFrame = UpperFrame(limb, input, restUpper, restElbow, out Vector3 h0);
         input.HasTrackerHint = true;
-        input.HintPosition = ElbowHint(limb, input, restUpper, restElbow);
+        input.HasHintRotation = true;
+        input.HintRotation = upperFrame * restLower;
+        input.HintPosition = ElbowHint(limb, input, upperFrame * h0, restElbow);
         BasisArmState state = default;
         BasisArmSolveCore.Solve(input, ref state, out BasisArmSolveResult result);
         if (!result.Valid)
@@ -69,6 +73,9 @@ public static class BasisRemoteLimbIK
         input.TargetOffset = Quaternion.identity;
         input.HintPosition = KneeHint(limb, target);
         input.HintWeight = 1f;
+        input.HintIsTracker = true;
+        input.HasHintRotation = true;
+        input.HintRotation = limb.JointWorld;
         input.BendNormal = bendNormal;
         input.AnteriorNormal = bendNormal;
         BasisLegSolveCore.Solve(input, out BasisLegSolveResult result);
@@ -96,7 +103,30 @@ public static class BasisRemoteLimbIK
         float held = reach + Mathf.Clamp(fkReach - reach, -slack, slack) * Smoothstep(ArmReachHoldStart, ArmReachHoldFull, fkReach / chain);
         return limb.Root + aim * (held / reach);
     }
-    static Vector3 ElbowHint(in BasisRemoteLimbPose limb, in BasisArmSolveInput input, Quaternion restUpper, Vector3 restElbow)
+    static Quaternion UpperFrame(in BasisRemoteLimbPose limb, in BasisArmSolveInput input, Quaternion restUpper, Vector3 restElbow, out Vector3 h0)
+    {
+        Vector3 u0 = restElbow - limb.Root, u = limb.Joint - limb.Root;
+        h0 = input.TorsoUp;
+        if (u0.sqrMagnitude < sqrEpsilon || u.sqrMagnitude < sqrEpsilon)
+        {
+            return limb.RootWorld * Quaternion.Inverse(restUpper);
+        }
+        u0.Normalize();
+        u.Normalize();
+        h0 = BasisQuaternionExt.FromToRotation(input.TorsoOut, u0) * input.TorsoUp;
+        h0 -= u0 * Vector3.Dot(h0, u0);
+        h0 = h0.sqrMagnitude < sqrEpsilon ? input.TorsoUp : h0.normalized;
+        Quaternion swing = BasisQuaternionExt.FromToRotation(u0, u);
+        Vector3 hNow = swing * h0, hUpper = limb.RootWorld * (Quaternion.Inverse(restUpper) * h0);
+        hNow -= u * Vector3.Dot(hNow, u);
+        hUpper -= u * Vector3.Dot(hUpper, u);
+        if (hNow.sqrMagnitude < sqrEpsilon || hUpper.sqrMagnitude < sqrEpsilon)
+        {
+            return swing;
+        }
+        return Quaternion.AngleAxis(Vector3.SignedAngle(hNow, hUpper, u) / BasisArmSolveCore.UpperArmPoleTwistShare, u) * swing;
+    }
+    static Vector3 ElbowHint(in BasisRemoteLimbPose limb, in BasisArmSolveInput input, Vector3 hinge, Vector3 restElbow)
     {
         Vector3 axis = input.TargetPosition - limb.Root;
         float axisLength = axis.magnitude;
@@ -105,17 +135,12 @@ public static class BasisRemoteLimbIK
             return limb.Joint;
         }
         axis /= axisLength;
-        Vector3 upper = limb.Joint - limb.Root, reach = limb.Tip - limb.Root, u0 = restElbow - limb.Root;
+        Vector3 upper = limb.Joint - limb.Root, reach = limb.Tip - limb.Root;
         float upperLength = upper.magnitude, reachSqr = reach.sqrMagnitude;
-        if (upperLength < epsilon || u0.sqrMagnitude < sqrEpsilon)
+        if (upperLength < epsilon || (restElbow - limb.Root).sqrMagnitude < sqrEpsilon)
         {
             return limb.Joint;
         }
-        u0.Normalize();
-        Vector3 h0 = BasisQuaternionExt.FromToRotation(input.TorsoOut, u0) * input.TorsoUp;
-        h0 -= u0 * Vector3.Dot(h0, u0);
-        if (h0.sqrMagnitude < sqrEpsilon) h0 = input.TorsoUp;
-        Vector3 hinge = limb.RootWorld * (Quaternion.Inverse(restUpper) * h0.normalized);
         Vector3 fromHinge = Vector3.Cross(axis, hinge) * (input.IsLeft ? 1f : -1f), fromJoint = upper - axis * Vector3.Dot(upper, axis);
         Vector3 bent = reachSqr > sqrEpsilon ? upper - reach * (Vector3.Dot(upper, reach) / reachSqr) : Vector3.zero;
         float w = Smoothstep(ElbowFromJointStart, ElbowFromJointFull, bent.magnitude / upperLength);
