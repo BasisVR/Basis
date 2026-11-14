@@ -117,6 +117,7 @@ namespace Basis.MediaPipe
             }
 
             DeviceName = ResolveDeviceName(devices, requestedDevice);
+            BasisWebCamUpdateThrottle.Install();
             Texture = new WebCamTexture(DeviceName, requestedWidth, requestedHeight, requestedFps)
             {
                 wrapMode = TextureWrapMode.Clamp,
