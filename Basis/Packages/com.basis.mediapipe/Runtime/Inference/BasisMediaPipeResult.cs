@@ -14,6 +14,10 @@ namespace Basis.MediaPipe
         public float[] FaceBlendshapes;
         public float TongueOut;
 
+        /// <summary>Mesh-measured cues for channels the blendshape model under-reports; see MediaPipeFaceGeometry.</summary>
+        public bool HasFaceGeometry;
+        public float FaceSideBalance, CheekWidth, NoseLiftLeft, NoseLiftRight;
+
         public Vector2 HeadImagePosition;
         public float FaceImageSize;
 

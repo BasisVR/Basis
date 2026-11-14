@@ -578,6 +578,24 @@ namespace Basis.MediaPipe.Homuler
         }
 
         private static Vector2 Point(List<NormalizedLandmark> landmarks, int index) => new Vector2(landmarks[index].x, landmarks[index].y);
+        private static Vector2 Aspect(List<NormalizedLandmark> landmarks, int index, float aspect) => new Vector2(landmarks[index].x * aspect, landmarks[index].y);
+
+        private static void MeasureGeometry(List<NormalizedLandmark> fl, float aspect, ref BasisMediaPipeResult output)
+        {
+            if (!MediaPipeFaceGeometry.Axes(Aspect(fl, MediaPipeFaceGeometry.Forehead, aspect), Aspect(fl, MediaPipeFaceGeometry.Chin, aspect), out Vector2 up, out Vector2 across, out _)) return;
+            Vector2 leftInnerEye = Aspect(fl, MediaPipeFaceGeometry.LeftInnerEye, aspect), rightInnerEye = Aspect(fl, MediaPipeFaceGeometry.RightInnerEye, aspect);
+            float eyeGap = Vector2.Distance(leftInnerEye, rightInnerEye);
+            Vector2 rightEdge = Aspect(fl, MediaPipeFaceGeometry.RightEdge, aspect), leftEdge = Aspect(fl, MediaPipeFaceGeometry.LeftEdge, aspect);
+            float cheek = MediaPipeFaceGeometry.CheekWidth(rightEdge, leftEdge, Aspect(fl, MediaPipeFaceGeometry.RightJaw, aspect), Aspect(fl, MediaPipeFaceGeometry.LeftJaw, aspect), Aspect(fl, MediaPipeFaceGeometry.RightLowerCheek, aspect), Aspect(fl, MediaPipeFaceGeometry.LeftLowerCheek, aspect), across);
+            float noseLeft = MediaPipeFaceGeometry.NoseLift(Aspect(fl, MediaPipeFaceGeometry.LeftAlar, aspect), leftInnerEye, up, eyeGap);
+            float noseRight = MediaPipeFaceGeometry.NoseLift(Aspect(fl, MediaPipeFaceGeometry.RightAlar, aspect), rightInnerEye, up, eyeGap);
+            if (!float.IsFinite(cheek) || !float.IsFinite(noseLeft) || !float.IsFinite(noseRight)) return;
+            output.FaceSideBalance = MediaPipeFaceGeometry.SideBalance(Aspect(fl, MediaPipeFaceGeometry.NoseTip, aspect), rightEdge, leftEdge, across);
+            output.CheekWidth = cheek;
+            output.NoseLiftLeft = noseLeft;
+            output.NoseLiftRight = noseRight;
+            output.HasFaceGeometry = true;
+        }
 
         private void ParseFace(FaceLandmarkerResult result, MediaPipeResultSlot slot, bool mirror, int w, int h)
         {
@@ -597,6 +615,7 @@ namespace Basis.MediaPipe.Homuler
                         output.HasRightGaze = MediaPipeGaze.TryMeasure(Point(fl, MediaPipeGaze.RightImageLeftCorner), Point(fl, MediaPipeGaze.RightImageRightCorner), Point(fl, MediaPipeGaze.RightUpperLid), Point(fl, MediaPipeGaze.RightLowerLid), Point(fl, MediaPipeGaze.RightIris), aspect, out output.RightEyeGaze);
                         output.HasLeftGaze = MediaPipeGaze.TryMeasure(Point(fl, MediaPipeGaze.LeftImageLeftCorner), Point(fl, MediaPipeGaze.LeftImageRightCorner), Point(fl, MediaPipeGaze.LeftUpperLid), Point(fl, MediaPipeGaze.LeftLowerLid), Point(fl, MediaPipeGaze.LeftIris), aspect, out output.LeftEyeGaze);
                     }
+                    if (fl.Count >= MediaPipeFaceGeometry.LandmarkCount) MeasureGeometry(fl, (float)w / h, ref output);
                 }
             }
 

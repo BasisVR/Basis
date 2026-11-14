@@ -616,6 +616,7 @@ namespace Basis.MediaPipe
         {
             if (Config.EnableFace)
             {
+                _faceConverter.Frontal = _headConverter.Calibrated ? _headConverter.NeutralRotation : Quaternion.identity;
                 _faceConverter.Apply(in result, BasisLocalPlayer.Instance.BasisAvatar, in timing);
             }
             if (Config.EnableHands)

@@ -107,6 +107,10 @@ public partial class BasisSDKMirror : MonoBehaviour
             ReflectingLayers = value;
             if (LeftCamera) LeftCamera.cullingMask = ReflectingLayers;
             if (RightCamera) RightCamera.cullingMask = ReflectingLayers;
+            foreach (KeyValuePair<Camera, SecondaryViewerState> pair in secondaryViewers)
+            {
+                if (pair.Value.Camera) pair.Value.Camera.cullingMask = ReflectingLayers;
+            }
         }
     }
 
@@ -596,6 +600,10 @@ public partial class BasisSDKMirror : MonoBehaviour
     {
         ApplyCameraOptions(LeftCamera, leftCameraData);
         ApplyCameraOptions(RightCamera, rightCameraData);
+        foreach (KeyValuePair<Camera, SecondaryViewerState> pair in secondaryViewers)
+        {
+            ApplyCameraOptions(pair.Value.Camera, pair.Value.CameraData);
+        }
     }
 
     private void ApplyCameraOptions(Camera camera, UniversalAdditionalCameraData cameraData)
@@ -646,6 +654,8 @@ public partial class BasisSDKMirror : MonoBehaviour
     {
         public RenderTexture Texture;
         public int LastCapturedFrame;
+        public Camera Camera;
+        public UniversalAdditionalCameraData CameraData;
     }
 
     private readonly Dictionary<Camera, SecondaryViewerState> secondaryViewers = new Dictionary<Camera, SecondaryViewerState>();
@@ -841,9 +851,18 @@ public partial class BasisSDKMirror : MonoBehaviour
 
         foreach (KeyValuePair<Camera, SecondaryViewerState> pair in secondaryViewers)
         {
-            ReleaseViewerTexture(pair.Value);
+            ReleaseViewer(pair.Value);
         }
         secondaryViewers.Clear();
+    }
+
+    private static void ReleaseViewer(SecondaryViewerState state)
+    {
+        ReleaseViewerTexture(state);
+        BasisCullingCameraRegistry.Unregister(state.Camera);
+        if (state.Camera) Destroy(state.Camera.gameObject);
+        state.Camera = null;
+        state.CameraData = null;
     }
 
     private static void ReleaseViewerTexture(SecondaryViewerState state)
@@ -1047,8 +1066,13 @@ public partial class BasisSDKMirror : MonoBehaviour
             if (!CanSeeMirror(viewer)) continue;
 
             SecondaryViewerState state = GetOrCreateViewerState(viewer);
+            if (!state.Camera)
+            {
+                CreateNewCamera(viewer, out state.Camera, out state.CameraData);
+                BasisCullingCameraRegistry.Register(state.Camera);
+            }
             viewer.transform.GetPositionAndRotation(out Vector3 viewerPos, out Quaternion viewerRot);
-            RenderEye(viewer, MonoOrStereoscopicEye.Mono, viewerPos, viewerRot, state.Texture);
+            RenderEye(state.Camera, state.CameraData, viewer, MonoOrStereoscopicEye.Mono, viewerPos, viewerRot, state.Texture);
             state.LastCapturedFrame = Time.frameCount;
         }
 
@@ -1112,7 +1136,7 @@ public partial class BasisSDKMirror : MonoBehaviour
         {
             if (secondaryViewers.TryGetValue(PruneScratch[Index], out SecondaryViewerState state))
             {
-                ReleaseViewerTexture(state);
+                ReleaseViewer(state);
                 secondaryViewers.Remove(PruneScratch[Index]);
             }
         }
@@ -1256,13 +1280,17 @@ public partial class BasisSDKMirror : MonoBehaviour
 
     private void RenderEye(Camera sourceCamera, MonoOrStereoscopicEye eye, Vector3 srcPos, Quaternion srcRot, RenderTexture destination)
     {
-        Camera portalCamera = (eye == MonoOrStereoscopicEye.Right) ? RightCamera : LeftCamera;
+        bool right = eye == MonoOrStereoscopicEye.Right;
+        RenderEye(right ? RightCamera : LeftCamera, right ? rightCameraData : leftCameraData, sourceCamera, eye, srcPos, srcRot, destination);
+    }
+
+    private void RenderEye(Camera portalCamera, UniversalAdditionalCameraData portalCameraData, Camera sourceCamera, MonoOrStereoscopicEye eye, Vector3 srcPos, Quaternion srcRot, RenderTexture destination)
+    {
         if (!portalCamera) return;
         if (destination == null) return;
 
-        // Portal cameras are shared by every viewer now, so per-render state must be refreshed.
         updateCameraClearFlags(portalCamera, sourceCamera);
-        UpdateAttachmentRequirement((eye == MonoOrStereoscopicEye.Right) ? rightCameraData : leftCameraData, destination.antiAliasing);
+        UpdateAttachmentRequirement(portalCameraData, destination.antiAliasing);
 
         // --- Eye pose/projection from source camera ---
         Vector3 eyeOriginWS;
