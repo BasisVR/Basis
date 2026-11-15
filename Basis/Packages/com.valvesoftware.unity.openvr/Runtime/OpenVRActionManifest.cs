@@ -13,12 +13,20 @@ namespace Unity.XR.OpenVR
         public const string EyeTrackingFileName = "actions_eyetracking.json";
         public const string FrameHmdControllerType = "frame_hmd";
         public const int MinimumRuntimeMajor = 2, MinimumRuntimeMinor = 18;
+        public const string EyeTrackingInputVersion = "IVRInput_011";
+        public static Func<bool> AllowEyeTracking;
         public static bool EyeTracking { get; private set; }
         public static string ChosenFileName { get; private set; } = DefaultFileName;
         public static string Choose()
         {
             EyeTracking = false;
             ChosenFileName = DefaultFileName;
+            Func<bool> allow = AllowEyeTracking;
+            if (allow == null || !allow())
+            {
+                Debug.Log($"<b>[OpenVR]</b> Action manifest {ChosenFileName} (newest SteamVR SDK off)");
+                return ChosenFileName;
+            }
             string eyePath = Path.Combine(Application.streamingAssetsPath, OpenVRSettings.StreamingAssetsFolderName, EyeTrackingFileName);
             if (!File.Exists(eyePath))
             {
@@ -60,10 +68,10 @@ namespace Unity.XR.OpenVR
                 try
                 {
                     EVRInitError inputError = EVRInitError.None;
-                    Valve.VR.OpenVR.GetGenericInterface(Valve.VR.OpenVR.IVRInput_Version, ref inputError);
+                    Valve.VR.OpenVR.GetGenericInterface(EyeTrackingInputVersion, ref inputError);
                     if (inputError != EVRInitError.None)
                     {
-                        reason = "runtime lacks " + Valve.VR.OpenVR.IVRInput_Version;
+                        reason = "runtime lacks " + EyeTrackingInputVersion;
                         return false;
                     }
                     string runtimeVersion = system.GetRuntimeVersion();

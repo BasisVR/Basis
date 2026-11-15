@@ -44,7 +44,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         {
             _gazeAction = SteamVR_Input.GetAction<SteamVR_Action_Pose>("EyeGaze");
             _eyeTrackingAction = 0;
-            if (!Unity.XR.OpenVR.OpenVRActionManifest.EyeTracking || Valve.VR.OpenVR.Input == null || Valve.VR.OpenVR.Input.GetActionHandle("/actions/default/in/EyeTracking", ref _eyeTrackingAction) != EVRInputError.None)
+            if (!Unity.XR.OpenVR.OpenVRActionManifest.EyeTracking || !BasisOpenVRInput011.Acquire() || Valve.VR.OpenVR.Input == null || Valve.VR.OpenVR.Input.GetActionHandle("/actions/default/in/EyeTracking", ref _eyeTrackingAction) != EVRInputError.None)
             {
                 _eyeTrackingAction = 0;
             }
@@ -69,6 +69,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             BasisEyeGazeGizmo.Shutdown();
             _gazeAction = null;
             _eyeTrackingAction = 0;
+            BasisOpenVRInput011.Release();
         }
 
         public override void Simulate()
@@ -146,11 +147,11 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             rotation = Quaternion.identity;
             CVRInput input = Valve.VR.OpenVR.Input;
             CVRCompositor compositor = Valve.VR.OpenVR.Compositor;
-            if (_eyeTrackingAction == 0 || input == null || compositor == null)
+            if (_eyeTrackingAction == 0 || input == null || compositor == null || !BasisOpenVRInput011.Available)
             {
                 return false;
             }
-            if (input.GetEyeTrackingDataForNextFrame(_eyeTrackingAction, compositor.GetTrackingSpace(), ref _eyeTrackingData, EyeTrackingDataSize) != EVRInputError.None
+            if (BasisOpenVRInput011.GetEyeTrackingDataForNextFrame(_eyeTrackingAction, compositor.GetTrackingSpace(), ref _eyeTrackingData, EyeTrackingDataSize) != EVRInputError.None
                 || !_eyeTrackingData.bActive || !_eyeTrackingData.bValid || !_eyeTrackingData.bTracked)
             {
                 return false;

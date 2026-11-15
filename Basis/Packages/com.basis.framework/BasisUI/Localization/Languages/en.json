@@ -4639,6 +4639,38 @@
       "value": "Use the body role SteamVR reports for a tracker instead of working it out during calibration."
     },
     {
+      "key": "settings.tracker.steamvr.title",
+      "value": "SteamVR"
+    },
+    {
+      "key": "settings.tracker.steamvr.newestSdk",
+      "value": "Use Newest SteamVR SDK"
+    },
+    {
+      "key": "settings.tracker.steamvr.newestSdk.restart",
+      "value": "Use Newest SteamVR SDK (restart to apply)"
+    },
+    {
+      "key": "settings.tracker.steamvr.newestSdk.tooltip",
+      "value": "Adds the newest SteamVR eye tracking, for headsets like Steam Frame. Needs SteamVR 2.18 or newer, and Proton 11 or newer on Linux. Leave this off if your controllers or hands stop working."
+    },
+    {
+      "key": "settings.tracker.steamvr.newestSdk.restart.title",
+      "value": "Restart Basis?"
+    },
+    {
+      "key": "settings.tracker.steamvr.newestSdk.restart.prompt",
+      "value": "The SteamVR SDK change applies after a restart. Restart now?"
+    },
+    {
+      "key": "settings.tracker.steamvr.newestSdk.restart.now",
+      "value": "Restart Now"
+    },
+    {
+      "key": "settings.tracker.steamvr.newestSdk.restart.later",
+      "value": "Later"
+    },
+    {
       "key": "trackerLinking.ignoreHandTracking",
       "value": "Ignore Hand Tracking Devices"
     },

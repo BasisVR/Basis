@@ -2050,6 +2050,7 @@ namespace Basis.BasisUI
         // ("vive_tracker_waist", ...). Off by default: most people never set those roles (or
         // leave stale ones), and a wrong announced role is forced with no geometric check.
         public static BasisSettingsBinding<bool> TrustSteamVRRoles = new("trackerlinking_truststeamvrroles", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> SteamVRNewestSdk = new("steamvr_newestsdk", new BasisPlatformDefault<bool>(false));
         // Drop the trackers hand-tracking software publishes (HANDL, VRLINKQ_Hand_Left, ...) from
         // full-body calibration — see BasisIgnoredCalibrationTrackers. Off by default: the match is
         // on device name alone, so a real body tracker that happens to share one of those names
@@ -3006,6 +3007,7 @@ namespace Basis.BasisUI
             TrackerLinkingAdvancedVisible.LoadBindingValue();
             TrackerLinkingConnectorVisible.LoadBindingValue();
             TrustSteamVRRoles.LoadBindingValue();
+            SteamVRNewestSdk.LoadBindingValue();
             IgnoreHandTrackingDevices.LoadBindingValue();
             PairingSurprisePenalty.LoadBindingValue();
             PairingSurpriseClamp.LoadBindingValue();

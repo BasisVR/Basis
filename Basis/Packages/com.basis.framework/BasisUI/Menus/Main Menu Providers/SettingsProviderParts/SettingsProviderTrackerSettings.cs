@@ -127,6 +127,7 @@ namespace Basis.BasisUI
             RectTransform tabRoot = tabDesc.ContentParent;
 
             BuildGeneralSection(tabRoot);
+            BuildSteamVRSection(tabRoot);
 
             // Trackers & Devices: one card holding the per-tracker list, the per-device
             // overrides and the per-device offsets, each its own collapsible part.
@@ -826,6 +827,58 @@ namespace Basis.BasisUI
 
         // Pairing fusion sliders, kept behind an opt-in so the page stays approachable for
         // users who only want to link trackers. The open state is a saved setting.
+        private static bool SteamVRSupportedPlatform =>
+            Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor ||
+            Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+
+        private static void BuildSteamVRSection(RectTransform container)
+        {
+            if (!SteamVRSupportedPlatform)
+            {
+                return;
+            }
+            PanelSectionToggle section = null;
+            section = PanelSectionToggleHelpers.CreateCollapsibleBoxedSection(container,
+                BasisLocalization.Get("settings.tracker.steamvr.title"), () =>
+            {
+                PanelToggle newestSdkToggle = PanelToggle.CreateNewEntry(container);
+                newestSdkToggle.AssignBinding(BasisSettingsDefaults.SteamVRNewestSdk);
+                newestSdkToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.tracker.steamvr.newestSdk.tooltip"));
+
+                void SyncRestartNotice(bool _)
+                {
+                    newestSdkToggle.Descriptor.SetTitle(BasisSteamVRSdkSetting.NeedsRestart
+                        ? BasisLocalization.Get("settings.tracker.steamvr.newestSdk.restart")
+                        : BasisLocalization.Get("settings.tracker.steamvr.newestSdk"));
+                }
+
+                SyncRestartNotice(false);
+                BasisSettingsDefaults.SteamVRNewestSdk.OnChanged += SyncRestartNotice;
+                newestSdkToggle.OnInstanceReleased += () => BasisSettingsDefaults.SteamVRNewestSdk.OnChanged -= SyncRestartNotice;
+
+                newestSdkToggle.OnValueChanged += _ =>
+                {
+                    if (!BasisSteamVRSdkSetting.NeedsRestart || !Basis.Scripts.Networking.BasisAppRelaunch.IsSupported || BasisMainMenu.Instance == null)
+                    {
+                        return;
+                    }
+                    if (BasisMainMenu.Instance.Dialogue)
+                    {
+                        BasisMainMenu.Instance.Dialogue.ReleaseInstance();
+                    }
+                    BasisMainMenu.Instance.OpenDialogue(
+                        BasisLocalization.Get("settings.tracker.steamvr.newestSdk.restart.title"),
+                        BasisLocalization.Get("settings.tracker.steamvr.newestSdk.restart.prompt"),
+                        BasisLocalization.Get("settings.tracker.steamvr.newestSdk.restart.now"),
+                        BasisLocalization.Get("settings.tracker.steamvr.newestSdk.restart.later"),
+                        accepted =>
+                        {
+                            if (accepted) Basis.Scripts.Networking.BasisAppRelaunch.RebootAndReconnect();
+                        });
+                };
+            }, false, _ => PanelSectionToggleHelpers.RebuildSectionLayout(section, container));
+        }
+
         private static void BuildAdvancedSection(RectTransform container)
         {
             PanelSectionToggle advancedToggle = PanelSectionToggle.CreateNewEntry(container);
@@ -1050,6 +1103,7 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.TrackerLinkingAdvancedVisible.ResetToDefault();
             BasisSettingsDefaults.TrackerLinkingConnectorVisible.ResetToDefault();
             BasisSettingsDefaults.TrustSteamVRRoles.ResetToDefault();
+            BasisSettingsDefaults.SteamVRNewestSdk.ResetToDefault();
             BasisSettingsDefaults.IgnoreHandTrackingDevices.ResetToDefault();
             BasisSettingsDefaults.TrackerGizmos.ResetToDefault();
             BasisSettingsDefaults.LinkedTrackerLines.ResetToDefault();
