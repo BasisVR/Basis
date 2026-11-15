@@ -44,7 +44,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         {
             _gazeAction = SteamVR_Input.GetAction<SteamVR_Action_Pose>("EyeGaze");
             _eyeTrackingAction = 0;
-            if (Valve.VR.OpenVR.Input == null || Valve.VR.OpenVR.Input.GetActionHandle("/actions/default/in/EyeTracking", ref _eyeTrackingAction) != EVRInputError.None)
+            if (!Unity.XR.OpenVR.OpenVRActionManifest.EyeTracking || Valve.VR.OpenVR.Input == null || Valve.VR.OpenVR.Input.GetActionHandle("/actions/default/in/EyeTracking", ref _eyeTrackingAction) != EVRInputError.None)
             {
                 _eyeTrackingAction = 0;
             }

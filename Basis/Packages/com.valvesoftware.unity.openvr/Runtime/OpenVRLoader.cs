@@ -181,9 +181,15 @@ namespace Unity.XR.OpenVR
                 settings.InitializeActionManifestFileRelativeFilePath();
 
                 userDefinedSettings.actionManifestPath = settings.ActionManifestFileRelativeFilePath;
+                if (IsDefaultManifest(userDefinedSettings.actionManifestPath))
+                {
+                    userDefinedSettings.actionManifestPath = OpenVRActionManifest.ReplaceFileName(userDefinedSettings.actionManifestPath, OpenVRActionManifest.Choose());
+                }
 
                 SetUserDefinedSettings(userDefinedSettings); 
             }
+#else
+            ApplyPlayerManifestChoice();
 #endif
             
             CreateSubsystem<XRDisplaySubsystemDescriptor, XRDisplaySubsystem>(s_DisplaySubsystemDescriptors, "OpenVR Display");
@@ -204,6 +210,58 @@ namespace Unity.XR.OpenVR
 
             return displaySubsystem != null && inputSubsystem != null;
         }
+
+        private static bool IsDefaultManifest(string manifestPath)
+        {
+            return !string.IsNullOrEmpty(manifestPath) && Path.GetFileName(manifestPath.Replace('\\', '/')) == OpenVRActionManifest.DefaultFileName;
+        }
+
+#if !UNITY_EDITOR
+        private static void ApplyPlayerManifestChoice()
+        {
+            string settingsPath = Path.Combine(Application.streamingAssetsPath, OpenVRSettings.StreamingAssetsFolderName, "OpenVRSettings.asset");
+            if (!File.Exists(settingsPath))
+            {
+                return;
+            }
+            ushort stereo = 0, initialization = 0, mirror = 0;
+            bool hasStereo = false, hasInitialization = false, hasMirror = false;
+            string manifest = null;
+            foreach (string line in File.ReadAllLines(settingsPath))
+            {
+                int colon = line.IndexOf(':');
+                if (colon < 0)
+                {
+                    continue;
+                }
+                string key = line.Substring(0, colon).Trim(), value = line.Substring(colon + 1).Trim();
+                switch (key)
+                {
+                    case "StereoRenderingMode": hasStereo = ushort.TryParse(value, out stereo); break;
+                    case "InitializationType": hasInitialization = ushort.TryParse(value, out initialization); break;
+                    case "MirrorView": hasMirror = ushort.TryParse(value, out mirror); break;
+                    case "ActionManifestFileRelativeFilePath": manifest = value; break;
+                }
+            }
+            if (!hasStereo || !hasInitialization || !hasMirror || !IsDefaultManifest(manifest))
+            {
+                return;
+            }
+            string chosen = OpenVRActionManifest.Choose();
+            if (chosen == OpenVRActionManifest.DefaultFileName)
+            {
+                return;
+            }
+            UserDefinedSettings userDefinedSettings;
+            userDefinedSettings.stereoRenderingMode = stereo;
+            userDefinedSettings.initializationType = initialization;
+            userDefinedSettings.mirrorViewMode = mirror;
+            userDefinedSettings.editorAppKey = string.Empty;
+            userDefinedSettings.applicationName = string.Empty;
+            userDefinedSettings.actionManifestPath = Path.Combine(Application.streamingAssetsPath, OpenVRSettings.StreamingAssetsFolderName, chosen);
+            SetUserDefinedSettings(userDefinedSettings);
+        }
+#endif
 
         private string GetEscapedApplicationName()
         {
