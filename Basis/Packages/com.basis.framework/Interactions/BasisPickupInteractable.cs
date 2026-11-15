@@ -1030,6 +1030,10 @@ namespace Basis.Scripts.BasisSdk.Interactions
             }
 
             bool weldLost = false;
+            if (_weldedHold && BasisLocalAvatarDriver.CurrentlyTposing)
+            {
+                RebaseHoldOntoSource(inPos, inRot);
+            }
             if (_weldedHold)
             {
                 if (TryGetWeldHandPose(interactingInput, out Vector3 weldHandPos, out Quaternion weldHandRot))
@@ -1238,13 +1242,26 @@ namespace Basis.Scripts.BasisSdk.Interactions
         ///
         /// False for desktop (center-eye) holds, for an avatar the rig has no hand bone for, and before the first solve.
         /// </summary>
+        private void RebaseHoldOntoSource(Vector3 sourcePos, Quaternion sourceRot)
+        {
+            transform.GetPositionAndRotation(out Vector3 position, out Quaternion rotation);
+            Quaternion inverseSource = Quaternion.Inverse(sourceRot);
+            InputConstraint.SetOffsetPositionAndRotation(0, inverseSource * (position - sourcePos), inverseSource * rotation);
+            InputConstraint.GlobalWeight = 1f;
+            _lerping = false;
+            _weldedHold = false;
+            _gripAlignedHold = false;
+            _grabSourceRotation = sourceRot;
+            _grabPoint = Quaternion.Inverse(rotation) * (GetClosestPoint(sourcePos) - position);
+        }
+
         private bool TryGetWeldHandPose(BasisInputWrapper wrapper, out Vector3 position, out Quaternion rotation)
         {
             position = default;
             rotation = default;
             BasisBoneTrackedRole role = wrapper.Role;
             bool left = role == BasisBoneTrackedRole.LeftHand;
-            if (!WeldToHand || (!left && role != BasisBoneTrackedRole.RightHand))
+            if (!WeldToHand || BasisLocalAvatarDriver.CurrentlyTposing || (!left && role != BasisBoneTrackedRole.RightHand))
             {
                 return false;
             }
