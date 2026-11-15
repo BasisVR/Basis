@@ -356,7 +356,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         public override bool TryGetInputDisplayName(BasisInputKey key, out string name)
         {
             ISteamVR_Action_In action = ActionFor(key);
-            name = action != null ? action.GetLocalizedOriginPart(inputSource, EVRInputStringBits.VRInputString_InputSource) : null;
+            name = action != null && action.GetActive(inputSource) ? action.GetLocalizedOriginPart(inputSource, EVRInputStringBits.VRInputString_InputSource) : null;
             return !string.IsNullOrWhiteSpace(name);
         }
 

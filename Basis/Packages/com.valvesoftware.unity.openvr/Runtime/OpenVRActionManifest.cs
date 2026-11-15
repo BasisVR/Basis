@@ -12,6 +12,7 @@ namespace Unity.XR.OpenVR
         public const string DefaultFileName = "actions.json";
         public const string EyeTrackingFileName = "actions_eyetracking.json";
         public const string FrameHmdControllerType = "frame_hmd";
+        public const int MinimumRuntimeMajor = 2, MinimumRuntimeMinor = 18;
         public static bool EyeTracking { get; private set; }
         public static string ChosenFileName { get; private set; } = DefaultFileName;
         public static string Choose()
@@ -65,6 +66,12 @@ namespace Unity.XR.OpenVR
                         reason = "runtime lacks " + Valve.VR.OpenVR.IVRInput_Version;
                         return false;
                     }
+                    string runtimeVersion = system.GetRuntimeVersion();
+                    if (!IsAtLeast(runtimeVersion, MinimumRuntimeMajor, MinimumRuntimeMinor))
+                    {
+                        reason = $"runtime {runtimeVersion} is older than {MinimumRuntimeMajor}.{MinimumRuntimeMinor}";
+                        return false;
+                    }
                     ETrackedPropertyError propertyError = ETrackedPropertyError.TrackedProp_Success;
                     bool gaze = system.GetBoolTrackedDeviceProperty(Valve.VR.OpenVR.k_unTrackedDeviceIndex_Hmd, ETrackedDeviceProperty.Prop_SupportsXrEyeGazeInteraction_Bool, ref propertyError);
                     if (propertyError == ETrackedPropertyError.TrackedProp_Success && gaze)
@@ -90,6 +97,19 @@ namespace Unity.XR.OpenVR
                 reason = "probe threw " + e.GetType().Name;
                 return false;
             }
+        }
+        public static bool IsAtLeast(string version, int major, int minor)
+        {
+            if (string.IsNullOrEmpty(version))
+            {
+                return false;
+            }
+            string[] parts = version.Split('.');
+            if (parts.Length < 2 || !int.TryParse(parts[0], out int foundMajor) || !int.TryParse(parts[1], out int foundMinor))
+            {
+                return false;
+            }
+            return foundMajor > major || (foundMajor == major && foundMinor >= minor);
         }
         static string ReadControllerType(CVRSystem system)
         {
