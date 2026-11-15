@@ -8,7 +8,8 @@ using System.Collections;
 using UnityEngine.XR;
 namespace Valve.VR
 {
-    public class SteamVR_Render : MonoBehaviour
+    [Unity.Scripting.LifecycleManagement.AutoStaticsCleanup]
+    public partial class SteamVR_Render : MonoBehaviour
     {
         [System.NonSerialized] public TrackedDevicePose_t[] poses = new TrackedDevicePose_t[OpenVR.k_unMaxTrackedDeviceCount];
         [System.NonSerialized] public TrackedDevicePose_t[] gamePoses = new TrackedDevicePose_t[0];

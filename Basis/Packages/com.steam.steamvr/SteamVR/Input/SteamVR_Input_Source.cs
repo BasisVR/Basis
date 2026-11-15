@@ -11,7 +11,8 @@ using System.Collections.Generic;
 
 namespace Valve.VR
 {
-    public static class SteamVR_Input_Source
+    [Unity.Scripting.LifecycleManagement.AutoStaticsCleanup]
+    public static partial class SteamVR_Input_Source
     {
         public static int numSources = System.Enum.GetValues(typeof(SteamVR_Input_Sources)).Length;
 

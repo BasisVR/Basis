@@ -5,7 +5,8 @@ using UnityEngine.Serialization;
 
 namespace Valve.VR
 {
-    public class SteamVR_Settings : ScriptableObject
+    [Unity.Scripting.LifecycleManagement.AutoStaticsCleanup]
+    public partial class SteamVR_Settings : ScriptableObject
     {
         private static SteamVR_Settings _instance;
         public static SteamVR_Settings instance

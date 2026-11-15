@@ -2189,6 +2189,7 @@ public struct IVRBlockQueue
 }
 
 
+[Unity.Scripting.LifecycleManagement.NoAutoStaticsCleanup]
 public class Utils
 {
 	public static IntPtr ToUtf8(string managedString)
@@ -8041,7 +8042,8 @@ public enum EBlockQueueCreationFlag
 	public IntPtr pszPath; // const char *
 }
 
-public class OpenVR
+[Unity.Scripting.LifecycleManagement.AutoStaticsCleanup]
+public partial class OpenVR
 {
 
 	public static uint InitInternal(ref EVRInitError peError, EVRApplicationType eApplicationType)

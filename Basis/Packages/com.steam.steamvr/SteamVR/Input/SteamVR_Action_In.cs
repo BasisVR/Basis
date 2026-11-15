@@ -233,6 +233,7 @@ namespace Valve.VR
     /// In actions are all input type actions. Boolean, Single, Vector2, Vector3, Skeleton, and Pose.
     /// This class fires onChange and onUpdate events.
     /// </summary>
+    [Unity.Scripting.LifecycleManagement.NoAutoStaticsCleanup]
     public abstract class SteamVR_Action_In_Source : SteamVR_Action_Source, ISteamVR_Action_In_Source
     {
         protected static uint inputOriginInfo_size = 0;

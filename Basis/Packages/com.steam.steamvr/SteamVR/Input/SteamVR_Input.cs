@@ -19,6 +19,7 @@ namespace Valve.VR
         public static bool fileInitialized = false;
 
         /// <summary>True if the steamvr input system initialization process has completed successfully</summary>
+        [Unity.Scripting.LifecycleManagement.AutoStaticsCleanup]
         public static bool initialized = false;
 
         /// <summary>True if the preinitialization process (setting up dictionaries, etc) has completed successfully</summary>
@@ -31,18 +32,23 @@ namespace Valve.VR
         public static string actionFileHash;
 
         /// <summary>An event that fires when the non visual actions (everything except poses / skeletons) have been updated</summary>
+        [Unity.Scripting.LifecycleManagement.AutoStaticsCleanup]
         public static event Action onNonVisualActionsUpdated;
 
         /// <summary>An event that fires when the pose actions have been updated</summary>
+        [Unity.Scripting.LifecycleManagement.AutoStaticsCleanup]
         public static event PosesUpdatedHandler onPosesUpdated;
         public delegate void PosesUpdatedHandler(bool skipSendingEvents);
 
         /// <summary>An event that fires when the skeleton actions have been updated</summary>
+        [Unity.Scripting.LifecycleManagement.AutoStaticsCleanup]
         public static event SkeletonsUpdatedHandler onSkeletonsUpdated;
         public delegate void SkeletonsUpdatedHandler(bool skipSendingEvents);
 
+        [Unity.Scripting.LifecycleManagement.AutoStaticsCleanup]
         protected static bool initializing = false;
 
+        [Unity.Scripting.LifecycleManagement.AutoStaticsCleanup]
         protected static int startupFrame = 0;
 
         /// <summary>
@@ -50,6 +56,7 @@ namespace Valve.VR
         /// <see cref="CaptureMainThreadState"/>. The action update path reads this instead of
         /// Time.frameCount so it can run off the main thread (Time is main-thread-only).
         /// </summary>
+        [Unity.Scripting.LifecycleManagement.AutoStaticsCleanup]
         public static int frameCount;
 
         /// <summary>
@@ -57,6 +64,7 @@ namespace Valve.VR
         /// <see cref="CaptureMainThreadState"/>. Action sources stamp changedTime/updateTime with
         /// this instead of Time.realtimeSinceStartup so updates can run off the main thread.
         /// </summary>
+        [Unity.Scripting.LifecycleManagement.AutoStaticsCleanup]
         public static float realtimeSinceStartup;
 
         /// <summary>
@@ -1590,7 +1598,9 @@ namespace Valve.VR
 
 
 
+        [Unity.Scripting.LifecycleManagement.AutoStaticsCleanup]
         private static bool checkingSetup = false;
+        [Unity.Scripting.LifecycleManagement.AutoStaticsCleanup]
         private static bool openingSetup = false;
         public static bool IsOpeningSetup() { return openingSetup; }
         private static void CheckSetup()

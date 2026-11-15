@@ -5,6 +5,7 @@ using System.Collections;
 
 namespace Valve.VR
 {
+    [Unity.Scripting.LifecycleManagement.NoAutoStaticsCleanup]
     public class SteamVR_RingBuffer<T>
     {
         public static bool UseDateTimeForTicks = false;

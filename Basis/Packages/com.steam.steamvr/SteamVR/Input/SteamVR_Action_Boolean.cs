@@ -235,6 +235,7 @@ namespace Valve.VR
     {
     }
 
+    [Unity.Scripting.LifecycleManagement.NoAutoStaticsCleanup]
     public class SteamVR_Action_Boolean_Source : SteamVR_Action_In_Source, ISteamVR_Action_Boolean
     {
         protected static uint actionData_size = 0;

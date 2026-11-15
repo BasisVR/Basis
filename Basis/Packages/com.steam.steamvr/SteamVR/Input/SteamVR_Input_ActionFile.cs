@@ -382,6 +382,7 @@ namespace Valve.VR
     }
 
     [System.Serializable]
+    [Unity.Scripting.LifecycleManagement.NoAutoStaticsCleanup]
     public class SteamVR_Input_ActionFile_Action
     {
         [JsonIgnore]
@@ -619,6 +620,7 @@ namespace Valve.VR
         public string binding_url;
     }
 
+    [Unity.Scripting.LifecycleManagement.NoAutoStaticsCleanup]
     public class SteamVR_Input_ManifestFile_Application_Binding_ControllerTypes
     {
         public static string oculus_touch = "oculus_touch";
@@ -635,6 +637,7 @@ namespace Valve.VR
         public static string index_hmd = "index_hmd";
     }
 
+    [Unity.Scripting.LifecycleManagement.NoAutoStaticsCleanup]
     static public class SteamVR_Input_ActionFile_ActionTypes
     {
         public static string boolean = "boolean";
@@ -654,6 +657,7 @@ namespace Valve.VR
         public static string[] listSkeletons = new string[] { skeletonLeftPath, skeletonRightPath };
     }
 
+    [Unity.Scripting.LifecycleManagement.NoAutoStaticsCleanup]
     static public class SteamVR_Input_ActionFile_ActionSet_Usages
     {
         public static string leftright = "leftright";

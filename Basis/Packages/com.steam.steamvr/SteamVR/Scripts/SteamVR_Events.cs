@@ -22,7 +22,8 @@ using UnityEngine.Events;
 
 namespace Valve.VR
 {
-    public static class SteamVR_Events
+    [Unity.Scripting.LifecycleManagement.AutoStaticsCleanup]
+    public static partial class SteamVR_Events
     {
         public abstract class Action
         {

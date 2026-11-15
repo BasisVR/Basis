@@ -14,7 +14,8 @@ using UnityEditor;
 #endif
 namespace Valve.VR
 {
-    public class SteamVR : System.IDisposable
+    [Unity.Scripting.LifecycleManagement.AutoStaticsCleanup]
+    public partial class SteamVR : System.IDisposable
     {
         // Use this to check if SteamVR is currently active without attempting
         // to activate it in the process.
@@ -65,7 +66,7 @@ namespace Valve.VR
             }
         }
 
-        private static SteamVR _instance;
+        private static SteamVR _instance = null;
         public static SteamVR instance
         {
             get

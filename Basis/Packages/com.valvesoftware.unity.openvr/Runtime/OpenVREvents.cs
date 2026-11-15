@@ -7,7 +7,8 @@ using Valve.VR;
 namespace Unity.XR.OpenVR
 {
     public class OpenVREvent : UnityEvent<VREvent_t> { }
-    public class OpenVREvents
+    [Unity.Scripting.LifecycleManagement.AutoStaticsCleanup]
+    public partial class OpenVREvents
     {
         private static OpenVREvents instance;
 

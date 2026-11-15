@@ -186,6 +186,7 @@ namespace Valve.VR
     {
     }
 
+    [Unity.Scripting.LifecycleManagement.NoAutoStaticsCleanup]
     public class SteamVR_Action_Single_Source : SteamVR_Action_In_Source, ISteamVR_Action_Single
     {
         protected static uint actionData_size = 0;

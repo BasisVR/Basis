@@ -266,6 +266,7 @@ namespace Valve.VR
 
 
     [Serializable]
+    [Unity.Scripting.LifecycleManagement.NoAutoStaticsCleanup]
     public abstract class SteamVR_Action : IEquatable<SteamVR_Action>, ISteamVR_Action
     {
         public SteamVR_Action() { }
@@ -605,6 +606,7 @@ namespace Valve.VR
         }
     }
 
+    [Unity.Scripting.LifecycleManagement.NoAutoStaticsCleanup]
     public abstract class SteamVR_Action_Source_Map
     {
         /// <summary>The full string path for this action (from the action manifest)</summary>

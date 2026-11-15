@@ -15,6 +15,7 @@ namespace Valve.VR
     /// Skeleton Actions are our best approximation of where your hands are while holding vr controllers and pressing buttons. We give you 31 bones to help you animate hand models.
     /// For more information check out this blog post: https://steamcommunity.com/games/250820/announcements/detail/1690421280625220068
     /// </summary>
+    [Unity.Scripting.LifecycleManagement.NoAutoStaticsCleanup]
     public class SteamVR_Action_Skeleton : SteamVR_Action_Pose_Base<SteamVR_Action_Skeleton_Source_Map, SteamVR_Action_Skeleton_Source>, ISteamVR_Action_Skeleton_Source, ISerializationCallbackReceiver
     {
         public const int numBones = 31;
@@ -709,6 +710,7 @@ namespace Valve.VR
     /// Skeleton Actions are our best approximation of where your hands are while holding vr controllers and pressing buttons. We give you 31 bones to help you animate hand models.
     /// For more information check out this blog post: https://steamcommunity.com/games/250820/announcements/detail/1690421280625220068
     /// </summary>
+    [Unity.Scripting.LifecycleManagement.NoAutoStaticsCleanup]
     public class SteamVR_Action_Skeleton_Source : SteamVR_Action_Pose_Source, ISteamVR_Action_Skeleton_Source
     {
         protected static uint skeletonActionData_size = 0;
@@ -1481,6 +1483,7 @@ namespace Valve.VR
 
 
     /// <summary>The order of the fingers that SteamVR Skeleton Input outputs</summary>
+    [Unity.Scripting.LifecycleManagement.NoAutoStaticsCleanup]
     public class SteamVR_Skeleton_FingerIndexes
     {
         public const int thumb = 0;
@@ -1493,6 +1496,7 @@ namespace Valve.VR
     }
 
     /// <summary>The order of the fingerSplays that SteamVR Skeleton Input outputs</summary>
+    [Unity.Scripting.LifecycleManagement.NoAutoStaticsCleanup]
     public class SteamVR_Skeleton_FingerSplayIndexes
     {
         public const int thumbIndex = 0;

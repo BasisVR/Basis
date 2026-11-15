@@ -195,6 +195,7 @@ namespace Valve.VR
     {
     }
 
+    [Unity.Scripting.LifecycleManagement.NoAutoStaticsCleanup]
     public class SteamVR_Action_Vector2_Source : SteamVR_Action_In_Source, ISteamVR_Action_Vector2
     {
         protected static uint actionData_size = 0;

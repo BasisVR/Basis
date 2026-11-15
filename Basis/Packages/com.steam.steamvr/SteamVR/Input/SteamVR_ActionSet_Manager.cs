@@ -13,7 +13,8 @@ namespace Valve.VR
     /// <summary>
     /// Action sets are logical groupings of actions. Multiple sets can be active at one time.
     /// </summary>
-    public static class SteamVR_ActionSet_Manager
+    [Unity.Scripting.LifecycleManagement.AutoStaticsCleanup]
+    public static partial class SteamVR_ActionSet_Manager
     {
         public static VRActiveActionSet_t[] rawActiveActionSetArray
         {

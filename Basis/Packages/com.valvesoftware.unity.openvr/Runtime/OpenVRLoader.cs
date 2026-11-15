@@ -120,6 +120,7 @@ namespace Unity.XR.OpenVR
     }
 #endif
 
+    [Unity.Scripting.LifecycleManagement.NoAutoStaticsCleanup]
     public class OpenVRLoader : XRLoaderHelper
 #if UNITY_EDITOR
     , IXRLoaderPreInit
