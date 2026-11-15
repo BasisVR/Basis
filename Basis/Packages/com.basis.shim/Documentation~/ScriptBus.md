@@ -42,6 +42,7 @@ namespace Basis.Shims
 
         // Finding content
         public static BasisScriptTarget Self(object self);
+        public static BasisScriptReference SelfScript(object self);
         public static BasisScriptTarget World { get; }
         public static BasisScriptTarget LocalAvatar { get; }
         public static BasisScriptTarget Of(GameObject gameObject);
@@ -171,6 +172,7 @@ namespace Basis.Shims
     {
         public bool IsValid { get; }
         public string ClassName { get; }
+        public string Id { get; }
         public BasisScriptTarget Target { get; }
         public bool Listens(string channel);
         public object Resolve(object self);
@@ -306,6 +308,8 @@ A content can share any texture it can reach. A receiver could already put that 
 
 - `SendToScript(this, script, channel, text[, value])` delivers only to that script's listener on the channel, skipping the other scripts in its content.
 - `ClassName`, `Target` (the content it lives in) and `Listens(channel)` describe it.
+- `SelfScript(this)` returns your own script's handle.
+- `Id` is unique to one script in one loaded copy of a content, and every client sees the same value for it. It is the content's `NetworkId` plus an id baked into the script when the content was built, so two copies of the same prop get different ids, and each script inside a copy gets its own. Content with no `NetworkId` gets the built id alone. A content built before ids existed returns an empty string.
 - `Resolve(this)` returns the real script object, but only when the caller runs in the same box. Cast it to your own class. From any other box it returns null.
 
 The handle never hands another box the object itself. Cilbox matches interpreted classes by name, so a raw script object in another box could be cast to an unrelated class with the same name and have its fields read and written as the wrong layout. A received handle can be passed on as a value; a raw script object from another box cannot.

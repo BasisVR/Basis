@@ -211,6 +211,8 @@ namespace Basis.Tests.Sync
                 Assert.IsTrue(Method(box, typeof(BasisScriptTarget), nameof(BasisScriptTarget.GetScript)), boxType.Name);
                 Assert.IsTrue(Method(box, typeof(BasisScriptReference), nameof(BasisScriptReference.Resolve)), boxType.Name);
                 Assert.IsTrue(Method(box, typeof(BasisScriptReference), "get_" + nameof(BasisScriptReference.ClassName)), boxType.Name);
+                Assert.IsTrue(Method(box, typeof(BasisScriptReference), "get_" + nameof(BasisScriptReference.Id)), boxType.Name);
+                Assert.IsTrue(Method(box, typeof(BasisScriptBus), nameof(BasisScriptBus.SelfScript)), boxType.Name);
                 Assert.IsFalse(Method(box, typeof(BasisScriptReference), ".ctor"), boxType.Name + " must not forge a script reference.");
                 Assert.IsTrue(Method(box, typeof(BasisSharedTexture), nameof(BasisSharedTexture.GetTexture)), boxType.Name);
                 Assert.IsTrue(Method(box, typeof(BasisSharedTexture), "get_" + nameof(BasisSharedTexture.Width)), boxType.Name);
@@ -833,8 +835,10 @@ namespace Basis.Tests.Sync
         {
             CilboxSceneBasis worldBox = Box<CilboxSceneBasis>("World script");
             CilboxPropBasis propBox = Box<CilboxPropBasis>("Prop script");
-            propBox.gameObject.AddComponent<BasisProp>();
+            propBox.gameObject.AddComponent<BasisProp>().AssignContentIdentifier(new BasisNetworkContentBase.BasisContentInformation { LoadedNetID = "copy-a", SpawnedByLocalPlayer = true });
             CilboxProxy world = Proxy(worldBox), first = Proxy(propBox), second = Proxy(propBox);
+            first.buildTimeGuid = "first-guid";
+            second.buildTimeGuid = "second-guid";
             Assert.IsTrue(Listen(world, "share", "OnMessage"));
             Assert.IsTrue(Listen(first, "ping", "OnMessage"));
             Assert.IsTrue(Listen(second, "ping", "OnMessage"));
@@ -848,6 +852,10 @@ namespace Basis.Tests.Sync
             Assert.IsNotNull(script);
             Assert.IsTrue(script.IsValid);
             Assert.AreEqual(Probe, script.ClassName);
+            Assert.AreEqual("copy-a/first-guid", script.Id);
+            Assert.AreSame(script, Running(propBox, () => BasisScriptBus.SelfScript(first)), "SelfScript is the same handle others receive");
+            Assert.AreNotEqual(script.Id, Running(propBox, () => BasisScriptBus.SelfScript(second)).Id, "scripts in one content have different ids");
+            Assert.IsNull(BasisScriptBus.SelfScript(first), "only a running script can ask");
             Assert.AreSame(propTarget, script.Target);
             Assert.IsTrue(script.Listens("ping"));
             Assert.AreNotSame(script, message.SenderScript, "the sender is the second script, the value is the first");
@@ -875,6 +883,7 @@ namespace Basis.Tests.Sync
             first.DisableProxy();
             Assert.IsFalse(script.IsValid);
             Assert.AreEqual(string.Empty, script.ClassName);
+            Assert.AreEqual(string.Empty, script.Id);
             Assert.IsNull(script.Target);
             Assert.AreEqual(0, Running(worldBox, () => BasisScriptBus.SendToScript(world, script, "ping", "gone")));
         }

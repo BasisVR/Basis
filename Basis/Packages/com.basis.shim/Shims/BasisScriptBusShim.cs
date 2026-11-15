@@ -24,6 +24,7 @@ namespace Basis.Shims
 		public const int MaxTextureSize = 4096, MaxTextureCopies = 16;
 		public const long MaxTextureCopyBytes = 134217728, MaxTotalTextureCopyBytes = 536870912;
 		public static BasisScriptTarget Self(object self) => CilboxScriptBus.Self(self);
+		public static BasisScriptReference SelfScript(object self) => CilboxScriptBus.SelfScript(self);
 		public static BasisScriptTarget World => CilboxScriptBus.Target(BasisScene.Instance);
 		public static BasisScriptTarget LocalAvatar => CilboxScriptBus.Target(BasisLocalPlayer.Instance != null ? BasisLocalPlayer.Instance.BasisAvatar : null);
 		public static BasisScriptTarget Of(GameObject gameObject) => CilboxScriptBus.Of(gameObject);
@@ -156,6 +157,7 @@ namespace Basis.Shims
 		internal BasisScriptReference() { }
 		public bool IsValid => CilboxScriptBus.Live(this);
 		public string ClassName => IsValid ? Class : string.Empty;
+		public string Id => IsValid ? CilboxScriptBus.ScriptId(this) : string.Empty;
 		public BasisScriptTarget Target => IsValid ? CilboxScriptBus.EntryOf(Box, Proxy)?.Handle : null;
 		public bool Listens(string channel) => IsValid && CilboxScriptBus.Listens(this, channel);
 		public object Resolve(object self) => IsValid && ReferenceEquals(CilboxScriptBus.Running(self, out _), Box) ? Proxy : null;
@@ -334,6 +336,7 @@ namespace Cilbox
 				switch (name)
 				{
 					case nameof(BasisScriptBus.Self):
+					case nameof(BasisScriptBus.SelfScript):
 					case "get_" + nameof(BasisScriptBus.World):
 					case "get_" + nameof(BasisScriptBus.LocalAvatar):
 					case nameof(BasisScriptBus.Of):
@@ -463,6 +466,7 @@ namespace Cilbox
 				{
 					case "get_" + nameof(BasisScriptReference.IsValid):
 					case "get_" + nameof(BasisScriptReference.ClassName):
+					case "get_" + nameof(BasisScriptReference.Id):
 					case "get_" + nameof(BasisScriptReference.Target):
 					case nameof(BasisScriptReference.Listens):
 					case nameof(BasisScriptReference.Resolve):
@@ -518,6 +522,20 @@ namespace Cilbox
 		{
 			CilboxBasisCommon box = Running(self, out CilboxProxy proxy);
 			return box != null ? EntryOf(box, proxy)?.Handle : null;
+		}
+
+		internal static string ScriptId(BasisScriptReference script)
+		{
+			string build = script.Proxy.buildTimeGuid;
+			if (string.IsNullOrEmpty(build)) return string.Empty;
+			BasisContentBase content = EntryOf(script.Box, script.Proxy)?.Content;
+			return content != null && content.TryGetNetworkGUIDIdentifier(out string net) && net != null ? net + "/" + build : build;
+		}
+
+		internal static BasisScriptReference SelfScript(object self)
+		{
+			CilboxBasisCommon box = Running(self, out CilboxProxy proxy);
+			return box != null ? Reference(proxy, box) : null;
 		}
 
 		internal static BasisScriptTarget Of(GameObject gameObject)
