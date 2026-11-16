@@ -335,6 +335,12 @@ namespace Basis.BasisUI
             avatarHostingLock.SetValueWithoutNotify(BasisNetworkModeration.GlobalAvatarHostingLocked);
             avatarHostingLock.OnValueChanged += _ => SendLockRequest(avatarHostingLock, BasisNetworkModeration.GlobalToggleAvatarHosting, () => BasisNetworkModeration.GlobalAvatarHostingLocked);
 
+            PanelToggle avatarShareRequestsLock = PanelToggle.CreateNewEntry(container);
+            avatarShareRequestsLock.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.title.lockAvatarShareRequests"));
+            avatarShareRequestsLock.Descriptor.SetTooltip(BasisLocalization.Get("settings.admin.title.lockAvatarShareRequests.tooltip"));
+            avatarShareRequestsLock.SetValueWithoutNotify(BasisNetworkModeration.GlobalAvatarShareRequestsLocked);
+            avatarShareRequestsLock.OnValueChanged += _ => SendLockRequest(avatarShareRequestsLock, BasisNetworkModeration.GlobalToggleAvatarShareRequests, () => BasisNetworkModeration.GlobalAvatarShareRequestsLocked);
+
             for (int i = 0; i < LockSectionBuilders.Count; i++)
             {
                 try { LockSectionBuilders[i]?.Invoke(container); }
@@ -377,6 +383,7 @@ namespace Basis.BasisUI
             controller.ContentRemovalLockToggle = contentRemovalLock;
             controller.ExternalLinksLockToggle = externalLinksLock;
             controller.AvatarHostingLockToggle = avatarHostingLock;
+            controller.AvatarShareRequestsLockToggle = avatarShareRequestsLock;
             controller.VideoClipsLockToggle = videoClipsLock;
             controller.KeepSharedMediaToggle = keepSharedMediaToggle;
             controller.VideoClipMaxSizeDropdown = videoClipMaxSizeDropdown;
@@ -1480,6 +1487,7 @@ namespace Basis.BasisUI
             public PanelToggle ContentRemovalLockToggle;
             public PanelToggle ExternalLinksLockToggle;
             public PanelToggle AvatarHostingLockToggle;
+            public PanelToggle AvatarShareRequestsLockToggle;
             public PanelToggle VideoClipsLockToggle;
             public PanelToggle KeepSharedMediaToggle;
             public PanelDropdown VideoClipMaxSizeDropdown;
@@ -1603,6 +1611,8 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalAvatarHostingLockedChanged += OnGlobalAvatarHostingLockedChanged;
                 BasisNetworkModeration.OnGlobalVideoClipsLockedChanged -= OnGlobalVideoClipsLockedChanged;
                 BasisNetworkModeration.OnGlobalVideoClipsLockedChanged += OnGlobalVideoClipsLockedChanged;
+                BasisNetworkModeration.OnGlobalAvatarShareRequestsLockedChanged -= OnGlobalAvatarShareRequestsLockedChanged;
+                BasisNetworkModeration.OnGlobalAvatarShareRequestsLockedChanged += OnGlobalAvatarShareRequestsLockedChanged;
                 BasisNetworkModeration.OnGlobalKeepSharedMediaOnLeaveChanged -= OnGlobalKeepSharedMediaOnLeaveChanged;
                 BasisNetworkModeration.OnGlobalKeepSharedMediaOnLeaveChanged += OnGlobalKeepSharedMediaOnLeaveChanged;
                 BasisNetworkModeration.OnGlobalVideoClipMaxMegabytesChanged -= OnGlobalVideoClipMaxMegabytesChanged;
@@ -1661,6 +1671,7 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalContentRemovalLockedChanged -= OnGlobalContentRemovalLockedChanged;
                 BasisNetworkModeration.OnGlobalExternalLinksLockedChanged -= OnGlobalExternalLinksLockedChanged;
                 BasisNetworkModeration.OnGlobalVideoClipsLockedChanged -= OnGlobalVideoClipsLockedChanged;
+                BasisNetworkModeration.OnGlobalAvatarShareRequestsLockedChanged -= OnGlobalAvatarShareRequestsLockedChanged;
                 BasisNetworkModeration.OnGlobalKeepSharedMediaOnLeaveChanged -= OnGlobalKeepSharedMediaOnLeaveChanged;
                 BasisNetworkModeration.OnGlobalVideoClipMaxMegabytesChanged -= OnGlobalVideoClipMaxMegabytesChanged;
                 BasisNetworkModeration.OnGlobalVideoClipMaxPerPlayerChanged -= OnGlobalVideoClipMaxPerPlayerChanged;
@@ -1706,6 +1717,7 @@ namespace Basis.BasisUI
                 BasisNetworkModeration.OnGlobalContentRemovalLockedChanged -= OnGlobalContentRemovalLockedChanged;
                 BasisNetworkModeration.OnGlobalExternalLinksLockedChanged -= OnGlobalExternalLinksLockedChanged;
                 BasisNetworkModeration.OnGlobalVideoClipsLockedChanged -= OnGlobalVideoClipsLockedChanged;
+                BasisNetworkModeration.OnGlobalAvatarShareRequestsLockedChanged -= OnGlobalAvatarShareRequestsLockedChanged;
                 BasisNetworkModeration.OnGlobalKeepSharedMediaOnLeaveChanged -= OnGlobalKeepSharedMediaOnLeaveChanged;
                 BasisNetworkModeration.OnGlobalVideoClipMaxMegabytesChanged -= OnGlobalVideoClipMaxMegabytesChanged;
                 BasisNetworkModeration.OnGlobalVideoClipMaxPerPlayerChanged -= OnGlobalVideoClipMaxPerPlayerChanged;
@@ -1884,6 +1896,11 @@ namespace Basis.BasisUI
             private void OnGlobalVideoClipsLockedChanged(bool locked)
             {
                 if (VideoClipsLockToggle != null) VideoClipsLockToggle.SetValueWithoutNotify(locked);
+            }
+
+            private void OnGlobalAvatarShareRequestsLockedChanged(bool locked)
+            {
+                if (AvatarShareRequestsLockToggle != null) AvatarShareRequestsLockToggle.SetValueWithoutNotify(locked);
             }
 
             private void OnGlobalKeepSharedMediaOnLeaveChanged(bool keep)

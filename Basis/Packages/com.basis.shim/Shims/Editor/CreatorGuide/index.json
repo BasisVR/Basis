@@ -346,7 +346,7 @@
         {
           "id": "scripting/shims/pose",
           "title": "Pose",
-          "description": "BasisPoseOverrideShim and BasisRemotePoseShim.",
+          "description": "BasisPoseOverrideShim, BasisRemotePoseShim and BasisLocalPoseShim.",
           "file": "scripting.shims.pose.md"
         }
       ]

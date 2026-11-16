@@ -67,8 +67,6 @@ namespace Basis.Scripts.Platform
         /// </summary>
         public static bool ChordEnabled { get; set; } = true;
 
-        private static bool _chordHeld;
-
         /// <summary>
         /// Queue a payload as though the user had pasted it. Used by tests and by any UI that wants an
         /// explicit "paste image" button; safe to call from any thread.
@@ -158,31 +156,16 @@ namespace Basis.Scripts.Platform
 
         private static void PollPasteChord()
         {
-            if (!ChordEnabled)
-            {
-                _chordHeld = false;
-                return;
-            }
+            if (!ChordEnabled) return;
 
             Keyboard keyboard = Keyboard.current;
-            if (keyboard == null)
-            {
-                _chordHeld = false;
-                return;
-            }
+            if (keyboard == null) return;
 
             // Ctrl+V on Windows and Linux, Cmd+V on macOS, matching every other paste on the platform.
+            if (!keyboard.vKey.wasPressedThisFrame) return;
             bool modifier = keyboard.ctrlKey.isPressed || keyboard.leftCommandKey.isPressed || keyboard.rightCommandKey.isPressed;
-            bool held = modifier && keyboard.vKey.isPressed;
-            if (!held)
-            {
-                _chordHeld = false;
-                return;
-            }
-
-            // Edge-triggered: holding the chord down pastes once, not once per frame.
-            if (_chordHeld) return;
-            _chordHeld = true;
+            if (!modifier) return;
+            if (!OsConfirmsPasteChord()) return;
 
             // A focused text field owns Ctrl+V — the user is pasting a URL or a name, and raising an
             // image card on top of that would be both surprising and unrecoverable.
@@ -217,6 +200,8 @@ namespace Basis.Scripts.Platform
             CaptureText();
         }
 
+        private static bool OsConfirmsPasteChord() => true;
+
         public static bool CanCopyImages => false;
 
         public static bool CopyImage(IReadOnlyList<BasisClipboardImage> formats) => false;
@@ -242,6 +227,12 @@ namespace Basis.Scripts.Platform
         [DllImport("kernel32.dll", SetLastError = true)] private static extern bool GlobalUnlock(IntPtr handle);
         [DllImport("kernel32.dll", SetLastError = true)] private static extern UIntPtr GlobalSize(IntPtr handle);
         [DllImport("shell32.dll", CharSet = CharSet.Auto)] private static extern uint DragQueryFile(IntPtr hDrop, uint file, StringBuilder buffer, uint length);
+        [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int virtualKey);
+
+        private const int VK_CONTROL = 0x11;
+        private const int VK_V = 0x56;
+
+        private static bool OsConfirmsPasteChord() => (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0 && (GetAsyncKeyState(VK_V) & 0x8000) != 0;
 
         private static bool _formatsRegistered;
         private static uint _pngFormat;

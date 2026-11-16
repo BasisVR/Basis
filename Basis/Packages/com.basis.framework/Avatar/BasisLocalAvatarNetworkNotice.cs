@@ -44,6 +44,7 @@ namespace Basis.Scripts.Avatar
             WaitingForSupply = false;
             BasisClientMessageRegistry.OnSupplyApplied -= OnSupplyApplied;
             BasisAvatarHostClient.Reset();
+            BasisAvatarShareRequests.Reset();
         }
 
         /// <summary>

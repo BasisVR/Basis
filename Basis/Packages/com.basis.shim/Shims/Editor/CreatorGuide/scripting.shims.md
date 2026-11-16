@@ -73,6 +73,7 @@ Shims come in three shapes:
 | `BasisVixxyShim` | Read and drive Vixxy menu items | [Avatar](/en/docs/scripting/shims/avatar) |
 | `BasisPoseOverrideShim` | Pose the local player's bones and IK targets | [Pose](/en/docs/scripting/shims/pose) |
 | `BasisRemotePoseShim` | Pose other players' avatars on this client | [Pose](/en/docs/scripting/shims/pose) |
+| `BasisLocalPoseShim` | Read the local player's final pose, every bone | [Pose](/en/docs/scripting/shims/pose) |
 | `BasisOsc` | OSC messages | [OSC](/en/docs/scripting/osc) |
 | `Debug` (`BasisDebugPropsShim`) | Logging tagged with your content | [Sandbox Rules](/en/docs/scripting/sandbox-rules) |
 

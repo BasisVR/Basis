@@ -398,10 +398,14 @@ public sealed class ContentKeyExchangeTests
         Assert.True(BasisNetworkVersion.TryGetFallback(BasisNetworkVersion.LegacyLoginVersion, out legacy, out protocol));
         Assert.True(legacy);
         Assert.Equal(0, protocol);
+        Assert.True(BasisNetworkVersion.TryGetFallback(58, out legacy, out protocol));
+        Assert.False(legacy);
+        Assert.Equal(58, protocol);
         Assert.False(BasisNetworkVersion.TryGetFallback(56, out _, out _));
         Assert.False(BasisNetworkVersion.TryGetFallback(BasisNetworkVersion.ServerVersion, out _, out _));
-        Assert.False(BasisNetworkVersion.TryGetFallback(59, out _, out _));
+        Assert.False(BasisNetworkVersion.TryGetFallback((ushort)(BasisNetworkVersion.ServerVersion + 1), out _, out _));
         Assert.True(BasisNetworkVersion.SendsUnlockPasswords(false, 57));
+        Assert.False(BasisNetworkVersion.SendsUnlockPasswords(false, 58));
         Assert.True(BasisNetworkVersion.SendsUnlockPasswords(true, 0));
         Assert.False(BasisNetworkVersion.SendsUnlockPasswords(false, 0));
         Assert.False(BasisNetworkVersion.SendsUnlockPasswords(false, BasisNetworkVersion.ServerVersion));

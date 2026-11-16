@@ -1082,7 +1082,7 @@ namespace Cilbox
 		{
 			for (; type != null; type = type.DeclaringType)
 			{
-				if (type == typeof(Basis.Shims.VideoPlayerShim) || type == typeof(Basis.BasisStringDownloader) || type == typeof(Basis.BasisImageDownloader) || type == typeof(Basis.Shims.BasisRemotePoseShim)) return true;
+				if (type == typeof(Basis.Shims.VideoPlayerShim) || type == typeof(Basis.BasisStringDownloader) || type == typeof(Basis.BasisImageDownloader) || type == typeof(Basis.Shims.BasisRemotePoseShim) || type == typeof(Basis.Shims.BasisLocalPoseShim)) return true;
 			}
 			return false;
 		}

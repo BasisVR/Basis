@@ -170,4 +170,95 @@ public sealed class AvatarHostRelayWireTests
         BasisServerMessageRegistry.EnsureInitialized();
         Assert.Contains(BasisServerMessageRegistry.BuildSupply(), d => d.Name == BasisAvatarHostProtocol.MessageName && d.Channel == BasisNetworkCommons.PluginReliableChannel);
     }
+    [Fact]
+    public void AskIsForwardedToOwnerAndOnlyAnOfferedAnswerReachesTheRequester()
+    {
+        using ServerStaticsScope scope = new();
+        NetworkServer.Configuration = new Configuration { AvatarHostMaxMegabytes = 8, AvatarHostCacheMegabytes = 16 };
+        FakeNetPeer owner = LifecycleSupport.Peer(LifecycleSupport.NextPeerId()), alice = LifecycleSupport.Peer(LifecycleSupport.NextPeerId());
+        foreach (FakeNetPeer peer in new[] { owner, alice }) { NetworkServer.AuthenticatedPeers[peer.Id] = peer; NetworkServer.SetPeerProtocol(peer, BasisNetworkVersion.ServerVersion); }
+        byte[] id = Enumerable.Repeat((byte)21, BasisAvatarHostProtocol.IdBytes).ToArray(), stranger = Enumerable.Repeat((byte)22, BasisAvatarHostProtocol.IdBytes).ToArray();
+        const string url = "https://example.invalid/a.bee";
+        try
+        {
+            void Ask() => Dispatch(alice, w => { w.Put(BasisAvatarHostProtocol.OpAskShare); w.Put((ushort)owner.Id); w.Put(url); });
+            void Answer(bool accepted, byte[] answerId) => Dispatch(owner, w => { w.Put(BasisAvatarHostProtocol.OpShareAnswer); w.Put((ushort)alice.Id); w.Put(url); w.Put(accepted); if (accepted) { BasisAvatarHostProtocol.WriteId(w, answerId); w.Put(false); } });
+            Answer(true, id);
+            Assert.Empty(Replies(alice, BasisAvatarHostProtocol.OpShareAnswered));
+            Ask();
+            Ask();
+            NetDataReader asked = Assert.Single(Replies(owner, BasisAvatarHostProtocol.OpShareAsked));
+            Assert.Equal((ushort)alice.Id, asked.GetUShort());
+            Assert.Equal(url, asked.GetString());
+            Answer(true, stranger);
+            NetDataReader refused = Assert.Single(Replies(alice, BasisAvatarHostProtocol.OpShareAnswered));
+            Assert.Equal((ushort)owner.Id, refused.GetUShort());
+            Assert.Equal(url, refused.GetString());
+            Assert.False(refused.GetBool());
+            Dispatch(owner, w => { w.Put(BasisAvatarHostProtocol.OpOffer); BasisAvatarHostProtocol.WriteId(w, id); w.Put(100_000L); });
+            Ask();
+            Answer(true, id);
+            List<NetDataReader> answers = Replies(alice, BasisAvatarHostProtocol.OpShareAnswered);
+            Assert.Equal(2, answers.Count);
+            NetDataReader shared = answers[1];
+            Assert.Equal((ushort)owner.Id, shared.GetUShort());
+            Assert.Equal(url, shared.GetString());
+            Assert.True(shared.GetBool());
+            Assert.True(BasisAvatarHostProtocol.TryReadId(shared, out byte[] echoed));
+            Assert.Equal(id, echoed);
+            Assert.False(shared.GetBool());
+        }
+        finally
+        {
+            foreach (FakeNetPeer peer in new[] { owner, alice }) BasisAvatarHostRelay.RemovePeer(peer.Id);
+        }
+    }
+    [Fact]
+    public void AskWhileShareRequestsAreLockedIsDeclinedWithoutForwarding()
+    {
+        using ServerStaticsScope scope = new();
+        NetworkServer.Configuration = new Configuration { AvatarHostMaxMegabytes = 8, AvatarHostCacheMegabytes = 16 };
+        FakeNetPeer owner = LifecycleSupport.Peer(LifecycleSupport.NextPeerId()), alice = LifecycleSupport.Peer(LifecycleSupport.NextPeerId());
+        foreach (FakeNetPeer peer in new[] { owner, alice }) { NetworkServer.AuthenticatedPeers[peer.Id] = peer; NetworkServer.SetPeerProtocol(peer, BasisNetworkVersion.ServerVersion); }
+        const string url = "https://example.invalid/c.bee";
+        bool toggled = !BasisNetworkServer.Security.BasisGlobalLockManager.AvatarShareRequestsLocked && BasisNetworkServer.Security.BasisGlobalLockManager.ToggleAvatarShareRequests();
+        try
+        {
+            Dispatch(alice, w => { w.Put(BasisAvatarHostProtocol.OpAskShare); w.Put((ushort)owner.Id); w.Put(url); });
+            Assert.Empty(Replies(owner, BasisAvatarHostProtocol.OpShareAsked));
+            NetDataReader declined = Assert.Single(Replies(alice, BasisAvatarHostProtocol.OpShareAnswered));
+            Assert.Equal((ushort)owner.Id, declined.GetUShort());
+            Assert.Equal(url, declined.GetString());
+            Assert.False(declined.GetBool());
+        }
+        finally
+        {
+            if (toggled) BasisNetworkServer.Security.BasisGlobalLockManager.ToggleAvatarShareRequests();
+            foreach (FakeNetPeer peer in new[] { owner, alice }) BasisAvatarHostRelay.RemovePeer(peer.Id);
+        }
+    }
+    [Fact]
+    public void AskToAPreviousProtocolOwnerIsDeclinedWithoutForwarding()
+    {
+        using ServerStaticsScope scope = new();
+        NetworkServer.Configuration = new Configuration { AvatarHostMaxMegabytes = 8, AvatarHostCacheMegabytes = 16 };
+        FakeNetPeer owner = LifecycleSupport.Peer(LifecycleSupport.NextPeerId()), alice = LifecycleSupport.Peer(LifecycleSupport.NextPeerId());
+        foreach (FakeNetPeer peer in new[] { owner, alice }) NetworkServer.AuthenticatedPeers[peer.Id] = peer;
+        NetworkServer.SetPeerProtocol(owner, BasisNetworkVersion.OldestClientVersion);
+        NetworkServer.SetPeerProtocol(alice, BasisNetworkVersion.ServerVersion);
+        const string url = "https://example.invalid/b.bee";
+        try
+        {
+            Dispatch(alice, w => { w.Put(BasisAvatarHostProtocol.OpAskShare); w.Put((ushort)owner.Id); w.Put(url); });
+            Assert.Empty(Replies(owner, BasisAvatarHostProtocol.OpShareAsked));
+            NetDataReader declined = Assert.Single(Replies(alice, BasisAvatarHostProtocol.OpShareAnswered));
+            Assert.Equal((ushort)owner.Id, declined.GetUShort());
+            Assert.Equal(url, declined.GetString());
+            Assert.False(declined.GetBool());
+        }
+        finally
+        {
+            foreach (FakeNetPeer peer in new[] { owner, alice }) BasisAvatarHostRelay.RemovePeer(peer.Id);
+        }
+    }
 }

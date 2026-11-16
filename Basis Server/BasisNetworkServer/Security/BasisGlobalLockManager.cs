@@ -35,6 +35,7 @@ namespace BasisNetworkServer.Security
         private static int _avatarHostingLocked;
         private static int _videoClipsLocked;
         private static int _keepSharedMediaOnLeave;
+        private static int _avatarShareRequestsLocked;
         private static int _imageMaxResolutionK = DefaultImageMaxResolutionK;
         public const int MinImageMaxResolutionK = 1;
         public const int MaxImageMaxResolutionK = 16;
@@ -72,6 +73,7 @@ namespace BasisNetworkServer.Security
         public static bool ExternalLinksLocked => Interlocked.CompareExchange(ref _externalLinksLocked, 0, 0) == 1;
         public static bool AvatarHostingLocked => Interlocked.CompareExchange(ref _avatarHostingLocked, 0, 0) == 1;
         public static bool VideoClipsLocked => Interlocked.CompareExchange(ref _videoClipsLocked, 0, 0) == 1;
+        public static bool AvatarShareRequestsLocked => Interlocked.CompareExchange(ref _avatarShareRequestsLocked, 0, 0) == 1;
         /// <summary>
         /// When set, a leaving player's shared images and video/audio clips stay in the instance and are
         /// handed to the longest-connected remaining player instead of being removed.
@@ -111,6 +113,7 @@ namespace BasisNetworkServer.Security
             Interlocked.Exchange(ref _avatarHostingLocked, config.AvatarHostingLocked ? 1 : 0);
             Interlocked.Exchange(ref _videoClipsLocked, config.VideoClipsLocked ? 1 : 0);
             Interlocked.Exchange(ref _keepSharedMediaOnLeave, config.KeepSharedMediaOnLeave ? 1 : 0);
+            Interlocked.Exchange(ref _avatarShareRequestsLocked, config.AvatarShareRequestsLocked ? 1 : 0);
             SetImageMaxResolutionK(config.ImageMaxResolutionK);
             SetVideoClipMaxMegabytes(config.VideoClipMaxMegabytes);
             SetVideoClipMaxPerPlayer(config.VideoClipMaxPerPlayer);
@@ -152,6 +155,7 @@ namespace BasisNetworkServer.Security
             config.AvatarHostingLocked = AvatarHostingLocked;
             config.VideoClipsLocked = VideoClipsLocked;
             config.KeepSharedMediaOnLeave = KeepSharedMediaOnLeave;
+            config.AvatarShareRequestsLocked = AvatarShareRequestsLocked;
             config.ImageMaxResolutionK = ImageMaxResolutionK;
             config.VideoClipMaxMegabytes = VideoClipMaxMegabytes;
             config.VideoClipMaxPerPlayer = VideoClipMaxPerPlayer;
@@ -261,6 +265,8 @@ namespace BasisNetworkServer.Security
 
         public static bool ToggleVideoClips() => Toggle(ref _videoClipsLocked);
 
+        public static bool ToggleAvatarShareRequests() => Toggle(ref _avatarShareRequestsLocked);
+
         public static bool ToggleKeepSharedMediaOnLeave() => Toggle(ref _keepSharedMediaOnLeave);
 
         /// <summary>
@@ -363,6 +369,7 @@ namespace BasisNetworkServer.Security
             writer.Put(VideoClipMaxMegabytes);
             writer.Put(VideoClipMaxPerPlayer);
             writer.Put(KeepSharedMediaOnLeave);
+            writer.Put(AvatarShareRequestsLocked);
             NetworkServer.TrySend(peer, writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
             NetworkServer.ReturnWriter(writer);
         }
@@ -413,6 +420,7 @@ namespace BasisNetworkServer.Security
             writer.Put(VideoClipMaxMegabytes);
             writer.Put(VideoClipMaxPerPlayer);
             writer.Put(KeepSharedMediaOnLeave);
+            writer.Put(AvatarShareRequestsLocked);
             NetworkServer.BroadcastMessageToClients(
                 writer,
                 BasisNetworkCommons.AdminChannel,

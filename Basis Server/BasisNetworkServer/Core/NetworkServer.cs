@@ -26,6 +26,9 @@ public static class NetworkServer
     private static readonly byte[] PeerCapabilities = new byte[ushort.MaxValue + 1];
     public static void SetPeerCapabilities(NetPeer peer, byte capabilities) { if (peer != null && (uint)peer.Id < (uint)PeerCapabilities.Length) PeerCapabilities[peer.Id] = capabilities; }
     public static bool PeerHasCapability(NetPeer peer, byte capability) => peer != null && (uint)peer.Id < (uint)PeerCapabilities.Length && (PeerCapabilities[peer.Id] & capability) != 0;
+    private static readonly ushort[] PeerProtocols = new ushort[ushort.MaxValue + 1];
+    public static void SetPeerProtocol(NetPeer peer, ushort protocol) { if (peer != null && (uint)peer.Id < (uint)PeerProtocols.Length) PeerProtocols[peer.Id] = protocol; }
+    public static ushort PeerProtocol(int peerId) => (uint)peerId < (uint)PeerProtocols.Length ? PeerProtocols[peerId] : (ushort)0;
     public static Configuration Configuration;
     /// <summary>
     /// Allow-list consulted at <see cref="BasisServerHandle.BasisServerHandleEvents.OnNetworkAccepted"/>

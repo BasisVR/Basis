@@ -5211,6 +5211,18 @@
       "value": "Sharing this avatar through the server did not work."
     },
     {
+      "key": "network.avatarRequest.title",
+      "value": "Share Your Avatar?"
+    },
+    {
+      "key": "network.avatarRequest.body",
+      "value": "{0} could not download your avatar. Share it with them through this server? They receive only the parts their device needs, and only while you are connected. If you say no, they keep seeing a placeholder."
+    },
+    {
+      "key": "network.avatarRequest.someone",
+      "value": "Someone"
+    },
+    {
       "key": "network.legacyServer.title",
       "value": "Server Out Of Date"
     },
@@ -22895,6 +22907,14 @@
     {
       "key": "settings.admin.title.lockAvatarHosting.tooltip",
       "value": "Players can't share an avatar from a file on their computer through this server, and anything they are already sharing stops. Anyone who already loaded it keeps it. Admins are unaffected. Size and memory limits are under Network Protection."
+    },
+    {
+      "key": "settings.admin.title.lockAvatarShareRequests",
+      "value": "Lock Avatar Share Requests"
+    },
+    {
+      "key": "settings.admin.title.lockAvatarShareRequests.tooltip",
+      "value": "Stop non-admin players from asking someone whose avatar they could not download to share it through the server. The wearer is never asked. Admins are unaffected."
     },
     {
       "key": "library.shareable.portal",

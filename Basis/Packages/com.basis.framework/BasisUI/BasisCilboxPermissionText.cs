@@ -82,6 +82,7 @@ namespace Basis.BasisUI
             new Rule("Basis.Scripts.BasisSdk.Players.BasisLocalPlayer", null, "yourPlayer", true),
             new Rule("Basis.Shims.BasisVelocityShim", null, "yourPlayer", true),
             new Rule("Basis.Shims.BasisPoseOverrideShim", null, "yourPlayer", true),
+            new Rule("Basis.Shims.BasisLocalPoseShim", null, "yourPlayer", false),
             new Rule("Basis.Shims.BasisGrabShim", null, "yourPlayer", true),
             new Rule("Basis.Shims.BasisLockShim", "Lock", "yourPlayer", true),
             new Rule("Basis.Shims.BasisHandBlockShim", "Block", "yourPlayer", false),

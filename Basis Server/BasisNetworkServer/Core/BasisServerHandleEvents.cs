@@ -611,7 +611,7 @@ namespace BasisServerHandle
                     return;
                 }
 
-                if (ClientVersion != BasisNetworkVersion.ServerVersion)
+                if (!BasisNetworkVersion.AcceptsClient(ClientVersion))
                 {
                     RejectVersionMismatch(ConReq, BasisNetworkVersion.ServerVersion, ClientVersion);
                     return;
@@ -652,6 +652,7 @@ namespace BasisServerHandle
                     if (!string.IsNullOrEmpty(verifiedIdentity))
                     {
                         accepted = ConReq.Accept();//can do both way Communication from here on
+                        NetworkServer.SetPeerProtocol(accepted, ClientVersion);
                         NetworkServer.AuthIdentity.ProcessVerifiedConnection(NetworkServer.Configuration, ConReq, accepted, verifiedIdentity);
                     }
                     else
@@ -668,6 +669,7 @@ namespace BasisServerHandle
                             RejectWithReason(ConReq, "Transport cannot protect the login.");
                             return;
                         }
+                        NetworkServer.SetPeerProtocol(accepted, ClientVersion);
                         BasisPendingLoginGate.Bind(accepted.Id, accepted, pendingKey);
                         NetworkServer.AuthIdentity.ProcessConnection(NetworkServer.Configuration, ConReq, accepted);
                     }
@@ -695,6 +697,7 @@ namespace BasisServerHandle
                     byte capabilities = BasisNetworkVersion.ReadCapabilities(ConReq.Data);
                     accepted = ConReq.Accept();//can do both way Communication from here on
                     NetworkServer.SetPeerCapabilities(accepted, capabilities);
+                    NetworkServer.SetPeerProtocol(accepted, ClientVersion);
                     string verifiedOrClaimed = ConReq.VerifiedIdentity;
                     OnNetworkAccepted(accepted, readyMessage, string.IsNullOrEmpty(verifiedOrClaimed) ? ResolveUnauthenticatedUuid(readyMessage.playerMetaDataMessage.playerUUID) : verifiedOrClaimed);
                 }

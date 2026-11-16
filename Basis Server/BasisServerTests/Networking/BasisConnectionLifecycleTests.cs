@@ -471,6 +471,41 @@ public class BasisConnectionRequestGateTests
     }
 
     [Fact]
+    public void PreviousProtocolClient_IsAccepted_AndRemembered()
+    {
+        using var scope = new ServerStaticsScope();
+        InstallOpenServer(scope);
+
+        int id = LifecycleSupport.NextPeerId();
+        FakeNetPeer peer = LifecycleSupport.Peer(id);
+        byte[] data = LifecycleSupport.ConnectPayload(BasisNetworkVersion.OldestClientVersion, new byte[] { 1 }, LifecycleSupport.MakeReady(LifecycleSupport.NewUuid(), "Olde"));
+        RecordingConnectionRequest req = LifecycleSupport.Request(data, accepted: peer);
+
+        BasisServerHandleEvents.HandleConnectionRequest(req);
+
+        Assert.True(req.WasAccepted);
+        Assert.False(req.WasRejected);
+        Assert.Equal(BasisNetworkVersion.OldestClientVersion, NetworkServer.PeerProtocol(id));
+    }
+
+    [Fact]
+    public void ClientOlderThanTheOldestAccepted_IsRejectedWithVersionMismatch()
+    {
+        using var scope = new ServerStaticsScope();
+        InstallOpenServer(scope);
+
+        ushort old = (ushort)(BasisNetworkVersion.OldestClientVersion - 1);
+        RecordingConnectionRequest req = LifecycleSupport.Request(LifecycleSupport.ConnectPayload(old, null, null));
+        BasisServerHandleEvents.HandleConnectionRequest(req);
+
+        Assert.True(req.WasRejected);
+        var reject = LifecycleSupport.RejectStructured(req.RejectPayload);
+        Assert.Equal(BasisNetworkCommons.RejectKind_VersionMismatch, reject.Kind);
+        Assert.Equal(BasisNetworkVersion.ServerVersion, reject.Aux0);
+        Assert.Equal(old, reject.Aux1);
+    }
+
+    [Fact]
     public void MalformedReadyMessage_IsRejected_WithoutAccepting()
     {
         using var scope = new ServerStaticsScope();

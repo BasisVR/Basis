@@ -120,6 +120,10 @@ namespace Basis.Scripts.Avatar
             Player.OnAvatarFailedStateChanged?.Invoke();
             return true;
         }
+        public static bool RefusedByDownloadLimit(BasisRemotePlayer Player, BasisLoadableBundle Bundle)
+        {
+            return DownloadSectionBytes(Bundle?.BasisBundleConnector) > RemoteDownloadLimit(Player);
+        }
         private static long DownloadSectionBytes(BasisBundleConnector Connector)
         {
             BasisBundleGenerated[] sections = Connector?.BasisBundleGenerated;
@@ -424,6 +428,7 @@ namespace Basis.Scripts.Avatar
                 if (!playerToken.IsCancellationRequested)
                 {
                     FallBackAfterFailedRemoteLoad(Player, BasisLoadableBundle, Position, Rotation);
+                    if (Mode == 0) BasisAvatarShareRequests.OnRemoteLoadFailed(Player, BasisLoadableBundle);
                 }
             }
             finally

@@ -40,10 +40,10 @@ namespace Basis.Network.Server.Generic
                     writer.Put(reason);
                 });
             }
-            private static void Send(int peerId, Action<NetDataWriter> write)
-            {
-                if (NetworkServer.AuthenticatedPeers.TryGetValue(peerId, out NetPeer peer)) BasisServerMessageRegistry.SendToPeer(peer, BasisAvatarHostProtocol.MessageName, write);
-            }
+        }
+        private static void Send(int peerId, Action<NetDataWriter> write)
+        {
+            if (NetworkServer.AuthenticatedPeers.TryGetValue(peerId, out NetPeer peer)) BasisServerMessageRegistry.SendToPeer(peer, BasisAvatarHostProtocol.MessageName, write);
         }
         private struct Piece
         {
@@ -65,11 +65,24 @@ namespace Basis.Network.Server.Generic
         private static readonly List<(int PeerId, uint RequestId)> finished = new List<(int PeerId, uint RequestId)>();
         private static Timer pump;
         private static int pumping;
+        private static readonly object askSync = new object();
+        private static readonly Dictionary<(int Requester, int Owner, string Url), long> asks = new Dictionary<(int Requester, int Owner, string Url), long>();
+        private static readonly List<(int Requester, int Owner, string Url)> staleAsks = new List<(int Requester, int Owner, string Url)>();
+        private static long NowMs => System.Diagnostics.Stopwatch.GetTimestamp() * 1000 / System.Diagnostics.Stopwatch.Frequency;
         public static readonly BasisAvatarHostLedger Ledger = new BasisAvatarHostLedger(new PeerSink());
         public static void Register() => BasisServerMessageRegistry.RegisterServerPlugin(BasisAvatarHostProtocol.MessageName, DeliveryMethod.ReliableOrdered, Handle);
         public static void RemovePeer(int peerId)
         {
             Ledger.RemovePeer(peerId);
+            lock (askSync)
+            {
+                staleAsks.Clear();
+                foreach ((int Requester, int Owner, string Url) key in asks.Keys)
+                {
+                    if (key.Requester == peerId || key.Owner == peerId) staleAsks.Add(key);
+                }
+                foreach ((int Requester, int Owner, string Url) key in staleAsks) asks.Remove(key);
+            }
             lock (streamSync)
             {
                 finished.Clear();
@@ -150,9 +163,52 @@ namespace Basis.Network.Server.Generic
                 Volatile.Write(ref pumping, 0);
             }
         }
-        public static bool MaySharePeer(int peerId)
+        private static bool TryAddAsk(int requester, int owner, string url)
         {
-            if (!BasisNetworkServer.Security.BasisGlobalLockManager.AvatarHostingLocked) return true;
+            long now = NowMs;
+            lock (askSync)
+            {
+                staleAsks.Clear();
+                int pending = 0;
+                foreach (KeyValuePair<(int Requester, int Owner, string Url), long> ask in asks)
+                {
+                    if (now - ask.Value > BasisAvatarHostProtocol.AskTimeoutMs) staleAsks.Add(ask.Key);
+                    else if (ask.Key.Requester == requester) pending++;
+                }
+                foreach ((int Requester, int Owner, string Url) key in staleAsks) asks.Remove(key);
+                if (pending >= BasisAvatarHostProtocol.MaxPendingAsksPerRequester || asks.ContainsKey((requester, owner, url))) return false;
+                asks[(requester, owner, url)] = now;
+                return true;
+            }
+        }
+        private static bool TakeAsk(int requester, int owner, string url)
+        {
+            if (url == null) return false;
+            lock (askSync)
+            {
+                if (!asks.TryGetValue((requester, owner, url), out long at)) return false;
+                asks.Remove((requester, owner, url));
+                return NowMs - at <= BasisAvatarHostProtocol.AskTimeoutMs;
+            }
+        }
+        private static void SendAnswered(int requester, int owner, string url, bool accepted, byte[] id, bool vrm)
+        {
+            ushort ownerId = (ushort)owner;
+            Send(requester, writer =>
+            {
+                writer.Put(BasisAvatarHostProtocol.OpShareAnswered);
+                writer.Put(ownerId);
+                writer.Put(url);
+                writer.Put(accepted);
+                if (!accepted) return;
+                BasisAvatarHostProtocol.WriteId(writer, id);
+                writer.Put(vrm);
+            });
+        }
+        public static bool MaySharePeer(int peerId) => !BasisNetworkServer.Security.BasisGlobalLockManager.AvatarHostingLocked || HasLockBypass(peerId);
+        public static bool MayAskPeer(int peerId) => !BasisNetworkServer.Security.BasisGlobalLockManager.AvatarShareRequestsLocked || HasLockBypass(peerId);
+        private static bool HasLockBypass(int peerId)
+        {
             return NetworkServer.AuthenticatedPeers.TryGetValue(peerId, out NetPeer peer)
                 && NetworkServer.AuthIdentity != null
                 && NetworkServer.AuthIdentity.NetIDToUUID(peer, out string uuid)
@@ -222,6 +278,35 @@ namespace Basis.Network.Server.Generic
                     case BasisAvatarHostProtocol.OpOwnerFailed:
                         {
                             if (reader.TryGetUInt(out uint fetchId)) Ledger.OwnerFailed(peer.Id, fetchId);
+                            break;
+                        }
+                    case BasisAvatarHostProtocol.OpAskShare:
+                        {
+                            if (!reader.TryGetUShort(out ushort owner) || !reader.TryGetString(out string url) || string.IsNullOrEmpty(url) || url.Length > BasisAvatarHostProtocol.MaxAskUrlChars || owner == peer.Id || !NetworkServer.AuthenticatedPeers.ContainsKey(owner)) return;
+                            if (!limits.Enabled || !MayAskPeer(peer.Id) || !MaySharePeer(owner) || NetworkServer.PeerProtocol(owner) < BasisNetworkVersion.ShareAskVersion)
+                            {
+                                SendAnswered(peer.Id, owner, url, false, null, false);
+                                return;
+                            }
+                            if (!TryAddAsk(peer.Id, owner, url)) return;
+                            ushort requester = (ushort)peer.Id;
+                            Send(owner, writer =>
+                            {
+                                writer.Put(BasisAvatarHostProtocol.OpShareAsked);
+                                writer.Put(requester);
+                                writer.Put(url);
+                            });
+                            break;
+                        }
+                    case BasisAvatarHostProtocol.OpShareAnswer:
+                        {
+                            if (!reader.TryGetUShort(out ushort requester) || !reader.TryGetString(out string url) || !reader.TryGetBool(out bool accepted)) return;
+                            byte[] id = null;
+                            bool vrm = false;
+                            if (accepted && (!BasisAvatarHostProtocol.TryReadId(reader, out id) || !reader.TryGetBool(out vrm))) return;
+                            if (!TakeAsk(requester, peer.Id, url)) return;
+                            if (accepted && !Ledger.IsOfferedBy(peer.Id, id)) accepted = false;
+                            SendAnswered(requester, peer.Id, url, accepted, id, vrm);
                             break;
                         }
                 }

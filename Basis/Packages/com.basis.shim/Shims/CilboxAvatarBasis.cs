@@ -68,6 +68,7 @@ namespace Cilbox
 			"Basis.Shims.BasisHapticHand",
 			"Basis.Shims.BasisPoseOverrideShim", // Only poses the player wearing the avatar.
 			"Basis.Shims.BasisRemotePoseShim", // Only poses the remote player wearing the avatar, on this client.
+			"Basis.Shims.BasisLocalPoseShim", // Only reads the local player when the avatar is worn locally.
 			"Basis.Shims.BasisSharedRandomShim",
 			"Basis.Shims.BasisComputeShim",
 			"Basis.Shims.BasisAudioRoutingShim", // Only routes the avatar's own sources, to the Avatars group.
@@ -85,6 +86,11 @@ namespace Cilbox
 			"Basis.Shims.BasisJson",
 			"Basis.Shims.BasisJsonNode",
 			"Basis.Shims.BasisUIExtensions",
+			"Basis.Shims.BasisIKShim",
+			"Basis.Shims.BasisIKBatch",
+			"Basis.Shims.BasisIKLimb",
+			"Basis.Shims.BasisIKArm",
+			"Basis.Shims.BasisIKChain",
 		};
 
 		static readonly HashSet<string> extraWhiteListFields = new HashSet<string>(){

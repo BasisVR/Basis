@@ -325,6 +325,7 @@ namespace BasisNetworkCore.Serializable
             AllowlistResult,      // server→moderator: one page of the allowlist; offset 0 replaces the client's copy, displayName is empty unless connected. Payload: [int total][int offset][ushort count]{[string uuid][string displayName]}
             AddAllowlistEveryone, // moderator: add every connected player to the allowlist. Gated by basis.moderation.whitelist. No payload.
             GlobalToggleKeepSharedMediaOnLeave, // admin: keep a leaving player's shared images and clips and hand them to a remaining player. Rebroadcast in GlobalGetLockState. No payload.
+            GlobalToggleAvatarShareRequests, // admin: stop players without the bypass asking others to share an avatar through the server. Rebroadcast in GlobalGetLockState. No payload.
         }
 
         /// <summary>

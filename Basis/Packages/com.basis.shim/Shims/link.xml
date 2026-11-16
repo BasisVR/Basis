@@ -484,6 +484,7 @@
         <type fullname="Basis.Shims.BasisPermissionsShim" preserve="all"/>
         <type fullname="Basis.Shims.BasisGraphicsSettingsShim" preserve="all"/>
         <type fullname="Basis.Shims.BasisBeforeRenderShim" preserve="all"/>
+        <type fullname="Basis.Shims.BasisLocalPoseShim" preserve="all"/>
         <type fullname="Basis.Shims.BasisAvatarShim" preserve="all"/>
         <type fullname="Basis.Shims.BasisAvatarShim+OnReady" preserve="all"/>
         <type fullname="Basis.Shims.BasisAvatarShim+AvatarReadyEvent" preserve="all"/>
@@ -499,6 +500,11 @@
         <type fullname="Basis.Shims.BasisModelResult" preserve="all"/>
         <type fullname="Basis.BasisStringDownloader" preserve="all"/>
         <type fullname="Basis.IBasisStringDownload" preserve="all"/>
+        <type fullname="Basis.Shims.BasisIKShim" preserve="all"/>
+        <type fullname="Basis.Shims.BasisIKBatch" preserve="all"/>
+        <type fullname="Basis.Shims.BasisIKLimb" preserve="all"/>
+        <type fullname="Basis.Shims.BasisIKArm" preserve="all"/>
+        <type fullname="Basis.Shims.BasisIKChain" preserve="all"/>
     </assembly>
     <assembly fullname="Basis Framework">
         <type fullname="Basis.BasisNetworkBehaviour" preserve="all"/>

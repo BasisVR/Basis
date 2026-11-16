@@ -70,6 +70,12 @@ namespace Basis.Network.Server.Generic
             if (key == null) return false;
             lock (sync) return offers.ContainsKey(key);
         }
+        public bool IsOfferedBy(int ownerPeerId, byte[] id)
+        {
+            string key = BasisAvatarHostProtocol.IdToHex(id);
+            if (key == null) return false;
+            lock (sync) return offers.TryGetValue(key, out HostedBee bee) && bee.Owners.Contains(ownerPeerId);
+        }
         public void Offer(int ownerPeerId, byte[] id, long totalLength, in BasisAvatarHostLimits limits)
         {
             string key = BasisAvatarHostProtocol.IdToHex(id);
