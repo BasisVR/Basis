@@ -256,6 +256,7 @@ namespace Basis.Scripts.Avatar
                     BasisHeightDriver.ApplyScaleAndHeight();
                 }
 
+                Persistence.SaveAfterCalibration();
                 OnFullBodyCalibrated?.Invoke();
             }
             finally

@@ -11007,6 +11007,46 @@
       "value": "Full Body Tracking"
     },
     {
+      "key": "settings.bodyTracking.rememberCalibration",
+      "value": "Remember calibration"
+    },
+    {
+      "key": "settings.bodyTracking.rememberCalibration.tooltip",
+      "value": "Keeps your full-body calibration after a restart. Calibrate again if you've moved a tracker."
+    },
+    {
+      "key": "settings.bodyTracking.rememberCalibration.forget",
+      "value": "Forget saved calibration"
+    },
+    {
+      "key": "settings.bodyTracking.rememberCalibration.forget.none",
+      "value": "No saved calibration"
+    },
+    {
+      "key": "settings.bodyTracking.rememberCalibration.forget.none.tooltip",
+      "value": "Nothing is saved yet. Calibrate full body with trackers to save it."
+    },
+    {
+      "key": "settings.bodyTracking.rememberCalibration.forget.tooltip",
+      "value": "Saved: {0}. Deletes the saved full-body calibration. Trackers stay calibrated until you restart."
+    },
+    {
+      "key": "settings.bodyTracking.rememberCalibration.summary",
+      "value": "{0} trackers, {1}"
+    },
+    {
+      "key": "notifications.fbtCalibrationRestored.title",
+      "value": "Full-body calibration restored"
+    },
+    {
+      "key": "notifications.fbtCalibrationRestored.description",
+      "value": "{0} of {1} trackers restored."
+    },
+    {
+      "key": "notifications.fbtCalibrationRestored.waiting",
+      "value": "{0} of {1} trackers restored, waiting for {2}."
+    },
+    {
       "key": "settings.bodyTracking.osc",
       "value": "OSC (Face / Parameters)"
     },

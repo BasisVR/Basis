@@ -81,6 +81,11 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<bool> EnableFBT = new("enablefbt", new BasisPlatformDefault<bool>(true));
 
         /// <summary>
+        /// Saves the full-body calibration after every calibration and restores it on the next launch.
+        /// </summary>
+        public static BasisSettingsBinding<bool> RememberFullBodyCalibration = new("rememberfbtcalibration", new BasisPlatformDefault<bool>(true));
+
+        /// <summary>
         /// Master switch for the OSC acquisition server (face/body parameter ingest on
         /// UDP 9000/9001). When disabled, no OSC client is opened and no external
         /// programs can push avatar parameters.
@@ -2370,6 +2375,7 @@ namespace Basis.BasisUI
             StatedBodyHeight.LoadBindingValue();
             SitStand.LoadBindingValue();
             EnableFBT.LoadBindingValue();
+            RememberFullBodyCalibration.LoadBindingValue();
             TrackerVisuals.LoadBindingValue();
             EnableOSC.LoadBindingValue();
             EnableFaceTracking.LoadBindingValue();
