@@ -4535,7 +4535,6 @@
     { "key": "settings.cilboxPermissions.kind.prop", "value": "prop" },
     { "key": "settings.cilboxPermissions.kind.world", "value": "mondo" },
     { "key": "settings.cilboxPermissions.unnamed", "value": "Contenuto senza nome" },
-    { "key": "settings.cilboxPermissions.more", "value": "+{0} altri" },
     { "key": "settings.cilboxPermissions.cap.openWebPages", "value": "Aprire pagine web nel tuo browser" },
     { "key": "settings.cilboxPermissions.cap.quit", "value": "Chiudere Basis" },
     { "key": "settings.cilboxPermissions.cap.appControl", "value": "Controllare l'app Basis" },
@@ -5897,6 +5896,34 @@
     {
       "key": "settings.admin.confirm.addEveryoneToAllowList.body",
       "value": "Tutti i giocatori connessi in questo momento verranno aggiunti alla lista consentiti e potranno continuare a entrare finché il server accetta solo la lista consentiti."
+    },
+    {
+      "key": "avatar.vrmLicense.title",
+      "value": "Controlla la licenza di questo avatar"
+    },
+    {
+      "key": "avatar.vrmLicense.onlyAuthor",
+      "value": "La licenza di questo avatar VRM dice che solo il suo autore, {0}, può usarlo come avatar. Assicurati di avere il permesso di indossarlo."
+    },
+    {
+      "key": "avatar.vrmLicense.licensedOnly",
+      "value": "La licenza di questo avatar VRM dice che solo {0} e le persone a cui ha concesso una licenza possono usarlo come avatar. Assicurati di avere questo permesso."
+    },
+    {
+      "key": "library.vrmDrop.save.title",
+      "value": "Salvare questo avatar VRM?"
+    },
+    {
+      "key": "library.vrmDrop.save.body",
+      "value": "Copiare {0} nell'archivio avatar di Basis? Una copia salvata resta nella tua libreria anche se il file originale viene spostato o eliminato. Scegli No per indossarlo dalla posizione attuale."
+    },
+    {
+      "key": "avatar.vrmLicense.unknownAuthor",
+      "value": "l'autore"
+    },
+    {
+      "key": "network.avatarShare.failed.license",
+      "value": "La licenza di questo VRM non consente di ridistribuire il file, quindi non è stato condiviso tramite il server."
     }
   ]
 }

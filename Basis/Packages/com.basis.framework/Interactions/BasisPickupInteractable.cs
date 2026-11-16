@@ -399,7 +399,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         private float _previousDistance = 0;
 
         private bool _pickupUseLastEffectiveState;
-        private bool _pickupUsePendingReleaseAfterUI;
+        private bool _pickupUsePendingRelease;
         /// <summary>
         /// Unity start hook. Ensures references, allocates constraint, loads highlight material, and optionally builds the collider highlight mesh.
         /// </summary>
@@ -641,7 +641,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     Inputs.ChangeStateByRole(wrapper.Role, BasisInteractInputState.Interacting);
                     RequiresUpdateLoop = true;
                     _pickupUseLastEffectiveState = false;
-                    _pickupUsePendingReleaseAfterUI = false;
+                    _pickupUsePendingRelease = BasisPlayerInteract.IsDesktopCenterEye(input) && HasState(input.CurrentInputState, InputKey);
 
                     transform.GetPositionAndRotation(out Vector3 restPos, out Quaternion restRot);
                     InputConstraint.SetRestPositionAndRotation(restPos, restRot);
@@ -741,7 +741,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                         OnPickupUse?.Invoke(BasisPickUpUseMode.OnPickUpUseUp);
                     }
                     _pickupUseLastEffectiveState = false;
-                    _pickupUsePendingReleaseAfterUI = false;
+                    _pickupUsePendingRelease = false;
 
                     Inputs.ChangeStateByRole(wrapper.Role, BasisInteractInputState.Ignored);
 
@@ -1091,7 +1091,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             if (pollControls)
             {
                 // Pickup use is normal input polling, so release-time pose sampling skips it.
-                // UI interaction suppresses use until the input is released away from UI.
+                // UI interaction and the desktop grab click suppress use until the input is released.
                 BasisInput useSource = interactingInput.Source;
                 bool uiActive =
                     (useSource.BasisUIRaycast != null && useSource.BasisUIRaycast.HadRaycastUITarget) ||
@@ -1103,12 +1103,12 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 {
                     // If the button is held while entering/on UI, require a release before the next use fire
                     // so dragging the hand off UI while still held doesn't phantom-fire UseDown.
-                    if (rawState) _pickupUsePendingReleaseAfterUI = true;
+                    if (rawState) _pickupUsePendingRelease = true;
                     effectiveState = false;
                 }
-                else if (_pickupUsePendingReleaseAfterUI)
+                else if (_pickupUsePendingRelease)
                 {
-                    if (!rawState) _pickupUsePendingReleaseAfterUI = false;
+                    if (!rawState) _pickupUsePendingRelease = false;
                     effectiveState = false;
                 }
                 else

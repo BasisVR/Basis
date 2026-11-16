@@ -81,7 +81,7 @@ public static class BasisNetworkContentShare
                 // ContentURL carries the connection string (address[:port][#password]).
                 // UnlockPassword is intentionally unused — receivers parse the URL directly.
                 blocked = BasisNetworkServer.Security.BasisGlobalLockManager.ServersLocked &&
-                    !PermissionIntegration.HasValidRequirement(peer, PermNodes.ResourceLockBypassServer);
+                    !PermissionIntegration.PeerHas(peer, PermNodes.ResourceLockBypassServer);
                 contentName = "Server share";
                 break;
             case ContentShareType.DollyTrack:
@@ -222,13 +222,13 @@ public static class BasisNetworkContentShare
         {
             case ContentShareType.Avatar:
                 contentName = "Avatar";
-                return BasisNetworkServer.Security.BasisGlobalLockManager.AvatarsLocked && !PermissionIntegration.HasValidRequirement(peer, PermNodes.ResourceLockBypassAvatar);
+                return BasisNetworkServer.Security.BasisGlobalLockManager.AvatarsLocked && !PermissionIntegration.PeerHas(peer, PermNodes.ResourceLockBypassAvatar);
             case ContentShareType.Prop:
                 contentName = "Prop";
-                return BasisNetworkServer.Security.BasisGlobalLockManager.PropsLocked && !PermissionIntegration.HasValidRequirement(peer, PermNodes.ResourceLockBypassProp);
+                return BasisNetworkServer.Security.BasisGlobalLockManager.PropsLocked && !PermissionIntegration.PeerHas(peer, PermNodes.ResourceLockBypassProp);
             case ContentShareType.World:
                 contentName = "World";
-                return BasisNetworkServer.Security.BasisGlobalLockManager.WorldsLocked && !PermissionIntegration.HasValidRequirement(peer, PermNodes.ResourceLockBypassWorld);
+                return BasisNetworkServer.Security.BasisGlobalLockManager.WorldsLocked && !PermissionIntegration.PeerHas(peer, PermNodes.ResourceLockBypassWorld);
             default:
                 contentName = string.Empty;
                 return false;

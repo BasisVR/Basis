@@ -15387,10 +15387,6 @@
       "value": "Unnamed content"
     },
     {
-      "key": "settings.cilboxPermissions.more",
-      "value": "+{0} more"
-    },
-    {
       "key": "settings.cilboxPermissions.cap.openWebPages",
       "value": "Open web pages in your browser"
     },
@@ -22979,6 +22975,34 @@
     {
       "key": "settings.admin.confirm.addEveryoneToAllowList.body",
       "value": "Every player connected right now will be added to the allow list and can keep joining while the server is set to allow list only."
+    },
+    {
+      "key": "avatar.vrmLicense.title",
+      "value": "Check This Avatar's License"
+    },
+    {
+      "key": "avatar.vrmLicense.onlyAuthor",
+      "value": "This VRM avatar's license says only its author, {0}, may use it as an avatar. Make sure you are allowed to wear it."
+    },
+    {
+      "key": "avatar.vrmLicense.licensedOnly",
+      "value": "This VRM avatar's license says only {0} and people they have licensed may use it as an avatar. Make sure you have that permission."
+    },
+    {
+      "key": "library.vrmDrop.save.title",
+      "value": "Save This VRM Avatar?"
+    },
+    {
+      "key": "library.vrmDrop.save.body",
+      "value": "Copy {0} into your Basis avatar storage? A saved copy stays in your library even if the original file is moved or deleted. Choose No to wear it from where it is."
+    },
+    {
+      "key": "avatar.vrmLicense.unknownAuthor",
+      "value": "the author"
+    },
+    {
+      "key": "network.avatarShare.failed.license",
+      "value": "This VRM's license does not allow redistributing the file, so it was not shared through the server."
     }
   ]
 }

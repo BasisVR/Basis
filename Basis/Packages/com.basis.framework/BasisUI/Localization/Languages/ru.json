@@ -4535,7 +4535,6 @@
     { "key": "settings.cilboxPermissions.kind.prop", "value": "проп" },
     { "key": "settings.cilboxPermissions.kind.world", "value": "мир" },
     { "key": "settings.cilboxPermissions.unnamed", "value": "Контент без названия" },
-    { "key": "settings.cilboxPermissions.more", "value": "и ещё {0}" },
     { "key": "settings.cilboxPermissions.cap.openWebPages", "value": "Открывать веб-страницы в вашем браузере" },
     { "key": "settings.cilboxPermissions.cap.quit", "value": "Закрывать Basis" },
     { "key": "settings.cilboxPermissions.cap.appControl", "value": "Управлять приложением Basis" },
@@ -5897,6 +5896,34 @@
     {
       "key": "settings.admin.confirm.addEveryoneToAllowList.body",
       "value": "Все игроки, подключённые прямо сейчас, будут добавлены в белый список и смогут заходить, пока сервер пускает только по белому списку."
+    },
+    {
+      "key": "avatar.vrmLicense.title",
+      "value": "Проверьте лицензию этого аватара"
+    },
+    {
+      "key": "avatar.vrmLicense.onlyAuthor",
+      "value": "Лицензия этого VRM-аватара разрешает использовать его как аватар только автору, {0}. Убедитесь, что вам можно его носить."
+    },
+    {
+      "key": "avatar.vrmLicense.licensedOnly",
+      "value": "Лицензия этого VRM-аватара разрешает использовать его как аватар только {0} и тем, кому выдана лицензия. Убедитесь, что у вас есть такое разрешение."
+    },
+    {
+      "key": "library.vrmDrop.save.title",
+      "value": "Сохранить этот VRM-аватар?"
+    },
+    {
+      "key": "library.vrmDrop.save.body",
+      "value": "Скопировать {0} в хранилище аватаров Basis? Сохранённая копия останется в библиотеке, даже если исходный файл переместят или удалят. Выберите «Нет», чтобы надеть его из текущего места."
+    },
+    {
+      "key": "avatar.vrmLicense.unknownAuthor",
+      "value": "автор"
+    },
+    {
+      "key": "network.avatarShare.failed.license",
+      "value": "Лицензия этого VRM не разрешает распространять файл, поэтому он не был передан через сервер."
     }
   ]
 }

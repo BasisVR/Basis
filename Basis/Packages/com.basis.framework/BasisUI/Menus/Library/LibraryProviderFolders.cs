@@ -95,9 +95,7 @@ namespace Basis.BasisUI
 
         internal static List<BasisDataStoreItemKeys.ItemKey> LibraryItemsForFolders()
         {
-            List<BasisDataStoreItemKeys.ItemKey> serverItems = BasisServerProvidedItems.Items.ToList();
-            HashSet<string> serverUrls = new HashSet<string>(serverItems.Select(k => k.Url ?? string.Empty), StringComparer.OrdinalIgnoreCase);
-            return BasisDataStoreItemKeys.DisplayKeys().Where(k => k != null && !serverUrls.Contains(k.Url ?? string.Empty)).Concat(serverItems).ToList();
+            return BasisServerProvidedItems.MergeWithLocal(BasisDataStoreItemKeys.DisplayKeys());
         }
 
         internal static void AddCornerIcon(PanelButton card, string sprite, bool left)
@@ -259,7 +257,7 @@ namespace Basis.BasisUI
             List<BasisDataStoreItemKeys.ItemKey> items = new List<BasisDataStoreItemKeys.ItemKey>();
             void Rebuild()
             {
-                if (dialog.Descriptor == null) return;
+                if (dialog.Descriptor == null || grid.Descriptor == null || !PanelAlive) return;
                 folder = BasisDataStoreItemFolders.Find(folderId);
                 if (folder == null)
                 {

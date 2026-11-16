@@ -66,7 +66,7 @@ namespace Basis.Scripts.Networking
                 foreach (HostedAvatar entry in hosted)
                 {
                     if (entry.LocalUrl != localUrl) continue;
-                    hostedUrl = BasisServerHostedBee.BuildUrl(entry.Layout.Id);
+                    hostedUrl = BasisServerHostedBee.BuildUrl(entry.Layout.Id, entry.Layout.IsVrm);
                     return true;
                 }
             }

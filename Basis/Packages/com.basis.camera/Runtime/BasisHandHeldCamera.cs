@@ -61,7 +61,7 @@ public partial class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         InitializeTonemapping();
         InitializeDepthOfField();
         InitializeVolumetrics();
-        BasisCameraPhotoFolder.Ensure();
+        BasisCameraPhotoFolder.TryEnsure("Camera");
         await HandHeld.SaveSettings();
 
         if (this == null) return;

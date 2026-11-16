@@ -148,6 +148,12 @@ namespace Basis.Scripts.BasisSdk
         [SerializeField]
         public Renderer[] Renders;
 
+        [SerializeField]
+        public Renderer[] FirstPersonHiddenRenderers = System.Array.Empty<Renderer>();
+
+        [SerializeField]
+        public Renderer[] FirstPersonOnlyRenderers = System.Array.Empty<Renderer>();
+
         // DX12/Vulkan content loading keeps the GameObject active so Awake/OnEnable and avatar
         // calibration can run, but suppresses every renderer atomically until the first solved
         // pose. forceRenderingOff preserves authored Renderer.enabled state and any setup-time

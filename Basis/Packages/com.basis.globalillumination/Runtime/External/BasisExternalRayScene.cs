@@ -213,7 +213,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         if (renderer is SkinnedMeshRenderer skinned)
         {
             Mesh shared = skinned.sharedMesh;
-            if (shared == null) { return null; }
+            if (shared == null || !CanTrace(shared)) { return null; }
             if (owner.mesh != null && !owner.mesh.released && ReferenceEquals(owner.mesh.mesh, shared) && ReferenceEquals(owner.mesh.skinned, skinned)) { return owner.mesh; }
             if (!skinnedMeshes.TryGetValue(skinned, out MeshRecord r) || r.mesh != shared)
             {
@@ -231,11 +231,14 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         if (owner.mesh != null && !owner.mesh.released && owner.mesh.skinned == null && ReferenceEquals(owner.mesh.mesh, mesh)) { return owner.mesh; }
         if (!staticMeshes.TryGetValue(mesh, out MeshRecord record))
         {
+            if (!CanTrace(mesh)) { return null; }
             record = Describe(mesh);
             staticMeshes[mesh] = record;
         }
         return record;
     }
+
+    private static bool CanTrace(Mesh mesh) => mesh.isReadable || ((mesh.vertexBufferTarget & GraphicsBuffer.Target.Raw) != 0 && (mesh.indexBufferTarget & GraphicsBuffer.Target.Raw) != 0);
 
     private MeshRecord Describe(Mesh mesh)
     {

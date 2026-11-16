@@ -12,13 +12,16 @@ public static partial class BasisServerHostedBee
     public const int IdHexLength = 32;
     public delegate Task<(byte[] Data, string Error)> RangeFetcher(string id, long start, int length, Action<float> progress, CancellationToken cancellationToken);
     public static RangeFetcher Fetcher;
+    public const string VrmSuffix = ".vrm";
     public static string BuildUrl(string id) => Scheme + "://bee/" + id;
+    public static string BuildUrl(string id, bool vrm) => vrm ? BuildUrl(id) + VrmSuffix : BuildUrl(id);
     public static bool TryParse(string url, out string id)
     {
         id = null;
         if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url, UriKind.Absolute, out Uri uri)) return false;
         if (!string.Equals(uri.Scheme, Scheme, StringComparison.OrdinalIgnoreCase) || !string.Equals(uri.Host, "bee", StringComparison.OrdinalIgnoreCase)) return false;
         string candidate = uri.AbsolutePath.Trim('/');
+        if (candidate.EndsWith(VrmSuffix, StringComparison.OrdinalIgnoreCase)) candidate = candidate.Substring(0, candidate.Length - VrmSuffix.Length);
         if (candidate.Length != IdHexLength) return false;
         for (int index = 0; index < candidate.Length; index++)
         {
@@ -44,9 +47,11 @@ public sealed class BasisHostedBeeLayout
     public string Id { get; private set; }
     public long VirtualLength { get; private set; }
     public int SharedSectionCount { get; private set; }
+    public bool IsVrm { get; private set; }
     public static async Task<(BasisHostedBeeLayout Layout, string Error)> BuildAsync(string filePath, string password, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath)) return (null, "Local bee file not found.");
+        if (BasisVrmDocument.IsVrmLocation(filePath)) return await BuildVrmAsync(filePath, cancellationToken).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(password)) return (null, "Unlock password is empty.");
         FileInfo info = new FileInfo(filePath);
         long length = info.Length;
@@ -89,6 +94,27 @@ public sealed class BasisHostedBeeLayout
         layout.VirtualLength = cursor;
         layout.SharedSectionCount = 1;
         layout.Id = ComputeId(header, cacheConnectorBytes);
+        return (layout, null);
+    }
+    private static async Task<(BasisHostedBeeLayout Layout, string Error)> BuildVrmAsync(string filePath, CancellationToken cancellationToken)
+    {
+        FileInfo info = new FileInfo(filePath);
+        long length = info.Length;
+        byte[] head = await ReadAtAsync(filePath, 0, (int)Math.Min(20, length), cancellationToken).ConfigureAwait(false);
+        if (!BasisVrmDocument.LooksLikeGlb(head) || BitConverter.ToUInt32(head, 8) != length) return (null, "Local VRM file is not a complete binary glTF file.");
+        byte[] hash;
+        using (FileStream stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: BasisTasks.ThreadsAvailable))
+        using (SHA256 sha = SHA256.Create())
+        {
+            byte[] block = new byte[1 << 20];
+            int read;
+            while ((read = await stream.ReadAsync(block, 0, block.Length, cancellationToken).ConfigureAwait(false)) > 0) sha.TransformBlock(block, 0, read, null, 0);
+            sha.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+            hash = sha.Hash;
+        }
+        BasisHostedBeeLayout layout = new BasisHostedBeeLayout { FilePath = filePath, fileLength = length, lastWriteUtc = info.LastWriteTimeUtc, VirtualLength = length, SharedSectionCount = 1, IsVrm = true };
+        layout.segments.Add(new Segment { VirtualStart = 0, Length = length, FileOffset = 0 });
+        layout.Id = ToHexId(hash);
         return (layout, null);
     }
     public async Task<(byte[] Data, string Error)> ReadAsync(long start, int length, CancellationToken cancellationToken = default)
@@ -165,7 +191,10 @@ public sealed class BasisHostedBeeLayout
         using SHA256 sha = SHA256.Create();
         sha.TransformBlock(header, 0, header.Length, null, 0);
         sha.TransformFinalBlock(connectorBytes, 0, connectorBytes.Length);
-        byte[] hash = sha.Hash;
+        return ToHexId(sha.Hash);
+    }
+    private static string ToHexId(byte[] hash)
+    {
         const string digits = "0123456789abcdef";
         char[] chars = new char[BasisServerHostedBee.IdHexLength];
         for (int index = 0; index < chars.Length / 2; index++)

@@ -56,6 +56,7 @@ namespace Basis.Scripts.Networking.Transmitters
             {
                 Player.OnAvatarSwitched += OnAvatarCalibrationLocal;
                 Player.OnAvatarSwitched += SendOutAvatarChange;
+                Basis.Scripts.Drivers.BasisLocalAvatarDriver.CalibrationComplete += OnAvatarCalibrationLocal;
                 ScheduleTransmitJobs += TransmissionResults.ScheduleTick;
                 AfterAvatarChanges += TransmissionResults.CompleteTick;
                 HasEvents = true;
@@ -70,6 +71,7 @@ namespace Basis.Scripts.Networking.Transmitters
             {
                 Player.OnAvatarSwitched -= OnAvatarCalibrationLocal;
                 Player.OnAvatarSwitched -= SendOutAvatarChange;
+                Basis.Scripts.Drivers.BasisLocalAvatarDriver.CalibrationComplete -= OnAvatarCalibrationLocal;
                 ScheduleTransmitJobs -= TransmissionResults.ScheduleTick;
                 AfterAvatarChanges -= TransmissionResults.CompleteTick;
                 HasEvents = false;

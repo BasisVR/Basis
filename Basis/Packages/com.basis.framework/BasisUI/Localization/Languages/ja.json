@@ -4535,7 +4535,6 @@
     { "key": "settings.cilboxPermissions.kind.prop", "value": "プロップ" },
     { "key": "settings.cilboxPermissions.kind.world", "value": "ワールド" },
     { "key": "settings.cilboxPermissions.unnamed", "value": "名前のないコンテンツ" },
-    { "key": "settings.cilboxPermissions.more", "value": "他 {0} 件" },
     { "key": "settings.cilboxPermissions.cap.openWebPages", "value": "ブラウザーでウェブページを開く" },
     { "key": "settings.cilboxPermissions.cap.quit", "value": "Basis を終了させる" },
     { "key": "settings.cilboxPermissions.cap.appControl", "value": "Basis アプリを制御する" },
@@ -5897,6 +5896,34 @@
     {
       "key": "settings.admin.confirm.addEveryoneToAllowList.body",
       "value": "現在接続しているすべてのプレイヤーが許可リストに追加され、サーバーが許可リスト限定の間も参加し続けられます。"
+    },
+    {
+      "key": "avatar.vrmLicense.title",
+      "value": "このアバターのライセンスを確認してください"
+    },
+    {
+      "key": "avatar.vrmLicense.onlyAuthor",
+      "value": "このVRMアバターのライセンスでは、アバターとして使用できるのは作者の{0}だけです。使用が許可されていることを確認してください。"
+    },
+    {
+      "key": "avatar.vrmLicense.licensedOnly",
+      "value": "このVRMアバターのライセンスでは、アバターとして使用できるのは{0}と、そのライセンスを受けた人だけです。許可を得ていることを確認してください。"
+    },
+    {
+      "key": "library.vrmDrop.save.title",
+      "value": "このVRMアバターを保存しますか？"
+    },
+    {
+      "key": "library.vrmDrop.save.body",
+      "value": "{0} をBasisのアバター保存先にコピーしますか？保存したコピーは、元のファイルが移動・削除されてもライブラリに残ります。「いいえ」を選ぶと、今の場所から着用します。"
+    },
+    {
+      "key": "avatar.vrmLicense.unknownAuthor",
+      "value": "作者"
+    },
+    {
+      "key": "network.avatarShare.failed.license",
+      "value": "このVRMのライセンスはファイルの再配布を許可していないため、サーバー経由で共有されませんでした。"
     }
   ]
 }

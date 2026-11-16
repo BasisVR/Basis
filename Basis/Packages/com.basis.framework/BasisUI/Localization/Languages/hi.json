@@ -4535,7 +4535,6 @@
     { "key": "settings.cilboxPermissions.kind.prop", "value": "प्रॉप" },
     { "key": "settings.cilboxPermissions.kind.world", "value": "वर्ल्ड" },
     { "key": "settings.cilboxPermissions.unnamed", "value": "बिना नाम की सामग्री" },
-    { "key": "settings.cilboxPermissions.more", "value": "+{0} और" },
     { "key": "settings.cilboxPermissions.cap.openWebPages", "value": "आपके ब्राउज़र में वेब पेज खोलना" },
     { "key": "settings.cilboxPermissions.cap.quit", "value": "Basis बंद करना" },
     { "key": "settings.cilboxPermissions.cap.appControl", "value": "Basis ऐप को नियंत्रित करना" },
@@ -5897,6 +5896,34 @@
     {
       "key": "settings.admin.confirm.addEveryoneToAllowList.body",
       "value": "अभी जुड़ा हर खिलाड़ी अनुमति सूची में जोड़ दिया जाएगा और जब तक सर्वर केवल अनुमति सूची पर है, वह शामिल होता रह सकेगा।"
+    },
+    {
+      "key": "avatar.vrmLicense.title",
+      "value": "इस अवतार का लाइसेंस जाँचें"
+    },
+    {
+      "key": "avatar.vrmLicense.onlyAuthor",
+      "value": "इस VRM अवतार के लाइसेंस के अनुसार केवल इसके लेखक, {0}, इसे अवतार के रूप में उपयोग कर सकते हैं। सुनिश्चित करें कि आपको इसे पहनने की अनुमति है।"
+    },
+    {
+      "key": "avatar.vrmLicense.licensedOnly",
+      "value": "इस VRM अवतार के लाइसेंस के अनुसार केवल {0} और जिन्हें उन्होंने लाइसेंस दिया है, वे ही इसे अवतार के रूप में उपयोग कर सकते हैं। सुनिश्चित करें कि आपके पास यह अनुमति है।"
+    },
+    {
+      "key": "library.vrmDrop.save.title",
+      "value": "यह VRM अवतार सहेजें?"
+    },
+    {
+      "key": "library.vrmDrop.save.body",
+      "value": "क्या {0} को अपने Basis अवतार स्टोरेज में कॉपी करें? मूल फ़ाइल हटाए या मिटाए जाने पर भी सहेजी गई कॉपी आपकी लाइब्रेरी में बनी रहेगी। जहाँ है वहीं से पहनने के लिए नहीं चुनें।"
+    },
+    {
+      "key": "avatar.vrmLicense.unknownAuthor",
+      "value": "लेखक"
+    },
+    {
+      "key": "network.avatarShare.failed.license",
+      "value": "इस VRM का लाइसेंस फ़ाइल को दोबारा वितरित करने की अनुमति नहीं देता, इसलिए इसे सर्वर के माध्यम से साझा नहीं किया गया।"
     }
   ]
 }

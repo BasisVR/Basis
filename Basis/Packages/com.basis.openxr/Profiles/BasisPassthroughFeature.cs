@@ -147,7 +147,7 @@ namespace Basis.OpenXR
 
         protected override IntPtr HookGetInstanceProcAddr(IntPtr func)
         {
-            d_originalGetProc = Marshal.GetDelegateForFunctionPointer<Type_xrGetInstanceProcAddr>(func);
+            d_originalGetProc = AsDelegate<Type_xrGetInstanceProcAddr>(func);
             return Marshal.GetFunctionPointerForDelegate(s_getProcHook);
         }
 
@@ -171,13 +171,13 @@ namespace Basis.OpenXR
                 }
                 if (endFrame)
                 {
-                    d_originalEndFrame = Marshal.GetDelegateForFunctionPointer<Type_xrEndFrame>(function);
+                    d_originalEndFrame = AsDelegate<Type_xrEndFrame>(function);
                     function = Marshal.GetFunctionPointerForDelegate(s_endFrameHook);
                     BasisDebug.Log($"{Tag} Installed xrEndFrame interception hook.", BasisDebug.LogTag.Device);
                 }
                 else
                 {
-                    d_originalPollEvent = Marshal.GetDelegateForFunctionPointer<Type_xrPollEvent>(function);
+                    d_originalPollEvent = AsDelegate<Type_xrPollEvent>(function);
                     function = Marshal.GetFunctionPointerForDelegate(s_pollEventHook);
                     BasisDebug.Log($"{Tag} Installed xrPollEvent interception hook.", BasisDebug.LogTag.Device);
                 }
@@ -238,7 +238,7 @@ namespace Basis.OpenXR
                 return base.OnInstanceCreate(instance);
             }
 
-            d_getProc = Marshal.GetDelegateForFunctionPointer<Type_xrGetInstanceProcAddr>(xrGetInstanceProcAddr);
+            d_getProc = AsDelegate<Type_xrGetInstanceProcAddr>(xrGetInstanceProcAddr);
             d_createPassthrough = Load<Type_xrCreatePassthroughFB>(instance, "xrCreatePassthroughFB");
             d_destroyPassthrough = Load<Type_xrDestroyPassthroughFB>(instance, "xrDestroyPassthroughFB");
             d_startPassthrough = Load<Type_xrPassthroughStartFB>(instance, "xrPassthroughStartFB");
@@ -250,11 +250,17 @@ namespace Basis.OpenXR
             return base.OnInstanceCreate(instance);
         }
 
+        static T AsDelegate<T>(IntPtr p) where T : Delegate
+        {
+            Delegate raw = Marshal.GetDelegateForFunctionPointer(p, typeof(T));
+            return raw as T ?? (T)Delegate.CreateDelegate(typeof(T), raw, raw.GetType().GetMethod("Invoke"));
+        }
+
         static T Load<T>(ulong instance, string name) where T : Delegate
         {
             if (d_getProc.Invoke(instance, name, out IntPtr p) == 0 && p != IntPtr.Zero)
             {
-                return Marshal.GetDelegateForFunctionPointer<T>(p);
+                return AsDelegate<T>(p);
             }
             BasisDebug.LogError($"{Tag} Failed to resolve {name}", BasisDebug.LogTag.Device);
             return null;

@@ -37,6 +37,12 @@ namespace Basis.Scripts.Drivers
 
         public static int HeadChopEntriesLength;
 
+        public static Renderer[] FirstPersonHidden = Array.Empty<Renderer>();
+
+        public static UnityEngine.Rendering.ShadowCastingMode[] FirstPersonHiddenModes = Array.Empty<UnityEngine.Rendering.ShadowCastingMode>();
+
+        public static Renderer[] FirstPersonOnly = Array.Empty<Renderer>();
+
         public struct HeadChopEntry
         {
             public Transform Target;
@@ -59,8 +65,6 @@ namespace Basis.Scripts.Drivers
         public static RuntimeAnimatorController SavedruntimeAnimatorController;
 
         public static SkinnedMeshRenderer[] SkinnedMeshRenderer;
-
-        public static bool HasEvents = false;
 
         public static int SkinnedMeshRendererLength;
 
@@ -230,6 +234,7 @@ namespace Basis.Scripts.Drivers
             ResetAvatarAnimator();
 
             IsNormalHead = true;
+            CollectFirstPersonRenderers(player.BasisAvatar);
             RemoveJiggleRigColliders();
             ColliderScaleReference = ScaleAvatarModification.DuringCalibrationScale;
             if (player.IsConsideredFallBackAvatar == false)
@@ -260,6 +265,7 @@ namespace Basis.Scripts.Drivers
                     Entry.Target.localScale = Entry.NormalScale;
                 }
             }
+            ApplyFirstPersonRenderers(false);
             IsNormalHead = true;
         }
 
@@ -286,7 +292,41 @@ namespace Basis.Scripts.Drivers
                     Entry.Target.localScale = Entry.HiddenScale;
                 }
             }
+            ApplyFirstPersonRenderers(true);
             IsNormalHead = false;
+        }
+
+        public static void CollectFirstPersonRenderers(BasisAvatar avatar)
+        {
+            ApplyFirstPersonRenderers(false);
+            FirstPersonHidden = avatar != null && avatar.FirstPersonHiddenRenderers != null ? avatar.FirstPersonHiddenRenderers : Array.Empty<Renderer>();
+            FirstPersonHiddenModes = new UnityEngine.Rendering.ShadowCastingMode[FirstPersonHidden.Length];
+            for (int Index = 0; Index < FirstPersonHidden.Length; Index++)
+            {
+                FirstPersonHiddenModes[Index] = FirstPersonHidden[Index] != null ? FirstPersonHidden[Index].shadowCastingMode : UnityEngine.Rendering.ShadowCastingMode.On;
+            }
+            FirstPersonOnly = avatar != null && avatar.FirstPersonOnlyRenderers != null ? avatar.FirstPersonOnlyRenderers : Array.Empty<Renderer>();
+            ApplyFirstPersonRenderers(false);
+        }
+
+        private static void ApplyFirstPersonRenderers(bool firstPerson)
+        {
+            for (int Index = 0; Index < FirstPersonHidden.Length; Index++)
+            {
+                Renderer Renderer = FirstPersonHidden[Index];
+                if (Renderer != null)
+                {
+                    Renderer.shadowCastingMode = firstPerson ? UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly : FirstPersonHiddenModes[Index];
+                }
+            }
+            for (int Index = 0; Index < FirstPersonOnly.Length; Index++)
+            {
+                Renderer Renderer = FirstPersonOnly[Index];
+                if (Renderer != null)
+                {
+                    Renderer.enabled = firstPerson;
+                }
+            }
         }
 
         public static void CollectHeadChopEntries(List<BasisHeadChop.HeadChopTarget> harvestedHeadChop)

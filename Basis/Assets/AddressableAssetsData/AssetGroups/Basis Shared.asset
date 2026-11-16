@@ -15,6 +15,11 @@ MonoBehaviour:
   m_GroupName: Basis Shared
   m_GUID: 6829822ad382be842913445db3cd0201
   m_SerializeEntries:
+  - m_GUID: 5ba32b30cbd343f4a0b434b09be2d3b7
+    m_Address: Packages/com.basis.bundlemanagement/VrmMToon/Shaders/vrmc_materials_mtoon_urp.shader
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 18beb0c65c4bf4d4eb0e1bc5f6f0b2ca
     m_Address: Packages/com.basis.sdk/Textures/Runtime/eye-off-outline.png
     m_ReadOnly: 0

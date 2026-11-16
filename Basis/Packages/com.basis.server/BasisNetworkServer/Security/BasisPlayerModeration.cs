@@ -1483,7 +1483,7 @@ namespace BasisNetworkServer.Security
 
         public static void SendProtectionSettingsIfEditor(NetPeer peer)
         {
-            if (NetworkServer.PeerHasCapability(peer, BasisNetworkVersion.CapabilityProtectionSettings) && PermissionIntegration.HasValidRequirement(peer, PermNodes.ConfigurationEditor)) SendProtectionSettings(peer);
+            if (NetworkServer.PeerHasCapability(peer, BasisNetworkVersion.CapabilityProtectionSettings) && PermissionIntegration.PeerHas(peer, PermNodes.ConfigurationEditor)) SendProtectionSettings(peer);
         }
 
         private static void HandleProtectionSettingsSet(NetPeer peer, NetPacketReader reader)

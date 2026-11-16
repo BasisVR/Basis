@@ -296,6 +296,35 @@ namespace Basis.Tests.Sync
         }
 
         [Test]
+        public void ThePrompt_AndMoreInfo_ListEveryPermission_NeverAMoreCount()
+        {
+            List<string> items = new List<string>();
+            List<string> names = new List<string>();
+            List<BasisCilboxPermissionText.Use> uses = new List<BasisCilboxPermissionText.Use>();
+            for (int i = 0; i < 20; i++)
+            {
+                items.Add($"Method:System.IO.File.Call{i}");
+                names.Add($"File.Call{i}");
+            }
+            for (int i = 0; i < 20; i++)
+            {
+                uses.Add(new BasisCilboxPermissionText.Use(items[i], $"Script{i:00}.Run", $"File.Call{i}()"));
+                uses.Add(new BasisCilboxPermissionText.Use(items[i], "Script00.Run", $"File.Call{i}()"));
+            }
+            items.Add("Type:System.IO.Path");
+
+            List<BasisCilboxPermissionText.Line> lines = BasisCilboxPermissionText.Describe(items);
+            Assert.AreEqual(1, lines.Count);
+            Assert.AreEqual(string.Join(", ", names) + ", Path", lines[0].Detail);
+
+            string review = BasisCilboxPermissionText.Review(items, null, uses)[0].Detail;
+            for (int i = 1; i < 20; i++) StringAssert.Contains(BasisLocalization.Get("settings.cilboxPermissions.review.in", $"Script{i:00}.Run", $"File.Call{i}()"), review);
+            List<string> calls = names.ConvertAll(name => name + "()");
+            StringAssert.Contains(BasisLocalization.Get("settings.cilboxPermissions.review.in", "Script00.Run", string.Join(", ", calls)), review);
+            StringAssert.Contains(BasisLocalization.Get("settings.cilboxPermissions.review.unplaced", "Path"), review);
+        }
+
+        [Test]
         public void ThePrompt_SaysWhoseAvatarItIs_OrWhoSpawnedIt()
         {
             Assert.AreEqual(BasisLocalization.Get("settings.cilboxPermissions.prompt.bodyOwner", "Fox", BasisCilboxConsentPrompt.KindLabel("Avatar"), "Bob"), BasisCilboxConsentPrompt.Body("Fox", "Avatar", "Bob", false));

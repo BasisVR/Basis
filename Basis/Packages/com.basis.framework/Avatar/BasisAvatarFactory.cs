@@ -884,6 +884,14 @@ namespace Basis.Scripts.Avatar
             if (Player.BasisAvatar != null)
             {
                 UnityEngine.Object.DontDestroyOnLoad(Player.BasisAvatar.gameObject);
+                Renderer[] firstPersonOnly = Player.BasisAvatar.FirstPersonOnlyRenderers;
+                for (int Index = 0; firstPersonOnly != null && Index < firstPersonOnly.Length; Index++)
+                {
+                    if (firstPersonOnly[Index] != null)
+                    {
+                        firstPersonOnly[Index].enabled = false;
+                    }
+                }
             }
             try
             {

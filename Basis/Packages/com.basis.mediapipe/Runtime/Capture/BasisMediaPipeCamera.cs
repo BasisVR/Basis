@@ -5,7 +5,7 @@ namespace Basis.MediaPipe
     public sealed class BasisMediaPipeCamera
     {
         public enum Status { Stopped, Starting, Running, NoDevice, Stalled }
-        public const float RetrySeconds = 3f, StallSeconds = 3f, StartupSeconds = 10f;
+        public const float RetrySeconds = 3f, MaxRetrySeconds = 60f, StallSeconds = 3f, StartupSeconds = 10f;
         public WebCamTexture Texture { get; private set; }
         public string DeviceName { get; private set; }
         public Status State { get; private set; }
@@ -15,7 +15,8 @@ namespace Basis.MediaPipe
         public bool IsReady => IsRunning && Texture.didUpdateThisFrame && Texture.width > 16;
         private string requestedDevice;
         private int requestedWidth = 640, requestedHeight = 480, requestedFps = 30;
-        private float retryTimer, silentFor;
+        private float retryTimer, silentFor, retryDelay = RetrySeconds;
+        private int failedOpens;
 
         public static WebCamDevice[] EnumerateDevices() => WebCamTexture.devices;
 
@@ -45,7 +46,7 @@ namespace Basis.MediaPipe
             {
                 case Status.NoDevice:
                     retryTimer += dt;
-                    if (retryTimer >= RetrySeconds)
+                    if (retryTimer >= retryDelay)
                     {
                         retryTimer = 0f;
                         Open();
@@ -61,6 +62,8 @@ namespace Basis.MediaPipe
                     {
                         State = Status.Running;
                         silentFor = 0f;
+                        failedOpens = 0;
+                        retryDelay = RetrySeconds;
                     }
                     else
                     {
@@ -113,6 +116,7 @@ namespace Basis.MediaPipe
                 if (State != Status.NoDevice) BasisDebug.LogError("BasisMediaPipe: no webcam devices found.");
                 State = Status.NoDevice;
                 retryTimer = 0f;
+                retryDelay = RetrySeconds;
                 return false;
             }
 
@@ -124,6 +128,16 @@ namespace Basis.MediaPipe
                 filterMode = FilterMode.Bilinear,
             };
             Texture.Play();
+            if (!Texture.isPlaying)
+            {
+                Close();
+                failedOpens++;
+                retryDelay = Mathf.Min(RetrySeconds * (1 << Mathf.Min(failedOpens, 5)), MaxRetrySeconds);
+                if (failedOpens == 1) BasisDebug.LogWarning($"BasisMediaPipe: webcam '{DeviceName}' could not be opened, it may be in use by another app. Retrying with backoff up to {MaxRetrySeconds:0}s.");
+                State = Status.NoDevice;
+                retryTimer = 0f;
+                return false;
+            }
             State = Status.Starting;
             BasisDebug.Log($"BasisMediaPipe: started webcam '{DeviceName}' ({requestedWidth}x{requestedHeight}@{requestedFps}).");
             return true;

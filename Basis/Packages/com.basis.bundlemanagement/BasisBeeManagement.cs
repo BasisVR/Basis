@@ -70,7 +70,7 @@ public static class BasisBeeManagement
     /// a failed re-download into silent loss of the user's saved item. Bypassing still refreshes —
     /// the re-download rewrites the entry — it just leaves the old payload for the LRU sweep.
     /// </param>
-    private static async Task<bool> CacheIsCurrentForRequestedVersionAsync(BasisTrackedBundleWrapper wrapper, BasisBEEExtensionMeta metaInfo, string beeLocation, bool evictStaleCache, CancellationToken cancellationToken)
+    internal static async Task<bool> CacheIsCurrentForRequestedVersionAsync(BasisTrackedBundleWrapper wrapper, BasisBEEExtensionMeta metaInfo, string beeLocation, bool evictStaleCache, CancellationToken cancellationToken)
     {
         string requestedVersionTag = wrapper?.LoadableBundle?.BasisRemoteBundleEncrypted?.RemoteVersionTag;
         if (BasisContentVersion.ShouldUseCache(metaInfo, requestedVersionTag, beeLocation))
@@ -177,6 +177,11 @@ public static class BasisBeeManagement
         if (networkSourced && !BasisServerHostedBee.IsHostedUrl(beeLocation) && !Basis.Scripts.Common.BasisUrlSecurity.IsHttpUrlAllowed(beeLocation, out string locationError))
         {
             throw new Exception($"Refusing networked content location: {locationError}");
+        }
+        if (await BasisVrmDocument.IsVrmLocationAsync(beeLocation, cancellationToken))
+        {
+            await BasisVrmAvatarLoader.LoadTemplate(wrapper, report, key, cancellationToken, MaxDownloadSizeInBytes);
+            return;
         }
         if (!networkSourced && BasisIOManagement.TryResolveLocalBeePath(beeLocation, out string localBeePath))
         {
@@ -559,6 +564,12 @@ public static class BasisBeeManagement
         if (networkSourced && !BasisServerHostedBee.IsHostedUrl(beeLocation) && !Basis.Scripts.Common.BasisUrlSecurity.IsHttpUrlAllowed(beeLocation, out string locationError))
         {
             return BasisMetaLoadResult.Corrupt($"Refusing networked content location: {locationError}");
+        }
+        if (await BasisVrmDocument.IsVrmLocationAsync(beeLocation, cancellationToken))
+        {
+            string vrmError = await BasisVrmAvatarLoader.LoadMetaOnly(wrapper, cancellationToken);
+            if (vrmError == null) return BasisMetaLoadResult.Success;
+            return BasisMetaLoadResult.LooksLikeTransientError(vrmError) ? BasisMetaLoadResult.Transient(vrmError) : BasisMetaLoadResult.Corrupt(vrmError);
         }
         if (!networkSourced && BasisIOManagement.TryResolveLocalBeePath(beeLocation, out string localBeePath))
         {

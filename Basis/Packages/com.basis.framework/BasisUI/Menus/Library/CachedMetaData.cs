@@ -255,7 +255,7 @@ namespace Basis.BasisUI
             // Local BEE files are read straight from disk and never written to the on-disc meta cache,
             // so the LoadWrapperFromDisc lookup below would treat the missing cache entry as a corrupt
             // item. The connector is already populated by the meta-only load above.
-            if (BasisIOManagement.TryResolveLocalBeePath(item.Url, out _))
+            if (BasisIOManagement.TryResolveLocalBeePath(item.Url, out _) || BasisVrmDocument.IsVrmLocation(item.Url))
             {
                 return new MetaOnlyLoadOutcome(metaResult.Loaded ? newWrapper : null, false);
             }
@@ -323,7 +323,7 @@ namespace Basis.BasisUI
             var urlKey = item.Url ?? string.Empty;
             if (ContainsMetaData(urlKey)) return;
 
-            if (!item.EmbeddedSettings.IsEmbedded && string.IsNullOrEmpty(item.Pass))
+            if (!item.EmbeddedSettings.IsEmbedded && string.IsNullOrEmpty(item.Pass) && !await BasisVrmDocument.IsVrmLocationAsync(urlKey, CancellationToken.None))
             {
                 MarkNotWorking(urlKey, "no unlock password");
                 return;

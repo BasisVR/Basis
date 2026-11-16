@@ -4535,7 +4535,6 @@
     { "key": "settings.cilboxPermissions.kind.prop", "value": "Prop" },
     { "key": "settings.cilboxPermissions.kind.world", "value": "Welt" },
     { "key": "settings.cilboxPermissions.unnamed", "value": "Unbenannter Inhalt" },
-    { "key": "settings.cilboxPermissions.more", "value": "+{0} weitere" },
     { "key": "settings.cilboxPermissions.cap.openWebPages", "value": "Webseiten in deinem Browser öffnen" },
     { "key": "settings.cilboxPermissions.cap.quit", "value": "Basis schließen" },
     { "key": "settings.cilboxPermissions.cap.appControl", "value": "Die Basis-App steuern" },
@@ -5897,6 +5896,34 @@
     {
       "key": "settings.admin.confirm.addEveryoneToAllowList.body",
       "value": "Alle gerade verbundenen Spieler werden zur Zulassungsliste hinzugefügt und können weiter beitreten, solange der Server nur die Zulassungsliste zulässt."
+    },
+    {
+      "key": "avatar.vrmLicense.title",
+      "value": "Lizenz dieses Avatars prüfen"
+    },
+    {
+      "key": "avatar.vrmLicense.onlyAuthor",
+      "value": "Laut Lizenz dieses VRM-Avatars darf nur der Urheber, {0}, ihn als Avatar verwenden. Stelle sicher, dass du ihn tragen darfst."
+    },
+    {
+      "key": "avatar.vrmLicense.licensedOnly",
+      "value": "Laut Lizenz dieses VRM-Avatars dürfen nur {0} und von ihnen lizenzierte Personen ihn als Avatar verwenden. Stelle sicher, dass du diese Erlaubnis hast."
+    },
+    {
+      "key": "library.vrmDrop.save.title",
+      "value": "Diesen VRM-Avatar speichern?"
+    },
+    {
+      "key": "library.vrmDrop.save.body",
+      "value": "{0} in deinen Basis-Avatarspeicher kopieren? Eine gespeicherte Kopie bleibt in deiner Bibliothek, auch wenn die Originaldatei verschoben oder gelöscht wird. Wähle Nein, um ihn vom aktuellen Ort aus zu tragen."
+    },
+    {
+      "key": "avatar.vrmLicense.unknownAuthor",
+      "value": "der Urheber"
+    },
+    {
+      "key": "network.avatarShare.failed.license",
+      "value": "Die Lizenz dieser VRM-Datei erlaubt keine Weitergabe, daher wurde sie nicht über den Server geteilt."
     }
   ]
 }

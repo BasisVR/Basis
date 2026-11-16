@@ -4535,7 +4535,6 @@
     { "key": "settings.cilboxPermissions.kind.prop", "value": "پراپ" },
     { "key": "settings.cilboxPermissions.kind.world", "value": "دنیا" },
     { "key": "settings.cilboxPermissions.unnamed", "value": "بے نام مواد" },
-    { "key": "settings.cilboxPermissions.more", "value": "+{0} مزید" },
     { "key": "settings.cilboxPermissions.cap.openWebPages", "value": "آپ کے براؤزر میں ویب صفحات کھولنا" },
     { "key": "settings.cilboxPermissions.cap.quit", "value": "Basis بند کرنا" },
     { "key": "settings.cilboxPermissions.cap.appControl", "value": "Basis ایپ کو کنٹرول کرنا" },
@@ -5897,6 +5896,34 @@
     {
       "key": "settings.admin.confirm.addEveryoneToAllowList.body",
       "value": "اس وقت جڑا ہر کھلاڑی اجازت کی فہرست میں شامل کر دیا جائے گا اور جب تک سرور صرف اجازت کی فہرست تک محدود ہے، وہ شامل ہوتا رہ سکے گا۔"
+    },
+    {
+      "key": "avatar.vrmLicense.title",
+      "value": "اس اوتار کا لائسنس چیک کریں"
+    },
+    {
+      "key": "avatar.vrmLicense.onlyAuthor",
+      "value": "اس VRM اوتار کے لائسنس کے مطابق صرف اس کا مصنف، {0}، اسے اوتار کے طور پر استعمال کر سکتا ہے۔ یقینی بنائیں کہ آپ کو اسے پہننے کی اجازت ہے۔"
+    },
+    {
+      "key": "avatar.vrmLicense.licensedOnly",
+      "value": "اس VRM اوتار کے لائسنس کے مطابق صرف {0} اور وہ لوگ جنہیں انہوں نے لائسنس دیا ہے، اسے اوتار کے طور پر استعمال کر سکتے ہیں۔ یقینی بنائیں کہ آپ کے پاس یہ اجازت ہے۔"
+    },
+    {
+      "key": "library.vrmDrop.save.title",
+      "value": "یہ VRM اوتار محفوظ کریں؟"
+    },
+    {
+      "key": "library.vrmDrop.save.body",
+      "value": "کیا {0} کو اپنے Basis اوتار اسٹوریج میں کاپی کریں؟ اصل فائل منتقل یا حذف ہونے پر بھی محفوظ کاپی آپ کی لائبریری میں رہے گی۔ جہاں ہے وہیں سے پہننے کے لیے نہیں چنیں۔"
+    },
+    {
+      "key": "avatar.vrmLicense.unknownAuthor",
+      "value": "مصنف"
+    },
+    {
+      "key": "network.avatarShare.failed.license",
+      "value": "اس VRM کا لائسنس فائل کو دوبارہ تقسیم کرنے کی اجازت نہیں دیتا، اس لیے اسے سرور کے ذریعے شیئر نہیں کیا گیا۔"
     }
   ]
 }

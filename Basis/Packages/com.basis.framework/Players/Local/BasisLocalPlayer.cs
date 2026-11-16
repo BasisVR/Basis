@@ -223,6 +223,7 @@ namespace Basis.Scripts.BasisSdk.Players
             }
 
             string unlockPassword = !string.IsNullOrEmpty(LastUsedAvatar.Pass) ? LastUsedAvatar.Pass : matchingKey?.Pass;
+            if (unlockPassword == null && BasisVrmDocument.IsVrmLocation(LastUsedAvatar.UniqueID)) unlockPassword = string.Empty;
             if (unlockPassword == null)
             {
                 BasisDebug.Log("failed to load last used : no stored password and no key found", BasisDebug.LogTag.Avatar);
@@ -396,6 +397,7 @@ namespace Basis.Scripts.BasisSdk.Players
             // address means something off this machine. Say so now rather than let the player find
             // out from someone telling them they are a grey dummy.
             BasisLocalAvatarNetworkNotice.NotifyIfLocalOnly();
+            BasisVrmLicenseNotice.NotifyIfRestricted(BasisLoadableBundle);
         }
 
         public async Task CreateAvatarFromMode(BasisLoadMode LoadMode, BasisLoadableBundle BasisLoadableBundle)

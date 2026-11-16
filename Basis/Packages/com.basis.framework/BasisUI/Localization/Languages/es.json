@@ -4424,7 +4424,6 @@
     { "key": "settings.cilboxPermissions.kind.prop", "value": "prop" },
     { "key": "settings.cilboxPermissions.kind.world", "value": "mundo" },
     { "key": "settings.cilboxPermissions.unnamed", "value": "Contenido sin nombre" },
-    { "key": "settings.cilboxPermissions.more", "value": "+{0} más" },
     { "key": "settings.cilboxPermissions.cap.openWebPages", "value": "Abrir páginas web en tu navegador" },
     { "key": "settings.cilboxPermissions.cap.quit", "value": "Cerrar Basis" },
     { "key": "settings.cilboxPermissions.cap.appControl", "value": "Controlar la aplicación Basis" },
@@ -5786,6 +5785,34 @@
     {
       "key": "settings.admin.confirm.addEveryoneToAllowList.body",
       "value": "Todos los jugadores conectados ahora mismo se añadirán a la lista de permitidos y podrán seguir entrando mientras el servidor solo admita la lista de permitidos."
+    },
+    {
+      "key": "avatar.vrmLicense.title",
+      "value": "Revisa la licencia de este avatar"
+    },
+    {
+      "key": "avatar.vrmLicense.onlyAuthor",
+      "value": "La licencia de este avatar VRM dice que solo su autor, {0}, puede usarlo como avatar. Asegúrate de tener permiso para usarlo."
+    },
+    {
+      "key": "avatar.vrmLicense.licensedOnly",
+      "value": "La licencia de este avatar VRM dice que solo {0} y las personas a las que haya dado licencia pueden usarlo como avatar. Asegúrate de tener ese permiso."
+    },
+    {
+      "key": "library.vrmDrop.save.title",
+      "value": "¿Guardar este avatar VRM?"
+    },
+    {
+      "key": "library.vrmDrop.save.body",
+      "value": "¿Copiar {0} a tu almacenamiento de avatares de Basis? Una copia guardada permanece en tu biblioteca aunque el archivo original se mueva o se elimine. Elige No para usarlo desde donde está."
+    },
+    {
+      "key": "avatar.vrmLicense.unknownAuthor",
+      "value": "el autor"
+    },
+    {
+      "key": "network.avatarShare.failed.license",
+      "value": "La licencia de este VRM no permite redistribuir el archivo, así que no se compartió a través del servidor."
     }
   ]
 }

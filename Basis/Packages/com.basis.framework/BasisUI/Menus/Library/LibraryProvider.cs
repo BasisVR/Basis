@@ -380,7 +380,7 @@ namespace Basis.BasisUI
             // Local BEE files aren't written to the on-disc meta cache; their connector is already
             // populated on the wrapper by the meta-only pass, so return it directly instead of
             // treating the missing cache entry as a reason to drop the item.
-            if (BasisIOManagement.TryResolveLocalBeePath(item.Url, out _))
+            if (BasisIOManagement.TryResolveLocalBeePath(item.Url, out _) || BasisVrmDocument.IsVrmLocation(item.Url))
             {
                 return wrapper;
             }
@@ -802,17 +802,9 @@ namespace Basis.BasisUI
                 {
                     // build data to be used — local persisted keys plus any
                     // session-scoped entries pushed by the current server. When a URL
-                    // exists in both, the server-provided copy wins; this avoids
-                    // duplicate cards and lets the server author the canonical entry
-                    // (mode, password, presentation) for that URL.
-                    var serverItems = BasisServerProvidedItems.Items.Where(k => k.Mode == mode).ToList();
-                    var serverUrls = new HashSet<string>(
-                        serverItems.Select(k => k.Url ?? string.Empty),
-                        StringComparer.OrdinalIgnoreCase);
-                    var data = BasisDataStoreItemKeys.DisplayKeys()
-                        .Where(k => k.Mode == mode && !serverUrls.Contains(k.Url ?? string.Empty))
-                        .Concat(serverItems)
-                        .ToList();
+                    // exists in both, the user's copy wins when it holds its own password
+                    // (servers only hand out key-request markers); otherwise the server copy wins.
+                    var data = BasisServerProvidedItems.MergeWithLocal(BasisDataStoreItemKeys.DisplayKeys(), k => k.Mode == mode);
 
                     // Preload metadata for items in this tab so that filtering/sorting
                     // can use cached meta synchronously.
@@ -1099,8 +1091,8 @@ namespace Basis.BasisUI
                 }
                 else if (CachedMetaData.IsNotWorking(urlKey))
                 {
-                    desc.SetTitle(BasisLocalization.Get("library.notWorking"));
-                    desc.SetDescription(urlKey);
+                    desc.SetTitle(CachedMetaData.DisplayNameFor(item));
+                    desc.SetDescription(BasisLocalization.Get("library.notWorking"));
                     desc.ForceRebuild();
                 }
                 else
@@ -2067,6 +2059,7 @@ namespace Basis.BasisUI
                     {
                         case BundledContentHolder.Mode.Avatar:
                         case BundledContentHolder.Mode.World:
+                        await Task.Yield();
                         await RefreshCurrentTab();
                         break;
                     }
@@ -2380,7 +2373,7 @@ namespace Basis.BasisUI
         private static async Task PersistServerProvidedItemOnLoad(BasisDataStoreItemKeys.ItemKey item)
         {
             if (item == null || item.EmbeddedSettings.IsEmbedded) return;
-            if (!BasisServerProvidedItems.IsServerProvided(item)) return;
+            if (!BasisServerProvidedItems.IsServerProvided(item) || BasisEncryptionWrapper.IsKeyRequest(item.Pass)) return;
 
             try
             {

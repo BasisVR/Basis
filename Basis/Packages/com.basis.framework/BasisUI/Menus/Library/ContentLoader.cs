@@ -66,7 +66,7 @@ namespace Basis.BasisUI
             // Fire reachability check in parallel with the avatar load
             Task<BeeResult<bool>> reachabilityTask = null;
             string remoteUrl = bundle.BasisRemoteBundleEncrypted?.RemoteBeeFileLocation;
-            if (!string.IsNullOrEmpty(remoteUrl) && Uri.TryCreate(remoteUrl, UriKind.Absolute, out _))
+            if (!string.IsNullOrEmpty(remoteUrl) && Uri.TryCreate(remoteUrl, UriKind.Absolute, out Uri remoteUri) && (remoteUri.Scheme == Uri.UriSchemeHttp || remoteUri.Scheme == Uri.UriSchemeHttps))
             {
                 BasisDebug.Log($"Checking avatar file reachability: {remoteUrl}", BasisDebug.LogTag.Avatar);
                 reachabilityTask = BasisIOManagement.CheckRemoteFileReachable(remoteUrl);

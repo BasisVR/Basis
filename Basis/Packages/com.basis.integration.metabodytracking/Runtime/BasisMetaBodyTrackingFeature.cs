@@ -205,7 +205,7 @@ namespace Basis.Integration.MetaBodyTracking
 
         protected override IntPtr HookGetInstanceProcAddr(IntPtr func)
         {
-            d_originalGetProc = Marshal.GetDelegateForFunctionPointer<Type_xrGetInstanceProcAddr>(func);
+            d_originalGetProc = AsDelegate<Type_xrGetInstanceProcAddr>(func);
             return Marshal.GetFunctionPointerForDelegate(s_getProcHook);
         }
 
@@ -230,7 +230,7 @@ namespace Basis.Integration.MetaBodyTracking
                     function = IntPtr.Zero;
                     return result;
                 }
-                d_originalWaitFrame = Marshal.GetDelegateForFunctionPointer<Type_xrWaitFrame>(function);
+                d_originalWaitFrame = AsDelegate<Type_xrWaitFrame>(function);
                 function = Marshal.GetFunctionPointerForDelegate(s_waitFrameHook);
                 return 0;
             }
@@ -278,7 +278,7 @@ namespace Basis.Integration.MetaBodyTracking
 
             BasisDebug.Log($"{Tag} extensions: body={IsSupported} fullBody={SupportsFullBody} fidelity={SupportsFidelity} calibration={SupportsCalibration}", BasisDebug.LogTag.Device);
 
-            d_getProc = Marshal.GetDelegateForFunctionPointer<Type_xrGetInstanceProcAddr>(xrGetInstanceProcAddr);
+            d_getProc = AsDelegate<Type_xrGetInstanceProcAddr>(xrGetInstanceProcAddr);
             d_createBodyTracker = Load<Type_xrCreateBodyTrackerFB>(instance, "xrCreateBodyTrackerFB");
             d_destroyBodyTracker = Load<Type_xrDestroyBodyTrackerFB>(instance, "xrDestroyBodyTrackerFB");
             d_locateBodyJoints = Load<Type_xrLocateBodyJointsFB>(instance, "xrLocateBodyJointsFB");
@@ -294,11 +294,17 @@ namespace Basis.Integration.MetaBodyTracking
             return base.OnInstanceCreate(instance);
         }
 
+        private static T AsDelegate<T>(IntPtr p) where T : Delegate
+        {
+            Delegate raw = Marshal.GetDelegateForFunctionPointer(p, typeof(T));
+            return raw as T ?? (T)Delegate.CreateDelegate(typeof(T), raw, raw.GetType().GetMethod("Invoke"));
+        }
+
         private static T Load<T>(ulong instance, string name) where T : Delegate
         {
             if (d_getProc.Invoke(instance, name, out IntPtr p) == 0 && p != IntPtr.Zero)
             {
-                return Marshal.GetDelegateForFunctionPointer<T>(p);
+                return AsDelegate<T>(p);
             }
             BasisDebug.LogError($"{Tag} failed to resolve {name}", BasisDebug.LogTag.Device);
             return null;

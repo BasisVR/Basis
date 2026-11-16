@@ -4535,7 +4535,6 @@
     { "key": "settings.cilboxPermissions.kind.prop", "value": "prop" },
     { "key": "settings.cilboxPermissions.kind.world", "value": "wereld" },
     { "key": "settings.cilboxPermissions.unnamed", "value": "Naamloze inhoud" },
-    { "key": "settings.cilboxPermissions.more", "value": "+{0} meer" },
     { "key": "settings.cilboxPermissions.cap.openWebPages", "value": "Webpagina's openen in je browser" },
     { "key": "settings.cilboxPermissions.cap.quit", "value": "Basis afsluiten" },
     { "key": "settings.cilboxPermissions.cap.appControl", "value": "De Basis-app besturen" },
@@ -5897,6 +5896,34 @@
     {
       "key": "settings.admin.confirm.addEveryoneToAllowList.body",
       "value": "Elke speler die nu verbonden is wordt aan de toegangslijst toegevoegd en kan blijven meedoen zolang de server alleen de toegangslijst toelaat."
+    },
+    {
+      "key": "avatar.vrmLicense.title",
+      "value": "Controleer de licentie van deze avatar"
+    },
+    {
+      "key": "avatar.vrmLicense.onlyAuthor",
+      "value": "Volgens de licentie van deze VRM-avatar mag alleen de maker, {0}, hem als avatar gebruiken. Zorg dat je hem mag dragen."
+    },
+    {
+      "key": "avatar.vrmLicense.licensedOnly",
+      "value": "Volgens de licentie van deze VRM-avatar mogen alleen {0} en mensen met hun licentie hem als avatar gebruiken. Zorg dat je die toestemming hebt."
+    },
+    {
+      "key": "library.vrmDrop.save.title",
+      "value": "Deze VRM-avatar opslaan?"
+    },
+    {
+      "key": "library.vrmDrop.save.body",
+      "value": "{0} naar je Basis-avataropslag kopiëren? Een opgeslagen kopie blijft in je bibliotheek, ook als het originele bestand wordt verplaatst of verwijderd. Kies Nee om hem vanaf de huidige plek te dragen."
+    },
+    {
+      "key": "avatar.vrmLicense.unknownAuthor",
+      "value": "de maker"
+    },
+    {
+      "key": "network.avatarShare.failed.license",
+      "value": "De licentie van deze VRM staat herdistributie van het bestand niet toe, dus het is niet via de server gedeeld."
     }
   ]
 }

@@ -31,6 +31,8 @@ public partial class BasisTrackedBundleWrapper
     [System.NonSerialized]
     public GLTFast.GltfImport GltfImport;
     public UnityEngine.Avatar GltfBuiltAvatar;
+    [System.NonSerialized]
+    public System.Collections.Generic.List<UnityEngine.Object> GltfOwnedObjects;
     /// <summary>
     /// Content validator the HTTP host reported for the bytes this wrapper actually downloaded
     /// (ETag, else Last-Modified). Set by the download path and consumed when the cache meta is
@@ -121,6 +123,14 @@ public partial class BasisTrackedBundleWrapper
         {
             UnityEngine.Object.Destroy(GltfBuiltAvatar);
             GltfBuiltAvatar = null;
+        }
+        if (GltfOwnedObjects != null)
+        {
+            foreach (UnityEngine.Object owned in GltfOwnedObjects)
+            {
+                if (owned != null) UnityEngine.Object.Destroy(owned);
+            }
+            GltfOwnedObjects = null;
         }
         if (GltfImport != null)
         {

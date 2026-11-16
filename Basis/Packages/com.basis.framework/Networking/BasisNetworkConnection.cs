@@ -239,11 +239,6 @@ namespace Basis.Scripts.Networking
 
                     if (BasisLocalPlayer.Instance.LocalAvatarDriver != null)
                     {
-                        if (BasisLocalAvatarDriver.HasEvents == false)
-                        {
-                            BasisLocalAvatarDriver.CalibrationComplete += transmitter.OnAvatarCalibrationLocal;
-                            BasisLocalAvatarDriver.HasEvents = true;
-                        }
                         transmitter.TransmissionResults.BasisNetworkTransmitter = transmitter;
                     }
                     else

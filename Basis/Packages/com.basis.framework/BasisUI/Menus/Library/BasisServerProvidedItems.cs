@@ -81,6 +81,32 @@ namespace Basis.BasisUI
             OnChanged?.Invoke();
         }
 
+        public static bool HasOwnPassword(BasisDataStoreItemKeys.ItemKey key) => key != null && !string.IsNullOrEmpty(key.Pass) && !BasisEncryptionWrapper.IsKeyRequest(key.Pass) && !BasisEncryptionWrapper.IsKeyGrant(key.Pass);
+
+        public static List<BasisDataStoreItemKeys.ItemKey> MergeWithLocal(IEnumerable<BasisDataStoreItemKeys.ItemKey> local, Func<BasisDataStoreItemKeys.ItemKey, bool> filter = null)
+        {
+            List<BasisDataStoreItemKeys.ItemKey> localItems = new List<BasisDataStoreItemKeys.ItemKey>();
+            HashSet<string> owned = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (BasisDataStoreItemKeys.ItemKey key in local)
+            {
+                if (key == null || (filter != null && !filter(key))) continue;
+                localItems.Add(key);
+                if (HasOwnPassword(key)) owned.Add(key.Url ?? string.Empty);
+            }
+            List<BasisDataStoreItemKeys.ItemKey> served = new List<BasisDataStoreItemKeys.ItemKey>();
+            HashSet<string> servedUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < _items.Count; i++)
+            {
+                BasisDataStoreItemKeys.ItemKey key = _items[i];
+                if ((filter != null && !filter(key)) || owned.Contains(key.Url ?? string.Empty)) continue;
+                served.Add(key);
+                servedUrls.Add(key.Url ?? string.Empty);
+            }
+            localItems.RemoveAll(key => servedUrls.Contains(key.Url ?? string.Empty));
+            localItems.AddRange(served);
+            return localItems;
+        }
+
         public static void Clear()
         {
             if (_items.Count == 0) return;

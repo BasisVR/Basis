@@ -12,9 +12,6 @@ namespace Basis.BasisUI
         public const string TypePrefix = "Type:";
         public const string MethodPrefix = "Method:";
         public const string FieldPrefix = "Field:";
-        private const int DetailNames = 4;
-        private const int ReviewPlaces = 12;
-        private const int ReviewCodes = 6;
         private const int ReviewNameLength = 64;
 
         public readonly struct Line
@@ -140,7 +137,7 @@ namespace Basis.BasisUI
                     string name = ShortName(item);
                     if (!names.Contains(name) && !Called(item, uses)) names.Add(name);
                 }
-                lines.Add(new Line(BasisLocalization.Get("settings.cilboxPermissions.cap." + key), Join(names, DetailNames), severe));
+                lines.Add(new Line(BasisLocalization.Get("settings.cilboxPermissions.cap." + key), string.Join(", ", names), severe));
             }
             return lines;
         }
@@ -262,26 +259,18 @@ namespace Basis.BasisUI
             }
             places.Sort(StringComparer.OrdinalIgnoreCase);
             StringBuilder body = new StringBuilder(why);
-            for (int i = 0; i < places.Count && i < ReviewPlaces; i++)
+            foreach (string place in places)
             {
-                body.Append('\n').Append(BasisLocalization.Get("settings.cilboxPermissions.review.in", places[i], Join(codes[places[i]], ReviewCodes)));
+                body.Append('\n').Append(BasisLocalization.Get("settings.cilboxPermissions.review.in", place, string.Join(", ", codes[place])));
             }
-            if (places.Count > ReviewPlaces) body.Append('\n').Append(BasisLocalization.Get("settings.cilboxPermissions.more", places.Count - ReviewPlaces));
             List<string> unplaced = new List<string>();
             foreach (string item in items)
             {
                 string name = Clean(ShortName(item));
                 if (!placed.Contains(item) && !unplaced.Contains(name)) unplaced.Add(name);
             }
-            if (unplaced.Count > 0) body.Append('\n').Append(BasisLocalization.Get("settings.cilboxPermissions.review.unplaced", Join(unplaced, ReviewCodes)));
+            if (unplaced.Count > 0) body.Append('\n').Append(BasisLocalization.Get("settings.cilboxPermissions.review.unplaced", string.Join(", ", unplaced)));
             return body.ToString();
-        }
-
-        private static string Join(List<string> names, int shown)
-        {
-            return names.Count <= shown
-                ? string.Join(", ", names)
-                : string.Join(", ", names.GetRange(0, shown)) + " " + BasisLocalization.Get("settings.cilboxPermissions.more", names.Count - shown);
         }
 
         private static string Clean(string text)

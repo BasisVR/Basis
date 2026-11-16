@@ -1227,6 +1227,7 @@ namespace BasisPermissions
                     return false;
                 }
             }
+            public static bool PeerHas(NetPeer peer, string permNode) => NetworkServer.AuthIdentity.NetIDToUUID(peer, out string uuid) && Manager.Has(uuid, permNode);
 
             private static void HandlePermissionsChanged(string uuid)
             {

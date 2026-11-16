@@ -302,7 +302,8 @@ namespace Basis.BasisUI
         public static EntryValidationResponse ValidateEntry(
             string rawUrl,
             string rawPassword,
-            BasisDataStoreItemKeys.ItemKey[] activeKeys)
+            BasisDataStoreItemKeys.ItemKey[] activeKeys,
+            bool allowEmptyPassword = false)
         {
             SplitUrlFragmentPassword(rawUrl, rawPassword, out string url, out string password);
 
@@ -340,7 +341,7 @@ namespace Basis.BasisUI
                 return Fail(EntryValidationResult.InvalidUrlFormat);
             }
 
-            if (string.IsNullOrEmpty(password))
+            if (string.IsNullOrEmpty(password) && !allowEmptyPassword)
                 return Fail(EntryValidationResult.EmptyPassword);
 
             // Duplicate check

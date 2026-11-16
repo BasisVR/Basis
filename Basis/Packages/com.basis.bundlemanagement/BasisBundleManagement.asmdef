@@ -8,7 +8,8 @@
         "Unity.Addressables",
         "Unity.ResourceManager",
         "glTFast",
-        "BasisCommon"
+        "BasisCommon",
+        "com.gator-dragon-games.jigglephysics"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -4424,7 +4424,6 @@
     { "key": "settings.cilboxPermissions.kind.prop", "value": "prop" },
     { "key": "settings.cilboxPermissions.kind.world", "value": "mundo" },
     { "key": "settings.cilboxPermissions.unnamed", "value": "Conteúdo sem nome" },
-    { "key": "settings.cilboxPermissions.more", "value": "e mais {0}" },
     { "key": "settings.cilboxPermissions.cap.openWebPages", "value": "Abrir páginas da web no seu navegador" },
     { "key": "settings.cilboxPermissions.cap.quit", "value": "Fechar o Basis" },
     { "key": "settings.cilboxPermissions.cap.appControl", "value": "Controlar o aplicativo Basis" },
@@ -5786,6 +5785,34 @@
     {
       "key": "settings.admin.confirm.addEveryoneToAllowList.body",
       "value": "Todos os jogadores conectados neste momento serão adicionados à lista de permitidos e poderão continuar entrando enquanto o servidor aceitar apenas a lista de permitidos."
+    },
+    {
+      "key": "avatar.vrmLicense.title",
+      "value": "Verifique a licença deste avatar"
+    },
+    {
+      "key": "avatar.vrmLicense.onlyAuthor",
+      "value": "A licença deste avatar VRM diz que apenas o autor, {0}, pode usá-lo como avatar. Verifique se você tem permissão para usá-lo."
+    },
+    {
+      "key": "avatar.vrmLicense.licensedOnly",
+      "value": "A licença deste avatar VRM diz que apenas {0} e as pessoas licenciadas por ele podem usá-lo como avatar. Verifique se você tem essa permissão."
+    },
+    {
+      "key": "library.vrmDrop.save.title",
+      "value": "Guardar este avatar VRM?"
+    },
+    {
+      "key": "library.vrmDrop.save.body",
+      "value": "Copiar {0} para o armazenamento de avatares do Basis? Uma cópia guardada fica na sua biblioteca mesmo que o ficheiro original seja movido ou eliminado. Escolha Não para usá-lo a partir de onde está."
+    },
+    {
+      "key": "avatar.vrmLicense.unknownAuthor",
+      "value": "o autor"
+    },
+    {
+      "key": "network.avatarShare.failed.license",
+      "value": "A licença deste VRM não permite redistribuir o arquivo, então ele não foi compartilhado pelo servidor."
     }
   ]
 }

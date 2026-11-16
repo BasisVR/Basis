@@ -4535,7 +4535,6 @@
     { "key": "settings.cilboxPermissions.kind.prop", "value": "مجسم" },
     { "key": "settings.cilboxPermissions.kind.world", "value": "عالم" },
     { "key": "settings.cilboxPermissions.unnamed", "value": "محتوى بدون اسم" },
-    { "key": "settings.cilboxPermissions.more", "value": "+{0} أخرى" },
     { "key": "settings.cilboxPermissions.cap.openWebPages", "value": "فتح صفحات ويب في متصفحك" },
     { "key": "settings.cilboxPermissions.cap.quit", "value": "إغلاق Basis" },
     { "key": "settings.cilboxPermissions.cap.appControl", "value": "التحكم في تطبيق Basis" },
@@ -5897,6 +5896,34 @@
     {
       "key": "settings.admin.confirm.addEveryoneToAllowList.body",
       "value": "ستتم إضافة كل لاعب متصل الآن إلى قائمة السماح، وسيتمكن من الانضمام ما دام الخادم مقتصرًا على قائمة السماح."
+    },
+    {
+      "key": "avatar.vrmLicense.title",
+      "value": "تحقق من ترخيص هذه الصورة الرمزية"
+    },
+    {
+      "key": "avatar.vrmLicense.onlyAuthor",
+      "value": "ينص ترخيص صورة VRM الرمزية هذه على أن مؤلفها {0} فقط يمكنه استخدامها كصورة رمزية. تأكد من أنه مسموح لك بارتدائها."
+    },
+    {
+      "key": "avatar.vrmLicense.licensedOnly",
+      "value": "ينص ترخيص صورة VRM الرمزية هذه على أن {0} والأشخاص المرخص لهم منه فقط يمكنهم استخدامها كصورة رمزية. تأكد من حصولك على هذا الإذن."
+    },
+    {
+      "key": "library.vrmDrop.save.title",
+      "value": "حفظ صورة VRM الرمزية هذه؟"
+    },
+    {
+      "key": "library.vrmDrop.save.body",
+      "value": "هل تريد نسخ {0} إلى مخزن الصور الرمزية في Basis؟ تبقى النسخة المحفوظة في مكتبتك حتى لو نُقل الملف الأصلي أو حُذف. اختر لا لارتدائها من مكانها الحالي."
+    },
+    {
+      "key": "avatar.vrmLicense.unknownAuthor",
+      "value": "المؤلف"
+    },
+    {
+      "key": "network.avatarShare.failed.license",
+      "value": "لا يسمح ترخيص ملف VRM هذا بإعادة توزيعه، لذلك لم تتم مشاركته عبر الخادم."
     }
   ]
 }

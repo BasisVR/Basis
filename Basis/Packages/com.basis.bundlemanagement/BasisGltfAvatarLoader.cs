@@ -216,7 +216,7 @@ public static class BasisGltfAvatarLoader
     /// holder is activated far below the world for the duration of the synchronous build —
     /// nothing renders because the frame ends with the holder inactive again.
     /// </summary>
-    private static Avatar BuildHumanoidAvatar(GameObject holder, GameObject avatarRoot, BasisGenericAvatarData avatarData)
+    internal static Avatar BuildHumanoidAvatar(GameObject holder, GameObject avatarRoot, BasisGenericAvatarData avatarData)
     {
         HumanDescription description = avatarData.ToHumanDescription();
         Vector3 originalPosition = holder.transform.position;

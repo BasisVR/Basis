@@ -32,6 +32,7 @@ namespace Basis.Scripts.Avatar
         /// </summary>
         private static string WarnedForUrl;
         private static bool WaitingForSupply;
+        private static readonly System.Collections.Generic.HashSet<string> ShareConsented = new System.Collections.Generic.HashSet<string>();
 
         /// <summary>
         /// Forgets what has already been warned about, so the next server gets its own warning
@@ -101,8 +102,18 @@ namespace Basis.Scripts.Avatar
             }
             WarnedForUrl = Url;
 
+            if (BasisVrmAvatarLoader.TryGetDocument(Player.AvatarMetaData.BasisBundleConnector, out BasisVrmDocument Vrm) && !Vrm.RedistributionAllowed)
+            {
+                ShowLocalOnlyWarning(BasisLocalization.Get("network.avatarShare.failed.license"));
+                return;
+            }
             if (BasisAvatarHostClient.SharingAllowed)
             {
+                if (ShareConsented.Contains(Url))
+                {
+                    _ = ShareAsync(Url, Player.AvatarMetaData.UnlockPassword);
+                    return;
+                }
                 PromptToShare(Url, Player.AvatarMetaData.UnlockPassword);
                 return;
             }
@@ -194,6 +205,7 @@ namespace Basis.Scripts.Avatar
             {
                 if (Share)
                 {
+                    ShareConsented.Add(Url);
                     _ = ShareAsync(Url, Password);
                 }
             }, true, BasisPanelSeverity.Caution);

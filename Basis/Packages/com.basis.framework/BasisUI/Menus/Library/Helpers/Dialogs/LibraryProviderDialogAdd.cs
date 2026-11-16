@@ -187,6 +187,14 @@ namespace Basis.BasisUI
 
                     // perform input validation, pass our current url and password along with the existing library entries to check for duplicates
                     InputValidation.EntryValidationResponse validationResponse = InputValidation.ValidateEntry(URL.Value, Password.Password, BasisDataStoreItemKeys.DisplayKeys());
+                    if (validationResponse.Result == InputValidation.EntryValidationResult.EmptyPassword)
+                    {
+                        InputValidation.EntryValidationResponse vrmResponse = InputValidation.ValidateEntry(URL.Value, string.Empty, BasisDataStoreItemKeys.DisplayKeys(), allowEmptyPassword: true);
+                        if (vrmResponse.Result != InputValidation.EntryValidationResult.Success || await BasisVrmDocument.IsVrmLocationAsync(vrmResponse.ProcessedUrl, CancellationToken.None))
+                        {
+                            validationResponse = vrmResponse;
+                        }
+                    }
 
                     // get the result of the validationResponse
                     InputValidation.EntryValidationResult validationResult = validationResponse.Result;

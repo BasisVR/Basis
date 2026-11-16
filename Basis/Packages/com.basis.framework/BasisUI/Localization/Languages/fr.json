@@ -4535,7 +4535,6 @@
     { "key": "settings.cilboxPermissions.kind.prop", "value": "prop" },
     { "key": "settings.cilboxPermissions.kind.world", "value": "monde" },
     { "key": "settings.cilboxPermissions.unnamed", "value": "Contenu sans nom" },
-    { "key": "settings.cilboxPermissions.more", "value": "+{0} de plus" },
     { "key": "settings.cilboxPermissions.cap.openWebPages", "value": "Ouvrir des pages web dans votre navigateur" },
     { "key": "settings.cilboxPermissions.cap.quit", "value": "Fermer Basis" },
     { "key": "settings.cilboxPermissions.cap.appControl", "value": "Contrôler l'application Basis" },
@@ -5897,6 +5896,34 @@
     {
       "key": "settings.admin.confirm.addEveryoneToAllowList.body",
       "value": "Tous les joueurs connectés en ce moment seront ajoutés à la liste d'autorisation et pourront continuer à rejoindre tant que le serveur n'accepte que cette liste."
+    },
+    {
+      "key": "avatar.vrmLicense.title",
+      "value": "Vérifiez la licence de cet avatar"
+    },
+    {
+      "key": "avatar.vrmLicense.onlyAuthor",
+      "value": "La licence de cet avatar VRM indique que seul son auteur, {0}, peut l'utiliser comme avatar. Assurez-vous d'avoir le droit de le porter."
+    },
+    {
+      "key": "avatar.vrmLicense.licensedOnly",
+      "value": "La licence de cet avatar VRM indique que seuls {0} et les personnes qu'il a autorisées peuvent l'utiliser comme avatar. Assurez-vous d'avoir cette autorisation."
+    },
+    {
+      "key": "library.vrmDrop.save.title",
+      "value": "Enregistrer cet avatar VRM ?"
+    },
+    {
+      "key": "library.vrmDrop.save.body",
+      "value": "Copier {0} dans votre stockage d'avatars Basis ? Une copie enregistrée reste dans votre bibliothèque même si le fichier d'origine est déplacé ou supprimé. Choisissez Non pour le porter depuis son emplacement actuel."
+    },
+    {
+      "key": "avatar.vrmLicense.unknownAuthor",
+      "value": "l'auteur"
+    },
+    {
+      "key": "network.avatarShare.failed.license",
+      "value": "La licence de ce VRM n'autorise pas la redistribution du fichier, il n'a donc pas été partagé via le serveur."
     }
   ]
 }

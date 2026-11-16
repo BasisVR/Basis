@@ -4535,7 +4535,6 @@
     { "key": "settings.cilboxPermissions.kind.prop", "value": "道具" },
     { "key": "settings.cilboxPermissions.kind.world", "value": "世界" },
     { "key": "settings.cilboxPermissions.unnamed", "value": "未命名內容" },
-    { "key": "settings.cilboxPermissions.more", "value": "另有 {0} 項" },
     { "key": "settings.cilboxPermissions.cap.openWebPages", "value": "在你的瀏覽器中開啟網頁" },
     { "key": "settings.cilboxPermissions.cap.quit", "value": "關閉 Basis" },
     { "key": "settings.cilboxPermissions.cap.appControl", "value": "控制 Basis 應用程式" },
@@ -5897,6 +5896,34 @@
     {
       "key": "settings.admin.confirm.addEveryoneToAllowList.body",
       "value": "目前連線的所有玩家都會被加入允許清單,在伺服器僅限允許清單期間仍可繼續加入。"
+    },
+    {
+      "key": "avatar.vrmLicense.title",
+      "value": "請檢查此虛擬形象的授權"
+    },
+    {
+      "key": "avatar.vrmLicense.onlyAuthor",
+      "value": "此 VRM 虛擬形象的授權規定只有作者 {0} 可以將其用作虛擬形象。請確認你有權使用它。"
+    },
+    {
+      "key": "avatar.vrmLicense.licensedOnly",
+      "value": "此 VRM 虛擬形象的授權規定只有 {0} 及其授權的人可以將其用作虛擬形象。請確認你擁有該授權。"
+    },
+    {
+      "key": "library.vrmDrop.save.title",
+      "value": "儲存此 VRM 頭像？"
+    },
+    {
+      "key": "library.vrmDrop.save.body",
+      "value": "將 {0} 複製到 Basis 頭像儲存空間？即使原始檔案被移動或刪除，儲存的副本仍會保留在你的資料庫中。選擇「否」則從原位置直接穿戴。"
+    },
+    {
+      "key": "avatar.vrmLicense.unknownAuthor",
+      "value": "作者"
+    },
+    {
+      "key": "network.avatarShare.failed.license",
+      "value": "此 VRM 的授權不允許再散布該檔案，因此未透過伺服器分享。"
     }
   ]
 }
