@@ -612,6 +612,8 @@ namespace Basis.BasisUI
                     return $"{Mathf.RoundToInt(normalized * 100f)}%";
                 case ValueDisplayMode.percentageFromZero:
                     return $"{Mathf.RoundToInt(value * 100f)}%";
+                case ValueDisplayMode.PercentageFromZeroTwoDecimals:
+                    return (value * 100f).ToString("0.00") + "%";
                 case ValueDisplayMode.Raw:
                     return value.ToString(decimalFormat);
                 case ValueDisplayMode.Meters:

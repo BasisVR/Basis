@@ -699,7 +699,7 @@ public static partial class SettingsProviderIK
         var slider = PanelSlider.CreateAndBind(
             parent,
             PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.bodyTracking.armRatio"),
-                BasisCalibrationMath.ArmRatioMin, BasisCalibrationMath.ArmRatioMax, false, 3, ValueDisplayMode.percentageFromZero),
+                BasisCalibrationMath.ArmRatioMin, BasisCalibrationMath.ArmRatioMax, false, 4, ValueDisplayMode.PercentageFromZeroTwoDecimals),
             BasisSettingsDefaults.ArmRatio);
         if (slider != null)
         {

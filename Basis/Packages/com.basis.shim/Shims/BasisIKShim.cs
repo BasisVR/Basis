@@ -719,7 +719,7 @@ namespace Cilbox
 				arms[index] = d;
 				return;
 			}
-			BasisArmSolveCore.Pose(i, r, q[0], q[1], out Quaternion upper, out Quaternion lower, out float roll);
+			BasisArmSolveCore.Pose(i, r, q[0], q[1], ref d.state, out Quaternion upper, out Quaternion lower, out float roll);
 			Vector3 forearm = r.Hand - r.Elbow;
 			if ((roll > 0.001f || roll < -0.001f) && forearm.sqrMagnitude > 1e-10f) lower = Quaternion.AngleAxis(roll, forearm.normalized) * lower;
 			FixedList512Bytes<Quaternion> solved = default;

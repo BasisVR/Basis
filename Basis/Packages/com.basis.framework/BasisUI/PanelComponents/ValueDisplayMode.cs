@@ -15,6 +15,7 @@ namespace Basis.BasisUI
         /// where "2000000" is unreadable but "2M" is obvious at a glance.
         /// </summary>
         Compact,
-        Hz
+        Hz,
+        PercentageFromZeroTwoDecimals
     }
 }
