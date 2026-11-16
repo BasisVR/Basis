@@ -61,6 +61,7 @@ namespace Cilbox
 			"Basis.Shims.BasisSphereCastShim",
 			"Basis.Shims.BasisBinaryShim",
 			"Basis.Shims.BasisCompressionShim",
+			"Basis.Shims.BasisHashShim",
 			"Basis.Shims.BasisSaveShim",
 			"Basis.Shims.BasisServerStorageShim",
 			"Basis.Shims.BasisServerStorageResult",
