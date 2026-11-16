@@ -528,6 +528,7 @@ public class Configuration
     public bool AvatarHostingLocked = false;
     public bool VideoClipsLocked = false;
     public bool KeepSharedMediaOnLeave = false;
+    public bool AvatarShareRequestsLocked = false;
     public bool StorageEnabled = true;
     public string StorageBackend = "file";
     public int StorageMaxBytesPerPlayer = 16384;

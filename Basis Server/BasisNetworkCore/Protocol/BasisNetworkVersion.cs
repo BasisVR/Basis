@@ -29,15 +29,25 @@ namespace Basis.Network.Core
         // 58: avatar, prop, world and share records no longer carry the unlock password. Receivers ask
         // through the basis.contentkeys plugin and get the file's keys from anyone holding them, sealed
         // to the requester and checked against the hash the content's origin published.
-        public static ushort ServerVersion = 58;
+        // 59: avatar host relay adds OpAskShare/OpShareAnswer (client to server) and OpShareAsked/
+        // OpShareAnswered (server to client), so a player whose avatar download failed can ask the
+        // wearer to share it through the server. Nothing else changed on the wire: a 59 server accepts
+        // 58 clients and answers asks aimed at them as declined, and a 59 client joins a 58 server as 58
+        // and does not ask. GlobalGetLockState ends with AvatarShareRequestsLocked (after
+        // KeepSharedMediaOnLeave); 58 clients stop reading before it.
+        public static ushort ServerVersion = 59;
         public static ushort LegacyLoginVersion = 55;
         // Newest protocol whose records still carry unlock passwords. A current client joins a server
         // on it with the current login, asks for this version, and sends passwords the old way.
         public static ushort PasswordRecordsVersion = 57;
+        // Oldest client protocol a current server accepts as is.
+        public static ushort OldestClientVersion = 58;
+        public static ushort ShareAskVersion = 59;
+        public static bool AcceptsClient(ushort clientVersion) => clientVersion >= OldestClientVersion && clientVersion <= ServerVersion;
         public static bool TryGetFallback(ushort serverVersion, out bool legacyLogin, out ushort protocolVersion)
         {
             legacyLogin = serverVersion == LegacyLoginVersion;
-            protocolVersion = serverVersion == PasswordRecordsVersion ? serverVersion : (ushort)0;
+            protocolVersion = serverVersion >= PasswordRecordsVersion && serverVersion < ServerVersion ? serverVersion : (ushort)0;
             return legacyLogin || protocolVersion != 0;
         }
         public static bool SendsUnlockPasswords(bool legacyLogin, ushort protocolVersion) => legacyLogin || (protocolVersion != 0 && protocolVersion <= PasswordRecordsVersion);

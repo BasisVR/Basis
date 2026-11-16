@@ -27,6 +27,7 @@ namespace Basis.Scripts.Networking
             public string LocalUrl;
             public BasisHostedBeeLayout Layout;
             public byte[] Id;
+            public bool Broadcast;
         }
         private const int OwnerReadBlockBytes = 1024 * 1024, MaxQueuedPackets = 256;
         private const long RequestIdleTimeoutMs = 60000, OfferTimeoutMs = 15000;
@@ -65,7 +66,7 @@ namespace Basis.Scripts.Networking
             {
                 foreach (HostedAvatar entry in hosted)
                 {
-                    if (entry.LocalUrl != localUrl) continue;
+                    if (entry.LocalUrl != localUrl || !entry.Broadcast) continue;
                     hostedUrl = BasisServerHostedBee.BuildUrl(entry.Layout.Id, entry.Layout.IsVrm);
                     return true;
                 }
@@ -82,10 +83,24 @@ namespace Basis.Scripts.Networking
         public static async Task<(bool Shared, byte Reason, string Error)> ShareAsync(string localUrl, string password)
         {
             if (IsHosted(localUrl)) return (true, BasisAvatarHostProtocol.ReasonNone, null);
-            if (!SharingAllowed) return (false, BasisAvatarHostProtocol.ReasonDisabled, null);
             if (!BasisIOManagement.TryResolveLocalBeePath(localUrl, out string localPath)) return (false, BasisAvatarHostProtocol.ReasonNone, "The avatar file could not be found.");
-            (BasisHostedBeeLayout layout, string error) = await Task.Run(() => BasisHostedBeeLayout.BuildAsync(localPath, password));
-            if (layout == null || !BasisAvatarHostProtocol.TryHexToId(layout.Id, out byte[] id)) return (false, BasisAvatarHostProtocol.ReasonNone, error ?? "The avatar file could not be read.");
+            (bool shared, byte reason, string error, _) = await HostAsync(localUrl, localPath, password, true);
+            return (shared, reason, error);
+        }
+        public static async Task<(bool Shared, byte Reason, string Error, BasisHostedBeeLayout Layout)> HostAsync(string avatarUrl, string filePath, string password, bool broadcast)
+        {
+            lock (hostedSync)
+            {
+                foreach (HostedAvatar entry in hosted)
+                {
+                    if (entry.LocalUrl != avatarUrl) continue;
+                    entry.Broadcast |= broadcast;
+                    return (true, BasisAvatarHostProtocol.ReasonNone, null, entry.Layout);
+                }
+            }
+            if (!SharingAllowed) return (false, BasisAvatarHostProtocol.ReasonDisabled, null, null);
+            (BasisHostedBeeLayout layout, string error) = await Task.Run(() => BasisHostedBeeLayout.BuildAsync(filePath, password));
+            if (layout == null || !BasisAvatarHostProtocol.TryHexToId(layout.Id, out byte[] id)) return (false, BasisAvatarHostProtocol.ReasonNone, error ?? "The avatar file could not be read.", null);
             HostedAvatar oldest = null;
             lock (hostedSync)
             {
@@ -107,20 +122,45 @@ namespace Basis.Scripts.Networking
             if (!sent)
             {
                 offerReplies.TryRemove(layout.Id, out _);
-                return (false, BasisAvatarHostProtocol.ReasonDisabled, null);
+                return (false, BasisAvatarHostProtocol.ReasonDisabled, null, null);
             }
             Task finished = await Task.WhenAny(reply.Task, Task.Delay((int)OfferTimeoutMs));
             offerReplies.TryRemove(layout.Id, out _);
-            if (finished != reply.Task) return (false, BasisAvatarHostProtocol.ReasonBusy, "The server did not answer.");
+            if (finished != reply.Task) return (false, BasisAvatarHostProtocol.ReasonBusy, "The server did not answer.", null);
             byte reason = reply.Task.Result;
-            if (reason != BasisAvatarHostProtocol.ReasonNone) return (false, reason, null);
+            if (reason != BasisAvatarHostProtocol.ReasonNone) return (false, reason, null, null);
             lock (hostedSync)
             {
-                hosted.RemoveAll(entry => entry.LocalUrl == localUrl);
-                hosted.Add(new HostedAvatar { LocalUrl = localUrl, Layout = layout, Id = id });
+                hosted.RemoveAll(entry => entry.LocalUrl == avatarUrl);
+                hosted.Add(new HostedAvatar { LocalUrl = avatarUrl, Layout = layout, Id = id, Broadcast = broadcast });
             }
-            BasisDebug.Log($"Sharing local avatar through the server ({layout.SharedSectionCount} section(s) available, {layout.VirtualLength} bytes addressable).", BasisDebug.LogTag.Networking);
-            return (true, BasisAvatarHostProtocol.ReasonNone, null);
+            BasisDebug.Log($"Sharing avatar through the server ({layout.SharedSectionCount} section(s) available, {layout.VirtualLength} bytes addressable, {(broadcast ? "everyone" : "on request")}).", BasisDebug.LogTag.Networking);
+            return (true, BasisAvatarHostProtocol.ReasonNone, null, layout);
+        }
+        public static bool AskShare(ushort ownerPlayerId, string avatarUrl)
+        {
+            if (!ServerSupportsHosting || BasisNetworkModeration.AvatarShareRequestsBlockedLocally || BasisNetworkConnection.NetworkClient == null || BasisNetworkConnection.NetworkClient.ProtocolVersion < BasisNetworkVersion.ShareAskVersion || string.IsNullOrEmpty(avatarUrl) || avatarUrl.Length > BasisAvatarHostProtocol.MaxAskUrlChars) return false;
+            return BasisClientMessageRegistry.Send(BasisAvatarHostProtocol.MessageName, writer =>
+            {
+                writer.Put(BasisAvatarHostProtocol.OpAskShare);
+                writer.Put(ownerPlayerId);
+                writer.Put(avatarUrl);
+            });
+        }
+        public static void AnswerShare(ushort requesterPlayerId, string avatarUrl, BasisHostedBeeLayout layout)
+        {
+            byte[] id = null;
+            bool accepted = layout != null && BasisAvatarHostProtocol.TryHexToId(layout.Id, out id);
+            BasisClientMessageRegistry.Send(BasisAvatarHostProtocol.MessageName, writer =>
+            {
+                writer.Put(BasisAvatarHostProtocol.OpShareAnswer);
+                writer.Put(requesterPlayerId);
+                writer.Put(avatarUrl);
+                writer.Put(accepted);
+                if (!accepted) return;
+                BasisAvatarHostProtocol.WriteId(writer, id);
+                writer.Put(layout.IsVrm);
+            });
         }
         public static void Reset()
         {
@@ -201,6 +241,22 @@ namespace Basis.Scripts.Networking
                         {
                             if (!reader.TryGetUInt(out uint requestId) || !reader.TryGetByte(out byte reason)) return;
                             if (requests.TryGetValue(requestId, out PendingRequest request)) request.Completion.TrySetResult((null, DescribeFailure(reason)));
+                            break;
+                        }
+                    case BasisAvatarHostProtocol.OpShareAsked:
+                        {
+                            if (!reader.TryGetUShort(out ushort requester) || !reader.TryGetString(out string url) || string.IsNullOrEmpty(url)) return;
+                            BasisDeviceManagement.EnqueueOnMainThread(() => Basis.Scripts.Avatar.BasisAvatarShareRequests.OnAsked(requester, url));
+                            break;
+                        }
+                    case BasisAvatarHostProtocol.OpShareAnswered:
+                        {
+                            if (!reader.TryGetUShort(out ushort owner) || !reader.TryGetString(out string url) || !reader.TryGetBool(out bool accepted)) return;
+                            byte[] id = null;
+                            bool vrm = false;
+                            if (accepted && (!BasisAvatarHostProtocol.TryReadId(reader, out id) || !reader.TryGetBool(out vrm))) return;
+                            string hostedUrl = accepted ? BasisServerHostedBee.BuildUrl(BasisAvatarHostProtocol.IdToHex(id), vrm) : null;
+                            BasisDeviceManagement.EnqueueOnMainThread(() => Basis.Scripts.Avatar.BasisAvatarShareRequests.OnAnswered(owner, url, hostedUrl));
                             break;
                         }
                     case BasisAvatarHostProtocol.OpFetch:

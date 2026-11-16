@@ -3,6 +3,9 @@
     "rootNamespace": "",
     "references": [
         "Unity.Mathematics",
+        "Unity.Burst",
+        "Unity.Collections",
+        "Basis.Eerie.Movement",
         "BasisNetworkCore",
         "BasisDebug",
         "Cilbox",

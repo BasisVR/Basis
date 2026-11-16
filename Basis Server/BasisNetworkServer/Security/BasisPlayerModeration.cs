@@ -573,6 +573,11 @@ namespace BasisNetworkServer.Security
                         HandleGlobalFeatureToggle(peer, "Sharing video clips", BasisGlobalLockManager.ToggleVideoClips()));
                     break;
 
+                case AdminRequestMode.GlobalToggleAvatarShareRequests:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleGlobalFeatureToggle(peer, "Asking others to share their avatar", BasisGlobalLockManager.ToggleAvatarShareRequests()));
+                    break;
+
                 case AdminRequestMode.GlobalToggleKeepSharedMediaOnLeave:
                     Require(peer, PermNodes.ModerationGlobalLock, () =>
                         HandleGlobalProtectionToggle(peer, "Keeping shared images and clips after their sharer leaves", BasisGlobalLockManager.ToggleKeepSharedMediaOnLeave()));

@@ -1375,6 +1375,10 @@ public static partial class BasisNetworkModeration
 
     public static event Action<bool> OnGlobalVideoClipsLockedChanged;
 
+    public static bool GlobalAvatarShareRequestsLocked { get; private set; }
+
+    public static event Action<bool> OnGlobalAvatarShareRequestsLockedChanged;
+
     /// <summary>
     /// The server keeps a leaving player's shared images and clips and hands them to a remaining
     /// player instead of everyone removing them.
@@ -1557,6 +1561,9 @@ public static partial class BasisNetworkModeration
 
     public static bool VideoClipsBlockedLocally =>
         GlobalVideoClipsLocked && !LocalPlayerHasGlobalLockBypass();
+
+    public static bool AvatarShareRequestsBlockedLocally =>
+        GlobalAvatarShareRequestsLocked && !LocalPlayerHasGlobalLockBypass();
 
     private static void HandleGlobalLockState(NetDataReader reader)
     {
@@ -1804,7 +1811,16 @@ public static partial class BasisNetworkModeration
                 OnGlobalKeepSharedMediaOnLeaveChanged?.Invoke(GlobalKeepSharedMediaOnLeave);
             }
         }
-        BasisDebug.Log($"Global lock state updated - Avatars: {GlobalAvatarsLocked}, Props: {GlobalPropsLocked}, Worlds: {GlobalWorldsLocked}, Servers: {GlobalServersLocked}, ThirdPerson: {GlobalThirdPersonDisabled}, AdditionalAvatarData: {GlobalAdditionalAvatarDataLock}, CameraMask: {GlobalCameraDisallowMask}, Restriction: {GlobalUserRestrictionMode}, PlayspaceMover: {GlobalPlayspaceMoverLocked}, DirectConnect: {GlobalDirectConnectLocked}, Cilbox: {GlobalCilboxLocked}, Images: {GlobalImagesLocked}, EndEffectorIKDisabled: {GlobalEndEffectorIKDisabled}, TextChat: {GlobalTextChatLocked}, VoiceChat: {GlobalVoiceChatLocked}, MediaPlayer: {GlobalMediaPlayerLocked}, CameraCapture: {GlobalCameraCaptureLocked}, PropGrabbing: {GlobalPropGrabbingLocked}, SafeDisplayNames: {GlobalSafeDisplayNamesForced}, Gifs: {GlobalGifsLocked}, ContentRemoval: {GlobalContentRemovalLocked}, ExternalLinks: {GlobalExternalLinksLocked}, AvatarHosting: {GlobalAvatarHostingLocked}, VideoClips: {GlobalVideoClipsLocked}, ImageMaxResolution: {GlobalImageMaxResolutionK}K, VideoClipMax: {GlobalVideoClipMaxMegabytes} MB x{GlobalVideoClipMaxPerPlayer}, KeepSharedMediaOnLeave: {GlobalKeepSharedMediaOnLeave}", BasisDebug.LogTag.Networking);
+        if (reader.AvailableBytes >= 1)
+        {
+            bool nextAvatarShareRequestsLocked = reader.GetBool();
+            if (nextAvatarShareRequestsLocked != GlobalAvatarShareRequestsLocked)
+            {
+                GlobalAvatarShareRequestsLocked = nextAvatarShareRequestsLocked;
+                OnGlobalAvatarShareRequestsLockedChanged?.Invoke(GlobalAvatarShareRequestsLocked);
+            }
+        }
+        BasisDebug.Log($"Global lock state updated - Avatars: {GlobalAvatarsLocked}, Props: {GlobalPropsLocked}, Worlds: {GlobalWorldsLocked}, Servers: {GlobalServersLocked}, ThirdPerson: {GlobalThirdPersonDisabled}, AdditionalAvatarData: {GlobalAdditionalAvatarDataLock}, CameraMask: {GlobalCameraDisallowMask}, Restriction: {GlobalUserRestrictionMode}, PlayspaceMover: {GlobalPlayspaceMoverLocked}, DirectConnect: {GlobalDirectConnectLocked}, Cilbox: {GlobalCilboxLocked}, Images: {GlobalImagesLocked}, EndEffectorIKDisabled: {GlobalEndEffectorIKDisabled}, TextChat: {GlobalTextChatLocked}, VoiceChat: {GlobalVoiceChatLocked}, MediaPlayer: {GlobalMediaPlayerLocked}, CameraCapture: {GlobalCameraCaptureLocked}, PropGrabbing: {GlobalPropGrabbingLocked}, SafeDisplayNames: {GlobalSafeDisplayNamesForced}, Gifs: {GlobalGifsLocked}, ContentRemoval: {GlobalContentRemovalLocked}, ExternalLinks: {GlobalExternalLinksLocked}, AvatarHosting: {GlobalAvatarHostingLocked}, VideoClips: {GlobalVideoClipsLocked}, ImageMaxResolution: {GlobalImageMaxResolutionK}K, VideoClipMax: {GlobalVideoClipMaxMegabytes} MB x{GlobalVideoClipMaxPerPlayer}, KeepSharedMediaOnLeave: {GlobalKeepSharedMediaOnLeave}, AvatarShareRequests: {GlobalAvatarShareRequestsLocked}", BasisDebug.LogTag.Networking);
         OnGlobalLockStateChanged?.Invoke(GlobalAvatarsLocked, GlobalPropsLocked, GlobalWorldsLocked, GlobalServersLocked);
     }
 
@@ -1842,6 +1858,7 @@ public static partial class BasisNetworkModeration
         if (GlobalAvatarHostingLocked) { GlobalAvatarHostingLocked = false; OnGlobalAvatarHostingLockedChanged?.Invoke(false); }
         if (GlobalVideoClipsLocked) { GlobalVideoClipsLocked = false; OnGlobalVideoClipsLockedChanged?.Invoke(false); }
         if (GlobalKeepSharedMediaOnLeave) { GlobalKeepSharedMediaOnLeave = false; OnGlobalKeepSharedMediaOnLeaveChanged?.Invoke(false); }
+        if (GlobalAvatarShareRequestsLocked) { GlobalAvatarShareRequestsLocked = false; OnGlobalAvatarShareRequestsLockedChanged?.Invoke(false); }
         ServerAnnouncesMediaHandover = false;
         if (GlobalImageMaxResolutionK != DefaultImageMaxResolutionK) { GlobalImageMaxResolutionK = DefaultImageMaxResolutionK; OnGlobalImageMaxResolutionChanged?.Invoke(DefaultImageMaxResolutionK); }
         if (GlobalVideoClipMaxMegabytes != DefaultVideoClipMaxMegabytes) { GlobalVideoClipMaxMegabytes = DefaultVideoClipMaxMegabytes; OnGlobalVideoClipMaxMegabytesChanged?.Invoke(DefaultVideoClipMaxMegabytes); }
@@ -2059,6 +2076,11 @@ public static partial class BasisNetworkModeration
     public static void GlobalToggleVideoClips()
     {
         SendAdminRequest(AdminRequestMode.GlobalToggleVideoClips);
+    }
+
+    public static void GlobalToggleAvatarShareRequests()
+    {
+        SendAdminRequest(AdminRequestMode.GlobalToggleAvatarShareRequests);
     }
 
     public static void GlobalToggleKeepSharedMediaOnLeave()

@@ -587,6 +587,7 @@ public class BasisGlobalLockManagerTests
         AvatarHostingLocked = false,
         VideoClipsLocked = false,
         KeepSharedMediaOnLeave = false,
+        AvatarShareRequestsLocked = false,
     };
 
     private static Configuration AllLocked() => new()
@@ -615,6 +616,7 @@ public class BasisGlobalLockManagerTests
         AvatarHostingLocked = true,
         VideoClipsLocked = true,
         KeepSharedMediaOnLeave = true,
+        AvatarShareRequestsLocked = true,
     };
 
     private static void AssertAllFlags(bool expected)
@@ -642,6 +644,7 @@ public class BasisGlobalLockManagerTests
         Assert.Equal(expected, BasisGlobalLockManager.AvatarHostingLocked);
         Assert.Equal(expected, BasisGlobalLockManager.VideoClipsLocked);
         Assert.Equal(expected, BasisGlobalLockManager.KeepSharedMediaOnLeave);
+        Assert.Equal(expected, BasisGlobalLockManager.AvatarShareRequestsLocked);
     }
 
     /// <summary>
@@ -732,6 +735,7 @@ public class BasisGlobalLockManagerTests
             Assert.False(BasisGlobalLockManager.AvatarHostingLocked);
             Assert.False(BasisGlobalLockManager.VideoClipsLocked);
             Assert.False(BasisGlobalLockManager.KeepSharedMediaOnLeave);
+            Assert.False(BasisGlobalLockManager.AvatarShareRequestsLocked);
             Assert.Equal(0, BasisGlobalLockManager.CameraMetadataDisallowMask);
         }
         finally
@@ -769,6 +773,7 @@ public class BasisGlobalLockManagerTests
             (BasisGlobalLockManager.ToggleAvatarHosting, () => BasisGlobalLockManager.AvatarHostingLocked),
             (BasisGlobalLockManager.ToggleVideoClips, () => BasisGlobalLockManager.VideoClipsLocked),
             (BasisGlobalLockManager.ToggleKeepSharedMediaOnLeave, () => BasisGlobalLockManager.KeepSharedMediaOnLeave),
+            (BasisGlobalLockManager.ToggleAvatarShareRequests, () => BasisGlobalLockManager.AvatarShareRequestsLocked),
         };
 
         foreach ((Func<bool> toggle, Func<bool> state) in toggles)
@@ -855,6 +860,7 @@ public class BasisGlobalLockManagerTests
                 VideoClipMaxMegabytes = 512,
                 VideoClipMaxPerPlayer = 7,
                 KeepSharedMediaOnLeave = true,
+                AvatarShareRequestsLocked = true,
             });
 
             var peer = new SecurityTestPeer(1);
@@ -885,6 +891,7 @@ public class BasisGlobalLockManagerTests
                 0x00, 0x02,                               // video clip max size, 512 MB as a little-endian ushort
                 7,                                        // video clips per player
                 1,                                        // keep shared media on leave
+                1,                                        // avatar share requests locked
             }, payload);
 
             BasisGlobalLockManager.BroadcastLockState(); // zero connected peers: must be a safe no-op
