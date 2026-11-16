@@ -2206,6 +2206,7 @@
 
     { "key": "editor.contentPolice.allowedComponents", "value": "اواتار پر استعمال کی اجازت والے اجزاء" },
     { "key": "editor.contentPolice.search", "value": "تلاش:" },
+    { "key": "editor.contentPolice.fromPackage", "value": "{0} (پیکیج سے: {1})" },
 
     { "key": "editor.fallbackBone.load", "value": "فال بیک ہڈی کا ڈیٹا لوڈ کریں" },
 

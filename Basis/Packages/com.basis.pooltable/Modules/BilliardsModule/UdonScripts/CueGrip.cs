@@ -21,14 +21,7 @@ public class CueGrip : MonoBehaviour
         pickup.OnInteractStartEvent.AddListener(OnPickup);
         pickup.OnInteractEndEvent.AddListener(OnDrop);
         pickup.OnPickupUse.AddListener(OnPickupUse);
-        if (BasisPlatformShim.IsVR)
-        {
-            pickup.AutoHold = BasisInteractableObject.BasisAutoHold.None;
-        }
-        else
-        {
-            pickup.AutoHold = BasisInteractableObject.BasisAutoHold.DesktopOnly;
-        }
+        pickup.AutoHold = BasisInteractableObject.BasisAutoHold.DesktopOnly;
     }
     private void OnPickupUse(BasisPickUpUseMode mode)
     {

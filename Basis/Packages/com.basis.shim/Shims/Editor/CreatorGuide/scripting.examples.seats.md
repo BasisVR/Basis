@@ -58,4 +58,4 @@ public class SwivelChair : MonoBehaviour
 | `EjectLocalPlayer()` | Stands the local player up. |
 
 > [!info]
-> Seats only move the local player and the script needs no networking of its own. **Basis Seat Sync** handles who is sitting. Hand and foot targets only need to be set for the seated player, because other players see the result through their normal pose updates.
+> Seats only move the local player and the script needs no networking of its own. **Basis Seat Sync** handles who is sitting.

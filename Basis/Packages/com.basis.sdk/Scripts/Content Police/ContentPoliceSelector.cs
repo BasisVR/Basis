@@ -8,12 +8,17 @@ public class ContentPoliceSelector : ScriptableObject
 {
     public AudioMixerGroup AudioMixer;
     [SerializeField] public List<string> selectedTypes = new();
+    [SerializeField] public bool IncludePackageApprovals;
+    [SerializeField] public BundledContentHolder.Selector Kind;
 
     // Runtime caches (not serialized)
     [NonSerialized] private HashSet<Type> _approvedTypes;
     [NonSerialized] private HashSet<string> _approvedTypeNames;
     [NonSerialized] private Dictionary<Type, bool> _approvalByType;
     [NonSerialized] private bool _cacheBuilt;
+    [NonSerialized] private int _inclusionVersion;
+
+    private bool CacheStale => !_cacheBuilt || (IncludePackageApprovals && _inclusionVersion != BasisContentPoliceInclusions.Version);
 
     /// <summary>
     /// Approval memoized per runtime Type so the content walk pays the FullName string
@@ -22,7 +27,7 @@ public class ContentPoliceSelector : ScriptableObject
     /// </summary>
     public bool IsTypeApproved(Type type)
     {
-        if (!_cacheBuilt) BuildCache();
+        if (CacheStale) BuildCache();
         if (_approvalByType.TryGetValue(type, out bool approved)) return approved;
         approved = _approvedTypeNames.Contains(type.FullName);
         _approvalByType[type] = approved;
@@ -33,7 +38,7 @@ public class ContentPoliceSelector : ScriptableObject
     {
         get
         {
-            if (!_cacheBuilt) BuildCache();
+            if (CacheStale) BuildCache();
             return _approvedTypes;
         }
     }
@@ -46,12 +51,13 @@ public class ContentPoliceSelector : ScriptableObject
     {
         get
         {
-            if (!_cacheBuilt) BuildCache();
+            if (CacheStale) BuildCache();
             return _approvedTypeNames;
         }
     }
 
-    private void OnEnable() => BuildCache();
+    private void OnEnable() => _cacheBuilt = false;
+    private void OnValidate() => _cacheBuilt = false;
 
     private void BuildCache()
     {
@@ -67,6 +73,11 @@ public class ContentPoliceSelector : ScriptableObject
 
             var t = Type.GetType(typeName, throwOnError: false);
             if (t != null) _approvedTypes.Add(t);
+        }
+        _inclusionVersion = BasisContentPoliceInclusions.Version;
+        if (IncludePackageApprovals)
+        {
+            foreach (string typeName in BasisContentPoliceInclusions.Get(Kind).Keys) _approvedTypeNames.Add(typeName);
         }
         _cacheBuilt = true;
     }

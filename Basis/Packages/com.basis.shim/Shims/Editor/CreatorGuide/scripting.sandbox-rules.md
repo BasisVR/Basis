@@ -38,7 +38,7 @@ Each time you use a method as a delegate it becomes a new wrapper, and `-=` may 
 
 ## Content police
 
-Any component in your content that is neither `[Cilboxable]` nor on the allowlist is **destroyed on load**. Converting a script and allowing a component are separate. See [Allowed Components](/en/docs/scripting/allowed-components).
+Any component in your content that is neither `[Cilboxable]` nor on the allowlist is **destroyed on load**. Converting a script and allowing a component are separate. See [Allowed Components](/en/docs/scripting/allowed-components), and [Packages](/en/docs/scripting/packages) for how a package approves its own components.
 
 ## Avatar scripts run on everyone's machine
 

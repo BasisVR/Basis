@@ -2804,6 +2804,7 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 41614965805754449}
+  - {fileID: 1758626635796569631}
   - {fileID: 747712626605075726}
   - {fileID: 1759660241930826777}
   m_Father: {fileID: 5951911174870518007}
@@ -3950,6 +3951,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8463833654478067906}
+  - component: {fileID: 7410000000000000002}
   m_Layer: 22
   m_Name: desktop
   m_TagString: Untagged
@@ -3957,6 +3959,109 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
+--- !u!114 &7410000000000000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1278764928797503435}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f05027395a1cbf644b3cbbfe4cf0ee51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Basis Framework::Basis.Scripts.Networking.Sync.BasisSyncedTransform
+  HasNetworkID: 0
+  IsOwnedLocallyOnServer: 0
+  IsOwnedLocallyOnClient: 0
+  CurrentOwnerId: 0
+  SendIntervalSeconds: 0.05
+  KeyframeIntervalSeconds: 0.5
+  ContinuousEpsilon: 0.0001
+  RotationSendThresholdDegrees: 0.5
+  UseDirectP2P: 1
+  ForceP2POnly: 0
+  OverrideP2PRate: 0
+  P2PSendIntervalSeconds: 0.033
+  P2PKeyframeIntervalSeconds: 0.5
+  Delivery: 4
+  KeyframeDelivery: 2
+  Extrapolate: 0
+  MaxExtrapolationSeconds: 0.2
+  JitterBufferDepth: 2
+  UseTeleportThreshold: 0
+  TeleportThreshold: 3
+  DistanceReduction: 1
+  RelevanceCulling: 0
+  RelevanceRadius: 50
+  UseChecksum: 1
+  _serializedVersion: 3
+  Target: {fileID: 8463833654478067906}
+  SyncPosition: 1
+  PositionX: 1
+  PositionY: 1
+  PositionZ: 1
+  SyncRotation: 1
+  RotationMode: 0
+  SmallestThreeBits: 9
+  RotationX: 1
+  RotationY: 1
+  RotationZ: 1
+  SyncScale: 0
+  ScaleUniform: 0
+  ScaleX: 1
+  ScaleY: 1
+  ScaleZ: 1
+  WorldSpace: 0
+  RelativeTo: {fileID: 0}
+  InterpolatePosition: 1
+  InterpolateRotation: 1
+  InterpolateScale: 1
+  PosCompX:
+    Mode: 0
+    Min: -1024
+    Max: 1024
+    Bits: 16
+  PosCompY:
+    Mode: 0
+    Min: -1024
+    Max: 1024
+    Bits: 16
+  PosCompZ:
+    Mode: 0
+    Min: -1024
+    Max: 1024
+    Bits: 16
+  RotCompX:
+    Mode: 0
+    Min: 0
+    Max: 360
+    Bits: 16
+  RotCompY:
+    Mode: 0
+    Min: 0
+    Max: 360
+    Bits: 16
+  RotCompZ:
+    Mode: 0
+    Min: 0
+    Max: 360
+    Bits: 16
+  ScaleCompX:
+    Mode: 0
+    Min: 0
+    Max: 64
+    Bits: 16
+  ScaleCompY:
+    Mode: 0
+    Min: 0
+    Max: 64
+    Bits: 16
+  ScaleCompZ:
+    Mode: 0
+    Min: 0
+    Max: 64
+    Bits: 16
 --- !u!4 &8463833654478067906
 Transform:
   m_ObjectHideFlags: 0
@@ -8527,6 +8632,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4332684319044906140}
+  - component: {fileID: 7410000000000000001}
   m_Layer: 22
   m_Name: desktop
   m_TagString: Untagged
@@ -8534,6 +8640,109 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
+--- !u!114 &7410000000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2806593605229712321}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f05027395a1cbf644b3cbbfe4cf0ee51, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Basis Framework::Basis.Scripts.Networking.Sync.BasisSyncedTransform
+  HasNetworkID: 0
+  IsOwnedLocallyOnServer: 0
+  IsOwnedLocallyOnClient: 0
+  CurrentOwnerId: 0
+  SendIntervalSeconds: 0.05
+  KeyframeIntervalSeconds: 0.5
+  ContinuousEpsilon: 0.0001
+  RotationSendThresholdDegrees: 0.5
+  UseDirectP2P: 1
+  ForceP2POnly: 0
+  OverrideP2PRate: 0
+  P2PSendIntervalSeconds: 0.033
+  P2PKeyframeIntervalSeconds: 0.5
+  Delivery: 4
+  KeyframeDelivery: 2
+  Extrapolate: 0
+  MaxExtrapolationSeconds: 0.2
+  JitterBufferDepth: 2
+  UseTeleportThreshold: 0
+  TeleportThreshold: 3
+  DistanceReduction: 1
+  RelevanceCulling: 0
+  RelevanceRadius: 50
+  UseChecksum: 1
+  _serializedVersion: 3
+  Target: {fileID: 4332684319044906140}
+  SyncPosition: 1
+  PositionX: 1
+  PositionY: 1
+  PositionZ: 1
+  SyncRotation: 1
+  RotationMode: 0
+  SmallestThreeBits: 9
+  RotationX: 1
+  RotationY: 1
+  RotationZ: 1
+  SyncScale: 0
+  ScaleUniform: 0
+  ScaleX: 1
+  ScaleY: 1
+  ScaleZ: 1
+  WorldSpace: 0
+  RelativeTo: {fileID: 0}
+  InterpolatePosition: 1
+  InterpolateRotation: 1
+  InterpolateScale: 1
+  PosCompX:
+    Mode: 0
+    Min: -1024
+    Max: 1024
+    Bits: 16
+  PosCompY:
+    Mode: 0
+    Min: -1024
+    Max: 1024
+    Bits: 16
+  PosCompZ:
+    Mode: 0
+    Min: -1024
+    Max: 1024
+    Bits: 16
+  RotCompX:
+    Mode: 0
+    Min: 0
+    Max: 360
+    Bits: 16
+  RotCompY:
+    Mode: 0
+    Min: 0
+    Max: 360
+    Bits: 16
+  RotCompZ:
+    Mode: 0
+    Min: 0
+    Max: 360
+    Bits: 16
+  ScaleCompX:
+    Mode: 0
+    Min: 0
+    Max: 64
+    Bits: 16
+  ScaleCompY:
+    Mode: 0
+    Min: 0
+    Max: 64
+    Bits: 16
+  ScaleCompZ:
+    Mode: 0
+    Min: 0
+    Max: 64
+    Bits: 16
 --- !u!4 &4332684319044906140
 Transform:
   m_ObjectHideFlags: 0
@@ -11924,7 +12133,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 264af517403de3c409c3e8dbf9047c0f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  PHYSICSNAME: <color=#FFD700>Advanced V0.5M</color>
+  PHYSICSNAME: <color=#FFD700>Advanced V0.6Y</color>
   hitSounds:
   - {fileID: 8300000, guid: c5c3277a589929d49be99bc2f100aae1, type: 3}
   - {fileID: 8300000, guid: e55c033e7d8b29e409baf5343b67bead, type: 3}
@@ -25732,16 +25941,16 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5952989828189068404}
-  m_LocalRotation: {x: 0.00000062584854, y: 0.0000003576278, z: 0.000000032004746, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: -0.026643045}
-  m_LocalScale: {x: 3.624698, y: 3.6246927, z: 2.501046}
+  m_LocalRotation: {x: 0.00000065565087, y: 0.00000032782552, z: 0.00000003200474, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: -0.40006524}
+  m_LocalScale: {x: 0.39390355, y: 0.3939028, z: 0.0039390414}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 747712626605075726}
+  m_Father: {fileID: 1877039106950581679}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0.000431662, y: 153.68695}
+  m_AnchoredPosition: {x: 0.000056483346, y: 55.40148}
   m_SizeDelta: {x: 180, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &3977131060193360782
@@ -31943,7 +32152,6 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1042876685375146087}
-  - {fileID: 1758626635796569631}
   m_Father: {fileID: 1877039106950581679}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}

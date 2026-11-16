@@ -25,7 +25,10 @@ namespace HVR.Basis.Comms
         private const string AddressMultiplyY = "HVR/EyeTracking/MultiplyY";
         private const string AddressMaxAngleX = "HVR/EyeTracking/MaxAngleX";
         private const string AddressMaxAngleY = "HVR/EyeTracking/MaxAngleY";
-        public const float MaxAngleLimitDeg = 90f;
+        private const string AddressConvergence = "HVR/EyeTracking/Convergence", AddressOffsetX = "HVR/EyeTracking/OffsetX", AddressOffsetY = "HVR/EyeTracking/OffsetY";
+        public const float MaxAngleLimitDeg = 90f, MaxConvergence = 2f, MaxOffsetDeg = 20f, MaxNetMultiply = 4f;
+        private static readonly int NetActiveId = HVRAddress.AddressToId("HVR/EyeTracking/Net/Active"), NetMultiplyXId = HVRAddress.AddressToId("HVR/EyeTracking/Net/MultiplyX"), NetMultiplyYId = HVRAddress.AddressToId("HVR/EyeTracking/Net/MultiplyY"), NetMaxAngleXId = HVRAddress.AddressToId("HVR/EyeTracking/Net/MaxAngleX"), NetMaxAngleYId = HVRAddress.AddressToId("HVR/EyeTracking/Net/MaxAngleY"), NetConvergenceId = HVRAddress.AddressToId("HVR/EyeTracking/Net/Convergence"), NetOffsetXId = HVRAddress.AddressToId("HVR/EyeTracking/Net/OffsetX"), NetOffsetYId = HVRAddress.AddressToId("HVR/EyeTracking/Net/OffsetY");
+        private static readonly int[] NetSettingIds = { NetActiveId, NetMultiplyXId, NetMultiplyYId, NetMaxAngleXId, NetMaxAngleYId, NetConvergenceId, NetOffsetXId, NetOffsetYId };
         private static readonly int EyeLidLeftId = HVRAddress.AddressToId("FT/v2/EyeLidLeft"), EyeLidRightId = HVRAddress.AddressToId("FT/v2/EyeLidRight");
 
         private readonly int _eyeLeftXAddress;
@@ -43,6 +46,7 @@ namespace HVR.Basis.Comms
         private float _runtimeMultiplyY = 1f;
         private float _runtimeMaxAngleXDeg = MaxAngleLimitDeg;
         private float _runtimeMaxAngleYDeg = MaxAngleLimitDeg;
+        private float _runtimeConvergence = 1f, _runtimeOffsetXDeg, _runtimeOffsetYDeg;
         private bool _isWearer;
         private bool _registeredForTick;
 
@@ -55,8 +59,15 @@ namespace HVR.Basis.Comms
             {
                 _runtimeOverrideEnabled = value;
                 Persist(AddressOverrideEnabled, value ? 1f : 0f, 0f);
+                PublishNetworkSettings();
             }
         }
+        public float RuntimeConvergence { get => _runtimeConvergence; set => SetOverride(ref _runtimeConvergence, Mathf.Clamp(value, 0f, MaxConvergence), 1f, AddressConvergence); }
+        public float RuntimeOffsetXDeg { get => _runtimeOffsetXDeg; set => SetOverride(ref _runtimeOffsetXDeg, Mathf.Clamp(value, -MaxOffsetDeg, MaxOffsetDeg), 0f, AddressOffsetX); }
+        public float RuntimeOffsetYDeg { get => _runtimeOffsetYDeg; set => SetOverride(ref _runtimeOffsetYDeg, Mathf.Clamp(value, -MaxOffsetDeg, MaxOffsetDeg), 0f, AddressOffsetY); }
+        internal float EffectiveConvergence => _runtimeOverrideEnabled ? _runtimeConvergence : 1f;
+        internal float EffectiveOffsetXRad => (_runtimeOverrideEnabled ? _runtimeOffsetXDeg : 0f) * Mathf.Deg2Rad;
+        internal float EffectiveOffsetYRad => (_runtimeOverrideEnabled ? _runtimeOffsetYDeg : 0f) * Mathf.Deg2Rad;
         public float RuntimeMultiplyX { get => _runtimeMultiplyX; set => SetOverride(ref _runtimeMultiplyX, value, multiplyX, AddressMultiplyX); }
         public float RuntimeMultiplyY { get => _runtimeMultiplyY; set => SetOverride(ref _runtimeMultiplyY, value, multiplyY, AddressMultiplyY); }
         public float RuntimeMaxAngleXDeg { get => _runtimeMaxAngleXDeg; set => SetOverride(ref _runtimeMaxAngleXDeg, Mathf.Clamp(value, 0f, MaxAngleLimitDeg), MaxAngleLimitDeg, AddressMaxAngleX); }
@@ -125,6 +136,7 @@ namespace HVR.Basis.Comms
             }
 
             comms.VariableStore.RegisterAddresses(_sourceEyeAddresses, OnAddressUpdated);
+            if (!isWearer) comms.VariableStore.RegisterAddresses(NetSettingIds, OnNetSettingUpdated);
         }
 
         public void OnHVRReadyBothAvatarAndNetwork(bool isWearer)
@@ -153,6 +165,16 @@ namespace HVR.Basis.Comms
                 min = 0f,
                 max = 1f,
             });
+            RequireNetSetting(NetActiveId, 0f, 1f);
+            RequireNetSetting(NetMultiplyXId, -(MaxNetMultiply - 1f), MaxNetMultiply - 1f);
+            RequireNetSetting(NetMultiplyYId, -(MaxNetMultiply - 1f), MaxNetMultiply - 1f);
+            RequireNetSetting(NetMaxAngleXId, 0f, MaxAngleLimitDeg);
+            RequireNetSetting(NetMaxAngleYId, 0f, MaxAngleLimitDeg);
+            RequireNetSetting(NetConvergenceId, -(MaxConvergence - 1f), MaxConvergence - 1f);
+            RequireNetSetting(NetOffsetXId, -MaxOffsetDeg, MaxOffsetDeg);
+            RequireNetSetting(NetOffsetYId, -MaxOffsetDeg, MaxOffsetDeg);
+            if (isWearer) PublishNetworkSettings();
+            else ApplyNetworkSettings();
 
             if (!isWearer)
             {
@@ -199,6 +221,7 @@ namespace HVR.Basis.Comms
             if (comms != null)
             {
                 comms.VariableStore.UnregisterAddresses(_sourceEyeAddresses, OnAddressUpdated);
+                if (!_isWearer) comms.VariableStore.UnregisterAddresses(NetSettingIds, OnNetSettingUpdated);
             }
             _eyeTracking?.OnDestroy();
             if (_isWearer) HVRVixxyPersistentStore.FlushNow();
@@ -213,6 +236,58 @@ namespace HVR.Basis.Comms
         {
             field = value;
             Persist(address, value, defaultValue);
+            PublishNetworkSettings();
+        }
+
+        private void RequireNetSetting(int addressId, float min, float max)
+        {
+            comms.RequireVariable(new HVRVariable
+            {
+                addressId = addressId,
+                initialValue = 0f,
+                variableTypeCode = HVRVariableTypeCode.Float,
+                needsInterpolation = false,
+                min = min,
+                max = max,
+            });
+        }
+
+        private void PublishNetworkSettings()
+        {
+            if (!_isWearer || comms == null) return;
+            var store = comms.VariableStore;
+            store.Submit(NetActiveId, _runtimeOverrideEnabled ? 1f : 0f);
+            store.Submit(NetMultiplyXId, Mathf.Clamp(_runtimeMultiplyX, 0f, MaxNetMultiply) - 1f);
+            store.Submit(NetMultiplyYId, Mathf.Clamp(_runtimeMultiplyY, 0f, MaxNetMultiply) - 1f);
+            store.Submit(NetMaxAngleXId, _runtimeMaxAngleXDeg);
+            store.Submit(NetMaxAngleYId, _runtimeMaxAngleYDeg);
+            store.Submit(NetConvergenceId, _runtimeConvergence - 1f);
+            store.Submit(NetOffsetXId, _runtimeOffsetXDeg);
+            store.Submit(NetOffsetYId, _runtimeOffsetYDeg);
+        }
+
+        private void OnNetSettingUpdated(int address, float value) => ApplyNetworkSettings();
+
+        private void ApplyNetworkSettings()
+        {
+            if (_isWearer || comms == null) return;
+            var store = comms.VariableStore;
+            _runtimeOverrideEnabled = store.GetValue(NetActiveId) > 0.5f;
+            _runtimeMultiplyX = Mathf.Clamp(store.GetValue(NetMultiplyXId) + 1f, 0f, MaxNetMultiply);
+            _runtimeMultiplyY = Mathf.Clamp(store.GetValue(NetMultiplyYId) + 1f, 0f, MaxNetMultiply);
+            _runtimeMaxAngleXDeg = Mathf.Clamp(store.GetValue(NetMaxAngleXId), 0f, MaxAngleLimitDeg);
+            _runtimeMaxAngleYDeg = Mathf.Clamp(store.GetValue(NetMaxAngleYId), 0f, MaxAngleLimitDeg);
+            _runtimeConvergence = Mathf.Clamp(store.GetValue(NetConvergenceId) + 1f, 0f, MaxConvergence);
+            _runtimeOffsetXDeg = Mathf.Clamp(store.GetValue(NetOffsetXId), -MaxOffsetDeg, MaxOffsetDeg);
+            _runtimeOffsetYDeg = Mathf.Clamp(store.GetValue(NetOffsetYId), -MaxOffsetDeg, MaxOffsetDeg);
+            _eyeTracking?.OnEyeAngleAddressUpdated(_fEyeLeftX, _fEyeRightX, _fEyeY);
+        }
+
+        internal void ShapeAngles(ref float2 left, ref float2 right)
+        {
+            float mean = (left.x + right.x) * 0.5f, half = (right.x - left.x) * 0.5f * EffectiveConvergence, offsetX = EffectiveOffsetXRad, offsetY = EffectiveOffsetYRad;
+            left = new float2(mean - half - offsetX, left.y + offsetY);
+            right = new float2(mean + half + offsetX, right.y + offsetY);
         }
 
         private void Persist(string address, float value, float defaultValue)
@@ -232,6 +307,10 @@ namespace HVR.Basis.Comms
             _runtimeMultiplyY = RestoreOverride(AddressMultiplyY, multiplyY);
             _runtimeMaxAngleXDeg = Mathf.Clamp(RestoreOverride(AddressMaxAngleX, MaxAngleLimitDeg), 0f, MaxAngleLimitDeg);
             _runtimeMaxAngleYDeg = Mathf.Clamp(RestoreOverride(AddressMaxAngleY, MaxAngleLimitDeg), 0f, MaxAngleLimitDeg);
+            _runtimeConvergence = Mathf.Clamp(RestoreOverride(AddressConvergence, 1f), 0f, MaxConvergence);
+            _runtimeOffsetXDeg = Mathf.Clamp(RestoreOverride(AddressOffsetX, 0f), -MaxOffsetDeg, MaxOffsetDeg);
+            _runtimeOffsetYDeg = Mathf.Clamp(RestoreOverride(AddressOffsetY, 0f), -MaxOffsetDeg, MaxOffsetDeg);
+            PublishNetworkSettings();
         }
 
         private static float RestoreOverride(string address, float defaultValue)
@@ -271,9 +350,11 @@ namespace HVR.Basis.Comms
                 bool applyGaze = data.HasPerEyeAngles && BasisLocalEyeDriver.IsEnabled;
                 if (applyGaze)
                 {
+                    float2 left = data.LeftAngles, right = data.RightAngles;
+                    our.ShapeAngles(ref left, ref right);
                     BasisLocalEyeDriver.SetOverrideEyeOffsets(
-                        BasisEyeMath.CanonicalAnglesToEyeOffset(ClampAngles(data.LeftAngles), BasisLocalEyeDriver.calLeft),
-                        BasisEyeMath.CanonicalAnglesToEyeOffset(ClampAngles(data.RightAngles), BasisLocalEyeDriver.calRight));
+                        BasisEyeMath.CanonicalAnglesToEyeOffset(ClampAngles(left), BasisLocalEyeDriver.calLeft),
+                        BasisEyeMath.CanonicalAnglesToEyeOffset(ClampAngles(right), BasisLocalEyeDriver.calRight));
                 }
                 BasisLocalEyeDriver.Override = applyGaze;
 
@@ -482,9 +563,12 @@ namespace HVR.Basis.Comms
                 // We convert to an angle, multiply, clamp, and convert back.
                 float maxXRad = our.EffectiveMaxAngleXRad;
                 float maxYRad = our.EffectiveMaxAngleYRad;
-                _yClamped = -Mathf.Sin(ClampToEyeAngleLimits(Mathf.Asin(-y) * our.EffectiveMultiplyY, maxYRad));
-                _xLeftClamped = Mathf.Sin(ClampToEyeAngleLimits(Mathf.Asin(xLeft) * our.EffectiveMultiplyX, maxXRad));
-                _xRightClamped = Mathf.Sin(ClampToEyeAngleLimits(Mathf.Asin(xRight) * our.EffectiveMultiplyX, maxXRad));
+                float pitch = Mathf.Asin(y) * our.EffectiveMultiplyY;
+                float2 left = new float2(Mathf.Asin(xLeft) * our.EffectiveMultiplyX, pitch), right = new float2(Mathf.Asin(xRight) * our.EffectiveMultiplyX, pitch);
+                our.ShapeAngles(ref left, ref right);
+                _yClamped = Mathf.Sin(ClampToEyeAngleLimits(left.y, maxYRad));
+                _xLeftClamped = Mathf.Sin(ClampToEyeAngleLimits(left.x, maxXRad));
+                _xRightClamped = Mathf.Sin(ClampToEyeAngleLimits(right.x, maxXRad));
                 UpdateAfterAvatarChangesApplied();
             }
 

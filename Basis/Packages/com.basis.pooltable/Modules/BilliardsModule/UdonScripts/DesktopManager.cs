@@ -64,6 +64,8 @@ public class DesktopManager : MonoBehaviour
     public void _OnGameStarted()
     {
         isDesktopUser = BasisPlatformShim.IsDesktop;
+        repositionMode = false;
+        isRepositioning = false;
     }
 
     public void _OnPickupCue()
@@ -96,6 +98,7 @@ public class DesktopManager : MonoBehaviour
     {
         if (!isDesktopUser) return;
         if (BasisNetworkPlayer.LocalPlayer == null) return;
+        if (Keyboard.current == null) return;
 
         Camera headCamera = BasisLocalCameraDriver.CameraInstance;
         if (headCamera != null)
@@ -138,9 +141,9 @@ public class DesktopManager : MonoBehaviour
         Vector2 mouseDelta = BasisDesktopInputShim.MouseDelta;
 
         cursor = new Vector3(
-            Mathf.Clamp(cursor.x + mouseDelta.x * CURSOR_SPEED * Time.deltaTime, -cursorClampX, cursorClampX),
+            Mathf.Clamp(cursor.x + mouseDelta.x * 0.1f * CURSOR_SPEED, -cursorClampX, cursorClampX),
             2.0f,
-            Mathf.Clamp(cursor.z + mouseDelta.y * CURSOR_SPEED * Time.deltaTime, -cursorClampZ, cursorClampZ));
+            Mathf.Clamp(cursor.z + mouseDelta.y * 0.1f * CURSOR_SPEED, -cursorClampZ, cursorClampZ));
 
         if (Keyboard.current.qKey.wasPressedThisFrame)
         {
@@ -153,6 +156,7 @@ public class DesktopManager : MonoBehaviour
                     stopShooting();
                 }
                 repositionMode = !repositionMode;
+                if (isRepositioning) stopRepositioning();
             }
         }
 
@@ -195,7 +199,6 @@ public class DesktopManager : MonoBehaviour
 
                 if (!click)
                 {
-                    isRepositioning = false;
                     stopRepositioning();
                 }
             }

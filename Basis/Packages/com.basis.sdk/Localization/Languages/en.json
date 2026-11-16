@@ -1130,6 +1130,7 @@
 
     { "key": "editor.contentPolice.allowedComponents", "value": "Allowed Components Used On Avatars" },
     { "key": "editor.contentPolice.search", "value": "Search:" },
+    { "key": "editor.contentPolice.fromPackage", "value": "{0} (from package: {1})" },
 
     { "key": "editor.fallbackBone.load", "value": "Load FallBack Bone Data" },
 

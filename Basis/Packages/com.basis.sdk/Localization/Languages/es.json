@@ -2206,6 +2206,7 @@
 
     { "key": "editor.contentPolice.allowedComponents", "value": "Componentes permitidos que se usan en avatares" },
     { "key": "editor.contentPolice.search", "value": "Buscar:" },
+    { "key": "editor.contentPolice.fromPackage", "value": "{0} (del paquete: {1})" },
 
     { "key": "editor.fallbackBone.load", "value": "Cargar datos de huesos de respaldo" },
 

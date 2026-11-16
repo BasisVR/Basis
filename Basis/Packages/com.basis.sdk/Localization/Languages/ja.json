@@ -2206,6 +2206,7 @@
 
     { "key": "editor.contentPolice.allowedComponents", "value": "アバターで使用が許可されているコンポーネント" },
     { "key": "editor.contentPolice.search", "value": "検索:" },
+    { "key": "editor.contentPolice.fromPackage", "value": "{0} (パッケージから: {1})" },
 
     { "key": "editor.fallbackBone.load", "value": "フォールバックのボーンデータを読み込み" },
 

@@ -74,6 +74,30 @@ void OnJiggleTouch(int playerId, bool began, int hand, int rigIndex) { }
 
 `GetJiggleRigCount()` and `GetJiggleRigName(index)` list the rigs. Detection only runs while a script has opted in.
 
+## BasisContactEventShim
+
+Fires when a contact receiver on this object or its children starts or stops being touched. Worlds, props and avatars.
+
+```csharp
+BasisContactEventShim contacts;
+int nose;
+
+void Start()
+{
+    contacts = GetComponent<BasisContactEventShim>();
+    nose = contacts.FindReceiver("Nose");
+}
+
+void OnContactEnter(int receiverIndex, int playerId)
+{
+    if (receiverIndex == nose) honk.Play();
+}
+
+void OnContactExit(int receiverIndex, int playerId) { }
+```
+
+Both callbacks also work with no arguments. `GetReceiverCount()`, `GetValue(index)`, `IsTouched(index)` and `GetTouchingPlayer(index)` read the receivers at any time. Receivers are found when the shim starts; call `Rebind()` after adding more. At most 32 callbacks a frame.
+
 ## BasisBeforeRenderShim
 
 Runs after all pose and IK work, right before the frame is drawn. Use it to pin something to a hand or the head without a frame of lag. Keep it short; the render waits for it.

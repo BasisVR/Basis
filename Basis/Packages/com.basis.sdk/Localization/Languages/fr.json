@@ -2206,6 +2206,7 @@
 
     { "key": "editor.contentPolice.allowedComponents", "value": "Composants autorisés utilisés sur les avatars" },
     { "key": "editor.contentPolice.search", "value": "Rechercher :" },
+    { "key": "editor.contentPolice.fromPackage", "value": "{0} (du paquet : {1})" },
 
     { "key": "editor.fallbackBone.load", "value": "Charger les données d'os de secours" },
 

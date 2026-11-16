@@ -235,6 +235,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             {
                 HandleExistingDevice(uniqueID, notUniqueID, nameof(BasisOpenVRInputSpatial), device, deviceSerial, controllerType);
             }
+            BasisOpenVRInput011.OfferNewestSdkIfEyeGaze(device.deviceIndex, controllerType, deviceSerial);
         }
         public void CreateController(OpenVRDevice device, string uniqueID, string notUniqueID, string deviceSerial = "", string controllerType = "")
         {

@@ -2206,6 +2206,7 @@
 
     { "key": "editor.contentPolice.allowedComponents", "value": "अवतारों पर उपयोग के लिए अनुमत कॉम्पोनेंट" },
     { "key": "editor.contentPolice.search", "value": "खोजें:" },
+    { "key": "editor.contentPolice.fromPackage", "value": "{0} (पैकेज से: {1})" },
 
     { "key": "editor.fallbackBone.load", "value": "फ़ॉलबैक बोन डेटा लोड करें" },
 

@@ -807,6 +807,8 @@ public class NetworkingManager : MonoBehaviour
                 table._LogWarn("ignored a malformed table state from player " + PlayerID);
                 return;
             }
+            ownerId = PlayerID;
+            ownedLocallyOnClient = PlayerID == table._LocalPlayerId();
             SyncState = received;
             OnDeserialization();
         }
@@ -823,6 +825,7 @@ public class NetworkingManager : MonoBehaviour
     public void _OnPlayerPrepareShoot()
     {
         sendToAll(new byte[] { MessagePrepareShoot });
+        OnPlayerPrepareShoot();
     }
     public void OnPlayerPrepareShoot()
     {

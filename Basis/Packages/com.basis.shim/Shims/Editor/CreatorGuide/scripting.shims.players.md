@@ -53,136 +53,42 @@ if (BasisSeatShim.IsSeated)
 }
 ```
 
-## BasisPoseOverrideShim
+## BasisLockShim
 
-Poses the local player's body on top of their tracking, for things like a hand gripping a wheel or an arm held in a sling. Worlds, the avatar the local player is wearing, and props the local player spawned can use it. Other players see the result.
-
-```csharp
-public Transform grip;
-float blend;
-bool holding;
-
-public void Grab()
-{
-    holding = BasisPoseOverrideShim.Claim(this, HumanBodyBones.RightHand);
-}
-
-void Update()
-{
-    if (!BasisPoseOverrideShim.IsClaimed(this, HumanBodyBones.RightHand)) return;
-    BasisPoseOverrideShim.SetRotation(this, HumanBodyBones.RightHand, grip.rotation);
-
-    if (holding && BasisPoseOverrideShim.TryGetUnoverridden(this, HumanBodyBones.RightHand, out Vector3 wrist, out Quaternion realHand)
-        && Quaternion.Angle(realHand, grip.rotation) > 45f) holding = false;
-
-    blend = Mathf.MoveTowards(blend, holding ? 1f : 0f, Time.deltaTime * 5f);
-    BasisPoseOverrideShim.SetBlend(this, HumanBodyBones.RightHand, blend);
-    if (!holding && blend == 0f) BasisPoseOverrideShim.Release(this, HumanBodyBones.RightHand);
-}
-
-void OnDestroy() { BasisPoseOverrideShim.ReleaseAll(this); }
-```
-
-| Call | Does |
-| --- | --- |
-| `Claim(this, bone)` | Takes a bone. False if other content holds it, the bone has no override, or your content can't pose this player |
-| `Set(this, bone, position, rotation)` | World pose. Only the hips use the position |
-| `SetRotation(this, bone, rotation)` | World rotation |
-| `SetBlend(this, bone, 0..1)` | Mixes from their tracking (0) to your pose (1). Use it to ease in and out |
-| `TryGetUnoverridden(this, bone, out position, out rotation)` | The pose their tracking would have given this bone without any override |
-| `Release(this, bone)`, `ReleaseAll(this)` | Gives bones back |
-
-The bone does nothing until the first `Set` or `SetRotation`, so claiming early doesn't snap the hand. Any script in the same content can use a bone the content holds. The hips, legs, feet and toes can't be claimed while the player is seated, and sitting down takes them back. Bones are given back on their own when the script that claimed them is destroyed or disabled.
-
-`TryGetUnoverridden` comes from the previous frame's solve, which is enough to tell whether the player moved their real hand away or how bent their arm is. Lerp with `SetBlend`, which takes effect in the same frame, rather than mixing that pose yourself.
-
-Hips, spine, chest, neck and head claims are applied before the arms and legs are solved, so tracked hands and feet still reach their targets from the turned body. A claimed arm or leg bone is applied right after that limb is solved.
-
-### Hand and foot targets
-
-`Claim` turns a bone after the body is solved. To move a hand or foot somewhere instead, claim it as an effector. The IK then bends the whole arm or leg to reach your position and rotation in place of the player's controller or tracker, and this works on desktop too, where there is no controller.
+Locks the local player's movement, look rotation or crouching, in any mix. Worlds, props the local player spawned and the avatar they wear lock straight away. Someone else's avatar or prop has to ask first, and the player gets a prompt naming who wants it.
 
 ```csharp
-public Transform handle;
-
-void Start()
+BasisLockShim.Lock(this, BasisPlayerLock.Movement | BasisPlayerLock.Crouching, result =>
 {
-    BasisPoseOverrideShim.ClaimEffector(this, HumanBodyBones.LeftHand);
-}
+    if (result == BasisLockResult.Locked) countdown.SetActive(true);
+});
 
-void Update()
-{
-    BasisPoseOverrideShim.SetEffector(this, HumanBodyBones.LeftHand, handle.position, handle.rotation);
+bool mine = BasisLockShim.IsLocking(this, BasisPlayerLock.Movement);
+bool anyone = BasisLockShim.IsLocked(this, BasisPlayerLock.LookRotation);
 
-    if (BasisPoseOverrideShim.TryGetTracked(this, HumanBodyBones.LeftHand, out Vector3 controller, out _)
-        && Vector3.Distance(controller, handle.position) > 0.4f)
-        BasisPoseOverrideShim.ReleaseEffector(this, HumanBodyBones.LeftHand);
-}
+BasisLockShim.Unlock(this, BasisPlayerLock.Movement);
+BasisLockShim.UnlockAll(this);
 ```
 
-| Call | Does |
-| --- | --- |
-| `ClaimEffector(this, bone)` | Takes the left or right hand or foot as a target |
-| `SetEffector(this, bone, position, rotation)` | Where the hand or foot goes, and the world rotation it ends up with |
-| `SetEffectorAnchored(this, bone, anchor, localPosition, localRotation)` | Holds the hand or foot on another bone of the same player, at a pose relative to that bone. False for a bone of the same limb |
-| `SetEffectorBlend(this, bone, 0..1)` | Mixes from the controller (0) to your target (1). With no controller it fades in from the animated pose |
-| `TryGetTracked(this, bone, out position, out rotation)` | Where the controller or tracker is this frame. False when there isn't one |
-| `ReleaseEffector(this, bone)` | Gives the hand or foot back to the player |
+`Lock` returns true only when the lock took on the spot. A prompt answers later on the callback with `Locked`, `Declined`, `Blocked`, `Busy` (another prompt is open), `Unsupported` or `Throttled` (the script keeps re-locking). `IsGranted(this, kinds)` says whether the player already said yes. Locks lift when the script is disabled or the player respawns, and for 10 seconds after a respawn new locks are refused.
 
-To make a hand hold another part of the body, work out the offset once when it grabs and leave it there. The solve reads the anchor bone after it has been posed this frame, so chains like a hand on a forearm whose hand holds a knee line up without any ordering on your side, and they follow a turned head or chest.
+## BasisEyeTrackingShim
+
+The local player's eye gaze, eye angles and how open their eyes are. Worlds, props the local player spawned and the wearer's avatar; anything else reads nothing.
 
 ```csharp
-public void Grab(HumanBodyBones held, Transform heldBone, Transform hand)
+if (BasisEyeTrackingShim.TryGetGaze(this, out Vector3 origin, out Vector3 direction))
 {
-    BasisPoseOverrideShim.ClaimEffector(this, HumanBodyBones.RightHand);
-    Quaternion inverse = Quaternion.Inverse(heldBone.rotation);
-    BasisPoseOverrideShim.SetEffectorAnchored(this, HumanBodyBones.RightHand, held, inverse * (hand.position - heldBone.position), inverse * hand.rotation);
+    gazeDot.position = origin + direction * 2f;
 }
+
+bool eyes = BasisEyeTrackingShim.GetGazeOrHead(this, out Vector3 from, out Vector3 forward); // false means head forward
+BasisEyeTrackingShim.TryGetOpenness(this, out float leftOpen, out float rightOpen);
+BasisEyeTrackingShim.TryGetEyeAngles(this, out Vector2 leftEye, out Vector2 rightEye); // yaw, pitch in degrees
+BasisEyeGazeSource source = BasisEyeTrackingShim.GetSource(this);
 ```
 
-When two limbs hold each other, one of them reads where the other was last frame.
-
-Effector and bone claims are separate, so one script can move the hand with an effector while another turns it with `Claim`. A target the arm can't reach leaves the arm stretched toward it. Feet can't be claimed while seated.
-
-## BasisRemotePoseShim
-
-Runs your own IK on other players' bodies. Declare `void OnRemotePose(int playerId)` and fetch the component once; the callback then runs every frame for each player you may pose, right after their networked pose is applied and before jiggle, eyes and rendering. What you write is only seen on this client. When the callback runs, the bones start again from the networked pose, and they go back to it once your script stops posing them.
-
-An avatar poses the player wearing it and a prop poses the player who spawned it, with no tracking needed. Worlds pick who to pose with `Track` or `TrackAll`. The local player never gets the callback; use `BasisPoseOverrideShim` for them.
-
-```csharp
-BasisRemotePoseShim pose;
-public Transform rail;
-
-void Start()
-{
-    pose = GetComponent<BasisRemotePoseShim>();
-    pose.TrackAll(true);
-}
-
-void OnRemotePose(int playerId)
-{
-    if (!pose.TryGetBone(playerId, HumanBodyBones.RightHand, out Vector3 hand, out Quaternion handRotation)) return;
-    if (!pose.TryGetBone(playerId, HumanBodyBones.RightLowerArm, out Vector3 elbow, out _)) return;
-    Vector3 onRail = rail.position + Vector3.Project(hand - rail.position, rail.forward);
-    float weight = Mathf.InverseLerp(0.3f, 0.1f, Vector3.Distance(hand, onRail));
-    pose.SolveLimb(playerId, HumanBodyBones.RightHand, onRail, handRotation, elbow + Vector3.down * 0.2f, weight);
-}
-```
-
-| Call | Does |
-| --- | --- |
-| `Track(playerId)`, `Untrack(playerId)`, `TrackAll(bool)`, `UntrackAll()` | Worlds: who gets the callback. Players who leave are dropped |
-| `CanPose(playerId)`, `IsTracked(playerId)` | Whether your content may pose them, and whether they get the callback |
-| `TryGetBone(playerId, bone, out position, out rotation)` | World pose of any remote player's bone, including your writes so far this frame |
-| `TryGetBoneLocalRotation(playerId, bone, out rotation)` | Local rotation of a bone |
-| `SetBoneRotation(playerId, bone, rotation)`, `SetBoneLocalRotation(...)` | Turns one bone. Eyes and jaw are left to the face system |
-| `SetHips(playerId, position, rotation)` | Moves the hips, and the body with them |
-| `SolveLimb(playerId, tip, target, rotation, hint, weight)` | Two-bone IK. `tip` is a hand or foot, `hint` is a world point the elbow or knee bends toward, `weight` mixes from their pose (0) to the solve (1) |
-
-Reads and writes only work inside `OnRemotePose`, which is the one point in the frame where remote skeletons are settled. Writes go to the player the callback is for; reads can look at any remote player.
-
-The callback doesn't run for every player every frame. Each frame a fixed number of players get a run, nearest and longest-waiting first, and the pass stops early once it has used about a millisecond. Between runs the bones you wrote keep the pose your script last gave them, applied on worker threads together with the networked pose, so a crowd of scripted avatars costs a few callbacks a frame rather than one per player. Write the bones you want every time the callback runs: a bone you skip goes back to the networked pose. The nameplate and mouth position still follow the networked head.
+`FindLookTarget(this, xs, ys, zs, radii, count, toleranceDegrees, headFallback)` returns the index of the sphere the player is looking at, or -1. `Fill(this, state)` writes everything into a float array of `BasisEyeTrackingShim.Length` and returns `FlagGaze`, `FlagAngles`, `FlagOpenness` and `FlagHead` bits for the parts that were valid.
 
 ## BasisAvatarSwitchShim
 

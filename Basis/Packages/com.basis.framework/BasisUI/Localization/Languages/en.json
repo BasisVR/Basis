@@ -4671,6 +4671,18 @@
       "value": "Later"
     },
     {
+      "key": "settings.tracker.steamvr.eyeGazePrompt.title",
+      "value": "Turn On Eye Tracking?"
+    },
+    {
+      "key": "settings.tracker.steamvr.eyeGazePrompt.detected",
+      "value": "{0} has eye tracking."
+    },
+    {
+      "key": "settings.tracker.steamvr.eyeGazePrompt.body",
+      "value": "Basis reads it through the newest SteamVR SDK, which is off right now. Turn it on? It applies after a restart. If your controllers or hands stop working afterwards, turn off Use Newest SteamVR SDK in Settings under SteamVR."
+    },
+    {
       "key": "trackerLinking.ignoreHandTracking",
       "value": "Ignore Hand Tracking Devices"
     },

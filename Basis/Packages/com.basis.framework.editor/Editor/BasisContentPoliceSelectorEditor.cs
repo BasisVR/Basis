@@ -40,6 +40,12 @@ public class BasisContentPoliceSelectorEditor : Editor
     {
         BasisEditorUI.SectionTitle(BasisEditorLocalization.Get("editor.contentPolice.allowedComponents"));
 
+        serializedObject.Update();
+        EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(ContentPoliceSelector.IncludePackageApprovals)));
+        EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(ContentPoliceSelector.Kind)));
+        serializedObject.ApplyModifiedProperties();
+        IReadOnlyDictionary<string, string> fromPackages = selector.IncludePackageApprovals ? BasisContentPoliceInclusions.Get(selector.Kind) : null;
+
         // 🔍 Search bar
         EditorGUILayout.BeginHorizontal();
         GUIContent searchLabel = new GUIContent(BasisEditorLocalization.Get("editor.contentPolice.search"));
@@ -56,6 +62,12 @@ public class BasisContentPoliceSelectorEditor : Editor
             if (!string.IsNullOrEmpty(searchQuery) && !typeName.ToLower().Contains(searchQuery))
             {
                 continue; // Skip if it doesn't match the search
+            }
+
+            if (!selectedFlags[index] && fromPackages != null && fromPackages.TryGetValue(typeName, out string source))
+            {
+                using (new EditorGUI.DisabledScope(true)) EditorGUILayout.ToggleLeft(BasisEditorLocalization.Get("editor.contentPolice.fromPackage", typeName, source), true);
+                continue;
             }
 
             bool previousFlag = selectedFlags[index];

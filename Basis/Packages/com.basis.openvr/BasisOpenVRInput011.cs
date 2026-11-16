@@ -19,6 +19,37 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         {
             Unity.XR.OpenVR.OpenVRActionManifest.AllowEyeTracking = BasisSteamVRSdkSetting.ReadForBoot;
         }
+        public static void OfferNewestSdkIfEyeGaze(uint deviceIndex, string controllerType, string deviceSerial)
+        {
+            CVRSystem system = Valve.VR.OpenVR.System;
+            if (system == null)
+            {
+                return;
+            }
+            ETrackedPropertyError error = ETrackedPropertyError.TrackedProp_Success;
+            bool gaze = system.GetBoolTrackedDeviceProperty(deviceIndex, ETrackedDeviceProperty.Prop_SupportsXrEyeGazeInteraction_Bool, ref error);
+            if (controllerType != Unity.XR.OpenVR.OpenVRActionManifest.FrameHmdControllerType && !(error == ETrackedPropertyError.TrackedProp_Success && gaze))
+            {
+                return;
+            }
+            string runtimeVersion = system.GetRuntimeVersion();
+            if (!Unity.XR.OpenVR.OpenVRActionManifest.IsAtLeast(runtimeVersion, Unity.XR.OpenVR.OpenVRActionManifest.MinimumRuntimeMajor, Unity.XR.OpenVR.OpenVRActionManifest.MinimumRuntimeMinor))
+            {
+                BasisDebug.Log($"[OpenVR] Eye gaze headset on SteamVR {runtimeVersion}, newest SDK needs {Unity.XR.OpenVR.OpenVRActionManifest.MinimumRuntimeMajor}.{Unity.XR.OpenVR.OpenVRActionManifest.MinimumRuntimeMinor}; not offering it", BasisDebug.LogTag.Device);
+                return;
+            }
+            EVRInitError inputError = EVRInitError.None;
+            Valve.VR.OpenVR.GetGenericInterface(InterfaceVersion, ref inputError);
+            if (inputError != EVRInitError.None)
+            {
+                BasisDebug.Log($"[OpenVR] Eye gaze headset but runtime lacks {InterfaceVersion} ({inputError}); not offering newest SDK", BasisDebug.LogTag.Device);
+                return;
+            }
+            System.Text.StringBuilder model = new System.Text.StringBuilder(64);
+            system.GetStringTrackedDeviceProperty(deviceIndex, ETrackedDeviceProperty.Prop_ModelNumber_String, model, 64, ref error);
+            string name = error == ETrackedPropertyError.TrackedProp_Success ? model.ToString() : string.Empty;
+            BasisSteamVRSdkSetting.OfferForEyeGazeHeadset(string.IsNullOrEmpty(deviceSerial) ? name : deviceSerial, name);
+        }
         public static bool Acquire()
         {
             getEyeTrackingDataForNextFrame = null;

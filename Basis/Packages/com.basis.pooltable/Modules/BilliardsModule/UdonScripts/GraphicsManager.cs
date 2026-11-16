@@ -48,6 +48,7 @@ public class GraphicsManager : MonoBehaviour
     private BilliardsModule table;
 
     private Material[] tableMaterial;
+    private MaterialPropertyBlock TableMPB;
     private Material ballMaterial;
     private Material shadowMaterial;
 
@@ -79,6 +80,7 @@ public class GraphicsManager : MonoBehaviour
     public void _Init(BilliardsModule table_)
     {
         table = table_;
+        TableMPB = new MaterialPropertyBlock();
 
         // copy some temporaries
         balls = table.balls;
@@ -253,9 +255,11 @@ public class GraphicsManager : MonoBehaviour
         const float multiplier = 3.0f;
 #endif
         tableCurrentColour = Color.Lerp(tableCurrentColour, tableSrcColour, Time.deltaTime * multiplier);
-        for (int i = 0; i < table.tableModels[table.tableModelLocal].tableMaterial.Length; i++)
+        TableMPB.SetColor("_EmissionColor", tableCurrentColour);
+        MeshRenderer[] tableMeshR = table.tableModels[table.tableModelLocal].tableMeshR;
+        for (int i = 0; i < tableMeshR.Length; i++)
         {
-            tableMaterial[i].SetColor("_EmissionColor", tableCurrentColour);
+            tableMeshR[i].SetPropertyBlock(TableMPB);
         }
     }
 
@@ -821,9 +825,7 @@ int uniform_cue_colour;
             {
                 // Recover Y position since its lost in networking
                 Vector3 rack_position = table.ballsP[i];
-                rack_position.y = table.k_rack_position.y;
-
-                table.balls[i].transform.localPosition = rack_position;
+                table.balls[i].transform.localPosition = new Vector3(rack_position.x, table.k_rack_position.y, rack_position.z);
             }
 
             ball_bit <<= 1;

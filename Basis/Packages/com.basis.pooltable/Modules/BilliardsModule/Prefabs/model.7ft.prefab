@@ -723,16 +723,16 @@ MonoBehaviour:
   bt_CoefSpinRate: 5
   bt_ConstDecelRate: 1
   bt_BounceFactor: 0.5
-  bt_PocketRestitutionFactor: 0.7
-  bc_UseHan05: 1
-  bc_CoefRestitution: 0.85
+  bt_PocketRestitutionFactor: 0.29761
+  bc_UseMat10: 1
+  bc_CoefRestitution: 0.84
   bc_DynRestitution: 0
   bc_UseConstFriction: 0
   bc_ConstFriction: 0.2
   bs_CoefRestitution: 0.98
   bs_Friction: 1
   bs_BallDiameter: 57.15
-  bs_BallMass: 0.16
+  bs_BallMass: 0.17
   baulkLine: 0.4140708
   semiCircleRadius: 0.16701517
   pinkSpot: 0.55245

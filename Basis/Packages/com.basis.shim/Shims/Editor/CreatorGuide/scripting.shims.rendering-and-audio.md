@@ -45,31 +45,20 @@ long threadsLeft = BasisComputeShim.RemainingThreads(this);
 
 A buffer over the memory budget throws; a dispatch over the frame's thread budget is skipped. Basis frees every buffer when the content unloads.
 
-## BasisModelShim
+## BasisCameraShim
 
-Builds a model from bytes for world and prop scripts. Avatars cannot use it. The format comes from the file's contents: GLB, glTF, OBJ, STL or PLY. FBX cannot be loaded at runtime. Files can be up to 64 MB.
+Worlds and props can call `Camera.Render()` on a camera inside their own content, as long as it has a target texture. A world gets 4 renders a frame and a prop gets 1. Extra calls that frame are skipped.
 
 ```csharp
-using Basis.Shims;
+public Camera securityCamera;
 
-BasisModelShim.Load(this, bytes, transform, (result, model) =>
+void Update()
 {
-    if (result != BasisModelResult.Ok) return;
-    chair = model;
-});
-
-BasisModelShim.LoadMesh(this, objBytes, (result, mesh) => filter.sharedMesh = mesh);
-
-BasisModelShim.Unload(this, chair);
-long triangles = BasisModelShim.RemainingTriangles(this);
-long bytesLeft = BasisModelShim.RemainingBytes(this);
+    if (BasisCameraShim.RemainingRenders(this) > 0) securityCamera.Render();
+}
 ```
 
-The callback runs on a later frame. `Load` parents the model to a transform in your own content, or to the script's object when you pass null. `LoadMesh` takes OBJ, STL and PLY.
-
-Basis never fetches anything a file points at, so a glTF must embed its buffers and images. Use `BasisWebRequestShim` to download the file; it caps downloads at 4 MB. Models come in with their meshes, materials, skins and blend shapes. Animations, cameras and lights are left out, along with sparse accessors, Draco, meshopt, KTX and GPU instancing. Textures must be PNG or JPEG.
-
-Each world or prop shares a triangle and memory budget the player sets in Script Permissions. Over budget, the callback gets `TooLarge`. Models stay until you unload or destroy them, or until the content unloads. Unloading frees the meshes and textures, so anything you cloned from a model loses them too.
+Rendering the main camera, a camera from other content, or calling `Render` while a frame is drawing throws. Props can also set `cullingMask` and `orthographicSize` on their own cameras.
 
 ## BasisPlatformShim
 
@@ -104,6 +93,52 @@ public void StopBroadcast()
     route = -1;
 }
 ```
+
+## BasisSteamAudioShim
+
+Turns on Steam Audio for an `AudioSource` in your own content and tunes it. Worlds, props and avatars can use it. A world can add 64 sources (16 with reflections), a prop 8 (2) and an avatar 4 (1). Every call returns false when Steam Audio is not available, as in web builds.
+
+```csharp
+AudioSource radio = GetComponent<AudioSource>();
+if (!BasisSteamAudioShim.Add(this, radio)) return;
+
+BasisSteamAudioShim.SetOcclusion(this, radio, true);
+BasisSteamAudioShim.SetTransmission(this, radio, true, true, 2);
+BasisSteamAudioShim.SetAirAbsorption(this, radio, true);
+BasisSteamAudioShim.SetReflections(this, radio, true, 1f, false);
+
+float heard = BasisSteamAudioShim.GetOcclusion(this, radio);
+int reflectionsLeft = BasisSteamAudioShim.RemainingReflectionSources(this);
+```
+
+`SetHrtf`, `SetDistanceAttenuation`, `SetDirectivity` and `SetDirectMix` cover the rest. Worlds can also turn their own readable meshes into acoustic geometry, up to 512,000 triangles. The seven numbers are absorption low, mid and high, scattering, then transmission low, mid and high, each 0 to 1.
+
+```csharp
+BasisSteamAudioShim.AddGeometry(this, wallFilter);
+BasisSteamAudioShim.AddGeometry(this, curtainFilter, 0.6f, 0.7f, 0.8f, 0.05f, 0.1f, 0.05f, 0.02f);
+BasisSteamAudioShim.RemoveGeometry(this, wallFilter);
+```
+
+## BasisRemotePlayerAudioShim
+
+World only. Overrides Steam Audio on a remote player's voice, for example turning occlusion off for whoever is on stage. Overrides end when that player leaves or the world unloads.
+
+```csharp
+using Basis.Scripts.Networking.NetworkedAvatar;
+
+public void OnStageEntered(BasisNetworkPlayer performer)
+{
+    BasisRemotePlayerAudioShim.SetOcclusion(this, performer, false);
+    BasisRemotePlayerAudioShim.SetReflections(this, performer, true, 1.5f);
+}
+
+public void OnStageLeft(BasisNetworkPlayer performer)
+{
+    BasisRemotePlayerAudioShim.Clear(this, performer);
+}
+```
+
+The listener's own settings cap how many voices get reflections; `RemainingReflectionPlayers(this)` says how many are left. `ClearAll(this)` drops every override the world made.
 
 ## VideoPlayerShim
 

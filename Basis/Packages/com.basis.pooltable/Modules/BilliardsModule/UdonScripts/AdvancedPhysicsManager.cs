@@ -5,7 +5,7 @@ using UnityEngine;
 [Cilboxable]
 public class AdvancedPhysicsManager : MonoBehaviour
 {
-    public string PHYSICSNAME = "<color=#FFD700>Advanced V0.5M</color>";
+    public string PHYSICSNAME = "<color=#FFD700>Advanced V0.6Y</color>";
     [SerializeField] AudioClip[] hitSounds;
     [SerializeField] AudioClip[] bounceSounds;
     [SerializeField] AudioClip[] cushionSounds;
@@ -21,6 +21,8 @@ public class AdvancedPhysicsManager : MonoBehaviour
     private const float k_FIXED_TIME_STEP = 1 / 80f;
     private const float k_GRAVITY = 9.80665f;
     private const float k_MAX_DELTA = 0.1f;
+    private const float k_MAX_DELTA_MOBILE = 0.05f;
+    private float maxDelta = k_MAX_DELTA;
     private const float k_EQUAL_SQ = 1E-05f * 1E-05f;
 
     private Color markerColorYes = new Color(0.0f, 1.0f, 0.0f, 1.0f);
@@ -58,8 +60,16 @@ public class AdvancedPhysicsManager : MonoBehaviour
     private float k_BALL_E = 0.98f;
     private float muFactor = 1f;
     private float k_F_SLIDE = 0.2f, k_F_ROLL = 0.008f, k_F_SPIN = 0.022f, k_F_SPIN_RATE = 5.0122876f, K_BOUNCE_FACTOR = 0.5f;
-    private bool isDRate = true, isHanModel = true, isDynamicRestitution, isCushionFrictionConstant, useRailLower;
+    private bool isDRate = true, isMatModel = true, isDynamicRestitution, isCushionFrictionConstant, useRailLower;
     private float k_E_C = 0.85f, k_Cushion_MU = 0.2f;
+    private const float K_F_CUSHION = 0.2f;
+    private const float k_CUSHION_DELTA_P = 0.01f;
+    private const int k_CUSHION_MAX_STEPS = 1000;
+    private const int kMinCollisionSteps = 32;
+    private float sideSpinPatchInUse;
+    private float cmM, cmR, cmSin, cmCos, cmMUw, cmMUs;
+    private float cmVx, cmVz, cmWx, cmWy, cmWz;
+    private float cnVx, cnVz, cnWx, cnWy, cnWz;
     private float k_INNER_RADIUS_CORNER, k_INNER_RADIUS_CORNER2, k_INNER_RADIUS_CORNER_SQ, k_INNER_RADIUS_CORNER_SQ2;
     private float k_INNER_RADIUS_SIDE, k_INNER_RADIUS_SIDE2, k_INNER_RADIUS_SIDE_SQ, k_INNER_RADIUS_SIDE_SQ2;
     private float k_FACING_ANGLE_CORNER, k_FACING_ANGLE_SIDE;
@@ -119,7 +129,7 @@ public class AdvancedPhysicsManager : MonoBehaviour
 
         float newAccumulatedTime = accumulatedTime + Time.fixedDeltaTime;
         if (newAccumulatedTime < 0f) newAccumulatedTime = 0f;
-        else if (newAccumulatedTime > k_MAX_DELTA) newAccumulatedTime = k_MAX_DELTA;
+        else if (newAccumulatedTime > maxDelta) newAccumulatedTime = maxDelta;
         if (newAccumulatedTime >= k_FIXED_TIME_STEP)
         {
             loadAll();
@@ -546,7 +556,7 @@ public class AdvancedPhysicsManager : MonoBehaviour
             }
             else
             {
-                handleCollision6(checkBall, id, nX, nY, nZ);
+                handleCollision7(checkBall, id, nX, nY, nZ);
             }
 
             float dot = vdX * nX + vdY * nY + vdZ * nZ;
@@ -661,12 +671,12 @@ public class AdvancedPhysicsManager : MonoBehaviour
         wx[i] = wx[i] + tIX * invI; wy[i] = wy[i] + tIY * invI; wz[i] = wz[i] + tIZ * invI;
     }
 
-    private void handleCollision6(int i, int id, float nX, float nY, float nZ)
+    private void handleCollision7(int i, int id, float nX, float nY, float nZ)
     {
         float e = k_BALL_E;
         float R = k_BALL_RADIUS;
         float M = k_BALL_MASS;
-        float I = ((2f / 5f) * M * (R * R));
+        float I = (2f / 5f) * M * (R * R);
 
         float wIdX = wx[id], wIdY = wy[id], wIdZ = wz[id];
         float wIX = wx[i], wIY = wy[i], wIZ = wz[i];
@@ -679,46 +689,44 @@ public class AdvancedPhysicsManager : MonoBehaviour
         float c2X = wIY * bZ - wIZ * bY, c2Y = wIZ * bX - wIX * bZ, c2Z = wIX * bY - wIY * bX;
         float vcX = (vrX + c1X) - c2X, vcY = (vrY + c1Y) - c2Y, vcZ = (vrZ + c1Z) - c2Z;
 
-        float mu = 9.951f * (tenToMinus3) + 0.108f * Mathf.Exp(-1.088f * Mathf.Sqrt(vcX * vcX + vcY * vcY + vcZ * vcZ));
-        mu = muFactor * mu;
-
         float v_rel_normal = vcX * nX + vcY * nY + vcZ * nZ;
 
-        float vtX = vcX - nX * v_rel_normal, vtY = vcY - nY * v_rel_normal, vtZ = vcZ - nZ * v_rel_normal;
-
-        float q1X = nY * wIdZ - nZ * wIdY, q1Y = nZ * wIdX - nX * wIdZ, q1Z = nX * wIdY - nY * wIdX;
-        float r1X = q1Y * nZ - q1Z * nY, r1Y = q1Z * nX - q1X * nZ, r1Z = q1X * nY - q1Y * nX;
-        float q2X = nY * wIZ - nZ * wIY, q2Y = nZ * wIX - nX * wIZ, q2Z = nX * wIY - nY * wIX;
-        float r2X = q2Y * nZ - q2Z * nY, r2Y = q2Z * nX - q2X * nZ, r2Z = q2X * nY - q2Y * nX;
-        float dot1 = nX * r1X + nY * r1Y + nZ * r1Z;
-        float dot2 = nX * r2X + nY * r2Y + nZ * r2Z;
-
-        float J_normal = -(1 + e) * v_rel_normal / (1 / M + 1 / M + (R * R * dot1 / I) + (R * R * dot2 / I));
-
-        float absJn = J_normal < 0f ? -J_normal : J_normal + 0f;
-        float J_tangential = -mu * absJn;
-
-        vx[id] = vx[id] + (nX * J_normal) / M; vy[id] = vy[id] + (nY * J_normal) / M; vz[id] = vz[id] + (nZ * J_normal) / M;
-        vx[i] = vx[i] - (nX * J_normal) / M; vy[i] = vy[i] - (nY * J_normal) / M; vz[i] = vz[i] - (nZ * J_normal) / M;
-
+        float vtX = vcX - v_rel_normal * nX, vtY = vcY - v_rel_normal * nY, vtZ = vcZ - v_rel_normal * nZ;
         float vtMag = Mathf.Sqrt(vtX * vtX + vtY * vtY + vtZ * vtZ);
-        float tnX, tnY, tnZ;
-        if (vtMag > 1E-05f)
-        {
-            tnX = vtX / vtMag; tnY = vtY / vtMag; tnZ = vtZ / vtMag;
-        }
-        else
-        {
-            tnX = 0f; tnY = 0f; tnZ = 0f;
-        }
-        float jtX = tnX * J_tangential, jtY = tnY * J_tangential, jtZ = tnZ * J_tangential;
 
-        vx[id] = vx[id] + jtX / M; vy[id] = vy[id] + jtY / M; vz[id] = vz[id] + jtZ / M;
-        vx[i] = vx[i] - jtX / M; vy[i] = vy[i] - jtY / M; vz[i] = vz[i] - jtZ / M;
+        float mu = (9.951f * tenToMinus3 + 0.108f * Mathf.Exp(-1.088f * vtMag)) * muFactor;
 
-        float cwX = nY * jtZ - nZ * jtY, cwY = nZ * jtX - nX * jtZ, cwZ = nX * jtY - nY * jtX;
-        wx[id] = wx[id] + (cwX * R) / I; wy[id] = wy[id] + (cwY * R) / I; wz[id] = wz[id] + (cwZ * R) / I;
-        wx[i] = wx[i] - (cwX * R) / I; wy[i] = wy[i] - (cwY * R) / I; wz[i] = wz[i] - (cwZ * R) / I;
+        float denomNormal = 2f / M;
+        float J_normal = -(1f + e) * v_rel_normal / denomNormal;
+
+        float jn = J_normal / M;
+        vx[id] = vx[id] + jn * nX; vy[id] = vy[id] + jn * nY; vz[id] = vz[id] + jn * nZ;
+        vx[i] = vx[i] - jn * nX; vy[i] = vy[i] - jn * nY; vz[i] = vz[i] - jn * nZ;
+
+        if (vtMag > 1e-6f)
+        {
+            float tX = vtX / vtMag, tY = vtY / vtMag, tZ = vtZ / vtMag;
+
+            float ntX = nY * tZ - nZ * tY, ntY = nZ * tX - nX * tZ, ntZ = nX * tY - nY * tX;
+            float ntSq = ntX * ntX + ntY * ntY + ntZ * ntZ;
+            float denomT = (1f / M) + (1f / M) + (R * R * ntSq / I) + (R * R * ntSq / I);
+            if ((denomT < 0f ? -denomT : denomT) < 1e-8f) denomT = 1e-8f;
+
+            float vtDotT = vtX * tX + vtY * tY + vtZ * tZ;
+            float jt_needed = -vtDotT / denomT;
+            float jt_max = mu * (J_normal < 0f ? -J_normal : J_normal);
+
+            float jt_scalar = (jt_needed < 0f ? -jt_needed : jt_needed) <= jt_max ? jt_needed : -(vtDotT >= 0f ? 1f : -1f) * jt_max;
+
+            float jtX = jt_scalar * tX, jtY = jt_scalar * tY, jtZ = jt_scalar * tZ;
+
+            vx[id] = vx[id] + jtX / M; vy[id] = vy[id] + jtY / M; vz[id] = vz[id] + jtZ / M;
+            vx[i] = vx[i] - jtX / M; vy[i] = vy[i] - jtY / M; vz[i] = vz[i] - jtZ / M;
+
+            float cwX = nY * jtZ - nZ * jtY, cwY = nZ * jtX - nX * jtZ, cwZ = nX * jtY - nY * jtX;
+            wx[id] = wx[id] + (R * cwX) / I; wy[id] = wy[id] + (R * cwY) / I; wz[id] = wz[id] + (R * cwZ) / I;
+            wx[i] = wx[i] - (R * cwX) / I; wy[i] = wy[i] - (R * cwY) / I; wz[i] = wz[i] - (R * cwZ) / I;
+        }
     }
 
     private bool updateVelocity(int id, float timeStep, bool hitWall, bool inPocket)
@@ -829,6 +837,18 @@ public class AdvancedPhysicsManager : MonoBehaviour
                 float upX = 1f * nvZ - 0f * nvY, upY = 0f * nvX - 0f * nvZ, upZ = 0f * nvY - 1f * nvX;
                 Wx = Wx + upX * spin; Wy = Wy + upY * spin; Wz = Wz + upZ * spin;
 
+                if (0.3f > (Wy < 0f ? -Wy : Wy + 0f))
+                {
+                    Wy = 0.0f;
+                }
+                else
+                {
+                    float w_perp_slide = (5f * mu_sp * g) / (2f * R);
+                    float eps = 0.589048f * (sideSpinPatchInUse * R) * (Wy < 0f ? -Wy : Wy + 0f);
+                    float slideSpinShare = eps / Mathf.Sqrt(absolute_u0 * absolute_u0 + eps * eps);
+                    Wy -= (Wy >= 0F ? 1F : -1F) * w_perp_slide * slideSpinShare * t;
+                }
+
                 ballMoving = true;
             }
         }
@@ -930,9 +950,9 @@ public class AdvancedPhysicsManager : MonoBehaviour
 
     private void bounceCushion(int id, float nX, float nY, float nZ, bool isPocketBounce)
     {
-        if (isHanModel)
+        if (isMatModel)
         {
-            hanCushionModel(id, nX, nY, nZ, isPocketBounce);
+            mathavanCushionModel(id, nX, nY, nZ, isPocketBounce);
             return;
         }
 
@@ -994,26 +1014,13 @@ public class AdvancedPhysicsManager : MonoBehaviour
         twx = twx + qrx; twy = twy + qry; twz = twz + qrz;
     }
 
-    private void hanCushionModel(int id, float nX, float nY, float nZ, bool isPocketBounce)
+    private void mathavanCushionModel(int id, float nX, float nY, float nZ, bool isPocketBounce)
     {
-        if (tvx * nX + tvy * nY + tvz * nZ > 0f)
-        {
-            return;
-        }
+        float R = k_BALL_RADIUS;
+        float M = k_BALL_MASS;
+        float e = k_E_C;
+        float h = k_RAIL_HEIGHT_LOWER;
 
-        float psi = Mathf.Atan2(-nZ, -nX) * Mathf.Rad2Deg;
-        Quaternion rq = Quaternion.AngleAxis(psi, Vector3.up);
-
-        Quaternion rb = Quaternion.Inverse(rq);
-        rotate(rq, tvx, tvy, tvz);
-        float Vx = qrx, Vy = qry, Vz = qrz;
-        rotate(rq, twx, twy, twz);
-        float Wx = qrx, Wy = qry, Wz = qrz;
-
-        float theta, phi, h, e, M, R, I, k_A, k_B, c, s_x, s_z, mu, PY, PX, PZ, P_yE, P_yS;
-        R = k_BALL_RADIUS;
-        M = k_BALL_MASS;
-        h = k_RAIL_HEIGHT_LOWER;
         float ballCenter = py[id] + R;
         if (ballCenter > k_RAIL_HEIGHT_LOWER)
         {
@@ -1023,95 +1030,158 @@ public class AdvancedPhysicsManager : MonoBehaviour
             h = k_RAIL_HEIGHT_LOWER + (k_RAIL_HEIGHT_UPPER - k_RAIL_HEIGHT_LOWER) * clamped;
         }
 
-        float negX = -nX, negY = -nY, negZ = -nZ;
-        float angleDenominator = Mathf.Sqrt((tvx * tvx + tvy * tvy + tvz * tvz) * (negX * negX + negY * negY + negZ * negZ));
-        float angleOfIncidence = 0f;
-        if (!(angleDenominator < 1E-15f))
-        {
-            float cosine = (tvx * negX + tvy * negY + tvz * negZ) / angleDenominator;
-            if (cosine < -1f) cosine = -1f;
-            else if (cosine > 1f) cosine = 1f;
-            angleOfIncidence = Mathf.Acos(cosine) * Mathf.Rad2Deg;
-        }
-        phi = angleOfIncidence * Mathf.Deg2Rad;
-
-        if (isCushionFrictionConstant)
-        {
-            mu = k_Cushion_MU * phi;
-        }
-        else { mu = 0.471f - 0.241f * phi; }
-
         float P = (h - (py[id] + R));
+        float slope = P / R;
+        slope = slope < -1f ? -1f : (slope > 1f ? 1f : slope);
+        float theta = Mathf.Asin(slope);
+        theta = theta < -0.45f ? -0.45f : (theta > 0.45f ? 0.45f : theta);
+        float sinT = Mathf.Sin(theta);
+        float cosT = Mathf.Cos(theta);
 
-        theta = Mathf.Asin(P / R);
+        float NX = nX, NZ = -nZ;
+        float tX = NZ, tZ = -NX;
+        float tMag = Mathf.Sqrt(tX * tX + tZ * tZ);
+        if (tMag > 1E-05f) { tX = tX / tMag; tZ = tZ / tMag; }
+        else { tX = 0f; tZ = 0f; }
 
-        theta = theta < 0.4f ? theta : 0.4f;
-
-        float cosTheta = Mathf.Cos(theta);
-        float sinTheta = theta;
-
-        float cosPhi = Mathf.Cos(phi);
-        float sinPhi = Mathf.Sin(phi);
-
-        s_x = Vx * sinTheta - Vy * cosTheta + R * Wz;
-        s_z = -Vz - R * Wy * cosTheta + R * Wx * sinTheta;
-
-        c = (Vx * cosTheta) - (Vy * sinTheta);
-        if (isDynamicRestitution)
+        Quaternion toFrame = Quaternion.LookRotation(new Vector3(NX, 0f, NZ), Vector3.up);
+        float tilt = -(sinT * Mathf.Rad2Deg) + 15f;
+        if (nearAxis(tX, tZ, 0f, 1f) || nearAxis(tX, tZ, 0f, -1f))
         {
-            float speed = Mathf.Sqrt(Vx * Vx + Vy * Vy + Vz * Vz);
-            e = 0.72f - (0.02f * -(speed < 0f ? -speed : speed + 0f));
+            toFrame = toFrame * Quaternion.AngleAxis(tilt, new Vector3(tX, 0f, tZ));
         }
-        else { e = k_E_C; }
+        else if (nearAxis(tX, tZ, 1f, 0f) || nearAxis(tX, tZ, -1f, 0f))
+        {
+            toFrame = toFrame * Quaternion.AngleAxis(tilt, new Vector3(-tX, 0f, -tZ));
+        }
+        Quaternion fromFrame = Quaternion.Inverse(toFrame);
+
+        rotate(toFrame, tvx, tvy, tvz);
+        float Vy = qry;
+        cmVx = qrx; cmVz = qrz;
+        rotate(toFrame, twx, twy, twz);
+        cmWx = qrx; cmWy = qry; cmWz = qrz;
+
+        cmM = M; cmR = R; cmSin = sinT; cmCos = cosT;
+        cmMUw = K_F_CUSHION;
+        cmMUs = k_F_SLIDE;
+
+        float work = cushionCompression();
 
         if (isPocketBounce)
         {
             e *= k_POCKET_RESTITUTION;
         }
+        cushionRestitution(e * e * work);
 
-        I = 2f / 5f * M * R * R;
-        k_A = 1f / M + R * R / I;
-        k_B = 1f / M;
-
-        float rawYE = (1f + e) * c / k_B;
-        P_yE = rawYE < 0f ? -rawYE : rawYE + 0f;
-        P_yS = (Mathf.Sqrt((s_x * s_x) + (s_z * s_z)) / k_A);
-
-        if (P_yS <= P_yE)
-        {
-            PX = -s_x / k_A * sinTheta - (1f + e) * c / k_B * cosTheta;
-            PZ = s_z / k_A;
-            PY = s_x / k_A * cosTheta - (1f + e) * c / k_B * sinTheta;
-        }
-        else
-        {
-            PX = -mu * (1f + e) * c / k_B * cosPhi * sinTheta - (1f + e) * c / k_B * cosTheta;
-            PZ = mu * (1f + e) * c / k_B * sinPhi;
-            PY = mu * (1f + e) * c / k_B * cosPhi * cosTheta - (1f + e) * c / k_B * sinTheta;
-        }
-
-        float v1x = Vx + (PX / M);
-        float v1z = Vz + (PZ / M);
-        float v1y = Vy + (PY / M) * 0.4f;
-
-        float w1x, w1y, w1z;
-        if (py[id] > 0.01f)
-        {
-            w1x = 0f + (Wx + 0f);
-            w1z = 0f + (Wz + 0f);
-            w1y = 0f + (Wy + 0f);
-        }
-        else
-        {
-            w1x = 0f + (Wx - (R / I) * (PZ * sinTheta));
-            w1z = 0f + (Wz + (R / I) * (PX * sinTheta - PY * cosTheta));
-            w1y = 0f + (Wy + (R / I) * (PZ * cosTheta));
-        }
-
-        rotate(rb, v1x, v1y, v1z);
+        rotate(fromFrame, cmVx, Vy, cmVz);
         tvx = qrx; tvy = qry; tvz = qrz;
-        rotate(rb, w1x, w1y, w1z);
+        rotate(fromFrame, cmWx, cmWy, cmWz);
         twx = qrx; twy = qry; twz = qrz;
+    }
+
+    private bool nearAxis(float x, float z, float ax, float az)
+    {
+        float dx = x - ax, dz = z - az;
+        return dx * dx + dz * dz < 9.99999944E-11f;
+    }
+
+    private float cushionCompression()
+    {
+        float totalWork = 0f;
+        int steps = 0;
+        float absVz = cmVz < 0f ? -cmVz : cmVz + 0f;
+        float deltaP = k_CUSHION_DELTA_P;
+        float stepCap = (cmM * absVz) / kMinCollisionSteps;
+        if (stepCap < deltaP) deltaP = stepCap;
+        if (deltaP < 0.000000001f) deltaP = 0.000000001f;
+
+        while (cmVz > 0f && steps < k_CUSHION_MAX_STEPS)
+        {
+            cushionStep(cmVx, cmVz, cmWx, cmWy, cmWz, deltaP);
+            float nextDeltaWork = deltaP * 0.5f * ((cmVz < 0f ? -cmVz : cmVz + 0f) + (cnVz < 0f ? -cnVz : cnVz + 0f)) * cmCos;
+
+            if (cnVz <= 0f)
+            {
+                float rVx = cmVx, rVz = cmVz, rWx = cmWx, rWy = cmWy, rWz = cmWz;
+                float rWork = totalWork;
+                float rdp = deltaP;
+                for (int i = 0; i < 8; i++)
+                {
+                    rdp /= 2f;
+                    float vzBefore = rVz;
+                    cushionStep(rVx, rVz, rWx, rWy, rWz, rdp);
+                    if (cnVz <= 0f) continue;
+                    rVx = cnVx; rVz = cnVz; rWx = cnWx; rWy = cnWy; rWz = cnWz;
+                    rWork += rdp * 0.5f * ((vzBefore < 0f ? -vzBefore : vzBefore + 0f) + (rVz < 0f ? -rVz : rVz + 0f)) * cmCos;
+                }
+                cmVx = rVx; cmVz = rVz; cmWx = rWx; cmWy = rWy; cmWz = rWz;
+                return rWork;
+            }
+
+            cmVx = cnVx; cmVz = cnVz; cmWx = cnWx; cmWy = cnWy; cmWz = cnWz;
+            totalWork += nextDeltaWork;
+            steps++;
+        }
+        return totalWork;
+    }
+
+    private void cushionRestitution(float targetWork)
+    {
+        float totalWork = 0f;
+        int steps = 0;
+        float deltaP = k_CUSHION_DELTA_P;
+        float stepCap = Mathf.Sqrt(2f * cmM * (targetWork > 0f ? targetWork : 0f)) / kMinCollisionSteps;
+        if (stepCap < deltaP) deltaP = stepCap;
+        if (deltaP < 0.000000001f) deltaP = 0.000000001f;
+
+        while (totalWork < targetWork && steps < k_CUSHION_MAX_STEPS)
+        {
+            cushionStep(cmVx, cmVz, cmWx, cmWy, cmWz, deltaP);
+            float absVz = cmVz < 0f ? -cmVz : cmVz + 0f;
+            float nextDeltaWork = deltaP * 0.5f * (absVz + (cnVz < 0f ? -cnVz : cnVz + 0f)) * cmCos;
+
+            if (totalWork + nextDeltaWork > targetWork)
+            {
+                float refine = (targetWork - totalWork) / (absVz * cmCos);
+                cushionStep(cmVx, cmVz, cmWx, cmWy, cmWz, refine);
+                cmVx = cnVx; cmVz = cnVz; cmWx = cnWx; cmWy = cnWy; cmWz = cnWz;
+                return;
+            }
+
+            cmVx = cnVx; cmVz = cnVz; cmWx = cnWx; cmWy = cnWy; cmWz = cnWz;
+            totalWork += nextDeltaWork;
+            steps++;
+        }
+    }
+
+    private void cushionStep(float Vx, float Vz, float Wx, float Wy, float Wz, float deltaP)
+    {
+        float R = cmR, sinT = cmSin, cosT = cmCos, MUw = cmMUw, MUs = cmMUs, M = cmM;
+
+        float v_xI = Vx + Wz * R * sinT - Wy * R * cosT;
+        float v_zI = -Vz * sinT + Wx * R;
+        float v_xC = Vx - Wz * R;
+        float v_zC = Vz + Wx * R;
+
+        float cI = 1f, sI = 0f, cC = 1f, sC = 0f;
+        float magI = v_xI * v_xI + v_zI * v_zI;
+        float magC = v_xC * v_xC + v_zC * v_zC;
+        if (magI <= float.MaxValue && magC <= float.MaxValue)
+        {
+            if (magI > 0f) { magI = Mathf.Sqrt(magI); cI = v_xI / magI; sI = v_zI / magI; }
+            if (magC > 0f) { magC = Mathf.Sqrt(magC); cC = v_xC / magC; sC = v_zC / magC; }
+        }
+
+        float common = sinT + MUw * sI * cosT;
+
+        cnVx = Vx - (1f / M) * (MUw * cI + MUs * cC * common) * deltaP;
+        cnVz = Vz - (1f / M) * (cosT - MUw * sinT * sI + MUs * sC * common) * deltaP;
+
+        float factor = 5f / (2f * M * R);
+        cnWx = Wx + -factor * (MUw * sI + MUs * sC * common) * deltaP;
+        cnWz = Wz + -factor * (MUw * cI * sinT - MUs * cC * common) * deltaP;
+        cnWy = Wy + factor * MUw * cI * cosT * deltaP;
     }
 
     private bool _phy_ball_pockets(int id, bool is4ball)
@@ -1695,6 +1765,7 @@ public class AdvancedPhysicsManager : MonoBehaviour
 
     public void _InitConstants()
     {
+        maxDelta = BasisPlatformShim.IsMobileGpu ? k_MAX_DELTA_MOBILE : k_MAX_DELTA;
         k_TABLE_WIDTH = table.k_TABLE_WIDTH;
         k_TABLE_HEIGHT = table.k_TABLE_HEIGHT;
         k_POCKET_WIDTH_CORNER = table.k_POCKET_WIDTH_CORNER;
@@ -1720,6 +1791,10 @@ public class AdvancedPhysicsManager : MonoBehaviour
         k_BALL_DSQR = k_BALL_DIAMETRE * k_BALL_DIAMETRE;
         k_BALL_RSQR = k_BALL_RADIUS * k_BALL_RADIUS;
         k_BALL_MASS = table.k_BALL_MASS;
+        float hanRho = 0.003682f, hanMass = 0.230f, hanRadius = 0.03275f;
+        float hanScale = Mathf.Pow((k_BALL_MASS * k_BALL_RADIUS) / (hanMass * hanRadius), 1f / 3f);
+        float patch = (hanRho * hanScale) / k_BALL_RADIUS;
+        sideSpinPatchInUse = patch < 0f ? 0f : (patch > 1f ? 1f : patch);
 
         Vector3 cornerPocket = table.k_vE;
         Vector3 cornerPocket2 = table.k_vE2;
@@ -1749,7 +1824,7 @@ public class AdvancedPhysicsManager : MonoBehaviour
         k_F_SPIN_RATE = table.k_F_SPIN_RATE;
         isDRate = table.isDRate;
         K_BOUNCE_FACTOR = table.K_BOUNCE_FACTOR;
-        isHanModel = table.isHanModel;
+        isMatModel = table.isMatModel;
         k_E_C = table.k_E_C;
         isDynamicRestitution = table.isDynamicRestitution;
         isCushionFrictionConstant = table.isCushionFrictionConstant;
@@ -2067,8 +2142,8 @@ public class AdvancedPhysicsManager : MonoBehaviour
         }
         else
         {
-            float along = (qx * ux + qy * uy + qz * uz) / upSq;
-            cueJX = -(qx - ux * along); cueJY = -(qy - uy * along); cueJZ = -(qz - uz * along);
+            float dot = qx * ux + qy * uy + qz * uz;
+            cueJX = -(qx - ux * dot / upSq); cueJY = -(qy - uy * dot / upSq); cueJZ = -(qz - uz * dot / upSq);
         }
 
         float ix = cueJY * uz - cueJZ * uy;
@@ -2096,8 +2171,8 @@ public class AdvancedPhysicsManager : MonoBehaviour
         }
         else
         {
-            float along = (rx * qx + ry * qy + rz * qz) / qSq;
-            fx = rx - qx * along; fy = ry - qy * along; fz = rz - qz * along;
+            float dot = rx * qx + ry * qy + rz * qz;
+            fx = rx - qx * dot / qSq; fy = ry - qy * dot / qSq; fz = rz - qz * dot / qSq;
         }
         float fMag = Mathf.Sqrt(fx * fx + fy * fy + fz * fz);
         if (fMag / k_BALL_RADIUS > CueMaxHitRadius)

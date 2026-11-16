@@ -2206,6 +2206,7 @@
 
     { "key": "editor.contentPolice.allowedComponents", "value": "Разрешённые компоненты, используемые на аватарах" },
     { "key": "editor.contentPolice.search", "value": "Поиск:" },
+    { "key": "editor.contentPolice.fromPackage", "value": "{0} (из пакета: {1})" },
 
     { "key": "editor.fallbackBone.load", "value": "Загрузить данные резервных костей" },
 

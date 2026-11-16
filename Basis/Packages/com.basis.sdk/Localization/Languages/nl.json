@@ -2206,6 +2206,7 @@
 
     { "key": "editor.contentPolice.allowedComponents", "value": "Toegestane componenten die op avatars worden gebruikt" },
     { "key": "editor.contentPolice.search", "value": "Zoeken:" },
+    { "key": "editor.contentPolice.fromPackage", "value": "{0} (uit pakket: {1})" },
 
     { "key": "editor.fallbackBone.load", "value": "FallBack-botgegevens laden" },
 

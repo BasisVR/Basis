@@ -95,7 +95,7 @@ public class ModelData : MonoBehaviour
                 "\n\nworks abroad every component of the ball [Displacement, Velocity, Angular Velocity and their Inertia tensors " +
                 "\n\n<b>[Default = ON]</b>" +
                 "\n\n<i>When Disabling this, the table will use its Default Derived Model (Previous Version 1.0.3), this may be useful if you prefer Default Model.</i>")]
-        [SerializeField] public bool bc_UseHan05 = true; // isHanModel
+        [SerializeField, UnityEngine.Serialization.FormerlySerializedAs("bc_UseHan05")] public bool bc_UseMat10 = true; // isMatModel
 
 
         [Tooltip("How bouncy your cushions are! Another interpretation is how much speed the cushion will absorb from the ball." +
@@ -160,17 +160,26 @@ public class ModelData : MonoBehaviour
         [SerializeField] public float DesktopUIScaleFactor = 1.08f;
 
         [System.NonSerialized] public Material[] tableMaterial;
+        [System.NonSerialized] public MeshRenderer[] tableMeshR;
         public void _Init()
         {
-                MeshRenderer[] tableMeshR = tableMesh.transform.GetComponentsInChildren<MeshRenderer>();
+                tableMeshR = tableMesh.transform.GetComponentsInChildren<MeshRenderer>();
+                int totalMaterialCount = 0;
                 for (int i = 0; i < tableMeshR.Length; i++)
                 {
-                        tableMaterial = tableMeshR[i].materials; // create a new instance for this table
-                        for (int o = 0; o < tableMaterial.Length; o++)
+                        totalMaterialCount += tableMeshR[i].sharedMaterials.Length;
+                }
+                Material[] allTableMaterials = new Material[totalMaterialCount];
+                int currentIndex = 0;
+                for (int i = 0; i < tableMeshR.Length; i++)
+                {
+                        Material[] currentRendererMaterials = tableMeshR[i].sharedMaterials;
+                        for (int j = 0; j < currentRendererMaterials.Length; j++)
                         {
-                                tableMaterial[o].name = " for " + gameObject.name;
-                                tableMeshR[i].materials[o] = tableMaterial[o];
+                                allTableMaterials[currentIndex] = currentRendererMaterials[j];
+                                currentIndex++;
                         }
                 }
+                tableMaterial = allTableMaterials;
         }
 }

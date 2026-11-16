@@ -279,6 +279,18 @@ namespace HVR.Basis.Comms
                     0f, Mathf.Max(2f, eyeActuation.DefaultMultiplyY), 2, ValueDisplayMode.Raw,
                     () => eyeActuation.RuntimeMultiplyY, value => eyeActuation.RuntimeMultiplyY = value,
                     eyeActuation.DefaultMultiplyY),
+                BuildOverrideSlider(eyeGroup, sliders, "Convergence", "How strongly the eyes turn toward each other. Lower it if this avatar looks cross-eyed. At 0 both eyes stay parallel.",
+                    0f, EyeTrackingBoneActuation.MaxConvergence, 2, ValueDisplayMode.Raw,
+                    () => eyeActuation.RuntimeConvergence, value => eyeActuation.RuntimeConvergence = value,
+                    1f),
+                BuildOverrideSlider(eyeGroup, sliders, "Horizontal Offset", "Turns both eyes outward (positive) or inward (negative). Corrects eyes that rest crossed or wall-eyed.",
+                    -EyeTrackingBoneActuation.MaxOffsetDeg, EyeTrackingBoneActuation.MaxOffsetDeg, 1, ValueDisplayMode.Degrees,
+                    () => eyeActuation.RuntimeOffsetXDeg, value => eyeActuation.RuntimeOffsetXDeg = value,
+                    0f),
+                BuildOverrideSlider(eyeGroup, sliders, "Vertical Offset", "Raises (positive) or lowers (negative) both eyes.",
+                    -EyeTrackingBoneActuation.MaxOffsetDeg, EyeTrackingBoneActuation.MaxOffsetDeg, 1, ValueDisplayMode.Degrees,
+                    () => eyeActuation.RuntimeOffsetYDeg, value => eyeActuation.RuntimeOffsetYDeg = value,
+                    0f),
             };
 
             void ApplySliderVisibility(bool visible)

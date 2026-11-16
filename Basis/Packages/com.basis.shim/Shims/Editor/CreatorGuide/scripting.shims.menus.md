@@ -31,34 +31,6 @@ void OnMode(int index) { }
 void OnSkip() { status.SetText("Playing: next"); }
 ```
 
-## When a slider reports
-
-A slider calls back once, when the player lets it go. Two overloads change that:
-
-```csharp
-// Calls OnBrightness as the handle moves, and once more on release.
-page.AddSlider("Brightness", 0f, 1f, 0.5f, false, true, OnBrightness);
-
-// OnSize on release only, OnSizePreview on every move while dragging.
-page.AddSlider("Size", 1f, 10f, 4f, true, OnSize, OnSizePreview);
-```
-
-The second form suits work that is expensive or networked: show the change locally while dragging, and send or save it once on release.
-
-A thumbstick bound to the slider reports the same way a pointer drag does.
-
-## Slider options
-
-```csharp
-size.SetStep(0.5f);                                // snap to 1, 1.5, 2 ... counted from the minimum
-volume.SetDisplay(BasisMenuShim.DisplayPercent, 0); // 0 to 1 shows as 0% to 100%
-size.SetDragHandlers(OnGrab, OnDrop);               // the player took the handle / let go
-```
-
-Displays: `DisplayNumber` (default), `DisplayPercent` (position within the range), `DisplayDegrees`, `DisplayMeters`, `DisplayHertz`. Decimals go up to 4. A step of 0 turns snapping off, and a step wider than the range is ignored.
-
-`OnDrop` runs after the release value has reached `onChanged`, so a script that takes ownership in `OnGrab` can send the final value and hand ownership back in `OnDrop`.
-
 ## Changing items later
 
 ```csharp
@@ -85,3 +57,48 @@ public void OnKioskPressed() { arcade?.Open(); }
 ```
 
 Limits: 64 items per page, 32 dropdown options, 48 character titles. More: [Settings Tab example](/en/docs/scripting/examples/settings-tab).
+
+## BasisSettingRequestShim
+
+Asks the player to open one of their own settings, such as turning on OSC for a world that needs it. Worlds, props and avatars can ask. The player sees who is asking and can say no. If they agree, Settings opens on that row and they change it themselves.
+
+```csharp
+public void OnOscHelpPressed()
+{
+    BasisSettingRequestShim.Request(this, "enableosc", "The light show listens for OSC.", result =>
+    {
+        if (result != BasisSettingRequestResult.Shown) hint.text = "OSC is under Settings";
+    });
+}
+```
+
+The key is the setting's binding key and the message is cut to 140 characters. Each script can ask once every 5 seconds. A decline blocks the asker for 30 seconds, and three declines block it for the rest of the session. `IsAsking(this)` is true while any request is on screen. Results are `Shown`, `Declined`, `Blocked`, `Busy`, `Unsupported`, `NotFound` and `Throttled`.
+
+## BasisSettingFavouritesShim
+
+Reads and drives the settings the player has added to their favourites, for building your own quick menu. Only the world, props the player spawned and the avatar they wear get anything back. Favourites are read by index, and `GetVersion` changes whenever the list or a value changes.
+
+```csharp
+int seen = -1;
+
+void Update()
+{
+    int version = BasisSettingFavouritesShim.GetVersion(this);
+    if (version == seen) return;
+    seen = version;
+
+    for (int i = 0; i < BasisSettingFavouritesShim.GetCount(this); i++)
+    {
+        string title = BasisSettingFavouritesShim.GetTitle(this, i);
+        int kind = BasisSettingFavouritesShim.GetKind(this, i);
+        if (kind == BasisSettingFavouritesShim.Toggle) ShowToggle(i, title, BasisSettingFavouritesShim.IsOn(this, i));
+        if (kind == BasisSettingFavouritesShim.Slider) ShowSlider(i, title, BasisSettingFavouritesShim.GetNormalized(this, i), BasisSettingFavouritesShim.GetValueText(this, i));
+    }
+}
+
+public void OnToggle(int i, bool on) => BasisSettingFavouritesShim.SetOn(this, i, on);
+public void OnSlider(int i, float t) => BasisSettingFavouritesShim.SetNormalized(this, i, t);
+public void OnButton(int i) => BasisSettingFavouritesShim.Press(this, i);
+```
+
+Choices use `GetOptionCount`, `GetOptionLabel`, `GetSelected` and `Select`. Sliders also have `GetValue`, `SetValue`, `GetMin`, `GetMax` and `FormatValue`.

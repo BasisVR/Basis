@@ -58,7 +58,7 @@ public class BilliardsModule : MonoBehaviour
     [NonSerialized] public float K_BOUNCE_FACTOR; // BounceFactor
     [NonSerialized] public float k_POCKET_RESTITUTION; // Reduces bounce inside of pockets
     [Header("Cushion Model:")]
-    [NonSerialized] public bool isHanModel; // bc_UseHan05
+    [NonSerialized] public bool isMatModel; // bc_UseMat10
     [NonSerialized] public float k_E_C; // bc_CoefRestitution
     [NonSerialized] public bool isDynamicRestitution; // bc_DynRestitution
     [NonSerialized] public bool isCushionFrictionConstant; // bc_UseConstFriction
@@ -375,9 +375,10 @@ public class BilliardsModule : MonoBehaviour
 
         infReset.text = string.Empty;
 
-        debugger = this.transform.Find("debugger").gameObject;
-        debugger.SetActive(true);
-        debuggerShown = true;
+        Transform debuggerT = transform.Find("debugger");
+        if (debuggerT != null) debugger = debuggerT.gameObject;
+        debuggerShown = debugger != null;
+        if (debuggerShown) debugger.SetActive(true);
 
         Transform gdisplay = guideline.transform.GetChild(0);
         if (gdisplay)
@@ -646,6 +647,12 @@ public class BilliardsModule : MonoBehaviour
     {
         if (networkingManager.SyncState.gameStateSynced == 0 || networkingManager.SyncState.gameStateSynced == 3) return;
 
+        if (_LocalPlayerId() < 0)
+        {
+            _LogWarn("can't join a team before the local player is connected");
+            return;
+        }
+
         _LogInfo("joining team " + teamId);
 
         int newslot = networkingManager._OnJoinTeam(teamId);
@@ -693,7 +700,8 @@ public class BilliardsModule : MonoBehaviour
     private float lastResetTime;
     public void _TriggerGameReset()
     {
-        int self = BasisNetworkPlayer.LocalPlayer.playerId;
+        int self = _LocalPlayerId();
+        if (self < 0) return;
 
         int[] allowedPlayers = playerIDsLocal;
 
@@ -1681,7 +1689,7 @@ public class BilliardsModule : MonoBehaviour
                     ballsPocketedLocal = ballsPocketedLocal & ~(0x200u);
                     ballsP[9] = initialPositions[1][9];
                     //keep moving ball down the table until it's not touching any other balls
-                    moveBallInDirUntilNotTouching(9, Vector3.right * .051f);
+                    moveBallXUntilNotTouching(9);
                 }
             }
             else if (is4Ball)
@@ -1962,6 +1970,26 @@ public class BilliardsModule : MonoBehaviour
         //TODO: Make this function and use it instead of moveBallInDirUntilNotTouching() at the end of sixRedMoveBallUntilNotTouching()
         //TODO: check positions in all directions around spot instead of just moving in one direction 
     }
+    private void moveBallXUntilNotTouching(int Ball)
+    {
+        float ballDiameter = k_BALL_RADIUS * 2f;
+        float k_BALL_DSQR = ballDiameter * ballDiameter;
+        float threshold = 0.0001f;
+        int adjustCount = 0;
+        int touchingBall;
+        int prevTouchingBall = -1;
+        int steps = 0;
+        while ((touchingBall = CheckIfBallTouchingBall(Ball)) > -1 && steps++ < 10000)
+        {
+            if (prevTouchingBall == touchingBall) adjustCount++;
+            else adjustCount = 0;
+            Vector3 blocker = ballsP[touchingBall];
+            Vector3 current = ballsP[Ball];
+            float adjustX = Mathf.Sqrt(k_BALL_DSQR - blocker.z * blocker.z);
+            ballsP[Ball] = new Vector3(blocker.x + adjustX + (threshold * adjustCount), current.y, current.z);
+            prevTouchingBall = touchingBall;
+        }
+    }
     private void moveBallInDirUntilNotTouching(int Ball, Vector3 Dir)
     {
         //keep moving ball down the table until it's not touching any other balls
@@ -2188,7 +2216,7 @@ public class BilliardsModule : MonoBehaviour
         k_F_SPIN_RATE = data.bt_CoefSpinRate;
         isDRate = data.bt_ConstDecelRate;
         K_BOUNCE_FACTOR = data.bt_BounceFactor;
-        isHanModel = data.bc_UseHan05;
+        isMatModel = data.bc_UseMat10;
         k_E_C = data.bc_CoefRestitution;
         isDynamicRestitution = data.bc_DynRestitution;
         isCushionFrictionConstant = data.bc_UseConstFriction;
@@ -3183,8 +3211,8 @@ public class BilliardsModule : MonoBehaviour
 
         bool active = !localPlayerDistant;
         balls[0].transform.parent.gameObject.SetActive(active);
-        debugger.SetActive(active);
-        debuggerShown = active;
+        debuggerShown = active && debugger != null;
+        if (debugger != null) debugger.SetActive(active);
         menuManager._RefreshLobby();
         graphicsManager._UpdateLOD();
         auto_pocketblockers.SetActive(is4Ball);
@@ -3269,6 +3297,7 @@ public void _RedrawDebugger() { }
 
     private void redrawDebugger()
     {
+        if (debugger == null) return;
         string[] parts = debuggerParts;
         int n = 0;
         parts[n++] = "BilliardsModule ";

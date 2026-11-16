@@ -393,3 +393,21 @@ MonoBehaviour:
   - BasisPlatformSwitch
   - Basis.Shims.BasisPlatformEventShim
   - Basis.Scripts.BasisSdk.Interactions.BasisExternalLinkInteractable
+  - Basis.Integration.LTCGI.BasisLTCGIVideoAdapter
+  - LTCGI_UdonAdapter
+  - VRSL.URP.BasisIntegration.BasisUserDataToVRSLDMX
+  - VRSL.URP.BasisIntegration.BasisVideoRenderTextureOutput
+  - VRSL.URP.BasisIntegration.BasisVideoToVRSLDMX
+  - VRSL.URP.SmoothingPanelOpener
+  - VRSL.URP.VRSLAudioLinkLaser
+  - VRSL.URP.VRSLAudioLinkRealtimeLight
+  - VRSL.URP.VRSLAudioLinkStatic
+  - VRSL.URP.VRSLDMXRealtimeLight
+  - VRSL.URP.VRSLDMXStatic
+  - VRSL.URP.VRSL_AudioLinkURPLightManager
+  - VRSL.URP.VRSL_AudioLink_SmoothingPanel
+  - VRSL.URP.VRSL_DMXURPLightManager
+  - VRSL.URP.VRSL_LocalUIControlPanel
+  - VRSL.URP.VRSL_SyntheticDMXChannelSource
+  IncludePackageApprovals: 1
+  Kind: 3

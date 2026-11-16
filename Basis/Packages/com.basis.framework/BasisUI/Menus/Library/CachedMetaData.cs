@@ -36,6 +36,9 @@ namespace Basis.BasisUI
 
         private static readonly Dictionary<string, CachedContent> _metaCache = new();
         private static readonly Dictionary<string, string> _notWorking = new();
+        private static readonly Dictionary<string, DateTime> _notWorkingSince = new();
+        private static readonly Dictionary<string, Task> _inFlight = new();
+        private static readonly TimeSpan NotWorkingRetryAfter = TimeSpan.FromMinutes(5);
         private static bool _languageHooked;
 
         public static bool TryGetMeta(string url, out CachedContent meta)
@@ -48,6 +51,7 @@ namespace Basis.BasisUI
             if (string.IsNullOrEmpty(url) || meta == null) return;
             _metaCache[url] = meta;
             _notWorking.Remove(url);
+            _notWorkingSince.Remove(url);
             EnsureLanguageHook();
         }
         public static bool IsNotWorking(string url)
@@ -57,6 +61,7 @@ namespace Basis.BasisUI
         private static void MarkNotWorking(string url, string reason)
         {
             _notWorking[url ?? string.Empty] = reason;
+            _notWorkingSince[url ?? string.Empty] = DateTime.UtcNow;
             BasisDebug.LogWarning($"Item '{url}' is not working ({reason}). Kept in the library until the user chooses to remove it.");
         }
         public static string DisplayNameFor(BasisDataStoreItemKeys.ItemKey item)
@@ -316,11 +321,41 @@ namespace Basis.BasisUI
         }
 
 
-        public static async Task PreloadMetaDataForItem(BasisDataStoreItemKeys.ItemKey item)
+        private static bool RecentlyNotWorking(string url)
         {
-            if (item == null) return;
+            return _notWorkingSince.TryGetValue(url ?? string.Empty, out DateTime since) && DateTime.UtcNow - since < NotWorkingRetryAfter;
+        }
 
-            var urlKey = item.Url ?? string.Empty;
+        public static Task PreloadMetaDataForItem(BasisDataStoreItemKeys.ItemKey item)
+        {
+            if (item == null) return Task.CompletedTask;
+            string urlKey = item.Url ?? string.Empty;
+            if (ContainsMetaData(urlKey)) return Task.CompletedTask;
+            TaskCompletionSource<bool> owner;
+            lock (_inFlight)
+            {
+                if (_inFlight.TryGetValue(urlKey, out Task running)) return running;
+                owner = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                _inFlight[urlKey] = owner.Task;
+            }
+            return RunPreload(item, urlKey, owner);
+        }
+
+        private static async Task RunPreload(BasisDataStoreItemKeys.ItemKey item, string urlKey, TaskCompletionSource<bool> owner)
+        {
+            try
+            {
+                await PreloadMetaDataForItemCore(item, urlKey);
+            }
+            finally
+            {
+                lock (_inFlight) { _inFlight.Remove(urlKey); }
+                owner.TrySetResult(true);
+            }
+        }
+
+        private static async Task PreloadMetaDataForItemCore(BasisDataStoreItemKeys.ItemKey item, string urlKey)
+        {
             if (ContainsMetaData(urlKey)) return;
 
             if (!item.EmbeddedSettings.IsEmbedded && string.IsNullOrEmpty(item.Pass) && !await BasisVrmDocument.IsVrmLocationAsync(urlKey, CancellationToken.None))
@@ -412,7 +447,7 @@ namespace Basis.BasisUI
             {
                 await Task.WhenAll(items.Select(async item =>
                 {
-                    if (item == null || ContainsMetaData(item.Url)) return;
+                    if (item == null || ContainsMetaData(item.Url) || RecentlyNotWorking(item.Url)) return;
                     await gate.WaitAsync();
                     try
                     {

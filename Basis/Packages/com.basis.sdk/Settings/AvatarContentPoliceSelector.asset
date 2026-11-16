@@ -176,3 +176,5 @@ MonoBehaviour:
   - Basis.Shims.BasisPermissionEventShim
   - BasisPlatformSwitch
   - Basis.Shims.BasisPlatformEventShim
+  IncludePackageApprovals: 1
+  Kind: 0

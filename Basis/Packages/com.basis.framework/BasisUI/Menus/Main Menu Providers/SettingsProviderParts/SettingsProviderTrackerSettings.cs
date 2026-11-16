@@ -856,26 +856,7 @@ namespace Basis.BasisUI
                 BasisSettingsDefaults.SteamVRNewestSdk.OnChanged += SyncRestartNotice;
                 newestSdkToggle.OnInstanceReleased += () => BasisSettingsDefaults.SteamVRNewestSdk.OnChanged -= SyncRestartNotice;
 
-                newestSdkToggle.OnValueChanged += _ =>
-                {
-                    if (!BasisSteamVRSdkSetting.NeedsRestart || !Basis.Scripts.Networking.BasisAppRelaunch.IsSupported || BasisMainMenu.Instance == null)
-                    {
-                        return;
-                    }
-                    if (BasisMainMenu.Instance.Dialogue)
-                    {
-                        BasisMainMenu.Instance.Dialogue.ReleaseInstance();
-                    }
-                    BasisMainMenu.Instance.OpenDialogue(
-                        BasisLocalization.Get("settings.tracker.steamvr.newestSdk.restart.title"),
-                        BasisLocalization.Get("settings.tracker.steamvr.newestSdk.restart.prompt"),
-                        BasisLocalization.Get("settings.tracker.steamvr.newestSdk.restart.now"),
-                        BasisLocalization.Get("settings.tracker.steamvr.newestSdk.restart.later"),
-                        accepted =>
-                        {
-                            if (accepted) Basis.Scripts.Networking.BasisAppRelaunch.RebootAndReconnect();
-                        });
-                };
+                newestSdkToggle.OnValueChanged += _ => BasisSteamVRSdkSetting.OfferRestart();
             }, false, _ => PanelSectionToggleHelpers.RebuildSectionLayout(section, container));
         }
 

@@ -2206,6 +2206,7 @@
 
     { "key": "editor.contentPolice.allowedComponents", "value": "المكونات المسموح بها المستخدمة على الأفاتارات" },
     { "key": "editor.contentPolice.search", "value": "بحث:" },
+    { "key": "editor.contentPolice.fromPackage", "value": "{0} (من الحزمة: {1})" },
 
     { "key": "editor.fallbackBone.load", "value": "تحميل بيانات العظام الاحتياطية" },
 

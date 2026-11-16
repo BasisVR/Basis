@@ -153,7 +153,7 @@ namespace Basis.BasisUI
                 shown.AddRange(items);
             }
 
-            await CachedMetaData.PreloadMetaForItems(shown.Where(item => !IsEmbeddedAddressable(item)));
+            await Task.WhenAny(CachedMetaData.PreloadMetaForItems(shown.Where(item => !IsEmbeddedAddressable(item))), Task.Delay(TabPreloadWaitMilliseconds));
             if (!PanelAlive || _currentPage != Page.Folders) return;
 
             if (!string.IsNullOrWhiteSpace(_currentSearchQuery))

@@ -810,7 +810,8 @@ namespace Basis.BasisUI
                     // can use cached meta synchronously.
                     try
                     {
-                        await CachedMetaData.PreloadMetaForItems(data);
+                        Task preload = CachedMetaData.PreloadMetaForItems(data);
+                        await Task.WhenAny(preload, Task.Delay(TabPreloadWaitMilliseconds));
                     }
                     catch (Exception ex)
                     {
@@ -1079,21 +1080,11 @@ namespace Basis.BasisUI
 
                 if (cachedMeta != null)
                 {
-                    ApplyMetaDataToButton(buttonPanel, cachedMeta, urlKey);
-
-                    if (stack.Count > 1)
-                    {
-                        desc.SetDescription(string.Format(BasisLocalization.Get("library.stack.versions"), stack.Count));
-                        AddStackLayers(buttonPanel, stack);
-                        AddStackCountBadge(buttonPanel, stack.Count);
-                        desc.ForceRebuild();
-                    }
+                    ApplyLoadedCard(buttonPanel, cachedMeta, urlKey, stack);
                 }
                 else if (CachedMetaData.IsNotWorking(urlKey))
                 {
-                    desc.SetTitle(CachedMetaData.DisplayNameFor(item));
-                    desc.SetDescription(BasisLocalization.Get("library.notWorking"));
-                    desc.ForceRebuild();
+                    ApplyNotWorkingCard(buttonPanel, item);
                 }
                 else
                 {
@@ -1101,7 +1092,7 @@ namespace Basis.BasisUI
                     desc.SetDescription(urlKey);
                     desc.ForceRebuild();
 
-                    _ = CachedMetaData.PreloadMetaDataForItem(item);
+                    _ = FillCardWhenLoaded(buttonPanel, item, urlKey, stack);
                 }
             }
 
@@ -1132,6 +1123,43 @@ namespace Basis.BasisUI
         /// behind the card's icon, like a pile of photos, using the older versions' thumbnails
         /// when they are cached.
         /// </summary>
+        private const int TabPreloadWaitMilliseconds = 1000;
+
+        private static void ApplyLoadedCard(PanelButton buttonPanel, CachedMetaData.CachedContent cachedMeta, string urlKey, List<BasisDataStoreItemKeys.ItemKey> stack)
+        {
+            ApplyMetaDataToButton(buttonPanel, cachedMeta, urlKey);
+            if (stack.Count <= 1) return;
+            var desc = buttonPanel.Descriptor;
+            desc.SetDescription(string.Format(BasisLocalization.Get("library.stack.versions"), stack.Count));
+            AddStackLayers(buttonPanel, stack);
+            AddStackCountBadge(buttonPanel, stack.Count);
+            desc.ForceRebuild();
+        }
+
+        private static void ApplyNotWorkingCard(PanelButton buttonPanel, BasisDataStoreItemKeys.ItemKey item)
+        {
+            var desc = buttonPanel.Descriptor;
+            desc.SetTitle(CachedMetaData.DisplayNameFor(item));
+            desc.SetDescription(BasisLocalization.Get("library.notWorking"));
+            desc.ForceRebuild();
+        }
+
+        private static async Task FillCardWhenLoaded(PanelButton buttonPanel, BasisDataStoreItemKeys.ItemKey item, string urlKey, List<BasisDataStoreItemKeys.ItemKey> stack)
+        {
+            try
+            {
+                await CachedMetaData.PreloadMetaDataForItem(item);
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogError(ex);
+                return;
+            }
+            if (!PanelAlive || buttonPanel == null) return;
+            if (CachedMetaData.TryGetMeta(urlKey, out CachedMetaData.CachedContent meta) && meta != null) ApplyLoadedCard(buttonPanel, meta, urlKey, stack);
+            else if (CachedMetaData.IsNotWorking(urlKey)) ApplyNotWorkingCard(buttonPanel, item);
+        }
+
         private static void AddStackLayers(PanelButton buttonPanel, List<BasisDataStoreItemKeys.ItemKey> stack)
         {
             var desc = buttonPanel.Descriptor;

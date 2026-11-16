@@ -2206,6 +2206,7 @@
 
     { "key": "editor.contentPolice.allowedComponents", "value": "虛擬形象上允許使用的元件" },
     { "key": "editor.contentPolice.search", "value": "搜尋：" },
+    { "key": "editor.contentPolice.fromPackage", "value": "{0}（來自套件：{1}）" },
 
     { "key": "editor.fallbackBone.load", "value": "載入備用骨骼資料" },
 

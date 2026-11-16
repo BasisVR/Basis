@@ -19,6 +19,7 @@ public class CueController : MonoBehaviour
 
     private BasisNetworkShim net;
     private BasisNetworkBehaviour primaryNetworking;
+    private BasisNetworkBehaviour desktopNetworking;
     private BasisNetworkBehaviour secondaryNetworking;
     private int holderId = -1;
 
@@ -70,9 +71,10 @@ public class CueController : MonoBehaviour
     private Vector3 lockPrimaryDir;
     private bool lockSecondaryLocked;
     private Vector3 lockSecondaryPos;
-    private float lockCueScale;
+    private float lockCueScale = 1;
+    private bool lockHeld;
 
-    private const int LockStateLength = 43;
+    private const int LockStateLength = 44;
 
     private byte[] lockStateToBytes()
     {
@@ -86,7 +88,8 @@ public class CueController : MonoBehaviour
         data[o++] = lockSecondaryLocked ? (byte)1 : (byte)0;
         o = BasisBinaryShim.WriteVector3(data, o, lockSecondaryPos);
 
-        BasisBinaryShim.WriteSingle(data, o, lockCueScale);
+        o = BasisBinaryShim.WriteSingle(data, o, lockCueScale);
+        data[o] = lockHeld ? (byte)1 : (byte)0;
         return data;
     }
 
@@ -104,6 +107,7 @@ public class CueController : MonoBehaviour
         lockSecondaryPos = BasisBinaryShim.ReadVector3(data, 27);
 
         lockCueScale = BasisBinaryShim.ReadSingle(data, 39);
+        lockHeld = data[43] != 0;
         return true;
     }
     public void _Init()
@@ -112,6 +116,7 @@ public class CueController : MonoBehaviour
         primaryTransform = primary.transform;
         secondaryTransform = secondary.transform;
         desktopTransform = desktop.transform;
+        desktopNetworking = desktop.GetComponent<BasisNetworkBehaviour>();
         tableTransform = table.transform;
         gripTransforms = new Transform[] { primaryTransform, secondaryTransform };
 
@@ -244,8 +249,7 @@ public class CueController : MonoBehaviour
     }
     public void UpdateDesktopPosition()
     {
-        bodyTransform.GetPositionAndRotation(out var pos,out Quaternion Rotation);
-        desktopTransform.SetPositionAndRotation(pos, Rotation);
+        desktopTransform.SetPositionAndRotation(bodyTransform.position, bodyTransform.rotation);
     }
     private void FixedUpdate()
     {
@@ -384,6 +388,7 @@ public class CueController : MonoBehaviour
         if (net != null) net.TakeOwnership();
         if (primaryNetworking != null) primaryNetworking.TakeOwnership();
         if (secondaryNetworking != null) secondaryNetworking.TakeOwnership();
+        if (desktopNetworking != null) desktopNetworking.TakeOwnership();
     }
 
     private void resetPosition()
@@ -405,6 +410,7 @@ public class CueController : MonoBehaviour
         holderIsDesktop = BasisPlatformShim.IsDesktop;
         lockHolderIsDesktop = holderIsDesktop;
         primaryHolding = true;
+        lockHeld = true;
         lockPrimaryLocked = false;
         lockCueScale = cueScaleMine;
         RequestSerialization();
@@ -421,6 +427,7 @@ public class CueController : MonoBehaviour
     {
         primaryHolding = false;
         lockHolderIsDesktop = false;
+        lockHeld = false;
         RequestSerialization();
         refreshCueScale();
 
@@ -577,6 +584,6 @@ public class CueController : MonoBehaviour
 
     public IBasisPlayer _GetHolder()
     {
-        return table._GetPlayer(holderId);
+        return lockHeld ? table._GetPlayer(holderId) : null;
     }
 }

@@ -20,7 +20,7 @@ Buttons: `Trigger`, `Grip`, `Primary`, `Secondary`, `StickClick`, `Menu`.
 
 ## BasisDesktopInputShim
 
-Worlds only. Mouse input on desktop. Button 0 is left, 1 right, 2 middle.
+Mouse input on desktop. Button 0 is left, 1 right, 2 middle.
 
 ```csharp
 if (!BasisDesktopInputShim.HasMouse) return;
@@ -30,82 +30,71 @@ float scroll = BasisDesktopInputShim.MouseScroll.y;
 Vector2 screen = BasisDesktopInputShim.MousePosition;
 ```
 
-## BasisLocalInputShim
-
-The same mouse and controller reads for props and avatars. Pass `this` on every call. Only the player who spawned the prop or wears the avatar is read; on everyone else's copy every call returns released and zero.
-
-```csharp
-using Basis.Shims;
-
-void Update()
-{
-    if (BasisLocalInputShim.IsAvailable(this, BasisControllerHand.Right))
-    {
-        if (BasisLocalInputShim.GetButtonDown(this, BasisControllerHand.Right, BasisControllerButton.Trigger)) Shoot();
-        Vector2 stick = BasisLocalInputShim.GetStick(this, BasisControllerHand.Left);
-    }
-    else if (BasisLocalInputShim.GetMouseButtonDown(this, 0)) Shoot();
-    Vector2 delta = BasisLocalInputShim.GetMouseDelta(this);
-}
-```
-
 ## BasisInputShim
 
-Worlds only. The cheapest way to read input from any device when a script watches more than a few buttons. Ask once for the inputs you need, and Basis polls each one once a frame no matter how many scripts share it. Your script does nothing until something changes.
+Binds keys, mouse, gamepad and VR controls once and hands them back as numbered slots. Works in worlds, props and avatars. A prop reads the local player on every client. On an avatar only the wearer's copy reads anything; other copies get a request that stays empty.
 
 ```csharp
 using Basis.Shims;
 using UnityEngine.InputSystem;
 
 BasisInputRequest input;
-float[] values = new float[BasisInputShim.MaxSlots];
-int jump, fire, stickX;
+int jump, fire, steer;
 
 void Start()
 {
     input = BasisInputShim.Request(this);
+    if (input == null) return;
     jump = input.AddKey(Key.Space);
     fire = input.AddController(BasisControllerHand.Right, BasisControllerButton.Trigger);
-    stickX = input.AddGamepad(BasisInputGamepadControl.LeftStickX);
-    input.Target(values);
+    steer = input.AddGamepad(BasisInputGamepadControl.LeftStickX);
 }
 
 void OnInputChanged(int down, int up)
 {
     if ((down & (1 << jump)) != 0) Jump();
-    if ((down & (1 << fire)) != 0) Fire();
-    speed = values[stickX];
+    if ((down & (1 << fire)) != 0) Shoot();
+    float x = input.Get(steer);
 }
 
-void OnDestroy() { input.Release(); }
+void OnDestroy() { input?.Release(); }
 ```
 
-Each `Add` call returns a slot number, or -1 if it was refused. A request holds up to 32 slots and can be null, so check it if your script might hold more than 64 requests.
+Each `Add` returns a slot, or -1 when the control is not allowed or the request is full (32 slots, 64 requests per piece of content). Buttons read 0 or 1 and count as held from 0.5. `OnInputChanged()` with no arguments also works; `down` and `up` are bitmasks of slots pressed and released since the last call. Without the callback, poll `Get(slot)`, `Held`, `Changed`, `TakeDown()` and `TakeUp()`, or pass an array to `Target(values)` and Basis keeps it filled. `WakeOn(mask)` picks which slots wake you.
 
-| Call | Reads |
-| --- | --- |
-| `AddKey(Key.Space)` | A keyboard key |
-| `AddMouseButton(0)` | A mouse button. 0 is left, 1 right, 2 middle, 3 back, 4 forward |
-| `AddMouseAxis(BasisInputMouseAxis.DeltaX)` | Mouse movement, scroll or position |
-| `AddGamepad(BasisInputGamepadControl.South)` | A gamepad button, trigger or stick axis |
-| `AddController(hand, BasisControllerButton.Grip)` | A VR controller button |
-| `AddController(hand, BasisInputControllerAxis.StickX)` | A VR controller trigger or stick axis |
-| `AddControl("<Joystick>/trigger")` | Any other button or axis, by Input System control path. Name one axis, such as `<Pen>/position/x` |
+Also available: `AddMouseButton(button)` for buttons 0 to 4, `AddMouseAxis(BasisInputMouseAxis.DeltaX)`, `AddController(hand, BasisInputControllerAxis.StickY)`, `AddControl("<Keyboard>/space")` for any Input System path, and `IsBound(slot)` to see if the device is there.
 
-Scripts can read results in two ways.
+Everything reads 0 while the menu is open. Keys and gamepad also stop while the player is typing, mouse and controllers while the pointer is over UI. A button held through a block has to be let go before it counts again.
 
-- Add an `OnInputChanged(int down, int up)` method. Basis calls it at most once a frame, only when a value changed, and passes the presses and releases since the last call. A method with no parameters, `OnInputChanged()`, also works, with `TakeDown()` and `TakeUp()` to get the presses.
-- Check `input.Changed` from your own `Update`. `values` keeps its contents, so a held stick can keep moving something every frame.
+## BasisLocalInputShim
 
-`Target(values)` makes Basis write each new value straight into your array, which is the fastest way to read. Without it, call `Read(values)` to copy them over. Slots past the end of the array are skipped.
+The reads from `BasisDesktopInputShim` and `BasisControllerInputShim`, open to props and avatars as well. Pass `this`. A prop reads the local player on every client; an avatar only reads on the wearer's copy.
 
-`WakeOn(mask)` picks which slots wake the script, one bit per slot. The others still update `values`, `Held` and the presses and releases, but on their own they don't call `OnInputChanged` or set `Changed`. Use it when you read something that changes every frame, like mouse movement, but only need to act on a button. For example, `input.WakeOn(1 << fire)`.
+```csharp
+if (BasisLocalInputShim.GetMouseButtonDown(this, 0)) Shoot();
+Vector2 delta = BasisLocalInputShim.GetMouseDelta(this);
+if (BasisLocalInputShim.GetButtonDown(this, BasisControllerHand.Right, BasisControllerButton.Primary)) Jump();
+float trigger = BasisLocalInputShim.GetTrigger(this, BasisControllerHand.Right);
+string label = BasisLocalInputShim.GetButtonName(this, BasisControllerHand.Right, BasisControllerButton.Primary);
+```
 
-`values` holds one number per slot. Buttons are 0 or 1, triggers run from 0 to 1, and sticks from -1 to 1. `Held`, `TakeDown()` and `TakeUp()` hold one bit per slot, set at 0.5 and above. `TakeDown` and `TakeUp` give you each press and release once and clear it, so a quick tap between two reads still arrives, and they work from `FixedUpdate`.
+## BasisKeyboardShim
 
-Everything reads 0 while the menu is open. Keyboards and gamepads also read 0 while the player types in a text field or the game window is out of focus. Mice and VR controllers also read 0 while a pointer is over UI, and mice while the window is out of focus. A button held when reading resumes stays at 0 until it is let go.
+Opens the Basis virtual keyboard and gives you the text when the player submits. Worlds and props can open it, avatars only for the wearer. When it comes from someone else's prop, the keyboard shows their name. Returns false when it did not open, and a script can open it at most once every 2 seconds.
 
-`IsBound(slot)` tells you whether a device is there to read, for example false for `AddController` on desktop. Requests end on their own when the script is destroyed. Call `Release()` sooner if you stop needing them.
+```csharp
+string petName = "Rex";
+
+void Rename()
+{
+    BasisKeyboardShim.Open(this, petName, "Name your pet", 20, BasisKeyboardContent.Standard, text =>
+    {
+        petName = text;
+    }, null);
+}
+```
+
+Shorter overloads take only the callback, or the starting text and the callback. Content types are `Standard`, `Integer`, `Decimal` and `Alphanumeric`. `IsOpen(this)`, `GetText(this)` and `Close(this)` manage an open keyboard.
 
 ## BasisHapticsShim
 
@@ -115,6 +104,41 @@ Vibrates the local player's controllers. Strength 0 to 1, at most 1 second, 10 p
 BasisHapticsShim.Play(this, BasisHapticHand.Right);
 BasisHapticsShim.Play(this, BasisHapticHand.Both, 0.8f, 0.2f);
 ```
+
+## BasisHandBlockShim
+
+Stops the local player's hands pointing (`Raycast`), picking things up (`Pickup`) or touching (`Touch`). Worlds, props the local player spawned and the wearer's avatar can block. A block belongs to the script that set it and lifts when that script is disabled or the player respawns.
+
+```csharp
+BasisHandBlockShim.Block(this, BasisHandBlockShim.Right, BasisHandBlock.Pickup | BasisHandBlock.Raycast);
+
+bool mine = BasisHandBlockShim.IsBlocking(this, BasisHandBlockShim.Right, BasisHandBlock.Pickup);
+bool anyone = BasisHandBlockShim.IsBlocked(this, BasisHandBlockShim.Left, BasisHandBlock.Touch);
+
+BasisHandBlockShim.Unblock(this, BasisHandBlockShim.Both, BasisHandBlock.All);
+```
+
+Hands are `BasisHandBlockShim.Left`, `Right` and `Both`. `UnblockAll(this)` drops everything the script holds.
+
+## BasisGrabShim
+
+What the local player's hands are holding, jiggle bones or pickups. Worlds, props the local player spawned and the wearer's avatar. Hands are `BasisGrabShim.Left` and `BasisGrabShim.Right`.
+
+```csharp
+if (BasisGrabShim.IsHoldingJiggle(this, BasisGrabShim.Left))
+{
+    int owner = BasisGrabShim.GetHeldJigglePlayerId(this, BasisGrabShim.Left);
+    HumanBodyBones near = BasisGrabShim.GetHeldJiggleAttachedBone(this, BasisGrabShim.Left);
+    string bone = BasisGrabShim.GetHeldJiggleBoneName(this, BasisGrabShim.Left);
+}
+
+if (BasisGrabShim.IsHolding(this, BasisGrabShim.Right, sword)) swordGlow.SetActive(true);
+GameObject held = BasisGrabShim.GetHeldPickup(this, BasisGrabShim.Right);
+
+BasisGrabShim.BlockJiggle(this, BasisGrabShim.Right, true);
+```
+
+`GetHeldPickup` only returns objects from your own content; `GetHeldPickupName` and `TryGetHeldPickupPose` work on anything. `TryGetHeldJiggleBone` gives the grabbed bone's position and rotation, and `ReleaseJiggle` lets go. `BlockJiggle` stops that hand grabbing jiggle bones until you pass false.
 
 ## BasisInteractableShim
 

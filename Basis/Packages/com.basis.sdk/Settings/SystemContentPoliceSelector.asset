@@ -152,3 +152,5 @@ MonoBehaviour:
   - Basis.Shims.BasisOsc
   - UnityEngine.Video.VideoPlayer
   - Basis.Scripts.BasisSdk.Highlight.BasisHighlightOverride
+  IncludePackageApprovals: 1
+  Kind: 1

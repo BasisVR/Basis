@@ -345,3 +345,5 @@ MonoBehaviour:
   - BasisPlatformSwitch
   - Basis.Shims.BasisPlatformEventShim
   - Basis.Scripts.BasisSdk.Interactions.BasisExternalLinkInteractable
+  IncludePackageApprovals: 1
+  Kind: 2

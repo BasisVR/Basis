@@ -3,7 +3,7 @@
 
 ## BasisSaveShim
 
-Bytes saved on the player's machine. 256 KB per slot, 32 slots and 1 MB per store. On a prop another player spawned, only the default and `Protected` stores work, so each player keeps their own preferences.
+Bytes saved on the player's machine. 256 KB per slot, 32 slots and 1 MB per store.
 
 ```csharp
 using Basis.Shims;
@@ -106,5 +106,20 @@ public void OnLinkPressed()
     {
         if (result != BasisExternalLinkResult.Opened) label.text = "example.com";
     });
+}
+```
+
+## BasisUrl
+
+A web address set in the inspector that a script can read but not change. Worlds and props.
+
+```csharp
+using Basis;
+
+public BasisUrl homepage;
+
+public void OnLinkPressed()
+{
+    BasisExternalLinkShim.Open(this, homepage.url, result => { });
 }
 ```

@@ -30,4 +30,4 @@ Each is a list of full type names. Matching is exact: a subclass of an allowed t
 
 ## Adding a component (client builds)
 
-If you ship your own client, add the type's full name to the matching selector asset. Content built for the public client cannot rely on this; there, convert the logic to a `[Cilboxable]` script.
+If you ship your own client, add the type's full name to the matching selector asset. A package can approve its own types instead with a `Resources/BasisContentPolice` file, see [Packages](/en/docs/scripting/packages#approving-components-for-content-police). Content built for the public client cannot rely on this; there, convert the logic to a `[Cilboxable]` script.

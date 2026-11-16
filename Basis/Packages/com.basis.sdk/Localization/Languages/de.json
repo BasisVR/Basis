@@ -2206,6 +2206,7 @@
 
     { "key": "editor.contentPolice.allowedComponents", "value": "Auf Avataren erlaubte Komponenten" },
     { "key": "editor.contentPolice.search", "value": "Suche:" },
+    { "key": "editor.contentPolice.fromPackage", "value": "{0} (aus Paket: {1})" },
 
     { "key": "editor.fallbackBone.load", "value": "Fallback-Knochendaten laden" },
 

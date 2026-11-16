@@ -2206,6 +2206,7 @@
 
     { "key": "editor.contentPolice.allowedComponents", "value": "Componentes permitidos usados em avatares" },
     { "key": "editor.contentPolice.search", "value": "Buscar:" },
+    { "key": "editor.contentPolice.fromPackage", "value": "{0} (do pacote: {1})" },
 
     { "key": "editor.fallbackBone.load", "value": "Carregar dados de ossos FallBack" },
 

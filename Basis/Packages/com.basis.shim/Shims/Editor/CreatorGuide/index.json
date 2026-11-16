@@ -29,6 +29,12 @@
           "file": "scripting.allowed-components.md"
         },
         {
+          "id": "scripting/packages",
+          "title": "Packages",
+          "description": "How packages are installed into a Basis project, and how a package approves its own components for content police and exposes its own types to Cilbox scripts.",
+          "file": "scripting.packages.md"
+        },
+        {
           "id": "scripting/avatar-scripting",
           "title": "Avatar Scripting",
           "description": "Cilbox scripts on avatars, the wearer versus everyone else, avatar ready events, and syncing avatar state.",
@@ -274,13 +280,13 @@
         {
           "id": "scripting/shims/players",
           "title": "Players",
-          "description": "BasisPlayersShim, BasisVelocityShim, BasisPlayspaceInputShim, BasisSeatShim, BasisPoseOverrideShim, BasisRemotePoseShim, BasisAvatarSwitchShim and BasisPermissionsShim.",
+          "description": "BasisPlayersShim, BasisVelocityShim, BasisPlayspaceInputShim, BasisSeatShim, BasisLockShim, BasisEyeTrackingShim, BasisAvatarSwitchShim and BasisPermissionsShim.",
           "file": "scripting.shims.players.md"
         },
         {
           "id": "scripting/shims/input",
           "title": "Input",
-          "description": "BasisControllerInputShim, BasisDesktopInputShim, BasisLocalInputShim, BasisInputShim, BasisHapticsShim, BasisInteractableShim, BasisActionTrigger and BasisUIExtensions.",
+          "description": "BasisControllerInputShim, BasisDesktopInputShim, BasisInputShim, BasisLocalInputShim, BasisKeyboardShim, BasisHapticsShim, BasisHandBlockShim, BasisGrabShim, BasisInteractableShim, BasisActionTrigger and BasisUIExtensions.",
           "file": "scripting.shims.input.md"
         },
         {
@@ -298,20 +304,32 @@
         {
           "id": "scripting/shims/data",
           "title": "Data",
-          "description": "BasisSaveShim, BasisServerStorageShim, BasisJson, BasisWebRequestShim, BasisExternalLinkShim and the image and text downloaders.",
+          "description": "BasisSaveShim, BasisServerStorageShim, BasisJson, BasisWebRequestShim, BasisExternalLinkShim, BasisUrl and the image and text downloaders.",
           "file": "scripting.shims.data.md"
         },
         {
           "id": "scripting/shims/menus",
           "title": "Menus",
-          "description": "BasisMenuShim, settings tabs and menu panels with headers, labels, buttons, toggles, sliders and dropdowns.",
+          "description": "BasisMenuShim, settings tabs and menu panels with headers, labels, buttons, toggles, sliders and dropdowns, plus BasisSettingRequestShim and BasisSettingFavouritesShim.",
           "file": "scripting.shims.menus.md"
         },
         {
           "id": "scripting/shims/rendering-and-audio",
           "title": "Rendering and Audio",
-          "description": "BasisGraphicsSettingsShim, BasisStatsShim, BasisComputeShim, BasisPlatformShim, BasisVoiceRoutingShim and VideoPlayerShim.",
+          "description": "BasisGraphicsSettingsShim, BasisStatsShim, BasisComputeShim, BasisCameraShim, BasisPlatformShim, BasisVoiceRoutingShim, BasisSteamAudioShim, BasisRemotePlayerAudioShim and VideoPlayerShim.",
           "file": "scripting.shims.rendering-and-audio.md"
+        },
+        {
+          "id": "scripting/shims/spawning",
+          "title": "Spawning",
+          "description": "BasisSpawnShim, Instantiate (BasisCilboxInstantiateShim) and BasisModelShim.",
+          "file": "scripting.shims.spawning.md"
+        },
+        {
+          "id": "scripting/shims/script-bus",
+          "title": "Script Bus",
+          "description": "BasisScriptBus, BasisScriptMessage, BasisScriptTarget, BasisScriptReference, BasisSharedTransform and BasisSharedTexture.",
+          "file": "scripting.shims.script-bus.md"
         },
         {
           "id": "scripting/shims/batching",
@@ -324,6 +342,12 @@
           "title": "Avatar",
           "description": "BasisAvatarShim and BasisVixxyShim, for scripts on avatars.",
           "file": "scripting.shims.avatar.md"
+        },
+        {
+          "id": "scripting/shims/pose",
+          "title": "Pose",
+          "description": "BasisPoseOverrideShim and BasisRemotePoseShim.",
+          "file": "scripting.shims.pose.md"
         }
       ]
     },

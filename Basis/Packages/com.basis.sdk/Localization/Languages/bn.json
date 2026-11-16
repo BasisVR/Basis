@@ -2206,6 +2206,7 @@
 
     { "key": "editor.contentPolice.allowedComponents", "value": "অবতারে ব্যবহৃত অনুমোদিত কম্পোনেন্ট" },
     { "key": "editor.contentPolice.search", "value": "খুঁজুন:" },
+    { "key": "editor.contentPolice.fromPackage", "value": "{0} (প্যাকেজ থেকে: {1})" },
 
     { "key": "editor.fallbackBone.load", "value": "ফলব্যাক হাড়ের ডেটা লোড করুন" },
 

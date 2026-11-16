@@ -2771,15 +2771,17 @@ namespace Basis.BasisUI
 
                 void SetGiRowsActive(bool val)
                 {
-                    bool basis = val && !BasisLightingSolutions.PicksUnityGlobalIllumination(dropdownGiSolution.Value);
+                    bool basisSolution = !BasisLightingSolutions.PicksUnityGlobalIllumination(dropdownGiSolution.Value);
+                    bool basis = val && basisSolution;
                     bool rayTraced = basis && giCanTrace && dropdownGiMode.Value == "Ray Traced";
                     // dropdownGiSolution.Descriptor.SetActive(val);
                     dropdownGiSolution.Descriptor.SetActive(false);
                     showUnityGi(val && !basis);
-                    dropdownGiMode.Descriptor.SetActive(basis);
-                    bool pathTraced = basis && dropdownGiMode.Value == "Path Traced (Baked)";
-                    if (dropdownGiPathTracerBackend != null) { dropdownGiPathTracerBackend.Descriptor.SetActive(pathTraced); }
-                    if (dropdownGiPathTracerGpu != null) { dropdownGiPathTracerGpu.Descriptor.SetActive(pathTraced); }
+                    dropdownGiMode.Descriptor.SetActive(basisSolution);
+                    bool pathTracedPicked = basisSolution && dropdownGiMode.Value == "Path Traced (Baked)";
+                    bool pathTraced = basis && pathTracedPicked;
+                    if (dropdownGiPathTracerBackend != null) { dropdownGiPathTracerBackend.Descriptor.SetActive(pathTracedPicked); }
+                    if (dropdownGiPathTracerGpu != null) { dropdownGiPathTracerGpu.Descriptor.SetActive(pathTracedPicked); }
                     dropdownGiPathTracerRays.Descriptor.SetActive(pathTraced);
                     dropdownGiPathTracerAvatarRays.Descriptor.SetActive(pathTraced);
                     bool cascades = basis && !rayTraced;
