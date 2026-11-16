@@ -175,6 +175,55 @@ namespace Basis.Tests.UI
 
         private static readonly string[] SpotCheckLanguages = { "ja", "de", "fr", "ar", "zh-Hans" };
 
+        private static readonly string[] RememberCalibrationKeys =
+        {
+            "settings.bodyTracking.rememberCalibration",
+            "settings.bodyTracking.rememberCalibration.tooltip",
+            "settings.bodyTracking.rememberCalibration.forget",
+            "settings.bodyTracking.rememberCalibration.forget.none",
+            "settings.bodyTracking.rememberCalibration.forget.none.tooltip",
+            "settings.bodyTracking.rememberCalibration.forget.tooltip",
+            "settings.bodyTracking.rememberCalibration.summary",
+            "notifications.fbtCalibrationRestored.title",
+            "notifications.fbtCalibrationRestored.description",
+            "notifications.fbtCalibrationRestored.waiting",
+        };
+
+        [Test]
+        public void RememberCalibrationKeys_ExistInEveryLanguageFile()
+        {
+            foreach ((string path, HashSet<string> keys) in FrameworkLanguageKeySets())
+            {
+                foreach (string key in RememberCalibrationKeys)
+                {
+                    Assert.That(keys, Does.Contain(key), $"'{key}' is missing from {path}, so that language shows English instead");
+                }
+            }
+        }
+
+        [Test]
+        public void RememberCalibrationSentences_AreTranslatedAndKeepTheirPlaceholders(
+            [ValueSource(nameof(SpotCheckLanguages))] string language)
+        {
+            // Full sentences never match English by accident, so a match means the translation fell back.
+            string[] sentences =
+            {
+                "settings.bodyTracking.rememberCalibration.tooltip",
+                "settings.bodyTracking.rememberCalibration.forget.tooltip",
+                "notifications.fbtCalibrationRestored.title",
+            };
+            BasisLocalization.LoadLanguage("en");
+            string[] english = System.Array.ConvertAll(sentences, BasisLocalization.Get);
+
+            BasisLocalization.LoadLanguage(language);
+            for (int Index = 0; Index < sentences.Length; Index++)
+            {
+                Assert.That(BasisLocalization.Get(sentences[Index]), Is.Not.EqualTo(english[Index]), $"'{sentences[Index]}' is not translated under '{language}'");
+            }
+            Assert.That(BasisLocalization.Get("settings.bodyTracking.rememberCalibration.forget.tooltip"), Does.Contain("{0}"));
+            Assert.That(BasisLocalization.Get("notifications.fbtCalibrationRestored.waiting"), Does.Contain("{0}").And.Contain("{1}").And.Contain("{2}"));
+        }
+
         [Test]
         public void NewProviderTitleKeys_ResolveInEnglish([ValueSource(nameof(NewProviderTitleKeys))] string key)
         {
