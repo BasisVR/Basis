@@ -155,7 +155,7 @@ namespace Basis.IK
             {
                 return;
             }
-            BasisArmSolveCore.Pose(input, result, restRootRot, restMidRot, out Quaternion upperRot, out Quaternion lowerRot, out float forearmRollDeg);
+            BasisArmSolveCore.Pose(input, result, restRootRot, restMidRot, ref state, out Quaternion upperRot, out Quaternion lowerRot, out float forearmRollDeg);
             // A tracked hand is a hard endpoint. The tracking weight gates whether
             // this pass runs; once active, blending these rotations would pull a
             // reachable hand away from its controller before the final override.

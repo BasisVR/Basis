@@ -10,7 +10,7 @@ namespace Basis.IK
         public const float MinReachFraction = 0.05f, MinReachDirectionFraction = 0.15f,ModelWeight = 0.85f, TeleportFraction = 0.6f;
         public const float ForearmHandTwistShare = 0.75f;
         public const float ForearmRollMaxDeg = 120f, WrapFadeStartDeg = 155f, WrapFadeEndDeg = 178f;
-        public const float UpperArmPoleTwistShare = 0.5f;
+        public const float UpperArmPoleTwistShare = 0.5f, UpperArmPoleUnwrapMaxDeg = 270f;
         public const float HandTiltHintPush = 0.5f, BehindHintStart = 0.05f, BehindHintEnd = 0.6f, BehindHintInward = 0.8f;
         public const float TrackerHintBias = 0.06f;
         public const float TrackerRotationOnlyStartDeg = 150f, TrackerRotationOnlyEndDeg = 165f, TrackerRotationOnlySmoothTime = 0.1f;
@@ -299,14 +299,29 @@ namespace Basis.IK
             }
             return DirToDeg(blend, ex, ey);
         }
-        public static void Pose(in BasisArmSolveInput i, in BasisArmSolveResult r, Quaternion restUpperRot, Quaternion restLowerRot, out Quaternion upperRot, out Quaternion lowerRot) => Pose(i, r, restUpperRot, restLowerRot, out upperRot, out lowerRot, out _);
-        public static void Pose(in BasisArmSolveInput i, in BasisArmSolveResult r, Quaternion restUpperRot, Quaternion restLowerRot, out Quaternion upperRot, out Quaternion lowerRot, out float forearmRollDeg)
+        public static void Pose(in BasisArmSolveInput i, in BasisArmSolveResult r, Quaternion restUpperRot, Quaternion restLowerRot, ref BasisArmState state, out Quaternion upperRot, out Quaternion lowerRot, out float forearmRollDeg)
         {
             Vector3 u0 = (i.RestElbow - i.Shoulder).normalized, w0 = (i.RestHand - i.RestElbow).normalized, u = (r.Elbow - i.Shoulder).normalized, w = (r.Hand - r.Elbow).normalized;
             Vector3 h0 = RestHinge(i, u0);
-            upperRot = Align(restUpperRot, u0, u, h0, r.Hinge, UpperArmPoleTwistShare);
+            Quaternion upperSwing = BasisQuaternionExt.FromToRotation(u0, u);
+            upperRot = upperSwing * restUpperRot;
+            if (HingeRollDeg(upperSwing * h0, u, r.Hinge, out float poleDeg))
+            {
+                upperRot = Quaternion.AngleAxis(UnwrapPole(poleDeg, ref state) * UpperArmPoleTwistShare, u) * upperRot;
+            }
             lowerRot = Align(restLowerRot, w0, w, h0, r.Hinge, 1f);
             forearmRollDeg = ForearmRoll(i, r, lowerRot, restLowerRot);
+        }
+        public static float UnwrapPole(float poleDeg, ref BasisArmState state)
+        {
+            if (state.PoleSeeded)
+            {
+                float near = state.UpperPoleDeg + Wrap(poleDeg - state.UpperPoleDeg);
+                if (near <= UpperArmPoleUnwrapMaxDeg && near >= -UpperArmPoleUnwrapMaxDeg) poleDeg = near;
+            }
+            state.UpperPoleDeg = poleDeg;
+            state.PoleSeeded = true;
+            return poleDeg;
         }
         public static float ForearmRoll(in BasisArmSolveInput i, in BasisArmSolveResult r, Quaternion lowerRot, Quaternion restLowerRot)
         {
@@ -327,14 +342,23 @@ namespace Basis.IK
         static Quaternion Align(Quaternion rest, Vector3 from, Vector3 to, Vector3 hingeRest, Vector3 hinge, float twistShare)
         {
             Quaternion swing = BasisQuaternionExt.FromToRotation(from, to), rot = swing * rest;
-            Vector3 hNow = swing * hingeRest;
-            hNow -= to * Vector3.Dot(hNow, to);
-            Vector3 hWant = hinge - to * Vector3.Dot(hinge, to);
-            if (hNow.sqrMagnitude > sqrEpsilon && hWant.sqrMagnitude > sqrEpsilon)
+            if (HingeRollDeg(swing * hingeRest, to, hinge, out float deg))
             {
-                rot = Quaternion.AngleAxis(Vector3.SignedAngle(hNow.normalized, hWant.normalized, to) * twistShare, to) * rot;
+                rot = Quaternion.AngleAxis(deg * twistShare, to) * rot;
             }
             return rot;
+        }
+        static bool HingeRollDeg(Vector3 hNow, Vector3 to, Vector3 hinge, out float deg)
+        {
+            hNow -= to * Vector3.Dot(hNow, to);
+            Vector3 hWant = hinge - to * Vector3.Dot(hinge, to);
+            if (hNow.sqrMagnitude < sqrEpsilon || hWant.sqrMagnitude < sqrEpsilon)
+            {
+                deg = 0f;
+                return false;
+            }
+            deg = Vector3.SignedAngle(hNow.normalized, hWant.normalized, to);
+            return true;
         }
     }
     [BurstCompile]

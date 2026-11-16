@@ -32,7 +32,7 @@ public static class BasisRemoteLimbIK
         input.TorsoOut = isLeft ? -frame.Right : frame.Right;
         input.IsLeft = isLeft;
         input.RestMidRotation = restLower;
-        Quaternion upperFrame = UpperFrame(limb, input, restUpper, restElbow, out Vector3 h0);
+        Quaternion upperFrame = UpperFrame(limb, input, restUpper, restElbow, out Vector3 h0, out float poleDeg, out bool hasPole);
         input.HasTrackerHint = true;
         input.HasHintRotation = true;
         input.HintRotation = upperFrame * restLower;
@@ -43,7 +43,9 @@ public static class BasisRemoteLimbIK
         {
             return false;
         }
-        BasisArmSolveCore.Pose(input, result, restUpper, restLower, out Quaternion upper, out Quaternion lower, out float forearmRollDeg);
+        state.UpperPoleDeg = poleDeg;
+        state.PoleSeeded = hasPole;
+        BasisArmSolveCore.Pose(input, result, restUpper, restLower, ref state, out Quaternion upper, out Quaternion lower, out float forearmRollDeg);
         Vector3 forearm = result.Hand - result.Elbow;
         if (forearm.sqrMagnitude > sqrEpsilon && (forearmRollDeg > 0.001f || forearmRollDeg < -0.001f))
         {
@@ -103,8 +105,10 @@ public static class BasisRemoteLimbIK
         float held = reach + Mathf.Clamp(fkReach - reach, -slack, slack) * Smoothstep(ArmReachHoldStart, ArmReachHoldFull, fkReach / chain);
         return limb.Root + aim * (held / reach);
     }
-    static Quaternion UpperFrame(in BasisRemoteLimbPose limb, in BasisArmSolveInput input, Quaternion restUpper, Vector3 restElbow, out Vector3 h0)
+    static Quaternion UpperFrame(in BasisRemoteLimbPose limb, in BasisArmSolveInput input, Quaternion restUpper, Vector3 restElbow, out Vector3 h0, out float poleDeg, out bool hasPole)
     {
+        poleDeg = 0f;
+        hasPole = false;
         Vector3 u0 = restElbow - limb.Root, u = limb.Joint - limb.Root;
         h0 = input.TorsoUp;
         if (u0.sqrMagnitude < sqrEpsilon || u.sqrMagnitude < sqrEpsilon)
@@ -124,7 +128,9 @@ public static class BasisRemoteLimbIK
         {
             return swing;
         }
-        return Quaternion.AngleAxis(Vector3.SignedAngle(hNow, hUpper, u) / BasisArmSolveCore.UpperArmPoleTwistShare, u) * swing;
+        poleDeg = Vector3.SignedAngle(hNow, hUpper, u) / BasisArmSolveCore.UpperArmPoleTwistShare;
+        hasPole = true;
+        return Quaternion.AngleAxis(poleDeg, u) * swing;
     }
     static Vector3 ElbowHint(in BasisRemoteLimbPose limb, in BasisArmSolveInput input, Vector3 hinge, Vector3 restElbow)
     {
