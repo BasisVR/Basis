@@ -11032,7 +11032,7 @@
     },
     {
       "key": "settings.bodyTracking.rememberCalibration.summary",
-      "value": "{0} trackers, {1}"
+      "value": "{0} tracker(s), {1}"
     },
     {
       "key": "notifications.fbtCalibrationRestored.title",
@@ -11040,11 +11040,11 @@
     },
     {
       "key": "notifications.fbtCalibrationRestored.description",
-      "value": "{0} of {1} trackers restored."
+      "value": "{0} of {1} tracker(s) restored."
     },
     {
       "key": "notifications.fbtCalibrationRestored.waiting",
-      "value": "{0} of {1} trackers restored, waiting for {2}."
+      "value": "{0} of {1} tracker(s) restored, waiting for {2}."
     },
     {
       "key": "settings.bodyTracking.osc",
