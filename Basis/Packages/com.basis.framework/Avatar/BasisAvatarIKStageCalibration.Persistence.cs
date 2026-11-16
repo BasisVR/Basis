@@ -28,13 +28,13 @@ namespace Basis.Scripts.Avatar
         [AutoStaticsCleanup]
         public static partial class Persistence
         {
-            private const string FileName = "fbtCalibration.json";
-            private const int CurrentVersion = 1;
-            private const int ReferenceCount = 9;
-            private const float ReadyTimeoutSeconds = 60f;
+            public const string FileName = "fbtCalibration.json";
+            public const int CurrentVersion = 1;
+            public const int ReferenceCount = 9;
+            public const float ReadyTimeoutSeconds = 60f;
 
             [Serializable]
-            private class SavedTracker
+            public class SavedTracker
             {
                 public string Subsystem = string.Empty;
                 public string Serial = string.Empty;
@@ -52,21 +52,21 @@ namespace Basis.Scripts.Avatar
             }
 
             [Serializable]
-            private struct RoleVector
+            public struct RoleVector
             {
                 public BasisBoneTrackedRole Role;
                 public Vector3 Value;
             }
 
             [Serializable]
-            private struct RoleRotation
+            public struct RoleRotation
             {
                 public BasisBoneTrackedRole Role;
                 public Quaternion Value;
             }
 
             [Serializable]
-            private class SavedCalibration
+            public class SavedCalibration
             {
                 public int Version = CurrentVersion;
                 public long SavedAtUtcTicks;
@@ -87,18 +87,18 @@ namespace Basis.Scripts.Avatar
 
             public static event Action OnChanged;
 
-            private static string filePath;
-            private static string FilePath => filePath ??= Path.Combine(Application.persistentDataPath, FileName);
+            public static string filePath;
+            public static string FilePath => filePath ??= Path.Combine(Application.persistentDataPath, FileName);
 
-            private static SavedCalibration saved;
-            private static bool loaded;
-            private static readonly List<SavedTracker> pending = new List<SavedTracker>();
-            private static bool sessionCalibrated;
-            private static bool globalsApplied;
-            private static bool restoring;
-            private static bool waitingForReady;
-            private static bool finishScheduled;
-            private static int restoredCount;
+            public static SavedCalibration saved;
+            public static bool loaded;
+            public static readonly List<SavedTracker> pending = new List<SavedTracker>();
+            public static bool sessionCalibrated;
+            public static bool globalsApplied;
+            public static bool restoring;
+            public static bool waitingForReady;
+            public static bool finishScheduled;
+            public static int restoredCount;
 
             public static bool HasSaved
             {
@@ -127,7 +127,7 @@ namespace Basis.Scripts.Avatar
             #region Save
 
             /// <summary>Called at the end of a successful <see cref="FullBodyCalibration"/>.</summary>
-            internal static void SaveAfterCalibration()
+            public static void SaveAfterCalibration()
             {
                 EnsureLoaded();
                 if (restoring)
@@ -254,7 +254,7 @@ namespace Basis.Scripts.Avatar
                 }
             }
 
-            private static void WriteAllTextAtomic(string path, string contents)
+            public static void WriteAllTextAtomic(string path, string contents)
             {
                 string tempPath = path + ".tmp";
                 File.WriteAllText(tempPath, contents);
@@ -272,7 +272,7 @@ namespace Basis.Scripts.Avatar
 
             #region Load
 
-            private static void EnsureLoaded()
+            public static void EnsureLoaded()
             {
                 if (loaded)
                 {
@@ -288,7 +288,7 @@ namespace Basis.Scripts.Avatar
                 }
             }
 
-            private static SavedCalibration TryRead()
+            public static SavedCalibration TryRead()
             {
                 try
                 {
@@ -338,7 +338,7 @@ namespace Basis.Scripts.Avatar
             }
 
             // A hand-edited or truncated file can leave an all-zero quaternion, which Unity treats as invalid.
-            private static Quaternion Sanitize(Quaternion q)
+            public static Quaternion Sanitize(Quaternion q)
             {
                 float sqr = q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w;
                 if (!(sqr > 1e-8f) || float.IsInfinity(sqr))
@@ -353,7 +353,7 @@ namespace Basis.Scripts.Avatar
             #region Restore
 
             /// <summary>Called from <see cref="BasisDeviceManagement.TryAdd"/> once the device is in the list.</summary>
-            internal static void OnDeviceAdded(BasisInput input)
+            public static void OnDeviceAdded(BasisInput input)
             {
                 if (input == null)
                 {
@@ -364,13 +364,13 @@ namespace Basis.Scripts.Avatar
             }
 
             /// <summary>Called when the local avatar finishes loading (<see cref="BasisLocalAvatarDriver.CalibrationComplete"/>).</summary>
-            internal static void OnLocalAvatarReady()
+            public static void OnLocalAvatarReady()
             {
                 EnsureLoaded();
                 TryRestorePending();
             }
 
-            private static bool CanRestore()
+            public static bool CanRestore()
             {
                 return saved != null
                     && pending.Count > 0
@@ -381,7 +381,7 @@ namespace Basis.Scripts.Avatar
                     && BasisDeviceManagement.IsCurrentModeVR();
             }
 
-            private static bool AvatarReady()
+            public static bool AvatarReady()
             {
                 BasisLocalPlayer player = BasisLocalPlayer.Instance;
                 return player != null
@@ -391,7 +391,7 @@ namespace Basis.Scripts.Avatar
                     && BasisLocalBoneDriver.HeadControl != null;
             }
 
-            private static void TryRestorePending()
+            public static void TryRestorePending()
             {
                 if (!CanRestore())
                 {
@@ -409,7 +409,7 @@ namespace Basis.Scripts.Avatar
                 }
             }
 
-            private static IEnumerator WaitForAvatarThenRestore()
+            public static IEnumerator WaitForAvatarThenRestore()
             {
                 float giveUpAt = Time.unscaledTime + ReadyTimeoutSeconds;
                 while (!AvatarReady() && Time.unscaledTime < giveUpAt)
@@ -423,7 +423,7 @@ namespace Basis.Scripts.Avatar
                 }
             }
 
-            private static void MatchAndRestore()
+            public static void MatchAndRestore()
             {
                 BasisDeviceManagement dm = BasisDeviceManagement.Instance;
                 BasisObservableList<BasisInput> devices = dm.AllInputDevices;
@@ -536,7 +536,7 @@ namespace Basis.Scripts.Avatar
                 }
             }
 
-            private static void ApplyBodyWideState(SavedCalibration data)
+            public static void ApplyBodyWideState(SavedCalibration data)
             {
                 if (data.HasReference && data.References.Length == ReferenceCount)
                 {
@@ -585,7 +585,7 @@ namespace Basis.Scripts.Avatar
                 }
             }
 
-            private static IEnumerator FinishRestoreAfterDevices()
+            public static IEnumerator FinishRestoreAfterDevices()
             {
                 // RestoreInversetOffsets applies each role at the end of the frame it was started in.
                 yield return null;
@@ -644,7 +644,7 @@ namespace Basis.Scripts.Avatar
             #endregion
 
             // Serial plus the id without OpenVR's leading "<device index>|", which changes between launches.
-            private static string KeyOf(string subsystem, string serial, string uniqueId)
+            public static string KeyOf(string subsystem, string serial, string uniqueId)
             {
                 uniqueId ??= string.Empty;
                 int bar = uniqueId.IndexOf('|');
@@ -652,7 +652,7 @@ namespace Basis.Scripts.Avatar
                 return (subsystem ?? string.Empty) + "/" + (serial ?? string.Empty) + "#" + id;
             }
 
-            private static int SessionIndexOf(string uniqueId)
+            public static int SessionIndexOf(string uniqueId)
             {
                 if (string.IsNullOrEmpty(uniqueId))
                 {
@@ -662,7 +662,7 @@ namespace Basis.Scripts.Avatar
                 return bar > 0 && int.TryParse(uniqueId.Substring(0, bar), out int index) ? index : int.MaxValue;
             }
 
-            private static string DescribeTrackers(SavedCalibration data)
+            public static string DescribeTrackers(SavedCalibration data)
             {
                 StringBuilder builder = new StringBuilder();
                 for (int Index = 0; Index < data.Trackers.Count; Index++)
