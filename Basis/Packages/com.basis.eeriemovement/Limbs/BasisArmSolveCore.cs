@@ -11,6 +11,8 @@ namespace Basis.IK
         public const float ForearmHandTwistShare = 0.75f;
         public const float ForearmRollMaxDeg = 120f, WrapFadeStartDeg = 155f, WrapFadeEndDeg = 178f;
         public const float UpperArmPoleTwistShare = 0.5f, UpperArmPoleUnwrapMaxDeg = 270f;
+        public const float UpperArmPoleRaisedShare = 1f, UpperArmPoleRaiseStart = 0.1f, UpperArmPoleRaiseEnd = 0.8f;
+        public const float OverheadPushStart = 0.15f, OverheadPushEnd = 0.6f, OverheadPushOutShift = 0.35f;
         public const float HandTiltHintPush = 0.5f, BehindHintStart = 0.05f, BehindHintEnd = 0.6f, BehindHintInward = 0.8f;
         public const float TrackerHintBias = 0.06f;
         public const float TrackerRotationOnlyStartDeg = 150f, TrackerRotationOnlyEndDeg = 165f, TrackerRotationOnlySmoothTime = 0.1f;
@@ -123,7 +125,9 @@ namespace Basis.IK
                 float chestToShoulder = Vector3.Dot(i.Shoulder - i.Chest, i.TorsoOut) / chain; // How far the shoulder is from the chest sideways
                 float inward = Smoothstep(-chestToShoulder / 2.0f, chestToShoulder * 2f, -shoulderToHand); // How far the hand has moved inward past the shoulder
                 float outPush = (0.3f + inward * 0.6f) * chain; // How far to push the elbow hint to the side
-                float forwardPush = Smoothstep(-chestToShoulder * 4.0f, 0, chestToHandForward) * inward * chain; // How far to push the elbow hint forward
+                float overheadShift = Smoothstep(OverheadPushStart, OverheadPushEnd, Vector3.Dot(handPos - i.Shoulder, i.TorsoUp) / chain) * OverheadPushOutShift;
+                float forwardInward = Smoothstep(-chestToShoulder / 2.0f - overheadShift, chestToShoulder * 2f - overheadShift, -shoulderToHand);
+                float forwardPush = Smoothstep(-chestToShoulder * 4.0f, 0, chestToHandForward) * forwardInward * chain; // How far to push the elbow hint forward
                 worldHint += i.TorsoOut * outPush + i.TorsoForward * forwardPush;
 
                 // Reaching behind: gradually pull the elbow hint in toward the torso so the elbow tucks instead of flaring out.
@@ -307,10 +311,15 @@ namespace Basis.IK
             upperRot = upperSwing * restUpperRot;
             if (HingeRollDeg(upperSwing * h0, u, r.Hinge, out float poleDeg))
             {
-                upperRot = Quaternion.AngleAxis(UnwrapPole(poleDeg, ref state) * UpperArmPoleTwistShare, u) * upperRot;
+                upperRot = Quaternion.AngleAxis(UnwrapPole(poleDeg, ref state) * UpperArmPoleShare(u, i.TorsoUp), u) * upperRot;
             }
             lowerRot = Align(restLowerRot, w0, w, h0, r.Hinge, 1f);
             forearmRollDeg = ForearmRoll(i, r, lowerRot, restLowerRot);
+        }
+        public static float UpperArmPoleShare(Vector3 upperDir, Vector3 torsoUp)
+        {
+            float raised = Smoothstep(UpperArmPoleRaiseStart, UpperArmPoleRaiseEnd, Vector3.Dot(upperDir, torsoUp));
+            return UpperArmPoleTwistShare + (UpperArmPoleRaisedShare - UpperArmPoleTwistShare) * raised;
         }
         public static float UnwrapPole(float poleDeg, ref BasisArmState state)
         {

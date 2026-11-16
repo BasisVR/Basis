@@ -128,7 +128,7 @@ public static class BasisRemoteLimbIK
         {
             return swing;
         }
-        poleDeg = Vector3.SignedAngle(hNow, hUpper, u) / BasisArmSolveCore.UpperArmPoleTwistShare;
+        poleDeg = Vector3.SignedAngle(hNow, hUpper, u) / BasisArmSolveCore.UpperArmPoleShare(u, input.TorsoUp);
         hasPole = true;
         return Quaternion.AngleAxis(poleDeg, u) * swing;
     }
