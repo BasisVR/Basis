@@ -291,6 +291,8 @@ public static partial class SettingsProviderIK
             fbtEnabledToggle.AssignBinding(BasisSettingsDefaults.EnableFBT);
             fbtEnabledToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.fbt.tooltip"));
 
+            CreateRememberCalibrationControls(trackingParent);
+
             var trackerVisualsDropdown = PanelDropdown.CreateNewEntry(trackingParent);
             trackerVisualsDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.trackerVisuals.title"));
             trackerVisualsDropdown.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.trackerVisuals.tooltip"));
@@ -655,6 +657,36 @@ public static partial class SettingsProviderIK
 
         RebuildLayout(tabDesc);
         return tabPage;
+    }
+
+    /// <summary>
+    /// "Remember calibration" toggle plus a "Forget saved calibration" button that shows what is saved and is
+    /// disabled when nothing is. Shared by the Body Tracking settings tab and the Calibration panel.
+    /// </summary>
+    public static void CreateRememberCalibrationControls(Component parent)
+    {
+        var rememberToggle = PanelToggle.CreateNewEntry(parent);
+        rememberToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.rememberCalibration"));
+        rememberToggle.AssignBinding(BasisSettingsDefaults.RememberFullBodyCalibration);
+        rememberToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.rememberCalibration.tooltip"));
+
+        var forgetButton = PanelButton.CreateNew(parent);
+        forgetButton.OnClicked += Basis.Scripts.Avatar.BasisAvatarIKStageCalibration.Persistence.Forget;
+        void Refresh()
+        {
+            bool hasSaved = Basis.Scripts.Avatar.BasisAvatarIKStageCalibration.Persistence.HasSaved;
+            // The summary lives in the tooltip: on the button it overflows the panel width.
+            forgetButton.Descriptor.SetTitle(BasisLocalization.Get(hasSaved
+                ? "settings.bodyTracking.rememberCalibration.forget"
+                : "settings.bodyTracking.rememberCalibration.forget.none"));
+            forgetButton.Descriptor.SetTooltip(hasSaved
+                ? BasisLocalization.Get("settings.bodyTracking.rememberCalibration.forget.tooltip", Basis.Scripts.Avatar.BasisAvatarIKStageCalibration.Persistence.SavedSummary)
+                : BasisLocalization.Get("settings.bodyTracking.rememberCalibration.forget.none.tooltip"));
+            forgetButton.ButtonComponent.interactable = hasSaved;
+        }
+        Refresh();
+        Basis.Scripts.Avatar.BasisAvatarIKStageCalibration.Persistence.OnChanged += Refresh;
+        forgetButton.OnInstanceReleased += () => Basis.Scripts.Avatar.BasisAvatarIKStageCalibration.Persistence.OnChanged -= Refresh;
     }
 
     /// <summary>

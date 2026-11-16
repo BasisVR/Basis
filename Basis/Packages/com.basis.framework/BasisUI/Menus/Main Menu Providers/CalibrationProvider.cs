@@ -106,6 +106,8 @@ namespace Basis.BasisUI
                 };
             }
 
+            SettingsProviderIK.CreateRememberCalibrationControls(container);
+
             // Seated/standing stays out front: it is the one mode that changes what every other
             // control below is even doing.
             var seatedModeDropdown = PanelDropdown.CreateNewEntry(container);

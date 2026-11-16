@@ -668,6 +668,7 @@ namespace Basis.Scripts.Device_Management
 
             AllInputDevices.Add(input);
             BasisSettingsSystem.ReapplySettings();
+            BasisAvatarIKStageCalibration.Persistence.OnDeviceAdded(input);
             TryRestoreCachedRole(input);
 
             return true;
@@ -925,6 +926,8 @@ namespace Basis.Scripts.Device_Management
                 OnInitializationCompleted += RunAfterInitialized;
                 BasisSettingsDefaults.EnableFBT.OnChanged += OnEnableFBTChanged;
                 BasisSettingsDefaults.TrackerVisuals.OnChanged += OnTrackerVisualsChanged;
+                Basis.Scripts.Drivers.BasisLocalAvatarDriver.CalibrationComplete += BasisAvatarIKStageCalibration.Persistence.OnLocalAvatarReady;
+                OnBootModeChanged += BasisAvatarIKStageCalibration.Persistence.OnModeChanged;
                 BasisLocalPlayer.AfterSimulateOnRender.AddAction(98, ApplyAllDeviceMovement);
                 HasEvents = true;
             }
@@ -940,6 +943,8 @@ namespace Basis.Scripts.Device_Management
                 OnInitializationCompleted -= RunAfterInitialized;
                 BasisSettingsDefaults.EnableFBT.OnChanged -= OnEnableFBTChanged;
                 BasisSettingsDefaults.TrackerVisuals.OnChanged -= OnTrackerVisualsChanged;
+                Basis.Scripts.Drivers.BasisLocalAvatarDriver.CalibrationComplete -= BasisAvatarIKStageCalibration.Persistence.OnLocalAvatarReady;
+                OnBootModeChanged -= BasisAvatarIKStageCalibration.Persistence.OnModeChanged;
                 BasisLocalPlayer.AfterSimulateOnRender.RemoveAction(98, ApplyAllDeviceMovement);
                 HasEvents = false;
             }
