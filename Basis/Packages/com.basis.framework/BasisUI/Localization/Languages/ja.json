@@ -5932,6 +5932,46 @@
     {
       "key": "network.avatarShare.failed.license",
       "value": "このVRMのライセンスはファイルの再配布を許可していないため、サーバー経由で共有されませんでした。"
+    },
+    {
+      "key": "settings.controls.oneHanded",
+      "value": "片手モード"
+    },
+    {
+      "key": "settings.controls.oneHanded.tooltip",
+      "value": "移動、旋回、ジャンプ、メニュー、マイクを1つのコントローラーにまとめます。スティックの前後で移動し、左右で旋回します。プライマリボタンでジャンプ、セカンダリボタンでメニューを開き、スティックの押し込みでマイクを切り替えます。有効な間は、手のアクション割り当てより優先されます。"
+    },
+    {
+      "key": "settings.controls.oneHanded.auto",
+      "value": "自動"
+    },
+    {
+      "key": "settings.controls.oneHanded.auto.tooltip",
+      "value": "コントローラーが1つだけ接続されている間、自動的に有効になります。"
+    },
+    {
+      "key": "settings.controls.oneHanded.off",
+      "value": "オフ"
+    },
+    {
+      "key": "settings.controls.oneHanded.off.tooltip",
+      "value": "常に両方のコントローラーを使用します。"
+    },
+    {
+      "key": "settings.controls.oneHanded.left",
+      "value": "左手"
+    },
+    {
+      "key": "settings.controls.oneHanded.left.tooltip",
+      "value": "すべてを左コントローラーで操作します。"
+    },
+    {
+      "key": "settings.controls.oneHanded.right",
+      "value": "右手"
+    },
+    {
+      "key": "settings.controls.oneHanded.right.tooltip",
+      "value": "すべてを右コントローラーで操作します。"
     }
   ]
 }

@@ -47,6 +47,8 @@ namespace Basis.Tests.Sync
         {
             Assert.IsTrue(Method(Box(typeof(CilboxSceneBasis)), typeof(BasisControllerInputShim), nameof(BasisControllerInputShim.GetButtonDown)));
             Assert.IsTrue(Method(Box(typeof(CilboxSceneBasis)), typeof(BasisControllerInputShim), "get_" + nameof(BasisControllerInputShim.IsBlocked)));
+            Assert.IsTrue(Method(Box(typeof(CilboxSceneBasis)), typeof(BasisControllerInputShim), "get_" + nameof(BasisControllerInputShim.ControllerCount)));
+            Assert.IsTrue(Method(Box(typeof(CilboxSceneBasis)), typeof(BasisControllerInputShim), "get_" + nameof(BasisControllerInputShim.IsOneHanded)));
             Assert.IsTrue(Method(Box(typeof(CilboxSceneBasis)), typeof(BasisDesktopInputShim), nameof(BasisDesktopInputShim.GetMouseButton), typeof(int)));
             Assert.IsFalse(Method(Box(typeof(CilboxPropBasis)), typeof(BasisControllerInputShim), nameof(BasisControllerInputShim.GetButtonDown), typeof(BasisControllerHand), typeof(BasisControllerButton)));
             Assert.IsFalse(Method(Box(typeof(CilboxPropBasis)), typeof(BasisDesktopInputShim), nameof(BasisDesktopInputShim.GetMouseButton), typeof(int)));
@@ -56,6 +58,8 @@ namespace Basis.Tests.Sync
             {
                 Assert.IsTrue(Method(Box(boxType), typeof(BasisLocalInputShim), nameof(BasisLocalInputShim.GetButtonDown), typeof(object), typeof(BasisControllerHand), typeof(BasisControllerButton)), boxType.Name);
                 Assert.IsTrue(Method(Box(boxType), typeof(BasisLocalInputShim), "get_" + nameof(BasisLocalInputShim.IsBlocked)), boxType.Name);
+                Assert.IsTrue(Method(Box(boxType), typeof(BasisLocalInputShim), nameof(BasisLocalInputShim.GetControllerCount), typeof(object)), boxType.Name);
+                Assert.IsTrue(Method(Box(boxType), typeof(BasisLocalInputShim), nameof(BasisLocalInputShim.GetOneHandedHand), typeof(object)), boxType.Name);
                 Assert.IsTrue(Method(Box(boxType), typeof(BasisLocalInputShim), nameof(BasisLocalInputShim.GetMouseDelta), typeof(object)), boxType.Name);
                 Assert.IsTrue(Method(Box(boxType), typeof(BasisLocalInputShim), nameof(BasisLocalInputShim.GetMouseButton), typeof(object), typeof(int)), boxType.Name);
             }

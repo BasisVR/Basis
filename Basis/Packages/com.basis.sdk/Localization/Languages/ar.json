@@ -768,6 +768,8 @@
     { "key": "sdk.cilbox.api.blendShapeSync.summary", "value": "يقرأ ويكتب أشكال مزج كثيرة في استدعاء واحد بدل استدعاء مفسَّر لكل شكل." },
     { "key": "sdk.cilbox.api.makeNetworkable.title", "value": "ربط برنامج بالشبكة" },
     { "key": "sdk.cilbox.api.makeNetworkable.summary", "value": "لا يمكن لبرنامج داخل Cilbox أن يرث مكوّن الشبكة، فيُرفق وسيطًا ويشترك في أحداثه بدلًا من ذلك." },
+    { "key": "sdk.cilbox.api.directMessages.title", "value": "الرسائل المباشرة" },
+    { "key": "sdk.cilbox.api.directMessages.summary", "value": "يرسل SendCustomNetworkEventDirect مباشرة إلى اللاعبين الذين لديك اتصال مباشر بهم، وعبر الخادم إلى الباقين، فتتجاوز التحديثات المتكررة الخادم حيث أمكن. تصل الرسائل عبر حدث NetworkMessageReceived نفسه." },
     { "key": "sdk.cilbox.api.ownership.title", "value": "الملكية" },
     { "key": "sdk.cilbox.api.ownership.summary", "value": "من له السلطة على هذا الكائن، وكيف تطلبها." },
     { "key": "sdk.cilbox.api.delayedEvents.title", "value": "استدعاءات مؤجّلة" },

@@ -5932,6 +5932,46 @@
     {
       "key": "network.avatarShare.failed.license",
       "value": "此 VRM 的授權不允許再散布該檔案，因此未透過伺服器分享。"
+    },
+    {
+      "key": "settings.controls.oneHanded",
+      "value": "單手模式"
+    },
+    {
+      "key": "settings.controls.oneHanded.tooltip",
+      "value": "將移動、轉向、跳躍、選單和麥克風都放到一個控制器上。搖桿前後為移動，左右為轉向。主按鈕跳躍，副按鈕開啟選單，按下搖桿切換麥克風。啟用期間會取代雙手的動作綁定。"
+    },
+    {
+      "key": "settings.controls.oneHanded.auto",
+      "value": "自動"
+    },
+    {
+      "key": "settings.controls.oneHanded.auto.tooltip",
+      "value": "僅連接一個控制器時自動開啟。"
+    },
+    {
+      "key": "settings.controls.oneHanded.off",
+      "value": "關閉"
+    },
+    {
+      "key": "settings.controls.oneHanded.off.tooltip",
+      "value": "一律使用兩個控制器。"
+    },
+    {
+      "key": "settings.controls.oneHanded.left",
+      "value": "左手"
+    },
+    {
+      "key": "settings.controls.oneHanded.left.tooltip",
+      "value": "全部由左控制器操作。"
+    },
+    {
+      "key": "settings.controls.oneHanded.right",
+      "value": "右手"
+    },
+    {
+      "key": "settings.controls.oneHanded.right.tooltip",
+      "value": "全部由右控制器操作。"
     }
   ]
 }

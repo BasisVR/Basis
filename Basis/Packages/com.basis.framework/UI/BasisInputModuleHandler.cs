@@ -523,7 +523,7 @@ namespace Basis.Scripts.UI
 
             if (direction == 0)
             {
-                float stickX = ReadLeftHandStickX();
+                float stickX = ReadCaretStickX(BasisOneHanded.HandOr(BasisBoneTrackedRole.LeftHand));
                 if (stickX <= -CaretStickThreshold)
                 {
                     direction = -1;
@@ -602,7 +602,7 @@ namespace Basis.Scripts.UI
             fieldDrivesOwnCaret = false;
         }
 
-        private static float ReadLeftHandStickX()
+        private static float ReadCaretStickX(BasisBoneTrackedRole hand)
         {
             BasisDeviceManagement deviceManagement = BasisDeviceManagement.Instance;
             if (deviceManagement == null)
@@ -614,7 +614,7 @@ namespace Basis.Scripts.UI
             for (int Index = 0; Index < count; Index++)
             {
                 BasisInput input = devices[Index];
-                if (input != null && input.TryGetRole(out BasisBoneTrackedRole role) && role == BasisBoneTrackedRole.LeftHand)
+                if (input != null && input.TryGetRole(out BasisBoneTrackedRole role) && role == hand)
                 {
                     return input.CurrentInputState.Primary2DAxisDeadZoned.x;
                 }

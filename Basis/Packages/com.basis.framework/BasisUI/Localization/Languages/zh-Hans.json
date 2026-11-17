@@ -5932,6 +5932,46 @@
     {
       "key": "network.avatarShare.failed.license",
       "value": "此 VRM 的许可不允许再分发该文件，因此未通过服务器共享。"
+    },
+    {
+      "key": "settings.controls.oneHanded",
+      "value": "单手模式"
+    },
+    {
+      "key": "settings.controls.oneHanded.tooltip",
+      "value": "将移动、转向、跳跃、菜单和麦克风都放到一个控制器上。摇杆前后为移动，左右为转向。主按钮跳跃，副按钮打开菜单，按下摇杆切换麦克风。启用期间会取代双手的动作绑定。"
+    },
+    {
+      "key": "settings.controls.oneHanded.auto",
+      "value": "自动"
+    },
+    {
+      "key": "settings.controls.oneHanded.auto.tooltip",
+      "value": "仅连接一个控制器时自动开启。"
+    },
+    {
+      "key": "settings.controls.oneHanded.off",
+      "value": "关闭"
+    },
+    {
+      "key": "settings.controls.oneHanded.off.tooltip",
+      "value": "始终使用两个控制器。"
+    },
+    {
+      "key": "settings.controls.oneHanded.left",
+      "value": "左手"
+    },
+    {
+      "key": "settings.controls.oneHanded.left.tooltip",
+      "value": "全部由左控制器操作。"
+    },
+    {
+      "key": "settings.controls.oneHanded.right",
+      "value": "右手"
+    },
+    {
+      "key": "settings.controls.oneHanded.right.tooltip",
+      "value": "全部由右控制器操作。"
     }
   ]
 }

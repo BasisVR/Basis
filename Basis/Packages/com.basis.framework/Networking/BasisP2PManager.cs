@@ -143,6 +143,7 @@ namespace Basis.Scripts.Networking
             public int PartialRecoveryAttempts; // connect->die->reconnect flaps (NOT reset by a successful connect)
             public bool WasEverConnected;      // ever reached Connected — decides Partial-vs-Failed on give-up
             public volatile bool OffloadConfirmed; // server confirmed both sides are up (P2PSub_Offloaded)
+            public volatile byte RemoteCapabilities;
 
             // Serializes state transitions that enter/leave Connected so the health tick
             // (threadpool) and the net thread can't both cross the Connected boundary for
@@ -354,6 +355,62 @@ namespace Basis.Scripts.Networking
         }
 
         public static event Action<ushort, NetPacketReader, DeliveryMethod> OnDirectPluginMessage;
+        public static event Action<ushort> OnPeerCapabilities;
+
+        private static readonly ConcurrentQueue<Action> DirectInbound = new ConcurrentQueue<Action>();
+
+        public static void DrainDirectInbound()
+        {
+            while (DirectInbound.TryDequeue(out Action action))
+            {
+                try { action(); }
+                catch (Exception ex) { BasisDebug.LogError($"[P2P] Direct message handler failed: {ex}"); }
+            }
+        }
+
+        public static bool PeerSupports(ushort otherPlayerId, byte capability)
+        {
+            return _sessionsByOtherId.TryGetValue(otherPlayerId, out Session s) && s.State == P2PSessionState.Connected && (s.RemoteCapabilities & capability) != 0;
+        }
+
+        public static int SendToCapable(byte capability, NetDataWriter writer, byte channel, DeliveryMethod deliveryMethod)
+        {
+            if (writer == null || writer.Length == 0 || !HasAnyConnectedSession()) return 0;
+            int sent = 0;
+            foreach (var kvp in _sessionsByOtherId)
+            {
+                Session s = kvp.Value;
+                if (s.State != P2PSessionState.Connected || (s.RemoteCapabilities & capability) == 0) continue;
+                NetPeer peer = s.P2PPeer;
+                if (peer == null) continue;
+                try
+                {
+                    peer.Send(writer, channel, deliveryMethod);
+                    sent++;
+                }
+                catch (Exception ex)
+                {
+                    BasisDebug.LogError($"[P2P] Send on channel {channel} to player {s.OtherPlayerId} failed: {ex.Message}");
+                }
+            }
+            return sent;
+        }
+
+        public static bool SendDirectTo(ushort otherPlayerId, NetDataWriter writer, byte channel, DeliveryMethod deliveryMethod, byte requiredCapability)
+        {
+            return PeerSupports(otherPlayerId, requiredCapability) && SendDirectTo(otherPlayerId, writer, channel, deliveryMethod);
+        }
+
+        private static void SendLinkCapabilities(NetPeer peer)
+        {
+            NetDataWriter writer = new NetDataWriter(true, 2);
+            writer.Put(BasisNetworkCommons.DeltaControlLinkCapabilities);
+            writer.Put(BasisNetworkCommons.P2PCapabilities);
+            try { peer.Send(writer, BasisNetworkCommons.DeltaAvatarChannel, DeliveryMethod.ReliableOrdered); }
+            catch (Exception ex) { BasisDebug.LogError($"[P2P] Capability announce failed: {ex.Message}"); }
+        }
+        private static volatile Delegate[] _directPluginHandlerList;
+        private static volatile Delegate _directPluginHandlerSource;
 
         public static bool HasAnyConnectedSession()
         {
@@ -1042,6 +1099,7 @@ namespace Basis.Scripts.Networking
             Interlocked.Exchange(ref matched.LastInboundTicks, connectedNow);
             matched.WasEverConnected = true;
             matched.OffloadConfirmed = false; // fresh link; server re-confirms once both are up
+            matched.RemoteCapabilities = 0;
 
             ApplyState(matched, P2PSessionState.Connected);
             matched.PunchAttempts = 0;
@@ -1050,6 +1108,7 @@ namespace Basis.Scripts.Networking
             NotifyStateChanged(matched.OtherPlayerId, matched.State);
             BasisDebug.Log($"[P2P] CONNECTED to player {matched.OtherPlayerId} via {(matched.SameNetwork ? "LAN" : "Internet")} (token {Preview(matched.Token)}); sending LinkUp to server.");
 
+            SendLinkCapabilities(peer);
             SendSubToServer(BasisNetworkCommons.P2PSub_LinkUp, matched.OtherPlayerId, matched.Token);
             BasisAvatarRateRegistry.ForceNextAnnouncement();
         }
@@ -1096,17 +1155,45 @@ namespace Basis.Scripts.Networking
                 return;
             }
 
-            if (channel == BasisNetworkCommons.PluginReliableChannel)
+            if (channel == BasisNetworkCommons.CameraPIPPositionChannel)
             {
-                try { OnDirectPluginMessage?.Invoke(expectedOtherId, reader, deliveryMethod); }
-                catch (Exception ex) { BasisDebug.LogError($"[P2P] Direct plugin message from player {expectedOtherId} failed: {ex.Message}"); }
+                CameraPIPPositionMessage pipPosition = new CameraPIPPositionMessage();
+                bool complete = reader.AvailableBytes >= sizeof(ushort) + sizeof(float) * 7;
+                if (complete) pipPosition.Deserialize(reader);
+                reader.Recycle();
+                if (!complete) return;
+                pipPosition.PlayerID = expectedOtherId;
+                DirectInbound.Enqueue(() => BasisNetworkPIPCameraDriver.OnRemotePIPPosition(pipPosition));
+                return;
+            }
+
+            if (IsPluginChannel(channel))
+            {
+                Action<ushort, NetPacketReader, DeliveryMethod> handlers = OnDirectPluginMessage;
+                if (handlers != null)
+                {
+                    Delegate[] list = _directPluginHandlerList;
+                    if (!ReferenceEquals(_directPluginHandlerSource, handlers))
+                    {
+                        list = handlers.GetInvocationList();
+                        _directPluginHandlerList = list;
+                        _directPluginHandlerSource = handlers;
+                    }
+                    int payloadStart = reader.Position;
+                    for (int index = 0; index < list.Length; index++)
+                    {
+                        reader.SetPosition(payloadStart);
+                        try { ((Action<ushort, NetPacketReader, DeliveryMethod>)list[index])(expectedOtherId, reader, deliveryMethod); }
+                        catch (Exception ex) { BasisDebug.LogError($"[P2P] Direct plugin message from player {expectedOtherId} failed: {ex.Message}"); }
+                    }
+                }
                 reader.Recycle();
                 return;
             }
 
             if (channel == BasisNetworkCommons.DeltaAvatarChannel)
             {
-                bool leftoverIsExpected = HandleP2PDeltaFrame(reader, expectedOtherId);
+                bool leftoverIsExpected = HandleP2PDeltaFrame(reader, expectedOtherId, boundSession);
                 reader.Recycle(leftoverIsExpected);
                 return;
             }
@@ -1149,7 +1236,7 @@ namespace Basis.Scripts.Networking
         /// fresh uplink keyframe) or a peer's avatar delta in the standard delta layout, which the
         /// normal delta decoder handles after the embedded-id spoof check.
         /// </summary>
-        private static bool HandleP2PDeltaFrame(NetPacketReader reader, ushort expectedOtherId)
+        private static bool HandleP2PDeltaFrame(NetPacketReader reader, ushort expectedOtherId, Session session)
         {
             if (reader.AvailableBytes < 1) return true;
             int origPos = reader.Position;
@@ -1160,6 +1247,11 @@ namespace Basis.Scripts.Networking
                 if (header == BasisNetworkCommons.DeltaControlUplinkKeyframeRequest)
                 {
                     Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkAvatarCompressor.ForceUplinkKeyframe();
+                }
+                else if (header == BasisNetworkCommons.DeltaControlLinkCapabilities && reader.TryGetByte(out byte capabilities))
+                {
+                    session.RemoteCapabilities = capabilities;
+                    BasisDeviceManagement.EnqueueOnMainThread(() => OnPeerCapabilities?.Invoke(expectedOtherId));
                 }
                 return true;
             }
@@ -1184,7 +1276,7 @@ namespace Basis.Scripts.Networking
                 if (reader.AvailableBytes < sizeof(ushort)) return;
                 ushort messageIndex = reader.GetUShort();
                 byte[] payload = reader.AvailableBytes > 0 ? reader.GetRemainingBytes() : Array.Empty<byte>();
-                BasisDeviceManagement.EnqueueOnMainThread(() =>
+                DirectInbound.Enqueue(() =>
                     BasisNetworkGenericMessages.HandleDirectP2PSceneMessage(senderPlayerId, messageIndex, payload, deliveryMethod));
             }
             else
@@ -1193,10 +1285,12 @@ namespace Basis.Scripts.Networking
                 byte messageIndex = reader.GetByte();
                 byte avatarLinkIndex = reader.GetByte();
                 byte[] payload = reader.AvailableBytes > 0 ? reader.GetRemainingBytes() : Array.Empty<byte>();
-                BasisDeviceManagement.EnqueueOnMainThread(() =>
+                DirectInbound.Enqueue(() =>
                     BasisNetworkGenericMessages.HandleDirectP2PAvatarMessage(senderPlayerId, messageIndex, avatarLinkIndex, payload, deliveryMethod));
             }
         }
+
+        private static bool IsPluginChannel(byte channel) => channel == BasisNetworkCommons.PluginReliableChannel || channel == BasisNetworkCommons.PluginSequencedChannel || channel == BasisNetworkCommons.PluginUnreliableChannel;
 
         private static bool IsAllowedP2PChannel(byte channel)
         {
@@ -1205,7 +1299,8 @@ namespace Basis.Scripts.Networking
                 channel == BasisNetworkCommons.DirectSceneChannel ||
                 channel == BasisNetworkCommons.DirectAvatarChannel ||
                 channel == BasisNetworkCommons.DeltaAvatarChannel ||
-                channel == BasisNetworkCommons.PluginReliableChannel)
+                channel == BasisNetworkCommons.CameraPIPPositionChannel ||
+                IsPluginChannel(channel))
                 return true;
             return (channel >= BasisNetworkCommons.PlayerAvatarVeryLowChannel &&
                     channel <= BasisNetworkCommons.PlayerAvatarHighAdditionalChannel) ||

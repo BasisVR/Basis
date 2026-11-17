@@ -39,6 +39,10 @@ namespace Basis
         {
 			NetworkMessageReceived?.Invoke( PlayerID, buffer, DeliveryMethod );
         }
+        public override void OnDirectNetworkMessage(ushort PlayerID, byte[] buffer, DeliveryMethod DeliveryMethod)
+        {
+			NetworkMessageReceived?.Invoke( PlayerID, buffer, DeliveryMethod );
+        }
         public override void OnPlayerLeft(BasisNetworkPlayer player)
         {
 			PlayerLeft?.Invoke( player );

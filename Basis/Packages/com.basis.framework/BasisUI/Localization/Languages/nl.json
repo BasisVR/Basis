@@ -5932,6 +5932,46 @@
     {
       "key": "network.avatarShare.failed.license",
       "value": "De licentie van deze VRM staat herdistributie van het bestand niet toe, dus het is niet via de server gedeeld."
+    },
+    {
+      "key": "settings.controls.oneHanded",
+      "value": "Eenhandige modus"
+    },
+    {
+      "key": "settings.controls.oneHanded.tooltip",
+      "value": "Zet bewegen, draaien, springen, het menu en de microfoon op één controller. De thumbstick naar voren en achteren beweegt je, naar links en rechts draait je. De primaire knop springt, de secundaire knop opent het menu en een klik op de thumbstick schakelt de microfoon. Vervangt de actietoewijzingen van de handen zolang de modus actief is."
+    },
+    {
+      "key": "settings.controls.oneHanded.auto",
+      "value": "Automatisch"
+    },
+    {
+      "key": "settings.controls.oneHanded.auto.tooltip",
+      "value": "Gaat vanzelf aan zolang er maar één controller verbonden is."
+    },
+    {
+      "key": "settings.controls.oneHanded.off",
+      "value": "Uit"
+    },
+    {
+      "key": "settings.controls.oneHanded.off.tooltip",
+      "value": "Altijd beide controllers gebruiken."
+    },
+    {
+      "key": "settings.controls.oneHanded.left",
+      "value": "Linkerhand"
+    },
+    {
+      "key": "settings.controls.oneHanded.left.tooltip",
+      "value": "Alles bedienen met de linkercontroller."
+    },
+    {
+      "key": "settings.controls.oneHanded.right",
+      "value": "Rechterhand"
+    },
+    {
+      "key": "settings.controls.oneHanded.right.tooltip",
+      "value": "Alles bedienen met de rechtercontroller."
     }
   ]
 }

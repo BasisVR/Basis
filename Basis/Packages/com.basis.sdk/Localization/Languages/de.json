@@ -768,6 +768,8 @@
     { "key": "sdk.cilbox.api.blendShapeSync.summary", "value": "Liest und schreibt viele Blendshapes in einem Aufruf statt eines interpretierten Aufrufs je Shape." },
     { "key": "sdk.cilbox.api.makeNetworkable.title", "value": "Ein Skript netzwerkfähig machen" },
     { "key": "sdk.cilbox.api.makeNetworkable.summary", "value": "Ein Cilbox-Skript kann nicht vom Netzwerk-Behaviour erben, es hängt stattdessen einen Shim an und abonniert dessen Events." },
+    { "key": "sdk.cilbox.api.directMessages.title", "value": "Direkte Nachrichten" },
+    { "key": "sdk.cilbox.api.directMessages.summary", "value": "SendCustomNetworkEventDirect sendet direkt an Spieler, mit denen eine Direktverbindung besteht, und über den Server an alle anderen. Häufige Updates umgehen so den Server, wo es geht. Sie kommen über dasselbe NetworkMessageReceived-Event an." },
     { "key": "sdk.cilbox.api.ownership.title", "value": "Besitz" },
     { "key": "sdk.cilbox.api.ownership.summary", "value": "Wer für dieses Objekt maßgeblich ist und wie man den Besitz anfordert." },
     { "key": "sdk.cilbox.api.delayedEvents.title", "value": "Verzögerte Callbacks" },

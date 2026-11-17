@@ -205,6 +205,7 @@ namespace Basis.BasisUI
         /// Dominant hand preference. "right" or "left". Affects placement raycast and pickup priority.
         /// </summary>
         public static BasisSettingsBinding<string> DominantHand = new("dominanthand", new BasisPlatformDefault<string>("right"));
+        public static BasisSettingsBinding<string> OneHandedMode = new("onehandedmode", new BasisPlatformDefault<string>(BasisOneHanded.Auto));
 
         public static BasisSettingsBinding<bool> usesnapturn = new("usesnapturn", new BasisPlatformDefault<bool>(false));
 
@@ -2336,6 +2337,7 @@ namespace Basis.BasisUI
             mousesensitivty.LoadBindingValue();
             InvertMouse.LoadBindingValue();
             DominantHand.LoadBindingValue();
+            OneHandedMode.LoadBindingValue();
             usesnapturn.LoadBindingValue();
             SmoothTurnSpeed.LoadBindingValue();
             ScrollSpeed.LoadBindingValue();

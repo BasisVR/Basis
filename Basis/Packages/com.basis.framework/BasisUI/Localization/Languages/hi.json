@@ -5932,6 +5932,46 @@
     {
       "key": "network.avatarShare.failed.license",
       "value": "इस VRM का लाइसेंस फ़ाइल को दोबारा वितरित करने की अनुमति नहीं देता, इसलिए इसे सर्वर के माध्यम से साझा नहीं किया गया।"
+    },
+    {
+      "key": "settings.controls.oneHanded",
+      "value": "एक-हाथ मोड"
+    },
+    {
+      "key": "settings.controls.oneHanded.tooltip",
+      "value": "चलना, मुड़ना, कूदना, मेनू और माइक्रोफ़ोन एक ही कंट्रोलर पर रखता है। थंबस्टिक आगे और पीछे करने से आप चलते हैं, बाएँ और दाएँ करने से मुड़ते हैं। प्राइमरी बटन से कूदते हैं, सेकेंडरी बटन मेनू खोलता है और थंबस्टिक क्लिक माइक्रोफ़ोन टॉगल करता है। सक्रिय रहने पर यह हाथों की एक्शन बाइंडिंग की जगह लेता है।"
+    },
+    {
+      "key": "settings.controls.oneHanded.auto",
+      "value": "स्वचालित"
+    },
+    {
+      "key": "settings.controls.oneHanded.auto.tooltip",
+      "value": "जब तक केवल एक कंट्रोलर जुड़ा हो, अपने आप चालू हो जाता है।"
+    },
+    {
+      "key": "settings.controls.oneHanded.off",
+      "value": "बंद"
+    },
+    {
+      "key": "settings.controls.oneHanded.off.tooltip",
+      "value": "हमेशा दोनों कंट्रोलर इस्तेमाल करें।"
+    },
+    {
+      "key": "settings.controls.oneHanded.left",
+      "value": "बायाँ हाथ"
+    },
+    {
+      "key": "settings.controls.oneHanded.left.tooltip",
+      "value": "सब कुछ बाएँ कंट्रोलर से चलाएँ।"
+    },
+    {
+      "key": "settings.controls.oneHanded.right",
+      "value": "दायाँ हाथ"
+    },
+    {
+      "key": "settings.controls.oneHanded.right.tooltip",
+      "value": "सब कुछ दाएँ कंट्रोलर से चलाएँ।"
     }
   ]
 }

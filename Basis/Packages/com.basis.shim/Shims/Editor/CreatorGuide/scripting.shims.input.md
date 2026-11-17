@@ -18,6 +18,13 @@ void Update()
 
 Buttons: `Trigger`, `Grip`, `Primary`, `Secondary`, `StickClick`, `Menu`.
 
+Some players use one controller. `ControllerCount` is 0 on desktop and 1 or 2 in VR, and `HasController(hand)` says which hand has one. `IsOneHanded` is true while the player's One-Handed Mode is running, whether they chose it in settings or it switched on because only one controller is connected. `OneHandedHand` is the hand they play with. In that mode the stick walks and turns and its click is the microphone, so put your controls on the trigger and grip of that hand.
+
+```csharp
+BasisControllerHand hand = BasisControllerInputShim.IsOneHanded ? BasisControllerInputShim.OneHandedHand : BasisControllerHand.Right;
+if (BasisControllerInputShim.GetButtonDown(hand, BasisControllerButton.Trigger)) Fire();
+```
+
 ## BasisDesktopInputShim
 
 Mouse input on desktop. Button 0 is left, 1 right, 2 middle.
@@ -76,6 +83,9 @@ Vector2 delta = BasisLocalInputShim.GetMouseDelta(this);
 if (BasisLocalInputShim.GetButtonDown(this, BasisControllerHand.Right, BasisControllerButton.Primary)) Jump();
 float trigger = BasisLocalInputShim.GetTrigger(this, BasisControllerHand.Right);
 string label = BasisLocalInputShim.GetButtonName(this, BasisControllerHand.Right, BasisControllerButton.Primary);
+int controllers = BasisLocalInputShim.GetControllerCount(this);
+bool oneHanded = BasisLocalInputShim.IsOneHanded(this);
+BasisControllerHand hand = BasisLocalInputShim.GetOneHandedHand(this);
 ```
 
 ## BasisKeyboardShim

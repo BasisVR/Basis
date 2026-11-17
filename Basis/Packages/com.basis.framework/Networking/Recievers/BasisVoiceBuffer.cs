@@ -182,6 +182,21 @@ public class BasisVoiceBuffer
         _peakGap2Ms = _peakGap2Ms * 7 / 10;
     }
 
+    public void OnDirectRoute()
+    {
+        lock (_encodedLock)
+        {
+            _adaptiveExtraDepth = 0;
+            _cleanIntervals = 0;
+            _peakGapMs = 0;
+            _peakGap2Ms = 0;
+            _haveLastArrival = false;
+            _arrivalsSinceAdjust = 0;
+            _lateSinceAdjust = 0;
+            _underrunsSinceAdjust = 0;
+        }
+    }
+
     public void NoteUnderrun()
     {
         lock (_encodedLock)

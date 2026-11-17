@@ -5932,6 +5932,46 @@
     {
       "key": "network.avatarShare.failed.license",
       "value": "এই VRM-এর লাইসেন্স ফাইলটি পুনরায় বিতরণের অনুমতি দেয় না, তাই এটি সার্ভারের মাধ্যমে শেয়ার করা হয়নি।"
+    },
+    {
+      "key": "settings.controls.oneHanded",
+      "value": "এক-হাত মোড"
+    },
+    {
+      "key": "settings.controls.oneHanded.tooltip",
+      "value": "চলাফেরা, ঘোরা, লাফ, মেনু এবং মাইক্রোফোন একটি কন্ট্রোলারে নিয়ে আসে। থাম্বস্টিক সামনে ও পেছনে ঠেললে আপনি চলেন, বাঁয়ে ও ডানে ঠেললে ঘোরেন। প্রাইমারি বোতামে লাফ, সেকেন্ডারি বোতামে মেনু খোলে এবং থাম্বস্টিক ক্লিকে মাইক্রোফোন টগল হয়। সক্রিয় থাকাকালীন এটি হাতের অ্যাকশন বাইন্ডিংয়ের জায়গা নেয়।"
+    },
+    {
+      "key": "settings.controls.oneHanded.auto",
+      "value": "স্বয়ংক্রিয়"
+    },
+    {
+      "key": "settings.controls.oneHanded.auto.tooltip",
+      "value": "শুধু একটি কন্ট্রোলার সংযুক্ত থাকলে নিজে থেকেই চালু হয়।"
+    },
+    {
+      "key": "settings.controls.oneHanded.off",
+      "value": "বন্ধ"
+    },
+    {
+      "key": "settings.controls.oneHanded.off.tooltip",
+      "value": "সবসময় দুটি কন্ট্রোলারই ব্যবহার করুন।"
+    },
+    {
+      "key": "settings.controls.oneHanded.left",
+      "value": "বাম হাত"
+    },
+    {
+      "key": "settings.controls.oneHanded.left.tooltip",
+      "value": "সবকিছু বাম কন্ট্রোলার থেকে চালান।"
+    },
+    {
+      "key": "settings.controls.oneHanded.right",
+      "value": "ডান হাত"
+    },
+    {
+      "key": "settings.controls.oneHanded.right.tooltip",
+      "value": "সবকিছু ডান কন্ট্রোলার থেকে চালান।"
     }
   ]
 }

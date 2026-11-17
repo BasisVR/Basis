@@ -70,7 +70,7 @@ namespace Basis.Scripts.UI
             // list with the old cached count throws ArgumentOutOfRange.
             List<BasisInput> snapshot = Inputs;
             int DevicesCount = snapshot.Count;
-            _vrScrollStick = ReadRightHandScrollStick(snapshot, DevicesCount);
+            _vrScrollStick = ReadScrollStick(snapshot, DevicesCount, BasisOneHanded.HandOr(BasisBoneTrackedRole.RightHand));
             HasTarget = false;
             var EffectiveMouseAction = false;
 
@@ -230,12 +230,12 @@ namespace Basis.Scripts.UI
             }
         }
 
-        private static Vector2 ReadRightHandScrollStick(List<BasisInput> snapshot, int DevicesCount)
+        private static Vector2 ReadScrollStick(List<BasisInput> snapshot, int DevicesCount, BasisBoneTrackedRole hand)
         {
             for (int Index = 0; Index < DevicesCount; Index++)
             {
                 BasisInput input = snapshot[Index];
-                if (input != null && input.TryGetRole(out BasisBoneTrackedRole role) && role == BasisBoneTrackedRole.RightHand)
+                if (input != null && input.TryGetRole(out BasisBoneTrackedRole role) && role == hand)
                 {
                     return input.CurrentInputState.Primary2DAxisDeadZoned;
                 }

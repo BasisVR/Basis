@@ -16,6 +16,7 @@ namespace Basis.Network.Core
                 NatPunchEnabled = true,
                 UnsyncedEvents = true,
                 AutoRecycle = false,
+                MtuDiscovery = true,
                 ChannelsCount = BasisNetworkCommons.TotalChannels,
                 UpdateTime = BasisNetworkCommons.NetworkIntervalPoll,
             };

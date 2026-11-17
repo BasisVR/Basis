@@ -1437,6 +1437,9 @@ namespace Basis.Network.Core
         public const byte DeltaHeaderControlBit = 0x80;
         public const byte DeltaControlKeyframeRequest = 0x80;
         public const byte DeltaControlUplinkKeyframeRequest = 0xC0;
+        public const byte DeltaControlLinkCapabilities = 0xA0;
+        public const byte P2PCapabilityDirectCameraPip = 1;
+        public const byte P2PCapabilities = P2PCapabilityDirectCameraPip;
         /// <summary>True when a DeltaAvatarChannel first byte is a control frame, not a delta.</summary>
         public static bool IsDeltaControlHeader(byte header) => (header & DeltaHeaderControlBit) != 0;
 

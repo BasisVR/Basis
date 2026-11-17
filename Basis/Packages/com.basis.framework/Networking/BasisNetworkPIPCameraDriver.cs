@@ -135,6 +135,8 @@ public static partial class BasisNetworkPIPCameraDriver
         loadedPrefab = prefabHandle.WaitForCompletion();
 
         BasisLocalPlayer.AfterSimulateOnLate.AddAction(SimulatePriority, Simulate);
+        BasisP2PManager.OnPeerCapabilities -= OnPeerCapabilities;
+        BasisP2PManager.OnPeerCapabilities += OnPeerCapabilities;
         lastPipMenuOpenState = BasisMainMenu.Instance != null;
         initialized = true;
     }
@@ -148,6 +150,7 @@ public static partial class BasisNetworkPIPCameraDriver
         if (!initialized) return;
 
         BasisLocalPlayer.AfterSimulateOnLate.RemoveAction(SimulatePriority, Simulate);
+        BasisP2PManager.OnPeerCapabilities -= OnPeerCapabilities;
 
         pipHandle.Complete();
 
@@ -352,6 +355,8 @@ public static partial class BasisNetworkPIPCameraDriver
     public static void SendPIPState(bool isActive, Vector3 position, Quaternion rotation)
     {
         if (!CanSend()) return;
+        hasSentPosition = false;
+        directDirty = false;
         ClientCameraPIPStateMessage msg = new ClientCameraPIPStateMessage
         {
             IsActive = isActive,
@@ -372,23 +377,68 @@ public static partial class BasisNetworkPIPCameraDriver
     /// <summary>
     /// Send local PIP camera position and rotation to server.
     /// </summary>
+    private const float DirectPositionInterval = 1f / 30f;
+    private const float PositionEpsilonSq = 0.000001f, RotationEpsilonDeg = 0.05f;
+    private static Vector3 lastSentPosition;
+    private static Quaternion lastSentRotation = Quaternion.identity;
+    private static bool hasSentPosition, directDirty;
+    private static float lastDirectSendTime = float.NegativeInfinity;
+    private static NetDataWriter positionWriter;
+
     public static void SendPIPPosition(Vector3 position, Quaternion rotation)
     {
         if (!CanSend()) return;
-        ClientCameraPIPPositionMessage msg = new ClientCameraPIPPositionMessage
+        if (!hasSentPosition || (position - lastSentPosition).sqrMagnitude > PositionEpsilonSq || Quaternion.Angle(rotation, lastSentRotation) > RotationEpsilonDeg)
         {
-            PositionX = position.x,
-            PositionY = position.y,
-            PositionZ = position.z,
-            RotationX = rotation.x,
-            RotationY = rotation.y,
-            RotationZ = rotation.z,
-            RotationW = rotation.w,
-        };
+            hasSentPosition = true;
+            lastSentPosition = position;
+            lastSentRotation = rotation;
+            directDirty = true;
+            ClientCameraPIPPositionMessage msg = new ClientCameraPIPPositionMessage
+            {
+                PositionX = position.x,
+                PositionY = position.y,
+                PositionZ = position.z,
+                RotationX = rotation.x,
+                RotationY = rotation.y,
+                RotationZ = rotation.z,
+                RotationW = rotation.w,
+            };
+            NetDataWriter writer = positionWriter ??= new NetDataWriter(true, 32);
+            writer.Reset();
+            msg.Serialize(writer);
+            BasisNetworkConnection.LocalPlayerPeer.Send(writer, BasisNetworkCommons.CameraPIPPositionChannel, DeliveryMethod.Sequenced);
+        }
+        float now = Time.unscaledTime;
+        if (!directDirty || now - lastDirectSendTime < DirectPositionInterval) return;
+        directDirty = false;
+        lastDirectSendTime = now;
+        BasisP2PManager.SendToCapable(BasisNetworkCommons.P2PCapabilityDirectCameraPip, WriteDirectPosition(), BasisNetworkCommons.CameraPIPPositionChannel, DeliveryMethod.Sequenced);
+    }
 
-        NetDataWriter writer = new NetDataWriter();
-        msg.Serialize(writer);
-        BasisNetworkConnection.LocalPlayerPeer.Send(writer, BasisNetworkCommons.CameraPIPPositionChannel, DeliveryMethod.Sequenced);
+    private static NetDataWriter WriteDirectPosition()
+    {
+        NetDataWriter writer = positionWriter ??= new NetDataWriter(true, 32);
+        writer.Reset();
+        BasisNetworkConnection.TryGetLocalPlayerID(out ushort localId);
+        new CameraPIPPositionMessage
+        {
+            PlayerID = localId,
+            PositionX = lastSentPosition.x,
+            PositionY = lastSentPosition.y,
+            PositionZ = lastSentPosition.z,
+            RotationX = lastSentRotation.x,
+            RotationY = lastSentRotation.y,
+            RotationZ = lastSentRotation.z,
+            RotationW = lastSentRotation.w,
+        }.Serialize(writer);
+        return writer;
+    }
+
+    private static void OnPeerCapabilities(ushort player)
+    {
+        if (!hasSentPosition || !CanSend()) return;
+        BasisP2PManager.SendDirectTo(player, WriteDirectPosition(), BasisNetworkCommons.CameraPIPPositionChannel, DeliveryMethod.Sequenced, BasisNetworkCommons.P2PCapabilityDirectCameraPip);
     }
 
     /// <summary>

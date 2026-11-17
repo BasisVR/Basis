@@ -23035,6 +23035,46 @@
     {
       "key": "network.avatarShare.failed.license",
       "value": "This VRM's license does not allow redistributing the file, so it was not shared through the server."
+    },
+    {
+      "key": "settings.controls.oneHanded",
+      "value": "One-Handed Mode"
+    },
+    {
+      "key": "settings.controls.oneHanded.tooltip",
+      "value": "Puts movement, turning, jumping, the menu and the microphone on a single controller. Thumbstick forward and back moves, left and right turns. The primary button jumps, the secondary button opens the menu and a thumbstick click toggles the microphone. Replaces the hand action bindings while active."
+    },
+    {
+      "key": "settings.controls.oneHanded.auto",
+      "value": "Automatic"
+    },
+    {
+      "key": "settings.controls.oneHanded.auto.tooltip",
+      "value": "Turns on by itself while only one controller is connected."
+    },
+    {
+      "key": "settings.controls.oneHanded.off",
+      "value": "Off"
+    },
+    {
+      "key": "settings.controls.oneHanded.off.tooltip",
+      "value": "Always use both controllers."
+    },
+    {
+      "key": "settings.controls.oneHanded.left",
+      "value": "Left Hand"
+    },
+    {
+      "key": "settings.controls.oneHanded.left.tooltip",
+      "value": "Run everything from the left controller."
+    },
+    {
+      "key": "settings.controls.oneHanded.right",
+      "value": "Right Hand"
+    },
+    {
+      "key": "settings.controls.oneHanded.right.tooltip",
+      "value": "Run everything from the right controller."
     }
   ]
 }

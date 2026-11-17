@@ -5821,6 +5821,46 @@
     {
       "key": "network.avatarShare.failed.license",
       "value": "A licença deste VRM não permite redistribuir o arquivo, então ele não foi compartilhado pelo servidor."
+    },
+    {
+      "key": "settings.controls.oneHanded",
+      "value": "Modo de uma mão"
+    },
+    {
+      "key": "settings.controls.oneHanded.tooltip",
+      "value": "Coloca o movimento, a rotação, o salto, o menu e o microfone num único comando. O manípulo para a frente e para trás move-te, para a esquerda e para a direita roda-te. O botão principal salta, o botão secundário abre o menu e um clique no manípulo alterna o microfone. Substitui as atribuições de ações das mãos enquanto estiver ativo."
+    },
+    {
+      "key": "settings.controls.oneHanded.auto",
+      "value": "Automático"
+    },
+    {
+      "key": "settings.controls.oneHanded.auto.tooltip",
+      "value": "Ativa-se sozinho enquanto só houver um comando ligado."
+    },
+    {
+      "key": "settings.controls.oneHanded.off",
+      "value": "Desativado"
+    },
+    {
+      "key": "settings.controls.oneHanded.off.tooltip",
+      "value": "Usar sempre os dois comandos."
+    },
+    {
+      "key": "settings.controls.oneHanded.left",
+      "value": "Mão esquerda"
+    },
+    {
+      "key": "settings.controls.oneHanded.left.tooltip",
+      "value": "Controlar tudo a partir do comando esquerdo."
+    },
+    {
+      "key": "settings.controls.oneHanded.right",
+      "value": "Mão direita"
+    },
+    {
+      "key": "settings.controls.oneHanded.right.tooltip",
+      "value": "Controlar tudo a partir do comando direito."
     }
   ]
 }

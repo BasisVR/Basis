@@ -5821,6 +5821,46 @@
     {
       "key": "network.avatarShare.failed.license",
       "value": "La licencia de este VRM no permite redistribuir el archivo, así que no se compartió a través del servidor."
+    },
+    {
+      "key": "settings.controls.oneHanded",
+      "value": "Modo a una mano"
+    },
+    {
+      "key": "settings.controls.oneHanded.tooltip",
+      "value": "Pone el movimiento, el giro, el salto, el menú y el micrófono en un solo mando. El joystick hacia delante y hacia atrás te mueve, a izquierda y derecha te gira. El botón principal salta, el botón secundario abre el menú y un clic del joystick alterna el micrófono. Sustituye las asignaciones de acciones de las manos mientras está activo."
+    },
+    {
+      "key": "settings.controls.oneHanded.auto",
+      "value": "Automático"
+    },
+    {
+      "key": "settings.controls.oneHanded.auto.tooltip",
+      "value": "Se activa solo mientras haya un único mando conectado."
+    },
+    {
+      "key": "settings.controls.oneHanded.off",
+      "value": "Desactivado"
+    },
+    {
+      "key": "settings.controls.oneHanded.off.tooltip",
+      "value": "Usar siempre los dos mandos."
+    },
+    {
+      "key": "settings.controls.oneHanded.left",
+      "value": "Mano izquierda"
+    },
+    {
+      "key": "settings.controls.oneHanded.left.tooltip",
+      "value": "Controlar todo desde el mando izquierdo."
+    },
+    {
+      "key": "settings.controls.oneHanded.right",
+      "value": "Mano derecha"
+    },
+    {
+      "key": "settings.controls.oneHanded.right.tooltip",
+      "value": "Controlar todo desde el mando derecho."
     }
   ]
 }

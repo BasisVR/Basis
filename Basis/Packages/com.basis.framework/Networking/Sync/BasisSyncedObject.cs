@@ -68,6 +68,7 @@ namespace Basis.Scripts.Networking.Sync
         private readonly BasisSyncSchema _schema = new BasisSyncSchema();
         private BasisSyncValues _local;
         private BasisSyncValues _lastSent;
+        private BasisSyncValues _lastSentDirect;
         private BasisSyncReceiver _receiver;
         private byte[] _dirtyMask;
         private byte[] _scratch;
@@ -88,6 +89,17 @@ namespace Basis.Scripts.Networking.Sync
         private int _idleKeyframesAtCap;
         private const int MaxIdleKeyframesAtCap = 2;
         private bool _lastSendWasIdle;
+        private double _lastDirectSendTime;
+        private double _lastDirectKeyframeTime;
+        private bool _forceDirectKeyframe = true;
+        private bool _forceCopiedToDirect;
+        private bool _lastDirectWasIdle;
+        private bool _directDirtySinceKeyframe;
+        private int _directIdleKeyframes;
+        private int _lastDirectTopology = -1;
+        private double _sampledAt = -1.0;
+        private byte[] _directSendBuffer;
+        private ushort[] _relayTargets;
         private ushort _lastKnownOwnerId;
         private bool _haveKnownOwner;
 
@@ -116,7 +128,12 @@ namespace Basis.Scripts.Networking.Sync
         internal int BindScaleFieldIndex = -1;
         internal bool BindWorldSpace;
 
-        internal void AdvanceReceiver(float dt) => _receiver?.Advance(dt);
+        internal void AdvanceReceiver(float dt)
+        {
+            if (_receiver == null) return;
+            _receiver.AllowLowFloor = JitterBufferDepth <= 2f;
+            _receiver.Advance(dt);
+        }
 
         internal bool WantsMainThreadApply;
         internal bool JobApplied;
@@ -631,10 +648,18 @@ namespace Basis.Scripts.Networking.Sync
 
             float baseInterval = SendIntervalSeconds;
             float keyframeInterval = KeyframeIntervalSeconds;
-            if (UseDirectP2P && OverrideP2PRate && BasisP2PManager.HasAnyConnectedSession())
+            bool directStream = UseDirectP2P && BasisP2PManager.HasAnyConnectedSession();
+            int topology = UseDirectP2P ? BasisP2PManager.GetConnectedSessionCount() : 0;
+            if (topology != _lastDirectTopology)
             {
-                baseInterval = P2PSendIntervalSeconds;
-                keyframeInterval = P2PKeyframeIntervalSeconds;
+                _lastDirectTopology = topology;
+                _forceKeyframe = true;
+                _forceCopiedToDirect = false;
+            }
+            if (_forceKeyframe && !_forceCopiedToDirect)
+            {
+                _forceDirectKeyframe = true;
+                _forceCopiedToDirect = true;
             }
 
             float effectiveInterval = baseInterval;
@@ -659,8 +684,25 @@ namespace Basis.Scripts.Networking.Sync
                 }
             }
 
+            if (directStream)
+            {
+                TransmitDirectIfDue(time, recipients);
+                if (ForceP2POnly) return;
+            }
+
             bool intervalElapsed = _lastSendTime <= 0 || (time - _lastSendTime) >= effectiveInterval;
             if (!intervalElapsed) return;
+
+            if (directStream)
+            {
+                _relayTargets = RelayTargets(recipients, _relayTargets);
+                if (_relayTargets == null)
+                {
+                    _lastSendTime = time;
+                    _lastSendWasIdle = true;
+                    return;
+                }
+            }
 
             // Sampled HERE, not at the top. TransmitIfDue runs once per owned object per FRAME,
             // but only the sample taken on a sending frame is ever used: FieldChanged compares
@@ -673,7 +715,7 @@ namespace Basis.Scripts.Networking.Sync
             // the transmit pass, and it scales with owned-object count. SendStateSnapshotTo
             // already sampled immediately before serializing, so both send paths now match.
             EnsureBuffers();
-            OnBeforeTransmit();
+            Sample(time);
 
             int dirtyBytes = _schema.DirtyMaskBytes;
             for (int i = 0; i < dirtyBytes; i++) _dirtyMask[i] = 0;
@@ -683,7 +725,7 @@ namespace Basis.Scripts.Networking.Sync
             int fieldCount = _schema.FieldCount;
             for (int fi = 0; fi < fieldCount; fi++)
             {
-                if (!FieldChanged(fi)) continue;
+                if (!FieldChanged(fi, _lastSent)) continue;
                 _dirtyMask[fi >> 3] |= (byte)(1 << (fi & 7));
                 anyChange = true;
                 if (_schema.GetField(fi).Pool == BasisSyncPool.Discrete) discreteChange = true;
@@ -730,7 +772,13 @@ namespace Basis.Scripts.Networking.Sync
                 dm = DeliveryMethod.ReliableUnordered;
             }
 
-            if (!BasisSyncBatchCollector.TryEnqueue(NetworkID, _scratch, len, dm, recipients, UseDirectP2P))
+            if (directStream)
+            {
+                if (_sendBuffer == null || _sendBuffer.Length != len) _sendBuffer = new byte[len];
+                Array.Copy(_scratch, 0, _sendBuffer, 0, len);
+                SendCustomNetworkEventDirect(_sendBuffer, dm, _relayTargets, true);
+            }
+            else if (!BasisSyncBatchCollector.TryEnqueue(NetworkID, _scratch, len, dm, recipients, UseDirectP2P, UseDirectP2P && ForceP2POnly))
             {
                 if (_sendBuffer == null || _sendBuffer.Length != len) _sendBuffer = new byte[len];
                 Array.Copy(_scratch, 0, _sendBuffer, 0, len);
@@ -744,6 +792,7 @@ namespace Basis.Scripts.Networking.Sync
             {
                 _lastKeyframeTime = time;
                 _forceKeyframe = false;
+                _forceCopiedToDirect = false;
                 if (!anyChange)
                 {
                     if (_idleKeyframeBackoff < MaxKeyframeBackoffShift) _idleKeyframeBackoff++;
@@ -796,7 +845,7 @@ namespace Basis.Scripts.Networking.Sync
             return elapsed;
         }
 
-        private bool FieldChanged(int fi)
+        private bool FieldChanged(int fi, BasisSyncValues baseline)
         {
             BasisSyncField f = _schema.GetField(fi);
             switch (f.Pool)
@@ -804,15 +853,97 @@ namespace Basis.Scripts.Networking.Sync
                 case BasisSyncPool.Continuous:
                     for (int c = 0; c < f.ContComponents; c++)
                     {
-                        if (math.abs(_local.Cont[f.Offset + c] - _lastSent.Cont[f.Offset + c]) > ContinuousEpsilon) return true;
+                        if (math.abs(_local.Cont[f.Offset + c] - baseline.Cont[f.Offset + c]) > ContinuousEpsilon) return true;
                     }
                     return false;
                 case BasisSyncPool.Rotation:
-                    return math.abs(math.dot(_local.Rot[f.Offset].value, _lastSent.Rot[f.Offset].value)) < _rotDotThreshold;
+                    return math.abs(math.dot(_local.Rot[f.Offset].value, baseline.Rot[f.Offset].value)) < _rotDotThreshold;
                 case BasisSyncPool.Discrete:
-                    return _local.Disc[f.Offset] != _lastSent.Disc[f.Offset];
+                    return _local.Disc[f.Offset] != baseline.Disc[f.Offset];
             }
             return false;
+        }
+
+        protected virtual float DirectSendIntervalSeconds => OverrideP2PRate ? P2PSendIntervalSeconds : Mathf.Min(SendIntervalSeconds, P2PSendIntervalSeconds > 0f ? P2PSendIntervalSeconds : SendIntervalSeconds);
+
+        private void Sample(double time)
+        {
+            if (_sampledAt == time) return;
+            _sampledAt = time;
+            OnBeforeTransmit();
+        }
+
+        private static ushort[] RelayTargets(ushort[] recipients, ushort[] reuse)
+        {
+            BasisP2PManager.PartitionRecipients(recipients, out System.Collections.Generic.List<ushort> _, out System.Collections.Generic.List<ushort> relayIds);
+            if (relayIds.Count == 0) return null;
+            if (reuse != null && reuse.Length == relayIds.Count)
+            {
+                bool same = true;
+                for (int i = 0; i < reuse.Length && same; i++) same = reuse[i] == relayIds[i];
+                if (same) return reuse;
+            }
+            return relayIds.ToArray();
+        }
+
+        private void TransmitDirectIfDue(double time, ushort[] recipients)
+        {
+            float interval = Mathf.Max(0.001f, DirectSendIntervalSeconds);
+            if (_lastDirectSendTime > 0 && time - _lastDirectSendTime < interval) return;
+            EnsureBuffers();
+            Sample(time);
+
+            int dirtyBytes = _schema.DirtyMaskBytes;
+            for (int i = 0; i < dirtyBytes; i++) _dirtyMask[i] = 0;
+            bool anyChange = false;
+            bool discreteChange = false;
+            int fieldCount = _schema.FieldCount;
+            for (int fi = 0; fi < fieldCount; fi++)
+            {
+                if (!FieldChanged(fi, _lastSentDirect)) continue;
+                _dirtyMask[fi >> 3] |= (byte)(1 << (fi & 7));
+                anyChange = true;
+                if (_schema.GetField(fi).Pool == BasisSyncPool.Discrete) discreteChange = true;
+            }
+
+            float keyframeInterval = P2PKeyframeIntervalSeconds > 0f ? P2PKeyframeIntervalSeconds : KeyframeIntervalSeconds;
+            bool periodicDue = time - _lastDirectKeyframeTime >= keyframeInterval && (anyChange || _directDirtySinceKeyframe || _directIdleKeyframes < MaxIdleKeyframesAtCap);
+            bool keyframe = _forceDirectKeyframe || _lastDirectSendTime <= 0 || periodicDue || discreteChange;
+            if (!keyframe && !anyChange) return;
+
+            double elapsed = _lastDirectSendTime > 0 ? StampInterval(time - _lastDirectSendTime, interval, _lastDirectWasIdle) : interval;
+            ushort intervalMs = (ushort)math.clamp((int)math.round(elapsed * 1000.0), 1, 65535);
+            _lastDirectSendTime = time;
+            unchecked { _seq++; }
+
+            int len = BasisSyncCodec.Serialize(_schema, _local, keyframe, _dirtyMask, _seq, intervalMs, _scratch, UseChecksum);
+            _txBytes += len;
+            _txPackets++;
+            DeliveryMethod dm = keyframe ? KeyframeDelivery : Delivery;
+            if (NeedsFragmentableDelivery(len + BasisNetworkGenericMessages.SceneDataFramingBytes(recipients), dm)) dm = DeliveryMethod.ReliableUnordered;
+            if (_directSendBuffer == null || _directSendBuffer.Length != len) _directSendBuffer = new byte[len];
+            Array.Copy(_scratch, 0, _directSendBuffer, 0, len);
+            SendCustomNetworkEventDirect(_directSendBuffer, dm, recipients, false);
+
+            _lastSentDirect.CopyFrom(_local);
+            _lastDirectWasIdle = !anyChange;
+            if (anyChange)
+            {
+                _directDirtySinceKeyframe = true;
+                _directIdleKeyframes = 0;
+            }
+            if (keyframe)
+            {
+                if (!anyChange && !_directDirtySinceKeyframe) _directIdleKeyframes++;
+                _directDirtySinceKeyframe = false;
+                _lastDirectKeyframeTime = time;
+                _forceDirectKeyframe = false;
+                if (ForceP2POnly)
+                {
+                    _forceKeyframe = false;
+                    _forceCopiedToDirect = false;
+                }
+            }
         }
 
         private void RefreshRole()
@@ -832,6 +963,11 @@ namespace Basis.Scripts.Networking.Sync
                 _idleKeyframeBackoff = 0;
                 _idleKeyframesAtCap = 0;
                 _lastSendWasIdle = false;
+                _lastDirectSendTime = 0;
+                _lastDirectWasIdle = false;
+                _directDirtySinceKeyframe = false;
+                _directIdleKeyframes = 0;
+                _forceCopiedToDirect = false;
                 _txBytes = 0;
                 _txPackets = 0;
                 _txWindowStart = 0.0;
@@ -851,6 +987,7 @@ namespace Basis.Scripts.Networking.Sync
             if (!_schemaLocked) { _schema.Lock(); _schemaLocked = true; }
             _local = new BasisSyncValues(); _local.Allocate(_schema);
             _lastSent = new BasisSyncValues(); _lastSent.Allocate(_schema);
+            _lastSentDirect = new BasisSyncValues(); _lastSentDirect.Allocate(_schema);
             _dirtyMask = new byte[_schema.DirtyMaskBytes < 1 ? 1 : _schema.DirtyMaskBytes];
             _scratch = new byte[BasisSyncCodec.MaxSerializedSize(_schema)];
             _receiver = new BasisSyncReceiver(_schema);

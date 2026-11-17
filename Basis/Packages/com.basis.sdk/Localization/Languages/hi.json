@@ -768,6 +768,8 @@
     { "key": "sdk.cilbox.api.blendShapeSync.summary", "value": "हर शेप के लिए अलग कॉल के बजाय एक ही कॉल में कई ब्लेंडशेप पढ़ता और लिखता है।" },
     { "key": "sdk.cilbox.api.makeNetworkable.title", "value": "स्क्रिप्ट को नेटवर्क से जोड़ना" },
     { "key": "sdk.cilbox.api.makeNetworkable.summary", "value": "Cilbox स्क्रिप्ट नेटवर्क behaviour से विरासत नहीं ले सकती, इसलिए वह एक shim लगाकर उसके इवेंट सुनती है।" },
+    { "key": "sdk.cilbox.api.directMessages.title", "value": "सीधे संदेश" },
+    { "key": "sdk.cilbox.api.directMessages.summary", "value": "SendCustomNetworkEventDirect उन खिलाड़ियों को सीधे भेजता है जिनसे आपका सीधा कनेक्शन है और बाकी सबको सर्वर के ज़रिए, ताकि बार-बार होने वाले अपडेट जहाँ संभव हो सर्वर से बचें। संदेश उसी NetworkMessageReceived इवेंट से आते हैं।" },
     { "key": "sdk.cilbox.api.ownership.title", "value": "स्वामित्व" },
     { "key": "sdk.cilbox.api.ownership.summary", "value": "इस ऑब्जेक्ट पर अधिकार किसका है, और उसे कैसे माँगा जाए।" },
     { "key": "sdk.cilbox.api.delayedEvents.title", "value": "विलंबित कॉलबैक" },

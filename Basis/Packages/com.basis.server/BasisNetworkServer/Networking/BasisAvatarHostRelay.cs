@@ -71,8 +71,10 @@ namespace Basis.Network.Server.Generic
         private static long NowMs => System.Diagnostics.Stopwatch.GetTimestamp() * 1000 / System.Diagnostics.Stopwatch.Frequency;
         public static readonly BasisAvatarHostLedger Ledger = new BasisAvatarHostLedger(new PeerSink());
         public static void Register() => BasisServerMessageRegistry.RegisterServerPlugin(BasisAvatarHostProtocol.MessageName, DeliveryMethod.ReliableOrdered, Handle);
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, bool> directOwners = new System.Collections.Concurrent.ConcurrentDictionary<int, bool>();
         public static void RemovePeer(int peerId)
         {
+            directOwners.TryRemove(peerId, out _);
             Ledger.RemovePeer(peerId);
             lock (askSync)
             {
@@ -250,6 +252,7 @@ namespace Basis.Network.Server.Generic
                         {
                             if (!BasisAvatarHostProtocol.TryReadId(reader, out byte[] id) || !reader.TryGetLong(out long length)) return;
                             if (!MaySharePeer(peer.Id)) limits.Enabled = false;
+                            if (reader.TryGetByte(out byte offerFlags) && (offerFlags & BasisAvatarHostProtocol.FlagDirect) != 0) directOwners[peer.Id] = true;
                             Ledger.Offer(peer.Id, id, length, limits);
                             break;
                         }
@@ -261,6 +264,19 @@ namespace Basis.Network.Server.Generic
                     case BasisAvatarHostProtocol.OpRequest:
                         {
                             if (!reader.TryGetUInt(out uint requestId) || !BasisAvatarHostProtocol.TryReadId(reader, out byte[] id) || !reader.TryGetLong(out long start) || !reader.TryGetInt(out int length)) return;
+                            int requester = peer.Id;
+                            if (limits.Enabled && length <= limits.MaxRangeBytes && reader.TryGetByte(out byte requestFlags) && (requestFlags & BasisAvatarHostProtocol.FlagDirect) != 0
+                                && Ledger.TryDirectOwner(requester, id, start, length, owner => directOwners.ContainsKey(owner) && BasisNetworkServer.BasisServerP2PBroker.IsP2POffloaded(requester, owner), out int directOwner))
+                            {
+                                ushort ownerId = (ushort)directOwner;
+                                Send(requester, writer =>
+                                {
+                                    writer.Put(BasisAvatarHostProtocol.OpUseDirect);
+                                    writer.Put(requestId);
+                                    writer.Put(ownerId);
+                                });
+                                return;
+                            }
                             Ledger.Request(peer.Id, requestId, id, start, length, limits);
                             break;
                         }

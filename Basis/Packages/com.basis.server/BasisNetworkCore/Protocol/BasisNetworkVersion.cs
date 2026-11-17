@@ -51,8 +51,8 @@ namespace Basis.Network.Core
             return legacyLogin || protocolVersion != 0;
         }
         public static bool SendsUnlockPasswords(bool legacyLogin, ushort protocolVersion) => legacyLogin || (protocolVersion != 0 && protocolVersion <= PasswordRecordsVersion);
-        public const byte CapabilityBatchedOwnership = 1, CapabilityProtectionSettings = 2;
-        public const byte ClientCapabilities = CapabilityBatchedOwnership | CapabilityProtectionSettings;
+        public const byte CapabilityBatchedOwnership = 1, CapabilityProtectionSettings = 2, CapabilityDirectCameraPip = 4;
+        public const byte ClientCapabilities = CapabilityBatchedOwnership | CapabilityProtectionSettings | CapabilityDirectCameraPip;
         public static byte ReadCapabilities(NetDataReader reader) => reader != null && reader.TryGetByte(out byte flags) ? flags : (byte)0;
     }
 }

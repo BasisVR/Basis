@@ -79,6 +79,14 @@ namespace Basis.Shims
 			return state != null && !Pressed(state.Current, button) && Pressed(state.Last, button);
 		}
 
+		public static int ControllerCount => BasisOneHanded.ControllerCount;
+
+		public static bool HasController(BasisControllerHand hand) => BasisOneHanded.HasController(Role(hand));
+
+		public static bool IsOneHanded => BasisOneHanded.TryGetHand(out _);
+
+		public static BasisControllerHand OneHandedHand => BasisOneHanded.TryGetHand(out BasisBoneTrackedRole role) && role == BasisBoneTrackedRole.LeftHand ? BasisControllerHand.Left : BasisControllerHand.Right;
+
 		public static string GetButtonName(BasisControllerHand hand, BasisControllerButton button) => BasisInputDisplayNames.Get(Role(hand), Key(button));
 
 		public static string GetStickName(BasisControllerHand hand) => BasisInputDisplayNames.Get(Role(hand), BasisInteractableObject.BasisInputKey.Primary2DAxis);

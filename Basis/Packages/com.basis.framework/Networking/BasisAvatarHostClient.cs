@@ -16,6 +16,10 @@ namespace Basis.Scripts.Networking
         private sealed class PendingRequest
         {
             public uint RequestId;
+            public byte[] IdBytes;
+            public long Start;
+            public bool Direct;
+            public ushort Owner;
             public byte[] Buffer;
             public int Received;
             public long LastActivityMs;
@@ -36,11 +40,15 @@ namespace Basis.Scripts.Networking
         [NoAutoStaticsCleanup] private static readonly object hostedSync = new object();
         private static readonly List<HostedAvatar> hosted = new List<HostedAvatar>();
         private static int nextRequestId;
+        private static readonly ConcurrentDictionary<ushort, int> directServes = new ConcurrentDictionary<ushort, int>();
+        [ThreadStatic] private static NetDataWriter directWriter;
         [NoAutoStaticsCleanup] private static readonly Stopwatch clock = Stopwatch.StartNew();
         public static void Initialize()
         {
             BasisServerHostedBee.Fetcher = FetchAsync;
             BasisClientMessageRegistry.RegisterClientPlugin(BasisAvatarHostProtocol.MessageName, Handle);
+            BasisP2PManager.OnDirectPluginMessage -= HandleDirect;
+            BasisP2PManager.OnDirectPluginMessage += HandleDirect;
             BasisNetworkModeration.OnGlobalAvatarHostingLockedChanged -= OnHostingLockChanged;
             BasisNetworkModeration.OnGlobalAvatarHostingLockedChanged += OnHostingLockChanged;
         }
@@ -118,6 +126,7 @@ namespace Basis.Scripts.Networking
                 writer.Put(BasisAvatarHostProtocol.OpOffer);
                 BasisAvatarHostProtocol.WriteId(writer, id);
                 writer.Put(layout.VirtualLength);
+                writer.Put(BasisAvatarHostProtocol.FlagDirect);
             });
             if (!sent)
             {
@@ -177,6 +186,8 @@ namespace Basis.Scripts.Networking
             PendingRequest request = new PendingRequest
             {
                 RequestId = unchecked((uint)Interlocked.Increment(ref nextRequestId)),
+                IdBytes = idBytes,
+                Start = start,
                 Buffer = new byte[length],
                 LastActivityMs = clock.ElapsedMilliseconds,
                 Progress = progress,
@@ -185,20 +196,13 @@ namespace Basis.Scripts.Networking
             requests[request.RequestId] = request;
             try
             {
-                bool sent = BasisClientMessageRegistry.Send(BasisAvatarHostProtocol.MessageName, writer =>
-                {
-                    writer.Put(BasisAvatarHostProtocol.OpRequest);
-                    writer.Put(request.RequestId);
-                    BasisAvatarHostProtocol.WriteId(writer, idBytes);
-                    writer.Put(start);
-                    writer.Put(length);
-                });
-                if (!sent) return (null, "Not connected to a server that shares local avatars.");
+                if (!SendRelayRequest(request, BasisP2PManager.HasAnyConnectedSession())) return (null, "Not connected to a server that shares local avatars.");
                 while (true)
                 {
                     Task finished = await Task.WhenAny(request.Completion.Task, Task.Delay(1000));
                     if (finished == request.Completion.Task) return request.Completion.Task.Result;
                     if (cancellationToken.IsCancellationRequested) return (null, "Cancelled");
+                    if (request.Direct && !BasisP2PManager.TryGetP2PPeer(request.Owner, out _)) FallBackToRelay(request);
                     if (clock.ElapsedMilliseconds - Interlocked.Read(ref request.LastActivityMs) > RequestIdleTimeoutMs) return (null, "The server stopped sending this avatar.");
                 }
             }
@@ -206,6 +210,139 @@ namespace Basis.Scripts.Networking
             {
                 requests.TryRemove(request.RequestId, out _);
             }
+        }
+        private static bool SendRelayRequest(PendingRequest request, bool allowDirect)
+        {
+            return BasisClientMessageRegistry.Send(BasisAvatarHostProtocol.MessageName, writer =>
+            {
+                writer.Put(BasisAvatarHostProtocol.OpRequest);
+                writer.Put(request.RequestId);
+                BasisAvatarHostProtocol.WriteId(writer, request.IdBytes);
+                writer.Put(request.Start);
+                writer.Put(request.Buffer.Length);
+                if (allowDirect) writer.Put(BasisAvatarHostProtocol.FlagDirect);
+            });
+        }
+        private static void FallBackToRelay(PendingRequest request)
+        {
+            lock (request)
+            {
+                if (!request.Direct) return;
+                request.Direct = false;
+                request.Received = 0;
+            }
+            if (!SendRelayRequest(request, false)) request.Completion.TrySetResult((null, "Not connected to a server that shares local avatars."));
+        }
+        private static void UseDirect(uint requestId, ushort owner)
+        {
+            if (!requests.TryGetValue(requestId, out PendingRequest request)) return;
+            lock (request)
+            {
+                request.Direct = true;
+                request.Owner = owner;
+                request.Received = 0;
+            }
+            bool sent = SendDirect(owner, writer =>
+            {
+                writer.Put(BasisAvatarHostProtocol.OpDirectRequest);
+                writer.Put(requestId);
+                BasisAvatarHostProtocol.WriteId(writer, request.IdBytes);
+                writer.Put(request.Start);
+                writer.Put(request.Buffer.Length);
+            });
+            if (!sent) FallBackToRelay(request);
+        }
+        private static bool SendDirect(ushort player, Action<NetDataWriter> write)
+        {
+            if (!BasisClientMessageRegistry.TryGetPluginId(BasisAvatarHostProtocol.MessageName, out ushort pluginId)) return false;
+            NetDataWriter writer = directWriter ??= new NetDataWriter(true, BasisAvatarHostProtocol.ChunkBytes + 32);
+            writer.Reset();
+            writer.Put(pluginId);
+            write(writer);
+            return BasisP2PManager.SendDirectTo(player, writer, BasisNetworkCommons.PluginSequencedChannel, DeliveryMethod.ReliableOrdered);
+        }
+        private static int DirectBacklog(ushort player)
+        {
+            if (!BasisP2PManager.TryGetP2PPeer(player, out NetPeer peer)) return -1;
+            return peer.GetPacketsCountInQueue(BasisNetworkCommons.PluginSequencedChannel, DeliveryMethod.ReliableOrdered);
+        }
+        private static void AcceptChunk(PendingRequest request, NetPacketReader reader, int offset, int count, bool direct, ushort sender)
+        {
+            bool damaged = false, complete;
+            lock (request)
+            {
+                if (request.Direct != direct || (direct && request.Owner != sender)) return;
+                if (count <= 0 || count > reader.AvailableBytes || offset != request.Received || count > request.Buffer.Length - request.Received) damaged = true;
+                else
+                {
+                    reader.GetBytes(request.Buffer, offset, count);
+                    request.Received += count;
+                }
+                complete = request.Received == request.Buffer.Length;
+            }
+            if (damaged)
+            {
+                if (direct) FallBackToRelay(request);
+                else request.Completion.TrySetResult((null, "The server sent a damaged piece of this avatar."));
+                return;
+            }
+            Interlocked.Exchange(ref request.LastActivityMs, clock.ElapsedMilliseconds);
+            request.Progress?.Invoke(request.Received * 100f / request.Buffer.Length);
+            if (complete) request.Completion.TrySetResult((request.Buffer, null));
+        }
+        private static void HandleDirect(ushort sender, NetPacketReader reader, DeliveryMethod deliveryMethod)
+        {
+            if (!BasisClientMessageRegistry.TryGetPluginId(BasisAvatarHostProtocol.MessageName, out ushort pluginId)) return;
+            int start = reader.Position;
+            if (!reader.TryGetUShort(out ushort id) || id != pluginId || !reader.TryGetByte(out byte op))
+            {
+                reader.SetPosition(start);
+                return;
+            }
+            switch (op)
+            {
+                case BasisAvatarHostProtocol.OpDirectRequest:
+                    {
+                        if (!reader.TryGetUInt(out uint requestId) || !BasisAvatarHostProtocol.TryReadId(reader, out byte[] idBytes) || !reader.TryGetLong(out long rangeStart) || !reader.TryGetInt(out int length)) return;
+                        if (directServes.AddOrUpdate(sender, 1, (_, count) => count + 1) > BasisAvatarHostProtocol.MaxDirectServesPerRequester)
+                        {
+                            ReleaseDirectServe(sender);
+                            SendDirectFailed(sender, requestId);
+                            return;
+                        }
+                        string hex = BasisAvatarHostProtocol.IdToHex(idBytes);
+                        _ = Task.Run(async () =>
+                        {
+                            try { await ServeAsync(requestId, hex, rangeStart, length, sender).ConfigureAwait(false); }
+                            finally { ReleaseDirectServe(sender); }
+                        });
+                        break;
+                    }
+                case BasisAvatarHostProtocol.OpDirectChunk:
+                    {
+                        if (!reader.TryGetUInt(out uint requestId) || !reader.TryGetInt(out int offset) || !reader.TryGetInt(out int count)) return;
+                        if (requests.TryGetValue(requestId, out PendingRequest request)) AcceptChunk(request, reader, offset, count, true, sender);
+                        break;
+                    }
+                case BasisAvatarHostProtocol.OpDirectFailed:
+                    {
+                        if (!reader.TryGetUInt(out uint requestId)) return;
+                        if (requests.TryGetValue(requestId, out PendingRequest request) && request.Direct && request.Owner == sender) FallBackToRelay(request);
+                        break;
+                    }
+            }
+        }
+        private static void ReleaseDirectServe(ushort requester)
+        {
+            if (directServes.AddOrUpdate(requester, 0, (_, count) => count - 1) <= 0) directServes.TryRemove(requester, out _);
+        }
+        private static void SendDirectFailed(ushort requester, uint requestId)
+        {
+            SendDirect(requester, writer =>
+            {
+                writer.Put(BasisAvatarHostProtocol.OpDirectFailed);
+                writer.Put(requestId);
+            });
         }
         private static void Handle(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
         {
@@ -224,23 +361,18 @@ namespace Basis.Scripts.Networking
                     case BasisAvatarHostProtocol.OpChunk:
                         {
                             if (!reader.TryGetUInt(out uint requestId) || !reader.TryGetInt(out int offset) || !reader.TryGetInt(out int count)) return;
-                            if (!requests.TryGetValue(requestId, out PendingRequest request)) return;
-                            if (count <= 0 || count > reader.AvailableBytes || offset != request.Received || count > request.Buffer.Length - request.Received)
-                            {
-                                request.Completion.TrySetResult((null, "The server sent a damaged piece of this avatar."));
-                                return;
-                            }
-                            reader.GetBytes(request.Buffer, offset, count);
-                            request.Received += count;
-                            Interlocked.Exchange(ref request.LastActivityMs, clock.ElapsedMilliseconds);
-                            request.Progress?.Invoke(request.Received * 100f / request.Buffer.Length);
-                            if (request.Received == request.Buffer.Length) request.Completion.TrySetResult((request.Buffer, null));
+                            if (requests.TryGetValue(requestId, out PendingRequest request)) AcceptChunk(request, reader, offset, count, false, 0);
+                            break;
+                        }
+                    case BasisAvatarHostProtocol.OpUseDirect:
+                        {
+                            if (reader.TryGetUInt(out uint requestId) && reader.TryGetUShort(out ushort owner)) UseDirect(requestId, owner);
                             break;
                         }
                     case BasisAvatarHostProtocol.OpFailed:
                         {
                             if (!reader.TryGetUInt(out uint requestId) || !reader.TryGetByte(out byte reason)) return;
-                            if (requests.TryGetValue(requestId, out PendingRequest request)) request.Completion.TrySetResult((null, DescribeFailure(reason)));
+                            if (requests.TryGetValue(requestId, out PendingRequest request) && !request.Direct) request.Completion.TrySetResult((null, DescribeFailure(reason)));
                             break;
                         }
                     case BasisAvatarHostProtocol.OpShareAsked:
@@ -263,7 +395,7 @@ namespace Basis.Scripts.Networking
                         {
                             if (!reader.TryGetUInt(out uint fetchId) || !BasisAvatarHostProtocol.TryReadId(reader, out byte[] id) || !reader.TryGetLong(out long start) || !reader.TryGetInt(out int length)) return;
                             string hex = BasisAvatarHostProtocol.IdToHex(id);
-                            _ = Task.Run(() => ServeFetchAsync(fetchId, hex, start, length));
+                            _ = Task.Run(() => ServeAsync(fetchId, hex, start, length, -1));
                             break;
                         }
                 }
@@ -273,8 +405,10 @@ namespace Basis.Scripts.Networking
                 reader.Recycle();
             }
         }
-        private static async Task ServeFetchAsync(uint fetchId, string id, long start, int length)
+        private static async Task ServeAsync(uint fetchId, string id, long start, int length, int directTo)
         {
+            bool direct = directTo >= 0;
+            ushort requester = (ushort)Math.Max(0, directTo);
             BasisHostedBeeLayout layout = null;
             lock (hostedSync)
             {
@@ -285,7 +419,8 @@ namespace Basis.Scripts.Networking
             }
             if (layout == null || length <= 0 || start < 0 || start > layout.VirtualLength - length)
             {
-                SendOwnerFailed(fetchId);
+                if (direct) SendDirectFailed(requester, fetchId);
+                else SendOwnerFailed(fetchId);
                 return;
             }
             byte[] block = System.Buffers.ArrayPool<byte>.Shared.Rent(Math.Min(OwnerReadBlockBytes, length));
@@ -298,11 +433,20 @@ namespace Basis.Scripts.Networking
                     if (error != null)
                     {
                         BasisDebug.LogWarning($"Could not serve shared avatar piece: {error}", BasisDebug.LogTag.Networking);
-                        SendOwnerFailed(fetchId);
+                        if (direct) SendDirectFailed(requester, fetchId);
+                        else SendOwnerFailed(fetchId);
                         return;
                     }
                     for (int chunkOffset = 0; chunkOffset < blockLength; chunkOffset += BasisAvatarHostProtocol.ChunkBytes)
                     {
+                        OwnerChunk chunk = new OwnerChunk { FetchId = fetchId, WireOffset = blockOffset + chunkOffset, Block = block, From = chunkOffset, Count = Math.Min(BasisAvatarHostProtocol.ChunkBytes, blockLength - chunkOffset) };
+                        if (direct)
+                        {
+                            int backlog;
+                            while ((backlog = DirectBacklog(requester)) > MaxQueuedPackets) await Task.Delay(5).ConfigureAwait(false);
+                            if (backlog < 0 || !SendDirect(requester, writer => WriteDirectChunk(writer, chunk))) return;
+                            continue;
+                        }
                         NetPeer peer = BasisNetworkConnection.LocalPlayerPeer;
                         if (peer == null) return;
                         while (peer.GetPacketsCountInQueue(BasisNetworkCommons.PluginReliableChannel, DeliveryMethod.ReliableOrdered) > MaxQueuedPackets)
@@ -310,7 +454,6 @@ namespace Basis.Scripts.Networking
                             await Task.Delay(5).ConfigureAwait(false);
                             if (BasisNetworkConnection.LocalPlayerPeer != peer) return;
                         }
-                        OwnerChunk chunk = new OwnerChunk { FetchId = fetchId, WireOffset = blockOffset + chunkOffset, Block = block, From = chunkOffset, Count = Math.Min(BasisAvatarHostProtocol.ChunkBytes, blockLength - chunkOffset) };
                         if (!BasisClientMessageRegistry.Send(BasisAvatarHostProtocol.MessageName, chunk, WriteOwnerChunk)) return;
                     }
                 }
@@ -318,7 +461,8 @@ namespace Basis.Scripts.Networking
             catch (Exception ex)
             {
                 BasisDebug.LogWarning($"Serving a shared avatar piece failed: {ex.Message}", BasisDebug.LogTag.Networking);
-                SendOwnerFailed(fetchId);
+                if (direct) SendDirectFailed(requester, fetchId);
+                else SendOwnerFailed(fetchId);
             }
             finally
             {
@@ -339,6 +483,14 @@ namespace Basis.Scripts.Networking
             writer.Put(chunk.Count);
             writer.Put(chunk.Block, chunk.From, chunk.Count);
         };
+        private static void WriteDirectChunk(NetDataWriter writer, OwnerChunk chunk)
+        {
+            writer.Put(BasisAvatarHostProtocol.OpDirectChunk);
+            writer.Put(chunk.FetchId);
+            writer.Put(chunk.WireOffset);
+            writer.Put(chunk.Count);
+            writer.Put(chunk.Block, chunk.From, chunk.Count);
+        }
         private static void SendOwnerFailed(uint fetchId)
         {
             BasisClientMessageRegistry.Send(BasisAvatarHostProtocol.MessageName, writer =>

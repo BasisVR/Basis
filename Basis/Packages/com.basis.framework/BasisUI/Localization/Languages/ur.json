@@ -5932,6 +5932,46 @@
     {
       "key": "network.avatarShare.failed.license",
       "value": "اس VRM کا لائسنس فائل کو دوبارہ تقسیم کرنے کی اجازت نہیں دیتا، اس لیے اسے سرور کے ذریعے شیئر نہیں کیا گیا۔"
+    },
+    {
+      "key": "settings.controls.oneHanded",
+      "value": "ایک ہاتھ موڈ"
+    },
+    {
+      "key": "settings.controls.oneHanded.tooltip",
+      "value": "حرکت، مڑنا، چھلانگ، مینو اور مائیکروفون ایک ہی کنٹرولر پر رکھتا ہے۔ تھمب اسٹک آگے اور پیچھے کرنے سے آپ چلتے ہیں، بائیں اور دائیں کرنے سے مڑتے ہیں۔ پرائمری بٹن سے چھلانگ، سیکنڈری بٹن سے مینو کھلتا ہے اور تھمب اسٹک کلک مائیکروفون ٹوگل کرتا ہے۔ فعال رہنے تک یہ ہاتھوں کی ایکشن بائنڈنگز کی جگہ لیتا ہے۔"
+    },
+    {
+      "key": "settings.controls.oneHanded.auto",
+      "value": "خودکار"
+    },
+    {
+      "key": "settings.controls.oneHanded.auto.tooltip",
+      "value": "جب تک صرف ایک کنٹرولر منسلک ہو، خود بخود آن ہو جاتا ہے۔"
+    },
+    {
+      "key": "settings.controls.oneHanded.off",
+      "value": "بند"
+    },
+    {
+      "key": "settings.controls.oneHanded.off.tooltip",
+      "value": "ہمیشہ دونوں کنٹرولر استعمال کریں۔"
+    },
+    {
+      "key": "settings.controls.oneHanded.left",
+      "value": "بایاں ہاتھ"
+    },
+    {
+      "key": "settings.controls.oneHanded.left.tooltip",
+      "value": "سب کچھ بائیں کنٹرولر سے چلائیں۔"
+    },
+    {
+      "key": "settings.controls.oneHanded.right",
+      "value": "دایاں ہاتھ"
+    },
+    {
+      "key": "settings.controls.oneHanded.right.tooltip",
+      "value": "سب کچھ دائیں کنٹرولر سے چلائیں۔"
     }
   ]
 }

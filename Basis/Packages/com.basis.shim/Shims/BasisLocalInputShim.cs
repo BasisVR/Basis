@@ -26,5 +26,9 @@ namespace Basis.Shims
 		public static bool GetButtonUp(object self, BasisControllerHand hand, BasisControllerButton button) => Cilbox.CilboxInputRequests.Local(self) && BasisControllerInputShim.GetButtonUp(hand, button);
 		public static string GetButtonName(object self, BasisControllerHand hand, BasisControllerButton button) => BasisControllerInputShim.GetButtonName(hand, button);
 		public static string GetStickName(object self, BasisControllerHand hand) => BasisControllerInputShim.GetStickName(hand);
+		public static int GetControllerCount(object self) => BasisControllerInputShim.ControllerCount;
+		public static bool HasController(object self, BasisControllerHand hand) => BasisControllerInputShim.HasController(hand);
+		public static bool IsOneHanded(object self) => BasisControllerInputShim.IsOneHanded;
+		public static BasisControllerHand GetOneHandedHand(object self) => BasisControllerInputShim.OneHandedHand;
 	}
 }

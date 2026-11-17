@@ -5932,6 +5932,46 @@
     {
       "key": "network.avatarShare.failed.license",
       "value": "La licenza di questo VRM non consente di ridistribuire il file, quindi non è stato condiviso tramite il server."
+    },
+    {
+      "key": "settings.controls.oneHanded",
+      "value": "Modalità a una mano"
+    },
+    {
+      "key": "settings.controls.oneHanded.tooltip",
+      "value": "Mette movimento, rotazione, salto, menu e microfono su un solo controller. La levetta avanti e indietro ti muove, a sinistra e a destra ti fa girare. Il pulsante primario salta, il pulsante secondario apre il menu e un clic della levetta attiva o disattiva il microfono. Sostituisce le assegnazioni delle azioni delle mani finché è attiva."
+    },
+    {
+      "key": "settings.controls.oneHanded.auto",
+      "value": "Automatica"
+    },
+    {
+      "key": "settings.controls.oneHanded.auto.tooltip",
+      "value": "Si attiva da sola finché è collegato un solo controller."
+    },
+    {
+      "key": "settings.controls.oneHanded.off",
+      "value": "Disattivata"
+    },
+    {
+      "key": "settings.controls.oneHanded.off.tooltip",
+      "value": "Usa sempre entrambi i controller."
+    },
+    {
+      "key": "settings.controls.oneHanded.left",
+      "value": "Mano sinistra"
+    },
+    {
+      "key": "settings.controls.oneHanded.left.tooltip",
+      "value": "Controlla tutto dal controller sinistro."
+    },
+    {
+      "key": "settings.controls.oneHanded.right",
+      "value": "Mano destra"
+    },
+    {
+      "key": "settings.controls.oneHanded.right.tooltip",
+      "value": "Controlla tutto dal controller destro."
     }
   ]
 }

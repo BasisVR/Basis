@@ -13,6 +13,9 @@ namespace Basis.Scripts.Networking.Sync
         private const int MaxStage = 32;
         private const int MinJitterDepth = 1;
         private const int MaxJitterDepth = 4;
+        private const double MaxBufferSeconds = 0.5;
+        private const double DepthHoldSeconds = 10.0;
+        private double _lastStarveAt = double.NegativeInfinity;
         private const double DefaultInterval = 0.05;
         private const float CatchupDeadband = 0.5f;
         private const float CatchupGain = 0.5f;
@@ -65,6 +68,16 @@ namespace Basis.Scripts.Networking.Sync
         // latency, less tolerance to jitter/loss before a hitch. Configurable per object; default keeps the
         // historical depth of 2. _dynamicDepth still climbs above this on underruns and decays back to it.
         private float _depthFloor = MinJitterDepth + 1f;
+        public volatile bool AllowLowFloor;
+        private Basis.Scripts.Networking.Receivers.BasisJitterFloor _floorPolicy;
+        private double _floorClock;
+        private bool _starving;
+        private double _starveStart;
+        private double _starveWindow;
+        private bool _starveNearIdle;
+        private double _lastStaticAt = double.NegativeInfinity;
+        private const double UnderrunMinIntervals = 0.75, UnderrunMaxIntervals = 4.0;
+        public float EffectiveFloor => _floorPolicy.Floor(AllowLowFloor, _floorClock, _depthFloor);
         private bool _valuesDirty = true;
         private bool _snapRequested;
         private bool _windowStatic;
@@ -155,6 +168,7 @@ namespace Basis.Scripts.Networking.Sync
         public void Advance(double dt)
         {
             _bwTime += dt;
+            _floorClock += dt;
             if (_bwTime >= BandwidthWindow)
             {
                 float inv = (float)(1.0 / _bwTime);
@@ -256,6 +270,17 @@ namespace Basis.Scripts.Networking.Sync
                 }
             }
 
+            if (_starving && _staged.Count > 0)
+            {
+                _starving = false;
+                double starved = _floorClock - _starveStart;
+                bool idleFrame = _next != null && ValuesEqual(_next.Values, _staged.Peek().Values);
+                if (!_starveNearIdle && !idleFrame && starved >= _starveWindow * UnderrunMinIntervals && starved <= _starveWindow * UnderrunMaxIntervals)
+                {
+                    _floorPolicy.OnUnderrun(AllowLowFloor, _floorClock);
+                }
+            }
+
             if (_current == null && _staged.Count > 0) { _current = _staged.Dequeue(); _valuesDirty = true; _windowStaticValid = false; }
             if (_next == null && _staged.Count > 0) { _next = _staged.Dequeue(); _valuesDirty = true; _windowStaticValid = false; }
 
@@ -278,6 +303,7 @@ namespace Basis.Scripts.Networking.Sync
                     // Static window with nothing queued behind it: pin to the newest values. Starving here is
                     // the sender being idle, not network trouble, so the depth target must not ratchet up.
                     _interpTime = 1.0;
+                    _lastStaticAt = _floorClock;
                 }
                 else
                 {
@@ -311,7 +337,15 @@ namespace Basis.Scripts.Networking.Sync
                         // — extrapolating along it would overshoot hard, so hold at the window end instead.
                         if (_extrapolate && !SuppressExtrapolation && !gap && window > 1e-6) cap = 1.0 + _maxExtrapSeconds / window;
                         if (_interpTime > cap) _interpTime = cap;
-                        _dynamicDepth = math.min(_dynamicDepth + 0.25f, MaxJitterDepth);
+                        _dynamicDepth = math.min(_dynamicDepth + 0.25f, math.max((float)MaxJitterDepth, (float)(MaxBufferSeconds / window)));
+                        if (!_starving)
+                        {
+                            _starving = true;
+                            _starveStart = _floorClock;
+                            _starveWindow = window;
+                            _starveNearIdle = _floorClock - _lastStaticAt <= window * UnderrunMaxIntervals;
+                        }
+                        if (!_starveNearIdle) _lastStarveAt = _floorClock;
                     }
                     else if (_interpTime < 0.0)
                     {
@@ -319,7 +353,8 @@ namespace Basis.Scripts.Networking.Sync
                     }
                 }
 
-                _dynamicDepth = math.max(_dynamicDepth - (float)(dt * 0.5), _depthFloor);
+                if (_floorClock - _lastStarveAt > DepthHoldSeconds) _dynamicDepth = math.max(_dynamicDepth - (float)(dt * 0.5), EffectiveFloor);
+                else _dynamicDepth = math.max(_dynamicDepth, EffectiveFloor);
             }
             else
             {
@@ -349,6 +384,10 @@ namespace Basis.Scripts.Networking.Sync
             _serverClockSeeded = false;
             _serverClock = 0.0;
             _dynamicDepth = _depthFloor;
+            _floorPolicy.Reset();
+            _starving = false;
+            _lastStaticAt = double.NegativeInfinity;
+            _lastStarveAt = double.NegativeInfinity;
             _haveLastCont = false;
             _bwBytes = 0;
             _bwPackets = 0;

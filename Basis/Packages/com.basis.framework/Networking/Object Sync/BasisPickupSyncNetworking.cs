@@ -395,6 +395,10 @@ public class BasisPickupSyncNetworking : BasisSyncedTransform, IBasisStaticLocka
     /// <summary>Full-rate while the owner is holding it (see <see cref="FullRateWhileHeld"/>).</summary>
     protected override bool ShouldSuppressDistanceReduction() => FullRateWhileHeld && IsHeldByOwner();
 
+    protected override float DirectSendIntervalSeconds => FullRateWhileHeld && IsHeldByOwner()
+        ? Mathf.Min(base.DirectSendIntervalSeconds, Basis.Scripts.Networking.BasisP2PManager.FastAvatarIntervalSeconds)
+        : base.DirectSendIntervalSeconds;
+
     /// <summary>True if the local owner currently has this prop grabbed in either hand (or desktop).</summary>
     private bool IsHeldByOwner()
     {

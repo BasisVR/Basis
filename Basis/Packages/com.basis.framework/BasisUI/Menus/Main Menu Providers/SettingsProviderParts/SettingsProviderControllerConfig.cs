@@ -52,6 +52,14 @@ public static class SettingsProviderControllerConfig
 
             if (isVR)
             {
+                PanelDropdown dropdownOneHanded = PanelDropdown.CreateNewEntry(group);
+                dropdownOneHanded.Descriptor.SetTitle(BasisLocalization.Get("settings.controls.oneHanded"));
+                dropdownOneHanded.Descriptor.SetTooltip(BasisLocalization.Get("settings.controls.oneHanded.tooltip"));
+                dropdownOneHanded.AssignLocalizedEntries(
+                    new List<string> { BasisOneHanded.Auto, BasisOneHanded.Off, BasisOneHanded.Left, BasisOneHanded.Right },
+                    new List<string> { "settings.controls.oneHanded.auto", "settings.controls.oneHanded.off", "settings.controls.oneHanded.left", "settings.controls.oneHanded.right" });
+                dropdownOneHanded.AssignBinding(BasisSettingsDefaults.OneHandedMode);
+
                 PanelDropdown dropdownDesktopInputInVR = PanelDropdown.CreateNewEntry(group);
                 dropdownDesktopInputInVR.Descriptor.SetTitle(BasisLocalization.Get("settings.controls.desktopInputInVR"));
                 dropdownDesktopInputInVR.Descriptor.SetTooltip(BasisLocalization.Get("settings.controls.desktopInputInVR.tooltip"));
@@ -487,6 +495,7 @@ public static class SettingsProviderControllerConfig
         BasisSettingsDefaults.ForceRotationSnap.ResetToDefault();
         BasisSettingsDefaults.RotationSnapDegrees.ResetToDefault();
         BasisSettingsDefaults.DominantHand.ResetToDefault();
+        BasisSettingsDefaults.OneHandedMode.ResetToDefault();
         BasisSettingsDefaults.DesktopInputInVR.ResetToDefault();
         BasisSettingsDefaults.QuestControllerFix.ResetToDefault();
         BasisSettingsDefaults.DevGenericInputNames.ResetToDefault();

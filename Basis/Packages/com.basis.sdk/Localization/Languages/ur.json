@@ -768,6 +768,8 @@
     { "key": "sdk.cilbox.api.blendShapeSync.summary", "value": "ہر شکل کے لیے الگ پکار کے بجائے ایک ہی پکار میں کئی بلینڈ شیپس پڑھتا اور لکھتا ہے۔" },
     { "key": "sdk.cilbox.api.makeNetworkable.title", "value": "اسکرپٹ کو نیٹ ورک سے جوڑنا" },
     { "key": "sdk.cilbox.api.makeNetworkable.summary", "value": "Cilbox اسکرپٹ نیٹ ورک behaviour سے وراثت نہیں لے سکتی، اس لیے وہ ایک شِم لگا کر اس کے ایونٹس سنتی ہے۔" },
+    { "key": "sdk.cilbox.api.directMessages.title", "value": "براہ راست پیغامات" },
+    { "key": "sdk.cilbox.api.directMessages.summary", "value": "SendCustomNetworkEventDirect اُن کھلاڑیوں کو براہ راست بھیجتا ہے جن سے آپ کا براہ راست کنکشن ہے اور باقی سب کو سرور کے ذریعے، تاکہ بار بار ہونے والی اپ ڈیٹس جہاں ممکن ہو سرور سے بچیں۔ پیغامات اسی NetworkMessageReceived ایونٹ سے آتے ہیں۔" },
     { "key": "sdk.cilbox.api.ownership.title", "value": "ملکیت" },
     { "key": "sdk.cilbox.api.ownership.summary", "value": "اس شے پر اختیار کس کا ہے، اور اسے کیسے مانگا جائے۔" },
     { "key": "sdk.cilbox.api.delayedEvents.title", "value": "تاخیری کال بیکس" },

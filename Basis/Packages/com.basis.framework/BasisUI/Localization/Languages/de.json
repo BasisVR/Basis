@@ -5932,6 +5932,46 @@
     {
       "key": "network.avatarShare.failed.license",
       "value": "Die Lizenz dieser VRM-Datei erlaubt keine Weitergabe, daher wurde sie nicht über den Server geteilt."
+    },
+    {
+      "key": "settings.controls.oneHanded",
+      "value": "Einhandmodus"
+    },
+    {
+      "key": "settings.controls.oneHanded.tooltip",
+      "value": "Legt Bewegung, Drehen, Springen, das Menü und das Mikrofon auf einen einzigen Controller. Thumbstick vor und zurück bewegt dich, links und rechts dreht dich. Die Primärtaste springt, die Sekundärtaste öffnet das Menü und ein Klick auf den Thumbstick schaltet das Mikrofon um. Ersetzt die Aktionsbelegungen der Hände, solange der Modus aktiv ist."
+    },
+    {
+      "key": "settings.controls.oneHanded.auto",
+      "value": "Automatisch"
+    },
+    {
+      "key": "settings.controls.oneHanded.auto.tooltip",
+      "value": "Schaltet sich von selbst ein, solange nur ein Controller verbunden ist."
+    },
+    {
+      "key": "settings.controls.oneHanded.off",
+      "value": "Aus"
+    },
+    {
+      "key": "settings.controls.oneHanded.off.tooltip",
+      "value": "Immer beide Controller verwenden."
+    },
+    {
+      "key": "settings.controls.oneHanded.left",
+      "value": "Linke Hand"
+    },
+    {
+      "key": "settings.controls.oneHanded.left.tooltip",
+      "value": "Alles über den linken Controller steuern."
+    },
+    {
+      "key": "settings.controls.oneHanded.right",
+      "value": "Rechte Hand"
+    },
+    {
+      "key": "settings.controls.oneHanded.right.tooltip",
+      "value": "Alles über den rechten Controller steuern."
     }
   ]
 }

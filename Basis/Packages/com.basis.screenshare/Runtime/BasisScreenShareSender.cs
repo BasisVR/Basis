@@ -9,8 +9,9 @@ public sealed class BasisScreenShareSender : IDisposable
 {
     const int UplinkHigh = 150, UplinkLow = 30, WaitMs = 50;
     static readonly long AdaptTicks = Stopwatch.Frequency, PruneTicks = Stopwatch.Frequency / 4;
-    readonly ConcurrentDictionary<ushort, bool> direct = new ConcurrentDictionary<ushort, bool>();
+    readonly ConcurrentDictionary<ushort, bool> direct = new ConcurrentDictionary<ushort, bool>(), laned = new ConcurrentDictionary<ushort, bool>();
     readonly List<ushort> targets = new List<ushort>(), dropped = new List<ushort>();
+    readonly List<bool> targetLanes = new List<bool>();
     readonly byte[] audioBuffer = new byte[4000];
     byte[] videoBuffer = new byte[256 * 1024];
     readonly Thread thread;
@@ -72,19 +73,25 @@ public sealed class BasisScreenShareSender : IDisposable
         if (!isAccepted && !direct.IsEmpty)
         {
             direct.Clear();
+            laned.Clear();
             DirectViewersChanged?.Invoke();
         }
     }
 
-    public bool AddDirectViewer(ushort viewer)
+    public bool AddDirectViewer(ushort viewer, bool lanes)
     {
         if (!accepted) return false;
+        laned[viewer] = lanes;
         direct[viewer] = true;
         RequestKeyframe();
         return true;
     }
 
-    public bool RemoveDirectViewer(ushort viewer) => direct.TryRemove(viewer, out _);
+    public bool RemoveDirectViewer(ushort viewer)
+    {
+        laned.TryRemove(viewer, out _);
+        return direct.TryRemove(viewer, out _);
+    }
 
     public void MarkNeedsKey(ushort viewer)
     {
@@ -145,7 +152,7 @@ public sealed class BasisScreenShareSender : IDisposable
             bool key = frame.Key != 0;
             uint sequence = videoSequence++;
             if (sendRelay && !BasisScreenShareClient.SendFrameRelay(sequence, KindVideo, key, frame.PtsUs, videoBuffer, read)) RequestKeyframe();
-            if (sendDirect && SelectTargets(true, key)) BasisScreenShareClient.SendFrameDirect(targets, sequence, KindVideo, key, frame.PtsUs, videoBuffer, read);
+            if (sendDirect && SelectTargets(true, key)) BasisScreenShareClient.SendFrameDirect(targets, targetLanes, sequence, KindVideo, key, frame.PtsUs, videoBuffer, read);
         }
         while ((read = BasisScreenShareNative.ReadAudio(handle, audioBuffer, out long pts)) > 0)
         {
@@ -153,7 +160,7 @@ public sealed class BasisScreenShareSender : IDisposable
             if (!sendRelay && !sendDirect) continue;
             uint sequence = audioSequence++;
             if (sendRelay) BasisScreenShareClient.SendFrameRelay(sequence, KindAudio, true, pts, audioBuffer, read);
-            if (sendDirect && SelectTargets(false, true)) BasisScreenShareClient.SendFrameDirect(targets, sequence, KindAudio, true, pts, audioBuffer, read);
+            if (sendDirect && SelectTargets(false, true)) BasisScreenShareClient.SendFrameDirect(targets, targetLanes, sequence, KindAudio, true, pts, audioBuffer, read);
         }
     }
 
@@ -165,16 +172,19 @@ public sealed class BasisScreenShareSender : IDisposable
     bool SelectTargets(bool video, bool key)
     {
         targets.Clear();
+        targetLanes.Clear();
         dropped.Clear();
         foreach (KeyValuePair<ushort, bool> pair in direct)
         {
-            if (BasisScreenShareClient.DirectBacklog(pair.Key) > BasisScreenShareClient.DirectQueueLimit)
+            bool lanes = HasLanes(pair.Key);
+            if (BasisScreenShareClient.DirectBacklog(pair.Key, lanes) > BasisScreenShareClient.DirectQueueLimit)
             {
                 if (video) dropped.Add(pair.Key);
                 continue;
             }
             if (video && pair.Value && !key) continue;
             targets.Add(pair.Key);
+            targetLanes.Add(lanes);
         }
         if (video)
         {
@@ -184,6 +194,8 @@ public sealed class BasisScreenShareSender : IDisposable
         }
         return targets.Count > 0;
     }
+
+    bool HasLanes(ushort viewer) => laned.TryGetValue(viewer, out bool lanes) && lanes;
 
     void Maintain()
     {
@@ -195,14 +207,14 @@ public sealed class BasisScreenShareSender : IDisposable
             foreach (ushort viewer in direct.Keys)
             {
                 if (BasisScreenShareClient.HasDirectLink(viewer)) continue;
-                changed |= direct.TryRemove(viewer, out _);
+                changed |= RemoveDirectViewer(viewer);
             }
             if (changed) DirectViewersChanged?.Invoke();
         }
         if (now < nextAdapt || (!relay && direct.IsEmpty)) return;
         nextAdapt = now + AdaptTicks;
         int pending = relay ? Math.Max(BasisScreenShareClient.PendingUplink(), BasisScreenShareClient.ServerCongestion) : 0;
-        foreach (ushort viewer in direct.Keys) pending = Math.Max(pending, Math.Min(BasisScreenShareClient.DirectBacklog(viewer), 100000));
+        foreach (ushort viewer in direct.Keys) pending = Math.Max(pending, Math.Min(BasisScreenShareClient.DirectBacklog(viewer, HasLanes(viewer)), 100000));
         int current = CurrentKbps, target = Volatile.Read(ref targetKbps), next = current;
         if (pending > UplinkHigh) next = Math.Max(BasisScreenShareSettings.MinBitrateKbps, (int)(current * 0.75f));
         else if (pending < UplinkLow && current < target) next = Math.Min(target, (int)(current * 1.08f) + 50);

@@ -92,6 +92,8 @@ pub struct AudioShared {
     /// the counter, silencing it until the new generation passed the old
     /// total.
     pub trimmed_frames_total: AtomicU64,
+    pub newest_pts_us: AtomicI64,
+    pub live_depth_cap_us: AtomicI64,
 }
 
 impl AudioShared {
@@ -109,6 +111,8 @@ impl AudioShared {
             pushed_frames: AtomicU64::new(0),
             trimmed_frames: AtomicU64::new(0),
             trimmed_frames_total: AtomicU64::new(0),
+            newest_pts_us: AtomicI64::new(i64::MIN),
+            live_depth_cap_us: AtomicI64::new(i64::MAX),
         }
     }
 
@@ -199,6 +203,12 @@ impl AudioProducer {
         self.shared
             .pushed_frames
             .store(self.pushed_frames, Ordering::Relaxed);
+        let end = pts_us.saturating_add(
+            (take / channels) as i64 * 1_000_000 / i64::from(self.sample_rate.max(1)),
+        );
+        if end > self.shared.newest_pts_us.load(Ordering::Relaxed) {
+            self.shared.newest_pts_us.store(end, Ordering::Relaxed);
+        }
         take
     }
 
@@ -326,6 +336,30 @@ impl AudioConsumer {
             }
         }
 
+        let cap = self.shared.live_depth_cap_us.load(Ordering::Relaxed);
+        let newest = self.shared.newest_pts_us.load(Ordering::Relaxed);
+        if cap != i64::MAX
+            && newest != i64::MIN
+            && let Some(head) = self.head_pts()
+        {
+            let excess = newest - head - cap;
+            if excess > 0 {
+                let trim = ((excess * rate / 1_000_000) as usize)
+                    .min(TRIM_MAX_FRAMES)
+                    .min(self.ring.slots() / channels);
+                for _ in 0..trim * channels {
+                    let _ = self.ring.pop();
+                }
+                self.removed_frames += trim as u64;
+                self.shared
+                    .trimmed_frames
+                    .fetch_add(trim as u64, Ordering::Relaxed);
+                self.shared
+                    .trimmed_frames_total
+                    .fetch_add(trim as u64, Ordering::Relaxed);
+            }
+        }
+
         let want = out.len() / channels * channels;
         let ready = self.ring.slots() / channels * channels;
         let take = want.min(ready);
@@ -419,8 +453,7 @@ fn audio_pair(format: AudioFormatInfo, shared: Arc<AudioShared>) -> (AudioProduc
     shared.clock_now_us.store(i64::MIN, Ordering::Relaxed);
     shared.pushed_frames.store(0, Ordering::Relaxed);
     shared.trimmed_frames.store(0, Ordering::Relaxed);
-    // trimmed_frames_total is deliberately not reset: it is a session
-    // total.
+    shared.newest_pts_us.store(i64::MIN, Ordering::Relaxed);
     (
         AudioProducer {
             ring: producer,

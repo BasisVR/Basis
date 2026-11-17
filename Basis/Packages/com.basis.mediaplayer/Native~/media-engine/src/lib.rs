@@ -1182,6 +1182,8 @@ fn open_whep(
     finish_open(px, demuxer, bank_cfg, Some(factory), threads);
 }
 
+pub const PUSH_AUDIO_DEPTH_CAP_US: i64 = 250_000;
+
 fn open_push(
     px: Arc<PipelineShared>,
     mut demuxer: push::PushDemuxer,
@@ -1193,6 +1195,10 @@ fn open_push(
     if request.buffer_depth_ms.is_none() {
         bank_cfg.depth = BufferDepth::Millis(bank_cfg.decoder_cushion.as_micros() as u32 / 1000);
     }
+    px.audio_shared.live_depth_cap_us.store(
+        PUSH_AUDIO_DEPTH_CAP_US,
+        std::sync::atomic::Ordering::Relaxed,
+    );
     let cancel = px.io_cancel.clone();
     demuxer.set_cancel(Box::new(move || cancel.is_cancelled()));
     finish_open(px, Box::new(demuxer), bank_cfg, None, threads);

@@ -539,7 +539,7 @@ namespace Basis.BasisUI
             {
                 AvatarInterpField.SetDescription(
                     $"t: {receiver.InterpolationTimeDebug:F3} | Rate: {receiver.LastPlaybackRate:F3}x (0.85-1.35)\n" +
-                    $"Jitter Depth: {receiver.DynamicJitterDepth:F2} (min {BasisNetworkReceiver.MinJitterDepth} / max {BasisNetworkReceiver.MaxJitterDepth})\n" +
+                    $"Jitter Depth: {receiver.DynamicJitterDepth:F2} (min {receiver.JitterFloor:F0} / max {BasisNetworkReceiver.MaxJitterDepth})\n" +
                     $"Buffer Holds: {(receiver.HasBufferHolds ? "Yes" : "No")}");
             }
 

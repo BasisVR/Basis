@@ -768,6 +768,8 @@
     { "key": "sdk.cilbox.api.blendShapeSync.summary", "value": "一次调用读写大量 BlendShape，而不是每个形状一次解释执行的调用。" },
     { "key": "sdk.cilbox.api.makeNetworkable.title", "value": "让脚本联网" },
     { "key": "sdk.cilbox.api.makeNetworkable.summary", "value": "Cilbox 脚本不能继承网络 behaviour，因此改为挂上一个 shim 并订阅它的事件。" },
+    { "key": "sdk.cilbox.api.directMessages.title", "value": "直连消息" },
+    { "key": "sdk.cilbox.api.directMessages.summary", "value": "SendCustomNetworkEventDirect 会直接发送给与你有直连的玩家，其余玩家经服务器转发，因此频繁的更新能绕开服务器的地方都会绕开。消息通过同一个 NetworkMessageReceived 事件到达。" },
     { "key": "sdk.cilbox.api.ownership.title", "value": "所有权" },
     { "key": "sdk.cilbox.api.ownership.summary", "value": "谁对该对象拥有权威，以及如何申请。" },
     { "key": "sdk.cilbox.api.delayedEvents.title", "value": "延迟回调" },

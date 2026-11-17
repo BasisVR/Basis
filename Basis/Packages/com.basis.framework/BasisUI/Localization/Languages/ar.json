@@ -5932,6 +5932,46 @@
     {
       "key": "network.avatarShare.failed.license",
       "value": "لا يسمح ترخيص ملف VRM هذا بإعادة توزيعه، لذلك لم تتم مشاركته عبر الخادم."
+    },
+    {
+      "key": "settings.controls.oneHanded",
+      "value": "وضع اليد الواحدة"
+    },
+    {
+      "key": "settings.controls.oneHanded.tooltip",
+      "value": "يضع الحركة والدوران والقفز والقائمة والميكروفون على وحدة تحكم واحدة. تحريك العصا للأمام والخلف يحركك، ولليسار واليمين يديرك. الزر الأساسي للقفز، والزر الثانوي يفتح القائمة، والضغط على العصا يبدّل الميكروفون. يستبدل تعيينات إجراءات اليدين ما دام مفعّلاً."
+    },
+    {
+      "key": "settings.controls.oneHanded.auto",
+      "value": "تلقائي"
+    },
+    {
+      "key": "settings.controls.oneHanded.auto.tooltip",
+      "value": "يعمل تلقائياً ما دامت وحدة تحكم واحدة فقط متصلة."
+    },
+    {
+      "key": "settings.controls.oneHanded.off",
+      "value": "إيقاف"
+    },
+    {
+      "key": "settings.controls.oneHanded.off.tooltip",
+      "value": "استخدام وحدتي التحكم دائماً."
+    },
+    {
+      "key": "settings.controls.oneHanded.left",
+      "value": "اليد اليسرى"
+    },
+    {
+      "key": "settings.controls.oneHanded.left.tooltip",
+      "value": "التحكم بكل شيء من وحدة التحكم اليسرى."
+    },
+    {
+      "key": "settings.controls.oneHanded.right",
+      "value": "اليد اليمنى"
+    },
+    {
+      "key": "settings.controls.oneHanded.right.tooltip",
+      "value": "التحكم بكل شيء من وحدة التحكم اليمنى."
     }
   ]
 }

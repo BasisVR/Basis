@@ -288,7 +288,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 }
                 for (int Index = 0; Index < directIds.Count; Index++)
                 {
-                    BasisP2PManager.SendDirectTo(directIds[Index], p2pWriter, BasisNetworkCommons.DirectAvatarChannel, DeliveryMethod);
+                    if (!BasisP2PManager.SendDirectTo(directIds[Index], p2pWriter, BasisNetworkCommons.DirectAvatarChannel, DeliveryMethod)) relayIds.Add(directIds[Index]);
                 }
             }
 

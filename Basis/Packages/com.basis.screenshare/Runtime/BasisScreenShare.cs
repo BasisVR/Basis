@@ -321,10 +321,10 @@ public class BasisScreenShare : MonoBehaviour
 
     public void RequestKeyframe() => sender?.RequestKeyframe();
 
-    public void OnDirectWatch(ushort viewer, bool watching)
+    public void OnDirectWatch(ushort viewer, bool watching, bool lanes)
     {
         if (sender == null) return;
-        bool changed = watching ? BasisScreenShareClient.HasDirectLink(viewer) && sender.AddDirectViewer(viewer) : sender.RemoveDirectViewer(viewer);
+        bool changed = watching ? BasisScreenShareClient.HasDirectLink(viewer) && sender.AddDirectViewer(viewer, lanes) : sender.RemoveDirectViewer(viewer);
         if (changed) Raise();
     }
 

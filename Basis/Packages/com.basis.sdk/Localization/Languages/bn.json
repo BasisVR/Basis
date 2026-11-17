@@ -768,6 +768,8 @@
     { "key": "sdk.cilbox.api.blendShapeSync.summary", "value": "প্রতিটি শেপের জন্য আলাদা কলের বদলে এক কলেই অনেক ব্লেন্ডশেপ পড়ে ও লেখে।" },
     { "key": "sdk.cilbox.api.makeNetworkable.title", "value": "স্ক্রিপ্টকে নেটওয়ার্কে যুক্ত করা" },
     { "key": "sdk.cilbox.api.makeNetworkable.summary", "value": "Cilbox স্ক্রিপ্ট নেটওয়ার্ক behaviour থেকে উত্তরাধিকার নিতে পারে না, তাই একটি shim যুক্ত করে তার ইভেন্ট শোনে।" },
+    { "key": "sdk.cilbox.api.directMessages.title", "value": "সরাসরি বার্তা" },
+    { "key": "sdk.cilbox.api.directMessages.summary", "value": "SendCustomNetworkEventDirect যাদের সাথে আপনার সরাসরি সংযোগ আছে তাদের কাছে সরাসরি পাঠায় এবং বাকিদের কাছে সার্ভারের মাধ্যমে, ফলে ঘন ঘন আপডেট যেখানে সম্ভব সার্ভার এড়িয়ে যায়। বার্তাগুলো একই NetworkMessageReceived ইভেন্টে আসে।" },
     { "key": "sdk.cilbox.api.ownership.title", "value": "মালিকানা" },
     { "key": "sdk.cilbox.api.ownership.summary", "value": "এই অবজেক্টে কার কর্তৃত্ব, আর তা কীভাবে চাইতে হয়।" },
     { "key": "sdk.cilbox.api.delayedEvents.title", "value": "বিলম্বিত কলব্যাক" },

@@ -139,6 +139,22 @@ namespace Basis.Network.Server.Generic
                 WithdrawLocked(ownerPeerId, key, BasisAvatarHostProtocol.ReasonOwnerLeft);
             }
         }
+        public bool TryDirectOwner(int requesterPeerId, byte[] id, long start, int length, Func<int, bool> reachable, out int owner)
+        {
+            owner = -1;
+            string key = BasisAvatarHostProtocol.IdToHex(id);
+            lock (sync)
+            {
+                if (key == null || !offers.TryGetValue(key, out HostedBee bee) || start < 0 || length <= 0 || start > bee.Length - length || cache.ContainsKey((key, start, length))) return false;
+                foreach (int candidate in bee.Owners)
+                {
+                    if (candidate == requesterPeerId || !reachable(candidate)) continue;
+                    owner = candidate;
+                    return true;
+                }
+                return false;
+            }
+        }
         public void Request(int requesterPeerId, uint requestId, byte[] id, long start, int length, in BasisAvatarHostLimits limits)
         {
             string key = BasisAvatarHostProtocol.IdToHex(id);

@@ -518,6 +518,20 @@ public class Door : MonoBehaviour
             new CilboxApiEntry
             {
                 GroupKey = GroupNetworking,
+                TitleKey = "sdk.cilbox.api.directMessages.title",
+                SummaryKey = "sdk.cilbox.api.directMessages.summary",
+                Requires = new[] { new CilboxApiRequirement("Basis.BasisNetworkBehaviour") },
+                Example =
+@"// Frequent, short-lived updates such as a held object's aim or a scoreboard tick.
+// Players with a direct connection get it peer to peer, everyone else through the
+// server. It arrives in the same NetworkMessageReceived handler as other messages.
+net.SendCustomNetworkEventDirect(state, DeliveryMethod.Sequenced);
+
+// Keep messages that late joiners or ownership depend on on SendCustomNetworkEvent.",
+            },
+            new CilboxApiEntry
+            {
+                GroupKey = GroupNetworking,
                 TitleKey = "sdk.cilbox.api.ownership.title",
                 SummaryKey = "sdk.cilbox.api.ownership.summary",
                 Requires = new[] { new CilboxApiRequirement("Basis.BasisNetworkBehaviour") },

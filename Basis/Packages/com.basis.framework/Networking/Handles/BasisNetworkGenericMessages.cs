@@ -132,16 +132,28 @@ public static partial class BasisNetworkGenericMessages
 
     // ── Optional batched scene data (see BasisSyncBatchCollector). One packet under the reserved index carries
     //    many objects' payloads; demux to each object's normal handler. Registered only while batching is on. ──
-    public static void RegisterBatchHandler() => RegisterHandler(BasisSyncBatchCollector.BatchMessageIndex, HandleBatch);
-    public static void UnregisterBatchHandler() => UnregisterHandler(BasisSyncBatchCollector.BatchMessageIndex);
+    public static void RegisterBatchHandler()
+    {
+        RegisterHandler(BasisSyncBatchCollector.BatchMessageIndex, HandleBatch);
+        RegisterDirectHandler(BasisSyncBatchCollector.BatchMessageIndex, HandleDirectBatch);
+    }
+    public static void UnregisterBatchHandler()
+    {
+        UnregisterHandler(BasisSyncBatchCollector.BatchMessageIndex);
+        UnregisterDirectHandler(BasisSyncBatchCollector.BatchMessageIndex);
+    }
 
-    private static void HandleBatch(ushort playerID, byte[] payload, DeliveryMethod deliveryMethod)
+    private static void HandleBatch(ushort playerID, byte[] payload, DeliveryMethod deliveryMethod) => Demux(_handlers, playerID, payload, deliveryMethod);
+
+    private static void HandleDirectBatch(ushort playerID, byte[] payload, DeliveryMethod deliveryMethod) => Demux(_directHandlers, playerID, payload, deliveryMethod);
+
+    private static void Demux(Dictionary<ushort, Action<ushort, byte[], DeliveryMethod>> handlers, ushort playerID, byte[] payload, DeliveryMethod deliveryMethod)
     {
         if (payload == null) return;
         var reader = new BasisSyncBatchReader(payload, payload.Length);
         while (reader.TryRead(out ushort id, out int offset, out int length))
         {
-            if (_handlers.TryGetValue(id, out var handler))
+            if (handlers.TryGetValue(id, out var handler))
             {
                 byte[] sub = new byte[length];
                 System.Array.Copy(payload, offset, sub, 0, length);
@@ -409,7 +421,7 @@ public static partial class BasisNetworkGenericMessages
             }
             for (int Index = 0; Index < directIds.Count; Index++)
             {
-                BasisP2PManager.SendDirectTo(directIds[Index], p2pWriter, BasisNetworkCommons.DirectSceneChannel, deliveryMethod);
+                if (!BasisP2PManager.SendDirectTo(directIds[Index], p2pWriter, BasisNetworkCommons.DirectSceneChannel, deliveryMethod)) relayIds.Add(directIds[Index]);
             }
         }
 

@@ -177,7 +177,8 @@ public class BasisSeatSync : BasisNetworkBehaviour
         if (keyframe || moved)
         {
             _lastHipsSendTime = now;
-            SendCustomNetworkEvent(CreateSeatPacket(true), keyframe ? DeliveryMethod.ReliableOrdered : DeliveryMethod.Sequenced);
+            if (keyframe) SendCustomNetworkEvent(CreateSeatPacket(true), DeliveryMethod.ReliableOrdered);
+            else SendCustomNetworkEventDirect(CreateSeatPacket(true), DeliveryMethod.Sequenced);
         }
     }
 
@@ -546,6 +547,38 @@ public class BasisSeatSync : BasisNetworkBehaviour
             }
         }
     }
+    public override void OnDirectNetworkMessage(ushort occupantId, byte[] buffer, DeliveryMethod deliveryMethod)
+    {
+        if (!DeserializeSeatPacket(buffer, out bool occupied, out uint gen, out bool hasGen, out float yaw, out bool hasYaw, out SeatBodyTail body))
+        {
+            return;
+        }
+        if (!occupied || !hasGen || gen != _seatGen || !HasUser(out ushort current) || current != occupantId)
+        {
+            return;
+        }
+        if (GetLocalPlayerIdSafe(out ushort localId) && occupantId == localId)
+        {
+            return;
+        }
+        _applyingNetworkState = true;
+        try
+        {
+            if (hasYaw && Seat != null)
+            {
+                Seat.ApplyNetworkedOccupantYaw(yaw);
+            }
+            if (body.Present)
+            {
+                ApplyRemoteBody(body);
+            }
+        }
+        finally
+        {
+            _applyingNetworkState = false;
+        }
+    }
+
     private void Stand()
     {
         BasisLocalPlayer.Instance?.LocalSeatDriver?.Stand();

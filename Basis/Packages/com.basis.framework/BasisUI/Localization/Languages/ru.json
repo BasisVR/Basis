@@ -5932,6 +5932,46 @@
     {
       "key": "network.avatarShare.failed.license",
       "value": "Лицензия этого VRM не разрешает распространять файл, поэтому он не был передан через сервер."
+    },
+    {
+      "key": "settings.controls.oneHanded",
+      "value": "Режим одной руки"
+    },
+    {
+      "key": "settings.controls.oneHanded.tooltip",
+      "value": "Переносит движение, поворот, прыжок, меню и микрофон на один контроллер. Стик вперёд и назад двигает вас, влево и вправо поворачивает. Основная кнопка отвечает за прыжок, дополнительная открывает меню, а нажатие на стик переключает микрофон. Пока режим активен, он заменяет назначения действий для рук."
+    },
+    {
+      "key": "settings.controls.oneHanded.auto",
+      "value": "Автоматически"
+    },
+    {
+      "key": "settings.controls.oneHanded.auto.tooltip",
+      "value": "Включается сам, пока подключён только один контроллер."
+    },
+    {
+      "key": "settings.controls.oneHanded.off",
+      "value": "Выкл."
+    },
+    {
+      "key": "settings.controls.oneHanded.off.tooltip",
+      "value": "Всегда использовать оба контроллера."
+    },
+    {
+      "key": "settings.controls.oneHanded.left",
+      "value": "Левая рука"
+    },
+    {
+      "key": "settings.controls.oneHanded.left.tooltip",
+      "value": "Управлять всем с левого контроллера."
+    },
+    {
+      "key": "settings.controls.oneHanded.right",
+      "value": "Правая рука"
+    },
+    {
+      "key": "settings.controls.oneHanded.right.tooltip",
+      "value": "Управлять всем с правого контроллера."
     }
   ]
 }

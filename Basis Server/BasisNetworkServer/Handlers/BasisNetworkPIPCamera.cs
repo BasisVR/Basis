@@ -172,6 +172,9 @@ namespace BasisNetworkServer
 
             NetDataWriter writer = NetworkServer.RentWriter();
             posMsg.Serialize(writer);
+            bool ownerSendsDirect = BasisServerP2PBroker.HasOffloadedPairs
+                && NetworkServer.AuthenticatedPeers.TryGetValue(ownerId, out NetPeer ownerPeer)
+                && NetworkServer.PeerHasCapability(ownerPeer, BasisNetworkVersion.CapabilityDirectCameraPip);
 
             for (int i = 0; i < peers.Length; i++)
             {
@@ -179,6 +182,9 @@ namespace BasisNetworkServer
                 int recipientId = recipientPeer.Id;
 
                 if (recipientId == ownerId)
+                    continue;
+
+                if (ownerSendsDirect && BasisServerP2PBroker.IsP2POffloaded(ownerId, recipientId) && NetworkServer.PeerHasCapability(recipientPeer, BasisNetworkVersion.CapabilityDirectCameraPip))
                     continue;
 
                 if (!pipState.LastSentTimes.TryGetValue(recipientId, out long lastSent))

@@ -768,6 +768,8 @@
     { "key": "sdk.cilbox.api.blendShapeSync.summary", "value": "シェイプごとに解釈された呼び出しをせず、多数のブレンドシェイプを 1 回の呼び出しで読み書きします。" },
     { "key": "sdk.cilbox.api.makeNetworkable.title", "value": "スクリプトをネットワーク対応にする" },
     { "key": "sdk.cilbox.api.makeNetworkable.summary", "value": "Cilbox のスクリプトはネットワーク behaviour を継承できないため、シムを取り付けてそのイベントを購読します。" },
+    { "key": "sdk.cilbox.api.directMessages.title", "value": "直接メッセージ" },
+    { "key": "sdk.cilbox.api.directMessages.summary", "value": "SendCustomNetworkEventDirect は直接接続しているプレイヤーには直接、それ以外にはサーバー経由で送信するため、頻繁な更新はできる範囲でサーバーを通りません。受信は同じ NetworkMessageReceived イベントで行われます。" },
     { "key": "sdk.cilbox.api.ownership.title", "value": "所有権" },
     { "key": "sdk.cilbox.api.ownership.summary", "value": "このオブジェクトの権限を持つのは誰か、そしてその要求方法。" },
     { "key": "sdk.cilbox.api.delayedEvents.title", "value": "遅延コールバック" },

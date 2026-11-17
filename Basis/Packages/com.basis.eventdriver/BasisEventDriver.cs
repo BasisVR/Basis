@@ -289,6 +289,7 @@ namespace Basis.EventDriver
                     }
                 }
             }
+            Basis.Scripts.Networking.BasisP2PManager.DrainDirectInbound();
             // Player join/leave work is budgeted separately so a mass disconnect
             // (hundreds of players at once) can't chain N synchronous GameObject.Destroy
             // calls in a single frame and stall the renderer.
@@ -496,6 +497,7 @@ namespace Basis.EventDriver
             // schedule), and Destroy is end-of-frame deferred, so in-flight jobs stay safe.
             using (Prof.SyncScheduleRemote.Auto())
             {
+                Basis.Scripts.Networking.BasisP2PManager.DrainDirectInbound();
                 Basis.Scripts.Networking.Sync.BasisSyncDriver.ScheduleRemote(DeltaTime);
             }
 

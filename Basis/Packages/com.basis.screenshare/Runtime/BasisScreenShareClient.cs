@@ -85,7 +85,8 @@ public static partial class BasisScreenShareClient
     }
 
     public const int RouteNone = 0, RouteServer = 1, RouteDirect = 2;
-    public const int DirectQueueLimit = 900;
+    public const int DirectQueueLimit = 400;
+    const byte DirectLanesFlag = 1;
     [ThreadStatic] static NetDataWriter threadWriter;
     static NetDataWriter Writer() => threadWriter ??= new NetDataWriter(true, 1400);
     internal delegate int FrameSink(Remote remote, ReadOnlySpan<byte> data, long ptsUs, bool key, byte kind);
@@ -248,10 +249,10 @@ public static partial class BasisScreenShareClient
 
     public static bool HasDirectLink(ushort player) => BasisP2PManager.TryGetP2PPeer(player, out _);
 
-    public static int DirectBacklog(ushort player)
+    public static int DirectBacklog(ushort player, bool lanes)
     {
         if (!BasisP2PManager.TryGetP2PPeer(player, out NetPeer peer)) return int.MaxValue;
-        return peer.GetPacketsCountInQueue(BasisNetworkCommons.PluginReliableChannel, DeliveryMethod.ReliableOrdered);
+        return lanes ? MediaBacklog(peer) : peer.GetPacketsCountInQueue(BasisNetworkCommons.PluginReliableChannel, DeliveryMethod.ReliableOrdered);
     }
 
     static bool SendDirect(ushort player, string name, Action<NetDataWriter> write)
@@ -293,11 +294,12 @@ public static partial class BasisScreenShareClient
     {
         w.Put(WatchSub);
         w.Put(watching);
+        w.Put(DirectLanesFlag);
     });
 
     public static bool SendDirectKeyframeRequest(ushort sharer) => SendDirect(sharer, ControlMessage, w => w.Put(KeyframeSub));
 
-    public static void SendFrameDirect(List<ushort> targets, uint sequence, byte kind, bool key, long ptsUs, byte[] data, int length)
+    public static void SendFrameDirect(List<ushort> targets, List<bool> lanes, uint sequence, byte kind, bool key, long ptsUs, byte[] data, int length)
     {
         if (targets.Count == 0 || length <= 0 || length > MaxFrameBytes || !BasisClientMessageRegistry.TryGetPluginId(MediaMessage, out ushort id)) return;
         NetDataWriter writer = Writer();
@@ -305,7 +307,13 @@ public static partial class BasisScreenShareClient
         for (int i = 0; i < count; i++)
         {
             WriteChunkTo(writer, id, sequence, kind, key, ptsUs, i, count, length, data);
-            for (int t = 0; t < targets.Count; t++) BasisP2PManager.SendDirectTo(targets[t], writer, BasisNetworkCommons.PluginReliableChannel, DeliveryMethod.ReliableOrdered);
+            byte lane = kind == KindAudio ? AudioChannel : VideoLane(i);
+            DeliveryMethod delivery = kind == KindAudio ? AudioDelivery : VideoDelivery;
+            for (int t = 0; t < targets.Count; t++)
+            {
+                if (lanes[t]) BasisP2PManager.SendDirectTo(targets[t], writer, lane, delivery);
+                else BasisP2PManager.SendDirectTo(targets[t], writer, BasisNetworkCommons.PluginReliableChannel, DeliveryMethod.ReliableOrdered);
+            }
         }
     }
 
@@ -338,7 +346,11 @@ public static partial class BasisScreenShareClient
             return;
         }
         if (!BasisClientMessageRegistry.TryGetPluginId(ControlMessage, out ushort controlId) || id != controlId || !reader.TryGetByte(out byte sub)) return;
-        if (sub == WatchSub && reader.TryGetBool(out bool watching)) MainThread.Enqueue(() => { if (Local != null) Local.OnDirectWatch(sender, watching); });
+        if (sub == WatchSub && reader.TryGetBool(out bool watching))
+        {
+            bool lanes = reader.TryGetByte(out byte flags) && (flags & DirectLanesFlag) != 0;
+            MainThread.Enqueue(() => { if (Local != null) Local.OnDirectWatch(sender, watching, lanes); });
+        }
         else if (sub == KeyframeSub) MainThread.Enqueue(() => { if (Local != null) Local.OnDirectKeyframe(sender); });
     }
 

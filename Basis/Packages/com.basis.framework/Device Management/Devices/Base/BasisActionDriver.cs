@@ -518,6 +518,16 @@ public static partial class BasisActionDriver
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void UpdatePlayerControl(BasisBoneTrackedRole trackedRole, ref BasisInputState CurrentInputState, ref BasisInputState LastInputState)
     {
+        if (BasisOneHanded.IsHand(trackedRole) && BasisOneHanded.TryGetHand(out BasisBoneTrackedRole oneHand))
+        {
+            if (trackedRole == oneHand)
+            {
+                s_DispatchRole = trackedRole;
+                OneHandedControl(trackedRole, ref CurrentInputState, ref LastInputState);
+            }
+            return;
+        }
+
         if (!s_RoleToCompiled.TryGetValue(trackedRole, out var compiled) || compiled.Length == 0)
         {
             return;
@@ -559,7 +569,14 @@ public static partial class BasisActionDriver
     /// <param name="role">The role whose actions will be executed.</param>
     public static void UpdatePlayerControlForRole(BasisBoneTrackedRole role)
     {
-        if (!s_RoleToCompiled.TryGetValue(role, out var compiled) || compiled.Length == 0)
+        if (BasisOneHanded.IsHand(role) && BasisOneHanded.TryGetHand(out BasisBoneTrackedRole oneHand))
+        {
+            if (role != oneHand)
+            {
+                return;
+            }
+        }
+        else if (!s_RoleToCompiled.TryGetValue(role, out var compiled) || compiled.Length == 0)
         {
             return;
         }
@@ -711,12 +728,19 @@ public static partial class BasisActionDriver
         // This path stays for VR so the primary controller release still toggles mute there.
         if (BasisDeviceManagement.IsCurrentModeVR() == false)
             return;
+        MicFromButton(current.PrimaryButtonGetState, last.PrimaryButtonGetState);
+#endif
+    }
+
+    private static void MicFromButton(bool held, bool wasHeld)
+    {
+#if !BASIS_DISABLE_MICROPHONE
         if (BasisInputModuleHandler.Instance.HasHoverONInput == false)
         {
             switch (SMDMicrophone.Current.TalkMode)
             {
                 case SMDMicrophone.BasisMicrophoneMode.OnActivation:
-                    if (current.PrimaryButtonGetState == false && last.PrimaryButtonGetState)
+                    if (held == false && wasHeld)
                     {
                         // Simple toggle on release
                         BasisLocalMicrophoneDriver.ToggleIsPaused();
@@ -725,7 +749,7 @@ public static partial class BasisActionDriver
 
                 case SMDMicrophone.BasisMicrophoneMode.PushToTalk:
                     // Button up edge
-                    if (current.PrimaryButtonGetState)
+                    if (held)
                     {
                         if (BasisLocalMicrophoneDriver.isPaused)
                         {
@@ -734,7 +758,7 @@ public static partial class BasisActionDriver
                     }
                     else
                     {
-                        if (BasisLocalMicrophoneDriver.isPaused == false && current.PrimaryButtonGetState == false)
+                        if (BasisLocalMicrophoneDriver.isPaused == false && held == false)
                         {
                             BasisLocalMicrophoneDriver.ToggleIsPaused();
                         }
@@ -782,6 +806,32 @@ public static partial class BasisActionDriver
     public static void DescendOnGripButton(ref BasisInputState current, ref BasisInputState last)
     {
         BasisLocalPlayer.Instance.LocalCharacterDriver.IsDescendHeld = current.GripButton;
+    }
+
+    private static void OneHandedControl(BasisBoneTrackedRole role, ref BasisInputState current, ref BasisInputState last)
+    {
+        bool overUI = BasisOneHanded.PointsAtUI(role);
+        BasisInputModuleHandler module = BasisInputModuleHandler.Instance;
+        OneHandedLocomotion(LocomotionAxis(current.Primary2DAxisRaw), overUI, module != null && module.HasHoverONInput);
+        JumpOnPrimaryButton(ref current, ref last);
+        DescendOnGripButton(ref current, ref last);
+        ToggleHamburgerOnSecondaryRelease(ref current, ref last);
+        if (!overUI)
+        {
+            MicFromButton(current.Primary2DAxisClick, last.Primary2DAxisClick);
+        }
+    }
+
+    internal static void OneHandedLocomotion(Vector2 stick, bool overUI, bool typing)
+    {
+        float baseDeadzone = SMModuleControllerSettings.baseXDeadzone, extraDeadzone = SMModuleControllerSettings.extraXDeadzoneAtFullY;
+        float crossDeadzone = SMModuleControllerSettings.yDeadzone, exponent = SMModuleControllerSettings.wingExponent;
+        float turn = typing ? 0f : BasisInputState.ButterflyGate(stick, baseDeadzone, extraDeadzone, crossDeadzone, exponent).x;
+        float walk = overUI ? 0f : BasisInputState.ButterflyGate(new Vector2(stick.y, stick.x), baseDeadzone, extraDeadzone, crossDeadzone, exponent).x;
+        BasisLocalCharacterDriver driver = BasisLocalPlayer.Instance.LocalCharacterDriver;
+        driver.SetMovementVector(new Vector2(0f, walk));
+        driver.UpdateMovementSpeed(true);
+        driver.Rotation = new Vector2(turn, 0f);
     }
 
     [NoAutoStaticsCleanup] private static readonly InputAction[] s_ActionImplArray = new InputAction[(int)ActionId.Count]

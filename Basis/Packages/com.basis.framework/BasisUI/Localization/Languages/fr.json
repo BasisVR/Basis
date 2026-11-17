@@ -5932,6 +5932,46 @@
     {
       "key": "network.avatarShare.failed.license",
       "value": "La licence de ce VRM n'autorise pas la redistribution du fichier, il n'a donc pas été partagé via le serveur."
+    },
+    {
+      "key": "settings.controls.oneHanded",
+      "value": "Mode à une main"
+    },
+    {
+      "key": "settings.controls.oneHanded.tooltip",
+      "value": "Place le déplacement, la rotation, le saut, le menu et le microphone sur une seule manette. Le stick vers l'avant et l'arrière vous déplace, vers la gauche et la droite vous fait tourner. Le bouton principal fait sauter, le bouton secondaire ouvre le menu et un clic sur le stick active ou coupe le microphone. Remplace les assignations d'actions des mains tant qu'il est actif."
+    },
+    {
+      "key": "settings.controls.oneHanded.auto",
+      "value": "Automatique"
+    },
+    {
+      "key": "settings.controls.oneHanded.auto.tooltip",
+      "value": "S'active tout seul tant qu'une seule manette est connectée."
+    },
+    {
+      "key": "settings.controls.oneHanded.off",
+      "value": "Désactivé"
+    },
+    {
+      "key": "settings.controls.oneHanded.off.tooltip",
+      "value": "Toujours utiliser les deux manettes."
+    },
+    {
+      "key": "settings.controls.oneHanded.left",
+      "value": "Main gauche"
+    },
+    {
+      "key": "settings.controls.oneHanded.left.tooltip",
+      "value": "Tout contrôler depuis la manette gauche."
+    },
+    {
+      "key": "settings.controls.oneHanded.right",
+      "value": "Main droite"
+    },
+    {
+      "key": "settings.controls.oneHanded.right.tooltip",
+      "value": "Tout contrôler depuis la manette droite."
     }
   ]
 }

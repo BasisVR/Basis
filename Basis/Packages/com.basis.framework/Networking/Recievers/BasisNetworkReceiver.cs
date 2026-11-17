@@ -189,6 +189,15 @@ namespace Basis.Scripts.Networking.Receivers
         private const float CatchupEnterDeadband = 2.0f;
         private const float CatchupExitDeadband = 1.0f;
         private float _dynamicJitterDepth = InitialJitterDepth;
+        private BasisJitterFloor _jitterFloor;
+        private double _jitterClock;
+        private bool _directLink;
+        private bool _starving;
+        private double _starveStart, _starveWindow;
+        private const double UnderrunMinIntervals = 0.75, UnderrunMaxIntervals = 4.0;
+        private const double MaxBufferSeconds = 0.5, DepthHoldSeconds = 10.0;
+        private double _lastUnderrunAt = double.NegativeInfinity;
+        private bool AllowLowFloor => _directLink;
         private float _lastPlaybackRate = 1f;
         private bool _catchingUp;
 
@@ -219,6 +228,7 @@ namespace Basis.Scripts.Networking.Receivers
         public double InterpolationTimeDebug => interpolationTime;
         public float LastPlaybackRate => _lastPlaybackRate;
         public float DynamicJitterDepth => _dynamicJitterDepth;
+        public float JitterFloor => _jitterFloor.Floor(AllowLowFloor, _jitterClock);
         public byte HighestSequence => _highestSequence;
         public int SeenPackets => _seenPackets;
         public float CachedHumanScaleDebug => CachedHumanScale;
@@ -332,6 +342,13 @@ namespace Basis.Scripts.Networking.Receivers
         /// </summary>
         public void ComputeData(double unscaledDeltaTime)
         {
+            _jitterClock += unscaledDeltaTime;
+            bool directLink = BasisP2PManager.GetSessionState(playerId) == BasisP2PManager.P2PSessionState.Connected;
+            if (directLink != _directLink)
+            {
+                _directLink = directLink;
+                if (directLink) AudioReceiverModule.VoiceBuffer.OnDirectRoute();
+            }
             _bwTime += unscaledDeltaTime;
             if (_bwTime >= BandwidthWindow)
             {
@@ -466,6 +483,16 @@ namespace Basis.Scripts.Networking.Receivers
             }
 
             HasBufferHolds = HasCurrentBuffer && HasNextBuffer;
+            if (_starving && HasBufferHolds)
+            {
+                _starving = false;
+                double starved = _jitterClock - _starveStart;
+                if (starved >= _starveWindow * UnderrunMinIntervals && starved <= _starveWindow * UnderrunMaxIntervals)
+                {
+                    _jitterFloor.OnUnderrun(AllowLowFloor, _jitterClock);
+                    _lastUnderrunAt = _jitterClock;
+                }
+            }
             if (!HasBufferHolds)
             {
 #if UNITY_EDITOR || UNITY_INCLUDE_INSTRUMENTATION
@@ -497,8 +524,10 @@ namespace Basis.Scripts.Networking.Receivers
 #endif
             if (HasBufferHolds)
             {
-                _dynamicJitterDepth = math.max((float)MinJitterDepth,
-                    _dynamicJitterDepth - DepthDecayPerSecond * (float)unscaledDeltaTime);
+                float floor = _jitterFloor.Floor(AllowLowFloor, _jitterClock);
+                _dynamicJitterDepth = _jitterClock - _lastUnderrunAt > DepthHoldSeconds
+                    ? math.max(floor, _dynamicJitterDepth - DepthDecayPerSecond * (float)unscaledDeltaTime)
+                    : math.max(floor, _dynamicJitterDepth);
 
                 double windowDuration = Next.ServerTimeSeconds - Current.ServerTimeSeconds;
                 if (!(windowDuration > 1e-6 && windowDuration < 1e6))
@@ -559,7 +588,13 @@ namespace Basis.Scripts.Networking.Receivers
                     if (!HasBufferHolds)
                     {
                         // Window starved during advance — grow target so next time has headroom.
-                        _dynamicJitterDepth = math.min(_dynamicJitterDepth + DepthBumpOnUnderrun, (float)MaxJitterDepth);
+                        _dynamicJitterDepth = math.min(_dynamicJitterDepth + DepthBumpOnUnderrun, math.max((float)MaxJitterDepth, (float)(MaxBufferSeconds / math.max(windowDuration, 1e-3))));
+                        if (!_starving)
+                        {
+                            _starving = true;
+                            _starveStart = _jitterClock;
+                            _starveWindow = windowDuration;
+                        }
                         break;
                     }
 
@@ -770,6 +805,10 @@ namespace Basis.Scripts.Networking.Receivers
             ClearAndRelease();
             interpolationTime = 0f;
             _dynamicJitterDepth = InitialJitterDepth;
+            _jitterFloor.Reset();
+            _jitterClock = 0;
+            _starving = false;
+            _lastUnderrunAt = double.NegativeInfinity;
             _lastPlaybackRate = 1f;
             _catchingUp = false;
             // Clear any packets that arrived before init (rare, but safe)
