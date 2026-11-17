@@ -143,6 +143,13 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     private static readonly int idTileDiscardEnable = Shader.PropertyToID("_EnableUDIMDiscardOptions"), idTileDiscardCompile = Shader.PropertyToID("_UDIMDiscardCompile"), idTileDiscardUV = Shader.PropertyToID("_UDIMDiscardUV");
     private static readonly int[] idTileDiscardRows = { Shader.PropertyToID("_UDIMDiscardRow0_0"), Shader.PropertyToID("_UDIMDiscardRow0_1"), Shader.PropertyToID("_UDIMDiscardRow0_2"), Shader.PropertyToID("_UDIMDiscardRow0_3"), Shader.PropertyToID("_UDIMDiscardRow1_0"), Shader.PropertyToID("_UDIMDiscardRow1_1"), Shader.PropertyToID("_UDIMDiscardRow1_2"), Shader.PropertyToID("_UDIMDiscardRow1_3"), Shader.PropertyToID("_UDIMDiscardRow2_0"), Shader.PropertyToID("_UDIMDiscardRow2_1"), Shader.PropertyToID("_UDIMDiscardRow2_2"), Shader.PropertyToID("_UDIMDiscardRow2_3"), Shader.PropertyToID("_UDIMDiscardRow3_0"), Shader.PropertyToID("_UDIMDiscardRow3_1"), Shader.PropertyToID("_UDIMDiscardRow3_2"), Shader.PropertyToID("_UDIMDiscardRow3_3") };
     private static readonly int idAlphaMod = Shader.PropertyToID("_AlphaMod"), idAlphaForceOpaque = Shader.PropertyToID("_AlphaForceOpaque");
+    private static readonly int idAlphaMask = Shader.PropertyToID("_AlphaMask"), idAlphaMaskMode = Shader.PropertyToID("_MainAlphaMaskMode"), idAlphaMaskUV = Shader.PropertyToID("_AlphaMaskUV"), idAlphaMaskInvert = Shader.PropertyToID("_AlphaMaskInvert");
+    private static readonly int idAlphaMaskR = Shader.PropertyToID("_AlphaMaskR"), idAlphaMaskG = Shader.PropertyToID("_AlphaMaskG"), idAlphaMaskB = Shader.PropertyToID("_AlphaMaskB"), idAlphaMaskA = Shader.PropertyToID("_AlphaMaskA");
+    private static readonly int idAlphaMaskMinMax = Shader.PropertyToID("_AlphaMaskMinMax"), idAlphaMaskStrength = Shader.PropertyToID("_AlphaMaskBlendStrength"), idAlphaMaskValue = Shader.PropertyToID("_AlphaMaskValue");
+    private static readonly int idDissolveEnable = Shader.PropertyToID("_EnableDissolve"), idDissolveType = Shader.PropertyToID("_DissolveType"), idDissolveAlpha = Shader.PropertyToID("_DissolveAlpha"), idDissolveAlphaOnly = Shader.PropertyToID("_DissolveAlphaOnly");
+    private static readonly int idDissolveColor = Shader.PropertyToID("_DissolveTextureColor"), idDissolveNoise = Shader.PropertyToID("_DissolveNoiseTexture"), idDissolveNoiseUV = Shader.PropertyToID("_DissolveNoiseTextureUV"), idDissolveNoiseInvert = Shader.PropertyToID("_DissolveInvertNoise");
+    private static readonly int idDissolveMask = Shader.PropertyToID("_DissolveMask"), idDissolveMaskUV = Shader.PropertyToID("_DissolveMaskUV"), idDissolveMaskInvert = Shader.PropertyToID("_DissolveMaskInvert"), idDissolveVertexColors = Shader.PropertyToID("_DissolveUseVertexColors");
+    private static readonly int idDissolveContinuous = Shader.PropertyToID("_ContinuousDissolveEnabled"), idDissolveSoftness = Shader.PropertyToID("_DissolveSoftness"), idDissolveEdgeEnabled = Shader.PropertyToID("_DissolveEdgeEnabled"), idDissolveEdgeWidth = Shader.PropertyToID("_DissolveEdgeWidth");
     private static readonly int idMetallic = Shader.PropertyToID("_Metallic"), idSmoothness = Shader.PropertyToID("_Smoothness"), idGlossiness = Shader.PropertyToID("_Glossiness");
     private static readonly Vector3[] ambientDirections = { Vector3.right, Vector3.left, Vector3.up, Vector3.down, Vector3.forward, Vector3.back };
     private readonly Color[] ambientResults = new Color[6];
@@ -571,6 +578,8 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     {
         submeshFlags = BasisExternalRayTracer.SubmeshOpaque;
         emissionPower = 0f;
+        float emissionBase = 0f;
+        uint alphaBits = 0;
         BasisExternalRayMaterial result = new BasisExternalRayMaterial { baseColor = Vector4.one, baseST = new Vector4(1, 1, 0, 0), emissionST = new Vector4(1, 1, 0, 0), baseTexture = -1, emissionTexture = -1, cutoff = 0.5f };
         if (m == null) { return result; }
         if (hasBlock) { renderer.GetPropertyBlock(block, index); }
@@ -592,8 +601,8 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
             result.emissionTexture = slot0.map;
             result.emissionST = slot0.map >= 0 ? slot0.mapST : slot0.mask >= 0 ? slot0.maskST : result.baseST;
             if (slot0.mask >= 0) { result.emission.w = BitConverter.Int32BitsToSingle(0x40000000 | slot0.channel | (slot0.invert ? 4 : 0) | (slot0.mask << 8)); }
-            if (slot0.baseAsMap) { result.emissionBase = 1f; }
-            else if (Has(m, idEmissionMainStrength)) { result.emissionBase = Mathf.Clamp01(ReadFloat(m, hasBlock, idEmissionMainStrength, 0f)); }
+            if (slot0.baseAsMap) { emissionBase = 1f; }
+            else if (Has(m, idEmissionMainStrength)) { emissionBase = Mathf.Clamp01(ReadFloat(m, hasBlock, idEmissionMainStrength, 0f)); }
             emissionPower = Mathf.Max(slot0.color.x, Mathf.Max(slot0.color.y, slot0.color.z));
         }
         uint secondary = 0;
@@ -633,11 +642,72 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
                 if ((submeshFlags & BasisExternalRayTracer.SubmeshOpaque) != 0) { submeshFlags = BasisExternalRayTracer.SubmeshAlphaTest; }
             }
         }
+        if (result.alphaMode != BasisExternalRayTracer.AlphaOpaque) { ReadAlphaOperator(m, hasBlock, result.baseST, ref result, out alphaBits); }
         result.alphaMode |= secondary;
-        result.metallic = ReadFloat(m, hasBlock, idMetallic, 0f);
+        result.surface = (uint)Mathf.RoundToInt(Mathf.Clamp01(ReadFloat(m, hasBlock, idMetallic, 0f)) * 255f) | (uint)Mathf.RoundToInt(emissionBase * 255f) << 8 | alphaBits;
         if (avatar) { result.flags |= BasisExternalRayTracer.MaterialAnimated; }
         if (m.doubleSidedGI || (Has(m, idCull) && ReadFloat(m, hasBlock, idCull, 2f) < 0.5f)) { result.flags |= BasisExternalRayTracer.MaterialDoubleSided; }
         return result;
+    }
+
+    private bool AlphaTexture(Material m, bool hasBlock, int textureId, int uvId, Vector4 baseST, out uint slot, out uint uv)
+    {
+        slot = 0;
+        uv = 0;
+        Texture t = ReadTexture(m, hasBlock, textureId);
+        int channel = Mathf.RoundToInt(ReadFloat(m, hasBlock, uvId, 0f));
+        if (t == null || channel < 0 || channel > 3 || ReadST(m, textureId) != baseST) { return false; }
+        int index = TextureFor(t, false);
+        if (index < 0 || index >= 0xfff) { return false; }
+        slot = (uint)(index + 1);
+        uv = (uint)channel;
+        return true;
+    }
+
+    private static void PackAlphaOperator(ref BasisExternalRayMaterial result, uint slot, uint uv, uint channel, uint op, float scale, float offset, out uint bits)
+    {
+        result.flags |= uv << BasisExternalRayTracer.MaterialAlphaChannelShift;
+        bits = slot << 16 | channel << 28 | op << 30;
+        result.alphaOp = Mathf.FloatToHalf(Mathf.Clamp(scale, -60000f, 60000f)) | (uint)Mathf.FloatToHalf(Mathf.Clamp(offset, -60000f, 60000f)) << 16;
+    }
+
+    private bool ReadDissolve(Material m, bool hasBlock, Vector4 baseST, ref BasisExternalRayMaterial result, out uint bits)
+    {
+        bits = 0;
+        const float sharp = 32f;
+        if (!Has(m, idDissolveAlpha) || ReadFloat(m, hasBlock, idDissolveEnable, 0f) < 0.5f || Mathf.RoundToInt(ReadFloat(m, hasBlock, idDissolveType, 1f)) != 1) { return false; }
+        if (ReadFloat(m, hasBlock, idDissolveContinuous, 0f) > 0.5f || Mathf.RoundToInt(ReadFloat(m, hasBlock, idDissolveVertexColors, 0f)) != 0) { return false; }
+        float amount = Mathf.Clamp01(ReadFloat(m, hasBlock, idDissolveAlpha, 0f));
+        if (amount <= 0f || (ReadFloat(m, hasBlock, idDissolveAlphaOnly, 0f) < 0.5f && ReadColor(m, hasBlock, idDissolveColor, Color.white).a >= 0.5f)) { return false; }
+        float padding = Mathf.Max(ReadFloat(m, hasBlock, idDissolveSoftness, 0f) + (ReadFloat(m, hasBlock, idDissolveEdgeEnabled, 0f) > 0.5f ? ReadFloat(m, hasBlock, idDissolveEdgeWidth, 0f) : 0f), 0.01f);
+        bool invertNoise = ReadFloat(m, hasBlock, idDissolveNoiseInvert, 0f) > 0.5f, invertMask = ReadFloat(m, hasBlock, idDissolveMaskInvert, 0f) > 0.5f;
+        bool hasNoise = ReadTexture(m, hasBlock, idDissolveNoise) != null, hasMask = ReadTexture(m, hasBlock, idDissolveMask) != null;
+        if (hasMask)
+        {
+            float gradient = hasNoise ? 0.5f : invertNoise ? 0f : 1f, threshold = (gradient + padding) / (1f + 2f * padding);
+            if (AlphaTexture(m, hasBlock, idDissolveMask, idDissolveMaskUV, baseST, out uint maskSlot, out uint maskUv)) { PackAlphaOperator(ref result, maskSlot, maskUv, 0, 1, invertMask ? sharp * amount : -sharp * amount, sharp * (threshold - (invertMask ? amount : 0f)), out bits); }
+            return true;
+        }
+        float edge = Mathf.Lerp(-padding, 1f + padding, invertMask ? 0f : amount);
+        if (hasNoise)
+        {
+            if (AlphaTexture(m, hasBlock, idDissolveNoise, idDissolveNoiseUV, baseST, out uint noiseSlot, out uint noiseUv)) { PackAlphaOperator(ref result, noiseSlot, noiseUv, 0, 1, invertNoise ? -sharp : sharp, invertNoise ? sharp * (1f - edge) : -sharp * edge, out bits); }
+            return true;
+        }
+        if ((invertNoise ? 0f : 1f) < edge) { result.baseColor.w = 0f; }
+        return true;
+    }
+
+    private void ReadAlphaOperator(Material m, bool hasBlock, Vector4 baseST, ref BasisExternalRayMaterial result, out uint bits)
+    {
+        if (ReadDissolve(m, hasBlock, baseST, ref result, out bits)) { return; }
+        int mode = Mathf.RoundToInt(ReadFloat(m, hasBlock, idAlphaMaskMode, 0f));
+        if (mode < 1 || mode > 4 || !AlphaTexture(m, hasBlock, idAlphaMask, idAlphaMaskUV, baseST, out uint slot, out uint uv)) { return; }
+        uint channel = ReadFloat(m, hasBlock, idAlphaMaskR, 1f) > 0.5f ? 0u : ReadFloat(m, hasBlock, idAlphaMaskG, 0f) > 0.5f ? 1u : ReadFloat(m, hasBlock, idAlphaMaskB, 0f) > 0.5f ? 2u : ReadFloat(m, hasBlock, idAlphaMaskA, 0f) > 0.5f ? 3u : 0u;
+        Vector4 range = m.HasVector(idAlphaMaskMinMax) ? m.GetVector(idAlphaMaskMinMax) : new Vector4(0f, 1f, 0f, 0f);
+        float scale = ReadFloat(m, hasBlock, idAlphaMaskStrength, 1f) / Mathf.Max(range.y - range.x, 0.0001f), offset = ReadFloat(m, hasBlock, idAlphaMaskValue, 0f) - range.x * scale;
+        if (ReadFloat(m, hasBlock, idAlphaMaskInvert, 0f) > 0.5f) { scale = -scale; offset = 1f - offset; }
+        PackAlphaOperator(ref result, slot, uv, channel, (uint)(mode - 1), scale, offset, out bits);
     }
 
     private bool ReadEmissionSlot(Material m, bool hasBlock, int slot, float emissionScale, Vector4 baseST, out EmissionSlot result)

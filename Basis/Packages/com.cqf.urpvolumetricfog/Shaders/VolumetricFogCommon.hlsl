@@ -127,6 +127,85 @@ real3 EvaluateWeightedAPVDynamic(float2 positionSS, float3 posWS, bool enabled, 
     return result;
 }
 
+#ifndef BASISGI_WORLD_GLOBALS_DECLARED
+#define BASISGI_WORLD_GLOBALS_DECLARED
+float4 _BasisGIWorldLevel[4];
+float4 _BasisGIWorldParams;
+float4 _BasisGIWorldSHParams;
+TEXTURE3D(_BasisGIWorldSH0);
+TEXTURE3D(_BasisGIWorldSH1);
+TEXTURE3D(_BasisGIWorldSH2);
+TEXTURE3D(_BasisGIWorldSH3);
+Texture3D<float4> _BasisGIVoxAlbedo;
+#endif
+float _VFWorldRadiance;
+
+real3 SampleWorldRadiance(float3 posWS)
+{
+    real3 result = real3(0.0, 0.0, 0.0);
+    UNITY_BRANCH
+    if (_VFWorldRadiance > 0.0 && _BasisGIWorldParams.w > 0.5)
+    {
+        int levels = (int)_BasisGIWorldParams.x;
+        float voxels = _BasisGIWorldParams.y;
+        int probes = (int)_BasisGIWorldParams.z;
+        int level = -1;
+        float edge = 1.0;
+        UNITY_LOOP
+        for (int candidate = 0; candidate < levels; candidate++)
+        {
+            float4 bounds = _BasisGIWorldLevel[candidate];
+            float size = bounds.w * voxels;
+            float margin = bounds.w * 2.0;
+            float3 local = posWS - bounds.xyz;
+            if (all(local >= margin) && all(local <= size - margin))
+            {
+                level = candidate;
+                if (candidate == levels - 1)
+                {
+                    float3 inner = min(local - margin, size - margin - local) / (bounds.w * 8.0);
+                    edge = saturate(min(inner.x, min(inner.y, inner.z)));
+                }
+                break;
+            }
+        }
+        UNITY_BRANCH
+        if (level >= 0)
+        {
+            float4 box = _BasisGIWorldLevel[level];
+            float spacing = box.w * 2.0;
+            float3 grid = posWS / spacing - 0.5;
+            int3 cell = (int3)floor(grid);
+            float3 fraction = grid - (float3)cell;
+            int3 first = (int3)round(box.xyz / spacing);
+            int slab = (int)(_BasisGIWorldSHParams.x * _BasisGIWorldSHParams.y) + level * probes;
+            float4 sum = float4(0.0, 0.0, 0.0, 0.0);
+            UNITY_UNROLL
+            for (int index = 0; index < 8; index++)
+            {
+                int3 offset = int3(index & 1, (index >> 1) & 1, index >> 2);
+                int3 probe = cell + offset;
+                if (any(probe < first) || any(probe >= first + probes)) { continue; }
+                int3 slot = probe & (probes - 1);
+                slot.z += slab;
+                float4 c0 = LOAD_TEXTURE3D(_BasisGIWorldSH0, slot);
+                float3 trilinear = lerp(1.0 - fraction, fraction, (float3)offset);
+                float weight = trilinear.x * trilinear.y * trilinear.z * c0.a;
+                if (weight <= 1e-5) { continue; }
+                float3 voxel = ((posWS + ((float3)probe + 0.5) * spacing) * 0.5 - box.xyz) / box.w;
+                if (all(voxel >= 0.0) && all(voxel < voxels))
+                {
+                    float3 uvw = clamp(voxel, 0.5, voxels - 0.5) + float3(0.0, 0.0, level * voxels);
+                    weight *= saturate((0.6 - _BasisGIVoxAlbedo.SampleLevel(sampler_LinearClamp, uvw / float3(voxels, voxels, voxels * levels), 0).a) * 5.0);
+                }
+                sum += float4(c0.rgb, 1.0) * weight;
+            }
+            if (sum.a > 1e-5) { result = max(0.0, sum.rgb / sum.a) * (0.282095 * edge * _VFWorldRadiance); }
+        }
+    }
+    return result;
+}
+
 TEXTURE3D(_VFExternalVolume);
 float4 _VFExternalVolumeParams0;
 float4 _VFExternalVolumeParams1;

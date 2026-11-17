@@ -1,7 +1,6 @@
 #ifndef BASIS_RT_HITOBJECT
 #define BASIS_RT_HITOBJECT
 
-#ifdef BASIS_SPIRV
 struct Payload
 {
     uint hit, instance, geometry, primitive;
@@ -26,27 +25,13 @@ struct HitObj
     void GetAttributes(out BuiltInTriangleIntersectionAttributes a) { a.barycentrics = p.barycentrics; }
 };
 
+static uint2 traceIndex;
+
+#ifdef BASIS_SPIRV
 [[vk::binding(4, 0)]] RaytracingAccelerationStructure basisTlas;
-
-HitObj TraceHitObject(RaytracingAccelerationStructure tlas, uint flags, uint mask, RayDesc ray)
-{
-    Payload payload = (Payload)0;
-    TraceRay(tlas, flags & ~RAY_FLAG_SKIP_CLOSEST_HIT_SHADER, mask, 0, 0, 0, ray, payload);
-    HitObj h;
-    h.p = payload;
-    h.direction = ray.Direction;
-    return h;
-}
-
 #define LOAD_TLAS() basisTlas
-#define TraceHit(tlas, flags, mask, ray, payload) TraceHitObject(tlas, flags, mask, ray)
-#define STORE_HIT(payload, attributes) payload.hit = 1u; payload.instance = InstanceID(); payload.geometry = GeometryIndex(); payload.primitive = PrimitiveIndex(); payload.barycentrics = attributes.barycentrics; payload.t = RayTCurrent(); payload.objectToWorld = ObjectToWorld3x4(); payload.worldToObject = WorldToObject3x4()
 #else
-struct [raypayload] Payload { uint unused : read(caller, anyhit, closesthit, miss) : write(caller, anyhit, closesthit, miss); };
-#define HitObj dx::HitObject
 #define LOAD_TLAS() ResourceDescriptorHeap[HEAP_TLAS]
-#define TraceHit(tlas, flags, mask, ray, payload) dx::HitObject::TraceRay(tlas, flags, mask, 0, 0, 0, ray, payload)
-#define STORE_HIT(payload, attributes)
 #endif
 
 #endif

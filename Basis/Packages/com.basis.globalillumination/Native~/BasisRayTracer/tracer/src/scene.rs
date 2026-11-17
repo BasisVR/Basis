@@ -23,6 +23,15 @@ pub const HEAP_INDICES_UAV: u32 = 6;
 pub const HEAP_TEXTURES: u32 = 1024;
 pub const HEAP_BOUNDS: u32 = 54;
 pub const HEAP_TRIANGLE_CDF: u32 = 12;
+pub const HEAP_OMM: u32 = 13;
+pub const OMM_CAPACITY: u64 = 128 << 20;
+pub const OMM_LEVEL: u32 = (env!("BASIS_RT_OMM_LEVEL").as_bytes()[0] - b'0') as u32;
+pub const OMM_DATA_BYTES: u64 = (1u64 << (2 * OMM_LEVEL)) / 4;
+pub const OMM_CHUNK: u32 = 4096;
+
+pub struct OmmBake { pub data: (u64, u64), pub index: (u64, u64), pub triangles: u32, pub done: u32, pub signature: u64, pub bases: Vec<u32>, pub touched: u64 }
+
+struct Geometry { descs: Vec<D3D12_RAYTRACING_GEOMETRY_DESC>, _triangles: Vec<D3D12_RAYTRACING_GEOMETRY_TRIANGLES_DESC>, _linkage: Vec<crate::ffi::OmmLinkage> }
 pub const CDF_CAPACITY: u64 = 4 * 1024 * 1024;
 pub const CDF_MAX_TRIANGLES: u32 = 1 << 20;
 pub const CDF_MIN_TRIANGLES: u32 = 16;
@@ -56,6 +65,15 @@ pub struct MeshEntry {
     pub submesh_capacity: u32,
     pub failed: bool,
     pub alpha: bool,
+    pub omm: Option<ID3D12Resource>,
+    pub omm_address: u64,
+    pub omm_index: (u64, u64),
+    pub omm_bases: Vec<u32>,
+    pub omm_signature: u64,
+    pub omm_bake: Option<OmmBake>,
+    pub omm_next: u64,
+    pub omm_bakes: u32,
+    pub omm_used: u64,
 }
 
 pub struct TextureEntry {
@@ -94,6 +112,10 @@ pub struct Scene {
     pub cdf: ID3D12Resource,
     pub cdf_alloc: RangeAllocator,
     pub cdf_ranges: std::collections::HashMap<usize, (u64, u32, u64)>,
+    pub omm: ID3D12Resource,
+    pub omm_alloc: RangeAllocator,
+    pub omm_retired: Vec<(u64, u64, u64)>,
+    pub omm_triangles: u64,
     scratch_cursor: u64,
     tlas_count: u32,
     tlas_age: u32,
@@ -132,6 +154,9 @@ impl Scene {
         gpu.uav_raw(&alpha_min, crate::opaque::ALPHA_MIN_BYTES, crate::opaque::HEAP_ALPHA_MIN);
         let cdf = gpu.buffer(CDF_CAPACITY * 4, D3D12_HEAP_TYPE_DEFAULT, uav, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)?;
         gpu.uav_raw(&cdf, CDF_CAPACITY * 4, HEAP_TRIANGLE_CDF);
+        let omm_bytes = if gpu.caps & CAP_OMM != 0 && std::env::var_os("BASIS_RT_NO_OMM").is_none() { OMM_CAPACITY } else { 65536 };
+        let omm = gpu.buffer(omm_bytes, D3D12_HEAP_TYPE_DEFAULT, uav, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE)?;
+        gpu.uav_raw(&omm, omm_bytes, HEAP_OMM);
         let null = D3D12_SHADER_RESOURCE_VIEW_DESC { Format: DXGI_FORMAT_R8G8B8A8_UNORM, ViewDimension: D3D12_SRV_DIMENSION_TEXTURE2D, Shader4ComponentMapping: D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING, Anonymous: D3D12_SHADER_RESOURCE_VIEW_DESC_0 { Texture2D: D3D12_TEX2D_SRV { MipLevels: 1, ..Default::default() } } };
         for i in 0..MAX_TEXTURES { unsafe { gpu.device.CreateShaderResourceView(None::<&ID3D12Resource>, Some(&null), gpu.cpu(HEAP_TEXTURES + i)); } }
         let postbuild = gpu.buffer(COMPACT_SLOTS as u64 * 8, D3D12_HEAP_TYPE_DEFAULT, uav, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)?;
@@ -142,7 +167,7 @@ impl Scene {
             vertices, indices, mesh_table, submesh_table, scratch, tlas, tlas_scratch,
             vertex_alloc: RangeAllocator::new(VERTEX_CAPACITY), index_alloc: RangeAllocator::new(INDEX_CAPACITY), submesh_alloc: RangeAllocator::new(SUBMESH_CAPACITY),
             meshes: IdMap::default(), textures: IdMap::default(), mesh_cpu: vec![GpuMesh::default(); MAX_MESHES as usize], submesh_cpu: vec![GpuSubmesh::default(); SUBMESH_CAPACITY as usize],
-            tables_dirty: true, retired: Vec::new(), bounds, alpha_min, alpha_wanted: Vec::new(), texture_serial: 0, bounds_valid: vec![false; SUBMESH_CAPACITY as usize], cdf, cdf_alloc: RangeAllocator::new(CDF_CAPACITY), cdf_ranges: Default::default(), scratch_cursor: 0, tlas_count: 0, tlas_age: 0,
+            tables_dirty: true, retired: Vec::new(), bounds, alpha_min, alpha_wanted: Vec::new(), texture_serial: 0, bounds_valid: vec![false; SUBMESH_CAPACITY as usize], omm, omm_alloc: RangeAllocator::new(omm_bytes), omm_retired: Vec::new(), omm_triangles: 0, cdf, cdf_alloc: RangeAllocator::new(CDF_CAPACITY), cdf_ranges: Default::default(), scratch_cursor: 0, tlas_count: 0, tlas_age: 0,
             postbuild, postbuild_readback, postbuild_mapped: mapped as *const u64, compact_free: (0..COMPACT_SLOTS).rev().collect(), compacting: Vec::new(), completed: 0, compacted_bytes: 0,
         })
     }
@@ -162,6 +187,9 @@ impl Scene {
             self.index_alloc.release(m.index_offset, m.index_count as u64);
             self.submesh_alloc.release(m.submesh_offset, m.submesh_capacity as u64);
             if let Some(b) = m.blas { self.retired.push((fence, b)); }
+            if let Some(b) = m.omm { self.retired.push((fence, b)); }
+            if m.omm_index.1 > 0 { self.omm_retired.push((fence, m.omm_index.0, m.omm_index.1)); }
+            if let Some(b) = m.omm_bake { self.omm_retired.push((fence, b.data.0, b.data.1)); self.omm_retired.push((fence, b.index.0, b.index.1)); }
             self.mesh_cpu[id as usize] = GpuMesh::default();
             self.tables_dirty = true;
         }
@@ -173,7 +201,7 @@ impl Scene {
         let vertex_offset = self.vertex_alloc.alloc(vertex_count as u64, 1).ok_or("vertex arena full")?;
         let index_offset = match self.index_alloc.alloc(index_count as u64, 4) { Some(o) => o, None => { self.vertex_alloc.release(vertex_offset, vertex_count as u64); return Err("index arena full".into()); } };
         let submesh_offset = match self.submesh_alloc.alloc(submesh_count.max(1) as u64, 1) { Some(o) => o, None => { self.vertex_alloc.release(vertex_offset, vertex_count as u64); self.index_alloc.release(index_offset, index_count as u64); return Err("submesh table full".into()); } };
-        self.meshes.insert(id, MeshEntry { vertex_offset, vertex_count, index_offset, index_count, submesh_offset, submeshes: Vec::with_capacity(submesh_count as usize), dynamic: false, blas: None, blas_address: 0, update_scratch: 0, build_scratch: 0, committed: false, needs_build: false, needs_refit: false, refits: 0, submesh_capacity: submesh_count.max(1), failed: false, alpha: false });
+        self.meshes.insert(id, MeshEntry { vertex_offset, vertex_count, index_offset, index_count, submesh_offset, submeshes: Vec::with_capacity(submesh_count as usize), dynamic: false, blas: None, blas_address: 0, update_scratch: 0, build_scratch: 0, committed: false, needs_build: false, needs_refit: false, refits: 0, submesh_capacity: submesh_count.max(1), failed: false, alpha: false, omm: None, omm_address: 0, omm_index: (0, 0), omm_bases: Vec::new(), omm_signature: 0, omm_bake: None, omm_next: 0, omm_bakes: 0, omm_used: 0 });
         Ok(())
     }
 
@@ -229,17 +257,123 @@ impl Scene {
         }
     }
 
-    fn geometry(&self, m: &MeshEntry) -> Vec<D3D12_RAYTRACING_GEOMETRY_DESC> {
+    fn geometry(&self, m: &MeshEntry) -> Geometry {
         let vb = unsafe { self.vertices.GetGPUVirtualAddress() } + m.vertex_offset * 32;
         let ib = unsafe { self.indices.GetGPUVirtualAddress() } + m.index_offset * 4;
-        m.submeshes.iter().map(|s| D3D12_RAYTRACING_GEOMETRY_DESC {
-            Type: D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES,
-            Flags: if s.flags & SUBMESH_OPAQUE != 0 { D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE } else { D3D12_RAYTRACING_GEOMETRY_FLAG_NO_DUPLICATE_ANYHIT_INVOCATION },
-            Anonymous: D3D12_RAYTRACING_GEOMETRY_DESC_0 { Triangles: D3D12_RAYTRACING_GEOMETRY_TRIANGLES_DESC {
-                Transform3x4: 0, IndexFormat: DXGI_FORMAT_R32_UINT, VertexFormat: DXGI_FORMAT_R32G32B32_FLOAT, IndexCount: s.index_count, VertexCount: m.vertex_count,
-                IndexBuffer: ib + s.index_start as u64 * 4, VertexBuffer: D3D12_GPU_VIRTUAL_ADDRESS_AND_STRIDE { StartAddress: vb, StrideInBytes: 32 },
-            } },
-        }).collect()
+        let omm = unsafe { self.omm.GetGPUVirtualAddress() } + m.omm_index.0;
+        let triangles: Vec<D3D12_RAYTRACING_GEOMETRY_TRIANGLES_DESC> = m.submeshes.iter().map(|s| D3D12_RAYTRACING_GEOMETRY_TRIANGLES_DESC {
+            Transform3x4: 0, IndexFormat: DXGI_FORMAT_R32_UINT, VertexFormat: DXGI_FORMAT_R32G32B32_FLOAT, IndexCount: s.index_count, VertexCount: m.vertex_count,
+            IndexBuffer: ib + s.index_start as u64 * 4, VertexBuffer: D3D12_GPU_VIRTUAL_ADDRESS_AND_STRIDE { StartAddress: vb, StrideInBytes: 32 },
+        }).collect();
+        let linked = |i: usize| m.omm_address != 0 && m.omm_bases.get(i).is_some_and(|b| *b != u32::MAX);
+        let linkage: Vec<crate::ffi::OmmLinkage> = (0..m.submeshes.len()).map(|i| crate::ffi::OmmLinkage { index_buffer: crate::ffi::AddressAndStride { address: if linked(i) { omm + m.omm_bases[i] as u64 * 4 } else { 0 }, stride: 4 }, index_format: DXGI_FORMAT_R32_UINT.0, base_location: 0, array: m.omm_address }).collect();
+        let descs = m.submeshes.iter().enumerate().map(|(i, s)| {
+            let flags = if s.flags & SUBMESH_OPAQUE != 0 { D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE } else { D3D12_RAYTRACING_GEOMETRY_FLAG_NO_DUPLICATE_ANYHIT_INVOCATION };
+            if linked(i) { unsafe { std::mem::transmute(crate::ffi::GeometryDescOmm { kind: crate::ffi::GEOMETRY_TYPE_OMM_TRIANGLES, flags: flags.0, omm: crate::ffi::OmmTrianglesDesc { triangles: &triangles[i], linkage: &linkage[i] }, pad: [0; 4] }) } }
+            else { D3D12_RAYTRACING_GEOMETRY_DESC { Type: D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES, Flags: flags, Anonymous: D3D12_RAYTRACING_GEOMETRY_DESC_0 { Triangles: triangles[i] } } }
+        }).collect();
+        Geometry { descs, _triangles: triangles, _linkage: linkage }
+    }
+
+    pub fn omm_signature(&self, m: &MeshEntry, materials: &[Material], base: u32) -> u64 {
+        let mut h = 0xcbf29ce484222325u64;
+        let mut mix = |v: u32| { h = (h ^ v as u64).wrapping_mul(0x100000001b3); };
+        for (g, s) in m.submeshes.iter().enumerate() {
+            if s.flags & SUBMESH_OPAQUE != 0 { continue; }
+            let Some(mat) = materials.get(base as usize + g) else { return 0; };
+            let mask = (mat.surface >> 16) & 0xfff;
+            for v in [mat.alpha_mode & 3, mat.cutoff.to_bits(), mat.base_color[3].to_bits(), mat.base_texture as u32, mat.surface >> 16, mat.alpha_op, mat.flags & 0x3e0, if mat.flags & MATERIAL_TILE_DISCARD != 0 { mat.emission_texture as u32 >> 16 } else { 0 }] { mix(v); }
+            if mat.base_texture >= 0 || mask != 0 { for v in mat.base_st { mix(v.to_bits()); } }
+            if mat.base_texture >= 0 { let Some(t) = self.textures.get(&(mat.base_texture as u32)).filter(|t| t.readable) else { return 0; }; mix(t.serial); }
+            if mask != 0 { let Some(t) = self.textures.get(&(mask - 1)).filter(|t| t.readable) else { return 0; }; mix(t.serial); }
+        }
+        h | 1
+    }
+
+    pub fn omm_schedule(&mut self, id: u32, materials: &[Material], material_base: u32, frame: u64, budget: &mut u32, jobs: &mut Vec<[u32; 8]>, room: usize) {
+        let Some(m) = self.meshes.get(&id) else { return; };
+        if !m.alpha || !m.committed || m.failed || (m.omm_bake.is_none() && frame < m.omm_next) { return; }
+        let signature = self.omm_signature(m, materials, material_base);
+        if signature == 0 { return; }
+        if m.omm_bake.is_none() {
+            if signature == m.omm_signature { self.meshes.get_mut(&id).unwrap().omm_used = frame; return; }
+            if m.omm_address != 0 && m.omm_used + 1 >= frame { return; }
+            let mut bases = Vec::with_capacity(m.submeshes.len());
+            let mut triangles = 0u32;
+            for s in &m.submeshes { if s.flags & SUBMESH_OPAQUE != 0 { bases.push(u32::MAX); } else { bases.push(triangles); triangles += s.index_count / 3; } }
+            if triangles == 0 { return; }
+            let data_size = (triangles as u64 * (OMM_DATA_BYTES + 8) + 127) & !127;
+            let index_size = (triangles as u64 * 4 + 127) & !127;
+            let data = self.omm_alloc.alloc(data_size, 128);
+            let index = self.omm_alloc.alloc(index_size, 128);
+            let m = self.meshes.get_mut(&id).unwrap();
+            let (Some(data), Some(index)) = (data, index) else {
+                if let Some(o) = data { self.omm_alloc.release(o, data_size); }
+                if let Some(o) = index { self.omm_alloc.release(o, index_size); }
+                m.omm_next = frame + 600;
+                return;
+            };
+            m.omm_bakes += 1;
+            m.omm_next = frame + (60u64 << m.omm_bakes.min(8));
+            m.omm_bake = Some(OmmBake { data: (data, data_size), index: (index, index_size), triangles, done: 0, signature, bases, touched: frame });
+        }
+        let m = self.meshes.get_mut(&id).unwrap();
+        let mut bake = m.omm_bake.take().unwrap();
+        if bake.signature != signature {
+            if frame > bake.touched + 240 { self.omm_retired.push((u64::MAX, bake.data.0, bake.data.1)); self.omm_retired.push((u64::MAX, bake.index.0, bake.index.1)); } else { m.omm_bake = Some(bake); }
+            return;
+        }
+        while *budget > 0 && jobs.len() < room && bake.done < bake.triangles {
+            let g = bake.bases.iter().rposition(|b| *b != u32::MAX && *b <= bake.done).unwrap();
+            let s = m.submeshes[g];
+            let local = bake.done - bake.bases[g];
+            let count = (s.index_count / 3 - local).min(OMM_CHUNK).min(*budget);
+            jobs.push([((bake.data.0 + bake.done as u64 * OMM_DATA_BYTES) / 4) as u32, ((bake.data.0 + bake.triangles as u64 * OMM_DATA_BYTES + bake.done as u64 * 8) / 4) as u32, ((bake.index.0 + bake.done as u64 * 4) / 4) as u32, count, m.vertex_offset as u32, (m.index_offset + s.index_start as u64 + local as u64 * 3) as u32, material_base + g as u32, bake.done]);
+            bake.done += count;
+            *budget -= count;
+        }
+        bake.touched = frame;
+        m.omm_bake = Some(bake);
+    }
+
+    fn build_omm(&mut self, gpu: &Gpu, list: &ID3D12GraphicsCommandList4, fence: u64) -> u32 {
+        let ids: Vec<u32> = self.meshes.iter().filter(|(_, m)| m.omm_bake.as_ref().is_some_and(|b| b.done >= b.triangles)).map(|(k, _)| *k).collect();
+        let base = unsafe { self.omm.GetGPUVirtualAddress() };
+        let mut built = 0;
+        for id in ids {
+            let bake = self.meshes.get_mut(&id).unwrap().omm_bake.take().unwrap();
+            self.omm_retired.push((fence, bake.data.0, bake.data.1));
+            let histogram = [crate::ffi::OmmHistogramEntry { count: bake.triangles, subdivision_level: OMM_LEVEL, format: crate::ffi::OMM_FORMAT_OC1_4_STATE }];
+            let array = crate::ffi::OmmArrayDesc { histogram_count: 1, histogram: histogram.as_ptr(), input_buffer: base + bake.data.0, per_omm_descs: crate::ffi::AddressAndStride { address: base + bake.data.0 + bake.triangles as u64 * OMM_DATA_BYTES, stride: 8 } };
+            let inputs: D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS = unsafe { std::mem::transmute(crate::ffi::BuildInputsOmm { kind: crate::ffi::AS_TYPE_OPACITY_MICROMAP_ARRAY, flags: D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE.0, num_descs: 1, layout: 0, desc: &array }) };
+            let mut info = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO::default();
+            unsafe { gpu.device.GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &mut info); }
+            let buffer = if info.ResultDataMaxSizeInBytes == 0 { None } else { gpu.buffer((info.ResultDataMaxSizeInBytes + 255) & !255, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE).ok() };
+            let scratch = if buffer.is_some() { self.scratch_alloc(list, info.ScratchDataSizeInBytes.max(256)) } else { None };
+            let (Some(buffer), Some(scratch)) = (buffer, scratch) else {
+                self.omm_retired.push((fence, bake.index.0, bake.index.1));
+                self.meshes.get_mut(&id).unwrap().omm_next = u64::MAX;
+                continue;
+            };
+            let address = unsafe { buffer.GetGPUVirtualAddress() };
+            let desc = D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC { DestAccelerationStructureData: address, Inputs: inputs, SourceAccelerationStructureData: 0, ScratchAccelerationStructureData: scratch };
+            unsafe { list.BuildRaytracingAccelerationStructure(&desc, None); }
+            let m = self.meshes.get_mut(&id).unwrap();
+            if let Some(old) = m.omm.replace(buffer) { self.retired.push((fence, old)); }
+            if m.omm_index.1 > 0 { self.omm_retired.push((fence, m.omm_index.0, m.omm_index.1)); }
+            m.omm_index = bake.index;
+            m.omm_bases = bake.bases;
+            m.omm_signature = bake.signature;
+            m.omm_address = address;
+            m.needs_build = true;
+            m.build_scratch = 0;
+            m.refits = 0;
+            self.omm_triangles += bake.triangles as u64;
+            if let Some(path) = std::env::var_os("BASIS_RT_OMM_LOG") { if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path) { use std::io::Write; let _ = writeln!(file, "omm mesh {id}: {} triangles, array {} bytes, fence {fence}", bake.triangles, info.ResultDataMaxSizeInBytes); } }
+            built += 1;
+        }
+        if built > 0 { unsafe { list.ResourceBarrier(&[uav_barrier(None)]); } }
+        built
     }
 
     fn scratch_alloc(&mut self, list: &ID3D12GraphicsCommandList4, size: u64) -> Option<u64> {
@@ -285,14 +419,16 @@ impl Scene {
     pub fn build(&mut self, gpu: &Gpu, list: &ID3D12GraphicsCommandList4, fence: u64) -> Result<u32> {
         self.scratch_cursor = 0;
         let mut built = self.compact(gpu, list, fence)?;
+        built += self.build_omm(gpu, list, fence);
         let ids: Vec<u32> = self.meshes.iter().filter(|(_, m)| m.committed && !m.failed && (m.needs_build || m.needs_refit)).map(|(k, _)| *k).collect();
         let mut queried: Vec<u32> = Vec::new();
         for id in ids {
             let (geometry, dynamic, rebuild) = { let m = &self.meshes[&id]; (self.geometry(m), m.dynamic, m.needs_build) };
-            if geometry.is_empty() { continue; }
+            if geometry.descs.is_empty() { continue; }
             let compactable = !dynamic && rebuild;
             let mut flags = if dynamic { D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE | D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD } else { D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE | D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_COMPACTION };
-            let mut inputs = D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS { Type: D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL, Flags: flags, NumDescs: geometry.len() as u32, DescsLayout: D3D12_ELEMENTS_LAYOUT_ARRAY, Anonymous: D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS_0 { pGeometryDescs: geometry.as_ptr() } };
+            if self.meshes[&id].omm_address != 0 { flags |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS(0x80); }
+            let mut inputs = D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS { Type: D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL, Flags: flags, NumDescs: geometry.descs.len() as u32, DescsLayout: D3D12_ELEMENTS_LAYOUT_ARRAY, Anonymous: D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS_0 { pGeometryDescs: geometry.descs.as_ptr() } };
             let mut source = 0u64;
             let scratch_size;
             if rebuild && self.meshes[&id].blas.is_some() && self.meshes[&id].build_scratch > 0 {
@@ -390,5 +526,16 @@ impl Scene {
         }
     }
 
-    pub fn collect(&mut self, completed: u64) { self.completed = completed; self.retired.retain(|(f, _)| *f > completed); }
+    pub fn collect(&mut self, completed: u64) {
+        self.completed = completed;
+        self.retired.retain(|(f, _)| *f > completed);
+        let mut i = 0;
+        while i < self.omm_retired.len() {
+            let (f, offset, size) = self.omm_retired[i];
+            if f != u64::MAX && f > completed { i += 1; continue; }
+            if f == u64::MAX { self.omm_retired[i].0 = 0; i += 1; continue; }
+            self.omm_alloc.release(offset, size);
+            self.omm_retired.swap_remove(i);
+        }
+    }
 }

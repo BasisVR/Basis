@@ -43,6 +43,7 @@ public sealed class VolumetricFogRenderPass : ScriptableRenderPass
         public float anisotropy;
         public float scattering;
         public float ltcgiScattering;
+        public float worldRadiance;
         public float analyticOpticalDepth;
         public float sunTrims;
         public bool additionalLightsEnabled;
@@ -178,6 +179,9 @@ public sealed class VolumetricFogRenderPass : ScriptableRenderPass
     private static readonly int MainLightScatteringId = Shader.PropertyToID("_MainLightScattering");
 
     private static readonly int LTCGIScatteringId = Shader.PropertyToID("_LTCGIScattering");
+    private static readonly int WorldRadianceId = Shader.PropertyToID("_VFWorldRadiance");
+    private static readonly int WorldRadianceTextureId = Shader.PropertyToID("_BasisGIWorldSH0");
+    private static readonly int WorldOccupancyTextureId = Shader.PropertyToID("_BasisGIVoxAlbedo");
 
     private static readonly int BlueNoiseTextureId = Shader.PropertyToID("_BlueNoiseTexture");
     private static readonly int BlueNoiseParamsId = Shader.PropertyToID("_BlueNoiseParams");
@@ -735,6 +739,7 @@ public sealed class VolumetricFogRenderPass : ScriptableRenderPass
         parameters.scattering = fogVolume.scattering.value;
         parameters.tint = fogVolume.tint.value;
         parameters.ltcgiScattering = fogVolume.enableLTCGIContribution.value ? fogVolume.LTCGIScattering.value : 0.0f;
+        parameters.worldRadiance = parameters.apvEnabled ? 0.0f : fogVolume.globalIlluminationWeight.value;
         parameters.analyticOpticalDepth = VolumetricFogQuality.AnalyticOpticalDepth ? 1.0f : 0.0f;
         parameters.sunTrims = VolumetricFogQuality.SunPathTrims ? 1.0f : 0.0f;
         parameters.additionalLightsEnabled = fogVolume.enableAdditionalLightsContribution.value && fogVolume.additionalLightsScattering.value > 0.0f;
@@ -811,6 +816,7 @@ public sealed class VolumetricFogRenderPass : ScriptableRenderPass
         material.SetColor(TintId, parameters.tint);
         material.SetInteger(MaxStepsId, parameters.maxSteps);
         material.SetFloat(LTCGIScatteringId, parameters.ltcgiScattering);
+        material.SetFloat(WorldRadianceId, Shader.GetGlobalTexture(WorldRadianceTextureId) != null && Shader.GetGlobalTexture(WorldOccupancyTextureId) != null ? parameters.worldRadiance : 0.0f);
         material.SetFloat(AnalyticOpticalDepthId, parameters.analyticOpticalDepth);
         material.SetFloat(SunTrimsId, parameters.sunTrims);
         material.SetTexture(BlueNoiseTextureId, parameters.blueNoise);
@@ -820,6 +826,11 @@ public sealed class VolumetricFogRenderPass : ScriptableRenderPass
 
     private static void ApplyFogParameters(ComputeCommandBuffer cmd, ComputeShader computeShader, int kernelIndex, in FogParameters parameters)
     {
+        Texture worldRadiance = Shader.GetGlobalTexture(WorldRadianceTextureId);
+        computeShader.SetTexture(kernelIndex, WorldRadianceTextureId, worldRadiance != null ? worldRadiance : CoreUtils.blackVolumeTexture);
+        Texture worldOccupancy = Shader.GetGlobalTexture(WorldOccupancyTextureId);
+        computeShader.SetTexture(kernelIndex, WorldOccupancyTextureId, worldOccupancy != null ? worldOccupancy : CoreUtils.blackVolumeTexture);
+        cmd.SetComputeFloatParam(computeShader, WorldRadianceId, worldRadiance != null && worldOccupancy != null ? parameters.worldRadiance : 0.0f);
         computeShader.SetTexture(kernelIndex, BakedAPVFogVolumeId, parameters.apvBaked && parameters.bakedVolume != null ? parameters.bakedVolume : CoreUtils.blackVolumeTexture);
         if (parameters.apvBaked)
         {

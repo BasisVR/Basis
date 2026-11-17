@@ -3,6 +3,9 @@
 
 Instance LoadInstance(uint index) { StructuredBuffer<Instance> b = ResourceDescriptorHeap[HEAP_INSTANCES + frame.slot]; return b[index]; }
 Material LoadMaterial(uint index) { StructuredBuffer<Material> b = ResourceDescriptorHeap[HEAP_MATERIALS + frame.slot]; return b[index]; }
+float Metallic(Material material) { return (material.surface & 0xffu) * (1.0 / 255.0); }
+float EmissionBase(Material material) { return ((material.surface >> 8) & 0xffu) * (1.0 / 255.0); }
+uint AlphaMaskTexture(Material material) { return (material.surface >> 16) & 0xfffu; }
 Light LoadLight(uint index) { StructuredBuffer<Light> b = ResourceDescriptorHeap[HEAP_LIGHTS + frame.slot]; return b[index]; }
 Mesh LoadMesh(uint index) { StructuredBuffer<Mesh> b = ResourceDescriptorHeap[HEAP_MESHES]; return b[index]; }
 Submesh LoadSubmesh(uint index) { StructuredBuffer<Submesh> b = ResourceDescriptorHeap[HEAP_SUBMESHES]; return b[index]; }
@@ -16,6 +19,35 @@ void LoadTriangle(Instance instance, uint geometry, uint primitive, out uint3 ve
 }
 
 float2 LoadUv0(uint v) { ByteAddressBuffer b = ResourceDescriptorHeap[HEAP_VERTICES]; uint p = b.Load(v * 32 + 16); return f16tof32(uint2(p, p >> 16)); }
+
+float2 LoadUv(uint v, uint channel) { ByteAddressBuffer b = ResourceDescriptorHeap[HEAP_VERTICES]; uint p = b.Load(v * 32 + 16 + channel * 4); return f16tof32(uint2(p, p >> 16)); }
+
+float2 AlphaMaskUv(Material material, uint3 vi, float3 w, float2 uv0)
+{
+    uint channel = (material.flags >> 8) & 3u;
+    if (channel == 0u || AlphaMaskTexture(material) == 0u) { return uv0; }
+    return LoadUv(vi.x, channel) * w.x + LoadUv(vi.y, channel) * w.y + LoadUv(vi.z, channel) * w.z;
+}
+
+float AlphaAtUvLod(Material material, float2 uv, float2 maskUv, float baseLod, float maskLod)
+{
+    float alpha = material.baseColor.a;
+    if (material.baseTexture >= 0)
+    {
+        Texture2D<float4> t = ResourceDescriptorHeap[HEAP_TEXTURES + material.baseTexture];
+        alpha *= t.SampleLevel(linearWrap, uv * material.baseST.xy + material.baseST.zw, baseLod).a;
+    }
+    uint mask = AlphaMaskTexture(material);
+    if (mask != 0u)
+    {
+        Texture2D<float4> t = ResourceDescriptorHeap[HEAP_TEXTURES + mask - 1u];
+        float value = t.SampleLevel(linearWrap, maskUv * material.baseST.xy + material.baseST.zw, maskLod)[(material.surface >> 28) & 3u];
+        float m = saturate(value * f16tof32(material.alphaOp) + f16tof32(material.alphaOp >> 16));
+        uint op = material.surface >> 30;
+        alpha = op == 0u ? m : op == 1u ? alpha * m : saturate(op == 2u ? alpha + m : alpha - m);
+    }
+    return alpha;
+}
 
 bool TileHidden(Material material, uint vertex)
 {
@@ -52,7 +84,7 @@ float3 MaterialEmission(Material material, float2 uv, float lod, float size, flo
     {
         int map = EmissionTexture(material);
         if (map >= 0) { emission *= SampleTexture(map, uv, material.emissionST, lod, size).rgb; }
-        emission *= EmissionMask(material, uv, lod, size) * lerp(1.0, saturate(tint), material.emissionBase);
+        emission *= EmissionMask(material, uv, lod, size) * lerp(1.0, saturate(tint), EmissionBase(material));
     }
     if (material.emission2 != 0u)
     {

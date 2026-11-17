@@ -25,7 +25,7 @@ void EmitterWeights(uint3 id : SV_DispatchThreadID)
         {
             float2 uv = k == 0u ? centre : lerp(centre, k == 1u ? t0 : (k == 2u ? t1 : t2), 0.5);
             float3 tint = material.baseColor.rgb;
-            if (material.emissionBase > 0.0 || (material.alphaMode & 0x8000u) != 0u) { tint *= SampleTexture(material.baseTexture, uv, material.baseST, lod, 1024.0).rgb; }
+            if (EmissionBase(material) > 0.0 || (material.alphaMode & 0x8000u) != 0u) { tint *= SampleTexture(material.baseTexture, uv, material.baseST, lod, 1024.0).rgb; }
             sum += Luminance(MaterialEmission(material, uv, lod, 1024.0, tint));
         }
         weight *= sum * 0.25;

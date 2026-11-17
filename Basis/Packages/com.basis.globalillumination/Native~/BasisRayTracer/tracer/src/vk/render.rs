@@ -6,8 +6,7 @@ use crate::{Fallible, os};
 use ash::vk;
 use basis_rt_protocol::*;
 
-const TRACE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/trace.spv"));
-const COMPUTE: [(&str, &[u8]); 15] = [
+const COMPUTE: [(&str, &[u8]); 21] = [
     ("CopyVertices", include_bytes!(concat!(env!("OUT_DIR"), "/CopyVertices.spv"))),
     ("CopyIndices", include_bytes!(concat!(env!("OUT_DIR"), "/CopyIndices.spv"))),
     ("CopyPositions", include_bytes!(concat!(env!("OUT_DIR"), "/CopyPositions.spv"))),
@@ -23,6 +22,12 @@ const COMPUTE: [(&str, &[u8]); 15] = [
     ("EmitterWeights", include_bytes!(concat!(env!("OUT_DIR"), "/EmitterWeights.spv"))),
     ("EmitterPrefix", include_bytes!(concat!(env!("OUT_DIR"), "/EmitterPrefix.spv"))),
     ("EmitterCuts", include_bytes!(concat!(env!("OUT_DIR"), "/EmitterCuts.spv"))),
+    ("TraceClassify", include_bytes!(concat!(env!("OUT_DIR"), "/TraceClassify.spv"))),
+    ("TraceGather", include_bytes!(concat!(env!("OUT_DIR"), "/TraceGather.spv"))),
+    ("TraceProbes", include_bytes!(concat!(env!("OUT_DIR"), "/TraceProbes.spv"))),
+    ("TraceSphere", include_bytes!(concat!(env!("OUT_DIR"), "/TraceSphere.spv"))),
+    ("TraceSpatial", include_bytes!(concat!(env!("OUT_DIR"), "/TraceSpatial.spv"))),
+    ("TraceListed", include_bytes!(concat!(env!("OUT_DIR"), "/TraceListed.spv"))),
 ];
 const P_COPY_VERTICES: usize = 0;
 const P_COPY_INDICES: usize = 1;
@@ -39,6 +44,13 @@ const P_MAINTAIN: usize = 11;
 const P_EMITTER_WEIGHTS: usize = 12;
 const P_EMITTER_PREFIX: usize = 13;
 const P_EMITTER_CUTS: usize = 14;
+const P_TRACE: usize = 15;
+const TRACE_CLASSIFY: u32 = 0;
+const TRACE_GATHER: u32 = 1;
+const TRACE_PROBES: u32 = 2;
+const TRACE_SPHERE: u32 = 3;
+const TRACE_SPATIAL: u32 = 4;
+const TRACE_LISTED: u32 = 5;
 
 pub const SCRATCH_PER_SLOT: u32 = 16384;
 pub const HEAP_SIZE: u32 = SCRATCH_DESCRIPTORS + SCRATCH_PER_SLOT * RING as u32;
@@ -127,9 +139,6 @@ pub struct Renderer {
     pub sets: [vk::DescriptorSet; 2],
     pub pools: [vk::DescriptorPool; 2],
     pub samplers: [vk::Sampler; 3],
-    pub rt: vk::Pipeline,
-    pub sbt: Buffer,
-    pub regions: [vk::StridedDeviceAddressRegionKHR; 4],
     pub compute: Vec<vk::Pipeline>,
     pub cache: Vec<Buffer>,
     pub cache_args: Buffer,
@@ -188,7 +197,7 @@ impl Renderer {
             let sampler = |filter: vk::Filter, mip: vk::SamplerMipmapMode, address: vk::SamplerAddressMode, anisotropy: bool| d.create_sampler(&vk::SamplerCreateInfo::default().mag_filter(filter).min_filter(filter).mipmap_mode(mip)
                 .address_mode_u(address).address_mode_v(address).address_mode_w(address).anisotropy_enable(anisotropy).max_anisotropy(8.0).max_lod(1000.0), None).map_err(err("create sampler"));
             let samplers = [sampler(vk::Filter::LINEAR, vk::SamplerMipmapMode::LINEAR, vk::SamplerAddressMode::REPEAT, true)?, sampler(vk::Filter::LINEAR, vk::SamplerMipmapMode::LINEAR, vk::SamplerAddressMode::CLAMP_TO_EDGE, false)?, sampler(vk::Filter::NEAREST, vk::SamplerMipmapMode::NEAREST, vk::SamplerAddressMode::CLAMP_TO_EDGE, false)?];
-            let stages = vk::ShaderStageFlags::COMPUTE | vk::ShaderStageFlags::RAYGEN_KHR | vk::ShaderStageFlags::MISS_KHR | vk::ShaderStageFlags::CLOSEST_HIT_KHR | vk::ShaderStageFlags::ANY_HIT_KHR;
+            let stages = vk::ShaderStageFlags::COMPUTE;
             let s0 = [samplers[0]];
             let s1 = [samplers[1]];
             let s2 = [samplers[2]];
@@ -228,33 +237,6 @@ impl Renderer {
                 compute.push(p);
             }
 
-            let m = module(gpu, TRACE)?;
-            let names = [c"RayGen", c"Miss", c"ClosestHit", c"AnyHit"];
-            let kinds = [vk::ShaderStageFlags::RAYGEN_KHR, vk::ShaderStageFlags::MISS_KHR, vk::ShaderStageFlags::CLOSEST_HIT_KHR, vk::ShaderStageFlags::ANY_HIT_KHR];
-            let rt_stages: Vec<vk::PipelineShaderStageCreateInfo> = (0..4).map(|i| vk::PipelineShaderStageCreateInfo::default().stage(kinds[i]).module(m).name(names[i])).collect();
-            let unused = vk::SHADER_UNUSED_KHR;
-            let groups = [
-                vk::RayTracingShaderGroupCreateInfoKHR::default().ty(vk::RayTracingShaderGroupTypeKHR::GENERAL).general_shader(0).closest_hit_shader(unused).any_hit_shader(unused).intersection_shader(unused),
-                vk::RayTracingShaderGroupCreateInfoKHR::default().ty(vk::RayTracingShaderGroupTypeKHR::GENERAL).general_shader(1).closest_hit_shader(unused).any_hit_shader(unused).intersection_shader(unused),
-                vk::RayTracingShaderGroupCreateInfoKHR::default().ty(vk::RayTracingShaderGroupTypeKHR::TRIANGLES_HIT_GROUP).general_shader(unused).closest_hit_shader(2).any_hit_shader(3).intersection_shader(unused),
-            ];
-            let info = vk::RayTracingPipelineCreateInfoKHR::default().stages(&rt_stages).groups(&groups).max_pipeline_ray_recursion_depth(1).layout(layout);
-            let rt = gpu.rt.create_ray_tracing_pipelines(vk::DeferredOperationKHR::null(), vk::PipelineCache::null(), &[info], None).map_err(|(_, e)| format!("create ray tracing pipeline: {e}"))?[0];
-            gpu.device.destroy_shader_module(m, None);
-            let handle = gpu.handle_size as u64;
-            let handles = gpu.rt.get_ray_tracing_shader_group_handles(rt, 0, 3, (handle * 3) as usize).map_err(err("get shader handles"))?;
-            let stride = align(handle, gpu.handle_alignment as u64);
-            let base = gpu.group_base_alignment as u64;
-            let sbt = gpu.buffer(base * 4, vk::BufferUsageFlags::SHADER_BINDING_TABLE_KHR, vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT)?;
-            let sbt_base = align(sbt.address, base);
-            let shift = (sbt_base - sbt.address) as usize;
-            for i in 0..3 { std::ptr::copy_nonoverlapping(handles.as_ptr().add(i * handle as usize), sbt.mapped.add(shift + i * base as usize), handle as usize); }
-            let regions = [
-                vk::StridedDeviceAddressRegionKHR { device_address: sbt_base, stride, size: stride },
-                vk::StridedDeviceAddressRegionKHR { device_address: sbt_base + base, stride, size: stride },
-                vk::StridedDeviceAddressRegionKHR { device_address: sbt_base + base * 2, stride, size: stride },
-                vk::StridedDeviceAddressRegionKHR::default(),
-            ];
 
             let commands = gpu.device.allocate_command_buffers(&vk::CommandBufferAllocateInfo::default().command_pool(gpu.command_pool).level(vk::CommandBufferLevel::PRIMARY).command_buffer_count(RING as u32)).map_err(err("allocate command buffers"))?;
             let ring = gpu.buffer(SLOT_STRIDE * RING as u64, vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::UNIFORM_BUFFER | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR, vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT)?;
@@ -315,7 +297,7 @@ impl Renderer {
             let alpha_readback = gpu.buffer(crate::opaque::ALPHA_MIN_BYTES, vk::BufferUsageFlags::STORAGE_BUFFER, host)?;
             heap.buffer(gpu, crate::opaque::HEAP_ALPHA_MIN, scene.alpha_min.buffer, 0, crate::opaque::ALPHA_MIN_BYTES);
             Ok(Renderer {
-                layout, set_layouts, sets: [set0, set1], pools: [pool0, pool1], samplers, rt, sbt, regions, compute, cache, cache_args, blue_noise, queries, timings: [0; 8], commands, ring, slot_fences: [0; RING], eligible: Vec::new(),
+                layout, set_layouts, sets: [set0, set1], pools: [pool0, pool1], samplers, compute, cache, cache_args, blue_noise, queries, timings: [0; 8], commands, ring, slot_fences: [0; RING], eligible: Vec::new(),
                 contexts: (0..MAX_CONTEXTS).map(|_| None).collect(), upload, fence_unity, fence_tracer, scratch: std::cell::Cell::new((SCRATCH_DESCRIPTORS, 0)),
                 grid: LightGrid::new(), bounds_readback, bounds_pending: None, bounds_dirty: None, prepared: 0, opaque: Default::default(), alpha_readback, grid_gpu, grid_commands,
             })
@@ -326,7 +308,7 @@ impl Renderer {
 
     fn push(&self, gpu: &Gpu, cmd: vk::CommandBuffer, constants: [u32; 8]) {
         let bytes: Vec<u8> = constants.iter().flat_map(|c| c.to_le_bytes()).collect();
-        let stages = vk::ShaderStageFlags::COMPUTE | vk::ShaderStageFlags::RAYGEN_KHR | vk::ShaderStageFlags::MISS_KHR | vk::ShaderStageFlags::CLOSEST_HIT_KHR | vk::ShaderStageFlags::ANY_HIT_KHR;
+        let stages = vk::ShaderStageFlags::COMPUTE;
         unsafe { gpu.device.cmd_push_constants(cmd, self.layout, stages, 0, &bytes); }
     }
 
@@ -334,11 +316,10 @@ impl Renderer {
 
     fn dispatch(&self, gpu: &Gpu, cmd: vk::CommandBuffer, x: u32, y: u32) { unsafe { gpu.device.cmd_dispatch(cmd, x, y, 1); } }
 
-    fn trace(&self, gpu: &Gpu, cmd: vk::CommandBuffer, w: u32, h: u32) {
-        unsafe {
-            gpu.device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::RAY_TRACING_KHR, self.rt);
-            gpu.rt.cmd_trace_rays(cmd, &self.regions[0], &self.regions[1], &self.regions[2], &self.regions[3], w.max(1), h.max(1), 1);
-        }
+    fn trace(&self, gpu: &Gpu, cmd: vk::CommandBuffer, mode: u32, b: u32, w: u32, h: u32) {
+        self.pipeline(gpu, cmd, P_TRACE + mode as usize);
+        self.push(gpu, cmd, [mode, b, w, h, 0, 0, 0, 0]);
+        self.dispatch(gpu, cmd, w.div_ceil(8), h.div_ceil(8));
     }
 
     pub fn prepare(&mut self, gpu: &Gpu, scene: &Scene, slot_ptr: *const Slot) -> Fallible<()> {
@@ -434,7 +415,7 @@ impl Renderer {
             gpu.device.reset_command_buffer(cmd, vk::CommandBufferResetFlags::empty()).map_err(err("reset command buffer"))?;
             gpu.device.begin_command_buffer(cmd, &vk::CommandBufferBeginInfo::default().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)).map_err(err("begin command buffer"))?;
             gpu.device.cmd_reset_query_pool(cmd, self.queries, slot as u32 * TIMESTAMPS, TIMESTAMPS);
-            for point in [vk::PipelineBindPoint::COMPUTE, vk::PipelineBindPoint::RAY_TRACING_KHR] {
+            for point in [vk::PipelineBindPoint::COMPUTE] {
                 gpu.device.cmd_bind_descriptor_sets(cmd, point, self.layout, 0, &self.sets, &[base as u32]);
             }
             let external = vk::QUEUE_FAMILY_EXTERNAL;
@@ -566,11 +547,10 @@ impl Renderer {
         let full = width * views;
         if tlas_count > 0 {
             let (half_width, half_height) = (full.div_ceil(2).max(1), height.div_ceil(2));
-            self.push(gpu, cmd, [0, half_height, 0, 0, 0, 0, 0, 0]);
-            self.trace(gpu, cmd, half_width, half_height + 4096u32.div_ceil(half_width));
+            self.trace(gpu, cmd, TRACE_CLASSIFY, half_height, half_width, half_height);
+            self.trace(gpu, cmd, TRACE_SPHERE, 0, 64, 64);
             barrier(gpu, cmd);
-            self.push(gpu, cmd, [5, half_height, 0, 0, 0, 0, 0, 0]);
-            self.trace(gpu, cmd, half_width, half_height);
+            self.trace(gpu, cmd, TRACE_LISTED, half_height, half_width, half_height);
         }
         barrier(gpu, cmd);
         stamp(2);
@@ -586,8 +566,7 @@ impl Renderer {
         stamp(3);
         let (tiles_x, tiles_y) = tiles(width, height, views);
         if tlas_count > 0 && params.flags & FLAG_PROBES != 0 {
-            self.push(gpu, cmd, [2, 0, 0, 0, 0, 0, 0, 0]);
-            self.trace(gpu, cmd, tiles_x * PROBE_RAYS, tiles_y);
+            self.trace(gpu, cmd, TRACE_PROBES, 0, tiles_x * PROBE_RAYS, tiles_y);
             barrier(gpu, cmd);
             self.pipeline(gpu, cmd, P_PROBE_RESOLVE);
             self.dispatch(gpu, cmd, tiles_x.div_ceil(8), tiles_y.div_ceil(8));
@@ -595,11 +574,9 @@ impl Renderer {
         }
         stamp(4);
         if tlas_count > 0 {
-            self.push(gpu, cmd, [1, 0, 0, 0, 0, 0, 0, 0]);
-            self.trace(gpu, cmd, full, height);
+            self.trace(gpu, cmd, TRACE_GATHER, 0, full, height);
             barrier(gpu, cmd);
-            self.push(gpu, cmd, [4, 0, 0, 0, 0, 0, 0, 0]);
-            self.trace(gpu, cmd, full, height);
+            self.trace(gpu, cmd, TRACE_SPATIAL, 0, full, height);
         }
         barrier(gpu, cmd);
         stamp(5);

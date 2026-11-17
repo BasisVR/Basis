@@ -30,6 +30,7 @@ public sealed class VolumetricFogVolumeComponentEditor : VolumeComponentEditor
 
 	private SerializedDataParameter enableLTCGIContribution;
 	private SerializedDataParameter LTCGIScattering;
+	private SerializedDataParameter globalIlluminationWeight;
 
 	private SerializedDataParameter enableAdditionalLightsContribution;
 	private SerializedDataParameter additionalLightsAnisotropy;
@@ -71,6 +72,7 @@ public sealed class VolumetricFogVolumeComponentEditor : VolumeComponentEditor
 
 		enableLTCGIContribution = Unpack(pf.Find(x => x.enableLTCGIContribution));
 		LTCGIScattering = Unpack(pf.Find(x => x.LTCGIScattering));
+		globalIlluminationWeight = Unpack(pf.Find(x => x.globalIlluminationWeight));
 
 		enableAdditionalLightsContribution = Unpack(pf.Find(x => x.enableAdditionalLightsContribution));
 		additionalLightsAnisotropy = Unpack(pf.Find(x => x.additionalLightsAnisotropy));
@@ -121,6 +123,8 @@ public sealed class VolumetricFogVolumeComponentEditor : VolumeComponentEditor
 			PropertyField(scattering);
 			PropertyField(tint);
 		}
+
+		PropertyField(globalIlluminationWeight);
 
 		bool enabledLTCGIContribution = enableLTCGIContribution.overrideState.boolValue && enableLTCGIContribution.value.boolValue;
 		PropertyField(enableLTCGIContribution);

@@ -249,7 +249,7 @@ float4 VolumetricFog(float2 uv, float2 positionCS)
 
             real3 ltcgiColor = GetStepLTCGIColor(currPosWS, -rd, density);
 
-            real3 stepColor = apvColor + mainLightColor + ltcgiColor + external.rgb * (density * _VFExternalVolumeParams1.w);
+            real3 stepColor = apvColor + SampleWorldRadiance(currPosWS) * density + mainLightColor + ltcgiColor + external.rgb * (density * _VFExternalVolumeParams1.w);
             volumetricFogColor += (stepColor * (transmittance * ds));
 
             // Early-out once the medium is effectively opaque: further steps contribute ~0 and, since

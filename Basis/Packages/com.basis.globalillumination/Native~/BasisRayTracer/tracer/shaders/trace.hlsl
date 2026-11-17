@@ -27,32 +27,27 @@ bool TileDiscarded(Instance instance, Material material, uint geometry, uint pri
     return TileDiscarded(material, vi);
 }
 
-float AlphaAtUv(Material material, float2 uv)
+float AlphaAtUv(Material material, float2 uv, float2 maskUv)
 {
-    float alpha = material.baseColor.a;
-    if (material.baseTexture >= 0)
-    {
-        Texture2D<float4> t = ResourceDescriptorHeap[HEAP_TEXTURES + material.baseTexture];
-        alpha *= t.SampleLevel(linearWrap, uv * material.baseST.xy + material.baseST.zw, (material.alphaMode & 3u) == ALPHA_CUTOUT ? 1.0 : 0.0).a;
-    }
-    return alpha;
+    return AlphaAtUvLod(material, uv, maskUv, (material.alphaMode & 3u) == ALPHA_CUTOUT ? 1.0 : 0.0, 0.0);
 }
 
 float AlphaAt(Instance instance, uint geometry, uint primitive, float2 barycentrics, out Material material)
 {
     material = LoadMaterial(instance.materialBase + geometry);
-    if (material.baseTexture < 0) { return material.baseColor.a; }
+    if (material.baseTexture < 0 && AlphaMaskTexture(material) == 0u) { return material.baseColor.a; }
     uint3 vi; Mesh mesh;
     LoadTriangle(instance, geometry, primitive, vi, mesh);
     float3 w = float3(1.0 - barycentrics.x - barycentrics.y, barycentrics);
-    return AlphaAtUv(material, LoadUv0(vi.x) * w.x + LoadUv0(vi.y) * w.y + LoadUv0(vi.z) * w.z);
+    float2 uv = LoadUv0(vi.x) * w.x + LoadUv0(vi.y) * w.y + LoadUv0(vi.z) * w.z;
+    return AlphaAtUv(material, uv, AlphaMaskUv(material, vi, w, uv));
 }
 
-float AlphaCoverage(Material material, float2 uv)
+float AlphaCoverage(Material material, float2 uv, float2 maskUv)
 {
     uint mode = material.alphaMode & 3u;
     if (mode == ALPHA_OPAQUE || (material.flags & MATERIAL_KNOWN_OPAQUE) != 0u) { return 1.0; }
-    float alpha = AlphaAtUv(material, uv);
+    float alpha = AlphaAtUv(material, uv, maskUv);
     if (material.cutoff <= 1.0 && alpha < material.cutoff) { return 0.0; }
     return mode == ALPHA_CUTOUT ? 1.0 : saturate(alpha);
 }
@@ -67,15 +62,9 @@ bool AlphaAccept(uint instanceIndex, uint geometry, uint primitive, float2 baryc
     float alpha = AlphaAt(instance, geometry, primitive, barycentrics, material);
     if (alpha < material.cutoff) { return false; }
     if ((material.alphaMode & 3u) == ALPHA_CUTOUT) { return true; }
-    uint2 p = DispatchRaysIndex().xy;
+    uint2 p = traceIndex;
     uint h = Hash(p.x * 9781u + p.y * 6271u + primitive * 26699u + frame.frameIndex * 1973u + asuint(t));
     return (h & 0xffff) * (1.0 / 65536.0) < alpha;
-}
-
-[shader("anyhit")]
-void AnyHit(inout Payload payload, BuiltInTriangleIntersectionAttributes attributes)
-{
-    if (!AlphaAccept(InstanceID(), GeometryIndex(), PrimitiveIndex(), attributes.barycentrics, RayTCurrent())) { IgnoreHit(); }
 }
 
 bool AnyOccluder(RaytracingAccelerationStructure tlas, RayDesc ray, uint mask, out float t)
@@ -92,17 +81,12 @@ bool AnyOccluder(RaytracingAccelerationStructure tlas, RayDesc ray, uint mask, o
 
 HitObj TraceClosest(RaytracingAccelerationStructure tlas, uint mask, RayDesc ray)
 {
-#ifdef PIPELINE_RAYS
-    Payload payload = (Payload)0;
-    return TraceHit(tlas, RAY_FLAG_NONE, mask, ray, payload);
-#else
     RayQuery<RAY_FLAG_NONE> q;
     q.TraceRayInline(tlas, RAY_FLAG_NONE, mask, ray);
     while (q.Proceed())
     {
         if (q.CandidateType() == CANDIDATE_NON_OPAQUE_TRIANGLE && AlphaAccept(q.CandidateInstanceID(), q.CandidateGeometryIndex(), q.CandidatePrimitiveIndex(), q.CandidateTriangleBarycentrics(), q.CandidateTriangleRayT())) { q.CommitNonOpaqueTriangleHit(); }
     }
-#ifdef BASIS_SPIRV
     HitObj h;
     h.p = (Payload)0;
     h.direction = ray.Direction;
@@ -112,17 +96,7 @@ HitObj TraceClosest(RaytracingAccelerationStructure tlas, uint mask, RayDesc ray
         h.p.barycentrics = q.CommittedTriangleBarycentrics(); h.p.t = q.CommittedRayT(); h.p.objectToWorld = q.CommittedObjectToWorld3x4(); h.p.worldToObject = q.CommittedWorldToObject3x4();
     }
     return h;
-#else
-    return dx::HitObject::FromRayQuery(q);
-#endif
-#endif
 }
-
-[shader("miss")]
-void Miss(inout Payload payload) { }
-
-[shader("closesthit")]
-void ClosestHit(inout Payload payload, BuiltInTriangleIntersectionAttributes attributes) { STORE_HIT(payload, attributes); }
 
 Hit ResolveHit(HitObj hitObject, float coneSpread)
 {
@@ -171,14 +145,8 @@ bool Occluded(RaytracingAccelerationStructure tlas, float3 origin, float3 direct
     ray.Direction = direction;
     ray.TMin = 0.0;
     ray.TMax = distance;
-#ifdef PIPELINE_RAYS
-    Payload payload = (Payload)0;
-    HitObj h = TraceHit(tlas, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER, 0xFE, ray, payload);
-    return h.IsHit();
-#else
     float t;
     return AnyOccluder(tlas, ray, 0xFE, t);
-#endif
 }
 
 Emitter LoadEmitter(uint index) { StructuredBuffer<Emitter> b = ResourceDescriptorHeap[HEAP_EMITTERS + frame.slot]; return b[index]; }
@@ -362,8 +330,8 @@ LightCandidate EvaluateEmitterPoint(Instance instance, uint geometry, uint primi
     if ((part == 1 && c.distance >= nearRadius) || (part == 2 && c.distance < nearRadius)) { return c; }
     float2 uv = LoadUv0(vi.x) * w.x + LoadUv0(vi.y) * w.y + LoadUv0(vi.z) * w.z;
     float3 tint = material.baseColor.rgb;
-    if (material.emissionBase > 0.0 || (material.alphaMode & 0x8000u) != 0u) { tint *= SampleTexture(material.baseTexture, uv, material.baseST, 2.0, 1.0).rgb; }
-    float3 emission = MaterialEmission(material, uv, 2.0, 1.0, tint) * frame.emissionScale * AlphaCoverage(material, uv);
+    if (EmissionBase(material) > 0.0 || (material.alphaMode & 0x8000u) != 0u) { tint *= SampleTexture(material.baseTexture, uv, material.baseST, 2.0, 1.0).rgb; }
+    float3 emission = MaterialEmission(material, uv, 2.0, 1.0, tint) * frame.emissionScale * AlphaCoverage(material, uv, AlphaMaskUv(material, vi, w, uv));
     c.value = emission * min(cosReceiver * cosLight / max(distance2, 1e-6), PI / area) / PI;
     c.scatterPdf = cosReceiver * cosLight / (PI * max(distance2, 1e-6));
     c.shadow = true;
@@ -696,7 +664,7 @@ Bounce TraceRadiance(RaytracingAccelerationStructure tlas, Texture2D<uint4> gbuf
         Material material = LoadMaterial(hit.materialIndex);
         Instance instance = LoadInstance(hit.instanceIndex);
         float4 baseColor = material.baseColor * SampleTexture(material.baseTexture, hit.uv0, material.baseST, hit.lod, 512.0);
-        float3 albedo = saturate(baseColor.rgb) * (1.0 - material.metallic * 0.75);
+        float3 albedo = saturate(baseColor.rgb) * (1.0 - Metallic(material) * 0.75);
         float3 emission = MaterialEmission(material, hit.uv0, hit.lod, 512.0, baseColor.rgb) * frame.emissionScale;
         float3 hitOrigin = hit.position + hit.geometricNormal * frame.normalBias;
         if (segment == 0)
@@ -877,7 +845,7 @@ void ReferenceRayGen(uint mode, uint2 pixel)
             Hit hit = ResolveHit(h, 0.35);
             Material material = LoadMaterial(hit.materialIndex);
             float4 baseColor = material.baseColor * SampleTexture(material.baseTexture, hit.uv0, material.baseST, hit.lod, 512.0);
-            float3 albedo = saturate(baseColor.rgb) * (1.0 - material.metallic * 0.75);
+            float3 albedo = saturate(baseColor.rgb) * (1.0 - Metallic(material) * 0.75);
             if (hit.front || (material.flags & MATERIAL_DOUBLE_SIDED) != 0u) { radiance += throughput * MaterialEmission(material, hit.uv0, hit.lod, 512.0, baseColor.rgb) * frame.emissionScale; }
             if ((material.flags & MATERIAL_UNLIT) != 0) { radiance += throughput * baseColor.rgb; break; }
             origin = hit.position + hit.geometricNormal * frame.normalBias;
@@ -902,27 +870,17 @@ void ReferenceRayGen(uint mode, uint2 pixel)
 }
 #endif
 
-[shader("raygeneration")]
-void RayGen()
+void Trace(uint mode, uint2 index, uint dispatchWidth)
 {
-    uint mode = pass.a;
-    uint2 index = DispatchRaysIndex().xy;
 #ifdef REFERENCE
     ReferenceRayGen(mode, index);
     return;
 #endif
-    if (mode == 0u && index.y >= pass.b)
-    {
-        uint k = (index.y - pass.b) * DispatchRaysDimensions().x + index.x;
-        if (k >= 4096u) { return; }
-        mode = 3u;
-        index = uint2(k % 64u, k / 64u);
-    }
     bool listed = false;
     if (mode == 5u)
     {
         RWByteAddressBuffer rows = ResourceDescriptorHeap[frame.contextBase + CTX_UPDATE_LIST];
-        uint row = index.y * (DispatchRaysDimensions().x + 1u);
+        uint row = index.y * (dispatchWidth + 1u);
         if (index.x >= rows.Load(row * 4u)) { return; }
         index.x = rows.Load((row + 1u + index.x) * 4u);
         mode = 0u;
@@ -1120,7 +1078,7 @@ void RayGen()
             if (!listed)
             {
                 RWByteAddressBuffer rows = ResourceDescriptorHeap[frame.contextBase + CTX_UPDATE_LIST];
-                uint row = index.y * (DispatchRaysDimensions().x + 1u), at;
+                uint row = index.y * (dispatchWidth + 1u), at;
                 rows.InterlockedAdd(row * 4u, 1u, at);
                 rows.Store((row + 1u + at) * 4u, index.x);
                 return;
@@ -1243,7 +1201,7 @@ void RayGen()
             Hit hit = ResolveHit(h, 0.35);
             Material material = LoadMaterial(hit.materialIndex);
             float4 baseColor = material.baseColor * SampleTexture(material.baseTexture, hit.uv0, material.baseST, hit.lod, 512.0);
-            float3 albedo = saturate(baseColor.rgb) * (1.0 - material.metallic * 0.75);
+            float3 albedo = saturate(baseColor.rgb) * (1.0 - Metallic(material) * 0.75);
             float3 own = 0.0;
             if ((material.flags & MATERIAL_EMITTER) == 0 && (hit.front || (material.flags & MATERIAL_DOUBLE_SIDED) != 0u))
             {
@@ -1346,4 +1304,12 @@ void RayGen()
     irradiance = irradiance * (0.5 + 0.5 * visibility) + emitted;
     if (!all(isfinite(irradiance))) { irradiance = 0.0; }
     output[pixel] = float4(irradiance, saturate(1.0 - frame.aoIntensity * occlusion));
+}
+
+[numthreads(8, 8, 1)]
+void TRACE_ENTRY(uint3 id : SV_DispatchThreadID)
+{
+    traceIndex = id.xy;
+    if (id.x >= pass.c || id.y >= pass.d) { return; }
+    Trace(TRACE_MODE, id.xy, pass.c);
 }

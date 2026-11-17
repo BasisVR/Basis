@@ -81,6 +81,10 @@ public sealed class VolumetricFogVolumeComponent : VolumeComponent, IPostProcess
 	[Tooltip("A multiplier color to tint the main light fog.")]
 	public ColorParameter tint = new ColorParameter(Color.white, true, false, true);
 
+	[Header("Global Illumination")]
+	[Tooltip("How strongly realtime global illumination lights the fog. Bounced and emissive light from the world probe grid is added to the fog while adaptive probe volume contribution is off.")]
+	public ClampedFloatParameter globalIlluminationWeight = new ClampedFloatParameter(1.0f, 0.0f, 4.0f);
+
 	[Header("LTCGI")]
 	[Tooltip("When enabled, LTCGI area lights (screens, video) contribute to fog. Requires the LTCGI package installed and a baked LTCGI controller in the scene; otherwise this has no effect.")]
 	public BoolParameter enableLTCGIContribution = new BoolParameter(false, BoolParameter.DisplayType.Checkbox, true);

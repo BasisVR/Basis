@@ -8,7 +8,7 @@ use windows::Win32::Graphics::Direct3D12::*;
 use windows::Win32::Graphics::Dxgi::Common::*;
 use windows::core::*;
 
-const TRACE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/trace.dxil"));
+const TRACE: [&[u8]; 6] = [include_bytes!(concat!(env!("OUT_DIR"), "/TraceClassify.dxil")), include_bytes!(concat!(env!("OUT_DIR"), "/TraceGather.dxil")), include_bytes!(concat!(env!("OUT_DIR"), "/TraceProbes.dxil")), include_bytes!(concat!(env!("OUT_DIR"), "/TraceSphere.dxil")), include_bytes!(concat!(env!("OUT_DIR"), "/TraceSpatial.dxil")), include_bytes!(concat!(env!("OUT_DIR"), "/TraceListed.dxil"))];
 const COPY_VERTICES: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/CopyVertices.dxil"));
 const COPY_INDICES: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/CopyIndices.dxil"));
 const COPY_POSITIONS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/CopyPositions.dxil"));
@@ -22,8 +22,16 @@ const PROBE_RESOLVE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/ProbeReso
 const SUBMESH_BOUNDS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/SubmeshBounds.dxil"));
 const SUBMESH_BOUNDS_CLEAR: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/SubmeshBoundsClear.dxil"));
 const EMITTER_WEIGHTS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/EmitterWeights.dxil"));
+const OMM_BAKE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/OmmBake.dxil"));
+const OMM_BUDGET: u32 = 8192;
 const EMITTER_PREFIX: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/EmitterPrefix.dxil"));
 const EMITTER_CUTS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/EmitterCuts.dxil"));
+const TRACE_CLASSIFY: u32 = 0;
+const TRACE_GATHER: u32 = 1;
+const TRACE_PROBES: u32 = 2;
+const TRACE_SPHERE: u32 = 3;
+const TRACE_SPATIAL: u32 = 4;
+const TRACE_LISTED: u32 = 5;
 pub const HEAP_RING: u32 = 9;
 pub const HEAP_BLUE_NOISE: u32 = 10;
 pub const BLUE_NOISE: &[u8] = include_bytes!("bluenoise.bin");
@@ -105,9 +113,7 @@ pub struct Context {
 
 pub struct Renderer {
     pub root: ID3D12RootSignature,
-    pub state: ID3D12StateObject,
-    pub table: ID3D12Resource,
-    pub table_address: u64,
+    pub trace: Vec<ID3D12PipelineState>,
     pub copy_vertices: ID3D12PipelineState,
     pub copy_indices: ID3D12PipelineState,
     pub copy_positions: ID3D12PipelineState,
@@ -123,6 +129,9 @@ pub struct Renderer {
     pub submesh_bounds: ID3D12PipelineState,
     pub submesh_bounds_clear: ID3D12PipelineState,
     pub emitter_weights: ID3D12PipelineState,
+    pub omm_bake: ID3D12PipelineState,
+    pub omm: bool,
+    pub omm_flags: u32,
     pub emitter_prefix: ID3D12PipelineState,
     pub emitter_cuts: ID3D12PipelineState,
     pub cache: Vec<ID3D12Resource>,
@@ -154,8 +163,10 @@ pub struct Renderer {
     pub cross_upload: Option<[(ID3D12Resource, ID3D12Resource); 2]>,
 }
 
-fn compute_pso(gpu: &Gpu, root: &ID3D12RootSignature, code: &[u8]) -> Result<ID3D12PipelineState> {
-    let desc = D3D12_COMPUTE_PIPELINE_STATE_DESC { pRootSignature: unsafe { std::mem::transmute_copy(root) }, CS: D3D12_SHADER_BYTECODE { pShaderBytecode: code.as_ptr() as _, BytecodeLength: code.len() }, ..Default::default() };
+fn compute_pso(gpu: &Gpu, root: &ID3D12RootSignature, code: &[u8]) -> Result<ID3D12PipelineState> { compute_pso_flags(gpu, root, code, D3D12_PIPELINE_STATE_FLAG_NONE) }
+
+pub fn compute_pso_flags(gpu: &Gpu, root: &ID3D12RootSignature, code: &[u8], flags: D3D12_PIPELINE_STATE_FLAGS) -> Result<ID3D12PipelineState> {
+    let desc = D3D12_COMPUTE_PIPELINE_STATE_DESC { pRootSignature: unsafe { std::mem::transmute_copy(root) }, CS: D3D12_SHADER_BYTECODE { pShaderBytecode: code.as_ptr() as _, BytecodeLength: code.len() }, Flags: flags, ..Default::default() };
     unsafe { gpu.device.CreateComputePipelineState(&desc) }
 }
 
@@ -184,30 +195,9 @@ impl Renderer {
             let blob = blob.unwrap();
             let root: ID3D12RootSignature = gpu.device.CreateRootSignature(0, std::slice::from_raw_parts(blob.GetBufferPointer() as *const u8, blob.GetBufferSize()))?;
 
-            let library = D3D12_DXIL_LIBRARY_DESC { DXILLibrary: D3D12_SHADER_BYTECODE { pShaderBytecode: TRACE.as_ptr() as _, BytecodeLength: TRACE.len() }, NumExports: 0, pExports: std::ptr::null_mut() };
-            let hit_group = D3D12_HIT_GROUP_DESC { HitGroupExport: w!("Hit"), Type: D3D12_HIT_GROUP_TYPE_TRIANGLES, AnyHitShaderImport: w!("AnyHit"), ClosestHitShaderImport: w!("ClosestHit"), IntersectionShaderImport: PCWSTR::null() };
-            let shader_config = D3D12_RAYTRACING_SHADER_CONFIG { MaxPayloadSizeInBytes: 4, MaxAttributeSizeInBytes: 8 };
-            let global = D3D12_GLOBAL_ROOT_SIGNATURE { pGlobalRootSignature: std::mem::transmute_copy(&root) };
-            let pipeline_config = D3D12_RAYTRACING_PIPELINE_CONFIG { MaxTraceRecursionDepth: 1 };
-            let subobjects = [
-                D3D12_STATE_SUBOBJECT { Type: D3D12_STATE_SUBOBJECT_TYPE_DXIL_LIBRARY, pDesc: &library as *const _ as _ },
-                D3D12_STATE_SUBOBJECT { Type: D3D12_STATE_SUBOBJECT_TYPE_HIT_GROUP, pDesc: &hit_group as *const _ as _ },
-                D3D12_STATE_SUBOBJECT { Type: D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_SHADER_CONFIG, pDesc: &shader_config as *const _ as _ },
-                D3D12_STATE_SUBOBJECT { Type: D3D12_STATE_SUBOBJECT_TYPE_GLOBAL_ROOT_SIGNATURE, pDesc: &global as *const _ as _ },
-                D3D12_STATE_SUBOBJECT { Type: D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_PIPELINE_CONFIG, pDesc: &pipeline_config as *const _ as _ },
-            ];
-            let state_desc = D3D12_STATE_OBJECT_DESC { Type: D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE, NumSubobjects: subobjects.len() as u32, pSubobjects: subobjects.as_ptr() };
-            let state: ID3D12StateObject = gpu.device.CreateStateObject(&state_desc)?;
-            let properties: ID3D12StateObjectProperties = state.cast()?;
-            let table = gpu.buffer(256, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ)?;
-            let mut mapped = std::ptr::null_mut();
-            table.Map(0, None, Some(&mut mapped))?;
-            for (i, name) in [w!("RayGen"), w!("Miss"), w!("Hit")].iter().enumerate() {
-                let id = properties.GetShaderIdentifier(*name);
-                if id.is_null() { return Err(Error::new(E_FAIL, "missing shader identifier")); }
-                std::ptr::copy_nonoverlapping(id as *const u8, (mapped as *mut u8).add(i * 64), 32);
-            }
-            let table_address = table.GetGPUVirtualAddress();
+            let want_omm = gpu.caps & CAP_OMM != 0 && std::env::var_os("BASIS_RT_NO_OMM").is_none();
+            let create = |flags: D3D12_PIPELINE_STATE_FLAGS| TRACE.iter().map(|code| compute_pso_flags(gpu, &root, code, flags)).collect::<Result<Vec<_>>>();
+            let (trace, omm) = match if want_omm { create(D3D12_PIPELINE_STATE_FLAGS(crate::ffi::PIPELINE_STATE_FLAG_RAYQUERY_ALLOW_OPACITY_MICROMAPS)).ok() } else { None } { Some(t) => (t, true), None => (create(D3D12_PIPELINE_STATE_FLAG_NONE)?, false) };
 
             let allocators = (0..RING).map(|_| gpu.device.CreateCommandAllocator::<ID3D12CommandAllocator>(D3D12_COMMAND_LIST_TYPE_DIRECT)).collect::<Result<Vec<_>>>()?;
             let list: ID3D12GraphicsCommandList4 = gpu.device.CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, &allocators[0], None)?;
@@ -238,8 +228,9 @@ impl Renderer {
             gpu.srv_raw(&blue_noise.resource, BLUE_NOISE.len() as u64, HEAP_BLUE_NOISE);
             Ok(Renderer {
                 copy_vertices: compute_pso(gpu, &root, COPY_VERTICES)?, copy_indices: compute_pso(gpu, &root, COPY_INDICES)?, copy_positions: compute_pso(gpu, &root, COPY_POSITIONS)?, texture_pixels: compute_pso(gpu, &root, TEXTURE_PIXELS)?,
-                downsample: compute_pso(gpu, &root, DOWNSAMPLE)?, temporal: compute_pso(gpu, &root, TEMPORAL)?, wavelet: compute_pso(gpu, &root, WAVELET)?, resolve: compute_pso(gpu, &root, RESOLVE)?, maintain: compute_pso(gpu, &root, MAINTAIN)?, resolve_signature, cache_args, probe_resolve: compute_pso(gpu, &root, PROBE_RESOLVE)?, submesh_bounds: compute_pso(gpu, &root, SUBMESH_BOUNDS)?, submesh_bounds_clear: compute_pso(gpu, &root, SUBMESH_BOUNDS_CLEAR)?, emitter_weights: compute_pso(gpu, &root, EMITTER_WEIGHTS)?, emitter_prefix: compute_pso(gpu, &root, EMITTER_PREFIX)?, emitter_cuts: compute_pso(gpu, &root, EMITTER_CUTS)?, cache, blue_noise, queries, readback, frequency, timings: [0; 8],
-                root, state, table, table_address, allocators, list, ring, slot_fences: [0; RING], contexts: (0..MAX_CONTEXTS).map(|_| None).collect(), eligible: Vec::new(),
+                downsample: compute_pso(gpu, &root, DOWNSAMPLE)?, temporal: compute_pso(gpu, &root, TEMPORAL)?, wavelet: compute_pso(gpu, &root, WAVELET)?, resolve: compute_pso(gpu, &root, RESOLVE)?, maintain: compute_pso(gpu, &root, MAINTAIN)?, resolve_signature, cache_args, probe_resolve: compute_pso(gpu, &root, PROBE_RESOLVE)?, submesh_bounds: compute_pso(gpu, &root, SUBMESH_BOUNDS)?, submesh_bounds_clear: compute_pso(gpu, &root, SUBMESH_BOUNDS_CLEAR)?, omm_bake: compute_pso(gpu, &root, OMM_BAKE)?, omm, omm_flags: if std::env::var_os("BASIS_RT_OMM_2STATE").is_some() { 0x10 } else { 0 }, emitter_weights: compute_pso(gpu, &root, EMITTER_WEIGHTS)?, emitter_prefix: compute_pso(gpu, &root, EMITTER_PREFIX)?, emitter_cuts: compute_pso(gpu, &root, EMITTER_CUTS)?, cache, blue_noise, queries, readback, frequency, timings: [0; 8],
+                trace,
+                root, allocators, list, ring, slot_fences: [0; RING], contexts: (0..MAX_CONTEXTS).map(|_| None).collect(), eligible: Vec::new(),
                 grid: LightGrid::new(), bounds_readback: gpu.buffer(SUBMESH_CAPACITY * 32, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST)?, bounds_pending: None, bounds_dirty: None, prepared: 0, opaque: Default::default(), alpha_readback: gpu.buffer(crate::opaque::ALPHA_MIN_BYTES, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST)?,
                 grid_gpu: (0..GRID_BUFFERS).map(|_| gpu.buffer(GRID_BYTES, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COMMON)).collect::<Result<Vec<_>>>()?,
                 grid_read: [0; GRID_BUFFERS], copy_queue, copy_fence, copy_value: 0, copy_allocators, copy_list, cross_upload: None,
@@ -460,6 +451,17 @@ impl Renderer {
                 budget -= triangles;
             }
         }
+        let mut omm_jobs: Vec<[u32; 8]> = Vec::new();
+        if self.omm {
+            let src = unsafe { &*slot_ptr };
+            let materials = &src.materials[..(params.material_count as usize).min(MAX_MATERIALS)];
+            let mut budget = OMM_BUDGET;
+            let room = MAX_EMITTERS - cdf_jobs.len();
+            for inst in &src.instances[..instance_count] {
+                if budget == 0 || omm_jobs.len() >= room { break; }
+                scene.omm_schedule(inst.mesh, materials, inst.material_base, frame, &mut budget, &mut omm_jobs, room);
+            }
+        }
         unsafe {
             let mut barriers = Vec::new();
             if vertices_written { barriers.push(transition(&scene.vertices, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE)); }
@@ -514,6 +516,16 @@ impl Renderer {
                 list.Dispatch((cdf_longest + 2).div_ceil(64), cdf_jobs.len() as u32, 1);
                 list.ResourceBarrier(&[uav_barrier(Some(&scene.cdf))]);
             }
+            if !omm_jobs.is_empty() {
+                let at = CDF_LIST_OFFSET + cdf_jobs.len() as u64 * 32;
+                std::ptr::copy_nonoverlapping(omm_jobs.as_ptr() as *const u8, mapped.add(at as usize), omm_jobs.len() * 32);
+                let constants = [(base + at) as u32, omm_jobs.len() as u32, 0, 0, 0, 0, 0, 0];
+                list.ResourceBarrier(&[transition(&scene.omm, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)]);
+                list.SetComputeRoot32BitConstants(1, 8, constants.as_ptr() as _, 0);
+                list.SetPipelineState(&self.omm_bake);
+                list.Dispatch(omm_jobs.iter().map(|j| j[3]).max().unwrap_or(0).div_ceil(64), omm_jobs.len() as u32, 1);
+                list.ResourceBarrier(&[transition(&scene.omm, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE)]);
+            }
             if self.bounds_pending.is_none() {
                 if let Some((first, end)) = self.bounds_dirty.take() {
                     list.ResourceBarrier(&[transition(&scene.bounds, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE)]);
@@ -537,7 +549,7 @@ impl Renderer {
                 let inst = &(*slot_ptr).instances[i as usize];
                 let Some(m) = scene.meshes.get(&inst.mesh) else { continue; };
                 if m.blas_address == 0 || inst.transform.iter().any(|v| !v.is_finite()) { continue; }
-                descs.add(tlas_count as usize).write(D3D12_RAYTRACING_INSTANCE_DESC { Transform: inst.transform, _bitfield1: (i & 0x00ff_ffff) | ((inst.mask & 0xff) << 24), _bitfield2: (D3D12_RAYTRACING_INSTANCE_FLAG_TRIANGLE_CULL_DISABLE.0 as u32 | if m.alpha && self.opaque.instance(inst.material_base, m.submeshes.iter().map(|s| s.flags)) { D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_OPAQUE.0 as u32 } else { 0 }) << 24, AccelerationStructure: m.blas_address });
+                descs.add(tlas_count as usize).write(D3D12_RAYTRACING_INSTANCE_DESC { Transform: inst.transform, _bitfield1: (i & 0x00ff_ffff) | ((inst.mask & 0xff) << 24), _bitfield2: (D3D12_RAYTRACING_INSTANCE_FLAG_TRIANGLE_CULL_DISABLE.0 as u32 | if m.alpha && self.opaque.instance(inst.material_base, m.submeshes.iter().map(|s| s.flags)) { D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_OPAQUE.0 as u32 } else { 0 } | if m.omm_address != 0 && scene.omm_signature(m, &(&(*slot_ptr).materials)[..(params.material_count as usize).min(MAX_MATERIALS)], inst.material_base) != m.omm_signature { 0x20 } else { self.omm_flags }) << 24, AccelerationStructure: m.blas_address });
                 tlas_count += 1;
             }
         }
@@ -550,21 +562,17 @@ impl Renderer {
         let views = params.view_count.clamp(1, 2).min(ctx.views);
         let full = width * views;
         unsafe {
-            let rays = |w: u32, h: u32| D3D12_DISPATCH_RAYS_DESC {
-                RayGenerationShaderRecord: D3D12_GPU_VIRTUAL_ADDRESS_RANGE { StartAddress: self.table_address, SizeInBytes: 32 },
-                MissShaderTable: D3D12_GPU_VIRTUAL_ADDRESS_RANGE_AND_STRIDE { StartAddress: self.table_address + 64, SizeInBytes: 32, StrideInBytes: 32 },
-                HitGroupTable: D3D12_GPU_VIRTUAL_ADDRESS_RANGE_AND_STRIDE { StartAddress: self.table_address + 128, SizeInBytes: 32, StrideInBytes: 32 },
-                CallableShaderTable: D3D12_GPU_VIRTUAL_ADDRESS_RANGE_AND_STRIDE::default(),
-                Width: w.max(1), Height: h.max(1), Depth: 1,
+            let trace = |list: &ID3D12GraphicsCommandList4, mode: u32, b: u32, w: u32, h: u32| {
+                list.SetPipelineState(&self.trace[mode as usize]);
+                list.SetComputeRoot32BitConstants(1, 8, [mode, b, w, h, 0, 0, 0, 0].as_ptr() as _, 0);
+                list.Dispatch(w.div_ceil(8), h.div_ceil(8), 1);
             };
             if tlas_count > 0 {
-                list.SetPipelineState1(&self.state);
                 let (half_width, half_height) = (full.div_ceil(2).max(1), height.div_ceil(2));
-                list.SetComputeRoot32BitConstants(1, 8, [0u32, half_height, 0, 0, 0, 0, 0, 0].as_ptr() as _, 0);
-                list.DispatchRays(&rays(half_width, half_height + 4096u32.div_ceil(half_width)));
+                trace(&list, TRACE_CLASSIFY, half_height, half_width, half_height);
+                trace(&list, TRACE_SPHERE, 0, 64, 64);
                 list.ResourceBarrier(&[uav_barrier(None)]);
-                list.SetComputeRoot32BitConstants(1, 8, [5u32, half_height, 0, 0, 0, 0, 0, 0].as_ptr() as _, 0);
-                list.DispatchRays(&rays(half_width, half_height));
+                trace(&list, TRACE_LISTED, half_height, half_width, half_height);
             }
             list.ResourceBarrier(&[uav_barrier(None)]);
             stamp(&list, 2);
@@ -580,9 +588,7 @@ impl Renderer {
             stamp(&list, 3);
             let (tiles_x, tiles_y) = tiles(width, height, views);
             if tlas_count > 0 && params.flags & FLAG_PROBES != 0 {
-                list.SetPipelineState1(&self.state);
-                list.SetComputeRoot32BitConstants(1, 8, [2u32, 0, 0, 0, 0, 0, 0, 0].as_ptr() as _, 0);
-                list.DispatchRays(&rays(tiles_x * PROBE_RAYS, tiles_y));
+                trace(&list, TRACE_PROBES, 0, tiles_x * PROBE_RAYS, tiles_y);
                 list.ResourceBarrier(&[uav_barrier(None)]);
                 list.SetPipelineState(&self.probe_resolve);
                 list.Dispatch(tiles_x.div_ceil(8), tiles_y.div_ceil(8), 1);
@@ -590,12 +596,9 @@ impl Renderer {
             }
             stamp(&list, 4);
             if tlas_count > 0 {
-                list.SetPipelineState1(&self.state);
-                list.SetComputeRoot32BitConstants(1, 8, [1u32, 0, 0, 0, 0, 0, 0, 0].as_ptr() as _, 0);
-                list.DispatchRays(&rays(full, height));
+                trace(&list, TRACE_GATHER, 0, full, height);
                 list.ResourceBarrier(&[uav_barrier(None)]);
-                list.SetComputeRoot32BitConstants(1, 8, [4u32, 0, 0, 0, 0, 0, 0, 0].as_ptr() as _, 0);
-                list.DispatchRays(&rays(full, height));
+                trace(&list, TRACE_SPATIAL, 0, full, height);
             }
             list.ResourceBarrier(&[uav_barrier(None)]);
             stamp(&list, 5);

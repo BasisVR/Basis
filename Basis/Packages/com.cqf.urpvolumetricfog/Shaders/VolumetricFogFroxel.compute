@@ -203,7 +203,7 @@ void CSFroxelLight(uint3 id : SV_DispatchThreadID)
         if (_VFFroxelLightFlags.z > 0.5)
             additionalColor = FroxelAdditionalLights(posWS, normalize(column.xyz), density, centerUVW.xy, sampleDepth, viewIndex);
 
-        result = float4(apvColor + mainLightColor + additionalColor + external.rgb * (density * _VFExternalVolumeParams1.w), _Absortion * density);
+        result = float4(apvColor + SampleWorldRadiance(posWS) * density + mainLightColor + additionalColor + external.rgb * (density * _VFExternalVolumeParams1.w), _Absortion * density);
     }
 
     UNITY_BRANCH

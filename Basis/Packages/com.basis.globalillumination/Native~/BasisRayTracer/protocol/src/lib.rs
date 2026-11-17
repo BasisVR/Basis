@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicU32, AtomicU64};
 
 pub const MAGIC: u32 = 0x3154_5242;
-pub const VERSION: u32 = 4;
+pub const VERSION: u32 = 6;
 pub const RING: usize = 8;
 pub const MAX_CONTEXTS: usize = 6;
 pub const MAX_INSTANCES: usize = 16384;
@@ -227,10 +227,10 @@ pub struct Material {
     pub emission_texture: i32,
     pub alpha_mode: u32,
     pub cutoff: f32,
-    pub metallic: f32,
+    pub surface: u32,
     pub emission2: u32,
     pub flags: u32,
-    pub emission_base: f32,
+    pub alpha_op: u32,
 }
 
 #[repr(C)]

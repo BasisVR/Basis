@@ -45,10 +45,11 @@ public struct BasisExternalRayMaterial
     public Vector4 baseColor, emission, baseST, emissionST;
     public int baseTexture, emissionTexture;
     public uint alphaMode;
-    public float cutoff, metallic;
+    public float cutoff;
+    public uint surface;
     public uint emission2;
     public uint flags;
-    public float emissionBase;
+    public uint alphaOp;
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -74,7 +75,7 @@ public struct BasisExternalRayEmitter
 public static unsafe partial class BasisExternalRayTracer
 {
     private const string Dll = "BasisRayTracingBridge2";
-    public const int ProtocolVersion = 4;
+    public const int ProtocolVersion = 6;
     public const int MaxContexts = 6;
     public const int MaxInstances = 16384, MaxMaterials = 8192, MaxLights = 64, MaxCommands = 8192, MaxEmitters = 2048, MaxMeshes = 16384, MaxTextures = 4096, MaxDirty = 512;
     public const int UploadWidth = 2048, UploadHeight = 512, UploadTexels = UploadWidth * UploadHeight, Ring = 8;
@@ -83,7 +84,7 @@ public static unsafe partial class BasisExternalRayTracer
     public const uint SubmeshOpaque = 1, SubmeshAlphaTest = 2, SubmeshBlend = 4, MeshDynamic = 1, TextureHdr = 1;
     public const uint AlphaOpaque = 0, AlphaCutout = 1, AlphaBlend = 2;
     public const uint MaterialDoubleSided = 1, MaterialUnlit = 2, MaterialAnimated = 4, MaterialEmitter = 8, MaterialTileDiscard = 128;
-    public const int MaterialTileChannelShift = 5;
+    public const int MaterialTileChannelShift = 5, MaterialAlphaChannelShift = 8;
     public const uint InstanceAvatar = 1, InstanceNoShadow = 2, InstanceDynamic = 8, MaskDynamic = 2;
     public const uint FlagResetHistory = 1, FlagScreenReuse = 2, FlagShadows = 4, FlagDenoise = 8, FlagSameFrame = 16, FlagCacheReset = 64, FlagProbes = 128, FlagBakedHybrid = 256;
     public const int StatusStarting = 0, StatusReady = 1, StatusFailed = 2, StatusExited = 3;

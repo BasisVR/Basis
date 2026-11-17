@@ -5,7 +5,7 @@ pub const HEAP_ALPHA_MIN: u32 = 11;
 pub const ALPHA_MIN_BYTES: u64 = MAX_TEXTURES as u64 * 4;
 
 pub fn known_opaque(m: &Material, texture_min: impl Fn(u32) -> Option<f32>) -> bool {
-    if m.flags & MATERIAL_TILE_DISCARD != 0 { return false; }
+    if m.flags & MATERIAL_TILE_DISCARD != 0 || (m.surface >> 16) & 0xfff != 0 { return false; }
     let mode = m.alpha_mode & 3;
     if mode == ALPHA_OPAQUE { return true; }
     let mut alpha = m.base_color[3];

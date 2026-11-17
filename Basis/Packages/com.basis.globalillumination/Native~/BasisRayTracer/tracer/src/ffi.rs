@@ -9,14 +9,7 @@ pub struct Options22 {
     pub max_1d_dispatch_mesh: u32,
 }
 
-#[repr(C)]
-pub struct PipelineConfig1 {
-    pub max_trace_recursion_depth: u32,
-    pub flags: u32,
-}
-
-pub const SUBOBJECT_RAYTRACING_PIPELINE_CONFIG1: i32 = 12;
-pub const PIPELINE_FLAG_ALLOW_OPACITY_MICROMAPS: u32 = 0x400;
+pub const PIPELINE_STATE_FLAG_RAYQUERY_ALLOW_OPACITY_MICROMAPS: i32 = 0x80;
 pub const GEOMETRY_TYPE_OMM_TRIANGLES: i32 = 2;
 pub const AS_TYPE_OPACITY_MICROMAP_ARRAY: i32 = 2;
 pub const OMM_FORMAT_OC1_2_STATE: u32 = 1;
