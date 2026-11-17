@@ -35,7 +35,8 @@ namespace Basis.Scripts.Networking.Sync
         public float SendIntervalSeconds = 0.05f;
         public float KeyframeIntervalSeconds = 0.5f;
         public float ContinuousEpsilon = 1e-4f;
-        public float RotationSendThresholdDegrees = 0.5f;
+        public float RotationSendThresholdDegrees = DefaultRotationSendThresholdDegrees;
+        public const float DefaultRotationSendThresholdDegrees = 0.5f;
         public bool UseDirectP2P = true;
         public bool ForceP2POnly = false;
         public bool OverrideP2PRate = false;
@@ -845,6 +846,8 @@ namespace Basis.Scripts.Networking.Sync
             return elapsed;
         }
 
+        private static ulong PackRotation(quaternion q, int bits) => Basis.Scripts.Networking.Compression.BasisCompression.QuaternionCompressor.CompressSmallestThree(new Quaternion(q.value.x, q.value.y, q.value.z, q.value.w), math.clamp(bits <= 0 ? 9 : bits, 2, 18));
+
         private bool FieldChanged(int fi, BasisSyncValues baseline)
         {
             BasisSyncField f = _schema.GetField(fi);
@@ -857,7 +860,8 @@ namespace Basis.Scripts.Networking.Sync
                     }
                     return false;
                 case BasisSyncPool.Rotation:
-                    return math.abs(math.dot(_local.Rot[f.Offset].value, baseline.Rot[f.Offset].value)) < _rotDotThreshold;
+                    if (RotationSendThresholdDegrees > DefaultRotationSendThresholdDegrees) return math.abs(math.dot(_local.Rot[f.Offset].value, baseline.Rot[f.Offset].value)) < _rotDotThreshold;
+                    return PackRotation(_local.Rot[f.Offset], f.RotBits) != PackRotation(baseline.Rot[f.Offset], f.RotBits);
                 case BasisSyncPool.Discrete:
                     return _local.Disc[f.Offset] != baseline.Disc[f.Offset];
             }
