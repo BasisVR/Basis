@@ -47,6 +47,7 @@ namespace Basis.Scripts.Drivers
             job.handSkin = Basis.BasisUI.BasisSettingsDefaults.FBIKHandSkin.RawValue;
             job.protectElbow = Basis.BasisUI.BasisSettingsDefaults.FBIKProtectElbow.RawValue;
             job.collideTrackedElbow = Basis.BasisUI.BasisSettingsDefaults.FBIKCollideTrackedElbow.RawValue;
+            job.elbowHintRotationOnly = Basis.BasisUI.BasisSettingsDefaults.FBIKElbowHintRotationOnly.RawValue;
 
             job.shoulderSolveEnabled = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderSolveEnabled.RawValue;
             job.shoulderElevationFactor = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderElevation.RawValue;

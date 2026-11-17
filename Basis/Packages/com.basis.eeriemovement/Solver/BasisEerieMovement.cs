@@ -78,7 +78,7 @@ namespace Basis.IK
         public const float TrackedHipsRotationFollow = 0f;
         public bool shoulderSolveEnabled;
         public float shoulderElevationFactor, shoulderProtractionFactor, shoulderTrackerBlendTime;
-        public bool protectElbow, collideTrackedElbow;
+        public bool protectElbow, collideTrackedElbow, elbowHintRotationOnly;
         public float armSwivelSmoothTime, armSwivelMaxRateDeg;
         public float elbowReachSoftness, kneeReachSoftness;
         public bool collisionsEnabled;

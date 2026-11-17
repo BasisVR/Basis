@@ -11,7 +11,7 @@ namespace Basis.IK
         public const float KneeHintFootAgreeFull = -0.34f, KneeHintFootAgreeZero = -0.94f;
         public const float KneeHintHingeFadeStart = 0.4f, KneeHintHingeFadeFull = 0.6f;
         public const float KneeTrackerHintBias = 0.06f;
-        public const float ThighTwistShare = 0.5f;
+        public const float ThighTwistShare = 0.25f;
         public static float ClampKneeSwivelDeg(float swivelDeg, float softDeg, float hardDeg)
         {
             float wrapped = swivelDeg - 360f * Mathf.Floor((swivelDeg + 180f) / 360f);

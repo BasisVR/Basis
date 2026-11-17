@@ -695,6 +695,7 @@ namespace Basis.Scripts.Drivers
             data.protectElbow = Basis.BasisUI.BasisSettingsDefaults.FBIKProtectElbow.RawValue;
 
             data.collideTrackedElbow = Basis.BasisUI.BasisSettingsDefaults.FBIKCollideTrackedElbow.RawValue;
+            data.elbowHintRotationOnly = Basis.BasisUI.BasisSettingsDefaults.FBIKElbowHintRotationOnly.RawValue;
 
             data.shoulderSolveEnabled = Basis.BasisUI.BasisSettingsDefaults.FBIKShoulderSolveEnabled.RawValue;
 

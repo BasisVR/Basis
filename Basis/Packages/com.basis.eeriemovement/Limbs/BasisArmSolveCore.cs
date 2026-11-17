@@ -150,9 +150,10 @@ namespace Basis.IK
             // Push the hint a fixed distance along the bend direction: the offset then never shrinks below the push, so small noise can't flip it,
             // and once the arm bends the real offset outgrows the push and takes over on its own.
             // Close to straight (90%+), the position is dropped entirely so a tracker that drifts off the line can't twist the arm; only its rotation steers.
+            bool rotationOnly = i.HasTrackerHint && i.HintRotationOnly && i.HasHintRotation;
             if (i.HasTrackerHint)
             {
-                float positionWeight = 1f - Smoothstep(TrackerRotationOnlyStartDeg, TrackerRotationOnlyEndDeg, r.ElbowDeg);
+                float positionWeight = rotationOnly ? 0f : 1f - Smoothstep(TrackerRotationOnlyStartDeg, TrackerRotationOnlyEndDeg, r.ElbowDeg);
                 hintDir = hintDir * positionWeight + TrackerHintBiasDir(i, state, axis, side, ex, ey) * (TrackerHintBias * chain);
             }
             float targetDeg = hintDir.sqrMagnitude > sqrEpsilon ? DirToDeg(hintDir.normalized, ex, ey) : BodyPrior(i, axis, ex, ey);

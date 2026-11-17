@@ -145,6 +145,7 @@ public partial class SMModuleCalibration : BasisSettingsBase
     private static string K_FBIK_COLLISIONS_ENABLED => BasisSettingsDefaults.FBIKCollisionsEnabled.BindingKey;
     private static string K_FBIK_PROTECT_ELBOW => BasisSettingsDefaults.FBIKProtectElbow.BindingKey;
     private static string K_FBIK_COLLIDE_TRACKED_ELBOW => BasisSettingsDefaults.FBIKCollideTrackedElbow.BindingKey;
+    private static string K_FBIK_ELBOW_HINT_ROTATION_ONLY => BasisSettingsDefaults.FBIKElbowHintRotationOnly.BindingKey;
     private static string K_FBIK_CHEST_RADIUS => BasisSettingsDefaults.FBIKChestRadius.BindingKey;
     private static string K_FBIK_COLLISION_SKIN => BasisSettingsDefaults.FBIKCollisionSkin.BindingKey;
     private static string K_FBIK_HAND_RADIUS => BasisSettingsDefaults.FBIKHandRadius.BindingKey;
@@ -589,6 +590,10 @@ public partial class SMModuleCalibration : BasisSettingsBase
 
             case var s when s == K_FBIK_COLLIDE_TRACKED_ELBOW:
                 if (bool.TryParse(optionValue, out var cteVal)) ApplyIKDataBool((ref BasisEerieMovement d) => d.collideTrackedElbow = cteVal);
+                break;
+
+            case var s when s == K_FBIK_ELBOW_HINT_ROTATION_ONLY:
+                if (bool.TryParse(optionValue, out var ehroVal)) ApplyIKDataBool((ref BasisEerieMovement d) => d.elbowHintRotationOnly = ehroVal);
                 break;
 
             case var s when s == K_FBIK_CHEST_RADIUS:

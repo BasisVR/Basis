@@ -1890,6 +1890,7 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<bool> FBIKCollisionsEnabled = new("fbikcollisionsenabled", new BasisPlatformDefault<bool>(true));
         public static BasisSettingsBinding<bool> FBIKProtectElbow = new("fbikprotectelbow", new BasisPlatformDefault<bool>(true));
         public static BasisSettingsBinding<bool> FBIKCollideTrackedElbow = new("fbikcollidetrackedelbow", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> FBIKElbowHintRotationOnly = new("fbikelbowhintrotationonly", new BasisPlatformDefault<bool>(false));
         // Collision capsule dimensions in meters at default (1.6m) avatar height; runtime
         // multiplies by AvatarToDefaultRatioScaledWithAvatarScale. Keys bumped to _v2 so existing
         // installs pick up the corrected defaults — the previous slider values disagreed with the
@@ -2971,6 +2972,7 @@ namespace Basis.BasisUI
             FBIKCollisionsEnabled.LoadBindingValue();
             FBIKProtectElbow.LoadBindingValue();
             FBIKCollideTrackedElbow.LoadBindingValue();
+            FBIKElbowHintRotationOnly.LoadBindingValue();
             FBIKChestRadius.LoadBindingValue();
             FBIKCollisionSkin.LoadBindingValue();
             FBIKHandRadius.LoadBindingValue();

@@ -136,6 +136,7 @@ namespace Basis.IK
             input.HasTrackerHint = arm.trackerHint;
             input.HintPosition = isLeft ? hintPositionLeftHand : hintPositionRightHand;
             input.HasHintRotation = arm.hintRoll;
+            input.HintRotationOnly = elbowHintRotationOnly;
             input.HintRotation = isLeft ? hintRotationLeftHand : hintRotationRightHand;
             input.TorsoCapsule = arm.elbowProtect;
             if (arm.elbowProtect)

@@ -68,7 +68,7 @@ namespace Basis.IK
     {
         public Vector3 Chest, Shoulder, RestElbow, RestHand, TargetPosition, HeadPosition, HintPosition, TorsoUp, TorsoForward, TorsoOut, TorsoA, TorsoB;
         public Quaternion TargetRotation, RestHandRotation, RestMidRotation, HintRotation;
-        public bool HasHead, HasTrackerHint, HasHintRotation, IsLeft, TorsoCapsule;
+        public bool HasHead, HasTrackerHint, HasHintRotation, HintRotationOnly, IsLeft, TorsoCapsule;
         public float TorsoRadius, Dt, SmoothTime, MaxRateDeg;
         public float ReachSoftness;
         public static BasisArmSolveInput Defaults(bool isLeft) => new BasisArmSolveInput { TorsoUp = Vector3.up, TorsoForward = Vector3.forward, TorsoOut = isLeft ? Vector3.left : Vector3.right, IsLeft = isLeft, Dt = 1f / 90f, SmoothTime = 0.08f, MaxRateDeg = 720f, TargetRotation = Quaternion.identity, RestHandRotation = Quaternion.identity, RestMidRotation = Quaternion.identity, HintRotation = Quaternion.identity };

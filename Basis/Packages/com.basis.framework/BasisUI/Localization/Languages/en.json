@@ -3083,6 +3083,14 @@
       "value": "Elbow Reach Easing"
     },
     {
+      "key": "settings.bodyTracking.elbowHintRotationOnly.title",
+      "value": "Elbow Tracker Rotation Only"
+    },
+    {
+      "key": "settings.bodyTracking.elbowHintRotationOnly.title.tooltip",
+      "value": "Place the elbow using only the elbow tracker's rotation, ignoring its position. Off uses the tracker's position and switches to its rotation near full extension."
+    },
+    {
       "key": "settings.bodyTracking.elbowReachSoftness.title.tooltip",
       "value": "How gently the elbow eases into full extension as you reach out. Higher starts easing earlier; the hand stops slightly short of the controller near full reach. 0 = off."
     },

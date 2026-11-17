@@ -412,6 +412,10 @@ public static partial class SettingsProviderIK
             ArmSlider(armParent, "settings.bodyTracking.armSwivelMaxRate.title", 0f, 3600f, 0, BasisSettingsDefaults.FBIKArmSwivelMaxRate);
             ArmSlider(armParent, "settings.bodyTracking.elbowReachSoftness.title", 0f, 1f, 2, BasisSettingsDefaults.FBIKElbowReachSoftness);
             ArmSlider(armParent, "settings.bodyTracking.kneeReachSoftness.title", 0f, 1f, 2, BasisSettingsDefaults.FBIKKneeReachSoftness);
+            var elbowHintRotationOnlyToggle = PanelToggle.CreateNewEntry(armParent);
+            elbowHintRotationOnlyToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.bodyTracking.elbowHintRotationOnly.title"));
+            elbowHintRotationOnlyToggle.AssignBinding(BasisSettingsDefaults.FBIKElbowHintRotationOnly);
+            elbowHintRotationOnlyToggle.Descriptor.SetTooltip(BasisLocalization.Get("settings.bodyTracking.elbowHintRotationOnly.title.tooltip"));
         });
 
         // ============== Body Fit ==============
@@ -1046,6 +1050,7 @@ public static partial class SettingsProviderIK
         BasisSettingsDefaults.FBIKJobLocomotion.ResetToDefault();
         BasisSettingsDefaults.FBIKProtectElbow.ResetToDefault();
         BasisSettingsDefaults.FBIKCollideTrackedElbow.ResetToDefault();
+        BasisSettingsDefaults.FBIKElbowHintRotationOnly.ResetToDefault();
         BasisSettingsDefaults.FBIKChestRadius.ResetToDefault();
         BasisSettingsDefaults.FBIKCollisionSkin.ResetToDefault();
         BasisSettingsDefaults.FBIKHandRadius.ResetToDefault();
