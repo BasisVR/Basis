@@ -18,6 +18,7 @@ public class BasisTextureQualityModule : BasisSettingsBase
         // The store only broadcasts keys it already holds, so a build that has never had Memory
         // Allocation touched would otherwise run on whatever budget the quality asset shipped with.
         Apply(BasisSettingsDefaults.MemoryAllocation.RawValue);
+        Basis.Scripts.Rendering.BasisMaterialPropertyBlockStreaming.EnsureRunning();
     }
 
     public override void ValidSettingsChange(string matchedSettingName, string optionValue)
