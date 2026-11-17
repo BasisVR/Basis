@@ -18,6 +18,12 @@ pub const HEAP_VERTICES_UAV: u32 = 5;
 pub const HEAP_INDICES_UAV: u32 = 6;
 pub const HEAP_TEXTURES: u32 = 1024;
 pub const HEAP_BOUNDS: u32 = 54;
+pub const HEAP_TRIANGLE_CDF: u32 = 12;
+pub const CDF_CAPACITY: u64 = 4 * 1024 * 1024;
+pub const CDF_MAX_TRIANGLES: u32 = 1 << 20;
+pub const CDF_MIN_TRIANGLES: u32 = 16;
+pub const CDF_REFRESH: u64 = 120;
+pub const CDF_BUDGET: u32 = 1 << 20;
 
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
@@ -25,7 +31,7 @@ pub struct GpuMesh { pub vertex_offset: u32, pub index_offset: u32, pub submesh_
 
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
-pub struct GpuSubmesh { pub index_start: u32, pub index_count: u32, pub flags: u32, pub pad: u32 }
+pub struct GpuSubmesh { pub index_start: u32, pub index_count: u32, pub flags: u32, pub cdf: u32 }
 
 pub struct Blas { pub buffer: Buffer, pub structure: vk::AccelerationStructureKHR }
 
@@ -90,6 +96,9 @@ pub struct Scene {
     pub bounds_valid: Vec<bool>,
     pub alpha_wanted: Vec<(u32, u32)>,
     pub texture_serial: u32,
+    pub cdf: Buffer,
+    pub cdf_alloc: Vec<(u64, u64)>,
+    pub cdf_ranges: std::collections::HashMap<usize, (u64, u32, u64)>,
     pub dummy: (vk::Image, Allocation, vk::ImageView),
     scratch_cursor: u64,
     compact_pool: vk::QueryPool,
@@ -120,6 +129,7 @@ impl Scene {
         let tlas_scratch = gpu.buffer(sizes.build_scratch_size + gpu.scratch_alignment, storage, local)?;
         let bounds = gpu.buffer(SUBMESH_CAPACITY * 32, storage, local)?;
         let alpha_min = gpu.buffer(crate::opaque::ALPHA_MIN_BYTES, storage, local)?;
+        let cdf = gpu.buffer(CDF_CAPACITY * 4, storage, local)?;
         let info = vk::ImageCreateInfo::default().image_type(vk::ImageType::TYPE_2D).format(vk::Format::R8G8B8A8_UNORM).extent(vk::Extent3D { width: 1, height: 1, depth: 1 }).mip_levels(1).array_layers(1).samples(vk::SampleCountFlags::TYPE_1).tiling(vk::ImageTiling::OPTIMAL).usage(vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST);
         let (image, allocation) = gpu.image(&info)?;
         let view = gpu.view(image, vk::Format::R8G8B8A8_UNORM, 0, 1, vk::ImageUsageFlags::SAMPLED)?;
@@ -137,14 +147,23 @@ impl Scene {
             vertices, indices, mesh_table, submesh_table, scratch, tlas_buffer, tlas, tlas_scratch,
             vertex_alloc: vec![(0, VERTEX_CAPACITY)], index_alloc: vec![(0, INDEX_CAPACITY)], submesh_alloc: vec![(0, SUBMESH_CAPACITY)],
             meshes: IdMap::default(), textures: IdMap::default(), mesh_cpu: vec![GpuMesh::default(); MAX_MESHES as usize], submesh_cpu: vec![GpuSubmesh::default(); SUBMESH_CAPACITY as usize],
-            tables_dirty: true, retired: Vec::new(), bounds, alpha_min, alpha_wanted: Vec::new(), texture_serial: 0, bounds_valid: vec![false; SUBMESH_CAPACITY as usize], dummy: (image, allocation, view), scratch_cursor: 0,
+            tables_dirty: true, retired: Vec::new(), bounds, alpha_min, alpha_wanted: Vec::new(), texture_serial: 0, bounds_valid: vec![false; SUBMESH_CAPACITY as usize], cdf, cdf_alloc: vec![(0, CDF_CAPACITY)], cdf_ranges: Default::default(), dummy: (image, allocation, view), scratch_cursor: 0,
             compact_pool, compact_free: (0..COMPACT_SLOTS).rev().collect(), compacting: Vec::new(), completed: 0, compacted_bytes: 0,
         })
     }
 
     pub fn tlas_address(&self, gpu: &Gpu) -> u64 { unsafe { gpu.accel.get_acceleration_structure_device_address(&vk::AccelerationStructureDeviceAddressInfoKHR::default().acceleration_structure(self.tlas)) } }
 
+    pub fn release_cdf(&mut self, id: u32) {
+        let Some(m) = self.meshes.get(&id) else { return; };
+        for at in m.submesh_offset as usize..(m.submesh_offset + m.submesh_capacity as u64) as usize {
+            if let Some((offset, count, _)) = self.cdf_ranges.remove(&at) { give(&mut self.cdf_alloc, offset, count as u64); }
+            if at < self.submesh_cpu.len() && self.submesh_cpu[at].cdf != 0 { self.submesh_cpu[at].cdf = 0; self.tables_dirty = true; }
+        }
+    }
+
     pub fn release_mesh(&mut self, id: u32, fence: u64) {
+        self.release_cdf(id);
         if let Some(m) = self.meshes.remove(&id) {
             give(&mut self.vertex_alloc, m.vertex_offset, m.vertex_count as u64);
             give(&mut self.index_alloc, m.index_offset, m.index_count as u64);
@@ -189,7 +208,7 @@ impl Scene {
         if let Some(m) = self.meshes.get_mut(&id) {
             if m.committed || m.submeshes.len() >= m.submesh_capacity as usize { return; }
             let count = count.min(m.index_count.saturating_sub(start));
-            let s = GpuSubmesh { index_start: start.min(m.index_count), index_count: count - count % 3, flags, pad: 0 };
+            let s = GpuSubmesh { index_start: start.min(m.index_count), index_count: count - count % 3, flags, cdf: 0 };
             let slot = m.submesh_offset as usize + m.submeshes.len();
             if slot < self.submesh_cpu.len() { self.submesh_cpu[slot] = s; m.submeshes.push(s); m.alpha |= flags & SUBMESH_OPAQUE == 0; }
         }

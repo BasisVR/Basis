@@ -35,6 +35,7 @@ fn main() {
         ("bounds.hlsl", "SubmeshBoundsClear"),
         ("emitters.hlsl", "EmitterWeights"),
         ("emitters.hlsl", "EmitterPrefix"),
+        ("emitters.hlsl", "EmitterCuts"),
         ("denoise.hlsl", "Temporal"),
         ("denoise.hlsl", "Wavelet"),
     ];

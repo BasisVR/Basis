@@ -23,6 +23,7 @@ const SUBMESH_BOUNDS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/SubmeshB
 const SUBMESH_BOUNDS_CLEAR: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/SubmeshBoundsClear.dxil"));
 const EMITTER_WEIGHTS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/EmitterWeights.dxil"));
 const EMITTER_PREFIX: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/EmitterPrefix.dxil"));
+const EMITTER_CUTS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/EmitterCuts.dxil"));
 pub const HEAP_RING: u32 = 9;
 pub const HEAP_BLUE_NOISE: u32 = 10;
 pub const BLUE_NOISE: &[u8] = include_bytes!("bluenoise.bin");
@@ -123,6 +124,7 @@ pub struct Renderer {
     pub submesh_bounds_clear: ID3D12PipelineState,
     pub emitter_weights: ID3D12PipelineState,
     pub emitter_prefix: ID3D12PipelineState,
+    pub emitter_cuts: ID3D12PipelineState,
     pub cache: Vec<ID3D12Resource>,
     pub blue_noise: UploadRing,
     pub queries: ID3D12QueryHeap,
@@ -236,7 +238,7 @@ impl Renderer {
             gpu.srv_raw(&blue_noise.resource, BLUE_NOISE.len() as u64, HEAP_BLUE_NOISE);
             Ok(Renderer {
                 copy_vertices: compute_pso(gpu, &root, COPY_VERTICES)?, copy_indices: compute_pso(gpu, &root, COPY_INDICES)?, copy_positions: compute_pso(gpu, &root, COPY_POSITIONS)?, texture_pixels: compute_pso(gpu, &root, TEXTURE_PIXELS)?,
-                downsample: compute_pso(gpu, &root, DOWNSAMPLE)?, temporal: compute_pso(gpu, &root, TEMPORAL)?, wavelet: compute_pso(gpu, &root, WAVELET)?, resolve: compute_pso(gpu, &root, RESOLVE)?, maintain: compute_pso(gpu, &root, MAINTAIN)?, resolve_signature, cache_args, probe_resolve: compute_pso(gpu, &root, PROBE_RESOLVE)?, submesh_bounds: compute_pso(gpu, &root, SUBMESH_BOUNDS)?, submesh_bounds_clear: compute_pso(gpu, &root, SUBMESH_BOUNDS_CLEAR)?, emitter_weights: compute_pso(gpu, &root, EMITTER_WEIGHTS)?, emitter_prefix: compute_pso(gpu, &root, EMITTER_PREFIX)?, cache, blue_noise, queries, readback, frequency, timings: [0; 8],
+                downsample: compute_pso(gpu, &root, DOWNSAMPLE)?, temporal: compute_pso(gpu, &root, TEMPORAL)?, wavelet: compute_pso(gpu, &root, WAVELET)?, resolve: compute_pso(gpu, &root, RESOLVE)?, maintain: compute_pso(gpu, &root, MAINTAIN)?, resolve_signature, cache_args, probe_resolve: compute_pso(gpu, &root, PROBE_RESOLVE)?, submesh_bounds: compute_pso(gpu, &root, SUBMESH_BOUNDS)?, submesh_bounds_clear: compute_pso(gpu, &root, SUBMESH_BOUNDS_CLEAR)?, emitter_weights: compute_pso(gpu, &root, EMITTER_WEIGHTS)?, emitter_prefix: compute_pso(gpu, &root, EMITTER_PREFIX)?, emitter_cuts: compute_pso(gpu, &root, EMITTER_CUTS)?, cache, blue_noise, queries, readback, frequency, timings: [0; 8],
                 root, state, table, table_address, allocators, list, ring, slot_fences: [0; RING], contexts: (0..MAX_CONTEXTS).map(|_| None).collect(), eligible: Vec::new(),
                 grid: LightGrid::new(), bounds_readback: gpu.buffer(SUBMESH_CAPACITY * 32, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST)?, bounds_pending: None, bounds_dirty: None, prepared: 0, opaque: Default::default(), alpha_readback: gpu.buffer(crate::opaque::ALPHA_MIN_BYTES, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST)?,
                 grid_gpu: (0..GRID_BUFFERS).map(|_| gpu.buffer(GRID_BYTES, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COMMON)).collect::<Result<Vec<_>>>()?,
@@ -450,8 +452,8 @@ impl Renderer {
                 if !m.committed || at >= scene.submesh_cpu.len() || material >= (params.material_count as usize).min(MAX_MATERIALS) || triangles != e.triangle_count || triangles < CDF_MIN_TRIANGLES || triangles > CDF_MAX_TRIANGLES || triangles > budget { continue; }
                 let known = scene.cdf_ranges.get(&at).copied();
                 if known.is_some_and(|(_, _, built)| frame < built + CDF_REFRESH + (at as u64 & 63)) { continue; }
-                let offset = match known { Some((offset, _, _)) => offset, None => match scene.cdf_alloc.alloc(triangles as u64, 1) { Some(o) => o, None => continue } };
-                scene.cdf_ranges.insert(at, (offset, triangles, frame));
+                let offset = match known { Some((offset, _, _)) => offset, None => match scene.cdf_alloc.alloc(triangles as u64 * 2 + 2, 1) { Some(o) => o, None => continue } };
+                scene.cdf_ranges.insert(at, (offset, triangles * 2 + 2, frame));
                 if scene.submesh_cpu[at].cdf != offset as u32 + 1 { scene.submesh_cpu[at].cdf = offset as u32 + 1; scene.tables_dirty = true; }
                 cdf_jobs.push([offset as u32, m.vertex_offset as u32, (m.index_offset + s.index_start as u64) as u32, triangles, material as u32, 0, 0, 0]);
                 cdf_longest = cdf_longest.max(triangles);
@@ -507,6 +509,9 @@ impl Renderer {
                 list.ResourceBarrier(&[uav_barrier(Some(&scene.cdf))]);
                 list.SetPipelineState(&self.emitter_prefix);
                 list.Dispatch(cdf_jobs.len() as u32, 1, 1);
+                list.ResourceBarrier(&[uav_barrier(Some(&scene.cdf))]);
+                list.SetPipelineState(&self.emitter_cuts);
+                list.Dispatch((cdf_longest + 2).div_ceil(64), cdf_jobs.len() as u32, 1);
                 list.ResourceBarrier(&[uav_barrier(Some(&scene.cdf))]);
             }
             if self.bounds_pending.is_none() {

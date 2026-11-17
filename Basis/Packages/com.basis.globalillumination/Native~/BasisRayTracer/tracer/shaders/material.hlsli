@@ -73,45 +73,44 @@ float3 MaterialEmission(Material material, float2 uv, float lod, float size, flo
 struct TriangleCdf
 {
     uint base, count;
-    float total;
+    bool valid;
 };
-
-float TriangleCdfAt(TriangleCdf c, uint i) { RWByteAddressBuffer b = ResourceDescriptorHeap[HEAP_TRIANGLE_CDF]; return asfloat(b.Load((c.base + i) * 4u)); }
 
 TriangleCdf LoadTriangleCdf(Submesh submesh, uint count)
 {
     TriangleCdf c;
     c.base = submesh.cdf - 1u;
     c.count = count;
-    c.total = 0.0;
-    if (submesh.cdf == 0u || count == 0u || submesh.indexCount != count * 3u) { return c; }
-    float total = TriangleCdfAt(c, count - 1u);
-    if (total > 0.0 && isfinite(total)) { c.total = total; }
+    c.valid = submesh.cdf != 0u && count != 0u && submesh.indexCount == count * 3u;
     return c;
 }
 
 float TriangleProbability(TriangleCdf c, uint primitive)
 {
     float even = 1.0 / float(max(c.count, 1u));
-    if (c.total <= 0.0) { return even; }
-    float below = primitive > 0u ? TriangleCdfAt(c, primitive - 1u) : 0.0;
-    return TRIANGLE_CDF_UNIFORM * even + (1.0 - TRIANGLE_CDF_UNIFORM) * max(TriangleCdfAt(c, primitive) - below, 0.0) / c.total;
+    if (!c.valid) { return even; }
+    RWByteAddressBuffer b = ResourceDescriptorHeap[HEAP_TRIANGLE_CDF];
+    float below = primitive > 0u ? asfloat(b.Load((c.base + primitive - 1u) * 4u)) : 0.0;
+    return TRIANGLE_CDF_UNIFORM * even + (1.0 - TRIANGLE_CDF_UNIFORM) * max(asfloat(b.Load((c.base + primitive) * 4u)) - below, 0.0);
 }
 
 uint PickTriangle(TriangleCdf c, float u, out float probability)
 {
     uint last = max(c.count, 1u) - 1u;
-    if (c.total <= 0.0) { probability = 1.0 / float(last + 1u); return min(uint(u * c.count), last); }
+    if (!c.valid) { probability = 1.0 / float(last + 1u); return min(uint(u * c.count), last); }
     uint lo = 0u;
     if (u < TRIANGLE_CDF_UNIFORM) { lo = min(uint(u * (1.0 / TRIANGLE_CDF_UNIFORM) * c.count), last); }
     else
     {
-        float target = (u - TRIANGLE_CDF_UNIFORM) * (1.0 / (1.0 - TRIANGLE_CDF_UNIFORM)) * c.total;
-        uint hi = last;
+        RWByteAddressBuffer b = ResourceDescriptorHeap[HEAP_TRIANGLE_CDF];
+        float target = (u - TRIANGLE_CDF_UNIFORM) * (1.0 / (1.0 - TRIANGLE_CDF_UNIFORM));
+        uint3 cut = b.Load3((c.base + c.count + min(uint(target * c.count), last)) * 4u);
+        lo = min(cut.x, last);
+        uint hi = min(cut.z, last);
         while (lo < hi)
         {
             uint mid = (lo + hi) >> 1;
-            if (TriangleCdfAt(c, mid) <= target) { lo = mid + 1u; } else { hi = mid; }
+            if (asfloat(b.Load((c.base + mid) * 4u)) <= target) { lo = mid + 1u; } else { hi = mid; }
         }
     }
     probability = TriangleProbability(c, lo);

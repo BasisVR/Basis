@@ -25,7 +25,7 @@ pub const HEAP_BOUNDS: u32 = 54;
 pub const HEAP_TRIANGLE_CDF: u32 = 12;
 pub const CDF_CAPACITY: u64 = 4 * 1024 * 1024;
 pub const CDF_MAX_TRIANGLES: u32 = 1 << 20;
-pub const CDF_MIN_TRIANGLES: u32 = 4;
+pub const CDF_MIN_TRIANGLES: u32 = 16;
 pub const CDF_REFRESH: u64 = 120;
 pub const CDF_BUDGET: u32 = 1 << 20;
 

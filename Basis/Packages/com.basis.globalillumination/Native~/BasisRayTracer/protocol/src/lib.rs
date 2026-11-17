@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicU32, AtomicU64};
 
 pub const MAGIC: u32 = 0x3154_5242;
-pub const VERSION: u32 = 3;
+pub const VERSION: u32 = 4;
 pub const RING: usize = 8;
 pub const MAX_CONTEXTS: usize = 6;
 pub const MAX_INSTANCES: usize = 16384;

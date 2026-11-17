@@ -50,4 +50,29 @@ void EmitterPrefix(uint3 id : SV_DispatchThreadID)
         sum = t;
         cdf.Store(at, asuint(sum));
     }
+    bool usable = sum > 0.0 && isfinite(sum);
+    float scale = usable ? 1.0 / sum : 0.0;
+    for (uint j = 0u; j < e.w; j++)
+    {
+        uint at = (e.x + j) * 4u;
+        float v = usable ? min(asfloat(cdf.Load(at)) * scale, 1.0) : float(j + 1u) / float(e.w);
+        cdf.Store(at, asuint(j + 1u == e.w ? 1.0 : v));
+    }
+}
+
+[numthreads(64, 1, 1)]
+void EmitterCuts(uint3 id : SV_DispatchThreadID)
+{
+    ByteAddressBuffer ring = ResourceDescriptorHeap[HEAP_RING];
+    RWByteAddressBuffer cdf = ResourceDescriptorHeap[HEAP_TRIANGLE_CDF];
+    uint4 e = ring.Load4(pass.a + id.y * 32u);
+    if (id.y >= pass.b || id.x >= e.w + 2u) { return; }
+    float threshold = float(max(id.x, 1u) - 1u) / float(e.w);
+    uint lo = 0u, hi = e.w - 1u;
+    while (lo < hi)
+    {
+        uint mid = (lo + hi) >> 1;
+        if (asfloat(cdf.Load((e.x + mid) * 4u)) <= threshold) { lo = mid + 1u; } else { hi = mid; }
+    }
+    cdf.Store((e.x + e.w + id.x) * 4u, lo);
 }

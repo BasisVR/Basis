@@ -89,6 +89,14 @@ inline BRDFData InitializeBRDFData(SurfaceData surfaceData, bool isSpecularSetup
     return InitializeBRDFData(surfaceData.albedo, surfaceData.metallic, surfaceData.specular, surfaceData.smoothness, surfaceData.alpha, isSpecularSetup, useAlphaPremultiply);
 }
 
+half SpecularAntialiasedSmoothness(half3 normalWS, half smoothness)
+{
+    float3 dx = ddx(normalWS), dy = ddy(normalWS);
+    float kernel = min(0.5 * (dot(dx, dx) + dot(dy, dy)), 0.18);
+    float roughness = (1.0 - smoothness) * (1.0 - smoothness);
+    return half(1.0 - sqrt(sqrt(saturate(roughness * roughness + kernel))));
+}
+
 half3 ConvertF0ForClearCoat15(half3 f0)
 {
     return ConvertF0ForAirInterfaceToF0ForClearCoat15Fast(f0);

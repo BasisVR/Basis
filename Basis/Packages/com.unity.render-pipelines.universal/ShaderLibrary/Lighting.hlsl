@@ -248,6 +248,9 @@ half3 CalculateBlinnPhong(Light light, InputData inputData, SurfaceData surfaceD
 ////////////////////////////////////////////////////////////////////////////////
 URP_LIGHT_ACCUM4 UniversalFragmentPBR(InputData inputData, SurfaceData surfaceData, bool isSpecularSetup, bool useSpecularHighlights, bool useAlphaPremultiply, bool useClearCoat, bool receiveShadows, bool isSurfaceTypeTransparent, bool useEnvironmentReflections)
 {
+    #if defined(SHADER_STAGE_FRAGMENT)
+    surfaceData.smoothness = SpecularAntialiasedSmoothness(inputData.normalWS, surfaceData.smoothness);
+    #endif
     BRDFData brdfData = InitializeBRDFData(surfaceData, isSpecularSetup, useAlphaPremultiply);
 
     #if defined(DEBUG_DISPLAY)

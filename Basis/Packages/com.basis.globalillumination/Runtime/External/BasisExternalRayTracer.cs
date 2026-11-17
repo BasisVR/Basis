@@ -74,7 +74,7 @@ public struct BasisExternalRayEmitter
 public static unsafe partial class BasisExternalRayTracer
 {
     private const string Dll = "BasisRayTracingBridge2";
-    public const int ProtocolVersion = 3;
+    public const int ProtocolVersion = 4;
     public const int MaxContexts = 6;
     public const int MaxInstances = 16384, MaxMaterials = 8192, MaxLights = 64, MaxCommands = 8192, MaxEmitters = 2048, MaxMeshes = 16384, MaxTextures = 4096, MaxDirty = 512;
     public const int UploadWidth = 2048, UploadHeight = 512, UploadTexels = UploadWidth * UploadHeight, Ring = 8;
@@ -338,7 +338,7 @@ public static unsafe partial class BasisExternalRayTracer
         if (!File.Exists(exe)) { Fail($"the tracer executable is missing at {exe}"); return false; }
         try
         {
-            if (BasisRT_Layout(8) != ProtocolVersion) { Fail("the bridge plugin does not match this protocol version"); return false; }
+            if (BasisRT_Layout(8) != ProtocolVersion) { Fail("the loaded bridge plugin is from a different tracer build; restart Unity so the current BasisRayTracingBridge2 loads"); return false; }
             Environment.SetEnvironmentVariable("BASIS_RT_ADAPTER", RequestedAdapterLuid());
             bool inProcess = InProcess && !inProcessFailed && RequestedApi == ApiDirectX;
             int started;

@@ -7,7 +7,7 @@ use ash::vk;
 use basis_rt_protocol::*;
 
 const TRACE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/trace.spv"));
-const COMPUTE: [(&str, &[u8]); 12] = [
+const COMPUTE: [(&str, &[u8]); 15] = [
     ("CopyVertices", include_bytes!(concat!(env!("OUT_DIR"), "/CopyVertices.spv"))),
     ("CopyIndices", include_bytes!(concat!(env!("OUT_DIR"), "/CopyIndices.spv"))),
     ("CopyPositions", include_bytes!(concat!(env!("OUT_DIR"), "/CopyPositions.spv"))),
@@ -20,6 +20,9 @@ const COMPUTE: [(&str, &[u8]); 12] = [
     ("SubmeshBounds", include_bytes!(concat!(env!("OUT_DIR"), "/SubmeshBounds.spv"))),
     ("SubmeshBoundsClear", include_bytes!(concat!(env!("OUT_DIR"), "/SubmeshBoundsClear.spv"))),
     ("CacheMaintain", include_bytes!(concat!(env!("OUT_DIR"), "/CacheMaintain.spv"))),
+    ("EmitterWeights", include_bytes!(concat!(env!("OUT_DIR"), "/EmitterWeights.spv"))),
+    ("EmitterPrefix", include_bytes!(concat!(env!("OUT_DIR"), "/EmitterPrefix.spv"))),
+    ("EmitterCuts", include_bytes!(concat!(env!("OUT_DIR"), "/EmitterCuts.spv"))),
 ];
 const P_COPY_VERTICES: usize = 0;
 const P_COPY_INDICES: usize = 1;
@@ -33,6 +36,9 @@ const P_PROBE_RESOLVE: usize = 8;
 const P_SUBMESH_BOUNDS: usize = 9;
 const P_SUBMESH_BOUNDS_CLEAR: usize = 10;
 const P_MAINTAIN: usize = 11;
+const P_EMITTER_WEIGHTS: usize = 12;
+const P_EMITTER_PREFIX: usize = 13;
+const P_EMITTER_CUTS: usize = 14;
 
 pub const SCRATCH_PER_SLOT: u32 = 16384;
 pub const HEAP_SIZE: u32 = SCRATCH_DESCRIPTORS + SCRATCH_PER_SLOT * RING as u32;
@@ -77,7 +83,8 @@ const DIRTY_OFFSET: u64 = align(EMITTERS_OFFSET + (MAX_EMITTERS * 16) as u64, 25
 const TLAS_OFFSET: u64 = align(DIRTY_OFFSET + (MAX_DIRTY * 16) as u64, 256);
 const TABLES_OFFSET: u64 = TLAS_OFFSET + (MAX_INSTANCES * 64) as u64;
 const BOUNDS_LIST_OFFSET: u64 = TABLES_OFFSET + MAX_MESHES as u64 * 16 + SUBMESH_CAPACITY * 16;
-const GRID_OFFSET: u64 = align(BOUNDS_LIST_OFFSET + MAX_EMITTERS as u64 * 16, 256);
+const CDF_LIST_OFFSET: u64 = BOUNDS_LIST_OFFSET + MAX_EMITTERS as u64 * 16;
+const GRID_OFFSET: u64 = align(CDF_LIST_OFFSET + MAX_EMITTERS as u64 * 32, 256);
 const SLOT_STRIDE: u64 = align(GRID_OFFSET + GRID_BYTES, 65536);
 const GRID_BUFFERS: usize = 2;
 const _: () = assert!(BOUNDS_CAPACITY as u64 == SUBMESH_CAPACITY);
@@ -273,6 +280,7 @@ impl Renderer {
             heap.buffer(gpu, HEAP_MESHES, scene.mesh_table.buffer, 0, MAX_MESHES as u64 * 16);
             heap.buffer(gpu, HEAP_SUBMESHES, scene.submesh_table.buffer, 0, SUBMESH_CAPACITY * 16);
             heap.buffer(gpu, HEAP_BOUNDS, scene.bounds.buffer, 0, SUBMESH_CAPACITY * 32);
+            heap.buffer(gpu, HEAP_TRIANGLE_CDF, scene.cdf.buffer, 0, CDF_CAPACITY * 4);
             heap.buffer(gpu, HEAP_RING, ring.buffer, 0, SLOT_STRIDE * RING as u64);
             for (i, b) in cache.iter().enumerate() { heap.buffer(gpu, HEAP_CACHE + i as u32, b.buffer, 0, b.size); }
             heap.buffer(gpu, HEAP_CACHE_ARGS, cache_args.buffer, 0, cache_args.size);
@@ -443,6 +451,30 @@ impl Renderer {
         for c in &commands {
             if let Err(e) = self.command(gpu, scene, cmd, c, upload_index, &mut vertices_written, &mut indices_written, fence_hint) { pending_error = Some(e); }
         }
+        let mut cdf_jobs: Vec<[u32; 8]> = Vec::new();
+        let mut cdf_longest = 0u32;
+        if std::env::var_os("BASIS_RT_NO_TRIANGLE_CDF").is_none() {
+            let src = unsafe { &*slot_ptr };
+            let mut budget = CDF_BUDGET;
+            for e in &src.emitters[..(params.emitter_count as usize).min(MAX_EMITTERS)] {
+                if e.instance as usize >= instance_count { continue; }
+                let inst = &src.instances[e.instance as usize];
+                let material = inst.material_base as usize + e.geometry as usize;
+                let Some(m) = scene.meshes.get(&inst.mesh) else { continue; };
+                let Some(s) = m.submeshes.get(e.geometry as usize) else { continue; };
+                let at = m.submesh_offset as usize + e.geometry as usize;
+                let triangles = s.index_count / 3;
+                if !m.committed || at >= scene.submesh_cpu.len() || material >= (params.material_count as usize).min(MAX_MATERIALS) || triangles != e.triangle_count || triangles < CDF_MIN_TRIANGLES || triangles > CDF_MAX_TRIANGLES || triangles > budget { continue; }
+                let known = scene.cdf_ranges.get(&at).copied();
+                if known.is_some_and(|(_, _, built)| frame < built + CDF_REFRESH + (at as u64 & 63)) { continue; }
+                let offset = match known { Some((offset, _, _)) => offset, None => match take(&mut scene.cdf_alloc, triangles as u64 * 2 + 2, 1) { Some(o) => o, None => continue } };
+                scene.cdf_ranges.insert(at, (offset, triangles * 2 + 2, frame));
+                if scene.submesh_cpu[at].cdf != offset as u32 + 1 { scene.submesh_cpu[at].cdf = offset as u32 + 1; scene.tables_dirty = true; }
+                cdf_jobs.push([offset as u32, m.vertex_offset as u32, (m.index_offset + s.index_start as u64) as u32, triangles, material as u32, 0, 0, 0]);
+                cdf_longest = cdf_longest.max(triangles);
+                budget -= triangles;
+            }
+        }
         unsafe {
             let mut need_barrier = vertices_written || indices_written;
             if scene.tables_dirty {
@@ -478,6 +510,22 @@ impl Renderer {
                 self.pipeline(gpu, cmd, P_SUBMESH_BOUNDS);
                 self.push(gpu, cmd, [(base + BOUNDS_LIST_OFFSET) as u32, bounds_count, 0, 0, 0, 0, 0, 0]);
                 self.dispatch(gpu, cmd, bounds_chunks.max(1), bounds_count);
+                barrier(gpu, cmd);
+            }
+            if !cdf_jobs.is_empty() {
+                std::ptr::copy_nonoverlapping(cdf_jobs.as_ptr() as *const u8, mapped.add(CDF_LIST_OFFSET as usize), cdf_jobs.len() * 32);
+                let constants = [(base + CDF_LIST_OFFSET) as u32, cdf_jobs.len() as u32, 0, 0, 0, 0, 0, 0];
+                self.pipeline(gpu, cmd, P_EMITTER_WEIGHTS);
+                self.push(gpu, cmd, constants);
+                self.dispatch(gpu, cmd, cdf_longest.div_ceil(64), cdf_jobs.len() as u32);
+                barrier(gpu, cmd);
+                self.pipeline(gpu, cmd, P_EMITTER_PREFIX);
+                self.push(gpu, cmd, constants);
+                self.dispatch(gpu, cmd, cdf_jobs.len() as u32, 1);
+                barrier(gpu, cmd);
+                self.pipeline(gpu, cmd, P_EMITTER_CUTS);
+                self.push(gpu, cmd, constants);
+                self.dispatch(gpu, cmd, (cdf_longest + 2).div_ceil(64), cdf_jobs.len() as u32);
                 barrier(gpu, cmd);
             }
             if self.bounds_pending.is_none() {
