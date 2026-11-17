@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using Basis.Scripts.Drivers;
 using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -11,7 +13,6 @@ namespace Basis.Scripts.Rendering
     /// MaterialPropertyBlocks. Never changes a renderer's materials or property blocks.
     /// </summary>
     [AutoStaticsCleanup]
-    [DefaultExecutionOrder(10000)]
     public partial class BasisMaterialPropertyBlockStreaming : MonoBehaviour
     {
         private static BasisMaterialPropertyBlockStreaming instance;
@@ -21,10 +22,7 @@ namespace Basis.Scripts.Rendering
         private sealed class RendererState
         {
             internal Renderer Renderer;
-            internal Mesh Mesh;
-            internal float UvMetric;
-            internal readonly List<Material> Materials = new List<Material>();
-            internal readonly Dictionary<Shader, TextureProperty[]> Properties = new Dictionary<Shader, TextureProperty[]>();
+            internal MeshFilter Filter;
         }
 
         private struct TextureProperty
@@ -35,8 +33,10 @@ namespace Basis.Scripts.Rendering
 
         private sealed class View
         {
-            internal Camera Camera;
             internal readonly Plane[] Planes = new Plane[6];
+            internal Vector3 Position;
+            internal int CullingMask;
+            internal bool Orthographic;
             internal float ProjectionArea;
             internal float Bias;
         }
@@ -50,18 +50,26 @@ namespace Basis.Scripts.Rendering
         private readonly List<RendererState> renderers = new List<RendererState>();
         private readonly HashSet<Renderer> registered = new HashSet<Renderer>();
         private readonly List<Renderer> discovery = new List<Renderer>();
+        private readonly List<Material> materials = new List<Material>();
+        private readonly ConditionalWeakTable<Shader, TextureProperty[]> shaderProperties = new();
+        private readonly List<Camera> cameras = new List<Camera>(8);
+        private readonly List<Camera> renderedCameras = new List<Camera>(8);
+        private readonly HashSet<Camera> seenCameras = new HashSet<Camera>();
         private readonly List<View> views = new List<View>();
         private MaterialPropertyBlock rendererBlock;
         private MaterialPropertyBlock materialBlock;
         private readonly Dictionary<Texture2D, int> demands = new Dictionary<Texture2D, int>();
         private readonly Dictionary<Texture2D, Request> requests = new Dictionary<Texture2D, Request>();
         private readonly List<Texture2D> releases = new List<Texture2D>();
-        private Camera[] cameras = new Camera[8];
         private int viewCount;
+        private int renderedFrame = -1;
         private int scanIndex;
         private int scanCount;
         private bool scanning;
+        private bool scanStreaming;
         private float nextScan;
+
+        internal int TrackedRendererCount => renderers.Count;
 
         public static void EnsureRunning()
         {
@@ -82,28 +90,36 @@ namespace Basis.Scripts.Rendering
         {
             EnsureRunning();
             if (instance == null || items == null) return;
+            instance.TrackRenderers(items);
+        }
+
+        internal void TrackRenderers(IEnumerable<Renderer> items)
+        {
             foreach (var renderer in items)
             {
-                if (renderer != null && instance.registered.Add(renderer))
-                    instance.renderers.Add(new RendererState { Renderer = renderer });
+                if (renderer == null || !registered.Add(renderer)) continue;
+                renderer.TryGetComponent<MeshFilter>(out var filter);
+                renderers.Add(new RendererState { Renderer = renderer, Filter = filter });
             }
         }
 
         private void Awake()
         {
-            rendererBlock = new MaterialPropertyBlock();
-            materialBlock = new MaterialPropertyBlock();
             instance = this;
             ContentPoliceControl.OnBeforeContentActivated += RegisterRoot;
             SceneManager.sceneLoaded += SceneLoaded;
-            // Includes existing scene roots and DontDestroyOnLoad objects. Later loads use hooks.
-            RegisterRenderers(FindObjectsByType<Renderer>(FindObjectsInactive.Include));
+            RenderPipelineManager.beginCameraRendering += RecordRenderedCamera;
+            for (int i = 0; i < SceneManager.sceneCount; i++)
+            {
+                var scene = SceneManager.GetSceneAt(i);
+                if (scene.isLoaded) SceneLoaded(scene, LoadSceneMode.Additive);
+            }
         }
 
         private void RegisterRoot(GameObject root)
         {
             root.GetComponentsInChildren(true, discovery);
-            RegisterRenderers(discovery);
+            TrackRenderers(discovery);
             discovery.Clear();
         }
 
@@ -112,19 +128,28 @@ namespace Basis.Scripts.Rendering
             foreach (var root in scene.GetRootGameObjects()) RegisterRoot(root);
         }
 
-        private void LateUpdate()
+        public static void Tick()
         {
-            if (!QualitySettings.streamingMipmapsActive)
+            if (instance != null)
             {
-                ReleaseAll();
+                instance.ProcessFrame(Time.unscaledTime,
+                    instance.isActiveAndEnabled && QualitySettings.streamingMipmapsActive);
+            }
+        }
+
+        internal void ProcessFrame(float now, bool streamingActive)
+        {
+            if (!streamingActive && (requests.Count != 0 || demands.Count != 0)) ReleaseAll();
+            if (scanStreaming != streamingActive)
+            {
+                scanStreaming = streamingActive;
                 scanning = false;
-                return;
+                nextScan = now;
             }
             if (!scanning)
             {
-                if (Time.unscaledTime < nextScan) return;
-                nextScan = Time.unscaledTime + UpdateInterval;
-                PrepareViews();
+                if (now < nextScan) return;
+                nextScan = now + UpdateInterval;
                 demands.Clear();
                 scanIndex = 0;
                 scanCount = renderers.Count;
@@ -132,48 +157,87 @@ namespace Basis.Scripts.Rendering
             }
 
             int budget = Mathf.Clamp(QualitySettings.streamingMipmapsRenderersPerFrame, 1, RenderersPerFrame);
-            int end = Mathf.Min(scanIndex + budget, scanCount);
-            while (scanIndex < end)
+            if (streamingActive && scanIndex < scanCount) PrepareViews();
+            try
             {
-                var state = renderers[scanIndex];
-                if (state.Renderer == null)
+                for (int visited = 0; visited < budget && scanIndex < scanCount; visited++)
                 {
-                    registered.Remove(state.Renderer);
-                    renderers.RemoveAt(scanIndex);
-                    scanCount--;
-                    end--;
-                    continue;
+                    var state = renderers[scanIndex];
+                    if (state.Renderer == null)
+                    {
+                        registered.Remove(state.Renderer);
+                        // Fill the hole with an unvisited entry. Registrations appended during
+                        // this sweep stay beyond its boundary and are visited on the next one.
+                        int lastInScan = --scanCount;
+                        int last = renderers.Count - 1;
+                        renderers[scanIndex] = renderers[lastInScan];
+                        renderers[lastInScan] = renderers[last];
+                        renderers.RemoveAt(last);
+                        continue;
+                    }
+                    scanIndex++;
+                    if (streamingActive) Collect(state);
                 }
-                Collect(state);
-                scanIndex++;
+            }
+            finally
+            {
+                materials.Clear();
+                rendererBlock?.Clear();
+                materialBlock?.Clear();
             }
             if (scanIndex < scanCount) return;
-            ApplyRequests();
+            if (streamingActive) ApplyRequests();
             scanning = false;
         }
 
         private void PrepareViews()
         {
-            int count = Camera.allCamerasCount;
-            if (cameras.Length < count) cameras = new Camera[count];
-            count = Camera.GetAllCameras(cameras);
+            var main = BasisLocalCameraDriver.CameraInstance;
+            if (main != null && main.isActiveAndEnabled) cameras.Add(main);
+            BasisCullingCameraRegistry.CollectInto(cameras);
+            // Preserve ordinary world cameras as well as Basis-owned views. The pipeline
+            // tells us which cameras rendered without a separate scene-wide camera search.
+            if (renderedFrame >= Time.frameCount - 1)
+            {
+                foreach (var camera in renderedCameras)
+                    if (camera != null && camera.isActiveAndEnabled) cameras.Add(camera);
+            }
             viewCount = 0;
+            int count = cameras.Count;
             for (int i = 0; i < count; i++)
             {
                 var camera = cameras[i];
-                if (camera == null || !camera.isActiveAndEnabled || camera.cameraType == CameraType.Preview || camera.cameraType == CameraType.SceneView) continue;
+                if (camera == null || !seenCameras.Add(camera) || camera.cameraType == CameraType.Preview || camera.cameraType == CameraType.SceneView) continue;
                 bool hasController = camera.TryGetComponent<StreamingController>(out var controller);
                 if (hasController ? !controller.enabled : !QualitySettings.streamingMipmapsAddAllCameras) continue;
                 if (camera.pixelHeight <= 0 || camera.pixelWidth <= 0) continue;
                 if (views.Count == viewCount) views.Add(new View());
                 var view = views[viewCount++];
-                view.Camera = camera;
+                view.Position = camera.transform.position;
+                view.CullingMask = camera.cullingMask;
+                view.Orthographic = camera.orthographic;
                 view.Bias = hasController ? controller.streamingMipmapBias : 0f;
-                float pixelsPerUnit = camera.orthographic
-                    ? camera.pixelHeight / Mathf.Max(0.0001f, 2f * camera.orthographicSize)
-                    : camera.pixelHeight / Mathf.Max(0.0001f, 2f * Mathf.Tan(camera.fieldOfView * Mathf.Deg2Rad * 0.5f));
+                Matrix4x4 projection = camera.projectionMatrix;
+                float pixelsPerUnit = 0.5f * camera.pixelHeight * projection.m11;
                 view.ProjectionArea = pixelsPerUnit * pixelsPerUnit * Mathf.Max(1f, camera.aspect);
-                GeometryUtility.CalculateFrustumPlanes(camera, view.Planes);
+                // Mirrors use an explicit culling matrix without the oblique clipping plane.
+                GeometryUtility.CalculateFrustumPlanes(camera.cullingMatrix, view.Planes);
+            }
+            cameras.Clear();
+            seenCameras.Clear();
+        }
+
+        private void RecordRenderedCamera(ScriptableRenderContext _, Camera camera)
+        {
+            if (renderedFrame != Time.frameCount)
+            {
+                renderedCameras.Clear();
+                renderedFrame = Time.frameCount;
+            }
+            if (isActiveAndEnabled && QualitySettings.streamingMipmapsActive && camera.isActiveAndEnabled
+                && !renderedCameras.Contains(camera))
+            {
+                renderedCameras.Add(camera);
             }
         }
 
@@ -187,46 +251,27 @@ namespace Basis.Scripts.Rendering
                 if (Sees(views[i], renderer, bounds)) { visible = true; break; }
             if (!visible) return;
 
-            Mesh mesh = renderer is SkinnedMeshRenderer skinned ? skinned.sharedMesh
-                : renderer.TryGetComponent<MeshFilter>(out var filter) ? filter.sharedMesh : null;
-            if (state.Mesh != mesh)
-            {
-                state.Mesh = mesh;
-                state.UvMetric = mesh != null ? mesh.GetUVDistributionMetric(0) : 0f;
-            }
-            float metric = state.UvMetric;
-            Vector3 scale = renderer.transform.lossyScale;
-            float x = Mathf.Abs(scale.x), y = Mathf.Abs(scale.y), z = Mathf.Abs(scale.z);
-            metric *= Mathf.Max(x * y, Mathf.Max(x * z, y * z));
-            // Procedural/non-mesh renderers may have no UV metric. Conservatively assume one
-            // UV tile across their bounds; supported meshes use their imported metric above.
-            if (!(metric > 0f) || float.IsInfinity(metric)) metric = Mathf.Max(bounds.size.sqrMagnitude, 0.0001f);
-
-            renderer.GetSharedMaterials(state.Materials);
+            float metric = 0f;
+            rendererBlock ??= new MaterialPropertyBlock();
+            materialBlock ??= new MaterialPropertyBlock();
+            renderer.GetSharedMaterials(materials);
             renderer.GetPropertyBlock(rendererBlock);
-            for (int slot = 0; slot < state.Materials.Count; slot++)
+            int materialCount = materials.Count;
+            for (int slot = 0; slot < materialCount; slot++)
             {
-                var material = state.Materials[slot];
+                var material = materials[slot];
                 if (material == null || material.shader == null) continue;
                 renderer.GetPropertyBlock(materialBlock, slot);
                 // Unity selects the per-material block wholesale when it exists; it does not
                 // merge missing properties from the renderer-wide block into that block.
                 var block = SelectBlock(rendererBlock, materialBlock);
                 if (block.isEmpty) continue;
-                if (!state.Properties.TryGetValue(material.shader, out var properties))
-                {
-                    var found = new List<TextureProperty>();
-                    var shader = material.shader;
-                    for (int p = 0; p < shader.GetPropertyCount(); p++)
-                        if (shader.GetPropertyType(p) == ShaderPropertyType.Texture)
-                            found.Add(new TextureProperty { Id = shader.GetPropertyNameId(p), ScaleOffsetId = Shader.PropertyToID(shader.GetPropertyName(p) + "_ST") });
-                    properties = found.ToArray();
-                    state.Properties.Add(shader, properties);
-                }
+                var properties = shaderProperties.GetValue(material.shader, BuildTextureProperties);
                 foreach (var property in properties)
                 {
                     var texture = block.GetTexture(property.Id) as Texture2D;
                     if (texture == null || !texture.streamingMipmaps) continue;
+                    if (metric == 0f) metric = GetUvMetric(state, bounds);
                     Vector2 uvScale = material.GetTextureScale(property.Id);
                     if (block.HasVector(property.ScaleOffsetId))
                     {
@@ -239,19 +284,55 @@ namespace Basis.Scripts.Rendering
                     {
                         var view = views[v];
                         if (!Sees(view, renderer, bounds)) continue;
-                        float distanceSquared = view.Camera.orthographic ? 1f : bounds.SqrDistance(view.Camera.transform.position);
+                        float distanceSquared = view.Orthographic ? 1f : bounds.SqrDistance(view.Position);
                         mip = Mathf.Min(mip, CalculateMip(texture.width, texture.height, distanceSquared, metric / uvArea, view.ProjectionArea, view.Bias, texture.mipmapCount));
                     }
                     // A texture may also be used by ordinary materials closer to a camera.
                     // Preserve that higher native demand while adding the block's demand.
-                    mip = Mathf.Min(mip, texture.calculatedMipmapLevel);
-                    if (!demands.TryGetValue(texture, out int existing) || mip < existing) demands[texture] = mip;
+                    int nativeMip = texture.calculatedMipmapLevel;
+                    if (nativeMip >= 0) mip = Mathf.Min(mip, nativeMip);
+                    if (!demands.TryGetValue(texture, out int existing) || mip < existing)
+                    {
+                        demands[texture] = mip;
+                        ApplyRequest(texture, mip, upgradesOnly: true);
+                    }
                 }
             }
         }
 
-        private static bool Sees(View view, Renderer renderer, Bounds bounds) => view.Camera != null
-            && (view.Camera.cullingMask & (1 << renderer.gameObject.layer)) != 0
+        private static TextureProperty[] BuildTextureProperties(Shader shader)
+        {
+            var found = new List<TextureProperty>();
+            int count = shader.GetPropertyCount();
+            for (int i = 0; i < count; i++)
+            {
+                if (shader.GetPropertyType(i) != ShaderPropertyType.Texture) continue;
+                found.Add(new TextureProperty
+                {
+                    Id = shader.GetPropertyNameId(i),
+                    ScaleOffsetId = Shader.PropertyToID(shader.GetPropertyName(i) + "_ST"),
+                });
+            }
+            return found.ToArray();
+        }
+
+        private static float GetUvMetric(RendererState state, Bounds bounds)
+        {
+            var renderer = state.Renderer;
+            if (state.Filter == null && renderer is MeshRenderer)
+                renderer.TryGetComponent(out state.Filter);
+            Mesh mesh = renderer is SkinnedMeshRenderer skinned ? skinned.sharedMesh
+                : state.Filter != null ? state.Filter.sharedMesh : null;
+            Vector3 scale = renderer.transform.lossyScale;
+            float areaScale = Mathf.Max(Mathf.Abs(scale.x * scale.y),
+                Mathf.Max(Mathf.Abs(scale.x * scale.z), Mathf.Abs(scale.y * scale.z)));
+            float metric = mesh != null ? mesh.GetUVDistributionMetric(0) * areaScale : 0f;
+            // Fall back to one UV tile across the bounds when the mesh has no UV metric.
+            return metric > 0f && !float.IsInfinity(metric) ? metric : Mathf.Max(bounds.size.sqrMagnitude, 0.0001f);
+        }
+
+        private static bool Sees(View view, Renderer renderer, Bounds bounds) =>
+            (view.CullingMask & (1 << renderer.gameObject.layer)) != 0
             && GeometryUtility.TestPlanesAABB(view.Planes, bounds);
 
         internal static MaterialPropertyBlock SelectBlock(MaterialPropertyBlock renderer, MaterialPropertyBlock material) => material.isEmpty ? renderer : material;
@@ -276,18 +357,32 @@ namespace Basis.Scripts.Rendering
                 Release(texture, requests[texture]);
                 requests.Remove(texture);
             }
+            releases.Clear();
             foreach (var demand in demands)
+                if (demand.Key != null) ApplyRequest(demand.Key, demand.Value, upgradesOnly: false);
+            demands.Clear();
+        }
+
+        private void ApplyRequest(Texture2D texture, int demand, bool upgradesOnly)
+        {
+            int current = texture.requestedMipmapLevel;
+            bool owned = requests.TryGetValue(texture, out var request);
+            if (!owned || current != request.Applied)
             {
-                var texture = demand.Key;
-                if (texture == null) continue;
-                int current = texture.requestedMipmapLevel;
-                if (!requests.TryGetValue(texture, out var request)) request.Previous = current;
-                else if (current != request.Applied) request.Previous = current;
-                int mip = request.Previous >= 0 ? Mathf.Min(request.Previous, demand.Value) : demand.Value;
-                if (current != mip) texture.requestedMipmapLevel = mip;
-                request.Applied = mip;
-                requests[texture] = request;
+                if (owned) requests.Remove(texture);
+                request.Previous = current;
             }
+            int mip = Mathf.Min(demand, Mathf.Max(0, QualitySettings.streamingMipmapsMaxLevelReduction));
+            if (request.Previous >= 0) mip = Mathf.Min(request.Previous, mip);
+            // Only claim values we actually write. A completed sweep may reduce demand,
+            // but a partial sweep must preserve requests from unvisited renderers.
+            if (current == mip || (upgradesOnly && current >= 0 && mip > current)) return;
+            texture.requestedMipmapLevel = mip;
+            // Unity can clamp a request. Track the value it actually accepted so the next
+            // sweep does not mistake the clamp for a write from another caller.
+            request.Applied = texture.requestedMipmapLevel;
+            if (request.Applied == current) return;
+            requests[texture] = request;
         }
 
         private static void Release(Texture2D texture, Request request)
@@ -302,15 +397,22 @@ namespace Basis.Scripts.Rendering
             foreach (var entry in requests) Release(entry.Key, entry.Value);
             requests.Clear();
             demands.Clear();
+            releases.Clear();
         }
 
-        private void OnDisable() { ReleaseAll(); scanning = false; }
+        private void OnDisable()
+        {
+            ReleaseAll();
+            renderedCameras.Clear();
+            scanning = false;
+        }
 
         private void OnDestroy()
         {
             ReleaseAll();
             ContentPoliceControl.OnBeforeContentActivated -= RegisterRoot;
             SceneManager.sceneLoaded -= SceneLoaded;
+            RenderPipelineManager.beginCameraRendering -= RecordRenderedCamera;
             if (instance == this) instance = null;
         }
     }

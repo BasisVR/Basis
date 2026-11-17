@@ -1065,6 +1065,7 @@ namespace Basis.EventDriver
             {
                 Basis.Scripts.Rendering.BasisVisibilitySystem.CompleteAndApply();
             }
+            Basis.Scripts.Rendering.BasisMaterialPropertyBlockStreaming.Tick();
             Basis.Scripts.Contacts.BasisContactSystem.CompleteTransformRead();
 
             // One-shot NaN hunter for the Invalid AABB / IsFinite(distanceForSort) spam: names
