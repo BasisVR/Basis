@@ -36,6 +36,7 @@ namespace Basis.Scripts.Avatar
         public float HeightRatio;   // y / eyeHeight: 0 ≈ floor, 1 ≈ HMD
         public float LateralRatio;  // signed x / eyeHeight: +x = body's right
         public float DepthLocal;    // body-local z in meters (forward+), used only by the toe-forward swap
+        public float DepthRatio;    // body-local z / eyeHeight, used to reject trackers too far from the body
         public bool NearOrigin;     // device polled at ≈ origin — excluded from scoring
         public int ForcedRole;      // -1 = none; otherwise (int)BasisBoneTrackedRole, a user override that bypasses scoring
     }
@@ -101,6 +102,11 @@ namespace Basis.Scripts.Avatar
         // Foot-mount height re-center uses only samples at/above this ratio, so floor-hugging toe
         // trackers don't drag the foot prior down into the toe band (keeps foot/toe discriminable).
         public const float FootBandFloor = 0.035f;
+        public const float MaxHorizontalReachRatio = 0.8f;
+
+        public static bool IsOutOfReach(in BasisConstellationSample s) => s.LateralRatio * s.LateralRatio + s.DepthRatio * s.DepthRatio > MaxHorizontalReachRatio * MaxHorizontalReachRatio;
+
+        static bool Ignored(in BasisConstellationSample s) => s.NearOrigin || IsOutOfReach(s);
 
         /// <summary>
         /// Classifies the given samples into roles. <paramref name="roleEnabled"/> is consulted
@@ -164,7 +170,7 @@ namespace Basis.Scripts.Avatar
                 for (int s = 0; s < count; s++)
                 {
                     if (sampleUsed[s]) continue;
-                    if (samples[s].NearOrigin) continue;
+                    if (Ignored(samples[s])) continue;
                     for (int r = 0; r < priors.Length; r++)
                     {
                         if (roleUsed[r]) continue;
@@ -259,7 +265,7 @@ namespace Basis.Scripts.Avatar
             for (int i = 0; i < count; i++)
             {
                 BasisConstellationSample s = samples[i];
-                if (s.NearOrigin) continue;
+                if (Ignored(s)) continue;
                 if (s.HeightRatio < ArmHeightFloor) continue;
                 float lAbs = Mathf.Abs(s.LateralRatio);
                 if (lAbs < ArmLateralFloor) continue;
@@ -283,7 +289,7 @@ namespace Basis.Scripts.Avatar
             for (int i = 0; i < count; i++)
             {
                 BasisConstellationSample s = samples[i];
-                if (s.NearOrigin) continue;
+                if (Ignored(s)) continue;
                 if (s.HeightRatio > FootHeightCeiling) continue;
                 float lAbs = Mathf.Abs(s.LateralRatio);
                 if (lAbs < StanceLateralFloor) continue;
@@ -309,7 +315,7 @@ namespace Basis.Scripts.Avatar
             for (int i = 0; i < count; i++)
             {
                 BasisConstellationSample s = samples[i];
-                if (s.NearOrigin) continue;
+                if (Ignored(s)) continue;
                 if (s.HeightRatio > FootHeightCeiling) continue;
                 if (s.HeightRatio < -FootHeightCeiling) continue; // discard far-sub-floor (bad) reads
                 sumAll += s.HeightRatio;
@@ -417,7 +423,7 @@ namespace Basis.Scripts.Avatar
             for (int i = 0; i < count; i++)
             {
                 BasisConstellationSample s = samples[i];
-                if (s.NearOrigin) continue;
+                if (Ignored(s)) continue;
                 if (s.HeightRatio < ArmHeightFloor) continue;
                 if (sideSign < 0 && s.LateralRatio >= 0f) continue;
                 if (sideSign > 0 && s.LateralRatio <= 0f) continue;
@@ -530,7 +536,7 @@ namespace Basis.Scripts.Avatar
             for (int s = 0; s < count; s++)
             {
                 if (sampleUsed[s]) continue;
-                if (samples[s].NearOrigin) continue;
+                if (Ignored(samples[s])) continue;
                 float score = Score(samples[s], priors[hipsIdx]);
                 if (score > bestScore)
                 {
@@ -558,7 +564,7 @@ namespace Basis.Scripts.Avatar
                 for (int s = 0; s < count; s++)
                 {
                     if (sampleUsed[s]) continue;
-                    if (samples[s].NearOrigin) continue;
+                    if (Ignored(samples[s])) continue;
                     for (int r = 0; r < priors.Length; r++)
                     {
                         if (roleUsed[r]) continue;

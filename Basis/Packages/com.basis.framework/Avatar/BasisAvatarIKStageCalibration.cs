@@ -715,9 +715,15 @@ namespace Basis.Scripts.Avatar
                     HeightRatio = ts.HeightRatio,
                     LateralRatio = ts.LateralRatio,
                     DepthLocal = ts.BodyLocal.z,
+                    DepthRatio = ts.BodyLocal.z / eyeHeight,
                     NearOrigin = ts.NearOrigin,
                     ForcedRole = forcedRole,
                 };
+                if (!ts.NearOrigin && forcedRole < 0 && BasisConstellationClassifier.IsOutOfReach(classifierSamples[i]))
+                {
+                    string id = ts.Input == null || string.IsNullOrEmpty(ts.Input.UniqueDeviceIdentifier) ? "(unknown)" : ts.Input.UniqueDeviceIdentifier;
+                    BasisDebug.Log($"FBIK constellation: tracker '{id}' is {new Vector2(ts.BodyLocal.x, ts.BodyLocal.z).magnitude:F2}m from the body, too far to be worn. Ignoring it.", BasisDebug.LogTag.Input);
+                }
             }
 
             BasisConstellationHand leftHand = ReadHandForClassifier(BasisBoneTrackedRole.LeftHand, bodyOrigin, bodyRotInv, eyeHeight);
