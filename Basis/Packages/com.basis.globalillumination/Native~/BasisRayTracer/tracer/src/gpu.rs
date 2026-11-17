@@ -8,7 +8,7 @@ use windows::Win32::System::Threading::*;
 use windows::core::*;
 
 pub const SCRATCH_DESCRIPTORS: u32 = 1024 + 4096 * 2;
-pub const SCRATCH_PER_SLOT: u32 = 4096;
+pub const SCRATCH_PER_SLOT: u32 = 16384;
 pub const HEAP_SIZE: u32 = SCRATCH_DESCRIPTORS + SCRATCH_PER_SLOT * basis_rt_protocol::RING as u32;
 
 pub struct Gpu {
@@ -24,6 +24,7 @@ pub struct Gpu {
     pub fence_value: u64,
     pub fence_event: HANDLE,
     pub caps: u32,
+    pub adapter: Option<IDXGIAdapter3>,
 }
 
 pub fn heap_props(kind: D3D12_HEAP_TYPE) -> D3D12_HEAP_PROPERTIES { D3D12_HEAP_PROPERTIES { Type: kind, ..Default::default() } }
@@ -103,8 +104,14 @@ impl Gpu {
             let increment = device.GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
             let fence: ID3D12Fence = device.CreateFence(0, D3D12_FENCE_FLAG_NONE)?;
             let fence_event = CreateEventW(None, false, false, None)?;
-            Ok(Gpu { device, queue, heap, heap_cpu, heap_gpu, increment, scratch_cursor: 0, scratch_base: SCRATCH_DESCRIPTORS, fence, fence_value: 0, fence_event, caps })
+            Ok(Gpu { device, queue, heap, heap_cpu, heap_gpu, increment, scratch_cursor: 0, scratch_base: SCRATCH_DESCRIPTORS, fence, fence_value: 0, fence_event, caps, adapter: adapter.cast().ok() })
         }
+    }
+
+    pub fn video_memory(&self) -> Option<(u64, u64)> {
+        let mut info = DXGI_QUERY_VIDEO_MEMORY_INFO::default();
+        unsafe { self.adapter.as_ref()?.QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &mut info).ok()?; }
+        Some((crate::test_budget().unwrap_or(info.Budget), info.CurrentUsage))
     }
 
     pub fn cpu(&self, index: u32) -> D3D12_CPU_DESCRIPTOR_HANDLE { D3D12_CPU_DESCRIPTOR_HANDLE { ptr: self.heap_cpu.ptr + (index * self.increment) as usize } }

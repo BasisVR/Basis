@@ -21,6 +21,8 @@ const MAINTAIN: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/CacheMaintain.
 const PROBE_RESOLVE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/ProbeResolve.dxil"));
 const SUBMESH_BOUNDS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/SubmeshBounds.dxil"));
 const SUBMESH_BOUNDS_CLEAR: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/SubmeshBoundsClear.dxil"));
+const EMITTER_WEIGHTS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/EmitterWeights.dxil"));
+const EMITTER_PREFIX: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/EmitterPrefix.dxil"));
 pub const HEAP_RING: u32 = 9;
 pub const HEAP_BLUE_NOISE: u32 = 10;
 pub const BLUE_NOISE: &[u8] = include_bytes!("bluenoise.bin");
@@ -30,6 +32,7 @@ pub const CTX_PROBE_RAYS: u32 = 13;
 pub const CTX_RESERVOIRS: u32 = 14;
 pub const CTX_RESERVOIR_SCRATCH: u32 = 16;
 pub const CTX_COMPACT_UAV: u32 = 17;
+pub const CTX_UPDATE_LIST: u32 = 18;
 pub const PROBE_RAYS: u32 = 16;
 pub const PROBE_STRIDE: u64 = 96;
 pub const TIMESTAMPS: u32 = 8;
@@ -62,7 +65,8 @@ const DIRTY_OFFSET: u64 = align(EMITTERS_OFFSET + (MAX_EMITTERS * 16) as u64, 16
 const TLAS_OFFSET: u64 = align(DIRTY_OFFSET + (MAX_DIRTY * 16) as u64, 256);
 const TABLES_OFFSET: u64 = TLAS_OFFSET + (MAX_INSTANCES * 64) as u64;
 const BOUNDS_LIST_OFFSET: u64 = TABLES_OFFSET + MAX_MESHES as u64 * 16 + SUBMESH_CAPACITY * 16;
-const GRID_OFFSET: u64 = align(BOUNDS_LIST_OFFSET + MAX_EMITTERS as u64 * 16, 256);
+const CDF_LIST_OFFSET: u64 = BOUNDS_LIST_OFFSET + MAX_EMITTERS as u64 * 16;
+const GRID_OFFSET: u64 = align(CDF_LIST_OFFSET + MAX_EMITTERS as u64 * 32, 256);
 const SLOT_STRIDE: u64 = align(GRID_OFFSET + GRID_BYTES, 65536 * 3);
 const GRID_BUFFERS: usize = 3;
 const _: () = assert!(BOUNDS_CAPACITY as u64 == SUBMESH_CAPACITY);
@@ -92,6 +96,7 @@ pub struct Context {
     pub probe_rays: ID3D12Resource,
     pub reservoirs: [ID3D12Resource; 2],
     pub reservoir_scratch: ID3D12Resource,
+    pub update_list: ID3D12Resource,
     pub last_time: f32,
     pub cross: Option<crate::relay::Cross>,
     pub output_common: bool,
@@ -116,6 +121,8 @@ pub struct Renderer {
     pub probe_resolve: ID3D12PipelineState,
     pub submesh_bounds: ID3D12PipelineState,
     pub submesh_bounds_clear: ID3D12PipelineState,
+    pub emitter_weights: ID3D12PipelineState,
+    pub emitter_prefix: ID3D12PipelineState,
     pub cache: Vec<ID3D12Resource>,
     pub blue_noise: UploadRing,
     pub queries: ID3D12QueryHeap,
@@ -132,6 +139,8 @@ pub struct Renderer {
     pub bounds_readback: ID3D12Resource,
     pub bounds_pending: Option<(u64, usize, usize)>,
     pub bounds_dirty: Option<(usize, usize)>,
+    pub opaque: crate::opaque::Opaque,
+    pub alpha_readback: ID3D12Resource,
     pub prepared: u64,
     pub grid_gpu: Vec<ID3D12Resource>,
     pub grid_read: [u64; GRID_BUFFERS],
@@ -227,9 +236,9 @@ impl Renderer {
             gpu.srv_raw(&blue_noise.resource, BLUE_NOISE.len() as u64, HEAP_BLUE_NOISE);
             Ok(Renderer {
                 copy_vertices: compute_pso(gpu, &root, COPY_VERTICES)?, copy_indices: compute_pso(gpu, &root, COPY_INDICES)?, copy_positions: compute_pso(gpu, &root, COPY_POSITIONS)?, texture_pixels: compute_pso(gpu, &root, TEXTURE_PIXELS)?,
-                downsample: compute_pso(gpu, &root, DOWNSAMPLE)?, temporal: compute_pso(gpu, &root, TEMPORAL)?, wavelet: compute_pso(gpu, &root, WAVELET)?, resolve: compute_pso(gpu, &root, RESOLVE)?, maintain: compute_pso(gpu, &root, MAINTAIN)?, resolve_signature, cache_args, probe_resolve: compute_pso(gpu, &root, PROBE_RESOLVE)?, submesh_bounds: compute_pso(gpu, &root, SUBMESH_BOUNDS)?, submesh_bounds_clear: compute_pso(gpu, &root, SUBMESH_BOUNDS_CLEAR)?, cache, blue_noise, queries, readback, frequency, timings: [0; 8],
+                downsample: compute_pso(gpu, &root, DOWNSAMPLE)?, temporal: compute_pso(gpu, &root, TEMPORAL)?, wavelet: compute_pso(gpu, &root, WAVELET)?, resolve: compute_pso(gpu, &root, RESOLVE)?, maintain: compute_pso(gpu, &root, MAINTAIN)?, resolve_signature, cache_args, probe_resolve: compute_pso(gpu, &root, PROBE_RESOLVE)?, submesh_bounds: compute_pso(gpu, &root, SUBMESH_BOUNDS)?, submesh_bounds_clear: compute_pso(gpu, &root, SUBMESH_BOUNDS_CLEAR)?, emitter_weights: compute_pso(gpu, &root, EMITTER_WEIGHTS)?, emitter_prefix: compute_pso(gpu, &root, EMITTER_PREFIX)?, cache, blue_noise, queries, readback, frequency, timings: [0; 8],
                 root, state, table, table_address, allocators, list, ring, slot_fences: [0; RING], contexts: (0..MAX_CONTEXTS).map(|_| None).collect(), eligible: Vec::new(),
-                grid: LightGrid::new(), bounds_readback: gpu.buffer(SUBMESH_CAPACITY * 32, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST)?, bounds_pending: None, bounds_dirty: None, prepared: 0,
+                grid: LightGrid::new(), bounds_readback: gpu.buffer(SUBMESH_CAPACITY * 32, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST)?, bounds_pending: None, bounds_dirty: None, prepared: 0, opaque: Default::default(), alpha_readback: gpu.buffer(crate::opaque::ALPHA_MIN_BYTES, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST)?,
                 grid_gpu: (0..GRID_BUFFERS).map(|_| gpu.buffer(GRID_BYTES, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COMMON)).collect::<Result<Vec<_>>>()?,
                 grid_read: [0; GRID_BUFFERS], copy_queue, copy_fence, copy_value: 0, copy_allocators, copy_list, cross_upload: None,
             })
@@ -317,6 +326,17 @@ impl Renderer {
         if self.prepared != unsafe { (*slot_ptr).params.frame } { self.prepare(gpu, scene, slot_ptr)?; }
         let params = unsafe { (*slot_ptr).params };
         let context = (params.context as usize).min(MAX_CONTEXTS - 1);
+        if let Some((value, ids)) = self.opaque.pending.take() {
+            if unsafe { gpu.fence.GetCompletedValue() } < value { self.opaque.pending = Some((value, ids)); } else {
+                unsafe {
+                    let mut raw = std::ptr::null_mut();
+                    if self.alpha_readback.Map(0, Some(&D3D12_RANGE { Begin: 0, End: crate::opaque::ALPHA_MIN_BYTES as usize }), Some(&mut raw)).is_ok() {
+                        for (id, serial) in ids { if let Some(t) = scene.textures.get_mut(&id) { if t.serial == serial { t.alpha_min = Some((raw as *const u32).add(id as usize).read().min(255) as f32 / 255.0); } } }
+                        self.alpha_readback.Unmap(0, Some(&D3D12_RANGE { Begin: 0, End: 0 }));
+                    }
+                }
+            }
+        }
         let Some(ctx) = self.contexts[context].as_ref() else { return Err(Error::new(E_FAIL, "frame for an unallocated context")); };
         let cb = ctx.base;
         let frame = params.frame;
@@ -367,6 +387,7 @@ impl Renderer {
                 if m >= (params.material_count as usize).min(MAX_MATERIALS) { continue; }
                 (mapped.add(MATERIALS_OFFSET as usize + m * 96 + 88) as *mut u32).write_unaligned((src.materials[m].flags & 0xffff) | ((i as u32) << 16));
             }
+            self.opaque.classify(src, (params.material_count as usize).min(MAX_MATERIALS), mapped.add(MATERIALS_OFFSET as usize), |t| scene.textures.get(&t).and_then(|e| e.alpha_min));
         }
         let commands: Vec<Command> = unsafe { (&(*slot_ptr).commands)[..(params.command_count as usize).min(MAX_COMMANDS)].to_vec() };
         let mut tlas_count = 0u32;
@@ -409,8 +430,33 @@ impl Renderer {
         let mut indices_written = false;
         let mut pending_error = None;
         let mut bounds_copy = None;
+        let mut alpha_copy = None;
         for c in &commands {
             if let Err(e) = self.command(gpu, scene, &list, c, upload_index, &mut vertices_written, &mut indices_written, slot_fence_value(gpu)) { pending_error = Some(e); }
+        }
+        let mut cdf_jobs: Vec<[u32; 8]> = Vec::new();
+        let mut cdf_longest = 0u32;
+        if std::env::var_os("BASIS_RT_NO_TRIANGLE_CDF").is_none() {
+            let src = unsafe { &*slot_ptr };
+            let mut budget = CDF_BUDGET;
+            for e in &src.emitters[..(params.emitter_count as usize).min(MAX_EMITTERS)] {
+                if e.instance as usize >= instance_count { continue; }
+                let inst = &src.instances[e.instance as usize];
+                let material = inst.material_base as usize + e.geometry as usize;
+                let Some(m) = scene.meshes.get(&inst.mesh) else { continue; };
+                let Some(s) = m.submeshes.get(e.geometry as usize) else { continue; };
+                let at = m.submesh_offset as usize + e.geometry as usize;
+                let triangles = s.index_count / 3;
+                if !m.committed || at >= scene.submesh_cpu.len() || material >= (params.material_count as usize).min(MAX_MATERIALS) || triangles != e.triangle_count || triangles < CDF_MIN_TRIANGLES || triangles > CDF_MAX_TRIANGLES || triangles > budget { continue; }
+                let known = scene.cdf_ranges.get(&at).copied();
+                if known.is_some_and(|(_, _, built)| frame < built + CDF_REFRESH + (at as u64 & 63)) { continue; }
+                let offset = match known { Some((offset, _, _)) => offset, None => match scene.cdf_alloc.alloc(triangles as u64, 1) { Some(o) => o, None => continue } };
+                scene.cdf_ranges.insert(at, (offset, triangles, frame));
+                if scene.submesh_cpu[at].cdf != offset as u32 + 1 { scene.submesh_cpu[at].cdf = offset as u32 + 1; scene.tables_dirty = true; }
+                cdf_jobs.push([offset as u32, m.vertex_offset as u32, (m.index_offset + s.index_start as u64) as u32, triangles, material as u32, 0, 0, 0]);
+                cdf_longest = cdf_longest.max(triangles);
+                budget -= triangles;
+            }
         }
         unsafe {
             let mut barriers = Vec::new();
@@ -452,6 +498,17 @@ impl Renderer {
                 list.Dispatch(bounds_chunks.max(1), bounds_count, 1);
                 list.ResourceBarrier(&[uav_barrier(Some(&scene.bounds))]);
             }
+            if !cdf_jobs.is_empty() {
+                std::ptr::copy_nonoverlapping(cdf_jobs.as_ptr() as *const u8, mapped.add(CDF_LIST_OFFSET as usize), cdf_jobs.len() * 32);
+                let constants = [(base + CDF_LIST_OFFSET) as u32, cdf_jobs.len() as u32, 0, 0, 0, 0, 0, 0];
+                list.SetComputeRoot32BitConstants(1, 8, constants.as_ptr() as _, 0);
+                list.SetPipelineState(&self.emitter_weights);
+                list.Dispatch(cdf_longest.div_ceil(64), cdf_jobs.len() as u32, 1);
+                list.ResourceBarrier(&[uav_barrier(Some(&scene.cdf))]);
+                list.SetPipelineState(&self.emitter_prefix);
+                list.Dispatch(cdf_jobs.len() as u32, 1, 1);
+                list.ResourceBarrier(&[uav_barrier(Some(&scene.cdf))]);
+            }
             if self.bounds_pending.is_none() {
                 if let Some((first, end)) = self.bounds_dirty.take() {
                     list.ResourceBarrier(&[transition(&scene.bounds, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE)]);
@@ -459,6 +516,12 @@ impl Renderer {
                     list.ResourceBarrier(&[transition(&scene.bounds, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)]);
                     bounds_copy = Some((first, end));
                 }
+            }
+            if self.opaque.pending.is_none() && !scene.alpha_wanted.is_empty() {
+                list.ResourceBarrier(&[transition(&scene.alpha_min, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE)]);
+                list.CopyBufferRegion(&self.alpha_readback, 0, &scene.alpha_min, 0, crate::opaque::ALPHA_MIN_BYTES);
+                list.ResourceBarrier(&[transition(&scene.alpha_min, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)]);
+                alpha_copy = Some(std::mem::take(&mut scene.alpha_wanted));
             }
         }
         let fence_hint = gpu.fence_value + 1;
@@ -468,8 +531,8 @@ impl Renderer {
             for &i in &eligible {
                 let inst = &(*slot_ptr).instances[i as usize];
                 let Some(m) = scene.meshes.get(&inst.mesh) else { continue; };
-                if m.blas_address == 0 { continue; }
-                descs.add(tlas_count as usize).write(D3D12_RAYTRACING_INSTANCE_DESC { Transform: inst.transform, _bitfield1: (i & 0x00ff_ffff) | ((inst.mask & 0xff) << 24), _bitfield2: (D3D12_RAYTRACING_INSTANCE_FLAG_TRIANGLE_CULL_DISABLE.0 as u32) << 24, AccelerationStructure: m.blas_address });
+                if m.blas_address == 0 || inst.transform.iter().any(|v| !v.is_finite()) { continue; }
+                descs.add(tlas_count as usize).write(D3D12_RAYTRACING_INSTANCE_DESC { Transform: inst.transform, _bitfield1: (i & 0x00ff_ffff) | ((inst.mask & 0xff) << 24), _bitfield2: (D3D12_RAYTRACING_INSTANCE_FLAG_TRIANGLE_CULL_DISABLE.0 as u32 | if m.alpha && self.opaque.instance(inst.material_base, m.submeshes.iter().map(|s| s.flags)) { D3D12_RAYTRACING_INSTANCE_FLAG_FORCE_OPAQUE.0 as u32 } else { 0 }) << 24, AccelerationStructure: m.blas_address });
                 tlas_count += 1;
             }
         }
@@ -494,13 +557,16 @@ impl Renderer {
                 let (half_width, half_height) = (full.div_ceil(2).max(1), height.div_ceil(2));
                 list.SetComputeRoot32BitConstants(1, 8, [0u32, half_height, 0, 0, 0, 0, 0, 0].as_ptr() as _, 0);
                 list.DispatchRays(&rays(half_width, half_height + 4096u32.div_ceil(half_width)));
+                list.ResourceBarrier(&[uav_barrier(None)]);
+                list.SetComputeRoot32BitConstants(1, 8, [5u32, half_height, 0, 0, 0, 0, 0, 0].as_ptr() as _, 0);
+                list.DispatchRays(&rays(half_width, half_height));
             }
             list.ResourceBarrier(&[uav_barrier(None)]);
             stamp(&list, 2);
             let full_scan = params.flags & FLAG_CACHE_RESET != 0 || params.dirty_count > 0;
             let (scan_base, scan_count) = if full_scan { (0, CACHE_SIZE) } else { ((params.frame % CACHE_SLICES) * (CACHE_SIZE / CACHE_SLICES), CACHE_SIZE / CACHE_SLICES) };
             list.SetPipelineState(&self.maintain);
-            list.SetComputeRoot32BitConstants(1, 8, [scan_base as u32, 0, 0, 0, 0, 0, 0, 0].as_ptr() as _, 0);
+            list.SetComputeRoot32BitConstants(1, 8, [scan_base as u32, height.div_ceil(2), full.div_ceil(2).max(1) + 1, 0, 0, 0, 0, 0].as_ptr() as _, 0);
             list.Dispatch((scan_count / 64) as u32, 1, 1);
             list.ResourceBarrier(&[uav_barrier(None), transition(&self.cache_args, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT)]);
             list.SetPipelineState(&self.resolve);
@@ -574,9 +640,10 @@ impl Renderer {
         self.slot_fences[slot] = value;
         self.grid_read[grid_index] = value;
         if let Some((first, end)) = bounds_copy { self.bounds_pending = Some((value, first, end)); }
+        if let Some(ids) = alpha_copy { self.opaque.pending = Some((value, ids)); }
         if let Some(ctx) = self.contexts[context].as_mut() { ctx.history_index = history_write; ctx.history_valid = true; ctx.last_time = params.time; }
         *flags_out = tlas_count;
-        if let Some(e) = pending_error { eprintln!("{e}"); *LAST_COMMAND_ERROR.lock().unwrap() = format!("frame {}: {e}", params.frame); }
+        if let Some(e) = pending_error { *LAST_COMMAND_ERROR.lock().unwrap_or_else(|p| p.into_inner()) = format!("frame {}: {e}", params.frame); }
         Ok(value)
     }
 
@@ -587,7 +654,7 @@ impl Renderer {
                 OP_MESH_SUBMESH => scene.add_submesh(c.id, c.a, c.b, c.c),
                 OP_MESH_POSITIONS => {
                     let Some(m) = scene.meshes.get(&c.id) else { return Ok(()); };
-                    if c.a + c.b > m.vertex_count { return Err(format!("position upload past mesh {}", c.id)); }
+                    if c.a.checked_add(c.b).is_none_or(|end| end > m.vertex_count) { return Err(format!("position upload past mesh {}", c.id)); }
                     *vertices_written = true;
                     list.SetPipelineState(&self.copy_positions);
                     let constants = [c.c, c.b, ((m.vertex_offset + c.a as u64) * 32) as u32, 0, 0, 0, 0, k];
@@ -598,16 +665,16 @@ impl Renderer {
                 OP_MESH_VERTICES | OP_MESH_INDICES => {
                     let Some(m) = scene.meshes.get(&c.id) else { return Ok(()); };
                     let vertices = c.op == OP_MESH_VERTICES;
-                    if vertices && c.a + c.b > m.vertex_count { return Err(format!("vertex upload past mesh {}", c.id)); }
-                    if !vertices && c.a + c.b > m.index_count { return Err(format!("index upload past mesh {}", c.id)); }
+                    if vertices && c.a.checked_add(c.b).is_none_or(|end| end > m.vertex_count) { return Err(format!("vertex upload past mesh {}", c.id)); }
+                    if !vertices && c.a.checked_add(c.b).is_none_or(|end| end > m.index_count) { return Err(format!("index upload past mesh {}", c.id)); }
                     if vertices { *vertices_written = true; }
                     if !vertices { *indices_written = true; }
                     let (pso, count, groups, dst) = if vertices { (&self.copy_vertices, c.b * VERTEX_TEXELS, (c.b * VERTEX_TEXELS).div_ceil(64), (m.vertex_offset + c.a as u64) * 32) } else { (&self.copy_indices, c.b, c.b.div_ceil(4).div_ceil(64), (m.index_offset + c.a as u64) * 4) };
                     list.SetPipelineState(pso);
-                    let constants = [c.c, count, dst as u32, 0, 0, 0, 0, k];
+                    let constants = [c.c, count, dst as u32, if vertices { 0 } else { m.vertex_count }, 0, 0, 0, k];
                     list.SetComputeRoot32BitConstants(1, 8, constants.as_ptr() as _, 0);
                     list.Dispatch(groups.max(1), 1, 1);
-                    if vertices { scene.invalidate_bounds(c.id); }
+                    if vertices { scene.invalidate_bounds(c.id); } else if let Some(m) = scene.meshes.get_mut(&c.id) { if m.committed { m.refits = REBUILD_INTERVAL; } }
                 }
                 OP_MESH_COMMIT => {
                     if *vertices_written || *indices_written { list.ResourceBarrier(&[uav_barrier(None)]); }
@@ -615,9 +682,20 @@ impl Renderer {
                 }
                 OP_MESH_REFIT => { scene.refit_mesh(c.id); scene.invalidate_bounds(c.id); }
                 OP_MESH_RELEASE => scene.release_mesh(c.id, fence),
-                OP_TEXTURE_DEFINE => scene.define_texture(gpu, c.id, c.a, c.b, c.c, fence).map_err(|e| e.to_string())?,
+                OP_TEXTURE_DEFINE => {
+                    scene.define_texture(gpu, c.id, c.a, c.b, c.c, fence).map_err(|e| e.to_string())?;
+                    if c.id < MAX_TEXTURES {
+                        list.SetPipelineState(&self.texture_pixels);
+                        let constants = [0u32, c.id, 0, 0, 0, 0, 0, k];
+                        list.SetComputeRoot32BitConstants(1, 8, constants.as_ptr() as _, 0);
+                        list.Dispatch(1, 1, 1);
+                        list.ResourceBarrier(&[uav_barrier(Some(&scene.alpha_min))]);
+                    }
+                }
                 OP_TEXTURE_PIXELS => {
                     let Some(t) = scene.textures.get(&c.id) else { return Ok(()); };
+                    if t.readable || c.a.checked_add(c.b).is_none_or(|end| end > t.height) { return Err(format!("pixel upload past texture {}", c.id)); }
+                    if gpu.scratch_cursor + 1 > SCRATCH_PER_SLOT { return Err(format!("too many texture uploads in one frame, texture {} skipped", c.id)); }
                     let index = gpu.scratch_descriptor();
                     gpu.uav_texture(&t.resource, Scene::uav_format(t.hdr), 0, index);
                     list.SetPipelineState(&self.texture_pixels);
@@ -627,6 +705,8 @@ impl Renderer {
                 }
                 OP_TEXTURE_COMMIT => {
                     let Some(t) = scene.textures.get_mut(&c.id) else { return Ok(()); };
+                    if t.readable { return Ok(()); }
+                    if gpu.scratch_cursor + t.mips * 2 > SCRATCH_PER_SLOT { return Err(format!("too many texture uploads in one frame, texture {} left without mips", c.id)); }
                     list.ResourceBarrier(&[uav_barrier(Some(&t.resource))]);
                     list.SetPipelineState(&self.downsample);
                     let format = Scene::uav_format(t.hdr);
@@ -644,6 +724,7 @@ impl Renderer {
                     }
                     list.ResourceBarrier(&[transition(&t.resource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE)]);
                     t.readable = true;
+                    if !t.hdr { let entry = (c.id, t.serial); scene.alpha_wanted.push(entry); }
                 }
                 OP_TEXTURE_RELEASE => scene.release_texture(gpu, c.id, fence),
                 _ => {}
@@ -662,6 +743,8 @@ pub fn create_upload(gpu: &Gpu) -> Result<Upload> {
     for i in 0..2 { gpu.srv_texture(&upload.textures[i], DXGI_FORMAT_R16G16B16A16_UINT, 1, HEAP_UPLOAD + i as u32); }
     Ok(upload)
 }
+
+pub fn context_bytes(width: u32, height: u32, views: u32, own_targets: bool) -> u64 { (width * views) as u64 * height as u64 * if own_targets { 290 } else { 210 } }
 
 pub fn create_context(gpu: &Gpu, context: usize, width: u32, height: u32, views: u32, targets: Option<([ID3D12Resource; 2], [ID3D12Resource; 2])>) -> Result<Context> {
     let shared = D3D12_HEAP_FLAG_SHARED;
@@ -696,11 +779,14 @@ pub fn create_context(gpu: &Gpu, context: usize, width: u32, height: u32, views:
     let ray_bytes = (tiles_x * tiles_y * PROBE_RAYS) as u64 * 64;
     let probe_rays = gpu.buffer(ray_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)?;
     gpu.uav_raw(&probe_rays, ray_bytes.max(256), base + CTX_PROBE_RAYS);
-    let reservoir_bytes = full as u64 * height as u64 * 32;
+    let reservoir_bytes = full as u64 * height as u64 * 24;
     let reservoir = |k: u32| -> Result<ID3D12Resource> { let b = gpu.buffer(reservoir_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)?; gpu.uav_raw(&b, reservoir_bytes, base + CTX_RESERVOIRS + k); Ok(b) };
     let reservoirs = [reservoir(0)?, reservoir(1)?];
-    let scratch_bytes = full as u64 * height as u64 * 64;
+    let scratch_bytes = full as u64 * height as u64 * 48;
     let reservoir_scratch = gpu.buffer(scratch_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)?;
     gpu.uav_raw(&reservoir_scratch, scratch_bytes, base + CTX_RESERVOIR_SCRATCH);
-    Ok(Context { gbuffer, output, textures, width, height, views, base, history_index: 0, history_valid: false, probes, probe_rays, reservoirs, reservoir_scratch, last_time: 0.0, cross: None, output_common })
+    let list_bytes = (full.div_ceil(2) as u64 + 1) * height.div_ceil(2) as u64 * 4;
+    let update_list = gpu.buffer(list_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)?;
+    gpu.uav_raw(&update_list, list_bytes, base + CTX_UPDATE_LIST);
+    Ok(Context { gbuffer, output, textures, width, height, views, base, history_index: 0, history_valid: false, probes, probe_rays, reservoirs, reservoir_scratch, update_list, last_time: 0.0, cross: None, output_common })
 }

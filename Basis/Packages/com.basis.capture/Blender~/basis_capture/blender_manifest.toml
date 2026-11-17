@@ -1,0 +1,15 @@
+schema_version = "1.0.0"
+
+id = "basis_capture"
+version = "0.2.0"
+name = "Basis Capture Importer"
+tagline = "Import Basis scene captures with avatars, world and cameras"
+maintainer = "BasisVR"
+type = "add-on"
+website = "https://github.com/BasisVR"
+tags = ["Import-Export", "Animation"]
+blender_version_min = "4.2.0"
+license = ["SPDX:MIT"]
+
+[permissions]
+files = "Read Basis capture folders"

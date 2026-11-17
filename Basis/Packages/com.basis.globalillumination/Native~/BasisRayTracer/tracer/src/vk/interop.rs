@@ -72,12 +72,15 @@ impl Interop {
             let mut external = vk::ExternalMemoryImageCreateInfo::default().handle_types(memory_type);
             let info = image_info(width, height, format).push_next(&mut external);
             let image = gpu.device.create_image(&info, None).map_err(err("create shared image"))?;
+            let mut memory = vk::DeviceMemory::null();
+            let mut shared = 0u64;
+            let result = (|| -> Fallible<SharedImage> {
             let requirements = gpu.device.get_image_memory_requirements(image);
             let index = gpu.memory_type(requirements.memory_type_bits, vk::MemoryPropertyFlags::DEVICE_LOCAL)?;
             let mut export = vk::ExportMemoryAllocateInfo::default().handle_types(memory_type);
             let mut dedicated = vk::MemoryDedicatedAllocateInfo::default().image(image);
             let allocate = vk::MemoryAllocateInfo::default().allocation_size(requirements.size).memory_type_index(index).push_next(&mut export).push_next(&mut dedicated);
-            let memory = gpu.device.allocate_memory(&allocate, None).map_err(err("allocate shared image"))?;
+            memory = gpu.device.allocate_memory(&allocate, None).map_err(err("allocate shared image"))?;
             gpu.device.bind_image_memory(image, memory, 0).map_err(err("bind shared image"))?;
             #[cfg(windows)]
             let remote = {
@@ -92,8 +95,12 @@ impl Interop {
                 let fd = gpu.memory_fd.get_memory_fd(&vk::MemoryGetFdInfoKHR::default().memory(memory).handle_type(memory_type)).map_err(err("export shared image"))?;
                 link.share_fd(fd)?
             };
+            shared = remote;
             let view = gpu.view(image, vk::Format::from_raw(format), 0, 1, vk::ImageUsageFlags::SAMPLED)?;
             Ok(SharedImage { image, memory, view, remote, #[cfg(windows)] _resource: None })
+            })();
+            if result.is_err() { gpu.device.destroy_image(image, None); gpu.device.free_memory(memory, None); link.close_shared(shared); }
+            result
         }
     }
 
@@ -110,12 +117,16 @@ impl Interop {
             d3d.CreateCommittedResource(&crate::gpu::heap_props(D3D12_HEAP_TYPE_DEFAULT), D3D12_HEAP_FLAG_SHARED, &desc, D3D12_RESOURCE_STATE_COMMON, None, &mut resource).map_err(|e| format!("create shared texture: {e}"))?;
             let resource = resource.ok_or("create shared texture")?;
             let handle = d3d.CreateSharedHandle(&resource, None, GENERIC_ALL.0, PCWSTR::null()).map_err(|e| format!("share texture: {e}"))?;
+            let mut image = vk::Image::null();
+            let mut memory = vk::DeviceMemory::null();
+            let mut shared = 0u64;
             let result = (|| -> Fallible<SharedImage> {
                 let remote = link.share_handle(handle).map_err(|e| e.to_string())?;
+                shared = remote;
                 let kind = vk::ExternalMemoryHandleTypeFlags::D3D12_RESOURCE;
                 let mut external = vk::ExternalMemoryImageCreateInfo::default().handle_types(kind);
                 let info = image_info(width, height, format).push_next(&mut external);
-                let image = gpu.device.create_image(&info, None).map_err(err("create imported image"))?;
+                image = gpu.device.create_image(&info, None).map_err(err("create imported image"))?;
                 let requirements = gpu.device.get_image_memory_requirements(image);
                 let mut properties = vk::MemoryWin32HandlePropertiesKHR::default();
                 gpu.memory_win32.get_memory_win32_handle_properties(kind, handle.0 as isize, &mut properties).map_err(err("query imported texture"))?;
@@ -124,12 +135,13 @@ impl Interop {
                 let mut import = vk::ImportMemoryWin32HandleInfoKHR::default().handle_type(kind).handle(handle.0 as isize);
                 let mut dedicated = vk::MemoryDedicatedAllocateInfo::default().image(image);
                 let allocate = vk::MemoryAllocateInfo::default().allocation_size(requirements.size).memory_type_index(index).push_next(&mut import).push_next(&mut dedicated);
-                let memory = gpu.device.allocate_memory(&allocate, None).map_err(err("import shared texture"))?;
+                memory = gpu.device.allocate_memory(&allocate, None).map_err(err("import shared texture"))?;
                 gpu.device.bind_image_memory(image, memory, 0).map_err(err("bind imported texture"))?;
                 let view = gpu.view(image, vk::Format::from_raw(format), 0, 1, vk::ImageUsageFlags::SAMPLED)?;
                 Ok(SharedImage { image, memory, view, remote, _resource: Some(resource) })
             })();
             let _ = CloseHandle(handle);
+            if result.is_err() { gpu.device.destroy_image(image, None); gpu.device.free_memory(memory, None); link.close_shared(shared); }
             result
         }
     }

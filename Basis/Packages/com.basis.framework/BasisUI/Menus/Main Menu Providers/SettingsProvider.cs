@@ -109,6 +109,7 @@ namespace Basis.BasisUI
         /// own its diagnostics UI without the framework referencing the package.
         /// </summary>
         public static readonly List<(string TitleKey, Action<RectTransform> Builder)> DeveloperSectionBuilders = new();
+        public static readonly List<(string TitleKey, Action<RectTransform> Builder)> GeneralSectionBuilders = new();
 
         /// <summary>
         /// Reset callbacks paired with <see cref="DeveloperSectionBuilders"/>; the General
@@ -667,6 +668,20 @@ namespace Basis.BasisUI
                 BasisLocalization.Get("settings.cilboxPermissions.title"),
                 () => SettingsProviderCilboxPermissions.BuildSection(container, descriptor),
                 false, _ => SettingsProviderCilboxPermissions.SettleSection(cilboxPermissionsSection, container));
+
+            for (int i = 0; i < GeneralSectionBuilders.Count; i++)
+            {
+                Action<RectTransform> builder = GeneralSectionBuilders[i].Builder;
+                PanelSectionToggle packageSection = null;
+                packageSection = PanelSectionToggleHelpers.CreateLazyBoxedSection(container,
+                    BasisLocalization.Get(GeneralSectionBuilders[i].TitleKey),
+                    () =>
+                    {
+                        try { builder?.Invoke(container); }
+                        catch (Exception ex) { BasisDebug.LogWarning($"General section builder failed: {ex.Message}"); }
+                    },
+                    false, _ => PanelSectionToggleHelpers.RebuildSectionLayout(packageSection, container));
+            }
 
             PanelSectionToggle developerSection = null;
             developerSection = PanelSectionToggleHelpers.CreateCollapsibleBoxedSection(container,

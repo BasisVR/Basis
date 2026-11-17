@@ -7,6 +7,7 @@
     <assembly fullname="Basis.AuthoredMotion" preserve="all" />
     <assembly fullname="Basis.Constraints" preserve="all" />
     <assembly fullname="Basis.Developer.Exceptions" preserve="all" />
+    <assembly fullname="Basis.Capture" preserve="all" />
     <assembly fullname="Basis.Developer.Recorder" preserve="all" />
     <assembly fullname="Basis.Developer.StreamingMeta" preserve="all" />
     <assembly fullname="Basis.Eerie.Movement" preserve="all" />

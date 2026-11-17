@@ -29,6 +29,7 @@ if [[ "$1" == "full" ]]; then
               Packages/com.basis.addon.snapcontrols:
               Packages/com.basis.authoredmotion:
               Packages/com.basis.camera:
+              Packages/com.basis.capture:
               Packages/com.basis.common:
               Packages/com.basis.constraints:
               Packages/com.basis.developer.exceptions:

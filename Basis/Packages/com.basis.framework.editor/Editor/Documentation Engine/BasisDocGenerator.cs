@@ -17,6 +17,7 @@ public static class BasisDocGenerator
     {
         "com.basis.authoredmotion",
         "com.basis.bundlemanagement",
+        "com.basis.capture",
         "com.basis.common",
         "com.basis.constraints",
         "com.basis.developer.exceptions",

@@ -7,6 +7,7 @@ mod ffi;
 #[cfg(windows)]
 mod gpu;
 mod lightgrid;
+mod opaque;
 pub mod os;
 #[cfg(windows)]
 mod relay;
@@ -38,6 +39,7 @@ pub trait Backend {
     fn prepare(&mut self, slot: *mut Slot) -> Fallible<()>;
     fn counts(&self) -> (u32, u32);
     fn idle(&mut self) {}
+    fn lost(&self) -> bool { true }
 }
 
 #[derive(Default)]
@@ -46,11 +48,11 @@ pub struct Stop { pub flag: std::sync::atomic::AtomicBool, #[cfg(windows)] fence
 impl Stop {
     pub fn stopping(&self) -> bool { self.flag.load(Ordering::Acquire) }
     #[cfg(windows)]
-    pub fn register(&self, fence: &windows::Win32::Graphics::Direct3D12::ID3D12Fence) { self.fences.lock().unwrap().push(fence.clone()); }
+    pub fn register(&self, fence: &windows::Win32::Graphics::Direct3D12::ID3D12Fence) { self.fences.lock().unwrap_or_else(|e| e.into_inner()).push(fence.clone()); }
     pub fn trigger(&self) {
         self.flag.store(true, Ordering::Release);
         #[cfg(windows)]
-        for f in self.fences.lock().unwrap().iter() { unsafe { let _ = f.Signal(u64::MAX); } }
+        for f in self.fences.lock().unwrap_or_else(|e| e.into_inner()).iter() { unsafe { let _ = f.Signal(u64::MAX); } }
     }
 }
 
@@ -62,6 +64,7 @@ fn run(link: &mut os::Link, args: &os::Args) -> Fallible<()> {
     let mut backend: Box<dyn Backend> = if args.vulkan { Box::new(vk::Tracer::new(link)?) } else { new_dx(link)? };
     let result = serve(link, &mut *backend);
     backend.idle();
+    for c in 0..MAX_CONTEXTS { retire_handles(link, c); }
     result
 }
 
@@ -86,6 +89,17 @@ impl TestDelay {
     }
 }
 
+pub(crate) fn test_budget() -> Option<u64> { std::env::var("BASIS_RT_TEST_MEMORY_BUDGET_MB").ok().and_then(|v| v.parse::<u64>().ok()).map(|mb| mb << 20) }
+
+fn retire_handles(link: &os::Link, context: usize) {
+    let header = link.header();
+    let ch = &mut header.contexts[context];
+    let generation = ch.generation.load(Ordering::Acquire);
+    if generation == 0 || header.reserved[RESERVED_HANDLE_CLAIMS] == 0 { return; }
+    if ch.taken.fetch_max(generation, Ordering::AcqRel) >= generation { return; }
+    for h in ch.handle_gbuffer.iter().chain(ch.handle_output.iter()) { link.close_shared(*h); }
+}
+
 fn serve(link: &mut os::Link, backend: &mut dyn Backend) -> Fallible<()> {
     let header = link.header();
     header.caps = backend.caps();
@@ -99,6 +113,11 @@ fn serve(link: &mut os::Link, backend: &mut dyn Backend) -> Fallible<()> {
     let mut last = header.frame_submitted.load(Ordering::Acquire);
     let mut opened = [0u32; MAX_CONTEXTS];
     let mut target_failures = [0u32; MAX_CONTEXTS];
+    let mut wanted = [false; MAX_CONTEXTS];
+    let mut retry_at = [Instant::now(); MAX_CONTEXTS];
+    let mut asked = [(0u32, 0u32, 0u32, 0u32); MAX_CONTEXTS];
+    let mut asked_at = [Instant::now(); MAX_CONTEXTS];
+    let settle = Duration::from_millis(std::env::var("BASIS_RT_RESIZE_SETTLE_MS").ok().and_then(|v| v.parse().ok()).unwrap_or(120));
     let test_delay = TestDelay::from_env();
     header.status.store(STATUS_READY, Ordering::Release);
 
@@ -115,19 +134,25 @@ fn serve(link: &mut os::Link, backend: &mut dyn Backend) -> Fallible<()> {
             if sequence & 1 != 0 || t.sequence.load(Ordering::Acquire) != sequence { continue; }
             let (w, h, v) = if target != 0 { (tw, th, tv.clamp(1, 2)) } else { (ch.requested_width.load(Ordering::Acquire), ch.requested_height.load(Ordering::Acquire), ch.requested_views.load(Ordering::Acquire).clamp(1, 2)) };
             let current = backend.context_size(c);
-            if w == 0 || h == 0 {
-                if current.is_some() { backend.release_context(c)?; }
+            wanted[c] = w != 0 && h != 0;
+            if !wanted[c] {
+                if current.is_some() { backend.release_context(c)?; unpublish(link, c); }
                 opened[c] = 0;
                 header.targets[c].opened.store(target, Ordering::Release);
                 continue;
             }
-            if current == Some((w, h, v)) && opened[c] == target { continue; }
-            backend.release_context(c)?;
+            if current == Some((w, h, v)) && opened[c] == target { asked[c] = (w, h, v, target); continue; }
+            if asked[c] != (w, h, v, target) { asked[c] = (w, h, v, target); asked_at[c] = Instant::now(); }
+            if current.is_some() && asked_at[c].elapsed() < settle { continue; }
+            if current.is_none() && Instant::now() < retry_at[c] { continue; }
+            if current.is_some() { backend.release_context(c)?; unpublish(link, c); }
             let handles = match backend.create_context(link, c, w, h, v, if target != 0 { Some(handles) } else { None }) {
                 Ok(h) => { target_failures[c] = 0; h }
                 Err(e) if target != 0 && target_failures[c] < 200 => { target_failures[c] += 1; let _ = e; continue; }
+                Err(e) if !backend.lost() => { let _ = backend.release_context(c); write_error(header, &format!("allocate context {c} ({w}x{h}x{v}): {e}")); retry_at[c] = Instant::now() + Duration::from_secs(2); continue; }
                 Err(e) => return Err(format!("allocate context {c}: {e}")),
             };
+            retire_handles(link, c);
             opened[c] = target;
             header.targets[c].opened.store(target, Ordering::Release);
             let ch = &mut header.contexts[c];
@@ -144,7 +169,8 @@ fn serve(link: &mut os::Link, backend: &mut dyn Backend) -> Fallible<()> {
         let slot = unsafe { slot(link.base, frame as usize) };
         if unsafe { (*slot).params.frame } != frame { last = frame; header.frame_consumed.store(frame, Ordering::Release); continue; }
         let context = unsafe { (*slot).params.context } as usize;
-        if context >= MAX_CONTEXTS || backend.context_size(context).is_none() { link.wait_wake(1); continue; }
+        if context >= MAX_CONTEXTS || (backend.context_size(context).is_none() && (!wanted[context] || Instant::now() < retry_at[context])) { last = frame; header.frame_consumed.store(frame, Ordering::Release); continue; }
+        if backend.context_size(context).is_none() { link.wait_wake(1); continue; }
         backend.prepare(slot).map_err(|e| format!("frame {frame}: {e}"))?;
         let deadline = Instant::now() + Duration::from_millis(250);
         while header.frame_queued.load(Ordering::Acquire) < frame {
@@ -173,6 +199,17 @@ fn serve(link: &mut os::Link, backend: &mut dyn Backend) -> Fallible<()> {
         header.texture_count.store(textures, Ordering::Relaxed);
         last = frame;
     }
+}
+
+fn unpublish(link: &os::Link, context: usize) {
+    retire_handles(link, context);
+    let ch = &mut link.header().contexts[context];
+    if ch.generation.load(Ordering::Acquire) == 0 { return; }
+    ch.handle_gbuffer = [0; 2];
+    ch.handle_output = [0; 2];
+    ch.width = 0;
+    ch.height = 0;
+    ch.generation.fetch_add(1, Ordering::AcqRel);
 }
 
 #[cfg(windows)]

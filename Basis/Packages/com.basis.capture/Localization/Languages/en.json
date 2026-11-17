@@ -1,0 +1,218 @@
+{
+  "code": "en",
+  "nativeName": "English",
+  "entries": [
+    {
+      "key": "settings.developer.capture.title",
+      "value": "Scene Capture"
+    },
+    {
+      "key": "settings.developer.capture.includeRemotes",
+      "value": "Record Other Players"
+    },
+    {
+      "key": "settings.developer.capture.includeRemotes.tooltip",
+      "value": "Record every player's avatar as you see it, not just your own."
+    },
+    {
+      "key": "settings.developer.capture.includeScene",
+      "value": "Record World and Props"
+    },
+    {
+      "key": "settings.developer.capture.includeScene.tooltip",
+      "value": "Record the world, spawned props, lights and anything that moves in them."
+    },
+    {
+      "key": "settings.developer.capture.exportGeometry",
+      "value": "Export Geometry"
+    },
+    {
+      "key": "settings.developer.capture.exportGeometry.tooltip",
+      "value": "Save meshes, skinning, blend shapes, materials and textures so Blender can rebuild the scene. Turn off to record motion only."
+    },
+    {
+      "key": "settings.developer.capture.microphone",
+      "value": "Record My Microphone"
+    },
+    {
+      "key": "settings.developer.capture.microphone.tooltip",
+      "value": "Save your microphone to a WAV file lined up with the capture."
+    },
+    {
+      "key": "settings.developer.capture.peerMicrophone",
+      "value": "Send My Microphone"
+    },
+    {
+      "key": "settings.developer.capture.peerMicrophone.tooltip",
+      "value": "When a server admin collects a capture, or you allow someone to record you, include your microphone along with your avatar motion."
+    },
+    {
+      "key": "settings.developer.capture.maxMinutes",
+      "value": "Maximum Length (Minutes)"
+    },
+    {
+      "key": "settings.developer.capture.maxMinutes.tooltip",
+      "value": "Stop recording automatically after this many minutes. 0 means no limit."
+    },
+    {
+      "key": "settings.developer.capture.status.title",
+      "value": "Status"
+    },
+    {
+      "key": "settings.developer.capture.status.idle",
+      "value": "Not recording."
+    },
+    {
+      "key": "settings.developer.capture.status.recording",
+      "value": "Recording."
+    },
+    {
+      "key": "settings.developer.capture.status.peer",
+      "value": "Recording your avatar for a server admin."
+    },
+    {
+      "key": "settings.developer.capture.status.exporting",
+      "value": "Saving geometry and textures: {0}%"
+    },
+    {
+      "key": "settings.developer.capture.status.done",
+      "value": "Finished. Import the take in Blender with File > Import > Basis Capture."
+    },
+    {
+      "key": "settings.developer.capture.status.failed",
+      "value": "Capture failed: {0}"
+    },
+    {
+      "key": "settings.developer.capture.status.stats",
+      "value": "{0}, {1} frames, {2} actors, {3} MB of motion, {4} meshes, {5} textures"
+    },
+    {
+      "key": "settings.developer.capture.start",
+      "value": "Start Capture"
+    },
+    {
+      "key": "settings.developer.capture.start.tooltip",
+      "value": "Start or stop recording the scene for Blender."
+    },
+    {
+      "key": "settings.developer.capture.stop",
+      "value": "Stop Capture"
+    },
+    {
+      "key": "settings.developer.capture.openFolder",
+      "value": "Open Capture Folder"
+    },
+    {
+      "key": "settings.developer.capture.rate",
+      "value": "Capture Rate"
+    },
+    {
+      "key": "settings.developer.capture.rate.tooltip",
+      "value": "How many times per second poses are recorded. Higher rates give smoother slow motion in Blender and bigger files. Every Frame follows your frame rate."
+    },
+    {
+      "key": "settings.developer.capture.rate.hz",
+      "value": "{0} Hz"
+    },
+    {
+      "key": "settings.developer.capture.rate.every",
+      "value": "Every Frame"
+    },
+    {
+      "key": "settings.developer.capture.lock",
+      "value": "Lock Capture On This Server"
+    },
+    {
+      "key": "settings.developer.capture.unlock",
+      "value": "Unlock Capture On This Server"
+    },
+    {
+      "key": "settings.developer.capture.lock.tooltip",
+      "value": "Server admins only. While locked, nobody on this server can record scenes or avatars, except people given the basis.capture.record permission."
+    },
+    {
+      "key": "settings.developer.capture.lock.locked",
+      "value": "Capture is locked on this server. Ask an admin to unlock it."
+    },
+    {
+      "key": "settings.developer.capture.lock.bypass",
+      "value": "Capture is locked on this server, but your permissions let you record."
+    },
+    {
+      "key": "settings.developer.capture.lock.open",
+      "value": "This server allows scene capture."
+    },
+    {
+      "key": "settings.developer.capture.lock.unsupported",
+      "value": "This server does not support scene capture, so recording is off."
+    },
+    {
+      "key": "settings.developer.capture.section.what",
+      "value": "What to record"
+    },
+    {
+      "key": "settings.developer.capture.section.quality",
+      "value": "Quality"
+    },
+    {
+      "key": "settings.developer.capture.section.privacy",
+      "value": "When someone else records"
+    },
+    {
+      "key": "settings.developer.capture.consent.title",
+      "value": "Scene recording request"
+    },
+    {
+      "key": "settings.developer.capture.consent.body",
+      "value": "{0} wants to record this scene for rendering in Blender, including you: your avatar, its motion, face and eye movement. If you allow it, your own client also records your avatar at full quality and sends it to them when they stop, with your microphone if Send My Microphone is on. If you decline, you are left out of their recording."
+    },
+    {
+      "key": "settings.developer.capture.consent.allow",
+      "value": "Allow"
+    },
+    {
+      "key": "settings.developer.capture.consent.decline",
+      "value": "Decline"
+    },
+    {
+      "key": "settings.developer.capture.consent.policy",
+      "value": "Recording requests"
+    },
+    {
+      "key": "settings.developer.capture.consent.policy.tooltip",
+      "value": "What happens when a server admin asks to record you. If you decline, you are left out of their recording."
+    },
+    {
+      "key": "settings.developer.capture.consent.policy.ask",
+      "value": "Ask me"
+    },
+    {
+      "key": "settings.developer.capture.consent.policy.allow",
+      "value": "Always allow"
+    },
+    {
+      "key": "settings.developer.capture.consent.policy.decline",
+      "value": "Always decline"
+    },
+    {
+      "key": "settings.developer.capture.consent.recording",
+      "value": "You allowed {0} to record you. Your avatar is being recorded locally and will be sent to them when they stop."
+    },
+    {
+      "key": "settings.developer.capture.consent.autoDeclined",
+      "value": "{0} asked to record you and the request was declined automatically."
+    },
+    {
+      "key": "settings.developer.capture.consent.summary",
+      "value": "Players: {0} allowed, {1} declined, {2} not answered yet. Only players who allow are recorded."
+    },
+    {
+      "key": "settings.developer.capture.consent.unavailable",
+      "value": "Other players could not be asked, so only you and the world are being recorded."
+    },
+    {
+      "key": "settings.developer.capture.lock.adminsOnly",
+      "value": "Only server admins can record on this server. If one does, you will be asked first."
+    }
+  ]
+}

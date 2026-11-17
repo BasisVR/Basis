@@ -22,6 +22,12 @@ pub const HEAP_VERTICES_UAV: u32 = 5;
 pub const HEAP_INDICES_UAV: u32 = 6;
 pub const HEAP_TEXTURES: u32 = 1024;
 pub const HEAP_BOUNDS: u32 = 54;
+pub const HEAP_TRIANGLE_CDF: u32 = 12;
+pub const CDF_CAPACITY: u64 = 4 * 1024 * 1024;
+pub const CDF_MAX_TRIANGLES: u32 = 1 << 20;
+pub const CDF_MIN_TRIANGLES: u32 = 4;
+pub const CDF_REFRESH: u64 = 120;
+pub const CDF_BUDGET: u32 = 1 << 20;
 
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
@@ -29,7 +35,7 @@ pub struct GpuMesh { pub vertex_offset: u32, pub index_offset: u32, pub submesh_
 
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
-pub struct GpuSubmesh { pub index_start: u32, pub index_count: u32, pub flags: u32, pub pad: u32 }
+pub struct GpuSubmesh { pub index_start: u32, pub index_count: u32, pub flags: u32, pub cdf: u32 }
 
 pub struct MeshEntry {
     pub vertex_offset: u64,
@@ -47,6 +53,9 @@ pub struct MeshEntry {
     pub needs_build: bool,
     pub needs_refit: bool,
     pub refits: u32,
+    pub submesh_capacity: u32,
+    pub failed: bool,
+    pub alpha: bool,
 }
 
 pub struct TextureEntry {
@@ -56,6 +65,8 @@ pub struct TextureEntry {
     pub mips: u32,
     pub hdr: bool,
     pub readable: bool,
+    pub alpha_min: Option<f32>,
+    pub serial: u32,
 }
 
 pub struct Scene {
@@ -76,7 +87,13 @@ pub struct Scene {
     pub tables_dirty: bool,
     pub retired: Vec<(u64, ID3D12Resource)>,
     pub bounds: ID3D12Resource,
+    pub alpha_min: ID3D12Resource,
     pub bounds_valid: Vec<bool>,
+    pub alpha_wanted: Vec<(u32, u32)>,
+    pub texture_serial: u32,
+    pub cdf: ID3D12Resource,
+    pub cdf_alloc: RangeAllocator,
+    pub cdf_ranges: std::collections::HashMap<usize, (u64, u32, u64)>,
     scratch_cursor: u64,
     tlas_count: u32,
     tlas_age: u32,
@@ -111,6 +128,10 @@ impl Scene {
         gpu.srv_tlas(unsafe { tlas.GetGPUVirtualAddress() }, HEAP_TLAS);
         let bounds = gpu.buffer(SUBMESH_CAPACITY * 32, D3D12_HEAP_TYPE_DEFAULT, uav, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)?;
         gpu.uav_raw(&bounds, SUBMESH_CAPACITY * 32, HEAP_BOUNDS);
+        let alpha_min = gpu.buffer(crate::opaque::ALPHA_MIN_BYTES, D3D12_HEAP_TYPE_DEFAULT, uav, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)?;
+        gpu.uav_raw(&alpha_min, crate::opaque::ALPHA_MIN_BYTES, crate::opaque::HEAP_ALPHA_MIN);
+        let cdf = gpu.buffer(CDF_CAPACITY * 4, D3D12_HEAP_TYPE_DEFAULT, uav, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)?;
+        gpu.uav_raw(&cdf, CDF_CAPACITY * 4, HEAP_TRIANGLE_CDF);
         let null = D3D12_SHADER_RESOURCE_VIEW_DESC { Format: DXGI_FORMAT_R8G8B8A8_UNORM, ViewDimension: D3D12_SRV_DIMENSION_TEXTURE2D, Shader4ComponentMapping: D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING, Anonymous: D3D12_SHADER_RESOURCE_VIEW_DESC_0 { Texture2D: D3D12_TEX2D_SRV { MipLevels: 1, ..Default::default() } } };
         for i in 0..MAX_TEXTURES { unsafe { gpu.device.CreateShaderResourceView(None::<&ID3D12Resource>, Some(&null), gpu.cpu(HEAP_TEXTURES + i)); } }
         let postbuild = gpu.buffer(COMPACT_SLOTS as u64 * 8, D3D12_HEAP_TYPE_DEFAULT, uav, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)?;
@@ -121,16 +142,25 @@ impl Scene {
             vertices, indices, mesh_table, submesh_table, scratch, tlas, tlas_scratch,
             vertex_alloc: RangeAllocator::new(VERTEX_CAPACITY), index_alloc: RangeAllocator::new(INDEX_CAPACITY), submesh_alloc: RangeAllocator::new(SUBMESH_CAPACITY),
             meshes: IdMap::default(), textures: IdMap::default(), mesh_cpu: vec![GpuMesh::default(); MAX_MESHES as usize], submesh_cpu: vec![GpuSubmesh::default(); SUBMESH_CAPACITY as usize],
-            tables_dirty: true, retired: Vec::new(), bounds, bounds_valid: vec![false; SUBMESH_CAPACITY as usize], scratch_cursor: 0, tlas_count: 0, tlas_age: 0,
+            tables_dirty: true, retired: Vec::new(), bounds, alpha_min, alpha_wanted: Vec::new(), texture_serial: 0, bounds_valid: vec![false; SUBMESH_CAPACITY as usize], cdf, cdf_alloc: RangeAllocator::new(CDF_CAPACITY), cdf_ranges: Default::default(), scratch_cursor: 0, tlas_count: 0, tlas_age: 0,
             postbuild, postbuild_readback, postbuild_mapped: mapped as *const u64, compact_free: (0..COMPACT_SLOTS).rev().collect(), compacting: Vec::new(), completed: 0, compacted_bytes: 0,
         })
     }
 
+    pub fn release_cdf(&mut self, id: u32) {
+        let Some(m) = self.meshes.get(&id) else { return; };
+        for at in m.submesh_offset as usize..(m.submesh_offset + m.submesh_capacity as u64) as usize {
+            if let Some((offset, count, _)) = self.cdf_ranges.remove(&at) { self.cdf_alloc.release(offset, count as u64); }
+            if at < self.submesh_cpu.len() && self.submesh_cpu[at].cdf != 0 { self.submesh_cpu[at].cdf = 0; self.tables_dirty = true; }
+        }
+    }
+
     pub fn release_mesh(&mut self, id: u32, fence: u64) {
+        self.release_cdf(id);
         if let Some(m) = self.meshes.remove(&id) {
             self.vertex_alloc.release(m.vertex_offset, m.vertex_count as u64);
             self.index_alloc.release(m.index_offset, m.index_count as u64);
-            self.submesh_alloc.release(m.submesh_offset, m.submeshes.len() as u64);
+            self.submesh_alloc.release(m.submesh_offset, m.submesh_capacity as u64);
             if let Some(b) = m.blas { self.retired.push((fence, b)); }
             self.mesh_cpu[id as usize] = GpuMesh::default();
             self.tables_dirty = true;
@@ -143,8 +173,20 @@ impl Scene {
         let vertex_offset = self.vertex_alloc.alloc(vertex_count as u64, 1).ok_or("vertex arena full")?;
         let index_offset = match self.index_alloc.alloc(index_count as u64, 4) { Some(o) => o, None => { self.vertex_alloc.release(vertex_offset, vertex_count as u64); return Err("index arena full".into()); } };
         let submesh_offset = match self.submesh_alloc.alloc(submesh_count.max(1) as u64, 1) { Some(o) => o, None => { self.vertex_alloc.release(vertex_offset, vertex_count as u64); self.index_alloc.release(index_offset, index_count as u64); return Err("submesh table full".into()); } };
-        self.meshes.insert(id, MeshEntry { vertex_offset, vertex_count, index_offset, index_count, submesh_offset, submeshes: Vec::with_capacity(submesh_count as usize), dynamic: false, blas: None, blas_address: 0, update_scratch: 0, build_scratch: 0, committed: false, needs_build: false, needs_refit: false, refits: 0 });
+        self.meshes.insert(id, MeshEntry { vertex_offset, vertex_count, index_offset, index_count, submesh_offset, submeshes: Vec::with_capacity(submesh_count as usize), dynamic: false, blas: None, blas_address: 0, update_scratch: 0, build_scratch: 0, committed: false, needs_build: false, needs_refit: false, refits: 0, submesh_capacity: submesh_count.max(1), failed: false, alpha: false });
         Ok(())
+    }
+
+    fn fail_mesh(&mut self, id: u32, fence: u64) {
+        if let Some(m) = self.meshes.get_mut(&id) {
+            if let Some(old) = m.blas.take() { self.retired.push((fence, old)); }
+            m.blas_address = 0;
+            m.build_scratch = 0;
+            m.update_scratch = 0;
+            m.needs_build = false;
+            m.needs_refit = false;
+            m.failed = true;
+        }
     }
 
     pub fn invalidate_bounds(&mut self, id: u32) {
@@ -157,17 +199,22 @@ impl Scene {
 
     pub fn add_submesh(&mut self, id: u32, start: u32, count: u32, flags: u32) {
         if let Some(m) = self.meshes.get_mut(&id) {
-            let s = GpuSubmesh { index_start: start, index_count: count, flags, pad: 0 };
+            if m.committed || m.submeshes.len() >= m.submesh_capacity as usize { return; }
+            let count = count.min(m.index_count.saturating_sub(start));
+            let s = GpuSubmesh { index_start: start.min(m.index_count), index_count: count - count % 3, flags, cdf: 0 };
             let slot = m.submesh_offset as usize + m.submeshes.len();
-            if slot < self.submesh_cpu.len() { self.submesh_cpu[slot] = s; m.submeshes.push(s); }
+            if slot < self.submesh_cpu.len() { self.submesh_cpu[slot] = s; m.submeshes.push(s); m.alpha |= flags & SUBMESH_OPAQUE == 0; }
         }
     }
 
     pub fn commit_mesh(&mut self, id: u32, flags: u32) {
         if let Some(m) = self.meshes.get_mut(&id) {
             m.dynamic = flags & MESH_DYNAMIC != 0;
+            m.refits = if m.dynamic { id % REBUILD_INTERVAL } else { 0 };
             m.committed = true;
             m.needs_build = true;
+            m.failed = false;
+            m.build_scratch = 0;
             self.mesh_cpu[id as usize] = GpuMesh { vertex_offset: m.vertex_offset as u32, index_offset: m.index_offset as u32, submesh_offset: m.submesh_offset as u32, submesh_count: m.submeshes.len() as u32 };
             self.tables_dirty = true;
         }
@@ -176,7 +223,7 @@ impl Scene {
 
     pub fn refit_mesh(&mut self, id: u32) {
         if let Some(m) = self.meshes.get_mut(&id) {
-            if !m.committed { return; }
+            if !m.committed || m.failed { return; }
             m.refits += 1;
             if m.blas.is_none() || !m.dynamic || m.refits >= REBUILD_INTERVAL { m.needs_build = true; m.refits = 0; } else { m.needs_refit = true; }
         }
@@ -222,7 +269,7 @@ impl Scene {
             let current = unsafe { old.GetDesc().Width };
             let size = (size + 255) & !255;
             if size >= current { continue; }
-            let blas = gpu.buffer(size, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE)?;
+            let Ok(blas) = gpu.buffer(size, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE) else { continue; };
             let target = unsafe { blas.GetGPUVirtualAddress() };
             unsafe { list.CopyRaytracingAccelerationStructure(target, address, D3D12_RAYTRACING_ACCELERATION_STRUCTURE_COPY_MODE_COMPACT); }
             if let Some(old) = m.blas.replace(blas) { self.retired.push((fence, old)); }
@@ -238,7 +285,7 @@ impl Scene {
     pub fn build(&mut self, gpu: &Gpu, list: &ID3D12GraphicsCommandList4, fence: u64) -> Result<u32> {
         self.scratch_cursor = 0;
         let mut built = self.compact(gpu, list, fence)?;
-        let ids: Vec<u32> = self.meshes.iter().filter(|(_, m)| m.committed && (m.needs_build || m.needs_refit)).map(|(k, _)| *k).collect();
+        let ids: Vec<u32> = self.meshes.iter().filter(|(_, m)| m.committed && !m.failed && (m.needs_build || m.needs_refit)).map(|(k, _)| *k).collect();
         let mut queried: Vec<u32> = Vec::new();
         for id in ids {
             let (geometry, dynamic, rebuild) = { let m = &self.meshes[&id]; (self.geometry(m), m.dynamic, m.needs_build) };
@@ -253,7 +300,8 @@ impl Scene {
             } else if rebuild {
                 let mut info = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO::default();
                 unsafe { gpu.device.GetRaytracingAccelerationStructurePrebuildInfo(&inputs, &mut info); }
-                let blas = gpu.buffer(info.ResultDataMaxSizeInBytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE)?;
+                if info.ResultDataMaxSizeInBytes == 0 || info.ScratchDataSizeInBytes > SCRATCH_BYTES { self.fail_mesh(id, fence); continue; }
+                let Ok(blas) = gpu.buffer(info.ResultDataMaxSizeInBytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE) else { self.fail_mesh(id, fence); continue; };
                 let m = self.meshes.get_mut(&id).unwrap();
                 if let Some(old) = m.blas.take() { self.retired.push((fence, old)); }
                 m.blas_address = unsafe { blas.GetGPUVirtualAddress() };
@@ -268,7 +316,7 @@ impl Scene {
                 source = m.blas_address;
                 scratch_size = m.update_scratch;
             }
-            let Some(scratch) = self.scratch_alloc(list, scratch_size) else { continue; };
+            let Some(scratch) = self.scratch_alloc(list, scratch_size) else { if rebuild { self.fail_mesh(id, fence); } else if let Some(m) = self.meshes.get_mut(&id) { m.needs_refit = false; } continue; };
             let m = self.meshes.get_mut(&id).unwrap();
             let desc = D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC { DestAccelerationStructureData: m.blas_address, Inputs: inputs, SourceAccelerationStructureData: source, ScratchAccelerationStructureData: scratch };
             let address = m.blas_address;
@@ -321,13 +369,14 @@ impl Scene {
         if id >= MAX_TEXTURES { return Ok(()); }
         if let Some(old) = self.textures.remove(&id) { self.retired.push((fence, old.resource)); }
         let hdr = flags & TEXTURE_HDR != 0;
+        self.texture_serial = self.texture_serial.wrapping_add(1);
         let width = width.clamp(1, MAX_TEXTURE_SIZE);
         let height = height.clamp(1, MAX_TEXTURE_SIZE);
         let mips = 32 - width.max(height).leading_zeros();
         let format = if hdr { DXGI_FORMAT_R16G16B16A16_FLOAT } else { DXGI_FORMAT_R8G8B8A8_TYPELESS };
         let resource = gpu.texture(&texture_desc(width, height, mips as u16, format, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS), D3D12_HEAP_FLAG_NONE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)?;
         gpu.srv_texture(&resource, if hdr { DXGI_FORMAT_R16G16B16A16_FLOAT } else { DXGI_FORMAT_R8G8B8A8_UNORM_SRGB }, mips, HEAP_TEXTURES + id);
-        self.textures.insert(id, TextureEntry { resource, width, height, mips, hdr, readable: false });
+        self.textures.insert(id, TextureEntry { resource, width, height, mips, hdr, readable: false, alpha_min: if hdr { Some(1.0) } else { None }, serial: self.texture_serial });
         Ok(())
     }
 

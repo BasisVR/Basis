@@ -57,6 +57,11 @@ void CacheMaintain(uint3 id : SV_DispatchThreadID)
         list.Store2(0, uint2(0u, count));
         args.Store4(0, uint4((count + 63u) / 64u, 1u, 1u, 0u));
     }
+    if (id.x < pass.b)
+    {
+        RWByteAddressBuffer rows = ResourceDescriptorHeap[frame.contextBase + CTX_UPDATE_LIST];
+        rows.Store(id.x * pass.c * 4u, 0u);
+    }
     uint i = id.x + pass.a;
     if (i >= CACHE_SIZE) { return; }
     RWByteAddressBuffer keys = ResourceDescriptorHeap[HEAP_CACHE_KEYS];

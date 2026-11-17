@@ -45,6 +45,9 @@ pub struct MeshEntry {
     pub needs_build: bool,
     pub needs_refit: bool,
     pub refits: u32,
+    pub submesh_capacity: u32,
+    pub failed: bool,
+    pub alpha: bool,
 }
 
 pub struct TextureEntry {
@@ -57,6 +60,8 @@ pub struct TextureEntry {
     pub mips: u32,
     pub hdr: bool,
     pub readable: bool,
+    pub alpha_min: Option<f32>,
+    pub serial: u32,
     pub cleared: bool,
 }
 
@@ -81,7 +86,10 @@ pub struct Scene {
     pub tables_dirty: bool,
     pub retired: Vec<(u64, Retired)>,
     pub bounds: Buffer,
+    pub alpha_min: Buffer,
     pub bounds_valid: Vec<bool>,
+    pub alpha_wanted: Vec<(u32, u32)>,
+    pub texture_serial: u32,
     pub dummy: (vk::Image, Allocation, vk::ImageView),
     scratch_cursor: u64,
     compact_pool: vk::QueryPool,
@@ -111,12 +119,13 @@ impl Scene {
         let tlas = unsafe { gpu.accel.create_acceleration_structure(&vk::AccelerationStructureCreateInfoKHR::default().buffer(tlas_buffer.buffer).size(sizes.acceleration_structure_size).ty(vk::AccelerationStructureTypeKHR::TOP_LEVEL), None).map_err(err("create TLAS"))? };
         let tlas_scratch = gpu.buffer(sizes.build_scratch_size + gpu.scratch_alignment, storage, local)?;
         let bounds = gpu.buffer(SUBMESH_CAPACITY * 32, storage, local)?;
+        let alpha_min = gpu.buffer(crate::opaque::ALPHA_MIN_BYTES, storage, local)?;
         let info = vk::ImageCreateInfo::default().image_type(vk::ImageType::TYPE_2D).format(vk::Format::R8G8B8A8_UNORM).extent(vk::Extent3D { width: 1, height: 1, depth: 1 }).mip_levels(1).array_layers(1).samples(vk::SampleCountFlags::TYPE_1).tiling(vk::ImageTiling::OPTIMAL).usage(vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST);
         let (image, allocation) = gpu.image(&info)?;
         let view = gpu.view(image, vk::Format::R8G8B8A8_UNORM, 0, 1, vk::ImageUsageFlags::SAMPLED)?;
         let cmd = gpu.begin()?;
         unsafe {
-            for b in [&vertices, &indices, &mesh_table, &submesh_table, &bounds] { gpu.device.cmd_fill_buffer(cmd, b.buffer, 0, vk::WHOLE_SIZE, 0); }
+            for b in [&vertices, &indices, &mesh_table, &submesh_table, &bounds, &alpha_min] { gpu.device.cmd_fill_buffer(cmd, b.buffer, 0, vk::WHOLE_SIZE, 0); }
             image_barrier(gpu, cmd, &[(image, vk::ImageLayout::UNDEFINED, vk::ImageLayout::GENERAL, vk::QUEUE_FAMILY_IGNORED, vk::QUEUE_FAMILY_IGNORED)]);
             let range = vk::ImageSubresourceRange { aspect_mask: vk::ImageAspectFlags::COLOR, base_mip_level: 0, level_count: 1, base_array_layer: 0, layer_count: 1 };
             gpu.device.cmd_clear_color_image(cmd, image, vk::ImageLayout::GENERAL, &vk::ClearColorValue { float32: [0.0; 4] }, &[range]);
@@ -128,7 +137,7 @@ impl Scene {
             vertices, indices, mesh_table, submesh_table, scratch, tlas_buffer, tlas, tlas_scratch,
             vertex_alloc: vec![(0, VERTEX_CAPACITY)], index_alloc: vec![(0, INDEX_CAPACITY)], submesh_alloc: vec![(0, SUBMESH_CAPACITY)],
             meshes: IdMap::default(), textures: IdMap::default(), mesh_cpu: vec![GpuMesh::default(); MAX_MESHES as usize], submesh_cpu: vec![GpuSubmesh::default(); SUBMESH_CAPACITY as usize],
-            tables_dirty: true, retired: Vec::new(), bounds, bounds_valid: vec![false; SUBMESH_CAPACITY as usize], dummy: (image, allocation, view), scratch_cursor: 0,
+            tables_dirty: true, retired: Vec::new(), bounds, alpha_min, alpha_wanted: Vec::new(), texture_serial: 0, bounds_valid: vec![false; SUBMESH_CAPACITY as usize], dummy: (image, allocation, view), scratch_cursor: 0,
             compact_pool, compact_free: (0..COMPACT_SLOTS).rev().collect(), compacting: Vec::new(), completed: 0, compacted_bytes: 0,
         })
     }
@@ -139,7 +148,7 @@ impl Scene {
         if let Some(m) = self.meshes.remove(&id) {
             give(&mut self.vertex_alloc, m.vertex_offset, m.vertex_count as u64);
             give(&mut self.index_alloc, m.index_offset, m.index_count as u64);
-            give(&mut self.submesh_alloc, m.submesh_offset, m.submeshes.len() as u64);
+            give(&mut self.submesh_alloc, m.submesh_offset, m.submesh_capacity as u64);
             if let Some(b) = m.blas { self.retired.push((fence, Retired::Blas(b))); }
             self.mesh_cpu[id as usize] = GpuMesh::default();
             self.tables_dirty = true;
@@ -152,8 +161,20 @@ impl Scene {
         let vertex_offset = alloc(&mut self.vertex_alloc, vertex_count as u64, 1).ok_or("vertex arena full")?;
         let index_offset = match alloc(&mut self.index_alloc, index_count as u64, 4) { Some(o) => o, None => { give(&mut self.vertex_alloc, vertex_offset, vertex_count as u64); return Err("index arena full".into()); } };
         let submesh_offset = match alloc(&mut self.submesh_alloc, submesh_count.max(1) as u64, 1) { Some(o) => o, None => { give(&mut self.vertex_alloc, vertex_offset, vertex_count as u64); give(&mut self.index_alloc, index_offset, index_count as u64); return Err("submesh table full".into()); } };
-        self.meshes.insert(id, MeshEntry { vertex_offset, vertex_count, index_offset, index_count, submesh_offset, submeshes: Vec::with_capacity(submesh_count as usize), dynamic: false, blas: None, blas_address: 0, update_scratch: 0, build_scratch: 0, committed: false, needs_build: false, needs_refit: false, refits: 0 });
+        self.meshes.insert(id, MeshEntry { vertex_offset, vertex_count, index_offset, index_count, submesh_offset, submeshes: Vec::with_capacity(submesh_count as usize), dynamic: false, blas: None, blas_address: 0, update_scratch: 0, build_scratch: 0, committed: false, needs_build: false, needs_refit: false, refits: 0, submesh_capacity: submesh_count.max(1), failed: false, alpha: false });
         Ok(())
+    }
+
+    fn fail_mesh(&mut self, id: u32, fence: u64) {
+        if let Some(m) = self.meshes.get_mut(&id) {
+            if let Some(old) = m.blas.take() { self.retired.push((fence, Retired::Blas(old))); }
+            m.blas_address = 0;
+            m.build_scratch = 0;
+            m.update_scratch = 0;
+            m.needs_build = false;
+            m.needs_refit = false;
+            m.failed = true;
+        }
     }
 
     pub fn invalidate_bounds(&mut self, id: u32) {
@@ -166,17 +187,22 @@ impl Scene {
 
     pub fn add_submesh(&mut self, id: u32, start: u32, count: u32, flags: u32) {
         if let Some(m) = self.meshes.get_mut(&id) {
-            let s = GpuSubmesh { index_start: start, index_count: count, flags, pad: 0 };
+            if m.committed || m.submeshes.len() >= m.submesh_capacity as usize { return; }
+            let count = count.min(m.index_count.saturating_sub(start));
+            let s = GpuSubmesh { index_start: start.min(m.index_count), index_count: count - count % 3, flags, pad: 0 };
             let slot = m.submesh_offset as usize + m.submeshes.len();
-            if slot < self.submesh_cpu.len() { self.submesh_cpu[slot] = s; m.submeshes.push(s); }
+            if slot < self.submesh_cpu.len() { self.submesh_cpu[slot] = s; m.submeshes.push(s); m.alpha |= flags & SUBMESH_OPAQUE == 0; }
         }
     }
 
     pub fn commit_mesh(&mut self, id: u32, flags: u32) {
         if let Some(m) = self.meshes.get_mut(&id) {
             m.dynamic = flags & MESH_DYNAMIC != 0;
+            m.refits = if m.dynamic { id % REBUILD_INTERVAL } else { 0 };
             m.committed = true;
             m.needs_build = true;
+            m.failed = false;
+            m.build_scratch = 0;
             self.mesh_cpu[id as usize] = GpuMesh { vertex_offset: m.vertex_offset as u32, index_offset: m.index_offset as u32, submesh_offset: m.submesh_offset as u32, submesh_count: m.submeshes.len() as u32 };
             self.tables_dirty = true;
         }
@@ -185,7 +211,7 @@ impl Scene {
 
     pub fn refit_mesh(&mut self, id: u32) {
         if let Some(m) = self.meshes.get_mut(&id) {
-            if !m.committed { return; }
+            if !m.committed || m.failed { return; }
             m.refits += 1;
             if m.blas.is_none() || !m.dynamic || m.refits >= REBUILD_INTERVAL { m.needs_build = true; m.refits = 0; } else { m.needs_refit = true; }
         }
@@ -235,8 +261,8 @@ impl Scene {
             let size = (size[0] + 255) & !255;
             if size >= current { continue; }
             let source = old.structure;
-            let buffer = gpu.buffer(size, vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR, vk::MemoryPropertyFlags::DEVICE_LOCAL)?;
-            let structure = unsafe { gpu.accel.create_acceleration_structure(&vk::AccelerationStructureCreateInfoKHR::default().buffer(buffer.buffer).size(size).ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL), None).map_err(err("create compacted BLAS"))? };
+            let Ok(buffer) = gpu.buffer(size, vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR, vk::MemoryPropertyFlags::DEVICE_LOCAL) else { continue; };
+            let structure = match unsafe { gpu.accel.create_acceleration_structure(&vk::AccelerationStructureCreateInfoKHR::default().buffer(buffer.buffer).size(size).ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL), None) } { Ok(s) => s, Err(_) => { gpu.destroy_buffer(buffer); continue; } };
             unsafe { gpu.accel.cmd_copy_acceleration_structure(cmd, &vk::CopyAccelerationStructureInfoKHR::default().src(source).dst(structure).mode(vk::CopyAccelerationStructureModeKHR::COMPACT)); }
             let target = unsafe { gpu.accel.get_acceleration_structure_device_address(&vk::AccelerationStructureDeviceAddressInfoKHR::default().acceleration_structure(structure)) };
             if let Some(old) = m.blas.replace(Blas { buffer, structure }) { self.retired.push((fence, Retired::Blas(old))); }
@@ -252,7 +278,7 @@ impl Scene {
     pub fn build(&mut self, gpu: &mut Gpu, cmd: vk::CommandBuffer, fence: u64) -> Fallible<u32> {
         self.scratch_cursor = 0;
         let mut built = self.compact(gpu, cmd, fence)?;
-        let ids: Vec<u32> = self.meshes.iter().filter(|(_, m)| m.committed && (m.needs_build || m.needs_refit)).map(|(k, _)| *k).collect();
+        let ids: Vec<u32> = self.meshes.iter().filter(|(_, m)| m.committed && !m.failed && (m.needs_build || m.needs_refit)).map(|(k, _)| *k).collect();
         let mut queried: Vec<(u32, vk::AccelerationStructureKHR)> = Vec::new();
         for id in ids {
             let (geometry, ranges, counts, dynamic, rebuild) = { let m = &self.meshes[&id]; let (g, r, c) = self.geometry(m); (g, r, c, m.dynamic, m.needs_build) };
@@ -268,8 +294,9 @@ impl Scene {
             } else if rebuild {
                 let mut sizes = vk::AccelerationStructureBuildSizesInfoKHR::default();
                 unsafe { gpu.accel.get_acceleration_structure_build_sizes(vk::AccelerationStructureBuildTypeKHR::DEVICE, &info, &counts, &mut sizes); }
-                let buffer = gpu.buffer(sizes.acceleration_structure_size, vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR, vk::MemoryPropertyFlags::DEVICE_LOCAL)?;
-                let structure = unsafe { gpu.accel.create_acceleration_structure(&vk::AccelerationStructureCreateInfoKHR::default().buffer(buffer.buffer).size(sizes.acceleration_structure_size).ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL), None).map_err(err("create BLAS"))? };
+                if sizes.acceleration_structure_size == 0 || sizes.build_scratch_size.div_ceil(gpu.scratch_alignment) * gpu.scratch_alignment > SCRATCH_BYTES - gpu.scratch_alignment { self.fail_mesh(id, fence); continue; }
+                let Ok(buffer) = gpu.buffer(sizes.acceleration_structure_size, vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR, vk::MemoryPropertyFlags::DEVICE_LOCAL) else { self.fail_mesh(id, fence); continue; };
+                let structure = match unsafe { gpu.accel.create_acceleration_structure(&vk::AccelerationStructureCreateInfoKHR::default().buffer(buffer.buffer).size(sizes.acceleration_structure_size).ty(vk::AccelerationStructureTypeKHR::BOTTOM_LEVEL), None) } { Ok(s) => s, Err(_) => { gpu.destroy_buffer(buffer); self.fail_mesh(id, fence); continue; } };
                 let address = unsafe { gpu.accel.get_acceleration_structure_device_address(&vk::AccelerationStructureDeviceAddressInfoKHR::default().acceleration_structure(structure)) };
                 let m = self.meshes.get_mut(&id).unwrap();
                 if let Some(old) = m.blas.take() { self.retired.push((fence, Retired::Blas(old))); }
@@ -285,7 +312,7 @@ impl Scene {
                 scratch_size = m.update_scratch;
                 info = info.mode(vk::BuildAccelerationStructureModeKHR::UPDATE).src_acceleration_structure(structure).dst_acceleration_structure(structure);
             }
-            let Some(scratch) = self.scratch_alloc(gpu, cmd, scratch_size) else { continue; };
+            let Some(scratch) = self.scratch_alloc(gpu, cmd, scratch_size) else { if rebuild { self.fail_mesh(id, fence); } else if let Some(m) = self.meshes.get_mut(&id) { m.needs_refit = false; } continue; };
             info = info.scratch_data(vk::DeviceOrHostAddressKHR { device_address: scratch });
             unsafe { gpu.accel.cmd_build_acceleration_structures(cmd, &[info], &[&ranges]); }
             let m = self.meshes.get_mut(&id).unwrap();
@@ -327,6 +354,7 @@ impl Scene {
         if id >= MAX_TEXTURES { return Ok(None); }
         if let Some(old) = self.textures.remove(&id) { self.retired.push((fence, Retired::Texture(old))); }
         let hdr = flags & TEXTURE_HDR != 0;
+        self.texture_serial = self.texture_serial.wrapping_add(1);
         let width = width.clamp(1, MAX_TEXTURE_SIZE);
         let height = height.clamp(1, MAX_TEXTURE_SIZE);
         let mips = 32 - width.max(height).leading_zeros();
@@ -336,10 +364,11 @@ impl Scene {
         let info = vk::ImageCreateInfo::default().flags(vk::ImageCreateFlags::MUTABLE_FORMAT | vk::ImageCreateFlags::EXTENDED_USAGE).image_type(vk::ImageType::TYPE_2D).format(storage).extent(vk::Extent3D { width, height, depth: 1 })
             .mip_levels(mips).array_layers(1).samples(vk::SampleCountFlags::TYPE_1).tiling(vk::ImageTiling::OPTIMAL).usage(vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_DST).push_next(&mut list);
         let (image, allocation) = gpu.image(&info)?;
-        let view = gpu.view(image, sampled, 0, mips, vk::ImageUsageFlags::SAMPLED)?;
         let mut mips_views = Vec::with_capacity(mips as usize);
-        for m in 0..mips { mips_views.push(gpu.view(image, storage, m, 1, vk::ImageUsageFlags::STORAGE)?); }
-        self.textures.insert(id, TextureEntry { image, allocation, sampled: view, mips_views, width, height, mips, hdr, readable: false, cleared: false });
+        let mut made = gpu.view(image, sampled, 0, mips, vk::ImageUsageFlags::SAMPLED);
+        for m in 0..mips { if made.is_ok() { match gpu.view(image, storage, m, 1, vk::ImageUsageFlags::STORAGE) { Ok(v) => mips_views.push(v), Err(e) => { if let Ok(v) = made { mips_views.push(v); } made = Err(e); } } } }
+        let view = match made { Ok(v) => v, Err(e) => { unsafe { for v in mips_views { gpu.device.destroy_image_view(v, None); } gpu.device.destroy_image(image, None); } gpu.free(allocation); return Err(e); } };
+        self.textures.insert(id, TextureEntry { image, allocation, sampled: view, mips_views, width, height, mips, hdr, readable: false, cleared: false, alpha_min: if hdr { Some(1.0) } else { None }, serial: self.texture_serial });
         Ok(Some(view))
     }
 

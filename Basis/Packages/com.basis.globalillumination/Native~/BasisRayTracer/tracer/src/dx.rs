@@ -87,18 +87,26 @@ impl Backend for Tracer {
             self.renderer.contexts[context] = Some(ctx);
             return Ok([0; 4]);
         }
-        let mut ctx = render::create_context(&self.gpu, context, width, height, views, None).map_err(|e| e.to_string())?;
-        let mut handles = [0u64; 4];
-        if let Some(r) = self.relay.as_mut() {
-            let (shared, cross) = r.create_context(&device, context, width, height, views).map_err(|e| format!("link the two GPUs: {}", e.message()))?;
-            for i in 0..4 { handles[i] = share(&r.device, &shared[i].cast().map_err(|e: Error| e.to_string())?, link).map_err(|e| e.to_string())?; }
-            ctx.cross = Some(cross);
-        } else {
-            for i in 0..2 {
-                handles[i] = share(&device, &ctx.gbuffer[i].cast().map_err(|e: Error| e.to_string())?, link).map_err(|e| e.to_string())?;
-                handles[2 + i] = share(&device, &ctx.output[i].cast().map_err(|e: Error| e.to_string())?, link).map_err(|e| e.to_string())?;
+        let need = render::context_bytes(width, height, views, true);
+        if let Some((budget, used)) = self.gpu.video_memory() {
+            if self.renderer.contexts.iter().flatten().count() > 0 && used.saturating_add(need) > budget && std::env::var_os("BASIS_RT_NO_MEMORY_GUARD").is_none() {
+                return Err(format!("not enough video memory: it needs {} MB and {} of {} MB are in use", need >> 20, used >> 20, budget >> 20));
             }
         }
+        let mut ctx = render::create_context(&self.gpu, context, width, height, views, None).map_err(|e| e.to_string())?;
+        let mut handles = [0u64; 4];
+        let mut failure = None;
+        let (owner, objects) = match self.relay.as_mut() {
+            Some(r) => match r.create_context(&device, context, width, height, views) {
+                Ok((shared, cross)) => { ctx.cross = Some(cross); (r.device.clone(), shared.to_vec()) }
+                Err(e) => { failure = Some(format!("link the two GPUs: {}", e.message())); (device.clone(), Vec::new()) }
+            },
+            None => (device.clone(), vec![ctx.gbuffer[0].clone(), ctx.gbuffer[1].clone(), ctx.output[0].clone(), ctx.output[1].clone()]),
+        };
+        for (i, o) in objects.iter().enumerate() {
+            match o.cast::<ID3D12DeviceChild>().and_then(|child| share(&owner, &child, link)) { Ok(h) => handles[i] = h, Err(e) => { failure = Some(format!("share a texture: {}", e.message())); break; } }
+        }
+        if let Some(e) = failure { for h in handles { link.close_shared(h); } return Err(e); }
         self.renderer.contexts[context] = Some(ctx);
         Ok(handles)
     }
@@ -121,4 +129,5 @@ impl Backend for Tracer {
     fn grid_us(&self) -> (u32, u32) { (self.renderer.grid.build_us, self.renderer.grid.wait_us) }
     fn counts(&self) -> (u32, u32) { (self.scene.meshes.len() as u32, self.scene.textures.len() as u32) }
     fn idle(&mut self) { let _ = self.gpu.flush(); }
+    fn lost(&self) -> bool { unsafe { self.gpu.device.GetDeviceRemovedReason().is_err() } }
 }

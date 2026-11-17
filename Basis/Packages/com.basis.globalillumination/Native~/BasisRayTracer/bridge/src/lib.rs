@@ -96,6 +96,7 @@ pub struct Bridge {
     // GPU waits skipped because the tracer frame had not finished within the budget. Unity's queue never
     // waits on unfinished tracer work: a wait past the TDR limit resets the device.
     pub unfinished_skips: u64,
+    global_failed: bool,
 }
 
 pub struct Direct {
@@ -120,7 +121,7 @@ static GRAVE: Mutex<Vec<Buried>> = Mutex::new(Vec::new());
 #[cfg(windows)]
 fn bury(items: Vec<windows::core::IUnknown>) {
     if items.is_empty() { return; }
-    GRAVE.lock().unwrap().push(Buried(Instant::now(), items));
+    locked(&GRAVE).push(Buried(Instant::now(), items));
     let _ = std::thread::Builder::new().name("Basis Ray Tracer release".into()).spawn(|| { std::thread::sleep(Duration::from_millis(2100)); drain_grave(); });
 }
 
@@ -147,7 +148,9 @@ fn unknown_fence(f: &Fence) -> Option<windows::core::IUnknown> {
     }
 }
 
-pub fn set_error(message: impl Into<String>) { *LAST_ERROR.lock().unwrap() = message.into(); }
+fn locked<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> { m.lock().unwrap_or_else(|e| e.into_inner()) }
+
+pub fn set_error(message: impl Into<String>) { *locked(&LAST_ERROR) = message.into(); }
 
 fn header<'a>(base: *mut u8) -> &'a mut Header { unsafe { &mut *(base as *mut Header) } }
 
@@ -181,8 +184,9 @@ impl Bridge {
         h.luid_low = u32::from_le_bytes(adapter.luid[0..4].try_into().unwrap());
         h.luid_high = i32::from_le_bytes(adapter.luid[4..8].try_into().unwrap());
         h.device_uuid = adapter.uuid;
+        h.reserved[RESERVED_HANDLE_CLAIMS] = 1;
         let none = UnityTextures { gbuffer: std::ptr::null_mut(), result: std::ptr::null_mut(), gbuffer1: std::ptr::null_mut() };
-        Ok(Bridge { backend, host, base, global: None, shared: Default::default(), unity: [none; MAX_CONTEXTS], unity_upload: std::ptr::null_mut(), used: [[0; 2]; MAX_CONTEXTS], same_frame: true, budget_us: 50_000, fetched: 0, fetch_failures: 0, resize_skips: 0, direct: Default::default(), target_counter: 0, retired: Vec::new(), blocked_waits: 0, unfinished_skips: 0 })
+        Ok(Bridge { backend, host, base, global: None, shared: Default::default(), unity: [none; MAX_CONTEXTS], unity_upload: std::ptr::null_mut(), used: [[0; 2]; MAX_CONTEXTS], same_frame: true, budget_us: 50_000, fetched: 0, fetch_failures: 0, resize_skips: 0, direct: Default::default(), target_counter: 0, retired: Vec::new(), blocked_waits: 0, unfinished_skips: 0, global_failed: false })
     }
 
     pub fn launch(&mut self, exe: &str) -> Result<()> { self.launch_api(exe, if cfg!(windows) { TRACER_DXR } else { TRACER_VULKAN }) }
@@ -257,12 +261,29 @@ impl Bridge {
     fn reopen(&mut self, context: usize) -> Result<bool> {
         let h = header(self.base);
         if self.global.is_none() {
+            if self.global_failed { return Ok(false); }
             if h.generation.load(Ordering::Acquire) == 0 { return Ok(false); }
             let mut imported = Vec::new();
             let mut semaphores = Vec::new();
-            let upload = [self.open_texture(h.handle_upload[0], UPLOAD_WIDTH, UPLOAD_PHYSICAL_HEIGHT, SHARED_FORMAT_UINT, &mut imported)?, self.open_texture(h.handle_upload[1], UPLOAD_WIDTH, UPLOAD_PHYSICAL_HEIGHT, SHARED_FORMAT_UINT, &mut imported)?];
-            let fence_unity = self.open_fence(h.handle_fence_unity, &mut semaphores)?;
-            let fence_tracer = self.open_fence(h.handle_fence_tracer, &mut semaphores)?;
+            let opened = (|| -> Result<([Res; 2], Fence, Fence)> {
+                let u0 = self.open_texture(h.handle_upload[0], UPLOAD_WIDTH, UPLOAD_PHYSICAL_HEIGHT, SHARED_FORMAT_UINT, &mut imported);
+                let u1 = self.open_texture(h.handle_upload[1], UPLOAD_WIDTH, UPLOAD_PHYSICAL_HEIGHT, SHARED_FORMAT_UINT, &mut imported);
+                let f0 = self.open_fence(h.handle_fence_unity, &mut semaphores);
+                let f1 = self.open_fence(h.handle_fence_tracer, &mut semaphores);
+                Ok(([u0?, u1?], f0?, f1?))
+            })();
+            let (upload, fence_unity, fence_tracer) = match opened {
+                Ok(o) => o,
+                Err(e) => {
+                    if let Backend::Vulkan(vk) = &self.backend { for i in imported { vk.release_image(i); } for s in semaphores { vk.release_semaphore(s); } }
+                    if cfg!(windows) {
+                        self.global_failed = true;
+                        write_error(h, &format!("open the tracer's shared objects: {e}"));
+                        h.status.store(STATUS_FAILED, Ordering::Release);
+                    }
+                    return Err(e);
+                }
+            };
             self.global = Some(Global { upload, fence_unity, fence_tracer, imported, semaphores });
         }
         let ch = &h.contexts[context];
@@ -271,14 +292,37 @@ impl Bridge {
         if self.direct[context].is_some() { return Ok(h.targets[context].opened.load(Ordering::Acquire) == h.targets[context].generation.load(Ordering::Acquire)); }
         if self.shared[context].as_ref().map_or(true, |s| s.generation != generation) {
             if let Some(old) = self.shared[context].take() { self.release_shared(old); }
-            let full = ch.width * ch.views;
+            let (width, height, views, gbuffer, output) = unsafe { (std::ptr::read_volatile(&ch.width), std::ptr::read_volatile(&ch.height), std::ptr::read_volatile(&ch.views), std::ptr::read_volatile(&ch.handle_gbuffer), std::ptr::read_volatile(&ch.handle_output)) };
+            if ch.taken.fetch_max(generation, Ordering::AcqRel) >= generation { return Ok(false); }
+            if width == 0 || height == 0 || gbuffer.iter().chain(output.iter()).any(|h| *h == 0) { return Ok(false); }
+            let full = width * views;
             let mut imported = Vec::new();
-            let gbuffer = [self.open_texture(ch.handle_gbuffer[0], full * 2, ch.height * 2, SHARED_FORMAT_UINT, &mut imported)?, self.open_texture(ch.handle_gbuffer[1], full * 2, ch.height * 2, SHARED_FORMAT_UINT, &mut imported)?];
-            let output = [self.open_texture(ch.handle_output[0], full, ch.height, SHARED_FORMAT_FLOAT, &mut imported)?, self.open_texture(ch.handle_output[1], full, ch.height, SHARED_FORMAT_FLOAT, &mut imported)?];
+            let opened = (|| -> Result<([Res; 2], [Res; 2])> {
+                let g0 = self.open_texture(gbuffer[0], full * 2, height * 2, SHARED_FORMAT_UINT, &mut imported);
+                let g1 = self.open_texture(gbuffer[1], full * 2, height * 2, SHARED_FORMAT_UINT, &mut imported);
+                let o0 = self.open_texture(output[0], full, height, SHARED_FORMAT_FLOAT, &mut imported);
+                let o1 = self.open_texture(output[1], full, height, SHARED_FORMAT_FLOAT, &mut imported);
+                Ok(([g0?, g1?], [o0?, o1?]))
+            })();
+            let (gbuffer, output) = match opened {
+                Ok(o) => o,
+                Err(e) => { if let Backend::Vulkan(vk) = &self.backend { for i in imported { vk.release_image(i); } } return Err(e); }
+            };
             self.shared[context] = Some(Shared { gbuffer, output, generation, imported });
             self.used[context] = [0; 2];
         }
         Ok(true)
+    }
+
+    fn release_stale(&mut self) {
+        let h = header(self.base);
+        for c in 0..MAX_CONTEXTS {
+            let Some(generation) = self.shared[c].as_ref().map(|s| s.generation) else { continue; };
+            let ch = &h.contexts[c];
+            if ch.generation.load(Ordering::Acquire) == generation || ch.requested_width.load(Ordering::Acquire) != 0 { continue; }
+            if let Some(old) = self.shared[c].take() { self.release_shared(old); }
+            self.used[c] = [0; 2];
+        }
     }
 
     fn completed_of(&self, fence: &Fence) -> u64 {
@@ -780,7 +824,7 @@ pub unsafe extern "system" fn UnityPluginLoad(interfaces: *const UnityInterfaces
 }
 
 #[unsafe(no_mangle)]
-pub extern "system" fn UnityPluginUnload() { *BRIDGE.lock().unwrap() = None; }
+pub extern "system" fn UnityPluginUnload() { *locked(&BRIDGE) = None; }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn BasisRT_EventBase() -> i32 { EVENT_BASE.load(Ordering::Acquire) as i32 }
@@ -793,7 +837,7 @@ unsafe fn wide(text: *const u16) -> String {
 }
 
 fn start(path: String, api: u32, embedded: bool) -> i32 {
-    let mut guard = BRIDGE.lock().unwrap();
+    let mut guard = locked(&BRIDGE);
     *guard = None;
     drain_grave();
     match create_from_unity().and_then(|mut b| { b.launch_mode(&path, api, embedded)?; Ok(b) }) {
@@ -818,24 +862,24 @@ pub unsafe extern "C" fn BasisRT_StartMode(exe: *const u16, api: i32, embedded: 
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn BasisRT_Embedded() -> i32 { BRIDGE.lock().unwrap().as_ref().map_or(0, |b| b.host.embedded() as i32) }
+pub extern "C" fn BasisRT_Embedded() -> i32 { locked(&BRIDGE).as_ref().map_or(0, |b| b.host.embedded() as i32) }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn BasisRT_Stop() { *BRIDGE.lock().unwrap() = None; }
+pub extern "C" fn BasisRT_Stop() { *locked(&BRIDGE) = None; }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn BasisRT_Shared() -> *mut u8 { BRIDGE.lock().unwrap().as_ref().map_or(std::ptr::null_mut(), |b| b.base) }
+pub extern "C" fn BasisRT_Shared() -> *mut u8 { locked(&BRIDGE).as_ref().map_or(std::ptr::null_mut(), |b| b.base) }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn BasisRT_Status() -> i32 { BRIDGE.lock().unwrap().as_ref().map_or(-1, |b| b.status() as i32) }
+pub extern "C" fn BasisRT_Status() -> i32 { locked(&BRIDGE).as_ref().map_or(-1, |b| b.status() as i32) }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn BasisRT_Fetched() -> u64 { FETCHED.load(Ordering::Acquire) }
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn BasisRT_Error(buffer: *mut u16, length: i32) -> i32 {
-    let mut message = LAST_ERROR.lock().unwrap().clone();
-    if let Some(b) = BRIDGE.lock().unwrap().as_ref() {
+    let mut message = locked(&LAST_ERROR).clone();
+    if let Some(b) = locked(&BRIDGE).as_ref() {
         let h = header(b.base);
         let end = h.error.iter().position(|c| *c == 0).unwrap_or(0);
         if end > 0 { message = String::from_utf8_lossy(&h.error[..end]).into_owned(); }
@@ -850,13 +894,13 @@ pub unsafe extern "C" fn BasisRT_Error(buffer: *mut u16, length: i32) -> i32 {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn BasisRT_SetUpload(upload: *mut c_void) { if let Some(b) = BRIDGE.lock().unwrap().as_mut() { b.unity_upload = upload; } }
+pub extern "C" fn BasisRT_SetUpload(upload: *mut c_void) { if let Some(b) = locked(&BRIDGE).as_mut() { b.unity_upload = upload; } }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn BasisRT_Completed() -> u64 { BRIDGE.lock().unwrap().as_ref().map_or(0, |b| b.completed()) }
+pub extern "C" fn BasisRT_Completed() -> u64 { locked(&BRIDGE).as_ref().map_or(0, |b| b.completed()) }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn BasisRT_DirectAvailable() -> i32 { BRIDGE.lock().unwrap().as_ref().map_or(0, |b| b.direct_available() as i32) }
+pub extern "C" fn BasisRT_DirectAvailable() -> i32 { locked(&BRIDGE).as_ref().map_or(0, |b| b.direct_available() as i32) }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn BasisRT_ArmTexture(width: u32, height: u32) {
@@ -873,7 +917,7 @@ pub extern "C" fn BasisRT_DisarmTargets() {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn BasisRT_SetContextTargets(context: i32, gbuffer0: *mut c_void, gbuffer1: *mut c_void, result0: *mut c_void, result1: *mut c_void, width: u32, height: u32, views: u32) -> i32 {
-    let mut guard = BRIDGE.lock().unwrap();
+    let mut guard = locked(&BRIDGE);
     let Some(b) = guard.as_mut() else { return 0; };
     if !(0..MAX_CONTEXTS as i32).contains(&context) { return 0; }
     #[cfg(windows)]
@@ -884,21 +928,21 @@ pub extern "C" fn BasisRT_SetContextTargets(context: i32, gbuffer0: *mut c_void,
 
 #[unsafe(no_mangle)]
 pub extern "C" fn BasisRT_SetContextTextures(context: i32, gbuffer: *mut c_void, result: *mut c_void) {
-    if let Some(b) = BRIDGE.lock().unwrap().as_mut() {
+    if let Some(b) = locked(&BRIDGE).as_mut() {
         if (0..MAX_CONTEXTS as i32).contains(&context) { b.unity[context as usize] = UnityTextures { gbuffer, result, gbuffer1: std::ptr::null_mut() }; }
     }
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn BasisRT_SetContextGBuffer1(context: i32, gbuffer1: *mut c_void) {
-    if let Some(b) = BRIDGE.lock().unwrap().as_mut() {
+    if let Some(b) = locked(&BRIDGE).as_mut() {
         if (0..MAX_CONTEXTS as i32).contains(&context) { b.unity[context as usize].gbuffer1 = gbuffer1; }
     }
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn BasisRT_Configure(same_frame: i32, budget_us: i32) {
-    if let Some(b) = BRIDGE.lock().unwrap().as_mut() {
+    if let Some(b) = locked(&BRIDGE).as_mut() {
         b.same_frame = same_frame != 0;
         b.budget_us = budget_us.max(0) as u32;
     }
@@ -912,15 +956,22 @@ unsafe extern "system" fn on_render_event(event: i32, data: *mut c_void) {
     let context = ((value >> 40) & 0xf) as usize;
     let parity = ((value >> 44) & 1) as usize;
     let rows = (value >> 48) as u32;
-    let mut guard = BRIDGE.lock().unwrap();
+    let mut guard = locked(&BRIDGE);
     let Some(b) = guard.as_mut() else { return; };
-    let result = match event - base {
-        EVENT_SUBMIT => b.submit(frame, context, parity, rows).map(|_| ()),
-        EVENT_FETCH => b.fetch(frame, context, parity).map(|_| ()),
-        EVENT_ACQUIRE => b.acquire(context, parity),
-        _ => Ok(()),
-    };
-    if let Err(e) = result { set_error(format!("render event {}: {e}", event - base)); }
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        b.release_stale();
+        match event - base {
+            EVENT_SUBMIT => b.submit(frame, context, parity, rows).map(|_| ()),
+            EVENT_FETCH => b.fetch(frame, context, parity).map(|_| ()),
+            EVENT_ACQUIRE => b.acquire(context, parity),
+            _ => Ok(()),
+        }
+    }));
+    match result {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => set_error(format!("render event {}: {e}", event - base)),
+        Err(_) => set_error(format!("render event {} panicked", event - base)),
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -945,7 +996,7 @@ pub extern "C" fn BasisRT_Layout(index: i32) -> i64 {
     }
 }
 
-fn with_header<T>(default: T, f: impl FnOnce(&Header, &Bridge) -> T) -> T { BRIDGE.lock().unwrap().as_ref().map_or(default, |b| f(header(b.base), b)) }
+fn with_header<T>(default: T, f: impl FnOnce(&Header, &Bridge) -> T) -> T { locked(&BRIDGE).as_ref().map_or(default, |b| f(header(b.base), b)) }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn BasisRT_SetSize(context: i32, width: u32, height: u32, views: u32) {

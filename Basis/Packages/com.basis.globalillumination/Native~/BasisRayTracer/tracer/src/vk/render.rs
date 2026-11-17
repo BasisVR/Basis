@@ -34,7 +34,7 @@ const P_SUBMESH_BOUNDS: usize = 9;
 const P_SUBMESH_BOUNDS_CLEAR: usize = 10;
 const P_MAINTAIN: usize = 11;
 
-pub const SCRATCH_PER_SLOT: u32 = 4096;
+pub const SCRATCH_PER_SLOT: u32 = 16384;
 pub const HEAP_SIZE: u32 = SCRATCH_DESCRIPTORS + SCRATCH_PER_SLOT * RING as u32;
 pub const SCRATCH_DESCRIPTORS: u32 = 1024 + 4096 * 2;
 pub const HEAP_UPLOAD: u32 = 7;
@@ -61,6 +61,7 @@ pub const CTX_PROBE_RAYS: u32 = 13;
 pub const CTX_RESERVOIRS: u32 = 14;
 pub const CTX_RESERVOIR_SCRATCH: u32 = 16;
 pub const CTX_COMPACT_UAV: u32 = 17;
+pub const CTX_UPDATE_LIST: u32 = 18;
 pub const PROBE_RAYS: u32 = 16;
 pub const PROBE_STRIDE: u64 = 96;
 pub const TIMESTAMPS: u32 = 8;
@@ -109,6 +110,7 @@ pub struct Context {
     pub probe_rays: Buffer,
     pub reservoirs: [Buffer; 2],
     pub reservoir_scratch: Buffer,
+    pub update_list: Buffer,
     pub last_time: f32,
 }
 
@@ -140,6 +142,8 @@ pub struct Renderer {
     pub bounds_readback: Buffer,
     pub bounds_pending: Option<(u64, usize, usize)>,
     pub bounds_dirty: Option<(usize, usize)>,
+    pub opaque: crate::opaque::Opaque,
+    pub alpha_readback: Buffer,
     pub prepared: u64,
     pub grid_gpu: Vec<Buffer>,
     pub grid_commands: Vec<vk::CommandBuffer>,
@@ -300,10 +304,12 @@ impl Renderer {
             let grid_commands = gpu.device.allocate_command_buffers(&vk::CommandBufferAllocateInfo::default().command_pool(gpu.command_pool).level(vk::CommandBufferLevel::PRIMARY).command_buffer_count(RING as u32)).map_err(err("allocate grid command buffers"))?;
             let host = vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT;
             let bounds_readback = match gpu.buffer(SUBMESH_CAPACITY * 32, vk::BufferUsageFlags::STORAGE_BUFFER, host | vk::MemoryPropertyFlags::HOST_CACHED) { Ok(b) => b, Err(_) => gpu.buffer(SUBMESH_CAPACITY * 32, vk::BufferUsageFlags::STORAGE_BUFFER, host)? };
+            let alpha_readback = gpu.buffer(crate::opaque::ALPHA_MIN_BYTES, vk::BufferUsageFlags::STORAGE_BUFFER, host)?;
+            heap.buffer(gpu, crate::opaque::HEAP_ALPHA_MIN, scene.alpha_min.buffer, 0, crate::opaque::ALPHA_MIN_BYTES);
             Ok(Renderer {
                 layout, set_layouts, sets: [set0, set1], pools: [pool0, pool1], samplers, rt, sbt, regions, compute, cache, cache_args, blue_noise, queries, timings: [0; 8], commands, ring, slot_fences: [0; RING], eligible: Vec::new(),
                 contexts: (0..MAX_CONTEXTS).map(|_| None).collect(), upload, fence_unity, fence_tracer, scratch: std::cell::Cell::new((SCRATCH_DESCRIPTORS, 0)),
-                grid: LightGrid::new(), bounds_readback, bounds_pending: None, bounds_dirty: None, prepared: 0, grid_gpu, grid_commands,
+                grid: LightGrid::new(), bounds_readback, bounds_pending: None, bounds_dirty: None, prepared: 0, opaque: Default::default(), alpha_readback, grid_gpu, grid_commands,
             })
         }
     }
@@ -347,6 +353,11 @@ impl Renderer {
         if self.prepared != unsafe { (*slot_ptr).params.frame } { self.prepare(gpu, scene, slot_ptr)?; }
         let params = unsafe { (*slot_ptr).params };
         let context = (params.context as usize).min(MAX_CONTEXTS - 1);
+        if let Some((value, ids)) = self.opaque.pending.take() {
+            if gpu.completed() < value { self.opaque.pending = Some((value, ids)); } else {
+                for (id, serial) in ids { if let Some(t) = scene.textures.get_mut(&id) { if t.serial == serial { t.alpha_min = Some(unsafe { (self.alpha_readback.mapped as *const u32).add(id as usize).read() }.min(255) as f32 / 255.0); } } }
+            }
+        }
         let Some(ctx) = self.contexts[context].as_ref() else { return Err("frame for an unallocated context".into()); };
         let cb = ctx.base;
         let frame = params.frame;
@@ -393,6 +404,7 @@ impl Renderer {
                 if m >= (params.material_count as usize).min(MAX_MATERIALS) { continue; }
                 (mapped.add(MATERIALS_OFFSET as usize + m * 96 + 88) as *mut u32).write_unaligned((src.materials[m].flags & 0xffff) | ((i as u32) << 16));
             }
+            self.opaque.classify(src, (params.material_count as usize).min(MAX_MATERIALS), mapped.add(MATERIALS_OFFSET as usize), |t| scene.textures.get(&t).and_then(|e| e.alpha_min));
         }
         let commands: Vec<Command> = unsafe { (&(*slot_ptr).commands)[..(params.command_count as usize).min(MAX_COMMANDS)].to_vec() };
         let mut tlas_count = 0u32;
@@ -426,6 +438,7 @@ impl Renderer {
         let mut indices_written = false;
         let mut pending_error = None;
         let mut bounds_copy = None;
+        let mut alpha_copy = None;
         let fence_hint = gpu.timeline_value + 1;
         for c in &commands {
             if let Err(e) = self.command(gpu, scene, cmd, c, upload_index, &mut vertices_written, &mut indices_written, fence_hint) { pending_error = Some(e); }
@@ -476,6 +489,13 @@ impl Renderer {
                     bounds_copy = Some((first, end));
                 }
             }
+            if self.opaque.pending.is_none() && !scene.alpha_wanted.is_empty() {
+                barrier(gpu, cmd);
+                gpu.device.cmd_copy_buffer(cmd, scene.alpha_min.buffer, self.alpha_readback.buffer, &[vk::BufferCopy { src_offset: 0, dst_offset: 0, size: crate::opaque::ALPHA_MIN_BYTES }]);
+                let host = [vk::MemoryBarrier2::default().src_stage_mask(vk::PipelineStageFlags2::ALL_TRANSFER).src_access_mask(vk::AccessFlags2::TRANSFER_WRITE).dst_stage_mask(vk::PipelineStageFlags2::HOST).dst_access_mask(vk::AccessFlags2::HOST_READ)];
+                gpu.device.cmd_pipeline_barrier2(cmd, &vk::DependencyInfo::default().memory_barriers(&host));
+                alpha_copy = Some(std::mem::take(&mut scene.alpha_wanted));
+            }
         }
         scene.build(gpu, cmd, fence_hint)?;
         unsafe {
@@ -483,8 +503,8 @@ impl Renderer {
             for &i in &eligible {
                 let inst = &(*slot_ptr).instances[i as usize];
                 let Some(m) = scene.meshes.get(&inst.mesh) else { continue; };
-                if m.blas_address == 0 { continue; }
-                descs.add(tlas_count as usize).write(InstanceDesc { transform: inst.transform, index_mask: (i & 0x00ff_ffff) | ((inst.mask & 0xff) << 24), sbt_flags: (vk::GeometryInstanceFlagsKHR::TRIANGLE_FACING_CULL_DISABLE.as_raw()) << 24, reference: m.blas_address });
+                if m.blas_address == 0 || inst.transform.iter().any(|v| !v.is_finite()) { continue; }
+                descs.add(tlas_count as usize).write(InstanceDesc { transform: inst.transform, index_mask: (i & 0x00ff_ffff) | ((inst.mask & 0xff) << 24), sbt_flags: (vk::GeometryInstanceFlagsKHR::TRIANGLE_FACING_CULL_DISABLE.as_raw() | if m.alpha && self.opaque.instance(inst.material_base, m.submeshes.iter().map(|s| s.flags)) { vk::GeometryInstanceFlagsKHR::FORCE_OPAQUE.as_raw() } else { 0 }) << 24, reference: m.blas_address });
                 tlas_count += 1;
             }
         }
@@ -500,13 +520,16 @@ impl Renderer {
             let (half_width, half_height) = (full.div_ceil(2).max(1), height.div_ceil(2));
             self.push(gpu, cmd, [0, half_height, 0, 0, 0, 0, 0, 0]);
             self.trace(gpu, cmd, half_width, half_height + 4096u32.div_ceil(half_width));
+            barrier(gpu, cmd);
+            self.push(gpu, cmd, [5, half_height, 0, 0, 0, 0, 0, 0]);
+            self.trace(gpu, cmd, half_width, half_height);
         }
         barrier(gpu, cmd);
         stamp(2);
         let full_scan = params.flags & FLAG_CACHE_RESET != 0 || params.dirty_count > 0;
         let (scan_base, scan_count) = if full_scan { (0, CACHE_SIZE) } else { ((params.frame % CACHE_SLICES) * (CACHE_SIZE / CACHE_SLICES), CACHE_SIZE / CACHE_SLICES) };
         self.pipeline(gpu, cmd, P_MAINTAIN);
-        self.push(gpu, cmd, [scan_base as u32, 0, 0, 0, 0, 0, 0, 0]);
+        self.push(gpu, cmd, [scan_base as u32, height.div_ceil(2), full.div_ceil(2).max(1) + 1, 0, 0, 0, 0, 0]);
         self.dispatch(gpu, cmd, (scan_count / 64) as u32, 1);
         barrier(gpu, cmd);
         self.pipeline(gpu, cmd, P_RESOLVE);
@@ -579,8 +602,9 @@ impl Renderer {
         }
         self.slot_fences[slot] = value;
         if let Some((first, end)) = bounds_copy { self.bounds_pending = Some((value, first, end)); }
+        if let Some(ids) = alpha_copy { self.opaque.pending = Some((value, ids)); }
         if let Some(ctx) = self.contexts[context].as_mut() { ctx.history_index = history_write; ctx.history_valid = true; ctx.last_time = params.time; }
-        if let Some(e) = pending_error { eprintln!("{e}"); }
+        let _ = pending_error;
         Ok(tlas_count)
     }
 
@@ -594,7 +618,7 @@ impl Renderer {
                 OP_MESH_SUBMESH => scene.add_submesh(c.id, c.a, c.b, c.c),
                 OP_MESH_POSITIONS => {
                     let Some(m) = scene.meshes.get(&c.id) else { return Ok(()); };
-                    if c.a + c.b > m.vertex_count { return Err(format!("position upload past mesh {}", c.id)); }
+                    if c.a.checked_add(c.b).is_none_or(|end| end > m.vertex_count) { return Err(format!("position upload past mesh {}", c.id)); }
                     *vertices_written = true;
                     self.pipeline(gpu, cmd, P_COPY_POSITIONS);
                     self.push(gpu, cmd, [c.c, c.b, ((m.vertex_offset + c.a as u64) * 32) as u32, 0, 0, 0, 0, k]);
@@ -604,15 +628,15 @@ impl Renderer {
                 OP_MESH_VERTICES | OP_MESH_INDICES => {
                     let Some(m) = scene.meshes.get(&c.id) else { return Ok(()); };
                     let vertices = c.op == OP_MESH_VERTICES;
-                    if vertices && c.a + c.b > m.vertex_count { return Err(format!("vertex upload past mesh {}", c.id)); }
-                    if !vertices && c.a + c.b > m.index_count { return Err(format!("index upload past mesh {}", c.id)); }
+                    if vertices && c.a.checked_add(c.b).is_none_or(|end| end > m.vertex_count) { return Err(format!("vertex upload past mesh {}", c.id)); }
+                    if !vertices && c.a.checked_add(c.b).is_none_or(|end| end > m.index_count) { return Err(format!("index upload past mesh {}", c.id)); }
                     if vertices { *vertices_written = true; }
                     if !vertices { *indices_written = true; }
                     let (pso, count, groups, dst) = if vertices { (P_COPY_VERTICES, c.b * VERTEX_TEXELS, (c.b * VERTEX_TEXELS).div_ceil(64), (m.vertex_offset + c.a as u64) * 32) } else { (P_COPY_INDICES, c.b, c.b.div_ceil(4).div_ceil(64), (m.index_offset + c.a as u64) * 4) };
                     self.pipeline(gpu, cmd, pso);
-                    self.push(gpu, cmd, [c.c, count, dst as u32, 0, 0, 0, 0, k]);
+                    self.push(gpu, cmd, [c.c, count, dst as u32, if vertices { 0 } else { m.vertex_count }, 0, 0, 0, k]);
                     self.dispatch(gpu, cmd, groups.max(1), 1);
-                    if vertices { scene.invalidate_bounds(c.id); }
+                    if vertices { scene.invalidate_bounds(c.id); } else if let Some(m) = scene.meshes.get_mut(&c.id) { if m.committed { m.refits = REBUILD_INTERVAL; } }
                 }
                 OP_MESH_COMMIT => {
                     if *vertices_written || *indices_written { barrier(gpu, cmd); }
@@ -621,17 +645,25 @@ impl Renderer {
                 OP_MESH_REFIT => { scene.refit_mesh(c.id); scene.invalidate_bounds(c.id); }
                 OP_MESH_RELEASE => scene.release_mesh(c.id, fence),
                 OP_TEXTURE_DEFINE => {
-                    if let Some(view) = scene.define_texture(gpu, c.id, c.a, c.b, c.c, fence)? {
+                    let defined = scene.define_texture(gpu, c.id, c.a, c.b, c.c, fence);
+                    if defined.is_err() && c.id < MAX_TEXTURES { heap.sampled(gpu, HEAP_TEXTURES + c.id, scene.dummy.2); }
+                    if let Some(view) = defined? {
                         heap.sampled(gpu, HEAP_TEXTURES + c.id, view);
                         let t = &scene.textures[&c.id];
                         image_barrier(gpu, cmd, &[(t.image, vk::ImageLayout::UNDEFINED, vk::ImageLayout::GENERAL, vk::QUEUE_FAMILY_IGNORED, vk::QUEUE_FAMILY_IGNORED)]);
                         let range = vk::ImageSubresourceRange { aspect_mask: vk::ImageAspectFlags::COLOR, base_mip_level: 0, level_count: t.mips, base_array_layer: 0, layer_count: 1 };
                         unsafe { gpu.device.cmd_clear_color_image(cmd, t.image, vk::ImageLayout::GENERAL, &vk::ClearColorValue { float32: [0.0; 4] }, &[range]); }
                         barrier(gpu, cmd);
+                        self.pipeline(gpu, cmd, P_TEXTURE_PIXELS);
+                        self.push(gpu, cmd, [0, c.id, 0, 0, 0, 0, 0, k]);
+                        self.dispatch(gpu, cmd, 1, 1);
+                        barrier(gpu, cmd);
                     }
                 }
                 OP_TEXTURE_PIXELS => {
                     let Some(t) = scene.textures.get(&c.id) else { return Ok(()); };
+                    if t.readable || c.a.checked_add(c.b).is_none_or(|end| end > t.height) { return Err(format!("pixel upload past texture {}", c.id)); }
+                    if self.scratch.get().1 + 1 > SCRATCH_PER_SLOT { return Err(format!("too many texture uploads in one frame, texture {} skipped", c.id)); }
                     let index = self.scratch_descriptor();
                     heap.storage(gpu, index, t.mips_views[0]);
                     self.pipeline(gpu, cmd, P_TEXTURE_PIXELS);
@@ -640,6 +672,8 @@ impl Renderer {
                 }
                 OP_TEXTURE_COMMIT => {
                     let Some(t) = scene.textures.get_mut(&c.id) else { return Ok(()); };
+                    if t.readable { return Ok(()); }
+                    if self.scratch.get().1 + t.mips * 2 > SCRATCH_PER_SLOT { return Err(format!("too many texture uploads in one frame, texture {} left without mips", c.id)); }
                     barrier(gpu, cmd);
                     self.pipeline(gpu, cmd, P_DOWNSAMPLE);
                     for mip in 1..t.mips {
@@ -655,6 +689,7 @@ impl Renderer {
                     }
                     barrier(gpu, cmd);
                     t.readable = true;
+                    if !t.hdr { let entry = (c.id, t.serial); scene.alpha_wanted.push(entry); }
                 }
                 OP_TEXTURE_RELEASE => { if scene.release_texture(c.id, fence) { heap.sampled(gpu, HEAP_TEXTURES + c.id, scene.dummy.2); } }
                 _ => {}
@@ -665,18 +700,21 @@ impl Renderer {
     }
 
     pub fn create_context(&mut self, gpu: &mut Gpu, interop: &Interop, link: &os::Link, context: usize, width: u32, height: u32, views: u32) -> Fallible<[u64; 4]> {
+        if width == 0 || height == 0 || width as u64 * views as u64 * 2 > 16384 || height as u64 * 2 > 16384 { return Err(format!("context size {width}x{height}x{views} is out of range")); }
         let full = width * views;
         let base = context_base(context);
         let heap = self.heap();
-        let gbuffer = [interop.image(gpu, link, full * 2, height * 2, SHARED_FORMAT_UINT)?, interop.image(gpu, link, full * 2, height * 2, SHARED_FORMAT_UINT)?];
-        let output = [interop.image(gpu, link, full, height, SHARED_FORMAT_FLOAT)?, interop.image(gpu, link, full, height, SHARED_FORMAT_FLOAT)?];
-        for i in 0..2 { heap.sampled(gpu, base + CTX_GBUFFER + i as u32, gbuffer[i].view); }
-        let mut textures = Vec::new();
+        let mut shared: Vec<SharedImage> = Vec::new();
+        let mut textures: Vec<Texture> = Vec::new();
+        let mut buffers: Vec<Buffer> = Vec::new();
+        let made = (|| -> Fallible<()> {
+        for (w, h, format) in [(full * 2, height * 2, SHARED_FORMAT_UINT), (full * 2, height * 2, SHARED_FORMAT_UINT), (full, height, SHARED_FORMAT_FLOAT), (full, height, SHARED_FORMAT_FLOAT)] { shared.push(interop.image(gpu, link, w, h, format)?); }
+        for i in 0..2 { heap.sampled(gpu, base + CTX_GBUFFER + i as u32, shared[i].view); }
         let mut make = |gpu: &mut Gpu, format: vk::Format, index: u32| -> Fallible<()> {
             let info = vk::ImageCreateInfo::default().image_type(vk::ImageType::TYPE_2D).format(format).extent(vk::Extent3D { width: full.max(1), height: height.max(1), depth: 1 }).mip_levels(1).array_layers(1).samples(vk::SampleCountFlags::TYPE_1).tiling(vk::ImageTiling::OPTIMAL)
                 .usage(vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_SRC | vk::ImageUsageFlags::TRANSFER_DST);
             let (image, allocation) = gpu.image(&info)?;
-            let view = gpu.view(image, format, 0, 1, vk::ImageUsageFlags::STORAGE)?;
+            let view = match gpu.view(image, format, 0, 1, vk::ImageUsageFlags::STORAGE) { Ok(v) => v, Err(e) => { unsafe { gpu.device.destroy_image(image, None); } gpu.free(allocation); return Err(e); } };
             heap.storage(gpu, index, view);
             textures.push(Texture { image, allocation, view });
             Ok(())
@@ -691,29 +729,39 @@ impl Renderer {
         make(gpu, vk::Format::R16G16B16A16_UINT, base + CTX_COMPACT_UAV)?;
         let (tiles_x, tiles_y) = tiles(width, height, views);
         let probe_bytes = ((tiles_x * tiles_y) as u64 * PROBE_STRIDE).max(256);
-        let probes = [gpu.buffer(probe_bytes, vk::BufferUsageFlags::STORAGE_BUFFER, vk::MemoryPropertyFlags::DEVICE_LOCAL)?, gpu.buffer(probe_bytes, vk::BufferUsageFlags::STORAGE_BUFFER, vk::MemoryPropertyFlags::DEVICE_LOCAL)?];
-        for k in 0..2 { heap.buffer(gpu, base + CTX_PROBES + k as u32, probes[k].buffer, 0, probe_bytes); }
         let ray_bytes = ((tiles_x * tiles_y * PROBE_RAYS) as u64 * 64).max(256);
-        let probe_rays = gpu.buffer(ray_bytes, vk::BufferUsageFlags::STORAGE_BUFFER, vk::MemoryPropertyFlags::DEVICE_LOCAL)?;
-        heap.buffer(gpu, base + CTX_PROBE_RAYS, probe_rays.buffer, 0, ray_bytes);
-        let reservoir_bytes = (full as u64 * height as u64 * 32).max(256);
-        let reservoirs = [gpu.buffer(reservoir_bytes, vk::BufferUsageFlags::STORAGE_BUFFER, vk::MemoryPropertyFlags::DEVICE_LOCAL)?, gpu.buffer(reservoir_bytes, vk::BufferUsageFlags::STORAGE_BUFFER, vk::MemoryPropertyFlags::DEVICE_LOCAL)?];
-        for k in 0..2 { heap.buffer(gpu, base + CTX_RESERVOIRS + k as u32, reservoirs[k].buffer, 0, reservoir_bytes); }
-        let scratch_bytes = (full as u64 * height as u64 * 64).max(256);
-        let reservoir_scratch = gpu.buffer(scratch_bytes, vk::BufferUsageFlags::STORAGE_BUFFER, vk::MemoryPropertyFlags::DEVICE_LOCAL)?;
-        heap.buffer(gpu, base + CTX_RESERVOIR_SCRATCH, reservoir_scratch.buffer, 0, scratch_bytes);
+        let reservoir_bytes = (full as u64 * height as u64 * 24).max(256);
+        let scratch_bytes = (full as u64 * height as u64 * 48).max(256);
+        let list_bytes = (full.div_ceil(2) as u64 + 1) * height.div_ceil(2) as u64 * 4;
+        for (bytes, index) in [(probe_bytes, CTX_PROBES), (probe_bytes, CTX_PROBES + 1), (ray_bytes, CTX_PROBE_RAYS), (reservoir_bytes, CTX_RESERVOIRS), (reservoir_bytes, CTX_RESERVOIRS + 1), (scratch_bytes, CTX_RESERVOIR_SCRATCH), (list_bytes, CTX_UPDATE_LIST)] {
+            let b = gpu.buffer(bytes, vk::BufferUsageFlags::STORAGE_BUFFER, vk::MemoryPropertyFlags::DEVICE_LOCAL)?;
+            heap.buffer(gpu, base + index, b.buffer, 0, bytes);
+            buffers.push(b);
+        }
         let cmd = gpu.begin()?;
         let mut layouts: Vec<(vk::Image, vk::ImageLayout, vk::ImageLayout, u32, u32)> = textures.iter().map(|t| (t.image, vk::ImageLayout::UNDEFINED, vk::ImageLayout::GENERAL, vk::QUEUE_FAMILY_IGNORED, vk::QUEUE_FAMILY_IGNORED)).collect();
-        for s in gbuffer.iter().chain(output.iter()) { layouts.push((s.image, vk::ImageLayout::UNDEFINED, vk::ImageLayout::GENERAL, vk::QUEUE_FAMILY_IGNORED, vk::QUEUE_FAMILY_IGNORED)); }
+        for s in shared.iter() { layouts.push((s.image, vk::ImageLayout::UNDEFINED, vk::ImageLayout::GENERAL, vk::QUEUE_FAMILY_IGNORED, vk::QUEUE_FAMILY_IGNORED)); }
         image_barrier(gpu, cmd, &layouts);
         unsafe {
             let range = vk::ImageSubresourceRange { aspect_mask: vk::ImageAspectFlags::COLOR, base_mip_level: 0, level_count: 1, base_array_layer: 0, layer_count: 1 };
             for t in &textures { gpu.device.cmd_clear_color_image(cmd, t.image, vk::ImageLayout::GENERAL, &vk::ClearColorValue { float32: [0.0; 4] }, &[range]); }
-            for b in probes.iter().chain(std::iter::once(&probe_rays)).chain(reservoirs.iter()).chain(std::iter::once(&reservoir_scratch)) { gpu.device.cmd_fill_buffer(cmd, b.buffer, 0, vk::WHOLE_SIZE, 0); }
+            for b in buffers.iter() { gpu.device.cmd_fill_buffer(cmd, b.buffer, 0, vk::WHOLE_SIZE, 0); }
         }
-        gpu.finish_now(cmd)?;
+        gpu.finish_now(cmd)
+        })();
+        if let Err(e) = made {
+            let _ = gpu.flush();
+            for s in shared { link.close_shared(s.remote); Interop::destroy_image(gpu, s); }
+            for t in textures { unsafe { gpu.device.destroy_image_view(t.view, None); gpu.device.destroy_image(t.image, None); } gpu.free(t.allocation); }
+            for b in buffers { gpu.destroy_buffer(b); }
+            return Err(e);
+        }
+        let mut s = shared.into_iter();
+        let (gbuffer, output) = ([s.next().unwrap(), s.next().unwrap()], [s.next().unwrap(), s.next().unwrap()]);
+        let mut b = buffers.into_iter();
+        let (probes, probe_rays, reservoirs, reservoir_scratch, update_list) = ([b.next().unwrap(), b.next().unwrap()], b.next().unwrap(), [b.next().unwrap(), b.next().unwrap()], b.next().unwrap(), b.next().unwrap());
         let handles = [gbuffer[0].remote, gbuffer[1].remote, output[0].remote, output[1].remote];
-        self.contexts[context] = Some(Context { gbuffer, output, textures, width, height, views, base, history_index: 0, history_valid: false, probes, probe_rays, reservoirs, reservoir_scratch, last_time: 0.0 });
+        self.contexts[context] = Some(Context { gbuffer, output, textures, width, height, views, base, history_index: 0, history_valid: false, probes, probe_rays, reservoirs, reservoir_scratch, update_list, last_time: 0.0 });
         Ok(handles)
     }
 
@@ -721,6 +769,6 @@ impl Renderer {
         let Some(ctx) = self.contexts[context].take() else { return; };
         for s in ctx.gbuffer.into_iter().chain(ctx.output) { Interop::destroy_image(gpu, s); }
         for t in ctx.textures { unsafe { gpu.device.destroy_image_view(t.view, None); gpu.device.destroy_image(t.image, None); } gpu.free(t.allocation); }
-        for b in ctx.probes.into_iter().chain(std::iter::once(ctx.probe_rays)).chain(ctx.reservoirs).chain(std::iter::once(ctx.reservoir_scratch)) { gpu.destroy_buffer(b); }
+        for b in ctx.probes.into_iter().chain(std::iter::once(ctx.probe_rays)).chain(ctx.reservoirs).chain(std::iter::once(ctx.reservoir_scratch)).chain(std::iter::once(ctx.update_list)) { gpu.destroy_buffer(b); }
     }
 }

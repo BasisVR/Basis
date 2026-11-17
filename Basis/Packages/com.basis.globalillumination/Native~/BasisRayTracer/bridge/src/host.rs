@@ -12,7 +12,7 @@ mod imp {
 
     pub type Handle = HANDLE;
 
-    pub struct Host { pub base: *mut u8, mapping: HANDLE, wake: HANDLE, process: Option<HANDLE>, thread: Option<(std::thread::JoinHandle<()>, std::sync::Arc<basis_rt_tracer::Stop>)>, stranded: bool }
+    pub struct Host { pub base: *mut u8, mapping: HANDLE, wake: HANDLE, process: Option<HANDLE>, thread: Option<(std::thread::JoinHandle<()>, std::sync::Arc<basis_rt_tracer::Stop>)>, stranded: Option<std::thread::JoinHandle<()>> }
 
     impl Host {
         pub fn new() -> super::Result<Host> {
@@ -20,10 +20,11 @@ mod imp {
                 let pid = GetCurrentProcessId();
                 let name = HSTRING::from(mapping_name(pid));
                 let mapping = CreateFileMappingW(INVALID_HANDLE_VALUE, None, PAGE_READWRITE, (MAPPING_BYTES as u64 >> 32) as u32, MAPPING_BYTES as u32, &name).map_err(|e| e.message())?;
+                if GetLastError() == ERROR_ALREADY_EXISTS { let _ = CloseHandle(mapping); return Err("the previous tracer is still shutting down".into()); }
                 let view = MapViewOfFile(mapping, FILE_MAP_ALL_ACCESS, 0, 0, MAPPING_BYTES);
-                if view.Value.is_null() { return Err(Error::from_thread().message()); }
-                let wake = CreateEventW(None, false, false, &HSTRING::from(wake_tracer_name(pid))).map_err(|e| e.message())?;
-                Ok(Host { base: view.Value as *mut u8, mapping, wake, process: None, thread: None, stranded: false })
+                if view.Value.is_null() { let e = Error::from_thread().message(); let _ = CloseHandle(mapping); return Err(e); }
+                let wake = match CreateEventW(None, false, false, &HSTRING::from(wake_tracer_name(pid))) { Ok(w) => w, Err(e) => { let _ = UnmapViewOfFile(view); let _ = CloseHandle(mapping); return Err(e.message()); } };
+                Ok(Host { base: view.Value as *mut u8, mapping, wake, process: None, thread: None, stranded: None })
             }
         }
 
@@ -70,7 +71,7 @@ mod imp {
                 self.wake();
                 let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
                 while !thread.is_finished() && std::time::Instant::now() < deadline { std::thread::sleep(std::time::Duration::from_millis(1)); stop.trigger(); }
-                if thread.is_finished() { let _ = thread.join(); } else { self.stranded = true; }
+                if thread.is_finished() { let _ = thread.join(); } else { self.stranded = Some(thread); }
             }
             if let Some(p) = self.process.take() {
                 unsafe {
@@ -84,11 +85,15 @@ mod imp {
     impl Drop for Host {
         fn drop(&mut self) {
             self.stop();
-            if self.stranded { return; }
-            unsafe {
-                let _ = UnmapViewOfFile(MEMORY_MAPPED_VIEW_ADDRESS { Value: self.base as _ });
-                let _ = CloseHandle(self.mapping);
-                let _ = CloseHandle(self.wake);
+            let (base, mapping, wake) = (self.base as usize, self.mapping.0 as usize, self.wake.0 as usize);
+            let release = move || unsafe {
+                let _ = UnmapViewOfFile(MEMORY_MAPPED_VIEW_ADDRESS { Value: base as _ });
+                let _ = CloseHandle(HANDLE(mapping as _));
+                let _ = CloseHandle(HANDLE(wake as _));
+            };
+            match self.stranded.take() {
+                Some(thread) => { let _ = std::thread::Builder::new().name("Basis Ray Tracer cleanup".into()).spawn(move || { let _ = thread.join(); release(); }); }
+                None => release(),
             }
         }
     }

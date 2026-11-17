@@ -147,6 +147,7 @@ unsafe extern "system" fn hooked_get_instance_proc_addr(instance: vk::Instance, 
             INSTANCE.store(instance.as_raw() as usize, Ordering::Release);
             return std::mem::transmute::<*const c_void, vk::PFN_vkVoidFunction>(hooked_create_device as *const c_void);
         }
+        if name.is_null() { return None; }
         original(instance, CStr::from_ptr(name))
     }
 }

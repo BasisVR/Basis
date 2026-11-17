@@ -74,12 +74,13 @@ impl Vulkan {
             let mut external = vk::ExternalMemoryImageCreateInfo::default().handle_types(kind);
             let info = vk::ImageCreateInfo::default().image_type(vk::ImageType::TYPE_2D).format(vk::Format::from_raw(format)).extent(vk::Extent3D { width: width.max(1), height: height.max(1), depth: 1 })
                 .mip_levels(1).array_layers(1).samples(vk::SampleCountFlags::TYPE_1).tiling(vk::ImageTiling::OPTIMAL).usage(vk::ImageUsageFlags::from_raw(SHARED_USAGE)).sharing_mode(vk::SharingMode::EXCLUSIVE).initial_layout(vk::ImageLayout::UNDEFINED).push_next(&mut external);
-            let image = match self.device.create_image(&info, None) { Ok(i) => i, Err(e) => { host::Host::close_handle(handle); return Err(format!("create imported image: {e}")); } };
+            let image = match self.device.create_image(&info, None) { Ok(i) => i, Err(e) => { if cfg!(unix) { host::Host::close_handle(handle); } return Err(format!("create imported image: {e}")); } };
+            let fail = |e: String| -> Result<Imported> { self.device.destroy_image(image, None); if cfg!(unix) { host::Host::close_handle(handle); } Err(e) };
             let requirements = self.device.get_image_memory_requirements(image);
             #[cfg(windows)]
             let bits = {
                 let mut properties = vk::MemoryWin32HandlePropertiesKHR::default();
-                if interop == INTEROP_D3D12 { self.memory_win32.get_memory_win32_handle_properties(kind, handle.0 as isize, &mut properties).map_err(err("query shared texture"))?; properties.memory_type_bits } else { u32::MAX }
+                if interop == INTEROP_D3D12 { if let Err(e) = self.memory_win32.get_memory_win32_handle_properties(kind, handle.0 as isize, &mut properties) { return fail(format!("query shared texture: {e}")); } properties.memory_type_bits } else { u32::MAX }
             };
             #[cfg(unix)]
             let bits = {
@@ -87,8 +88,8 @@ impl Vulkan {
                 match self.memory_fd.get_memory_fd_properties(kind, handle, &mut properties) { Ok(_) => properties.memory_type_bits, Err(_) => u32::MAX }
             };
             let bits = requirements.memory_type_bits & bits;
-            let index = (0..self.memory_properties.memory_type_count).find(|&i| bits & (1 << i) != 0 && self.memory_properties.memory_types[i as usize].property_flags.contains(vk::MemoryPropertyFlags::DEVICE_LOCAL))
-                .or_else(|| (0..self.memory_properties.memory_type_count).find(|&i| bits & (1 << i) != 0)).ok_or("no memory type can hold the shared texture")?;
+            let Some(index) = (0..self.memory_properties.memory_type_count).find(|&i| bits & (1 << i) != 0 && self.memory_properties.memory_types[i as usize].property_flags.contains(vk::MemoryPropertyFlags::DEVICE_LOCAL))
+                .or_else(|| (0..self.memory_properties.memory_type_count).find(|&i| bits & (1 << i) != 0)) else { return fail("no memory type can hold the shared texture".into()); };
             let mut dedicated = vk::MemoryDedicatedAllocateInfo::default().image(image);
             #[cfg(windows)]
             let mut import = vk::ImportMemoryWin32HandleInfoKHR::default().handle_type(kind).handle(handle.0 as isize);
@@ -97,9 +98,9 @@ impl Vulkan {
             let allocate = vk::MemoryAllocateInfo::default().allocation_size(requirements.size).memory_type_index(index).push_next(&mut import).push_next(&mut dedicated);
             let memory = match self.device.allocate_memory(&allocate, None) {
                 Ok(m) => m,
-                Err(e) => { self.device.destroy_image(image, None); if cfg!(unix) { host::Host::close_handle(handle); } return Err(format!("import shared texture: {e}")); }
+                Err(e) => return fail(format!("import shared texture: {e}")),
             };
-            self.device.bind_image_memory(image, memory, 0).map_err(err("bind shared texture"))?;
+            if let Err(e) = self.device.bind_image_memory(image, memory, 0) { self.device.destroy_image(image, None); self.device.free_memory(memory, None); return Err(format!("bind shared texture: {e}")); }
             Ok(Imported { image, memory, width, height })
         }
     }
@@ -123,11 +124,11 @@ impl Vulkan {
     pub fn release_semaphore(&self, semaphore: vk::Semaphore) { unsafe { self.device.destroy_semaphore(semaphore, None); } }
 
     pub fn run(&mut self, wait: Option<(vk::Semaphore, u64)>, signal: Option<(vk::Semaphore, u64)>, body: impl FnOnce(&ash::Device, vk::CommandBuffer)) -> Result<()> {
-        let (cmd, fence) = self.commands[self.cursor];
+        let index = self.cursor;
+        let (cmd, fence) = self.commands[index];
         self.cursor = (self.cursor + 1) % self.commands.len();
         unsafe {
             self.device.wait_for_fences(&[fence], true, 1_000_000_000).map_err(err("wait for bridge commands"))?;
-            self.device.reset_fences(&[fence]).map_err(err("reset fence"))?;
             self.device.reset_command_buffer(cmd, vk::CommandBufferResetFlags::empty()).map_err(err("reset command buffer"))?;
             self.device.begin_command_buffer(cmd, &vk::CommandBufferBeginInfo::default().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)).map_err(err("begin command buffer"))?;
             body(&self.device, cmd);
@@ -140,7 +141,11 @@ impl Vulkan {
             let mut timeline = vk::TimelineSemaphoreSubmitInfo::default().wait_semaphore_values(&wait_values).signal_semaphore_values(&signal_values);
             let cmds = [cmd];
             let submit = vk::SubmitInfo::default().wait_semaphores(&wait_semaphores).wait_dst_stage_mask(&wait_stages).command_buffers(&cmds).signal_semaphores(&signal_semaphores).push_next(&mut timeline);
-            self.device.queue_submit(self.queue, &[submit], fence).map_err(err("submit bridge copy"))?;
+            self.device.reset_fences(&[fence]).map_err(err("reset fence"))?;
+            if let Err(e) = self.device.queue_submit(self.queue, &[submit], fence) {
+                if let Ok(f) = self.device.create_fence(&vk::FenceCreateInfo::default().flags(vk::FenceCreateFlags::SIGNALED), None) { self.device.destroy_fence(fence, None); self.commands[index].1 = f; }
+                return Err(format!("submit bridge copy: {e}"));
+            }
         }
         Ok(())
     }

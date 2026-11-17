@@ -48,6 +48,7 @@ pub const CAP_DIRECT: u32 = 16;
 pub const RESERVED_UPLOAD_MARK: usize = 26;
 pub const RESERVED_UPLOAD_LOST: usize = 28;
 pub const RESERVED_UPLOAD_TRACKED: usize = 29;
+pub const RESERVED_HANDLE_CLAIMS: usize = 30;
 pub const OP_MESH_DEFINE: u32 = 1;
 pub const OP_MESH_SUBMESH: u32 = 2;
 pub const OP_MESH_VERTICES: u32 = 3;
@@ -75,6 +76,7 @@ pub const MATERIAL_DOUBLE_SIDED: u32 = 1;
 pub const MATERIAL_UNLIT: u32 = 2;
 pub const MATERIAL_ANIMATED: u32 = 4;
 pub const MATERIAL_EMITTER: u32 = 8;
+pub const MATERIAL_TILE_DISCARD: u32 = 128;
 
 pub const INSTANCE_AVATAR: u32 = 1;
 pub const INSTANCE_NO_SHADOW: u32 = 2;
@@ -151,7 +153,7 @@ pub struct ContextHeader {
     pub width: u32,
     pub height: u32,
     pub views: u32,
-    pub pad: u32,
+    pub taken: AtomicU32,
     pub handle_gbuffer: [u64; 2],
     pub handle_output: [u64; 2],
 }

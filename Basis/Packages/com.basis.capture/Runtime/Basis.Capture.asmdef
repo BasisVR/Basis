@@ -1,0 +1,29 @@
+{
+    "name": "Basis.Capture",
+    "rootNamespace": "Basis.Capture",
+    "references": [
+        "Basis Framework",
+        "BasisSDK",
+        "BasisCommon",
+        "BasisDebug",
+        "BasisSettings",
+        "BasisEventDriver",
+        "BasisNetworkCore",
+        "Unity.TextMeshPro",
+        "Unity.Collections",
+        "Unity.Burst",
+        "Unity.Mathematics",
+        "com.gator-dragon-games.jigglephysics",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

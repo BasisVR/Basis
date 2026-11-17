@@ -284,7 +284,19 @@ fn build_block(inputs: &Inputs, unit: usize, t: &mut Scratch, out: &mut BlockOut
 
 thread_local! { static SCRATCH: std::cell::RefCell<(Scratch, BlockOut)> = std::cell::RefCell::new(Default::default()); }
 
+struct Leave<'a>(&'a Shared);
+
+impl Drop for Leave<'_> {
+    fn drop(&mut self) {
+        if self.0.active.fetch_sub(1, Ordering::AcqRel) == 1 {
+            let _g = self.0.done.lock().unwrap_or_else(|e| e.into_inner());
+            self.0.finished.notify_all();
+        }
+    }
+}
+
 fn work(shared: &Shared) {
+    let _leave = Leave(shared);
     let inputs = unsafe { &*shared.inputs.get() };
     SCRATCH.with(|t| {
         let (t, out) = &mut *t.borrow_mut();
@@ -308,10 +320,6 @@ fn work(shared: &Shared) {
         }
         if did { shared.done_at.fetch_max(shared.epoch.elapsed().as_micros() as u64, Ordering::AcqRel); }
     });
-    if shared.active.fetch_sub(1, Ordering::AcqRel) == 1 {
-        let _g = shared.done.lock().unwrap();
-        shared.finished.notify_all();
-    }
 }
 
 fn snapped(viewer: &[f32; 4], level: usize) -> [f32; 3] {
@@ -336,7 +344,7 @@ impl LightGrid {
                         if s.quit.load(Ordering::Acquire) { return; }
                         seen = *g;
                     }
-                    work(&s);
+                    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| work(&s)));
                 }
             });
             if let Ok(h) = spawned { workers.push(h); }
@@ -450,8 +458,8 @@ impl LightGrid {
         if !self.running { return; }
         let waiting = Instant::now();
         work(&self.shared);
-        let mut g = self.shared.done.lock().unwrap();
-        while self.shared.active.load(Ordering::Acquire) != 0 { g = self.shared.finished.wait(g).unwrap(); }
+        let mut g = self.shared.done.lock().unwrap_or_else(|e| e.into_inner());
+        while self.shared.active.load(Ordering::Acquire) != 0 { g = self.shared.finished.wait(g).unwrap_or_else(|e| e.into_inner()); }
         drop(g);
         self.running = false;
         let cursor = self.shared.cursor.load(Ordering::Acquire).min(ENTRY_CAPACITY);

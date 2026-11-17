@@ -34,7 +34,7 @@ public partial class BasisGlobalIlluminationPass
     private static readonly int idExTraced = Shader.PropertyToID("_Traced"), idExGBuffer = Shader.PropertyToID("_GBuffer"), idExUpload = Shader.PropertyToID("_Upload"), idExResult = Shader.PropertyToID("_Result");
     private static readonly int idExSource = Shader.PropertyToID("_Source"), idExStream0 = Shader.PropertyToID("_Stream0"), idExStream1 = Shader.PropertyToID("_Stream1"), idExIndices = Shader.PropertyToID("_Indices");
     private static readonly int idExInvViewProj = Shader.PropertyToID("_InvViewProj"), idExCameraPosition = Shader.PropertyToID("_CameraPosition"), idExSize = Shader.PropertyToID("_Size");
-    private static readonly int idExFlags = Shader.PropertyToID("_Flags"), idExLayout0 = Shader.PropertyToID("_Layout0"), idExLayout1 = Shader.PropertyToID("_Layout1"), idExJob = Shader.PropertyToID("_Job");
+    private static readonly int idExFlags = Shader.PropertyToID("_Flags"), idExLayout0 = Shader.PropertyToID("_Layout0"), idExLayout1 = Shader.PropertyToID("_Layout1"), idExLayout2 = Shader.PropertyToID("_Layout2"), idExJob = Shader.PropertyToID("_Job");
     private readonly Matrix4x4[] externalInverse = new Matrix4x4[2];
     private readonly Vector4[] externalPositions = new Vector4[2];
     [NoAutoStaticsCleanup] private static readonly ProfilingSampler samplerExternal = new ProfilingSampler("Basis GI Path Traced (External)");
@@ -321,6 +321,7 @@ public partial class BasisGlobalIlluminationPass
                         cmd.SetComputeTextureParam(cs, d.kernelVertices, idExUpload, upload);
                         cmd.SetComputeIntParams(cs, idExLayout0, job.layout0.x, job.layout0.y, job.layout0.z, job.layout0.w);
                         cmd.SetComputeIntParams(cs, idExLayout1, job.layout1.x, job.layout1.y, job.layout1.z, job.layout1.w);
+                        cmd.SetComputeIntParams(cs, idExLayout2, job.layout2.x, job.layout2.y, job.layout2.z, job.layout2.w);
                         cmd.SetComputeIntParams(cs, idExJob, (int)job.first, (int)job.count, (int)job.texel, job.kind == BasisExternalRayScene.JobKind.Positions ? 1 : 0);
                         cmd.DispatchCompute(cs, d.kernelVertices, (int)((job.count + 63) / 64), 1, 1);
                         break;

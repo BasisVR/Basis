@@ -82,7 +82,8 @@ public static unsafe partial class BasisExternalRayTracer
     public const uint OpTextureDefine = 8, OpTexturePixels = 9, OpTextureCommit = 10, OpTextureRelease = 11, OpMeshPositions = 12;
     public const uint SubmeshOpaque = 1, SubmeshAlphaTest = 2, SubmeshBlend = 4, MeshDynamic = 1, TextureHdr = 1;
     public const uint AlphaOpaque = 0, AlphaCutout = 1, AlphaBlend = 2;
-    public const uint MaterialDoubleSided = 1, MaterialUnlit = 2, MaterialAnimated = 4, MaterialEmitter = 8;
+    public const uint MaterialDoubleSided = 1, MaterialUnlit = 2, MaterialAnimated = 4, MaterialEmitter = 8, MaterialTileDiscard = 128;
+    public const int MaterialTileChannelShift = 5;
     public const uint InstanceAvatar = 1, InstanceNoShadow = 2, InstanceDynamic = 8, MaskDynamic = 2;
     public const uint FlagResetHistory = 1, FlagScreenReuse = 2, FlagShadows = 4, FlagDenoise = 8, FlagSameFrame = 16, FlagCacheReset = 64, FlagProbes = 128, FlagBakedHybrid = 256;
     public const int StatusStarting = 0, StatusReady = 1, StatusFailed = 2, StatusExited = 3;
@@ -536,6 +537,7 @@ public static unsafe partial class BasisExternalRayTracer
 
     public static Context Prepare(Camera camera, int width, int height, int views, bool sameFrame)
     {
+        if (width <= 0 || height <= 0 || (long)width * views * 2 > 16384 || height * 2 > 16384) { return null; }
         if (!EnsureStarted()) { return null; }
         if (Upload == null || !Upload.IsCreated())
         {

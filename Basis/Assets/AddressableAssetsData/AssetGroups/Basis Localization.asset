@@ -71,6 +71,13 @@ MonoBehaviour:
     - language
     FlaggedDuringContentUpdateRestriction: 0
     m_FolderGuid: 
+  - m_GUID: 0e64b1b5e2272694399168287601529d
+    m_Address: Languages/com.basis.capture/en
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+    m_FolderGuid: 
   - m_GUID: 0ee5d8da0b90a674f96aa6af63e9c215
     m_Address: Languages/en
     m_ReadOnly: 0

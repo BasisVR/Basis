@@ -15,12 +15,12 @@ static ARMED: Mutex<Vec<(u32, u32)>> = Mutex::new(Vec::new());
 const SHARE: u32 = D3D11_RESOURCE_MISC_SHARED.0 as u32 | D3D11_RESOURCE_MISC_SHARED_NTHANDLE.0 as u32;
 
 pub fn installed() -> bool { INSTALLED.load(Ordering::Acquire) }
-pub fn arm(sizes: &[(u32, u32)]) { ARMED.lock().unwrap().extend_from_slice(sizes); }
-pub fn disarm() { ARMED.lock().unwrap().clear(); }
+pub fn arm(sizes: &[(u32, u32)]) { ARMED.lock().unwrap_or_else(|e| e.into_inner()).extend_from_slice(sizes); }
+pub fn disarm() { ARMED.lock().unwrap_or_else(|e| e.into_inner()).clear(); }
 
 fn claim(width: u32, height: u32, mips: u32, array: u32, samples: u32, bind: u32, misc: u32) -> bool {
     if bind & D3D11_BIND_UNORDERED_ACCESS.0 as u32 == 0 || misc & SHARE != 0 || mips != 1 || array != 1 || samples != 1 { return false; }
-    let mut armed = ARMED.lock().unwrap();
+    let mut armed = ARMED.lock().unwrap_or_else(|e| e.into_inner());
     match armed.iter().position(|&(w, h)| w == width && h == height) { Some(i) => { armed.remove(i); true } None => false }
 }
 

@@ -74,6 +74,14 @@ mod imp {
                 Ok(remote.0 as u64)
             }
         }
+
+        pub fn close_shared(&self, value: u64) {
+            if value == 0 { return; }
+            unsafe {
+                if self.stop.is_some() { let _ = CloseHandle(HANDLE(value as *mut core::ffi::c_void)); return; }
+                let _ = DuplicateHandle(self.parent, HANDLE(value as *mut core::ffi::c_void), HANDLE::default(), std::ptr::null_mut(), 0, false, DUPLICATE_CLOSE_SOURCE);
+            }
+        }
     }
 }
 
@@ -117,6 +125,8 @@ mod imp {
             unsafe { libc::close(fd); }
             result.map(|_| tag)
         }
+
+        pub fn close_shared(&self, _value: u64) {}
     }
 
     pub fn send_fd(socket: i32, tag: u64, fd: i32) -> std::result::Result<(), String> {

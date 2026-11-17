@@ -8,12 +8,16 @@ uint4 LoadUpload(uint texel)
     return Load128(upload, uint2(texel % UPLOAD_WIDTH, texel / UPLOAD_WIDTH));
 }
 
+uint FiniteBits(uint bits) { return (bits & 0x7f800000u) == 0x7f800000u ? 0u : bits; }
+uint4 FinitePosition(uint4 v) { return uint4(FiniteBits(v.x), FiniteBits(v.y), FiniteBits(v.z), v.w); }
+
 [numthreads(64, 1, 1)]
 void CopyVertices(uint3 id : SV_DispatchThreadID)
 {
     if (id.x >= pass.b) { return; }
     RWByteAddressBuffer vertices = ResourceDescriptorHeap[HEAP_VERTICES_UAV];
-    vertices.Store4(pass.c + id.x * 16, LoadUpload(pass.a + id.x));
+    uint4 v = LoadUpload(pass.a + id.x);
+    vertices.Store4(pass.c + id.x * 16, (id.x & 1) == 0 ? FinitePosition(v) : v);
 }
 
 [numthreads(64, 1, 1)]
@@ -21,7 +25,7 @@ void CopyPositions(uint3 id : SV_DispatchThreadID)
 {
     if (id.x >= pass.b) { return; }
     RWByteAddressBuffer vertices = ResourceDescriptorHeap[HEAP_VERTICES_UAV];
-    vertices.Store4(pass.c + id.x * 32, LoadUpload(pass.a + id.x));
+    vertices.Store4(pass.c + id.x * 32, FinitePosition(LoadUpload(pass.a + id.x)));
 }
 
 [numthreads(64, 1, 1)]
@@ -31,6 +35,7 @@ void CopyIndices(uint3 id : SV_DispatchThreadID)
     if (first >= pass.b) { return; }
     RWByteAddressBuffer indices = ResourceDescriptorHeap[HEAP_INDICES_UAV];
     uint4 v = LoadUpload(pass.a + id.x);
+    if (pass.d != 0) { v = min(v, pass.d - 1); }
     uint remaining = pass.b - first;
     if (remaining >= 4) { indices.Store4(pass.c + first * 4, v); return; }
     indices.Store(pass.c + first * 4, v.x);
@@ -45,6 +50,11 @@ float LinearToSrgb(float c) { return c <= 0.0031308 ? c * 12.92 : 1.055 * pow(c,
 void TexturePixels(uint3 id : SV_DispatchThreadID)
 {
     uint width = pass.c, rows = pass.e;
+    if (rows == 0)
+    {
+        if (id.x == 0 && id.y == 0) { RWByteAddressBuffer reset = ResourceDescriptorHeap[HEAP_ALPHA_MIN]; reset.Store(pass.b * 4, 255u); }
+        return;
+    }
     if (id.x >= width || id.y >= rows) { return; }
     uint pixel = id.y * width + id.x;
     uint4 texel = LoadUpload(pass.a + pixel / 4);
@@ -52,6 +62,12 @@ void TexturePixels(uint3 id : SV_DispatchThreadID)
     RWTexture2D<float4> target = ResourceDescriptorHeap[pass.g];
     float4 color = pass.f != 0 ? float4(UnpackRGB9E5(value), 1.0) : UnpackRGBA8(value);
     target[uint2(id.x, pass.d + id.y)] = color;
+    uint alpha = uint(saturate(color.a) * 255.0 + 0.5);
+    if (alpha < 255u)
+    {
+        RWByteAddressBuffer lowest = ResourceDescriptorHeap[HEAP_ALPHA_MIN];
+        if (alpha < lowest.Load(pass.b * 4)) { uint old; lowest.InterlockedMin(pass.b * 4, alpha, old); }
+    }
 }
 
 [numthreads(8, 8, 1)]

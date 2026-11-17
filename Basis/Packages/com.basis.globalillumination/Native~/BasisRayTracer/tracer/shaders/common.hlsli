@@ -37,6 +37,8 @@
 #define HEAP_DIRTY 56
 #define HEAP_RING 9
 #define HEAP_BOUNDS 54
+#define HEAP_ALPHA_MIN 11
+#define MATERIAL_KNOWN_OPAQUE 16u
 
 #define SUBMESH_OPAQUE 1
 #define SUBMESH_ALPHA_TEST 2
@@ -48,6 +50,7 @@
 #define MATERIAL_DOUBLE_SIDED 1
 #define MATERIAL_UNLIT 2
 #define MATERIAL_EMITTER 8
+#define MATERIAL_TILE_DISCARD 128u
 #define INSTANCE_AVATAR 1
 #define INSTANCE_EMITTER 4
 #define INSTANCE_DYNAMIC 8
@@ -128,7 +131,7 @@ struct Mesh
 
 struct Submesh
 {
-    uint indexStart, indexCount, flags, pad;
+    uint indexStart, indexCount, flags, cdf;
 };
 
 [[vk::binding(0, 0)]] ConstantBuffer<Frame> frame : register(b0);

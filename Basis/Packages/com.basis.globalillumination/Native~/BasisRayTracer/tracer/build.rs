@@ -19,7 +19,7 @@ fn main() {
     let default_dxc = if cfg!(windows) { root.join("../.deps/dxc/build/native/bin/x64/dxc.exe") } else { let local = root.join("../.deps/dxc-linux/bin/dxc"); if local.exists() { local } else { PathBuf::from("dxc") } };
     let dxc = std::env::var("BASIS_RT_DXC").map(PathBuf::from).unwrap_or(default_dxc);
     let shaders = root.join("shaders");
-    for f in ["common.hlsli", "cache.hlsli", "hitobject.hlsli", "trace.hlsl", "upload.hlsl", "denoise.hlsl", "resolve.hlsl", "probe.hlsl", "probe.hlsli", "bounds.hlsl"] { println!("cargo:rerun-if-changed=shaders/{f}"); }
+    for f in ["common.hlsli", "cache.hlsli", "hitobject.hlsli", "trace.hlsl", "upload.hlsl", "denoise.hlsl", "resolve.hlsl", "probe.hlsl", "probe.hlsli", "bounds.hlsl", "material.hlsli", "emitters.hlsl"] { println!("cargo:rerun-if-changed=shaders/{f}"); }
     println!("cargo:rerun-if-env-changed=BASIS_RT_DXC");
     println!("cargo:rerun-if-env-changed=BASIS_RT_DEFINES");
     let compute: &[(&str, &str)] = &[
@@ -33,6 +33,8 @@ fn main() {
         ("probe.hlsl", "ProbeResolve"),
         ("bounds.hlsl", "SubmeshBounds"),
         ("bounds.hlsl", "SubmeshBoundsClear"),
+        ("emitters.hlsl", "EmitterWeights"),
+        ("emitters.hlsl", "EmitterPrefix"),
         ("denoise.hlsl", "Temporal"),
         ("denoise.hlsl", "Wavelet"),
     ];

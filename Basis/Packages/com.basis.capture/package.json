@@ -1,0 +1,31 @@
+{
+  "name": "com.basis.capture",
+  "version": "0.1.0",
+  "displayName": "Basis Scene Capture",
+  "description": "Records everything needed to rebuild a Basis scene in Blender: every avatar's bones, blend shapes, eyes and jiggle each frame, the world and props with geometry, materials and textures, lights, cameras and microphone audio. Server admins can collect each player's own full-fidelity local capture of the same take and splice it in. Includes a Blender 4.2+ importer in Blender~/basis_capture.",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
+  "license": "MIT",
+  "vpmDependencies": {
+    "com.basis.framework": "0.0.1",
+    "com.basis.sdk": "0.0.1",
+    "com.basis.settings": "0.0.1",
+    "com.basis.common": "0.0.1",
+    "com.basis.eventdriver": "0.0.1",
+    "com.basis.server": "1.0.0",
+    "com.gator-dragon-games.jigglephysics": "16.0.1"
+  },
+  "dependencies": {
+    "com.unity.burst": "2.0.0",
+    "com.unity.collections": "6.7.0",
+    "com.unity.mathematics": "1.4.0"
+  },
+  "basisServer": {
+    "modules": [
+      { "path": "Runtime/Protocol", "assembly": "BasisNetworkCore" },
+      { "path": "Runtime/Server", "assembly": "BasisNetworkServer" }
+    ]
+  }
+}

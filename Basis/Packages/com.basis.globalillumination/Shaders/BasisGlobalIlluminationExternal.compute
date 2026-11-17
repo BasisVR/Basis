@@ -42,6 +42,7 @@ uint4 _Size;
 uint4 _Flags;
 uint4 _Layout0;
 uint4 _Layout1;
+uint4 _Layout2;
 uint4 _Job;
 float4 _Jitter;
 float4 _PreviousCameraPosition[2];
@@ -235,7 +236,10 @@ void PackVertices(uint3 id : SV_DispatchThreadID)
     uint uv0Format = _Layout1.w & 0xff, uv1Format = (_Layout1.w >> 8) & 0xff;
     float2 uv0 = uv0Format != 0 ? float2(ReadComponent(_Stream1, base1 + _Layout1.y, uv0Format, 0), ReadComponent(_Stream1, base1 + _Layout1.y, uv0Format, 1)) : 0.0;
     float2 uv1 = uv1Format != 0 ? float2(ReadComponent(_Stream1, base1 + _Layout1.z, uv1Format, 0), ReadComponent(_Stream1, base1 + _Layout1.z, uv1Format, 1)) : uv0;
-    StoreUpload(texel + 1, uint4(PackHalf2(uv0), PackHalf2(uv1), 0, 0));
+    uint uv2Format = (_Layout1.w >> 16) & 0xff, uv3Format = (_Layout1.w >> 24) & 0xff;
+    float2 uv2 = uv2Format != 0 ? float2(ReadComponent(_Stream1, base1 + _Layout2.x, uv2Format, 0), ReadComponent(_Stream1, base1 + _Layout2.x, uv2Format, 1)) : 0.0;
+    float2 uv3 = uv3Format != 0 ? float2(ReadComponent(_Stream1, base1 + _Layout2.y, uv3Format, 0), ReadComponent(_Stream1, base1 + _Layout2.y, uv3Format, 1)) : 0.0;
+    StoreUpload(texel + 1, uint4(PackHalf2(uv0), PackHalf2(uv1), PackHalf2(uv2), PackHalf2(uv3)));
 }
 
 [numthreads(64, 1, 1)]

@@ -41,6 +41,7 @@ pub struct Gpu {
     pub timeline_value: u64,
     pub pools: Vec<Pool>,
     pub command_pool: vk::CommandPool,
+    pub budget: bool,
 }
 
 fn has(extensions: &[vk::ExtensionProperties], name: &CStr) -> bool { extensions.iter().any(|e| e.extension_name_as_c_str().is_ok_and(|n| n == name)) }
@@ -56,6 +57,7 @@ impl Gpu {
             let mut required: Vec<&CStr> = vec![ash::khr::acceleration_structure::NAME, ash::khr::ray_tracing_pipeline::NAME, ash::khr::ray_query::NAME, ash::khr::deferred_host_operations::NAME, ash::ext::mutable_descriptor_type::NAME];
             if cfg!(windows) { required.extend([ash::khr::external_memory_win32::NAME, ash::khr::external_semaphore_win32::NAME]); } else { required.extend([ash::khr::external_memory_fd::NAME, ash::khr::external_semaphore_fd::NAME]); }
             let mut chosen = None;
+            let mut budget = false;
             let mut fallback = None;
             let mut fallback_discrete = false;
             let mut reason = String::from("no Vulkan device was found");
@@ -72,17 +74,20 @@ impl Gpu {
                 }
                 let device_luid = if id.device_luid_valid == vk::TRUE { Some(id.device_luid) } else { None };
                 let matched = if uuid != [0; 16] { id.device_uuid == uuid } else if luid != [0; 8] { device_luid == Some(luid) } else { false };
-                if matched { chosen = Some((physical, device_luid)); break; }
-                if fallback.is_none() || (!fallback_discrete && props.device_type == vk::PhysicalDeviceType::DISCRETE_GPU) { fallback = Some((physical, device_luid)); fallback_discrete = props.device_type == vk::PhysicalDeviceType::DISCRETE_GPU; }
+                let with_budget = has(&extensions, ash::ext::memory_budget::NAME);
+                if matched { chosen = Some((physical, device_luid, with_budget)); break; }
+                if fallback.is_none() || (!fallback_discrete && props.device_type == vk::PhysicalDeviceType::DISCRETE_GPU) { fallback = Some((physical, device_luid, with_budget)); fallback_discrete = props.device_type == vk::PhysicalDeviceType::DISCRETE_GPU; }
             }
             if chosen.is_none() && uuid == [0; 16] && luid == [0; 8] { chosen = fallback; }
-            let Some((physical, device_luid)) = chosen else {
+            let Some((physical, device_luid, with_budget)) = chosen else {
                 return Err(if fallback.is_some() { "the GPU Unity renders on does not support Vulkan ray tracing".into() } else { reason });
             };
+            budget |= with_budget;
             let family = instance.get_physical_device_queue_family_properties(physical).iter().position(|q| q.queue_flags.contains(vk::QueueFlags::GRAPHICS | vk::QueueFlags::COMPUTE) && q.timestamp_valid_bits > 0).ok_or("no graphics queue with timestamps")? as u32;
             let priorities = [1.0f32];
             let queues = [vk::DeviceQueueCreateInfo::default().queue_family_index(family).queue_priorities(&priorities)];
-            let names: Vec<*const c_char> = required.iter().map(|n| n.as_ptr()).collect();
+            let mut names: Vec<*const c_char> = required.iter().map(|n| n.as_ptr()).collect();
+            if budget { names.push(ash::ext::memory_budget::NAME.as_ptr()); }
             let mut f12 = vk::PhysicalDeviceVulkan12Features::default().timeline_semaphore(true).buffer_device_address(true).descriptor_indexing(true).runtime_descriptor_array(true)
                 .descriptor_binding_partially_bound(true).descriptor_binding_update_unused_while_pending(true).descriptor_binding_storage_buffer_update_after_bind(true).descriptor_binding_sampled_image_update_after_bind(true)
                 .descriptor_binding_storage_image_update_after_bind(true).shader_sampled_image_array_non_uniform_indexing(true).shader_storage_buffer_array_non_uniform_indexing(true).shader_storage_image_array_non_uniform_indexing(true)
@@ -124,9 +129,25 @@ impl Gpu {
                 scratch_alignment: (as_props.min_acceleration_structure_scratch_offset_alignment as u64).max(256),
                 timestamp_period: limits.timestamp_period,
                 luid: device_luid,
-                _entry: entry, instance, physical, device, queue, family, timeline, timeline_value: 0, pools: Vec::new(), command_pool,
+                _entry: entry, instance, physical, device, queue, family, timeline, timeline_value: 0, pools: Vec::new(), command_pool, budget,
             })
         }
+    }
+
+    pub fn lost(&self) -> bool { unsafe { self.device.get_semaphore_counter_value(self.timeline) == Err(vk::Result::ERROR_DEVICE_LOST) } }
+
+    pub fn video_memory(&self) -> Option<(u64, u64)> {
+        if !self.budget { return None; }
+        let mut b = vk::PhysicalDeviceMemoryBudgetPropertiesEXT::default();
+        {
+            let mut p = vk::PhysicalDeviceMemoryProperties2::default().push_next(&mut b);
+            unsafe { self.instance.get_physical_device_memory_properties2(self.physical, &mut p); }
+        }
+        let (mut budget, mut used) = (0u64, 0u64);
+        for i in 0..(self.memory_properties.memory_heap_count as usize).min(vk::MAX_MEMORY_HEAPS) {
+            if self.memory_properties.memory_heaps[i].flags.contains(vk::MemoryHeapFlags::DEVICE_LOCAL) { budget += b.heap_budget[i]; used += b.heap_usage[i]; }
+        }
+        if budget == 0 { None } else { Some((crate::test_budget().unwrap_or(budget), used)) }
     }
 
     pub fn memory_type(&self, bits: u32, flags: vk::MemoryPropertyFlags) -> Fallible<u32> {
@@ -174,12 +195,14 @@ impl Gpu {
             let buffer = self.device.create_buffer(&vk::BufferCreateInfo::default().size(size.max(256)).usage(usage), None).map_err(err("create buffer"))?;
             let requirements = self.device.get_buffer_memory_requirements(buffer);
             let host = flags.contains(vk::MemoryPropertyFlags::HOST_VISIBLE);
-            let allocation = if host {
-                let memory_type = self.memory_type(requirements.memory_type_bits, flags)?;
-                Allocation { memory: self.raw_allocate(requirements.size, memory_type)?, offset: 0, size: requirements.size, block: 0, pool: usize::MAX, dedicated: true }
-            } else { self.allocate(requirements, flags, false)? };
-            self.device.bind_buffer_memory(buffer, allocation.memory, allocation.offset).map_err(err("bind buffer"))?;
-            let mapped = if host { self.device.map_memory(allocation.memory, 0, vk::WHOLE_SIZE, vk::MemoryMapFlags::empty()).map_err(err("map buffer"))? as *mut u8 } else { std::ptr::null_mut() };
+            let allocated = if host {
+                self.memory_type(requirements.memory_type_bits, flags).and_then(|t| self.raw_allocate(requirements.size, t)).map(|memory| Allocation { memory, offset: 0, size: requirements.size, block: 0, pool: usize::MAX, dedicated: true })
+            } else { self.allocate(requirements, flags, false) };
+            let allocation = match allocated { Ok(a) => a, Err(e) => { self.device.destroy_buffer(buffer, None); return Err(e); } };
+            if let Err(e) = self.device.bind_buffer_memory(buffer, allocation.memory, allocation.offset) { self.device.destroy_buffer(buffer, None); self.free(allocation); return Err(format!("bind buffer: {e}")); }
+            let mapped = if host {
+                match self.device.map_memory(allocation.memory, 0, vk::WHOLE_SIZE, vk::MemoryMapFlags::empty()) { Ok(p) => p as *mut u8, Err(e) => { self.device.destroy_buffer(buffer, None); self.free(allocation); return Err(format!("map buffer: {e}")); } }
+            } else { std::ptr::null_mut() };
             let address = self.device.get_buffer_device_address(&vk::BufferDeviceAddressInfo::default().buffer(buffer));
             Ok(Buffer { buffer, allocation, address, size: size.max(256), mapped })
         }
@@ -194,8 +217,8 @@ impl Gpu {
         unsafe {
             let image = self.device.create_image(info, None).map_err(err("create image"))?;
             let requirements = self.device.get_image_memory_requirements(image);
-            let allocation = self.allocate(requirements, vk::MemoryPropertyFlags::DEVICE_LOCAL, true)?;
-            self.device.bind_image_memory(image, allocation.memory, allocation.offset).map_err(err("bind image"))?;
+            let allocation = match self.allocate(requirements, vk::MemoryPropertyFlags::DEVICE_LOCAL, true) { Ok(a) => a, Err(e) => { self.device.destroy_image(image, None); return Err(e); } };
+            if let Err(e) = self.device.bind_image_memory(image, allocation.memory, allocation.offset) { self.device.destroy_image(image, None); self.free(allocation); return Err(format!("bind image: {e}")); }
             Ok((image, allocation))
         }
     }
@@ -235,10 +258,10 @@ impl Gpu {
         if value == 0 || self.completed() >= value { return Ok(()); }
         let semaphores = [self.timeline];
         let values = [value];
-        unsafe { self.device.wait_semaphores(&vk::SemaphoreWaitInfo::default().semaphores(&semaphores).values(&values), u64::MAX).map_err(err("wait for GPU")) }
+        unsafe { self.device.wait_semaphores(&vk::SemaphoreWaitInfo::default().semaphores(&semaphores).values(&values), 20_000_000_000).map_err(err("wait for GPU")) }
     }
 
-    pub fn flush(&self) -> Fallible<()> { unsafe { self.device.queue_wait_idle(self.queue).map_err(err("wait for queue")) } }
+    pub fn flush(&self) -> Fallible<()> { self.wait(self.timeline_value) }
 }
 
 pub fn take(free: &mut Vec<(u64, u64)>, size: u64, align: u64) -> Option<u64> {

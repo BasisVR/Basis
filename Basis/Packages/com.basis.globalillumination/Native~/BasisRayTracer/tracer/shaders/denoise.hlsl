@@ -69,7 +69,7 @@ void Temporal(uint3 id : SV_DispatchThreadID)
     if (s.valid)
     {
         RWByteAddressBuffer reservoirs = ResourceDescriptorHeap[frame.contextBase + DENOISE_RESERVOIR_SCRATCH];
-        uint packed = reservoirs.Load((pixel.y * frame.width * frame.viewCount + pixel.x) * 64u + 44u);
+        uint packed = reservoirs.Load((pixel.y * frame.width * frame.viewCount + pixel.x) * 48u + 44u);
         float3 shading = UnpackNormal(packed);
         if (packed != 0u && dot(shading, s.normal) > 0.2) { s.normal = shading; }
     }

@@ -35,6 +35,16 @@
         "com.unity.ugui": "2.7.0"
       }
     },
+    "com.basis.capture": {
+      "version": "file:com.basis.capture",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.unity.burst": "2.0.0",
+        "com.unity.collections": "6.7.0",
+        "com.unity.mathematics": "1.4.0"
+      }
+    },
     "com.basis.common": {
       "version": "file:com.basis.common",
       "depth": 0,

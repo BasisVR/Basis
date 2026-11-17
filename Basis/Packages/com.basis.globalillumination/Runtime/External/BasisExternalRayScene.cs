@@ -22,7 +22,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         public Texture source;
         public RenderTexture scratch;
         public uint first, count, texel, width, height, row, hdr;
-        public Vector4Int layout0, layout1;
+        public Vector4Int layout0, layout1, layout2;
     }
 
     public struct Vector4Int { public int x, y, z, w; public Vector4Int(int x, int y, int z, int w) { this.x = x; this.y = y; this.z = z; this.w = w; } }
@@ -140,6 +140,9 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
     }
     private static readonly int idEmissionBaseColorAsMap = Shader.PropertyToID("_EmissionBaseColorAsMap"), idEmissionMainStrength = Shader.PropertyToID("_EmissionMainStrength");
     private static readonly int idCull = Shader.PropertyToID("_Cull");
+    private static readonly int idTileDiscardEnable = Shader.PropertyToID("_EnableUDIMDiscardOptions"), idTileDiscardCompile = Shader.PropertyToID("_UDIMDiscardCompile"), idTileDiscardUV = Shader.PropertyToID("_UDIMDiscardUV");
+    private static readonly int[] idTileDiscardRows = { Shader.PropertyToID("_UDIMDiscardRow0_0"), Shader.PropertyToID("_UDIMDiscardRow0_1"), Shader.PropertyToID("_UDIMDiscardRow0_2"), Shader.PropertyToID("_UDIMDiscardRow0_3"), Shader.PropertyToID("_UDIMDiscardRow1_0"), Shader.PropertyToID("_UDIMDiscardRow1_1"), Shader.PropertyToID("_UDIMDiscardRow1_2"), Shader.PropertyToID("_UDIMDiscardRow1_3"), Shader.PropertyToID("_UDIMDiscardRow2_0"), Shader.PropertyToID("_UDIMDiscardRow2_1"), Shader.PropertyToID("_UDIMDiscardRow2_2"), Shader.PropertyToID("_UDIMDiscardRow2_3"), Shader.PropertyToID("_UDIMDiscardRow3_0"), Shader.PropertyToID("_UDIMDiscardRow3_1"), Shader.PropertyToID("_UDIMDiscardRow3_2"), Shader.PropertyToID("_UDIMDiscardRow3_3") };
+    private static readonly int idAlphaMod = Shader.PropertyToID("_AlphaMod"), idAlphaForceOpaque = Shader.PropertyToID("_AlphaForceOpaque");
     private static readonly int idMetallic = Shader.PropertyToID("_Metallic"), idSmoothness = Shader.PropertyToID("_Smoothness"), idGlossiness = Shader.PropertyToID("_Glossiness");
     private static readonly Vector3[] ambientDirections = { Vector3.right, Vector3.left, Vector3.up, Vector3.down, Vector3.forward, Vector3.back };
     private readonly Color[] ambientResults = new Color[6];
@@ -335,7 +338,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
             for (int i = 0; i < r.submeshFlags.Length; i++) { Push(BasisExternalRayTracer.OpMeshSubmesh, r.id, (uint)r.submeshStarts[i], (uint)r.submeshCounts[i], r.submeshFlags[i]); }
             r.defined = true;
         }
-        if (!TryLayout(mesh, out Vector4Int layout0, out Vector4Int layout1, out int stream0, out int stream1)) { return false; }
+        if (!TryLayout(mesh, out Vector4Int layout0, out Vector4Int layout1, out Vector4Int layout2, out int stream0, out int stream1)) { return false; }
         while (r.uploadedVertices < r.vertexCount)
         {
             uint want = (uint)Mathf.Min(r.vertexCount - r.uploadedVertices, 65536);
@@ -346,7 +349,7 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
             GraphicsBuffer s1 = stream1 == stream0 ? s0 : mesh.GetVertexBuffer(stream1);
             disposeNow.Add(s0);
             if (s1 != s0) { disposeNow.Add(s1); }
-            Jobs.Add(new Job { kind = JobKind.Vertices, stream0 = s0, stream1 = s1, first = (uint)r.uploadedVertices, count = count, texel = at, layout0 = layout0, layout1 = layout1 });
+            Jobs.Add(new Job { kind = JobKind.Vertices, stream0 = s0, stream1 = s1, first = (uint)r.uploadedVertices, count = count, texel = at, layout0 = layout0, layout1 = layout1, layout2 = layout2 });
             Push(BasisExternalRayTracer.OpMeshVertices, r.id, (uint)r.uploadedVertices, count, at);
             r.uploadedVertices += (int)count;
         }
@@ -373,10 +376,11 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
         return true;
     }
 
-    private static bool TryLayout(Mesh mesh, out Vector4Int layout0, out Vector4Int layout1, out int stream0, out int stream1)
+    private static bool TryLayout(Mesh mesh, out Vector4Int layout0, out Vector4Int layout1, out Vector4Int layout2, out int stream0, out int stream1)
     {
         layout0 = default;
         layout1 = default;
+        layout2 = default;
         stream0 = mesh.GetVertexAttributeStream(VertexAttribute.Position);
         stream1 = stream0;
         if (stream0 < 0) { return false; }
@@ -400,7 +404,20 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
                 uv1 = FormatCode(mesh.GetVertexAttributeFormat(VertexAttribute.TexCoord1));
                 uv1Offset = mesh.GetVertexAttributeOffset(VertexAttribute.TexCoord1);
             }
-            layout1 = new Vector4Int(mesh.GetVertexBufferStride(stream1), mesh.GetVertexAttributeOffset(VertexAttribute.TexCoord0), uv1Offset, (int)(uv0 | (uv1 << 8)));
+            uint uv2 = 0, uv3 = 0;
+            int uv2Offset = 0, uv3Offset = 0;
+            if (mesh.HasVertexAttribute(VertexAttribute.TexCoord2) && mesh.GetVertexAttributeStream(VertexAttribute.TexCoord2) == stream1)
+            {
+                uv2 = FormatCode(mesh.GetVertexAttributeFormat(VertexAttribute.TexCoord2));
+                uv2Offset = mesh.GetVertexAttributeOffset(VertexAttribute.TexCoord2);
+            }
+            if (mesh.HasVertexAttribute(VertexAttribute.TexCoord3) && mesh.GetVertexAttributeStream(VertexAttribute.TexCoord3) == stream1)
+            {
+                uv3 = FormatCode(mesh.GetVertexAttributeFormat(VertexAttribute.TexCoord3));
+                uv3Offset = mesh.GetVertexAttributeOffset(VertexAttribute.TexCoord3);
+            }
+            layout1 = new Vector4Int(mesh.GetVertexBufferStride(stream1), mesh.GetVertexAttributeOffset(VertexAttribute.TexCoord0), uv1Offset, unchecked((int)(uv0 | (uv1 << 8) | (uv2 << 16) | (uv3 << 24))));
+            layout2 = new Vector4Int(uv2Offset, uv3Offset, 0, 0);
         }
         else
         {
@@ -594,6 +611,28 @@ public unsafe sealed class BasisExternalRayScene : IDisposable
             if (BasisGlobalIlluminationMaterialAlpha.LightPassesThrough(m, hasBlock ? block : null)) { result.cutoff = 2f; }
         }
         else if (kind == BasisGlobalIlluminationAlphaKind.Cutout) { result.alphaMode = BasisExternalRayTracer.AlphaCutout; submeshFlags = BasisExternalRayTracer.SubmeshAlphaTest; }
+        if (result.alphaMode != BasisExternalRayTracer.AlphaOpaque && Has(m, idAlphaForceOpaque) && ReadFloat(m, hasBlock, idAlphaForceOpaque, 0f) > 0.5f)
+        {
+            result.alphaMode = BasisExternalRayTracer.AlphaOpaque;
+            submeshFlags = BasisExternalRayTracer.SubmeshOpaque;
+        }
+        else if (result.alphaMode != BasisExternalRayTracer.AlphaOpaque && result.cutoff <= 1f && Has(m, idAlphaMod))
+        {
+            float shifted = result.cutoff - ReadFloat(m, hasBlock, idAlphaMod, 0f);
+            result.cutoff = shifted > 1f ? 2f : Mathf.Max(shifted, 0f);
+        }
+        if (Has(m, idTileDiscardRows[0]) && (ReadFloat(m, hasBlock, idTileDiscardEnable, 0f) > 0.5f || ReadFloat(m, hasBlock, idTileDiscardCompile, 0f) > 0.5f))
+        {
+            uint tiles = 0;
+            for (int t = 0; t < 16; t++) { if (ReadFloat(m, hasBlock, idTileDiscardRows[t], 0f) > 0.5f) { tiles |= 1u << t; } }
+            if (tiles != 0)
+            {
+                uint channel = (uint)Mathf.Clamp(Mathf.RoundToInt(ReadFloat(m, hasBlock, idTileDiscardUV, 0f)), 0, 3);
+                result.emissionTexture = unchecked((int)(((uint)result.emissionTexture & 0xffffu) | (tiles << 16)));
+                result.flags |= BasisExternalRayTracer.MaterialTileDiscard | (channel << BasisExternalRayTracer.MaterialTileChannelShift);
+                if ((submeshFlags & BasisExternalRayTracer.SubmeshOpaque) != 0) { submeshFlags = BasisExternalRayTracer.SubmeshAlphaTest; }
+            }
+        }
         result.alphaMode |= secondary;
         result.metallic = ReadFloat(m, hasBlock, idMetallic, 0f);
         if (avatar) { result.flags |= BasisExternalRayTracer.MaterialAnimated; }

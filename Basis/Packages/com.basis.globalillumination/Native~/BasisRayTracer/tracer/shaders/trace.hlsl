@@ -17,21 +17,15 @@ struct Hit
     bool front;
 };
 
-Instance LoadInstance(uint index) { StructuredBuffer<Instance> b = ResourceDescriptorHeap[HEAP_INSTANCES + frame.slot]; return b[index]; }
-Material LoadMaterial(uint index) { StructuredBuffer<Material> b = ResourceDescriptorHeap[HEAP_MATERIALS + frame.slot]; return b[index]; }
-Light LoadLight(uint index) { StructuredBuffer<Light> b = ResourceDescriptorHeap[HEAP_LIGHTS + frame.slot]; return b[index]; }
-Mesh LoadMesh(uint index) { StructuredBuffer<Mesh> b = ResourceDescriptorHeap[HEAP_MESHES]; return b[index]; }
-Submesh LoadSubmesh(uint index) { StructuredBuffer<Submesh> b = ResourceDescriptorHeap[HEAP_SUBMESHES]; return b[index]; }
+#include "material.hlsli"
 
-void LoadTriangle(Instance instance, uint geometry, uint primitive, out uint3 vertexIndex, out Mesh mesh)
+bool TileDiscarded(Instance instance, Material material, uint geometry, uint primitive)
 {
-    mesh = LoadMesh(instance.mesh);
-    Submesh submesh = LoadSubmesh(mesh.submeshOffset + geometry);
-    ByteAddressBuffer indices = ResourceDescriptorHeap[HEAP_INDICES];
-    vertexIndex = indices.Load3((mesh.indexOffset + submesh.indexStart + primitive * 3) * 4) + mesh.vertexOffset;
+    if ((material.flags & MATERIAL_TILE_DISCARD) == 0u) { return false; }
+    uint3 vi; Mesh mesh;
+    LoadTriangle(instance, geometry, primitive, vi, mesh);
+    return TileDiscarded(material, vi);
 }
-
-float2 LoadUv0(uint v) { ByteAddressBuffer b = ResourceDescriptorHeap[HEAP_VERTICES]; uint p = b.Load(v * 32 + 16); return f16tof32(uint2(p, p >> 16)); }
 
 float AlphaAtUv(Material material, float2 uv)
 {
@@ -57,7 +51,7 @@ float AlphaAt(Instance instance, uint geometry, uint primitive, float2 barycentr
 float AlphaCoverage(Material material, float2 uv)
 {
     uint mode = material.alphaMode & 3u;
-    if (mode == ALPHA_OPAQUE) { return 1.0; }
+    if (mode == ALPHA_OPAQUE || (material.flags & MATERIAL_KNOWN_OPAQUE) != 0u) { return 1.0; }
     float alpha = AlphaAtUv(material, uv);
     if (material.cutoff <= 1.0 && alpha < material.cutoff) { return 0.0; }
     return mode == ALPHA_CUTOUT ? 1.0 : saturate(alpha);
@@ -66,7 +60,9 @@ float AlphaCoverage(Material material, float2 uv)
 bool AlphaAccept(uint instanceIndex, uint geometry, uint primitive, float2 barycentrics, float t)
 {
     Instance instance = LoadInstance(instanceIndex);
-    if ((LoadMaterial(instance.materialBase + geometry).alphaMode & 3u) == ALPHA_OPAQUE) { return true; }
+    Material known = LoadMaterial(instance.materialBase + geometry);
+    if (TileDiscarded(instance, known, geometry, primitive)) { return false; }
+    if ((known.alphaMode & 3u) == ALPHA_OPAQUE || (known.flags & MATERIAL_KNOWN_OPAQUE) != 0u) { return true; }
     Material material;
     float alpha = AlphaAt(instance, geometry, primitive, barycentrics, material);
     if (alpha < material.cutoff) { return false; }
@@ -166,42 +162,6 @@ Hit ResolveHit(HitObj hitObject, float coneSpread)
     if (dot(hit.geometricNormal, direction) > 0.0) { hit.geometricNormal = -hit.geometricNormal; }
     if (dot(hit.normal, hit.geometricNormal) < 0.0) { hit.normal = reflect(hit.normal, hit.geometricNormal); }
     return hit;
-}
-
-float4 SampleTexture(int index, float2 uv, float4 st, float lod, float size)
-{
-    if (index < 0) { return 1.0; }
-    Texture2D<float4> t = ResourceDescriptorHeap[HEAP_TEXTURES + index];
-    return t.SampleLevel(linearWrap, uv * st.xy + st.zw, max(0.0, lod + log2(size)));
-}
-
-float EmissionMask(Material material, float2 uv, float lod, float size)
-{
-    uint packed = asuint(material.emission.w);
-    if ((packed & 0x40000000u) == 0u) { return 1.0; }
-    float v = SampleTexture(int((packed >> 8) & 0xfffu), uv, material.emissionST, lod, size)[packed & 3u];
-    return (packed & 4u) != 0u ? saturate(1.0 - v) : v;
-}
-
-float3 MaterialEmission(Material material, float2 uv, float lod, float size, float3 tint)
-{
-    float3 emission = material.emission.rgb;
-    if (any(emission > 0.0))
-    {
-        if (material.emissionTexture >= 0) { emission *= SampleTexture(material.emissionTexture, uv, material.emissionST, lod, size).rgb; }
-        emission *= EmissionMask(material, uv, lod, size) * lerp(1.0, saturate(tint), material.emissionBase);
-    }
-    if (material.emission2 != 0u)
-    {
-        uint bits = material.alphaMode;
-        float3 second = UnpackRGB9E5(material.emission2);
-        int map = int((bits >> 2) & 0x1fffu) - 1, mask = int((bits >> 16) & 0x1fffu) - 1;
-        if (map >= 0) { second *= SampleTexture(map, uv, float4(1, 1, 0, 0), lod, size).rgb; }
-        if (mask >= 0) { float v = SampleTexture(mask, uv, float4(1, 1, 0, 0), lod, size)[(bits >> 29) & 3u]; second *= (bits >> 31) != 0u ? saturate(1.0 - v) : v; }
-        if ((bits & 0x8000u) != 0u) { second *= saturate(tint); }
-        emission += second;
-    }
-    return emission;
 }
 
 bool Occluded(RaytracingAccelerationStructure tlas, float3 origin, float3 direction, float distance)
@@ -338,14 +298,16 @@ struct LightCandidate
     float pdf, scatterPdf;
     bool shadow, emitter;
     uint4 id;
+    float3 spot, facing;
+    bool twoSided;
 };
 
 #define CTX_RESERVOIRS 14
-#define RESERVOIR_STRIDE 32u
+#define RESERVOIR_STRIDE 24u
 #define RESERVOIR_INITIAL 4u
 #define RESERVOIR_HISTORY 4.0
 #define CTX_RESERVOIR_SCRATCH 16
-#define RESERVOIR_SCRATCH_STRIDE 64u
+#define RESERVOIR_SCRATCH_STRIDE 48u
 #define SPATIAL_NEIGHBOURS 2u
 #define SPATIAL_RADIUS 16.0
 #ifndef EMITTER_CONTACT
@@ -390,9 +352,12 @@ LightCandidate EvaluateEmitterPoint(Instance instance, uint geometry, uint primi
     c.direction = d / max(c.distance, 1e-5);
     float cosReceiver = dot(normal, c.direction);
     Material material = LoadMaterial(instance.materialBase + geometry);
-    float cosLight = -dot(lightNormal, c.direction);
-    if (dot(instance.row0.xyz, cross(instance.row1.xyz, instance.row2.xyz)) < 0.0) { cosLight = -cosLight; }
-    if ((material.flags & MATERIAL_DOUBLE_SIDED) != 0u) { cosLight = abs(cosLight); }
+    if ((material.flags & MATERIAL_TILE_DISCARD) != 0u && TileDiscarded(material, vi)) { area = 0.0; return c; }
+    c.spot = lightPoint;
+    c.facing = dot(instance.row0.xyz, cross(instance.row1.xyz, instance.row2.xyz)) < 0.0 ? -lightNormal : lightNormal;
+    c.twoSided = (material.flags & MATERIAL_DOUBLE_SIDED) != 0u;
+    float cosLight = -dot(c.facing, c.direction);
+    if (c.twoSided) { cosLight = abs(cosLight); }
     if (cosReceiver <= 0.0 || cosLight <= 1e-4 || c.distance < frame.normalBias) { return c; }
     if ((part == 1 && c.distance >= nearRadius) || (part == 2 && c.distance < nearRadius)) { return c; }
     float2 uv = LoadUv0(vi.x) * w.x + LoadUv0(vi.y) * w.y + LoadUv0(vi.z) * w.z;
@@ -471,7 +436,7 @@ LightCandidate ContactCandidate(RaytracingAccelerationStructure tlas, GridCell g
     float area;
     c = EvaluateEmitterPoint(instance, geometry, h.GetPrimitiveIndex(), r1, r2, position, normal, part, nearRadius, area);
     c.id.x = instanceIndex;
-    if (area > 1e-10) { c.pdf = EmitterSelection(g, part, index) / (e.triangleCount * area); }
+    if (area > 1e-10) { c.pdf = EmitterSelection(g, part, index) * TriangleProbability(LoadTriangleCdf(LoadSubmesh(LoadMesh(instance.mesh).submeshOffset + geometry), e.triangleCount), h.GetPrimitiveIndex()) / area; }
     return c;
 }
 
@@ -521,12 +486,13 @@ LightCandidate EmitterCandidate(GridCell g, float3 position, float3 normal, inou
             if ((part == 1u && d - reach > nearRadius) || (part == 2u && d + reach < nearRadius)) { Random(rng); Random(rng); Random(rng); return c; }
         }
     }
-    uint primitive = min(uint(Random(rng) * e.triangleCount), e.triangleCount - 1);
+    float pick;
+    uint primitive = PickTriangle(LoadTriangleCdf(LoadSubmesh(LoadMesh(instance.mesh).submeshOffset + e.geometry), e.triangleCount), Random(rng), pick);
     float r1 = sqrt(Random(rng)), r2 = Random(rng);
     float area;
     c = EvaluateEmitterPoint(instance, e.geometry, primitive, r1, r2, position, normal, part, nearRadius, area);
     c.id.x = e.instance;
-    if (area > 1e-10) { c.pdf = selection / (e.triangleCount * area); }
+    if (area > 1e-10) { c.pdf = selection * pick / area; }
     return c;
 }
 
@@ -865,6 +831,16 @@ LightCandidate EvaluateStored(uint4 id, float3 position, float3 normal, float ne
     return c;
 }
 
+bool StoredReaches(LightCandidate c, float3 position, float3 normal, float nearRadius)
+{
+    float3 d = c.spot - position;
+    float distance = sqrt(dot(d, d));
+    float3 direction = d / max(distance, 1e-5);
+    float cosLight = -dot(c.facing, direction);
+    if (c.twoSided) { cosLight = abs(cosLight); }
+    return dot(normal, direction) > 0.0 && cosLight > 1e-4 && distance >= frame.normalBias && distance < NearSample(nearRadius);
+}
+
 #ifdef REFERENCE
 void ReferenceRayGen(uint mode, uint2 pixel)
 {
@@ -942,6 +918,16 @@ void RayGen()
         mode = 3u;
         index = uint2(k % 64u, k / 64u);
     }
+    bool listed = false;
+    if (mode == 5u)
+    {
+        RWByteAddressBuffer rows = ResourceDescriptorHeap[frame.contextBase + CTX_UPDATE_LIST];
+        uint row = index.y * (DispatchRaysDimensions().x + 1u);
+        if (index.x >= rows.Load(row * 4u)) { return; }
+        index.x = rows.Load((row + 1u + index.x) * 4u);
+        mode = 0u;
+        listed = true;
+    }
     Texture2D<uint4> gbuffer = ResourceDescriptorHeap[HEAP_GBUFFER + frame.gbufferIndex];
     RaytracingAccelerationStructure tlas = LOAD_TLAS();
 
@@ -1006,7 +992,7 @@ void RayGen()
         {
             [loop] for (uint k = 0; k < parts; k++)
             {
-                if (Luminance(EvaluateStored(chosen.id, partAt[k].xyz, UnpackNormal(asuint(partAt[k].w)), partRadius[k]).value) > 0.0) { z += partM[k]; }
+                if (StoredReaches(chosen, partAt[k].xyz, UnpackNormal(asuint(partAt[k].w)), partRadius[k])) { z += partM[k]; }
             }
         }
         float W = chosenTarget > 0.0 && z > 0.0 ? wsum / (z * chosenTarget) : 0.0;
@@ -1119,7 +1105,7 @@ void RayGen()
     float3 origin = surface.position + (geometric + toViewer) * bias;
     bool avatarPixel = false;
     if (mode != 0) { avatarPixel = PrimarySurface(tlas, viewer, surface, geometric); }
-    else if (!ReusePrimary(pixel, surface, geometric, origin)) { PrimarySurface(tlas, viewer, surface, geometric); }
+    else if (listed && !ReusePrimary(pixel, surface, geometric, origin)) { PrimarySurface(tlas, viewer, surface, geometric); }
 
     bool baked = (frame.flags & FLAG_BAKED_HYBRID) != 0 && surface.receive < 0.5;
     if (mode == 0)
@@ -1130,7 +1116,15 @@ void RayGen()
         for (uint v = 0; v < vertices; v++)
         {
             float levelRandom = Random(rng);
-            if (CacheSettled(position, plane, viewer, levelRandom) && (Hash(pixel.x * 31u + pixel.y * 17u + frame.frameIndex) & 15u) != 0u) { break; }
+            if (!(listed && v == 0u) && CacheSettled(position, plane, viewer, levelRandom) && (Hash(pixel.x * 31u + pixel.y * 17u + frame.frameIndex) & 15u) != 0u) { break; }
+            if (!listed)
+            {
+                RWByteAddressBuffer rows = ResourceDescriptorHeap[frame.contextBase + CTX_UPDATE_LIST];
+                uint row = index.y * (DispatchRaysDimensions().x + 1u), at;
+                rows.InterlockedAdd(row * 4u, 1u, at);
+                rows.Store((row + 1u + at) * 4u, index.x);
+                return;
+            }
             Bounce next;
             float2 rotation = v == 0 ? BlueNoise2(index, 4u, frame.frameIndex) : float2(Random(rng), Random(rng));
             SH sh = GatherSH(tlas, gbuffer, position, normal, plane, viewer, v == 0 ? max(frame.samples, 2u) : 2u, rotation, rng, next);
