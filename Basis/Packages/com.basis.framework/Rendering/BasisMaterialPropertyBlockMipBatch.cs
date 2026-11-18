@@ -12,8 +12,18 @@ namespace Basis.Scripts.Rendering
     internal sealed class BasisMaterialPropertyBlockMipBatch
     {
         internal const int Capacity = 128;
-        private const float Minimum = 0.000001f;
-        private const float BoundaryTolerance = 0.00002f;
+        internal const float MinimumMipFactor = 0.000001f;
+        // Mip levels measure linear scale, so halve the logarithm of the area ratio.
+        internal const float AreaLogToMipScale = 0.5f;
+        internal const double NaturalLogOfTwo = 0.69314718055994530942;
+        private const float MipBoundaryTolerance = 0.00002f;
+        private const float MinimumNormalFloat = 1.17549435e-38f;
+        private const int FloatMantissaBits = 23;
+        private const int FloatMantissaMask = (1 << FloatMantissaBits) - 1;
+        private const int FloatExponentMask = 0x7f800000;
+        private const int FloatOneBits = 0x3f800000;
+        private const float ExponentFieldScale = 1f / (1 << FloatMantissaBits);
+        private const float AtanhToLog2Scale = (float)(2.0 / NaturalLogOfTwo);
 
         internal struct Sample
         {
@@ -58,8 +68,8 @@ namespace Basis.Scripts.Rendering
             samples[i] = sample;
             if (burst != null) return;
             texels[i] = (float)sample.Width * sample.Height;
-            distances[i] = Mathf.Max(sample.DistanceSquared, Minimum);
-            areas[i] = Mathf.Max(sample.UvMetric * sample.ProjectionArea, Minimum);
+            distances[i] = Mathf.Max(sample.DistanceSquared, MinimumMipFactor);
+            areas[i] = Mathf.Max(sample.UvMetric * sample.ProjectionArea, MinimumMipFactor);
             biases[i] = sample.Bias;
         }
 
@@ -79,7 +89,7 @@ namespace Basis.Scripts.Rendering
             for (; start <= Count - lanes; start += lanes)
             {
                 var ratios = new FloatVector(texels, start) * new FloatVector(distances, start) / new FloatVector(areas, start);
-                var mips = new FloatVector(0.5f) * ApproximateLog2(ratios) + new FloatVector(biases, start);
+                var mips = new FloatVector(AreaLogToMipScale) * ApproximateLog2(ratios) + new FloatVector(biases, start);
                 for (int lane = 0; lane < lanes; lane++)
                 {
                     int i = start + lane;
@@ -100,10 +110,10 @@ namespace Basis.Scripts.Rendering
 
         // The streamer floors the result. Use the reference math when rounding could change the chosen mip.
         internal static bool NeedsScalar(float ratio, float mip) =>
-            !(ratio >= 1.17549435e-38f && ratio <= float.MaxValue)
+            !(ratio >= MinimumNormalFloat && ratio <= float.MaxValue)
             // Converting int.MaxValue to float rounds up, so the upper bound is exclusive.
             || !(mip >= int.MinValue && mip < (float)int.MaxValue)
-            || !(Math.Abs(mip - Math.Round(mip)) > BoundaryTolerance);
+            || !(Math.Abs(mip - Math.Round(mip)) > MipBoundaryTolerance);
 
         internal static int ClampMip(float mip, int mipCount) =>
             Math.Min(Math.Max((int)Math.Floor(mip), 0), Math.Max(0, mipCount - 1));
@@ -111,9 +121,9 @@ namespace Basis.Scripts.Rendering
         private static FloatVector ApproximateLog2(FloatVector values)
         {
             var bits = Vector.AsVectorInt32(values);
-            var exponent = Vector.ConvertToSingle((bits & new IntVector(0x7f800000)) - new IntVector(0x3f800000))
-                * new FloatVector(1f / 8388608f);
-            var mantissa = Vector.AsVectorSingle((bits & new IntVector(0x007fffff)) | new IntVector(0x3f800000));
+            var exponent = Vector.ConvertToSingle((bits & new IntVector(FloatExponentMask)) - new IntVector(FloatOneBits))
+                * new FloatVector(ExponentFieldScale);
+            var mantissa = Vector.AsVectorSingle((bits & new IntVector(FloatMantissaMask)) | new IntVector(FloatOneBits));
             var one = new FloatVector(1f);
             // Reduce log(m) to 2 * atanh((m-1)/(m+1)), where the argument is in [0, 1/3).
             var y = (mantissa - one) / (mantissa + one);
@@ -122,7 +132,7 @@ namespace Basis.Scripts.Rendering
             series = new FloatVector(1f / 7f) + y2 * series;
             series = new FloatVector(1f / 5f) + y2 * series;
             series = new FloatVector(1f / 3f) + y2 * series;
-            return exponent + new FloatVector(2.8853900818f) * y * (one + y2 * series);
+            return exponent + new FloatVector(AtanhToLog2Scale) * y * (one + y2 * series);
         }
     }
 
@@ -159,7 +169,7 @@ namespace Basis.Scripts.Rendering
         private static void Evaluate(BasisMaterialPropertyBlockMipBatch.Sample* samples, int* results, int count, int* compiled)
         {
             MarkManaged(ref *compiled);
-            const float minimum = 0.000001f;
+            const float minimum = BasisMaterialPropertyBlockMipBatch.MinimumMipFactor;
             for (int i = 0; i < count; i++)
             {
                 var sample = samples[i];
@@ -167,7 +177,8 @@ namespace Basis.Scripts.Rendering
                 float area = sample.UvMetric * sample.ProjectionArea;
                 area = area > minimum ? area : minimum;
                 float ratio = (float)sample.Width * sample.Height * distance / area;
-                float mip = 0.5f * (float)(Math.Log((double)ratio) / 0.69314718055994530942) + sample.Bias;
+                float log2AreaRatio = (float)(Math.Log((double)ratio) / BasisMaterialPropertyBlockMipBatch.NaturalLogOfTwo);
+                float mip = BasisMaterialPropertyBlockMipBatch.AreaLogToMipScale * log2AreaRatio + sample.Bias;
                 results[i] = BasisMaterialPropertyBlockMipBatch.NeedsScalar(ratio, mip)
                     ? NeedsScalarResult
                     : BasisMaterialPropertyBlockMipBatch.ClampMip(mip, sample.MipCount);

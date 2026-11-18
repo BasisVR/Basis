@@ -18,6 +18,9 @@ namespace Basis.Scripts.Rendering
         private static BasisMaterialPropertyBlockStreaming instance;
         private const float UpdateInterval = 0.1f;
         private const int RenderersPerFrame = 128;
+        private const int PrimaryUvChannel = 0;
+        private const float MinimumUvTilingArea = 0.000001f;
+        private const float MinimumFallbackUvMetric = 0.0001f;
 
         private sealed class RendererState
         {
@@ -282,7 +285,7 @@ namespace Basis.Scripts.Rendering
                         Vector4 st = block.GetVector(property.ScaleOffsetId);
                         uvScale = new Vector2(st.x, st.y);
                     }
-                    float uvArea = Mathf.Max(Mathf.Abs(uvScale.x * uvScale.y), 0.000001f);
+                    float uvArea = Mathf.Max(Mathf.Abs(uvScale.x * uvScale.y), MinimumUvTilingArea);
                     int mipCount = texture.mipmapCount;
                     int mip = mipCount - 1;
                     int width = texture.width;
@@ -365,9 +368,9 @@ namespace Basis.Scripts.Rendering
             Vector3 scale = renderer.transform.lossyScale;
             float areaScale = Mathf.Max(Mathf.Abs(scale.x * scale.y),
                 Mathf.Max(Mathf.Abs(scale.x * scale.z), Mathf.Abs(scale.y * scale.z)));
-            float metric = mesh != null ? mesh.GetUVDistributionMetric(0) * areaScale : 0f;
+            float metric = mesh != null ? mesh.GetUVDistributionMetric(PrimaryUvChannel) * areaScale : 0f;
             // Fall back to one UV tile across the bounds when the mesh has no UV metric.
-            return metric > 0f && !float.IsInfinity(metric) ? metric : Mathf.Max(bounds.size.sqrMagnitude, 0.0001f);
+            return metric > 0f && !float.IsInfinity(metric) ? metric : Mathf.Max(bounds.size.sqrMagnitude, MinimumFallbackUvMetric);
         }
 
         private static bool Sees(View view, Renderer renderer, Bounds bounds) =>
@@ -380,9 +383,10 @@ namespace Basis.Scripts.Rendering
         // projected world area, converted from an area ratio into a mip (linear) ratio.
         internal static int CalculateMip(int width, int height, float distanceSquared, float uvMetric, float projectionArea, float bias, int mipCount)
         {
-            float ratio = (float)width * height * Mathf.Max(distanceSquared, 0.000001f)
-                / Mathf.Max(uvMetric * projectionArea, 0.000001f);
-            float mip = 0.5f * Mathf.Log(ratio, 2f) + bias;
+            const float minimum = BasisMaterialPropertyBlockMipBatch.MinimumMipFactor;
+            float ratio = (float)width * height * Mathf.Max(distanceSquared, minimum)
+                / Mathf.Max(uvMetric * projectionArea, minimum);
+            float mip = BasisMaterialPropertyBlockMipBatch.AreaLogToMipScale * Mathf.Log(ratio, 2f) + bias;
             return Mathf.Clamp(Mathf.FloorToInt(mip), 0, Mathf.Max(0, mipCount - 1));
         }
 
