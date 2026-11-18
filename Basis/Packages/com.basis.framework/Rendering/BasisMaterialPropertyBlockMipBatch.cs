@@ -101,7 +101,8 @@ namespace Basis.Scripts.Rendering
         // The streamer floors the result. Use the reference math when rounding could change the chosen mip.
         internal static bool NeedsScalar(float ratio, float mip) =>
             !(ratio >= 1.17549435e-38f && ratio <= float.MaxValue)
-            || !(mip >= int.MinValue && mip < 2147483648f)
+            // Converting int.MaxValue to float rounds up, so the upper bound is exclusive.
+            || !(mip >= int.MinValue && mip < (float)int.MaxValue)
             || !(Math.Abs(mip - Math.Round(mip)) > BoundaryTolerance);
 
         internal static int ClampMip(float mip, int mipCount) =>
