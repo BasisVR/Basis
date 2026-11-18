@@ -325,6 +325,7 @@ namespace Basis.BasisUI
             _rightPressed = false;
 
             Button.Descriptor.SetTitle(GetAwaitConfirmTitle());
+            BasisHeightDriver.HoldAutoResolutionAndApply(BasisAvatarIKStageCalibration.HasFbTrackerCandidates());
             localplayer.LocalAvatarDriver.PutAvatarIntoTPose();
             BasisCalibrationLockInVisualizer.Begin();
             SubscribeToTriggers();
@@ -413,6 +414,11 @@ namespace Basis.BasisUI
             {
                 BasisLocalPlayer.Instance.LocalAvatarDriver.ResetAvatarAnimator();
                 BasisLocalPlayer.Instance.LocalRigDriver.RigLayerActive = true;
+            }
+
+            if (!_calibrated && BasisHeightDriver.ReleaseAutoResolution())
+            {
+                BasisHeightDriver.ApplyScaleAndHeight();
             }
 
             BasisUINeedsVisibleTrackers.Remove(BasisLocalPlayer.Instance);

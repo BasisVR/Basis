@@ -416,6 +416,8 @@ public static partial class BasisHeightDriver
             c.SetTposeScaled(c.TposeLocal.position * ScaleFactor, c.TposeLocal.rotation);
             c.ScaledOffset = c.Offset * ScaleFactor;
         }
+
+        player.LocalVirtualSpineDriver?.InvalidateScaleDependentState();
     }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -678,6 +680,16 @@ public static partial class BasisHeightDriver
     /// offsets are captured shifts the player sideways (KeepHeadInPlaceAcrossScale).
     /// </summary>
     public static void HoldAutoResolution(bool hasLowerBodyTrackers) => s_heldAutoLowerBody = hasLowerBodyTrackers;
+
+    public static void HoldAutoResolutionAndApply(bool hasLowerBodyTrackers)
+    {
+        BasisSelectedHeightMode before = ResolveHeightMode(SMModuleCalibration.HeightMode);
+        HoldAutoResolution(hasLowerBodyTrackers);
+        if (ResolveHeightMode(SMModuleCalibration.HeightMode) != before)
+        {
+            ApplyScaleAndHeight();
+        }
+    }
 
     /// <summary>
     /// Ends a <see cref="HoldAutoResolution"/>. Returns true when Auto now resolves differently than

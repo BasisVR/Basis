@@ -182,9 +182,6 @@ namespace Basis.Scripts.Avatar
                 // ApplyScaleAndHeight settles the body fit first (it has to: the arm-span metric divides by
                 // the FITTED span), so by here the bones already hold their final lengths and every tracker
                 // offset, hint and anchor captured below is measured against the body the avatar will keep.
-                // The hip measurement was taken at OnAvatarFBCalibration above while the previous pass's
-                // roles were still assigned, and CalculatePlayerHipHeight keeps its last value through
-                // UnassignFBTrackers.
 
                 // DeviceScale just changed, but every input's ScaledDeviceCoord (and the bone-control
                 // incoming fed from it) was produced by the poll above at the PRE-recompute scale.
@@ -242,10 +239,6 @@ namespace Basis.Scripts.Avatar
                 // master toggle is off; the toggle path rebuilds when it flips on.
                 BasisLocalPlayer.Instance.LocalBoneDriver.RebuildCalibrationSpheres();
 
-                // Re-measure now that classification has assigned the hips role. On the very first
-                // calibration there was no assigned hips tracker to measure earlier, so this is what
-                // activates the leg/spine half -- and it settles here, because the pass above will have
-                // already applied the identical fit on every later calibration.
                 BasisLocalHeightCalculator.CalculatePlayerHipHeight();
                 BasisHeightDriver.ApplyScaleAndHeight();
 
@@ -391,7 +384,9 @@ namespace Basis.Scripts.Avatar
                 }
                 float avatarScale = avatarDriver.ScaleAvatarModification != null ? avatarDriver.ScaleAvatarModification.ApplyScale : 1f;
                 if (float.IsNaN(avatarScale) || float.IsInfinity(avatarScale) || avatarScale <= 1e-6f) avatarScale = 1f;
-                headTpose = headControl.TposeLocalScaled.position;
+                headTpose = BasisLocalAvatarDriver.TposeBoneSnapshot.TryGetValue(BasisBoneTrackedRole.Head, out var headBind)
+                    ? headBind.position * avatarScale
+                    : headControl.TposeLocalScaled.position;
                 boneTpose = bind.position * avatarScale;
             }
 
@@ -423,13 +418,16 @@ namespace Basis.Scripts.Avatar
             }
             // Raw snapshot values are the fallback. When body fit is active, each tracker instead uses
             // the fitted rest skeleton so offsets follow the final arm/leg/torso lengths.
-            Vector3 headTpose = BasisLocalBoneDriver.HeadControl.TposeLocalScaled.position;
             float avatarScale = player.LocalAvatarDriver != null && player.LocalAvatarDriver.ScaleAvatarModification != null
                 ? player.LocalAvatarDriver.ScaleAvatarModification.ApplyScale : 1f;
             if (float.IsNaN(avatarScale) || float.IsInfinity(avatarScale) || avatarScale <= 1e-6f)
             {
                 avatarScale = 1f;
             }
+            Vector3 headTpose = BasisLocalAvatarDriver.HasTposeBoneSnapshot
+                && BasisLocalAvatarDriver.TposeBoneSnapshot.TryGetValue(BasisBoneTrackedRole.Head, out var headBind)
+                ? headBind.position * avatarScale
+                : BasisLocalBoneDriver.HeadControl.TposeLocalScaled.position;
 
             BasisObservableList<BasisInput> devices = BasisDeviceManagement.Instance != null ? BasisDeviceManagement.Instance.AllInputDevices : null;
             if (devices == null)
@@ -959,7 +957,7 @@ namespace Basis.Scripts.Avatar
         /// True when at least one device will compete for a body role this calibration — in practice,
         /// hips or legs end up tracked. Read before trackers are unassigned, to pin what Auto resolves to.
         /// </summary>
-        private static bool HasFbTrackerCandidates()
+        public static bool HasFbTrackerCandidates()
         {
             BasisDeviceManagement manager = BasisDeviceManagement.Instance;
             if (manager == null)

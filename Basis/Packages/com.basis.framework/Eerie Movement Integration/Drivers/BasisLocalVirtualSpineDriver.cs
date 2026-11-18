@@ -62,6 +62,10 @@ namespace Basis.IK
         }
         private void OnHeightChanged(BasisHeightDriver.HeightModeChange _)
         {
+            InvalidateScaleDependentState();
+        }
+        public void InvalidateScaleDependentState()
+        {
             lengthsDirty = true;
 
             nodPivotSampler.Reset();

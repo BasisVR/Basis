@@ -414,7 +414,7 @@ namespace Basis.Scripts.Drivers
             return true;
         }
 
-        float CurrentApplyScale()
+        public float CurrentApplyScale()
         {
             float scale = ScaleAvatarModification != null ? ScaleAvatarModification.ApplyScale : 1f;
             return float.IsNaN(scale) || float.IsInfinity(scale) || scale <= 1e-6f ? 1f : scale;
