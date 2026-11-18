@@ -413,7 +413,6 @@ namespace Basis.EventDriver
         // is already known. The cast is paid once, on rebuild.
         private static Action _afterAvatarChangesCachedDelegate;
         private static Action[] _afterAvatarChangesInvocationList = System.Array.Empty<Action>();
-        private static bool mipStreamingFailureLogged;
 
         private static void InvokeAfterAvatarChangesSafely()
         {
@@ -1066,15 +1065,7 @@ namespace Basis.EventDriver
             {
                 Basis.Scripts.Rendering.BasisVisibilitySystem.CompleteAndApply();
             }
-            try
-            {
-                Basis.Scripts.Rendering.BasisMaterialPropertyBlockStreaming.Tick();
-            }
-            catch (Exception ex)
-            {
-                if (!mipStreamingFailureLogged)
-                    BasisDebug.LogErrorOnce(ref mipStreamingFailureLogged, $"Mip streaming tick failed: {ex}", BasisDebug.LogTag.Event);
-            }
+            Basis.Scripts.Rendering.BasisMaterialPropertyBlockStreaming.Tick();
             Basis.Scripts.Contacts.BasisContactSystem.CompleteTransformRead();
 
             // One-shot NaN hunter for the Invalid AABB / IsFinite(distanceForSort) spam: names

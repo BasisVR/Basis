@@ -107,6 +107,7 @@ namespace Basis.Scripts.Rendering
         private int textureCapacity = InitialTextureCapacity;
         private bool growTextureBuffers;
         private bool incompleteScan;
+        private bool tickFailureLogged;
         private int scanIndex;
         private int scanCount;
         private bool scanning;
@@ -239,10 +240,19 @@ namespace Basis.Scripts.Rendering
 
         public static void Tick()
         {
-            if (instance != null)
+            var service = instance;
+            if (service == null) return;
+
+            // Contain streaming errors here so the event driver can finish the frame.
+            try
             {
-                instance.ProcessFrame(Time.unscaledTime,
-                    instance.isActiveAndEnabled && QualitySettings.streamingMipmapsActive);
+                service.ProcessFrame(Time.unscaledTime,
+                    service.isActiveAndEnabled && QualitySettings.streamingMipmapsActive);
+            }
+            catch (Exception ex)
+            {
+                if (!service.tickFailureLogged)
+                    BasisDebug.LogErrorOnce(ref service.tickFailureLogged, $"Mip streaming tick failed: {ex}", BasisDebug.LogTag.Event);
             }
         }
 
