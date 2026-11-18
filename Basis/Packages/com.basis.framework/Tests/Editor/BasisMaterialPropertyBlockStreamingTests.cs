@@ -40,10 +40,13 @@ public class BasisMaterialPropertyBlockStreamingTests
         }
     }
 
-    [Test]
-    public void RegisteredMirrorUpgradesSharedTextureBeforeSweepFinishes()
+    [TestCase(0)]
+    [TestCase(1)]
+    [TestCase(2)]
+    public void RegisteredMirrorUpgradesSharedTextureBeforeSweepFinishes(int mathPath)
     {
         if (!SystemInfo.supportsMipStreaming) Assert.Ignore("Requires Unity mip streaming support.");
+        var batch = mathPath == 0 ? null : CreateBatch(mathPath == 2);
 
         string path = AssetDatabase.GenerateUniqueAssetPath("Assets/BasisStreamingTest.png");
         int previousBudget = QualitySettings.streamingMipmapsRenderersPerFrame;
@@ -95,6 +98,7 @@ public class BasisMaterialPropertyBlockStreamingTests
             var near = CreateQuad(root.transform, material, block, -0.5f);
             var pending = CreateQuad(root.transform, material, null, 5f);
             var service = root.AddComponent<BasisMaterialPropertyBlockStreaming>();
+            service.MipBatch = batch;
             service.TrackRenderers(new[] { far, near, pending });
             service.ProcessFrame(1f, true);
             Assert.That(texture.requestedMipmapLevel, Is.GreaterThan(0), "The disabled, registered camera sees the distant override.");
@@ -136,6 +140,74 @@ public class BasisMaterialPropertyBlockStreamingTests
             QualitySettings.streamingMipmapsActive = previousStreaming;
             QualitySettings.streamingMipmapsMaxLevelReduction = previousReduction;
         }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void BatchedMipMathMatchesScalarAtRoundingBoundaries(bool useBurst)
+    {
+        var batch = CreateBatch(useBurst);
+        var expected = new int[BasisMaterialPropertyBlockMipBatch.Capacity];
+        var biases = new[] { -1.5f, -0.25f, 0f, 0.25f, 0.5f, 0.731f, 2f };
+        foreach (float bias in biases)
+        {
+            for (int mip = 0; mip < 14; mip++)
+            {
+                int bits = System.BitConverter.SingleToInt32Bits((float)System.Math.Pow(2, 2 * (mip - (double)bias)));
+                for (int offset = -8; offset <= 8; offset++)
+                {
+                    AddSample(new BasisMaterialPropertyBlockMipBatch.Sample
+                    {
+                        Width = 1, Height = 1, MipCount = 15,
+                        DistanceSquared = System.BitConverter.Int32BitsToSingle(bits + offset),
+                        UvMetric = 1f, ProjectionArea = 1f, Bias = bias,
+                    });
+                }
+            }
+        }
+        var random = new System.Random(71);
+        for (int i = 0; i < 4099; i++)
+        {
+            AddSample(new BasisMaterialPropertyBlockMipBatch.Sample
+            {
+                Width = 1 << random.Next(5, 14), Height = 1 << random.Next(5, 14), MipCount = random.Next(1, 15),
+                DistanceSquared = (float)System.Math.Pow(2, random.NextDouble() * 30 - 18),
+                UvMetric = (float)System.Math.Pow(2, random.NextDouble() * 16 - 8),
+                ProjectionArea = (float)System.Math.Pow(2, random.NextDouble() * 24),
+                Bias = (float)(random.NextDouble() * 8 - 4),
+            });
+        }
+        foreach (float area in new[] { 0f, float.Epsilon, float.MaxValue, float.PositiveInfinity, float.NaN })
+        {
+            AddSample(new BasisMaterialPropertyBlockMipBatch.Sample
+            {
+                Width = 512, Height = 1024, MipCount = 11,
+                DistanceSquared = 1f, UvMetric = 1f, ProjectionArea = area, Bias = 2f,
+            });
+        }
+        CheckBatch();
+
+        void AddSample(BasisMaterialPropertyBlockMipBatch.Sample sample)
+        {
+            expected[batch.Count] = sample.CalculateScalar();
+            batch.Add(null, sample);
+            if (batch.IsFull) CheckBatch();
+        }
+
+        void CheckBatch()
+        {
+            batch.Calculate();
+            for (int i = 0; i < batch.Count; i++)
+                Assert.That(batch.Mips[i], Is.EqualTo(expected[i]));
+            batch.Clear();
+        }
+    }
+
+    private static BasisMaterialPropertyBlockMipBatch CreateBatch(bool useBurst)
+    {
+        var burst = useBurst ? BasisMipBurstKernel.TryCreate() : null;
+        if (useBurst && burst == null) Assert.Ignore("Requires a native Burst kernel.");
+        return new BasisMaterialPropertyBlockMipBatch(burst);
     }
 
     private static Renderer CreateQuad(Transform parent, Material material, MaterialPropertyBlock block, float z)

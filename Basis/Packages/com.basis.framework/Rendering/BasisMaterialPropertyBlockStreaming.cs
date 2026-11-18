@@ -70,6 +70,7 @@ namespace Basis.Scripts.Rendering
         private float nextScan;
 
         internal int TrackedRendererCount => renderers.Count;
+        internal BasisMaterialPropertyBlockMipBatch MipBatch { get; set; }
 
         public static void EnsureRunning()
         {
@@ -106,6 +107,7 @@ namespace Basis.Scripts.Rendering
         private void Awake()
         {
             instance = this;
+            MipBatch = BasisMaterialPropertyBlockMipBatch.TryCreate();
             ContentPoliceControl.OnBeforeContentActivated += RegisterRoot;
             SceneManager.sceneLoaded += SceneLoaded;
             RenderPipelineManager.beginCameraRendering += RecordRenderedCamera;
@@ -178,9 +180,11 @@ namespace Basis.Scripts.Rendering
                     scanIndex++;
                     if (streamingActive) Collect(state);
                 }
+                FlushMipBatch();
             }
             finally
             {
+                MipBatch?.Clear();
                 materials.Clear();
                 rendererBlock?.Clear();
                 materialBlock?.Clear();
@@ -279,24 +283,59 @@ namespace Basis.Scripts.Rendering
                         uvScale = new Vector2(st.x, st.y);
                     }
                     float uvArea = Mathf.Max(Mathf.Abs(uvScale.x * uvScale.y), 0.000001f);
-                    int mip = texture.mipmapCount - 1;
+                    int mipCount = texture.mipmapCount;
+                    int mip = mipCount - 1;
+                    int width = texture.width;
+                    int height = texture.height;
+                    float uvMetric = metric / uvArea;
                     for (int v = 0; v < viewCount; v++)
                     {
                         var view = views[v];
                         if (!Sees(view, renderer, bounds)) continue;
                         float distanceSquared = view.Orthographic ? 1f : bounds.SqrDistance(view.Position);
-                        mip = Mathf.Min(mip, CalculateMip(texture.width, texture.height, distanceSquared, metric / uvArea, view.ProjectionArea, view.Bias, texture.mipmapCount));
+                        if (MipBatch == null)
+                        {
+                            mip = Mathf.Min(mip, CalculateMip(width, height, distanceSquared, uvMetric, view.ProjectionArea, view.Bias, mipCount));
+                            continue;
+                        }
+                        MipBatch.Add(texture, new BasisMaterialPropertyBlockMipBatch.Sample
+                        {
+                            Width = width, Height = height, MipCount = mipCount,
+                            DistanceSquared = distanceSquared, UvMetric = uvMetric, ProjectionArea = view.ProjectionArea, Bias = view.Bias,
+                        });
+                        if (MipBatch.IsFull) FlushMipBatch();
                     }
-                    // A texture may also be used by ordinary materials closer to a camera.
-                    // Preserve that higher native demand while adding the block's demand.
-                    int nativeMip = texture.calculatedMipmapLevel;
-                    if (nativeMip >= 0) mip = Mathf.Min(mip, nativeMip);
-                    if (!demands.TryGetValue(texture, out int existing) || mip < existing)
-                    {
-                        demands[texture] = mip;
-                        ApplyRequest(texture, mip, upgradesOnly: true);
-                    }
+                    if (MipBatch == null) MergeDemand(texture, mip);
                 }
+            }
+        }
+
+        private void FlushMipBatch()
+        {
+            var batch = MipBatch;
+            if (batch == null || batch.Count == 0) return;
+            batch.Calculate();
+            int i = 0;
+            while (i < batch.Count)
+            {
+                var texture = batch.Textures[i];
+                int mip = batch.Mips[i++];
+                while (i < batch.Count && ReferenceEquals(texture, batch.Textures[i]))
+                    mip = Mathf.Min(mip, batch.Mips[i++]);
+                MergeDemand(texture, mip);
+            }
+            batch.Clear();
+        }
+
+        private void MergeDemand(Texture2D texture, int mip)
+        {
+            // A texture can also appear in a material closer to the camera.
+            int nativeMip = texture.calculatedMipmapLevel;
+            if (nativeMip >= 0) mip = Mathf.Min(mip, nativeMip);
+            if (!demands.TryGetValue(texture, out int existing) || mip < existing)
+            {
+                demands[texture] = mip;
+                ApplyRequest(texture, mip, upgradesOnly: true);
             }
         }
 
