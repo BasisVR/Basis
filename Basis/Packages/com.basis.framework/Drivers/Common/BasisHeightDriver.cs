@@ -417,6 +417,7 @@ public static partial class BasisHeightDriver
             c.ScaledOffset = c.Offset * ScaleFactor;
         }
 
+        player.LocalRigDriver?.RecomputeBindTpose();
         player.LocalVirtualSpineDriver?.InvalidateScaleDependentState();
     }
 

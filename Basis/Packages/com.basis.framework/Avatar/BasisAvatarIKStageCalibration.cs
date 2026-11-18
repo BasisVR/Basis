@@ -325,37 +325,11 @@ namespace Basis.Scripts.Avatar
         }
 
         /// <summary>
-        /// Resolves the head and target bone from the fitted rest skeleton at the avatar's current
-        /// rendered scale. This is the calibration reference after body fitting has changed segment
-        /// lengths; the raw load-time snapshot remains untouched for avatar measurement.
-        /// </summary>
-        public static bool TryGetFittedTposePositions(BasisBoneTrackedRole role, out Vector3 headTpose, out Vector3 boneTpose)
-        {
-            headTpose = Vector3.zero;
-            boneTpose = Vector3.zero;
-            BasisLocalPlayer player = BasisLocalPlayer.Instance;
-            BasisLocalRigDriver rig = player != null ? player.LocalRigDriver : null;
-            BasisLocalAvatarDriver avatar = player != null ? player.LocalAvatarDriver : null;
-            if (rig == null || avatar == null || rig.basisTransformMapping == null
-                || avatar.StoredRolesTransforms == null
-                || !avatar.StoredRolesTransforms.TryGetValue(role, out Transform bone)
-                || bone == null)
-            {
-                return false;
-            }
-
-            Transform head = rig.basisTransformMapping.head;
-            return head != null
-                && rig.TryGetFittedTposeLocalScaled(head, out headTpose)
-                && rig.TryGetFittedTposeLocalScaled(bone, out boneTpose);
-        }
-
-        /// <summary>
         /// Where calibration will attach <paramref name="role"/>, in the player-root frame: the avatar's
         /// T-pose bone, anchored to the head's flattened facing (the same frame DriveTpose places the
-        /// root in), plus that head-aligned body rotation. Prefers the fitted rest skeleton, then the raw
-        /// load-time snapshot. Feet/toes sit on the floor. Reads only the head, so the virtual spine's
-        /// lagging torso yaw never leaks in. Shared by CalculateOffset and the T-pose lock-in guides so
+        /// root in), plus that head-aligned body rotation. Reads each control's BindTposeScaled.
+        /// Feet/toes sit on the floor. Reads only the head, so the virtual spine's lagging torso yaw
+        /// never leaks in. Shared by CalculateOffset and the T-pose lock-in guides so
         /// what the guides show is exactly what a bind captures.
         /// </summary>
         public static bool TryGetCalibrationReference(BasisBoneTrackedRole role, out Vector3 localPosition, out Quaternion localRotation)
@@ -370,25 +344,18 @@ namespace Basis.Scripts.Avatar
                 return false;
             }
 
-            var headWorld = headControl.OutgoingWorldData;
-            Vector3 headTpose, boneTpose;
-            if (!TryGetFittedTposePositions(role, out headTpose, out boneTpose))
+            if (avatarDriver.StoredRolesTransforms == null
+                || !avatarDriver.StoredRolesTransforms.TryGetValue(role, out Transform bone)
+                || bone == null
+                || player.LocalBoneDriver == null
+                || !player.LocalBoneDriver.FindBone(out BasisLocalBoneControl boneControl, role))
             {
-                // Anchor derived from the head (the same math DriveTpose uses to PLACE the avatar
-                // root), not read from the live root: reading the root is only valid in the instant
-                // after DriveTpose ran, and is wrong for captures outside a T-posed calibration
-                // (device-reconnect restores, T-pose-free calibration).
-                if (!BasisLocalAvatarDriver.HasTposeBoneSnapshot || !BasisLocalAvatarDriver.TposeBoneSnapshot.TryGetValue(role, out var bind))
-                {
-                    return false;
-                }
-                float avatarScale = avatarDriver.ScaleAvatarModification != null ? avatarDriver.ScaleAvatarModification.ApplyScale : 1f;
-                if (float.IsNaN(avatarScale) || float.IsInfinity(avatarScale) || avatarScale <= 1e-6f) avatarScale = 1f;
-                headTpose = BasisLocalAvatarDriver.TposeBoneSnapshot.TryGetValue(BasisBoneTrackedRole.Head, out var headBind)
-                    ? headBind.position * avatarScale
-                    : headControl.TposeLocalScaled.position;
-                boneTpose = bind.position * avatarScale;
+                return false;
             }
+
+            var headWorld = headControl.OutgoingWorldData;
+            Vector3 headTpose = headControl.BindTposeScaled;
+            Vector3 boneTpose = boneControl.BindTposeScaled;
 
             BasisCalibrationMath.ComputeTposeAnchor(headWorld.position, headWorld.rotation, headTpose, out Vector3 anchorPos, out Quaternion anchorRot);
             Matrix4x4 playerToWorld = BasisLocalPlayer.localToWorldMatrix;
@@ -416,18 +383,7 @@ namespace Basis.Scripts.Avatar
             {
                 return;
             }
-            // Raw snapshot values are the fallback. When body fit is active, each tracker instead uses
-            // the fitted rest skeleton so offsets follow the final arm/leg/torso lengths.
-            float avatarScale = player.LocalAvatarDriver != null && player.LocalAvatarDriver.ScaleAvatarModification != null
-                ? player.LocalAvatarDriver.ScaleAvatarModification.ApplyScale : 1f;
-            if (float.IsNaN(avatarScale) || float.IsInfinity(avatarScale) || avatarScale <= 1e-6f)
-            {
-                avatarScale = 1f;
-            }
-            Vector3 headTpose = BasisLocalAvatarDriver.HasTposeBoneSnapshot
-                && BasisLocalAvatarDriver.TposeBoneSnapshot.TryGetValue(BasisBoneTrackedRole.Head, out var headBind)
-                ? headBind.position * avatarScale
-                : BasisLocalBoneDriver.HeadControl.TposeLocalScaled.position;
+            Vector3 headTpose = BasisLocalBoneDriver.HeadControl.BindTposeScaled;
 
             BasisObservableList<BasisInput> devices = BasisDeviceManagement.Instance != null ? BasisDeviceManagement.Instance.AllInputDevices : null;
             if (devices == null)
@@ -449,16 +405,7 @@ namespace Basis.Scripts.Avatar
                     continue;
                 }
 
-                Vector3 boneTpose = BasisLocalAvatarDriver.HasTposeBoneSnapshot
-                    && BasisLocalAvatarDriver.TposeBoneSnapshot.TryGetValue(role, out var bind)
-                    ? bind.position * avatarScale
-                    : input.Control.TposeLocalScaled.position;
-                Vector3 roleHeadTpose = headTpose;
-                if (TryGetFittedTposePositions(role, out Vector3 fittedHeadTpose, out Vector3 fittedBoneTpose))
-                {
-                    roleHeadTpose = fittedHeadTpose;
-                    boneTpose = fittedBoneTpose;
-                }
+                Vector3 boneTpose = input.Control.BindTposeScaled;
 
                 Vector3 calibratedHead = input.CalibratedUnscaledHeadPosition;
                 if (input.HasCalibratedHeadFromEye && TryGetUnscaledHeadFromEye(out Vector3 headFromEyeNow))
@@ -472,7 +419,7 @@ namespace Basis.Scripts.Avatar
                     input.CalibratedUnscaledPosition, input.CalibratedUnscaledRotation,
                     calibratedHead, input.CalibratedUnscaledHeadRotation,
                     BasisHeightDriver.DeviceScale, BasisInput.OffsetCoords.position, BasisInput.OffsetCoords.rotation,
-                    roleHeadTpose, boneTpose,
+                    headTpose, boneTpose,
                     out Vector3 inverseOffsetPosition);
                 input.Control.SetInverseOffset(inverseOffsetPosition, input.Control.InverseOffsetFromBone.rotation);
             }

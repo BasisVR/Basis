@@ -10,7 +10,6 @@ using Basis.Scripts.Constraints;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Drivers;
-using Basis.Scripts.TransformBinders.BoneControl;
 using Basis.Scripts.UI.UI_Panels;
 using GatorDragonGames.JigglePhysics;
 using System;
@@ -667,13 +666,7 @@ namespace Basis.Scripts.BasisSdk.Players
             Quaternion desiredRotWS = Quaternion.LookRotation(flatFwd.normalized, Vector3.up);
 
             // Offset the avatar root by the head's T-pose offset so the head bone lands on headPosWS.
-            if (!BasisAvatarIKStageCalibration.TryGetFittedTposePositions(BasisBoneTrackedRole.Head, out Vector3 headTposeLocal, out _))
-            {
-                headTposeLocal = BasisLocalAvatarDriver.HasTposeBoneSnapshot && BasisLocalAvatarDriver.TposeBoneSnapshot.TryGetValue(BasisBoneTrackedRole.Head, out BasisCalibratedCoords headBind)
-                    ? headBind.position * LocalAvatarDriver.CurrentApplyScale()
-                    : BasisLocalBoneDriver.HeadControl.TposeLocalScaled.position;
-                headTposeLocal += Vector3.up * LocalAvatarDriver.TposeSoleOffsetScaled();
-            }
+            Vector3 headTposeLocal = BasisLocalBoneDriver.HeadControl.BindTposeScaled + Vector3.up * LocalAvatarDriver.TposeSoleOffsetScaled();
             Vector3 avatarWorldPos = headPosWS - desiredRotWS * headTposeLocal;
 
             AvatarTransform.SetPositionAndRotation(avatarWorldPos, desiredRotWS);

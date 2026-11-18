@@ -56,6 +56,8 @@ namespace Basis.Scripts.TransformBinders.BoneControl
 
         [SerializeField] public BasisCalibratedCoords TposeLocalScaled = new BasisCalibratedCoords();
 
+        [SerializeField] public Vector3 BindTposeScaled;
+
         // ===== Native-backed pose: lives in Owner's store at Index, reached via raw pointer =====
 
         // Index is re-stamped by WireControlsAndInitStore on every (re)allocation, so it tracks the

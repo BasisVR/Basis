@@ -221,6 +221,7 @@ namespace Basis.Scripts.Drivers
                 AppliedBodyFit = BasisBodyFitResult.Identity;
                 BasisBodyFitNetworking.UpdateLocalFit(in AppliedBodyFit);
                 BasisLocalPlayer.Instance?.BasisLocalFootDriver?.RefreshBodyFitScale();
+                RecomputeBindTpose();
                 return;
             }
             var measurements = new BasisBodyFitMeasurements
@@ -238,6 +239,7 @@ namespace Basis.Scripts.Drivers
 
             PoseSkeleton.WriteFittedLocalPositions();
             BasisLocalPlayer.Instance?.BasisLocalFootDriver?.RefreshBodyFitScale();
+            RecomputeBindTpose();
             if (fit.HasArmFit)
             {
                 BasisDebug.Log($"Body fit: arms scaled {fit.ArmScale:F4}", BasisDebug.LogTag.IK);
@@ -245,6 +247,26 @@ namespace Basis.Scripts.Drivers
             else
             {
                 BasisDebug.Log($"Body fit: arms not fitted - {BasisBodyFitCore.Describe(fit.ArmStatus)}", BasisDebug.LogTag.IK);
+            }
+        }
+        public void RecomputeBindTpose()
+        {
+            BasisLocalPlayer player = BasisLocalPlayer.Instance;
+            BasisLocalAvatarDriver avatar = player != null ? player.LocalAvatarDriver : null;
+            if (avatar == null || avatar.StoredRolesTransforms == null || player.LocalBoneDriver == null || !PoseSkeleton.IsCreated)
+            {
+                return;
+            }
+
+            Vector3 sole = new Vector3(0f, avatar.TposeSoleOffsetScaled(), 0f);
+            foreach (KeyValuePair<BasisBoneTrackedRole, Transform> pair in avatar.StoredRolesTransforms)
+            {
+                if (pair.Value != null
+                    && player.LocalBoneDriver.FindBone(out BasisLocalBoneControl control, pair.Key)
+                    && TryGetFittedTposeLocalScaled(pair.Value, out Vector3 position))
+                {
+                    control.BindTposeScaled = position - sole;
+                }
             }
         }
         public static BasisBodyFitResult AppliedBodyFit = BasisBodyFitResult.Identity;

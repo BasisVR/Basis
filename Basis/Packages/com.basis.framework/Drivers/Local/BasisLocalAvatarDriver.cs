@@ -682,6 +682,8 @@ namespace Basis.Scripts.Drivers
             outgoingPosition.y -= TposeSoleOffsetScaled();
             Quaternion outgoingRotation = Quaternion.Inverse(Transform.rotation) * WorldTposeRotation;
 
+            bone.BindTposeScaled = outgoingPosition;
+
             if (IsApartOfSpineVertical(Role))
             {
                 outgoingPosition.x = 0;
