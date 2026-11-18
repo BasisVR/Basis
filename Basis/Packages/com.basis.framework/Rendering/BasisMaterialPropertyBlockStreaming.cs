@@ -1,3 +1,5 @@
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Basis.Scripts.Drivers;
@@ -17,6 +19,9 @@ namespace Basis.Scripts.Rendering
     {
         private static BasisMaterialPropertyBlockStreaming instance;
         private const float UpdateInterval = 0.1f;
+        private const int InitialTextureCapacity = 512;
+        private const int InitialMaterialSlots = 32;
+        private const int PendingBindingsPerInterval = 64;
         // Keep demand across skipped renders, including a handheld capture limited to 1 Hz.
         private const float RenderedViewGraceSeconds = 1.5f;
         private const int RenderersPerFrame = 128;
@@ -28,6 +33,7 @@ namespace Basis.Scripts.Rendering
         {
             internal Renderer Renderer;
             internal MeshFilter Filter;
+            internal bool CheckFilter;
         }
 
         private struct TextureProperty
@@ -46,6 +52,15 @@ namespace Basis.Scripts.Rendering
             internal float Bias;
         }
 
+        private sealed class CameraState
+        {
+            internal readonly View View = new View();
+            internal StreamingController Controller;
+            internal CameraView RenderedView;
+            internal float RenderedAt;
+            internal bool HasRendered;
+        }
+
         private struct CameraView
         {
             internal Matrix4x4 CullingMatrix;
@@ -55,10 +70,12 @@ namespace Basis.Scripts.Rendering
             internal float ProjectionArea;
         }
 
-        private struct RenderedView
+        private struct CameraObservation
         {
+            internal Camera Camera;
             internal CameraView View;
             internal float RenderedAt;
+            internal bool HasRendered;
         }
 
         private struct Request
@@ -68,19 +85,28 @@ namespace Basis.Scripts.Rendering
         }
 
         private readonly List<RendererState> renderers = new List<RendererState>();
-        private readonly HashSet<Renderer> registered = new HashSet<Renderer>();
+        private readonly Dictionary<Renderer, RendererState> registered = new Dictionary<Renderer, RendererState>();
         private readonly List<Renderer> discovery = new List<Renderer>();
-        private readonly List<Material> materials = new List<Material>();
+        private readonly List<Material> materials = new List<Material>(InitialMaterialSlots);
         private readonly ConditionalWeakTable<Shader, TextureProperty[]> shaderProperties = new();
-        private readonly Dictionary<Camera, RenderedView> renderedViews = new Dictionary<Camera, RenderedView>(8);
-        private readonly List<Camera> expiredViews = new List<Camera>(8);
+        private readonly Dictionary<Camera, CameraState> cameras = new Dictionary<Camera, CameraState>();
+        private readonly List<Camera> expiredCameras = new List<Camera>();
+        private readonly CameraObservation[] pendingCameras = new CameraObservation[PendingBindingsPerInterval];
+        private readonly Shader[] pendingShaders = new Shader[PendingBindingsPerInterval];
+        private readonly RendererState[] pendingFilters = new RendererState[PendingBindingsPerInterval];
         private readonly List<View> views = new List<View>();
         private MaterialPropertyBlock rendererBlock;
         private MaterialPropertyBlock materialBlock;
-        private readonly Dictionary<Texture2D, int> demands = new Dictionary<Texture2D, int>();
-        private readonly Dictionary<Texture2D, Request> requests = new Dictionary<Texture2D, Request>();
-        private readonly List<Texture2D> releases = new List<Texture2D>();
-        private int viewCount;
+        private readonly Dictionary<Texture2D, int> demands = new Dictionary<Texture2D, int>(InitialTextureCapacity);
+        private readonly Dictionary<Texture2D, Request> requests = new Dictionary<Texture2D, Request>(InitialTextureCapacity);
+        private readonly List<Texture2D> releases = new List<Texture2D>(InitialTextureCapacity);
+        private Coroutine refreshBindings;
+        private int pendingCameraCount;
+        private int pendingShaderCount;
+        private int pendingFilterCount;
+        private int textureCapacity = InitialTextureCapacity;
+        private bool growTextureBuffers;
+        private bool incompleteScan;
         private int scanIndex;
         private int scanCount;
         private bool scanning;
@@ -88,7 +114,7 @@ namespace Basis.Scripts.Rendering
         private float nextScan;
 
         internal int TrackedRendererCount => renderers.Count;
-        internal BasisMaterialPropertyBlockMipBatch MipBatch { get; set; }
+        internal BasisMaterialPropertyBlockMipBatch MipBatch;
 
         public static void EnsureRunning()
         {
@@ -102,7 +128,7 @@ namespace Basis.Scripts.Rendering
 
         /// <summary>
         /// Content/scene loads and avatar installation register automatically. Runtime producers
-        /// that add renderers after activation can register them here without a scene-wide poll.
+        /// that add renderers or replace MeshFilters after activation can register them here.
         /// Destroyed renderers are removed during the next demand scan.
         /// </summary>
         public static void RegisterRenderers(IEnumerable<Renderer> items)
@@ -121,17 +147,48 @@ namespace Basis.Scripts.Rendering
 
         internal void TrackRenderers(IEnumerable<Renderer> items)
         {
+            // TrackRenderers can also be called by Edit Mode tests before Awake.
+            rendererBlock ??= new MaterialPropertyBlock();
+            materialBlock ??= new MaterialPropertyBlock();
             foreach (var renderer in items)
             {
-                if (renderer == null || !registered.Add(renderer)) continue;
-                renderer.TryGetComponent<MeshFilter>(out var filter);
-                renderers.Add(new RendererState { Renderer = renderer, Filter = filter });
+                if (renderer == null) continue;
+                if (!registered.TryGetValue(renderer, out var state))
+                {
+                    state = new RendererState { Renderer = renderer };
+                    registered.Add(renderer, state);
+                    renderers.Add(state);
+                }
+                if (renderer is MeshRenderer)
+                {
+                    state.CheckFilter = true;
+                    renderer.TryGetComponent(out state.Filter);
+                }
+                try
+                {
+                    // Reserve scratch space for the material layout that arrived with the renderer.
+                    renderer.GetSharedMaterials(materials);
+                    if (!renderer.HasPropertyBlock()) continue;
+                    int count = materials.Count;
+                    for (int i = 0; i < count; i++)
+                    {
+                        var material = materials[i];
+                        if (material != null && material.shader != null)
+                            shaderProperties.GetValue(material.shader, BuildTextureProperties);
+                    }
+                }
+                finally
+                {
+                    materials.Clear();
+                }
             }
         }
 
         private void Awake()
         {
             instance = this;
+            rendererBlock = new MaterialPropertyBlock();
+            materialBlock = new MaterialPropertyBlock();
             MipBatch = BasisMaterialPropertyBlockMipBatch.TryCreate();
             ContentPoliceControl.OnBeforeContentActivated += RegisterRoot;
             SceneManager.sceneLoaded += SceneLoaded;
@@ -140,6 +197,31 @@ namespace Basis.Scripts.Rendering
             {
                 var scene = SceneManager.GetSceneAt(i);
                 if (scene.isLoaded) SceneLoaded(scene, LoadSceneMode.Additive);
+            }
+        }
+
+        private void OnEnable()
+        {
+            if (Application.isPlaying) refreshBindings = StartCoroutine(RefreshBindingsPeriodically());
+        }
+
+        private IEnumerator RefreshBindingsPeriodically()
+        {
+            var interval = new WaitForSecondsRealtime(UpdateInterval);
+            bool loggedFailure = false;
+            while (true)
+            {
+                try
+                {
+                    if (QualitySettings.streamingMipmapsActive)
+                        RefreshPendingBindings(Time.unscaledTime);
+                }
+                catch (Exception ex)
+                {
+                    if (!loggedFailure)
+                        BasisDebug.LogErrorOnce(ref loggedFailure, $"Mip streaming binding refresh failed: {ex}", BasisDebug.LogTag.Event);
+                }
+                yield return interval;
             }
         }
 
@@ -169,7 +251,8 @@ namespace Basis.Scripts.Rendering
             if (!streamingActive)
             {
                 if (requests.Count != 0 || demands.Count != 0) ReleaseAll();
-                renderedViews.Clear();
+                ClearCameraViews();
+                ClearPendingRendererBindings();
             }
             if (scanStreaming != streamingActive)
             {
@@ -182,6 +265,7 @@ namespace Basis.Scripts.Rendering
                 if (now < nextScan) return;
                 nextScan = now + UpdateInterval;
                 demands.Clear();
+                incompleteScan = false;
                 scanIndex = 0;
                 scanCount = renderers.Count;
                 scanning = true;
@@ -219,38 +303,40 @@ namespace Basis.Scripts.Rendering
                 materialBlock?.Clear();
             }
             if (scanIndex < scanCount) return;
-            if (streamingActive) ApplyRequests();
+            if (streamingActive && !incompleteScan && pendingCameraCount == 0) ApplyRequests();
             scanning = false;
         }
 
         private void PrepareViews(float now)
         {
-            viewCount = 0;
+            views.Clear();
             var main = BasisLocalCameraDriver.CameraInstance;
-            bool liveMain = main != null && main.isActiveAndEnabled;
-            if (liveMain && TryCaptureCameraView(main, out var mainView)) AddView(main, mainView);
+            Camera liveMain = null;
+            if (main != null && main.isActiveAndEnabled && TryCaptureCameraView(main, out var mainView))
+            {
+                liveMain = main;
+                if (cameras.TryGetValue(main, out var state))
+                    AddView(state, mainView);
+                else
+                    QueueCamera(new CameraObservation { Camera = main });
+            }
 
             // The culling registry also includes idle cameras. Only recent renders supply secondary mip demand.
-            foreach (var entry in renderedViews)
+            foreach (var entry in cameras)
             {
                 var camera = entry.Key;
-                if (camera == null || now - entry.Value.RenderedAt > RenderedViewGraceSeconds)
-                {
-                    expiredViews.Add(camera);
-                    continue;
-                }
-                if (!liveMain || camera != main) AddView(camera, entry.Value.View);
+                var state = entry.Value;
+                if (camera != null && camera != liveMain && state.HasRendered && now - state.RenderedAt <= RenderedViewGraceSeconds)
+                    AddView(state, state.RenderedView);
             }
-            foreach (var camera in expiredViews) renderedViews.Remove(camera);
-            expiredViews.Clear();
         }
 
-        private void AddView(Camera camera, CameraView cameraView)
+        private void AddView(CameraState state, CameraView cameraView)
         {
-            bool hasController = camera.TryGetComponent<StreamingController>(out var controller);
+            var controller = state.Controller;
+            bool hasController = controller != null;
             if (hasController ? !controller.enabled : !QualitySettings.streamingMipmapsAddAllCameras) return;
-            if (views.Count == viewCount) views.Add(new View());
-            var view = views[viewCount++];
+            var view = state.View;
             view.Position = cameraView.Position;
             view.CullingMask = cameraView.CullingMask;
             view.Orthographic = cameraView.Orthographic;
@@ -258,6 +344,7 @@ namespace Basis.Scripts.Rendering
             view.ProjectionArea = cameraView.ProjectionArea;
             // Mirrors use an explicit culling matrix without the oblique clipping plane.
             GeometryUtility.CalculateFrustumPlanes(cameraView.CullingMatrix, view.Planes);
+            views.Add(view);
         }
 
         private static bool TryCaptureCameraView(Camera camera, out CameraView view)
@@ -288,8 +375,94 @@ namespace Basis.Scripts.Rendering
         internal void ObserveRenderedCamera(Camera camera, float now)
         {
             // Render requests can use a disabled camera and temporarily replace its render target.
-            if (TryCaptureCameraView(camera, out var view))
-                renderedViews[camera] = new RenderedView { View = view, RenderedAt = now };
+            if (!TryCaptureCameraView(camera, out var view)) return;
+            if (cameras.TryGetValue(camera, out var state))
+            {
+                state.RenderedView = view;
+                state.RenderedAt = now;
+                state.HasRendered = true;
+                return;
+            }
+            QueueCamera(new CameraObservation { Camera = camera, View = view, RenderedAt = now, HasRendered = true });
+        }
+
+        private void QueueCamera(CameraObservation observation)
+        {
+            for (int i = 0; i < pendingCameraCount; i++)
+            {
+                if (pendingCameras[i].Camera != observation.Camera) continue;
+                if (observation.HasRendered) pendingCameras[i] = observation;
+                return;
+            }
+            if (pendingCameraCount < pendingCameras.Length) pendingCameras[pendingCameraCount++] = observation;
+        }
+
+        internal void RefreshPendingBindings(float now)
+        {
+            if (growTextureBuffers)
+            {
+                int capacity = checked(textureCapacity * 2);
+                demands.EnsureCapacity(capacity);
+                requests.EnsureCapacity(capacity);
+                releases.Capacity = capacity;
+                textureCapacity = capacity;
+                growTextureBuffers = false;
+            }
+
+            var main = BasisLocalCameraDriver.CameraInstance;
+            if (main != null && !cameras.ContainsKey(main)) QueueCamera(new CameraObservation { Camera = main });
+            expiredCameras.Clear();
+            foreach (var entry in cameras)
+            {
+                var camera = entry.Key;
+                var state = entry.Value;
+                if (camera == null || (camera != main && (!state.HasRendered || now - state.RenderedAt > RenderedViewGraceSeconds)))
+                    expiredCameras.Add(camera);
+                else if (state.Controller == null)
+                    camera.TryGetComponent(out state.Controller);
+            }
+            foreach (var camera in expiredCameras) cameras.Remove(camera);
+            expiredCameras.Clear();
+
+            for (int i = 0; i < pendingCameraCount; i++)
+            {
+                var pending = pendingCameras[i];
+                var camera = pending.Camera;
+                if (camera == null || cameras.ContainsKey(camera)) continue;
+                camera.TryGetComponent<StreamingController>(out var controller);
+                cameras.Add(camera, new CameraState
+                {
+                    Controller = controller, RenderedView = pending.View, RenderedAt = pending.RenderedAt, HasRendered = pending.HasRendered,
+                });
+            }
+            views.Capacity = Mathf.Max(views.Capacity, cameras.Count);
+            Array.Clear(pendingCameras, 0, pendingCameraCount);
+            pendingCameraCount = 0;
+
+            for (int i = 0; i < pendingShaderCount; i++)
+            {
+                var shader = pendingShaders[i];
+                if (shader != null) shaderProperties.GetValue(shader, BuildTextureProperties);
+            }
+            Array.Clear(pendingShaders, 0, pendingShaderCount);
+            pendingShaderCount = 0;
+
+            for (int i = 0; i < pendingFilterCount; i++)
+            {
+                var state = pendingFilters[i];
+                if (state.Renderer != null) state.Renderer.TryGetComponent(out state.Filter);
+                state.CheckFilter = true;
+            }
+            Array.Clear(pendingFilters, 0, pendingFilterCount);
+            pendingFilterCount = 0;
+        }
+
+        private void QueueShader(Shader shader)
+        {
+            incompleteScan = true;
+            for (int i = 0; i < pendingShaderCount; i++)
+                if (pendingShaders[i] == shader) return;
+            if (pendingShaderCount < pendingShaders.Length) pendingShaders[pendingShaderCount++] = shader;
         }
 
         private void Collect(RendererState state)
@@ -297,27 +470,32 @@ namespace Basis.Scripts.Rendering
             var renderer = state.Renderer;
             if (!renderer.enabled || renderer.forceRenderingOff || !renderer.gameObject.activeInHierarchy || !renderer.HasPropertyBlock()) return;
             Bounds bounds = renderer.bounds;
+            int viewCount = views.Count;
             bool visible = false;
             for (int i = 0; i < viewCount; i++)
                 if (Sees(views[i], renderer, bounds)) { visible = true; break; }
             if (!visible) return;
 
             float metric = 0f;
-            rendererBlock ??= new MaterialPropertyBlock();
-            materialBlock ??= new MaterialPropertyBlock();
             renderer.GetSharedMaterials(materials);
             renderer.GetPropertyBlock(rendererBlock);
             int materialCount = materials.Count;
             for (int slot = 0; slot < materialCount; slot++)
             {
                 var material = materials[slot];
-                if (material == null || material.shader == null) continue;
+                if (material == null) continue;
+                var shader = material.shader;
+                if (shader == null) continue;
                 renderer.GetPropertyBlock(materialBlock, slot);
                 // Unity selects the per-material block wholesale when it exists; it does not
                 // merge missing properties from the renderer-wide block into that block.
                 var block = SelectBlock(rendererBlock, materialBlock);
                 if (block.isEmpty) continue;
-                var properties = shaderProperties.GetValue(material.shader, BuildTextureProperties);
+                if (!shaderProperties.TryGetValue(shader, out var properties))
+                {
+                    QueueShader(shader);
+                    continue;
+                }
                 foreach (var property in properties)
                 {
                     var texture = block.GetTexture(property.Id) as Texture2D;
@@ -360,14 +538,15 @@ namespace Basis.Scripts.Rendering
         private void FlushMipBatch()
         {
             var batch = MipBatch;
-            if (batch == null || batch.Count == 0) return;
+            int count = batch?.Count ?? 0;
+            if (count == 0) return;
             batch.Calculate();
             int i = 0;
-            while (i < batch.Count)
+            while (i < count)
             {
                 var texture = batch.Textures[i];
                 int mip = batch.Mips[i++];
-                while (i < batch.Count && ReferenceEquals(texture, batch.Textures[i]))
+                while (i < count && ReferenceEquals(texture, batch.Textures[i]))
                     mip = Mathf.Min(mip, batch.Mips[i++]);
                 MergeDemand(texture, mip);
             }
@@ -379,11 +558,17 @@ namespace Basis.Scripts.Rendering
             // A texture can also appear in a material closer to the camera.
             int nativeMip = texture.calculatedMipmapLevel;
             if (nativeMip >= 0) mip = Mathf.Min(mip, nativeMip);
-            if (!demands.TryGetValue(texture, out int existing) || mip < existing)
+            bool hasDemand = demands.TryGetValue(texture, out int existing);
+            if (hasDemand && mip >= existing) return;
+            if ((!hasDemand && demands.Count >= textureCapacity)
+                || (requests.Count >= textureCapacity && !requests.ContainsKey(texture)))
             {
-                demands[texture] = mip;
-                ApplyRequest(texture, mip, upgradesOnly: true);
+                incompleteScan = true;
+                growTextureBuffers = true;
+                return;
             }
+            demands[texture] = mip;
+            ApplyRequest(texture, mip, upgradesOnly: true);
         }
 
         private static TextureProperty[] BuildTextureProperties(Shader shader)
@@ -402,11 +587,14 @@ namespace Basis.Scripts.Rendering
             return found.ToArray();
         }
 
-        private static float GetUvMetric(RendererState state, Bounds bounds)
+        private float GetUvMetric(RendererState state, Bounds bounds)
         {
             var renderer = state.Renderer;
-            if (state.Filter == null && renderer is MeshRenderer)
-                renderer.TryGetComponent(out state.Filter);
+            if (state.CheckFilter && state.Filter == null && pendingFilterCount < pendingFilters.Length)
+            {
+                state.CheckFilter = false;
+                pendingFilters[pendingFilterCount++] = state;
+            }
             Mesh mesh = renderer is SkinnedMeshRenderer skinned ? skinned.sharedMesh
                 : state.Filter != null ? state.Filter.sharedMesh : null;
             Vector3 scale = renderer.transform.lossyScale;
@@ -489,9 +677,32 @@ namespace Basis.Scripts.Rendering
 
         private void OnDisable()
         {
+            if (refreshBindings != null)
+            {
+                StopCoroutine(refreshBindings);
+                refreshBindings = null;
+            }
             ReleaseAll();
-            renderedViews.Clear();
+            ClearCameraViews();
+            ClearPendingRendererBindings();
             scanning = false;
+        }
+
+        private void ClearPendingRendererBindings()
+        {
+            Array.Clear(pendingShaders, 0, pendingShaderCount);
+            pendingShaderCount = 0;
+            for (int i = 0; i < pendingFilterCount; i++) pendingFilters[i].CheckFilter = true;
+            Array.Clear(pendingFilters, 0, pendingFilterCount);
+            pendingFilterCount = 0;
+        }
+
+        private void ClearCameraViews()
+        {
+            cameras.Clear();
+            views.Clear();
+            Array.Clear(pendingCameras, 0, pendingCameraCount);
+            pendingCameraCount = 0;
         }
 
         private void OnDestroy()

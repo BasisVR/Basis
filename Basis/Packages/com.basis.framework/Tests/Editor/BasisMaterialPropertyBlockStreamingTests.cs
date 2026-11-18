@@ -93,6 +93,7 @@ public class BasisMaterialPropertyBlockStreamingTests
             service.MipBatch = batch;
             service.TrackRenderers(new[] { far, near, pending });
             service.ObserveRenderedCamera(mirror, 1f);
+            service.RefreshPendingBindings(1f);
             service.ProcessFrame(1f, true);
             Assert.That(texture.requestedMipmapLevel, Is.GreaterThan(0), "The disabled, rendered camera sees the distant override.");
             service.ProcessFrame(1f, true);
@@ -180,6 +181,7 @@ public class BasisMaterialPropertyBlockStreamingTests
 
             service = root.AddComponent<BasisMaterialPropertyBlockStreaming>();
             service.TrackRenderers(new[] { renderer });
+            service.RefreshPendingBindings(Time.unscaledTime);
             service.ProcessFrame(Time.unscaledTime, true);
             Assert.That(texture.requestedMipmapLevel, Is.EqualTo(initialRequest), "An idle registered camera contributes no demand.");
 
@@ -189,6 +191,7 @@ public class BasisMaterialPropertyBlockStreamingTests
             Assert.That(RenderPipeline.SupportsRenderRequest(reflection, request), Is.True);
             RenderPipeline.SubmitRenderRequest(reflection, request);
             float renderedAt = Time.unscaledTime;
+            service.RefreshPendingBindings(renderedAt);
             Assert.That(reflection.targetTexture, Is.Null, "The pipeline restores the camera's target after the request.");
             reflection.transform.rotation = Quaternion.identity;
 
@@ -216,6 +219,68 @@ public class BasisMaterialPropertyBlockStreamingTests
             AssetDatabase.DeleteAsset(path);
             QualitySettings.streamingMipmapsActive = previousStreaming;
             QualitySettings.streamingMipmapsAddAllCameras = previousAllCameras;
+        }
+    }
+
+    [Test]
+    public void LateMaterialChangePreservesDemandUntilShaderBindingsAreReady()
+    {
+        if (!SystemInfo.supportsMipStreaming) Assert.Ignore("Requires Unity mip streaming support.");
+        string path = AssetDatabase.GenerateUniqueAssetPath("Assets/BasisStreamingTest.png");
+        var root = new GameObject("Late material streaming test");
+        var camera = root.AddComponent<Camera>();
+        var target = new RenderTexture(512, 512, 24);
+        Camera previousMain = BasisLocalCameraDriver.CameraInstance;
+        bool previousAllCameras = QualitySettings.streamingMipmapsAddAllCameras;
+        var originalMaterial = new Material(Shader.Find("Unlit/Texture"));
+        var replacement = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+        Texture2D texture = null;
+        try
+        {
+            camera.targetTexture = target;
+            BasisLocalCameraDriver.CameraInstance = camera;
+            QualitySettings.streamingMipmapsAddAllCameras = true;
+            texture = ImportStreamedTexture(path);
+            texture.ClearRequestedMipmapLevel();
+            var block = new MaterialPropertyBlock();
+            block.SetTexture("_MainTex", texture);
+            var renderer = CreateQuad(root.transform, originalMaterial, block, 5f);
+            var service = root.AddComponent<BasisMaterialPropertyBlockStreaming>();
+            service.TrackRenderers(new[] { renderer });
+            service.RefreshPendingBindings(0f);
+            service.ProcessFrame(0f, true);
+            int request = texture.requestedMipmapLevel;
+            Assert.That(request, Is.GreaterThanOrEqualTo(0));
+
+            renderer.sharedMaterial = replacement;
+            block.Clear();
+            block.SetTexture("_BaseMap", texture);
+            renderer.SetPropertyBlock(block);
+            service.ProcessFrame(1f, true);
+            Assert.That(texture.requestedMipmapLevel, Is.EqualTo(request), "An incomplete sweep preserves the existing request.");
+            service.RefreshPendingBindings(1f);
+            service.ProcessFrame(2f, true);
+            Assert.That(texture.requestedMipmapLevel, Is.GreaterThanOrEqualTo(0), "The replacement shader supplies demand.");
+
+            long allocatedBefore = System.GC.GetAllocatedBytesForCurrentThread();
+            for (int scan = 3; scan < 19; scan++) service.ProcessFrame(scan, true);
+            long allocated = System.GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
+            Assert.That(allocated, Is.Zero, "Repeated sweeps reuse their managed buffers.");
+
+            renderer.SetPropertyBlock(null);
+            service.ProcessFrame(19f, true);
+            Assert.That(texture.requestedMipmapLevel, Is.LessThan(0), "A completed sweep releases obsolete demand.");
+        }
+        finally
+        {
+            BasisLocalCameraDriver.CameraInstance = previousMain;
+            QualitySettings.streamingMipmapsAddAllCameras = previousAllCameras;
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(target);
+            Object.DestroyImmediate(originalMaterial);
+            Object.DestroyImmediate(replacement);
+            if (texture != null) texture.ClearRequestedMipmapLevel();
+            AssetDatabase.DeleteAsset(path);
         }
     }
 

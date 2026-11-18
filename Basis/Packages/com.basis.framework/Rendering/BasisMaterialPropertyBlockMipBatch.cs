@@ -75,10 +75,11 @@ namespace Basis.Scripts.Rendering
 
         internal void Calculate()
         {
+            int count = Count;
             if (burst != null)
             {
-                burst.Calculate(samples, Mips, Count);
-                for (int i = 0; i < Count; i++)
+                burst.Calculate(samples, Mips, count);
+                for (int i = 0; i < count; i++)
                     if (Mips[i] == BasisMipBurstKernel.NeedsScalarResult)
                         Mips[i] = samples[i].CalculateScalar();
                 return;
@@ -86,7 +87,8 @@ namespace Basis.Scripts.Rendering
 
             int lanes = FloatVector.Count;
             int start = 0;
-            for (; start <= Count - lanes; start += lanes)
+            int lastVectorStart = count - lanes;
+            for (; start <= lastVectorStart; start += lanes)
             {
                 var ratios = new FloatVector(texels, start) * new FloatVector(distances, start) / new FloatVector(areas, start);
                 var mips = new FloatVector(AreaLogToMipScale) * ApproximateLog2(ratios) + new FloatVector(biases, start);
@@ -98,7 +100,7 @@ namespace Basis.Scripts.Rendering
                     Mips[i] = NeedsScalar(ratio, mip) ? samples[i].CalculateScalar() : ClampMip(mip, samples[i].MipCount);
                 }
             }
-            for (; start < Count; start++)
+            for (; start < count; start++)
                 Mips[start] = samples[start].CalculateScalar();
         }
 
