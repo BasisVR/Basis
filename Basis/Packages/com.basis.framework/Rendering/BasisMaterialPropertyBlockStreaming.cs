@@ -112,6 +112,13 @@ namespace Basis.Scripts.Rendering
             instance.TrackRenderers(items);
         }
 
+        internal static void RegisterContentRoot(GameObject root)
+        {
+            if (root == null) return;
+            EnsureRunning();
+            if (instance != null) instance.RegisterRoot(root);
+        }
+
         internal void TrackRenderers(IEnumerable<Renderer> items)
         {
             foreach (var renderer in items)
