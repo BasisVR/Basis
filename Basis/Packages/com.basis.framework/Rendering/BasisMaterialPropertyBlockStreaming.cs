@@ -17,6 +17,8 @@ namespace Basis.Scripts.Rendering
     {
         private static BasisMaterialPropertyBlockStreaming instance;
         private const float UpdateInterval = 0.1f;
+        // Keep demand across skipped renders, including a handheld capture limited to 1 Hz.
+        private const float RenderedViewGraceSeconds = 1.5f;
         private const int RenderersPerFrame = 128;
         private const int PrimaryUvChannel = 0;
         private const float MinimumUvTilingArea = 0.000001f;
@@ -44,6 +46,21 @@ namespace Basis.Scripts.Rendering
             internal float Bias;
         }
 
+        private struct CameraView
+        {
+            internal Matrix4x4 CullingMatrix;
+            internal Vector3 Position;
+            internal int CullingMask;
+            internal bool Orthographic;
+            internal float ProjectionArea;
+        }
+
+        private struct RenderedView
+        {
+            internal CameraView View;
+            internal float RenderedAt;
+        }
+
         private struct Request
         {
             internal int Previous;
@@ -55,9 +72,8 @@ namespace Basis.Scripts.Rendering
         private readonly List<Renderer> discovery = new List<Renderer>();
         private readonly List<Material> materials = new List<Material>();
         private readonly ConditionalWeakTable<Shader, TextureProperty[]> shaderProperties = new();
-        private readonly List<Camera> cameras = new List<Camera>(8);
-        private readonly List<Camera> renderedCameras = new List<Camera>(8);
-        private readonly HashSet<Camera> seenCameras = new HashSet<Camera>();
+        private readonly Dictionary<Camera, RenderedView> renderedViews = new Dictionary<Camera, RenderedView>(8);
+        private readonly List<Camera> expiredViews = new List<Camera>(8);
         private readonly List<View> views = new List<View>();
         private MaterialPropertyBlock rendererBlock;
         private MaterialPropertyBlock materialBlock;
@@ -65,7 +81,6 @@ namespace Basis.Scripts.Rendering
         private readonly Dictionary<Texture2D, Request> requests = new Dictionary<Texture2D, Request>();
         private readonly List<Texture2D> releases = new List<Texture2D>();
         private int viewCount;
-        private int renderedFrame = -1;
         private int scanIndex;
         private int scanCount;
         private bool scanning;
@@ -113,7 +128,7 @@ namespace Basis.Scripts.Rendering
             MipBatch = BasisMaterialPropertyBlockMipBatch.TryCreate();
             ContentPoliceControl.OnBeforeContentActivated += RegisterRoot;
             SceneManager.sceneLoaded += SceneLoaded;
-            RenderPipelineManager.beginCameraRendering += RecordRenderedCamera;
+            RenderPipelineManager.beginCameraRendering += OnBeginCameraRendering;
             for (int i = 0; i < SceneManager.sceneCount; i++)
             {
                 var scene = SceneManager.GetSceneAt(i);
@@ -144,7 +159,11 @@ namespace Basis.Scripts.Rendering
 
         internal void ProcessFrame(float now, bool streamingActive)
         {
-            if (!streamingActive && (requests.Count != 0 || demands.Count != 0)) ReleaseAll();
+            if (!streamingActive)
+            {
+                if (requests.Count != 0 || demands.Count != 0) ReleaseAll();
+                renderedViews.Clear();
+            }
             if (scanStreaming != streamingActive)
             {
                 scanStreaming = streamingActive;
@@ -162,7 +181,7 @@ namespace Basis.Scripts.Rendering
             }
 
             int budget = Mathf.Clamp(QualitySettings.streamingMipmapsRenderersPerFrame, 1, RenderersPerFrame);
-            if (streamingActive && scanIndex < scanCount) PrepareViews();
+            if (streamingActive) PrepareViews(now);
             try
             {
                 for (int visited = 0; visited < budget && scanIndex < scanCount; visited++)
@@ -197,55 +216,73 @@ namespace Basis.Scripts.Rendering
             scanning = false;
         }
 
-        private void PrepareViews()
+        private void PrepareViews(float now)
         {
-            var main = BasisLocalCameraDriver.CameraInstance;
-            if (main != null && main.isActiveAndEnabled) cameras.Add(main);
-            BasisCullingCameraRegistry.CollectInto(cameras);
-            // Preserve ordinary world cameras as well as Basis-owned views. The pipeline
-            // tells us which cameras rendered without a separate scene-wide camera search.
-            if (renderedFrame >= Time.frameCount - 1)
-            {
-                foreach (var camera in renderedCameras)
-                    if (camera != null && camera.isActiveAndEnabled) cameras.Add(camera);
-            }
             viewCount = 0;
-            int count = cameras.Count;
-            for (int i = 0; i < count; i++)
+            var main = BasisLocalCameraDriver.CameraInstance;
+            bool liveMain = main != null && main.isActiveAndEnabled;
+            if (liveMain && TryCaptureCameraView(main, out var mainView)) AddView(main, mainView);
+
+            // The culling registry also includes idle cameras. Only recent renders supply secondary mip demand.
+            foreach (var entry in renderedViews)
             {
-                var camera = cameras[i];
-                if (camera == null || !seenCameras.Add(camera) || camera.cameraType == CameraType.Preview || camera.cameraType == CameraType.SceneView) continue;
-                bool hasController = camera.TryGetComponent<StreamingController>(out var controller);
-                if (hasController ? !controller.enabled : !QualitySettings.streamingMipmapsAddAllCameras) continue;
-                if (camera.pixelHeight <= 0 || camera.pixelWidth <= 0) continue;
-                if (views.Count == viewCount) views.Add(new View());
-                var view = views[viewCount++];
-                view.Position = camera.transform.position;
-                view.CullingMask = camera.cullingMask;
-                view.Orthographic = camera.orthographic;
-                view.Bias = hasController ? controller.streamingMipmapBias : 0f;
-                Matrix4x4 projection = camera.projectionMatrix;
-                float pixelsPerUnit = 0.5f * camera.pixelHeight * projection.m11;
-                view.ProjectionArea = pixelsPerUnit * pixelsPerUnit * Mathf.Max(1f, camera.aspect);
-                // Mirrors use an explicit culling matrix without the oblique clipping plane.
-                GeometryUtility.CalculateFrustumPlanes(camera.cullingMatrix, view.Planes);
+                var camera = entry.Key;
+                if (camera == null || now - entry.Value.RenderedAt > RenderedViewGraceSeconds)
+                {
+                    expiredViews.Add(camera);
+                    continue;
+                }
+                if (!liveMain || camera != main) AddView(camera, entry.Value.View);
             }
-            cameras.Clear();
-            seenCameras.Clear();
+            foreach (var camera in expiredViews) renderedViews.Remove(camera);
+            expiredViews.Clear();
         }
 
-        private void RecordRenderedCamera(ScriptableRenderContext _, Camera camera)
+        private void AddView(Camera camera, CameraView cameraView)
         {
-            if (renderedFrame != Time.frameCount)
+            bool hasController = camera.TryGetComponent<StreamingController>(out var controller);
+            if (hasController ? !controller.enabled : !QualitySettings.streamingMipmapsAddAllCameras) return;
+            if (views.Count == viewCount) views.Add(new View());
+            var view = views[viewCount++];
+            view.Position = cameraView.Position;
+            view.CullingMask = cameraView.CullingMask;
+            view.Orthographic = cameraView.Orthographic;
+            view.Bias = hasController ? controller.streamingMipmapBias : 0f;
+            view.ProjectionArea = cameraView.ProjectionArea;
+            // Mirrors use an explicit culling matrix without the oblique clipping plane.
+            GeometryUtility.CalculateFrustumPlanes(cameraView.CullingMatrix, view.Planes);
+        }
+
+        private static bool TryCaptureCameraView(Camera camera, out CameraView view)
+        {
+            view = default;
+            if (camera == null || camera.cameraType == CameraType.Preview || camera.cameraType == CameraType.SceneView) return false;
+            int height = camera.pixelHeight;
+            if (height <= 0 || camera.pixelWidth <= 0) return false;
+            float pixelsPerUnit = 0.5f * height * camera.projectionMatrix.m11;
+            view = new CameraView
             {
-                renderedCameras.Clear();
-                renderedFrame = Time.frameCount;
-            }
-            if (isActiveAndEnabled && QualitySettings.streamingMipmapsActive && camera.isActiveAndEnabled
-                && !renderedCameras.Contains(camera))
-            {
-                renderedCameras.Add(camera);
-            }
+                CullingMatrix = camera.cullingMatrix,
+                Position = camera.transform.position,
+                CullingMask = camera.cullingMask,
+                Orthographic = camera.orthographic,
+                ProjectionArea = pixelsPerUnit * pixelsPerUnit * Mathf.Max(1f, camera.aspect),
+            };
+            return true;
+        }
+
+        internal void OnBeginCameraRendering(ScriptableRenderContext _, Camera camera)
+        {
+            if (!isActiveAndEnabled || !QualitySettings.streamingMipmapsActive || camera == null) return;
+            if (camera == BasisLocalCameraDriver.CameraInstance && camera.isActiveAndEnabled) return;
+            ObserveRenderedCamera(camera, Time.unscaledTime);
+        }
+
+        internal void ObserveRenderedCamera(Camera camera, float now)
+        {
+            // Render requests can use a disabled camera and temporarily replace its render target.
+            if (TryCaptureCameraView(camera, out var view))
+                renderedViews[camera] = new RenderedView { View = view, RenderedAt = now };
         }
 
         private void Collect(RendererState state)
@@ -446,7 +483,7 @@ namespace Basis.Scripts.Rendering
         private void OnDisable()
         {
             ReleaseAll();
-            renderedCameras.Clear();
+            renderedViews.Clear();
             scanning = false;
         }
 
@@ -455,7 +492,7 @@ namespace Basis.Scripts.Rendering
             ReleaseAll();
             ContentPoliceControl.OnBeforeContentActivated -= RegisterRoot;
             SceneManager.sceneLoaded -= SceneLoaded;
-            RenderPipelineManager.beginCameraRendering -= RecordRenderedCamera;
+            RenderPipelineManager.beginCameraRendering -= OnBeginCameraRendering;
             if (instance == this) instance = null;
         }
     }

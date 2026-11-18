@@ -4,6 +4,8 @@ using Basis.Scripts.Rendering;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 public class BasisMaterialPropertyBlockStreamingTests
 {
@@ -43,7 +45,7 @@ public class BasisMaterialPropertyBlockStreamingTests
     [TestCase(0)]
     [TestCase(1)]
     [TestCase(2)]
-    public void RegisteredMirrorUpgradesSharedTextureBeforeSweepFinishes(int mathPath)
+    public void ObservedMirrorUpgradesSharedTextureBeforeSweepFinishes(int mathPath)
     {
         if (!SystemInfo.supportsMipStreaming) Assert.Ignore("Requires Unity mip streaming support.");
         var batch = mathPath == 0 ? null : CreateBatch(mathPath == 2);
@@ -61,16 +63,7 @@ public class BasisMaterialPropertyBlockStreamingTests
         Texture2D texture = null;
         try
         {
-            var pixels = new Texture2D(512, 512);
-            try { File.WriteAllBytes(path, pixels.EncodeToPNG()); }
-            finally { Object.DestroyImmediate(pixels); }
-            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
-            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
-            importer.mipmapEnabled = true;
-            importer.streamingMipmaps = true;
-            importer.SaveAndReimport();
-            texture = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
-            Assert.That(texture.streamingMipmaps, Is.True);
+            texture = ImportStreamedTexture(path);
 
             QualitySettings.streamingMipmapsActive = true;
             QualitySettings.streamingMipmapsAddAllCameras = true;
@@ -87,7 +80,6 @@ public class BasisMaterialPropertyBlockStreamingTests
             mirror.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
             mirror.targetTexture = target;
             mirror.enabled = false;
-            BasisCullingCameraRegistry.Register(mirror);
 
             var shader = Shader.Find("Unlit/Texture");
             Assert.That(shader, Is.Not.Null);
@@ -100,8 +92,9 @@ public class BasisMaterialPropertyBlockStreamingTests
             var service = root.AddComponent<BasisMaterialPropertyBlockStreaming>();
             service.MipBatch = batch;
             service.TrackRenderers(new[] { far, near, pending });
+            service.ObserveRenderedCamera(mirror, 1f);
             service.ProcessFrame(1f, true);
-            Assert.That(texture.requestedMipmapLevel, Is.GreaterThan(0), "The disabled, registered camera sees the distant override.");
+            Assert.That(texture.requestedMipmapLevel, Is.GreaterThan(0), "The disabled, rendered camera sees the distant override.");
             service.ProcessFrame(1f, true);
             Assert.That(texture.requestedMipmapLevel, Is.Zero, "Near demand takes effect before the final renderer is visited.");
             service.ProcessFrame(1f, true);
@@ -114,6 +107,7 @@ public class BasisMaterialPropertyBlockStreamingTests
             Assert.That(texture.requestedMipmapLevel, Is.GreaterThan(0), "The surviving renderer still requests detail.");
 
             far.SetPropertyBlock(null);
+            service.ObserveRenderedCamera(mirror, 3f);
             service.ProcessFrame(3f, true);
             service.ProcessFrame(3f, true);
             Assert.That(texture.requestedMipmapLevel, Is.EqualTo(initialRequest), "Removing the last override restores the request that preceded the sweep.");
@@ -121,6 +115,7 @@ public class BasisMaterialPropertyBlockStreamingTests
             // A request that the service never needed to write belongs to its original caller.
             texture.requestedMipmapLevel = 0;
             far.SetPropertyBlock(block);
+            service.ObserveRenderedCamera(mirror, 4f);
             service.ProcessFrame(4f, true);
             service.ProcessFrame(4f, true);
             service.ProcessFrame(5f, false);
@@ -128,7 +123,6 @@ public class BasisMaterialPropertyBlockStreamingTests
         }
         finally
         {
-            BasisCullingCameraRegistry.Unregister(mirror);
             BasisLocalCameraDriver.CameraInstance = previousMain;
             Object.DestroyImmediate(root);
             Object.DestroyImmediate(target);
@@ -140,6 +134,104 @@ public class BasisMaterialPropertyBlockStreamingTests
             QualitySettings.streamingMipmapsActive = previousStreaming;
             QualitySettings.streamingMipmapsMaxLevelReduction = previousReduction;
         }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void DisabledCameraRequestsMipsOnlyWhileItsRenderIsRecent(bool registerCamera)
+    {
+        if (!SystemInfo.supportsMipStreaming) Assert.Ignore("Requires Unity mip streaming support.");
+
+        string path = AssetDatabase.GenerateUniqueAssetPath("Assets/BasisStreamingTest.png");
+        bool previousStreaming = QualitySettings.streamingMipmapsActive;
+        bool previousAllCameras = QualitySettings.streamingMipmapsAddAllCameras;
+        Camera previousMain = BasisLocalCameraDriver.CameraInstance;
+        var root = new GameObject("Basis manual render streaming test");
+        var target = new RenderTexture(512, 512, 24);
+        Material material = null;
+        Camera reflection = null;
+        Texture2D texture = null;
+        BasisMaterialPropertyBlockStreaming service = null;
+        try
+        {
+            QualitySettings.streamingMipmapsActive = true;
+            QualitySettings.streamingMipmapsAddAllCameras = true;
+            texture = ImportStreamedTexture(path);
+            texture.ClearRequestedMipmapLevel();
+            int initialRequest = texture.requestedMipmapLevel;
+            var main = new GameObject("Main view").AddComponent<Camera>();
+            main.transform.SetParent(root.transform);
+            main.targetTexture = target;
+            BasisLocalCameraDriver.CameraInstance = main;
+
+            reflection = new GameObject("Manual reflection").AddComponent<Camera>();
+            reflection.transform.SetParent(root.transform);
+            reflection.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            reflection.enabled = false;
+            if (registerCamera) BasisCullingCameraRegistry.Register(reflection);
+
+            material = new Material(Shader.Find("Unlit/Texture"));
+            var block = new MaterialPropertyBlock();
+            block.SetTexture("_MainTex", texture);
+            var renderer = CreateQuad(root.transform, material, block, -5f);
+            renderer.transform.rotation = reflection.transform.rotation;
+            Assert.That(GeometryUtility.TestPlanesAABB(GeometryUtility.CalculateFrustumPlanes(main), renderer.bounds), Is.False);
+            Assert.That(GeometryUtility.TestPlanesAABB(GeometryUtility.CalculateFrustumPlanes(reflection), renderer.bounds), Is.True);
+
+            service = root.AddComponent<BasisMaterialPropertyBlockStreaming>();
+            service.TrackRenderers(new[] { renderer });
+            service.ProcessFrame(Time.unscaledTime, true);
+            Assert.That(texture.requestedMipmapLevel, Is.EqualTo(initialRequest), "An idle registered camera contributes no demand.");
+
+            // Edit Mode does not run Awake for the service. Subscribe the production callback to a real URP request.
+            RenderPipelineManager.beginCameraRendering += service.OnBeginCameraRendering;
+            var request = new UniversalRenderPipeline.SingleCameraRequest { destination = target };
+            Assert.That(RenderPipeline.SupportsRenderRequest(reflection, request), Is.True);
+            RenderPipeline.SubmitRenderRequest(reflection, request);
+            float renderedAt = Time.unscaledTime;
+            Assert.That(reflection.targetTexture, Is.Null, "The pipeline restores the camera's target after the request.");
+            reflection.transform.rotation = Quaternion.identity;
+
+            service.ProcessFrame(renderedAt + 0.2f, true);
+            int observedRequest = texture.requestedMipmapLevel;
+            Assert.That(observedRequest, Is.GreaterThanOrEqualTo(0), "The render callback provides the disabled camera's frustum.");
+            Assert.That(observedRequest, Is.Not.EqualTo(initialRequest));
+
+            service.ProcessFrame(renderedAt + 1.1f, true);
+            Assert.That(texture.requestedMipmapLevel, Is.EqualTo(observedRequest), "A one-second rate-limited gap preserves demand.");
+
+            service.ProcessFrame(renderedAt + 1.7f, true);
+            Assert.That(reflection.gameObject.activeInHierarchy, Is.True);
+            Assert.That(texture.requestedMipmapLevel, Is.EqualTo(initialRequest), "The completed sweep releases an expired view's request.");
+        }
+        finally
+        {
+            if (service != null) RenderPipelineManager.beginCameraRendering -= service.OnBeginCameraRendering;
+            BasisCullingCameraRegistry.Unregister(reflection);
+            BasisLocalCameraDriver.CameraInstance = previousMain;
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(target);
+            Object.DestroyImmediate(material);
+            if (texture != null) texture.ClearRequestedMipmapLevel();
+            AssetDatabase.DeleteAsset(path);
+            QualitySettings.streamingMipmapsActive = previousStreaming;
+            QualitySettings.streamingMipmapsAddAllCameras = previousAllCameras;
+        }
+    }
+
+    private static Texture2D ImportStreamedTexture(string path)
+    {
+        var pixels = new Texture2D(512, 512);
+        try { File.WriteAllBytes(path, pixels.EncodeToPNG()); }
+        finally { Object.DestroyImmediate(pixels); }
+        AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+        var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+        importer.mipmapEnabled = true;
+        importer.streamingMipmaps = true;
+        importer.SaveAndReimport();
+        var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        Assert.That(texture.streamingMipmaps, Is.True);
+        return texture;
     }
 
     [TestCase(false)]
