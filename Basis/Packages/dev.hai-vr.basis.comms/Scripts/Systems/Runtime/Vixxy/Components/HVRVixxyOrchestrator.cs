@@ -33,6 +33,8 @@ namespace HVR.Vixxy
         private readonly Dictionary<GameObject, MaterialPropertyBlock> _objectToMaterialPropertyBlock = new();
         private readonly Dictionary<GameObject, Renderer> _objectToRenderer_mayContainNullObjects = new();
         private readonly HashSet<GameObject> _stagedBlocks = new(); // FIXME: We should really just be binding tuples into _objectToMaterialPropertyBlock
+        private readonly Dictionary<Renderer, Material[]> _rendererToOriginalMaterials = new();
+        private readonly Dictionary<Renderer, Material[]> _rendererToInstancedMaterials = new();
 
         private readonly HashSet<IHVRVixxyAggregator> _workAggregators = new();
         private readonly HashSet<int> _addressesPassedSinceLastSimulate = new();
@@ -401,6 +403,21 @@ namespace HVR.Vixxy
             _stagedBlocks.Add(bakedObject);
         }
 
+        public void SetMaterialTexture(GameObject bakedObject, int propertyId, Texture texture)
+        {
+            if (!_objectToRenderer_mayContainNullObjects.TryGetValue(bakedObject, out var renderer) || renderer == null) return;
+            if (!_rendererToInstancedMaterials.TryGetValue(renderer, out var materials))
+            {
+                _rendererToOriginalMaterials.Add(renderer, renderer.sharedMaterials);
+                materials = renderer.materials;
+                _rendererToInstancedMaterials.Add(renderer, materials);
+            }
+            foreach (var material in materials)
+            {
+                if (material != null) material.SetTexture(propertyId, texture);
+            }
+        }
+
         public bool IsMeasurementAddress(int addressId)
         {
             _measurementAddressIds ??= HVR_VixxyUtil.FindAllMeasurementAddresses(context.GetComponentsInChildren<HVRMeasure>(true).ToList())
@@ -465,6 +482,16 @@ namespace HVR.Vixxy
             {
                 _builtInAddressesNullable.Destroy();
             }
+            foreach (var pair in _rendererToInstancedMaterials)
+            {
+                if (pair.Key != null) pair.Key.sharedMaterials = _rendererToOriginalMaterials[pair.Key];
+                foreach (var material in pair.Value)
+                {
+                    if (material != null) Destroy(material);
+                }
+            }
+            _rendererToInstancedMaterials.Clear();
+            _rendererToOriginalMaterials.Clear();
             HVRVixxyPersistentStore.FlushNow();
         }
     }

@@ -886,6 +886,11 @@ namespace HVR.Vixxy
                         case HVRKindMarker.AffectsMaterialPropertyBlock:
                         {
                             var bakedObject = component.gameObject;
+                            if (resolvedValue is Texture textureValue)
+                            {
+                                orchestrator.SetMaterialTexture(bakedObject, property.ShaderMaterialProperty, textureValue);
+                                break;
+                            }
                             var materialPropertyBlock = orchestrator.GetMaterialPropertyBlockForBakedObject(bakedObject);
                             property.ApplyMaterialProperty(materialPropertyBlock, resolvedValue);
                             orchestrator.StagePropertyBlock(bakedObject);
