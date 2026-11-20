@@ -5930,6 +5930,14 @@
       "value": "مصنف"
     },
     {
+      "key": "avatar.vrmLicense.wear",
+      "value": "پہنیں"
+    },
+    {
+      "key": "avatar.vrmLicense.remove",
+      "value": "اوتاروں سے ہٹائیں"
+    },
+    {
       "key": "network.avatarShare.failed.license",
       "value": "اس VRM کا لائسنس فائل کو دوبارہ تقسیم کرنے کی اجازت نہیں دیتا، اس لیے اسے سرور کے ذریعے شیئر نہیں کیا گیا۔"
     },

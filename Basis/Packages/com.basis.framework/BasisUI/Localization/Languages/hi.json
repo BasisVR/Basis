@@ -5930,6 +5930,14 @@
       "value": "लेखक"
     },
     {
+      "key": "avatar.vrmLicense.wear",
+      "value": "पहनें"
+    },
+    {
+      "key": "avatar.vrmLicense.remove",
+      "value": "अवतारों से हटाएँ"
+    },
+    {
       "key": "network.avatarShare.failed.license",
       "value": "इस VRM का लाइसेंस फ़ाइल को दोबारा वितरित करने की अनुमति नहीं देता, इसलिए इसे सर्वर के माध्यम से साझा नहीं किया गया।"
     },

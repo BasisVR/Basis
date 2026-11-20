@@ -5930,6 +5930,14 @@
       "value": "автор"
     },
     {
+      "key": "avatar.vrmLicense.wear",
+      "value": "Надеть"
+    },
+    {
+      "key": "avatar.vrmLicense.remove",
+      "value": "Удалить из аватаров"
+    },
+    {
       "key": "network.avatarShare.failed.license",
       "value": "Лицензия этого VRM не разрешает распространять файл, поэтому он не был передан через сервер."
     },

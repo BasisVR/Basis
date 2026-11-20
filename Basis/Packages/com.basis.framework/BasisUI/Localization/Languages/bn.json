@@ -5930,6 +5930,14 @@
       "value": "লেখক"
     },
     {
+      "key": "avatar.vrmLicense.wear",
+      "value": "পরুন"
+    },
+    {
+      "key": "avatar.vrmLicense.remove",
+      "value": "অবতার থেকে সরান"
+    },
+    {
       "key": "network.avatarShare.failed.license",
       "value": "এই VRM-এর লাইসেন্স ফাইলটি পুনরায় বিতরণের অনুমতি দেয় না, তাই এটি সার্ভারের মাধ্যমে শেয়ার করা হয়নি।"
     },

@@ -5930,6 +5930,14 @@
       "value": "der Urheber"
     },
     {
+      "key": "avatar.vrmLicense.wear",
+      "value": "Tragen"
+    },
+    {
+      "key": "avatar.vrmLicense.remove",
+      "value": "Aus Avataren entfernen"
+    },
+    {
       "key": "network.avatarShare.failed.license",
       "value": "Die Lizenz dieser VRM-Datei erlaubt keine Weitergabe, daher wurde sie nicht über den Server geteilt."
     },

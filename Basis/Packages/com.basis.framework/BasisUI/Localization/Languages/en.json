@@ -23041,6 +23041,14 @@
       "value": "the author"
     },
     {
+      "key": "avatar.vrmLicense.wear",
+      "value": "Wear It"
+    },
+    {
+      "key": "avatar.vrmLicense.remove",
+      "value": "Remove From Avatars"
+    },
+    {
       "key": "network.avatarShare.failed.license",
       "value": "This VRM's license does not allow redistributing the file, so it was not shared through the server."
     },

@@ -5930,6 +5930,14 @@
       "value": "作者"
     },
     {
+      "key": "avatar.vrmLicense.wear",
+      "value": "穿戴"
+    },
+    {
+      "key": "avatar.vrmLicense.remove",
+      "value": "從虛擬形象中移除"
+    },
+    {
       "key": "network.avatarShare.failed.license",
       "value": "此 VRM 的授權不允許再散布該檔案，因此未透過伺服器分享。"
     },

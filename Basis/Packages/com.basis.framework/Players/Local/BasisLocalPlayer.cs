@@ -397,7 +397,6 @@ namespace Basis.Scripts.BasisSdk.Players
             // address means something off this machine. Say so now rather than let the player find
             // out from someone telling them they are a grey dummy.
             BasisLocalAvatarNetworkNotice.NotifyIfLocalOnly();
-            BasisVrmLicenseNotice.NotifyIfRestricted(BasisLoadableBundle);
         }
 
         public async Task CreateAvatarFromMode(BasisLoadMode LoadMode, BasisLoadableBundle BasisLoadableBundle)

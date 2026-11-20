@@ -249,6 +249,15 @@ namespace Basis.Scripts.Avatar
 
                 token.ThrowIfCancellationRequested();
 
+                if (Mode == 0 && Output != null && !await BasisVrmLicenseNotice.ConfirmIfRestricted(BasisLoadableBundle, Output, token))
+                {
+                    GameObject.Destroy(Output);
+                    _ = BasisLoadHandler.RequestDeIncrementOfBundle(BasisLoadableBundle);
+                    if (Player.BasisAvatar == null) LoadAvatarAfterError(Player, Position, Rotation);
+                    return false;
+                }
+                token.ThrowIfCancellationRequested();
+
                 InitializePlayerAvatar(Player, Output, harvestedHeadChop);
                 // DeleteLastAvatar (inside the swap above) reads AvatarMetaData/AvatarLoadMode
                 // to de-increment the OUTGOING avatar's bundle — the incoming bundle must be

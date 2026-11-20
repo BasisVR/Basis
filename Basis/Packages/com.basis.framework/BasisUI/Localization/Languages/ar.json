@@ -5930,6 +5930,14 @@
       "value": "المؤلف"
     },
     {
+      "key": "avatar.vrmLicense.wear",
+      "value": "ارتداؤه"
+    },
+    {
+      "key": "avatar.vrmLicense.remove",
+      "value": "إزالة من الصور الرمزية"
+    },
+    {
       "key": "network.avatarShare.failed.license",
       "value": "لا يسمح ترخيص ملف VRM هذا بإعادة توزيعه، لذلك لم تتم مشاركته عبر الخادم."
     },

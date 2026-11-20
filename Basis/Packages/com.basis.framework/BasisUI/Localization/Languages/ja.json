@@ -5930,6 +5930,14 @@
       "value": "作者"
     },
     {
+      "key": "avatar.vrmLicense.wear",
+      "value": "着用する"
+    },
+    {
+      "key": "avatar.vrmLicense.remove",
+      "value": "アバターから削除"
+    },
+    {
       "key": "network.avatarShare.failed.license",
       "value": "このVRMのライセンスはファイルの再配布を許可していないため、サーバー経由で共有されませんでした。"
     },

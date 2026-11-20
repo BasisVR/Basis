@@ -5930,6 +5930,14 @@
       "value": "l'autore"
     },
     {
+      "key": "avatar.vrmLicense.wear",
+      "value": "Indossalo"
+    },
+    {
+      "key": "avatar.vrmLicense.remove",
+      "value": "Rimuovi dagli avatar"
+    },
+    {
       "key": "network.avatarShare.failed.license",
       "value": "La licenza di questo VRM non consente di ridistribuire il file, quindi non è stato condiviso tramite il server."
     },
