@@ -479,11 +479,10 @@ namespace Basis.Scripts.Device_Management
             {
                 bool currentIsVR = IsCurrentModeVR();
                 bool newIsDesktop = string.Equals(newMode, BasisConstants.Desktop, StringComparison.Ordinal);
-                bool newIsVR = string.Equals(newMode, BasisConstants.OpenVRLoader, StringComparison.Ordinal) ||
-                               string.Equals(newMode, BasisConstants.OpenXRLoader, StringComparison.Ordinal);
+                bool newIsVR = IsVRMode(newMode);
 
                 // VR → Desktop: soft switch, keeping XR runtime alive
-                if (currentIsVR && newIsDesktop)
+                if (currentIsVR && newIsDesktop && !string.Equals(StaticCurrentMode, BasisConstants.WebXRLoader, StringComparison.Ordinal))
                 {
                     await SoftSwitchToDesktop();
                     return;
@@ -1109,7 +1108,8 @@ namespace Basis.Scripts.Device_Management
         /// </summary>
         public static bool IsVRMode(string mode) =>
             string.Equals(mode, BasisConstants.OpenVRLoader, StringComparison.Ordinal) ||
-            string.Equals(mode, BasisConstants.OpenXRLoader, StringComparison.Ordinal);
+            string.Equals(mode, BasisConstants.OpenXRLoader, StringComparison.Ordinal) ||
+            string.Equals(mode, BasisConstants.WebXRLoader, StringComparison.Ordinal);
 
         /// <summary>
         /// Whether <paramref name="mode"/> can be entered right now.
@@ -1131,7 +1131,7 @@ namespace Basis.Scripts.Device_Management
 
             if (string.Equals(mode, BasisConstants.Desktop, StringComparison.Ordinal))
             {
-                if (IsStandaloneDevice && IsCurrentModeVR())
+                if (IsStandaloneDevice && IsCurrentModeVR() && !string.Equals(StaticCurrentMode, BasisConstants.WebXRLoader, StringComparison.Ordinal))
                 {
                     blockedReason = BasisLocalization.Get("settings.platform.standaloneNoDesktop");
                     return false;

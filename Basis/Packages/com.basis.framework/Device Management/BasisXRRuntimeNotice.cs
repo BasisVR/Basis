@@ -25,6 +25,10 @@ namespace Basis.Scripts.Device_Management
             {
                 return BasisLocalization.Get("settings.platform.mode.openxr");
             }
+            if (string.Equals(mode, BasisConstants.WebXRLoader, StringComparison.Ordinal))
+            {
+                return BasisLocalization.Get("settings.platform.mode.webxr");
+            }
             if (string.Equals(mode, BasisConstants.Desktop, StringComparison.Ordinal))
             {
                 return BasisLocalization.Get("settings.platform.mode.desktop");

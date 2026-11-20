@@ -1,0 +1,23 @@
+{
+    "name": "BasisWebXR",
+    "rootNamespace": "",
+    "references": [
+        "Basis Framework",
+        "BasisOpenXR",
+        "BasisDebug",
+        "BasisCommon",
+        "BasisSDK",
+        "BasisSettings",
+        "Unity.XR.Management",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

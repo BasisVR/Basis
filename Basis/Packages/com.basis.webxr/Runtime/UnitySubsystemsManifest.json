@@ -1,0 +1,20 @@
+{
+  "name": "Basis WebXR",
+  "version": "0.0.1",
+  "libraryName": "BasisWebXR",
+  "displays": [
+    {
+      "id": "Basis WebXR Display",
+      "supportedMirrorBlitReservedModes": [
+        "leftEye",
+        "rightEye",
+        "sideBySide"
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "id": "Basis WebXR Input"
+    }
+  ]
+}

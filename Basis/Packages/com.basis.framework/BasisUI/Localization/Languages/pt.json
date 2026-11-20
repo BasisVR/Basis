@@ -2906,6 +2906,14 @@
       "value": "Traça o rebote por uma cópia em voxels 3D do mundo ao seu redor, para que a luz de trás, das quinas e de coisas escondidas também ricocheteie. A passagem de tela continua por cima para o detalhe fino."
     },
     {
+      "key": "settings.graphics.gi.pathTracerRestir",
+      "value": "Reutilizar amostras de ressalto (ReSTIR GI)"
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerRestir.tooltip",
+      "value": "Apenas traçado de caminhos. Cada pixel traça o seu próprio raio de ressalto e partilha o que encontrou com os vizinhos e os fotogramas seguintes, em vez de ler a cache de iluminação partilhada. Cantos, contactos e objetos pequenos recebem luz de ressalto muito mais precisa, com custo extra de GPU. Superfícies com lightmap mantêm a sua luz pré-calculada."
+    },
+    {
       "key": "settings.graphics.gi.worldLevels",
       "value": "Alcance do Mundo"
     },

@@ -2961,6 +2961,14 @@
       "value": "Verfolgt den Lichtabprall durch eine 3D-Voxelkopie der Welt um dich herum, sodass auch Licht von hinten, um Ecken und von verdeckten Dingen abprallt. Der Bildschirmdurchgang liegt für feine Details darüber."
     },
     {
+      "key": "settings.graphics.gi.pathTracerRestir",
+      "value": "Abprallproben wiederverwenden (ReSTIR GI)"
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerRestir.tooltip",
+      "value": "Nur Pfadverfolgung. Jedes Pixel verfolgt seinen eigenen Abprallstrahl und teilt das Ergebnis mit seinen Nachbarn und den nächsten Bildern, statt den gemeinsamen Lichtcache zu lesen. Ecken, Kontaktstellen und kleine Objekte erhalten deutlich genaueres Abprallicht, auf Kosten zusätzlicher GPU-Zeit. Flächen mit Lightmap behalten ihr gebackenes Licht."
+    },
+    {
       "key": "settings.graphics.gi.worldLevels",
       "value": "Weltreichweite"
     },

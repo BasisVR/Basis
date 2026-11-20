@@ -9,6 +9,7 @@ from pathlib import Path
 
 PACKAGE_DIRS_TO_REMOVE = (
     "Packages/com.basis.openxr",
+    "Packages/com.basis.webxr",
     "Packages/com.meta.xr.sdk.core",
 )
 
@@ -19,6 +20,7 @@ PACKAGE_DEPENDENCIES_TO_REMOVE = (
 
 PACKAGE_LOCK_ENTRIES_TO_REMOVE = PACKAGE_DEPENDENCIES_TO_REMOVE + (
     "com.basis.openxr",
+    "com.basis.webxr",
 )
 
 

@@ -2961,6 +2961,14 @@
       "value": "透過你周圍世界的三維體素副本追蹤反彈光，因此來自身後、轉角處以及被遮擋物體的光也能反彈。螢幕通道仍疊加在上方，負責細節。"
     },
     {
+      "key": "settings.graphics.gi.pathTracerRestir",
+      "value": "重用反彈取樣 (ReSTIR GI)"
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerRestir.tooltip",
+      "value": "僅限路徑追蹤。每個像素追蹤自己的反彈光線，並將結果與相鄰像素和後續畫格共享，而不是讀取共享的光照快取。角落、接觸處和小物體會得到準確得多的反彈光，但會增加 GPU 負擔。帶光照貼圖的表面保留其烘焙光照。"
+    },
+    {
       "key": "settings.graphics.gi.worldLevels",
       "value": "世界範圍"
     },

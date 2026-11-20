@@ -10,6 +10,7 @@ PACKAGE_DIRS_TO_REMOVE = (
     "Packages/com.valvesoftware.unity.openvr",
     "Packages/com.basis.openvr",
     "Packages/com.basis.openxr",
+    "Packages/com.basis.webxr",
     "Packages/com.llealloo.audiolink",
     "Packages/com.basis.examples",
     "Packages/com.basis.pooltable",
@@ -45,6 +46,7 @@ LINKER_ASSEMBLIES_TO_REMOVE = (
 PACKAGE_LOCK_ENTRIES_TO_REMOVE = PACKAGE_DEPENDENCIES_TO_REMOVE + (
     "com.basis.openvr",
     "com.basis.openxr",
+    "com.basis.webxr",
 )
 
 

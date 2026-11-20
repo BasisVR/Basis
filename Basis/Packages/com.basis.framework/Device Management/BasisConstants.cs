@@ -35,6 +35,8 @@ namespace Basis.Scripts.Device_Management
         /// </summary>
         public const string OpenXRLoader = "OpenXRLoader";
 
+        public const string WebXRLoader = "WebXRLoader";
+
         /// <summary>
         /// Identifier representing the system or SDK exiting state.
         /// </summary>

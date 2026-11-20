@@ -9411,6 +9411,14 @@
       "value": "Extra rays traced for every pixel on an avatar. Avatars move, so the shared lighting cache is a poor fit for them; more rays give them cleaner, more accurate bounce light and cost GPU time only where avatars are on screen."
     },
     {
+      "key": "settings.graphics.gi.pathTracerRestir",
+      "value": "Reuse Bounce Samples (ReSTIR GI)"
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerRestir.tooltip",
+      "value": "Path Traced only. Every pixel traces its own bounce ray and shares what it found with its neighbours and the next frames, instead of reading the shared lighting cache. Corners, contacts and small objects get much more accurate bounce light, at extra GPU cost. Lightmapped surfaces keep their baked light."
+    },
+    {
       "key": "settings.graphics.gi.pathTracerAvatarRays.off",
       "value": "Off"
     },
@@ -12371,6 +12379,10 @@
       "value": "OpenXR"
     },
     {
+      "key": "settings.platform.mode.webxr",
+      "value": "WebXR"
+    },
+    {
       "key": "settings.platform.vrFailed.title",
       "value": "VR Runtime Unavailable"
     },
@@ -12389,6 +12401,18 @@
     {
       "key": "settings.platform.vrFailed.steamvr",
       "value": "SteamVR did not finish initializing."
+    },
+    {
+      "key": "settings.platform.vrFailed.webxrUnsupported",
+      "value": "This browser has no WebXR headset available, or it does not support WebXR with WebGPU. Connect a headset, or turn on the WebXR WebGPU binding in the browser flags."
+    },
+    {
+      "key": "settings.platform.vrFailed.webxrDenied",
+      "value": "The browser did not start the VR session. It may have been declined, or the request did not come from a click."
+    },
+    {
+      "key": "settings.platform.vrFailed.webxrDevice",
+      "value": "The browser could not share its graphics device with the headset."
     },
     {
       "key": "settings.platform.vrSubstituted.title",
@@ -21755,6 +21779,10 @@
     {
       "key": "settings.platform.mode.openxr.description",
       "value": "OpenXR runtime. Shortcut: F10"
+    },
+    {
+      "key": "settings.platform.mode.webxr.description",
+      "value": "Immersive VR in the browser through WebXR. Exiting VR from the browser returns to Desktop."
     },
     {
       "key": "settings.mediapipe.faceEyes",

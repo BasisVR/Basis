@@ -2961,6 +2961,14 @@
       "value": "Volgt het kaatslicht door een 3D-voxelkopie van de wereld om je heen, zodat ook licht van achter je, om hoeken en van verborgen dingen weerkaatst. De schermpass blijft erbovenop voor fijne details."
     },
     {
+      "key": "settings.graphics.gi.pathTracerRestir",
+      "value": "Kaatsmonsters hergebruiken (ReSTIR GI)"
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerRestir.tooltip",
+      "value": "Alleen padtracering. Elke pixel traceert zijn eigen kaatsstraal en deelt wat hij vond met zijn buren en de volgende frames, in plaats van de gedeelde lichtcache te lezen. Hoeken, contactpunten en kleine objecten krijgen veel nauwkeuriger kaatslicht, tegen extra GPU-kosten. Oppervlakken met een lightmap behouden hun gebakken licht."
+    },
+    {
       "key": "settings.graphics.gi.worldLevels",
       "value": "Wereldbereik"
     },

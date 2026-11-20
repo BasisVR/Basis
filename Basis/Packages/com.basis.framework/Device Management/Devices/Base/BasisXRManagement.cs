@@ -28,7 +28,7 @@ namespace Basis.Scripts.Device_Management.Devices
         /// <summary>
         /// Boot modes that should attempt XR loader initialization.
         /// </summary>
-        public string[] ActiveOnModes = new string[] { BasisConstants.OpenVRLoader, BasisConstants.OpenXRLoader };
+        public string[] ActiveOnModes = new string[] { BasisConstants.OpenVRLoader, BasisConstants.OpenXRLoader, BasisConstants.WebXRLoader };
 
         /// <summary>
         /// Name of the loader that is currently initialized, or empty when no XR runtime is up.

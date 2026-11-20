@@ -2961,6 +2961,14 @@
       "value": "周囲のワールドの 3D ボクセルコピーを通してバウンスをトレースするため、背後や曲がり角の先、他の物に隠れた物からの光もバウンスします。細部はスクリーンパスが上に重ねて補います。"
     },
     {
+      "key": "settings.graphics.gi.pathTracerRestir",
+      "value": "バウンスサンプルの再利用 (ReSTIR GI)"
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerRestir.tooltip",
+      "value": "パストレースのみ。共有ライティングキャッシュを読む代わりに、各ピクセルが自分のバウンスレイを飛ばし、その結果を近隣ピクセルや次のフレームと共有します。角、接地部分、小さな物体のバウンス光がはるかに正確になりますが、GPU負荷が増えます。ライトマップのある面はベイクされた光のままです。"
+    },
+    {
       "key": "settings.graphics.gi.worldLevels",
       "value": "ワールド範囲"
     },

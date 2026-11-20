@@ -2490,6 +2490,12 @@ namespace Basis.BasisUI
                 dropdownGiPathTracerAvatarRays.AssignBinding(BasisSettingsDefaults.GlobalIlluminationPathTracerAvatarRays);
                 SettingsProviderBottleneckHints.Mark(dropdownGiPathTracerAvatarRays, BasisFrameCostSide.Gpu);
 
+                PanelToggle toggleGiPathTracerRestir = PanelToggle.CreateNewEntry(giGroup.ContentParent);
+                toggleGiPathTracerRestir.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.pathTracerRestir"));
+                toggleGiPathTracerRestir.Descriptor.SetTooltip(BasisLocalization.Get("settings.graphics.gi.pathTracerRestir.tooltip"));
+                toggleGiPathTracerRestir.AssignBinding(BasisSettingsDefaults.GlobalIlluminationPathTracerRestir);
+                SettingsProviderBottleneckHints.Mark(toggleGiPathTracerRestir, BasisFrameCostSide.Gpu);
+
                 PanelToggle toggleGiWorldSpace = PanelToggle.CreateNewEntry(giGroup.ContentParent);
                 toggleGiWorldSpace.AssignBinding(BasisSettingsDefaults.GlobalIlluminationWorldSpace);
                 toggleGiWorldSpace.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.gi.worldSpace"));
@@ -2799,6 +2805,7 @@ namespace Basis.BasisUI
                     if (dropdownGiPathTracerGpu != null) { dropdownGiPathTracerGpu.Descriptor.SetActive(pathTracedPicked); }
                     dropdownGiPathTracerRays.Descriptor.SetActive(pathTraced);
                     dropdownGiPathTracerAvatarRays.Descriptor.SetActive(pathTraced);
+                    toggleGiPathTracerRestir.Descriptor.SetActive(pathTraced);
                     bool cascades = basis && !rayTraced;
                     toggleGiWorldSpace.Descriptor.SetActive(cascades);
                     sliderGiWorldLevels.Descriptor.SetActive(cascades && toggleGiWorldSpace.Value);
@@ -4284,6 +4291,7 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.GlobalIlluminationPathTracerInProcess.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationPathTracerRays.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationPathTracerAvatarRays.ResetToDefault();
+            BasisSettingsDefaults.GlobalIlluminationPathTracerRestir.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationIgnoreBakedEmission.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationLightmappedReceive.ResetToDefault();
             BasisSettingsDefaults.GlobalIlluminationIntensity.ResetToDefault();

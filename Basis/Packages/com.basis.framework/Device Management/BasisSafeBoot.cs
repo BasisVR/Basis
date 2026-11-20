@@ -74,7 +74,9 @@ namespace Basis.Scripts.Device_Management
         public static void ApplySettings()
         {
             if (!SafeMode) { return; }
+#if BASIS_HAS_GI && !UNITY_ANDROID && !UNITY_WEBGL
             BasisExternalRayTracer.Blocked = true;
+#endif
             BasisVrsD3D11.Blocked = true;
             Preview(BasisSettingsDefaults.UseGlobalIllumination);
             Preview(BasisSettingsDefaults.UseRayTracedAmbientOcclusion);

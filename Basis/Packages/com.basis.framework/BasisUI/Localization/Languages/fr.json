@@ -2961,6 +2961,14 @@
       "value": "Trace le rebond à travers une copie en voxels 3D du monde autour de vous, pour que la lumière venant de derrière, des recoins et des objets masqués rebondisse aussi. La passe écran reste par-dessus pour le détail fin."
     },
     {
+      "key": "settings.graphics.gi.pathTracerRestir",
+      "value": "Réutiliser les échantillons de rebond (ReSTIR GI)"
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerRestir.tooltip",
+      "value": "Tracé de chemins uniquement. Chaque pixel trace son propre rayon de rebond et partage ce qu'il a trouvé avec ses voisins et les images suivantes, au lieu de lire le cache d'éclairage partagé. Les coins, les contacts et les petits objets reçoivent une lumière de rebond bien plus précise, au prix d'un coût GPU supplémentaire. Les surfaces avec lightmap gardent leur lumière précalculée."
+    },
+    {
       "key": "settings.graphics.gi.worldLevels",
       "value": "Portée du monde"
     },

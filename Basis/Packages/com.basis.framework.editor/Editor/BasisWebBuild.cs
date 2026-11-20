@@ -114,7 +114,7 @@ public static class BasisWebBuild
         }
     }
 
-    private static string GetArgument(string name)
+    public static string GetArgument(string name)
     {
         string[] args = Environment.GetCommandLineArgs();
         for (int index = 0; index < args.Length - 1; index++) if (args[index] == $"-{name}") return args[index + 1];

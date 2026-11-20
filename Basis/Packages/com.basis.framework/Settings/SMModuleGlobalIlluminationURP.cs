@@ -302,6 +302,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
     private static string K_GI_PATH_TRACER_IN_PROCESS => BasisSettingsDefaults.GlobalIlluminationPathTracerInProcess.BindingKey;
     private static string K_GI_PATH_TRACER_RAYS => BasisSettingsDefaults.GlobalIlluminationPathTracerRays.BindingKey;
     private static string K_GI_PATH_TRACER_AVATAR_RAYS => BasisSettingsDefaults.GlobalIlluminationPathTracerAvatarRays.BindingKey;
+    private static string K_GI_PATH_TRACER_RESTIR => BasisSettingsDefaults.GlobalIlluminationPathTracerRestir.BindingKey;
     private static string K_GI_IGNORE_BAKED_EMISSION => BasisSettingsDefaults.GlobalIlluminationIgnoreBakedEmission.BindingKey;
     private static string K_GI_LIGHTMAPPED_RECEIVE => BasisSettingsDefaults.GlobalIlluminationLightmappedReceive.BindingKey;
     private static string K_GI_INTENSITY => BasisSettingsDefaults.GlobalIlluminationIntensity.BindingKey;
@@ -342,6 +343,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
         BasisExternalRayTracer.QueryAdapters();
         BasisExternalRayTracer.RayCount = ReadPathTracerRays(BasisSettingsDefaults.GlobalIlluminationPathTracerRays.RawValue);
         BasisExternalRayTracer.AvatarRayCount = ReadPathTracerRays(BasisSettingsDefaults.GlobalIlluminationPathTracerAvatarRays.RawValue);
+        BasisExternalRayTracer.RestirGI = BasisSettingsDefaults.GlobalIlluminationPathTracerRestir.RawValue;
         ApplyOverride();
     }
 
@@ -520,6 +522,7 @@ public partial class SMModuleGlobalIlluminationURP : BasisSettingsBase
         else if (matchedSettingName == K_GI_PATH_TRACER_IN_PROCESS) { BasisExternalRayTracer.SetInProcess(optionValue == "true"); }
         else if (matchedSettingName == K_GI_PATH_TRACER_RAYS) { BasisExternalRayTracer.RayCount = ReadPathTracerRays(optionValue); }
         else if (matchedSettingName == K_GI_PATH_TRACER_AVATAR_RAYS) { BasisExternalRayTracer.AvatarRayCount = ReadPathTracerRays(optionValue); }
+        else if (matchedSettingName == K_GI_PATH_TRACER_RESTIR) { BasisExternalRayTracer.RestirGI = optionValue == "true"; }
         else if (matchedSettingName == K_GI_IGNORE_BAKED_EMISSION) { state.IgnoreBakedEmission = optionValue == "true"; }
         else if (matchedSettingName == K_GI_LIGHTMAPPED_RECEIVE)
         {

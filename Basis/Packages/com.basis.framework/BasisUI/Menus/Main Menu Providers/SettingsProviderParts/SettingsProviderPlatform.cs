@@ -14,6 +14,7 @@ public static class SettingsProviderPlatform
         BasisConstants.Desktop,
         BasisConstants.OpenVRLoader,
         BasisConstants.OpenXRLoader,
+        BasisConstants.WebXRLoader,
     };
 
     public static void BuildDeviceModeUI(RectTransform container, Action<bool> onExpandedChanged = null)
@@ -132,6 +133,7 @@ public static class SettingsProviderPlatform
         if (mode == BasisConstants.Desktop) return BasisLocalization.Get("settings.platform.mode.desktop.description");
         if (mode == BasisConstants.OpenVRLoader) return BasisLocalization.Get("settings.platform.mode.openvr.description");
         if (mode == BasisConstants.OpenXRLoader) return BasisLocalization.Get("settings.platform.mode.openxr.description");
+        if (mode == BasisConstants.WebXRLoader) return BasisLocalization.Get("settings.platform.mode.webxr.description");
         return mode;
     }
 }

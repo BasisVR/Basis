@@ -2906,6 +2906,14 @@
       "value": "Traza el rebote a través de una copia en vóxeles 3D del mundo a tu alrededor, para que la luz de detrás, de las esquinas y de lo que queda oculto también rebote. El pase de pantalla sigue encima para el detalle fino."
     },
     {
+      "key": "settings.graphics.gi.pathTracerRestir",
+      "value": "Reutilizar muestras de rebote (ReSTIR GI)"
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerRestir.tooltip",
+      "value": "Solo trazado de trayectorias. Cada píxel traza su propio rayo de rebote y comparte lo que encuentra con sus vecinos y los fotogramas siguientes, en lugar de leer la caché de iluminación compartida. Las esquinas, los contactos y los objetos pequeños reciben una luz rebotada mucho más precisa, con un coste extra de GPU. Las superficies con lightmap conservan su luz horneada."
+    },
+    {
       "key": "settings.graphics.gi.worldLevels",
       "value": "Alcance del mundo"
     },

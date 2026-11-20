@@ -582,6 +582,7 @@ public static partial class BasisUserDataBackup
         BasisConstants.Desktop,
         BasisConstants.OpenVRLoader,
         BasisConstants.OpenXRLoader,
+        BasisConstants.WebXRLoader,
         BasisConstants.SimulateXR,
     };
 

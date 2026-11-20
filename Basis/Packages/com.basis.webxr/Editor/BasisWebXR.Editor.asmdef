@@ -1,0 +1,21 @@
+{
+    "name": "BasisWebXR.Editor",
+    "rootNamespace": "",
+    "references": [
+        "BasisWebXR",
+        "BasisEditor",
+        "Unity.XR.Management",
+        "Unity.XR.Management.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

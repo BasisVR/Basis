@@ -47,6 +47,10 @@ public static partial class BasisCrashReportStore
     private static readonly List<Entry> _previous = new List<Entry>();
 
     private static string _markerPath;
+#if UNITY_WEBGL && !UNITY_EDITOR
+    [System.Runtime.InteropServices.DllImport("__Internal")] private static extern int BasisWebSessionMarker_Begin();
+    [System.Runtime.InteropServices.DllImport("__Internal")] private static extern void BasisWebSessionMarker_End();
+#endif
     private static string _pendingPath;
     private static string _replayPath;
     private static bool _initialized;
@@ -74,7 +78,12 @@ public static partial class BasisCrashReportStore
 
             lock (FileLock)
             {
+#if UNITY_WEBGL && !UNITY_EDITOR
+                bool previousCrashed = BasisWebSessionMarker_Begin() != 0;
+                TryDelete(_markerPath);
+#else
                 bool previousCrashed = File.Exists(_markerPath);
+#endif
 
                 // A crashed session's freshly-captured reports move into the outbox so they
                 // survive even if THIS session also crashes before it can send them.
@@ -95,7 +104,9 @@ public static partial class BasisCrashReportStore
                 }
 
                 // (Re)arm the marker for this session.
+#if !UNITY_WEBGL || UNITY_EDITOR
                 try { File.WriteAllText(_markerPath, DateTime.UtcNow.ToString("o")); } catch { }
+#endif
             }
 
             Application.quitting += OnQuit;
@@ -116,6 +127,9 @@ public static partial class BasisCrashReportStore
         {
             TryDelete(_pendingPath);
             TryDelete(_markerPath);
+#if UNITY_WEBGL && !UNITY_EDITOR
+            BasisWebSessionMarker_End();
+#endif
         }
         Application.quitting -= OnQuit;
         BasisNetworkModeration.OnCrashReportingStateChanged -= OnCrashReportingStateChanged;

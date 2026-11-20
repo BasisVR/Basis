@@ -238,12 +238,6 @@ public sealed partial class BasisGlobalIlluminationSettings
     public bool externalSameFrame = false;
     public bool externalProbes = false;
     /// <summary>
-    /// Path Traced only. Replaces the world cache read at each pixel with ReSTIR GI: one gather ray per pixel (in
-    /// alternate 8x8 tiles) whose landing point is kept in a reservoir and reused over time and by neighbours.
-    /// Contacts and small occluders come out much closer to the reference, at the cost of the extra rays.
-    /// </summary>
-    public bool externalRestirGI = false;
-    /// <summary>
     /// Added to the ray origin offset per metre of view distance. The position a ray starts from is
     /// reconstructed from a half precision depth buffer, so its error grows with distance; without this a
     /// far surface starts its rays inside itself and shadows itself.

@@ -575,12 +575,13 @@ public static class SettingsProviderControllerConfig
 
         // Bindings are saved per device mode. The current mode is edited live; any other mode is
         // read from and written to its own file, and takes effect the next time that mode starts.
-        var modes = new List<string> { BasisConstants.Desktop, BasisConstants.OpenVRLoader, BasisConstants.OpenXRLoader };
+        var modes = new List<string> { BasisConstants.Desktop, BasisConstants.OpenVRLoader, BasisConstants.OpenXRLoader, BasisConstants.WebXRLoader };
         var modeLabels = new List<string>
         {
             BasisLocalization.Get("settings.platform.mode.desktop"),
             BasisLocalization.Get("settings.platform.mode.openvr"),
             BasisLocalization.Get("settings.platform.mode.openxr"),
+            BasisLocalization.Get("settings.platform.mode.webxr"),
         };
         string currentMode = BasisDeviceManagement.StaticCurrentMode;
         if (!modes.Contains(currentMode))

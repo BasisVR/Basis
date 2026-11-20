@@ -69,11 +69,17 @@ var BasisWebFileDropLibrary = {
 
   BasisWebFileDrop_Poll: function () {
     var batch = BasisWebFileDrop.ready.shift();
-    if (batch === undefined) return 0;
-    var size = lengthBytesUTF8(batch) + 1;
-    var buffer = _malloc(size);
-    stringToUTF8(batch, buffer, size);
+    var buffer = 0;
+    if (batch !== undefined) {
+      var size = lengthBytesUTF8(batch) + 1;
+      buffer = _malloc(size);
+      stringToUTF8(batch, buffer, size);
+    }
+#if MEMORY64
+    return BigInt(buffer);
+#else
     return buffer;
+#endif
   }
 };
 

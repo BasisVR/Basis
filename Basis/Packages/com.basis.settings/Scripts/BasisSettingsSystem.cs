@@ -743,7 +743,11 @@ namespace Basis.Scripts.Settings
             {
                 writer.Write(text);
                 writer.Flush();
+#if UNITY_WEBGL && !UNITY_EDITOR
+                stream.Flush();
+#else
                 stream.Flush(true);
+#endif
             }
         }
 

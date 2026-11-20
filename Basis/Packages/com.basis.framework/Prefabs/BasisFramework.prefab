@@ -612,6 +612,7 @@ MonoBehaviour:
     ActiveOnModes:
     - OpenVRLoader
     - OpenXRLoader
+    - WebXRLoader
     AvaliableLoaders: []
   BaseTypes:
   - {fileID: -1434852531052301144}

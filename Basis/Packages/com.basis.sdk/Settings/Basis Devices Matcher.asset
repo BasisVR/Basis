@@ -239,6 +239,39 @@ MonoBehaviour:
     HasTrackedRole: 1
     TrackedRole: 19
     HasInteractVisual: 1
+  - DeviceID: Head WEBXR
+    VersionNumber: 1
+    matchableDeviceIds:
+    - Head WEBXR
+    HasRayCastSupport: 0
+    CanDisplayPhysicalTracker: 0
+    HasRayCastVisual: 0
+    HasRayCastRadical: 0
+    HasTrackedRole: 1
+    TrackedRole: 0
+    HasInteractVisual: 1
+  - DeviceID: Left Hand WEBXR
+    VersionNumber: 1
+    matchableDeviceIds:
+    - Left Hand WEBXR
+    HasRayCastSupport: 1
+    CanDisplayPhysicalTracker: 0
+    HasRayCastVisual: 1
+    HasRayCastRadical: 0
+    HasTrackedRole: 1
+    TrackedRole: 18
+    HasInteractVisual: 1
+  - DeviceID: Right Hand WEBXR
+    VersionNumber: 1
+    matchableDeviceIds:
+    - Right Hand WEBXR
+    HasRayCastSupport: 1
+    CanDisplayPhysicalTracker: 0
+    HasRayCastVisual: 1
+    HasRayCastRadical: 0
+    HasTrackedRole: 1
+    TrackedRole: 19
+    HasInteractVisual: 1
   - DeviceID: '{standable}/rendermodels/Estimated/sfbePelvis'
     VersionNumber: 1
     matchableDeviceIds:

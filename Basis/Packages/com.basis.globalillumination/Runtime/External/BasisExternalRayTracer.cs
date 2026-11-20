@@ -195,6 +195,13 @@ public static unsafe partial class BasisExternalRayTracer
     public static bool BackendSelectable => IsWindows;
     public static int RayCount = 2;
     public static int AvatarRayCount = 2;
+    /// <summary>
+    /// ReSTIR GI: replaces the world cache read at each pixel with one gather ray per pixel (in alternate 8x8
+    /// tiles) whose landing point is kept in a reservoir and reused over time and by neighbours. Contacts and
+    /// small occluders come out much closer to the reference, at the cost of the extra rays. Lightmapped
+    /// pixels in the baked mode keep their own path.
+    /// </summary>
+    public static bool RestirGI = false;
     public static bool PreferVulkan { get; private set; }
     public static int RequestedApi => IsWindows && !PreferVulkan ? ApiDirectX : ApiVulkan;
     public static int RunningApi => Started ? (int)BasisRT_Stat(7) : 0;

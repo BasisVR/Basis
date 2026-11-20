@@ -1,0 +1,20 @@
+{
+  "name": "com.basis.webxr",
+  "displayName": "Basis WebXR",
+  "version": "0.0.1",
+  "description": "Immersive VR for the Basis web player through WebXR and WebGPU (XRGPUBinding).",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "com.unity.xr.management": "6.0.0",
+    "com.unity.inputsystem": "6.7.0"
+  },
+  "vpmDependencies": {
+    "com.basis.framework": "0.0.1",
+    "com.basis.openxr": "0.0.1",
+    "com.basis.sdk": "0.0.1"
+  }
+}

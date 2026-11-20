@@ -186,7 +186,7 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
 
         if (xrDisplays.Count == 0)
         {
-            if (BasisDeviceManagement.IsCurrentModeVR())
+            if (BasisDeviceManagement.IsCurrentModeVR() && BasisDeviceManagement.StaticCurrentMode != BasisConstants.WebXRLoader)
             {
                 BasisDebug.LogError("No XR display subsystems found.");
             }
@@ -205,7 +205,7 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
 
         if (xrDisplaySubsystem == null)
         {
-            if (BasisDeviceManagement.IsCurrentModeVR())
+            if (BasisDeviceManagement.IsCurrentModeVR() && BasisDeviceManagement.StaticCurrentMode != BasisConstants.WebXRLoader)
             {
                 BasisDebug.LogError("xrDisplaySubsystem was null!");
             }

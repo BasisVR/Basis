@@ -414,6 +414,7 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<string> GlobalIlluminationPathTracerBackend = new("globalilluminationpathtracerbackend", new BasisPlatformDefault<string>("DirectX"));
         public static BasisSettingsBinding<string> GlobalIlluminationPathTracerGpu = new("globalilluminationpathtracergpu", new BasisPlatformDefault<string>("Same As Game"));
         public static BasisSettingsBinding<bool> GlobalIlluminationPathTracerInProcess = new("globalilluminationpathtracerinprocess", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> GlobalIlluminationPathTracerRestir = new("globalilluminationpathtracerrestir", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<string> GlobalIlluminationPathTracerRays = new("globalilluminationpathtracerrays", new BasisPlatformDefault<string>("2"));
         public static BasisSettingsBinding<string> GlobalIlluminationPathTracerAvatarRays = new("globalilluminationpathtraceravatarrays", new BasisPlatformDefault<string>("2"));
         // Ray traced skips a baked-emissive surface's light by default, because that light already sits in
@@ -2464,6 +2465,7 @@ namespace Basis.BasisUI
             GlobalIlluminationPathTracerInProcess.LoadBindingValue();
             GlobalIlluminationPathTracerRays.LoadBindingValue();
             GlobalIlluminationPathTracerAvatarRays.LoadBindingValue();
+            GlobalIlluminationPathTracerRestir.LoadBindingValue();
             GlobalIlluminationIgnoreBakedEmission.LoadBindingValue();
             GlobalIlluminationLightmappedReceive.LoadBindingValue();
             GlobalIlluminationIntensity.LoadBindingValue();

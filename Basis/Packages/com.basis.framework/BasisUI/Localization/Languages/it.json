@@ -2961,6 +2961,14 @@
       "value": "Traccia il rimbalzo attraverso una copia in voxel 3D del mondo intorno a te, così anche la luce da dietro, dagli angoli e dagli oggetti nascosti rimbalza. Il passaggio a schermo resta sopra per i dettagli fini."
     },
     {
+      "key": "settings.graphics.gi.pathTracerRestir",
+      "value": "Riutilizza campioni di rimbalzo (ReSTIR GI)"
+    },
+    {
+      "key": "settings.graphics.gi.pathTracerRestir.tooltip",
+      "value": "Solo path tracing. Ogni pixel traccia il proprio raggio di rimbalzo e condivide ciò che trova con i vicini e i fotogrammi successivi, invece di leggere la cache di illuminazione condivisa. Angoli, punti di contatto e oggetti piccoli ricevono una luce di rimbalzo molto più precisa, con un costo GPU aggiuntivo. Le superfici con lightmap mantengono la luce precalcolata."
+    },
+    {
       "key": "settings.graphics.gi.worldLevels",
       "value": "Portata del mondo"
     },
