@@ -276,8 +276,28 @@ struct LightCandidate
 #define RESERVOIR_HISTORY 4.0
 #define CTX_RESERVOIR_SCRATCH 16
 #define RESERVOIR_SCRATCH_STRIDE 48u
+// The indirect (ReSTIR GI) reservoirs live after every pixel's emitter reservoir in the same buffers, so the
+// emitter passes keep their layout and an indirect pass reads one contiguous 32-byte record per pixel.
+#define GI_STRIDE 32u
+uint GiScratch(uint index) { return frame.width * frame.viewCount * frame.height * RESERVOIR_SCRATCH_STRIDE + index * GI_STRIDE; }
+uint GiHistory(uint index) { return frame.width * frame.viewCount * frame.height * RESERVOIR_STRIDE + index * GI_STRIDE; }
 #define SPATIAL_NEIGHBOURS 2u
 #define SPATIAL_RADIUS 16.0
+#ifndef GI_KERNEL
+#define GI_KERNEL 0
+#endif
+#ifndef GI_CHECKER
+#define GI_CHECKER 1
+#endif
+#ifndef GI_HISTORY
+#define GI_HISTORY 16.0
+#endif
+#ifndef GI_NEIGHBOURS
+#define GI_NEIGHBOURS 2u
+#endif
+#ifndef GI_RADIUS
+#define GI_RADIUS 12.0
+#endif
 #ifndef EMITTER_CONTACT
 #define EMITTER_CONTACT 1.0
 #endif
@@ -809,6 +829,236 @@ bool StoredReaches(LightCandidate c, float3 position, float3 normal, float nearR
     return dot(normal, direction) > 0.0 && cosLight > 1e-4 && distance >= frame.normalBias && distance < NearSample(nearRadius);
 }
 
+// ReSTIR GI: a reservoir holds one secondary vertex (where a gather ray landed, and the radiance leaving it
+// towards the receiver) so neighbouring pixels and later frames can reconnect to it instead of tracing their
+// own. A sky sample stores its direction in position. W is the unbiased contribution weight in solid angle.
+struct GiReservoir
+{
+    float3 position, normal, radiance;
+    bool sky;
+    float W, M;
+};
+
+void StoreGi(RWByteAddressBuffer b, uint o, GiReservoir r)
+{
+    float3 l = min(max(r.radiance, 0.0), 60000.0);
+    b.Store4(o, asuint(float4(r.position, asfloat(PackNormal(r.normal)))));
+    b.Store4(o + 16u, uint4(f32tof16(l.r) | (f32tof16(l.g) << 16), f32tof16(l.b) | (r.sky ? 0x10000u : 0u), asuint(isfinite(r.W) ? r.W : 0.0), asuint(r.M)));
+}
+
+GiReservoir LoadGi(RWByteAddressBuffer b, uint o)
+{
+    GiReservoir r;
+    float4 a = asfloat(b.Load4(o));
+    uint4 c = b.Load4(o + 16u);
+    r.position = a.xyz;
+    r.sky = (c.y & 0x10000u) != 0u;
+    r.normal = r.sky ? 0.0 : UnpackNormal(asuint(a.w));
+    r.radiance = float3(f16tof32(c.x), f16tof32(c.x >> 16), f16tof32(c.y));
+    r.W = asfloat(c.z);
+    r.M = asfloat(c.w);
+    if (!(r.M > 0.0) || !(r.W >= 0.0) || !all(isfinite(r.position))) { r.M = 0.0; r.W = 0.0; }
+    return r;
+}
+
+// Target function at a receiver: luminance of the stored radiance times the receiver's cosine.
+float GiTarget(GiReservoir r, float3 x, float3 n, float3 plane, out float3 direction, out float reach)
+{
+    if (r.sky) { direction = r.position; reach = frame.maxDistance; }
+    else
+    {
+        float3 d = r.position - x;
+        reach = length(d);
+        direction = d / max(reach, 1e-5);
+        if (dot(r.normal, -direction) <= 0.0) { return 0.0; }
+    }
+    float c = dot(n, direction);
+    return c > 0.0 && dot(plane, direction) > 0.0 ? Luminance(r.radiance) * c : 0.0;
+}
+
+// Solid angle Jacobian for moving a secondary vertex from one receiver to another; 0 rejects the reuse.
+float GiJacobian(GiReservoir r, float3 from, float3 to)
+{
+    if (r.sky) { return 1.0; }
+    float3 a = from - r.position, b = to - r.position;
+    float la = dot(a, a), lb = dot(b, b);
+    if (la < 1e-10 || lb < 1e-10) { return 0.0; }
+    float ca = dot(r.normal, a) * rsqrt(la), cb = dot(r.normal, b) * rsqrt(lb);
+    if (ca <= 1e-3 || cb <= 0.0) { return 0.0; }
+    float j = (cb / ca) * (la / lb);
+    return isfinite(j) && j < 8.0 && j > 0.125 ? j : 0.0;
+}
+
+// Light that changed near a stored vertex makes its radiance stale: a cleared or hard dirty sphere drops the
+// history, a soft one (continuous movers) only shortens it.
+float GiHistoryCap(float3 sample, float3 receiver, bool sky)
+{
+    float cap = GI_HISTORY;
+    if ((frame.flags & FLAG_CACHE_RESET) != 0) { return 0.0; }
+    StructuredBuffer<float4> dirty = ResourceDescriptorHeap[HEAP_DIRTY + frame.slot];
+    for (uint d = 0; d < frame.dirtyCount; d++)
+    {
+        float4 s = dirty[d];
+        float radius = s.w >= 100000.0 ? s.w - 100000.0 : abs(s.w);
+        bool near = distance(receiver, s.xyz) < radius || (!sky && distance(sample, s.xyz) < radius);
+        if (!near) { continue; }
+        cap = min(cap, s.w < 0.0 ? 4.0 : 0.0);
+    }
+    return cap;
+}
+
+bool MatchPrevious(Surface surface, uint2 local, uint viewIndex, out uint2 q)
+{
+    q = 0;
+    float2 previousPixel;
+    bool previousInside;
+    if (!PreviousPixel(surface.position, surface.motion, local, viewIndex, previousPixel, previousInside)) { return false; }
+    q = uint2(clamp(previousPixel, 0.5, float2(frame.width, frame.height) - 0.5)) + uint2(viewIndex * frame.width, 0);
+    RWTexture2D<float4> previousGeometry = ResourceDescriptorHeap[HEAP_GEOMETRY_UAV + frame.historyRead];
+    float4 g = previousGeometry[q];
+    float tolerance = HistoryTolerance(surface.position, surface.distance, previousPixel, viewIndex);
+    bool matched = !all(g == 0.0) && abs(dot(g.xyz - surface.position, surface.normal)) < tolerance && dot(UnpackNormal(asuint(g.w)), surface.normal) > 0.8;
+    if (!matched && previousInside)
+    {
+        float2 back = float2(local) + 0.5 - previousPixel;
+        float span = length(back);
+        [loop] for (uint n = 0; n < 40; n++)
+        {
+            if (n >= 24 && span < 1.0) { break; }
+            float radius = n < 8 ? 2.0 : n < 16 ? 5.0 : 10.0;
+            float angle = float(n & 7u) * 0.7853982 + (n < 8 ? 0.0 : n < 16 ? 0.3926991 : 0.0);
+            int2 tap = int2(floor(previousPixel + (n < 24 ? radius * float2(cos(angle), sin(angle)) : back * (float(n - 23u) * 0.125))));
+            if (any(tap < 0) || tap.x >= int(frame.width) || tap.y >= int(frame.height)) { continue; }
+            uint2 c = uint2(tap) + uint2(viewIndex * frame.width, 0);
+            float4 h = previousGeometry[c];
+            if (!all(h == 0.0) && abs(dot(h.xyz - surface.position, surface.normal)) < tolerance && dot(UnpackNormal(asuint(h.w)), surface.normal) > 0.8) { q = c; matched = true; break; }
+        }
+    }
+    return matched;
+}
+
+// Initial sample plus temporal reuse; the spatial pass (mode 4) finishes the reservoir and shades it.
+// Builds this frame's reservoir inside the gather kernel: the gather ray's landing point (W = 1 / pdf of the
+// cosine sample) merged with last frame's reservoir at the reprojected pixel. Without a ray this frame
+// (GI_CHECKER) the reservoir starts empty but present, so history and the spatial pass still fill it.
+void GiGather(uint2 pixel, float3 normal, float3 geometric, float3 origin, Bounce b, float3 direction, bool fresh, bool matched, uint2 q, inout uint rng)
+{
+    GiReservoir chosen = (GiReservoir)0;
+    float chosenTarget = 0.0, wsum = 0.0, M = 1e-6;
+    float3 d;
+    float reach;
+    if (fresh)
+    {
+        chosen.radiance = ClampFirefly(b.radiance);
+        chosen.sky = !b.hit;
+        chosen.position = b.hit ? b.position : direction;
+        chosen.normal = b.hit ? b.geometric : 0.0;
+        chosenTarget = GiTarget(chosen, origin, normal, geometric, d, reach);
+        wsum = chosenTarget * PI / max(dot(normal, direction), 1e-3);
+        M = 1.0;
+        if (!(wsum > 0.0) || !isfinite(wsum)) { wsum = 0.0; chosenTarget = 0.0; }
+    }
+    uint stride = frame.width * frame.viewCount;
+    if (matched)
+    {
+        RWByteAddressBuffer previous = ResourceDescriptorHeap[frame.contextBase + CTX_RESERVOIRS + frame.historyRead];
+        GiReservoir p = LoadGi(previous, GiHistory(q.y * stride + q.x));
+        float m = min(p.M, GiHistoryCap(p.position, origin, p.sky));
+        if (m > 0.0)
+        {
+            float t = GiTarget(p, origin, normal, geometric, d, reach);
+            float w = t * p.W * m;
+            M += m;
+            if (w > 0.0 && isfinite(w))
+            {
+                wsum += w;
+                if (Random(rng) * wsum < w) { chosen = p; chosenTarget = t; }
+            }
+        }
+    }
+    chosen.M = M;
+    chosen.W = chosenTarget > 0.0 ? wsum / (M * chosenTarget) : 0.0;
+    RWByteAddressBuffer scratch = ResourceDescriptorHeap[frame.contextBase + CTX_RESERVOIR_SCRATCH];
+    StoreGi(scratch, GiScratch(pixel.y * stride + pixel.x), chosen);
+}
+
+// Spatial reuse, visibility, shading. Adds the indirect estimate to the output and keeps the temporal
+// reservoir (not the spatial one) as history, so reuse does not feed on itself.
+void GiSpatial(RaytracingAccelerationStructure tlas, uint2 pixel)
+{
+    uint stride = frame.width * frame.viewCount;
+    if (pixel.x >= stride || pixel.y >= frame.height) { return; }
+    uint viewIndex;
+    uint2 local = ViewPixel(pixel, viewIndex);
+    RWByteAddressBuffer scratch = ResourceDescriptorHeap[frame.contextBase + CTX_RESERVOIR_SCRATCH];
+    RWByteAddressBuffer history = ResourceDescriptorHeap[frame.contextBase + CTX_RESERVOIRS + frame.historyWrite];
+    uint o = (pixel.y * stride + pixel.x) * RESERVOIR_SCRATCH_STRIDE;
+    uint ho = GiHistory(pixel.y * stride + pixel.x);
+    GiReservoir own = LoadGi(scratch, GiScratch(pixel.y * stride + pixel.x));
+    if (own.M <= 0.0) { history.Store4(ho + 16u, uint4(0u, 0u, 0u, 0u)); return; }
+    float4 at = asfloat(scratch.Load4(o + 32u));
+    float3 origin = at.xyz, normal = UnpackNormal(asuint(at.w));
+    float tolerance = max(0.03, distance(origin, frame.views[viewIndex].position.xyz) * 0.02);
+    uint rng = Hash(pixel.x * 2971u + pixel.y * 7907u) ^ Hash(frame.frameIndex * 1000003u + 13u);
+    float3 d;
+    float reach;
+    GiReservoir chosen = own;
+    float chosenTarget = GiTarget(own, origin, normal, normal, d, reach);
+    float wsum = chosenTarget * own.W * own.M, M = own.M;
+    if (!(wsum > 0.0) || !isfinite(wsum)) { wsum = 0.0; chosenTarget = 0.0; }
+    bool ownChosen = true;
+    float rotation = 2.0 * PI * BlueNoise1(pixel, 5u, frame.frameIndex);
+    [loop] for (uint k = 0; k < GI_NEIGHBOURS; k++)
+    {
+        float radius = GI_RADIUS * sqrt((float(k) + Random(rng)) / float(GI_NEIGHBOURS)), angle = rotation + 2.0 * PI * float(k) / float(GI_NEIGHBOURS);
+        int2 nq = int2(local) + int2(round(radius * cos(angle)), round(radius * sin(angle)));
+        if (any(nq < 0) || nq.x >= int(frame.width) || nq.y >= int(frame.height) || all(nq == int2(local))) { continue; }
+        uint no = (uint(nq.y) * stride + uint(nq.x) + viewIndex * frame.width) * RESERVOIR_SCRATCH_STRIDE;
+        float4 nat = asfloat(scratch.Load4(no + 32u));
+        if (dot(UnpackNormal(asuint(nat.w)), normal) < 0.9 || abs(dot(nat.xyz - origin, normal)) > tolerance) { continue; }
+        GiReservoir n = LoadGi(scratch, GiScratch(uint(nq.y) * stride + uint(nq.x) + viewIndex * frame.width));
+        if (n.M <= 0.0) { continue; }
+        float j = GiJacobian(n, nat.xyz, origin);
+        float t = GiTarget(n, origin, normal, normal, d, reach);
+        float w = t * n.W * n.M * j;
+        M += n.M;
+        if (w > 0.0 && isfinite(w))
+        {
+            wsum += w;
+            if (Random(rng) * wsum < w) { chosen = n; chosenTarget = t; ownChosen = false; }
+        }
+    }
+    float W = chosenTarget > 0.0 ? wsum / (M * chosenTarget) : 0.0;
+    if (W > 0.0)
+    {
+        GiTarget(chosen, origin, normal, normal, d, reach);
+        float3 start = origin;
+        if (Occluded(tlas, start, d, chosen.sky ? frame.maxDistance : max(reach * 0.999 - frame.normalBias * 2.0, 0.0)))
+        {
+            W = 0.0;
+            if (ownChosen) { own.M = 0.0; }
+        }
+    }
+    // A stored vertex that something has moved in front of is dropped from history rather than kept at zero
+    // weight, which would hold the pixel dark for as many frames as the history is long.
+    if (!ownChosen && own.M > 1.0)
+    {
+        float ownReach;
+        float3 ownDirection;
+        if (GiTarget(own, origin, normal, normal, ownDirection, ownReach) > 0.0 && Occluded(tlas, origin, ownDirection, own.sky ? frame.maxDistance : max(ownReach * 0.999 - frame.normalBias * 2.0, 0.0))) { own.M = 0.0; }
+    }
+    StoreGi(history, ho, own);
+    if (W > 0.0 && isfinite(W))
+    {
+        GiTarget(chosen, origin, normal, normal, d, reach);
+        float3 e = ClampFirefly(chosen.radiance * (max(dot(normal, d), 0.0) * W / PI));
+        RWTexture2D<float4> output = ResourceDescriptorHeap[HEAP_RADIANCE_UAV];
+        float4 value = output[pixel];
+        value.rgb += e;
+        output[pixel] = value;
+    }
+}
+
 #ifdef REFERENCE
 void ReferenceRayGen(uint mode, uint2 pixel)
 {
@@ -876,6 +1126,8 @@ void Trace(uint mode, uint2 index, uint dispatchWidth)
     ReferenceRayGen(mode, index);
     return;
 #endif
+    // ReSTIR GI passes are separate kernels so their registers never weigh on the gather or emitter passes.
+    if (mode == 6u) { GiSpatial(LOAD_TLAS(), index); return; }
     bool listed = false;
     if (mode == 5u)
     {
@@ -1052,6 +1304,7 @@ void Trace(uint mode, uint2 index, uint dispatchWidth)
             output[pixel] = float4(0.0, 0.0, 0.0, 1.0);
             RWByteAddressBuffer reservoirs = ResourceDescriptorHeap[frame.contextBase + CTX_RESERVOIR_SCRATCH];
             reservoirs.Store2((pixel.y * frame.width * frame.viewCount + pixel.x) * RESERVOIR_SCRATCH_STRIDE + 16u, uint2(0u, 0u));
+            if (GI_KERNEL) { reservoirs.Store4(GiScratch(pixel.y * frame.width * frame.viewCount + pixel.x) + 16u, uint4(0u, 0u, 0u, 0u)); }
         }
         return;
     }
@@ -1100,6 +1353,11 @@ void Trace(uint mode, uint2 index, uint dispatchWidth)
     bool direct = avatarPixel && avatarRays > 0u && !baked;
     float nearRadius = baked || direct ? 1e9 : CacheCellSize(surface.position, viewer) * 3.0;
     uint part = direct ? 0u : 1u;
+    bool restir = GI_KERNEL && (frame.flags & FLAG_RESTIR_GI) != 0 && !baked && !direct;
+    // The emitter reservoir's reprojection search is reused by the indirect reservoir. It stays where the
+    // emitter pass always ran it: hoisting it above the candidate loop costs the kernel registers.
+    uint2 previousQ = 0;
+    bool previousMatched = false;
     {
         RWByteAddressBuffer reservoirs = ResourceDescriptorHeap[frame.contextBase + CTX_RESERVOIR_SCRATCH];
         LightCandidate chosen = (LightCandidate)0;
@@ -1126,32 +1384,11 @@ void Trace(uint mode, uint2 index, uint dispatchWidth)
 #if INITIAL_VISIBILITY
             if (chosenTarget > 0.0 && chosen.shadow && Occluded(tlas, origin, chosen.direction, max(chosen.distance * 0.999 - frame.normalBias * 2.0, 0.0))) { chosen = (LightCandidate)0; chosenTarget = 0.0; wsum = 0.0; }
 #endif
-            float2 previousPixel;
-            bool previousInside;
-            if (PreviousPixel(surface.position, surface.motion, local, viewIndex, previousPixel, previousInside))
             {
-                uint2 q = uint2(clamp(previousPixel, 0.5, float2(frame.width, frame.height) - 0.5)) + uint2(viewIndex * frame.width, 0);
-                RWTexture2D<float4> previousGeometry = ResourceDescriptorHeap[HEAP_GEOMETRY_UAV + frame.historyRead];
-                float4 g = previousGeometry[q];
-                float tolerance = HistoryTolerance(surface.position, surface.distance, previousPixel, viewIndex);
-                bool matched = !all(g == 0.0) && abs(dot(g.xyz - surface.position, surface.normal)) < tolerance && dot(UnpackNormal(asuint(g.w)), surface.normal) > 0.8;
-                if (!matched && previousInside)
-                {
-                    float2 back = float2(local) + 0.5 - previousPixel;
-                    float span = length(back);
-                    [loop] for (uint n = 0; n < 40; n++)
-                    {
-                        if (n >= 24 && span < 1.0) { break; }
-                        float radius = n < 8 ? 2.0 : n < 16 ? 5.0 : 10.0;
-                        float angle = float(n & 7u) * 0.7853982 + (n < 8 ? 0.0 : n < 16 ? 0.3926991 : 0.0);
-                        int2 tap = int2(floor(previousPixel + (n < 24 ? radius * float2(cos(angle), sin(angle)) : back * (float(n - 23u) * 0.125))));
-                        if (any(tap < 0) || tap.x >= int(frame.width) || tap.y >= int(frame.height)) { continue; }
-                        uint2 c = uint2(tap) + uint2(viewIndex * frame.width, 0);
-                        float4 h = previousGeometry[c];
-                        if (!all(h == 0.0) && abs(dot(h.xyz - surface.position, surface.normal)) < tolerance && dot(UnpackNormal(asuint(h.w)), surface.normal) > 0.8) { q = c; matched = true; break; }
-                    }
-                }
-                if (matched)
+                uint2 q;
+                previousMatched = MatchPrevious(surface, local, viewIndex, q);
+                previousQ = q;
+                if (previousMatched)
                 {
                     RWByteAddressBuffer previous = ResourceDescriptorHeap[frame.contextBase + CTX_RESERVOIRS + frame.historyRead];
                     uint o = (q.y * frame.width * frame.viewCount + q.x) * RESERVOIR_STRIDE;
@@ -1180,6 +1417,13 @@ void Trace(uint mode, uint2 index, uint dispatchWidth)
         reservoirs.Store4(o, chosen.id);
         reservoirs.Store4(o + 16u, asuint(float4(isfinite(W) ? W : 0.0, count, nearRadius, 0.0)));
         reservoirs.Store4(o + 32u, asuint(float4(origin, asfloat(PackNormal(surface.normal)))));
+    }
+
+    if (restir && frame.emitterCount == 0) { previousMatched = MatchPrevious(surface, local, viewIndex, previousQ); }
+    if (GI_KERNEL && !restir)
+    {
+        RWByteAddressBuffer reservoirs = ResourceDescriptorHeap[frame.contextBase + CTX_RESERVOIR_SCRATCH];
+        reservoirs.Store4(GiScratch(pixel.y * frame.width * frame.viewCount + pixel.x) + 16u, uint4(0u, 0u, 0u, 0u));
     }
 
     if (baked)
@@ -1224,35 +1468,31 @@ void Trace(uint mode, uint2 index, uint dispatchWidth)
         return;
     }
 
-    float4 cached = direct ? float4(0.0, 0.0, 0.0, 1.0) : CacheLookup(surface.position, geometric, viewer, BlueNoise1(pixel, 0u, frame.frameIndex));
-    float3 irradiance = cached.rgb;
-    if (cached.a < 0.5)
+    // With ReSTIR GI the indirect light is added by the spatial pass; here only far emitters, which the
+    // gather ray leaves to light sampling, the same split the fresh-ray path below makes.
+    float4 cached = direct || restir ? float4(0.0, 0.0, 0.0, 1.0) : CacheLookup(surface.position, geometric, viewer, BlueNoise1(pixel, 0u, frame.frameIndex));
+    float3 irradiance = restir ? FarLight(tlas, origin, surface.normal, nearRadius, rng) : cached.rgb;
+    // One loop serves the reservoir's gather ray, avatar pixels and pixels the cache does not cover yet, so the
+    // path tracer is inlined once; every extra copy costs the whole kernel registers and occupancy.
+    // GI_CHECKER traces the reservoir's ray in alternate 8x8 tiles, whole warps at a time; reuse fills the rest.
+    bool fresh = !GI_CHECKER || (((local.x >> 3) + (local.y >> 3) + frame.frameIndex) & 1u) == 0u;
+    uint rays = restir ? (fresh ? 1u : 0u) : direct ? avatarRays : cached.a < 0.5 ? clamp(frame.samples / 2u, 1u, 8u) : 0u;
+    uint dimension = direct ? 2u : 1u;
+    float3 traced = 0.0, firstDirection = 0.0;
+    Bounce first = (Bounce)0;
+    for (uint ri = 0; ri < rays; ri++)
     {
-        uint fresh = clamp(frame.samples / 2u, 1u, 8u);
-        float3 traced = 0.0;
-        for (uint ri = 0; ri < fresh; ri++)
-        {
-            float3 direction = CosineSample(surface.normal, BlueNoise2(pixel, 1u, frame.frameIndex * fresh + ri));
-            if (dot(direction, geometric) <= 0.0) { direction = normalize(direction - 2.0 * dot(direction, geometric) * geometric); }
-            Bounce b = TraceRadiance(tlas, gbuffer, origin, direction, surface.normal, viewer, rng);
-            traced += ClampFirefly(b.radiance);
-        }
-        irradiance = lerp(traced / fresh + FarLight(tlas, origin, surface.normal, nearRadius, rng), cached.rgb, saturate(cached.a * 2.0));
+        float3 direction = CosineSample(surface.normal, BlueNoise2(pixel, dimension, frame.frameIndex * rays + ri));
+        if (dot(direction, geometric) <= 0.0) { direction = normalize(direction - 2.0 * dot(direction, geometric) * geometric); }
+        Bounce b = TraceRadiance(tlas, gbuffer, origin, direction, surface.normal, viewer, rng);
+        if (ri == 0) { first = b; firstDirection = direction; }
+        traced += ClampFirefly(b.radiance);
     }
-    if (direct)
-    {
-        float3 traced = 0.0;
-        for (uint ar = 0; ar < avatarRays; ar++)
-        {
-            float3 direction = CosineSample(surface.normal, BlueNoise2(pixel, 2u, frame.frameIndex * avatarRays + ar));
-            if (dot(direction, geometric) <= 0.0) { direction = normalize(direction - 2.0 * dot(direction, geometric) * geometric); }
-            Bounce b = TraceRadiance(tlas, gbuffer, origin, direction, surface.normal, viewer, rng);
-            traced += ClampFirefly(b.radiance);
-        }
-        irradiance = traced / avatarRays;
-    }
+    if (restir) { GiGather(pixel, surface.normal, geometric, origin, first, firstDirection, fresh, previousMatched, previousQ, rng); }
+    else if (direct) { irradiance = traced / max(rays, 1u); }
+    else if (rays > 0) { irradiance = lerp(traced / rays + FarLight(tlas, origin, surface.normal, nearRadius, rng), cached.rgb, saturate(cached.a * 2.0)); }
 
-    if ((frame.flags & FLAG_PROBES) != 0 && !direct)
+    if ((frame.flags & FLAG_PROBES) != 0 && !direct && !restir)
     {
         RWByteAddressBuffer probes = ResourceDescriptorHeap[frame.contextBase + CTX_PROBES + frame.historyWrite];
         uint tilesPerView = (frame.width + PROBE_TILE - 1u) / PROBE_TILE, tilesY = (frame.height + PROBE_TILE - 1u) / PROBE_TILE;
@@ -1301,7 +1541,9 @@ void Trace(uint mode, uint2 index, uint dispatchWidth)
     }
     occlusion *= grazing;
     float visibility = 1.0 - occlusion;
-    irradiance = irradiance * (0.5 + 0.5 * visibility) + emitted;
+    // Reservoir samples are traced to their hit, so they already carry contact occlusion.
+    if (!restir) { irradiance *= 0.5 + 0.5 * visibility; }
+    irradiance += emitted;
     if (!all(isfinite(irradiance))) { irradiance = 0.0; }
     output[pixel] = float4(irradiance, saturate(1.0 - frame.aoIntensity * occlusion));
 }

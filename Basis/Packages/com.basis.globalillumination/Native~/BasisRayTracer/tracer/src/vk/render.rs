@@ -6,7 +6,7 @@ use crate::{Fallible, os};
 use ash::vk;
 use basis_rt_protocol::*;
 
-const COMPUTE: [(&str, &[u8]); 21] = [
+const COMPUTE: [(&str, &[u8]); 23] = [
     ("CopyVertices", include_bytes!(concat!(env!("OUT_DIR"), "/CopyVertices.spv"))),
     ("CopyIndices", include_bytes!(concat!(env!("OUT_DIR"), "/CopyIndices.spv"))),
     ("CopyPositions", include_bytes!(concat!(env!("OUT_DIR"), "/CopyPositions.spv"))),
@@ -28,6 +28,8 @@ const COMPUTE: [(&str, &[u8]); 21] = [
     ("TraceSphere", include_bytes!(concat!(env!("OUT_DIR"), "/TraceSphere.spv"))),
     ("TraceSpatial", include_bytes!(concat!(env!("OUT_DIR"), "/TraceSpatial.spv"))),
     ("TraceListed", include_bytes!(concat!(env!("OUT_DIR"), "/TraceListed.spv"))),
+    ("TraceGiSpatial", include_bytes!(concat!(env!("OUT_DIR"), "/TraceGiSpatial.spv"))),
+    ("TraceGatherGi", include_bytes!(concat!(env!("OUT_DIR"), "/TraceGatherGi.spv"))),
 ];
 const P_COPY_VERTICES: usize = 0;
 const P_COPY_INDICES: usize = 1;
@@ -51,6 +53,8 @@ const TRACE_PROBES: u32 = 2;
 const TRACE_SPHERE: u32 = 3;
 const TRACE_SPATIAL: u32 = 4;
 const TRACE_LISTED: u32 = 5;
+const TRACE_GI_SPATIAL: u32 = 6;
+const TRACE_GATHER_GI: u32 = 7;
 
 pub const SCRATCH_PER_SLOT: u32 = 16384;
 pub const HEAP_SIZE: u32 = SCRATCH_DESCRIPTORS + SCRATCH_PER_SLOT * RING as u32;
@@ -574,9 +578,14 @@ impl Renderer {
         }
         stamp(4);
         if tlas_count > 0 {
-            self.trace(gpu, cmd, TRACE_GATHER, 0, full, height);
+            let restir = params.flags & FLAG_RESTIR_GI != 0;
+            self.trace(gpu, cmd, if restir { TRACE_GATHER_GI } else { TRACE_GATHER }, 0, full, height);
             barrier(gpu, cmd);
             self.trace(gpu, cmd, TRACE_SPATIAL, 0, full, height);
+            if restir {
+                barrier(gpu, cmd);
+                self.trace(gpu, cmd, TRACE_GI_SPATIAL, 0, full, height);
+            }
         }
         barrier(gpu, cmd);
         stamp(5);
@@ -755,8 +764,8 @@ impl Renderer {
         let (tiles_x, tiles_y) = tiles(width, height, views);
         let probe_bytes = ((tiles_x * tiles_y) as u64 * PROBE_STRIDE).max(256);
         let ray_bytes = ((tiles_x * tiles_y * PROBE_RAYS) as u64 * 64).max(256);
-        let reservoir_bytes = (full as u64 * height as u64 * 24).max(256);
-        let scratch_bytes = (full as u64 * height as u64 * 48).max(256);
+        let reservoir_bytes = (full as u64 * height as u64 * 56).max(256);
+        let scratch_bytes = (full as u64 * height as u64 * 80).max(256);
         let list_bytes = (full.div_ceil(2) as u64 + 1) * height.div_ceil(2) as u64 * 4;
         for (bytes, index) in [(probe_bytes, CTX_PROBES), (probe_bytes, CTX_PROBES + 1), (ray_bytes, CTX_PROBE_RAYS), (reservoir_bytes, CTX_RESERVOIRS), (reservoir_bytes, CTX_RESERVOIRS + 1), (scratch_bytes, CTX_RESERVOIR_SCRATCH), (list_bytes, CTX_UPDATE_LIST)] {
             let b = gpu.buffer(bytes, vk::BufferUsageFlags::STORAGE_BUFFER, vk::MemoryPropertyFlags::DEVICE_LOCAL)?;

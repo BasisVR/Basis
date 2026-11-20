@@ -14,7 +14,9 @@ fn compile(dxc: &PathBuf, shaders: &PathBuf, out: &PathBuf, file: &str, profile:
 }
 
 fn omm_level() -> u32 { std::env::var("BASIS_RT_OMM_LEVEL").ok().and_then(|v| v.parse().ok()).filter(|v| (2..=5).contains(v)).unwrap_or(3) }
-const TRACE_ENTRIES: [&str; 6] = ["TraceClassify", "TraceGather", "TraceProbes", "TraceSphere", "TraceSpatial", "TraceListed"];
+// (entry, mode, GI_KERNEL). TraceGatherGi is the gather pass with the ReSTIR GI reservoir compiled in; the
+// plain TraceGather carries none of it, so turning the feature off costs nothing.
+const TRACE_ENTRIES: [(&str, u32, u32); 8] = [("TraceClassify", 0, 0), ("TraceGather", 1, 0), ("TraceProbes", 2, 0), ("TraceSphere", 3, 0), ("TraceSpatial", 4, 0), ("TraceListed", 5, 0), ("TraceGiSpatial", 6, 1), ("TraceGatherGi", 1, 1)];
 
 fn main() {
     println!("cargo:rerun-if-env-changed=BASIS_RT_OMM_LEVEL");
@@ -49,18 +51,18 @@ fn main() {
     if target_windows {
         let dxil = ["-Qstrip_debug", "-Qstrip_reflect"];
         for (file, entry) in compute { compile(&dxc, &shaders, &out, file, "cs_6_6", entry, "dxil", &dxil); }
-        for (mode, entry) in TRACE_ENTRIES.iter().enumerate() {
-            let (m, e) = (format!("TRACE_MODE={mode}"), format!("TRACE_ENTRY={entry}"));
-            compile(&dxc, &shaders, &out, "trace.hlsl", "cs_6_6", entry, "dxil", &["-Qstrip_debug", "-Qstrip_reflect", "-D", &m, "-D", &e]);
+        for (entry, mode, gi) in TRACE_ENTRIES {
+            let (m, e, g) = (format!("TRACE_MODE={mode}"), format!("TRACE_ENTRY={entry}"), format!("GI_KERNEL={gi}"));
+            compile(&dxc, &shaders, &out, "trace.hlsl", "cs_6_6", entry, "dxil", &["-Qstrip_debug", "-Qstrip_reflect", "-D", &m, "-D", &e, "-D", &g]);
         }
         println!("cargo:rustc-link-arg-bins=/EXPORT:D3D12SDKVersion,DATA");
         println!("cargo:rustc-link-arg-bins=/EXPORT:D3D12SDKPath,DATA");
     }
     let spirv = ["-spirv", "-fspv-target-env=vulkan1.3", "-fvk-use-dx-layout", "-fspv-use-unknown-image-format", "-fvk-bind-resource-heap", "0", "1", "-D", "BASIS_SPIRV"];
-    for (mode, entry) in TRACE_ENTRIES.iter().enumerate() {
-        let (m, e) = (format!("TRACE_MODE={mode}"), format!("TRACE_ENTRY={entry}"));
+    for (entry, mode, gi) in TRACE_ENTRIES {
+        let (m, e, g) = (format!("TRACE_MODE={mode}"), format!("TRACE_ENTRY={entry}"), format!("GI_KERNEL={gi}"));
         let mut flags = spirv.to_vec();
-        flags.extend(["-D", m.as_str(), "-D", e.as_str()]);
+        flags.extend(["-D", m.as_str(), "-D", e.as_str(), "-D", g.as_str()]);
         compile(&dxc, &shaders, &out, "trace.hlsl", "cs_6_6", entry, "spv", &flags);
     }
     for (file, entry) in compute { compile(&dxc, &shaders, &out, file, "cs_6_6", entry, "spv", &spirv); }

@@ -8,7 +8,7 @@ use windows::Win32::Graphics::Direct3D12::*;
 use windows::Win32::Graphics::Dxgi::Common::*;
 use windows::core::*;
 
-const TRACE: [&[u8]; 6] = [include_bytes!(concat!(env!("OUT_DIR"), "/TraceClassify.dxil")), include_bytes!(concat!(env!("OUT_DIR"), "/TraceGather.dxil")), include_bytes!(concat!(env!("OUT_DIR"), "/TraceProbes.dxil")), include_bytes!(concat!(env!("OUT_DIR"), "/TraceSphere.dxil")), include_bytes!(concat!(env!("OUT_DIR"), "/TraceSpatial.dxil")), include_bytes!(concat!(env!("OUT_DIR"), "/TraceListed.dxil"))];
+const TRACE: [&[u8]; 8] = [include_bytes!(concat!(env!("OUT_DIR"), "/TraceClassify.dxil")), include_bytes!(concat!(env!("OUT_DIR"), "/TraceGather.dxil")), include_bytes!(concat!(env!("OUT_DIR"), "/TraceProbes.dxil")), include_bytes!(concat!(env!("OUT_DIR"), "/TraceSphere.dxil")), include_bytes!(concat!(env!("OUT_DIR"), "/TraceSpatial.dxil")), include_bytes!(concat!(env!("OUT_DIR"), "/TraceListed.dxil")), include_bytes!(concat!(env!("OUT_DIR"), "/TraceGiSpatial.dxil")), include_bytes!(concat!(env!("OUT_DIR"), "/TraceGatherGi.dxil"))];
 const COPY_VERTICES: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/CopyVertices.dxil"));
 const COPY_INDICES: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/CopyIndices.dxil"));
 const COPY_POSITIONS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/CopyPositions.dxil"));
@@ -32,6 +32,8 @@ const TRACE_PROBES: u32 = 2;
 const TRACE_SPHERE: u32 = 3;
 const TRACE_SPATIAL: u32 = 4;
 const TRACE_LISTED: u32 = 5;
+const TRACE_GI_SPATIAL: u32 = 6;
+const TRACE_GATHER_GI: u32 = 7;
 pub const HEAP_RING: u32 = 9;
 pub const HEAP_BLUE_NOISE: u32 = 10;
 pub const BLUE_NOISE: &[u8] = include_bytes!("bluenoise.bin");
@@ -596,9 +598,15 @@ impl Renderer {
             }
             stamp(&list, 4);
             if tlas_count > 0 {
-                trace(&list, TRACE_GATHER, 0, full, height);
+                let restir = params.flags & FLAG_RESTIR_GI != 0;
+                trace(&list, if restir { TRACE_GATHER_GI } else { TRACE_GATHER }, 0, full, height);
                 list.ResourceBarrier(&[uav_barrier(None)]);
                 trace(&list, TRACE_SPATIAL, 0, full, height);
+                if restir {
+                    // Both spatial passes add into the output, so the indirect one waits for the emitter one.
+                    list.ResourceBarrier(&[uav_barrier(None)]);
+                    trace(&list, TRACE_GI_SPATIAL, 0, full, height);
+                }
             }
             list.ResourceBarrier(&[uav_barrier(None)]);
             stamp(&list, 5);
@@ -752,7 +760,7 @@ pub fn create_upload(gpu: &Gpu) -> Result<Upload> {
     Ok(upload)
 }
 
-pub fn context_bytes(width: u32, height: u32, views: u32, own_targets: bool) -> u64 { (width * views) as u64 * height as u64 * if own_targets { 290 } else { 210 } }
+pub fn context_bytes(width: u32, height: u32, views: u32, own_targets: bool) -> u64 { (width * views) as u64 * height as u64 * if own_targets { 386 } else { 306 } }
 
 pub fn create_context(gpu: &Gpu, context: usize, width: u32, height: u32, views: u32, targets: Option<([ID3D12Resource; 2], [ID3D12Resource; 2])>) -> Result<Context> {
     let shared = D3D12_HEAP_FLAG_SHARED;
@@ -787,10 +795,10 @@ pub fn create_context(gpu: &Gpu, context: usize, width: u32, height: u32, views:
     let ray_bytes = (tiles_x * tiles_y * PROBE_RAYS) as u64 * 64;
     let probe_rays = gpu.buffer(ray_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)?;
     gpu.uav_raw(&probe_rays, ray_bytes.max(256), base + CTX_PROBE_RAYS);
-    let reservoir_bytes = full as u64 * height as u64 * 24;
+    let reservoir_bytes = full as u64 * height as u64 * 56;
     let reservoir = |k: u32| -> Result<ID3D12Resource> { let b = gpu.buffer(reservoir_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)?; gpu.uav_raw(&b, reservoir_bytes, base + CTX_RESERVOIRS + k); Ok(b) };
     let reservoirs = [reservoir(0)?, reservoir(1)?];
-    let scratch_bytes = full as u64 * height as u64 * 48;
+    let scratch_bytes = full as u64 * height as u64 * 80;
     let reservoir_scratch = gpu.buffer(scratch_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)?;
     gpu.uav_raw(&reservoir_scratch, scratch_bytes, base + CTX_RESERVOIR_SCRATCH);
     let list_bytes = (full.div_ceil(2) as u64 + 1) * height.div_ceil(2) as u64 * 4;

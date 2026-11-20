@@ -42,7 +42,7 @@ impl Backend for Tracer {
 
     fn create_context(&mut self, link: &os::Link, context: usize, width: u32, height: u32, views: u32, targets: Option<[u64; 4]>) -> Fallible<[u64; 4]> {
         if targets.is_some() { return Err("Unity-owned targets need the DXR tracer".into()); }
-        let need = width as u64 * views as u64 * height as u64 * 290;
+        let need = width as u64 * views as u64 * height as u64 * 386;
         if let Some((budget, used)) = self.gpu.video_memory() {
             if self.renderer.contexts.iter().flatten().count() > 0 && used.saturating_add(need) > budget && std::env::var_os("BASIS_RT_NO_MEMORY_GUARD").is_none() {
                 return Err(format!("not enough video memory: it needs {} MB and {} of {} MB are in use", need >> 20, used >> 20, budget >> 20));

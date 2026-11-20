@@ -131,6 +131,7 @@ public partial class BasisGlobalIlluminationPass
         if (settings.rayTracedShadows) { parameters.flags |= BasisExternalRayTracer.FlagShadows; }
         if (sameFrame) { parameters.flags |= BasisExternalRayTracer.FlagSameFrame; }
         if (settings.externalProbes) { parameters.flags |= BasisExternalRayTracer.FlagProbes; }
+        if (settings.externalRestirGI) { parameters.flags |= BasisExternalRayTracer.FlagRestirGI; }
         if (settings.IsExternalBaked()) { parameters.flags |= BasisExternalRayTracer.FlagBakedHybrid; }
         // Unity's motion vectors cover one frame. When the tracer's previous frame is older than that (frames
         // were skipped), its history and reservoir reuse follow previousViewProjection instead, which is only

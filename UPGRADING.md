@@ -2,7 +2,7 @@
 
 Basis tracks the newest Unity 6.7 beta, and every bump touches four things: the editor version, the package manifest, the embedded URP fork, and whatever Basis code leans on APIs that moved. Most of the work is in the URP fork. The rest is bookkeeping, but the bookkeeping is where upgrades usually break.
 
-The steps below are the ones used for every 6000.7.0 beta from b3 to b9. Paths are relative to the repository root unless they start with `<editor>`, which means an installed editor folder such as `C:/Program Files/Unity/Hub/Editor/6000.7.0b9/Editor`.
+The steps below are the ones used for every 6000.7.0 beta from b3 to b10. Paths are relative to the repository root unless they start with `<editor>`, which means an installed editor folder such as `C:/Program Files/Unity/Hub/Editor/6000.7.0b10/Editor`.
 
 ## Before you start
 
@@ -170,12 +170,12 @@ Any hit means two assets share a GUID, and Unity will pick one at random.
 Set both lines of `Basis/ProjectSettings/ProjectVersion.txt`. The changeset is in the editor's file version, which you can read from PowerShell:
 
 ```powershell
-(Get-Item '<new editor>\Unity.exe').VersionInfo.ProductVersion   # 6000.7.0b9_2e2e237e2443
+(Get-Item '<new editor>\Unity.exe').VersionInfo.ProductVersion   # 6000.7.0b10_4f3c1c5c4346
 ```
 
 ```
-m_EditorVersion: 6000.7.0b9
-m_EditorVersionWithRevision: 6000.7.0b9 (2e2e237e2443)
+m_EditorVersion: 6000.7.0b10
+m_EditorVersionWithRevision: 6000.7.0b10 (4f3c1c5c4346)
 ```
 
 CI reads the version and changeset from this file (`.github/actions/unity-editor-image`) and builds its editor image from them, so nothing else in the repository needs the version.
@@ -185,8 +185,8 @@ CI reads the version and changeset from this file (`.github/actions/unity-editor
 Open the project once in batch mode to compile and import:
 
 ```sh
-"<new editor>/Unity.exe" -batchmode -quit -projectPath Basis -logFile b9_open.log
-grep -E "error CS|Scripts have compiler errors" b9_open.log
+"<new editor>/Unity.exe" -batchmode -quit -projectPath Basis -logFile b10_open.log
+grep -E "error CS|Scripts have compiler errors" b10_open.log
 ```
 
 Batch runs can damage settings assets. On this project they have emptied `m_RuntimeSettings.m_List` in `Assets/Basis/Settings/Unity Rendering Defaults/UniversalRenderPipelineGlobalSettings.asset`, nulled `customRenderPipeline` in `GraphicsSettings.asset` and `QualitySettings.asset`, and reset anti-aliasing. Run `git status` afterwards and `git checkout --` any of those that changed. Other diffs from the first open, such as new OpenXR feature entries or Addressables schema fields, are usually Unity migrating data for a new package version and should be kept. Check that enabled flags didn't change.
@@ -204,7 +204,7 @@ At the very least:
 
 ## Where Basis differs from stock URP
 
-These are the Basis changes to the fork as of 6000.7.0b9. Everything else in the folder should be byte-identical to the editor's copy, line endings aside.
+These are the Basis changes to the fork as of 6000.7.0b10. Everything else in the folder should be byte-identical to the editor's copy, line endings aside.
 
 ### Variable rate shading
 
@@ -249,7 +249,7 @@ The `ENABLE_UPSCALER_FRAMEWORK` scripting define is still set for Standalone in 
 - `DrawObjectsPass` always uses the default depth state (LEqual with ZWrite) instead of switching to Equal with ZWrite off under depth priming.
 - `UniversalRendererRenderGraph` has one comment explaining why depth priming needs single-sample targets. No behaviour change.
 - `Runtime/Materials/Lit.mat` defaults to white with zero smoothness and has motion vector flags set.
-- `.gitattributes` is Basis's own. `Editor/SceneTemplates/Indoors.scenetemplate` and `Textures/2D/Sparkle.png.meta` differ only by importer churn. Taking upstream for them is harmless.
+- `.gitattributes` is Basis's own. `Textures/2D/Sparkle.png.meta` differs only by importer churn, so taking upstream for it is harmless. `Editor/SceneTemplates/Indoors.scenetemplate` used to as well and went back to stock in b10, when upstream rewrote it and the churn conflicted.
 
 ## Other places Basis differs from stock packages
 
