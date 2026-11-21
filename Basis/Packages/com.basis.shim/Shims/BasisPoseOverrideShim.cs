@@ -26,6 +26,19 @@ namespace Basis.Shims
 		public static bool SetEffectorAnchored(object self, HumanBodyBones bone, HumanBodyBones anchor, Vector3 localPosition, Quaternion localRotation) => CilboxPoseOverrides.SetAnchored(self, bone, anchor, localPosition, localRotation);
 		public static bool SetEffectorBlend(object self, HumanBodyBones bone, float blend) => CilboxPoseOverrides.SetBlend(self, bone, blend, true);
 		public static bool TryGetTracked(object self, HumanBodyBones bone, out Vector3 position, out Quaternion rotation) => CilboxPoseOverrides.TryGetTracked(self, bone, out position, out rotation);
+		public static bool ClaimFingers(object self, bool left) => CilboxPoseOverrides.ClaimHand(self, left);
+		public static void ReleaseFingers(object self, bool left) => CilboxPoseOverrides.ReleaseHand(self, left);
+		public static bool AreFingersClaimed(object self, bool left) => CilboxPoseOverrides.HandOwned(self, left);
+		public static bool SetFinger(object self, HumanBodyBones bone, Vector2 percentage, float weight) => CilboxPoseOverrides.Hands(self, bone) is BasisLocalHandDriver h && h.SetFingerOverride(bone, percentage, weight);
+		public static bool SetJointFlex(object self, HumanBodyBones bone, Vector2 percentage, float weight) => CilboxPoseOverrides.Hands(self, bone) is BasisLocalHandDriver h && h.SetJointFlexOverride(bone, percentage, weight);
+		public static bool SetJointRotation(object self, HumanBodyBones bone, Quaternion localRotation, float weight) => CilboxPoseOverrides.Hands(self, bone) is BasisLocalHandDriver h && h.SetJointRotationOverride(bone, localRotation, weight);
+		public static void ClearFinger(object self, HumanBodyBones bone) => CilboxPoseOverrides.Hands(self, bone)?.ClearFingerOverride(bone);
+		public static void ClearJoint(object self, HumanBodyBones bone) => CilboxPoseOverrides.Hands(self, bone)?.ClearJointOverride(bone);
+		public static bool TryGetFingerInput(object self, HumanBodyBones bone, out Vector2 percentage) => CilboxPoseOverrides.TryGetFingerInput(self, bone, out percentage);
+		public static bool TryGetUnoverriddenJoint(object self, HumanBodyBones bone, out Quaternion localRotation) => CilboxPoseOverrides.TryGetJoint(self, bone, true, out localRotation);
+		public static bool TryGetJointRotation(object self, HumanBodyBones bone, out Quaternion localRotation) => CilboxPoseOverrides.TryGetJoint(self, bone, false, out localRotation);
+		public static int WrapFingersAround(object self, bool left, GameObject target, bool useRenderers) => CilboxPoseOverrides.Wrap(self, left, target, useRenderers);
+		public static bool RaycastRenderer(object self, Renderer renderer, Vector3 origin, Vector3 direction, float maxDistance, out Vector3 point, out Vector3 normal) => CilboxPoseOverrides.RaycastRenderer(self, renderer, origin, direction, maxDistance, out point, out normal);
 	}
 }
 
@@ -119,6 +132,130 @@ namespace Cilbox
 		{
 			if (!Caller(self, out _, out CilboxBasisCommon box)) return;
 			for (int i = claims.Count - 1; i >= 0; i--) if (ReferenceEquals(claims[i].box, box)) Drop(i, true);
+			for (int i = 0; i < 2; i++)
+			{
+				if (ReferenceEquals(handBoxes[i], box))
+				{
+					DropHand(i);
+				}
+			}
+		}
+		private static CilboxBasisCommon[] handBoxes = new CilboxBasisCommon[2];
+		private static CilboxProxy[] handOwners = new CilboxProxy[2];
+		private static BasisLocalHandDriver HandDriver()
+		{
+			BasisLocalPlayer player = BasisLocalPlayer.Instance;
+			return player != null ? player.LocalHandDriver : null;
+		}
+		internal static bool ClaimHand(object self, bool left)
+		{
+			if (!Caller(self, out CilboxProxy proxy, out CilboxBasisCommon box))
+			{
+				return false;
+			}
+			int i = left ? 0 : 1;
+			if (handBoxes[i] != null)
+			{
+				return ReferenceEquals(handBoxes[i], box);
+			}
+			if (HandDriver() == null)
+			{
+				return false;
+			}
+			handBoxes[i] = box;
+			handOwners[i] = proxy;
+			Hook();
+			return true;
+		}
+		internal static void ReleaseHand(object self, bool left)
+		{
+			if (HandOwned(self, left))
+			{
+				DropHand(left ? 0 : 1);
+			}
+		}
+		internal static bool HandOwned(object self, bool left)
+		{
+			CilboxBasisCommon owned = handBoxes[left ? 0 : 1];
+			return owned != null && Caller(self, out _, out CilboxBasisCommon box) && ReferenceEquals(owned, box);
+		}
+		internal static BasisLocalHandDriver Hands(object self, HumanBodyBones bone) => BasisLocalHandDriver.IsFingerBone(bone) && HandOwned(self, BasisLocalHandDriver.IsLeftFingerBone(bone)) ? HandDriver() : null;
+		internal static bool TryGetFingerInput(object self, HumanBodyBones bone, out Vector2 percentage)
+		{
+			percentage = Vector2.zero;
+			BasisLocalHandDriver hands = BasisLocalHandDriver.IsFingerBone(bone) && Caller(self, out _, out _) ? HandDriver() : null;
+			return hands != null && hands.TryGetFingerInput(bone, out percentage);
+		}
+		internal static bool TryGetJoint(object self, HumanBodyBones bone, bool unoverridden, out Quaternion localRotation)
+		{
+			localRotation = Quaternion.identity;
+			BasisLocalHandDriver hands = BasisLocalHandDriver.IsFingerBone(bone) && Caller(self, out _, out _) ? HandDriver() : null;
+			if (hands == null)
+			{
+				return false;
+			}
+			return unoverridden ? hands.TryGetUnoverriddenJoint(bone, out localRotation) : hands.TryGetJointRotation(bone, out localRotation);
+		}
+		[NoAutoStaticsCleanup] private static readonly Basis.Scripts.BasisSdk.Interactions.BasisColliderGraspSurface wrapColliders = new Basis.Scripts.BasisSdk.Interactions.BasisColliderGraspSurface();
+		[NoAutoStaticsCleanup] private static readonly Basis.Scripts.BasisSdk.Interactions.BasisMeshGraspSurface wrapMesh = new Basis.Scripts.BasisSdk.Interactions.BasisMeshGraspSurface();
+		[NoAutoStaticsCleanup] private static readonly List<Renderer> wrapRenderers = new List<Renderer>();
+		internal static int Wrap(object self, bool left, GameObject target, bool useRenderers)
+		{
+			if (target == null || !HandOwned(self, left))
+			{
+				return -1;
+			}
+			BasisLocalHandDriver hands = HandDriver();
+			Basis.Scripts.TransformBinders.BoneControl.BasisLocalBoneControl bone = left ? Basis.Scripts.Drivers.BasisLocalBoneDriver.LeftHandControl : Basis.Scripts.Drivers.BasisLocalBoneDriver.RightHandControl;
+			if (hands == null || bone == null || !bone.HasIKWorldData)
+			{
+				return -1;
+			}
+			Vector3 wrist = bone.IKWorldData.position;
+			Basis.Scripts.BasisSdk.Interactions.BasisGraspSurface surface;
+			if (useRenderers)
+			{
+				wrapMesh.Clear();
+				target.GetComponentsInChildren(false, wrapRenderers);
+				float reach = Basis.Scripts.BasisSdk.Interactions.BasisHandGrip.FallbackHandLength * 3f * BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
+				for (int i = 0; i < wrapRenderers.Count; i++)
+				{
+					wrapMesh.Add(wrapRenderers[i], wrist, reach);
+				}
+				wrapRenderers.Clear();
+				surface = wrapMesh;
+			}
+			else
+			{
+				wrapColliders.Set(target);
+				surface = wrapColliders;
+			}
+			return hands.WrapFingers(left, surface, wrist, bone.IKWorldData.rotation);
+		}
+		internal static bool RaycastRenderer(object self, Renderer renderer, Vector3 origin, Vector3 direction, float maxDistance, out Vector3 point, out Vector3 normal)
+		{
+			point = normal = Vector3.zero;
+			if (renderer == null || !Caller(self, out _, out _) || !Finite(origin) || !Finite(direction) || float.IsNaN(maxDistance))
+			{
+				return false;
+			}
+			if (!Basis.Scripts.BasisSdk.Interactions.BasisRendererRaycast.Raycast(renderer, new Ray(origin, direction), Mathf.Min(maxDistance, 1000f), out Basis.Scripts.BasisSdk.Interactions.BasisRendererHit hit))
+			{
+				return false;
+			}
+			point = hit.point;
+			normal = hit.normal;
+			return true;
+		}
+		private static void DropHand(int i)
+		{
+			handBoxes[i] = null;
+			handOwners[i] = null;
+			HandDriver()?.ClearHandOverrides(i == 0);
+			if (claims.Count == 0 && handBoxes[0] == null && handBoxes[1] == null)
+			{
+				Unhook();
+			}
 		}
 		internal static bool IsClaimed(object self, HumanBodyBones bone, bool effector) => Owned(self, bone, effector) != null;
 		internal static bool Set(object self, HumanBodyBones bone, Vector3 position, Quaternion rotation, bool withPosition, bool effector)
@@ -220,10 +357,21 @@ namespace Cilbox
 				rig.SetOverrideBlend(claim.bone, 1f);
 				if (clearUsage) rig.SetOverrideUsage(claim.bone, false);
 			}
-			if (claims.Count == 0) Unhook();
+			if (claims.Count == 0 && handBoxes[0] == null && handBoxes[1] == null)
+			{
+				Unhook();
+			}
 		}
 		private static void Tick()
 		{
+			for (int h = 0; h < 2; h++)
+			{
+				CilboxProxy owner = handOwners[h];
+				if (handBoxes[h] != null && (owner == null || owner.disabled || !owner.isActiveAndEnabled || handBoxes[h].disabled))
+				{
+					DropHand(h);
+				}
+			}
 			bool seated = Seated();
 			for (int i = claims.Count - 1; i >= 0; i--)
 			{

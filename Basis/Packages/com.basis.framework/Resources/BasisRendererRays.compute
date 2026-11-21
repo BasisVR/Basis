@@ -1,0 +1,154 @@
+#pragma kernel Skin
+#pragma kernel RefitNodes
+#pragma kernel Trace
+#pragma kernel Probe
+#pragma use_dxc
+#include "Packages/com.basis.framework/Interactions/Shaders/BasisRendererRays.hlsl"
+struct PartInfo
+{
+    int boneOffset;
+    int boneCount;
+    int rendererMatrix;
+    int influences;
+    int shapeOffset;
+    int vertexOffset;
+    int meshVertexOffset;
+};
+struct GpuRay
+{
+    float3 origin;
+    float maxDistance;
+    float3 direction;
+    float pad;
+};
+StructuredBuffer<float3> _BaseVertices;
+StructuredBuffer<int> _VertexPart;
+StructuredBuffer<int2> _WeightRange;
+StructuredBuffer<int> _WeightBone;
+StructuredBuffer<float> _WeightValue;
+StructuredBuffer<int2> _BlendRange;
+StructuredBuffer<int> _BlendShape;
+StructuredBuffer<float3> _BlendDelta;
+StructuredBuffer<float> _ShapeFactors;
+StructuredBuffer<float4x4> _Matrices;
+StructuredBuffer<PartInfo> _Parts;
+StructuredBuffer<int> _PartChanged;
+RWStructuredBuffer<float3> _World;
+int _VertexCount;
+[numthreads(64, 1, 1)]
+void Skin(uint3 id : SV_DispatchThreadID)
+{
+    int v = (int)id.x;
+    if (v >= _VertexCount)
+    {
+        return;
+    }
+    int part = _VertexPart[v];
+    if (_PartChanged[part] == 0)
+    {
+        return;
+    }
+    PartInfo info = _Parts[part];
+    int m = info.meshVertexOffset + (v - info.vertexOffset);
+    float3 p = _BaseVertices[m];
+    int2 blend = _BlendRange[m];
+    [loop] for (int b = blend.x; b < blend.x + blend.y; b++)
+    {
+        p += _BlendDelta[b] * _ShapeFactors[info.shapeOffset + _BlendShape[b]];
+    }
+    float4 h = float4(p, 1.0);
+    int2 range = _WeightRange[m];
+    int count = min(range.y, info.influences);
+    float3 sum = 0;
+    float total = 0;
+    [loop] for (int k = 0; k < count; k++)
+    {
+        int bone = _WeightBone[range.x + k];
+        if (bone < 0 || bone >= info.boneCount)
+        {
+            continue;
+        }
+        float w = _WeightValue[range.x + k];
+        sum += w * mul(_Matrices[info.boneOffset + bone], h).xyz;
+        total += w;
+    }
+    _World[v] = total > 1e-6 ? sum / total : mul(_Matrices[info.rendererMatrix], h).xyz;
+}
+StructuredBuffer<float3> _WorldIn;
+StructuredBuffer<int3> _TriangleIndices;
+StructuredBuffer<int> _GroupChanged;
+StructuredBuffer<int> _NodeLevel;
+StructuredBuffer<int> _NodeGroup;
+StructuredBuffer<float3> _GroupOrigin;
+RWStructuredBuffer<BasisRayNode> _NodesOut;
+int _LevelStart;
+int _LevelCount;
+[numthreads(64, 1, 1)]
+void RefitNodes(uint3 id : SV_DispatchThreadID)
+{
+    if ((int)id.x >= _LevelCount)
+    {
+        return;
+    }
+    int n = _NodeLevel[_LevelStart + (int)id.x];
+    int g = _NodeGroup[n];
+    if (_GroupChanged[g] == 0)
+    {
+        return;
+    }
+    BasisRayNode node = _NodesOut[n];
+    float3 lo, hi;
+    if (node.link >= 0)
+    {
+        float3 llo, lhi, rlo, rhi;
+        BasisRayDecode(_NodesOut[n + 1], llo, lhi);
+        BasisRayDecode(_NodesOut[node.link], rlo, rhi);
+        lo = min(llo, rlo);
+        hi = max(lhi, rhi);
+    }
+    else
+    {
+        float3 origin = _GroupOrigin[g];
+        lo = 3.0e38;
+        hi = -3.0e38;
+        int start = -node.link - 1;
+        [loop] for (int t = start; t < start + node.extra; t++)
+        {
+            int3 i = _TriangleIndices[t];
+            float3 a = _WorldIn[i.x] - origin;
+            float3 b = _WorldIn[i.y] - origin;
+            float3 c = _WorldIn[i.z] - origin;
+            lo = min(lo, min(a, min(b, c)));
+            hi = max(hi, max(a, max(b, c)));
+        }
+    }
+    BasisRayEncode(node, lo, hi);
+    _NodesOut[n] = node;
+}
+StructuredBuffer<GpuRay> _Rays;
+RWStructuredBuffer<BasisRayHit> _Hits;
+int _RayCount;
+int _RayOffset;
+[numthreads(64, 1, 1)]
+void Trace(uint3 id : SV_DispatchThreadID)
+{
+    int i = _RayOffset + (int)id.x;
+    if (i >= _RayCount)
+    {
+        return;
+    }
+    GpuRay ray = _Rays[i];
+    BasisRayHit hit;
+    BasisRayTrace(ray.origin, ray.direction, ray.maxDistance, hit);
+    _Hits[i] = hit;
+}
+RWStructuredBuffer<int> _ProbeOut;
+[numthreads(1, 1, 1)]
+void Probe(uint3 id : SV_DispatchThreadID)
+{
+#if defined(UNITY_COMPILER_DXC)
+    _ProbeOut[0] = BASIS_RAY_NEAREST_FIRST + 2;
+#else
+    _ProbeOut[0] = BASIS_RAY_NEAREST_FIRST;
+#endif
+}

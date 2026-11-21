@@ -59,6 +59,8 @@ namespace Cilbox
 			"Basis.Shims.BasisTransformBatchShim",
 			"Basis.Shims.BasisVectorArrayShim",
 			"Basis.Shims.BasisSphereCastShim",
+			"Basis.Shims.BasisRendererRayShim",
+			"Basis.Shims.BasisRendererRayGpuShim",
 			"Basis.Shims.BasisBinaryShim",
 			"Basis.Shims.BasisCompressionShim",
 			"Basis.Shims.BasisHashShim",

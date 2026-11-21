@@ -1,0 +1,17 @@
+#pragma kernel UserTrace
+#include "Packages/com.basis.framework/Interactions/Shaders/BasisRendererRays.hlsl"
+StructuredBuffer<float4> _UserOrigins;
+StructuredBuffer<float4> _UserDirections;
+RWStructuredBuffer<float> _UserDistances;
+int _UserCount;
+[numthreads(64, 1, 1)]
+void UserTrace(uint3 id : SV_DispatchThreadID)
+{
+    if ((int)id.x >= _UserCount)
+    {
+        return;
+    }
+    BasisRayHit hit;
+    BasisRayTrace(_UserOrigins[id.x].xyz, _UserDirections[id.x].xyz, _UserOrigins[id.x].w, hit);
+    _UserDistances[id.x] = hit.distance;
+}

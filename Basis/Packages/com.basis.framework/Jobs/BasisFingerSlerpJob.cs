@@ -2,6 +2,12 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine.Jobs;
+public struct BasisFingerJointOverride
+{
+    public quaternion rotation;
+    public float2 percentage;
+    public float percentageWeight, rotationWeight;
+}
 
 /// <summary>
 /// Burst-compiled job that bilinearly interpolates each finger joint's target rotation from the baked 2D pose
@@ -35,16 +41,30 @@ public struct BasisFingerSlerpJob : IJobParallelForTransform
     public int FingerStride;
     public float Increment;
     public float LerpFactor;
+    [ReadOnly] public NativeArray<BasisFingerJointOverride> Overrides;
+    public uint OverrideMask;
 
     public void Execute(int index, TransformAccess transform)
     {
         int flatIdx = JointMapping[index];
         int fingerIndex = flatIdx / 3;
         int jointIndex = flatIdx - fingerIndex * 3;
-
-        quaternion target = Basis.Scripts.Drivers.BasisHandPoseSampler.SampleJoint(
-            PoseGrid, FingerStride, GridWidth, GridHeight, Increment,
-            fingerIndex, jointIndex, Percentages[fingerIndex]);
+        float2 percentage = Percentages[fingerIndex];
+        quaternion target;
+        if ((OverrideMask & (1u << flatIdx)) != 0)
+        {
+            BasisFingerJointOverride o = Overrides[flatIdx];
+            percentage = math.lerp(percentage, o.percentage, o.percentageWeight);
+            target = Basis.Scripts.Drivers.BasisHandPoseSampler.SampleJoint(PoseGrid, FingerStride, GridWidth, GridHeight, Increment, fingerIndex, jointIndex, percentage);
+            if (o.rotationWeight > 0f)
+            {
+                target = math.slerp(target, o.rotation, o.rotationWeight);
+            }
+        }
+        else
+        {
+            target = Basis.Scripts.Drivers.BasisHandPoseSampler.SampleJoint(PoseGrid, FingerStride, GridWidth, GridHeight, Increment, fingerIndex, jointIndex, percentage);
+        }
 
         quaternion result = math.slerp(CurrentRotations[index], target, LerpFactor);
         CurrentRotations[index] = result;

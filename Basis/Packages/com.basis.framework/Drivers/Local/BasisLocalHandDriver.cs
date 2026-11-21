@@ -105,6 +105,10 @@ public class BasisLocalHandDriver
     public void Dispose()
     {
         DisposeJobArrays();
+        if (jointOverrides.IsCreated)
+        {
+            jointOverrides.Dispose();
+        }
         Grid.Dispose();
     }
 
@@ -223,6 +227,7 @@ public class BasisLocalHandDriver
     /// </summary>
     public void RebuildTransformAccess()
     {
+        graspMap = null;
         DisposeJobArrays();
 
         var Map = BasisLocalAvatarDriver.Mapping;
@@ -318,6 +323,25 @@ public class BasisLocalHandDriver
         p[7] = UnsafeUtility.As<Vector2, float2>(ref RightHand.MiddlePercentage);
         p[8] = UnsafeUtility.As<Vector2, float2>(ref RightHand.RingPercentage);
         p[9] = UnsafeUtility.As<Vector2, float2>(ref RightHand.LittlePercentage);
+        if (fingerMask != 0)
+        {
+            for (int f = 0; f < BasisHandPoseGrid.FingerCount; f++)
+            {
+                if ((fingerMask & (1 << f)) != 0)
+                {
+                    p[f] = math.lerp(p[f], fingerOverridePercentages[f], fingerOverrideWeights[f]);
+                }
+            }
+        }
+        if (!jointOverrides.IsCreated)
+        {
+            jointOverrides = new NativeArray<BasisFingerJointOverride>(BasisHandPoseGrid.JointCount, Allocator.Persistent);
+        }
+        if (jointOverridesDirty)
+        {
+            jointOverridesDirty = false;
+            fixed (BasisFingerJointOverride* src = jointStaging) UnsafeUtility.MemCpy(jointOverrides.GetUnsafePtr(), src, BasisHandPoseGrid.JointCount * sizeof(BasisFingerJointOverride));
+        }
 
         // Single job: grid interpolation + slerp + transform write, one dispatch, no dependency fence.
         var slerpJob = new BasisFingerSlerpJob
@@ -330,7 +354,9 @@ public class BasisLocalHandDriver
             GridHeight = Grid.GridHeight,
             FingerStride = Grid.FingerStride,
             Increment = Grid.Increment,
-            LerpFactor = math.saturate(LerpSpeed * DeltaTime)
+            LerpFactor = math.saturate(LerpSpeed * DeltaTime),
+            Overrides = jointOverrides,
+            OverrideMask = jointMask
         };
         _fingerJobHandle = slerpJob.Schedule(_fingerTransforms);
         _hasScheduledJob = true;
@@ -351,6 +377,259 @@ public class BasisLocalHandDriver
 
         SyncNativeCurrentToManaged();
     }
+
+    public const int FirstFingerBone = (int)HumanBodyBones.LeftThumbProximal;
+    private NativeArray<BasisFingerJointOverride> jointOverrides;
+    private readonly BasisFingerJointOverride[] jointStaging = new BasisFingerJointOverride[BasisHandPoseGrid.JointCount];
+    private readonly float2[] fingerOverridePercentages = new float2[BasisHandPoseGrid.FingerCount];
+    private readonly float[] fingerOverrideWeights = new float[BasisHandPoseGrid.FingerCount];
+    private uint jointMask;
+    private int fingerMask;
+    private bool jointOverridesDirty;
+    public bool HasFingerOverrides => fingerMask != 0 || jointMask != 0;
+    public static int JointIndex(HumanBodyBones bone)
+    {
+        int i = (int)bone - FirstFingerBone;
+        return i >= 0 && i < BasisHandPoseGrid.JointCount ? i : -1;
+    }
+    public static int FingerIndex(HumanBodyBones bone)
+    {
+        int i = JointIndex(bone);
+        return i < 0 ? -1 : i / BasisHandPoseGrid.JointsPerFinger;
+    }
+    public static bool IsFingerBone(HumanBodyBones bone) => JointIndex(bone) >= 0;
+    public static bool IsLeftFingerBone(HumanBodyBones bone) => (uint)JointIndex(bone) < BasisHandPoseGrid.JointCount / 2;
+    public bool SetFingerOverride(HumanBodyBones bone, Vector2 percentage, float weight)
+    {
+        int f = FingerIndex(bone);
+        if (f < 0 || !Finite(percentage) || float.IsNaN(weight))
+        {
+            return false;
+        }
+        weight = Mathf.Clamp01(weight);
+        fingerOverridePercentages[f] = percentage;
+        fingerOverrideWeights[f] = weight;
+        if (weight > 0f)
+        {
+            fingerMask |= 1 << f;
+        }
+        else
+        {
+            fingerMask &= ~(1 << f);
+        }
+        return true;
+    }
+    public bool SetJointFlexOverride(HumanBodyBones bone, Vector2 percentage, float weight)
+    {
+        int j = JointIndex(bone);
+        if (j < 0 || !Finite(percentage) || float.IsNaN(weight))
+        {
+            return false;
+        }
+        ref BasisFingerJointOverride o = ref jointStaging[j];
+        o.percentage = percentage;
+        o.percentageWeight = Mathf.Clamp01(weight);
+        RefreshJoint(j, ref o);
+        return true;
+    }
+    public bool SetJointRotationOverride(HumanBodyBones bone, Quaternion localRotation, float weight)
+    {
+        int j = JointIndex(bone);
+        if (j < 0 || float.IsNaN(weight))
+        {
+            return false;
+        }
+        float length = Mathf.Sqrt(localRotation.x * localRotation.x + localRotation.y * localRotation.y + localRotation.z * localRotation.z + localRotation.w * localRotation.w);
+        if (!(length > 1e-4f) || float.IsInfinity(length))
+        {
+            return false;
+        }
+        ref BasisFingerJointOverride o = ref jointStaging[j];
+        o.rotation = new quaternion(localRotation.x / length, localRotation.y / length, localRotation.z / length, localRotation.w / length);
+        o.rotationWeight = Mathf.Clamp01(weight);
+        RefreshJoint(j, ref o);
+        return true;
+    }
+    public void ClearFingerOverride(HumanBodyBones bone)
+    {
+        int f = FingerIndex(bone);
+        if (f < 0)
+        {
+            return;
+        }
+        fingerOverrideWeights[f] = 0f;
+        fingerMask &= ~(1 << f);
+    }
+    public void ClearJointOverride(HumanBodyBones bone)
+    {
+        int j = JointIndex(bone);
+        if (j < 0)
+        {
+            return;
+        }
+        jointStaging[j] = default;
+        RefreshJoint(j, ref jointStaging[j]);
+    }
+    public void ClearHandOverrides(bool left)
+    {
+        int first = left ? 0 : BasisHandPoseGrid.FingerCount / 2;
+        for (int f = first; f < first + BasisHandPoseGrid.FingerCount / 2; f++)
+        {
+            fingerOverrideWeights[f] = 0f;
+            fingerMask &= ~(1 << f);
+            for (int k = 0; k < BasisHandPoseGrid.JointsPerFinger; k++)
+            {
+                int j = f * BasisHandPoseGrid.JointsPerFinger + k;
+                jointStaging[j] = default;
+                RefreshJoint(j, ref jointStaging[j]);
+            }
+        }
+    }
+    public void ClearAllFingerOverrides()
+    {
+        ClearHandOverrides(true);
+        ClearHandOverrides(false);
+    }
+    public bool TryGetFingerInput(HumanBodyBones bone, out Vector2 percentage)
+    {
+        int f = FingerIndex(bone);
+        percentage = f < 0 ? Vector2.zero : InputPercentage(f);
+        return f >= 0;
+    }
+    public bool TryGetUnoverriddenJoint(HumanBodyBones bone, out Quaternion localRotation)
+    {
+        int j = JointIndex(bone);
+        localRotation = Quaternion.identity;
+        if (j < 0 || !Grid.IsCreated || !DrivenJoints[j])
+        {
+            return false;
+        }
+        int f = j / BasisHandPoseGrid.JointsPerFinger;
+        Vector2 input = InputPercentage(f);
+        localRotation = BasisHandPoseSampler.SampleJoint(Grid.Cells, Grid.FingerStride, Grid.GridWidth, Grid.GridHeight, Grid.Increment, f, j - f * BasisHandPoseGrid.JointsPerFinger, new float2(input.x, input.y));
+        return true;
+    }
+    public bool TryGetJointRotation(HumanBodyBones bone, out Quaternion localRotation)
+    {
+        int j = JointIndex(bone);
+        localRotation = Quaternion.identity;
+        if (j < 0 || !DrivenJoints[j] || Current.LeftThumb == null)
+        {
+            return false;
+        }
+        int f = j / BasisHandPoseGrid.JointsPerFinger;
+        localRotation = GetCurrentFingerArray(f)[j - f * BasisHandPoseGrid.JointsPerFinger];
+        return true;
+    }
+    public bool TrySampleJointRotation(HumanBodyBones bone, Vector2 percentage, out Quaternion localRotation)
+    {
+        int j = JointIndex(bone);
+        localRotation = Quaternion.identity;
+        if (j < 0 || !Grid.IsCreated)
+        {
+            return false;
+        }
+        localRotation = Grid.SampleJoint(j / BasisHandPoseGrid.JointsPerFinger, j % BasisHandPoseGrid.JointsPerFinger, new float2(percentage.x, percentage.y));
+        return true;
+    }
+    private readonly Transform[] graspJoints = new Transform[BasisHandPoseGrid.JointCount];
+    private readonly float[] graspCurls = new float[BasisHandPoseGrid.JointCount], graspSplays = new float[BasisHandPoseGrid.FingerCount];
+    private readonly int[] graspContacts = new int[BasisHandPoseGrid.FingerCount];
+    public int GraspContacts(HumanBodyBones bone)
+    {
+        int f = FingerIndex(bone);
+        return f < 0 ? -1 : graspContacts[f];
+    }
+    private BasisTransformMapping graspMap;
+    private Transform[][] graspFingers;
+    public float GraspCurl(HumanBodyBones bone)
+    {
+        int j = JointIndex(bone);
+        return j < 0 ? 0f : graspCurls[j];
+    }
+    public int WrapFingers(bool left, Basis.Scripts.BasisSdk.Interactions.BasisGraspSurface surface, Vector3 wristPosition, Quaternion wristRotation, float weight = 1f, bool releaseUntouched = false)
+    {
+        BasisTransformMapping map = BasisLocalAvatarDriver.Mapping;
+        if (map == null || surface == null || !Grid.IsCreated)
+        {
+            return -1;
+        }
+        Transform wrist = left ? map.leftHand : map.rightHand;
+        if (wrist == null)
+        {
+            return -1;
+        }
+        if (!ReferenceEquals(graspMap, map))
+        {
+            graspMap = map;
+            graspFingers = new[] { map.LeftThumb, map.LeftIndex, map.LeftMiddle, map.LeftRing, map.LeftLittle, map.RightThumb, map.RightIndex, map.RightMiddle, map.RightRing, map.RightLittle };
+        }
+        Transform[][] fingers = graspFingers;
+        int first = left ? 0 : BasisHandPoseGrid.FingerCount / 2;
+        for (int f = first; f < first + BasisHandPoseGrid.FingerCount / 2; f++)
+        {
+            for (int k = 0; k < BasisHandPoseGrid.JointsPerFinger; k++)
+            {
+                int j = f * BasisHandPoseGrid.JointsPerFinger + k;
+                graspJoints[j] = DrivenJoints[j] && fingers[f] != null && fingers[f].Length > k ? fingers[f][k] : null;
+            }
+            graspSplays[f] = InputPercentage(f).y;
+        }
+        int contacts = Basis.Scripts.BasisSdk.Interactions.BasisFingerGraspSolver.SolveHand(Grid, left, wrist, graspJoints, wristPosition, wristRotation, surface, graspSplays, graspCurls, graspContacts);
+        for (int f = first; f < first + BasisHandPoseGrid.FingerCount / 2; f++)
+        {
+            if (graspContacts[f] < 0)
+            {
+                continue;
+            }
+            int j = f * BasisHandPoseGrid.JointsPerFinger;
+            HumanBodyBones root = (HumanBodyBones)(FirstFingerBone + j);
+            if (releaseUntouched && graspContacts[f] == 0)
+            {
+                ClearFingerOverride(root);
+                for (int k = 0; k < BasisHandPoseGrid.JointsPerFinger; k++)
+                {
+                    ClearJointOverride(root + k);
+                }
+                continue;
+            }
+            for (int k = 0; k < BasisHandPoseGrid.JointsPerFinger; k++)
+            {
+                SetJointFlexOverride(root + k, new Vector2(graspCurls[j + k], graspSplays[f]), weight);
+            }
+            SetFingerOverride(root, new Vector2((graspCurls[j] + graspCurls[j + 1] + graspCurls[j + 2]) / 3f, graspSplays[f]), weight);
+        }
+        return contacts;
+    }
+    private void RefreshJoint(int j, ref BasisFingerJointOverride o)
+    {
+        if (o.percentageWeight > 0f || o.rotationWeight > 0f)
+        {
+            jointMask |= 1u << j;
+        }
+        else
+        {
+            jointMask &= ~(1u << j);
+        }
+        jointOverridesDirty = true;
+    }
+    private Vector2 InputPercentage(int f)
+    {
+        switch (f)
+        {
+            case 0: return LeftHand.ThumbPercentage;
+            case 1: return LeftHand.IndexPercentage;
+            case 2: return LeftHand.MiddlePercentage;
+            case 3: return LeftHand.RingPercentage;
+            case 4: return LeftHand.LittlePercentage;
+            case 5: return RightHand.ThumbPercentage;
+            case 6: return RightHand.IndexPercentage;
+            case 7: return RightHand.MiddlePercentage;
+            case 8: return RightHand.RingPercentage;
+            default: return RightHand.LittlePercentage;
+        }
+    }
+    private static bool Finite(Vector2 v) => !(float.IsNaN(v.x) || float.IsNaN(v.y) || float.IsInfinity(v.x) || float.IsInfinity(v.y));
 
     // --- Managed ↔ Native sync ---
 

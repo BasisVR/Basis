@@ -371,6 +371,15 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.basis.webxr": {
+      "version": "file:com.basis.webxr",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.unity.xr.management": "6.0.0",
+        "com.unity.inputsystem": "6.7.0"
+      }
+    },
     "com.cnlohr.cilbox": {
       "version": "file:com.cnlohr.cilbox",
       "depth": 0,

@@ -9,6 +9,7 @@
         "BasisNetworkCore",
         "Unity.Collections",
         "Unity.Mathematics",
+        "Unity.Burst",
         "UnityEngine.TestRunner",
         "BasisSDK"
     ],
