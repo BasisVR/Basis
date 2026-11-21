@@ -273,14 +273,14 @@ namespace Basis.Tests.Sync
                 foreach (Animator a in crowd)
                 {
                     foreach (HumanBodyBones bone in crowdBones)
-                }
-                {
-                    Transform t = a.GetBoneTransform(bone);
-                    if (t != null)
                     {
-                        t.localRotation = pose[k];
+                        Transform t = a.GetBoneTransform(bone);
+                        if (t != null)
+                        {
+                            t.localRotation = pose[k];
+                        }
+                        k++;
                     }
-                    k++;
                 }
             }
             if (skinned.Count == 0)
