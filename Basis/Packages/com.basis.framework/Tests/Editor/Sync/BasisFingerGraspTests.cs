@@ -80,6 +80,11 @@ namespace Basis.Tests.Sync
         [TearDown]
         public void Cleanup()
         {
+            for (int i = 0; i < batches.Count; i++)
+            {
+                batches[i].Dispose();
+            }
+            batches.Clear();
             for (int i = 0; i < made.Count; i++)
             {
                 if (made[i] != null)
@@ -231,12 +236,28 @@ namespace Basis.Tests.Sync
             }
             return 3f * radius - depth;
         }
-        public static CaseResult Measure(BasisFingerTestRig rig, bool left, string shape, bool renderers, out string line)
+        public static CaseResult Measure(BasisFingerTestRig rig, bool left, string shape, bool renderers, out string line) => Measure(rig, left, shape, renderers ? 1 : 0, out line);
+        static readonly List<BasisRendererRayBatch> batches = new List<BasisRendererRayBatch>();
+        public static CaseResult Measure(BasisFingerTestRig rig, bool left, string shape, int backend, out string line)
         {
             HandFrame h = Frame(rig, left);
             GameObject go = Shape(shape, h);
             Physics.SyncTransforms();
-            BasisGraspSurface surface = Surface(go, renderers, h);
+            BasisGraspSurface surface;
+            if (backend == 2)
+            {
+                BasisRendererRayBatch batch = new BasisRendererRayBatch();
+                batches.Add(batch);
+                Assert.IsTrue(batch.Add(go.GetComponent<Renderer>()));
+                batch.Build().Complete();
+                BasisBatchGraspSurface batchSurface = new BasisBatchGraspSurface();
+                batchSurface.Set(batch);
+                surface = batchSurface;
+            }
+            else
+            {
+                surface = Surface(go, backend == 1, h);
+            }
             BasisMeshGraspSurface metric = new BasisMeshGraspSurface();
             Assert.IsTrue(metric.Add(go.GetComponent<Renderer>(), Vector3.zero, 0f));
             Transform wrist = left ? rig.LeftHand : rig.RightHand;
@@ -311,8 +332,59 @@ namespace Basis.Tests.Sync
                 }
             }
             result.meanGap = result.contactFingers > 0 ? gapSum / result.contactFingers : 0f;
-            line = string.Format(CultureInfo.InvariantCulture, "{0},{1},{2},{3},{4},{5},{6},{7},{8:F2},{9:F2},{10:F2},{11:F3}", Path.GetFileNameWithoutExtension(rig.Name), shape, renderers ? "renderers" : "colliders", result.fingersTouching, result.nonThumbTouching, result.touchingSegments, result.singleTouchingSegments, result.wrapped, result.meanGap / result.scale * 1000f, result.maxGap / result.scale * 1000f, result.maxPenetration / result.scale * 1000f, result.milliseconds);
+            line = string.Format(CultureInfo.InvariantCulture, "{0},{1},{2},{3},{4},{5},{6},{7},{8:F2},{9:F2},{10:F2},{11:F3}", Path.GetFileNameWithoutExtension(rig.Name), shape, backend == 2 ? "batch" : backend == 1 ? "renderers" : "colliders", result.fingersTouching, result.nonThumbTouching, result.touchingSegments, result.singleTouchingSegments, result.wrapped, result.meanGap / result.scale * 1000f, result.maxGap / result.scale * 1000f, result.maxPenetration / result.scale * 1000f, result.milliseconds);
             return result;
+        }
+        [Test]
+        public void BatchSurfaceMatchesMeshSurface()
+        {
+            GameObject sphere = Primitive(PrimitiveType.Sphere, new Vector3(0.3f, 1f, -0.2f), Quaternion.Euler(0f, 30f, 10f), Vector3.one * 0.4f);
+            GameObject box = Primitive(PrimitiveType.Cube, new Vector3(-0.4f, 1f, 0.3f), Quaternion.Euler(20f, 10f, 5f), new Vector3(0.3f, 0.5f, 0.2f));
+            GameObject asset = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(BasisRendererRayBatchTests.CrowdAvatar);
+            List<Renderer> renderers = new List<Renderer> { sphere.GetComponent<Renderer>(), box.GetComponent<Renderer>() };
+            if (asset != null)
+            {
+                GameObject avatar = UnityEngine.Object.Instantiate(asset, new Vector3(2f, 0f, 0f), Quaternion.identity);
+                made.Add(avatar);
+                avatar.GetComponentInChildren<Animator>().GetBoneTransform(HumanBodyBones.LeftUpperArm).localRotation *= Quaternion.Euler(30f, 0f, 40f);
+                renderers.AddRange(avatar.GetComponentsInChildren<SkinnedMeshRenderer>());
+            }
+            BasisMeshGraspSurface mesh = new BasisMeshGraspSurface();
+            using BasisRendererRayBatch batch = new BasisRendererRayBatch();
+            foreach (Renderer r in renderers)
+            {
+                Assert.IsTrue(mesh.Add(r, Vector3.zero, 0f));
+                Assert.IsTrue(batch.Add(r));
+            }
+            batch.Build().Complete();
+            BasisBatchGraspSurface surface = new BasisBatchGraspSurface();
+            surface.Set(batch);
+            surface.Begin();
+            System.Random random = new System.Random(19);
+            int compared = 0, touching = 0;
+            float worst = 0f;
+            for (int i = 0; i < 4000; i++)
+            {
+                Renderer target = renderers[random.Next(renderers.Count)];
+                Bounds b = target.bounds;
+                Vector3 a = b.center + Vector3.Scale(b.extents, new Vector3((float)random.NextDouble() * 2.4f - 1.2f, (float)random.NextDouble() * 2.4f - 1.2f, (float)random.NextDouble() * 2.4f - 1.2f));
+                Vector3 e = a + UnityEngine.Random.onUnitSphere * 0.05f;
+                float radius = 0.01f + (float)random.NextDouble() * 0.02f, threshold = (float)random.NextDouble() * radius;
+                float expected = mesh.Depth(a, e, radius), actual = surface.Depth(a, e, radius);
+                worst = Mathf.Max(worst, Mathf.Abs(expected - actual));
+                if (expected > 0f)
+                {
+                    touching++;
+                }
+                Assert.AreEqual(expected, actual, 1e-4f, $"segment {i}");
+                Assert.AreEqual(expected > threshold, surface.Exceeds(a, e, radius, threshold), $"exceeds {i}");
+                compared++;
+            }
+            surface.End();
+            string line = string.Format(CultureInfo.InvariantCulture, "batchSurface,renderers={0},segments={1},touching={2},worstDepthError={3:E2}", renderers.Count, compared, touching, worst);
+            report.AppendLine(line);
+            UnityEngine.Debug.Log(line);
+            Assert.Greater(touching, 200, line);
         }
         [Test]
         public void ColliderSurfaceDepth()
@@ -429,15 +501,15 @@ namespace Basis.Tests.Sync
             using BasisFingerTestRig rig = BasisFingerTestRig.Build(rigName);
             List<string> failures = new List<string>();
             int perJoint = 0, single = 0;
-            foreach (bool renderers in new[] { false, true })
+            foreach (int backend in new[] { 0, 1, 2 })
             {
                 foreach (string shape in Shapes)
                 {
-                    if (renderers && shape == "cylinder_concave")
+                    if (backend > 0 && shape == "cylinder_concave")
                     {
                         continue;
                     }
-                    CaseResult r = Measure(rig, false, shape, renderers, out string line);
+                    CaseResult r = Measure(rig, false, shape, backend, out string line);
                     report.AppendLine(line);
                     UnityEngine.Debug.Log(line);
                     perJoint += r.touchingSegments;

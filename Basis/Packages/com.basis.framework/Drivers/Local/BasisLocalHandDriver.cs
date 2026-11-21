@@ -547,7 +547,7 @@ public class BasisLocalHandDriver
         int j = JointIndex(bone);
         return j < 0 ? 0f : graspCurls[j];
     }
-    public int WrapFingers(bool left, Basis.Scripts.BasisSdk.Interactions.BasisGraspSurface surface, Vector3 wristPosition, Quaternion wristRotation, float weight = 1f, bool releaseUntouched = false)
+    public int WrapFingers(bool left, Basis.Scripts.BasisSdk.Interactions.BasisGraspSurface surface, Vector3 wristPosition, Quaternion wristRotation, float weight = 1f, bool releaseUntouched = false, bool limitToInput = false)
     {
         BasisTransformMapping map = BasisLocalAvatarDriver.Mapping;
         if (map == null || surface == null || !Grid.IsCreated)
@@ -592,6 +592,14 @@ public class BasisLocalHandDriver
                     ClearJointOverride(root + k);
                 }
                 continue;
+            }
+            if (limitToInput)
+            {
+                float input = InputPercentage(f).x;
+                for (int k = 0; k < BasisHandPoseGrid.JointsPerFinger; k++)
+                {
+                    graspCurls[j + k] = Mathf.Max(graspCurls[j + k], input);
+                }
             }
             for (int k = 0; k < BasisHandPoseGrid.JointsPerFinger; k++)
             {

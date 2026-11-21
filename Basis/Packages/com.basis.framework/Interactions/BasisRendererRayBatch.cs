@@ -439,6 +439,10 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 return null;
             }
         }
+        internal void CompleteBuild()
+        {
+            buildHandle.Complete();
+        }
         private void CompleteAll()
         {
             buildHandle.Complete();
