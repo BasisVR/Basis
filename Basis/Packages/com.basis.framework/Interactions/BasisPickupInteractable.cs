@@ -292,6 +292,20 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         # endregion
 
+        #region Lock to Hinge
+
+        [Header("Lock to Hinge")]
+        [Tooltip("When set to an axis, the held object only turns around that local axis through its own origin, like a door or hatch. Put the origin on the hinge. Overrides Lock to Axis.")]
+        public BasisAxisType hingeAxis = BasisAxisType.None;
+        [Tooltip("Lowest signed angle the hinge turns to from its starting rotation, in degrees. Use a negative value to open the other way.")]
+        public float hingeMinAngle = 0f;
+        [Tooltip("Highest signed angle the hinge turns to from its starting rotation, in degrees. This is the opening angle.")]
+        public float hingeMaxAngle = 90f;
+
+        private float _hingeHandAngle;
+
+        #endregion
+
         #region Grid Snap & Rotation Lock
 
         [Header("Grid Snap & Rotation Lock")]
@@ -368,11 +382,21 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         protected internal virtual bool HoldControlsKinematic => KinematicWhileInteracting;
 
-        protected internal virtual bool HoldFollowsHand => constrainToAxis == BasisAxisType.None;
+        protected internal virtual bool HoldFollowsHand => !IsMotionLocked;
+
+        private bool LerpsToHand => LerpToHandOnPickup && hingeAxis == BasisAxisType.None;
+
+        internal bool IsMotionLocked => constrainToAxis != BasisAxisType.None || hingeAxis != BasisAxisType.None;
 
         internal void ClampToTravelLimits()
         {
-            if (constrainToAxis == BasisAxisType.None || !_travelOriginSet) return;
+            if (!_travelOriginSet) return;
+            if (hingeAxis != BasisAxisType.None)
+            {
+                transform.SetLocalPositionAndRotation(_positionAtStart, HingeLocalRotation(ClampHingeAngle(CurrentHingeAngle())));
+                return;
+            }
+            if (constrainToAxis == BasisAxisType.None) return;
             Vector3 p = transform.localPosition;
             float lo = -math.max(negativeTravelLimit, 0f), hi = math.max(positiveTravelLimit, 0f);
             switch (constrainToAxis)
@@ -660,7 +684,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                         EnableDesktopHandTracking();
                     }
 
-                    if (_weldedHold && TryGetGripOffsets(ActivePosition, ActiveRotation, out offsetPos, out offsetRot))
+                    if (_weldedHold && hingeAxis == BasisAxisType.None && TryGetGripOffsets(ActivePosition, ActiveRotation, out offsetPos, out offsetRot))
                     {
                         _gripAlignedHold = true;
                         InputConstraint.GlobalWeight = LerpToHandOnPickup ? 0f : 1f;
@@ -670,7 +694,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     else
                     {
                         _gripAlignedHold = false;
-                        if (LerpToHandOnPickup)
+                        if (LerpsToHand)
                         {
                             Vector3 lerpTarget = inPos;
                             if (inDesktop)
@@ -693,9 +717,10 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
                     InputConstraint.SetOffsetPositionAndRotation(0, offsetPos, offsetRot);
                     _grabSourceRotation = inRot;
-                    _grabPoint = LerpToHandOnPickup || _gripAlignedHold
+                    _grabPoint = LerpsToHand || _gripAlignedHold
                         ? -(Quaternion.Inverse(offsetRot) * offsetPos)
                         : Quaternion.Inverse(ActiveRotation) * (GetClosestPoint(inPos) - ActivePosition);
+                    _hingeHandAngle = CurrentHingeAngle();
 
                     InputConstraint.Enabled = true;
 
@@ -807,7 +832,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 RigidRef.useGravity = _previousGravityValue;
             }
 
-            if (!RigidRef.isKinematic)
+            if (!RigidRef.isKinematic && hingeAxis == BasisAxisType.None)
             {
                 OnDropVelocity();
             }
@@ -1019,7 +1044,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             Quaternion inRot = interactingInput.BoneControl.OutgoingWorldData.rotation;
             bool inDesktop = BasisDeviceManagement.IsUserInDesktop();
 
-            if (inDesktop && LerpToHandOnPickup)
+            if (inDesktop && LerpsToHand)
             {
                 inPos = useHandBoneControl.OutgoingWorldData.position
                         + interactingInput.BoneControl.OutgoingWorldData.rotation * useMagicNumberItemDelta * BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
@@ -1142,6 +1167,16 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
             if (InputConstraint.Evaluate(out Vector3 pos, out Quaternion rot))
             {
+                if (hingeAxis != BasisAxisType.None)
+                {
+                    bool forceHingeSnap = BasisSettingsDefaults.ForceRotationSnap.RawValue;
+                    SolveHingePose(pos + rot * _grabPoint, enableRotationSnap || forceHingeSnap
+                        ? (forceHingeSnap ? BasisSettingsDefaults.RotationSnapDegrees.RawValue : rotationSnapDegrees) : 0f, out pos, out rot);
+                    ApplyHeldPose(ref pos, ref rot);
+                    CalculateVelocity(pos, rot);
+                    return;
+                }
+
                 if (constrainToAxis != BasisAxisType.None)
                 {
                     pos = FollowGrabPoint(pos, transform.rotation * _grabPoint, inRot * Quaternion.Inverse(_grabSourceRotation), InputConstraint.GlobalWeight);
@@ -1185,6 +1220,61 @@ namespace Basis.Scripts.BasisSdk.Interactions
         internal static Vector3 FollowGrabPoint(Vector3 position, Vector3 grabOffset, Quaternion handTurn, float weight)
         {
             return position + weight * (handTurn * grabOffset - grabOffset);
+        }
+
+        internal static Vector3 AxisVector(BasisAxisType axis) => axis switch
+        {
+            BasisAxisType.X => Vector3.right,
+            BasisAxisType.Y => Vector3.up,
+            BasisAxisType.Z => Vector3.forward,
+            _ => Vector3.zero,
+        };
+
+        private Vector3 HingeAxisInParent => _rotationAtStart * AxisVector(hingeAxis);
+
+        private Quaternion HingeLocalRotation(float angle) => Quaternion.AngleAxis(angle, HingeAxisInParent) * _rotationAtStart;
+
+        private float ClampHingeAngle(float angle) => math.clamp(angle, math.min(hingeMinAngle, hingeMaxAngle), math.max(hingeMinAngle, hingeMaxAngle));
+
+        /// <summary>
+        /// Signed hinge angle of the current local rotation from the starting rotation, in degrees. A turn past
+        /// 180 is reported on whichever side of zero falls inside the hinge limits.
+        /// </summary>
+        internal float CurrentHingeAngle()
+        {
+            if (hingeAxis == BasisAxisType.None) return 0f;
+            Quaternion turn = transform.localRotation * Quaternion.Inverse(_rotationAtStart);
+            float angle = Mathf.DeltaAngle(0f, 2f * Mathf.Atan2(Vector3.Dot(new Vector3(turn.x, turn.y, turn.z), HingeAxisInParent), turn.w) * Mathf.Rad2Deg);
+            float lo = math.min(hingeMinAngle, hingeMaxAngle), hi = math.max(hingeMinAngle, hingeMaxAngle);
+            if (angle < lo && angle + 360f <= hi) angle += 360f;
+            else if (angle > hi && angle - 360f >= lo) angle -= 360f;
+            return angle;
+        }
+
+        /// <summary>
+        /// Turns the hinge so the grabbed point faces <paramref name="targetGrabWorld"/> around the hinge axis.
+        /// The hand angle is tracked unclamped and unwrapped, so swinging the hand past a limit holds the hinge
+        /// there until the hand comes back, instead of flipping to the other limit.
+        /// </summary>
+        internal void SolveHingePose(Vector3 targetGrabWorld, float snapDegrees, out Vector3 position, out Quaternion rotation)
+        {
+            Transform parent = transform.parent;
+            Vector3 axis = HingeAxisInParent;
+            Vector3 toTarget = (parent != null ? parent.InverseTransformPoint(targetGrabWorld) : targetGrabWorld) - _positionAtStart;
+            Vector3 from = Vector3.ProjectOnPlane(_rotationAtStart * _grabPoint, axis);
+            Vector3 to = Vector3.ProjectOnPlane(toTarget, axis);
+            if (from.sqrMagnitude > 1e-8f && to.sqrMagnitude > 1e-8f)
+            {
+                _hingeHandAngle += Mathf.DeltaAngle(_hingeHandAngle, Vector3.SignedAngle(from, to, axis));
+            }
+            float angle = ClampHingeAngle(_hingeHandAngle);
+            if (snapDegrees > 0f)
+            {
+                angle = ClampHingeAngle(Mathf.Round(angle / snapDegrees) * snapDegrees);
+            }
+            Quaternion local = HingeLocalRotation(angle);
+            position = parent != null ? parent.TransformPoint(_positionAtStart) : _positionAtStart;
+            rotation = parent != null ? parent.rotation * local : local;
         }
 
         /// <summary>

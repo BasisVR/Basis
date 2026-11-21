@@ -277,7 +277,7 @@ public class BasisPickupSyncNetworking : BasisSyncedTransform, IBasisStaticLocka
     internal override bool UseJobApplyThisFrame(int discBase)
     {
         if (IsOwnedLocallyOnClient) return false;
-        if (BasisPickupInteractable != null && BasisPickupInteractable.constrainToAxis != BasisAxisType.None) return false;
+        if (BasisPickupInteractable != null && BasisPickupInteractable.IsMotionLocked) return false;
         if (AttachToHandOnGrab && _attachId.IsValid)
         {
             int handId = (byte)BasisSyncDriver.ReadDiscNext(discBase + Schema.GetField(_attachId.FieldIndex).Offset);
@@ -293,7 +293,7 @@ public class BasisPickupSyncNetworking : BasisSyncedTransform, IBasisStaticLocka
 
     protected override void ApplyInterpolated()
     {
-        bool axisLocked = BasisPickupInteractable != null && BasisPickupInteractable.constrainToAxis != BasisAxisType.None;
+        bool axisLocked = BasisPickupInteractable != null && BasisPickupInteractable.IsMotionLocked;
         if (AttachToHandOnGrab && _attachId.IsValid)
         {
             int handId = GetByte(_attachId);
@@ -363,6 +363,7 @@ public class BasisPickupSyncNetworking : BasisSyncedTransform, IBasisStaticLocka
         if (rb == null || rb.isKinematic)
         {
             base.ApplyInterpolated();
+            if (axisLocked) BasisPickupInteractable.ClampToTravelLimits();
             return;
         }
 
