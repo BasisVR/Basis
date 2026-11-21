@@ -2,6 +2,7 @@ using Unity.Scripting.LifecycleManagement;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
+using Basis.Scripts.Rendering;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -124,6 +125,10 @@ namespace Basis
 
             // keep runtime ref
             SpawnedGameobjects[loadedNetId] = go;
+
+            // Embedded addressables instantiate directly. Bundled props register during content activation.
+            if (method == SpawnMethod.Embedded)
+                BasisMaterialPropertyBlockStreaming.RegisterContentRoot(go);
         }
 
         public static void AddScene(
