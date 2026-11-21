@@ -1084,6 +1084,30 @@ namespace Basis.BasisUI
 
             dropdownLanguage.OnValueChanged += OnLanguageChanged;
 
+            PanelDropdown dropdownCjkStyle = PanelDropdown.CreateNewEntry(container);
+            dropdownCjkStyle.Descriptor.SetTitle(BasisLocalization.Get("settings.general.cjkGlyphStyle"));
+            dropdownCjkStyle.Descriptor.SetTooltip(BasisLocalization.Get("settings.general.cjkGlyphStyle.tooltip"));
+            dropdownCjkStyle.AssignLocalizedEntries(
+                new List<string>
+                {
+                    BasisTMPFontFallbacks.StyleAuto,
+                    BasisTMPFontFallbacks.StyleJapanese,
+                    BasisTMPFontFallbacks.StyleSimplifiedChinese,
+                    BasisTMPFontFallbacks.StyleTraditionalChinese,
+                    BasisTMPFontFallbacks.StyleHongKongChinese,
+                    BasisTMPFontFallbacks.StyleKorean,
+                },
+                new List<string>
+                {
+                    "settings.general.cjkGlyphStyle.auto",
+                    "settings.general.cjkGlyphStyle.ja",
+                    "settings.general.cjkGlyphStyle.zhHans",
+                    "settings.general.cjkGlyphStyle.zhHant",
+                    "settings.general.cjkGlyphStyle.zhHK",
+                    "settings.general.cjkGlyphStyle.ko",
+                });
+            dropdownCjkStyle.AssignBinding(BasisSettingsDefaults.CjkGlyphStyle);
+
             PanelSectionToggleHelpers.FinalizeBoxedSectionFromIndex(languageToggle, container, languageStart, false,_ => tabDescriptor?.ForceRebuild());
         }
         public static void OnLanguageChanged(string selected)

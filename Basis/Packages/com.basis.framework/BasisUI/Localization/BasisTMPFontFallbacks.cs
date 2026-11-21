@@ -1,6 +1,7 @@
 using Unity.Scripting.LifecycleManagement;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using TMPro;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -25,11 +26,26 @@ namespace Basis.BasisUI
         private const string KoKrLabel = "Basis Fallback - ko-KR";
         private const string ZhHansLabel = "Basis Fallback - zh-Hans";
         private const string ZhHantLabel = "Basis Fallback - zh-Hant";
+        private const string ZhHkLabel = "Basis Fallback - zh-HK";
         private const string ShippedJapaneseFontAddress = "Packages/com.basis.sdk/Fonts/NotoSansJP-Regular.ttf";
         private const string EmojiLabel = "Basis Fallback - Emoji";
         private const string ShippedEmojiFontAddress = "Packages/com.basis.sdk/Fonts/NotoEmoji-Regular.ttf";
 
-        [NoAutoStaticsCleanup] private static readonly string[] CjkLabels = { JaJpLabel, KoKrLabel, ZhHansLabel, ZhHantLabel };
+        public const string StyleAuto = "auto";
+        public const string StyleJapanese = "ja";
+        public const string StyleSimplifiedChinese = "zh-Hans";
+        public const string StyleTraditionalChinese = "zh-Hant";
+        public const string StyleHongKongChinese = "zh-HK";
+        public const string StyleKorean = "ko";
+
+        [NoAutoStaticsCleanup] private static readonly string[] CjkLabels = { JaJpLabel, ZhHansLabel, ZhHantLabel, ZhHkLabel, KoKrLabel };
+        [NoAutoStaticsCleanup] private static readonly string[] OptionalLabels = { ZhHkLabel };
+
+        private static string _preferredStyle;
+        private static readonly Dictionary<(TMP_FontAsset Base, string Style), TMP_FontAsset> _variants = new();
+        private static readonly Dictionary<TMP_FontAsset, TMP_FontAsset> _variantBase = new();
+        private static readonly List<uint> _cacheKeyScratch = new();
+        private static bool _fontEventHooked;
 
         private static bool _installed;
         private static TMP_FontAsset _shippedJapaneseFallback;
@@ -57,33 +73,58 @@ namespace Basis.BasisUI
                 // Windows
                 "Microsoft JhengHei UI",
                 "Microsoft JhengHei",
+                "PMingLiU",
+                "MingLiU",
                 // macOS
                 "PingFang TC",
+                "Heiti TC",
                 // Linux / Noto
                 "Noto Sans CJK TC",
                 "Noto Sans TC",
+            }),
+            ("Basis Fallback - zh-HK", new[]
+            {
+                // macOS
+                "PingFang HK",
+                // Linux / Noto
+                "Noto Sans CJK HK",
+                "Noto Sans HK",
+                "Source Han Sans HC",
+                // Windows (Traditional Chinese supplemental fonts)
+                "MingLiU_HKSCS",
             }),
             ("Basis Fallback - zh-Hans", new[]
             {
                 // Windows
                 "Microsoft YaHei UI",
                 "Microsoft YaHei",
+                "SimHei",
+                "SimSun",
                 // macOS
                 "PingFang SC",
+                "Hiragino Sans GB",
+                "STHeiti",
                 // Linux / Noto
                 "Noto Sans CJK SC",
                 "Noto Sans SC",
+                "Source Han Sans SC",
                 "Source Han Sans",
+                "WenQuanYi Micro Hei",
             }),
             ("Basis Fallback - ko-KR", new[]
             {
                 // Windows
                 "Malgun Gothic",
+                "Gulim",
+                "Dotum",
+                "Batang",
                 // macOS
                 "Apple SD Gothic Neo",
+                "AppleGothic",
                 // Linux / Noto
                 "Noto Sans CJK KR",
                 "Noto Sans KR",
+                "NanumGothic",
             }),
             ("Basis Fallback - ja-JP", new[]
             {
@@ -100,6 +141,8 @@ namespace Basis.BasisUI
                 // Linux / Noto
                 "Noto Sans CJK JP",
                 "Noto Sans JP",
+                "Source Han Sans JP",
+                "TakaoGothic",
             }),
             ("Basis Fallback - Unicode", new[]
             {
@@ -302,8 +345,9 @@ namespace Basis.BasisUI
                     continue;
                 }
 
+                bool optional = Array.IndexOf(OptionalLabels, group.Label) >= 0;
                 TMP_FontAsset shipped = group.Label == JaJpLabel ? GetShippedJapaneseFallback() : group.Label == EmojiLabel ? GetShippedEmojiFallback() : null;
-                TMP_FontAsset tmpFont = shipped ?? (Application.platform == RuntimePlatform.WebGLPlayer ? null : TryCreateDynamicOSFallback(group.Label, group.Candidates));
+                TMP_FontAsset tmpFont = shipped ?? (Application.platform == RuntimePlatform.WebGLPlayer ? null : TryCreateDynamicOSFallback(group.Label, group.Candidates, optional));
                 if (tmpFont != null)
                 {
                     fallbacks.Add(tmpFont);
@@ -313,16 +357,16 @@ namespace Basis.BasisUI
                     }
                     BasisDebug.Log($"[BasisTMPFontFallbacks] Installed {group.Label} using OS font family '{tmpFont.faceInfo.familyName}'.");
                 }
-                else if (Application.platform != RuntimePlatform.WebGLPlayer)
+                else if (!optional && Application.platform != RuntimePlatform.WebGLPlayer)
                 {
                     BasisDebug.LogError($"[BasisTMPFontFallbacks] None of the candidates for {group.Label} could be resolved on this OS. Candidates tried: {string.Join(", ", group.Candidates)}");
                 }
             }
 
             // Localization isn't up this early; seed from the OS locale and let
-            // RefreshJapanesePriority re-apply from the UI language before menus render.
-            ApplyCjkPriority(Application.systemLanguage == SystemLanguage.Japanese ? JaJpLabel : null);
-            BasisLocalization.OnLanguageChanged += RefreshJapanesePriority;
+            // RefreshCjkPriority re-apply from the UI language before menus render.
+            ApplyCjkPriority(ResolveCurrentStyle(null));
+            BasisLocalization.OnLanguageChanged += RefreshCjkPriority;
         }
 
         /// <summary>
@@ -438,11 +482,11 @@ namespace Basis.BasisUI
         /// <summary>
         /// Wires the embedded Noto Sans JP into the global fallback list (swapping
         /// out any OS Japanese font picked up during the early BeforeSceneLoad pass)
-        /// and re-applies language-aware CJK ordering from the resolved UI language.
-        /// Call once <see cref="BasisLocalization"/> is initialized and on every
-        /// language change.
+        /// and re-applies the CJK glyph style from the setting, UI language and OS
+        /// region. Call once <see cref="BasisLocalization"/> is initialized, on every
+        /// language change and when the glyph style setting changes.
         /// </summary>
-        public static void RefreshJapanesePriority()
+        public static void RefreshCjkPriority()
         {
             InstallFallbacks();
 
@@ -459,21 +503,229 @@ namespace Basis.BasisUI
                 RegisterEmojiFallback(shippedEmoji);
             }
 
-            ApplyCjkPriority(CjkLabelForLanguage(BasisLocalization.CurrentLanguage));
-            InvalidateLoadedTextMeshes();
+            ApplyCjkPriority(ResolveCurrentStyle(BasisLocalization.CurrentLanguage));
+            RefreshVariantFallbacks();
+            TMP_Text[] labels = UnityEngine.Object.FindObjectsByType<TMP_Text>(FindObjectsInactive.Include);
+            ClearFallbackLookupCaches(labels);
+            InvalidateTextMeshes(labels);
+            Basis.Scripts.UI.NamePlate.BasisRemoteNamePlateDriver.RebakeAllNamePlates();
         }
 
         /// <summary>
-        /// TextMeshPro keeps the fallback font chosen for an already-generated label in its
-        /// text info. Reordering the global CJK fallback list is therefore not enough when a
-        /// translation contains the same Unicode characters in both languages (for example
-        /// Japanese and Chinese labels containing 「切替」 or 「言語」). Mark every
-        /// loaded label dirty so its glyphs are resolved against the new fallback order.
+        /// The CJK glyph style shared Han code points currently resolve to, or null when
+        /// nothing points at one and the Japanese-first default order is in use.
         /// </summary>
-        private static void InvalidateLoadedTextMeshes()
+        public static string PreferredStyle => _preferredStyle;
+
+        private static string EffectiveStyle => _preferredStyle ?? StyleJapanese;
+
+        /// <summary>
+        /// Picks the font a label should use for user-written text. Han code points look
+        /// different in Japanese, Chinese and Korean, so text that carries kana or Hangul
+        /// gets a variant of <paramref name="font"/> that resolves Han through that
+        /// language's font first; everything else keeps the base font and the global order.
+        /// </summary>
+        public static TMP_FontAsset FontForText(TMP_FontAsset font, string text)
         {
-            TMP_Text[] labels = UnityEngine.Object.FindObjectsByType<TMP_Text>(FindObjectsInactive.Include);
-            InvalidateTextMeshes(labels);
+            if (font == null)
+            {
+                return null;
+            }
+            TMP_FontAsset baseFont = _variantBase.TryGetValue(font, out TMP_FontAsset original) && original != null ? original : font;
+            if (IsServerBuild)
+            {
+                return baseFont;
+            }
+            string style = DetectStyle(text);
+            if (style == null || style == EffectiveStyle)
+            {
+                return baseFont;
+            }
+            return GetVariant(baseFont, style) ?? baseFont;
+        }
+
+        public static void ApplyFontForText(TMP_Text label, string text)
+        {
+            if (label == null)
+            {
+                return;
+            }
+            TMP_FontAsset font = FontForText(label.font, text);
+            if (font != null && label.font != font)
+            {
+                label.font = font;
+            }
+        }
+
+        internal static string DetectStyle(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return null;
+            }
+            bool hangul = false;
+            for (int i = 0; i < text.Length; i++)
+            {
+                char c = text[i];
+                if (((c >= '぀' && c <= 'ヿ') || (c >= 'ㇰ' && c <= 'ㇿ') || (c >= 'ｦ' && c <= 'ﾟ')) && c != '・')
+                {
+                    return StyleJapanese;
+                }
+                if ((c >= '가' && c <= '힯') || (c >= 'ᄀ' && c <= 'ᇿ') || (c >= '㄰' && c <= '㆏') || (c >= 'ꥠ' && c <= '꥿') || (c >= 'ힰ' && c <= '퟿'))
+                {
+                    hangul = true;
+                }
+            }
+            return hangul ? StyleKorean : null;
+        }
+
+        private static TMP_FontAsset GetVariant(TMP_FontAsset baseFont, string style)
+        {
+            if (_variants.TryGetValue((baseFont, style), out TMP_FontAsset variant) && variant != null)
+            {
+                return variant;
+            }
+            TMP_FontAsset cjk = FindFallback(LabelForStyle(style));
+            if (cjk == null)
+            {
+                return null;
+            }
+            variant = UnityEngine.Object.Instantiate(baseFont);
+            variant.name = baseFont.name + " (" + style + ")";
+            variant.hideFlags = HideFlags.HideAndDontSave;
+            variant.atlasPopulationMode = AtlasPopulationMode.Static;
+            variant.fallbackFontAssetTable = new List<TMP_FontAsset> { baseFont, cjk };
+            variant.ReadFontAssetDefinition();
+            _variants[(baseFont, style)] = variant;
+            _variantBase[variant] = baseFont;
+            if (!_fontEventHooked)
+            {
+                _fontEventHooked = true;
+                TMPro_EventManager.FONT_PROPERTY_EVENT.Remove(OnFontPropertyChanged);
+                TMPro_EventManager.FONT_PROPERTY_EVENT.Add(OnFontPropertyChanged);
+            }
+            return variant;
+        }
+
+        private static void OnFontPropertyChanged(bool changed, UnityEngine.Object obj)
+        {
+            if (obj is not TMP_FontAsset font || _variantBase.ContainsKey(font))
+            {
+                return;
+            }
+            foreach (KeyValuePair<(TMP_FontAsset Base, string Style), TMP_FontAsset> pair in _variants)
+            {
+                TMP_FontAsset variant = pair.Value;
+                if (pair.Key.Base != font || variant == null)
+                {
+                    continue;
+                }
+                variant.characterTable.Clear();
+                variant.glyphTable.Clear();
+                variant.atlasTextures = font.atlasTextures;
+                variant.ReadFontAssetDefinition();
+                TMPro_EventManager.ON_FONT_PROPERTY_CHANGED(true, variant);
+            }
+        }
+
+        /// <summary>
+        /// Variants share their base font's atlas and material, which a font asset destroys
+        /// with itself, so those references are dropped before each variant is destroyed.
+        /// </summary>
+        internal static void ReleaseVariants()
+        {
+            foreach (TMP_FontAsset variant in _variantBase.Keys)
+            {
+                if (variant == null)
+                {
+                    continue;
+                }
+                variant.material = null;
+                variant.atlasTextures = null;
+                variant.fallbackFontAssetTable = null;
+                UnityEngine.Object.DestroyImmediate(variant);
+            }
+            _variants.Clear();
+            _variantBase.Clear();
+        }
+
+        private static void RefreshVariantFallbacks()
+        {
+            foreach (KeyValuePair<(TMP_FontAsset Base, string Style), TMP_FontAsset> pair in _variants)
+            {
+                TMP_FontAsset variant = pair.Value;
+                if (variant == null)
+                {
+                    continue;
+                }
+                List<TMP_FontAsset> table = variant.fallbackFontAssetTable;
+                table.Clear();
+                table.Add(pair.Key.Base);
+                TMP_FontAsset cjk = FindFallback(LabelForStyle(pair.Key.Style));
+                if (cjk != null)
+                {
+                    table.Add(cjk);
+                }
+            }
+        }
+
+        /// <summary>
+        /// TMP caches every character it found through a fallback inside the label's own font,
+        /// so once a Han character has resolved to one CJK font it keeps that font after the
+        /// order changes. Drop those cached fallback hits so the new order applies.
+        /// </summary>
+        internal static void ClearFallbackLookupCaches(IEnumerable<TMP_Text> labels)
+        {
+            HashSet<TMP_FontAsset> seen = new HashSet<TMP_FontAsset>();
+            if (labels != null)
+            {
+                foreach (TMP_Text label in labels)
+                {
+                    if (label != null)
+                    {
+                        ClearFallbackLookupCache(label.font, seen);
+                    }
+                }
+            }
+            foreach (TMP_FontAsset variant in _variantBase.Keys)
+            {
+                ClearFallbackLookupCache(variant, seen);
+            }
+            ClearFallbackLookupCache(TMP_Settings.defaultFontAsset, seen);
+        }
+
+        internal static void ClearFallbackLookupCache(TMP_FontAsset font, HashSet<TMP_FontAsset> seen)
+        {
+            if (font == null || !seen.Add(font))
+            {
+                return;
+            }
+            Dictionary<uint, TMP_Character> table = font.characterLookupTable;
+            if (table != null)
+            {
+                _cacheKeyScratch.Clear();
+                foreach (KeyValuePair<uint, TMP_Character> entry in table)
+                {
+                    if (entry.Value == null || entry.Value.textAsset != font)
+                    {
+                        _cacheKeyScratch.Add(entry.Key);
+                    }
+                }
+                for (int i = 0; i < _cacheKeyScratch.Count; i++)
+                {
+                    table.Remove(_cacheKeyScratch[i]);
+                }
+                _cacheKeyScratch.Clear();
+            }
+            TMP_FontWeightPair[] weights = font.fontWeightTable;
+            if (weights != null)
+            {
+                for (int i = 0; i < weights.Length; i++)
+                {
+                    ClearFallbackLookupCache(weights[i].regularTypeface, seen);
+                    ClearFallbackLookupCache(weights[i].italicTypeface, seen);
+                }
+            }
         }
 
         internal static int InvalidateTextMeshes(IEnumerable<TMP_Text> labels)
@@ -498,18 +750,13 @@ namespace Basis.BasisUI
         }
 
         /// <summary>
-        /// Moves the given CJK fallback ahead of the other CJK fallbacks in the
-        /// global list so shared Han glyphs resolve to that language's font. No-op
-        /// when the language has no CJK fallback (non-CJK locales keep the declared,
-        /// Chinese-first order). <paramref name="targetLabel"/> is one of
-        /// <see cref="CjkLabels"/> or null.
+        /// Rewrites the CJK slots of the global fallback list so the given style's font
+        /// comes first, followed by its nearest neighbours. Null keeps the Japanese-first
+        /// default, which is also the only CJK font every platform has (it ships embedded).
         /// </summary>
-        private static void ApplyCjkPriority(string targetLabel)
+        internal static void ApplyCjkPriority(string style)
         {
-            if (targetLabel == null)
-            {
-                return;
-            }
+            _preferredStyle = style;
 
             List<TMP_FontAsset> fallbacks = TMP_Settings.fallbackFontAssets;
             if (fallbacks == null)
@@ -517,41 +764,185 @@ namespace Basis.BasisUI
                 return;
             }
 
-            int target = IndexOfByName(fallbacks, targetLabel);
-            if (target < 0)
+            List<int> slots = new List<int>(CjkLabels.Length);
+            for (int i = 0; i < fallbacks.Count; i++)
             {
-                return;
-            }
-
-            int firstCjk = target;
-            for (int i = 0; i < CjkLabels.Length; i++)
-            {
-                int idx = IndexOfByName(fallbacks, CjkLabels[i]);
-                if (idx >= 0 && idx < firstCjk)
+                if (fallbacks[i] != null && Array.IndexOf(CjkLabels, fallbacks[i].name) >= 0)
                 {
-                    firstCjk = idx;
+                    slots.Add(i);
                 }
             }
 
-            if (target > firstCjk)
+            string[] order = CjkOrderFor(style);
+            List<TMP_FontAsset> ordered = new List<TMP_FontAsset>(slots.Count);
+            for (int i = 0; i < order.Length; i++)
             {
-                TMP_FontAsset entry = fallbacks[target];
-                fallbacks.RemoveAt(target);
-                fallbacks.Insert(firstCjk, entry);
+                int index = IndexOfByName(fallbacks, order[i]);
+                if (index >= 0)
+                {
+                    ordered.Add(fallbacks[index]);
+                }
+            }
+
+            if (ordered.Count != slots.Count)
+            {
+                return;
+            }
+            for (int i = 0; i < slots.Count; i++)
+            {
+                fallbacks[slots[i]] = ordered[i];
             }
         }
 
-        private static string CjkLabelForLanguage(string language)
+        [NoAutoStaticsCleanup] private static readonly string[] OrderJapanese = { JaJpLabel, ZhHansLabel, ZhHantLabel, ZhHkLabel, KoKrLabel };
+        [NoAutoStaticsCleanup] private static readonly string[] OrderSimplified = { ZhHansLabel, ZhHantLabel, ZhHkLabel, JaJpLabel, KoKrLabel };
+        [NoAutoStaticsCleanup] private static readonly string[] OrderTraditional = { ZhHantLabel, ZhHkLabel, ZhHansLabel, JaJpLabel, KoKrLabel };
+        [NoAutoStaticsCleanup] private static readonly string[] OrderHongKong = { ZhHkLabel, ZhHantLabel, ZhHansLabel, JaJpLabel, KoKrLabel };
+        [NoAutoStaticsCleanup] private static readonly string[] OrderKorean = { KoKrLabel, ZhHantLabel, ZhHkLabel, JaJpLabel, ZhHansLabel };
+
+        internal static string[] CjkOrderFor(string style)
         {
-            if (string.IsNullOrEmpty(language))
+            switch (style)
+            {
+                case StyleSimplifiedChinese: return OrderSimplified;
+                case StyleTraditionalChinese: return OrderTraditional;
+                case StyleHongKongChinese: return OrderHongKong;
+                case StyleKorean: return OrderKorean;
+                default: return OrderJapanese;
+            }
+        }
+
+        private static string LabelForStyle(string style)
+        {
+            switch (style)
+            {
+                case StyleJapanese: return JaJpLabel;
+                case StyleSimplifiedChinese: return ZhHansLabel;
+                case StyleTraditionalChinese: return ZhHantLabel;
+                case StyleHongKongChinese: return ZhHkLabel;
+                case StyleKorean: return KoKrLabel;
+                default: return null;
+            }
+        }
+
+        private static TMP_FontAsset FindFallback(string label)
+        {
+            List<TMP_FontAsset> fallbacks = TMP_Settings.fallbackFontAssets;
+            if (label == null || fallbacks == null)
             {
                 return null;
             }
-            if (language.StartsWith("ja", StringComparison.OrdinalIgnoreCase)) return JaJpLabel;
-            if (language.StartsWith("ko", StringComparison.OrdinalIgnoreCase)) return KoKrLabel;
-            if (language.StartsWith("zh-Hant", StringComparison.OrdinalIgnoreCase)) return ZhHantLabel;
-            if (language.StartsWith("zh", StringComparison.OrdinalIgnoreCase)) return ZhHansLabel;
-            return null;
+            int index = IndexOfByName(fallbacks, label);
+            if (index < 0 && label == ZhHkLabel)
+            {
+                index = IndexOfByName(fallbacks, ZhHantLabel);
+            }
+            return index >= 0 ? fallbacks[index] : null;
+        }
+
+        private static string ResolveCurrentStyle(string uiLanguage)
+        {
+            string setting = BasisSettingsDefaults.CjkGlyphStyle != null ? BasisSettingsDefaults.CjkGlyphStyle.RawValue : StyleAuto;
+            string osUiCulture = null;
+            string osCulture = null;
+            try
+            {
+                osUiCulture = CultureInfo.CurrentUICulture.Name;
+                osCulture = CultureInfo.CurrentCulture.Name;
+            }
+            catch (Exception)
+            {
+            }
+            return ResolveStyle(setting, uiLanguage, osUiCulture, osCulture, Application.systemLanguage);
+        }
+
+        /// <summary>
+        /// An explicit setting wins. Auto takes the menu language, then the OS language, then
+        /// <see cref="Application.systemLanguage"/>. Traditional Chinese becomes Hong Kong when
+        /// the OS region is Hong Kong or Macau, since one zh-Hant table serves both.
+        /// </summary>
+        internal static string ResolveStyle(string setting, string uiLanguage, string osUiCulture, string osCulture, SystemLanguage systemLanguage)
+        {
+            if (IsStyle(setting))
+            {
+                return setting;
+            }
+            string style = StyleForCulture(uiLanguage) ?? StyleForCulture(osUiCulture) ?? StyleForCulture(osCulture) ?? StyleForSystemLanguage(systemLanguage);
+            if (style == StyleTraditionalChinese && (IsHongKongRegion(osUiCulture) || IsHongKongRegion(osCulture)))
+            {
+                return StyleHongKongChinese;
+            }
+            return style;
+        }
+
+        internal static bool IsStyle(string value)
+        {
+            return value == StyleJapanese || value == StyleSimplifiedChinese || value == StyleTraditionalChinese || value == StyleHongKongChinese || value == StyleKorean;
+        }
+
+        internal static string StyleForCulture(string culture)
+        {
+            if (string.IsNullOrEmpty(culture))
+            {
+                return null;
+            }
+            string code = culture.Replace('_', '-').ToLowerInvariant();
+            if (HasLanguage(code, "ja"))
+            {
+                return StyleJapanese;
+            }
+            if (HasLanguage(code, "ko"))
+            {
+                return StyleKorean;
+            }
+            if (!HasLanguage(code, "zh"))
+            {
+                return null;
+            }
+            if (IsHongKongRegion(code))
+            {
+                return StyleHongKongChinese;
+            }
+            if (code.Contains("-hant") || code.EndsWith("-tw") || code.Contains("-tw-"))
+            {
+                return StyleTraditionalChinese;
+            }
+            return StyleSimplifiedChinese;
+        }
+
+        private static bool HasLanguage(string code, string language)
+        {
+            return code.StartsWith(language, StringComparison.Ordinal) && (code.Length == language.Length || code[language.Length] == '-');
+        }
+
+        private static bool IsHongKongRegion(string culture)
+        {
+            if (string.IsNullOrEmpty(culture))
+            {
+                return false;
+            }
+            string[] parts = culture.Replace('_', '-').Split('-');
+            for (int i = 1; i < parts.Length; i++)
+            {
+                if (parts[i].Equals("HK", StringComparison.OrdinalIgnoreCase) || parts[i].Equals("MO", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static string StyleForSystemLanguage(SystemLanguage language)
+        {
+            switch (language)
+            {
+                case SystemLanguage.Japanese: return StyleJapanese;
+                case SystemLanguage.Korean: return StyleKorean;
+                case SystemLanguage.ChineseTraditional: return StyleTraditionalChinese;
+                case SystemLanguage.Chinese:
+                case SystemLanguage.ChineseSimplified: return StyleSimplifiedChinese;
+                default: return null;
+            }
         }
 
         private static int IndexOfByName(List<TMP_FontAsset> list, string name)
@@ -587,11 +978,15 @@ namespace Basis.BasisUI
         /// the only path that makes the asset actually pull glyphs from the
         /// host OS font file at runtime.
         /// </summary>
-        private static TMP_FontAsset TryCreateDynamicOSFallback(string label, string[] candidates)
+        private static TMP_FontAsset TryCreateDynamicOSFallback(string label, string[] candidates, bool installedOnly)
         {
             for (int i = 0; i < candidates.Length; i++)
             {
                 string family = candidates[i];
+                if (installedOnly && !IsFontInstalled(family))
+                {
+                    continue;
+                }
                 TMP_FontAsset tmpFont;
                 try
                 {
@@ -613,6 +1008,34 @@ namespace Basis.BasisUI
             }
 
             return null;
+        }
+
+        private static HashSet<string> _installedFontNames;
+
+        private static bool IsFontInstalled(string family)
+        {
+            if (_installedFontNames == null)
+            {
+                _installedFontNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                try
+                {
+                    string[] names = Font.GetOSInstalledFontNames();
+                    if (names != null)
+                    {
+                        for (int i = 0; i < names.Length; i++)
+                        {
+                            if (!string.IsNullOrEmpty(names[i]))
+                            {
+                                _installedFontNames.Add(names[i]);
+                            }
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                }
+            }
+            return _installedFontNames.Count == 0 || _installedFontNames.Contains(family);
         }
     }
 }

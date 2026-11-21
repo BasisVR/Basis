@@ -67,6 +67,7 @@ namespace Basis.Scripts.UI.NamePlate
 
         // Lazy-created at runtime — replaces the prefab's TMP child used for baking.
         public static TextMeshPro Text;
+        private static TMP_FontAsset BakeFont;
 
         // Lazy-loaded from Addressables on first Initialize.
         public static Material TransParentNamePlateMaterial;
@@ -237,6 +238,7 @@ namespace Basis.Scripts.UI.NamePlate
 
                 Text = bakingGO.AddComponent<TextMeshPro>();
                 Text.font = font;
+                BakeFont = font;
                 Text.fontSize = BakeFontSize;
                 Text.enableAutoSizing = false;
                 Text.alignment = TextAlignmentOptions.Center;
@@ -253,9 +255,11 @@ namespace Basis.Scripts.UI.NamePlate
         /// <summary>
         /// Walks a per-script list of OS font candidates and adds the first installed
         /// match per script to the nameplate font's fallback list. This lets display
-        /// names render glyphs the primary (Latin) font doesn't cover — Japanese,
-        /// Korean, Chinese, Arabic, Thai, Hebrew, Devanagari — instead of silently
-        /// dropping them. Scripts with no installed candidate degrade to "no glyph";
+        /// names render glyphs the primary (Latin) font doesn't cover (Arabic, Thai,
+        /// Hebrew, Devanagari) instead of silently dropping them. CJK is left to the
+        /// global fallbacks, whose order follows the viewer's CJK glyph style, and
+        /// <see cref="BasisTMPFontFallbacks.FontForText"/> picks Japanese or Korean forms
+        /// per name. Scripts with no installed candidate degrade to "no glyph";
         /// no crash. Per-family dedupe avoids loading the same atlas twice when a
         /// font (e.g., Tahoma covers both Arabic and Hebrew) was added for an earlier
         /// script in the chain.
@@ -274,27 +278,6 @@ namespace Basis.Scripts.UI.NamePlate
             var registered = new HashSet<string>();
             string[][] scriptCandidates =
             {
-                // Japanese — kanji, hiragana, katakana
-                new[] { "Yu Gothic UI", "Yu Gothic", "Meiryo UI", "Meiryo", "MS Gothic",
-                        "Hiragino Sans", "Hiragino Kaku Gothic ProN",
-                        "Noto Sans CJK JP", "Noto Sans JP", "Source Han Sans JP", "TakaoGothic" },
-
-                // Korean — Hangul
-                new[] { "Malgun Gothic", "Gulim", "Dotum", "Batang",
-                        "Apple SD Gothic Neo", "AppleGothic",
-                        "Noto Sans CJK KR", "Noto Sans KR", "NanumGothic" },
-
-                // Simplified Chinese — CN-style Han glyphs
-                new[] { "Microsoft YaHei UI", "Microsoft YaHei", "SimHei", "SimSun",
-                        "PingFang SC", "Hiragino Sans GB", "STHeiti",
-                        "Noto Sans CJK SC", "Noto Sans SC", "Source Han Sans SC",
-                        "WenQuanYi Micro Hei" },
-
-                // Traditional Chinese — TW/HK-style Han glyphs
-                new[] { "Microsoft JhengHei UI", "Microsoft JhengHei", "PMingLiU", "MingLiU",
-                        "PingFang TC", "Heiti TC",
-                        "Noto Sans CJK TC", "Noto Sans TC" },
-
                 // Arabic
                 new[] { "Tahoma", "Segoe UI",
                         "Geeza Pro", "Damascus",
@@ -316,16 +299,8 @@ namespace Basis.Scripts.UI.NamePlate
                         "Noto Sans Devanagari", "Lohit Devanagari" },
             };
 
-            // Embedded Noto leads the table and covers JP, so the OS Japanese
-            // candidates (scriptCandidates[0]) are skipped to avoid a redundant atlas.
-            TMP_FontAsset shippedJapanese = BasisTMPFontFallbacks.GetShippedJapaneseFallback();
-            if (shippedJapanese != null)
-                primary.fallbackFontAssetTable.Add(shippedJapanese);
-
             for (int s = 0; s < scriptCandidates.Length; s++)
             {
-                if (s == 0 && shippedJapanese != null)
-                    continue;
                 AddFirstAvailableFallback(primary, scriptCandidates[s], registered);
             }
         }
@@ -663,6 +638,10 @@ namespace Basis.Scripts.UI.NamePlate
             textTransform = FlipX;
             if (Text == null) return false;
 
+            if (BakeFont != null)
+            {
+                Text.font = BasisTMPFontFallbacks.FontForText(BakeFont, displayName);
+            }
             Text.fontSize = BakeFontSize;
             Text.text = displayName;
             Text.ForceMeshUpdate(true);

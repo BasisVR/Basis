@@ -691,6 +691,7 @@ namespace Basis.Scripts.UI.NamePlate
             }
 
             EnsureChatDisplayCreated();
+            BasisTMPFontFallbacks.ApplyFontForText(ChatText, message);
 
             currentChatMessage = message;
             chatMessageSetTime = Time.timeAsDouble;

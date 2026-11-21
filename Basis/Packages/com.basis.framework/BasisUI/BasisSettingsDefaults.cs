@@ -2258,6 +2258,7 @@ namespace Basis.BasisUI
         /// see <see cref="BasisLocalization.Initialize"/>
         /// </summary>
         public static BasisSettingsBinding<string> Language = new("basislanguage", new BasisPlatformDefault<string>(string.Empty));
+        public static BasisSettingsBinding<string> CjkGlyphStyle = new("cjkglyphstyle", new BasisPlatformDefault<string>(BasisTMPFontFallbacks.StyleAuto));
 
         private static void ApplyContactSettings()
         {
@@ -2276,6 +2277,8 @@ namespace Basis.BasisUI
         {
             // Localization
             Language.LoadBindingValue();
+            CjkGlyphStyle.LoadBindingValue();
+            CjkGlyphStyle.OnChanged += _ => BasisTMPFontFallbacks.RefreshCjkPriority();
 
             // Audio
             MainVolume.LoadBindingValue();

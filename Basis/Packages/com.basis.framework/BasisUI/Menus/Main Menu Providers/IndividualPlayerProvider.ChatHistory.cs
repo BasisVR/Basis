@@ -92,6 +92,7 @@ namespace Basis.BasisUI
                 PanelElementDescriptor row = view.Rows[i];
                 row.SetTitle(entry.ReceivedUtc.ToLocalTime().ToString("t", CultureInfo.CurrentCulture));
                 row.SetDescription(entry.Message.Replace("\r", string.Empty).Replace('\n', ' '));
+                BasisTMPFontFallbacks.ApplyFontForText(row.DescriptionLabel, entry.Message);
                 row.SetActive(true);
             }
 

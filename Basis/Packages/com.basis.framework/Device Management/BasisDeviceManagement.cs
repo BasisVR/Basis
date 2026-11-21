@@ -275,7 +275,7 @@ namespace Basis.Scripts.Device_Management
                 BasisSafeBoot.Step("settings loaded");
                 BasisSettingsModeScope.Initialize();
                 Basis.BasisUI.BasisLocalization.Initialize();
-                Basis.BasisUI.BasisTMPFontFallbacks.RefreshJapanesePriority();
+                Basis.BasisUI.BasisTMPFontFallbacks.RefreshCjkPriority();
                 // First thing after the settings land: a renderer swap can only happen by
                 // relaunching, so it has to be decided before anything is built to throw away.
                 if (!BasisSafeBoot.SafeMode) { Basis.Scripts.Rendering.BasisGraphicsApiSelection.ApplyStartupSetting(); }

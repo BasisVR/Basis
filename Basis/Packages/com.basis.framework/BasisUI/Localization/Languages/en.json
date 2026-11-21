@@ -7739,6 +7739,38 @@
       "value": "Language"
     },
     {
+      "key": "settings.general.cjkGlyphStyle",
+      "value": "Chinese / Japanese / Korean Characters"
+    },
+    {
+      "key": "settings.general.cjkGlyphStyle.tooltip",
+      "value": "Chinese, Japanese and Korean share many characters that are drawn differently in each language, and Hong Kong and Taiwan differ too. This picks which forms to use when the text itself doesn't tell. Auto follows your menu language, then your system language and region. Messages and names that contain kana or Hangul always use Japanese or Korean forms."
+    },
+    {
+      "key": "settings.general.cjkGlyphStyle.auto",
+      "value": "Auto"
+    },
+    {
+      "key": "settings.general.cjkGlyphStyle.ja",
+      "value": "日本語 (Japanese)"
+    },
+    {
+      "key": "settings.general.cjkGlyphStyle.zhHans",
+      "value": "简体中文 (Simplified Chinese)"
+    },
+    {
+      "key": "settings.general.cjkGlyphStyle.zhHant",
+      "value": "繁體中文 台灣 (Traditional Chinese, Taiwan)"
+    },
+    {
+      "key": "settings.general.cjkGlyphStyle.zhHK",
+      "value": "繁體中文 香港 (Traditional Chinese, Hong Kong)"
+    },
+    {
+      "key": "settings.general.cjkGlyphStyle.ko",
+      "value": "한국어 (Korean)"
+    },
+    {
       "key": "settings.general.language.description",
       "value": "Reopen the menu to apply a language change."
     },
