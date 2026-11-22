@@ -220,9 +220,13 @@ public class BasisContentKeyUnityTests
             BasisLoadableBundle bundle = new BasisLoadableBundle { BasisRemoteBundleEncrypted = new BasisRemoteEncyptedBundle { RemoteBeeFileLocation = "https://elsewhere.invalid/renamed.bee", RemoteVersionTag = "other" }, UnlockPassword = tagged };
             Task resolved = BasisBeeKeyGrant.EnsureResolvedAsync(bundle, CancellationToken.None);
             yield return Await(resolved);
-            Assert.IsTrue(BasisEncryptionWrapper.IsKeyGrant(bundle.UnlockPassword), "the marker carries its own content id, so a receiver whose url or version differs still resolves it");
-            CollectionAssert.AreEqual(BasisServerBeeKeys.Derive(Password, bee.Salts), BasisEncryptionWrapper.GrantBytes(bundle.UnlockPassword));
-            Task check = AssertTokenOpensEveryPiece(bee, bundle.UnlockPassword);
+            Assert.AreEqual(Password, bundle.UnlockPassword, "the sharer loads its own content with its own password, without waiting for the grant; the marker carries its content id, so a differing url or version still matches");
+            Task<(byte[] Grant, string Error)> built = BasisBeeKeyGrant.BuildAsync(path, Password, "v1");
+            yield return Await(built);
+            Assert.IsNotNull(built.Result.Grant, built.Result.Error);
+            CollectionAssert.AreEqual(BasisServerBeeKeys.Derive(Password, bee.Salts), built.Result.Grant);
+            string token = BasisContentKeyProtocol.Token(built.Result.Grant);
+            Task check = AssertTokenOpensEveryPiece(bee, token);
             yield return Await(check);
             Task<string> plain = BasisContentKeyClient.ResolvePasswordAsync(path, string.Empty, "an ordinary password", CancellationToken.None);
             yield return Await(plain);
@@ -230,7 +234,7 @@ public class BasisContentKeyUnityTests
             Task<string> bare = BasisContentKeyClient.ResolvePasswordAsync(path, string.Empty, BasisContentKeyProtocol.Marker(contentId), CancellationToken.None);
             yield return Await(bare);
             Assert.IsNull(bare.Result, "a marker with no origin cannot be asked for");
-            string again = BasisContentKeyClient.Share(path, "v1", path, bundle.UnlockPassword);
+            string again = BasisContentKeyClient.Share(path, "v1", path, token);
             Assert.AreEqual(marker, again, "content held only as keys is shared the same way");
         }
         finally

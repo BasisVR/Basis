@@ -1041,7 +1041,7 @@ namespace Basis.Tests.Sync
         /// dropped, which is how RecordPoses represents a rig that does not carry them.
         /// </summary>
         private static BasisTransformMapping TposedRig(bool toes = true, bool eyes = true, bool mirroredLabels = false,
-            bool leaningHead = false)
+            bool leaningHead = false, float kneeBend = float.NaN, bool singleToe = false, float headAhead = 0f)
         {
             BasisTransformMapping rig = new BasisTransformMapping();
 
@@ -1056,13 +1056,24 @@ namespace Basis.Tests.Sync
             Bone(HumanBodyBones.Spine, 0f, 1.05f, 0f);
             Bone(HumanBodyBones.Chest, 0f, 1.20f, 0f);
             Bone(HumanBodyBones.Neck, 0f, 1.45f, 0f);
-            Bone(HumanBodyBones.Head, leaningHead ? 0.02f : 0f, 1.55f, leaningHead ? 0.03f : 0f);
+            Bone(HumanBodyBones.Head, leaningHead ? 0.02f : 0f, 1.55f, (leaningHead ? 0.03f : 0f) + headAhead);
 
             float legSide = mirroredLabels ? -0.09f : 0.09f;
             Bone(HumanBodyBones.LeftUpperLeg, -legSide, 0.90f, 0f);
             Bone(HumanBodyBones.RightUpperLeg, legSide, 0.90f, 0f);
             Bone(HumanBodyBones.LeftFoot, -legSide, 0.08f, 0f);
             Bone(HumanBodyBones.RightFoot, legSide, 0.08f, 0f);
+
+            if (!float.IsNaN(kneeBend))
+            {
+                Bone(HumanBodyBones.LeftLowerLeg, -legSide, 0.49f, kneeBend);
+                Bone(HumanBodyBones.RightLowerLeg, legSide, 0.49f, kneeBend);
+            }
+
+            if (singleToe)
+            {
+                Bone(HumanBodyBones.LeftToes, -legSide, 0.03f, 0.12f);
+            }
 
             if (toes)
             {
@@ -1158,6 +1169,33 @@ namespace Basis.Tests.Sync
         {
             Assert.That(Vector3.Dot(Facing(TposedRig(toes: false, eyes: false, leaningHead: true)), Vector3.forward),
                 Is.GreaterThan(0.99f));
+        }
+
+        [Test]
+        public void AMirroredRigWithOneToe_ReadsItsFrontFromThatToe()
+        {
+            Assert.That(Vector3.Dot(Facing(TposedRig(toes: false, eyes: false, mirroredLabels: true, singleToe: true)), Vector3.forward), Is.GreaterThan(0.99f));
+            Assert.That(Vector3.Dot(Facing(TurnedAround(TposedRig(toes: false, eyes: false, mirroredLabels: true, singleToe: true))), Vector3.back), Is.GreaterThan(0.99f));
+        }
+
+        [Test]
+        public void AMirroredRigWithNeitherToesNorEyes_ReadsItsFrontFromItsKnees()
+        {
+            Assert.That(Vector3.Dot(Facing(TposedRig(toes: false, eyes: false, mirroredLabels: true, kneeBend: 0.02f)), Vector3.forward), Is.GreaterThan(0.99f));
+            Assert.That(Vector3.Dot(Facing(TurnedAround(TposedRig(toes: false, eyes: false, mirroredLabels: true, kneeBend: 0.02f))), Vector3.back), Is.GreaterThan(0.99f));
+        }
+
+        [Test]
+        public void AMirroredRigWithStraightKnees_ReadsItsFrontFromItsHeadOverItsChest()
+        {
+            Assert.That(Vector3.Dot(Facing(TposedRig(toes: false, eyes: false, mirroredLabels: true, kneeBend: 0f, headAhead: 0.04f)), Vector3.forward), Is.GreaterThan(0.99f));
+            Assert.That(Vector3.Dot(Facing(TurnedAround(TposedRig(toes: false, eyes: false, mirroredLabels: true, kneeBend: 0f, headAhead: 0.04f))), Vector3.back), Is.GreaterThan(0.99f));
+        }
+
+        [Test]
+        public void ALandmarkFreeRig_StillTakesTheLegsAsLabelled()
+        {
+            Assert.That(Vector3.Dot(Facing(TposedRig(toes: false, eyes: false, mirroredLabels: true, kneeBend: 0f)), Vector3.back), Is.GreaterThan(0.99f));
         }
 
         /// <summary>The basis the wire and the camera actually consume, built off that forward.</summary>

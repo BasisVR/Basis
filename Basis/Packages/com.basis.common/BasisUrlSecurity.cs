@@ -1,5 +1,6 @@
 using Unity.Scripting.LifecycleManagement;
 using System;
+using System.Collections.Concurrent;
 using System.Net;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -93,7 +94,7 @@ namespace Basis.Scripts.Common
 
             bool allowLoopback = Application.isEditor;
             IPAddress[] addresses;
-            try { addresses = await Dns.GetHostAddressesAsync(host); }
+            try { addresses = await ResolveCachedAsync(host); }
             catch (Exception ex) { return $"host '{host}' could not be validated (DNS lookup failed: {ex.Message})."; }
             if (addresses == null || addresses.Length == 0)
                 return $"host '{host}' could not be validated (DNS returned no addresses).";
@@ -118,6 +119,23 @@ namespace Basis.Scripts.Common
             return null;
         }
 
+        private static readonly long resolvedHostLifetime = System.Diagnostics.Stopwatch.Frequency * 10;
+        private static readonly ConcurrentDictionary<string, (Task<IPAddress[]> Lookup, long Expires)> resolvedHosts = new ConcurrentDictionary<string, (Task<IPAddress[]>, long)>(StringComparer.OrdinalIgnoreCase);
+        private static Task<IPAddress[]> ResolveCachedAsync(string host)
+        {
+            long now = System.Diagnostics.Stopwatch.GetTimestamp();
+            if (resolvedHosts.TryGetValue(host, out (Task<IPAddress[]> Lookup, long Expires) cached) && cached.Expires > now && !cached.Lookup.IsFaulted && !cached.Lookup.IsCanceled)
+            {
+                return cached.Lookup;
+            }
+            if (resolvedHosts.Count >= 256)
+            {
+                resolvedHosts.Clear();
+            }
+            Task<IPAddress[]> lookup = Dns.GetHostAddressesAsync(host);
+            resolvedHosts[host] = (lookup, now + resolvedHostLifetime);
+            return lookup;
+        }
         // Blocks anything that is not global unicast, including a private/loopback target
         // smuggled through IPv4-mapped or 6to4 IPv6. allowLoopback exempts loopback only.
         public static bool IsBlockedAddress(IPAddress ip, bool allowLoopback, out string reason)

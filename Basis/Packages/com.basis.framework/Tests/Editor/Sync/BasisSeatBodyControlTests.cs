@@ -151,6 +151,32 @@ namespace Basis.Tests.Sync
         }
 
         [Test]
+        public void AMirroredRigWithOneToe_SitsFacingTheSeatOnBothSides()
+        {
+            _go.transform.SetPositionAndRotation(new Vector3(1f, 0.4f, 2f), Quaternion.Euler(0f, 63f, 0f));
+            var rig = new BasisTransformMapping();
+            rig.TposeFromRoot[HumanBodyBones.Hips] = new BasisCalibratedCoords(new Vector3(0f, 0.95f, 0f), Quaternion.Euler(0f, 180f, 0f));
+            rig.TposeFromRoot[HumanBodyBones.Spine] = new BasisCalibratedCoords(new Vector3(0f, 1.05f, 0f), Quaternion.identity);
+            rig.TposeFromRoot[HumanBodyBones.Chest] = new BasisCalibratedCoords(new Vector3(0f, 1.2f, 0f), Quaternion.identity);
+            rig.TposeFromRoot[HumanBodyBones.Head] = new BasisCalibratedCoords(new Vector3(0f, 1.55f, 0f), Quaternion.identity);
+            rig.TposeFromRoot[HumanBodyBones.LeftUpperLeg] = new BasisCalibratedCoords(new Vector3(0.1f, 0.9f, 0f), Quaternion.identity);
+            rig.TposeFromRoot[HumanBodyBones.RightUpperLeg] = new BasisCalibratedCoords(new Vector3(-0.1f, 0.9f, 0f), Quaternion.identity);
+            rig.TposeFromRoot[HumanBodyBones.LeftLowerLeg] = new BasisCalibratedCoords(new Vector3(0.1f, 0.48f, 0f), Quaternion.identity);
+            rig.TposeFromRoot[HumanBodyBones.LeftFoot] = new BasisCalibratedCoords(new Vector3(0.1f, 0.08f, 0f), Quaternion.identity);
+            rig.TposeFromRoot[HumanBodyBones.RightFoot] = new BasisCalibratedCoords(new Vector3(-0.1f, 0.08f, 0f), Quaternion.identity);
+            rig.TposeFromRoot[HumanBodyBones.LeftToes] = new BasisCalibratedCoords(new Vector3(0.1f, 0.02f, 0.12f), Quaternion.identity);
+            Assert.IsTrue(BasisTransformMapping.TryComputeForwardUpFromTpose(rig, out rig.AvatarForwards, out rig.AvatarUpwards, out rig.AvatarRightwards));
+
+            Assert.IsTrue(_seat.TryCalculateOccupantPose(rig, Vector3.one, 0f, out Vector3 hipsPos, out Quaternion remoteRoot, out _));
+            Quaternion seated = _go.transform.rotation * _seat.SpineRotation;
+            Vector3 seatFacing = Vector3.ProjectOnPlane(seated * Vector3.forward, Vector3.up).normalized;
+            Assert.Greater(Vector3.Dot(Vector3.ProjectOnPlane(remoteRoot * Vector3.forward, Vector3.up).normalized, seatFacing), 0.99f, "remote occupant faces the seat");
+
+            BasisSeatFit.ComposeSeatedRoot(hipsPos, seated, Basis.Scripts.Networking.NetworkedAvatar.BasisGenericBoneRotationUtils.GetCharacterBasis(rig), rig.TposeFromRoot[HumanBodyBones.Hips].position, out _, out Quaternion localRoot);
+            Assert.Greater(Vector3.Dot(Vector3.ProjectOnPlane(localRoot * Vector3.forward, Vector3.up).normalized, seatFacing), 0.99f, "local occupant faces the seat");
+        }
+
+        [Test]
         public void MissingTposeData_ReportsFailureInsteadOfThrowing()
         {
             Assert.IsFalse(_seat.TryCalculateOccupantPose(null, Vector3.one, 0f, out _, out _, out _));

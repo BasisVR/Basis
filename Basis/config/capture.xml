@@ -1,0 +1,5 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- Scene capture lock. Only players with the basis.capture.collect permission can record on this server, and while this is true they also need basis.capture.record. Every recording asks the other players, and only those who allow are recorded. Admins can change this from the capture panel. -->
+<Capture>
+  <Locked>true</Locked>
+</Capture>

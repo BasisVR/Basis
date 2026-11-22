@@ -39,12 +39,14 @@ public class Configuration
     // 16: ContentSphereLeaveTimeoutSeconds and ContentSphereDeletionTimerSeconds added - how long shared orbs outlive their sharer, and an optional lifetime.
     // 17: player storage (StorageEnabled, StorageBackend, StorageMaxBytesPerPlayer, StorageMaxTotalMegabytes, StorageConnectionString, StorageSqlTable) added.
     // 19: scene-relay backstop on by default (MaxSceneRelayMegabitsPerSecondPerPlayer 0 -> 64), avatar-relay backstop and MaxRelayPayloadBytes added, pending-login caps added.
-    public const int CurrentConfigVersion = 19;
+    // 20: PortMapping added.
+    public const int CurrentConfigVersion = 20;
     /// <summary>Schema version stamped into config.xml; 0 = a pre-versioning file that is upgraded on load.</summary>
     public int ConfigVersion = 0;
 
     public int PeerLimit = ushort.MaxValue;
     public ushort SetPort = 4296;
+    public bool PortMapping = true;
     /// <summary>Display name returned by the unconnected server-info query — what shows up as the row title in a client server-list UI.</summary>
     public string ServerName = "Basis Server";
     /// <summary>Short MOTD returned alongside the server name in the info query response. Two short lines render cleanly in the list UI.</summary>
@@ -658,6 +660,7 @@ public class Configuration
     private static readonly string[] RestartOnlyFields =
     {
         nameof(SetPort),
+        nameof(PortMapping),
         nameof(IPv4Address),
         nameof(IPv6Address),
         nameof(OverrideAutoDiscoveryOfIpv),

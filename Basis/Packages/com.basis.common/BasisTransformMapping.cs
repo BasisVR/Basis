@@ -791,6 +791,57 @@ namespace Basis.Scripts.Common
                 return NormalizeNonZero(ref forward);
             }
 
+            static float Along(BasisTransformMapping r, HumanBodyBones from, HumanBodyBones to, Vector3 axis)
+            {
+                return TryGet(r, from, out var a) && TryGet(r, to, out var b) ? Vector3.Dot(b - a, axis) : 0f;
+            }
+
+            static float KneeBend(BasisTransformMapping r, HumanBodyBones upper, HumanBodyBones lower, HumanBodyBones foot, Vector3 axis)
+            {
+                if (!TryGet(r, upper, out var u) || !TryGet(r, lower, out var l) || !TryGet(r, foot, out var f))
+                {
+                    return 0f;
+                }
+                Vector3 leg = f - u;
+                float lenSq = leg.sqrMagnitude;
+                if (lenSq < 1e-12f)
+                {
+                    return 0f;
+                }
+                float t = Mathf.Clamp01(Vector3.Dot(l - u, leg) / lenSq);
+                return Vector3.Dot(l - (u + leg * t), axis);
+            }
+
+            static float AnteriorSign(BasisTransformMapping r, Vector3 axis, Vector3 hipsPos)
+            {
+                float reference = 0f;
+                if (TryGet(r, HumanBodyBones.Head, out var top) || TryGet(r, HumanBodyBones.Neck, out top) || TryGet(r, HumanBodyBones.Chest, out top))
+                {
+                    reference = (top - hipsPos).magnitude;
+                }
+                float decisive = Mathf.Max(reference * 0.005f, 1e-6f);
+
+                float toes = Along(r, HumanBodyBones.LeftFoot, HumanBodyBones.LeftToes, axis) + Along(r, HumanBodyBones.RightFoot, HumanBodyBones.RightToes, axis);
+                if (Mathf.Abs(toes) > decisive)
+                {
+                    return toes;
+                }
+                float eyes = Along(r, HumanBodyBones.Head, HumanBodyBones.LeftEye, axis) + Along(r, HumanBodyBones.Head, HumanBodyBones.RightEye, axis);
+                if (Mathf.Abs(eyes) > decisive)
+                {
+                    return eyes;
+                }
+                float knees = KneeBend(r, HumanBodyBones.LeftUpperLeg, HumanBodyBones.LeftLowerLeg, HumanBodyBones.LeftFoot, axis)
+                    + KneeBend(r, HumanBodyBones.RightUpperLeg, HumanBodyBones.RightLowerLeg, HumanBodyBones.RightFoot, axis);
+                if (Mathf.Abs(knees) > decisive)
+                {
+                    return knees;
+                }
+                HumanBodyBones chest = TryGet(r, HumanBodyBones.UpperChest, out _) ? HumanBodyBones.UpperChest : HumanBodyBones.Chest;
+                float head = Along(r, chest, HumanBodyBones.Head, axis);
+                return Mathf.Abs(head) > decisive ? head : 0f;
+            }
+
             bool hasLFt = TryGet(refs, HumanBodyBones.LeftFoot, out var lf);
             bool hasRFt = TryGet(refs, HumanBodyBones.RightFoot, out var rf);
             bool hasLT = TryGet(refs, HumanBodyBones.LeftToes, out var lt);
@@ -810,6 +861,10 @@ namespace Basis.Scripts.Common
                 forwardLocal = Vector3.Cross(rightLocal, upLocal);
                 if (!NormalizeNonZero(ref forwardLocal))
                     forwardLocal = Vector3.forward;
+                if (AnteriorSign(refs, forwardLocal, hips) < 0f)
+                {
+                    forwardLocal = -forwardLocal;
+                }
             }
 
             // ---------

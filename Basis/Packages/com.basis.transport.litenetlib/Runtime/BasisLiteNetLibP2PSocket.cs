@@ -7,6 +7,7 @@ namespace Basis.Network.Core
         private readonly LiteNetLib.NetManager manager;
         private readonly LiteNetLib.EventBasedNatPunchListener punch = new LiteNetLib.EventBasedNatPunchListener();
         private readonly BasisCryptoLayer crypto = new BasisCryptoLayer();
+        private BasisPortMapper mapper;
 
         public BasisLiteNetLibP2PSocket(EventBasedNetListener listener, BasisP2PIntroduced onIntroduced)
         {
@@ -28,11 +29,19 @@ namespace Basis.Network.Core
 
         public bool Start()
         {
-            return manager.Start();
+            bool started = manager.Start();
+            if (started)
+            {
+                mapper?.Dispose();
+                mapper = BasisPortMapper.Start(manager.LocalPort, "Basis Direct Connect");
+            }
+            return started;
         }
 
         public void Stop()
         {
+            mapper?.Dispose();
+            mapper = null;
             manager.Stop();
         }
 

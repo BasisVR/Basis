@@ -154,6 +154,8 @@ public static class NetworkServer
     {
         if (Server == null) return;
         Raise(ServerStopping);
+        PortMapper?.Dispose();
+        PortMapper = null;
         try
         {
             Server.Stop();
@@ -341,6 +343,7 @@ public static class NetworkServer
         return StartListening(configuration);
     }
 
+    public static BasisPortMapper PortMapper { get; private set; }
     public static bool StartListening(Configuration configuration)
     {
         IPAddress ipv4, ipv6;
@@ -390,6 +393,8 @@ public static class NetworkServer
         }
         BNL.Log($"  IPv4 bind: {ipv4}");
         BNL.Log($"  IPv6 bind: [{ipv6}]");
+        PortMapper?.Dispose();
+        PortMapper = configuration.PortMapping ? BasisPortMapper.Start(configuration.SetPort, string.IsNullOrWhiteSpace(configuration.ServerName) ? "Basis Server" : configuration.ServerName) : null;
         return true;
     }
 

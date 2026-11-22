@@ -2,6 +2,7 @@ using Unity.Scripting.LifecycleManagement;
 using Basis.Network.Core;
 using Basis.Scripts.Device_Management;
 using System;
+using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 namespace Basis.Scripts.Networking
@@ -10,6 +11,8 @@ namespace Basis.Scripts.Networking
     public static partial class BasisContentKeyClient
     {
         [NoAutoStaticsCleanup] private static BasisContentKeyPeer peer;
+        private const int MaxSharedPasswords = 1024;
+        private static readonly ConcurrentDictionary<string, string> sharedPasswords = new ConcurrentDictionary<string, string>(StringComparer.Ordinal);
         public static void Initialize()
         {
             BasisBeeKeyGrant.Resolver = ResolveAsync;
@@ -22,12 +25,18 @@ namespace Basis.Scripts.Networking
         {
             Interlocked.Exchange(ref peer, null)?.Dispose();
             BasisBeeKeyGrant.Clear();
+            sharedPasswords.Clear();
         }
         public static string Share(string url, string versionTag, string location, string password)
         {
             if (BasisNetworkManagement.SendsUnlockPasswords || string.IsNullOrEmpty(url) || string.IsNullOrEmpty(password) || BasisEncryptionWrapper.IsKeyRequest(password)) return password;
             byte[] contentId = BasisContentKeyProtocol.ContentId(url, versionTag);
             string source = string.IsNullOrEmpty(location) ? url : location;
+            if (sharedPasswords.Count >= MaxSharedPasswords)
+            {
+                sharedPasswords.Clear();
+            }
+            sharedPasswords[BasisContentKeyProtocol.Hex(contentId)] = password;
             Current.Own(contentId, () => BuildOnMainThread(source, password, versionTag));
             return BasisContentKeyProtocol.Marker(contentId);
         }
@@ -41,6 +50,10 @@ namespace Basis.Scripts.Networking
             if (!BasisEncryptionWrapper.IsKeyRequest(password)) return password;
             if (!BasisContentKeyProtocol.TryParseMarker(password, out ushort origin, out byte[] contentId)) return null;
             contentId ??= BasisContentKeyProtocol.ContentId(url, versionTag);
+            if (sharedPasswords.TryGetValue(BasisContentKeyProtocol.Hex(contentId), out string own))
+            {
+                return own;
+            }
             Task<byte[]> pending = Current.ResolveAsync(origin, contentId);
             if (cancellationToken.CanBeCanceled && await Task.WhenAny(pending, Task.Delay(Timeout.Infinite, cancellationToken)) != pending) return null;
             byte[] grant = await pending;

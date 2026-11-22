@@ -211,7 +211,7 @@ public class ServerConfigurationDefaultsTests
         // 16: added the shared-orb leave timeout and deletion timer.
         // 17: added player storage.
         // 19: scene-relay backstop on by default, avatar-relay backstop, relay payload cap, pending-login caps.
-        Assert.Equal(19, Configuration.CurrentConfigVersion);
+        Assert.Equal(20, Configuration.CurrentConfigVersion);
         Assert.Equal(0, new Configuration().ConfigVersion);
         Assert.Equal("config", Configuration.ConfigFolderName);
         Assert.Equal("logs", Configuration.LogsFolderName);
