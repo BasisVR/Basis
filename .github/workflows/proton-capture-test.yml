@@ -102,7 +102,7 @@ jobs:
           mkdir -p /opt/umu && curl -fsSL "$url" | tar -x -C /opt/umu
           chmod -R a+rX /opt/umu && find /opt/umu -name umu-run -type f -exec chmod a+rx {} +
           echo "UMU_RUN=$(find /opt/umu -name umu-run -type f | head -1)" >> "$GITHUB_ENV"
-          ge=$(curl -fsSL -H "Authorization: Bearer ${{ github.token }}" https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest             | python3 -c "import json,sys; print(next(a['browser_download_url'] for a in json.load(sys.stdin)['assets'] if a['name'].endswith('.tar.gz')))")
+          ge=$(curl -fsSL -H "Authorization: Bearer ${{ github.token }}" https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest             | python3 -c "import json,sys; print(next(a['browser_download_url'] for a in json.load(sys.stdin)['assets'] if a['name'].endswith('.tar.gz') and 'aarch64' not in a['name'] and 'arm' not in a['name']))")
           mkdir -p /opt/proton && curl -fsSL "$ge" | tar -xz -C /opt/proton
           chmod -R a+rX /opt/proton
           echo "PROTONPATH=$(dirname "$(find /opt/proton -maxdepth 2 -name proton -type f | head -1)")" >> "$GITHUB_ENV"
