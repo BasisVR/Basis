@@ -1,0 +1,116 @@
+name: proton-capture-test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - test/proton-capture
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  NATIVE_DIR: Basis/Packages/com.basis.mediaplayer/Native~
+  CARGO_TERM_COLOR: always
+
+jobs:
+  helper:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-gnu
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ env.NATIVE_DIR }}
+          key: release-capture-helper
+      - name: Build + strip the capture helper (glibc 2.28)
+        working-directory: ${{ env.NATIVE_DIR }}
+        run: |
+          pip install ziglang cargo-zigbuild
+          LIBOPUS_STATIC=1 cargo zigbuild --release -p media-capture --bin basis-capture-helper --target x86_64-unknown-linux-gnu.2.28
+          strip --strip-all -o basis-capture-helper target/x86_64-unknown-linux-gnu/release/basis-capture-helper
+      - uses: actions/upload-artifact@v4
+        with:
+          name: capture-helper
+          path: ${{ env.NATIVE_DIR }}/basis-capture-helper
+
+  probe:
+    needs: helper
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Allow long paths (deep package prefix)
+        run: git config --global core.longpaths true
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ env.NATIVE_DIR }}
+          key: wine-probe
+      - name: Install NASM (rav1d x86 assembly)
+        run: |
+          choco install nasm -y --no-progress
+          echo "C:\Program Files\NASM" >> "$GITHUB_PATH"
+      - uses: actions/download-artifact@v4
+        with:
+          name: capture-helper
+          path: ${{ env.NATIVE_DIR }}/capture-helper
+      - name: Build the Wine probe with the helper embedded
+        working-directory: ${{ env.NATIVE_DIR }}
+        run: BASIS_CAPTURE_HELPER="$PWD/capture-helper/basis-capture-helper" cargo build --release -p media-capture --example wine_probe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wine-probe
+          path: ${{ env.NATIVE_DIR }}/target/release/examples/wine_probe.exe
+
+  run:
+    needs: probe
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [wine, proton]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: wine-probe
+          path: probe
+      - name: Install the desktop, portal and Wine
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends sway foot fonts-dejavu-core dbus dbus-user-session \
+            pipewire pipewire-bin wireplumber xdg-desktop-portal xdg-desktop-portal-wlr ffmpeg bzip2 curl
+          if [ "${{ matrix.mode }}" = wine ]; then
+            sudo apt-get install -y --no-install-recommends wine wine64
+          fi
+          if ! sudo apt-get install -y --no-install-recommends libopenh264-7; then
+            curl -fsSL http://ciscobinary.openh264.org/libopenh264-2.4.1-linux64.7.so.bz2 | bunzip2 > libopenh264.so.7
+            sudo install -m 0644 libopenh264.so.7 /usr/local/lib/libopenh264.so.7
+            sudo ldconfig
+          fi
+      - name: Install umu-launcher
+        if: matrix.mode == 'proton'
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          url=$(curl -fsSL https://api.github.com/repos/Open-Wine-Components/umu-launcher/releases/latest \
+            | python3 -c "import json,sys; print(next(a['browser_download_url'] for a in json.load(sys.stdin)['assets'] if 'zipapp' in a['name']))")
+          mkdir -p umu && curl -fsSL "$url" | tar -x -C umu
+          echo "UMU_RUN=$(find "$PWD/umu" -name umu-run -type f | head -1)" >> "$GITHUB_ENV"
+      - name: Run the probe
+        run: bash "$NATIVE_DIR/tools/wine-capture-test.sh" ${{ matrix.mode }} probe/wine_probe.exe "out-${{ matrix.mode }}" 20
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: result-${{ matrix.mode }}
+          path: |
+            out-${{ matrix.mode }}/*.log
+            out-${{ matrix.mode }}/*.txt
+            out-${{ matrix.mode }}/*.png
+            out-${{ matrix.mode }}/probe.h264
