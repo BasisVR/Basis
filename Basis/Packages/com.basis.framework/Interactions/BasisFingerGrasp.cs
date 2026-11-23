@@ -5,7 +5,7 @@ using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 namespace Basis.Scripts.BasisSdk.Interactions
 {
-    public enum BasisFingerWrapMode { Off, Colliders, Renderers }
+    public enum BasisPickupFingerPose { None, FixedLocation, Automatic }
     public struct BasisFingerChain
     {
         public Vector3 proximalOffset, intermediateOffset, distalOffset, tipOffset;

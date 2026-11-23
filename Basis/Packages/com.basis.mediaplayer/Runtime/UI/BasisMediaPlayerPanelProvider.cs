@@ -540,6 +540,7 @@ public partial class BasisMediaPlayerPanelProvider : BasisMenuActionProvider<Bas
         // per-speaker outputs the ring is broadcast to.
         _volumeSlider = PanelSlider.CreateNew(content);
         _volumeSlider.SetSliderSettings(PanelSlider.SliderSettings.Percentage(BasisLocalization.Get("mediaPlayer.volume")));
+        _volumeSlider.ApplyMode = PanelSlider.ApplyModes.WhileDragging;
         _volumeSlider.OnValueChanged = v =>
         {
             BasisMediaPlayerAudio audio = _activePlayer != null ? _activePlayer.AudioComponent : null;

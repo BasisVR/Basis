@@ -87,7 +87,7 @@ namespace Basis.ImagePickup.Tests
 
         /// <summary>
         /// Idles the probe up to its ceiling so the uplink bucket is not what these measurements land on.
-        /// Live it gets there the same way, by ramping on a quiet link from the moment the feature arms.
+        /// Live it gets there the same way, by ramping on a quiet link while transfers are bucket-limited.
         /// </summary>
         private static void RampProbePastTheRelayBudget()
         {

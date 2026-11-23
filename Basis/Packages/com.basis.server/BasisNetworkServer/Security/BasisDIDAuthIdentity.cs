@@ -30,6 +30,8 @@ namespace BasisDidLink
         private readonly ConcurrentDictionary<string, int> _didCounts = new ConcurrentDictionary<string, int>();
         private readonly ConcurrentDictionary<int, string> _admitted = new ConcurrentDictionary<int, string>();
         private readonly object _admitLock = new object();
+        private readonly Dictionary<int, long> _admitOrder = new Dictionary<int, long>();
+        private long _admitCounter;
         public ConcurrentDictionary<string, byte> Admins = new ConcurrentDictionary<string, byte>();
         public static readonly string FilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, Configuration.ConfigFolderName, "admins.xml");
         public BasisDIDAuthIdentity()
@@ -138,11 +140,6 @@ namespace BasisDidLink
                     return;
                 }
                 ReleaseStaleSlot(newPeer);
-                if (Configuration.HowManyDuplicateAuthCanExist <= CheckForDuplicates(playerDid))
-                {
-                    BasisServerHandleEvents.RejectWithReason(newPeer, "To Many Auths From this DID!");
-                    return;
-                }
                 OnAuth OnAuth = new OnAuth
                 {
                     Did = playerDid,
@@ -290,17 +287,65 @@ namespace BasisDidLink
 
         internal bool TryAdmit(int PeerId, Did Did, int Limit, NetPeer Expected = null)
         {
+            List<NetPeer> Displaced = null;
             lock (_admitLock)
             {
-                if (!AuthIdentity.TryGetValue(PeerId, out OnAuth Entry) || (Expected != null && !Equals(Entry.Peer, Expected)) || _admitted.ContainsKey(PeerId) || CheckForDuplicates(Did) >= Limit)
+                if (!AuthIdentity.TryGetValue(PeerId, out OnAuth Entry) || (Expected != null && !Equals(Entry.Peer, Expected)) || _admitted.ContainsKey(PeerId) || Limit <= 0)
+                {
+                    return false;
+                }
+                while (CheckForDuplicates(Did) >= Limit && TryOldestSession(Did.V, out int OldId, out NetPeer OldPeer) && RemoveConnection(OldId, OldPeer))
+                {
+                    if (OldPeer != null)
+                    {
+                        (Displaced ??= new List<NetPeer>()).Add(OldPeer);
+                    }
+                }
+                if (CheckForDuplicates(Did) >= Limit)
                 {
                     return false;
                 }
                 RetainDid(Did);
                 _admitted[PeerId] = Did.V;
+                _admitOrder[PeerId] = ++_admitCounter;
                 BasisPendingLoginGate.Release(PeerId, Entry.Peer);
-                return true;
             }
+            if (Displaced != null)
+            {
+                foreach (NetPeer Old in Displaced)
+                {
+                    BNL.Log($"Peer {Old.Id} replaced by a newer login of {Did.V} on peer {PeerId}.");
+                    BasisServerHandleEvents.RejectWithReason(Old, "Signed in again from another connection.");
+                }
+            }
+            return true;
+        }
+
+        private bool TryOldestSession(string Did, out int OldId, out NetPeer OldPeer)
+        {
+            OldId = 0;
+            OldPeer = null;
+            long Oldest = long.MaxValue;
+            bool Found = false;
+            foreach (KeyValuePair<int, string> Pair in _admitted)
+            {
+                if (Pair.Value != Did)
+                {
+                    continue;
+                }
+                long Order = _admitOrder.TryGetValue(Pair.Key, out long Seq) ? Seq : long.MinValue;
+                if (!Found || Order < Oldest)
+                {
+                    Found = true;
+                    Oldest = Order;
+                    OldId = Pair.Key;
+                }
+            }
+            if (Found && AuthIdentity.TryGetValue(OldId, out OnAuth Old))
+            {
+                OldPeer = Old.Peer;
+            }
+            return Found;
         }
 
         private bool OwnsPendingEntry(NetPeer Peer)
@@ -338,7 +383,7 @@ namespace BasisDidLink
         {
             try
             {
-                await Task.Delay(GetAuthTimeoutMs(NetworkServer.AuthenticatedPeers?.Count ?? 0), cts.Token);
+                await Task.Delay(GetAuthTimeoutMs((NetworkServer.AuthenticatedPeers?.Count ?? 0) + BasisPendingLoginGate.Pending), cts.Token);
                 if (!RemoveConnection(newPeer.Id, newPeer))
                 {
                     return;
@@ -456,6 +501,7 @@ namespace BasisDidLink
                 }
                 if (Removed && _admitted.TryRemove(Id, out _))
                 {
+                    _admitOrder.Remove(Id);
                     ReleaseDid(Entry.Did);
                 }
             }

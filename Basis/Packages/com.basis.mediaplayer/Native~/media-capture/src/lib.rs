@@ -21,6 +21,7 @@ mod opus;
 ))]
 mod pack;
 mod queue;
+pub mod relay;
 mod spa_pod;
 #[cfg(windows)]
 mod win;
@@ -141,7 +142,7 @@ pub struct EncodedAudio {
     pub pts_us: i64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CaptureState {
     Starting,
@@ -150,7 +151,7 @@ pub enum CaptureState {
     Error,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CaptureStatus {
     pub state: CaptureState,
     pub error: String,
@@ -235,7 +236,7 @@ impl Shared {
         self.config.pts_base_us.max(0) + self.origin.elapsed().as_micros() as i64
     }
 
-    fn signal(&self) {
+    pub fn signal(&self) {
         *self.ready.lock().unwrap_or_else(|e| e.into_inner()) = true;
         self.wake.notify_all();
     }

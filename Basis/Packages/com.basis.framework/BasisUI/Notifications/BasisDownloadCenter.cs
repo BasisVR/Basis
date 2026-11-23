@@ -77,11 +77,19 @@ namespace Basis.BasisUI
             if (download == null) return false;
 
             CancellationTokenSource cancellation;
+            Action cancelAction;
             lock (_lock)
             {
                 cancellation = download.Cancellation;
-                if (download.Ended || cancellation == null) return false;
+                cancelAction = download.CancelAction;
+                if (download.Ended || (cancellation == null && cancelAction == null)) return false;
                 download.CancelRequested = true;
+            }
+
+            if (cancellation == null)
+            {
+                cancelAction();
+                return true;
             }
 
             try

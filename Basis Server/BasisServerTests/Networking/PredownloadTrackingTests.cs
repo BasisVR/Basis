@@ -1,6 +1,8 @@
 using Basis.Network.Core;
 using BasisNetworkServer;
+using BasisPermissions;
 using Xunit;
+using static BasisPermissions.PermissionManager;
 using static SerializableBasis;
 
 namespace BasisServerTests;
@@ -124,7 +126,7 @@ public class PredownloadTrackingTests : IDisposable
             reader.GetUShort();
             byte op = reader.GetByte();
             if (reader.GetString() != netId) continue;
-            found.Add(op == BasisPredownloadProtocol.OpClosed ? new Progress(op, 0, 0, 0, 0) : new Progress(op, reader.GetUShort(), reader.GetUShort(), reader.GetUShort(), reader.GetUShort()));
+            found.Add(op == BasisPredownloadProtocol.OpClosed || op == BasisPredownloadProtocol.OpCancel ? new Progress(op, 0, 0, 0, 0) : new Progress(op, reader.GetUShort(), reader.GetUShort(), reader.GetUShort(), reader.GetUShort()));
         }
         return found;
     }
@@ -323,5 +325,134 @@ public class PredownloadTrackingTests : IDisposable
         LocalLoadResource resource = Resource();
         BasisNetworkResourceManagement.PredownloadResource(resource);
         Assert.Equal(BasisPredownloadProtocol.ServerRequester, Latest(crowd[0], resource.LoadedNetID).Requester);
+    }
+
+    private static readonly MapAuthIdentity Identity = new();
+
+    private static string Identify(FakeNetPeer peer, string uuid)
+    {
+        NetworkServer.AuthIdentity = Identity;
+        PermissionIntegration.Manager.EnsureDefaults();
+        Identity.Register(uuid, peer.Id, peer);
+        return uuid;
+    }
+
+    private static void SendCancel(FakeNetPeer peer, string netId)
+    {
+        NetDataWriter w = new NetDataWriter();
+        w.Put(MessageId());
+        w.Put(BasisPredownloadProtocol.OpCancel);
+        w.Put(netId);
+        byte[] bytes = w.AsReadOnlySpan().ToArray();
+        BasisNetworkMessageProcessor.ProcessMessage(peer, NetPacketReader.Create(bytes, 0, bytes.Length, () => { }), BasisNetworkCommons.PluginReliableChannel, DeliveryMethod.ReliableOrdered);
+    }
+
+    private static LocalLoadResource ResourceBy(string creator)
+    {
+        LocalLoadResource resource = Resource();
+        resource.UUIDOfCreator = creator;
+        return resource;
+    }
+
+    [Fact]
+    public void OnlyTheRequesterOrAnAdminCanCancelAPredownload()
+    {
+        List<FakeNetPeer> crowd = Join(3);
+        string requester = Identify(crowd[0], $"predownload-requester-{Guid.NewGuid():N}");
+        Identify(crowd[1], $"predownload-stranger-{Guid.NewGuid():N}");
+        string netId = Start(crowd[0], ResourceBy(requester));
+        Latest(crowd[2], netId);
+
+        SendCancel(crowd[1], netId);
+        Assert.Equal(BasisPredownloadProtocol.OpProgress, Latest(crowd[2], netId).Op);
+        Assert.Equal(1, BasisNetworkPredownloadManagement.SessionCount);
+
+        SendCancel(crowd[0], netId);
+        BasisNetworkPredownloadManagement.Flush();
+        List<Progress> updates = Updates(crowd[2], netId);
+        Assert.Equal(BasisPredownloadProtocol.OpCancel, updates[^2].Op);
+        Assert.Equal(BasisPredownloadProtocol.OpClosed, updates[^1].Op);
+        Assert.Equal(0, BasisNetworkPredownloadManagement.SessionCount);
+    }
+
+    [Fact]
+    public void AnAdminCanCancelSomeoneElsesPredownload()
+    {
+        List<FakeNetPeer> crowd = Join(2);
+        string admin = Identify(crowd[1], $"predownload-admin-{Guid.NewGuid():N}");
+        string netId = Start(crowd[0], ResourceBy($"predownload-requester-{Guid.NewGuid():N}"));
+        PermissionIntegration.Manager.AddUserNode(admin, PermNodes.protection);
+        try
+        {
+            SendCancel(crowd[1], netId);
+        }
+        finally
+        {
+            PermissionIntegration.Manager.RemoveUserNode(admin, PermNodes.protection);
+        }
+        Assert.Equal(BasisPredownloadProtocol.OpClosed, Latest(crowd[0], netId).Op);
+        Assert.Equal(0, BasisNetworkPredownloadManagement.SessionCount);
+    }
+
+    [Fact]
+    public void OnlyTheRequesterOrAnAdminCanCancelASynchronizedLoad()
+    {
+        List<FakeNetPeer> crowd = Join(3);
+        string requester = Identify(crowd[0], $"sync-requester-{Guid.NewGuid():N}");
+        Identify(crowd[1], $"sync-stranger-{Guid.NewGuid():N}");
+        LocalLoadResource resource = ResourceBy(requester);
+        BasisNetworkPreloadResourceManagement.StartSynchronizedLoad(resource, crowd[0].Id);
+        string netId = resource.LoadedNetID;
+        try
+        {
+            Assert.True(BasisNetworkPreloadResourceManagement.IsActive(netId));
+            SendCancel(crowd[1], netId);
+            BasisNetworkResourceManagement.UnloadResource(new UnLoadResource { LoadedNetID = netId, Mode = resource.Mode }, crowd[1]);
+            Assert.True(BasisNetworkPreloadResourceManagement.IsActive(netId));
+            Assert.True(BasisNetworkResourceManagement.UshortNetworkDatabase.ContainsKey(netId));
+
+            SendCancel(crowd[0], netId);
+            Assert.False(BasisNetworkPreloadResourceManagement.IsActive(netId));
+            Assert.False(BasisNetworkResourceManagement.UshortNetworkDatabase.ContainsKey(netId));
+            lock (crowd[2].Sent)
+            {
+                Assert.Contains(crowd[2].Sent, sent => sent.Channel == BasisNetworkCommons.UnloadResourceChannel);
+            }
+        }
+        finally
+        {
+            BasisNetworkPreloadResourceManagement.Reset();
+            if (BasisNetworkResourceManagement.UshortNetworkDatabase.TryRemove(netId, out LocalLoadResource left))
+            {
+                BasisNetworkResourceManagement.NoteResourceRemoved(left.UUIDOfCreator);
+            }
+        }
+    }
+
+    [Fact]
+    public void ProgressNamesWhoIsStillDownloadingAndWhoFailed()
+    {
+        List<FakeNetPeer> crowd = Join(4);
+        string netId = Start(crowd[0], Resource());
+        Report(crowd[0], netId, true);
+        Report(crowd[1], netId, false);
+        BasisNetworkPredownloadManagement.Flush();
+        ushort id = MessageId();
+        byte[] data;
+        lock (crowd[0].Sent) data = crowd[0].Sent.Where(s => s.Data.Length >= 3 && BitConverter.ToUInt16(s.Data, 0) == id).Select(s => s.Data).Last();
+        NetDataReader reader = new NetDataReader(data);
+        reader.GetUShort();
+        Assert.Equal(BasisPredownloadProtocol.OpProgress, reader.GetByte());
+        Assert.Equal(netId, reader.GetString());
+        for (int i = 0; i < 5; i++) reader.GetUShort();
+        ushort[] ReadIds()
+        {
+            ushort[] ids = new ushort[reader.GetByte()];
+            for (int i = 0; i < ids.Length; i++) ids[i] = reader.GetUShort();
+            return ids;
+        }
+        Assert.Equal(new[] { (ushort)crowd[2].Id, (ushort)crowd[3].Id }, ReadIds().OrderBy(x => x).ToArray());
+        Assert.Equal(new[] { (ushort)crowd[1].Id }, ReadIds());
+        Assert.Empty(ReadIds());
     }
 }

@@ -545,6 +545,8 @@ namespace Basis.BasisUI
             private PanelElementDescriptor _downloadDialogStatus;
             private int _downloadDialogPercent = -1;
             private string _downloadDialogStage;
+            private PanelElementDescriptor _downloadDialogDetails;
+            private string _downloadDialogDetailsText;
 
             private readonly Dictionary<Guid, DownloadCard> _downloadCards = new();
             private readonly HashSet<Guid> _liveDownloadIds = new();
@@ -1305,6 +1307,15 @@ namespace Basis.BasisUI
                 _downloadDialogStatus = status;
                 _downloadDialogPercent = -1;
                 _downloadDialogStage = null;
+                _downloadDialogDetails = null;
+                _downloadDialogDetailsText = null;
+                if (download.CancelAction != null || !string.IsNullOrEmpty(download.Details))
+                {
+                    PanelElementDescriptor details = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Entry, content);
+                    details.DisableRichText();
+                    details.SetTitle(string.Empty);
+                    _downloadDialogDetails = details;
+                }
                 RefreshDownloadDialog();
 
                 if (!string.IsNullOrEmpty(download.Url))
@@ -1320,7 +1331,7 @@ namespace Basis.BasisUI
                 ActionButton(actions, PanelButton.ButtonStyles.AcceptButton, "ui.ok").OnClicked += () => dialog.Cancel(false);
                 if (download.CanCancel && !download.CancelRequested)
                 {
-                    ActionButton(actions, PanelButton.ButtonStyles.CancelButton, "notifications.downloads.cancel", 300).OnClicked += () =>
+                    ActionButton(actions, PanelButton.ButtonStyles.CancelButton, download.CancelAction != null ? "notifications.downloads.cancelEveryone" : "notifications.downloads.cancel", 300).OnClicked += () =>
                     {
                         dialog.CloseWithResult(true);
                         BasisDownloadCenter.Cancel(download);
@@ -1336,6 +1347,8 @@ namespace Basis.BasisUI
                     _downloadDialog = null;
                     _downloadDialogTarget = null;
                     _downloadDialogStatus = null;
+                    _downloadDialogDetails = null;
+                    _downloadDialogDetailsText = null;
                 }
             }
 
@@ -1343,6 +1356,13 @@ namespace Basis.BasisUI
             {
                 BasisDownload download = _downloadDialogTarget;
                 if (download == null || _downloadDialogStatus == null) return;
+
+                string detailsText = download.Details;
+                if (_downloadDialogDetails != null && !ReferenceEquals(detailsText, _downloadDialogDetailsText))
+                {
+                    _downloadDialogDetailsText = detailsText;
+                    _downloadDialogDetails.SetDescription(detailsText ?? string.Empty);
+                }
 
                 int percent = DownloadPercent(download);
                 string stage = DownloadStage(download);

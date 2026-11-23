@@ -2,10 +2,13 @@ using Unity.Scripting.LifecycleManagement;
 using Basis;
 using Basis.BasisUI;
 using Basis.Network.Core;
+using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Networking;
+using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.UI;
 using Basis.Scripts.UI.UI_Panels;
+using BasisPermissions;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -46,7 +49,15 @@ public static partial class BasisNetworkPreloadManager
         public DateTime PreloadStartUtc;
     }
 
-    private static readonly ConcurrentDictionary<string, Task<BasisTrackedBundleWrapper>> inFlight = new ConcurrentDictionary<string, Task<BasisTrackedBundleWrapper>>();
+    private sealed class SharedDownload
+    {
+        public Task<BasisTrackedBundleWrapper> Task;
+        public CancellationTokenSource Cancel;
+        public float Progress;
+        public volatile string Stage;
+        public int Shown = -1;
+    }
+    private static readonly ConcurrentDictionary<string, SharedDownload> inFlight = new ConcurrentDictionary<string, SharedDownload>();
     private static async Task HandlePreload(LocalLoadResource resource)
     {
         string netId = resource.LoadedNetID;
@@ -66,20 +77,19 @@ public static partial class BasisNetworkPreloadManager
     }
     private static async Task<BasisTrackedBundleWrapper> DownloadShared(LocalLoadResource resource)
     {
-        string key = BasisIOManagement.CanonicalizeRemoteUrl(resource.CombinedURL);
-        if (!inFlight.TryGetValue(key, out Task<BasisTrackedBundleWrapper> download) || download.IsCompleted)
+        string key = DownloadKey(resource.CombinedURL);
+        if (!inFlight.TryGetValue(key, out SharedDownload shared) || shared.Task.IsCompleted)
         {
-            download = DownloadToDisc(resource);
-            inFlight[key] = download;
+            shared = new SharedDownload { Cancel = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token) };
+            shared.Task = DownloadToDisc(resource, shared, key);
+            inFlight[key] = shared;
         }
-        BasisTrackedBundleWrapper wrapper = await download;
-        ((ICollection<KeyValuePair<string, Task<BasisTrackedBundleWrapper>>>)inFlight).Remove(new KeyValuePair<string, Task<BasisTrackedBundleWrapper>>(key, download));
-        return wrapper;
+        return await shared.Task;
     }
-    private static async Task<BasisTrackedBundleWrapper> DownloadToDisc(LocalLoadResource resource)
+    private static string DownloadKey(string url) => string.IsNullOrEmpty(url) ? string.Empty : BasisIOManagement.CanonicalizeRemoteUrl(url);
+    private static async Task<BasisTrackedBundleWrapper> DownloadToDisc(LocalLoadResource resource, SharedDownload shared, string key)
     {
-        using CancellationTokenSource loadCancel = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
-        BasisDownload download = null;
+        CancellationTokenSource loadCancel = shared.Cancel;
         try
         {
             BasisLoadableBundle loadBundle = new BasisLoadableBundle
@@ -96,7 +106,19 @@ public static partial class BasisNetworkPreloadManager
                 LoadableBundle = loadBundle,
             };
             BasisProgressReport report = new BasisProgressReport();
-            download = BasisDownloadCenter.Begin(resource.Mode == 1 ? BasisDownloadKind.World : BasisDownloadKind.Prop, resource.CombinedURL, loadBundle, loadCancel, report);
+            report.OnProgressReport += (_, progress, stage) =>
+            {
+                shared.Progress = progress;
+                if (!string.IsNullOrEmpty(stage))
+                {
+                    shared.Stage = stage;
+                }
+                int whole = (int)progress;
+                if (Interlocked.Exchange(ref shared.Shown, whole) != whole)
+                {
+                    BasisDeviceManagement.EnqueueOnMainThread(() => PublishDownloadProgress(key, progress, shared.Stage));
+                }
+            };
             CancellationToken cancel = loadCancel.Token;
             await BasisLoadHandler.EnsureInitializationComplete();
             await BasisBeeKeyGrant.EnsureResolvedAsync(loadBundle, cancel);
@@ -122,8 +144,189 @@ public static partial class BasisNetworkPreloadManager
         }
         finally
         {
-            BasisDownloadCenter.End(download);
+            ((ICollection<KeyValuePair<string, SharedDownload>>)inFlight).Remove(new KeyValuePair<string, SharedDownload>(key, shared));
+            loadCancel.Dispose();
         }
+    }
+    private static void PublishDownloadProgress(string key, float progress, string stage)
+    {
+        foreach (PredownloadStatus status in predownloads.Values)
+        {
+            if (status.DownloadKey != key || status.Local != PredownloadLocalState.Downloading)
+            {
+                continue;
+            }
+            status.LocalProgress = progress;
+            status.LocalStage = stage;
+            SyncDownloadEntry(status);
+            OnPredownloadChanged?.Invoke(status);
+        }
+    }
+    public static bool IsInProgress(PredownloadStatus status)
+    {
+        if (status == null || status.Closed)
+        {
+            return false;
+        }
+        return status.Local == PredownloadLocalState.Downloading || status.Local == PredownloadLocalState.Waiting || (status.HasCounts && status.Left > 0);
+    }
+    public static string PlayerName(ushort playerId)
+    {
+        if (playerId == BasisPredownloadProtocol.ServerRequester)
+        {
+            return BasisLocalization.Get("notifications.downloads.server");
+        }
+        if (BasisNetworkPlayers.GetPlayerById(playerId, out BasisNetworkPlayer player) && player?.Player != null)
+        {
+            string name = player.Player.SafeDisplayName;
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                name = player.Player.DisplayName;
+            }
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                return name;
+            }
+        }
+        return BasisLocalization.Get("notifications.downloads.unknownPlayer", playerId);
+    }
+    public static string PlayerNames(ushort[] playerIds, int total, int shown)
+    {
+        if (playerIds == null || playerIds.Length == 0)
+        {
+            return null;
+        }
+        int count = Math.Min(playerIds.Length, Math.Max(1, shown));
+        string[] names = new string[count];
+        for (int index = 0; index < count; index++)
+        {
+            names[index] = PlayerName(playerIds[index]);
+        }
+        string joined = string.Join(", ", names);
+        int more = Math.Max(total, playerIds.Length) - count;
+        return more > 0 ? BasisLocalization.Get("notifications.downloads.andMore", joined, more) : joined;
+    }
+    public static string DescribeWaiting(PredownloadStatus status, int shown)
+    {
+        string names = PlayerNames(status.WaitingPeers, status.Left, shown);
+        return names == null ? null : BasisLocalization.Get("notifications.downloads.waitingOn", names);
+    }
+    public static string DescribeDetails(PredownloadStatus status)
+    {
+        List<string> lines = new List<string>();
+        if (status.HasCounts)
+        {
+            lines.Add(BasisLocalization.Get("notifications.downloads.startedBy", PlayerName(status.Requester)));
+            lines.Add(BasisLocalization.Get("notifications.downloads.readyCount", status.Ready, status.Total));
+        }
+        string waiting = DescribeWaiting(status, BasisPredownloadProtocol.MaxNamedPeers);
+        if (waiting != null)
+        {
+            lines.Add(waiting);
+        }
+        string failed = PlayerNames(status.FailedPeers, status.Failed, BasisPredownloadProtocol.MaxNamedPeers);
+        if (failed != null)
+        {
+            lines.Add(BasisLocalization.Get("notifications.downloads.failedFor", failed));
+        }
+        string skipped = PlayerNames(status.SkippedPeers, status.Skipped, BasisPredownloadProtocol.MaxNamedPeers);
+        if (skipped != null)
+        {
+            lines.Add(BasisLocalization.Get("notifications.downloads.notResponding", skipped));
+        }
+        return lines.Count == 0 ? null : string.Join("\n", lines);
+    }
+    private static bool LocalIsAdmin() => BasisNetworkManagement.LocalPermissions.Contains(PermNodes.protection);
+    private static void SyncDownloadEntry(PredownloadStatus status)
+    {
+        if (!IsInProgress(status))
+        {
+            if (status.Entry != null)
+            {
+                BasisDownloadCenter.End(status.Entry);
+                status.Entry = null;
+            }
+            return;
+        }
+        if (status.Entry == null)
+        {
+            string netId = status.LoadedNetID;
+            status.Entry = BasisDownloadCenter.Begin(status.Mode == 1 ? BasisDownloadKind.World : BasisDownloadKind.Prop, status.Url, null, null);
+            status.Entry.CancelAction = () => RequestCancel(netId);
+            status.Entry.CancelAllowed = () => CanCancel(status, LocalIsAdmin());
+        }
+        BasisDownload entry = status.Entry;
+        entry.DisplayName = status.Name;
+        if (status.Local == PredownloadLocalState.Downloading || status.Local == PredownloadLocalState.Waiting)
+        {
+            entry.Progress = Mathf.Clamp(status.LocalProgress, 0f, 99f);
+            entry.Stage = string.IsNullOrEmpty(status.LocalStage) ? BasisLocalization.Get("library.instantiated.predownload.downloading", Mathf.RoundToInt(status.LocalProgress)) : status.LocalStage;
+        }
+        else
+        {
+            entry.Progress = status.Total > 0 ? Mathf.Clamp(100f * (status.Ready + status.Failed) / status.Total, 0f, 99f) : 0f;
+            entry.Stage = DescribeWaiting(status, 3) ?? BasisLocalization.Get(status.Local == PredownloadLocalState.Failed ? "library.instantiated.predownload.failedWaiting" : "library.instantiated.predownload.waiting", status.Left, status.Total);
+        }
+        entry.Details = DescribeDetails(status);
+    }
+    private static void CancelUnusedDownload(string key)
+    {
+        if (string.IsNullOrEmpty(key) || !inFlight.TryGetValue(key, out SharedDownload shared))
+        {
+            return;
+        }
+        foreach (PreloadedResource preloaded in PreloadedResources.Values)
+        {
+            if (preloaded.Downloading && DownloadKey(preloaded.LoadResource.CombinedURL) == key)
+            {
+                return;
+            }
+        }
+        foreach (PredownloadStatus status in predownloads.Values)
+        {
+            if (status.DownloadKey == key && status.Local == PredownloadLocalState.Downloading)
+            {
+                return;
+            }
+        }
+        try
+        {
+            shared.Cancel.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+    public static bool CanCancel(PredownloadStatus status, bool isAdmin)
+    {
+        if (status == null || status.Closed)
+        {
+            return false;
+        }
+        return isAdmin || (!string.IsNullOrEmpty(status.Creator) && BasisLocalPlayer.Instance != null && status.Creator == BasisLocalPlayer.Instance.UUID);
+    }
+    public static void RequestCancel(string netId)
+    {
+        if (string.IsNullOrEmpty(netId))
+        {
+            return;
+        }
+        BasisClientMessageRegistry.Send(BasisPredownloadProtocol.MessageName, netId, static (writer, id) =>
+        {
+            writer.Put(BasisPredownloadProtocol.OpCancel);
+            writer.Put(id);
+        });
+    }
+    private static void Cancelled(string netId)
+    {
+        string key = predownloads.TryGetValue(netId, out PredownloadStatus status) ? status.DownloadKey : null;
+        if (PreloadedResources.TryRemove(netId, out PreloadedResource preloaded))
+        {
+            key ??= DownloadKey(preloaded.LoadResource.CombinedURL);
+        }
+        ClosePredownload(netId);
+        CancelUnusedDownload(key);
+        BasisDebug.Log($"PreloadManager: {netId} was cancelled", BasisDebug.LogTag.Networking);
     }
 
     /// <summary>
@@ -137,8 +340,12 @@ public static partial class BasisNetworkPreloadManager
         CancellationToken session = _cts.Token;
         PredownloadStatus status = TrackPredownload(netId);
         status.Url = resource.CombinedURL;
+        status.DownloadKey = DownloadKey(resource.CombinedURL);
+        status.Creator = resource.UUIDOfCreator;
+        status.Synchronized = true;
         status.Mode = resource.Mode;
         status.Local = PredownloadLocalState.Downloading;
+        status.LocalProgress = 0f;
         if (CachedMetaData.TryGetMeta(resource.CombinedURL, out CachedMetaData.CachedContent cached)) status.Name = CleanName(cached?.BasisBundleConnector?.BasisBundleDescription?.AssetBundleName);
         PublishPredownload(status);
         BasisDebug.Log($"PreloadManager: Beginning synchronized preload for {resource.CombinedURL} (NetID={netId})", BasisDebug.LogTag.Networking);
@@ -208,8 +415,9 @@ public static partial class BasisNetworkPreloadManager
     }
     public static bool Forget(string netId)
     {
-        if (!PreloadedResources.TryRemove(netId, out _)) return false;
+        if (!PreloadedResources.TryRemove(netId, out PreloadedResource preloaded)) return false;
         ClosePredownload(netId);
+        CancelUnusedDownload(DownloadKey(preloaded.LoadResource.CombinedURL));
         return true;
     }
 
@@ -224,8 +432,11 @@ public static partial class BasisNetworkPreloadManager
         CancellationToken session = _cts.Token;
         PredownloadStatus status = TrackPredownload(netId);
         status.Url = resource.CombinedURL;
+        status.DownloadKey = DownloadKey(resource.CombinedURL);
+        status.Creator = resource.UUIDOfCreator;
         status.Mode = resource.Mode;
         status.Local = PredownloadLocalState.Downloading;
+        status.LocalProgress = 0f;
         if (CachedMetaData.TryGetMeta(resource.CombinedURL, out CachedMetaData.CachedContent cached)) status.Name = CleanName(cached?.BasisBundleConnector?.BasisBundleDescription?.AssetBundleName);
         PublishPredownload(status);
         BasisDebug.Log($"PreloadManager: Beginning predownload for {resource.CombinedURL} (NetID={netId})", BasisDebug.LogTag.Networking);
@@ -253,11 +464,15 @@ public static partial class BasisNetworkPreloadManager
     }
     public sealed class PredownloadStatus
     {
-        public string LoadedNetID, Url, Name;
+        public string LoadedNetID, Url, Name, Creator, DownloadKey;
         public byte Mode;
         public ushort Requester;
         public int Ready, Failed, Total, Skipped;
-        public bool HasCounts, Announced, Closed;
+        public float LocalProgress;
+        public string LocalStage;
+        public ushort[] WaitingPeers, FailedPeers, SkippedPeers;
+        public BasisDownload Entry;
+        public bool HasCounts, Announced, Closed, Synchronized;
         public PredownloadLocalState Local;
         public int Left => Math.Max(0, Total - Ready - Failed);
     }
@@ -265,6 +480,7 @@ public static partial class BasisNetworkPreloadManager
     public const int PredownloadNameLength = 40;
     public static event Action<PredownloadStatus> OnPredownloadChanged;
     private static readonly Dictionary<string, PredownloadStatus> predownloads = new Dictionary<string, PredownloadStatus>();
+    public static IEnumerable<PredownloadStatus> GetPredownloads() => predownloads.Values;
     public static void Initialize() => BasisClientMessageRegistry.RegisterClientPlugin(BasisPredownloadProtocol.MessageName, HandlePredownloadMessage);
     public static bool TryGetPredownloadForUrl(string url, out PredownloadStatus status)
     {
@@ -304,6 +520,11 @@ public static partial class BasisNetworkPreloadManager
         try
         {
             if (!reader.TryGetByte(out byte op) || !reader.TryGetString(out string netId) || string.IsNullOrEmpty(netId)) return;
+            if (op == BasisPredownloadProtocol.OpCancel)
+            {
+                BasisDeviceManagement.EnqueueOnMainThread(() => Cancelled(netId));
+                return;
+            }
             if (op == BasisPredownloadProtocol.OpClosed)
             {
                 BasisDeviceManagement.EnqueueOnMainThread(() => ClosePredownload(netId));
@@ -311,9 +532,13 @@ public static partial class BasisNetworkPreloadManager
             }
             if (op != BasisPredownloadProtocol.OpProgress || !reader.TryGetUShort(out ushort requester) || !reader.TryGetUShort(out ushort ready) || !reader.TryGetUShort(out ushort failed) || !reader.TryGetUShort(out ushort total)) return;
             if (!reader.TryGetUShort(out ushort skipped)) skipped = 0;
+            ushort[] waitingPeers = ReadPeers(reader), failedPeers = ReadPeers(reader), skippedPeers = ReadPeers(reader);
             BasisDeviceManagement.EnqueueOnMainThread(() =>
             {
                 PredownloadStatus status = TrackPredownload(netId);
+                status.WaitingPeers = waitingPeers;
+                status.FailedPeers = failedPeers;
+                status.SkippedPeers = skippedPeers;
                 status.Skipped = skipped;
                 status.Requester = requester;
                 status.Ready = ready;
@@ -328,16 +553,34 @@ public static partial class BasisNetworkPreloadManager
             reader.Recycle();
         }
     }
+    private static ushort[] ReadPeers(NetPacketReader reader)
+    {
+        if (!reader.TryGetByte(out byte count) || count == 0)
+        {
+            return null;
+        }
+        ushort[] peers = new ushort[count];
+        for (int index = 0; index < count; index++)
+        {
+            if (!reader.TryGetUShort(out peers[index]))
+            {
+                return null;
+            }
+        }
+        return peers;
+    }
     private static void ClosePredownload(string netId)
     {
         if (!predownloads.Remove(netId, out PredownloadStatus status)) return;
         status.Closed = true;
+        SyncDownloadEntry(status);
         BasisUILoadingBar.RemoveDisplay(PredownloadHudKey(netId));
         OnPredownloadChanged?.Invoke(status);
     }
     private static string PredownloadHudKey(string netId) => "predownload." + netId;
     private static void PublishPredownload(PredownloadStatus status)
     {
+        SyncDownloadEntry(status);
         OnPredownloadChanged?.Invoke(status);
         if (!status.HasCounts) return;
         if (status.Total <= 0)
@@ -476,7 +719,12 @@ public static partial class BasisNetworkPreloadManager
         inFlight.Clear();
         clearLocalOnSpawn.Clear();
         NextSynchronizedStrategy = BasisPredownloadProtocol.StrategySynchronized;
-        foreach (string netId in predownloads.Keys) BasisUILoadingBar.RemoveDisplay(PredownloadHudKey(netId));
+        foreach (PredownloadStatus status in predownloads.Values)
+        {
+            BasisUILoadingBar.RemoveDisplay(PredownloadHudKey(status.LoadedNetID));
+            BasisDownloadCenter.End(status.Entry);
+            status.Entry = null;
+        }
         predownloads.Clear();
     }
 }

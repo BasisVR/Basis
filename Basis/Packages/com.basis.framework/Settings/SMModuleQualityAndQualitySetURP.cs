@@ -151,31 +151,31 @@ namespace BattlePhaze.SettingsManager.Integrations
             switch (optionValue)
             {
                 case "very low":
-                    ApplyQualitySettings(BasisQualityTier.VeryLow, AnisotropicFiltering.Disable, 256, false, false);
+                    ApplyQualitySettings(BasisQualityTier.VeryLow, AnisotropicFiltering.Disable, 256, false);
                     Data.renderPostProcessing = false;
                     if (ChangeTerrainSettings) ChangeQualityOfTerrain(VeryLowTerrain);
                     break;
 
                 case "low":
-                    ApplyQualitySettings(BasisQualityTier.Low, AnisotropicFiltering.Enable, 512, true, true);
+                    ApplyQualitySettings(BasisQualityTier.Low, AnisotropicFiltering.Enable, 512, true);
                     Data.renderPostProcessing = true;
                     if (ChangeTerrainSettings) ChangeQualityOfTerrain(LowTerrain);
                     break;
 
                 case "medium":
-                    ApplyQualitySettings(BasisQualityTier.Medium, AnisotropicFiltering.Enable, 1024, true, true);
+                    ApplyQualitySettings(BasisQualityTier.Medium, AnisotropicFiltering.Enable, 1024, true);
                     Data.renderPostProcessing = true;
                     if (ChangeTerrainSettings) ChangeQualityOfTerrain(MediumTerrain);
                     break;
 
                 case "high":
-                    ApplyQualitySettings(BasisQualityTier.High, AnisotropicFiltering.Enable, 2048, true, true);
+                    ApplyQualitySettings(BasisQualityTier.High, AnisotropicFiltering.Enable, 2048, true);
                     Data.renderPostProcessing = true;
                     if (ChangeTerrainSettings) ChangeQualityOfTerrain(HighTerrain);
                     break;
 
                 case "ultra":
-                    ApplyQualitySettings(BasisQualityTier.Ultra, AnisotropicFiltering.Enable, 4096, true, true);
+                    ApplyQualitySettings(BasisQualityTier.Ultra, AnisotropicFiltering.Enable, 4096, true);
                     Data.renderPostProcessing = true;
                     if (ChangeTerrainSettings) ChangeQualityOfTerrain(UltraTerrain);
                     break;
@@ -387,8 +387,7 @@ namespace BattlePhaze.SettingsManager.Integrations
             int tier,
             AnisotropicFiltering anisotropicFilter,
             int particleBudget,
-            bool renderShadows,
-            bool stopNaN)
+            bool renderShadows)
         {
             QualitySettings.anisotropicFiltering = anisotropicFilter;
             QualitySettings.particleRaycastBudget = particleBudget;
@@ -406,7 +405,7 @@ namespace BattlePhaze.SettingsManager.Integrations
             if (Data != null)
             {
                 Data.renderShadows = renderShadows;
-                Data.stopNaN = stopNaN;
+                Data.stopNaN = true;
             }
 
             UniversalRenderPipelineAsset asset = QualitySettings.renderPipeline as UniversalRenderPipelineAsset;

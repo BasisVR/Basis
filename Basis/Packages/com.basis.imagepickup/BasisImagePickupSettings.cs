@@ -109,6 +109,7 @@ namespace Basis.ImagePickup
         public const int SpawnRateBurstAllowance = MaxConcurrentImagesPerSender;
         public const float MinSecondsBetweenSpawnsPerSender = 0.5f;
         public const float InboundTransferTimeoutSeconds = 30f;
+        public const float InboundTransferQueuedTimeoutSeconds = 300f;
         public const float RecipientRangeRefreshSeconds = 5f;
 
         /// <summary>
@@ -208,13 +209,13 @@ namespace Basis.ImagePickup
         /// carry — the probe climbs quickly, so guessing low costs a fraction of a second on a fast link,
         /// while guessing high spends the first seconds of every session congesting a slow one.
         /// </summary>
-        public const long StartingUplinkBudgetBytesPerSecond = 64L * 1024L;
+        public const long StartingUplinkBudgetBytesPerSecond = 128L * 1024L;
 
         /// <summary>
-        /// Uplink the probe will always allow, so a transfer never stalls outright. One chunk every couple
-        /// of seconds after the image share is applied, which still refreshes the inbound deadline.
+        /// Uplink the probe will always allow, so a transfer never stalls outright. Two chunks a second after
+        /// the image share is applied, a quarter of the slowest supported line.
         /// </summary>
-        public const long MinUplinkBudgetBytesPerSecond = 16L * 1024L;
+        public const long MinUplinkBudgetBytesPerSecond = 64L * 1024L;
 
         /// <summary>
         /// Ceiling on the probed uplink. Far above what image transfers can use — the largest payload the
@@ -228,7 +229,7 @@ namespace Basis.ImagePickup
         /// recent round trip. Below this the rate climbs; above it the rate falls. Kept under a voice frame
         /// so transfers yield before anyone can hear or feel them.
         /// </summary>
-        public const float TargetQueuingDelayMs = 18f;
+        public const float TargetQueuingDelayMs = 40f;
 
         public const float LinkProbeIntervalSeconds = 0.5f;
 
@@ -245,8 +246,14 @@ namespace Basis.ImagePickup
         /// genuinely got slower is not fought forever.
         /// </summary>
         public const float LinkProbeBaselineWindowSeconds = 60f;
-        /// <summary>Smallest absolute ramp step, so the proportional term still moves at the floor.</summary>
-        public const float LinkProbeRampBytesPerSecond = 32L * 1024L;
+        /// <summary>
+        /// Share of the current rate removed per second while queuing delay sits past the target. Gentler
+        /// than the ramp because the round trip is a ping average that carries one late pong for seconds.
+        /// </summary>
+        public const float LinkProbeBackoffFraction = 0.3f;
+
+        /// <summary>Longest gap one control step may act on, so a stall cannot become one huge step.</summary>
+        public const float LinkProbeMaxStepSeconds = 1f;
 
         /// <summary>
         /// Fewest queued outgoing packets that can count as a backlog. The live threshold is whichever is

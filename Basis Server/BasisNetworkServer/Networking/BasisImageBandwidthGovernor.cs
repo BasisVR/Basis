@@ -51,6 +51,8 @@ namespace Basis.Network.Server.Generic
         /// <summary>How often the replay pump wakes. Fine enough to pace smoothly, coarse enough to cost nothing.</summary>
         private const int PumpIntervalMs = 25;
 
+        private const int MaxQueuedReplayPackets = 256;
+
         // ── Upload: per-sender egress buckets ────────────────────────────────────────────────
 
         private sealed class EgressBucket
@@ -312,6 +314,10 @@ namespace Basis.Network.Server.Generic
 
                 while (job.Tokens > 0)
                 {
+                    if (job.Peer.GetPacketsCountInQueue(BasisNetworkCommons.DirectSceneServerChannel, DeliveryMethod.ReliableOrdered) >= MaxQueuedReplayPackets)
+                    {
+                        break;
+                    }
                     PendingPayload pending;
                     lock (job.Sync)
                     {

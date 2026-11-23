@@ -424,7 +424,7 @@ namespace BasisServerHandle
                 return false;
             }
 
-            if (!string.IsNullOrEmpty(uuid))
+            if (!string.IsNullOrEmpty(uuid) && !(NetworkServer.AuthIdentity.UUIDToNetID(uuid, out int otherSession) && otherSession != id))
             {
                 PermissionIntegration.RemovePlayerMeta(uuid);
                 PermissionIntegration.EvictPermissionCache(uuid);

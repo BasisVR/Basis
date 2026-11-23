@@ -8,7 +8,7 @@ using static Basis.Network.Core.BasisScreenShareProtocol;
 public sealed class BasisScreenShareSender : IDisposable
 {
     const int UplinkHigh = 150, UplinkLow = 30, WaitMs = 50;
-    static readonly long AdaptTicks = Stopwatch.Frequency, PruneTicks = Stopwatch.Frequency / 4;
+    static readonly long AdaptTicks = Stopwatch.Frequency, PruneTicks = Stopwatch.Frequency / 4, CutHoldTicks = Stopwatch.Frequency * 2, RaiseHoldTicks = Stopwatch.Frequency * 5;
     readonly ConcurrentDictionary<ushort, bool> direct = new ConcurrentDictionary<ushort, bool>(), laned = new ConcurrentDictionary<ushort, bool>();
     readonly List<ushort> targets = new List<ushort>(), dropped = new List<ushort>();
     readonly List<bool> targetLanes = new List<bool>();
@@ -20,7 +20,8 @@ public sealed class BasisScreenShareSender : IDisposable
     volatile bool relay, accepted;
     int targetKbps, currentKbps;
     uint videoSequence, audioSequence;
-    long lastPts = -1, nextAdapt, nextPrune;
+    long lastPts = -1, nextAdapt, nextPrune, nextCut, nextRaise;
+    int minPending = int.MaxValue;
     public int DirectViewers => direct.Count;
     public int CurrentKbps => Volatile.Read(ref currentKbps);
     public long LastPts => Interlocked.Read(ref lastPts);
@@ -211,14 +212,38 @@ public sealed class BasisScreenShareSender : IDisposable
             }
             if (changed) DirectViewersChanged?.Invoke();
         }
-        if (now < nextAdapt || (!relay && direct.IsEmpty)) return;
+        if (!relay && direct.IsEmpty)
+        {
+            minPending = int.MaxValue;
+            return;
+        }
+        minPending = Math.Min(minPending, SamplePending());
+        if (now < nextAdapt) return;
         nextAdapt = now + AdaptTicks;
-        int pending = relay ? Math.Max(BasisScreenShareClient.PendingUplink(), BasisScreenShareClient.ServerCongestion) : 0;
-        foreach (ushort viewer in direct.Keys) pending = Math.Max(pending, Math.Min(BasisScreenShareClient.DirectBacklog(viewer, HasLanes(viewer)), 100000));
+        int pending = minPending;
+        minPending = int.MaxValue;
         int current = CurrentKbps, target = Volatile.Read(ref targetKbps), next = current;
-        if (pending > UplinkHigh) next = Math.Max(BasisScreenShareSettings.MinBitrateKbps, (int)(current * 0.75f));
-        else if (pending < UplinkLow && current < target) next = Math.Min(target, (int)(current * 1.08f) + 50);
+        if (pending > UplinkHigh && now >= nextCut)
+        {
+            next = Math.Max(BasisScreenShareSettings.MinBitrateKbps, (int)(current * 0.75f));
+            nextCut = now + CutHoldTicks;
+            nextRaise = now + RaiseHoldTicks;
+        }
+        else if (pending < UplinkLow && current < target && now >= nextRaise)
+        {
+            next = Math.Min(target, (int)(current * 1.08f) + 50);
+        }
         if (next != current) ApplyBitrate(next);
+    }
+
+    int SamplePending()
+    {
+        int pending = relay ? Math.Max(BasisScreenShareClient.PendingUplink(), BasisScreenShareClient.ServerCongestion) : 0;
+        foreach (ushort viewer in direct.Keys)
+        {
+            pending = Math.Max(pending, Math.Min(BasisScreenShareClient.DirectBacklog(viewer, HasLanes(viewer)), 100000));
+        }
+        return pending;
     }
 
     public void Dispose()

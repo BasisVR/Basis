@@ -125,7 +125,7 @@ public class AuthIdentityRecycledIdTests
     }
 
     [Fact]
-    public void DuplicateCount_RisesOnAdmissionAndFallsWhenTheAdmittedConnectionLeaves()
+    public void DuplicateCount_NewestLoginDisplacesTheOldestAtTheLimit()
     {
         BasisDIDAuthIdentity identity = NewIdentity();
         try
@@ -133,18 +133,30 @@ public class AuthIdentityRecycledIdTests
             Did did = new Did(LifecycleSupport.NewUuid());
             int first = LifecycleSupport.NextPeerId();
             int second = LifecycleSupport.NextPeerId();
-            identity.AuthIdentity[first] = Entry(LifecycleSupport.Peer(first), did.V);
-            identity.AuthIdentity[second] = Entry(LifecycleSupport.Peer(second), did.V);
+            int third = LifecycleSupport.NextPeerId();
+            var firstPeer = LifecycleSupport.Peer(first);
+            var secondPeer = LifecycleSupport.Peer(second);
+            identity.AuthIdentity[first] = Entry(firstPeer, did.V);
+            identity.AuthIdentity[second] = Entry(secondPeer, did.V);
+            identity.AuthIdentity[third] = Entry(LifecycleSupport.Peer(third), did.V);
             Assert.Equal(0, identity.CheckForDuplicates(did));
 
-            Assert.True(identity.TryAdmit(first, did, 1));
-            Assert.Equal(1, identity.CheckForDuplicates(did));
-            Assert.False(identity.TryAdmit(second, did, 1));
+            Assert.True(identity.TryAdmit(first, did, 2));
+            Assert.True(identity.TryAdmit(second, did, 2));
+            Assert.Equal(2, identity.CheckForDuplicates(did));
+            Assert.True(identity.TryAdmit(third, did, 2));
+            Assert.Equal(2, identity.CheckForDuplicates(did));
+            Assert.False(identity.AuthIdentity.ContainsKey(first));
+            Assert.False(identity.NetIDToUUID(firstPeer, out _));
+            Assert.True(identity.NetIDToUUID(secondPeer, out _));
             Assert.False(identity.TryAdmit(first, did, int.MaxValue));
+            Assert.False(identity.TryAdmit(third, did, int.MaxValue));
 
+            identity.RemoveConnection(first);
+            Assert.Equal(2, identity.CheckForDuplicates(did));
             identity.RemoveConnection(second);
             Assert.Equal(1, identity.CheckForDuplicates(did));
-            identity.RemoveConnection(first);
+            identity.RemoveConnection(third);
             Assert.Equal(0, identity.CheckForDuplicates(did));
         }
         finally

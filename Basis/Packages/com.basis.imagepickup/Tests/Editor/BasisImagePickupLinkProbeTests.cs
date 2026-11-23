@@ -297,6 +297,80 @@ namespace Basis.ImagePickup.Tests
         }
 
         [Test]
+        public void AnIdleLinkHoldsItsRateInsteadOfRampingToTheCeiling()
+        {
+            BasisImagePickupLinkProbe.Observe(0f, Quiet, 0, false);
+            for (float t = Interval; t <= 30f; t += Interval)
+            {
+                BasisImagePickupLinkProbe.Observe(t, Quiet, 0, false);
+            }
+
+            Assert.That(
+                BasisImagePickupLinkProbe.DiscoveredUplinkBytesPerSecond,
+                Is.EqualTo((float)BasisImagePickupSettings.StartingUplinkBudgetBytesPerSecond)
+            );
+        }
+
+        [Test]
+        public void AStandingBacklogHalvesTheRateOnceRatherThanEverySample()
+        {
+            BasisImagePickupLinkProbe.Observe(0f, Quiet, 0);
+            for (float t = 1f; t <= 8f; t += 1f)
+            {
+                BasisImagePickupLinkProbe.Observe(t, Quiet, 0);
+            }
+            float before = BasisImagePickupLinkProbe.DiscoveredUplinkBytesPerSecond;
+            int backlog = BasisImagePickupLinkProbe.BacklogLimit(before);
+
+            for (float t = 9f; t <= 14f; t += 1f)
+            {
+                BasisImagePickupLinkProbe.Observe(t, Quiet, backlog);
+            }
+
+            Assert.That(
+                BasisImagePickupLinkProbe.DiscoveredUplinkBytesPerSecond,
+                Is.EqualTo(before * BasisImagePickupSettings.LinkProbeQueueBackoffFactor).Within(1f)
+            );
+        }
+
+        [Test]
+        public void AGrowingBacklogKeepsBackingOff()
+        {
+            BasisImagePickupLinkProbe.Observe(0f, Quiet, 0);
+            for (float t = 1f; t <= 8f; t += 1f)
+            {
+                BasisImagePickupLinkProbe.Observe(t, Quiet, 0);
+            }
+            float before = BasisImagePickupLinkProbe.DiscoveredUplinkBytesPerSecond;
+            int backlog = BasisImagePickupLinkProbe.BacklogLimit(before);
+
+            BasisImagePickupLinkProbe.Observe(9f, Quiet, backlog);
+            BasisImagePickupLinkProbe.Observe(10f, Quiet, backlog * 2);
+
+            float factor = BasisImagePickupSettings.LinkProbeQueueBackoffFactor;
+            Assert.That(
+                BasisImagePickupLinkProbe.DiscoveredUplinkBytesPerSecond,
+                Is.EqualTo(before * factor * factor).Within(1f)
+            );
+        }
+
+        [Test]
+        public void OneLateRoundTripBrakesLessThanAQuietOneRamps()
+        {
+            SettleQuietBaseline();
+            float start = BasisImagePickupLinkProbe.DiscoveredUplinkBytesPerSecond;
+            BasisImagePickupLinkProbe.Observe(3f, Quiet + 1500f, 0);
+            float braked = BasisImagePickupLinkProbe.DiscoveredUplinkBytesPerSecond;
+
+            SettleQuietBaseline();
+            BasisImagePickupLinkProbe.Observe(3f, Quiet, 0);
+            float ramped = BasisImagePickupLinkProbe.DiscoveredUplinkBytesPerSecond;
+
+            Assert.That(start / braked, Is.LessThan(ramped / start));
+            Assert.That(braked, Is.GreaterThan(start * 0.5f));
+        }
+
+        [Test]
         public void TheImageShareIsHalfOfWhateverTheProbeDiscovered()
         {
             BasisImagePickupLinkProbe.Observe(1f, Quiet, 0);

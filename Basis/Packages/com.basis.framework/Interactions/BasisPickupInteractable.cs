@@ -60,8 +60,10 @@ namespace Basis.Scripts.BasisSdk.Interactions
         [Tooltip("Optional: child transform that should sit in the hand when held. Empty = seat the nearest collider surface and keep the object's current angle.")]
         public Transform GripPoint;
 
-        [Tooltip("VR: close the holding hand's fingers onto the object's colliders or rendered mesh after it settles in the hand")]
-        public BasisFingerWrapMode FingerWrap = BasisFingerWrapMode.Colliders;
+        [Tooltip("VR: how the holding hand's fingers are posed. None leaves them on tracking, Fixed Location holds Fixed Finger Pose, Automatic closes them onto the object's colliders")]
+        public BasisPickupFingerPose FingerPose = BasisPickupFingerPose.None;
+        [Tooltip("Fixed Location: curl (x, -1 closed to 1 open) and splay (y) per finger, thumb to little, mirrored for the left hand")]
+        public Vector2[] FixedFingerPose = { new Vector2(-0.5f, 0f), new Vector2(-0.5f, 0f), new Vector2(-0.5f, 0f), new Vector2(-0.5f, 0f), new Vector2(-0.5f, 0f) };
 
         /// <summary>
         /// Show Highlight on haver. does not effect on hover exit.
@@ -371,10 +373,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
         private bool _lerping;
         private bool _weldedHold;
         private bool _gripAlignedHold;
-        private bool _fingerWrapPending, _fingerWrapApplied, _fingerWrapLeft;
+        private bool _fingerWrapPending, _fingerPoseApplied, _fingerPoseLeft;
         private BasisColliderGraspSurface fingerWrapColliders;
-        private BasisMeshGraspSurface fingerWrapMesh;
-        private List<Renderer> fingerWrapRenderers;
         private Vector3 _grabPoint;
         private Quaternion _grabSourceRotation = Quaternion.identity;
 
@@ -661,9 +661,13 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     Vector3 inPos = wrapper.BoneControl.OutgoingWorldData.position;
                     Quaternion inRot = wrapper.BoneControl.OutgoingWorldData.rotation;
                     _weldedHold = TryGetWeldHandPose(wrapper, out Vector3 weldHandPos, out Quaternion weldHandRot);
-                    ReleaseFingerWrap();
-                    _fingerWrapPending = _weldedHold && FingerWrap != BasisFingerWrapMode.Off;
-                    _fingerWrapLeft = wrapper.Role == BasisBoneTrackedRole.LeftHand;
+                    ReleaseFingerPose();
+                    _fingerPoseLeft = wrapper.Role == BasisBoneTrackedRole.LeftHand;
+                    _fingerWrapPending = _weldedHold && FingerPose == BasisPickupFingerPose.Automatic;
+                    if (FingerPose == BasisPickupFingerPose.FixedLocation && (_fingerPoseLeft || wrapper.Role == BasisBoneTrackedRole.RightHand))
+                    {
+                        ApplyFixedFingerPose();
+                    }
                     if (_weldedHold)
                     {
                         inPos = weldHandPos;
@@ -792,7 +796,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
                     InputConstraint.Enabled = false;
                     _lerping = false;
-                    ReleaseFingerWrap();
+                    ReleaseFingerPose();
                     _weldedHold = false;
                     _gripAlignedHold = false;
                     InputConstraint.sources = new BasisConstraintSourceData[] { new() { weight = 1f } };
@@ -1218,6 +1222,20 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 }
             }
         }
+        private void ApplyFixedFingerPose()
+        {
+            BasisLocalPlayer player = BasisLocalPlayer.Instance;
+            if (player == null || FixedFingerPose == null)
+            {
+                return;
+            }
+            HumanBodyBones first = _fingerPoseLeft ? HumanBodyBones.LeftThumbProximal : HumanBodyBones.RightThumbProximal;
+            int count = Mathf.Min(FixedFingerPose.Length, BasisHandPoseGrid.FingerCount / 2);
+            for (int f = 0; f < count; f++)
+            {
+                _fingerPoseApplied |= player.LocalHandDriver.SetFingerOverride(first + f * BasisHandPoseGrid.JointsPerFinger, FixedFingerPose[f], 1f);
+            }
+        }
         private void ApplyFingerWrap(BasisInputWrapper input, Vector3 position, Quaternion rotation)
         {
             _fingerWrapPending = false;
@@ -1227,45 +1245,24 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 return;
             }
             BasisCalibratedCoords wrist = input.BoneControl.IKWorldData;
-            BasisGraspSurface surface;
-            if (FingerWrap == BasisFingerWrapMode.Renderers)
-            {
-                fingerWrapMesh ??= new BasisMeshGraspSurface();
-                fingerWrapRenderers ??= new List<Renderer>();
-                fingerWrapMesh.Clear();
-                Matrix4x4 after = Matrix4x4.TRS(position, rotation, Vector3.one) * Matrix4x4.TRS(transform.position, transform.rotation, Vector3.one).inverse;
-                float reach = BasisHandGrip.FallbackHandLength * 3f * BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
-                GetComponentsInChildren(false, fingerWrapRenderers);
-                for (int i = 0; i < fingerWrapRenderers.Count; i++)
-                {
-                    fingerWrapMesh.Add(fingerWrapRenderers[i], after, wrist.position, reach);
-                }
-                fingerWrapRenderers.Clear();
-                surface = fingerWrapMesh;
-            }
-            else
-            {
-                fingerWrapColliders ??= new BasisColliderGraspSurface();
-                fingerWrapColliders.Set(gameObject, position, rotation);
-                surface = fingerWrapColliders;
-            }
-            _fingerWrapApplied = player.LocalHandDriver.WrapFingers(_fingerWrapLeft, surface, wrist.position, wrist.rotation) >= 0;
+            fingerWrapColliders ??= new BasisColliderGraspSurface();
+            fingerWrapColliders.Set(gameObject, position, rotation);
+            _fingerPoseApplied = player.LocalHandDriver.WrapFingers(_fingerPoseLeft, fingerWrapColliders, wrist.position, wrist.rotation) >= 0;
         }
-        private void ReleaseFingerWrap()
+        private void ReleaseFingerPose()
         {
             _fingerWrapPending = false;
-            if (!_fingerWrapApplied)
+            if (!_fingerPoseApplied)
             {
                 return;
             }
-            _fingerWrapApplied = false;
+            _fingerPoseApplied = false;
             BasisLocalPlayer player = BasisLocalPlayer.Instance;
             if (player != null)
             {
-                player.LocalHandDriver.ClearHandOverrides(_fingerWrapLeft);
+                player.LocalHandDriver.ClearHandOverrides(_fingerPoseLeft);
             }
         }
-
         protected virtual void ApplyHeldPose(ref Vector3 position, ref Quaternion rotation)
         {
             // Prefer Rigidbody movement when present to preserve physics consistency.

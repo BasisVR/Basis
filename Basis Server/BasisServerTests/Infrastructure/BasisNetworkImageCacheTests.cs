@@ -41,7 +41,9 @@ internal sealed class ImageCacheRecordingPeer : NetPeer
 
     public void SendUnreliableRawMerge(byte[] data, int offset, int length, byte channelNumber, int patchOffset = -1, byte patchValue = 0) { }
 
-    public int GetPacketsCountInQueue(byte channel, DeliveryMethod deliveryMethod) => 0;
+    public int QueuedPackets { get; set; }
+
+    public int GetPacketsCountInQueue(byte channel, DeliveryMethod deliveryMethod) => QueuedPackets;
 }
 
 /// <summary>

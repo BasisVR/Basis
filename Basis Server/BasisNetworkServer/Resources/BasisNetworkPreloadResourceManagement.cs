@@ -33,6 +33,15 @@ public static class BasisNetworkPreloadResourceManagement
     }
     static readonly object gate = new object();
     static readonly Dictionary<string, SyncLoadSession> sessions = new Dictionary<string, SyncLoadSession>();
+    public static bool TryGetResource(string loadedNetId, out LocalLoadResource resource)
+    {
+        lock (gate)
+        {
+            bool found = sessions.TryGetValue(loadedNetId, out SyncLoadSession session);
+            resource = found ? session.Resource : default;
+            return found;
+        }
+    }
     public static bool IsActive(string loadedNetId)
     {
         lock (gate) return sessions.ContainsKey(loadedNetId);
@@ -227,6 +236,9 @@ public static class BasisNetworkPreloadResourceManagement
             Failed = (ushort)Math.Min(failed, ushort.MaxValue),
             Total = (ushort)Math.Min(ready + failed + session.Waiting.Count, ushort.MaxValue),
             Skipped = (ushort)Math.Min(session.SkippedPeers.Count, ushort.MaxValue),
+            WaitingPeers = BasisNetworkPredownloadManagement.NamedPeers(session.Waiting.Keys),
+            FailedPeers = BasisNetworkPredownloadManagement.NamedPeers(session.FailedPeers),
+            SkippedPeers = BasisNetworkPredownloadManagement.NamedPeers(session.SkippedPeers),
         };
     }
     static void BroadcastSpawnSignal(SyncLoadSession session)
@@ -346,7 +358,32 @@ public static class BasisNetworkPredownloadManagement
     {
         public string NetId;
         public ushort Requester, Ready, Failed, Total, Skipped;
-        public bool Closed;
+        public ushort[] WaitingPeers, FailedPeers, SkippedPeers;
+        public bool Closed, Cancelled;
+    }
+    public const int MaxNamedPeers = BasisPredownloadProtocol.MaxNamedPeers;
+    internal static ushort[] NamedPeers(IEnumerable<int> peerIds)
+    {
+        List<ushort> named = null;
+        foreach (int peerId in peerIds)
+        {
+            named ??= new List<ushort>();
+            named.Add((ushort)peerId);
+            if (named.Count >= MaxNamedPeers)
+            {
+                break;
+            }
+        }
+        return named == null ? Array.Empty<ushort>() : named.ToArray();
+    }
+    static void WritePeers(NetDataWriter writer, ushort[] peerIds)
+    {
+        int count = peerIds == null ? 0 : Math.Min(peerIds.Length, MaxNamedPeers);
+        writer.Put((byte)count);
+        for (int index = 0; index < count; index++)
+        {
+            writer.Put(peerIds[index]);
+        }
     }
     static readonly object gate = new object();
     static readonly List<Session> sessions = new List<Session>();
@@ -384,6 +421,70 @@ public static class BasisNetworkPredownloadManagement
             total = session == null ? 0 : ready + failed + session.Pending.Count;
             return session != null;
         }
+    }
+    public static bool CanCancel(string requesterUuid, string creatorUuid)
+    {
+        if (string.IsNullOrEmpty(requesterUuid))
+        {
+            return false;
+        }
+        return (!string.IsNullOrEmpty(creatorUuid) && requesterUuid == creatorUuid) || PermissionIntegration.HasValidRequirement(requesterUuid, PermNodes.protection);
+    }
+    public static bool RequestCancel(NetPeer peer, string loadedNetId)
+    {
+        string uuid = null;
+        if (peer == null || NetworkServer.AuthIdentity == null || !NetworkServer.AuthIdentity.NetIDToUUID(peer, out uuid))
+        {
+            uuid = null;
+        }
+        bool cancelled = Cancel(uuid, loadedNetId);
+        if (!cancelled)
+        {
+            BNL.LogWarning($"PredownloadManagement: Peer {peer?.Id} could not cancel {loadedNetId}, only an admin or the player who started it can");
+        }
+        return cancelled;
+    }
+    public static bool Cancel(string requesterUuid, string loadedNetId)
+    {
+        if (string.IsNullOrEmpty(loadedNetId))
+        {
+            return false;
+        }
+        if (BasisNetworkPreloadResourceManagement.TryGetResource(loadedNetId, out LocalLoadResource synchronized))
+        {
+            if (!CanCancel(requesterUuid, synchronized.UUIDOfCreator))
+            {
+                return false;
+            }
+            BNL.Log($"PredownloadManagement: {requesterUuid} cancelled synchronized load {loadedNetId}");
+            return BasisNetworkResourceManagement.UnloadResource(new UnLoadResource { LoadedNetID = loadedNetId, Mode = synchronized.Mode });
+        }
+        string creator;
+        lock (gate)
+        {
+            Session session = Find(loadedNetId);
+            if (session == null)
+            {
+                return false;
+            }
+            creator = session.Resource.UUIDOfCreator;
+        }
+        if (!CanCancel(requesterUuid, creator))
+        {
+            return false;
+        }
+        lock (gate)
+        {
+            int index = sessions.FindIndex(candidate => candidate.Resource.LoadedNetID == loadedNetId);
+            if (index < 0)
+            {
+                return false;
+            }
+            closing.Add(new Outgoing { NetId = loadedNetId, Cancelled = true });
+            Close(index);
+        }
+        BNL.Log($"PredownloadManagement: {requesterUuid} cancelled predownload {loadedNetId}");
+        return true;
     }
     public static void Start(LocalLoadResource resource, int requesterPeerId, NetPeer[] peers)
     {
@@ -537,6 +638,10 @@ public static class BasisNetworkPredownloadManagement
             if (!reader.TryGetByte(out byte op) || !reader.TryGetString(out string loadedNetId)) return;
             if (op == BasisPredownloadProtocol.OpStatus) BasisNetworkPreloadResourceManagement.HandleStatus(peer.Id, loadedNetId);
             else if (op == BasisPredownloadProtocol.OpDone && reader.TryGetBool(out bool ready)) Report(peer.Id, loadedNetId, ready);
+            else if (op == BasisPredownloadProtocol.OpCancel)
+            {
+                RequestCancel(peer, loadedNetId);
+            }
         }
         finally
         {
@@ -559,18 +664,24 @@ public static class BasisNetworkPredownloadManagement
     static Outgoing Snapshot(Session session)
     {
         int ready = session.Ready.Count, failed = session.Failed.Count, total = ready + failed + session.Pending.Count;
-        return new Outgoing { NetId = session.Resource.LoadedNetID, Requester = session.Requester, Ready = (ushort)Math.Min(ready, ushort.MaxValue), Failed = (ushort)Math.Min(failed, ushort.MaxValue), Total = (ushort)Math.Min(total, ushort.MaxValue) };
+        return new Outgoing { NetId = session.Resource.LoadedNetID, Requester = session.Requester, Ready = (ushort)Math.Min(ready, ushort.MaxValue), Failed = (ushort)Math.Min(failed, ushort.MaxValue), Total = (ushort)Math.Min(total, ushort.MaxValue), WaitingPeers = NamedPeers(session.Pending), FailedPeers = NamedPeers(session.Failed), SkippedPeers = Array.Empty<ushort>() };
     }
     static void Write(NetDataWriter writer, Outgoing message)
     {
         writer.Put(messageId);
-        writer.Put(message.Closed ? BasisPredownloadProtocol.OpClosed : BasisPredownloadProtocol.OpProgress);
+        writer.Put(message.Cancelled ? BasisPredownloadProtocol.OpCancel : message.Closed ? BasisPredownloadProtocol.OpClosed : BasisPredownloadProtocol.OpProgress);
         writer.Put(message.NetId);
-        if (message.Closed) return;
+        if (message.Closed || message.Cancelled)
+        {
+            return;
+        }
         writer.Put(message.Requester);
         writer.Put(message.Ready);
         writer.Put(message.Failed);
         writer.Put(message.Total);
         writer.Put(message.Skipped);
+        WritePeers(writer, message.WaitingPeers);
+        WritePeers(writer, message.FailedPeers);
+        WritePeers(writer, message.SkippedPeers);
     }
 }

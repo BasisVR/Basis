@@ -22,6 +22,7 @@ public class BasisScreenShare : MonoBehaviour
     public string StatusError { get; private set; }
     public string SourceId { get; private set; }
     public string SourceName { get; private set; }
+    public bool PortalSource => source != null && source.IsPortal;
     public int Viewers { get; private set; }
     public int DirectViewers => sender != null ? sender.DirectViewers : 0;
     public int TotalViewers => Viewers + DirectViewers;

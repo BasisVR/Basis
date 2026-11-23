@@ -44,6 +44,9 @@ namespace Basis.ImagePickup
         private static float _lastSampleTime;
         private static float _queuingDelayMs;
         private static int _queuedPackets;
+        private static bool _bucketLimited;
+        private static bool _backlogEpisode;
+        private static int _backoffQueuedPackets;
 
         internal static float DiscoveredUplinkBytesPerSecond =>
             _rateBytesPerSecond > 0f
@@ -63,6 +66,29 @@ namespace Basis.ImagePickup
             _lastSampleTime = 0f;
             _queuingDelayMs = 0f;
             _queuedPackets = 0;
+            _bucketLimited = false;
+            _backlogEpisode = false;
+            _backoffQueuedPackets = 0;
+        }
+
+        internal static void NoteBucketLimited()
+        {
+            _bucketLimited = true;
+        }
+
+        internal static bool IsBacklogged(int queuedPackets)
+        {
+            return queuedPackets >= BacklogLimit(DiscoveredUplinkBytesPerSecond);
+        }
+
+        internal static bool ServerLinkBacklogged()
+        {
+            NetPeer peer = BasisNetworkManagement.LocalPlayerPeer;
+            if (peer == null)
+            {
+                return false;
+            }
+            return IsBacklogged(peer.GetPacketsCountInQueue(BasisNetworkCommons.DirectSceneServerChannel, DeliveryMethod.ReliableOrdered));
         }
 
         /// <summary>Reads the server link and folds one sample into the estimate.</summary>
@@ -79,7 +105,10 @@ namespace Basis.ImagePickup
                 BasisNetworkCommons.DirectSceneServerChannel,
                 DeliveryMethod.ReliableOrdered
             );
-            Observe(now, peer.RoundTripTime, queued);
+            if (Observe(now, peer.RoundTripTime, queued, _bucketLimited))
+            {
+                _bucketLimited = false;
+            }
         }
 
         /// <summary>
@@ -139,64 +168,63 @@ namespace Basis.ImagePickup
         }
 
         /// <summary>
-        /// One control step. While the outgoing queue is deeper than
-        /// <see cref="BasisImagePickupSettings.LinkProbeQueueBackoffPackets"/> the rate is halved and
-        /// nothing else applies; otherwise it moves toward
-        /// <see cref="BasisImagePickupSettings.TargetQueuingDelayMs"/> of queuing delay. Either way it never
-        /// leaves the configured floor and ceiling — so a transfer always makes some progress, and a fast
-        /// LAN cannot talk the estimate into something the rest of the client will not survive.
-        ///
-        /// The baseline round trip is whatever the first effective sample reports, so a probe that starts
-        /// during congestion measures from a congested baseline until the window re-arms. That is the usual
-        /// trade for delay-based control and is why the baseline expires rather than only ever falling.
+        /// One control step. A backlog halves the rate once when it appears and again only if the queue keeps
+        /// growing, since the queue drains at its own pace and halving on every sample until it empties would
+        /// collapse the rate to the floor. Queuing delay over the target brakes at
+        /// <see cref="BasisImagePickupSettings.LinkProbeBackoffFraction"/> per second; under it the rate climbs
+        /// at <see cref="BasisImagePickupSettings.LinkProbeRampFraction"/> per second, but only when the bucket
+        /// was what held sends back, so an idle link cannot talk the estimate up to the ceiling. Returns
+        /// whether the sample was taken.
         /// </summary>
-        internal static void Observe(float now, float roundTripMs, int queuedPackets)
+        internal static bool Observe(float now, float roundTripMs, int queuedPackets, bool bucketLimited = true)
         {
             if (_rateBytesPerSecond <= 0f)
+            {
                 _rateBytesPerSecond = BasisImagePickupSettings.StartingUplinkBudgetBytesPerSecond;
-
+            }
             if (_lastSampleTime <= 0f)
             {
                 _lastSampleTime = now;
-                return;
+                return false;
             }
-
             float elapsed = now - _lastSampleTime;
             if (elapsed < BasisImagePickupSettings.LinkProbeIntervalSeconds)
-                return;
+            {
+                return false;
+            }
             _lastSampleTime = now;
             _queuedPackets = queuedPackets;
-
+            elapsed = Mathf.Min(elapsed, BasisImagePickupSettings.LinkProbeMaxStepSeconds);
             if (roundTripMs > 0f)
             {
                 UpdateBaseline(now, roundTripMs);
                 _queuingDelayMs = Mathf.Max(0f, roundTripMs - _baseRoundTripMs);
             }
-
             if (queuedPackets >= BacklogLimit(_rateBytesPerSecond))
             {
-                // The backlog reading replaces the delay response rather than being averaged with it. A
-                // step that both ramped up and then halved would settle at the ramp constant no matter how
-                // badly the queue was backed up, since the two cancel; yielding outright decays toward the
-                // floor for as long as the transport stays behind.
-                _rateBytesPerSecond *= BasisImagePickupSettings.LinkProbeQueueBackoffFactor;
+                if (!_backlogEpisode || queuedPackets > _backoffQueuedPackets)
+                {
+                    _rateBytesPerSecond *= BasisImagePickupSettings.LinkProbeQueueBackoffFactor;
+                }
+                _backlogEpisode = true;
+                _backoffQueuedPackets = queuedPackets;
             }
             else
             {
+                _backlogEpisode = false;
                 float target = BasisImagePickupSettings.TargetQueuingDelayMs;
-                float offTarget = target > 0f ? (target - _queuingDelayMs) / target : 0f;
-                float step = Mathf.Max(
-                    BasisImagePickupSettings.LinkProbeRampBytesPerSecond,
-                    _rateBytesPerSecond * BasisImagePickupSettings.LinkProbeRampFraction
-                );
-                _rateBytesPerSecond += step * Mathf.Clamp(offTarget, -1f, 1f) * elapsed;
+                float offTarget = Mathf.Clamp(target > 0f ? (target - _queuingDelayMs) / target : 0f, -1f, 1f);
+                if (offTarget < 0f)
+                {
+                    _rateBytesPerSecond *= Mathf.Pow(1f + BasisImagePickupSettings.LinkProbeBackoffFraction, offTarget * elapsed);
+                }
+                else if (bucketLimited)
+                {
+                    _rateBytesPerSecond *= Mathf.Pow(1f + BasisImagePickupSettings.LinkProbeRampFraction, offTarget * elapsed);
+                }
             }
-
-            _rateBytesPerSecond = Mathf.Clamp(
-                _rateBytesPerSecond,
-                BasisImagePickupSettings.MinUplinkBudgetBytesPerSecond,
-                BasisImagePickupSettings.MaxUplinkBudgetBytesPerSecond
-            );
+            _rateBytesPerSecond = Mathf.Clamp(_rateBytesPerSecond, BasisImagePickupSettings.MinUplinkBudgetBytesPerSecond, BasisImagePickupSettings.MaxUplinkBudgetBytesPerSecond);
+            return true;
         }
     }
 }

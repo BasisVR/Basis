@@ -272,7 +272,6 @@ public static partial class BasisSceneFactory
         {
             UniversalAdditionalCameraData Data = BasisLocalCameraDriver.Instance.CameraData;
 
-            Data.stopNaN = AdditionalCameraData.stopNaN;
             Data.dithering = AdditionalCameraData.dithering;
 
             Data.volumeTrigger = AdditionalCameraData.volumeTrigger;

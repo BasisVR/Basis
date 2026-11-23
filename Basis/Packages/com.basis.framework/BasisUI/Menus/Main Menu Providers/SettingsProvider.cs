@@ -3392,8 +3392,8 @@ namespace Basis.BasisUI
             PanelSectionToggleHelpers.FinalizeCollapsibleGroup(avatarsToggle, avatarsGroup, false,
                 _ => RebuildGroup(avatarsGroup));
 
-            // --- Foveated rendering: only where there is something to offer ---
-            if (BasisDeviceManagement.IsCurrentModeVR() || BasisVariableRateShadingFeature.IsSupported)
+            // --- Foveated rendering: only where there is something to offer; on desktop only with Show Developer Tab ---
+            if (BasisDeviceManagement.IsCurrentModeVR() || (BasisVariableRateShadingFeature.IsSupported && BasisSettingsDefaults.ShowDeveloperTab.RawValue))
             {
                 PanelElementDescriptor foveatedGroup = CreateSection("settings.graphics.group.foveated", out PanelSectionToggle foveatedToggle);
 

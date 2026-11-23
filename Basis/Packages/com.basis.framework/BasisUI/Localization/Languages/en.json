@@ -6995,6 +6995,30 @@
       "value": "Cancel this load. Networked items are removed for everyone; local items stop downloading."
     },
     {
+      "key": "library.instantiated.predownload.downloading",
+      "value": "Downloading {0}%"
+    },
+    {
+      "key": "library.instantiated.predownload.downloadingCounts",
+      "value": "Downloading {0}%, {1} of {2} players ready"
+    },
+    {
+      "key": "library.instantiated.predownload.waiting",
+      "value": "Downloaded, waiting on {0} of {1} players"
+    },
+    {
+      "key": "library.instantiated.predownload.failedWaiting",
+      "value": "Download failed here, waiting on {0} of {1} players"
+    },
+    {
+      "key": "library.instantiated.predownload.cancel.tooltip",
+      "value": "Cancel this for everyone."
+    },
+    {
+      "key": "library.instantiated.predownload.cancel.disabled",
+      "value": "Only an admin or the player who started this can cancel it."
+    },
+    {
       "key": "library.shareable.avatar",
       "value": "Shared Avatar"
     },
@@ -14905,6 +14929,42 @@
     {
       "key": "notifications.downloads.cancel",
       "value": "Cancel Download"
+    },
+    {
+      "key": "notifications.downloads.waitingOn",
+      "value": "Waiting on {0}"
+    },
+    {
+      "key": "notifications.downloads.andMore",
+      "value": "{0} and {1} more"
+    },
+    {
+      "key": "notifications.downloads.startedBy",
+      "value": "Started by {0}"
+    },
+    {
+      "key": "notifications.downloads.readyCount",
+      "value": "{0} of {1} players ready"
+    },
+    {
+      "key": "notifications.downloads.failedFor",
+      "value": "Failed for {0}"
+    },
+    {
+      "key": "notifications.downloads.notResponding",
+      "value": "Not responding: {0}"
+    },
+    {
+      "key": "notifications.downloads.server",
+      "value": "Server"
+    },
+    {
+      "key": "notifications.downloads.unknownPlayer",
+      "value": "Player {0}"
+    },
+    {
+      "key": "notifications.downloads.cancelEveryone",
+      "value": "Cancel for Everyone"
     },
     {
       "key": "notifications.downloads.cancelling",

@@ -2,6 +2,7 @@ mod audio;
 mod encoder;
 mod sources;
 mod video;
+mod wine;
 
 use std::sync::Arc;
 use std::thread::JoinHandle;
@@ -11,14 +12,23 @@ use crate::{CaptureError, Shared, SourceInfo};
 pub(crate) use sources::{Target, resolve};
 
 pub fn sources() -> Vec<SourceInfo> {
+    if wine::detected() {
+        return wine::sources();
+    }
     sources::list()
 }
 
 pub fn supported() -> bool {
+    if wine::detected() {
+        return wine::supported();
+    }
     windows::Graphics::Capture::GraphicsCaptureSession::IsSupported().unwrap_or(false)
 }
 
 pub fn open(shared: &Arc<Shared>) -> Result<Vec<JoinHandle<()>>, CaptureError> {
+    if wine::detected() {
+        return wine::open(shared);
+    }
     if !supported() {
         return Err(CaptureError(
             "Windows Graphics Capture is not available (Windows 10 1903 or later)".into(),

@@ -410,6 +410,7 @@ namespace Basis.ImagePickup
         private static int _connectionGeneration;
         private static int _identityResolveGeneration = -1;
         private static float _nextRecipientRangeRefreshTime;
+        private static float _lastInboundChunkTime;
 
         /// <summary>
         /// Last replication range we reported, so a server that never advertised one - the single most
@@ -1840,20 +1841,23 @@ namespace Basis.ImagePickup
         /// for each of them separately. Every queued transfer carries a non-empty cohort, so there is no
         /// broadcast case to fall back to.
         /// </summary>
-        private static void CountRecipients(ushort[] recipients, out int directCount, out int relayCount)
+        private static void CountRecipients(ushort[] recipients, out int directCount, out int relayCount, out int directQueuedPackets)
         {
             directCount = 0;
             relayCount = 0;
+            directQueuedPackets = 0;
             int recipientCount = recipients.Length;
             for (int i = 0; i < recipientCount; i++)
             {
-                if (
-                    BasisP2PManager.GetSessionState(recipients[i])
-                    == BasisP2PManager.P2PSessionState.Connected
-                )
+                if (BasisP2PManager.TryGetP2PPeer(recipients[i], out NetPeer directPeer))
+                {
                     directCount++;
+                    directQueuedPackets = Math.Max(directQueuedPackets, directPeer.GetPacketsCountInQueue(BasisNetworkCommons.DirectSceneChannel, DeliveryMethod.ReliableOrdered));
+                }
                 else
+                {
                     relayCount++;
+                }
             }
         }
 
@@ -1863,12 +1867,20 @@ namespace Basis.ImagePickup
         /// </summary>
         private static bool TryReserveSendBandwidth(int payloadBytes, ushort[] recipients)
         {
-            CountRecipients(recipients, out int directCount, out int relayCount);
-            return BasisImagePickupBandwidth.TryConsume(
-                payloadBytes + BasisNetworkGenericMessages.SceneDataFramingBytes(recipients),
-                directCount,
-                relayCount
-            );
+            CountRecipients(recipients, out int directCount, out int relayCount, out int directQueuedPackets);
+            if ((relayCount > 0 && BasisImagePickupLinkProbe.ServerLinkBacklogged()) || BasisImagePickupLinkProbe.IsBacklogged(directQueuedPackets))
+            {
+                return false;
+            }
+            if (BasisImagePickupBandwidth.TryConsume(payloadBytes + BasisNetworkGenericMessages.SceneDataFramingBytes(recipients), directCount, relayCount))
+            {
+                return true;
+            }
+            if (BasisImagePickupBandwidth.UplinkTokens <= 0d)
+            {
+                BasisImagePickupLinkProbe.NoteBucketLimited();
+            }
+            return false;
         }
 
         private static void UpdateTransferProgressGizmos(float now)
@@ -2595,6 +2607,7 @@ namespace Basis.ImagePickup
                     Time.unscaledTime
                     + BasisImagePickupSettings.InboundTransferTimeoutSeconds;
                 transfer.LastProgressTime = Time.unscaledTime;
+                _lastInboundChunkTime = Time.unscaledTime;
                 Buffer.BlockCopy(buffer, ImageChunkHeaderBytes, transfer.Buffer, offset, length);
                 transfer.Received[chunkIndex] = true;
                 transfer.ReceivedCount++;
@@ -2783,6 +2796,7 @@ namespace Basis.ImagePickup
                 transfer.Deadline =
                     Time.unscaledTime
                     + BasisImagePickupSettings.InboundTransferTimeoutSeconds;
+                _lastInboundChunkTime = Time.unscaledTime;
                 NativeArray<byte>.Copy(buffer, ImageChunkHeaderBytes, transfer.Buffer, offset, length);
                 transfer.Received[chunkIndex] = 1;
                 transfer.ReceivedCount++;
@@ -4043,6 +4057,16 @@ namespace Basis.ImagePickup
             result.TakeAnimationPayload()?.Dispose();
         }
 
+        private static bool InboundTransferExpired(float now, float deadline)
+        {
+            if (now < deadline)
+            {
+                return false;
+            }
+            return now - _lastInboundChunkTime >= BasisImagePickupSettings.InboundTransferTimeoutSeconds
+                || now - deadline >= BasisImagePickupSettings.InboundTransferQueuedTimeoutSeconds - BasisImagePickupSettings.InboundTransferTimeoutSeconds;
+        }
+
         private static void CleanupExpiredTransfers(float now)
         {
             if (_inbound.Count > 0)
@@ -4051,7 +4075,7 @@ namespace Basis.ImagePickup
                 foreach (KeyValuePair<Guid, InboundTransfer> entry in _inbound)
                 {
                     InboundTransfer inbound = entry.Value;
-                    if (now >= inbound.Deadline)
+                    if (InboundTransferExpired(now, inbound.Deadline))
                     {
                         _scratchIds.Add(entry.Key);
                         continue;
@@ -4061,6 +4085,8 @@ namespace Basis.ImagePickup
                     if (
                         !inbound.StallLogged
                         && now - inbound.LastProgressTime
+                            >= BasisImagePickupSettings.StalledTransferWarningSeconds
+                        && now - _lastInboundChunkTime
                             >= BasisImagePickupSettings.StalledTransferWarningSeconds
                     )
                     {
@@ -4099,8 +4125,10 @@ namespace Basis.ImagePickup
                 _scratchIds.Clear();
                 foreach (KeyValuePair<Guid, InboundAnimationTransfer> entry in _inboundAnimations)
                 {
-                    if (now >= entry.Value.Deadline)
+                    if (InboundTransferExpired(now, entry.Value.Deadline))
+                    {
                         _scratchIds.Add(entry.Key);
+                    }
                 }
                 int expiredAnimationCount = _scratchIds.Count;
                 for (int i = 0; i < expiredAnimationCount; i++)

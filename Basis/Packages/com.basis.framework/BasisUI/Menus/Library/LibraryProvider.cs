@@ -101,6 +101,7 @@ namespace Basis.BasisUI
             BasisRuntimeSpawnRegistry.OnPendingLoadsChanged -= OnPendingLoadsChanged;
             BasisRuntimeSpawnRegistry.OnPendingLoadProgress -= OnPendingLoadProgress;
             BasisRuntimeSpawnRegistry.OnFailedLoadsChanged -= OnFailedLoadsChanged;
+            BasisNetworkPreloadManager.OnPredownloadChanged -= OnPredownloadChanged;
             BasisShareableRegistry.OnChanged -= OnShareablesRegistryChanged;
             BasisNetworkManagement.OnlocalPermissionsChanged -= ProtectionValidation;
         }
@@ -776,6 +777,7 @@ namespace Basis.BasisUI
                     BasisRuntimeSpawnRegistry.OnPendingLoadsChanged -= OnPendingLoadsChanged;
                     BasisRuntimeSpawnRegistry.OnPendingLoadProgress -= OnPendingLoadProgress;
                     BasisRuntimeSpawnRegistry.OnFailedLoadsChanged -= OnFailedLoadsChanged;
+                    BasisNetworkPreloadManager.OnPredownloadChanged -= OnPredownloadChanged;
                     BasisShareableRegistry.OnChanged -= OnShareablesRegistryChanged;
                 }
             }
@@ -916,6 +918,9 @@ namespace Basis.BasisUI
 
                     BasisRuntimeSpawnRegistry.OnFailedLoadsChanged -= OnFailedLoadsChanged;
                     BasisRuntimeSpawnRegistry.OnFailedLoadsChanged += OnFailedLoadsChanged;
+
+                    BasisNetworkPreloadManager.OnPredownloadChanged -= OnPredownloadChanged;
+                    BasisNetworkPreloadManager.OnPredownloadChanged += OnPredownloadChanged;
 
                     BasisShareableRegistry.OnChanged -= OnShareablesRegistryChanged;
                     BasisShareableRegistry.OnChanged += OnShareablesRegistryChanged;
@@ -2606,6 +2611,8 @@ namespace Basis.BasisUI
 
             BuildPendingLoadsList(page);
 
+            BuildPredownloadsList(page);
+
             // rebuild the page items
             BuildItemsListForInstantiatedObjects(collections, page);
 
@@ -2884,6 +2891,140 @@ namespace Basis.BasisUI
                     }
 
                     await RefreshCurrentTab();
+                },
+            });
+        }
+
+        private static readonly Dictionary<string, PanelElementDescriptor> _predownloadRowInfo = new();
+
+        private static bool ShowPredownloadRow(BasisNetworkPreloadManager.PredownloadStatus status) => BasisNetworkPreloadManager.IsInProgress(status);
+
+        private static void OnPredownloadChanged(BasisNetworkPreloadManager.PredownloadStatus status)
+        {
+            if (panel == null || panel.IsReleased || status == null)
+            {
+                return;
+            }
+            bool listed = _predownloadRowInfo.TryGetValue(status.LoadedNetID, out PanelElementDescriptor info);
+            bool show = ShowPredownloadRow(status);
+            if (listed && show)
+            {
+                if (info != null)
+                {
+                    info.SetDescription(PredownloadStatusText(status));
+                }
+                return;
+            }
+            if (!listed && !show)
+            {
+                return;
+            }
+            UpdateInstantiatedTab();
+        }
+
+        private static string PredownloadTitle(BasisNetworkPreloadManager.PredownloadStatus status)
+        {
+            if (!string.IsNullOrEmpty(status.Name))
+            {
+                return status.Name;
+            }
+            if (CachedMetaData.TryGetMeta(status.Url, out var meta) && !string.IsNullOrEmpty(meta.Name))
+            {
+                return meta.Name;
+            }
+            return status.Url;
+        }
+
+        private static string PredownloadStatusText(BasisNetworkPreloadManager.PredownloadStatus status)
+        {
+            int waiting = status.Left;
+            switch (status.Local)
+            {
+                case BasisNetworkPreloadManager.PredownloadLocalState.Ready:
+                    return BasisNetworkPreloadManager.DescribeWaiting(status, 3) ?? BasisLocalization.Get("library.instantiated.predownload.waiting", waiting, status.Total);
+                case BasisNetworkPreloadManager.PredownloadLocalState.Failed:
+                    return BasisLocalization.Get("library.instantiated.predownload.failedWaiting", waiting, status.Total);
+                default:
+                    int percent = Mathf.Clamp(Mathf.RoundToInt(status.LocalProgress), 0, 99);
+                    return status.HasCounts && status.Total > 0 ? BasisLocalization.Get("library.instantiated.predownload.downloadingCounts", percent, status.Ready, status.Total) : BasisLocalization.Get("library.instantiated.predownload.downloading", percent);
+            }
+        }
+
+        private static void BuildPredownloadsList(PanelTabPage tab)
+        {
+            _predownloadRowInfo.Clear();
+            RectTransform container = tab.Descriptor.ContentParent;
+            foreach (BasisNetworkPreloadManager.PredownloadStatus status in BasisNetworkPreloadManager.GetPredownloads())
+            {
+                if (!ShowPredownloadRow(status))
+                {
+                    continue;
+                }
+                string title = PredownloadTitle(status);
+                BasisRuntimeSpawnRegistry.SpawnMode mode = status.Mode == 1 ? BasisRuntimeSpawnRegistry.SpawnMode.Scene : BasisRuntimeSpawnRegistry.SpawnMode.GameObject;
+                if (!RowPassesFilters(mode, BasisRuntimeSpawnRegistry.SpawnMethod.Network, status.Creator, false, false, title))
+                {
+                    _predownloadRowInfo[status.LoadedNetID] = null;
+                    continue;
+                }
+                CreatePredownloadListEntry(status, mode, title, container);
+            }
+        }
+
+        private static void CreatePredownloadListEntry(BasisNetworkPreloadManager.PredownloadStatus status, BasisRuntimeSpawnRegistry.SpawnMode mode, string title, RectTransform parentTabGroup)
+        {
+            PanelTabGroup itemListPanel = PanelTabGroup.CreateNew(PanelTabGroup.TabGroupStyles.HorizontalStackedNoBackground, parentTabGroup);
+            if (itemListPanel.TabButtonParent.gameObject.TryGetComponent<UiStyleImage>(out UiStyleImage imageStyle))
+            {
+                imageStyle.SetStyle("Menu Element");
+            }
+            itemListPanel.Descriptor.SetWidth(1400);
+            itemListPanel.Descriptor.SetHeight(95);
+            PanelImage spawnModePanelImage = PanelImage.CreateNew(PanelImage.ImageStyles.SimpleSquare, itemListPanel.TabButtonParent);
+            spawnModePanelImage.SetSize(new Vector2(80, 80));
+            if (mode == BasisRuntimeSpawnRegistry.SpawnMode.Scene)
+            {
+                spawnModePanelImage.SetIcon(AddressableAssets.Sprites.World);
+                spawnModePanelImage.Descriptor.SetTooltip(BasisLocalization.Get("library.instantiated.icon.type.scene.tooltip"));
+            }
+            else
+            {
+                spawnModePanelImage.SetIcon(AddressableAssets.Sprites.Items);
+                spawnModePanelImage.Descriptor.SetTooltip(BasisLocalization.Get("library.instantiated.icon.type.gameObject.tooltip"));
+            }
+            PanelImage spawnMethodPanelImage = PanelImage.CreateNew(PanelImage.ImageStyles.SimpleSquare, itemListPanel.TabButtonParent);
+            spawnMethodPanelImage.SetSize(new Vector2(80, 80));
+            spawnMethodPanelImage.SetIcon(AddressableAssets.Sprites.Network);
+            spawnMethodPanelImage.Descriptor.SetTooltip(BasisLocalization.Get("library.instantiated.icon.method.network.tooltip"));
+            PanelImage loadingPanelImage = PanelImage.CreateNew(PanelImage.ImageStyles.SimpleSquare, itemListPanel.TabButtonParent);
+            loadingPanelImage.SetSize(new Vector2(80, 80));
+            loadingPanelImage.SetIcon(AddressableAssets.Sprites.HourGlass);
+            loadingPanelImage.Descriptor.SetTooltip(BasisLocalization.Get(status.Synchronized ? "library.syncSpawn" : "library.downloadForEveryone"));
+            PanelTextField itemTextInfo = PanelTextField.CreateNew(TextFieldStyles.Entry, itemListPanel.TabButtonParent);
+            itemTextInfo._inputField.gameObject.SetActive(false);
+            itemTextInfo.Descriptor.SetTitle(title);
+            itemTextInfo.Descriptor.SetDescription(PredownloadStatusText(status));
+            itemTextInfo.Descriptor.SetHeight(50);
+            itemTextInfo.Descriptor.SetWidth(400);
+            _predownloadRowInfo[status.LoadedNetID] = itemTextInfo.Descriptor;
+            bool canCancel = BasisNetworkPreloadManager.CanCancel(status, IsProtected);
+            string netId = status.LoadedNetID;
+            BuildEntryActionButton(itemListPanel.TabButtonParent, new EntryActionButton
+            {
+                Style = ButtonStyles.CancelButton,
+                Icon = AddressableAssets.Sprites.Trash,
+                Tooltip = BasisLocalization.Get("library.instantiated.predownload.cancel.tooltip"),
+                Disabled = !canCancel,
+                DisabledReason = canCancel ? null : BasisLocalization.Get("library.instantiated.predownload.cancel.disabled"),
+                OnClick = async () =>
+                {
+                    bool result = await LibraryProviderDialogRemove.PromptUserForRemoval(panel, title, mode.ToString());
+                    if (!result)
+                    {
+                        return;
+                    }
+                    BasisDebug.Log($"CreatePredownloadListEntry() -> requested cancel of {status.Url} NetID = {netId}");
+                    BasisNetworkPreloadManager.RequestCancel(netId);
                 },
             });
         }

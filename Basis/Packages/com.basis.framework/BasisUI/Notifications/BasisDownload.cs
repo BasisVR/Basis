@@ -16,18 +16,21 @@ namespace Basis.BasisUI
         public volatile float Progress;
         public volatile string Stage;
         public volatile bool CancelRequested;
+        public volatile string DisplayName, Details;
+        public Action CancelAction;
+        public Func<bool> CancelAllowed;
 
         internal CancellationTokenSource Cancellation;
         internal BasisProgressReport Report;
         internal bool Ended;
 
-        public bool CanCancel => Cancellation != null && !Ended;
+        public bool CanCancel => !Ended && (Cancellation != null || (CancelAction != null && (CancelAllowed == null || CancelAllowed())));
 
         public string ContentName
         {
             get
             {
-                string name = Bundle?.BasisBundleConnector?.BasisBundleDescription?.AssetBundleName;
+                string name = DisplayName ?? Bundle?.BasisBundleConnector?.BasisBundleDescription?.AssetBundleName;
                 return string.IsNullOrWhiteSpace(name) ? null : name;
             }
         }

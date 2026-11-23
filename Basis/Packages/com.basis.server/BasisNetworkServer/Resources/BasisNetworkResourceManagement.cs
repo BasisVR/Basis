@@ -249,6 +249,11 @@ public static class BasisNetworkResourceManagement
             BNL.LogWarning($"Peer {peer.Id} tried to unload [{unLoadResource.LoadedNetID}] they did not create while content removal is locked.");
             return;
         }
+        if (!isCreatorUnload && !isModeratorUnload && BasisNetworkPreloadResourceManagement.IsActive(unLoadResource.LoadedNetID))
+        {
+            BNL.LogWarning($"Peer {peer.Id} tried to cancel synchronized load [{unLoadResource.LoadedNetID}], only an admin or the player who started it can.");
+            return;
+        }
 
         // Only remove AFTER validation
         if (!UshortNetworkDatabase.TryRemove(unLoadResource.LoadedNetID, out _))

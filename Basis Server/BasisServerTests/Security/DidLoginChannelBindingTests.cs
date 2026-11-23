@@ -484,30 +484,37 @@ public class DidLoginAdmissionTests
     }
 
     [Fact]
-    public void DuplicateLimit_CountsVerifiedLoginsOnly()
+    public void DuplicateLimit_RetryDisplacesTheGhostSession()
     {
         using var scope = new ServerStaticsScope();
         BasisDidLink.BasisDIDAuthIdentity identity = UseDidLogin(duplicates: 1);
         var player = NewPlayer();
         Login first = Connect(identity, player);
-        Login second = Connect(identity, player);
         try
         {
-            Assert.True(second.Peer.HasSentOn(BasisNetworkCommons.AuthIdentityChannel));
-
             Respond(first, GenuineTranscript(first));
             Assert.True(WaitFor(() => Admitted(first)));
-            Respond(second, GenuineTranscript(second));
-            Assert.True(WaitFor(() => second.Peer.DisconnectCalls > 0));
 
-            Assert.Equal("To Many Auths From this DID!", RefusalReason(second.Peer));
-            Assert.False(Admitted(second));
-            Assert.True(Admitted(first));
-            Assert.Equal(1, identity.CheckForDuplicates(player.Did));
+            Login second = Connect(identity, player);
+            try
+            {
+                Assert.True(second.Peer.HasSentOn(BasisNetworkCommons.AuthIdentityChannel));
+                Respond(second, GenuineTranscript(second));
+                Assert.True(WaitFor(() => Admitted(second)));
+                Assert.True(WaitFor(() => first.Peer.DisconnectCalls > 0));
+
+                Assert.Equal("Signed in again from another connection.", RefusalReason(first.Peer));
+                Assert.False(Admitted(first));
+                Assert.Equal(0, second.Peer.DisconnectCalls);
+                Assert.Equal(1, identity.CheckForDuplicates(player.Did));
+            }
+            finally
+            {
+                Release(second);
+            }
         }
         finally
         {
-            identity.RemoveConnection(second.Peer.Id);
             Release(first);
         }
     }

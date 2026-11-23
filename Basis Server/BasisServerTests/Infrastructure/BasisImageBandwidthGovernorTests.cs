@@ -223,6 +223,27 @@ public class BasisImageBandwidthGovernorTests : IDisposable
     }
 
     [Fact]
+    public void PacedReplay_WaitsWhileTheJoinersImageChannelIsBackedUp()
+    {
+        NetworkServer.Configuration.ImageShareDownloadMegabitsPerSecond = 200;
+
+        var peer = new ImageCacheRecordingPeer(9) { QueuedPackets = 256 };
+        int sent = 0;
+        BasisImageBandwidthGovernor.SendPayload = (p, owner, payload) => sent++;
+
+        var payloads = Payloads(8, 1024);
+        Assert.True(BasisImageBandwidthGovernor.EnqueueReplay(peer, payloads));
+
+        BasisImageBandwidthGovernor.PumpOnceForTests();
+        Assert.Equal(0, sent);
+        Assert.True(BasisImageBandwidthGovernor.HasPendingReplay(peer.Id));
+
+        peer.QueuedPackets = 0;
+        BasisImageBandwidthGovernor.PumpOnceForTests();
+        Assert.Equal(payloads.Count, sent);
+    }
+
+    [Fact]
     public void DepartedPeer_DropsItsQueuedReplay()
     {
         NetworkServer.Configuration.ImageShareDownloadMegabitsPerSecond = 1;

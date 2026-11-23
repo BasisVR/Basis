@@ -2,8 +2,9 @@ using Basis.Network.Core;
 public static class BasisPredownloadProtocol
 {
     public const string MessageName = "basis.core.resource.predownload";
-    public const byte OpDone = 0, OpProgress = 1, OpClosed = 2, OpStatus = 3;
+    public const byte OpDone = 0, OpProgress = 1, OpClosed = 2, OpStatus = 3, OpCancel = 4;
     public const ushort ServerRequester = ushort.MaxValue;
+    public const int MaxNamedPeers = 16;
     public const byte SwapReplaceWorlds = 0, SwapClearAll = 1, SwapKeepAll = 2;
     public const byte StrategySynchronized = 2, StrategySynchronizedClearAll = 4, StrategySynchronizedKeepAll = 5;
 }
