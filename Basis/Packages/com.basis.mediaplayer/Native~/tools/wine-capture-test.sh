@@ -89,6 +89,7 @@ case "$mode" in
         ;;
 esac
 
+grep -q "^PASS" "$out/probe.log" 2>/dev/null || { [ "$status" = 0 ] && status=1; }
 echo "probe exit $status"
 grep -E "RESULT|PASS|FAIL|capture helper|error" "$out/probe.log" "$out/run.log" 2>/dev/null | tail -40
 if [ -s "$out/probe.h264" ]; then
