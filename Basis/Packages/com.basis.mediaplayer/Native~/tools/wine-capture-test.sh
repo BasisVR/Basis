@@ -48,9 +48,20 @@ for _ in $(seq 50); do
 done
 export WAYLAND_DISPLAY=wayland-1
 dbus-update-activation-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_RUNTIME_DIR
-/usr/libexec/xdg-desktop-portal-wlr -l DEBUG > "$out/xdpw.log" 2>&1 & pids+=($!)
+libexec() {
+    for dir in /usr/libexec /usr/lib /usr/lib/xdg-desktop-portal; do
+        [ -x "$dir/$1" ] && { echo "$dir/$1"; return; }
+    done
+    echo "$1"
+}
+for _ in $(seq 10); do
+    grim "$out/grim.png" 2> "$out/grim.txt" && break
+    sleep 0.5
+done
+echo "grim: $( [ -s "$out/grim.png" ] && echo ok || cat "$out/grim.txt")"
+"$(libexec xdg-desktop-portal-wlr)" -l DEBUG > "$out/xdpw.log" 2>&1 & pids+=($!)
 sleep 1
-/usr/libexec/xdg-desktop-portal -v > "$out/xdp.log" 2>&1 & pids+=($!)
+"$(libexec xdg-desktop-portal)" -v > "$out/xdp.log" 2>&1 & pids+=($!)
 sleep 2
 
 winpath="Z:${out}/probe"

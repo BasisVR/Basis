@@ -86,7 +86,7 @@ jobs:
           sudo dpkg --add-architecture i386
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends sway foot fonts-dejavu-core dbus dbus-user-session \
-            pipewire pipewire-bin wireplumber xdg-desktop-portal xdg-desktop-portal-wlr ffmpeg bzip2 curl
+            pipewire pipewire-bin wireplumber xdg-desktop-portal xdg-desktop-portal-wlr ffmpeg bzip2 curl grim
           if [ "${{ matrix.mode }}" = wine ]; then
             sudo apt-get install -y --no-install-recommends wine wine64
           fi
@@ -99,7 +99,7 @@ jobs:
         if: matrix.mode == 'proton'
         run: |
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-          url=$(curl -fsSL https://api.github.com/repos/Open-Wine-Components/umu-launcher/releases/latest \
+          url=$(curl -fsSL -H "Authorization: Bearer ${{ github.token }}" https://api.github.com/repos/Open-Wine-Components/umu-launcher/releases/latest \
             | python3 -c "import json,sys; print(next(a['browser_download_url'] for a in json.load(sys.stdin)['assets'] if 'zipapp' in a['name']))")
           mkdir -p umu && curl -fsSL "$url" | tar -x -C umu
           echo "UMU_RUN=$(find "$PWD/umu" -name umu-run -type f | head -1)" >> "$GITHUB_ENV"
@@ -114,3 +114,51 @@ jobs:
             out-${{ matrix.mode }}/*.txt
             out-${{ matrix.mode }}/*.png
             out-${{ matrix.mode }}/probe.h264
+
+  run-arch:
+    needs: probe
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [wine, proton]
+    container:
+      image: archlinux:latest
+      options: --privileged
+    steps:
+      - name: Install the desktop, portal and Wine
+        run: |
+          printf '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n' >> /etc/pacman.conf
+          pacman -Syu --noconfirm --needed sway foot ttf-dejavu dbus pipewire wireplumber xdg-desktop-portal \
+            xdg-desktop-portal-wlr ffmpeg grim openh264 python which tar curl util-linux
+          if [ "${{ matrix.mode }}" = wine ]; then
+            pacman -S --noconfirm --needed wine
+          fi
+          useradd -m tester
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: wine-probe
+          path: probe
+      - name: Install umu-launcher
+        if: matrix.mode == 'proton'
+        run: |
+          url=$(curl -fsSL -H "Authorization: Bearer ${{ github.token }}" https://api.github.com/repos/Open-Wine-Components/umu-launcher/releases/latest \
+            | python3 -c "import json,sys; print(next(a['browser_download_url'] for a in json.load(sys.stdin)['assets'] if 'zipapp' in a['name']))")
+          mkdir -p /opt/umu && curl -fsSL "$url" | tar -x -C /opt/umu
+          echo "UMU_RUN=$(find /opt/umu -name umu-run -type f | head -1)" >> "$GITHUB_ENV"
+      - name: Run the probe
+        run: |
+          mkdir -p "out-arch-${{ matrix.mode }}"
+          chown -R tester "$PWD"
+          runuser -u tester -- env UMU_RUN="${UMU_RUN:-}" HOME=/home/tester bash "$NATIVE_DIR/tools/wine-capture-test.sh" ${{ matrix.mode }} probe/wine_probe.exe "out-arch-${{ matrix.mode }}" 20
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: result-arch-${{ matrix.mode }}
+          path: |
+            out-arch-${{ matrix.mode }}/*.log
+            out-arch-${{ matrix.mode }}/*.txt
+            out-arch-${{ matrix.mode }}/*.png
+            out-arch-${{ matrix.mode }}/probe.h264
