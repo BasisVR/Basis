@@ -538,43 +538,23 @@ MonoBehaviour:
     elbowBendPrefRightWeights: {x: 0, y: 1, z: 0}
     spineBendNormalWeights: {x: 0, y: 1, z: 0}
   BasisLocalFootDriver:
-    predictionFactor: 0.9
-    velocityBiasFactor: 0.18
-    leadOffsetFactor: 0.6
-    maxVelocityOffsetFraction: 0.35
-    maxPredictionFraction: 0.35
-    plantedLerpSpeed: 40
-    rotationLerpSpeed: 16
-    velocitySmoothAccel: 10
-    velocitySmoothDecel: 50
-    bodyFwdRateMoving: 6
-    bodyFwdRateStationary: 2.5
-    kneeHintLerpSpeed: 10
-    maxFootTiltDegrees: 35
-    maxFootYawDegrees: 18
-    raySphereRadiusMul: 0.3
+    rayLengthFraction: 1.5
+    maxFootTiltDegrees: 30
+    minFootGapFraction: 0.12
+    stepDistanceFraction: 0.15
+    stepAngleDegrees: 35
+    overstretch: 1
+    stepHeightFraction: 0.1
+    stepDurationMul: 0.3
+    minStepDurationMul: 0.214
+    stepPrediction: 0.8
+    stepOverlap: 0.8
+    settleDelay: 0.5
+    settleDistanceFraction: 0.05
+    settleAngleDegrees: 10
+    teleportDistanceFraction: 1
     footHeightOffsetMul: 0.2
-    stepTriggerMul: 0.08
-    strideScaleMul: 0.12
-    stepHeightMul: 0.18
-    stepDurSlowMul: 0.3
-    stepDurFastMul: 0.18
     fastSpeedMul: 1.2
-    stepArcLiftExp: 0.6
-    stepArcDropExp: 1.4
-    stepHeightMinFraction: 0.4
-    idleSpeedThreshold: 0.05
-    idleBoostFraction: 0.5
-    maxPlantedYawDegrees: 35
-    idealSideEnforceFraction: 0.3
-    stepTargetSideFraction: 0.15
-    footSideEnforceFraction: 0.2
-    maxVerticalDriftFraction: 0.25
-    kneeForwardPushFraction: 0.4
-    kneeMinSideFraction: 0.05
-    bodyFwdHipsWeight: 3
-    bodyFwdChestWeight: 2
-    bodyFwdHeadWeight: 1
     hipBobFraction: 0.02
     stanceWidth: 0
     hipToFoot: 0
@@ -587,13 +567,18 @@ MonoBehaviour:
     footLength: 0
     ankleHeight: 0
     upperLegToFootVertical: 0
-    stepTriggerDist: 0
-    strideScale: 0
-    stepHeightCalc: 0
-    stepDurSlow: 0
-    stepDurFast: 0
-    raySphereRadius: 0
+    footRestHeight: 0
+    stepDistance: 0
+    stepHeight: 0
+    stepDuration: 0
+    minStepDuration: 0
+    minFootGap: 0
+    settleDistance: 0
+    teleportDistance: 0
+    rayLength: 0
+    hipJointDrop: 0
     footHeightOffset: 0
+    footHangOffset: 0
     fastSpeedRef: 0
   LocalCharacterDriver:
     LocalPlayer: {fileID: 4587526044252889482}

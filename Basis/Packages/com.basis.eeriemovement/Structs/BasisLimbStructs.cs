@@ -4,56 +4,38 @@ using UnityEngine;
 using Unity.Mathematics;
 public struct BasisFootNativeState
 {
+    public const float SettledPlantedTime = 10f;
     public int sideSign;
     public float thighLen, shinLen, legLength;
+    public bool placed;
     public int phase;
-    public float3 plantedPos;
-    public quaternion plantedRot;
-    public float3 plantedBodyFwd, stepStartPos, stepTargetPos;
+    public float3 plantedPos, plantedBodyFwd, stepStartPos, stepTargetPos;
     public quaternion stepStartRot;
-    public float stepTimer, stepDur, stepArcScale, plantedTime, stepUrgency;
-    public quaternion landRot;
+    public float stepTimer, stepDur, stepProgress, plantedTime;
     public float3 idealPos, filteredNormal, currentPos;
     public quaternion currentRot;
     public float toeBendDeg;
     public float3 toeBendAxis;
-    public bool wantsStep;
-    public float3 predictedTargetXZ;
 }
 public struct BasisFootSimState
 {
-    public float3 prevHeadPos;
-    public float prevHeadYaw;
-    public float3 smoothedVelocity, smoothedBodyFwd, smoothedBodyRight, prevBodyFwd;
-    public float smoothedYawRateDeg, smoothedAccelMag;
-    public float3 prevRootFwd;
-    public bool wasAirborne, hasPrevHeadPos;
+    public float3 prevHipsPos, smoothedVelocity;
+    public float stillTime;
+    public bool hasPrevHipsPos, settlePending;
 }
 public struct BasisFootSimInput
 {
     public float dt;
-    public float3 headPos, hipsPos;
-    public quaternion hipsRot, chestRot, headRot;
-    public float3 avatarForward, avatarRight;
-    public bool hasChest, groundHit;
-    public float3 groundPoint;
-    public bool leftGroundValid, rightGroundValid;
-    public float leftGroundUp, rightGroundUp;
-    public float3 playerUp;
+    public float3 hipsPos, facingFwd, avatarForward, playerUp;
+    public bool leftHit, rightHit;
+    public float3 leftPoint, leftNormal, leftOrigin, rightPoint, rightNormal, rightOrigin;
 }
 public struct BasisFootSimParams
 {
-    public float predictionFactor, velocityBiasFactor, leadOffsetFactor, maxVelocityOffsetFraction;
-    public float maxPredictionFraction, plantedLerpSpeed, rotationLerpSpeed, velocitySmoothAccel, velocitySmoothDecel;
-    public float bodyFwdRateMoving, bodyFwdRateStationary, maxFootTiltDegrees, maxFootYawDegrees;
-    public float stepArcLiftExp, stepArcDropExp, stepHeightMinFraction, stepHeightStrideRefFraction, idleSpeedThreshold;
-    public float idleBoostFraction, maxPlantedYawDegrees, idealSideEnforceFraction, stepTargetSideFraction;
-    public float footSideEnforceFraction, maxVerticalDriftFraction;
-    public float bodyFwdHipsWeight, bodyFwdChestWeight, bodyFwdHeadWeight, hipBobFraction;
+    public float stanceWidth, minFootGap, stepDistance, stepDuration, minStepDuration, stepHeight, stepAngle, overstretch;
+    public float stepOverlap, settleDelay, settleDistance, settleAngle, teleportDistance, maxFootTiltDegrees, rayLength;
+    public float legLength, leftLegLen, rightLegLen, hipToFoot, hipJointDrop, footHeightOffset, hipBobFraction, fastSpeedRef;
     public quaternion footAlignLeft, footAlignRight;
-    public float stanceWidth, hipToFoot, leftLegLen, rightLegLen, leftThighLen, leftShinLen, rightThighLen;
-    public float rightShinLen, footLength, ankleHeight, stepTriggerDist, strideScale, stepHeightCalc, stepDurSlow;
-    public float stepDurFast, raySphereRadius, footHeightOffset, footHangOffset, fastSpeedRef, rayCastRange;
 }
 public struct BasisFootSimOutput
 {
