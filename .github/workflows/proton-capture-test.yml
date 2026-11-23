@@ -89,6 +89,8 @@ jobs:
           fi
           useradd -m tester
           mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix
+          sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          sysctl -w kernel.unprivileged_userns_clone=1 || true
       - uses: actions/checkout@v5
       - uses: actions/download-artifact@v4
         with:
