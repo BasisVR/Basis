@@ -100,7 +100,28 @@ fn load() -> Result<Api, CaptureError> {
     ];
     #[cfg(windows)]
     const NAMES: [&str; 1] = ["openh264-2.6.0-win64.dll"];
-    for name in NAMES {
+    #[cfg(not(windows))]
+    const HOST_DIRS: [&str; 5] = [
+        "/run/host/usr/lib/x86_64-linux-gnu",
+        "/run/host/usr/lib64",
+        "/run/host/usr/lib",
+        "/run/host/usr/local/lib",
+        "/run/host/lib/x86_64-linux-gnu",
+    ];
+    #[cfg(windows)]
+    const HOST_DIRS: [&str; 0] = [];
+    let host = HOST_DIRS.iter().flat_map(|dir| {
+        NAMES
+            .iter()
+            .map(move |name| format!("{dir}/{name}"))
+            .filter(|path| std::path::Path::new(path).exists())
+    });
+    let candidates: Vec<String> = NAMES
+        .iter()
+        .map(|name| name.to_string())
+        .chain(host)
+        .collect();
+    for name in &candidates {
         // SAFETY: loading the system OpenH264 runs only its own initialisers.
         let lib = match unsafe { Library::new(name) } {
             Ok(lib) => lib,
