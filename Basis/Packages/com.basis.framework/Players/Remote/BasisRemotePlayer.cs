@@ -594,6 +594,10 @@ namespace Basis.Scripts.BasisSdk.Players
             MouthTransform = mouth.transform;
 
             // Nameplate: a standalone scene root, also positioned by the bone job.
+            if (!Basis.Scripts.Common.BasisAppConfig.Feature(Basis.Scripts.Common.BasisAppConfig.Nameplates))
+            {
+                return;
+            }
             GameObject data = UnityEngine.Object.Instantiate(LoadFromHandle(LoadableNamePlatename));
             UnityEngine.Object.DontDestroyOnLoad(data);
             if (data.TryGetComponent(out BasisRemoteNamePlate plate))

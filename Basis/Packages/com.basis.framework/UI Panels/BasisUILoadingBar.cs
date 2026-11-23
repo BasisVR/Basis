@@ -227,7 +227,7 @@ namespace Basis.Scripts.UI.UI_Panels
                 return;
             }
 
-            if (!IsRoutedElsewhere && Instance == null)
+            if (!IsRoutedElsewhere && Instance == null && Basis.Scripts.Common.BasisAppConfig.Feature(Basis.Scripts.Common.BasisAppConfig.LoadingBar))
             {
                 BasisUIBase.OpenMenuNow(LoadingBar);
             }

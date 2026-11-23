@@ -546,7 +546,7 @@ namespace Basis.BasisUI
             private int _downloadDialogPercent = -1;
             private string _downloadDialogStage;
             private PanelElementDescriptor _downloadDialogDetails;
-            private string _downloadDialogDetailsText;
+            private string _downloadDialogDetailsText, _downloadDialogTitle;
 
             private readonly Dictionary<Guid, DownloadCard> _downloadCards = new();
             private readonly HashSet<Guid> _liveDownloadIds = new();
@@ -1309,6 +1309,7 @@ namespace Basis.BasisUI
                 _downloadDialogStage = null;
                 _downloadDialogDetails = null;
                 _downloadDialogDetailsText = null;
+                _downloadDialogTitle = DownloadTitle(download);
                 if (download.CancelAction != null || !string.IsNullOrEmpty(download.Details))
                 {
                     PanelElementDescriptor details = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Entry, content);
@@ -1356,6 +1357,13 @@ namespace Basis.BasisUI
             {
                 BasisDownload download = _downloadDialogTarget;
                 if (download == null || _downloadDialogStatus == null) return;
+
+                string title = DownloadTitle(download);
+                if (_downloadDialog != null && _downloadDialog.Descriptor != null && !string.Equals(title, _downloadDialogTitle, StringComparison.Ordinal))
+                {
+                    _downloadDialogTitle = title;
+                    _downloadDialog.Descriptor.SetTitle(title);
+                }
 
                 string detailsText = download.Details;
                 if (_downloadDialogDetails != null && !ReferenceEquals(detailsText, _downloadDialogDetailsText))

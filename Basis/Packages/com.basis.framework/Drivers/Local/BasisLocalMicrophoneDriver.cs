@@ -218,6 +218,10 @@ public static partial class BasisLocalMicrophoneDriver
     public static bool Initialize()
     {
         if (IsInitialize) return true;
+        if (!Basis.Scripts.Common.BasisAppConfig.Feature(Basis.Scripts.Common.BasisAppConfig.Microphone))
+        {
+            return false;
+        }
         try
         {
             isPaused = ResolvePausedFromSettings();
@@ -376,6 +380,10 @@ public static partial class BasisLocalMicrophoneDriver
 
     public static bool ResetMicrophones(string newMicrophone)
     {
+        if (!Basis.Scripts.Common.BasisAppConfig.Feature(Basis.Scripts.Common.BasisAppConfig.Microphone))
+        {
+            return false;
+        }
 #if UNITY_WEBGL && !UNITY_EDITOR
         return ResetWebMicrophone(newMicrophone);
 #else

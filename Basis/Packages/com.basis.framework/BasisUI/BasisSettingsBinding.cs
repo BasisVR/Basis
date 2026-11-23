@@ -83,7 +83,7 @@ namespace Basis
         public BasisSettingsBinding(string bindingPath)
         {
             BindingKey = bindingPath;
-            DefaultValue = new BasisPlatformDefault<T>();
+            DefaultValue = ConfiguredDefault(bindingPath, new BasisPlatformDefault<T>());
             LoadBindingValue();
             BasisSettingsBindings.Register(this);
         }
@@ -91,11 +91,15 @@ namespace Basis
         public BasisSettingsBinding(string bindingPath, BasisPlatformDefault<T> defaultValue)
         {
             BindingKey = bindingPath;
-            DefaultValue = defaultValue;
+            DefaultValue = ConfiguredDefault(bindingPath, defaultValue);
             LoadBindingValue();
             BasisSettingsBindings.Register(this);
         }
 
+        private static BasisPlatformDefault<T> ConfiguredDefault(string key, BasisPlatformDefault<T> builtIn)
+        {
+            return Basis.Scripts.Common.BasisAppConfig.TryGetSetting(key, out T value) ? new BasisPlatformDefault<T>(value) : builtIn;
+        }
         public void ResetToDefault()
         {
             SetValue(DefaultValue.GetDefault());

@@ -399,6 +399,11 @@ public static partial class BasisNetworkModeration
                 // OpenDialogue refuses to stack; release the existing one first.
                 BasisMainMenu.Instance.Dialogue.ReleaseInstance();
             }
+            if (!BasisMainMenu.Instance)
+            {
+                BasisDebug.Log(message);
+                return;
+            }
 
             BasisMainMenu.Instance.OpenDialogue(BasisLocalization.Get("settings.admin.title"), message, BasisLocalization.Get("ui.ok"), value =>
             {
@@ -429,6 +434,10 @@ public static partial class BasisNetworkModeration
         else if (BasisMainMenu.Instance.Dialogue)
         {
             BasisMainMenu.Instance.Dialogue.ReleaseInstance();
+        }
+        if (!BasisMainMenu.Instance)
+        {
+            return;
         }
 
         BasisMainMenu.Instance.OpenDialogue(BasisLocalization.Get("settings.admin.title"), message, BasisLocalization.Get("ui.openFolder"), BasisLocalization.Get("ui.ok"), accepted =>

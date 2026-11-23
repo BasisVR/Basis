@@ -68,7 +68,7 @@ namespace Basis.Scripts.UI
 
         public static void Create()
         {
-            if (initialized)
+            if (initialized || !Basis.Scripts.Common.BasisAppConfig.Feature(Basis.Scripts.Common.BasisAppConfig.JoinLeaveMessages))
             {
                 return;
             }

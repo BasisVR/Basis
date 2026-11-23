@@ -2896,6 +2896,7 @@ namespace Basis.BasisUI
         }
 
         private static readonly Dictionary<string, PanelElementDescriptor> _predownloadRowInfo = new();
+        private static readonly Dictionary<string, string> _predownloadRowTitle = new();
 
         private static bool ShowPredownloadRow(BasisNetworkPreloadManager.PredownloadStatus status) => BasisNetworkPreloadManager.IsInProgress(status);
 
@@ -2907,6 +2908,11 @@ namespace Basis.BasisUI
             }
             bool listed = _predownloadRowInfo.TryGetValue(status.LoadedNetID, out PanelElementDescriptor info);
             bool show = ShowPredownloadRow(status);
+            if (listed && show && info != null && _predownloadRowTitle.TryGetValue(status.LoadedNetID, out string shownTitle) && !string.Equals(shownTitle, PredownloadTitle(status), StringComparison.Ordinal))
+            {
+                UpdateInstantiatedTab();
+                return;
+            }
             if (listed && show)
             {
                 if (info != null)
@@ -2953,6 +2959,7 @@ namespace Basis.BasisUI
         private static void BuildPredownloadsList(PanelTabPage tab)
         {
             _predownloadRowInfo.Clear();
+            _predownloadRowTitle.Clear();
             RectTransform container = tab.Descriptor.ContentParent;
             foreach (BasisNetworkPreloadManager.PredownloadStatus status in BasisNetworkPreloadManager.GetPredownloads())
             {
@@ -3007,6 +3014,7 @@ namespace Basis.BasisUI
             itemTextInfo.Descriptor.SetHeight(50);
             itemTextInfo.Descriptor.SetWidth(400);
             _predownloadRowInfo[status.LoadedNetID] = itemTextInfo.Descriptor;
+            _predownloadRowTitle[status.LoadedNetID] = title;
             bool canCancel = BasisNetworkPreloadManager.CanCancel(status, IsProtected);
             string netId = status.LoadedNetID;
             BuildEntryActionButton(itemListPanel.TabButtonParent, new EntryActionButton

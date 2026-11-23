@@ -221,6 +221,11 @@ public class BasisAvatarPedestal : BasisInteractableObject
             WasJustPressed = true;
 
             BasisMainMenu.Open();
+            if (!BasisMainMenu.Instance)
+            {
+                WasJustPressed = false;
+                return;
+            }
             BasisMainMenu.Instance.OpenDialogue(BasisLocalization.Get("avatarPedestal.title"), "Do You Want To Swap Into This Avatar?", "yes","no", value =>
             {
                 if (value)

@@ -415,8 +415,13 @@ namespace Basis.BasisUI
             _tooltipTween = null;
         }
 
+        public static bool Enabled => Basis.Scripts.Common.BasisAppConfig.Feature(Basis.Scripts.Common.BasisAppConfig.MainMenu);
         public static void Open()
         {
+            if (!Enabled)
+            {
+                return;
+            }
             BasisUILoadingBar.SetHudSuppressed(true);
             BasisUIManagement.CloseAllMenus();
 
@@ -443,6 +448,10 @@ namespace Basis.BasisUI
         public static void OpenWithProvider(BasisMenuActionProvider<BasisMainMenu> provider)
         {
             Open();
+            if (!Instance)
+            {
+                return;
+            }
             // Landing on a named provider is deliberate navigation, not a prompt displacing a
             // page, so there is nothing to put back. Dropping the snapshot Open just took stops
             // the next in-menu confirmation from being restored onto the page we came from.
@@ -568,6 +577,10 @@ namespace Basis.BasisUI
 
         public static BasisMenuPanel CreateActiveMenu(BasisMenuPanel.PanelData data, string style, BasisMenuActionProvider<BasisMainMenu> provider = null)
         {
+            if (!Instance)
+            {
+                return null;
+            }
             if (Instance.Dialogue)
             {
                 Instance.Dialogue.ReleaseInstance();

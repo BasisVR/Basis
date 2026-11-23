@@ -38,6 +38,10 @@ namespace Basis.BasisUI
         {
             if (_instance == null || entry == null) return;
             BasisMainMenu.Open();
+            if (!BasisMainMenu.Instance)
+            {
+                return;
+            }
             if (_instance._panel == null) _instance.RunAction();
             _instance.PromptForPassword(entry);
         }

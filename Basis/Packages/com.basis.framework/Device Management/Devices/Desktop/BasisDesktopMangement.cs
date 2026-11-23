@@ -55,7 +55,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 BasisAvatarEyeInput.Initialize(DesktopEye, nameof(BasisDesktopManagement));
                 BasisDeviceManagement.Instance.TryAdd(BasisAvatarEyeInput);
             }
-            if (BasisDeviceManagement.IsMobileHardware() || AlwaysSpawnHeadsUpControls)
+            if ((BasisDeviceManagement.IsMobileHardware() || AlwaysSpawnHeadsUpControls) && Basis.Scripts.Common.BasisAppConfig.Feature(Basis.Scripts.Common.BasisAppConfig.OnScreenControls))
             {
                 UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<GameObject> op = Addressables.InstantiateAsync(OnScreenControls, BasisLocalCameraDriver.Instance.transform, true);
                 Controls = op.WaitForCompletion();

@@ -55,6 +55,7 @@ public static partial class BasisNetworkPreloadManager
         public CancellationTokenSource Cancel;
         public float Progress;
         public volatile string Stage;
+        public volatile BasisLoadableBundle Bundle;
         public int Shown = -1;
     }
     private static readonly ConcurrentDictionary<string, SharedDownload> inFlight = new ConcurrentDictionary<string, SharedDownload>();
@@ -78,7 +79,7 @@ public static partial class BasisNetworkPreloadManager
     private static async Task<BasisTrackedBundleWrapper> DownloadShared(LocalLoadResource resource)
     {
         string key = DownloadKey(resource.CombinedURL);
-        if (!inFlight.TryGetValue(key, out SharedDownload shared) || shared.Task.IsCompleted)
+        if (!inFlight.TryGetValue(key, out SharedDownload shared) || shared.Task.IsCompleted || shared.Cancel.IsCancellationRequested)
         {
             shared = new SharedDownload { Cancel = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token) };
             shared.Task = DownloadToDisc(resource, shared, key);
@@ -101,6 +102,7 @@ public static partial class BasisNetworkPreloadManager
                 },
                 UnlockPassword = resource.UnlockPassword,
             };
+            shared.Bundle = loadBundle;
             BasisTrackedBundleWrapper wrapper = new BasisTrackedBundleWrapper
             {
                 LoadableBundle = loadBundle,
@@ -237,8 +239,21 @@ public static partial class BasisNetworkPreloadManager
         return lines.Count == 0 ? null : string.Join("\n", lines);
     }
     private static bool LocalIsAdmin() => BasisNetworkManagement.LocalPermissions.Contains(PermNodes.protection);
+    private static void AdoptBundleName(PredownloadStatus status)
+    {
+        if (!string.IsNullOrEmpty(status.Name) || string.IsNullOrEmpty(status.DownloadKey) || !inFlight.TryGetValue(status.DownloadKey, out SharedDownload shared))
+        {
+            return;
+        }
+        string name = CleanName(shared.Bundle?.BasisBundleConnector?.BasisBundleDescription?.AssetBundleName);
+        if (!string.IsNullOrEmpty(name))
+        {
+            status.Name = name;
+        }
+    }
     private static void SyncDownloadEntry(PredownloadStatus status)
     {
+        AdoptBundleName(status);
         if (!IsInProgress(status))
         {
             if (status.Entry != null)

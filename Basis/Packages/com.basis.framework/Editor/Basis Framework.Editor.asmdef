@@ -9,6 +9,7 @@
         "OpusSharp",
         "BasisNetworkCore",
         "BasisSettings",
+        "BasisCommon",
         "BasisSDKEditor"
     ],
     "includePlatforms": [

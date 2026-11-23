@@ -492,6 +492,11 @@ namespace Basis.Scripts.Networking.VoiceRecording
             {
                 BasisMainMenu.Open();
             }
+            if (!BasisMainMenu.Instance)
+            {
+                Decide(false);
+                return;
+            }
             BasisMainMenu.Instance.OpenDialogue(title, body, accept, deny, Decide, divertible: true,
                 category: BasisNotificationCategory.Player);
         }

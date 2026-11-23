@@ -13,6 +13,7 @@ if [ -z "${INSIDE_SESSION:-}" ]; then
     mkdir -p ~/.config/sway ~/.config/xdg-desktop-portal-wlr ~/.config/xdg-desktop-portal
     cat > ~/.config/sway/config <<'EOF'
 output HEADLESS-1 mode 1280x720
+xwayland force
 exec foot sh -c 'while true; do date +%s.%N; sleep 0.02; done'
 EOF
     cat > ~/.config/xdg-desktop-portal-wlr/config <<'EOF'
@@ -47,7 +48,13 @@ for _ in $(seq 50); do
     sleep 0.2
 done
 export WAYLAND_DISPLAY=wayland-1
-dbus-update-activation-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_RUNTIME_DIR
+for _ in $(seq 50); do
+    [ -S /tmp/.X11-unix/X0 ] && break
+    sleep 0.2
+done
+export DISPLAY=:0
+echo "xwayland: $( [ -S /tmp/.X11-unix/X0 ] && echo ok || echo missing)"
+dbus-update-activation-environment DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_RUNTIME_DIR
 libexec() {
     for dir in /usr/libexec /usr/lib /usr/lib/xdg-desktop-portal; do
         [ -x "$dir/$1" ] && { echo "$dir/$1"; return; }
@@ -68,7 +75,7 @@ winpath="Z:${out}/probe"
 status=0
 case "$mode" in
     wine)
-        export WINEPREFIX="$out/prefix" WINEDEBUG=-all
+        export WINEPREFIX="$out/prefix" WINEDEBUG=-all WINEDLLOVERRIDES="mscoree=;mshtml="
         wineboot -i > "$out/wineboot.log" 2>&1
         timeout $((seconds + 90)) wine "$probe" "$winpath" "$seconds" > "$out/run.log" 2>&1 || status=$?
         ;;
@@ -82,6 +89,7 @@ case "$mode" in
         ;;
 esac
 
+grep -q "^PASS" "$out/probe.log" 2>/dev/null || { [ "$status" = 0 ] && status=1; }
 echo "probe exit $status"
 grep -E "RESULT|PASS|FAIL|capture helper|error" "$out/probe.log" "$out/run.log" 2>/dev/null | tail -40
 if [ -s "$out/probe.h264" ]; then
