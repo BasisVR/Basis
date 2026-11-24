@@ -545,8 +545,8 @@ MonoBehaviour:
     stepAngleDegrees: 35
     overstretch: 1
     stepHeightFraction: 0.1
-    stepDurationMul: 0.3
-    minStepDurationMul: 0.214
+    stepDurationSeconds: 0.28
+    minStepDurationSeconds: 0.2
     stepPrediction: 0.8
     stepOverlap: 0.8
     settleDelay: 0.5

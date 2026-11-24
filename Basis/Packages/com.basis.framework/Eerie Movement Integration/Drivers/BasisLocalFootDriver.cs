@@ -38,12 +38,12 @@ public partial class BasisLocalFootDriver
     [Tooltip("Lift of a full-distance step, as a fraction of leg length. Shorter steps lift less.")]
     [SerializeField, Range(0f, 0.5f)]
     private float stepHeightFraction = 0.1f;
-    [Tooltip("Step duration standing still, as a fraction of the leg's pendulum period. Shortens with speed.")]
+    [Tooltip("Step duration in seconds standing still. Shortens with speed. Same for every avatar size.")]
     [SerializeField, Range(0.1f, 1f)]
-    private float stepDurationMul = 0.3f;
-    [Tooltip("Shortest step duration, as a fraction of the leg's pendulum period.")]
+    private float stepDurationSeconds = 0.28f;
+    [Tooltip("Shortest step duration in seconds.")]
     [SerializeField, Range(0.05f, 1f)]
-    private float minStepDurationMul = 0.214f;
+    private float minStepDurationSeconds = 0.2f;
     [Tooltip("How far ahead the stance spots lead the hips, in step durations of hips velocity.")]
     [SerializeField, Range(0f, 2f)]
     private float stepPrediction = 0.8f;
@@ -505,15 +505,14 @@ public partial class BasisLocalFootDriver
     private void DeriveStepParameters()
     {
         float avgLeg = (leftLegLen + rightLegLen) * 0.5f;
-        float pendulum = Mathf.PI * Mathf.Sqrt(avgLeg / 9.81f);
         float speedRef = Mathf.Sqrt(avgLeg * 9.81f);
 
         DeriveFootHeights(ankleHeight, footRestHeight, upperLegToFootVertical, avgLeg, footHeightOffsetMul, out footHeightOffset, out footHangOffset);
 
         stepDistance = avgLeg * stepDistanceFraction;
         stepHeight = avgLeg * stepHeightFraction;
-        stepDuration = pendulum * stepDurationMul;
-        minStepDuration = Mathf.Min(pendulum * minStepDurationMul, stepDuration);
+        stepDuration = stepDurationSeconds;
+        minStepDuration = Mathf.Min(minStepDurationSeconds, stepDuration);
         minFootGap = Mathf.Min(avgLeg * minFootGapFraction, stanceWidth);
         settleDistance = avgLeg * settleDistanceFraction;
         teleportDistance = avgLeg * teleportDistanceFraction;

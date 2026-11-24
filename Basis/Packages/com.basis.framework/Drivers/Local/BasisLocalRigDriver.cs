@@ -1220,6 +1220,7 @@ namespace Basis.Scripts.Drivers
                 quaternion* rOut = (quaternion*)rotOutputs.GetUnsafeReadOnlyPtr();
                 Vector3 hipsPos = pOut[sHips];
                 hipsPos -= framePlayerUpDirection * localPlayer.LocalCharacterDriver.landingCrouchEffect;
+                ApplyHipsOverrideToTargets(in data, ref hipsPos, ref frameHipsRotation);
                 data.targetPositionHips = hipsPos;
                 data.targetRotationHips = frameHipsRotation;
                 data.targetPositionHead = pOut[sHead];
@@ -1244,6 +1245,24 @@ namespace Basis.Scripts.Drivers
                 data.targetRotationChest = chestRot;
             }
             BasisLocalPlayerMarkers.IKDestBuildIKTargets.End();
+        }
+        static void ApplyHipsOverrideToTargets(in BasisEerieMovement data, ref Vector3 position, ref Quaternion rotation)
+        {
+            int s = BasisEerieMovement.Slot((int)HumanBodyBones.Hips);
+            if (s < 0 || s >= data.slotWeights.Length || !data.slotWeights[s] || (data.plan.boundSlots & (1u << s)) == 0 || s >= data.slotPositions.Length || s >= data.slotRotations.Length)
+            {
+                return;
+            }
+            float blend = s < data.slotBlends.Length ? data.slotBlends[s] : 1f;
+            if (!(blend > 0f))
+            {
+                return;
+            }
+            blend = Mathf.Min(blend, 1f);
+            Quaternion offset = s < data.slotOffsets.Length ? data.slotOffsets[s] : Quaternion.identity;
+            Quaternion overrideRotation = data.slotRotations[s] * offset * Quaternion.Inverse(data.offsetRotationHips);
+            position = Vector3.Lerp(position, data.slotPositions[s], blend);
+            rotation = Quaternion.Slerp(rotation, overrideRotation, blend);
         }
         void Step09FillFootTargets()
         {
