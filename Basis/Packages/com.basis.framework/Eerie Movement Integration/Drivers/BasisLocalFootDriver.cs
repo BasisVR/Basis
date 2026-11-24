@@ -25,6 +25,9 @@ public partial class BasisLocalFootDriver
     [Tooltip("Closest the feet may get sideways, as a fraction of leg length.")]
     [SerializeField, Range(0f, 0.5f)]
     private float minFootGapFraction = 0.12f;
+    [Tooltip("Extra forward (+) or back (-) shift of the stance spots on top of the avatar's T-pose foot offset, as a fraction of leg length.")]
+    [SerializeField, Range(-0.3f, 0.3f)]
+    private float stanceForwardFraction = 0f;
     [Header("Stepping")]
     [Tooltip("Distance from its stance spot that makes a foot step, as a fraction of leg length.")]
     [SerializeField, Range(0.05f, 1f)]
@@ -87,6 +90,8 @@ public partial class BasisLocalFootDriver
     [SerializeField] private float ankleHeight;
     [SerializeField] private float upperLegToFootVertical;
     [SerializeField] private float footRestHeight;
+    [SerializeField] private float stanceForward;
+    private float baseStanceForward;
     private float baseStanceWidth, baseHipToFoot, baseLeftThighLen, baseLeftShinLen, baseLeftLegLen, baseRightThighLen;
     private float baseRightShinLen, baseRightLegLen, baseFootLength, baseAnkleHeight, baseUpperLegToFootVertical, baseFootRestHeight;
     [Header("Derived Step Parameters (read-only)")]
@@ -145,29 +150,35 @@ public partial class BasisLocalFootDriver
         {
             return;
         }
-        ReEngageFoot(ref Foot(0), leftFootBone, FootWorldPosition(BasisLocalBoneDriver.LeftFootControl, leftFootBone), footAlignLeft);
-        ReEngageFoot(ref Foot(1), rightFootBone, FootWorldPosition(BasisLocalBoneDriver.RightFootControl, rightFootBone), footAlignRight);
+        bool hasInput = nativeInput.IsCreated;
+        BasisFootSimInput inp = hasInput ? nativeInput[0] : default;
+        ReEngageFoot(ref Foot(0), hasInput && inp.leftHit, inp.leftNormal, footAlignLeft);
+        ReEngageFoot(ref Foot(1), hasInput && inp.rightHit, inp.rightNormal, footAlignRight);
         if (nativeSimState.IsCreated)
         {
             ref BasisFootSimState sim = ref UnsafeUtility.ArrayElementAsRef<BasisFootSimState>(nativeSimState.GetUnsafePtr(), 0);
             sim.settlePending = true;
         }
     }
-    private void ReEngageFoot(ref BasisFootNativeState f, Transform bone, Vector3 position, Quaternion align)
+    private void ReEngageFoot(ref BasisFootNativeState f, bool hit, float3 hitNormal, Quaternion align)
     {
-        f.placed = true;
-        f.phase = BasisFootSimulateJob.PhasePlanted;
-        f.currentPos = f.plantedPos = f.stepTargetPos = position;
-        f.plantedTime = BasisFootNativeState.SettledPlantedTime;
-        f.filteredNormal = cachedPlayerUp;
-        f.plantedBodyFwd = float3.zero;
-        if (bone != null)
+        if (math.lengthsq(f.idealPos) < 1e-12f)
         {
-            Quaternion rot = bone.rotation;
-            f.currentRot = f.stepStartRot = rot;
-            Vector3 fwd = ProjectHorizontal(rot * Quaternion.Inverse(align) * Vector3.forward);
-            if (fwd.sqrMagnitude > 1e-6f) f.plantedBodyFwd = fwd.normalized;
+            f.placed = false;
+            return;
         }
+        float3 up = cachedPlayerUp;
+        float3 normal = hit ? BasisFootSimulateJob.ClampTilt(hitNormal, up, math.radians(maxFootTiltDegrees)) : up;
+        float3 facing = lastFacing;
+        f.placed = true;
+        f.phase = hit ? BasisFootSimulateJob.PhasePlanted : BasisFootSimulateJob.PhaseHanging;
+        f.currentPos = f.plantedPos = f.stepTargetPos = f.idealPos;
+        f.currentRot = f.stepStartRot = BasisFootSimulateJob.FootRotation(facing, normal, align);
+        f.plantedBodyFwd = facing;
+        f.filteredNormal = normal;
+        f.plantedTime = BasisFootNativeState.SettledPlantedTime;
+        f.stepProgress = 0f;
+        f.stepTimer = 0f;
     }
     public void Teleport(Vector3 delta)
     {
@@ -218,11 +229,6 @@ public partial class BasisLocalFootDriver
     {
         var c = BasisLocalBoneDriver.HipsControl;
         return c.HasStore ? c.OutgoingWorldData.position : BasisLocalPose.GetPosition(BasisPoseSlot.Hips, hips);
-    }
-    private static Vector3 FootWorldPosition(BasisLocalBoneControl c, Transform bone)
-    {
-        if (c != null && c.HasStore) return c.OutgoingWorldData.position;
-        return bone != null ? bone.position : Vector3.zero;
     }
     public void InitializeVariables()
     {
@@ -395,6 +401,18 @@ public partial class BasisLocalFootDriver
             FallbackHipToFoot();
         }
 
+        stanceForward = 0f;
+        if (hasHips && (hasLF || hasRF))
+        {
+            Vector3 up = mapping.AvatarUpwards.sqrMagnitude > 1e-6f ? mapping.AvatarUpwards.normalized : Vector3.up;
+            Vector3 fwd = Vector3.ProjectOnPlane(mapping.AvatarForwards, up);
+            if (fwd.sqrMagnitude > 1e-6f)
+            {
+                Vector3 feet = hasLF && hasRF ? (tLF + tRF) * 0.5f : hasLF ? tLF : tRF;
+                stanceForward = Vector3.Dot(feet - tH, fwd.normalized);
+            }
+        }
+
         if (hasLUL && hasLLL && hasLF)
         {
             leftThighLen = Vector3.Distance(tLUL, tLLL);
@@ -494,6 +512,8 @@ public partial class BasisLocalFootDriver
         footLength = Mathf.Max(0.02f, footLength);
         ankleHeight = Mathf.Max(0.005f, ankleHeight);
         footRestHeight = footRestHeight > ankleHeight ? footRestHeight : ankleHeight;
+        float legRef = (leftLegLen + rightLegLen) * 0.5f;
+        stanceForward = Mathf.Clamp(stanceForward, -0.25f * legRef, 0.25f * legRef);
     }
     public static void DeriveFootHeights(float ankleHeight, float footRestHeight, float upperLegToFootVertical, float avgLeg, float hangMul, out float plantedOffset, out float hangOffset)
     {
@@ -536,6 +556,7 @@ public partial class BasisLocalFootDriver
         baseAnkleHeight = ankleHeight;
         baseUpperLegToFootVertical = upperLegToFootVertical;
         baseFootRestHeight = footRestHeight;
+        baseStanceForward = stanceForward;
     }
     public void RefreshBodyFitScale()
     {
@@ -570,6 +591,7 @@ public partial class BasisLocalFootDriver
         ankleHeight = baseAnkleHeight * scale;
         footRestHeight = baseFootRestHeight * scale;
         upperLegToFootVertical = baseUpperLegToFootVertical * legScale;
+        stanceForward = baseStanceForward * scale;
 
         DeriveStepParameters();
 
@@ -642,8 +664,9 @@ public partial class BasisLocalFootDriver
         float avgLeg = (leftLegLen + rightLegLen) * 0.5f;
         float predictionTime = BasisFootSimulateJob.DurationAt(predictionVelocity.magnitude, stepDuration, minStepDuration, avgLeg) * stepPrediction;
         Vector3 prediction = predictionVelocity * predictionTime;
-        Vector3 leftOrigin = hipsPosition - side * (0.5f * stanceWidth) + prediction;
-        Vector3 rightOrigin = hipsPosition + side * (0.5f * stanceWidth) + prediction;
+        Vector3 stanceCenter = hipsPosition + facing * (stanceForward + stanceForwardFraction * avgLeg) + prediction;
+        Vector3 leftOrigin = stanceCenter - side * (0.5f * stanceWidth);
+        Vector3 rightOrigin = stanceCenter + side * (0.5f * stanceWidth);
         bool leftHit = GroundCast(leftOrigin, -cachedPlayerUp, rayLength, hipsUpComponent, out RaycastHit lh);
         bool rightHit = GroundCast(rightOrigin, -cachedPlayerUp, rayLength, hipsUpComponent, out RaycastHit rh);
         LastGroundHit = leftHit || rightHit;
