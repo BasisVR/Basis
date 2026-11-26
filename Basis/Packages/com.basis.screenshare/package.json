@@ -9,7 +9,7 @@
   },
   "license": "MIT",
   "dependencies": {
-    "com.unity.addressables": "4.2.0",
+    "com.unity.addressables": "5.0.0",
     "com.unity.ugui": "2.7.0"
   },
   "vpmDependencies": {

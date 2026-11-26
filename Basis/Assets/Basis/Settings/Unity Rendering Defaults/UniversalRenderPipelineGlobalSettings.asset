@@ -81,6 +81,7 @@ MonoBehaviour:
       - rid: 8580723549207527432
       - rid: 5535555232957464576
       - rid: 5535555232957464577
+      - rid: 7708171952021569536
     m_RuntimeSettings:
       m_List:
       - rid: 2858994164428701699
@@ -112,6 +113,7 @@ MonoBehaviour:
       - rid: 8580723549207527432
       - rid: 5535555232957464576
       - rid: 5535555232957464577
+      - rid: 7708171952021569536
   m_AssetVersion: 14
   m_ObsoleteDefaultVolumeProfile: {fileID: 0}
   m_RenderingLayerNames:
@@ -428,6 +430,11 @@ MonoBehaviour:
       data:
         m_Version: 0
         m_UberPostShader: {fileID: 4800000, guid: fe4f13c1004a07d4ea1e30bfd0326d9e, type: 3}
+    - rid: 7708171952021569536
+      type: {class: URPLightFalloffSettings, ns: UnityEngine.Rendering.Universal, asm: Unity.RenderPipelines.Universal.Runtime}
+      data:
+        m_Version: 1
+        m_LightFalloffMode: 0
     - rid: 8580723549207527424
       type: {class: Shadow2DGeometrySettings, ns: UnityEngine.Rendering.Universal, asm: Unity.RenderPipelines.Universal.2D.Runtime}
       data:

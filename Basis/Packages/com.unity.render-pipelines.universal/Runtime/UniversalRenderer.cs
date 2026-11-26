@@ -928,7 +928,7 @@ namespace UnityEngine.Rendering.Universal
 #endif
 
             if (isOffscreenRender)
-                return requiresBlitForOffscreenCamera;
+                return requiresBlitForOffscreenCamera || isScaledRender;
 
             return requiresBlitForOffscreenCamera || isScaledRender || isScalableBufferManagerUsed || cameraData.isHdrEnabled ||
                 !isCompatibleBackbufferTextureDimension || isCapturing || cameraData.requireSrgbConversion;

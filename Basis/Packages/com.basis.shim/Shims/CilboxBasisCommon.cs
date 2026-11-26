@@ -831,6 +831,7 @@ namespace Cilbox
 		internal CilboxBasisConsent.Scan consentScan;
 		internal BasisContentBase ownerContent;
 		internal bool ownerRecorded;
+		[NonSerialized] bool resolvingTarget;
 		internal static T NativeArrayItem<T>(Unity.Collections.NativeArray<T> array, int index) where T : struct
 		{
 			if (!array.IsCreated || (uint)index >= (uint)array.Length) throw new IndexOutOfRangeException();
@@ -906,6 +907,10 @@ namespace Cilbox
 		public override bool CheckTypeAllowed(Type t)
 		{
 			if (t == null || t.FullName == null) return false;
+			if (resolvingTarget)
+			{
+				return true;
+			}
 			if (t.IsPointer) return Beyond(CilboxItems.TypePrefix + t.FullName, true);
 			// GetSanitizedTypeName strips one array level, so string[][] reached the matchers as
 			// "System.String[]". An array grants nothing its element type does not.
@@ -967,6 +972,28 @@ namespace Cilbox
 			CilboxProfiler.Resolving(this);
 
 			if (fullSignature != null && fullSignature.IndexOf('*') >= 0) return Beyond(MethodItem(declaringType, name), true);
+
+			if (name.StartsWith("Internal_", StringComparison.Ordinal) || name.EndsWith("_Injected", StringComparison.Ordinal))
+			{
+				return Beyond(MethodItem(declaringType, name), true);
+			}
+
+			if (declaringType != null)
+			{
+				MethodBase target = PublicTarget(declaringType, name, parametersIn, genericArgumentsIn, fullSignature, out bool hidden);
+				if (hidden || (!declaringType.IsVisible && !CompilerHelper(declaringType)))
+				{
+					return Beyond(MethodItem(declaringType, name), true);
+				}
+				if (target != null && target.DeclaringType != null && target.DeclaringType != declaringType)
+				{
+					if (!CheckTypeAllowed(target.DeclaringType))
+					{
+						return false;
+					}
+					declaringType = target.DeclaringType;
+				}
+			}
 
 			if (CilboxPackageAccess.Blocks(declaringType, name, CilboxPackageAccess.KindOf(this))) return Beyond(MethodItem(declaringType, name), true);
 
@@ -1076,6 +1103,127 @@ namespace Cilbox
 			if (declaringType == typeof(Basis.Shims.BasisComputeShim) && !CilboxCompute.IsEntryPoint(name)) return Beyond(MethodItem(declaringType, name), true);
 
 			return CuratedMethodAllowed(declaringType, name) || Beyond(MethodItem(declaringType, name), false);
+		}
+
+		private static bool CompilerHelper(Type type) => type.Name == "<PrivateImplementationDetails>";
+
+		private MethodBase PublicTarget(Type declaringType, string name, SerializedTypeDescriptor[] parametersIn, SerializedTypeDescriptor[] genericArgumentsIn, string fullSignature, out bool hidden)
+		{
+			const BindingFlags publicMembers = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static;
+			const BindingFlags anyMembers = publicMembers | BindingFlags.NonPublic;
+			hidden = false;
+			try
+			{
+				if (parametersIn == null)
+				{
+					foreach (MethodInfo method in declaringType.GetMethods(anyMembers))
+					{
+						if (method.Name == name && (fullSignature == null || method.ToString() == fullSignature))
+						{
+							if (method.IsPublic)
+							{
+								hidden = false;
+								return method;
+							}
+							hidden = !CompilerHelper(declaringType);
+						}
+					}
+					return null;
+				}
+				Type[] parameters;
+				Type[] generics;
+				resolvingTarget = true;
+				try
+				{
+					parameters = usage.DescriptorsToArrayOfNativeTypes(parametersIn);
+					generics = genericArgumentsIn == null ? Type.EmptyTypes : usage.DescriptorsToArrayOfNativeTypes(genericArgumentsIn);
+				}
+				finally
+				{
+					resolvingTarget = false;
+				}
+				if (Array.IndexOf(parameters, null) >= 0)
+				{
+					return null;
+				}
+				if (generics.Length == 0)
+				{
+					MethodBase method = declaringType.GetMethod(name, 0, publicMembers, null, CallingConventions.Any, parameters, null);
+					if (method != null)
+					{
+						return method;
+					}
+					foreach (ConstructorInfo constructor in declaringType.GetConstructors(publicMembers))
+					{
+						if (fullSignature == constructor.ToString())
+						{
+							hidden = name != constructor.Name;
+							return hidden ? null : constructor;
+						}
+					}
+				}
+				else
+				{
+					foreach (MethodInfo method in declaringType.GetMethods(publicMembers))
+					{
+						if (method.Name != name || !method.IsGenericMethodDefinition || method.GetGenericArguments().Length != generics.Length || method.GetParameters().Length != parameters.Length)
+						{
+							continue;
+						}
+						try
+						{
+							MethodInfo closed = method.MakeGenericMethod(generics);
+							ParameterInfo[] closedParameters = closed.GetParameters();
+							bool match = true;
+							for (int i = 0; i < parameters.Length; i++)
+							{
+								if (closedParameters[i].ParameterType != parameters[i])
+								{
+									match = false;
+									break;
+								}
+							}
+							if (match)
+							{
+								return closed;
+							}
+						}
+						catch (Exception)
+						{
+						}
+					}
+				}
+				if (CompilerHelper(declaringType))
+				{
+					return null;
+				}
+				foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+				{
+					foreach (Type type in assembly.GetTypes())
+					{
+						if (type.Name != declaringType.Name)
+						{
+							continue;
+						}
+						try
+						{
+							if (type.GetMethod(name, generics.Length, anyMembers, null, CallingConventions.Any, parameters, null) != null)
+							{
+								hidden = true;
+								return null;
+							}
+						}
+						catch (Exception)
+						{
+						}
+					}
+				}
+				return null;
+			}
+			catch (Exception)
+			{
+				return null;
+			}
 		}
 
 		private static bool PublicOnly(Type type)

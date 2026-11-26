@@ -172,5 +172,77 @@ namespace Basis.Tests.Sync
             CollectionAssert.AreEquivalent(new[] { "Method:Basis.Shims.VideoPlayerShim.ApplyPendingUrl", "Method:Basis.BasisStringDownloader.BeginRequest" }, (SortedSet<string>)scan.GetType().GetField("Blocked", Internal).GetValue(scan));
             CollectionAssert.IsEmpty((SortedSet<string>)scan.GetType().GetField("Items", Internal).GetValue(scan), "nothing here is something the player could be asked to allow");
         }
+
+        [Test]
+        public void HiddenMembersOfUnityTypes_NeverResolve_InAnyBox()
+        {
+            foreach (Type boxType in Boxes)
+            {
+                CilboxBasisCommon box = Box(boxType);
+                foreach (Type type in new[] { typeof(TextAsset), typeof(UnityEngine.UI.Text), typeof(UnityEngine.Object), typeof(Transform) })
+                {
+                    List<MethodInfo> hidden = type.GetMethods(Declared).Where(m => !m.IsPublic && !m.ContainsGenericParameters && m.GetParameters().All(p => !p.ParameterType.IsByRef && !p.ParameterType.IsPointer && box.CheckTypeAllowed(p.ParameterType))).ToList();
+                    Assert.IsNotEmpty(hidden, type.Name + " has no hidden members, so this test proves nothing for it");
+                    foreach (MethodInfo method in hidden)
+                    {
+                        Assert.IsFalse(Allowed(box, method), boxType.Name + " resolves " + type.Name + "." + method.Name);
+                    }
+                }
+            }
+        }
+
+        [Test]
+        public void InheritedMembers_AreJudgedOnTheTypeThatDeclaresThem()
+        {
+            foreach (Type boxType in Boxes)
+            {
+                CilboxBasisCommon box = Box(boxType);
+                foreach (Type type in new[] { typeof(Transform), typeof(Behaviour), typeof(AudioSource), typeof(UnityEngine.UI.Text) })
+                {
+                    Assert.IsFalse(AllowedWith(box, type, nameof(Component.SendMessage), typeof(string)), boxType.Name + " " + type.Name);
+                    Assert.IsFalse(AllowedWith(box, type, nameof(Component.SendMessageUpwards), typeof(string)), boxType.Name + " " + type.Name);
+                    Assert.IsFalse(AllowedWith(box, type, nameof(Component.BroadcastMessage), typeof(string)), boxType.Name + " " + type.Name);
+                    Assert.IsFalse(AllowedWith(box, type, nameof(Component.SendMessage), typeof(string), typeof(object)), boxType.Name + " " + type.Name);
+                }
+                Assert.IsFalse(AllowedWith(box, typeof(UnityEngine.UI.Text), nameof(MonoBehaviour.StartCoroutine), typeof(string)), boxType.Name);
+                Assert.IsFalse(AllowedWith(box, typeof(UnityEngine.UI.Text), nameof(MonoBehaviour.StopAllCoroutines)), boxType.Name);
+                Assert.IsFalse(AllowedWith(box, typeof(UnityEngine.Events.UnityEvent), nameof(UnityEngine.Events.UnityEventBase.SetPersistentListenerState), typeof(int), typeof(UnityEngine.Events.UnityEventCallState)), boxType.Name);
+                Assert.IsFalse(box.CheckMethodAllowed(out _, typeof(Transform), nameof(Component.SendMessage), null, null, "Void SendMessage(System.String)"), boxType.Name + ": the SDK window's probe agrees");
+            }
+        }
+
+        [Test]
+        public void AConstructor_CannotBeBoundUnderAnotherName()
+        {
+            foreach (Type boxType in Boxes)
+            {
+                CilboxBasisCommon box = Box(boxType);
+                SerializedTypeDescriptor[] text = { SerializedTypeDescriptorBuilder.FromNativeType(typeof(string)) };
+                Assert.IsFalse(box.CheckMethodAllowed(out _, typeof(TextAsset), "get_text", text, Array.Empty<SerializedTypeDescriptor>(), "Void .ctor(System.String)"), boxType.Name);
+                Assert.IsTrue(box.CheckMethodAllowed(out _, typeof(TextAsset), ".ctor", text, Array.Empty<SerializedTypeDescriptor>(), "Void .ctor(System.String)"), boxType.Name);
+                Grant(box, "Method:UnityEngine.TextAsset.Internal_CreateInstance");
+                Assert.IsFalse(AllowedWith(box, typeof(TextAsset), "Internal_CreateInstance", typeof(TextAsset), typeof(string)), boxType.Name + ": closed even with consent");
+                Assert.IsFalse(AllowedWith(box, typeof(TextAsset), "Internal_CreateInstance"), boxType.Name + ": closed by name alone");
+            }
+        }
+
+        [Test]
+        public void ThePublicApiOfUnityTypes_StillResolves()
+        {
+            foreach (Type boxType in Boxes)
+            {
+                CilboxBasisCommon box = Box(boxType);
+                Assert.IsTrue(AllowedWith(box, typeof(TextAsset), "get_text"), boxType.Name);
+                Assert.IsTrue(AllowedWith(box, typeof(TextAsset), "get_bytes"), boxType.Name);
+                Assert.IsTrue(AllowedWith(box, typeof(UnityEngine.UI.Text), "set_text", typeof(string)), boxType.Name);
+                Assert.IsTrue(AllowedWith(box, typeof(Transform), nameof(Transform.SetParent), typeof(Transform)), boxType.Name);
+                Assert.IsTrue(AllowedWith(box, typeof(Transform), "get_gameObject"), boxType.Name + ": inherited from Component");
+                Assert.IsTrue(AllowedWith(box, typeof(Transform), "get_name"), boxType.Name + ": inherited from Object");
+                Assert.IsTrue(AllowedWith(box, typeof(Component), "get_transform"), boxType.Name);
+                Assert.IsTrue(AllowedWith(box, typeof(Vector3), nameof(Vector3.Normalize)), boxType.Name);
+                Assert.IsTrue(AllowedWith(box, typeof(List<int>), nameof(List<int>.Add), typeof(int)), boxType.Name);
+                Assert.IsTrue(AllowedWith(box, typeof(Mathf), nameof(Mathf.Max), typeof(float), typeof(float)), boxType.Name);
+            }
+        }
     }
 }

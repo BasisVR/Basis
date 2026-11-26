@@ -10,7 +10,7 @@
   "hideInEditor": false,
   "license": "MIT",
   "dependencies": {
-    "com.unity.addressables": "4.2.0",
+    "com.unity.addressables": "5.0.0",
     "com.unity.mathematics": "1.4.0",
     "com.unity.render-pipelines.core": "17.7.0",
     "com.unity.ugui": "2.7.0"

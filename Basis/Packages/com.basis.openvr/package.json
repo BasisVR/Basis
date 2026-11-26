@@ -10,7 +10,7 @@
   "license": "MIT",
   "dependencies": {
     "com.valvesoftware.unity.openvr": "1.0.0",
-    "com.unity.addressables": "4.2.0",
+    "com.unity.addressables": "5.0.0",
     "com.unity.mathematics": "1.4.0",
     "com.unity.xr.legacyinputhelpers": "6.0.0"
   },

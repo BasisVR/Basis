@@ -1535,18 +1535,21 @@ namespace UnityEngine.Rendering.Universal
 
             if (camera.targetTexture == null)
             {
+                Vector2Int backbufferSize = RenderingUtils.GetScreenBackbufferSize(camera);
+
                 // Describe the real backbuffer's live MSAA. UpdateCameraData later overrides this
                 // with the XR eye texture properties when an XR pass is actually active.
                 cameraData.backbufferColor = new RenderTargetInfo
                 {
-                    width = Screen.width,
-                    height = Screen.height,
+                    width = backbufferSize.x,
+                    height = backbufferSize.y,
                     volumeDepth = 1,
                     msaaSamples = Screen.currentBackbufferMSAASamples,
                     format = colorFormatProxy,
                 };
                 cameraData.backbufferDepth = cameraData.backbufferColor;
                 cameraData.backbufferDepth.format = depthStencilFormat;
+                cameraData.backbufferDepth.isMemoryless = UniversalRenderPipeline.IsBackbufferDepthMemorylessActive();
             }
             else
             {
@@ -1567,6 +1570,7 @@ namespace UnityEngine.Rendering.Universal
                 }
             }
         }
+
         internal static int GetIntermediateTexturesMSAA(UniversalCameraData cameraData, ScriptableRenderer renderer)
         {
             bool rendererSupportsMSAA = renderer != null && renderer.supportedRenderingFeatures.msaa;
@@ -1880,7 +1884,8 @@ namespace UnityEngine.Rendering.Universal
 
         internal static bool IsQuadraticFalloffEnabled()
         {
-            return asset != null && asset.lightFalloffMode == LightFalloffMode.Quadratic;
+            return GraphicsSettings.TryGetRenderPipelineSettings<URPLightFalloffSettings>(out var lightFalloffSettings)
+                && lightFalloffSettings.lightFalloffMode == LightFalloffMode.Quadratic;
         }
 
         /// <summary>

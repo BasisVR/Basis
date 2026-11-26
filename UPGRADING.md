@@ -2,7 +2,7 @@
 
 Basis tracks the newest Unity 6.7 beta, and every bump touches four things: the editor version, the package manifest, the embedded URP fork, and whatever Basis code leans on APIs that moved. Most of the work is in the URP fork. The rest is bookkeeping, but the bookkeeping is where upgrades usually break.
 
-The steps below are the ones used for every 6000.7.0 beta from b3 to b10. Paths are relative to the repository root unless they start with `<editor>`, which means an installed editor folder such as `C:/Program Files/Unity/Hub/Editor/6000.7.0b10/Editor`.
+The steps below are the ones used for every 6000.7.0 beta from b3 to b11. Paths are relative to the repository root unless they start with `<editor>`, which means an installed editor folder such as `C:/Program Files/Unity/Hub/Editor/6000.7.0b11/Editor`.
 
 ## Before you start
 
@@ -170,12 +170,12 @@ Any hit means two assets share a GUID, and Unity will pick one at random.
 Set both lines of `Basis/ProjectSettings/ProjectVersion.txt`. The changeset is in the editor's file version, which you can read from PowerShell:
 
 ```powershell
-(Get-Item '<new editor>\Unity.exe').VersionInfo.ProductVersion   # 6000.7.0b10_4f3c1c5c4346
+(Get-Item '<new editor>\Unity.exe').VersionInfo.ProductVersion   # 6000.7.0b11_9a8d8be46479
 ```
 
 ```
-m_EditorVersion: 6000.7.0b10
-m_EditorVersionWithRevision: 6000.7.0b10 (4f3c1c5c4346)
+m_EditorVersion: 6000.7.0b11
+m_EditorVersionWithRevision: 6000.7.0b11 (9a8d8be46479)
 ```
 
 CI reads the version and changeset from this file (`.github/actions/unity-editor-image`) and builds its editor image from them, so nothing else in the repository needs the version.
@@ -185,8 +185,8 @@ CI reads the version and changeset from this file (`.github/actions/unity-editor
 Open the project once in batch mode to compile and import:
 
 ```sh
-"<new editor>/Unity.exe" -batchmode -quit -projectPath Basis -logFile b10_open.log
-grep -E "error CS|Scripts have compiler errors" b10_open.log
+"<new editor>/Unity.exe" -batchmode -quit -projectPath Basis -logFile b11_open.log
+grep -E "error CS|Scripts have compiler errors" b11_open.log
 ```
 
 Batch runs can damage settings assets. On this project they have emptied `m_RuntimeSettings.m_List` in `Assets/Basis/Settings/Unity Rendering Defaults/UniversalRenderPipelineGlobalSettings.asset`, nulled `customRenderPipeline` in `GraphicsSettings.asset` and `QualitySettings.asset`, and reset anti-aliasing. Run `git status` afterwards and `git checkout --` any of those that changed. Other diffs from the first open, such as new OpenXR feature entries or Addressables schema fields, are usually Unity migrating data for a new package version and should be kept. Check that enabled flags didn't change.
@@ -204,7 +204,7 @@ At the very least:
 
 ## Where Basis differs from stock URP
 
-These are the Basis changes to the fork as of 6000.7.0b10. Everything else in the folder should be byte-identical to the editor's copy, line endings aside.
+These are the Basis changes to the fork as of 6000.7.0b11. Everything else in the folder should be byte-identical to the editor's copy, line endings aside.
 
 ### Variable rate shading
 
@@ -264,4 +264,6 @@ The `ENABLE_UPSCALER_FRAMEWORK` scripting define is still set for Standalone in 
 - b6 removed every `#if ENABLE_UPSCALER_FRAMEWORK` in Core and URP. The conflicts were Basis lines inside those guards, resolved by keeping the Basis code and dropping the guards.
 - Since b7, `XRLayout.AddCamera` rewrites `camera.stereoTargetEye` from the XR toggle every frame, so a Basis camera can't hold a mask that disagrees with `allowXRRendering`.
 - Valve OpenXR Utils 1.1.0 moved `ValveOpenXRRefreshRateFeature` into `Valve.OpenXR.Utils`, so `BasisOpenXRRefreshRate.cs` needed a `using`. Read changelogs for git packages before bumping the hash.
+- b11 moved the light falloff mode from the URP asset to `URPLightFalloffSettings` in the graphics settings. `UniversalRenderPipelineAsset.lightFalloffMode` is now an obsolete read-only forwarder, and the serialised value migrates on first open. Basis assets all use the default (Inverse Squared).
+- XR Hands and OpenXR tagged `7.0.0-pre.1` as latest, which needs Unity 7000.0. Basis stays on the 1.x line.
 - Addressables 4.1.2 gates code on `Unity >= 6000.7.0b8`. An offline compile that treats the editor as plain `6000.7.0` reports false errors.
