@@ -71,14 +71,6 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
         }
     }
 
-    public enum BasisMidpointFusionMode : byte
-    {
-        Blend,
-        FollowA,
-        FollowB,
-        Hold,
-    }
-
     /// <summary>
     /// Per-pair fusion state carried across frames (velocity EMAs, smoothed confidence weights, the captured
     /// rest distance + half-rest offset, and the rotation low-pass). A fresh pair starts at <see cref="Fresh"/>.
@@ -107,19 +99,12 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
         public Quaternion HalfRestOffset;
         // Temporal low-pass state for the fused rotation; strength is RotationHalfLife.
         public Quaternion SmoothedMidRot;
-        public bool HasSmoothedRot;
-        public BasisMidpointFusionMode Mode;
         public Vector3 FollowLocalGap;
         public Quaternion FollowLocalRot;
         public Quaternion PredRotA;
         public Quaternion PredRotB;
         public Vector3 PosOffset;
         public Quaternion RotOffset;
-        public bool HasRawSample;
-        public Vector3 RawLastA;
-        public Vector3 RawLastB;
-        public Quaternion RawLastRotA;
-        public Quaternion RawLastRotB;
         public float FrozenTimeA;
         public float FrozenTimeB;
 
@@ -169,16 +154,8 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
             float referenceDt = 1f / BasisMidpointFusionTunables.ReferenceFrameRate;
             float stepDt = dt > 1e-5f ? dt : referenceDt;
 
-            if (s.HasRawSample)
-            {
-                s.FrozenTimeA = a.Equals(s.RawLastA) && aRot.Equals(s.RawLastRotA) ? s.FrozenTimeA + stepDt : 0f;
-                s.FrozenTimeB = b.Equals(s.RawLastB) && bRot.Equals(s.RawLastRotB) ? s.FrozenTimeB + stepDt : 0f;
-            }
-            s.RawLastA = a;
-            s.RawLastB = b;
-            s.RawLastRotA = aRot;
-            s.RawLastRotB = bRot;
-            s.HasRawSample = true;
+            s.FrozenTimeA = a.Equals(s.LastA) && aRot.Equals(s.LastRotA) ? s.FrozenTimeA + stepDt : 0f;
+            s.FrozenTimeB = b.Equals(s.LastB) && bRot.Equals(s.LastRotB) ? s.FrozenTimeB + stepDt : 0f;
 
             bool frozenA = t.FrozenSeconds > 0f && s.FrozenTimeA >= t.FrozenSeconds;
             bool frozenB = t.FrozenSeconds > 0f && s.FrozenTimeB >= t.FrozenSeconds;
@@ -206,11 +183,7 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
                     s.PredRotB = Quaternion.Inverse(s.HalfRestOffset);
                     midRot = BlendRotation(aRot * s.PredRotA, bRot * s.PredRotB);
                     s.HasLastPositions = true;
-                    s.Mode = BasisMidpointFusionMode.Blend;
-                    s.PosOffset = Vector3.zero;
-                    s.RotOffset = Quaternion.identity;
                     s.SmoothedMidRot = midRot;
-                    s.HasSmoothedRot = true;
                 }
                 StoreLast(ref s, a, b, aRot, bRot, aUsable, bUsable, mid, midRot);
                 return;
@@ -218,22 +191,19 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
 
             bool continuousA = aUsable && s.WasUsableA;
             bool continuousB = bUsable && s.WasUsableB;
-            bool rejoinA = aUsable && !s.WasUsableA;
-            bool rejoinB = bUsable && !s.WasUsableB;
-            if (rejoinA)
+            if (aUsable && !s.WasUsableA)
             {
                 s.LastA = a;
                 s.LastRotA = aRot;
                 s.SmoothedWA = continuousB ? s.SmoothedWB : 1f;
             }
-            if (rejoinB)
+            if (bUsable && !s.WasUsableB)
             {
                 s.LastB = b;
                 s.LastRotB = bRot;
                 s.SmoothedWB = continuousA ? s.SmoothedWA : 1f;
             }
 
-            float softSnapHalfLife = Mathf.Max(t.SoftSnapHalfLife, 1e-4f);
             float weightRate = PerFrameToRate(t.WeightSmoothing, stepDt);
             float velocityScale = referenceDt / stepDt;
 
@@ -256,30 +226,27 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
             wA = s.SmoothedWA;
             wB = s.SmoothedWB;
 
-            BasisMidpointFusionMode mode = aUsable && bUsable ? BasisMidpointFusionMode.Blend
-                : aUsable ? BasisMidpointFusionMode.FollowA
-                : bUsable ? BasisMidpointFusionMode.FollowB
-                : BasisMidpointFusionMode.Hold;
-            bool modeChanged = mode != s.Mode;
+            bool bothUsable = aUsable && bUsable;
+            bool usabilityChanged = aUsable != s.WasUsableA || bUsable != s.WasUsableB;
 
-            if (mode == BasisMidpointFusionMode.Hold)
+            if (!aUsable && !bUsable)
             {
                 mid = s.LastMid;
                 midRot = s.LastMidRot;
                 s.PosOffset = Vector3.zero;
                 s.RotOffset = Quaternion.identity;
-                s.Mode = mode;
                 StoreLast(ref s, a, b, aRot, bRot, aUsable, bUsable, mid, midRot);
                 return;
             }
 
-            bool followA = mode == BasisMidpointFusionMode.FollowA;
+            bool followA = aUsable;
             Vector3 livePos = followA ? a : b;
             Quaternion liveRot = followA ? aRot : bRot;
 
             Vector3 rawMid;
-            if (mode == BasisMidpointFusionMode.Blend)
+            if (bothUsable)
             {
+                float softSnapHalfLife = Mathf.Max(t.SoftSnapHalfLife, 1e-4f);
                 float currentDistance = Vector3.Distance(a, b);
                 float distanceError = currentDistance - s.ExpectedDistance;
                 float absDistanceError = Mathf.Abs(distanceError);
@@ -310,11 +277,10 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
             else
             {
                 blendT = followA ? 0f : 1f;
-                if (modeChanged)
+                if (usabilityChanged)
                 {
-                    bool continuous = followA ? continuousA : continuousB;
-                    Vector3 anchor = continuous ? (followA ? s.LastA : s.LastB) : livePos;
-                    Quaternion anchorRot = continuous ? (followA ? s.LastRotA : s.LastRotB) : liveRot;
+                    Vector3 anchor = followA ? s.LastA : s.LastB;
+                    Quaternion anchorRot = followA ? s.LastRotA : s.LastRotB;
                     s.FollowLocalGap = Quaternion.Inverse(anchorRot) * (s.LastMid - anchor);
                     s.FollowLocalRot = Quaternion.Inverse(anchorRot) * s.LastMidRot;
                 }
@@ -325,11 +291,11 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
             // offsets make it t-invariant for a rigid pair, and fixing it stops the fused rotation
             // swinging across the midA/midB gap as tB shifts with motion under flex -- the snap the rotation
             // low-pass used to mask. Position keeps the confidence blend (averaging two trackers helps there).
-            Quaternion rawRot = mode == BasisMidpointFusionMode.Blend
+            Quaternion rawRot = bothUsable
                 ? BlendRotation(aRot * s.PredRotA, bRot * s.PredRotB)
                 : (liveRot * s.FollowLocalRot).normalized;
 
-            if (mode == BasisMidpointFusionMode.Blend && t.RotationLearnHalfLife > 1e-5f
+            if (bothUsable && t.RotationLearnHalfLife > 1e-5f
                 && surpriseA <= t.SurpriseClamp && surpriseB <= t.SurpriseClamp)
             {
                 float learnRate = 1f - Mathf.Pow(2f, -stepDt / t.RotationLearnHalfLife);
@@ -341,10 +307,9 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
             if (bUsable && surpriseB <= t.SurpriseClamp) s.EmaVelB = Mathf.Lerp(s.EmaVelB, velB, PerFrameToRate(t.EmaAlpha, stepDt));
 
             // Low-pass the fused rotation. Half-life <= 0 disables.
-            if (!s.HasSmoothedRot || t.RotationHalfLife <= 1e-5f)
+            if (t.RotationHalfLife <= 1e-5f)
             {
                 s.SmoothedMidRot = rawRot;
-                s.HasSmoothedRot = true;
             }
             else
             {
@@ -353,23 +318,18 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
             }
             rawRot = s.SmoothedMidRot;
 
-            if (modeChanged)
+            if (usabilityChanged)
             {
-                Vector3 predictedMid = s.LastMid;
-                Quaternion predictedRot = s.LastMidRot;
-                if (continuousA || continuousB)
-                {
-                    Vector3 anchorNow = continuousA ? a : b;
-                    Quaternion anchorRotNow = continuousA ? aRot : bRot;
-                    Vector3 anchorLast = continuousA ? s.LastA : s.LastB;
-                    Quaternion anchorRotLast = continuousA ? s.LastRotA : s.LastRotB;
-                    Quaternion anchorDelta = anchorRotNow * Quaternion.Inverse(anchorRotLast);
-                    predictedMid = anchorNow + anchorDelta * (s.LastMid - anchorLast);
-                    predictedRot = anchorDelta * s.LastMidRot;
-                }
+                bool anchorA = continuousA || !continuousB && aUsable;
+                Vector3 anchorNow = anchorA ? a : b;
+                Quaternion anchorRotNow = anchorA ? aRot : bRot;
+                Vector3 anchorLast = anchorA ? s.LastA : s.LastB;
+                Quaternion anchorRotLast = anchorA ? s.LastRotA : s.LastRotB;
+                Quaternion anchorDelta = anchorRotNow * Quaternion.Inverse(anchorRotLast);
+                Vector3 predictedMid = anchorNow + anchorDelta * (s.LastMid - anchorLast);
+                Quaternion predictedRot = anchorDelta * s.LastMidRot;
                 s.PosOffset = predictedMid - rawMid;
                 s.RotOffset = predictedRot * Quaternion.Inverse(rawRot);
-                s.Mode = mode;
             }
             else
             {
