@@ -11,6 +11,11 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
     /// </summary>
     public struct BasisMidpointFusionTunables
     {
+        public const float ReferenceFrameRate = 90f;
+        private const float DefaultTransitionHalfLife = 0.08f;
+        private const float DefaultFrozenSeconds = 0.15f;
+        private const float DefaultRotationLearnHalfLife = 0.5f;
+
         public float SurprisePenalty;
         public float SurpriseClamp;
         public float EmaFloor;
@@ -21,6 +26,9 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
         public float DistanceEmaAlpha;
         public float WeightSmoothing;
         public float RotationHalfLife;
+        public float TransitionHalfLife;
+        public float FrozenSeconds;
+        public float RotationLearnHalfLife;
 
         public static BasisMidpointFusionTunables Default()
         {
@@ -36,6 +44,9 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
                 DistanceEmaAlpha = 0.05f,
                 WeightSmoothing = 0.25f,
                 RotationHalfLife = 0f, // off by default -- the bone sim already smooths; a second low-pass lags fast turns
+                TransitionHalfLife = DefaultTransitionHalfLife,
+                FrozenSeconds = DefaultFrozenSeconds,
+                RotationLearnHalfLife = DefaultRotationLearnHalfLife,
             };
         }
 
@@ -53,8 +64,19 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
                 DistanceEmaAlpha = BasisSettingsDefaults.PairingDistanceEmaAlpha.RawValue,
                 WeightSmoothing = BasisSettingsDefaults.PairingWeightSmoothing.RawValue,
                 RotationHalfLife = BasisSettingsDefaults.PairingRotationHalfLife.RawValue,
+                TransitionHalfLife = DefaultTransitionHalfLife,
+                FrozenSeconds = DefaultFrozenSeconds,
+                RotationLearnHalfLife = DefaultRotationLearnHalfLife,
             };
         }
+    }
+
+    public enum BasisMidpointFusionMode : byte
+    {
+        Blend,
+        FollowA,
+        FollowB,
+        Hold,
     }
 
     /// <summary>
@@ -66,9 +88,14 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
         public bool HasLastPositions;
         public Vector3 LastA;
         public Vector3 LastB;
+        public Quaternion LastRotA;
+        public Quaternion LastRotB;
+        public bool WasUsableA;
+        public bool WasUsableB;
         // Last published midpoint, carried so a partner dropping out can keep the midpoint
         // anchored to the live partner instead of collapsing toward origin.
         public Vector3 LastMid;
+        public Quaternion LastMidRot;
         public float EmaVelA;
         public float EmaVelB;
         public float ExpectedDistance;
@@ -81,6 +108,20 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
         // Temporal low-pass state for the fused rotation; strength is RotationHalfLife.
         public Quaternion SmoothedMidRot;
         public bool HasSmoothedRot;
+        public BasisMidpointFusionMode Mode;
+        public Vector3 FollowLocalGap;
+        public Quaternion FollowLocalRot;
+        public Quaternion PredRotA;
+        public Quaternion PredRotB;
+        public Vector3 PosOffset;
+        public Quaternion RotOffset;
+        public bool HasRawSample;
+        public Vector3 RawLastA;
+        public Vector3 RawLastB;
+        public Quaternion RawLastRotA;
+        public Quaternion RawLastRotB;
+        public float FrozenTimeA;
+        public float FrozenTimeB;
 
         public static BasisMidpointFusionState Fresh()
         {
@@ -90,6 +131,13 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
                 SmoothedWB = 1f,
                 HalfRestOffset = Quaternion.identity,
                 SmoothedMidRot = Quaternion.identity,
+                LastRotA = Quaternion.identity,
+                LastRotB = Quaternion.identity,
+                LastMidRot = Quaternion.identity,
+                RotOffset = Quaternion.identity,
+                FollowLocalRot = Quaternion.identity,
+                PredRotA = Quaternion.identity,
+                PredRotB = Quaternion.identity,
             };
         }
     }
@@ -102,16 +150,40 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
     /// </summary>
     public static class BasisMidpointFusionCore
     {
+        public static float PerFrameToRate(float perFrameAlpha, float dt)
+        {
+            float alpha = Mathf.Clamp01(perFrameAlpha);
+            if (alpha >= 1f) return 1f;
+            return 1f - Mathf.Pow(1f - alpha, dt * BasisMidpointFusionTunables.ReferenceFrameRate);
+        }
+
         public static void Step(
             ref BasisMidpointFusionState s,
             Vector3 a, Vector3 b, Quaternion aRot, Quaternion bRot,
+            bool aLost, bool bLost,
             in BasisMidpointFusionTunables t, float dt,
             out Vector3 mid, out Quaternion midRot, out float wA, out float wB, out float blendT)
         {
             blendT = 0.5f;
 
-            bool aUsable = BasisMidpointRotationFusion.IsUsable(aRot);
-            bool bUsable = BasisMidpointRotationFusion.IsUsable(bRot);
+            float referenceDt = 1f / BasisMidpointFusionTunables.ReferenceFrameRate;
+            float stepDt = dt > 1e-5f ? dt : referenceDt;
+
+            if (s.HasRawSample)
+            {
+                s.FrozenTimeA = a.Equals(s.RawLastA) && aRot.Equals(s.RawLastRotA) ? s.FrozenTimeA + stepDt : 0f;
+                s.FrozenTimeB = b.Equals(s.RawLastB) && bRot.Equals(s.RawLastRotB) ? s.FrozenTimeB + stepDt : 0f;
+            }
+            s.RawLastA = a;
+            s.RawLastB = b;
+            s.RawLastRotA = aRot;
+            s.RawLastRotB = bRot;
+            s.HasRawSample = true;
+
+            bool frozenA = t.FrozenSeconds > 0f && s.FrozenTimeA >= t.FrozenSeconds;
+            bool frozenB = t.FrozenSeconds > 0f && s.FrozenTimeB >= t.FrozenSeconds;
+            bool aUsable = !aLost && !frozenA && BasisMidpointRotationFusion.IsUsable(aRot);
+            bool bUsable = !bLost && !frozenB && BasisMidpointRotationFusion.IsUsable(bRot);
 
             if (!s.HasLastPositions)
             {
@@ -130,114 +202,214 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
                     s.SmoothedWA = 1f;
                     s.SmoothedWB = 1f;
                     s.HalfRestOffset = BasisMidpointRotationFusion.ComputeHalfRestOffset(aRot, bRot);
+                    s.PredRotA = s.HalfRestOffset;
+                    s.PredRotB = Quaternion.Inverse(s.HalfRestOffset);
+                    midRot = BlendRotation(aRot * s.PredRotA, bRot * s.PredRotB);
                     s.HasLastPositions = true;
+                    s.Mode = BasisMidpointFusionMode.Blend;
+                    s.PosOffset = Vector3.zero;
+                    s.RotOffset = Quaternion.identity;
+                    s.SmoothedMidRot = midRot;
+                    s.HasSmoothedRot = true;
                 }
+                StoreLast(ref s, a, b, aRot, bRot, aUsable, bUsable, mid, midRot);
+                return;
             }
-            else
+
+            bool continuousA = aUsable && s.WasUsableA;
+            bool continuousB = bUsable && s.WasUsableB;
+            bool rejoinA = aUsable && !s.WasUsableA;
+            bool rejoinB = bUsable && !s.WasUsableB;
+            if (rejoinA)
             {
-                float softSnapHalfLife = Mathf.Max(t.SoftSnapHalfLife, 1e-4f);
-                float weightSmoothing = Mathf.Clamp01(t.WeightSmoothing);
+                s.LastA = a;
+                s.LastRotA = aRot;
+                s.SmoothedWA = continuousB ? s.SmoothedWB : 1f;
+            }
+            if (rejoinB)
+            {
+                s.LastB = b;
+                s.LastRotB = bRot;
+                s.SmoothedWB = continuousA ? s.SmoothedWA : 1f;
+            }
 
-                float velA = Vector3.Distance(a, s.LastA);
-                float velB = Vector3.Distance(b, s.LastB);
+            float softSnapHalfLife = Mathf.Max(t.SoftSnapHalfLife, 1e-4f);
+            float weightRate = PerFrameToRate(t.WeightSmoothing, stepDt);
+            float velocityScale = referenceDt / stepDt;
 
-                // Shared baseline: judge BOTH trackers against the higher recent EMA (plus floor) so a frozen
-                // tracker doesn't get a "low baseline -> easy to look surprising" effect and a real bilateral
-                // motion onset doesn't fool both into looking surprising.
-                float sharedBaseline = Mathf.Max(s.EmaVelA, s.EmaVelB) + t.EmaFloor;
-                float surpriseA = velA / sharedBaseline;
-                float surpriseB = velB / sharedBaseline;
-                float excessA = Mathf.Max(0f, surpriseA - 1f);
-                float excessB = Mathf.Max(0f, surpriseB - 1f);
-                float instantWA = 1f / (1f + excessA * excessA * t.SurprisePenalty);
-                float instantWB = 1f / (1f + excessB * excessB * t.SurprisePenalty);
+            float velA = aUsable ? Vector3.Distance(a, s.LastA) * velocityScale : 0f;
+            float velB = bUsable ? Vector3.Distance(b, s.LastB) * velocityScale : 0f;
 
-                s.SmoothedWA = Mathf.Lerp(s.SmoothedWA, instantWA, weightSmoothing);
-                s.SmoothedWB = Mathf.Lerp(s.SmoothedWB, instantWB, weightSmoothing);
-                wA = s.SmoothedWA;
-                wB = s.SmoothedWB;
+            // Shared baseline: judge BOTH trackers against the higher recent EMA (plus floor) so a frozen
+            // tracker doesn't get a "low baseline -> easy to look surprising" effect and a real bilateral
+            // motion onset doesn't fool both into looking surprising.
+            float sharedBaseline = Mathf.Max(s.EmaVelA, s.EmaVelB) + t.EmaFloor;
+            float surpriseA = velA / sharedBaseline;
+            float surpriseB = velB / sharedBaseline;
+            float excessA = Mathf.Max(0f, surpriseA - 1f);
+            float excessB = Mathf.Max(0f, surpriseB - 1f);
+            float instantWA = 1f / (1f + excessA * excessA * t.SurprisePenalty);
+            float instantWB = 1f / (1f + excessB * excessB * t.SurprisePenalty);
 
+            if (aUsable) s.SmoothedWA = Mathf.Lerp(s.SmoothedWA, instantWA, weightRate);
+            if (bUsable) s.SmoothedWB = Mathf.Lerp(s.SmoothedWB, instantWB, weightRate);
+            wA = s.SmoothedWA;
+            wB = s.SmoothedWB;
+
+            BasisMidpointFusionMode mode = aUsable && bUsable ? BasisMidpointFusionMode.Blend
+                : aUsable ? BasisMidpointFusionMode.FollowA
+                : bUsable ? BasisMidpointFusionMode.FollowB
+                : BasisMidpointFusionMode.Hold;
+            bool modeChanged = mode != s.Mode;
+
+            if (mode == BasisMidpointFusionMode.Hold)
+            {
+                mid = s.LastMid;
+                midRot = s.LastMidRot;
+                s.PosOffset = Vector3.zero;
+                s.RotOffset = Quaternion.identity;
+                s.Mode = mode;
+                StoreLast(ref s, a, b, aRot, bRot, aUsable, bUsable, mid, midRot);
+                return;
+            }
+
+            bool followA = mode == BasisMidpointFusionMode.FollowA;
+            Vector3 livePos = followA ? a : b;
+            Quaternion liveRot = followA ? aRot : bRot;
+
+            Vector3 rawMid;
+            if (mode == BasisMidpointFusionMode.Blend)
+            {
                 float currentDistance = Vector3.Distance(a, b);
                 float distanceError = currentDistance - s.ExpectedDistance;
                 float absDistanceError = Mathf.Abs(distanceError);
 
                 float weightSum = Mathf.Max(wA + wB, 1e-6f);
-                if (aUsable && bUsable)
-                {
-                    // Soft pull toward the rigid rest-distance solution, ramping continuously with the divergence;
-                    // disabled when weights are imbalanced so the symmetric pull can't drag the trusted tracker.
-                    float weightBalance = 4f * wA * wB / (weightSum * weightSum);
-                    float correctionStrength = t.MaxCorrectionStrength
-                                               * weightBalance
-                                               * (1f - 1f / (1f + absDistanceError / softSnapHalfLife));
-                    Vector3 dir = currentDistance > 1e-6f ? (b - a) / currentDistance : Vector3.zero;
-                    Vector3 aIdeal = a + dir * (distanceError * 0.5f);
-                    Vector3 bIdeal = b - dir * (distanceError * 0.5f);
-                    Vector3 aSoft = Vector3.Lerp(a, aIdeal, correctionStrength);
-                    Vector3 bSoft = Vector3.Lerp(b, bIdeal, correctionStrength);
+                // Soft pull toward the rigid rest-distance solution, ramping continuously with the divergence;
+                // disabled when weights are imbalanced so the symmetric pull can't drag the trusted tracker.
+                float weightBalance = 4f * wA * wB / (weightSum * weightSum);
+                float correctionStrength = t.MaxCorrectionStrength
+                                           * weightBalance
+                                           * (1f - 1f / (1f + absDistanceError / softSnapHalfLife));
+                Vector3 dir = currentDistance > 1e-6f ? (b - a) / currentDistance : Vector3.zero;
+                Vector3 aIdeal = a + dir * (distanceError * 0.5f);
+                Vector3 bIdeal = b - dir * (distanceError * 0.5f);
+                Vector3 aSoft = Vector3.Lerp(a, aIdeal, correctionStrength);
+                Vector3 bSoft = Vector3.Lerp(b, bIdeal, correctionStrength);
 
-                    float tB = wB / weightSum;
-                    blendT = tB;
-                    mid = aSoft * (1f - tB) + bSoft * tB;
-                }
-                else if (!aUsable && !bUsable)
-                {
-                    // Whole pair dark -- hold the last midpoint instead of collapsing toward origin.
-                    mid = s.LastMid;
-                }
-                else if (aUsable)
-                {
-                    // One partner dark -- follow the live one, carrying the last good midpoint offset so
-                    // there is no jump at the dropout (the live partner is still where it just was).
-                    blendT = 0f;
-                    mid = a + (s.LastMid - s.LastA);
-                }
-                else
-                {
-                    blendT = 1f;
-                    mid = b + (s.LastMid - s.LastB);
-                }
-                // Rotation uses a FIXED 0.5 blend, decoupled from the position-confidence tB: the rest-offset
-                // projection makes it t-invariant for a rigid pair, and fixing it stops the fused rotation
-                // swinging across the midA/midB gap as tB shifts with motion under flex -- the snap the rotation
-                // low-pass used to mask. Position keeps the confidence blend (averaging two trackers helps there).
-                midRot = BasisMidpointRotationFusion.ProjectAndSlerp(aRot, bRot, 0.5f, s.HalfRestOffset);
-
-                // Update the velocity EMA only when the current sample isn't a clear outlier.
-                if (surpriseA <= t.SurpriseClamp) s.EmaVelA = Mathf.Lerp(s.EmaVelA, velA, t.EmaAlpha);
-                if (surpriseB <= t.SurpriseClamp) s.EmaVelB = Mathf.Lerp(s.EmaVelB, velB, t.EmaAlpha);
+                float tB = wB / weightSum;
+                blendT = tB;
+                rawMid = aSoft * (1f - tB) + bSoft * tB;
 
                 // Update the rest-distance EMA only when both trackers look healthy AND inside lockstep.
                 if (surpriseA <= t.SurpriseClamp && surpriseB <= t.SurpriseClamp && absDistanceError < t.LockstepTolerance)
                 {
-                    s.ExpectedDistance = Mathf.Lerp(s.ExpectedDistance, currentDistance, t.DistanceEmaAlpha);
+                    s.ExpectedDistance = Mathf.Lerp(s.ExpectedDistance, currentDistance, PerFrameToRate(t.DistanceEmaAlpha, stepDt));
                 }
             }
-
-            if (aUsable) s.LastA = a;
-            if (bUsable) s.LastB = b;
-            s.LastMid = mid;
-
-            // Neither partner had a pose this frame -- hold the last published rotation
-            // instead of snapping the hip to identity.
-            if (s.HasSmoothedRot && !aUsable && !bUsable)
+            else
             {
-                midRot = s.SmoothedMidRot;
+                blendT = followA ? 0f : 1f;
+                if (modeChanged)
+                {
+                    bool continuous = followA ? continuousA : continuousB;
+                    Vector3 anchor = continuous ? (followA ? s.LastA : s.LastB) : livePos;
+                    Quaternion anchorRot = continuous ? (followA ? s.LastRotA : s.LastRotB) : liveRot;
+                    s.FollowLocalGap = Quaternion.Inverse(anchorRot) * (s.LastMid - anchor);
+                    s.FollowLocalRot = Quaternion.Inverse(anchorRot) * s.LastMidRot;
+                }
+                rawMid = livePos + liveRot * s.FollowLocalGap;
             }
+
+            // Rotation uses a FIXED 0.5 blend, decoupled from the position-confidence tB: the learned per-tracker
+            // offsets make it t-invariant for a rigid pair, and fixing it stops the fused rotation
+            // swinging across the midA/midB gap as tB shifts with motion under flex -- the snap the rotation
+            // low-pass used to mask. Position keeps the confidence blend (averaging two trackers helps there).
+            Quaternion rawRot = mode == BasisMidpointFusionMode.Blend
+                ? BlendRotation(aRot * s.PredRotA, bRot * s.PredRotB)
+                : (liveRot * s.FollowLocalRot).normalized;
+
+            if (mode == BasisMidpointFusionMode.Blend && t.RotationLearnHalfLife > 1e-5f
+                && surpriseA <= t.SurpriseClamp && surpriseB <= t.SurpriseClamp)
+            {
+                float learnRate = 1f - Mathf.Pow(2f, -stepDt / t.RotationLearnHalfLife);
+                s.PredRotA = Quaternion.Slerp(s.PredRotA, Quaternion.Inverse(aRot) * rawRot, learnRate).normalized;
+                s.PredRotB = Quaternion.Slerp(s.PredRotB, Quaternion.Inverse(bRot) * rawRot, learnRate).normalized;
+            }
+
+            if (aUsable && surpriseA <= t.SurpriseClamp) s.EmaVelA = Mathf.Lerp(s.EmaVelA, velA, PerFrameToRate(t.EmaAlpha, stepDt));
+            if (bUsable && surpriseB <= t.SurpriseClamp) s.EmaVelB = Mathf.Lerp(s.EmaVelB, velB, PerFrameToRate(t.EmaAlpha, stepDt));
 
             // Low-pass the fused rotation. Half-life <= 0 disables.
             if (!s.HasSmoothedRot || t.RotationHalfLife <= 1e-5f)
             {
-                s.SmoothedMidRot = midRot;
+                s.SmoothedMidRot = rawRot;
                 s.HasSmoothedRot = true;
             }
             else
             {
-                float rotDt = Mathf.Max(dt, 0f);
-                float rotAlpha = 1f - Mathf.Pow(2f, -rotDt / t.RotationHalfLife);
-                s.SmoothedMidRot = Quaternion.Slerp(s.SmoothedMidRot, midRot, rotAlpha);
+                float rotAlpha = 1f - Mathf.Pow(2f, -stepDt / t.RotationHalfLife);
+                s.SmoothedMidRot = Quaternion.Slerp(s.SmoothedMidRot, rawRot, rotAlpha);
             }
-            midRot = s.SmoothedMidRot;
+            rawRot = s.SmoothedMidRot;
+
+            if (modeChanged)
+            {
+                Vector3 predictedMid = s.LastMid;
+                Quaternion predictedRot = s.LastMidRot;
+                if (continuousA || continuousB)
+                {
+                    Vector3 anchorNow = continuousA ? a : b;
+                    Quaternion anchorRotNow = continuousA ? aRot : bRot;
+                    Vector3 anchorLast = continuousA ? s.LastA : s.LastB;
+                    Quaternion anchorRotLast = continuousA ? s.LastRotA : s.LastRotB;
+                    Quaternion anchorDelta = anchorRotNow * Quaternion.Inverse(anchorRotLast);
+                    predictedMid = anchorNow + anchorDelta * (s.LastMid - anchorLast);
+                    predictedRot = anchorDelta * s.LastMidRot;
+                }
+                s.PosOffset = predictedMid - rawMid;
+                s.RotOffset = predictedRot * Quaternion.Inverse(rawRot);
+                s.Mode = mode;
+            }
+            else
+            {
+                float decay = t.TransitionHalfLife > 1e-5f ? Mathf.Pow(2f, -stepDt / t.TransitionHalfLife) : 0f;
+                s.PosOffset *= decay;
+                s.RotOffset = Quaternion.Slerp(Quaternion.identity, s.RotOffset, decay);
+            }
+
+            mid = rawMid + s.PosOffset;
+            midRot = (s.RotOffset * rawRot).normalized;
+
+            StoreLast(ref s, a, b, aRot, bRot, aUsable, bUsable, mid, midRot);
+        }
+
+        private static Quaternion BlendRotation(Quaternion midA, Quaternion midB)
+        {
+            if (Quaternion.Dot(midA, midB) < 0f)
+            {
+                midB = new Quaternion(-midB.x, -midB.y, -midB.z, -midB.w);
+            }
+            return Quaternion.Slerp(midA, midB, 0.5f).normalized;
+        }
+
+        private static void StoreLast(ref BasisMidpointFusionState s, Vector3 a, Vector3 b, Quaternion aRot, Quaternion bRot,
+            bool aUsable, bool bUsable, Vector3 mid, Quaternion midRot)
+        {
+            if (aUsable)
+            {
+                s.LastA = a;
+                s.LastRotA = aRot;
+            }
+            if (bUsable)
+            {
+                s.LastB = b;
+                s.LastRotB = bRot;
+            }
+            s.WasUsableA = aUsable;
+            s.WasUsableB = bUsable;
+            s.LastMid = mid;
+            s.LastMidRot = midRot;
         }
     }
 }

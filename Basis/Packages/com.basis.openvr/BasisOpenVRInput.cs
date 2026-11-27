@@ -49,14 +49,17 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         {
             if (!SteamVR.active)
             {
+                PoseLost = true;
                 return false;
             }
             result = SteamVR.instance.compositor.GetLastPoseForTrackedDeviceIndex(Device.deviceIndex, ref devicePose, ref deviceGamePose);
             if (result != EVRCompositorError.None)
             {
+                PoseLost = true;
                 BasisDebug.LogError("Error getting device pose: " + result);
                 return false;
             }
+            PoseLost = !devicePose.bPoseIsValid || devicePose.eTrackingResult != ETrackingResult.Running_OK;
             if (!devicePose.bPoseIsValid)
             {
                 return false;

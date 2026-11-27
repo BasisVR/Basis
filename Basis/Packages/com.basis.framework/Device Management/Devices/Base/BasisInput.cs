@@ -51,6 +51,9 @@ namespace Basis.Scripts.Device_Management.Devices
         [SerializeField]
         public bool IsLinked;
 
+        [System.NonSerialized]
+        public bool PoseLost;
+
         /// <summary>
         /// True when this device's pose comes from camera/optical tracking (e.g. the MediaPipe
         /// webcam source) rather than a worn or handheld tracker. Camera-tracked devices don't

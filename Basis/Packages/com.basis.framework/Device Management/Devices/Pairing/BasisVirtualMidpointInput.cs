@@ -116,7 +116,7 @@ namespace Basis.Scripts.Device_Management.Devices.Pairing
             Quaternion aRot = PartnerA.UnscaledDeviceCoord.rotation;
             Quaternion bRot = PartnerB.UnscaledDeviceCoord.rotation;
 
-            BasisMidpointFusionCore.Step(ref _fusion, a, b, aRot, bRot,
+            BasisMidpointFusionCore.Step(ref _fusion, a, b, aRot, bRot, PartnerA.PoseLost, PartnerB.PoseLost,
                 BasisMidpointFusionTunables.FromSettings(), Time.deltaTime,
                 out Vector3 mid, out Quaternion midRot, out float wA, out float wB, out float blendT);
 

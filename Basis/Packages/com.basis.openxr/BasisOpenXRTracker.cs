@@ -8,11 +8,14 @@ public class BasisOpenXRTracker : BasisInput
 {
     public InputActionProperty Position;
     public InputActionProperty Rotation;
+    public InputActionProperty TrackingState;
     [System.NonSerialized]
     public InputDevice InputDevice;
 
     private InputAction _positionAction;
     private InputAction _rotationAction;
+    private InputAction _trackingStateAction;
+    private const int TrackingStatePoseMask = 1 | 2;
 
     public void Initialize(InputDevice device, string usage, string UniqueID, string UnUniqueID, string subSystems)
     {
@@ -22,16 +25,20 @@ public class BasisOpenXRTracker : BasisInput
         var layoutName = device.GetType().Name;
         Position = new InputActionProperty(new InputAction($"Position_{usage}", InputActionType.Value, $"<{layoutName}>{{{usage}}}/devicePosition", expectedControlType: "Vector3"));
         Rotation = new InputActionProperty(new InputAction($"Rotation_{usage}", InputActionType.Value, $"<{layoutName}>{{{usage}}}/deviceRotation", expectedControlType: "Quaternion"));
+        TrackingState = new InputActionProperty(new InputAction($"TrackingState_{usage}", InputActionType.Value, $"<{layoutName}>{{{usage}}}/trackingState", expectedControlType: "Integer"));
         Position.action.Enable();
         Rotation.action.Enable();
+        TrackingState.action.Enable();
 
         _positionAction = Position.action;
         _rotationAction = Rotation.action;
+        _trackingStateAction = TrackingState.action;
     }
     private void DisableInputActions()
     {
         Position.action?.Disable();
         Rotation.action?.Disable();
+        TrackingState.action?.Disable();
     }
     public new void OnDestroy()
     {
@@ -59,6 +66,9 @@ public class BasisOpenXRTracker : BasisInput
         {
             UnscaledDeviceCoord.rotation = _rotationAction.ReadValue<Quaternion>();
         }
+
+        PoseLost = _trackingStateAction != null && _trackingStateAction.controls.Count > 0
+            && (_trackingStateAction.ReadValue<int>() & TrackingStatePoseMask) != TrackingStatePoseMask;
 
         ConvertToScaledDeviceCoord();
         ControlOnlyAsDevice();
