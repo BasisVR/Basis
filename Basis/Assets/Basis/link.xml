@@ -1,8 +1,6 @@
 <linker>
 
     <assembly fullname="AudioLink" preserve="all" />
-    <assembly fullname="BakeryEditorAssembly" preserve="all" />
-    <assembly fullname="BakeryRuntimeAssembly" preserve="all" />
     <assembly fullname="Base128" preserve="all" />
     <assembly fullname="Basis Framework" preserve="all" />
     <assembly fullname="Basis.Addon.SnapControls" preserve="all" />
@@ -16,7 +14,6 @@
     <assembly fullname="Basis.ImagePickup" preserve="all" />
     <assembly fullname="Basis.Inspector" preserve="all" />
     <assembly fullname="Basis.Integration.AudioLink" preserve="all" />
-    <assembly fullname="Basis.Integration.LTCGI" preserve="all" />
     <assembly fullname="Basis.Integration.MetaBodyTracking" preserve="all" />
     <assembly fullname="Basis.Integration.SlimeVR" preserve="all" />
     <assembly fullname="Basis.Integration.TrackerObjects" preserve="all" />
@@ -34,7 +31,6 @@
     <assembly fullname="BasisExamples" preserve="all" />
     <assembly fullname="BasisGizmos" preserve="all" />
     <assembly fullname="BasisGlobalIllumination" preserve="all" />
-    <assembly fullname="BasisLanDiscovery" preserve="all" />
     <assembly fullname="BasisMediaPipe" preserve="all" />
     <assembly fullname="BasisMediaPipe.Homuler" preserve="all" />
     <assembly fullname="BasisMediaPlayer" preserve="all" />
@@ -53,12 +49,9 @@
     <assembly fullname="BasisServersProvider" preserve="all" />
     <assembly fullname="BasisSettings" preserve="all" />
     <assembly fullname="BasisShims" preserve="all" />
-    <assembly fullname="BasisSteamLobby" preserve="all" />
-    <assembly fullname="BasisSteamTransport" preserve="all" />
     <assembly fullname="BasisTrackerObjects" preserve="all" />
     <assembly fullname="BasisVehicles" preserve="all" />
     <assembly fullname="BasisVehiclesNetwork" preserve="all" />
-    <assembly fullname="BasisWebSocketTransport.Unity" preserve="all" />
     <assembly fullname="BasisWebXR" preserve="all" />
     <assembly fullname="BouncyCastle.Cryptography" preserve="all" />
     <assembly fullname="Cilbox" preserve="all" />
@@ -66,21 +59,15 @@
     <assembly fullname="D3D12Core" preserve="all" />
     <assembly fullname="D3D12StateObjectCompiler" preserve="all" />
     <assembly fullname="Did" preserve="all" />
-    <assembly fullname="Facepunch.Steamworks.Posix" preserve="all" />
-    <assembly fullname="Facepunch.Steamworks.Win64" preserve="all" />
     <assembly fullname="GPUUtilities" preserve="all" />
     <assembly fullname="Generator.Equals" preserve="all" />
     <assembly fullname="Generator.Equals.Runtime" preserve="all" />
     <assembly fullname="HVR.Basis.Comms" preserve="all" />
     <assembly fullname="HVR.Basis.Comms.HVRUtility" preserve="all" />
-    <assembly fullname="HVR.Freehand" preserve="all" />
-    <assembly fullname="HVR.Freehand.FreehandExample" preserve="all" />
     <assembly fullname="HVR.LicenseReview" preserve="all" />
     <assembly fullname="K4os.Compression.LZ4" preserve="all" />
     <assembly fullname="Klak.Spout.Runtime" preserve="all" />
     <assembly fullname="Klak.Syphon.Runtime" preserve="all" />
-    <assembly fullname="LTCGI_Assembly" preserve="all" />
-    <assembly fullname="LTCGI_LightVolumes" preserve="all" />
     <assembly fullname="MeaMod.DNS" preserve="all" />
     <assembly fullname="Mediapipe.Google.Protobuf" preserve="all" />
     <assembly fullname="Mediapipe.Runtime" preserve="all" />
@@ -89,7 +76,6 @@
     <assembly fullname="OpusSharp" preserve="all" />
     <assembly fullname="RNNoiseIntergration" preserve="all" />
     <assembly fullname="RenderAs2DModule" preserve="all" />
-    <assembly fullname="SharpOSC" preserve="all" />
     <assembly fullname="SimpleBase" preserve="all" />
     <assembly fullname="SteamAudioUnity" preserve="all" />
     <assembly fullname="SteamVR" preserve="all" />
@@ -97,10 +83,6 @@
     <assembly fullname="System.Buffers" preserve="all" />
     <assembly fullname="System.Memory" preserve="all" />
     <assembly fullname="System.Runtime.CompilerServices.Unsafe" preserve="all" />
-    <assembly fullname="TekView" preserve="all" />
-    <assembly fullname="Towneh.VRSL.URP" preserve="all" />
-    <assembly fullname="Towneh.VRSL.URP.AudioLink" preserve="all" />
-    <assembly fullname="Towneh.VRSL.URP.Basis" preserve="all" />
     <assembly fullname="TrueAudioNext" preserve="all" />
     <assembly fullname="UdonSharp.Lib" preserve="all" />
     <assembly fullname="UdonSharp.Runtime" preserve="all" />
@@ -143,6 +125,8 @@
     <assembly fullname="Unity.Services.Core.Internal" preserve="all" />
     <assembly fullname="Unity.Services.Core.Networking" preserve="all" />
     <assembly fullname="Unity.Services.Core.Registration" preserve="all" />
+    <assembly fullname="Unity.Services.Core.Releases" preserve="all" />
+    <assembly fullname="Unity.Services.Core.Releases.Internal" preserve="all" />
     <assembly fullname="Unity.Services.Core.Scheduler" preserve="all" />
     <assembly fullname="Unity.Services.Core.Telemetry" preserve="all" />
     <assembly fullname="Unity.Services.Core.Threading" preserve="all" />
@@ -154,7 +138,6 @@
     <assembly fullname="Unity.XR.CoreUtils" preserve="all" />
     <assembly fullname="Unity.XR.Hands" preserve="all" />
     <assembly fullname="Unity.XR.Management" preserve="all" />
-    <assembly fullname="Unity.XR.MockHMD" preserve="all" />
     <assembly fullname="Unity.XR.OpenVR" preserve="all" />
     <assembly fullname="Unity.XR.OpenXR" preserve="all" />
     <assembly fullname="Unity.XR.OpenXR.Features.ConformanceAutomation" preserve="all" />
@@ -169,10 +152,7 @@
     <assembly fullname="UnityEngine.SpatialTracking" preserve="all" />
     <assembly fullname="UnityEngine.UI" preserve="all" />
     <assembly fullname="UnityEngine.XR.LegacyInputHelpers" preserve="all" />
-    <assembly fullname="VRC.SDK3" preserve="all" />
-    <assembly fullname="VRC.SDKBase" preserve="all" />
     <assembly fullname="VRC.Udon" preserve="all" />
-    <assembly fullname="VRC.Udon.Serialization.OdinSerializer" preserve="all" />
     <assembly fullname="Valve.OpenXR.Utils" preserve="all" />
     <assembly fullname="XRSDKOpenVR" preserve="all" />
     <assembly fullname="YtDlp.Runtime" preserve="all" />
@@ -218,6 +198,7 @@
     <assembly fullname="enumflags2_derive-525076d24b00f360" preserve="all" />
     <assembly fullname="enumflags2_derive-7fceffd1e29ec424" preserve="all" />
     <assembly fullname="enumflags2_derive-ada6b6bcb00bda33" preserve="all" />
+    <assembly fullname="enumflags2_derive-c3d9b4a247372dea" preserve="all" />
     <assembly fullname="futures_macro-19560f72539d506e" preserve="all" />
     <assembly fullname="futures_macro-509a3c4468a7d7be" preserve="all" />
     <assembly fullname="futures_macro-97b4a8061873a9cf" preserve="all" />
@@ -243,9 +224,6 @@
     <assembly fullname="pin_project_internal-07253877d8b2d18c" preserve="all" />
     <assembly fullname="pin_project_internal-8cdadccff92c97d7" preserve="all" />
     <assembly fullname="pin_project_internal-e2742ff4672044a1" preserve="all" />
-    <assembly fullname="red.sim.LightVolumes" preserve="all" />
-    <assembly fullname="red.sim.LightVolumesEditor" preserve="all" />
-    <assembly fullname="red.sim.LightVolumesUdon" preserve="all" />
     <assembly fullname="rustversion-16aa66de7d67bb78" preserve="all" />
     <assembly fullname="rustversion-658294290d15143f" preserve="all" />
     <assembly fullname="rustversion-6803c7e27637cf39" preserve="all" />
@@ -262,7 +240,6 @@
     <assembly fullname="serde_derive-f0b081f29c36ac9e" preserve="all" />
     <assembly fullname="serde_repr-15a8ba06f34752f1" preserve="all" />
     <assembly fullname="serde_repr-614d2fd925a6f608" preserve="all" />
-    <assembly fullname="steam_api64" preserve="all" />
     <assembly fullname="strum_macros-01e847554a53226a" preserve="all" />
     <assembly fullname="strum_macros-3bbcfa7dd5e8ba1e" preserve="all" />
     <assembly fullname="strum_macros-5b6a615d0ee55ada" preserve="all" />
@@ -287,6 +264,7 @@
     <assembly fullname="tokio_macros-abab198d34cf11c5" preserve="all" />
     <assembly fullname="tokio_macros-b31743922a80ef41" preserve="all" />
     <assembly fullname="tracing_attributes-08465c5a9229b9c2" preserve="all" />
+    <assembly fullname="tracing_attributes-282a578db6df8f4b" preserve="all" />
     <assembly fullname="tracing_attributes-884deab0237cbf1a" preserve="all" />
     <assembly fullname="tracing_attributes-9674f4ca17e91064" preserve="all" />
     <assembly fullname="tracing_attributes-aa6a68f70ba45f70" preserve="all" />
@@ -306,6 +284,7 @@
     <assembly fullname="yoke_derive-f175868e173c721f" preserve="all" />
     <assembly fullname="zbus_macros-00ba31ca8a1d6fa6" preserve="all" />
     <assembly fullname="zbus_macros-164d9aa756dcf3e8" preserve="all" />
+    <assembly fullname="zbus_macros-e37170ee7595a454" preserve="all" />
     <assembly fullname="zbus_macros-f8aee06ee9c1c9e1" preserve="all" />
     <assembly fullname="zerocopy_derive-246ed8c1e1200200" preserve="all" />
     <assembly fullname="zerocopy_derive-444ce6847b694bfb" preserve="all" />

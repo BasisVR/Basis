@@ -10503,6 +10503,54 @@
       "value": "Raycast Line Colour"
     },
     {
+      "key": "settings.controls.pointer.title",
+      "value": "Pointer"
+    },
+    {
+      "key": "settings.controls.pointer.description",
+      "value": "How steady the hand pointer is and how its line is drawn."
+    },
+    {
+      "key": "settings.controls.pointer.smoothing",
+      "value": "Pointer Smoothing"
+    },
+    {
+      "key": "settings.controls.pointer.smoothing.tooltip",
+      "value": "Steadies the VR pointer against hand shake. The pointer trails your controller a little and clicks land where the pointer is drawn."
+    },
+    {
+      "key": "settings.controls.pointer.strength",
+      "value": "Smoothing Strength"
+    },
+    {
+      "key": "settings.controls.pointer.strength.tooltip",
+      "value": "How strongly small movements are steadied while your hand is nearly still. Higher is steadier but trails further behind."
+    },
+    {
+      "key": "settings.controls.pointer.release",
+      "value": "Smoothing Release Speed"
+    },
+    {
+      "key": "settings.controls.pointer.release.tooltip",
+      "value": "Turning speed, in degrees per second, at which smoothing lets go entirely. Lower values make fast sweeps follow the controller sooner."
+    },
+    {
+      "key": "settings.controls.pointer.maxLag",
+      "value": "Maximum Pointer Lag"
+    },
+    {
+      "key": "settings.controls.pointer.maxLag.tooltip",
+      "value": "The furthest the smoothed pointer may trail behind where your controller is aiming."
+    },
+    {
+      "key": "settings.controls.pointer.curvedLine",
+      "value": "Curved Pointer Line"
+    },
+    {
+      "key": "settings.controls.pointer.curvedLine.tooltip",
+      "value": "Draws the pointer leaving your hand along its real aim and bending onto the smoothed target. Off draws a straight line to the target."
+    },
+    {
       "key": "settings.chat.menuStyles.title",
       "value": "Menu Styles"
     },

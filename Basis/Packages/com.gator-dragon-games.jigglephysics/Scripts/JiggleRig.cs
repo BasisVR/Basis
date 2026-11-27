@@ -49,7 +49,7 @@ public class JiggleRig : MonoBehaviour, IJiggleParameterProvider {
             return false;
         }
         var tree = segment?.jiggleTree;
-        if (tree == null || tree.dirty || tree.points == null || tree.bones == null) {
+        if (tree == null || tree.dirty || tree.pointCount == 0 || tree.bones == null) {
             return false;
         }
         var points = tree.points;

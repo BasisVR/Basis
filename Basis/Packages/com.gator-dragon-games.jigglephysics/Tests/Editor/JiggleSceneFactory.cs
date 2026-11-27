@@ -112,6 +112,9 @@ internal static class JiggleSceneFactory {
         if (data.parameters != null) {
             UnsafeUtility.Free(data.parameters, Allocator.Persistent);
         }
+        if (data.childrenIndices != null) {
+            UnsafeUtility.Free(data.childrenIndices, Allocator.Persistent);
+        }
     }
 }
 

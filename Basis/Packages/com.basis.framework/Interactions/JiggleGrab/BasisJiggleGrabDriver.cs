@@ -191,7 +191,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             if (desktop)
             {
                 SearchRigs(localId, includeLocalAvatar, GrabQuery.Pointing(input.RaycastCoord.position,
-                        input.RaycastCoord.rotation * Vector3.forward,
+                        input.PointerDirection,
                         BasisPlayerInteract.AvatarScaledRange(BasisPlayerInteract.raycastDistance), radius),
                     ref bestRig, ref bestTarget, ref bestRigIndex, ref bestPointIndex, ref bestPointPosition, ref bestScore);
             }
@@ -217,7 +217,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 {
                     pointed = true;
                     SearchRigs(localId, includeLocalAvatar, GrabQuery.Pointing(input.RaycastCoord.position,
-                            input.RaycastCoord.rotation * Vector3.forward,
+                            input.PointerDirection,
                             BasisPlayerInteract.AvatarScaledRange(GrabRayLength), radius),
                         ref bestRig, ref bestTarget, ref bestRigIndex, ref bestPointIndex, ref bestPointPosition, ref bestScore);
                 }
@@ -434,7 +434,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     continue;
                 }
                 JiggleTree tree = rig.GetJiggleTree();
-                if (tree == null || tree.dirty || tree.bones == null || tree.points == null)
+                if (tree == null || tree.dirty || tree.bones == null || tree.pointCount == 0)
                 {
                     continue;
                 }
@@ -911,7 +911,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         private static bool TryResolvePoint(GrabState state, JiggleRig rig)
         {
             JiggleTree tree = rig.GetJiggleTree();
-            if (tree == null || tree.dirty || tree.bones == null || tree.points == null)
+            if (tree == null || tree.dirty || tree.bones == null || tree.pointCount == 0)
             {
                 return false;
             }
@@ -1206,7 +1206,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         {
             JiggleTree tree = state.tree;
             int index = state.resolvedPointIndex;
-            if (tree == null || tree.points == null || index < 0 || index >= tree.points.Length)
+            if (tree == null || tree.pointCount == 0 || index < 0 || index >= tree.points.Length)
             {
                 return;
             }

@@ -43,6 +43,13 @@ MonoBehaviour:
     - language
     FlaggedDuringContentUpdateRestriction: 0
     m_FolderGuid: 
+  - m_GUID: 03e058b2421848188b3a05d84e4f619b
+    m_Address: Languages/com.basis.landiscovery/zh-Hant
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+    m_FolderGuid: 
   - m_GUID: 06d43e66a99d9c742851f25200052b1a
     m_Address: Languages/zh-Hans
     m_ReadOnly: 0
@@ -113,6 +120,13 @@ MonoBehaviour:
     - language
     FlaggedDuringContentUpdateRestriction: 0
     m_FolderGuid: 
+  - m_GUID: 19b6cdb005ea4b54b9407902e52f4e38
+    m_Address: Languages/com.basis.landiscovery/nl
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+    m_FolderGuid: 
   - m_GUID: 1aae7991268f9fa4da74df87ecf161f3
     m_Address: Languages/com.basis.developer.recorder/zh-Hans
     m_ReadOnly: 0
@@ -176,6 +190,13 @@ MonoBehaviour:
     - language
     FlaggedDuringContentUpdateRestriction: 0
     m_FolderGuid: 
+  - m_GUID: 26ce6dde4ec5463aae0010502099c2f4
+    m_Address: Languages/com.basis.landiscovery/es-MX
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+    m_FolderGuid: 
   - m_GUID: 299d030428a14290a7c3431ad78d883e
     m_Address: Languages/com.basis.screenshare/nl
     m_ReadOnly: 0
@@ -211,6 +232,13 @@ MonoBehaviour:
     - language
     FlaggedDuringContentUpdateRestriction: 0
     m_FolderGuid: 
+  - m_GUID: 30a9b059df9b43e4aa8491ab4cd4ed14
+    m_Address: Languages/com.basis.landiscovery/it
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+    m_FolderGuid: 
   - m_GUID: 37b0700be4ebfb84e98f6cc5e965eebb
     m_Address: Languages/com.basis.developer.recorder/es
     m_ReadOnly: 0
@@ -234,6 +262,13 @@ MonoBehaviour:
     m_FolderGuid: 
   - m_GUID: 3ac36cd0f517ed84c956bfb54be40683
     m_Address: Languages/com.basis.developer.recorder/de
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+    m_FolderGuid: 
+  - m_GUID: 3e120492e34b49a7b3953dce9492b562
+    m_Address: Languages/com.basis.landiscovery/es
     m_ReadOnly: 0
     m_SerializedLabels:
     - language
@@ -281,6 +316,13 @@ MonoBehaviour:
     - language
     FlaggedDuringContentUpdateRestriction: 0
     m_FolderGuid: 
+  - m_GUID: 4d87961460264c6ba55b9ae53bf7c038
+    m_Address: Languages/com.basis.landiscovery/ar
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+    m_FolderGuid: 
   - m_GUID: 502642913b3d44d0a23370f03eaf5461
     m_Address: Languages/com.basis.imagepickup/es
     m_ReadOnly: 0
@@ -297,6 +339,13 @@ MonoBehaviour:
     m_FolderGuid: 
   - m_GUID: 5147b71cee1cd7740bcb0656fd4eebac
     m_Address: Languages/dev.hai-vr.hvr.license-review/hi
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+    m_FolderGuid: 
+  - m_GUID: 528b6251e50f48d8b320e8724bd885f5
+    m_Address: Languages/com.basis.landiscovery/hi
     m_ReadOnly: 0
     m_SerializedLabels:
     - language
@@ -386,8 +435,22 @@ MonoBehaviour:
     - language
     FlaggedDuringContentUpdateRestriction: 0
     m_FolderGuid: 
+  - m_GUID: 719cc459c10a41df99d0f43a42e5c2b4
+    m_Address: Languages/com.basis.landiscovery/bn
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+    m_FolderGuid: 
   - m_GUID: 71b2aecc62e3869479fb97e70403fabb
     m_Address: Languages/com.basis.developer.recorder/zh-Hant
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+    m_FolderGuid: 
+  - m_GUID: 72e8424dcc5840ea89492f4ce3dcf836
+    m_Address: Languages/com.basis.landiscovery/ru
     m_ReadOnly: 0
     m_SerializedLabels:
     - language
@@ -554,6 +617,13 @@ MonoBehaviour:
     - language
     FlaggedDuringContentUpdateRestriction: 0
     m_FolderGuid: 
+  - m_GUID: 99908a2322c14b0f95a0a93fd4569926
+    m_Address: Languages/com.basis.landiscovery/de
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+    m_FolderGuid: 
   - m_GUID: 9dadfb7ff5d3b514581a124a6e836063
     m_Address: Languages/dev.hai-vr.hvr.license-review/fr
     m_ReadOnly: 0
@@ -631,6 +701,13 @@ MonoBehaviour:
     - language
     FlaggedDuringContentUpdateRestriction: 0
     m_FolderGuid: 
+  - m_GUID: a9fc204271fa4b359bc7003dd13960dd
+    m_Address: Languages/com.basis.landiscovery/ur
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+    m_FolderGuid: 
   - m_GUID: a9fe21e0f77d4be7b4206540d93ecf34
     m_Address: Languages/com.basis.imagepickup/en
     m_ReadOnly: 0
@@ -661,6 +738,13 @@ MonoBehaviour:
     m_FolderGuid: 
   - m_GUID: b73067723b6747689a9fd446e58214be
     m_Address: Languages/com.basis.screenshare/zh-Hans
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+    m_FolderGuid: 
+  - m_GUID: b777f9f8315d4ce3bbe878b41c1fbc62
+    m_Address: Languages/com.basis.landiscovery/ja
     m_ReadOnly: 0
     m_SerializedLabels:
     - language
@@ -757,8 +841,22 @@ MonoBehaviour:
     - language
     FlaggedDuringContentUpdateRestriction: 0
     m_FolderGuid: 
+  - m_GUID: d10d9a157a464de4ab2ed79bb0d51645
+    m_Address: Languages/com.basis.landiscovery/pt
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+    m_FolderGuid: 
   - m_GUID: d3a2fa1a361440c4ebd718ccfd92481b
     m_Address: Languages/com.basis.developer.recorder/ar
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+    m_FolderGuid: 
+  - m_GUID: d4b46f6e41724d879650e5b8489942b9
+    m_Address: Languages/com.basis.landiscovery/zh-Hans
     m_ReadOnly: 0
     m_SerializedLabels:
     - language
@@ -792,6 +890,13 @@ MonoBehaviour:
     - language
     FlaggedDuringContentUpdateRestriction: 0
     m_FolderGuid: 
+  - m_GUID: da884537b26c4fca8d1936571b065d3c
+    m_Address: Languages/com.basis.landiscovery/fr
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+    m_FolderGuid: 
   - m_GUID: dc6d293c8d7b0814498efd9c79d14876
     m_Address: Languages/com.basis.developer.exceptions/it
     m_ReadOnly: 0
@@ -808,6 +913,13 @@ MonoBehaviour:
     m_FolderGuid: 
   - m_GUID: dd63edf4176e1554ca31ecc744dddd70
     m_Address: Languages/com.basis.developer.recorder/ur
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+    m_FolderGuid: 
+  - m_GUID: e0854c737e8b4be8873603ad967db626
+    m_Address: Languages/com.basis.landiscovery/en
     m_ReadOnly: 0
     m_SerializedLabels:
     - language
@@ -850,6 +962,13 @@ MonoBehaviour:
     m_FolderGuid: 
   - m_GUID: ec610aed7ed244958a40d9608aaf75b4
     m_Address: Languages/com.basis.screenshare/bn
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - language
+    FlaggedDuringContentUpdateRestriction: 0
+    m_FolderGuid: 
+  - m_GUID: eea05bff73dc4d96b32c62c74eb563d4
+    m_Address: Languages/com.basis.steamlobby/en
     m_ReadOnly: 0
     m_SerializedLabels:
     - language

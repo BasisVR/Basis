@@ -143,7 +143,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             bool useRay = !directGrab && source != null;
             Vector3 rayOrigin = useRay ? source.RaycastCoord.position : default;
             Vector3 rayDir = useRay
-                ? (source.RaycastCoord.rotation * Vector3.forward).normalized
+                ? source.PointerDirection.normalized
                 : default;
 
             int nearest = CurrentIndex;

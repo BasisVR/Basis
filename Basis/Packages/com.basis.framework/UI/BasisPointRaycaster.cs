@@ -168,8 +168,9 @@ namespace Basis.Scripts.UI
         {
             if (UseWorldPosition)
             {
-                return new Ray(BasisInput.RaycastCoord.position, BasisInput.RaycastCoord.rotation * Vector3.forward);
+                return new Ray(BasisInput.RaycastCoord.position, SmoothDirection(BasisInput.RaycastCoord.rotation * Vector3.forward));
             }
+            ResetSmoothing();
             var Camera = BasisLocalCameraDriver.Instance.Camera;
             return Camera.ScreenPointToRay(ScreenPoint, Camera.stereoActiveEye);
         }

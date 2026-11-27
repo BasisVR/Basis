@@ -90,6 +90,7 @@ public static class SettingsProviderControllerConfig
         if (isVR)
         {
             BuildTurningSection(container);
+            BuildPointerSection(container);
         }
 
         if (isDesktop)
@@ -243,6 +244,64 @@ public static class SettingsProviderControllerConfig
     /// VR finger touch — direct fingertip presses on menus (BasisDirectTouch). The tuning rows only
     /// show while the feature is on.
     /// </summary>
+    /// <summary>
+    /// Hand pointer steadiness. The tuning rows only show while smoothing is on.
+    /// </summary>
+    private static void BuildPointerSection(RectTransform container)
+    {
+        SettingsProviderKeyboardBindings.CreateCollapsibleSection(
+            container, BasisLocalization.Get("settings.controls.pointer.title"),
+            BasisLocalization.Get("settings.controls.pointer.description"), group =>
+        {
+            PanelToggle toggleSmoothing = PanelToggle.CreateNewEntry(group);
+            toggleSmoothing.Descriptor.SetTitle(BasisLocalization.Get("settings.controls.pointer.smoothing"));
+            toggleSmoothing.Descriptor.SetTooltip(BasisLocalization.Get("settings.controls.pointer.smoothing.tooltip"));
+            toggleSmoothing.AssignBinding(BasisSettingsDefaults.PointerSmoothing);
+
+            PanelSlider sliderStrength = PanelSlider.CreateEntryAndBind(
+                group,
+                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.controls.pointer.strength"),
+                    BasisSettingsDefaults.POINTER_SMOOTHING_STRENGTH_MIN, BasisSettingsDefaults.POINTER_SMOOTHING_STRENGTH_MAX,
+                    false, 2, ValueDisplayMode.percentageFromZero),
+                BasisSettingsDefaults.PointerSmoothingStrength);
+            sliderStrength.Descriptor.SetTooltip(BasisLocalization.Get("settings.controls.pointer.strength.tooltip"));
+
+            PanelSlider sliderRelease = PanelSlider.CreateEntryAndBind(
+                group,
+                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.controls.pointer.release"),
+                    BasisSettingsDefaults.POINTER_SMOOTHING_RELEASE_MIN, BasisSettingsDefaults.POINTER_SMOOTHING_RELEASE_MAX,
+                    true, 0, ValueDisplayMode.Degrees),
+                BasisSettingsDefaults.PointerSmoothingReleaseSpeed);
+            sliderRelease.Descriptor.SetTooltip(BasisLocalization.Get("settings.controls.pointer.release.tooltip"));
+
+            PanelSlider sliderMaxLag = PanelSlider.CreateEntryAndBind(
+                group,
+                PanelSlider.SliderSettings.Advanced(BasisLocalization.Get("settings.controls.pointer.maxLag"),
+                    BasisSettingsDefaults.POINTER_SMOOTHING_MAX_LAG_MIN, BasisSettingsDefaults.POINTER_SMOOTHING_MAX_LAG_MAX,
+                    false, 1, ValueDisplayMode.Degrees),
+                BasisSettingsDefaults.PointerSmoothingMaxLag);
+            sliderMaxLag.Descriptor.SetTooltip(BasisLocalization.Get("settings.controls.pointer.maxLag.tooltip"));
+
+            PanelToggle toggleCurvedLine = PanelToggle.CreateNewEntry(group);
+            toggleCurvedLine.Descriptor.SetTitle(BasisLocalization.Get("settings.controls.pointer.curvedLine"));
+            toggleCurvedLine.Descriptor.SetTooltip(BasisLocalization.Get("settings.controls.pointer.curvedLine.tooltip"));
+            toggleCurvedLine.AssignBinding(BasisSettingsDefaults.PointerCurvedLine);
+
+            void ApplyTuningVisibility(bool smoothingOn)
+            {
+                sliderStrength.Descriptor.SetActive(smoothingOn);
+                sliderRelease.Descriptor.SetActive(smoothingOn);
+                sliderMaxLag.Descriptor.SetActive(smoothingOn);
+                toggleCurvedLine.Descriptor.SetActive(smoothingOn);
+            }
+            ApplyTuningVisibility(BasisSettingsDefaults.PointerSmoothing.RawValue);
+            toggleSmoothing.OnValueChanged += value =>
+            {
+                ApplyTuningVisibility(value);
+                group.ForceRebuild();
+            };
+        });
+    }
     private static void BuildFingerTouchSection(RectTransform container)
     {
         SettingsProviderKeyboardBindings.CreateCollapsibleSection(
@@ -504,6 +563,11 @@ public static class SettingsProviderControllerConfig
         BasisSettingsDefaults.usesnapturn.ResetToDefault();
         BasisSettingsDefaults.SnapTurnAngle.ResetToDefault();
         BasisSettingsDefaults.SmoothTurnSpeed.ResetToDefault();
+        BasisSettingsDefaults.PointerSmoothing.ResetToDefault();
+        BasisSettingsDefaults.PointerSmoothingStrength.ResetToDefault();
+        BasisSettingsDefaults.PointerSmoothingReleaseSpeed.ResetToDefault();
+        BasisSettingsDefaults.PointerSmoothingMaxLag.ResetToDefault();
+        BasisSettingsDefaults.PointerCurvedLine.ResetToDefault();
         BasisSettingsDefaults.ScrollSpeed.ResetToDefault();
         BasisSettingsDefaults.ControllerDeadZone.ResetToDefault();
         BasisSettingsDefaults.Basexdeadzone.ResetToDefault();

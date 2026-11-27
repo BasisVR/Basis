@@ -372,16 +372,14 @@ public struct JiggleRigData {
         
         if (!rootBone) return;
         Gizmos.color = new Color(0.9607844f, 0.9607844f, 0.9607844f, 1f);
-        var jiggleTree = JigglePhysics.CreateJiggleTree(this, null);
-        var points = jiggleTree.points;
-        var parameters = jiggleTree.parameters;
-        var pointCount = points.Length;
+        JigglePhysics.BuildPreview(this, out var bones, out var points, out var parameters);
+        var pointCount = points.Count;
         var cam = Camera.current;
         for (var index = 0; index < pointCount; index++) {
             var simulatedPoint = points[index];
             if (simulatedPoint.parentIndex == -1) continue;
             if (!points[simulatedPoint.parentIndex].hasTransform) continue;
-            DrawBone(points[simulatedPoint.parentIndex].position, simulatedPoint.position, jiggleTree.bones[index].lossyScale, parameters[simulatedPoint.parentIndex], cam);
+            DrawBone(points[simulatedPoint.parentIndex].position, simulatedPoint.position, bones[index].lossyScale, parameters[simulatedPoint.parentIndex], cam);
         }
     }
     

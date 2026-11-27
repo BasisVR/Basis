@@ -372,7 +372,7 @@ internal class JiggleRigDataTests {
         var rig = JiggleSceneFactory.Rig(root);
         rig.excludeRoot = true;
         var tree = JigglePhysics.CreateJiggleTree(rig, null);
-        var before = (JigglePointParameters[])tree.parameters.Clone();
+        var before = tree.parameters.ToArray();
 
         rig.UpdateParameters(tree, new List<JigglePointParameters>());
 
@@ -391,7 +391,7 @@ internal class JiggleRigDataTests {
         var root = scene.Chain(4);
         var rig = JiggleSceneFactory.Rig(root);
         var tree = JigglePhysics.CreateJiggleTree(rig, null);
-        var before = (JigglePointParameters[])tree.parameters.Clone();
+        var before = tree.parameters.ToArray();
 
         rig.UpdateParameters(tree, new List<JigglePointParameters>());
 

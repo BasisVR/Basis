@@ -126,7 +126,7 @@ internal unsafe class JiggleTreeBuildTests {
         for (int i = 0; i < tree.points.Length; i++) {
             var point = tree.points[i];
             for (int c = 0; c < point.childrenCount; c++) {
-                var childIndex = tree.childrenIndices[i * JiggleSimulatedPoint.MAX_CHILDREN + c];
+                var childIndex = tree.GetChild(i, c);
                 Assert.GreaterOrEqual(childIndex, 0);
                 Assert.Less(childIndex, tree.points.Length);
             }
@@ -355,7 +355,7 @@ internal unsafe class JiggleTreeBuildTests {
         var tree = Build(JiggleSceneFactory.Rig(root));
 
         Assert.AreEqual(1, tree.points[2].childrenCount, "the merged leaf was registered twice");
-        Assert.AreEqual(3, tree.childrenIndices[2 * JiggleSimulatedPoint.MAX_CHILDREN]);
+        Assert.AreEqual(3, tree.GetChild(2, 0));
     }
 
     [Test]
@@ -371,7 +371,7 @@ internal unsafe class JiggleTreeBuildTests {
             var point = tree.points[i];
             var seen = new List<int>();
             for (int c = 0; c < point.childrenCount; c++) {
-                var childIndex = tree.childrenIndices[i * JiggleSimulatedPoint.MAX_CHILDREN + c];
+                var childIndex = tree.GetChild(i, c);
                 CollectionAssert.DoesNotContain(seen, childIndex, $"point {i} repeats a child");
                 seen.Add(childIndex);
             }
@@ -432,35 +432,52 @@ internal unsafe class JiggleTreeBuildTests {
         Assert.IsTrue(before == tree.GetStruct().points);
     }
 
-    /// <summary>
-    /// The managed staging array behind those buffers has to be kept too. It is MAX_CHILDREN ints
-    /// per point — 128 bytes against a bone reference's 8, far the largest array on the tree — and a
-    /// regeneration rewrites all of it. Reallocating rather than copying into it put that much
-    /// garbage per rebuilt rig under JiggleRoot.GetJiggleTrees, which is where the regeneration
-    /// budget spends every flush a dirty backlog is draining.
-    /// </summary>
     [Test]
-    public void Regenerate_WithTheSamePointCount_KeepsTheChildIndexArray() {
+    public unsafe void Regenerate_WithTheSamePointCount_KeepsEveryJobBuffer() {
         var root = scene.Chain(3);
         var rig = JiggleSceneFactory.Rig(root);
         var tree = Build(rig);
-        var before = tree.childrenIndices;
+        var before = tree.GetStruct();
 
         Build(rig, tree);
 
-        Assert.AreSame(before, tree.childrenIndices);
+        var after = tree.GetStruct();
+        Assert.IsTrue(before.points == after.points);
+        Assert.IsTrue(before.parameters == after.parameters);
+        Assert.IsTrue(before.childrenIndices == after.childrenIndices);
     }
 
-    /// <summary>The other half: a shape change still has to resize it, or the stride runs off the end.</summary>
+    /// <summary>The other half: a shape change reallocates and repacks the children.</summary>
     [Test]
-    public void Regenerate_AfterExcludingABone_ResizesTheChildIndexArray() {
+    public unsafe void Regenerate_AfterExcludingABone_RepacksTheChildren() {
         var root = scene.Chain(4);
         var bones = JiggleBoneScene.Descend(root, 4);
         var tree = Build(JiggleSceneFactory.Rig(root));
 
         Build(JiggleSceneFactory.Rig(root, bones[2]), tree);
 
-        Assert.AreEqual(tree.points.Length * JiggleSimulatedPoint.MAX_CHILDREN, tree.childrenIndices.Length);
+        var data = tree.GetStruct();
+        Assert.AreEqual((uint)tree.points.Length, data.pointCount);
+        Assert.GreaterOrEqual(data.childCapacity, data.pointCount);
+        Assert.IsTrue(data.GetIsValid(out var reason), reason);
+    }
+
+    [Test]
+    public unsafe void Children_ArePackedAtMostOnePerPoint() {
+        var root = scene.Chain(2);
+        var mid = root.GetChild(0);
+        scene.Spawn("a", mid, new Vector3(0.1f, -0.25f, 0f));
+        scene.Spawn("b", mid, new Vector3(-0.1f, -0.25f, 0f));
+        var tree = Build(JiggleSceneFactory.Rig(root));
+
+        var data = tree.GetStruct();
+        var total = 0;
+        for (int i = 0; i < tree.points.Length; i++) {
+            Assert.AreEqual(total, data.childrenOffsets[i]);
+            total += tree.points[i].childrenCount;
+        }
+        Assert.LessOrEqual(total, tree.points.Length - 1);
+        Assert.IsTrue(data.GetIsValid(out var reason), reason);
     }
 
     [Test]

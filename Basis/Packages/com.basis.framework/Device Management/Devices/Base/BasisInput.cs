@@ -227,6 +227,12 @@ namespace Basis.Scripts.Device_Management.Devices
         public BasisCalibratedCoords RaycastCoord;
 
         /// <summary>
+        /// Pointing direction that matches the drawn pointer: the smoothed aim when pointer
+        /// smoothing is active for this device, otherwise <see cref="RaycastCoord"/> forward.
+        /// </summary>
+        public Vector3 PointerDirection => BasisPointRaycaster != null ? BasisPointRaycaster.PointerDirection : RaycastCoord.rotation * Vector3.forward;
+
+        /// <summary>
         /// Data used to compute inverse offsets from bone after calibration.
         /// </summary>
         [System.NonSerialized]

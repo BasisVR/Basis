@@ -775,7 +775,7 @@ internal unsafe class JiggleMemoryBusTests {
     [Test]
     public void ATreeThatPushedParameters_KeepsAskingForScale_AfterARecommit() {
         var tree = NewTree();
-        tree.SetParameters(new List<JigglePointParameters>(tree.parameters));
+        tree.SetParameters(new List<JigglePointParameters>(tree.parameters.ToArray()));
         Assert.IsTrue(tree.alwaysReadScale, "SetParameters should latch the tree");
 
         bus.ScheduleAdd(tree);
@@ -1173,7 +1173,9 @@ internal unsafe class JiggleMemoryBusTests {
         bus.ApplyPendingGrabConstraints();
 
         Assert.AreEqual(1, bus.grabConstraintCount);
-        Assert.IsTrue(bus.grabConstraints.TryGetFirstValue(tree.rootID, out var stored, out _));
+        var grabs = bus.GetTreeGrabs(tree.rootID);
+        Assert.AreEqual(1, grabs.Length);
+        var stored = grabs[0];
         Assert.AreEqual(2, stored.pointIndex);
         JiggleAssert.AreEqual(new float3(1f, 2f, 3f), stored.targetPosition, Tolerance);
     }
@@ -1191,7 +1193,7 @@ internal unsafe class JiggleMemoryBusTests {
         bus.ApplyPendingGrabConstraints();
 
         Assert.AreEqual(1, bus.grabConstraintCount);
-        Assert.IsFalse(bus.grabConstraints.TryGetFirstValue(987654, out _, out _));
+        Assert.AreEqual(0, bus.GetTreeGrabs(987654).Length);
     }
 
     [Test]
@@ -1210,7 +1212,7 @@ internal unsafe class JiggleMemoryBusTests {
         bus.ApplyPendingGrabConstraints();
 
         Assert.AreEqual(0, bus.grabConstraintCount);
-        Assert.IsFalse(bus.grabConstraints.TryGetFirstValue(tree.rootID, out _, out _));
+        Assert.AreEqual(0, bus.GetTreeGrabs(tree.rootID).Length);
     }
 
     [Test]
@@ -1226,7 +1228,70 @@ internal unsafe class JiggleMemoryBusTests {
         bus.ApplyPendingGrabConstraints();
 
         Assert.AreEqual(1, bus.grabConstraintCount);
-        Assert.IsTrue(bus.grabConstraints.TryGetFirstValue(tree.rootID, out _, out _));
+        Assert.AreEqual(1, bus.GetTreeGrabs(tree.rootID).Length);
+    }
+
+    [Test]
+    public void GrabSlot_HoldsExactlyMaxGrabsPerTree() {
+        Assert.AreEqual(JiggleGrabConstraint.MaxGrabsPerTree, new Unity.Collections.FixedList128Bytes<JiggleGrabConstraint>().Capacity);
+    }
+
+    [Test]
+    public void GrabConstraints_PastMaxGrabsPerTree_AreDropped() {
+        var tree = NewTree(6);
+        bus.ScheduleAdd(tree);
+        PumpTrees();
+
+        var constraints = new JiggleGrabConstraint[JiggleGrabConstraint.MaxGrabsPerTree + 2];
+        for (int i = 0; i < constraints.Length; i++) {
+            constraints[i] = new JiggleGrabConstraint { rootID = tree.rootID, pointIndex = 1 + i % 4, strength = 1f };
+        }
+        bus.SetGrabConstraints(constraints, constraints.Length);
+        bus.ApplyPendingGrabConstraints();
+
+        Assert.AreEqual(JiggleGrabConstraint.MaxGrabsPerTree, bus.grabConstraintCount);
+        Assert.AreEqual(JiggleGrabConstraint.MaxGrabsPerTree, bus.GetTreeGrabs(tree.rootID).Length);
+    }
+
+    [Test]
+    public void GrabConstraints_FollowTheirTree_WhenARemovalMovesItsSlot() {
+        var first = NewTree(3, "first");
+        var second = NewTree(3, "second");
+        bus.ScheduleAdd(first);
+        bus.ScheduleAdd(second);
+        PumpTrees();
+
+        bus.SetGrabConstraints(new[] {
+            new JiggleGrabConstraint { rootID = second.rootID, pointIndex = 2, targetPosition = new float3(4f, 5f, 6f), strength = 1f },
+        }, 1);
+        bus.ApplyPendingGrabConstraints();
+
+        bus.ScheduleRemove(first);
+        PumpTrees();
+
+        var grabs = bus.GetTreeGrabs(second.rootID);
+        Assert.AreEqual(1, grabs.Length);
+        Assert.AreEqual(second.rootID, grabs[0].rootID);
+        JiggleAssert.AreEqual(new float3(4f, 5f, 6f), grabs[0].targetPosition, Tolerance);
+        Assert.AreEqual(1, bus.grabConstraintCount);
+    }
+
+    [Test]
+    public void GrabConstraints_SurviveTheirTreeLeavingAndComingBackInOneCommit() {
+        var tree = NewTree();
+        bus.ScheduleAdd(tree);
+        PumpTrees();
+
+        bus.SetGrabConstraints(new[] {
+            new JiggleGrabConstraint { rootID = tree.rootID, pointIndex = 2, strength = 1f },
+        }, 1);
+        bus.ApplyPendingGrabConstraints();
+
+        bus.ScheduleRemove(tree);
+        bus.ScheduleAdd(tree);
+        PumpTrees();
+
+        Assert.AreEqual(1, bus.GetTreeGrabs(tree.rootID).Length);
     }
 
     /// <summary>

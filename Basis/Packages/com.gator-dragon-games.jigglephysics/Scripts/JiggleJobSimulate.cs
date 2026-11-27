@@ -25,7 +25,7 @@ public struct JiggleJobSimulate : IJobFor {
     [ReadOnly] public NativeHashMap<int2,JiggleGridCell> broadPhaseMap;
     [ReadOnly] public NativeReference<JiggleGridCell> globalCell;
 
-    [ReadOnly] public NativeParallelMultiHashMap<int, JiggleGrabConstraint> grabConstraints;
+    [ReadOnly] public NativeArray<FixedList128Bytes<JiggleGrabConstraint>> grabsPerTree;
     public int grabConstraintCount;
 
     public NativeArray<JiggleTreeJobData> jiggleTrees;
@@ -44,7 +44,7 @@ public struct JiggleJobSimulate : IJobFor {
         timeStamp = Time.timeAsDouble;
         broadPhaseMap = bus.broadPhaseMap;
         globalCell = bus.globalCell;
-        grabConstraints = bus.grabConstraints;
+        grabsPerTree = bus.treeGrabs;
         grabConstraintCount = bus.grabConstraintCount;
         gravity = Physics.gravity;
         sceneColliderCount = 0;
@@ -63,7 +63,7 @@ public struct JiggleJobSimulate : IJobFor {
         sceneColliderCount = bus.sceneColliderCount;
         broadPhaseMap = bus.broadPhaseMap;
         globalCell = bus.globalCell;
-        grabConstraints = bus.grabConstraints;
+        grabsPerTree = bus.treeGrabs;
         grabConstraintCount = bus.grabConstraintCount;
     }
     
@@ -815,12 +815,14 @@ public struct JiggleJobSimulate : IJobFor {
         Cache(tree, out var minExtentPosition, out var maxExtentPosition);
         var treeGrabs = stackalloc JiggleGrabConstraint[JiggleGrabConstraint.MaxGrabsPerTree];
         var treeGrabCount = 0;
-        if (grabConstraintCount > 0 && grabConstraints.IsCreated && grabConstraints.TryGetFirstValue(tree.rootID, out var grab, out var grabIterator)) {
-            do {
-                if (grab.pointIndex > 0 && grab.pointIndex < tree.pointCount && treeGrabCount < JiggleGrabConstraint.MaxGrabsPerTree) {
+        if (grabConstraintCount > 0 && grabsPerTree.IsCreated && index < grabsPerTree.Length) {
+            var grabs = grabsPerTree[index];
+            for (int g = 0; g < grabs.Length; g++) {
+                var grab = grabs[g];
+                if (grab.rootID == tree.rootID && grab.pointIndex > 0 && grab.pointIndex < tree.pointCount && treeGrabCount < JiggleGrabConstraint.MaxGrabsPerTree) {
                     treeGrabs[treeGrabCount++] = grab;
                 }
-            } while (grabConstraints.TryGetNextValue(out grab, ref grabIterator));
+            }
         }
         // Hoisted out of both the point loop and the substep loop: the candidate colliders follow
         // from the extent Cache just computed, which no substep changes.

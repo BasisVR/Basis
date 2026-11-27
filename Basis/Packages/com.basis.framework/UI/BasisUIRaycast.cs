@@ -1,4 +1,5 @@
 using Unity.Scripting.LifecycleManagement;
+using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
@@ -504,8 +505,7 @@ namespace Basis.Scripts.UI
                 }
                 float endOffset = BasisPlayerInteract.AvatarScaledRange(0.01f);
                 Vector3 lineEnd = point + normal * endOffset;
-                LineRenderer.SetPosition(0, BasisPlayerInteract.RayVisualStart(BasisPointRaycaster.ray.origin, lineEnd));
-                LineRenderer.SetPosition(1, lineEnd);
+                SetLinePositions(BasisPlayerInteract.RayVisualStart(BasisPointRaycaster.ray.origin, lineEnd), lineEnd);
             }
 
             if (HasRedicalRenderer)
@@ -624,8 +624,7 @@ namespace Basis.Scripts.UI
                 Vector3 end = GetVisualSurfacePoint() + PhysicHit.normal * endOffset;
                 Vector3 start = BasisPlayerInteract.RayVisualStart(BasisPointRaycaster.ray.origin, end);
 
-                LineRenderer.SetPosition(0, start);
-                LineRenderer.SetPosition(1, end);
+                SetLinePositions(start, end);
             }
 
             // Pointer-chain diagnostic (tick EnableDebug on this hand's BasisPointRaycaster): one line
@@ -643,16 +642,55 @@ namespace Basis.Scripts.UI
                 // bounds.center is where Unity is ACTUALLY rendering the line — if it disagrees with
                 // the midpoint of the written positions, the mismatch is in rendering space, and the
                 // ratio names the culprit factor.
-                Vector3 writtenMid = (LineRenderer.GetPosition(0) + LineRenderer.GetPosition(1)) * 0.5f;
+                Vector3 lineFirst = LineRenderer.GetPosition(0);
+                Vector3 lineLast = LineRenderer.GetPosition(LineRenderer.positionCount - 1);
+                Vector3 writtenMid = (lineFirst + lineLast) * 0.5f;
                 BasisDebug.Log(
                     $"PointerChain dev={input?.UniqueDeviceIdentifier} scale={BasisHeightDriver.DeviceScale:F3} " +
                     $"handVisual={handWorld} rayOrigin={BasisPointRaycaster.ray.origin} hit={PhysicHit.point} " +
-                    $"uiLine {LineRenderer.GetPosition(0)}->{LineRenderer.GetPosition(1)} worldSpace={LineRenderer.useWorldSpace} " +
+                    $"smoothing={BasisPointRaycaster.IsSmoothing} aimLag={Vector3.Angle(BasisPointRaycaster.RawDirection, BasisPointRaycaster.ray.direction):F2}deg " +
+                    $"uiLine {lineFirst}->{lineLast} points={LineRenderer.positionCount} worldSpace={LineRenderer.useWorldSpace} " +
                     $"renderedCenter={LineRenderer.bounds.center} writtenMid={writtenMid} lineLossy={LineRenderer.transform.lossyScale} " +
                     $"playerLossy={(BasisLocalPlayer.Instance != null ? BasisLocalPlayer.Instance.transform.lossyScale.ToString() : "n/a")} " +
                     $"reticle={(HasRedicalRenderer && highlightQuadInstance != null ? highlightQuadInstance.transform.position.ToString() : "n/a")} {interactLine}",
                     BasisDebug.LogTag.Input);
             }
+        }
+
+        public const int CurvedLinePointCount = 16;
+        [NoAutoStaticsCleanup] private static readonly Vector3[] s_CurvedLinePoints = new Vector3[CurvedLinePointCount];
+
+        /// <summary>
+        /// Writes the pointer line. While the pointer is smoothed the line leaves the hand along the
+        /// controller's real aim and bends onto the smoothed hit, a quadratic curve whose control
+        /// point sits halfway out along the raw aim. With no lag the control point lands on the chord
+        /// and the curve is the old straight line.
+        /// </summary>
+        private void SetLinePositions(Vector3 start, Vector3 end)
+        {
+            if (!BasisSettingsDefaults.PointerCurvedLine.RawValue || !BasisPointRaycaster.IsSmoothing)
+            {
+                if (LineRenderer.positionCount != 2)
+                {
+                    LineRenderer.positionCount = 2;
+                }
+                LineRenderer.SetPosition(0, start);
+                LineRenderer.SetPosition(1, end);
+                return;
+            }
+
+            Vector3 control = start + BasisPointRaycaster.RawDirection * (Vector3.Distance(start, end) * 0.5f);
+            for (int Index = 0; Index < CurvedLinePointCount; Index++)
+            {
+                float t = Index / (float)(CurvedLinePointCount - 1);
+                float u = 1f - t;
+                s_CurvedLinePoints[Index] = (u * u) * start + (2f * u * t) * control + (t * t) * end;
+            }
+            if (LineRenderer.positionCount != CurvedLinePointCount)
+            {
+                LineRenderer.positionCount = CurvedLinePointCount;
+            }
+            LineRenderer.SetPositions(s_CurvedLinePoints);
         }
 
         /// <summary>

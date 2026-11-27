@@ -102,11 +102,17 @@ public class JiggleMemoryBus {
     public NativeHashMap<int2, JiggleGridCell> broadPhaseMap;
     public NativeReference<JiggleGridCell> globalCell;
 
-    public NativeParallelMultiHashMap<int, JiggleGrabConstraint> grabConstraints;
+    /// <summary>
+    /// Parallel to jiggleTreeStructs: slot i holds the grabs on tree i, inline, so the sim job reads
+    /// its own slot instead of hashing every tree's rootID. RemoveTree carries a slot along with its
+    /// tree and AddTreeToSlice starts a new one empty, so the slots never point at the wrong tree.
+    /// </summary>
+    public NativeArray<FixedList128Bytes<JiggleGrabConstraint>> treeGrabs;
     public int grabConstraintCount;
     private JiggleGrabConstraint[] pendingGrabConstraints;
     private int pendingGrabConstraintCount;
     private bool pendingGrabConstraintsDirty;
+    private readonly List<int> grabbedRootIDs = new();
 
     public NativeArray<JiggleCollider> personalColliders;
 
@@ -453,7 +459,14 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
             jiggleTreeStructs.Dispose();
         }
 
+        var newTreeGrabs = new NativeArray<FixedList128Bytes<JiggleGrabConstraint>>(newTreeCapacity, Allocator.Persistent);
+        if (treeGrabs.IsCreated) {
+            NativeArray<FixedList128Bytes<JiggleGrabConstraint>>.Copy(treeGrabs, newTreeGrabs, System.Math.Min(treeCount, treeGrabs.Length));
+            treeGrabs.Dispose();
+        }
+
         jiggleTreeStructs = newJiggleTreeStructs;
+        treeGrabs = newTreeGrabs;
         treeCapacity = newTreeCapacity;
     }
 
@@ -497,7 +510,6 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
         broadPhaseMap = new NativeHashMap<int2, JiggleGridCell>(128, Allocator.Persistent);
         globalCell = new NativeReference<JiggleGridCell>(Allocator.Persistent);
         globalCell.Value = new JiggleGridCell(JiggleJobBroadPhase.MAX_COLLIDERS);
-        grabConstraints = new NativeParallelMultiHashMap<int, JiggleGrabConstraint>(JiggleGrabConstraint.MaxTotalGrabs, Allocator.Persistent);
         grabConstraintCount = 0;
         pendingGrabConstraints = new JiggleGrabConstraint[JiggleGrabConstraint.MaxTotalGrabs];
         pendingGrabConstraintCount = 0;
@@ -610,8 +622,10 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
             if (i != lastIndex) {
                 var lastTree = jiggleTreeStructs[lastIndex];
                 jiggleTreeStructs[i] = lastTree;
+                treeGrabs[i] = treeGrabs[lastIndex];
                 rootIDToTreeIndex[lastTree.rootID] = i;
             }
+            treeGrabs[lastIndex] = default;
             rootIDToTreeIndex.Remove(id);
             treeCount--;
             for (int j = (int)removedTree.transformIndexOffset;
@@ -724,6 +738,7 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
         }
         
         jiggleTreeStructs[treeCount] = jiggleTreeJobData;
+        treeGrabs[treeCount] = default;
         if (rootIDToTreeIndex.ContainsKey(jiggleTreeJobData.rootID)) {
             Debug.LogError($"JigglePhysics: Duplicate jiggle tree rootID {jiggleTreeJobData.rootID}. Tree tracking will leak a slot and removal will target the wrong tree.");
         }
@@ -1051,7 +1066,7 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
             int newPersonalColliders = 0;
             for (int i = 0; i < commandCount; i++) {
                 var command = pendingCommands[i];
-                newTransforms += command.tree.points.Length;
+                newTransforms += command.tree.pointCount;
                 newTrees++;
                 newPersonalColliders += command.tree.personalColliders.Length;
             }
@@ -1250,6 +1265,10 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
             && pendingProcessingAdds.Count == 0 && pendingProcessingRemoves.Count == 0) {
             DrainDeferredFlipFrees();
         }
+        if (pendingGrabConstraintCount > 0) {
+            pendingGrabConstraintsDirty = true;
+            ApplyPendingGrabConstraints();
+        }
     }
 
     public void ScheduleAdd(JiggleColliderSerializable jiggleCollider) {
@@ -1420,20 +1439,42 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
         pendingGrabConstraintsDirty = true;
     }
 
-    // Staged like teleports: the native map is only rewritten at the fenced drain inside
-    // JiggleJobs.Simulate, after handleSimulate completes — never while the sim job may read it.
+    // Staged like teleports: the slots are only rewritten at the fenced drain inside
+    // JiggleJobs.Simulate, after handleSimulate completes, never while the sim job may read them.
+    // FinishTreeCommit restamps too, so a tree that left and came back in a commit keeps its grab.
     public void ApplyPendingGrabConstraints() {
-        if (!pendingGrabConstraintsDirty) return;
-        grabConstraints.Clear();
+        if (!pendingGrabConstraintsDirty) {
+            return;
+        }
+        for (int i = 0; i < grabbedRootIDs.Count; i++) {
+            if (rootIDToTreeIndex.TryGetValue(grabbedRootIDs[i], out var slot)) {
+                treeGrabs[slot] = default;
+            }
+        }
+        grabbedRootIDs.Clear();
         int applied = 0;
         for (int i = 0; i < pendingGrabConstraintCount; i++) {
             var constraint = pendingGrabConstraints[i];
-            if (!rootIDToTreeIndex.ContainsKey(constraint.rootID)) continue;
-            grabConstraints.Add(constraint.rootID, constraint);
+            if (!rootIDToTreeIndex.TryGetValue(constraint.rootID, out var slot)) {
+                continue;
+            }
+            var grabs = treeGrabs[slot];
+            if (grabs.Length >= JiggleGrabConstraint.MaxGrabsPerTree) {
+                continue;
+            }
+            if (grabs.Length == 0) {
+                grabbedRootIDs.Add(constraint.rootID);
+            }
+            grabs.Add(constraint);
+            treeGrabs[slot] = grabs;
             applied++;
         }
         grabConstraintCount = applied;
         pendingGrabConstraintsDirty = false;
+    }
+
+    public FixedList128Bytes<JiggleGrabConstraint> GetTreeGrabs(int rootID) {
+        return rootIDToTreeIndex.TryGetValue(rootID, out var slot) ? treeGrabs[slot] : default;
     }
 
     [BurstCompile]
@@ -1576,8 +1617,8 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
         }
         broadPhaseMap.Dispose();
         globalCell.Dispose();
-        if (grabConstraints.IsCreated) {
-            grabConstraints.Dispose();
+        if (treeGrabs.IsCreated) {
+            treeGrabs.Dispose();
         }
 
         doubleBufferTransformAccessArray?.Dispose();

@@ -387,7 +387,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     continue;
                 }
                 JiggleTree tree = rig.GetJiggleTree();
-                if (tree == null || tree.dirty || tree.bones == null || tree.points == null)
+                if (tree == null || tree.dirty || tree.bones == null || tree.pointCount == 0)
                 {
                     continue;
                 }

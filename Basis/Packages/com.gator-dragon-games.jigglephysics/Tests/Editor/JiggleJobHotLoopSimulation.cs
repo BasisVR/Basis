@@ -105,7 +105,7 @@ internal unsafe class JiggleJobHotLoopSimulation {
         public NativeArray<JiggleCollider> personalColliders;
         public NativeHashMap<int2, JiggleGridCell> broadPhaseMap;
         public NativeReference<JiggleGridCell> globalCell;
-        public NativeParallelMultiHashMap<int, JiggleGrabConstraint> grabConstraints;
+        public NativeArray<FixedList128Bytes<JiggleGrabConstraint>> grabsPerTree;
 
         public int treeCount;
         public int pointsPerTree;
@@ -154,8 +154,7 @@ internal unsafe class JiggleJobHotLoopSimulation {
             crowd.broadPhaseMap = new NativeHashMap<int2, JiggleGridCell>(4096, Allocator.Persistent);
             crowd.globalCell = new NativeReference<JiggleGridCell>(
                 new JiggleGridCell(JiggleJobBroadPhase.MAX_COLLIDERS), Allocator.Persistent);
-            crowd.grabConstraints = new NativeParallelMultiHashMap<int, JiggleGrabConstraint>(
-                JiggleGrabConstraint.MaxTotalGrabs, Allocator.Persistent);
+            crowd.grabsPerTree = new NativeArray<FixedList128Bytes<JiggleGrabConstraint>>(treeCount, Allocator.Persistent);
             crowd.snapshots = new JiggleSimulatedPoint[treeCount][];
 
             // Production-shaped parameters: every term the solver has is live, because a benchmark
@@ -197,6 +196,7 @@ internal unsafe class JiggleJobHotLoopSimulation {
                     PersonalCollidersPerTree, source.points, source.parameters, source.children);
                 crowd.allocations.Add((IntPtr)jobData.points);
                 crowd.allocations.Add((IntPtr)jobData.parameters);
+                crowd.allocations.Add((IntPtr)jobData.childrenIndices);
                 crowd.trees[t] = jobData;
 
                 crowd.snapshots[t] = new JiggleSimulatedPoint[pointsPerTree];
@@ -282,7 +282,7 @@ internal unsafe class JiggleJobHotLoopSimulation {
             job.sceneColliders = sceneColliders;
             job.broadPhaseMap = broadPhaseMap;
             job.globalCell = globalCell;
-            job.grabConstraints = grabConstraints;
+            job.grabsPerTree = grabsPerTree;
             job.grabConstraintCount = 0;
             return job;
         }
@@ -299,7 +299,7 @@ internal unsafe class JiggleJobHotLoopSimulation {
                 cell.Dispose();
                 globalCell.Dispose();
             }
-            if (grabConstraints.IsCreated) grabConstraints.Dispose();
+            if (grabsPerTree.IsCreated) grabsPerTree.Dispose();
             if (broadPhaseMap.IsCreated) broadPhaseMap.Dispose();
             if (sceneColliders.IsCreated) sceneColliders.Dispose();
             if (personalColliders.IsCreated) personalColliders.Dispose();

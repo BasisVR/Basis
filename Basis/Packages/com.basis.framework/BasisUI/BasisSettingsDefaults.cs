@@ -1406,11 +1406,22 @@ namespace Basis.BasisUI
         // Photo metadata settings live in com.basis.camera (BasisPhotoMetadataSettings), same keys.
 
         // ---------------- RAYCAST / INTERACTION VISUALS ----------------
-        public static BasisSettingsBinding<float> RaycastLineWidth = new("raycastlinewidth", new BasisPlatformDefault<float>(1f));
+        public static BasisSettingsBinding<float> RaycastLineWidth = new("raycastlinewidth", new BasisPlatformDefault<float>(0.4f));
         public static BasisSettingsBinding<string> RaycastLineColor = new("raycastlinecolor", new BasisPlatformDefault<string>(""));
         public static BasisSettingsBinding<string> HighlightColor = new("highlightcolor", new BasisPlatformDefault<string>(""));
         public static BasisSettingsBinding<string> FavouriteSettings = new("favouritesettings", new BasisPlatformDefault<string>(""));
         public static BasisSettingsBinding<string> PickupLineColor = new("pickuplinecolor", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<bool> PointerSmoothing = new("pointersmoothing", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<float> PointerSmoothingStrength = new("pointersmoothingstrength", new BasisPlatformDefault<float>(0.25f));
+        public static BasisSettingsBinding<float> PointerSmoothingReleaseSpeed = new("pointersmoothingreleasespeed", new BasisPlatformDefault<float>(500f));
+        public static BasisSettingsBinding<float> PointerSmoothingMaxLag = new("pointersmoothingmaxlag", new BasisPlatformDefault<float>(30f));
+        public static BasisSettingsBinding<bool> PointerCurvedLine = new("pointercurvedline", new BasisPlatformDefault<bool>(true));
+        public const float POINTER_SMOOTHING_STRENGTH_MIN = 0.05f;
+        public const float POINTER_SMOOTHING_STRENGTH_MAX = 1f;
+        public const float POINTER_SMOOTHING_RELEASE_MIN = 30f;
+        public const float POINTER_SMOOTHING_RELEASE_MAX = 720f;
+        public const float POINTER_SMOOTHING_MAX_LAG_MIN = 1f;
+        public const float POINTER_SMOOTHING_MAX_LAG_MAX = 30f;
 
         // ---------------- GLOBAL ONE EURO PARAMS ----------------
         public static BasisSettingsBinding<float> FBIKMinCutoff = new("fbikmincutoff", new BasisPlatformDefault<float>(5.5f));
@@ -3131,6 +3142,11 @@ namespace Basis.BasisUI
             HighlightColor.LoadBindingValue();
             FavouriteSettings.LoadBindingValue();
             PickupLineColor.LoadBindingValue();
+            PointerSmoothing.LoadBindingValue();
+            PointerSmoothingStrength.LoadBindingValue();
+            PointerSmoothingReleaseSpeed.LoadBindingValue();
+            PointerSmoothingMaxLag.LoadBindingValue();
+            PointerCurvedLine.LoadBindingValue();
             PerformanceBarDetailed.LoadBindingValue();
             GraphicsApi.LoadBindingValue();
             QuestControllerFix.LoadBindingValue();

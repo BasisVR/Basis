@@ -517,6 +517,33 @@ public static class JigglePhysics {
 
     public static JiggleTree CreateJiggleTree(JiggleRigData jiggleRig, JiggleTree tree) {
         Profiler.BeginSample("JiggleTreeUtility.CreateJiggleTree");
+        FillBuildScratch(jiggleRig);
+        // Handing the scratch lists over is where the tree's arrays are sized and, on a shape change,
+        // reallocated, so it belongs inside this sample. Ending it first parked that cost as
+        // unmarked time and unattributed garbage in the caller's JiggleRoot.GetJiggleTrees.
+        JiggleTree result;
+        if (tree != null) {
+            tree.Set(tempTransforms, tempPoints, tempParameters, tempColliderTransforms, tempColliders, tempRestLocalPositions, tempRestLocalRotations, tempChildren);
+            result = tree;
+        } else {
+            result = new JiggleTree(tempTransforms, tempPoints, tempParameters, tempColliderTransforms, tempColliders, tempRestLocalPositions, tempRestLocalRotations, tempChildren);
+        }
+        Profiler.EndSample();
+        return result;
+    }
+
+    /// <summary>
+    /// Runs the tree build without making a tree, for the gizmo preview. The lists are shared build
+    /// scratch, valid only until the next build.
+    /// </summary>
+    public static void BuildPreview(JiggleRigData jiggleRig, out IReadOnlyList<Transform> bones, out IReadOnlyList<JiggleSimulatedPoint> points, out IReadOnlyList<JigglePointParameters> parameters) {
+        FillBuildScratch(jiggleRig);
+        bones = tempTransforms;
+        points = tempPoints;
+        parameters = tempParameters;
+    }
+
+    private static void FillBuildScratch(JiggleRigData jiggleRig) {
         tempTransforms.Clear();
         tempPoints.Clear();
         tempChildren.Clear();
@@ -563,19 +590,6 @@ public static class JigglePhysics {
         // Points with no children never reached AddChildToPoint, so size the list for the full set
         // before handing it over.
         EnsureChildCapacity(tempPoints.Count);
-
-        // Handing the scratch lists over is where the tree's arrays are sized and, on a shape change,
-        // reallocated — so it belongs inside this sample. Ending it first parked that cost as
-        // unmarked time and unattributed garbage in the caller's JiggleRoot.GetJiggleTrees.
-        JiggleTree result;
-        if (tree != null) {
-            tree.Set(tempTransforms, tempPoints, tempParameters, tempColliderTransforms, tempColliders, tempRestLocalPositions, tempRestLocalRotations, tempChildren);
-            result = tree;
-        } else {
-            result = new JiggleTree(tempTransforms, tempPoints, tempParameters, tempColliderTransforms, tempColliders, tempRestLocalPositions, tempRestLocalRotations, tempChildren);
-        }
-        Profiler.EndSample();
-        return result;
     }
 
     public static void VisitForLength(Transform t, JiggleRigData rig, Vector3 lastPosition, float currentLength, out float totalLength) {
